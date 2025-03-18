@@ -4,3 +4,4 @@ _site/
 *.log
 .env
 .cache/
+*.db
