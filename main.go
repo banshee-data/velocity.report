@@ -6,14 +6,15 @@ import (
 	"fmt"
 	"log"
 	"os"
+
 	// "regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	_ "github.com/marcboeker/go-duckdb"
 	"github.com/go-co-op/gocron"
+	_ "github.com/marcboeker/go-duckdb"
 	"go.bug.st/serial.v1"
 )
 
@@ -53,7 +54,6 @@ func initializeDatabase() {
 	// Ensure all tables exist
 	createDatabaseSchema(db)
 }
-
 
 func createDatabaseSchema(db *sql.DB) {
 	_, err := db.Exec(`
@@ -317,5 +317,3 @@ func main() {
 	go scheduleJobs()
 	setupAPI()
 }
-
-
