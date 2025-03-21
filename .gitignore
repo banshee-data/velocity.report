@@ -6,3 +6,4 @@ _site/
 .cache/
 *.db
 backup/
+log/
