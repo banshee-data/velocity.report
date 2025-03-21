@@ -91,7 +91,7 @@ func archiveExistingDatabase() {
 	var backupFile string
 
 	for {
-		backupFile = fmt.Sprintf("backup/sensor_data_backup_%s_%d.db", timestamp, iteration)
+		backupFile = fmt.Sprintf("backup/sensor_data_archive_%s_%d.db", timestamp, iteration)
 		if _, err := os.Stat(backupFile); os.IsNotExist(err) {
 			break
 		}
@@ -287,7 +287,14 @@ func backupDatabase() {
 	db, _ := sql.Open("duckdb", DB_FILE)
 	defer db.Close()
 
-	_, err := db.Exec("COPY data TO 'backup/sensor_data_backup.parquet' (FORMAT 'parquet')")
+	timestamp := time.Now().Format("2006-01-02_150405")
+	backupFile := fmt.Sprintf("backup/sensor_data_backup_%s.parquet", timestamp)
+	_, err := db.Exec(fmt.Sprintf(`
+		COPY (
+			SELECT * 
+			FROM data 
+			WHERE timestamp >= NOW() - INTERVAL '70 MINUTE'
+		) TO '%s' (FORMAT 'parquet')`, backupFile))
 	if err != nil {
 		log.Println("Backup failed:", err)
 	}
