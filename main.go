@@ -313,7 +313,7 @@ func setupAPI() {
 // Main
 func main() {
 	initializeDatabase()
-	go serialReader("/dev/ttySC1", 115200)
+	go serialReader("/dev/ttySC1", 19200)
 	go scheduleJobs()
 	setupAPI()
 }
