@@ -346,7 +346,7 @@ func setupAPI() {
 		c.JSON(200, logs)
 	})
 
-	router.POST("/execute", func(c *gin.Context) {
+	router.POST("/query", func(c *gin.Context) {
 		db, err := sql.Open("duckdb", DB_FILE)
 		if err != nil {
 			c.JSON(500, gin.H{"error": "Failed to connect to database"})
@@ -354,7 +354,7 @@ func setupAPI() {
 		}
 		defer db.Close()
 
-		command := c.PostForm("command")
+		command := c.PostForm("sql")
 		if command == "" {
 			c.JSON(400, gin.H{"error": "No command provided"})
 			return
@@ -362,7 +362,7 @@ func setupAPI() {
 
 		rows, err := db.Query(command)
 		if err != nil {
-			c.JSON(500, gin.H{"error": "Failed to execute command", "details": err.Error()})
+			c.JSON(500, gin.H{"error": "Failed to execute SQL query", "details": err.Error()})
 			return
 		}
 		defer rows.Close()
