@@ -115,24 +115,45 @@ func serialReader(portName string, baudRate int) {
 	}
 	defer port.Close()
 
-	buf := make([]byte, 256) // Increased buffer size ✅
+	var buffer strings.Builder
+	buf := make([]byte, 256)
 
 	for {
 		n, err := port.Read(buf)
 		if err != nil {
 			if strings.Contains(err.Error(), "interrupted system call") {
-				log.Println("⚠️ Serial read interrupted, retrying...")
+				// Retry immediately — no delay, no log spam
 				continue
 			}
-			log.Println("❌ Serial read error:", err)
+			// Real error — log and wait briefly
+			log.Printf("❌ Serial read error: %v", err)
 			time.Sleep(time.Millisecond * 100) // Brief delay before retrying ✅
 			continue
 		}
 
-		data := strings.TrimSpace(string(buf[:n]))
-		log.Printf("🔍 Raw Serial Data: [%s]", data)
+		// Append bytes to buffer
+		buffer.Write(buf[:n])
+		data := buffer.String()
 
-		processData(data)
+		// Split into complete lines
+		lines := strings.Split(data, "\n")
+		if !strings.HasSuffix(data, "\n") {
+			// Incomplete line — keep it for next read
+			buffer.Reset()
+			buffer.WriteString(lines[len(lines)-1])
+			lines = lines[:len(lines)-1]
+		} else {
+			buffer.Reset()
+		}
+
+		// Process full lines
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line != "" {
+				log.Printf("🔍 Full Serial Line: [%s]", line)
+				processData(line)
+			}
+		}
 	}
 }
 
