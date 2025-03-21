@@ -308,6 +308,56 @@ func setupAPI() {
 		c.JSON(200, logs)
 	})
 
+	router.POST("/execute", func(c *gin.Context) {
+		db, err := sql.Open("duckdb", DB_FILE)
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Failed to connect to database"})
+			return
+		}
+		defer db.Close()
+
+		command := c.PostForm("command")
+		if command == "" {
+			c.JSON(400, gin.H{"error": "No command provided"})
+			return
+		}
+
+		rows, err := db.Query(command)
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Failed to execute command", "details": err.Error()})
+			return
+		}
+		defer rows.Close()
+
+		columns, err := rows.Columns()
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Failed to get columns", "details": err.Error()})
+			return
+		}
+
+		results := []map[string]interface{}{}
+		for rows.Next() {
+			row := make([]interface{}, len(columns))
+			rowPtrs := make([]interface{}, len(columns))
+			for i := range row {
+				rowPtrs[i] = &row[i]
+			}
+
+			if err := rows.Scan(rowPtrs...); err != nil {
+				c.JSON(500, gin.H{"error": "Failed to scan row", "details": err.Error()})
+				return
+			}
+
+			result := map[string]interface{}{}
+			for i, col := range columns {
+				result[col] = row[i]
+			}
+			results = append(results, result)
+		}
+
+		c.JSON(200, results)
+	})
+
 	router.Run(":8000")
 }
 
