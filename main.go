@@ -20,7 +20,7 @@ import (
 
 // Constants
 const DB_FILE = "sensor_data.db"
-const SCHEMA_VERSION = "0.0.1"
+const SCHEMA_VERSION = "0.0.2"
 
 // Global Variables
 var commandID int
@@ -59,6 +59,7 @@ func createDatabaseSchema(db *sql.DB) {
 	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS meta (version TEXT);
 		CREATE TABLE IF NOT EXISTS data (
+			uptime DOUBLE,
 			magnitude DOUBLE, 
 			speed DOUBLE, 
 			timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -158,14 +159,14 @@ func processData(line string) {
 	}
 
 	// Parse the valid sensor data
-	magnitude, speed := parseSensorData(line)
-	storeSensorData(magnitude, speed)
+	uptime, magnitude, speed := parseSensorData(line)
+	storeSensorData(magnitude, speed, uptime)
 }
 
 func isValidSensorData(line string) bool {
-	// Ensure exactly two float values separated by a comma
+	// Ensure exactly three float values separated by commas
 	parts := strings.Split(line, ",")
-	if len(parts) != 2 {
+	if len(parts) != 3 {
 		log.Println("Invalid sensor data format (wrong number of parts):", line)
 		return false
 	}
@@ -183,14 +184,14 @@ func isValidSensorData(line string) bool {
 }
 
 // Parse sensor data into magnitude and speed
-func parseSensorData(line string) (float64, float64) {
-	var magnitude, speed float64
-	fmt.Sscanf(line, "%f, %f", &magnitude, &speed)
-	return magnitude, speed
+func parseSensorData(line string) (float64, float64, float64) {
+	var uptime, magnitude, speed float64
+	fmt.Sscanf(line, "%f, %f, %f", &uptime, &magnitude, &speed)
+	return uptime, magnitude, speed
 }
 
 // Store sensor data in DuckDB
-func storeSensorData(magnitude, speed float64) {
+func storeSensorData(magnitude, speed, uptime float64) {
 	db, err := sql.Open("duckdb", DB_FILE)
 	if err != nil {
 		log.Println("Failed to connect to database:", err)
@@ -198,7 +199,7 @@ func storeSensorData(magnitude, speed float64) {
 	}
 	defer db.Close()
 
-	_, err = db.Exec("INSERT INTO data (magnitude, speed) VALUES (?, ?)", magnitude, speed)
+	_, err = db.Exec("INSERT INTO data (uptime, magnitude, speed) VALUES (?, ?, ?)", uptime, magnitude, speed)
 	if err != nil {
 		log.Println("Failed to insert sensor data:", err)
 	}
