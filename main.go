@@ -24,6 +24,7 @@ const SCHEMA_VERSION = "0.0.2"
 
 // Global Variables
 var commandID int
+var lineCounter int = 0
 
 func initializeDatabase() {
 	db, err := sql.Open("duckdb", DB_FILE)
