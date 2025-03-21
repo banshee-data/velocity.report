@@ -152,7 +152,7 @@ func processData(line string) {
 		}
 	}
 
-	// Ensure the data is in the expected "magnitude, speed" format
+	// Ensure the data is in the expected "uptime, magnitude, speed" format
 	if !isValidSensorData(line) {
 		log.Println("Invalid sensor data format:", line)
 		return
@@ -160,22 +160,26 @@ func processData(line string) {
 
 	// Parse the valid sensor data
 	uptime, magnitude, speed := parseSensorData(line)
-	storeSensorData(magnitude, speed, uptime)
+	lineCounter++
+	log.Printf("✅ [%d] Stored: uptime=%.3f, magnitude=%.3f, speed=%.3f", lineCounter, uptime, magnitude, speed)
+	storeSensorData(uptime, magnitude, speed)
 }
 
 func isValidSensorData(line string) bool {
-	// Ensure exactly three float values separated by commas
+	// Remove any leading/trailing brackets
+	line = strings.Trim(line, "[]")
+
 	parts := strings.Split(line, ",")
 	if len(parts) != 3 {
-		log.Println("Invalid sensor data format (wrong number of parts):", line)
+		log.Println("❌ Invalid sensor data format (expected 3 parts):", line)
 		return false
 	}
 
-	// Check if both parts are valid floating-point numbers
+	// Ensure all 3 parts are floats
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
 		if _, err := strconv.ParseFloat(part, 64); err != nil {
-			log.Println("Invalid sensor data format (not a valid float):", line)
+			log.Println("❌ Invalid float in data:", part)
 			return false
 		}
 	}
@@ -185,13 +189,18 @@ func isValidSensorData(line string) bool {
 
 // Parse sensor data into magnitude and speed
 func parseSensorData(line string) (float64, float64, float64) {
-	var uptime, magnitude, speed float64
-	fmt.Sscanf(line, "%f, %f, %f", &uptime, &magnitude, &speed)
+	line = strings.Trim(line, "[]")
+	parts := strings.Split(line, ",")
+
+	uptime, _ := strconv.ParseFloat(strings.TrimSpace(parts[0]), 64)
+	magnitude, _ := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
+	speed, _ := strconv.ParseFloat(strings.TrimSpace(parts[2]), 64)
+
 	return uptime, magnitude, speed
 }
 
 // Store sensor data in DuckDB
-func storeSensorData(magnitude, speed, uptime float64) {
+func storeSensorData(uptime, magnitude, speed float64) {
 	db, err := sql.Open("duckdb", DB_FILE)
 	if err != nil {
 		log.Println("Failed to connect to database:", err)
