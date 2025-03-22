@@ -257,6 +257,8 @@ func logJSONResponse(data map[string]interface{}) {
 	_, err = db.Exec("INSERT INTO log (command_id, log_data) VALUES (?, ?)", commandID, string(jsonStr))
 	if err != nil {
 		log.Println("Failed to insert log data:", err)
+	} else {
+		log.Printf("Logged JSON response: %s", string(jsonStr))
 	}
 }
 
