@@ -303,7 +303,7 @@ func backupDatabase() {
 		COPY (
 			SELECT * 
 			FROM data 
-			WHERE timestamp >= NOW() - INTERVAL '70 MINUTE'
+			WHERE timestamp >= CAST(NOW() AS TIMESTAMP) - INTERVAL '70 MINUTE'
 		) TO '%s' (FORMAT 'parquet')`, backupFile))
 	if err != nil {
 		log.Println("Backup failed:", err)
