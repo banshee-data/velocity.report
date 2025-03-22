@@ -54,6 +54,14 @@ func initializeDatabase() {
 
 	// Ensure all tables exist
 	createDatabaseSchema(db)
+
+	// Initialize commandID, select max from commands table or set to 0 if empty
+	err = db.QueryRow("SELECT COALESCE(MAX(command_id), 0) FROM commands").Scan(&commandID)
+	if err != nil {
+		log.Fatalf("Failed to initialize commandID: %v", err)
+	}
+	log.Printf("Initialized commandID: %d", commandID)
+	log.Println("Database initialized successfully.")
 }
 
 func createDatabaseSchema(db *sql.DB) {
