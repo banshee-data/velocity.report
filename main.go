@@ -449,6 +449,20 @@ func logJSONResponse(data map[string]interface{}) {
 
 // Send commands to sensor
 func sendCommand(command string) {
+	// Check if serial port is open
+	if serialPort == nil {
+		log.Println("Serial port is not open. Cannot send command.")
+		return
+	}
+
+	// Send command to serial port
+	_, err := serialPort.Write([]byte(command))
+	if err != nil {
+		log.Println("Failed to send command:", err)
+		return
+	}
+
+	// Log the command sent to the database
 	db, err := sql.Open("duckdb", DB_FILE)
 	if err != nil {
 		log.Println("Failed to connect to database:", err)
@@ -456,10 +470,15 @@ func sendCommand(command string) {
 	}
 	defer db.Close()
 
+	// Increment commandID for each command sent
 	commandID++
+
+	// Insert command into commands table
 	_, err = db.Exec("INSERT INTO commands (command_id, command) VALUES (?, ?)", commandID, command)
 	if err != nil {
 		log.Println("Failed to insert command:", err)
+	} else {
+		log.Printf("Command [%s] sent: %d", commandID, command)
 	}
 }
 
