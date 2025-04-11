@@ -295,24 +295,30 @@ func archiveExistingDatabase() {
 	fmt.Println("Archived old database:", backupFile)
 }
 
-func serialReader(portName string, baudRate int) {
+func serialPortHandler(portName string, baudRate int) serial.Port {
 	mode := &serial.Mode{
 		BaudRate: baudRate,
 		Parity:   serial.NoParity,   // No parity bit ✅
 		DataBits: 8,                 // 8-bit data ✅
 		StopBits: serial.OneStopBit, // 1 stop bit ✅
 	}
-	port, err := serial.Open(portName, mode)
+	var err error
+	serialPort, err := serial.Open(portName, mode)
 	if err != nil {
 		log.Fatalf("❌ Failed to open serial port: %v", err)
 	}
-	defer port.Close()
+
+	return serialPort
+}
+
+func serialReader(serialPort serial.Port) {
+	defer serialPort.Close()
 
 	var buffer strings.Builder
 	buf := make([]byte, 256)
 
 	for {
-		n, err := port.Read(buf)
+		n, err := serialPort.Read(buf)
 		if err != nil {
 			if strings.Contains(err.Error(), "interrupted system call") {
 				// Retry immediately — no delay, no log spam
@@ -320,7 +326,7 @@ func serialReader(portName string, baudRate int) {
 			}
 			// Real error — log and wait briefly
 			log.Printf("❌ Serial read error: %v", err)
-			time.Sleep(time.Millisecond * 100) // Brief delay before retrying ✅
+			time.Sleep(time.Millisecond * 10) // Brief delay before retrying ✅
 			continue
 		}
 
@@ -638,7 +644,8 @@ func setupAPI() {
 // Main
 func main() {
 	initializeDatabase()
-	go serialReader("/dev/ttySC1", 19200)
+	port := serialPortHandler("/dev/ttySC1", 19200)
+	go serialReader(port)
 	go scheduleJobs()
 	setupAPI()
 }
