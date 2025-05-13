@@ -14,8 +14,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-co-op/gocron"
-	_ "github.com/marcboeker/go-duckdb"
-	"go.bug.st/serial.v1"
+	"go.bug.st/serial"
+	_ "modernc.org/sqlite"
 )
 
 // Constants
@@ -212,9 +212,9 @@ var commandID int
 var lineCounter int = 0
 
 func initializeDatabase() {
-	db, err := sql.Open("duckdb", DB_FILE)
+	db, err := sql.Open("sqlite", DB_FILE)
 	if err != nil {
-		log.Fatalf("Failed to open DuckDB database: %v", err)
+		log.Fatalf("Failed to open database: %v", err)
 	}
 	defer db.Close()
 
@@ -277,7 +277,7 @@ func createDatabaseSchema(db *sql.DB) {
 	}
 }
 
-// Archive old DuckDB database
+// Archive old database
 func archiveExistingDatabase() {
 	timestamp := time.Now().Format("20060102")
 	iteration := 0
@@ -420,9 +420,9 @@ func parseSensorData(line string) (float64, float64, float64) {
 	return uptime, magnitude, speed
 }
 
-// Store sensor data in DuckDB
+// Store sensor data in database
 func storeSensorData(uptime, magnitude, speed float64) {
-	db, err := sql.Open("duckdb", DB_FILE)
+	db, err := sql.Open("sqlite", DB_FILE)
 	if err != nil {
 		log.Println("Failed to connect to database:", err)
 		return
@@ -437,7 +437,7 @@ func storeSensorData(uptime, magnitude, speed float64) {
 
 // Log JSON responses
 func logJSONResponse(data map[string]interface{}) {
-	db, err := sql.Open("duckdb", DB_FILE)
+	db, err := sql.Open("sqlite", DB_FILE)
 	if err != nil {
 		log.Println("Failed to connect to database:", err)
 		return
@@ -469,7 +469,7 @@ func sendCommand(command string) {
 	}
 
 	// Log the command sent to the database
-	db, err := sql.Open("duckdb", DB_FILE)
+	db, err := sql.Open("sqlite", DB_FILE)
 	if err != nil {
 		log.Println("Failed to connect to database:", err)
 		return
@@ -504,7 +504,7 @@ func backupDatabase() {
 		os.Mkdir("backup", os.ModePerm)
 	}
 
-	db, _ := sql.Open("duckdb", DB_FILE)
+	db, _ := sql.Open("sqlite", DB_FILE)
 	defer db.Close()
 
 	timestamp := time.Now().Format("2006-01-02_150405")
@@ -521,7 +521,7 @@ func backupDatabase() {
 }
 
 func createReportingTable() {
-	db, _ := sql.Open("duckdb", DB_FILE)
+	db, _ := sql.Open("sqlite", DB_FILE)
 	defer db.Close()
 
 	// Ensure data table exists before running the report
@@ -570,7 +570,7 @@ func setupAPI() {
 	})
 
 	router.GET("/logs", func(c *gin.Context) {
-		db, _ := sql.Open("duckdb", DB_FILE)
+		db, _ := sql.Open("sqlite", DB_FILE)
 		defer db.Close()
 
 		rows, _ := db.Query("SELECT * FROM log")
@@ -589,7 +589,7 @@ func setupAPI() {
 	})
 
 	router.POST("/query", func(c *gin.Context) {
-		db, err := sql.Open("duckdb", DB_FILE)
+		db, err := sql.Open("sqlite", DB_FILE)
 		if err != nil {
 			c.JSON(500, gin.H{"error": "Failed to connect to database"})
 			return
