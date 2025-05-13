@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"database/sql"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -311,7 +313,7 @@ func serialPortHandler(portName string, baudRate int) serial.Port {
 	return serialPort
 }
 
-func serialReader(serialPort serial.Port) {
+func serialReader(serialPort serial.Port, callback func(string)) {
 	defer serialPort.Close()
 
 	var buffer strings.Builder
@@ -337,10 +339,6 @@ func serialReader(serialPort serial.Port) {
 		// Split into complete lines
 		lines := strings.Split(data, "\n")
 		if !strings.HasSuffix(data, "\n") {
-			// Incomplete line — keep it for next read
-			buffer.Reset()
-			buffer.WriteString(lines[len(lines)-1])
-			lines = lines[:len(lines)-1]
 		} else {
 			buffer.Reset()
 		}
@@ -350,10 +348,24 @@ func serialReader(serialPort serial.Port) {
 			line = strings.TrimSpace(line)
 			if line != "" {
 				log.Printf("🔍 Full Serial Line: [%s]", line)
-				processData(line)
+				callback(line)
 			}
 		}
 	}
+}
+
+func serialReaderV2(serialPort serial.Port, callback func(string)) error {
+	defer serialPort.Close()
+
+	scan := bufio.NewScanner(serialPort)
+
+	for scan.Scan() {
+		line := scan.Text()
+		log.Printf("🔍 Full Serial Line: [%s]", line)
+		callback(line)
+	}
+
+	return scan.Err()
 }
 
 func processData(line string) {
@@ -455,18 +467,18 @@ func logJSONResponse(data map[string]interface{}) {
 
 // Send commands to sensor
 func sendCommand(command string) {
-	// Check if serial port is open
-	if serialPort == nil {
-		log.Println("Serial port is not open. Cannot send command.")
-		return
-	}
+	// // Check if serial port is open
+	// if serialPort == nil {
+	// 	log.Println("Serial port is not open. Cannot send command.")
+	// 	return
+	// }
 
-	// Send command to serial port
-	_, err := serialPort.Write([]byte(command))
-	if err != nil {
-		log.Println("Failed to send command:", err)
-		return
-	}
+	// // Send command to serial port
+	// _, err := serialPort.Write([]byte(command))
+	// if err != nil {
+	// 	log.Println("Failed to send command:", err)
+	// 	return
+	// }
 
 	// Log the command sent to the database
 	db, err := sql.Open("sqlite", DB_FILE)
@@ -484,7 +496,7 @@ func sendCommand(command string) {
 	if err != nil {
 		log.Println("Failed to insert command:", err)
 	} else {
-		log.Printf("Command [%s] sent: %d", commandID, command)
+		log.Printf("Command [%d] sent: %s", commandID, command)
 	}
 }
 
@@ -641,11 +653,39 @@ func setupAPI() {
 	router.Run(":8000")
 }
 
+func filePort(filepath string) serial.Port {
+	bytes, err := os.ReadFile(filepath)
+	if err != nil {
+		log.Fatalf("cannot read input %q", filepath)
+	}
+
+	m := MockSerialPort{buf: bytes}
+	return &m
+}
+
+var dev_mode = flag.Bool("dev", false, "Run in dev mode")
+
 // Main
 func main() {
+	flag.Parse()
+
+	var port serial.Port
+
+	if *dev_mode {
+		port = filePort("fixtures.txt")
+	} else {
+		port = serialPortHandler("/dev/ttySC1", 19200)
+	}
+
 	initializeDatabase()
-	port := serialPortHandler("/dev/ttySC1", 19200)
-	go serialReader(port)
+
+	go func() {
+		for {
+			err := serialReaderV2(port, processData)
+			fmt.Println(err)
+		}
+	}()
+
 	go scheduleJobs()
 	setupAPI()
 }
