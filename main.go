@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -20,6 +21,9 @@ import (
 	"github.com/banshee-data/radar/radar"
 	_ "modernc.org/sqlite"
 )
+
+//go:embed static/*
+var staticFiles embed.FS
 
 // Constants
 const DB_FILE = "sensor_data.db"
@@ -97,8 +101,6 @@ func main() {
 	defer db.Close()
 	defer r.Close()
 
-	server := api.NewServer(r, db)
-
 	var wg sync.WaitGroup
 
 	wg.Add(1)
@@ -127,7 +129,29 @@ func main() {
 
 	wg.Add(1)
 	go func() {
-		if err := http.ListenAndServe(":8080", server.ServeMux()); err != nil {
+		server := api.NewServer(r, db)
+		mux := http.NewServeMux()
+
+		apiMux := server.ServeMux()
+
+		// Serve API traffic
+		if *dev_mode {
+			mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
+		} else {
+			mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFiles))))
+		}
+
+		mux.Handle("/", apiMux)
+		// mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// 	io.WriteString(w, "root handler")
+		// })
+
+		h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			log.Printf("got request %q", r.URL.Path)
+			mux.ServeHTTP(w, r)
+		})
+
+		if err := http.ListenAndServe(":8080", h); err != nil {
 			log.Fatalf("failed to start server: %v", err)
 		}
 		wg.Done()
