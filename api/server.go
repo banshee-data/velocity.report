@@ -30,10 +30,9 @@ func (s *Server) homeHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) ServeMux() *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", s.homeHandler)
 	mux.HandleFunc("/events", s.listEvents)
-
 	mux.HandleFunc("/command", s.sendCommandHandler)
+	mux.HandleFunc("/", s.homeHandler)
 	return mux
 }
 

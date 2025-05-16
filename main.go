@@ -136,15 +136,12 @@ func main() {
 
 		// Serve API traffic
 		if *dev_mode {
-			mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
+			mux.Handle("/", http.FileServer(http.Dir("./static")))
 		} else {
-			mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFiles))))
+			mux.Handle("/", http.FileServer(http.FS(staticFiles)))
 		}
 
-		mux.Handle("/", apiMux)
-		// mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// 	io.WriteString(w, "root handler")
-		// })
+		mux.Handle("/api/", http.StripPrefix("/api", apiMux))
 
 		h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			log.Printf("got request %q", r.URL.Path)

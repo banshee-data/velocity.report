@@ -2,7 +2,7 @@ module github.com/banshee-data/radar
 
 go 1.24
 
-toolchain go1.24.1
+toolchain go1.24.3
 
 require (
 	go.bug.st/serial v1.6.4
