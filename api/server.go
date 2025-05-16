@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"fmt"
@@ -6,14 +6,17 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+
+	"github.com/banshee-data/radar/db"
+	"github.com/banshee-data/radar/radar"
 )
 
 type Server struct {
-	port RadarPortInterface
-	db   *DB
+	port radar.RadarPortInterface
+	db   *db.DB
 }
 
-func NewServer(port RadarPortInterface, db *DB) *Server {
+func NewServer(port radar.RadarPortInterface, db *db.DB) *Server {
 	return &Server{
 		port: port,
 		db:   db,
@@ -42,7 +45,7 @@ func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
 
 	command := r.FormValue("command")
 
-	if slices.Contains(allowedCommands, strings.TrimSpace(command)) {
+	if slices.Contains(radar.AllowedCommands, strings.TrimSpace(command)) {
 		s.port.SendCommand(command)
 		w.Write([]byte("Command sent successfully"))
 	} else {

@@ -1,4 +1,4 @@
-package main
+package radar
 
 import (
 	"bufio"
@@ -17,13 +17,13 @@ type RadarPortInterface interface {
 }
 
 type MockRadarPort struct {
-	data   io.Reader
-	events chan string
+	Data       io.Reader
+	EventsChan chan string
 	// commands chan string
 }
 
 func (m *MockRadarPort) Events() <-chan string {
-	return m.events
+	return m.EventsChan
 }
 
 func (m *MockRadarPort) SendCommand(command string) {
@@ -31,11 +31,11 @@ func (m *MockRadarPort) SendCommand(command string) {
 }
 
 func (m *MockRadarPort) Monitor(ctx context.Context) error {
-	scan := bufio.NewScanner(m.data)
+	scan := bufio.NewScanner(m.Data)
 
 	for scan.Scan() {
 		line := scan.Text()
-		m.events <- line
+		m.EventsChan <- line
 	}
 
 	<-ctx.Done()

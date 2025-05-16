@@ -1,4 +1,4 @@
-package main
+package radar
 
 import (
 	"context"
