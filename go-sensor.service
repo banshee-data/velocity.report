@@ -1,0 +1,18 @@
+[Unit]
+Description=Radar Monitor Service
+After=network.target
+
+[Service]
+Type=simple
+User=david
+Group=david
+ExecStart=/home/david/code/go_sensor/app
+WorkingDirectory=/home/david/code/go_sensor
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=go-sensor
+
+[Install]
+WantedBy=multi-user.target
