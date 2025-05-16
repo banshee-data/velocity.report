@@ -1,13 +1,18 @@
 package main
 
-import "database/sql"
+import (
+	"database/sql"
+	"fmt"
+
+	_ "modernc.org/sqlite"
+)
 
 type DB struct {
 	*sql.DB
 }
 
 func NewDB(path string) (*DB, error) {
-	db, err := sql.Open("sqlite3", path)
+	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		return nil, err
 	}
@@ -45,4 +50,41 @@ func (db *DB) RecordObservation(uptime, magnitude, speed float64) error {
 		return err
 	}
 	return nil
+}
+
+type Event struct {
+	Magnitude float64
+	Uptime    float64
+	Speed     float64
+}
+
+func (e *Event) String() string {
+	return fmt.Sprintf("Uptime: %f, Magnitude: %f, Speed: %f", e.Uptime, e.Magnitude, e.Speed)
+}
+
+func (db *DB) Events() ([]Event, error) {
+	rows, err := db.Query("SELECT uptime, magnitude, speed FROM data LIMIT 100")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var events []Event
+	for rows.Next() {
+		var uptime, magnitude, speed float64
+		if err := rows.Scan(&uptime, &magnitude, &speed); err != nil {
+			return nil, err
+		}
+		events = append(events, Event{
+			Uptime:    uptime,
+			Magnitude: magnitude,
+			Speed:     speed,
+		},
+		)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return events, nil
 }

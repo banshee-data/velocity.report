@@ -3,10 +3,48 @@ package main
 import (
 	"bufio"
 	"context"
+	"io"
 	"log"
 
 	"go.bug.st/serial"
 )
+
+type RadarPortInterface interface {
+	Events() <-chan string
+	Monitor(ctx context.Context) error
+	SendCommand(command string)
+	Close() error
+}
+
+type MockRadarPort struct {
+	data   io.Reader
+	events chan string
+	// commands chan string
+}
+
+func (m *MockRadarPort) Events() <-chan string {
+	return m.events
+}
+
+func (m *MockRadarPort) SendCommand(command string) {
+	log.Printf("got command %q", command)
+}
+
+func (m *MockRadarPort) Monitor(ctx context.Context) error {
+	scan := bufio.NewScanner(m.data)
+
+	for scan.Scan() {
+		line := scan.Text()
+		m.events <- line
+	}
+
+	<-ctx.Done()
+	return nil
+}
+
+func (m *MockRadarPort) Close() error {
+	return nil
+}
 
 type RadarPort struct {
 	serial.Port
@@ -27,9 +65,10 @@ func NewRadarPort(portName string) (*RadarPort, error) {
 		return nil, err
 	}
 
-	lines := make(chan string)
+	events := make(chan string)
 	commands := make(chan string)
-	return &RadarPort{port, lines, commands}, nil
+
+	return &RadarPort{port, events, commands}, nil
 }
 
 // Events returns a chanel for receiving parsed from monitoring the radar serial
