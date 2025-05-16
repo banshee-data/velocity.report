@@ -1,7 +1,7 @@
-package main
+package radar
 
 // Define allow list of two character commands
-var allowedCommands = []string{
+var AllowedCommands = []string{
 	"??", // Query overall module information
 	"?R", // Read Reset Reason
 	"?Z", // Read Speed Resolution

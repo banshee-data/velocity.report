@@ -15,6 +15,9 @@ import (
 
 	"strings"
 
+	"github.com/banshee-data/radar/api"
+	"github.com/banshee-data/radar/db"
+	"github.com/banshee-data/radar/radar"
 	_ "modernc.org/sqlite"
 )
 
@@ -26,7 +29,7 @@ type SerialEvent struct {
 	Clock float64 `json:"clock"`
 }
 
-func handleEvent(db *DB, payload string) error {
+func handleEvent(db *db.DB, payload string) error {
 	if strings.HasPrefix(payload, "{") {
 		var e SerialEvent
 		if err := json.Unmarshal([]byte(payload), &e); err != nil {
@@ -68,40 +71,40 @@ var dev_mode = flag.Bool("dev", false, "Run in dev mode")
 func main() {
 	flag.Parse()
 
-	var radar RadarPortInterface
+	var r radar.RadarPortInterface
 	if *dev_mode {
 		fixtures, err := os.Open("fixtures.txt")
 		if err != nil {
 			log.Fatalf("failed to open fixtures file: %v", err)
 		}
-		radar = &MockRadarPort{
-			data:   fixtures,
-			events: make(chan string),
+		r = &radar.MockRadarPort{
+			Data:       fixtures,
+			EventsChan: make(chan string),
 		}
 	} else {
 		var err error
-		radar, err = NewRadarPort("/dev/ttySC1")
+		r, err = radar.NewRadarPort("/dev/ttySC1")
 		if err != nil {
 			log.Fatalf("failed to create radar port: %v", err)
 		}
 	}
 
-	db, err := NewDB("sensor_data.db")
+	db, err := db.NewDB("sensor_data.db")
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
 	defer db.Close()
-	defer radar.Close()
+	defer r.Close()
 
-	server := NewServer(radar, db)
+	server := api.NewServer(r, db)
 
 	var wg sync.WaitGroup
 
 	wg.Add(1)
 	go func() {
 		log.Printf("starting monitor")
-		for payload := range radar.Events() {
+		for payload := range r.Events() {
 			if err := handleEvent(db, payload); err != nil {
 				log.Printf("error handling event: %v", err)
 			}
@@ -114,7 +117,7 @@ func main() {
 
 	wg.Add(1)
 	go func() {
-		if err := radar.Monitor(ctx); err != nil {
+		if err := r.Monitor(ctx); err != nil {
 			log.Printf("monitor loop error: %v", err)
 		} else {
 			log.Printf("monitor loop finished")

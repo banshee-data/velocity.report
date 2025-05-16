@@ -1,4 +1,4 @@
-module sensor_capture
+module github.com/banshee-data/radar
 
 go 1.24
 
