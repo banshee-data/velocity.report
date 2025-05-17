@@ -1,10 +1,18 @@
 package db
 
 import (
+	"compress/gzip"
 	"database/sql"
 	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"time"
 
+	"github.com/tailscale/tailsql/server/tailsql"
 	_ "modernc.org/sqlite"
+	"tailscale.com/tsweb"
 )
 
 type DB struct {
@@ -87,4 +95,63 @@ func (db *DB) Events() ([]Event, error) {
 	}
 
 	return events, nil
+}
+
+func (db *DB) AttachAdminRoutes(mux *http.ServeMux) {
+	debug := tsweb.Debugger(mux)
+	// create a tailSQL instance and point it to our DB
+	tsql, err := tailsql.NewServer(tailsql.Options{
+		RoutePrefix: "/debug/tailsql/",
+	})
+	if err != nil {
+		log.Fatalf("failed to create tailsql server: %v", err)
+	}
+	tsql.SetDB("sqlite://radar.db", db.DB, &tailsql.DBOptions{
+		Label: "Radar DB",
+	})
+
+	// mount the tailSQL server on the debug /tailsql path
+	debug.Handle("tailsql/", "SQL live debugging", tsql.NewMux())
+
+	debug.Handle("backup", "Create and download a backup of the database now", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		unixTime := time.Now().Unix()
+		backupPath := fmt.Sprintf("backup-%d.db", unixTime)
+		if _, err := db.DB.Exec("VACUUM INTO ?", backupPath); err != nil {
+			http.Error(w, fmt.Sprintf("Failed to create backup: %v", err), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", backupPath))
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Encoding", "gzip")
+
+		// Send the backup file to the client
+		backupFile, err := os.Open(backupPath)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to open backup file: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// close the backup file after sending it
+		// and remove it from the filesystem
+		defer func() {
+			backupFile.Close()
+			if err := os.Remove(backupPath); err != nil {
+				log.Printf("Failed to remove backup file: %v", err)
+			}
+		}()
+
+		gzipWriter := gzip.NewWriter(w)
+		defer gzipWriter.Close()
+		if _, err := gzipWriter.Write([]byte{}); err != nil {
+			// Need to write something to initialize the gzip header
+			http.Error(w, fmt.Sprintf("Failed to initialize gzip writer: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Copy the backup file content to the gzip writer
+		if _, err := io.Copy(gzipWriter, backupFile); err != nil {
+			http.Error(w, fmt.Sprintf("Failed to write backup file: %v", err), http.StatusInternalServerError)
+			return
+		}
+	}))
 }
