@@ -16,10 +16,11 @@ import (
 
 	"strings"
 
+	_ "modernc.org/sqlite"
+
 	"github.com/banshee-data/radar/api"
 	"github.com/banshee-data/radar/db"
 	"github.com/banshee-data/radar/radar"
-	_ "modernc.org/sqlite"
 )
 
 //go:embed static/*
@@ -81,10 +82,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("failed to open fixtures file: %v", err)
 		}
-		r = &radar.MockRadarPort{
-			Data:       fixtures,
-			EventsChan: make(chan string),
-		}
+		r = radar.NewMockRadar(fixtures)
 	} else {
 		var err error
 		r, err = radar.NewRadarPort("/dev/ttySC1")
@@ -129,19 +127,26 @@ func main() {
 
 	wg.Add(1)
 	go func() {
-		server := api.NewServer(r, db)
 		mux := http.NewServeMux()
 
-		apiMux := server.ServeMux()
+		// mount the admin debugging routes (accessible only in dev mode or over Tailscale)
+		db.AttachAdminRoutes(mux)
 
-		// Serve API traffic
-		if *dev_mode {
-			mux.Handle("/", http.FileServer(http.Dir("./static")))
-		} else {
-			mux.Handle("/", http.FileServer(http.FS(staticFiles)))
-		}
-
+		// create a new API server instance using the radar port and database
+		// and mount the API handlers
+		apiMux := api.NewServer(r, db).ServeMux()
 		mux.Handle("/api/", http.StripPrefix("/api", apiMux))
+
+		// read static files from the embedded filesystem in production or from
+		// the local ./static in dev for easier iteration without restarting the
+		// server
+		var staticHandler http.Handler
+		if *dev_mode {
+			staticHandler = http.FileServer(http.Dir("./static"))
+		} else {
+			staticHandler = http.FileServer(http.FS(staticFiles))
+		}
+		mux.Handle("/", staticHandler)
 
 		h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			log.Printf("got request %q", r.URL.Path)
