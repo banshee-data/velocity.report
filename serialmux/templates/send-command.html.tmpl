@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Send Serial Command </title>
+</head>
+<body>
+    <h1>Send Serial Command</h1>
+    <form method="post" action="/debug/send-command-api">
+    <label for="command">Command:</label>
+    <input type="text" id="command" name="command" required/>
+    <button type="submit">Send Command</button>
+    </form>
+
+    <h2>Live Tail:</h2>
+    <pre id="tail"></pre>
+    <script src="/debug/tail.js"></script>
+</body>
+</html>
