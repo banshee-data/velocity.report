@@ -9,17 +9,18 @@ import (
 
 	"github.com/banshee-data/radar/db"
 	"github.com/banshee-data/radar/radar"
+	"github.com/banshee-data/radar/serialmux"
 )
 
 type Server struct {
-	port radar.RadarPortInterface
-	db   *db.DB
+	m  serialmux.SerialMuxInterface
+	db *db.DB
 }
 
-func NewServer(port radar.RadarPortInterface, db *db.DB) *Server {
+func NewServer(m serialmux.SerialMuxInterface, db *db.DB) *Server {
 	return &Server{
-		port: port,
-		db:   db,
+		m:  m,
+		db: db,
 	}
 }
 
@@ -45,7 +46,10 @@ func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
 	command := r.FormValue("command")
 
 	if slices.Contains(radar.AllowedCommands, strings.TrimSpace(command)) {
-		s.port.SendCommand(command)
+		if err := s.m.SendCommand(command); err != nil {
+			http.Error(w, "Failed to send command", http.StatusInternalServerError)
+			return
+		}
 		w.Write([]byte("Command sent successfully"))
 	} else {
 		http.Error(w, "Invalid command", http.StatusBadRequest)
@@ -74,5 +78,4 @@ func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-
 }

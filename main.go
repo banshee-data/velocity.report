@@ -9,8 +9,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"sync"
+	"syscall"
+	"time"
 
 	// "regexp"
 
@@ -20,11 +23,15 @@ import (
 
 	"github.com/banshee-data/radar/api"
 	"github.com/banshee-data/radar/db"
-	"github.com/banshee-data/radar/radar"
+	"github.com/banshee-data/radar/serialmux"
 )
 
-//go:embed static/*
-var staticFiles embed.FS
+var (
+	//go:embed static/*
+	staticFiles embed.FS
+	devMode     = flag.Bool("dev", false, "Run in dev mode")
+	listen      = flag.String("listen", ":8080", "Listen address")
+)
 
 // Constants
 const DB_FILE = "sensor_data.db"
@@ -70,78 +77,93 @@ func handleEvent(db *db.DB, payload string) error {
 	return nil
 }
 
-var dev_mode = flag.Bool("dev", false, "Run in dev mode")
-
 // Main
 func main() {
 	flag.Parse()
 
-	var r radar.RadarPortInterface
-	if *dev_mode {
-		fixtures, err := os.Open("fixtures.txt")
+	if *listen == "" {
+		log.Fatal("Listen address is required")
+	}
+
+	// var r radar.RadarPortInterface
+	var m serialmux.SerialMuxInterface
+	if *devMode {
+		data, err := os.ReadFile("fixtures.txt")
 		if err != nil {
 			log.Fatalf("failed to open fixtures file: %v", err)
 		}
-		r = radar.NewMockRadar(fixtures)
+		m = serialmux.NewMockSerialMux(data)
 	} else {
 		var err error
-		r, err = radar.NewRadarPort("/dev/ttySC1")
+		m, err = serialmux.NewRealSerialMux("/dev/ttySC1")
 		if err != nil {
 			log.Fatalf("failed to create radar port: %v", err)
 		}
 	}
+	defer m.Close()
 
 	db, err := db.NewDB("sensor_data.db")
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
-
 	defer db.Close()
-	defer r.Close()
 
+	// Create a wait group for the HTTP server, serial monitor, and event handler routines
 	var wg sync.WaitGroup
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
+	// run the monitor routine to manage IO on the serial port
 	wg.Add(1)
 	go func() {
-		log.Printf("starting monitor")
-		for payload := range r.Events() {
-			if err := handleEvent(db, payload); err != nil {
-				log.Printf("error handling event: %v", err)
+		defer wg.Done()
+		if err := m.Monitor(ctx); err != nil && err != context.Canceled {
+			log.Printf("failed to monitor serial port: %v", err)
+		}
+		log.Print("monitor routine terminated")
+	}()
+
+	// subscribe to the serial port messages
+	// and pass them to event handler
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		id, c := m.Subscribe()
+		defer m.Unsubscribe(id)
+		for {
+			select {
+			case payload := <-c:
+				if err := handleEvent(db, payload); err != nil {
+					log.Printf("error handling event: %v", err)
+				}
+			case <-ctx.Done():
+				log.Printf("subscribe routine terminated")
+				return
 			}
 		}
-		wg.Done()
 	}()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
+	// HTTP server goroutine
 	wg.Add(1)
 	go func() {
-		if err := r.Monitor(ctx); err != nil {
-			log.Printf("monitor loop error: %v", err)
-		} else {
-			log.Printf("monitor loop finished")
-		}
-		wg.Done()
-	}()
+		defer wg.Done()
 
-	wg.Add(1)
-	go func() {
 		mux := http.NewServeMux()
 
 		// mount the admin debugging routes (accessible only in dev mode or over Tailscale)
 		db.AttachAdminRoutes(mux)
+		m.AttachAdminRoutes(mux)
 
 		// create a new API server instance using the radar port and database
 		// and mount the API handlers
-		apiMux := api.NewServer(r, db).ServeMux()
+		apiMux := api.NewServer(m, db).ServeMux()
 		mux.Handle("/api/", http.StripPrefix("/api", apiMux))
 
 		// read static files from the embedded filesystem in production or from
 		// the local ./static in dev for easier iteration without restarting the
 		// server
 		var staticHandler http.Handler
-		if *dev_mode {
+		if *devMode {
 			staticHandler = http.FileServer(http.Dir("./static"))
 		} else {
 			staticHandler = http.FileServer(http.FS(staticFiles))
@@ -153,13 +175,34 @@ func main() {
 			mux.ServeHTTP(w, r)
 		})
 
-		if err := http.ListenAndServe(":8080", h); err != nil {
-			log.Fatalf("failed to start server: %v", err)
+		server := &http.Server{
+			Addr:    *listen,
+			Handler: h,
 		}
-		wg.Done()
+
+		// Start server in a goroutine so it doesn't block
+		go func() {
+			if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Fatalf("failed to start server: %v", err)
+			}
+		}()
+
+		// Wait for context cancellation to shut down server
+		<-ctx.Done()
+		log.Println("shutting down HTTP server...")
+
+		// Create a shutdown context with a timeout
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			log.Printf("HTTP server shutdown error: %v", err)
+		}
+
+		log.Printf("HTTP server routine stopped")
 	}()
 
+	// Wait for all goroutines to finish
 	wg.Wait()
-	log.Printf("done")
-
+	log.Printf("Graceful shutdown complete")
 }
