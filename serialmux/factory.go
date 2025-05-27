@@ -8,10 +8,10 @@ import (
 // given path.
 func NewRealSerialMux(path string) (*SerialMux[serial.Port], error) {
 	mode := &serial.Mode{
-		BaudRate: 9600,
+		BaudRate: 19200,
 		DataBits: 8,
 		Parity:   serial.NoParity,
-		StopBits: 1,
+		StopBits: serial.OneStopBit,
 	}
 
 	port, err := serial.Open(path, mode)
