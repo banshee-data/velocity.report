@@ -7,3 +7,4 @@ _site/
 *.db
 backup/
 log/
+app
