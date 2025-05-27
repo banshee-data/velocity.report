@@ -71,7 +71,7 @@ func (e *Event) String() string {
 }
 
 func (db *DB) Events() ([]Event, error) {
-	rows, err := db.Query("SELECT uptime, magnitude, speed FROM data LIMIT 100")
+	rows, err := db.Query("SELECT uptime, magnitude, speed FROM data ORDER BY uptime DESC LIMIT 500")
 	if err != nil {
 		return nil, err
 	}
