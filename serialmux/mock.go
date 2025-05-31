@@ -2,58 +2,48 @@ package serialmux
 
 import (
 	"io"
+	"log"
+	"os"
 	"time"
 )
 
 // MockSerialPort implements SerialPorter for testing
 type MockSerialPort struct {
-	ReadData      []byte
-	WrittenData   []byte
-	ReadError     error
-	WriteError    error
-	CloseError    error
-	Closed        bool
-	ReadDelay     time.Duration
-	ReadCallCount int
-}
-
-func (m *MockSerialPort) Read(p []byte) (n int, err error) {
-	if m.ReadError != nil {
-		return 0, m.ReadError
-	}
-
-	if m.ReadDelay > 0 {
-		time.Sleep(m.ReadDelay)
-	}
-
-	m.ReadCallCount++
-
-	if len(m.ReadData) == 0 {
-		return 0, io.EOF
-	}
-
-	n = copy(p, m.ReadData)
-	m.ReadData = m.ReadData[n:]
-	return n, nil
+	io.Reader
+	io.WriteCloser
+	o io.Writer
 }
 
 func (m *MockSerialPort) Write(p []byte) (n int, err error) {
-	if m.WriteError != nil {
-		return 0, m.WriteError
-	}
-	m.WrittenData = append(m.WrittenData, p...)
-	return len(p), nil
-}
-
-func (m *MockSerialPort) Close() error {
-	m.Closed = true
-	return m.CloseError
+	n, err = m.WriteCloser.Write(p)
+	m.o.Write(p)
+	return n, err
 }
 
 // NewMockSerialMux creates a SerialMux instance backed by a mock serial port
-func NewMockSerialMux(mockData []byte) *SerialMux[*MockSerialPort] {
-	mockPort := &MockSerialPort{
-		ReadData: mockData,
+func NewMockSerialMux(mockLine []byte) *SerialMux[*MockSerialPort] {
+	r, w := io.Pipe()
+	f, err := os.CreateTemp(".", "mock_serial_port")
+	if err != nil {
+		panic("failed to create temp file for mock serial port: " + err.Error())
 	}
+	log.Printf("Writing mock serial port received input at %s", f.Name())
+
+	mockPort := &MockSerialPort{
+		r,
+		f,
+		w,
+	}
+
+	// generate data periodically to simulate serial port input
+	go func() {
+		defer w.Close()
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+		for range ticker.C {
+			w.Write(mockLine)
+		}
+	}()
+
 	return NewSerialMux[*MockSerialPort](mockPort)
 }

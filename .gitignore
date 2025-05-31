@@ -8,3 +8,4 @@ _site/
 backup/
 log/
 app
+mock_serial_port*

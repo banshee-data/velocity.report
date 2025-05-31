@@ -14,11 +14,9 @@ import (
 	"html/template"
 	"io"
 	"net/http"
-	"slices"
 	"strings"
 	"sync"
 
-	"github.com/banshee-data/radar/radar"
 	"tailscale.com/tsweb"
 )
 
@@ -98,6 +96,9 @@ func (s *SerialMux[T]) Unsubscribe(id string) {
 func (s *SerialMux[T]) SendCommand(command string) error {
 	s.commandMu.Lock()
 	defer s.commandMu.Unlock()
+	if !bytes.HasSuffix([]byte(command), []byte("\n")) {
+		command += "\n" // ensure command ends with a newline
+	}
 	n, err := s.port.Write([]byte(command))
 	if err != nil {
 		return err
@@ -190,10 +191,6 @@ func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
 			http.Error(w, "Missing command", http.StatusBadRequest)
 			return
 		}
-		if !slices.Contains(radar.AllowedCommands, command) {
-			http.Error(w, "Invalid command", http.StatusBadRequest)
-			return
-		}
 		if err := s.SendCommand(command); err != nil {
 			http.Error(w, "Failed to write command", http.StatusInternalServerError)
 			return
@@ -216,7 +213,7 @@ func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
 		for {
 			select {
 			case payload := <-c:
-				_, err := w.Write([]byte(fmt.Sprintf("%s\n\n", payload)))
+				_, err := w.Write([]byte(fmt.Sprintf("data: %s\n\n", payload)))
 				if err != nil {
 					http.Error(w, "Failed to write event", http.StatusInternalServerError)
 					return
