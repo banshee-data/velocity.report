@@ -2,8 +2,13 @@ document.addEventListener("DOMContentLoaded", function () {
     // set up a SSE poll to /tail
     var eventSource = new EventSource("/debug/tail");
     eventSource.onmessage = function (event) {
-        // append the response to the pre element
-        document.getElementById("tail").innerText += event.data + "\n\n";
+        // Prepend the new data to the pre element (reverse chronological order)
+        const tailElement = document.getElementById("tail");
+        const timestamp = new Date().toISOString();
+        tailElement.innerText = `[${timestamp}] ${event.data}\n` + tailElement.innerText;
+
+        // Ensure the view is scrolled to the top (newest content)
+        window.scrollTo(0, 0);
     };
     document.querySelector("form").addEventListener("submit", function (event) {
         event.preventDefault();
@@ -18,9 +23,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 command: document.getElementById("command").value,
             }),
         })
-            .then((response) => {
-                document.getElementById("api-response").innerText = response.text();
-            })
             .catch((error) => {
                 console.error("Error:", error);
             });

@@ -31,6 +31,7 @@ var (
 	staticFiles embed.FS
 	devMode     = flag.Bool("dev", false, "Run in dev mode")
 	listen      = flag.String("listen", ":8080", "Listen address")
+	port        = flag.String("port", "/dev/ttySC1", "Serial port to use (ignored in dev mode)")
 )
 
 // Constants
@@ -50,6 +51,9 @@ func handleEvent(db *db.DB, payload string) error {
 		log.Printf("Parsed event: %+v", e)
 	} else {
 		segments := strings.Split(payload, ",")
+		if len(segments) != 3 {
+			return fmt.Errorf("invalid payload format: %s, expected 3 segments", payload)
+		}
 
 		var uptime, magnitude, speed float64
 		var err error
@@ -84,18 +88,23 @@ func main() {
 	if *listen == "" {
 		log.Fatal("Listen address is required")
 	}
+	if *port == "" {
+		log.Fatal("Serial port is required")
+	}
 
 	// var r radar.RadarPortInterface
 	var m serialmux.SerialMuxInterface
 	if *devMode {
 		data, err := os.ReadFile("fixtures.txt")
+		lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+		firstLine := lines[0]
 		if err != nil {
 			log.Fatalf("failed to open fixtures file: %v", err)
 		}
-		m = serialmux.NewMockSerialMux(data)
+		m = serialmux.NewMockSerialMux([]byte(firstLine + "\n"))
 	} else {
 		var err error
-		m, err = serialmux.NewRealSerialMux("/dev/ttySC1")
+		m, err = serialmux.NewRealSerialMux(*port)
 		if err != nil {
 			log.Fatalf("failed to create radar port: %v", err)
 		}

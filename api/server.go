@@ -4,11 +4,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"slices"
-	"strings"
 
 	"github.com/banshee-data/radar/db"
-	"github.com/banshee-data/radar/radar"
 	"github.com/banshee-data/radar/serialmux"
 )
 
@@ -45,16 +42,10 @@ func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
 
 	command := r.FormValue("command")
 
-	if slices.Contains(radar.AllowedCommands, strings.TrimSpace(command)) {
-		if err := s.m.SendCommand(command); err != nil {
-			http.Error(w, "Failed to send command", http.StatusInternalServerError)
-			return
-		}
-		w.Write([]byte("Command sent successfully"))
-	} else {
-		http.Error(w, "Invalid command", http.StatusBadRequest)
+	if err := s.m.SendCommand(command); err != nil {
+		http.Error(w, "Failed to send command", http.StatusInternalServerError)
+		return
 	}
-
 	io.WriteString(w, "Command sent successfully")
 }
 
