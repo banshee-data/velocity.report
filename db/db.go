@@ -32,6 +32,21 @@ func NewDB(path string) (*DB, error) {
 			speed             DOUBLE,
 			timestamp         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);
+		CREATE TABLE IF NOT EXISTS radar_objects (
+			classifier        TEXT,
+			start_time        DOUBLE,
+			end_time          DOUBLE,
+			delta_time_ms     BIGINT,
+			max_speed         DOUBLE,
+			min_speed         DOUBLE,
+			speed_change      DOUBLE,
+			max_magnitude     BIGINT,
+			avg_magnitude     BIGINT,
+			total_frames      BIGINT,
+			frames_per_speed  DOUBLE,
+			length            DOUBLE,
+			timestamp         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		);
 		CREATE TABLE IF NOT EXISTS commands (
 			command_id        BIGINT PRIMARY KEY,
 			command           TEXT,
