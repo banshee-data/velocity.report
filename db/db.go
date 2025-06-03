@@ -27,21 +27,21 @@ func NewDB(path string) (*DB, error) {
 
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS data (
-			uptime DOUBLE,
-			magnitude DOUBLE,
-			speed DOUBLE,
-			timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			uptime            DOUBLE,
+			magnitude         DOUBLE,
+			speed             DOUBLE,
+			timestamp         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);
 		CREATE TABLE IF NOT EXISTS commands (
-			command_id BIGINT PRIMARY KEY,
-			command TEXT,
-			timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			command_id        BIGINT PRIMARY KEY,
+			command           TEXT,
+			timestamp         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);
 		CREATE TABLE IF NOT EXISTS log (
-			log_id BIGINT PRIMARY KEY,
-			command_id BIGINT,
-			log_data TEXT,
-			timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			log_id            BIGINT PRIMARY KEY,
+			command_id        BIGINT,
+			log_data          TEXT,
+			timestamp         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY(command_id) REFERENCES commands(command_id)
 		);
 	`)
