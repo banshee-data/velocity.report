@@ -43,7 +43,7 @@ func NewDB(path string) (*DB, error) {
 			max_magnitude     BIGINT,
 			avg_magnitude     BIGINT,
 			total_frames      BIGINT,
-			frames_per_speed  DOUBLE,
+			frames_per_unit_speed  DOUBLE,
 			length            DOUBLE,
 			timestamp         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);
@@ -65,6 +65,128 @@ func NewDB(path string) (*DB, error) {
 	}
 
 	return &DB{db}, nil
+}
+func (db *DB) RecordRadarObject(
+	classifier string,
+	start_time, end_time float64,
+	delta_time_ms int64,
+	max_speed, min_speed, speed_change float64,
+	max_magnitude, avg_magnitude, total_frames int64,
+	frames_per_unit_speed, length float64,
+) error {
+	_, err := db.Exec(
+		`INSERT INTO radar_objects (
+			classifier, start_time, end_time, delta_time_ms, max_speed, min_speed,
+			speed_change, max_magnitude, avg_magnitude, total_frames,
+			frames_per_unit_speed, length
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		classifier, start_time, end_time, delta_time_ms, max_speed, min_speed,
+		speed_change, max_magnitude, avg_magnitude, total_frames,
+		frames_per_unit_speed, length,
+	)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type RadarObject struct {
+	Classifier         string
+	StartTime          float64
+	EndTime            float64
+	DeltaTimeMs        int64
+	MaxSpeed           float64
+	MinSpeed           float64
+	SpeedChange        float64
+	MaxMagnitude       int64
+	AvgMagnitude       int64
+	TotalFrames        int64
+	FramesPerUnitSpeed float64
+	Length             float64
+}
+
+func (e *RadarObject) String() string {
+	return fmt.Sprintf(
+		"Classifier: %s, StartTime: %f, EndTime: %f, DeltaTimeMs: %d, MaxSpeed: %f, MinSpeed: %f, SpeedChange: %f, MaxMagnitude: %d, AvgMagnitude: %d, TotalFrames: %d, FramesPerUnitSpeed: %f, Length: %f",
+		e.Classifier,
+		e.StartTime,
+		e.EndTime,
+		e.DeltaTimeMs,
+		e.MaxSpeed,
+		e.MinSpeed,
+		e.SpeedChange,
+		e.MaxMagnitude,
+		e.AvgMagnitude,
+		e.TotalFrames,
+		e.FramesPerUnitSpeed,
+		e.Length,
+	)
+}
+
+func (db *DB) RadarObjects() ([]RadarObject, error) {
+	rows, err := db.Query(`SELECT classifier, start_time, end_time, delta_time_ms, max_speed, min_speed,
+			speed_change, max_magnitude, avg_magnitude, total_frames,
+			frames_per_unit_speed, length FROM radar_objects ORDER BY timestamp DESC LIMIT 100`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var radar_objects []RadarObject
+	for rows.Next() {
+
+		var (
+			classifier            string
+			start_time            float64
+			end_time              float64
+			max_speed             float64
+			min_speed             float64
+			speed_change          float64
+			frames_per_unit_speed float64
+			length                float64
+			delta_time_ms         int64
+			max_magnitude         int64
+			avg_magnitude         int64
+			total_frames          int64
+		)
+
+		if err := rows.Scan(
+			&classifier,
+			&start_time,
+			&end_time,
+			&delta_time_ms,
+			&max_speed,
+			&min_speed,
+			&speed_change,
+			&max_magnitude,
+			&avg_magnitude,
+			&total_frames,
+			&frames_per_unit_speed,
+			&length,
+		); err != nil {
+			return nil, err
+		}
+		radar_objects = append(radar_objects, RadarObject{
+			Classifier:         classifier,
+			StartTime:          start_time,
+			EndTime:            end_time,
+			DeltaTimeMs:        delta_time_ms,
+			MaxSpeed:           max_speed,
+			MinSpeed:           min_speed,
+			SpeedChange:        speed_change,
+			MaxMagnitude:       max_magnitude,
+			AvgMagnitude:       avg_magnitude,
+			TotalFrames:        total_frames,
+			FramesPerUnitSpeed: frames_per_unit_speed,
+			Length:             length,
+		},
+		)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return radar_objects, nil
 }
 
 func (db *DB) RecordObservation(uptime, magnitude, speed float64) error {
