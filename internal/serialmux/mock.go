@@ -14,6 +14,11 @@ type MockSerialPort struct {
 	o io.Writer
 }
 
+func (m *MockSerialPort) SyncClock() error {
+	// Mock implementation does nothing
+	return nil
+}
+
 func (m *MockSerialPort) Write(p []byte) (n int, err error) {
 	n, err = m.WriteCloser.Write(p)
 	m.o.Write(p)

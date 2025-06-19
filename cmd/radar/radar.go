@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"embed"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -10,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -21,17 +19,16 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/banshee-data/radar/api"
-	"github.com/banshee-data/radar/db"
-	"github.com/banshee-data/radar/serialmux"
+	"github.com/banshee-data/radar"
+	"github.com/banshee-data/radar/internal/api"
+	"github.com/banshee-data/radar/internal/db"
+	"github.com/banshee-data/radar/internal/serialmux"
 )
 
 var (
-	//go:embed static/*
-	staticFiles embed.FS
-	devMode     = flag.Bool("dev", false, "Run in dev mode")
-	listen      = flag.String("listen", ":8080", "Listen address")
-	port        = flag.String("port", "/dev/ttySC1", "Serial port to use (ignored in dev mode)")
+	devMode = flag.Bool("dev", false, "Run in dev mode")
+	listen  = flag.String("listen", ":8080", "Listen address")
+	port    = flag.String("port", "/dev/ttySC1", "Serial port to use (ignored in dev mode)")
 )
 
 // Constants
@@ -43,40 +40,19 @@ type SerialEvent struct {
 }
 
 func handleEvent(db *db.DB, payload string) error {
+	if strings.TrimSpace(payload) == "" {
+		return nil
+	}
+
 	if strings.HasPrefix(payload, "{") {
-		var e SerialEvent
+		var e map[string]any
 		if err := json.Unmarshal([]byte(payload), &e); err != nil {
 			return fmt.Errorf("failed to unmarshal JSON: %v", err)
 		}
 		log.Printf("Parsed event: %+v", e)
 	} else {
-		segments := strings.Split(payload, ",")
-		if len(segments) != 3 {
-			return fmt.Errorf("invalid payload format: %s, expected 3 segments", payload)
-		}
-
-		var uptime, magnitude, speed float64
-		var err error
-
-		uptime, err = strconv.ParseFloat(segments[0], 64)
-		if err != nil {
-			return fmt.Errorf("failed to parse uptime: %v", err)
-		}
-
-		magnitude, err = strconv.ParseFloat(segments[1], 64)
-		if err != nil {
-			return fmt.Errorf("failed to parse magnitude: %v", err)
-		}
-		speed, err = strconv.ParseFloat(segments[2], 64)
-		if err != nil {
-			return fmt.Errorf("failed to parse speed: %v", err)
-		}
-
-		if err := db.RecordObservation(uptime, magnitude, speed); err != nil {
-			log.Printf("failed to record observation: %v", err)
-		} else {
-			log.Printf("Recorded observation: uptime=%.2f, magnitude=%.2f, speed=%.2f", uptime, magnitude, speed)
-		}
+		// TODO parse events in JSON format based on observed keys
+		// TODO parse summary object detection lines
 	}
 	return nil
 }
@@ -93,7 +69,7 @@ func main() {
 	}
 
 	// var r radar.RadarPortInterface
-	var m serialmux.SerialMuxInterface
+	var radarSerial serialmux.SerialMuxInterface
 	if *devMode {
 		data, err := os.ReadFile("fixtures.txt")
 		lines := strings.Split(strings.TrimSpace(string(data)), "\n")
@@ -101,15 +77,21 @@ func main() {
 		if err != nil {
 			log.Fatalf("failed to open fixtures file: %v", err)
 		}
-		m = serialmux.NewMockSerialMux([]byte(firstLine + "\n"))
+		radarSerial = serialmux.NewMockSerialMux([]byte(firstLine + "\n"))
 	} else {
 		var err error
-		m, err = serialmux.NewRealSerialMux(*port)
+		radarSerial, err = serialmux.NewRealSerialMux(*port)
 		if err != nil {
 			log.Fatalf("failed to create radar port: %v", err)
 		}
 	}
-	defer m.Close()
+	defer radarSerial.Close()
+
+	if err := radarSerial.Initialize(); err != nil {
+		log.Fatalf("failed to iniatize device: %v", err)
+	} else {
+		log.Printf("initialized device on port %s", *port)
+	}
 
 	db, err := db.NewDB("sensor_data.db")
 	if err != nil {
@@ -126,7 +108,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := m.Monitor(ctx); err != nil && err != context.Canceled {
+		if err := radarSerial.Monitor(ctx); err != nil && err != context.Canceled {
 			log.Printf("failed to monitor serial port: %v", err)
 		}
 		log.Print("monitor routine terminated")
@@ -137,8 +119,8 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		id, c := m.Subscribe()
-		defer m.Unsubscribe(id)
+		id, c := radarSerial.Subscribe()
+		defer radarSerial.Unsubscribe(id)
 		for {
 			select {
 			case payload := <-c:
@@ -161,11 +143,11 @@ func main() {
 
 		// mount the admin debugging routes (accessible only in dev mode or over Tailscale)
 		db.AttachAdminRoutes(mux)
-		m.AttachAdminRoutes(mux)
+		radarSerial.AttachAdminRoutes(mux)
 
 		// create a new API server instance using the radar port and database
 		// and mount the API handlers
-		apiMux := api.NewServer(m, db).ServeMux()
+		apiMux := api.NewServer(radarSerial, db).ServeMux()
 		mux.Handle("/api/", http.StripPrefix("/api", apiMux))
 
 		// read static files from the embedded filesystem in production or from
@@ -175,7 +157,7 @@ func main() {
 		if *devMode {
 			staticHandler = http.FileServer(http.Dir("./static"))
 		} else {
-			staticHandler = http.FileServer(http.FS(staticFiles))
+			staticHandler = http.FileServer(http.FS(radar.StaticFiles))
 		}
 		mux.Handle("/", staticHandler)
 
@@ -200,12 +182,16 @@ func main() {
 		<-ctx.Done()
 		log.Println("shutting down HTTP server...")
 
-		// Create a shutdown context with a timeout
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		// Create a shutdown context with a shorter timeout
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
 
 		if err := server.Shutdown(shutdownCtx); err != nil {
 			log.Printf("HTTP server shutdown error: %v", err)
+			// Force close the server if graceful shutdown fails
+			if err := server.Close(); err != nil {
+				log.Printf("HTTP server force close error: %v", err)
+			}
 		}
 
 		log.Printf("HTTP server routine stopped")

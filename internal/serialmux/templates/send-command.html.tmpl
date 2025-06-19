@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Send Serial Command </title>
+</head>
+<body>
+    <h1>Send Serial Command</h1>
+    <table border="1" cellpadding="6" cellspacing="0" style="font-family: monospace; border-collapse: collapse; width: 100%;">
+    <thead style="background-color: #f0f0f0;">
+        <tr>
+        <th>Category</th>
+        <th>Command</th>
+        <th>Description</th>
+        <th>Example</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- General -->
+        <tr>
+        <td rowspan="3">General</td>
+        <td><code>??</code></td>
+        <td>Query current status and config</td>
+        <td><code>??</code></td>
+        </tr>
+        <tr>
+        <td><code>A!</code></td>
+        <td>Save current settings to flash</td>
+        <td><code>A!⏎</code></td>
+        </tr>
+        <tr>
+        <td><code>AX</code></td>
+        <td>Reset to factory defaults</td>
+        <td><code>AX⏎</code></td>
+        </tr>
+
+        <!-- Output Control -->
+        <tr>
+        <td rowspan="6">Output Control</td>
+        <td><code>OS</code></td>
+        <td>Enable speed reporting</td>
+        <td><code>OS⏎</code></td>
+        </tr>
+        <tr>
+        <td><code>Os</code></td>
+        <td>Disable speed reporting</td>
+        <td><code>Os⏎</code></td>
+        </tr>
+        <tr>
+        <td><code>oD</code></td>
+        <td>Enable range reporting</td>
+        <td><code>oD⏎</code></td>
+        </tr>
+        <tr>
+        <td><code>od</code></td>
+        <td>Disable range reporting</td>
+        <td><code>od⏎</code></td>
+        </tr>
+        <tr>
+        <td><code>OY</code></td>
+        <td>Attach range to speed when both valid</td>
+        <td><code>OY⏎</code></td>
+        </tr>
+        <tr>
+        <td><code>OJ</code></td>
+        <td>Enable JSON output format</td>
+        <td><code>OJ⏎</code></td>
+        </tr>
+
+        <!-- Units & Precision -->
+        <tr>
+        <td rowspan="4">Units & Format</td>
+        <td><code>UM</code></td>
+        <td>Set speed unit to m/s</td>
+        <td><code>UM⏎</code></td>
+        </tr>
+        <tr>
+        <td><code>uM</code></td>
+        <td>Set range unit to meters</td>
+        <td><code>uM⏎</code></td>
+        </tr>
+        <tr>
+        <td><code>OU</code></td>
+        <td>Enable speed unit display in output</td>
+        <td><code>OU⏎</code></td>
+        </tr>
+        <tr>
+        <td><code>oU</code></td>
+        <td>Enable range unit display in output</td>
+        <td><code>oU⏎</code></td>
+        </tr>
+
+        <!-- Filters -->
+        <tr>
+        <td rowspan="6">Filters</td>
+        <td><code>R&gt;n</code></td>
+        <td>Set minimum speed to report (m/s)</td>
+        <td><code>R&gt;0.5⏎</code></td>
+        </tr>
+        <tr>
+        <td><code>R&lt;n</code></td>
+        <td>Set maximum speed to report</td>
+        <td><code>R&lt;10⏎</code></td>
+        </tr>
+        <tr>
+        <td><code>M&gt;n</code></td>
+        <td>Set minimum magnitude for speed</td>
+        <td><code>M&gt;15⏎</code></td>
+        </tr>
+        <tr>
+        <td><code>m&gt;n</code></td>
+        <td>Set minimum magnitude for range</td>
+        <td><code>m&gt;0⏎</code></td>
+        </tr>
+        <tr>
+        <td><code>r&gt;n</code></td>
+        <td>Set minimum range to report</td>
+        <td><code>r&gt;0.5⏎</code></td>
+        </tr>
+        <tr>
+        <td><code>R|</code></td>
+        <td>Report both inbound and outbound</td>
+        <td><code>R|⏎</code></td>
+        </tr>
+
+        <!-- Sampling and Resolution -->
+        <tr>
+        <td rowspan="3">Sampling/Resolution</td>
+        <td><code>SX</code></td>
+        <td>Set Doppler sample rate to 10kHz</td>
+        <td><code>SX⏎</code></td>
+        </tr>
+        <tr>
+        <td><code>S&gt;512</code></td>
+        <td>Set Doppler buffer size</td>
+        <td><code>S&gt;512⏎</code></td>
+        </tr>
+        <tr>
+        <td><code>X2</code></td>
+        <td>Improve resolution (with longer FFT)</td>
+        <td><code>X2⏎</code></td>
+        </tr>
+
+        <!-- Advanced -->
+        <tr>
+        <td rowspan="4">Advanced</td>
+        <td><code>ON</code></td>
+        <td>Enable object detection mode</td>
+        <td><code>ON⏎</code></td>
+        </tr>
+        <tr>
+        <td><code>OP</code></td>
+        <td>Enable FFT phase data (speed)</td>
+        <td><code>OP⏎</code></td>
+        </tr>
+        <tr>
+        <td><code>OF</code></td>
+        <td>Enable FFT bin data (speed)</td>
+        <td><code>OF⏎</code></td>
+        </tr>
+        <tr>
+        <td><code>^/+30</code></td>
+        <td>Cosine correction (30° inbound)</td>
+        <td><code>^/+30⏎</code></td>
+        </tr>
+
+        <!-- Debug & Time -->
+        <tr>
+        <td rowspan="2">Debug/Time</td>
+        <td><code>OH</code></td>
+        <td>Enable human-readable timestamp</td>
+        <td><code>OH⏎</code></td>
+        </tr>
+        <tr>
+        <td><code>OT</code></td>
+        <td>Enable millisecond timer output</td>
+        <td><code>OT⏎</code></td>
+        </tr>
+    </tbody>
+    </table>
+
+    <form method="post" action="/debug/send-command-api">
+        <label for="command">Command:</label>
+        <input type="text" id="command" name="command" required/>
+        <button type="submit">Send Command</button>
+    </form>
+
+    <h2>Live Tail:</h2>
+    <pre id="tail"></pre>
+    <script src="/debug/tail.js"></script>
+</body>
+</html>

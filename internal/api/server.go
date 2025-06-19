@@ -5,8 +5,8 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/banshee-data/radar/db"
-	"github.com/banshee-data/radar/serialmux"
+	"github.com/banshee-data/radar/internal/db"
+	"github.com/banshee-data/radar/internal/serialmux"
 )
 
 type Server struct {
