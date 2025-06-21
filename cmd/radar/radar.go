@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -40,19 +41,40 @@ type SerialEvent struct {
 }
 
 func handleEvent(db *db.DB, payload string) error {
-	if strings.TrimSpace(payload) == "" {
-		return nil
-	}
-
 	if strings.HasPrefix(payload, "{") {
-		var e map[string]any
+		var e SerialEvent
 		if err := json.Unmarshal([]byte(payload), &e); err != nil {
 			return fmt.Errorf("failed to unmarshal JSON: %v", err)
 		}
 		log.Printf("Parsed event: %+v", e)
 	} else {
-		// TODO parse events in JSON format based on observed keys
-		// TODO parse summary object detection lines
+		segments := strings.Split(payload, ",")
+		if len(segments) != 3 {
+			return fmt.Errorf("invalid payload format: %s, expected 3 segments", payload)
+		}
+
+		var uptime, magnitude, speed float64
+		var err error
+
+		uptime, err = strconv.ParseFloat(segments[0], 64)
+		if err != nil {
+			return fmt.Errorf("failed to parse uptime: %v", err)
+		}
+
+		magnitude, err = strconv.ParseFloat(segments[1], 64)
+		if err != nil {
+			return fmt.Errorf("failed to parse magnitude: %v", err)
+		}
+		speed, err = strconv.ParseFloat(segments[2], 64)
+		if err != nil {
+			return fmt.Errorf("failed to parse speed: %v", err)
+		}
+
+		if err := db.RecordObservation(uptime, magnitude, speed); err != nil {
+			log.Printf("failed to record observation: %v", err)
+		} else {
+			log.Printf("Recorded observation: uptime=%.2f, magnitude=%.2f, speed=%.2f", uptime, magnitude, speed)
+		}
 	}
 	return nil
 }
