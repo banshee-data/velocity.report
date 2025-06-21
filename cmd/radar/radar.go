@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"json"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -21,6 +21,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/banshee-data/radar"
+
 	"github.com/banshee-data/radar/internal/api"
 	"github.com/banshee-data/radar/internal/db"
 	"github.com/banshee-data/radar/internal/serialmux"
@@ -36,45 +37,64 @@ var (
 const DB_FILE = "sensor_data.db"
 const SCHEMA_VERSION = "0.0.2"
 
-type SerialEvent struct {
-	Clock float64 `json:"clock"`
+func handleRollup(d *db.DB, payload string) error {
+	var e db.RadarObject
+	if err := json.Unmarshal([]byte(payload), &e); err != nil {
+		log.Printf("Raw Log Line: %+v", payload)
+		return fmt.Errorf("failed to unmarshal JSON: %v", err)
+	}
+	log.Printf("Parsed event: %+v", e)
+
+	// log to the database and return error if present
+	return d.RecordRadarObject(e)
+}
+
+func handleRawData(payload string) error {
+	log.Printf("Raw Log Line: %+v", payload)
+
+	return nil
+}
+
+var CurrentState map[string]any
+
+func handleConfigResponse(payload string) error {
+	var configValues map[string]any
+
+	if err := json.Unmarshal([]byte(payload), &configValues); err != nil {
+		return fmt.Errorf("failed to unmarshal JSON: %v", err)
+	}
+
+	// update the current state with the new config values
+	for k, v := range configValues {
+		if CurrentState == nil {
+			CurrentState = make(map[string]any)
+		}
+		CurrentState[k] = v
+	}
+
+	// log the current line
+	log.Printf("Config Line: %+v", payload)
+
+	return nil
 }
 
 func handleEvent(db *db.DB, payload string) error {
-	if strings.HasPrefix(payload, "{") {
-		var e SerialEvent
-		if err := json.Unmarshal([]byte(payload), &e); err != nil {
-			return fmt.Errorf("failed to unmarshal JSON: %v", err)
+	if strings.HasPrefix(payload, `{"end_time`) || strings.HasPrefix(payload, `{"classifier`) {
+		// This is a rollup event
+		if err := handleRollup(db, payload); err != nil {
+			return fmt.Errorf("failed to handle rollup event: %v", err)
 		}
-		log.Printf("Parsed event: %+v", e)
+	} else if strings.HasPrefix(payload, `{"label`) {
+		// This is a raw data event
+		handleRawData(payload)
+	} else if strings.HasPrefix(payload, `{`) {
+		// This is a config response
+		if err := handleConfigResponse(payload); err != nil {
+			return fmt.Errorf("failed to handle config response: %v", err)
+		}
 	} else {
-		segments := strings.Split(payload, ",")
-		if len(segments) != 3 {
-			return fmt.Errorf("invalid payload format: %s, expected 3 segments", payload)
-		}
-
-		var uptime, magnitude, speed float64
-		var err error
-
-		uptime, err = strconv.ParseFloat(segments[0], 64)
-		if err != nil {
-			return fmt.Errorf("failed to parse uptime: %v", err)
-		}
-
-		magnitude, err = strconv.ParseFloat(segments[1], 64)
-		if err != nil {
-			return fmt.Errorf("failed to parse magnitude: %v", err)
-		}
-		speed, err = strconv.ParseFloat(segments[2], 64)
-		if err != nil {
-			return fmt.Errorf("failed to parse speed: %v", err)
-		}
-
-		if err := db.RecordObservation(uptime, magnitude, speed); err != nil {
-			log.Printf("failed to record observation: %v", err)
-		} else {
-			log.Printf("Recorded observation: uptime=%.2f, magnitude=%.2f, speed=%.2f", uptime, magnitude, speed)
-		}
+		// Unknown event type
+		log.Printf("unknown event type: %s", payload)
 	}
 	return nil
 }
