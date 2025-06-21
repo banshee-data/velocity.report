@@ -100,8 +100,8 @@ func (s *SerialMux[T]) Unsubscribe(id string) {
 	}
 }
 
-// Initialize sends a command to the serial port to synchronize the clock
-// with the current time. The command format is "C=<unix_timestamp>\n".
+// Initialize syncs the clock and TZ offset to the device and sets some default
+// output modes to ensure that we can parse the results.
 func (s *SerialMux[T]) Initialize() error {
 	// sync the clock to the current UNIX time
 	command := fmt.Sprintf("C=%d", time.Now().Unix())

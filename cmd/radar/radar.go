@@ -90,7 +90,7 @@ func main() {
 	if err := radarSerial.Initialize(); err != nil {
 		log.Fatalf("failed to iniatize device: %v", err)
 	} else {
-		log.Printf("initialized device on port %s", *port)
+		log.Printf("initialized device %s", radarSerial)
 	}
 
 	db, err := db.NewDB("sensor_data.db")
@@ -139,16 +139,12 @@ func main() {
 	go func() {
 		defer wg.Done()
 
-		mux := http.NewServeMux()
-
-		// mount the admin debugging routes (accessible only in dev mode or over Tailscale)
-		db.AttachAdminRoutes(mux)
-		radarSerial.AttachAdminRoutes(mux)
-
 		// create a new API server instance using the radar port and database
 		// and mount the API handlers
-		apiMux := api.NewServer(radarSerial, db).ServeMux()
-		mux.Handle("/api/", http.StripPrefix("/api", apiMux))
+		mux := api.NewServer(radarSerial, db).ServeMux()
+
+		radarSerial.AttachAdminRoutes(mux)
+		db.AttachAdminRoutes(mux)
 
 		// read static files from the embedded filesystem in production or from
 		// the local ./static in dev for easier iteration without restarting the
@@ -159,7 +155,7 @@ func main() {
 		} else {
 			staticHandler = http.FileServer(http.FS(radar.StaticFiles))
 		}
-		mux.Handle("/", staticHandler)
+		mux.Handle("/static", http.StripPrefix("/static", staticHandler))
 
 		h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			log.Printf("got request %q", r.URL.Path)
