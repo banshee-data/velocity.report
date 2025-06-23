@@ -1,4 +1,4 @@
-module github.com/banshee-data/radar
+module github.com/banshee-data/velocity.report
 
 go 1.24.0
 
