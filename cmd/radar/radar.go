@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"json"
 	"log"
 	"net/http"
 	"os"
@@ -180,6 +179,12 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+
+		mux := http.NewServeMux()
+
+		// mount the admin debugging routes (accessible only in dev mode or over Tailscale)
+		db.AttachAdminRoutes(mux)
+		radarSerial.AttachAdminRoutes(mux)
 
 		// create a new API server instance using the radar port and database
 		// and mount the API handlers
