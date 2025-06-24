@@ -19,11 +19,11 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/banshee-data/radar"
+	radar "github.com/banshee-data/velocity.report"
 
-	"github.com/banshee-data/radar/internal/api"
-	"github.com/banshee-data/radar/internal/db"
-	"github.com/banshee-data/radar/internal/serialmux"
+	"github.com/banshee-data/velocity.report/internal/api"
+	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/serialmux"
 )
 
 var (
