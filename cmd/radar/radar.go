@@ -37,15 +37,10 @@ const DB_FILE = "sensor_data.db"
 const SCHEMA_VERSION = "0.0.2"
 
 func handleRollup(d *db.DB, payload string) error {
-	var e db.RadarObject
-	if err := json.Unmarshal([]byte(payload), &e); err != nil {
-		log.Printf("Raw Log Line: %+v", payload)
-		return fmt.Errorf("failed to unmarshal JSON: %v", err)
-	}
-	log.Printf("Parsed event: %+v", e)
+	log.Printf("Raw Log Line: %+v", payload)
 
 	// log to the database and return error if present
-	return d.RecordRadarObject(e)
+	return d.RecordRadarObject(payload)
 }
 
 func handleRawData(payload string) error {

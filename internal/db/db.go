@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/tailscale/tailsql/server/tailsql"
@@ -34,19 +35,20 @@ func NewDB(path string) (*DB, error) {
 			timestamp         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);
 		CREATE TABLE IF NOT EXISTS radar_objects (
-			classifier        TEXT,
-			start_time        DOUBLE,
-			end_time          DOUBLE,
-			delta_time_ms     BIGINT,
-			max_speed         DOUBLE,
-			min_speed         DOUBLE,
-			speed_change      DOUBLE,
-			max_magnitude     BIGINT,
-			avg_magnitude     BIGINT,
-			total_frames      BIGINT,
-			frames_per_mps    DOUBLE,
-			length            DOUBLE,
-			timestamp         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			write_timestamp   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      raw_event         JSON NOT NULL,
+			classifier        TEXT NOT NULL   AS (json_extract(raw_event, '$.classifier'))                           STORED,
+			start_time        DOUBLE NOT NULL AS (json_extract(raw_event, '$.start_time'))                           STORED,
+			end_time          DOUBLE NOT NULL AS (json_extract(raw_event, '$.end_time'))                             STORED,
+			delta_time_ms     BIGINT NOT NULL AS (json_extract(raw_event, '$.delta_time_msec'))                      STORED,
+			max_speed         DOUBLE NOT NULL AS (json_extract(raw_event, '$.max_speed_mps'))                        STORED,
+			min_speed         DOUBLE NOT NULL AS (json_extract(raw_event, '$.min_speed_mps'))                        STORED,
+			speed_change      DOUBLE NOT NULL AS (json_extract(raw_event, '$.speed_change'))                         STORED,
+			max_magnitude     BIGINT NOT NULL AS (json_extract(raw_event, '$.max_magnitude'))                        STORED,
+			avg_magnitude     BIGINT NOT NULL AS (json_extract(raw_event, '$.avg_magnitude'))                        STORED,
+			total_frames      BIGINT NOT NULL AS (json_extract(raw_event, '$.total_frames'))                         STORED,
+			frames_per_mps    DOUBLE NOT NULL AS (json_extract(raw_event, '$.frames_per_mps'))                       STORED,
+			length            DOUBLE NOT NULL AS (json_extract(raw_event, '$.length_m'))                             STORED
 		);
 		CREATE TABLE IF NOT EXISTS commands (
 			command_id        BIGINT PRIMARY KEY,
@@ -68,65 +70,16 @@ func NewDB(path string) (*DB, error) {
 	return &DB{db}, nil
 }
 func (db *DB) RecordRadarObject(
-	radarObject RadarObject,
+	rawRadarJSON string,
 ) error {
-	var startTime float64
-	var endTime float64
-	var deltaTimeMs int64
-	var maxSpeed float64
-	var minSpeed float64
-	var speedChange float64
-	var maxMagnitude int64
-	var avgMagnitude int64
-	var totalFrames int64
-	var framesPerMps float64
-	var length float64
 
 	var err error
-
-	if startTime, err = strconv.ParseFloat(radarObject.StartTime, 64); err != nil {
-		return fmt.Errorf("failed to parse start_time: %v", err)
-	}
-	if endTime, err = strconv.ParseFloat(radarObject.EndTime, 64); err != nil {
-		return fmt.Errorf("failed to parse end_time: %v", err)
-	}
-	if deltaTimeMs, err = strconv.ParseInt(radarObject.DeltaTimeMs, 10, 64); err != nil {
-		return fmt.Errorf("failed to parse delta_time_msec: %v", err)
-	}
-	if maxSpeed, err = strconv.ParseFloat(radarObject.MaxSpeed, 64); err != nil {
-		return fmt.Errorf("failed to parse max_mps: %v", err)
-	}
-	if minSpeed, err = strconv.ParseFloat(radarObject.MinSpeed, 64); err != nil {
-		return fmt.Errorf("failed to parse min_mps: %v", err)
-	}
-	if speedChange, err = strconv.ParseFloat(radarObject.SpeedChange, 64); err != nil {
-		return fmt.Errorf("failed to parse speed_change: %v", err)
-	}
-	if maxMagnitude, err = strconv.ParseInt(radarObject.MaxMagnitude, 10, 64); err != nil {
-		return fmt.Errorf("failed to parse max_mag: %v", err)
-	}
-	if avgMagnitude, err = strconv.ParseInt(radarObject.AvgMagnitude, 10, 64); err != nil {
-		return fmt.Errorf("failed to parse avg_mag: %v", err)
-	}
-	if totalFrames, err = strconv.ParseInt(radarObject.TotalFrames, 10, 64); err != nil {
-		return fmt.Errorf("failed to parse total_frames: %v", err)
-	}
-	if framesPerMps, err = strconv.ParseFloat(radarObject.FramesPerMps, 64); err != nil {
-		return fmt.Errorf("failed to parse frames_per_mps: %v", err)
-	}
-	if length, err = strconv.ParseFloat(radarObject.Length, 64); err != nil {
-		return fmt.Errorf("failed to parse length_m: %v", err)
+	if rawRadarJSON == "" {
+		return fmt.Errorf("rawRadarJSON cannot be empty")
 	}
 
 	_, err = db.Exec(
-		`INSERT INTO radar_objects (
-			classifier, start_time, end_time, delta_time_ms, max_speed, min_speed,
-			speed_change, max_magnitude, avg_magnitude, total_frames,
-			frames_per_mps, length
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		radarObject.Classifier, startTime, endTime, deltaTimeMs, maxSpeed, minSpeed,
-		speedChange, maxMagnitude, avgMagnitude, totalFrames,
-		framesPerMps, length,
+		`INSERT INTO radar_objects (raw_event) VALUES (?)`, rawRadarJSON,
 	)
 	if err != nil {
 		return err
@@ -135,23 +88,23 @@ func (db *DB) RecordRadarObject(
 }
 
 type RadarObject struct {
-	Classifier   string `json:"dir"`
-	StartTime    string `json:"start_time"`
-	EndTime      string `json:"end_time"`
-	DeltaTimeMs  string `json:"delta_time_msec"`
-	MaxSpeed     string `json:"max_mps"`
-	MinSpeed     string `json:"min_mps"`
-	SpeedChange  string `json:"speed_change"`
-	MaxMagnitude string `json:"max_mag"`
-	AvgMagnitude string `json:"avg_mag"`
-	TotalFrames  string `json:"total_frames"`
-	FramesPerMps string `json:"frames_per_mps"`
-	Length       string `json:"length_m"`
+	Classifier   string
+	StartTime    time.Time
+	EndTime      time.Time
+	DeltaTimeMs  int64
+	MaxSpeed     float64
+	MinSpeed     float64
+	SpeedChange  float64
+	MaxMagnitude int64
+	AvgMagnitude int64
+	TotalFrames  int64
+	FramesPerMps float64
+	Length       float64
 }
 
 func (e *RadarObject) String() string {
 	return fmt.Sprintf(
-		"Classifier: %s, StartTime: %s, EndTime: %s, DeltaTimeMs: %s, MaxSpeed: %s, MinSpeed: %s, SpeedChange: %s, MaxMagnitude: %s, AvgMagnitude: %s, TotalFrames: %s, FramesPerMps: %s, Length: %s",
+		"Classifier: %s, StartTime: %s, EndTime: %s, DeltaTimeMs: %d, MaxSpeed: %s, MinSpeed: %s, SpeedChange: %s, MaxMagnitude: %s, AvgMagnitude: %s, TotalFrames: %s, FramesPerMps: %s, Length: %s",
 		e.Classifier,
 		e.StartTime,
 		e.EndTime,
@@ -170,7 +123,7 @@ func (e *RadarObject) String() string {
 func (db *DB) RadarObjects() ([]RadarObject, error) {
 	rows, err := db.Query(`SELECT classifier, start_time, end_time, delta_time_ms, max_speed, min_speed,
 			speed_change, max_magnitude, avg_magnitude, total_frames,
-			frames_per_mps, length FROM radar_objects ORDER BY timestamp DESC LIMIT 100`)
+			frames_per_mps, length FROM radar_objects ORDER BY write_timestamp DESC LIMIT 100`)
 	if err != nil {
 		return nil, err
 	}
@@ -178,53 +131,41 @@ func (db *DB) RadarObjects() ([]RadarObject, error) {
 
 	var radar_objects []RadarObject
 	for rows.Next() {
+		var r RadarObject
 
-		var (
-			classifier     string
-			start_time     float64
-			end_time       float64
-			max_speed      float64
-			min_speed      float64
-			speed_change   float64
-			frames_per_mps float64
-			length         float64
-			delta_time_ms  int64
-			max_magnitude  int64
-			avg_magnitude  int64
-			total_frames   int64
-		)
+		var startTimeString, endTimeString string
 
 		if err := rows.Scan(
-			&classifier,
-			&start_time,
-			&end_time,
-			&delta_time_ms,
-			&max_speed,
-			&min_speed,
-			&speed_change,
-			&max_magnitude,
-			&avg_magnitude,
-			&total_frames,
-			&frames_per_mps,
-			&length,
+			&r.Classifier,
+			&startTimeString,
+			&endTimeString,
+			&r.DeltaTimeMs,
+			&r.MaxSpeed,
+			&r.MinSpeed,
+			&r.SpeedChange,
+			&r.MaxMagnitude,
+			&r.AvgMagnitude,
+			&r.TotalFrames,
+			&r.FramesPerMps,
+			&r.Length,
 		); err != nil {
 			return nil, err
 		}
-		radar_objects = append(radar_objects, RadarObject{
-			Classifier:   classifier,
-			StartTime:    fmt.Sprintf("%f", start_time),
-			EndTime:      fmt.Sprintf("%f", end_time),
-			DeltaTimeMs:  fmt.Sprintf("%d", delta_time_ms),
-			MaxSpeed:     fmt.Sprintf("%f", max_speed),
-			MinSpeed:     fmt.Sprintf("%f", min_speed),
-			SpeedChange:  fmt.Sprintf("%f", speed_change),
-			MaxMagnitude: fmt.Sprintf("%d", max_magnitude),
-			AvgMagnitude: fmt.Sprintf("%d", avg_magnitude),
-			TotalFrames:  fmt.Sprintf("%d", total_frames),
-			FramesPerMps: fmt.Sprintf("%f", frames_per_mps),
-			Length:       fmt.Sprintf("%f", length),
-		},
-		)
+
+		// split start time string by .
+
+		startTimeParts := strings.SplitN(startTimeString, ".", 2)
+		endTimeParts := strings.SplitN(endTimeString, ".", 2)
+
+		startTimeSeconds, _ := strconv.Atoi(startTimeParts[0])
+		startTimeMilis, _ := strconv.Atoi(startTimeParts[1])
+		endTimeSeconds, _ := strconv.Atoi(endTimeParts[0])
+		endTimeMilis, _ := strconv.Atoi(endTimeParts[1])
+
+		r.StartTime = time.Unix(int64(startTimeSeconds), int64(startTimeMilis)*1000)
+		r.EndTime = time.Unix(int64(endTimeSeconds), int64(endTimeMilis)*1000)
+
+		radar_objects = append(radar_objects, r)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
