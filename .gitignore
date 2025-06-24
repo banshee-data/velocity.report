@@ -3,3 +3,5 @@ backup/
 log/
 app
 mock_serial_port*
+_site
+node_modules
