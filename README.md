@@ -1,70 +1,25 @@
 # velocity.report
 
-A privacy-focused traffic logging tool for neighborhood change-makers. Measure vehicle speeds, make streets safer.
+Static site built with Eleventy and Tailwind CSS.
 
-[![join-us-on-discord](https://github.com/user-attachments/assets/fa329256-aee7-4751-b3c4-d35bdf9287f5)](https://discord.gg/XXh6jXVFkt)
+## Development
 
-```
-                                                ░░░░                            
-                                               ▒▓███▓▓▓▓▒                       
-                                                      ▒▓▒▒                      
-                    ░▓▓▓▓▓▓▓▓▓▓▓▓░                    ░▓▒▒                      
-                    ▒▓▓▓▓▓██████▓▓░                ▒▓██▓▒                       
-                      ▒▒▓▒▓▓░                      ▒▓▒░                         
-                         ░▓▓░                       ▓▒▒                         
-                          ░▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██████▓░                        
-                          ▓▓█▓▒▒▒▒▒▒░░░░            ░▓▓▒                        
-                        ░▓▓▒▓▓░                   ░▒▓▓▓▓░                       
-           ░░▒▒▒▒░     ░▓▒░ ▒▓▒                  ▒▓▓▒ ▓▓▒ ░▒▒▓▓▒▒░              
-        ▒▓▓▓██▓▓▓██▓▓▓▓▓▒   ░▓▓░               ▒▓▓▒   ▒██▓▓█▓▓▓▓▓▓▒▓▓▒░         
-     ░▓▓▓▓▓▒░ ░    ▒▒██▓▒▒   ▒▓▒░            ░▓▓▒   ▓▓█▓█▓    ░░   ▒▒▓▒▓▒       
-    ▒▓▓▓▓░    ░░   ░▓▓░▒▓▓▒   ▒▓▒           ▓▓▓   ░▓▓▓░░▓▓░   ░░      ▒█▓▒▒     
-  ░▒█▒▓░▒     ░░  ░▓▒░  ░▓▓▒░ ░▓▓ ░████▓  ▒█▓░   ▒▓█▒   ░▓▓░  ░░     ▒░░▒█▓▒    
-  ▒▓▒▓   ▒░   ░░ ▒▓▓     ░▓▓▓░ ░▓▒ ░▓▒  ░▓▓▒    ▒▓█▒░▒   ▒█▒  ░    ▒░   ░▒▓▓▒   
- ░▓█▓     ░▒░ ░░▒▓▒       ░▓▓▒░▒▓████▒ ▒▓▓░    ▒▓▓▒    ▒▒ ▓▓▒ ░  ░▒      ░▓▓▒░  
- ▒▓▓▒       ░▒▒▓█▓▓▓███▓▓▓▓████▓█▓▓▒▒▓▓▓▒      ▒█▓░      ░▓▓▓▒▒▒▒         ▒▓▒▒  
- ▒▓▓▒░░▒▒▒▓▒▒▓▓██▓▒▒░▒░░░  ▒▓▒▒▓▓▓▓▓█▓▓▓░      ▒█▓░      ░░░▒█▓▓▒▒▒░░░░░░░▒█▓░  
- ▒▓▓▒       ░▒▒▓▒░         ▓▓▓░▒▓▓▓▓▓▒▒▓░      ▒▓▓▒▒░░░░░   ░▒▓░▒░        ▓▓▓░  
- ░▓█▓░    ░▒░ ░▒  ▒░      ▒▓▓▒  ▒███▓▓▓░       ░▓▓▒       ░░  ░  ░▒░     ░▓▓▓░  
-  ▒▓▓▓░  ▒░    ▒    ▒░   ░▓▓▓░    ▒▓            ▓▓▓░     ▒    ░░   ░▒░  ░▓█▓░   
-   ▒▓▓▓▒░     ░▒     ░▒ ▒▓▓▒     ░▓▒            ░▒▓▓░  ░░     ░░      ▒▒▓▓▓░    
-    ▒▓▓▓▒░     ▒      ░▓▓▓▒     ▓█▓▓█░            ▒▓▓▓▒░      ▒░     ░▓█▓▓░     
-     ░▒▓██▓▒▒  ▒  ░▒▓▓█▓▒░                         ░▓▓█▓▓░    ░░ ░▒▓█▓▓▓░       
-      ░░░▒▒▓▓████▓██▓▓░                ░░             ▒▓▓▓▓██▓▓▓████▓▒░         
-  ░░░░░░░░░░░░▒▒░░░░░░░░░░░░░░░░░░░░░ ░░░░░░░░░░░░░░░░ ░░░▒▒▒▒▓▒▒░░░░░░░░░░     
-      ░░░░░░░░░░░░░░░░░░░░░░ ░░░░ ░░░░░░░░░░  ░░░░░░░░░░░░░░░░░░░░░ ░░░░░░░░░   
-   ░░░ ░░░░░░   ░░░░ ░░░░░░░░░░░░ ░░░░░   ░░░░░░   ░░░░░░ ░░░░░░░░░░░ ░░░░      
-     ░░░    ░░░░   ░░░░ ░░░░    ░░░    ░░░░    ░░░░░   ░░░░░   ░░░░░            
+```bash
+# Install dependencies
+yarn install
+
+# Run dev server (Eleventy + Tailwind watch)
+yarn dev
 ```
 
+## Build
 
-## Build 
-
-Use the following to build the go binary for the Raspberry Pi:
-
-```sh
-GOARCH=arm64 GOOS=linux go build -o app .
+```bash
+yarn build
 ```
 
+Outputs to `_site/` directory.
 
-## Deploy 
+## Deployment
 
-Stop service:
-
-```sh
-sudo systemctl stop go-sensor.service
-```
-
-Copy app
-
-Start service
-
-```sh
-sudo systemctl start go-sensor.service
-```
-
-Monitor logs:
-
-```sh
-sudo journalctl -u go-sensor.service -f
-```
+Automatic deployment to GitHub Pages on push to `gh-pages` branch.
