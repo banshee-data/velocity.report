@@ -36,7 +36,7 @@ var (
 const DB_FILE = "sensor_data.db"
 const SCHEMA_VERSION = "0.0.2"
 
-func handleRollup(d *db.DB, payload string) error {
+func handleRadarObject(d *db.DB, payload string) error {
 	log.Printf("Raw Log Line: %+v", payload)
 
 	// log to the database and return error if present
@@ -75,7 +75,7 @@ func handleConfigResponse(payload string) error {
 func handleEvent(db *db.DB, payload string) error {
 	if strings.Contains(payload, "end_time") || strings.Contains(payload, "classifier") {
 		// This is a rollup event
-		if err := handleRollup(db, payload); err != nil {
+		if err := handleRadarObject(db, payload); err != nil {
 			return fmt.Errorf("failed to handle rollup event: %v", err)
 		}
 	} else if strings.HasPrefix(payload, `{"label`) {
