@@ -104,7 +104,7 @@ type RadarObject struct {
 
 func (e *RadarObject) String() string {
 	return fmt.Sprintf(
-		"Classifier: %s, StartTime: %s, EndTime: %s, DeltaTimeMs: %d, MaxSpeed: %s, MinSpeed: %s, SpeedChange: %s, MaxMagnitude: %s, AvgMagnitude: %s, TotalFrames: %s, FramesPerMps: %s, Length: %s",
+		"Classifier: %s, StartTime: %s, EndTime: %s, DeltaTimeMs: %d, MaxSpeed: %f, MinSpeed: %f, SpeedChange: %f, MaxMagnitude: %d, AvgMagnitude: %d, TotalFrames: %d, FramesPerMps: %f, Length: %f",
 		e.Classifier,
 		e.StartTime,
 		e.EndTime,
