@@ -73,7 +73,7 @@ func handleConfigResponse(payload string) error {
 }
 
 func handleEvent(db *db.DB, payload string) error {
-	if strings.HasPrefix(payload, `{"end_time`) || strings.HasPrefix(payload, `{"classifier`) {
+	if strings.Contains(payload, "end_time") || strings.Contains(payload, "classifier") {
 		// This is a rollup event
 		if err := handleRollup(db, payload); err != nil {
 			return fmt.Errorf("failed to handle rollup event: %v", err)
