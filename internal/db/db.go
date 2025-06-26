@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"time"
@@ -152,9 +153,9 @@ func (db *DB) RadarObjects() ([]RadarObject, error) {
 
 		// Convert float values to seconds and nanoseconds
 		startTimeSeconds := int64(startTimeFloat)
-		startTimeNanos := int64((startTimeFloat - float64(startTimeSeconds)) * 1e9)
+		startTimeNanos := int64(math.Round((startTimeFloat-float64(startTimeSeconds))*1e6) * 1e3) // Round to microseconds, then convert to nanoseconds
 		endTimeSeconds := int64(endTimeFloat)
-		endTimeNanos := int64((endTimeFloat - float64(endTimeSeconds)) * 1e9)
+		endTimeNanos := int64(math.Round((endTimeFloat-float64(endTimeSeconds))*1e6) * 1e3) // Round to microseconds, then convert to nanoseconds
 
 		// Assign the converted times to the RadarObject
 		r.StartTime = time.Unix(startTimeSeconds, startTimeNanos).UTC()

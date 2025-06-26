@@ -44,8 +44,8 @@ func TestRadarEndToEnd(t *testing.T) {
 	// set expectations on the event
 	expectedEvent := db.RadarObject{
 		Classifier:   "object_outbound",
-		StartTime:    time.Date(2025, time.June, 23, 23, 03, 46, 730999946, time.UTC),
-		EndTime:      time.Date(2025, time.June, 23, 23, 03, 46, 467000007, time.UTC),
+		StartTime:    time.Date(2025, time.June, 23, 23, 03, 46, 731000000, time.UTC),
+		EndTime:      time.Date(2025, time.June, 23, 23, 03, 46, 467000000, time.UTC),
 		DeltaTimeMs:  736,
 		MaxSpeed:     13.39,
 		MinSpeed:     11.33,
