@@ -8,8 +8,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/tailscale/tailsql/server/tailsql"
@@ -133,12 +131,12 @@ func (db *DB) RadarObjects() ([]RadarObject, error) {
 	for rows.Next() {
 		var r RadarObject
 
-		var startTimeString, endTimeString string
+		var startTimeFloat, endTimeFloat float64
 
 		if err := rows.Scan(
 			&r.Classifier,
-			&startTimeString,
-			&endTimeString,
+			&startTimeFloat,
+			&endTimeFloat,
 			&r.DeltaTimeMs,
 			&r.MaxSpeed,
 			&r.MinSpeed,
@@ -152,18 +150,15 @@ func (db *DB) RadarObjects() ([]RadarObject, error) {
 			return nil, err
 		}
 
-		// split start time string by .
+		// Convert float values to seconds and nanoseconds
+		startTimeSeconds := int64(startTimeFloat)
+		startTimeNanos := int64((startTimeFloat - float64(startTimeSeconds)) * 1e9)
+		endTimeSeconds := int64(endTimeFloat)
+		endTimeNanos := int64((endTimeFloat - float64(endTimeSeconds)) * 1e9)
 
-		startTimeParts := strings.SplitN(startTimeString, ".", 2)
-		endTimeParts := strings.SplitN(endTimeString, ".", 2)
-
-		startTimeSeconds, _ := strconv.Atoi(startTimeParts[0])
-		startTimeMilis, _ := strconv.Atoi(startTimeParts[1])
-		endTimeSeconds, _ := strconv.Atoi(endTimeParts[0])
-		endTimeMilis, _ := strconv.Atoi(endTimeParts[1])
-
-		r.StartTime = time.Unix(int64(startTimeSeconds), int64(startTimeMilis)*1000)
-		r.EndTime = time.Unix(int64(endTimeSeconds), int64(endTimeMilis)*1000)
+		// Assign the converted times to the RadarObject
+		r.StartTime = time.Unix(startTimeSeconds, startTimeNanos)
+		r.EndTime = time.Unix(endTimeSeconds, endTimeNanos)
 
 		radar_objects = append(radar_objects, r)
 	}
