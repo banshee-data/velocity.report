@@ -157,8 +157,8 @@ func (db *DB) RadarObjects() ([]RadarObject, error) {
 		endTimeNanos := int64((endTimeFloat - float64(endTimeSeconds)) * 1e9)
 
 		// Assign the converted times to the RadarObject
-		r.StartTime = time.Unix(startTimeSeconds, startTimeNanos)
-		r.EndTime = time.Unix(endTimeSeconds, endTimeNanos)
+		r.StartTime = time.Unix(startTimeSeconds, startTimeNanos).UTC()
+		r.EndTime = time.Unix(endTimeSeconds, endTimeNanos).UTC()
 
 		radar_objects = append(radar_objects, r)
 	}
