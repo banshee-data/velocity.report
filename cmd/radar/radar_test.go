@@ -11,8 +11,10 @@ import (
 const fixture string = `{"classifier" : "object_outbound", "end_time" : "1750719826.467", "start_time" : "1750719826.731", "delta_time_msec" : 736, "max_speed_mps" : 13.39, "min_speed_mps" : 11.33, "max_magnitude" : 55, "avg_magnitude" : 36, "total_frames" : 7, "frames_per_mps" : 0.5228, "length_m" : 9.86, "speed_change" : 2.799}`
 
 func TestRadarEndToEnd(t *testing.T) {
-
 	testingDir := t.TempDir()
+
+	// Print out the testing directory for debugging purposes
+	t.Logf("Testing directory: %s", testingDir)
 
 	// Initialize the database
 	d, err := db.NewDB(testingDir + "/test_sensor_data.db")
@@ -41,8 +43,8 @@ func TestRadarEndToEnd(t *testing.T) {
 	}
 	// set expectations on the event
 	expectedEvent := db.RadarObject{
-		Classifier: "object_outbound",
-		// StartTime:    "155904.731",
+		Classifier:   "object_outbound",
+		StartTime:    time.Date(2024, time.June, 26, 13, 0, 0, 0, time.UTC),
 		EndTime:      time.Now(),
 		DeltaTimeMs:  736,
 		MaxSpeed:     13.39,
