@@ -37,14 +37,14 @@ const DB_FILE = "sensor_data.db"
 const SCHEMA_VERSION = "0.0.2"
 
 func handleRadarObject(d *db.DB, payload string) error {
-	log.Printf("Raw Log Line: %+v", payload)
+	log.Printf("Raw RadarObject Line: %+v", payload)
 
 	// log to the database and return error if present
 	return d.RecordRadarObject(payload)
 }
 
 func handleRawData(payload string) error {
-	log.Printf("Raw Log Line: %+v", payload)
+	log.Printf("Raw Data Line: %+v", payload)
 
 	return nil
 }
@@ -76,9 +76,9 @@ func handleEvent(db *db.DB, payload string) error {
 	if strings.Contains(payload, "end_time") || strings.Contains(payload, "classifier") {
 		// This is a rollup event
 		if err := handleRadarObject(db, payload); err != nil {
-			return fmt.Errorf("failed to handle rollup event: %v", err)
+			return fmt.Errorf("failed to handle RadarObject event: %v", err)
 		}
-	} else if strings.HasPrefix(payload, `{"label`) {
+	} else if strings.Contains(payload, `magnitude`) || strings.Contains(payload, `speed`) {
 		// This is a raw data event
 		handleRawData(payload)
 	} else if strings.HasPrefix(payload, `{`) {
