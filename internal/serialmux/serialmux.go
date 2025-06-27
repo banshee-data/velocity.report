@@ -174,7 +174,7 @@ func (s *SerialMux[T]) Monitor(ctx context.Context) error {
 		}
 		if err := scan.Err(); err != nil {
 			select {
-			case errChan <- err:
+			case scanErrChan <- err:
 			case <-ctx.Done():
 			}
 		}
@@ -187,7 +187,7 @@ func (s *SerialMux[T]) Monitor(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 
-		case err := <-errChan:
+		case err := <-scanErrChan:
 			return err
 
 		case line, ok := <-lineChan:
