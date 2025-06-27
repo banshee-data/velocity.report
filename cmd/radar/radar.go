@@ -43,10 +43,10 @@ func handleRadarObject(d *db.DB, payload string) error {
 	return d.RecordRadarObject(payload)
 }
 
-func handleRawData(payload string) error {
+func handleRawData(d *db.DB, payload string) error {
 	log.Printf("Raw Data Line: %+v", payload)
 
-	return nil
+	return d.RecordRawData(payload)
 }
 
 var CurrentState map[string]any
@@ -80,7 +80,7 @@ func handleEvent(db *db.DB, payload string) error {
 		}
 	} else if strings.Contains(payload, `magnitude`) || strings.Contains(payload, `speed`) {
 		// This is a raw data event
-		handleRawData(payload)
+		handleRawData(db, payload)
 	} else if strings.HasPrefix(payload, `{`) {
 		// This is a config response
 		if err := handleConfigResponse(payload); err != nil {

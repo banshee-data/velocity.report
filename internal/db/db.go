@@ -169,7 +169,7 @@ func (db *DB) RadarObjects() ([]RadarObject, error) {
 	return radar_objects, nil
 }
 
-func (db *DB) RecordObservation(rawDataJSON string) error {
+func (db *DB) RecordRawData(rawDataJSON string) error {
 	var err error
 	if rawDataJSON == "" {
 		return fmt.Errorf("rawDataJSON cannot be empty")
