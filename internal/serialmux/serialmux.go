@@ -156,10 +156,10 @@ func (s *SerialMux[T]) Monitor(ctx context.Context) error {
 	scan := bufio.NewScanner(s.port)
 
 	lineChan := make(chan string)
-	errChan := make(chan error, 1)
+	scanErrChan := make(chan error, 1)
 
 	// start a goroutine to read from the serial port & send any lines that are scanned to linesChan.
-	// and any errors to the errChan
+	// and any errors to the scanErrChan
 	//
 	// the blocking scan.Scan will not interfere with our outer loop awaiting
 	// lines & context cancellation.
@@ -193,6 +193,9 @@ func (s *SerialMux[T]) Monitor(ctx context.Context) error {
 		case line, ok := <-lineChan:
 			// if the channel is closed, we're done reading from the serial port
 			if !ok {
+				if err := scan.Err(); err != nil {
+					return err
+				}
 				return nil
 			}
 			// Check if we're closing
