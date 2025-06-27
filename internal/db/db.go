@@ -28,10 +28,11 @@ func NewDB(path string) (*DB, error) {
 
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS data (
-			uptime            DOUBLE,
-			magnitude         DOUBLE,
-			speed             DOUBLE,
-			timestamp         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			timestamp         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			raw_event         JSON NOT NULL,
+			uptime            DOUBLE AS (json_extract(raw_event, '$.uptime'))                                        STORED,
+			magnitude         DOUBLE AS (json_extract(raw_event, '$.magnitude'))                                     STORED,
+			speed             DOUBLE AS (json_extract(raw_event, '$.speed'))                                         STORED
 		);
 		CREATE TABLE IF NOT EXISTS radar_objects (
 			write_timestamp   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -68,10 +69,8 @@ func NewDB(path string) (*DB, error) {
 
 	return &DB{db}, nil
 }
-func (db *DB) RecordRadarObject(
-	rawRadarJSON string,
-) error {
 
+func (db *DB) RecordRadarObject(rawRadarJSON string) error {
 	var err error
 	if rawRadarJSON == "" {
 		return fmt.Errorf("rawRadarJSON cannot be empty")
@@ -170,8 +169,13 @@ func (db *DB) RadarObjects() ([]RadarObject, error) {
 	return radar_objects, nil
 }
 
-func (db *DB) RecordObservation(uptime, magnitude, speed float64) error {
-	_, err := db.Exec("INSERT INTO data (uptime, magnitude, speed) VALUES (?, ?, ?)", uptime, magnitude, speed)
+func (db *DB) RecordObservation(rawDataJSON string) error {
+	var err error
+	if rawDataJSON == "" {
+		return fmt.Errorf("rawDataJSON cannot be empty")
+	}
+
+	_, err = db.Exec(`INSERT INTO data (raw_event) VALUES (?)`, rawDataJSON)
 	if err != nil {
 		return err
 	}
