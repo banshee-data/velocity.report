@@ -46,6 +46,7 @@ func handleRadarObject(d *db.DB, payload string) error {
 func handleRawData(d *db.DB, payload string) error {
 	log.Printf("Raw Data Line: %+v", payload)
 
+	// TODO: disable via flag/config
 	return d.RecordRawData(payload)
 }
 
