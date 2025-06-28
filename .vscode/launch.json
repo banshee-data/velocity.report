@@ -5,12 +5,20 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "debug development server",
+      "name": "debug radar server (ttyACM1)",
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "${workspaceFolder}",
-      "args": ["-dev", "-listen", "localhost:5000"]
+      "program": "${workspaceFolder}/cmd/radar",
+      "args": ["-port", "/dev/ttyACM1"]
+    },
+    {
+      "name": "debug radar server (dev mode)",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/cmd/radar",
+      "args": ["-dev"]
     }
   ]
 }

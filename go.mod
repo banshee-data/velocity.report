@@ -1,10 +1,9 @@
-module github.com/banshee-data/radar
+module github.com/banshee-data/velocity.report
 
-go 1.24.0
-
-toolchain go1.24.3
+go 1.24.4
 
 require (
+	github.com/google/go-cmp v0.7.0
 	github.com/tailscale/tailsql v0.0.0-20250421235516-02f85f087b97
 	go.bug.st/serial v1.6.4
 	modernc.org/sqlite v1.34.4
