@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"time"
@@ -27,25 +28,27 @@ func NewDB(path string) (*DB, error) {
 
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS data (
-			uptime            DOUBLE,
-			magnitude         DOUBLE,
-			speed             DOUBLE,
-			timestamp         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			timestamp         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			raw_event         JSON NOT NULL,
+			uptime            DOUBLE AS (json_extract(raw_event, '$.uptime'))                                        STORED,
+			magnitude         DOUBLE AS (json_extract(raw_event, '$.magnitude'))                                     STORED,
+			speed             DOUBLE AS (json_extract(raw_event, '$.speed'))                                         STORED
 		);
 		CREATE TABLE IF NOT EXISTS radar_objects (
-			classifier        TEXT,
-			start_time        DOUBLE,
-			end_time          DOUBLE,
-			delta_time_ms     BIGINT,
-			max_speed         DOUBLE,
-			min_speed         DOUBLE,
-			speed_change      DOUBLE,
-			max_magnitude     BIGINT,
-			avg_magnitude     BIGINT,
-			total_frames      BIGINT,
-			frames_per_unit_speed  DOUBLE,
-			length            DOUBLE,
-			timestamp         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			write_timestamp   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      raw_event         JSON NOT NULL,
+			classifier        TEXT NOT NULL   AS (json_extract(raw_event, '$.classifier'))                           STORED,
+			start_time        DOUBLE NOT NULL AS (json_extract(raw_event, '$.start_time'))                           STORED,
+			end_time          DOUBLE NOT NULL AS (json_extract(raw_event, '$.end_time'))                             STORED,
+			delta_time_ms     BIGINT NOT NULL AS (json_extract(raw_event, '$.delta_time_msec'))                      STORED,
+			max_speed         DOUBLE NOT NULL AS (json_extract(raw_event, '$.max_speed_mps'))                        STORED,
+			min_speed         DOUBLE NOT NULL AS (json_extract(raw_event, '$.min_speed_mps'))                        STORED,
+			speed_change      DOUBLE NOT NULL AS (json_extract(raw_event, '$.speed_change'))                         STORED,
+			max_magnitude     BIGINT NOT NULL AS (json_extract(raw_event, '$.max_magnitude'))                        STORED,
+			avg_magnitude     BIGINT NOT NULL AS (json_extract(raw_event, '$.avg_magnitude'))                        STORED,
+			total_frames      BIGINT NOT NULL AS (json_extract(raw_event, '$.total_frames'))                         STORED,
+			frames_per_mps    DOUBLE NOT NULL AS (json_extract(raw_event, '$.frames_per_mps'))                       STORED,
+			length            DOUBLE NOT NULL AS (json_extract(raw_event, '$.length_m'))                             STORED
 		);
 		CREATE TABLE IF NOT EXISTS commands (
 			command_id        BIGINT PRIMARY KEY,
@@ -66,23 +69,15 @@ func NewDB(path string) (*DB, error) {
 
 	return &DB{db}, nil
 }
-func (db *DB) RecordRadarObject(
-	classifier string,
-	start_time, end_time float64,
-	delta_time_ms int64,
-	max_speed, min_speed, speed_change float64,
-	max_magnitude, avg_magnitude, total_frames int64,
-	frames_per_unit_speed, length float64,
-) error {
-	_, err := db.Exec(
-		`INSERT INTO radar_objects (
-			classifier, start_time, end_time, delta_time_ms, max_speed, min_speed,
-			speed_change, max_magnitude, avg_magnitude, total_frames,
-			frames_per_unit_speed, length
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		classifier, start_time, end_time, delta_time_ms, max_speed, min_speed,
-		speed_change, max_magnitude, avg_magnitude, total_frames,
-		frames_per_unit_speed, length,
+
+func (db *DB) RecordRadarObject(rawRadarJSON string) error {
+	var err error
+	if rawRadarJSON == "" {
+		return fmt.Errorf("rawRadarJSON cannot be empty")
+	}
+
+	_, err = db.Exec(
+		`INSERT INTO radar_objects (raw_event) VALUES (?)`, rawRadarJSON,
 	)
 	if err != nil {
 		return err
@@ -91,23 +86,23 @@ func (db *DB) RecordRadarObject(
 }
 
 type RadarObject struct {
-	Classifier         string
-	StartTime          float64
-	EndTime            float64
-	DeltaTimeMs        int64
-	MaxSpeed           float64
-	MinSpeed           float64
-	SpeedChange        float64
-	MaxMagnitude       int64
-	AvgMagnitude       int64
-	TotalFrames        int64
-	FramesPerUnitSpeed float64
-	Length             float64
+	Classifier   string
+	StartTime    time.Time
+	EndTime      time.Time
+	DeltaTimeMs  int64
+	MaxSpeed     float64
+	MinSpeed     float64
+	SpeedChange  float64
+	MaxMagnitude int64
+	AvgMagnitude int64
+	TotalFrames  int64
+	FramesPerMps float64
+	Length       float64
 }
 
 func (e *RadarObject) String() string {
 	return fmt.Sprintf(
-		"Classifier: %s, StartTime: %f, EndTime: %f, DeltaTimeMs: %d, MaxSpeed: %f, MinSpeed: %f, SpeedChange: %f, MaxMagnitude: %d, AvgMagnitude: %d, TotalFrames: %d, FramesPerUnitSpeed: %f, Length: %f",
+		"Classifier: %s, StartTime: %s, EndTime: %s, DeltaTimeMs: %d, MaxSpeed: %f, MinSpeed: %f, SpeedChange: %f, MaxMagnitude: %d, AvgMagnitude: %d, TotalFrames: %d, FramesPerMps: %f, Length: %f",
 		e.Classifier,
 		e.StartTime,
 		e.EndTime,
@@ -118,7 +113,7 @@ func (e *RadarObject) String() string {
 		e.MaxMagnitude,
 		e.AvgMagnitude,
 		e.TotalFrames,
-		e.FramesPerUnitSpeed,
+		e.FramesPerMps,
 		e.Length,
 	)
 }
@@ -126,7 +121,7 @@ func (e *RadarObject) String() string {
 func (db *DB) RadarObjects() ([]RadarObject, error) {
 	rows, err := db.Query(`SELECT classifier, start_time, end_time, delta_time_ms, max_speed, min_speed,
 			speed_change, max_magnitude, avg_magnitude, total_frames,
-			frames_per_unit_speed, length FROM radar_objects ORDER BY timestamp DESC LIMIT 100`)
+			frames_per_mps, length FROM radar_objects ORDER BY write_timestamp DESC LIMIT 100`)
 	if err != nil {
 		return nil, err
 	}
@@ -134,53 +129,38 @@ func (db *DB) RadarObjects() ([]RadarObject, error) {
 
 	var radar_objects []RadarObject
 	for rows.Next() {
+		var r RadarObject
 
-		var (
-			classifier            string
-			start_time            float64
-			end_time              float64
-			max_speed             float64
-			min_speed             float64
-			speed_change          float64
-			frames_per_unit_speed float64
-			length                float64
-			delta_time_ms         int64
-			max_magnitude         int64
-			avg_magnitude         int64
-			total_frames          int64
-		)
+		var startTimeFloat, endTimeFloat float64
 
 		if err := rows.Scan(
-			&classifier,
-			&start_time,
-			&end_time,
-			&delta_time_ms,
-			&max_speed,
-			&min_speed,
-			&speed_change,
-			&max_magnitude,
-			&avg_magnitude,
-			&total_frames,
-			&frames_per_unit_speed,
-			&length,
+			&r.Classifier,
+			&startTimeFloat,
+			&endTimeFloat,
+			&r.DeltaTimeMs,
+			&r.MaxSpeed,
+			&r.MinSpeed,
+			&r.SpeedChange,
+			&r.MaxMagnitude,
+			&r.AvgMagnitude,
+			&r.TotalFrames,
+			&r.FramesPerMps,
+			&r.Length,
 		); err != nil {
 			return nil, err
 		}
-		radar_objects = append(radar_objects, RadarObject{
-			Classifier:         classifier,
-			StartTime:          start_time,
-			EndTime:            end_time,
-			DeltaTimeMs:        delta_time_ms,
-			MaxSpeed:           max_speed,
-			MinSpeed:           min_speed,
-			SpeedChange:        speed_change,
-			MaxMagnitude:       max_magnitude,
-			AvgMagnitude:       avg_magnitude,
-			TotalFrames:        total_frames,
-			FramesPerUnitSpeed: frames_per_unit_speed,
-			Length:             length,
-		},
-		)
+
+		// Convert float values to seconds and nanoseconds
+		startTimeSeconds := int64(startTimeFloat)
+		startTimeNanos := int64(math.Round((startTimeFloat-float64(startTimeSeconds))*1e6) * 1e3) // Round to microseconds, then convert to nanoseconds
+		endTimeSeconds := int64(endTimeFloat)
+		endTimeNanos := int64(math.Round((endTimeFloat-float64(endTimeSeconds))*1e6) * 1e3) // Round to microseconds, then convert to nanoseconds
+
+		// Assign the converted times to the RadarObject
+		r.StartTime = time.Unix(startTimeSeconds, startTimeNanos).UTC()
+		r.EndTime = time.Unix(endTimeSeconds, endTimeNanos).UTC()
+
+		radar_objects = append(radar_objects, r)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -189,8 +169,13 @@ func (db *DB) RadarObjects() ([]RadarObject, error) {
 	return radar_objects, nil
 }
 
-func (db *DB) RecordObservation(uptime, magnitude, speed float64) error {
-	_, err := db.Exec("INSERT INTO data (uptime, magnitude, speed) VALUES (?, ?, ?)", uptime, magnitude, speed)
+func (db *DB) RecordRawData(rawDataJSON string) error {
+	var err error
+	if rawDataJSON == "" {
+		return fmt.Errorf("rawDataJSON cannot be empty")
+	}
+
+	_, err = db.Exec(`INSERT INTO data (raw_event) VALUES (?)`, rawDataJSON)
 	if err != nil {
 		return err
 	}
