@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"tailscale.com/tsweb"
 )
@@ -34,6 +35,8 @@ type SerialMux[T SerialPorter] struct {
 	subscribers  map[string]chan string
 	subscriberMu sync.Mutex
 	commandMu    sync.Mutex
+	closing      bool
+	closingMu    sync.Mutex
 }
 
 // SerialMuxInterface defines the interface for the SerialMux type.
@@ -51,6 +54,8 @@ type SerialMuxInterface interface {
 	Monitor(context.Context) error
 	// Close closes all subscribed channels and closes the serial port.
 	Close() error
+
+	Initialize() error
 
 	// AttachAdminRoutes attaches admin debugging endpoints to the given HTTP
 	// mux served at /debug/. These routes are accessible only over
@@ -89,7 +94,44 @@ func (s *SerialMux[T]) Subscribe() (string, chan string) {
 func (s *SerialMux[T]) Unsubscribe(id string) {
 	s.subscriberMu.Lock()
 	defer s.subscriberMu.Unlock()
-	delete(s.subscribers, id)
+	if ch, ok := s.subscribers[id]; ok {
+		close(ch)
+		delete(s.subscribers, id)
+	}
+}
+
+// Initialize syncs the clock and TZ offset to the device and sets some default
+// output modes to ensure that we can parse the results.
+func (s *SerialMux[T]) Initialize() error {
+	// sync the clock to the current UNIX time
+	command := fmt.Sprintf("C=%d", time.Now().Unix())
+	if err := s.SendCommand(command); err != nil {
+		return fmt.Errorf("failed to synchronize clock: %w", err)
+	}
+
+	// set the TZ name and offset based on current local to format timestamps
+	tzName, tsOffsetSeconds := time.Now().Local().Zone()
+	command = fmt.Sprintf("CZ%s%d", tzName, tsOffsetSeconds/60/60)
+	if err := s.SendCommand(command); err != nil {
+		return fmt.Errorf("failed to set timezone: %w", err)
+	}
+
+	for _, command := range []string{
+		"AX", // reset to factory defaults
+		"OJ", // set output format to JSON
+		"OS", // enable speed reporting from doppler radar
+		"oD", // enable range reporting from FMCW radar
+		"OM", // enable magnitude of speed measurement
+		"oM", // enable magnitude of range measurement
+		"OH", // enable human-readable timestamp w/ event
+		"OC", // enable object detection
+	} {
+		if err := s.SendCommand(command); err != nil {
+			return fmt.Errorf("failed to send start command %q: %w", command, err)
+		}
+	}
+
+	return nil
 }
 
 // SendCommand sends a command to the serial port.
@@ -114,8 +156,10 @@ func (s *SerialMux[T]) Monitor(ctx context.Context) error {
 	scan := bufio.NewScanner(s.port)
 
 	lineChan := make(chan string)
+	scanErrChan := make(chan error, 1)
+
 	// start a goroutine to read from the serial port & send any lines that are scanned to linesChan.
-	// and any errors to the errChan
+	// and any errors to the scanErrChan
 	//
 	// the blocking scan.Scan will not interfere with our outer loop awaiting
 	// lines & context cancellation.
@@ -128,6 +172,12 @@ func (s *SerialMux[T]) Monitor(ctx context.Context) error {
 				return
 			}
 		}
+		if err := scan.Err(); err != nil {
+			select {
+			case scanErrChan <- err:
+			case <-ctx.Done():
+			}
+		}
 	}()
 
 	for {
@@ -137,12 +187,25 @@ func (s *SerialMux[T]) Monitor(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 
+		case err := <-scanErrChan:
+			return err
+
 		case line, ok := <-lineChan:
 			// if the channel is closed, we're done reading from the serial port
-			// so we should return any final scanner error
 			if !ok {
-				return scan.Err()
+				if err := scan.Err(); err != nil {
+					return err
+				}
+				return nil
 			}
+			// Check if we're closing
+			s.closingMu.Lock()
+			if s.closing {
+				s.closingMu.Unlock()
+				return nil
+			}
+			s.closingMu.Unlock()
+
 			// otherwise take a read lock on the subscriber map
 			s.subscriberMu.Lock()
 			for _, ch := range s.subscribers {
@@ -158,12 +221,16 @@ func (s *SerialMux[T]) Monitor(ctx context.Context) error {
 }
 
 func (s *SerialMux[T]) Close() error {
+	s.closingMu.Lock()
+	s.closing = true
+	s.closingMu.Unlock()
+
 	s.subscriberMu.Lock()
 	defer s.subscriberMu.Unlock()
-	for _, ch := range s.subscribers {
+	for id, ch := range s.subscribers {
 		close(ch)
+		delete(s.subscribers, id)
 	}
-	s.subscribers = make(map[string]chan string)
 	return s.port.Close()
 }
 
@@ -207,15 +274,24 @@ func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
+		w.Header().Set("X-Accel-Buffering", "no") // Disable buffering for nginx
 
 		id, c := s.Subscribe()
 		defer s.Unsubscribe(id)
+
+		// Send initial ping to establish connection
+		w.Write([]byte(": ping\n\n"))
+		w.(http.Flusher).Flush()
+
 		for {
 			select {
-			case payload := <-c:
+			case payload, ok := <-c:
+				if !ok {
+					// Channel closed, exit gracefully
+					return
+				}
 				_, err := w.Write([]byte(fmt.Sprintf("data: %s\n\n", payload)))
 				if err != nil {
-					http.Error(w, "Failed to write event", http.StatusInternalServerError)
 					return
 				}
 				w.(http.Flusher).Flush()

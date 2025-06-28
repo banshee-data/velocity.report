@@ -11,13 +11,15 @@ import (
 type MockSerialPort struct {
 	io.Reader
 	io.WriteCloser
-	o io.Writer
+}
+
+func (m *MockSerialPort) SyncClock() error {
+	// Mock implementation does nothing
+	return nil
 }
 
 func (m *MockSerialPort) Write(p []byte) (n int, err error) {
-	n, err = m.WriteCloser.Write(p)
-	m.o.Write(p)
-	return n, err
+	return m.WriteCloser.Write(p)
 }
 
 // NewMockSerialMux creates a SerialMux instance backed by a mock serial port
@@ -30,9 +32,8 @@ func NewMockSerialMux(mockLine []byte) *SerialMux[*MockSerialPort] {
 	log.Printf("Writing mock serial port received input at %s", f.Name())
 
 	mockPort := &MockSerialPort{
-		r,
-		f,
-		w,
+		Reader:      r,
+		WriteCloser: f,
 	}
 
 	// generate data periodically to simulate serial port input
@@ -45,5 +46,5 @@ func NewMockSerialMux(mockLine []byte) *SerialMux[*MockSerialPort] {
 		}
 	}()
 
-	return NewSerialMux[*MockSerialPort](mockPort)
+	return NewSerialMux(mockPort)
 }
