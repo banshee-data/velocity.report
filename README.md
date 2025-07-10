@@ -2,7 +2,7 @@
 
 A privacy-focused traffic logging tool for neighborhood change-makers. Measure vehicle speeds, make streets safer.
 
-[![join-us-on-discord](https://github.com/user-attachments/assets/7989fe37-858c-406c-b9d6-84b5e7cf2454)](https://discord.gg/XXh6jXVFkt)
+[![join-us-on-discord](https://github.com/user-attachments/assets/fa329256-aee7-4751-b3c4-d35bdf9287f5)](https://discord.gg/XXh6jXVFkt)
 
 ```
                                                 ░░░░                            
