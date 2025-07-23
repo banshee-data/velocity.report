@@ -1,6 +1,12 @@
+_site/
+.cache/
+.DS_Store
+.env
+*.log
 *.db
 backup/
 log/
 app
 mock_serial_port*
 /radar
+node_modules/

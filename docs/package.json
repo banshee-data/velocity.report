@@ -1,0 +1,26 @@
+{
+  "name": "velocity.report",
+  "version": "1.0.0",
+  "description": "https://velocity.report",
+  "main": "index.js",
+  "scripts": {
+    "start": "npm run dev",
+    "dev": "npm-run-all --parallel dev:*",
+    "dev:eleventy": "eleventy --serve --port=8080",
+    "dev:css": "tailwindcss -i ./src/css/style.css -o ./_site/css/style.css --watch",
+    "build": "npm-run-all build:css build:eleventy",
+    "build:css": "tailwindcss -i ./src/css/style.css -o ./_site/css/style.css --minify",
+    "build:eleventy": "eleventy",
+    "clean": "rm -rf _site"
+  },
+  "keywords": [],
+  "author": "Banshee Data",
+  "license": "Apache",
+  "devDependencies": {
+    "@11ty/eleventy": "^2.0.1",
+    "autoprefixer": "^10.4.16",
+    "npm-run-all": "^4.1.5",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.3.6"
+  }
+}
