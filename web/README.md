@@ -9,7 +9,7 @@ This is the velocity.report frontend web application, built with the following t
 
 ## Developing
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+Once you've created a project and installed dependencies with `npm install` start a development server:
 
 ```sh
 npm run dev -- --open
