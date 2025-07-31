@@ -3,6 +3,13 @@
 	"private": true,
 	"version": "0.0.1",
 	"type": "module",
+	"author": "Banshee, INC.",
+	"license": "Apache-2.0",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/banshee-data/velocity.report.git",
+		"directory": "web"
+	},
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
