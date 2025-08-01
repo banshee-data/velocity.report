@@ -20,6 +20,10 @@
 		"format": "prettier --write .",
 		"lint": "prettier --check . && eslint ."
 	},
+	"dependencies": {
+		"@sveltejs/adapter-static": "^3.0.8",
+		"svelte-ux": "^2.0.0-next.17"
+	},
 	"devDependencies": {
 		"@eslint/compat": "^1.2.5",
 		"@eslint/js": "^9.18.0",
@@ -40,9 +44,5 @@
 		"tailwindcss": "^4.0.0",
 		"typescript": "^5.0.0",
 		"vite": "^7.0.4"
-	},
-	"dependencies": {
-		"@sveltejs/adapter-static": "^3.0.8",
-		"svelte-ux": "^2.0.0-next.17"
 	}
 }
