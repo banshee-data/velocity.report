@@ -169,6 +169,29 @@ func (db *DB) RadarObjects() ([]RadarObject, error) {
 	return radar_objects, nil
 }
 
+// RadarObjectsRollupRow represents an aggregate row for radar object rollup.
+type RadarObjectsRollupRow struct {
+	StartTimeBucket time.Time
+	TimeBucketCount int64
+	Count           int64
+	P50Speed        float64
+	P85Speed        float64
+	P98Speed        float64
+	MaxSpeed        float64
+	Classifier      *string
+}
+
+// RadarObjectRollup presents an aggregate view of the radar objects, to feed a percentile and/or volume graph
+func (db *DB) RadarObjectRollup() ([]RadarObjectsRollupRow, error) {
+	rows, err := db.Query(`SELECT 1;`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return nil, nil
+}
+
 func (db *DB) RecordRawData(rawDataJSON string) error {
 	var err error
 	if rawDataJSON == "" {
