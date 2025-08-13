@@ -1,13 +1,12 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
+
 @import '@layerstack/tailwind/core.css';
 @import '@layerstack/tailwind/utils.css';
 @import '@layerstack/tailwind/themes/basic.css';
-/* Note: Theme choice explained below */
 
 @source '../../node_modules/svelte-ux/dist';
 @source '../../node_modules/layerchart/dist';
-/* if using LayerChart */
 
 /*
 You can customize your theme as you see fit using CSS variables.
