@@ -20,7 +20,7 @@
 	{/snippet}
 
 	<AppBar title="Velocity Report">
-		<div class="absolute left-0 top-0 z-10 w-full px-2 py-1 text-right">
+		<div class="absolute top-0 left-0 z-10 w-full px-2 py-1 text-right">
 			<ThemeSelect />
 		</div>
 	</AppBar>

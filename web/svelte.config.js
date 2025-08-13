@@ -3,7 +3,7 @@ import adapter from '@sveltejs/adapter-static';
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
 	kit: {
-		// Using Static adapter for static site generation 
+		// Using Static adapter for static site generation
 		// https://svelte.dev/docs/kit/adapter-static
 		adapter: adapter({
 			pages: 'build',

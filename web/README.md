@@ -2,11 +2,11 @@
 
 This is the velocity.report frontend web application, built with the following technologies:
 
-* [svelte](https://svelte.dev/)
-* [@sveltejs/adapter-static](https://github.com/sveltejs/kit/tree/main/packages/adapter-static)
-* [svelte-ux](https://svelte-ux.techniq.dev/)
-* [tailwindcss](https://tailwindcss.com/)
-* [LayerChart](https://www.layerchart.com/)
+- [svelte](https://svelte.dev/)
+- [@sveltejs/adapter-static](https://github.com/sveltejs/kit/tree/main/packages/adapter-static)
+- [svelte-ux](https://svelte-ux.techniq.dev/)
+- [tailwindcss](https://tailwindcss.com/)
+- [LayerChart](https://www.layerchart.com/)
 
 ## Developing
 
