@@ -3,6 +3,7 @@
 	import { AppLayout } from 'svelte-ux';
 	import favicon from '$lib/assets/favicon.svg';
 
+	/** @type {{ children?: import('svelte').Snippet }} */
 	let { children } = $props();
 </script>
 
