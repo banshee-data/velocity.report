@@ -3,16 +3,17 @@
 This is the velocity.report frontend web application, built with the following technologies:
 
 * [svelte](https://svelte.dev/)
+* [@sveltejs/adapter-static](https://github.com/sveltejs/kit/tree/main/packages/adapter-static)
 * [svelte-ux](https://svelte-ux.techniq.dev/)
 * [tailwindcss](https://tailwindcss.com/)
 * [LayerChart](https://www.layerchart.com/)
 
 ## Developing
 
-Once you've created a project and installed dependencies with `npm install` start a development server:
+We use pnpm for development, ([pnpm installation instructions](https://pnpm.io/installation)). Once you've cloned the repo and installed dependencies with `pnpm install` start a development server:
 
 ```sh
-npm run dev -- --open
+pnpm run dev --open
 ```
 
 ## Building
@@ -20,7 +21,7 @@ npm run dev -- --open
 To create a production version of your app:
 
 ```sh
-npm run build
+pnpm run build
 ```
 
-You can preview the production build with `npm run preview`.
+You can preview the production build with `pnpm run preview`.
