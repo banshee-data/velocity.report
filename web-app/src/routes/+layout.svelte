@@ -2,14 +2,15 @@
 	import './app.css';
 
 	import { AppLayout, Tooltip, Button, AppBar, ThemeSelect } from 'svelte-ux';
+	import NavMenu from './_NavMenu.svelte';
 
 	let { children } = $props();
 </script>
 
 <AppLayout>
-	<svelte:fragment slot="nav">
-		<!-- Nav menu -->
-	</svelte:fragment>
+	{#snippet nav()}
+		<NavMenu />
+	{/snippet}
 
 	<AppBar title="velocity.report">
 		<div slot="actions" class="flex items-center gap-2">
