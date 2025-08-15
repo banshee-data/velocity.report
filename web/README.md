@@ -1,19 +1,28 @@
-# velocity.report/web
+# sv
 
-This is the velocity.report frontend web application, built with the following technologies:
+Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
 
-- [svelte](https://svelte.dev/)
-- [@sveltejs/adapter-static](https://github.com/sveltejs/kit/tree/main/packages/adapter-static)
-- [svelte-ux](https://svelte-ux.techniq.dev/)
-- [tailwindcss](https://tailwindcss.com/)
-- [LayerChart](https://www.layerchart.com/)
+## Creating a project
+
+If you're seeing this, you've probably already done this step. Congrats!
+
+```sh
+# create a new project in the current directory
+npx sv create
+
+# create a new project in my-app
+npx sv create my-app
+```
 
 ## Developing
 
-We use pnpm for development, ([pnpm installation instructions](https://pnpm.io/installation)). Once you've cloned the repo and installed dependencies with `pnpm install` start a development server:
+Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
 
 ```sh
-pnpm run dev --open
+npm run dev
+
+# or start the server and open the app in a new browser tab
+npm run dev -- --open
 ```
 
 ## Building
@@ -21,7 +30,9 @@ pnpm run dev --open
 To create a production version of your app:
 
 ```sh
-pnpm run build
+npm run build
 ```
 
-You can preview the production build with `pnpm run preview`.
+You can preview the production build with `npm run preview`.
+
+> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
