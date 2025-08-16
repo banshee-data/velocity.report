@@ -28,14 +28,14 @@ func NewDB(path string) (*DB, error) {
 
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS data (
-			timestamp         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			write_timestamp   DOUBLE DEFAULT (unixepoch('subsec')),
 			raw_event         JSON NOT NULL,
 			uptime            DOUBLE AS (json_extract(raw_event, '$.uptime'))                                        STORED,
 			magnitude         DOUBLE AS (json_extract(raw_event, '$.magnitude'))                                     STORED,
 			speed             DOUBLE AS (json_extract(raw_event, '$.speed'))                                         STORED
 		);
 		CREATE TABLE IF NOT EXISTS radar_objects (
-			write_timestamp   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			write_timestamp   DOUBLE DEFAULT (unixepoch('subsec')),
       raw_event         JSON NOT NULL,
 			classifier        TEXT NOT NULL   AS (json_extract(raw_event, '$.classifier'))                           STORED,
 			start_time        DOUBLE NOT NULL AS (json_extract(raw_event, '$.start_time'))                           STORED,
@@ -53,13 +53,13 @@ func NewDB(path string) (*DB, error) {
 		CREATE TABLE IF NOT EXISTS commands (
 			command_id        BIGINT PRIMARY KEY,
 			command           TEXT,
-			timestamp         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			write_timestamp   DOUBLE DEFAULT (unixepoch('subsec'))
 		);
 		CREATE TABLE IF NOT EXISTS log (
 			log_id            BIGINT PRIMARY KEY,
 			command_id        BIGINT,
 			log_data          TEXT,
-			timestamp         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			write_timestamp   DOUBLE DEFAULT (unixepoch('subsec')),
 			FOREIGN KEY(command_id) REFERENCES commands(command_id)
 		);
 	`)
@@ -171,25 +171,85 @@ func (db *DB) RadarObjects() ([]RadarObject, error) {
 
 // RadarObjectsRollupRow represents an aggregate row for radar object rollup.
 type RadarObjectsRollupRow struct {
-	StartTimeBucket time.Time
-	TimeBucketCount int64
-	Count           int64
-	P50Speed        float64
-	P85Speed        float64
-	P98Speed        float64
-	MaxSpeed        float64
-	Classifier      *string
+	StartTime time.Time
+	// TimeBucketCount int64
+	Count      int64
+	P50Speed   float64
+	P85Speed   float64
+	P98Speed   float64
+	MaxSpeed   float64
+	Classifier *string
+}
+
+func classifier(mag int64) string {
+	switch {
+	case mag < 40:
+		return "ped"
+	case mag < 150:
+		return "car"
+	default:
+		return "truck"
+	}
 }
 
 // RadarObjectRollup presents an aggregate view of the radar objects, to feed a percentile and/or volume graph
 func (db *DB) RadarObjectRollup() ([]RadarObjectsRollupRow, error) {
-	rows, err := db.Query(`SELECT 1;`)
+	// timeframe is last 24h by default
+	timeframeEnd := time.Now().Unix()
+	timeframeStart := timeframeEnd - 24*60*60 // 24 hours ago
+
+	rows, err := db.Query(`SELECT max_magnitude, max_speed FROM radar_objects WHERE write_timestamp BETWEEN ? AND ?`, timeframeStart, timeframeEnd)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	return nil, nil
+	type statResult struct {
+		MaxMagnitude int64
+		MaxSpeed     float64
+	}
+
+	results := make(map[string][]statResult)
+
+	for rows.Next() {
+		var r statResult
+		if err := rows.Scan(&r.MaxMagnitude, &r.MaxSpeed); err != nil {
+			return nil, err
+		}
+		classifier := classifier(r.MaxMagnitude)
+
+		l, ok := results[classifier]
+		if !ok {
+			l = []statResult{}
+		}
+
+		l = append(l, r)
+		results[classifier] = l
+	}
+
+	aggregated := []RadarObjectsRollupRow{}
+
+	for classifier, stats := range results {
+		// Compute aggregate statistics for each classifier
+		agg := RadarObjectsRollupRow{
+			Classifier: &classifier,
+			StartTime:  time.Unix(timeframeStart, 0).UTC(),
+		}
+
+		for _, s := range stats {
+			agg.MaxSpeed = math.Max(agg.MaxSpeed, s.MaxSpeed)
+		}
+
+		// count stat values for each classifier
+		agg.Count = int64(len(stats))
+
+		// calculate percentiles
+
+		// Store the aggregate row
+		aggregated = append(aggregated, agg)
+	}
+
+	return aggregated, nil
 }
 
 func (db *DB) RecordRawData(rawDataJSON string) error {
