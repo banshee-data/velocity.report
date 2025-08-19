@@ -209,10 +209,15 @@ func classifier(mag int64) string {
 }
 
 // RadarObjectRollup presents an aggregate view of the radar objects, to feed a percentile and/or volume graph
-func (db *DB) RadarObjectRollup() ([]RadarObjectsRollupRow, error) {
-	// timeframe is last 24h by default
+func (db *DB) RadarObjectRollup(days ...int) ([]RadarObjectsRollupRow, error) {
+	// Set default days to 1 if not provided
+	numDays := 1
+	if len(days) > 0 && days[0] > 0 {
+		numDays = days[0]
+	}
+
 	timeframeEnd := time.Now().Unix()
-	timeframeStart := timeframeEnd - 24*60*60 // 24 hours ago
+	timeframeStart := timeframeEnd - int64(24*60*60*numDays)
 
 	rows, err := db.Query(`SELECT max_magnitude, max_speed FROM radar_objects WHERE write_timestamp BETWEEN ? AND ?`, timeframeStart, timeframeEnd)
 	if err != nil {

@@ -56,7 +56,12 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stats, err := s.db.RadarObjectRollup()
+	days := 1 // default value
+	if d := r.URL.Query().Get("days"); d != "" {
+		fmt.Sscanf(d, "%d", &days)
+	}
+
+	stats, err := s.db.RadarObjectRollup(days)
 	if err != nil {
 		s := fmt.Sprintf("Failed to retrieve radar stats: %v", err)
 		http.Error(w, s, http.StatusInternalServerError)
