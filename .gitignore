@@ -11,3 +11,4 @@ mock_serial_port*
 /radar
 node_modules/
 web/.svelte-kit/*
+.build/
