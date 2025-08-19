@@ -43,6 +43,8 @@ A privacy-focused traffic logging tool for neighborhood change-makers. Measure v
 Build and run the development server with the following command. If an existing SQLite database is available, place it in `.build/sensor_data.db`
 
 ```sh
+git clone git@github.com:banshee-data/velocity.report.git
+cd velocity.report
 make build-local
 cd .build
 ./app-local -dev
