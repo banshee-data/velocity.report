@@ -266,13 +266,13 @@ func (db *DB) RecordRawData(rawDataJSON string) error {
 }
 
 type Event struct {
-	Magnitude float64
-	Uptime    float64
-	Speed     float64
+	Magnitude sql.NullFloat64
+	Uptime    sql.NullFloat64
+	Speed     sql.NullFloat64
 }
 
 func (e *Event) String() string {
-	return fmt.Sprintf("Uptime: %f, Magnitude: %f, Speed: %f", e.Uptime, e.Magnitude, e.Speed)
+	return fmt.Sprintf("Uptime: %f, Magnitude: %f, Speed: %f", e.Uptime.Float64, e.Magnitude.Float64, e.Speed.Float64)
 }
 
 func (db *DB) Events() ([]Event, error) {
@@ -284,7 +284,7 @@ func (db *DB) Events() ([]Event, error) {
 
 	var events []Event
 	for rows.Next() {
-		var uptime, magnitude, speed float64
+		var uptime, magnitude, speed sql.NullFloat64
 		if err := rows.Scan(&uptime, &magnitude, &speed); err != nil {
 			return nil, err
 		}
