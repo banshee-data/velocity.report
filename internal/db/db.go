@@ -9,11 +9,14 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/tailscale/tailsql/server/tailsql"
 	_ "modernc.org/sqlite"
 	"tailscale.com/tsweb"
+
+	"gonum.org/v1/gonum/stat"
 )
 
 type DB struct {
@@ -243,7 +246,21 @@ func (db *DB) RadarObjectRollup() ([]RadarObjectsRollupRow, error) {
 		// count stat values for each classifier
 		agg.Count = int64(len(stats))
 
+		// collect speeds for percentile calculation
+		speeds := make([]float64, 0, len(stats))
+		for _, s := range stats {
+			speeds = append(speeds, s.MaxSpeed)
+		}
+
+		// sort the speeds slice
+		sorted := make([]float64, len(speeds))
+		copy(sorted, speeds)
+		sort.Float64s(sorted)
+
 		// calculate percentiles
+		agg.P50Speed = stat.Quantile(0.5, stat.Empirical, sorted, nil)
+		agg.P85Speed = stat.Quantile(0.85, stat.Empirical, sorted, nil)
+		agg.P98Speed = stat.Quantile(0.98, stat.Empirical, sorted, nil)
 
 		// Store the aggregate row
 		aggregated = append(aggregated, agg)
