@@ -128,9 +128,9 @@ func main() {
 	defer radarSerial.Close()
 
 	if err := radarSerial.Initialize(); err != nil {
-		log.Fatalf("failed to iniatize device: %v", err)
+		log.Fatalf("failed to initialise device: %v", err)
 	} else {
-		log.Printf("initialized device %s", radarSerial)
+		log.Printf("initialised device %s", radarSerial)
 	}
 
 	db, err := db.NewDB("sensor_data.db")
