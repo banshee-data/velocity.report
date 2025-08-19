@@ -27,9 +27,10 @@ import (
 )
 
 var (
-	devMode = flag.Bool("dev", false, "Run in dev mode")
-	listen  = flag.String("listen", ":8080", "Listen address")
-	port    = flag.String("port", "/dev/ttySC1", "Serial port to use (ignored in dev mode)")
+	fixtureMode = flag.Bool("fixture", false, "Load fixture to local database")
+	devMode     = flag.Bool("dev", false, "Run in dev mode")
+	listen      = flag.String("listen", ":8080", "Listen address")
+	port        = flag.String("port", "/dev/ttySC1", "Serial port to use (ignored in dev mode)")
 )
 
 // Constants
@@ -108,6 +109,8 @@ func main() {
 	// var r radar.RadarPortInterface
 	var radarSerial serialmux.SerialMuxInterface
 	if *devMode {
+		radarSerial = serialmux.NewMockSerialMux([]byte(""))
+	} else if *fixtureMode {
 		data, err := os.ReadFile("fixtures.txt")
 		lines := strings.Split(strings.TrimSpace(string(data)), "\n")
 		firstLine := lines[0]
