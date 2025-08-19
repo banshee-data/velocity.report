@@ -174,14 +174,27 @@ func (db *DB) RadarObjects() ([]RadarObject, error) {
 
 // RadarObjectsRollupRow represents an aggregate row for radar object rollup.
 type RadarObjectsRollupRow struct {
-	StartTime time.Time
-	// TimeBucketCount int64
-	Count      int64
-	P50Speed   float64
-	P85Speed   float64
-	P98Speed   float64
-	MaxSpeed   float64
 	Classifier *string
+	StartTime  time.Time
+	// TimeBucketCount int64
+	Count    int64
+	P50Speed float64
+	P85Speed float64
+	P98Speed float64
+	MaxSpeed float64
+}
+
+func (e *RadarObjectsRollupRow) String() string {
+	return fmt.Sprintf(
+		"Classifier: %s, StartTime: %s, Count: %d, P50Speed: %f, P85Speed: %f, P98Speed: %f, MaxSpeed: %f",
+		*e.Classifier,
+		e.StartTime,
+		e.Count,
+		e.P50Speed,
+		e.P85Speed,
+		e.P98Speed,
+		e.MaxSpeed,
+	)
 }
 
 func classifier(mag int64) string {

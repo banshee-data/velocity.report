@@ -30,6 +30,7 @@ func (s *Server) ServeMux() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/events", s.listEvents)
 	mux.HandleFunc("/command", s.sendCommandHandler)
+	mux.HandleFunc("/radar_stats", s.showRadarObjectStats)
 	mux.HandleFunc("/", s.homeHandler)
 	return mux
 }
@@ -47,6 +48,28 @@ func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	io.WriteString(w, "Command sent successfully")
+}
+
+func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	stats, err := s.db.RadarObjectRollup()
+	if err != nil {
+		s := fmt.Sprintf("Failed to retrieve radar stats: %v", err)
+		http.Error(w, s, http.StatusInternalServerError)
+		return
+	}
+
+	for _, stat := range stats {
+		_, err := w.Write([]byte(stat.String() + "\n"))
+		if err != nil {
+			http.Error(w, "Failed to write radar stat", http.StatusInternalServerError)
+			return
+		}
+	}
 }
 
 func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
