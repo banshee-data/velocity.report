@@ -56,8 +56,8 @@ func statusCodeColor(statusCode int) string {
 	}
 }
 
-// loggingMiddleware logs method, path, query, status, and duration
-func loggingMiddleware(next http.Handler) http.Handler {
+// LoggingMiddleware logs method, path, query, status, and duration
+func LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		lrw := &loggingResponseWriter{w, http.StatusOK}
@@ -83,10 +83,6 @@ func (s *Server) ServeMux() *http.ServeMux {
 	mux.HandleFunc("/radar_stats", s.showRadarObjectStats)
 	mux.HandleFunc("/", s.homeHandler)
 	return mux
-}
-
-func (s *Server) Handler() http.Handler {
-	return loggingMiddleware(s.ServeMux())
 }
 
 func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {

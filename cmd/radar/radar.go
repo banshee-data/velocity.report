@@ -200,7 +200,7 @@ func main() {
 
 		server := &http.Server{
 			Addr:    *listen,
-			Handler: apiServer.Handler(),
+			Handler: api.LoggingMiddleware(mux),
 		}
 
 		// Start server in a goroutine so it doesn't block
