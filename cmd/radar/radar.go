@@ -197,6 +197,7 @@ func main() {
 			staticHandler = http.FileServer(http.FS(radar.StaticFiles))
 		}
 		mux.Handle("/static/", http.StripPrefix("/static/", staticHandler))
+		mux.Handle("/favicon.ico", staticHandler)
 
 		server := &http.Server{
 			Addr:    *listen,
