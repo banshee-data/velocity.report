@@ -176,7 +176,6 @@ func (db *DB) RadarObjects() ([]RadarObject, error) {
 type RadarObjectsRollupRow struct {
 	Classifier string
 	StartTime  time.Time
-	// TimeBucketCount int64
 	Count    int64
 	P50Speed float64
 	P85Speed float64
