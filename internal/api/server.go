@@ -58,7 +58,12 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 
 	days := 1 // default value
 	if d := r.URL.Query().Get("days"); d != "" {
-		fmt.Sscanf(d, "%d", &days)
+		parsedDays, err := strconv.Atoi(d)
+		if err != nil || parsedDays < 1 {
+			http.Error(w, "Invalid 'days' parameter", http.StatusBadRequest)
+			return
+		}
+		days = parsedDays
 	}
 
 	stats, err := s.db.RadarObjectRollup(days)
