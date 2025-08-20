@@ -1,9 +1,11 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/serialmux"
@@ -30,6 +32,7 @@ func (s *Server) ServeMux() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/events", s.listEvents)
 	mux.HandleFunc("/command", s.sendCommandHandler)
+	mux.HandleFunc("/radar_stats", s.showRadarObjectStats)
 	mux.HandleFunc("/", s.homeHandler)
 	return mux
 }
@@ -49,24 +52,66 @@ func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, "Command sent successfully")
 }
 
-func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
+func (s *Server) writeJSONError(w http.ResponseWriter, status int, msg string) {
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}
+
+func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	days := 1 // default value
+	if d := r.URL.Query().Get("days"); d != "" {
+		parsedDays, err := strconv.Atoi(d)
+		if err != nil || parsedDays < 1 {
+			s.writeJSONError(w, http.StatusBadRequest, "Invalid 'days' parameter")
+			return
+		}
+		days = parsedDays
+	}
+
+	stats, err := s.db.RadarObjectRollup(days)
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError,
+			fmt.Sprintf("Failed to retrieve radar stats: %v", err))
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(stats); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to write radar stats")
+		return
+	}
+}
+
+func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != http.MethodGet {
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
 	events, err := s.db.Events()
 	if err != nil {
-		s := fmt.Sprintf("Failed to retrieve events: %v", err)
-		http.Error(w, s, http.StatusInternalServerError)
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve events: %v", err))
 		return
 	}
 
-	for _, event := range events {
-		_, err := w.Write([]byte(event.String() + "\n"))
-		if err != nil {
-			http.Error(w, "Failed to write event", http.StatusInternalServerError)
-			return
-		}
+	// without the EventAPI struct and EventToAPI function the response
+	// would be a list of events with their raw fields (Float64, Valid).
+	// we control the output format with the EventAPI struct.
+	apiEvents := make([]db.EventAPI, len(events))
+	for i, e := range events {
+		apiEvents[i] = db.EventToAPI(e)
+	}
+
+	if err := json.NewEncoder(w).Encode(apiEvents); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to write events")
+		return
 	}
 }

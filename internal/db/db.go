@@ -9,11 +9,14 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/tailscale/tailsql/server/tailsql"
 	_ "modernc.org/sqlite"
 	"tailscale.com/tsweb"
+
+	"gonum.org/v1/gonum/stat"
 )
 
 type DB struct {
@@ -28,14 +31,14 @@ func NewDB(path string) (*DB, error) {
 
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS data (
-			timestamp         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			write_timestamp   DOUBLE DEFAULT (unixepoch('subsec')),
 			raw_event         JSON NOT NULL,
 			uptime            DOUBLE AS (json_extract(raw_event, '$.uptime'))                                        STORED,
 			magnitude         DOUBLE AS (json_extract(raw_event, '$.magnitude'))                                     STORED,
 			speed             DOUBLE AS (json_extract(raw_event, '$.speed'))                                         STORED
 		);
 		CREATE TABLE IF NOT EXISTS radar_objects (
-			write_timestamp   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			write_timestamp   DOUBLE DEFAULT (unixepoch('subsec')),
       raw_event         JSON NOT NULL,
 			classifier        TEXT NOT NULL   AS (json_extract(raw_event, '$.classifier'))                           STORED,
 			start_time        DOUBLE NOT NULL AS (json_extract(raw_event, '$.start_time'))                           STORED,
@@ -53,13 +56,13 @@ func NewDB(path string) (*DB, error) {
 		CREATE TABLE IF NOT EXISTS commands (
 			command_id        BIGINT PRIMARY KEY,
 			command           TEXT,
-			timestamp         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			write_timestamp   DOUBLE DEFAULT (unixepoch('subsec'))
 		);
 		CREATE TABLE IF NOT EXISTS log (
 			log_id            BIGINT PRIMARY KEY,
 			command_id        BIGINT,
 			log_data          TEXT,
-			timestamp         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			write_timestamp   DOUBLE DEFAULT (unixepoch('subsec')),
 			FOREIGN KEY(command_id) REFERENCES commands(command_id)
 		);
 	`)
@@ -169,6 +172,120 @@ func (db *DB) RadarObjects() ([]RadarObject, error) {
 	return radar_objects, nil
 }
 
+// RadarObjectsRollupRow represents an aggregate row for radar object rollup.
+type RadarObjectsRollupRow struct {
+	Classifier string
+	StartTime  time.Time
+	Count    int64
+	P50Speed float64
+	P85Speed float64
+	P98Speed float64
+	MaxSpeed float64
+}
+
+func (e *RadarObjectsRollupRow) String() string {
+	return fmt.Sprintf(
+		"Classifier: %s, StartTime: %s, Count: %d, P50Speed: %f, P85Speed: %f, P98Speed: %f, MaxSpeed: %f",
+		e.Classifier,
+		e.StartTime,
+		e.Count,
+		e.P50Speed,
+		e.P85Speed,
+		e.P98Speed,
+		e.MaxSpeed,
+	)
+}
+
+func classifier(mag int64) string {
+	switch {
+	case mag < 40:
+		return "ped"
+	case mag < 150:
+		return "car"
+	default:
+		return "truck"
+	}
+}
+
+// RadarObjectRollup presents an aggregate view of the radar objects, to feed a percentile and/or volume graph
+func (db *DB) RadarObjectRollup(days ...int) ([]RadarObjectsRollupRow, error) {
+	// Set default days to 1 if not provided
+	numDays := 1
+	if len(days) > 0 && days[0] > 0 {
+		numDays = days[0]
+	}
+
+	timeframeEnd := time.Now().Unix()
+	timeframeStart := timeframeEnd - int64(24*60*60*numDays)
+
+	rows, err := db.Query(`SELECT max_magnitude, max_speed FROM radar_objects WHERE write_timestamp BETWEEN ? AND ?`, timeframeStart, timeframeEnd)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	type statResult struct {
+		MaxMagnitude int64
+		MaxSpeed     float64
+	}
+
+	results := make(map[string][]statResult)
+
+	for rows.Next() {
+		var r statResult
+		if err := rows.Scan(&r.MaxMagnitude, &r.MaxSpeed); err != nil {
+			return nil, err
+		}
+		classifier := classifier(r.MaxMagnitude)
+
+		l, ok := results[classifier]
+		if !ok {
+			l = []statResult{}
+		}
+
+		l = append(l, r)
+		results[classifier] = l
+	}
+
+	aggregated := []RadarObjectsRollupRow{}
+
+	for classifier, stats := range results {
+		// Compute aggregate statistics for each classifier
+		agg := RadarObjectsRollupRow{
+			Classifier: classifier,
+			StartTime:  time.Unix(timeframeStart, 0).UTC(),
+		}
+
+		for _, s := range stats {
+			agg.MaxSpeed = math.Max(agg.MaxSpeed, s.MaxSpeed)
+		}
+
+		// count stat values for each classifier
+		agg.Count = int64(len(stats))
+
+		// collect speeds for percentile calculation
+		speeds := make([]float64, 0, len(stats))
+		for _, s := range stats {
+			speeds = append(speeds, s.MaxSpeed)
+		}
+
+		// sort the speeds slice
+		sorted := make([]float64, len(speeds))
+		copy(sorted, speeds)
+		sort.Float64s(sorted)
+
+		// calculate percentiles
+		agg.P50Speed = stat.Quantile(0.5, stat.Empirical, sorted, nil)
+		agg.P85Speed = stat.Quantile(0.85, stat.Empirical, sorted, nil)
+		agg.P98Speed = stat.Quantile(0.98, stat.Empirical, sorted, nil)
+
+		// Store the aggregate row
+		aggregated = append(aggregated, agg)
+	}
+
+	return aggregated, nil
+}
+
 func (db *DB) RecordRawData(rawDataJSON string) error {
 	var err error
 	if rawDataJSON == "" {
@@ -183,13 +300,37 @@ func (db *DB) RecordRawData(rawDataJSON string) error {
 }
 
 type Event struct {
-	Magnitude float64
-	Uptime    float64
-	Speed     float64
+	Magnitude sql.NullFloat64
+	Uptime    sql.NullFloat64
+	Speed     sql.NullFloat64
 }
 
 func (e *Event) String() string {
-	return fmt.Sprintf("Uptime: %f, Magnitude: %f, Speed: %f", e.Uptime, e.Magnitude, e.Speed)
+	return fmt.Sprintf("Uptime: %f, Magnitude: %f, Speed: %f", e.Uptime.Float64, e.Magnitude.Float64, e.Speed.Float64)
+}
+
+type EventAPI struct {
+	Magnitude *float64 `json:"Magnitude,omitempty"`
+	Uptime    *float64 `json:"Uptime,omitempty"`
+	Speed     *float64 `json:"Speed,omitempty"`
+}
+
+func EventToAPI(e Event) EventAPI {
+	var mag, up, spd *float64
+	if e.Magnitude.Valid {
+		mag = &e.Magnitude.Float64
+	}
+	if e.Uptime.Valid {
+		up = &e.Uptime.Float64
+	}
+	if e.Speed.Valid {
+		spd = &e.Speed.Float64
+	}
+	return EventAPI{
+		Magnitude: mag,
+		Uptime:    up,
+		Speed:     spd,
+	}
 }
 
 func (db *DB) Events() ([]Event, error) {
@@ -201,7 +342,7 @@ func (db *DB) Events() ([]Event, error) {
 
 	var events []Event
 	for rows.Next() {
-		var uptime, magnitude, speed float64
+		var uptime, magnitude, speed sql.NullFloat64
 		if err := rows.Scan(&uptime, &magnitude, &speed); err != nil {
 			return nil, err
 		}
