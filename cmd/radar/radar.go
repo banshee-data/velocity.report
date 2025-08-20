@@ -196,7 +196,7 @@ func main() {
 		} else {
 			staticHandler = http.FileServer(http.FS(radar.StaticFiles))
 		}
-		mux.Handle("/static", http.StripPrefix("/static", staticHandler))
+		mux.Handle("/static/", http.StripPrefix("/static/", staticHandler))
 
 		server := &http.Server{
 			Addr:    *listen,
