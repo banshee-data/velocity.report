@@ -310,6 +310,30 @@ func (e *Event) String() string {
 	return fmt.Sprintf("Uptime: %f, Magnitude: %f, Speed: %f", e.Uptime.Float64, e.Magnitude.Float64, e.Speed.Float64)
 }
 
+type EventAPI struct {
+	Magnitude *float64 `json:"Magnitude,omitempty"`
+	Uptime    *float64 `json:"Uptime,omitempty"`
+	Speed     *float64 `json:"Speed,omitempty"`
+}
+
+func EventToAPI(e Event) EventAPI {
+	var mag, up, spd *float64
+	if e.Magnitude.Valid {
+		mag = &e.Magnitude.Float64
+	}
+	if e.Uptime.Valid {
+		up = &e.Uptime.Float64
+	}
+	if e.Speed.Valid {
+		spd = &e.Speed.Float64
+	}
+	return EventAPI{
+		Magnitude: mag,
+		Uptime:    up,
+		Speed:     spd,
+	}
+}
+
 func (db *DB) Events() ([]Event, error) {
 	rows, err := db.Query("SELECT uptime, magnitude, speed FROM data ORDER BY uptime DESC LIMIT 500")
 	if err != nil {

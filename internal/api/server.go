@@ -102,7 +102,15 @@ func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(events); err != nil {
+	// without the EventAPI struct and EventToAPI function the response
+	// would be a list of events with their raw fields (Float64, Valid).
+	// we control the output format with the EventAPI struct.
+	apiEvents := make([]db.EventAPI, len(events))
+	for i, e := range events {
+		apiEvents[i] = db.EventToAPI(e)
+	}
+
+	if err := json.NewEncoder(w).Encode(apiEvents); err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, "Failed to write events")
 		return
 	}
