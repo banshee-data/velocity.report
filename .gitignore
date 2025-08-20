@@ -12,3 +12,4 @@ mock_serial_port*
 node_modules/
 web/.svelte-kit/*
 .build/
+app-*
