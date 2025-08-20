@@ -4,12 +4,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/serialmux"
 )
+
+// ANSI escape codes for cyan and reset
+const colorCyan = "\033[36m"
+const colorReset = "\033[0m"
 
 type Server struct {
 	m  serialmux.SerialMuxInterface
@@ -21,6 +27,31 @@ func NewServer(m serialmux.SerialMuxInterface, db *db.DB) *Server {
 		m:  m,
 		db: db,
 	}
+}
+
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (lrw *loggingResponseWriter) WriteHeader(code int) {
+	lrw.statusCode = code
+	lrw.ResponseWriter.WriteHeader(code)
+}
+
+// loggingMiddleware logs method, path, query, status, and duration
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		lrw := &loggingResponseWriter{w, http.StatusOK}
+		next.ServeHTTP(lrw, r)
+		log.Printf(
+			"[%d] %s %s%s%s %vms",
+			lrw.statusCode, r.Method,
+			colorCyan, r.RequestURI, colorReset,
+			float64(time.Since(start).Nanoseconds())/1e6,
+		)
+	})
 }
 
 func (s *Server) homeHandler(w http.ResponseWriter, r *http.Request) {
@@ -35,6 +66,10 @@ func (s *Server) ServeMux() *http.ServeMux {
 	mux.HandleFunc("/radar_stats", s.showRadarObjectStats)
 	mux.HandleFunc("/", s.homeHandler)
 	return mux
+}
+
+func (s *Server) Handler() http.Handler {
+	return loggingMiddleware(s.ServeMux())
 }
 
 func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
