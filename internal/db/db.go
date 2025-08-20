@@ -187,15 +187,7 @@ type RadarObjectsRollupRow struct {
 func (e *RadarObjectsRollupRow) String() string {
 	return fmt.Sprintf(
 		"Classifier: %s, StartTime: %s, Count: %d, P50Speed: %f, P85Speed: %f, P98Speed: %f, MaxSpeed: %f",
-	var classifier string
-	if e.Classifier != nil {
-		classifier = *e.Classifier
-	} else {
-		classifier = "<nil>"
-	}
-	return fmt.Sprintf(
-		"Classifier: %s, StartTime: %s, Count: %d, P50Speed: %f, P85Speed: %f, P98Speed: %f, MaxSpeed: %f",
-		classifier,
+		e.Classifier,
 		e.StartTime,
 		e.Count,
 		e.P50Speed,
@@ -261,7 +253,7 @@ func (db *DB) RadarObjectRollup(days ...int) ([]RadarObjectsRollupRow, error) {
 	for classifier, stats := range results {
 		// Compute aggregate statistics for each classifier
 		agg := RadarObjectsRollupRow{
-			Classifier: &classifier,
+			Classifier: classifier,
 			StartTime:  time.Unix(timeframeStart, 0).UTC(),
 		}
 
