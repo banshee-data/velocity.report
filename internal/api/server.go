@@ -72,7 +72,10 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 }
 
 func (s *Server) homeHandler(w http.ResponseWriter, r *http.Request) {
-	// Handle the home page
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
 	w.Write([]byte("Welcome to the Radar Server!"))
 }
 
