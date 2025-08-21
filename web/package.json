@@ -1,8 +1,9 @@
 {
-	"name": "web-app",
+	"name": "velocity.report-web",
 	"private": true,
 	"version": "0.0.1",
 	"type": "module",
+	"license": "Apache-2.0",
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
