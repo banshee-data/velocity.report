@@ -16,6 +16,7 @@ import (
 // ANSI escape codes for cyan and reset
 const colorCyan = "\033[36m"
 const colorReset = "\033[0m"
+const colorYellow = "\033[33m"
 const colorBoldGreen = "\033[1;32m"
 const colorBoldRed = "\033[1;31m"
 
@@ -46,7 +47,7 @@ func statusCodeColor(statusCode int) string {
 	case statusCode >= 200 && statusCode < 300:
 		return colorBoldGreen + strconv.Itoa(statusCode) + colorReset
 	case statusCode >= 300 && statusCode < 400:
-		return colorReset + strconv.Itoa(statusCode) + colorReset
+		return colorYellow + strconv.Itoa(statusCode) + colorReset
 	case statusCode >= 400 && statusCode < 500:
 		return colorBoldRed + strconv.Itoa(statusCode) + colorReset
 	case statusCode >= 500:
