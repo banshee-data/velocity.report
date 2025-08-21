@@ -4,12 +4,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/serialmux"
 )
+
+// ANSI escape codes for cyan and reset
+const colorCyan = "\033[36m"
+const colorReset = "\033[0m"
+const colorYellow = "\033[33m"
+const colorBoldGreen = "\033[1;32m"
+const colorBoldRed = "\033[1;31m"
 
 type Server struct {
 	m  serialmux.SerialMuxInterface
@@ -23,8 +32,51 @@ func NewServer(m serialmux.SerialMuxInterface, db *db.DB) *Server {
 	}
 }
 
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (lrw *loggingResponseWriter) WriteHeader(code int) {
+	lrw.statusCode = code
+	lrw.ResponseWriter.WriteHeader(code)
+}
+
+func statusCodeColor(statusCode int) string {
+	switch {
+	case statusCode >= 200 && statusCode < 300:
+		return colorBoldGreen + strconv.Itoa(statusCode) + colorReset
+	case statusCode >= 300 && statusCode < 400:
+		return colorYellow + strconv.Itoa(statusCode) + colorReset
+	case statusCode >= 400 && statusCode < 500:
+		return colorBoldRed + strconv.Itoa(statusCode) + colorReset
+	case statusCode >= 500:
+		return colorBoldRed + strconv.Itoa(statusCode) + colorReset
+	default:
+		return strconv.Itoa(statusCode)
+	}
+}
+
+// LoggingMiddleware logs method, path, query, status, and duration
+func LoggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		lrw := &loggingResponseWriter{w, http.StatusOK}
+		next.ServeHTTP(lrw, r)
+		log.Printf(
+			"[%s] %s %s%s%s %vms",
+			statusCodeColor(lrw.statusCode), r.Method,
+			colorCyan, r.RequestURI, colorReset,
+			float64(time.Since(start).Nanoseconds())/1e6,
+		)
+	})
+}
+
 func (s *Server) homeHandler(w http.ResponseWriter, r *http.Request) {
-	// Handle the home page
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
 	w.Write([]byte("Welcome to the Radar Server!"))
 }
 

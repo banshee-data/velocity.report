@@ -181,7 +181,8 @@ func main() {
 
 		// create a new API server instance using the radar port and database
 		// and mount the API handlers
-		mux := api.NewServer(radarSerial, db).ServeMux()
+		apiServer := api.NewServer(radarSerial, db)
+		mux := apiServer.ServeMux()
 
 		radarSerial.AttachAdminRoutes(mux)
 		db.AttachAdminRoutes(mux)
@@ -195,16 +196,12 @@ func main() {
 		} else {
 			staticHandler = http.FileServer(http.FS(radar.StaticFiles))
 		}
-		mux.Handle("/static", http.StripPrefix("/static", staticHandler))
-
-		h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			log.Printf("got request %q", r.URL.Path)
-			mux.ServeHTTP(w, r)
-		})
+		mux.Handle("/static/", http.StripPrefix("/static/", staticHandler))
+		mux.Handle("/favicon.ico", staticHandler)
 
 		server := &http.Server{
 			Addr:    *listen,
-			Handler: h,
+			Handler: api.LoggingMiddleware(mux),
 		}
 
 		// Start server in a goroutine so it doesn't block
