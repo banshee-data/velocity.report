@@ -1,3 +1,7 @@
+<script>
+	import { Card, Grid } from 'svelte-ux';
+</script>
+
 <svelte:head>
 	<title>Dashboard 🚴 velocity.report</title>
 </svelte:head>
@@ -8,17 +12,15 @@
 		<p class="text-gray-600">Vehicle traffic statistics and analytics</p>
 	</header>
 
-	<main class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-		<div class="rounded-lg bg-white p-6 shadow">
-			<h2 class="text-lg font-semibold text-gray-900">Today's Traffic</h2>
+	<Grid autoColumns="18em" gap={8}>
+		<Card title="Today's Traffic">
 			<p class="text-3xl font-bold text-blue-600">###</p>
 			<p class="text-sm text-gray-500">vehicles detected</p>
-		</div>
+		</Card>
 
-		<div class="rounded-lg bg-white p-6 shadow">
-			<h2 class="text-lg font-semibold text-gray-900">Max Speed</h2>
+		<Card title="Max Speed">
 			<p class="text-3xl font-bold text-green-600">## mph</p>
 			<p class="text-sm text-gray-500">last 24 hours</p>
-		</div>
-	</main>
+		</Card>
+	</Grid>
 </div>
