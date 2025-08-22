@@ -29,7 +29,7 @@ export async function getEvents(): Promise<Event[]> {
 }
 
 export async function getRadarStats(): Promise<RadarStats[]> {
-  const res = await fetch(`${API_BASE}/radar_stats`);
+  const res = await fetch(`${API_BASE}/radar_stats?days=14`);
   if (!res.ok) throw new Error(`Failed to fetch radar stats: ${res.status}`);
   return res.json();
 }
