@@ -10,10 +10,6 @@ export default defineConfig({
 	},
 	plugins: [tailwindcss(), sveltekit()],
 	optimizeDeps: {
-		exclude: [
-			'svelte-ux',
-			'layerchart',
-			'@layerstack/tailwind'
-		]
+		exclude: ['svelte-ux', 'layerchart', '@layerstack/tailwind']
 	}
 });
