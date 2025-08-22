@@ -1,7 +1,7 @@
 <script lang="ts">
 	import './app.css';
 
-	import { NavItem, AppLayout, Tooltip, Button, AppBar, ThemeSelect } from 'svelte-ux';
+	import { NavItem, AppLayout, Tooltip, Button, AppBar, ThemeSelect, ThemeInit } from 'svelte-ux';
 	import { mdiGithub, mdiHome, mdiCog } from '@mdi/js';
 
 	import { discord } from '$lib/icons';
@@ -9,6 +9,8 @@
 
 	let { children } = $props();
 </script>
+
+<ThemeInit />
 
 <AppLayout>
 	{#snippet nav()}
