@@ -14,8 +14,8 @@
     "clean": "rm -rf _site"
   },
   "keywords": [],
-  "author": "Banshee Data",
-  "license": "Apache",
+  "author": "Banshee, INC.",
+  "license": "CC-BY-4.0",
   "devDependencies": {
     "@11ty/eleventy": "^2.0.1",
     "autoprefixer": "^10.4.16",

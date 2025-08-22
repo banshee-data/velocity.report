@@ -84,7 +84,7 @@ func (s *Server) ServeMux() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/events", s.listEvents)
 	mux.HandleFunc("/command", s.sendCommandHandler)
-	mux.HandleFunc("/radar_stats", s.showRadarObjectStats)
+	mux.HandleFunc("/api/radar_stats", s.showRadarObjectStats)
 	mux.HandleFunc("/", s.homeHandler)
 	return mux
 }

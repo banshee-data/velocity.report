@@ -6,6 +6,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/tailscale/tailsql v0.0.0-20250804154109-d7a0426330bb
 	go.bug.st/serial v1.6.4
+	gonum.org/v1/gonum v0.16.0
 	modernc.org/sqlite v1.38.2
 	tailscale.com v1.87.0-pre.0.20250728175739-4df02bbb486d
 )
@@ -30,7 +31,6 @@ require (
 	golang.org/x/exp v0.0.0-20250819193227-8b4c13bb791b // indirect
 	golang.org/x/net v0.43.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
-	gonum.org/v1/gonum v0.16.0 // indirect
 	modernc.org/libc v1.66.7 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
