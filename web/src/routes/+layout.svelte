@@ -1,18 +1,19 @@
 <script lang="ts">
 	import './app.css';
 
-	import { discord } from '$lib/icons';
-	import { mdiGithub } from '@mdi/js';
+	import { NavItem, AppLayout, Tooltip, Button, AppBar, ThemeSelect } from 'svelte-ux';
+	import { mdiGithub, mdiHome, mdiCog } from '@mdi/js';
 
-	import { AppLayout, Tooltip, Button, AppBar, ThemeSelect } from 'svelte-ux';
-	import NavMenu from './_NavMenu.svelte';
+	import { discord } from '$lib/icons';
+	import { page } from '$app/state';
 
 	let { children } = $props();
 </script>
 
 <AppLayout>
 	{#snippet nav()}
-		<NavMenu />
+		<NavItem text="Dashboard" icon={mdiHome} path="/" currentUrl={page.url} />
+		<NavItem text="Settings" icon={mdiCog} path="/settings" currentUrl={page.url} />
 	{/snippet}
 
 	<AppBar title="velocity.report">
