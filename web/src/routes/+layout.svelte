@@ -1,5 +1,14 @@
 <script lang="ts">
-	import { NavItem, AppLayout, Tooltip, Button, AppBar, ThemeSelect, ThemeInit } from 'svelte-ux';
+	import {
+		NavItem,
+		AppLayout,
+		Tooltip,
+		Button,
+		AppBar,
+		ThemeSelect,
+		ThemeInit,
+		settings
+	} from 'svelte-ux';
 	import { mdiGithub, mdiHome, mdiCog } from '@mdi/js';
 
 	import { discord } from '$lib/icons';
@@ -8,6 +17,28 @@
 	import './app.css';
 
 	let { children } = $props();
+
+	settings({
+		components: {
+			AppLayout: {
+				classes: {
+					aside: 'border-r border-surface-300/80',
+					nav: 'bg-surface-300/30'
+				}
+			},
+			AppBar: {
+				classes:
+					'bg-primary text-primary-content shadow-md [text-shadow:1px_1px_2px_var(--color-primary-400)]'
+			},
+			NavItem: {
+				classes: {
+					root: 'text-sm text-surface-content/70 pl-6 py-2 hover:bg-surface-100/70 relative',
+					active:
+						'text-primary bg-surface-100 font-medium before:absolute before:bg-primary before:rounded-full before:w-1 before:h-2/3 before:left-[6px] shadow-sm z-10'
+				}
+			}
+		}
+	});
 </script>
 
 <ThemeInit />
