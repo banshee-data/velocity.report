@@ -53,7 +53,7 @@
 
 <AppLayout>
 	<nav slot="nav">
-		<NavItem text="Dashboard" icon={mdiHome} path="/app" currentUrl={page.url} />
+		<NavItem text="Dashboard" icon={mdiHome} path="/app/" currentUrl={page.url} />
 		<NavItem text="Settings" icon={mdiCog} path="/app/settings" currentUrl={page.url} />
 	</nav>
 
