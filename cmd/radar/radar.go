@@ -196,8 +196,18 @@ func main() {
 		} else {
 			staticHandler = http.FileServer(http.FS(radar.StaticFiles))
 		}
-		mux.Handle("/static/", http.StripPrefix("/static/", staticHandler))
+
 		mux.Handle("/favicon.ico", staticHandler)
+
+		// serve frontend app from /app route
+		// check if build directory exists
+		buildDir := "./web/build"
+		if _, err := os.Stat(buildDir); os.IsNotExist(err) {
+			log.Fatalf("Build directory %s does not exist. Run 'cd web && pnpm run build' first.", buildDir)
+		}
+
+		appHandler := http.FileServer(http.Dir(buildDir))
+		mux.Handle("/app/", http.StripPrefix("/app/", appHandler))
 
 		server := &http.Server{
 			Addr:    *listen,
