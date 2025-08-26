@@ -45,6 +45,10 @@
 	});
 </script>
 
+<svelte:head>
+	<link rel="icon" href="/app/favicon.ico" />
+</svelte:head>
+
 <ThemeInit />
 
 <AppLayout>
