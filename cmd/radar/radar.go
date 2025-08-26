@@ -209,6 +209,15 @@ func main() {
 		appHandler := http.FileServer(http.Dir(buildDir))
 		mux.Handle("/app/", http.StripPrefix("/app/", appHandler))
 
+		// redirect root to /app
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/" {
+				http.Redirect(w, r, "/app/", http.StatusFound)
+				return
+			}
+			http.NotFound(w, r)
+		})
+
 		server := &http.Server{
 			Addr:    *listen,
 			Handler: api.LoggingMiddleware(mux),

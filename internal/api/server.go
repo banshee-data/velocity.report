@@ -72,20 +72,11 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func (s *Server) homeHandler(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
-	}
-	w.Write([]byte("Welcome to the Radar Server!"))
-}
-
 func (s *Server) ServeMux() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/events", s.listEvents)
 	mux.HandleFunc("/command", s.sendCommandHandler)
 	mux.HandleFunc("/api/radar_stats", s.showRadarObjectStats)
-	mux.HandleFunc("/", s.homeHandler)
 	return mux
 }
 
