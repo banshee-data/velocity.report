@@ -224,12 +224,41 @@ func main() {
 				return
 			}
 
-			// Try to serve the requested file
+			// Try to serve the requested file directly first
+			// Example: for path "/settings", this becomes "./web/build/settings"
 			fullPath := filepath.Join(buildDir, path)
+
+			// Check if the exact file exists (e.g., "./web/build/settings")
 			if _, err := os.Stat(fullPath); os.IsNotExist(err) {
-				// File doesn't exist, serve index.html for SPA routing
-				fullPath = filepath.Join(buildDir, "index.html")
+				// File doesn't exist, so we need to try alternatives
+
+				// Check if this is a route request (not already ending in .html)
+				// Example: "/settings" doesn't end in .html, so try prerendered version
+				if !strings.HasSuffix(path, ".html") {
+					// Try adding .html extension for SvelteKit prerendered routes
+					// Example: "./web/build/settings" becomes "./web/build/settings.html"
+					htmlPath := filepath.Join(buildDir, path+".html")
+
+					// Check if the prerendered HTML file exists
+					if _, err := os.Stat(htmlPath); err == nil {
+						// Success! Found prerendered file (e.g., settings.html)
+						// This contains the full server-rendered content for this route
+						fullPath = htmlPath
+					} else {
+						// No prerendered file found, fall back to SPA routing
+						// Serve index.html and let SvelteKit's client-side router handle it
+						fullPath = filepath.Join(buildDir, "index.html")
+					}
+				} else {
+					// Request was already for a .html file that doesn't exist
+					// Fall back to index.html for SPA routing
+					fullPath = filepath.Join(buildDir, "index.html")
+				}
 			}
+			// If we reach here, fullPath contains the file we should serve:
+			// - The original requested file (if it exists)
+			// - A prerendered .html version (if it exists)
+			// - index.html as fallback for client-side routing
 
 			http.ServeFile(w, r, fullPath)
 		})
