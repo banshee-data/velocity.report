@@ -9,13 +9,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	// "regexp"
-
-	"strings"
 
 	_ "modernc.org/sqlite"
 
@@ -206,8 +206,33 @@ func main() {
 			log.Fatalf("Build directory %s does not exist. Run 'cd web && pnpm run build' first.", buildDir)
 		}
 
-		appHandler := http.FileServer(http.Dir(buildDir))
-		mux.Handle("/app/", http.StripPrefix("/app/", appHandler))
+		// Custom handler for SPA routing - serve index.html for non-existent files
+		mux.HandleFunc("/app/", func(w http.ResponseWriter, r *http.Request) {
+			// Strip /app prefix and normalize path
+			path := strings.TrimPrefix(r.URL.Path, "/app")
+			if path == "" || path == "/" {
+				path = "/index.html"
+			}
+
+			// Redirect trailing slash URLs to non-trailing slash for consistent relative path resolution
+			if len(path) > 1 && strings.HasSuffix(path, "/") {
+				redirectURL := strings.TrimSuffix(r.URL.Path, "/")
+				if r.URL.RawQuery != "" {
+					redirectURL += "?" + r.URL.RawQuery
+				}
+				http.Redirect(w, r, redirectURL, http.StatusMovedPermanently)
+				return
+			}
+
+			// Try to serve the requested file
+			fullPath := filepath.Join(buildDir, path)
+			if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+				// File doesn't exist, serve index.html for SPA routing
+				fullPath = filepath.Join(buildDir, "index.html")
+			}
+
+			http.ServeFile(w, r, fullPath)
+		})
 
 		// redirect root to /app
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
