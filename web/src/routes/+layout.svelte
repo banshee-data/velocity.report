@@ -1,11 +1,11 @@
 <script lang="ts">
-	import './app.css';
-
 	import { NavItem, AppLayout, Tooltip, Button, AppBar, ThemeSelect, ThemeInit } from 'svelte-ux';
 	import { mdiGithub, mdiHome, mdiCog } from '@mdi/js';
 
 	import { discord } from '$lib/icons';
 	import { page } from '$app/state';
+
+	import './app.css';
 
 	let { children } = $props();
 </script>
