@@ -220,7 +220,7 @@ func main() {
 				if r.URL.RawQuery != "" {
 					redirectURL += "?" + r.URL.RawQuery
 				}
-				http.Redirect(w, r, redirectURL, http.StatusMovedPermanently)
+				http.Redirect(w, r, redirectURL, http.StatusFound)
 				return
 			}
 
