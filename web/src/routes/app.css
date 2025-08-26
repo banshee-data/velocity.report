@@ -11,3 +11,9 @@
 	--color-primary: var(--color-emerald-700);
 	--color-secondary: var(--color-sky-500);
 }
+
+.Button svg {
+	width: 1.45em;
+	height: 1.4em;
+	display: block;
+}
