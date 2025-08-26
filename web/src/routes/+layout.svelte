@@ -1,26 +1,69 @@
 <script lang="ts">
-	import './app.css';
-
-	import { NavItem, AppLayout, Tooltip, Button, AppBar, ThemeSelect, ThemeInit } from 'svelte-ux';
+	import {
+		NavItem,
+		AppLayout,
+		Tooltip,
+		Button,
+		AppBar,
+		ThemeSelect,
+		ThemeInit,
+		settings
+	} from 'svelte-ux';
 	import { mdiGithub, mdiHome, mdiCog } from '@mdi/js';
 
 	import { discord } from '$lib/icons';
 	import { page } from '$app/state';
 
+	import './app.css';
+
 	let { children } = $props();
+
+	settings({
+		components: {
+			AppLayout: {
+				classes: {
+					aside: 'border-r border-surface-300/80',
+					nav: 'bg-surface-300/30'
+				}
+			},
+			AppBar: {
+				classes:
+					'bg-primary text-primary-content shadow-md \
+					[text-shadow:1px_1px_2px_var(--color-primary-400)]'
+			},
+			NavItem: {
+				classes: {
+					root: 'text-sm text-surface-content/70 pl-6 py-2 \
+								hover:bg-surface-100/70 relative',
+					active:
+						'text-primary bg-surface-100 font-medium shadow-sm z-10\
+						before:absolute before:bg-primary before:rounded-full \
+						before:w-1 before:h-2/3 before:left-[6px]'
+				}
+			}
+		}
+	});
 </script>
 
 <ThemeInit />
 
 <AppLayout>
-	{#snippet nav()}
+	<nav slot="nav">
 		<NavItem text="Dashboard" icon={mdiHome} path="/" currentUrl={page.url} />
 		<NavItem text="Settings" icon={mdiCog} path="/settings" currentUrl={page.url} />
-	{/snippet}
+	</nav>
 
 	<AppBar title="velocity.report">
 		<div slot="actions" class="flex items-center gap-2">
-			<Tooltip title="View repository on Github" placement="left">
+			<div class="border-primary-content/40 border-r pr-2">
+				<ThemeSelect keyboardShortcuts />
+			</div>
+
+			<Tooltip title="Discord" placement="left" offset={2}>
+				<Button icon={discord} href="https://discord.gg/XXh6jXVFkt" class="p-2" target="_blank" />
+			</Tooltip>
+
+			<Tooltip title="View repo" placement="left" offset={2}>
 				<Button
 					icon={mdiGithub}
 					href="https://github.com/banshee-data/velocity.report"
@@ -28,18 +71,8 @@
 					target="_blank"
 				/>
 			</Tooltip>
-
-			<Tooltip title="Chat with us on Discord" placement="left">
-				<Button icon={discord} href="https://discord.gg/XXh6jXVFkt" class="p-2" target="_blank" />
-			</Tooltip>
-
-			<div class="border-primary-content/20 pr-2">
-				<ThemeSelect keyboardShortcuts />
-			</div>
 		</div>
 	</AppBar>
 
-	<main>
-		{@render children?.()}
-	</main>
+	{@render children?.()}
 </AppLayout>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Card, Grid } from 'svelte-ux';
+	import { Card, Grid, Header } from 'svelte-ux';
 	import { onMount } from 'svelte';
 	import { getRadarStats, type RadarStats } from '../lib/api';
 
@@ -28,11 +28,11 @@
 	<title>Dashboard 🚴 velocity.report</title>
 </svelte:head>
 
-<div class="space-y-6">
-	<header>
-		<h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
-		<p class="text-gray-600">Vehicle traffic statistics and analytics over the past 14 days</p>
-	</header>
+<main class="space-y-6 p-4">
+	<Header
+		title="Dashboard"
+		subheading="Vehicle traffic statistics and analytics over the past 14 days"
+	/>
 
 	{#if loading}
 		<p>Loading stats…</p>
@@ -41,14 +41,18 @@
 	{:else}
 		<Grid autoColumns="18em" gap={8}>
 			<Card title="Vehicle Count">
-				<p class="text-3xl font-bold text-blue-600">{totalCount}</p>
-				<p class="text-sm text-gray-500">vehicles detected</p>
+				<div class="pb-4 pl-4 pr-4 pt-0">
+					<p class="text-3xl font-bold text-blue-600">{totalCount}</p>
+					<p class="text-surface-content/70 text-sm">vehicles detected</p>
+				</div>
 			</Card>
 
 			<Card title="Max Speed">
-				<p class="text-3xl font-bold text-green-600">{maxSpeed} mph</p>
-				<p class="text-sm text-gray-500">last 14 days</p>
+				<div class="pb-4 pl-4 pr-4 pt-0">
+					<p class="text-3xl font-bold text-green-600">{maxSpeed} mph</p>
+					<p class="text-surface-content/70 text-sm">last 14 days</p>
+				</div>
 			</Card>
 		</Grid>
 	{/if}
-</div>
+</main>
