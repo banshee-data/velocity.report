@@ -28,7 +28,7 @@
 	<title>Dashboard 🚴 velocity.report</title>
 </svelte:head>
 
-<div class="space-y-6 p-4">
+<main class="space-y-6 p-4">
 	<Header
 		title="Dashboard"
 		subheading="Vehicle traffic statistics and analytics over the past 14 days"
@@ -55,4 +55,4 @@
 			</Card>
 		</Grid>
 	{/if}
-</div>
+</main>

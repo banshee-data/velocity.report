@@ -70,7 +70,5 @@
 		</div>
 	</AppBar>
 
-	<main>
 	{@render children?.()}
-	</main>
 </AppLayout>
