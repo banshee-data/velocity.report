@@ -13,10 +13,10 @@
 <ThemeInit />
 
 <AppLayout>
-	{#snippet nav()}
+	<nav slot="nav">
 		<NavItem text="Dashboard" icon={mdiHome} path="/" currentUrl={page.url} />
 		<NavItem text="Settings" icon={mdiCog} path="/settings" currentUrl={page.url} />
-	{/snippet}
+	</nav>
 
 	<AppBar title="velocity.report">
 		<div slot="actions" class="flex items-center gap-2">
