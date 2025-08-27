@@ -25,7 +25,7 @@ type DB struct {
 }
 
 // schema.sql contains the SQL statements for creating the database schema.
-// It defines tables such as radar_objects and data which store radar event information.
+// It defines tables such as radar_data, radar_objects, radar_commands, and radar_command_log which store radar event and command information.
 // The schema is embedded directly into the binary and executed when a new database is created
 // via the NewDB function, ensuring consistent schema across all deployments.
 
