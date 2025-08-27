@@ -43,7 +43,7 @@ func NewDB(path string) (*DB, error) {
 		return nil, err
 	}
 
-	log.Println("Successfully created database schema")
+	log.Println("ran database initialisation script")
 
 	return &DB{db}, nil
 }
