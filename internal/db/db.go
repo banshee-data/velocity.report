@@ -3,6 +3,7 @@ package db
 import (
 	"compress/gzip"
 	"database/sql"
+	_ "embed"
 	"fmt"
 	"io"
 	"log"
@@ -23,52 +24,26 @@ type DB struct {
 	*sql.DB
 }
 
+// schema.sql contains the SQL statements for creating the database schema.
+// It defines tables such as radar_objects and data which store radar event information.
+// The schema is embedded directly into the binary and executed when a new database is created
+// via the NewDB function, ensuring consistent schema across all deployments.
+
+//go:embed schema.sql
+var schemaSQL string
+
 func NewDB(path string) (*DB, error) {
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS data (
-			write_timestamp   DOUBLE DEFAULT (unixepoch('subsec')),
-			raw_event         JSON NOT NULL,
-			uptime            DOUBLE AS (json_extract(raw_event, '$.uptime'))                                        STORED,
-			magnitude         DOUBLE AS (json_extract(raw_event, '$.magnitude'))                                     STORED,
-			speed             DOUBLE AS (json_extract(raw_event, '$.speed'))                                         STORED
-		);
-		CREATE TABLE IF NOT EXISTS radar_objects (
-			write_timestamp   DOUBLE DEFAULT (unixepoch('subsec')),
-      raw_event         JSON NOT NULL,
-			classifier        TEXT NOT NULL   AS (json_extract(raw_event, '$.classifier'))                           STORED,
-			start_time        DOUBLE NOT NULL AS (json_extract(raw_event, '$.start_time'))                           STORED,
-			end_time          DOUBLE NOT NULL AS (json_extract(raw_event, '$.end_time'))                             STORED,
-			delta_time_ms     BIGINT NOT NULL AS (json_extract(raw_event, '$.delta_time_msec'))                      STORED,
-			max_speed         DOUBLE NOT NULL AS (json_extract(raw_event, '$.max_speed_mps'))                        STORED,
-			min_speed         DOUBLE NOT NULL AS (json_extract(raw_event, '$.min_speed_mps'))                        STORED,
-			speed_change      DOUBLE NOT NULL AS (json_extract(raw_event, '$.speed_change'))                         STORED,
-			max_magnitude     BIGINT NOT NULL AS (json_extract(raw_event, '$.max_magnitude'))                        STORED,
-			avg_magnitude     BIGINT NOT NULL AS (json_extract(raw_event, '$.avg_magnitude'))                        STORED,
-			total_frames      BIGINT NOT NULL AS (json_extract(raw_event, '$.total_frames'))                         STORED,
-			frames_per_mps    DOUBLE NOT NULL AS (json_extract(raw_event, '$.frames_per_mps'))                       STORED,
-			length            DOUBLE NOT NULL AS (json_extract(raw_event, '$.length_m'))                             STORED
-		);
-		CREATE TABLE IF NOT EXISTS commands (
-			command_id        BIGINT PRIMARY KEY,
-			command           TEXT,
-			write_timestamp   DOUBLE DEFAULT (unixepoch('subsec'))
-		);
-		CREATE TABLE IF NOT EXISTS log (
-			log_id            BIGINT PRIMARY KEY,
-			command_id        BIGINT,
-			log_data          TEXT,
-			write_timestamp   DOUBLE DEFAULT (unixepoch('subsec')),
-			FOREIGN KEY(command_id) REFERENCES commands(command_id)
-		);
-	`)
+	_, err = db.Exec(schemaSQL)
 	if err != nil {
 		return nil, err
 	}
+
+	log.Println("Successfully created database schema")
 
 	return &DB{db}, nil
 }
