@@ -17,7 +17,7 @@ pnpm install
 pnpm run dev
 ```
 
-This runs Eleventy in watch mode with Tailwind CSS compilation. The site will be available at `http://localhost:8080`.
+This runs Eleventy in watch mode with Tailwind CSS compilation. The site will be available at `http://localhost:8090`.
 
 ## Build
 
