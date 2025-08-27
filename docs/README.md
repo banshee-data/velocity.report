@@ -1,25 +1,43 @@
-# velocity.report
+# velocity.report/docs
 
-Static site built with Eleventy and Tailwind CSS.
+A static documentation site built with [Eleventy](https://www.11ty.dev/) and [Tailwind CSS](https://tailwindcss.com/).
+
+## Prerequisites
+
+- [Node.js](https://nodejs.org/) (v16 or higher)
+- [pnpm](https://pnpm.io/) package manager
 
 ## Development
 
 ```bash
 # Install dependencies
-yarn install
+pnpm install
 
-# Run dev server (Eleventy + Tailwind watch)
-yarn dev
+# Start development server with hot reload
+pnpm run dev
 ```
+
+This runs Eleventy in watch mode with Tailwind CSS compilation. The site will be available at `http://localhost:8090`.
 
 ## Build
 
 ```bash
-yarn build
+# Build for production
+pnpm run build
 ```
 
-Outputs to `_site/` directory.
+Outputs optimized files to the `_site/` directory.
 
 ## Deployment
 
-Automatic deployment to GitHub Pages on push to `gh-pages` branch.
+The site automatically deploys to GitHub Pages when changes are pushed to the `gh-pages` branch.
+
+## Project Structure
+
+```
+docs/
+├── _site/          # Build output (generated)
+├── src/            # Source files
+├── package.json    # Dependencies and scripts
+└── README.md       # This file
+```
