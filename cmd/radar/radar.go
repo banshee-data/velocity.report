@@ -242,7 +242,7 @@ func main() {
 					}
 				} else {
 					// Production mode: serve from embedded filesystem
-					embedPath := "web/build/" + strings.TrimPrefix(requestedPath, "/")
+					embedPath := filepath.Join("web/build", strings.TrimPrefix(requestedPath, "/"))
 					if content, err := radar.WebBuildFiles.ReadFile(embedPath); err == nil {
 						serveContent(content, requestedPath)
 						return true
