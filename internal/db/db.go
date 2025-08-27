@@ -151,11 +151,11 @@ func (db *DB) RadarObjects() ([]RadarObject, error) {
 type RadarObjectsRollupRow struct {
 	Classifier string
 	StartTime  time.Time
-	Count    int64
-	P50Speed float64
-	P85Speed float64
-	P98Speed float64
-	MaxSpeed float64
+	Count      int64
+	P50Speed   float64
+	P85Speed   float64
+	P98Speed   float64
+	MaxSpeed   float64
 }
 
 func (e *RadarObjectsRollupRow) String() string {
