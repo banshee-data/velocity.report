@@ -1,4 +1,4 @@
-   CREATE TABLE IF NOT EXISTS data (
+   CREATE TABLE IF NOT EXISTS radar_data (
           write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec'))
         , raw_event JSON NOT NULL
         , uptime DOUBLE AS (JSON_EXTRACT(raw_event, '$.uptime')) STORED
@@ -21,22 +21,22 @@
         , avg_magnitude BIGINT NOT NULL AS (JSON_EXTRACT(raw_event, '$.avg_magnitude')) STORED
         , total_frames BIGINT NOT NULL AS (JSON_EXTRACT(raw_event, '$.total_frames')) STORED
         , frames_per_mps DOUBLE NOT NULL AS (JSON_EXTRACT(raw_event, '$.frames_per_mps')) STORED
-        , length DOUBLE NOT NULL AS (JSON_EXTRACT(raw_event, '$.length_m')) STORED
+        , length_m DOUBLE NOT NULL AS (JSON_EXTRACT(raw_event, '$.length_m')) STORED
           )
 ;
 
-   CREATE TABLE IF NOT EXISTS commands (
+   CREATE TABLE IF NOT EXISTS radar_commands (
           command_id BIGINT PRIMARY KEY
         , command TEXT
         , write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec'))
           )
 ;
 
-   CREATE TABLE IF NOT EXISTS log(
+   CREATE TABLE IF NOT EXISTS radar_command_log (
           log_id BIGINT PRIMARY KEY
         , command_id BIGINT
         , log_data TEXT
         , write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec'))
-        , FOREIGN KEY (command_id) REFERENCES commands (command_id)
+        , FOREIGN KEY (command_id) REFERENCES radar_commands (command_id)
           )
 ;

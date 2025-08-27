@@ -267,7 +267,7 @@ func (db *DB) RecordRawData(rawDataJSON string) error {
 		return fmt.Errorf("rawDataJSON cannot be empty")
 	}
 
-	_, err = db.Exec(`INSERT INTO data (raw_event) VALUES (?)`, rawDataJSON)
+	_, err = db.Exec(`INSERT INTO radar_data (raw_event) VALUES (?)`, rawDataJSON)
 	if err != nil {
 		return err
 	}
@@ -309,7 +309,7 @@ func EventToAPI(e Event) EventAPI {
 }
 
 func (db *DB) Events() ([]Event, error) {
-	rows, err := db.Query("SELECT uptime, magnitude, speed FROM data ORDER BY uptime DESC LIMIT 500")
+	rows, err := db.Query("SELECT uptime, magnitude, speed FROM radar_data ORDER BY uptime DESC LIMIT 500")
 	if err != nil {
 		return nil, err
 	}
