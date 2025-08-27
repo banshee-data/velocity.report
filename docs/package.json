@@ -4,7 +4,7 @@
   "description": "https://velocity.report",
   "main": "index.js",
   "scripts": {
-    "start": "npm run dev",
+    "start": "pnpm run dev",
     "dev": "npm-run-all --parallel dev:*",
     "dev:eleventy": "eleventy --serve --port=8080",
     "dev:css": "tailwindcss -i ./src/css/style.css -o ./_site/css/style.css --watch",
