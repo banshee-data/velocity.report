@@ -1,0 +1,26 @@
+{
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit"
+  },
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "Prettier-SQL.commaPosition": "before",
+  "Prettier-SQL.expressionWidth": 70,
+  "Prettier-SQL.indentStyle": "tabularRight",
+  "Prettier-SQL.keywordCase": "upper",
+  "Prettier-SQL.newlineBeforeSemicolon": true,
+  "Prettier-SQL.SQLFlavourOverride": "sqlite",
+  // Go settings
+  "go.lintOnSave": "file",
+  "go.lintTool": "golangci-lint",
+  "go.formatTool": "goimports",
+  "go.useLanguageServer": true,
+  "[go]": {
+    "editor.defaultFormatter": "golang.go",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "always"
+    }
+  }
+}
