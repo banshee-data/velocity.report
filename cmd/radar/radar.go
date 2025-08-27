@@ -200,13 +200,15 @@ func main() {
 		mux.Handle("/favicon.ico", staticHandler)
 
 		// serve frontend app from /app route
-		// check if build directory exists
-		buildDir := "./web/build"
-		if _, err := os.Stat(buildDir); os.IsNotExist(err) {
-			log.Fatalf("Build directory %s does not exist. Run 'cd web && pnpm run build' first.", buildDir)
+		// In dev mode, check build directory exists
+		if *devMode {
+			buildDir := "./web/build"
+			if _, err := os.Stat(buildDir); os.IsNotExist(err) {
+				log.Fatalf("Build directory %s does not exist. Run 'cd web && pnpm run build' first.", buildDir)
+			}
 		}
 
-		// Custom handler for SPA routing - serve index.html for non-existent files
+		// Unified frontend handler that works for both dev and production
 		mux.HandleFunc("/app/", func(w http.ResponseWriter, r *http.Request) {
 			// Strip /app prefix and normalize path
 			path := strings.TrimPrefix(r.URL.Path, "/app")
@@ -224,45 +226,49 @@ func main() {
 				return
 			}
 
-			// Try to serve the requested file directly first
-			// Example: for path "/settings", this becomes "./web/build/settings"
-			fullPath := filepath.Join(buildDir, path)
+			// Helper function to serve file content
+			serveContent := func(content []byte, filename string) {
+				http.ServeContent(w, r, filename, time.Time{}, strings.NewReader(string(content)))
+			}
 
-			// Check if the exact file exists (e.g., "./web/build/settings")
-			if _, err := os.Stat(fullPath); os.IsNotExist(err) {
-				// File doesn't exist, so we need to try alternatives
-
-				// Check if this is a route request (not already ending in .html)
-				// Example: "/settings" doesn't end in .html, so try prerendered version
-				if !strings.HasSuffix(path, ".html") {
-					// Try adding .html extension for SvelteKit prerendered routes
-					// Example: "./web/build/settings" becomes "./web/build/settings.html"
-					htmlPath := filepath.Join(buildDir, path+".html")
-
-					// Check if the prerendered HTML file exists
-					if _, err := os.Stat(htmlPath); err == nil {
-						// Success! Found prerendered file (e.g., settings.html)
-						// This contains the full server-rendered content for this route
-						fullPath = htmlPath
-					} else {
-						// No prerendered file found, fall back to SPA routing
-						// Serve index.html and let SvelteKit's client-side router handle it
-						fullPath = filepath.Join(buildDir, "index.html")
+			// Helper function to try serving a file from filesystem or embedded FS
+			tryServeFile := func(requestedPath string) bool {
+				if *devMode {
+					// Dev mode: serve from filesystem
+					fullPath := filepath.Join("./web/build", requestedPath)
+					if _, err := os.Stat(fullPath); err == nil {
+						http.ServeFile(w, r, fullPath)
+						return true
 					}
 				} else {
-					// Request was already for a .html file that doesn't exist
-					// Fall back to index.html for SPA routing
-					fullPath = filepath.Join(buildDir, "index.html")
+					// Production mode: serve from embedded filesystem
+					embedPath := "web/build/" + strings.TrimPrefix(requestedPath, "/")
+					if content, err := radar.WebBuildFiles.ReadFile(embedPath); err == nil {
+						serveContent(content, requestedPath)
+						return true
+					}
+				}
+				return false
+			}
+
+			// Try to serve the requested file directly first
+			if tryServeFile(path) {
+				return
+			}
+
+			// File doesn't exist, try with .html extension for prerendered routes
+			if !strings.HasSuffix(path, ".html") {
+				htmlPath := path + ".html"
+				if tryServeFile(htmlPath) {
+					return
 				}
 			}
-			// If we reach here, fullPath contains the file we should serve:
-			// - The original requested file (if it exists)
-			// - A prerendered .html version (if it exists)
-			// - index.html as fallback for client-side routing
 
-			http.ServeFile(w, r, fullPath)
+			// Fall back to index.html for SPA routing
+			if !tryServeFile("/index.html") {
+				http.NotFound(w, r)
+			}
 		})
-
 		// redirect root to /app
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/" {
