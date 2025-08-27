@@ -99,7 +99,7 @@ func (e *RadarObject) String() string {
 func (db *DB) RadarObjects() ([]RadarObject, error) {
 	rows, err := db.Query(`SELECT classifier, start_time, end_time, delta_time_ms, max_speed, min_speed,
 			speed_change, max_magnitude, avg_magnitude, total_frames,
-			frames_per_mps, length FROM radar_objects ORDER BY write_timestamp DESC LIMIT 100`)
+			frames_per_mps, length_m FROM radar_objects ORDER BY write_timestamp DESC LIMIT 100`)
 	if err != nil {
 		return nil, err
 	}
