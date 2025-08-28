@@ -1,0 +1,16 @@
+[project]
+name = "velocity-report-data-align"
+version = "0.1.0"
+description = "Data alignment tools for velocity report"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0.0", "black>=23.0.0", "flake8>=6.0.0"]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = []
