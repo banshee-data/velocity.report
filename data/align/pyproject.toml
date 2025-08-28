@@ -3,8 +3,7 @@ name = "velocity-report-data-align"
 version = "0.1.0"
 description = "Data alignment tools for velocity report"
 requires-python = ">=3.9"
-dependencies = []
-
+dependencies = ["aiofiles>=23.0.0", "uiprotect>=4.0.0"]
 [project.optional-dependencies]
 dev = ["pytest>=7.0.0", "black>=23.0.0", "flake8>=6.0.0"]
 
