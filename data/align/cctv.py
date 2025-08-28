@@ -98,6 +98,8 @@ class UIProtectLogger:
             if hasattr(event, "smart_detect_types") and event.smart_detect_types:
                 smart_types = [str(t) for t in event.smart_detect_types]
 
+            logger.debug(f"Logging event to database: {event.id}")
+
             cursor.execute(
                 """
     INSERT OR REPLACE INTO smart_notifications
@@ -122,11 +124,12 @@ class UIProtectLogger:
             self.db_connection.commit()
 
             logger.info(
-                f"Logged notification: {event.type.value} on {event.camera.name if event.camera else 'Unknown'}"
+                f"Successfully logged notification: {event.type.value} on {event.camera.name if event.camera else 'Unknown'}"
             )
 
         except Exception as e:
             logger.error(f"Failed to log notification: {e}")
+            logger.debug(f"Event details: {vars(event)}")
 
     async def connect_to_controller(self):
         """Connect to UIProtect controller"""
@@ -144,6 +147,15 @@ class UIProtectLogger:
                 f"Connected to UIProtect controller at {self.config['ip_address']}"
             )
 
+            # Log some basic info about the system
+            if hasattr(self.client, "bootstrap") and self.client.bootstrap:
+                cameras = getattr(self.client.bootstrap, "cameras", {})
+                logger.info(f"Found {len(cameras)} cameras")
+                for camera in cameras.values():
+                    logger.debug(f"Camera: {camera.name} (ID: {camera.id})")
+            else:
+                logger.warning("No bootstrap data available")
+
         except Exception as e:
             logger.error(f"Failed to connect to controller: {e}")
             raise
@@ -152,14 +164,35 @@ class UIProtectLogger:
         """Monitor and log smart notifications"""
         logger.info("Starting smart notification monitoring...")
 
-        def event_callback(event: Event):
-            # Filter for smart detection events
-            if (
-                hasattr(event, "smart_detect_types")
-                and event.smart_detect_types
-                and len(event.smart_detect_types) > 0
-            ):
-                self.log_notification(event)
+        def event_callback(msg):
+            # Log all websocket messages for debugging
+            logger.debug(f"Received websocket message: {type(msg)} - {msg}")
+
+            # The message should contain event data - extract it
+            if hasattr(msg, "new_obj") and msg.new_obj is not None:
+                event = msg.new_obj
+                logger.info(f"Processing event: {type(event)} - {event}")
+
+                # Check if this is an Event object and has the attributes we need
+                if hasattr(event, "type") and hasattr(event, "camera"):
+                    logger.info(
+                        f"Found event: {event.type.value if event.type else 'Unknown'} on {event.camera.name if event.camera else 'Unknown'}"
+                    )
+
+                    # More permissive filtering - log all events for now
+                    if event.type and event.camera:
+                        logger.info(
+                            f"Logging event: {event.type.value} on {event.camera.name}"
+                        )
+                        self.log_notification(event)
+                    else:
+                        logger.warning(f"Skipping event - missing type or camera info")
+                else:
+                    logger.debug(
+                        f"Not an event object or missing attributes: {type(event)}"
+                    )
+            else:
+                logger.debug(f"No new_obj in message or new_obj is None")
 
         # Subscribe to events
         unsub = self.client.subscribe_websocket(event_callback)
@@ -188,7 +221,11 @@ class UIProtectLogger:
             logger.error(f"Application error: {e}")
         finally:
             if self.client:
-                await self.client.close()
+                # Proper cleanup - the client doesn't have a close method
+                if hasattr(self.client, "close_session"):
+                    await self.client.close_session()
+                elif hasattr(self.client, "_session") and self.client._session:
+                    await self.client._session.close()
 
 
 async def main():
