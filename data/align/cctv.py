@@ -8,6 +8,7 @@ from typing import Dict, Any
 import aiofiles
 from uiprotect import ProtectApiClient
 from uiprotect.data import Event
+from datetime import timedelta
 
 # Configure logging
 logging.basicConfig(
@@ -208,6 +209,35 @@ class UIProtectLogger:
             if unsub:
                 unsub()
 
+    async def get_events(self, start_date: datetime, end_date: datetime):
+        """Get events from UIProtect controller for a specific date range"""
+        try:
+            if not self.client:
+                logger.error(
+                    "Client not connected. Call connect_to_controller() first."
+                )
+                return
+
+            logger.info(f"Fetching events from {start_date} to {end_date}")
+
+            # Get events using the uiprotect library's get_events method
+            events = await self.client.get_events(start=start_date, end=end_date)
+
+            logger.info(f"Retrieved {len(events)} events from controller")
+
+            # Log each event to database
+            for event in events:
+                if (
+                    hasattr(event, "type")
+                    and hasattr(event, "camera")
+                    and event.type
+                    and event.camera
+                ):
+                    self.log_notification(event)
+
+        except Exception as e:
+            logger.error(f"Failed to get events: {e}")
+
     async def run(self):
         """Main application entry point"""
         try:
@@ -215,7 +245,12 @@ class UIProtectLogger:
             await self.connect_to_controller()
 
             # Start monitoring
-            await self.monitor_events()
+            # await self.monitor_events()
+
+            # Get events for the past day
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=1)
+            await self.get_events(start_date, end_date)
 
         except Exception as e:
             logger.error(f"Application error: {e}")
