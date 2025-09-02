@@ -2,7 +2,7 @@ import asyncio
 import json
 import sqlite3
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any
 import aiofiles
@@ -12,7 +12,8 @@ from datetime import timedelta
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -112,7 +113,7 @@ class UIProtectLogger:
                     (
                         event.start.isoformat()
                         if event.start
-                        else datetime.now().isoformat()
+                        else datetime.now(timezone.utc).isoformat()
                     ),
                     event.camera.name if event.camera else "Unknown",
                     event.type.value if event.type else "Unknown",
@@ -238,6 +239,36 @@ class UIProtectLogger:
         except Exception as e:
             logger.error(f"Failed to get events: {e}")
 
+    def get_date_range(self) -> tuple[datetime, datetime]:
+        """Get date range for fetching events. Start from 2024-04-08 or latest DB entry, end at now."""
+        end_date = datetime.now(timezone.utc)
+        default_start = datetime(2024, 4, 8, tzinfo=timezone.utc)
+
+        try:
+            cursor = self.db_connection.cursor()
+            cursor.execute("SELECT MAX(timestamp) FROM smart_notifications")
+            result = cursor.fetchone()
+
+            if result[0] is not None:
+                # Parse the timestamp and add 1 second
+                latest_timestamp = datetime.fromisoformat(result[0])
+                # Ensure it's timezone-aware
+                if latest_timestamp.tzinfo is None:
+                    latest_timestamp = latest_timestamp.replace(tzinfo=timezone.utc)
+                start_date = latest_timestamp + timedelta(seconds=1)
+            else:
+                start_date = default_start
+
+        except Exception as e:
+            logger.warning(f"Failed to get latest timestamp from database: {e}")
+            start_date = default_start
+
+        # Ensure start_date is not after end_date
+        if start_date > end_date:
+            start_date = end_date
+
+        return start_date, end_date
+
     async def run(self):
         """Main application entry point"""
         try:
@@ -247,9 +278,7 @@ class UIProtectLogger:
             # Start monitoring
             # await self.monitor_events()
 
-            # Paginate by week from April 8th to today
-            end_date = datetime.now()
-            start_date = datetime(2024, 4, 8)  # April 8th, 2024
+            start_date, end_date = self.get_date_range()
 
             current_start = start_date
             while current_start < end_date:
