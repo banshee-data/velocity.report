@@ -247,10 +247,18 @@ class UIProtectLogger:
             # Start monitoring
             # await self.monitor_events()
 
-            # Get events for the past day
+            # Paginate by week from April 8th to today
             end_date = datetime.now()
-            start_date = end_date - timedelta(days=1)
-            await self.get_events(start_date, end_date)
+            start_date = datetime(2024, 4, 8)  # April 8th, 2024
+
+            current_start = start_date
+            while current_start < end_date:
+                current_end = min(current_start + timedelta(weeks=1), end_date)
+                logger.info(
+                    f"Fetching events for week: {current_start.strftime('%Y-%m-%d')} to {current_end.strftime('%Y-%m-%d')}"
+                )
+                await self.get_events(current_start, current_end)
+                current_start = current_end
 
         except Exception as e:
             logger.error(f"Application error: {e}")
