@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 async def load_config(
-    config_file: str = "config.json",
+    config_file: str = "config_unifi.json",
 ) -> Dict[str, Any]:
     """Load configuration from JSON file"""
     # Define default/sample config in one place
@@ -40,7 +40,7 @@ async def load_config(
         # Check if config matches default values (user hasn't updated it)
         if all(config.get(key) == value for key, value in default_config.items()):
             logger.error(
-                "Configuration file contains default values. Please update config.json with your actual UIProtect credentials."
+                "Configuration file contains default values. Please update config_unifi.json with your actual UIProtect credentials."
             )
             raise SystemExit("Exiting: Configuration not updated")
 
