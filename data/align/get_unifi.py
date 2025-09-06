@@ -1,9 +1,10 @@
+#!/usr/bin/env python3
+
 import asyncio
 import json
 import sqlite3
 import logging
 from datetime import datetime, timezone, timedelta
-from pathlib import Path
 from typing import Dict, Any
 import aiofiles
 from uiprotect import ProtectApiClient
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 async def load_config(
-    config_file: str = "config.json",
+    config_file: str = "config_unifi.json",
 ) -> Dict[str, Any]:
     """Load configuration from JSON file"""
     # Define default/sample config in one place
@@ -38,7 +39,7 @@ async def load_config(
         # Check if config matches default values (user hasn't updated it)
         if all(config.get(key) == value for key, value in default_config.items()):
             logger.error(
-                "Configuration file contains default values. Please update config.json with your actual UIProtect credentials."
+                "Configuration file contains default values. Please update config_unifi.json with your actual UIProtect credentials."
             )
             raise SystemExit("Exiting: Configuration not updated")
 
@@ -57,17 +58,18 @@ async def load_config(
         raise
 
 
-async def init_database(db_file: str = "ui.db") -> sqlite3.Connection:
-    """Initialize SQLite database with notifications table"""
+async def init_database(db_file: str = "align.db") -> sqlite3.Connection:
+    """Initialize SQLite database with unifi table"""
     conn = sqlite3.connect(db_file)
     cursor = conn.cursor()
 
     cursor.execute(
         """
-    CREATE TABLE IF NOT EXISTS smart_notifications (
+    CREATE TABLE IF NOT EXISTS unifi (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     event_id TEXT UNIQUE,
     timestamp DATETIME,
+    ts_unix REAL,
     camera_name TEXT,
     event_type TEXT,
     score REAL,
@@ -103,9 +105,9 @@ class UIProtectLogger:
 
             cursor.execute(
                 """
-    INSERT OR REPLACE INTO smart_notifications
-    (event_id, timestamp, camera_name, event_type, score, smart_detect_types, description)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT OR REPLACE INTO unifi
+    (event_id, timestamp, ts_unix, camera_name, event_type, score, smart_detect_types, description)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """,
                 (
                     event.id,
@@ -113,6 +115,11 @@ class UIProtectLogger:
                         event.start.isoformat()
                         if event.start
                         else datetime.now(timezone.utc).isoformat()
+                    ),
+                    (
+                        event.start.timestamp()
+                        if event.start
+                        else datetime.now(timezone.utc).timestamp()
                     ),
                     event.camera.name if event.camera else "Unknown",
                     event.type.value if event.type else "Unknown",
@@ -239,13 +246,13 @@ class UIProtectLogger:
             logger.error(f"Failed to get events: {e}")
 
     def get_date_range(self) -> tuple[datetime, datetime]:
-        """Get date range for fetching events. Start from 2024-04-08 or latest DB entry, end at now."""
+        """Get date range for fetching events. Start from 2025-04-01 or latest DB entry, end at now."""
         end_date = datetime.now(timezone.utc)
-        default_start = datetime(2024, 4, 8, tzinfo=timezone.utc)
+        default_start = datetime(2025, 4, 1, tzinfo=timezone.utc)
 
         try:
             cursor = self.db_connection.cursor()
-            cursor.execute("SELECT MAX(timestamp) FROM smart_notifications")
+            cursor.execute("SELECT MAX(timestamp) FROM unifi")
             result = cursor.fetchone()
 
             if result[0] is not None:
