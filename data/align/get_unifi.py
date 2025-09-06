@@ -5,7 +5,6 @@ import json
 import sqlite3
 import logging
 from datetime import datetime, timezone, timedelta
-from pathlib import Path
 from typing import Dict, Any
 import aiofiles
 from uiprotect import ProtectApiClient
@@ -60,7 +59,7 @@ async def load_config(
 
 
 async def init_database(db_file: str = "align.db") -> sqlite3.Connection:
-    """Initialize SQLite database with notifications table"""
+    """Initialize SQLite database with unifi table"""
     conn = sqlite3.connect(db_file)
     cursor = conn.cursor()
 
