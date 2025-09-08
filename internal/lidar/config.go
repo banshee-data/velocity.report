@@ -1,46 +1,59 @@
 package lidar
 
 import (
+	"embed"
 	"encoding/csv"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 )
 
-// LoadPandar40PConfig loads configuration from CSV files
-func LoadPandar40PConfig(angleCorrectionFile, firetimeCorrectionFile string) (*Pandar40PConfig, error) {
+//go:embed sensor_configs/*.csv
+var embeddedConfigs embed.FS
+
+// LoadPandar40PConfig loads configuration from embedded CSV files
+func LoadPandar40PConfig() (*Pandar40PConfig, error) {
+	return LoadEmbeddedPandar40PConfig()
+}
+
+// LoadEmbeddedPandar40PConfig loads configuration from embedded CSV files only
+func LoadEmbeddedPandar40PConfig() (*Pandar40PConfig, error) {
 	config := &Pandar40PConfig{}
 
-	// Load angle corrections
-	err := loadAngleCorrections(angleCorrectionFile, config)
+	// Load embedded angle corrections
+	err := loadEmbeddedAngleCorrections(config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load angle corrections: %v", err)
+		return nil, fmt.Errorf("failed to load embedded angle corrections: %v", err)
 	}
 
-	// Load firetime corrections
-	err = loadFiretimeCorrections(firetimeCorrectionFile, config)
+	// Load embedded firetime corrections
+	err = loadEmbeddedFiretimeCorrections(config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load firetime corrections: %v", err)
+		return nil, fmt.Errorf("failed to load embedded firetime corrections: %v", err)
 	}
 
 	return config, nil
 }
 
-// loadAngleCorrections loads angle correction data from CSV
-func loadAngleCorrections(filename string, config *Pandar40PConfig) error {
-	file, err := os.Open(filename)
+// loadEmbeddedAngleCorrections loads angle correction data from embedded CSV
+func loadEmbeddedAngleCorrections(config *Pandar40PConfig) error {
+	file, err := embeddedConfigs.Open("sensor_configs/Pandar40P_Angle Correction File.csv")
 	if err != nil {
-		return fmt.Errorf("failed to open angle correction file: %v", err)
+		return fmt.Errorf("failed to open embedded angle correction file: %v", err)
 	}
 	defer file.Close()
 
 	reader := csv.NewReader(file)
 	records, err := reader.ReadAll()
 	if err != nil {
-		return fmt.Errorf("failed to read CSV: %v", err)
+		return fmt.Errorf("failed to read embedded CSV: %v", err)
 	}
 
+	return parseAngleCorrections(records, config)
+}
+
+// parseAngleCorrections parses angle correction records (shared by file and embedded loading)
+func parseAngleCorrections(records [][]string, config *Pandar40PConfig) error {
 	// Skip header row
 	if len(records) < 2 {
 		return fmt.Errorf("insufficient data in angle correction file")
@@ -92,20 +105,25 @@ func loadAngleCorrections(filename string, config *Pandar40PConfig) error {
 	return nil
 }
 
-// loadFiretimeCorrections loads firetime correction data from CSV
-func loadFiretimeCorrections(filename string, config *Pandar40PConfig) error {
-	file, err := os.Open(filename)
+// loadEmbeddedFiretimeCorrections loads firetime correction data from embedded CSV
+func loadEmbeddedFiretimeCorrections(config *Pandar40PConfig) error {
+	file, err := embeddedConfigs.Open("sensor_configs/Pandar40P_Firetime Correction File.csv")
 	if err != nil {
-		return fmt.Errorf("failed to open firetime correction file: %v", err)
+		return fmt.Errorf("failed to open embedded firetime correction file: %v", err)
 	}
 	defer file.Close()
 
 	reader := csv.NewReader(file)
 	records, err := reader.ReadAll()
 	if err != nil {
-		return fmt.Errorf("failed to read CSV: %v", err)
+		return fmt.Errorf("failed to read embedded CSV: %v", err)
 	}
 
+	return parseFiretimeCorrections(records, config)
+}
+
+// parseFiretimeCorrections parses firetime correction records (shared by file and embedded loading)
+func parseFiretimeCorrections(records [][]string, config *Pandar40PConfig) error {
 	// Skip header row
 	if len(records) < 2 {
 		return fmt.Errorf("insufficient data in firetime correction file")
@@ -150,11 +168,14 @@ func loadFiretimeCorrections(filename string, config *Pandar40PConfig) error {
 	return nil
 }
 
-// DefaultPandar40PConfig returns a default configuration (embedded fallback)
+// DefaultPandar40PConfig returns a default configuration using embedded CSV files
 func DefaultPandar40PConfig() *Pandar40PConfig {
-	// This could contain hardcoded values from the CSV files as a fallback
-	// For now, return an empty config that would need to be loaded from files
-	return &Pandar40PConfig{}
+	config, err := LoadEmbeddedPandar40PConfig()
+	if err != nil {
+		// Return empty config if embedded loading fails (shouldn't happen in normal operation)
+		return &Pandar40PConfig{}
+	}
+	return config
 }
 
 // ValidateConfig validates that the configuration is complete

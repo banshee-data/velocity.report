@@ -20,8 +20,8 @@ go build ./cmd/lidar
 # Run with custom HTTP listen address
 ./lidar -listen :9090
 
-# Enable packet parsing (requires sensor config files)
-./lidar -parse -config-dir internal/lidar/sensor_configs
+# Enable packet parsing (uses embedded sensor config)
+./lidar -parse
 
 # Forward packets to LidarView on port 2368
 ./lidar -forward -forward-port 2368
@@ -41,8 +41,7 @@ go build ./cmd/lidar
 - `-listen string`: HTTP listen address (default: ":8080")
 
 ### Packet Processing
-- `-parse`: Parse lidar packets into points and store in database (default: false)
-- `-config-dir string`: Directory containing sensor config files (default: "internal/lidar/sensor_configs")
+- `-parse`: Parse lidar packets into points and store in database using embedded Pandar40P configuration (default: false)
 
 ### Packet Forwarding
 - `-forward`: Forward received UDP packets to another port (default: false)
@@ -52,12 +51,13 @@ go build ./cmd/lidar
 ## Features
 
 - **High-performance UDP packet reception**: Handles ~1430 packets/sec with optimized buffering
-- **Optional packet parsing**: Parse Pandar40P LiDAR packets into 3D points using sensor configuration files
+- **Built-in packet parsing**: Parse Pandar40P LiDAR packets into 3D points using embedded sensor configuration
 - **Database storage**: Store raw packets and parsed points in SQLite database
 - **Packet forwarding**: Forward packets to external applications like LidarView without blocking
 - **HTTP monitoring interface**: Web interface showing packet statistics and configuration
 - **Graceful shutdown**: Clean shutdown on SIGINT/SIGTERM with proper resource cleanup
 - **Configurable networking**: Flexible UDP binding and forwarding options
+- **Zero configuration**: Works out of the box with embedded Pandar40P sensor settings
 
 ## LidarView Integration
 
@@ -79,6 +79,20 @@ To use with LidarView for real-time visualization:
    ```
 
 **Note**: Avoid forwarding to port 2368 if LidarView expects to bind to that port as a server.
+
+## Embedded Configuration
+
+The binary includes embedded Pandar40P sensor configuration files (angle and firetime corrections), providing zero-configuration operation:
+
+- **Zero Configuration**: Works out of the box with embedded Pandar40P configurations - no external files needed
+- **Built-in Sensor Data**: Angle and firetime correction tables are compiled into the binary
+- **Maintenance-free**: No risk of missing or corrupted configuration files
+- **Portable**: Single binary contains everything needed for Pandar40P LiDAR processing
+
+```bash
+# Ready to use immediately with embedded configuration
+./lidar -parse
+```
 
 ## Performance
 

@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"os/signal"
-	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
@@ -23,8 +22,7 @@ var (
 	listen         = flag.String("listen", ":8080", "HTTP listen address")
 	udpPort        = flag.Int("udp-port", 2369, "UDP port to listen for lidar packets")
 	udpAddress     = flag.String("udp-addr", "", "UDP bind address (default: listen on all interfaces)")
-	parsePackets   = flag.Bool("parse", false, "Parse lidar packets into points (requires config files)")
-	configDir      = flag.String("config-dir", "internal/lidar/sensor_configs", "Directory containing sensor config files")
+	parsePackets   = flag.Bool("parse", false, "Parse lidar packets into points using embedded sensor config")
 	forwardPackets = flag.Bool("forward", false, "Forward received UDP packets to another port")
 	forwardPort    = flag.Int("forward-port", 2368, "Port to forward UDP packets to (for LidarView monitoring)")
 	forwardAddr    = flag.String("forward-addr", "localhost", "Address to forward UDP packets to")
@@ -266,17 +264,15 @@ func main() {
 	// Initialize parser if parsing is enabled
 	var parser *lidar.Pandar40PParser
 	if *parsePackets {
-		angleFile := filepath.Join(*configDir, "Pandar40P_Angle Correction File.csv")
-		firetimeFile := filepath.Join(*configDir, "Pandar40P_Firetime Correction File.csv")
-
-		config, err := lidar.LoadPandar40PConfig(angleFile, firetimeFile)
+		log.Printf("Loading embedded Pandar40P sensor configuration")
+		config, err := lidar.LoadEmbeddedPandar40PConfig()
 		if err != nil {
-			log.Fatalf("Failed to load lidar configuration: %v", err)
+			log.Fatalf("Failed to load embedded lidar configuration: %v", err)
 		}
 
 		err = config.Validate()
 		if err != nil {
-			log.Fatalf("Invalid lidar configuration: %v", err)
+			log.Fatalf("Invalid embedded lidar configuration: %v", err)
 		}
 
 		parser = lidar.NewPandar40PParser(*config)
