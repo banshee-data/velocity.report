@@ -8,19 +8,26 @@ import (
 	"net"
 	"net/http"
 	"os/signal"
+	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
 
 	_ "modernc.org/sqlite"
 
+	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidardb"
 )
 
 var (
-	listen     = flag.String("listen", ":8080", "HTTP listen address")
-	udpPort    = flag.Int("udp-port", 2369, "UDP port to listen for lidar packets")
-	udpAddress = flag.String("udp-addr", "", "UDP bind address (default: listen on all interfaces)")
+	listen         = flag.String("listen", ":8080", "HTTP listen address")
+	udpPort        = flag.Int("udp-port", 2369, "UDP port to listen for lidar packets")
+	udpAddress     = flag.String("udp-addr", "", "UDP bind address (default: listen on all interfaces)")
+	parsePackets   = flag.Bool("parse", false, "Parse lidar packets into points (requires config files)")
+	configDir      = flag.String("config-dir", "internal/lidar/sensor_configs", "Directory containing sensor config files")
+	forwardPackets = flag.Bool("forward", false, "Forward received UDP packets to another port")
+	forwardPort    = flag.Int("forward-port", 2368, "Port to forward UDP packets to (for LidarView monitoring)")
+	forwardAddr    = flag.String("forward-addr", "localhost", "Address to forward UDP packets to")
 )
 
 // Constants
@@ -58,24 +65,61 @@ func (ps *PacketStats) GetAndReset() (packets int64, bytes int64, duration time.
 	return
 }
 
-func handleLidarPacket(stats *PacketStats, packet []byte, addr *net.UDPAddr) error {
-	// Track packet statistics instead of logging each packet
+// Fast packet forwarding without blocking main receive loop
+func forwardPacketAsync(forwardConn *net.UDPConn, packet []byte, forwardChan chan []byte) {
+	if forwardConn != nil && *forwardPackets {
+		// Make a copy of the packet data to avoid buffer sharing issues
+		packetCopy := make([]byte, len(packet))
+		copy(packetCopy, packet)
+
+		// Send to forwarding channel (non-blocking)
+		select {
+		case forwardChan <- packetCopy:
+		default:
+			// Drop packet if forwarding buffer is full (prevents blocking)
+		}
+	}
+}
+
+func handleLidarPacket(stats *PacketStats, ldb *lidardb.LidarDB, parser *lidar.Pandar40PParser, packet []byte, addr *net.UDPAddr, forwardConn *net.UDPConn, forwardChan chan []byte) error {
+	// Track packet statistics
 	stats.AddPacket(len(packet))
 
-	// Store the raw packet in the lidar database
-	// Commented out - use wireshark/pcaps for raw packet capture instead
-	// return ldb.RecordLidarPacket(packet, addr)
+	// Forward packet asynchronously if forwarding is enabled
+	forwardPacketAsync(forwardConn, packet, forwardChan)
+
+	// Parse packet if parser is available and parsing is enabled
+	if parser != nil && *parsePackets {
+		points, err := parser.ParsePacket(packet)
+		if err != nil {
+			log.Printf("Failed to parse packet from %s: %v", addr.String(), err)
+			return nil // Don't fail on parse errors, just log them
+		}
+
+		// Store parsed points in database
+		for _, point := range points {
+			err := ldb.RecordLidarPoint(0, point.X, point.Y, point.Z, int(point.Intensity),
+				point.Timestamp.UnixNano(), point.Azimuth, point.Distance)
+			if err != nil {
+				log.Printf("Failed to store point: %v", err)
+			}
+		}
+
+		log.Printf("Parsed %d points from packet", len(points))
+	}
 
 	return nil
 }
 
-// UDP listener function
-func listenUDP(ctx context.Context, ldb *lidardb.LidarDB, address string) error {
+// UDP listener function with optimized packet forwarding
+func listenUDP(ctx context.Context, ldb *lidardb.LidarDB, parser *lidar.Pandar40PParser, address string) error {
+	// Parse the address
 	addr, err := net.ResolveUDPAddr("udp", address)
 	if err != nil {
 		return fmt.Errorf("failed to resolve UDP address: %v", err)
 	}
 
+	// Create main UDP listener
 	conn, err := net.ListenUDP("udp", addr)
 	if err != nil {
 		return fmt.Errorf("failed to listen on UDP: %v", err)
@@ -83,6 +127,48 @@ func listenUDP(ctx context.Context, ldb *lidardb.LidarDB, address string) error 
 	defer conn.Close()
 
 	log.Printf("Listening for lidar packets on %s", address)
+
+	// Setup packet forwarding if enabled
+	var forwardConn *net.UDPConn
+	var forwardChan chan []byte
+	if *forwardPackets {
+		forwardAddress := fmt.Sprintf("%s:%d", *forwardAddr, *forwardPort)
+		forwardUDPAddr, err := net.ResolveUDPAddr("udp", forwardAddress)
+		if err != nil {
+			return fmt.Errorf("failed to resolve forward address: %v", err)
+		}
+
+		forwardConn, err = net.DialUDP("udp", nil, forwardUDPAddr)
+		if err != nil {
+			return fmt.Errorf("failed to create forward connection: %v", err)
+		}
+		defer forwardConn.Close()
+
+		// Create buffered channel for packet forwarding (buffer 1000 packets)
+		forwardChan = make(chan []byte, 1000)
+
+		// Start dedicated forwarding goroutine
+		go func() {
+			droppedCount := 0
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case packet := <-forwardChan:
+					_, err := forwardConn.Write(packet)
+					if err != nil {
+						droppedCount++
+						// Only log every 100th error to avoid spamming logs
+						if droppedCount%100 == 0 {
+							log.Printf("Dropped %d forwarded packets due to errors (latest: %v)", droppedCount, err)
+						}
+					}
+				}
+			}
+		}()
+
+		log.Printf("Forwarding packets to %s", forwardAddress)
+	}
 
 	// Initialize packet statistics
 	stats := &PacketStats{lastReset: time.Now()}
@@ -111,6 +197,9 @@ func listenUDP(ctx context.Context, ldb *lidardb.LidarDB, address string) error 
 	// Buffer for incoming packets - adjust size based on expected lidar packet size
 	buffer := make([]byte, 65536) // 64KB buffer
 
+	log.Printf("Starting UDP packet receive loop...")
+	timeoutCount := 0
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -127,18 +216,26 @@ func listenUDP(ctx context.Context, ldb *lidardb.LidarDB, address string) error 
 			if err != nil {
 				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 					// Timeout is expected, continue the loop
+					timeoutCount++
+					if timeoutCount%10 == 0 {
+						log.Printf("No packets received for %d seconds", timeoutCount)
+					}
 					continue
 				}
 				log.Printf("Error reading UDP packet: %v", err)
 				continue
 			}
 
-			// Handle the packet in a goroutine to avoid blocking
-			go func(packet []byte, addr *net.UDPAddr) {
-				if err := handleLidarPacket(stats, packet, addr); err != nil {
-					log.Printf("Error handling lidar packet: %v", err)
-				}
-			}(buffer[:n], clientAddr)
+			// Reset timeout counter when we receive a packet
+			timeoutCount = 0
+
+			// Handle the packet directly in the main loop for better performance
+			packet := make([]byte, n)
+			copy(packet, buffer[:n])
+
+			if err := handleLidarPacket(stats, ldb, parser, packet, clientAddr, forwardConn, forwardChan); err != nil {
+				log.Printf("Error handling lidar packet: %v", err)
+			}
 		}
 	}
 }
@@ -166,6 +263,28 @@ func main() {
 	}
 	defer ldb.Close()
 
+	// Initialize parser if parsing is enabled
+	var parser *lidar.Pandar40PParser
+	if *parsePackets {
+		angleFile := filepath.Join(*configDir, "Pandar40P_Angle Correction File.csv")
+		firetimeFile := filepath.Join(*configDir, "Pandar40P_Firetime Correction File.csv")
+
+		config, err := lidar.LoadPandar40PConfig(angleFile, firetimeFile)
+		if err != nil {
+			log.Fatalf("Failed to load lidar configuration: %v", err)
+		}
+
+		err = config.Validate()
+		if err != nil {
+			log.Fatalf("Invalid lidar configuration: %v", err)
+		}
+
+		parser = lidar.NewPandar40PParser(*config)
+		log.Println("Lidar packet parsing enabled")
+	} else {
+		log.Println("Lidar packet parsing disabled (use -parse flag to enable)")
+	}
+
 	// Create a wait group for the HTTP server and UDP listener routines
 	var wg sync.WaitGroup
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -175,7 +294,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := listenUDP(ctx, ldb, udpListenAddr); err != nil && err != context.Canceled {
+		if err := listenUDP(ctx, ldb, parser, udpListenAddr); err != nil && err != context.Canceled {
 			log.Printf("UDP listener error: %v", err)
 		}
 		log.Print("UDP listener routine terminated")
@@ -202,6 +321,17 @@ func main() {
 				return
 			}
 			w.Header().Set("Content-Type", "text/html")
+
+			forwardingStatus := "disabled"
+			if *forwardPackets {
+				forwardingStatus = fmt.Sprintf("enabled (%s:%d)", *forwardAddr, *forwardPort)
+			}
+
+			parsingStatus := "disabled"
+			if *parsePackets {
+				parsingStatus = "enabled"
+			}
+
 			fmt.Fprintf(w, `
 <!DOCTYPE html>
 <html>
@@ -210,11 +340,13 @@ func main() {
 	<h1>Lidar UDP Listener</h1>
 	<p>Listening on UDP port %d</p>
 	<p>HTTP server running on %s</p>
+	<p>Packet forwarding: %s</p>
+	<p>Packet parsing: %s</p>
 	<ul>
 		<li><a href="/health">Health check</a></li>
 	</ul>
 </body>
-</html>`, *udpPort, *listen)
+</html>`, *udpPort, *listen, forwardingStatus, parsingStatus)
 		})
 
 		server := &http.Server{
