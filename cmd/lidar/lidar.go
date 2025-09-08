@@ -205,8 +205,8 @@ func listenUDP(ctx context.Context, ldb *lidardb.LidarDB, parser *lidar.Pandar40
 		}
 	}()
 
-	// Buffer for incoming packets - adjust size based on expected lidar packet size
-	buffer := make([]byte, 65536) // 64KB buffer
+	// Buffer for incoming packets - sized for typical lidar packet (~1200-1500 bytes)
+	buffer := make([]byte, 1500)
 
 	log.Printf("Starting UDP packet receive loop...")
 	timeoutCount := 0
@@ -240,11 +240,11 @@ func listenUDP(ctx context.Context, ldb *lidardb.LidarDB, parser *lidar.Pandar40
 			// Reset timeout counter when we receive a packet
 			timeoutCount = 0
 
-			// Handle the packet directly in the main loop for better performance
-			packet := make([]byte, n)
-			copy(packet, buffer[:n])
-
-			if err := handleLidarPacket(stats, ldb, parser, packet, clientAddr, forwardConn, forwardChan); err != nil {
+			// Handle the packet directly using the reused buffer (no allocation per packet).
+			// Note: buffer[:n] creates a slice view without copying data.
+			// Any function that needs to store the packet data beyond this call
+			// must make its own copy (see forwardPacketAsync for an example).
+			if err := handleLidarPacket(stats, ldb, parser, buffer[:n], clientAddr, forwardConn, forwardChan); err != nil {
 				log.Printf("Error handling lidar packet: %v", err)
 			}
 		}
