@@ -19,17 +19,17 @@ import (
 )
 
 var (
-	listen         = flag.String("listen", ":8080", "HTTP listen address")
+	listen         = flag.String("listen", ":8081", "HTTP listen address")
 	udpPort        = flag.Int("udp-port", 2369, "UDP port to listen for lidar packets")
 	udpAddress     = flag.String("udp-addr", "", "UDP bind address (default: listen on all interfaces)")
 	parsePackets   = flag.Bool("parse", false, "Parse lidar packets into points using embedded sensor config")
 	forwardPackets = flag.Bool("forward", false, "Forward received UDP packets to another port")
 	forwardPort    = flag.Int("forward-port", 2368, "Port to forward UDP packets to (for LidarView monitoring)")
 	forwardAddr    = flag.String("forward-addr", "localhost", "Address to forward UDP packets to")
+	dbFile         = flag.String("db", "lidar_data.db", "Path to the SQLite database file")
 )
 
 // Constants
-const DB_FILE = "lidar_data.db"
 const SCHEMA_VERSION = "0.1.0"
 
 // Packet statistics tracking
@@ -79,7 +79,12 @@ func forwardPacketAsync(forwardConn *net.UDPConn, packet []byte, forwardChan cha
 	}
 }
 
-func handleLidarPacket(stats *PacketStats, ldb *lidardb.LidarDB, parser *lidar.Pandar40PParser, packet []byte, addr *net.UDPAddr, forwardConn *net.UDPConn, forwardChan chan []byte) error {
+func handleLidarPacket(stats *PacketStats,
+	ldb *lidardb.LidarDB,
+	parser *lidar.Pandar40PParser,
+	packet []byte, addr *net.UDPAddr,
+	forwardConn *net.UDPConn,
+	forwardChan chan []byte) error {
 	// Track packet statistics
 	stats.AddPacket(len(packet))
 
@@ -95,13 +100,13 @@ func handleLidarPacket(stats *PacketStats, ldb *lidardb.LidarDB, parser *lidar.P
 		}
 
 		// Store parsed points in database
-		for _, point := range points {
-			err := ldb.RecordLidarPoint(0, point.X, point.Y, point.Z, int(point.Intensity),
-				point.Timestamp.UnixNano(), point.Azimuth, point.Distance)
-			if err != nil {
-				log.Printf("Failed to store point: %v", err)
-			}
-		}
+		// for _, point := range points {
+		// 	err := ldb.RecordLidarPoint(0, point.X, point.Y, point.Z, int(point.Intensity),
+		// 		point.Timestamp.UnixNano(), point.Azimuth, point.Distance)
+		// 	if err != nil {
+		// 		log.Printf("Failed to store point: %v", err)
+		// 	}
+		// }
 
 		log.Printf("Parsed %d points from packet", len(points))
 	}
@@ -255,7 +260,7 @@ func main() {
 	}
 
 	// Initialize database
-	ldb, err := lidardb.NewLidarDB(DB_FILE)
+	ldb, err := lidardb.NewLidarDB(*dbFile)
 	if err != nil {
 		log.Fatalf("Failed to connect to lidar database: %v", err)
 	}
