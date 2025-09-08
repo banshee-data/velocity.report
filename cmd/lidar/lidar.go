@@ -35,10 +35,11 @@ const SCHEMA_VERSION = "0.1.0"
 
 // Packet statistics tracking
 type PacketStats struct {
-	mu          sync.Mutex
-	packetCount int64
-	byteCount   int64
-	lastReset   time.Time
+	mu           sync.Mutex
+	packetCount  int64
+	byteCount    int64
+	droppedCount int64
+	lastReset    time.Time
 }
 
 func (ps *PacketStats) AddPacket(bytes int) {
@@ -48,7 +49,13 @@ func (ps *PacketStats) AddPacket(bytes int) {
 	ps.byteCount += int64(bytes)
 }
 
-func (ps *PacketStats) GetAndReset() (packets int64, bytes int64, duration time.Duration) {
+func (ps *PacketStats) AddDropped() {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+	ps.droppedCount++
+}
+
+func (ps *PacketStats) GetAndReset() (packets int64, bytes int64, dropped int64, duration time.Duration) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 
@@ -56,16 +63,18 @@ func (ps *PacketStats) GetAndReset() (packets int64, bytes int64, duration time.
 	duration = now.Sub(ps.lastReset)
 	packets = ps.packetCount
 	bytes = ps.byteCount
+	dropped = ps.droppedCount
 
 	ps.packetCount = 0
 	ps.byteCount = 0
+	ps.droppedCount = 0
 	ps.lastReset = now
 
 	return
 }
 
 // Fast packet forwarding without blocking main receive loop
-func forwardPacketAsync(forwardConn *net.UDPConn, packet []byte, forwardChan chan []byte) {
+func forwardPacketAsync(stats *PacketStats, forwardConn *net.UDPConn, packet []byte, forwardChan chan []byte) {
 	if forwardConn != nil && *forwardPackets {
 		// Make a copy of the packet data to avoid buffer sharing issues
 		packetCopy := make([]byte, len(packet))
@@ -76,6 +85,7 @@ func forwardPacketAsync(forwardConn *net.UDPConn, packet []byte, forwardChan cha
 		case forwardChan <- packetCopy:
 		default:
 			// Drop packet if forwarding buffer is full (prevents blocking)
+			stats.AddDropped()
 		}
 	}
 }
@@ -90,7 +100,7 @@ func handleLidarPacket(stats *PacketStats,
 	stats.AddPacket(len(packet))
 
 	// Forward packet asynchronously if forwarding is enabled
-	forwardPacketAsync(forwardConn, packet, forwardChan)
+	forwardPacketAsync(stats, forwardConn, packet, forwardChan)
 
 	// Parse packet if parser is available and parsing is enabled
 	if parser != nil && *parsePackets {
@@ -194,12 +204,17 @@ func listenUDP(ctx context.Context, ldb *lidardb.LidarDB, parser *lidar.Pandar40
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				packets, bytes, duration := stats.GetAndReset()
-				if packets > 0 {
+				packets, bytes, dropped, duration := stats.GetAndReset()
+				if packets > 0 || dropped > 0 {
 					packetsPerSec := float64(packets) / duration.Seconds()
 					bytesPerSec := float64(bytes) / duration.Seconds()
-					log.Printf("Lidar stats: %.1f packets/sec, %.1f bytes/sec (%.1f KB/sec)",
-						packetsPerSec, bytesPerSec, bytesPerSec/1024)
+					if dropped > 0 {
+						log.Printf("Lidar stats: %.1f packets/sec, %.1f bytes/sec (%.1f KB/sec), %d dropped on forward",
+							packetsPerSec, bytesPerSec, bytesPerSec/1024, dropped)
+					} else {
+						log.Printf("Lidar stats: %.1f packets/sec, %.1f bytes/sec (%.1f KB/sec)",
+							packetsPerSec, bytesPerSec, bytesPerSec/1024)
+					}
 				}
 			}
 		}
