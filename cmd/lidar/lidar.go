@@ -27,6 +27,7 @@ var (
 	forwardPort    = flag.Int("forward-port", 2368, "Port to forward UDP packets to (for LidarView monitoring)")
 	forwardAddr    = flag.String("forward-addr", "localhost", "Address to forward UDP packets to")
 	dbFile         = flag.String("db", "lidar_data.db", "Path to the SQLite database file")
+	rcvBuf         = flag.Int("rcvbuf", 4<<20, "UDP receive buffer size in bytes (default 4MB)")
 )
 
 // Constants
@@ -128,6 +129,13 @@ func listenUDP(ctx context.Context, ldb *lidardb.LidarDB, parser *lidar.Pandar40
 		return fmt.Errorf("failed to listen on UDP: %v", err)
 	}
 	defer conn.Close()
+
+	// Set socket receive buffer size
+	if err := conn.SetReadBuffer(*rcvBuf); err != nil {
+		log.Printf("Warning: failed to set UDP receive buffer to %d bytes: %v (some OSes clamp buffer sizes)", *rcvBuf, err)
+	} else {
+		log.Printf("Set UDP receive buffer to %d bytes", *rcvBuf)
+	}
 
 	log.Printf("Listening for lidar packets on %s", address)
 
