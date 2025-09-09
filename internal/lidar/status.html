@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+  <head><title>Lidar UDP Listener</title></head>
+  <body>
+    <h1>Lidar UDP Listener</h1>
+    <p>Listening on UDP port {{.UDPPort}}</p>
+    <p>HTTP server running on {{.HTTPAddress}}</p>
+    <p>Packet forwarding: {{.ForwardingStatus}}</p>
+    <p>Packet parsing: {{.ParsingStatus}}</p>
+    <p><strong>Uptime:</strong> {{.Uptime}}</p>
+
+    {{if .Stats}}
+    <h2>Latest Statistics</h2>
+    <p><strong>Data Rate:</strong> {{printf "%.2f" .Stats.MBPerSec}} MB/sec</p>
+    <p><strong>Packet Rate:</strong> {{printf "%.1f" .Stats.PacketsPerSec}}
+      packets/sec</p>
+    {{if .Stats.ParseEnabled}}
+    <p><strong>Point Rate:</strong> {{printf "%.0f" .Stats.PointsPerSec}}
+      points/sec</p>
+    {{end}}
+    {{if gt .Stats.DroppedCount 0}}
+    <p><strong>Dropped Packets:</strong> {{.Stats.DroppedCount}} (forwarding
+      backpressure)</p>
+    {{end}}
+    <p><strong>Last Updated:</strong> {{.Stats.Timestamp.Format "15:04:05"}}</p>
+    {{else}}
+    <p><em>No statistics available yet...</em></p>
+    {{end}}
+
+    <ul>
+      <li><a href="/health">Health check</a></li>
+    </ul>
+  </body>
+</html>

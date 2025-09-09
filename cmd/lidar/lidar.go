@@ -1,0 +1,141 @@
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"log"
+	"os/signal"
+	"sync"
+	"syscall"
+	"time"
+
+	_ "modernc.org/sqlite"
+
+	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidardb"
+)
+
+var (
+	listen         = flag.String("listen", ":8081", "HTTP listen address")
+	udpPort        = flag.Int("udp-port", 2369, "UDP port to listen for lidar packets")
+	udpAddress     = flag.String("udp-addr", "", "UDP bind address (default: listen on all interfaces)")
+	disableParsing = flag.Bool("no-parse", false, "Disable lidar packet parsing (parsing is enabled by default)")
+	forwardPackets = flag.Bool("forward", false, "Forward received UDP packets to another port")
+	forwardPort    = flag.Int("forward-port", 2368, "Port to forward UDP packets to (for LidarView monitoring)")
+	forwardAddr    = flag.String("forward-addr", "localhost", "Address to forward UDP packets to")
+	dbFile         = flag.String("db", "lidar_data.db", "Path to the SQLite database file")
+	rcvBuf         = flag.Int("rcvbuf", 4<<20, "UDP receive buffer size in bytes (default 4MB)")
+	logInterval    = flag.Int("log-interval", 2, "Statistics logging interval in seconds")
+)
+
+// Constants
+const SCHEMA_VERSION = "0.1.0"
+
+// Main
+func main() {
+	flag.Parse()
+
+	if *listen == "" {
+		log.Fatal("HTTP listen address is required")
+	}
+
+	// Construct UDP listen address
+	var udpListenAddr string
+	if *udpAddress == "" {
+		udpListenAddr = fmt.Sprintf(":%d", *udpPort)
+	} else {
+		udpListenAddr = fmt.Sprintf("%s:%d", *udpAddress, *udpPort)
+	}
+
+	// Initialize database
+	ldb, err := lidardb.NewLidarDB(*dbFile)
+	if err != nil {
+		log.Fatalf("Failed to connect to lidar database: %v", err)
+	}
+	defer ldb.Close()
+
+	// Initialize parser if parsing is enabled
+	var parser *lidar.Pandar40PParser
+	if !*disableParsing {
+		log.Printf("Loading embedded Pandar40P sensor configuration")
+		config, err := lidar.LoadEmbeddedPandar40PConfig()
+		if err != nil {
+			log.Fatalf("Failed to load embedded lidar configuration: %v", err)
+		}
+
+		err = config.Validate()
+		if err != nil {
+			log.Fatalf("Invalid embedded lidar configuration: %v", err)
+		}
+
+		parser = lidar.NewPandar40PParser(*config)
+		log.Println("Lidar packet parsing enabled")
+	} else {
+		log.Println("Lidar packet parsing disabled (--no-parse flag was specified)")
+	}
+
+	// Create a wait group for the HTTP server and UDP listener routines
+	var wg sync.WaitGroup
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	// Initialize packet statistics (shared between UDP listener and HTTP server)
+	stats := lidar.NewPacketStats()
+
+	// Create packet forwarder if forwarding is enabled
+	var forwarder *lidar.PacketForwarder
+	if *forwardPackets {
+		forwarder, err = lidar.NewPacketForwarder(*forwardAddr, *forwardPort, stats, time.Duration(*logInterval)*time.Second)
+		if err != nil {
+			log.Fatalf("Failed to create packet forwarder: %v", err)
+		}
+		defer forwarder.Close()
+	}
+
+	// Create and start UDP listener
+	udpListener := lidar.NewUDPListener(lidar.UDPListenerConfig{
+		Address:        udpListenAddr,
+		RcvBuf:         *rcvBuf,
+		LogInterval:    time.Duration(*logInterval) * time.Second,
+		Stats:          stats,
+		Forwarder:      forwarder,
+		Parser:         parser,
+		DB:             ldb,
+		DisableParsing: *disableParsing,
+	})
+
+	// Start UDP listener routine
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := udpListener.Start(ctx); err != nil && err != context.Canceled {
+			log.Printf("UDP listener error: %v", err)
+		}
+		log.Print("UDP listener routine terminated")
+	}()
+
+	// Create and start web server
+	webServer := lidar.NewWebServer(lidar.WebServerConfig{
+		Address:           *listen,
+		Stats:             stats,
+		ForwardingEnabled: *forwardPackets,
+		ForwardAddr:       *forwardAddr,
+		ForwardPort:       *forwardPort,
+		ParsingEnabled:    !*disableParsing,
+		UDPPort:           *udpPort,
+	})
+
+	// Start HTTP server routine
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := webServer.Start(ctx); err != nil {
+			log.Printf("Web server error: %v", err)
+		}
+	}()
+
+	// Wait for all goroutines to finish
+	wg.Wait()
+	log.Printf("Graceful shutdown complete")
+}
