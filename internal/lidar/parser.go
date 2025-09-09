@@ -77,9 +77,8 @@ type PacketHeader struct {
 
 // DataBlock represents one of 10 data blocks within a packet
 // Each block contains measurements from all 40 channels at a specific azimuth angle
-// Note: Unlike some LiDAR formats, Pandar40P data blocks do not contain a block ID field
+// Pandar40P blocks contain only azimuth + channel data (no block ID header)
 type DataBlock struct {
-	BlockID  uint16                          // Virtual block identifier (0xEEFF, not actually in packet data)
 	Azimuth  uint16                          // Raw azimuth angle in 0.01-degree units
 	Channels [CHANNELS_PER_BLOCK]ChannelData // Measurement data for all 40 channels
 }
@@ -194,7 +193,6 @@ func (p *Pandar40PParser) parseDataBlock(data []byte) (*DataBlock, error) {
 	}
 
 	block := &DataBlock{
-		BlockID: 0xEEFF,                                // Virtual block ID for compatibility (not present in actual data)
 		Azimuth: binary.LittleEndian.Uint16(data[0:2]), // Raw azimuth in 0.01-degree units
 	}
 
