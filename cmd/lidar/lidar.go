@@ -138,6 +138,10 @@ func listenUDP(ctx context.Context, ldb *lidardb.LidarDB, parser *lidar.Pandar40
 		// Start dedicated forwarding goroutine
 		go func() {
 			droppedCount := 0
+			var lastError error
+			ticker := time.NewTicker(time.Duration(*logInterval) * time.Second)
+			defer ticker.Stop()
+
 			for {
 				select {
 				case <-ctx.Done():
@@ -146,10 +150,14 @@ func listenUDP(ctx context.Context, ldb *lidardb.LidarDB, parser *lidar.Pandar40
 					_, err := forwardConn.Write(packet)
 					if err != nil {
 						droppedCount++
-						// Only log every 100th error to avoid spamming logs
-						if droppedCount%100 == 0 {
-							log.Printf("Dropped %d forwarded packets due to errors (latest: %v)", droppedCount, err)
-						}
+						lastError = err
+					}
+				case <-ticker.C:
+					// Only log if we have dropped packets in this interval
+					if droppedCount > 0 && lastError != nil {
+						log.Printf("\033[93mDropped %d forwarded packets due to errors (latest: %v)\033[0m", droppedCount, lastError)
+						droppedCount = 0 // Reset counter after logging
+						lastError = nil
 					}
 				}
 			}
