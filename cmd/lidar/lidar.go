@@ -24,7 +24,7 @@ var (
 	listen         = flag.String("listen", ":8081", "HTTP listen address")
 	udpPort        = flag.Int("udp-port", 2369, "UDP port to listen for lidar packets")
 	udpAddress     = flag.String("udp-addr", "", "UDP bind address (default: listen on all interfaces)")
-	parsePackets   = flag.Bool("parse", false, "Parse lidar packets into points using embedded sensor config")
+	disableParsing = flag.Bool("no-parse", false, "Disable lidar packet parsing (parsing is enabled by default)")
 	forwardPackets = flag.Bool("forward", false, "Forward received UDP packets to another port")
 	forwardPort    = flag.Int("forward-port", 2368, "Port to forward UDP packets to (for LidarView monitoring)")
 	forwardAddr    = flag.String("forward-addr", "localhost", "Address to forward UDP packets to")
@@ -66,7 +66,7 @@ func handleLidarPacket(stats *lidar.PacketStats,
 	forwardPacketAsync(stats, forwardConn, packet, forwardChan)
 
 	// Parse packet if parser is available and parsing is enabled
-	if parser != nil && *parsePackets {
+	if parser != nil && !*disableParsing {
 		points, err := parser.ParsePacket(packet)
 		if err != nil {
 			log.Printf("Pandar40P parsing failed: %v", err)
@@ -168,7 +168,7 @@ func listenUDP(ctx context.Context, ldb *lidardb.LidarDB, parser *lidar.Pandar40
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				stats.LogStats(*parsePackets)
+				stats.LogStats(!*disableParsing)
 			}
 		}
 	}()
@@ -244,7 +244,7 @@ func main() {
 
 	// Initialize parser if parsing is enabled
 	var parser *lidar.Pandar40PParser
-	if *parsePackets {
+	if !*disableParsing {
 		log.Printf("Loading embedded Pandar40P sensor configuration")
 		config, err := lidar.LoadEmbeddedPandar40PConfig()
 		if err != nil {
@@ -259,7 +259,7 @@ func main() {
 		parser = lidar.NewPandar40PParser(*config)
 		log.Println("Lidar packet parsing enabled")
 	} else {
-		log.Println("Lidar packet parsing disabled (use -parse flag to enable)")
+		log.Println("Lidar packet parsing disabled (use --no-parse flag was specified)")
 	}
 
 	// Create a wait group for the HTTP server and UDP listener routines
@@ -304,9 +304,9 @@ func main() {
 				forwardingStatus = fmt.Sprintf("enabled (%s:%d)", *forwardAddr, *forwardPort)
 			}
 
-			parsingStatus := "disabled"
-			if *parsePackets {
-				parsingStatus = "enabled"
+			parsingStatus := "enabled"
+			if *disableParsing {
+				parsingStatus = "disabled"
 			}
 
 			// Load and parse the HTML template
