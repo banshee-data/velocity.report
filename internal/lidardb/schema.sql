@@ -55,6 +55,7 @@ CREATE INDEX idx_sensor_poses_sensor_time ON sensor_poses (sensor_id, valid_from
 -- ---------------------------------------------------------------------------
 -- LiDAR background (sensor frame) - periodic snapshots
 -- Store the range-image background as a compressed blob (e.g., zstd).
+-- Automatic persistence: after 5 min settling, then every 2 hours.
 -- ---------------------------------------------------------------------------
    CREATE TABLE lidar_bg_snapshot (
           snapshot_id INTEGER PRIMARY KEY
@@ -65,6 +66,7 @@ CREATE INDEX idx_sensor_poses_sensor_time ON sensor_poses (sensor_id, valid_from
         , params_json TEXT NOT NULL /* dial settings used when taken */
         , grid_blob BLOB NOT NULL /* compressed []BackgroundCell */
         , changed_cells_count INTEGER
+        , snapshot_reason TEXT /* 'settling_complete', 'periodic_update', 'manual' */
         , FOREIGN KEY (sensor_id) REFERENCES sensors (sensor_id)
           )
 ;
@@ -130,10 +132,15 @@ CREATE INDEX idx_lidar_clusters_sensor_time ON lidar_clusters (sensor_id, ts_uni
           )
 ;
 
+-- Enhanced for 100 concurrent tracks with better performance indices
 CREATE INDEX idx_lidar_tracks_site_time ON lidar_tracks (world_frame, start_unix_nanos)
 ;
 
 CREATE INDEX idx_lidar_tracks_sensor_time ON lidar_tracks (sensor_id, start_unix_nanos)
+;
+
+CREATE INDEX idx_lidar_tracks_active ON lidar_tracks (world_frame, end_unix_nanos)
+    WHERE end_unix_nanos IS NULL
 ;
 
    CREATE TABLE lidar_track_obs (
@@ -160,10 +167,14 @@ CREATE INDEX idx_lidar_tracks_sensor_time ON lidar_tracks (sensor_id, start_unix
           )
 ;
 
+-- Optimized for efficient track state queries (100 concurrent tracks)
 CREATE INDEX idx_track_obs_time ON lidar_track_obs (ts_unix_nanos)
 ;
 
 CREATE INDEX idx_track_obs_track ON lidar_track_obs (track_id)
+;
+
+CREATE INDEX idx_track_obs_track_time ON lidar_track_obs (track_id, ts_unix_nanos DESC)
 ;
 
 -- Denormalized per-track feature vectors for training/export.
@@ -220,6 +231,7 @@ CREATE INDEX idx_labels_track ON labels (track_id)
 -- ---------------------------------------------------------------------------
 -- Radar (WORLD frame coordinates available for spatial join)
 -- Store both native polar measurements and derived XY in world frame.
+-- Enhanced for fusion with processing latency tracking.
 -- ---------------------------------------------------------------------------
    CREATE TABLE radar_observations (
           radar_obs_id INTEGER PRIMARY KEY
@@ -234,6 +246,9 @@ CREATE INDEX idx_labels_track ON labels (track_id)
         , x REAL
         , y REAL
         , quality INTEGER
+        , received_unix_nanos INTEGER NOT NULL /* when radar process received it */
+        , processed_unix_nanos INTEGER /* when lidar process handled it */
+        , processing_latency_us INTEGER /* receive to process time */
         , FOREIGN KEY (sensor_id) REFERENCES sensors (sensor_id)
         , FOREIGN KEY (pose_id) REFERENCES sensor_poses (pose_id)
           )
@@ -262,34 +277,72 @@ CREATE INDEX idx_radar_lines_sensor_time ON radar_lines (sensor_id, ts_unix_nano
 
 -- ---------------------------------------------------------------------------
 -- Associations & fusion ledger (WORLD frame)
--- One row per successful association opportunity (temporal + spatial).
+-- Unified table for all sensor association events (radar-lidar, future sensors)
 -- ---------------------------------------------------------------------------
-   CREATE TABLE associations (
+   CREATE TABLE sensor_associations (
           assoc_id INTEGER PRIMARY KEY
         , world_frame TEXT NOT NULL
         , ts_unix_nanos INTEGER NOT NULL /* association time */
         , track_id TEXT
         , radar_obs_id INTEGER
+        , lidar_cluster_id INTEGER
+        , association_method TEXT /* 'mahalanobis', 'nearest', 'kalman' */
         , cost REAL /* e.g., Mahalanobis distance */
+        , association_quality TEXT CHECK (association_quality IN ('high', 'medium', 'low'))
         , fused_x REAL
         , fused_y REAL
         , fused_vx REAL
         , fused_vy REAL
         , fused_speed_mps REAL
         , fused_cov_blob BLOB /* 16 floats row-major (optional) */
-        , source_mask INTEGER DEFAULT 3 /* bit0=lidar, bit1=radar */
+        , source_mask INTEGER DEFAULT 3 /* bit0=lidar, bit1=radar, bit2=future */
         , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id)
         , FOREIGN KEY (radar_obs_id) REFERENCES radar_observations (radar_obs_id)
+        , FOREIGN KEY (lidar_cluster_id) REFERENCES lidar_clusters (lidar_cluster_id)
           )
 ;
 
-CREATE INDEX idx_assoc_time ON associations (world_frame, ts_unix_nanos)
+CREATE INDEX idx_sensor_assoc_time ON sensor_associations (world_frame, ts_unix_nanos)
 ;
 
-CREATE INDEX idx_assoc_track ON associations (track_id)
+CREATE INDEX idx_sensor_assoc_track ON sensor_associations (track_id)
 ;
 
-CREATE INDEX idx_assoc_radar ON associations (radar_obs_id)
+CREATE INDEX idx_sensor_assoc_radar ON sensor_associations (radar_obs_id)
+;
+
+-- ---------------------------------------------------------------------------
+-- System monitoring and events
+-- Unified table for performance metrics, track events, and system health
+-- ---------------------------------------------------------------------------
+   CREATE TABLE system_events (
+          event_id INTEGER PRIMARY KEY
+        , sensor_id TEXT /* NULL for system-wide events */
+        , ts_unix_nanos INTEGER NOT NULL
+        , event_type TEXT NOT NULL CHECK (
+          event_type IN (
+          'performance'
+        , 'track_birth'
+        , 'track_death'
+        , 'track_merge'
+        , 'track_split'
+        , 'system_start'
+        , 'system_stop'
+        , 'background_snapshot'
+          )
+          )
+        , event_data JSON /* flexible storage for different event types */
+        , FOREIGN KEY (sensor_id) REFERENCES sensors (sensor_id)
+          )
+;
+
+CREATE INDEX idx_system_events_time ON system_events (ts_unix_nanos)
+;
+
+CREATE INDEX idx_system_events_type ON system_events (event_type, ts_unix_nanos)
+;
+
+CREATE INDEX idx_system_events_sensor ON system_events (sensor_id, ts_unix_nanos)
 ;
 
 -- ---------------------------------------------------------------------------
@@ -339,6 +392,62 @@ CREATE INDEX idx_assoc_radar ON associations (radar_obs_id)
    SELECT DISTINCT      t.track_id
         , t.world_frame
      FROM lidar_tracks t
-     JOIN associations a ON a.track_id = t.track_id
+     JOIN sensor_associations a ON a.track_id = t.track_id
       AND a.radar_obs_id IS NOT NULL
+;
+
+-- System performance summary for monitoring 100-track capacity
+   CREATE VIEW v_system_performance AS
+     WITH recent_performance AS (
+             SELECT JSON_EXTRACT(event_data, '$.metric_name')                     AS metric_name
+                  , AVG(CAST(JSON_EXTRACT(event_data, '$.metric_value') AS REAL)) AS avg_value
+                  , MAX(CAST(JSON_EXTRACT(event_data, '$.metric_value') AS REAL)) AS max_value
+                  , MIN(CAST(JSON_EXTRACT(event_data, '$.metric_value') AS REAL)) AS min_value
+               FROM system_events
+              WHERE event_type = 'performance'
+                AND ts_unix_nanos > (STRFTIME('%s', 'now') - 300) * 1000000000 /* last 5 minutes */
+           GROUP BY JSON_EXTRACT(event_data, '$.metric_name')
+          )
+   SELECT   rp.*
+        , (
+             SELECT COUNT(*)
+               FROM lidar_tracks
+              WHERE end_unix_nanos IS NULL
+          ) AS active_tracks
+        , (
+             SELECT COUNT(*)
+               FROM lidar_bg_snapshot
+              WHERE taken_unix_nanos > (STRFTIME('%s', 'now') - 86400) * 1000000000
+          ) AS bg_snapshots_24h
+     FROM recent_performance rp
+;
+
+-- Track activity summary
+   CREATE VIEW v_track_activity AS
+   SELECT          t.world_frame
+        , COUNT(*) AS total_tracks
+        , COUNT(
+          CASE
+                    WHEN t.end_unix_nanos IS NULL THEN 1
+          END
+          ) AS active_tracks
+        , AVG(t.peak_speed_mps) AS avg_peak_speed
+        , AVG((t.end_unix_nanos - t.start_unix_nanos) / 1e9) AS avg_duration_s
+     FROM lidar_tracks t
+    WHERE t.start_unix_nanos > (STRFTIME('%s', 'now') - 86400) * 1000000000 /* last 24 hours */
+ GROUP BY t.world_frame
+;
+
+-- Track lifecycle events summary
+   CREATE VIEW v_track_lifecycle AS
+   SELECT DATE(ts_unix_nanos / 1000000000, 'unixepoch') AS event_date
+        , event_type
+        , COUNT(*)                                      AS event_count
+     FROM system_events
+    WHERE event_type IN ('track_birth', 'track_death', 'track_merge', 'track_split')
+      AND ts_unix_nanos > (STRFTIME('%s', 'now') - 86400) * 1000000000 /* last 24 hours */
+ GROUP BY event_date
+        , event_type
+ ORDER BY event_date DESC
+        , event_type
 ;

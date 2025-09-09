@@ -60,6 +60,17 @@ type BackgroundGrid struct {
 	Cells []BackgroundCell // len = Rings * AzimuthBins
 
 	Params BackgroundParams
+
+	// Enhanced persistence tracking
+	Manager              *BackgroundManager
+	LastSnapshotTime     time.Time
+	ChangesSinceSnapshot int
+
+	// Performance tracking
+	LastProcessingTimeUs  int64
+	WarmupFramesRemaining int
+	SettlingComplete      bool
+
 	// Optional telemetry:
 	ForegroundCount int64
 	BackgroundCount int64
@@ -67,6 +78,64 @@ type BackgroundGrid struct {
 
 // Helper to index Cells: idx = ring*AzimuthBins + azBin
 func (g *BackgroundGrid) Idx(ring, azBin int) int { return ring*g.AzimuthBins + azBin }
+
+//
+// Background persistence management
+//
+
+type BackgroundManager struct {
+	Grid            *BackgroundGrid
+	SettlingTimer   *time.Timer
+	PersistTimer    *time.Timer
+	HasSettled      bool
+	LastPersistTime time.Time
+	StartTime       time.Time
+
+	// Persistence callback to main app
+	PersistCallback func(snapshot *BgSnapshot) error
+}
+
+type BgSnapshot struct {
+	SensorID       string
+	TakenUnixNanos int64
+	Rings          int
+	AzimuthBins    int
+	ParamsJSON     string
+	GridBlob       []byte // compressed BackgroundCell data
+	ChangedCells   int
+}
+
+// Ring buffer implementation for efficient memory management
+type RingBuffer[T any] struct {
+	Items    []T
+	Head     int
+	Tail     int
+	Size     int
+	Capacity int
+	// Note: mutex will be added when sync is properly imported
+}
+
+// Performance tracking
+type FrameStats struct {
+	TSUnixNanos      int64
+	PacketsReceived  int
+	PointsTotal      int
+	ForegroundPoints int
+	ClustersFound    int
+	TracksActive     int
+	ProcessingTimeUs int64
+}
+
+// Retention policies
+type RetentionConfig struct {
+	MaxConcurrentTracks int           // 100
+	MaxTrackObsPerTrack int           // 1000 obs per track
+	MaxRecentClusters   int           // 10,000 recent clusters
+	MaxTrackAge         time.Duration // 30 minutes for inactive tracks
+	BgSnapshotInterval  time.Duration // 2 hours
+	BgSnapshotRetention time.Duration // 48 hours
+	BgSettlingPeriod    time.Duration // 5 minutes before first persist
+}
 
 //
 // 2) Foreground extraction result (WORLD FRAME)
@@ -196,6 +265,17 @@ type RadarPingWorld struct {
 	SNR        float32
 }
 
+// RadarObservation from cmd/radar via gRPC (Phase 2)
+type RadarObservation struct {
+	SensorID       string
+	TSUnixNanos    int64
+	RangeM         float32
+	AzimuthDeg     float32
+	RadialSpeedMps float32
+	SNR            float32
+	Quality        int32
+}
+
 // Association result at a specific time.
 type Association struct {
 	UnixNanos       int64
@@ -210,16 +290,44 @@ type Association struct {
 	SourceMask       uint8 // bit0=lidar, bit1=radar
 }
 
+// Track merging/splitting support (Phase 3)
+type TrackRelation struct {
+	RelationID   string
+	ParentTracks []string // tracks that merged
+	ChildTracks  []string // tracks that split
+	EventTime    int64
+	RelationType string // "merge" | "split" | "occlusion"
+	Confidence   float32
+}
+
+// Fusion engine for radar-lidar association (Phase 2)
+type FusionEngine struct {
+	RadarBuffer *RingBuffer[*RadarObservation] // 1 second window
+	// Associator and Kalman fuser will be added in Phase 2
+}
+
 //
 // 5) Supervisory containers
 //
 
 type SidecarState struct {
-	Poses   *PoseCache
-	BG      map[string]*BackgroundGrid // by SensorID
-	Tracks  map[string]*Track          // by TrackID
-	LastObs map[string][]TrackObs      // by TrackID (ring buffer)
-	LastClu map[string][]*WorldCluster // recent clusters for UI
+	Poses  *PoseCache
+	BG     map[string]*BackgroundManager // Enhanced with persistence
+	Tracks map[string]*Track             // up to 100 concurrent
+
+	// Ring buffers sized for 100 tracks
+	RecentClusters   *RingBuffer[*WorldCluster]        // 10,000 capacity
+	RecentTrackObs   map[string]*RingBuffer[*TrackObs] // 1000 per track
+	RecentFrameStats *RingBuffer[*FrameStats]          // 1000 capacity
+
+	// Performance monitoring
+	TrackCount     int64
+	DroppedPackets int64
+
+	// Configuration
+	Config *RetentionConfig
+
+	// Note: mutex will be added when sync is properly imported
 }
 
 //

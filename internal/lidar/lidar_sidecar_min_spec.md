@@ -1,7 +1,7 @@
 # LiDAR Sidecar — Minimal Implementation Spec (no Prometheus, no fusion, no gRPC)
 
-**Audience:** another engineer (Claude Sonnet) implementing the first working sidecar.  
-**Scope:** Ingest Hesai UDP → parse to points → range‑image background subtraction (sensor frame) → cluster foreground → transform to world frame → track → expose simple HTTP JSON endpoints for health and recent tracks.  
+**Audience:** another engineer (Claude Sonnet) implementing the first working sidecar.
+**Scope:** Ingest Hesai UDP → parse to points → range‑image background subtraction (sensor frame) → cluster foreground → transform to world frame → track → expose simple HTTP JSON endpoints for health and recent tracks.
 **Out of scope (for now):** Prometheus metrics, radar fusion/association, gRPC/WS streaming, DB persistence (the main app may persist via existing APIs later).
 
 ---
@@ -33,11 +33,11 @@
 cmd/lidar/main.go                  # wire flags, goroutines, HTTP
 internal/lidar/listener/           # UDP socket and packet channel
 internal/lidar/parser/             # Pandar40P packet -> []Point (sensor frame)
-internal/lidar/stagecraft/         # BG subtractor, clustering, world transform, tracking
+internal/lidar/arena/              # BG subtractor, clustering, world transform, tracking
 internal/lidar/pose/               # Pose cache + SE(3) helpers
 internal/lidar/debug/              # HTTP handlers: /health /fg /tracks/recent /track/:id
 internal/lidar/cfg/                # config structs + flag parsing
-pcap/                               # offline replay utilities (optional)
+pcap/                              # offline replay utilities (optional)
 ```
 
 ---
@@ -91,6 +91,17 @@ type BackgroundGrid struct {
     AzimuthBins int
     Cells       []BackgroundCell // len=Rings*AzimuthBins
     Params      BackgroundParams
+
+    // Enhanced persistence tracking
+    manager              *BackgroundManager
+    lastSnapshotTime     time.Time
+    changesSinceSnapshot int
+
+    // Performance tracking
+    LastProcessingTimeUs int64
+    WarmupFramesRemaining int
+    SettlingComplete     bool
+
     // Telemetry
     ForegroundCount int64
     BackgroundCount int64
@@ -154,12 +165,80 @@ type TrackObs struct {
     IntensityMean float32
 }
 
-// Sidecar state ---------------------------------------------------------------
+// Background persistence management -------------------------------------------
+type BackgroundManager struct {
+    grid            *BackgroundGrid
+    settlingTimer   *time.Timer
+    persistTimer    *time.Timer
+    hasSettled      bool
+    lastPersistTime time.Time
+    startTime       time.Time
+
+    // Persistence callback to main app
+    PersistCallback func(snapshot *BgSnapshot) error
+}
+
+type BgSnapshot struct {
+    SensorID       string
+    TakenUnixNanos int64
+    Rings          int
+    AzimuthBins    int
+    ParamsJSON     string
+    GridBlob       []byte  // compressed BackgroundCell data
+    ChangedCells   int
+}
+
+// Ring buffer implementation for efficient memory management -----------------
+type RingBuffer[T any] struct {
+    items    []T
+    head     int
+    tail     int
+    size     int
+    capacity int
+    mu       sync.RWMutex
+}
+
+// Performance tracking --------------------------------------------------------
+type FrameStats struct {
+    TSUnixNanos      int64
+    PacketsReceived  int
+    PointsTotal      int
+    ForegroundPoints int
+    ClustersFound    int
+    TracksActive     int
+    ProcessingTimeUs int64
+}
+
+// Retention policies ----------------------------------------------------------
+type RetentionConfig struct {
+    MaxConcurrentTracks    int           // 100
+    MaxTrackObsPerTrack   int           // 1000 obs per track
+    MaxRecentClusters     int           // 10,000 recent clusters
+    MaxTrackAge           time.Duration // 30 minutes for inactive tracks
+    BgSnapshotInterval    time.Duration // 2 hours
+    BgSnapshotRetention   time.Duration // 48 hours
+    BgSettlingPeriod      time.Duration // 5 minutes before first persist
+}
+
+// Enhanced sidecar state with ring buffers and management --------------------
 type SidecarState struct {
     Poses   *PoseCache
-    BG      map[string]*BackgroundGrid
-    Tracks  map[string]*Track               // by TrackID
-    RecentClusters []*WorldCluster          // ring buffer for UI/debug
+    BG      map[string]*BackgroundManager  // Enhanced with persistence
+    Tracks  map[string]*Track              // up to 100 concurrent
+
+    // Ring buffers sized for 100 tracks
+    RecentClusters    *RingBuffer[*WorldCluster]             // 10,000 capacity
+    RecentTrackObs    map[string]*RingBuffer[*TrackObs]      // 1000 per track
+    RecentFrameStats  *RingBuffer[*FrameStats]               // 1000 capacity
+
+    // Performance monitoring
+    TrackCount       int64
+    DroppedPackets   int64
+
+    // Configuration
+    Config *RetentionConfig
+
+    mu sync.RWMutex
 }
 ```
 
@@ -284,10 +363,17 @@ Quick PNG of the current range image with foreground overlay for debugging.
   - `-bg.safety_margin_m` (default `0.5`)
   - `-bg.freeze_duration_ms` (default `5000`)
   - `-bg.neighbor_votes` (default `5`)
+  - `-bg.settling_period_min` (default `5`)
+  - `-bg.persist_interval_hours` (default `2`)
+- Memory management:
+  - `-max_concurrent_tracks` (default `100`)
+  - `-max_track_obs_per_track` (default `1000`)
+  - `-max_recent_clusters` (default `10000`)
+  - `-max_track_age_min` (default `30`)
 - Rates:
   - `-frame_ms` (default `100`), **or** `-spin_mode`
 - HTTP:
-  - `-http` (default `:8080`)
+  - `-http` (default `:8081`)
 
 ---
 
@@ -320,8 +406,211 @@ Quick PNG of the current range image with foreground overlay for debugging.
 
 ---
 
+## Future Enhancements
+
+### Radar-LiDAR Fusion (Phase 2)
+Architecture for modular sensor deployment with independent HTTP interfaces:
+
+```
+┌─────────────────┐    gRPC     ┌──────────────────┐
+│   cmd/radar     │ ───────────▶│   cmd/lidar      │
+│                 │             │                  │
+│ • Serial listen │             │ • UDP listen     │
+│ • Parse radar   │             │ • Background sub │
+│ • HTTP endpoints│             │ • Tracking       │
+│ • Standalone OK │             │ • Fusion logic   │
+└─────────────────┘             │ • HTTP endpoints │
+         │                      └──────────────────┘
+         │                               │
+         ▼                               ▼
+    ┌─────────────────────────────────────────┐
+    │           web/ (Svelte/Vite)            │
+    │                                         │
+    │ • Proxy radar HTTP (if available)       │
+    │ • Proxy lidar HTTP (if available)       │
+    │ • Aggregate sensor data for UI          │
+    │ • Handle radar-only or lidar-only       │
+    └─────────────────────────────────────────┘
+```
+
+**Deployment Scenarios:**
+1. **Radar-only**: `cmd/radar` runs standalone with HTTP endpoints at `:8080`
+2. **LiDAR-only**: `cmd/lidar` runs standalone with HTTP endpoints at `:8081`
+3. **Dual-sensor**: Both executables run concurrently:
+   - `cmd/radar` → `:8080` (HTTP) + gRPC stream to `cmd/lidar`
+   - `cmd/lidar` → `:8081` (HTTP) + receives gRPC from `cmd/radar`
+   - Web layer proxies both endpoints for unified interface
+
+**HTTP Interface Design:**
+```
+cmd/radar endpoints (always available):
+  GET :8080/health        # radar system status
+  GET :8080/observations  # recent radar detections
+  GET :8080/targets       # radar-only tracking (simple)
+
+cmd/lidar endpoints (when available):
+  GET :8081/health        # lidar system status
+  GET :8081/fg            # foreground/background stats
+  GET :8081/tracks/recent # lidar tracks (fused if radar connected)
+  GET :8081/track/:id     # detailed track history
+
+web/ aggregation:
+  GET /api/sensors        # combined sensor status
+  GET /api/tracks         # unified track view (lidar + radar context)
+  GET /api/detections     # all detections across sensors
+```
+
+**gRPC Interface (cmd/radar → cmd/lidar):**
+```protobuf
+service RadarService {
+    rpc StreamObservations(stream RadarObservation) returns (stream FusionFeedback);
+}
+
+message RadarObservation {
+    string sensor_id = 1;
+    int64 ts_unix_nanos = 2;
+    float range_m = 3;
+    float azimuth_deg = 4;
+    float radial_speed_mps = 5;
+    float snr = 6;
+}
+
+message FusionFeedback {
+    int64 processed_until_ns = 1;  // ACK for backpressure
+    string status = 2;             // "ok" | "overload" | "error"
+}
+```
+
+**cmd/radar Implementation (Standalone + Fusion):**
+```go
+// Radar process maintains full functionality for standalone operation
+func main() {
+    // 1. Serial port listener (always)
+    // 2. Parse radar packets (always)
+    // 3. HTTP server (always) - radar detections, simple tracking
+    // 4. Optional: gRPC client to stream to cmd/lidar (if configured)
+
+    // Radar can do basic tracking independently
+    simpleTracker := &RadarTracker{} // velocity-only tracking
+
+    // HTTP endpoints always available
+    http.HandleFunc("/health", radarHealthHandler)
+    http.HandleFunc("/observations", radarObsHandler)
+    http.HandleFunc("/targets", radarTargetsHandler) // simple radar tracks
+
+    // Optional fusion client
+    if lidarGRPCAddr != "" {
+        go streamToLidar(radarObs, lidarGRPCAddr)
+    }
+}
+```
+
+**cmd/lidar Fusion Integration:**
+```go
+// LiDAR process optionally receives radar stream for enhanced tracking
+type FusionConfig struct {
+    EnableRadarFusion bool
+    RadarGRPCPort     int    // e.g., 9090
+}
+
+// If radar fusion enabled, start gRPC server
+if config.EnableRadarFusion {
+    go startRadarGRPCServer(fusionEngine)
+}
+```
+
+**Fusion Data Structures:**
+```go
+type FusionEngine struct {
+    radarBuffer    *RingBuffer[*RadarObservation]  // 1 second window
+    associator     *SpatialAssociator
+    kalmanFuser    *KalmanFuser
+}
+
+type RadarObservation struct {
+    SensorID        string
+    TSUnixNanos     int64
+    RangeM          float32
+    AzimuthDeg      float32
+    RadialSpeedMps  float32
+    SNR             float32
+    Quality         int32
+}
+```
+
+### Track Merging/Splitting (Phase 3)
+When objects temporarily occlude each other or split apart:
+
+**Data structures:**
+```go
+type TrackRelation struct {
+    RelationID   string
+    ParentTracks []string  // tracks that merged
+    ChildTracks  []string  // tracks that split
+    EventTime    int64
+    RelationType string    // "merge" | "split" | "occlusion"
+    Confidence   float32
+}
+```
+
+**Algorithm approach:**
+- Track spatial proximity and shape similarity over time
+- Use IoU (Intersection over Union) of bounding boxes
+- Implement track ID inheritance rules for continuity
+
+### Background Persistence Strategy
+- **Settling period**: 5 minutes after startup before first background snapshot
+- **Periodic saves**: Every 2 hours to capture parking changes
+- **Change detection**: Track cell modifications to trigger early saves if needed
+- **Retention**: Keep 48 hours of background history (24 snapshots max)
+
+---
+
+## Implementation Phases
+
+### Phase 1: LiDAR-only (Current Spec)
+1. UDP→Parser→Frame builder + /health
+2. Background subtractor with automatic persistence
+3. Clustering → world transform → /tracks/recent
+4. Tracking optimized for 100 concurrent tracks
+5. Memory management with configurable ring buffers
+
+### Phase 2: Radar Integration
+1. **cmd/radar standalone enhancements**:
+   - HTTP endpoints for radar-only deployments
+   - Simple radar-only tracking (velocity-based)
+   - Health monitoring and detection endpoints
+2. **Modular gRPC integration**:
+   - Optional gRPC client in cmd/radar (when lidar available)
+   - gRPC server in cmd/lidar (when radar fusion enabled)
+   - Graceful fallback to standalone operation
+3. **Web layer aggregation**:
+   - Proxy radar HTTP endpoints (port :8080)
+   - Proxy lidar HTTP endpoints (port :8081)
+   - Unified sensor status and track visualization
+4. **Fusion logic in cmd/lidar**:
+   - Spatial association (Mahalanobis distance)
+   - Kalman filter fusion updates
+   - Association logging and analysis endpoints
+
+### Phase 3: Advanced Features
+1. Track merging/splitting detection
+2. Multi-sensor calibration refinement
+3. Advanced classification (car/ped/bike)
+4. Predictive tracking with turn models
+
+---
+
 ### Notes
 
-- Keep **canonical** positions/velocities in world frame and attach **PoseID** to all outputs.  
-- Background learns slowly; set a **warm‑up** window (e.g., ignore outputs for first 10–30 s or start with higher threshold and taper down).  
+- Keep **canonical** positions/velocities in world frame and attach **PoseID** to all outputs.
+- Background learns slowly; set a **warm‑up** window (e.g., ignore outputs for first 10–30 s or start with higher threshold and taper down).
+- **Memory target**: ~15-20MB for 100 tracks with 1000 observations each + ring buffers (well under 300MB limit)
+- **Background persistence**: Automatic after 5-minute settling, then every 2 hours
+- **Modular deployment**:
+  - cmd/radar can run standalone with HTTP endpoints (:8080) for radar-only installations
+  - cmd/lidar runs independently with HTTP endpoints (:8081) for lidar processing
+  - When both available, gRPC streams radar data to lidar for fusion
+  - Web layer (Svelte/Vite) proxies both HTTP interfaces for unified UI
+- **Fusion is optional**: Both executables maintain full standalone functionality
 - You can add DB persistence later in the main app using the schema we defined previously.
