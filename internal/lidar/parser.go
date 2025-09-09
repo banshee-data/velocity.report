@@ -126,17 +126,11 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]Point, error) {
 		return nil, fmt.Errorf("invalid packet size: expected %d, got %d", PACKET_SIZE, len(data))
 	}
 
-	// Parse and validate the 6-byte packet header
-	_, err := p.parseHeader(data[:HEADER_SIZE])
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse header: %v", err)
-	}
-
-	// Parse the 32-byte packet tail to extract timestamp and metadata
+	// Parse the 32-byte packet tail to extract timestamp
 	tailOffset := PACKET_SIZE - TAIL_SIZE
-	tail, err := p.parseTail(data[tailOffset:])
+	timestamp, err := p.parseTimestamp(data[tailOffset:])
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse tail: %v", err)
+		return nil, fmt.Errorf("failed to parse timestamp: %v", err)
 	}
 
 	// Process all 10 data blocks between header and tail
@@ -157,7 +151,7 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]Point, error) {
 		}
 
 		// Convert raw measurements to calibrated 3D points
-		blockPoints := p.blockToPoints(block, blockIdx, tail.Timestamp)
+		blockPoints := p.blockToPoints(block, blockIdx, timestamp)
 		points = append(points, blockPoints...)
 
 		dataOffset += blockSize
@@ -166,27 +160,8 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]Point, error) {
 	return points, nil
 }
 
-// parseHeader extracts and validates the 6-byte packet header
-// Currently performs basic validation but could be extended for format checking
-func (p *Pandar40PParser) parseHeader(data []byte) (*PacketHeader, error) {
-	if len(data) < HEADER_SIZE {
-		return nil, fmt.Errorf("insufficient data for header")
-	}
-
-	header := &PacketHeader{
-		SOB:              binary.LittleEndian.Uint16(data[0:2]),
-		ChLaserNum:       data[2],
-		ChBlockNum:       data[3],
-		FirstBlockReturn: data[4],
-		DisUnit:          data[5],
-	}
-
-	return header, nil
-}
-
 // parseDataBlock parses a single 122-byte data block containing measurements from all 40 channels
 // Block format: 2 bytes azimuth + (40 × 3 bytes channel data)
-// Note: Pandar40P blocks do not have block ID headers unlike some other LiDAR formats
 func (p *Pandar40PParser) parseDataBlock(data []byte) (*DataBlock, error) {
 	if len(data) < AZIMUTH_SIZE {
 		return nil, fmt.Errorf("insufficient data for block header")
@@ -214,36 +189,26 @@ func (p *Pandar40PParser) parseDataBlock(data []byte) (*DataBlock, error) {
 	return block, nil
 }
 
-// parseTail extracts timing and status information from the 32-byte packet tail
-// The timestamp is critical for accurate point cloud temporal alignment
-func (p *Pandar40PParser) parseTail(data []byte) (*PacketTail, error) {
+// parseTimestamp extracts only the timestamp from the 32-byte packet tail
+// This is optimized to avoid parsing unused tail fields
+func (p *Pandar40PParser) parseTimestamp(data []byte) (uint32, error) {
 	if len(data) != TAIL_SIZE {
-		return nil, fmt.Errorf("invalid tail size: expected %d, got %d", TAIL_SIZE, len(data))
+		return 0, fmt.Errorf("invalid tail size: expected %d, got %d", TAIL_SIZE, len(data))
 	}
 
-	tail := &PacketTail{
-		HighPrecisionFlag: data[10],                                // Byte 10: precision mode
-		AzimuthFlag:       data[22],                                // Byte 22: azimuth mode
-		MotorSpeed:        binary.LittleEndian.Uint16(data[25:27]), // Bytes 25-26: RPM
-		Timestamp:         binary.LittleEndian.Uint32(data[27:31]), // Bytes 27-30: microsecond timestamp
-		FactoryInfo:       data[31],                                // Byte 31: factory/version info
-	}
-
-	// Copy reserved byte fields for completeness
-	copy(tail.Reserved1[:], data[0:10])  // Bytes 0-9: reserved
-	copy(tail.Reserved2[:], data[11:22]) // Bytes 11-21: reserved
-	copy(tail.Reserved3[:], data[23:25]) // Bytes 23-24: reserved
-
-	return tail, nil
+	// Extract only the timestamp (bytes 27-30)
+	timestamp := binary.LittleEndian.Uint32(data[27:31])
+	return timestamp, nil
 }
 
 // blockToPoints converts raw measurements from a data block into calibrated 3D points
 // Applies sensor-specific calibrations and converts from spherical to Cartesian coordinates
 // Each block can produce up to 40 points (one per channel), excluding invalid measurements
 func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, timestamp uint32) []Point {
-	var points []Point
+	// Pre-allocate slice with capacity for maximum possible points to avoid reallocations
+	points := make([]Point, 0, CHANNELS_PER_BLOCK)
 
-	// Convert microsecond timestamp to Go time.Time
+	// Convert microsecond timestamp to Go time.Time once per block
 	// Note: Assumes timestamp is microseconds since Unix epoch
 	packetTime := time.Unix(0, int64(timestamp)*1000) // Convert microseconds to nanoseconds
 
@@ -285,9 +250,15 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, timestam
 		azimuthRad := azimuth * math.Pi / 180.0
 		elevationRad := elevation * math.Pi / 180.0
 
-		x := distance * math.Cos(elevationRad) * math.Sin(azimuthRad) // Forward/back
-		y := distance * math.Cos(elevationRad) * math.Cos(azimuthRad) // Left/right
-		z := distance * math.Sin(elevationRad)                        // Up/down
+		// Optimize trigonometric calculations
+		cosElevation := math.Cos(elevationRad)
+		sinElevation := math.Sin(elevationRad)
+		cosAzimuth := math.Cos(azimuthRad)
+		sinAzimuth := math.Sin(azimuthRad)
+
+		x := distance * cosElevation * sinAzimuth // Forward/back
+		y := distance * cosElevation * cosAzimuth // Left/right
+		z := distance * sinElevation              // Up/down
 
 		// Apply per-channel firetime correction to get accurate point timestamp
 		firetimeOffset := time.Duration(firetimeCorrection.FireTime * float64(time.Microsecond))
