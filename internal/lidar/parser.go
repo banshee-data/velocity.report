@@ -15,7 +15,6 @@ const (
 	BYTES_PER_CHANNEL  = 3    // 2 bytes distance + 1 byte reflectivity
 	HEADER_SIZE        = 6    // Packet header size
 	TAIL_SIZE          = 32   // Packet tail size
-	BLOCK_HEADER_SIZE  = 2    // Block header size
 	AZIMUTH_SIZE       = 2    // Azimuth data size
 
 	// Constants for calculations
@@ -125,7 +124,7 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]Point, error) {
 	dataOffset := HEADER_SIZE
 
 	for blockIdx := 0; blockIdx < BLOCKS_PER_PACKET; blockIdx++ {
-		blockSize := BLOCK_HEADER_SIZE + AZIMUTH_SIZE + (CHANNELS_PER_BLOCK * BYTES_PER_CHANNEL)
+		blockSize := AZIMUTH_SIZE + (CHANNELS_PER_BLOCK * BYTES_PER_CHANNEL) // No block header in data blocks
 		if dataOffset+blockSize > tailOffset {
 			break // Not enough data for complete block
 		}
@@ -164,22 +163,15 @@ func (p *Pandar40PParser) parseHeader(data []byte) (*PacketHeader, error) {
 
 // parseDataBlock parses a single data block
 func (p *Pandar40PParser) parseDataBlock(data []byte) (*DataBlock, error) {
-	if len(data) < BLOCK_HEADER_SIZE+AZIMUTH_SIZE {
+	if len(data) < AZIMUTH_SIZE {
 		return nil, fmt.Errorf("insufficient data for block header")
 	}
 
 	block := &DataBlock{
-		BlockID: binary.LittleEndian.Uint16(data[0:2]),
-		Azimuth: binary.LittleEndian.Uint16(data[2:4]),
-	}
-
-	// Verify block identifier
-	if block.BlockID != 0xEEFF {
-		return nil, fmt.Errorf("invalid block identifier: 0x%04X", block.BlockID)
-	}
-
-	// Parse channel data
-	channelOffset := BLOCK_HEADER_SIZE + AZIMUTH_SIZE
+		BlockID: 0xEEFF, // Fixed value for Pandar40P (not actually in block data)
+		Azimuth: binary.LittleEndian.Uint16(data[0:2]),
+	} // Parse channel data
+	channelOffset := AZIMUTH_SIZE // Start right after azimuth
 	for i := 0; i < CHANNELS_PER_BLOCK; i++ {
 		if channelOffset+BYTES_PER_CHANNEL > len(data) {
 			return nil, fmt.Errorf("insufficient data for channel %d", i)
