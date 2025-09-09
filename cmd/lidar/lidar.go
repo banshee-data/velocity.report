@@ -90,7 +90,7 @@ func handleLidarPacket(stats *lidar.PacketStats,
 }
 
 // UDP listener function with optimized packet forwarding
-func listenUDP(ctx context.Context, ldb *lidardb.LidarDB, parser *lidar.Pandar40PParser, address string) error {
+func listenUDP(ctx context.Context, ldb *lidardb.LidarDB, parser *lidar.Pandar40PParser, stats *lidar.PacketStats, address string) error {
 	// Parse the address
 	addr, err := net.ResolveUDPAddr("udp", address)
 	if err != nil {
@@ -155,8 +155,8 @@ func listenUDP(ctx context.Context, ldb *lidardb.LidarDB, parser *lidar.Pandar40
 		log.Printf("Forwarding packets to %s", forwardAddress)
 	}
 
-	// Initialize packet statistics
-	stats := lidar.NewPacketStats()
+	// Initialize packet statistics (passed from main)
+	// stats := lidar.NewPacketStats()
 
 	// Start periodic logging goroutine
 	go func() {
@@ -267,11 +267,14 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	// Initialize packet statistics (shared between UDP listener and HTTP server)
+	stats := lidar.NewPacketStats()
+
 	// Start UDP listener routine
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := listenUDP(ctx, ldb, parser, udpListenAddr); err != nil && err != context.Canceled {
+		if err := listenUDP(ctx, ldb, parser, stats, udpListenAddr); err != nil && err != context.Canceled {
 			log.Printf("UDP listener error: %v", err)
 		}
 		log.Print("UDP listener routine terminated")
@@ -323,11 +326,15 @@ func main() {
 				HTTPAddress      string
 				ForwardingStatus string
 				ParsingStatus    string
+				Uptime           string
+				Stats            *lidar.StatsSnapshot
 			}{
 				UDPPort:          *udpPort,
 				HTTPAddress:      *listen,
 				ForwardingStatus: forwardingStatus,
 				ParsingStatus:    parsingStatus,
+				Uptime:           stats.GetUptime().Round(time.Second).String(),
+				Stats:            stats.GetLatestSnapshot(),
 			}
 
 			if err := tmpl.Execute(w, data); err != nil {
