@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"embed"
 	"flag"
 	"fmt"
 	"html/template"
@@ -9,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"os/signal"
-	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
@@ -19,6 +19,9 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidardb"
 )
+
+//go:embed status.html
+var statusHTML embed.FS
 
 var (
 	listen         = flag.String("listen", ":8081", "HTTP listen address")
@@ -312,9 +315,8 @@ func main() {
 				parsingStatus = "disabled"
 			}
 
-			// Load and parse the HTML template
-			templatePath := filepath.Join("cmd", "lidar", "status.html")
-			tmpl, err := template.ParseFiles(templatePath)
+			// Load and parse the HTML template from embedded filesystem
+			tmpl, err := template.ParseFS(statusHTML, "status.html")
 			if err != nil {
 				http.Error(w, "Error loading template: "+err.Error(), http.StatusInternalServerError)
 				return
