@@ -24,7 +24,7 @@ const (
 	ROTATION_MAX_UNITS  = 36000 // Maximum azimuth value representing 360.00 degrees
 )
 
-// Pandar40P configuration containing calibration data loaded from CSV files
+// Pandar40P configuration containing calibration data embedded in the binary
 // This configuration is essential for accurate point cloud generation as it contains
 // sensor-specific calibration parameters that correct for manufacturing tolerances
 type Pandar40PConfig struct {
@@ -91,7 +91,8 @@ type ChannelData struct {
 }
 
 // PacketTail represents the 32-byte tail at the end of each UDP packet
-// Contains timing information and sensor status data critical for accurate timestamping
+// Contains timing information and sensor status data
+// Note: Only the timestamp field (bytes 27-30) is currently used by the parser for performance
 type PacketTail struct {
 	Reserved1         [10]uint8 // Reserved bytes (bytes 0-9)
 	HighPrecisionFlag uint8     // High precision measurement mode flag (byte 10)
@@ -118,7 +119,7 @@ func NewPandar40PParser(config Pandar40PConfig) *Pandar40PParser {
 }
 
 // ParsePacket parses a complete UDP packet from Pandar40P sensor into a slice of 3D points
-// The packet must be exactly 1262 bytes and contain valid header, data blocks, and tail
+// The packet must be exactly 1262 bytes and contain valid data blocks and timestamp
 // Returns up to 400 points (10 blocks × 40 channels, excluding invalid measurements)
 func (p *Pandar40PParser) ParsePacket(data []byte) ([]Point, error) {
 	// Validate packet size - Pandar40P packets are always exactly 1262 bytes
@@ -126,14 +127,14 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]Point, error) {
 		return nil, fmt.Errorf("invalid packet size: expected %d, got %d", PACKET_SIZE, len(data))
 	}
 
-	// Parse the 32-byte packet tail to extract timestamp
+	// Extract timestamp from the packet tail (optimized to read only needed data)
 	tailOffset := PACKET_SIZE - TAIL_SIZE
 	timestamp, err := p.parseTimestamp(data[tailOffset:])
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse timestamp: %v", err)
 	}
 
-	// Process all 10 data blocks between header and tail
+	// Process all 10 data blocks in the packet (after 6-byte header, before 32-byte tail)
 	var points []Point
 	dataOffset := HEADER_SIZE
 
