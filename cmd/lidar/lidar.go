@@ -4,10 +4,12 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"html/template"
 	"log"
 	"net"
 	"net/http"
 	"os/signal"
+	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
@@ -307,21 +309,31 @@ func main() {
 				parsingStatus = "enabled"
 			}
 
-			fmt.Fprintf(w, `
-<!DOCTYPE html>
-<html>
-<head><title>Lidar UDP Listener</title></head>
-<body>
-	<h1>Lidar UDP Listener</h1>
-	<p>Listening on UDP port %d</p>
-	<p>HTTP server running on %s</p>
-	<p>Packet forwarding: %s</p>
-	<p>Packet parsing: %s</p>
-	<ul>
-		<li><a href="/health">Health check</a></li>
-	</ul>
-</body>
-</html>`, *udpPort, *listen, forwardingStatus, parsingStatus)
+			// Load and parse the HTML template
+			templatePath := filepath.Join("cmd", "lidar", "status.html")
+			tmpl, err := template.ParseFiles(templatePath)
+			if err != nil {
+				http.Error(w, "Error loading template: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			// Template data
+			data := struct {
+				UDPPort          int
+				HTTPAddress      string
+				ForwardingStatus string
+				ParsingStatus    string
+			}{
+				UDPPort:          *udpPort,
+				HTTPAddress:      *listen,
+				ForwardingStatus: forwardingStatus,
+				ParsingStatus:    parsingStatus,
+			}
+
+			if err := tmpl.Execute(w, data); err != nil {
+				http.Error(w, "Error executing template: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
 		})
 
 		server := &http.Server{

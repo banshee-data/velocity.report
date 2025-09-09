@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+  <head><title>Lidar UDP Listener</title></head>
+  <body>
+    <h1>Lidar UDP Listener</h1>
+    <p>Listening on UDP port {{.UDPPort}}</p>
+    <p>HTTP server running on {{.HTTPAddress}}</p>
+    <p>Packet forwarding: {{.ForwardingStatus}}</p>
+    <p>Packet parsing: {{.ParsingStatus}}</p>
+    <ul>
+      <li><a href="/health">Health check</a></li>
+    </ul>
+  </body>
+</html>
