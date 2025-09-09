@@ -65,7 +65,9 @@ func TestPacketForwarder_StartStop(t *testing.T) {
 	forwarder.ForwardAsync(testPacket)
 
 	// Read the packet from server
-	server.SetReadDeadline(time.Now().Add(1 * time.Second))
+	if err := server.SetReadDeadline(time.Now().Add(1 * time.Second)); err != nil {
+		t.Fatalf("Failed to set read deadline: %v", err)
+	}
 	buffer := make([]byte, 1024)
 	n, _, err := server.ReadFromUDP(buffer)
 	if err != nil {
