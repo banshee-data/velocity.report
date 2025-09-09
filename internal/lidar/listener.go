@@ -163,14 +163,7 @@ func (l *UDPListener) handlePacket(packet []byte, addr *net.UDPAddr) error {
 		// Track parsed points in statistics
 		l.stats.AddPoints(len(points))
 
-		// Store parsed points in database if requested
-		// for _, point := range points {
-		// 	err := l.db.RecordLidarPoint(0, point.X, point.Y, point.Z, int(point.Intensity),
-		// 		point.Timestamp.UnixNano(), point.Azimuth, point.Distance)
-		// 	if err != nil {
-		// 		log.Printf("Failed to store point: %v", err)
-		// 	}
-		// }
+		// @TODO: store points in database
 	}
 
 	return nil
