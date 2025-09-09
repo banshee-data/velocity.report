@@ -34,74 +34,8 @@ var (
 // Constants
 const SCHEMA_VERSION = "0.1.0"
 
-// formatWithCommas formats a number with thousands separators
-func formatWithCommas(n int64) string {
-	str := fmt.Sprintf("%d", n)
-	if len(str) <= 3 {
-		return str
-	}
-
-	result := ""
-	for i, char := range str {
-		if i > 0 && (len(str)-i)%3 == 0 {
-			result += ","
-		}
-		result += string(char)
-	}
-	return result
-}
-
-// Packet statistics tracking
-type PacketStats struct {
-	mu           sync.Mutex
-	packetCount  int64
-	byteCount    int64
-	droppedCount int64
-	pointCount   int64
-	lastReset    time.Time
-}
-
-func (ps *PacketStats) AddPacket(bytes int) {
-	ps.mu.Lock()
-	defer ps.mu.Unlock()
-	ps.packetCount++
-	ps.byteCount += int64(bytes)
-}
-
-func (ps *PacketStats) AddDropped() {
-	ps.mu.Lock()
-	defer ps.mu.Unlock()
-	ps.droppedCount++
-}
-
-func (ps *PacketStats) AddPoints(count int) {
-	ps.mu.Lock()
-	defer ps.mu.Unlock()
-	ps.pointCount += int64(count)
-}
-
-func (ps *PacketStats) GetAndReset() (packets int64, bytes int64, dropped int64, points int64, duration time.Duration) {
-	ps.mu.Lock()
-	defer ps.mu.Unlock()
-
-	now := time.Now()
-	duration = now.Sub(ps.lastReset)
-	packets = ps.packetCount
-	bytes = ps.byteCount
-	dropped = ps.droppedCount
-	points = ps.pointCount
-
-	ps.packetCount = 0
-	ps.byteCount = 0
-	ps.droppedCount = 0
-	ps.pointCount = 0
-	ps.lastReset = now
-
-	return
-}
-
 // Fast packet forwarding without blocking main receive loop
-func forwardPacketAsync(stats *PacketStats, forwardConn *net.UDPConn, packet []byte, forwardChan chan []byte) {
+func forwardPacketAsync(stats *lidar.PacketStats, forwardConn *net.UDPConn, packet []byte, forwardChan chan []byte) {
 	if forwardConn != nil && *forwardPackets {
 		// Make a copy of the packet data to avoid buffer sharing issues
 		packetCopy := make([]byte, len(packet))
@@ -117,7 +51,7 @@ func forwardPacketAsync(stats *PacketStats, forwardConn *net.UDPConn, packet []b
 	}
 }
 
-func handleLidarPacket(stats *PacketStats,
+func handleLidarPacket(stats *lidar.PacketStats,
 	ldb *lidardb.LidarDB,
 	parser *lidar.Pandar40PParser,
 	packet []byte, addr *net.UDPAddr,
@@ -220,7 +154,7 @@ func listenUDP(ctx context.Context, ldb *lidardb.LidarDB, parser *lidar.Pandar40
 	}
 
 	// Initialize packet statistics
-	stats := &PacketStats{lastReset: time.Now()}
+	stats := lidar.NewPacketStats()
 
 	// Start periodic logging goroutine
 	go func() {
@@ -232,27 +166,7 @@ func listenUDP(ctx context.Context, ldb *lidardb.LidarDB, parser *lidar.Pandar40
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				packets, bytes, dropped, points, duration := stats.GetAndReset()
-				if packets > 0 || dropped > 0 {
-					packetsPerSec := float64(packets) / duration.Seconds()
-					mbPerSec := float64(bytes) / duration.Seconds() / (1024 * 1024)
-					pointsPerSec := float64(points) / duration.Seconds()
-
-					var logMsg string
-					if *parsePackets && points > 0 {
-						logMsg = fmt.Sprintf("Lidar stats (/sec): %.1f MB, %.1f packets, %s points",
-							mbPerSec, packetsPerSec, formatWithCommas(int64(pointsPerSec)))
-					} else {
-						logMsg = fmt.Sprintf("Lidar stats (/sec): %.1f MB, %.1f packets",
-							mbPerSec, packetsPerSec)
-					}
-
-					if dropped > 0 {
-						logMsg += fmt.Sprintf(", %d dropped on forward", dropped)
-					}
-
-					log.Print(logMsg)
-				}
+				stats.LogStats(*parsePackets)
 			}
 		}
 	}()
