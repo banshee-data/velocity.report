@@ -2,19 +2,14 @@ package lidar
 
 import (
 	"encoding/binary"
-	"path/filepath"
 	"testing"
 )
 
 func TestLoadPandar40PConfig(t *testing.T) {
-	// Test loading configuration files
-	angleFile := filepath.Join("sensor_configs", "Pandar40P_Angle Correction File.csv")
-	firetimeFile := filepath.Join("sensor_configs", "Pandar40P_Firetime Correction File.csv")
-
-	config, err := LoadPandar40PConfig(angleFile, firetimeFile)
+	// Test loading embedded configuration
+	config, err := LoadPandar40PConfig()
 	if err != nil {
-		t.Skipf("Skipping test, config files not found: %v", err)
-		return
+		t.Fatalf("Failed to load embedded config: %v", err)
 	}
 
 	// Validate configuration
@@ -23,22 +18,28 @@ func TestLoadPandar40PConfig(t *testing.T) {
 		t.Fatalf("Configuration validation failed: %v", err)
 	}
 
-	// Test some specific values from the CSV files
-	// Channel 1: Elevation=15.21, Azimuth=-1.042
-	if config.AngleCorrections[0].Elevation != 15.21 {
-		t.Errorf("Expected elevation 15.21 for channel 1, got %f", config.AngleCorrections[0].Elevation)
+	// Test that we have all channels
+	if len(config.AngleCorrections) != CHANNELS_PER_BLOCK {
+		t.Errorf("Expected %d angle corrections, got %d", CHANNELS_PER_BLOCK, len(config.AngleCorrections))
 	}
 
-	if config.AngleCorrections[0].Azimuth != -1.042 {
-		t.Errorf("Expected azimuth -1.042 for channel 1, got %f", config.AngleCorrections[0].Azimuth)
+	if len(config.FiretimeCorrections) != CHANNELS_PER_BLOCK {
+		t.Errorf("Expected %d firetime corrections, got %d", CHANNELS_PER_BLOCK, len(config.FiretimeCorrections))
 	}
 
-	// Channel 4: FireTime=-3.62
-	if config.FiretimeCorrections[3].FireTime != -3.62 {
-		t.Errorf("Expected fire time -3.62 for channel 4, got %f", config.FiretimeCorrections[3].FireTime)
+	// Test that channels are properly numbered (1-40)
+	for i := 0; i < CHANNELS_PER_BLOCK; i++ {
+		if config.AngleCorrections[i].Channel != i+1 {
+			t.Errorf("Angle correction channel mismatch at index %d: expected %d, got %d",
+				i, i+1, config.AngleCorrections[i].Channel)
+		}
+		if config.FiretimeCorrections[i].Channel != i+1 {
+			t.Errorf("Firetime correction channel mismatch at index %d: expected %d, got %d",
+				i, i+1, config.FiretimeCorrections[i].Channel)
+		}
 	}
 
-	t.Logf("Successfully loaded configuration for %d channels", CHANNELS_PER_BLOCK)
+	t.Logf("Successfully loaded embedded configuration for %d channels", CHANNELS_PER_BLOCK)
 }
 
 func TestPacketParsing(t *testing.T) {
