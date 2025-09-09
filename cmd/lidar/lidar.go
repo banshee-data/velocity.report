@@ -259,7 +259,7 @@ func main() {
 		parser = lidar.NewPandar40PParser(*config)
 		log.Println("Lidar packet parsing enabled")
 	} else {
-		log.Println("Lidar packet parsing disabled (use --no-parse flag was specified)")
+		log.Println("Lidar packet parsing disabled (--no-parse flag was specified)")
 	}
 
 	// Create a wait group for the HTTP server and UDP listener routines
