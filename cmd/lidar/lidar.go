@@ -28,10 +28,28 @@ var (
 	forwardAddr    = flag.String("forward-addr", "localhost", "Address to forward UDP packets to")
 	dbFile         = flag.String("db", "lidar_data.db", "Path to the SQLite database file")
 	rcvBuf         = flag.Int("rcvbuf", 4<<20, "UDP receive buffer size in bytes (default 4MB)")
+	logInterval    = flag.Int("log-interval", 2, "Statistics logging interval in seconds")
 )
 
 // Constants
 const SCHEMA_VERSION = "0.1.0"
+
+// formatWithCommas formats a number with thousands separators
+func formatWithCommas(n int64) string {
+	str := fmt.Sprintf("%d", n)
+	if len(str) <= 3 {
+		return str
+	}
+
+	result := ""
+	for i, char := range str {
+		if i > 0 && (len(str)-i)%3 == 0 {
+			result += ","
+		}
+		result += string(char)
+	}
+	return result
+}
 
 // Packet statistics tracking
 type PacketStats struct {
@@ -39,6 +57,7 @@ type PacketStats struct {
 	packetCount  int64
 	byteCount    int64
 	droppedCount int64
+	pointCount   int64
 	lastReset    time.Time
 }
 
@@ -55,7 +74,13 @@ func (ps *PacketStats) AddDropped() {
 	ps.droppedCount++
 }
 
-func (ps *PacketStats) GetAndReset() (packets int64, bytes int64, dropped int64, duration time.Duration) {
+func (ps *PacketStats) AddPoints(count int) {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+	ps.pointCount += int64(count)
+}
+
+func (ps *PacketStats) GetAndReset() (packets int64, bytes int64, dropped int64, points int64, duration time.Duration) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 
@@ -64,10 +89,12 @@ func (ps *PacketStats) GetAndReset() (packets int64, bytes int64, dropped int64,
 	packets = ps.packetCount
 	bytes = ps.byteCount
 	dropped = ps.droppedCount
+	points = ps.pointCount
 
 	ps.packetCount = 0
 	ps.byteCount = 0
 	ps.droppedCount = 0
+	ps.pointCount = 0
 	ps.lastReset = now
 
 	return
@@ -106,11 +133,14 @@ func handleLidarPacket(stats *PacketStats,
 	if parser != nil && *parsePackets {
 		points, err := parser.ParsePacket(packet)
 		if err != nil {
-			log.Printf("Failed to parse packet from %s: %v", addr.String(), err)
-			return nil // Don't fail on parse errors, just log them
+			log.Printf("Pandar40P parsing failed: %v", err)
+			return nil // Don't fail on parse errors, just continue
 		}
 
-		// Store parsed points in database
+		// Track parsed points in statistics
+		stats.AddPoints(len(points))
+
+		// Store parsed points in database if requested
 		// for _, point := range points {
 		// 	err := ldb.RecordLidarPoint(0, point.X, point.Y, point.Z, int(point.Intensity),
 		// 		point.Timestamp.UnixNano(), point.Azimuth, point.Distance)
@@ -118,8 +148,6 @@ func handleLidarPacket(stats *PacketStats,
 		// 		log.Printf("Failed to store point: %v", err)
 		// 	}
 		// }
-
-		log.Printf("Parsed %d points from packet", len(points))
 	}
 
 	return nil
@@ -196,7 +224,7 @@ func listenUDP(ctx context.Context, ldb *lidardb.LidarDB, parser *lidar.Pandar40
 
 	// Start periodic logging goroutine
 	go func() {
-		ticker := time.NewTicker(1 * time.Second)
+		ticker := time.NewTicker(time.Duration(*logInterval) * time.Second)
 		defer ticker.Stop()
 
 		for {
@@ -204,17 +232,26 @@ func listenUDP(ctx context.Context, ldb *lidardb.LidarDB, parser *lidar.Pandar40
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				packets, bytes, dropped, duration := stats.GetAndReset()
+				packets, bytes, dropped, points, duration := stats.GetAndReset()
 				if packets > 0 || dropped > 0 {
 					packetsPerSec := float64(packets) / duration.Seconds()
-					bytesPerSec := float64(bytes) / duration.Seconds()
-					if dropped > 0 {
-						log.Printf("Lidar stats: %.1f packets/sec, %.1f bytes/sec (%.1f KB/sec), %d dropped on forward",
-							packetsPerSec, bytesPerSec, bytesPerSec/1024, dropped)
+					mbPerSec := float64(bytes) / duration.Seconds() / (1024 * 1024)
+					pointsPerSec := float64(points) / duration.Seconds()
+
+					var logMsg string
+					if *parsePackets && points > 0 {
+						logMsg = fmt.Sprintf("Lidar stats (/sec): %.1f MB, %.1f packets, %s points",
+							mbPerSec, packetsPerSec, formatWithCommas(int64(pointsPerSec)))
 					} else {
-						log.Printf("Lidar stats: %.1f packets/sec, %.1f bytes/sec (%.1f KB/sec)",
-							packetsPerSec, bytesPerSec, bytesPerSec/1024)
+						logMsg = fmt.Sprintf("Lidar stats (/sec): %.1f MB, %.1f packets",
+							mbPerSec, packetsPerSec)
 					}
+
+					if dropped > 0 {
+						logMsg += fmt.Sprintf(", %d dropped on forward", dropped)
+					}
+
+					log.Print(logMsg)
 				}
 			}
 		}
