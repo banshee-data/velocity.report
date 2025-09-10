@@ -1,9 +1,8 @@
 # LiDAR Sidecar — Minimal Implementation Spec (LiDAR-only, simplified schema)
 
-**Audience:** another engineer (Claude Sonnet) implementing the first working sidecar.
 **Scope:** Ingest Hesai UDP → parse to points → range‑image background subtraction (sensor frame) → cluster foreground → transform to world frame → track → expose simple HTTP JSON endpoints for health and recent tracks.
 **Schema:** LiDAR-only implementation with verbose field names (removed radar/fusion tables).
-**Out of scope (for now):** Prometheus metrics, radar fusion/association, gRPC/WS streaming, DB persistence (the main app may persist via existing APIs later).
+**Out of scope (for now):** Prometheus metrics, radar fusion/association, gRPC/WS streaming
 
 ---
 
@@ -33,12 +32,12 @@
 ```
 cmd/lidar/main.go                  # wire flags, goroutines, HTTP
 internal/lidar/listener/           # UDP socket and packet channel
+internal/lidar/forwarder/          # UDP packet forwarding
 internal/lidar/parser/             # Pandar40P packet -> []Point (sensor frame)
 internal/lidar/arena/              # BG subtractor, clustering, world transform, tracking
 internal/lidar/pose/               # Pose cache + SE(3) helpers
-internal/lidar/debug/              # HTTP handlers: /health /fg /tracks/recent /track/:id
-internal/lidar/cfg/                # config structs + flag parsing
-pcap/                              # offline replay utilities (optional)
+internal/lidar/webserver/          # HTTP handlers: /health /fg /tracks/recent /track/:id
+internal/lidar/config/             # config structs
 ```
 
 ---
@@ -402,7 +401,7 @@ Array of recent tracks (latest state per track). Uses verbose field names matchi
 [
   {
     "track_id":"t-123",
-    "sensor_id":"hesai-pandar64-001",
+    "sensor_id":"hesai-pandar40p-001",
     "world_frame":"site/main-st-001",
     "pose_id":42,
     "unix_nanos":1699999999999999999,

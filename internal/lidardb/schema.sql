@@ -52,7 +52,7 @@ PRAGMA busy_timeout = 5000;
  * Sensors may be recalibrated, moved, or replaced over time.
  */
    CREATE TABLE sensors (
-          -- Unique identifier for the sensor hardware unit (e.g., "hesai-pandar64-001")
+          -- Unique identifier for the sensor hardware unit (e.g., "hesai-pandar40p-001")
           sensor_id TEXT PRIMARY KEY
           -- Reference to the site where this sensor is deployed
 
@@ -144,7 +144,7 @@ CREATE INDEX idx_sensor_poses_sensor_time ON sensor_poses (sensor_id, valid_from
           -- Unix nanoseconds timestamp when this background snapshot was captured
 
         , taken_unix_nanos INTEGER NOT NULL
-          -- Number of vertical rings/channels in the LiDAR sensor (e.g., 64 for Pandar64)
+          -- Number of vertical rings/channels in the LiDAR sensor (e.g., 40 for Pandar40P)
 
         , rings INTEGER NOT NULL
           -- Number of horizontal azimuth discretization bins (e.g., 1800 for 0.2° resolution)
