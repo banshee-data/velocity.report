@@ -158,12 +158,6 @@ func (fb *FrameBuilder) AddPoints(points []Point) {
 		// Add point to frame
 		fb.addPointToFrame(frame, point)
 	}
-
-	// Log packet processing
-	// packetMinAz := points[0].Azimuth
-	// packetMaxAz := points[len(points)-1].Azimuth
-	// log.Printf("Processed packet with %d points: %.2f° - %.2f° across time slots",
-	// 	len(points), packetMinAz, packetMaxAz)
 }
 
 // getTimeSlot calculates which time slot a timestamp belongs to
@@ -324,7 +318,7 @@ func NewFrameBuilderWithLogging(sensorID string) *FrameBuilder {
 // NewFrameBuilderWithDebugLogging creates a FrameBuilder with optional debug logging
 func NewFrameBuilderWithDebugLogging(sensorID string, debug bool) *FrameBuilder {
 	var callback func(*LiDARFrame)
-	
+
 	if debug {
 		callback = func(frame *LiDARFrame) {
 			log.Printf("Frame completed - ID: %s, Points: %d, Azimuth: %.1f°-%.1f°, Duration: %v, Sensor: %s",
