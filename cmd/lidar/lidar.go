@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"os/signal"
 	"sync"
 	"syscall"
@@ -57,6 +58,7 @@ func main() {
 
 	// Initialize parser if parsing is enabled
 	var parser *lidar.Pandar40PParser
+	var frameBuilder *lidar.FrameBuilder
 	if !*disableParsing {
 		log.Printf("Loading embedded Pandar40P sensor configuration")
 		config, err := lidar.LoadEmbeddedPandar40PConfig()
@@ -70,7 +72,31 @@ func main() {
 		}
 
 		parser = lidar.NewPandar40PParser(*config)
+
+		// Configure timestamp mode based on environment
+		// Default to PTP free-run mode for best timing consistency
+		timestampMode := os.Getenv("LIDAR_TIMESTAMP_MODE")
+		switch timestampMode {
+		case "system":
+			parser.SetTimestampMode(lidar.TimestampModeSystemTime)
+			log.Println("LiDAR timestamp mode: System time")
+		case "gps":
+			parser.SetTimestampMode(lidar.TimestampModeGPS)
+			log.Println("LiDAR timestamp mode: GPS (requires GPS-synchronized LiDAR)")
+		case "internal":
+			parser.SetTimestampMode(lidar.TimestampModeInternal)
+			log.Println("LiDAR timestamp mode: Internal (device boot time)")
+		default:
+			// Default to SystemTime for stability until PTP hardware is available
+			parser.SetTimestampMode(lidar.TimestampModeSystemTime)
+			log.Println("LiDAR timestamp mode: System time (default - stable until PTP hardware available)")
+		}
+
 		log.Println("Lidar packet parsing enabled")
+
+		// Create FrameBuilder for accumulating points into complete rotations
+		frameBuilder = lidar.NewFrameBuilderWithLogging("hesai-pandar40p")
+		log.Println("FrameBuilder initialized for complete rotation detection")
 	} else {
 		log.Println("Lidar packet parsing disabled (--no-parse flag was specified)")
 	}
@@ -101,6 +127,7 @@ func main() {
 		Stats:          stats,
 		Forwarder:      forwarder,
 		Parser:         parser,
+		FrameBuilder:   frameBuilder,
 		DB:             ldb,
 		DisableParsing: *disableParsing,
 	})

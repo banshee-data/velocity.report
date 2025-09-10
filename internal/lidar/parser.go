@@ -3,6 +3,7 @@ package lidar
 import (
 	"encoding/binary"
 	"fmt"
+	"log"
 	"math"
 	"time"
 )
@@ -64,13 +65,15 @@ for manufacturing tolerances and ensures precise coordinate transformation.
 // Pandar40P LiDAR packet structure constants
 // These define the fixed format of UDP packets sent by Hesai Pandar40P sensors
 const (
-	PACKET_SIZE        = 1262 // Total UDP packet size in bytes (fixed for Pandar40P)
-	BLOCKS_PER_PACKET  = 10   // Number of data blocks per packet (each contains measurements from all 40 channels)
-	CHANNELS_PER_BLOCK = 40   // Number of laser channels per data block (Pandar40P has 40 channels total)
-	BYTES_PER_CHANNEL  = 3    // Channel data size: 2 bytes distance + 1 byte reflectivity
-	HEADER_SIZE        = 6    // Packet header size in bytes
-	TAIL_SIZE          = 32   // Packet tail size in bytes (contains timestamp and metadata)
-	AZIMUTH_SIZE       = 2    // Azimuth field size in each data block (2 bytes, little-endian)
+	PACKET_SIZE_STANDARD = 1262 // Standard UDP packet size in bytes (without UDP sequence)
+	PACKET_SIZE_SEQUENCE = 1266 // UDP packet size with 4-byte sequence number
+	BLOCKS_PER_PACKET    = 10   // Number of data blocks per packet (each contains measurements from all 40 channels)
+	CHANNELS_PER_BLOCK   = 40   // Number of laser channels per data block (Pandar40P has 40 channels total)
+	BYTES_PER_CHANNEL    = 3    // Channel data size: 2 bytes distance + 1 byte reflectivity
+	HEADER_SIZE          = 6    // Packet header size in bytes
+	TAIL_SIZE            = 32   // Packet tail size in bytes (contains timestamp and metadata)
+	SEQUENCE_SIZE        = 4    // UDP sequence number size (when enabled)
+	AZIMUTH_SIZE         = 2    // Azimuth field size in each data block (2 bytes, little-endian)
 
 	// Physical measurement conversion constants
 	DISTANCE_RESOLUTION = 0.004 // Distance unit: 4mm per LSB (converts raw values to meters)
@@ -141,16 +144,41 @@ type PacketTail struct {
 }
 
 // Pandar40PParser handles parsing of Pandar40P LiDAR UDP packets into 3D point clouds
+// TimestampMode defines how LiDAR timestamps should be interpreted
+type TimestampMode int
+
+const (
+	TimestampModeSystemTime TimestampMode = iota // Use system reception time (current default)
+	TimestampModePTP                             // PTP synchronized microseconds since Unix epoch
+	TimestampModeGPS                             // GPS synchronized microseconds since Unix epoch
+	TimestampModeInternal                        // Microseconds since device boot (raw mode)
+)
+
 // The parser uses calibration data to convert raw measurements into accurate 3D coordinates
 type Pandar40PParser struct {
-	config Pandar40PConfig // Sensor-specific calibration parameters
+	config        Pandar40PConfig // Sensor-specific calibration parameters
+	timestampMode TimestampMode   // How to interpret timestamp field
+	bootTime      time.Time       // Device boot time for internal timestamp mode
+	packetCount   int             // Counter for debugging purposes
+	lastTimestamp uint32          // Previous timestamp for static detection
+	staticCount   int             // Counter for static timestamp detection
 }
 
 // NewPandar40PParser creates a new parser instance with the provided calibration configuration
 // The configuration must contain valid angle and firetime corrections for all 40 channels
 func NewPandar40PParser(config Pandar40PConfig) *Pandar40PParser {
 	return &Pandar40PParser{
-		config: config,
+		config:        config,
+		timestampMode: TimestampModeSystemTime, // Default to system time for reliability
+		bootTime:      time.Now(),              // Initialize boot time reference
+	}
+}
+
+// SetTimestampMode configures how the parser interprets LiDAR timestamps
+func (p *Pandar40PParser) SetTimestampMode(mode TimestampMode) {
+	p.timestampMode = mode
+	if mode == TimestampModeInternal {
+		p.bootTime = time.Now() // Reset boot time reference
 	}
 }
 
@@ -158,14 +186,39 @@ func NewPandar40PParser(config Pandar40PConfig) *Pandar40PParser {
 // The packet must be exactly 1262 bytes and contain valid data blocks and timestamp
 // Returns up to 400 points (10 blocks × 40 channels, excluding invalid measurements)
 func (p *Pandar40PParser) ParsePacket(data []byte) ([]Point, error) {
-	// Validate packet size - Pandar40P packets are always exactly 1262 bytes
-	if len(data) != PACKET_SIZE {
-		return nil, fmt.Errorf("invalid packet size: expected %d, got %d", PACKET_SIZE, len(data))
+	// Increment packet counter for debugging
+	p.packetCount++
+
+	// Validate packet size - handle both standard and sequence-enabled packets
+	var hasSequence bool
+	var sequenceNumber uint32
+	var packetData []byte
+
+	switch len(data) {
+	case PACKET_SIZE_STANDARD:
+		// Standard packet without UDP sequence
+		hasSequence = false
+		packetData = data
+	case PACKET_SIZE_SEQUENCE:
+		// Packet with 4-byte UDP sequence number at the end
+		hasSequence = true
+		// Extract sequence number (last 4 bytes, little-endian)
+		sequenceNumber = binary.LittleEndian.Uint32(data[len(data)-SEQUENCE_SIZE:])
+		// Use packet data without the sequence suffix
+		packetData = data[:len(data)-SEQUENCE_SIZE]
+	default:
+		return nil, fmt.Errorf("invalid packet size: expected %d or %d, got %d",
+			PACKET_SIZE_STANDARD, PACKET_SIZE_SEQUENCE, len(data))
 	}
 
-	// Extract timestamp from the packet tail (optimized to read only needed data)
-	tailOffset := PACKET_SIZE - TAIL_SIZE
-	timestamp, err := p.parseTimestamp(data[tailOffset:])
+	// Debug sequence number if present
+	if hasSequence && p.packetCount < 10 {
+		log.Printf("UDP sequence: %d", sequenceNumber)
+	}
+
+	// Extract timestamp from the packet tail (using processed packet data)
+	tailOffset := len(packetData) - TAIL_SIZE
+	timestamp, err := p.parseTimestamp(packetData[tailOffset:])
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse timestamp: %v", err)
 	}
@@ -182,7 +235,7 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]Point, error) {
 		}
 
 		// Parse individual data block
-		block, err := p.parseDataBlock(data[dataOffset : dataOffset+blockSize])
+		block, err := p.parseDataBlock(packetData[dataOffset : dataOffset+blockSize])
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse block %d: %v", blockIdx, err)
 		}
@@ -245,9 +298,48 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, timestam
 	// Pre-allocate slice with capacity for maximum possible points to avoid reallocations
 	points := make([]Point, 0, CHANNELS_PER_BLOCK)
 
-	// Convert microsecond timestamp to Go time.Time once per block
-	// Note: Assumes timestamp is microseconds since Unix epoch
-	packetTime := time.Unix(0, int64(timestamp)*1000) // Convert microseconds to nanoseconds
+	// Parse timestamp based on configured mode
+	var packetTime time.Time
+	switch p.timestampMode {
+	case TimestampModePTP, TimestampModeGPS:
+		// Check if PTP timestamps are static (not incrementing)
+		if p.packetCount > 1 && timestamp == p.lastTimestamp {
+			p.staticCount++
+		}
+
+		// If timestamps are consistently static, fall back to system time for frame building
+		if p.staticCount > 10 {
+			// Use system time for proper frame building when PTP timestamps are frozen
+			packetTime = time.Now()
+
+			// Debug logging for fallback (first few occurrences only)
+			if p.staticCount == 11 {
+				log.Printf("PTP Debug - Static timestamps detected (raw: %d us), falling back to system time for frame building", timestamp)
+			}
+		} else {
+			// PTP free-run mode: timestamps are microseconds since device boot
+			// Apply boot time offset to align with system time domain for proper frame building
+			packetTime = p.bootTime.Add(time.Duration(timestamp) * time.Microsecond)
+
+			// Debug logging for PTP timestamps (first few packets and every 100th packet)
+			if p.packetCount < 10 || p.packetCount%100 == 0 {
+				log.Printf("PTP Debug [pkt %d] - Raw timestamp: %d us, Boot offset time: %v, System time: %v",
+					p.packetCount, timestamp, packetTime, time.Now())
+			}
+		}
+
+		// Update last timestamp for static detection
+		p.lastTimestamp = timestamp
+
+	case TimestampModeInternal:
+		// Interpret as microseconds since device boot
+		packetTime = p.bootTime.Add(time.Duration(timestamp) * time.Microsecond)
+	case TimestampModeSystemTime:
+		fallthrough
+	default:
+		// Use current system time for reliability (default for street analytics)
+		packetTime = time.Now()
+	}
 
 	// Extract base azimuth angle from block data (in 0.01-degree units)
 	baseAzimuth := float64(block.Azimuth) * AZIMUTH_RESOLUTION
@@ -268,8 +360,13 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, timestam
 		angleCorrection := p.config.AngleCorrections[channelIdx]
 		firetimeCorrection := p.config.FiretimeCorrections[channelIdx]
 
-		// Apply azimuth correction and normalize to 0-360 degree range
-		azimuth := baseAzimuth + angleCorrection.Azimuth
+		// Apply firetime correction to azimuth calculation
+		// LiDAR rotation: 600 RPM = 10 Hz = 3600°/second = 0.036°/microsecond
+		// Negative firetime means channel fires earlier, so it sees an earlier azimuth position
+		firetimeAzimuthOffset := firetimeCorrection.FireTime * 0.036
+
+		// Apply both angle correction and firetime-based azimuth correction
+		azimuth := baseAzimuth + angleCorrection.Azimuth + firetimeAzimuthOffset
 		if azimuth < 0 {
 			azimuth += 360
 		} else if azimuth >= 360 {

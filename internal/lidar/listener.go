@@ -20,6 +20,7 @@ type UDPListener struct {
 	stats          *PacketStats
 	forwarder      *PacketForwarder
 	parser         *Pandar40PParser
+	frameBuilder   *FrameBuilder
 	db             *lidardb.LidarDB
 	disableParsing bool
 }
@@ -32,6 +33,7 @@ type UDPListenerConfig struct {
 	Stats          *PacketStats
 	Forwarder      *PacketForwarder
 	Parser         *Pandar40PParser
+	FrameBuilder   *FrameBuilder
 	DB             *lidardb.LidarDB
 	DisableParsing bool
 }
@@ -46,6 +48,7 @@ func NewUDPListener(config UDPListenerConfig) *UDPListener {
 		stats:          config.Stats,
 		forwarder:      config.Forwarder,
 		parser:         config.Parser,
+		frameBuilder:   config.FrameBuilder,
 		db:             config.DB,
 		disableParsing: config.DisableParsing,
 	}
@@ -163,7 +166,10 @@ func (l *UDPListener) handlePacket(packet []byte, addr *net.UDPAddr) error {
 		// Track parsed points in statistics
 		l.stats.AddPoints(len(points))
 
-		// @TODO: store points in database
+		// Add points to FrameBuilder for complete rotation accumulation
+		if l.frameBuilder != nil && len(points) > 0 {
+			l.frameBuilder.AddPoints(points)
+		}
 	}
 
 	return nil
