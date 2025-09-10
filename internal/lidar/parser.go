@@ -162,6 +162,7 @@ type Pandar40PParser struct {
 	packetCount   int             // Counter for debugging purposes
 	lastTimestamp uint32          // Previous timestamp for static detection
 	staticCount   int             // Counter for static timestamp detection
+	debug         bool            // Enable debug logging
 }
 
 // NewPandar40PParser creates a new parser instance with the provided calibration configuration
@@ -180,6 +181,11 @@ func (p *Pandar40PParser) SetTimestampMode(mode TimestampMode) {
 	if mode == TimestampModeInternal {
 		p.bootTime = time.Now() // Reset boot time reference
 	}
+}
+
+// SetDebug enables or disables debug logging
+func (p *Pandar40PParser) SetDebug(enabled bool) {
+	p.debug = enabled
 }
 
 // ParsePacket parses a complete UDP packet from Pandar40P sensor into a slice of 3D points
@@ -212,7 +218,7 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]Point, error) {
 	}
 
 	// Debug sequence number if present
-	if hasSequence && p.packetCount < 10 {
+	if hasSequence && p.debug && p.packetCount < 10 {
 		log.Printf("UDP sequence: %d", sequenceNumber)
 	}
 

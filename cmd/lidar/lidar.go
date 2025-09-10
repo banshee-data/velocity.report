@@ -28,6 +28,7 @@ var (
 	dbFile         = flag.String("db", "lidar_data.db", "Path to the SQLite database file")
 	rcvBuf         = flag.Int("rcvbuf", 4<<20, "UDP receive buffer size in bytes (default 4MB)")
 	logInterval    = flag.Int("log-interval", 2, "Statistics logging interval in seconds")
+	debug          = flag.Bool("debug", false, "Enable debug logging (UDP sequences, frame completion details)")
 )
 
 // Constants
@@ -73,6 +74,9 @@ func main() {
 
 		parser = lidar.NewPandar40PParser(*config)
 
+		// Configure debug mode
+		parser.SetDebug(*debug)
+
 		// Configure timestamp mode based on environment
 		// Default to PTP free-run mode for best timing consistency
 		timestampMode := os.Getenv("LIDAR_TIMESTAMP_MODE")
@@ -95,8 +99,12 @@ func main() {
 		log.Println("Lidar packet parsing enabled")
 
 		// Create FrameBuilder for accumulating points into complete rotations
-		frameBuilder = lidar.NewFrameBuilderWithLogging("hesai-pandar40p")
-		log.Println("FrameBuilder initialized for complete rotation detection")
+		frameBuilder = lidar.NewFrameBuilderWithDebugLogging("hesai-pandar40p", *debug)
+		if *debug {
+			log.Println("FrameBuilder initialized for complete rotation detection (debug mode enabled)")
+		} else {
+			log.Println("FrameBuilder initialized for complete rotation detection")
+		}
 	} else {
 		log.Println("Lidar packet parsing disabled (--no-parse flag was specified)")
 	}

@@ -318,9 +318,15 @@ func (fb *FrameBuilder) GetCurrentFrameStats() (frameCount int, oldestAge time.D
 // NewFrameBuilderWithLogging creates a FrameBuilder that logs completed frames
 // This is a convenience function for common use cases where you want to log frame completion
 func NewFrameBuilderWithLogging(sensorID string) *FrameBuilder {
-	return NewFrameBuilder(FrameBuilderConfig{
-		SensorID: sensorID,
-		FrameCallback: func(frame *LiDARFrame) {
+	return NewFrameBuilderWithDebugLogging(sensorID, false)
+}
+
+// NewFrameBuilderWithDebugLogging creates a FrameBuilder with optional debug logging
+func NewFrameBuilderWithDebugLogging(sensorID string, debug bool) *FrameBuilder {
+	var callback func(*LiDARFrame)
+	
+	if debug {
+		callback = func(frame *LiDARFrame) {
 			log.Printf("Frame completed - ID: %s, Points: %d, Azimuth: %.1f°-%.1f°, Duration: %v, Sensor: %s",
 				frame.FrameID,
 				frame.PointCount,
@@ -328,7 +334,15 @@ func NewFrameBuilderWithLogging(sensorID string) *FrameBuilder {
 				frame.MaxAzimuth,
 				frame.EndTimestamp.Sub(frame.StartTimestamp),
 				frame.SensorID)
-		},
+		}
+	} else {
+		// No logging callback when debug is disabled
+		callback = nil
+	}
+
+	return NewFrameBuilder(FrameBuilderConfig{
+		SensorID:      sensorID,
+		FrameCallback: callback,
 		// Enhanced buffering for out-of-order packet handling
 		FrameBufferSize: 100,                    // buffer 100 frames = 10 seconds at 10 Hz
 		FrameDuration:   100 * time.Millisecond, // 600 RPM = 10 Hz = 100ms per rotation
