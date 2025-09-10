@@ -9,23 +9,19 @@
 -- ---------------------------------------------------------------------------
 -- Enable Write-Ahead Logging for better concurrency
 -- Allows readers and writers to operate simultaneously without blocking
-PRAGMA journal_mode = WAL
-;
+PRAGMA journal_mode = WAL;
 
 -- Use normal synchronous mode for balance of safety and performance
 -- Reduces fsync calls while maintaining reasonable crash recovery
-PRAGMA synchronous = NORMAL
-;
+PRAGMA synchronous = NORMAL;
 
 -- Store temporary tables and indices in memory for faster processing
 -- Improves performance for complex queries and joins
-PRAGMA temp_store = MEMORY
-;
+PRAGMA temp_store = MEMORY;
 
 -- Set busy timeout for handling concurrent access
 -- Prevents immediate failures when database is locked by other processes
-PRAGMA busy_timeout = 5000
-;
+PRAGMA busy_timeout = 5000;
 
 -- ---------------------------------------------------------------------------
 -- Sites, sensors, poses (frames & transforms)
@@ -46,13 +42,12 @@ PRAGMA busy_timeout = 5000
           -- Typically follows naming convention like "site/main-st-001" to match site_id.
 
         , world_frame TEXT NOT NULL /* e.g. "site/main-st-001" */
-          )
-;
+          );
 
 /*
  * Sensors table: Individual sensor hardware units deployed at sites
  *
- * This table catalogs all sensor hardware (LiDAR, radar, etc.) deployed across
+ * This table catalogs all LiDAR sensor hardware deployed across
  * sites. Each sensor has a unique identity and is associated with a specific site.
  * Sensors may be recalibrated, moved, or replaced over time.
  */
@@ -62,11 +57,11 @@ PRAGMA busy_timeout = 5000
           -- Reference to the site where this sensor is deployed
 
         , site_id TEXT NOT NULL
-          -- Type of sensor technology: 'lidar' for LiDAR units, 'radar' for radar units
-          -- Additional types may be added in future (e.g., 'camera', 'thermal')
+          -- Type of sensor technology: 'lidar' for LiDAR units
+          -- Additional types may be added in future (e.g., 'microphone', 'radar')
 
-        , type TEXT NOT NULL CHECK (type IN ('lidar', 'radar'))
-          -- Manufacturer model/part number (e.g., "Pandar64", "AWR2944"). Optional for
+        , type TEXT NOT NULL CHECK (type IN ('lidar'))
+          -- Manufacturer model/part number (e.g., "Pandar40P"). Optional for
           -- cases where sensor model is unknown or mixed within same sensor_id.
 
         , model TEXT
@@ -76,8 +71,7 @@ PRAGMA busy_timeout = 5000
           -- Foreign key ensuring sensor is deployed at a valid site
 
         , FOREIGN KEY (site_id) REFERENCES sites (site_id)
-          )
-;
+          );
 
 /*
  * Sensor poses table: Time-versioned 3D transformations for sensor calibration
@@ -86,7 +80,7 @@ PRAGMA busy_timeout = 5000
  * from each sensor's local coordinate frame to the site's world coordinate frame.
  * Multiple poses per sensor support recalibration events and temporal calibration drift.
  * Transform from sensor frame -> site/world frame.
- * T_rowmajor_4x4 stores 16 float32/64 row-major values (binary blob).
+ * t_rowmajor_4x4 stores 16 float32/64 row-major values (binary blob).
  */
    CREATE TABLE sensor_poses (
           -- Auto-incrementing unique identifier for this pose record
@@ -104,7 +98,7 @@ PRAGMA busy_timeout = 5000
           -- This matrix transforms homogeneous coordinates from from_frame to to_frame.
           -- Typically obtained through calibration procedures using known targets.
 
-        , T_rowmajor_4x4 BLOB NOT NULL /* 16 floats, row-major */
+        , t_rowmajor_4x4 BLOB NOT NULL /* 16 floats, row-major */
           -- Unix nanoseconds when this pose calibration becomes valid/active
 
         , valid_from_ns INTEGER NOT NULL
@@ -123,11 +117,9 @@ PRAGMA busy_timeout = 5000
           -- Foreign key ensuring pose belongs to a valid sensor
 
         , FOREIGN KEY (sensor_id) REFERENCES sensors (sensor_id)
-          )
-;
+          );
 
-CREATE INDEX idx_sensor_poses_sensor_time ON sensor_poses (sensor_id, valid_from_ns)
-;
+CREATE INDEX idx_sensor_poses_sensor_time ON sensor_poses (sensor_id, valid_from_ns);
 
 -- ---------------------------------------------------------------------------
 -- LiDAR background (sensor frame) - periodic snapshots
@@ -180,11 +172,9 @@ CREATE INDEX idx_sensor_poses_sensor_time ON sensor_poses (sensor_id, valid_from
           -- Foreign key ensuring snapshot belongs to a valid LiDAR sensor
 
         , FOREIGN KEY (sensor_id) REFERENCES sensors (sensor_id)
-          )
-;
+          );
 
-CREATE INDEX idx_bg_snapshot_sensor_time ON lidar_bg_snapshot (sensor_id, taken_unix_nanos)
-;
+CREATE INDEX idx_bg_snapshot_sensor_time ON lidar_bg_snapshot (sensor_id, taken_unix_nanos);
 
 -- ---------------------------------------------------------------------------
 -- LiDAR foreground clusters (WORLD frame)
@@ -257,14 +247,11 @@ CREATE INDEX idx_bg_snapshot_sensor_time ON lidar_bg_snapshot (sensor_id, taken_
           -- Foreign key ensuring pose used for transformation is valid
 
         , FOREIGN KEY (pose_id) REFERENCES sensor_poses (pose_id)
-          )
-;
+          );
 
-CREATE INDEX idx_lidar_clusters_time ON lidar_clusters (world_frame, ts_unix_nanos)
-;
+CREATE INDEX idx_lidar_clusters_time ON lidar_clusters (world_frame, ts_unix_nanos);
 
-CREATE INDEX idx_lidar_clusters_sensor_time ON lidar_clusters (sensor_id, ts_unix_nanos)
-;
+CREATE INDEX idx_lidar_clusters_sensor_time ON lidar_clusters (sensor_id, ts_unix_nanos);
 
 -- ---------------------------------------------------------------------------
 -- LiDAR tracks (episodes) in WORLD frame + their time series
@@ -333,33 +320,23 @@ CREATE INDEX idx_lidar_clusters_sensor_time ON lidar_clusters (sensor_id, ts_uni
           -- Average bounding box width across all track observations (meters)
 
         , bounding_box_width_avg REAL
-          -- Average bounding box height across all track observations (meters)
-
-        , bounding_box_height_avg REAL
-          -- Bitmask indicating which sensor types contributed to this track:
-          -- bit0=LiDAR, bit1=radar, bit2=future sensors. Default 1 = LiDAR only.
-          -- Enables tracking of multi-sensor fusion contributions.
-
-        , source_mask INTEGER DEFAULT 1 /* bit0=lidar, bit1=radar (later) */
+        , bounding_box_height_avg REAL /* Average bounding box height across all track observations (meters) */
+        , source_mask INTEGER DEFAULT 1 /* bit0=lidar, additional bits reserved for future */
           -- Foreign key ensuring track belongs to a valid LiDAR sensor
 
         , FOREIGN KEY (sensor_id) REFERENCES sensors (sensor_id)
           -- Foreign key ensuring pose used for track initiation is valid
 
         , FOREIGN KEY (pose_id) REFERENCES sensor_poses (pose_id)
-          )
-;
+          );
 
 -- Enhanced for 100 concurrent tracks with better performance indices
-CREATE INDEX idx_lidar_tracks_site_time ON lidar_tracks (world_frame, start_unix_nanos)
-;
+CREATE INDEX idx_lidar_tracks_site_time ON lidar_tracks (world_frame, start_unix_nanos);
 
-CREATE INDEX idx_lidar_tracks_sensor_time ON lidar_tracks (sensor_id, start_unix_nanos)
-;
+CREATE INDEX idx_lidar_tracks_sensor_time ON lidar_tracks (sensor_id, start_unix_nanos);
 
 CREATE INDEX idx_lidar_tracks_active ON lidar_tracks (world_frame, end_unix_nanos)
-    WHERE end_unix_nanos IS NULL
-;
+    WHERE end_unix_nanos IS NULL;
 
 /*
  * LiDAR track observations table: Time-series state estimates for each track
@@ -429,18 +406,14 @@ CREATE INDEX idx_lidar_tracks_active ON lidar_tracks (world_frame, end_unix_nano
           -- Foreign key ensuring pose used for transformation is valid
 
         , FOREIGN KEY (pose_id) REFERENCES sensor_poses (pose_id)
-          )
-;
+          );
 
 -- Optimized for efficient track state queries (100 concurrent tracks)
-CREATE INDEX idx_track_obs_time ON lidar_track_obs (ts_unix_nanos)
-;
+CREATE INDEX idx_track_obs_time ON lidar_track_obs (ts_unix_nanos);
 
-CREATE INDEX idx_track_obs_track ON lidar_track_obs (track_id)
-;
+CREATE INDEX idx_track_obs_track ON lidar_track_obs (track_id);
 
-CREATE INDEX idx_track_obs_track_time ON lidar_track_obs (track_id, ts_unix_nanos DESC)
-;
+CREATE INDEX idx_track_obs_track_time ON lidar_track_obs (track_id, ts_unix_nanos DESC);
 
 /*
  * LiDAR track features table: Denormalized feature vectors for ML training and export
@@ -523,8 +496,7 @@ CREATE INDEX idx_track_obs_track_time ON lidar_track_obs (track_id, ts_unix_nano
           -- Foreign key ensuring features belong to a valid completed track
 
         , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id)
-          )
-;
+          );
 
 /*
  * Labels table: Human annotation log for ground truth generation
@@ -559,11 +531,9 @@ CREATE INDEX idx_track_obs_track_time ON lidar_track_obs (track_id, ts_unix_nano
           -- Foreign key ensuring label is assigned to a valid track
 
         , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id)
-          )
-;
+          );
 
-CREATE INDEX idx_labels_track ON labels (track_id)
-;
+CREATE INDEX idx_labels_track ON labels (track_id);
 
 /*
  * Training view: Curated feature vectors with ground truth labels for ML training
@@ -580,214 +550,7 @@ CREATE INDEX idx_labels_track ON labels (track_id)
      FROM lidar_track_features f
      JOIN lidar_tracks t USING (track_id)
     WHERE COALESCE(t.class_label, '') != '' /* Exclude unlabeled tracks */
-      AND t.class_label != 'ignore' /* Exclude tracks marked to ignore */
-;
-
--- ---------------------------------------------------------------------------
--- Radar (WORLD frame coordinates available for spatial join)
--- Store both native polar measurements and derived XY in world frame.
--- Enhanced for fusion with processing latency tracking.
--- ---------------------------------------------------------------------------
-/*
- * Radar observations table: Processed radar detections in world coordinates
- *
- * This table stores individual radar detections transformed to world frame coordinates
- * for spatial fusion with LiDAR data. Both native polar measurements (range, azimuth
- * radial velocity) and derived Cartesian coordinates are stored. Processing latency
- * metrics enable real-time performance monitoring and fusion quality assessment.
- * Each detection represents a potential moving object detected by radar.
- */
-   CREATE TABLE radar_observations (
-          -- Auto-incrementing unique identifier for this radar detection
-          radar_obs_id INTEGER PRIMARY KEY
-          -- Reference to the radar sensor that generated this detection
-
-        , sensor_id TEXT NOT NULL
-          -- Reference to sensor pose used to transform this detection to world frame
-
-        , pose_id INTEGER NOT NULL
-          -- World coordinate frame this detection was transformed into
-
-        , world_frame TEXT NOT NULL
-          -- Unix nanoseconds timestamp of the original radar measurement
-
-        , ts_unix_nanos INTEGER NOT NULL /* native polar */
-          -- Range/distance measurement from radar sensor to detected object (meters)
-
-        , range_m REAL NOT NULL
-          -- Azimuth/bearing angle from radar sensor to detected object (degrees)
-          -- Typically measured clockwise from sensor's forward axis
-
-        , azimuth_deg REAL NOT NULL
-          -- Radial velocity component: positive = moving away from sensor
-          -- negative = moving toward sensor (m/s). Doppler-derived measurement.
-
-        , radial_speed_mps REAL
-          -- Signal-to-noise ratio of this detection (dB). Higher values indicate
-          -- stronger, more reliable detections. Used for quality filtering.
-
-        , signal_to_noise_ratio REAL /* derived (projected to road plane in world frame) */
-          -- X coordinate in world frame after coordinate transformation (meters)
-
-        , x REAL
-          -- Y coordinate in world frame after coordinate transformation (meters)
-
-        , y REAL
-          -- Quality score/confidence for this detection (0-100 or similar scale).
-          -- May incorporate signal-to-noise ratio, range, multi-frame consistency, etc.
-
-        , quality INTEGER
-          -- Unix nanoseconds when the radar process first received this detection.
-          -- Used for measuring radar processing pipeline latency.
-
-        , received_unix_nanos INTEGER NOT NULL /* when radar process received it */
-          -- Unix nanoseconds when the LiDAR process handled/processed this detection.
-          -- Used for measuring cross-sensor fusion latency in radar->LiDAR data flow.
-
-        , processed_unix_nanos INTEGER /* when lidar process handled it */
-          -- Processing latency from radar reception to LiDAR processing (microseconds).
-          -- Key performance metric for real-time fusion quality assessment.
-
-        , processing_latency_us INTEGER /* receive to process time */
-          -- Foreign key ensuring detection belongs to a valid radar sensor
-
-        , FOREIGN KEY (sensor_id) REFERENCES sensors (sensor_id)
-          -- Foreign key ensuring pose used for transformation is valid
-
-        , FOREIGN KEY (pose_id) REFERENCES sensor_poses (pose_id)
-          )
-;
-
-CREATE INDEX idx_radar_time ON radar_observations (world_frame, ts_unix_nanos)
-;
-
-CREATE INDEX idx_radar_sensor_time ON radar_observations (sensor_id, ts_unix_nanos)
-;
-
-/*
- * Radar lines table: Raw radar scan line data (optional storage)
- *
- * This table optionally stores raw radar scan line data for detailed analysis
- * and debugging. Each row represents one angular measurement from a radar sweep.
- * This low-level data can be used for custom processing algorithms, interference
- * analysis, or detailed post-processing but generates high data volumes.
- * Most production systems will skip this table and work directly with radar_observations.
- */
-   CREATE TABLE radar_lines (
-          -- Auto-incrementing unique identifier for this radar scan line
-          radar_line_id INTEGER PRIMARY KEY
-          -- Reference to the radar sensor that captured this scan line
-
-        , sensor_id TEXT NOT NULL
-          -- Unix nanoseconds timestamp when this scan line was captured
-
-        , ts_unix_nanos INTEGER NOT NULL
-          -- Angular position of this scan line within the radar sweep (degrees)
-
-        , angle_deg REAL
-          -- Range/distance measurement for this scan line (meters)
-
-        , range_m REAL
-          -- Raw intensity/amplitude measurement for this scan line.
-          -- Sensor-specific units, used for signal-to-noise ratio calculation and detection processing.
-
-        , intensity REAL
-          -- Foreign key ensuring scan line belongs to a valid radar sensor
-
-        , FOREIGN KEY (sensor_id) REFERENCES sensors (sensor_id)
-          )
-;
-
-CREATE INDEX idx_radar_lines_sensor_time ON radar_lines (sensor_id, ts_unix_nanos)
-;
-
--- ---------------------------------------------------------------------------
--- Associations & fusion ledger (WORLD frame)
--- Unified table for all sensor association events (radar-lidar, future sensors)
--- ---------------------------------------------------------------------------
-/*
- * Sensor associations table: Multi-sensor data fusion and association ledger
- *
- * This table records all attempts to associate/fuse measurements from different sensors
- * (primarily radar-LiDAR fusion). Each row represents one association event where
- * measurements from different sensors are determined to come from the same real-world object.
- * The table stores both the input measurements and the resulting fused state estimates.
- * Supports extensibility for future additional sensor types through flexible foreign keys.
- */
-   CREATE TABLE sensor_associations (
-          -- Auto-incrementing unique identifier for this association event
-          association_id INTEGER PRIMARY KEY
-          -- World coordinate frame where this association was performed
-
-        , world_frame TEXT NOT NULL
-          -- Unix nanoseconds timestamp when this association was computed
-
-        , ts_unix_nanos INTEGER NOT NULL /* association time */
-          -- Reference to LiDAR track involved in this association (may be NULL)
-
-        , track_id TEXT
-          -- Reference to radar observation involved in this association (may be NULL)
-
-        , radar_obs_id INTEGER
-          -- Reference to LiDAR cluster involved in this association (may be NULL)
-
-        , lidar_cluster_id INTEGER
-          -- Algorithm used for this association: 'mahalanobis' (statistical distance)
-          -- 'nearest' (Euclidean nearest neighbor), 'kalman' (Kalman filter innovation)
-
-        , association_method TEXT /* 'mahalanobis', 'nearest', 'kalman' */
-          -- Numerical cost/distance metric from the association algorithm.
-          -- For Mahalanobis: statistical distance. For nearest: Euclidean distance.
-          -- Lower values indicate better associations.
-
-        , cost REAL /* e.g., Mahalanobis distance */
-          -- Qualitative assessment of association reliability: 'high', 'medium', 'low'.
-          -- Based on cost thresholds, sensor quality, temporal consistency, etc.
-
-        , association_quality TEXT CHECK (association_quality IN ('high', 'medium', 'low'))
-          -- Fused X position estimate in world frame (meters) after sensor combination
-
-        , fused_x REAL
-          -- Fused Y position estimate in world frame (meters) after sensor combination
-
-        , fused_y REAL
-          -- Fused X velocity estimate in world frame (m/s) after sensor combination
-
-        , fused_velocity_x REAL
-          -- Fused Y velocity estimate in world frame (m/s) after sensor combination
-
-        , fused_velocity_y REAL
-          -- Fused speed magnitude estimate (m/s) computed from velocity components
-
-        , fused_speed_mps REAL
-          -- Optional: fused covariance matrix stored as binary blob of 16 floats (4x4 matrix).
-          -- Represents uncertainty in the fused state estimate. Row-major order.
-
-        , fused_cov_blob BLOB /* 16 floats row-major (optional) */
-          -- Bitmask indicating which sensors contributed to this association:
-          -- bit0=LiDAR, bit1=radar, bit2=future sensors. Default 3 = LiDAR+radar.
-
-        , source_mask INTEGER DEFAULT 3 /* bit0=lidar, bit1=radar, bit2=future */
-          -- Foreign key ensuring association references a valid LiDAR track
-
-        , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id)
-          -- Foreign key ensuring association references a valid radar observation
-
-        , FOREIGN KEY (radar_obs_id) REFERENCES radar_observations (radar_obs_id)
-          -- Foreign key ensuring association references a valid LiDAR cluster
-
-        , FOREIGN KEY (lidar_cluster_id) REFERENCES lidar_clusters (lidar_cluster_id)
-          )
-;
-
-CREATE INDEX idx_sensor_assoc_time ON sensor_associations (world_frame, ts_unix_nanos)
-;
-
-CREATE INDEX idx_sensor_assoc_track ON sensor_associations (track_id)
-;
-
-CREATE INDEX idx_sensor_assoc_radar ON sensor_associations (radar_obs_id)
-;
+      AND t.class_label != 'ignore' /* Exclude tracks marked to ignore */;
 
 -- ---------------------------------------------------------------------------
 -- System monitoring and events
@@ -843,26 +606,19 @@ CREATE INDEX idx_sensor_assoc_radar ON sensor_associations (radar_obs_id)
           -- Foreign key ensuring event belongs to a valid sensor (when sensor_id is not NULL)
 
         , FOREIGN KEY (sensor_id) REFERENCES sensors (sensor_id)
-          )
-;
+          );
 
-CREATE INDEX idx_system_events_time ON system_events (ts_unix_nanos)
-;
+CREATE INDEX idx_system_events_time ON system_events (ts_unix_nanos);
 
-CREATE INDEX idx_system_events_type ON system_events (event_type, ts_unix_nanos)
-;
+CREATE INDEX idx_system_events_type ON system_events (event_type, ts_unix_nanos);
 
-CREATE INDEX idx_system_events_sensor ON system_events (sensor_id, ts_unix_nanos)
-;
+CREATE INDEX idx_system_events_sensor ON system_events (sensor_id, ts_unix_nanos);
 
 -- ---------------------------------------------------------------------------
 -- Optional: spatial acceleration with R*Tree (requires SQLite RTREE)
 -- Keeps approximate XY bounding boxes for quick neighborhood search.
 -- Uncomment if your build supports it.
 -- ---------------------------------------------------------------------------
--- CREATE VIRTUAL TABLE rtree_radar_obs USING rtree(
---   radar_obs_id, minX, maxX, minY, maxY
--- );
 -- CREATE VIRTUAL TABLE rtree_track_obs USING rtree(
 --   rowid, minX, maxX, minY, maxY
 -- );
@@ -901,24 +657,7 @@ CREATE INDEX idx_system_events_sensor ON system_events (sensor_id, ts_unix_nanos
      FROM lidar_tracks t
      JOIN last_ts lt USING (track_id)
      JOIN lidar_track_obs o ON o.track_id = lt.track_id
-      AND o.ts_unix_nanos = lt.ts
-;
-
-/*
- * Radar-confirmed tracks view: Tracks with multi-sensor validation
- *
- * This view identifies tracks that have been confirmed/validated by radar observations
- * through the sensor fusion pipeline. These tracks have higher confidence since they
- * are detected by multiple independent sensors. Useful for filtering high-quality
- * tracks for analysis and reducing false positive detections from single-sensor artifacts.
- */
-   CREATE VIEW v_tracks_with_radar AS
-   SELECT DISTINCT t.track_id
-        , t.world_frame
-     FROM lidar_tracks t
-     JOIN sensor_associations a ON a.track_id = t.track_id
-      AND a.radar_obs_id IS NOT NULL
-;
+      AND o.ts_unix_nanos = lt.ts;
 
 /*
  * System performance summary view: Real-time monitoring dashboard for 100-track capacity
@@ -951,8 +690,7 @@ CREATE INDEX idx_system_events_sensor ON system_events (sensor_id, ts_unix_nanos
                FROM lidar_bg_snapshot
               WHERE taken_unix_nanos > (STRFTIME('%s', 'now') - 86400) * 1000000000
           ) AS bg_snapshots_24h
-     FROM recent_performance rp
-;
+     FROM recent_performance rp;
 
 /*
  * Track activity summary view: Site-level traffic analysis and statistics
@@ -975,8 +713,7 @@ CREATE INDEX idx_system_events_sensor ON system_events (sensor_id, ts_unix_nanos
         , AVG((t.end_unix_nanos - t.start_unix_nanos) / 1e9) AS avg_duration_s
      FROM lidar_tracks t
     WHERE t.start_unix_nanos > (STRFTIME('%s', 'now') - 86400) * 1000000000 /* last 24 hours */
- GROUP BY t.world_frame
-;
+ GROUP BY t.world_frame;
 
 /*
  * Track lifecycle events summary view: Daily tracking system health metrics
@@ -997,5 +734,4 @@ CREATE INDEX idx_system_events_sensor ON system_events (sensor_id, ts_unix_nanos
  GROUP BY event_date
         , event_type
  ORDER BY event_date DESC
-        , event_type
-;
+        , event_type;
