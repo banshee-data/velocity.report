@@ -16,15 +16,15 @@ type FrameID string
 // T is 4x4 row-major (m00..m03, m10..m13, m20..m23, m30..m33).
 // Updated to match schema.sql sensor_poses table exactly.
 type Pose struct {
-	PoseID         int64       // matches pose_id INTEGER PRIMARY KEY
-	SensorID       string      // matches sensor_id TEXT NOT NULL
-	FromFrame      FrameID     // matches from_frame TEXT NOT NULL
-	ToFrame        FrameID     // matches to_frame TEXT NOT NULL
-	T              [16]float64 // matches T_rowmajor_4x4 BLOB (16 floats)
-	ValidFromNanos int64       // matches valid_from_ns INTEGER NOT NULL
-	ValidToNanos   *int64      // matches valid_to_ns INTEGER (NULL = current)
-	Method         string      // matches method TEXT
-	RMSEm          float32     // matches rmse_m REAL
+	PoseID                    int64       // matches pose_id INTEGER PRIMARY KEY
+	SensorID                  string      // matches sensor_id TEXT NOT NULL
+	FromFrame                 FrameID     // matches from_frame TEXT NOT NULL
+	ToFrame                   FrameID     // matches to_frame TEXT NOT NULL
+	T                         [16]float64 // matches T_rowmajor_4x4 BLOB (16 floats)
+	ValidFromNanos            int64       // matches valid_from_ns INTEGER NOT NULL
+	ValidToNanos              *int64      // matches valid_to_ns INTEGER (NULL = current)
+	Method                    string      // matches method TEXT
+	RootMeanSquareErrorMeters float32     // matches root_mean_square_error_meters REAL
 }
 
 // PoseCache holds the current pose used for realtime transforms.
@@ -202,13 +202,13 @@ type SystemEvent struct {
 
 // Retention policies optimized for 100 concurrent tracks and schema constraints
 type RetentionConfig struct {
-	MaxConcurrentTracks int           // 100 - matches design target
-	MaxTrackObsPerTrack int           // 1000 obs per track - ring buffer size
-	MaxRecentClusters   int           // 10,000 recent clusters - memory management
-	MaxTrackAge         time.Duration // 30 minutes for inactive tracks
-	BgSnapshotInterval  time.Duration // 2 hours - matches schema automatic persistence
-	BgSnapshotRetention time.Duration // 48 hours - cleanup old snapshots
-	BgSettlingPeriod    time.Duration // 5 minutes before first persist
+	MaxConcurrentTracks          int           // 100 - matches design target
+	MaxTrackObservationsPerTrack int           // 1000 observations per track - ring buffer size
+	MaxRecentClusters            int           // 10,000 recent clusters - memory management
+	MaxTrackAge                  time.Duration // 30 minutes for inactive tracks
+	BgSnapshotInterval           time.Duration // 2 hours - matches schema automatic persistence
+	BgSnapshotRetention          time.Duration // 48 hours - cleanup old snapshots
+	BgSettlingPeriod             time.Duration // 5 minutes before first persist
 
 	// Enhanced cleanup policies for schema maintenance
 	MaxTrackFeatureAge   time.Duration // 7 days - cleanup old feature vectors
@@ -224,20 +224,20 @@ type RetentionConfig struct {
 
 // WorldCluster matches schema lidar_clusters table structure exactly
 type WorldCluster struct {
-	ClusterID     int64   // matches lidar_cluster_id INTEGER PRIMARY KEY
-	SensorID      string  // matches sensor_id TEXT NOT NULL
-	WorldFrame    FrameID // matches world_frame TEXT NOT NULL
-	PoseID        int64   // matches pose_id INTEGER NOT NULL
-	TSUnixNanos   int64   // matches ts_unix_nanos INTEGER NOT NULL
-	CentroidX     float32 // matches centroid_x REAL
-	CentroidY     float32 // matches centroid_y REAL
-	CentroidZ     float32 // matches centroid_z REAL
-	BBoxL         float32 // matches bbox_l REAL
-	BBoxW         float32 // matches bbox_w REAL
-	BBoxH         float32 // matches bbox_h REAL
-	PointsCount   int     // matches points_count INTEGER
-	HeightP95     float32 // matches height_p95 REAL
-	IntensityMean float32 // matches intensity_mean REAL
+	ClusterID         int64   // matches lidar_cluster_id INTEGER PRIMARY KEY
+	SensorID          string  // matches sensor_id TEXT NOT NULL
+	WorldFrame        FrameID // matches world_frame TEXT NOT NULL
+	PoseID            int64   // matches pose_id INTEGER NOT NULL
+	TSUnixNanos       int64   // matches ts_unix_nanos INTEGER NOT NULL
+	CentroidX         float32 // matches centroid_x REAL
+	CentroidY         float32 // matches centroid_y REAL
+	CentroidZ         float32 // matches centroid_z REAL
+	BoundingBoxLength float32 // matches bounding_box_length REAL
+	BoundingBoxWidth  float32 // matches bounding_box_width REAL
+	BoundingBoxHeight float32 // matches bounding_box_height REAL
+	PointsCount       int     // matches points_count INTEGER
+	HeightP95         float32 // matches height_p95 REAL
+	IntensityMean     float32 // matches intensity_mean REAL
 
 	// Debug hints matching schema optional fields
 	SensorRingHint  *int     // matches sensor_ring_hint INTEGER
@@ -256,23 +256,25 @@ type TrackSummary struct {
 	UnixNanos  int64   // current observation timestamp
 
 	// Current kinematics (world frame; road-plane oriented)
-	X, Y       float32 // current position
-	VX, VY     float32 // current velocity
-	SpeedMps   float32 // current speed magnitude
-	HeadingRad float32 // current heading
+	X, Y                 float32 // current position
+	VelocityX, VelocityY float32 // current velocity
+	SpeedMps             float32 // current speed magnitude
+	HeadingRad           float32 // current heading
 
 	// Current shape/quality
-	BBoxL, BBoxW, BBoxH float32
-	PointsCount         int
-	HeightP95           float32
-	IntensityMean       float32
+	BoundingBoxLength float32
+	BoundingBoxWidth  float32
+	BoundingBoxHeight float32
+	PointsCount       int
+	HeightP95         float32
+	IntensityMean     float32
 
 	// Classification from track summary
 	ClassLabel      string  // matches schema class_label TEXT
 	ClassConfidence float32 // matches schema class_conf REAL
 
 	// Optional uncertainty (for advanced fusion)
-	Cov4x4 []float32 // flattened 4x4 covariance of [x y vx vy]
+	Covariance4x4 []float32 // flattened 4x4 covariance of [x y velocity_x velocity_y]
 }
 
 //
@@ -282,11 +284,9 @@ type TrackSummary struct {
 
 // TrackState2D represents the core kinematic state for Kalman filtering
 type TrackState2D struct {
-	// State vector in world frame: [x y vx vy]
-	X, Y   float32
-	VX, VY float32
-	// Row-major covariance (4x4). float32 saves RAM for 100-track performance.
-	Cov [16]float32
+	X, Y                 float32     // State vector in world frame: [x y velocity_x velocity_y]
+	VelocityX, VelocityY float32     // Velocity components in world frame
+	CovarianceMatrix     [16]float32 // Row-major covariance (4x4). float32 saves RAM for 100-track performance.
 }
 
 // Track enhanced to match schema lidar_tracks table structure
@@ -305,10 +305,10 @@ type Track struct {
 	State TrackState2D
 
 	// Running averages matching schema summary fields
-	BBoxLAvg, BBoxWAvg, BBoxHAvg float32 // matches bbox_l_avg, bbox_w_avg, bbox_h_avg REAL
+	BoundingBoxLengthAvg, BoundingBoxWidthAvg, BoundingBoxHeightAvg float32 // matches bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg REAL
 
 	// Rollups for features/training matching schema fields
-	ObsCount         int     // matches obs_count INTEGER
+	ObservationCount int     // matches observation_count INTEGER
 	AvgSpeedMps      float32 // matches avg_speed_mps REAL
 	PeakSpeedMps     float32 // matches peak_speed_mps REAL
 	HeightP95Max     float32 // matches height_p95_max REAL
@@ -336,14 +336,14 @@ type TrackObs struct {
 	X, Y, Z float32 // matches x, y, z REAL
 
 	// Velocity matching schema
-	VX, VY, VZ float32 // matches vx, vy, vz REAL
+	VelocityX, VelocityY, VelocityZ float32 // matches velocity_x, velocity_y, velocity_z REAL
 
 	// Derived kinematics matching schema
 	SpeedMps   float32 // matches speed_mps REAL
 	HeadingRad float32 // matches heading_rad REAL
 
 	// Shape matching schema
-	BBoxL, BBoxW, BBoxH float32 // matches bbox_l, bbox_w, bbox_h REAL
+	BoundingBoxLength, BoundingBoxWidth, BoundingBoxHeight float32 // matches bounding_box_length, bounding_box_width, bounding_box_height REAL
 
 	// Quality metrics matching schema
 	HeightP95     float32 // matches height_p95 REAL
@@ -357,25 +357,25 @@ type TrackObs struct {
 
 // RadarPingWorld represents radar detection transformed to world frame
 type RadarPingWorld struct {
-	RadarObsID int64   // matches radar_observations.radar_obs_id
-	SensorID   string  // matches radar_observations.sensor_id
-	WorldFrame FrameID // matches radar_observations.world_frame
-	UnixNanos  int64   // matches radar_observations.ts_unix_nanos
-	X, Y       float32 // matches radar_observations.x, y (projected to road plane)
-	RadialMps  float32 // matches radar_observations.radial_speed_mps
-	SNR        float32 // matches radar_observations.snr
-	Quality    int32   // matches radar_observations.quality
+	RadarObsID         int64   // matches radar_observations.radar_obs_id
+	SensorID           string  // matches radar_observations.sensor_id
+	WorldFrame         FrameID // matches radar_observations.world_frame
+	UnixNanos          int64   // matches radar_observations.ts_unix_nanos
+	X, Y               float32 // matches radar_observations.x, y (projected to road plane)
+	RadialMps          float32 // matches radar_observations.radial_speed_mps
+	SignalToNoiseRatio float32 // matches radar_observations.signal_to_noise_ratio
+	Quality            int32   // matches radar_observations.quality
 }
 
 // RadarObservation from cmd/radar via gRPC (Phase 2) - matches schema structure
 type RadarObservation struct {
-	SensorID       string  // matches radar_observations.sensor_id
-	TSUnixNanos    int64   // matches radar_observations.ts_unix_nanos
-	RangeM         float32 // matches radar_observations.range_m
-	AzimuthDeg     float32 // matches radar_observations.azimuth_deg
-	RadialSpeedMps float32 // matches radar_observations.radial_speed_mps
-	SNR            float32 // matches radar_observations.snr
-	Quality        int32   // matches radar_observations.quality
+	SensorID           string  // matches radar_observations.sensor_id
+	TSUnixNanos        int64   // matches radar_observations.ts_unix_nanos
+	RangeM             float32 // matches radar_observations.range_m
+	AzimuthDeg         float32 // matches radar_observations.azimuth_deg
+	RadialSpeedMps     float32 // matches radar_observations.radial_speed_mps
+	SignalToNoiseRatio float32 // matches radar_observations.signal_to_noise_ratio
+	Quality            int32   // matches radar_observations.quality
 
 	// Processing latency tracking matching schema
 	ReceivedUnixNanos   int64  // matches radar_observations.received_unix_nanos
@@ -385,7 +385,7 @@ type RadarObservation struct {
 
 // Association exactly matches schema sensor_associations table structure
 type Association struct {
-	AssocID            *int64  // matches assoc_id INTEGER PRIMARY KEY (auto-generated)
+	AssociationID      *int64  // matches association_id INTEGER PRIMARY KEY (auto-generated)
 	WorldFrame         FrameID // matches world_frame TEXT NOT NULL
 	UnixNanos          int64   // matches ts_unix_nanos INTEGER NOT NULL
 	TrackID            *string // matches track_id TEXT (nullable)
@@ -396,11 +396,11 @@ type Association struct {
 	AssociationQuality string  // matches association_quality TEXT ('high'|'medium'|'low')
 
 	// Fused state matching schema
-	FusedX, FusedY   float32 // matches fused_x, fused_y REAL
-	FusedVX, FusedVY float32 // matches fused_vx, fused_vy REAL
-	FusedSpeedMps    float32 // matches fused_speed_mps REAL
-	FusedCov4x4      []byte  // matches fused_cov_blob BLOB (16 floats row-major)
-	SourceMask       uint8   // matches source_mask INTEGER (bit0=lidar, bit1=radar)
+	FusedX, FusedY                 float32 // matches fused_x, fused_y REAL
+	FusedVelocityX, FusedVelocityY float32 // matches fused_velocity_x, fused_velocity_y REAL
+	FusedSpeedMps                  float32 // matches fused_speed_mps REAL
+	FusedCovariance4x4             []byte  // matches fused_cov_blob BLOB (16 floats row-major)
+	SourceMask                     uint8   // matches source_mask INTEGER (bit0=lidar, bit1=radar)
 }
 
 // Track merging/splitting support (Phase 3) - will integrate with system_events table
@@ -444,9 +444,9 @@ type FusionEngine struct {
 
 // SidecarState is the main state container optimized for 100 concurrent tracks
 type SidecarState struct {
-	Poses  *PoseCache                    // thread-safe pose management
-	BG     map[string]*BackgroundManager // enhanced with persistence
-	Tracks map[string]*Track             // up to 100 concurrent
+	Poses              *PoseCache                    // thread-safe pose management
+	BackgroundManagers map[string]*BackgroundManager // enhanced with persistence
+	Tracks             map[string]*Track             // up to 100 concurrent
 
 	// Ring buffers sized for 100 tracks with thread safety
 	RecentClusters   *RingBuffer[*WorldCluster]        // 10,000 capacity

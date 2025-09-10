@@ -119,7 +119,7 @@ PRAGMA busy_timeout = 5000
           -- Root mean square error in meters from calibration procedure. Lower values
           -- indicate higher precision calibration. Used for pose quality assessment.
 
-        , rmse_m REAL
+        , root_mean_square_error_meters REAL
           -- Foreign key ensuring pose belongs to a valid sensor
 
         , FOREIGN KEY (sensor_id) REFERENCES sensors (sensor_id)
@@ -225,13 +225,13 @@ CREATE INDEX idx_bg_snapshot_sensor_time ON lidar_bg_snapshot (sensor_id, taken_
         , centroid_z REAL
           -- Bounding box length (longitudinal extent) in meters
 
-        , bbox_l REAL
+        , bounding_box_length REAL
           -- Bounding box width (lateral extent) in meters
 
-        , bbox_w REAL
+        , bounding_box_width REAL
           -- Bounding box height (vertical extent) in meters
 
-        , bbox_h REAL
+        , bounding_box_height REAL
           -- Total number of LiDAR points contributing to this cluster
 
         , points_count INTEGER
@@ -326,16 +326,16 @@ CREATE INDEX idx_lidar_clusters_sensor_time ON lidar_clusters (sensor_id, ts_uni
           -- Total number of cluster observations contributing to this track.
           -- Higher counts indicate longer-duration, higher-quality tracks.
 
-        , obs_count INTEGER
+        , observation_count INTEGER
           -- Average bounding box length across all track observations (meters)
 
-        , bbox_l_avg REAL
+        , bounding_box_length_avg REAL
           -- Average bounding box width across all track observations (meters)
 
-        , bbox_w_avg REAL
+        , bounding_box_width_avg REAL
           -- Average bounding box height across all track observations (meters)
 
-        , bbox_h_avg REAL
+        , bounding_box_height_avg REAL
           -- Bitmask indicating which sensor types contributed to this track:
           -- bit0=LiDAR, bit1=radar, bit2=future sensors. Default 1 = LiDAR only.
           -- Enables tracking of multi-sensor fusion contributions.
@@ -392,13 +392,13 @@ CREATE INDEX idx_lidar_tracks_active ON lidar_tracks (world_frame, end_unix_nano
         , z REAL
           -- Velocity X component in world frame (m/s)
 
-        , vx REAL
+        , velocity_x REAL
           -- Velocity Y component in world frame (m/s)
 
-        , vy REAL
+        , velocity_y REAL
           -- Velocity Z component in world frame (m/s)
 
-        , vz REAL
+        , velocity_z REAL
           -- Instantaneous speed magnitude computed from velocity components (m/s)
 
         , speed_mps REAL
@@ -407,13 +407,13 @@ CREATE INDEX idx_lidar_tracks_active ON lidar_tracks (world_frame, end_unix_nano
         , heading_rad REAL
           -- Bounding box length at this time instant (meters)
 
-        , bbox_l REAL
+        , bounding_box_length REAL
           -- Bounding box width at this time instant (meters)
 
-        , bbox_w REAL
+        , bounding_box_width REAL
           -- Bounding box height at this time instant (meters)
 
-        , bbox_h REAL
+        , bounding_box_height REAL
           -- 95th percentile height of cluster points at this time instant (meters)
 
         , height_p95 REAL
@@ -479,13 +479,13 @@ CREATE INDEX idx_track_obs_track_time ON lidar_track_obs (track_id, ts_unix_nano
         , jerk_p95_mps3 REAL
           -- Average bounding box length across all track observations (meters)
 
-        , bbox_l_avg REAL
+        , bounding_box_length_avg REAL
           -- Average bounding box width across all track observations (meters)
 
-        , bbox_w_avg REAL
+        , bounding_box_width_avg REAL
           -- Average bounding box height across all track observations (meters)
 
-        , bbox_h_avg REAL
+        , bounding_box_height_avg REAL
           -- Median (50th percentile) height across all track observations (meters)
 
         , height_p50 REAL
@@ -626,7 +626,7 @@ CREATE INDEX idx_labels_track ON labels (track_id)
           -- Signal-to-noise ratio of this detection (dB). Higher values indicate
           -- stronger, more reliable detections. Used for quality filtering.
 
-        , snr REAL /* derived (projected to road plane in world frame) */
+        , signal_to_noise_ratio REAL /* derived (projected to road plane in world frame) */
           -- X coordinate in world frame after coordinate transformation (meters)
 
         , x REAL
@@ -634,7 +634,7 @@ CREATE INDEX idx_labels_track ON labels (track_id)
 
         , y REAL
           -- Quality score/confidence for this detection (0-100 or similar scale).
-          -- May incorporate SNR, range, multi-frame consistency, etc.
+          -- May incorporate signal-to-noise ratio, range, multi-frame consistency, etc.
 
         , quality INTEGER
           -- Unix nanoseconds when the radar process first received this detection.
@@ -689,7 +689,7 @@ CREATE INDEX idx_radar_sensor_time ON radar_observations (sensor_id, ts_unix_nan
 
         , range_m REAL
           -- Raw intensity/amplitude measurement for this scan line.
-          -- Sensor-specific units, used for SNR calculation and detection processing.
+          -- Sensor-specific units, used for signal-to-noise ratio calculation and detection processing.
 
         , intensity REAL
           -- Foreign key ensuring scan line belongs to a valid radar sensor
@@ -716,7 +716,7 @@ CREATE INDEX idx_radar_lines_sensor_time ON radar_lines (sensor_id, ts_unix_nano
  */
    CREATE TABLE sensor_associations (
           -- Auto-incrementing unique identifier for this association event
-          assoc_id INTEGER PRIMARY KEY
+          association_id INTEGER PRIMARY KEY
           -- World coordinate frame where this association was performed
 
         , world_frame TEXT NOT NULL
@@ -753,10 +753,10 @@ CREATE INDEX idx_radar_lines_sensor_time ON radar_lines (sensor_id, ts_unix_nano
         , fused_y REAL
           -- Fused X velocity estimate in world frame (m/s) after sensor combination
 
-        , fused_vx REAL
+        , fused_velocity_x REAL
           -- Fused Y velocity estimate in world frame (m/s) after sensor combination
 
-        , fused_vy REAL
+        , fused_velocity_y REAL
           -- Fused speed magnitude estimate (m/s) computed from velocity components
 
         , fused_speed_mps REAL
