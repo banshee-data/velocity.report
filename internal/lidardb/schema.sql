@@ -34,7 +34,7 @@ PRAGMA busy_timeout = 5000;
  * Each site represents a real-world location (e.g., intersection, highway segment)
  * with its own coordinate system and reference frame.
  */
-   CREATE TABLE sites (
+   CREATE TABLE IF NOT EXISTS sites (
           -- Unique identifier for the physical site (e.g., "main-st-001", "highway-i95-mm123")
           site_id TEXT PRIMARY KEY
           -- The world/global coordinate frame name for this site. This defines the reference
@@ -51,7 +51,7 @@ PRAGMA busy_timeout = 5000;
  * sites. Each sensor has a unique identity and is associated with a specific site.
  * Sensors may be recalibrated, moved, or replaced over time.
  */
-   CREATE TABLE sensors (
+   CREATE TABLE IF NOT EXISTS sensors (
           -- Unique identifier for the sensor hardware unit (e.g., "hesai-pandar40p-001")
           sensor_id TEXT PRIMARY KEY
           -- Reference to the site where this sensor is deployed
@@ -82,7 +82,7 @@ PRAGMA busy_timeout = 5000;
  * Transform from sensor frame -> site/world frame.
  * t_rowmajor_4x4 stores 16 float32/64 row-major values (binary blob).
  */
-   CREATE TABLE sensor_poses (
+   CREATE TABLE IF NOT EXISTS sensor_poses (
           -- Auto-incrementing unique identifier for this pose record
           pose_id INTEGER PRIMARY KEY
           -- Reference to the sensor this pose applies to
@@ -119,7 +119,7 @@ PRAGMA busy_timeout = 5000;
         , FOREIGN KEY (sensor_id) REFERENCES sensors (sensor_id)
           );
 
-CREATE INDEX idx_sensor_poses_sensor_time ON sensor_poses (sensor_id, valid_from_ns);
+CREATE INDEX IF NOT EXISTS idx_sensor_poses_sensor_time ON sensor_poses (sensor_id, valid_from_ns);
 
 -- ---------------------------------------------------------------------------
 -- LiDAR background (sensor frame) - periodic snapshots
@@ -135,7 +135,7 @@ CREATE INDEX idx_sensor_poses_sensor_time ON sensor_poses (sensor_id, valid_from
  * and then periodically to account for environmental changes (weather, construction, etc.).
  * Data is stored in sensor frame coordinates for computational efficiency.
  */
-   CREATE TABLE lidar_bg_snapshot (
+   CREATE TABLE IF NOT EXISTS lidar_bg_snapshot (
           -- Auto-incrementing unique identifier for this background snapshot
           snapshot_id INTEGER PRIMARY KEY
           -- Reference to the LiDAR sensor that captured this background
@@ -174,7 +174,7 @@ CREATE INDEX idx_sensor_poses_sensor_time ON sensor_poses (sensor_id, valid_from
         , FOREIGN KEY (sensor_id) REFERENCES sensors (sensor_id)
           );
 
-CREATE INDEX idx_bg_snapshot_sensor_time ON lidar_bg_snapshot (sensor_id, taken_unix_nanos);
+CREATE INDEX IF NOT EXISTS idx_bg_snapshot_sensor_time ON lidar_bg_snapshot (sensor_id, taken_unix_nanos);
 
 -- ---------------------------------------------------------------------------
 -- LiDAR foreground clusters (WORLD frame)
@@ -189,7 +189,7 @@ CREATE INDEX idx_bg_snapshot_sensor_time ON lidar_bg_snapshot (sensor_id, taken_
  * coordinates to enable fusion with other sensors and consistent spatial analysis.
  * One row per cluster per LiDAR frame.
  */
-   CREATE TABLE lidar_clusters (
+   CREATE TABLE IF NOT EXISTS lidar_clusters (
           -- Auto-incrementing unique identifier for this cluster detection
           lidar_cluster_id INTEGER PRIMARY KEY
           -- Reference to the LiDAR sensor that detected this cluster
@@ -249,9 +249,9 @@ CREATE INDEX idx_bg_snapshot_sensor_time ON lidar_bg_snapshot (sensor_id, taken_
         , FOREIGN KEY (pose_id) REFERENCES sensor_poses (pose_id)
           );
 
-CREATE INDEX idx_lidar_clusters_time ON lidar_clusters (world_frame, ts_unix_nanos);
+CREATE INDEX IF NOT EXISTS idx_lidar_clusters_time ON lidar_clusters (world_frame, ts_unix_nanos);
 
-CREATE INDEX idx_lidar_clusters_sensor_time ON lidar_clusters (sensor_id, ts_unix_nanos);
+CREATE INDEX IF NOT EXISTS idx_lidar_clusters_sensor_time ON lidar_clusters (sensor_id, ts_unix_nanos);
 
 -- ---------------------------------------------------------------------------
 -- LiDAR tracks (episodes) in WORLD frame + their time series
@@ -265,7 +265,7 @@ CREATE INDEX idx_lidar_clusters_sensor_time ON lidar_clusters (sensor_id, ts_uni
  * the entire track lifetime. System is optimized for 100 concurrent active tracks.
  * All coordinates are in world frame for consistent spatial analysis.
  */
-   CREATE TABLE lidar_tracks (
+   CREATE TABLE IF NOT EXISTS lidar_tracks (
           -- Stable unique identifier for this track episode (e.g., "track_20250909_001234")
           -- Remains constant throughout the track's lifetime for consistent data association
           track_id TEXT PRIMARY KEY /* stable ID per episode */
@@ -331,11 +331,11 @@ CREATE INDEX idx_lidar_clusters_sensor_time ON lidar_clusters (sensor_id, ts_uni
           );
 
 -- Enhanced for 100 concurrent tracks with better performance indices
-CREATE INDEX idx_lidar_tracks_site_time ON lidar_tracks (world_frame, start_unix_nanos);
+CREATE INDEX IF NOT EXISTS idx_lidar_tracks_site_time ON lidar_tracks (world_frame, start_unix_nanos);
 
-CREATE INDEX idx_lidar_tracks_sensor_time ON lidar_tracks (sensor_id, start_unix_nanos);
+CREATE INDEX IF NOT EXISTS idx_lidar_tracks_sensor_time ON lidar_tracks (sensor_id, start_unix_nanos);
 
-CREATE INDEX idx_lidar_tracks_active ON lidar_tracks (world_frame, end_unix_nanos)
+CREATE INDEX IF NOT EXISTS idx_lidar_tracks_active ON lidar_tracks (world_frame, end_unix_nanos)
     WHERE end_unix_nanos IS NULL;
 
 /*
@@ -346,7 +346,7 @@ CREATE INDEX idx_lidar_tracks_active ON lidar_tracks (world_frame, end_unix_nano
  * Data enables trajectory analysis, smoothing, and detailed movement pattern analysis.
  * Optimized for efficient queries across 100 concurrent tracks with high temporal resolution.
  */
-   CREATE TABLE lidar_track_obs (
+   CREATE TABLE IF NOT EXISTS lidar_track_obs (
           -- Reference to the parent track this observation belongs to
           track_id TEXT NOT NULL
           -- Unix nanoseconds timestamp for this state observation
@@ -409,11 +409,11 @@ CREATE INDEX idx_lidar_tracks_active ON lidar_tracks (world_frame, end_unix_nano
           );
 
 -- Optimized for efficient track state queries (100 concurrent tracks)
-CREATE INDEX idx_track_obs_time ON lidar_track_obs (ts_unix_nanos);
+CREATE INDEX IF NOT EXISTS idx_track_obs_time ON lidar_track_obs (ts_unix_nanos);
 
-CREATE INDEX idx_track_obs_track ON lidar_track_obs (track_id);
+CREATE INDEX IF NOT EXISTS idx_track_obs_track ON lidar_track_obs (track_id);
 
-CREATE INDEX idx_track_obs_track_time ON lidar_track_obs (track_id, ts_unix_nanos DESC);
+CREATE INDEX IF NOT EXISTS idx_track_obs_track_time ON lidar_track_obs (track_id, ts_unix_nanos DESC);
 
 /*
  * LiDAR track features table: Denormalized feature vectors for ML training and export
@@ -424,7 +424,7 @@ CREATE INDEX idx_track_obs_track_time ON lidar_track_obs (track_id, ts_unix_nano
  * spatial, temporal, and kinematic characteristics into a fixed-length vector
  * suitable for training classifiers or exporting to external ML pipelines.
  */
-   CREATE TABLE lidar_track_features (
+   CREATE TABLE IF NOT EXISTS lidar_track_features (
           -- Reference to the track these features were extracted from
           track_id TEXT PRIMARY KEY
           -- Reference to the sensor that generated this track
@@ -506,7 +506,7 @@ CREATE INDEX idx_track_obs_track_time ON lidar_track_obs (track_id, ts_unix_nano
  * and refine classifications. The labeling history is preserved for quality control
  * and inter-annotator agreement analysis. Used primarily for supervised ML training.
  */
-   CREATE TABLE labels (
+   CREATE TABLE IF NOT EXISTS labels (
           -- Auto-incrementing unique identifier for this labeling event
           label_id INTEGER PRIMARY KEY
           -- Reference to the track being labeled
@@ -533,7 +533,7 @@ CREATE INDEX idx_track_obs_track_time ON lidar_track_obs (track_id, ts_unix_nano
         , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id)
           );
 
-CREATE INDEX idx_labels_track ON labels (track_id);
+CREATE INDEX IF NOT EXISTS idx_labels_track ON labels (track_id);
 
 /*
  * Training view: Curated feature vectors with ground truth labels for ML training
@@ -544,7 +544,7 @@ CREATE INDEX idx_labels_track ON labels (track_id);
  * for supervised machine learning with features as input and label_final as target.
  * Automatically maintained as new tracks and features are added to the system.
  */
-   CREATE VIEW v_training AS
+   CREATE VIEW IF NOT EXISTS v_training AS
    SELECT f.* /* All feature columns from lidar_track_features            */
         , t.class_label AS label_final /* Ground truth label for training    */
      FROM lidar_track_features f
@@ -565,7 +565,7 @@ CREATE INDEX idx_labels_track ON labels (track_id);
  * diverse event schemas. Critical for monitoring 100-track system performance and debugging
  * fusion pipeline issues. Replaces multiple separate logging tables with a unified approach.
  */
-   CREATE TABLE system_events (
+   CREATE TABLE IF NOT EXISTS system_events (
           -- Auto-incrementing unique identifier for this system event
           event_id INTEGER PRIMARY KEY
           -- Reference to specific sensor (NULL for system-wide events that don't relate to a single sensor)
@@ -608,11 +608,11 @@ CREATE INDEX idx_labels_track ON labels (track_id);
         , FOREIGN KEY (sensor_id) REFERENCES sensors (sensor_id)
           );
 
-CREATE INDEX idx_system_events_time ON system_events (ts_unix_nanos);
+CREATE INDEX IF NOT EXISTS idx_system_events_time ON system_events (ts_unix_nanos);
 
-CREATE INDEX idx_system_events_type ON system_events (event_type, ts_unix_nanos);
+CREATE INDEX IF NOT EXISTS idx_system_events_type ON system_events (event_type, ts_unix_nanos);
 
-CREATE INDEX idx_system_events_sensor ON system_events (sensor_id, ts_unix_nanos);
+CREATE INDEX IF NOT EXISTS idx_system_events_sensor ON system_events (sensor_id, ts_unix_nanos);
 
 -- ---------------------------------------------------------------------------
 -- Optional: spatial acceleration with R*Tree (requires SQLite RTREE)
@@ -634,7 +634,7 @@ CREATE INDEX idx_system_events_sensor ON system_events (sensor_id, ts_unix_nanos
  * Combines track metadata (classification, summary stats) with the latest temporal observation.
  * Automatically updates as new track observations are added to the system.
  */
-   CREATE VIEW v_tracks_latest AS
+   CREATE VIEW IF NOT EXISTS v_tracks_latest AS
      WITH last_ts AS (
              SELECT track_id
                   , MAX(ts_unix_nanos) AS ts
@@ -668,7 +668,7 @@ CREATE INDEX idx_system_events_sensor ON system_events (sensor_id, ts_unix_nanos
  * snapshot activity. Critical for monitoring system performance under the target load
  * of 100 concurrent tracks and identifying performance bottlenecks or degradation.
  */
-   CREATE VIEW v_system_performance AS
+   CREATE VIEW IF NOT EXISTS v_system_performance AS
      WITH recent_performance AS (
              SELECT JSON_EXTRACT(event_data, '$.metric_name') AS metric_name
                   , AVG(CAST(JSON_EXTRACT(event_data, '$.metric_value') AS REAL)) AS avg_value
@@ -701,7 +701,7 @@ CREATE INDEX idx_system_events_sensor ON system_events (sensor_id, ts_unix_nanos
  * busy vs. quiet periods. Helps validate system performance and understand traffic patterns
  * across different deployment sites.
  */
-   CREATE VIEW v_track_activity AS
+   CREATE VIEW IF NOT EXISTS v_track_activity AS
    SELECT t.world_frame
         , COUNT(*) AS total_tracks
         , COUNT(
@@ -724,7 +724,7 @@ CREATE INDEX idx_system_events_sensor ON system_events (sensor_id, ts_unix_nanos
  * Initiate/terminate balance indicates overall traffic flow. Used for system health monitoring
  * and identifying periods requiring algorithm tuning or manual review.
  */
-   CREATE VIEW v_track_lifecycle AS
+   CREATE VIEW IF NOT EXISTS v_track_lifecycle AS
    SELECT DATE(ts_unix_nanos / 1000000000, 'unixepoch') AS event_date
         , event_type
         , COUNT(*) AS event_count
