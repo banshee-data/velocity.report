@@ -274,7 +274,7 @@ CREATE INDEX idx_lidar_clusters_sensor_time ON lidar_clusters (sensor_id, ts_uni
  *
  * This table stores track episodes - sequences of clusters that have been associated
  * over time to represent individual moving objects. Each track has a stable identifier
- * and spans from track birth to track death. Summary statistics are computed across
+ * and spans from track initiate to track terminate. Summary statistics are computed across
  * the entire track lifetime. System is optimized for 100 concurrent active tracks.
  * All coordinates are in world frame for consistent spatial analysis.
  */
@@ -813,8 +813,8 @@ CREATE INDEX idx_sensor_assoc_radar ON sensor_associations (radar_obs_id)
         , ts_unix_nanos INTEGER NOT NULL
           -- Type/category of event being recorded. Constrained to specific valid types:
           -- 'performance': CPU usage, memory consumption, processing latencies, throughput metrics
-          -- 'track_birth': New track initialization events with initial state
-          -- 'track_death': Track termination events with final statistics
+          -- 'track_initiate': New track initialization events with initial state
+          -- 'track_terminate': Track termination events with final statistics
           -- 'track_merge': Multiple tracks combined into single track (association correction)
           -- 'track_split': Single track divided into multiple tracks (tracking error correction)
           -- 'system_start': System initialization and startup events
@@ -824,8 +824,8 @@ CREATE INDEX idx_sensor_assoc_radar ON sensor_associations (radar_obs_id)
         , event_type TEXT NOT NULL CHECK (
           event_type IN (
           'performance'
-        , 'track_birth'
-        , 'track_death'
+        , 'track_initiate'
+        , 'track_terminate'
         , 'track_merge'
         , 'track_split'
         , 'system_start'
@@ -835,8 +835,8 @@ CREATE INDEX idx_sensor_assoc_radar ON sensor_associations (radar_obs_id)
           )
           -- Flexible JSON storage for event-specific data. Schema varies by event_type:
           -- 'performance': {"metric_name": "cpu_usage_pct", "metric_value": 23.5, "sensor_id": "lidar01"}
-          -- 'track_birth': {"track_id": "track_001", "initial_position": {"x": 10.5, "y": 5.2}}
-          -- 'track_death': {"track_id": "track_001", "final_stats": {"duration_s": 15.3, "distance_m": 45.2}}
+          -- 'track_initiate': {"track_id": "track_001", "initial_position": {"x": 10.5, "y": 5.2}}
+          -- 'track_terminate': {"track_id": "track_001", "final_stats": {"duration_s": 15.3, "distance_m": 45.2}}
           -- 'background_snapshot': {"snapshot_id": 123, "changed_cells": 1502, "reason": "periodic_update"}
 
         , event_data JSON /* flexible storage for different event types */
@@ -880,12 +880,12 @@ CREATE INDEX idx_system_events_sensor ON system_events (sensor_id, ts_unix_nanos
  */
    CREATE VIEW v_tracks_latest AS
      WITH last_ts AS (
-             SELECT                    track_id
+             SELECT track_id
                   , MAX(ts_unix_nanos) AS ts
                FROM lidar_track_obs
            GROUP BY track_id
           )
-   SELECT                  t.track_id
+   SELECT t.track_id
         , t.sensor_id
         , t.world_frame
         , t.class_label
@@ -913,7 +913,7 @@ CREATE INDEX idx_system_events_sensor ON system_events (sensor_id, ts_unix_nanos
  * tracks for analysis and reducing false positive detections from single-sensor artifacts.
  */
    CREATE VIEW v_tracks_with_radar AS
-   SELECT DISTINCT      t.track_id
+   SELECT DISTINCT t.track_id
         , t.world_frame
      FROM lidar_tracks t
      JOIN sensor_associations a ON a.track_id = t.track_id
@@ -931,7 +931,7 @@ CREATE INDEX idx_system_events_sensor ON system_events (sensor_id, ts_unix_nanos
  */
    CREATE VIEW v_system_performance AS
      WITH recent_performance AS (
-             SELECT JSON_EXTRACT(event_data, '$.metric_name')                     AS metric_name
+             SELECT JSON_EXTRACT(event_data, '$.metric_name') AS metric_name
                   , AVG(CAST(JSON_EXTRACT(event_data, '$.metric_value') AS REAL)) AS avg_value
                   , MAX(CAST(JSON_EXTRACT(event_data, '$.metric_value') AS REAL)) AS max_value
                   , MIN(CAST(JSON_EXTRACT(event_data, '$.metric_value') AS REAL)) AS min_value
@@ -940,7 +940,7 @@ CREATE INDEX idx_system_events_sensor ON system_events (sensor_id, ts_unix_nanos
                 AND ts_unix_nanos > (STRFTIME('%s', 'now') - 300) * 1000000000 /* last 5 minutes */
            GROUP BY JSON_EXTRACT(event_data, '$.metric_name')
           )
-   SELECT   rp.*
+   SELECT rp.*
         , (
              SELECT COUNT(*)
                FROM lidar_tracks
@@ -964,7 +964,7 @@ CREATE INDEX idx_system_events_sensor ON system_events (sensor_id, ts_unix_nanos
  * across different deployment sites.
  */
    CREATE VIEW v_track_activity AS
-   SELECT          t.world_frame
+   SELECT t.world_frame
         , COUNT(*) AS total_tracks
         , COUNT(
           CASE
@@ -981,18 +981,18 @@ CREATE INDEX idx_system_events_sensor ON system_events (sensor_id, ts_unix_nanos
 /*
  * Track lifecycle events summary view: Daily tracking system health metrics
  *
- * This view summarizes track lifecycle events (birth, death, merge, split) by date
+ * This view summarizes track lifecycle events (initiate, terminate, merge, split) by date
  * for the last 24 hours. Provides insight into tracking system stability and performance.
  * High merge/split counts may indicate tracking algorithm issues or challenging conditions.
- * Birth/death balance indicates overall traffic flow. Used for system health monitoring
+ * Initiate/terminate balance indicates overall traffic flow. Used for system health monitoring
  * and identifying periods requiring algorithm tuning or manual review.
  */
    CREATE VIEW v_track_lifecycle AS
    SELECT DATE(ts_unix_nanos / 1000000000, 'unixepoch') AS event_date
         , event_type
-        , COUNT(*)                                      AS event_count
+        , COUNT(*) AS event_count
      FROM system_events
-    WHERE event_type IN ('track_birth', 'track_death', 'track_merge', 'track_split')
+    WHERE event_type IN ('track_initiate', 'track_terminate', 'track_merge', 'track_split')
       AND ts_unix_nanos > (STRFTIME('%s', 'now') - 86400) * 1000000000 /* last 24 hours */
  GROUP BY event_date
         , event_type
