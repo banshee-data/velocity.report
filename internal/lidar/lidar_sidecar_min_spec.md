@@ -1,7 +1,8 @@
-# LiDAR Sidecar — Minimal Implementation Spec (no Prometheus, no fusion, no gRPC)
+# LiDAR Sidecar — Minimal Implementation Spec (LiDAR-only, simplified schema)
 
 **Audience:** another engineer (Claude Sonnet) implementing the first working sidecar.
 **Scope:** Ingest Hesai UDP → parse to points → range‑image background subtraction (sensor frame) → cluster foreground → transform to world frame → track → expose simple HTTP JSON endpoints for health and recent tracks.
+**Schema:** LiDAR-only implementation with verbose field names (removed radar/fusion tables).
 **Out of scope (for now):** Prometheus metrics, radar fusion/association, gRPC/WS streaming, DB persistence (the main app may persist via existing APIs later).
 
 ---
@@ -27,7 +28,7 @@
 
 ---
 
-## 2) Modules / files (suggested)
+## 2) Modules / files
 
 ```
 cmd/lidar/main.go                  # wire flags, goroutines, HTTP
@@ -51,20 +52,21 @@ pcap/                              # offline replay utilities (optional)
 type FrameID string
 
 type Pose struct {
-    PoseID         int64
-    SensorID       string
-    FromFrame      FrameID // "sensor/hesai-01"
-    ToFrame        FrameID // "site/main-st-001"
-    T              [16]float64 // 4x4 row-major
-    ValidFromNanos int64
-    ValidToNanos   *int64
-    Method         string  // "tape+square","plane-fit",...
-    RMSEm          float32
+    PoseID                    int64
+    SensorID                  string
+    FromFrame                 FrameID // "sensor/hesai-01"
+    ToFrame                   FrameID // "site/main-st-001"
+    T                         [16]float64 // 4x4 row-major
+    ValidFromNanos            int64
+    ValidToNanos              *int64
+    Method                    string  // "tape+square","plane-fit",...
+    RootMeanSquareErrorMeters float32
 }
 
 type PoseCache struct {
     BySensorID map[string]*Pose
     WorldFrame FrameID
+    mu         sync.RWMutex // thread safety for concurrent access
 }
 
 // Background mask (sensor frame) ---------------------------------------------
@@ -74,6 +76,11 @@ type BackgroundParams struct {
     SafetyMarginMeters             float32 // e.g., 0.5
     FreezeDurationNanos            int64   // e.g., 5e9
     NeighborConfirmationCount      int     // e.g., 5
+
+    // Additional params for persistence matching schema requirements
+    SettlingPeriodNanos        int64 // 5 minutes before first snapshot
+    SnapshotIntervalNanos      int64 // 2 hours between snapshots
+    ChangeThresholdForSnapshot int   // min changed cells to trigger snapshot
 }
 
 type BackgroundCell struct {
@@ -92,110 +99,155 @@ type BackgroundGrid struct {
     Cells       []BackgroundCell // len=Rings*AzimuthBins
     Params      BackgroundParams
 
-    // Enhanced persistence tracking
-    manager              *BackgroundManager
-    lastSnapshotTime     time.Time
-    changesSinceSnapshot int
+    // Enhanced persistence tracking matching schema lidar_bg_snapshot table
+    Manager              *BackgroundManager
+    LastSnapshotTime     time.Time
+    ChangesSinceSnapshot int
+    SnapshotID           *int64 // tracks last persisted snapshot_id from schema
 
-    // Performance tracking
-    LastProcessingTimeUs int64
+    // Performance tracking for system_events table integration
+    LastProcessingTimeUs  int64
     WarmupFramesRemaining int
-    SettlingComplete     bool
+    SettlingComplete      bool
 
-    // Telemetry
+    // Telemetry for monitoring (feeds into system_events)
     ForegroundCount int64
     BackgroundCount int64
+
+    // Thread safety for concurrent access during persistence
+    mu sync.RWMutex
 }
 
 func (g *BackgroundGrid) Idx(ring, azBin int) int { return ring*g.AzimuthBins + azBin }
 
 // World-space entities --------------------------------------------------------
+// WorldCluster exactly matches schema lidar_clusters table structure
 type WorldCluster struct {
-    ClusterID         int64
-    SensorID          string
-    WorldFrame        FrameID
-    PoseID            int64
-    TSUnixNanos       int64
-    CentroidX, CentroidY, CentroidZ float32
-    BBoxL, BBoxW, BBoxH float32
-    PointsCount       int
-    HeightP95         float32
-    IntensityMean     float32
-    // Optional debug hints (from sensor frame):
-    SensorRingHint    int
-    SensorAzDegHint   float32
+    ClusterID         int64   // matches lidar_cluster_id INTEGER PRIMARY KEY
+    SensorID          string  // matches sensor_id TEXT NOT NULL
+    WorldFrame        FrameID // matches world_frame TEXT NOT NULL
+    PoseID            int64   // matches pose_id INTEGER NOT NULL
+    TSUnixNanos       int64   // matches ts_unix_nanos INTEGER NOT NULL
+    CentroidX         float32 // matches centroid_x REAL
+    CentroidY         float32 // matches centroid_y REAL
+    CentroidZ         float32 // matches centroid_z REAL
+    BoundingBoxLength float32 // matches bounding_box_length REAL
+    BoundingBoxWidth  float32 // matches bounding_box_width REAL
+    BoundingBoxHeight float32 // matches bounding_box_height REAL
+    PointsCount       int     // matches points_count INTEGER
+    HeightP95         float32 // matches height_p95 REAL
+    IntensityMean     float32 // matches intensity_mean REAL
+
+    // Debug hints matching schema optional fields
+    SensorRingHint  *int     // matches sensor_ring_hint INTEGER
+    SensorAzDegHint *float32 // matches sensor_azimuth_deg_hint REAL
+
+    // Optional in-memory only fields (not persisted to schema)
+    SamplePoints [][3]float32 // for debugging/thumbnails
 }
 
 type TrackState2D struct {
-    X, Y   float32
-    VX, VY float32
-    Cov    [16]float32 // row-major 4x4
+    X, Y                 float32     // State vector in world frame: [x y velocity_x velocity_y]
+    VelocityX, VelocityY float32     // Velocity components in world frame
+    CovarianceMatrix     [16]float32 // Row-major covariance (4x4). float32 saves RAM for 100-track performance.
 }
 
+// Track enhanced to match schema lidar_tracks table structure
 type Track struct {
-    TrackID        string
-    SensorID       string
-    WorldFrame     FrameID
-    PoseID         int64
-    FirstUnixNanos int64
-    LastUnixNanos  int64
-    State          TrackState2D
-    BBoxLAvg, BBoxWAvg, BBoxHAvg float32
-    ObsCount       int
-    AvgSpeedMps    float32
-    PeakSpeedMps   float32
-    HeightP95Max   float32
-    IntensityMeanAvg float32
-    ClassLabel     string
-    ClassConfidence float32
-    Misses         int
+    // Core identification matching schema exactly
+    TrackID    string  // matches track_id TEXT PRIMARY KEY
+    SensorID   string  // matches sensor_id TEXT NOT NULL
+    WorldFrame FrameID // matches world_frame TEXT NOT NULL
+    PoseID     int64   // matches pose_id INTEGER NOT NULL
+
+    // Lifecycle timestamps matching schema
+    FirstUnixNanos int64 // matches start_unix_nanos INTEGER NOT NULL
+    LastUnixNanos  int64 // matches end_unix_nanos INTEGER (NULL if active)
+
+    // Current state for real-time tracking
+    State TrackState2D
+
+    // Running averages matching schema summary fields
+    BoundingBoxLengthAvg, BoundingBoxWidthAvg, BoundingBoxHeightAvg float32 // matches bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg REAL
+
+    // Rollups for features/training matching schema fields
+    ObservationCount int     // matches observation_count INTEGER
+    AvgSpeedMps      float32 // matches avg_speed_mps REAL
+    PeakSpeedMps     float32 // matches peak_speed_mps REAL
+    HeightP95Max     float32 // matches height_p95_max REAL
+    IntensityMeanAvg float32 // matches intensity_mean_avg REAL
+
+    // Classification matching schema
+    ClassLabel      string  // matches class_label TEXT
+    ClassConfidence float32 // matches class_conf REAL
+
+    // Source tracking matching schema
+    SourceMask uint8 // matches source_mask INTEGER (bit0=lidar only for LiDAR-only implementation)
+
+    // Life-cycle management (in-memory only)
+    Misses int // consecutive misses for deletion
 }
 
+// TrackObs exactly matches schema lidar_track_obs table structure
 type TrackObs struct {
-    TrackID     string
-    UnixNanos   int64
-    WorldFrame  FrameID
-    PoseID      int64
-    X, Y, Z     float32
-    VX, VY, VZ  float32
-    SpeedMps    float32
-    HeadingRad  float32
-    BBoxL, BBoxW, BBoxH float32
-    HeightP95   float32
-    IntensityMean float32
+    TrackID    string  // matches track_id TEXT NOT NULL
+    UnixNanos  int64   // matches ts_unix_nanos INTEGER NOT NULL
+    WorldFrame FrameID // matches world_frame TEXT NOT NULL
+    PoseID     int64   // matches pose_id INTEGER NOT NULL
+
+    // Position matching schema
+    X, Y, Z float32 // matches x, y, z REAL
+
+    // Velocity matching schema
+    VelocityX, VelocityY, VelocityZ float32 // matches velocity_x, velocity_y, velocity_z REAL
+
+    // Derived kinematics matching schema
+    SpeedMps   float32 // matches speed_mps REAL
+    HeadingRad float32 // matches heading_rad REAL
+
+    // Shape matching schema
+    BoundingBoxLength, BoundingBoxWidth, BoundingBoxHeight float32 // matches bounding_box_length, bounding_box_width, bounding_box_height REAL
+
+    // Quality metrics matching schema
+    HeightP95     float32 // matches height_p95 REAL
+    IntensityMean float32 // matches intensity_mean REAL
 }
 
 // Background persistence management -------------------------------------------
+// BackgroundManager handles automatic persistence following schema lidar_bg_snapshot pattern
 type BackgroundManager struct {
-    grid            *BackgroundGrid
-    settlingTimer   *time.Timer
-    persistTimer    *time.Timer
-    hasSettled      bool
-    lastPersistTime time.Time
-    startTime       time.Time
+    Grid            *BackgroundGrid
+    SettlingTimer   *time.Timer
+    PersistTimer    *time.Timer
+    HasSettled      bool
+    LastPersistTime time.Time
+    StartTime       time.Time
 
-    // Persistence callback to main app
+    // Persistence callback to main app - should save to schema lidar_bg_snapshot table
     PersistCallback func(snapshot *BgSnapshot) error
 }
 
+// BgSnapshot exactly matches schema lidar_bg_snapshot table structure
 type BgSnapshot struct {
-    SensorID       string
-    TakenUnixNanos int64
-    Rings          int
-    AzimuthBins    int
-    ParamsJSON     string
-    GridBlob       []byte  // compressed BackgroundCell data
-    ChangedCells   int
+    SnapshotID        *int64 // will be set by database after insert
+    SensorID          string // matches sensor_id TEXT NOT NULL
+    TakenUnixNanos    int64  // matches taken_unix_nanos INTEGER NOT NULL
+    Rings             int    // matches rings INTEGER NOT NULL
+    AzimuthBins       int    // matches azimuth_bins INTEGER NOT NULL
+    ParamsJSON        string // matches params_json TEXT NOT NULL
+    GridBlob          []byte // matches grid_blob BLOB NOT NULL (compressed BackgroundCell data)
+    ChangedCellsCount int    // matches changed_cells_count INTEGER
+    SnapshotReason    string // matches snapshot_reason TEXT ('settling_complete', 'periodic_update', 'manual')
 }
 
 // Ring buffer implementation for efficient memory management -----------------
 type RingBuffer[T any] struct {
-    items    []T
-    head     int
-    tail     int
-    size     int
-    capacity int
-    mu       sync.RWMutex
+    Items    []T
+    Head     int
+    Tail     int
+    Size     int
+    Capacity int
+    mu       sync.RWMutex // Added thread safety for concurrent access
 }
 
 // Performance tracking --------------------------------------------------------
@@ -207,37 +259,66 @@ type FrameStats struct {
     ClustersFound    int
     TracksActive     int
     ProcessingTimeUs int64
+
+    // Additional metrics for 100-track monitoring
+    MemoryUsageMB   int64
+    CPUUsagePercent float32
+    DroppedPackets  int64
 }
 
-// Retention policies ----------------------------------------------------------
+// SystemEvent represents entries for the schema system_events table
+type SystemEvent struct {
+    EventID     *int64                 // auto-generated by database
+    SensorID    *string                // NULL for system-wide events
+    TSUnixNanos int64                  // event timestamp
+    EventType   string                 // 'performance', 'track_initiate', etc.
+    EventData   map[string]interface{} // JSON data specific to event type
+}
+
+// Retention policies optimized for 100 concurrent tracks and schema constraints
 type RetentionConfig struct {
-    MaxConcurrentTracks    int           // 100
-    MaxTrackObsPerTrack   int           // 1000 obs per track
-    MaxRecentClusters     int           // 10,000 recent clusters
-    MaxTrackAge           time.Duration // 30 minutes for inactive tracks
-    BgSnapshotInterval    time.Duration // 2 hours
-    BgSnapshotRetention   time.Duration // 48 hours
-    BgSettlingPeriod      time.Duration // 5 minutes before first persist
+    MaxConcurrentTracks          int           // 100 - matches design target
+    MaxTrackObservationsPerTrack int           // 1000 observations per track - ring buffer size
+    MaxRecentClusters            int           // 10,000 recent clusters - memory management
+    MaxTrackAge                  time.Duration // 30 minutes for inactive tracks
+    BgSnapshotInterval           time.Duration // 2 hours - matches schema automatic persistence
+    BgSnapshotRetention          time.Duration // 48 hours - cleanup old snapshots
+    BgSettlingPeriod             time.Duration // 5 minutes before first persist
+
+    // Enhanced cleanup policies for schema maintenance
+    MaxTrackFeatureAge   time.Duration // 7 days - cleanup old feature vectors
+    MaxSystemEventAge    time.Duration // 30 days - cleanup old performance metrics
+    ClusterPruneInterval time.Duration // 1 hour - memory cleanup frequency
 }
 
 // Enhanced sidecar state with ring buffers and management --------------------
+// SidecarState is the main state container optimized for 100 concurrent tracks
 type SidecarState struct {
-    Poses   *PoseCache
-    BG      map[string]*BackgroundManager  // Enhanced with persistence
-    Tracks  map[string]*Track              // up to 100 concurrent
+    Poses              *PoseCache                    // thread-safe pose management
+    BackgroundManagers map[string]*BackgroundManager // enhanced with persistence
+    Tracks             map[string]*Track             // up to 100 concurrent
 
-    // Ring buffers sized for 100 tracks
-    RecentClusters    *RingBuffer[*WorldCluster]             // 10,000 capacity
-    RecentTrackObs    map[string]*RingBuffer[*TrackObs]      // 1000 per track
-    RecentFrameStats  *RingBuffer[*FrameStats]               // 1000 capacity
+    // Ring buffers sized for 100 tracks with thread safety
+    RecentClusters   *RingBuffer[*WorldCluster]        // 10,000 capacity
+    RecentTrackObs   map[string]*RingBuffer[*TrackObs] // 1000 per track
+    RecentFrameStats *RingBuffer[*FrameStats]          // 1000 capacity
 
-    // Performance monitoring
-    TrackCount       int64
-    DroppedPackets   int64
+    // Performance monitoring for system_events integration
+    TrackCount     int64
+    DroppedPackets int64
+    ActiveTracks   int64 // current number of active tracks
+    TotalClusters  int64 // lifetime cluster count
+    TotalFrames    int64 // lifetime frame count
 
     // Configuration
     Config *RetentionConfig
 
+    // Schema integration hooks
+    SystemEventCallback func(event *SystemEvent) error    // callback to persist system events
+    ClusterCallback     func(cluster *WorldCluster) error // callback to persist clusters
+    TrackObsCallback    func(obs *TrackObs) error         // callback to persist track observations
+
+    // Thread safety for all operations
     mu sync.RWMutex
 }
 ```
@@ -274,15 +355,15 @@ type SidecarState struct {
 - (Optional) light ground prior; not required because BG already suppresses static planes.
 - Run Euclidean clustering:
   - Parameters: `eps ≈ 0.6 m`, `minPts ≈ 12`.
-  - Compute per‑cluster: centroid, PCA bbox (L/W/H), `pointsCount`, `heightP95`, `intensityMean`.
-- Create `WorldCluster` for each cluster **after** transform (next step).
+  - Compute per‑cluster: centroid, PCA bbox (length/width/height), `points_count`, `height_p95`, `intensity_mean`.
+- Create `WorldCluster` for each cluster **after** transform (next step) with verbose field names matching schema.
 
 ### 4.4 World transform
 - Lookup `Pose` from `PoseCache` for `sensor_id`.
 - Apply `T_world_sensor` to cluster centroid (and optionally to points if needed for bbox); stamp `PoseID` and `WorldFrame`.
 
 ### 4.5 Tracking (world frame)
-- State vector `[x,y,vx,vy]`, constant‑velocity KF.
+- State vector `[x,y,velocity_x,velocity_y]`, constant‑velocity KF (matching schema field names).
 - Process noise `Q` (start): diag(0.5, 0.5, 1.0, 1.0). Measurement noise `R`: diag(0.3, 0.3).
 - Per tick:
   1. **Predict** all tracks to current frame time.
@@ -290,7 +371,7 @@ type SidecarState struct {
   3. **Update** matched tracks with cluster centroid; update running bbox and rollups (avg/peak speed, height).
   4. **Birth** new tracks from unmatched clusters.
   5. **Delete** tracks missing for > 0.5 s (configurable).
-- Produce **recent track list** for HTTP endpoints.
+- Produce **recent track list** for HTTP endpoints with verbose field names matching schema.
 
 ---
 
@@ -316,25 +397,54 @@ Foreground/background counts for quick tuning:
 ```
 
 ### 5.3 `GET /tracks/recent?since_ns=...&limit=...`
-Array of recent tracks (latest state per track). Minimal fields:
+Array of recent tracks (latest state per track). Uses verbose field names matching schema:
 ```json
 [
   {
     "track_id":"t-123",
-    "sensor_id":"hesai-01",
+    "sensor_id":"hesai-pandar64-001",
     "world_frame":"site/main-st-001",
-    "pose_id":7,
+    "pose_id":42,
     "unix_nanos":1699999999999999999,
-    "x":12.3, "y":-3.4, "vx":8.1, "vy":0.2, "speed_mps":8.1, "heading_rad":1.57,
-    "bbox_l":4.2, "bbox_w":1.9, "bbox_h":1.6,
-    "points_count":86, "height_p95":1.5, "intensity_mean":42.0,
-    "class_label":"", "class_conf":0.0
+    "x":12.5, "y":8.3,
+    "velocity_x":2.1, "velocity_y":0.5,
+    "speed_mps":2.16,
+    "heading_rad":0.23,
+    "bounding_box_length":4.2,
+    "bounding_box_width":1.8,
+    "bounding_box_height":1.5,
+    "points_count":156,
+    "height_p95":1.4,
+    "intensity_mean":78.5,
+    "class_label":"",
+    "class_conf":0.0
   }
 ]
 ```
 
 ### 5.4 `GET /track/:id`
-Full time series for a single track (down‑sample if long). Use `TrackObs` fields.
+Full time series for a single track (down‑sample if long). Uses verbose `TrackObs` fields matching schema exactly:
+```json
+{
+  "track_id": "t-123",
+  "observations": [
+    {
+      "ts_unix_nanos": 1699999999999999999,
+      "world_frame": "site/main-st-001",
+      "pose_id": 42,
+      "x": 12.5, "y": 8.3, "z": 0.1,
+      "velocity_x": 2.1, "velocity_y": 0.5, "velocity_z": 0.0,
+      "speed_mps": 2.16,
+      "heading_rad": 0.23,
+      "bounding_box_length": 4.2,
+      "bounding_box_width": 1.8,
+      "bounding_box_height": 1.5,
+      "height_p95": 1.4,
+      "intensity_mean": 78.5
+    }
+  ]
+}
+```
 
 ### 5.5 (Optional) `GET /range-image.png`
 Quick PNG of the current range image with foreground overlay for debugging.
@@ -352,6 +462,8 @@ Quick PNG of the current range image with foreground overlay for debugging.
 ---
 
 ## 7) Configuration (flags/env)
+
+**Note:** This configuration is for the LiDAR-only implementation. Radar-related configuration options have been removed to match the simplified schema.
 
 - `-sensor_id` (string), `-site_id` (string)
 - `-udp_addr` (default `:2368`)
@@ -398,17 +510,21 @@ Quick PNG of the current range image with foreground overlay for debugging.
 
 ## 10) Milestones to ship
 
-1. UDP→Parser→Frame builder + `/health` counters.
-2. Background subtractor + `/fg` (tunable dials).
-3. Clustering → world transform → `/tracks/recent` (static pose file).
-4. Tracking + `/track/:id` (down‑sampled series).
+1. UDP→Parser→Frame builder + `/health` counters with verbose field names.
+2. Background subtractor + `/fg` (tunable dials) with schema-matching persistence.
+3. Clustering → world transform → `/tracks/recent` (static pose file) with exact schema field alignment.
+4. Tracking + `/track/:id` (down‑sampled series) using verbose `TrackObs` structure.
 5. (Optional) `/range-image.png` and pose cache hot‑reload.
+
+**Schema Validation:** All data structures must exactly match the LiDAR-only schema with verbose field names.
 
 ---
 
-## Future Enhancements
+## Future Enhancements (Deferred for Later Implementation)
 
 ### Radar-LiDAR Fusion (Phase 2)
+*Note: Radar and fusion tables have been removed from the current schema to simplify the initial LiDAR-only implementation. This can be added back later.*
+
 Architecture for modular sensor deployment with independent HTTP interfaces:
 
 ```
@@ -416,10 +532,10 @@ Architecture for modular sensor deployment with independent HTTP interfaces:
 │   cmd/radar     │ ───────────▶│   cmd/lidar      │
 │                 │             │                  │
 │ • Serial listen │             │ • UDP listen     │
-│ • Parse radar   │             │ • Background sub │
-│ • HTTP endpoints│             │ • Tracking       │
-│ • Standalone OK │             │ • Fusion logic   │
-└─────────────────┘             │ • HTTP endpoints │
+│ • Parse radar   │             │ • Parse lidar    │
+│ • HTTP endpoints│             │ • HTTP endpoints │
+│ • Standalone OK │             │ • Tracking       │
+└─────────────────┘             │ • Fusion logic   │
          │                      └──────────────────┘
          │                               │
          ▼                               ▼
@@ -568,30 +684,35 @@ type TrackRelation struct {
 
 ## Implementation Phases
 
-### Phase 1: LiDAR-only (Current Spec)
+### Phase 1: LiDAR-only (Current Spec - Simplified Schema)
 1. UDP→Parser→Frame builder + /health
-2. Background subtractor with automatic persistence
-3. Clustering → world transform → /tracks/recent
-4. Tracking optimized for 100 concurrent tracks
-5. Memory management with configurable ring buffers
+2. Background subtractor with automatic persistence matching `lidar_bg_snapshot` table
+3. Clustering → world transform → /tracks/recent with verbose field names
+4. Tracking optimized for 100 concurrent tracks with exact schema alignment
+5. Memory management with configurable ring buffers and thread safety
+6. **Schema**: LiDAR-only with radar/fusion tables removed for simplicity
 
-### Phase 2: Radar Integration
-1. **cmd/radar standalone enhancements**:
+### Phase 2: Radar Integration (Future)
+1. **Re-add radar tables to schema**:
+   - `radar_observations` table for radar detections
+   - `sensor_associations` table for fusion logging
+   - Update `sensors` table to support `('lidar', 'radar')` types
+2. **cmd/radar standalone enhancements**:
    - HTTP endpoints for radar-only deployments
    - Simple radar-only tracking (velocity-based)
    - Health monitoring and detection endpoints
-2. **Modular gRPC integration**:
+3. **Modular gRPC integration**:
    - Optional gRPC client in cmd/radar (when lidar available)
    - gRPC server in cmd/lidar (when radar fusion enabled)
    - Graceful fallback to standalone operation
-3. **Web layer aggregation**:
+4. **Web layer aggregation**:
    - Proxy radar HTTP endpoints (port :8080)
    - Proxy lidar HTTP endpoints (port :8081)
    - Unified sensor status and track visualization
-4. **Fusion logic in cmd/lidar**:
+5. **Fusion logic in cmd/lidar**:
    - Spatial association (Mahalanobis distance)
    - Kalman filter fusion updates
-   - Association logging and analysis endpoints
+   - Association logging to `sensor_associations` table
 
 ### Phase 3: Advanced Features
 1. Track merging/splitting detection
@@ -606,11 +727,9 @@ type TrackRelation struct {
 - Keep **canonical** positions/velocities in world frame and attach **PoseID** to all outputs.
 - Background learns slowly; set a **warm‑up** window (e.g., ignore outputs for first 10–30 s or start with higher threshold and taper down).
 - **Memory target**: ~15-20MB for 100 tracks with 1000 observations each + ring buffers (well under 300MB limit)
-- **Background persistence**: Automatic after 5-minute settling, then every 2 hours
-- **Modular deployment**:
-  - cmd/radar can run standalone with HTTP endpoints (:8080) for radar-only installations
-  - cmd/lidar runs independently with HTTP endpoints (:8081) for lidar processing
-  - When both available, gRPC streams radar data to lidar for fusion
-  - Web layer (Svelte/Vite) proxies both HTTP interfaces for unified UI
-- **Fusion is optional**: Both executables maintain full standalone functionality
+- **Background persistence**: Automatic after 5-minute settling, then every 2 hours matching schema `lidar_bg_snapshot` table
+- **Schema alignment**: All data structures exactly match the LiDAR-only schema with verbose field names
+- **LiDAR-only**: Simplified implementation with radar/fusion tables removed from schema
+- **Thread safety**: All major data structures have mutex protection for concurrent access
+- **System events**: Integration hooks for `system_events` table to track performance metrics
 - You can add DB persistence later in the main app using the schema we defined previously.

@@ -318,8 +318,8 @@ type Track struct {
 	ClassLabel      string  // matches class_label TEXT
 	ClassConfidence float32 // matches class_conf REAL
 
-	// Source tracking matching schema
-	SourceMask uint8 // matches source_mask INTEGER (bit0=lidar, bit1=radar)
+	// Source tracking matching schema (LiDAR-only implementation)
+	SourceMask uint8 // matches source_mask INTEGER (bit0=lidar only for now)
 
 	// Life-cycle management (in-memory only)
 	Misses int // consecutive misses for deletion
@@ -351,91 +351,11 @@ type TrackObs struct {
 }
 
 //
-// 4) Fusion hooks (association scaffolding; WORLD FRAME)
-//    Enhanced for schema radar_observations and sensor_associations integration
+// 4) Future expansion hooks (deferred for Phase 2+)
+//    Note: Radar and fusion data structures have been removed to match
+//    the simplified LiDAR-only schema. These can be re-added when
+//    radar/fusion tables are restored to the schema.
 //
-
-// RadarPingWorld represents radar detection transformed to world frame
-type RadarPingWorld struct {
-	RadarObsID         int64   // matches radar_observations.radar_obs_id
-	SensorID           string  // matches radar_observations.sensor_id
-	WorldFrame         FrameID // matches radar_observations.world_frame
-	UnixNanos          int64   // matches radar_observations.ts_unix_nanos
-	X, Y               float32 // matches radar_observations.x, y (projected to road plane)
-	RadialMps          float32 // matches radar_observations.radial_speed_mps
-	SignalToNoiseRatio float32 // matches radar_observations.signal_to_noise_ratio
-	Quality            int32   // matches radar_observations.quality
-}
-
-// RadarObservation from cmd/radar via gRPC (Phase 2) - matches schema structure
-type RadarObservation struct {
-	SensorID           string  // matches radar_observations.sensor_id
-	TSUnixNanos        int64   // matches radar_observations.ts_unix_nanos
-	RangeM             float32 // matches radar_observations.range_m
-	AzimuthDeg         float32 // matches radar_observations.azimuth_deg
-	RadialSpeedMps     float32 // matches radar_observations.radial_speed_mps
-	SignalToNoiseRatio float32 // matches radar_observations.signal_to_noise_ratio
-	Quality            int32   // matches radar_observations.quality
-
-	// Processing latency tracking matching schema
-	ReceivedUnixNanos   int64  // matches radar_observations.received_unix_nanos
-	ProcessedUnixNanos  *int64 // matches radar_observations.processed_unix_nanos
-	ProcessingLatencyUs *int64 // matches radar_observations.processing_latency_us
-}
-
-// Association exactly matches schema sensor_associations table structure
-type Association struct {
-	AssociationID      *int64  // matches association_id INTEGER PRIMARY KEY (auto-generated)
-	WorldFrame         FrameID // matches world_frame TEXT NOT NULL
-	UnixNanos          int64   // matches ts_unix_nanos INTEGER NOT NULL
-	TrackID            *string // matches track_id TEXT (nullable)
-	RadarObsID         *int64  // matches radar_obs_id INTEGER (nullable)
-	LidarClusterID     *int64  // matches lidar_cluster_id INTEGER (nullable)
-	AssociationMethod  string  // matches association_method TEXT
-	Cost               float32 // matches cost REAL (e.g., Mahalanobis distance)
-	AssociationQuality string  // matches association_quality TEXT ('high'|'medium'|'low')
-
-	// Fused state matching schema
-	FusedX, FusedY                 float32 // matches fused_x, fused_y REAL
-	FusedVelocityX, FusedVelocityY float32 // matches fused_velocity_x, fused_velocity_y REAL
-	FusedSpeedMps                  float32 // matches fused_speed_mps REAL
-	FusedCovariance4x4             []byte  // matches fused_cov_blob BLOB (16 floats row-major)
-	SourceMask                     uint8   // matches source_mask INTEGER (bit0=lidar, bit1=radar)
-}
-
-// Track merging/splitting support (Phase 3) - will integrate with system_events table
-type TrackRelation struct {
-	RelationID   string   // unique identifier for this relation event
-	ParentTracks []string // tracks that merged
-	ChildTracks  []string // tracks that split
-	EventTime    int64    // unix nanoseconds when relation occurred
-	RelationType string   // "merge" | "split" | "occlusion"
-	Confidence   float32  // confidence in the relation decision
-
-	// Additional context for system_events integration
-	Reason     string  // human-readable reason for the relation
-	SensorID   string  // which sensor detected the relation
-	WorldFrame FrameID // world frame where relation occurred
-}
-
-// Fusion engine for radar-lidar association (Phase 2)
-type FusionEngine struct {
-	RadarBuffer *RingBuffer[*RadarObservation] // 1 second window sized for performance
-
-	// Configuration for association
-	MaxAssociationDistanceM    float32 // max spatial distance for association
-	MaxAssociationTimeNanos    int64   // max temporal window for association
-	MahalanobisThresholdHigh   float32 // threshold for 'high' quality associations
-	MahalanobisThresholdMedium float32 // threshold for 'medium' quality associations
-
-	// Statistics for monitoring
-	AssociationsAttempted  int64
-	AssociationsSuccessful int64
-	AssociationErrors      int64
-
-	// Thread safety
-	mu sync.RWMutex
-}
 
 //
 // 5) Supervisory containers
