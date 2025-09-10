@@ -99,7 +99,7 @@ func main() {
 		log.Println("Lidar packet parsing enabled")
 
 		// Create FrameBuilder for accumulating points into complete rotations
-		frameBuilder = lidar.NewFrameBuilderWithDebugLogging("hesai-pandar40p", *debug)
+		frameBuilder = lidar.NewFrameBuilderWithDebugLoggingAndInterval("hesai-pandar40p", *debug, time.Duration(*logInterval)*time.Second)
 		if *debug {
 			log.Println("FrameBuilder initialized for complete rotation detection (debug mode enabled)")
 		} else {
