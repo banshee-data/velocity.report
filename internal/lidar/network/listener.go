@@ -127,7 +127,7 @@ func (l *UDPListener) Start(ctx context.Context) error {
 
 			// Handle the received packet
 			packet := buffer[:n]
-			if err := l.handlePacket(packet, addr); err != nil {
+			if err := l.handlePacket(packet); err != nil {
 				log.Printf("Error handling packet from %v: %v", addr, err)
 			}
 		}
@@ -150,7 +150,7 @@ func (l *UDPListener) startStatsLogging(ctx context.Context) {
 }
 
 // handlePacket processes a single received UDP packet
-func (l *UDPListener) handlePacket(packet []byte, addr *net.UDPAddr) error {
+func (l *UDPListener) handlePacket(packet []byte) error {
 	// Track packet statistics
 	l.stats.AddPacket(len(packet))
 
