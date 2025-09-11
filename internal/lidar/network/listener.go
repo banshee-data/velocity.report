@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
-	"github.com/banshee-data/velocity.report/internal/lidardb"
+	"github.com/banshee-data/velocity.report/internal/lidar/lidardb"
 )
 
 // PacketStatsInterface provides packet statistics management

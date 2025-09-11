@@ -15,7 +15,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidar/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/parse"
-	"github.com/banshee-data/velocity.report/internal/lidardb"
+	"github.com/banshee-data/velocity.report/internal/lidar/lidardb"
 )
 
 var (
