@@ -399,7 +399,7 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, timestam
 		elevation := angleCorrection.Elevation
 
 		// Convert spherical coordinates (distance, azimuth, elevation) to Cartesian (x, y, z)
-		// Coordinate system: X=right, Y=forward, Z=up relative to sensor
+		// Coordinate system: X=forward, Y=right, Z=up relative to sensor
 		azimuthRad := azimuth * math.Pi / 180.0
 		elevationRad := elevation * math.Pi / 180.0
 
@@ -409,9 +409,9 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, timestam
 		cosAzimuth := math.Cos(azimuthRad)
 		sinAzimuth := math.Sin(azimuthRad)
 
-		x := distance * cosElevation * sinAzimuth // Right/left
-		y := distance * cosElevation * cosAzimuth // Forward/back
-		z := distance * sinElevation              // Up/down
+		x := distance * cosElevation * cosAzimuth // Forward
+		y := distance * cosElevation * sinAzimuth // Right
+		z := distance * sinElevation              // Up
 
 		// Apply per-channel firetime correction to get accurate point timestamp
 		firetimeOffset := time.Duration(firetimeCorrection.FireTime * float64(time.Microsecond))
