@@ -25,14 +25,14 @@ at the beginning of the UDP payload (offset 0), not after a header as initially 
 
 PARSER ARCHITECTURE:
 1. Packet validation (size check)
-2. Timestamp extraction (only 4 bytes from tail)
+2. Tail parsing (extracts timestamp and motor speed for per-channel corrections)
 3. Data block parsing with preamble validation (10 iterations)
 4. Point generation with calibration corrections
 5. Coordinate transformation (spherical → Cartesian)
 
 PERFORMANCE OPTIMIZATIONS IMPLEMENTED:
 - Direct block parsing from UDP payload start (no header offset required)
-- Tail parsing minimized (parseTimestamp extracts only required 4-byte timestamp)
+- Tail parsing extracts timestamp and motor speed for accurate per-channel azimuth correction
 - Point slices pre-allocated with capacity to avoid reallocations during append operations
 - Trigonometric calculations optimized (pre-compute cos/sin values to avoid repeated calculations)
 - BlockID field uses efficient block index instead of parsing packet data
@@ -49,13 +49,15 @@ Through Wireshark packet analysis, we determined that UDP payload contains:
 - Preambles appear at positions: 0x002a, 0x00a6, 0x0122... in Wireshark (after network headers)
 - After stripping UDP headers, preambles are at payload offsets: 0, 124, 248, 372...
 
-PACKET FIELDS NOT CURRENTLY PARSED (available for future features):
-Tail fields (28 of 32 bytes unused):
+PACKET TAIL PARSING STATUS:
+Currently parsed fields (7 of 32 bytes):
+- MotorSpeed (bytes 25-26) - used for per-channel azimuth correction
+- Timestamp (bytes 27-30) - used for point generation
+- AzimuthFlag (byte 22) - used for azimuth precision control
+
+Available for future features (25 of 32 bytes unused):
 - Reserved bytes (bytes 0-9, 11-21, 23-24)
 - HighPrecisionFlag (byte 10)
-- AzimuthFlag (byte 22)
-- MotorSpeed (bytes 25-26)
-- Timestamp (bytes 27-30) is parsed and used for point generation
 - FactoryInfo (byte 31)
 
 CALIBRATION DATA:
@@ -137,12 +139,12 @@ type ChannelData struct {
 
 // PacketTail represents the 32-byte tail at the end of each UDP packet
 // Contains timing information and sensor status data
-// Note: Only the timestamp field (bytes 27-30) is currently used by the parser for performance
+// Note: Timestamp, MotorSpeed, and AzimuthFlag fields are parsed and used for accurate point generation
 type PacketTail struct {
 	Reserved1         [10]uint8 // Reserved bytes (bytes 0-9)
 	HighPrecisionFlag uint8     // High precision measurement mode flag (byte 10)
 	Reserved2         [11]uint8 // Reserved bytes (bytes 11-21)
-	AzimuthFlag       uint8     // Azimuth measurement mode flag (byte 22)
+	AzimuthFlag       uint8     // Azimuth measurement mode flag (byte 22): 0x01=high precision, 0x02=standard, 0x00=default
 	Reserved3         [2]uint8  // Reserved bytes (bytes 23-24)
 	MotorSpeed        uint16    // Sensor rotation speed in RPM (bytes 25-26)
 	Timestamp         uint32    // Microsecond timestamp for packet acquisition (bytes 27-30)
@@ -233,6 +235,11 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]Point, error) {
 	tail, err := p.parseTail(packetData[tailOffset:])
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse tail: %v", err)
+	}
+
+	// Debug azimuth flag if enabled (first few packets only)
+	if p.debug && p.packetCount < 10 {
+		log.Printf("AzimuthFlag: 0x%02X, MotorSpeed: %d RPM", tail.AzimuthFlag, tail.MotorSpeed)
 	}
 
 	// Process all 10 data blocks in the packet
@@ -408,8 +415,25 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *Pa
 		degPerMicrosecond := (360.0 * float64(tail.MotorSpeed) / 60.0) / 1e6
 		firetimeAzimuthOffset := firetimeCorrection.FireTime * degPerMicrosecond
 
-		// Apply both angle correction and firetime-based azimuth correction
-		azimuth := baseAzimuth + angleCorrection.Azimuth + firetimeAzimuthOffset
+		// Apply azimuth flag-based precision control
+		// AzimuthFlag controls azimuth measurement precision and correction modes
+		var azimuthPrecisionFactor float64 = 1.0
+		switch tail.AzimuthFlag {
+		case 0x01:
+			// High precision mode - use full firetime correction
+			azimuthPrecisionFactor = 1.0
+		case 0x02:
+			// Standard precision mode - reduce firetime correction sensitivity
+			azimuthPrecisionFactor = 0.5
+		case 0x00:
+			fallthrough
+		default:
+			// Default mode - standard correction
+			azimuthPrecisionFactor = 1.0
+		}
+
+		// Apply both angle correction and firetime-based azimuth correction with precision control
+		azimuth := baseAzimuth + angleCorrection.Azimuth + (firetimeAzimuthOffset * azimuthPrecisionFactor)
 		if azimuth < 0 {
 			azimuth += 360
 		} else if azimuth >= 360 {
