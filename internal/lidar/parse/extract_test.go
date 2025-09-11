@@ -1,4 +1,4 @@
-package lidar
+package parse
 
 import (
 	"encoding/binary"

@@ -15,6 +15,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidar/network"
+	"github.com/banshee-data/velocity.report/internal/lidar/parse"
 	"github.com/banshee-data/velocity.report/internal/lidardb"
 )
 
@@ -59,11 +60,11 @@ func main() {
 	defer ldb.Close()
 
 	// Initialize parser if parsing is enabled
-	var parser *lidar.Pandar40PParser
+	var parser *parse.Pandar40PParser
 	var frameBuilder *lidar.FrameBuilder
 	if !*disableParsing {
 		log.Printf("Loading embedded Pandar40P sensor configuration")
-		config, err := lidar.LoadEmbeddedPandar40PConfig()
+		config, err := parse.LoadEmbeddedPandar40PConfig()
 		if err != nil {
 			log.Fatalf("Failed to load embedded lidar configuration: %v", err)
 		}
@@ -73,7 +74,7 @@ func main() {
 			log.Fatalf("Invalid embedded lidar configuration: %v", err)
 		}
 
-		parser = lidar.NewPandar40PParser(*config)
+		parser = parse.NewPandar40PParser(*config)
 
 		// Configure debug mode
 		parser.SetDebug(*debug)
@@ -83,17 +84,17 @@ func main() {
 		timestampMode := os.Getenv("LIDAR_TIMESTAMP_MODE")
 		switch timestampMode {
 		case "system":
-			parser.SetTimestampMode(lidar.TimestampModeSystemTime)
+			parser.SetTimestampMode(parse.TimestampModeSystemTime)
 			log.Println("LiDAR timestamp mode: System time")
 		case "gps":
-			parser.SetTimestampMode(lidar.TimestampModeGPS)
+			parser.SetTimestampMode(parse.TimestampModeGPS)
 			log.Println("LiDAR timestamp mode: GPS (requires GPS-synchronized LiDAR)")
 		case "internal":
-			parser.SetTimestampMode(lidar.TimestampModeInternal)
+			parser.SetTimestampMode(parse.TimestampModeInternal)
 			log.Println("LiDAR timestamp mode: Internal (device boot time)")
 		default:
 			// Default to SystemTime for stability until PTP hardware is available
-			parser.SetTimestampMode(lidar.TimestampModeSystemTime)
+			parser.SetTimestampMode(parse.TimestampModeSystemTime)
 			log.Println("LiDAR timestamp mode: System time (default - stable until PTP hardware available)")
 		}
 

@@ -1,4 +1,4 @@
-package lidar
+package parse
 
 import (
 	"encoding/binary"
@@ -6,6 +6,8 @@ import (
 	"log"
 	"math"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar"
 )
 
 /*
@@ -199,7 +201,7 @@ func (p *Pandar40PParser) SetDebug(enabled bool) {
 // ParsePacket parses a complete UDP packet from Pandar40P sensor into a slice of 3D points
 // The packet must be exactly 1262 bytes and contain valid data blocks and timestamp
 // Returns up to 400 points (10 blocks × 40 channels, excluding invalid measurements)
-func (p *Pandar40PParser) ParsePacket(data []byte) ([]Point, error) {
+func (p *Pandar40PParser) ParsePacket(data []byte) ([]lidar.Point, error) {
 	// Increment packet counter for debugging
 	p.packetCount++
 
@@ -244,7 +246,7 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]Point, error) {
 
 	// Process all 10 data blocks in the packet
 	// The preambles start immediately at the beginning of the UDP payload
-	var points []Point
+	var points []lidar.Point
 	dataOffset := 0 // Preambles are at the start of UDP payload data
 
 	for blockIdx := 0; blockIdx < BLOCKS_PER_PACKET; blockIdx++ {
@@ -343,9 +345,9 @@ func (p *Pandar40PParser) parseTail(data []byte) (*PacketTail, error) {
 // blockToPoints converts raw measurements from a data block into calibrated 3D points
 // Applies sensor-specific calibrations and converts from spherical to Cartesian coordinates
 // Each block can produce up to 40 points (one per channel), excluding invalid measurements
-func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *PacketTail) []Point {
+func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *PacketTail) []lidar.Point {
 	// Pre-allocate slice with capacity for maximum possible points to avoid reallocations
-	points := make([]Point, 0, CHANNELS_PER_BLOCK)
+	points := make([]lidar.Point, 0, CHANNELS_PER_BLOCK)
 
 	// Parse timestamp based on configured mode
 	var packetTime time.Time
@@ -466,7 +468,7 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *Pa
 		pointTime := packetTime.Add(firetimeOffset)
 
 		// Create final calibrated point with all computed values
-		point := Point{
+		point := lidar.Point{
 			X:         x,
 			Y:         y,
 			Z:         z,
