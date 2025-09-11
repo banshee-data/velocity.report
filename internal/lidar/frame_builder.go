@@ -129,7 +129,7 @@ func (fb *FrameBuilder) getOrCreateFrame(timeSlot int64, timestamp time.Time) *L
 		SensorID:       fb.sensorID,
 		StartTimestamp: timestamp,
 		EndTimestamp:   timestamp,
-		Points:         make([]Point, 0, 50000), // pre-allocate for typical frame size
+		Points:         make([]Point, 0, 70000), // pre-allocate for typical frame size
 		MinAzimuth:     360.0,                   // will be updated to actual minimum
 		MaxAzimuth:     0.0,                     // will be updated to actual maximum
 		SpinComplete:   false,
