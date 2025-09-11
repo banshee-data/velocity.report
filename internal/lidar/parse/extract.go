@@ -27,14 +27,14 @@ at the beginning of the UDP payload (offset 0), not after a header as initially 
 
 PARSER ARCHITECTURE:
 1. Packet validation (size check)
-2. Tail parsing (extracts timestamp and motor speed for per-channel corrections)
+2. Tail parsing (extracts timestamp for per-channel corrections)
 3. Data block parsing with preamble validation (10 iterations)
 4. Point generation with calibration corrections
 5. Coordinate transformation (spherical → Cartesian)
 
 PERFORMANCE OPTIMIZATIONS IMPLEMENTED:
 - Direct block parsing from UDP payload start (no header offset required)
-- Tail parsing extracts timestamp and motor speed for accurate per-channel azimuth correction
+- Tail parsing extracts timestamp for accurate per-channel azimuth correction
 - Point slices pre-allocated with capacity to avoid reallocations during append operations
 - Trigonometric calculations optimized (pre-compute cos/sin values to avoid repeated calculations)
 - BlockID field uses efficient block index instead of parsing packet data
@@ -52,12 +52,11 @@ Through Wireshark packet analysis, we determined that UDP payload contains:
 - After stripping UDP headers, preambles are at payload offsets: 0, 124, 248, 372...
 
 PACKET TAIL PARSING STATUS:
-Currently parsed fields (7 of 32 bytes):
-- MotorSpeed (bytes 25-26) - used for per-channel azimuth correction
+Currently parsed fields (5 of 32 bytes):
 - Timestamp (bytes 27-30) - used for point generation
 - AzimuthFlag (byte 22) - used for azimuth precision control
 
-Available for future features (25 of 32 bytes unused):
+Available for future features (27 of 32 bytes unused):
 - Reserved bytes (bytes 0-9, 11-21, 23-24)
 - HighPrecisionFlag (byte 10)
 - FactoryInfo (byte 31)
@@ -77,7 +76,7 @@ const (
 	CHANNELS_PER_BLOCK   = 40                                                                            // Number of laser channels per data block (Pandar40P has 40 channels total)
 	BYTES_PER_CHANNEL    = 3                                                                             // Channel data size: 2 bytes distance + 1 byte reflectivity
 	HEADER_SIZE          = 6                                                                             // Legacy constant - not used (blocks start at offset 0)
-	TAIL_SIZE            = 32                                                                            // Packet tail size in bytes (contains timestamp and metadata)
+	TAIL_SIZE            = 30                                                                            // Packet tail size in bytes (contains timestamp and metadata)
 	SEQUENCE_SIZE        = 4                                                                             // UDP sequence number size (when enabled)
 	BLOCK_PREAMBLE_SIZE  = 2                                                                             // Block preamble size (0xFFEE marker)
 	AZIMUTH_SIZE         = 2                                                                             // Azimuth field size in each data block (2 bytes, little-endian)
@@ -139,18 +138,40 @@ type ChannelData struct {
 	Reflectivity uint8  // Laser return intensity/reflectivity value (0-255)
 }
 
-// PacketTail represents the 32-byte tail at the end of each UDP packet
-// Contains timing information and sensor status data
-// Note: Timestamp, MotorSpeed, and AzimuthFlag fields are parsed and used for accurate point generation
+// PacketTail represents the 30-byte tail at the end of each UDP packet
+// Structure based on official Hesai Pandar40P documentation table:
+// Reserved(5) + HighTempFlag(1) + Reserved(2) + MotorSpeed(2) + Timestamp(4) +
+// ReturnMode(1) + FactoryInfo(1) + DateTime(6) + UDPSequence(4) + FCS(4)
 type PacketTail struct {
-	Reserved1         [10]uint8 // Reserved bytes (bytes 0-9)
-	HighPrecisionFlag uint8     // High precision measurement mode flag (byte 10)
-	Reserved2         [11]uint8 // Reserved bytes (bytes 11-21)
-	AzimuthFlag       uint8     // Azimuth measurement mode flag (byte 22): 0x01=high precision, 0x02=standard, 0x00=default
-	Reserved3         [2]uint8  // Reserved bytes (bytes 23-24)
-	MotorSpeed        uint16    // Sensor rotation speed in RPM (bytes 25-26)
-	Timestamp         uint32    // Microsecond timestamp for packet acquisition (bytes 27-30)
-	FactoryInfo       uint8     // Factory/firmware information byte (byte 31)
+	// Reserved fields (bytes 0-4)
+	Reserved1 [5]uint8 // Reserved (5 bytes)
+
+	// High temperature shutdown flag (byte 5)
+	HighTempFlag uint8 // 0x01 High temperature, 0x00 Normal operation
+
+	// Reserved field (bytes 6-7)
+	Reserved2 [2]uint8 // Reserved (2 bytes)
+
+	// Motor speed (bytes 8-9)
+	MotorSpeed uint16 // Unit: RPM, Spin rate = frame rate (Hz) × 60
+
+	// Timestamp microseconds (bytes 10-13)
+	Timestamp uint32 // Microsecond part of UTC, Range: 0 to 999,999 μs
+
+	// Return mode (byte 14)
+	ReturnMode uint8 // 0x37 Strongest, 0x38 Last, 0x39 Last and Strongest
+
+	// Factory information (byte 15)
+	FactoryInfo uint8 // 0x42 (or 0x43)
+
+	// Date & Time (bytes 16-21)
+	DateTime [6]uint8 // Whole second part of UTC
+
+	// UDP sequence (bytes 22-25)
+	UDPSequence uint32 // Sequence number of this data packet
+
+	// Frame check sequence (bytes 26-29)
+	FCS [4]uint8 // Frame check sequence
 }
 
 // Pandar40PParser handles parsing of Pandar40P LiDAR UDP packets into 3D point clouds
@@ -239,9 +260,10 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]lidar.Point, error) {
 		return nil, fmt.Errorf("failed to parse tail: %v", err)
 	}
 
-	// Debug azimuth flag if enabled (first few packets only)
+	// Debug packet tail fields if enabled (first few packets only)
 	if p.debug && p.packetCount < 10 {
-		log.Printf("AzimuthFlag: 0x%02X, MotorSpeed: %d RPM", tail.AzimuthFlag, tail.MotorSpeed)
+		log.Printf("Packet %d tail: HighTemp=0x%02x, UDPSeq=%d, ReturnMode=0x%02x, Factory=0x%02x, Timestamp=%d, FCS=%02x",
+			p.packetCount, tail.HighTempFlag, tail.UDPSequence, tail.ReturnMode, tail.FactoryInfo, tail.Timestamp, tail.FCS[:2])
 	}
 
 	// Process all 10 data blocks in the packet
@@ -307,37 +329,27 @@ func (p *Pandar40PParser) parseDataBlock(data []byte) (*DataBlock, error) {
 	return block, nil
 }
 
-// parseTimestamp extracts only the timestamp from the 32-byte packet tail
-// This is optimized to avoid parsing unused tail fields
-func (p *Pandar40PParser) parseTimestamp(data []byte) (uint32, error) {
-	if len(data) != TAIL_SIZE {
-		return 0, fmt.Errorf("invalid tail size: expected %d, got %d", TAIL_SIZE, len(data))
-	}
-
-	// Extract only the timestamp (bytes 27-30)
-	timestamp := binary.LittleEndian.Uint32(data[27:31])
-	return timestamp, nil
-}
-
-// parseTail parses the complete 32-byte packet tail structure
-// Returns full tail data including motor speed needed for per-channel azimuth correction
+// parseTail parses the 30-byte packet tail according to official Hesai documentation
+// Returns structured tail data including sensor state, protocol fields, and timing information
 func (p *Pandar40PParser) parseTail(data []byte) (*PacketTail, error) {
 	if len(data) != TAIL_SIZE {
 		return nil, fmt.Errorf("invalid tail size: expected %d, got %d", TAIL_SIZE, len(data))
 	}
 
 	tail := &PacketTail{
-		MotorSpeed: binary.LittleEndian.Uint16(data[25:27]), // RPM (bytes 25-26)
-		Timestamp:  binary.LittleEndian.Uint32(data[27:31]), // Timestamp (bytes 27-30)
+		HighTempFlag: data[5],                                 // Byte 5
+		MotorSpeed:   binary.LittleEndian.Uint16(data[8:10]),  // Bytes 8-9
+		Timestamp:    binary.LittleEndian.Uint32(data[10:14]), // Bytes 10-13
+		ReturnMode:   data[14],                                // Byte 14
+		FactoryInfo:  data[15],                                // Byte 15
+		UDPSequence:  binary.LittleEndian.Uint32(data[22:26]), // Bytes 22-25
 	}
 
-	// Copy reserved fields for completeness
-	copy(tail.Reserved1[:], data[0:10])
-	tail.HighPrecisionFlag = data[10]
-	copy(tail.Reserved2[:], data[11:22])
-	tail.AzimuthFlag = data[22]
-	copy(tail.Reserved3[:], data[23:25])
-	tail.FactoryInfo = data[31]
+	// Copy array fields
+	copy(tail.Reserved1[:], data[0:5])  // Bytes 0-4: Reserved (5 bytes)
+	copy(tail.Reserved2[:], data[6:8])  // Bytes 6-7: Reserved (2 bytes)
+	copy(tail.DateTime[:], data[16:22]) // Bytes 16-21: Date & Time (6 bytes)
+	copy(tail.FCS[:], data[26:30])      // Bytes 26-29: FCS (4 bytes)
 
 	return tail, nil
 }
@@ -411,24 +423,28 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *Pa
 		angleCorrection := p.config.AngleCorrections[channelIdx]
 		firetimeCorrection := p.config.FiretimeCorrections[channelIdx]
 
-		// Apply firetime correction to azimuth calculation using actual motor speed
+		// Apply firetime correction to azimuth calculation using fixed motor speed
+		// Use a fixed rotation rate assumption (600 RPM = 10 Hz) for firetime correction
 		// Calculate degrees per microsecond: (360° * RPM / 60 seconds) / 1,000,000 microseconds
 		// Negative firetime means channel fires earlier, so it sees an earlier azimuth position
-		degPerMicrosecond := (360.0 * float64(tail.MotorSpeed) / 60.0) / 1e6
+		const fixedRPM = 600.0 // Typical operating speed for Pandar40P
+		degPerMicrosecond := (360.0 * fixedRPM / 60.0) / 1e6
 		firetimeAzimuthOffset := firetimeCorrection.FireTime * degPerMicrosecond
 
 		// Apply azimuth flag-based precision control
-		// AzimuthFlag controls azimuth measurement precision and correction modes
-		var azimuthPrecisionFactor float64 = 1.0
-		switch tail.AzimuthFlag {
-		case 0x01:
-			// High precision mode - use full firetime correction
+		// Use ReturnMode field (byte 14) for precision control: 0x37/0x38/0x39 observed
+		azimuthFlag := tail.ReturnMode
+		var azimuthPrecisionFactor float64
+		switch azimuthFlag {
+		case 0x37:
+			// Strongest return mode - use full firetime correction
 			azimuthPrecisionFactor = 1.0
-		case 0x02:
-			// Standard precision mode - reduce firetime correction sensitivity
-			azimuthPrecisionFactor = 0.5
-		case 0x00:
-			fallthrough
+		case 0x38:
+			// Last return mode - standard precision
+			azimuthPrecisionFactor = 1.0
+		case 0x39:
+			// Last and strongest return mode - high precision
+			azimuthPrecisionFactor = 1.0
 		default:
 			// Default mode - standard correction
 			azimuthPrecisionFactor = 1.0

@@ -111,10 +111,32 @@ func createMockPacket() []byte {
 		}
 	}
 
-	// Tail (32 bytes) - fill with reasonable values
+	// Tail (30 bytes) - fill with realistic values based on official documentation
 	tailOffset := PACKET_SIZE_STANDARD - TAIL_SIZE
-	binary.LittleEndian.PutUint16(packet[tailOffset+25:tailOffset+27], 600)     // 600 RPM motor speed
-	binary.LittleEndian.PutUint32(packet[tailOffset+27:tailOffset+31], 1000000) // 1 second timestamp
+
+	// Reserved fields (bytes 0-4)
+	copy(packet[tailOffset:tailOffset+5], []byte{0x02, 0x2f, 0xae, 0x01, 0x89})
+
+	packet[tailOffset+5] = 0x00 // HighTempFlag (byte 5)
+
+	// Reserved field (bytes 6-7)
+	copy(packet[tailOffset+6:tailOffset+8], []byte{0x33, 0x2e})
+
+	// Motor speed (bytes 8-9)
+	binary.LittleEndian.PutUint16(packet[tailOffset+8:tailOffset+10], 1200) // MotorSpeed
+
+	// Timestamp (bytes 10-13)
+	binary.LittleEndian.PutUint32(packet[tailOffset+10:tailOffset+14], 1000000) // Timestamp (1 second)
+
+	packet[tailOffset+14] = 0x38 // ReturnMode
+	packet[tailOffset+15] = 0x42 // FactoryInfo
+
+	// Date & Time (bytes 16-21)
+	copy(packet[tailOffset+16:tailOffset+22], []byte{0x11, 0x09, 0x06, 0x0e, 0x21, 0x26})
+
+	// UDP sequence and FCS (bytes 22-29)
+	binary.LittleEndian.PutUint32(packet[tailOffset+22:tailOffset+26], 4131)  // UDPSequence
+	copy(packet[tailOffset+26:tailOffset+30], []byte{0x8b, 0x00, 0x00, 0x00}) // FCS
 
 	return packet
 }
