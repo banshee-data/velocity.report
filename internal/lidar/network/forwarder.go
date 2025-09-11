@@ -1,4 +1,4 @@
-package lidar
+package network
 
 import (
 	"context"
@@ -8,18 +8,23 @@ import (
 	"time"
 )
 
+// PacketStats interface for packet statistics tracking
+type PacketStats interface {
+	AddDropped()
+}
+
 // PacketForwarder handles asynchronous forwarding of UDP packets to another address
 // It provides non-blocking packet forwarding with error tracking and logging
 type PacketForwarder struct {
 	conn        *net.UDPConn
 	channel     chan []byte
-	stats       *PacketStats
+	stats       PacketStats
 	logInterval time.Duration
 	address     string
 }
 
 // NewPacketForwarder creates a new packet forwarder that sends packets to the specified address
-func NewPacketForwarder(addr string, port int, stats *PacketStats, logInterval time.Duration) (*PacketForwarder, error) {
+func NewPacketForwarder(addr string, port int, stats PacketStats, logInterval time.Duration) (*PacketForwarder, error) {
 	forwardAddress := fmt.Sprintf("%s:%d", addr, port)
 	forwardUDPAddr, err := net.ResolveUDPAddr("udp", forwardAddress)
 	if err != nil {

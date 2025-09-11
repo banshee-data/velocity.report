@@ -14,6 +14,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/network"
 	"github.com/banshee-data/velocity.report/internal/lidardb"
 )
 
@@ -118,9 +119,9 @@ func main() {
 	stats := lidar.NewPacketStats()
 
 	// Create packet forwarder if forwarding is enabled
-	var forwarder *lidar.PacketForwarder
+	var forwarder *network.PacketForwarder
 	if *forwardPackets {
-		forwarder, err = lidar.NewPacketForwarder(*forwardAddr, *forwardPort, stats, time.Duration(*logInterval)*time.Second)
+		forwarder, err = network.NewPacketForwarder(*forwardAddr, *forwardPort, stats, time.Duration(*logInterval)*time.Second)
 		if err != nil {
 			log.Fatalf("Failed to create packet forwarder: %v", err)
 		}
@@ -128,7 +129,7 @@ func main() {
 	}
 
 	// Create and start UDP listener
-	udpListener := lidar.NewUDPListener(lidar.UDPListenerConfig{
+	udpListener := network.NewUDPListener(network.UDPListenerConfig{
 		Address:        udpListenAddr,
 		RcvBuf:         *rcvBuf,
 		LogInterval:    time.Duration(*logInterval) * time.Second,

@@ -1,4 +1,4 @@
-package lidar
+package network
 
 import (
 	"context"
@@ -7,8 +7,17 @@ import (
 	"time"
 )
 
+// MockPacketStats implements the PacketStats interface for testing
+type MockPacketStats struct {
+	droppedCount int
+}
+
+func (m *MockPacketStats) AddDropped() {
+	m.droppedCount++
+}
+
 func TestPacketForwarder_NewPacketForwarder(t *testing.T) {
-	stats := NewPacketStats()
+	stats := &MockPacketStats{}
 	logInterval := 2 * time.Second
 
 	forwarder, err := NewPacketForwarder("localhost", 12345, stats, logInterval)
@@ -44,7 +53,7 @@ func TestPacketForwarder_StartStop(t *testing.T) {
 	serverPort := server.LocalAddr().(*net.UDPAddr).Port
 
 	// Create forwarder pointing to test server
-	stats := NewPacketStats()
+	stats := &MockPacketStats{}
 	forwarder, err := NewPacketForwarder("localhost", serverPort, stats, 1*time.Second)
 	if err != nil {
 		t.Fatalf("Failed to create forwarder: %v", err)
@@ -85,7 +94,7 @@ func TestPacketForwarder_StartStop(t *testing.T) {
 }
 
 func TestPacketForwarder_ForwardAsync_BufferFull(t *testing.T) {
-	stats := NewPacketStats()
+	stats := &MockPacketStats{}
 
 	// Create forwarder that will work but not start it (so packets pile up in buffer)
 	forwarder, err := NewPacketForwarder("localhost", 12345, stats, 1*time.Second)
@@ -107,7 +116,7 @@ func TestPacketForwarder_ForwardAsync_BufferFull(t *testing.T) {
 }
 
 func TestPacketForwarder_InvalidAddress(t *testing.T) {
-	stats := NewPacketStats()
+	stats := &MockPacketStats{}
 
 	// Try to create forwarder with invalid address
 	_, err := NewPacketForwarder("invalid-address-12345", 12345, stats, 1*time.Second)
@@ -117,7 +126,7 @@ func TestPacketForwarder_InvalidAddress(t *testing.T) {
 }
 
 func BenchmarkPacketForwarder_ForwardAsync(b *testing.B) {
-	stats := NewPacketStats()
+	stats := &MockPacketStats{}
 	forwarder, err := NewPacketForwarder("localhost", 12345, stats, 1*time.Second)
 	if err != nil {
 		b.Fatalf("Failed to create forwarder: %v", err)

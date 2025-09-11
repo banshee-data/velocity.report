@@ -1,4 +1,4 @@
-package lidar
+package network
 
 import (
 	"context"
@@ -7,20 +7,39 @@ import (
 	"net"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidardb"
 )
 
+// PacketStatsInterface provides packet statistics management
+type PacketStatsInterface interface {
+	AddPacket(bytes int)
+	AddDropped()
+	AddPoints(count int)
+	LogStats(parsePackets bool)
+}
+
+// Parser interface for parsing LiDAR packets
+type Parser interface {
+	ParsePacket(packet []byte) ([]lidar.Point, error)
+}
+
+// FrameBuilder interface for building LiDAR frames
+type FrameBuilder interface {
+	AddPoints(points []lidar.Point)
+}
+
 // UDPListener handles receiving and processing LiDAR packets from UDP
-// It manages the UDP socket, packet forwarding, parsing, and statistics
+// with configurable components for parsing, statistics, and forwarding
 type UDPListener struct {
 	address        string
 	rcvBuf         int
 	logInterval    time.Duration
-	buffer         []byte
-	stats          *PacketStats
+	conn           *net.UDPConn
+	stats          PacketStatsInterface
 	forwarder      *PacketForwarder
-	parser         *Pandar40PParser
-	frameBuilder   *FrameBuilder
+	parser         Parser
+	frameBuilder   FrameBuilder
 	db             *lidardb.LidarDB
 	disableParsing bool
 }
@@ -30,10 +49,10 @@ type UDPListenerConfig struct {
 	Address        string
 	RcvBuf         int
 	LogInterval    time.Duration
-	Stats          *PacketStats
+	Stats          PacketStatsInterface
 	Forwarder      *PacketForwarder
-	Parser         *Pandar40PParser
-	FrameBuilder   *FrameBuilder
+	Parser         Parser
+	FrameBuilder   FrameBuilder
 	DB             *lidardb.LidarDB
 	DisableParsing bool
 }
@@ -44,7 +63,6 @@ func NewUDPListener(config UDPListenerConfig) *UDPListener {
 		address:        config.Address,
 		rcvBuf:         config.RcvBuf,
 		logInterval:    config.LogInterval,
-		buffer:         make([]byte, 1500), // Buffer for typical lidar packet size
 		stats:          config.Stats,
 		forwarder:      config.Forwarder,
 		parser:         config.Parser,
@@ -55,82 +73,68 @@ func NewUDPListener(config UDPListenerConfig) *UDPListener {
 }
 
 // Start begins listening for UDP packets and processing them
-// Returns when the context is cancelled or an unrecoverable error occurs
 func (l *UDPListener) Start(ctx context.Context) error {
-	// Parse the address
 	addr, err := net.ResolveUDPAddr("udp", l.address)
 	if err != nil {
-		return fmt.Errorf("failed to resolve UDP address: %v", err)
+		return fmt.Errorf("failed to resolve UDP address: %w", err)
 	}
 
-	// Create main UDP listener
 	conn, err := net.ListenUDP("udp", addr)
 	if err != nil {
-		return fmt.Errorf("failed to listen on UDP: %v", err)
+		return fmt.Errorf("failed to listen on UDP address: %w", err)
 	}
+	l.conn = conn
 	defer conn.Close()
 
-	// Set socket receive buffer size
+	// Set receive buffer size
 	if err := conn.SetReadBuffer(l.rcvBuf); err != nil {
-		log.Printf("Warning: failed to set UDP receive buffer to %d bytes: %v (some OSes clamp buffer sizes)", l.rcvBuf, err)
-	} else {
-		log.Printf("Set UDP receive buffer to %d bytes", l.rcvBuf)
+		log.Printf("Warning: Failed to set UDP receive buffer size to %d: %v", l.rcvBuf, err)
 	}
 
-	log.Printf("Listening for lidar packets on %s", l.address)
+	log.Printf("UDP listener started on %s with receive buffer %d bytes", l.address, l.rcvBuf)
 
-	// Start packet forwarding if forwarder is provided
+	// Start forwarder if configured
 	if l.forwarder != nil {
 		l.forwarder.Start(ctx)
 	}
 
-	// Start periodic logging goroutine
+	// Start statistics logging
 	go l.startStatsLogging(ctx)
 
-	log.Printf("Starting UDP packet receive loop...")
-	timeoutCount := 0
+	// Prepare buffer for incoming packets
+	buffer := make([]byte, 2048) // Pandar40P packets are 1262 bytes + some margin
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("UDP listener shutting down")
+			log.Print("UDP listener stopping due to context cancellation")
 			return ctx.Err()
 		default:
-			// Set a read timeout to allow checking for context cancellation
-			if err := conn.SetReadDeadline(time.Now().Add(1 * time.Second)); err != nil {
-				log.Printf("Error setting read deadline: %v", err)
-				continue
-			}
+			// Set read deadline to allow checking context cancellation
+			conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
 
-			n, clientAddr, err := conn.ReadFromUDP(l.buffer)
+			n, addr, err := conn.ReadFromUDP(buffer)
 			if err != nil {
 				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-					// Timeout is expected, continue the loop
-					timeoutCount++
-					if timeoutCount%10 == 0 {
-						log.Printf("No packets received for %d seconds", timeoutCount)
-					}
-					continue
+					continue // Continue on timeout to check context
 				}
-				log.Printf("Error reading UDP packet: %v", err)
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				log.Printf("UDP read error: %v", err)
 				continue
 			}
 
-			// Reset timeout counter when we receive a packet
-			timeoutCount = 0
-
-			// Handle the packet directly using the reused buffer (no allocation per packet).
-			// Note: buffer[:n] creates a slice view without copying data.
-			// Any function that needs to store the packet data beyond this call
-			// must make its own copy (see forwarder.ForwardAsync for an example).
-			if err := l.handlePacket(l.buffer[:n], clientAddr); err != nil {
-				log.Printf("Error handling lidar packet: %v", err)
+			// Handle the received packet
+			packet := buffer[:n]
+			if err := l.handlePacket(packet, addr); err != nil {
+				log.Printf("Error handling packet from %v: %v", addr, err)
 			}
 		}
 	}
 }
 
-// startStatsLogging starts a goroutine that logs statistics at regular intervals
+// startStatsLogging starts a goroutine that periodically logs packet statistics
 func (l *UDPListener) startStatsLogging(ctx context.Context) {
 	ticker := time.NewTicker(l.logInterval)
 	defer ticker.Stop()
@@ -175,10 +179,10 @@ func (l *UDPListener) handlePacket(packet []byte, addr *net.UDPAddr) error {
 	return nil
 }
 
-// Close cleans up resources used by the UDP listener
+// Close closes the UDP listener and releases resources
 func (l *UDPListener) Close() error {
-	if l.forwarder != nil {
-		return l.forwarder.Close()
+	if l.conn != nil {
+		return l.conn.Close()
 	}
 	return nil
 }
