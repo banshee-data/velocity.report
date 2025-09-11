@@ -228,11 +228,11 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]Point, error) {
 		log.Printf("UDP sequence: %d", sequenceNumber)
 	}
 
-	// Extract timestamp from the packet tail (using processed packet data)
+	// Extract tail data from the packet (using processed packet data)
 	tailOffset := len(packetData) - TAIL_SIZE
-	timestamp, err := p.parseTimestamp(packetData[tailOffset:])
+	tail, err := p.parseTail(packetData[tailOffset:])
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse timestamp: %v", err)
+		return nil, fmt.Errorf("failed to parse tail: %v", err)
 	}
 
 	// Process all 10 data blocks in the packet
@@ -254,7 +254,7 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]Point, error) {
 		}
 
 		// Convert raw measurements to calibrated 3D points
-		blockPoints := p.blockToPoints(block, blockIdx, timestamp)
+		blockPoints := p.blockToPoints(block, blockIdx, tail)
 		points = append(points, blockPoints...)
 
 		dataOffset += blockSize
@@ -310,10 +310,33 @@ func (p *Pandar40PParser) parseTimestamp(data []byte) (uint32, error) {
 	return timestamp, nil
 }
 
+// parseTail parses the complete 32-byte packet tail structure
+// Returns full tail data including motor speed needed for per-channel azimuth correction
+func (p *Pandar40PParser) parseTail(data []byte) (*PacketTail, error) {
+	if len(data) != TAIL_SIZE {
+		return nil, fmt.Errorf("invalid tail size: expected %d, got %d", TAIL_SIZE, len(data))
+	}
+
+	tail := &PacketTail{
+		MotorSpeed: binary.LittleEndian.Uint16(data[25:27]), // RPM (bytes 25-26)
+		Timestamp:  binary.LittleEndian.Uint32(data[27:31]), // Timestamp (bytes 27-30)
+	}
+
+	// Copy reserved fields for completeness
+	copy(tail.Reserved1[:], data[0:10])
+	tail.HighPrecisionFlag = data[10]
+	copy(tail.Reserved2[:], data[11:22])
+	tail.AzimuthFlag = data[22]
+	copy(tail.Reserved3[:], data[23:25])
+	tail.FactoryInfo = data[31]
+
+	return tail, nil
+}
+
 // blockToPoints converts raw measurements from a data block into calibrated 3D points
 // Applies sensor-specific calibrations and converts from spherical to Cartesian coordinates
 // Each block can produce up to 40 points (one per channel), excluding invalid measurements
-func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, timestamp uint32) []Point {
+func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *PacketTail) []Point {
 	// Pre-allocate slice with capacity for maximum possible points to avoid reallocations
 	points := make([]Point, 0, CHANNELS_PER_BLOCK)
 
@@ -322,7 +345,7 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, timestam
 	switch p.timestampMode {
 	case TimestampModePTP, TimestampModeGPS:
 		// Check if PTP timestamps are static (not incrementing)
-		if p.packetCount > 1 && timestamp == p.lastTimestamp {
+		if p.packetCount > 1 && tail.Timestamp == p.lastTimestamp {
 			p.staticCount++
 		}
 
@@ -333,26 +356,26 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, timestam
 
 			// Debug logging for fallback (first few occurrences only)
 			if p.staticCount == 11 {
-				log.Printf("PTP Debug - Static timestamps detected (raw: %d us), falling back to system time for frame building", timestamp)
+				log.Printf("PTP Debug - Static timestamps detected (raw: %d us), falling back to system time for frame building", tail.Timestamp)
 			}
 		} else {
 			// PTP free-run mode: timestamps are microseconds since device boot
 			// Apply boot time offset to align with system time domain for proper frame building
-			packetTime = p.bootTime.Add(time.Duration(timestamp) * time.Microsecond)
+			packetTime = p.bootTime.Add(time.Duration(tail.Timestamp) * time.Microsecond)
 
 			// Debug logging for PTP timestamps (first few packets and every 100th packet)
 			if p.packetCount < 10 || p.packetCount%100 == 0 {
 				log.Printf("PTP Debug [pkt %d] - Raw timestamp: %d us, Boot offset time: %v, System time: %v",
-					p.packetCount, timestamp, packetTime, time.Now())
+					p.packetCount, tail.Timestamp, packetTime, time.Now())
 			}
 		}
 
 		// Update last timestamp for static detection
-		p.lastTimestamp = timestamp
+		p.lastTimestamp = tail.Timestamp
 
 	case TimestampModeInternal:
 		// Interpret as microseconds since device boot
-		packetTime = p.bootTime.Add(time.Duration(timestamp) * time.Microsecond)
+		packetTime = p.bootTime.Add(time.Duration(tail.Timestamp) * time.Microsecond)
 	case TimestampModeSystemTime:
 		fallthrough
 	default:
@@ -379,10 +402,11 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, timestam
 		angleCorrection := p.config.AngleCorrections[channelIdx]
 		firetimeCorrection := p.config.FiretimeCorrections[channelIdx]
 
-		// Apply firetime correction to azimuth calculation
-		// LiDAR rotation: 600 RPM = 10 Hz = 3600°/second = 0.036°/microsecond
+		// Apply firetime correction to azimuth calculation using actual motor speed
+		// Calculate degrees per microsecond: (360° * RPM / 60 seconds) / 1,000,000 microseconds
 		// Negative firetime means channel fires earlier, so it sees an earlier azimuth position
-		firetimeAzimuthOffset := firetimeCorrection.FireTime * 0.036
+		degPerMicrosecond := (360.0 * float64(tail.MotorSpeed) / 60.0) / 1e6
+		firetimeAzimuthOffset := firetimeCorrection.FireTime * degPerMicrosecond
 
 		// Apply both angle correction and firetime-based azimuth correction
 		azimuth := baseAzimuth + angleCorrection.Azimuth + firetimeAzimuthOffset
