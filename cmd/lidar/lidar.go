@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
 	"os/signal"
 	"sync"
 	"syscall"
@@ -80,23 +79,7 @@ func main() {
 		parser.SetDebug(*debug)
 
 		// Configure timestamp mode based on environment
-		// Default to PTP free-run mode for best timing consistency
-		timestampMode := os.Getenv("LIDAR_TIMESTAMP_MODE")
-		switch timestampMode {
-		case "system":
-			parser.SetTimestampMode(parse.TimestampModeSystemTime)
-			log.Println("LiDAR timestamp mode: System time")
-		case "gps":
-			parser.SetTimestampMode(parse.TimestampModeGPS)
-			log.Println("LiDAR timestamp mode: GPS (requires GPS-synchronized LiDAR)")
-		case "internal":
-			parser.SetTimestampMode(parse.TimestampModeInternal)
-			log.Println("LiDAR timestamp mode: Internal (device boot time)")
-		default:
-			// Default to SystemTime for stability until PTP hardware is available
-			parser.SetTimestampMode(parse.TimestampModeSystemTime)
-			log.Println("LiDAR timestamp mode: System time (default - stable until PTP hardware available)")
-		}
+		parse.ConfigureTimestampMode(parser)
 
 		log.Println("Lidar packet parsing enabled")
 
