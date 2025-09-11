@@ -13,9 +13,10 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/lidardb"
+	"github.com/banshee-data/velocity.report/internal/lidar/monitor"
 	"github.com/banshee-data/velocity.report/internal/lidar/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/parse"
-	"github.com/banshee-data/velocity.report/internal/lidar/lidardb"
 )
 
 var (
@@ -100,7 +101,7 @@ func main() {
 	defer stop()
 
 	// Initialize packet statistics (shared between UDP listener and HTTP server)
-	stats := lidar.NewPacketStats()
+	stats := monitor.NewPacketStats()
 
 	// Create packet forwarder if forwarding is enabled
 	var forwarder *network.PacketForwarder
@@ -136,7 +137,7 @@ func main() {
 	}()
 
 	// Create and start web server
-	webServer := lidar.NewWebServer(lidar.WebServerConfig{
+	webServer := monitor.NewWebServer(monitor.WebServerConfig{
 		Address:           *listen,
 		Stats:             stats,
 		ForwardingEnabled: *forwardPackets,
