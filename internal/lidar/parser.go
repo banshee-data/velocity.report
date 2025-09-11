@@ -16,20 +16,22 @@ The Pandar40P sends 1262-byte UDP packets containing measurements from 40 laser 
 organized into 10 data blocks per packet, potentially generating up to 400 3D points per packet.
 
 PACKET STRUCTURE (1262 bytes total):
-├── Header (6 bytes) - packet format metadata [SKIPPED for performance]
-├── Data Blocks (1224 bytes) - 10 blocks × 122 bytes each
-│   └── Each block: 2-byte azimuth + 40 channels × 3 bytes (distance + reflectivity)
+├── Data Blocks (1240 bytes) - 10 blocks × 124 bytes each, starting at offset 0
+│   └── Each block: 2-byte preamble (0xFFEE) + 2-byte azimuth + 40 channels × 3 bytes (distance + reflectivity)
 └── Tail (32 bytes) - timing and status data [PARTIALLY PARSED]
+
+Note: Analysis of Wireshark packet captures revealed that block preambles (0xFFEE) start immediately
+at the beginning of the UDP payload (offset 0), not after a header as initially assumed.
 
 PARSER ARCHITECTURE:
 1. Packet validation (size check)
 2. Timestamp extraction (only 4 bytes from tail)
-3. Data block parsing (10 iterations)
+3. Data block parsing with preamble validation (10 iterations)
 4. Point generation with calibration corrections
 5. Coordinate transformation (spherical → Cartesian)
 
 PERFORMANCE OPTIMIZATIONS IMPLEMENTED:
-- Header parsing skipped (only packet format metadata, not needed for point generation)
+- Direct block parsing from UDP payload start (no header offset required)
 - Tail parsing minimized (parseTimestamp extracts only required 4-byte timestamp)
 - Point slices pre-allocated with capacity to avoid reallocations during append operations
 - Trigonometric calculations optimized (pre-compute cos/sin values to avoid repeated calculations)
@@ -40,14 +42,14 @@ CURRENT PERFORMANCE METRICS:
 - Memory allocation: ~170KB per packet
 - Allocations per operation: 25
 
-PACKET FIELDS NOT CURRENTLY PARSED (available for future features):
-Header fields (6 bytes):
-- SOB (Start of Block identifier)
-- ChLaserNum (channel/laser configuration)
-- ChBlockNum (channel/block configuration)
-- FirstBlockReturn (return mode)
-- DisUnit (distance unit identifier)
+PACKET STRUCTURE DISCOVERY:
+Through Wireshark packet analysis, we determined that UDP payload contains:
+- Block preambles (0xFFEE) start immediately at offset 0 of UDP payload
+- No packet header exists before the data blocks
+- Preambles appear at positions: 0x002a, 0x00a6, 0x0122... in Wireshark (after network headers)
+- After stripping UDP headers, preambles are at payload offsets: 0, 124, 248, 372...
 
+PACKET FIELDS NOT CURRENTLY PARSED (available for future features):
 Tail fields (28 of 32 bytes unused):
 - Reserved bytes (bytes 0-9, 11-21, 23-24)
 - HighPrecisionFlag (byte 10)
@@ -65,15 +67,18 @@ for manufacturing tolerances and ensures precise coordinate transformation.
 // Pandar40P LiDAR packet structure constants
 // These define the fixed format of UDP packets sent by Hesai Pandar40P sensors
 const (
-	PACKET_SIZE_STANDARD = 1262 // Standard UDP packet size in bytes (without UDP sequence)
-	PACKET_SIZE_SEQUENCE = 1266 // UDP packet size with 4-byte sequence number
-	BLOCKS_PER_PACKET    = 10   // Number of data blocks per packet (each contains measurements from all 40 channels)
-	CHANNELS_PER_BLOCK   = 40   // Number of laser channels per data block (Pandar40P has 40 channels total)
-	BYTES_PER_CHANNEL    = 3    // Channel data size: 2 bytes distance + 1 byte reflectivity
-	HEADER_SIZE          = 6    // Packet header size in bytes
-	TAIL_SIZE            = 32   // Packet tail size in bytes (contains timestamp and metadata)
-	SEQUENCE_SIZE        = 4    // UDP sequence number size (when enabled)
-	AZIMUTH_SIZE         = 2    // Azimuth field size in each data block (2 bytes, little-endian)
+	PACKET_SIZE_STANDARD = 1262                                                                          // Standard UDP packet size in bytes (without UDP sequence)
+	PACKET_SIZE_SEQUENCE = 1266                                                                          // UDP packet size with 4-byte sequence number
+	BLOCKS_PER_PACKET    = 10                                                                            // Number of data blocks per packet (each contains measurements from all 40 channels)
+	CHANNELS_PER_BLOCK   = 40                                                                            // Number of laser channels per data block (Pandar40P has 40 channels total)
+	BYTES_PER_CHANNEL    = 3                                                                             // Channel data size: 2 bytes distance + 1 byte reflectivity
+	HEADER_SIZE          = 6                                                                             // Legacy constant - not used (blocks start at offset 0)
+	TAIL_SIZE            = 32                                                                            // Packet tail size in bytes (contains timestamp and metadata)
+	SEQUENCE_SIZE        = 4                                                                             // UDP sequence number size (when enabled)
+	BLOCK_PREAMBLE_SIZE  = 2                                                                             // Block preamble size (0xFFEE marker)
+	AZIMUTH_SIZE         = 2                                                                             // Azimuth field size in each data block (2 bytes, little-endian)
+	BLOCK_SIZE           = BLOCK_PREAMBLE_SIZE + AZIMUTH_SIZE + (CHANNELS_PER_BLOCK * BYTES_PER_CHANNEL) // 124 bytes total with preamble
+	RANGING_DATA_SIZE    = BLOCKS_PER_PACKET * BLOCK_SIZE                                                // 1240 bytes total for all blocks
 
 	// Physical measurement conversion constants
 	DISTANCE_RESOLUTION = 0.004 // Distance unit: 4mm per LSB (converts raw values to meters)
@@ -104,8 +109,9 @@ type FiretimeCorrection struct {
 	FireTime float64 // Time offset in microseconds when this channel fires relative to block start
 }
 
-// PacketHeader represents the 6-byte header at the start of each UDP packet
+// PacketHeader represents the theoretical 6-byte header at the start of UDP packets
 // Contains metadata about the packet format and sensor configuration
+// NOTE: This structure is not currently used - analysis shows data blocks start at offset 0
 type PacketHeader struct {
 	SOB              uint16 // Start of Block identifier (packet format marker)
 	ChLaserNum       uint8  // Channel and laser configuration number
@@ -116,7 +122,7 @@ type PacketHeader struct {
 
 // DataBlock represents one of 10 data blocks within a packet
 // Each block contains measurements from all 40 channels at a specific azimuth angle
-// Pandar40P blocks contain only azimuth + channel data (no block ID header)
+// Pandar40P blocks contain: 2-byte preamble (0xFFEE) + azimuth + channel data
 type DataBlock struct {
 	Azimuth  uint16                          // Raw azimuth angle in 0.01-degree units
 	Channels [CHANNELS_PER_BLOCK]ChannelData // Measurement data for all 40 channels
@@ -229,13 +235,14 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]Point, error) {
 		return nil, fmt.Errorf("failed to parse timestamp: %v", err)
 	}
 
-	// Process all 10 data blocks in the packet (after 6-byte header, before 32-byte tail)
+	// Process all 10 data blocks in the packet
+	// The preambles start immediately at the beginning of the UDP payload
 	var points []Point
-	dataOffset := HEADER_SIZE
+	dataOffset := 0 // Preambles are at the start of UDP payload data
 
 	for blockIdx := 0; blockIdx < BLOCKS_PER_PACKET; blockIdx++ {
-		// Calculate block size: 2 bytes azimuth + (40 channels × 3 bytes each)
-		blockSize := AZIMUTH_SIZE + (CHANNELS_PER_BLOCK * BYTES_PER_CHANNEL)
+		// Calculate block size: 2 bytes preamble + 2 bytes azimuth + (40 channels × 3 bytes each)
+		blockSize := BLOCK_SIZE
 		if dataOffset+blockSize > tailOffset {
 			break // Safety check: ensure we don't read into tail section
 		}
@@ -256,19 +263,25 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]Point, error) {
 	return points, nil
 }
 
-// parseDataBlock parses a single 122-byte data block containing measurements from all 40 channels
-// Block format: 2 bytes azimuth + (40 × 3 bytes channel data)
+// parseDataBlock parses a single 124-byte data block containing measurements from all 40 channels
+// Block format: 2 bytes preamble (0xFFEE) + 2 bytes azimuth + (40 × 3 bytes channel data)
 func (p *Pandar40PParser) parseDataBlock(data []byte) (*DataBlock, error) {
-	if len(data) < AZIMUTH_SIZE {
-		return nil, fmt.Errorf("insufficient data for block header")
+	if len(data) < BLOCK_SIZE {
+		return nil, fmt.Errorf("insufficient data for block: expected %d bytes, got %d", BLOCK_SIZE, len(data))
+	}
+
+	// Validate block preamble (0xFFEE)
+	preamble := binary.LittleEndian.Uint16(data[0:2])
+	if preamble != 0xEEFF { // 0xFFEE appears as 0xEEFF in little-endian
+		return nil, fmt.Errorf("invalid block preamble: expected 0xEEFF, got 0x%04X", preamble)
 	}
 
 	block := &DataBlock{
-		Azimuth: binary.LittleEndian.Uint16(data[0:2]), // Raw azimuth in 0.01-degree units
+		Azimuth: binary.LittleEndian.Uint16(data[2:4]), // Raw azimuth in 0.01-degree units (after preamble)
 	}
 
-	// Parse measurement data for all 40 channels
-	channelOffset := AZIMUTH_SIZE // Start parsing after the 2-byte azimuth field
+	// Parse measurement data for all 40 channels (starting after preamble + azimuth)
+	channelOffset := BLOCK_PREAMBLE_SIZE + AZIMUTH_SIZE // Start parsing after the 2-byte preamble + 2-byte azimuth
 	for i := 0; i < CHANNELS_PER_BLOCK; i++ {
 		if channelOffset+BYTES_PER_CHANNEL > len(data) {
 			return nil, fmt.Errorf("insufficient data for channel %d", i)
@@ -386,7 +399,7 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, timestam
 		elevation := angleCorrection.Elevation
 
 		// Convert spherical coordinates (distance, azimuth, elevation) to Cartesian (x, y, z)
-		// Coordinate system: X=forward, Y=right, Z=up relative to sensor
+		// Coordinate system: X=right, Y=forward, Z=up relative to sensor
 		azimuthRad := azimuth * math.Pi / 180.0
 		elevationRad := elevation * math.Pi / 180.0
 
@@ -396,8 +409,8 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, timestam
 		cosAzimuth := math.Cos(azimuthRad)
 		sinAzimuth := math.Sin(azimuthRad)
 
-		x := distance * cosElevation * sinAzimuth // Forward/back
-		y := distance * cosElevation * cosAzimuth // Left/right
+		x := distance * cosElevation * sinAzimuth // Right/left
+		y := distance * cosElevation * cosAzimuth // Forward/back
 		z := distance * sinElevation              // Up/down
 
 		// Apply per-channel firetime correction to get accurate point timestamp
