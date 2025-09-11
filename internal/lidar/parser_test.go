@@ -113,7 +113,7 @@ func createMockPacket() []byte {
 
 	// Tail (32 bytes) - fill with reasonable values
 	tailOffset := PACKET_SIZE_STANDARD - TAIL_SIZE
-	binary.LittleEndian.PutUint16(packet[tailOffset+25:tailOffset+27], 600) // 600 RPM motor speed
+	binary.LittleEndian.PutUint16(packet[tailOffset+25:tailOffset+27], 600)     // 600 RPM motor speed
 	binary.LittleEndian.PutUint32(packet[tailOffset+27:tailOffset+31], 1000000) // 1 second timestamp
 
 	return packet
