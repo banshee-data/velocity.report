@@ -85,22 +85,18 @@ func TestPacketParsing(t *testing.T) {
 }
 
 func createMockPacket() []byte {
-	packet := make([]byte, PACKET_SIZE)
+	packet := make([]byte, PACKET_SIZE_STANDARD)
 
-	// Header (6 bytes)
-	binary.LittleEndian.PutUint16(packet[0:2], 0xEEFF) // SOB
-	packet[2] = 40                                     // ChLaserNum
-	packet[3] = 10                                     // ChBlockNum
-	packet[4] = 0                                      // FirstBlockReturn
-	packet[5] = 0                                      // DisUnit
-
-	// Data blocks (10 blocks)
-	offset := HEADER_SIZE
+	// Data blocks start immediately at offset 0 (no header)
+	offset := 0
 	for block := 0; block < BLOCKS_PER_PACKET; block++ {
-		// Block header
-		binary.LittleEndian.PutUint16(packet[offset:offset+2], 0xEEFF)               // Block ID
-		binary.LittleEndian.PutUint16(packet[offset+2:offset+4], uint16(block*1000)) // Azimuth
-		offset += 4
+		// Block preamble (0xFFEE) - appears as 0xEEFF in little-endian
+		binary.LittleEndian.PutUint16(packet[offset:offset+2], 0xEEFF)
+		offset += 2
+
+		// Block azimuth
+		binary.LittleEndian.PutUint16(packet[offset:offset+2], uint16(block*1000)) // Azimuth in 0.01-degree units
+		offset += 2
 
 		// Channel data (40 channels per block)
 		for channel := 0; channel < CHANNELS_PER_BLOCK; channel++ {
@@ -116,7 +112,8 @@ func createMockPacket() []byte {
 	}
 
 	// Tail (32 bytes) - fill with reasonable values
-	tailOffset := PACKET_SIZE - TAIL_SIZE
+	tailOffset := PACKET_SIZE_STANDARD - TAIL_SIZE
+	binary.LittleEndian.PutUint16(packet[tailOffset+25:tailOffset+27], 600) // 600 RPM motor speed
 	binary.LittleEndian.PutUint32(packet[tailOffset+27:tailOffset+31], 1000000) // 1 second timestamp
 
 	return packet
