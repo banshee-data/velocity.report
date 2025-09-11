@@ -447,7 +447,7 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *Pa
 		elevation := angleCorrection.Elevation
 
 		// Convert spherical coordinates (distance, azimuth, elevation) to Cartesian (x, y, z)
-		// Coordinate system: X=forward, Y=right, Z=up relative to sensor
+		// Coordinate system: X=right, Y=forward, Z=up (matches LiDARView and CloudCompare standards)
 		azimuthRad := azimuth * math.Pi / 180.0
 		elevationRad := elevation * math.Pi / 180.0
 
@@ -457,8 +457,8 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *Pa
 		cosAzimuth := math.Cos(azimuthRad)
 		sinAzimuth := math.Sin(azimuthRad)
 
-		x := distance * cosElevation * cosAzimuth // Forward
-		y := distance * cosElevation * sinAzimuth // Right
+		x := distance * cosElevation * sinAzimuth // Right
+		y := distance * cosElevation * cosAzimuth // Forward
 		z := distance * sinElevation              // Up
 
 		// Apply per-channel firetime correction to get accurate point timestamp
