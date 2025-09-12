@@ -53,8 +53,8 @@ type Pose struct {
 // Enhanced with thread-safety for concurrent access.
 type PoseCache struct {
 	BySensorID map[string]*Pose
-	WorldFrame FrameID      // canonical site frame (e.g., "site/main-st-001")
-	mu         sync.RWMutex // protect concurrent access
+	WorldFrame FrameID // canonical site frame (e.g., "site/main-st-001")
+	// TODO: add mutex for thread-safe operations when implementing concurrent access
 }
 
 //
@@ -114,7 +114,7 @@ type BackgroundGrid struct {
 	BackgroundCount int64
 
 	// Thread safety for concurrent access during persistence
-	mu sync.RWMutex
+	// TODO: add mutex when implementing concurrent background updates
 }
 
 // Helper to index Cells: idx = ring*AzimuthBins + azBin
