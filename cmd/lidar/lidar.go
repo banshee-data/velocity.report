@@ -32,6 +32,7 @@ var (
 	logInterval    = flag.Int("log-interval", 2, "Statistics logging interval in seconds")
 	debug          = flag.Bool("debug", false, "Enable debug logging (UDP sequences, frame completion details)")
 	debugPackets   = flag.Int("debug-packets", 10, "Number of initial packets to debug log (only when debug=true)")
+	sensorName     = flag.String("sensor-name", "hesai-pandar40p", "Sensor name identifier for logging and monitoring")
 )
 
 // Constants
@@ -87,11 +88,11 @@ func main() {
 		log.Println("Lidar packet parsing enabled")
 
 		// Create FrameBuilder for accumulating points into complete rotations
-		frameBuilder = lidar.NewFrameBuilderWithDebugLoggingAndInterval("hesai-pandar40p", *debug, time.Duration(*logInterval)*time.Second)
+		frameBuilder = lidar.NewFrameBuilderWithDebugLoggingAndInterval(*sensorName, *debug, time.Duration(*logInterval)*time.Second)
 		if *debug {
-			log.Println("FrameBuilder initialized for complete rotation detection (debug mode enabled)")
+			log.Printf("FrameBuilder initialized for %s complete rotation detection (debug mode enabled)", *sensorName)
 		} else {
-			log.Println("FrameBuilder initialized for complete rotation detection")
+			log.Printf("FrameBuilder initialized for %s complete rotation detection", *sensorName)
 		}
 	} else {
 		log.Println("Lidar packet parsing disabled (--no-parse flag was specified)")
