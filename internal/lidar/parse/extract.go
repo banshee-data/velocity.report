@@ -269,11 +269,12 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]lidar.Point, error) {
 	if p.debug && p.packetCount < DEBUG_INITIAL_PACKETS {
 		if hasSequence {
 			log.Printf(
-				"Packet %d tail: HighTemp=0x%02x, UDPSeq=%d, ReturnMode=0x%02x, Factory=0x%02x, Timestamp=%d, UDP sequence: %d",
-				p.packetCount, tail.HighTempFlag, tail.UDPSequence, tail.ReturnMode, tail.FactoryInfo, tail.Timestamp, sequenceNumber)
+				"Packet %d tail: UDPSeq=%d, MotorSpeed=%d RPM, HighTemp=0x%02x, ReturnMode=0x%02x, Factory=0x%02x, Timestamp=%d",
+				p.packetCount, tail.UDPSequence, tail.MotorSpeed, tail.HighTempFlag, tail.ReturnMode, tail.FactoryInfo, tail.Timestamp)
 		} else {
-			log.Printf("Packet %d tail: HighTemp=0x%02x, UDPSeq=%d, ReturnMode=0x%02x, Factory=0x%02x, Timestamp=%d",
-				p.packetCount, tail.HighTempFlag, tail.UDPSequence, tail.ReturnMode, tail.FactoryInfo, tail.Timestamp)
+			log.Printf(
+				"Packet %d tail: MotorSpeed=%d RPM, HighTemp=0x%02x, ReturnMode=0x%02x, Factory=0x%02x, Timestamp=%d",
+				p.packetCount, tail.MotorSpeed, tail.HighTempFlag, tail.ReturnMode, tail.FactoryInfo, tail.Timestamp)
 		}
 	}
 
@@ -439,12 +440,11 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *Pa
 		angleCorrection := p.config.AngleCorrections[channelIdx]
 		firetimeCorrection := p.config.FiretimeCorrections[channelIdx]
 
-		// Apply firetime correction to azimuth calculation using fixed motor speed
-		// Use a fixed rotation rate assumption (600 RPM = 10 Hz) for firetime correction
+		// Apply firetime correction to azimuth calculation using actual motor speed from packet tail
 		// Calculate degrees per microsecond: (360° * RPM / 60 seconds) / 1,000,000 microseconds
 		// Negative firetime means channel fires earlier, so it sees an earlier azimuth position
-		const fixedRPM = 600.0 // Typical operating speed for Pandar40P
-		degPerMicrosecond := (360.0 * fixedRPM / 60.0) / 1e6
+		actualRPM := float64(tail.MotorSpeed) // Use actual motor speed from packet tail
+		degPerMicrosecond := (360.0 * actualRPM / 60.0) / 1e6
 		firetimeAzimuthOffset := firetimeCorrection.FireTime * degPerMicrosecond
 
 		// Apply azimuth flag-based precision control
