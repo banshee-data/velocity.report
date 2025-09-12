@@ -161,9 +161,18 @@ func (fb *FrameBuilder) shouldStartNewFrame(azimuth float64) bool {
 		return true // No current frame
 	}
 
-	// Detect azimuth wrap (360° → 0°)
-	if fb.lastAzimuth > (360.0-fb.azimuthTolerance) && azimuth < fb.azimuthTolerance {
-		return true
+	// Detect azimuth wrap (360° → 0°) only when crossing from high to low
+	// Require strict conditions to avoid false triggers from individual packets
+	if fb.lastAzimuth > 350.0 && azimuth < 10.0 {
+		// Additional checks to ensure this is a complete rotation:
+		// 1. Frame must have substantial azimuth coverage (near 360°)
+		// 2. Frame must have enough points (substantial data)
+		// 3. Current frame azimuth range must indicate a near-complete rotation
+		if fb.currentFrame != nil &&
+			(fb.currentFrame.MaxAzimuth-fb.currentFrame.MinAzimuth) > 340.0 &&
+			fb.currentFrame.PointCount > 50000 {
+			return true
+		}
 	}
 
 	return false
