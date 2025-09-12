@@ -76,7 +76,8 @@ const (
 	CHANNELS_PER_BLOCK   = 40                                                                            // Number of laser channels per data block (Pandar40P has 40 channels total)
 	BYTES_PER_CHANNEL    = 3                                                                             // Channel data size: 2 bytes distance + 1 byte reflectivity
 	HEADER_SIZE          = 6                                                                             // Legacy constant - not used (blocks start at offset 0)
-	TAIL_SIZE            = 30                                                                            // Packet tail size in bytes (contains timestamp and metadata)
+	TAIL_START           = 1240                                                                          // Fixed tail start offset after 10 × 124-byte blocks
+	TAIL_SIZE            = 22                                                                            // Actual LiDAR data tail size in bytes
 	SEQUENCE_SIZE        = 4                                                                             // UDP sequence number size (when enabled)
 	BLOCK_PREAMBLE_SIZE  = 2                                                                             // Block preamble size (0xFFEE marker)
 	AZIMUTH_SIZE         = 2                                                                             // Azimuth field size in each data block (2 bytes, little-endian)
@@ -138,10 +139,10 @@ type ChannelData struct {
 	Reflectivity uint8  // Laser return intensity/reflectivity value (0-255)
 }
 
-// PacketTail represents the 30-byte tail at the end of each UDP packet
-// Structure based on official Hesai Pandar40P documentation table:
+// PacketTail represents the 22-byte data tail at the end of each LiDAR UDP packet
+// Structure based on corrected Hesai Pandar40P documentation:
 // Reserved(5) + HighTempFlag(1) + Reserved(2) + MotorSpeed(2) + Timestamp(4) +
-// ReturnMode(1) + FactoryInfo(1) + DateTime(6) + UDPSequence(4) + FCS(4)
+// ReturnMode(1) + FactoryInfo(1) + DateTime(6) + [UDPSequence(4) when enabled]
 type PacketTail struct {
 	// Reserved fields (bytes 0-4)
 	Reserved1 [5]uint8 // Reserved (5 bytes)
@@ -167,11 +168,8 @@ type PacketTail struct {
 	// Date & Time (bytes 16-21)
 	DateTime [6]uint8 // Whole second part of UTC
 
-	// UDP sequence (bytes 22-25)
+	// UDP sequence (optional, when UDP sequencing enabled)
 	UDPSequence uint32 // Sequence number of this data packet
-
-	// Frame check sequence (bytes 26-29)
-	FCS [4]uint8 // Frame check sequence
 }
 
 // Pandar40PParser handles parsing of Pandar40P LiDAR UDP packets into 3D point clouds
@@ -248,22 +246,28 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]lidar.Point, error) {
 			PACKET_SIZE_STANDARD, PACKET_SIZE_SEQUENCE, len(data))
 	}
 
-	// Debug sequence number if present
-	if hasSequence && p.debug && p.packetCount < 10 {
-		log.Printf("UDP sequence: %d", sequenceNumber)
+	// Extract tail data from fixed offset (after 10 × 124-byte blocks)
+	tailOffset := TAIL_START
+	if tailOffset+TAIL_SIZE > len(packetData) {
+		return nil, fmt.Errorf("packet too short for tail: need %d bytes, have %d", tailOffset+TAIL_SIZE, len(packetData))
 	}
+	tailBytes := packetData[tailOffset : tailOffset+TAIL_SIZE]
 
-	// Extract tail data from the packet (using processed packet data)
-	tailOffset := len(packetData) - TAIL_SIZE
-	tail, err := p.parseTail(packetData[tailOffset:])
+	tail, err := p.parseTail(tailBytes, sequenceNumber)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse tail: %v", err)
 	}
 
 	// Debug packet tail fields if enabled (first few packets only)
 	if p.debug && p.packetCount < 10 {
-		log.Printf("Packet %d tail: HighTemp=0x%02x, UDPSeq=%d, ReturnMode=0x%02x, Factory=0x%02x, Timestamp=%d, FCS=%02x",
-			p.packetCount, tail.HighTempFlag, tail.UDPSequence, tail.ReturnMode, tail.FactoryInfo, tail.Timestamp, tail.FCS[:2])
+		if hasSequence {
+			log.Printf(
+				"Packet %d tail: HighTemp=0x%02x, UDPSeq=%d, ReturnMode=0x%02x, Factory=0x%02x, Timestamp=%d, UDP sequence: %d",
+				p.packetCount, tail.HighTempFlag, tail.UDPSequence, tail.ReturnMode, tail.FactoryInfo, tail.Timestamp, sequenceNumber)
+		} else {
+			log.Printf("Packet %d tail: HighTemp=0x%02x, UDPSeq=%d, ReturnMode=0x%02x, Factory=0x%02x, Timestamp=%d",
+				p.packetCount, tail.HighTempFlag, tail.UDPSequence, tail.ReturnMode, tail.FactoryInfo, tail.Timestamp)
+		}
 	}
 
 	// Process all 10 data blocks in the packet
@@ -329,27 +333,32 @@ func (p *Pandar40PParser) parseDataBlock(data []byte) (*DataBlock, error) {
 	return block, nil
 }
 
-// parseTail parses the 30-byte packet tail according to official Hesai documentation
+// parseTail parses the 22-byte packet tail according to corrected Hesai documentation
 // Returns structured tail data including sensor state, protocol fields, and timing information
-func (p *Pandar40PParser) parseTail(data []byte) (*PacketTail, error) {
+func (p *Pandar40PParser) parseTail(data []byte, udpSequence uint32) (*PacketTail, error) {
 	if len(data) != TAIL_SIZE {
 		return nil, fmt.Errorf("invalid tail size: expected %d, got %d", TAIL_SIZE, len(data))
 	}
 
+	// Based on corrected packet analysis with tail starting at offset 1240:
+	// - ReturnMode (0x38) at byte 14 from tail start
+	// - FactoryInfo (0x42) at byte 15 from tail start
+	// - HighTempFlag (0x00/0x01) at byte 5 from tail start
+	// - UDP sequence is handled separately when present
 	tail := &PacketTail{
-		HighTempFlag: data[5],                                 // Byte 5
+		HighTempFlag: data[5],                                 // Byte 5 (correct position)
 		MotorSpeed:   binary.LittleEndian.Uint16(data[8:10]),  // Bytes 8-9
 		Timestamp:    binary.LittleEndian.Uint32(data[10:14]), // Bytes 10-13
-		ReturnMode:   data[14],                                // Byte 14
-		FactoryInfo:  data[15],                                // Byte 15
-		UDPSequence:  binary.LittleEndian.Uint32(data[22:26]), // Bytes 22-25
+		ReturnMode:   data[14],                                // Byte 14 (correct position)
+		FactoryInfo:  data[15],                                // Byte 15 (correct position)
+		UDPSequence:  udpSequence,                             // Passed in separately from UDP packet processing
 	}
 
-	// Copy array fields
+	// Copy array fields for 22-byte data tail + 4-byte UDP sequence
 	copy(tail.Reserved1[:], data[0:5])  // Bytes 0-4: Reserved (5 bytes)
 	copy(tail.Reserved2[:], data[6:8])  // Bytes 6-7: Reserved (2 bytes)
 	copy(tail.DateTime[:], data[16:22]) // Bytes 16-21: Date & Time (6 bytes)
-	copy(tail.FCS[:], data[26:30])      // Bytes 26-29: FCS (4 bytes)
+	// Note: UDP sequence (bytes 22-25) handled separately when present
 
 	return tail, nil
 }
