@@ -25,6 +25,9 @@ type Point struct {
 	Channel   int       `json:"channel"`   // Laser channel number (1-40)
 	Timestamp time.Time `json:"timestamp"` // Point acquisition time (with firetime correction)
 	BlockID   int       `json:"block_id"`  // Data block index within packet (0-9)
+
+	// Packet tracking for completeness validation
+	UDPSequence uint32 `json:"udp_sequence"` // UDP sequence number for gap detection
 }
 
 //

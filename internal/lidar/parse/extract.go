@@ -494,16 +494,17 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *Pa
 
 		// Create final calibrated point with all computed values
 		point := lidar.Point{
-			X:         x,
-			Y:         y,
-			Z:         z,
-			Intensity: channelData.Reflectivity,
-			Distance:  distance,
-			Azimuth:   azimuth,
-			Elevation: elevation,
-			Channel:   channelNum,
-			Timestamp: pointTime,
-			BlockID:   blockIdx,
+			X:           x,
+			Y:           y,
+			Z:           z,
+			Intensity:   channelData.Reflectivity,
+			Distance:    distance,
+			Azimuth:     azimuth,
+			Elevation:   elevation,
+			Channel:     channelNum,
+			Timestamp:   pointTime,
+			BlockID:     blockIdx,
+			UDPSequence: tail.UDPSequence,
 		}
 
 		points = append(points, point)

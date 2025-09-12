@@ -24,21 +24,40 @@ type LiDARFrame struct {
 	MaxAzimuth     float64   // maximum azimuth angle observed
 	PointCount     int       // total number of points in frame
 	SpinComplete   bool      // true when full 360° rotation detected
+
+	// Completeness tracking
+	ExpectedPackets   map[uint32]bool // expected UDP sequence numbers
+	ReceivedPackets   map[uint32]bool // received UDP sequence numbers
+	MissingPackets    []uint32        // sequence numbers of missing packets
+	PacketGaps        int             // count of missing packets
+	CompletenessRatio float64         // ratio of received/expected packets
+	AzimuthCoverage   float64         // degrees of azimuth covered (0-360)
 }
 
 // FrameBuilder accumulates points from multiple packets into complete rotational frames
-// Uses time-based buffering to allow late-arriving packets to backfill appropriate frames
+// Uses azimuth-based rotation detection and UDP sequence tracking for completeness
 type FrameBuilder struct {
 	sensorID      string            // sensor identifier
 	frameCallback func(*LiDARFrame) // callback when frame is complete
 	mu            sync.Mutex        // protect concurrent access
 	frameCounter  int64             // sequential frame number
 
-	// Time-based buffering for late packets
-	frameBuffer     map[int64]*LiDARFrame // buffered frames by time slot (100ms slots)
-	frameBufferSize int                   // max frames to buffer (default: 50 = 5 seconds)
-	frameDuration   time.Duration         // duration per frame (default: 1s based on observed timing)
-	bufferTimeout   time.Duration         // how long to wait before finalizing frame (default: 1s)
+	// Azimuth-based frame detection
+	currentFrame     *LiDARFrame // frame currently being built
+	lastAzimuth      float64     // previous azimuth to detect 360° wrap
+	azimuthTolerance float64     // tolerance for azimuth wrap detection (default: 10°)
+	minFramePoints   int         // minimum points required for valid frame
+
+	// UDP sequence tracking for completeness
+	lastSequence     uint32             // last processed UDP sequence
+	sequenceGaps     map[uint32]bool    // detected sequence gaps
+	pendingPackets   map[uint32][]Point // out-of-order packets waiting for backfill
+	maxBackfillDelay time.Duration      // max time to wait for backfill packets
+
+	// Frame buffering for late packets
+	frameBuffer     map[string]*LiDARFrame // completed frames awaiting finalization
+	frameBufferSize int                    // max frames to buffer
+	bufferTimeout   time.Duration          // how long to wait before finalizing frame
 
 	// Cleanup timer to finalize old frames
 	cleanupTimer    *time.Timer
@@ -47,38 +66,51 @@ type FrameBuilder struct {
 
 // FrameBuilderConfig contains configuration for the FrameBuilder
 type FrameBuilderConfig struct {
-	SensorID        string            // sensor identifier
-	FrameCallback   func(*LiDARFrame) // callback when frame is complete
-	FrameBufferSize int               // max frames to buffer (default: 50 = 5 seconds)
-	FrameDuration   time.Duration     // duration per frame (default: 1s based on observed timing)
-	BufferTimeout   time.Duration     // how long to wait before finalizing frame (default: 1s)
-	CleanupInterval time.Duration     // how often to check for frames to finalize (default: 500ms)
+	SensorID         string            // sensor identifier
+	FrameCallback    func(*LiDARFrame) // callback when frame is complete
+	AzimuthTolerance float64           // tolerance for azimuth wrap detection (default: 10°)
+	MinFramePoints   int               // minimum points required for valid frame (default: 1000)
+	MaxBackfillDelay time.Duration     // max time to wait for backfill packets (default: 100ms)
+	FrameBufferSize  int               // max frames to buffer (default: 10)
+	BufferTimeout    time.Duration     // how long to wait before finalizing frame (default: 1s)
+	CleanupInterval  time.Duration     // how often to check for frames to finalize (default: 250ms)
 }
 
 // NewFrameBuilder creates a new FrameBuilder with the specified configuration
 func NewFrameBuilder(config FrameBuilderConfig) *FrameBuilder {
 	// Set reasonable defaults
 	if config.FrameBufferSize == 0 {
-		config.FrameBufferSize = 50 // buffer 50 frames = 5 seconds at 10 Hz
+		config.FrameBufferSize = 10 // buffer 10 frames for out-of-order processing
 	}
-	if config.FrameDuration == 0 {
-		config.FrameDuration = 100 * time.Millisecond // 600 RPM = 10 Hz = 100ms per rotation
+	if config.AzimuthTolerance == 0 {
+		config.AzimuthTolerance = 10.0 // 10° tolerance for azimuth wrap detection
+	}
+	if config.MinFramePoints == 0 {
+		config.MinFramePoints = 1000 // minimum 1000 points for valid frame
+	}
+	if config.MaxBackfillDelay == 0 {
+		config.MaxBackfillDelay = 100 * time.Millisecond // wait 100ms for backfill
 	}
 	if config.BufferTimeout == 0 {
-		config.BufferTimeout = 200 * time.Millisecond // wait 200ms for late packets (2x frame duration)
+		config.BufferTimeout = 1000 * time.Millisecond // wait 1s before finalizing
 	}
 	if config.CleanupInterval == 0 {
-		config.CleanupInterval = 500 * time.Millisecond // check every 500ms
+		config.CleanupInterval = 250 * time.Millisecond // cleanup every 250ms
 	}
 
 	fb := &FrameBuilder{
-		sensorID:        config.SensorID,
-		frameCallback:   config.FrameCallback,
-		frameBuffer:     make(map[int64]*LiDARFrame),
-		frameBufferSize: config.FrameBufferSize,
-		frameDuration:   config.FrameDuration,
-		bufferTimeout:   config.BufferTimeout,
-		cleanupInterval: config.CleanupInterval,
+		sensorID:         config.SensorID,
+		frameCallback:    config.FrameCallback,
+		lastAzimuth:      -1.0, // invalid initial value to detect first point
+		azimuthTolerance: config.AzimuthTolerance,
+		minFramePoints:   config.MinFramePoints,
+		sequenceGaps:     make(map[uint32]bool),
+		pendingPackets:   make(map[uint32][]Point),
+		maxBackfillDelay: config.MaxBackfillDelay,
+		frameBuffer:      make(map[string]*LiDARFrame),
+		frameBufferSize:  config.FrameBufferSize,
+		bufferTimeout:    config.BufferTimeout,
+		cleanupInterval:  config.CleanupInterval,
 	}
 
 	// Start cleanup timer
@@ -87,8 +119,8 @@ func NewFrameBuilder(config FrameBuilderConfig) *FrameBuilder {
 	return fb
 }
 
-// AddPoints adds a slice of points to the appropriate time-based frame slots
-// Uses timestamp to determine which frame each point belongs to
+// AddPoints adds a slice of points using azimuth-based rotation detection
+// Detects 360° rotations and manages UDP sequence ordering for completeness
 func (fb *FrameBuilder) AddPoints(points []Point) {
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
@@ -97,58 +129,78 @@ func (fb *FrameBuilder) AddPoints(points []Point) {
 		return
 	}
 
-	// Process each point and assign to appropriate time slot
+	// Process each point for azimuth-based frame detection
 	for _, point := range points {
-		// Calculate which time slot this point belongs to
-		timeSlot := fb.getTimeSlot(point.Timestamp)
+		// Check for UDP sequence gaps
+		fb.checkSequenceGaps(point.UDPSequence)
 
-		// Get or create frame for this time slot
-		frame := fb.getOrCreateFrame(timeSlot, point.Timestamp)
+		// Check if we need to start a new frame based on azimuth wrap
+		if fb.shouldStartNewFrame(point.Azimuth) {
+			fb.finalizeCurrentFrame()
+			fb.startNewFrame(point.Timestamp)
+		}
 
-		// Add point to frame
-		fb.addPointToFrame(frame, point)
+		// Ensure we have a current frame
+		if fb.currentFrame == nil {
+			fb.startNewFrame(point.Timestamp)
+		}
+
+		// Add point to current frame
+		fb.addPointToCurrentFrame(point)
+		fb.lastAzimuth = point.Azimuth
 	}
 }
 
-// getTimeSlot calculates which time slot a timestamp belongs to
-func (fb *FrameBuilder) getTimeSlot(timestamp time.Time) int64 {
-	// Convert timestamp to nanoseconds and divide by frame duration
-	return timestamp.UnixNano() / fb.frameDuration.Nanoseconds()
-}
-
-// getOrCreateFrame gets existing frame or creates new one for time slot
-func (fb *FrameBuilder) getOrCreateFrame(timeSlot int64, timestamp time.Time) *LiDARFrame {
-	if frame, exists := fb.frameBuffer[timeSlot]; exists {
-		return frame
+// shouldStartNewFrame determines if we should start a new frame based on azimuth
+func (fb *FrameBuilder) shouldStartNewFrame(azimuth float64) bool {
+	if fb.lastAzimuth < 0 {
+		return false // First point ever
 	}
 
-	// Create new frame
+	if fb.currentFrame == nil {
+		return true // No current frame
+	}
+
+	// Detect azimuth wrap (360° → 0°)
+	if fb.lastAzimuth > (360.0-fb.azimuthTolerance) && azimuth < fb.azimuthTolerance {
+		return true
+	}
+
+	return false
+}
+
+// startNewFrame creates a new frame for accumulating points
+func (fb *FrameBuilder) startNewFrame(timestamp time.Time) {
 	fb.frameCounter++
-	frame := &LiDARFrame{
-		FrameID:        fmt.Sprintf("%s-frame-%d", fb.sensorID, fb.frameCounter),
-		SensorID:       fb.sensorID,
-		StartTimestamp: timestamp,
-		EndTimestamp:   timestamp,
-		Points:         make([]Point, 0, 70000), // pre-allocate for typical frame size
-		MinAzimuth:     360.0,                   // will be updated to actual minimum
-		MaxAzimuth:     0.0,                     // will be updated to actual maximum
-		SpinComplete:   false,
+	fb.currentFrame = &LiDARFrame{
+		FrameID:         fmt.Sprintf("%s-frame-%d", fb.sensorID, fb.frameCounter),
+		SensorID:        fb.sensorID,
+		StartTimestamp:  timestamp,
+		EndTimestamp:    timestamp,
+		Points:          make([]Point, 0, 36000), // pre-allocate for full rotation
+		MinAzimuth:      360.0,
+		MaxAzimuth:      0.0,
+		ExpectedPackets: make(map[uint32]bool),
+		ReceivedPackets: make(map[uint32]bool),
+		MissingPackets:  make([]uint32, 0),
+		SpinComplete:    false,
 	}
-
-	fb.frameBuffer[timeSlot] = frame
-
-	// Enforce buffer size limit
-	if len(fb.frameBuffer) > fb.frameBufferSize {
-		fb.evictOldestFrame()
-	}
-
-	return frame
 }
 
-// addPointToFrame adds a single point to the specified frame
-func (fb *FrameBuilder) addPointToFrame(frame *LiDARFrame, point Point) {
+// addPointToCurrentFrame adds a point to the current frame being built
+func (fb *FrameBuilder) addPointToCurrentFrame(point Point) {
+	if fb.currentFrame == nil {
+		return
+	}
+
+	frame := fb.currentFrame
+
+	// Add point to frame
 	frame.Points = append(frame.Points, point)
 	frame.PointCount++
+
+	// Track packet for completeness
+	frame.ReceivedPackets[point.UDPSequence] = true
 
 	// Update timestamp range
 	if point.Timestamp.Before(frame.StartTimestamp) {
@@ -167,20 +219,118 @@ func (fb *FrameBuilder) addPointToFrame(frame *LiDARFrame, point Point) {
 	}
 }
 
+// checkSequenceGaps detects missing UDP sequence numbers
+func (fb *FrameBuilder) checkSequenceGaps(sequence uint32) {
+	if fb.lastSequence == 0 {
+		fb.lastSequence = sequence
+		return
+	}
+
+	// Check for sequence gap
+	expectedNext := fb.lastSequence + 1
+	if sequence > expectedNext {
+		// Mark missing sequences
+		for missing := expectedNext; missing < sequence; missing++ {
+			fb.sequenceGaps[missing] = true
+		}
+	}
+
+	fb.lastSequence = sequence
+}
+
+// finalizeCurrentFrame completes the current frame and moves it to buffer
+func (fb *FrameBuilder) finalizeCurrentFrame() {
+	if fb.currentFrame == nil || fb.currentFrame.PointCount < fb.minFramePoints {
+		fb.currentFrame = nil // Discard incomplete frame
+		return
+	}
+
+	frame := fb.currentFrame
+	fb.currentFrame = nil
+
+	// Calculate completeness metrics
+	fb.calculateFrameCompleteness(frame)
+
+	// Move to buffer for potential backfill
+	fb.frameBuffer[frame.FrameID] = frame
+
+	// Enforce buffer size limit
+	if len(fb.frameBuffer) > fb.frameBufferSize {
+		fb.evictOldestBufferedFrame()
+	}
+}
+
+// evictOldestBufferedFrame removes the oldest frame from buffer and finalizes it
+func (fb *FrameBuilder) evictOldestBufferedFrame() {
+	var oldestFrame *LiDARFrame
+	var oldestID string
+
+	for frameID, frame := range fb.frameBuffer {
+		if oldestFrame == nil || frame.StartTimestamp.Before(oldestFrame.StartTimestamp) {
+			oldestFrame = frame
+			oldestID = frameID
+		}
+	}
+
+	if oldestFrame != nil {
+		delete(fb.frameBuffer, oldestID)
+		// Send oldest frame to output channel
+		// Handle finalized frame (for now just log completion)
+		// TODO: Add output channel or callback for completed frames
+	}
+}
+
+// calculateFrameCompleteness analyzes frame completeness based on sequence gaps
+func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
+	if len(frame.ReceivedPackets) == 0 {
+		return
+	}
+
+	// Find sequence range for this frame
+	var minSeq, maxSeq uint32 = ^uint32(0), 0
+	for seq := range frame.ReceivedPackets {
+		if seq < minSeq {
+			minSeq = seq
+		}
+		if seq > maxSeq {
+			maxSeq = seq
+		}
+	}
+
+	// Calculate expected packets in range
+	expectedCount := maxSeq - minSeq + 1
+	receivedCount := uint32(len(frame.ReceivedPackets))
+
+	// Identify missing packets
+	for seq := minSeq; seq <= maxSeq; seq++ {
+		frame.ExpectedPackets[seq] = true
+		if !frame.ReceivedPackets[seq] {
+			frame.MissingPackets = append(frame.MissingPackets, seq)
+		}
+	}
+
+	frame.PacketGaps = len(frame.MissingPackets)
+	frame.CompletenessRatio = float64(receivedCount) / float64(expectedCount)
+	frame.AzimuthCoverage = frame.MaxAzimuth - frame.MinAzimuth
+	if frame.AzimuthCoverage < 0 {
+		frame.AzimuthCoverage += 360.0 // Handle wrap-around
+	}
+}
+
 // evictOldestFrame removes the oldest frame from buffer and finalizes it
 func (fb *FrameBuilder) evictOldestFrame() {
-	var oldestSlot int64 = -1
+	var oldestFrameID string
 	var oldestFrame *LiDARFrame
 
-	for slot, frame := range fb.frameBuffer {
-		if oldestSlot == -1 || slot < oldestSlot {
-			oldestSlot = slot
+	for frameID, frame := range fb.frameBuffer {
+		if oldestFrame == nil || frame.StartTimestamp.Before(oldestFrame.StartTimestamp) {
+			oldestFrameID = frameID
 			oldestFrame = frame
 		}
 	}
 
-	if oldestSlot != -1 {
-		delete(fb.frameBuffer, oldestSlot)
+	if oldestFrame != nil {
+		delete(fb.frameBuffer, oldestFrameID)
 		fb.finalizeFrame(oldestFrame)
 	}
 }
@@ -191,20 +341,20 @@ func (fb *FrameBuilder) cleanupFrames() {
 	defer fb.mu.Unlock()
 
 	now := time.Now()
-	var slotsToFinalize []int64
+	var frameIDsToFinalize []string
 
 	// Find frames that are old enough to finalize
-	for slot, frame := range fb.frameBuffer {
+	for frameID, frame := range fb.frameBuffer {
 		frameAge := now.Sub(frame.EndTimestamp)
 		if frameAge >= fb.bufferTimeout {
-			slotsToFinalize = append(slotsToFinalize, slot)
+			frameIDsToFinalize = append(frameIDsToFinalize, frameID)
 		}
 	}
 
 	// Finalize old frames
-	for _, slot := range slotsToFinalize {
-		frame := fb.frameBuffer[slot]
-		delete(fb.frameBuffer, slot)
+	for _, frameID := range frameIDsToFinalize {
+		frame := fb.frameBuffer[frameID]
+		delete(fb.frameBuffer, frameID)
 		fb.finalizeFrame(frame)
 	}
 
@@ -311,7 +461,6 @@ func NewFrameBuilderWithDebugLoggingAndInterval(sensorID string, debug bool, log
 		FrameCallback: callback,
 		// Enhanced buffering for out-of-order packet handling
 		FrameBufferSize: 100,                    // buffer 100 frames = 10 seconds at 10 Hz
-		FrameDuration:   100 * time.Millisecond, // 600 RPM = 10 Hz = 100ms per rotation
 		BufferTimeout:   500 * time.Millisecond, // wait 500ms for late packets (5x frame duration)
 		CleanupInterval: 250 * time.Millisecond, // check every 250ms for better responsiveness
 	})
