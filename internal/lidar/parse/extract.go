@@ -91,6 +91,10 @@ const (
 
 	// Static timestamp detection threshold
 	STATIC_TIMESTAMP_THRESHOLD = 10 // Number of consecutive static timestamps before fallback to system time
+
+	// Debug logging control constants
+	DEBUG_INITIAL_PACKETS = 10  // Number of initial packets to always debug log
+	DEBUG_LOG_INTERVAL    = 100 // Debug log every Nth packet after initial packets
 )
 
 // Pandar40P configuration containing calibration data embedded in the binary
@@ -262,7 +266,7 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]lidar.Point, error) {
 	}
 
 	// Debug packet tail fields if enabled (first few packets only)
-	if p.debug && p.packetCount < 10 {
+	if p.debug && p.packetCount < DEBUG_INITIAL_PACKETS {
 		if hasSequence {
 			log.Printf(
 				"Packet %d tail: HighTemp=0x%02x, UDPSeq=%d, ReturnMode=0x%02x, Factory=0x%02x, Timestamp=%d, UDP sequence: %d",
@@ -397,7 +401,7 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *Pa
 			packetTime = p.bootTime.Add(time.Duration(tail.Timestamp) * time.Microsecond)
 
 			// Debug logging for PTP timestamps (first few packets and every 100th packet)
-			if p.packetCount < 10 || p.packetCount%100 == 0 {
+			if p.packetCount < DEBUG_INITIAL_PACKETS || p.packetCount%DEBUG_LOG_INTERVAL == 0 {
 				log.Printf("PTP Debug [pkt %d] - Raw timestamp: %d us, Boot offset time: %v, System time: %v",
 					p.packetCount, tail.Timestamp, packetTime, time.Now())
 			}
