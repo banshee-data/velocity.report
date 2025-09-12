@@ -88,6 +88,9 @@ const (
 	DISTANCE_RESOLUTION = 0.004 // Distance unit: 4mm per LSB (converts raw values to meters)
 	AZIMUTH_RESOLUTION  = 0.01  // Azimuth unit: 0.01 degrees per LSB (converts raw values to degrees)
 	ROTATION_MAX_UNITS  = 36000 // Maximum azimuth value representing 360.00 degrees
+
+	// Static timestamp detection threshold
+	STATIC_TIMESTAMP_THRESHOLD = 10 // Number of consecutive static timestamps before fallback to system time
 )
 
 // Pandar40P configuration containing calibration data embedded in the binary
@@ -380,12 +383,12 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *Pa
 		}
 
 		// If timestamps are consistently static, fall back to system time for frame building
-		if p.staticCount > 10 {
+		if p.staticCount > STATIC_TIMESTAMP_THRESHOLD {
 			// Use system time for proper frame building when PTP timestamps are frozen
 			packetTime = time.Now()
 
 			// Debug logging for fallback (first few occurrences only)
-			if p.staticCount == 11 {
+			if p.staticCount == STATIC_TIMESTAMP_THRESHOLD+1 {
 				log.Printf("PTP Debug - Static timestamps detected (raw: %d us), falling back to system time for frame building", tail.Timestamp)
 			}
 		} else {

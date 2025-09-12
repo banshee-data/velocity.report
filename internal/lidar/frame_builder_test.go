@@ -115,11 +115,11 @@ func TestFrameBuilder_AzimuthFrameDetection(t *testing.T) {
 		if frame.SensorID != "test-sensor" {
 			t.Errorf("Expected sensorID 'test-sensor', got '%s'", frame.SensorID)
 		}
-		if frame.PointCount < 50000 {
-			t.Errorf("Expected at least 50000 points in frame, got %d", frame.PointCount)
+		if frame.PointCount < MinFramePointsForCompletion {
+			t.Errorf("Expected at least %d points in frame, got %d", MinFramePointsForCompletion, frame.PointCount)
 		}
-		if frame.MaxAzimuth-frame.MinAzimuth < 340.0 {
-			t.Errorf("Expected azimuth coverage >340°, got %f", frame.MaxAzimuth-frame.MinAzimuth)
+		if frame.MaxAzimuth-frame.MinAzimuth < MinAzimuthCoverage {
+			t.Errorf("Expected azimuth coverage >%f°, got %f", MinAzimuthCoverage, frame.MaxAzimuth-frame.MinAzimuth)
 		}
 	}
 }

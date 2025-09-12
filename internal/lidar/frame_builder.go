@@ -9,6 +9,17 @@ import (
 	"time"
 )
 
+// Frame detection constants for azimuth-based rotation detection
+const (
+	// MinAzimuthCoverage is the minimum azimuth coverage (degrees) required for a valid frame
+	// Must cover at least 340° of a full 360° rotation to be considered complete
+	MinAzimuthCoverage = 340.0
+
+	// MinFramePointsForCompletion is the minimum number of points required for frame completion
+	// Ensures substantial data before declaring a rotation complete (typical full rotation: ~70k points)
+	MinFramePointsForCompletion = 50000
+)
+
 //
 // FrameBuilder - accumulates points into complete rotational frames
 //
@@ -169,8 +180,8 @@ func (fb *FrameBuilder) shouldStartNewFrame(azimuth float64) bool {
 		// 2. Frame must have enough points (substantial data)
 		// 3. Current frame azimuth range must indicate a near-complete rotation
 		if fb.currentFrame != nil &&
-			(fb.currentFrame.MaxAzimuth-fb.currentFrame.MinAzimuth) > 340.0 &&
-			fb.currentFrame.PointCount > 50000 {
+			(fb.currentFrame.MaxAzimuth-fb.currentFrame.MinAzimuth) > MinAzimuthCoverage &&
+			fb.currentFrame.PointCount > MinFramePointsForCompletion {
 			return true
 		}
 	}
