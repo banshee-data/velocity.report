@@ -31,6 +31,7 @@ var (
 	rcvBuf         = flag.Int("rcvbuf", 4<<20, "UDP receive buffer size in bytes (default 4MB)")
 	logInterval    = flag.Int("log-interval", 2, "Statistics logging interval in seconds")
 	debug          = flag.Bool("debug", false, "Enable debug logging (UDP sequences, frame completion details)")
+	debugPackets   = flag.Int("debug-packets", 10, "Number of initial packets to debug log (only when debug=true)")
 )
 
 // Constants
@@ -78,6 +79,7 @@ func main() {
 
 		// Configure debug mode
 		parser.SetDebug(*debug)
+		parser.SetDebugPackets(*debugPackets)
 
 		// Configure timestamp mode based on environment
 		parse.ConfigureTimestampMode(parser)

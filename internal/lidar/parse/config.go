@@ -209,6 +209,9 @@ func ConfigureTimestampMode(parser *Pandar40PParser) {
 	case "internal":
 		parser.SetTimestampMode(TimestampModeInternal)
 		log.Println("LiDAR timestamp mode: Internal (device boot time)")
+	case "lidar":
+		parser.SetTimestampMode(TimestampModeLiDAR)
+		log.Println("LiDAR timestamp mode: LiDAR native (DateTime + Timestamp fields)")
 	default:
 		// Default to SystemTime for stability until PTP hardware is available
 		parser.SetTimestampMode(TimestampModeSystemTime)

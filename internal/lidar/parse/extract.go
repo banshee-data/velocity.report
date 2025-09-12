@@ -93,8 +93,7 @@ const (
 	STATIC_TIMESTAMP_THRESHOLD = 10 // Number of consecutive static timestamps before fallback to system time
 
 	// Debug logging control constants
-	DEBUG_INITIAL_PACKETS = 10  // Number of initial packets to always debug log
-	DEBUG_LOG_INTERVAL    = 100 // Debug log every Nth packet after initial packets
+	DEBUG_LOG_INTERVAL = 100 // Debug log every Nth packet after initial packets
 )
 
 // Pandar40P configuration containing calibration data embedded in the binary
@@ -173,7 +172,10 @@ type PacketTail struct {
 	FactoryInfo uint8 // 0x42 (or 0x43)
 
 	// Date & Time (bytes 16-21)
-	DateTime [6]uint8 // Whole second part of UTC
+	DateTime [6]uint8 // Whole second part of UTC: [year-2000, month, day, hour, minute, second]
+
+	// Combined accurate timestamp (computed from DateTime + Timestamp)
+	CombinedTimestamp time.Time // Accurate UTC timestamp combining DateTime and Timestamp fields
 
 	// UDP sequence (optional, when UDP sequencing enabled)
 	UDPSequence uint32 // Sequence number of this data packet
@@ -188,6 +190,7 @@ const (
 	TimestampModePTP                             // PTP synchronized microseconds since Unix epoch
 	TimestampModeGPS                             // GPS synchronized microseconds since Unix epoch
 	TimestampModeInternal                        // Microseconds since device boot (raw mode)
+	TimestampModeLiDAR                           // Use LiDAR's own DateTime + Timestamp fields (most accurate)
 )
 
 // The parser uses calibration data to convert raw measurements into accurate 3D coordinates
@@ -199,6 +202,7 @@ type Pandar40PParser struct {
 	lastTimestamp uint32          // Previous timestamp for static detection
 	staticCount   int             // Counter for static timestamp detection
 	debug         bool            // Enable debug logging
+	debugPackets  int             // Number of initial packets to debug log
 }
 
 // NewPandar40PParser creates a new parser instance with the provided calibration configuration
@@ -208,6 +212,7 @@ func NewPandar40PParser(config Pandar40PConfig) *Pandar40PParser {
 		config:        config,
 		timestampMode: TimestampModeSystemTime, // Default to system time for reliability
 		bootTime:      time.Now(),              // Initialize boot time reference
+		debugPackets:  10,                      // Default to 10 initial packets for debug logging
 	}
 }
 
@@ -222,6 +227,11 @@ func (p *Pandar40PParser) SetTimestampMode(mode TimestampMode) {
 // SetDebug enables or disables debug logging
 func (p *Pandar40PParser) SetDebug(enabled bool) {
 	p.debug = enabled
+}
+
+// SetDebugPackets sets the number of initial packets to debug log
+func (p *Pandar40PParser) SetDebugPackets(count int) {
+	p.debugPackets = count
 }
 
 // ParsePacket parses a complete UDP packet from Pandar40P sensor into a slice of 3D points
@@ -266,15 +276,15 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]lidar.Point, error) {
 	}
 
 	// Debug packet tail fields if enabled (first few packets only)
-	if p.debug && p.packetCount < DEBUG_INITIAL_PACKETS {
+	if p.debug && p.packetCount <= p.debugPackets {
 		if hasSequence {
 			log.Printf(
-				"Packet %d tail: UDPSeq=%d, MotorSpeed=%d RPM, HighTemp=0x%02x, ReturnMode=0x%02x, Factory=0x%02x, Timestamp=%d",
-				p.packetCount, tail.UDPSequence, tail.MotorSpeed, tail.HighTempFlag, tail.ReturnMode, tail.FactoryInfo, tail.Timestamp)
+				"Packet %d tail: UDPSeq=%d, MotorSpeed=%d RPM, HighTemp=0x%02x, ReturnMode=0x%02x, Factory=0x%02x, DateTime=%s, Timestamp=%d μs",
+				p.packetCount, tail.UDPSequence, tail.MotorSpeed, tail.HighTempFlag, tail.ReturnMode, tail.FactoryInfo, tail.CombinedTimestamp.Format("2006-01-02 15:04:05"), tail.Timestamp)
 		} else {
 			log.Printf(
-				"Packet %d tail: MotorSpeed=%d RPM, HighTemp=0x%02x, ReturnMode=0x%02x, Factory=0x%02x, Timestamp=%d",
-				p.packetCount, tail.MotorSpeed, tail.HighTempFlag, tail.ReturnMode, tail.FactoryInfo, tail.Timestamp)
+				"Packet %d tail: MotorSpeed=%d RPM, HighTemp=0x%02x, ReturnMode=0x%02x, Factory=0x%02x, DateTime=%s, Timestamp=%d μs",
+				p.packetCount, tail.MotorSpeed, tail.HighTempFlag, tail.ReturnMode, tail.FactoryInfo, tail.CombinedTimestamp.Format("2006-01-02 15:04:05"), tail.Timestamp)
 		}
 	}
 
@@ -366,6 +376,19 @@ func (p *Pandar40PParser) parseTail(data []byte, udpSequence uint32) (*PacketTai
 	copy(tail.Reserved1[:], data[0:5])  // Bytes 0-4: Reserved (5 bytes)
 	copy(tail.Reserved2[:], data[6:8])  // Bytes 6-7: Reserved (2 bytes)
 	copy(tail.DateTime[:], data[16:22]) // Bytes 16-21: Date & Time (6 bytes)
+
+	// Parse DateTime fields: [year-2000, month, day, hour, minute, second]
+	year := int(tail.DateTime[0]) + 2000 // Year since 2000
+	month := int(tail.DateTime[1])       // Month (1-12)
+	day := int(tail.DateTime[2])         // Day (1-31)
+	hour := int(tail.DateTime[3])        // Hour (0-23)
+	minute := int(tail.DateTime[4])      // Minute (0-59)
+	second := int(tail.DateTime[5])      // Second (0-59)
+
+	// Combine DateTime (whole seconds) with Timestamp (microseconds) into accurate UTC time
+	tail.CombinedTimestamp = time.Date(year, time.Month(month), day, hour, minute, second,
+		int(tail.Timestamp)*1000, time.UTC) // Convert microseconds to nanoseconds
+
 	// Note: UDP sequence (bytes 22-25) handled separately when present
 
 	return tail, nil
@@ -402,7 +425,7 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *Pa
 			packetTime = p.bootTime.Add(time.Duration(tail.Timestamp) * time.Microsecond)
 
 			// Debug logging for PTP timestamps (first few packets and every 100th packet)
-			if p.packetCount < DEBUG_INITIAL_PACKETS || p.packetCount%DEBUG_LOG_INTERVAL == 0 {
+			if p.packetCount < p.debugPackets || p.packetCount%DEBUG_LOG_INTERVAL == 0 {
 				log.Printf("PTP Debug [pkt %d] - Raw timestamp: %d us, Boot offset time: %v, System time: %v",
 					p.packetCount, tail.Timestamp, packetTime, time.Now())
 			}
@@ -414,6 +437,9 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *Pa
 	case TimestampModeInternal:
 		// Interpret as microseconds since device boot
 		packetTime = p.bootTime.Add(time.Duration(tail.Timestamp) * time.Microsecond)
+	case TimestampModeLiDAR:
+		// Use LiDAR's own accurate timestamp from DateTime + Timestamp fields
+		packetTime = tail.CombinedTimestamp
 	case TimestampModeSystemTime:
 		fallthrough
 	default:
