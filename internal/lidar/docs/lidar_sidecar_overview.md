@@ -11,7 +11,7 @@
 ### ✅ **Phase 1: Core Infrastructure (COMPLETED)**
 - UDP packet ingestion with configurable parameters (4MB buffer, 2369 port)
 - Hesai Pandar40P packet parsing (30-byte tail structure validated)
-- Time-based frame assembly with late packet handling (100ms frames, 1s buffer)
+- Azimuth-based frame assembly with late packet handling (360° detection, 1s buffer)
 - SQLite database persistence with comprehensive schema (738 lines)
 - HTTP monitoring interface with real-time statistics
 - Comprehensive test suite with real packet validation
@@ -44,7 +44,7 @@ internal/lidar/network/listener.go ✅ # UDP socket and packet processing
 internal/lidar/network/forwarder.go✅ # UDP packet forwarding to LidarView
 internal/lidar/parse/extract.go    ✅ # Pandar40P packet -> []Point (30-byte tail)
 internal/lidar/parse/config.go     ✅ # Embedded calibration configurations
-internal/lidar/frame_builder.go    ✅ # Time-based frame assembly
+internal/lidar/frame_builder.go    ✅ # Azimuth-based frame assembly
 internal/lidar/monitor/            ✅ # HTTP endpoints: /health, /status
 internal/lidar/lidardb/            ✅ # Database schema and persistence
 internal/lidar/arena.go            🔄 # Background, clustering, tracking (stubbed)
@@ -70,9 +70,9 @@ internal/lidar/arena.go            🔄 # Background, clustering, tracking (stub
 - **Coordinate Transform**: Spherical → Cartesian with calibration applied
 
 ### Frame Assembly (✅ Complete)
-- **Time-based Buffering**: 100ms default frame duration
+- **Azimuth-based Buffering**: 360° rotation detection with strict criteria
 - **Late Packet Handling**: 1-second buffer for out-of-order packets
-- **Spin Detection**: Azimuth wrap-around detection for complete rotations
+- **Spin Detection**: Azimuth wrap-around detection (350° → 10°) for complete rotations
 - **Frame Callback**: Configurable callback for frame completion
 
 ### Database Persistence (✅ Complete)
@@ -190,15 +190,15 @@ go test ./internal/lidar/network -v        ✅ UDP forwarding
 go test ./internal/lidar/monitor -v        ✅ Statistics & web server
 
 # Frame builder tests
-go test ./internal/lidar/frame_builder_test.go -v ✅ Complete test suite
+go test ./internal/lidar/frame_builder_test.go -v ✅ Azimuth-based frame detection tests
 ```
 
 Key test coverage:
 - Real Hesai packet validation with 30-byte tail structure
 - Point generation with embedded calibration
-- Frame assembly with time-based buffering
+- Azimuth-based frame assembly with 360° rotation detection
 - HTTP endpoint functionality
-- Comprehensive frame builder testing with 11 test functions + 2 benchmarks
+- Comprehensive frame builder testing with azimuth wrap detection
 
 ### 🔄 Planned Tests
 - Background subtraction accuracy
