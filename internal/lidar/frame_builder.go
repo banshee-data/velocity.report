@@ -17,7 +17,7 @@ const (
 
 	// MinFramePointsForCompletion is the minimum number of points required for frame completion
 	// Ensures substantial data before declaring a rotation complete (typical full rotation: ~70k points)
-	MinFramePointsForCompletion = 50000
+	MinFramePointsForCompletion = 10000
 )
 
 //
@@ -73,18 +73,24 @@ type FrameBuilder struct {
 	// Cleanup timer to finalize old frames
 	cleanupTimer    *time.Timer
 	cleanupInterval time.Duration // how often to check for frames to finalize
+
+	// Time-based frame detection for accurate motor speed handling
+	expectedFrameDuration time.Duration // expected duration per frame based on motor speed
+	enableTimeBased       bool          // true to use time-based detection with azimuth validation
 }
 
 // FrameBuilderConfig contains configuration for the FrameBuilder
 type FrameBuilderConfig struct {
-	SensorID         string            // sensor identifier
-	FrameCallback    func(*LiDARFrame) // callback when frame is complete
-	AzimuthTolerance float64           // tolerance for azimuth wrap detection (default: 10°)
-	MinFramePoints   int               // minimum points required for valid frame (default: 1000)
-	MaxBackfillDelay time.Duration     // max time to wait for backfill packets (default: 100ms)
-	FrameBufferSize  int               // max frames to buffer (default: 10)
-	BufferTimeout    time.Duration     // how long to wait before finalizing frame (default: 1s)
-	CleanupInterval  time.Duration     // how often to check for frames to finalize (default: 250ms)
+	SensorID              string            // sensor identifier
+	FrameCallback         func(*LiDARFrame) // callback when frame is complete
+	AzimuthTolerance      float64           // tolerance for azimuth wrap detection (default: 10°)
+	MinFramePoints        int               // minimum points required for valid frame (default: 1000)
+	MaxBackfillDelay      time.Duration     // max time to wait for backfill packets (default: 100ms)
+	FrameBufferSize       int               // max frames to buffer (default: 10)
+	BufferTimeout         time.Duration     // how long to wait before finalizing frame (default: 1s)
+	CleanupInterval       time.Duration     // how often to check for frames to finalize (default: 250ms)
+	ExpectedFrameDuration time.Duration     // expected duration per frame based on motor speed (default: 0 = azimuth-only)
+	EnableTimeBased       bool              // true to use time-based detection with azimuth validation
 }
 
 // NewFrameBuilder creates a new FrameBuilder with the specified configuration
@@ -110,24 +116,51 @@ func NewFrameBuilder(config FrameBuilderConfig) *FrameBuilder {
 	}
 
 	fb := &FrameBuilder{
-		sensorID:         config.SensorID,
-		frameCallback:    config.FrameCallback,
-		lastAzimuth:      -1.0, // invalid initial value to detect first point
-		azimuthTolerance: config.AzimuthTolerance,
-		minFramePoints:   config.MinFramePoints,
-		sequenceGaps:     make(map[uint32]bool),
-		pendingPackets:   make(map[uint32][]Point),
-		maxBackfillDelay: config.MaxBackfillDelay,
-		frameBuffer:      make(map[string]*LiDARFrame),
-		frameBufferSize:  config.FrameBufferSize,
-		bufferTimeout:    config.BufferTimeout,
-		cleanupInterval:  config.CleanupInterval,
+		sensorID:              config.SensorID,
+		frameCallback:         config.FrameCallback,
+		lastAzimuth:           -1.0, // invalid initial value to detect first point
+		azimuthTolerance:      config.AzimuthTolerance,
+		minFramePoints:        config.MinFramePoints,
+		sequenceGaps:          make(map[uint32]bool),
+		pendingPackets:        make(map[uint32][]Point),
+		maxBackfillDelay:      config.MaxBackfillDelay,
+		frameBuffer:           make(map[string]*LiDARFrame),
+		frameBufferSize:       config.FrameBufferSize,
+		bufferTimeout:         config.BufferTimeout,
+		cleanupInterval:       config.CleanupInterval,
+		expectedFrameDuration: config.ExpectedFrameDuration,
+		enableTimeBased:       config.EnableTimeBased,
 	}
 
 	// Start cleanup timer
 	fb.cleanupTimer = time.AfterFunc(fb.cleanupInterval, fb.cleanupFrames)
 
 	return fb
+}
+
+// SetMotorSpeed updates the expected frame duration based on motor speed (RPM)
+// This enables time-based frame detection for accurate motor speed handling
+func (fb *FrameBuilder) SetMotorSpeed(rpm uint16) {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+
+	if rpm == 0 {
+		// Disable time-based detection if RPM is unknown
+		fb.enableTimeBased = false
+		fb.expectedFrameDuration = 0
+		return
+	}
+
+	// Calculate expected frame duration: 60,000ms / RPM
+	fb.expectedFrameDuration = time.Duration(60000/rpm) * time.Millisecond
+	fb.enableTimeBased = true
+}
+
+// EnableTimeBased enables or disables time-based frame detection
+func (fb *FrameBuilder) EnableTimeBased(enable bool) {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+	fb.enableTimeBased = enable
 }
 
 // AddPoints adds a slice of points using azimuth-based rotation detection
@@ -145,8 +178,8 @@ func (fb *FrameBuilder) AddPoints(points []Point) {
 		// Check for UDP sequence gaps
 		fb.checkSequenceGaps(point.UDPSequence)
 
-		// Check if we need to start a new frame based on azimuth wrap
-		if fb.shouldStartNewFrame(point.Azimuth) {
+		// Check if we need to start a new frame based on azimuth wrap and/or time
+		if fb.shouldStartNewFrame(point.Azimuth, point.Timestamp) {
 			fb.finalizeCurrentFrame()
 			fb.startNewFrame(point.Timestamp)
 		}
@@ -162,8 +195,8 @@ func (fb *FrameBuilder) AddPoints(points []Point) {
 	}
 }
 
-// shouldStartNewFrame determines if we should start a new frame based on azimuth
-func (fb *FrameBuilder) shouldStartNewFrame(azimuth float64) bool {
+// shouldStartNewFrame determines if we should start a new frame based on azimuth and/or time
+func (fb *FrameBuilder) shouldStartNewFrame(azimuth float64, timestamp time.Time) bool {
 	if fb.lastAzimuth < 0 {
 		return false // First point ever
 	}
@@ -172,17 +205,41 @@ func (fb *FrameBuilder) shouldStartNewFrame(azimuth float64) bool {
 		return true // No current frame
 	}
 
-	// Detect azimuth wrap (360° → 0°) only when crossing from high to low
-	// Require strict conditions to avoid false triggers from individual packets
-	if fb.lastAzimuth > 350.0 && azimuth < 10.0 {
-		// Additional checks to ensure this is a complete rotation:
-		// 1. Frame must have substantial azimuth coverage (near 360°)
-		// 2. Frame must have enough points (substantial data)
-		// 3. Current frame azimuth range must indicate a near-complete rotation
-		if fb.currentFrame != nil &&
-			(fb.currentFrame.MaxAzimuth-fb.currentFrame.MinAzimuth) > MinAzimuthCoverage &&
-			fb.currentFrame.PointCount > MinFramePointsForCompletion {
+	// Time-based frame detection (if enabled and duration is configured)
+	if fb.enableTimeBased && fb.expectedFrameDuration > 0 {
+		frameDuration := timestamp.Sub(fb.currentFrame.StartTimestamp)
+
+		// If we've exceeded the expected frame duration, start a new frame
+		// Add a small tolerance (10%) to account for timing variations
+		maxDuration := fb.expectedFrameDuration + (fb.expectedFrameDuration / 10)
+		if frameDuration >= maxDuration {
+			// Additional validation: ensure we have reasonable azimuth coverage
+			// This prevents starting frames on timing anomalies without spatial coverage
+			azimuthRange := fb.currentFrame.MaxAzimuth - fb.currentFrame.MinAzimuth
+			if azimuthRange > 270.0 { // At least 3/4 rotation coverage
+				return true
+			}
+		}
+
+		// Even with time-based detection, respect azimuth wraps for precise timing
+		// but with relaxed requirements since we're time-bounded
+		if fb.lastAzimuth > 340.0 && azimuth < 20.0 && frameDuration >= (fb.expectedFrameDuration/2) {
 			return true
+		}
+	} else {
+		// Traditional azimuth-based detection (original logic)
+		// Detect azimuth wrap (360° → 0°) only when crossing from high to low
+		// Require strict conditions to avoid false triggers from individual packets
+		if fb.lastAzimuth > 350.0 && azimuth < 10.0 {
+			// Additional checks to ensure this is a complete rotation:
+			// 1. Frame must have substantial azimuth coverage (near 360°)
+			// 2. Frame must have enough points (substantial data)
+			// 3. Current frame azimuth range must indicate a near-complete rotation
+			if fb.currentFrame != nil &&
+				(fb.currentFrame.MaxAzimuth-fb.currentFrame.MinAzimuth) > MinAzimuthCoverage &&
+				fb.currentFrame.PointCount > MinFramePointsForCompletion {
+				return true
+			}
 		}
 	}
 

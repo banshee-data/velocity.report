@@ -22,11 +22,13 @@ type PacketStatsInterface interface {
 // Parser interface for parsing LiDAR packets
 type Parser interface {
 	ParsePacket(packet []byte) ([]lidar.Point, error)
+	GetLastMotorSpeed() uint16 // Get motor speed from last parsed packet
 }
 
 // FrameBuilder interface for building LiDAR frames
 type FrameBuilder interface {
 	AddPoints(points []lidar.Point)
+	SetMotorSpeed(rpm uint16) // Update expected frame duration based on motor speed
 }
 
 // UDPListener handles receiving and processing LiDAR packets from UDP
@@ -169,6 +171,14 @@ func (l *UDPListener) handlePacket(packet []byte) error {
 
 		// Track parsed points in statistics
 		l.stats.AddPoints(len(points))
+
+		// Update frame builder with current motor speed for time-based frame detection
+		if l.frameBuilder != nil {
+			motorSpeed := l.parser.GetLastMotorSpeed()
+			if motorSpeed > 0 {
+				l.frameBuilder.SetMotorSpeed(motorSpeed)
+			}
+		}
 
 		// Add points to FrameBuilder for complete rotation accumulation
 		if l.frameBuilder != nil && len(points) > 0 {

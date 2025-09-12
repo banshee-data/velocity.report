@@ -195,14 +195,15 @@ const (
 
 // The parser uses calibration data to convert raw measurements into accurate 3D coordinates
 type Pandar40PParser struct {
-	config        Pandar40PConfig // Sensor-specific calibration parameters
-	timestampMode TimestampMode   // How to interpret timestamp field
-	bootTime      time.Time       // Device boot time for internal timestamp mode
-	packetCount   int             // Counter for debugging purposes
-	lastTimestamp uint32          // Previous timestamp for static detection
-	staticCount   int             // Counter for static timestamp detection
-	debug         bool            // Enable debug logging
-	debugPackets  int             // Number of initial packets to debug log
+	config         Pandar40PConfig // Sensor-specific calibration parameters
+	timestampMode  TimestampMode   // How to interpret timestamp field
+	bootTime       time.Time       // Device boot time for internal timestamp mode
+	packetCount    int             // Counter for debugging purposes
+	lastTimestamp  uint32          // Previous timestamp for static detection
+	staticCount    int             // Counter for static timestamp detection
+	debug          bool            // Enable debug logging
+	debugPackets   int             // Number of initial packets to debug log
+	lastMotorSpeed uint16          // Last parsed motor speed in RPM
 }
 
 // NewPandar40PParser creates a new parser instance with the provided calibration configuration
@@ -232,6 +233,11 @@ func (p *Pandar40PParser) SetDebug(enabled bool) {
 // SetDebugPackets sets the number of initial packets to debug log
 func (p *Pandar40PParser) SetDebugPackets(count int) {
 	p.debugPackets = count
+}
+
+// GetLastMotorSpeed returns the motor speed from the last parsed packet
+func (p *Pandar40PParser) GetLastMotorSpeed() uint16 {
+	return p.lastMotorSpeed
 }
 
 // ParsePacket parses a complete UDP packet from Pandar40P sensor into a slice of 3D points
@@ -274,6 +280,9 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]lidar.Point, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse tail: %v", err)
 	}
+
+	// Store motor speed for frame builder time-based detection
+	p.lastMotorSpeed = tail.MotorSpeed
 
 	// Debug packet tail fields if enabled (first few packets only)
 	if p.debug && p.packetCount <= p.debugPackets {
