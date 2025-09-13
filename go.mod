@@ -4,6 +4,7 @@ go 1.24.4
 
 require (
 	github.com/google/go-cmp v0.7.0
+	github.com/google/gopacket v1.1.19
 	github.com/tailscale/tailsql v0.0.0-20250804154109-d7a0426330bb
 	go.bug.st/serial v1.6.4
 	gonum.org/v1/gonum v0.16.0

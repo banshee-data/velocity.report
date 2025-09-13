@@ -9,7 +9,7 @@
   "Prettier-SQL.expressionWidth": 70,
   "Prettier-SQL.indentStyle": "tabularRight",
   "Prettier-SQL.keywordCase": "upper",
-  "Prettier-SQL.newlineBeforeSemicolon": true,
+  "Prettier-SQL.newlineBeforeSemicolon": false,
   "Prettier-SQL.SQLFlavourOverride": "sqlite",
   // Go settings
   "go.lintOnSave": "file",

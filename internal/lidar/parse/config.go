@@ -1,9 +1,11 @@
-package lidar
+package parse
 
 import (
 	"embed"
 	"encoding/csv"
 	"fmt"
+	"log"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -190,4 +192,29 @@ func (config *Pandar40PConfig) Validate() error {
 		}
 	}
 	return nil
+}
+
+// ConfigureTimestampMode configures the parser's timestamp mode based on environment variable
+// LIDAR_TIMESTAMP_MODE. Valid values are: "system", "gps", "internal".
+// If not set or invalid, defaults to "system" mode.
+func ConfigureTimestampMode(parser *Pandar40PParser) {
+	timestampMode := os.Getenv("LIDAR_TIMESTAMP_MODE")
+	switch timestampMode {
+	case "system":
+		parser.SetTimestampMode(TimestampModeSystemTime)
+		log.Println("LiDAR timestamp mode: System time")
+	case "gps":
+		parser.SetTimestampMode(TimestampModeGPS)
+		log.Println("LiDAR timestamp mode: GPS (requires GPS-synchronized LiDAR)")
+	case "internal":
+		parser.SetTimestampMode(TimestampModeInternal)
+		log.Println("LiDAR timestamp mode: Internal (device boot time)")
+	case "lidar":
+		parser.SetTimestampMode(TimestampModeLiDAR)
+		log.Println("LiDAR timestamp mode: LiDAR native (DateTime + Timestamp fields)")
+	default:
+		// Default to SystemTime for stability until PTP hardware is available
+		parser.SetTimestampMode(TimestampModeSystemTime)
+		log.Println("LiDAR timestamp mode: System time (default - stable until PTP hardware available)")
+	}
 }

@@ -13,7 +13,10 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
-	"github.com/banshee-data/velocity.report/internal/lidardb"
+	"github.com/banshee-data/velocity.report/internal/lidar/lidardb"
+	"github.com/banshee-data/velocity.report/internal/lidar/monitor"
+	"github.com/banshee-data/velocity.report/internal/lidar/network"
+	"github.com/banshee-data/velocity.report/internal/lidar/parse"
 )
 
 var (
@@ -27,6 +30,9 @@ var (
 	dbFile         = flag.String("db", "lidar_data.db", "Path to the SQLite database file")
 	rcvBuf         = flag.Int("rcvbuf", 4<<20, "UDP receive buffer size in bytes (default 4MB)")
 	logInterval    = flag.Int("log-interval", 2, "Statistics logging interval in seconds")
+	debug          = flag.Bool("debug", false, "Enable debug logging (UDP sequences, frame completion details)")
+	debugPackets   = flag.Int("debug-packets", 10, "Number of initial packets to debug log (only when debug=true)")
+	sensorName     = flag.String("sensor-name", "hesai-pandar40p", "Sensor name identifier for logging and monitoring")
 )
 
 // Constants
@@ -56,10 +62,11 @@ func main() {
 	defer ldb.Close()
 
 	// Initialize parser if parsing is enabled
-	var parser *lidar.Pandar40PParser
+	var parser *parse.Pandar40PParser
+	var frameBuilder *lidar.FrameBuilder
 	if !*disableParsing {
 		log.Printf("Loading embedded Pandar40P sensor configuration")
-		config, err := lidar.LoadEmbeddedPandar40PConfig()
+		config, err := parse.LoadEmbeddedPandar40PConfig()
 		if err != nil {
 			log.Fatalf("Failed to load embedded lidar configuration: %v", err)
 		}
@@ -69,8 +76,24 @@ func main() {
 			log.Fatalf("Invalid embedded lidar configuration: %v", err)
 		}
 
-		parser = lidar.NewPandar40PParser(*config)
+		parser = parse.NewPandar40PParser(*config)
+
+		// Configure debug mode
+		parser.SetDebug(*debug)
+		parser.SetDebugPackets(*debugPackets)
+
+		// Configure timestamp mode based on environment
+		parse.ConfigureTimestampMode(parser)
+
 		log.Println("Lidar packet parsing enabled")
+
+		// Create FrameBuilder for accumulating points into complete rotations
+		frameBuilder = lidar.NewFrameBuilderWithDebugLoggingAndInterval(*sensorName, *debug, time.Duration(*logInterval)*time.Second)
+		if *debug {
+			log.Printf("FrameBuilder initialized for %s complete rotation detection (debug mode enabled)", *sensorName)
+		} else {
+			log.Printf("FrameBuilder initialized for %s complete rotation detection", *sensorName)
+		}
 	} else {
 		log.Println("Lidar packet parsing disabled (--no-parse flag was specified)")
 	}
@@ -81,12 +104,12 @@ func main() {
 	defer stop()
 
 	// Initialize packet statistics (shared between UDP listener and HTTP server)
-	stats := lidar.NewPacketStats()
+	stats := monitor.NewPacketStats()
 
 	// Create packet forwarder if forwarding is enabled
-	var forwarder *lidar.PacketForwarder
+	var forwarder *network.PacketForwarder
 	if *forwardPackets {
-		forwarder, err = lidar.NewPacketForwarder(*forwardAddr, *forwardPort, stats, time.Duration(*logInterval)*time.Second)
+		forwarder, err = network.NewPacketForwarder(*forwardAddr, *forwardPort, stats, time.Duration(*logInterval)*time.Second)
 		if err != nil {
 			log.Fatalf("Failed to create packet forwarder: %v", err)
 		}
@@ -94,13 +117,14 @@ func main() {
 	}
 
 	// Create and start UDP listener
-	udpListener := lidar.NewUDPListener(lidar.UDPListenerConfig{
+	udpListener := network.NewUDPListener(network.UDPListenerConfig{
 		Address:        udpListenAddr,
 		RcvBuf:         *rcvBuf,
 		LogInterval:    time.Duration(*logInterval) * time.Second,
 		Stats:          stats,
 		Forwarder:      forwarder,
 		Parser:         parser,
+		FrameBuilder:   frameBuilder,
 		DB:             ldb,
 		DisableParsing: *disableParsing,
 	})
@@ -116,7 +140,7 @@ func main() {
 	}()
 
 	// Create and start web server
-	webServer := lidar.NewWebServer(lidar.WebServerConfig{
+	webServer := monitor.NewWebServer(monitor.WebServerConfig{
 		Address:           *listen,
 		Stats:             stats,
 		ForwardingEnabled: *forwardPackets,
