@@ -11,6 +11,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/serialmux"
+	"github.com/banshee-data/velocity.report/internal/units"
 )
 
 // ANSI escape codes for cyan and reset
@@ -20,15 +21,28 @@ const colorYellow = "\033[33m"
 const colorBoldGreen = "\033[1;32m"
 const colorBoldRed = "\033[1;31m"
 
-type Server struct {
-	m  serialmux.SerialMuxInterface
-	db *db.DB
+// convertEventAPISpeed applies unit conversion to the Speed field of an EventAPI
+func convertEventAPISpeed(event db.EventAPI, targetUnits string) db.EventAPI {
+	if event.Speed != nil {
+		convertedSpeed := units.ConvertSpeed(*event.Speed, targetUnits)
+		event.Speed = &convertedSpeed
+	}
+	return event
 }
 
-func NewServer(m serialmux.SerialMuxInterface, db *db.DB) *Server {
+type Server struct {
+	m        serialmux.SerialMuxInterface
+	db       *db.DB
+	units    string
+	timezone string
+}
+
+func NewServer(m serialmux.SerialMuxInterface, db *db.DB, units string, timezone string) *Server {
 	return &Server{
-		m:  m,
-		db: db,
+		m:        m,
+		db:       db,
+		units:    units,
+		timezone: timezone,
 	}
 }
 
@@ -83,6 +97,7 @@ func (s *Server) ServeMux() *http.ServeMux {
 	mux.HandleFunc("/events", s.listEvents)
 	mux.HandleFunc("/command", s.sendCommandHandler)
 	mux.HandleFunc("/api/radar_stats", s.showRadarObjectStats)
+	mux.HandleFunc("/api/config", s.showConfig)
 	return mux
 }
 
@@ -124,6 +139,31 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 		days = parsedDays
 	}
 
+	// Check for units override in query parameter
+	displayUnits := s.units // default to CLI-set units
+	if u := r.URL.Query().Get("units"); u != "" {
+		if units.IsValid(u) {
+			displayUnits = u
+		} else {
+			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid 'units' parameter. Must be one of: %s", units.GetValidUnitsString()))
+			return
+		}
+	}
+
+	// Check for timezone override in query parameter
+	displayTimezone := s.timezone // default to CLI-set timezone
+	if tz := r.URL.Query().Get("timezone"); tz != "" {
+		if units.IsTimezoneValid(tz) {
+			displayTimezone = tz
+		} else {
+			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid 'timezone' parameter. Must be one of: %s", units.GetValidTimezonesString()))
+			return
+		}
+	}
+
+	// TODO: Add timezone conversion for timestamps once database schema includes timestamps
+	_ = displayTimezone // Silence unused variable warning for now
+
 	stats, err := s.db.RadarObjectRollup(days)
 	if err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError,
@@ -131,8 +171,35 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Apply unit conversion to all speed values using the determined units
+	for i := range stats {
+		stats[i].MaxSpeed = units.ConvertSpeed(stats[i].MaxSpeed, displayUnits)
+		stats[i].P50Speed = units.ConvertSpeed(stats[i].P50Speed, displayUnits)
+		stats[i].P85Speed = units.ConvertSpeed(stats[i].P85Speed, displayUnits)
+		stats[i].P98Speed = units.ConvertSpeed(stats[i].P98Speed, displayUnits)
+	}
+
 	if err := json.NewEncoder(w).Encode(stats); err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, "Failed to write radar stats")
+		return
+	}
+}
+
+func (s *Server) showConfig(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != http.MethodGet {
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	config := map[string]interface{}{
+		"units":    s.units,
+		"timezone": s.timezone,
+	}
+
+	if err := json.NewEncoder(w).Encode(config); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to write config")
 		return
 	}
 }
@@ -145,6 +212,31 @@ func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check for units override in query parameter
+	displayUnits := s.units // default to CLI-set units
+	if u := r.URL.Query().Get("units"); u != "" {
+		if units.IsValid(u) {
+			displayUnits = u
+		} else {
+			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid 'units' parameter. Must be one of: %s", units.GetValidUnitsString()))
+			return
+		}
+	}
+
+	// Check for timezone override in query parameter
+	displayTimezone := s.timezone // default to CLI-set timezone
+	if tz := r.URL.Query().Get("timezone"); tz != "" {
+		if units.IsTimezoneValid(tz) {
+			displayTimezone = tz
+		} else {
+			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid 'timezone' parameter. Must be one of: %s", units.GetValidTimezonesString()))
+			return
+		}
+	}
+
+	// TODO: Add timezone conversion for timestamps once database schema includes timestamps
+	_ = displayTimezone // Silence unused variable warning for now
+
 	events, err := s.db.Events()
 	if err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve events: %v", err))
@@ -156,7 +248,7 @@ func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 	// we control the output format with the EventAPI struct.
 	apiEvents := make([]db.EventAPI, len(events))
 	for i, e := range events {
-		apiEvents[i] = db.EventToAPI(e)
+		apiEvents[i] = convertEventAPISpeed(db.EventToAPI(e), displayUnits)
 	}
 
 	if err := json.NewEncoder(w).Encode(apiEvents); err != nil {

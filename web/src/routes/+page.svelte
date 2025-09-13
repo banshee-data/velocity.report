@@ -1,27 +1,56 @@
 <script lang="ts">
-	import { Card, Grid, Header } from 'svelte-ux';
 	import { onMount } from 'svelte';
-	import { getRadarStats, type RadarStats } from '../lib/api';
+	import { Card, Grid, Header } from 'svelte-ux';
+	import { getConfig, getRadarStats, type Config, type RadarStats } from '../lib/api';
+	import { displayUnits, initializeUnits } from '../lib/stores/units';
+	import { getUnitLabel, type Unit } from '../lib/units';
 
 	let stats: RadarStats[] = [];
+	let config: Config = { units: 'mph', timezone: 'UTC' }; // default
 	let totalCount = 0;
 	let maxSpeed = 0;
 	let loading = true;
 	let error = '';
 
-	async function loadStats() {
+	// Reactive statement to reload data when units change
+	$: if ($displayUnits && !loading) {
+		loadStats($displayUnits);
+	}
+
+	async function loadConfig() {
 		try {
-			stats = await getRadarStats();
+			config = await getConfig();
+			initializeUnits(config.units);
+		} catch (e) {
+			error = e instanceof Error && e.message ? e.message : 'Failed to load config';
+		}
+	}
+
+	async function loadStats(units: Unit) {
+		try {
+			const statsData = await getRadarStats(units);
+			stats = statsData;
 			totalCount = stats.reduce((sum, s) => sum + (s.Count || 0), 0);
-			maxSpeed = Math.max(...stats.map((s) => s.MaxSpeed || 0));
+			// If backend returns an empty array, Math.max(...[]) === -Infinity
+			// which causes toFixed to throw. Default to 0 when no stats.
+			maxSpeed = stats.length > 0 ? Math.max(...stats.map((s) => s.MaxSpeed || 0)) : 0;
 		} catch (e) {
 			error = e instanceof Error && e.message ? e.message : 'Failed to load stats';
+		}
+	}
+
+	async function loadData() {
+		loading = true;
+		error = '';
+		try {
+			await loadConfig();
+			await loadStats($displayUnits);
 		} finally {
 			loading = false;
 		}
 	}
 
-	onMount(loadStats);
+	onMount(loadData);
 </script>
 
 <svelte:head>
@@ -49,7 +78,10 @@
 
 			<Card title="Max Speed">
 				<div class="pb-4 pl-4 pr-4 pt-0">
-					<p class="text-3xl font-bold text-green-600">{maxSpeed} mph</p>
+					<p class="text-3xl font-bold text-green-600">
+						{maxSpeed.toFixed(1)}
+						{getUnitLabel($displayUnits)}
+					</p>
 					<p class="text-surface-content/70 text-sm">last 14 days</p>
 				</div>
 			</Card>
