@@ -394,24 +394,6 @@ func (fb *FrameBuilder) calculateFrameCompleteness(frame *LiDARFrame) {
 	}
 }
 
-// evictOldestFrame removes the oldest frame from buffer and finalizes it
-func (fb *FrameBuilder) evictOldestFrame() {
-	var oldestFrameID string
-	var oldestFrame *LiDARFrame
-
-	for frameID, frame := range fb.frameBuffer {
-		if oldestFrame == nil || frame.StartTimestamp.Before(oldestFrame.StartTimestamp) {
-			oldestFrameID = frameID
-			oldestFrame = frame
-		}
-	}
-
-	if oldestFrame != nil {
-		delete(fb.frameBuffer, oldestFrameID)
-		fb.finalizeFrame(oldestFrame)
-	}
-}
-
 // cleanupFrames periodically checks for frames that should be finalized
 func (fb *FrameBuilder) cleanupFrames() {
 	fb.mu.Lock()
