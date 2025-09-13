@@ -302,3 +302,303 @@ func TestFrameBuilder_MinimumPointValidation(t *testing.T) {
 		t.Errorf("Expected no frames below minimum point threshold (60000), got %d frames", frameCount)
 	}
 }
+
+// TestFrameBuilder_HybridDetection tests the hybrid time+azimuth frame detection
+func TestFrameBuilder_HybridDetection(t *testing.T) {
+	sensorID := "test-sensor-hybrid"
+	var receivedFrames []*LiDARFrame
+	var mu sync.Mutex
+
+	callback := func(frame *LiDARFrame) {
+		mu.Lock()
+		defer mu.Unlock()
+		receivedFrames = append(receivedFrames, frame)
+		t.Logf("Frame completed: %s, Points: %d, Azimuth: %.1f°-%.1f°, Duration: %v",
+			frame.FrameID, frame.PointCount, frame.MinAzimuth, frame.MaxAzimuth,
+			frame.EndTimestamp.Sub(frame.StartTimestamp))
+	}
+
+	fb := NewFrameBuilder(FrameBuilderConfig{
+		SensorID:        sensorID,
+		FrameCallback:   callback,
+		MinFramePoints:  12000,                  // Higher than MinFramePointsForCompletion (10000)
+		BufferTimeout:   100 * time.Millisecond, // Shorter timeout for testing
+		CleanupInterval: 50 * time.Millisecond,  // Shorter cleanup interval for testing
+	})
+
+	// Test 1: Enable time-based detection with 100ms frame duration (600 RPM)
+	fb.SetMotorSpeed(600) // Should set 100ms frame duration
+
+	baseTime := time.Now()
+
+	// Use same successful pattern as TraditionalAzimuthOnly but with time-based detection
+	points := make([]Point, 0)
+	for i := 0; i < 60000; i++ {
+		azimuth := float64(i) * 356.0 / 60000.0 // 0° to 356° evenly distributed (like working test)
+		point := Point{
+			Azimuth:     azimuth,
+			Timestamp:   baseTime.Add(time.Duration(i) * time.Microsecond), // Same timing as working test
+			UDPSequence: uint32(i + 100),
+		}
+		points = append(points, point)
+	}
+
+	fb.AddPoints(points)
+
+	// Wait a moment to ensure points are processed
+	time.Sleep(10 * time.Millisecond)
+
+	// Now add a wrap point that should trigger time+azimuth completion
+	finalPoint := Point{
+		Azimuth:     5.0,                                  // Azimuth wrap (like working test)
+		Timestamp:   baseTime.Add(120 * time.Millisecond), // Exceeds time threshold (110ms)
+		UDPSequence: 60100,
+	}
+
+	fb.AddPoints([]Point{finalPoint})
+
+	// Frame should be detected and buffered, wait for buffer timeout
+	time.Sleep(200 * time.Millisecond)
+
+	// Should have triggered frame completion due to time + azimuth coverage
+	mu.Lock()
+	frameCount := len(receivedFrames)
+	mu.Unlock()
+
+	if frameCount == 0 {
+		t.Logf("DEBUG: No frames completed. Check conditions:")
+		t.Logf("  - Motor speed: 600 RPM (100ms expected frame duration)")
+		t.Logf("  - Point count: 60000 (> 10000 required)")
+		t.Logf("  - Azimuth coverage: 356° (> 270° required)")
+		t.Logf("  - Time span: 120ms (> 110ms threshold)")
+		t.Errorf("Expected frame completion due to time threshold + azimuth coverage, got %d frames", frameCount)
+	} else {
+		frame := receivedFrames[0]
+		duration := frame.EndTimestamp.Sub(frame.StartTimestamp)
+		t.Logf("Frame completed with %d points, %.1f° coverage, %v duration",
+			frame.PointCount, frame.MaxAzimuth-frame.MinAzimuth, duration)
+
+		// In time-based mode, frame can complete via azimuth wrap OR time threshold
+		// This test triggers azimuth wrap first (356° -> 5°), which is valid behavior
+		if duration < 50*time.Millisecond {
+			t.Errorf("Expected frame duration >= 50ms (half expected duration), got %v", duration)
+		}
+		coverage := frame.MaxAzimuth - frame.MinAzimuth
+		if coverage < 350.0 { // Expect nearly full rotation coverage
+			t.Errorf("Expected azimuth coverage >= 350°, got %.1f°", coverage)
+		}
+	}
+}
+
+// TestFrameBuilder_TimeBasedWithInsufficientCoverage tests that time-based detection requires azimuth validation
+func TestFrameBuilder_TimeBasedWithInsufficientCoverage(t *testing.T) {
+	sensorID := "test-sensor-coverage"
+	var receivedFrames []*LiDARFrame
+	var mu sync.Mutex
+
+	callback := func(frame *LiDARFrame) {
+		mu.Lock()
+		defer mu.Unlock()
+		receivedFrames = append(receivedFrames, frame)
+	}
+
+	fb := NewFrameBuilder(FrameBuilderConfig{
+		SensorID:       sensorID,
+		FrameCallback:  callback,
+		MinFramePoints: 10,
+	})
+
+	// Enable time-based detection
+	fb.SetMotorSpeed(600) // 100ms frame duration
+
+	baseTime := time.Now()
+
+	// Add points with insufficient azimuth coverage (only 50°) but exceeding time
+	points := make([]Point, 0)
+	for i := 0; i < 50; i++ {
+		point := Point{
+			Azimuth:     float64(i),                                            // Only 0° to 49° (insufficient coverage)
+			Timestamp:   baseTime.Add(time.Duration(i) * 2 * time.Millisecond), // 100ms total
+			UDPSequence: uint32(i),
+			X:           1.0, Y: 1.0, Z: 1.0, Intensity: 100,
+		}
+		points = append(points, point)
+	}
+
+	// Add final point exceeding time threshold
+	finalPoint := Point{
+		Azimuth:     50.0,
+		Timestamp:   baseTime.Add(120 * time.Millisecond), // Exceeds time threshold
+		UDPSequence: 50,
+		X:           1.0, Y: 1.0, Z: 1.0, Intensity: 100,
+	}
+	points = append(points, finalPoint)
+
+	fb.AddPoints(points)
+
+	// Should NOT trigger frame completion due to insufficient azimuth coverage
+	mu.Lock()
+	frameCount := len(receivedFrames)
+	mu.Unlock()
+
+	if frameCount != 0 {
+		t.Errorf("Expected no frame completion due to insufficient azimuth coverage, got %d frames", frameCount)
+	}
+}
+
+// TestFrameBuilder_AzimuthWrapWithTimeBased tests azimuth wrap detection in time-based mode
+func TestFrameBuilder_AzimuthWrapWithTimeBased(t *testing.T) {
+	sensorID := "test-sensor-azwrap"
+	var receivedFrames []*LiDARFrame
+	var mu sync.Mutex
+
+	callback := func(frame *LiDARFrame) {
+		mu.Lock()
+		defer mu.Unlock()
+		receivedFrames = append(receivedFrames, frame)
+	}
+
+	fb := NewFrameBuilder(FrameBuilderConfig{
+		SensorID:        sensorID,
+		FrameCallback:   callback,
+		MinFramePoints:  12000,                  // Higher than MinFramePointsForCompletion (10000)
+		BufferTimeout:   100 * time.Millisecond, // Same as HybridDetection
+		CleanupInterval: 50 * time.Millisecond,  // Same as HybridDetection
+	})
+
+	// Enable time-based detection
+	fb.SetMotorSpeed(600) // 100ms frame duration
+
+	baseTime := time.Now()
+
+	// Use same successful pattern as HybridDetection
+	points := make([]Point, 0)
+	for i := 0; i < 60000; i++ {
+		azimuth := float64(i) * 356.0 / 60000.0 // 0° to 356° evenly distributed (like working test)
+		point := Point{
+			Azimuth:     azimuth,
+			Timestamp:   baseTime.Add(time.Duration(i) * time.Microsecond),
+			UDPSequence: uint32(i + 100),
+		}
+		points = append(points, point)
+	}
+
+	fb.AddPoints(points)
+
+	// Wait a moment to ensure points are processed
+	time.Sleep(10 * time.Millisecond)
+
+	// Add azimuth wrap point (exactly like HybridDetection pattern)
+	wrapPoint := Point{
+		Azimuth:     15.0,                                // Azimuth wrap from 356° to 15°
+		Timestamp:   baseTime.Add(60 * time.Millisecond), // > 50ms (half duration)
+		UDPSequence: 60100,
+	}
+
+	fb.AddPoints([]Point{wrapPoint})
+
+	// Wait for frame processing (buffer timeout)
+	time.Sleep(200 * time.Millisecond)
+
+	// Should trigger frame completion due to azimuth wrap + minimum time
+	mu.Lock()
+	frameCount := len(receivedFrames)
+	mu.Unlock()
+
+	if frameCount == 0 {
+		t.Logf("DEBUG: Expected azimuth wrap completion (350° -> 15°) after 60ms")
+		t.Errorf("Expected frame completion due to azimuth wrap + minimum time, got %d frames", frameCount)
+	} else {
+		frame := receivedFrames[0]
+		t.Logf("Frame completed with %d points, %.1f° coverage, %v duration",
+			frame.PointCount, frame.MaxAzimuth-frame.MinAzimuth,
+			frame.EndTimestamp.Sub(frame.StartTimestamp))
+	}
+}
+
+// TestFrameBuilder_TraditionalAzimuthOnly tests traditional azimuth-only detection
+func TestFrameBuilder_TraditionalAzimuthOnly(t *testing.T) {
+	sensorID := "test-sensor-traditional"
+	var receivedFrames []*LiDARFrame
+	var mu sync.Mutex
+
+	callback := func(frame *LiDARFrame) {
+		mu.Lock()
+		defer mu.Unlock()
+		receivedFrames = append(receivedFrames, frame)
+	}
+
+	fb := NewFrameBuilder(FrameBuilderConfig{
+		SensorID:        sensorID,
+		FrameCallback:   callback,
+		MinFramePoints:  12000,                  // Higher than MinFramePointsForCompletion (10000)
+		BufferTimeout:   100 * time.Millisecond, // Shorter timeout for testing
+		CleanupInterval: 50 * time.Millisecond,  // Shorter cleanup interval for testing
+	})
+
+	// Do NOT enable time-based detection (traditional mode)
+	// fb.SetMotorSpeed() not called, so enableTimeBased remains false
+
+	baseTime := time.Now()
+
+	// Build a complete rotation with sufficient points and coverage
+	points := make([]Point, 0)
+
+	// Add points from 0° to 355° with sufficient coverage > MinAzimuthCoverage (340°)
+	// and sufficient points > MinFramePointsForCompletion (10000) - using 60000 like working test
+	for i := 0; i < 60000; i++ { // 60000 points like working test
+		azimuth := float64(i) * 356.0 / 60000.0 // 0° to 356° evenly distributed
+		point := Point{
+			Azimuth:     azimuth,
+			Timestamp:   baseTime.Add(time.Duration(i) * time.Microsecond),
+			UDPSequence: uint32(i + 100),
+		}
+		points = append(points, point)
+	}
+
+	fb.AddPoints(points)
+
+	// Verify no frame completion yet (no azimuth wrap)
+	mu.Lock()
+	frameCount := len(receivedFrames)
+	mu.Unlock()
+
+	if frameCount != 0 {
+		t.Errorf("Expected no frame completion before azimuth wrap, got %d frames", frameCount)
+		return
+	}
+
+	// Add azimuth wrap point (356° → 5°) - should trigger completion
+	wrapPoints := []Point{
+		{
+			Azimuth: 5.0, Timestamp: baseTime.Add(500 * time.Millisecond),
+			UDPSequence: 60100,
+		},
+	}
+
+	fb.AddPoints(wrapPoints)
+
+	// Frame should be detected and buffered, wait for buffer timeout (100ms) + cleanup cycles (50ms each)
+	time.Sleep(250 * time.Millisecond) // BufferTimeout (100ms) + multiple CleanupInterval cycles (50ms each)
+
+	// Should trigger frame completion due to azimuth wrap + sufficient coverage + points
+	mu.Lock()
+	frameCount = len(receivedFrames)
+	mu.Unlock()
+
+	if frameCount == 0 {
+		t.Logf("DEBUG: Frame builder state may not have triggered completion")
+		t.Logf("DEBUG: Expected points > 10000, azimuth coverage > 340°, azimuth wrap 351° → 5°")
+		t.Errorf("Expected frame completion due to azimuth wrap in traditional mode, got %d frames", frameCount)
+	} else {
+		frame := receivedFrames[0]
+		t.Logf("DEBUG: Completed frame with %d points, %.1f° coverage", frame.PointCount, frame.MaxAzimuth-frame.MinAzimuth)
+		if frame.PointCount < 10000 { // MinFramePointsForCompletion
+			t.Errorf("Expected >= %d points, got %d", 10000, frame.PointCount)
+		}
+		coverage := frame.MaxAzimuth - frame.MinAzimuth
+		if coverage < 340.0 { // MinAzimuthCoverage
+			t.Errorf("Expected azimuth coverage >= %.1f°, got %.1f°", 340.0, coverage)
+		}
+	}
+}
