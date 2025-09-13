@@ -11,6 +11,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/serialmux"
+	"github.com/banshee-data/velocity.report/internal/units"
 )
 
 // ANSI escape codes for cyan and reset
@@ -20,25 +21,10 @@ const colorYellow = "\033[33m"
 const colorBoldGreen = "\033[1;32m"
 const colorBoldRed = "\033[1;31m"
 
-// Unit conversion functions
-// Database stores speeds in m/s (meters per second)
-func convertSpeed(speedMPS float64, targetUnits string) float64 {
-	switch targetUnits {
-	case "mph":
-		return speedMPS * 2.23694 // m/s to mph
-	case "kmph", "kph":
-		return speedMPS * 3.6 // m/s to km/h
-	case "mps":
-		return speedMPS // no conversion needed
-	default:
-		return speedMPS // default to m/s if unknown unit
-	}
-}
-
 // convertEventAPISpeed applies unit conversion to the Speed field of an EventAPI
-func (s *Server) convertEventAPISpeed(event db.EventAPI) db.EventAPI {
+func convertEventAPISpeed(event db.EventAPI, targetUnits string) db.EventAPI {
 	if event.Speed != nil {
-		convertedSpeed := convertSpeed(*event.Speed, s.units)
+		convertedSpeed := units.ConvertSpeed(*event.Speed, targetUnits)
 		event.Speed = &convertedSpeed
 	}
 	return event
@@ -151,6 +137,17 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 		days = parsedDays
 	}
 
+	// Check for units override in query parameter
+	displayUnits := s.units // default to CLI-set units
+	if u := r.URL.Query().Get("units"); u != "" {
+		if units.IsValid(u) {
+			displayUnits = u
+		} else {
+			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid 'units' parameter. Must be one of: %s", units.GetValidUnitsString()))
+			return
+		}
+	}
+
 	stats, err := s.db.RadarObjectRollup(days)
 	if err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError,
@@ -158,12 +155,12 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Apply unit conversion to all speed values
+	// Apply unit conversion to all speed values using the determined units
 	for i := range stats {
-		stats[i].MaxSpeed = convertSpeed(stats[i].MaxSpeed, s.units)
-		stats[i].P50Speed = convertSpeed(stats[i].P50Speed, s.units)
-		stats[i].P85Speed = convertSpeed(stats[i].P85Speed, s.units)
-		stats[i].P98Speed = convertSpeed(stats[i].P98Speed, s.units)
+		stats[i].MaxSpeed = units.ConvertSpeed(stats[i].MaxSpeed, displayUnits)
+		stats[i].P50Speed = units.ConvertSpeed(stats[i].P50Speed, displayUnits)
+		stats[i].P85Speed = units.ConvertSpeed(stats[i].P85Speed, displayUnits)
+		stats[i].P98Speed = units.ConvertSpeed(stats[i].P98Speed, displayUnits)
 	}
 
 	if err := json.NewEncoder(w).Encode(stats); err != nil {
@@ -198,6 +195,17 @@ func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check for units override in query parameter
+	displayUnits := s.units // default to CLI-set units
+	if u := r.URL.Query().Get("units"); u != "" {
+		if units.IsValid(u) {
+			displayUnits = u
+		} else {
+			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid 'units' parameter. Must be one of: %s", units.GetValidUnitsString()))
+			return
+		}
+	}
+
 	events, err := s.db.Events()
 	if err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve events: %v", err))
@@ -209,7 +217,7 @@ func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 	// we control the output format with the EventAPI struct.
 	apiEvents := make([]db.EventAPI, len(events))
 	for i, e := range events {
-		apiEvents[i] = s.convertEventAPISpeed(db.EventToAPI(e))
+		apiEvents[i] = convertEventAPISpeed(db.EventToAPI(e), displayUnits)
 	}
 
 	if err := json.NewEncoder(w).Encode(apiEvents); err != nil {
