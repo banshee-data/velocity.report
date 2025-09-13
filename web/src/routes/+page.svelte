@@ -6,7 +6,7 @@
 	import { getUnitLabel, type Unit } from '../lib/units';
 
 	let stats: RadarStats[] = [];
-	let config: Config = { units: 'mph' }; // default
+	let config: Config = { units: 'mph', timezone: 'UTC' }; // default
 	let totalCount = 0;
 	let maxSpeed = 0;
 	let loading = true;
@@ -31,7 +31,9 @@
 			const statsData = await getRadarStats(units);
 			stats = statsData;
 			totalCount = stats.reduce((sum, s) => sum + (s.Count || 0), 0);
-			maxSpeed = Math.max(...stats.map((s) => s.MaxSpeed || 0));
+			// If backend returns an empty array, Math.max(...[]) === -Infinity
+			// which causes toFixed to throw. Default to 0 when no stats.
+			maxSpeed = stats.length > 0 ? Math.max(...stats.map((s) => s.MaxSpeed || 0)) : 0;
 		} catch (e) {
 			error = e instanceof Error && e.message ? e.message : 'Failed to load stats';
 		}
