@@ -15,6 +15,7 @@ require (
 	github.com/creachadair/mds v0.25.2 // indirect
 	github.com/creachadair/msync v0.5.6 // indirect
 	github.com/creack/goselect v0.1.3 // indirect
+	github.com/dreadl0ck/gopcap v1.0.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-json-experiment/json v0.0.0-20250813233538-9b1f9ea2e11b // indirect
 	github.com/google/uuid v1.6.0 // indirect
