@@ -10,8 +10,8 @@
 
 ### ✅ **Phase 1: Core Infrastructure (COMPLETED)**
 - UDP packet ingestion with configurable parameters (4MB buffer, 2369 port)
-- Hesai Pandar40P packet parsing (30-byte tail structure validated)
-- Azimuth-based frame assembly with late packet handling (360° detection, 1s buffer)
+- Hesai Pandar40P packet parsing (22-byte tail structure validated)
+- Time-based frame assembly with motor speed adaptation (360° detection, 1s buffer)
 - SQLite database persistence with comprehensive schema (738 lines)
 - HTTP monitoring interface with real-time statistics
 - Comprehensive test suite with real packet validation
@@ -42,9 +42,9 @@
 cmd/lidar/main.go                  ✅ # Complete with flags, goroutines, HTTP
 internal/lidar/network/listener.go ✅ # UDP socket and packet processing
 internal/lidar/network/forwarder.go✅ # UDP packet forwarding to LidarView
-internal/lidar/parse/extract.go    ✅ # Pandar40P packet -> []Point (30-byte tail)
+internal/lidar/parse/extract.go    ✅ # Pandar40P packet -> []Point (22-byte tail)
 internal/lidar/parse/config.go     ✅ # Embedded calibration configurations
-internal/lidar/frame_builder.go    ✅ # Azimuth-based frame assembly
+internal/lidar/frame_builder.go    ✅ # Time-based frame assembly with motor speed
 internal/lidar/monitor/            ✅ # HTTP endpoints: /health, /status
 internal/lidar/lidardb/            ✅ # Database schema and persistence
 internal/lidar/arena.go            🔄 # Background, clustering, tracking (stubbed)
@@ -70,9 +70,11 @@ internal/lidar/arena.go            🔄 # Background, clustering, tracking (stub
 - **Coordinate Transform**: Spherical → Cartesian with calibration applied
 
 ### Frame Assembly (✅ Complete)
-- **Azimuth-based Buffering**: 360° rotation detection with strict criteria
-- **Late Packet Handling**: 1-second buffer for out-of-order packets
-- **Spin Detection**: Azimuth wrap-around detection (350° → 10°) for complete rotations
+- **Hybrid Frame Detection**: Motor speed-adaptive timing + azimuth validation (prevents timing anomalies)
+- **Time-based Primary**: Frame completion when duration exceeds expected time (RPM-based) + 10% tolerance
+- **Azimuth Secondary**: Azimuth wrap detection (340° → 20°) respects timing constraints
+- **Traditional Fallback**: Pure azimuth-based detection (350° → 10°) when motor speed unavailable
+- **Late Packet Handling**: 1-second buffer for out-of-order packets before final callback
 - **Frame Callback**: Configurable callback for frame completion
 
 ### Database Persistence (✅ Complete)
@@ -123,6 +125,7 @@ is_foreground = (current_range < motion_threshold)
 -rcvbuf 4194304             # UDP receive buffer (4MB)
 -log-interval 2             # Statistics interval (seconds)
 -debug                      # Enable debug logging
+-sensor-name "hesai-pandar40p" # Sensor identifier for logging
 ```
 
 ### 🔄 Planned Configuration (Background & Tracking)
@@ -190,15 +193,19 @@ go test ./internal/lidar/network -v        ✅ UDP forwarding
 go test ./internal/lidar/monitor -v        ✅ Statistics & web server
 
 # Frame builder tests
-go test ./internal/lidar/frame_builder_test.go -v ✅ Azimuth-based frame detection tests
+go test ./internal/lidar/ -v                   ✅ Complete frame builder test suite
+=== RUN   TestFrameBuilder_HybridDetection          ✅ Time-based + azimuth validation
+=== RUN   TestFrameBuilder_AzimuthWrapWithTimeBased ✅ Azimuth wrap in time-based mode
+=== RUN   TestFrameBuilder_TraditionalAzimuthOnly   ✅ Traditional azimuth-only detection
 ```
 
 Key test coverage:
-- Real Hesai packet validation with 30-byte tail structure
+- Real Hesai packet validation with 22-byte tail structure
 - Point generation with embedded calibration
-- Azimuth-based frame assembly with 360° rotation detection
+- Time-based frame assembly with motor speed adaptation
 - HTTP endpoint functionality
-- Comprehensive frame builder testing with azimuth wrap detection
+- Comprehensive frame builder testing with production-level data volumes (60,000 points)
+- Both traditional azimuth-based and hybrid time-based frame detection modes
 
 ### 🔄 Planned Tests
 - Background subtraction accuracy
@@ -232,8 +239,8 @@ The system uses a comprehensive SQLite schema with 738 lines covering:
 
 ### Design Decisions
 - **Sensor vs World Frame**: Background subtraction in sensor frame (stable geometry), tracking in world frame (stable coordinates)
-- **Time-based Frames**: 100ms default duration with 1s late packet buffer
-- **30-byte Tail**: Confirmed with official Hesai documentation and real packet validation
+- **Hybrid Frame Detection**: Time-based primary trigger + azimuth validation prevents timing anomalies
+- **22-byte Tail**: Confirmed with official Hesai documentation and real packet validation
 - **SQLite Database**: Selected for simplicity and performance in single-node deployment
 - **Embedded Calibration**: Baked-in calibration avoids runtime configuration complexity
 
