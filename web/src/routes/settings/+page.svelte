@@ -86,18 +86,5 @@
 				{/if}
 			</div>
 		</Card>
-
-		<Card title="Current Configuration">
-			<div class="space-y-2 p-4">
-				<div class="flex justify-between">
-					<span class="text-surface-content/70">Server Default:</span>
-					<span>{getUnitLabel(config.units as Unit)}</span>
-				</div>
-				<div class="flex justify-between">
-					<span class="text-surface-content/70">Your Preference:</span>
-					<span>{getUnitLabel($displayUnits)}</span>
-				</div>
-			</div>
-		</Card>
 	{/if}
 </main>
