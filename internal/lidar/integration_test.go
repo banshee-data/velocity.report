@@ -1,7 +1,8 @@
-package main
+package lidar_test
 
 import (
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -18,8 +19,8 @@ import (
 // 3. Builds complete frames using the frame builder
 // 4. Validates the entire pipeline works end-to-end
 func TestHesaiLiDAR_PCAPIntegration(t *testing.T) {
-	// Path to the PCAP file (relative from test directory)
-	pcapPath := "lidar_20Hz.pcapng"
+	// Path to the PCAP file (in testdata directory)
+	pcapPath := filepath.Join("testdata", "lidar_20Hz.pcapng")
 
 	// Step 1: Set up Hesai parser with realistic configuration
 	config := createTestHesaiParserConfig()

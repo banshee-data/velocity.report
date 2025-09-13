@@ -193,10 +193,11 @@ go test ./internal/lidar/network -v        ✅ UDP forwarding
 go test ./internal/lidar/monitor -v        ✅ Statistics & web server
 
 # Frame builder tests
-go test ./internal/lidar/ -v                   ✅ Complete frame builder test suite
-=== RUN   TestFrameBuilder_HybridDetection          ✅ Time-based + azimuth validation
-=== RUN   TestFrameBuilder_AzimuthWrapWithTimeBased ✅ Azimuth wrap in time-based mode
-=== RUN   TestFrameBuilder_TraditionalAzimuthOnly   ✅ Traditional azimuth-only detection
+go test ./internal/lidar/ -v                        ✅ Complete test suite with integration
+=== RUN   TestFrameBuilder_HybridDetection               ✅ Time-based + azimuth validation
+=== RUN   TestFrameBuilder_AzimuthWrapWithTimeBased      ✅ Azimuth wrap in time-based mode
+=== RUN   TestFrameBuilder_TraditionalAzimuthOnly        ✅ Traditional azimuth-only detection
+=== RUN   TestHesaiLiDAR_PCAPIntegration                 ✅ End-to-end PCAP→parsing→framing
 ```
 
 Key test coverage:
@@ -206,8 +207,7 @@ Key test coverage:
 - HTTP endpoint functionality
 - Comprehensive frame builder testing with production-level data volumes (60,000 points)
 - Both traditional azimuth-based and hybrid time-based frame detection modes
-
-### 🔄 Planned Tests
+- End-to-end integration testing with real PCAP data (76,934 points → 56,929 frame points)### 🔄 Planned Tests
 - Background subtraction accuracy
 - Tracking association and lifecycle
 - Performance benchmarks under load

@@ -4,6 +4,8 @@
 
 ### Test Suite Completion
 - **All frame builder tests passing**: Fixed 3 previously failing tests using realistic production data patterns
+- **Integration test relocation**: Moved PCAP integration test from `cmd/pcap-test/` to `internal/lidar/integration_test.go`
+- **Test data organization**: Created `internal/lidar/testdata/` directory following Go conventions
 - **Data volume upgrade**: Increased test point counts from ~10,680 to 60,000 points (matching successful PCAP integration test)
 - **Production-level validation**: Tests now use MinFramePointsForCompletion = 10,000 threshold with realistic coverage
 - **Time-based detection validation**: Confirmed hybrid detection with motor speed adaptation and azimuth wrap fallback
