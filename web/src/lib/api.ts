@@ -18,16 +18,35 @@ export interface RadarStats {
 	MaxSpeed: number;
 }
 
+export interface Config {
+	units: string;
+}
+
 const API_BASE = '/api';
 
-export async function getEvents(): Promise<Event[]> {
-	const res = await fetch(`${API_BASE}/events`);
+export async function getEvents(units?: string): Promise<Event[]> {
+	const url = new URL(`${API_BASE}/events`, window.location.origin);
+	if (units) {
+		url.searchParams.append('units', units);
+	}
+	const res = await fetch(url);
 	if (!res.ok) throw new Error(`Failed to fetch events: ${res.status}`);
 	return res.json();
 }
 
-export async function getRadarStats(): Promise<RadarStats[]> {
-	const res = await fetch(`${API_BASE}/radar_stats?days=14`);
+export async function getRadarStats(units?: string, days = 14): Promise<RadarStats[]> {
+	const url = new URL(`${API_BASE}/radar_stats`, window.location.origin);
+	url.searchParams.append('days', days.toString());
+	if (units) {
+		url.searchParams.append('units', units);
+	}
+	const res = await fetch(url);
 	if (!res.ok) throw new Error(`Failed to fetch radar stats: ${res.status}`);
+	return res.json();
+}
+
+export async function getConfig(): Promise<Config> {
+	const res = await fetch(`${API_BASE}/config`);
+	if (!res.ok) throw new Error(`Failed to fetch config: ${res.status}`);
 	return res.json();
 }
