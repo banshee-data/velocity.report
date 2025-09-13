@@ -20,15 +20,41 @@ const colorYellow = "\033[33m"
 const colorBoldGreen = "\033[1;32m"
 const colorBoldRed = "\033[1;31m"
 
-type Server struct {
-	m  serialmux.SerialMuxInterface
-	db *db.DB
+// Unit conversion functions
+// Database stores speeds in m/s (meters per second)
+func convertSpeed(speedMPS float64, targetUnits string) float64 {
+	switch targetUnits {
+	case "mph":
+		return speedMPS * 2.23694 // m/s to mph
+	case "kmph", "kph":
+		return speedMPS * 3.6 // m/s to km/h
+	case "mps":
+		return speedMPS // no conversion needed
+	default:
+		return speedMPS // default to m/s if unknown unit
+	}
 }
 
-func NewServer(m serialmux.SerialMuxInterface, db *db.DB) *Server {
+// convertEventAPISpeed applies unit conversion to the Speed field of an EventAPI
+func (s *Server) convertEventAPISpeed(event db.EventAPI) db.EventAPI {
+	if event.Speed != nil {
+		convertedSpeed := convertSpeed(*event.Speed, s.units)
+		event.Speed = &convertedSpeed
+	}
+	return event
+}
+
+type Server struct {
+	m     serialmux.SerialMuxInterface
+	db    *db.DB
+	units string
+}
+
+func NewServer(m serialmux.SerialMuxInterface, db *db.DB, units string) *Server {
 	return &Server{
-		m:  m,
-		db: db,
+		m:     m,
+		db:    db,
+		units: units,
 	}
 }
 
@@ -83,6 +109,7 @@ func (s *Server) ServeMux() *http.ServeMux {
 	mux.HandleFunc("/events", s.listEvents)
 	mux.HandleFunc("/command", s.sendCommandHandler)
 	mux.HandleFunc("/api/radar_stats", s.showRadarObjectStats)
+	mux.HandleFunc("/api/config", s.showConfig)
 	return mux
 }
 
@@ -131,8 +158,34 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Apply unit conversion to all speed values
+	for i := range stats {
+		stats[i].MaxSpeed = convertSpeed(stats[i].MaxSpeed, s.units)
+		stats[i].P50Speed = convertSpeed(stats[i].P50Speed, s.units)
+		stats[i].P85Speed = convertSpeed(stats[i].P85Speed, s.units)
+		stats[i].P98Speed = convertSpeed(stats[i].P98Speed, s.units)
+	}
+
 	if err := json.NewEncoder(w).Encode(stats); err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, "Failed to write radar stats")
+		return
+	}
+}
+
+func (s *Server) showConfig(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != http.MethodGet {
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	config := map[string]interface{}{
+		"units": s.units,
+	}
+
+	if err := json.NewEncoder(w).Encode(config); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to write config")
 		return
 	}
 }
@@ -156,7 +209,7 @@ func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 	// we control the output format with the EventAPI struct.
 	apiEvents := make([]db.EventAPI, len(events))
 	for i, e := range events {
-		apiEvents[i] = db.EventToAPI(e)
+		apiEvents[i] = s.convertEventAPISpeed(db.EventToAPI(e))
 	}
 
 	if err := json.NewEncoder(w).Encode(apiEvents); err != nil {

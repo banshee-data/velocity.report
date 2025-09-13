@@ -31,6 +31,7 @@ var (
 	devMode     = flag.Bool("dev", false, "Run in dev mode")
 	listen      = flag.String("listen", ":8080", "Listen address")
 	port        = flag.String("port", "/dev/ttySC1", "Serial port to use (ignored in dev mode)")
+	units       = flag.String("units", "mph", "Speed units for display (mps, mph, kmph)")
 )
 
 // Constants
@@ -104,6 +105,9 @@ func main() {
 	}
 	if *port == "" {
 		log.Fatal("Serial port is required")
+	}
+	if *units != "mps" && *units != "mph" && *units != "kmph" && *units != "kph" {
+		log.Fatal("Units must be one of: mps, mph, kmph, kph")
 	}
 
 	// var r radar.RadarPortInterface
@@ -181,7 +185,7 @@ func main() {
 
 		// create a new API server instance using the radar port and database
 		// and mount the API handlers
-		apiServer := api.NewServer(radarSerial, db)
+		apiServer := api.NewServer(radarSerial, db, *units)
 		mux := apiServer.ServeMux()
 
 		radarSerial.AttachAdminRoutes(mux)
