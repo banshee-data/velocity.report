@@ -20,25 +20,32 @@ export interface RadarStats {
 
 export interface Config {
 	units: string;
+	timezone: string;
 }
 
 const API_BASE = '/api';
 
-export async function getEvents(units?: string): Promise<Event[]> {
+export async function getEvents(units?: string, timezone?: string): Promise<Event[]> {
 	const url = new URL(`${API_BASE}/events`, window.location.origin);
 	if (units) {
 		url.searchParams.append('units', units);
+	}
+	if (timezone) {
+		url.searchParams.append('timezone', timezone);
 	}
 	const res = await fetch(url);
 	if (!res.ok) throw new Error(`Failed to fetch events: ${res.status}`);
 	return res.json();
 }
 
-export async function getRadarStats(units?: string, days = 14): Promise<RadarStats[]> {
+export async function getRadarStats(units?: string, timezone?: string, days = 14): Promise<RadarStats[]> {
 	const url = new URL(`${API_BASE}/radar_stats`, window.location.origin);
 	url.searchParams.append('days', days.toString());
 	if (units) {
 		url.searchParams.append('units', units);
+	}
+	if (timezone) {
+		url.searchParams.append('timezone', timezone);
 	}
 	const res = await fetch(url);
 	if (!res.ok) throw new Error(`Failed to fetch radar stats: ${res.status}`);

@@ -1,28 +1,36 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Card, Header, SelectField } from 'svelte-ux';
+	import { Card, Header, SelectField, Table } from 'svelte-ux';
 	import { getConfig, type Config } from '../../lib/api';
+	import { displayTimezone, initializeTimezone, updateTimezone } from '../../lib/stores/timezone';
 	import { displayUnits, initializeUnits, updateUnits } from '../../lib/stores/units';
+	import { AVAILABLE_TIMEZONES, getTimezoneLabel, type Timezone } from '../../lib/timezone';
 	import { AVAILABLE_UNITS, getUnitLabel, type Unit } from '../../lib/units';
 
-	let config: Config = { units: 'mph' };
+	let config: Config = { units: 'mph', timezone: 'UTC' };
 	let selectedUnits: Unit = 'mph';
+	let selectedTimezone: Timezone = 'UTC';
 	let loading = true;
 	let message = '';
 
-	// Initialize selectedUnits from the store - this will update when the store changes
+	// Initialize from stores - these will update when the stores change
 	$: selectedUnits = $displayUnits;
+	$: selectedTimezone = $displayTimezone;
 
-	// Auto-save when selection changes (but avoid initial store load triggering this)
+	// Auto-save when selections change (but avoid initial store load triggering this)
 	$: if (selectedUnits && selectedUnits !== $displayUnits && !loading) {
 		handleUnitsChange(selectedUnits);
+	}
+	$: if (selectedTimezone && selectedTimezone !== $displayTimezone && !loading) {
+		handleTimezoneChange(selectedTimezone);
 	}
 
 	async function loadConfig() {
 		try {
 			config = await getConfig();
-			// Initialize the store with localStorage data and server default
+			// Initialize both stores with localStorage data and server defaults
 			initializeUnits(config.units);
+			initializeTimezone(config.timezone);
 		} catch (e) {
 			message = 'Failed to load configuration';
 		} finally {
@@ -33,7 +41,7 @@
 	function handleUnitsChange(newUnits: Unit) {
 		try {
 			updateUnits(newUnits);
-			message = 'Units updated!';
+			message = 'Units updated automatically!';
 
 			// Clear message after a few seconds
 			setTimeout(() => {
@@ -41,6 +49,20 @@
 			}, 3000);
 		} catch (e) {
 			message = 'Failed to update units';
+		}
+	}
+
+	function handleTimezoneChange(newTimezone: Timezone) {
+		try {
+			updateTimezone(newTimezone);
+			message = 'Timezone updated automatically!';
+
+			// Clear message after a few seconds
+			setTimeout(() => {
+				message = '';
+			}, 3000);
+		} catch (e) {
+			message = 'Failed to update timezone';
 		}
 	}
 
@@ -74,8 +96,29 @@
 					options={AVAILABLE_UNITS}
 					clearable={false}
 				/>
+			</div>
+		</Card>
 
-				{#if message}
+		<Card title="Display Timezone">
+			<div class="space-y-4 p-4">
+				<p class="text-surface-content/70 text-sm">
+					Choose your preferred timezone for displaying timestamps. Changes are saved automatically
+					and will override the server default ({getTimezoneLabel(config.timezone as Timezone)}).
+					Daylight saving time (DST) is handled automatically.
+				</p>
+
+				<SelectField
+					label="Timezone"
+					bind:value={selectedTimezone}
+					options={AVAILABLE_TIMEZONES}
+					clearable={false}
+				/>
+			</div>
+		</Card>
+
+		{#if message}
+			<Card>
+				<div class="p-4">
 					<p
 						class="text-sm"
 						class:text-green-600={message.includes('automatically')}
@@ -83,7 +126,31 @@
 					>
 						{message}
 					</p>
-				{/if}
+				</div>
+			</Card>
+		{/if}
+
+		<Card title="Current Configuration">
+			<div class="px-4 pb-4">
+				<Table
+					data={[
+						{
+							setting: 'Units',
+							serverDefault: getUnitLabel(config.units as Unit),
+							yourSetting: getUnitLabel($displayUnits)
+						},
+						{
+							setting: 'Timezone',
+							serverDefault: getTimezoneLabel(config.timezone as Timezone),
+							yourSetting: getTimezoneLabel($displayTimezone)
+						}
+					]}
+					columns={[
+						{ name: 'setting', header: '' },
+						{ name: 'serverDefault', header: 'Server Default' },
+						{ name: 'yourSetting', header: 'Your Setting' }
+					]}
+				/>
 			</div>
 		</Card>
 	{/if}

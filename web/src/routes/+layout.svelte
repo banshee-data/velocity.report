@@ -1,18 +1,18 @@
 <script lang="ts">
+	import { mdiCog, mdiGithub, mdiHome } from '@mdi/js';
 	import {
-		NavItem,
-		AppLayout,
-		Tooltip,
-		Button,
 		AppBar,
-		ThemeSelect,
+		AppLayout,
+		Button,
+		NavItem,
 		ThemeInit,
+		ThemeSelect,
+		Tooltip,
 		settings
 	} from 'svelte-ux';
-	import { mdiGithub, mdiHome, mdiCog } from '@mdi/js';
 
-	import { discord } from '$lib/icons';
 	import { page } from '$app/state';
+	import { discord } from '$lib/icons';
 
 	import './app.css';
 
@@ -39,6 +39,15 @@
 						'text-primary bg-surface-100 font-medium shadow-sm z-10\
 						before:absolute before:bg-primary before:rounded-full \
 						before:w-1 before:h-2/3 before:left-[6px]'
+				}
+			},
+			Table: {
+				classes: {
+					table: 'w-full',
+					thead: '',
+					tbody: '',
+					th: 'p-3 text-left font-medium text-surface-content/70',
+					td: 'p-3'
 				}
 			}
 		}
