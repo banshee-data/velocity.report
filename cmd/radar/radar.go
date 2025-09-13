@@ -28,11 +28,12 @@ import (
 )
 
 var (
-	fixtureMode = flag.Bool("fixture", false, "Load fixture to local database")
-	devMode     = flag.Bool("dev", false, "Run in dev mode")
-	listen      = flag.String("listen", ":8080", "Listen address")
-	port        = flag.String("port", "/dev/ttySC1", "Serial port to use (ignored in dev mode)")
-	unitsFlag   = flag.String("units", "mph", "Speed units for display (mps, mph, kmph)")
+	fixtureMode  = flag.Bool("fixture", false, "Load fixture to local database")
+	devMode      = flag.Bool("dev", false, "Run in dev mode")
+	listen       = flag.String("listen", ":8080", "Listen address")
+	port         = flag.String("port", "/dev/ttySC1", "Serial port to use (ignored in dev mode)")
+	unitsFlag    = flag.String("units", "mph", "Speed units for display (mps, mph, kmph)")
+	timezoneFlag = flag.String("timezone", "UTC", "Timezone for display (UTC, US/Eastern, US/Pacific, etc.)")
 )
 
 // Constants
@@ -111,6 +112,10 @@ func main() {
 		log.Printf("Error: Invalid units '%s'. Valid options are: %s", *unitsFlag, units.GetValidUnitsString())
 		os.Exit(1)
 	}
+	if !units.IsTimezoneValid(*timezoneFlag) {
+		log.Printf("Error: Invalid timezone '%s'. Valid options are: %s", *timezoneFlag, units.GetValidTimezonesString())
+		os.Exit(1)
+	}
 
 	// var r radar.RadarPortInterface
 	var radarSerial serialmux.SerialMuxInterface
@@ -187,7 +192,7 @@ func main() {
 
 		// create a new API server instance using the radar port and database
 		// and mount the API handlers
-		apiServer := api.NewServer(radarSerial, db, *unitsFlag)
+		apiServer := api.NewServer(radarSerial, db, *unitsFlag, *timezoneFlag)
 		mux := apiServer.ServeMux()
 
 		radarSerial.AttachAdminRoutes(mux)

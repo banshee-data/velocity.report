@@ -31,16 +31,18 @@ func convertEventAPISpeed(event db.EventAPI, targetUnits string) db.EventAPI {
 }
 
 type Server struct {
-	m     serialmux.SerialMuxInterface
-	db    *db.DB
-	units string
+	m        serialmux.SerialMuxInterface
+	db       *db.DB
+	units    string
+	timezone string
 }
 
-func NewServer(m serialmux.SerialMuxInterface, db *db.DB, units string) *Server {
+func NewServer(m serialmux.SerialMuxInterface, db *db.DB, units string, timezone string) *Server {
 	return &Server{
-		m:     m,
-		db:    db,
-		units: units,
+		m:        m,
+		db:       db,
+		units:    units,
+		timezone: timezone,
 	}
 }
 
@@ -148,6 +150,20 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Check for timezone override in query parameter
+	displayTimezone := s.timezone // default to CLI-set timezone
+	if tz := r.URL.Query().Get("timezone"); tz != "" {
+		if units.IsTimezoneValid(tz) {
+			displayTimezone = tz
+		} else {
+			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid 'timezone' parameter. Must be one of: %s", units.GetValidTimezonesString()))
+			return
+		}
+	}
+
+	// TODO: Add timezone conversion for timestamps once database schema includes timestamps
+	_ = displayTimezone // Silence unused variable warning for now
+
 	stats, err := s.db.RadarObjectRollup(days)
 	if err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError,
@@ -178,7 +194,8 @@ func (s *Server) showConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	config := map[string]interface{}{
-		"units": s.units,
+		"units":    s.units,
+		"timezone": s.timezone,
 	}
 
 	if err := json.NewEncoder(w).Encode(config); err != nil {
@@ -205,6 +222,20 @@ func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
+	// Check for timezone override in query parameter
+	displayTimezone := s.timezone // default to CLI-set timezone
+	if tz := r.URL.Query().Get("timezone"); tz != "" {
+		if units.IsTimezoneValid(tz) {
+			displayTimezone = tz
+		} else {
+			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid 'timezone' parameter. Must be one of: %s", units.GetValidTimezonesString()))
+			return
+		}
+	}
+
+	// TODO: Add timezone conversion for timestamps once database schema includes timestamps
+	_ = displayTimezone // Silence unused variable warning for now
 
 	events, err := s.db.Events()
 	if err != nil {
