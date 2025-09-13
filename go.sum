@@ -42,8 +42,6 @@ github.com/creack/goselect v0.1.3 h1:MaGNMclRo7P2Jl21hBpR1Cn33ITSbKP6E49RtfblLKc
 github.com/creack/goselect v0.1.3/go.mod h1:a/NhLweNvqIYMuxcMOuWY516Cimucms3DglDzQP3hKY=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1VwoXQT9A3Wy9MM3WgvqSxFWenqJduM=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/dreadl0ck/gopcap v1.0.0 h1:URrlhMhnBZWNtIWNEO4tAJe1p2wPekWUKK2ezF0+8+E=
-github.com/dreadl0ck/gopcap v1.0.0/go.mod h1:sWFRjCCc3F//R5vZv0lsENtdt05RYp+5tF2bhG7dvhg=
 github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=
 github.com/dustin/go-humanize v1.0.1/go.mod h1:Mu1zIs6XwVuF/gI1OepvI0qD18qycQx+mFykh5fBlto=
 github.com/fortytw2/leaktest v1.3.0 h1:u8491cBMTQ8ft8aeV+adlcytMZylmA5nnwwkRZjI8vw=
