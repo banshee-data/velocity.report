@@ -7,6 +7,17 @@ import (
 	"testing"
 )
 
+// Test constants - defined locally to avoid dependency on implementation details
+// This makes tests more maintainable and independent of internal constant changes
+const (
+	testChannelsPerBlock   = 40   // Number of laser channels per data block (Pandar40P)
+	testPacketSizeStandard = 1262 // Standard UDP packet size in bytes
+	testPacketSizeSequence = 1266 // UDP packet size with 4-byte sequence number
+	testBlocksPerPacket    = 10   // Number of data blocks per packet
+	testTailSize           = 22   // LiDAR data tail size in bytes
+	testBlockSize          = 124  // Size of each data block in bytes
+)
+
 // TestPandar40PConfigWrapper tests loading the configuration via the wrapper function
 func TestPandar40PConfigWrapper(t *testing.T) {
 	// Test loading embedded configuration
@@ -22,16 +33,16 @@ func TestPandar40PConfigWrapper(t *testing.T) {
 	}
 
 	// Test that we have all channels
-	if len(config.AngleCorrections) != CHANNELS_PER_BLOCK {
-		t.Errorf("Expected %d angle corrections, got %d", CHANNELS_PER_BLOCK, len(config.AngleCorrections))
+	if len(config.AngleCorrections) != testChannelsPerBlock {
+		t.Errorf("Expected %d angle corrections, got %d", testChannelsPerBlock, len(config.AngleCorrections))
 	}
 
-	if len(config.FiretimeCorrections) != CHANNELS_PER_BLOCK {
-		t.Errorf("Expected %d firetime corrections, got %d", CHANNELS_PER_BLOCK, len(config.FiretimeCorrections))
+	if len(config.FiretimeCorrections) != testChannelsPerBlock {
+		t.Errorf("Expected %d firetime corrections, got %d", testChannelsPerBlock, len(config.FiretimeCorrections))
 	}
 
 	// Test that channels are properly numbered (1-40)
-	for i := 0; i < CHANNELS_PER_BLOCK; i++ {
+	for i := 0; i < testChannelsPerBlock; i++ {
 		if config.AngleCorrections[i].Channel != i+1 {
 			t.Errorf("Angle correction channel mismatch at index %d: expected %d, got %d",
 				i, i+1, config.AngleCorrections[i].Channel)
@@ -42,7 +53,7 @@ func TestPandar40PConfigWrapper(t *testing.T) {
 		}
 	}
 
-	t.Logf("Successfully loaded embedded configuration for %d channels", CHANNELS_PER_BLOCK)
+	t.Logf("Successfully loaded embedded configuration for %d channels", testChannelsPerBlock)
 }
 
 // TestPacketParsingWithMockData tests basic packet parsing with generated data
@@ -71,7 +82,7 @@ func TestPacketParsingWithMockData(t *testing.T) {
 	if len(points) > 0 {
 		point := points[0]
 
-		if point.Channel < 1 || point.Channel > CHANNELS_PER_BLOCK {
+		if point.Channel < 1 || point.Channel > testChannelsPerBlock {
 			t.Errorf("Invalid channel number: %d", point.Channel)
 		}
 
@@ -357,7 +368,7 @@ func TestPcapngPacketExtraction(t *testing.T) {
 		}
 
 		// Validate packet size
-		if len(packet) != PACKET_SIZE_STANDARD && len(packet) != PACKET_SIZE_SEQUENCE {
+		if len(packet) != testPacketSizeStandard && len(packet) != testPacketSizeSequence {
 			t.Logf("Packet %d: unexpected size %d bytes, skipping", i+1, len(packet))
 			continue
 		}
@@ -386,14 +397,14 @@ func extractUDPPayloads(data []byte) [][]byte {
 
 	// Look for patterns that might be LiDAR packets
 	// LiDAR packets start with block preambles (0xFFEE in little-endian = 0xEEFF)
-	for i := 0; i < len(data)-PACKET_SIZE_STANDARD; i++ {
+	for i := 0; i < len(data)-testPacketSizeStandard; i++ {
 		// Look for the characteristic pattern of multiple 0xEEFF preambles
 		// spaced 124 bytes apart (block size)
 		if binary.LittleEndian.Uint16(data[i:i+2]) == 0xEEFF {
 			// Check if we have more preambles at expected intervals
 			validPattern := true
 			for block := 1; block < 3; block++ { // Check first 3 blocks
-				offset := i + block*BLOCK_SIZE
+				offset := i + block*testBlockSize
 				if offset+2 > len(data) || binary.LittleEndian.Uint16(data[offset:offset+2]) != 0xEEFF {
 					validPattern = false
 					break
@@ -402,13 +413,13 @@ func extractUDPPayloads(data []byte) [][]byte {
 
 			if validPattern {
 				// Extract the full packet
-				if i+PACKET_SIZE_STANDARD <= len(data) {
-					packet := make([]byte, PACKET_SIZE_STANDARD)
-					copy(packet, data[i:i+PACKET_SIZE_STANDARD])
+				if i+testPacketSizeStandard <= len(data) {
+					packet := make([]byte, testPacketSizeStandard)
+					copy(packet, data[i:i+testPacketSizeStandard])
 					packets = append(packets, packet)
 
 					// Skip ahead to avoid overlapping extractions
-					i += PACKET_SIZE_STANDARD - 1
+					i += testPacketSizeStandard - 1
 				}
 			}
 		}
@@ -419,11 +430,11 @@ func extractUDPPayloads(data []byte) [][]byte {
 
 // createTestMockPacket creates a mock packet for testing
 func createTestMockPacket() []byte {
-	packet := make([]byte, PACKET_SIZE_STANDARD)
+	packet := make([]byte, testPacketSizeStandard)
 
 	// Data blocks start immediately at offset 0 (no header)
 	offset := 0
-	for block := 0; block < BLOCKS_PER_PACKET; block++ {
+	for block := 0; block < testBlocksPerPacket; block++ {
 		// Block preamble (0xFFEE) - appears as 0xEEFF in little-endian
 		binary.LittleEndian.PutUint16(packet[offset:offset+2], 0xEEFF)
 		offset += 2
@@ -433,7 +444,7 @@ func createTestMockPacket() []byte {
 		offset += 2
 
 		// Channel data (40 channels per block)
-		for channel := 0; channel < CHANNELS_PER_BLOCK; channel++ {
+		for channel := 0; channel < testChannelsPerBlock; channel++ {
 			// Distance (simulate 10 meter measurement)
 			distance := uint16(10000 / 4) // 10m in 4mm units
 			binary.LittleEndian.PutUint16(packet[offset:offset+2], distance)
@@ -446,7 +457,7 @@ func createTestMockPacket() []byte {
 	}
 
 	// Tail (22 bytes) - fill with realistic values based on official documentation
-	tailOffset := PACKET_SIZE_STANDARD - TAIL_SIZE
+	tailOffset := testPacketSizeStandard - testTailSize
 
 	// Reserved fields (bytes 0-4)
 	copy(packet[tailOffset:tailOffset+5], []byte{0x02, 0x2f, 0xae, 0x01, 0x89})
@@ -476,7 +487,7 @@ func createTestMockConfig() *Pandar40PConfig {
 	config := &Pandar40PConfig{}
 
 	// Create mock angle corrections (simplified)
-	for i := 0; i < CHANNELS_PER_BLOCK; i++ {
+	for i := 0; i < testChannelsPerBlock; i++ {
 		config.AngleCorrections[i] = AngleCorrection{
 			Channel:   i + 1,
 			Elevation: float64(i-20) * 0.5, // Simple elevation progression
