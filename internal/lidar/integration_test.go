@@ -156,9 +156,23 @@ func extractPCAPDataUsingGopacket(pcapPath string, parser *parse.Pandar40PParser
 			continue
 		}
 
-		points, err := parser.ParsePacket(lidarData)
-		if err == nil && len(points) > 0 {
-			allPoints = append(allPoints, points...)
+		parsedPoints, err := parser.ParsePacket(lidarData)
+		if err == nil && len(parsedPoints) > 0 {
+			// Convert parsed points to lidar.Point type
+			for _, point := range parsedPoints {
+				lidarPoint := lidar.Point{
+					X:         point.X,
+					Y:         point.Y,
+					Z:         point.Z,
+					Intensity: point.Intensity,
+					Azimuth:   point.Azimuth,
+					Elevation: point.Elevation,
+					Distance:  point.Distance,
+					Timestamp: point.Timestamp,
+					Channel:   point.Channel,
+				}
+				allPoints = append(allPoints, lidarPoint)
+			}
 		}
 	}
 
