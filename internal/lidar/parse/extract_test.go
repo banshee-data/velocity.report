@@ -397,7 +397,7 @@ func extractUDPPayloads(data []byte) [][]byte {
 
 	// Look for patterns that might be LiDAR packets
 	// LiDAR packets start with block preambles (0xFFEE in little-endian = 0xEEFF)
-	for i := 0; i < len(data)-testPacketSizeStandard; i++ {
+	for i := 0; i <= len(data)-testPacketSizeStandard; i++ {
 		// Look for the characteristic pattern of multiple 0xEEFF preambles
 		// spaced 124 bytes apart (block size)
 		if binary.LittleEndian.Uint16(data[i:i+2]) == 0xEEFF {
@@ -412,15 +412,13 @@ func extractUDPPayloads(data []byte) [][]byte {
 			}
 
 			if validPattern {
-				// Extract the full packet
-				if i+testPacketSizeStandard <= len(data) {
-					packet := make([]byte, testPacketSizeStandard)
-					copy(packet, data[i:i+testPacketSizeStandard])
-					packets = append(packets, packet)
+				// Extract the full packet - bounds already checked by loop condition
+				packet := make([]byte, testPacketSizeStandard)
+				copy(packet, data[i:i+testPacketSizeStandard])
+				packets = append(packets, packet)
 
-					// Skip ahead to avoid overlapping extractions
-					i += testPacketSizeStandard - 1
-				}
+				// Skip ahead to avoid overlapping extractions
+				i += testPacketSizeStandard - 1
 			}
 		}
 	}
