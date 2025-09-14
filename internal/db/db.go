@@ -183,6 +183,105 @@ func classifier(mag int64) string {
 }
 
 // RadarObjectRollup presents an aggregate view of the radar objects, to feed a percentile and/or volume graph
+// RadarObjectRollupRange aggregates radar_objects between startUnix and endUnix
+// grouping rows into buckets of groupSeconds. Returns one aggregate row per
+// classifier per bucket.
+func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64) ([]RadarObjectsRollupRow, error) {
+	if endUnix <= startUnix {
+		return nil, fmt.Errorf("end must be greater than start")
+	}
+	if groupSeconds <= 0 {
+		return nil, fmt.Errorf("groupSeconds must be positive")
+	}
+
+	rows, err := db.Query(`SELECT write_timestamp, max_magnitude, max_speed FROM radar_objects WHERE write_timestamp BETWEEN ? AND ?`, startUnix, endUnix)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// nested map: classifier -> bucketStart -> []speeds
+	buckets := make(map[string]map[int64][]float64)
+	// track max speed per bucket
+	bucketMax := make(map[string]map[int64]float64)
+
+	for rows.Next() {
+		var ts int64
+		var mag int64
+		var spd float64
+		if err := rows.Scan(&ts, &mag, &spd); err != nil {
+			return nil, err
+		}
+		classifier := classifier(mag)
+
+		// compute bucket start aligned to startUnix
+		offset := ts - startUnix
+		if offset < 0 {
+			offset = 0
+		}
+		bucketOffset := (offset / groupSeconds) * groupSeconds
+		bucketStart := startUnix + bucketOffset
+
+		if _, ok := buckets[classifier]; !ok {
+			buckets[classifier] = make(map[int64][]float64)
+			bucketMax[classifier] = make(map[int64]float64)
+		}
+		buckets[classifier][bucketStart] = append(buckets[classifier][bucketStart], spd)
+		if curr, ok := bucketMax[classifier][bucketStart]; !ok || spd > curr {
+			bucketMax[classifier][bucketStart] = spd
+		}
+	}
+
+	aggregated := []RadarObjectsRollupRow{}
+
+	// iterate classifiers and sorted bucket keys to produce deterministic output
+	for classifier, bucketMap := range buckets {
+		// collect and sort bucket starts
+		keys := make([]int64, 0, len(bucketMap))
+		for k := range bucketMap {
+			keys = append(keys, k)
+		}
+		sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+
+		for _, bucketStart := range keys {
+			speeds := bucketMap[bucketStart]
+
+			agg := RadarObjectsRollupRow{
+				Classifier: classifier,
+				StartTime:  time.Unix(bucketStart, 0).UTC(),
+			}
+
+			if len(speeds) > 0 {
+				// MaxSpeed from bucketMax map
+				agg.MaxSpeed = bucketMax[classifier][bucketStart]
+				agg.Count = int64(len(speeds))
+
+				// sort for percentile calculation
+				sorted := make([]float64, len(speeds))
+				copy(sorted, speeds)
+				sort.Float64s(sorted)
+
+				agg.P50Speed = stat.Quantile(0.5, stat.Empirical, sorted, nil)
+				agg.P85Speed = stat.Quantile(0.85, stat.Empirical, sorted, nil)
+				agg.P98Speed = stat.Quantile(0.98, stat.Empirical, sorted, nil)
+			} else {
+				// defaults
+				agg.MaxSpeed = 0
+				agg.Count = 0
+				agg.P50Speed = 0
+				agg.P85Speed = 0
+				agg.P98Speed = 0
+			}
+
+			aggregated = append(aggregated, agg)
+		}
+	}
+
+	return aggregated, nil
+}
+
+// RadarObjectRollup is the legacy wrapper that accepts a number of days and
+// returns a single aggregate per classifier covering that timeframe.
 func (db *DB) RadarObjectRollup(days ...int) ([]RadarObjectsRollupRow, error) {
 	// Set default days to 1 if not provided
 	numDays := 1
@@ -193,72 +292,9 @@ func (db *DB) RadarObjectRollup(days ...int) ([]RadarObjectsRollupRow, error) {
 	timeframeEnd := time.Now().Unix()
 	timeframeStart := timeframeEnd - int64(24*60*60*numDays)
 
-	rows, err := db.Query(`SELECT max_magnitude, max_speed FROM radar_objects WHERE write_timestamp BETWEEN ? AND ?`, timeframeStart, timeframeEnd)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	type statResult struct {
-		MaxMagnitude int64
-		MaxSpeed     float64
-	}
-
-	results := make(map[string][]statResult)
-
-	for rows.Next() {
-		var r statResult
-		if err := rows.Scan(&r.MaxMagnitude, &r.MaxSpeed); err != nil {
-			return nil, err
-		}
-		classifier := classifier(r.MaxMagnitude)
-
-		l, ok := results[classifier]
-		if !ok {
-			l = []statResult{}
-		}
-
-		l = append(l, r)
-		results[classifier] = l
-	}
-
-	aggregated := []RadarObjectsRollupRow{}
-
-	for classifier, stats := range results {
-		// Compute aggregate statistics for each classifier
-		agg := RadarObjectsRollupRow{
-			Classifier: classifier,
-			StartTime:  time.Unix(timeframeStart, 0).UTC(),
-		}
-
-		for _, s := range stats {
-			agg.MaxSpeed = math.Max(agg.MaxSpeed, s.MaxSpeed)
-		}
-
-		// count stat values for each classifier
-		agg.Count = int64(len(stats))
-
-		// collect speeds for percentile calculation
-		speeds := make([]float64, 0, len(stats))
-		for _, s := range stats {
-			speeds = append(speeds, s.MaxSpeed)
-		}
-
-		// sort the speeds slice
-		sorted := make([]float64, len(speeds))
-		copy(sorted, speeds)
-		sort.Float64s(sorted)
-
-		// calculate percentiles
-		agg.P50Speed = stat.Quantile(0.5, stat.Empirical, sorted, nil)
-		agg.P85Speed = stat.Quantile(0.85, stat.Empirical, sorted, nil)
-		agg.P98Speed = stat.Quantile(0.98, stat.Empirical, sorted, nil)
-
-		// Store the aggregate row
-		aggregated = append(aggregated, agg)
-	}
-
-	return aggregated, nil
+	// groupSeconds equal to the whole timeframe to produce a single bucket
+	groupSeconds := timeframeEnd - timeframeStart
+	return db.RadarObjectRollupRange(timeframeStart, timeframeEnd, groupSeconds)
 }
 
 func (db *DB) RecordRawData(rawDataJSON string) error {
