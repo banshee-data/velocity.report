@@ -206,12 +206,16 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64) ([]
 	bucketMax := make(map[string]map[int64]float64)
 
 	for rows.Next() {
-		var ts int64
+		// write_timestamp is stored as DOUBLE in the schema; scan into a float64
+		// and convert to int64 to avoid occasional Scan type errors when the
+		// driver returns a float for the column.
+		var tsFloat float64
 		var mag int64
 		var spd float64
-		if err := rows.Scan(&ts, &mag, &spd); err != nil {
+		if err := rows.Scan(&tsFloat, &mag, &spd); err != nil {
 			return nil, err
 		}
+		ts := int64(math.Round(tsFloat))
 		classifier := classifier(mag)
 
 		// compute bucket start aligned to startUnix
