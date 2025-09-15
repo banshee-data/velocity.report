@@ -233,13 +233,6 @@
 						{/each}
 						<Highlight points lines />
 					</Svg>
-
-					<!-- <Tooltip.Root>
-						<Tooltip.Header>Head</Tooltip.Header>
-						<Tooltip.List>
-							<Tooltip.Item label="body" value="data" />
-						</Tooltip.List>
-					</Tooltip.Root> -->
 				</Chart>
 			</div>
 		{/if}
