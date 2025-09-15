@@ -180,7 +180,9 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64) ([]
 		return nil, fmt.Errorf("groupSeconds must be positive")
 	}
 
-	rows, err := db.Query(`SELECT write_timestamp, max_speed FROM radar_objects WHERE write_timestamp BETWEEN ? AND ?`, startUnix, endUnix)
+	minSpeed := 2.2352 // minimum speed to consider (2.2352 mps, 5 mph)
+
+	rows, err := db.Query(`SELECT write_timestamp, max_speed FROM radar_objects WHERE max_speed > ? AND write_timestamp BETWEEN ? AND ?`, minSpeed, startUnix, endUnix)
 	if err != nil {
 		return nil, err
 	}
