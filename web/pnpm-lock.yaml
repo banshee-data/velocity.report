@@ -10,6 +10,10 @@ overrides:
 importers:
 
   .:
+    dependencies:
+      '@layerstack/utils':
+        specifier: 2.0.0-next.14
+        version: 2.0.0-next.14
     devDependencies:
       '@eslint/compat':
         specifier: ^1.2.5
