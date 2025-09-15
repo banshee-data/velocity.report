@@ -178,11 +178,10 @@
 			</div>
 		</div>
 
-		<Grid autoColumns="18em" gap={8}>
+		<Grid autoColumns="12em" gap={8}>
 			<Card title="Vehicle Count">
 				<div class="pb-4 pl-4 pr-4 pt-0">
 					<p class="text-3xl font-bold text-blue-600">{totalCount}</p>
-					<p class="text-surface-content/70 text-sm">vehicles detected</p>
 				</div>
 			</Card>
 
@@ -192,7 +191,6 @@
 						{maxSpeed.toFixed(1)}
 						{getUnitLabel($displayUnits)}
 					</p>
-					<p class="text-surface-content/70 text-sm">last 14 days</p>
 				</div>
 			</Card>
 		</Grid>
@@ -210,7 +208,7 @@
 					cScale={scaleOrdinal()}
 					cDomain={['p50', 'p85', 'p98', 'max']}
 					cRange={['#2563eb', '#16a34a', '#f59e0b', '#ef4444']}
-					padding={{ left: 16, bottom: 24, right: 48 }}
+					padding={{ left: 16, bottom: 24, right: 8 }}
 					tooltip={{ mode: 'voronoi' }}
 				>
 					<Svg>
