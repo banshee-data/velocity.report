@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 
@@ -92,6 +93,9 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// start and end are expected as unix timestamps (seconds). group is a
+// human-friendly code that maps to seconds (see supportedGroups below).
+
 func (s *Server) ServeMux() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/events", s.listEvents)
@@ -121,22 +125,31 @@ func (s *Server) writeJSONError(w http.ResponseWriter, status int, msg string) {
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
 
+// supportedGroups is a mapping of allowed group tokens to seconds for radar stats grouping
+var supportedGroups = map[string]int64{
+	"15m": 15 * 60,
+	"30m": 30 * 60,
+	"1h":  60 * 60,
+	"2h":  2 * 60 * 60,
+	"3h":  3 * 60 * 60,
+	"4h":  4 * 60 * 60,
+	"6h":  6 * 60 * 60,
+	"8h":  8 * 60 * 60,
+	"12h": 12 * 60 * 60,
+	"24h": 24 * 60 * 60,
+	"2d":  2 * 24 * 60 * 60,
+	"3d":  3 * 24 * 60 * 60,
+	"7d":  7 * 24 * 60 * 60,
+	"14d": 14 * 24 * 60 * 60,
+	"28d": 28 * 24 * 60 * 60,
+}
+
 func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	if r.Method != http.MethodGet {
 		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
-	}
-
-	days := 1 // default value
-	if d := r.URL.Query().Get("days"); d != "" {
-		parsedDays, err := strconv.Atoi(d)
-		if err != nil || parsedDays < 1 {
-			s.writeJSONError(w, http.StatusBadRequest, "Invalid 'days' parameter")
-			return
-		}
-		days = parsedDays
 	}
 
 	// Check for units override in query parameter
@@ -164,10 +177,40 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 	// TODO: Add timezone conversion for timestamps once database schema includes timestamps
 	_ = displayTimezone // Silence unused variable warning for now
 
-	stats, err := s.db.RadarObjectRollup(days)
-	if err != nil {
+	// Check for optional start/end/group parameters for time range + grouping
+	// start and end are expected as unix timestamps (seconds). group is a
+	// human-friendly code that maps to seconds (see supportedGroups below).
+	startStr := r.URL.Query().Get("start")
+	endStr := r.URL.Query().Get("end")
+	groupStr := r.URL.Query().Get("group")
+
+	// All three params are required for range-grouped query
+	if startStr == "" || endStr == "" {
+		s.writeJSONError(w, http.StatusBadRequest, "'start' and 'end' must be provided for radar stats queries")
+		return
+	}
+	startUnix, err1 := strconv.ParseInt(startStr, 10, 64)
+	endUnix, err2 := strconv.ParseInt(endStr, 10, 64)
+	if err1 != nil || err2 != nil || startUnix <= 0 || endUnix <= 0 {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid 'start' or 'end' parameter; must be unix timestamps in seconds")
+		return
+	}
+
+	// If group is not provided, default to the smallest group (15m)
+	groupSeconds := supportedGroups["15m"]
+	if groupStr != "" {
+		var ok bool
+		groupSeconds, ok = supportedGroups[groupStr]
+		if !ok {
+			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid 'group' parameter. Supported values: %v", keysOfMap(supportedGroups)))
+			return
+		}
+	}
+
+	stats, dbErr := s.db.RadarObjectRollupRange(startUnix, endUnix, groupSeconds)
+	if dbErr != nil {
 		s.writeJSONError(w, http.StatusInternalServerError,
-			fmt.Sprintf("Failed to retrieve radar stats: %v", err))
+			fmt.Sprintf("Failed to retrieve radar stats: %v", dbErr))
 		return
 	}
 
@@ -183,6 +226,16 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 		s.writeJSONError(w, http.StatusInternalServerError, "Failed to write radar stats")
 		return
 	}
+}
+
+// keysOfMap returns the keys of a string->int64 map as a sorted slice for error messages.
+func keysOfMap(m map[string]int64) []string {
+	ks := make([]string, 0, len(m))
+	for k := range m {
+		ks = append(ks, k)
+	}
+	sort.Strings(ks)
+	return ks
 }
 
 func (s *Server) showConfig(w http.ResponseWriter, r *http.Request) {

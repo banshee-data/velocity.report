@@ -38,15 +38,20 @@ export async function getEvents(units?: string, timezone?: string): Promise<Even
 	return res.json();
 }
 
-export async function getRadarStats(units?: string, timezone?: string, days = 14): Promise<RadarStats[]> {
+// getRadarStats now requires start and end (unix seconds), and optional group, units, timezone
+export async function getRadarStats(
+	start: number,
+	end: number,
+	group?: string,
+	units?: string,
+	timezone?: string
+): Promise<RadarStats[]> {
 	const url = new URL(`${API_BASE}/radar_stats`, window.location.origin);
-	url.searchParams.append('days', days.toString());
-	if (units) {
-		url.searchParams.append('units', units);
-	}
-	if (timezone) {
-		url.searchParams.append('timezone', timezone);
-	}
+	url.searchParams.append('start', start.toString());
+	url.searchParams.append('end', end.toString());
+	if (group) url.searchParams.append('group', group);
+	if (units) url.searchParams.append('units', units);
+	if (timezone) url.searchParams.append('timezone', timezone);
 	const res = await fetch(url);
 	if (!res.ok) throw new Error(`Failed to fetch radar stats: ${res.status}`);
 	return res.json();
