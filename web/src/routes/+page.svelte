@@ -1,7 +1,9 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
+	import { PeriodType } from '@layerstack/utils';
 	import { scaleOrdinal, scaleTime } from 'd3-scale';
 	import { format } from 'date-fns';
-	import { Axis, Chart, Highlight, Spline, Svg, Text, Tooltip } from 'layerchart';
+	import { Axis, Chart, Highlight, Spline, Svg, Text } from 'layerchart';
 	import { onMount } from 'svelte';
 	import { Card, DateRangeField, Grid, Header, SelectField } from 'svelte-ux';
 	import { getConfig, getRadarStats, type Config, type RadarStats } from '../lib/api';
@@ -19,13 +21,10 @@
 		return d.toISOString().slice(0, 10);
 	}
 	const today = new Date();
-	const startDefault = new Date(today);
-	startDefault.setDate(today.getDate() - 13); // last 14 days inclusive
-	let range: { start?: string | null; end?: string | null } = {
-		start: isoDate(startDefault),
-		end: isoDate(today)
-	};
-	let group: string = '24h';
+	const fromDefault = new Date(today);
+	fromDefault.setDate(today.getDate() - 13); // last 14 days inclusive
+	let dateRange = { from: fromDefault, to: today, periodType: PeriodType.Day };
+	let group: string = '4h';
 	let chartData: Array<{ date: Date; metric: string; value: number }> = [];
 
 	// color map mirrors the cDomain/cRange used by the chart so we don't need
@@ -56,9 +55,32 @@
 	];
 	const options = groupOptions.map((o) => ({ value: o, label: o }));
 
-	// Reactive statement to reload data when units change
-	$: if ($displayUnits && !loading) {
-		loadStats($displayUnits);
+	// Reload stats and chart when dateRange or units change (client only)
+	let lastFrom: number = 0;
+	let lastTo: number = 0;
+	let lastUnits: Unit | undefined = undefined;
+	$: if (
+		browser &&
+		dateRange.from &&
+		dateRange.to &&
+		(dateRange.from.getTime() !== lastFrom ||
+			dateRange.to.getTime() !== lastTo ||
+			$displayUnits !== lastUnits)
+	) {
+		lastFrom = dateRange.from.getTime();
+		lastTo = dateRange.to.getTime();
+		lastUnits = $displayUnits;
+		loading = true;
+		Promise.all([loadStats($displayUnits), loadChart()]).finally(() => {
+			loading = false;
+		});
+	}
+
+	// Reload only the chart when group changes (client only)
+	let lastGroup = '';
+	$: if (browser && group !== lastGroup) {
+		lastGroup = group;
+		loadChart();
 	}
 
 	async function loadConfig() {
@@ -72,14 +94,14 @@
 
 	async function loadStats(units: Unit) {
 		try {
-			if (!range?.start || !range?.end) {
+			if (!dateRange.from || !dateRange.to) {
 				stats = [];
 				totalCount = 0;
 				maxSpeed = 0;
 				return;
 			}
-			const startUnix = Math.floor(new Date(range.start).getTime() / 1000);
-			const endUnix = Math.floor(new Date(range.end).getTime() / 1000);
+			const startUnix = Math.floor(dateRange.from.getTime() / 1000);
+			const endUnix = Math.floor(dateRange.to.getTime() / 1000);
 			const statsData = await getRadarStats(startUnix, endUnix, group, units);
 			stats = statsData;
 			totalCount = stats.reduce((sum, s) => sum + (s.Count || 0), 0);
@@ -91,12 +113,12 @@
 
 	// load chart data for the selected date range and group
 	async function loadChart() {
-		if (!range?.start || !range?.end) {
+		if (!dateRange.from || !dateRange.to) {
 			chartData = [];
 			return;
 		}
-		const startUnix = Math.floor(new Date(range.start).getTime() / 1000);
-		const endUnix = Math.floor(new Date(range.end).getTime() / 1000);
+		const startUnix = Math.floor(dateRange.from.getTime() / 1000);
+		const endUnix = Math.floor(dateRange.to.getTime() / 1000);
 		const units = $displayUnits;
 		const raw = await fetch(
 			`/api/radar_stats?start=${startUnix}&end=${endUnix}&group=${group}&units=${units}`
@@ -140,10 +162,7 @@
 </svelte:head>
 
 <main class="space-y-6 p-4">
-	<Header
-		title="Dashboard"
-		subheading="Vehicle traffic statistics and analytics over the past 14 days"
-	/>
+	<Header title="Dashboard" subheading="Vehicle traffic statistics and analytics" />
 
 	{#if loading}
 		<p>Loading stats…</p>
@@ -152,10 +171,10 @@
 	{:else}
 		<div class="flex items-end gap-4">
 			<div class="w-[360px]">
-				<DateRangeField bind:value={range} on:change={() => loadChart()} />
+				<DateRangeField bind:value={dateRange} periodTypes={[PeriodType.Day]} />
 			</div>
 			<div class="w-48">
-				<SelectField bind:value={group} on:change={loadChart} label="Group" {options} />
+				<SelectField bind:value={group} label="Group" {options} />
 			</div>
 		</div>
 
@@ -201,30 +220,26 @@
 							{@const data = chartData.filter((p) => p.metric === metric)}
 							{@const color = colorMap[metric]}
 							<Spline {data} class="stroke-2" stroke={color}>
-								<svelte:fragment slot="end">
-									<circle r={4} fill={color} />
-									<Text
-										value={metric}
-										verticalAnchor="middle"
-										dx={6}
-										dy={-2}
-										class="text-xs"
-										fill={color}
-									/>
-								</svelte:fragment>
+								<circle r={4} fill={color} />
+								<Text
+									value={metric}
+									verticalAnchor="middle"
+									dx={6}
+									dy={-2}
+									class="text-xs"
+									fill={color}
+								/>
 							</Spline>
 						{/each}
 						<Highlight points lines />
 					</Svg>
 
-					<Tooltip.Root>
-						<svelte:fragment slot="children" let:data>
-							<Tooltip.Header>{format(data.date, 'eee, MMMM do')}</Tooltip.Header>
-							<Tooltip.List>
-								<Tooltip.Item label={data.metric} value={data.value} />
-							</Tooltip.List>
-						</svelte:fragment>
-					</Tooltip.Root>
+					<!-- <Tooltip.Root>
+						<Tooltip.Header>Head</Tooltip.Header>
+						<Tooltip.List>
+							<Tooltip.Item label="body" value="data" />
+						</Tooltip.List>
+					</Tooltip.Root> -->
 				</Chart>
 			</div>
 		{/if}
