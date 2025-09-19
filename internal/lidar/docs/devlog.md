@@ -1,5 +1,15 @@
 # LiDAR Development Log
 
+
+## September 17, 2025 - Background model & transform refactor (PLANNED)
+
+- Sensor-frame background model (ring × azimuth) for foreground masking.
+- Two-level settling per cell (fast noise settling, slow parked-object settling).
+- Persist BackgroundGrid snapshots and warm-start on load.
+- Refactor spherical→Cartesian into a small transform helper and split polar/cartesian point types.
+- World-grid (height-map / ground estimate) on masked Cartesian points for semantic ops.
+- Next: add transform helpers, update point types, implement sensor-frame ProcessFrame and snapshot tests.
+
 ## September 13, 2025 - Test Code Maintainability & Optimization
 
 ### Parse Test Improvements
@@ -27,9 +37,9 @@
 - **Configuration completeness**: Added BufferTimeout and CleanupInterval settings for proper async frame processing
 
 ### Fixed Test Cases
-- **TestFrameBuilder_TraditionalAzimuthOnly**: ✅ Traditional azimuth-only detection (350° → 10°) with 60,000 points
-- **TestFrameBuilder_HybridDetection**: ✅ Time-based detection with azimuth validation and realistic timing
-- **TestFrameBuilder_AzimuthWrapWithTimeBased**: ✅ Azimuth wrap in time-based mode with proper configuration
+- **TestFrameBuilder_TraditionalAzimuthOnly**: Traditional azimuth-only detection (350° → 10°) with 60,000 points
+- **TestFrameBuilder_HybridDetection**: Time-based detection with azimuth validation and realistic timing
+- **TestFrameBuilder_AzimuthWrapWithTimeBased**: Azimuth wrap in time-based mode with proper configuration
 
 ### Test Pattern Analysis
 - **Successful data patterns**: 0°-356° azimuth coverage with wrap at 356°→5° triggers completion
@@ -83,3 +93,4 @@
 - Individual UDP packets contain only 2-3 points with small azimuth ranges
 - Azimuth wrap detection must account for accumulated vs instantaneous coverage
 - Point-level frame detection requires stricter criteria than packet-level detection
+
