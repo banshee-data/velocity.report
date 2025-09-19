@@ -1,7 +1,13 @@
 # LiDAR Development Log
 
+## September 18, 2025 - Polar-first refactor: parser & frame builder
 
-## September 17, 2025 - Background model & transform refactor (PLANNED)
+- Centralized spherical→Cartesian math into a small `transform.go` helper and introduced `PointPolar`.
+- Parser now emits `PointPolar` (polar-first) and the UDP listener forwards polar points directly when possible.
+- Added `FrameBuilder.AddPointsPolar([]PointPolar)` and removed the legacy `AddPoints([]Point)` API; tests and integration updated.
+- Result: `internal/lidar` tests (unit + PCAP integration) pass after the migration.
+
+## September 17, 2025 - Background model & transform refactor
 
 - Sensor-frame background model (ring × azimuth) for foreground masking.
 - Two-level settling per cell (fast noise settling, slow parked-object settling).

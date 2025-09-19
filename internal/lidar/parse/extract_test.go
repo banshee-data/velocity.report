@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/banshee-data/velocity.report/internal/lidar"
 )
 
 // Test constants - defined locally to avoid dependency on implementation details
@@ -80,22 +82,23 @@ func TestPacketParsingWithMockData(t *testing.T) {
 
 	// Test first point properties
 	if len(points) > 0 {
-		point := points[0]
+		p := points[0]
 
-		if point.Channel < 1 || point.Channel > testChannelsPerBlock {
-			t.Errorf("Invalid channel number: %d", point.Channel)
+		if p.Channel < 1 || p.Channel > testChannelsPerBlock {
+			t.Errorf("Invalid channel number: %d", p.Channel)
 		}
 
-		if point.Distance < 0 {
-			t.Errorf("Invalid distance: %f", point.Distance)
+		if p.Distance < 0 {
+			t.Errorf("Invalid distance: %f", p.Distance)
 		}
 
-		if point.Azimuth < 0 || point.Azimuth >= 360 {
-			t.Errorf("Invalid azimuth: %f", point.Azimuth)
+		if p.Azimuth < 0 || p.Azimuth >= 360 {
+			t.Errorf("Invalid azimuth: %f", p.Azimuth)
 		}
 
+		x, y, z := lidar.SphericalToCartesian(p.Distance, p.Azimuth, p.Elevation)
 		t.Logf("First point: X=%.3f, Y=%.3f, Z=%.3f, Distance=%.3f, Azimuth=%.1f, Channel=%d",
-			point.X, point.Y, point.Z, point.Distance, point.Azimuth, point.Channel)
+			x, y, z, p.Distance, p.Azimuth, p.Channel)
 	}
 }
 

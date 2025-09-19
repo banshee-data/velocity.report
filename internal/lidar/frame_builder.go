@@ -163,12 +163,40 @@ func (fb *FrameBuilder) EnableTimeBased(enable bool) {
 	fb.enableTimeBased = enable
 }
 
-// AddPoints adds a slice of points using azimuth-based rotation detection
-// Detects 360° rotations and manages UDP sequence ordering for completeness
-func (fb *FrameBuilder) AddPoints(points []Point) {
+// NOTE: Legacy AddPoints removed in polar-first refactor. Use AddPointsPolar.
+
+// AddPointsPolar accepts polar points (sensor-frame) and converts them to cartesian Points
+// before processing. This is used by network listeners that parse into polar form.
+func (fb *FrameBuilder) AddPointsPolar(polar []PointPolar) {
+	if len(polar) == 0 {
+		return
+	}
+
+	pts := make([]Point, 0, len(polar))
+	for _, p := range polar {
+		x, y, z := SphericalToCartesian(p.Distance, p.Azimuth, p.Elevation)
+		pts = append(pts, Point{
+			X:           x,
+			Y:           y,
+			Z:           z,
+			Intensity:   p.Intensity,
+			Distance:    p.Distance,
+			Azimuth:     p.Azimuth,
+			Elevation:   p.Elevation,
+			Channel:     p.Channel,
+			Timestamp:   time.Unix(0, p.Timestamp),
+			BlockID:     p.BlockID,
+			UDPSequence: p.UDPSequence,
+		})
+	}
+
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
+	fb.addPointsInternal(pts)
+}
 
+// addPointsInternal processes cartesian Points assuming lock is held by caller for safety
+func (fb *FrameBuilder) addPointsInternal(points []Point) {
 	if len(points) == 0 {
 		return
 	}

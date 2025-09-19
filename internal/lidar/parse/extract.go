@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
-	"math"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
@@ -272,7 +271,7 @@ func (p *Pandar40PParser) GetLastMotorSpeed() uint16 {
 // The packet must contain valid data blocks and timestamp information.
 // Returns up to 400 points (10 blocks × 40 channels, excluding invalid measurements).
 // Motor speed from packet tail is cached for frame builder time-based detection.
-func (p *Pandar40PParser) ParsePacket(data []byte) ([]lidar.Point, error) {
+func (p *Pandar40PParser) ParsePacket(data []byte) ([]lidar.PointPolar, error) {
 	// Increment packet counter for debugging and diagnostic tracking
 	p.packetCount++
 
@@ -331,7 +330,7 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]lidar.Point, error) {
 	// Process all 10 data blocks in the packet
 	// Block preambles (0xFFEE) start immediately at the beginning of the UDP payload
 	// Each block contains measurements from all 40 channels at a specific azimuth angle
-	var points []lidar.Point
+	var points []lidar.PointPolar
 	dataOffset := 0 // Preambles are at the start of UDP payload data (no header offset)
 
 	for blockIdx := 0; blockIdx < BLOCKS_PER_PACKET; blockIdx++ {
@@ -442,9 +441,9 @@ func (p *Pandar40PParser) parseTail(data []byte, udpSequence uint32) (*PacketTai
 // Applies sensor-specific calibrations, motor speed compensation, and coordinate transformation.
 // Each block can produce up to 40 points (one per channel), excluding invalid measurements.
 // Uses actual motor speed from packet tail for precise firetime-based azimuth corrections.
-func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *PacketTail) []lidar.Point {
+func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *PacketTail) []lidar.PointPolar {
 	// Pre-allocate slice with capacity for maximum possible points to avoid reallocations
-	points := make([]lidar.Point, 0, CHANNELS_PER_BLOCK)
+	points := make([]lidar.PointPolar, 0, CHANNELS_PER_BLOCK)
 
 	// Parse timestamp based on configured mode - affects frame timing accuracy
 	var packetTime time.Time
@@ -553,42 +552,21 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *Pa
 		// Get corrected elevation angle for this channel from calibration data
 		elevation := angleCorrection.Elevation
 
-		// Convert spherical coordinates (distance, azimuth, elevation) to Cartesian (x, y, z)
-		// Coordinate system: X=right, Y=forward, Z=up (matches LiDARView and CloudCompare standards)
-		// This provides a standardized coordinate frame for point cloud processing and visualization
-		azimuthRad := azimuth * math.Pi / 180.0
-		elevationRad := elevation * math.Pi / 180.0
-
-		// Optimize trigonometric calculations by pre-computing values
-		// This reduces computational overhead for the ~400 points per packet
-		cosElevation := math.Cos(elevationRad)
-		sinElevation := math.Sin(elevationRad)
-		cosAzimuth := math.Cos(azimuthRad)
-		sinAzimuth := math.Sin(azimuthRad)
-
-		// Calculate Cartesian coordinates from spherical coordinates
-		x := distance * cosElevation * sinAzimuth // Right (positive X = right side of sensor)
-		y := distance * cosElevation * cosAzimuth // Forward (positive Y = forward direction)
-		z := distance * sinElevation              // Up (positive Z = upward direction)
-
 		// Apply per-channel firetime correction to get accurate point timestamp
-		// This ensures each point has the precise time when its laser fired
+		// Store timestamps as unix nanos in the polar representation to keep it compact
 		firetimeOffset := time.Duration(firetimeCorrection.FireTime * float64(time.Microsecond))
 		pointTime := packetTime.Add(firetimeOffset)
 
-		// Create final calibrated point with all computed values and metadata
-		point := lidar.Point{
-			X:           x,                        // Cartesian X coordinate (meters)
-			Y:           y,                        // Cartesian Y coordinate (meters)
-			Z:           z,                        // Cartesian Z coordinate (meters)
-			Intensity:   channelData.Reflectivity, // Surface reflectivity (0-255)
-			Distance:    distance,                 // Radial distance (meters)
-			Azimuth:     azimuth,                  // Corrected azimuth angle (degrees)
-			Elevation:   elevation,                // Corrected elevation angle (degrees)
-			Channel:     channelNum,               // Laser channel number (1-40)
-			Timestamp:   pointTime,                // Precise firing timestamp
-			BlockID:     blockIdx,                 // Block index within packet (0-9)
-			UDPSequence: tail.UDPSequence,         // UDP sequence number (for completeness tracking)
+		// Create polar point (sensor-frame) - conversion to Cartesian will be done in frame builder
+		point := lidar.PointPolar{
+			Channel:     channelNum,
+			Azimuth:     azimuth,
+			Elevation:   elevation,
+			Distance:    distance,
+			Intensity:   channelData.Reflectivity,
+			Timestamp:   pointTime.UnixNano(),
+			BlockID:     blockIdx,
+			UDPSequence: tail.UDPSequence,
 		}
 
 		points = append(points, point)
