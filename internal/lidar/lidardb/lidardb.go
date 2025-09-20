@@ -50,3 +50,40 @@ func (ldb *LidarDB) InsertBgSnapshot(s *lidar.BgSnapshot) (int64, error) {
 	}
 	return res.LastInsertId()
 }
+
+// GetLatestBgSnapshot returns the most recent BgSnapshot for the given sensor_id, or nil if none.
+func (ldb *LidarDB) GetLatestBgSnapshot(sensorID string) (*lidar.BgSnapshot, error) {
+	q := `SELECT snapshot_id, sensor_id, taken_unix_nanos, rings, azimuth_bins, params_json, grid_blob, changed_cells_count, snapshot_reason
+		  FROM lidar_bg_snapshot WHERE sensor_id = ? ORDER BY snapshot_id DESC LIMIT 1` // nolint:lll
+
+	row := ldb.QueryRow(q, sensorID)
+	var snapID int64
+	var sensor string
+	var takenUnix int64
+	var rings int
+	var azBins int
+	var paramsJSON sql.NullString
+	var blob []byte
+	var changed int
+	var reason sql.NullString
+
+	if err := row.Scan(&snapID, &sensor, &takenUnix, &rings, &azBins, &paramsJSON, &blob, &changed, &reason); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	snap := &lidar.BgSnapshot{
+		SnapshotID:        &snapID,
+		SensorID:          sensor,
+		TakenUnixNanos:    takenUnix,
+		Rings:             rings,
+		AzimuthBins:       azBins,
+		ParamsJSON:        paramsJSON.String,
+		GridBlob:          blob,
+		ChangedCellsCount: changed,
+		SnapshotReason:    reason.String,
+	}
+	return snap, nil
+}

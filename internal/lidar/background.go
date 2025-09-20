@@ -60,7 +60,8 @@ type BackgroundGrid struct {
 	BackgroundCount int64
 
 	// Thread safety for concurrent access during persistence
-	// TODO: add mutex when implementing concurrent background updates
+	// mu protects Cells and persistence-related fields when accessed concurrently
+	mu sync.RWMutex
 }
 
 // Helper to index Cells: idx = ring*AzimuthBins + azBin
@@ -222,6 +223,8 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	backgroundCount := int64(0)
 
 	// Iterate over observed cells and update grid
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	for ringIdx := 0; ringIdx < rings; ringIdx++ {
 		for azBinIdx := 0; azBinIdx < azBins; azBinIdx++ {
 			cellIdx := g.Idx(ringIdx, azBinIdx)
@@ -366,8 +369,14 @@ func (bm *BackgroundManager) Persist(store BgStore, reason string) error {
 	}
 	g := bm.Grid
 
+	// Copy cells under read lock to avoid blocking ProcessFramePolar for long
+	g.mu.RLock()
+	cellsCopy := make([]BackgroundCell, len(g.Cells))
+	copy(cellsCopy, g.Cells)
+	g.mu.RUnlock()
+
 	// Serialize and compress grid cells
-	blob, err := serializeGrid(g.Cells)
+	blob, err := serializeGrid(cellsCopy)
 	if err != nil {
 		return err
 	}
@@ -387,9 +396,13 @@ func (bm *BackgroundManager) Persist(store BgStore, reason string) error {
 	if err != nil {
 		return err
 	}
+	// Update grid metadata under write lock
+	g.mu.Lock()
 	g.SnapshotID = &id
 	g.LastSnapshotTime = time.Now()
 	g.ChangesSinceSnapshot = 0
+	g.mu.Unlock()
+
 	bm.LastPersistTime = time.Now()
 	return nil
 }

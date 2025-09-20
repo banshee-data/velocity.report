@@ -1,15 +1,24 @@
 package monitor
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
+	"database/sql"
 	"embed"
+	"encoding/gob"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
 	"time"
-	lidar "github.com/banshee-data/velocity.report/internal/lidar"
 
+	_ "modernc.org/sqlite"
+
+	lidar "github.com/banshee-data/velocity.report/internal/lidar"
+	lidardb "github.com/banshee-data/velocity.report/internal/lidar/lidardb"
 )
 
 //go:embed status.html
@@ -59,6 +68,11 @@ func NewWebServer(config WebServerConfig) *WebServer {
 	return ws
 }
 
+func (ws *WebServer) writeJSONError(w http.ResponseWriter, status int, msg string) {
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}
+
 // Start begins the HTTP server in a goroutine and handles graceful shutdown
 func (ws *WebServer) Start(ctx context.Context) error {
 	// Start server in a goroutine so it doesn't block
@@ -93,13 +107,11 @@ func (ws *WebServer) Start(ctx context.Context) error {
 func (ws *WebServer) setupRoutes() *http.ServeMux {
 	mux := http.NewServeMux()
 
-	// Health check endpoint
 	mux.HandleFunc("/health", ws.handleHealth)
-
-	// Status page endpoint
 	mux.HandleFunc("/", ws.handleStatus)
 	mux.HandleFunc("/api/lidar/persist", ws.handleLidarPersist)
 
+	mux.HandleFunc("/api/lidar/snapshot", ws.handleLidarSnapshot)
 
 	return mux
 }
@@ -204,6 +216,170 @@ func (ws *WebServer) handleLidarPersist(w http.ResponseWriter, r *http.Request) 
 	}
 
 	ws.writeJSONError(w, http.StatusNotImplemented, "no persist callback configured for this sensor")
+}
+
+// handleLidarSnapshot returns a JSON summary for the latest lidar background snapshot for a sensor_id.
+// Query params:
+//
+//	sensor_id (required)
+//	db (optional) - path to sqlite DB (defaults to data/sensor_data.db)
+func (ws *WebServer) handleLidarSnapshot(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+
+	dbPath := r.URL.Query().Get("db")
+	var chosenDB *sql.DB
+	var snap *lidar.BgSnapshot
+	var ldbInst *lidardb.LidarDB
+
+	// helper to check if a path contains the lidar_bg_snapshot table
+	hasTable := func(path string) (bool, error) {
+		dbtmp, err := sql.Open("sqlite", path)
+		if err != nil {
+			return false, err
+		}
+		defer dbtmp.Close()
+		var cnt int
+		err = dbtmp.QueryRow("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='lidar_bg_snapshot'").Scan(&cnt)
+		if err != nil {
+			return false, nil // treat errors as table-not-present to avoid creating schema
+		}
+		return cnt > 0, nil
+	}
+
+	if dbPath != "" {
+		// explicit DB path provided by caller
+		ok, err := hasTable(dbPath)
+		if err != nil {
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("open db: %v", err))
+			return
+		}
+		if !ok {
+			ws.writeJSONError(w, http.StatusNotFound, "no snapshot table found in provided db")
+			return
+		}
+		chosenDB, _ = sql.Open("sqlite", dbPath)
+		defer chosenDB.Close()
+		ldbInst = &lidardb.LidarDB{chosenDB}
+		snap, err = ldbInst.GetLatestBgSnapshot(sensorID)
+		if err != nil {
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("get latest snapshot: %v", err))
+			return
+		}
+		if snap == nil {
+			ws.writeJSONError(w, http.StatusNotFound, "no snapshot found for sensor")
+			return
+		}
+	} else {
+		// no db param: try common candidate files in order
+		candidates := []string{"data/sensor_data.db", "sensor_data.db", "lidar_data.db"}
+		found := false
+		for _, p := range candidates {
+			ok, _ := hasTable(p)
+			if ok {
+				chosenDB, _ = sql.Open("sqlite", p)
+				defer chosenDB.Close()
+				ldbInst = &lidardb.LidarDB{chosenDB}
+				snap, _ = ldbInst.GetLatestBgSnapshot(sensorID)
+				if snap != nil {
+					found = true
+					break
+				}
+				// otherwise keep looking
+			}
+		}
+		if !found {
+			ws.writeJSONError(w, http.StatusNotFound, "no snapshot found for sensor in known DB paths")
+			return
+		}
+	}
+
+	// helper for optional snapshot id
+	var snapIDVal interface{}
+	if snap.SnapshotID != nil {
+		snapIDVal = *snap.SnapshotID
+	}
+
+	summary := map[string]interface{}{
+		"snapshot_id":         snapIDVal,
+		"sensor_id":           snap.SensorID,
+		"taken":               time.Unix(0, snap.TakenUnixNanos).Format(time.RFC3339Nano),
+		"rings":               snap.Rings,
+		"azimuth_bins":        snap.AzimuthBins,
+		"params_json":         snap.ParamsJSON,
+		"blob_bytes":          len(snap.GridBlob),
+		"changed_cells_count": snap.ChangedCellsCount,
+		"snapshot_reason":     snap.SnapshotReason,
+	}
+
+	// quick hex prefix for inspection
+	prefix := 64
+	if len(snap.GridBlob) < prefix {
+		prefix = len(snap.GridBlob)
+	}
+	summary["blob_hex_prefix"] = hex.EncodeToString(snap.GridBlob[:prefix])
+
+	// Try to gunzip + gob decode
+	if len(snap.GridBlob) == 0 {
+		summary["total_cells"] = 0
+		summary["non_empty_cells"] = 0
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(summary)
+		return
+	}
+
+	gz, err := gzip.NewReader(bytes.NewReader(snap.GridBlob))
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("gunzip: %v", err))
+		return
+	}
+	defer gz.Close()
+
+	var cells []lidar.BackgroundCell
+	dec := gob.NewDecoder(gz)
+	if err := dec.Decode(&cells); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("gob decode: %v", err))
+		return
+	}
+
+	total := len(cells)
+	nonZero := 0
+	samples := make([]map[string]interface{}, 0, 10)
+	maxSamples := 10
+	for i, c := range cells {
+		if c.TimesSeenCount > 0 || c.AverageRangeMeters != 0 || c.RangeSpreadMeters != 0 {
+			nonZero++
+			if len(samples) < maxSamples {
+				ring := i / snap.AzimuthBins
+				azbin := i % snap.AzimuthBins
+				samples = append(samples, map[string]interface{}{
+					"idx":          i,
+					"ring":         ring,
+					"azbin":        azbin,
+					"avg_m":        c.AverageRangeMeters,
+					"spread_m":     c.RangeSpreadMeters,
+					"times_seen":   c.TimesSeenCount,
+					"last_update":  time.Unix(0, c.LastUpdateUnixNanos).Format(time.RFC3339Nano),
+					"frozen_until": time.Unix(0, c.FrozenUntilUnixNanos).Format(time.RFC3339Nano),
+				})
+			}
+		}
+	}
+
+	summary["total_cells"] = total
+	summary["non_empty_cells"] = nonZero
+	summary["samples"] = samples
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(summary)
 }
 
 // Close shuts down the web server
