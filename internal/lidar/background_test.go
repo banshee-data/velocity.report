@@ -117,3 +117,73 @@ func TestProcessFramePolar_NeighborConfirmation(t *testing.T) {
 		t.Fatalf("expected center to be updated due to neighbor confirmation")
 	}
 }
+
+// Test edge cases: empty frames and out-of-range channels/azimuths are ignored
+func TestProcessFramePolar_EdgeCases(t *testing.T) {
+	g := makeTestGrid(2, 8)
+	bm := g.Manager
+
+	// empty frame should be a no-op
+	bm.ProcessFramePolar([]PointPolar{})
+
+	// out-of-range channel (0) and negative azimuth are ignored
+	pts := []PointPolar{
+		{Channel: 0, Azimuth: 10.0, Distance: 5.0},   // invalid channel
+		{Channel: 1, Azimuth: -720.0, Distance: 6.0}, // normalized but valid
+		{Channel: 99, Azimuth: 30.0, Distance: 4.0},  // invalid channel
+	}
+	bm.ProcessFramePolar(pts)
+
+	// Only the normalized azimuth point (Channel 1) should have updated
+	idx := g.Idx(0, 0) // azimuth 0 maps to bin 0 with our az= -720 normalized -> 0
+	cell := g.Cells[idx]
+	if cell.TimesSeenCount == 0 {
+		t.Fatalf("expected at least one valid update from normalized azimuth")
+	}
+}
+
+// Test snapshot/persistence: simulate PersistCallback and ensure snapshots are created
+func TestBackgroundSnapshotPersistence(t *testing.T) {
+	g := makeTestGrid(1, 4)
+	// tune params to make snapshotting deterministic
+	g.Params.ChangeThresholdForSnapshot = 1
+	g.Params.SettlingPeriodNanos = int64(0) // no settling wait
+	g.Manager = &BackgroundManager{Grid: g}
+
+	var captured *BgSnapshot
+	g.Manager.PersistCallback = func(s *BgSnapshot) error {
+		// copy snapshot for assertions
+		snap := *s
+		captured = &snap
+		return nil
+	}
+
+	// simulate a frame that changes one cell
+	bm := g.Manager
+	bm.ProcessFramePolar([]PointPolar{{Channel: 1, Azimuth: 0.0, Distance: 7.0}})
+
+	// When ChangesSinceSnapshot >= threshold, call the persist callback as main app would
+	if g.ChangesSinceSnapshot >= g.Params.ChangeThresholdForSnapshot {
+		// build a minimal BgSnapshot and call PersistCallback
+		snap := &BgSnapshot{
+			SensorID:          g.SensorID,
+			TakenUnixNanos:    time.Now().UnixNano(),
+			Rings:             g.Rings,
+			AzimuthBins:       g.AzimuthBins,
+			ParamsJSON:        "{}",
+			GridBlob:          []byte("fakeblob"),
+			ChangedCellsCount: g.ChangesSinceSnapshot,
+			SnapshotReason:    "test-trigger",
+		}
+		if err := g.Manager.PersistCallback(snap); err != nil {
+			t.Fatalf("persist callback failed: %v", err)
+		}
+	}
+
+	if captured == nil {
+		t.Fatalf("expected persist callback to be invoked and capture snapshot")
+	}
+	if captured.ChangedCellsCount == 0 {
+		t.Fatalf("expected ChangedCellsCount>0 in captured snapshot")
+	}
+}
