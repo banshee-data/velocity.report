@@ -5,6 +5,8 @@ import (
 	_ "embed"
 	"log"
 
+	lidar "github.com/banshee-data/velocity.report/internal/lidar"
+
 	_ "modernc.org/sqlite"
 )
 
@@ -32,4 +34,19 @@ func NewLidarDB(path string) (*LidarDB, error) {
 	log.Println("initialized lidar database schema")
 
 	return &LidarDB{db}, nil
+}
+
+// InsertBgSnapshot persists a Background snapshot into the lidar_bg_snapshot table
+// and returns the new snapshot_id.
+func (ldb *LidarDB) InsertBgSnapshot(s *lidar.BgSnapshot) (int64, error) {
+	if s == nil {
+		return 0, nil
+	}
+	stmt := `INSERT INTO lidar_bg_snapshot (sensor_id, taken_unix_nanos, rings, azimuth_bins, params_json, grid_blob, changed_cells_count, snapshot_reason)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+	res, err := ldb.Exec(stmt, s.SensorID, s.TakenUnixNanos, s.Rings, s.AzimuthBins, s.ParamsJSON, s.GridBlob, s.ChangedCellsCount, s.SnapshotReason)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
 }

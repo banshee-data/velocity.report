@@ -61,6 +61,25 @@ func main() {
 	}
 	defer ldb.Close()
 
+	// Create a BackgroundManager for this sensor and register persistence with the lidar DB.
+	// Use conservative defaults for rings/azimuth bins; these can be overridden by config.
+	bgParams := lidar.BackgroundParams{
+		BackgroundUpdateFraction:       0.02,
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMeters:             0.5,
+		FreezeDurationNanos:            int64(5 * time.Second),
+		NeighborConfirmationCount:      3,
+		SettlingPeriodNanos:            int64(5 * time.Minute),
+		SnapshotIntervalNanos:          int64(2 * time.Hour),
+		ChangeThresholdForSnapshot:     100,
+	}
+
+	// sensible defaults; these may be adjusted per-sensor in future
+	bgMgr := lidar.NewBackgroundManager(*sensorName, 40, 1800, bgParams, ldb)
+	if bgMgr != nil {
+		log.Printf("BackgroundManager created and registered for sensor %s", *sensorName)
+	}
+
 	// Initialize parser if parsing is enabled
 	var parser *parse.Pandar40PParser
 	var frameBuilder *lidar.FrameBuilder
