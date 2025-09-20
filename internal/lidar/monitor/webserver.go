@@ -8,6 +8,8 @@ import (
 	"log"
 	"net/http"
 	"time"
+	lidar "github.com/banshee-data/velocity.report/internal/lidar"
+
 )
 
 //go:embed status.html
@@ -96,6 +98,8 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 
 	// Status page endpoint
 	mux.HandleFunc("/", ws.handleStatus)
+	mux.HandleFunc("/api/lidar/persist", ws.handleLidarPersist)
+
 
 	return mux
 }
@@ -154,6 +158,52 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error executing template: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+// handleLidarPersist triggers manual persistence of a BackgroundGrid snapshot.
+// Expects POST with form value or query param `sensor_id`.
+func (ws *WebServer) handleLidarPersist(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	sensorID := r.URL.Query().Get("sensor_id")
+
+	if sensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+
+	mgr := lidar.GetBackgroundManager(sensorID)
+	if mgr == nil || mgr.Grid == nil {
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background manager for sensor '%s'", sensorID))
+		return
+	}
+
+	// If a PersistCallback is set, build a minimal snapshot object and call it.
+	if mgr.PersistCallback != nil {
+		snap := &lidar.BgSnapshot{
+			SensorID:          mgr.Grid.SensorID,
+			TakenUnixNanos:    time.Now().UnixNano(),
+			Rings:             mgr.Grid.Rings,
+			AzimuthBins:       mgr.Grid.AzimuthBins,
+			ParamsJSON:        "{}",
+			GridBlob:          []byte("manual-trigger"),
+			ChangedCellsCount: mgr.Grid.ChangesSinceSnapshot,
+			SnapshotReason:    "manual_api",
+		}
+		if err := mgr.PersistCallback(snap); err != nil {
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("persist error: %v", err))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok", "sensor_id": sensorID})
+		log.Printf("Successfully persisted snapshot for sensor '%s'", sensorID)
+		return
+	}
+
+	ws.writeJSONError(w, http.StatusNotImplemented, "no persist callback configured for this sensor")
 }
 
 // Close shuts down the web server

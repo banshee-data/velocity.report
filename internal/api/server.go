@@ -10,8 +10,6 @@ import (
 	"strconv"
 	"time"
 
-	lidar "github.com/banshee-data/velocity.report/internal/lidar"
-
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/serialmux"
 	"github.com/banshee-data/velocity.report/internal/units"
@@ -104,56 +102,7 @@ func (s *Server) ServeMux() *http.ServeMux {
 	mux.HandleFunc("/command", s.sendCommandHandler)
 	mux.HandleFunc("/api/radar_stats", s.showRadarObjectStats)
 	mux.HandleFunc("/api/config", s.showConfig)
-	mux.HandleFunc("/api/lidar/persist", s.handleLidarPersist)
 	return mux
-}
-
-// handleLidarPersist triggers manual persistence of a BackgroundGrid snapshot.
-// Expects POST with form value or query param `sensor_id`.
-func (s *Server) handleLidarPersist(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
-	sensorID := r.FormValue("sensor_id")
-	if sensorID == "" {
-		// fallback to query param
-		sensorID = r.URL.Query().Get("sensor_id")
-	}
-	if sensorID == "" {
-		s.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
-		return
-	}
-
-	mgr := lidar.GetBackgroundManager(sensorID)
-	if mgr == nil || mgr.Grid == nil {
-		s.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background manager for sensor '%s'", sensorID))
-		return
-	}
-
-	// If a PersistCallback is set, build a minimal snapshot object and call it.
-	if mgr.PersistCallback != nil {
-		snap := &lidar.BgSnapshot{
-			SensorID:          mgr.Grid.SensorID,
-			TakenUnixNanos:    time.Now().UnixNano(),
-			Rings:             mgr.Grid.Rings,
-			AzimuthBins:       mgr.Grid.AzimuthBins,
-			ParamsJSON:        "{}",
-			GridBlob:          []byte("manual-trigger"),
-			ChangedCellsCount: mgr.Grid.ChangesSinceSnapshot,
-			SnapshotReason:    "manual_api",
-		}
-		if err := mgr.PersistCallback(snap); err != nil {
-			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("persist error: %v", err))
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok", "sensor_id": sensorID})
-		return
-	}
-
-	s.writeJSONError(w, http.StatusNotImplemented, "no persist callback configured for this sensor")
 }
 
 func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
