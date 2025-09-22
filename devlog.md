@@ -1,4 +1,29 @@
-# LiDAR Development Log
+# Development Log
+
+## September 21, 2025 - Server & SerialMux consolidation, DB unification, tests
+
+- Centralized HTTP server and UI paths into `internal/api` (moved server code out of `cmd/radar`).
+- Standardized on a single SQLite DB (`sensor_data.db`) and consolidated DB helpers in `internal/db`.
+- LiDAR background snapshots persisted to the DB (insert/get snapshot API) and a manual HTTP persist trigger added for on-demand snapshots.
+- Added `--disable-radar` flag and a robust `DisabledSerialMux` that no-ops serial I/O but deterministically closes subscriber channels on Unsubscribe/Close (fixes tight-loop log spam when running without hardware).
+- Merged duplicate LiDAR webservers; canonical monitor now accepts an injected `*db.DB` and `SensorID` (wired from CLI) so the same DB is used everywhere.
+- Moved radar event handlers into `internal/serialmux/handlers.go` and separated classification logic into `internal/serialmux/parse.go` (small, testable `ClassifyPayload`).
+- Added unit tests for `serialmux` (DisabledSerialMux behavior, classification, config parsing, event handlers) and ensured the test suite passes.
+- Removed several unnecessary import aliases and normalized imports across packages.
+
+## September 20, 2025 - Snapshot & persistence improvements
+
+- Hardened BackgroundGrid persistence: added RW-mutexes and copy-under-read so serial/frame processing isn't blocked during snapshot serialization; metadata updates now occur under write lock.
+- Added DB access for snapshots and monitor inspection: implemented a GetLatestBgSnapshot helper and a monitor endpoint to fetch, gunzip/gob-decode and summarize stored background snapshots (includes sample cells and blob hex prefix).
+- Moved manual persist endpoint into the lidar monitor webserver: the handler constructs a minimal BgSnapshot and invokes the BackgroundManager PersistCallback to persist on-demand.
+
+## September 19, 2025 - BackgroundManager, snapshot plumbing, and polar processing
+
+- Introduced a BackgroundManager registry and constructor (`NewBackgroundManager`) to own a sensor's `BackgroundGrid`, timers, and a persistence callback. Managers are discoverable via `GetBackgroundManager`/`RegisterBackgroundManager` so APIs can trigger on-demand snapshots.
+- Added serialization for background snapshots (gob + gzip) and a `Persist` method that creates `BgSnapshot` records and writes them via a `BgStore` interface (implemented by the lidar DB). This wires up snapshot persistence into the codebase.
+- Implemented `InsertBgSnapshot` in the lidar DB layer to persist `lidar_bg_snapshot` rows and return snapshot IDs.
+- Expanded background test coverage (`more bg tests`) to exercise snapshotting behaviors and grid processing invariants.
+- Processed polar frames into the BackgroundGrid (`ProcessFramePolar`): bin points by ring/azimuth, update EMA-based averages and spreads, apply neighbor-confirmation and freezing heuristics, and count changed cells for snapshot heuristics.
 
 ## September 18, 2025 - Polar-first refactor: parser & frame builder
 
