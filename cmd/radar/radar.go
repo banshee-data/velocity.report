@@ -6,10 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -19,12 +17,16 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	radar "github.com/banshee-data/velocity.report"
-
 	"github.com/banshee-data/velocity.report/internal/api"
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/serialmux"
 	"github.com/banshee-data/velocity.report/internal/units"
+
+	// optional lidar integration
+	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/monitor"
+	"github.com/banshee-data/velocity.report/internal/lidar/network"
+	"github.com/banshee-data/velocity.report/internal/lidar/parse"
 )
 
 var (
@@ -34,6 +36,19 @@ var (
 	port         = flag.String("port", "/dev/ttySC1", "Serial port to use (ignored in dev mode)")
 	unitsFlag    = flag.String("units", "mph", "Speed units for display (mps, mph, kmph)")
 	timezoneFlag = flag.String("timezone", "UTC", "Timezone for display (UTC, US/Eastern, US/Pacific, etc.)")
+	disableRadar = flag.Bool("disable-radar", false, "Disable radar serial port (serve DB only)")
+)
+
+// Lidar options (when enabling lidar via -enable-lidar)
+var (
+	enableLidar  = flag.Bool("enable-lidar", false, "Enable lidar components inside this radar binary")
+	lidarListen  = flag.String("lidar-listen", ":8081", "HTTP listen address for lidar monitor (when enabled)")
+	lidarUDPPort = flag.Int("lidar-udp-port", 2369, "UDP port to listen for lidar packets")
+	lidarNoParse = flag.Bool("lidar-no-parse", false, "Disable lidar packet parsing when lidar is enabled")
+	lidarSensor  = flag.String("lidar-sensor", "hesai-pandar40p", "Sensor name identifier for lidar background manager")
+	lidarForward = flag.Bool("lidar-forward", false, "Forward lidar UDP packets to another port")
+	lidarFwdPort = flag.Int("lidar-forward-port", 2368, "Port to forward lidar UDP packets to")
+	lidarFwdAddr = flag.String("lidar-forward-addr", "localhost", "Address to forward lidar UDP packets to")
 )
 
 // Constants
@@ -85,7 +100,9 @@ func handleEvent(db *db.DB, payload string) error {
 		}
 	} else if strings.Contains(payload, `magnitude`) || strings.Contains(payload, `speed`) {
 		// This is a raw data event
-		handleRawData(db, payload)
+		if err := handleRawData(db, payload); err != nil {
+			return fmt.Errorf("failed to handle raw data event: %v", err)
+		}
 	} else if strings.HasPrefix(payload, `{`) {
 		// This is a config response
 		if err := handleConfigResponse(payload); err != nil {
@@ -119,7 +136,13 @@ func main() {
 
 	// var r radar.RadarPortInterface
 	var radarSerial serialmux.SerialMuxInterface
-	if *devMode {
+
+	// If disableRadar is set, provide a no-op serial mux implementation so
+	// the HTTP admin routes and DB remain available while the device is
+	// absent.
+	if *disableRadar {
+		radarSerial = serialmux.NewDisabledSerialMux()
+	} else if *devMode {
 		radarSerial = serialmux.NewMockSerialMux([]byte(""))
 	} else if *fixtureMode {
 		data, err := os.ReadFile("fixtures.txt")
@@ -155,6 +178,104 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	// Optionally initialize lidar components inside this binary
+	if *enableLidar {
+		// Use the main DB instance for lidar data (no separate lidar DB file)
+		lidarDB := db
+
+		// Create BackgroundManager and register persistence
+		backgroundParams := lidar.BackgroundParams{
+			BackgroundUpdateFraction:       0.02,
+			ClosenessSensitivityMultiplier: 3.0,
+			SafetyMarginMeters:             0.5,
+			FreezeDurationNanos:            int64(5 * time.Second),
+			NeighborConfirmationCount:      3,
+			SettlingPeriodNanos:            int64(5 * time.Minute),
+			SnapshotIntervalNanos:          int64(2 * time.Hour),
+			ChangeThresholdForSnapshot:     100,
+		}
+
+		backgroundManager := lidar.NewBackgroundManager(*lidarSensor, 40, 1800, backgroundParams, lidarDB)
+		if backgroundManager != nil {
+			log.Printf("BackgroundManager created and registered for sensor %s", *lidarSensor)
+		}
+
+		// Lidar parser and frame builder (optional)
+		var parser *parse.Pandar40PParser
+		var frameBuilder *lidar.FrameBuilder
+		if !*lidarNoParse {
+			config, err := parse.LoadEmbeddedPandar40PConfig()
+			if err != nil {
+				log.Fatalf("Failed to load embedded lidar configuration: %v", err)
+			}
+			if err := config.Validate(); err != nil {
+				log.Fatalf("Invalid embedded lidar configuration: %v", err)
+			}
+			parser = parse.NewPandar40PParser(*config)
+			parser.SetDebug(false)
+			parse.ConfigureTimestampMode(parser)
+			frameBuilder = lidar.NewFrameBuilderWithDebugLoggingAndInterval(*lidarSensor, false, time.Duration(2)*time.Second)
+		}
+
+		// Packet forwarding (optional)
+		var packetForwarder *network.PacketForwarder
+		// Create a PacketStats instance and wire it into the forwarder, listener and webserver
+		packetStats := monitor.NewPacketStats()
+		if *lidarForward {
+			createdForwarder, err := network.NewPacketForwarder(*lidarFwdAddr, *lidarFwdPort, packetStats, time.Minute)
+			if err != nil {
+				log.Printf("failed to create lidar forwarder: %v", err)
+			} else {
+				packetForwarder = createdForwarder
+				defer packetForwarder.Close()
+			}
+		}
+
+		// Start UDP listener for lidar
+		udpAddr := fmt.Sprintf(":%d", *lidarUDPPort)
+		lidarUDPListener := network.NewUDPListener(network.UDPListenerConfig{
+			Address:        udpAddr,
+			RcvBuf:         4 << 20,
+			LogInterval:    time.Minute,
+			Stats:          packetStats,
+			Forwarder:      packetForwarder,
+			Parser:         parser,
+			FrameBuilder:   frameBuilder,
+			DB:             lidarDB,
+			DisableParsing: *lidarNoParse,
+		})
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := lidarUDPListener.Start(ctx); err != nil && err != context.Canceled {
+				log.Printf("Lidar UDP listener error: %v", err)
+			}
+			log.Print("lidar UDP listener terminated")
+		}()
+
+		// Start lidar webserver for monitoring (moved into internal/api)
+		// Provide a PacketStats instance if parsing/forwarding is enabled
+		// Pass the same PacketStats instance to the webserver so it shows live stats
+		lidarWebServer := monitor.NewWebServer(monitor.WebServerConfig{
+			Address:           *lidarListen,
+			Stats:             packetStats,
+			ForwardingEnabled: *lidarForward,
+			ForwardAddr:       *lidarFwdAddr,
+			ForwardPort:       *lidarFwdPort,
+			ParsingEnabled:    !*lidarNoParse,
+			UDPPort:           *lidarUDPPort,
+			DB:                lidarDB,
+		})
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := lidarWebServer.Start(ctx); err != nil {
+				log.Printf("Lidar webserver error: %v", err)
+			}
+		}()
+	}
+
 	// run the monitor routine to manage IO on the serial port
 	wg.Add(1)
 	go func() {
@@ -185,139 +306,24 @@ func main() {
 		}
 	}()
 
-	// HTTP server goroutine
+	// HTTP server goroutine: construct an api.Server and delegate run/shutdown to it
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-
-		// create a new API server instance using the radar port and database
-		// and mount the API handlers
 		apiServer := api.NewServer(radarSerial, db, *unitsFlag, *timezoneFlag)
-		mux := apiServer.ServeMux()
 
+		// Attach admin routes that belong to other components
+		// (these modify the mux returned by apiServer.ServeMux internally)
+		mux := apiServer.ServeMux()
 		radarSerial.AttachAdminRoutes(mux)
 		db.AttachAdminRoutes(mux)
 
-		// read static files from the embedded filesystem in production or from
-		// the local ./static in dev for easier iteration without restarting the
-		// server
-		var staticHandler http.Handler
-		if *devMode {
-			staticHandler = http.FileServer(http.Dir("./static"))
-		} else {
-			staticHandler = http.FileServer(http.FS(radar.StaticFiles))
-		}
-
-		mux.Handle("/favicon.ico", staticHandler)
-
-		// serve frontend app from /app route
-		// In dev mode, check build directory exists
-		if *devMode {
-			buildDir := "./web/build"
-			if _, err := os.Stat(buildDir); os.IsNotExist(err) {
-				log.Fatalf("Build directory %s does not exist. Run 'cd web && pnpm run build' first.", buildDir)
+		if err := apiServer.Start(ctx, *listen, *devMode); err != nil {
+			// If ctx was canceled we expect nil or context.Canceled; log other errors
+			if err != context.Canceled {
+				log.Printf("HTTP server error: %v", err)
 			}
 		}
-
-		// Unified frontend handler that works for both dev and production
-		mux.HandleFunc("/app/", func(w http.ResponseWriter, r *http.Request) {
-			// Strip /app prefix and normalize path
-			path := strings.TrimPrefix(r.URL.Path, "/app")
-			if path == "" || path == "/" {
-				path = "/index.html"
-			}
-
-			// Redirect trailing slash URLs to non-trailing slash for consistent relative path resolution
-			if len(path) > 1 && strings.HasSuffix(path, "/") {
-				redirectURL := strings.TrimSuffix(r.URL.Path, "/")
-				if r.URL.RawQuery != "" {
-					redirectURL += "?" + r.URL.RawQuery
-				}
-				http.Redirect(w, r, redirectURL, http.StatusFound)
-				return
-			}
-
-			// Helper function to serve file content
-			serveContent := func(content []byte, filename string) {
-				http.ServeContent(w, r, filename, time.Time{}, strings.NewReader(string(content)))
-			}
-
-			// Helper function to try serving a file from filesystem or embedded FS
-			tryServeFile := func(requestedPath string) bool {
-				if *devMode {
-					// Dev mode: serve from filesystem
-					fullPath := filepath.Join("./web/build", requestedPath)
-					if _, err := os.Stat(fullPath); err == nil {
-						http.ServeFile(w, r, fullPath)
-						return true
-					}
-				} else {
-					// Production mode: serve from embedded filesystem
-					embedPath := filepath.Join("web/build", strings.TrimPrefix(requestedPath, "/"))
-					if content, err := radar.WebBuildFiles.ReadFile(embedPath); err == nil {
-						serveContent(content, requestedPath)
-						return true
-					}
-				}
-				return false
-			}
-
-			// Try to serve the requested file directly first
-			if tryServeFile(path) {
-				return
-			}
-
-			// File doesn't exist, try with .html extension for prerendered routes
-			if !strings.HasSuffix(path, ".html") {
-				htmlPath := path + ".html"
-				if tryServeFile(htmlPath) {
-					return
-				}
-			}
-
-			// Fall back to index.html for SPA routing
-			if !tryServeFile("/index.html") {
-				http.NotFound(w, r)
-			}
-		})
-		// redirect root to /app
-		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/" {
-				http.Redirect(w, r, "/app/", http.StatusFound)
-				return
-			}
-			http.NotFound(w, r)
-		})
-
-		server := &http.Server{
-			Addr:    *listen,
-			Handler: api.LoggingMiddleware(mux),
-		}
-
-		// Start server in a goroutine so it doesn't block
-		go func() {
-			if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				log.Fatalf("failed to start server: %v", err)
-			}
-		}()
-
-		// Wait for context cancellation to shut down server
-		<-ctx.Done()
-		log.Println("shutting down HTTP server...")
-
-		// Create a shutdown context with a shorter timeout
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-		defer cancel()
-
-		if err := server.Shutdown(shutdownCtx); err != nil {
-			log.Printf("HTTP server shutdown error: %v", err)
-			// Force close the server if graceful shutdown fails
-			if err := server.Close(); err != nil {
-				log.Printf("HTTP server force close error: %v", err)
-			}
-		}
-
-		log.Printf("HTTP server routine stopped")
 	}()
 
 	// Wait for all goroutines to finish

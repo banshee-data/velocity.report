@@ -7,8 +7,8 @@ import (
 	"net"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar"
-	"github.com/banshee-data/velocity.report/internal/lidar/lidardb"
 )
 
 // PacketStatsInterface provides packet statistics management
@@ -42,7 +42,7 @@ type UDPListener struct {
 	forwarder      *PacketForwarder
 	parser         Parser
 	frameBuilder   FrameBuilder
-	db             *lidardb.LidarDB
+	db             *db.DB
 	disableParsing bool
 }
 
@@ -55,17 +55,32 @@ type UDPListenerConfig struct {
 	Forwarder      *PacketForwarder
 	Parser         Parser
 	FrameBuilder   FrameBuilder
-	DB             *lidardb.LidarDB
+	DB             *db.DB
 	DisableParsing bool
 }
 
 // NewUDPListener creates a new UDP listener with the provided configuration
 func NewUDPListener(config UDPListenerConfig) *UDPListener {
+	// Provide a no-op stats implementation when none is supplied to avoid
+	// nil pointer dereferences in the packet handling and logging paths.
+	var stats PacketStatsInterface
+	if config.Stats != nil {
+		stats = config.Stats
+	} else {
+		stats = &noopStats{}
+	}
+
+	// Default a sensible log interval if not provided
+	logInterval := config.LogInterval
+	if logInterval == 0 {
+		logInterval = time.Minute
+	}
+
 	return &UDPListener{
 		address:        config.Address,
 		rcvBuf:         config.RcvBuf,
-		logInterval:    config.LogInterval,
-		stats:          config.Stats,
+		logInterval:    logInterval,
+		stats:          stats,
 		forwarder:      config.Forwarder,
 		parser:         config.Parser,
 		frameBuilder:   config.FrameBuilder,
@@ -73,6 +88,15 @@ func NewUDPListener(config UDPListenerConfig) *UDPListener {
 		disableParsing: config.DisableParsing,
 	}
 }
+
+// noopStats is a PacketStatsInterface implementation that does nothing.
+// It is used as a safe default when no stats collector is provided.
+type noopStats struct{}
+
+func (n *noopStats) AddPacket(bytes int)        {}
+func (n *noopStats) AddDropped()                {}
+func (n *noopStats) AddPoints(count int)        {}
+func (n *noopStats) LogStats(parsePackets bool) {}
 
 // Start begins listening for UDP packets and processing them
 func (l *UDPListener) Start(ctx context.Context) error {
@@ -138,6 +162,15 @@ func (l *UDPListener) Start(ctx context.Context) error {
 
 // startStatsLogging starts a goroutine that periodically logs packet statistics
 func (l *UDPListener) startStatsLogging(ctx context.Context) {
+	// Trigger an initial stats report shortly after startup to avoid a long
+	// silence on first-run. Then continue on the configured interval.
+	select {
+	case <-ctx.Done():
+		return
+	case <-time.After(2 * time.Second):
+		l.stats.LogStats(!l.disableParsing)
+	}
+
 	ticker := time.NewTicker(l.logInterval)
 	defer ticker.Stop()
 

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"database/sql"
 	"embed"
 	"encoding/gob"
 	"encoding/hex"
@@ -15,14 +14,12 @@ import (
 	"net/http"
 	"time"
 
-	_ "modernc.org/sqlite"
-
+	"github.com/banshee-data/velocity.report/internal/db"
 	lidar "github.com/banshee-data/velocity.report/internal/lidar"
-	lidardb "github.com/banshee-data/velocity.report/internal/lidar/lidardb"
 )
 
 //go:embed status.html
-var statusHTML embed.FS
+var StatusHTML embed.FS
 
 // WebServer handles the HTTP interface for monitoring LiDAR statistics
 // It provides endpoints for health checks and real-time status information
@@ -35,6 +32,7 @@ type WebServer struct {
 	forwardPort       int
 	parsingEnabled    bool
 	udpPort           int
+	db                *db.DB
 }
 
 // WebServerConfig contains configuration options for the web server
@@ -46,6 +44,7 @@ type WebServerConfig struct {
 	ForwardPort       int
 	ParsingEnabled    bool
 	UDPPort           int
+	DB                *db.DB
 }
 
 // NewWebServer creates a new web server with the provided configuration
@@ -58,6 +57,7 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		forwardPort:       config.ForwardPort,
 		parsingEnabled:    config.ParsingEnabled,
 		udpPort:           config.UDPPort,
+		db:                config.DB,
 	}
 
 	ws.server = &http.Server{
@@ -143,7 +143,7 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Load and parse the HTML template from embedded filesystem
-	tmpl, err := template.ParseFS(statusHTML, "status.html")
+	tmpl, err := template.ParseFS(StatusHTML, "status.html")
 	if err != nil {
 		http.Error(w, "Error loading template: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -235,71 +235,19 @@ func (ws *WebServer) handleLidarSnapshot(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	dbPath := r.URL.Query().Get("db")
-	var chosenDB *sql.DB
-	var snap *lidar.BgSnapshot
-	var ldbInst *lidardb.LidarDB
-
-	// helper to check if a path contains the lidar_bg_snapshot table
-	hasTable := func(path string) (bool, error) {
-		dbtmp, err := sql.Open("sqlite", path)
-		if err != nil {
-			return false, err
-		}
-		defer dbtmp.Close()
-		var cnt int
-		err = dbtmp.QueryRow("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='lidar_bg_snapshot'").Scan(&cnt)
-		if err != nil {
-			return false, nil // treat errors as table-not-present to avoid creating schema
-		}
-		return cnt > 0, nil
+	// Use the configured DB instance. We no longer probe multiple DB files.
+	if ws.db == nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, "no database configured for snapshot lookup")
+		return
 	}
-
-	if dbPath != "" {
-		// explicit DB path provided by caller
-		ok, err := hasTable(dbPath)
-		if err != nil {
-			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("open db: %v", err))
-			return
-		}
-		if !ok {
-			ws.writeJSONError(w, http.StatusNotFound, "no snapshot table found in provided db")
-			return
-		}
-		chosenDB, _ = sql.Open("sqlite", dbPath)
-		defer chosenDB.Close()
-		ldbInst = &lidardb.LidarDB{chosenDB}
-		snap, err = ldbInst.GetLatestBgSnapshot(sensorID)
-		if err != nil {
-			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("get latest snapshot: %v", err))
-			return
-		}
-		if snap == nil {
-			ws.writeJSONError(w, http.StatusNotFound, "no snapshot found for sensor")
-			return
-		}
-	} else {
-		// no db param: try common candidate files in order
-		candidates := []string{"data/sensor_data.db", "sensor_data.db", "lidar_data.db"}
-		found := false
-		for _, p := range candidates {
-			ok, _ := hasTable(p)
-			if ok {
-				chosenDB, _ = sql.Open("sqlite", p)
-				defer chosenDB.Close()
-				ldbInst = &lidardb.LidarDB{chosenDB}
-				snap, _ = ldbInst.GetLatestBgSnapshot(sensorID)
-				if snap != nil {
-					found = true
-					break
-				}
-				// otherwise keep looking
-			}
-		}
-		if !found {
-			ws.writeJSONError(w, http.StatusNotFound, "no snapshot found for sensor in known DB paths")
-			return
-		}
+	snap, err := ws.db.GetLatestBgSnapshot(sensorID)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("get latest snapshot: %v", err))
+		return
+	}
+	if snap == nil {
+		ws.writeJSONError(w, http.StatusNotFound, "no snapshot found for sensor")
+		return
 	}
 
 	// helper for optional snapshot id

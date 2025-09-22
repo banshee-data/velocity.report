@@ -1,15 +1,20 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
+	radar "github.com/banshee-data/velocity.report"
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/serialmux"
 	"github.com/banshee-data/velocity.report/internal/units"
@@ -117,12 +122,16 @@ func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to send command", http.StatusInternalServerError)
 		return
 	}
-	io.WriteString(w, "Command sent successfully")
+	if _, err := io.WriteString(w, "Command sent successfully"); err != nil {
+		log.Printf("failed to write command response: %v", err)
+	}
 }
 
 func (s *Server) writeJSONError(w http.ResponseWriter, status int, msg string) {
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+	if err := json.NewEncoder(w).Encode(map[string]string{"error": msg}); err != nil {
+		log.Printf("failed to encode json error response: %v", err)
+	}
 }
 
 // supportedGroups is a mapping of allowed group tokens to seconds for radar stats grouping
@@ -307,5 +316,141 @@ func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(apiEvents); err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, "Failed to write events")
 		return
+	}
+}
+
+// Start launches the HTTP server and blocks until the provided context is done
+// or the server returns an error. It installs the same static file and SPA
+// handlers used previously in the cmd/radar binary.
+func (s *Server) Start(ctx context.Context, listen string, devMode bool) error {
+	mux := s.ServeMux()
+
+	// read static files from the embedded filesystem in production or from
+	// the local ./static in dev for easier iteration without restarting the
+	// server
+	var staticHandler http.Handler
+	if devMode {
+		staticHandler = http.FileServer(http.Dir("./static"))
+	} else {
+		staticHandler = http.FileServer(http.FS(radar.StaticFiles))
+	}
+
+	mux.Handle("/favicon.ico", staticHandler)
+
+	// serve frontend app from /app route
+	// In dev mode, check build directory exists
+	if devMode {
+		buildDir := "./web/build"
+		if _, err := os.Stat(buildDir); os.IsNotExist(err) {
+			return fmt.Errorf("build directory %s does not exist. Run 'cd web && pnpm run build' first.", buildDir)
+		}
+	}
+
+	// Unified frontend handler that works for both dev and production
+	mux.HandleFunc("/app/", func(w http.ResponseWriter, r *http.Request) {
+		// Strip /app prefix and normalize path
+		path := strings.TrimPrefix(r.URL.Path, "/app")
+		if path == "" || path == "/" {
+			path = "/index.html"
+		}
+
+		// Redirect trailing slash URLs to non-trailing slash for consistent relative path resolution
+		if len(path) > 1 && strings.HasSuffix(path, "/") {
+			redirectURL := strings.TrimSuffix(r.URL.Path, "/")
+			if r.URL.RawQuery != "" {
+				redirectURL += "?" + r.URL.RawQuery
+			}
+			http.Redirect(w, r, redirectURL, http.StatusFound)
+			return
+		}
+
+		// Helper function to serve file content
+		serveContent := func(content []byte, filename string) {
+			http.ServeContent(w, r, filename, time.Time{}, strings.NewReader(string(content)))
+		}
+
+		// Helper function to try serving a file from filesystem or embedded FS
+		tryServeFile := func(requestedPath string) bool {
+			if devMode {
+				// Dev mode: serve from filesystem
+				fullPath := filepath.Join("./web/build", requestedPath)
+				if _, err := os.Stat(fullPath); err == nil {
+					http.ServeFile(w, r, fullPath)
+					return true
+				}
+			} else {
+				// Production mode: serve from embedded filesystem
+				embedPath := filepath.Join("web/build", strings.TrimPrefix(requestedPath, "/"))
+				if content, err := radar.WebBuildFiles.ReadFile(embedPath); err == nil {
+					serveContent(content, requestedPath)
+					return true
+				}
+			}
+			return false
+		}
+
+		// Try to serve the requested file directly first
+		if tryServeFile(path) {
+			return
+		}
+
+		// File doesn't exist, try with .html extension for prerendered routes
+		if !strings.HasSuffix(path, ".html") {
+			htmlPath := path + ".html"
+			if tryServeFile(htmlPath) {
+				return
+			}
+		}
+
+		// Fall back to index.html for SPA routing
+		if !tryServeFile("/index.html") {
+			http.NotFound(w, r)
+		}
+	})
+
+	// redirect root to /app
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			http.Redirect(w, r, "/app/", http.StatusFound)
+			return
+		}
+		http.NotFound(w, r)
+	})
+
+	server := &http.Server{
+		Addr:    listen,
+		Handler: LoggingMiddleware(mux),
+	}
+
+	// Run server in background and wait for either context cancellation or error
+	errCh := make(chan error, 1)
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			errCh <- err
+			return
+		}
+		errCh <- nil
+	}()
+
+	select {
+	case <-ctx.Done():
+		log.Println("shutting down HTTP server...")
+
+		// Create a shutdown context with a shorter timeout
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			log.Printf("HTTP server shutdown error: %v", err)
+			// Force close the server if graceful shutdown fails
+			if err := server.Close(); err != nil {
+				log.Printf("HTTP server force close error: %v", err)
+			}
+		}
+
+		log.Printf("HTTP server routine stopped")
+		return nil
+	case err := <-errCh:
+		return err
 	}
 }
