@@ -167,7 +167,7 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		ParsingStatus:    parsingStatus,
 		Uptime:           ws.stats.GetUptime().Round(time.Second).String(),
 		Stats:            ws.stats.GetLatestSnapshot(),
-	SensorID:         ws.sensorID,
+		SensorID:         ws.sensorID,
 	}
 
 	if err := tmpl.Execute(w, data); err != nil {
