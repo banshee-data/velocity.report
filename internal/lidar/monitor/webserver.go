@@ -114,8 +114,89 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/", ws.handleStatus)
 	mux.HandleFunc("/api/lidar/persist", ws.handleLidarPersist)
 	mux.HandleFunc("/api/lidar/snapshot", ws.handleLidarSnapshot)
+	mux.HandleFunc("/api/lidar/snapshots", ws.handleLidarSnapshots)
 
 	return mux
+}
+
+// handleLidarSnapshots returns a JSON array of the last N lidar background snapshots for a sensor_id, with nonzero cell count for each.
+// Query params:
+//
+//	sensor_id (required)
+//	limit (optional, default 10)
+func (ws *WebServer) handleLidarSnapshots(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+	limit := 10
+	if l := r.URL.Query().Get("limit"); l != "" {
+		fmt.Sscanf(l, "%d", &limit)
+		if limit <= 0 || limit > 100 {
+			limit = 10
+		}
+	}
+	if ws.db == nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, "no database configured for snapshot lookup")
+		return
+	}
+	snaps, err := ws.db.ListRecentBgSnapshots(sensorID, limit)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("get recent snapshots: %v", err))
+		return
+	}
+	type SnapSummary struct {
+		SnapshotID        interface{} `json:"snapshot_id"`
+		SensorID          string      `json:"sensor_id"`
+		Taken             string      `json:"taken"`
+		BlobBytes         int         `json:"blob_bytes"`
+		ChangedCellsCount int         `json:"changed_cells_count"`
+		SnapshotReason    string      `json:"snapshot_reason"`
+		NonzeroCells      int         `json:"nonzero_cells"`
+		TotalCells        int         `json:"total_cells"`
+	}
+	var summaries []SnapSummary
+	for _, snap := range snaps {
+		var snapIDVal interface{}
+		if snap.SnapshotID != nil {
+			snapIDVal = *snap.SnapshotID
+		}
+		nonzero := 0
+		total := 0
+		if len(snap.GridBlob) > 0 {
+			gz, err := gzip.NewReader(bytes.NewReader(snap.GridBlob))
+			if err == nil {
+				var cells []lidar.BackgroundCell
+				dec := gob.NewDecoder(gz)
+				if err := dec.Decode(&cells); err == nil {
+					total = len(cells)
+					for _, c := range cells {
+						if c.TimesSeenCount > 0 || c.AverageRangeMeters != 0 || c.RangeSpreadMeters != 0 {
+							nonzero++
+						}
+					}
+				}
+				gz.Close()
+			}
+		}
+		summaries = append(summaries, SnapSummary{
+			SnapshotID:        snapIDVal,
+			SensorID:          snap.SensorID,
+			Taken:             time.Unix(0, snap.TakenUnixNanos).Format(time.RFC3339Nano),
+			BlobBytes:         len(snap.GridBlob),
+			ChangedCellsCount: snap.ChangedCellsCount,
+			SnapshotReason:    snap.SnapshotReason,
+			NonzeroCells:      nonzero,
+			TotalCells:        total,
+		})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(summaries)
 }
 
 // handleHealth handles the health check endpoint

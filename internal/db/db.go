@@ -28,6 +28,45 @@ type DB struct {
 	*sql.DB
 }
 
+// ListRecentBgSnapshots returns the last N BgSnapshots for a sensor_id, ordered by most recent.
+func (db *DB) ListRecentBgSnapshots(sensorID string, limit int) ([]*lidar.BgSnapshot, error) {
+	q := `SELECT snapshot_id, sensor_id, taken_unix_nanos, rings, azimuth_bins, params_json, grid_blob, changed_cells_count, snapshot_reason
+		  FROM lidar_bg_snapshot WHERE sensor_id = ? ORDER BY snapshot_id DESC LIMIT ?`
+	rows, err := db.Query(q, sensorID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var snapshots []*lidar.BgSnapshot
+	for rows.Next() {
+		var snapID int64
+		var sensor string
+		var takenUnix int64
+		var rings int
+		var azBins int
+		var paramsJSON sql.NullString
+		var blob []byte
+		var changed int
+		var reason sql.NullString
+		if err := rows.Scan(&snapID, &sensor, &takenUnix, &rings, &azBins, &paramsJSON, &blob, &changed, &reason); err != nil {
+			return nil, err
+		}
+		snap := &lidar.BgSnapshot{
+			SnapshotID:        &snapID,
+			SensorID:          sensor,
+			TakenUnixNanos:    takenUnix,
+			Rings:             rings,
+			AzimuthBins:       azBins,
+			ParamsJSON:        paramsJSON.String,
+			GridBlob:          blob,
+			ChangedCellsCount: changed,
+			SnapshotReason:    reason.String,
+		}
+		snapshots = append(snapshots, snap)
+	}
+	return snapshots, nil
+}
+
 // schema.sql contains the SQL statements for creating the database schema.
 // It defines tables such as radar_data, radar_objects, radar_commands, and radar_command_log which store radar event and command information.
 // The schema is embedded directly into the binary and executed when a new database is created
