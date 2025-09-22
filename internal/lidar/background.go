@@ -400,6 +400,16 @@ func (bm *BackgroundManager) Persist(store BgStore, reason string) error {
 	if err != nil {
 		return err
 	}
+	// Diagnostic logging: count nonzero cells and log grid_blob size
+	nonzero := 0
+	for i := range g.Cells {
+		c := g.Cells[i]
+		if c.AverageRangeMeters != 0 || c.RangeSpreadMeters != 0 || c.TimesSeenCount != 0 {
+			nonzero++
+		}
+	}
+	log.Printf("[BackgroundManager] Persisted snapshot: sensor=%s, reason=%s, nonzero_cells=%d/%d, grid_blob_size=%d bytes", g.SensorID, reason, nonzero, len(g.Cells), len(blob))
+
 	// Update grid metadata under write lock
 	g.mu.Lock()
 	g.SnapshotID = &id
@@ -409,4 +419,47 @@ func (bm *BackgroundManager) Persist(store BgStore, reason string) error {
 
 	bm.LastPersistTime = time.Now()
 	return nil
+}
+
+// ToASCPoints converts the background grid to a slice of PointASC for export.
+func (bm *BackgroundManager) ToASCPoints() []PointASC {
+	if bm == nil || bm.Grid == nil {
+		return nil
+	}
+	g := bm.Grid
+	rings := g.Rings
+	azBins := g.AzimuthBins
+	cells := g.Cells
+	if len(cells) != rings*azBins {
+		return nil
+	}
+	var points []PointASC
+	for ring := 0; ring < rings; ring++ {
+		for azBin := 0; azBin < azBins; azBin++ {
+			idx := g.Idx(ring, azBin)
+			cell := cells[idx]
+			if cell.AverageRangeMeters == 0 {
+				continue
+			}
+			az := float64(azBin) * 360.0 / float64(azBins)
+			r := float64(cell.AverageRangeMeters)
+			x := r * math.Cos(az*math.Pi/180)
+			y := r * math.Sin(az*math.Pi/180)
+			z := float64(ring)
+			points = append(points, PointASC{
+				X:         x,
+				Y:         y,
+				Z:         z,
+				Intensity: 0,
+				Extra:     []interface{}{r, cell.TimesSeenCount},
+			})
+		}
+	}
+	return points
+}
+
+// ExportBackgroundGridToASC exports the background grid using the shared ASC export utility.
+func (bm *BackgroundManager) ExportBackgroundGridToASC(filePath string) error {
+	points := bm.ToASCPoints()
+	return ExportPointsToASC(points, filePath, " AverageRangeMeters TimesSeenCount")
 }
