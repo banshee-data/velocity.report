@@ -33,6 +33,12 @@
           Background Snapshot</a></li>
       <li><a href="/api/lidar/snapshot?sensor_id={{.SensorID}}">Get Latest
           Snapshot</a></li>
+      <li><a href="/api/lidar/snapshots?sensor_id={{.SensorID}}">List Recent
+          Snapshots (JSON)</a></li>
+      <li><a href="/api/lidar/export_snapshot?sensor_id={{.SensorID}}">Export
+          Latest Snapshot to ASC</a></li>
+      <li><a href="/api/lidar/export_next_frame?sensor_id={{.SensorID}}">Export
+          Next Completed Frame to ASC</a></li>
     </ul>
   </body>
 </html>

@@ -8,6 +8,29 @@ import (
 	"time"
 )
 
+// Global registry for FrameBuilder instances keyed by SensorID.
+var (
+	fbRegistry   = map[string]*FrameBuilder{}
+	fbRegistryMu = &sync.RWMutex{}
+)
+
+// RegisterFrameBuilder registers a FrameBuilder for a sensor ID.
+func RegisterFrameBuilder(sensorID string, fb *FrameBuilder) {
+	if sensorID == "" || fb == nil {
+		return
+	}
+	fbRegistryMu.Lock()
+	defer fbRegistryMu.Unlock()
+	fbRegistry[sensorID] = fb
+}
+
+// GetFrameBuilder returns a registered FrameBuilder or nil
+func GetFrameBuilder(sensorID string) *FrameBuilder {
+	fbRegistryMu.RLock()
+	defer fbRegistryMu.RUnlock()
+	return fbRegistry[sensorID]
+}
+
 // Frame detection constants for azimuth-based rotation detection
 const (
 	// MinAzimuthCoverage is the minimum azimuth coverage (degrees) required for a valid frame
@@ -47,10 +70,12 @@ type LiDARFrame struct {
 // FrameBuilder accumulates points from multiple packets into complete rotational frames
 // Uses azimuth-based rotation detection and UDP sequence tracking for completeness
 type FrameBuilder struct {
-	sensorID      string            // sensor identifier
-	frameCallback func(*LiDARFrame) // callback when frame is complete
-	mu            sync.Mutex        // protect concurrent access
-	frameCounter  int64             // sequential frame number
+	sensorID            string            // sensor identifier
+	frameCallback       func(*LiDARFrame) // callback when frame is complete
+	exportNextFrameASC  bool              // flag to export next completed frame
+	exportNextFramePath string            // output path for ASC export
+	mu                  sync.Mutex        // protect concurrent access
+	frameCounter        int64             // sequential frame number
 
 	// Azimuth-based frame detection
 	currentFrame     *LiDARFrame // frame currently being built
@@ -133,6 +158,9 @@ func NewFrameBuilder(config FrameBuilderConfig) *FrameBuilder {
 
 	// Start cleanup timer
 	fb.cleanupTimer = time.AfterFunc(fb.cleanupInterval, fb.cleanupFrames)
+
+	// Register FrameBuilder instance
+	RegisterFrameBuilder(config.SensorID, fb)
 
 	return fb
 }
@@ -457,10 +485,27 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame) {
 	// Mark frame as complete
 	frame.SpinComplete = true
 
+	// Export to ASC if requested
+	if fb.exportNextFrameASC {
+		path := fb.exportNextFramePath
+		if path == "" {
+			path = fmt.Sprintf("/tmp/lidar/next_frame_%s_%d.asc", frame.SensorID, time.Now().Unix())
+		}
+		_ = exportFrameToASC(frame)
+		log.Printf("[FrameBuilder] Exported next frame for sensor %s to %s", frame.SensorID, path)
+		fb.exportNextFrameASC = false
+		fb.exportNextFramePath = ""
+	}
 	// Call callback if provided (in separate goroutine to avoid blocking)
 	if fb.frameCallback != nil {
 		go fb.frameCallback(frame)
 	}
+}
+
+// Request export of the next completed frame to ASC format
+func (fb *FrameBuilder) RequestExportNextFrameASC(outPath string) {
+	fb.exportNextFrameASC = true
+	fb.exportNextFramePath = outPath
 }
 
 // GetCurrentFrameStats returns statistics about the frames currently being built

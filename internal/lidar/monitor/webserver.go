@@ -115,8 +115,91 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/api/lidar/persist", ws.handleLidarPersist)
 	mux.HandleFunc("/api/lidar/snapshot", ws.handleLidarSnapshot)
 	mux.HandleFunc("/api/lidar/snapshots", ws.handleLidarSnapshots)
+	mux.HandleFunc("/api/lidar/export_snapshot", ws.handleExportSnapshotASC)
+	mux.HandleFunc("/api/lidar/export_next_frame", ws.handleExportNextFrameASC)
 
 	return mux
+}
+
+// handleExportSnapshotASC triggers an export to ASC for a given snapshot_id (or latest if not provided).
+// Query params: sensor_id (required), snapshot_id (optional), out (optional file path)
+func (ws *WebServer) handleExportSnapshotASC(w http.ResponseWriter, r *http.Request) {
+	sensorID := r.URL.Query().Get("sensor_id")
+	outPath := r.URL.Query().Get("out")
+	if sensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+	var snap *lidar.BgSnapshot
+	snapID := r.URL.Query().Get("snapshot_id")
+	if snapID != "" {
+		// TODO: implement lookup by snapshot_id if needed
+		ws.writeJSONError(w, http.StatusNotImplemented, "snapshot_id lookup not implemented yet")
+		return
+	} else {
+		if ws.db == nil {
+			ws.writeJSONError(w, http.StatusInternalServerError, "no database configured for snapshot lookup")
+			return
+		}
+		var err error
+		snap, err = ws.db.GetLatestBgSnapshot(sensorID)
+		if err != nil || snap == nil {
+			ws.writeJSONError(w, http.StatusNotFound, "no snapshot found for sensor")
+			return
+		}
+	}
+	// Decode grid_blob to cells
+	gz, err := gzip.NewReader(bytes.NewReader(snap.GridBlob))
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, "gunzip error")
+		return
+	}
+	defer gz.Close()
+	var cells []lidar.BackgroundCell
+	dec := gob.NewDecoder(gz)
+	if err := dec.Decode(&cells); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, "gob decode error")
+		return
+	}
+	// Build a temporary BackgroundGrid and Manager
+	grid := &lidar.BackgroundGrid{
+		SensorID:    snap.SensorID,
+		Rings:       snap.Rings,
+		AzimuthBins: snap.AzimuthBins,
+		Cells:       cells,
+	}
+	mgr := &lidar.BackgroundManager{Grid: grid}
+	if outPath == "" {
+		outPath = fmt.Sprintf("/tmp/lidar/bg_snapshot_%s_%d.asc", sensorID, snap.TakenUnixNanos)
+	}
+	err = mgr.ExportBackgroundGridToASC(outPath)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("export error: %v", err))
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "out": outPath})
+}
+
+// handleExportNextFrameASC triggers an export to ASC for the next completed LiDARFrame for a sensor.
+// Query params: sensor_id (required), out (optional file path)
+func (ws *WebServer) handleExportNextFrameASC(w http.ResponseWriter, r *http.Request) {
+	sensorID := r.URL.Query().Get("sensor_id")
+	outPath := r.URL.Query().Get("out")
+	if sensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+	// Find FrameBuilder for sensorID (assume registry or global)
+	fb := lidar.GetFrameBuilder(sensorID)
+	if fb == nil {
+		ws.writeJSONError(w, http.StatusNotFound, "no FrameBuilder for sensor")
+		return
+	}
+	// Set flag to export next frame
+	fb.RequestExportNextFrameASC(outPath)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "note": "Will export next completed frame", "out": outPath})
 }
 
 // handleLidarSnapshots returns a JSON array of the last N lidar background snapshots for a sensor_id, with nonzero cell count for each.
