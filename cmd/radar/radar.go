@@ -266,6 +266,7 @@ func main() {
 			ParsingEnabled:    !*lidarNoParse,
 			UDPPort:           *lidarUDPPort,
 			DB:                lidarDB,
+			SensorID:          *lidarSensor,
 		})
 		wg.Add(1)
 		go func() {

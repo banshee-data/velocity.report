@@ -33,6 +33,7 @@ type WebServer struct {
 	parsingEnabled    bool
 	udpPort           int
 	db                *db.DB
+	sensorID          string
 }
 
 // WebServerConfig contains configuration options for the web server
@@ -45,6 +46,7 @@ type WebServerConfig struct {
 	ParsingEnabled    bool
 	UDPPort           int
 	DB                *db.DB
+	SensorID          string
 }
 
 // NewWebServer creates a new web server with the provided configuration
@@ -58,6 +60,7 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		parsingEnabled:    config.ParsingEnabled,
 		udpPort:           config.UDPPort,
 		db:                config.DB,
+		sensorID:          config.SensorID,
 	}
 
 	ws.server = &http.Server{
@@ -110,7 +113,6 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/health", ws.handleHealth)
 	mux.HandleFunc("/", ws.handleStatus)
 	mux.HandleFunc("/api/lidar/persist", ws.handleLidarPersist)
-
 	mux.HandleFunc("/api/lidar/snapshot", ws.handleLidarSnapshot)
 
 	return mux
@@ -157,6 +159,7 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		ParsingStatus    string
 		Uptime           string
 		Stats            *StatsSnapshot
+		SensorID         string
 	}{
 		UDPPort:          ws.udpPort,
 		HTTPAddress:      ws.address,
@@ -164,6 +167,7 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		ParsingStatus:    parsingStatus,
 		Uptime:           ws.stats.GetUptime().Round(time.Second).String(),
 		Stats:            ws.stats.GetLatestSnapshot(),
+	SensorID:         ws.sensorID,
 	}
 
 	if err := tmpl.Execute(w, data); err != nil {
