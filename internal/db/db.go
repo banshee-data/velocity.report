@@ -17,7 +17,7 @@ import (
 	_ "modernc.org/sqlite"
 	"tailscale.com/tsweb"
 
-	lidar "github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar"
 	"gonum.org/v1/gonum/stat"
 )
 

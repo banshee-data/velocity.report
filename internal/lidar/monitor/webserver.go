@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
-	lidar "github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar"
 )
 
 //go:embed status.html
