@@ -153,7 +153,43 @@ func main() {
 			parser = parse.NewPandar40PParser(*config)
 			parser.SetDebug(false)
 			parse.ConfigureTimestampMode(parser)
-			frameBuilder = lidar.NewFrameBuilderWithDebugLoggingAndInterval(*lidarSensor, false, time.Duration(2)*time.Second)
+
+			// FrameBuilder callback: feed completed frames into BackgroundManager
+			callback := func(frame *lidar.LiDARFrame) {
+				if frame == nil || len(frame.Points) == 0 {
+					return
+				}
+				if *devMode {
+					log.Printf("[FrameBuilder] Completed frame: %s, Points: %d, Azimuth: %.1f°-%.1f°", frame.FrameID, len(frame.Points), frame.MinAzimuth, frame.MaxAzimuth)
+				}
+				polar := make([]lidar.PointPolar, 0, len(frame.Points))
+				for _, p := range frame.Points {
+					polar = append(polar, lidar.PointPolar{
+						Channel:     p.Channel,
+						Azimuth:     p.Azimuth,
+						Elevation:   p.Elevation,
+						Distance:    p.Distance,
+						Intensity:   p.Intensity,
+						Timestamp:   p.Timestamp.UnixNano(),
+						BlockID:     p.BlockID,
+						UDPSequence: p.UDPSequence,
+					})
+				}
+				if backgroundManager != nil {
+					if *devMode {
+						log.Printf("[FrameBuilder] Sending %d points to BackgroundManager.ProcessFramePolar", len(polar))
+					}
+					backgroundManager.ProcessFramePolar(polar)
+				}
+			}
+
+			frameBuilder = lidar.NewFrameBuilder(lidar.FrameBuilderConfig{
+				SensorID:        *lidarSensor,
+				FrameCallback:   callback,
+				FrameBufferSize: 100,
+				BufferTimeout:   500 * time.Millisecond,
+				CleanupInterval: 250 * time.Millisecond,
+			})
 		}
 
 		// Packet forwarding (optional)
