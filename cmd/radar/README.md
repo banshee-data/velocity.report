@@ -85,9 +85,13 @@ The application is organized into separate components under `internal/` for main
 
 Performance notes (observed in production):
 
-- Packet Rate: ~1800 packets/sec sustained throughput
-- Data Rate: ~2.17 MB/sec with ~700k points/sec when parsing enabled
-- Forwarding Latency: microsecond-level with a dedicated forwarding goroutine
+- **Packet Rate**: ~1800 packets/sec sustained throughput
+- **Data Rate**: ~2.17 MB/sec with ~700k points/sec when parsing enabled
+- **Point Processing**: ~700,000 3D points/sec from parsed Pandar40P packets
+- **Forwarding Latency**: Microsecond-level with dedicated forwarding goroutine
+- **Memory Usage**: Optimized buffering with 1000-packet forwarding buffer and configurable UDP receive buffer
+- **CPU Usage**: Minimal overhead with direct packet processing (no per-packet goroutines)
+- **Statistics Logging**: Configurable intervals (1-60 seconds) with colored output for errors
 
 ## Embedded Configuration
 
@@ -105,68 +109,11 @@ To visualize incoming LiDAR data, forward packets to LidarView's listening port 
 
 ## Troubleshooting
 
+- If the radar device path is incorrect, use `--disable-radar` to run the server without hardware while you debug.
+- If LiDAR snapshot persistence is not appearing in the DB, confirm `--enable-lidar` is used and that the `BackgroundManager` was created with a DB-backed `BgStore` (the binary wires the main DB by default when LiDAR is enabled).
 - Port conflicts: use `lsof -i UDP:<port>` to find processes binding the UDP or HTTP ports.
 - If LiDAR snapshots do not appear in the DB, confirm `--enable-lidar` is used and the `BackgroundManager` was created with a DB-backed store.
 - No packets received: check firewall, UDP bind address, and network interface; use `netstat -un` to verify listeners.
-
-If you'd like, I can add systemd unit examples or Docker snippets for running the radar service.
-
-
-# Radar binary (cmd/radar)
-
-This binary runs the radar serial monitor, HTTP API server, and (optionally) in-process LiDAR components. It's the primary service used to collect radar events, expose the web UI, and — when enabled — host the LiDAR UDP listener and monitor.
-
-```bash
-## Performance
-
-- **Packet Rate**: ~1800 packets/sec sustained throughput
-- **Data Rate**: ~2.17 MB/sec with ~700k points/sec when parsing enabled
-- **Point Processing**: ~700,000 3D points/sec from parsed Pandar40P packets
-- **Forwarding Latency**: Microsecond-level with dedicated forwarding goroutine
-- **Memory Usage**: Optimized buffering with 1000-packet forwarding buffer and configurable UDP receive buffer
-- **CPU Usage**: Minimal overhead with direct packet processing (no per-packet goroutines)
-- **Statistics Logging**: Configurable intervals (1-60 seconds) with colored output for errors
-
-
-## Command-line flags
-
-The radar binary exposes several CLI flags. Key options are listed below with their defaults.
-
-- `--fixture` (bool) — Load fixture data into the local DB instead of opening a serial port.
-- `--dev` (bool) — Run in development mode (uses a mock serial mux).
-- `--listen` (string) — HTTP listen address for the central API (default: `:8080`).
-- `--port` (string) — Serial device path for the radar (default: `/dev/ttySC1`). Ignored in `--dev` or `--disable-radar`.
-- `--units` (string) — Display units (mps, mph, kmph). Default: `mph`.
-- `--timezone` (string) — Timezone for display (default: `UTC`).
-- `--disable-radar` (bool) — Disable radar serial I/O; useful when running without radar hardware. The HTTP server and DB remain active.
-
-LiDAR integration flags (only relevant when `--enable-lidar` is supplied):
-
-- `--enable-lidar` (bool) — Enable in-process LiDAR components inside the radar binary (UDP listener, parser, monitor).
-- `--lidar-listen` (string) — HTTP listen address for the LiDAR monitor webserver (default: `:8081`).
-- `--lidar-udp-port` (int) — UDP port to listen for LiDAR packets (default: `2369`).
-- `--lidar-no-parse` (bool) — Disable LiDAR packet parsing (useful when only forwarding packets).
-- `--lidar-sensor` (string) — Sensor identifier (used for BackgroundManager registration and DB records). Default: `hesai-pandar40p`.
-- `--lidar-forward` (bool) — Forward incoming LiDAR packets to another port (useful for LidarView).
-- `--lidar-forward-port` (int) — Forward destination port (default: `2368`).
-- `--lidar-forward-addr` (string) — Forward destination address (default: `localhost`).
-
-Other notable runtime behavior
-
-- The binary uses a single SQLite database file by default (`sensor_data.db`) and exposes admin routes via the HTTP API (see `internal/api`).
-- When `--disable-radar` is set, a `DisabledSerialMux` no-ops serial I/O but keeps the subscribe API available; this prevents tight-loop log spam and allows the UI/DB to stay operational.
-- When `--enable-lidar` is used, the LiDAR components reuse the same DB instance for snapshot persistence and event storage. A `BackgroundManager` is created per sensor and — if a DB store is provided — will persist background snapshots into the `lidar_bg_snapshot` table.
-
-## Architecture notes
-
-- Serial I/O and event handling are abstracted behind `internal/serialmux` (real, mock, and disabled implementations).
-- The HTTP server lives in `internal/api` and is the canonical place for UI/static assets and admin endpoints.
-- LiDAR-specific components (parsers, framebuilders, background model, monitor) live under `internal/lidar` and can be run either in their own `cmd/lidar` binary or in-process via `--enable-lidar`.
-
-## Troubleshooting
-
-- If the radar device path is incorrect, use `--disable-radar` to run the server without hardware while you debug.
-- If LiDAR snapshot persistence is not appearing in the DB, confirm `--enable-lidar` is used and that the `BackgroundManager` was created with a DB-backed `BgStore` (the binary wires the main DB by default when LiDAR is enabled).
 
 ### Port Conflicts
 - **Error**: "bind: address already in use"
