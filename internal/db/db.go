@@ -21,6 +21,9 @@ import (
 	"gonum.org/v1/gonum/stat"
 )
 
+// compile-time assertion: ensure DB implements lidar.BgStore (InsertBgSnapshot)
+var _ lidar.BgStore = (*DB)(nil)
+
 type DB struct {
 	*sql.DB
 }

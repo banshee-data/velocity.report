@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/gob"
+	"log"
 	"math"
 	"sync"
 	"time"
@@ -132,6 +133,9 @@ func NewBackgroundManager(sensorID string, rings, azBins int, params BackgroundP
 			}
 			return mgr.Persist(store, reason)
 		}
+	} else {
+		// Explicit runtime log to indicate persistence is disabled for this manager
+		log.Printf("BackgroundManager for sensor '%s' created without a BgStore: persistence disabled", sensorID)
 	}
 
 	RegisterBackgroundManager(sensorID, mgr)
