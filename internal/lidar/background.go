@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -419,6 +420,13 @@ func (bm *BackgroundManager) Persist(store BgStore, reason string) error {
 		GridBlob:          blob,
 		ChangedCellsCount: g.ChangesSinceSnapshot,
 		SnapshotReason:    reason,
+	}
+
+	// If ring elevations are present on the grid, serialize them into the snapshot
+	if len(g.RingElevations) == g.Rings {
+		if b, err := json.Marshal(g.RingElevations); err == nil {
+			snap.RingElevationsJSON = string(b)
+		}
 	}
 
 	id, err := store.InsertBgSnapshot(snap)

@@ -62,6 +62,7 @@ PRAGMA busy_timeout = 5000;
         , rings INTEGER NOT NULL
         , azimuth_bins INTEGER NOT NULL
         , params_json TEXT NOT NULL
+        , ring_elevations_json TEXT
         , grid_blob BLOB NOT NULL
         , changed_cells_count INTEGER
         , snapshot_reason TEXT

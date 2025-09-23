@@ -149,54 +149,19 @@ func (ws *WebServer) handleExportSnapshotASC(w http.ResponseWriter, r *http.Requ
 			return
 		}
 	}
-	// Decode grid_blob to cells
-	gz, err := gzip.NewReader(bytes.NewReader(snap.GridBlob))
-	if err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, "gunzip error")
-		return
-	}
-	defer gz.Close()
-	var cells []lidar.BackgroundCell
-	dec := gob.NewDecoder(gz)
-	if err := dec.Decode(&cells); err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, "gob decode error")
-		return
-	}
-	// Build a temporary BackgroundGrid and Manager
-	grid := &lidar.BackgroundGrid{
-		SensorID:    snap.SensorID,
-		Rings:       snap.Rings,
-		AzimuthBins: snap.AzimuthBins,
-		Cells:       cells,
-	}
-	mgr := &lidar.BackgroundManager{Grid: grid}
-
-	// Try to supply per-ring elevation angles so exported ASC has correct Z.
-	// Prefer live BackgroundManager's elevations (if available), otherwise
-	// fall back to loading embedded parser config and extracting elevations.
-	if live := lidar.GetBackgroundManager(sensorID); live != nil && live.Grid != nil && len(live.Grid.RingElevations) == grid.Rings {
-		// copy elevations from live manager
-		elevCopy := make([]float64, len(live.Grid.RingElevations))
-		copy(elevCopy, live.Grid.RingElevations)
-		_ = mgr.SetRingElevations(elevCopy)
-		log.Printf("Export: copied ring elevations from live BackgroundManager for sensor %s", sensorID)
-	} else {
-		// Try embedded config as a fallback
-		if cfg, err := parse.LoadEmbeddedPandar40PConfig(); err == nil {
-			if e := parse.ElevationsFromConfig(cfg); e != nil && len(e) == grid.Rings {
-				if err := mgr.SetRingElevations(e); err == nil {
-					log.Printf("Export: set ring elevations from embedded config for sensor %s", sensorID)
-				}
-			}
-		} else {
-			log.Printf("Export: no live BackgroundManager and failed to load embedded config for sensor %s: %v", sensorID, err)
+	// Build elevations argument from embedded config (if available).
+	var elevs []float64
+	if cfg, err := parse.LoadEmbeddedPandar40PConfig(); err == nil {
+		if e := parse.ElevationsFromConfig(cfg); e != nil && len(e) == snap.Rings {
+			elevs = e
 		}
 	}
+
 	if outPath == "" {
 		outPath = fmt.Sprintf("/tmp/lidar/bg_snapshot_%s_%d.asc", sensorID, snap.TakenUnixNanos)
 	}
-	err = mgr.ExportBackgroundGridToASC(outPath)
-	if err != nil {
+
+	if err := lidar.ExportBgSnapshotToASC(snap, outPath, elevs); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("export error: %v", err))
 		return
 	}

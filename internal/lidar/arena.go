@@ -52,15 +52,16 @@ type PoseCache struct {
 
 // BgSnapshot exactly matches schema lidar_bg_snapshot table structure
 type BgSnapshot struct {
-	SnapshotID        *int64 // will be set by database after insert
-	SensorID          string // matches sensor_id TEXT NOT NULL
-	TakenUnixNanos    int64  // matches taken_unix_nanos INTEGER NOT NULL
-	Rings             int    // matches rings INTEGER NOT NULL
-	AzimuthBins       int    // matches azimuth_bins INTEGER NOT NULL
-	ParamsJSON        string // matches params_json TEXT NOT NULL
-	GridBlob          []byte // matches grid_blob BLOB NOT NULL (compressed BackgroundCell data)
-	ChangedCellsCount int    // matches changed_cells_count INTEGER
-	SnapshotReason    string // matches snapshot_reason TEXT ('settling_complete', 'periodic_update', 'manual')
+	SnapshotID         *int64 // will be set by database after insert
+	SensorID           string // matches sensor_id TEXT NOT NULL
+	TakenUnixNanos     int64  // matches taken_unix_nanos INTEGER NOT NULL
+	Rings              int    // matches rings INTEGER NOT NULL
+	AzimuthBins        int    // matches azimuth_bins INTEGER NOT NULL
+	ParamsJSON         string // matches params_json TEXT NOT NULL
+	RingElevationsJSON string // matches ring_elevations_json TEXT NULL - optional per-ring elevation JSON
+	GridBlob           []byte // matches grid_blob BLOB NOT NULL (compressed BackgroundCell data)
+	ChangedCellsCount  int    // matches changed_cells_count INTEGER
+	SnapshotReason     string // matches snapshot_reason TEXT ('settling_complete', 'periodic_update', 'manual')
 }
 
 // Ring buffer implementation for efficient memory management at 100-track scale
