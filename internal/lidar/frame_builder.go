@@ -504,6 +504,8 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame) {
 
 // Request export of the next completed frame to ASC format
 func (fb *FrameBuilder) RequestExportNextFrameASC(outPath string) {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
 	fb.exportNextFrameASC = true
 	fb.exportNextFramePath = outPath
 }
