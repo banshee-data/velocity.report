@@ -548,14 +548,23 @@ func (bm *BackgroundManager) Persist(store BgStore, reason string) error {
 	}
 	log.Printf("[BackgroundManager] Persisted snapshot: sensor=%s, reason=%s, nonzero_cells=%d/%d, grid_blob_size=%d bytes", g.SensorID, reason, nonzero, len(cellsCopy), len(blob))
 
-	// Update grid metadata under write lock and set manager persist time while
-	// holding the same lock to avoid races with ProcessFramePolar which also
-	// updates LastPersistTime under the grid lock.
+	// Update grid metadata under write lock. We subtract the value we copied
+	// earlier (changesSince) from the current counter so that changes which
+	// occurred while we were writing the snapshot are preserved. This avoids
+	// losing increments made by ProcessFramePolar between the RLock copy and
+	// this write lock.
 	g.mu.Lock()
+	now := time.Now()
+	// compute remaining changes that occurred after the snapshot copy
+	if g.ChangesSinceSnapshot >= changesSince {
+		g.ChangesSinceSnapshot = g.ChangesSinceSnapshot - changesSince
+	} else {
+		// defensive: shouldn't happen, but guard against negative counts
+		g.ChangesSinceSnapshot = 0
+	}
 	g.SnapshotID = &id
-	g.LastSnapshotTime = time.Now()
-	g.ChangesSinceSnapshot = 0
-	bm.LastPersistTime = time.Now()
+	g.LastSnapshotTime = now
+	bm.LastPersistTime = now
 	g.mu.Unlock()
 	return nil
 }
