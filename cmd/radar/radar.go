@@ -154,6 +154,21 @@ func main() {
 			parser.SetDebug(false)
 			parse.ConfigureTimestampMode(parser)
 
+			// Wire per-ring elevation corrections from parser config into BackgroundManager
+			// This ensures background ASC exports use the same per-channel elevations as frames.
+			if backgroundManager != nil {
+				elev := parse.ElevationsFromConfig(config)
+				if elev != nil {
+					if err := backgroundManager.SetRingElevations(elev); err != nil {
+						log.Printf("Failed to set ring elevations for background manager %s: %v", *lidarSensor, err)
+					} else {
+						log.Printf("BackgroundManager ring elevations set for sensor %s", *lidarSensor)
+					}
+				} else {
+					log.Printf("No elevation corrections available for sensor %s; background export will use z=0 projection", *lidarSensor)
+				}
+			}
+
 			// FrameBuilder callback: feed completed frames into BackgroundManager
 			callback := func(frame *lidar.LiDARFrame) {
 				if frame == nil || len(frame.Points) == 0 {

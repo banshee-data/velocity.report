@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/gob"
+	"fmt"
 	"log"
 	"math"
 	"sync"
@@ -63,6 +64,9 @@ type BackgroundGrid struct {
 	// Thread safety for concurrent access during persistence
 	// mu protects Cells and persistence-related fields when accessed concurrently
 	mu sync.RWMutex
+	// Optional per-ring elevation angles (degrees) for converting polar->cartesian.
+	// If populated (len == Rings) ToASCPoints will use these to compute Z = r*sin(elev).
+	RingElevations []float64
 }
 
 // Helper to index Cells: idx = ring*AzimuthBins + azBin
@@ -140,6 +144,27 @@ func NewBackgroundManager(sensorID string, rings, azBins int, params BackgroundP
 
 	RegisterBackgroundManager(sensorID, mgr)
 	return mgr
+}
+
+// SetRingElevations sets per-ring elevation angles (degrees) on the BackgroundGrid.
+// The provided slice must have length equal to the grid's Rings; values are copied.
+func (bm *BackgroundManager) SetRingElevations(elevations []float64) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	if elevations == nil {
+		bm.Grid.RingElevations = nil
+		return nil
+	}
+	if len(elevations) != bm.Grid.Rings {
+		return fmt.Errorf("elevations length %d does not match rings %d", len(elevations), bm.Grid.Rings)
+	}
+	// copy values under lock
+	bm.Grid.mu.Lock()
+	bm.Grid.RingElevations = make([]float64, len(elevations))
+	copy(bm.Grid.RingElevations, elevations)
+	bm.Grid.mu.Unlock()
+	return nil
 }
 
 // ProcessFramePolar ingests sensor-frame polar points and updates the BackgroundGrid.
@@ -443,9 +468,18 @@ func (bm *BackgroundManager) ToASCPoints() []PointASC {
 			}
 			az := float64(azBin) * 360.0 / float64(azBins)
 			r := float64(cell.AverageRangeMeters)
-			x := r * math.Cos(az*math.Pi/180)
-			y := r * math.Sin(az*math.Pi/180)
-			z := float64(ring)
+
+			// If ring elevation angles are available, compute proper 3D coords
+			var x, y, z float64
+			if len(g.RingElevations) == rings {
+				elev := g.RingElevations[ring]
+				x, y, z = SphericalToCartesian(r, az, elev)
+			} else {
+				// Fallback: project onto XY plane (z=0)
+				x = r * math.Cos(az*math.Pi/180)
+				y = r * math.Sin(az*math.Pi/180)
+				z = 0.0
+			}
 			points = append(points, PointASC{
 				X:         x,
 				Y:         y,

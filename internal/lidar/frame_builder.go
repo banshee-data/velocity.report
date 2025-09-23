@@ -608,12 +608,34 @@ func exportFrameToASC(frame *LiDARFrame) error {
 
 	// Convert LiDARFrame points to PointASC
 	ascPoints := make([]PointASC, len(frame.Points))
-	for i, p := range frame.Points {
-		ascPoints[i] = PointASC{
-			X:         p.X,
-			Y:         p.Y,
-			Z:         p.Z,
-			Intensity: int(p.Intensity),
+	// Detect if Z values look invalid (all zero) and recompute from polar if needed
+	zNonZero := 0
+	for _, p := range frame.Points {
+		if p.Z != 0 {
+			zNonZero++
+			break
+		}
+	}
+	if zNonZero == 0 {
+		// Recompute XYZ from Distance/Azimuth/Elevation
+		log.Printf("[FrameBuilder] all Z==0 for frame %s; recomputing XYZ from polar data before export", frame.FrameID)
+		for i, p := range frame.Points {
+			x, y, z := SphericalToCartesian(p.Distance, p.Azimuth, p.Elevation)
+			ascPoints[i] = PointASC{
+				X:         x,
+				Y:         y,
+				Z:         z,
+				Intensity: int(p.Intensity),
+			}
+		}
+	} else {
+		for i, p := range frame.Points {
+			ascPoints[i] = PointASC{
+				X:         p.X,
+				Y:         p.Y,
+				Z:         p.Z,
+				Intensity: int(p.Intensity),
+			}
 		}
 	}
 
