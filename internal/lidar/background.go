@@ -399,10 +399,18 @@ func (bm *BackgroundManager) Persist(store BgStore, reason string) error {
 	}
 	g := bm.Grid
 
-	// Copy cells under read lock to avoid blocking ProcessFramePolar for long
+	// Copy cells and snapshot metadata under read lock to avoid racing with
+	// concurrent writers in ProcessFramePolar. We only hold the RLock briefly
+	// while copying small fields.
 	g.mu.RLock()
 	cellsCopy := make([]BackgroundCell, len(g.Cells))
 	copy(cellsCopy, g.Cells)
+	changesSince := g.ChangesSinceSnapshot
+	var ringElevCopy []float64
+	if len(g.RingElevations) == g.Rings {
+		ringElevCopy = make([]float64, len(g.RingElevations))
+		copy(ringElevCopy, g.RingElevations)
+	}
 	g.mu.RUnlock()
 
 	// Serialize and compress grid cells
@@ -418,13 +426,13 @@ func (bm *BackgroundManager) Persist(store BgStore, reason string) error {
 		AzimuthBins:       g.AzimuthBins,
 		ParamsJSON:        "{}",
 		GridBlob:          blob,
-		ChangedCellsCount: g.ChangesSinceSnapshot,
+		ChangedCellsCount: changesSince,
 		SnapshotReason:    reason,
 	}
 
-	// If ring elevations are present on the grid, serialize them into the snapshot
-	if len(g.RingElevations) == g.Rings {
-		if b, err := json.Marshal(g.RingElevations); err == nil {
+	// If ring elevations were present at the time of copy, serialize the copied slice.
+	if len(ringElevCopy) == snap.Rings {
+		if b, err := json.Marshal(ringElevCopy); err == nil {
 			snap.RingElevationsJSON = string(b)
 		}
 	}
@@ -433,24 +441,26 @@ func (bm *BackgroundManager) Persist(store BgStore, reason string) error {
 	if err != nil {
 		return err
 	}
-	// Diagnostic logging: count nonzero cells and log grid_blob size
+	// Diagnostic logging: count nonzero cells using the copy we made earlier to avoid
+	// racing with concurrent ProcessFramePolar writers. cellsCopy was created under RLock.
 	nonzero := 0
-	for i := range g.Cells {
-		c := g.Cells[i]
+	for i := range cellsCopy {
+		c := cellsCopy[i]
 		if c.AverageRangeMeters != 0 || c.RangeSpreadMeters != 0 || c.TimesSeenCount != 0 {
 			nonzero++
 		}
 	}
-	log.Printf("[BackgroundManager] Persisted snapshot: sensor=%s, reason=%s, nonzero_cells=%d/%d, grid_blob_size=%d bytes", g.SensorID, reason, nonzero, len(g.Cells), len(blob))
+	log.Printf("[BackgroundManager] Persisted snapshot: sensor=%s, reason=%s, nonzero_cells=%d/%d, grid_blob_size=%d bytes", g.SensorID, reason, nonzero, len(cellsCopy), len(blob))
 
-	// Update grid metadata under write lock
+	// Update grid metadata under write lock and set manager persist time while
+	// holding the same lock to avoid races with ProcessFramePolar which also
+	// updates LastPersistTime under the grid lock.
 	g.mu.Lock()
 	g.SnapshotID = &id
 	g.LastSnapshotTime = time.Now()
 	g.ChangesSinceSnapshot = 0
-	g.mu.Unlock()
-
 	bm.LastPersistTime = time.Now()
+	g.mu.Unlock()
 	return nil
 }
 
@@ -462,15 +472,21 @@ func (bm *BackgroundManager) ToASCPoints() []PointASC {
 	g := bm.Grid
 	rings := g.Rings
 	azBins := g.AzimuthBins
-	cells := g.Cells
-	if len(cells) != rings*azBins {
+	// Read cells and ring elevations directly while holding RLock. This avoids
+	// an extra copy but keeps readers mutually consistent; concurrent writers
+	// (ProcessFramePolar) will block until the RLock is released.
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	if len(g.Cells) != rings*azBins {
 		return nil
 	}
+
 	var points []PointASC
 	for ring := 0; ring < rings; ring++ {
 		for azBin := 0; azBin < azBins; azBin++ {
 			idx := g.Idx(ring, azBin)
-			cell := cells[idx]
+			cell := g.Cells[idx]
 			if cell.AverageRangeMeters == 0 {
 				continue
 			}
