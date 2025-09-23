@@ -19,6 +19,12 @@ type BackgroundParams struct {
 	SafetyMarginMeters             float32 // e.g., 0.5
 	FreezeDurationNanos            int64   // e.g., 5e9 (5s)
 	NeighborConfirmationCount      int     // e.g., 5 of 8 neighbors
+	// NoiseRelativeFraction is the fraction of range (distance) to treat as
+	// expected measurement noise. This allows closeness thresholds to grow
+	// with distance so that farther returns (which naturally have larger
+	// absolute noise) aren't biased as foreground. Typical values: 0.01
+	// (1%) to 0.02 (2%). If zero, a sensible default (0.01) is used.
+	NoiseRelativeFraction float32
 
 	// Additional params for persistence matching schema requirements
 	SettlingPeriodNanos        int64 // 5 minutes before first snapshot
@@ -62,6 +68,15 @@ type BackgroundGrid struct {
 	ForegroundCount int64
 	BackgroundCount int64
 
+	// Simple range-bucketed acceptance metrics to help tune NoiseRelativeFraction.
+	// Buckets are upper bounds in meters; counts are number of accepted/rejected
+	// observations that fell into that distance bucket. These are incremented
+	// inside ProcessFramePolar while holding g.mu, and can be read via
+	// BackgroundManager.GetAcceptanceMetrics().
+	AcceptanceBucketsMeters []float64
+	AcceptByRangeBuckets    []int64
+	RejectByRangeBuckets    []int64
+
 	// Thread safety for concurrent access during persistence
 	// mu protects Cells and persistence-related fields when accessed concurrently
 	mu sync.RWMutex
@@ -84,6 +99,61 @@ type BackgroundManager struct {
 
 	// Persistence callback to main app - should save to schema lidar_bg_snapshot table
 	PersistCallback func(snapshot *BgSnapshot) error
+}
+
+// AcceptanceMetrics exposes the acceptance/rejection counts per range bucket.
+type AcceptanceMetrics struct {
+	BucketsMeters []float64
+	AcceptCounts  []int64
+	RejectCounts  []int64
+}
+
+// GetAcceptanceMetrics returns a snapshot of the acceptance metrics. The
+// returned slices are copies and safe for the caller to inspect without
+// further synchronization.
+func (bm *BackgroundManager) GetAcceptanceMetrics() *AcceptanceMetrics {
+	if bm == nil || bm.Grid == nil {
+		return nil
+	}
+	g := bm.Grid
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	if len(g.AcceptanceBucketsMeters) == 0 {
+		return &AcceptanceMetrics{}
+	}
+	buckets := make([]float64, len(g.AcceptanceBucketsMeters))
+	copy(buckets, g.AcceptanceBucketsMeters)
+	accept := make([]int64, len(g.AcceptByRangeBuckets))
+	copy(accept, g.AcceptByRangeBuckets)
+	reject := make([]int64, len(g.RejectByRangeBuckets))
+	copy(reject, g.RejectByRangeBuckets)
+	return &AcceptanceMetrics{BucketsMeters: buckets, AcceptCounts: accept, RejectCounts: reject}
+}
+
+// ResetAcceptanceMetrics zeros the acceptance/rejection counters for the grid.
+// This is intended for clean A/B testing when tuning parameters.
+func (bm *BackgroundManager) ResetAcceptanceMetrics() error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if len(g.AcceptByRangeBuckets) != len(g.AcceptanceBucketsMeters) {
+		g.AcceptByRangeBuckets = make([]int64, len(g.AcceptanceBucketsMeters))
+	} else {
+		for i := range g.AcceptByRangeBuckets {
+			g.AcceptByRangeBuckets[i] = 0
+		}
+	}
+	if len(g.RejectByRangeBuckets) != len(g.AcceptanceBucketsMeters) {
+		g.RejectByRangeBuckets = make([]int64, len(g.AcceptanceBucketsMeters))
+	} else {
+		for i := range g.RejectByRangeBuckets {
+			g.RejectByRangeBuckets[i] = 0
+		}
+	}
+	return nil
 }
 
 // Simple registry for BackgroundManager instances keyed by SensorID.
@@ -127,6 +197,11 @@ func NewBackgroundManager(sensorID string, rings, azBins int, params BackgroundP
 	}
 	mgr := &BackgroundManager{Grid: grid}
 	grid.Manager = mgr
+
+	// initialize simple acceptance metric buckets (meters)
+	grid.AcceptanceBucketsMeters = []float64{1, 2, 4, 8, 12, 16, 20, 50, 100, 200}
+	grid.AcceptByRangeBuckets = make([]int64, len(grid.AcceptanceBucketsMeters))
+	grid.RejectByRangeBuckets = make([]int64, len(grid.AcceptanceBucketsMeters))
 
 	// If a store is provided, set PersistCallback to call Persist which will serialize and write
 	if store != nil {
@@ -249,6 +324,12 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 		neighConfirm = 3
 	}
 
+	// relative noise fraction (fraction of range to treat as additional spread)
+	noiseRel := float64(g.Params.NoiseRelativeFraction)
+	if noiseRel <= 0 {
+		noiseRel = 0.01 // default to 1% if not configured
+	}
+
 	foregroundCount := int64(0)
 	backgroundCount := int64(0)
 
@@ -276,33 +357,34 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 				continue
 			}
 
-			// Neighbor confirmation: count neighbors that have similar average
+			// Neighbor confirmation: count neighbors that have similar average.
+			// Restrict to same-ring neighbors to avoid cross-ring elevation geometry
+			// from influencing horizontal azimuth confirmation (reduces bias).
 			neighborConfirmCount := 0
-			for deltaRing := -1; deltaRing <= 1; deltaRing++ {
-				neighborRing := ringIdx + deltaRing
-				if neighborRing < 0 || neighborRing >= rings {
+			neighborRing := ringIdx
+			for deltaAz := -1; deltaAz <= 1; deltaAz++ {
+				if deltaAz == 0 {
 					continue
 				}
-				for deltaAz := -1; deltaAz <= 1; deltaAz++ {
-					if deltaRing == 0 && deltaAz == 0 {
-						continue
-					}
-					neighborAzimuth := (azBinIdx + deltaAz + azBins) % azBins
-					neighborIdx := g.Idx(neighborRing, neighborAzimuth)
-					neighborCell := g.Cells[neighborIdx]
-					// consider neighbor confirmed if it has some history and close range
-					if neighborCell.TimesSeenCount > 0 {
-						neighborDiff := math.Abs(float64(neighborCell.AverageRangeMeters) - observationMean)
-						neighborCloseness := closenessMultiplier * (float64(neighborCell.RangeSpreadMeters) + 0.01)
-						if neighborDiff <= neighborCloseness {
-							neighborConfirmCount++
-						}
+				neighborAzimuth := (azBinIdx + deltaAz + azBins) % azBins
+				neighborIdx := g.Idx(neighborRing, neighborAzimuth)
+				neighborCell := g.Cells[neighborIdx]
+				// consider neighbor confirmed if it has some history and close range
+				if neighborCell.TimesSeenCount > 0 {
+					neighborDiff := math.Abs(float64(neighborCell.AverageRangeMeters) - observationMean)
+					// include a distance-proportional noise term based on the neighbor's mean
+					neighborCloseness := closenessMultiplier * (float64(neighborCell.RangeSpreadMeters) + noiseRel*float64(neighborCell.AverageRangeMeters) + 0.01)
+					if neighborDiff <= neighborCloseness {
+						neighborConfirmCount++
 					}
 				}
 			}
 
 			// closeness threshold based on existing spread and safety margin
-			closenessThreshold := closenessMultiplier*(float64(cell.RangeSpreadMeters)+0.01) + safety
+			// closeness threshold scales with the cell's spread plus a fraction of
+			// the measured distance (noiseRel*observationMean). This avoids biasing
+			// toward small absolute deviations at long range where noise grows.
+			closenessThreshold := closenessMultiplier*(float64(cell.RangeSpreadMeters)+noiseRel*observationMean+0.01) + safety
 			cellDiff := math.Abs(float64(cell.AverageRangeMeters) - observationMean)
 
 			// Decide if this observation is background-like or foreground-like
@@ -318,8 +400,9 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 				} else {
 					oldAvg := float64(cell.AverageRangeMeters)
 					newAvg := (1.0-alpha)*oldAvg + alpha*observationMean
-					// update spread as EMA of absolute deviation
-					deviation := math.Abs(observationMean - newAvg)
+					// update spread as EMA of absolute deviation from the previous mean
+					// using oldAvg avoids scaling the deviation by alpha twice (alpha^2)
+					deviation := math.Abs(observationMean - oldAvg)
 					newSpread := (1.0-alpha)*float64(cell.RangeSpreadMeters) + alpha*deviation
 					cell.AverageRangeMeters = float32(newAvg)
 					cell.RangeSpreadMeters = float32(newSpread)
@@ -347,6 +430,19 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 			// (this is conservative to avoid noisy snapshots)
 			// We store a simple change counter increment when update happened
 			g.ChangesSinceSnapshot++
+
+			// update per-range acceptance metrics
+			// find bucket index for observationMean
+			for b := range g.AcceptanceBucketsMeters {
+				if observationMean <= g.AcceptanceBucketsMeters[b] {
+					if isBackgroundLike {
+						g.AcceptByRangeBuckets[b]++
+					} else {
+						g.RejectByRangeBuckets[b]++
+					}
+					break
+				}
+			}
 		}
 	}
 

@@ -15,6 +15,7 @@ func makeTestGrid(rings, azBins int) *BackgroundGrid {
 		SafetyMarginMeters:        20.0,
 		FreezeDurationNanos:       int64(1 * time.Second),
 		NeighborConfirmationCount: 2,
+		NoiseRelativeFraction:     0.01,
 	}
 	g := &BackgroundGrid{
 		SensorID:    "test-sensor",

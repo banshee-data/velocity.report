@@ -35,6 +35,7 @@ func TestStressProcessFramePolarConcurrency(t *testing.T) {
 		SafetyMarginMeters:             0.5,
 		FreezeDurationNanos:            int64(1e9),
 		NeighborConfirmationCount:      3,
+		NoiseRelativeFraction:          0.01,
 	}
 
 	mgr := NewBackgroundManager("stress-sensor", rings, azBins, params, nil)
@@ -97,6 +98,7 @@ func TestStressProcessFramePolarLongRunning(t *testing.T) {
 		SafetyMarginMeters:             0.5,
 		FreezeDurationNanos:            int64(1e9),
 		NeighborConfirmationCount:      3,
+		NoiseRelativeFraction:          0.01,
 	}
 
 	mgr := NewBackgroundManager("stress-sensor-long", rings, azBins, params, nil)

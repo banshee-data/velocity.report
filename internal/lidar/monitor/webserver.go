@@ -118,6 +118,8 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/api/lidar/snapshots", ws.handleLidarSnapshots)
 	mux.HandleFunc("/api/lidar/export_snapshot", ws.handleExportSnapshotASC)
 	mux.HandleFunc("/api/lidar/export_next_frame", ws.handleExportNextFrameASC)
+	mux.HandleFunc("/api/lidar/acceptance", ws.handleAcceptanceMetrics)
+	mux.HandleFunc("/api/lidar/acceptance/reset", ws.handleAcceptanceReset)
 
 	return mux
 }
@@ -484,6 +486,91 @@ func (ws *WebServer) handleLidarSnapshot(w http.ResponseWriter, r *http.Request)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(summary)
+}
+
+// handleAcceptanceMetrics returns the range-bucketed acceptance/rejection metrics
+// for a given sensor. Query params: sensor_id (required)
+func (ws *WebServer) handleAcceptanceMetrics(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+	mgr := lidar.GetBackgroundManager(sensorID)
+	if mgr == nil {
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background manager for sensor '%s'", sensorID))
+		return
+	}
+	metrics := mgr.GetAcceptanceMetrics()
+	if metrics == nil {
+		metrics = &lidar.AcceptanceMetrics{}
+	}
+
+	// Build richer response including totals and computed rates for convenience
+	type RichAcceptance struct {
+		BucketsMeters   []float64 `json:"BucketsMeters"`
+		AcceptCounts    []int64   `json:"AcceptCounts"`
+		RejectCounts    []int64   `json:"RejectCounts"`
+		Totals          []int64   `json:"Totals"`
+		AcceptanceRates []float64 `json:"AcceptanceRates"`
+	}
+
+	totals := make([]int64, len(metrics.BucketsMeters))
+	rates := make([]float64, len(metrics.BucketsMeters))
+	for i := range metrics.BucketsMeters {
+		var a, rj int64
+		if i < len(metrics.AcceptCounts) {
+			a = metrics.AcceptCounts[i]
+		}
+		if i < len(metrics.RejectCounts) {
+			rj = metrics.RejectCounts[i]
+		}
+		totals[i] = a + rj
+		if totals[i] > 0 {
+			rates[i] = float64(a) / float64(totals[i])
+		} else {
+			rates[i] = 0.0
+		}
+	}
+
+	resp := RichAcceptance{
+		BucketsMeters:   metrics.BucketsMeters,
+		AcceptCounts:    metrics.AcceptCounts,
+		RejectCounts:    metrics.RejectCounts,
+		Totals:          totals,
+		AcceptanceRates: rates,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+// handleAcceptanceReset zeros the accept/reject counters for a given sensor_id.
+// Method: POST (or GET for convenience). Query param: sensor_id (required)
+func (ws *WebServer) handleAcceptanceReset(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost && r.Method != http.MethodGet {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use POST")
+		return
+	}
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+	mgr := lidar.GetBackgroundManager(sensorID)
+	if mgr == nil {
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background manager for sensor '%s'", sensorID))
+		return
+	}
+	if err := mgr.ResetAcceptanceMetrics(); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("reset error: %v", err))
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "sensor_id": sensorID})
 }
 
 // Close shuts down the web server

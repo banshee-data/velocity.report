@@ -48,6 +48,8 @@ var (
 	lidarForward = flag.Bool("lidar-forward", false, "Forward lidar UDP packets to another port")
 	lidarFwdPort = flag.Int("lidar-forward-port", 2368, "Port to forward lidar UDP packets to")
 	lidarFwdAddr = flag.String("lidar-forward-addr", "localhost", "Address to forward lidar UDP packets to")
+	// Background tuning knobs
+	bgNoiseRelative = flag.Float64("bg-noise-relative", 0.05, "Background NoiseRelativeFraction: fraction of range treated as expected measurement noise (e.g., 0.01 = 1%)")
 )
 
 // Constants
@@ -132,6 +134,7 @@ func main() {
 			SettlingPeriodNanos:            int64(5 * time.Minute),
 			SnapshotIntervalNanos:          int64(2 * time.Hour),
 			ChangeThresholdForSnapshot:     100,
+			NoiseRelativeFraction:          float32(*bgNoiseRelative),
 		}
 
 		backgroundManager := lidar.NewBackgroundManager(*lidarSensor, 40, 1800, backgroundParams, lidarDB)
