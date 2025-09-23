@@ -1,5 +1,17 @@
 # Development Log
 
+## September 22, 2025 - Background model fixes, snapshot export & backfill
+
+- Wired the `BackgroundManager` into the LiDAR pipeline and made snapshots self-contained by
+	persisting per-ring elevation angles (`ring_elevations_json`) with each `lidar_bg_snapshot`.
+- Centralized snapshot-to-ASC export so exports prefer snapshot-embedded elevations (fallbacks: caller-supplied, then live manager) and added frame-export fallbacks that recompute Z from polar values when needed.
+- Added a small CLI backfill tool to populate `ring_elevations_json` for existing snapshots (used embedded Pandar40P config to backfill many rows).
+- Small algorithmic improvements to `ProcessFramePolar` to reduce outward drift:
+	- restrict neighbor confirmation to same-ring neighbors (avoid cross-ring elevation leakage),
+	- update spread EMA relative to the previous mean (reduces alpha-related bias).
+- Added unit tests: export behavior (ensures exported Z is correct when elevations are available) and backfill DB tests; fixed concurrent SQLite update pattern (read candidates first, then write) to avoid SQLITE_BUSY.
+- Cleaned up debugging prints and standardized CLI logging in the backfill tool; left data-export writes unchanged.
+
 ## September 21, 2025 - Server & SerialMux consolidation, DB unification, tests
 
 - Centralized HTTP server and UI paths into `internal/api` (moved server code out of `cmd/radar`).
