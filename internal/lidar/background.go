@@ -132,6 +132,30 @@ func (bm *BackgroundManager) SetNoiseRelativeFraction(v float32) error {
 	return nil
 }
 
+// SetClosenessSensitivityMultiplier safely updates the ClosenessSensitivityMultiplier parameter.
+func (bm *BackgroundManager) SetClosenessSensitivityMultiplier(v float32) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	g.Params.ClosenessSensitivityMultiplier = v
+	g.mu.Unlock()
+	return nil
+}
+
+// SetNeighborConfirmationCount safely updates the NeighborConfirmationCount parameter.
+func (bm *BackgroundManager) SetNeighborConfirmationCount(v int) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	g.Params.NeighborConfirmationCount = v
+	g.mu.Unlock()
+	return nil
+}
+
 // SetEnableDiagnostics toggles emission of diagnostics for this manager.
 func (bm *BackgroundManager) SetEnableDiagnostics(v bool) {
 	if bm == nil {
