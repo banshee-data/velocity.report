@@ -41,6 +41,11 @@ type Server struct {
 	db       *db.DB
 	units    string
 	timezone string
+	// mux holds the HTTP handlers; storing it here ensures callers that
+	// obtain the mux via ServeMux() and register additional admin routes
+	// will have those routes preserved when Start uses the mux to run the
+	// server.
+	mux *http.ServeMux
 }
 
 func NewServer(m serialmux.SerialMuxInterface, db *db.DB, units string, timezone string) *Server {
@@ -102,12 +107,15 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 // human-friendly code that maps to seconds (see supportedGroups below).
 
 func (s *Server) ServeMux() *http.ServeMux {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/events", s.listEvents)
-	mux.HandleFunc("/command", s.sendCommandHandler)
-	mux.HandleFunc("/api/radar_stats", s.showRadarObjectStats)
-	mux.HandleFunc("/api/config", s.showConfig)
-	return mux
+	if s.mux != nil {
+		return s.mux
+	}
+	s.mux = http.NewServeMux()
+	s.mux.HandleFunc("/events", s.listEvents)
+	s.mux.HandleFunc("/command", s.sendCommandHandler)
+	s.mux.HandleFunc("/api/radar_stats", s.showRadarObjectStats)
+	s.mux.HandleFunc("/api/config", s.showConfig)
+	return s.mux
 }
 
 func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
@@ -322,6 +330,13 @@ func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 // Start launches the HTTP server and blocks until the provided context is done
 // or the server returns an error. It installs the same static file and SPA
 // handlers used previously in the cmd/radar binary.
+//
+// Note: Start retrieves the mux by calling s.ServeMux(). ServeMux() returns
+// the Server's stored *http.ServeMux (creating and storing it on first
+// call). Callers are therefore free to call s.ServeMux() and register
+// additional admin/diagnostic routes before invoking Start — those routes
+// will be preserved and served. This avoids losing preconfigured routes when
+// starting the server.
 func (s *Server) Start(ctx context.Context, listen string, devMode bool) error {
 	mux := s.ServeMux()
 
