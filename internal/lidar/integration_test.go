@@ -3,6 +3,7 @@ package lidar_test
 import (
 	"fmt"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -65,12 +66,16 @@ func TestHesaiLiDAR_PCAPIntegration(t *testing.T) {
 		minAzimuth, maxAzimuth, totalDuration)
 
 	// Step 4: Set up frame builder to process the extracted points
-	var completedFrames []*lidar.LiDARFrame
-
+	var (
+		completedFrames []*lidar.LiDARFrame
+		completedMu     sync.Mutex
+	)
 	frameConfig := lidar.FrameBuilderConfig{
 		SensorID: "hesai-pandar40p-integration-test",
 		FrameCallback: func(frame *lidar.LiDARFrame) {
+			completedMu.Lock()
 			completedFrames = append(completedFrames, frame)
+			completedMu.Unlock()
 			t.Logf("Frame completed: %s, %d points, %.1f° - %.1f° azimuth, %v duration",
 				frame.FrameID, frame.PointCount, frame.MinAzimuth, frame.MaxAzimuth,
 				frame.EndTimestamp.Sub(frame.StartTimestamp))
@@ -84,22 +89,44 @@ func TestHesaiLiDAR_PCAPIntegration(t *testing.T) {
 
 	frameBuilder := lidar.NewFrameBuilder(frameConfig)
 
-	// Step 5: Process all extracted points through the frame builder
+	// Step 5: Process all extracted points through the frame builder (polar-first)
 	t.Log("Processing points through frame builder...")
-	frameBuilder.AddPoints(allPoints)
+	// Convert cartesian points back to polar form for the polar-first API
+	toPolar := func(points []lidar.Point) []lidar.PointPolar {
+		out := make([]lidar.PointPolar, 0, len(points))
+		for _, p := range points {
+			out = append(out, lidar.PointPolar{
+				Channel:     p.Channel,
+				Azimuth:     p.Azimuth,
+				Elevation:   p.Elevation,
+				Distance:    p.Distance,
+				Intensity:   p.Intensity,
+				Timestamp:   p.Timestamp.UnixNano(),
+				BlockID:     p.BlockID,
+				UDPSequence: p.UDPSequence,
+			})
+		}
+		return out
+	}
+
+	frameBuilder.AddPointsPolar(toPolar(allPoints))
 
 	// Step 6: Wait for frame processing to complete
 	time.Sleep(500 * time.Millisecond)
 
 	// Step 7: Validate the integration results
-	if len(completedFrames) == 0 {
+	completedMu.Lock()
+	framesCopy := append([]*lidar.LiDARFrame(nil), completedFrames...)
+	completedMu.Unlock()
+
+	if len(framesCopy) == 0 {
 		t.Fatal("No frames were built from PCAP data")
 	}
 
-	t.Logf("Successfully built %d complete frames from PCAP data", len(completedFrames))
+	t.Logf("Successfully built %d complete frames from PCAP data", len(framesCopy))
 
 	// Validate frame quality
-	for i, frame := range completedFrames {
+	for i, frame := range framesCopy {
 		if frame.PointCount == 0 {
 			t.Errorf("Frame %d has no points", i)
 			continue
@@ -158,18 +185,19 @@ func extractPCAPDataUsingGopacket(pcapPath string, parser *parse.Pandar40PParser
 
 		parsedPoints, err := parser.ParsePacket(lidarData)
 		if err == nil && len(parsedPoints) > 0 {
-			// Convert parsed points to lidar.Point type
-			for _, point := range parsedPoints {
+			// Convert parsed polar points to lidar.Point (cartesian) for analysis
+			for _, p := range parsedPoints {
+				x, y, z := lidar.SphericalToCartesian(p.Distance, p.Azimuth, p.Elevation)
 				lidarPoint := lidar.Point{
-					X:         point.X,
-					Y:         point.Y,
-					Z:         point.Z,
-					Intensity: point.Intensity,
-					Azimuth:   point.Azimuth,
-					Elevation: point.Elevation,
-					Distance:  point.Distance,
-					Timestamp: point.Timestamp,
-					Channel:   point.Channel,
+					X:         x,
+					Y:         y,
+					Z:         z,
+					Intensity: p.Intensity,
+					Azimuth:   p.Azimuth,
+					Elevation: p.Elevation,
+					Distance:  p.Distance,
+					Timestamp: time.Unix(0, p.Timestamp),
+					Channel:   p.Channel,
 				}
 				allPoints = append(allPoints, lidarPoint)
 			}

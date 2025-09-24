@@ -5,10 +5,6 @@ import (
 	"time"
 )
 
-//
-// 0) Point - LiDAR measurement data structure
-//
-
 // Point represents a single 3D LiDAR measurement point in Cartesian coordinates
 // Each point contains both the processed 3D coordinates and raw measurement data
 type Point struct {
@@ -30,16 +26,11 @@ type Point struct {
 	UDPSequence uint32 `json:"udp_sequence"` // UDP sequence number for gap detection
 }
 
-//
-// 1) Frames & poses
-//
-
 // FrameID is a human-readable name like "sensor/hesai-01" or "site/main-st-001".
 type FrameID string
 
 // Pose is a rigid transform (sensor -> world) with versioning.
 // T is 4x4 row-major (m00..m03, m10..m13, m20..m23, m30..m33).
-// Updated to match schema.sql sensor_poses table exactly.
 type Pose struct {
 	PoseID                    int64       // matches pose_id INTEGER PRIMARY KEY
 	SensorID                  string      // matches sensor_id TEXT NOT NULL
@@ -53,104 +44,24 @@ type Pose struct {
 }
 
 // PoseCache holds the current pose used for realtime transforms.
-// Enhanced with thread-safety for concurrent access.
 type PoseCache struct {
 	BySensorID map[string]*Pose
 	WorldFrame FrameID // canonical site frame (e.g., "site/main-st-001")
 	// TODO: add mutex for thread-safe operations when implementing concurrent access
 }
 
-//
-// 2) Background subtractor (SENSOR FRAME)
-//    - one grid per LiDAR (indexed by ring × azimuth bin)
-//    Enhanced for automatic persistence matching schema.sql
-//
-
-// BackgroundParams configuration matching the param storage approach in schema
-type BackgroundParams struct {
-	BackgroundUpdateFraction       float32 // e.g., 0.02
-	ClosenessSensitivityMultiplier float32 // e.g., 3.0
-	SafetyMarginMeters             float32 // e.g., 0.5
-	FreezeDurationNanos            int64   // e.g., 5e9 (5s)
-	NeighborConfirmationCount      int     // e.g., 5 of 8 neighbors
-
-	// Additional params for persistence matching schema requirements
-	SettlingPeriodNanos        int64 // 5 minutes before first snapshot
-	SnapshotIntervalNanos      int64 // 2 hours between snapshots
-	ChangeThresholdForSnapshot int   // min changed cells to trigger snapshot
-}
-
-// BackgroundCell matches the compressed storage format for schema persistence
-type BackgroundCell struct {
-	AverageRangeMeters   float32
-	RangeSpreadMeters    float32
-	TimesSeenCount       uint32
-	LastUpdateUnixNanos  int64
-	FrozenUntilUnixNanos int64
-}
-
-// BackgroundGrid enhanced for schema persistence and 100-track performance
-type BackgroundGrid struct {
-	SensorID    string
-	SensorFrame FrameID // e.g., "sensor/hesai-01"
-
-	Rings       int // e.g., 40 - matches schema rings INTEGER NOT NULL
-	AzimuthBins int // e.g., 1800 for 0.2° - matches schema azimuth_bins INTEGER NOT NULL
-
-	Cells []BackgroundCell // len = Rings * AzimuthBins
-
-	Params BackgroundParams
-
-	// Enhanced persistence tracking matching schema lidar_bg_snapshot table
-	Manager              *BackgroundManager
-	LastSnapshotTime     time.Time
-	ChangesSinceSnapshot int
-	SnapshotID           *int64 // tracks last persisted snapshot_id from schema
-
-	// Performance tracking for system_events table integration
-	LastProcessingTimeUs  int64
-	WarmupFramesRemaining int
-	SettlingComplete      bool
-
-	// Telemetry for monitoring (feeds into system_events)
-	ForegroundCount int64
-	BackgroundCount int64
-
-	// Thread safety for concurrent access during persistence
-	// TODO: add mutex when implementing concurrent background updates
-}
-
-// Helper to index Cells: idx = ring*AzimuthBins + azBin
-func (g *BackgroundGrid) Idx(ring, azBin int) int { return ring*g.AzimuthBins + azBin }
-
-//
-// Background persistence management matching schema design
-//
-
-// BackgroundManager handles automatic persistence following schema lidar_bg_snapshot pattern
-type BackgroundManager struct {
-	Grid            *BackgroundGrid
-	SettlingTimer   *time.Timer
-	PersistTimer    *time.Timer
-	HasSettled      bool
-	LastPersistTime time.Time
-	StartTime       time.Time
-
-	// Persistence callback to main app - should save to schema lidar_bg_snapshot table
-	PersistCallback func(snapshot *BgSnapshot) error
-}
-
 // BgSnapshot exactly matches schema lidar_bg_snapshot table structure
 type BgSnapshot struct {
-	SnapshotID        *int64 // will be set by database after insert
-	SensorID          string // matches sensor_id TEXT NOT NULL
-	TakenUnixNanos    int64  // matches taken_unix_nanos INTEGER NOT NULL
-	Rings             int    // matches rings INTEGER NOT NULL
-	AzimuthBins       int    // matches azimuth_bins INTEGER NOT NULL
-	ParamsJSON        string // matches params_json TEXT NOT NULL
-	GridBlob          []byte // matches grid_blob BLOB NOT NULL (compressed BackgroundCell data)
-	ChangedCellsCount int    // matches changed_cells_count INTEGER
-	SnapshotReason    string // matches snapshot_reason TEXT ('settling_complete', 'periodic_update', 'manual')
+	SnapshotID         *int64 // will be set by database after insert
+	SensorID           string // matches sensor_id TEXT NOT NULL
+	TakenUnixNanos     int64  // matches taken_unix_nanos INTEGER NOT NULL
+	Rings              int    // matches rings INTEGER NOT NULL
+	AzimuthBins        int    // matches azimuth_bins INTEGER NOT NULL
+	ParamsJSON         string // matches params_json TEXT NOT NULL
+	RingElevationsJSON string // matches ring_elevations_json TEXT NULL - optional per-ring elevation JSON
+	GridBlob           []byte // matches grid_blob BLOB NOT NULL (compressed BackgroundCell data)
+	ChangedCellsCount  int    // matches changed_cells_count INTEGER
+	SnapshotReason     string // matches snapshot_reason TEXT ('settling_complete', 'periodic_update', 'manual')
 }
 
 // Ring buffer implementation for efficient memory management at 100-track scale

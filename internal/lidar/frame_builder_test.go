@@ -6,6 +6,24 @@ import (
 	"time"
 )
 
+// toPolar converts a slice of cartesian Points to PointPolar for polar-first API tests.
+func toPolar(points []Point) []PointPolar {
+	out := make([]PointPolar, 0, len(points))
+	for _, p := range points {
+		out = append(out, PointPolar{
+			Channel:     p.Channel,
+			Azimuth:     p.Azimuth,
+			Elevation:   p.Elevation,
+			Distance:    p.Distance,
+			Intensity:   p.Intensity,
+			Timestamp:   p.Timestamp.UnixNano(),
+			BlockID:     p.BlockID,
+			UDPSequence: p.UDPSequence,
+		})
+	}
+	return out
+}
+
 // TestFrameBuilder_BasicConfiguration tests the basic configuration and defaults
 func TestFrameBuilder_BasicConfiguration(t *testing.T) {
 	sensorID := "test-sensor-001"
@@ -95,8 +113,8 @@ func TestFrameBuilder_AzimuthFrameDetection(t *testing.T) {
 		UDPSequence: 60100,
 	})
 
-	// Add points to frame builder
-	fb.AddPoints(points)
+	// Add points to frame builder (polar-first)
+	fb.AddPointsPolar(toPolar(points))
 
 	// Wait for frame to be finalized
 	time.Sleep(200 * time.Millisecond)
@@ -154,8 +172,8 @@ func TestFrameBuilder_NoWrapWithoutCriteria(t *testing.T) {
 		{Azimuth: 5.0, Timestamp: baseTime.Add(30 * time.Millisecond), UDPSequence: 4}, // Wrap but insufficient data
 	}
 
-	// Add points to frame builder
-	fb.AddPoints(points)
+	// Add points to frame builder (polar-first)
+	fb.AddPointsPolar(toPolar(points))
 
 	// Wait for potential frame finalization
 	time.Sleep(100 * time.Millisecond)
@@ -214,7 +232,7 @@ func TestFrameBuilder_UDPSequenceTracking(t *testing.T) {
 	})
 
 	// Add points to frame builder
-	fb.AddPoints(points)
+	fb.AddPointsPolar(toPolar(points))
 
 	// Wait for frame finalization
 	time.Sleep(200 * time.Millisecond)
@@ -288,7 +306,7 @@ func TestFrameBuilder_MinimumPointValidation(t *testing.T) {
 	})
 
 	// Add points to frame builder
-	fb.AddPoints(points)
+	fb.AddPointsPolar(toPolar(points))
 
 	// Wait for frame finalization attempt
 	time.Sleep(200 * time.Millisecond)
@@ -343,7 +361,7 @@ func TestFrameBuilder_HybridDetection(t *testing.T) {
 		points = append(points, point)
 	}
 
-	fb.AddPoints(points)
+	fb.AddPointsPolar(toPolar(points))
 
 	// Wait a moment to ensure points are processed
 	time.Sleep(10 * time.Millisecond)
@@ -355,7 +373,7 @@ func TestFrameBuilder_HybridDetection(t *testing.T) {
 		UDPSequence: 60100,
 	}
 
-	fb.AddPoints([]Point{finalPoint})
+	fb.AddPointsPolar(toPolar([]Point{finalPoint}))
 
 	// Frame should be detected and buffered, wait for buffer timeout
 	time.Sleep(200 * time.Millisecond)
@@ -434,7 +452,7 @@ func TestFrameBuilder_TimeBasedWithInsufficientCoverage(t *testing.T) {
 	}
 	points = append(points, finalPoint)
 
-	fb.AddPoints(points)
+	fb.AddPointsPolar(toPolar(points))
 
 	// Should NOT trigger frame completion due to insufficient azimuth coverage
 	mu.Lock()
@@ -483,7 +501,7 @@ func TestFrameBuilder_AzimuthWrapWithTimeBased(t *testing.T) {
 		points = append(points, point)
 	}
 
-	fb.AddPoints(points)
+	fb.AddPointsPolar(toPolar(points))
 
 	// Wait a moment to ensure points are processed
 	time.Sleep(10 * time.Millisecond)
@@ -495,7 +513,7 @@ func TestFrameBuilder_AzimuthWrapWithTimeBased(t *testing.T) {
 		UDPSequence: 60100,
 	}
 
-	fb.AddPoints([]Point{wrapPoint})
+	fb.AddPointsPolar(toPolar([]Point{wrapPoint}))
 
 	// Wait for frame processing (buffer timeout)
 	time.Sleep(200 * time.Millisecond)
@@ -556,7 +574,7 @@ func TestFrameBuilder_TraditionalAzimuthOnly(t *testing.T) {
 		points = append(points, point)
 	}
 
-	fb.AddPoints(points)
+	fb.AddPointsPolar(toPolar(points))
 
 	// Verify no frame completion yet (no azimuth wrap)
 	mu.Lock()
@@ -576,7 +594,7 @@ func TestFrameBuilder_TraditionalAzimuthOnly(t *testing.T) {
 		},
 	}
 
-	fb.AddPoints(wrapPoints)
+	fb.AddPointsPolar(toPolar(wrapPoints))
 
 	// Frame should be detected and buffered, wait for buffer timeout (100ms) + cleanup cycles (50ms each)
 	time.Sleep(250 * time.Millisecond) // BufferTimeout (100ms) + multiple CleanupInterval cycles (50ms each)

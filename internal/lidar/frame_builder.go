@@ -3,11 +3,33 @@ package lidar
 import (
 	"fmt"
 	"log"
-	"os"
 	"path/filepath"
 	"sync"
 	"time"
 )
+
+// Global registry for FrameBuilder instances keyed by SensorID.
+var (
+	fbRegistry   = map[string]*FrameBuilder{}
+	fbRegistryMu = &sync.RWMutex{}
+)
+
+// RegisterFrameBuilder registers a FrameBuilder for a sensor ID.
+func RegisterFrameBuilder(sensorID string, fb *FrameBuilder) {
+	if sensorID == "" || fb == nil {
+		return
+	}
+	fbRegistryMu.Lock()
+	defer fbRegistryMu.Unlock()
+	fbRegistry[sensorID] = fb
+}
+
+// GetFrameBuilder returns a registered FrameBuilder or nil
+func GetFrameBuilder(sensorID string) *FrameBuilder {
+	fbRegistryMu.RLock()
+	defer fbRegistryMu.RUnlock()
+	return fbRegistry[sensorID]
+}
 
 // Frame detection constants for azimuth-based rotation detection
 const (
@@ -48,10 +70,12 @@ type LiDARFrame struct {
 // FrameBuilder accumulates points from multiple packets into complete rotational frames
 // Uses azimuth-based rotation detection and UDP sequence tracking for completeness
 type FrameBuilder struct {
-	sensorID      string            // sensor identifier
-	frameCallback func(*LiDARFrame) // callback when frame is complete
-	mu            sync.Mutex        // protect concurrent access
-	frameCounter  int64             // sequential frame number
+	sensorID            string            // sensor identifier
+	frameCallback       func(*LiDARFrame) // callback when frame is complete
+	exportNextFrameASC  bool              // flag to export next completed frame
+	exportNextFramePath string            // output path for ASC export
+	mu                  sync.Mutex        // protect concurrent access
+	frameCounter        int64             // sequential frame number
 
 	// Azimuth-based frame detection
 	currentFrame     *LiDARFrame // frame currently being built
@@ -135,6 +159,9 @@ func NewFrameBuilder(config FrameBuilderConfig) *FrameBuilder {
 	// Start cleanup timer
 	fb.cleanupTimer = time.AfterFunc(fb.cleanupInterval, fb.cleanupFrames)
 
+	// Register FrameBuilder instance
+	RegisterFrameBuilder(config.SensorID, fb)
+
 	return fb
 }
 
@@ -163,12 +190,40 @@ func (fb *FrameBuilder) EnableTimeBased(enable bool) {
 	fb.enableTimeBased = enable
 }
 
-// AddPoints adds a slice of points using azimuth-based rotation detection
-// Detects 360° rotations and manages UDP sequence ordering for completeness
-func (fb *FrameBuilder) AddPoints(points []Point) {
+// NOTE: Legacy AddPoints removed in polar-first refactor. Use AddPointsPolar.
+
+// AddPointsPolar accepts polar points (sensor-frame) and converts them to cartesian Points
+// before processing. This is used by network listeners that parse into polar form.
+func (fb *FrameBuilder) AddPointsPolar(polar []PointPolar) {
+	if len(polar) == 0 {
+		return
+	}
+
+	pts := make([]Point, 0, len(polar))
+	for _, p := range polar {
+		x, y, z := SphericalToCartesian(p.Distance, p.Azimuth, p.Elevation)
+		pts = append(pts, Point{
+			X:           x,
+			Y:           y,
+			Z:           z,
+			Intensity:   p.Intensity,
+			Distance:    p.Distance,
+			Azimuth:     p.Azimuth,
+			Elevation:   p.Elevation,
+			Channel:     p.Channel,
+			Timestamp:   time.Unix(0, p.Timestamp),
+			BlockID:     p.BlockID,
+			UDPSequence: p.UDPSequence,
+		})
+	}
+
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
+	fb.addPointsInternal(pts)
+}
 
+// addPointsInternal processes cartesian Points assuming lock is held by caller for safety
+func (fb *FrameBuilder) addPointsInternal(points []Point) {
 	if len(points) == 0 {
 		return
 	}
@@ -430,10 +485,29 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame) {
 	// Mark frame as complete
 	frame.SpinComplete = true
 
+	// Export to ASC if requested
+	if fb.exportNextFrameASC {
+		path := fb.exportNextFramePath
+		if path == "" {
+			path = fmt.Sprintf("/tmp/lidar/next_frame_%s_%d.asc", frame.SensorID, time.Now().Unix())
+		}
+		_ = exportFrameToASC(frame)
+		log.Printf("[FrameBuilder] Exported next frame for sensor %s to %s", frame.SensorID, path)
+		fb.exportNextFrameASC = false
+		fb.exportNextFramePath = ""
+	}
 	// Call callback if provided (in separate goroutine to avoid blocking)
 	if fb.frameCallback != nil {
 		go fb.frameCallback(frame)
 	}
+}
+
+// Request export of the next completed frame to ASC format
+func (fb *FrameBuilder) RequestExportNextFrameASC(outPath string) {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+	fb.exportNextFrameASC = true
+	fb.exportNextFramePath = outPath
 }
 
 // GetCurrentFrameStats returns statistics about the frames currently being built
@@ -531,38 +605,47 @@ func exportFrameToASC(frame *LiDARFrame) error {
 		return fmt.Errorf("empty frame")
 	}
 
-	// Create filename with frame ID and timestamp
-	filename := fmt.Sprintf("lidar_frame_%s_%d.asc",
-		frame.SensorID,
-		frame.StartTimestamp.Unix())
+	filename := fmt.Sprintf("lidar_frame_%s_%d.asc", frame.SensorID, frame.StartTimestamp.Unix())
 	filePath := filepath.Join("/tmp/lidar", filename)
 
-	// Ensure the directory exists
-	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
+	// Convert LiDARFrame points to PointASC
+	ascPoints := make([]PointASC, len(frame.Points))
+	// Detect if Z values look invalid (all zero) and recompute from polar if needed
+	zNonZero := 0
+	for _, p := range frame.Points {
+		if p.Z != 0 {
+			zNonZero++
+			break
+		}
+	}
+	if zNonZero == 0 {
+		// Recompute XYZ from Distance/Azimuth/Elevation
+		log.Printf("[FrameBuilder] all Z==0 for frame %s; recomputing XYZ from polar data before export", frame.FrameID)
+		for i, p := range frame.Points {
+			x, y, z := SphericalToCartesian(p.Distance, p.Azimuth, p.Elevation)
+			ascPoints[i] = PointASC{
+				X:         x,
+				Y:         y,
+				Z:         z,
+				Intensity: int(p.Intensity),
+			}
+		}
+	} else {
+		for i, p := range frame.Points {
+			ascPoints[i] = PointASC{
+				X:         p.X,
+				Y:         p.Y,
+				Z:         p.Z,
+				Intensity: int(p.Intensity),
+			}
+		}
 	}
 
-	// Create the file
-	file, err := os.Create(filePath)
+	extraHeader := "" // No extra columns for now
+	err := ExportPointsToASC(ascPoints, filePath, extraHeader)
 	if err != nil {
-		return fmt.Errorf("failed to create ASC file: %w", err)
+		return fmt.Errorf("failed to export ASC: %w", err)
 	}
-	defer file.Close()
-
-	// Write header comment (optional for CloudCompare)
-	// fmt.Fprintf(file, "# CloudCompare ASC file\n")
-	// fmt.Fprintf(file, "# Frame: %s\n", frame.FrameID)
-	// fmt.Fprintf(file, "# Points: %d\n", frame.PointCount)
-	// fmt.Fprintf(file, "# Azimuth: %.1f°-%.1f°\n", frame.MinAzimuth, frame.MaxAzimuth)
-	// fmt.Fprintf(file, "# Duration: %v\n", frame.EndTimestamp.Sub(frame.StartTimestamp))
-	// fmt.Fprintf(file, "# Format: X Y Z Intensity\n")
-
-	// Write points in X Y Z Intensity format
-	for _, point := range frame.Points {
-		fmt.Fprintf(file, "%.6f %.6f %.6f %d\n",
-			point.X, point.Y, point.Z, point.Intensity)
-	}
-
 	log.Printf("Exported frame %s to %s (%d points)", frame.FrameID, filePath, frame.PointCount)
 	return nil
 }

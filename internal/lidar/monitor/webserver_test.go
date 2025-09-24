@@ -20,6 +20,7 @@ func TestNewWebServer(t *testing.T) {
 		ForwardPort:       2368,
 		ParsingEnabled:    true,
 		UDPPort:           2369,
+		DB:                nil,
 	}
 
 	server := NewWebServer(config)
@@ -50,6 +51,7 @@ func TestWebServer_StatusHandler(t *testing.T) {
 		ForwardingEnabled: false,
 		ParsingEnabled:    true,
 		UDPPort:           2369,
+		DB:                nil,
 	}
 
 	server := NewWebServer(config)
@@ -148,6 +150,7 @@ func TestWebServer_StartStop(t *testing.T) {
 		Stats:          stats,
 		ParsingEnabled: true,
 		UDPPort:        2369,
+		DB:             nil,
 	}
 
 	server := NewWebServer(config)
@@ -193,6 +196,7 @@ func TestWebServer_ForwardingConfig(t *testing.T) {
 		ForwardPort:       2370,
 		ParsingEnabled:    false,
 		UDPPort:           3000,
+		DB:                nil,
 	}
 
 	server := NewWebServer(config)

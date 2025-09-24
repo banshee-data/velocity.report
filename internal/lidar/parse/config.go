@@ -10,6 +10,19 @@ import (
 	"strings"
 )
 
+// ElevationsFromConfig extracts per-channel elevation angles (degrees) from a
+// Pandar40PConfig. Returns nil if config is nil. Length equals CHANNELS_PER_BLOCK.
+func ElevationsFromConfig(cfg *Pandar40PConfig) []float64 {
+	if cfg == nil {
+		return nil
+	}
+	elev := make([]float64, len(cfg.AngleCorrections))
+	for i := range cfg.AngleCorrections {
+		elev[i] = cfg.AngleCorrections[i].Elevation
+	}
+	return elev
+}
+
 //go:embed sensor_configs/*.csv
 var embeddedConfigs embed.FS
 

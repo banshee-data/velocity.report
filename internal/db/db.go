@@ -17,11 +17,56 @@ import (
 	_ "modernc.org/sqlite"
 	"tailscale.com/tsweb"
 
+	"github.com/banshee-data/velocity.report/internal/lidar"
 	"gonum.org/v1/gonum/stat"
 )
 
+// compile-time assertion: ensure DB implements lidar.BgStore (InsertBgSnapshot)
+var _ lidar.BgStore = (*DB)(nil)
+
 type DB struct {
 	*sql.DB
+}
+
+// ListRecentBgSnapshots returns the last N BgSnapshots for a sensor_id, ordered by most recent.
+func (db *DB) ListRecentBgSnapshots(sensorID string, limit int) ([]*lidar.BgSnapshot, error) {
+	q := `SELECT snapshot_id, sensor_id, taken_unix_nanos, rings, azimuth_bins, params_json, ring_elevations_json, grid_blob, changed_cells_count, snapshot_reason
+		  FROM lidar_bg_snapshot WHERE sensor_id = ? ORDER BY snapshot_id DESC LIMIT ?`
+	rows, err := db.Query(q, sensorID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var snapshots []*lidar.BgSnapshot
+	for rows.Next() {
+		var snapID int64
+		var sensor string
+		var takenUnix int64
+		var rings int
+		var azBins int
+		var paramsJSON sql.NullString
+		var ringElevations sql.NullString
+		var blob []byte
+		var changed int
+		var reason sql.NullString
+		if err := rows.Scan(&snapID, &sensor, &takenUnix, &rings, &azBins, &paramsJSON, &ringElevations, &blob, &changed, &reason); err != nil {
+			return nil, err
+		}
+		snap := &lidar.BgSnapshot{
+			SnapshotID:         &snapID,
+			SensorID:           sensor,
+			TakenUnixNanos:     takenUnix,
+			Rings:              rings,
+			AzimuthBins:        azBins,
+			ParamsJSON:         paramsJSON.String,
+			RingElevationsJSON: ringElevations.String,
+			GridBlob:           blob,
+			ChangedCellsCount:  changed,
+			SnapshotReason:     reason.String,
+		}
+		snapshots = append(snapshots, snap)
+	}
+	return snapshots, nil
 }
 
 // schema.sql contains the SQL statements for creating the database schema.
@@ -61,6 +106,60 @@ func (db *DB) RecordRadarObject(rawRadarJSON string) error {
 		return err
 	}
 	return nil
+}
+
+// InsertBgSnapshot persists a Background snapshot into the lidar_bg_snapshot table
+// and returns the new snapshot_id.
+func (db *DB) InsertBgSnapshot(s *lidar.BgSnapshot) (int64, error) {
+	if s == nil {
+		return 0, nil
+	}
+	stmt := `INSERT INTO lidar_bg_snapshot (sensor_id, taken_unix_nanos, rings, azimuth_bins, params_json, ring_elevations_json, grid_blob, changed_cells_count, snapshot_reason)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	res, err := db.Exec(stmt, s.SensorID, s.TakenUnixNanos, s.Rings, s.AzimuthBins, s.ParamsJSON, s.RingElevationsJSON, s.GridBlob, s.ChangedCellsCount, s.SnapshotReason)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+// GetLatestBgSnapshot returns the most recent BgSnapshot for the given sensor_id, or nil if none.
+func (db *DB) GetLatestBgSnapshot(sensorID string) (*lidar.BgSnapshot, error) {
+	q := `SELECT snapshot_id, sensor_id, taken_unix_nanos, rings, azimuth_bins, params_json, ring_elevations_json, grid_blob, changed_cells_count, snapshot_reason
+		  FROM lidar_bg_snapshot WHERE sensor_id = ? ORDER BY snapshot_id DESC LIMIT 1` // nolint:lll
+
+	row := db.QueryRow(q, sensorID)
+	var snapID int64
+	var sensor string
+	var takenUnix int64
+	var rings int
+	var azBins int
+	var paramsJSON sql.NullString
+	var ringElevations sql.NullString
+	var blob []byte
+	var changed int
+	var reason sql.NullString
+
+	if err := row.Scan(&snapID, &sensor, &takenUnix, &rings, &azBins, &paramsJSON, &ringElevations, &blob, &changed, &reason); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	snap := &lidar.BgSnapshot{
+		SnapshotID:         &snapID,
+		SensorID:           sensor,
+		TakenUnixNanos:     takenUnix,
+		Rings:              rings,
+		AzimuthBins:        azBins,
+		ParamsJSON:         paramsJSON.String,
+		RingElevationsJSON: ringElevations.String,
+		GridBlob:           blob,
+		ChangedCellsCount:  changed,
+		SnapshotReason:     reason.String,
+	}
+	return snap, nil
 }
 
 type RadarObject struct {

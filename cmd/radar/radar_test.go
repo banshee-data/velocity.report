@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/serialmux"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -28,8 +29,8 @@ func TestRadarEndToEnd(t *testing.T) {
 		}
 	}()
 
-	// handle the fixture as an event with handleEvent
-	if err := handleEvent(d, fixture); err != nil {
+	// handle the fixture as an event with serialmux.HandleEvent
+	if err := serialmux.HandleEvent(d, fixture); err != nil {
 		t.Fatalf("Failed to handle event: %v", err)
 	}
 
