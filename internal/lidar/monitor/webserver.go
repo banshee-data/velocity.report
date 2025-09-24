@@ -120,8 +120,68 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/api/lidar/export_next_frame", ws.handleExportNextFrameASC)
 	mux.HandleFunc("/api/lidar/acceptance", ws.handleAcceptanceMetrics)
 	mux.HandleFunc("/api/lidar/acceptance/reset", ws.handleAcceptanceReset)
+	mux.HandleFunc("/api/lidar/params", ws.handleBackgroundParams)
 
 	return mux
+}
+
+// handleBackgroundParams allows reading and updating simple background parameters
+// Query params: sensor_id (required)
+// GET: returns { "noise_relative": <float>, "enable_diagnostics": <bool> }
+// POST: accepts JSON { "noise_relative": <float>, "enable_diagnostics": <bool> }
+func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Request) {
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+	bm := lidar.GetBackgroundManager(sensorID)
+	if bm == nil || bm.Grid == nil {
+		ws.writeJSONError(w, http.StatusNotFound, "no background manager for sensor")
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		params := bm.GetParams()
+		resp := map[string]interface{}{
+			"noise_relative":     params.NoiseRelativeFraction,
+			"enable_diagnostics": bm.EnableDiagnostics,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+		return
+	case http.MethodPost:
+		var body struct {
+			NoiseRelative     *float64 `json:"noise_relative"`
+			EnableDiagnostics *bool    `json:"enable_diagnostics"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			ws.writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if body.NoiseRelative != nil {
+			if err := bm.SetNoiseRelativeFraction(float32(*body.NoiseRelative)); err != nil {
+				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+		}
+		if body.EnableDiagnostics != nil {
+			bm.SetEnableDiagnostics(*body.EnableDiagnostics)
+		}
+
+		// Read back current params for confirmation
+		cur := bm.GetParams()
+		// Emit an info log so operators can see applied changes in the app logs
+		log.Printf("[Monitor] Applied background params for sensor=%s: noise_relative=%.6f, enable_diagnostics=%v", sensorID, cur.NoiseRelativeFraction, bm.EnableDiagnostics)
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "noise_relative": cur.NoiseRelativeFraction, "enable_diagnostics": bm.EnableDiagnostics})
+		return
+	default:
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
 }
 
 // handleExportSnapshotASC triggers an export to ASC for a given snapshot_id (or latest if not provided).

@@ -10,6 +10,8 @@ import (
 	"math"
 	"sync"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/monitoring"
 )
 
 // BackgroundParams configuration matching the param storage approach in schema
@@ -83,6 +85,9 @@ type BackgroundGrid struct {
 	// Optional per-ring elevation angles (degrees) for converting polar->cartesian.
 	// If populated (len == Rings) ToASCPoints will use these to compute Z = r*sin(elev).
 	RingElevations []float64
+	// LastObservedNoiseRel tracks the last noise_relative value observed by
+	// ProcessFramePolar so we can log when the runtime value changes.
+	LastObservedNoiseRel float32
 }
 
 // Helper to index Cells: idx = ring*AzimuthBins + azBin
@@ -99,6 +104,40 @@ type BackgroundManager struct {
 
 	// Persistence callback to main app - should save to schema lidar_bg_snapshot table
 	PersistCallback func(snapshot *BgSnapshot) error
+	// EnableDiagnostics controls whether this manager emits diagnostic messages
+	// via the shared monitoring logger. Default: false.
+	EnableDiagnostics bool
+}
+
+// GetParams returns a copy of the BackgroundParams for the manager's grid.
+func (bm *BackgroundManager) GetParams() BackgroundParams {
+	if bm == nil || bm.Grid == nil {
+		return BackgroundParams{}
+	}
+	g := bm.Grid
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.Params
+}
+
+// SetNoiseRelativeFraction safely updates the NoiseRelativeFraction parameter.
+func (bm *BackgroundManager) SetNoiseRelativeFraction(v float32) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	g.Params.NoiseRelativeFraction = v
+	g.mu.Unlock()
+	return nil
+}
+
+// SetEnableDiagnostics toggles emission of diagnostics for this manager.
+func (bm *BackgroundManager) SetEnableDiagnostics(v bool) {
+	if bm == nil {
+		return
+	}
+	bm.EnableDiagnostics = v
 }
 
 // AcceptanceMetrics exposes the acceptance/rejection counts per range bucket.
@@ -324,17 +363,27 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 		neighConfirm = 3
 	}
 
-	// relative noise fraction (fraction of range to treat as additional spread)
-	noiseRel := float64(g.Params.NoiseRelativeFraction)
-	if noiseRel <= 0 {
-		noiseRel = 0.01 // default to 1% if not configured
-	}
+	// We'll read Params under lock so updates via SetNoiseRelativeFraction
+	// are visible immediately and we can detect changes.
 
 	foregroundCount := int64(0)
 	backgroundCount := int64(0)
 
 	// Iterate over observed cells and update grid
 	g.mu.Lock()
+	// read noiseRel under lock
+	noiseRel := float64(g.Params.NoiseRelativeFraction)
+	if noiseRel <= 0 {
+		noiseRel = 0.01 // default to 1% if not configured
+	}
+	// if the manager requested diagnostics, and the observed noise changed,
+	// emit a monitoring log so operators see the applied value at runtime.
+	if bm != nil && bm.EnableDiagnostics {
+		if float32(noiseRel) != g.LastObservedNoiseRel {
+			g.LastObservedNoiseRel = float32(noiseRel)
+			monitoring.Logf("[BackgroundManager] Observed noise_relative change for sensor=%s: %.6f", g.SensorID, noiseRel)
+		}
+	}
 	defer g.mu.Unlock()
 	for ringIdx := 0; ringIdx < rings; ringIdx++ {
 		for azBinIdx := 0; azBinIdx < azBins; azBinIdx++ {
