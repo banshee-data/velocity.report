@@ -49,7 +49,7 @@ var (
 	lidarFwdPort = flag.Int("lidar-forward-port", 2368, "Port to forward lidar UDP packets to")
 	lidarFwdAddr = flag.String("lidar-forward-addr", "localhost", "Address to forward lidar UDP packets to")
 	// Background tuning knobs
-	bgNoiseRelative = flag.Float64("bg-noise-relative", 0.05, "Background NoiseRelativeFraction: fraction of range treated as expected measurement noise (e.g., 0.01 = 1%)")
+	bgNoiseRelative = flag.Float64("bg-noise-relative", 0.315, "Background NoiseRelativeFraction: fraction of range treated as expected measurement noise (e.g., 0.01 = 1%)")
 )
 
 // Constants
