@@ -195,6 +195,65 @@ func (bm *BackgroundManager) ResetAcceptanceMetrics() error {
 	return nil
 }
 
+// GridStatus returns a simple snapshot of grid-level statistics useful for
+// debugging settling behavior. The returned map includes total_cells, frozen_cells,
+// a times-seen distribution (string->count) and foreground/background counters.
+func (bm *BackgroundManager) GridStatus() map[string]interface{} {
+	if bm == nil || bm.Grid == nil {
+		return nil
+	}
+	g := bm.Grid
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	total := len(g.Cells)
+	frozen := 0
+	timesSeenDist := map[string]int{}
+	for _, c := range g.Cells {
+		if c.FrozenUntilUnixNanos > time.Now().UnixNano() {
+			frozen++
+		}
+		key := fmt.Sprintf("%d", c.TimesSeenCount)
+		timesSeenDist[key]++
+	}
+
+	return map[string]interface{}{
+		"total_cells":      total,
+		"frozen_cells":     frozen,
+		"times_seen_dist":  timesSeenDist,
+		"foreground_count": g.ForegroundCount,
+		"background_count": g.BackgroundCount,
+	}
+}
+
+// ResetGrid zeros per-cell stats (AverageRangeMeters, RangeSpreadMeters, TimesSeenCount,
+// LastUpdateUnixNanos, FrozenUntilUnixNanos) and acceptance counters. Intended for
+// testing and A/B sweeps only.
+func (bm *BackgroundManager) ResetGrid() error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	for i := range g.Cells {
+		g.Cells[i].AverageRangeMeters = 0
+		g.Cells[i].RangeSpreadMeters = 0
+		g.Cells[i].TimesSeenCount = 0
+		g.Cells[i].LastUpdateUnixNanos = 0
+		g.Cells[i].FrozenUntilUnixNanos = 0
+	}
+	for i := range g.AcceptByRangeBuckets {
+		g.AcceptByRangeBuckets[i] = 0
+		g.RejectByRangeBuckets[i] = 0
+	}
+	g.ChangesSinceSnapshot = 0
+	g.ForegroundCount = 0
+	g.BackgroundCount = 0
+	return nil
+}
+
 // Simple registry for BackgroundManager instances keyed by SensorID.
 // This allows an external API to look up managers and trigger persistence.
 var (

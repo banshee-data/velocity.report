@@ -121,6 +121,8 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/api/lidar/acceptance", ws.handleAcceptanceMetrics)
 	mux.HandleFunc("/api/lidar/acceptance/reset", ws.handleAcceptanceReset)
 	mux.HandleFunc("/api/lidar/params", ws.handleBackgroundParams)
+	mux.HandleFunc("/api/lidar/grid_status", ws.handleGridStatus)
+	mux.HandleFunc("/api/lidar/grid_reset", ws.handleGridReset)
 
 	return mux
 }
@@ -182,6 +184,60 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
+}
+
+// handleGridStatus returns simple statistics about the in-memory BackgroundGrid
+// for a sensor: distribution of TimesSeenCount, number of frozen cells, and totals.
+// Query params: sensor_id (required)
+func (ws *WebServer) handleGridStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+	mgr := lidar.GetBackgroundManager(sensorID)
+	if mgr == nil {
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background manager for sensor '%s'", sensorID))
+		return
+	}
+	status := mgr.GridStatus()
+	if status == nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, "failed to compute grid status")
+		return
+	}
+	resp := status
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+// handleGridReset zeros the BackgroundGrid stats (times seen, averages, spreads)
+// and acceptance counters. This is intended only for testing A/B sweeps.
+// Method: POST. Query params: sensor_id (required)
+func (ws *WebServer) handleGridReset(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use POST")
+		return
+	}
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+	mgr := lidar.GetBackgroundManager(sensorID)
+	if mgr == nil {
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background manager for sensor '%s'", sensorID))
+		return
+	}
+	if err := mgr.ResetGrid(); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("reset error: %v", err))
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "sensor_id": sensorID})
 }
 
 // handleExportSnapshotASC triggers an export to ASC for a given snapshot_id (or latest if not provided).
