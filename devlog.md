@@ -1,5 +1,13 @@
 # Development Log
 
+## September 23, 2025 - Background diagnostics, monitor APIs & bg-sweep
+
+- Centralized runtime diagnostics: added `internal/monitoring` logger and per-manager `EnableDiagnostics` flag.
+- BackgroundManager helpers: `SetNoiseRelativeFraction`, `SetEnableDiagnostics`, `GetAcceptanceMetrics`, `ResetAcceptanceMetrics`, `GridStatus`, `ResetGrid` for safe runtime control.
+- Monitor API additions: `GET/POST /api/lidar/params`, `GET /api/lidar/acceptance`, `POST /api/lidar/acceptance/reset`, `GET /api/lidar/grid_status`, `POST /api/lidar/grid_reset`.
+- New CLI `cmd/bg-sweep`: incremental & settle modes, per-noise grid reset, live bucket discovery, per-bucket CSV expansion, fixed-point numeric formatting (no scientific notation), and `--output` CSV file support.
+- Experimental note: acceptance rates are affected by in-memory grid state (TimesSeenCount, frozen cells); use `grid_reset` between steps for reproducible comparisons.
+
 ## September 22, 2025 - Background model fixes, snapshot export & backfill
 
 - Wired the `BackgroundManager` into the LiDAR pipeline and made snapshots self-contained by
