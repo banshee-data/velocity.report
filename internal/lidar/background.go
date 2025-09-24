@@ -297,7 +297,7 @@ func NewBackgroundManager(sensorID string, rings, azBins int, params BackgroundP
 	grid.Manager = mgr
 
 	// initialize simple acceptance metric buckets (meters)
-	grid.AcceptanceBucketsMeters = []float64{1, 2, 4, 8, 12, 16, 20, 50, 100, 200}
+	grid.AcceptanceBucketsMeters = []float64{1, 2, 4, 8, 10, 12, 16, 20, 50, 100, 200}
 	grid.AcceptByRangeBuckets = make([]int64, len(grid.AcceptanceBucketsMeters))
 	grid.RejectByRangeBuckets = make([]int64, len(grid.AcceptanceBucketsMeters))
 
