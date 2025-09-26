@@ -12,6 +12,8 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
@@ -276,7 +278,7 @@ func (ws *WebServer) handleExportSnapshotASC(w http.ResponseWriter, r *http.Requ
 	}
 
 	if outPath == "" {
-		outPath = fmt.Sprintf("/tmp/lidar/bg_snapshot_%s_%d.asc", sensorID, snap.TakenUnixNanos)
+		outPath = filepath.Join(os.TempDir(), fmt.Sprintf("bg_snapshot_%s_%d.asc", sensorID, snap.TakenUnixNanos))
 	}
 
 	if err := lidar.ExportBgSnapshotToASC(snap, outPath, elevs); err != nil {
