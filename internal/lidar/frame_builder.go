@@ -3,6 +3,7 @@ package lidar
 import (
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -489,10 +490,13 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame) {
 	if fb.exportNextFrameASC {
 		path := fb.exportNextFramePath
 		if path == "" {
-			path = fmt.Sprintf("/tmp/lidar/next_frame_%s_%d.asc", frame.SensorID, time.Now().Unix())
+			path = filepath.Join(os.TempDir(), fmt.Sprintf("next_frame_%s_%d.asc", frame.SensorID, time.Now().Unix()))
 		}
-		_ = exportFrameToASC(frame)
-		log.Printf("[FrameBuilder] Exported next frame for sensor %s to %s", frame.SensorID, path)
+		if err := exportFrameToASC(frame); err != nil {
+			log.Printf("[FrameBuilder] Failed to export next frame for sensor %s to %s: %v", frame.SensorID, path, err)
+		} else {
+			log.Printf("[FrameBuilder] Exported next frame for sensor %s to %s", frame.SensorID, path)
+		}
 		fb.exportNextFrameASC = false
 		fb.exportNextFramePath = ""
 	}
@@ -606,7 +610,7 @@ func exportFrameToASC(frame *LiDARFrame) error {
 	}
 
 	filename := fmt.Sprintf("lidar_frame_%s_%d.asc", frame.SensorID, frame.StartTimestamp.Unix())
-	filePath := filepath.Join("/tmp/lidar", filename)
+	filePath := filepath.Join(os.TempDir(), filename)
 
 	// Convert LiDARFrame points to PointASC
 	ascPoints := make([]PointASC, len(frame.Points))
