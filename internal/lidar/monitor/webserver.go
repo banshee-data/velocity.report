@@ -129,8 +129,8 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 
 // handleBackgroundParams allows reading and updating simple background parameters
 // Query params: sensor_id (required)
-// GET: returns { "noise_relative": <float>, "enable_diagnostics": <bool> }
-// POST: accepts JSON { "noise_relative": <float>, "enable_diagnostics": <bool> }
+// GET: returns { "noise_relative": <float>, "enable_diagnostics": <bool>, "closeness_multiplier": <float>, "neighbor_confirmation_count": <int> }
+// POST: accepts JSON { "noise_relative": <float>, "enable_diagnostics": <bool>, "closeness_multiplier": <float>, "neighbor_confirmation_count": <int> }
 func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Request) {
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
@@ -147,16 +147,20 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 	case http.MethodGet:
 		params := bm.GetParams()
 		resp := map[string]interface{}{
-			"noise_relative":     params.NoiseRelativeFraction,
-			"enable_diagnostics": bm.EnableDiagnostics,
+			"noise_relative":              params.NoiseRelativeFraction,
+			"enable_diagnostics":          bm.EnableDiagnostics,
+			"closeness_multiplier":        params.ClosenessSensitivityMultiplier,
+			"neighbor_confirmation_count": params.NeighborConfirmationCount,
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)
 		return
 	case http.MethodPost:
 		var body struct {
-			NoiseRelative     *float64 `json:"noise_relative"`
-			EnableDiagnostics *bool    `json:"enable_diagnostics"`
+			NoiseRelative        *float64 `json:"noise_relative"`
+			EnableDiagnostics    *bool    `json:"enable_diagnostics"`
+			ClosenessMultiplier  *float64 `json:"closeness_multiplier"`
+			NeighborConfirmation *int     `json:"neighbor_confirmation_count"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			ws.writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
@@ -170,6 +174,18 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 		}
 		if body.EnableDiagnostics != nil {
 			bm.SetEnableDiagnostics(*body.EnableDiagnostics)
+		}
+		if body.ClosenessMultiplier != nil {
+			if err := bm.SetClosenessSensitivityMultiplier(float32(*body.ClosenessMultiplier)); err != nil {
+				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+		}
+		if body.NeighborConfirmation != nil {
+			if err := bm.SetNeighborConfirmationCount(*body.NeighborConfirmation); err != nil {
+				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
 		}
 
 		// Read back current params for confirmation

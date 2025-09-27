@@ -132,6 +132,30 @@ func (bm *BackgroundManager) SetNoiseRelativeFraction(v float32) error {
 	return nil
 }
 
+// SetClosenessSensitivityMultiplier safely updates the ClosenessSensitivityMultiplier parameter.
+func (bm *BackgroundManager) SetClosenessSensitivityMultiplier(v float32) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	g.Params.ClosenessSensitivityMultiplier = v
+	g.mu.Unlock()
+	return nil
+}
+
+// SetNeighborConfirmationCount safely updates the NeighborConfirmationCount parameter.
+func (bm *BackgroundManager) SetNeighborConfirmationCount(v int) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	g.Params.NeighborConfirmationCount = v
+	g.mu.Unlock()
+	return nil
+}
+
 // SetEnableDiagnostics toggles emission of diagnostics for this manager.
 func (bm *BackgroundManager) SetEnableDiagnostics(v bool) {
 	if bm == nil {
@@ -411,19 +435,16 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	if alpha <= 0 || alpha > 1 {
 		alpha = 0.02
 	}
-	closenessMultiplier := float64(g.Params.ClosenessSensitivityMultiplier)
-	if closenessMultiplier <= 0 {
-		closenessMultiplier = 3.0
-	}
+	// Defer reading runtime-tunable params that may be updated concurrently
+	// (via setters which take g.mu) until we hold the grid lock to avoid
+	// data races and inconsistent thresholds.
+	var closenessMultiplier float64
+	var neighConfirm int
 	safety := float64(g.Params.SafetyMarginMeters)
 	freezeDur := g.Params.FreezeDurationNanos
-	neighConfirm := g.Params.NeighborConfirmationCount
-	if neighConfirm <= 0 {
-		neighConfirm = 3
-	}
 
 	// We'll read Params under lock so updates via SetNoiseRelativeFraction
-	// are visible immediately and we can detect changes.
+	// and other setters are visible immediately and we can detect changes.
 
 	foregroundCount := int64(0)
 	backgroundCount := int64(0)
@@ -434,6 +455,15 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	noiseRel := float64(g.Params.NoiseRelativeFraction)
 	if noiseRel <= 0 {
 		noiseRel = 0.01 // default to 1% if not configured
+	}
+	// Read other runtime-tunable params under the same lock to avoid races.
+	closenessMultiplier = float64(g.Params.ClosenessSensitivityMultiplier)
+	if closenessMultiplier <= 0 {
+		closenessMultiplier = 3.0
+	}
+	neighConfirm = g.Params.NeighborConfirmationCount
+	if neighConfirm <= 0 {
+		neighConfirm = 3
 	}
 	// if the manager requested diagnostics, and the observed noise changed,
 	// emit a monitoring log so operators see the applied value at runtime.

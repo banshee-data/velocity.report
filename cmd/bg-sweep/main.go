@@ -296,7 +296,7 @@ func main() {
 				reject, _ := json.Marshal(m["RejectCounts"])
 				totals, _ := json.Marshal(m["Totals"])
 				rates, _ := json.Marshal(m["AcceptanceRates"])
-				writeData(fmt.Sprintf("%d,%s,%s,%s,%s", i, time.Now().Format(time.RFC3339Nano), accept, reject, totals, rates))
+				writeData(fmt.Sprintf("%d,%s,%s,%s,%s,%s", i, time.Now().Format(time.RFC3339Nano), accept, reject, totals, rates))
 			}
 			time.Sleep(inter)
 		}
