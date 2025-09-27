@@ -9,3 +9,8 @@ radar-mac-intel:
 
 radar-local:
 	go build -o app-radar-local ./cmd/radar
+
+tools-local:
+	go build -o app-bg-sweep ./cmd/bg-sweep
+	go build -o app-bg-multisweep ./cmd/bg-multisweep
+
