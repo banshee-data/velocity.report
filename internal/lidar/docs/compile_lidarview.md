@@ -50,12 +50,12 @@ brew install cmake qt@5 vtk paraview libpcap yaml-cpp libpng libffi libtins
    cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release \
      -DQt5_DIR=$(brew --prefix qt@5)/lib/cmake/Qt5 \
      -DUSE_SYSTEM_pcap=ON \
-     -DUSE_SYSTEM_yaml=OFF \
      -DUSE_SYSTEM_png=ON \
-     -DUSE_SYSTEM_ffi=ON \
-     -DUSE_SYSTEM_tins=ON \
      -DUSE_SYSTEM_python3=ON \
-    -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+     -DENABLE_yaml=OFF \
+     -DENABLE_tins=OFF \
+     -DENABLE_all=OFF \
+     -DCMAKE_POLICY_VERSION_MINIMUM=3.5
    ```
 
 5. Build the project using Ninja:
