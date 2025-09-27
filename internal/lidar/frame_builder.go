@@ -492,8 +492,11 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame) {
 		if path == "" {
 			path = filepath.Join(os.TempDir(), fmt.Sprintf("next_frame_%s_%d.asc", frame.SensorID, time.Now().Unix()))
 		}
-		_ = exportFrameToASC(frame)
-		log.Printf("[FrameBuilder] Exported next frame for sensor %s to %s", frame.SensorID, path)
+		if err := exportFrameToASC(frame); err != nil {
+			log.Printf("[FrameBuilder] Failed to export next frame for sensor %s to %s: %v", frame.SensorID, path, err)
+		} else {
+			log.Printf("[FrameBuilder] Exported next frame for sensor %s to %s", frame.SensorID, path)
+		}
 		fb.exportNextFrameASC = false
 		fb.exportNextFramePath = ""
 	}
