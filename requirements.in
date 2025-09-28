@@ -1,0 +1,15 @@
+# Repository-wide editable dependency list for the velocity.report tools.
+# This is the canonical, human-editable list. Run `pip-compile requirements.in`
+# (or use the provided scripts/venv-init.sh) to generate a pinned requirements.txt.
+
+# Core data analysis / plotting
+pandas
+matplotlib
+numpy
+seaborn
+scipy
+
+# HTTP + utilities used by various scripts
+requests
+
+# Add any other top-level tools that should be available to all data projects here.
