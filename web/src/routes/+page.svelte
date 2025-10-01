@@ -35,6 +35,13 @@
 	let dateRange = { from: fromDefault, to: today, periodType: PeriodType.Day };
 	let group: string = '4h';
 	let chartData: Array<{ date: Date; metric: string; value: number }> = [];
+	let graphData: RadarStats[] = [];
+	const barSeries = [
+		{ key: 'count', label: 'Count', value: (d: RadarStats) => d.count, color: '#16a34a' },
+		{ key: 'p50', label: 'p50', value: (d: RadarStats) => d.p50, color: '#2563eb' },
+		{ key: 'p85', label: 'p85', value: (d: RadarStats) => d.p85, color: '#16a34a' },
+		{ key: 'p98', label: 'p98', value: (d: RadarStats) => d.p98, color: '#f59e0b' }
+	];
 	let selectedSource: string = 'radar_objects';
 
 	// color map mirrors the cDomain/cRange used by the chart so we don't need
@@ -149,9 +156,9 @@
 			lastStatsRequestKey = `${startUnix}|${endUnix}|${group}|${units}|${$displayTimezone}|${selectedSource}`;
 			if (browser) console.debug('[dashboard] fetch stats timezone ->', $displayTimezone);
 			stats = statsData;
-			totalCount = stats.reduce((sum, s) => sum + (s.Count || 0), 0);
+			totalCount = stats.reduce((sum, s) => sum + (s.count || 0), 0);
 			// Show P98 speed (aggregate percentile) in the summary card
-			p98Speed = stats.length > 0 ? Math.max(...stats.map((s) => s.P98Speed || 0)) : 0;
+			p98Speed = stats.length > 0 ? Math.max(...stats.map((s) => s.p98 || 0)) : 0;
 		} catch (e) {
 			error = e instanceof Error && e.message ? e.message : 'Failed to load stats';
 		}
@@ -168,7 +175,7 @@
 		const units = $displayUnits;
 		const requestKey = `${startUnix}|${endUnix}|${group}|${units}|${$displayTimezone}|${selectedSource}`;
 
-		let arr: any[];
+		let arr: RadarStats[];
 		if (lastStatsRaw && requestKey === lastStatsRequestKey) {
 			// reuse cached stats response
 			arr = lastStatsRaw;
@@ -183,16 +190,32 @@
 			lastStatsRequestKey = requestKey;
 		}
 
-		// transform to multi-series flat data: for each row create points for p50, p85, p98, max
+		// filter out rows with missing/invalid date to avoid scale errors
+		const validRows = arr.filter((r) => {
+			const dt = r.date instanceof Date ? r.date : new Date(r.date);
+			return dt && !isNaN(dt.getTime());
+		});
+		if (validRows.length !== arr.length && browser) {
+			console.debug('[dashboard] dropped rows with invalid date', arr.length - validRows.length);
+		}
+
+		// prepare graphData for BarChart/LineChart (single-point-per-x series)
+		// the API already returns RadarStats shape (date,count,p50,p85,p98,max) so pass through
+		graphData = validRows as RadarStats[];
+
+		// transform to multi-series flat data: for each valid row create points for p50, p85, p98, max
 		const rows: Array<{ date: Date; metric: string; value: number }> = [];
-		for (const r of arr) {
-			const d = new Date(r.StartTime);
-			rows.push({ date: d, metric: 'p50', value: r.P50Speed || 0 });
-			rows.push({ date: d, metric: 'p85', value: r.P85Speed || 0 });
-			rows.push({ date: d, metric: 'p98', value: r.P98Speed || 0 });
-			rows.push({ date: d, metric: 'max', value: r.MaxSpeed || 0 });
+		for (const r of validRows) {
+			const dt = r.date instanceof Date ? (r.date as Date) : new Date(r.date);
+			rows.push({ date: dt, metric: 'p50', value: r.p50 || 0 });
+			rows.push({ date: dt, metric: 'p85', value: r.p85 || 0 });
+			rows.push({ date: dt, metric: 'p98', value: r.p98 || 0 });
+			rows.push({ date: dt, metric: 'max', value: r.max || 0 });
 		}
 		chartData = rows;
+
+		// debug: log a sample to inspect types/values used by BarChart/legend
+		// if (browser) console.debug('[dashboard] graphData sample ->', graphData.slice(0, 3));
 	}
 
 	async function loadData() {
@@ -286,7 +309,13 @@
 				>
 					<Svg>
 						<Axis placement="left" grid rule />
-						<Axis placement="bottom" format={(d) => format(d, 'MMM d')} rule />
+						<Axis
+							placement="bottom"
+							format={(d) => `${format(d, 'MMM d')}\n${format(d, 'HH:mm')}`}
+							rule
+							tickSpacing={100}
+							tickMultiline
+						/>
 						{#each ['p50', 'p85', 'p98', 'max'] as metric}
 							{@const data = chartData.filter((p) => p.metric === metric)}
 							{@const color = colorMap[metric]}

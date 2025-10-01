@@ -9,6 +9,22 @@ export interface Event {
 }
 
 export interface RadarStats {
+	classifier?: string;
+	date: Date;
+	count: number;
+	p50: number;
+	p85: number;
+	p98: number;
+	max: number;
+}
+
+export interface Config {
+	units: string;
+	timezone: string;
+}
+
+// Raw shape returned from the server (StartTime is an ISO timestamp string)
+type RawRadarStats = {
 	Classifier: string;
 	StartTime: string;
 	Count: number;
@@ -56,7 +72,17 @@ export async function getRadarStats(
 	if (source) url.searchParams.append('source', source);
 	const res = await fetch(url);
 	if (!res.ok) throw new Error(`Failed to fetch radar stats: ${res.status}`);
-	return res.json();
+	const json = (await res.json()) as RawRadarStats[];
+	// Map RawRadarStats to RadarStats with explicit property mapping
+	return json.map((r) => ({
+		classifier: r.Classifier,
+		date: new Date(r.StartTime),
+		count: r.Count,
+		p50: r.P50Speed,
+		p85: r.P85Speed,
+		p98: r.P98Speed,
+		max: r.MaxSpeed,
+	})) as RadarStats[];
 }
 
 export async function getConfig(): Promise<Config> {
@@ -64,3 +90,6 @@ export async function getConfig(): Promise<Config> {
 	if (!res.ok) throw new Error(`Failed to fetch config: ${res.status}`);
 	return res.json();
 }
+
+
+
