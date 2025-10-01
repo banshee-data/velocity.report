@@ -224,7 +224,20 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	stats, dbErr := s.db.RadarObjectRollupRange(startUnix, endUnix, groupSeconds)
+	// parse optional min_speed query parameter (in display units)
+	// if provided, convert to mps before passing to DB
+	minSpeedMPS := 0.0 // default: let DB use its internal default when 0
+	if minSpeedStr := r.URL.Query().Get("min_speed"); minSpeedStr != "" {
+		// parse as float in displayUnits
+		if minSpeedValue, err := strconv.ParseFloat(minSpeedStr, 64); err == nil {
+			minSpeedMPS = units.ConvertToMPS(minSpeedValue, displayUnits)
+		} else {
+			s.writeJSONError(w, http.StatusBadRequest, "Invalid 'min_speed' parameter; must be a number")
+			return
+		}
+	}
+
+	stats, dbErr := s.db.RadarObjectRollupRange(startUnix, endUnix, groupSeconds, minSpeedMPS)
 	if dbErr != nil {
 		s.writeJSONError(w, http.StatusInternalServerError,
 			fmt.Sprintf("Failed to retrieve radar stats: %v", dbErr))

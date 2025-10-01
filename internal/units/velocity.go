@@ -41,3 +41,18 @@ func ConvertSpeed(speedMPS float64, targetUnits string) float64 {
 		return speedMPS
 	}
 }
+
+// ConvertToMPS converts a speed value in the provided units to meters per second.
+// If the unit is unknown, it returns the input value unchanged.
+func ConvertToMPS(speed float64, fromUnits string) float64 {
+	switch fromUnits {
+	case MPS:
+		return speed
+	case MPH:
+		return speed / 2.2369362920544
+	case KMPH, KPH:
+		return speed / 3.6
+	default:
+		return speed
+	}
+}

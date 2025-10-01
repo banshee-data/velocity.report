@@ -271,7 +271,7 @@ func (e *RadarObjectsRollupRow) String() string {
 }
 
 // RadarObjectRollupRange now aggregates all radar_objects into buckets by time only (no classifier grouping).
-func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64) ([]RadarObjectsRollupRow, error) {
+func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, minSpeed float64) ([]RadarObjectsRollupRow, error) {
 	if endUnix <= startUnix {
 		return nil, fmt.Errorf("end must be greater than start")
 	}
@@ -279,7 +279,10 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64) ([]
 		return nil, fmt.Errorf("groupSeconds must be positive")
 	}
 
-	minSpeed := 2.2352 // minimum speed to consider (2.2352 mps, 5 mph)
+	// default minimum speed (meters per second) if caller passes 0
+	if minSpeed <= 0 {
+		minSpeed = 2.2352 // 2.2352 mps ≈ 5 mph
+	}
 
 	rows, err := db.Query(`SELECT write_timestamp, max_speed FROM radar_objects WHERE max_speed > ? AND write_timestamp BETWEEN ? AND ?`, minSpeed, startUnix, endUnix)
 	if err != nil {
