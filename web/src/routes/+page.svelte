@@ -15,6 +15,7 @@
 		ToggleOption
 	} from 'svelte-ux';
 	import { getConfig, getRadarStats, type Config, type RadarStats } from '../lib/api';
+	import { displayTimezone, initializeTimezone } from '../lib/stores/timezone';
 	import { displayUnits, initializeUnits } from '../lib/stores/units';
 	import { getUnitLabel, type Unit } from '../lib/units';
 
@@ -72,8 +73,12 @@
 	let lastUnits: Unit | undefined = undefined;
 	let lastGroup = '';
 	let lastSource = '';
+	let initialized = false;
+	// Cache the last raw stats response to avoid duplicate network calls
+	let lastStatsRaw: any[] | null = null;
+	let lastStatsRequestKey = '';
 
-	$: if (browser && dateRange.from && dateRange.to) {
+	$: if (initialized && browser && dateRange.from && dateRange.to) {
 		const from = dateRange.from.getTime();
 		const to = dateRange.to.getTime();
 
@@ -91,9 +96,16 @@
 			lastSource = selectedSource;
 
 			loading = true;
-			Promise.all([loadStats($displayUnits), loadChart()]).finally(() => {
-				loading = false;
-			});
+			loading = true;
+			// run loadStats first so it can populate the cache, then run loadChart which will reuse it
+			loadStats($displayUnits)
+				.then(() => loadChart())
+				.catch((e) => {
+					error = e instanceof Error && e.message ? e.message : String(e);
+				})
+				.finally(() => {
+					loading = false;
+				});
 			// done
 		} else if (groupChanged) {
 			// Only grouping changed -> refresh chart only
@@ -106,6 +118,9 @@
 		try {
 			config = await getConfig();
 			initializeUnits(config.units);
+			// initialize the timezone store as well so the dashboard uses stored timezone
+			initializeTimezone(config.timezone);
+			if (browser) console.debug('[dashboard] initialized timezone store ->', $displayTimezone);
 		} catch (e) {
 			error = e instanceof Error && e.message ? e.message : 'Failed to load config';
 		}
@@ -126,9 +141,13 @@
 				endUnix,
 				group,
 				units,
-				undefined,
+				$displayTimezone,
 				selectedSource
 			);
+			// cache raw response so loadChart can reuse it instead of making a second request
+			lastStatsRaw = statsData as any[];
+			lastStatsRequestKey = `${startUnix}|${endUnix}|${group}|${units}|${$displayTimezone}|${selectedSource}`;
+			if (browser) console.debug('[dashboard] fetch stats timezone ->', $displayTimezone);
 			stats = statsData;
 			totalCount = stats.reduce((sum, s) => sum + (s.Count || 0), 0);
 			// Show P98 speed (aggregate percentile) in the summary card
@@ -147,14 +166,22 @@
 		const startUnix = Math.floor(dateRange.from.getTime() / 1000);
 		const endUnix = Math.floor(dateRange.to.getTime() / 1000);
 		const units = $displayUnits;
-		const raw = await fetch(
-			`/api/radar_stats?start=${startUnix}&end=${endUnix}&group=${group}&units=${units}&source=${selectedSource}`
-		);
-		if (!raw.ok) {
-			error = `Failed to load chart data: ${raw.statusText}`;
-			return;
+		const requestKey = `${startUnix}|${endUnix}|${group}|${units}|${$displayTimezone}|${selectedSource}`;
+
+		let arr: any[];
+		if (lastStatsRaw && requestKey === lastStatsRequestKey) {
+			// reuse cached stats response
+			arr = lastStatsRaw;
+			if (browser) console.debug('[dashboard] reusing cached stats for chart');
+		} else {
+			// fetch via the shared API helper so we use the same code path as loadStats
+			if (browser)
+				console.debug('[dashboard] chart fetching via getRadarStats ->', $displayTimezone);
+			arr = await getRadarStats(startUnix, endUnix, group, units, $displayTimezone, selectedSource);
+			// cache the response for potential reuse
+			lastStatsRaw = arr;
+			lastStatsRequestKey = requestKey;
 		}
-		const arr = await raw.json();
 
 		// transform to multi-series flat data: for each row create points for p50, p85, p98, max
 		const rows: Array<{ date: Date; metric: string; value: number }> = [];
@@ -173,11 +200,19 @@
 		error = '';
 		try {
 			await loadConfig();
+			// establish last-known values so the reactive watcher doesn't think things changed
+			lastFrom = dateRange.from.getTime();
+			lastTo = dateRange.to.getTime();
+			lastUnits = $displayUnits;
+			lastGroup = group;
+			lastSource = selectedSource;
 			await loadStats($displayUnits);
 			// populate the chart for the default date range
 			await loadChart();
 		} finally {
 			loading = false;
+			// mark initialization complete so the reactive watcher can start firing
+			initialized = true;
 		}
 	}
 
@@ -197,10 +232,10 @@
 		<p class="text-red-600">{error}</p>
 	{:else}
 		<div class="flex items-end gap-2">
-			<div class="w-68">
-				<DateRangeField bind:value={dateRange} periodTypes={[PeriodType.Day]} />
+			<div class="w-74">
+				<DateRangeField bind:value={dateRange} periodTypes={[PeriodType.Day]} stepper />
 			</div>
-			<div class="w-30">
+			<div class="w-24">
 				<SelectField bind:value={group} label="Group" {options} clearable={false} />
 			</div>
 			<div class="w-24">

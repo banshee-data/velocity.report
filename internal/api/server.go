@@ -254,8 +254,19 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Apply unit conversion to all speed values using the determined units
+	// Convert StartTime to requested timezone (Display timezone) and apply unit conversions.
+	// RadarObjectRollupRow.StartTime is stored in UTC by the DB layer.
 	for i := range stats {
+		// convert timestamp to display timezone; if conversion fails, keep UTC value
+		if displayTimezone != "" {
+			if t, err := units.ConvertTime(stats[i].StartTime, displayTimezone); err == nil {
+				stats[i].StartTime = t
+			} else {
+				// log and continue with UTC value
+				log.Printf("failed to convert start time to timezone %s: %v", displayTimezone, err)
+			}
+		}
+
 		stats[i].MaxSpeed = units.ConvertSpeed(stats[i].MaxSpeed, displayUnits)
 		stats[i].P50Speed = units.ConvertSpeed(stats[i].P50Speed, displayUnits)
 		stats[i].P85Speed = units.ConvertSpeed(stats[i].P85Speed, displayUnits)
