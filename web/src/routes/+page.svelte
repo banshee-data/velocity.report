@@ -5,7 +5,15 @@
 	import { format } from 'date-fns';
 	import { Axis, Chart, Highlight, Spline, Svg, Text } from 'layerchart';
 	import { onMount } from 'svelte';
-	import { Card, DateRangeField, Grid, Header, SelectField } from 'svelte-ux';
+	import {
+		Card,
+		DateRangeField,
+		Grid,
+		Header,
+		SelectField,
+		ToggleGroup,
+		ToggleOption
+	} from 'svelte-ux';
 	import { getConfig, getRadarStats, type Config, type RadarStats } from '../lib/api';
 	import { displayUnits, initializeUnits } from '../lib/stores/units';
 	import { getUnitLabel, type Unit } from '../lib/units';
@@ -13,7 +21,7 @@
 	let stats: RadarStats[] = [];
 	let config: Config = { units: 'mph', timezone: 'UTC' }; // default
 	let totalCount = 0;
-	let maxSpeed = 0;
+	let p98Speed = 0;
 	let loading = true;
 	let error = '';
 	// default DateRangeField to the last 14 days (inclusive)
@@ -26,6 +34,7 @@
 	let dateRange = { from: fromDefault, to: today, periodType: PeriodType.Day };
 	let group: string = '4h';
 	let chartData: Array<{ date: Date; metric: string; value: number }> = [];
+	let selectedSource: string = 'radar_objects';
 
 	// color map mirrors the cDomain/cRange used by the chart so we don't need
 	// to capture cScale via a `let:` slot (which conflicts with internal
@@ -55,32 +64,42 @@
 	];
 	const options = groupOptions.map((o) => ({ value: o, label: o }));
 
-	// Reload stats and chart when dateRange or units change (client only)
+	// Reload behavior: react to dateRange, units, group, or source changes.
+	// - If dateRange, units, or source changed -> reload both stats and chart.
+	// - If only group changed -> reload only the chart for faster response.
 	let lastFrom: number = 0;
 	let lastTo: number = 0;
 	let lastUnits: Unit | undefined = undefined;
-	$: if (
-		browser &&
-		dateRange.from &&
-		dateRange.to &&
-		(dateRange.from.getTime() !== lastFrom ||
-			dateRange.to.getTime() !== lastTo ||
-			$displayUnits !== lastUnits)
-	) {
-		lastFrom = dateRange.from.getTime();
-		lastTo = dateRange.to.getTime();
-		lastUnits = $displayUnits;
-		loading = true;
-		Promise.all([loadStats($displayUnits), loadChart()]).finally(() => {
-			loading = false;
-		});
-	}
-
-	// Reload only the chart when group changes (client only)
 	let lastGroup = '';
-	$: if (browser && group !== lastGroup) {
-		lastGroup = group;
-		loadChart();
+	let lastSource = '';
+
+	$: if (browser && dateRange.from && dateRange.to) {
+		const from = dateRange.from.getTime();
+		const to = dateRange.to.getTime();
+
+		const dateChanged = from !== lastFrom || to !== lastTo;
+		const unitsChanged = $displayUnits !== lastUnits;
+		const groupChanged = group !== lastGroup;
+		const sourceChanged = selectedSource !== lastSource;
+
+		// Full reload when date range, display units, or source changes
+		if (dateChanged || unitsChanged || sourceChanged) {
+			lastFrom = from;
+			lastTo = to;
+			lastUnits = $displayUnits;
+			lastGroup = group;
+			lastSource = selectedSource;
+
+			loading = true;
+			Promise.all([loadStats($displayUnits), loadChart()]).finally(() => {
+				loading = false;
+			});
+			// done
+		} else if (groupChanged) {
+			// Only grouping changed -> refresh chart only
+			lastGroup = group;
+			loadChart();
+		}
 	}
 
 	async function loadConfig() {
@@ -97,15 +116,23 @@
 			if (!dateRange.from || !dateRange.to) {
 				stats = [];
 				totalCount = 0;
-				maxSpeed = 0;
+				p98Speed = 0;
 				return;
 			}
 			const startUnix = Math.floor(dateRange.from.getTime() / 1000);
 			const endUnix = Math.floor(dateRange.to.getTime() / 1000);
-			const statsData = await getRadarStats(startUnix, endUnix, group, units);
+			const statsData = await getRadarStats(
+				startUnix,
+				endUnix,
+				group,
+				units,
+				undefined,
+				selectedSource
+			);
 			stats = statsData;
 			totalCount = stats.reduce((sum, s) => sum + (s.Count || 0), 0);
-			maxSpeed = stats.length > 0 ? Math.max(...stats.map((s) => s.MaxSpeed || 0)) : 0;
+			// Show P98 speed (aggregate percentile) in the summary card
+			p98Speed = stats.length > 0 ? Math.max(...stats.map((s) => s.P98Speed || 0)) : 0;
 		} catch (e) {
 			error = e instanceof Error && e.message ? e.message : 'Failed to load stats';
 		}
@@ -121,7 +148,7 @@
 		const endUnix = Math.floor(dateRange.to.getTime() / 1000);
 		const units = $displayUnits;
 		const raw = await fetch(
-			`/api/radar_stats?start=${startUnix}&end=${endUnix}&group=${group}&units=${units}`
+			`/api/radar_stats?start=${startUnix}&end=${endUnix}&group=${group}&units=${units}&source=${selectedSource}`
 		);
 		if (!raw.ok) {
 			error = `Failed to load chart data: ${raw.statusText}`;
@@ -169,26 +196,32 @@
 	{:else if error}
 		<p class="text-red-600">{error}</p>
 	{:else}
-		<div class="flex items-end gap-4">
-			<div class="w-[360px]">
+		<div class="flex items-end gap-2">
+			<div class="w-68">
 				<DateRangeField bind:value={dateRange} periodTypes={[PeriodType.Day]} />
 			</div>
-			<div class="w-48">
-				<SelectField bind:value={group} label="Group" {options} />
+			<div class="w-30">
+				<SelectField bind:value={group} label="Group" {options} clearable={false} />
+			</div>
+			<div class="w-24">
+				<ToggleGroup bind:value={selectedSource} vertical inset>
+					<ToggleOption value="radar_objects">Objects</ToggleOption>
+					<ToggleOption value="radar_data_transits">Transits</ToggleOption>
+				</ToggleGroup>
 			</div>
 		</div>
 
-		<Grid autoColumns="12em" gap={8}>
+		<Grid autoColumns="14em" gap={8}>
 			<Card title="Vehicle Count">
 				<div class="pb-4 pl-4 pr-4 pt-0">
 					<p class="text-3xl font-bold text-blue-600">{totalCount}</p>
 				</div>
 			</Card>
 
-			<Card title="Max Speed">
+			<Card title="P98 Speed">
 				<div class="pb-4 pl-4 pr-4 pt-0">
 					<p class="text-3xl font-bold text-green-600">
-						{maxSpeed.toFixed(1)}
+						{p98Speed.toFixed(1)}
 						{getUnitLabel($displayUnits)}
 					</p>
 				</div>
@@ -196,6 +229,11 @@
 		</Grid>
 
 		{#if chartData.length > 0}
+			<!-- @TODO the chart needs:
+				* go to zero when no data
+				* hour on the x-axis when zoomed in (Timezone aligned)
+				* Tooltip for multiple metrics
+				-->
 			<div class="mb-4 h-[300px] rounded border p-4">
 				<Chart
 					data={chartData}

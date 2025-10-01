@@ -44,7 +44,8 @@ export async function getRadarStats(
 	end: number,
 	group?: string,
 	units?: string,
-	timezone?: string
+	timezone?: string,
+	source?: string
 ): Promise<RadarStats[]> {
 	const url = new URL(`${API_BASE}/radar_stats`, window.location.origin);
 	url.searchParams.append('start', start.toString());
@@ -52,6 +53,7 @@ export async function getRadarStats(
 	if (group) url.searchParams.append('group', group);
 	if (units) url.searchParams.append('units', units);
 	if (timezone) url.searchParams.append('timezone', timezone);
+	if (source) url.searchParams.append('source', source);
 	const res = await fetch(url);
 	if (!res.ok) throw new Error(`Failed to fetch radar stats: ${res.status}`);
 	return res.json();
