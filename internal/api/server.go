@@ -237,7 +237,17 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	stats, dbErr := s.db.RadarObjectRollupRange(startUnix, endUnix, groupSeconds, minSpeedMPS)
+	// parse optional data source parameter (radar_objects or radar_data_transits)
+	// default to radar_objects when empty
+	dataSource := r.URL.Query().Get("source")
+	if dataSource == "" {
+		dataSource = "radar_objects"
+	} else if dataSource != "radar_objects" && dataSource != "radar_data_transits" {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid 'source' parameter; must be 'radar_objects' or 'radar_data_transits'")
+		return
+	}
+
+	stats, dbErr := s.db.RadarObjectRollupRange(startUnix, endUnix, groupSeconds, minSpeedMPS, dataSource)
 	if dbErr != nil {
 		s.writeJSONError(w, http.StatusInternalServerError,
 			fmt.Sprintf("Failed to retrieve radar stats: %v", dbErr))

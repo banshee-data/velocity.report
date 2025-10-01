@@ -271,7 +271,9 @@ func (e *RadarObjectsRollupRow) String() string {
 }
 
 // RadarObjectRollupRange now aggregates all radar_objects into buckets by time only (no classifier grouping).
-func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, minSpeed float64) ([]RadarObjectsRollupRow, error) {
+// dataSource may be either "radar_objects" (default) or "radar_data_transits".
+// When empty, the function defaults to "radar_objects".
+func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, minSpeed float64, dataSource string) ([]RadarObjectsRollupRow, error) {
 	if endUnix <= startUnix {
 		return nil, fmt.Errorf("end must be greater than start")
 	}
@@ -284,7 +286,22 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 		minSpeed = 2.2352 // 2.2352 mps ≈ 5 mph
 	}
 
-	rows, err := db.Query(`SELECT write_timestamp, max_speed FROM radar_objects WHERE max_speed > ? AND write_timestamp BETWEEN ? AND ?`, minSpeed, startUnix, endUnix)
+	// default data source
+	if dataSource == "" {
+		dataSource = "radar_objects"
+	}
+
+	var rows *sql.Rows
+	var err error
+	switch dataSource {
+	case "radar_objects":
+		rows, err = db.Query(`SELECT write_timestamp, max_speed FROM radar_objects WHERE max_speed > ? AND write_timestamp BETWEEN ? AND ?`, minSpeed, startUnix, endUnix)
+	case "radar_data_transits":
+		// radar_data_transits stores transit_start_unix and transit_max_speed
+		rows, err = db.Query(`SELECT transit_start_unix, transit_max_speed FROM radar_data_transits WHERE model_version='rebuild-full' AND transit_max_speed > ? AND transit_start_unix BETWEEN ? AND ?`, minSpeed, startUnix, endUnix)
+	default:
+		return nil, fmt.Errorf("unsupported dataSource: %s", dataSource)
+	}
 	if err != nil {
 		return nil, err
 	}
