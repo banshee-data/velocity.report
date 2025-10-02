@@ -106,6 +106,9 @@ def get_stats(
     source: str = "radar_objects",
     timezone: Optional[str] = None,
     min_speed: Optional[float] = None,
+    compute_histogram: bool = False,
+    hist_bucket_size: Optional[float] = None,
+    hist_max: Optional[float] = None,
 ):
     params = {
         "start": start_ts,
@@ -118,11 +121,24 @@ def get_stats(
         params["timezone"] = timezone
     if min_speed is not None:
         params["min_speed"] = min_speed
+    if compute_histogram:
+        params["compute_histogram"] = "true"
+        if hist_bucket_size is not None:
+            params["hist_bucket_size"] = hist_bucket_size
+        if hist_max is not None:
+            params["hist_max"] = hist_max
 
     # make request and return the parsed json along with response metadata
+    # Server now returns { metrics: [...], histogram?: {...} }
     resp = requests.get(API_URL, params=params)
     resp.raise_for_status()
-    return resp.json(), resp
+    payload = resp.json()
+
+    # Extract metrics and histogram from payload
+    metrics = payload.get("metrics", []) if isinstance(payload, dict) else payload
+    histogram = payload.get("histogram", {}) if isinstance(payload, dict) else {}
+
+    return metrics, histogram, resp
 
 
 def _parse_server_time(t: Any) -> datetime:
@@ -467,10 +483,11 @@ def stats_to_latex(
     units: str,
     caption: Optional[str] = None,
     label: Optional[str] = None,
+    include_start_time: bool = True,
 ) -> str:
     """Render the stats payload as a LaTeX tabular string.
 
-    - stats: list of dicts from server (should contain StartTime, Count, P50Speed, P85Speed, P98Speed, MaxSpeed)
+    - stats: list of dicts from server (metrics array)
     - tz_name: timezone to display times in (or None for UTC)
     - units: speed units string to show in header
     - caption/label: optional LaTeX caption/label
@@ -510,25 +527,36 @@ def stats_to_latex(
     # reduce font and column padding to make table fit one column
     lines.append("\\small")
     lines.append("\\setlength{\\tabcolsep}{4pt}")
-    # tabular columns: time, count, p50, p85, p98, max
-    lines.append("\\begin{tabular}{lrrrrr}")
-    # put units on a second line within the header cell using \shortstack
-    header = (
-        f"Start Time & Count & \\shortstack{{p50\\\\({units})}} & \\shortstack{{p85\\\\({units})}}"
-        f" & \\shortstack{{p98\\\\({units})}} & \\shortstack{{Max\\\\({units})}} \\\\"
-    )
+    # tabular columns: optionally include time column, then count, p50, p85, p98, max
+    if include_start_time:
+        lines.append("\\begin{tabular}{lrrrrr}")
+        # put units on a second line within the header cell using \shortstack
+        header = (
+            f"Start Time & Count & \\shortstack{{p50\\\\({units})}} & \\shortstack{{p85\\\\({units})}}"
+            f" & \\shortstack{{p98\\\\({units})}} & \\shortstack{{Max\\\\({units})}} \\\\"
+        )
+    else:
+        # omit the Start Time column for aggregated/overall tables
+        lines.append("\\begin{tabular}{rrrrr}")
+        header = (
+            f"Count & \\shortstack{{p50\\\\({units})}} & \\shortstack{{p85\\\\({units})}}"
+            f" & \\shortstack{{p98\\\\({units})}} & \\shortstack{{Max\\\\({units})}} \\\\"
+        )
     lines.append(header)
     lines.append("\\hline")
 
     for row in stats:
-        st = row.get("StartTime") or row.get("start_time") or row.get("starttime")
-        tstr = fmt_time(st)
         cnt = row.get("Count") if row.get("Count") is not None else 0
         p50v = row.get("P50Speed") or row.get("p50speed") or row.get("p50")
         p85v = row.get("P85Speed") or row.get("p85speed")
         p98v = row.get("P98Speed") or row.get("p98speed")
         maxv = row.get("MaxSpeed") or row.get("maxspeed")
-        line = f"{tstr} & {int(cnt)} & {fmt_num(p50v)} & {fmt_num(p85v)} & {fmt_num(p98v)} & {fmt_num(maxv)} \\\\"
+        if include_start_time:
+            st = row.get("StartTime") or row.get("start_time") or row.get("starttime")
+            tstr = fmt_time(st)
+            line = f"{tstr} & {int(cnt)} & {fmt_num(p50v)} & {fmt_num(p85v)} & {fmt_num(p98v)} & {fmt_num(maxv)} \\\\"
+        else:
+            line = f"{int(cnt)} & {fmt_num(p50v)} & {fmt_num(p85v)} & {fmt_num(p98v)} & {fmt_num(maxv)} \\\\"
         lines.append(line)
 
     lines.append("\\hline")
@@ -544,15 +572,78 @@ def stats_to_latex(
     return "\n".join(lines)
 
 
+def plot_histogram(
+    histogram: Dict[str, int],
+    title: str,
+    units: str,
+    debug: bool = False,
+) -> Any:
+    """Create a matplotlib Figure for a histogram.
+
+    Expects histogram to be a dict mapping bucket labels (strings) to counts.
+    """
+    if matplotlib is None or plt is None:
+        raise RuntimeError(
+            "matplotlib is required to generate plots. Install with: pip install matplotlib"
+        )
+
+    if not histogram:
+        fig, ax = plt.subplots(figsize=(10, 4))
+        ax.text(0.5, 0.5, "No histogram data", ha="center", va="center")
+        ax.set_title(title)
+        return fig
+
+    # Sort histogram by bucket start (convert keys to float for sorting)
+    try:
+        sorted_items = sorted(histogram.items(), key=lambda x: float(x[0]))
+    except ValueError:
+        # If keys aren't numeric, sort as strings
+        sorted_items = sorted(histogram.items())
+
+    labels = [item[0] for item in sorted_items]
+    counts = [item[1] for item in sorted_items]
+
+    if debug:
+        print(f"DEBUG: histogram bins={len(labels)} total_count={sum(counts)}")
+        print(f"DEBUG: first 10 bins: {sorted_items[:10]}")
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+
+    # Create bar chart
+    x_pos = np.arange(len(labels))
+    bars = ax.bar(
+        x_pos, counts, alpha=0.7, color="steelblue", edgecolor="black", linewidth=0.5
+    )
+
+    ax.set_xlabel(f"Speed ({units})")
+    ax.set_ylabel("Count")
+    ax.set_title(title)
+    ax.grid(True, axis="y", linestyle=":", linewidth=0.5, alpha=0.7)
+
+    # Set x-axis labels - show every Nth label to avoid crowding
+    if len(labels) <= 20:
+        ax.set_xticks(x_pos)
+        ax.set_xticklabels(labels, rotation=45, ha="right")
+    else:
+        # Show ~15-20 labels evenly spaced
+        step = max(1, len(labels) // 15)
+        tick_pos = x_pos[::step]
+        tick_labels = labels[::step]
+        ax.set_xticks(tick_pos)
+        ax.set_xticklabels(tick_labels, rotation=45, ha="right")
+
+    # Tight layout to prevent label cutoff
+    try:
+        fig.tight_layout(pad=0.5)
+    except Exception:
+        pass
+
+    return fig
+
+
 def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
-    pdf = None
-    if getattr(args, "pdf", None):
-        if PdfPages is None:
-            print(
-                "matplotlib is required to generate PDF output. Install with: pip install matplotlib"
-            )
-            return
-        pdf = PdfPages(args.pdf)
+    # Determine file prefix - if not provided, use a default based on source and date
+    file_prefix = getattr(args, "file_prefix", None)
 
     for start_date, end_date in date_ranges:
         # Validate and convert to unix seconds (UTC). Start => 00:00:00, End => 23:59:59
@@ -578,8 +669,6 @@ def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
             print(f"Bad date range ({start_date} - {end_date}): {e}")
             continue
 
-            # Set compress gaps flag
-            data._compress_gaps = args.compress_gaps
         print(
             f"Querying stats from {start_date} ({start_ts}) to {end_date} ({end_ts})..."
         )
@@ -614,8 +703,27 @@ def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
             print("       UTC ->", utc_end)
             if local_end is not None:
                 print("       local (", args.timezone or "UTC", ") ->", local_end)
+
+        # Build file prefix for this range
         try:
-            data, resp = get_stats(
+            if args.timezone:
+                tzobj = ZoneInfo(args.timezone)
+            else:
+                tzobj = timezone.utc
+            start_label = datetime.fromtimestamp(start_ts, tz=tzobj).date().isoformat()
+            end_label = datetime.fromtimestamp(end_ts, tz=tzobj).date().isoformat()
+        except Exception:
+            start_label = str(start_date)
+            end_label = str(end_date)
+
+        if file_prefix:
+            prefix = file_prefix
+        else:
+            prefix = f"{args.source}_{start_label}_to_{end_label}"
+
+        # Fetch main stats data
+        try:
+            metrics, histogram, resp = get_stats(
                 start_ts,
                 end_ts,
                 group=args.group,
@@ -623,339 +731,250 @@ def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
                 source=args.source,
                 timezone=args.timezone or None,
                 min_speed=args.min_speed,
+                compute_histogram=args.histogram,
+                hist_bucket_size=args.hist_bucket_size,
+                hist_max=args.hist_max,
             )
-            # no attribute-setting on returned list; pass compress flag directly to plot
         except requests.HTTPError as e:
             print(f"Request failed: {e}")
             continue
 
-        # Print a compact log similar to server logs: timestamp [status] GET /api/..?start=..&end=..&group=..&units=..
+        # Print a compact log similar to server logs
         elapsed_ms = resp.elapsed.total_seconds() * 1000.0
         request_url = resp.request.url
         now_str = datetime.now(timezone.utc).strftime("%Y/%m/%d %H:%M:%S %Z")
         print(f"{now_str} [{resp.status_code}] GET {request_url} {elapsed_ms:.3f}ms")
         if args.debug:
-            print(data)
+            print(f"DEBUG: metrics count={len(metrics)}")
+            if histogram:
+                print(f"DEBUG: histogram bins={len(histogram)}")
 
-        # If requested, generate a LaTeX table from the stats payload
-        if getattr(args, "tex_table", ""):
-            try:
-                tex = stats_to_latex(
-                    data,
-                    args.timezone or None,
-                    args.units,
-                    caption="Table 1: Granular breakdown",
-                    label=None,
-                )
-                outpath = args.tex_table
-                # compute ISO-formatted start/end using requested timezone (or UTC)
-                try:
-                    if args.timezone:
-                        tzobj = ZoneInfo(args.timezone)
-                    else:
-                        tzobj = timezone.utc
-                    start_iso = datetime.fromtimestamp(start_ts, tz=tzobj).isoformat()
-                    end_iso = datetime.fromtimestamp(end_ts, tz=tzobj).isoformat()
-                except Exception:
-                    start_iso = str(start_date)
-                    end_iso = str(end_date)
-                # Determine the resolved output file (out_file) or stdout ('-')
-                if outpath == "-":
-                    out_file = "-"
-                    # print generation parameters before the table (each on its own LaTeX line)
-                    gen_params = (
-                        "% === Generation parameters ===\n"
-                        + "\\noindent\\textbf{Start time:} "
-                        + f"{start_iso} \\\\\n"
-                        + "\\textbf{End time:} "
-                        + f"{end_iso} \\\\\n"
-                        + "\\textbf{Rollup period:} "
-                        + f"{args.group}\n\n"
-                    )
-                    print(gen_params)
-                    print(tex)
-                else:
-                    # If multiple ranges specified, avoid clobbering by suffixing with dates
-                    if len(date_ranges) > 1:
-                        try:
-                            if args.timezone:
-                                tzobj = ZoneInfo(args.timezone)
-                            else:
-                                tzobj = timezone.utc
-                            start_label = (
-                                datetime.fromtimestamp(start_ts, tz=tzobj)
-                                .date()
-                                .isoformat()
-                            )
-                            end_label = (
-                                datetime.fromtimestamp(end_ts, tz=tzobj)
-                                .date()
-                                .isoformat()
-                            )
-                        except Exception:
-                            start_label = str(start_date)
-                            end_label = str(end_date)
+        # Compute ISO-formatted start/end for generation parameters
+        try:
+            if args.timezone:
+                tzobj = ZoneInfo(args.timezone)
+            else:
+                tzobj = timezone.utc
+            start_iso = datetime.fromtimestamp(start_ts, tz=tzobj).isoformat()
+            end_iso = datetime.fromtimestamp(end_ts, tz=tzobj).isoformat()
+        except Exception:
+            start_iso = str(start_date)
+            end_iso = str(end_date)
 
-                        if outpath.lower().endswith(".tex"):
-                            base = outpath[:-4]
-                        else:
-                            base = outpath
-                        out_file = f"{base}_{start_label}_to_{end_label}.tex"
-                    else:
-                        out_file = outpath
+        # Generate LaTeX table for main stats
+        try:
+            tex = stats_to_latex(
+                metrics,
+                args.timezone or None,
+                args.units,
+                caption="Table 1: Granular breakdown",
+                label=None,
+            )
+            # Write generation parameters followed by the main table
+            gen_params = (
+                "% === Generation parameters ===\n"
+                + "\\noindent\\textbf{Start time:} "
+                + f"{start_iso} \\\\\n"
+                + "\\textbf{End time:} "
+                + f"{end_iso} \\\\\n"
+                + "\\textbf{Rollup period:} "
+                + f"{args.group}\n\n"
+            )
+            table_path = f"{prefix}_table.tex"
+            with open(table_path, "w", encoding="utf-8") as f:
+                f.write(gen_params)
+                f.write(tex)
+            print(f"Wrote LaTeX table: {table_path}")
+        except Exception as e:
+            print(f"Failed to generate LaTeX table: {e}")
 
-                    try:
-                        # write generation parameters followed by the main table (each param on new line)
-                        gen_params = (
-                            "% === Generation parameters ===\n"
-                            + "\\noindent\\textbf{Start time:} "
-                            + f"{start_iso} \\\\\n"
-                            + "\\textbf{End time:} "
-                            + f"{end_iso} \\\\\n"
-                            + "\\textbf{Rollup period:} "
-                            + f"{args.group}\n\n"
-                        )
-                        with open(out_file, "w", encoding="utf-8") as f:
-                            f.write(gen_params)
-                            f.write(tex)
-                        print(f"Wrote LaTeX table: {out_file}")
-                    except Exception as e:
-                        print(f"Failed to write LaTeX table to {outpath}: {e}")
-            except Exception as e:
-                print(
-                    f"failed to generate LaTeX table for {start_date} - {end_date}: {e}"
-                )
-
-            # --- additional summary outputs: daily (24h) and overall (all) ---
-            try:
-                # determine whether to produce daily + overall or only overall
-                provided_group_seconds = SUPPORTED_GROUPS.get(args.group)
-                produce_daily = True
-                if (
-                    provided_group_seconds is not None
-                    and provided_group_seconds >= 24 * 3600
-                ):
-                    produce_daily = False
-                else:
-                    # If group token isn't in SUPPORTED_GROUPS, try to parse numeric forms like '48h' or '2d'
-                    m = re.match(r"^(\d+)([smhd])$", str(args.group or ""))
-                    if m:
-                        num = int(m.group(1))
-                        unit = m.group(2)
-                        seconds = None
-                        if unit == "s":
-                            seconds = num
-                        elif unit == "m":
-                            seconds = num * 60
-                        elif unit == "h":
-                            seconds = num * 3600
-                        elif unit == "d":
-                            seconds = num * 86400
-                        if seconds is not None and seconds >= 24 * 3600:
-                            produce_daily = False
-
-                # prepare base filename and date labels
-                if outpath == "-":
-                    base = "summary"
-                else:
-                    if outpath.lower().endswith(".tex"):
-                        base = outpath[:-4]
-                    else:
-                        base = outpath
-
-                # compute safe date suffix
-                try:
-                    if args.timezone:
-                        tzobj = ZoneInfo(args.timezone)
-                    else:
-                        tzobj = timezone.utc
-                    start_label = (
-                        datetime.fromtimestamp(start_ts, tz=tzobj).date().isoformat()
-                    )
-                    end_label = (
-                        datetime.fromtimestamp(end_ts, tz=tzobj).date().isoformat()
-                    )
-                except Exception:
-                    start_label = str(start_date)
-                    end_label = str(end_date)
-
-                # helper to write tex string
-                def _write_tex(path: str, content: str):
-                    try:
-                        with open(path, "w", encoding="utf-8") as f:
-                            f.write(content)
-                        print(f"Wrote LaTeX table: {path}")
-                    except Exception as e:
-                        print(f"Failed to write LaTeX table to {path}: {e}")
-
-                # produce daily 24h rollup if requested
-                if produce_daily:
-                    try:
-                        data_daily, resp_daily = get_stats(
-                            start_ts,
-                            end_ts,
-                            group="24h",
-                            units=args.units,
-                            source=args.source,
-                            timezone=args.timezone or None,
-                            min_speed=args.min_speed,
-                        )
-                        # table
-                        daily_tex = stats_to_latex(
-                            data_daily,
-                            args.timezone or None,
-                            args.units,
-                            caption="Table 2: Daily Summary",
-                            label=None,
-                        )
-                        # Append daily table to the chosen output (out_file) or print to stdout
-                        if out_file == "-":
-                            print("\n% === Daily summary ===\n")
-                            print(daily_tex)
-                        else:
-                            try:
-                                with open(out_file, "a", encoding="utf-8") as f:
-                                    f.write("\n% === Daily summary ===\n")
-                                    f.write(daily_tex)
-                                    f.write("\n")
-                                print(f"Appended daily table to: {out_file}")
-                            except Exception as e:
-                                print(
-                                    f"Failed to append daily table to {out_file}: {e}"
-                                )
-                        # chart PDF
-                        expected_daily = SUPPORTED_GROUPS.get("24h")
-                        fig_daily = plot_stats_page(
-                            data_daily,
-                            f"Daily summary {start_label} to {end_label}",
-                            args.units,
-                            debug=args.debug,
-                            expected_delta_seconds=(
-                                expected_daily
-                                if expected_daily and expected_daily > 0
-                                else None
-                            ),
-                        )
-                        daily_pdf_path = (
-                            f"{base}_{start_label}_to_{end_label}_daily.pdf"
-                        )
-                        try:
-                            fig_daily.savefig(daily_pdf_path)
-                            print(f"Wrote PDF: {daily_pdf_path}")
-                        except Exception as e:
-                            print(f"Failed to write daily PDF: {e}")
-                        try:
-                            plt.close(fig_daily)
-                        except Exception:
-                            pass
-                    except Exception as e:
-                        print(f"failed to generate daily summary: {e}")
-
-                # always produce overall (all) rollup
-                try:
-                    data_all, resp_all = get_stats(
-                        start_ts,
-                        end_ts,
-                        group="all",
-                        units=args.units,
-                        source=args.source,
-                        timezone=args.timezone or None,
-                        min_speed=args.min_speed,
-                    )
-                    overall_tex = stats_to_latex(
-                        data_all,
-                        args.timezone or None,
-                        args.units,
-                        caption="Table 3: Overall Summary",
-                        label=None,
-                    )
-                    # Append overall table to the chosen output (out_file) or print to stdout
-                    if out_file == "-":
-                        print("\n% === Overall summary ===\n")
-                        print(overall_tex)
-                    else:
-                        try:
-                            with open(out_file, "a", encoding="utf-8") as f:
-                                f.write("\n% === Overall summary ===\n")
-                                f.write(overall_tex)
-                                f.write("\n")
-                            print(f"Appended overall table to: {out_file}")
-                        except Exception as e:
-                            print(f"Failed to append overall table to {out_file}: {e}")
-
-                    # overall chart (expected delta None)
-                    fig_all = plot_stats_page(
-                        data_all,
-                        f"Overall summary {start_label} to {end_label}",
-                        args.units,
-                        debug=args.debug,
-                        expected_delta_seconds=None,
-                    )
-                    overall_pdf_path = (
-                        f"{base}_{start_label}_to_{end_label}_overall.pdf"
-                    )
-                    try:
-                        fig_all.savefig(overall_pdf_path)
-                        print(f"Wrote PDF: {overall_pdf_path}")
-                    except Exception as e:
-                        print(f"Failed to write overall PDF: {e}")
-                    try:
-                        plt.close(fig_all)
-                    except Exception:
-                        pass
-                except Exception as e:
-                    print(f"failed to generate overall summary: {e}")
-            except Exception:
-                # keep going if summaries fail
-                pass
-
-        # If requested, generate a plot page and save to PDF
-        if pdf is not None:
+        # Generate stats chart PDF
+        try:
+            expected_delta = SUPPORTED_GROUPS.get(args.group)
             tz_label = args.timezone or "UTC"
-
-            def _unix_to_yyyy_mm_dd(ts: int, tz_name: Optional[str]) -> str:
-                try:
-                    if tz_name:
-                        tzobj = ZoneInfo(tz_name)
-                    else:
-                        tzobj = timezone.utc
-                    dt = datetime.fromtimestamp(ts, tz=tzobj)
-                    return dt.date().isoformat()
-                except Exception:
-                    # fallback to UTC date string
-                    return (
-                        datetime.fromtimestamp(ts, tz=timezone.utc).date().isoformat()
-                    )
-
-            start_label = _unix_to_yyyy_mm_dd(start_ts, args.timezone or None)
-            end_label = _unix_to_yyyy_mm_dd(end_ts, args.timezone or None)
             title = f"{start_label} to {end_label} ({args.source}, group={args.group}, tz={tz_label})"
+            fig = plot_stats_page(
+                metrics,
+                title,
+                args.units,
+                debug=args.debug,
+                expected_delta_seconds=expected_delta,
+            )
+            stats_pdf_path = f"{prefix}_stats.pdf"
+            fig.savefig(stats_pdf_path)
+            print(f"Wrote stats PDF: {stats_pdf_path}")
+            plt.close(fig)
+        except Exception as e:
+            print(f"Failed to generate stats chart: {e}")
+
+        # Generate histogram chart if histogram data available
+        if histogram:
             try:
-                expected_delta = SUPPORTED_GROUPS.get(args.group)
-                fig = plot_stats_page(
-                    data,
-                    title,
+                hist_title = f"Speed Distribution: {start_label} to {end_label} ({args.source}, tz={tz_label})"
+                fig_hist = plot_histogram(
+                    histogram,
+                    hist_title,
                     args.units,
                     debug=args.debug,
-                    expected_delta_seconds=expected_delta,
                 )
-                pdf.savefig(fig)
-                # close the figure to free memory
-                try:
-                    plt.close(fig)
-                except Exception:
-                    pass
+                hist_pdf_path = f"{prefix}_histogram.pdf"
+                fig_hist.savefig(hist_pdf_path)
+                print(f"Wrote histogram PDF: {hist_pdf_path}")
+                plt.close(fig_hist)
             except Exception as e:
-                print(f"failed to generate plot for {start_date} - {end_date}: {e}")
+                print(f"Failed to generate histogram chart: {e}")
 
-    if pdf is not None:
-        pdf.close()
-        print(f"Saved PDF: {args.pdf}")
+        # --- Additional summary outputs: daily (24h) and overall (all) ---
+        # Determine whether to produce daily + overall or only overall
+        provided_group_seconds = SUPPORTED_GROUPS.get(args.group)
+        produce_daily = True
+        if provided_group_seconds is not None and provided_group_seconds >= 24 * 3600:
+            produce_daily = False
+        else:
+            # If group token isn't in SUPPORTED_GROUPS, try to parse numeric forms like '48h' or '2d'
+            m = re.match(r"^(\d+)([smhd])$", str(args.group or ""))
+            if m:
+                num = int(m.group(1))
+                unit = m.group(2)
+                seconds = None
+                if unit == "s":
+                    seconds = num
+                elif unit == "m":
+                    seconds = num * 60
+                elif unit == "h":
+                    seconds = num * 3600
+                elif unit == "d":
+                    seconds = num * 86400
+                if seconds is not None and seconds >= 24 * 3600:
+                    produce_daily = False
+
+        # Produce daily 24h rollup if requested
+        if produce_daily:
+            try:
+                metrics_daily, hist_daily, resp_daily = get_stats(
+                    start_ts,
+                    end_ts,
+                    group="24h",
+                    units=args.units,
+                    source=args.source,
+                    timezone=args.timezone or None,
+                    min_speed=args.min_speed,
+                    compute_histogram=args.histogram,
+                    hist_bucket_size=args.hist_bucket_size,
+                    hist_max=args.hist_max,
+                )
+                # Table
+                daily_tex = stats_to_latex(
+                    metrics_daily,
+                    args.timezone or None,
+                    args.units,
+                    caption="Table 2: Daily Summary",
+                    label=None,
+                )
+                # Append to main table file
+                table_path = f"{prefix}_table.tex"
+                with open(table_path, "a", encoding="utf-8") as f:
+                    f.write("\n% === Daily summary ===\n")
+                    f.write(daily_tex)
+                    f.write("\n")
+                print(f"Appended daily table to: {table_path}")
+
+                # Chart PDF
+                expected_daily = SUPPORTED_GROUPS.get("24h")
+                fig_daily = plot_stats_page(
+                    metrics_daily,
+                    f"Daily summary {start_label} to {end_label}",
+                    args.units,
+                    debug=args.debug,
+                    expected_delta_seconds=(
+                        expected_daily
+                        if expected_daily and expected_daily > 0
+                        else None
+                    ),
+                )
+                daily_pdf_path = f"{prefix}_daily.pdf"
+                fig_daily.savefig(daily_pdf_path)
+                print(f"Wrote daily PDF: {daily_pdf_path}")
+                plt.close(fig_daily)
+
+                # Daily histogram if present
+                if hist_daily:
+                    fig_hist_daily = plot_histogram(
+                        hist_daily,
+                        f"Speed Distribution (Daily): {start_label} to {end_label}",
+                        args.units,
+                        debug=args.debug,
+                    )
+                    hist_daily_pdf_path = f"{prefix}_daily_histogram.pdf"
+                    fig_hist_daily.savefig(hist_daily_pdf_path)
+                    print(f"Wrote daily histogram PDF: {hist_daily_pdf_path}")
+                    plt.close(fig_hist_daily)
+            except Exception as e:
+                print(f"Failed to generate daily summary: {e}")
+
+        # Always produce overall (all) rollup
+        try:
+            metrics_all, hist_all, resp_all = get_stats(
+                start_ts,
+                end_ts,
+                group="all",
+                units=args.units,
+                source=args.source,
+                timezone=args.timezone or None,
+                min_speed=args.min_speed,
+                compute_histogram=args.histogram,
+                hist_bucket_size=args.hist_bucket_size,
+                hist_max=args.hist_max,
+            )
+            # Table
+            overall_tex = stats_to_latex(
+                metrics_all,
+                args.timezone or None,
+                args.units,
+                caption="Table 3: Overall Summary",
+                label=None,
+                include_start_time=False,
+            )
+            # Append to main table file
+            table_path = f"{prefix}_table.tex"
+            with open(table_path, "a", encoding="utf-8") as f:
+                f.write("\n% === Overall summary ===\n")
+                f.write(overall_tex)
+                f.write("\n")
+            print(f"Appended overall table to: {table_path}")
+
+            # Overall chart (expected delta None)
+            fig_all = plot_stats_page(
+                metrics_all,
+                f"Overall summary {start_label} to {end_label}",
+                args.units,
+                debug=args.debug,
+                expected_delta_seconds=None,
+            )
+            overall_pdf_path = f"{prefix}_overall.pdf"
+            fig_all.savefig(overall_pdf_path)
+            print(f"Wrote overall PDF: {overall_pdf_path}")
+            plt.close(fig_all)
+
+            # Overall histogram if present
+            if hist_all:
+                fig_hist_all = plot_histogram(
+                    hist_all,
+                    f"Speed Distribution (Overall): {start_label} to {end_label}",
+                    args.units,
+                    debug=args.debug,
+                )
+                hist_all_pdf_path = f"{prefix}_overall_histogram.pdf"
+                fig_hist_all.savefig(hist_all_pdf_path)
+                print(f"Wrote overall histogram PDF: {hist_all_pdf_path}")
+                plt.close(fig_hist_all)
+        except Exception as e:
+            print(f"Failed to generate overall summary: {e}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Query radar stats API for one or more date ranges. Dates are YYYY-MM-DD or unix seconds."
+        description="Query radar stats API for one or more date ranges. Generates multiple output files (tables and charts) with a common prefix."
     )
     parser.add_argument(
         "--group",
@@ -982,22 +1001,36 @@ if __name__ == "__main__":
         "--min-speed",
         type=float,
         default=None,
-        help="Minimum speed filter (in display units). If provided, will be converted by server/client to mps. Default: none",
+        help="Minimum speed filter (in display units). Default: none",
     )
     parser.add_argument(
-        "--pdf",
+        "--file-prefix",
         default="",
-        help="Path to output PDF file. If provided, a plot page will be saved for each date range.",
+        help="File prefix for generated outputs. If not provided, defaults to '{source}_{start}_to_{end}'. "
+        "Outputs: {prefix}_table.tex, {prefix}_stats.pdf, {prefix}_daily.pdf, {prefix}_overall.pdf, "
+        "and optional histogram PDFs if --histogram is used.",
     )
     parser.add_argument(
-        "--tex-table",
-        default="",
-        help="Path to write a LaTeX table for the stats payload. Use '-' for stdout. If multiple ranges are provided, files will be suffixed with the date range.",
+        "--histogram",
+        action="store_true",
+        help="Request histogram data from the server and generate histogram charts.",
+    )
+    parser.add_argument(
+        "--hist-bucket-size",
+        type=float,
+        default=None,
+        help="Histogram bucket size in display units (e.g., 1.0 for 1 mph buckets). Required if --histogram is used.",
+    )
+    parser.add_argument(
+        "--hist-max",
+        type=float,
+        default=None,
+        help="Maximum speed for histogram in display units (speeds above this are clipped). Optional.",
     )
     parser.add_argument(
         "--debug",
         action="store_true",
-        help="Print debug info about parsed datetimes and timestamps before requesting",
+        help="Print debug info about parsed datetimes, timestamps, and API responses",
     )
     parser.add_argument(
         "dates",
@@ -1011,6 +1044,9 @@ if __name__ == "__main__":
         parser.error(
             "You must provide an even number of date arguments: <start1> <end1> [<start2> <end2> ...]"
         )
+
+    if args.histogram and args.hist_bucket_size is None:
+        parser.error("--hist-bucket-size is required when --histogram is used")
 
     date_ranges = [
         (args.dates[i], args.dates[i + 1]) for i in range(0, len(args.dates), 2)
