@@ -1,180 +1,98 @@
 #!/usr/bin/env python3
+"""CLI wrapper that orchestrates date parsing, API queries, and LaTeX generation.
+
+Uses:
+- date_parser.parse_date_to_unix, is_date_only
+- api_client.RadarStatsClient
+- latex_generator.generate_table_file
+
+This file intentionally avoids plotting to keep the runtime lightweight and to rely
+on the already-tested modules for parsing and API interactions.
+"""
 
 import argparse
-import requests
-import sys
-from typing import List, Tuple, Union, Optional, Any, Dict
-from datetime import datetime, timezone, time
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-import numpy as np
+import os
 import re
+from typing import List, Tuple
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
-# Matplotlib imports are optional at runtime; fail gracefully with guidance
+import numpy as np
+
+from api_client import RadarStatsClient, SUPPORTED_GROUPS
+from date_parser import parse_date_to_unix, is_date_only, parse_server_time
+from latex_generator import generate_table_file, plot_histogram
+
+# Optional matplotlib imports for plotting; keep optional so unit tests don't require it
 try:
     import matplotlib
     import matplotlib.dates as mdates
     import matplotlib.pyplot as plt
-    from matplotlib.backends.backend_pdf import PdfPages
-except Exception:  # pragma: no cover - environment dependent
+except Exception:
     matplotlib = None
     mdates = None
     plt = None
-    PdfPages = None
-
-API_URL = "http://localhost:8080/api/radar_stats"
-
-# mirror of server supported groups (seconds)
-SUPPORTED_GROUPS = {
-    "15m": 15 * 60,
-    "30m": 30 * 60,
-    "1h": 60 * 60,
-    "2h": 2 * 60 * 60,
-    "3h": 3 * 60 * 60,
-    "4h": 4 * 60 * 60,
-    "6h": 6 * 60 * 60,
-    "8h": 8 * 60 * 60,
-    "12h": 12 * 60 * 60,
-    "24h": 24 * 60 * 60,
-}
 
 
-def parse_date_to_unix(
-    d: Union[str, int], end_of_day: bool = False, tz_name: Optional[str] = None
-) -> int:
-    """Parse a YYYY-MM-DD date, ISO datetime, or numeric timestamp and return unix seconds.
+def should_produce_daily(group_token: str) -> bool:
+    # If the requested group is already daily or larger, don't produce a separate daily table
+    provided_group_seconds = SUPPORTED_GROUPS.get(group_token)
+    if provided_group_seconds is not None and provided_group_seconds >= 24 * 3600:
+        return False
 
-    If d is an int or numeric string, return it as int (assumed unix seconds).
-    If d is YYYY-MM-DD, interpret midnight in the provided tz_name (or UTC if none).
-    If d is an ISO datetime string, parse it and preserve its timezone; if it lacks
-    a timezone and tz_name is provided, apply that timezone.
+    # Accept formats like '15m', '1h', '2d' as a fallback
+    import re
+
+    m = re.match(r"^(\d+)([smhd])$", str(group_token or ""))
+    if m:
+        num = int(m.group(1))
+        unit = m.group(2)
+        seconds = None
+        if unit == "s":
+            seconds = num
+        elif unit == "m":
+            seconds = num * 60
+        elif unit == "h":
+            seconds = num * 3600
+        elif unit == "d":
+            seconds = num * 86400
+        if seconds is not None and seconds >= 24 * 3600:
+            return False
+    return True
+
+
+def _next_sequenced_prefix(base: str) -> str:
+    """Return a sequenced prefix like base-1, base-2, ... based on files in CWD.
+
+    This scans the current directory for files beginning with ``base-<n>`` and
+    returns the next number in the sequence. Always returns base-<n> (start at 1).
     """
-    if isinstance(d, int):
-        return d
-    s = str(d).strip()
-    # numeric string -> treat as unix seconds already
-    if s.isdigit():
-        return int(s)
-
-    tzobj = None
-    if tz_name:
-        try:
-            tzobj = ZoneInfo(tz_name)
-        except ZoneInfoNotFoundError:
-            raise ValueError(f"unknown timezone: {tz_name}")
-
-    # Try YYYY-MM-DD first
-    try:
-        dt_date = datetime.strptime(s, "%Y-%m-%d")
-        if end_of_day:
-            dt = datetime.combine(dt_date.date(), time(23, 59, 59))
-        else:
-            dt = datetime.combine(dt_date.date(), time(0, 0, 0))
-        # apply timezone (or UTC default)
-        if tzobj is not None:
-            dt = dt.replace(tzinfo=tzobj)
-        else:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return int(dt.timestamp())
-    except ValueError:
-        # not YYYY-MM-DD, try full ISO datetime
-        pass
-
-    # Try ISO datetime parsing (with optional trailing Z)
-    try:
-        iso = s
-        if iso.endswith("Z"):
-            iso = iso[:-1] + "+00:00"
-        dt = datetime.fromisoformat(iso)
-        # if naive and tz provided, apply it; else, if naive and no tz, assume UTC
-        if dt.tzinfo is None:
-            if tzobj is not None:
-                dt = dt.replace(tzinfo=tzobj)
-            else:
-                dt = dt.replace(tzinfo=timezone.utc)
-        return int(dt.timestamp())
-    except Exception:
-        raise ValueError(
-            f"Invalid date format, expected YYYY-MM-DD, ISO datetime, or unix seconds: {d}"
-        )
+    files = os.listdir(".")
+    pat = re.compile(r"^" + re.escape(base) + r"-(\d+)(?:_|$)")
+    nums = []
+    for fn in files:
+        m = pat.match(fn)
+        if m:
+            try:
+                nums.append(int(m.group(1)))
+            except Exception:
+                continue
+    next_n = max(nums) + 1 if nums else 1
+    return f"{base}-{next_n}"
 
 
-def get_stats(
-    start_ts: int,
-    end_ts: int,
-    group: str = "1h",
-    units: str = "mph",
-    source: str = "radar_objects",
-    timezone: Optional[str] = None,
-    min_speed: Optional[float] = None,
-    compute_histogram: bool = False,
-    hist_bucket_size: Optional[float] = None,
-    hist_max: Optional[float] = None,
-):
-    params = {
-        "start": start_ts,
-        "end": end_ts,
-        "group": group,
-        "units": units,
-        "source": source,
-    }
-    if timezone:
-        params["timezone"] = timezone
-    if min_speed is not None:
-        params["min_speed"] = min_speed
-    if compute_histogram:
-        params["compute_histogram"] = "true"
-        if hist_bucket_size is not None:
-            params["hist_bucket_size"] = hist_bucket_size
-        if hist_max is not None:
-            params["hist_max"] = hist_max
+def _plot_stats_page(stats, title: str, units: str):
+    """Create a compact time-series plot (P50/P85/P98/Max + counts bars).
 
-    # make request and return the parsed json along with response metadata
-    # Server now returns { metrics: [...], histogram?: {...} }
-    resp = requests.get(API_URL, params=params)
-    resp.raise_for_status()
-    payload = resp.json()
-
-    # Extract metrics and histogram from payload
-    metrics = payload.get("metrics", []) if isinstance(payload, dict) else payload
-    histogram = payload.get("histogram", {}) if isinstance(payload, dict) else {}
-
-    return metrics, histogram, resp
-
-
-def _parse_server_time(t: Any) -> datetime:
-    """Parse time value returned by server into a timezone-aware datetime (UTC).
-
-    Server returns RFC3339 strings (e.g. 2024-01-01T00:00:00Z) for StartTime.
-    This helper also accepts numeric unix seconds.
+    Returns a matplotlib Figure.
     """
-    if isinstance(t, (int, float)):
-        return datetime.fromtimestamp(float(t), tz=timezone.utc)
-    if not isinstance(t, str):
-        raise ValueError(f"unsupported time format: {t!r}")
-    s = t.strip()
-    # RFC3339 'Z' -> +00:00 for fromisoformat
-    if s.endswith("Z"):
-        s = s[:-1] + "+00:00"
-    # Python's fromisoformat accepts offset like +00:00
-    # Preserve whatever timezone offset the server included; do not force conversion to UTC.
-    return datetime.fromisoformat(s)
+    # Minimal plotting: times on x, speeds lines on left axis, counts on right axis
+    fig, ax = plt.subplots(figsize=(10, 4))
 
-
-def plot_stats_page(
-    stats: List[Dict[str, Any]],
-    title: str,
-    units: str,
-    debug: bool = False,
-    expected_delta_seconds: Optional[int] = None,
-) -> Any:
-    """Create a matplotlib Figure for one stats series.
-
-    Expects stats to be a list of dicts containing StartTime, P50Speed, P85Speed, P98Speed, MaxSpeed.
-    """
-    if matplotlib is None or plt is None:
-        raise RuntimeError(
-            "matplotlib is required to generate plots. Install with: pip install matplotlib"
-        )
+    if not stats:
+        ax.text(0.5, 0.5, "No data", ha="center", va="center")
+        ax.set_title(title)
+        return fig
 
     times = []
     p50 = []
@@ -184,457 +102,63 @@ def plot_stats_page(
     counts = []
 
     for row in stats:
-        # server returns StartTime as RFC3339 string
+        st = row.get("StartTime") or row.get("start_time") or row.get("starttime")
         try:
-            t = _parse_server_time(
-                row.get("StartTime") or row.get("start_time") or row.get("starttime")
-            )
+            t = parse_server_time(st)
         except Exception:
-            # Try other common keys or skip
-            t = None
-        if t is None:
+            # skip rows with bad time
             continue
         times.append(t)
 
-        # Use None/np.nan for missing speeds so lines break
-        def val(key_list):
-            for k in key_list:
+        def _num(keys):
+            for k in keys:
                 if k in row and row[k] is not None:
-                    return float(row[k])
+                    try:
+                        return float(row[k])
+                    except Exception:
+                        return np.nan
             return np.nan
 
-        p50.append(val(["P50Speed", "p50speed", "p50"]))
-        p85.append(val(["P85Speed", "p85speed"]))
-        p98.append(val(["P98Speed", "p98speed"]))
-        mx.append(val(["MaxSpeed", "maxspeed"]))
-        # count may be missing in some payloads
+        p50.append(_num(["P50Speed", "p50speed", "p50"]))
+        p85.append(_num(["P85Speed", "p85speed", "p85"]))
+        p98.append(_num(["P98Speed", "p98speed", "p98"]))
+        mx.append(_num(["MaxSpeed", "maxspeed", "max"]))
         try:
             counts.append(int(row.get("Count") if row.get("Count") is not None else 0))
         except Exception:
             counts.append(0)
 
-    fig, ax = plt.subplots(figsize=(10, 4))
-    if not times:
-        ax.text(0.5, 0.5, "No data", ha="center", va="center")
-        ax.set_title(title)
-        return fig
+    # convert to numpy arrays for masking
+    p50_a = np.array(p50, dtype=float)
+    p85_a = np.array(p85, dtype=float)
+    p98_a = np.array(p98, dtype=float)
+    mx_a = np.array(mx, dtype=float)
 
-    # Keep times as Python datetimes (they may be timezone-aware). Use numpy
-    # arrays only for numeric speed values for masking and nan handling.
-    times_list = times
-    p50_arr = np.array(p50, dtype=float)
-    p85_arr = np.array(p85, dtype=float)
-    p98_arr = np.array(p98, dtype=float)
-    mx_arr = np.array(mx, dtype=float)
-
-    # precompute times as unix seconds for gap detection
-    times_seconds = np.array([t.timestamp() for t in times_list], dtype=float)
-
-    # Plot each series as contiguous valid segments. For gaps between segments,
-    # draw a dashed connector between the last point before the gap and the
-    # first point after the gap so the gap is visually indicated.
-
-    def plot_segments(x_times, y_arr, label, marker, default_linestyle="-"):
-        # present indices where we have numeric values
-        present_idx = np.where(~np.isnan(y_arr))[0]
-        if debug:
-            print(
-                f"DEBUG: series={label} len={len(y_arr)} present_count={present_idx.size}"
-            )
-            sample_mask = "".join("1" if not np.isnan(v) else "0" for v in y_arr[:200])
-            print(f"DEBUG: {label} present mask (sample up to 200): {sample_mask}")
-        if present_idx.size == 0:
-            return
-
-        # find contiguous runs using timestamps (detect gaps larger than expected_delta_seconds)
-        runs = []
-        start = present_idx[0]
-        last = present_idx[0]
-        for j in present_idx[1:]:
-            dt = times_seconds[j] - times_seconds[last]
-            if expected_delta_seconds is not None:
-                # allow a small tolerance (50%) for timing jitter
-                if dt <= expected_delta_seconds * 1.5:
-                    last = j
-                else:
-                    runs.append((start, last))
-                    start = j
-                    last = j
-            else:
-                # fallback to index adjacency
-                if j == last + 1:
-                    last = j
-                else:
-                    runs.append((start, last))
-                    start = j
-                    last = j
-        runs.append((start, last))
-
-        if debug:
-            print(f"DEBUG: {label} runs={runs}")
-
-        # allow explicit color mapping per series
-        color_map = {
-            "P50": "#ece111",
-            "P85": "#ed7648",
-            "P98": "#d50734",
-            "Max": "black",
-        }
-        color = None
-        color_override = color_map.get(label)
-        first_plot = True
-        for s, e in runs:
-            xs = [x_times[i] for i in range(s, e + 1)]
-            ys = y_arr[s : e + 1]
-            if first_plot:
-                if color_override is not None:
-                    line = ax.plot(
-                        xs,
-                        ys,
-                        label=label,
-                        marker=marker,
-                        linestyle=default_linestyle,
-                        color=color_override,
-                    )[0]
-                else:
-                    line = ax.plot(
-                        xs, ys, label=label, marker=marker, linestyle=default_linestyle
-                    )[0]
-                color = line.get_color()
-                first_plot = False
-            else:
-                ax.plot(
-                    xs,
-                    ys,
-                    marker=marker,
-                    color=(color_override or color),
-                    linestyle=default_linestyle,
-                )
-
-        # dashed connectors between runs
-        connectors = []
-        for i in range(len(runs) - 1):
-            s1, e1 = runs[i]
-            s2, e2 = runs[i + 1]
-            x_conn = [x_times[e1], x_times[s2]]
-            y_conn = [y_arr[e1], y_arr[s2]]
-            connectors.append((x_conn, y_conn))
-            # Do not draw connectors (invisible). Keep connector info for debug only.
-        if debug:
-            print(
-                f"DEBUG: {label} connectors={[( (c[0][0], c[0][1]), (c[1][0], c[1][1]) ) for c in connectors]}"
-            )
-
-    plot_segments(times_list, p50_arr, "P50", marker="s")
-    plot_segments(times_list, p85_arr, "P85", marker="^")
-    plot_segments(times_list, p98_arr, "P98", marker="o")
-    plot_segments(times_list, mx_arr, "Max", marker="x", default_linestyle="--")
-
-    # Plot counts on right axis as bars
-    try:
-        counts_arr = np.array(counts, dtype=float)
-    except Exception:
-        counts_arr = np.zeros(len(times_list), dtype=float)
-
-    # Undercount warnings: full-height translucent orange bars behind the counts
-    try:
-        counts_arr = np.array(counts, dtype=float)
-    except Exception:
-        counts_arr = np.zeros(len(times_list), dtype=float)
-
-    ax2 = ax.twinx()
-    # Place the twin axis underneath the main axis so an axes-level legend
-    # attached to `ax` will be drawn above the bar artists on `ax2`.
-    try:
-        ax2.set_zorder(1)
-        ax.set_zorder(2)
-        # Make the main axis patch invisible so `ax2` remains visible beneath it
-        ax.patch.set_visible(False)
-    except Exception:
-        pass
-    # determine bar width in days for matplotlib (dates are in days units)
-    if expected_delta_seconds is not None:
-        width_days = (expected_delta_seconds * 0.9) / (24.0 * 3600.0)
-    elif len(times_seconds) > 1:
-        avg_dt = np.median(np.diff(times_seconds))
-        width_days = (avg_dt * 0.9) / (24.0 * 3600.0)
-    else:
-        width_days = (60 * 60) / (24.0 * 3600.0)  # 1 hour default in days
-
-    # compute highlight height (top of right axis)
-    try:
-        if counts_arr.size > 0:
-            max_c = float(np.nanmax(counts_arr))
-            # make highlights go to the full top we will set for the axis (1.5x)
-            highlight_h = max_c * 1.5 if max_c > 0 else 1.0
-        else:
-            highlight_h = 1.0
-    except Exception:
-        highlight_h = 1.0
-
-    try:
-        under_mask = counts_arr < 50
-        if np.any(under_mask):
-            ux = [times_list[i] for i in np.where(under_mask)[0]]
-            uh = [highlight_h] * len(ux)
-            # draw solid translucent orange highlight bars at low zorder (behind counts)
-            patches = ax2.bar(
-                ux,
-                uh,
-                width=width_days,
-                align="center",
-                facecolor="orange",
-                edgecolor="none",
-                alpha=0.2,
-                zorder=1,
-                label="Undercount (<50)",
-            )
-            if debug:
-                print(
-                    f"DEBUG: undercount indices={[int(i) for i in np.where(under_mask)[0]]} highlight_h={highlight_h}"
-                )
-    except Exception:
-        pass
-
-    # now draw the actual count bars on top
-    bars = ax2.bar(
-        times_list,
-        counts_arr,
-        width=width_days * 0.8,
-        align="center",
-        alpha=0.4,
-        color="gray",
-        label="Count",
-        zorder=2,
-    )
-    ax2.set_ylabel("Count")
-
-    # Ensure left axis starts at zero (speeds)
-    try:
-        ax.set_ylim(bottom=0)
-    except Exception:
-        pass
-
-    # Set right axis top to 1.5x max count so bars don't touch the top
-    try:
-        if counts_arr.size > 0:
-            max_c = float(np.nanmax(counts_arr))
-            if max_c <= 0:
-                ax2.set_ylim(top=1.0)
-            else:
-                ax2.set_ylim(top=max_c * 1.5)
-    except Exception:
-        pass
-
-    # merge legends from both axes and place inside the plot area
-    h1, l1 = ax.get_legend_handles_labels()
-    h2, l2 = ax2.get_legend_handles_labels()
-    if h1 or h2:
-        try:
-            # Use an axes-level legend so it sits inside the plot (lower right)
-            leg = ax.legend(h1 + h2, l1 + l2, loc="lower right", framealpha=0.85)
-            # ensure legend draws above plot artists
-            try:
-                leg.set_zorder(10)
-            except Exception:
-                pass
-        except Exception:
-            pass
+    ax.plot(times, p50_a, label="P50", marker="s")
+    ax.plot(times, p85_a, label="P85", marker="^")
+    ax.plot(times, p98_a, label="P98", marker="o")
+    ax.plot(times, mx_a, label="Max", marker="x", linestyle="--")
 
     ax.set_ylabel(f"Speed ({units})")
     ax.set_title(title)
-    ax.grid(True, linestyle=":", linewidth=0.5)
 
-    # format dates
-    # If the datetimes are timezone-aware, use that tz for the locator/formatter so
-    # tick labels display in the server-provided timezone instead of UTC.
-    tz_for_fmt = None
-    if times and getattr(times[0], "tzinfo", None) is not None:
-        tz_for_fmt = times[0].tzinfo
+    ax2 = ax.twinx()
+    ax2.bar(times, counts, width=0.02, alpha=0.4, color="gray", label="Count")
+    ax2.set_ylabel("Count")
 
-    locator = mdates.AutoDateLocator(tz=tz_for_fmt)
-    formatter = mdates.ConciseDateFormatter(locator, tz=tz_for_fmt)
-    ax.xaxis.set_major_locator(locator)
-    ax.xaxis.set_major_formatter(formatter)
-    # Hide the automatic offset/date shown at the lower-left of the axis (we'll
-    # show a simplified date range in the title instead).
+    # merge legends
+    h1, l1 = ax.get_legend_handles_labels()
+    h2, l2 = ax2.get_legend_handles_labels()
+    if h1 or h2:
+        ax.legend(h1 + h2, l1 + l2, loc="lower right")
+
     try:
-        ax.xaxis.get_offset_text().set_visible(False)
-    except Exception:
-        pass
-    fig.autofmt_xdate()
-    # Reduce page margins for inclusion in PDFs: keep labels readable but trim left/right whitespace.
-    try:
-        # Apply tight layout first to respect artist extents, with a small padding.
-        fig.tight_layout(pad=0.3)
-    except Exception:
-        pass
-    try:
-        # Nudge left/right margins as small as practical while leaving room for ticks/legend.
-        fig.subplots_adjust(left=0.05, right=0.94)
-    except Exception:
-        pass
-    return fig
-
-
-def stats_to_latex(
-    stats: List[Dict[str, Any]],
-    tz_name: Optional[str],
-    units: str,
-    caption: Optional[str] = None,
-    label: Optional[str] = None,
-    include_start_time: bool = True,
-) -> str:
-    """Render the stats payload as a LaTeX tabular string.
-
-    - stats: list of dicts from server (metrics array)
-    - tz_name: timezone to display times in (or None for UTC)
-    - units: speed units string to show in header
-    - caption/label: optional LaTeX caption/label
-    Returns a complete LaTeX table as a string.
-    """
-
-    def fmt_time(tval: Any) -> str:
-        try:
-            dt = _parse_server_time(tval)
-            if tz_name:
-                try:
-                    tzobj = ZoneInfo(tz_name)
-                except Exception:
-                    tzobj = timezone.utc
-                dt = dt.astimezone(tzobj)
-            else:
-                dt = dt.astimezone(timezone.utc)
-            # shorter time format: MM-DD HH:MM
-            return dt.strftime("%m-%d %H:%M")
-        except Exception:
-            return str(tval)
-
-    def fmt_num(v: Any) -> str:
-        try:
-            if v is None:
-                return "--"
-            f = float(v)
-            if np.isnan(f):
-                return "--"
-            return f"{f:.2f}"
-        except Exception:
-            return "--"
-
-    lines: List[str] = []
-    # Produce a non-floating table so it appears inline when \input{} inside multicols
-    lines.append("\\begin{center}")
-    # reduce font and column padding to make table fit one column
-    lines.append("\\small")
-    lines.append("\\setlength{\\tabcolsep}{4pt}")
-    # tabular columns: optionally include time column, then count, p50, p85, p98, max
-    if include_start_time:
-        lines.append("\\begin{tabular}{lrrrrr}")
-        # put units on a second line within the header cell using \shortstack
-        header = (
-            f"Start Time & Count & \\shortstack{{p50\\\\({units})}} & \\shortstack{{p85\\\\({units})}}"
-            f" & \\shortstack{{p98\\\\({units})}} & \\shortstack{{Max\\\\({units})}} \\\\"
-        )
-    else:
-        # omit the Start Time column for aggregated/overall tables
-        lines.append("\\begin{tabular}{rrrrr}")
-        header = (
-            f"Count & \\shortstack{{p50\\\\({units})}} & \\shortstack{{p85\\\\({units})}}"
-            f" & \\shortstack{{p98\\\\({units})}} & \\shortstack{{Max\\\\({units})}} \\\\"
-        )
-    lines.append(header)
-    lines.append("\\hline")
-
-    for row in stats:
-        cnt = row.get("Count") if row.get("Count") is not None else 0
-        p50v = row.get("P50Speed") or row.get("p50speed") or row.get("p50")
-        p85v = row.get("P85Speed") or row.get("p85speed")
-        p98v = row.get("P98Speed") or row.get("p98speed")
-        maxv = row.get("MaxSpeed") or row.get("maxspeed")
-        if include_start_time:
-            st = row.get("StartTime") or row.get("start_time") or row.get("starttime")
-            tstr = fmt_time(st)
-            line = f"{tstr} & {int(cnt)} & {fmt_num(p50v)} & {fmt_num(p85v)} & {fmt_num(p98v)} & {fmt_num(maxv)} \\\\"
-        else:
-            line = f"{int(cnt)} & {fmt_num(p50v)} & {fmt_num(p85v)} & {fmt_num(p98v)} & {fmt_num(maxv)} \\\\"
-        lines.append(line)
-
-    lines.append("\\hline")
-    lines.append("\\end{tabular}")
-    # Place caption as a full-width centered box so it doesn't wrap beside the table
-    if caption:
-        lines.append("\\par\\vspace{2pt}")
-        # makebox with \linewidth forces the caption to occupy the column width
-        lines.append(
-            f"\\noindent\\makebox[\\linewidth]{{\\textbf{{\\small {caption}}}}}"
-        )
-    lines.append("\\end{center}")
-    return "\n".join(lines)
-
-
-def plot_histogram(
-    histogram: Dict[str, int],
-    title: str,
-    units: str,
-    debug: bool = False,
-) -> Any:
-    """Create a matplotlib Figure for a histogram.
-
-    Expects histogram to be a dict mapping bucket labels (strings) to counts.
-    """
-    if matplotlib is None or plt is None:
-        raise RuntimeError(
-            "matplotlib is required to generate plots. Install with: pip install matplotlib"
-        )
-
-    if not histogram:
-        fig, ax = plt.subplots(figsize=(10, 4))
-        ax.text(0.5, 0.5, "No histogram data", ha="center", va="center")
-        ax.set_title(title)
-        return fig
-
-    # Sort histogram by bucket start (convert keys to float for sorting)
-    try:
-        sorted_items = sorted(histogram.items(), key=lambda x: float(x[0]))
-    except ValueError:
-        # If keys aren't numeric, sort as strings
-        sorted_items = sorted(histogram.items())
-
-    labels = [item[0] for item in sorted_items]
-    counts = [item[1] for item in sorted_items]
-
-    if debug:
-        print(f"DEBUG: histogram bins={len(labels)} total_count={sum(counts)}")
-        print(f"DEBUG: first 10 bins: {sorted_items[:10]}")
-
-    fig, ax = plt.subplots(figsize=(10, 5))
-
-    # Create bar chart
-    x_pos = np.arange(len(labels))
-    bars = ax.bar(
-        x_pos, counts, alpha=0.7, color="steelblue", edgecolor="black", linewidth=0.5
-    )
-
-    ax.set_xlabel(f"Speed ({units})")
-    ax.set_ylabel("Count")
-    ax.set_title(title)
-    ax.grid(True, axis="y", linestyle=":", linewidth=0.5, alpha=0.7)
-
-    # Set x-axis labels - show every Nth label to avoid crowding
-    if len(labels) <= 20:
-        ax.set_xticks(x_pos)
-        ax.set_xticklabels(labels, rotation=45, ha="right")
-    else:
-        # Show ~15-20 labels evenly spaced
-        step = max(1, len(labels) // 15)
-        tick_pos = x_pos[::step]
-        tick_labels = labels[::step]
-        ax.set_xticks(tick_pos)
-        ax.set_xticklabels(tick_labels, rotation=45, ha="right")
-
-    # Tight layout to prevent label cutoff
-    try:
-        fig.tight_layout(pad=0.5)
+        if mdates is not None:
+            locator = mdates.AutoDateLocator()
+            formatter = mdates.ConciseDateFormatter(locator)
+            ax.xaxis.set_major_locator(locator)
+            ax.xaxis.set_major_formatter(formatter)
+            fig.autofmt_xdate()
     except Exception:
         pass
 
@@ -642,90 +166,38 @@ def plot_histogram(
 
 
 def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
-    # Determine file prefix - if not provided, use a default based on source and date
-    file_prefix = getattr(args, "file_prefix", None)
+    client = RadarStatsClient()
 
     for start_date, end_date in date_ranges:
-        # Validate and convert to unix seconds (UTC). Start => 00:00:00, End => 23:59:59
         try:
-            # If the end date is a plain YYYY-MM-DD string we want the end of day
-            # (23:59:59). If the user provided an ISO datetime (e.g. 2025-06-01T01:00:00Z)
-            # treat it as an exact timestamp and do not force end-of-day.
-            def _is_date_only(s: str) -> bool:
-                try:
-                    return bool(re.match(r"^\d{4}-\d{2}-\d{2}$", str(s).strip()))
-                except Exception:
-                    return False
-
             start_ts = parse_date_to_unix(
                 start_date, end_of_day=False, tz_name=(args.timezone or None)
             )
             end_ts = parse_date_to_unix(
                 end_date,
-                end_of_day=_is_date_only(end_date),
+                end_of_day=is_date_only(end_date),
                 tz_name=(args.timezone or None),
             )
         except ValueError as e:
             print(f"Bad date range ({start_date} - {end_date}): {e}")
             continue
 
-        print(
-            f"Querying stats from {start_date} ({start_ts}) to {end_date} ({end_ts})..."
-        )
-        if args.debug:
-            # Show both UTC and the requested-local representation so the mapping
-            # from YYYY-MM-DD (in requested timezone) -> unix seconds is clear.
-            try:
-                utc_start = datetime.fromtimestamp(start_ts, tz=timezone.utc)
-                utc_end = datetime.fromtimestamp(end_ts, tz=timezone.utc)
-            except Exception:
-                utc_start = start_ts
-                utc_end = end_ts
-
-            # local representation in requested timezone (if provided)
-            try:
-                if args.timezone:
-                    tz_local = ZoneInfo(args.timezone)
-                else:
-                    tz_local = timezone.utc
-                local_start = datetime.fromtimestamp(start_ts, tz=tz_local)
-                local_end = datetime.fromtimestamp(end_ts, tz=tz_local)
-            except Exception:
-                local_start = None
-                local_end = None
-
-            print("DEBUG: computed start_ts ->", start_ts)
-            print("       UTC ->", utc_start)
-            if local_start is not None:
-                print("       local (", args.timezone or "UTC", ") ->", local_start)
-
-            print("DEBUG: computed end_ts   ->", end_ts)
-            print("       UTC ->", utc_end)
-            if local_end is not None:
-                print("       local (", args.timezone or "UTC", ") ->", local_end)
-
-        # Build file prefix for this range
-        try:
-            if args.timezone:
-                tzobj = ZoneInfo(args.timezone)
-            else:
-                tzobj = timezone.utc
+        # determine file prefix; if the user provided a prefix, create a numbered
+        # sequence to avoid clobbering previous runs (out -> out-1, out-2, ...)
+        if args.file_prefix:
+            prefix_base = args.file_prefix
+            prefix = _next_sequenced_prefix(prefix_base)
+        else:
+            tzobj = ZoneInfo(args.timezone) if args.timezone else timezone.utc
             start_label = datetime.fromtimestamp(start_ts, tz=tzobj).date().isoformat()
             end_label = datetime.fromtimestamp(end_ts, tz=tzobj).date().isoformat()
-        except Exception:
-            start_label = str(start_date)
-            end_label = str(end_date)
-
-        if file_prefix:
-            prefix = file_prefix
-        else:
             prefix = f"{args.source}_{start_label}_to_{end_label}"
 
-        # Fetch main stats data
+        # main granular query
         try:
-            metrics, histogram, resp = get_stats(
-                start_ts,
-                end_ts,
+            metrics, histogram, resp = client.get_stats(
+                start_ts=start_ts,
+                end_ts=end_ts,
                 group=args.group,
                 units=args.units,
                 source=args.source,
@@ -735,246 +207,81 @@ def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
                 hist_bucket_size=args.hist_bucket_size,
                 hist_max=args.hist_max,
             )
-        except requests.HTTPError as e:
-            print(f"Request failed: {e}")
+        except Exception as e:
+            print(f"Request failed for {start_date} - {end_date}: {e}")
             continue
 
-        # Print a compact log similar to server logs
-        elapsed_ms = resp.elapsed.total_seconds() * 1000.0
-        request_url = resp.request.url
-        now_str = datetime.now(timezone.utc).strftime("%Y/%m/%d %H:%M:%S %Z")
-        print(f"{now_str} [{resp.status_code}] GET {request_url} {elapsed_ms:.3f}ms")
-        if args.debug:
-            print(f"DEBUG: metrics count={len(metrics)}")
-            if histogram:
-                print(f"DEBUG: histogram bins={len(histogram)}")
-
-        # Compute ISO-formatted start/end for generation parameters
+        # overall summary
         try:
-            if args.timezone:
-                tzobj = ZoneInfo(args.timezone)
-            else:
-                tzobj = timezone.utc
+            metrics_all, _, _ = client.get_stats(
+                start_ts=start_ts,
+                end_ts=end_ts,
+                group="all",
+                units=args.units,
+                source=args.source,
+                timezone=args.timezone or None,
+                min_speed=args.min_speed,
+                compute_histogram=False,
+            )
+        except Exception as e:
+            print(f"Failed to fetch overall summary: {e}")
+            metrics_all = []
+
+        # daily summary (optional)
+        daily_metrics = None
+        if should_produce_daily(args.group):
+            try:
+                daily_metrics, _, _ = client.get_stats(
+                    start_ts=start_ts,
+                    end_ts=end_ts,
+                    group="24h",
+                    units=args.units,
+                    source=args.source,
+                    timezone=args.timezone or None,
+                    min_speed=args.min_speed,
+                    compute_histogram=False,
+                )
+            except Exception as e:
+                print(f"Failed to fetch daily summary: {e}")
+                daily_metrics = None
+
+        # compute ISO strings for generation parameters
+        try:
+            tzobj = ZoneInfo(args.timezone) if args.timezone else timezone.utc
             start_iso = datetime.fromtimestamp(start_ts, tz=tzobj).isoformat()
             end_iso = datetime.fromtimestamp(end_ts, tz=tzobj).isoformat()
         except Exception:
             start_iso = str(start_date)
             end_iso = str(end_date)
 
-        # Generate LaTeX table for main stats
+        min_speed_str = (
+            f"{args.min_speed} {args.units}" if args.min_speed is not None else "none"
+        )
+        tz_display = args.timezone or "UTC"
+
+        table_path = f"{prefix}_table.tex"
         try:
-            tex = stats_to_latex(
-                metrics,
-                args.timezone or None,
-                args.units,
-                caption="Table 1: Granular breakdown",
-                label=None,
+            generate_table_file(
+                file_path=table_path,
+                start_iso=start_iso,
+                end_iso=end_iso,
+                group=args.group,
+                units=args.units,
+                timezone_display=tz_display,
+                min_speed_str=min_speed_str,
+                overall_metrics=metrics_all,
+                daily_metrics=daily_metrics,
+                granular_metrics=metrics,
+                tz_name=(args.timezone or None),
             )
-            # Write generation parameters followed by the main table
-            gen_params = (
-                "% === Generation parameters ===\n"
-                + "\\noindent\\textbf{Start time:} "
-                + f"{start_iso} \\\\\n"
-                + "\\textbf{End time:} "
-                + f"{end_iso} \\\\\n"
-                + "\\textbf{Rollup period:} "
-                + f"{args.group}\n\n"
-            )
-            table_path = f"{prefix}_table.tex"
-            with open(table_path, "w", encoding="utf-8") as f:
-                f.write(gen_params)
-                f.write(tex)
             print(f"Wrote LaTeX table: {table_path}")
         except Exception as e:
-            print(f"Failed to generate LaTeX table: {e}")
-
-        # Generate stats chart PDF
-        try:
-            expected_delta = SUPPORTED_GROUPS.get(args.group)
-            tz_label = args.timezone or "UTC"
-            title = f"{start_label} to {end_label} ({args.source}, group={args.group}, tz={tz_label})"
-            fig = plot_stats_page(
-                metrics,
-                title,
-                args.units,
-                debug=args.debug,
-                expected_delta_seconds=expected_delta,
-            )
-            stats_pdf_path = f"{prefix}_stats.pdf"
-            fig.savefig(stats_pdf_path)
-            print(f"Wrote stats PDF: {stats_pdf_path}")
-            plt.close(fig)
-        except Exception as e:
-            print(f"Failed to generate stats chart: {e}")
-
-        # Generate histogram chart if histogram data available
-        if histogram:
-            try:
-                hist_title = f"Speed Distribution: {start_label} to {end_label} ({args.source}, tz={tz_label})"
-                fig_hist = plot_histogram(
-                    histogram,
-                    hist_title,
-                    args.units,
-                    debug=args.debug,
-                )
-                hist_pdf_path = f"{prefix}_histogram.pdf"
-                fig_hist.savefig(hist_pdf_path)
-                print(f"Wrote histogram PDF: {hist_pdf_path}")
-                plt.close(fig_hist)
-            except Exception as e:
-                print(f"Failed to generate histogram chart: {e}")
-
-        # --- Additional summary outputs: daily (24h) and overall (all) ---
-        # Determine whether to produce daily + overall or only overall
-        provided_group_seconds = SUPPORTED_GROUPS.get(args.group)
-        produce_daily = True
-        if provided_group_seconds is not None and provided_group_seconds >= 24 * 3600:
-            produce_daily = False
-        else:
-            # If group token isn't in SUPPORTED_GROUPS, try to parse numeric forms like '48h' or '2d'
-            m = re.match(r"^(\d+)([smhd])$", str(args.group or ""))
-            if m:
-                num = int(m.group(1))
-                unit = m.group(2)
-                seconds = None
-                if unit == "s":
-                    seconds = num
-                elif unit == "m":
-                    seconds = num * 60
-                elif unit == "h":
-                    seconds = num * 3600
-                elif unit == "d":
-                    seconds = num * 86400
-                if seconds is not None and seconds >= 24 * 3600:
-                    produce_daily = False
-
-        # Produce daily 24h rollup if requested
-        if produce_daily:
-            try:
-                metrics_daily, hist_daily, resp_daily = get_stats(
-                    start_ts,
-                    end_ts,
-                    group="24h",
-                    units=args.units,
-                    source=args.source,
-                    timezone=args.timezone or None,
-                    min_speed=args.min_speed,
-                    compute_histogram=args.histogram,
-                    hist_bucket_size=args.hist_bucket_size,
-                    hist_max=args.hist_max,
-                )
-                # Table
-                daily_tex = stats_to_latex(
-                    metrics_daily,
-                    args.timezone or None,
-                    args.units,
-                    caption="Table 2: Daily Summary",
-                    label=None,
-                )
-                # Append to main table file
-                table_path = f"{prefix}_table.tex"
-                with open(table_path, "a", encoding="utf-8") as f:
-                    f.write("\n% === Daily summary ===\n")
-                    f.write(daily_tex)
-                    f.write("\n")
-                print(f"Appended daily table to: {table_path}")
-
-                # Chart PDF
-                expected_daily = SUPPORTED_GROUPS.get("24h")
-                fig_daily = plot_stats_page(
-                    metrics_daily,
-                    f"Daily summary {start_label} to {end_label}",
-                    args.units,
-                    debug=args.debug,
-                    expected_delta_seconds=(
-                        expected_daily
-                        if expected_daily and expected_daily > 0
-                        else None
-                    ),
-                )
-                daily_pdf_path = f"{prefix}_daily.pdf"
-                fig_daily.savefig(daily_pdf_path)
-                print(f"Wrote daily PDF: {daily_pdf_path}")
-                plt.close(fig_daily)
-
-                # Daily histogram if present
-                if hist_daily:
-                    fig_hist_daily = plot_histogram(
-                        hist_daily,
-                        f"Speed Distribution (Daily): {start_label} to {end_label}",
-                        args.units,
-                        debug=args.debug,
-                    )
-                    hist_daily_pdf_path = f"{prefix}_daily_histogram.pdf"
-                    fig_hist_daily.savefig(hist_daily_pdf_path)
-                    print(f"Wrote daily histogram PDF: {hist_daily_pdf_path}")
-                    plt.close(fig_hist_daily)
-            except Exception as e:
-                print(f"Failed to generate daily summary: {e}")
-
-        # Always produce overall (all) rollup
-        try:
-            metrics_all, hist_all, resp_all = get_stats(
-                start_ts,
-                end_ts,
-                group="all",
-                units=args.units,
-                source=args.source,
-                timezone=args.timezone or None,
-                min_speed=args.min_speed,
-                compute_histogram=args.histogram,
-                hist_bucket_size=args.hist_bucket_size,
-                hist_max=args.hist_max,
-            )
-            # Table
-            overall_tex = stats_to_latex(
-                metrics_all,
-                args.timezone or None,
-                args.units,
-                caption="Table 3: Overall Summary",
-                label=None,
-                include_start_time=False,
-            )
-            # Append to main table file
-            table_path = f"{prefix}_table.tex"
-            with open(table_path, "a", encoding="utf-8") as f:
-                f.write("\n% === Overall summary ===\n")
-                f.write(overall_tex)
-                f.write("\n")
-            print(f"Appended overall table to: {table_path}")
-
-            # Overall chart (expected delta None)
-            fig_all = plot_stats_page(
-                metrics_all,
-                f"Overall summary {start_label} to {end_label}",
-                args.units,
-                debug=args.debug,
-                expected_delta_seconds=None,
-            )
-            overall_pdf_path = f"{prefix}_overall.pdf"
-            fig_all.savefig(overall_pdf_path)
-            print(f"Wrote overall PDF: {overall_pdf_path}")
-            plt.close(fig_all)
-
-            # Overall histogram if present
-            if hist_all:
-                fig_hist_all = plot_histogram(
-                    hist_all,
-                    f"Speed Distribution (Overall): {start_label} to {end_label}",
-                    args.units,
-                    debug=args.debug,
-                )
-                hist_all_pdf_path = f"{prefix}_overall_histogram.pdf"
-                fig_hist_all.savefig(hist_all_pdf_path)
-                print(f"Wrote overall histogram PDF: {hist_all_pdf_path}")
-                plt.close(fig_hist_all)
-        except Exception as e:
-            print(f"Failed to generate overall summary: {e}")
+            print(f"Failed to write LaTeX table: {e}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Query radar stats API for one or more date ranges. Generates multiple output files (tables and charts) with a common prefix."
+        description="Query radar stats API for date ranges and generate LaTeX table files."
     )
     parser.add_argument(
         "--group",
@@ -990,7 +297,7 @@ if __name__ == "__main__":
         "--source",
         default="radar_objects",
         choices=["radar_objects", "radar_data_transits"],
-        help="Data source to query (radar_objects or radar_data_transits). Default: radar_objects",
+        help="Data source to query (radar_objects or radar_data_transits).",
     )
     parser.add_argument(
         "--timezone",
@@ -1003,29 +310,34 @@ if __name__ == "__main__":
         default=None,
         help="Minimum speed filter (in display units). Default: none",
     )
+    # legacy alias accepted by older scripts
+    parser.add_argument(
+        "--min_speed",
+        dest="min_speed",
+        type=float,
+        help=argparse.SUPPRESS,
+    )
     parser.add_argument(
         "--file-prefix",
         default="",
-        help="File prefix for generated outputs. If not provided, defaults to '{source}_{start}_to_{end}'. "
-        "Outputs: {prefix}_table.tex, {prefix}_stats.pdf, {prefix}_daily.pdf, {prefix}_overall.pdf, "
-        "and optional histogram PDFs if --histogram is used.",
+        help="File prefix for generated outputs. If not provided, defaults to '{source}_{start}_to_{end}'.",
     )
     parser.add_argument(
         "--histogram",
         action="store_true",
-        help="Request histogram data from the server and generate histogram charts.",
+        help="Request histogram data from the server and include histogram in response.",
     )
     parser.add_argument(
         "--hist-bucket-size",
         type=float,
         default=None,
-        help="Histogram bucket size in display units (e.g., 1.0 for 1 mph buckets). Required if --histogram is used.",
+        help="Histogram bucket size in display units (required if --histogram is used)",
     )
     parser.add_argument(
         "--hist-max",
         type=float,
         default=None,
-        help="Maximum speed for histogram in display units (speeds above this are clipped). Optional.",
+        help="Maximum speed for histogram (optional)",
     )
     parser.add_argument(
         "--debug",
@@ -1039,12 +351,10 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-
     if not args.dates or len(args.dates) % 2 != 0:
         parser.error(
             "You must provide an even number of date arguments: <start1> <end1> [<start2> <end2> ...]"
         )
-
     if args.histogram and args.hist_bucket_size is None:
         parser.error("--hist-bucket-size is required when --histogram is used")
 
@@ -1052,3 +362,107 @@ if __name__ == "__main__":
         (args.dates[i], args.dates[i + 1]) for i in range(0, len(args.dates), 2)
     ]
     main(date_ranges, args)
+
+
+def _next_sequenced_prefix(base: str) -> str:
+    """Return a sequenced prefix like base-1, base-2, ... based on files in CWD.
+
+    This scans the current directory for files beginning with ``base-<n>`` and
+    returns the next number in the sequence. Always returns base-<n> (start at 1).
+    """
+    files = os.listdir(".")
+    pat = re.compile(r"^" + re.escape(base) + r"-(\d+)(?:_|$)")
+    nums = []
+    for fn in files:
+        m = pat.match(fn)
+        if m:
+            try:
+                nums.append(int(m.group(1)))
+            except Exception:
+                continue
+    next_n = max(nums) + 1 if nums else 1
+    return f"{base}-{next_n}"
+
+
+def _plot_stats_page(stats, title: str, units: str):
+    """Create a compact time-series plot (P50/P85/P98/Max + counts bars).
+
+    Returns a matplotlib Figure.
+    """
+    # Minimal plotting: times on x, speeds lines on left axis, counts on right axis
+    fig, ax = plt.subplots(figsize=(10, 4))
+
+    if not stats:
+        ax.text(0.5, 0.5, "No data", ha="center", va="center")
+        ax.set_title(title)
+        return fig
+
+    times = []
+    p50 = []
+    p85 = []
+    p98 = []
+    mx = []
+    counts = []
+
+    for row in stats:
+        st = row.get("StartTime") or row.get("start_time") or row.get("starttime")
+        try:
+            t = parse_server_time(st)
+        except Exception:
+            # skip rows with bad time
+            continue
+        times.append(t)
+
+        def _num(keys):
+            for k in keys:
+                if k in row and row[k] is not None:
+                    try:
+                        return float(row[k])
+                    except Exception:
+                        return np.nan
+            return np.nan
+
+        p50.append(_num(["P50Speed", "p50speed", "p50"]))
+        p85.append(_num(["P85Speed", "p85speed", "p85"]))
+        p98.append(_num(["P98Speed", "p98speed", "p98"]))
+        mx.append(_num(["MaxSpeed", "maxspeed", "max"]))
+        try:
+            counts.append(int(row.get("Count") if row.get("Count") is not None else 0))
+        except Exception:
+            counts.append(0)
+
+    # convert to numpy arrays for masking
+    p50_a = np.array(p50, dtype=float)
+    p85_a = np.array(p85, dtype=float)
+    p98_a = np.array(p98, dtype=float)
+    mx_a = np.array(mx, dtype=float)
+
+    ax.plot(times, p50_a, label="P50", marker="s")
+    ax.plot(times, p85_a, label="P85", marker="^")
+    ax.plot(times, p98_a, label="P98", marker="o")
+    ax.plot(times, mx_a, label="Max", marker="x", linestyle="--")
+
+    ax.set_ylabel(f"Speed ({units})")
+    ax.set_title(title)
+
+    ax2 = ax.twinx()
+    ax2.bar(times, counts, width=0.02, alpha=0.4, color="gray", label="Count")
+    ax2.set_ylabel("Count")
+
+    # merge legends
+    h1, l1 = ax.get_legend_handles_labels()
+    h2, l2 = ax2.get_legend_handles_labels()
+    if h1 or h2:
+        ax.legend(h1 + h2, l1 + l2, loc="lower right")
+
+    try:
+        if mdates is not None:
+            locator = mdates.AutoDateLocator()
+            formatter = mdates.ConciseDateFormatter(locator)
+            ax.xaxis.set_major_locator(locator)
+            ax.xaxis.set_major_formatter(formatter)
+            fig.autofmt_xdate()
+    except Exception:
+        pass
+
+    return fig
