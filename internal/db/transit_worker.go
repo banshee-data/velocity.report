@@ -77,7 +77,20 @@ func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error 
 	defer tx.Rollback()
 
 	// Query individual radar_data rows in the window (no per-second rollup)
-	q := `SELECT rowid, write_timestamp AS ts, ABS(speed) AS abs_speed, magnitude FROM radar_data WHERE write_timestamp BETWEEN ? AND ? AND (speed IS NOT NULL OR magnitude IS NOT NULL) ORDER BY ts`
+	q := `
+		SELECT
+			rowid,
+			write_timestamp AS ts,
+			ABS(speed) AS abs_speed,
+			magnitude
+		FROM
+			radar_data
+		WHERE
+			write_timestamp BETWEEN ? AND ?
+			AND (speed IS NOT NULL OR magnitude IS NOT NULL)
+		ORDER BY
+			ts
+	`
 
 	rows, err := tx.QueryContext(ctx, q, start, end)
 	if err != nil {
@@ -183,7 +196,33 @@ func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error 
 	}
 
 	// Upsert transits into radar_data_transits.
-	upsertStmt, err := tx.PrepareContext(ctx, `INSERT INTO radar_data_transits (transit_key, threshold_ms, transit_start_unix, transit_end_unix, transit_max_speed, transit_min_speed, transit_max_magnitude, transit_min_magnitude, point_count, model_version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UNIXEPOCH('subsec'), UNIXEPOCH('subsec')) ON CONFLICT(transit_key) DO UPDATE SET transit_end_unix=excluded.transit_end_unix, transit_max_speed=excluded.transit_max_speed, transit_min_speed=excluded.transit_min_speed, transit_max_magnitude=excluded.transit_max_magnitude, transit_min_magnitude=excluded.transit_min_magnitude, point_count=excluded.point_count, model_version=excluded.model_version, updated_at=UNIXEPOCH('subsec')`)
+	upsertStmt, err := tx.PrepareContext(ctx, `
+		INSERT INTO radar_data_transits (
+			transit_key,
+			threshold_ms,
+			transit_start_unix,
+			transit_end_unix,
+			transit_max_speed,
+			transit_min_speed,
+			transit_max_magnitude,
+			transit_min_magnitude,
+			point_count,
+			model_version,
+			created_at,
+			updated_at
+		) VALUES (
+			?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UNIXEPOCH('subsec'), UNIXEPOCH('subsec')
+		)
+		ON CONFLICT(transit_key) DO UPDATE SET
+			transit_end_unix = excluded.transit_end_unix,
+			transit_max_speed = excluded.transit_max_speed,
+			transit_min_speed = excluded.transit_min_speed,
+			transit_max_magnitude = excluded.transit_max_magnitude,
+			transit_min_magnitude = excluded.transit_min_magnitude,
+			point_count = excluded.point_count,
+			model_version = excluded.model_version,
+			updated_at = UNIXEPOCH('subsec')
+	`)
 	if err != nil {
 		return err
 	}
@@ -193,13 +232,32 @@ func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error 
 	// Note: we intentionally omit end time so the key doesn't change as new points extend the transit
 
 	// Refresh links for transits in the window: delete previous links, we'll insert as we go
-	deleteLinks := `DELETE FROM radar_transit_links WHERE transit_id IN (SELECT transit_id FROM radar_data_transits WHERE transit_start_unix BETWEEN ? AND ?);`
+	deleteLinks := `
+		DELETE FROM radar_transit_links
+		WHERE transit_id IN (
+			SELECT transit_id
+			FROM radar_data_transits
+			WHERE transit_start_unix BETWEEN ? AND ?
+		);
+	`
 	if _, err := tx.ExecContext(ctx, deleteLinks, start, end); err != nil {
 		return err
 	}
 
 	// Prepare upsert for links with score (data_rowid)
-	linkUpsert, err := tx.PrepareContext(ctx, `INSERT INTO radar_transit_links (transit_id, data_rowid, link_score, created_at) VALUES (?, ?, ?, UNIXEPOCH('subsec')) ON CONFLICT(transit_id, data_rowid) DO UPDATE SET link_score=excluded.link_score, created_at=excluded.created_at`)
+	linkUpsert, err := tx.PrepareContext(ctx, `
+		INSERT INTO radar_transit_links (
+			transit_id,
+			data_rowid,
+			link_score,
+			created_at
+		) VALUES (
+			?, ?, ?, UNIXEPOCH('subsec')
+		)
+		ON CONFLICT(transit_id, data_rowid) DO UPDATE SET
+			link_score = excluded.link_score,
+			created_at = excluded.created_at
+	`)
 	if err != nil {
 		return err
 	}
@@ -223,7 +281,18 @@ func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error 
 
 		// fetch transit_id for this key (either new or existing)
 		var transitID int64
-		if err := tx.QueryRowContext(ctx, `SELECT transit_id FROM radar_data_transits WHERE transit_key = ?`, transitKey).Scan(&transitID); err != nil {
+		if err := tx.QueryRowContext(
+			ctx,
+			`
+			SELECT
+				transit_id
+			FROM
+				radar_data_transits
+			WHERE
+				transit_key = ?
+			`,
+			transitKey,
+		).Scan(&transitID); err != nil {
 			return err
 		}
 
