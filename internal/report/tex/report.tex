@@ -1,0 +1,68 @@
+\documentclass[letterpaper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{geometry}
+\usepackage{titlesec}
+\usepackage{lipsum} % Package for Lorem Ipsum text
+\usepackage{hyperref}
+
+\geometry{top=1.9cm,bottom=1cm,left=1cm,right=1cm}
+\setlength{\headheight}{6pt}
+
+% Set up header and footer
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\textbf{\protect\href{https://velocity.report}{velocity.report}}}
+\fancyhead[C]{\textbullet \ \ 2025-06-02 -- 2024-06-04 \ \textbullet}
+\fancyhead[R]{}
+\renewcommand{\headrulewidth}{0.8pt}
+
+% Section formatting for title look
+\titleformat{\section}{\bfseries\Large}{}{0em}{}
+
+% Reduce the space between columns
+\setlength{\columnsep}{10pt}  % Adjust the value to reduce the gap
+
+% Document begins
+\begin{document}
+
+% Title
+\begin{center}
+    {\huge \textbf{ Clarendon Avenue, San Francisco}}\\
+    \vspace{0.1cm}
+    {\large \textit{Banshee, INC}}
+\end{center}
+
+% Begin multicolumn layout
+\begin{multicols}{2}
+
+% First column content
+\lipsum[1-2]
+\begin{center}
+    \includegraphics[width=\linewidth]{example-image} % Replace with your image
+    \textit{Image}
+\end{center}
+
+% % Insert image
+% \columnbreak
+
+
+\lipsum[3-4]
+
+% \end{multicols}
+
+% % Continue with two-column layout
+% \begin{multicols}{2}
+
+\lipsum[5-9]
+
+\begin{center}
+    \includegraphics[width=\linewidth]{example-image} % Replace with your image
+    \textit{Image}
+\end{center}
+
+\end{multicols}
+
+\end{document}
