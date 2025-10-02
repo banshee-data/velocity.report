@@ -648,20 +648,30 @@ def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
                     label=None,
                 )
                 outpath = args.tex_table
+                # compute ISO-formatted start/end using requested timezone (or UTC)
+                try:
+                    if args.timezone:
+                        tzobj = ZoneInfo(args.timezone)
+                    else:
+                        tzobj = timezone.utc
+                    start_iso = datetime.fromtimestamp(start_ts, tz=tzobj).isoformat()
+                    end_iso = datetime.fromtimestamp(end_ts, tz=tzobj).isoformat()
+                except Exception:
+                    start_iso = str(start_date)
+                    end_iso = str(end_date)
                 # Determine the resolved output file (out_file) or stdout ('-')
                 if outpath == "-":
                     out_file = "-"
-                    # print generation parameters before the table
-                    try:
-                        gen_params = (
-                            f"\n% === Generation parameters ===\n"
-                            f"\\noindent\\textbf{{Start time:}} {start_label} \\\quad \\textbf{{End time:}} {end_label} \\\quad \\textbf{{Rollup period:}} {args.group}\n\n"
-                        )
-                    except Exception:
-                        gen_params = (
-                            f"\n% === Generation parameters ===\n"
-                            f"\\noindent\\textbf{{Start time:}} {start_date} \\\quad \\textbf{{End time:}} {end_date} \\\quad \\textbf{{Rollup period:}} {args.group}\n\n"
-                        )
+                    # print generation parameters before the table (each on its own LaTeX line)
+                    gen_params = (
+                        "% === Generation parameters ===\n"
+                        + "\\noindent\\textbf{Start time:} "
+                        + f"{start_iso} \\\\\n"
+                        + "\\textbf{End time:} "
+                        + f"{end_iso} \\\\\n"
+                        + "\\textbf{Rollup period:} "
+                        + f"{args.group}\n\n"
+                    )
                     print(gen_params)
                     print(tex)
                 else:
@@ -695,17 +705,16 @@ def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
                         out_file = outpath
 
                     try:
-                        # write generation parameters followed by the main table
-                        try:
-                            gen_params = (
-                                f"% === Generation parameters ===\n"
-                                f"\\noindent\\textbf{{Start time:}} {start_label} \\\quad \\textbf{{End time:}} {end_label} \\\quad \\textbf{{Rollup period:}} {args.group}\n\n"
-                            )
-                        except Exception:
-                            gen_params = (
-                                f"% === Generation parameters ===\n"
-                                f"\\noindent\\textbf{{Start time:}} {start_date} \\\quad \\textbf{{End time:}} {end_date} \\\quad \\textbf{{Rollup period:}} {args.group}\n\n"
-                            )
+                        # write generation parameters followed by the main table (each param on new line)
+                        gen_params = (
+                            "% === Generation parameters ===\n"
+                            + "\\noindent\\textbf{Start time:} "
+                            + f"{start_iso} \\\\\n"
+                            + "\\textbf{End time:} "
+                            + f"{end_iso} \\\\\n"
+                            + "\\textbf{Rollup period:} "
+                            + f"{args.group}\n\n"
+                        )
                         with open(out_file, "w", encoding="utf-8") as f:
                             f.write(gen_params)
                             f.write(tex)
