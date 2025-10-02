@@ -46,14 +46,14 @@ func TestRadarObjectRollupRange_MinSpeed(t *testing.T) {
 	// Query rollup with minSpeed = 2.0 m/s (should include 3.0 and 6.0)
 	start := now - 10
 	end := now + 1000
-	rows, err := dbinst.RadarObjectRollupRange(start, end, 300, 2.0, "radar_objects")
+	result, err := dbinst.RadarObjectRollupRange(start, end, 300, 2.0, "radar_objects", 0, 0)
 	if err != nil {
 		t.Fatalf("RadarObjectRollupRange failed: %v", err)
 	}
 
 	// We expect at least one bucket and the aggregated Count should be 2
 	total := int64(0)
-	for _, r := range rows {
+	for _, r := range result.Metrics {
 		total += r.Count
 	}
 	if total != 2 {

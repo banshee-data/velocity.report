@@ -23,7 +23,7 @@ export interface Config {
 	timezone: string;
 }
 
-// Raw shape returned from the server (StartTime is an ISO timestamp string)
+// Raw shape returned from the server for a single metric row
 type RawRadarStats = {
 	Classifier: string;
 	StartTime: string;
@@ -33,6 +33,10 @@ type RawRadarStats = {
 	P98Speed: number;
 	MaxSpeed: number;
 }
+
+// Histogram shape: server returns a map of bucket label -> count. Keys are strings
+// (formatted numbers) and values are counts.
+export type Histogram = Record<string, number>;
 
 export interface Config {
 	units: string;
@@ -62,7 +66,7 @@ export async function getRadarStats(
 	units?: string,
 	timezone?: string,
 	source?: string
-): Promise<RadarStats[]> {
+): Promise<{ metrics: RadarStats[]; histogram?: Histogram }> {
 	const url = new URL(`${API_BASE}/radar_stats`, window.location.origin);
 	url.searchParams.append('start', start.toString());
 	url.searchParams.append('end', end.toString());
@@ -72,9 +76,11 @@ export async function getRadarStats(
 	if (source) url.searchParams.append('source', source);
 	const res = await fetch(url);
 	if (!res.ok) throw new Error(`Failed to fetch radar stats: ${res.status}`);
-	const json = (await res.json()) as RawRadarStats[];
-	// Map RawRadarStats to RadarStats with explicit property mapping
-	return json.map((r) => ({
+	// Expect the server to return the new root object: { metrics: [...], histogram: {...} }
+	const payload = await res.json();
+	const rows = Array.isArray(payload.metrics) ? (payload.metrics as RawRadarStats[]) : [];
+
+	const metrics = rows.map((r) => ({
 		classifier: r.Classifier,
 		date: new Date(r.StartTime),
 		count: r.Count,
@@ -83,6 +89,9 @@ export async function getRadarStats(
 		p98: r.P98Speed,
 		max: r.MaxSpeed,
 	})) as RadarStats[];
+
+	const histogram = payload && payload.histogram ? (payload.histogram as Histogram) : undefined;
+	return { metrics, histogram };
 }
 
 export async function getConfig(): Promise<Config> {

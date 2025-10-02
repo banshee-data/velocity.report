@@ -49,10 +49,10 @@
 	// components that use `let:` themselves and triggers Svelte's
 	// invalid_default_snippet error).
 	const colorMap: Record<string, string> = {
-		p50: '#2563eb',
-		p85: '#16a34a',
-		p98: '#f59e0b',
-		max: '#ef4444'
+		p50: '#ece111',
+		p85: '#ed7648',
+		p98: '#d50734',
+		max: '#000000'
 	};
 
 	const groupOptions = [
@@ -81,8 +81,8 @@
 	let lastGroup = '';
 	let lastSource = '';
 	let initialized = false;
-	// Cache the last raw stats response to avoid duplicate network calls
-	let lastStatsRaw: any[] | null = null;
+	// Cache the last raw stats response
+	let lastStatsRaw: any | null = null;
 	let lastStatsRequestKey = '';
 
 	$: if (initialized && browser && dateRange.from && dateRange.to) {
@@ -143,7 +143,7 @@
 			}
 			const startUnix = Math.floor(dateRange.from.getTime() / 1000);
 			const endUnix = Math.floor(dateRange.to.getTime() / 1000);
-			const statsData = await getRadarStats(
+			const statsResp = await getRadarStats(
 				startUnix,
 				endUnix,
 				group,
@@ -152,10 +152,10 @@
 				selectedSource
 			);
 			// cache raw response so loadChart can reuse it instead of making a second request
-			lastStatsRaw = statsData as any[];
+			lastStatsRaw = statsResp;
 			lastStatsRequestKey = `${startUnix}|${endUnix}|${group}|${units}|${$displayTimezone}|${selectedSource}`;
 			if (browser) console.debug('[dashboard] fetch stats timezone ->', $displayTimezone);
-			stats = statsData;
+			stats = statsResp.metrics;
 			totalCount = stats.reduce((sum, s) => sum + (s.count || 0), 0);
 			// Show P98 speed (aggregate percentile) in the summary card
 			p98Speed = stats.length > 0 ? Math.max(...stats.map((s) => s.p98 || 0)) : 0;
@@ -177,16 +177,25 @@
 
 		let arr: RadarStats[];
 		if (lastStatsRaw && requestKey === lastStatsRequestKey) {
-			// reuse cached stats response
-			arr = lastStatsRaw;
+			// reuse cached stats response (it may be the root object)
+			const cached = lastStatsRaw as any;
+			arr = Array.isArray(cached) ? cached : cached.metrics || [];
 			if (browser) console.debug('[dashboard] reusing cached stats for chart');
 		} else {
 			// fetch via the shared API helper so we use the same code path as loadStats
 			if (browser)
 				console.debug('[dashboard] chart fetching via getRadarStats ->', $displayTimezone);
-			arr = await getRadarStats(startUnix, endUnix, group, units, $displayTimezone, selectedSource);
+			const resp = await getRadarStats(
+				startUnix,
+				endUnix,
+				group,
+				units,
+				$displayTimezone,
+				selectedSource
+			);
+			arr = resp.metrics;
 			// cache the response for potential reuse
-			lastStatsRaw = arr;
+			lastStatsRaw = resp;
 			lastStatsRequestKey = requestKey;
 		}
 

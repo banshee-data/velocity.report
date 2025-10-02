@@ -270,10 +270,17 @@ func (e *RadarObjectsRollupRow) String() string {
 	)
 }
 
-// RadarObjectRollupRange now aggregates all radar_objects into buckets by time only (no classifier grouping).
+// RadarStatsResult combines time-aggregated metrics with an optional histogram.
+type RadarStatsResult struct {
+	Metrics   []RadarObjectsRollupRow
+	Histogram map[float64]int64 // bucket start (mps) -> count; nil if histogram not requested
+}
+
+// RadarObjectRollupRange aggregates all radar_objects into time buckets and optionally computes a histogram.
 // dataSource may be either "radar_objects" (default) or "radar_data_transits".
-// When empty, the function defaults to "radar_objects".
-func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, minSpeed float64, dataSource string) ([]RadarObjectsRollupRow, error) {
+// If histBucketSize > 0, a histogram is computed; histMax (if > 0) clips histogram values above that threshold.
+// Both histBucketSize and histMax are in meters-per-second (mps).
+func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, minSpeed float64, dataSource string, histBucketSize, histMax float64) (*RadarStatsResult, error) {
 	if endUnix <= startUnix {
 		return nil, fmt.Errorf("end must be greater than start")
 	}
@@ -312,6 +319,11 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 	buckets := make(map[int64][]float64)
 	// track max speed per bucket
 	bucketMax := make(map[int64]float64)
+	// collect all speeds for histogram (if requested)
+	var allSpeedsForHist []float64
+	if histBucketSize > 0 {
+		allSpeedsForHist = make([]float64, 0)
+	}
 
 	// Special-case: groupSeconds == 0 means 'all' -- aggregate all rows into a single bucket.
 	if groupSeconds == 0 {
@@ -326,6 +338,9 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 			}
 			ts := int64(math.Round(tsFloat))
 			allSpeeds = append(allSpeeds, spd)
+			if histBucketSize > 0 {
+				allSpeedsForHist = append(allSpeedsForHist, spd)
+			}
 			if allMax == 0 || spd > allMax {
 				allMax = spd
 			}
@@ -364,6 +379,9 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 			bucketStart := startUnix + bucketOffset
 
 			buckets[bucketStart] = append(buckets[bucketStart], spd)
+			if histBucketSize > 0 {
+				allSpeedsForHist = append(allSpeedsForHist, spd)
+			}
 			if curr, ok := bucketMax[bucketStart]; !ok || spd > curr {
 				bucketMax[bucketStart] = spd
 			}
@@ -409,7 +427,26 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 		aggregated = append(aggregated, agg)
 	}
 
-	return aggregated, nil
+	// Compute histogram if requested
+	var histogram map[float64]int64
+	if histBucketSize > 0 && len(allSpeedsForHist) > 0 {
+		histogram = make(map[float64]int64)
+		for _, spd := range allSpeedsForHist {
+			// skip values above histMax if a max was provided
+			if histMax > 0 && spd > histMax {
+				continue
+			}
+			// compute bin start aligned to histBucketSize
+			binIdx := math.Floor(spd / histBucketSize)
+			binStart := binIdx * histBucketSize
+			histogram[binStart] = histogram[binStart] + 1
+		}
+	}
+
+	return &RadarStatsResult{
+		Metrics:   aggregated,
+		Histogram: histogram,
+	}, nil
 }
 
 func (db *DB) RecordRawData(rawDataJSON string) error {
