@@ -257,19 +257,43 @@ def plot_stats_page(
         if debug:
             print(f"DEBUG: {label} runs={runs}")
 
+        # allow explicit color mapping per series
+        color_map = {
+            "P50": "#ece111",
+            "P85": "#ed7648",
+            "P98": "#d50734",
+            "Max": "black",
+        }
         color = None
+        color_override = color_map.get(label)
         first_plot = True
         for s, e in runs:
             xs = [x_times[i] for i in range(s, e + 1)]
             ys = y_arr[s : e + 1]
             if first_plot:
-                line = ax.plot(
-                    xs, ys, label=label, marker=marker, linestyle=default_linestyle
-                )[0]
+                if color_override is not None:
+                    line = ax.plot(
+                        xs,
+                        ys,
+                        label=label,
+                        marker=marker,
+                        linestyle=default_linestyle,
+                        color=color_override,
+                    )[0]
+                else:
+                    line = ax.plot(
+                        xs, ys, label=label, marker=marker, linestyle=default_linestyle
+                    )[0]
                 color = line.get_color()
                 first_plot = False
             else:
-                ax.plot(xs, ys, marker=marker, color=color, linestyle=default_linestyle)
+                ax.plot(
+                    xs,
+                    ys,
+                    marker=marker,
+                    color=(color_override or color),
+                    linestyle=default_linestyle,
+                )
 
         # dashed connectors between runs
         connectors = []
@@ -285,9 +309,9 @@ def plot_stats_page(
                 f"DEBUG: {label} connectors={[( (c[0][0], c[0][1]), (c[1][0], c[1][1]) ) for c in connectors]}"
             )
 
-    plot_segments(times_list, p50_arr, "P50", marker="o")
+    plot_segments(times_list, p50_arr, "P50", marker="s")
     plot_segments(times_list, p85_arr, "P85", marker="^")
-    plot_segments(times_list, p98_arr, "P98", marker="s")
+    plot_segments(times_list, p98_arr, "P98", marker="o")
     plot_segments(times_list, mx_arr, "Max", marker="x", default_linestyle="--")
 
     # Plot counts on right axis as bars
@@ -303,6 +327,15 @@ def plot_stats_page(
         counts_arr = np.zeros(len(times_list), dtype=float)
 
     ax2 = ax.twinx()
+    # Place the twin axis underneath the main axis so an axes-level legend
+    # attached to `ax` will be drawn above the bar artists on `ax2`.
+    try:
+        ax2.set_zorder(1)
+        ax.set_zorder(2)
+        # Make the main axis patch invisible so `ax2` remains visible beneath it
+        ax.patch.set_visible(False)
+    except Exception:
+        pass
     # determine bar width in days for matplotlib (dates are in days units)
     if expected_delta_seconds is not None:
         width_days = (expected_delta_seconds * 0.9) / (24.0 * 3600.0)
@@ -337,7 +370,7 @@ def plot_stats_page(
                 facecolor="orange",
                 edgecolor="none",
                 alpha=0.2,
-                zorder=0,
+                zorder=1,
                 label="Undercount (<50)",
             )
             if debug:
@@ -377,11 +410,20 @@ def plot_stats_page(
     except Exception:
         pass
 
-    # merge legends from both axes and place in lower-left to avoid overlap
+    # merge legends from both axes and place inside the plot area
     h1, l1 = ax.get_legend_handles_labels()
     h2, l2 = ax2.get_legend_handles_labels()
     if h1 or h2:
-        ax.legend(h1 + h2, l1 + l2, loc="lower right")
+        try:
+            # Use an axes-level legend so it sits inside the plot (lower right)
+            leg = ax.legend(h1 + h2, l1 + l2, loc="lower right", framealpha=0.85)
+            # ensure legend draws above plot artists
+            try:
+                leg.set_zorder(10)
+            except Exception:
+                pass
+        except Exception:
+            pass
 
     ax.set_ylabel(f"Speed ({units})")
     ax.set_title(title)
