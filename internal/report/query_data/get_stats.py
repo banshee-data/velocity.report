@@ -644,13 +644,25 @@ def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
                     data,
                     args.timezone or None,
                     args.units,
-                    caption=f"{start_date} to {end_date}",
+                    caption="Table 1: Granular breakdown",
                     label=None,
                 )
                 outpath = args.tex_table
                 # Determine the resolved output file (out_file) or stdout ('-')
                 if outpath == "-":
                     out_file = "-"
+                    # print generation parameters before the table
+                    try:
+                        gen_params = (
+                            f"\n% === Generation parameters ===\n"
+                            f"\\noindent\\textbf{{Start time:}} {start_label} \\\quad \\textbf{{End time:}} {end_label} \\\quad \\textbf{{Rollup period:}} {args.group}\n\n"
+                        )
+                    except Exception:
+                        gen_params = (
+                            f"\n% === Generation parameters ===\n"
+                            f"\\noindent\\textbf{{Start time:}} {start_date} \\\quad \\textbf{{End time:}} {end_date} \\\quad \\textbf{{Rollup period:}} {args.group}\n\n"
+                        )
+                    print(gen_params)
                     print(tex)
                 else:
                     # If multiple ranges specified, avoid clobbering by suffixing with dates
@@ -683,7 +695,19 @@ def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
                         out_file = outpath
 
                     try:
+                        # write generation parameters followed by the main table
+                        try:
+                            gen_params = (
+                                f"% === Generation parameters ===\n"
+                                f"\\noindent\\textbf{{Start time:}} {start_label} \\\quad \\textbf{{End time:}} {end_label} \\\quad \\textbf{{Rollup period:}} {args.group}\n\n"
+                            )
+                        except Exception:
+                            gen_params = (
+                                f"% === Generation parameters ===\n"
+                                f"\\noindent\\textbf{{Start time:}} {start_date} \\\quad \\textbf{{End time:}} {end_date} \\\quad \\textbf{{Rollup period:}} {args.group}\n\n"
+                            )
                         with open(out_file, "w", encoding="utf-8") as f:
+                            f.write(gen_params)
                             f.write(tex)
                         print(f"Wrote LaTeX table: {out_file}")
                     except Exception as e:
@@ -772,7 +796,7 @@ def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
                             data_daily,
                             args.timezone or None,
                             args.units,
-                            caption=f"Daily summary {start_label} to {end_label}",
+                            caption="Table 2: Daily Summary",
                             label=None,
                         )
                         # Append daily table to the chosen output (out_file) or print to stdout
@@ -833,7 +857,7 @@ def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
                         data_all,
                         args.timezone or None,
                         args.units,
-                        caption=f"Overall summary {start_label} to {end_label}",
+                        caption="Table 3: Overall Summary",
                         label=None,
                     )
                     # Append overall table to the chosen output (out_file) or print to stdout
