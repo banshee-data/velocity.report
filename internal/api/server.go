@@ -191,9 +191,6 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// TODO: Add timezone conversion for timestamps once database schema includes timestamps
-	_ = displayTimezone // Silence unused variable warning for now
-
 	// Check for optional start/end/group parameters for time range + grouping
 	// start and end are expected as unix timestamps (seconds). group is a
 	// human-friendly code that maps to seconds (see supportedGroups below).
