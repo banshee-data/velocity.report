@@ -440,7 +440,24 @@ def plot_stats_page(
     formatter = mdates.ConciseDateFormatter(locator, tz=tz_for_fmt)
     ax.xaxis.set_major_locator(locator)
     ax.xaxis.set_major_formatter(formatter)
+    # Hide the automatic offset/date shown at the lower-left of the axis (we'll
+    # show a simplified date range in the title instead).
+    try:
+        ax.xaxis.get_offset_text().set_visible(False)
+    except Exception:
+        pass
     fig.autofmt_xdate()
+    # Reduce page margins for inclusion in PDFs: keep labels readable but trim left/right whitespace.
+    try:
+        # Apply tight layout first to respect artist extents, with a small padding.
+        fig.tight_layout(pad=0.3)
+    except Exception:
+        pass
+    try:
+        # Nudge left/right margins as small as practical while leaving room for ticks/legend.
+        fig.subplots_adjust(left=0.05, right=0.94)
+    except Exception:
+        pass
     return fig
 
 
@@ -539,7 +556,24 @@ def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
         # If requested, generate a plot page and save to PDF
         if pdf is not None:
             tz_label = args.timezone or "UTC"
-            title = f"{start_date} to {end_date} ({args.source}, group={args.group}, tz={tz_label})"
+
+            def _unix_to_yyyy_mm_dd(ts: int, tz_name: Optional[str]) -> str:
+                try:
+                    if tz_name:
+                        tzobj = ZoneInfo(tz_name)
+                    else:
+                        tzobj = timezone.utc
+                    dt = datetime.fromtimestamp(ts, tz=tzobj)
+                    return dt.date().isoformat()
+                except Exception:
+                    # fallback to UTC date string
+                    return (
+                        datetime.fromtimestamp(ts, tz=timezone.utc).date().isoformat()
+                    )
+
+            start_label = _unix_to_yyyy_mm_dd(start_ts, args.timezone or None)
+            end_label = _unix_to_yyyy_mm_dd(end_ts, args.timezone or None)
+            title = f"{start_label} to {end_label} ({args.source}, group={args.group}, tz={tz_label})"
             try:
                 expected_delta = SUPPORTED_GROUPS.get(args.group)
                 fig = plot_stats_page(
