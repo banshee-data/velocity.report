@@ -15,8 +15,8 @@
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[L]{\textbf{\protect\href{https://velocity.report}{velocity.report}}}
-\fancyhead[C]{\textbullet \ \ 2025-06-02 -- 2024-06-04 \ \textbullet}
-\fancyhead[R]{}
+\fancyhead[C]{\textbullet \ \ 2025-06-02 to 2024-06-04 \ \textbullet}
+\fancyhead[R]{ \textit{Clarendon Avenue, San Francisco}}
 \renewcommand{\headrulewidth}{0.8pt}
 
 % Section formatting for title look
@@ -49,20 +49,23 @@
 % \columnbreak
 
 
-\lipsum[3-4]
 
-% \end{multicols}
+% Add statistics section with generated table and chart
+\section*{Statistics}
+% Include the generated LaTeX table (table.tex)
+\input{table.tex}
+\vspace{0.5cm}
 
-% % Continue with two-column layout
-% \begin{multicols}{2}
-
-\lipsum[5-9]
-
-\begin{center}
-    \includegraphics[width=\linewidth]{example-image} % Replace with your image
-    \textit{Image}
-\end{center}
 
 \end{multicols}
+
+\begin{center}
+% Include the generated chart PDF
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.9\linewidth]{stats_chart.pdf}
+    \caption{Speed statistics}
+\end{figure}
+\end{center}
 
 \end{document}

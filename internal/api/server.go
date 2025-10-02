@@ -154,6 +154,9 @@ var supportedGroups = map[string]int64{
 	"8h":  8 * 60 * 60,
 	"12h": 12 * 60 * 60,
 	"24h": 24 * 60 * 60,
+	// special grouping that aggregates all values into a single bucket
+	// the server will pass 0 to the DB which treats it as 'all'
+	"all": 0,
 	"2d":  2 * 24 * 60 * 60,
 	"3d":  3 * 24 * 60 * 60,
 	"7d":  7 * 24 * 60 * 60,

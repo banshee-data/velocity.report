@@ -277,8 +277,9 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 	if endUnix <= startUnix {
 		return nil, fmt.Errorf("end must be greater than start")
 	}
-	if groupSeconds <= 0 {
-		return nil, fmt.Errorf("groupSeconds must be positive")
+	// groupSeconds == 0 is allowed and treated as the 'all' aggregation (single bucket).
+	if groupSeconds < 0 {
+		return nil, fmt.Errorf("groupSeconds must be non-negative")
 	}
 
 	// default minimum speed (meters per second) if caller passes 0
@@ -312,25 +313,60 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 	// track max speed per bucket
 	bucketMax := make(map[int64]float64)
 
-	for rows.Next() {
-		var tsFloat float64
-		var spd float64
-		if err := rows.Scan(&tsFloat, &spd); err != nil {
-			return nil, err
+	// Special-case: groupSeconds == 0 means 'all' -- aggregate all rows into a single bucket.
+	if groupSeconds == 0 {
+		var allSpeeds []float64
+		var allMax float64
+		var minTs int64 = 0
+		for rows.Next() {
+			var tsFloat float64
+			var spd float64
+			if err := rows.Scan(&tsFloat, &spd); err != nil {
+				return nil, err
+			}
+			ts := int64(math.Round(tsFloat))
+			allSpeeds = append(allSpeeds, spd)
+			if allMax == 0 || spd > allMax {
+				allMax = spd
+			}
+			if minTs == 0 || ts < minTs {
+				minTs = ts
+			}
 		}
-		ts := int64(math.Round(tsFloat))
 
-		// compute bucket start aligned to startUnix
-		offset := ts - startUnix
-		if offset < 0 {
-			offset = 0
+		// Determine bucket start: midnight (00:00:00) UTC of minTs (or startUnix if no rows)
+		var bucketStart int64
+		if minTs == 0 {
+			bucketStart = time.Unix(startUnix, 0).UTC().Truncate(24 * time.Hour).Unix()
+		} else {
+			bucketStart = time.Unix(minTs, 0).UTC().Truncate(24 * time.Hour).Unix()
 		}
-		bucketOffset := (offset / groupSeconds) * groupSeconds
-		bucketStart := startUnix + bucketOffset
 
-		buckets[bucketStart] = append(buckets[bucketStart], spd)
-		if curr, ok := bucketMax[bucketStart]; !ok || spd > curr {
-			bucketMax[bucketStart] = spd
+		if len(allSpeeds) > 0 {
+			buckets[bucketStart] = allSpeeds
+			bucketMax[bucketStart] = allMax
+		}
+	} else {
+		for rows.Next() {
+			var tsFloat float64
+			var spd float64
+			if err := rows.Scan(&tsFloat, &spd); err != nil {
+				return nil, err
+			}
+			ts := int64(math.Round(tsFloat))
+
+			// compute bucket start aligned to startUnix
+			offset := ts - startUnix
+			if offset < 0 {
+				offset = 0
+			}
+			bucketOffset := (offset / groupSeconds) * groupSeconds
+			bucketStart := startUnix + bucketOffset
+
+			buckets[bucketStart] = append(buckets[bucketStart], spd)
+			if curr, ok := bucketMax[bucketStart]; !ok || spd > curr {
+				bucketMax[bucketStart] = spd
+			}
 		}
 	}
 
