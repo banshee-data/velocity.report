@@ -1,23 +1,22 @@
-"""LaTeX table generation for radar statistics."""
+#!/usr/bin/env python3
 
-import numpy as np
-from typing import List, Dict, Any, Optional
+"""LaTeX table generation for radar statistics.
+
+This module provides helpers to render metric lists as LaTeX tables and to
+render a histogram (counts + percent) into a LaTeX table matching the
+format used in `internal/report/tex/table.tex`.
+"""
+
+from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 from datetime import timezone
 
-from .date_parser import parse_server_time
+import numpy as np
+
+from date_parser import parse_server_time
 
 
 def format_time(tval: Any, tz_name: Optional[str]) -> str:
-    """Format a server time value for display.
-
-    Args:
-        tval: Time value from server
-        tz_name: Timezone name for display
-
-    Returns:
-        Formatted time string (MM-DD HH:MM)
-    """
     try:
         dt = parse_server_time(tval)
         if tz_name:
@@ -34,14 +33,6 @@ def format_time(tval: Any, tz_name: Optional[str]) -> str:
 
 
 def format_number(v: Any) -> str:
-    """Format a numeric value for display.
-
-    Args:
-        v: Numeric value (may be None or NaN)
-
-    Returns:
-        Formatted string or "--" for missing values
-    """
     try:
         if v is None:
             return "--"
@@ -60,18 +51,6 @@ def stats_to_latex(
     caption: Optional[str] = None,
     include_start_time: bool = True,
 ) -> str:
-    """Render statistics as a LaTeX table.
-
-    Args:
-        stats: List of stat dictionaries from the API
-        tz_name: Timezone name for time display
-        units: Speed units string
-        caption: Optional table caption
-        include_start_time: Whether to include StartTime column
-
-    Returns:
-        LaTeX table string
-    """
     lines: List[str] = []
     lines.append("\\begin{center}")
     lines.append("\\small")
@@ -79,16 +58,24 @@ def stats_to_latex(
 
     if include_start_time:
         lines.append("\\begin{tabular}{lrrrrr}")
-        header = (
-            f"Start Time & Count & \\shortstack{{p50\\\\({units})}} & \\shortstack{{p85\\\\({units})}}"
-            f" & \\shortstack{{p98\\\\({units})}} & \\shortstack{{Max\\\\({units})}} \\\\"
+        header_body = (
+            "Start Time & Count & "
+            + "\\shortstack{p50\\(%s\\)} & "
+            + "\\shortstack{p85\\(%s\\)} & "
+            + "\\shortstack{p98\\(%s\\)} & "
+            + "\\shortstack{Max\\(%s\\)}"
         )
+        header = header_body % (units, units, units, units) + " \\\\"
     else:
         lines.append("\\begin{tabular}{rrrrr}")
-        header = (
-            f"Count & \\shortstack{{p50\\\\({units})}} & \\shortstack{{p85\\\\({units})}}"
-            f" & \\shortstack{{p98\\\\({units})}} & \\shortstack{{Max\\\\({units})}} \\\\"
+        header_body = (
+            "Count & "
+            + "\\shortstack{p50\\(%s\\)} & "
+            + "\\shortstack{p85\\(%s\\)} & "
+            + "\\shortstack{p98\\(%s\\)} & "
+            + "\\shortstack{Max\\(%s\\)}"
         )
+        header = header_body % (units, units, units, units) + " \\\\"
 
     lines.append(header)
     lines.append("\\hline")
@@ -103,9 +90,10 @@ def stats_to_latex(
         if include_start_time:
             st = row.get("StartTime") or row.get("start_time") or row.get("starttime")
             tstr = format_time(st, tz_name)
-            line = f"{tstr} & {int(cnt)} & {format_number(p50v)} & {format_number(p85v)} & {format_number(p98v)} & {format_number(maxv)} \\\\"
+            body = f"{tstr} & {int(cnt)} & {format_number(p50v)} & {format_number(p85v)} & {format_number(p98v)} & {format_number(maxv)}"
         else:
-            line = f"{int(cnt)} & {format_number(p50v)} & {format_number(p85v)} & {format_number(p98v)} & {format_number(maxv)} \\\\"
+            body = f"{int(cnt)} & {format_number(p50v)} & {format_number(p85v)} & {format_number(p98v)} & {format_number(maxv)}"
+        line = body + " \\\\"
         lines.append(line)
 
     lines.append("\\hline")
@@ -134,33 +122,18 @@ def generate_table_file(
     granular_metrics: List[Dict[str, Any]],
     tz_name: Optional[str],
 ) -> None:
-    """Generate a complete LaTeX table file with generation parameters.
-
-    Args:
-        file_path: Output file path
-        start_iso: Start time ISO string
-        end_iso: End time ISO string
-        group: Aggregation group
-        units: Speed units
-        timezone_display: Timezone display string
-        min_speed_str: Min speed display string
-        overall_metrics: Overall summary metrics
-        daily_metrics: Daily summary metrics (or None to skip)
-        granular_metrics: Granular breakdown metrics
-        tz_name: Timezone name for formatting
-    """
     gen_params = (
         "% === Generation parameters ===\n"
         + "\\noindent\\textbf{Start time:} "
-        + f"{start_iso} \\\\\n"
+        + f"{start_iso} \\\\n+"
         + "\\textbf{End time:} "
-        + f"{end_iso} \\\\\n"
+        + f"{end_iso} \\\\n+"
         + "\\textbf{Rollup period:} "
-        + f"{group} \\\\\n"
+        + f"{group} \\\\n+"
         + "\\textbf{Units:} "
-        + f"{units} \\\\\n"
+        + f"{units} \\\\n+"
         + "\\textbf{Timezone:} "
-        + f"{timezone_display} \\\\\n"
+        + f"{timezone_display} \\\\n+"
         + "\\textbf{Min speed (cutoff):} "
         + f"{min_speed_str}\n\n"
     )
@@ -199,3 +172,139 @@ def generate_table_file(
         f.write("\n% === Granular breakdown ===\n")
         f.write(granular_tex)
         f.write("\n")
+
+
+def plot_histogram(
+    histogram: Dict[str, int],
+    title: str,
+    units: str,
+    debug: bool = False,
+) -> Optional[object]:
+    try:
+        import matplotlib.pyplot as plt
+    except Exception as e:  # pragma: no cover - environment dependent
+        raise ImportError("matplotlib is required to render histograms") from e
+
+    if not histogram:
+        fig, ax = plt.subplots(figsize=(10, 4))
+        ax.text(0.5, 0.5, "No histogram data", ha="center", va="center")
+        ax.set_title(title)
+        return fig
+
+    try:
+        sorted_items = sorted(histogram.items(), key=lambda x: float(x[0]))
+    except Exception:
+        sorted_items = sorted(histogram.items(), key=lambda x: str(x[0]))
+
+    labels = [item[0] for item in sorted_items]
+    counts = [item[1] for item in sorted_items]
+
+    if debug:
+        total = sum(counts)
+        print(f"DEBUG: histogram bins={len(labels)} total={total}")
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    x = list(range(len(labels)))
+    ax.bar(x, counts, alpha=0.7, color="steelblue", edgecolor="black", linewidth=0.5)
+    ax.set_xlabel(f"Speed ({units})")
+    ax.set_ylabel("Count")
+    ax.set_title(title)
+
+    if len(labels) <= 20:
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels, rotation=45, ha="right")
+    else:
+        step = max(1, len(labels) // 15)
+        tick_pos = x[::step]
+        tick_labels = labels[::step]
+        ax.set_xticks(tick_pos)
+        ax.set_xticklabels(tick_labels, rotation=45, ha="right")
+
+    try:
+        fig.tight_layout(pad=0.5)
+    except Exception:
+        pass
+
+    return fig
+
+
+def histogram_to_latex(
+    histogram: Dict[str, int],
+    units: str,
+    cutoff: float = 5.0,
+    bucket_size: float = 5.0,
+    max_bucket: float = 50.0,
+) -> str:
+    """Render a histogram mapping into a LaTeX table matching table.tex.
+
+    Produces rows:
+      - a cutoff row for values < cutoff rendered in \textit{...}
+      - ranges e.g. 5-10, 10-15, ...
+      - a final '50+' row for values >= max_bucket
+
+    Each row shows Count and Percent (with a literal LaTeX % escaped as \%).
+    """
+    # Coerce numeric keys into buckets and compute total
+    numeric_buckets: Dict[float, int] = {}
+    total = 0
+    for k, v in histogram.items():
+        try:
+            fk = float(k)
+            numeric_buckets[fk] = numeric_buckets.get(fk, 0) + int(v)
+            total += int(v)
+        except Exception:
+            try:
+                total += int(v)
+            except Exception:
+                pass
+
+    # Display ranges
+    ranges: List[tuple] = []
+    s = cutoff
+    while s < max_bucket:
+        ranges.append((s, s + bucket_size))
+        s += bucket_size
+
+    def count_in_range(a: float, b: float) -> int:
+        return sum(v for k, v in numeric_buckets.items() if k >= a and k < b)
+
+    def count_ge(a: float) -> int:
+        return sum(v for k, v in numeric_buckets.items() if k >= a)
+
+    lines: List[str] = []
+    # Header block
+    lines.append("\\begin{center}")
+    lines.append("\\small")
+    lines.append("\\setlength{\\tabcolsep}{6pt}")
+    lines.append("\\begin{tabular}{lrr}")
+    lines.append("Bucket & Count & Percent " + "\\")
+    lines.append("\\hline")
+
+    below_cutoff = sum(v for k, v in numeric_buckets.items() if k < cutoff)
+    pct_below = (below_cutoff / total * 100.0) if total > 0 else 0.0
+    # Render cutoff row in italics; caller may wrap with color macro if desired
+    lines.append(
+        f"\\textit{{<{int(cutoff)}}} & \\textit{{{below_cutoff}}} & \\textit{{{pct_below:.1f}\\%}} "
+        + "\\"
+    )
+
+    for a, b in ranges:
+        cnt = count_in_range(a, b)
+        pct = (cnt / total * 100.0) if total > 0 else 0.0
+        label = f"{int(a)}-{int(b)}"
+        lines.append(f"{label} & {cnt} & {pct:.1f}\\% " + "\\")
+
+    cnt_ge = count_ge(max_bucket)
+    pct_ge = (cnt_ge / total * 100.0) if total > 0 else 0.0
+    lines.append(f"{int(max_bucket)}+ & {cnt_ge} & {pct_ge:.1f}\\% " + "\\")
+
+    lines.append("\\hline")
+    lines.append("\\end{tabular}")
+    lines.append("\\par\\vspace{2pt}")
+    lines.append(
+        "\\noindent\\makebox[\\linewidth]{\\textbf{\\small Table 4: Histogram}}"
+    )
+    lines.append("\\end{center}")
+
+    return "\n".join(lines)
+    # Coerce numeric keys into buckets and compute total

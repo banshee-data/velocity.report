@@ -21,7 +21,7 @@ import numpy as np
 
 from api_client import RadarStatsClient, SUPPORTED_GROUPS
 from date_parser import parse_date_to_unix, is_date_only, parse_server_time
-from latex_generator import generate_table_file, plot_histogram
+from latex_generator import generate_table_file, plot_histogram, histogram_to_latex
 
 # Optional matplotlib imports for plotting; keep optional so unit tests don't require it
 try:
@@ -278,6 +278,105 @@ def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
         except Exception as e:
             print(f"Failed to write LaTeX table: {e}")
 
+        # Append histogram LaTeX to the same table file when histogram data was
+        # requested and returned by the API. Use the CLI args to choose cutoff
+        # and bucket sizing; fall back to sensible defaults.
+        if histogram:
+            try:
+                cutoff_val = args.min_speed if args.min_speed is not None else 5.0
+                bucket_sz = args.hist_bucket_size if args.hist_bucket_size is not None else 5.0
+                max_b = args.hist_max if args.hist_max is not None else 50.0
+                hist_tex = histogram_to_latex(
+                    histogram,
+                    units=args.units,
+                    cutoff=float(cutoff_val),
+                    bucket_size=float(bucket_sz),
+                    max_bucket=float(max_b),
+                )
+                with open(table_path, "a", encoding="utf-8") as f:
+                    f.write("\n% === Histogram table ===\n")
+                    f.write(hist_tex)
+                    f.write("\n")
+                print(f"Appended histogram LaTeX to: {table_path}")
+            except Exception as e:
+                if getattr(args, "debug", False):
+                    print(f"DEBUG: failed to append histogram LaTeX: {e}")
+                else:
+                    print("Failed to append histogram LaTeX")
+
+
+        # Plotting block: generate charts and histograms if matplotlib is available.
+        if matplotlib is None:
+            if getattr(args, "debug", False):
+                print("DEBUG: matplotlib not available, skipping charts")
+        else:
+            # Report response metadata in debug mode
+            if getattr(args, "debug", False):
+                try:
+                    ms = resp.elapsed.total_seconds() * 1000.0
+                    print(f"DEBUG: API response status={resp.status_code} elapsed={ms:.1f}ms metrics={len(metrics)} histogram_present={bool(histogram)}")
+                except Exception:
+                    print("DEBUG: unable to read response metadata")
+
+            # granular stats PDF
+            try:
+                fig = _plot_stats_page(metrics, f"{prefix} - stats", args.units)
+                stats_pdf = f"{prefix}_stats.pdf"
+                fig.savefig(stats_pdf)
+                plt.close(fig)
+                print(f"Wrote stats PDF: {stats_pdf}")
+            except Exception as e:
+                if getattr(args, "debug", False):
+                    print(f"DEBUG: failed to generate stats PDF: {e}")
+                else:
+                    print("Failed to generate stats PDF")
+
+            # daily PDF
+            if daily_metrics:
+                try:
+                    figd = _plot_stats_page(daily_metrics, f"{prefix} - daily", args.units)
+                    daily_pdf = f"{prefix}_daily.pdf"
+                    figd.savefig(daily_pdf)
+                    plt.close(figd)
+                    print(f"Wrote daily PDF: {daily_pdf}")
+                except Exception as e:
+                    if getattr(args, "debug", False):
+                        print(f"DEBUG: failed to generate daily PDF: {e}")
+                    else:
+                        print("Failed to generate daily PDF")
+
+            # overall PDF
+            if metrics_all:
+                try:
+                    fig_all = _plot_stats_page(metrics_all, f"{prefix} - overall", args.units)
+                    overall_pdf_path = f"{prefix}_overall.pdf"
+                    fig_all.savefig(overall_pdf_path)
+                    plt.close(fig_all)
+                    print(f"Wrote overall PDF: {overall_pdf_path}")
+                except Exception as e:
+                    if getattr(args, "debug", False):
+                        print(f"DEBUG: failed to generate overall PDF: {e}")
+                    else:
+                        print("Failed to generate overall PDF")
+
+            # histogram PDF if present
+            if histogram:
+                try:
+                    fig_hist = plot_histogram(histogram, f"Speed Distribution: {prefix}", args.units)
+                    hist_pdf = f"{prefix}_histogram.pdf"
+                    fig_hist.savefig(hist_pdf)
+                    plt.close(fig_hist)
+                    print(f"Wrote histogram PDF: {hist_pdf}")
+                except ImportError as ie:
+                    if getattr(args, "debug", False):
+                        print(f"DEBUG: histogram plotting unavailable: {ie}")
+                    else:
+                        print("Histogram plotting unavailable")
+                except Exception as e:
+                    if getattr(args, "debug", False):
+                        print(f"DEBUG: failed to generate histogram PDF: {e}")
+                    else:
+                        print("Failed to generate histogram PDF")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
