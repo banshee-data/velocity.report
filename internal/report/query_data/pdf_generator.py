@@ -156,21 +156,37 @@ def create_stats_table(
             table.add_row(
                 [
                     tcell,
-                    int(cnt),
-                    format_number(p50v),
-                    format_number(p85v),
-                    format_number(p98v),
-                    format_number(maxv),
+                    NoEscape(r"\AtkinsonMono{" + escape_latex(str(int(cnt))) + r"}"),
+                    NoEscape(
+                        r"\AtkinsonMono{" + escape_latex(format_number(p50v)) + r"}"
+                    ),
+                    NoEscape(
+                        r"\AtkinsonMono{" + escape_latex(format_number(p85v)) + r"}"
+                    ),
+                    NoEscape(
+                        r"\AtkinsonMono{" + escape_latex(format_number(p98v)) + r"}"
+                    ),
+                    NoEscape(
+                        r"\AtkinsonMono{" + escape_latex(format_number(maxv)) + r"}"
+                    ),
                 ]
             )
         else:
             table.add_row(
                 [
-                    int(cnt),
-                    format_number(p50v),
-                    format_number(p85v),
-                    format_number(p98v),
-                    format_number(maxv),
+                    NoEscape(r"\AtkinsonMono{" + escape_latex(str(int(cnt))) + r"}"),
+                    NoEscape(
+                        r"\AtkinsonMono{" + escape_latex(format_number(p50v)) + r"}"
+                    ),
+                    NoEscape(
+                        r"\AtkinsonMono{" + escape_latex(format_number(p85v)) + r"}"
+                    ),
+                    NoEscape(
+                        r"\AtkinsonMono{" + escape_latex(format_number(p98v)) + r"}"
+                    ),
+                    NoEscape(
+                        r"\AtkinsonMono{" + escape_latex(format_number(maxv)) + r"}"
+                    ),
                 ]
             )
 
@@ -208,7 +224,6 @@ def create_histogram_table(
     # centered.append(NoEscape(r"\setlength{\tabcolsep}{3pt}"))
 
     table = Tabular("lrr")
-    table.add_hline()
     table.add_row(["Bucket", "Count", "Percent"])
     table.add_hline()
 
@@ -217,9 +232,9 @@ def create_histogram_table(
     pct_below = (below_cutoff / total * 100.0) if total > 0 else 0.0
     table.add_row(
         [
-            NoEscape(f"\\textit{{<{int(cutoff)}}}"),
-            NoEscape(f"\\textit{{{below_cutoff}}}"),
-            NoEscape(f"\\textit{{{pct_below:.1f}\\%}}"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex(f"<{int(cutoff)}") + r"}"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex(str(int(below_cutoff))) + r"}"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex(f"{pct_below:.1f}%") + r"}"),
         ]
     )
 
@@ -228,12 +243,24 @@ def create_histogram_table(
         cnt = count_in_histogram_range(numeric_buckets, a, b)
         pct = (cnt / total * 100.0) if total > 0 else 0.0
         label = f"{int(a)}-{int(b)}"
-        table.add_row([label, cnt, f"{pct:.1f}%"])
+        table.add_row(
+            [
+                NoEscape(r"\AtkinsonMono{" + escape_latex(label) + r"}"),
+                NoEscape(r"\AtkinsonMono{" + escape_latex(str(int(cnt))) + r"}"),
+                NoEscape(r"\AtkinsonMono{" + escape_latex(f"{pct:.1f}%") + r"}"),
+            ]
+        )
 
     # Final row
     cnt_ge = count_histogram_ge(numeric_buckets, max_bucket)
     pct_ge = (cnt_ge / total * 100.0) if total > 0 else 0.0
-    table.add_row([f"{int(max_bucket)}+", cnt_ge, f"{pct_ge:.1f}%"])
+    table.add_row(
+        [
+            NoEscape(r"\AtkinsonMono{" + escape_latex(f"{int(max_bucket)}+") + r"}"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex(str(int(cnt_ge))) + r"}"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex(f"{pct_ge:.1f}%") + r"}"),
+        ]
+    )
 
     table.add_hline()
     centered.append(table)
@@ -242,7 +269,7 @@ def create_histogram_table(
     centered.append(NoEscape("\\par\\vspace{2pt}"))
     centered.append(
         NoEscape(
-            "\\noindent\\makebox[\\linewidth]{\\textbf{\\small Table 4: Histogram}}"
+            "\\noindent\\makebox[\\linewidth]{\\textbf{\\small Table 3: Histogram}}"
         )
     )
 
@@ -269,104 +296,115 @@ def add_metric_data_intro(
     doc.append(
         NoEscape(
             f"Between \\textbf{{{start_date}}} and \\textbf{{{end_date}}}, "
-            f"velocity for \\textbf{{{total_vehicles}}} vehicles was recorded on "
-            f"\\textbf{{{location}}}."
+            f"velocity for \\textbf{{{total_vehicles}}} vehicles was recorded on \\textbf{{{location}}}."
         )
     )
 
-    doc.append(NoEscape("\\sffamily"))
-    doc.append(NoEscape("\\subsection*{Key Velocity Metrics}"))
+    doc.append(NoEscape("\\subsection*{Key Metrics}"))
     table = Tabular("ll")
     table.add_row(
-        [NoEscape(r"\textbf{Median Velocity (p50):}"), NoEscape(f"{p50:.1f} mph")]
-    )
-    table.add_row(
         [
-            NoEscape(r"\textbf{85th Percentile Velocity (p85):}"),
-            NoEscape(f"{p85:.1f} mph"),
+            NoEscape(r"\textbf{Maximum Velocity:}"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex(f"{max_speed:.2f} mph") + r"}"),
         ]
     )
     table.add_row(
         [
             NoEscape(r"\textbf{98th Percentile Velocity (p98):}"),
-            NoEscape(f"{p98:.1f} mph"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex(f"{p98:.2f} mph") + r"}"),
         ]
     )
     table.add_row(
-        [NoEscape(r"\textbf{Maximum Velocity:}"), NoEscape(f"{max_speed:.1f} mph")]
+        [
+            NoEscape(r"\textbf{85th Percentile Velocity (p85):}"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex(f"{p85:.2f} mph") + r"}"),
+        ]
+    )
+    table.add_row(
+        [
+            NoEscape(r"\textbf{Median Velocity (p50):}"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex(f"{p50:.2f} mph") + r"}"),
+        ]
     )
     # Render this parameter table in sans-serif locally
     doc.append(NoEscape("\\sffamily"))
     doc.append(table)
 
-    doc.append(LineBreak())
-    doc.append(LineBreak())
+    doc.append(NoEscape("\\par"))
+    doc.append(NoEscape("\\par"))
 
 
 def add_science(doc: Document) -> None:
+
+    doc.append(NoEscape("\\subsection*{Citizen Radar}"))
+
+    doc.append(
+        NoEscape(
+            "velocity.report is a citizen radar tool designed to help communities "
+            "measure vehicle speeds with affordable, privacy-preserving Doppler sensors. "
+            "It's built on a core physical truth: kinetic energy scales with the square of speed."
+        )
+    )
+    doc.append(NoEscape("\\par"))
+    # Use paragraph breaks instead of LineBreak() which can insert
+    # vertical-mode breaks and cause "There's no line here to end" errors.
+    doc.append(NoEscape("\\par"))
+    doc.append(NoEscape(r"\[ K_E = \tfrac{1}{2} m v^2 \]"))
+    doc.append(NoEscape("\\par"))
+    with doc.create(Center()) as centered:
+        centered.append(
+            NoEscape("where \\(m\\) is the mass and \\(v\\) is the velocity.")
+        )
+    doc.append(NoEscape("\\par"))
+    doc.append(NoEscape("\\par"))
+    doc.append(
+        NoEscape(
+            "A vehicle traveling at 40 mph has four times the crash energy of the same vehicle at 20 mph, "
+            "posing exponentially greater risk to people outside the car. Even small increases in speed dramatically raise the likelihood of severe injury or death in a collision. "
+            "By quantifying real-world vehicle speeds, velocity.report produces evidence that exceeds industry standard metrics."
+        )
+    )
+    doc.append(NoEscape("\\par"))
+    doc.append(NoEscape("\\par"))
 
     doc.append(NoEscape("\\subsection*{Aggregation and Percentiles}"))
 
     doc.append(
         NoEscape(
-            "This system uses Doppler radar to measure vehicle speed. As a vehicle approaches or recedes, "
-            "the radar detects a shift in frequency (the \\href{https://en.wikipedia.org/wiki/Doppler_effect}{Doppler effect}) which is directly proportional "
-            "to the vehicle's velocity relative to the sensor."
+            "This system uses Doppler radar to measure vehicle speed by detecting frequency shifts caused by motion "
+            "toward or away from the sensor. This shift (known as the \\href{https://en.wikipedia.org/wiki/Doppler_effect}{Doppler effect}) "
+            "is directly proportional to the object's velocity relative to the sensor."
         )
     )
-    doc.append(LineBreak())
+    doc.append(NoEscape("\\par"))
+    doc.append(NoEscape("\\par"))
     doc.append(
         NoEscape(
-            "The velocity.report application uses a greedy, local, univariate clustering algorithm called "
-            "Time‑Contiguous Speed Clustering to group individual radar detections into transits. "
-            "For this survey, raw radar read lines—recorded at ~20Hz—were grouped into sessions based on "
-            "temporal proximity and speed similarity. Each resulting transit represents a short burst of "
-            "movement consistent with a single passing object. This approach is efficient and reproducible, "
-            "but has limitations. In dense traffic or when objects overlap, it may undercount the true number "
-            "of vehicles by merging separate objects into a single transit. This undercounting can bias percentile "
-            "metrics—particularly the p85 and p98—downward, since fewer transits can inflate the influence of slower "
-            "vehicles. All statistics in this report are derived from these sessionized transits."
+            "To structure this data, the velocity.report application applies a greedy, local, "
+            "univariate algorithm called \\emph{Time-Contiguous Speed Clustering}. In this survey, "
+            "individual radar read lines were grouped into sessions based on time proximity and speed similarity."
+            "Each session, or “transit”, represents a short burst of movement consistent with a single "
+            "passing object. This approach is efficient and reproducible, but not without limitations: "
+            "in dense traffic or when objects overlap, it may undercount the number of vehicles by merging "
+            "multiple objects into a single transit. This undercounting can bias percentile metrics (like p85 and p98), "
+            "downward as since fewer sessions can give disproportionate weight to slower vehicles. "
+            "All reported statistics in this report are derived from these sessionised transits."
         )
     )
-    doc.append(LineBreak())
+    doc.append(NoEscape("\\par"))
+    doc.append(NoEscape("\\par"))
     doc.append(
         NoEscape(
-            "The 85th percentile (p85) represents the speed at or below which 85\\% of drivers travel. "
-            "In contrast, the 98th percentile (p98) highlights the top 2\\% of driver speeds while "
-            "filtering out noise from outliers. This gives a clearer view of high-risk behavior "
-            "without letting single outliers dominate."
+            "Percentiles offer a structured way to interpret speed behavior. The 85th percentile (p85) "
+            "indicates the speed at or below which 85\\% of vehicles traveled; the 98th percentile (p98) "
+            "highlights the fastest 2\\% of vehicle speeds while reducing the influence of extreme outliers. "
+            "This helps identify high-risk driving patterns without letting single anomalous readings dominate. "
+            "However, percentile values can be unstable in periods with low sample counts. To reflect this, "
+            "our charts flag low-sample segments in orange and suppress percentile points when counts fall below "
+            "reliability thresholds."
         )
     )
-    doc.append(LineBreak())
-
-    doc.append(
-        NoEscape(
-            "\\textbf{Note:} Metrics like p85 and p98 can be unstable with small sample sizes "
-            "(fewer than 50 samples). In such cases, the difference between percentiles may not show "
-            "meaningful distinction. As such, our charts highlight periods with low counts in orange, "
-            "drawing attention to the need for more data before making conclusions."
-        )
-    )
-
-    # # Recommendations
-    # doc.append(NoEscape("\section*{Recommendations}"))
-    # doc.append(NoEscape("\begin{itemize}"))
-    # doc.append(
-    #     NoEscape(
-    #         "\item Consider physical or policy interventions at locations or hours where p98 "
-    #         "significantly exceeds the posted speed limit."
-    #     )
-    # )
-    # doc.append(
-    #     NoEscape(
-    #         "\item Re-run the survey after interventions to measure shifts in p85 and p98 metrics."
-    #     )
-    # )
-    # doc.append(
-    #     NoEscape(
-    #         "\item Present detailed tables and charts in the appendix for stakeholders who need raw data."
-    #     )
-    # )
+    doc.append(NoEscape("\\par"))
 
 
 def generate_pdf_report(
@@ -402,8 +440,14 @@ def generate_pdf_report(
     doc.packages.append(Package("multicol"))
     doc.packages.append(Package("fancyhdr"))
     doc.packages.append(Package("graphicx"))
+    # ensure common math macros like \tfrac are available
+    doc.packages.append(Package("amsmath"))
     doc.packages.append(Package("titlesec"))
     doc.packages.append(Package("hyperref"))
+    # microtype improves line breaking and protrusion which reduces awkward gaps
+    # doc.packages.append(Package("microtype"))
+    # ragged2e provides \RaggedRight (better raggedness with hyphenation)
+    # doc.packages.append(Package("ragged2e"))
     # Load fontspec so we can use the bundled Atkinson Hyperlegible TTFs.
     doc.packages.append(Package("fontspec"))
     # Ensure captions use sans-serif
@@ -446,7 +490,7 @@ def generate_pdf_report(
     # Use Path= with trailing os.sep so fontspec can find the files
     doc.preamble.append(
         NoEscape(
-            rf"\setsansfont[Path={fonts_path + os.sep},Extension=.ttf,Scale=MatchLowercase]{{AtkinsonHyperlegible-Regular}}"
+            rf"\setsansfont[Path={fonts_path + os.sep},Extension=.ttf,Scale=MatchLowercase,UprightFont=AtkinsonHyperlegible-Regular,ItalicFont=AtkinsonHyperlegible-Italic,BoldFont=AtkinsonHyperlegible-Bold,BoldItalicFont=AtkinsonHyperlegible-BoldItalic]{{AtkinsonHyperlegible-Regular}}"
         )
     )
     # Use sans family as the default
@@ -463,9 +507,13 @@ def generate_pdf_report(
     )
     if os.path.exists(mono_regular):
         # Register new font family command using fontspec
+        # Prefer a heavier weight for the monospace family by requesting
+        # a higher wght axis value from the variable font via fontspec.
+        # Use RawFeature to set the wght axis to 700 (bold-ish). If the
+        # engine or font doesn't support it, fontspec will fall back.
         doc.preamble.append(
             NoEscape(
-                rf"\newfontfamily\AtkinsonMono[Path={fonts_path + os.sep},Extension=.ttf,ItalicFont=AtkinsonHyperlegibleMono-Italic-VariableFont_wght,Scale=MatchLowercase]{{AtkinsonHyperlegibleMono-VariableFont_wght}}"
+                rf"\newfontfamily\AtkinsonMono[Path={fonts_path + os.sep},Extension=.ttf,ItalicFont=AtkinsonHyperlegibleMono-Italic-VariableFont_wght,Scale=MatchLowercase,RawFeature={{+wght=800}}]{{AtkinsonHyperlegibleMono-VariableFont_wght}}"
             )
         )
     else:
@@ -476,7 +524,8 @@ def generate_pdf_report(
     with doc.create(Center()) as title_center:
         # Document title in sans-serif locally
         title_center.append(NoEscape(f"{{\\huge \\sffamily\\textbf{{ {location}}}}}"))
-        title_center.append(LineBreak())
+        # Use \par for a safe paragraph break instead of LineBreak()
+        title_center.append(NoEscape("\\par"))
         title_center.append(NoEscape("\\vspace{0.1cm}"))
         title_center.append(
             NoEscape(
@@ -484,8 +533,19 @@ def generate_pdf_report(
             )
         )
 
-    # Begin multicolumn layout
+    # Begin multicolumn layout and use ragged-right to avoid stretched justification
     doc.append(NoEscape("\\begin{multicols}{2}"))
+    # Use ragged2e's \RaggedRight to prevent text from stretching to fill the column width
+    # doc.append(NoEscape("\\RaggedRight"))
+    # # Improve hyphenation and allow mild emergency stretching to avoid
+    # # large whitespace at the right edge of ragged paragraphs.
+    # # Tune hyphenation/line-breaking to reduce large ragged-right gaps
+    # doc.append(NoEscape("\\hyphenpenalty=300"))
+    # doc.append(NoEscape("\\exhyphenpenalty=50"))
+    # # Allow a modest amount of emergency stretch so TeX can avoid bad breaks
+    # doc.append(NoEscape("\\emergencystretch=3em"))
+    # # Relax tolerance so hyphenation/expansion is preferred over huge gaps
+    # doc.append(NoEscape("\\tolerance=1000"))
 
     # Add science section content using helper function
     if overall_metrics:
@@ -533,16 +593,15 @@ def generate_pdf_report(
 
     add_science(doc)
 
-    doc.append(NoEscape("\\vspace{0.5cm}"))
+    # Small separation after the science section
+    doc.append(NoEscape("\\par"))
+    doc.append(NoEscape("\\vspace{0.2cm}"))
 
     # Statistics section
     doc.append(NoEscape("\\section*{Survey Parameters}"))
 
     # Generation parameters as a two-column table
     table = Tabular("ll")
-    table.add_row(
-        [NoEscape(r"\textbf{Radar Sensor:}"), NoEscape("OmniPreSense OPS243-A")]
-    )
     table.add_row(
         [
             NoEscape(r"\textbf{Start time:}"),
@@ -556,14 +615,81 @@ def generate_pdf_report(
         ]
     )
     table.add_row(
-        [NoEscape(r"\textbf{Timezone:}"), NoEscape(escape_latex(timezone_display))]
+        [
+            NoEscape(r"\textbf{Timezone:}"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex(timezone_display) + r"}"),
+        ]
     )
-    table.add_row([NoEscape(r"\textbf{Rollup period:}"), NoEscape(escape_latex(group))])
-    table.add_row([NoEscape(r"\textbf{Units:}"), NoEscape(escape_latex(units))])
     table.add_row(
         [
-            NoEscape(r"\textbf{Min speed (cutoff):}"),
-            NoEscape(escape_latex(min_speed_str)),
+            NoEscape(r"\textbf{Rollup Period:}"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex(group) + r"}"),
+        ]
+    )
+    table.add_row(
+        [
+            NoEscape(r"\textbf{Units:}"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex(units) + r"}"),
+        ]
+    )
+    table.add_row(
+        [
+            NoEscape(r"\textbf{Minimum speed (cutoff):}"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex(min_speed_str) + r"}"),
+        ]
+    )
+    table.add_row(
+        [
+            NoEscape(r"\textbf{Radar Sensor:}"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex("OmniPreSense OPS243-A") + r"}"),
+        ]
+    )
+    table.add_row(
+        [
+            NoEscape(r"\textbf{Radar Firmware version:}"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex("v1.2.3") + r"}"),
+        ]
+    )
+    table.add_row(
+        [
+            NoEscape(r"\textbf{Radar Transmit Frequency:}"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex("24.125 GHz") + r"}"),
+        ]
+    )
+    table.add_row(
+        [
+            NoEscape(r"\textbf{Radar Sample Rate:}"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex("20 kSPS") + r"}"),
+        ]
+    )
+    table.add_row(
+        [
+            NoEscape(r"\textbf{Radar Velocity Resolution:}"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex("0.272 mph") + r"}"),
+        ]
+    )
+    table.add_row(
+        [
+            NoEscape(r"\textbf{Azimuth Field of View:}"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex("20°") + r"}"),
+        ]
+    )
+    table.add_row(
+        [
+            NoEscape(r"\textbf{Elevation Field of View:}"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex("24°") + r"}"),
+        ]
+    )
+    table.add_row(
+        [
+            NoEscape(r"\textbf{Cosine Error Angle:}"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex("21°") + r"}"),
+        ]
+    )
+    table.add_row(
+        [
+            NoEscape(r"\textbf{Cosine Error Factor:}"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex("1.0711") + r"}"),
         ]
     )
     doc.append(table)
@@ -572,16 +698,16 @@ def generate_pdf_report(
     doc.append(NoEscape("\\vspace{1pt}"))
 
     # Add tables
-    if overall_metrics:
-        doc.append(
-            create_stats_table(
-                overall_metrics,
-                tz_name,
-                units,
-                "Table 1: Overall Summary",
-                include_start_time=False,
-            )
-        )
+    # if overall_metrics:
+    #     doc.append(
+    #         create_stats_table(
+    #             overall_metrics,
+    #             tz_name,
+    #             units,
+    #             "Table 1: Overall Summary",
+    #             include_start_time=False,
+    #         )
+    #     )
 
     if daily_metrics:
         doc.append(
@@ -589,7 +715,7 @@ def generate_pdf_report(
                 daily_metrics,
                 tz_name,
                 units,
-                "Table 2: Daily Summary",
+                "Table 1: Daily Summary",
                 include_start_time=True,
             )
         )
@@ -600,7 +726,7 @@ def generate_pdf_report(
                 granular_metrics,
                 tz_name,
                 units,
-                "Table 3: Granular breakdown",
+                "Table 2: Granular breakdown",
                 include_start_time=True,
             )
         )

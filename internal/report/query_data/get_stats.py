@@ -89,7 +89,7 @@ def _plot_stats_page(stats, title: str, units: str):
     Returns a matplotlib Figure.
     """
     # Minimal plotting: times on x, speeds lines on left axis, counts on right axis
-    fig, ax = plt.subplots(figsize=(24, 12))
+    fig, ax = plt.subplots(figsize=(24, 8))
     try:
         # Force axes to occupy nearly the full figure so saved output is tight.
         ax.set_position([0.01, 0.02, 0.98, 0.95])
@@ -335,7 +335,7 @@ def _plot_stats_page(stats, title: str, units: str):
     )
 
     # Axis label with smaller font for compact appearance
-    ax.set_ylabel(f"Speed ({units})", fontsize=10)
+    ax.set_ylabel(f"Velocity ({units})", fontsize=10)
     # Reduce tick label sizes for both axes so the chart appears visually smaller
     try:
         ax.tick_params(axis="both", which="major", labelsize=8)
@@ -404,18 +404,21 @@ def _plot_stats_page(stats, title: str, units: str):
         handles = h1 + h2
         labels = l1 + l2
         try:
-            # Place legend in the figure above the axes so it doesn't overlap the chart.
-            # Use a single row (ncol = number of labels).
-            ncols = max(1, len(labels))
-            # fig.legend places the legend in figure coordinates (outside axes)
+            # Place a figure-level legend to the right of the axes so it's
+            # positioned in figure coordinates and will not overlap the axes
+            # when the axes are shrunk with fig.subplots_adjust(..., right=...).
+            # Make the legend horizontal and centered below the chart.
+            # Force a single row by using one column per label.
+            ncols = len(labels) if labels else 1
+            # Reduce font size slightly to help long labels fit in one row.
             leg = fig.legend(
                 handles,
                 labels,
-                loc="upper center",
-                bbox_to_anchor=(0.5, 0.98),
+                loc="lower center",
+                bbox_to_anchor=(0.5, -0.12),
                 ncol=ncols,
                 framealpha=0.9,
-                prop={"size": 8},
+                prop={"size": 7},
             )
             try:
                 fr = leg.get_frame()
@@ -460,20 +463,58 @@ def _plot_stats_page(stats, title: str, units: str):
     except Exception:
         pass
 
+    # Reduce axis font sizes (ticks and axis labels) so the plot is compact.
+    try:
+        # tick labels (x and y)
+        ax.tick_params(axis="both", which="major", labelsize=7)
+        # right-hand count axis
+        try:
+            ax2.tick_params(axis="both", which="major", labelsize=7)
+        except Exception:
+            pass
+        # axis label sizes
+        try:
+            ax.yaxis.label.set_size(8)
+        except Exception:
+            pass
+        try:
+            ax.xaxis.label.set_size(8)
+        except Exception:
+            pass
+        try:
+            # make the title slightly smaller if present
+            ax.title.set_size(10)
+        except Exception:
+            pass
+    except Exception:
+        pass
+
     # Reduce whitespace around the axes so exported PDFs have minimal borders
     try:
-        # force tight layout with zero padding
-        fig.tight_layout(pad=0)
+        # force tight layout with zero padding. If a figure-level legend
+        # (leg) was created above, tell tight_layout about it so it will
+        # reserve space and not shrink the axes under the legend.
+        if "leg" in locals() and leg is not None:
+            try:
+                fig.tight_layout(pad=0, bbox_extra_artists=[leg])
+            except TypeError:
+                # Older matplotlib versions may not support bbox_extra_artists
+                fig.tight_layout(pad=0)
+        else:
+            fig.tight_layout(pad=0)
     except Exception:
         pass
     try:
-        # make more room at the top for the figure-level legend and push the chart down
-        fig.subplots_adjust(left=0.02, right=0.995, top=0.78, bottom=0.06)
+        # Remove the top gap and make room on the right for the stacked legend.
+        # Right is reduced so the legend can sit outside the axes without overlap.
+        # Shrink the right edge so the plotting area moves left and avoids
+        # overlapping the stacked legend placed to the right of the axes.
+        fig.subplots_adjust(left=0.02, right=0.96, top=0.995, bottom=0.16)
     except Exception:
         pass
     # also reduce tick sizes for the count axis
     try:
-        ax2.tick_params(axis="both", which="major", labelsize=8)
+        ax2.tick_params(axis="both", which="major", labelsize=7)
     except Exception:
         pass
 

@@ -138,7 +138,7 @@ def plot_histogram(
     label_fs = 11
     tick_fs = 10
 
-    ax.set_xlabel(f"Speed ({units})", fontsize=label_fs)
+    ax.set_xlabel(f"Velocity ({units})", fontsize=label_fs)
     ax.set_ylabel("Count", fontsize=label_fs)
     ax.set_title(title, fontsize=title_fs)
 
