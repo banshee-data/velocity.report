@@ -13,22 +13,66 @@ from zoneinfo import ZoneInfo
 from datetime import timezone
 
 import numpy as np
-from pylatex import (
-    Document,
-    Section,
-    Command,
-    Package,
-    Tabular,
-    Center,
-    Figure,
-    NoEscape,
-    NewPage,
-    NewLine,
-    LineBreak,
-)
-from pylatex.table import Tabular
-from pylatex.utils import escape_latex
-from pylatex.base_classes import Environment
+
+try:
+    from pylatex import (
+        Document,
+        Section,
+        Command,
+        Package,
+        Tabular,
+        Center,
+        Figure,
+        NoEscape,
+        NewPage,
+        NewLine,
+        LineBreak,
+    )
+    from pylatex.table import Tabular
+    from pylatex.utils import escape_latex
+    from pylatex.base_classes import Environment
+
+    HAVE_PYLATEX = True
+except Exception:  # pragma: no cover - allow tests to run without pylatex installed
+    # Provide minimal fallbacks so module can be imported in test environments
+    HAVE_PYLATEX = False
+
+    class NoEscape(str):
+        pass
+
+    # Lightweight stand-ins (only so imports don't fail). They won't provide full functionality.
+    class Document:  # type: ignore
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class Section:  # type: ignore
+        pass
+
+    class Command:  # type: ignore
+        pass
+
+    class Package:  # type: ignore
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class Tabular:  # type: ignore
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class Center:  # type: ignore
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class Figure:  # type: ignore
+        def __init__(self, *args, **kwargs):
+            pass
+
+    def escape_latex(s: str) -> str:
+        return s
+
+    class Environment:  # type: ignore
+        pass
+
 
 from stats_utils import (
     format_time,
@@ -68,28 +112,29 @@ def create_stats_table(
         headers = [
             "Start Time",
             "Count",
-            f"p50\\({escape_latex(units)}\\)",
-            f"p85\\({escape_latex(units)}\\)",
-            f"p98\\({escape_latex(units)}\\)",
-            f"Max\\({escape_latex(units)}\\)",
+            f"\\shortstack{{{{p50 \\\\ ({escape_latex(units)})}}}}",
+            f"\\shortstack{{{{p85 \\\\ ({escape_latex(units)})}}}}",
+            f"\\shortstack{{{{p98 \\\\ ({escape_latex(units)})}}}}",
+            f"\\shortstack{{{{Max \\\\ ({escape_latex(units)})}}}}",
         ]
     else:
         table_spec = "rrrrr"
         headers = [
             "Count",
-            f"p50\\({escape_latex(units)}\\)",
-            f"p85\\({escape_latex(units)}\\)",
-            f"p98\\({escape_latex(units)}\\)",
-            f"Max\\({escape_latex(units)}\\)",
+            f"\\shortstack{{{{p50 \\\\ ({escape_latex(units)})}}}}",
+            f"\\shortstack{{{{p85 \\\\ ({escape_latex(units)})}}}}",
+            f"\\shortstack{{{{p98 \\\\ ({escape_latex(units)})}}}}",
+            f"\\shortstack{{{{Max \\\\ ({escape_latex(units)})}}}}",
         ]
 
     centered = Center()
-    centered.append(NoEscape("\\small"))
-    centered.append(NoEscape("\\setlength{\\tabcolsep}{4pt}"))
+    # denser table font and tighter horizontal padding
+    # centered.append(NoEscape(r"\scriptsize"))
+    # centered.append(NoEscape(r"\setlength{\tabcolsep}{3pt}"))
 
     table = Tabular(table_spec)
     # Add headers
-    table.add_hline()
+    # table.add_hline()
     table.add_row([NoEscape(h) for h in headers])
     table.add_hline()
 
@@ -152,8 +197,9 @@ def create_histogram_table(
     )
 
     centered = Center()
-    centered.append(NoEscape("\\small"))
-    centered.append(NoEscape("\\setlength{\\tabcolsep}{6pt}"))
+    # denser histogram table font and tighter padding
+    # centered.append(NoEscape(r"\scriptsize"))
+    # centered.append(NoEscape(r"\setlength{\tabcolsep}{3pt}"))
 
     table = Tabular("lrr")
     table.add_hline()
@@ -234,7 +280,7 @@ def add_science_content(
         NoEscape(
             "The 85th percentile (p85) represents the speed at or below which 85\\% of drivers travel. "
             "In contrast, the 98th percentile (p98) highlights the top 2\\% of driver speeds while "
-            "filtering out extreme max-speed noise. This gives a clearer view of high-risk behavior "
+            "filtering out noise from outliers. This gives a clearer view of high-risk behavior "
             "without letting single outliers dominate."
         )
     )
@@ -244,8 +290,8 @@ def add_science_content(
         NoEscape(
             "\\textbf{Note:} Metrics like p85 and p98 can be unstable with small sample sizes "
             "(fewer than 50 samples). In such cases, the difference between percentiles may not show "
-            "meaningful distinction. As such, we highlight periods with low counts in orange in our "
-            "charts, drawing attention to the need for more data before making conclusions."
+            "meaningful distinction. As such, our charts highlight periods with low counts in orange, "
+            "drawing attention to the need for more data before making conclusions."
         )
     )
 
@@ -270,26 +316,6 @@ def add_science_content(
     # )
 
 
-def add_charts_section(doc: Document, charts_prefix: str) -> None:
-    """Add charts section after the multicolumn layout."""
-
-    # Add main stats chart if available
-    if chart_exists(charts_prefix, "stats"):
-        stats_path = os.path.abspath(f"{charts_prefix}_stats.pdf")
-        with doc.create(Center()) as chart_center:
-            with chart_center.create(Figure(position="H")) as fig:
-                fig.add_image(stats_path, width=NoEscape(r"0.9\linewidth"))
-                fig.add_caption("Speed statistics over time")
-
-    # Add histogram chart if available
-    if chart_exists(charts_prefix, "histogram"):
-        hist_path = os.path.abspath(f"{charts_prefix}_histogram.pdf")
-        with doc.create(Center()) as hist_chart_center:
-            with hist_chart_center.create(Figure(position="H")) as fig:
-                fig.add_image(hist_path, width=NoEscape(r"0.8\linewidth"))
-                fig.add_caption("Speed distribution histogram")
-
-
 def generate_pdf_report(
     output_path: str,
     start_iso: str,
@@ -309,8 +335,13 @@ def generate_pdf_report(
 ) -> None:
     """Generate a complete PDF report using PyLaTeX."""
 
-    # Create document with letter paper and custom geometry
-    geometry_options = {"top": "1.9cm", "bottom": "1cm", "left": "1cm", "right": "1cm"}
+    # Create document with very tight geometry so stats occupy most of the page
+    geometry_options = {
+        "top": "1.8cm",
+        "bottom": "1.0cm",
+        "left": "1.0cm",
+        "right": "1.0cm",
+    }
 
     doc = Document(geometry_options=geometry_options, page_numbers=False)
 
@@ -321,6 +352,8 @@ def generate_pdf_report(
     doc.packages.append(Package("titlesec"))
     doc.packages.append(Package("hyperref"))
     doc.packages.append(Package("lipsum"))
+    # Use supertabular so long tables can span pages/columns
+    doc.packages.append(Package("supertabular"))
     doc.packages.append(Package("float"))  # Required for H position
 
     # Set up header
@@ -342,7 +375,8 @@ def generate_pdf_report(
 
     # Title formatting
     doc.append(NoEscape("\\titleformat{\\section}{\\bfseries\\Large}{}{0em}{}"))
-    doc.append(NoEscape("\\setlength{\\columnsep}{10pt}"))
+    # reduce column gap to maximize usable width
+    doc.append(NoEscape("\\setlength{\\columnsep}{2pt}"))
 
     # Document title
     with doc.create(Center()) as title_center:
@@ -407,13 +441,14 @@ def generate_pdf_report(
 
     # Generation parameters
     doc.append(NoEscape("% === Generation parameters ==="))
-    doc.append(NoEscape(f"\\noindent\\textbf{{Start time:}} {start_iso} \\\\"))
-    doc.append(NoEscape(f"\\textbf{{End time:}} {end_iso} \\\\"))
-    doc.append(NoEscape(f"\\textbf{{Rollup period:}} {group} \\\\"))
     doc.append(NoEscape(f"\\textbf{{Units:}} {units} \\\\"))
     doc.append(NoEscape(f"\\textbf{{Timezone:}} {timezone_display} \\\\"))
-    doc.append(NoEscape(f"\\textbf{{Min speed (cutoff):}} {min_speed_str}"))
-    doc.append(NoEscape("\\vspace{0.5cm}"))
+    doc.append(NoEscape(f"\\textbf{{Min speed (cutoff):}} {min_speed_str} \\\\"))
+    doc.append(NoEscape(f"\\textbf{{Start time:}} {start_iso} \\\\"))
+    doc.append(NoEscape(f"\\textbf{{End time:}} {end_iso} \\\\"))
+    doc.append(NoEscape(f"\\textbf{{Rollup period:}} {group} \\\\"))
+    # minimize vertical gap after science section
+    doc.append(NoEscape("\\vspace{1pt}"))
 
     # Add tables
     if overall_metrics:
@@ -449,6 +484,15 @@ def generate_pdf_report(
             )
         )
 
+    # Add histogram chart if available
+    if chart_exists(charts_prefix, "histogram"):
+        hist_path = os.path.abspath(f"{charts_prefix}_histogram.pdf")
+        with doc.create(Center()) as hist_chart_center:
+            with hist_chart_center.create(Figure(position="H")) as fig:
+                # use full available text width for histogram as well
+                fig.add_image(hist_path, width=NoEscape(r"\linewidth"))
+                fig.add_caption("Velocity distribution histogram")
+
     # Add histogram table if available
     if histogram:
         doc.append(create_histogram_table(histogram, units))
@@ -456,8 +500,14 @@ def generate_pdf_report(
     # End multicolumn
     doc.append(NoEscape("\\end{multicols}"))
 
-    # Add charts section after multicolumn as requested
-    add_charts_section(doc, charts_prefix)
+    # Add main stats chart if available
+    if chart_exists(charts_prefix, "stats"):
+        stats_path = os.path.abspath(f"{charts_prefix}_stats.pdf")
+        with doc.create(Center()) as chart_center:
+            with chart_center.create(Figure(position="H")) as fig:
+                # use full available text width for charts
+                fig.add_image(stats_path, width=NoEscape(r"\linewidth"))
+                fig.add_caption("Velocity over time")
 
     # Generate PDF
     try:

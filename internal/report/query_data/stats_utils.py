@@ -170,6 +170,15 @@ def plot_histogram(
     except Exception:
         pass
 
+    try:
+        fig.tight_layout(pad=0)
+    except Exception:
+        pass
+    try:
+        fig.subplots_adjust(left=0.02, right=0.985, top=0.96, bottom=0.08)
+    except Exception:
+        pass
+
     return fig
 
 
@@ -179,15 +188,71 @@ def save_chart_as_pdf(fig, output_path: str, close_fig: bool = True) -> bool:
     Returns:
         True if successful, False otherwise
     """
+    # Try to save the figure first. Closing the figure is best-effort and
+    # should not cause the function to be considered a failure if matplotlib
+    # isn't available in the test environment.
     try:
-        fig.savefig(output_path)
-        if close_fig:
+        # Try to compute the figure's tight bounding box and resize the figure
+        # so that saving the PDF produces a page that tightly fits the content.
+        try:
+            import matplotlib.pyplot as plt
+
+            # Force a draw so the renderer has up-to-date sizes
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()
+            try:
+                tight_bbox = fig.get_tightbbox(renderer)
+            except Exception:
+                tight_bbox = None
+
+            if tight_bbox is not None:
+                # tight_bbox dimensions are in display units (points). Convert to inches
+                dpi = (
+                    fig.dpi
+                    if hasattr(fig, "dpi")
+                    else plt.rcParams.get("figure.dpi", 72)
+                )
+                width_in = tight_bbox.width / dpi
+                height_in = tight_bbox.height / dpi
+                # Guard against zero/invalid sizes
+                if width_in > 0 and height_in > 0:
+                    try:
+                        # Prevent creating extremely small PDFs which will later be
+                        # upscaled by LaTeX (resulting in 'zoomed' charts). Enforce a
+                        # sensible minimum width and an upper cap, scaling height
+                        # proportionally.
+                        MIN_WIDTH_IN = 6.0
+                        MAX_WIDTH_IN = 11.0
+                        if width_in < MIN_WIDTH_IN:
+                            scale = MIN_WIDTH_IN / width_in
+                            width_in = MIN_WIDTH_IN
+                            height_in = height_in * scale
+                        elif width_in > MAX_WIDTH_IN:
+                            scale = MAX_WIDTH_IN / width_in
+                            width_in = MAX_WIDTH_IN
+                            height_in = height_in * scale
+                        fig.set_size_inches(width_in, height_in)
+                    except Exception:
+                        pass
+
+            # Save with tight bbox and zero padding
+            fig.savefig(output_path, bbox_inches="tight", pad_inches=0.0)
+        except Exception:
+            # Fallback: older matplotlib or unexpected failure; try a simple save
+            fig.savefig(output_path)
+    except Exception:
+        return False
+
+    if close_fig:
+        try:
             import matplotlib.pyplot as plt
 
             plt.close(fig)
-        return True
-    except Exception:
-        return False
+        except Exception:
+            # Ignore close failures (e.g., matplotlib not installed in test env)
+            pass
+
+    return True
 
 
 def chart_exists(charts_prefix: str, chart_type: str) -> bool:

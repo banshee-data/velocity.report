@@ -90,6 +90,11 @@ def _plot_stats_page(stats, title: str, units: str):
     """
     # Minimal plotting: times on x, speeds lines on left axis, counts on right axis
     fig, ax = plt.subplots(figsize=(10, 4))
+    try:
+        # Force axes to occupy nearly the full figure so saved output is tight.
+        ax.set_position([0.01, 0.02, 0.98, 0.95])
+    except Exception:
+        pass
 
     if not stats:
         ax.text(0.5, 0.5, "No data", ha="center", va="center")
@@ -136,16 +141,65 @@ def _plot_stats_page(stats, title: str, units: str):
     p98_a = np.array(p98, dtype=float)
     mx_a = np.array(mx, dtype=float)
 
-    ax.plot(times, p50_a, label="P50", marker="s")
-    ax.plot(times, p85_a, label="P85", marker="^")
-    ax.plot(times, p98_a, label="P98", marker="o")
-    ax.plot(times, mx_a, label="Max", marker="x", linestyle="--")
+    # Color palette: p50 (blue), p85 (green), p98 (purple), max (red dashed)
+    color_p50 = "#1f77b4"
+    color_p85 = "#2ca02c"
+    color_p98 = "#9467bd"
+    color_max = "#d62728"
+
+    ax.plot(times, p50_a, label="P50", marker="s", color=color_p50)
+    ax.plot(times, p85_a, label="P85", marker="^", color=color_p85)
+    ax.plot(times, p98_a, label="P98", marker="o", color=color_p98)
+    ax.plot(times, mx_a, label="Max", marker="x", linestyle="--", color=color_max)
 
     ax.set_ylabel(f"Speed ({units})")
     ax.set_title(title)
 
+    # Ensure speed axis includes zero at the bottom for clarity
+    try:
+        ax.set_ylim(bottom=0)
+    except Exception:
+        # Some matplotlib versions may not support set_ylim with keyword args
+        try:
+            ymin, ymax = ax.get_ylim()
+            ax.set_ylim(0, ymax)
+        except Exception:
+            pass
+
     ax2 = ax.twinx()
-    ax2.bar(times, counts, width=0.02, alpha=0.4, color="gray", label="Count")
+    # Draw orange full-height background bars behind the count bars for low-sample periods
+    try:
+        max_count = max(int(c) for c in counts) if counts else 0
+    except Exception:
+        max_count = 0
+
+    # Positions with low counts (<50) will get an orange background bar reaching to max_count
+    try:
+        low_mask = [(c is not None and int(c) < 50) for c in counts]
+    except Exception:
+        low_mask = [False for _ in counts]
+
+    # Orange background bars (full-height highlight), behind other bars
+    orange_heights = [max_count if m else 0 for m in low_mask]
+    if any(orange_heights) and max_count > 0:
+        ax2.bar(times, orange_heights, width=0.04, alpha=0.2, color="orange", zorder=0)
+
+    # Primary count bars (always gray) drawn on top
+    ax2.bar(
+        times, counts, width=0.02, alpha=0.5, color="#5E5E5E", label="Count", zorder=1
+    )
+
+    # Increase ax2 max height by 40% so highlighted backgrounds are visible
+    try:
+        top = max(1, int(max_count * 1.4))
+        ax2.set_ylim(0, top)
+    except Exception:
+        try:
+            ymin, ymax = ax2.get_ylim()
+            ax2.set_ylim(0, ymax * 1.4 if ymax > 0 else 1)
+        except Exception:
+            pass
+
     ax2.set_ylabel("Count")
 
     # merge legends
@@ -161,6 +215,26 @@ def _plot_stats_page(stats, title: str, units: str):
             ax.xaxis.set_major_locator(locator)
             ax.xaxis.set_major_formatter(formatter)
             fig.autofmt_xdate()
+            # Hide the small offset/date annotation (often shown at lower-right)
+            try:
+                ax.xaxis.get_offset_text().set_visible(False)
+            except Exception:
+                try:
+                    ax.xaxis.set_offset_position("none")
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # Reduce whitespace around the axes so exported PDFs have minimal borders
+    try:
+        # force tight layout with zero padding
+        fig.tight_layout(pad=0)
+    except Exception:
+        pass
+    try:
+        # also adjust subplot margins explicitly to be very small
+        fig.subplots_adjust(left=0.02, right=0.995, top=0.98, bottom=0.06)
     except Exception:
         pass
 
@@ -489,6 +563,10 @@ def _plot_stats_page(stats, title: str, units: str):
     """
     # Minimal plotting: times on x, speeds lines on left axis, counts on right axis
     fig, ax = plt.subplots(figsize=(10, 4))
+    try:
+        ax.set_position([0.01, 0.02, 0.98, 0.95])
+    except Exception:
+        pass
 
     if not stats:
         ax.text(0.5, 0.5, "No data", ha="center", va="center")
@@ -560,6 +638,29 @@ def _plot_stats_page(stats, title: str, units: str):
             ax.xaxis.set_major_locator(locator)
             ax.xaxis.set_major_formatter(formatter)
             fig.autofmt_xdate()
+            # Hide the small offset/date annotation (often shown at lower-right)
+            try:
+                ax.xaxis.get_offset_text().set_visible(False)
+            except Exception:
+                try:
+                    ax.xaxis.set_offset_position("none")
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # Reduce whitespace and expand axes to occupy nearly the full figure
+    try:
+        fig.tight_layout(pad=0)
+    except Exception:
+        pass
+    try:
+        fig.subplots_adjust(left=0.01, right=0.995, top=0.985, bottom=0.06)
+    except Exception:
+        pass
+    try:
+        # remove extra axis margins
+        ax.margins(x=0)
     except Exception:
         pass
 
