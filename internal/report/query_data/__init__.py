@@ -2,7 +2,16 @@
 
 from .api_client import RadarStatsClient, SUPPORTED_GROUPS
 from .date_parser import parse_date_to_unix, parse_server_time, is_date_only
-from .latex_generator import stats_to_latex, generate_table_file
+
+try:
+    # latex_generator is legacy and may not be present in some branches; import if available
+    from .latex_generator import stats_to_latex, generate_table_file  # type: ignore
+
+    _HAS_LATEX = True
+except Exception:  # pragma: no cover - environment dependent
+    stats_to_latex = None
+    generate_table_file = None
+    _HAS_LATEX = False
 
 __all__ = [
     "RadarStatsClient",
@@ -10,6 +19,7 @@ __all__ = [
     "parse_date_to_unix",
     "parse_server_time",
     "is_date_only",
-    "stats_to_latex",
-    "generate_table_file",
 ]
+
+if _HAS_LATEX:
+    __all__.extend(["stats_to_latex", "generate_table_file"])
