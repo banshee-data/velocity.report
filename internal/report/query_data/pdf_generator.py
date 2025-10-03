@@ -269,7 +269,7 @@ def create_histogram_table(
     centered.append(NoEscape("\\par\\vspace{2pt}"))
     centered.append(
         NoEscape(
-            "\\noindent\\makebox[\\linewidth]{\\textbf{\\small Table 3: Histogram}}"
+            "\\noindent\\makebox[\\linewidth]{\\textbf{\\small Table 1: Histogram}}"
         )
     )
 
@@ -334,6 +334,24 @@ def add_metric_data_intro(
     doc.append(NoEscape("\\par"))
 
 
+def add_site_specifics(doc: Document) -> None:
+    """Add site-specific information section to the document."""
+
+    doc.append(NoEscape("\\subsection*{Site Information}"))
+
+    doc.append(
+        NoEscape(
+            "This survey was conducted from the southbound parking lane outside 500 Clarendon Avenue. "
+            "The posted speed limit at this location is 35 mph, with a reduced limit of 25 mph when school "
+            "children are present. Data was collected over three consecutive days from a fixed position. "
+            "The survey location sits directly in front of an elementary school and is positioned on a"
+            "downhill grade, which may influence driver speed and braking behavior."
+        )
+    )
+    doc.append(NoEscape("\\par"))
+    doc.append(NoEscape("\\par"))
+
+
 def add_science(doc: Document) -> None:
 
     doc.append(NoEscape("\\subsection*{Citizen Radar}"))
@@ -382,7 +400,7 @@ def add_science(doc: Document) -> None:
         NoEscape(
             "To structure this data, the velocity.report application applies a greedy, local, "
             "univariate algorithm called \\emph{Time-Contiguous Speed Clustering}. In this survey, "
-            "individual radar read lines were grouped into sessions based on time proximity and speed similarity."
+            "individual radar read lines were grouped into sessions based on time proximity and speed similarity. "
             "Each session, or “transit”, represents a short burst of movement consistent with a single "
             "passing object. This approach is efficient and reproducible, but not without limitations: "
             "in dense traffic or when objects overlap, it may undercount the number of vehicles by merging "
@@ -591,11 +609,14 @@ def generate_pdf_report(
 
     doc.append(NoEscape("\\vspace{0.5cm}"))
 
+    add_site_specifics(doc)
+
+    doc.append(NoEscape("\\par"))
+
     add_science(doc)
 
     # Small separation after the science section
     doc.append(NoEscape("\\par"))
-    doc.append(NoEscape("\\vspace{0.2cm}"))
 
     # Statistics section
     doc.append(NoEscape("\\section*{Survey Parameters}"))
@@ -709,28 +730,6 @@ def generate_pdf_report(
     #         )
     #     )
 
-    if daily_metrics:
-        doc.append(
-            create_stats_table(
-                daily_metrics,
-                tz_name,
-                units,
-                "Table 1: Daily Summary",
-                include_start_time=True,
-            )
-        )
-
-    if granular_metrics:
-        doc.append(
-            create_stats_table(
-                granular_metrics,
-                tz_name,
-                units,
-                "Table 2: Granular breakdown",
-                include_start_time=True,
-            )
-        )
-
     # Add histogram chart if available
     if chart_exists(charts_prefix, "histogram"):
         hist_path = os.path.abspath(f"{charts_prefix}_histogram.pdf")
@@ -744,10 +743,31 @@ def generate_pdf_report(
     if histogram:
         doc.append(create_histogram_table(histogram, units))
 
+    if daily_metrics:
+        doc.append(
+            create_stats_table(
+                daily_metrics,
+                tz_name,
+                units,
+                "Table 2: Daily Summary",
+                include_start_time=True,
+            )
+        )
+
+    if granular_metrics:
+        doc.append(
+            create_stats_table(
+                granular_metrics,
+                tz_name,
+                units,
+                "Table 3: Granular breakdown",
+                include_start_time=True,
+            )
+        )
+
     # End multicolumn
     doc.append(NoEscape("\\end{multicols}"))
 
-    # Add main stats chart if available
     if chart_exists(charts_prefix, "stats"):
         stats_path = os.path.abspath(f"{charts_prefix}_stats.pdf")
         with doc.create(Center()) as chart_center:
@@ -755,6 +775,89 @@ def generate_pdf_report(
                 # use full available text width for charts
                 fig.add_image(stats_path, width=NoEscape(r"\linewidth"))
                 fig.add_caption("Velocity over time")
+
+    # Add main stats chart if available
+    # If a map.svg exists next to this module, include it before the stats chart.
+    # Convert to PDF if needed using cairosvg (preferred) or external tools if available.
+    map_svg = os.path.join(os.path.dirname(__file__), "map.svg")
+    map_pdf = os.path.join(os.path.dirname(__file__), "map.pdf")
+    if os.path.exists(map_svg):
+        # convert if pdf doesn't yet exist or is older than svg
+        try:
+            need_convert = (not os.path.exists(map_pdf)) or (
+                os.path.getmtime(map_svg) > os.path.getmtime(map_pdf)
+            )
+        except Exception:
+            need_convert = not os.path.exists(map_pdf)
+
+        if need_convert:
+            converted = False
+            # Try Python-based conversion first
+            try:
+                import importlib
+
+                if importlib.util.find_spec("cairosvg") is not None:
+                    from cairosvg import svg2pdf
+
+                    with open(map_pdf, "wb") as out_f:
+                        svg2pdf(url=map_svg, write_to=out_f)
+                    converted = True
+            except Exception:
+                converted = False
+
+            # Fallback to command-line tools if cairosvg not present
+            if not converted:
+                # Try inkscape
+                try:
+                    import subprocess
+
+                    subprocess.check_call(["inkscape", "--version"])  # quick check
+                    # inkscape CLI: inkscape input.svg --export-type=pdf --export-filename=out.pdf
+                    subprocess.check_call(
+                        [
+                            "inkscape",
+                            map_svg,
+                            "--export-type=pdf",
+                            "--export-filename",
+                            map_pdf,
+                        ]
+                    )
+                    converted = True
+                except Exception:
+                    converted = False
+
+            if not converted:
+                # Try rsvg-convert
+                try:
+                    import subprocess
+
+                    subprocess.check_call(["rsvg-convert", "--version"])  # quick check
+                    with open(map_pdf, "wb") as out_f:
+                        subprocess.check_call(
+                            [
+                                "rsvg-convert",
+                                "-f",
+                                "pdf",
+                                map_svg,
+                            ],
+                            stdout=out_f,
+                        )
+                    converted = True
+                except Exception:
+                    converted = False
+
+            if not converted:
+                print(
+                    "Warning: map.svg found but failed to convert to PDF; skipping map inclusion"
+                )
+
+        # If map.pdf now exists, include it
+        if os.path.exists(map_pdf):
+            map_path = os.path.abspath(map_pdf)
+            with doc.create(Center()) as map_center:
+                with map_center.create(Figure(position="H")) as mf:
+                    mf.add_image(map_path, width=NoEscape(r"\linewidth"))
+                    mf.add_caption("Site map")
 
     # Generate PDF: prefer XeLaTeX/LuaLaTeX (required by fontspec) then fall back
     # to pdfLaTeX as a last resort.
