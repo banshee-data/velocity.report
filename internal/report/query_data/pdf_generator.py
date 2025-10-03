@@ -269,7 +269,7 @@ def create_histogram_table(
     centered.append(NoEscape("\\par\\vspace{2pt}"))
     centered.append(
         NoEscape(
-            "\\noindent\\makebox[\\linewidth]{\\textbf{\\small Table 1: Histogram}}"
+            "\\noindent\\makebox[\\linewidth]{\\textbf{\\small Table 1: Velocity Distribution Data}}"
         )
     )
 
@@ -331,7 +331,6 @@ def add_metric_data_intro(
     doc.append(table)
 
     doc.append(NoEscape("\\par"))
-    doc.append(NoEscape("\\par"))
 
 
 def add_site_specifics(doc: Document) -> None:
@@ -341,15 +340,18 @@ def add_site_specifics(doc: Document) -> None:
 
     doc.append(
         NoEscape(
-            "This survey was conducted from the southbound parking lane outside 500 Clarendon Avenue. "
-            "The posted speed limit at this location is 35 mph, with a reduced limit of 25 mph when school "
-            "children are present. Data was collected over three consecutive days from a fixed position. "
-            "The survey location sits directly in front of an elementary school and is positioned on a"
-            "downhill grade, which may influence driver speed and braking behavior."
+            "This survey was conducted from the southbound parking lane outside 500 Clarendon Avenue, "
+            "directly in front of an elementary school. The site is located on a downhill grade, which may "
+            "influence vehicle speed and braking behavior. Data was collected from a fixed position over three consecutive days."
         )
     )
     doc.append(NoEscape("\\par"))
-    doc.append(NoEscape("\\par"))
+
+    doc.append(
+        NoEscape(
+            "The posted speed limit at this location is 35 mph, reduced to 25 mph when school children are present. "
+        )
+    )
 
 
 def add_science(doc: Document) -> None:
@@ -358,7 +360,7 @@ def add_science(doc: Document) -> None:
 
     doc.append(
         NoEscape(
-            "velocity.report is a citizen radar tool designed to help communities "
+            "\\href{https://velocity.report}{velocity.report} is a citizen radar tool designed to help communities "
             "measure vehicle speeds with affordable, privacy-preserving Doppler sensors. "
             "It's built on a core physical truth: kinetic energy scales with the square of speed."
         )
@@ -374,52 +376,60 @@ def add_science(doc: Document) -> None:
             NoEscape("where \\(m\\) is the mass and \\(v\\) is the velocity.")
         )
     doc.append(NoEscape("\\par"))
-    doc.append(NoEscape("\\par"))
     doc.append(
         NoEscape(
             "A vehicle traveling at 40 mph has four times the crash energy of the same vehicle at 20 mph, "
             "posing exponentially greater risk to people outside the car. Even small increases in speed dramatically raise the likelihood of severe injury or death in a collision. "
-            "By quantifying real-world vehicle speeds, velocity.report produces evidence that exceeds industry standard metrics."
+            "By quantifying real-world vehicle speeds, \\href{https://velocity.report}{velocity.report} produces evidence that exceeds industry standard metrics."
         )
     )
-    doc.append(NoEscape("\\par"))
     doc.append(NoEscape("\\par"))
 
     doc.append(NoEscape("\\subsection*{Aggregation and Percentiles}"))
 
     doc.append(
         NoEscape(
-            "This system uses Doppler radar to measure vehicle speed by detecting frequency shifts caused by motion "
-            "toward or away from the sensor. This shift (known as the \\href{https://en.wikipedia.org/wiki/Doppler_effect}{Doppler effect}) "
-            "is directly proportional to the object's velocity relative to the sensor."
+            "This system uses Doppler radar to measure vehicle speed by detecting frequency shifts in waves "
+            "reflected from objects in motion. This shift (known as the \\href{https://en.wikipedia.org/wiki/Doppler_effect}{Doppler effect}) "
+            "is directly proportional to the object's relative velocity. When the sensor is stationary, the Doppler effect "
+            "reports the true speed of an object moving toward or away from the radar."
         )
     )
     doc.append(NoEscape("\\par"))
-    doc.append(NoEscape("\\par"))
     doc.append(
         NoEscape(
-            "To structure this data, the velocity.report application applies a greedy, local, "
-            "univariate algorithm called \\emph{Time-Contiguous Speed Clustering}. In this survey, "
-            "individual radar read lines were grouped into sessions based on time proximity and speed similarity. "
-            "Each session, or “transit”, represents a short burst of movement consistent with a single "
-            "passing object. This approach is efficient and reproducible, but not without limitations: "
-            "in dense traffic or when objects overlap, it may undercount the number of vehicles by merging "
-            "multiple objects into a single transit. This undercounting can bias percentile metrics (like p85 and p98), "
-            "downward as since fewer sessions can give disproportionate weight to slower vehicles. "
-            "All reported statistics in this report are derived from these sessionised transits."
+            "To structure this data, the \\href{https://velocity.report}{velocity.report} application first records individual "
+            "radar readings, then applies a greedy, local, univariate \\emph{Time-Contiguous Speed Clustering} algorithm to "
+            "group log lines into sessions based on time proximity and speed similarity. Each session, or “transit,” represents "
+            "a short burst of movement consistent with a single passing object. This approach is efficient and reproducible, "
+            "but in dense traffic or where objects overlap it may undercount vehicles by merging multiple objects into one transit."
         )
     )
     doc.append(NoEscape("\\par"))
+    doc.append(
+        NoEscape(
+            "Undercounting can bias percentile metrics (like p85 and p98) downward, since fewer sessions can give "
+            "disproportionate weight to slower vehicles. All reported statistics in this report are derived from "
+            "these sessionised transits."
+        )
+    )
     doc.append(NoEscape("\\par"))
     doc.append(
         NoEscape(
-            "Percentiles offer a structured way to interpret speed behavior. The 85th percentile (p85) "
-            "indicates the speed at or below which 85\\% of vehicles traveled; the 98th percentile (p98) "
-            "highlights the fastest 2\\% of vehicle speeds while reducing the influence of extreme outliers. "
-            "This helps identify high-risk driving patterns without letting single anomalous readings dominate. "
-            "However, percentile values can be unstable in periods with low sample counts. To reflect this, "
-            "our charts flag low-sample segments in orange and suppress percentile points when counts fall below "
-            "reliability thresholds."
+            "Percentiles offer a structured way to interpret speed behaviour. The 85th percentile (p85) indicates the "
+            "speed at or below which 85\\% of vehicles traveled. The 98th percentile (p98) exceeds this "
+            "industry-standard measure by capturing the fastest 2\\% of vehicle speeds, providing a more robust view "
+            "into trends among top speeders. By extending beyond p85, p98 identifies an additional 13\\% of data that "
+            "would otherwise be missed when trimming the top 15\\%, offering clearer insight into high-risk driving "
+            "patterns without letting single anomalous readings dominate."
+        )
+    )
+    doc.append(NoEscape("\\par"))
+    doc.append(
+        NoEscape(
+            "However, percentile metrics can be unstable in periods with low sample counts. To reflect this, our charts "
+            "flag low-sample segments in orange and suppress percentile points when counts fall below reliability thresholds "
+            "(fewer than 50 samples per roll-up period)."
         )
     )
     doc.append(NoEscape("\\par"))
@@ -470,6 +480,9 @@ def generate_pdf_report(
     doc.packages.append(Package("fontspec"))
     # Ensure captions use sans-serif
     doc.packages.append(Package("caption", options="font=sf"))
+    # Make caption labels and text bold so figure/table captions match
+    # the document's heading weight and appear visually prominent.
+    doc.preamble.append(NoEscape("\\captionsetup{labelfont=bf,textfont=bf}"))
     # Use supertabular so long tables can span pages/columns
     doc.packages.append(Package("supertabular"))
     doc.packages.append(Package("float"))  # Required for H position
@@ -477,6 +490,7 @@ def generate_pdf_report(
     # Set up header
     # Increase headheight to avoid fancyhdr warnings on some templates
     doc.append(NoEscape("\\setlength{\\headheight}{12pt}"))
+    doc.append(NoEscape("\\setlength{\\headsep}{10pt}"))
     doc.append(NoEscape("\\pagestyle{fancy}"))
     doc.append(NoEscape("\\fancyhf{}"))
     doc.append(
@@ -484,11 +498,7 @@ def generate_pdf_report(
             "\\fancyhead[L]{\\textbf{\\protect\\href{https://velocity.report}{velocity.report}}}"
         )
     )
-    doc.append(
-        NoEscape(
-            f"\\fancyhead[C]{{\\textbullet \\ \\ {start_iso[:10]} to {end_iso[:10]} \\ \\textbullet}}"
-        )
-    )
+    doc.append(NoEscape(f"\\fancyhead[C]{{ {start_iso[:10]} to {end_iso[:10]} }}"))
     doc.append(NoEscape(f"\\fancyhead[R]{{ \\textit{{{location}}}}}"))
     doc.append(NoEscape("\\renewcommand{\\headrulewidth}{0.8pt}"))
 
@@ -496,8 +506,19 @@ def generate_pdf_report(
     doc.preamble.append(
         NoEscape("\\titleformat{\\section}{\\bfseries\\Large}{}{0em}{}")
     )
-    # reduce column gap to maximize usable width (preamble)
-    doc.preamble.append(NoEscape("\\setlength{\\columnsep}{2pt}"))
+    # column gap (preamble): configurable via REPORT_COLUMNSEP_PT (points).
+    # Default is increased to 10pt for better separation between columns.
+    try:
+        _colsep_env = os.getenv("REPORT_COLUMNSEP_PT", "14")
+        _colsep_val = float(_colsep_env)
+        # Format as 'Npt' (integer if whole number)
+        if float(_colsep_val).is_integer():
+            _colsep_str = f"{int(_colsep_val)}pt"
+        else:
+            _colsep_str = f"{_colsep_val}pt"
+    except Exception:
+        _colsep_str = "10pt"
+    doc.preamble.append(NoEscape(f"\\setlength{{\\columnsep}}{{{_colsep_str}}}"))
 
     # Set the document's default family to sans-serif globally so all text
     # uses the sans font family without selecting a specific font.
@@ -547,7 +568,7 @@ def generate_pdf_report(
         title_center.append(NoEscape("\\vspace{0.1cm}"))
         title_center.append(
             NoEscape(
-                "{\\large \\sffamily\\textit{Banshee, INC } \\textbullet \\ \\href{mailto:david@banshee-data.com}{david@banshee-data.com}}"
+                "{\\large \\sffamily Surveyor: \\textit{Banshee, INC.} \\ \\textbullet \\ \\ Contact: \\href{mailto:david@banshee-data.com}{david@banshee-data.com}}"
             )
         )
 
@@ -607,8 +628,6 @@ def generate_pdf_report(
             max_speed,
         )
 
-    doc.append(NoEscape("\\vspace{0.5cm}"))
-
     add_site_specifics(doc)
 
     doc.append(NoEscape("\\par"))
@@ -619,7 +638,7 @@ def generate_pdf_report(
     doc.append(NoEscape("\\par"))
 
     # Statistics section
-    doc.append(NoEscape("\\section*{Survey Parameters}"))
+    doc.append(NoEscape("\\subsection*{Survey Parameters}"))
 
     # Generation parameters as a two-column table
     table = Tabular("ll")
@@ -643,7 +662,7 @@ def generate_pdf_report(
     )
     table.add_row(
         [
-            NoEscape(r"\textbf{Rollup Period:}"),
+            NoEscape(r"\textbf{Roll-up Period:}"),
             NoEscape(r"\AtkinsonMono{" + escape_latex(group) + r"}"),
         ]
     )
@@ -715,8 +734,7 @@ def generate_pdf_report(
     )
     doc.append(table)
 
-    # minimize vertical gap after science section
-    doc.append(NoEscape("\\vspace{1pt}"))
+    doc.append(NoEscape("\\par"))
 
     # Add tables
     # if overall_metrics:
@@ -737,7 +755,7 @@ def generate_pdf_report(
             with hist_chart_center.create(Figure(position="H")) as fig:
                 # use full available text width for histogram as well
                 fig.add_image(hist_path, width=NoEscape(r"\linewidth"))
-                fig.add_caption("Velocity distribution histogram")
+                fig.add_caption("Velocity Distribution Histogram")
 
     # Add histogram table if available
     if histogram:
@@ -749,7 +767,7 @@ def generate_pdf_report(
                 daily_metrics,
                 tz_name,
                 units,
-                "Table 2: Daily Summary",
+                "Table 2: Daily Percentile Summary",
                 include_start_time=True,
             )
         )
@@ -760,7 +778,7 @@ def generate_pdf_report(
                 granular_metrics,
                 tz_name,
                 units,
-                "Table 3: Granular breakdown",
+                "Table 3: Granular Percentile Breakdown",
                 include_start_time=True,
             )
         )
@@ -789,6 +807,151 @@ def generate_pdf_report(
             )
         except Exception:
             need_convert = not os.path.exists(map_pdf)
+        # Decide whether to inject a triangle marker. If MAP_TRIANGLE_LEN <= 0, skip marker.
+        try:
+            marker_len_frac = float(os.getenv("MAP_TRIANGLE_LEN", "0.42"))
+        except Exception:
+            marker_len_frac = 0.05
+
+        # We'll produce a temporary SVG (map_with_marker.svg) if marker is requested.
+        temp_svg = os.path.join(os.path.dirname(__file__), "map_with_marker.svg")
+        source_svg_for_conversion = map_svg
+
+        if marker_len_frac and marker_len_frac > 0:
+            # Read original SVG and insert a top-layer polygon marker
+            try:
+                with open(map_svg, "r", encoding="utf-8") as f:
+                    svg_text = f.read()
+
+                import re, math
+
+                vb_match = re.search(
+                    r"viewBox\s*=\s*[\"']\s*([0-9.+-eE]+)\s+([0-9.+-eE]+)\s+([0-9.+-eE]+)\s+([0-9.+-eE]+)\s*[\"']",
+                    svg_text,
+                )
+                if vb_match:
+                    vb_min_x = float(vb_match.group(1))
+                    vb_min_y = float(vb_match.group(2))
+                    vb_w = float(vb_match.group(3))
+                    vb_h = float(vb_match.group(4))
+                else:
+                    # fallback to width/height attributes
+                    w_match = re.search(r"width\s*=\s*\"?([0-9.+-eE]+)", svg_text)
+                    h_match = re.search(r"height\s*=\s*\"?([0-9.+-eE]+)", svg_text)
+                    if w_match and h_match:
+                        vb_min_x = 0.0
+                        vb_min_y = 0.0
+                        vb_w = float(w_match.group(1))
+                        vb_h = float(h_match.group(1))
+                    else:
+                        raise RuntimeError(
+                            "Unable to determine SVG viewBox/size for marker placement"
+                        )
+
+                # Tip position: allow overriding the tip (lower/point) position
+                # via environment variables MAP_TRIANGLE_CX and MAP_TRIANGLE_CY
+                # which are fractions 0..1 of the SVG viewBox width/height.
+                try:
+                    cx_frac = float(os.getenv("MAP_TRIANGLE_CX", "0.385"))
+                except Exception:
+                    cx_frac = 0.5
+                try:
+                    cy_frac = float(os.getenv("MAP_TRIANGLE_CY", "0.71"))
+                except Exception:
+                    cy_frac = 0.5
+
+                cx = vb_min_x + vb_w * float(cx_frac)
+                cy = vb_min_y + vb_h * float(cy_frac)
+
+                # Length from tip toward the base (controls triangle size)
+                L = marker_len_frac * vb_h
+
+                # Compute base width so the apex angle equals MAP_TRIANGLE_APEX_ANGLE
+                # (defaults to 20 degrees as requested). Apex angle (alpha) relates
+                # to width W via: W = 2 * L * tan(alpha/2)
+                try:
+                    apex_deg = float(os.getenv("MAP_TRIANGLE_APEX_ANGLE", "20"))
+                except Exception:
+                    apex_deg = 20.0
+                # clamp a tiny bit to avoid pathological values
+                if apex_deg <= 0:
+                    apex_deg = 1.0
+                if apex_deg >= 179:
+                    apex_deg = 178.0
+                import math
+
+                W = 2.0 * L * math.tan(math.radians(apex_deg / 2.0))
+
+                # Orientation (direction the triangle points) remains configurable
+                # via MAP_TRIANGLE_ANGLE (degrees, 0 = up). Default 0.
+                try:
+                    marker_angle_deg = float(os.getenv("MAP_TRIANGLE_ANGLE", "32"))
+                except Exception:
+                    marker_angle_deg = 0.0
+                try:
+                    marker_color = os.getenv("MAP_TRIANGLE_COLOR", "#f25f5c")
+                except Exception:
+                    marker_color = "#f25f5c"
+                try:
+                    marker_opacity = float(os.getenv("MAP_TRIANGLE_OPACITY", "0.9"))
+                except Exception:
+                    marker_opacity = 0.8
+
+                theta = math.radians(marker_angle_deg)
+                fx = math.sin(theta)
+                fy = -math.cos(theta)
+                px = math.cos(theta)
+                py = math.sin(theta)
+
+                bx = cx + fx * L
+                by = cy + fy * L
+
+                blx = bx + px * (W / 2.0)
+                bly = by + py * (W / 2.0)
+                brx = bx - px * (W / 2.0)
+                bry = by - py * (W / 2.0)
+
+                # Format coordinates to a consistent precision for SVG output
+                points = f"{cx:.2f},{cy:.2f} {blx:.2f},{bly:.2f} {brx:.2f},{bry:.2f}"
+
+                # Optional small circle marker at the triangle apex (first point)
+                try:
+                    circle_radius = float(os.getenv("MAP_TRIANGLE_CIRCLE_RADIUS", "20"))
+                except Exception:
+                    circle_radius = 6.0
+                circle_fill = os.getenv("MAP_TRIANGLE_CIRCLE_FILL", "#ffffff")
+                circle_stroke = os.getenv("MAP_TRIANGLE_CIRCLE_STROKE", marker_color)
+                circle_stroke_width = os.getenv("MAP_TRIANGLE_CIRCLE_STROKE_WIDTH", "2")
+
+                # Build an insertion snippet for the top-layer marker. Ensure
+                # attributes are properly quoted (previously there was a stray
+                # quote which produced invalid SVG and could be ignored by
+                # converters). Use a visible stroke width and preserve opacity.
+                insert_snippet = (
+                    f"\n  <!-- radar marker inserted by pdf_generator.py -->\n"
+                    f'  <g id="radar-marker" fill="{marker_color}" fill-opacity="{marker_opacity}" stroke="#ffffff" stroke-width="1">\n'
+                    f'    <polygon points="{points}" />\n'
+                    f'    <circle cx="{cx:.2f}" cy="{cy:.2f}" r="{circle_radius}" fill="{circle_fill}" stroke="{circle_stroke}" stroke-width="{circle_stroke_width}" />\n'
+                    f"  </g>\n"
+                )
+
+                if svg_text.strip().endswith("</svg>"):
+                    svg_text = svg_text.rstrip()[:-6] + insert_snippet + "</svg>"
+                else:
+                    svg_text = svg_text + insert_snippet
+
+                with open(temp_svg, "w", encoding="utf-8") as tf:
+                    tf.write(svg_text)
+
+                # When we successfully wrote a temp SVG containing the
+                # marker, make sure we convert it to PDF (force a
+                # conversion) rather than re-using an existing map.pdf that
+                # may not contain the overlay.
+                source_svg_for_conversion = temp_svg
+                need_convert = True
+            except Exception as e:
+                print(f"Warning: failed to create map_with_marker.svg: {e}")
+                source_svg_for_conversion = map_svg
 
         if need_convert:
             converted = False
@@ -800,7 +963,7 @@ def generate_pdf_report(
                     from cairosvg import svg2pdf
 
                     with open(map_pdf, "wb") as out_f:
-                        svg2pdf(url=map_svg, write_to=out_f)
+                        svg2pdf(url=source_svg_for_conversion, write_to=out_f)
                     converted = True
             except Exception:
                 converted = False
@@ -816,7 +979,7 @@ def generate_pdf_report(
                     subprocess.check_call(
                         [
                             "inkscape",
-                            map_svg,
+                            source_svg_for_conversion,
                             "--export-type=pdf",
                             "--export-filename",
                             map_pdf,
@@ -838,7 +1001,7 @@ def generate_pdf_report(
                                 "rsvg-convert",
                                 "-f",
                                 "pdf",
-                                map_svg,
+                                source_svg_for_conversion,
                             ],
                             stdout=out_f,
                         )
@@ -857,7 +1020,9 @@ def generate_pdf_report(
             with doc.create(Center()) as map_center:
                 with map_center.create(Figure(position="H")) as mf:
                     mf.add_image(map_path, width=NoEscape(r"\linewidth"))
-                    mf.add_caption("Site map")
+                    mf.add_caption(
+                        "Site map with radar location (circle) and coverage area (red triangle)"
+                    )
 
     # Generate PDF: prefer XeLaTeX/LuaLaTeX (required by fontspec) then fall back
     # to pdfLaTeX as a last resort.

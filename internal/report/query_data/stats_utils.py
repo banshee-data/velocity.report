@@ -20,14 +20,19 @@ def format_time(tval: Any, tz_name: Optional[str]) -> str:
     """Format a server time value for display."""
     try:
         dt = parse_server_time(tval)
+        # If the parsed datetime is naive, assume it is in UTC.
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+
+        # If a target timezone was requested, convert to it. Otherwise,
+        # preserve the datetime's timezone (do not force conversion to UTC),
+        # so that times returned by the API in local zones remain local.
         if tz_name:
             try:
                 tzobj = ZoneInfo(tz_name)
             except Exception:
                 tzobj = timezone.utc
             dt = dt.astimezone(tzobj)
-        else:
-            dt = dt.astimezone(timezone.utc)
         return dt.strftime("%-m/%-d %H:%M")
     except Exception:
         return str(tval)
@@ -134,9 +139,9 @@ def plot_histogram(
     ax.bar(x, counts, alpha=0.7, color="steelblue", edgecolor="black", linewidth=0.5)
 
     # Font sizes
-    title_fs = 11
-    label_fs = 11
-    tick_fs = 10
+    title_fs = 14
+    label_fs = 13
+    tick_fs = 11
 
     ax.set_xlabel(f"Velocity ({units})", fontsize=label_fs)
     ax.set_ylabel("Count", fontsize=label_fs)

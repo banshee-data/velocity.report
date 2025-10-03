@@ -14,7 +14,7 @@ on the already-tested modules for parsing and API interactions.
 import argparse
 import os
 import re
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -83,7 +83,7 @@ def _next_sequenced_prefix(base: str) -> str:
     return f"{base}-{next_n}"
 
 
-def _plot_stats_page(stats, title: str, units: str):
+def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = None):
     """Create a compact time-series plot (P50/P85/P98/Max + counts bars).
 
     Returns a matplotlib Figure.
@@ -115,6 +115,23 @@ def _plot_stats_page(stats, title: str, units: str):
         except Exception:
             # skip rows with bad time
             continue
+        # If the caller requested a timezone, convert the parsed datetime to it.
+        if tz_name:
+            try:
+                tzobj = ZoneInfo(tz_name)
+            except Exception:
+                tzobj = None
+            try:
+                if tzobj is not None and getattr(t, "tzinfo", None) is not None:
+                    t = t.astimezone(tzobj)
+                elif tzobj is not None and getattr(t, "tzinfo", None) is None:
+                    # parsed naive -> assume UTC then convert
+                    from datetime import timezone as _dt_timezone
+
+                    t = t.replace(tzinfo=_dt_timezone.utc).astimezone(tzobj)
+            except Exception:
+                # if conversion fails, keep original t
+                pass
         times.append(t)
 
         def _num(keys):
@@ -375,14 +392,24 @@ def _plot_stats_page(stats, title: str, units: str):
         top = max_count if max_count > 0 else 1
 
     orange_heights = [top if m else 0 for m in low_mask]
+    # Track a legend entry for the low-sample highlight so we can add a
+    # correctly-colored Patch to the merged legend later. We don't create
+    # a dummy bar (which can be rendered inconsistently); instead we store
+    # the color/alpha/label and create a Patch at legend time.
+    low_sample_legend = None
     if any(orange_heights) and top > 0:
         ax2.bar(
             times, orange_heights, width=0.04, alpha=0.25, color="#f7b32b", zorder=0
         )
+        # store legend data (threshold text kept in sync with low_mask logic)
+        try:
+            low_sample_legend = ("Low-sample (<50)", "#f7b32b", 0.25)
+        except Exception:
+            low_sample_legend = None
 
     # Primary count bars (always gray) drawn on top
     ax2.bar(
-        times, counts, width=0.03, alpha=0.2, color="#000000", label="Count", zorder=1
+        times, counts, width=0.03, alpha=0.25, color="#2d1e2f", label="Count", zorder=1
     )
 
     # Set the right-axis y-limit so orange highlights reach the top
@@ -403,6 +430,22 @@ def _plot_stats_page(stats, title: str, units: str):
     if h1 or h2:
         handles = h1 + h2
         labels = l1 + l2
+        # If we previously recorded a low-sample legend entry, append a
+        # Patch so the legend shows the correct orange color.
+        try:
+            if "low_sample_legend" in locals() and low_sample_legend is not None:
+                try:
+                    from matplotlib.patches import Patch
+
+                    _lbl, _col, _alp = low_sample_legend
+                    patch = Patch(facecolor=_col, alpha=_alp, edgecolor="none")
+                    handles.append(patch)
+                    labels.append(_lbl)
+                except Exception:
+                    # if Patch isn't available, fall back to nothing
+                    pass
+        except Exception:
+            pass
         try:
             # Place a figure-level legend to the right of the axes so it's
             # positioned in figure coordinates and will not overlap the axes
@@ -448,7 +491,22 @@ def _plot_stats_page(stats, title: str, units: str):
     try:
         if mdates is not None:
             locator = mdates.AutoDateLocator()
-            formatter = mdates.ConciseDateFormatter(locator)
+            # Respect the requested timezone when formatting dates. If tz_name
+            # is provided and valid, pass it to the formatter so ticks display
+            # in the expected local time.
+            try:
+                if tz_name:
+                    tzobj = ZoneInfo(tz_name)
+                else:
+                    tzobj = None
+            except Exception:
+                tzobj = None
+
+            try:
+                formatter = mdates.ConciseDateFormatter(locator, tz=tzobj)
+            except TypeError:
+                # Older matplotlib may not accept tz kwarg; fall back.
+                formatter = mdates.ConciseDateFormatter(locator)
             ax.xaxis.set_major_locator(locator)
             ax.xaxis.set_major_formatter(formatter)
             fig.autofmt_xdate()
@@ -636,7 +694,12 @@ def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
 
             # granular stats PDF
             try:
-                fig = _plot_stats_page(metrics, f"{prefix} - stats", args.units)
+                fig = _plot_stats_page(
+                    metrics,
+                    f"{prefix} - stats",
+                    args.units,
+                    tz_name=(args.timezone or None),
+                )
                 stats_pdf = f"{prefix}_stats.pdf"
                 if save_chart_as_pdf(fig, stats_pdf):
                     print(f"Wrote stats PDF: {stats_pdf}")
@@ -652,7 +715,10 @@ def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
             if daily_metrics:
                 try:
                     figd = _plot_stats_page(
-                        daily_metrics, f"{prefix} - daily", args.units
+                        daily_metrics,
+                        f"{prefix} - daily",
+                        args.units,
+                        tz_name=(args.timezone or None),
                     )
                     daily_pdf = f"{prefix}_daily.pdf"
                     if save_chart_as_pdf(figd, daily_pdf):
