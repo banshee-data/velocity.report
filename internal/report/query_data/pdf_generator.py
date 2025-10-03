@@ -112,19 +112,19 @@ def create_stats_table(
         headers = [
             "Start Time",
             "Count",
-            f"\\shortstack{{{{p50 \\\\ ({escape_latex(units)})}}}}",
-            f"\\shortstack{{{{p85 \\\\ ({escape_latex(units)})}}}}",
-            f"\\shortstack{{{{p98 \\\\ ({escape_latex(units)})}}}}",
-            f"\\shortstack{{{{Max \\\\ ({escape_latex(units)})}}}}",
+            f"\\shortstack{{p50 \\\\ ({escape_latex(units)})}}",
+            f"\\shortstack{{p85 \\\\ ({escape_latex(units)})}}",
+            f"\\shortstack{{p98 \\\\ ({escape_latex(units)})}}",
+            f"\\shortstack{{Max \\\\ ({escape_latex(units)})}}",
         ]
     else:
         table_spec = "rrrrr"
         headers = [
             "Count",
-            f"\\shortstack{{{{p50 \\\\ ({escape_latex(units)})}}}}",
-            f"\\shortstack{{{{p85 \\\\ ({escape_latex(units)})}}}}",
-            f"\\shortstack{{{{p98 \\\\ ({escape_latex(units)})}}}}",
-            f"\\shortstack{{{{Max \\\\ ({escape_latex(units)})}}}}",
+            f"\\shortstack{{p50 \\\\ ({escape_latex(units)})}}",
+            f"\\shortstack{{p85 \\\\ ({escape_latex(units)})}}",
+            f"\\shortstack{{p98 \\\\ ({escape_latex(units)})}}",
+            f"\\shortstack{{Max \\\\ ({escape_latex(units)})}}",
         ]
 
     centered = Center()
@@ -269,12 +269,29 @@ def add_science_content(
     )
 
     doc.append(NoEscape("\\subsection*{Key Velocity Metrics}"))
-    doc.append(NoEscape("\\begin{itemize}"))
-    doc.append(NoEscape(f"\\item Median (p50): {p50:.1f} mph"))
-    doc.append(NoEscape(f"\\item 85th Percentile (p85): {p85:.1f} mph"))
-    doc.append(NoEscape(f"\\item 98th Percentile (p98): {p98:.1f} mph"))
-    doc.append(NoEscape(f"\\item Maximum Speed: {max_speed:.1f} mph"))
-    doc.append(NoEscape("\\end{itemize}"))
+    table = Tabular("ll")
+    table.add_row(
+        [NoEscape(r"\textbf{Median Velocity (p50):}"), NoEscape(f"{p50:.1f} mph")]
+    )
+    table.add_row(
+        [
+            NoEscape(r"\textbf{85th Percentile Velocity (p85):}"),
+            NoEscape(f"{p85:.1f} mph"),
+        ]
+    )
+    table.add_row(
+        [
+            NoEscape(r"\textbf{98th Percentile Velocity (p98):}"),
+            NoEscape(f"{p98:.1f} mph"),
+        ]
+    )
+    table.add_row(
+        [NoEscape(r"\textbf{Maximum Velocity:}"), NoEscape(f"{max_speed:.1f} mph")]
+    )
+    doc.append(table)
+
+    doc.append(LineBreak())
+    doc.append(LineBreak())
 
     doc.append(
         NoEscape(
@@ -439,14 +456,28 @@ def generate_pdf_report(
     # Statistics section
     doc.append(NoEscape("\\section*{Survey Parameters}"))
 
-    # Generation parameters
-    doc.append(NoEscape("% === Generation parameters ==="))
-    doc.append(NoEscape(f"\\textbf{{Units:}} {units} \\\\"))
-    doc.append(NoEscape(f"\\textbf{{Timezone:}} {timezone_display} \\\\"))
-    doc.append(NoEscape(f"\\textbf{{Min speed (cutoff):}} {min_speed_str} \\\\"))
-    doc.append(NoEscape(f"\\textbf{{Start time:}} {start_iso} \\\\"))
-    doc.append(NoEscape(f"\\textbf{{End time:}} {end_iso} \\\\"))
-    doc.append(NoEscape(f"\\textbf{{Rollup period:}} {group} \\\\"))
+    # Generation parameters as a two-column table
+    table = Tabular("ll")
+    table.add_row(
+        [NoEscape(r"\textbf{Radar Sensor:}"), NoEscape("OmniPreSense OPS243-A")]
+    )
+    table.add_row(
+        [NoEscape(r"\textbf{Start time:}"), NoEscape(escape_latex(start_iso))]
+    )
+    table.add_row([NoEscape(r"\textbf{End time:}"), NoEscape(escape_latex(end_iso))])
+    table.add_row(
+        [NoEscape(r"\textbf{Timezone:}"), NoEscape(escape_latex(timezone_display))]
+    )
+    table.add_row([NoEscape(r"\textbf{Rollup period:}"), NoEscape(escape_latex(group))])
+    table.add_row([NoEscape(r"\textbf{Units:}"), NoEscape(escape_latex(units))])
+    table.add_row(
+        [
+            NoEscape(r"\textbf{Min speed (cutoff):}"),
+            NoEscape(escape_latex(min_speed_str)),
+        ]
+    )
+    doc.append(table)
+
     # minimize vertical gap after science section
     doc.append(NoEscape("\\vspace{1pt}"))
 

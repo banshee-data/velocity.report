@@ -89,7 +89,7 @@ def _plot_stats_page(stats, title: str, units: str):
     Returns a matplotlib Figure.
     """
     # Minimal plotting: times on x, speeds lines on left axis, counts on right axis
-    fig, ax = plt.subplots(figsize=(10, 4))
+    fig, ax = plt.subplots(figsize=(16, 8))
     try:
         # Force axes to occupy nearly the full figure so saved output is tight.
         ax.set_position([0.01, 0.02, 0.98, 0.95])
@@ -135,20 +135,21 @@ def _plot_stats_page(stats, title: str, units: str):
         except Exception:
             counts.append(0)
 
-    # convert to numpy arrays for masking
-    p50_a = np.array(p50, dtype=float)
-    p85_a = np.array(p85, dtype=float)
-    p98_a = np.array(p98, dtype=float)
-    mx_a = np.array(mx, dtype=float)
+    # convert to numpy arrays and mask invalid values so plotting will
+    # break lines across regions with missing/null data (NaN).
+    p50_a = np.ma.masked_invalid(np.array(p50, dtype=float))
+    p85_a = np.ma.masked_invalid(np.array(p85, dtype=float))
+    p98_a = np.ma.masked_invalid(np.array(p98, dtype=float))
+    mx_a = np.ma.masked_invalid(np.array(mx, dtype=float))
 
     # Color palette: p50 (blue), p85 (green), p98 (purple), max (red dashed)
-    color_p50 = "#1f77b4"
-    color_p85 = "#2ca02c"
-    color_p98 = "#9467bd"
-    color_max = "#d62728"
+    color_p50 = "#fbd92f"
+    color_p85 = "#f7b32b"
+    color_p98 = "#f25f5c"
+    color_max = "#2d1e2f"
 
-    ax.plot(times, p50_a, label="P50", marker="s", color=color_p50)
-    ax.plot(times, p85_a, label="P85", marker="^", color=color_p85)
+    ax.plot(times, p50_a, label="P50", marker="^", color=color_p50)
+    ax.plot(times, p85_a, label="P85", marker="s", color=color_p85)
     ax.plot(times, p98_a, label="P98", marker="o", color=color_p98)
     ax.plot(times, mx_a, label="Max", marker="x", linestyle="--", color=color_max)
 
@@ -182,7 +183,7 @@ def _plot_stats_page(stats, title: str, units: str):
     # Orange background bars (full-height highlight), behind other bars
     orange_heights = [max_count if m else 0 for m in low_mask]
     if any(orange_heights) and max_count > 0:
-        ax2.bar(times, orange_heights, width=0.04, alpha=0.2, color="orange", zorder=0)
+        ax2.bar(times, orange_heights, width=0.04, alpha=0.2, color="#f7b32b", zorder=0)
 
     # Primary count bars (always gray) drawn on top
     ax2.bar(
@@ -191,7 +192,7 @@ def _plot_stats_page(stats, title: str, units: str):
 
     # Increase ax2 max height by 40% so highlighted backgrounds are visible
     try:
-        top = max(1, int(max_count * 1.4))
+        top = max(1, int(max_count * 1.6))
         ax2.set_ylim(0, top)
     except Exception:
         try:
@@ -405,9 +406,30 @@ def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
             # histogram PDF if present
             if histogram:
                 try:
+                    # include sample size from overall metrics if available
+                    sample_n = None
+                    try:
+                        if hasattr(metrics_all, "get"):
+                            sample_n = metrics_all.get("Count") or metrics_all.get(
+                                "count"
+                            )
+                        elif isinstance(metrics_all, (list, tuple)) and metrics_all:
+                            first = metrics_all[0]
+                            if isinstance(first, dict):
+                                sample_n = first.get("Count") or first.get("count")
+                    except Exception:
+                        sample_n = None
+
+                    sample_label = ""
+                    if sample_n is not None:
+                        try:
+                            sample_label = f" (n={int(sample_n)})"
+                        except Exception:
+                            sample_label = f" (n={sample_n})"
+
                     fig_hist = plot_histogram(
                         histogram,
-                        f"Speed Distribution: {prefix}",
+                        f"Velocity Distribution: {sample_label}",
                         args.units,
                         debug=getattr(args, "debug", False),
                     )
@@ -534,134 +556,3 @@ if __name__ == "__main__":
         (args.dates[i], args.dates[i + 1]) for i in range(0, len(args.dates), 2)
     ]
     main(date_ranges, args)
-
-
-def _next_sequenced_prefix(base: str) -> str:
-    """Return a sequenced prefix like base-1, base-2, ... based on files in CWD.
-
-    This scans the current directory for files beginning with ``base-<n>`` and
-    returns the next number in the sequence. Always returns base-<n> (start at 1).
-    """
-    files = os.listdir(".")
-    pat = re.compile(r"^" + re.escape(base) + r"-(\d+)(?:_|$)")
-    nums = []
-    for fn in files:
-        m = pat.match(fn)
-        if m:
-            try:
-                nums.append(int(m.group(1)))
-            except Exception:
-                continue
-    next_n = max(nums) + 1 if nums else 1
-    return f"{base}-{next_n}"
-
-
-def _plot_stats_page(stats, title: str, units: str):
-    """Create a compact time-series plot (P50/P85/P98/Max + counts bars).
-
-    Returns a matplotlib Figure.
-    """
-    # Minimal plotting: times on x, speeds lines on left axis, counts on right axis
-    fig, ax = plt.subplots(figsize=(10, 4))
-    try:
-        ax.set_position([0.01, 0.02, 0.98, 0.95])
-    except Exception:
-        pass
-
-    if not stats:
-        ax.text(0.5, 0.5, "No data", ha="center", va="center")
-        ax.set_title(title)
-        return fig
-
-    times = []
-    p50 = []
-    p85 = []
-    p98 = []
-    mx = []
-    counts = []
-
-    for row in stats:
-        st = row.get("StartTime") or row.get("start_time") or row.get("starttime")
-        try:
-            t = parse_server_time(st)
-        except Exception:
-            # skip rows with bad time
-            continue
-        times.append(t)
-
-        def _num(keys):
-            for k in keys:
-                if k in row and row[k] is not None:
-                    try:
-                        return float(row[k])
-                    except Exception:
-                        return np.nan
-            return np.nan
-
-        p50.append(_num(["P50Speed", "p50speed", "p50"]))
-        p85.append(_num(["P85Speed", "p85speed", "p85"]))
-        p98.append(_num(["P98Speed", "p98speed", "p98"]))
-        mx.append(_num(["MaxSpeed", "maxspeed", "max"]))
-        try:
-            counts.append(int(row.get("Count") if row.get("Count") is not None else 0))
-        except Exception:
-            counts.append(0)
-
-    # convert to numpy arrays for masking
-    p50_a = np.array(p50, dtype=float)
-    p85_a = np.array(p85, dtype=float)
-    p98_a = np.array(p98, dtype=float)
-    mx_a = np.array(mx, dtype=float)
-
-    ax.plot(times, p50_a, label="P50", marker="s")
-    ax.plot(times, p85_a, label="P85", marker="^")
-    ax.plot(times, p98_a, label="P98", marker="o")
-    ax.plot(times, mx_a, label="Max", marker="x", linestyle="--")
-
-    ax.set_ylabel(f"Speed ({units})")
-    ax.set_title(title)
-
-    ax2 = ax.twinx()
-    ax2.bar(times, counts, width=0.02, alpha=0.4, color="gray", label="Count")
-    ax2.set_ylabel("Count")
-
-    # merge legends
-    h1, l1 = ax.get_legend_handles_labels()
-    h2, l2 = ax2.get_legend_handles_labels()
-    if h1 or h2:
-        ax.legend(h1 + h2, l1 + l2, loc="lower right")
-
-    try:
-        if mdates is not None:
-            locator = mdates.AutoDateLocator()
-            formatter = mdates.ConciseDateFormatter(locator)
-            ax.xaxis.set_major_locator(locator)
-            ax.xaxis.set_major_formatter(formatter)
-            fig.autofmt_xdate()
-            # Hide the small offset/date annotation (often shown at lower-right)
-            try:
-                ax.xaxis.get_offset_text().set_visible(False)
-            except Exception:
-                try:
-                    ax.xaxis.set_offset_position("none")
-                except Exception:
-                    pass
-    except Exception:
-        pass
-
-    # Reduce whitespace and expand axes to occupy nearly the full figure
-    try:
-        fig.tight_layout(pad=0)
-    except Exception:
-        pass
-    try:
-        fig.subplots_adjust(left=0.01, right=0.995, top=0.985, bottom=0.06)
-    except Exception:
-        pass
-    try:
-        # remove extra axis margins
-        ax.margins(x=0)
-    except Exception:
-        pass
-
-    return fig

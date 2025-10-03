@@ -112,7 +112,7 @@ def plot_histogram(
         raise ImportError("matplotlib is required to render histograms") from e
 
     if not histogram:
-        fig, ax = plt.subplots(figsize=(10, 4))
+        fig, ax = plt.subplots(figsize=(3, 2))
         ax.text(0.5, 0.5, "No histogram data", ha="center", va="center")
         ax.set_title(title)
         return fig
@@ -129,7 +129,7 @@ def plot_histogram(
         total = sum(counts)
         print(f"DEBUG: histogram bins={len(labels)} total={total}")
 
-    fig, ax = plt.subplots(figsize=(4, 3))
+    fig, ax = plt.subplots(figsize=(3, 2))
     x = list(range(len(labels)))
     ax.bar(x, counts, alpha=0.7, color="steelblue", edgecolor="black", linewidth=0.5)
 
