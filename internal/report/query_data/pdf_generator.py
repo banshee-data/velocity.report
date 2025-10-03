@@ -149,9 +149,13 @@ def create_stats_table(
         if include_start_time:
             st = row.get("StartTime") or row.get("start_time") or row.get("starttime")
             tstr = format_time(st, tz_name)
+            # Render start time in a monospaced Atkinson font when available.
+            # Use a single backslash so LaTeX sees the command name (previously
+            # a double backslash caused literal "AtkinsonMono" text to appear).
+            tcell = NoEscape(r"\AtkinsonMono{" + escape_latex(tstr) + r"}")
             table.add_row(
                 [
-                    tstr,
+                    tcell,
                     int(cnt),
                     format_number(p50v),
                     format_number(p85v),
@@ -178,6 +182,7 @@ def create_stats_table(
     centered.append(
         NoEscape(f"\\noindent\\makebox[\\linewidth]{{\\textbf{{\\small {caption}}}}}")
     )
+    # (global sans-serif set in preamble)
 
     return centered
 
@@ -197,6 +202,7 @@ def create_histogram_table(
     )
 
     centered = Center()
+    # (global sans-serif set in preamble)
     # denser histogram table font and tighter padding
     # centered.append(NoEscape(r"\scriptsize"))
     # centered.append(NoEscape(r"\setlength{\tabcolsep}{3pt}"))
@@ -243,7 +249,7 @@ def create_histogram_table(
     return centered
 
 
-def add_science_content(
+def add_metric_data_intro(
     doc: Document,
     start_date: str,
     end_date: str,
@@ -263,11 +269,12 @@ def add_science_content(
     doc.append(
         NoEscape(
             f"Between \\textbf{{{start_date}}} and \\textbf{{{end_date}}}, "
-            f"the radar sensor recorded velocities for \\textbf{{{total_vehicles}}} vehicles on "
+            f"velocity for \\textbf{{{total_vehicles}}} vehicles was recorded on "
             f"\\textbf{{{location}}}."
         )
     )
 
+    doc.append(NoEscape("\\sffamily"))
     doc.append(NoEscape("\\subsection*{Key Velocity Metrics}"))
     table = Tabular("ll")
     table.add_row(
@@ -288,11 +295,40 @@ def add_science_content(
     table.add_row(
         [NoEscape(r"\textbf{Maximum Velocity:}"), NoEscape(f"{max_speed:.1f} mph")]
     )
+    # Render this parameter table in sans-serif locally
+    doc.append(NoEscape("\\sffamily"))
     doc.append(table)
 
     doc.append(LineBreak())
     doc.append(LineBreak())
 
+
+def add_science(doc: Document) -> None:
+
+    doc.append(NoEscape("\\subsection*{Aggregation and Percentiles}"))
+
+    doc.append(
+        NoEscape(
+            "This system uses Doppler radar to measure vehicle speed. As a vehicle approaches or recedes, "
+            "the radar detects a shift in frequency (the \\href{https://en.wikipedia.org/wiki/Doppler_effect}{Doppler effect}) which is directly proportional "
+            "to the vehicle's velocity relative to the sensor."
+        )
+    )
+    doc.append(LineBreak())
+    doc.append(
+        NoEscape(
+            "The velocity.report application uses a greedy, local, univariate clustering algorithm called "
+            "Time‑Contiguous Speed Clustering to group individual radar detections into transits. "
+            "For this survey, raw radar read lines—recorded at ~20Hz—were grouped into sessions based on "
+            "temporal proximity and speed similarity. Each resulting transit represents a short burst of "
+            "movement consistent with a single passing object. This approach is efficient and reproducible, "
+            "but has limitations. In dense traffic or when objects overlap, it may undercount the true number "
+            "of vehicles by merging separate objects into a single transit. This undercounting can bias percentile "
+            "metrics—particularly the p85 and p98—downward, since fewer transits can inflate the influence of slower "
+            "vehicles. All statistics in this report are derived from these sessionized transits."
+        )
+    )
+    doc.append(LineBreak())
     doc.append(
         NoEscape(
             "The 85th percentile (p85) represents the speed at or below which 85\\% of drivers travel. "
@@ -368,13 +404,17 @@ def generate_pdf_report(
     doc.packages.append(Package("graphicx"))
     doc.packages.append(Package("titlesec"))
     doc.packages.append(Package("hyperref"))
-    doc.packages.append(Package("lipsum"))
+    # Load fontspec so we can use the bundled Atkinson Hyperlegible TTFs.
+    doc.packages.append(Package("fontspec"))
+    # Ensure captions use sans-serif
+    doc.packages.append(Package("caption", options="font=sf"))
     # Use supertabular so long tables can span pages/columns
     doc.packages.append(Package("supertabular"))
     doc.packages.append(Package("float"))  # Required for H position
 
     # Set up header
-    doc.append(NoEscape("\\setlength{\\headheight}{6pt}"))
+    # Increase headheight to avoid fancyhdr warnings on some templates
+    doc.append(NoEscape("\\setlength{\\headheight}{12pt}"))
     doc.append(NoEscape("\\pagestyle{fancy}"))
     doc.append(NoEscape("\\fancyhf{}"))
     doc.append(
@@ -390,19 +430,57 @@ def generate_pdf_report(
     doc.append(NoEscape(f"\\fancyhead[R]{{ \\textit{{{location}}}}}"))
     doc.append(NoEscape("\\renewcommand{\\headrulewidth}{0.8pt}"))
 
-    # Title formatting
-    doc.append(NoEscape("\\titleformat{\\section}{\\bfseries\\Large}{}{0em}{}"))
-    # reduce column gap to maximize usable width
-    doc.append(NoEscape("\\setlength{\\columnsep}{2pt}"))
+    # Title formatting: make section headings sans-serif (local style)
+    doc.preamble.append(
+        NoEscape("\\titleformat{\\section}{\\bfseries\\Large}{}{0em}{}")
+    )
+    # reduce column gap to maximize usable width (preamble)
+    doc.preamble.append(NoEscape("\\setlength{\\columnsep}{2pt}"))
+
+    # Set the document's default family to sans-serif globally so all text
+    # uses the sans font family without selecting a specific font.
+    # Point fontspec at the bundled Atkinson Hyperlegible fonts that live in
+    # the `fonts/` directory next to this module. This forces the document
+    # to use Atkinson Hyperlegible as the sans font.
+    fonts_path = os.path.join(os.path.dirname(__file__), "fonts")
+    # Use Path= with trailing os.sep so fontspec can find the files
+    doc.preamble.append(
+        NoEscape(
+            rf"\setsansfont[Path={fonts_path + os.sep},Extension=.ttf,Scale=MatchLowercase]{{AtkinsonHyperlegible-Regular}}"
+        )
+    )
+    # Use sans family as the default
+    doc.preamble.append(NoEscape("\\renewcommand{\\familydefault}{\\sfdefault}"))
+
+    # Register Atkinson Hyperlegible Mono (if bundled). Provide a
+    # \AtkinsonMono{...} command that switches to the mono font. If the
+    # mono font isn't present, fall back to \texttt to keep rendering safe.
+    mono_regular = os.path.join(
+        fonts_path, "AtkinsonHyperlegibleMono-VariableFont_wght.ttf"
+    )
+    mono_italic = os.path.join(
+        fonts_path, "AtkinsonHyperlegibleMono-Italic-VariableFont_wght.ttf"
+    )
+    if os.path.exists(mono_regular):
+        # Register new font family command using fontspec
+        doc.preamble.append(
+            NoEscape(
+                rf"\newfontfamily\AtkinsonMono[Path={fonts_path + os.sep},Extension=.ttf,ItalicFont=AtkinsonHyperlegibleMono-Italic-VariableFont_wght,Scale=MatchLowercase]{{AtkinsonHyperlegibleMono-VariableFont_wght}}"
+            )
+        )
+    else:
+        # Simple fallback: AtkinsonMono -> \texttt
+        doc.preamble.append(NoEscape(r"\newcommand{\AtkinsonMono}[1]{\texttt{#1}}"))
 
     # Document title
     with doc.create(Center()) as title_center:
-        title_center.append(NoEscape(f"{{\\huge \\textbf{{ {location}}}}}"))
+        # Document title in sans-serif locally
+        title_center.append(NoEscape(f"{{\\huge \\sffamily\\textbf{{ {location}}}}}"))
         title_center.append(LineBreak())
         title_center.append(NoEscape("\\vspace{0.1cm}"))
         title_center.append(
             NoEscape(
-                "{\\large \\textit{Banshee, INC } \\textbullet \\ \\href{mailto:david@banshee-data.com}{david@banshee-data.com}}"
+                "{\\large \\sffamily\\textit{Banshee, INC } \\textbullet \\ \\href{mailto:david@banshee-data.com}{david@banshee-data.com}}"
             )
         )
 
@@ -438,7 +516,7 @@ def generate_pdf_report(
         end_date = end_iso[:10]
 
         # Use the DRY helper function for science content
-        add_science_content(
+        add_metric_data_intro(
             doc,
             start_date,
             end_date,
@@ -453,6 +531,10 @@ def generate_pdf_report(
 
     doc.append(NoEscape("\\vspace{0.5cm}"))
 
+    add_science(doc)
+
+    doc.append(NoEscape("\\vspace{0.5cm}"))
+
     # Statistics section
     doc.append(NoEscape("\\section*{Survey Parameters}"))
 
@@ -462,9 +544,17 @@ def generate_pdf_report(
         [NoEscape(r"\textbf{Radar Sensor:}"), NoEscape("OmniPreSense OPS243-A")]
     )
     table.add_row(
-        [NoEscape(r"\textbf{Start time:}"), NoEscape(escape_latex(start_iso))]
+        [
+            NoEscape(r"\textbf{Start time:}"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex(start_iso) + r"}"),
+        ]
     )
-    table.add_row([NoEscape(r"\textbf{End time:}"), NoEscape(escape_latex(end_iso))])
+    table.add_row(
+        [
+            NoEscape(r"\textbf{End time:}"),
+            NoEscape(r"\AtkinsonMono{" + escape_latex(end_iso) + r"}"),
+        ]
+    )
     table.add_row(
         [NoEscape(r"\textbf{Timezone:}"), NoEscape(escape_latex(timezone_display))]
     )
@@ -540,16 +630,30 @@ def generate_pdf_report(
                 fig.add_image(stats_path, width=NoEscape(r"\linewidth"))
                 fig.add_caption("Velocity over time")
 
-    # Generate PDF
-    try:
-        doc.generate_pdf(
-            output_path.replace(".pdf", ""), clean_tex=False, compiler="pdflatex"
-        )
-        print(f"Generated PDF: {output_path}")
-    except Exception as e:
-        print(f"Failed to generate PDF: {e}")
-        # Still save the .tex file for debugging
-        doc.generate_tex(output_path.replace(".pdf", ""))
-        print(
-            f"Generated TEX file for debugging: {output_path.replace('.pdf', '.tex')}"
-        )
+    # Generate PDF: prefer XeLaTeX/LuaLaTeX (required by fontspec) then fall back
+    # to pdfLaTeX as a last resort.
+    engines = ("xelatex", "lualatex", "pdflatex")
+    generated = False
+    last_exc: Optional[Exception] = None
+    for engine in engines:
+        try:
+            doc.generate_pdf(
+                output_path.replace(".pdf", ""), clean_tex=False, compiler=engine
+            )
+            print(f"Generated PDF: {output_path} (engine={engine})")
+            generated = True
+            break
+        except Exception as e:
+            print(f"PDF generation with {engine} failed: {e}")
+            last_exc = e
+
+    if not generated:
+        try:
+            doc.generate_tex(output_path.replace(".pdf", ""))
+            print(
+                f"Generated TEX file for debugging: {output_path.replace('.pdf', '.tex')}"
+            )
+        except Exception as tex_e:
+            print(f"Failed to generate TEX for debugging: {tex_e}")
+        if last_exc:
+            raise last_exc

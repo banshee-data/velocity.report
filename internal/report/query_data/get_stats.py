@@ -89,7 +89,7 @@ def _plot_stats_page(stats, title: str, units: str):
     Returns a matplotlib Figure.
     """
     # Minimal plotting: times on x, speeds lines on left axis, counts on right axis
-    fig, ax = plt.subplots(figsize=(16, 8))
+    fig, ax = plt.subplots(figsize=(24, 12))
     try:
         # Force axes to occupy nearly the full figure so saved output is tight.
         ax.set_position([0.01, 0.02, 0.98, 0.95])
@@ -142,19 +142,205 @@ def _plot_stats_page(stats, title: str, units: str):
     p98_a = np.ma.masked_invalid(np.array(p98, dtype=float))
     mx_a = np.ma.masked_invalid(np.array(mx, dtype=float))
 
+    # Treat periods with zero counts as missing data for speed series so lines
+    # don't connect across empty intervals. This handles APIs that return
+    # numeric zeros rather than nulls for empty buckets.
+    try:
+        if len(counts) == len(times):
+            import os
+
+            # Configurable threshold: treat counts < threshold as missing.
+            try:
+                thresh = int(os.environ.get("VELOCITY_COUNT_MISSING_THRESHOLD", "5"))
+            except Exception:
+                thresh = 5
+
+            zero_mask = np.array(counts) < thresh
+            # Combine existing masks (if any) with zero_mask
+            p50_a = np.ma.array(p50_a, mask=(np.ma.getmaskarray(p50_a) | zero_mask))
+            p85_a = np.ma.array(p85_a, mask=(np.ma.getmaskarray(p85_a) | zero_mask))
+            p98_a = np.ma.array(p98_a, mask=(np.ma.getmaskarray(p98_a) | zero_mask))
+            mx_a = np.ma.array(mx_a, mask=(np.ma.getmaskarray(mx_a) | zero_mask))
+
+            # Debug info
+            try:
+                if os.environ.get("VELOCITY_PLOT_DEBUG") == "1":
+                    import sys
+
+                    print(f"DEBUG_PLOT: missing_threshold={thresh}", file=sys.stderr)
+                    print(
+                        f"DEBUG_PLOT: zero_mask_count={int(zero_mask.sum())}",
+                        file=sys.stderr,
+                    )
+            except Exception:
+                pass
+    except Exception:
+        # If anything goes wrong here, fall back to the original masked arrays
+        pass
+
+    # Prepare plain float arrays for plotting: masked entries -> np.nan
+    p50_f = np.array(p50_a.filled(np.nan), dtype=float)
+    p85_f = np.array(p85_a.filled(np.nan), dtype=float)
+    p98_f = np.array(p98_a.filled(np.nan), dtype=float)
+    mx_f = np.array(mx_a.filled(np.nan), dtype=float)
+
+    # Optional debug output controlled by environment variable
+    try:
+        import os, sys
+
+        if os.environ.get("VELOCITY_PLOT_DEBUG") == "1":
+            print("DEBUG_PLOT: times(len)=%d" % len(times), file=sys.stderr)
+            print("DEBUG_PLOT: counts=%r" % (counts,), file=sys.stderr)
+            print("DEBUG_PLOT: p50_f=%r" % (p50_f.tolist(),), file=sys.stderr)
+    except Exception:
+        pass
+
     # Color palette: p50 (blue), p85 (green), p98 (purple), max (red dashed)
     color_p50 = "#fbd92f"
     color_p85 = "#f7b32b"
     color_p98 = "#f25f5c"
     color_max = "#2d1e2f"
 
-    ax.plot(times, p50_a, label="P50", marker="^", color=color_p50)
-    ax.plot(times, p85_a, label="P85", marker="s", color=color_p85)
-    ax.plot(times, p98_a, label="P98", marker="o", color=color_p98)
-    ax.plot(times, mx_a, label="Max", marker="x", linestyle="--", color=color_max)
+    # Helper: plot a series but break the line at masked/NaN values by
+    # detecting contiguous valid segments and plotting each separately.
+    def _plot_broken(ax, x, y_filled, label=None, **kwargs):
+        # x: list-like of x values (python datetimes); y_filled: numpy float array with np.nan for missing
+        x_arr = np.array(x, dtype=object)
 
-    ax.set_ylabel(f"Speed ({units})")
-    ax.set_title(title)
+        # valid mask where we have finite numeric values
+        valid_mask = np.isfinite(y_filled)
+        if not np.any(valid_mask):
+            return
+
+        # compute base time delta (in seconds) between consecutive points.
+        # Use the minimum positive delta as the expected bucket spacing because
+        # the server may omit empty buckets entirely; splitting on 2x this
+        # spacing will catch omitted ranges.
+        try:
+            deltas = []
+            for a, b in zip(x_arr[:-1], x_arr[1:]):
+                if a is None or b is None:
+                    continue
+                try:
+                    delta_s = (b - a).total_seconds()
+                except Exception:
+                    delta_s = float(
+                        (np.datetime64(b) - np.datetime64(a)) / np.timedelta64(1, "s")
+                    )
+                if delta_s > 0:
+                    deltas.append(delta_s)
+            if deltas:
+                base_delta = float(np.min(deltas))
+            else:
+                base_delta = None
+        except Exception:
+            base_delta = None
+
+        # threshold for considering a gap "large" (2x base spacing by default)
+        gap_threshold = (base_delta * 2) if base_delta is not None else None
+
+        # Debug: report base delta and threshold
+        try:
+            if os.environ.get("VELOCITY_PLOT_DEBUG") == "1":
+                import sys
+
+                print(
+                    f"DEBUG_PLOT: base_delta={base_delta} gap_threshold={gap_threshold}",
+                    file=sys.stderr,
+                )
+        except Exception:
+            pass
+
+        # Build indices of valid points, but we'll also break runs when we see a large time gap
+        idx = np.where(valid_mask)[0]
+        runs = []
+        start = idx[0]
+        prev = start
+        for i in idx[1:]:
+            split_on_gap = False
+            if gap_threshold is not None:
+                try:
+                    # compute time gap between prev and i
+                    try:
+                        gap_s = (x_arr[i] - x_arr[prev]).total_seconds()
+                    except Exception:
+                        gap_s = float(
+                            (np.datetime64(x_arr[i]) - np.datetime64(x_arr[prev]))
+                            / np.timedelta64(1, "s")
+                        )
+                    if gap_s > gap_threshold:
+                        split_on_gap = True
+                except Exception:
+                    split_on_gap = False
+
+            if i != prev + 1 or split_on_gap:
+                runs.append((start, prev))
+                start = i
+            prev = i
+        runs.append((start, prev))
+
+        plotted_any = False
+        for s, e in runs:
+            x_seg = x_arr[s : e + 1]
+            y_seg = y_filled[s : e + 1]
+            seg_label = label if not plotted_any else None
+            ax.plot(x_seg, y_seg, label=seg_label, **kwargs)
+            plotted_any = True
+
+    # Use smaller linewidth and marker size to 'zoom out' visually
+    _plot_broken(
+        ax,
+        times,
+        p50_f,
+        label="p50",
+        marker="^",
+        color=color_p50,
+        linewidth=1.0,
+        markersize=4,
+        markeredgewidth=0.4,
+    )
+    _plot_broken(
+        ax,
+        times,
+        p85_f,
+        label="p85",
+        marker="s",
+        color=color_p85,
+        linewidth=1.0,
+        markersize=4,
+        markeredgewidth=0.4,
+    )
+    _plot_broken(
+        ax,
+        times,
+        p98_f,
+        label="p98",
+        marker="o",
+        color=color_p98,
+        linewidth=1.0,
+        markersize=4,
+        markeredgewidth=0.4,
+    )
+    _plot_broken(
+        ax,
+        times,
+        mx_f,
+        label="Max",
+        marker="x",
+        linestyle="--",
+        color=color_max,
+        linewidth=1.0,
+        markersize=4,
+        markeredgewidth=0.4,
+    )
+
+    # Axis label with smaller font for compact appearance
+    ax.set_ylabel(f"Speed ({units})", fontsize=10)
+    # Reduce tick label sizes for both axes so the chart appears visually smaller
+    try:
+        ax.tick_params(axis="both", which="major", labelsize=8)
+    except Exception:
+        pass
 
     # Ensure speed axis includes zero at the bottom for clarity
     try:
@@ -181,18 +367,26 @@ def _plot_stats_page(stats, title: str, units: str):
         low_mask = [False for _ in counts]
 
     # Orange background bars (full-height highlight), behind other bars
-    orange_heights = [max_count if m else 0 for m in low_mask]
-    if any(orange_heights) and max_count > 0:
-        ax2.bar(times, orange_heights, width=0.04, alpha=0.2, color="#f7b32b", zorder=0)
+    # Compute top height first (increase by 60%) and use that as the
+    # orange highlight height so the orange bar reaches the top of the axis.
+    try:
+        top = max(1, int(max_count * 1.6))
+    except Exception:
+        top = max_count if max_count > 0 else 1
+
+    orange_heights = [top if m else 0 for m in low_mask]
+    if any(orange_heights) and top > 0:
+        ax2.bar(
+            times, orange_heights, width=0.04, alpha=0.25, color="#f7b32b", zorder=0
+        )
 
     # Primary count bars (always gray) drawn on top
     ax2.bar(
-        times, counts, width=0.02, alpha=0.5, color="#5E5E5E", label="Count", zorder=1
+        times, counts, width=0.03, alpha=0.2, color="#000000", label="Count", zorder=1
     )
 
-    # Increase ax2 max height by 40% so highlighted backgrounds are visible
+    # Set the right-axis y-limit so orange highlights reach the top
     try:
-        top = max(1, int(max_count * 1.6))
         ax2.set_ylim(0, top)
     except Exception:
         try:
@@ -207,7 +401,46 @@ def _plot_stats_page(stats, title: str, units: str):
     h1, l1 = ax.get_legend_handles_labels()
     h2, l2 = ax2.get_legend_handles_labels()
     if h1 or h2:
-        ax.legend(h1 + h2, l1 + l2, loc="lower right")
+        handles = h1 + h2
+        labels = l1 + l2
+        try:
+            # Place legend in the figure above the axes so it doesn't overlap the chart.
+            # Use a single row (ncol = number of labels).
+            ncols = max(1, len(labels))
+            # fig.legend places the legend in figure coordinates (outside axes)
+            leg = fig.legend(
+                handles,
+                labels,
+                loc="upper center",
+                bbox_to_anchor=(0.5, 0.98),
+                ncol=ncols,
+                framealpha=0.9,
+                prop={"size": 8},
+            )
+            try:
+                fr = leg.get_frame()
+                fr.set_facecolor("white")
+                fr.set_alpha(0.9)
+                # Ensure the legend frame is drawn above the bars
+                try:
+                    leg.set_zorder(10)
+                    fr.set_zorder(11)
+                except Exception:
+                    pass
+                # Make the frame edge visible so legend text isn't swamped
+                try:
+                    fr.set_edgecolor("#000000")
+                    fr.set_linewidth(1)
+                except Exception:
+                    pass
+            except Exception:
+                pass
+        except Exception:
+            # fallback to default legend if something goes wrong
+            try:
+                ax.legend(handles, labels, loc="lower right")
+            except Exception:
+                pass
 
     try:
         if mdates is not None:
@@ -234,8 +467,13 @@ def _plot_stats_page(stats, title: str, units: str):
     except Exception:
         pass
     try:
-        # also adjust subplot margins explicitly to be very small
-        fig.subplots_adjust(left=0.02, right=0.995, top=0.98, bottom=0.06)
+        # make more room at the top for the figure-level legend and push the chart down
+        fig.subplots_adjust(left=0.02, right=0.995, top=0.78, bottom=0.06)
+    except Exception:
+        pass
+    # also reduce tick sizes for the count axis
+    try:
+        ax2.tick_params(axis="both", which="major", labelsize=8)
     except Exception:
         pass
 

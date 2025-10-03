@@ -28,7 +28,7 @@ def format_time(tval: Any, tz_name: Optional[str]) -> str:
             dt = dt.astimezone(tzobj)
         else:
             dt = dt.astimezone(timezone.utc)
-        return dt.strftime("%m-%d %H:%M")
+        return dt.strftime("%-m/%-d %H:%M")
     except Exception:
         return str(tval)
 
