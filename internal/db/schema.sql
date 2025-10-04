@@ -53,6 +53,49 @@ PRAGMA busy_timeout = 5000;
         , FOREIGN KEY (command_id) REFERENCES radar_commands (command_id)
           );
 
+-- Persisted sessionization table for radar_data transits.
+-- Populated by a periodic worker (Go process) that scans recent radar_data
+-- and inserts/updates transit records. Keeping this as a table avoids expensive
+-- repeated CTEs and allows linking to radar_objects without modifying raw data.
+   CREATE TABLE IF NOT EXISTS radar_data_transits (
+          transit_id INTEGER PRIMARY KEY AUTOINCREMENT
+        , transit_key TEXT NOT NULL UNIQUE -- stable key for idempotent upserts
+
+        , threshold_ms INTEGER NOT NULL -- sessionization threshold used (1000,2000,...)
+
+        , transit_start_unix DOUBLE NOT NULL
+        , transit_end_unix DOUBLE NOT NULL
+        , transit_max_speed DOUBLE NOT NULL
+        , transit_min_speed DOUBLE
+        , transit_max_magnitude BIGINT
+        , transit_min_magnitude BIGINT
+        , point_count INTEGER NOT NULL
+        , model_version TEXT -- version/id of the model run that created this grouping
+
+        , created_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
+        , updated_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
+          );
+
+CREATE INDEX IF NOT EXISTS idx_transits_time ON radar_data_transits (transit_start_unix, transit_end_unix);
+
+-- Join table linking radar_data_transits to radar_data (many-to-many).
+-- Each link associates a transit (an aggregated session) with the underlying
+-- radar_data row (an individual raw reading). This enables inspection of which
+-- raw samples contributed to a transit.
+   CREATE TABLE IF NOT EXISTS radar_transit_links (
+          link_id INTEGER PRIMARY KEY AUTOINCREMENT
+        , transit_id INTEGER NOT NULL REFERENCES radar_data_transits (transit_id) ON DELETE CASCADE
+        , data_rowid INTEGER NOT NULL REFERENCES radar_data (rowid) ON DELETE CASCADE
+        , link_score DOUBLE -- optional score for match confidence
+
+        , created_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
+        , UNIQUE (transit_id, data_rowid)
+          );
+
+CREATE INDEX IF NOT EXISTS idx_transit_links_transit ON radar_transit_links (transit_id);
+
+CREATE INDEX IF NOT EXISTS idx_transit_links_data ON radar_transit_links (data_rowid);
+
 -- Append LiDAR schema (background snapshots, clusters, tracks) from internal/lidar/lidardb/schema.sql
 -- This keeps a single unified schema for both radar and lidar features.
    CREATE TABLE IF NOT EXISTS lidar_bg_snapshot (

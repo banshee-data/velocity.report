@@ -154,6 +154,9 @@ var supportedGroups = map[string]int64{
 	"8h":  8 * 60 * 60,
 	"12h": 12 * 60 * 60,
 	"24h": 24 * 60 * 60,
+	// special grouping that aggregates all values into a single bucket
+	// the server will pass 0 to the DB which treats it as 'all'
+	"all": 0,
 	"2d":  2 * 24 * 60 * 60,
 	"3d":  3 * 24 * 60 * 60,
 	"7d":  7 * 24 * 60 * 60,
@@ -191,9 +194,6 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// TODO: Add timezone conversion for timestamps once database schema includes timestamps
-	_ = displayTimezone // Silence unused variable warning for now
-
 	// Check for optional start/end/group parameters for time range + grouping
 	// start and end are expected as unix timestamps (seconds). group is a
 	// human-friendly code that maps to seconds (see supportedGroups below).
@@ -224,22 +224,115 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	stats, dbErr := s.db.RadarObjectRollupRange(startUnix, endUnix, groupSeconds)
+	// parse optional min_speed query parameter (in display units)
+	// if provided, convert to mps before passing to DB
+	minSpeedMPS := 0.0 // default: let DB use its internal default when 0
+	if minSpeedStr := r.URL.Query().Get("min_speed"); minSpeedStr != "" {
+		// parse as float in displayUnits
+		if minSpeedValue, err := strconv.ParseFloat(minSpeedStr, 64); err == nil {
+			minSpeedMPS = units.ConvertToMPS(minSpeedValue, displayUnits)
+		} else {
+			s.writeJSONError(w, http.StatusBadRequest, "Invalid 'min_speed' parameter; must be a number")
+			return
+		}
+	}
+
+	// parse optional data source parameter (radar_objects or radar_data_transits)
+	// default to radar_objects when empty
+	dataSource := r.URL.Query().Get("source")
+	if dataSource == "" {
+		dataSource = "radar_objects"
+	} else if dataSource != "radar_objects" && dataSource != "radar_data_transits" {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid 'source' parameter; must be 'radar_objects' or 'radar_data_transits'")
+		return
+	}
+
+	modelVersion := ""
+	if dataSource == "radar_data_transits" {
+		modelVersion = r.URL.Query().Get("model_version")
+		if modelVersion == "" {
+			modelVersion = "rebuild-full"
+		}
+	}
+
+	// Optional histogram computation parameters
+	computeHist := false
+	if ch := r.URL.Query().Get("compute_histogram"); ch != "" {
+		computeHist = (ch == "1" || strings.ToLower(ch) == "true")
+	}
+	histBucketSize := 0.0
+	if hbs := r.URL.Query().Get("hist_bucket_size"); hbs != "" {
+		if v, err := strconv.ParseFloat(hbs, 64); err == nil {
+			histBucketSize = v
+		} else {
+			s.writeJSONError(w, http.StatusBadRequest, "Invalid 'hist_bucket_size' parameter; must be a number")
+			return
+		}
+	}
+	histMax := 0.0
+	if hm := r.URL.Query().Get("hist_max"); hm != "" {
+		if v, err := strconv.ParseFloat(hm, 64); err == nil {
+			histMax = v
+		} else {
+			s.writeJSONError(w, http.StatusBadRequest, "Invalid 'hist_max' parameter; must be a number")
+			return
+		}
+	}
+
+	// Convert histogram params from display units to mps for DB call
+	bucketSizeMPS := 0.0
+	maxMPS := 0.0
+	if computeHist && histBucketSize > 0 {
+		bucketSizeMPS = units.ConvertToMPS(histBucketSize, displayUnits)
+	}
+	if computeHist && histMax > 0 {
+		maxMPS = units.ConvertToMPS(histMax, displayUnits)
+	}
+
+	result, dbErr := s.db.RadarObjectRollupRange(startUnix, endUnix, groupSeconds, minSpeedMPS, dataSource, modelVersion, bucketSizeMPS, maxMPS)
 	if dbErr != nil {
 		s.writeJSONError(w, http.StatusInternalServerError,
 			fmt.Sprintf("Failed to retrieve radar stats: %v", dbErr))
 		return
 	}
 
-	// Apply unit conversion to all speed values using the determined units
-	for i := range stats {
-		stats[i].MaxSpeed = units.ConvertSpeed(stats[i].MaxSpeed, displayUnits)
-		stats[i].P50Speed = units.ConvertSpeed(stats[i].P50Speed, displayUnits)
-		stats[i].P85Speed = units.ConvertSpeed(stats[i].P85Speed, displayUnits)
-		stats[i].P98Speed = units.ConvertSpeed(stats[i].P98Speed, displayUnits)
+	// Convert StartTime to requested timezone (Display timezone) and apply unit conversions.
+	// RadarObjectRollupRow.StartTime is stored in UTC by the DB layer.
+	for i := range result.Metrics {
+		// convert timestamp to display timezone; if conversion fails, keep UTC value
+		if displayTimezone != "" {
+			if t, err := units.ConvertTime(result.Metrics[i].StartTime, displayTimezone); err == nil {
+				result.Metrics[i].StartTime = t
+			} else {
+				// log and continue with UTC value
+				log.Printf("failed to convert start time to timezone %s: %v", displayTimezone, err)
+			}
+		}
+
+		result.Metrics[i].MaxSpeed = units.ConvertSpeed(result.Metrics[i].MaxSpeed, displayUnits)
+		result.Metrics[i].P50Speed = units.ConvertSpeed(result.Metrics[i].P50Speed, displayUnits)
+		result.Metrics[i].P85Speed = units.ConvertSpeed(result.Metrics[i].P85Speed, displayUnits)
+		result.Metrics[i].P98Speed = units.ConvertSpeed(result.Metrics[i].P98Speed, displayUnits)
 	}
 
-	if err := json.NewEncoder(w).Encode(stats); err != nil {
+	// Build response
+	respObj := map[string]interface{}{
+		"metrics": result.Metrics,
+	}
+	if len(result.Histogram) > 0 {
+		// convert histogram keys to strings for JSON stability
+		histOut := make(map[string]int64, len(result.Histogram))
+		for k, v := range result.Histogram {
+			// convert bucket start (which is in mps) back to the requested display units
+			conv := units.ConvertSpeed(k, displayUnits)
+			key := fmt.Sprintf("%.2f", conv)
+			// accumulate in case multiple mps bins map to the same display-unit label
+			histOut[key] += v
+		}
+		respObj["histogram"] = histOut
+	}
+
+	if err := json.NewEncoder(w).Encode(respObj); err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, "Failed to write radar stats")
 		return
 	}

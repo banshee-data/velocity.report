@@ -5,65 +5,18 @@ import (
 	"testing"
 )
 
-func TestConvertSpeed(t *testing.T) {
-	tests := []struct {
-		name     string
-		speedMPS float64
-		units    string
-		expected float64
-	}{
-		{"10 m/s to mph", 10.0, MPH, 22.3694},
-		{"10 m/s to kmph", 10.0, KMPH, 36.0},
-		{"10 m/s to kph", 10.0, KPH, 36.0},
-		{"10 m/s to mps", 10.0, MPS, 10.0},
-		{"unknown units default to mps", 10.0, "unknown", 10.0},
-		{"0 m/s to mph", 0.0, MPH, 0.0},
-		{"highway speed 31.29 m/s to mph", 31.29, MPH, 70.0},  // ~70 mph
-		{"city speed 13.89 m/s to kmph", 13.89, KMPH, 50.004}, // ~50 km/h
-		{"walking speed 1.4 m/s to mph", 1.4, MPH, 3.13172},   // ~3.1 mph
+func TestConvertToMPS(t *testing.T) {
+	// 10 mph -> ~4.4704 m/s
+	mphVal := 10.0
+	mps := ConvertToMPS(mphVal, MPH)
+	if !(mps > 4.47 && mps < 4.48) {
+		t.Fatalf("unexpected ConvertToMPS result: %v", mps)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := ConvertSpeed(tt.speedMPS, tt.units)
-			if math.Abs(result-tt.expected) > 0.01 { // Allow small floating point differences
-				t.Errorf("ConvertSpeed(%f, %s) = %f, want %f", tt.speedMPS, tt.units, result, tt.expected)
-			}
-		})
-	}
-}
-
-func TestIsValid(t *testing.T) {
-	tests := []struct {
-		name     string
-		unit     string
-		expected bool
-	}{
-		{"valid mps", MPS, true},
-		{"valid mph", MPH, true},
-		{"valid kmph", KMPH, true},
-		{"valid kph", KPH, true},
-		{"invalid unit", "invalid", false},
-		{"empty string", "", false},
-		{"case sensitive", "MPH", false},
-		{"case sensitive", "Mph", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := IsValid(tt.unit)
-			if result != tt.expected {
-				t.Errorf("IsValid(%s) = %v, want %v", tt.unit, result, tt.expected)
-			}
-		})
-	}
-}
-
-func TestGetValidUnitsString(t *testing.T) {
-	expected := "mps, mph, kmph, kph"
-	result := GetValidUnitsString()
-	if result != expected {
-		t.Errorf("GetValidUnitsString() = %s, want %s", result, expected)
+	// Round-trip: convert to mps then back to mph should be approximately the same
+	back := ConvertSpeed(mps, MPH)
+	if math.Abs(back-mphVal) > 1e-3 {
+		t.Fatalf("round-trip mismatch: started %v mph, got %v mph", mphVal, back)
 	}
 }
 

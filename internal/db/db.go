@@ -270,18 +270,49 @@ func (e *RadarObjectsRollupRow) String() string {
 	)
 }
 
-// RadarObjectRollupRange now aggregates all radar_objects into buckets by time only (no classifier grouping).
-func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64) ([]RadarObjectsRollupRow, error) {
+// RadarStatsResult combines time-aggregated metrics with an optional histogram.
+type RadarStatsResult struct {
+	Metrics   []RadarObjectsRollupRow
+	Histogram map[float64]int64 // bucket start (mps) -> count; nil if histogram not requested
+}
+
+// RadarObjectRollupRange aggregates all radar_objects into time buckets and optionally computes a histogram.
+// dataSource may be either "radar_objects" (default) or "radar_data_transits".
+// If histBucketSize > 0, a histogram is computed; histMax (if > 0) clips histogram values above that threshold.
+// Both histBucketSize and histMax are in meters-per-second (mps).
+func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, minSpeed float64, dataSource string, modelVersion string, histBucketSize, histMax float64) (*RadarStatsResult, error) {
 	if endUnix <= startUnix {
 		return nil, fmt.Errorf("end must be greater than start")
 	}
-	if groupSeconds <= 0 {
-		return nil, fmt.Errorf("groupSeconds must be positive")
+	// groupSeconds == 0 is allowed and treated as the 'all' aggregation (single bucket).
+	if groupSeconds < 0 {
+		return nil, fmt.Errorf("groupSeconds must be non-negative")
 	}
 
-	minSpeed := 2.2352 // minimum speed to consider (2.2352 mps, 5 mph)
+	// default minimum speed (meters per second) if caller passes 0
+	if minSpeed <= 0 {
+		minSpeed = 2.2352 // 2.2352 mps ≈ 5 mph
+	}
 
-	rows, err := db.Query(`SELECT write_timestamp, max_speed FROM radar_objects WHERE max_speed > ? AND write_timestamp BETWEEN ? AND ?`, minSpeed, startUnix, endUnix)
+	// default data source
+	if dataSource == "" {
+		dataSource = "radar_objects"
+	}
+
+	var rows *sql.Rows
+	var err error
+	switch dataSource {
+	case "radar_objects":
+		rows, err = db.Query(`SELECT write_timestamp, max_speed FROM radar_objects WHERE max_speed > ? AND write_timestamp BETWEEN ? AND ?`, minSpeed, startUnix, endUnix)
+	case "radar_data_transits":
+		// radar_data_transits stores transit_start_unix and transit_max_speed
+		if modelVersion == "" {
+			modelVersion = "rebuild-full"
+		}
+		rows, err = db.Query(`SELECT transit_start_unix, transit_max_speed FROM radar_data_transits WHERE model_version = ? AND transit_max_speed > ? AND transit_start_unix BETWEEN ? AND ?`, modelVersion, minSpeed, startUnix, endUnix)
+	default:
+		return nil, fmt.Errorf("unsupported dataSource: %s", dataSource)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -291,26 +322,72 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64) ([]
 	buckets := make(map[int64][]float64)
 	// track max speed per bucket
 	bucketMax := make(map[int64]float64)
+	// collect all speeds for histogram (if requested)
+	var allSpeedsForHist []float64
+	if histBucketSize > 0 {
+		allSpeedsForHist = make([]float64, 0)
+	}
 
-	for rows.Next() {
-		var tsFloat float64
-		var spd float64
-		if err := rows.Scan(&tsFloat, &spd); err != nil {
-			return nil, err
+	// Special-case: groupSeconds == 0 means 'all' -- aggregate all rows into a single bucket.
+	if groupSeconds == 0 {
+		var allSpeeds []float64
+		var allMax float64
+		var minTs int64 = 0
+		for rows.Next() {
+			var tsFloat float64
+			var spd float64
+			if err := rows.Scan(&tsFloat, &spd); err != nil {
+				return nil, err
+			}
+			ts := int64(math.Round(tsFloat))
+			allSpeeds = append(allSpeeds, spd)
+			if histBucketSize > 0 {
+				allSpeedsForHist = append(allSpeedsForHist, spd)
+			}
+			if allMax == 0 || spd > allMax {
+				allMax = spd
+			}
+			if minTs == 0 || ts < minTs {
+				minTs = ts
+			}
 		}
-		ts := int64(math.Round(tsFloat))
 
-		// compute bucket start aligned to startUnix
-		offset := ts - startUnix
-		if offset < 0 {
-			offset = 0
+		// Determine bucket start: midnight (00:00:00) UTC of minTs (or startUnix if no rows)
+		var bucketStart int64
+		if minTs == 0 {
+			bucketStart = time.Unix(startUnix, 0).UTC().Truncate(24 * time.Hour).Unix()
+		} else {
+			bucketStart = time.Unix(minTs, 0).UTC().Truncate(24 * time.Hour).Unix()
 		}
-		bucketOffset := (offset / groupSeconds) * groupSeconds
-		bucketStart := startUnix + bucketOffset
 
-		buckets[bucketStart] = append(buckets[bucketStart], spd)
-		if curr, ok := bucketMax[bucketStart]; !ok || spd > curr {
-			bucketMax[bucketStart] = spd
+		if len(allSpeeds) > 0 {
+			buckets[bucketStart] = allSpeeds
+			bucketMax[bucketStart] = allMax
+		}
+	} else {
+		for rows.Next() {
+			var tsFloat float64
+			var spd float64
+			if err := rows.Scan(&tsFloat, &spd); err != nil {
+				return nil, err
+			}
+			ts := int64(math.Round(tsFloat))
+
+			// compute bucket start aligned to startUnix
+			offset := ts - startUnix
+			if offset < 0 {
+				offset = 0
+			}
+			bucketOffset := (offset / groupSeconds) * groupSeconds
+			bucketStart := startUnix + bucketOffset
+
+			buckets[bucketStart] = append(buckets[bucketStart], spd)
+			if histBucketSize > 0 {
+				allSpeedsForHist = append(allSpeedsForHist, spd)
+			}
+			if curr, ok := bucketMax[bucketStart]; !ok || spd > curr {
+				bucketMax[bucketStart] = spd
+			}
 		}
 	}
 
@@ -353,7 +430,26 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64) ([]
 		aggregated = append(aggregated, agg)
 	}
 
-	return aggregated, nil
+	// Compute histogram if requested
+	var histogram map[float64]int64
+	if histBucketSize > 0 && len(allSpeedsForHist) > 0 {
+		histogram = make(map[float64]int64)
+		for _, spd := range allSpeedsForHist {
+			// skip values above histMax if a max was provided
+			if histMax > 0 && spd > histMax {
+				continue
+			}
+			// compute bin start aligned to histBucketSize
+			binIdx := math.Floor(spd / histBucketSize)
+			binStart := binIdx * histBucketSize
+			histogram[binStart] = histogram[binStart] + 1
+		}
+	}
+
+	return &RadarStatsResult{
+		Metrics:   aggregated,
+		Histogram: histogram,
+	}, nil
 }
 
 func (db *DB) RecordRawData(rawDataJSON string) error {

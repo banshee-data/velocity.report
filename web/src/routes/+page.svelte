@@ -5,15 +5,24 @@
 	import { format } from 'date-fns';
 	import { Axis, Chart, Highlight, Spline, Svg, Text } from 'layerchart';
 	import { onMount } from 'svelte';
-	import { Card, DateRangeField, Grid, Header, SelectField } from 'svelte-ux';
+	import {
+		Card,
+		DateRangeField,
+		Grid,
+		Header,
+		SelectField,
+		ToggleGroup,
+		ToggleOption
+	} from 'svelte-ux';
 	import { getConfig, getRadarStats, type Config, type RadarStats } from '../lib/api';
+	import { displayTimezone, initializeTimezone } from '../lib/stores/timezone';
 	import { displayUnits, initializeUnits } from '../lib/stores/units';
 	import { getUnitLabel, type Unit } from '../lib/units';
 
 	let stats: RadarStats[] = [];
 	let config: Config = { units: 'mph', timezone: 'UTC' }; // default
 	let totalCount = 0;
-	let maxSpeed = 0;
+	let p98Speed = 0;
 	let loading = true;
 	let error = '';
 	// default DateRangeField to the last 14 days (inclusive)
@@ -26,16 +35,24 @@
 	let dateRange = { from: fromDefault, to: today, periodType: PeriodType.Day };
 	let group: string = '4h';
 	let chartData: Array<{ date: Date; metric: string; value: number }> = [];
+	let graphData: RadarStats[] = [];
+	const barSeries = [
+		{ key: 'count', label: 'Count', value: (d: RadarStats) => d.count, color: '#16a34a' },
+		{ key: 'p50', label: 'p50', value: (d: RadarStats) => d.p50, color: '#2563eb' },
+		{ key: 'p85', label: 'p85', value: (d: RadarStats) => d.p85, color: '#16a34a' },
+		{ key: 'p98', label: 'p98', value: (d: RadarStats) => d.p98, color: '#f59e0b' }
+	];
+	let selectedSource: string = 'radar_objects';
 
 	// color map mirrors the cDomain/cRange used by the chart so we don't need
 	// to capture cScale via a `let:` slot (which conflicts with internal
 	// components that use `let:` themselves and triggers Svelte's
 	// invalid_default_snippet error).
 	const colorMap: Record<string, string> = {
-		p50: '#2563eb',
-		p85: '#16a34a',
-		p98: '#f59e0b',
-		max: '#ef4444'
+		p50: '#ece111',
+		p85: '#ed7648',
+		p98: '#d50734',
+		max: '#000000'
 	};
 
 	const groupOptions = [
@@ -55,38 +72,61 @@
 	];
 	const options = groupOptions.map((o) => ({ value: o, label: o }));
 
-	// Reload stats and chart when dateRange or units change (client only)
+	// Reload behavior: react to dateRange, units, group, or source changes.
+	// - If dateRange, units, or source changed -> reload both stats and chart.
+	// - If only group changed -> reload only the chart for faster response.
 	let lastFrom: number = 0;
 	let lastTo: number = 0;
 	let lastUnits: Unit | undefined = undefined;
-	$: if (
-		browser &&
-		dateRange.from &&
-		dateRange.to &&
-		(dateRange.from.getTime() !== lastFrom ||
-			dateRange.to.getTime() !== lastTo ||
-			$displayUnits !== lastUnits)
-	) {
-		lastFrom = dateRange.from.getTime();
-		lastTo = dateRange.to.getTime();
-		lastUnits = $displayUnits;
-		loading = true;
-		Promise.all([loadStats($displayUnits), loadChart()]).finally(() => {
-			loading = false;
-		});
-	}
-
-	// Reload only the chart when group changes (client only)
 	let lastGroup = '';
-	$: if (browser && group !== lastGroup) {
-		lastGroup = group;
-		loadChart();
+	let lastSource = '';
+	let initialized = false;
+	// Cache the last raw stats response
+	let lastStatsRaw: any | null = null;
+	let lastStatsRequestKey = '';
+
+	$: if (initialized && browser && dateRange.from && dateRange.to) {
+		const from = dateRange.from.getTime();
+		const to = dateRange.to.getTime();
+
+		const dateChanged = from !== lastFrom || to !== lastTo;
+		const unitsChanged = $displayUnits !== lastUnits;
+		const groupChanged = group !== lastGroup;
+		const sourceChanged = selectedSource !== lastSource;
+
+		// Full reload when date range, display units, or source changes
+		if (dateChanged || unitsChanged || sourceChanged) {
+			lastFrom = from;
+			lastTo = to;
+			lastUnits = $displayUnits;
+			lastGroup = group;
+			lastSource = selectedSource;
+
+			loading = true;
+			// run loadStats first so it can populate the cache, then run loadChart which will reuse it
+			loadStats($displayUnits)
+				.then(() => loadChart())
+				.catch((e) => {
+					error = e instanceof Error && e.message ? e.message : String(e);
+				})
+				.finally(() => {
+					loading = false;
+				});
+			// done
+		} else if (groupChanged) {
+			// Only grouping changed -> refresh chart only
+			lastGroup = group;
+			loadChart();
+		}
 	}
 
 	async function loadConfig() {
 		try {
 			config = await getConfig();
 			initializeUnits(config.units);
+			// initialize the timezone store as well so the dashboard uses stored timezone
+			initializeTimezone(config.timezone);
+			if (browser) console.debug('[dashboard] initialized timezone store ->', $displayTimezone);
 		} catch (e) {
 			error = e instanceof Error && e.message ? e.message : 'Failed to load config';
 		}
@@ -97,15 +137,27 @@
 			if (!dateRange.from || !dateRange.to) {
 				stats = [];
 				totalCount = 0;
-				maxSpeed = 0;
+				p98Speed = 0;
 				return;
 			}
 			const startUnix = Math.floor(dateRange.from.getTime() / 1000);
 			const endUnix = Math.floor(dateRange.to.getTime() / 1000);
-			const statsData = await getRadarStats(startUnix, endUnix, group, units);
-			stats = statsData;
-			totalCount = stats.reduce((sum, s) => sum + (s.Count || 0), 0);
-			maxSpeed = stats.length > 0 ? Math.max(...stats.map((s) => s.MaxSpeed || 0)) : 0;
+			const statsResp = await getRadarStats(
+				startUnix,
+				endUnix,
+				group,
+				units,
+				$displayTimezone,
+				selectedSource
+			);
+			// cache raw response so loadChart can reuse it instead of making a second request
+			lastStatsRaw = statsResp;
+			lastStatsRequestKey = `${startUnix}|${endUnix}|${group}|${units}|${$displayTimezone}|${selectedSource}`;
+			if (browser) console.debug('[dashboard] fetch stats timezone ->', $displayTimezone);
+			stats = statsResp.metrics;
+			totalCount = stats.reduce((sum, s) => sum + (s.count || 0), 0);
+			// Show P98 speed (aggregate percentile) in the summary card
+			p98Speed = stats.length > 0 ? Math.max(...stats.map((s) => s.p98 || 0)) : 0;
 		} catch (e) {
 			error = e instanceof Error && e.message ? e.message : 'Failed to load stats';
 		}
@@ -120,25 +172,58 @@
 		const startUnix = Math.floor(dateRange.from.getTime() / 1000);
 		const endUnix = Math.floor(dateRange.to.getTime() / 1000);
 		const units = $displayUnits;
-		const raw = await fetch(
-			`/api/radar_stats?start=${startUnix}&end=${endUnix}&group=${group}&units=${units}`
-		);
-		if (!raw.ok) {
-			error = `Failed to load chart data: ${raw.statusText}`;
-			return;
-		}
-		const arr = await raw.json();
+		const requestKey = `${startUnix}|${endUnix}|${group}|${units}|${$displayTimezone}|${selectedSource}`;
 
-		// transform to multi-series flat data: for each row create points for p50, p85, p98, max
+		let arr: RadarStats[];
+		if (lastStatsRaw && requestKey === lastStatsRequestKey) {
+			// reuse cached stats response (it may be the root object)
+			const cached = lastStatsRaw as any;
+			arr = Array.isArray(cached) ? cached : cached.metrics || [];
+			if (browser) console.debug('[dashboard] reusing cached stats for chart');
+		} else {
+			// fetch via the shared API helper so we use the same code path as loadStats
+			if (browser)
+				console.debug('[dashboard] chart fetching via getRadarStats ->', $displayTimezone);
+			const resp = await getRadarStats(
+				startUnix,
+				endUnix,
+				group,
+				units,
+				$displayTimezone,
+				selectedSource
+			);
+			arr = resp.metrics;
+			// cache the response for potential reuse
+			lastStatsRaw = resp;
+			lastStatsRequestKey = requestKey;
+		}
+
+		// filter out rows with missing/invalid date to avoid scale errors
+		const validRows = arr.filter((r) => {
+			const dt = r.date instanceof Date ? r.date : new Date(r.date);
+			return dt && !isNaN(dt.getTime());
+		});
+		if (validRows.length !== arr.length && browser) {
+			console.debug('[dashboard] dropped rows with invalid date', arr.length - validRows.length);
+		}
+
+		// prepare graphData for BarChart/LineChart (single-point-per-x series)
+		// the API already returns RadarStats shape (date,count,p50,p85,p98,max) so pass through
+		graphData = validRows as RadarStats[];
+
+		// transform to multi-series flat data: for each valid row create points for p50, p85, p98, max
 		const rows: Array<{ date: Date; metric: string; value: number }> = [];
-		for (const r of arr) {
-			const d = new Date(r.StartTime);
-			rows.push({ date: d, metric: 'p50', value: r.P50Speed || 0 });
-			rows.push({ date: d, metric: 'p85', value: r.P85Speed || 0 });
-			rows.push({ date: d, metric: 'p98', value: r.P98Speed || 0 });
-			rows.push({ date: d, metric: 'max', value: r.MaxSpeed || 0 });
+		for (const r of validRows) {
+			const dt = r.date instanceof Date ? (r.date as Date) : new Date(r.date);
+			rows.push({ date: dt, metric: 'p50', value: r.p50 || 0 });
+			rows.push({ date: dt, metric: 'p85', value: r.p85 || 0 });
+			rows.push({ date: dt, metric: 'p98', value: r.p98 || 0 });
+			rows.push({ date: dt, metric: 'max', value: r.max || 0 });
 		}
 		chartData = rows;
+
+		// debug: log a sample to inspect types/values used by BarChart/legend
+		// if (browser) console.debug('[dashboard] graphData sample ->', graphData.slice(0, 3));
 	}
 
 	async function loadData() {
@@ -146,11 +231,19 @@
 		error = '';
 		try {
 			await loadConfig();
+			// establish last-known values so the reactive watcher doesn't think things changed
+			lastFrom = dateRange.from.getTime();
+			lastTo = dateRange.to.getTime();
+			lastUnits = $displayUnits;
+			lastGroup = group;
+			lastSource = selectedSource;
 			await loadStats($displayUnits);
 			// populate the chart for the default date range
 			await loadChart();
 		} finally {
 			loading = false;
+			// mark initialization complete so the reactive watcher can start firing
+			initialized = true;
 		}
 	}
 
@@ -169,26 +262,32 @@
 	{:else if error}
 		<p class="text-red-600">{error}</p>
 	{:else}
-		<div class="flex items-end gap-4">
-			<div class="w-[360px]">
-				<DateRangeField bind:value={dateRange} periodTypes={[PeriodType.Day]} />
+		<div class="flex items-end gap-2">
+			<div class="w-74">
+				<DateRangeField bind:value={dateRange} periodTypes={[PeriodType.Day]} stepper />
 			</div>
-			<div class="w-48">
-				<SelectField bind:value={group} label="Group" {options} />
+			<div class="w-24">
+				<SelectField bind:value={group} label="Group" {options} clearable={false} />
+			</div>
+			<div class="w-24">
+				<ToggleGroup bind:value={selectedSource} vertical inset>
+					<ToggleOption value="radar_objects">Objects</ToggleOption>
+					<ToggleOption value="radar_data_transits">Transits</ToggleOption>
+				</ToggleGroup>
 			</div>
 		</div>
 
-		<Grid autoColumns="12em" gap={8}>
+		<Grid autoColumns="14em" gap={8}>
 			<Card title="Vehicle Count">
 				<div class="pb-4 pl-4 pr-4 pt-0">
 					<p class="text-3xl font-bold text-blue-600">{totalCount}</p>
 				</div>
 			</Card>
 
-			<Card title="Max Speed">
+			<Card title="P98 Speed">
 				<div class="pb-4 pl-4 pr-4 pt-0">
 					<p class="text-3xl font-bold text-green-600">
-						{maxSpeed.toFixed(1)}
+						{p98Speed.toFixed(1)}
 						{getUnitLabel($displayUnits)}
 					</p>
 				</div>
@@ -196,6 +295,11 @@
 		</Grid>
 
 		{#if chartData.length > 0}
+			<!-- @TODO the chart needs:
+				* go to zero when no data
+				* hour on the x-axis when zoomed in (Timezone aligned)
+				* Tooltip for multiple metrics
+				-->
 			<div class="mb-4 h-[300px] rounded border p-4">
 				<Chart
 					data={chartData}
@@ -213,7 +317,13 @@
 				>
 					<Svg>
 						<Axis placement="left" grid rule />
-						<Axis placement="bottom" format={(d) => format(d, 'MMM d')} rule />
+						<Axis
+							placement="bottom"
+							format={(d) => `${format(d, 'MMM d')}\n${format(d, 'HH:mm')}`}
+							rule
+							tickSpacing={100}
+							tickMultiline
+						/>
 						{#each ['p50', 'p85', 'p98', 'max'] as metric}
 							{@const data = chartData.filter((p) => p.metric === metric)}
 							{@const color = colorMap[metric]}
