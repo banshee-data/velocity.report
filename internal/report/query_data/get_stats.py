@@ -583,6 +583,10 @@ def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
     client = RadarStatsClient()
 
     for start_date, end_date in date_ranges:
+        model_version = None
+        if getattr(args, "source", "") == "radar_data_transits":
+            model_version = args.model_version or "rebuild-full"
+
         try:
             start_ts = parse_date_to_unix(
                 start_date, end_of_day=False, tz_name=(args.timezone or None)
@@ -615,6 +619,7 @@ def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
                 group=args.group,
                 units=args.units,
                 source=args.source,
+                model_version=model_version,
                 timezone=args.timezone or None,
                 min_speed=args.min_speed,
                 compute_histogram=args.histogram,
@@ -633,6 +638,7 @@ def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
                 group="all",
                 units=args.units,
                 source=args.source,
+                model_version=model_version,
                 timezone=args.timezone or None,
                 min_speed=args.min_speed,
                 compute_histogram=False,
@@ -651,6 +657,7 @@ def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
                     group="24h",
                     units=args.units,
                     source=args.source,
+                    model_version=model_version,
                     timezone=args.timezone or None,
                     min_speed=args.min_speed,
                     compute_histogram=False,
@@ -837,6 +844,11 @@ if __name__ == "__main__":
         default="radar_objects",
         choices=["radar_objects", "radar_data_transits"],
         help="Data source to query (radar_objects or radar_data_transits).",
+    )
+    parser.add_argument(
+        "--model-version",
+        default="rebuild-full",
+        help="Transit model version to query when --source=radar_data_transits. Default: rebuild-full",
     )
     parser.add_argument(
         "--timezone",

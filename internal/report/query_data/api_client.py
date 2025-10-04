@@ -38,6 +38,7 @@ class RadarStatsClient:
         group: str = "1h",
         units: str = "mph",
         source: str = "radar_objects",
+        model_version: Optional[str] = None,
         timezone: Optional[str] = None,
         min_speed: Optional[float] = None,
         compute_histogram: bool = False,
@@ -52,6 +53,7 @@ class RadarStatsClient:
             group: Aggregation period (15m, 30m, 1h, etc.)
             units: Speed units (mph, kph, etc.)
             source: Data source (radar_objects or radar_data_transits)
+            model_version: Transit model version to request (for radar_data_transits)
             timezone: Timezone for StartTime conversion
             min_speed: Minimum speed filter
             compute_histogram: Whether to request histogram data
@@ -71,6 +73,8 @@ class RadarStatsClient:
             "units": units,
             "source": source,
         }
+        if model_version:
+            params["model_version"] = model_version
         if timezone:
             params["timezone"] = timezone
         if min_speed is not None:

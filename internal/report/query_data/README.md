@@ -45,6 +45,13 @@ python get_stats.py --group 1h --units mph --timezone US/Pacific \\
     2025-06-02 2025-06-04
 ```
 
+To query transit rollups, provide the data source and (optionally) override the model version:
+
+```bash
+python get_stats.py --source radar_data_transits --model-version rebuild-full \\
+    2025-06-02 2025-06-04
+```
+
 ### As a Library
 
 ```python

@@ -280,7 +280,7 @@ type RadarStatsResult struct {
 // dataSource may be either "radar_objects" (default) or "radar_data_transits".
 // If histBucketSize > 0, a histogram is computed; histMax (if > 0) clips histogram values above that threshold.
 // Both histBucketSize and histMax are in meters-per-second (mps).
-func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, minSpeed float64, dataSource string, histBucketSize, histMax float64) (*RadarStatsResult, error) {
+func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, minSpeed float64, dataSource string, modelVersion string, histBucketSize, histMax float64) (*RadarStatsResult, error) {
 	if endUnix <= startUnix {
 		return nil, fmt.Errorf("end must be greater than start")
 	}
@@ -306,7 +306,10 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 		rows, err = db.Query(`SELECT write_timestamp, max_speed FROM radar_objects WHERE max_speed > ? AND write_timestamp BETWEEN ? AND ?`, minSpeed, startUnix, endUnix)
 	case "radar_data_transits":
 		// radar_data_transits stores transit_start_unix and transit_max_speed
-		rows, err = db.Query(`SELECT transit_start_unix, transit_max_speed FROM radar_data_transits WHERE model_version='rebuild-full' AND transit_max_speed > ? AND transit_start_unix BETWEEN ? AND ?`, minSpeed, startUnix, endUnix)
+		if modelVersion == "" {
+			modelVersion = "rebuild-full"
+		}
+		rows, err = db.Query(`SELECT transit_start_unix, transit_max_speed FROM radar_data_transits WHERE model_version = ? AND transit_max_speed > ? AND transit_start_unix BETWEEN ? AND ?`, modelVersion, minSpeed, startUnix, endUnix)
 	default:
 		return nil, fmt.Errorf("unsupported dataSource: %s", dataSource)
 	}
