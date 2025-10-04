@@ -103,7 +103,6 @@
 			lastSource = selectedSource;
 
 			loading = true;
-			loading = true;
 			// run loadStats first so it can populate the cache, then run loadChart which will reuse it
 			loadStats($displayUnits)
 				.then(() => loadChart())

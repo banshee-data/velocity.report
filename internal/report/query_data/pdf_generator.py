@@ -527,9 +527,20 @@ def generate_pdf_report(
     # to use Atkinson Hyperlegible as the sans font.
     fonts_path = os.path.join(os.path.dirname(__file__), "fonts")
     # Use Path= with trailing os.sep so fontspec can find the files
+    # Break up the fontspec options for readability and maintainability
+    sans_font_options = [
+        f"Path={fonts_path + os.sep}",
+        "Extension=.ttf",
+        "Scale=MatchLowercase",
+        "UprightFont=AtkinsonHyperlegible-Regular",
+        "ItalicFont=AtkinsonHyperlegible-Italic",
+        "BoldFont=AtkinsonHyperlegible-Bold",
+        "BoldItalicFont=AtkinsonHyperlegible-BoldItalic",
+    ]
+    sans_font_options_str = ",\n    ".join(sans_font_options)
     doc.preamble.append(
         NoEscape(
-            rf"\setsansfont[Path={fonts_path + os.sep},Extension=.ttf,Scale=MatchLowercase,UprightFont=AtkinsonHyperlegible-Regular,ItalicFont=AtkinsonHyperlegible-Italic,BoldFont=AtkinsonHyperlegible-Bold,BoldItalicFont=AtkinsonHyperlegible-BoldItalic]{{AtkinsonHyperlegible-Regular}}"
+            rf"\setsansfont[{sans_font_options_str}]{{AtkinsonHyperlegible-Regular}}"
         )
     )
     # Use sans family as the default
