@@ -59,6 +59,7 @@ class TestRadarStatsClient:
         assert metrics[0]["P50Speed"] == 25.5
         assert histogram == {}
         assert resp.status_code == 200
+        assert "model_version" not in responses.calls[0].request.url
 
     @responses.activate
     def test_get_stats_with_histogram(self):
@@ -106,6 +107,7 @@ class TestRadarStatsClient:
             group="24h",
             units="kph",
             source="radar_data_transits",
+            model_version="custom-version",
             timezone="US/Pacific",
             min_speed=5.0,
             compute_histogram=True,
@@ -121,6 +123,7 @@ class TestRadarStatsClient:
         assert "group=24h" in request.url
         assert "units=kph" in request.url
         assert "source=radar_data_transits" in request.url
+        assert "model_version=custom-version" in request.url
         assert "timezone=US%2FPacific" in request.url
         assert "min_speed=5.0" in request.url
         assert "compute_histogram=true" in request.url

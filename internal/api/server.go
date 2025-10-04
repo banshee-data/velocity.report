@@ -247,6 +247,14 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	modelVersion := ""
+	if dataSource == "radar_data_transits" {
+		modelVersion = r.URL.Query().Get("model_version")
+		if modelVersion == "" {
+			modelVersion = "rebuild-full"
+		}
+	}
+
 	// Optional histogram computation parameters
 	computeHist := false
 	if ch := r.URL.Query().Get("compute_histogram"); ch != "" {
@@ -281,7 +289,7 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 		maxMPS = units.ConvertToMPS(histMax, displayUnits)
 	}
 
-	result, dbErr := s.db.RadarObjectRollupRange(startUnix, endUnix, groupSeconds, minSpeedMPS, dataSource, bucketSizeMPS, maxMPS)
+	result, dbErr := s.db.RadarObjectRollupRange(startUnix, endUnix, groupSeconds, minSpeedMPS, dataSource, modelVersion, bucketSizeMPS, maxMPS)
 	if dbErr != nil {
 		s.writeJSONError(w, http.StatusInternalServerError,
 			fmt.Sprintf("Failed to retrieve radar stats: %v", dbErr))
