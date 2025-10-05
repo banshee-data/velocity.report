@@ -639,6 +639,15 @@ def generate_pdf_report(
             max_speed,
         )
 
+    # Add histogram chart if available
+    if chart_exists(charts_prefix, "histogram"):
+        hist_path = os.path.abspath(f"{charts_prefix}_histogram.pdf")
+        with doc.create(Center()) as hist_chart_center:
+            with hist_chart_center.create(Figure(position="H")) as fig:
+                # use full available text width for histogram as well
+                fig.add_image(hist_path, width=NoEscape(r"\linewidth"))
+                fig.add_caption("Velocity Distribution Histogram")
+
     add_site_specifics(doc)
 
     doc.append(NoEscape("\\par"))
@@ -758,15 +767,6 @@ def generate_pdf_report(
     #             include_start_time=False,
     #         )
     #     )
-
-    # Add histogram chart if available
-    if chart_exists(charts_prefix, "histogram"):
-        hist_path = os.path.abspath(f"{charts_prefix}_histogram.pdf")
-        with doc.create(Center()) as hist_chart_center:
-            with hist_chart_center.create(Figure(position="H")) as fig:
-                # use full available text width for histogram as well
-                fig.add_image(hist_path, width=NoEscape(r"\linewidth"))
-                fig.add_caption("Velocity Distribution Histogram")
 
     # Add histogram table if available
     if histogram:
