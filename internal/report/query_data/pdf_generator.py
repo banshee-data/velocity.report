@@ -128,9 +128,10 @@ def create_stats_table(
         ]
 
     centered = Center()
-    # denser table font and tighter horizontal padding
-    # centered.append(NoEscape(r"\scriptsize"))
-    # centered.append(NoEscape(r"\setlength{\tabcolsep}{3pt}"))
+    # Use a single Atkinson monospace font group for the whole table instead
+    # of wrapping every cell in \AtkinsonMono{...} which causes needless
+    # font switching. Start a local group that selects the mono font.
+    centered.append(NoEscape(r"{\AtkinsonMono"))
 
     table = Tabular(table_spec)
     # Add headers
@@ -149,51 +150,35 @@ def create_stats_table(
         if include_start_time:
             st = row.get("StartTime") or row.get("start_time") or row.get("starttime")
             tstr = format_time(st, tz_name)
-            # Render start time in a monospaced Atkinson font when available.
-            # Use a single backslash so LaTeX sees the command name (previously
-            # a double backslash caused literal "AtkinsonMono" text to appear).
-            tcell = NoEscape(r"\AtkinsonMono{" + escape_latex(tstr) + r"}")
             table.add_row(
                 [
-                    tcell,
-                    NoEscape(r"\AtkinsonMono{" + escape_latex(str(int(cnt))) + r"}"),
-                    NoEscape(
-                        r"\AtkinsonMono{" + escape_latex(format_number(p50v)) + r"}"
-                    ),
-                    NoEscape(
-                        r"\AtkinsonMono{" + escape_latex(format_number(p85v)) + r"}"
-                    ),
-                    NoEscape(
-                        r"\AtkinsonMono{" + escape_latex(format_number(p98v)) + r"}"
-                    ),
-                    NoEscape(
-                        r"\AtkinsonMono{" + escape_latex(format_number(maxv)) + r"}"
-                    ),
+                    NoEscape(escape_latex(tstr)),
+                    NoEscape(escape_latex(str(int(cnt)))),
+                    NoEscape(escape_latex(format_number(p50v))),
+                    NoEscape(escape_latex(format_number(p85v))),
+                    NoEscape(escape_latex(format_number(p98v))),
+                    NoEscape(escape_latex(format_number(maxv))),
                 ]
             )
         else:
             table.add_row(
                 [
-                    NoEscape(r"\AtkinsonMono{" + escape_latex(str(int(cnt))) + r"}"),
-                    NoEscape(
-                        r"\AtkinsonMono{" + escape_latex(format_number(p50v)) + r"}"
-                    ),
-                    NoEscape(
-                        r"\AtkinsonMono{" + escape_latex(format_number(p85v)) + r"}"
-                    ),
-                    NoEscape(
-                        r"\AtkinsonMono{" + escape_latex(format_number(p98v)) + r"}"
-                    ),
-                    NoEscape(
-                        r"\AtkinsonMono{" + escape_latex(format_number(maxv)) + r"}"
-                    ),
+                    NoEscape(escape_latex(str(int(cnt)))),
+                    NoEscape(escape_latex(format_number(p50v))),
+                    NoEscape(escape_latex(format_number(p85v))),
+                    NoEscape(escape_latex(format_number(p98v))),
+                    NoEscape(escape_latex(format_number(maxv))),
                 ]
             )
 
     table.add_hline()
     centered.append(table)
 
-    # Add caption
+    # Close the AtkinsonMono group we opened earlier so following text is
+    # unaffected.
+    centered.append(NoEscape("}"))
+
+    # Add caption (outside the mono group so caption styling remains consistent)
     centered.append(NoEscape("\\par\\vspace{2pt}"))
     centered.append(
         NoEscape(f"\\noindent\\makebox[\\linewidth]{{\\textbf{{\\small {caption}}}}}")
@@ -218,10 +203,9 @@ def create_histogram_table(
     )
 
     centered = Center()
-    # (global sans-serif set in preamble)
-    # denser histogram table font and tighter padding
-    # centered.append(NoEscape(r"\scriptsize"))
-    # centered.append(NoEscape(r"\setlength{\tabcolsep}{3pt}"))
+    # Use a single Atkinson mono group for the entire histogram table to
+    # avoid repeated font switches per cell.
+    centered.append(NoEscape(r"{\AtkinsonMono"))
 
     table = Tabular("lrr")
     table.add_row(["Bucket", "Count", "Percent"])
@@ -264,6 +248,7 @@ def create_histogram_table(
 
     table.add_hline()
     centered.append(table)
+    centered.append(NoEscape("}"))
 
     # Add caption
     centered.append(NoEscape("\\par\\vspace{2pt}"))
@@ -302,33 +287,39 @@ def add_metric_data_intro(
 
     doc.append(NoEscape("\\subsection*{Key Metrics}"))
     table = Tabular("ll")
+    # Wrap the numeric column in a single mono group to avoid repeated
+    # per-cell font switches.
     table.add_row(
         [
             NoEscape(r"\textbf{Maximum Velocity:}"),
-            NoEscape(r"\AtkinsonMono{" + escape_latex(f"{max_speed:.2f} mph") + r"}"),
+            NoEscape(escape_latex(f"{max_speed:.2f} mph")),
         ]
     )
     table.add_row(
         [
             NoEscape(r"\textbf{98th Percentile Velocity (p98):}"),
-            NoEscape(r"\AtkinsonMono{" + escape_latex(f"{p98:.2f} mph") + r"}"),
+            NoEscape(escape_latex(f"{p98:.2f} mph")),
         ]
     )
     table.add_row(
         [
             NoEscape(r"\textbf{85th Percentile Velocity (p85):}"),
-            NoEscape(r"\AtkinsonMono{" + escape_latex(f"{p85:.2f} mph") + r"}"),
+            NoEscape(escape_latex(f"{p85:.2f} mph")),
         ]
     )
     table.add_row(
         [
             NoEscape(r"\textbf{Median Velocity (p50):}"),
-            NoEscape(r"\AtkinsonMono{" + escape_latex(f"{p50:.2f} mph") + r"}"),
+            NoEscape(escape_latex(f"{p50:.2f} mph")),
         ]
     )
-    # Render this parameter table in sans-serif locally
-    doc.append(NoEscape("\\sffamily"))
+
+    # Render this parameter table in sans-serif locally, but select the mono
+    # font for the numeric column by wrapping the table in {\AtkinsonMono ...}
+    doc.append(NoEscape(r"\sffamily"))
+    doc.append(NoEscape(r"{\AtkinsonMono"))
     doc.append(table)
+    doc.append(NoEscape("}"))
 
     doc.append(NoEscape("\\par"))
 
