@@ -107,8 +107,12 @@ def create_stats_table(
 ) -> Center:
     """Create a statistics table using PyLaTeX."""
 
+    # Build column specs programmatically so we can apply the monospace
+    # font to numeric columns only (via >{\AtkinsonMono} in the column
+    # spec) while keeping header cells in the document sans-serif.
     if include_start_time:
-        table_spec = "lrrrrr"
+        # one text/time column + 5 numeric columns
+        num_numeric = 5
         headers = [
             "Start Time",
             "Count",
@@ -118,7 +122,7 @@ def create_stats_table(
             f"\\shortstack{{Max \\\\ ({escape_latex(units)})}}",
         ]
     else:
-        table_spec = "rrrrr"
+        num_numeric = 5
         headers = [
             "Count",
             f"\\shortstack{{p50 \\\\ ({escape_latex(units)})}}",
@@ -128,16 +132,27 @@ def create_stats_table(
         ]
 
     centered = Center()
-    # Use a single Atkinson monospace font group for the whole table instead
-    # of wrapping every cell in \AtkinsonMono{...} which causes needless
-    # font switching. Start a local group that selects the mono font.
-    centered.append(NoEscape(r"{\AtkinsonMono"))
 
-    table = Tabular(table_spec)
-    # Add headers
-    # table.add_hline()
-    table.add_row([NoEscape(h) for h in headers])
-    table.add_hline()
+    # Create a header-only table (sans-serif) so the header row is not
+    # affected by the monospace selection applied to the numeric columns.
+    if include_start_time:
+        header_spec = "l" + "r" * num_numeric
+    else:
+        header_spec = "r" * num_numeric
+
+    header_table = Tabular(header_spec)
+    header_table.add_row([NoEscape(h) for h in headers])
+    header_table.add_hline()
+    centered.append(header_table)
+
+    # Create the body table where numeric columns are rendered in the
+    # Atkinson monospace family using the >{\AtkinsonMono} column prefix.
+    if include_start_time:
+        body_spec = "l" + (">{\\AtkinsonMono}r" * num_numeric)
+    else:
+        body_spec = ">{\\AtkinsonMono}r" * num_numeric
+
+    table = Tabular(body_spec)
 
     # Add data rows
     for row in stats:
@@ -174,10 +189,6 @@ def create_stats_table(
     table.add_hline()
     centered.append(table)
 
-    # Close the AtkinsonMono group we opened earlier so following text is
-    # unaffected.
-    centered.append(NoEscape("}"))
-
     # Add caption (outside the mono group so caption styling remains consistent)
     centered.append(NoEscape("\\par\\vspace{2pt}"))
     centered.append(
@@ -203,22 +214,24 @@ def create_histogram_table(
     )
 
     centered = Center()
-    # Use a single Atkinson mono group for the entire histogram table to
-    # avoid repeated font switches per cell.
-    centered.append(NoEscape(r"{\AtkinsonMono"))
 
-    table = Tabular("lrr")
-    table.add_row(["Bucket", "Count", "Percent"])
-    table.add_hline()
+    # Header-only table (sans-serif)
+    header_table = Tabular("lrr")
+    header_table.add_row(["Bucket", "Count", "Percent"])
+    header_table.add_hline()
+    centered.append(header_table)
+
+    # Body table: make numeric columns monospaced using >{\AtkinsonMono}
+    body_table = Tabular("l>{\\AtkinsonMono}r>{\\AtkinsonMono}r")
 
     # Cutoff row
     below_cutoff = sum(v for k, v in numeric_buckets.items() if k < cutoff)
     pct_below = (below_cutoff / total * 100.0) if total > 0 else 0.0
-    table.add_row(
+    body_table.add_row(
         [
-            NoEscape(r"\AtkinsonMono{" + escape_latex(f"<{int(cutoff)}") + r"}"),
-            NoEscape(r"\AtkinsonMono{" + escape_latex(str(int(below_cutoff))) + r"}"),
-            NoEscape(r"\AtkinsonMono{" + escape_latex(f"{pct_below:.1f}%") + r"}"),
+            NoEscape(escape_latex(f"<{int(cutoff)}")),
+            NoEscape(escape_latex(str(int(below_cutoff)))),
+            NoEscape(escape_latex(f"{pct_below:.1f}%")),
         ]
     )
 
@@ -227,28 +240,27 @@ def create_histogram_table(
         cnt = count_in_histogram_range(numeric_buckets, a, b)
         pct = (cnt / total * 100.0) if total > 0 else 0.0
         label = f"{int(a)}-{int(b)}"
-        table.add_row(
+        body_table.add_row(
             [
-                NoEscape(r"\AtkinsonMono{" + escape_latex(label) + r"}"),
-                NoEscape(r"\AtkinsonMono{" + escape_latex(str(int(cnt))) + r"}"),
-                NoEscape(r"\AtkinsonMono{" + escape_latex(f"{pct:.1f}%") + r"}"),
+                NoEscape(escape_latex(label)),
+                NoEscape(escape_latex(str(int(cnt)))),
+                NoEscape(escape_latex(f"{pct:.1f}%")),
             ]
         )
 
     # Final row
     cnt_ge = count_histogram_ge(numeric_buckets, max_bucket)
     pct_ge = (cnt_ge / total * 100.0) if total > 0 else 0.0
-    table.add_row(
+    body_table.add_row(
         [
-            NoEscape(r"\AtkinsonMono{" + escape_latex(f"{int(max_bucket)}+") + r"}"),
-            NoEscape(r"\AtkinsonMono{" + escape_latex(str(int(cnt_ge))) + r"}"),
-            NoEscape(r"\AtkinsonMono{" + escape_latex(f"{pct_ge:.1f}%") + r"}"),
+            NoEscape(escape_latex(f"{int(max_bucket)}+")),
+            NoEscape(escape_latex(str(int(cnt_ge)))),
+            NoEscape(escape_latex(f"{pct_ge:.1f}%")),
         ]
     )
 
-    table.add_hline()
-    centered.append(table)
-    centered.append(NoEscape("}"))
+    body_table.add_hline()
+    centered.append(body_table)
 
     # Add caption
     centered.append(NoEscape("\\par\\vspace{2pt}"))
@@ -286,9 +298,10 @@ def add_metric_data_intro(
     )
 
     doc.append(NoEscape("\\subsection*{Key Metrics}"))
-    table = Tabular("ll")
-    # Wrap the numeric column in a single mono group to avoid repeated
-    # per-cell font switches.
+    # Use a two-column table where the second (numeric) column is
+    # rendered in the Atkinson monospace font via the column spec. This
+    # keeps the left-hand labels in the document sans-serif.
+    table = Tabular("l>{\\AtkinsonMono}l")
     table.add_row(
         [
             NoEscape(r"\textbf{Maximum Velocity:}"),
@@ -314,12 +327,9 @@ def add_metric_data_intro(
         ]
     )
 
-    # Render this parameter table in sans-serif locally, but select the mono
-    # font for the numeric column by wrapping the table in {\AtkinsonMono ...}
-    doc.append(NoEscape(r"\sffamily"))
-    doc.append(NoEscape(r"{\AtkinsonMono"))
+    # Append the table directly; global family remains sans as set in the
+    # document preamble.
     doc.append(table)
-    doc.append(NoEscape("}"))
 
     doc.append(NoEscape("\\par"))
 
@@ -477,6 +487,9 @@ def generate_pdf_report(
     # Use supertabular so long tables can span pages/columns
     doc.packages.append(Package("supertabular"))
     doc.packages.append(Package("float"))  # Required for H position
+    # array provides >{...} and <{...} column spec modifiers used to
+    # inject font switches into column definitions (e.g. >{\AtkinsonMono}r).
+    doc.packages.append(Package("array"))
 
     # Set up header
     # Increase headheight to avoid fancyhdr warnings on some templates
@@ -558,8 +571,11 @@ def generate_pdf_report(
             )
         )
     else:
-        # Simple fallback: AtkinsonMono -> \texttt
-        doc.preamble.append(NoEscape(r"\newcommand{\AtkinsonMono}[1]{\texttt{#1}}"))
+        # Fallback: define \AtkinsonMono as a declarative font switch
+        # so it can be used both in column-specs (>{\AtkinsonMono}) and
+        # around braced content (\AtkinsonMono{...}). Using \ttfamily
+        # keeps behavior acceptable when the bundled mono isn't present.
+        doc.preamble.append(NoEscape(r"\newcommand{\AtkinsonMono}{\ttfamily}"))
 
     # Document title
     with doc.create(Center()) as title_center:
