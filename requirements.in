@@ -20,6 +20,3 @@ pytest
 responses
 
 # Add any other top-level tools that should be available to all data projects here.
-
-# LaTeX generation
-PyLaTeX

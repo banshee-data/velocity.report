@@ -397,9 +397,56 @@ def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = Non
     # a dummy bar (which can be rendered inconsistently); instead we store
     # the color/alpha/label and create a Patch at legend time.
     low_sample_legend = None
+    # Determine a sensible bar width based on the spacing of the time buckets
+    # so that when there are few buckets bars appear wider, and when dense
+    # they shrink appropriately. Widths are expressed in Matplotlib date
+    # units (days) when times are datetimes.
+    try:
+        if mdates is not None and len(times) > 1:
+            x_nums = mdates.date2num(times)
+            deltas = np.diff(x_nums)
+            # use the minimum positive delta as the expected spacing
+            pos = deltas[deltas > 0]
+            base = (
+                float(np.min(pos))
+                if pos.size > 0
+                else float(np.min(deltas) if deltas.size > 0 else 1.0)
+            )
+        else:
+            # Fallback: derive spacing from seconds differences and convert to days
+            x_arr = np.array(times, dtype=object)
+            deltas_s = []
+            for a, b in zip(x_arr[:-1], x_arr[1:]):
+                try:
+                    ds = (b - a).total_seconds()
+                except Exception:
+                    try:
+                        ds = float(
+                            (np.datetime64(b) - np.datetime64(a))
+                            / np.timedelta64(1, "s")
+                        )
+                    except Exception:
+                        ds = 86400.0
+                if ds > 0:
+                    deltas_s.append(ds)
+            base = (float(np.min(deltas_s)) / 86400.0) if deltas_s else 1.0
+    except Exception:
+        base = 1.0
+
+    # Choose bar widths as a fraction of the bucket spacing. Use a slightly
+    # larger width for the orange background and a slightly smaller width
+    # for the visible count bars so the background peeks around them.
+    bar_width_bg = base * 0.95
+    bar_width = base * 0.7
+
     if any(orange_heights) and top > 0:
         ax2.bar(
-            times, orange_heights, width=0.04, alpha=0.25, color="#f7b32b", zorder=0
+            times,
+            orange_heights,
+            width=bar_width_bg,
+            alpha=0.25,
+            color="#f7b32b",
+            zorder=0,
         )
         # store legend data (threshold text kept in sync with low_mask logic)
         try:
@@ -409,7 +456,13 @@ def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = Non
 
     # Primary count bars (always gray) drawn on top
     ax2.bar(
-        times, counts, width=0.03, alpha=0.25, color="#2d1e2f", label="Count", zorder=1
+        times,
+        counts,
+        width=bar_width,
+        alpha=0.25,
+        color="#2d1e2f",
+        label="Count",
+        zorder=1,
     )
 
     # Set the right-axis y-limit so orange highlights reach the top
