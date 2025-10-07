@@ -84,18 +84,87 @@ from stats_utils import (
 )
 
 
-class MultiCol(Environment):
-    """Custom multicol environment for PyLaTeX."""
+# Removed MultiCol class - using \twocolumn instead of multicols package
 
-    _latex_name = "multicols"
-    packages = [Package("multicol")]
 
-    def __init__(self, columns=2, **kwargs):
-        super().__init__(**kwargs)
-        self.columns = columns
+def _build_table_header(include_start_time: bool) -> List[str]:
+    """Build table header cells with proper formatting."""
+    header_cells = []
+    if include_start_time:
+        header_cells.append(
+            NoEscape(r"\multicolumn{1}{l}{\sffamily\bfseries Start Time}")
+        )
+    header_cells.extend(
+        [
+            NoEscape(r"\multicolumn{1}{r}{\sffamily\bfseries Count}"),
+            NoEscape(
+                r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack{p50 \\ (mph)}}"
+            ),
+            NoEscape(
+                r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack{p85 \\ (mph)}}"
+            ),
+            NoEscape(
+                r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack{p98 \\ (mph)}}"
+            ),
+            NoEscape(
+                r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack{Max \\ (mph)}}"
+            ),
+        ]
+    )
+    return header_cells
 
-    def dumps(self):
-        return f"\\begin{{{self._latex_name}}}{{{self.columns}}}\n{self.dumps_content()}\n\\end{{{self._latex_name}}}"
+
+def _build_table_rows(
+    stats: List[Dict[str, Any]], include_start_time: bool, tz_name: Optional[str]
+) -> List[List]:
+    """Build table data rows."""
+    rows = []
+    for row in stats:
+        row_data = []
+        if include_start_time:
+            # Try various possible key names for start time
+            start_val = (
+                row.get("start_time_utc")
+                or row.get("StartTime")
+                or row.get("start_time")
+                or row.get("starttime")
+            )
+            formatted_time = format_time(start_val, tz_name)
+            row_data.append(NoEscape(escape_latex(formatted_time)))
+
+        # Extract count and metrics using various possible key names
+        cnt = row.get("cnt") or row.get("Count") or 0
+        p50 = (
+            row.get("p50")
+            or row.get("P50Speed")
+            or row.get("p50speed")
+            or row.get("p50_speed")
+        )
+        p85 = (
+            row.get("p85")
+            or row.get("P85Speed")
+            or row.get("p85speed")
+            or row.get("p85_speed")
+        )
+        p98 = (
+            row.get("p98")
+            or row.get("P98Speed")
+            or row.get("p98speed")
+            or row.get("p98_speed")
+        )
+        max_speed = row.get("max_speed") or row.get("MaxSpeed") or row.get("maxspeed")
+
+        row_data.extend(
+            [
+                NoEscape(escape_latex(str(int(cnt)))),
+                NoEscape(escape_latex(format_number(p50))),
+                NoEscape(escape_latex(format_number(p85))),
+                NoEscape(escape_latex(format_number(p98))),
+                NoEscape(escape_latex(format_number(max_speed))),
+            ]
+        )
+        rows.append(row_data)
+    return rows
 
 
 def create_stats_table(
@@ -104,96 +173,56 @@ def create_stats_table(
     units: str,
     caption: str,
     include_start_time: bool = True,
-) -> Center:
+    center_table: bool = True,
+) -> object:
     """Create a statistics table using PyLaTeX."""
 
-    # Build column specs programmatically so we can apply the monospace
-    # font to numeric columns only (via >{\AtkinsonMono} in the column
-    # spec) while keeping header cells in the document sans-serif.
+    # Build column spec with monospace font for body columns
     if include_start_time:
-        # one text/time column + 5 numeric columns
-        num_numeric = 5
-        headers = [
-            "Start Time",
-            "Count",
-            f"\\shortstack{{p50 \\\\ ({escape_latex(units)})}}",
-            f"\\shortstack{{p85 \\\\ ({escape_latex(units)})}}",
-            f"\\shortstack{{p98 \\\\ ({escape_latex(units)})}}",
-            f"\\shortstack{{Max \\\\ ({escape_latex(units)})}}",
-        ]
+        body_spec = ">{\\AtkinsonMono}l" + (">{\\AtkinsonMono}r" * 5)
     else:
-        num_numeric = 5
-        headers = [
-            "Count",
-            f"\\shortstack{{p50 \\\\ ({escape_latex(units)})}}",
-            f"\\shortstack{{p85 \\\\ ({escape_latex(units)})}}",
-            f"\\shortstack{{p98 \\\\ ({escape_latex(units)})}}",
-            f"\\shortstack{{Max \\\\ ({escape_latex(units)})}}",
-        ]
-
-    centered = Center()
-
-    # Create a header-only table (sans-serif) so the header row is not
-    # affected by the monospace selection applied to the numeric columns.
-    if include_start_time:
-        header_spec = "l" + "r" * num_numeric
-    else:
-        header_spec = "r" * num_numeric
-
-    header_table = Tabular(header_spec)
-    header_table.add_row([NoEscape(h) for h in headers])
-    header_table.add_hline()
-    centered.append(header_table)
-
-    # Create the body table where numeric columns are rendered in the
-    # Atkinson monospace family using the >{\AtkinsonMono} column prefix.
-    if include_start_time:
-        body_spec = "l" + (">{\\AtkinsonMono}r" * num_numeric)
-    else:
-        body_spec = ">{\\AtkinsonMono}r" * num_numeric
+        body_spec = ">{\\AtkinsonMono}r" * 5
 
     table = Tabular(body_spec)
 
-    # Add data rows
-    for row in stats:
-        cnt = row.get("Count") if row.get("Count") is not None else 0
-        p50v = row.get("P50Speed") or row.get("p50speed") or row.get("p50")
-        p85v = row.get("P85Speed") or row.get("p85speed")
-        p98v = row.get("P98Speed") or row.get("p98speed")
-        maxv = row.get("MaxSpeed") or row.get("maxspeed")
+    # Add header row
+    header_cells = _build_table_header(include_start_time)
+    table.add_row(header_cells)
+    table.add_hline()
 
-        if include_start_time:
-            st = row.get("StartTime") or row.get("start_time") or row.get("starttime")
-            tstr = format_time(st, tz_name)
-            table.add_row(
-                [
-                    NoEscape(escape_latex(tstr)),
-                    NoEscape(escape_latex(str(int(cnt)))),
-                    NoEscape(escape_latex(format_number(p50v))),
-                    NoEscape(escape_latex(format_number(p85v))),
-                    NoEscape(escape_latex(format_number(p98v))),
-                    NoEscape(escape_latex(format_number(maxv))),
-                ]
-            )
-        else:
-            table.add_row(
-                [
-                    NoEscape(escape_latex(str(int(cnt)))),
-                    NoEscape(escape_latex(format_number(p50v))),
-                    NoEscape(escape_latex(format_number(p85v))),
-                    NoEscape(escape_latex(format_number(p98v))),
-                    NoEscape(escape_latex(format_number(maxv))),
-                ]
-            )
+    # Add data rows
+    data_rows = _build_table_rows(stats, include_start_time, tz_name)
+    for row_data in data_rows:
+        table.add_row(row_data)
 
     table.add_hline()
-    centered.append(table)
 
-    # Add caption (outside the mono group so caption styling remains consistent)
-    centered.append(NoEscape("\\par\\vspace{2pt}"))
-    centered.append(
-        NoEscape(f"\\noindent\\makebox[\\linewidth]{{\\textbf{{\\small {caption}}}}}")
-    )
+    # Wrap in Center if requested
+    if center_table:
+        centered = Center()
+        centered.append(table)
+    else:
+        centered = table
+
+    # Add caption if provided
+    if caption:
+        # Add caption (outside the mono group so caption styling remains consistent)
+        if center_table:
+            centered.append(NoEscape("\\par\\vspace{2pt}"))
+            centered.append(
+                NoEscape(
+                    f"\\noindent\\makebox[\\linewidth]{{\\textbf{{\\small {caption}}}}}"
+                )
+            )
+        else:
+            # If not centered, append caption to the document separately
+            # (callers can append the returned table and then add the
+            # caption). For convenience, return a tuple-like container
+            # is avoided; instead callers that passed center_table=False
+            # should add the caption themselves after rendering all
+            # columns (we do that in the MultiCol pager logic).
+            pass
+
     # (global sans-serif set in preamble)
 
     return centered
@@ -215,14 +244,17 @@ def create_histogram_table(
 
     centered = Center()
 
-    # Header-only table (sans-serif)
-    header_table = Tabular("lrr")
-    header_table.add_row(["Bucket", "Count", "Percent"])
-    header_table.add_hline()
-    centered.append(header_table)
-
-    # Body table: make numeric columns monospaced using >{\AtkinsonMono}
-    body_table = Tabular("l>{\\AtkinsonMono}r>{\\AtkinsonMono}r")
+    # Single Tabular: apply monospace to body columns and render the
+    # header via \multicolumn with \sffamily so the header row appears
+    # above the monospaced body.
+    body_table = Tabular(">{\\AtkinsonMono}l>{\\AtkinsonMono}r>{\\AtkinsonMono}r")
+    header_cells = [
+        NoEscape(r"\multicolumn{1}{l}{\sffamily\bfseries Bucket}"),
+        NoEscape(r"\multicolumn{1}{r}{\sffamily\bfseries Count}"),
+        NoEscape(r"\multicolumn{1}{r}{\sffamily\bfseries Percent}"),
+    ]
+    body_table.add_row(header_cells)
+    body_table.add_hline()
 
     # Cutoff row
     below_cutoff = sum(v for k, v in numeric_buckets.items() if k < cutoff)
@@ -271,6 +303,56 @@ def create_histogram_table(
     )
 
     return centered
+
+
+def create_twocolumn_stats_table(
+    doc: Document,
+    stats: List[Dict[str, Any]],
+    tz_name: Optional[str],
+    units: str,
+    caption: str,
+) -> None:
+    """Create a stats table using supertabular that works with \\twocolumn.
+
+    Unlike multicols, \\twocolumn mode supports long table packages like supertabular
+    which can break across columns and pages properly.
+    """
+    # Build all data rows
+    all_data_rows = _build_table_rows(stats, include_start_time=True, tz_name=tz_name)
+
+    # Build the header cells
+    header_cells = _build_table_header(include_start_time=True)
+
+    # Column spec for the table
+    body_spec = ">{\\AtkinsonMono}l" + (">{\\AtkinsonMono}r" * 5)
+
+    # Use supertabular for long tables that can break across columns/pages
+    # Start the supertabular environment manually
+    doc.append(NoEscape(f"\\begin{{supertabular}}{{{body_spec}}}"))
+
+    # Add header row
+    header_line = " & ".join(str(cell) for cell in header_cells) + r"\\"
+    doc.append(NoEscape(header_line))
+    doc.append(NoEscape("\\hline"))
+
+    # Add all data rows
+    for row_data in all_data_rows:
+        row_line = " & ".join(str(cell) for cell in row_data) + r"\\"
+        doc.append(NoEscape(row_line))
+
+    doc.append(NoEscape("\\hline"))
+    doc.append(NoEscape("\\end{supertabular}"))
+
+    # Add caption after table; add slightly larger spacing so tables are visually separated
+    if caption:
+        doc.append(NoEscape("\\par\\vspace{2pt}"))
+        doc.append(
+            NoEscape(
+                f"\\noindent\\makebox[\\linewidth]{{\\textbf{{\\small {caption}}}}}"
+            )
+        )
+
+    doc.append(NoEscape("\\par\\vspace{8pt}"))
 
 
 def add_metric_data_intro(
@@ -465,18 +547,13 @@ def generate_pdf_report(
 
     doc = Document(geometry_options=geometry_options, page_numbers=False)
 
-    # Add required packages
-    doc.packages.append(Package("multicol"))
+    # Add required packages (not using multicol - using \twocolumn instead)
     doc.packages.append(Package("fancyhdr"))
     doc.packages.append(Package("graphicx"))
     # ensure common math macros like \tfrac are available
     doc.packages.append(Package("amsmath"))
     doc.packages.append(Package("titlesec"))
     doc.packages.append(Package("hyperref"))
-    # microtype improves line breaking and protrusion which reduces awkward gaps
-    # doc.packages.append(Package("microtype"))
-    # ragged2e provides \RaggedRight (better raggedness with hyphenation)
-    # doc.packages.append(Package("ragged2e"))
     # Load fontspec so we can use the bundled Atkinson Hyperlegible TTFs.
     doc.packages.append(Package("fontspec"))
     # Ensure captions use sans-serif
@@ -484,7 +561,7 @@ def generate_pdf_report(
     # Make caption labels and text bold so figure/table captions match
     # the document's heading weight and appear visually prominent.
     doc.preamble.append(NoEscape("\\captionsetup{labelfont=bf,textfont=bf}"))
-    # Use supertabular so long tables can span pages/columns
+    # Use supertabular for tables that can break across columns with \twocolumn
     doc.packages.append(Package("supertabular"))
     doc.packages.append(Package("float"))  # Required for H position
     # array provides >{...} and <{...} column spec modifiers used to
@@ -577,32 +654,22 @@ def generate_pdf_report(
         # keeps behavior acceptable when the bundled mono isn't present.
         doc.preamble.append(NoEscape(r"\newcommand{\AtkinsonMono}{\ttfamily}"))
 
-    # Document title
-    with doc.create(Center()) as title_center:
-        # Document title in sans-serif locally
-        title_center.append(NoEscape(f"{{\\huge \\sffamily\\textbf{{ {location}}}}}"))
-        # Use \par for a safe paragraph break instead of LineBreak()
-        title_center.append(NoEscape("\\par"))
-        title_center.append(NoEscape("\\vspace{0.1cm}"))
-        title_center.append(
-            NoEscape(
-                "{\\large \\sffamily Surveyor: \\textit{Banshee, INC.} \\ \\textbullet \\ \\ Contact: \\href{mailto:david@banshee-data.com}{david@banshee-data.com}}"
-            )
+    # Begin two-column layout using \twocolumn with header in optional argument
+    # This allows supertabular to work properly and keeps header on same page
+    # The optional argument to \twocolumn creates a spanning header above the columns
+    doc.append(NoEscape("\\twocolumn["))
+    doc.append(NoEscape("\\vspace{-8pt}"))
+    doc.append(NoEscape("\\begin{center}"))
+    doc.append(NoEscape(f"{{\\huge \\sffamily\\textbf{{ {location}}}}}"))
+    doc.append(NoEscape("\\par"))
+    doc.append(NoEscape("\\vspace{0.1cm}"))
+    doc.append(
+        NoEscape(
+            "{\\large \\sffamily Surveyor: \\textit{Banshee, INC.} \\ \\textbullet \\ \\ Contact: \\href{mailto:david@banshee-data.com}{david@banshee-data.com}}"
         )
-
-    # Begin multicolumn layout and use ragged-right to avoid stretched justification
-    doc.append(NoEscape("\\begin{multicols}{2}"))
-    # Use ragged2e's \RaggedRight to prevent text from stretching to fill the column width
-    # doc.append(NoEscape("\\RaggedRight"))
-    # # Improve hyphenation and allow mild emergency stretching to avoid
-    # # large whitespace at the right edge of ragged paragraphs.
-    # # Tune hyphenation/line-breaking to reduce large ragged-right gaps
-    # doc.append(NoEscape("\\hyphenpenalty=300"))
-    # doc.append(NoEscape("\\exhyphenpenalty=50"))
-    # # Allow a modest amount of emergency stretch so TeX can avoid bad breaks
-    # doc.append(NoEscape("\\emergencystretch=3em"))
-    # # Relax tolerance so hyphenation/expansion is preferred over huge gaps
-    # doc.append(NoEscape("\\tolerance=1000"))
+    )
+    doc.append(NoEscape("\\end{center}"))
+    doc.append(NoEscape("]"))
 
     # Add science section content using helper function
     if overall_metrics:
@@ -654,6 +721,8 @@ def generate_pdf_report(
                 # use full available text width for histogram as well
                 fig.add_image(hist_path, width=NoEscape(r"\linewidth"))
                 fig.add_caption("Velocity Distribution Histogram")
+
+    doc.append(NoEscape("\\vspace{-28pt}"))
 
     add_site_specifics(doc)
 
@@ -780,29 +849,27 @@ def generate_pdf_report(
         doc.append(create_histogram_table(histogram, units))
 
     if daily_metrics:
-        doc.append(
-            create_stats_table(
-                daily_metrics,
-                tz_name,
-                units,
-                "Table 2: Daily Percentile Summary",
-                include_start_time=True,
-            )
+        # Use supertabular for all daily tables (works with \twocolumn)
+        create_twocolumn_stats_table(
+            doc,
+            daily_metrics,
+            tz_name,
+            units,
+            "Table 2: Daily Percentile Summary",
         )
 
     if granular_metrics:
-        doc.append(
-            create_stats_table(
-                granular_metrics,
-                tz_name,
-                units,
-                "Table 3: Granular Percentile Breakdown",
-                include_start_time=True,
-            )
+        # Use supertabular for granular tables (works with \twocolumn)
+        create_twocolumn_stats_table(
+            doc,
+            granular_metrics,
+            tz_name,
+            units,
+            "Table 3: Granular Percentile Breakdown",
         )
 
-    # End multicolumn
-    doc.append(NoEscape("\\end{multicols}"))
+    # Switch back to single column for full-width charts
+    doc.append(NoEscape("\\onecolumn"))
 
     if chart_exists(charts_prefix, "stats"):
         stats_path = os.path.abspath(f"{charts_prefix}_stats.pdf")
@@ -1042,8 +1109,6 @@ def generate_pdf_report(
                         "Site map with radar location (circle) and coverage area (red triangle)"
                     )
 
-    # Generate PDF: prefer XeLaTeX/LuaLaTeX (required by fontspec) then fall back
-    # to pdfLaTeX as a last resort.
     engines = ("xelatex", "lualatex", "pdflatex")
     generated = False
     last_exc: Optional[Exception] = None
