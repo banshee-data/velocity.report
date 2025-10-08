@@ -372,10 +372,15 @@ def add_metric_data_intro(
     # Speed Metrics Overview
     doc.append(NoEscape("\\section*{Velocity Overview}"))
 
+    # Format total vehicles with thousands separator for readability
+    try:
+        total_disp = f"{int(total_vehicles):,}"
+    except Exception:
+        total_disp = str(total_vehicles)
     doc.append(
         NoEscape(
             f"Between \\textbf{{{start_date}}} and \\textbf{{{end_date}}}, "
-            f"velocity for \\textbf{{{total_vehicles}}} vehicles was recorded on \\textbf{{{location}}}."
+            f"velocity for \\textbf{{{escape_latex(total_disp)}}} vehicles was recorded on \\textbf{{{escape_latex(location)}}}."
         )
     )
 
