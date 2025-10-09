@@ -872,6 +872,7 @@ def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
                 tz_name=(args.timezone or None),
                 charts_prefix=prefix,
                 speed_limit=25,  # TODO: make this configurable
+                hist_max=getattr(args, "hist_max", None),
             )
             print(f"Generated PDF report: {pdf_path}")
         except Exception as e:
@@ -894,7 +895,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--source",
-        default="radar_objects",
+        default="radar_data_transits",
         choices=["radar_objects", "radar_data_transits"],
         help="Data source to query (radar_objects or radar_data_transits).",
     )

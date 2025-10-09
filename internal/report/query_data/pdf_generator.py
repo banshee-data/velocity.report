@@ -233,14 +233,70 @@ def create_histogram_table(
     units: str,
     cutoff: float = 5.0,
     bucket_size: float = 5.0,
-    max_bucket: float = 50.0,
+    max_bucket: Optional[float] = None,
 ) -> Center:
-    """Create a histogram table using PyLaTeX."""
+    """Create a histogram table using PyLaTeX.
 
-    # Use centralized histogram processing
-    numeric_buckets, total, ranges = process_histogram(
-        histogram, cutoff, bucket_size, max_bucket
+    When max_bucket is provided, the table includes that value as the top open-ended bucket (N+).
+    When max_bucket is None, the last observed bucket is rendered as open-ended (N+).
+    """
+
+    # Use centralized histogram processing to coerce numeric keys
+    # Provide a default max for processing when None is passed
+    _proc_max = max_bucket if max_bucket is not None else 50.0
+    numeric_buckets, total, _ranges = process_histogram(
+        histogram, cutoff, bucket_size, _proc_max
     )
+
+    # Prefer to derive display ranges from the actual histogram keys when possible.
+    # This avoids always showing a fixed max bucket (e.g., 50+) when the data
+    # contains different bucket boundaries.
+    ranges: List[tuple] = []
+    inferred_bucket = float(bucket_size)
+    if numeric_buckets:
+        try:
+            sorted_keys = sorted(numeric_buckets.keys())
+            if len(sorted_keys) > 1:
+                # infer bucket size from the smallest positive difference
+                diffs = [j - i for i, j in zip(sorted_keys[:-1], sorted_keys[1:])]
+                positive_diffs = [d for d in diffs if d > 0]
+                if positive_diffs:
+                    inferred_bucket = float(min(positive_diffs))
+            min_k = float(sorted_keys[0])
+            max_k = float(sorted_keys[-1])
+
+            # Guard against pathological zero bucket
+            if inferred_bucket <= 0:
+                inferred_bucket = float(bucket_size) or 5.0
+
+            # Build ranges from min_k upward in steps of inferred_bucket
+            s = min_k
+            if max_bucket is not None:
+                # When max_bucket is provided, build ranges up to max_k (last observed data)
+                # but ensure we have at least one bucket that reaches max_bucket.
+                # The last bucket will be rendered as "N+" where N is the start of the
+                # bucket that reaches or contains max_bucket.
+                while s <= max_k:
+                    ranges.append((s, s + inferred_bucket))
+                    s += inferred_bucket
+                # If the last range doesn't reach max_bucket, add one more bucket
+                # so that max_bucket is covered and can be labeled as "N+"
+                if ranges and ranges[-1][0] < max_bucket:
+                    # Add one more range starting at the next step that reaches max_bucket
+                    last_end = ranges[-1][1]
+                    if last_end < max_bucket:
+                        ranges.append((last_end, last_end + inferred_bucket))
+            else:
+                # No explicit max: build ranges up to max_k
+                # The last bucket will be rendered as open-ended
+                while s <= max_k:
+                    ranges.append((s, s + inferred_bucket))
+                    s += inferred_bucket
+        except Exception:
+            # Fallback to the original computed ranges
+            ranges = _ranges
+    else:
+        ranges = _ranges
 
     centered = Center()
 
@@ -256,40 +312,81 @@ def create_histogram_table(
     body_table.add_row(header_cells)
     body_table.add_hline()
 
-    # Cutoff row
-    below_cutoff = sum(v for k, v in numeric_buckets.items() if k < cutoff)
-    pct_below = (below_cutoff / total * 100.0) if total > 0 else 0.0
-    body_table.add_row(
-        [
-            NoEscape(escape_latex(f"<{int(cutoff)}")),
-            NoEscape(escape_latex(str(int(below_cutoff)))),
-            NoEscape(escape_latex(f"{pct_below:.1f}%")),
-        ]
-    )
-
-    # Range rows
-    for a, b in ranges:
-        cnt = count_in_histogram_range(numeric_buckets, a, b)
-        pct = (cnt / total * 100.0) if total > 0 else 0.0
-        label = f"{int(a)}-{int(b)}"
+    # If we derived ranges from actual keys, show a row for values below
+    # the first range, then one row per range.
+    # The last range is rendered as "N+" (open-ended) instead of "N-M".
+    if ranges:
+        first_start = ranges[0][0]
+        below_count = sum(v for k, v in numeric_buckets.items() if k < first_start)
+        pct_below = (below_count / total * 100.0) if total > 0 else 0.0
         body_table.add_row(
             [
-                NoEscape(escape_latex(label)),
-                NoEscape(escape_latex(str(int(cnt)))),
-                NoEscape(escape_latex(f"{pct:.1f}%")),
+                NoEscape(escape_latex(f"<{int(first_start)}")),
+                NoEscape(escape_latex(str(int(below_count)))),
+                NoEscape(escape_latex(f"{pct_below:.1f}%")),
             ]
         )
 
-    # Final row
-    cnt_ge = count_histogram_ge(numeric_buckets, max_bucket)
-    pct_ge = (cnt_ge / total * 100.0) if total > 0 else 0.0
-    body_table.add_row(
-        [
-            NoEscape(escape_latex(f"{int(max_bucket)}+")),
-            NoEscape(escape_latex(str(int(cnt_ge)))),
-            NoEscape(escape_latex(f"{pct_ge:.1f}%")),
-        ]
-    )
+        # Render all ranges except the last one as "A-B"
+        for idx, (a, b) in enumerate(ranges):
+            is_last = (idx == len(ranges) - 1)
+
+            if is_last:
+                # Last bucket: render as "N+" (open-ended)
+                # If max_bucket was provided, use it as the label (e.g., "35+")
+                # Otherwise use the bucket start (e.g., "50+")
+                if max_bucket is not None:
+                    label = f"{int(max_bucket)}+"
+                    cnt = count_histogram_ge(numeric_buckets, a)
+                else:
+                    label = f"{int(a)}+"
+                    cnt = count_histogram_ge(numeric_buckets, a)
+                pct = (cnt / total * 100.0) if total > 0 else 0.0
+            else:
+                # Regular bucket: render as "A-B"
+                cnt = count_in_histogram_range(numeric_buckets, a, b)
+                pct = (cnt / total * 100.0) if total > 0 else 0.0
+                label = f"{int(a)}-{int(b)}"
+
+            body_table.add_row(
+                [
+                    NoEscape(escape_latex(label)),
+                    NoEscape(escape_latex(str(int(cnt)))),
+                    NoEscape(escape_latex(f"{pct:.1f}%")),
+                ]
+            )
+    else:
+        # Fallback: maintain previous behavior using _ranges
+        below_cutoff = sum(v for k, v in numeric_buckets.items() if k < cutoff)
+        pct_below = (below_cutoff / total * 100.0) if total > 0 else 0.0
+        body_table.add_row(
+            [
+                NoEscape(escape_latex(f"<{int(cutoff)}")),
+                NoEscape(escape_latex(str(int(below_cutoff)))),
+                NoEscape(escape_latex(f"{pct_below:.1f}%")),
+            ]
+        )
+        for a, b in _ranges:
+            cnt = count_in_histogram_range(numeric_buckets, a, b)
+            pct = (cnt / total * 100.0) if total > 0 else 0.0
+            label = f"{int(a)}-{int(b)}"
+            body_table.add_row(
+                [
+                    NoEscape(escape_latex(label)),
+                    NoEscape(escape_latex(str(int(cnt)))),
+                    NoEscape(escape_latex(f"{pct:.1f}%")),
+                ]
+            )
+        # Final open-ended bucket using _proc_max
+        cnt_ge = count_histogram_ge(numeric_buckets, _proc_max)
+        pct_ge = (cnt_ge / total * 100.0) if total > 0 else 0.0
+        body_table.add_row(
+            [
+                NoEscape(escape_latex(f"{int(_proc_max)}+")),
+                NoEscape(escape_latex(str(int(cnt_ge)))),
+                NoEscape(escape_latex(f"{pct_ge:.1f}%")),
+            ]
+        )
 
     body_table.add_hline()
     centered.append(body_table)
@@ -539,6 +636,7 @@ def generate_pdf_report(
     tz_name: Optional[str],
     charts_prefix: str = "out",
     speed_limit: int = 25,
+    hist_max: Optional[float] = None,
 ) -> None:
     """Generate a complete PDF report using PyLaTeX."""
 
@@ -851,7 +949,7 @@ def generate_pdf_report(
 
     # Add histogram table if available
     if histogram:
-        doc.append(create_histogram_table(histogram, units))
+        doc.append(create_histogram_table(histogram, units, max_bucket=hist_max))
 
     if daily_metrics:
         # Use supertabular for all daily tables (works with \twocolumn)
