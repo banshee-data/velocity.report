@@ -444,8 +444,11 @@ def assemble_pdf_report(
     )
     tz_display = args.timezone or "UTC"
     pdf_path = f"{prefix}_report.pdf"
-    location = SITE_INFO["location"]
+    location = getattr(args, "location", SITE_INFO.get("location", "Unknown Location"))
     include_map = getattr(args, "map", False)
+    site_description = getattr(args, "site_description", "")
+    speed_limit_note = getattr(args, "speed_limit_note", "")
+    speed_limit = getattr(args, "speed_limit", SITE_INFO.get("speed_limit", 25))
 
     try:
         generate_pdf_report(
@@ -463,9 +466,11 @@ def assemble_pdf_report(
             histogram=histogram,
             tz_name=(args.timezone or None),
             charts_prefix=prefix,
-            speed_limit=SITE_INFO["speed_limit"],
+            speed_limit=speed_limit,
             hist_max=getattr(args, "hist_max", None),
             include_map=include_map,
+            site_description=site_description,
+            speed_limit_note=speed_limit_note,
         )
         print(f"Generated PDF report: {pdf_path}")
         return True
@@ -727,6 +732,17 @@ if __name__ == "__main__":
     args.hist_max = config.query.hist_max
     args.debug = config.output.debug
     args.map = config.output.map
+
+    # Site information
+    args.location = config.site.location
+    args.surveyor = config.site.surveyor
+    args.contact = config.site.contact
+    args.speed_limit = config.site.speed_limit
+    args.site_description = config.site.site_description
+    args.speed_limit_note = config.site.speed_limit_note
+
+    # Radar configuration
+    args.cosine_error_angle = config.radar.cosine_error_angle
 
     # Validate dates
     if not args.dates or len(args.dates) != 2:

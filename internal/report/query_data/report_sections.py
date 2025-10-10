@@ -125,18 +125,28 @@ class SiteInformationSection:
                 "Install it with: pip install pylatex"
             )
 
-    def build(self, doc: Document) -> None:
+    def build(
+        self, doc: Document, site_description: str = "", speed_limit_note: str = ""
+    ) -> None:
         """Add site information section to document.
 
         Args:
             doc: PyLaTeX Document to append to
+            site_description: Optional site description text
+            speed_limit_note: Optional speed limit information
         """
+        # Skip section if both are empty (don't use SITE_INFO fallback)
+        if not site_description and not speed_limit_note:
+            return
+
         doc.append(NoEscape("\\subsection*{Site Information}"))
 
-        doc.append(NoEscape(escape_latex(SITE_INFO["site_description"])))
-        doc.append(NoEscape("\\par"))
+        if site_description:
+            doc.append(NoEscape(escape_latex(site_description)))
+            doc.append(NoEscape("\\par"))
 
-        doc.append(NoEscape(escape_latex(SITE_INFO["speed_limit_note"])))
+        if speed_limit_note:
+            doc.append(NoEscape(escape_latex(speed_limit_note)))
 
 
 class ScienceMethodologySection:
@@ -362,13 +372,20 @@ def add_metric_data_intro(
     )
 
 
-def add_site_specifics(doc: Document) -> None:
+def add_site_specifics(
+    doc: Document, site_description: str = "", speed_limit_note: str = ""
+) -> None:
     """Add site information section (convenience function).
 
     This provides backward compatibility with the original pdf_generator API.
+
+    Args:
+        doc: PyLaTeX Document to append to
+        site_description: Optional site description text
+        speed_limit_note: Optional speed limit information
     """
     builder = SiteInformationSection()
-    builder.build(doc)
+    builder.build(doc, site_description, speed_limit_note)
 
 
 def add_science(doc: Document) -> None:

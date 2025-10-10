@@ -115,11 +115,15 @@ def generate_pdf_report(
     speed_limit: int = 25,
     hist_max: Optional[float] = None,
     include_map: bool = True,
+    site_description: str = "",
+    speed_limit_note: str = "",
 ) -> None:
     """Generate a complete PDF report using PyLaTeX.
 
     Args:
         include_map: If False, skip map generation even if map.svg exists
+        site_description: Optional site description text
+        speed_limit_note: Optional speed limit information
     """
 
     # Build document with all configuration
@@ -303,7 +307,7 @@ def generate_pdf_report(
 
     doc.append(NoEscape("\\vspace{-28pt}"))
 
-    add_site_specifics(doc)
+    add_site_specifics(doc, site_description, speed_limit_note)
 
     doc.append(NoEscape("\\par"))
 

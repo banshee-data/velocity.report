@@ -104,6 +104,17 @@ def generate_report_from_config(
             args.debug = config.output.debug
             args.map = config.output.map
 
+            # Site information
+            args.location = config.site.location
+            args.surveyor = config.site.surveyor
+            args.contact = config.site.contact
+            args.speed_limit = config.site.speed_limit
+            args.site_description = config.site.site_description
+            args.speed_limit_note = config.site.speed_limit_note
+
+            # Radar configuration
+            args.cosine_error_angle = config.radar.cosine_error_angle
+
             # Generate reports using existing get_stats.py logic
             date_ranges = [(config.query.start_date, config.query.end_date)]
             get_stats.main(date_ranges, args)

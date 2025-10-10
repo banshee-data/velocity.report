@@ -46,6 +46,10 @@ class SiteConfig:
 class RadarConfig:
     """Radar sensor technical parameters."""
 
+    # REQUIRED field
+    cosine_error_angle: float = 0.0  # Mounting angle in degrees (REQUIRED)
+
+    # Optional technical parameters
     sensor_model: str = "OmniPreSense OPS243-A"
     firmware_version: str = "v1.2.3"
     transmit_frequency: str = "24.125 GHz"
@@ -53,8 +57,16 @@ class RadarConfig:
     velocity_resolution: str = "0.272 mph"
     azimuth_fov: str = "20°"
     elevation_fov: str = "24°"
-    cosine_error_angle: str = "21°"
-    cosine_error_factor: str = "1.0711"
+
+    @property
+    def cosine_error_factor(self) -> float:
+        """Calculate cosine error factor from angle: 1/cos(angle_degrees)."""
+        import math
+
+        if self.cosine_error_angle == 0:
+            return 1.0
+        angle_rad = math.radians(self.cosine_error_angle)
+        return 1.0 / math.cos(angle_rad)
 
 
 @dataclass
@@ -71,11 +83,13 @@ class QueryConfig:
     units: str = "mph"  # Display units (mph, kph)
     source: str = "radar_data_transits"  # radar_objects or radar_data_transits
     model_version: str = "rebuild-full"  # Transit model version
-    min_speed: Optional[float] = None  # Minimum speed filter (optional)
+    min_speed: Optional[float] = 5.0  # Minimum speed filter (default: 5.0)
 
-    # Histogram configuration (optional)
-    histogram: bool = False  # Generate histogram (default: false)
-    hist_bucket_size: Optional[float] = None  # Bucket size in display units
+    # Histogram configuration
+    histogram: bool = True  # Generate histogram (default: true)
+    hist_bucket_size: Optional[float] = (
+        5.0  # Bucket size in display units (default: 5.0)
+    )
     hist_max: Optional[float] = None  # Maximum bucket value
 
 
@@ -83,7 +97,9 @@ class QueryConfig:
 class OutputConfig:
     """Output file configuration."""
 
-    file_prefix: str = ""  # Output file prefix (REQUIRED - or auto-generated)
+    file_prefix: str = (
+        "velocity.report"  # Output file prefix (default: velocity.report)
+    )
     output_dir: str = "."  # Output directory
     run_id: Optional[str] = None  # Unique run identifier (from Go server)
     debug: bool = False  # Enable debug output
@@ -196,9 +212,9 @@ class ReportConfig:
         if not self.site.contact:
             errors.append("site.contact is required")
 
-        # Validate output config (REQUIRED)
-        if not self.output.file_prefix:
-            errors.append("output.file_prefix is required")
+        # Validate radar config (REQUIRED)
+        if self.radar.cosine_error_angle == 0.0:
+            errors.append("radar.cosine_error_angle is required")
 
         return len(errors) == 0, errors
 

@@ -44,6 +44,7 @@ def create_example_config(output_path: str = "config.example.json") -> None:
             map_angle=45.0,
         ),
         radar=RadarConfig(
+            cosine_error_angle=21.0,
             sensor_model="OmniPreSense OPS243-A",
             firmware_version="v1.2.3",
             transmit_frequency="24.125 GHz",
@@ -198,7 +199,9 @@ def create_minimal_config(output_path: str = "config.minimal.json") -> None:
             "end_date": "2025-06-07",
             "timezone": "US/Pacific",
         },
-        "output": {"file_prefix": "my-report"},
+        "radar": {
+            "cosine_error_angle": 21.0,
+        },
     }
 
     with open(output_path, "w") as f:
@@ -206,7 +209,7 @@ def create_minimal_config(output_path: str = "config.minimal.json") -> None:
 
     print(f"✅ Created minimal configuration: {output_path}")
     print(
-        "   (Only required fields: site.location/surveyor/contact, query.start_date/end_date/timezone, output.file_prefix)"
+        "   (Only required fields: site.location/surveyor/contact, query.start_date/end_date/timezone, radar.cosine_error_angle)"
     )
 
 
