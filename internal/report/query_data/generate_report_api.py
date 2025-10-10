@@ -6,13 +6,15 @@ This module provides a simple function-based API that can be called by:
 2. Flask/FastAPI endpoints
 3. Direct Python imports
 
-The Go webserver workflow:
+The simplified workflow:
 1. User submits form → Go captures data
 2. Go saves config to SQLite + JSON file
-3. Go calls this API with config file path
+3. Go calls this API with config file path or dict
 4. Python generates PDF and returns file paths
 5. Go moves files to report-specific folder
 6. Svelte frontend displays download links
+
+All configuration is in JSON format - no CLI flags or env vars.
 """
 
 import json
