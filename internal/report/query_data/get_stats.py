@@ -773,7 +773,7 @@ if __name__ == "__main__":
         if "--debug" in sys.argv:
             config.output.debug = args.debug
         if "--no-map" in sys.argv:
-            config.output.no_map = args.no_map
+            config.output.no_map = True  # Explicitly set to True when flag present
 
     else:
         # Create config from CLI args (original behavior)

@@ -317,6 +317,7 @@ class ReportConfig:
                 run_id=self.output.run_id,
                 debug=os.getenv("REPORT_DEBUG", "1" if self.output.debug else "0")
                 == "1",
+                no_map=self.output.no_map,  # Preserve no_map setting
             ),
             created_at=self.created_at,
             updated_at=datetime.now(ZoneInfo("UTC")).isoformat(),
