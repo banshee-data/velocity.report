@@ -471,16 +471,17 @@ class HistogramTableBuilder:
         """Add histogram data rows to table."""
         first_start = ranges[0][0]
 
-        # Below-cutoff row
+        # Below-cutoff row (only add if there's actually data below the first bucket)
         below_count = sum(v for k, v in numeric_buckets.items() if k < first_start)
-        pct_below = (below_count / total * 100.0) if total > 0 else 0.0
-        table.add_row(
-            [
-                NoEscape(escape_latex(f"<{int(first_start)}")),
-                NoEscape(escape_latex(str(int(below_count)))),
-                NoEscape(escape_latex(f"{pct_below:.1f}%")),
-            ]
-        )
+        if below_count > 0:
+            pct_below = (below_count / total * 100.0) if total > 0 else 0.0
+            table.add_row(
+                [
+                    NoEscape(escape_latex(f"<{int(first_start)}")),
+                    NoEscape(escape_latex(str(int(below_count)))),
+                    NoEscape(escape_latex(f"{pct_below:.1f}%")),
+                ]
+            )
 
         # Bucket rows
         for idx, (a, b) in enumerate(ranges):
@@ -519,16 +520,17 @@ class HistogramTableBuilder:
         proc_max: float,
     ) -> None:
         """Add histogram rows using fallback behavior."""
-        # Below-cutoff row
+        # Below-cutoff row (only add if there's actually data below the cutoff)
         below_cutoff = sum(v for k, v in numeric_buckets.items() if k < cutoff)
-        pct_below = (below_cutoff / total * 100.0) if total > 0 else 0.0
-        table.add_row(
-            [
-                NoEscape(escape_latex(f"<{int(cutoff)}")),
-                NoEscape(escape_latex(str(int(below_cutoff)))),
-                NoEscape(escape_latex(f"{pct_below:.1f}%")),
-            ]
-        )
+        if below_cutoff > 0:
+            pct_below = (below_cutoff / total * 100.0) if total > 0 else 0.0
+            table.add_row(
+                [
+                    NoEscape(escape_latex(f"<{int(cutoff)}")),
+                    NoEscape(escape_latex(str(int(below_cutoff)))),
+                    NoEscape(escape_latex(f"{pct_below:.1f}%")),
+                ]
+            )
 
         # Bucket rows
         for a, b in ranges:

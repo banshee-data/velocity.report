@@ -340,6 +340,54 @@ class TestHistogramTableBuilder(unittest.TestCase):
         # Should return fallback ranges
         self.assertEqual(ranges, fallback_ranges)
 
+    @patch("table_builders.process_histogram")
+    @patch("table_builders.Center")
+    @patch("table_builders.Tabular")
+    def test_no_below_cutoff_row_when_zero_count(
+        self, mock_tabular, mock_center, mock_process
+    ):
+        """Test that <cutoff bucket is not shown when count is 0."""
+        # Mock process_histogram to return data with NO values below cutoff
+        mock_process.return_value = (
+            {
+                5.0: 50,
+                10.0: 100,
+                15.0: 80,
+                20.0: 60,
+            },
+            290,
+            [(5.0, 10.0), (10.0, 15.0), (15.0, 20.0), (20.0, 25.0)],
+        )
+
+        mock_table = MagicMock()
+        mock_tabular.return_value = mock_table
+        mock_centered = MagicMock()
+        mock_center.return_value = mock_centered
+
+        result = self.builder.build(
+            {"5": 50, "10": 100, "15": 80, "20": 60},
+            units="mph",
+            cutoff=5.0,
+            bucket_size=5.0,
+            max_bucket=25.0,
+        )
+
+        # Check that no row was added with "<5" label
+        added_rows = [call[0][0] for call in mock_table.add_row.call_args_list]
+        # Convert to strings to check
+        row_strings = []
+        for row in added_rows:
+            if hasattr(row, "__iter__"):
+                row_strings.extend([str(cell) for cell in row])
+            else:
+                row_strings.append(str(row))
+
+        # Should NOT contain "<5" in any row
+        has_below_cutoff = any("<5" in str(item) for item in row_strings)
+        self.assertFalse(
+            has_below_cutoff, "Table should not contain <5 bucket when count is 0"
+        )
+
 
 class TestConvenienceFunctions(unittest.TestCase):
     """Tests for backward compatibility convenience functions."""
