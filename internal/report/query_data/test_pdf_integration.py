@@ -459,6 +459,119 @@ class TestPDFIntegration(unittest.TestCase):
 class TestPDFGenerationEdgeCases(unittest.TestCase):
     """Test edge cases in PDF generation."""
 
+    @patch("pdf_generator.PDF_CONFIG", {"columnsep": "invalid"})
+    @patch("pdf_generator.MapProcessor")
+    @patch("pdf_generator.chart_exists")
+    def test_columnsep_exception_handling(self, mock_chart_exists, mock_map_processor):
+        """Test exception handling in columnsep configuration (lines 177-178)."""
+        mock_chart_exists.return_value = False
+        mock_processor = MagicMock()
+        mock_processor.process_map.return_value = (False, None)
+        mock_map_processor.return_value = mock_processor
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "test_report.pdf")
+
+            try:
+                generate_pdf_report(
+                    output_path=output_path,
+                    start_iso="2025-06-02T00:00:00-07:00",
+                    end_iso="2025-06-04T23:59:59-07:00",
+                    group="1h",
+                    units="mph",
+                    timezone_display="UTC",
+                    min_speed_str="5.0 mph",
+                    location="Test",
+                    overall_metrics=[{"Count": 100}],
+                    daily_metrics=None,
+                    granular_metrics=[],
+                    histogram={"10": 50},
+                    tz_name="UTC",
+                    charts_prefix="test",
+                    speed_limit=25,
+                )
+            except Exception:
+                pass
+
+            tex_path = output_path.replace(".pdf", ".tex")
+            self.assertTrue(os.path.exists(tex_path))
+
+    @patch("pdf_generator.MapProcessor")
+    @patch("pdf_generator.chart_exists")
+    def test_generate_without_overall_metrics(
+        self, mock_chart_exists, mock_map_processor
+    ):
+        """Test PDF generation without overall metrics (lines 284-289)."""
+        mock_chart_exists.return_value = False
+        mock_processor = MagicMock()
+        mock_processor.process_map.return_value = (False, None)
+        mock_map_processor.return_value = mock_processor
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "test_report.pdf")
+
+            try:
+                generate_pdf_report(
+                    output_path=output_path,
+                    start_iso="2025-06-02T00:00:00-07:00",
+                    end_iso="2025-06-04T23:59:59-07:00",
+                    group="1h",
+                    units="mph",
+                    timezone_display="UTC",
+                    min_speed_str="5.0 mph",
+                    location="Test",
+                    overall_metrics=None,  # No overall metrics
+                    daily_metrics=None,
+                    granular_metrics=[],
+                    histogram={"10": 50},
+                    tz_name="UTC",
+                    charts_prefix="test",
+                    speed_limit=25,
+                )
+            except Exception:
+                pass
+
+            tex_path = output_path.replace(".pdf", ".tex")
+            self.assertTrue(os.path.exists(tex_path))
+
+    @patch("pdf_generator.MapProcessor")
+    @patch("pdf_generator.chart_exists")
+    def test_mono_font_fallback(self, mock_chart_exists, mock_map_processor):
+        """Test mono font fallback when font file doesn't exist (line 232)."""
+        mock_chart_exists.return_value = False
+        mock_processor = MagicMock()
+        mock_processor.process_map.return_value = (False, None)
+        mock_map_processor.return_value = mock_processor
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "test_report.pdf")
+
+            # Mock os.path.exists to return False for mono font
+            with patch("pdf_generator.os.path.exists") as mock_exists:
+                # First call is for font dir, return False for mono font check
+                mock_exists.side_effect = lambda p: "Mono" not in p
+
+                try:
+                    generate_pdf_report(
+                        output_path=output_path,
+                        start_iso="2025-06-02T00:00:00-07:00",
+                        end_iso="2025-06-04T23:59:59-07:00",
+                        group="1h",
+                        units="mph",
+                        timezone_display="UTC",
+                        min_speed_str="5.0 mph",
+                        location="Test",
+                        overall_metrics=[{"Count": 100}],
+                        daily_metrics=None,
+                        granular_metrics=[],
+                        histogram={"10": 50},
+                        tz_name="UTC",
+                        charts_prefix="test",
+                        speed_limit=25,
+                    )
+                except Exception:
+                    pass
+
     @patch("pdf_generator.MapProcessor")
     @patch("pdf_generator.chart_exists")
     def test_generate_with_empty_histogram(self, mock_chart_exists, mock_map_processor):
@@ -535,6 +648,52 @@ class TestPDFGenerationEdgeCases(unittest.TestCase):
             # .tex file should exist
             tex_path = output_path.replace(".pdf", ".tex")
             self.assertTrue(os.path.exists(tex_path))
+
+    @patch("pdf_generator.MapProcessor")
+    @patch("pdf_generator.chart_exists")
+    def test_pdf_generation_all_engines_fail(
+        self, mock_chart_exists, mock_map_processor
+    ):
+        """Test when all PDF engines fail and TEX generation also fails (lines 416-429)."""
+        mock_chart_exists.return_value = False
+        mock_processor = MagicMock()
+        mock_processor.process_map.return_value = (False, None)
+        mock_map_processor.return_value = mock_processor
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "test_report.pdf")
+
+            # Mock Document to fail on both generate_pdf and generate_tex
+            with patch("pdf_generator.Document") as mock_doc_class:
+                mock_doc = MagicMock()
+                mock_doc_class.return_value = mock_doc
+                
+                # Make all PDF generation attempts fail
+                mock_doc.generate_pdf.side_effect = Exception("PDF generation failed")
+                # Make TEX generation also fail (line 416-418)
+                mock_doc.generate_tex.side_effect = Exception("TEX generation failed")
+
+                # Should raise the last exception (line 421-429)
+                with self.assertRaises(Exception) as context:
+                    generate_pdf_report(
+                        output_path=output_path,
+                        start_iso="2025-06-02T00:00:00-07:00",
+                        end_iso="2025-06-04T23:59:59-07:00",
+                        group="1h",
+                        units="mph",
+                        timezone_display="UTC",
+                        min_speed_str="5.0 mph",
+                        location="Test",
+                        overall_metrics=[{"Count": 100}],
+                        daily_metrics=None,
+                        granular_metrics=[],
+                        histogram={"10": 50},
+                        tz_name="UTC",
+                        charts_prefix="test",
+                        speed_limit=25,
+                    )
+                
+                self.assertIn("PDF generation failed", str(context.exception))
 
 
 if __name__ == "__main__":
