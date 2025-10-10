@@ -78,6 +78,7 @@ from stats_utils import chart_exists
 from report_config import PDF_CONFIG, MAP_CONFIG, SITE_INFO
 from data_transformers import MetricsNormalizer, extract_count_from_row
 from map_utils import MapProcessor, create_marker_from_config
+from document_builder import DocumentBuilder
 from table_builders import (
     create_stats_table,
     create_param_table,
@@ -116,8 +117,14 @@ def generate_pdf_report(
 ) -> None:
     """Generate a complete PDF report using PyLaTeX."""
 
+    # Build document with all configuration
+    builder = DocumentBuilder()
+    doc = builder.build(
+        start_iso, end_iso, location, SITE_INFO["surveyor"], SITE_INFO["contact"]
+    )
+
     # Create document with very tight geometry so stats occupy most of the page
-    geometry_options = PDF_CONFIG['geometry']
+    geometry_options = PDF_CONFIG["geometry"]
 
     doc = Document(geometry_options=geometry_options, page_numbers=False)
 
@@ -164,8 +171,8 @@ def generate_pdf_report(
     # column gap (preamble): configurable via REPORT_COLUMNSEP_PT (points).
     # Default is increased to 10pt for better separation between columns.
     try:
-        _colsep_str = PDF_CONFIG['columnsep']
-        if _colsep_str and not _colsep_str.endswith('pt'):
+        _colsep_str = PDF_CONFIG["columnsep"]
+        if _colsep_str and not _colsep_str.endswith("pt"):
             _colsep_str = f"{_colsep_str}pt"
     except Exception:
         _colsep_str = "10pt"
@@ -176,7 +183,7 @@ def generate_pdf_report(
     # Point fontspec at the bundled Atkinson Hyperlegible fonts that live in
     # the `fonts/` directory next to this module. This forces the document
     # to use Atkinson Hyperlegible as the sans font.
-    fonts_path = os.path.join(os.path.dirname(__file__), PDF_CONFIG['fonts_dir'])
+    fonts_path = os.path.join(os.path.dirname(__file__), PDF_CONFIG["fonts_dir"])
     # Use Path= with trailing os.sep so fontspec can find the files
     # Break up the fontspec options for readability and maintainability
     sans_font_options = [
@@ -247,10 +254,10 @@ def generate_pdf_report(
 
         # Use normalizer for consistent field extraction
         normalizer = MetricsNormalizer()
-        p50 = normalizer.get_numeric(overall, 'p50', 0)
-        p85 = normalizer.get_numeric(overall, 'p85', 0)
-        p98 = normalizer.get_numeric(overall, 'p98', 0)
-        max_speed = normalizer.get_numeric(overall, 'max_speed', 0)
+        p50 = normalizer.get_numeric(overall, "p50", 0)
+        p85 = normalizer.get_numeric(overall, "p85", 0)
+        p98 = normalizer.get_numeric(overall, "p98", 0)
+        max_speed = normalizer.get_numeric(overall, "max_speed", 0)
         total_vehicles = extract_count_from_row(overall, normalizer)
 
         # Extract dates for display
@@ -369,16 +376,16 @@ def generate_pdf_report(
     map_processor = MapProcessor(
         base_dir=os.path.dirname(__file__),
         marker_config={
-            "circle_radius": MAP_CONFIG['circle_radius'],
-            "circle_fill": MAP_CONFIG['circle_fill'],
-            "circle_stroke": MAP_CONFIG['circle_stroke'],
-            "circle_stroke_width": MAP_CONFIG['circle_stroke_width'],
-        }
+            "circle_radius": MAP_CONFIG["circle_radius"],
+            "circle_fill": MAP_CONFIG["circle_fill"],
+            "circle_stroke": MAP_CONFIG["circle_stroke"],
+            "circle_stroke_width": MAP_CONFIG["circle_stroke_width"],
+        },
     )
 
     # Create radar marker from config (or None to skip marker)
     marker = None
-    if MAP_CONFIG['triangle_len'] and MAP_CONFIG['triangle_len'] > 0:
+    if MAP_CONFIG["triangle_len"] and MAP_CONFIG["triangle_len"] > 0:
         marker = create_marker_from_config(MAP_CONFIG)
 
     # Process map (adds marker if provided, converts to PDF)
@@ -392,7 +399,6 @@ def generate_pdf_report(
                 mf.add_caption(
                     "Site map with radar location (circle) and coverage area (red triangle)"
                 )
-
 
     engines = ("xelatex", "lualatex", "pdflatex")
     generated = False
