@@ -356,44 +356,28 @@ class ReportConfig:
 
 def load_config(
     config_file: Optional[str] = None,
-    cli_args=None,
-    merge_env: bool = True,
+    config_dict: Optional[Dict[str, Any]] = None,
 ) -> ReportConfig:
-    """Load configuration from file, CLI args, or environment.
-
-    Priority order (highest to lowest):
-    1. Config file (if provided)
-    2. CLI arguments (if provided)
-    3. Environment variables
-    4. Defaults
+    """Load configuration from file or dictionary.
 
     Args:
-        config_file: Path to JSON config file (optional)
-        cli_args: Parsed CLI arguments (optional)
-        merge_env: Whether to merge environment variable overrides
+        config_file: Path to JSON config file
+        config_dict: Configuration dictionary (alternative to file)
 
     Returns:
         ReportConfig instance
+
+    Raises:
+        ValueError: If neither file nor dict provided, or if file doesn't exist
     """
-    config = None
-
-    # Load from file if provided
-    if config_file and os.path.exists(config_file):
-        config = ReportConfig.from_json(config_file)
-
-    # Load from CLI args if provided
-    elif cli_args:
-        config = ReportConfig.from_cli_args(cli_args)
-
-    # Fall back to environment
+    if config_file:
+        if not os.path.exists(config_file):
+            raise ValueError(f"Config file not found: {config_file}")
+        return ReportConfig.from_json(config_file)
+    elif config_dict:
+        return ReportConfig.from_dict(config_dict)
     else:
-        config = ReportConfig.from_env()
-
-    # Merge environment variable overrides if requested
-    if merge_env:
-        config = config.merge_with_env()
-
-    return config
+        raise ValueError("Must provide either config_file or config_dict")
 
 
 # Example usage and template generation

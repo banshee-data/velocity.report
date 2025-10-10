@@ -637,147 +637,26 @@ def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Query radar stats API for date ranges and generate LaTeX table files."
+        description="Generate radar velocity reports from JSON configuration file. "
+        "Use create_config_example.py to generate a template config file."
     )
 
-    # Configuration file support (NEW)
+    # Configuration file - now REQUIRED
     parser.add_argument(
-        "--config",
-        "--config-file",
-        dest="config_file",
-        default=None,
-        help="Path to JSON configuration file. If provided, most other arguments are optional and will use config values.",
-    )
-    parser.add_argument(
-        "--save-config",
-        default=None,
-        help="Save effective configuration to JSON file (after merging CLI args, config file, and env vars).",
-    )
-
-    # Original CLI arguments (all now optional if --config is used)
-    parser.add_argument(
-        "--group",
-        default="1h",
-        help="Grouping to request from server (15m, 30m, 1h, 2h, ...). Default: 1h",
-    )
-    parser.add_argument(
-        "--units",
-        default="mph",
-        help="Display units to request (e.g. mph, kph). Default: mph",
-    )
-    parser.add_argument(
-        "--source",
-        default="radar_data_transits",
-        choices=["radar_objects", "radar_data_transits"],
-        help="Data source to query (radar_objects or radar_data_transits).",
-    )
-    parser.add_argument(
-        "--model-version",
-        default="rebuild-full",
-        help="Transit model version to query when --source=radar_data_transits. Default: rebuild-full",
-    )
-    parser.add_argument(
-        "--timezone",
-        default="",
-        help="Timezone to request for StartTime conversion (e.g. UTC, America/Los_Angeles). Default: server default",
-    )
-    parser.add_argument(
-        "--min-speed",
-        type=float,
-        default=None,
-        help="Minimum speed filter (in display units). Default: none",
-    )
-    # legacy alias accepted by older scripts
-    parser.add_argument(
-        "--min_speed",
-        dest="min_speed",
-        type=float,
-        help=argparse.SUPPRESS,
-    )
-    parser.add_argument(
-        "--file-prefix",
-        default="",
-        help="File prefix for generated outputs. If not provided, defaults to '{source}_{start}_to_{end}'.",
-    )
-    parser.add_argument(
-        "--histogram",
-        action="store_true",
-        help="Request histogram data from the server and include histogram in response.",
-    )
-    parser.add_argument(
-        "--hist-bucket-size",
-        type=float,
-        default=None,
-        help="Histogram bucket size in display units (required if --histogram is used)",
-    )
-    parser.add_argument(
-        "--hist-max",
-        type=float,
-        default=None,
-        help="Maximum speed for histogram (optional)",
-    )
-    parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="Print debug info about parsed datetimes, timestamps, and API responses",
-    )
-    parser.add_argument(
-        "--no-map",
-        action="store_true",
-        help="Skip map generation in report (useful when location/GPS coordinates not available)",
-    )
-    parser.add_argument(
-        "dates",
-        nargs="*",  # Changed from "+" to "*" to make optional when config file is used
-        help="Pairs of start end dates. Each date may be YYYY-MM-DD or unix seconds. Example: 2024-01-01 2024-01-31",
+        "config_file",
+        help="Path to JSON configuration file (required). Use create_config_example.py to generate a template.",
     )
 
     args = parser.parse_args()
 
-    # NEW: Load configuration with priority: CLI args > config file > env > defaults
+    # Load configuration from JSON file
     from config_manager import load_config, ReportConfig
 
-    # If config file provided, load it; otherwise create from CLI args
-    if args.config_file:
-        # Load from config file
-        config = load_config(config_file=args.config_file, merge_env=True)
+    # Load config file (required)
+    if not os.path.exists(args.config_file):
+        parser.error(f"Config file not found: {args.config_file}")
 
-        # Override config with any CLI args that were explicitly provided
-        # (This allows CLI args to override config file values)
-        if args.dates and len(args.dates) >= 2:
-            config.query.start_date = args.dates[0]
-            config.query.end_date = args.dates[1]
-
-        # Check for explicit CLI overrides (not just defaults)
-        # We detect this by comparing against parser defaults
-        if "--group" in sys.argv:
-            config.query.group = args.group
-        if "--units" in sys.argv:
-            config.query.units = args.units
-        if "--source" in sys.argv:
-            config.query.source = args.source
-        if "--model-version" in sys.argv:
-            config.query.model_version = args.model_version
-        if "--timezone" in sys.argv:
-            config.query.timezone = args.timezone
-        if "--min-speed" in sys.argv or "--min_speed" in sys.argv:
-            config.query.min_speed = args.min_speed
-        if "--file-prefix" in sys.argv:
-            config.output.file_prefix = args.file_prefix
-        if "--histogram" in sys.argv:
-            config.query.histogram = args.histogram
-        if "--hist-bucket-size" in sys.argv:
-            config.query.hist_bucket_size = args.hist_bucket_size
-        if "--hist-max" in sys.argv:
-            config.query.hist_max = args.hist_max
-        if "--debug" in sys.argv:
-            config.output.debug = args.debug
-        if "--no-map" in sys.argv:
-            config.output.no_map = True  # Explicitly set to True when flag present
-
-    else:
-        # Create config from CLI args (original behavior)
-        config = load_config(cli_args=args, merge_env=True)
+    config = load_config(config_file=args.config_file)
 
     # Validate configuration
     is_valid, errors = config.validate()
@@ -787,12 +666,7 @@ if __name__ == "__main__":
             + "\n".join(f"  - {e}" for e in errors)
         )
 
-    # Save config if requested
-    if args.save_config:
-        config.to_json(args.save_config)
-        print(f"Configuration saved to: {args.save_config}")
-
-    # Convert config back to args format for backward compatibility with existing code
+    # Convert config to args format for backward compatibility with existing code
     # TODO: Refactor to use config directly throughout the codebase
     args.dates = [config.query.start_date, config.query.end_date]
     args.group = config.query.group
@@ -808,15 +682,14 @@ if __name__ == "__main__":
     args.debug = config.output.debug
     args.no_map = config.output.no_map
 
-    # Traditional validation (for backward compatibility)
-    if not args.dates or len(args.dates) % 2 != 0:
+    # Validate dates
+    if not args.dates or len(args.dates) != 2:
         parser.error(
-            "You must provide an even number of date arguments: <start1> <end1> [<start2> <end2> ...], or use --config with dates in the config file"
+            "Config file must contain valid start_date and end_date in query section"
         )
-    if args.histogram and args.hist_bucket_size is None:
-        parser.error("--hist-bucket-size is required when --histogram is used")
 
-    date_ranges = [
-        (args.dates[i], args.dates[i + 1]) for i in range(0, len(args.dates), 2)
-    ]
+    if args.histogram and args.hist_bucket_size is None:
+        parser.error("hist_bucket_size is required in config when histogram is enabled")
+
+    date_ranges = [(args.dates[0], args.dates[1])]
     main(date_ranges, args)
