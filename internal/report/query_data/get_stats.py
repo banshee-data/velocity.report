@@ -429,12 +429,141 @@ def assemble_pdf_report(
 # === Date Range Processing ===
 
 
+def parse_date_range(
+    start_date: str, end_date: str, timezone: Optional[str]
+) -> Tuple[Optional[int], Optional[int]]:
+    """Parse start and end dates to unix timestamps.
+
+    Args:
+        start_date: Start date string
+        end_date: End date string
+        timezone: Timezone name or None
+
+    Returns:
+        Tuple of (start_ts, end_ts) or (None, None) on error
+    """
+    try:
+        start_ts = parse_date_to_unix(start_date, end_of_day=False, tz_name=timezone)
+        end_ts = parse_date_to_unix(
+            end_date,
+            end_of_day=is_date_only(end_date),
+            tz_name=timezone,
+        )
+        return start_ts, end_ts
+    except ValueError as e:
+        print(f"Bad date range ({start_date} - {end_date}): {e}")
+        return None, None
+
+
+def get_model_version(args: argparse.Namespace) -> Optional[str]:
+    """Determine model version for transit data source.
+
+    Args:
+        args: Command-line arguments
+
+    Returns:
+        Model version string or None
+    """
+    if getattr(args, "source", "") == "radar_data_transits":
+        return args.model_version or "rebuild-full"
+    return None
+
+
+def print_api_debug_info(
+    resp: object, metrics: List, histogram: Optional[dict]
+) -> None:
+    """Print API response debug information.
+
+    Args:
+        resp: API response object
+        metrics: Metrics list
+        histogram: Histogram dict or None
+    """
+    try:
+        ms = resp.elapsed.total_seconds() * 1000.0
+        print(
+            f"DEBUG: API response status={resp.status_code} elapsed={ms:.1f}ms "
+            f"metrics={len(metrics)} histogram_present={bool(histogram)}"
+        )
+    except Exception:
+        print("DEBUG: unable to read response metadata")
+
+
+def check_charts_available() -> bool:
+    """Check if chart generation is available (matplotlib installed).
+
+    Returns:
+        True if charts can be generated
+    """
+    try:
+        from chart_builder import TimeSeriesChartBuilder
+
+        return True
+    except ImportError:
+        return False
+
+
+def generate_all_charts(
+    prefix: str,
+    metrics: List,
+    daily_metrics: Optional[List],
+    histogram: Optional[dict],
+    overall_metrics: List,
+    args: argparse.Namespace,
+    resp: Optional[object],
+) -> None:
+    """Generate all charts (stats, daily, histogram) if data available.
+
+    Args:
+        prefix: File prefix for outputs
+        metrics: Granular metrics
+        daily_metrics: Daily metrics or None
+        histogram: Histogram data or None
+        overall_metrics: Overall summary metrics
+        args: Command-line arguments
+        resp: API response object for debug info
+    """
+    if not check_charts_available():
+        if getattr(args, "debug", False):
+            print("DEBUG: matplotlib not available, skipping charts")
+        return
+
+    # Debug output for API response
+    if getattr(args, "debug", False) and resp:
+        print_api_debug_info(resp, metrics, histogram)
+
+    # Generate granular stats chart
+    generate_timeseries_chart(
+        metrics,
+        f"{prefix}_stats",
+        f"{prefix} - stats",
+        args.units,
+        args.timezone or None,
+        args,
+    )
+
+    # Generate daily chart if available
+    if daily_metrics:
+        generate_timeseries_chart(
+            daily_metrics,
+            f"{prefix}_daily",
+            f"{prefix} - daily",
+            args.units,
+            args.timezone or None,
+            args,
+        )
+
+    # Generate histogram if available
+    if histogram:
+        generate_histogram_chart(histogram, prefix, args.units, overall_metrics, args)
+
+
 def process_date_range(
     start_date: str, end_date: str, args: argparse.Namespace, client: RadarStatsClient
 ) -> None:
     """Process a single date range: fetch data, generate charts, create PDF.
 
-    This orchestrates all steps for one date range.
+    This is the main orchestrator that coordinates all steps for one date range.
 
     Args:
         start_date: Start date string
@@ -442,29 +571,16 @@ def process_date_range(
         args: Command-line arguments
         client: API client instance
     """
-    # Determine model version for transit data
-    model_version = None
-    if getattr(args, "source", "") == "radar_data_transits":
-        model_version = args.model_version or "rebuild-full"
-
     # Parse dates to timestamps
-    try:
-        start_ts = parse_date_to_unix(
-            start_date, end_of_day=False, tz_name=(args.timezone or None)
-        )
-        end_ts = parse_date_to_unix(
-            end_date,
-            end_of_day=is_date_only(end_date),
-            tz_name=(args.timezone or None),
-        )
-    except ValueError as e:
-        print(f"Bad date range ({start_date} - {end_date}): {e}")
-        return
+    start_ts, end_ts = parse_date_range(start_date, end_date, args.timezone or None)
+    if start_ts is None or end_ts is None:
+        return  # Error already printed
 
-    # Resolve file prefix
+    # Determine model version and file prefix
+    model_version = get_model_version(args)
     prefix = resolve_file_prefix(args, start_ts, end_ts)
 
-    # Fetch data from API
+    # Fetch all data from API
     metrics, histogram, resp = fetch_granular_metrics(
         client, start_ts, end_ts, args, model_version
     )
@@ -480,55 +596,10 @@ def process_date_range(
     # Compute ISO timestamps for report
     start_iso, end_iso = compute_iso_timestamps(start_ts, end_ts, args.timezone)
 
-    # Check if charts are available
-    try:
-        from chart_builder import TimeSeriesChartBuilder
-
-        charts_available = True
-    except ImportError:
-        charts_available = False
-        if getattr(args, "debug", False):
-            print("DEBUG: matplotlib not available, skipping charts")
-
-    # Generate charts if available
-    if charts_available:
-        # Debug output for API response
-        if getattr(args, "debug", False) and resp:
-            try:
-                ms = resp.elapsed.total_seconds() * 1000.0
-                print(
-                    f"DEBUG: API response status={resp.status_code} elapsed={ms:.1f}ms "
-                    f"metrics={len(metrics)} histogram_present={bool(histogram)}"
-                )
-            except Exception:
-                print("DEBUG: unable to read response metadata")
-
-        # Generate granular stats chart
-        generate_timeseries_chart(
-            metrics,
-            f"{prefix}_stats",
-            f"{prefix} - stats",
-            args.units,
-            args.timezone or None,
-            args,
-        )
-
-        # Generate daily chart if available
-        if daily_metrics:
-            generate_timeseries_chart(
-                daily_metrics,
-                f"{prefix}_daily",
-                f"{prefix} - daily",
-                args.units,
-                args.timezone or None,
-                args,
-            )
-
-        # Generate histogram if available
-        if histogram:
-            generate_histogram_chart(
-                histogram, prefix, args.units, overall_metrics, args
-            )
+    # Generate all charts
+    generate_all_charts(
+        prefix, metrics, daily_metrics, histogram, overall_metrics, args, resp
+    )
 
     # Assemble final PDF report
     assemble_pdf_report(

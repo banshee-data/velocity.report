@@ -280,7 +280,8 @@ def generate_pdf_report(
 
     # Add histogram chart if available
     if chart_exists(charts_prefix, "histogram"):
-        hist_path = os.path.abspath(f"{charts_prefix}_histogram.pdf")
+        # Use basename only to avoid path escaping issues in LaTeX
+        hist_path = os.path.basename(f"{charts_prefix}_histogram.pdf")
         with doc.create(Center()) as hist_chart_center:
             with hist_chart_center.create(Figure(position="H")) as fig:
                 # use full available text width for histogram as well
@@ -363,7 +364,8 @@ def generate_pdf_report(
     doc.append(NoEscape("\\onecolumn"))
 
     if chart_exists(charts_prefix, "stats"):
-        stats_path = os.path.abspath(f"{charts_prefix}_stats.pdf")
+        # Use basename only to avoid path escaping issues in LaTeX
+        stats_path = os.path.basename(f"{charts_prefix}_stats.pdf")
         with doc.create(Center()) as chart_center:
             with chart_center.create(Figure(position="H")) as fig:
                 # use full available text width for charts
