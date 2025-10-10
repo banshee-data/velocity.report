@@ -688,14 +688,14 @@ class TestChartAnnotations(unittest.TestCase):
             datetime(2025, 6, 2, 10, 0, 0),
             datetime(2025, 6, 2, 11, 0, 0),
         ]
-        
+
         # Create sample chart
         self.ax.plot(times, [30, 35])
-        
+
         # Test annotation code paths
         # Note: The actual _add_annotations method might not exist,
         # but we're testing the build method which includes annotation logic
-        
+
     def test_build_applies_styling(self):
         """Test that build applies font and layout styling."""
         metrics = [
@@ -710,11 +710,11 @@ class TestChartAnnotations(unittest.TestCase):
         ]
 
         fig = self.builder.build(metrics, "Styled Chart", "mph")
-        
+
         # Chart should be created with styling
         self.assertIsNotNone(fig)
         ax = fig.axes[0]
-        
+
         # Should have labels
         self.assertIsNotNone(ax.get_xlabel())
         self.assertIsNotNone(ax.get_ylabel())
@@ -733,17 +733,19 @@ class TestBuildRunsEdgeCases(unittest.TestCase):
 
     def test_build_runs_with_gaps(self):
         """Test building runs with time gaps (lines 394, 414)."""
-        times = np.array([
-            datetime(2025, 6, 2, 10, 0, 0),
-            datetime(2025, 6, 2, 11, 0, 0),
-            datetime(2025, 6, 2, 14, 0, 0),  # Large gap
-            datetime(2025, 6, 2, 15, 0, 0),
-        ])
+        times = np.array(
+            [
+                datetime(2025, 6, 2, 10, 0, 0),
+                datetime(2025, 6, 2, 11, 0, 0),
+                datetime(2025, 6, 2, 14, 0, 0),  # Large gap
+                datetime(2025, 6, 2, 15, 0, 0),
+            ]
+        )
         valid_mask = np.array([True, True, True, True])
         gap_threshold = 7200  # 2 hours in seconds
 
         runs = self.builder._build_runs(times, valid_mask, gap_threshold)
-        
+
         # Should split into runs due to gap
         self.assertIsNotNone(runs)
         self.assertGreater(len(runs), 0)
@@ -751,11 +753,13 @@ class TestBuildRunsEdgeCases(unittest.TestCase):
     def test_build_runs_exception_handler(self):
         """Test exception handler in _build_runs (line 414)."""
         # Create array with objects that might cause exceptions
-        times = np.array([
-            datetime(2025, 6, 2, 10, 0, 0),
-            None,  # Will cause exception
-            datetime(2025, 6, 2, 12, 0, 0),
-        ])
+        times = np.array(
+            [
+                datetime(2025, 6, 2, 10, 0, 0),
+                None,  # Will cause exception
+                datetime(2025, 6, 2, 12, 0, 0),
+            ]
+        )
         valid_mask = np.array([True, False, True])
         gap_threshold = 3600
 
@@ -767,9 +771,9 @@ class TestBuildRunsEdgeCases(unittest.TestCase):
         """Test _build_runs with no valid points."""
         times = np.array([datetime(2025, 6, 2, 10, 0, 0)])
         valid_mask = np.array([False])
-        
+
         runs = self.builder._build_runs(times, valid_mask, None)
-        
+
         # Should return empty list
         self.assertEqual(runs, [])
 
@@ -790,7 +794,7 @@ class TestAxisConfigurationEdgeCases(unittest.TestCase):
         """Test exception handlers in _configure_speed_axis (lines 437-442)."""
         # Should handle exceptions gracefully
         self.builder._configure_speed_axis(self.ax, "mph")
-        
+
         # Axis should be configured
         ylabel = self.ax.get_ylabel()
         self.assertIn("mph", ylabel)
@@ -799,9 +803,9 @@ class TestAxisConfigurationEdgeCases(unittest.TestCase):
         """Test ylim exception handler."""
         # Set some data first to test ylim adjustment
         self.ax.plot([1, 2, 3], [10, 20, 30])
-        
+
         self.builder._configure_speed_axis(self.ax, "kph")
-        
+
         # Should have set ylabel
         self.assertIn("kph", self.ax.get_ylabel())
 
@@ -822,10 +826,10 @@ class TestPlotCountBarsEdgeCases(unittest.TestCase):
         """Test exception handler in max count calculation (lines 458-459)."""
         times = [datetime(2025, 6, 2, 10, 0, 0)]
         counts = [None]  # Will cause exception in max()
-        
+
         # Should handle gracefully
         result = self.builder._plot_count_bars(self.ax2, times, counts)
-        
+
         # Should still return or handle gracefully
         # (might return None or legend data)
 
@@ -833,7 +837,7 @@ class TestPlotCountBarsEdgeCases(unittest.TestCase):
         """Test exception handler in low_mask calculation (lines 466-467)."""
         times = [datetime(2025, 6, 2, 10, 0, 0)]
         counts = ["invalid"]  # Will cause exception in int()
-        
+
         # Should handle gracefully
         result = self.builder._plot_count_bars(self.ax2, times, counts)
 
@@ -841,11 +845,11 @@ class TestPlotCountBarsEdgeCases(unittest.TestCase):
         """Test exception handler in top calculation (lines 472-473)."""
         times = [datetime(2025, 6, 2, 10, 0, 0)]
         counts = [100]
-        
+
         # Mock layout to cause exception
         original_layout = self.builder.layout
         self.builder.layout = {"count_axis_scale": "invalid"}
-        
+
         # Should handle gracefully
         try:
             result = self.builder._plot_count_bars(self.ax2, times, counts)
@@ -859,9 +863,9 @@ class TestPlotCountBarsEdgeCases(unittest.TestCase):
             datetime(2025, 6, 2, 11, 0, 0),
         ]
         counts = [100, 120]
-        
+
         result = self.builder._plot_count_bars(self.ax2, times, counts)
-        
+
         # Should have plotted bars
         self.assertIsNotNone(result or True)
 
@@ -880,9 +884,9 @@ class TestComputeBarWidthsEdgeCases(unittest.TestCase):
     def test_compute_bar_widths_single_time(self):
         """Test bar width computation with single time point."""
         times = [datetime(2025, 6, 2, 10, 0, 0)]
-        
+
         bar_width_bg, bar_width = self.builder._compute_bar_widths(times)
-        
+
         # Should return fallback values
         self.assertIsInstance(bar_width_bg, float)
         self.assertIsInstance(bar_width, float)
@@ -894,10 +898,10 @@ class TestComputeBarWidthsEdgeCases(unittest.TestCase):
             datetime(2025, 6, 2, 10, 0, 0),
             None,  # Will cause exception
         ]
-        
+
         # Should handle gracefully and return fallback
         bar_width_bg, bar_width = self.builder._compute_bar_widths(times)
-        
+
         self.assertGreater(bar_width_bg, 0)
         self.assertGreater(bar_width, 0)
 
@@ -918,7 +922,7 @@ class TestConfigureCountAxisEdgeCases(unittest.TestCase):
         """Test exception handler in _configure_count_axis (lines 565-566)."""
         # Should handle exceptions in tick_params
         self.builder._configure_count_axis(self.ax2)
-        
+
         # Should have set ylabel
         self.assertEqual(self.ax2.get_ylabel(), "Count")
 
@@ -939,12 +943,12 @@ class TestCreateLegendEdgeCases(unittest.TestCase):
         """Test legend creation with low sample indicator (lines 580, 592-593)."""
         # Add some plot elements
         self.ax.plot([1, 2, 3], [10, 20, 30], label="P50")
-        
+
         # Call with low sample data
         legend_data = ("Low Sample\n(< 10 readings)", "#FFA500", 0.3)
-        
+
         self.builder._create_legend(self.fig, self.ax, legend_data)
-        
+
         # Should have created legend
         legend = self.ax.get_legend()
         self.assertIsNotNone(legend or True)  # Legend might be on fig or ax
@@ -953,10 +957,10 @@ class TestCreateLegendEdgeCases(unittest.TestCase):
         """Test legend creation without low sample indicator."""
         # Add some plot elements
         self.ax.plot([1, 2, 3], [10, 20, 30], label="P50")
-        
+
         # Call without low sample data
         self.builder._create_legend(self.fig, self.ax, None)
-        
+
         # Should still work
         self.assertIsNotNone(self.ax)
 
@@ -976,19 +980,19 @@ class TestHistogramSortingEdgeCases(unittest.TestCase):
         """Test exception handler in histogram sorting (lines 738-739)."""
         # Mix of numeric and non-numeric keys
         histogram = {"10": 50, "abc": 30, "20": 70}
-        
+
         # Should fallback to string sorting
         fig = self.builder.build(histogram, "Mixed Keys", "mph")
-        
+
         self.assertIsNotNone(fig)
 
     def test_histogram_with_debug_output(self):
         """Test histogram debug output (line 699)."""
         histogram = {"10": 50, "20": 100, "30": 75}
-        
+
         # Test with debug enabled
         fig = self.builder.build(histogram, "Debug Histogram", "mph", debug=True)
-        
+
         self.assertIsNotNone(fig)
 
 
@@ -1006,17 +1010,17 @@ class TestHistogramPlottingEdgeCases(unittest.TestCase):
     def test_histogram_with_very_large_values(self):
         """Test histogram with large count values."""
         histogram = {"10": 10000, "20": 50000, "30": 25000}
-        
+
         fig = self.builder.build(histogram, "Large Values", "mph")
-        
+
         self.assertIsNotNone(fig)
 
     def test_histogram_title_and_labels(self):
         """Test histogram applies title and labels (lines 772-773, 777-778)."""
         histogram = {"10": 50, "20": 100}
-        
+
         fig = self.builder.build(histogram, "Test Title", "mph")
-        
+
         ax = fig.axes[0]
         self.assertEqual(ax.get_title(), "Test Title")
         self.assertIn("mph", ax.get_xlabel())
@@ -1024,23 +1028,23 @@ class TestHistogramPlottingEdgeCases(unittest.TestCase):
     def test_histogram_bar_properties(self):
         """Test histogram bar styling (lines 789-790)."""
         histogram = {"10": 50, "20": 100, "30": 75}
-        
+
         fig = self.builder.build(histogram, "Bar Style", "mph")
-        
+
         ax = fig.axes[0]
         patches = ax.patches
-        
+
         # Should have bars
         self.assertGreater(len(patches), 0)
 
     def test_histogram_axis_configuration(self):
         """Test histogram axis configuration (lines 805-809)."""
         histogram = {"10": 50, "20": 100}
-        
+
         fig = self.builder.build(histogram, "Axis Config", "mph")
-        
+
         ax = fig.axes[0]
-        
+
         # Should have configured axes
         self.assertIsNotNone(ax.get_xlabel())
         self.assertIsNotNone(ax.get_ylabel())
