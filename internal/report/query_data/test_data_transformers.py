@@ -228,5 +228,173 @@ class TestBatchProcessing(unittest.TestCase):
         self.assertEqual(result["p85"][1], 30.0)
 
 
+class TestEdgeCases(unittest.TestCase):
+    """Test edge cases and error handling."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.normalizer = MetricsNormalizer()
+
+    def test_get_numeric_with_integer(self):
+        """Test get_numeric handles integers correctly."""
+        row = {"count": 42}
+        result = self.normalizer.get_numeric(row, "count")
+        self.assertEqual(result, 42)
+        self.assertIsInstance(result, (int, float))
+
+    def test_get_numeric_with_zero(self):
+        """Test get_numeric preserves zero value."""
+        row = {"p50": 0}
+        result = self.normalizer.get_numeric(row, "p50")
+        self.assertEqual(result, 0)
+
+    def test_get_numeric_with_negative(self):
+        """Test get_numeric handles negative values."""
+        row = {"max_speed": -5.5}
+        result = self.normalizer.get_numeric(row, "max_speed")
+        self.assertEqual(result, -5.5)
+
+    def test_get_numeric_with_inf(self):
+        """Test get_numeric handles infinity."""
+        row = {"p50": float("inf")}
+        result = self.normalizer.get_numeric(row, "p50")
+        self.assertEqual(result, float("inf"))
+
+    def test_get_numeric_with_boolean(self):
+        """Test get_numeric converts boolean to number."""
+        row = {"count": True}
+        result = self.normalizer.get_numeric(row, "count")
+        self.assertEqual(result, 1.0)
+
+    def test_get_value_with_empty_string(self):
+        """Test get_value returns empty string (not skipped)."""
+        row = {"p50": ""}
+        result = self.normalizer.get_value(row, "p50", default="default")
+        # Empty string is a valid value, not skipped
+        self.assertEqual(result, "")
+
+    def test_normalize_with_empty_row(self):
+        """Test normalize handles empty row."""
+        row = {}
+        result = self.normalizer.normalize(row)
+        self.assertIsInstance(result, dict)
+        self.assertEqual(len(result), 0)
+
+    def test_normalize_with_none_values(self):
+        """Test normalize preserves None values in non-normalized fields."""
+        row = {"custom_field": None}
+        result = self.normalizer.normalize(row)
+        self.assertIn("custom_field", result)
+        self.assertIsNone(result["custom_field"])
+
+    def test_extract_metrics_from_row_with_extra_fields(self):
+        """Test extract_metrics_from_row ignores extra fields."""
+        row = {
+            "P50Speed": 25.5,
+            "extra_field": "value",
+            "another_field": 123,
+        }
+        result = extract_metrics_from_row(row)
+        # Should only contain metric fields
+        self.assertIn("p50", result)
+        self.assertNotIn("extra_field", result)
+        self.assertNotIn("another_field", result)
+
+    def test_extract_count_from_row_with_float(self):
+        """Test extract_count_from_row converts float to int."""
+        row = {"Count": 42.7}
+        result = extract_count_from_row(row)
+        self.assertEqual(result, 42)
+        self.assertIsInstance(result, int)
+
+    def test_extract_count_from_row_with_negative(self):
+        """Test extract_count_from_row handles negative count."""
+        row = {"Count": -5}
+        result = extract_count_from_row(row)
+        # Negative count should still be returned (let caller validate)
+        self.assertEqual(result, -5)
+
+    def test_normalize_metrics_list_empty(self):
+        """Test normalize_metrics_list with empty list."""
+        result = normalize_metrics_list([])
+        self.assertEqual(result, [])
+
+    def test_normalize_metrics_list_single_item(self):
+        """Test normalize_metrics_list with single item."""
+        metrics = [{"P50Speed": 25.5}]
+        result = normalize_metrics_list(metrics)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["p50"], 25.5)
+
+    def test_extract_metrics_arrays_empty(self):
+        """Test extract_metrics_arrays with empty list."""
+        result = extract_metrics_arrays([])
+        self.assertIsInstance(result, dict)
+        # Should have metric keys but empty arrays
+        for key in ["p50", "p85", "p98", "max_speed"]:
+            self.assertIn(key, result)
+            self.assertEqual(len(result[key]), 0)
+
+    def test_extract_metrics_arrays_all_missing(self):
+        """Test extract_metrics_arrays when all values missing."""
+        metrics = [{}, {}, {}]
+        result = extract_metrics_arrays(metrics)
+        # Should have NaN for all values
+        self.assertEqual(len(result["p50"]), 3)
+        for val in result["p50"]:
+            self.assertTrue(np.isnan(val))
+
+    def test_get_numeric_with_scientific_notation(self):
+        """Test get_numeric handles scientific notation."""
+        row = {"p50": "1.5e2"}
+        result = self.normalizer.get_numeric(row, "p50")
+        self.assertEqual(result, 150.0)
+
+    def test_get_numeric_with_whitespace_string(self):
+        """Test get_numeric strips whitespace from strings."""
+        row = {"p50": "  25.5  "}
+        result = self.normalizer.get_numeric(row, "p50")
+        self.assertEqual(result, 25.5)
+
+
+class TestTypeCoercion(unittest.TestCase):
+    """Test type coercion edge cases."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.normalizer = MetricsNormalizer()
+
+    def test_get_numeric_with_dict(self):
+        """Test get_numeric returns default for dict value."""
+        row = {"p50": {"nested": "value"}}
+        result = self.normalizer.get_numeric(row, "p50", default=0.0)
+        self.assertEqual(result, 0.0)
+
+    def test_get_numeric_with_list(self):
+        """Test get_numeric returns default for list value."""
+        row = {"p50": [1, 2, 3]}
+        result = self.normalizer.get_numeric(row, "p50", default=0.0)
+        self.assertEqual(result, 0.0)
+
+    def test_extract_count_from_row_with_none(self):
+        """Test extract_count_from_row treats None as 0."""
+        row = {"Count": None}
+        result = extract_count_from_row(row)
+        self.assertEqual(result, 0)
+
+    def test_extract_start_time_with_integer(self):
+        """Test extract_start_time_from_row preserves integer timestamp."""
+        row = {"StartTime": 1234567890}
+        result = extract_start_time_from_row(row)
+        self.assertEqual(result, 1234567890)
+
+    def test_extract_start_time_with_empty_string(self):
+        """Test extract_start_time_from_row returns empty string."""
+        row = {"StartTime": ""}
+        result = extract_start_time_from_row(row)
+        # Empty string is returned as-is
+        self.assertEqual(result, "")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -444,5 +444,252 @@ class TestHelperFunctions(unittest.TestCase):
         self.assertEqual(marker.opacity, 0.9)
 
 
+class TestGPSCoordinateEdgeCases(unittest.TestCase):
+    """Test GPS coordinate edge cases."""
+
+    def test_marker_with_boundary_gps_coordinates(self):
+        """Test marker with boundary GPS values."""
+        # North pole
+        marker_north = RadarMarker(
+            cx_frac=0.5, cy_frac=0.5, bearing_deg=0.0, gps_lat=90.0, gps_lon=0.0
+        )
+        self.assertEqual(marker_north.gps_lat, 90.0)
+
+        # South pole
+        marker_south = RadarMarker(
+            cx_frac=0.5, cy_frac=0.5, bearing_deg=0.0, gps_lat=-90.0, gps_lon=0.0
+        )
+        self.assertEqual(marker_south.gps_lat, -90.0)
+
+        # Date line
+        marker_date = RadarMarker(
+            cx_frac=0.5, cy_frac=0.5, bearing_deg=0.0, gps_lat=0.0, gps_lon=180.0
+        )
+        self.assertEqual(marker_date.gps_lon, 180.0)
+
+    def test_marker_with_negative_gps_coordinates(self):
+        """Test marker with negative GPS coordinates (Southern/Western hemispheres)."""
+        marker = RadarMarker(
+            cx_frac=0.5,
+            cy_frac=0.5,
+            bearing_deg=0.0,
+            gps_lat=-33.8688,
+            gps_lon=-151.2093,
+        )
+        self.assertEqual(marker.gps_lat, -33.8688)
+        self.assertEqual(marker.gps_lon, -151.2093)
+
+    def test_marker_with_zero_gps_coordinates(self):
+        """Test marker at equator and prime meridian."""
+        marker = RadarMarker(
+            cx_frac=0.5, cy_frac=0.5, bearing_deg=0.0, gps_lat=0.0, gps_lon=0.0
+        )
+        self.assertEqual(marker.gps_lat, 0.0)
+        self.assertEqual(marker.gps_lon, 0.0)
+
+
+class TestSVGManipulationEdgeCases(unittest.TestCase):
+    """Test SVG manipulation edge cases."""
+
+    def setUp(self):
+        """Create injector instance for tests."""
+        self.injector = SVGMarkerInjector()
+
+    def test_extract_viewbox_with_malformed_svg(self):
+        """Test viewBox extraction with malformed SVG that raises exception."""
+        # Missing svg tag - should raise RuntimeError
+        bad_svg = "<path d='M 0 0 L 100 100'/>"
+        with self.assertRaises(RuntimeError):
+            self.injector._extract_viewbox(bad_svg)
+
+        # svg tag but no viewBox or dimensions - should also raise
+        bad_svg2 = "<svg></svg>"
+        with self.assertRaises(RuntimeError):
+            self.injector._extract_viewbox(bad_svg2)
+
+    def test_extract_viewbox_with_negative_values(self):
+        """Test viewBox extraction with negative coordinates."""
+        svg = '<svg viewBox="-50 -50 200 200"></svg>'
+        result = self.injector._extract_viewbox(svg)
+        self.assertEqual(result, (-50.0, -50.0, 200.0, 200.0))
+
+    def test_extract_viewbox_with_decimal_values(self):
+        """Test viewBox extraction with decimal values."""
+        svg = '<svg viewBox="0.5 0.5 99.5 99.5"></svg>'
+        result = self.injector._extract_viewbox(svg)
+        self.assertEqual(result, (0.5, 0.5, 99.5, 99.5))
+
+    def test_inject_marker_with_empty_svg(self):
+        """Test marker injection with minimal SVG."""
+        svg_content = '<svg viewBox="0 0 100 100"></svg>'
+        marker = RadarMarker(cx_frac=0.5, cy_frac=0.5, bearing_deg=0.0)
+
+        result = self.injector.inject_marker(svg_content, marker)
+
+        # Should have added marker elements
+        self.assertIn("<g", result)
+        self.assertIn("</g>", result)
+        self.assertIn("<polygon", result)
+
+    def test_inject_marker_preserves_existing_content(self):
+        """Test that marker injection preserves existing SVG elements."""
+        svg_content = """<svg viewBox="0 0 100 100">
+            <rect x="10" y="10" width="80" height="80" fill="blue"/>
+        </svg>"""
+        marker = RadarMarker(cx_frac=0.5, cy_frac=0.5, bearing_deg=0.0)
+
+        result = self.injector.inject_marker(svg_content, marker)
+
+        # Original rect should still be there
+        self.assertIn('<rect x="10" y="10"', result)
+        # Marker should be added
+        self.assertIn("<polygon", result)
+
+    def test_triangle_points_with_different_bearings(self):
+        """Test triangle generation with various bearings."""
+        marker_north = RadarMarker(cx_frac=0.5, cy_frac=0.5, bearing_deg=0.0)
+        marker_east = RadarMarker(cx_frac=0.5, cy_frac=0.5, bearing_deg=90.0)
+        marker_south = RadarMarker(cx_frac=0.5, cy_frac=0.5, bearing_deg=180.0)
+        marker_west = RadarMarker(cx_frac=0.5, cy_frac=0.5, bearing_deg=270.0)
+
+        viewbox = (0, 0, 100, 100)
+
+        # All should generate valid points strings
+        points_n = self.injector._compute_triangle_points(marker_north, viewbox)
+        points_e = self.injector._compute_triangle_points(marker_east, viewbox)
+        points_s = self.injector._compute_triangle_points(marker_south, viewbox)
+        points_w = self.injector._compute_triangle_points(marker_west, viewbox)
+
+        # All should be non-empty strings
+        self.assertIsInstance(points_n, str)
+        self.assertGreater(len(points_n), 0)
+        self.assertIsInstance(points_e, str)
+        self.assertGreater(len(points_e), 0)
+        self.assertIsInstance(points_s, str)
+        self.assertGreater(len(points_s), 0)
+        self.assertIsInstance(points_w, str)
+        self.assertGreater(len(points_w), 0)
+
+
+class TestPDFConversionEdgeCases(unittest.TestCase):
+    """Test PDF conversion edge cases and fallback chains."""
+
+    def setUp(self):
+        """Create converter instance for tests."""
+        self.converter = SVGToPDFConverter()
+
+    def test_converter_initialization(self):
+        """Test PDF converter initializes correctly."""
+        self.assertIsInstance(self.converter, SVGToPDFConverter)
+
+    def test_converter_methods_exist(self):
+        """Test that converter has expected methods."""
+        self.assertTrue(hasattr(self.converter, "convert"))
+        # Static methods exist on class
+        self.assertTrue(hasattr(SVGToPDFConverter, "_try_cairosvg"))
+        self.assertTrue(hasattr(SVGToPDFConverter, "_try_inkscape"))
+        self.assertTrue(hasattr(SVGToPDFConverter, "_try_rsvg_convert"))
+
+
+class TestMarkerPositioningEdgeCases(unittest.TestCase):
+    """Test marker positioning edge cases."""
+
+    def test_marker_at_corners(self):
+        """Test marker positioning at SVG corners."""
+        viewbox = (0, 0, 1000, 1000)
+
+        # Top-left corner
+        marker_tl = RadarMarker(cx_frac=0.0, cy_frac=0.0, bearing_deg=45.0)
+        cx, cy = marker_tl.to_svg_coords(viewbox)
+        self.assertEqual(cx, 0.0)
+        self.assertEqual(cy, 0.0)
+
+        # Top-right corner
+        marker_tr = RadarMarker(cx_frac=1.0, cy_frac=0.0, bearing_deg=135.0)
+        cx, cy = marker_tr.to_svg_coords(viewbox)
+        self.assertEqual(cx, 1000.0)
+        self.assertEqual(cy, 0.0)
+
+        # Bottom-left corner
+        marker_bl = RadarMarker(cx_frac=0.0, cy_frac=1.0, bearing_deg=315.0)
+        cx, cy = marker_bl.to_svg_coords(viewbox)
+        self.assertEqual(cx, 0.0)
+        self.assertEqual(cy, 1000.0)
+
+        # Bottom-right corner
+        marker_br = RadarMarker(cx_frac=1.0, cy_frac=1.0, bearing_deg=225.0)
+        cx, cy = marker_br.to_svg_coords(viewbox)
+        self.assertEqual(cx, 1000.0)
+        self.assertEqual(cy, 1000.0)
+
+    def test_marker_with_extreme_bearing_angles(self):
+        """Test marker with extreme bearing angles."""
+        marker = RadarMarker(cx_frac=0.5, cy_frac=0.5, bearing_deg=0.0)
+        # 0 degrees (North)
+        self.assertEqual(marker.bearing_deg, 0.0)
+
+        # 360 degrees (also North)
+        marker_360 = RadarMarker(cx_frac=0.5, cy_frac=0.5, bearing_deg=360.0)
+        self.assertEqual(marker_360.bearing_deg, 360.0)
+
+        # Negative angle (should work - represents counter-clockwise)
+        marker_neg = RadarMarker(cx_frac=0.5, cy_frac=0.5, bearing_deg=-90.0)
+        self.assertEqual(marker_neg.bearing_deg, -90.0)
+
+    def test_marker_with_viewbox_offset(self):
+        """Test marker conversion with offset viewBox."""
+        marker = RadarMarker(cx_frac=0.5, cy_frac=0.5, bearing_deg=0.0)
+
+        # ViewBox with offset origin
+        viewbox = (100, 200, 400, 600)
+        cx, cy = marker.to_svg_coords(viewbox)
+
+        # Center should be: origin + (fraction * size)
+        self.assertAlmostEqual(cx, 100 + 0.5 * 400)
+        self.assertAlmostEqual(cy, 200 + 0.5 * 600)
+
+    def test_marker_with_tiny_viewbox(self):
+        """Test marker with very small viewBox."""
+        marker = RadarMarker(cx_frac=0.5, cy_frac=0.5, bearing_deg=0.0)
+
+        # Tiny viewBox
+        viewbox = (0, 0, 1, 1)
+        cx, cy = marker.to_svg_coords(viewbox)
+        self.assertAlmostEqual(cx, 0.5)
+        self.assertAlmostEqual(cy, 0.5)
+
+    def test_marker_with_huge_viewbox(self):
+        """Test marker with very large viewBox."""
+        marker = RadarMarker(cx_frac=0.5, cy_frac=0.5, bearing_deg=0.0)
+
+        # Huge viewBox
+        viewbox = (0, 0, 1000000, 1000000)
+        cx, cy = marker.to_svg_coords(viewbox)
+        self.assertAlmostEqual(cx, 500000.0)
+        self.assertAlmostEqual(cy, 500000.0)
+
+
+class TestCircleStrokeConfiguration(unittest.TestCase):
+    """Test circle stroke color configuration."""
+
+    def test_circle_stroke_uses_custom_color(self):
+        """Test that circle stroke color can be customized."""
+        marker = RadarMarker(cx_frac=0.5, cy_frac=0.5, bearing_deg=0.0, color="#ff0000")
+        # Circle stroke should default to triangle color
+        self.assertEqual(marker.color, "#ff0000")
+
+    def test_circle_stroke_with_opacity(self):
+        """Test circle opacity configuration."""
+        marker = RadarMarker(cx_frac=0.5, cy_frac=0.5, bearing_deg=0.0, opacity=0.5)
+        self.assertEqual(marker.opacity, 0.5)
+
+        # Test boundary values
+        marker_min = RadarMarker(cx_frac=0.5, cy_frac=0.5, bearing_deg=0.0, opacity=0.0)
+        self.assertEqual(marker_min.opacity, 0.0)
+
+        marker_max = RadarMarker(cx_frac=0.5, cy_frac=0.5, bearing_deg=0.0, opacity=1.0)
+        self.assertEqual(marker_max.opacity, 1.0)
+
+
 if __name__ == "__main__":
     unittest.main()
