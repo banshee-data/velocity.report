@@ -149,11 +149,16 @@ class ReportConfig:
         Returns:
             ReportConfig instance
         """
-        # Extract nested configs
-        site_data = data.get("site", {})
-        radar_data = data.get("radar", {})
-        query_data = data.get("query", {})
-        output_data = data.get("output", {})
+
+        # Extract nested configs and filter out documentation fields (starting with _)
+        def filter_meta(d: dict) -> dict:
+            """Remove keys starting with _ (documentation fields)."""
+            return {k: v for k, v in d.items() if not k.startswith("_")}
+
+        site_data = filter_meta(data.get("site", {}))
+        radar_data = filter_meta(data.get("radar", {}))
+        query_data = filter_meta(data.get("query", {}))
+        output_data = filter_meta(data.get("output", {}))
 
         return cls(
             site=SiteConfig(**site_data),

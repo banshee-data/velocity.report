@@ -475,6 +475,14 @@ def assemble_pdf_report(
             speed_limit_note=speed_limit_note,
             surveyor=surveyor,
             contact=contact,
+            cosine_error_angle=getattr(args, "cosine_error_angle", 0.0),
+            sensor_model=getattr(args, "sensor_model", "OmniPreSense OPS243-A"),
+            firmware_version=getattr(args, "firmware_version", "v1.2.3"),
+            transmit_frequency=getattr(args, "transmit_frequency", "24.125 GHz"),
+            sample_rate=getattr(args, "sample_rate", "20 kSPS"),
+            velocity_resolution=getattr(args, "velocity_resolution", "0.272 mph"),
+            azimuth_fov=getattr(args, "azimuth_fov", "20°"),
+            elevation_fov=getattr(args, "elevation_fov", "24°"),
         )
         print(f"Generated PDF report: {pdf_path}")
         return True
@@ -747,6 +755,13 @@ if __name__ == "__main__":
 
     # Radar configuration
     args.cosine_error_angle = config.radar.cosine_error_angle
+    args.sensor_model = config.radar.sensor_model
+    args.firmware_version = config.radar.firmware_version
+    args.transmit_frequency = config.radar.transmit_frequency
+    args.sample_rate = config.radar.sample_rate
+    args.velocity_resolution = config.radar.velocity_resolution
+    args.azimuth_fov = config.radar.azimuth_fov
+    args.elevation_fov = config.radar.elevation_fov
 
     # Validate dates
     if not args.dates or len(args.dates) != 2:

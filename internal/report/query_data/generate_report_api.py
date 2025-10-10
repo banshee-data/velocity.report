@@ -114,6 +114,13 @@ def generate_report_from_config(
 
             # Radar configuration
             args.cosine_error_angle = config.radar.cosine_error_angle
+            args.sensor_model = config.radar.sensor_model
+            args.firmware_version = config.radar.firmware_version
+            args.transmit_frequency = config.radar.transmit_frequency
+            args.sample_rate = config.radar.sample_rate
+            args.velocity_resolution = config.radar.velocity_resolution
+            args.azimuth_fov = config.radar.azimuth_fov
+            args.elevation_fov = config.radar.elevation_fov
 
             # Generate reports using existing get_stats.py logic
             date_ranges = [(config.query.start_date, config.query.end_date)]

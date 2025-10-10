@@ -119,6 +119,14 @@ def generate_pdf_report(
     speed_limit_note: str = "",
     surveyor: str = "",
     contact: str = "",
+    cosine_error_angle: float = 0.0,
+    sensor_model: str = "OmniPreSense OPS243-A",
+    firmware_version: str = "v1.2.3",
+    transmit_frequency: str = "24.125 GHz",
+    sample_rate: str = "20 kSPS",
+    velocity_resolution: str = "0.272 mph",
+    azimuth_fov: str = "20°",
+    elevation_fov: str = "24°",
 ) -> None:
     """Generate a complete PDF report using PyLaTeX.
 
@@ -128,7 +136,23 @@ def generate_pdf_report(
         speed_limit_note: Optional speed limit information
         surveyor: Surveyor name/organization
         contact: Contact email/phone
+        cosine_error_angle: Radar mounting angle in degrees
+        sensor_model: Radar sensor model
+        firmware_version: Radar firmware version
+        transmit_frequency: Radar transmit frequency
+        sample_rate: Radar sample rate
+        velocity_resolution: Radar velocity resolution
+        azimuth_fov: Radar azimuth field of view
+        elevation_fov: Radar elevation field of view
     """
+
+    # Calculate cosine error factor from angle
+    import math
+
+    cosine_error_factor = 1.0
+    if cosine_error_angle != 0:
+        angle_rad = math.radians(cosine_error_angle)
+        cosine_error_factor = 1.0 / math.cos(angle_rad)
 
     # Build document with all configuration
     builder = DocumentBuilder()
@@ -196,15 +220,15 @@ def generate_pdf_report(
         {"key": "Roll-up Period", "value": group},
         {"key": "Units", "value": units},
         {"key": "Minimum speed (cutoff)", "value": min_speed_str},
-        {"key": "Radar Sensor", "value": "OmniPreSense OPS243-A"},
-        {"key": "Radar Firmware version", "value": "v1.2.3"},
-        {"key": "Radar Transmit Frequency", "value": "24.125 GHz"},
-        {"key": "Radar Sample Rate", "value": "20 kSPS"},
-        {"key": "Radar Velocity Resolution", "value": "0.272 mph"},
-        {"key": "Azimuth Field of View", "value": "20°"},
-        {"key": "Elevation Field of View", "value": "24°"},
-        {"key": "Cosine Error Angle", "value": "21°"},
-        {"key": "Cosine Error Factor", "value": "1.0711"},
+        {"key": "Radar Sensor", "value": sensor_model},
+        {"key": "Radar Firmware version", "value": firmware_version},
+        {"key": "Radar Transmit Frequency", "value": transmit_frequency},
+        {"key": "Radar Sample Rate", "value": sample_rate},
+        {"key": "Radar Velocity Resolution", "value": velocity_resolution},
+        {"key": "Azimuth Field of View", "value": azimuth_fov},
+        {"key": "Elevation Field of View", "value": elevation_fov},
+        {"key": "Cosine Error Angle", "value": f"{cosine_error_angle}°"},
+        {"key": "Cosine Error Factor", "value": f"{cosine_error_factor:.4f}"},
     ]
     doc.append(create_param_table(param_entries))
 

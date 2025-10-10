@@ -20,15 +20,17 @@ from config_manager import (
 
 def test_site_config_defaults():
     """Test SiteConfig has sensible defaults."""
-    config = SiteConfig()
-    assert config.location == "Clarendon Avenue, San Francisco"
-    assert config.surveyor == "Banshee, INC."
-    assert config.speed_limit == 25
+    # location, surveyor, contact are required fields (empty string defaults)
+    config = SiteConfig(location="Test", surveyor="Test", contact="test@test.com")
+    assert config.location == "Test"
+    assert config.surveyor == "Test"
+    assert config.speed_limit == 25  # This still has a default
 
 
 def test_query_config_defaults():
     """Test QueryConfig has sensible defaults."""
-    config = QueryConfig()
+    # start_date, end_date, timezone are required (empty string defaults)
+    config = QueryConfig(start_date="2025-01-01", end_date="2025-01-02", timezone="UTC")
     assert config.group == "1h"
     assert config.units == "mph"
     assert config.source == "radar_data_transits"
@@ -159,17 +161,23 @@ def test_validation_histogram_requires_bucket_size():
 def test_validation_success():
     """Test validation passes for valid config."""
     config = ReportConfig(
-        site=SiteConfig(location="Test Location"),
+        site=SiteConfig(
+            location="Test Location",
+            surveyor="Test Surveyor",
+            contact="test@test.com",
+        ),
         query=QueryConfig(
             start_date="2025-06-01",
             end_date="2025-06-07",
+            timezone="UTC",
             histogram=True,
             hist_bucket_size=5.0,
         ),
+        radar=RadarConfig(cosine_error_angle=21.0),
     )
 
     is_valid, errors = config.validate()
-    assert is_valid
+    assert is_valid, f"Validation failed with errors: {errors}"
     assert len(errors) == 0
 
 
