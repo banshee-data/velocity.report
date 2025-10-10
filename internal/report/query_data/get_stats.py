@@ -24,6 +24,7 @@ from api_client import RadarStatsClient, SUPPORTED_GROUPS
 from date_parser import parse_date_to_unix, is_date_only, parse_server_time
 from pdf_generator import generate_pdf_report
 from stats_utils import plot_histogram, save_chart_as_pdf
+from report_config import COLORS, FONTS, LAYOUT, SITE_INFO, DEBUG
 
 # Optional matplotlib imports for plotting; keep optional so unit tests don't require it
 try:
@@ -89,7 +90,7 @@ def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = Non
     Returns a matplotlib Figure.
     """
     # Minimal plotting: times on x, speeds lines on left axis, counts on right axis
-    fig, ax = plt.subplots(figsize=(24, 8))
+    fig, ax = plt.subplots(figsize=LAYOUT['chart_figsize'])
     try:
         # Force axes to occupy nearly the full figure so saved output is tight.
         ax.set_position([0.01, 0.02, 0.98, 0.95])
@@ -168,9 +169,9 @@ def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = Non
 
             # Configurable threshold: treat counts < threshold as missing.
             try:
-                thresh = int(os.environ.get("VELOCITY_COUNT_MISSING_THRESHOLD", "5"))
+                thresh = int(os.environ.get("VELOCITY_COUNT_MISSING_THRESHOLD", str(LAYOUT['count_missing_threshold'])))
             except Exception:
-                thresh = 5
+                thresh = LAYOUT['count_missing_threshold']
 
             zero_mask = np.array(counts) < thresh
             # Combine existing masks (if any) with zero_mask
@@ -212,11 +213,11 @@ def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = Non
     except Exception:
         pass
 
-    # Color palette: p50 (blue), p85 (green), p98 (purple), max (red dashed)
-    color_p50 = "#fbd92f"
-    color_p85 = "#f7b32b"
-    color_p98 = "#f25f5c"
-    color_max = "#2d1e2f"
+    # Color palette from config
+    color_p50 = COLORS['p50']
+    color_p85 = COLORS['p85']
+    color_p98 = COLORS['p98']
+    color_max = COLORS['max']
 
     # Helper: plot a series but break the line at masked/NaN values by
     # detecting contiguous valid segments and plotting each separately.
@@ -258,7 +259,7 @@ def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = Non
 
         # Debug: report base delta and threshold
         try:
-            if os.environ.get("VELOCITY_PLOT_DEBUG") == "1":
+            if os.environ.get("VELOCITY_PLOT_DEBUG") == "1" or DEBUG['plot_debug']:
                 import sys
 
                 print(
@@ -312,9 +313,9 @@ def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = Non
         label="p50",
         marker="^",
         color=color_p50,
-        linewidth=1.0,
-        markersize=4,
-        markeredgewidth=0.4,
+        linewidth=LAYOUT['line_width'],
+        markersize=LAYOUT['marker_size'],
+        markeredgewidth=LAYOUT['marker_edge_width'],
     )
     _plot_broken(
         ax,
@@ -323,9 +324,9 @@ def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = Non
         label="p85",
         marker="s",
         color=color_p85,
-        linewidth=1.0,
-        markersize=4,
-        markeredgewidth=0.4,
+        linewidth=LAYOUT['line_width'],
+        markersize=LAYOUT['marker_size'],
+        markeredgewidth=LAYOUT['marker_edge_width'],
     )
     _plot_broken(
         ax,
@@ -334,9 +335,9 @@ def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = Non
         label="p98",
         marker="o",
         color=color_p98,
-        linewidth=1.0,
-        markersize=4,
-        markeredgewidth=0.4,
+        linewidth=LAYOUT['line_width'],
+        markersize=LAYOUT['marker_size'],
+        markeredgewidth=LAYOUT['marker_edge_width'],
     )
     _plot_broken(
         ax,
@@ -346,16 +347,16 @@ def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = Non
         marker="x",
         linestyle="--",
         color=color_max,
-        linewidth=1.0,
-        markersize=4,
-        markeredgewidth=0.4,
+        linewidth=LAYOUT['line_width'],
+        markersize=LAYOUT['marker_size'],
+        markeredgewidth=LAYOUT['marker_edge_width'],
     )
 
     # Axis label with smaller font for compact appearance
-    ax.set_ylabel(f"Velocity ({units})", fontsize=10)
+    ax.set_ylabel(f"Velocity ({units})", fontsize=FONTS['chart_axis_label'])
     # Reduce tick label sizes for both axes so the chart appears visually smaller
     try:
-        ax.tick_params(axis="both", which="major", labelsize=8)
+        ax.tick_params(axis="both", which="major", labelsize=FONTS['chart_axis_tick'])
     except Exception:
         pass
 
@@ -379,7 +380,7 @@ def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = Non
 
     # Positions with low counts (<50) will get an orange background bar reaching to max_count
     try:
-        low_mask = [(c is not None and int(c) < 50) for c in counts]
+        low_mask = [(c is not None and int(c) < LAYOUT['low_sample_threshold']) for c in counts]
     except Exception:
         low_mask = [False for _ in counts]
 
@@ -387,7 +388,7 @@ def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = Non
     # Compute top height first (increase by 60%) and use that as the
     # orange highlight height so the orange bar reaches the top of the axis.
     try:
-        top = max(1, int(max_count * 1.6))
+        top = max(1, int(max_count * LAYOUT['count_axis_scale']))
     except Exception:
         top = max_count if max_count > 0 else 1
 
@@ -436,8 +437,8 @@ def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = Non
     # Choose bar widths as a fraction of the bucket spacing. Use a slightly
     # larger width for the orange background and a slightly smaller width
     # for the visible count bars so the background peeks around them.
-    bar_width_bg = base * 0.95
-    bar_width = base * 0.7
+    bar_width_bg = base * LAYOUT['bar_width_bg_fraction']
+    bar_width = base * LAYOUT['bar_width_fraction']
 
     if any(orange_heights) and top > 0:
         ax2.bar(
@@ -445,12 +446,12 @@ def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = Non
             orange_heights,
             width=bar_width_bg,
             alpha=0.25,
-            color="#f7b32b",
+            color=COLORS['low_sample'],
             zorder=0,
         )
         # store legend data (threshold text kept in sync with low_mask logic)
         try:
-            low_sample_legend = ("Low-sample (<50)", "#f7b32b", 0.25)
+            low_sample_legend = (f"Low-sample (<{LAYOUT['low_sample_threshold']})", COLORS['low_sample'], 0.25)
         except Exception:
             low_sample_legend = None
 
@@ -460,7 +461,7 @@ def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = Non
         counts,
         width=bar_width,
         alpha=0.25,
-        color="#2d1e2f",
+        color=COLORS['count_bar'],
         label="Count",
         zorder=1,
     )
@@ -514,7 +515,7 @@ def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = Non
                 bbox_to_anchor=(0.5, -0.12),
                 ncol=ncols,
                 framealpha=0.9,
-                prop={"size": 7},
+                prop={"size": FONTS['chart_legend']},
             )
             try:
                 fr = leg.get_frame()
@@ -577,24 +578,24 @@ def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = Non
     # Reduce axis font sizes (ticks and axis labels) so the plot is compact.
     try:
         # tick labels (x and y)
-        ax.tick_params(axis="both", which="major", labelsize=7)
+        ax.tick_params(axis="both", which="major", labelsize=FONTS['chart_axis_tick'])
         # right-hand count axis
         try:
-            ax2.tick_params(axis="both", which="major", labelsize=7)
+            ax2.tick_params(axis="both", which="major", labelsize=FONTS['chart_axis_tick'])
         except Exception:
             pass
         # axis label sizes
         try:
-            ax.yaxis.label.set_size(8)
+            ax.yaxis.label.set_size(FONTS['chart_axis_label'])
         except Exception:
             pass
         try:
-            ax.xaxis.label.set_size(8)
+            ax.xaxis.label.set_size(FONTS['chart_axis_label'])
         except Exception:
             pass
         try:
             # make the title slightly smaller if present
-            ax.title.set_size(10)
+            ax.title.set_size(FONTS['chart_label'])
         except Exception:
             pass
     except Exception:
@@ -620,12 +621,17 @@ def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = Non
         # Right is reduced so the legend can sit outside the axes without overlap.
         # Shrink the right edge so the plotting area moves left and avoids
         # overlapping the stacked legend placed to the right of the axes.
-        fig.subplots_adjust(left=0.02, right=0.96, top=0.995, bottom=0.16)
+        fig.subplots_adjust(
+            left=LAYOUT['chart_left'],
+            right=LAYOUT['chart_right'],
+            top=LAYOUT['chart_top'],
+            bottom=LAYOUT['chart_bottom']
+        )
     except Exception:
         pass
     # also reduce tick sizes for the count axis
     try:
-        ax2.tick_params(axis="both", which="major", labelsize=7)
+        ax2.tick_params(axis="both", which="major", labelsize=FONTS['chart_axis_tick'])
     except Exception:
         pass
 
@@ -735,7 +741,7 @@ def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
 
         # Prepare PDF output path and location
         pdf_path = f"{prefix}_report.pdf"
-        location = "Clarendon Avenue, San Francisco"  # TODO: make this configurable
+        location = SITE_INFO['location']
 
         # Plotting block: generate charts and histograms first so they can be embedded into the PDF
         if matplotlib is None:
@@ -871,7 +877,7 @@ def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
                 histogram=histogram,
                 tz_name=(args.timezone or None),
                 charts_prefix=prefix,
-                speed_limit=25,  # TODO: make this configurable
+                speed_limit=SITE_INFO['speed_limit'],
                 hist_max=getattr(args, "hist_max", None),
             )
             print(f"Generated PDF report: {pdf_path}")

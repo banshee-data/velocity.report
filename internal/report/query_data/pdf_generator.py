@@ -82,6 +82,7 @@ from stats_utils import (
     count_histogram_ge,
     chart_exists,
 )
+from report_config import PDF_CONFIG, MAP_CONFIG, SITE_INFO
 
 
 # Removed MultiCol class - using \twocolumn instead of multicols package
@@ -524,16 +525,14 @@ def add_site_specifics(doc: Document) -> None:
 
     doc.append(
         NoEscape(
-            "This survey was conducted from the southbound parking lane outside 500 Clarendon Avenue, "
-            "directly in front of an elementary school. The site is located on a downhill grade, which may "
-            "influence vehicle speed and braking behavior. Data was collected from a fixed position over three consecutive days."
+            escape_latex(SITE_INFO['site_description'])
         )
     )
     doc.append(NoEscape("\\par"))
 
     doc.append(
         NoEscape(
-            "The posted speed limit at this location is 35 mph, reduced to 25 mph when school children are present. "
+            escape_latex(SITE_INFO['speed_limit_note'])
         )
     )
 
@@ -640,12 +639,7 @@ def generate_pdf_report(
     """Generate a complete PDF report using PyLaTeX."""
 
     # Create document with very tight geometry so stats occupy most of the page
-    geometry_options = {
-        "top": "1.8cm",
-        "bottom": "1.0cm",
-        "left": "1.0cm",
-        "right": "1.0cm",
-    }
+    geometry_options = PDF_CONFIG['geometry']
 
     doc = Document(geometry_options=geometry_options, page_numbers=False)
 
@@ -672,8 +666,8 @@ def generate_pdf_report(
 
     # Set up header
     # Increase headheight to avoid fancyhdr warnings on some templates
-    doc.append(NoEscape("\\setlength{\\headheight}{12pt}"))
-    doc.append(NoEscape("\\setlength{\\headsep}{10pt}"))
+    doc.append(NoEscape(f"\\setlength{{\\headheight}}{{{PDF_CONFIG['headheight']}}}"))
+    doc.append(NoEscape(f"\\setlength{{\\headsep}}{{{PDF_CONFIG['headsep']}}}"))
     doc.append(NoEscape("\\pagestyle{fancy}"))
     doc.append(NoEscape("\\fancyhf{}"))
     doc.append(
@@ -692,13 +686,9 @@ def generate_pdf_report(
     # column gap (preamble): configurable via REPORT_COLUMNSEP_PT (points).
     # Default is increased to 10pt for better separation between columns.
     try:
-        _colsep_env = os.getenv("REPORT_COLUMNSEP_PT", "14")
-        _colsep_val = float(_colsep_env)
-        # Format as 'Npt' (integer if whole number)
-        if float(_colsep_val).is_integer():
-            _colsep_str = f"{int(_colsep_val)}pt"
-        else:
-            _colsep_str = f"{_colsep_val}pt"
+        _colsep_str = PDF_CONFIG['columnsep']
+        if _colsep_str and not _colsep_str.endswith('pt'):
+            _colsep_str = f"{_colsep_str}pt"
     except Exception:
         _colsep_str = "10pt"
     doc.preamble.append(NoEscape(f"\\setlength{{\\columnsep}}{{{_colsep_str}}}"))
@@ -708,7 +698,7 @@ def generate_pdf_report(
     # Point fontspec at the bundled Atkinson Hyperlegible fonts that live in
     # the `fonts/` directory next to this module. This forces the document
     # to use Atkinson Hyperlegible as the sans font.
-    fonts_path = os.path.join(os.path.dirname(__file__), "fonts")
+    fonts_path = os.path.join(os.path.dirname(__file__), PDF_CONFIG['fonts_dir'])
     # Use Path= with trailing os.sep so fontspec can find the files
     # Break up the fontspec options for readability and maintainability
     sans_font_options = [
@@ -767,7 +757,7 @@ def generate_pdf_report(
     doc.append(NoEscape("\\vspace{0.1cm}"))
     doc.append(
         NoEscape(
-            "{\\large \\sffamily Surveyor: \\textit{Banshee, INC.} \\ \\textbullet \\ \\ Contact: \\href{mailto:david@banshee-data.com}{david@banshee-data.com}}"
+            f"{{\\large \\sffamily Surveyor: \\textit{{{SITE_INFO['surveyor']}}} \\ \\textbullet \\ \\ Contact: \\href{{mailto:{SITE_INFO['contact']}}}{{{SITE_INFO['contact']}}}}}"
         )
     )
     doc.append(NoEscape("\\end{center}"))
@@ -921,10 +911,7 @@ def generate_pdf_report(
         except Exception:
             need_convert = not os.path.exists(map_pdf)
         # Decide whether to inject a triangle marker. If MAP_TRIANGLE_LEN <= 0, skip marker.
-        try:
-            marker_len_frac = float(os.getenv("MAP_TRIANGLE_LEN", "0.42"))
-        except Exception:
-            marker_len_frac = 0.05
+        marker_len_frac = MAP_CONFIG['triangle_len']
 
         # We'll produce a temporary SVG (map_with_marker.svg) if marker is requested.
         temp_svg = os.path.join(os.path.dirname(__file__), "map_with_marker.svg")
@@ -964,14 +951,8 @@ def generate_pdf_report(
                 # Tip position: allow overriding the tip (lower/point) position
                 # via environment variables MAP_TRIANGLE_CX and MAP_TRIANGLE_CY
                 # which are fractions 0..1 of the SVG viewBox width/height.
-                try:
-                    cx_frac = float(os.getenv("MAP_TRIANGLE_CX", "0.385"))
-                except Exception:
-                    cx_frac = 0.5
-                try:
-                    cy_frac = float(os.getenv("MAP_TRIANGLE_CY", "0.71"))
-                except Exception:
-                    cy_frac = 0.5
+                cx_frac = MAP_CONFIG['triangle_cx']
+                cy_frac = MAP_CONFIG['triangle_cy']
 
                 cx = vb_min_x + vb_w * float(cx_frac)
                 cy = vb_min_y + vb_h * float(cy_frac)
@@ -982,10 +963,7 @@ def generate_pdf_report(
                 # Compute base width so the apex angle equals MAP_TRIANGLE_APEX_ANGLE
                 # (defaults to 20 degrees as requested). Apex angle (alpha) relates
                 # to width W via: W = 2 * L * tan(alpha/2)
-                try:
-                    apex_deg = float(os.getenv("MAP_TRIANGLE_APEX_ANGLE", "20"))
-                except Exception:
-                    apex_deg = 20.0
+                apex_deg = MAP_CONFIG['triangle_apex_angle']
                 # clamp a tiny bit to avoid pathological values
                 if apex_deg <= 0:
                     apex_deg = 1.0
@@ -997,18 +975,9 @@ def generate_pdf_report(
 
                 # Orientation (direction the triangle points) remains configurable
                 # via MAP_TRIANGLE_ANGLE (degrees, 0 = up). Default 0.
-                try:
-                    marker_angle_deg = float(os.getenv("MAP_TRIANGLE_ANGLE", "32"))
-                except Exception:
-                    marker_angle_deg = 0.0
-                try:
-                    marker_color = os.getenv("MAP_TRIANGLE_COLOR", "#f25f5c")
-                except Exception:
-                    marker_color = "#f25f5c"
-                try:
-                    marker_opacity = float(os.getenv("MAP_TRIANGLE_OPACITY", "0.9"))
-                except Exception:
-                    marker_opacity = 0.8
+                marker_angle_deg = MAP_CONFIG['triangle_angle']
+                marker_color = MAP_CONFIG['triangle_color']
+                marker_opacity = MAP_CONFIG['triangle_opacity']
 
                 theta = math.radians(marker_angle_deg)
                 fx = math.sin(theta)
@@ -1028,13 +997,10 @@ def generate_pdf_report(
                 points = f"{cx:.2f},{cy:.2f} {blx:.2f},{bly:.2f} {brx:.2f},{bry:.2f}"
 
                 # Optional small circle marker at the triangle apex (first point)
-                try:
-                    circle_radius = float(os.getenv("MAP_TRIANGLE_CIRCLE_RADIUS", "20"))
-                except Exception:
-                    circle_radius = 6.0
-                circle_fill = os.getenv("MAP_TRIANGLE_CIRCLE_FILL", "#ffffff")
-                circle_stroke = os.getenv("MAP_TRIANGLE_CIRCLE_STROKE", marker_color)
-                circle_stroke_width = os.getenv("MAP_TRIANGLE_CIRCLE_STROKE_WIDTH", "2")
+                circle_radius = MAP_CONFIG['circle_radius']
+                circle_fill = MAP_CONFIG['circle_fill']
+                circle_stroke = MAP_CONFIG['circle_stroke']
+                circle_stroke_width = MAP_CONFIG['circle_stroke_width']
 
                 # Build an insertion snippet for the top-layer marker. Ensure
                 # attributes are properly quoted (previously there was a stray

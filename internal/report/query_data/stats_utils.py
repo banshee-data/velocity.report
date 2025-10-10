@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 
 from date_parser import parse_server_time
+from report_config import FONTS, LAYOUT, HISTOGRAM_CONFIG
 
 
 def format_time(tval: Any, tz_name: Optional[str]) -> str:
@@ -53,9 +54,9 @@ def format_number(v: Any) -> str:
 
 def process_histogram(
     histogram: Dict[str, int],
-    cutoff: float = 5.0,
-    bucket_size: float = 5.0,
-    max_bucket: float = 50.0,
+    cutoff: float = None,
+    bucket_size: float = None,
+    max_bucket: float = None,
 ) -> Tuple[Dict[float, int], int, List[tuple]]:
     """Process histogram data for display.
 
@@ -64,6 +65,14 @@ def process_histogram(
         - total: Total count across all buckets
         - ranges: List of (start, end) tuples for display ranges
     """
+    # Use config defaults if not provided
+    if cutoff is None:
+        cutoff = HISTOGRAM_CONFIG['default_cutoff']
+    if bucket_size is None:
+        bucket_size = HISTOGRAM_CONFIG['default_bucket_size']
+    if max_bucket is None:
+        max_bucket = HISTOGRAM_CONFIG['default_max_bucket']
+    
     # Coerce numeric keys into buckets and compute total
     numeric_buckets: Dict[float, int] = {}
     total = 0
@@ -134,14 +143,14 @@ def plot_histogram(
         total = sum(counts)
         print(f"DEBUG: histogram bins={len(labels)} total={total}")
 
-    fig, ax = plt.subplots(figsize=(3, 2))
+    fig, ax = plt.subplots(figsize=LAYOUT['histogram_figsize'])
     x = list(range(len(labels)))
     ax.bar(x, counts, alpha=0.7, color="steelblue", edgecolor="black", linewidth=0.5)
 
-    # Font sizes
-    title_fs = 14
-    label_fs = 13
-    tick_fs = 11
+    # Font sizes from config
+    title_fs = FONTS['histogram_title']
+    label_fs = FONTS['histogram_label']
+    tick_fs = FONTS['histogram_tick']
 
     ax.set_xlabel(f"Velocity ({units})", fontsize=label_fs)
     ax.set_ylabel("Count", fontsize=label_fs)
@@ -226,8 +235,8 @@ def save_chart_as_pdf(fig, output_path: str, close_fig: bool = True) -> bool:
                         # upscaled by LaTeX (resulting in 'zoomed' charts). Enforce a
                         # sensible minimum width and an upper cap, scaling height
                         # proportionally.
-                        MIN_WIDTH_IN = 6.0
-                        MAX_WIDTH_IN = 11.0
+                        MIN_WIDTH_IN = LAYOUT['min_chart_width_in']
+                        MAX_WIDTH_IN = LAYOUT['max_chart_width_in']
                         if width_in < MIN_WIDTH_IN:
                             scale = MIN_WIDTH_IN / width_in
                             width_in = MIN_WIDTH_IN
