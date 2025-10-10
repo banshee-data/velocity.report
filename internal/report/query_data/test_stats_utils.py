@@ -111,7 +111,10 @@ class TestStatsUtils(unittest.TestCase):
             result = save_chart_as_pdf(mock_fig, output_path)
 
             self.assertTrue(result)
-            mock_fig.savefig.assert_called_once_with(output_path)
+            # Check that savefig was called (with bbox and pad kwargs)
+            mock_fig.savefig.assert_called()
+            # Verify the output path was used
+            self.assertIn(output_path, str(mock_fig.savefig.call_args))
 
     def test_save_chart_as_pdf_failure(self):
         """Test chart saving failure."""

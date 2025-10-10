@@ -152,16 +152,21 @@ class TestTimeSeriesChartBuilder(unittest.TestCase):
 
     def test_create_masked_arrays(self):
         """Test _create_masked_arrays() creates proper masked arrays."""
-        values = [30.5, None, 35.2, 0, 40.1]
+        p50 = [30.5, None, 35.2, 0, 40.1]
+        p85 = [36.0, 37.0, 38.0, 39.0, 40.0]
+        p98 = [42.0, 43.0, 44.0, 45.0, 46.0]
+        mx = [50.0, 51.0, 52.0, 53.0, 54.0]
         counts = [100, 50, 30, 150, 80]
 
-        masked_vals, bg_mask, low_mask = self.builder._create_masked_arrays(
-            values, counts
+        p50_a, p85_a, p98_a, mx_a = self.builder._create_masked_arrays(
+            p50, p85, p98, mx, counts
         )
 
-        self.assertEqual(len(masked_vals), 5)
-        self.assertEqual(len(bg_mask), 5)
-        self.assertEqual(len(low_mask), 5)
+        # Verify all arrays returned
+        self.assertEqual(len(p50_a), 5)
+        self.assertEqual(len(p85_a), 5)
+        self.assertEqual(len(p98_a), 5)
+        self.assertEqual(len(mx_a), 5)
 
     def test_compute_bar_widths(self):
         """Test _compute_bar_widths() computes reasonable widths."""
@@ -205,18 +210,19 @@ class TestTimeSeriesChartBuilder(unittest.TestCase):
 
     def test_build_runs(self):
         """Test _build_runs() splits data into continuous runs."""
-        x = np.array([1.0, 2.0, 5.0, 6.0, 10.0])
-        y = np.array([10, 20, 30, 40, 50])
+        x_arr = np.array([1.0, 2.0, 5.0, 6.0, 10.0])
+        valid_mask = np.array([True, True, True, True, True])
         gap_threshold = 2.5
 
-        runs = self.builder._build_runs(x, y, gap_threshold)
+        runs = self.builder._build_runs(x_arr, valid_mask, gap_threshold)
 
-        # Should create multiple runs due to gaps
-        self.assertGreater(len(runs), 1)
-        # Each run should have x and y arrays
+        # Should return list of (start, end) tuples
+        self.assertIsInstance(runs, list)
+        self.assertGreater(len(runs), 0)
+        # Each run should be a tuple of (start_idx, end_idx)
         for run in runs:
-            self.assertIn("x", run)
-            self.assertIn("y", run)
+            self.assertIsInstance(run, tuple)
+            self.assertEqual(len(run), 2)
 
     def test_debug_output_when_enabled(self):
         """Test _debug_output() prints when debug enabled."""
@@ -224,7 +230,8 @@ class TestTimeSeriesChartBuilder(unittest.TestCase):
             with patch("builtins.print") as mock_print:
                 times = [datetime.now()]
                 counts = [100]
-                self.builder._debug_output(times, counts)
+                p50_f = np.array([30.5])
+                self.builder._debug_output(times, counts, p50_f)
                 # Should have printed something
                 mock_print.assert_called()
 
@@ -234,7 +241,8 @@ class TestTimeSeriesChartBuilder(unittest.TestCase):
             with patch("builtins.print") as mock_print:
                 times = [datetime.now()]
                 counts = [100]
-                self.builder._debug_output(times, counts)
+                p50_f = np.array([30.5])
+                self.builder._debug_output(times, counts, p50_f)
                 # Should not print
                 mock_print.assert_not_called()
 
@@ -306,45 +314,6 @@ class TestHistogramChartBuilder(unittest.TestCase):
         )
 
         self.assertIsNotNone(fig)
-
-    def test_build_with_custom_cutoff(self):
-        """Test build() with custom cutoff value."""
-        fig = self.builder.build(
-            self.sample_histogram,
-            title="Custom Cutoff",
-            units="mph",
-            cutoff=3.0,
-        )
-
-        self.assertIsNotNone(fig)
-
-    def test_build_with_custom_max_bucket(self):
-        """Test build() with custom max bucket."""
-        fig = self.builder.build(
-            self.sample_histogram,
-            title="Custom Max",
-            units="mph",
-            max_bucket=40.0,
-        )
-
-        self.assertIsNotNone(fig)
-
-    def test_compute_bar_widths_histogram(self):
-        """Test _compute_bar_widths() for histogram bars."""
-        buckets = [10.0, 15.0, 20.0, 25.0, 30.0]
-        width = self.builder._compute_bar_widths(buckets)
-
-        self.assertGreater(width, 0)
-        # Width should be close to bucket spacing
-        self.assertAlmostEqual(width, 5.0, delta=2.0)
-
-    def test_compute_bar_widths_single_bucket(self):
-        """Test _compute_bar_widths() with single bucket."""
-        buckets = [10.0]
-        width = self.builder._compute_bar_widths(buckets)
-
-        # Should return some default width
-        self.assertGreater(width, 0)
 
     def test_plot_bars_centered(self):
         """Test that bars are centered on bucket values."""

@@ -39,7 +39,7 @@ from data_transformers import (
     extract_start_time_from_row,
     extract_count_from_row,
 )
-from stats_utils import parse_server_time
+from date_parser import parse_server_time
 
 
 class TimeSeriesChartBuilder:
