@@ -1380,6 +1380,53 @@ class TestHistogramLabelsAndFormatting(unittest.TestCase):
         # Chart should be created (grid is configured internally)
         self.assertIsNotNone(fig)
 
+    def test_histogram_range_labels(self):
+        """Test histogram labels are formatted as ranges (e.g., '5-10', '10-15', '50+')."""
+        # Histogram with bucket start values
+        histogram = {"5": 10, "10": 20, "15": 30, "20": 25, "25": 15}
+
+        fig = self.builder.build(histogram, "Range Label Test", "mph")
+
+        ax = fig.axes[0]
+        tick_labels = [label.get_text() for label in ax.get_xticklabels()]
+
+        # Should have range labels
+        self.assertIn("5-10", tick_labels)
+        self.assertIn("10-15", tick_labels)
+        self.assertIn("15-20", tick_labels)
+        self.assertIn("20-25", tick_labels)
+        # Last bucket should be open-ended with "+"
+        self.assertIn("25+", tick_labels)
+
+    def test_histogram_open_ended_bucket(self):
+        """Test last bucket is formatted as 'N+' (open-ended)."""
+        histogram = {"10": 50, "20": 100, "30": 75}
+
+        fig = self.builder.build(histogram, "Open-Ended Test", "mph")
+
+        ax = fig.axes[0]
+        tick_labels = [label.get_text() for label in ax.get_xticklabels()]
+
+        # Last label should be "30+"
+        self.assertIn("30+", tick_labels)
+        # Earlier labels should be ranges
+        self.assertIn("10-20", tick_labels)
+        self.assertIn("20-30", tick_labels)
+
+    def test_histogram_non_numeric_labels_preserved(self):
+        """Test non-numeric labels are preserved as-is."""
+        histogram = {"low": 10, "medium": 20, "high": 15}
+
+        fig = self.builder.build(histogram, "Non-Numeric Test", "categories")
+
+        ax = fig.axes[0]
+        tick_labels = [label.get_text() for label in ax.get_xticklabels()]
+
+        # Non-numeric labels should be preserved
+        self.assertIn("low", tick_labels)
+        self.assertIn("medium", tick_labels)
+        self.assertIn("high", tick_labels)
+
 
 class TestTimeSeriesWithVariousCounts(unittest.TestCase):
     """Test time series with various count scenarios."""

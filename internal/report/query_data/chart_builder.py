@@ -780,14 +780,47 @@ class HistogramChartBuilder:
         return fig
 
     def _format_labels(self, labels: List[str]) -> List[str]:
-        """Format numeric labels with consistent precision."""
+        """Format histogram labels to match table format (e.g., '5-10', '50+').
+
+        Converts bucket start values to range labels:
+        - Single values like '5', '10' → '5-10', '10-15', etc.
+        - Detects bucket size from consecutive labels
+        - Last bucket formatted as 'N+' (open-ended)
+        - Non-numeric labels passed through unchanged
+        """
         formatted = []
+
+        # Try to parse labels as floats to detect ranges
+        numeric_labels = []
         for lbl in labels:
             try:
-                f = float(lbl)
-                formatted.append(f"{f:.0f}")
+                numeric_labels.append(float(lbl))
             except Exception:
+                # Non-numeric label - pass through as-is
                 formatted.append(str(lbl))
+                continue
+
+        # If we have numeric labels, convert to ranges
+        if numeric_labels:
+            # Detect bucket size from first two consecutive labels
+            bucket_size = None
+            if len(numeric_labels) >= 2:
+                bucket_size = numeric_labels[1] - numeric_labels[0]
+
+            for i, val in enumerate(numeric_labels):
+                is_last = i == len(numeric_labels) - 1
+
+                if is_last:
+                    # Last bucket: format as "N+" (open-ended)
+                    formatted.append(f"{int(val)}+")
+                elif bucket_size:
+                    # Regular bucket: format as "A-B"
+                    next_val = val + bucket_size
+                    formatted.append(f"{int(val)}-{int(next_val)}")
+                else:
+                    # Fallback: just show the value
+                    formatted.append(f"{int(val)}")
+
         return formatted
 
     def _set_tick_labels(self, ax, x: List[int], formatted_labels: List[str]) -> None:
