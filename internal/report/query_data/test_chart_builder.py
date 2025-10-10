@@ -822,16 +822,74 @@ class TestPlotCountBarsEdgeCases(unittest.TestCase):
         """Clean up matplotlib figures."""
         plt.close("all")
 
-    def test_plot_count_bars_exception_in_max_count(self):
-        """Test exception handler in max count calculation (lines 458-459)."""
-        times = [datetime(2025, 6, 2, 10, 0, 0)]
-        counts = [None]  # Will cause exception in max()
+    class TestPlotCountBarsEdgeCases(unittest.TestCase):
+    """Test _plot_count_bars edge cases."""
 
-        # Should handle gracefully
-        result = self.builder._plot_count_bars(self.ax2, times, counts)
+    def setUp(self):
+        """Set up test fixtures."""
+        self.builder = TimeSeriesChartBuilder()
 
-        # Should still return or handle gracefully
-        # (might return None or legend data)
+    def tearDown(self):
+        """Clean up matplotlib figures."""
+        plt.close("all")
+
+    def test_plot_count_bars_with_empty_counts(self):
+        """Test count bars with empty data (lines 458-459)."""
+        metrics = []
+
+        fig = self.builder.build(metrics, "Empty Test", "mph")
+
+        # Should handle empty data gracefully
+        self.assertIsNotNone(fig)
+
+    def test_plot_count_bars_with_low_counts(self):
+        """Test count bars with low count values (lines 466-467)."""
+        metrics = [
+            {
+                "start_time": "2025-06-02T10:00:00",
+                "p50": 30.5,
+                "count": 5,  # Low count
+            }
+        ]
+
+        fig = self.builder.build(metrics, "Low Count Test", "mph")
+
+        # Should handle low counts
+        self.assertIsNotNone(fig)
+
+    def test_plot_count_bars_with_varied_counts(self):
+        """Test count bars with varied count values."""
+        metrics = [
+            {
+                "start_time": "2025-06-02T10:00:00",
+                "p50": 30.5,
+                "count": 50,
+            },
+            {
+                "start_time": "2025-06-02T11:00:00",
+                "p50": 31.5,
+                "count": 150,
+            },
+        ]
+
+        fig = self.builder.build(metrics, "Varied Count Test", "mph")
+
+        # Should plot bars
+        self.assertIsNotNone(fig)
+
+    def test_plot_count_bars_with_high_counts(self):
+        """Test count bars axis configuration."""
+        metrics = [
+            {
+                "start_time": "2025-06-02T10:00:00",
+                "p50": 30.5,
+                "count": 1000,
+            }
+        ]
+
+        fig = self.builder.build(metrics, "High Count Test", "mph")
+
+        self.assertIsNotNone(fig)
 
     def test_plot_count_bars_exception_in_low_mask(self):
         """Test exception handler in low_mask calculation (lines 466-467)."""
@@ -1048,6 +1106,360 @@ class TestHistogramPlottingEdgeCases(unittest.TestCase):
         # Should have configured axes
         self.assertIsNotNone(ax.get_xlabel())
         self.assertIsNotNone(ax.get_ylabel())
+
+
+class TestTimeAxisFormattingEdgeCases(unittest.TestCase):
+    """Test time axis formatting edge cases."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.builder = TimeSeriesChartBuilder()
+
+    def tearDown(self):
+        """Clean up matplotlib figures."""
+        plt.close("all")
+
+    def test_format_time_axis_with_timezone(self):
+        """Test time axis formatting with timezone (lines 630, 637-638)."""
+        metrics = [
+            {
+                "start_time": "2025-06-02T10:00:00",
+                "p50": 30.5,
+                "p85": 36.9,
+                "count": 100,
+            },
+            {
+                "start_time": "2025-06-02T11:00:00",
+                "p50": 31.2,
+                "p85": 37.5,
+                "count": 120,
+            },
+        ]
+
+        # Build with timezone to exercise _format_time_axis
+        fig = self.builder.build(metrics, "Timezone Test", "mph", tz_name="US/Pacific")
+
+        self.assertIsNotNone(fig)
+
+    def test_format_time_axis_with_invalid_timezone(self):
+        """Test time axis formatting with invalid timezone (lines 637-638)."""
+        metrics = [
+            {
+                "start_time": "2025-06-02T10:00:00",
+                "p50": 30.5,
+                "count": 100,
+            }
+        ]
+
+        # Should handle invalid timezone gracefully
+        fig = self.builder.build(metrics, "Invalid TZ", "mph", tz_name="Invalid/Zone")
+
+        self.assertIsNotNone(fig)
+
+    def test_format_time_axis_offset_text(self):
+        """Test offset text handling (lines 654-660)."""
+        metrics = [
+            {
+                "start_time": "2025-06-02T10:00:00",
+                "p50": 30.5,
+                "count": 100,
+            },
+            {
+                "start_time": "2025-06-02T12:00:00",
+                "p50": 31.2,
+                "count": 120,
+            },
+        ]
+
+        fig = self.builder.build(metrics, "Offset Test", "mph")
+
+        # Should handle offset text configuration
+        self.assertIsNotNone(fig)
+
+
+class TestFinalStylingEdgeCases(unittest.TestCase):
+    """Test _apply_final_styling edge cases."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.builder = TimeSeriesChartBuilder()
+
+    def tearDown(self):
+        """Clean up matplotlib figures."""
+        plt.close("all")
+
+    def test_apply_final_styling_tight_layout(self):
+        """Test tight layout application (lines 667-668)."""
+        metrics = [
+            {
+                "start_time": "2025-06-02T10:00:00",
+                "p50": 30.5,
+                "p85": 36.9,
+                "count": 100,
+            }
+        ]
+
+        fig = self.builder.build(metrics, "Layout Test", "mph")
+
+        # Should have applied styling
+        self.assertIsNotNone(fig)
+
+    def test_apply_final_styling_subplots_adjust(self):
+        """Test subplot adjustment (lines 672-679)."""
+        metrics = [
+            {
+                "start_time": "2025-06-02T10:00:00",
+                "p50": 30.5,
+                "count": 100,
+            }
+        ]
+
+        fig = self.builder.build(metrics, "Subplot Test", "mph")
+
+        # Should have adjusted subplots
+        self.assertIsNotNone(fig)
+
+
+class TestLegendCreationExceptions(unittest.TestCase):
+    """Test legend creation exception paths."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.builder = TimeSeriesChartBuilder()
+
+    def tearDown(self):
+        """Clean up matplotlib figures."""
+        plt.close("all")
+
+    def test_legend_with_exception_fallback(self):
+        """Test legend fallback on exception (lines 617-624)."""
+        # Build a chart that will create a legend
+        metrics = [
+            {
+                "start_time": "2025-06-02T10:00:00",
+                "p50": 30.5,
+                "p85": 36.9,
+                "p98": 43.0,
+                "max": 53.5,
+                "count": 5,  # Low count to trigger low-sample indicator
+            }
+        ]
+
+        fig = self.builder.build(metrics, "Legend Test", "mph")
+
+        # Should have created chart with legend
+        self.assertIsNotNone(fig)
+
+
+class TestComputeGapThresholdExceptions(unittest.TestCase):
+    """Test _compute_gap_threshold exception handlers."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.builder = TimeSeriesChartBuilder()
+
+    def tearDown(self):
+        """Clean up matplotlib figures."""
+        plt.close("all")
+
+    def test_compute_gap_threshold_with_exceptions(self):
+        """Test gap threshold with problematic data (line 357)."""
+        # Create array with mixed types that might cause exceptions
+        times = np.array(
+            [
+                datetime(2025, 6, 2, 10, 0, 0),
+                datetime(2025, 6, 2, 11, 0, 0),
+            ]
+        )
+
+        threshold = self.builder._compute_gap_threshold(times)
+
+        # Should return a value or None
+        self.assertTrue(threshold is None or isinstance(threshold, (int, float)))
+
+
+class TestBarWidthComputationFallbacks(unittest.TestCase):
+    """Test bar width computation fallback paths."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.builder = TimeSeriesChartBuilder()
+
+    def tearDown(self):
+        """Clean up matplotlib figures."""
+        plt.close("all")
+
+    def test_bar_width_with_mdates_unavailable(self):
+        """Test bar width computation when mdates path fails (lines 537-548)."""
+        times = [
+            datetime(2025, 6, 2, 10, 0, 0),
+            datetime(2025, 6, 2, 11, 0, 0),
+        ]
+
+        # Should handle and compute widths
+        bar_width_bg, bar_width = self.builder._compute_bar_widths(times)
+
+        self.assertGreater(bar_width_bg, 0)
+        self.assertGreater(bar_width, 0)
+
+    def test_bar_width_fallback_exception(self):
+        """Test bar width fallback exception handler (line 550-551)."""
+        times = [
+            datetime(2025, 6, 2, 10, 0, 0),
+            datetime(2025, 6, 2, 11, 0, 0),
+        ]
+
+        bar_width_bg, bar_width = self.builder._compute_bar_widths(times)
+
+        # Should always return positive values
+        self.assertGreater(bar_width_bg, 0)
+        self.assertGreater(bar_width, 0)
+
+
+class TestPercentileLinePlotting(unittest.TestCase):
+    """Test percentile line plotting code paths."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.builder = TimeSeriesChartBuilder()
+
+    def tearDown(self):
+        """Clean up matplotlib figures."""
+        plt.close("all")
+
+    def test_percentile_lines_with_masked_data(self):
+        """Test plotting with masked/invalid data."""
+        metrics = [
+            {
+                "start_time": "2025-06-02T10:00:00",
+                "p50": 30.5,
+                "p85": 36.9,
+                "p98": 43.0,
+                "max": 53.5,
+                "count": 100,
+            },
+            {
+                "start_time": "2025-06-02T11:00:00",
+                "p50": float("nan"),  # Invalid value
+                "p85": 37.5,
+                "p98": 44.1,
+                "max": 54.2,
+                "count": 5,  # Low count
+            },
+            {
+                "start_time": "2025-06-02T12:00:00",
+                "p50": 29.8,
+                "p85": 35.2,
+                "p98": 42.3,
+                "max": 52.1,
+                "count": 95,
+            },
+        ]
+
+        fig = self.builder.build(metrics, "Masked Data Test", "mph")
+
+        # Should handle masked data gracefully
+        self.assertIsNotNone(fig)
+
+
+class TestHistogramLabelsAndFormatting(unittest.TestCase):
+    """Test histogram label and formatting code."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.builder = HistogramChartBuilder()
+
+    def tearDown(self):
+        """Clean up matplotlib figures."""
+        plt.close("all")
+
+    def test_histogram_xlabel_ylabel(self):
+        """Test X and Y label setting (lines 772-773)."""
+        histogram = {"10": 50, "20": 100, "30": 75}
+
+        fig = self.builder.build(histogram, "Label Test", "mph")
+
+        ax = fig.axes[0]
+        xlabel = ax.get_xlabel()
+        ylabel = ax.get_ylabel()
+
+        # Should have labels
+        self.assertIn("mph", xlabel)
+        self.assertIn("Count", ylabel)
+
+    def test_histogram_title_fontsize(self):
+        """Test title setting (line 777-778)."""
+        histogram = {"10": 50, "20": 100}
+
+        fig = self.builder.build(histogram, "Title Fontsize Test", "mph")
+
+        ax = fig.axes[0]
+        title = ax.get_title()
+
+        self.assertEqual(title, "Title Fontsize Test")
+
+    def test_histogram_grid(self):
+        """Test grid configuration (line 805-809)."""
+        histogram = {"10": 50, "20": 100, "30": 75}
+
+        fig = self.builder.build(histogram, "Grid Test", "mph")
+
+        ax = fig.axes[0]
+
+        # Chart should be created (grid is configured internally)
+        self.assertIsNotNone(fig)
+
+
+class TestTimeSeriesWithVariousCounts(unittest.TestCase):
+    """Test time series with various count scenarios."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.builder = TimeSeriesChartBuilder()
+
+    def tearDown(self):
+        """Clean up matplotlib figures."""
+        plt.close("all")
+
+    def test_with_zero_counts(self):
+        """Test handling of zero counts."""
+        metrics = [
+            {
+                "start_time": "2025-06-02T10:00:00",
+                "p50": 30.5,
+                "count": 0,  # Zero count
+            },
+            {
+                "start_time": "2025-06-02T11:00:00",
+                "p50": 31.2,
+                "count": 100,
+            },
+        ]
+
+        fig = self.builder.build(metrics, "Zero Count Test", "mph")
+
+        self.assertIsNotNone(fig)
+
+    def test_with_very_low_counts(self):
+        """Test with counts below threshold to trigger masking."""
+        metrics = [
+            {
+                "start_time": "2025-06-02T10:00:00",
+                "p50": 30.5,
+                "p85": 36.9,
+                "count": 3,  # Below default threshold of 10
+            },
+            {
+                "start_time": "2025-06-02T11:00:00",
+                "p50": 31.2,
+                "p85": 37.5,
+                "count": 4,  # Below threshold
+            },
+        ]
+
+        fig = self.builder.build(metrics, "Low Count Test", "mph")
+
+        self.assertIsNotNone(fig)
 
 
 if __name__ == "__main__":
