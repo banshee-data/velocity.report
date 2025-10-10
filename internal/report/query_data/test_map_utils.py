@@ -232,6 +232,19 @@ class TestSVGMarkerInjector(unittest.TestCase):
         marker_idx = result.index("radar-marker")
         self.assertGreater(marker_idx, rect_idx)
 
+    def test_inject_marker_svg_without_closing_tag(self):
+        """Test marker injection when SVG doesn't end with proper closing tag (line 249)."""
+        # SVG that doesn't end with </svg>
+        svg = '<svg viewBox="0 0 100 100">'
+        marker = RadarMarker(cx_frac=0.5, cy_frac=0.5, bearing_deg=0.0)
+
+        result = self.injector.inject_marker(svg, marker)
+
+        # Marker should be appended
+        self.assertIn("radar-marker", result)
+        # Original content preserved
+        self.assertIn('<svg viewBox="0 0 100 100">', result)
+
 
 class TestSVGToPDFConverter(unittest.TestCase):
     """Test SVGToPDFConverter class."""
@@ -689,6 +702,95 @@ class TestCircleStrokeConfiguration(unittest.TestCase):
 
         marker_max = RadarMarker(cx_frac=0.5, cy_frac=0.5, bearing_deg=0.0, opacity=1.0)
         self.assertEqual(marker_max.opacity, 1.0)
+
+
+class TestSVGToPDFConverterEdgeCases(unittest.TestCase):
+    """Test edge cases in SVG to PDF conversion."""
+
+    @patch("subprocess.check_call")
+    def test_inkscape_exception_handler(self, mock_check_call):
+        """Test inkscape exception handler (lines 298-300)."""
+        # Make inkscape version check fail
+        mock_check_call.side_effect = Exception("Command not found")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            svg_path = os.path.join(tmpdir, "test.svg")
+            pdf_path = os.path.join(tmpdir, "test.pdf")
+
+            with open(svg_path, "w") as f:
+                f.write("<svg></svg>")
+
+            result = SVGToPDFConverter._try_inkscape(svg_path, pdf_path)
+
+            # Should return False on exception
+            self.assertFalse(result)
+
+    @patch("subprocess.check_call")
+    def test_rsvg_exception_handler(self, mock_check_call):
+        """Test rsvg-convert exception handler (lines 331-333)."""
+        # Make rsvg version check fail
+        mock_check_call.side_effect = Exception("Command not found")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            svg_path = os.path.join(tmpdir, "test.svg")
+            pdf_path = os.path.join(tmpdir, "test.pdf")
+
+            with open(svg_path, "w") as f:
+                f.write("<svg></svg>")
+
+            result = SVGToPDFConverter._try_rsvg_convert(svg_path, pdf_path)
+
+            # Should return False on exception
+            self.assertFalse(result)
+
+
+class TestMapProcessorEdgeCases(unittest.TestCase):
+    """Test edge cases in MapProcessor."""
+
+    @patch("map_utils.SVGToPDFConverter.convert")
+    def test_getmtime_exception_handler(self, mock_convert):
+        """Test exception in os.path.getmtime (lines 421-424)."""
+        mock_convert.return_value = True
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            processor = MapProcessor(base_dir=tmpdir)
+
+            # Create map.svg and map.pdf
+            map_svg = os.path.join(tmpdir, "map.svg")
+            map_pdf = os.path.join(tmpdir, "map.pdf")
+
+            with open(map_svg, "w") as f:
+                f.write('<svg viewBox="0 0 100 100"></svg>')
+            with open(map_pdf, "w") as f:
+                f.write("pdf")
+
+            # Mock getmtime to raise exception
+            with patch("os.path.getmtime", side_effect=Exception("getmtime failed")):
+                success, path = processor.process_map()
+
+                # Should still succeed, just force convert
+                self.assertTrue(success)
+                self.assertIsNotNone(path)
+
+    @patch("map_utils.SVGToPDFConverter.convert")
+    def test_conversion_failure_warning(self, mock_convert):
+        """Test conversion failure warning (lines 455-459)."""
+        # Make conversion fail
+        mock_convert.return_value = False
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            processor = MapProcessor(base_dir=tmpdir)
+
+            # Create map.svg
+            map_svg = os.path.join(tmpdir, "map.svg")
+            with open(map_svg, "w") as f:
+                f.write('<svg viewBox="0 0 100 100"></svg>')
+
+            success, path = processor.process_map(force_convert=True)
+
+            # Should return False when conversion fails
+            self.assertFalse(success)
+            self.assertIsNone(path)
 
 
 if __name__ == "__main__":
