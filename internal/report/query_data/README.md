@@ -2,20 +2,31 @@
 
 This module provides tools for querying radar statistics from the API and generating reports in LaTeX and PDF formats.
 
+## Quick Start
+
+**All configuration is now done via JSON files!** No more CLI flags or environment variables.
+
+```bash
+# 1. Create example config file
+python internal/report/query_data/create_config_example.py
+
+# 2. Edit config.example.json with your dates and settings
+
+# 3. Generate report
+python internal/report/query_data/get_stats.py config.example.json
+```
+
 ## Module structure
 
 ### Core Components
-- `get_stats.py` — **CLI entrypoint** that ties everything together
+- `get_stats.py` — **CLI entrypoint** (now config-file only)
+- `generate_report_api.py` — **Web API entry point** for Go server integration
+- `config_manager.py` — **Unified configuration system** with JSON file support
+- `create_config_example.py` — **Config template generator**
 - `api_client.py` — RadarStatsClient and helpers for fetching data
 - `pdf_generator.py` — LaTeX/PyLaTeX based report assembly
-- `date_parser.py` — date/time parsing helpers
-- `stats_utils.py` — plotting and small data helpers
 - `chart_builder.py` — time series and histogram chart generation
 - `table_builders.py` — LaTeX table construction
-
-### Configuration System (NEW)
-- `config_manager.py` — **Unified configuration system** supporting CLI, JSON files, and environment variables
-- `generate_report_api.py` — **Web API entry point** for Go server integration
 - `report_config.py` — Site information, colors, fonts, and layout defaults
 
 ### Testing
@@ -24,80 +35,81 @@ This module provides tools for querying radar statistics from the API and genera
 
 ## CLI: `get_stats.py`
 
-The primary way to run the reporting flow is via the `get_stats.py` CLI. It queries the API, writes chart PDFs, and generates a final PDF report that includes tables, charts and a site map.
-
-### Usage (basic):
+**Simplified!** The CLI now only accepts a JSON configuration file:
 
 ```bash
-python internal/report/query_data/get_stats.py [OPTIONS] <start1> <end1> [<start2> <end2> ...]
+python internal/report/query_data/get_stats.py <config.json>
 ```
 
-### NEW: Configuration File Support
+### Creating a Configuration File
 
-You can now use JSON configuration files instead of (or in addition to) CLI arguments:
+Use the built-in template generator:
 
 ```bash
-# Use a configuration file
-python internal/report/query_data/get_stats.py --config my_report.json
+# Create a full example with all options documented
+python internal/report/query_data/create_config_example.py
 
-# Override config file with CLI arguments
-python internal/report/query_data/get_stats.py --config base.json --min-speed 10
-
-# Save your effective configuration for reuse
-python internal/report/query_data/get_stats.py --save-config my_config.json 2025-06-01 2025-06-07
+# Create a minimal example with only required fields
+python internal/report/query_data/create_config_example.py --minimal
 ```
 
-See [Configuration System](#configuration-system) below for details.
+### Example Configuration
 
-### CLI Notes:
-- Dates must be provided as positional arguments in start/end pairs. Each date can be a simple ISO date (YYYY-MM-DD) or a unix timestamp (seconds). You must provide an even number of date arguments.
-- When `--histogram` is supplied, `--hist-bucket-size` is required.
-- **All CLI arguments remain backward compatible** - existing scripts work unchanged.
+```json
+{
+  "query": {
+    "start_date": "2025-06-01",
+    "end_date": "2025-06-07",
+    "group": "1h",
+    "units": "mph",
+    "timezone": "US/Pacific",
+    "min_speed": 5.0,
+    "histogram": true,
+    "hist_bucket_size": 5.0
+  },
+  "output": {
+    "file_prefix": "my-report",
+    "no_map": false,
+    "debug": false
+  }
+}
+```
 
-## All CLI flags
+See `config.example.json` for all available options and documentation.
 
-### Configuration (NEW)
-- `--config`, `--config-file` (path to JSON file)
-  - Load configuration from a JSON file. When provided, most other arguments become optional and use values from the config file. CLI arguments can still override config file values.
+## Configuration Options
 
-- `--save-config` (path to JSON file)
-  - Save the effective configuration (after merging CLI args, config file, and environment variables) to a JSON file for reuse.
+All configuration is in JSON format with four sections:
 
-### Query Parameters
-- `--group` (default: `1h`)
-  - Roll-up period to request from the API. Examples: `15m`, `1h`, `3h`, `1d`.
+### `query` - Data Query Parameters (REQUIRED)
+- `start_date` (string, required): Start date in YYYY-MM-DD format
+- `end_date` (string, required): End date in YYYY-MM-DD format
+- `group` (string, default: "1h"): Time bucket size (15m, 30m, 1h, 2h, 4h, 8h, 12h, 24h)
+- `units` (string, default: "mph"): Display units (mph or kph)
+- `source` (string, default: "radar_data_transits"): Data source
+- `timezone` (string, default: "US/Pacific"): Display timezone
+- `min_speed` (float, optional): Minimum speed filter
+- `histogram` (boolean, default: false): Generate histogram
+- `hist_bucket_size` (float, required if histogram=true): Histogram bucket size
+- `hist_max` (float, optional): Maximum histogram value
 
-- `--units` (default: `mph`)
-  - Display units to request and show in tables/plots. Typical values: `mph`, `kph`.
+### `output` - Output Options
+- `file_prefix` (string, default: auto-generated): Prefix for output files
+- `output_dir` (string, default: "."): Output directory
+- `debug` (boolean, default: false): Enable debug output
+- `no_map` (boolean, default: false): Skip map generation
 
-- `--source` (default: `radar_data_transits`) — choices: `radar_objects`, `radar_data_transits`
-  - Data source to query. Use `radar_data_transits` when you want transit/session rollups (recommended for vehicle counts and percentiles).
+### `site` - Location Information (Optional)
+- `location` (string): Survey location name
+- `surveyor` (string): Surveyor name/organization
+- `contact` (string): Contact email
+- `speed_limit` (int): Posted speed limit
+- `site_description` (string): Site description for report
+- `latitude`, `longitude`, `map_angle` (float): GPS coordinates for map
 
-- `--model-version` (default: `rebuild-full`)
-  - When using `--source radar_data_transits`, the transit model version to request.
-
-- `--timezone` (default: server default)
-  - Timezone used for formatting StartTime in generated tables (e.g. `US/Pacific`, `UTC`). If empty, server defaults are used.
-
-- `--min-speed` (float, default: none)
-  - Minimum speed filter (in display units) used when querying the API. Deprecated alias: `--min_speed` is still accepted for compatibility.
-
-### Histogram Options
-- `--histogram` (flag)
-  - Request histogram data from the server and include a histogram chart/table in the report.
-
-- `--hist-bucket-size` (float, required if `--histogram`)
-  - Bucket size (in display units) used to compute the histogram (e.g. `5` for 5 mph bins).
-
-- `--hist-max` (float, optional)
-  - Maximum speed to include in the histogram. Buckets above this value are grouped into a final `N+` bucket.
-
-### Output Options
-- `--file-prefix` (default: empty)
-  - If provided, this prefix is used for generated files (charts and the final report). When empty, a sequenced prefix based on source/date range is created (e.g. `radar_data_transits_2025-06-02_to_2025-06-04-1`).
-
-- `--debug` (flag)
-  - Print debug information while parsing dates, plotting, and invoking the generator. Useful when developing or troubleshooting.
+### `radar` - Sensor Specifications (Optional)
+- Technical sensor specifications included in report
+- See `config.example.json` for all fields
 
 ### Positional Arguments
 - `dates` — one or more start/end pairs. Example: `2025-06-02 2025-06-04` or `1622505600 1622678400`.
@@ -115,69 +127,81 @@ python internal/report/query_data/get_stats.py \
   2025-06-02 2025-06-04
 ```
 
-Query transit rollups explicitly:
 
-```bash
-python internal/report/query_data/get_stats.py \
-  --source radar_data_transits --model-version rebuild-full \
-  --group 1h --units mph \
-  2025-06-02 2025-06-04
+## Example Usage
+
+### Basic Report
+
+Create a simple configuration file:
+
+```json
+{
+  "query": {
+    "start_date": "2025-06-02",
+    "end_date": "2025-06-04",
+    "histogram": true,
+    "hist_bucket_size": 5.0
+  },
+  "output": {
+    "file_prefix": "my-report"
+  }
+}
 ```
 
-### Using configuration files
-
-Create and use a configuration file:
+Generate the report:
 
 ```bash
-# Generate an example config
-python internal/report/query_data/config_manager.py
-# Creates: report_config_example.json
-
-# Edit it for your needs
-vim report_config_example.json
-
-# Use it
-python internal/report/query_data/get_stats.py --config report_config_example.json
+python internal/report/query_data/get_stats.py my-config.json
 ```
 
-Override specific config values from CLI:
+### Custom Settings
+
+Use the example generator and customize:
 
 ```bash
-# Use config but change min-speed
-python internal/report/query_data/get_stats.py \
-  --config base_config.json \
-  --min-speed 10
+# Generate full example with all options
+python internal/report/query_data/create_config_example.py
 
-# Use config but change date range
-python internal/report/query_data/get_stats.py \
-  --config base_config.json \
-  2025-07-01 2025-07-31
+# Copy and customize
+cp config.example.json clarendon-survey.json
+vim clarendon-survey.json
+
+# Generate report
+python internal/report/query_data/get_stats.py clarendon-survey.json
 ```
 
-Save your configuration for reproducibility:
+### Report Without Map
 
-```bash
-# Run report and save config used
-python internal/report/query_data/get_stats.py \
-  --group 1h --histogram --hist-bucket-size 5 \
-  --save-config my_report_config.json \
-  2025-06-02 2025-06-04
+For surveys without GPS data:
 
-# Rerun with exact same settings
-python internal/report/query_data/get_stats.py --config my_report_config.json
+```json
+{
+  "query": {
+    "start_date": "2025-06-02",
+    "end_date": "2025-06-04"
+  },
+  "output": {
+    "file_prefix": "no-map-report",
+    "no_map": true
+  }
+}
 ```
 
 ## Configuration System
 
-A unified configuration management system supports both CLI and web-based workflows.
+All configuration is JSON-based - no CLI flags or environment variables needed!
 
-### Configuration Priority
+### Creating Configs
 
-Settings are merged in this order (highest to lowest priority):
-1. **CLI arguments** (highest priority)
-2. **Configuration file** (via `--config`)
-3. **Environment variables**
-4. **Default values** (lowest priority)
+Use the template generator:
+
+```bash
+# Full example with documentation
+python internal/report/query_data/create_config_example.py
+
+# Minimal example (only required fields)
+python internal/report/query_data/create_config_example.py --minimal
+```
 
 ### Configuration File Format
 
@@ -203,8 +227,9 @@ JSON format with four main sections:
   },
   "output": {
     "file_prefix": "main-st-june",
-    "output_dir": "/var/reports",
-    "debug": false
+    "output_dir": "./reports",
+    "debug": false,
+    "no_map": false
   },
   "radar": {
     "sensor_model": "OmniPreSense OPS243-A",
@@ -213,62 +238,87 @@ JSON format with four main sections:
 }
 ```
 
-### Environment Variables
-
-Override deployment-specific settings via environment variables:
-
-**Site Configuration:**
-- `REPORT_LOCATION` — Survey location
-- `REPORT_SURVEYOR` — Surveyor name/organization
-- `REPORT_CONTACT` — Contact email/phone
-- `REPORT_SPEED_LIMIT` — Speed limit (integer)
-
-**Query Configuration:**
-- `REPORT_TIMEZONE` — Display timezone (e.g., "US/Pacific")
-- `REPORT_MIN_SPEED` — Minimum speed filter (float)
-
-**Output Configuration:**
-- `REPORT_OUTPUT_DIR` — Default output directory
-- `REPORT_DEBUG` — Enable debug output (0 or 1)
-
-### Creating Configuration Templates
-
-```bash
-# Generate example configuration
-python internal/report/query_data/config_manager.py
-# Creates: report_config_example.json
-
-# See interactive demo
-python internal/report/query_data/demo_config_system.py
-```
-
-### Documentation
-
-- **`docs/CONFIG_SYSTEM.md`** — Complete configuration system documentation
-- **`docs/GO_INTEGRATION.md`** — Go server integration guide
-- **`CONFIG_README.md`** — Quick start guide
+See `config.example.json` for a complete, documented example.
 
 ## Web API Entry Point
 
-For programmatic use (e.g., Go webserver integration), use the web API entry point:
+For programmatic use (e.g., Go webserver integration), use the web API:
+
+### Command Line
 
 ```bash
 # Generate report from JSON config file
-python internal/report/query_data/generate_report_api.py /path/to/config.json --json
+python internal/report/query_data/generate_report_api.py config.json
+
+# With JSON output for parsing
+python internal/report/query_data/generate_report_api.py config.json --json
 ```
 
-Returns JSON with file paths and status:
+Returns JSON with status:
 
 ```json
 {
   "success": true,
-  "files": ["/path/to/report.pdf", "/path/to/stats.pdf"],
   "prefix": "report-prefix",
+  "files": [],
   "errors": []
 }
 ```
 
 ### Python Integration
+
+Import directly for use in web frameworks:
+
+```python
+from internal.report.query_data.generate_report_api import (
+    generate_report_from_file,
+    generate_report_from_dict
+)
+
+# From config file
+result = generate_report_from_file("config.json")
+
+# From web form data (dict)
+config_dict = {
+    "query": {
+        "start_date": "2025-06-01",
+        "end_date": "2025-06-07",
+        "histogram": True,
+        "hist_bucket_size": 5.0
+    },
+    "output": {
+        "file_prefix": "web-report"
+    }
+}
+result = generate_report_from_dict(config_dict)
+
+if result["success"]:
+    print(f"Report generated: {result['prefix']}")
+else:
+    print(f"Errors: {result['errors']}")
+```
+
+### Go Server Integration
+
+The Go server workflow:
+
+1. **User submits form** → Go validates and captures data
+2. **Go writes config.json** → Stores in SQLite + file
+3. **Go calls Python API** → Subprocess or HTTP call
+4. **Python generates PDFs** → Returns file paths
+5. **Go moves files** → To report-specific directory
+6. **Svelte UI** → Provides download links
+
+See `docs/GO_INTEGRATION.md` for complete Go code examples.
+
+## Documentation
+
+- **`config.example.json`** — Fully documented configuration template
+- **`config.minimal.json`** — Minimal required fields
+- **`docs/CONFIG_SYSTEM.md`** — Complete system documentation
+- **`docs/GO_INTEGRATION.md`** — Go server integration guide
+
+## Python Integration
 
 ```python
 from internal.report.query_data.generate_report_api import generate_report_from_dict
