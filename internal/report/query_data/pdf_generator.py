@@ -228,6 +228,26 @@ def create_stats_table(
     return centered
 
 
+def create_param_table(entries: List[Dict[str, str]]) -> Tabular:
+    """Create a two-column parameter table from an ordered list of {key, value} dicts.
+
+    Each entry is rendered as: bold key in the left column and mono-formatted
+    value in the right column using the \\AtkinsonMono command so callers do
+    not need to repeat the same formatting logic.
+    """
+    table = Tabular("ll")
+    for e in entries:
+        k = e.get("key", "")
+        v = e.get("value", "")
+        table.add_row(
+            [
+                NoEscape(r"\textbf{" + escape_latex(k) + r":}"),
+                NoEscape(r"\AtkinsonMono{" + escape_latex(str(v)) + r"}"),
+            ]
+        )
+    return table
+
+
 def create_histogram_table(
     histogram: Dict[str, int],
     units: str,
@@ -329,7 +349,7 @@ def create_histogram_table(
 
         # Render all ranges except the last one as "A-B"
         for idx, (a, b) in enumerate(ranges):
-            is_last = (idx == len(ranges) - 1)
+            is_last = idx == len(ranges) - 1
 
             if is_last:
                 # Last bucket: render as "N+" (open-ended)
@@ -482,38 +502,17 @@ def add_metric_data_intro(
     )
 
     doc.append(NoEscape("\\subsection*{Key Metrics}"))
-    # Use a two-column table where the second (numeric) column is
-    # rendered in the Atkinson monospace font via the column spec. This
-    # keeps the left-hand labels in the document sans-serif.
-    table = Tabular("l>{\\AtkinsonMono}l")
-    table.add_row(
-        [
-            NoEscape(r"\textbf{Maximum Velocity:}"),
-            NoEscape(escape_latex(f"{max_speed:.2f} mph")),
-        ]
-    )
-    table.add_row(
-        [
-            NoEscape(r"\textbf{98th Percentile Velocity (p98):}"),
-            NoEscape(escape_latex(f"{p98:.2f} mph")),
-        ]
-    )
-    table.add_row(
-        [
-            NoEscape(r"\textbf{85th Percentile Velocity (p85):}"),
-            NoEscape(escape_latex(f"{p85:.2f} mph")),
-        ]
-    )
-    table.add_row(
-        [
-            NoEscape(r"\textbf{Median Velocity (p50):}"),
-            NoEscape(escape_latex(f"{p50:.2f} mph")),
-        ]
-    )
+    # Use the DRY helper to render the key metrics as a two-column
+    # parameter table so the formatting matches the rest of the
+    # generation-parameters block (bold label + mono-formatted value).
+    key_metric_entries = [
+        {"key": "Maximum Velocity", "value": f"{max_speed:.2f} mph"},
+        {"key": "98th Percentile Velocity (p98)", "value": f"{p98:.2f} mph"},
+        {"key": "85th Percentile Velocity (p85)", "value": f"{p85:.2f} mph"},
+        {"key": "Median Velocity (p50)", "value": f"{p50:.2f} mph"},
+    ]
 
-    # Append the table directly; global family remains sans as set in the
-    # document preamble.
-    doc.append(table)
+    doc.append(create_param_table(key_metric_entries))
 
     doc.append(NoEscape("\\par"))
 
@@ -839,99 +838,25 @@ def generate_pdf_report(
     # Statistics section
     doc.append(NoEscape("\\subsection*{Survey Parameters}"))
 
-    # Generation parameters as a two-column table
-    table = Tabular("ll")
-    table.add_row(
-        [
-            NoEscape(r"\textbf{Start time:}"),
-            NoEscape(r"\AtkinsonMono{" + escape_latex(start_iso) + r"}"),
-        ]
-    )
-    table.add_row(
-        [
-            NoEscape(r"\textbf{End time:}"),
-            NoEscape(r"\AtkinsonMono{" + escape_latex(end_iso) + r"}"),
-        ]
-    )
-    table.add_row(
-        [
-            NoEscape(r"\textbf{Timezone:}"),
-            NoEscape(r"\AtkinsonMono{" + escape_latex(timezone_display) + r"}"),
-        ]
-    )
-    table.add_row(
-        [
-            NoEscape(r"\textbf{Roll-up Period:}"),
-            NoEscape(r"\AtkinsonMono{" + escape_latex(group) + r"}"),
-        ]
-    )
-    table.add_row(
-        [
-            NoEscape(r"\textbf{Units:}"),
-            NoEscape(r"\AtkinsonMono{" + escape_latex(units) + r"}"),
-        ]
-    )
-    table.add_row(
-        [
-            NoEscape(r"\textbf{Minimum speed (cutoff):}"),
-            NoEscape(r"\AtkinsonMono{" + escape_latex(min_speed_str) + r"}"),
-        ]
-    )
-    table.add_row(
-        [
-            NoEscape(r"\textbf{Radar Sensor:}"),
-            NoEscape(r"\AtkinsonMono{" + escape_latex("OmniPreSense OPS243-A") + r"}"),
-        ]
-    )
-    table.add_row(
-        [
-            NoEscape(r"\textbf{Radar Firmware version:}"),
-            NoEscape(r"\AtkinsonMono{" + escape_latex("v1.2.3") + r"}"),
-        ]
-    )
-    table.add_row(
-        [
-            NoEscape(r"\textbf{Radar Transmit Frequency:}"),
-            NoEscape(r"\AtkinsonMono{" + escape_latex("24.125 GHz") + r"}"),
-        ]
-    )
-    table.add_row(
-        [
-            NoEscape(r"\textbf{Radar Sample Rate:}"),
-            NoEscape(r"\AtkinsonMono{" + escape_latex("20 kSPS") + r"}"),
-        ]
-    )
-    table.add_row(
-        [
-            NoEscape(r"\textbf{Radar Velocity Resolution:}"),
-            NoEscape(r"\AtkinsonMono{" + escape_latex("0.272 mph") + r"}"),
-        ]
-    )
-    table.add_row(
-        [
-            NoEscape(r"\textbf{Azimuth Field of View:}"),
-            NoEscape(r"\AtkinsonMono{" + escape_latex("20°") + r"}"),
-        ]
-    )
-    table.add_row(
-        [
-            NoEscape(r"\textbf{Elevation Field of View:}"),
-            NoEscape(r"\AtkinsonMono{" + escape_latex("24°") + r"}"),
-        ]
-    )
-    table.add_row(
-        [
-            NoEscape(r"\textbf{Cosine Error Angle:}"),
-            NoEscape(r"\AtkinsonMono{" + escape_latex("21°") + r"}"),
-        ]
-    )
-    table.add_row(
-        [
-            NoEscape(r"\textbf{Cosine Error Factor:}"),
-            NoEscape(r"\AtkinsonMono{" + escape_latex("1.0711") + r"}"),
-        ]
-    )
-    doc.append(table)
+    # Generation parameters as a two-column table (simplified)
+    param_entries = [
+        {"key": "Start time", "value": start_iso},
+        {"key": "End time", "value": end_iso},
+        {"key": "Timezone", "value": timezone_display},
+        {"key": "Roll-up Period", "value": group},
+        {"key": "Units", "value": units},
+        {"key": "Minimum speed (cutoff)", "value": min_speed_str},
+        {"key": "Radar Sensor", "value": "OmniPreSense OPS243-A"},
+        {"key": "Radar Firmware version", "value": "v1.2.3"},
+        {"key": "Radar Transmit Frequency", "value": "24.125 GHz"},
+        {"key": "Radar Sample Rate", "value": "20 kSPS"},
+        {"key": "Radar Velocity Resolution", "value": "0.272 mph"},
+        {"key": "Azimuth Field of View", "value": "20°"},
+        {"key": "Elevation Field of View", "value": "24°"},
+        {"key": "Cosine Error Angle", "value": "21°"},
+        {"key": "Cosine Error Factor", "value": "1.0711"},
+    ]
+    doc.append(create_param_table(param_entries))
 
     doc.append(NoEscape("\\par"))
 
