@@ -25,14 +25,56 @@ from api_client import RadarStatsClient, SUPPORTED_GROUPS
 from date_parser import parse_date_to_unix, is_date_only, parse_server_time
 from pdf_generator import generate_pdf_report
 from stats_utils import plot_histogram
-from chart_builder import TimeSeriesChartBuilder
-from chart_saver import save_chart_as_pdf
 from report_config import COLORS, FONTS, LAYOUT, SITE_INFO, DEBUG
 from data_transformers import (
     MetricsNormalizer,
     extract_start_time_from_row,
     extract_count_from_row,
 )
+
+try:  # Optional chart dependencies (matplotlib)
+    from chart_builder import TimeSeriesChartBuilder  # type: ignore  # noqa: F401
+except ImportError:  # pragma: no cover - optional dependency missing during runtime
+    TimeSeriesChartBuilder = None  # type: ignore[assignment]
+
+try:
+    from chart_saver import save_chart_as_pdf  # type: ignore  # noqa: F401
+except ImportError:  # pragma: no cover - optional dependency missing during runtime
+    save_chart_as_pdf = None  # type: ignore[assignment]
+
+
+def _import_chart_builder():
+    """Dynamically import the chart builder to avoid hard matplotlib dependency."""
+
+    global TimeSeriesChartBuilder  # type: ignore[global-variable-not-assigned]
+
+    if TimeSeriesChartBuilder is not None:
+        return TimeSeriesChartBuilder
+
+    try:
+        from chart_builder import TimeSeriesChartBuilder as _TimeSeriesChartBuilder
+    except ImportError as exc:  # pragma: no cover - optional dependency
+        raise ImportError("chart_builder module unavailable") from exc
+
+    TimeSeriesChartBuilder = _TimeSeriesChartBuilder  # type: ignore[assignment]
+    return TimeSeriesChartBuilder
+
+
+def _import_chart_saver():
+    """Dynamically import the chart saver helper."""
+
+    global save_chart_as_pdf  # type: ignore[global-variable-not-assigned]
+
+    if save_chart_as_pdf is not None:
+        return save_chart_as_pdf
+
+    try:
+        from chart_saver import save_chart_as_pdf as _save_chart_as_pdf
+    except ImportError as exc:  # pragma: no cover - optional dependency
+        raise ImportError("chart_saver module unavailable") from exc
+
+    save_chart_as_pdf = _save_chart_as_pdf  # type: ignore[assignment]
+    return save_chart_as_pdf
 
 
 def should_produce_daily(group_token: str) -> bool:
@@ -87,7 +129,8 @@ def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = Non
 
     Returns a matplotlib Figure.
     """
-    builder = TimeSeriesChartBuilder()
+    builder_cls = _import_chart_builder()
+    builder = builder_cls()
     return builder.build(stats, title, units, tz_name)
 
 
@@ -308,6 +351,7 @@ def generate_histogram_chart(
             debug=getattr(args, "debug", False),
         )
         hist_pdf = f"{prefix}_histogram.pdf"
+        save_chart_as_pdf = _import_chart_saver()
         if save_chart_as_pdf(fig_hist, hist_pdf):
             print(f"Wrote histogram PDF: {hist_pdf}")
             return True
@@ -352,6 +396,7 @@ def generate_timeseries_chart(
     try:
         fig = _plot_stats_page(metrics, title, units, tz_name=tz_name)
         stats_pdf = f"{prefix}.pdf"
+        save_chart_as_pdf = _import_chart_saver()
         if save_chart_as_pdf(fig, stats_pdf):
             print(f"Wrote {title} PDF: {stats_pdf}")
             return True
@@ -499,7 +544,8 @@ def check_charts_available() -> bool:
         True if charts can be generated
     """
     try:
-        from chart_builder import TimeSeriesChartBuilder
+        _import_chart_builder()
+        _import_chart_saver()
 
         return True
     except ImportError:

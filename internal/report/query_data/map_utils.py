@@ -132,7 +132,7 @@ class SVGMarkerInjector:
         """
         # Try viewBox attribute first
         vb_match = re.search(
-            r"viewBox\s*=\s*[\"']\s*([0-9.+-eE]+)\s+([0-9.+-eE]+)\s+([0-9.+-eE]+)\s+([0-9.+-eE]+)\s*[\"']",
+            r"viewBox\s*=\s*[\"']\s*([0-9.+\-eE]+)\s+([0-9.+\-eE]+)\s+([0-9.+\-eE]+)\s+([0-9.+\-eE]+)\s*[\"']",
             svg_text,
         )
         if vb_match:
@@ -144,8 +144,8 @@ class SVGMarkerInjector:
             )
 
         # Fallback to width/height attributes
-        w_match = re.search(r"width\s*=\s*\"?([0-9.+-eE]+)", svg_text)
-        h_match = re.search(r"height\s*=\s*\"?([0-9.+-eE]+)", svg_text)
+        w_match = re.search(r"width\s*=\s*\"?([0-9.+\-eE]+)", svg_text)
+        h_match = re.search(r"height\s*=\s*\"?([0-9.+\-eE]+)", svg_text)
         if w_match and h_match:
             return 0.0, 0.0, float(w_match.group(1)), float(h_match.group(1))
 
