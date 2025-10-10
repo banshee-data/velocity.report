@@ -108,8 +108,8 @@ def test_validation_missing_dates():
     is_valid, errors = config.validate()
 
     assert not is_valid
-    assert "start_date is required" in errors
-    assert "end_date is required" in errors
+    assert "query.start_date is required" in errors
+    assert "query.end_date is required" in errors
 
 
 def test_validation_invalid_source():
@@ -181,40 +181,6 @@ def test_validation_success():
     assert len(errors) == 0
 
 
-def test_from_cli_args():
-    """Test creating config from CLI arguments."""
-    # Mock argparse.Namespace
-    args = type("Args", (), {})()
-    args.dates = ["2025-06-01", "2025-06-07"]
-    args.group = "2h"
-    args.units = "kph"
-    args.source = "radar_objects"
-    args.model_version = "v2"
-    args.timezone = "UTC"
-    args.min_speed = 10.0
-    args.file_prefix = "test"
-    args.histogram = True
-    args.hist_bucket_size = 10.0
-    args.hist_max = 100.0
-    args.debug = True
-
-    config = ReportConfig.from_cli_args(args)
-
-    assert config.query.start_date == "2025-06-01"
-    assert config.query.end_date == "2025-06-07"
-    assert config.query.group == "2h"
-    assert config.query.units == "kph"
-    assert config.query.source == "radar_objects"
-    assert config.query.model_version == "v2"
-    assert config.query.timezone == "UTC"
-    assert config.query.min_speed == 10.0
-    assert config.output.file_prefix == "test"
-    assert config.query.histogram is True
-    assert config.query.hist_bucket_size == 10.0
-    assert config.query.hist_max == 100.0
-    assert config.output.debug is True
-
-
 def test_load_config_from_file(tmp_path):
     """Test load_config function with config file."""
     config_data = {
@@ -229,7 +195,7 @@ def test_load_config_from_file(tmp_path):
     with open(config_file, "w") as f:
         json.dump(config_data, f)
 
-    config = load_config(config_file=str(config_file), merge_env=False)
+    config = load_config(config_file=str(config_file))
     assert config.site.location == "File Location"
     assert config.query.start_date == "2025-06-01"
 
@@ -241,24 +207,6 @@ def test_created_at_timestamp():
 
     # Should be valid ISO format
     datetime.fromisoformat(config.created_at.replace("Z", "+00:00"))
-
-
-def test_merge_with_env(monkeypatch):
-    """Test merging config with environment variables."""
-    monkeypatch.setenv("REPORT_LOCATION", "Env Location")
-    monkeypatch.setenv("REPORT_SPEED_LIMIT", "50")
-    monkeypatch.setenv("REPORT_MIN_SPEED", "15.0")
-
-    config = ReportConfig(
-        site=SiteConfig(location="Original Location"),
-        query=QueryConfig(min_speed=5.0),
-    )
-
-    merged = config.merge_with_env()
-
-    assert merged.site.location == "Env Location"
-    assert merged.site.speed_limit == 50
-    assert merged.query.min_speed == 15.0
 
 
 def test_example_config_generation():

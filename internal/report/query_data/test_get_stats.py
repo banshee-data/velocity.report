@@ -7,6 +7,13 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import argparse
 
+from config_manager import (
+    ReportConfig,
+    SiteConfig,
+    QueryConfig,
+    RadarConfig,
+    OutputConfig,
+)
 from get_stats import (
     should_produce_daily,
     compute_iso_timestamps,
@@ -19,6 +26,82 @@ from get_stats import (
     assemble_pdf_report,
     process_date_range,
 )
+
+
+def create_test_config(
+    file_prefix: str = "test",
+    start_date: str = "2025-01-01",
+    end_date: str = "2025-01-02",
+    timezone: str = "UTC",
+    source: str = "radar_data_transits",
+    group: str = "1h",
+    units: str = "mph",
+    min_speed: float = 5.0,
+    histogram: bool = True,
+    hist_bucket_size: float = 5.0,
+    hist_max: float = None,
+    model_version: str = "rebuild-full",
+    debug: bool = False,
+    **kwargs
+) -> ReportConfig:
+    """Helper to create test configs with sensible defaults.
+
+    Args:
+        file_prefix: Output file prefix
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+        timezone: Timezone name
+        source: Data source (radar_data_transits or radar_objects)
+        group: Time grouping (1h, 15m, etc)
+        units: Display units (mph or kph)
+        min_speed: Minimum speed filter
+        histogram: Generate histogram
+        hist_bucket_size: Histogram bucket size
+        hist_max: Histogram max value
+        model_version: Model version for transits
+        debug: Debug mode
+        **kwargs: Additional config overrides
+
+    Returns:
+        ReportConfig with test defaults
+    """
+    config = ReportConfig(
+        site=SiteConfig(
+            location="Test Site",
+            surveyor="Test Surveyor",
+            contact="test@example.com",
+            speed_limit=25,
+        ),
+        query=QueryConfig(
+            start_date=start_date,
+            end_date=end_date,
+            timezone=timezone,
+            source=source,
+            group=group,
+            units=units,
+            min_speed=min_speed,
+            histogram=histogram,
+            hist_bucket_size=hist_bucket_size,
+            hist_max=hist_max,
+            model_version=model_version,
+        ),
+        radar=RadarConfig(
+            cosine_error_angle=21.0,
+            sensor_model="Test Sensor",
+            firmware_version="v1.0.0",
+        ),
+        output=OutputConfig(
+            file_prefix=file_prefix,
+            debug=debug,
+        ),
+    )
+
+    # Apply any additional overrides
+    for key, value in kwargs.items():
+        if hasattr(config, key):
+            setattr(config, key, value)
+
+    return config
 
 
 class TestShouldProduceDaily(unittest.TestCase):
@@ -87,38 +170,36 @@ class TestResolveFilePrefix(unittest.TestCase):
         """Test prefix resolution with user-provided prefix."""
         mock_next_seq.return_value = "my-prefix-1"
 
-        args = argparse.Namespace(
-            file_prefix="my-prefix", timezone=None, source="radar_data_transits"
-        )
+        config = create_test_config(file_prefix="my-prefix")
         start_ts = 1704067200
         end_ts = 1704153600
 
-        result = resolve_file_prefix(args, start_ts, end_ts)
+        result = resolve_file_prefix(config, start_ts, end_ts)
 
         self.assertEqual(result, "my-prefix-1")
         mock_next_seq.assert_called_once_with("my-prefix")
 
     def test_auto_generated_prefix_utc(self):
         """Test auto-generated prefix with UTC."""
-        args = argparse.Namespace(
-            file_prefix="", timezone=None, source="radar_data_transits"
+        config = create_test_config(
+            file_prefix="", timezone="UTC", source="radar_data_transits"
         )
         start_ts = 1704067200  # 2024-01-01 00:00:00 UTC
         end_ts = 1704153600  # 2024-01-02 00:00:00 UTC
 
-        result = resolve_file_prefix(args, start_ts, end_ts)
+        result = resolve_file_prefix(config, start_ts, end_ts)
 
         self.assertEqual(result, "radar_data_transits_2024-01-01_to_2024-01-02")
 
     def test_auto_generated_prefix_with_timezone(self):
         """Test auto-generated prefix with specific timezone."""
-        args = argparse.Namespace(
+        config = create_test_config(
             file_prefix="", timezone="US/Pacific", source="radar_objects"
         )
         start_ts = 1704067200  # 2024-01-01 00:00:00 UTC = 2023-12-31 16:00:00 PST
         end_ts = 1704153600  # 2024-01-02 00:00:00 UTC = 2024-01-01 16:00:00 PST
 
-        result = resolve_file_prefix(args, start_ts, end_ts)
+        result = resolve_file_prefix(config, start_ts, end_ts)
 
         self.assertEqual(result, "radar_objects_2023-12-31_to_2024-01-01")
 
@@ -131,10 +212,16 @@ class TestFetchGranularMetrics(unittest.TestCase):
         mock_client = Mock()
         mock_metrics = [{"p50": 25.0}]
         mock_histogram = {"10": 5, "20": 10}
+
+    def test_successful_fetch(self):
+        """Test successful granular metrics fetch."""
+        mock_client = Mock()
+        mock_metrics = [{"p50": 25.0}]
+        mock_histogram = {"10": 5, "20": 10}
         mock_resp = Mock()
         mock_client.get_stats.return_value = (mock_metrics, mock_histogram, mock_resp)
 
-        args = argparse.Namespace(
+        config = create_test_config(
             group="1h",
             units="mph",
             source="radar_data_transits",
@@ -146,7 +233,7 @@ class TestFetchGranularMetrics(unittest.TestCase):
         )
 
         metrics, histogram, resp = fetch_granular_metrics(
-            mock_client, 1704067200, 1704153600, args, "rebuild-full"
+            mock_client, 1704067200, 1704153600, config, "rebuild-full"
         )
 
         self.assertEqual(metrics, mock_metrics)
@@ -159,11 +246,11 @@ class TestFetchGranularMetrics(unittest.TestCase):
         mock_client = Mock()
         mock_client.get_stats.side_effect = Exception("API Error")
 
-        args = argparse.Namespace(
+        config = create_test_config(
             group="1h",
             units="mph",
             source="radar_data_transits",
-            timezone=None,
+            timezone="UTC",
             min_speed=None,
             histogram=False,
             hist_bucket_size=None,
@@ -171,7 +258,7 @@ class TestFetchGranularMetrics(unittest.TestCase):
         )
 
         metrics, histogram, resp = fetch_granular_metrics(
-            mock_client, 1704067200, 1704153600, args, None
+            mock_client, 1704067200, 1704153600, config, None
         )
 
         self.assertEqual(metrics, [])
@@ -188,11 +275,13 @@ class TestFetchOverallSummary(unittest.TestCase):
         mock_metrics = [{"p50": 25.0, "count": 1000}]
         mock_client.get_stats.return_value = (mock_metrics, None, Mock())
 
-        args = argparse.Namespace(
-            units="mph", source="radar_data_transits", timezone=None, min_speed=None
+        config = create_test_config(
+            units="mph", source="radar_data_transits", timezone="UTC", min_speed=None
         )
 
-        result = fetch_overall_summary(mock_client, 1704067200, 1704153600, args, None)
+        result = fetch_overall_summary(
+            mock_client, 1704067200, 1704153600, config, None
+        )
 
         self.assertEqual(result, mock_metrics)
 
@@ -201,11 +290,13 @@ class TestFetchOverallSummary(unittest.TestCase):
         mock_client = Mock()
         mock_client.get_stats.side_effect = Exception("API Error")
 
-        args = argparse.Namespace(
-            units="mph", source="radar_data_transits", timezone=None, min_speed=None
+        config = create_test_config(
+            units="mph", source="radar_data_transits", timezone="UTC", min_speed=None
         )
 
-        result = fetch_overall_summary(mock_client, 1704067200, 1704153600, args, None)
+        result = fetch_overall_summary(
+            mock_client, 1704067200, 1704153600, config, None
+        )
 
         self.assertEqual(result, [])
 
@@ -219,15 +310,15 @@ class TestFetchDailySummary(unittest.TestCase):
         mock_metrics = [{"p50": 24.0}]
         mock_client.get_stats.return_value = (mock_metrics, None, Mock())
 
-        args = argparse.Namespace(
+        config = create_test_config(
             group="1h",
             units="mph",
             source="radar_data_transits",
-            timezone=None,
+            timezone="UTC",
             min_speed=None,
         )
 
-        result = fetch_daily_summary(mock_client, 1704067200, 1704153600, args, None)
+        result = fetch_daily_summary(mock_client, 1704067200, 1704153600, config, None)
 
         self.assertEqual(result, mock_metrics)
 
@@ -235,15 +326,15 @@ class TestFetchDailySummary(unittest.TestCase):
         """Test daily not fetched when group is already 24h."""
         mock_client = Mock()
 
-        args = argparse.Namespace(
+        config = create_test_config(
             group="24h",
             units="mph",
             source="radar_data_transits",
-            timezone=None,
+            timezone="UTC",
             min_speed=None,
         )
 
-        result = fetch_daily_summary(mock_client, 1704067200, 1704153600, args, None)
+        result = fetch_daily_summary(mock_client, 1704067200, 1704153600, config, None)
 
         self.assertIsNone(result)
         mock_client.get_stats.assert_not_called()
@@ -253,15 +344,15 @@ class TestFetchDailySummary(unittest.TestCase):
         mock_client = Mock()
         mock_client.get_stats.side_effect = Exception("API Error")
 
-        args = argparse.Namespace(
+        config = create_test_config(
             group="1h",
             units="mph",
             source="radar_data_transits",
-            timezone=None,
+            timezone="UTC",
             min_speed=None,
         )
 
-        result = fetch_daily_summary(mock_client, 1704067200, 1704153600, args, None)
+        result = fetch_daily_summary(mock_client, 1704067200, 1704153600, config, None)
 
         self.assertIsNone(result)
 
@@ -279,10 +370,10 @@ class TestGenerateHistogramChart(unittest.TestCase):
 
         histogram = {"10": 5, "20": 10}
         metrics_all = [{"count": 1000}]
-        args = argparse.Namespace(debug=False, units="mph")
+        config = create_test_config(debug=False, units="mph")
 
         result = generate_histogram_chart(
-            histogram, "test-prefix", "mph", metrics_all, args
+            histogram, "test-prefix", "mph", metrics_all, config
         )
 
         self.assertTrue(result)
@@ -298,9 +389,9 @@ class TestGenerateHistogramChart(unittest.TestCase):
         mock_save.return_value = False
 
         histogram = {"10": 5}
-        args = argparse.Namespace(debug=False, units="mph")
+        config = create_test_config(debug=False, units="mph")
 
-        result = generate_histogram_chart(histogram, "test-prefix", "mph", [], args)
+        result = generate_histogram_chart(histogram, "test-prefix", "mph", [], config)
 
         self.assertFalse(result)
 
@@ -310,9 +401,9 @@ class TestGenerateHistogramChart(unittest.TestCase):
         mock_plot.side_effect = Exception("Plot error")
 
         histogram = {"10": 5}
-        args = argparse.Namespace(debug=False, units="mph")
+        config = create_test_config(debug=False, units="mph")
 
-        result = generate_histogram_chart(histogram, "test-prefix", "mph", [], args)
+        result = generate_histogram_chart(histogram, "test-prefix", "mph", [], config)
 
         self.assertFalse(result)
 
@@ -329,10 +420,10 @@ class TestGenerateTimeseriesChart(unittest.TestCase):
         mock_save.return_value = True
 
         metrics = [{"p50": 25.0}]
-        args = argparse.Namespace(debug=False)
+        config = create_test_config(debug=False)
 
         result = generate_timeseries_chart(
-            metrics, "test_stats", "Test Chart", "mph", "US/Pacific", args
+            metrics, "test_stats", "Test Chart", "mph", "US/Pacific", config
         )
 
         self.assertTrue(result)
@@ -347,10 +438,10 @@ class TestGenerateTimeseriesChart(unittest.TestCase):
         mock_plot.side_effect = Exception("Plot error")
 
         metrics = [{"p50": 25.0}]
-        args = argparse.Namespace(debug=False)
+        config = create_test_config(debug=False)
 
         result = generate_timeseries_chart(
-            metrics, "test_stats", "Test", "mph", None, args
+            metrics, "test_stats", "Test", "mph", None, config
         )
 
         self.assertFalse(result)
@@ -362,7 +453,7 @@ class TestAssemblePdfReport(unittest.TestCase):
     @patch("get_stats.generate_pdf_report")
     def test_successful_assembly(self, mock_generate):
         """Test successful PDF assembly."""
-        args = argparse.Namespace(
+        config = create_test_config(
             group="1h", units="mph", timezone="US/Pacific", min_speed=5.0, hist_max=50.0
         )
 
@@ -374,7 +465,7 @@ class TestAssemblePdfReport(unittest.TestCase):
             None,
             [{"p50": 24.0}],
             {"10": 5},
-            args,
+            config,
         )
 
         self.assertTrue(result)
@@ -385,8 +476,8 @@ class TestAssemblePdfReport(unittest.TestCase):
         """Test that exception returns False."""
         mock_generate.side_effect = Exception("PDF error")
 
-        args = argparse.Namespace(
-            group="1h", units="mph", timezone=None, min_speed=None, hist_max=None
+        config = create_test_config(
+            group="1h", units="mph", timezone="UTC", min_speed=None, hist_max=None
         )
 
         result = assemble_pdf_report(
@@ -397,7 +488,7 @@ class TestAssemblePdfReport(unittest.TestCase):
             None,
             [],
             None,
-            args,
+            config,
         )
 
         self.assertFalse(result)
@@ -427,10 +518,10 @@ class TestProcessDateRange(unittest.TestCase):
         mock_assemble.return_value = True
 
         mock_client = Mock()
-        args = argparse.Namespace(
+        config = create_test_config(
             source="radar_data_transits",
             model_version="rebuild-full",
-            timezone=None,
+            timezone="UTC",
             file_prefix="",
             group="1h",
             units="mph",
@@ -439,7 +530,7 @@ class TestProcessDateRange(unittest.TestCase):
         )
 
         # Should not raise
-        process_date_range("2024-01-01", "2024-01-02", args, mock_client)
+        process_date_range("2024-01-01", "2024-01-02", config, mock_client)
 
         mock_fetch_granular.assert_called_once()
         mock_fetch_overall.assert_called_once()
@@ -451,10 +542,10 @@ class TestProcessDateRange(unittest.TestCase):
         mock_parse.side_effect = ValueError("Invalid date")
 
         mock_client = Mock()
-        args = argparse.Namespace(source="radar_data_transits", timezone=None)
+        config = create_test_config(source="radar_data_transits", timezone="UTC")
 
         # Should not raise, just print error and return
-        process_date_range("invalid", "date", args, mock_client)
+        process_date_range("invalid", "date", config, mock_client)
 
         # Client should not be called
         mock_client.get_stats.assert_not_called()
@@ -467,10 +558,10 @@ class TestProcessDateRange(unittest.TestCase):
         mock_fetch.return_value = ([], None, None)
 
         mock_client = Mock()
-        args = argparse.Namespace(
+        config = create_test_config(
             source="radar_data_transits",
             model_version=None,
-            timezone=None,
+            timezone="UTC",
             file_prefix="",
             group="1h",
             units="mph",
@@ -478,7 +569,7 @@ class TestProcessDateRange(unittest.TestCase):
         )
 
         # Should return early without assembling PDF
-        process_date_range("2024-01-01", "2024-01-02", args, mock_client)
+        process_date_range("2024-01-01", "2024-01-02", config, mock_client)
 
 
 class TestShouldProduceDailyEdgeCases(unittest.TestCase):
@@ -582,8 +673,8 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         mock_plot.return_value = Mock()
         mock_save.return_value = False
 
-        args = argparse.Namespace(debug=False)
-        result = generate_histogram_chart({"10": 5}, "test", {}, "mph", args)
+        config = create_test_config(debug=False)
+        result = generate_histogram_chart({"10": 5}, "test", {}, "mph", config)
 
         self.assertFalse(result)
         mock_save.assert_called_once()
@@ -593,8 +684,8 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         """Test that ImportError returns False."""
         mock_plot.side_effect = ImportError("No matplotlib")
 
-        args = argparse.Namespace(debug=False)
-        result = generate_histogram_chart({"10": 5}, "test", {}, "mph", args)
+        config = create_test_config(debug=False)
+        result = generate_histogram_chart({"10": 5}, "test", {}, "mph", config)
 
         self.assertFalse(result)
 
@@ -603,8 +694,8 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         """Test ImportError with debug mode enabled."""
         mock_plot.side_effect = ImportError("No matplotlib")
 
-        args = argparse.Namespace(debug=True)
-        result = generate_histogram_chart({"10": 5}, "test", {}, "mph", args)
+        config = create_test_config(debug=True)
+        result = generate_histogram_chart({"10": 5}, "test", {}, "mph", config)
 
         self.assertFalse(result)
 
@@ -615,8 +706,8 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         mock_plot.return_value = Mock()
         mock_save.side_effect = Exception("Save error")
 
-        args = argparse.Namespace(debug=False)
-        result = generate_histogram_chart({"10": 5}, "test", {}, "mph", args)
+        config = create_test_config(debug=False)
+        result = generate_histogram_chart({"10": 5}, "test", {}, "mph", config)
 
         self.assertFalse(result)
 
@@ -627,8 +718,8 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         mock_plot.return_value = Mock()
         mock_save.side_effect = Exception("Save error")
 
-        args = argparse.Namespace(debug=True)
-        result = generate_histogram_chart({"10": 5}, "test", {}, "mph", args)
+        config = create_test_config(debug=True)
+        result = generate_histogram_chart({"10": 5}, "test", {}, "mph", config)
 
         self.assertFalse(result)
 
@@ -639,10 +730,10 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         mock_plot.return_value = Mock()
         mock_save.return_value = True
 
-        args = argparse.Namespace(debug=False)
+        config = create_test_config(debug=False)
         metrics = {"Count": 100}
 
-        result = generate_histogram_chart({"10": 5}, "test", metrics, "mph", args)
+        result = generate_histogram_chart({"10": 5}, "test", metrics, "mph", config)
 
         self.assertTrue(result)
         # Verify plot_histogram was called (sample label will be in title)
@@ -655,10 +746,10 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         mock_plot.return_value = Mock()
         mock_save.return_value = True
 
-        args = argparse.Namespace(debug=False)
+        config = create_test_config(debug=False)
         metrics = [{"Count": 100}]
 
-        result = generate_histogram_chart({"10": 5}, "test", metrics, "mph", args)
+        result = generate_histogram_chart({"10": 5}, "test", metrics, "mph", config)
 
         self.assertTrue(result)
 
@@ -669,10 +760,10 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         mock_plot.return_value = Mock()
         mock_save.return_value = True
 
-        args = argparse.Namespace(debug=False)
+        config = create_test_config(debug=False)
         metrics = "invalid"  # Not a dict or list
 
-        result = generate_histogram_chart({"10": 5}, "test", metrics, "mph", args)
+        result = generate_histogram_chart({"10": 5}, "test", metrics, "mph", config)
 
         self.assertTrue(result)
 
@@ -687,9 +778,9 @@ class TestGenerateTimeseriesChartEdgeCases(unittest.TestCase):
         mock_plot.return_value = Mock()
         mock_save.return_value = False
 
-        args = argparse.Namespace(debug=False)
+        config = create_test_config(debug=False)
         result = generate_timeseries_chart(
-            [{"p50": 25.0}], "test", "Test Chart", "mph", None, args
+            [{"p50": 25.0}], "test", "Test Chart", "mph", None, config
         )
 
         self.assertFalse(result)
@@ -700,9 +791,9 @@ class TestGenerateTimeseriesChartEdgeCases(unittest.TestCase):
         """Test that exception returns False."""
         mock_plot.side_effect = Exception("Plot error")
 
-        args = argparse.Namespace(debug=False)
+        config = create_test_config(debug=False)
         result = generate_timeseries_chart(
-            [{"p50": 25.0}], "test", "Test Chart", "mph", None, args
+            [{"p50": 25.0}], "test", "Test Chart", "mph", None, config
         )
 
         self.assertFalse(result)
@@ -713,9 +804,9 @@ class TestGenerateTimeseriesChartEdgeCases(unittest.TestCase):
         """Test exception with debug mode enabled."""
         mock_plot.side_effect = Exception("Plot error")
 
-        args = argparse.Namespace(debug=True)
+        config = create_test_config(debug=True)
         result = generate_timeseries_chart(
-            [{"p50": 25.0}], "test", "Test Chart", "mph", None, args
+            [{"p50": 25.0}], "test", "Test Chart", "mph", None, config
         )
 
         self.assertFalse(result)
@@ -752,11 +843,11 @@ class TestGenerateAllCharts(unittest.TestCase):
         """Test that unavailable charts returns early."""
         mock_check.return_value = False
 
-        args = argparse.Namespace(debug=False, units="mph", timezone=None)
+        config = create_test_config(debug=False, units="mph", timezone="UTC")
 
         from get_stats import generate_all_charts
 
-        generate_all_charts("test", [], None, None, [], args, None)
+        generate_all_charts("test", [], None, None, [], config, None)
 
         # No charts should be generated
         mock_hist.assert_not_called()
@@ -769,11 +860,11 @@ class TestGenerateAllCharts(unittest.TestCase):
         """Test unavailable charts in debug mode."""
         mock_check.return_value = False
 
-        args = argparse.Namespace(debug=True, units="mph", timezone=None)
+        config = create_test_config(debug=True, units="mph", timezone="UTC")
 
         from get_stats import generate_all_charts
 
-        generate_all_charts("test", [], None, None, [], args, None)
+        generate_all_charts("test", [], None, None, [], config, None)
 
         mock_hist.assert_not_called()
         mock_ts.assert_not_called()
@@ -790,13 +881,13 @@ class TestGenerateAllCharts(unittest.TestCase):
         mock_ts.return_value = True
         mock_hist.return_value = True
 
-        args = argparse.Namespace(debug=True, units="mph", timezone=None)
+        config = create_test_config(debug=True, units="mph", timezone="UTC")
         resp = Mock()
 
         from get_stats import generate_all_charts
 
         generate_all_charts(
-            "test", [{"p50": 25}], None, {"10": 5}, [{"p50": 25}], args, resp
+            "test", [{"p50": 25}], None, {"10": 5}, [{"p50": 25}], config, resp
         )
 
         mock_debug.assert_called_once_with(resp, [{"p50": 25}], {"10": 5})
@@ -809,13 +900,15 @@ class TestGenerateAllCharts(unittest.TestCase):
         mock_check.return_value = True
         mock_ts.return_value = True
 
-        args = argparse.Namespace(debug=False, units="mph", timezone="UTC")
+        config = create_test_config(
+            debug=False, units="mph", timezone="UTC" if "UTC" != "None" else "UTC"
+        )
         daily = [{"p50": 25}]
 
         from get_stats import generate_all_charts
 
         generate_all_charts(
-            "prefix", [{"p50": 25}], daily, None, [{"p50": 25}], args, None
+            "prefix", [{"p50": 25}], daily, None, [{"p50": 25}], config, None
         )
 
         # Should be called twice: once for stats, once for daily
@@ -829,13 +922,13 @@ class TestGenerateAllCharts(unittest.TestCase):
         mock_check.return_value = True
         mock_hist.return_value = True
 
-        args = argparse.Namespace(debug=False, units="mph", timezone=None)
+        config = create_test_config(debug=False, units="mph", timezone="UTC")
         histogram = {"10": 5, "20": 10}
 
         from get_stats import generate_all_charts
 
         generate_all_charts(
-            "prefix", [{"p50": 25}], None, histogram, [{"p50": 25}], args, None
+            "prefix", [{"p50": 25}], None, histogram, [{"p50": 25}], config, None
         )
 
         mock_hist.assert_called_once()
@@ -879,10 +972,10 @@ class TestMainFunction(unittest.TestCase):
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 
-        args = argparse.Namespace(
+        config = create_test_config(
             source="radar_data_transits",
             model_version="rebuild-full",
-            timezone=None,
+            timezone="UTC",
             file_prefix="",
             group="1h",
             units="mph",
@@ -895,7 +988,7 @@ class TestMainFunction(unittest.TestCase):
             ("2024-02-01", "2024-02-28"),
         ]
 
-        main(date_ranges, args)
+        main(date_ranges, config)
 
         # Should process both ranges
         self.assertEqual(mock_process.call_count, 2)
@@ -940,27 +1033,27 @@ class TestGetModelVersion(unittest.TestCase):
         """Test that model version is returned for transit source."""
         from get_stats import get_model_version
 
-        args = argparse.Namespace(source="radar_data_transits", model_version="v1.0")
+        config = create_test_config(source="radar_data_transits", model_version="v1.0")
 
-        result = get_model_version(args)
+        result = get_model_version(config)
         self.assertEqual(result, "v1.0")
 
     def test_returns_default_when_no_version_specified(self):
         """Test default version for transit source."""
         from get_stats import get_model_version
 
-        args = argparse.Namespace(source="radar_data_transits", model_version=None)
+        config = create_test_config(source="radar_data_transits", model_version=None)
 
-        result = get_model_version(args)
+        result = get_model_version(config)
         self.assertEqual(result, "rebuild-full")
 
     def test_returns_none_for_radar_objects(self):
         """Test that None is returned for non-transit source."""
         from get_stats import get_model_version
 
-        args = argparse.Namespace(source="radar_objects", model_version="v1.0")
+        config = create_test_config(source="radar_objects", model_version="v1.0")
 
-        result = get_model_version(args)
+        result = get_model_version(config)
         self.assertIsNone(result)
 
 
@@ -1011,12 +1104,12 @@ class TestProcessDateRangeEdgeCases(unittest.TestCase):
         mock_parse_range.return_value = (None, None)
 
         mock_client = Mock()
-        args = argparse.Namespace(
+        config = create_test_config(
             source="radar_data_transits",
-            timezone=None,
+            timezone="UTC",
         )
 
-        process_date_range("invalid", "date", args, mock_client)
+        process_date_range("invalid", "date", config, mock_client)
 
         # Should not proceed to fetching
         mock_fetch_granular.assert_not_called()
@@ -1042,12 +1135,12 @@ class TestProcessDateRangeEdgeCases(unittest.TestCase):
         mock_fetch_granular.return_value = ([], None, None)
 
         mock_client = Mock()
-        args = argparse.Namespace(
+        config = create_test_config(
             source="radar_data_transits",
-            timezone=None,
+            timezone="UTC",
         )
 
-        process_date_range("2024-01-01", "2024-01-02", args, mock_client)
+        process_date_range("2024-01-01", "2024-01-02", config, mock_client)
 
         # Early return, so overall summary should not be called
         mock_client.get_stats.assert_not_called()
@@ -1086,16 +1179,16 @@ class TestProcessDateRangeEdgeCases(unittest.TestCase):
         mock_assemble.return_value = True
 
         mock_client = Mock()
-        args = argparse.Namespace(
+        config = create_test_config(
             source="radar_data_transits",
-            timezone=None,
+            timezone="UTC",
             units="mph",
             group="1h",
             min_speed=None,
             debug=False,
         )
 
-        process_date_range("2024-01-01", "2024-01-02", args, mock_client)
+        process_date_range("2024-01-01", "2024-01-02", config, mock_client)
 
         # Should proceed even with empty metrics but present histogram
         mock_assemble.assert_called_once()
@@ -1117,10 +1210,10 @@ class TestSampleLabelEdgeCases(unittest.TestCase):
         # Return a value that can't convert to int
         mock_extract.return_value = "not-a-number"
 
-        args = argparse.Namespace(debug=False)
+        config = create_test_config(debug=False)
         metrics = {"Count": "invalid"}
 
-        result = generate_histogram_chart({"10": 5}, "test", "mph", metrics, args)
+        result = generate_histogram_chart({"10": 5}, "test", "mph", metrics, config)
 
         self.assertTrue(result)
         # Should have called plot_histogram with fallback label
@@ -1133,11 +1226,11 @@ class TestSampleLabelEdgeCases(unittest.TestCase):
         mock_plot.return_value = Mock()
         mock_save.return_value = True
 
-        args = argparse.Namespace(debug=False)
+        config = create_test_config(debug=False)
         # List with non-dict items
         metrics = ["not", "dict", "items"]
 
-        result = generate_histogram_chart({"10": 5}, "test", "mph", metrics, args)
+        result = generate_histogram_chart({"10": 5}, "test", "mph", metrics, config)
 
         self.assertTrue(result)
 

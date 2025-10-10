@@ -2,12 +2,12 @@
 """
 Quick demo of the unified configuration system.
 
-This demonstrates all the different ways to use the configuration system:
+This demonstrates the different ways to use the configuration system:
 1. Create config from scratch
 2. Save to JSON file
 3. Load from JSON file
-4. Use with CLI
-5. Call via API
+4. Use with API
+5. Validation
 
 Run this to see the configuration system in action!
 """
@@ -146,69 +146,29 @@ def demo_dict_conversion(config):
     print(f"   Location: {reconstructed.site.location}")
     print()
 
+    return config_dict
 
-def demo_cli_args():
-    """Demo 5: CLI argument compatibility."""
+
+def demo_api_usage(config_dict):
+    """Demo 5: API usage (Go server integration)."""
     print("=" * 70)
-    print("DEMO 5: CLI argument compatibility")
+    print("DEMO 5: API usage for Go server integration")
     print("=" * 70)
 
-    # Mock CLI args (like argparse.Namespace)
-    args = type("Args", (), {})()
-    args.dates = ["2025-06-15", "2025-06-21"]
-    args.group = "2h"
-    args.units = "kph"
-    args.source = "radar_data_transits"
-    args.model_version = "rebuild-full"
-    args.timezone = "UTC"
-    args.min_speed = 10.0
-    args.file_prefix = "cli-demo"
-    args.histogram = True
-    args.hist_bucket_size = 10.0
-    args.hist_max = 100.0
-    args.debug = False
-
-    config = ReportConfig.from_cli_args(args)
-
-    print(f"✅ Created config from CLI args")
-    print(f"   Date range: {config.query.start_date} to {config.query.end_date}")
-    print(f"   Group: {config.query.group}")
-    print(f"   Units: {config.query.units}")
-    print(f"   Min speed: {config.query.min_speed}")
+    print("✅ Configuration can be passed as dictionary to API")
+    print(f"   This is how the Go server calls generate_report_from_dict()")
     print()
-
-
-def demo_priority_system():
-    """Demo 6: Configuration priority system."""
-    print("=" * 70)
-    print("DEMO 6: Configuration priority (CLI > File > Env > Default)")
-    print("=" * 70)
-
-    # Create base config with defaults
-    base = ReportConfig()
-    print(f"Default location: {base.site.location}")
-
-    # Load from environment (if set)
-    import os
-
-    os.environ["REPORT_LOCATION"] = "Environment Location"
-    env_config = ReportConfig.from_env()
-    print(f"Env location: {env_config.site.location}")
-
-    # File config overrides env
-    file_config = ReportConfig(
-        site=SiteConfig(location="File Location"),
-        query=QueryConfig(start_date="2025-01-01", end_date="2025-01-31"),
-    )
-    print(f"File location: {file_config.site.location}")
-
-    # CLI args would override file (demonstrated in actual CLI)
-    print()
-    print("Priority order demonstrated:")
-    print("  1. CLI arguments (highest priority)")
-    print("  2. Config file")
-    print("  3. Environment variables")
-    print("  4. Default values (lowest priority)")
+    print("   Example from Go:")
+    print("     config := map[string]interface{}{")
+    print('       "site": map[string]interface{}{')
+    print('         "location": "Main Street",')
+    print("       },")
+    print('       "query": map[string]interface{}{')
+    print('         "start_date": "2025-06-01",')
+    print('         "end_date": "2025-06-07",')
+    print("       },")
+    print("     }")
+    print('     result := callPython("generate_report_from_dict", config)')
     print()
 
 
@@ -224,9 +184,8 @@ def main():
     config = demo_create_config()
     config_file = demo_save_load_json(config)
     demo_validation(config)
-    demo_dict_conversion(config)
-    demo_cli_args()
-    demo_priority_system()
+    config_dict = demo_dict_conversion(config)
+    demo_api_usage(config_dict)
 
     # Summary
     print("=" * 70)
@@ -238,15 +197,17 @@ def main():
     print("  ✅ Saving/loading JSON files")
     print("  ✅ Validation with helpful error messages")
     print("  ✅ Dictionary conversion (for JSON APIs)")
-    print("  ✅ CLI argument compatibility (backward compatible)")
-    print("  ✅ Environment variable overrides")
-    print("  ✅ Priority-based configuration merging")
+    print("  ✅ JSON-only configuration (no CLI args or env vars)")
+    print()
+    print("Configuration methods:")
+    print("  1. JSON files: load_config(config_file='path/to/config.json')")
+    print("  2. Dictionaries: ReportConfig.from_dict(config_dict)")
+    print("  3. Programmatic: ReportConfig(site=..., query=..., ...)")
     print()
     print("Next steps:")
-    print("  1. Use report_config_example.json as a template")
+    print("  1. Use config.example.json as a template")
     print("  2. Integrate with Go server using generate_report_api.py")
-    print("  3. See CONFIG_SYSTEM.md for full documentation")
-    print("  4. See GO_INTEGRATION.md for Go code examples")
+    print("  3. Call ./get_stats.py with JSON config file")
     print()
     print(f"Example config saved to: {config_file}")
     print()
