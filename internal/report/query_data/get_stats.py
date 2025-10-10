@@ -90,258 +90,475 @@ def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = Non
     return builder.build(stats, title, units, tz_name)
 
 
+# === Configuration & Validation ===
+
+
+def compute_iso_timestamps(
+    start_ts: int, end_ts: int, timezone: Optional[str]
+) -> Tuple[str, str]:
+    """Convert unix timestamps to ISO strings with timezone.
+
+    Args:
+        start_ts: Start timestamp in unix seconds
+        end_ts: End timestamp in unix seconds
+        timezone: Timezone name (e.g., 'US/Pacific') or None for UTC
+
+    Returns:
+        Tuple of (start_iso, end_iso) strings
+    """
+    try:
+        tzobj = ZoneInfo(timezone) if timezone else timezone.utc
+        start_iso = datetime.fromtimestamp(start_ts, tz=tzobj).isoformat()
+        end_iso = datetime.fromtimestamp(end_ts, tz=tzobj).isoformat()
+        return start_iso, end_iso
+    except Exception:
+        # Fallback to basic string representation
+        return str(start_ts), str(end_ts)
+
+
+def resolve_file_prefix(args: argparse.Namespace, start_ts: int, end_ts: int) -> str:
+    """Determine output file prefix (sequenced or date-based).
+
+    Args:
+        args: Command-line arguments
+        start_ts: Start timestamp
+        end_ts: End timestamp
+
+    Returns:
+        File prefix string
+    """
+    if args.file_prefix:
+        # User provided a prefix - create numbered sequence
+        return _next_sequenced_prefix(args.file_prefix)
+    else:
+        # Auto-generate from date range
+        tzobj = ZoneInfo(args.timezone) if args.timezone else timezone.utc
+        start_label = datetime.fromtimestamp(start_ts, tz=tzobj).date().isoformat()
+        end_label = datetime.fromtimestamp(end_ts, tz=tzobj).date().isoformat()
+        return f"{args.source}_{start_label}_to_{end_label}"
+
+
+# === API Data Fetching ===
+
+
+def fetch_granular_metrics(
+    client: RadarStatsClient,
+    start_ts: int,
+    end_ts: int,
+    args: argparse.Namespace,
+    model_version: Optional[str],
+) -> Tuple[List, Optional[dict], Optional[object]]:
+    """Fetch main granular metrics and optional histogram.
+
+    Args:
+        client: API client instance
+        start_ts: Start timestamp
+        end_ts: End timestamp
+        args: Command-line arguments
+        model_version: Model version for transit data
+
+    Returns:
+        Tuple of (metrics, histogram, response_metadata)
+    """
+    try:
+        metrics, histogram, resp = client.get_stats(
+            start_ts=start_ts,
+            end_ts=end_ts,
+            group=args.group,
+            units=args.units,
+            source=args.source,
+            model_version=model_version,
+            timezone=args.timezone or None,
+            min_speed=args.min_speed,
+            compute_histogram=args.histogram,
+            hist_bucket_size=args.hist_bucket_size,
+            hist_max=args.hist_max,
+        )
+        return metrics, histogram, resp
+    except Exception as e:
+        print(f"Request failed: {e}")
+        return [], None, None
+
+
+def fetch_overall_summary(
+    client: RadarStatsClient,
+    start_ts: int,
+    end_ts: int,
+    args: argparse.Namespace,
+    model_version: Optional[str],
+) -> List:
+    """Fetch overall 'all' group summary.
+
+    Args:
+        client: API client instance
+        start_ts: Start timestamp
+        end_ts: End timestamp
+        args: Command-line arguments
+        model_version: Model version for transit data
+
+    Returns:
+        List of overall metrics (empty list on failure)
+    """
+    try:
+        metrics_all, _, _ = client.get_stats(
+            start_ts=start_ts,
+            end_ts=end_ts,
+            group="all",
+            units=args.units,
+            source=args.source,
+            model_version=model_version,
+            timezone=args.timezone or None,
+            min_speed=args.min_speed,
+            compute_histogram=False,
+        )
+        return metrics_all
+    except Exception as e:
+        print(f"Failed to fetch overall summary: {e}")
+        return []
+
+
+def fetch_daily_summary(
+    client: RadarStatsClient,
+    start_ts: int,
+    end_ts: int,
+    args: argparse.Namespace,
+    model_version: Optional[str],
+) -> Optional[List]:
+    """Fetch daily (24h) summary if appropriate for group size.
+
+    Args:
+        client: API client instance
+        start_ts: Start timestamp
+        end_ts: End timestamp
+        args: Command-line arguments
+        model_version: Model version for transit data
+
+    Returns:
+        List of daily metrics or None if not needed/failed
+    """
+    if not should_produce_daily(args.group):
+        return None
+
+    try:
+        daily_metrics, _, _ = client.get_stats(
+            start_ts=start_ts,
+            end_ts=end_ts,
+            group="24h",
+            units=args.units,
+            source=args.source,
+            model_version=model_version,
+            timezone=args.timezone or None,
+            min_speed=args.min_speed,
+            compute_histogram=False,
+        )
+        return daily_metrics
+    except Exception as e:
+        print(f"Failed to fetch daily summary: {e}")
+        return None
+
+
+# === Chart Generation ===
+
+
+def generate_histogram_chart(
+    histogram: dict,
+    prefix: str,
+    units: str,
+    metrics_all: List,
+    args: argparse.Namespace,
+) -> bool:
+    """Generate histogram chart PDF.
+
+    Args:
+        histogram: Histogram data dictionary
+        prefix: File prefix for output
+        units: Display units
+        metrics_all: Overall metrics for sample size
+        args: Command-line arguments
+
+    Returns:
+        True if chart was created successfully
+    """
+    try:
+        # Extract sample size from overall metrics
+        sample_n = None
+        normalizer = MetricsNormalizer()
+        try:
+            if hasattr(metrics_all, "get"):
+                sample_n = extract_count_from_row(metrics_all, normalizer)
+            elif isinstance(metrics_all, (list, tuple)) and metrics_all:
+                first = metrics_all[0]
+                if isinstance(first, dict):
+                    sample_n = extract_count_from_row(first, normalizer)
+        except Exception:
+            sample_n = None
+
+        sample_label = ""
+        if sample_n is not None:
+            try:
+                sample_label = f" (n={int(sample_n)})"
+            except Exception:
+                sample_label = f" (n={sample_n})"
+
+        fig_hist = plot_histogram(
+            histogram,
+            f"Velocity Distribution: {sample_label}",
+            units,
+            debug=getattr(args, "debug", False),
+        )
+        hist_pdf = f"{prefix}_histogram.pdf"
+        if save_chart_as_pdf(fig_hist, hist_pdf):
+            print(f"Wrote histogram PDF: {hist_pdf}")
+            return True
+        else:
+            print("Failed to save histogram PDF")
+            return False
+    except ImportError as ie:
+        if getattr(args, "debug", False):
+            print(f"DEBUG: histogram plotting unavailable: {ie}")
+        else:
+            print("Histogram plotting unavailable")
+        return False
+    except Exception as e:
+        if getattr(args, "debug", False):
+            print(f"DEBUG: failed to generate histogram PDF: {e}")
+        else:
+            print("Failed to generate histogram PDF")
+        return False
+
+
+def generate_timeseries_chart(
+    metrics: List,
+    prefix: str,
+    title: str,
+    units: str,
+    tz_name: Optional[str],
+    args: argparse.Namespace,
+) -> bool:
+    """Generate time-series chart PDF.
+
+    Args:
+        metrics: Metrics data
+        prefix: File prefix for output
+        title: Chart title
+        units: Display units
+        tz_name: Timezone name
+        args: Command-line arguments
+
+    Returns:
+        True if chart was created successfully
+    """
+    try:
+        fig = _plot_stats_page(metrics, title, units, tz_name=tz_name)
+        stats_pdf = f"{prefix}.pdf"
+        if save_chart_as_pdf(fig, stats_pdf):
+            print(f"Wrote {title} PDF: {stats_pdf}")
+            return True
+        else:
+            print(f"Failed to save {title} PDF")
+            return False
+    except Exception as e:
+        if getattr(args, "debug", False):
+            print(f"DEBUG: failed to generate {title} PDF: {e}")
+        else:
+            print(f"Failed to generate {title} PDF")
+        return False
+
+
+# === PDF Assembly ===
+
+
+def assemble_pdf_report(
+    prefix: str,
+    start_iso: str,
+    end_iso: str,
+    overall_metrics: List,
+    daily_metrics: Optional[List],
+    granular_metrics: List,
+    histogram: Optional[dict],
+    args: argparse.Namespace,
+) -> bool:
+    """Assemble complete PDF report.
+
+    Args:
+        prefix: File prefix for output
+        start_iso: Start date in ISO format
+        end_iso: End date in ISO format
+        overall_metrics: Overall summary metrics
+        daily_metrics: Daily metrics (or None)
+        granular_metrics: Granular metrics
+        histogram: Histogram data (or None)
+        args: Command-line arguments
+
+    Returns:
+        True if PDF was generated successfully
+    """
+    min_speed_str = (
+        f"{args.min_speed} {args.units}" if args.min_speed is not None else "none"
+    )
+    tz_display = args.timezone or "UTC"
+    pdf_path = f"{prefix}_report.pdf"
+    location = SITE_INFO["location"]
+
+    try:
+        generate_pdf_report(
+            output_path=pdf_path,
+            start_iso=start_iso,
+            end_iso=end_iso,
+            group=args.group,
+            units=args.units,
+            timezone_display=tz_display,
+            min_speed_str=min_speed_str,
+            location=location,
+            overall_metrics=overall_metrics,
+            daily_metrics=daily_metrics,
+            granular_metrics=granular_metrics,
+            histogram=histogram,
+            tz_name=(args.timezone or None),
+            charts_prefix=prefix,
+            speed_limit=SITE_INFO["speed_limit"],
+            hist_max=getattr(args, "hist_max", None),
+        )
+        print(f"Generated PDF report: {pdf_path}")
+        return True
+    except Exception as e:
+        print(f"Failed to generate PDF report: {e}")
+        return False
+
+
+# === Date Range Processing ===
+
+
+def process_date_range(
+    start_date: str, end_date: str, args: argparse.Namespace, client: RadarStatsClient
+) -> None:
+    """Process a single date range: fetch data, generate charts, create PDF.
+
+    This orchestrates all steps for one date range.
+
+    Args:
+        start_date: Start date string
+        end_date: End date string
+        args: Command-line arguments
+        client: API client instance
+    """
+    # Determine model version for transit data
+    model_version = None
+    if getattr(args, "source", "") == "radar_data_transits":
+        model_version = args.model_version or "rebuild-full"
+
+    # Parse dates to timestamps
+    try:
+        start_ts = parse_date_to_unix(
+            start_date, end_of_day=False, tz_name=(args.timezone or None)
+        )
+        end_ts = parse_date_to_unix(
+            end_date,
+            end_of_day=is_date_only(end_date),
+            tz_name=(args.timezone or None),
+        )
+    except ValueError as e:
+        print(f"Bad date range ({start_date} - {end_date}): {e}")
+        return
+
+    # Resolve file prefix
+    prefix = resolve_file_prefix(args, start_ts, end_ts)
+
+    # Fetch data from API
+    metrics, histogram, resp = fetch_granular_metrics(
+        client, start_ts, end_ts, args, model_version
+    )
+    if not metrics and not histogram:
+        print(f"No data returned for {start_date} - {end_date}")
+        return
+
+    overall_metrics = fetch_overall_summary(
+        client, start_ts, end_ts, args, model_version
+    )
+    daily_metrics = fetch_daily_summary(client, start_ts, end_ts, args, model_version)
+
+    # Compute ISO timestamps for report
+    start_iso, end_iso = compute_iso_timestamps(start_ts, end_ts, args.timezone)
+
+    # Check if charts are available
+    try:
+        from chart_builder import TimeSeriesChartBuilder
+
+        charts_available = True
+    except ImportError:
+        charts_available = False
+        if getattr(args, "debug", False):
+            print("DEBUG: matplotlib not available, skipping charts")
+
+    # Generate charts if available
+    if charts_available:
+        # Debug output for API response
+        if getattr(args, "debug", False) and resp:
+            try:
+                ms = resp.elapsed.total_seconds() * 1000.0
+                print(
+                    f"DEBUG: API response status={resp.status_code} elapsed={ms:.1f}ms "
+                    f"metrics={len(metrics)} histogram_present={bool(histogram)}"
+                )
+            except Exception:
+                print("DEBUG: unable to read response metadata")
+
+        # Generate granular stats chart
+        generate_timeseries_chart(
+            metrics,
+            f"{prefix}_stats",
+            f"{prefix} - stats",
+            args.units,
+            args.timezone or None,
+            args,
+        )
+
+        # Generate daily chart if available
+        if daily_metrics:
+            generate_timeseries_chart(
+                daily_metrics,
+                f"{prefix}_daily",
+                f"{prefix} - daily",
+                args.units,
+                args.timezone or None,
+                args,
+            )
+
+        # Generate histogram if available
+        if histogram:
+            generate_histogram_chart(
+                histogram, prefix, args.units, overall_metrics, args
+            )
+
+    # Assemble final PDF report
+    assemble_pdf_report(
+        prefix,
+        start_iso,
+        end_iso,
+        overall_metrics,
+        daily_metrics,
+        metrics,
+        histogram,
+        args,
+    )
+
+
+# === Main Entry Point ===
+
+
 def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
+    """Main orchestrator: iterate over date ranges.
+
+    Simplified to just client creation and iteration.
+
+    Args:
+        date_ranges: List of (start_date, end_date) tuples
+        args: Command-line arguments
+    """
     client = RadarStatsClient()
 
     for start_date, end_date in date_ranges:
-        model_version = None
-        if getattr(args, "source", "") == "radar_data_transits":
-            model_version = args.model_version or "rebuild-full"
-
-        try:
-            start_ts = parse_date_to_unix(
-                start_date, end_of_day=False, tz_name=(args.timezone or None)
-            )
-            end_ts = parse_date_to_unix(
-                end_date,
-                end_of_day=is_date_only(end_date),
-                tz_name=(args.timezone or None),
-            )
-        except ValueError as e:
-            print(f"Bad date range ({start_date} - {end_date}): {e}")
-            continue
-
-        # determine file prefix; if the user provided a prefix, create a numbered
-        # sequence to avoid clobbering previous runs (out -> out-1, out-2, ...)
-        if args.file_prefix:
-            prefix_base = args.file_prefix
-            prefix = _next_sequenced_prefix(prefix_base)
-        else:
-            tzobj = ZoneInfo(args.timezone) if args.timezone else timezone.utc
-            start_label = datetime.fromtimestamp(start_ts, tz=tzobj).date().isoformat()
-            end_label = datetime.fromtimestamp(end_ts, tz=tzobj).date().isoformat()
-            prefix = f"{args.source}_{start_label}_to_{end_label}"
-
-        # main granular query
-        try:
-            metrics, histogram, resp = client.get_stats(
-                start_ts=start_ts,
-                end_ts=end_ts,
-                group=args.group,
-                units=args.units,
-                source=args.source,
-                model_version=model_version,
-                timezone=args.timezone or None,
-                min_speed=args.min_speed,
-                compute_histogram=args.histogram,
-                hist_bucket_size=args.hist_bucket_size,
-                hist_max=args.hist_max,
-            )
-        except Exception as e:
-            print(f"Request failed for {start_date} - {end_date}: {e}")
-            continue
-
-        # overall summary
-        try:
-            metrics_all, _, _ = client.get_stats(
-                start_ts=start_ts,
-                end_ts=end_ts,
-                group="all",
-                units=args.units,
-                source=args.source,
-                model_version=model_version,
-                timezone=args.timezone or None,
-                min_speed=args.min_speed,
-                compute_histogram=False,
-            )
-        except Exception as e:
-            print(f"Failed to fetch overall summary: {e}")
-            metrics_all = []
-
-        # daily summary (optional)
-        daily_metrics = None
-        if should_produce_daily(args.group):
-            try:
-                daily_metrics, _, _ = client.get_stats(
-                    start_ts=start_ts,
-                    end_ts=end_ts,
-                    group="24h",
-                    units=args.units,
-                    source=args.source,
-                    model_version=model_version,
-                    timezone=args.timezone or None,
-                    min_speed=args.min_speed,
-                    compute_histogram=False,
-                )
-            except Exception as e:
-                print(f"Failed to fetch daily summary: {e}")
-                daily_metrics = None
-
-        # compute ISO strings for generation parameters
-        try:
-            tzobj = ZoneInfo(args.timezone) if args.timezone else timezone.utc
-            start_iso = datetime.fromtimestamp(start_ts, tz=tzobj).isoformat()
-            end_iso = datetime.fromtimestamp(end_ts, tz=tzobj).isoformat()
-        except Exception:
-            start_iso = str(start_date)
-            end_iso = str(end_date)
-
-        min_speed_str = (
-            f"{args.min_speed} {args.units}" if args.min_speed is not None else "none"
-        )
-        tz_display = args.timezone or "UTC"
-
-        # Prepare PDF output path and location
-        pdf_path = f"{prefix}_report.pdf"
-        location = SITE_INFO["location"]
-
-        # Plotting block: generate charts and histograms first so they can be embedded into the PDF
-        try:
-            # Import check - TimeSeriesChartBuilder will raise ImportError if matplotlib not available
-            from chart_builder import TimeSeriesChartBuilder
-
-            charts_available = True
-        except ImportError:
-            charts_available = False
-            if getattr(args, "debug", False):
-                print("DEBUG: matplotlib not available, skipping charts")
-
-        if charts_available:
-            # Report response metadata in debug mode
-            if getattr(args, "debug", False):
-                try:
-                    ms = resp.elapsed.total_seconds() * 1000.0
-                    print(
-                        f"DEBUG: API response status={resp.status_code} elapsed={ms:.1f}ms metrics={len(metrics)} histogram_present={bool(histogram)}"
-                    )
-                except Exception:
-                    print("DEBUG: unable to read response metadata")
-
-            # granular stats PDF
-            try:
-                fig = _plot_stats_page(
-                    metrics,
-                    f"{prefix} - stats",
-                    args.units,
-                    tz_name=(args.timezone or None),
-                )
-                stats_pdf = f"{prefix}_stats.pdf"
-                if save_chart_as_pdf(fig, stats_pdf):
-                    print(f"Wrote stats PDF: {stats_pdf}")
-                else:
-                    print("Failed to save stats PDF")
-            except Exception as e:
-                if getattr(args, "debug", False):
-                    print(f"DEBUG: failed to generate stats PDF: {e}")
-                else:
-                    print("Failed to generate stats PDF")
-
-            # daily PDF
-            if daily_metrics:
-                try:
-                    figd = _plot_stats_page(
-                        daily_metrics,
-                        f"{prefix} - daily",
-                        args.units,
-                        tz_name=(args.timezone or None),
-                    )
-                    daily_pdf = f"{prefix}_daily.pdf"
-                    if save_chart_as_pdf(figd, daily_pdf):
-                        print(f"Wrote daily PDF: {daily_pdf}")
-                    else:
-                        print("Failed to save daily PDF")
-                except Exception as e:
-                    if getattr(args, "debug", False):
-                        print(f"DEBUG: failed to generate daily PDF: {e}")
-                    else:
-                        print("Failed to generate daily PDF")
-
-            # # overall PDF
-            # if metrics_all:
-            #     try:
-            #         fig_all = _plot_stats_page(
-            #             metrics_all, f"{prefix} - overall", args.units
-            #         )
-            #         overall_pdf_path = f"{prefix}_overall.pdf"
-            #         if save_chart_as_pdf(fig_all, overall_pdf_path):
-            #             print(f"Wrote overall PDF: {overall_pdf_path}")
-            #         else:
-            #             print("Failed to save overall PDF")
-            #     except Exception as e:
-            #         if getattr(args, "debug", False):
-            #             print(f"DEBUG: failed to generate overall PDF: {e}")
-            #         else:
-            #             print("Failed to generate overall PDF")
-
-            # histogram PDF if present
-            if histogram:
-                try:
-                    # include sample size from overall metrics if available
-                    # Use normalizer for consistent field extraction
-                    sample_n = None
-                    normalizer = MetricsNormalizer()
-                    try:
-                        if hasattr(metrics_all, "get"):
-                            sample_n = extract_count_from_row(metrics_all, normalizer)
-                        elif isinstance(metrics_all, (list, tuple)) and metrics_all:
-                            first = metrics_all[0]
-                            if isinstance(first, dict):
-                                sample_n = extract_count_from_row(first, normalizer)
-                    except Exception:
-                        sample_n = None
-
-                    sample_label = ""
-                    if sample_n is not None:
-                        try:
-                            sample_label = f" (n={int(sample_n)})"
-                        except Exception:
-                            sample_label = f" (n={sample_n})"
-
-                    fig_hist = plot_histogram(
-                        histogram,
-                        f"Velocity Distribution: {sample_label}",
-                        args.units,
-                        debug=getattr(args, "debug", False),
-                    )
-                    hist_pdf = f"{prefix}_histogram.pdf"
-                    if save_chart_as_pdf(fig_hist, hist_pdf):
-                        print(f"Wrote histogram PDF: {hist_pdf}")
-                    else:
-                        print("Failed to save histogram PDF")
-                except ImportError as ie:
-                    if getattr(args, "debug", False):
-                        print(f"DEBUG: histogram plotting unavailable: {ie}")
-                    else:
-                        print("Histogram plotting unavailable")
-                except Exception as e:
-                    if getattr(args, "debug", False):
-                        print(f"DEBUG: failed to generate histogram PDF: {e}")
-                    else:
-                        print("Failed to generate histogram PDF")
-
-        # Generate PDF report (charts should now exist on disk to be embedded)
-        try:
-            generate_pdf_report(
-                output_path=pdf_path,
-                start_iso=start_iso,
-                end_iso=end_iso,
-                group=args.group,
-                units=args.units,
-                timezone_display=tz_display,
-                min_speed_str=min_speed_str,
-                location=location,
-                overall_metrics=metrics_all,
-                daily_metrics=daily_metrics,
-                granular_metrics=metrics,
-                histogram=histogram,
-                tz_name=(args.timezone or None),
-                charts_prefix=prefix,
-                speed_limit=SITE_INFO["speed_limit"],
-                hist_max=getattr(args, "hist_max", None),
-            )
-            print(f"Generated PDF report: {pdf_path}")
-        except Exception as e:
-            print(f"Failed to generate PDF report: {e}")
+        process_date_range(start_date, end_date, args, client)
 
 
 if __name__ == "__main__":
