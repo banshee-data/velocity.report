@@ -111,7 +111,11 @@ class TestSiteInformationSection(unittest.TestCase):
         mock_escape.side_effect = lambda x: x
         mock_noescape.side_effect = lambda x: f"NoEscape({x})"
 
-        self.builder.build(self.mock_doc)
+        self.builder.build(
+            self.mock_doc,
+            site_description="Test site description",
+            speed_limit_note="Speed limit is 25 mph",
+        )
 
         # Should append subsection header, description, par, speed limit note
         self.assertGreaterEqual(self.mock_doc.append.call_count, 4)
@@ -267,11 +271,11 @@ class TestConvenienceFunctions(unittest.TestCase):
         mock_builder_class.return_value = mock_builder
         mock_doc = MagicMock()
 
-        add_site_specifics(mock_doc)
+        add_site_specifics(mock_doc, "site desc", "speed limit")
 
-        # Should create builder and call build
+        # Should create builder and call build with all parameters
         mock_builder_class.assert_called_once()
-        mock_builder.build.assert_called_once_with(mock_doc)
+        mock_builder.build.assert_called_once_with(mock_doc, "site desc", "speed limit")
 
     @patch("report_sections.ScienceMethodologySection")
     def test_add_science(self, mock_builder_class):

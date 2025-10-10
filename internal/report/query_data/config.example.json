@@ -74,7 +74,7 @@
     "file_prefix": "clarendon-survey",
     "output_dir": "./reports",
     "debug": false,
-    "map": false,
+    "map": true,
     "run_id": "auto-generated",
     "_field_notes": {
       "file_prefix": "REQUIRED: Prefix for generated files",

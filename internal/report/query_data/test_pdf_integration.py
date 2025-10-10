@@ -758,17 +758,19 @@ class TestPDFGenerationEdgeCases(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = os.path.join(tmpdir, "test_report.pdf")
 
-            # Mock Document to fail on both generate_pdf and generate_tex
-            with patch("pdf_generator.Document") as mock_doc_class:
+            # Mock DocumentBuilder to return a document that fails generation
+            with patch("pdf_generator.DocumentBuilder") as mock_builder_class:
+                mock_builder = MagicMock()
                 mock_doc = MagicMock()
-                mock_doc_class.return_value = mock_doc
+                mock_builder.build.return_value = mock_doc
+                mock_builder_class.return_value = mock_builder
 
                 # Make all PDF generation attempts fail
                 mock_doc.generate_pdf.side_effect = Exception("PDF generation failed")
-                # Make TEX generation also fail (line 416-418)
+                # Make TEX generation also fail
                 mock_doc.generate_tex.side_effect = Exception("TEX generation failed")
 
-                # Should raise the last exception (line 421-429)
+                # Should raise the last exception
                 with self.assertRaises(Exception) as context:
                     generate_pdf_report(
                         output_path=output_path,

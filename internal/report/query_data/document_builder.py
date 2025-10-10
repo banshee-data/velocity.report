@@ -187,9 +187,15 @@ class DocumentBuilder:
                 "\\fancyhead[L]{\\textbf{\\protect\\href{https://velocity.report}{velocity.report}}}"
             )
         )
-        doc.append(NoEscape(f"\\fancyhead[C]{{ {start_iso[:10]} to {end_iso[:10]} }}"))
+        # Date range moved to footer, header center is empty
         doc.append(NoEscape(f"\\fancyhead[R]{{ \\textit{{{location}}}}}"))
         doc.append(NoEscape("\\renewcommand{\\headrulewidth}{0.8pt}"))
+        # Add footer with date range on left and page number on right
+        doc.append(
+            NoEscape(f"\\fancyfoot[L]{{\\small {start_iso[:10]} to {end_iso[:10]}}}")
+        )
+        doc.append(NoEscape("\\fancyfoot[R]{\\small Page \\thepage}"))
+        doc.append(NoEscape("\\renewcommand{\\footrulewidth}{0.8pt}"))
 
     def begin_twocolumn_layout(
         self, doc: Document, location: str, surveyor: str, contact: str
