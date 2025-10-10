@@ -1,0 +1,46 @@
+{
+  "site": {
+    "location": "Clarendon Avenue, San Francisco",
+    "surveyor": "Banshee, INC.",
+    "contact": "david@banshee-data.com",
+    "speed_limit": 25,
+    "site_description": "This survey was conducted from the southbound parking lane outside 500 Clarendon Avenue, directly in front of an elementary school. The site is located on a downhill grade, which may influence vehicle speed and braking behavior. Data was collected from a fixed position over three consecutive days.",
+    "speed_limit_note": "The posted speed limit at this location is 35 mph, reduced to 25 mph when school children are present.",
+    "latitude": 37.7749,
+    "longitude": -122.4194,
+    "map_angle": 32.0
+  },
+  "radar": {
+    "sensor_model": "OmniPreSense OPS243-A",
+    "firmware_version": "v1.2.3",
+    "transmit_frequency": "24.125 GHz",
+    "sample_rate": "20 kSPS",
+    "velocity_resolution": "0.272 mph",
+    "azimuth_fov": "20\u00b0",
+    "elevation_fov": "24\u00b0",
+    "cosine_error_angle": "21\u00b0",
+    "cosine_error_factor": "1.0711"
+  },
+  "query": {
+    "start_date": "2025-06-02",
+    "end_date": "2025-06-04",
+    "group": "1h",
+    "units": "mph",
+    "source": "radar_data_transits",
+    "model_version": "rebuild-full",
+    "timezone": "US/Pacific",
+    "min_speed": 5.0,
+    "histogram": true,
+    "hist_bucket_size": 5.0,
+    "hist_max": 50.0
+  },
+  "output": {
+    "file_prefix": "test-report",
+    "output_dir": "/var/reports",
+    "run_id": "run-20250610-123456",
+    "debug": false
+  },
+  "created_at": "2025-10-10T08:42:20.317545+00:00",
+  "updated_at": null,
+  "version": "1.0"
+}

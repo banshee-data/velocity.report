@@ -1,0 +1,278 @@
+#!/usr/bin/env python3
+"""Tests for configuration management system."""
+
+import json
+import os
+import tempfile
+from datetime import datetime
+
+import pytest
+
+from config_manager import (
+    ReportConfig,
+    SiteConfig,
+    RadarConfig,
+    QueryConfig,
+    OutputConfig,
+    load_config,
+)
+
+
+def test_site_config_defaults():
+    """Test SiteConfig has sensible defaults."""
+    config = SiteConfig()
+    assert config.location == "Clarendon Avenue, San Francisco"
+    assert config.surveyor == "Banshee, INC."
+    assert config.speed_limit == 25
+
+
+def test_query_config_defaults():
+    """Test QueryConfig has sensible defaults."""
+    config = QueryConfig()
+    assert config.group == "1h"
+    assert config.units == "mph"
+    assert config.source == "radar_data_transits"
+    assert config.histogram is True
+
+
+def test_report_config_to_dict():
+    """Test converting ReportConfig to dictionary."""
+    config = ReportConfig()
+    data = config.to_dict()
+
+    assert "site" in data
+    assert "radar" in data
+    assert "query" in data
+    assert "output" in data
+    assert data["version"] == "1.0"
+
+
+def test_report_config_from_dict():
+    """Test creating ReportConfig from dictionary."""
+    data = {
+        "site": {
+            "location": "Test Location",
+            "speed_limit": 30,
+        },
+        "query": {
+            "start_date": "2025-06-01",
+            "end_date": "2025-06-07",
+            "units": "kph",
+        },
+    }
+
+    config = ReportConfig.from_dict(data)
+    assert config.site.location == "Test Location"
+    assert config.site.speed_limit == 30
+    assert config.query.start_date == "2025-06-01"
+    assert config.query.units == "kph"
+
+
+def test_report_config_json_roundtrip():
+    """Test saving and loading config from JSON file."""
+    original = ReportConfig(
+        site=SiteConfig(
+            location="Test Site",
+            surveyor="Test Surveyor",
+            speed_limit=35,
+        ),
+        query=QueryConfig(
+            start_date="2025-01-01",
+            end_date="2025-01-31",
+            units="kph",
+            min_speed=10.0,
+        ),
+    )
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        original.to_json(f.name)
+        temp_path = f.name
+
+    try:
+        loaded = ReportConfig.from_json(temp_path)
+        assert loaded.site.location == "Test Site"
+        assert loaded.site.surveyor == "Test Surveyor"
+        assert loaded.site.speed_limit == 35
+        assert loaded.query.start_date == "2025-01-01"
+        assert loaded.query.units == "kph"
+        assert loaded.query.min_speed == 10.0
+    finally:
+        os.unlink(temp_path)
+
+
+def test_validation_missing_dates():
+    """Test validation fails when dates are missing."""
+    config = ReportConfig()
+    is_valid, errors = config.validate()
+
+    assert not is_valid
+    assert "start_date is required" in errors
+    assert "end_date is required" in errors
+
+
+def test_validation_invalid_source():
+    """Test validation fails for invalid source."""
+    config = ReportConfig(
+        query=QueryConfig(
+            start_date="2025-06-01",
+            end_date="2025-06-07",
+            source="invalid_source",
+        )
+    )
+
+    is_valid, errors = config.validate()
+    assert not is_valid
+    assert any("Invalid source" in e for e in errors)
+
+
+def test_validation_invalid_units():
+    """Test validation fails for invalid units."""
+    config = ReportConfig(
+        query=QueryConfig(
+            start_date="2025-06-01",
+            end_date="2025-06-07",
+            units="invalid_units",
+        )
+    )
+
+    is_valid, errors = config.validate()
+    assert not is_valid
+    assert any("Invalid units" in e for e in errors)
+
+
+def test_validation_histogram_requires_bucket_size():
+    """Test validation requires bucket size when histogram is enabled."""
+    config = ReportConfig(
+        query=QueryConfig(
+            start_date="2025-06-01",
+            end_date="2025-06-07",
+            histogram=True,
+            hist_bucket_size=None,
+        )
+    )
+
+    is_valid, errors = config.validate()
+    assert not is_valid
+    assert any("hist_bucket_size is required" in e for e in errors)
+
+
+def test_validation_success():
+    """Test validation passes for valid config."""
+    config = ReportConfig(
+        site=SiteConfig(location="Test Location"),
+        query=QueryConfig(
+            start_date="2025-06-01",
+            end_date="2025-06-07",
+            histogram=True,
+            hist_bucket_size=5.0,
+        ),
+    )
+
+    is_valid, errors = config.validate()
+    assert is_valid
+    assert len(errors) == 0
+
+
+def test_from_cli_args():
+    """Test creating config from CLI arguments."""
+    # Mock argparse.Namespace
+    args = type("Args", (), {})()
+    args.dates = ["2025-06-01", "2025-06-07"]
+    args.group = "2h"
+    args.units = "kph"
+    args.source = "radar_objects"
+    args.model_version = "v2"
+    args.timezone = "UTC"
+    args.min_speed = 10.0
+    args.file_prefix = "test"
+    args.histogram = True
+    args.hist_bucket_size = 10.0
+    args.hist_max = 100.0
+    args.debug = True
+
+    config = ReportConfig.from_cli_args(args)
+
+    assert config.query.start_date == "2025-06-01"
+    assert config.query.end_date == "2025-06-07"
+    assert config.query.group == "2h"
+    assert config.query.units == "kph"
+    assert config.query.source == "radar_objects"
+    assert config.query.model_version == "v2"
+    assert config.query.timezone == "UTC"
+    assert config.query.min_speed == 10.0
+    assert config.output.file_prefix == "test"
+    assert config.query.histogram is True
+    assert config.query.hist_bucket_size == 10.0
+    assert config.query.hist_max == 100.0
+    assert config.output.debug is True
+
+
+def test_load_config_from_file(tmp_path):
+    """Test load_config function with config file."""
+    config_data = {
+        "site": {"location": "File Location"},
+        "query": {
+            "start_date": "2025-06-01",
+            "end_date": "2025-06-07",
+        },
+    }
+
+    config_file = tmp_path / "test_config.json"
+    with open(config_file, "w") as f:
+        json.dump(config_data, f)
+
+    config = load_config(config_file=str(config_file), merge_env=False)
+    assert config.site.location == "File Location"
+    assert config.query.start_date == "2025-06-01"
+
+
+def test_created_at_timestamp():
+    """Test that created_at timestamp is set automatically."""
+    config = ReportConfig()
+    assert config.created_at is not None
+
+    # Should be valid ISO format
+    datetime.fromisoformat(config.created_at.replace("Z", "+00:00"))
+
+
+def test_merge_with_env(monkeypatch):
+    """Test merging config with environment variables."""
+    monkeypatch.setenv("REPORT_LOCATION", "Env Location")
+    monkeypatch.setenv("REPORT_SPEED_LIMIT", "50")
+    monkeypatch.setenv("REPORT_MIN_SPEED", "15.0")
+
+    config = ReportConfig(
+        site=SiteConfig(location="Original Location"),
+        query=QueryConfig(min_speed=5.0),
+    )
+
+    merged = config.merge_with_env()
+
+    assert merged.site.location == "Env Location"
+    assert merged.site.speed_limit == 50
+    assert merged.query.min_speed == 15.0
+
+
+def test_example_config_generation():
+    """Test that example config can be generated."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        temp_path = f.name
+
+    try:
+        from config_manager import create_example_config
+
+        create_example_config(temp_path)
+
+        assert os.path.exists(temp_path)
+
+        # Load and validate
+        config = ReportConfig.from_json(temp_path)
+        assert config.site.location == "Clarendon Avenue, San Francisco"
+        assert config.query.start_date == "2025-06-02"
+    finally:
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
