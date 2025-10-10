@@ -84,155 +84,16 @@ from table_builders import (
     create_histogram_table,
     create_twocolumn_stats_table,
 )
+from report_sections import (
+    add_metric_data_intro,
+    add_site_specifics,
+    add_science,
+)
 
 
 # Removed MultiCol class - using \twocolumn instead of multicols package
 # Table building functions moved to table_builders.py
-
-
-def add_metric_data_intro(
-    doc: Document,
-    start_date: str,
-    end_date: str,
-    location: str,
-    speed_limit: int,
-    total_vehicles: int,
-    p50: float,
-    p85: float,
-    p98: float,
-    max_speed: float,
-) -> None:
-    """Add science section content to the document."""
-
-    # Speed Metrics Overview
-    doc.append(NoEscape("\\section*{Velocity Overview}"))
-
-    # Format total vehicles with thousands separator for readability
-    try:
-        total_disp = f"{int(total_vehicles):,}"
-    except Exception:
-        total_disp = str(total_vehicles)
-    doc.append(
-        NoEscape(
-            f"Between \\textbf{{{start_date}}} and \\textbf{{{end_date}}}, "
-            f"velocity for \\textbf{{{escape_latex(total_disp)}}} vehicles was recorded on \\textbf{{{escape_latex(location)}}}."
-        )
-    )
-
-    doc.append(NoEscape("\\subsection*{Key Metrics}"))
-    # Use the DRY helper to render the key metrics as a two-column
-    # parameter table so the formatting matches the rest of the
-    # generation-parameters block (bold label + mono-formatted value).
-    key_metric_entries = [
-        {"key": "Maximum Velocity", "value": f"{max_speed:.2f} mph"},
-        {"key": "98th Percentile Velocity (p98)", "value": f"{p98:.2f} mph"},
-        {"key": "85th Percentile Velocity (p85)", "value": f"{p85:.2f} mph"},
-        {"key": "Median Velocity (p50)", "value": f"{p50:.2f} mph"},
-    ]
-
-    doc.append(create_param_table(key_metric_entries))
-
-    doc.append(NoEscape("\\par"))
-
-
-def add_site_specifics(doc: Document) -> None:
-    """Add site-specific information section to the document."""
-
-    doc.append(NoEscape("\\subsection*{Site Information}"))
-
-    doc.append(
-        NoEscape(
-            escape_latex(SITE_INFO['site_description'])
-        )
-    )
-    doc.append(NoEscape("\\par"))
-
-    doc.append(
-        NoEscape(
-            escape_latex(SITE_INFO['speed_limit_note'])
-        )
-    )
-
-
-def add_science(doc: Document) -> None:
-
-    doc.append(NoEscape("\\subsection*{Citizen Radar}"))
-
-    doc.append(
-        NoEscape(
-            "\\href{https://velocity.report}{velocity.report} is a citizen radar tool designed to help communities "
-            "measure vehicle speeds with affordable, privacy-preserving Doppler sensors. "
-            "It's built on a core physical truth: kinetic energy scales with the square of speed."
-        )
-    )
-    doc.append(NoEscape("\\par"))
-    # Use paragraph breaks instead of LineBreak() which can insert
-    # vertical-mode breaks and cause "There's no line here to end" errors.
-    doc.append(NoEscape("\\par"))
-    doc.append(NoEscape(r"\[ K_E = \tfrac{1}{2} m v^2 \]"))
-    doc.append(NoEscape("\\par"))
-    with doc.create(Center()) as centered:
-        centered.append(
-            NoEscape("where \\(m\\) is the mass and \\(v\\) is the velocity.")
-        )
-    doc.append(NoEscape("\\par"))
-    doc.append(
-        NoEscape(
-            "A vehicle traveling at 40 mph has four times the crash energy of the same vehicle at 20 mph, "
-            "posing exponentially greater risk to people outside the car. Even small increases in speed dramatically raise the likelihood of severe injury or death in a collision. "
-            "By quantifying real-world vehicle speeds, \\href{https://velocity.report}{velocity.report} produces evidence that exceeds industry standard metrics."
-        )
-    )
-    doc.append(NoEscape("\\par"))
-
-    doc.append(NoEscape("\\subsection*{Aggregation and Percentiles}"))
-
-    doc.append(
-        NoEscape(
-            "This system uses Doppler radar to measure vehicle speed by detecting frequency shifts in waves "
-            "reflected from objects in motion. This shift (known as the \\href{https://en.wikipedia.org/wiki/Doppler_effect}{Doppler effect}) "
-            "is directly proportional to the object's relative velocity. When the sensor is stationary, the Doppler effect "
-            "reports the true speed of an object moving toward or away from the radar."
-        )
-    )
-    doc.append(NoEscape("\\par"))
-    doc.append(
-        NoEscape(
-            "To structure this data, the \\href{https://velocity.report}{velocity.report} application first records individual "
-            "radar readings, then applies a greedy, local, univariate \\emph{Time-Contiguous Speed Clustering} algorithm to "
-            "group log lines into sessions based on time proximity and speed similarity. Each session, or “transit,” represents "
-            "a short burst of movement consistent with a single passing object. This approach is efficient and reproducible, "
-            "but in dense traffic or where objects overlap it may undercount vehicles by merging multiple objects into one transit."
-        )
-    )
-    doc.append(NoEscape("\\par"))
-    doc.append(
-        NoEscape(
-            "Undercounting can bias percentile metrics (like p85 and p98) downward, since fewer sessions can give "
-            "disproportionate weight to slower vehicles. All reported statistics in this report are derived from "
-            "these sessionised transits."
-        )
-    )
-    doc.append(NoEscape("\\par"))
-    doc.append(
-        NoEscape(
-            "Percentiles offer a structured way to interpret speed behaviour. The 85th percentile (p85) indicates the "
-            "speed at or below which 85\\% of vehicles traveled. The 98th percentile (p98) exceeds this "
-            "industry-standard measure by capturing the fastest 2\\% of vehicle speeds, providing a more robust view "
-            "into trends among top speeders. By extending beyond p85, p98 identifies an additional 13\\% of data that "
-            "would otherwise be missed when trimming the top 15\\%, offering clearer insight into high-risk driving "
-            "patterns without letting single anomalous readings dominate."
-        )
-    )
-    doc.append(NoEscape("\\par"))
-    doc.append(
-        NoEscape(
-            "However, percentile metrics can be unstable in periods with low sample counts. To reflect this, our charts "
-            "flag low-sample segments in orange and suppress percentile points when counts fall below reliability thresholds "
-            "(fewer than 50 samples per roll-up period)."
-        )
-    )
-    doc.append(NoEscape("\\par"))
+# Report section builders moved to report_sections.py
 
 
 def generate_pdf_report(
