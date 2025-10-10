@@ -83,6 +83,7 @@ from stats_utils import (
     chart_exists,
 )
 from report_config import PDF_CONFIG, MAP_CONFIG, SITE_INFO
+from data_transformers import MetricsNormalizer, extract_start_time_from_row, extract_count_from_row
 
 
 # Removed MultiCol class - using \twocolumn instead of multicols package
@@ -119,41 +120,24 @@ def _build_table_rows(
     stats: List[Dict[str, Any]], include_start_time: bool, tz_name: Optional[str]
 ) -> List[List]:
     """Build table data rows."""
+    # Create normalizer for consistent field access
+    normalizer = MetricsNormalizer()
+
     rows = []
     for row in stats:
         row_data = []
         if include_start_time:
-            # Try various possible key names for start time
-            start_val = (
-                row.get("start_time_utc")
-                or row.get("StartTime")
-                or row.get("start_time")
-                or row.get("starttime")
-            )
+            # Use normalizer to extract start time
+            start_val = extract_start_time_from_row(row, normalizer)
             formatted_time = format_time(start_val, tz_name)
             row_data.append(NoEscape(escape_latex(formatted_time)))
 
-        # Extract count and metrics using various possible key names
-        cnt = row.get("cnt") or row.get("Count") or 0
-        p50 = (
-            row.get("p50")
-            or row.get("P50Speed")
-            or row.get("p50speed")
-            or row.get("p50_speed")
-        )
-        p85 = (
-            row.get("p85")
-            or row.get("P85Speed")
-            or row.get("p85speed")
-            or row.get("p85_speed")
-        )
-        p98 = (
-            row.get("p98")
-            or row.get("P98Speed")
-            or row.get("p98speed")
-            or row.get("p98_speed")
-        )
-        max_speed = row.get("max_speed") or row.get("MaxSpeed") or row.get("maxspeed")
+        # Extract metrics using normalizer
+        cnt = extract_count_from_row(row, normalizer)
+        p50 = normalizer.get_numeric(row, 'p50')
+        p85 = normalizer.get_numeric(row, 'p85')
+        p98 = normalizer.get_numeric(row, 'p98')
+        max_speed = normalizer.get_numeric(row, 'max_speed')
 
         row_data.extend(
             [
@@ -766,26 +750,14 @@ def generate_pdf_report(
     # Add science section content using helper function
     if overall_metrics:
         overall = overall_metrics[0]
-        p50 = (
-            overall.get("P50Speed")
-            or overall.get("p50speed")
-            or overall.get("p50")
-            or 0
-        )
-        p85 = (
-            overall.get("P85Speed")
-            or overall.get("p85speed")
-            or overall.get("p85")
-            or 0
-        )
-        p98 = (
-            overall.get("P98Speed")
-            or overall.get("p98speed")
-            or overall.get("p98")
-            or 0
-        )
-        max_speed = overall.get("MaxSpeed") or overall.get("maxspeed") or 0
-        total_vehicles = overall.get("Count") or 0
+
+        # Use normalizer for consistent field extraction
+        normalizer = MetricsNormalizer()
+        p50 = normalizer.get_numeric(overall, 'p50', 0)
+        p85 = normalizer.get_numeric(overall, 'p85', 0)
+        p98 = normalizer.get_numeric(overall, 'p98', 0)
+        max_speed = normalizer.get_numeric(overall, 'max_speed', 0)
+        total_vehicles = extract_count_from_row(overall, normalizer)
 
         # Extract dates for display
         start_date = start_iso[:10]
