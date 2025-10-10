@@ -211,11 +211,8 @@ class DocumentBuilder:
         doc.append(NoEscape(f"{{\\huge \\sffamily\\textbf{{ {location}}}}}"))
         doc.append(NoEscape("\\par"))
         doc.append(NoEscape("\\vspace{0.1cm}"))
-        doc.append(
-            NoEscape(
-                f"{{\\large \\sffamily Surveyor: \\textit{{{surveyor}}} \\ \\textbullet \\ \\ Contact: \\href{{mailto:{contact}}}{{{contact}}}}}"
-            )
-        )
+        surveyor_line = f"{{\\large \\sffamily Surveyor: \\textit{{{surveyor}}} \\ \\textbullet \\ \\ Contact: \\href{{mailto:{contact}}}{{{contact}}}}}"
+        doc.append(NoEscape(surveyor_line))
         doc.append(NoEscape("\\end{center}"))
         doc.append(NoEscape("]"))
 
@@ -241,9 +238,11 @@ class DocumentBuilder:
         Returns:
             Fully configured Document ready for content addition
         """
-        # Use defaults from SITE_INFO if not provided
-        surveyor = surveyor or SITE_INFO["surveyor"]
-        contact = contact or SITE_INFO["contact"]
+        # Use defaults from SITE_INFO only if None (not if empty string)
+        if surveyor is None:
+            surveyor = SITE_INFO["surveyor"]
+        if contact is None:
+            contact = SITE_INFO["contact"]
 
         # Create base document
         doc = self.create_document(page_numbers=False)

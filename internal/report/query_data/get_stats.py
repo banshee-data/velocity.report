@@ -449,6 +449,8 @@ def assemble_pdf_report(
     site_description = getattr(args, "site_description", "")
     speed_limit_note = getattr(args, "speed_limit_note", "")
     speed_limit = getattr(args, "speed_limit", SITE_INFO.get("speed_limit", 25))
+    surveyor = getattr(args, "surveyor", "")
+    contact = getattr(args, "contact", "")
 
     try:
         generate_pdf_report(
@@ -471,6 +473,8 @@ def assemble_pdf_report(
             include_map=include_map,
             site_description=site_description,
             speed_limit_note=speed_limit_note,
+            surveyor=surveyor,
+            contact=contact,
         )
         print(f"Generated PDF report: {pdf_path}")
         return True

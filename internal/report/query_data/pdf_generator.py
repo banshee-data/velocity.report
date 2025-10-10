@@ -117,6 +117,8 @@ def generate_pdf_report(
     include_map: bool = True,
     site_description: str = "",
     speed_limit_note: str = "",
+    surveyor: str = "",
+    contact: str = "",
 ) -> None:
     """Generate a complete PDF report using PyLaTeX.
 
@@ -124,146 +126,13 @@ def generate_pdf_report(
         include_map: If False, skip map generation even if map.svg exists
         site_description: Optional site description text
         speed_limit_note: Optional speed limit information
+        surveyor: Surveyor name/organization
+        contact: Contact email/phone
     """
 
     # Build document with all configuration
     builder = DocumentBuilder()
-    doc = builder.build(
-        start_iso, end_iso, location, SITE_INFO["surveyor"], SITE_INFO["contact"]
-    )
-
-    # Create document with very tight geometry so stats occupy most of the page
-    geometry_options = PDF_CONFIG["geometry"]
-
-    doc = Document(geometry_options=geometry_options, page_numbers=False)
-
-    # Add required packages (not using multicol - using \twocolumn instead)
-    doc.packages.append(Package("fancyhdr"))
-    doc.packages.append(Package("graphicx"))
-    # ensure common math macros like \tfrac are available
-    doc.packages.append(Package("amsmath"))
-    doc.packages.append(Package("titlesec"))
-    doc.packages.append(Package("hyperref"))
-    # Load fontspec so we can use the bundled Atkinson Hyperlegible TTFs.
-    doc.packages.append(Package("fontspec"))
-    # Ensure captions use sans-serif
-    doc.packages.append(Package("caption", options="font=sf"))
-    # Make caption labels and text bold so figure/table captions match
-    # the document's heading weight and appear visually prominent.
-    doc.preamble.append(NoEscape("\\captionsetup{labelfont=bf,textfont=bf}"))
-    # Use supertabular for tables that can break across columns with \twocolumn
-    doc.packages.append(Package("supertabular"))
-    doc.packages.append(Package("float"))  # Required for H position
-    # array provides >{...} and <{...} column spec modifiers used to
-    # inject font switches into column definitions (e.g. >{\AtkinsonMono}r).
-    doc.packages.append(Package("array"))
-
-    # Set up header
-    # Increase headheight to avoid fancyhdr warnings on some templates
-    doc.append(NoEscape(f"\\setlength{{\\headheight}}{{{PDF_CONFIG['headheight']}}}"))
-    doc.append(NoEscape(f"\\setlength{{\\headsep}}{{{PDF_CONFIG['headsep']}}}"))
-    # Set up footer spacing
-    doc.append(NoEscape("\\setlength{\\footskip}{28pt}"))
-    doc.append(NoEscape("\\pagestyle{fancy}"))
-    doc.append(NoEscape("\\fancyhf{}"))
-    doc.append(
-        NoEscape(
-            "\\fancyhead[L]{\\textbf{\\protect\\href{https://velocity.report}{velocity.report}}}"
-        )
-    )
-    doc.append(NoEscape(f"\\fancyhead[R]{{ \\textit{{{location}}}}}"))
-    doc.append(NoEscape("\\renewcommand{\\headrulewidth}{0.8pt}"))
-
-    # Set up footer with time range on left and page number on right
-    doc.append(
-        NoEscape(f"\\fancyfoot[L]{{\\small {start_iso[:10]} to {end_iso[:10]}}}")
-    )
-    doc.append(NoEscape("\\fancyfoot[R]{\\small Page \\thepage}"))
-    doc.append(NoEscape("\\renewcommand{\\footrulewidth}{0.8pt}"))
-
-    # Title formatting: make section headings sans-serif (local style)
-    doc.preamble.append(
-        NoEscape("\\titleformat{\\section}{\\bfseries\\Large}{}{0em}{}")
-    )
-    # column gap (preamble): configurable via REPORT_COLUMNSEP_PT (points).
-    # Default is increased to 10pt for better separation between columns.
-    try:
-        _colsep_str = PDF_CONFIG["columnsep"]
-        if _colsep_str and not _colsep_str.endswith("pt"):
-            _colsep_str = f"{_colsep_str}pt"
-    except Exception:
-        _colsep_str = "10pt"
-    doc.preamble.append(NoEscape(f"\\setlength{{\\columnsep}}{{{_colsep_str}}}"))
-
-    # Set the document's default family to sans-serif globally so all text
-    # uses the sans font family without selecting a specific font.
-    # Point fontspec at the bundled Atkinson Hyperlegible fonts that live in
-    # the `fonts/` directory next to this module. This forces the document
-    # to use Atkinson Hyperlegible as the sans font.
-    fonts_path = os.path.join(os.path.dirname(__file__), PDF_CONFIG["fonts_dir"])
-    # Use Path= with trailing os.sep so fontspec can find the files
-    # Break up the fontspec options for readability and maintainability
-    sans_font_options = [
-        f"Path={fonts_path + os.sep}",
-        "Extension=.ttf",
-        "Scale=MatchLowercase",
-        "UprightFont=AtkinsonHyperlegible-Regular",
-        "ItalicFont=AtkinsonHyperlegible-Italic",
-        "BoldFont=AtkinsonHyperlegible-Bold",
-        "BoldItalicFont=AtkinsonHyperlegible-BoldItalic",
-    ]
-    sans_font_options_str = ",\n    ".join(sans_font_options)
-    doc.preamble.append(
-        NoEscape(
-            rf"\setsansfont[{sans_font_options_str}]{{AtkinsonHyperlegible-Regular}}"
-        )
-    )
-    # Use sans family as the default
-    doc.preamble.append(NoEscape("\\renewcommand{\\familydefault}{\\sfdefault}"))
-
-    # Register Atkinson Hyperlegible Mono (if bundled). Provide a
-    # \AtkinsonMono{...} command that switches to the mono font. If the
-    # mono font isn't present, fall back to \texttt to keep rendering safe.
-    mono_regular = os.path.join(
-        fonts_path, "AtkinsonHyperlegibleMono-VariableFont_wght.ttf"
-    )
-    mono_italic = os.path.join(
-        fonts_path, "AtkinsonHyperlegibleMono-Italic-VariableFont_wght.ttf"
-    )
-    if os.path.exists(mono_regular):
-        # Register new font family command using fontspec
-        # Prefer a heavier weight for the monospace family by requesting
-        # a higher wght axis value from the variable font via fontspec.
-        # Use RawFeature to set the wght axis to 700 (bold-ish). If the
-        # engine or font doesn't support it, fontspec will fall back.
-        doc.preamble.append(
-            NoEscape(
-                rf"\newfontfamily\AtkinsonMono[Path={fonts_path + os.sep},Extension=.ttf,ItalicFont=AtkinsonHyperlegibleMono-Italic-VariableFont_wght,Scale=MatchLowercase,RawFeature={{+wght=800}}]{{AtkinsonHyperlegibleMono-VariableFont_wght}}"
-            )
-        )
-    else:
-        # Fallback: define \AtkinsonMono as a declarative font switch
-        # so it can be used both in column-specs (>{\AtkinsonMono}) and
-        # around braced content (\AtkinsonMono{...}). Using \ttfamily
-        # keeps behavior acceptable when the bundled mono isn't present.
-        doc.preamble.append(NoEscape(r"\newcommand{\AtkinsonMono}{\ttfamily}"))
-
-    # Begin two-column layout using \twocolumn with header in optional argument
-    # This allows supertabular to work properly and keeps header on same page
-    # The optional argument to \twocolumn creates a spanning header above the columns
-    doc.append(NoEscape("\\twocolumn["))
-    doc.append(NoEscape("\\vspace{-8pt}"))
-    doc.append(NoEscape("\\begin{center}"))
-    doc.append(NoEscape(f"{{\\huge \\sffamily\\textbf{{ {location}}}}}"))
-    doc.append(NoEscape("\\par"))
-    doc.append(NoEscape("\\vspace{0.1cm}"))
-    doc.append(
-        NoEscape(
-            f"{{\\large \\sffamily Surveyor: \\textit{{{SITE_INFO['surveyor']}}} \\ \\textbullet \\ \\ Contact: \\href{{mailto:{SITE_INFO['contact']}}}{{{SITE_INFO['contact']}}}}}"
-        )
-    )
-    doc.append(NoEscape("\\end{center}"))
-    doc.append(NoEscape("]"))
+    doc = builder.build(start_iso, end_iso, location, surveyor, contact)
 
     # Add science section content using helper function
     if overall_metrics:
