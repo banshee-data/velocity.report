@@ -1,0 +1,11 @@
+{
+  "query": {
+    "start_date": "2025-06-01",
+    "end_date": "2025-06-07",
+    "histogram": true,
+    "hist_bucket_size": 5.0
+  },
+  "output": {
+    "file_prefix": "my-report"
+  }
+}
