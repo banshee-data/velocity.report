@@ -87,44 +87,9 @@ def generate_report_from_config(
         os.chdir(config.output.output_dir)
 
         try:
-            # Create argparse.Namespace object from config for backward compatibility
-            # TODO: Refactor get_stats.py to use config directly
-            args = type("Args", (), {})()
-            args.dates = [config.query.start_date, config.query.end_date]
-            args.group = config.query.group
-            args.units = config.query.units
-            args.source = config.query.source
-            args.model_version = config.query.model_version
-            args.timezone = config.query.timezone
-            args.min_speed = config.query.min_speed
-            args.file_prefix = config.output.file_prefix
-            args.histogram = config.query.histogram
-            args.hist_bucket_size = config.query.hist_bucket_size
-            args.hist_max = config.query.hist_max
-            args.debug = config.output.debug
-            args.map = config.output.map
-
-            # Site information
-            args.location = config.site.location
-            args.surveyor = config.site.surveyor
-            args.contact = config.site.contact
-            args.speed_limit = config.site.speed_limit
-            args.site_description = config.site.site_description
-            args.speed_limit_note = config.site.speed_limit_note
-
-            # Radar configuration
-            args.cosine_error_angle = config.radar.cosine_error_angle
-            args.sensor_model = config.radar.sensor_model
-            args.firmware_version = config.radar.firmware_version
-            args.transmit_frequency = config.radar.transmit_frequency
-            args.sample_rate = config.radar.sample_rate
-            args.velocity_resolution = config.radar.velocity_resolution
-            args.azimuth_fov = config.radar.azimuth_fov
-            args.elevation_fov = config.radar.elevation_fov
-
-            # Generate reports using existing get_stats.py logic
+            # Generate reports using get_stats.py
             date_ranges = [(config.query.start_date, config.query.end_date)]
-            get_stats.main(date_ranges, args)
+            get_stats.main(date_ranges, config)
 
             # Report generation succeeded - mark as success
             # Note: get_stats.main() prints output files but doesn't return them

@@ -22,6 +22,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 
 from api_client import RadarStatsClient, SUPPORTED_GROUPS
+from config_manager import ReportConfig
 from date_parser import parse_date_to_unix, is_date_only, parse_server_time
 from pdf_generator import generate_pdf_report
 from stats_utils import plot_histogram
@@ -160,26 +161,28 @@ def compute_iso_timestamps(
         return str(start_ts), str(end_ts)
 
 
-def resolve_file_prefix(args: argparse.Namespace, start_ts: int, end_ts: int) -> str:
+def resolve_file_prefix(config: ReportConfig, start_ts: int, end_ts: int) -> str:
     """Determine output file prefix (sequenced or date-based).
 
     Args:
-        args: Command-line arguments
+        config: Report configuration
         start_ts: Start timestamp
         end_ts: End timestamp
 
     Returns:
         File prefix string
     """
-    if args.file_prefix:
+    if config.output.file_prefix:
         # User provided a prefix - create numbered sequence
-        return _next_sequenced_prefix(args.file_prefix)
+        return _next_sequenced_prefix(config.output.file_prefix)
     else:
         # Auto-generate from date range
-        tzobj = ZoneInfo(args.timezone) if args.timezone else timezone.utc
+        tzobj = (
+            ZoneInfo(config.query.timezone) if config.query.timezone else timezone.utc
+        )
         start_label = datetime.fromtimestamp(start_ts, tz=tzobj).date().isoformat()
         end_label = datetime.fromtimestamp(end_ts, tz=tzobj).date().isoformat()
-        return f"{args.source}_{start_label}_to_{end_label}"
+        return f"{config.query.source}_{start_label}_to_{end_label}"
 
 
 # === API Data Fetching ===
@@ -189,7 +192,7 @@ def fetch_granular_metrics(
     client: RadarStatsClient,
     start_ts: int,
     end_ts: int,
-    args: argparse.Namespace,
+    config: ReportConfig,
     model_version: Optional[str],
 ) -> Tuple[List, Optional[dict], Optional[object]]:
     """Fetch main granular metrics and optional histogram.
@@ -198,7 +201,7 @@ def fetch_granular_metrics(
         client: API client instance
         start_ts: Start timestamp
         end_ts: End timestamp
-        args: Command-line arguments
+        config: Report configuration
         model_version: Model version for transit data
 
     Returns:
@@ -208,15 +211,15 @@ def fetch_granular_metrics(
         metrics, histogram, resp = client.get_stats(
             start_ts=start_ts,
             end_ts=end_ts,
-            group=args.group,
-            units=args.units,
-            source=args.source,
+            group=config.query.group,
+            units=config.query.units,
+            source=config.query.source,
             model_version=model_version,
-            timezone=args.timezone or None,
-            min_speed=args.min_speed,
-            compute_histogram=args.histogram,
-            hist_bucket_size=args.hist_bucket_size,
-            hist_max=args.hist_max,
+            timezone=config.query.timezone or None,
+            min_speed=config.query.min_speed,
+            compute_histogram=config.query.histogram,
+            hist_bucket_size=config.query.hist_bucket_size,
+            hist_max=config.query.hist_max,
         )
         return metrics, histogram, resp
     except Exception as e:
@@ -228,7 +231,7 @@ def fetch_overall_summary(
     client: RadarStatsClient,
     start_ts: int,
     end_ts: int,
-    args: argparse.Namespace,
+    config: ReportConfig,
     model_version: Optional[str],
 ) -> List:
     """Fetch overall 'all' group summary.
@@ -237,7 +240,7 @@ def fetch_overall_summary(
         client: API client instance
         start_ts: Start timestamp
         end_ts: End timestamp
-        args: Command-line arguments
+        config: Report configuration
         model_version: Model version for transit data
 
     Returns:
@@ -248,11 +251,11 @@ def fetch_overall_summary(
             start_ts=start_ts,
             end_ts=end_ts,
             group="all",
-            units=args.units,
-            source=args.source,
+            units=config.query.units,
+            source=config.query.source,
             model_version=model_version,
-            timezone=args.timezone or None,
-            min_speed=args.min_speed,
+            timezone=config.query.timezone or None,
+            min_speed=config.query.min_speed,
             compute_histogram=False,
         )
         return metrics_all
@@ -265,7 +268,7 @@ def fetch_daily_summary(
     client: RadarStatsClient,
     start_ts: int,
     end_ts: int,
-    args: argparse.Namespace,
+    config: ReportConfig,
     model_version: Optional[str],
 ) -> Optional[List]:
     """Fetch daily (24h) summary if appropriate for group size.
@@ -274,13 +277,13 @@ def fetch_daily_summary(
         client: API client instance
         start_ts: Start timestamp
         end_ts: End timestamp
-        args: Command-line arguments
+        config: Report configuration
         model_version: Model version for transit data
 
     Returns:
         List of daily metrics or None if not needed/failed
     """
-    if not should_produce_daily(args.group):
+    if not should_produce_daily(config.query.group):
         return None
 
     try:
@@ -288,11 +291,11 @@ def fetch_daily_summary(
             start_ts=start_ts,
             end_ts=end_ts,
             group="24h",
-            units=args.units,
-            source=args.source,
+            units=config.query.units,
+            source=config.query.source,
             model_version=model_version,
-            timezone=args.timezone or None,
-            min_speed=args.min_speed,
+            timezone=config.query.timezone or None,
+            min_speed=config.query.min_speed,
             compute_histogram=False,
         )
         return daily_metrics
@@ -309,7 +312,7 @@ def generate_histogram_chart(
     prefix: str,
     units: str,
     metrics_all: List,
-    args: argparse.Namespace,
+    config: ReportConfig,
 ) -> bool:
     """Generate histogram chart PDF.
 
@@ -318,7 +321,7 @@ def generate_histogram_chart(
         prefix: File prefix for output
         units: Display units
         metrics_all: Overall metrics for sample size
-        args: Command-line arguments
+        config: Report configuration
 
     Returns:
         True if chart was created successfully
@@ -348,7 +351,7 @@ def generate_histogram_chart(
             histogram,
             f"Velocity Distribution: {sample_label}",
             units,
-            debug=getattr(args, "debug", False),
+            debug=config.output.debug,
         )
         hist_pdf = f"{prefix}_histogram.pdf"
         save_chart_as_pdf = _import_chart_saver()
@@ -359,13 +362,13 @@ def generate_histogram_chart(
             print("Failed to save histogram PDF")
             return False
     except ImportError as ie:
-        if getattr(args, "debug", False):
+        if config.output.debug:
             print(f"DEBUG: histogram plotting unavailable: {ie}")
         else:
             print("Histogram plotting unavailable")
         return False
     except Exception as e:
-        if getattr(args, "debug", False):
+        if config.output.debug:
             print(f"DEBUG: failed to generate histogram PDF: {e}")
         else:
             print("Failed to generate histogram PDF")
@@ -378,7 +381,7 @@ def generate_timeseries_chart(
     title: str,
     units: str,
     tz_name: Optional[str],
-    args: argparse.Namespace,
+    config: ReportConfig,
 ) -> bool:
     """Generate time-series chart PDF.
 
@@ -388,7 +391,7 @@ def generate_timeseries_chart(
         title: Chart title
         units: Display units
         tz_name: Timezone name
-        args: Command-line arguments
+        config: Report configuration
 
     Returns:
         True if chart was created successfully
@@ -404,7 +407,7 @@ def generate_timeseries_chart(
             print(f"Failed to save {title} PDF")
             return False
     except Exception as e:
-        if getattr(args, "debug", False):
+        if config.output.debug:
             print(f"DEBUG: failed to generate {title} PDF: {e}")
         else:
             print(f"Failed to generate {title} PDF")
@@ -422,7 +425,7 @@ def assemble_pdf_report(
     daily_metrics: Optional[List],
     granular_metrics: List,
     histogram: Optional[dict],
-    args: argparse.Namespace,
+    config: ReportConfig,
 ) -> bool:
     """Assemble complete PDF report.
 
@@ -434,55 +437,50 @@ def assemble_pdf_report(
         daily_metrics: Daily metrics (or None)
         granular_metrics: Granular metrics
         histogram: Histogram data (or None)
-        args: Command-line arguments
+        config: Report configuration
 
     Returns:
         True if PDF was generated successfully
     """
     min_speed_str = (
-        f"{args.min_speed} {args.units}" if args.min_speed is not None else "none"
+        f"{config.query.min_speed} {config.query.units}"
+        if config.query.min_speed is not None
+        else "none"
     )
-    tz_display = args.timezone or "UTC"
+    tz_display = config.query.timezone or "UTC"
     pdf_path = f"{prefix}_report.pdf"
-    location = getattr(args, "location", SITE_INFO.get("location", "Unknown Location"))
-    include_map = getattr(args, "map", False)
-    site_description = getattr(args, "site_description", "")
-    speed_limit_note = getattr(args, "speed_limit_note", "")
-    speed_limit = getattr(args, "speed_limit", SITE_INFO.get("speed_limit", 25))
-    surveyor = getattr(args, "surveyor", "")
-    contact = getattr(args, "contact", "")
 
     try:
         generate_pdf_report(
             output_path=pdf_path,
             start_iso=start_iso,
             end_iso=end_iso,
-            group=args.group,
-            units=args.units,
+            group=config.query.group,
+            units=config.query.units,
             timezone_display=tz_display,
             min_speed_str=min_speed_str,
-            location=location,
+            location=config.site.location,
             overall_metrics=overall_metrics,
             daily_metrics=daily_metrics,
             granular_metrics=granular_metrics,
             histogram=histogram,
-            tz_name=(args.timezone or None),
+            tz_name=(config.query.timezone or None),
             charts_prefix=prefix,
-            speed_limit=speed_limit,
-            hist_max=getattr(args, "hist_max", None),
-            include_map=include_map,
-            site_description=site_description,
-            speed_limit_note=speed_limit_note,
-            surveyor=surveyor,
-            contact=contact,
-            cosine_error_angle=getattr(args, "cosine_error_angle", 0.0),
-            sensor_model=getattr(args, "sensor_model", "OmniPreSense OPS243-A"),
-            firmware_version=getattr(args, "firmware_version", "v1.2.3"),
-            transmit_frequency=getattr(args, "transmit_frequency", "24.125 GHz"),
-            sample_rate=getattr(args, "sample_rate", "20 kSPS"),
-            velocity_resolution=getattr(args, "velocity_resolution", "0.272 mph"),
-            azimuth_fov=getattr(args, "azimuth_fov", "20°"),
-            elevation_fov=getattr(args, "elevation_fov", "24°"),
+            speed_limit=config.site.speed_limit,
+            hist_max=config.query.hist_max,
+            include_map=config.output.map,
+            site_description=config.site.site_description,
+            speed_limit_note=config.site.speed_limit_note,
+            surveyor=config.site.surveyor,
+            contact=config.site.contact,
+            cosine_error_angle=config.radar.cosine_error_angle,
+            sensor_model=config.radar.sensor_model,
+            firmware_version=config.radar.firmware_version,
+            transmit_frequency=config.radar.transmit_frequency,
+            sample_rate=config.radar.sample_rate,
+            velocity_resolution=config.radar.velocity_resolution,
+            azimuth_fov=config.radar.azimuth_fov,
+            elevation_fov=config.radar.elevation_fov,
         )
         print(f"Generated PDF report: {pdf_path}")
         return True
@@ -520,17 +518,17 @@ def parse_date_range(
         return None, None
 
 
-def get_model_version(args: argparse.Namespace) -> Optional[str]:
+def get_model_version(config: ReportConfig) -> Optional[str]:
     """Determine model version for transit data source.
 
     Args:
-        args: Command-line arguments
+        config: Report configuration
 
     Returns:
         Model version string or None
     """
-    if getattr(args, "source", "") == "radar_data_transits":
-        return args.model_version or "rebuild-full"
+    if config.query.source == "radar_data_transits":
+        return config.query.model_version or "rebuild-full"
     return None
 
 
@@ -575,7 +573,7 @@ def generate_all_charts(
     daily_metrics: Optional[List],
     histogram: Optional[dict],
     overall_metrics: List,
-    args: argparse.Namespace,
+    config: ReportConfig,
     resp: Optional[object],
 ) -> None:
     """Generate all charts (stats, daily, histogram) if data available.
@@ -586,16 +584,16 @@ def generate_all_charts(
         daily_metrics: Daily metrics or None
         histogram: Histogram data or None
         overall_metrics: Overall summary metrics
-        args: Command-line arguments
+        config: Report configuration
         resp: API response object for debug info
     """
     if not check_charts_available():
-        if getattr(args, "debug", False):
+        if config.output.debug:
             print("DEBUG: matplotlib not available, skipping charts")
         return
 
     # Debug output for API response
-    if getattr(args, "debug", False) and resp:
+    if config.output.debug and resp:
         print_api_debug_info(resp, metrics, histogram)
 
     # Generate granular stats chart
@@ -603,9 +601,9 @@ def generate_all_charts(
         metrics,
         f"{prefix}_stats",
         f"{prefix} - stats",
-        args.units,
-        args.timezone or None,
-        args,
+        config.query.units,
+        config.query.timezone or None,
+        config,
     )
 
     # Generate daily chart if available
@@ -614,18 +612,20 @@ def generate_all_charts(
             daily_metrics,
             f"{prefix}_daily",
             f"{prefix} - daily",
-            args.units,
-            args.timezone or None,
-            args,
+            config.query.units,
+            config.query.timezone or None,
+            config,
         )
 
     # Generate histogram if available
     if histogram:
-        generate_histogram_chart(histogram, prefix, args.units, overall_metrics, args)
+        generate_histogram_chart(
+            histogram, prefix, config.query.units, overall_metrics, config
+        )
 
 
 def process_date_range(
-    start_date: str, end_date: str, args: argparse.Namespace, client: RadarStatsClient
+    start_date: str, end_date: str, config: ReportConfig, client: RadarStatsClient
 ) -> None:
     """Process a single date range: fetch data, generate charts, create PDF.
 
@@ -634,37 +634,39 @@ def process_date_range(
     Args:
         start_date: Start date string
         end_date: End date string
-        args: Command-line arguments
+        config: Report configuration
         client: API client instance
     """
     # Parse dates to timestamps
-    start_ts, end_ts = parse_date_range(start_date, end_date, args.timezone or None)
+    start_ts, end_ts = parse_date_range(
+        start_date, end_date, config.query.timezone or None
+    )
     if start_ts is None or end_ts is None:
         return  # Error already printed
 
     # Determine model version and file prefix
-    model_version = get_model_version(args)
-    prefix = resolve_file_prefix(args, start_ts, end_ts)
+    model_version = get_model_version(config)
+    prefix = resolve_file_prefix(config, start_ts, end_ts)
 
     # Fetch all data from API
     metrics, histogram, resp = fetch_granular_metrics(
-        client, start_ts, end_ts, args, model_version
+        client, start_ts, end_ts, config, model_version
     )
     if not metrics and not histogram:
         print(f"No data returned for {start_date} - {end_date}")
         return
 
     overall_metrics = fetch_overall_summary(
-        client, start_ts, end_ts, args, model_version
+        client, start_ts, end_ts, config, model_version
     )
-    daily_metrics = fetch_daily_summary(client, start_ts, end_ts, args, model_version)
+    daily_metrics = fetch_daily_summary(client, start_ts, end_ts, config, model_version)
 
     # Compute ISO timestamps for report
-    start_iso, end_iso = compute_iso_timestamps(start_ts, end_ts, args.timezone)
+    start_iso, end_iso = compute_iso_timestamps(start_ts, end_ts, config.query.timezone)
 
     # Generate all charts
     generate_all_charts(
-        prefix, metrics, daily_metrics, histogram, overall_metrics, args, resp
+        prefix, metrics, daily_metrics, histogram, overall_metrics, config, resp
     )
 
     # Assemble final PDF report
@@ -676,26 +678,26 @@ def process_date_range(
         daily_metrics,
         metrics,
         histogram,
-        args,
+        config,
     )
 
 
 # === Main Entry Point ===
 
 
-def main(date_ranges: List[Tuple[str, str]], args: argparse.Namespace):
+def main(date_ranges: List[Tuple[str, str]], config: ReportConfig):
     """Main orchestrator: iterate over date ranges.
 
     Simplified to just client creation and iteration.
 
     Args:
         date_ranges: List of (start_date, end_date) tuples
-        args: Command-line arguments
+        config: Report configuration
     """
     client = RadarStatsClient()
 
     for start_date, end_date in date_ranges:
-        process_date_range(start_date, end_date, args, client)
+        process_date_range(start_date, end_date, config, client)
 
 
 if __name__ == "__main__":
@@ -729,48 +731,9 @@ if __name__ == "__main__":
             + "\n".join(f"  - {e}" for e in errors)
         )
 
-    # Convert config to args format for backward compatibility with existing code
-    # TODO: Refactor to use config directly throughout the codebase
-    args.dates = [config.query.start_date, config.query.end_date]
-    args.group = config.query.group
-    args.units = config.query.units
-    args.source = config.query.source
-    args.model_version = config.query.model_version
-    args.timezone = config.query.timezone
-    args.min_speed = config.query.min_speed
-    args.file_prefix = config.output.file_prefix
-    args.histogram = config.query.histogram
-    args.hist_bucket_size = config.query.hist_bucket_size
-    args.hist_max = config.query.hist_max
-    args.debug = config.output.debug
-    args.map = config.output.map
+    # Validate histogram requirements
+    if config.query.histogram and config.query.hist_bucket_size is None:
+        parser.error("hist_bucket_size is required in config when histogram is true")
 
-    # Site information
-    args.location = config.site.location
-    args.surveyor = config.site.surveyor
-    args.contact = config.site.contact
-    args.speed_limit = config.site.speed_limit
-    args.site_description = config.site.site_description
-    args.speed_limit_note = config.site.speed_limit_note
-
-    # Radar configuration
-    args.cosine_error_angle = config.radar.cosine_error_angle
-    args.sensor_model = config.radar.sensor_model
-    args.firmware_version = config.radar.firmware_version
-    args.transmit_frequency = config.radar.transmit_frequency
-    args.sample_rate = config.radar.sample_rate
-    args.velocity_resolution = config.radar.velocity_resolution
-    args.azimuth_fov = config.radar.azimuth_fov
-    args.elevation_fov = config.radar.elevation_fov
-
-    # Validate dates
-    if not args.dates or len(args.dates) != 2:
-        parser.error(
-            "Config file must contain valid start_date and end_date in query section"
-        )
-
-    if args.histogram and args.hist_bucket_size is None:
-        parser.error("hist_bucket_size is required in config when histogram is enabled")
-
-    date_ranges = [(args.dates[0], args.dates[1])]
-    main(date_ranges, args)
+    date_ranges = [(config.query.start_date, config.query.end_date)]
+    main(date_ranges, config)
