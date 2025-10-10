@@ -400,6 +400,7 @@ def assemble_pdf_report(
     tz_display = args.timezone or "UTC"
     pdf_path = f"{prefix}_report.pdf"
     location = SITE_INFO["location"]
+    include_map = not getattr(args, "no_map", False)
 
     try:
         generate_pdf_report(
@@ -419,6 +420,7 @@ def assemble_pdf_report(
             charts_prefix=prefix,
             speed_limit=SITE_INFO["speed_limit"],
             hist_max=getattr(args, "hist_max", None),
+            include_map=include_map,
         )
         print(f"Generated PDF report: {pdf_path}")
         return True
@@ -720,6 +722,11 @@ if __name__ == "__main__":
         help="Print debug info about parsed datetimes, timestamps, and API responses",
     )
     parser.add_argument(
+        "--no-map",
+        action="store_true",
+        help="Skip map generation in report (useful when location/GPS coordinates not available)",
+    )
+    parser.add_argument(
         "dates",
         nargs="*",  # Changed from "+" to "*" to make optional when config file is used
         help="Pairs of start end dates. Each date may be YYYY-MM-DD or unix seconds. Example: 2024-01-01 2024-01-31",
@@ -765,6 +772,8 @@ if __name__ == "__main__":
             config.query.hist_max = args.hist_max
         if "--debug" in sys.argv:
             config.output.debug = args.debug
+        if "--no-map" in sys.argv:
+            config.output.no_map = args.no_map
 
     else:
         # Create config from CLI args (original behavior)
@@ -797,6 +806,7 @@ if __name__ == "__main__":
     args.hist_bucket_size = config.query.hist_bucket_size
     args.hist_max = config.query.hist_max
     args.debug = config.output.debug
+    args.no_map = config.output.no_map
 
     # Traditional validation (for backward compatibility)
     if not args.dates or len(args.dates) % 2 != 0:

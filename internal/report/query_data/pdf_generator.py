@@ -114,8 +114,13 @@ def generate_pdf_report(
     charts_prefix: str = "out",
     speed_limit: int = 25,
     hist_max: Optional[float] = None,
+    include_map: bool = True,
 ) -> None:
-    """Generate a complete PDF report using PyLaTeX."""
+    """Generate a complete PDF report using PyLaTeX.
+
+    Args:
+        include_map: If False, skip map generation even if map.svg exists
+    """
 
     # Build document with all configuration
     builder = DocumentBuilder()
@@ -383,32 +388,34 @@ def generate_pdf_report(
     # Add main stats chart if available
     # If a map.svg exists next to this module, include it before the stats chart.
     # Use map_utils module for marker injection and PDF conversion.
-    map_processor = MapProcessor(
-        base_dir=os.path.dirname(__file__),
-        marker_config={
-            "circle_radius": MAP_CONFIG["circle_radius"],
-            "circle_fill": MAP_CONFIG["circle_fill"],
-            "circle_stroke": MAP_CONFIG["circle_stroke"],
-            "circle_stroke_width": MAP_CONFIG["circle_stroke_width"],
-        },
-    )
+    # Skip map if include_map=False (e.g., when --no-map flag is used)
+    if include_map:
+        map_processor = MapProcessor(
+            base_dir=os.path.dirname(__file__),
+            marker_config={
+                "circle_radius": MAP_CONFIG["circle_radius"],
+                "circle_fill": MAP_CONFIG["circle_fill"],
+                "circle_stroke": MAP_CONFIG["circle_stroke"],
+                "circle_stroke_width": MAP_CONFIG["circle_stroke_width"],
+            },
+        )
 
-    # Create radar marker from config (or None to skip marker)
-    marker = None
-    if MAP_CONFIG["triangle_len"] and MAP_CONFIG["triangle_len"] > 0:
-        marker = create_marker_from_config(MAP_CONFIG)
+        # Create radar marker from config (or None to skip marker)
+        marker = None
+        if MAP_CONFIG["triangle_len"] and MAP_CONFIG["triangle_len"] > 0:
+            marker = create_marker_from_config(MAP_CONFIG)
 
-    # Process map (adds marker if provided, converts to PDF)
-    success, map_pdf_path = map_processor.process_map(marker=marker)
+        # Process map (adds marker if provided, converts to PDF)
+        success, map_pdf_path = map_processor.process_map(marker=marker)
 
-    # If map PDF was generated, include it in the document
-    if success and map_pdf_path:
-        with doc.create(Center()) as map_center:
-            with map_center.create(Figure(position="H")) as mf:
-                mf.add_image(map_pdf_path, width=NoEscape(r"\linewidth"))
-                mf.add_caption(
-                    "Site map with radar location (circle) and coverage area (red triangle)"
-                )
+        # If map PDF was generated, include it in the document
+        if success and map_pdf_path:
+            with doc.create(Center()) as map_center:
+                with map_center.create(Figure(position="H")) as mf:
+                    mf.add_image(map_pdf_path, width=NoEscape(r"\linewidth"))
+                    mf.add_caption(
+                        "Site map with radar location (circle) and coverage area (red triangle)"
+                    )
 
     engines = ("xelatex", "lualatex", "pdflatex")
     generated = False

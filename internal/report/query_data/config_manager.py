@@ -93,6 +93,7 @@ class OutputConfig:
     output_dir: str = "."  # Output directory
     run_id: Optional[str] = None  # Unique run identifier (from Go server)
     debug: bool = False  # Enable debug output
+    no_map: bool = False  # Skip map generation (when location/GPS not available)
 
 
 @dataclass
@@ -214,6 +215,7 @@ class ReportConfig:
             output=OutputConfig(
                 file_prefix=getattr(args, "file_prefix", ""),
                 debug=getattr(args, "debug", False),
+                no_map=getattr(args, "no_map", False),
             ),
         )
 
