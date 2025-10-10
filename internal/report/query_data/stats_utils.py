@@ -15,6 +15,8 @@ import numpy as np
 
 from date_parser import parse_server_time
 from report_config import FONTS, LAYOUT, HISTOGRAM_CONFIG
+from chart_builder import HistogramChartBuilder
+from chart_saver import save_chart_as_pdf  # Re-export for backward compatibility
 
 
 def format_time(tval: Any, tz_name: Optional[str]) -> str:
@@ -120,153 +122,8 @@ def plot_histogram(
     Returns:
         matplotlib figure object or None if matplotlib not available
     """
-    try:
-        import matplotlib.pyplot as plt
-    except Exception as e:  # pragma: no cover - environment dependent
-        raise ImportError("matplotlib is required to render histograms") from e
-
-    if not histogram:
-        fig, ax = plt.subplots(figsize=(3, 2))
-        ax.text(0.5, 0.5, "No histogram data", ha="center", va="center")
-        ax.set_title(title)
-        return fig
-
-    try:
-        sorted_items = sorted(histogram.items(), key=lambda x: float(x[0]))
-    except Exception:
-        sorted_items = sorted(histogram.items(), key=lambda x: str(x[0]))
-
-    labels = [item[0] for item in sorted_items]
-    counts = [item[1] for item in sorted_items]
-
-    if debug:
-        total = sum(counts)
-        print(f"DEBUG: histogram bins={len(labels)} total={total}")
-
-    fig, ax = plt.subplots(figsize=LAYOUT["histogram_figsize"])
-    x = list(range(len(labels)))
-    ax.bar(x, counts, alpha=0.7, color="steelblue", edgecolor="black", linewidth=0.5)
-
-    # Font sizes from config
-    title_fs = FONTS["histogram_title"]
-    label_fs = FONTS["histogram_label"]
-    tick_fs = FONTS["histogram_tick"]
-
-    ax.set_xlabel(f"Velocity ({units})", fontsize=label_fs)
-    ax.set_ylabel("Count", fontsize=label_fs)
-    ax.set_title(title, fontsize=title_fs)
-
-    # Prepare x-axis labels: format numeric labels with 0 decimal places
-    formatted_labels: List[str] = []
-    for lbl in labels:
-        try:
-            f = float(lbl)
-            formatted_labels.append(f"{f:.0f}")
-        except Exception:
-            # fallback to original string label
-            formatted_labels.append(str(lbl))
-
-    if len(labels) <= 20:
-        ax.set_xticks(x)
-        ax.set_xticklabels(formatted_labels, rotation=45, ha="right", fontsize=tick_fs)
-    else:
-        step = max(1, len(labels) // 15)
-        tick_pos = x[::step]
-        tick_labels = formatted_labels[::step]
-        ax.set_xticks(tick_pos)
-        ax.set_xticklabels(tick_labels, rotation=45, ha="right", fontsize=tick_fs)
-
-    # Apply tick params for consistency
-    ax.tick_params(axis="both", which="major", labelsize=tick_fs)
-
-    try:
-        fig.tight_layout(pad=0.5)
-    except Exception:
-        pass
-
-    try:
-        fig.tight_layout(pad=0)
-    except Exception:
-        pass
-    try:
-        fig.subplots_adjust(left=0.02, right=0.985, top=0.96, bottom=0.08)
-    except Exception:
-        pass
-
-    return fig
-
-
-def save_chart_as_pdf(fig, output_path: str, close_fig: bool = True) -> bool:
-    """Save matplotlib figure as PDF and optionally close it.
-
-    Returns:
-        True if successful, False otherwise
-    """
-    # Try to save the figure first. Closing the figure is best-effort and
-    # should not cause the function to be considered a failure if matplotlib
-    # isn't available in the test environment.
-    try:
-        # Try to compute the figure's tight bounding box and resize the figure
-        # so that saving the PDF produces a page that tightly fits the content.
-        try:
-            import matplotlib.pyplot as plt
-
-            # Force a draw so the renderer has up-to-date sizes
-            fig.canvas.draw()
-            renderer = fig.canvas.get_renderer()
-            try:
-                tight_bbox = fig.get_tightbbox(renderer)
-            except Exception:
-                tight_bbox = None
-
-            if tight_bbox is not None:
-                # tight_bbox dimensions are in display units (points). Convert to inches
-                dpi = (
-                    fig.dpi
-                    if hasattr(fig, "dpi")
-                    else plt.rcParams.get("figure.dpi", 72)
-                )
-                width_in = tight_bbox.width / dpi
-                height_in = tight_bbox.height / dpi
-                # Guard against zero/invalid sizes
-                if width_in > 0 and height_in > 0:
-                    try:
-                        # Prevent creating extremely small PDFs which will later be
-                        # upscaled by LaTeX (resulting in 'zoomed' charts). Enforce a
-                        # sensible minimum width and an upper cap, scaling height
-                        # proportionally.
-                        MIN_WIDTH_IN = LAYOUT["min_chart_width_in"]
-                        MAX_WIDTH_IN = LAYOUT["max_chart_width_in"]
-                        if width_in < MIN_WIDTH_IN:
-                            scale = MIN_WIDTH_IN / width_in
-                            width_in = MIN_WIDTH_IN
-                            height_in = height_in * scale
-                        elif width_in > MAX_WIDTH_IN:
-                            scale = MAX_WIDTH_IN / width_in
-                            width_in = MAX_WIDTH_IN
-                            height_in = height_in * scale
-                        fig.set_size_inches(width_in, height_in)
-                    except Exception:
-                        pass
-
-            # Save with tight bbox and zero padding
-            fig.savefig(output_path, bbox_inches="tight", pad_inches=0.0)
-        except Exception:
-            # Fallback: older matplotlib or unexpected failure; try a simple save
-            fig.savefig(output_path)
-    except Exception:
-        return False
-
-    if close_fig:
-        try:
-            import matplotlib.pyplot as plt
-
-            plt.close(fig)
-        except Exception:
-            # Ignore close failures (e.g., matplotlib not installed in test env)
-            pass
-
-    return True
+    builder = HistogramChartBuilder()
+    return builder.build(histogram, title, units, debug)
 
 
 def chart_exists(charts_prefix: str, chart_type: str) -> bool:

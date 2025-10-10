@@ -84,6 +84,7 @@ from stats_utils import (
 )
 from report_config import PDF_CONFIG, MAP_CONFIG, SITE_INFO
 from data_transformers import MetricsNormalizer, extract_start_time_from_row, extract_count_from_row
+from map_utils import MapProcessor, create_marker_from_config
 
 
 # Removed MultiCol class - using \twocolumn instead of multicols package
@@ -871,209 +872,34 @@ def generate_pdf_report(
 
     # Add main stats chart if available
     # If a map.svg exists next to this module, include it before the stats chart.
-    # Convert to PDF if needed using cairosvg (preferred) or external tools if available.
-    map_svg = os.path.join(os.path.dirname(__file__), "map.svg")
-    map_pdf = os.path.join(os.path.dirname(__file__), "map.pdf")
-    if os.path.exists(map_svg):
-        # convert if pdf doesn't yet exist or is older than svg
-        try:
-            need_convert = (not os.path.exists(map_pdf)) or (
-                os.path.getmtime(map_svg) > os.path.getmtime(map_pdf)
-            )
-        except Exception:
-            need_convert = not os.path.exists(map_pdf)
-        # Decide whether to inject a triangle marker. If MAP_TRIANGLE_LEN <= 0, skip marker.
-        marker_len_frac = MAP_CONFIG['triangle_len']
+    # Use map_utils module for marker injection and PDF conversion.
+    map_processor = MapProcessor(
+        base_dir=os.path.dirname(__file__),
+        marker_config={
+            "circle_radius": MAP_CONFIG['circle_radius'],
+            "circle_fill": MAP_CONFIG['circle_fill'],
+            "circle_stroke": MAP_CONFIG['circle_stroke'],
+            "circle_stroke_width": MAP_CONFIG['circle_stroke_width'],
+        }
+    )
 
-        # We'll produce a temporary SVG (map_with_marker.svg) if marker is requested.
-        temp_svg = os.path.join(os.path.dirname(__file__), "map_with_marker.svg")
-        source_svg_for_conversion = map_svg
+    # Create radar marker from config (or None to skip marker)
+    marker = None
+    if MAP_CONFIG['triangle_len'] and MAP_CONFIG['triangle_len'] > 0:
+        marker = create_marker_from_config(MAP_CONFIG)
 
-        if marker_len_frac and marker_len_frac > 0:
-            # Read original SVG and insert a top-layer polygon marker
-            try:
-                with open(map_svg, "r", encoding="utf-8") as f:
-                    svg_text = f.read()
+    # Process map (adds marker if provided, converts to PDF)
+    success, map_pdf_path = map_processor.process_map(marker=marker)
 
-                import re, math
-
-                vb_match = re.search(
-                    r"viewBox\s*=\s*[\"']\s*([0-9.+-eE]+)\s+([0-9.+-eE]+)\s+([0-9.+-eE]+)\s+([0-9.+-eE]+)\s*[\"']",
-                    svg_text,
-                )
-                if vb_match:
-                    vb_min_x = float(vb_match.group(1))
-                    vb_min_y = float(vb_match.group(2))
-                    vb_w = float(vb_match.group(3))
-                    vb_h = float(vb_match.group(4))
-                else:
-                    # fallback to width/height attributes
-                    w_match = re.search(r"width\s*=\s*\"?([0-9.+-eE]+)", svg_text)
-                    h_match = re.search(r"height\s*=\s*\"?([0-9.+-eE]+)", svg_text)
-                    if w_match and h_match:
-                        vb_min_x = 0.0
-                        vb_min_y = 0.0
-                        vb_w = float(w_match.group(1))
-                        vb_h = float(h_match.group(1))
-                    else:
-                        raise RuntimeError(
-                            "Unable to determine SVG viewBox/size for marker placement"
-                        )
-
-                # Tip position: allow overriding the tip (lower/point) position
-                # via environment variables MAP_TRIANGLE_CX and MAP_TRIANGLE_CY
-                # which are fractions 0..1 of the SVG viewBox width/height.
-                cx_frac = MAP_CONFIG['triangle_cx']
-                cy_frac = MAP_CONFIG['triangle_cy']
-
-                cx = vb_min_x + vb_w * float(cx_frac)
-                cy = vb_min_y + vb_h * float(cy_frac)
-
-                # Length from tip toward the base (controls triangle size)
-                L = marker_len_frac * vb_h
-
-                # Compute base width so the apex angle equals MAP_TRIANGLE_APEX_ANGLE
-                # (defaults to 20 degrees as requested). Apex angle (alpha) relates
-                # to width W via: W = 2 * L * tan(alpha/2)
-                apex_deg = MAP_CONFIG['triangle_apex_angle']
-                # clamp a tiny bit to avoid pathological values
-                if apex_deg <= 0:
-                    apex_deg = 1.0
-                if apex_deg >= 179:
-                    apex_deg = 178.0
-                import math
-
-                W = 2.0 * L * math.tan(math.radians(apex_deg / 2.0))
-
-                # Orientation (direction the triangle points) remains configurable
-                # via MAP_TRIANGLE_ANGLE (degrees, 0 = up). Default 0.
-                marker_angle_deg = MAP_CONFIG['triangle_angle']
-                marker_color = MAP_CONFIG['triangle_color']
-                marker_opacity = MAP_CONFIG['triangle_opacity']
-
-                theta = math.radians(marker_angle_deg)
-                fx = math.sin(theta)
-                fy = -math.cos(theta)
-                px = math.cos(theta)
-                py = math.sin(theta)
-
-                bx = cx + fx * L
-                by = cy + fy * L
-
-                blx = bx + px * (W / 2.0)
-                bly = by + py * (W / 2.0)
-                brx = bx - px * (W / 2.0)
-                bry = by - py * (W / 2.0)
-
-                # Format coordinates to a consistent precision for SVG output
-                points = f"{cx:.2f},{cy:.2f} {blx:.2f},{bly:.2f} {brx:.2f},{bry:.2f}"
-
-                # Optional small circle marker at the triangle apex (first point)
-                circle_radius = MAP_CONFIG['circle_radius']
-                circle_fill = MAP_CONFIG['circle_fill']
-                circle_stroke = MAP_CONFIG['circle_stroke']
-                circle_stroke_width = MAP_CONFIG['circle_stroke_width']
-
-                # Build an insertion snippet for the top-layer marker. Ensure
-                # attributes are properly quoted (previously there was a stray
-                # quote which produced invalid SVG and could be ignored by
-                # converters). Use a visible stroke width and preserve opacity.
-                insert_snippet = (
-                    f"\n  <!-- radar marker inserted by pdf_generator.py -->\n"
-                    f'  <g id="radar-marker" fill="{marker_color}" fill-opacity="{marker_opacity}" stroke="#ffffff" stroke-width="1">\n'
-                    f'    <polygon points="{points}" />\n'
-                    f'    <circle cx="{cx:.2f}" cy="{cy:.2f}" r="{circle_radius}" fill="{circle_fill}" stroke="{circle_stroke}" stroke-width="{circle_stroke_width}" />\n'
-                    f"  </g>\n"
+    # If map PDF was generated, include it in the document
+    if success and map_pdf_path:
+        with doc.create(Center()) as map_center:
+            with map_center.create(Figure(position="H")) as mf:
+                mf.add_image(map_pdf_path, width=NoEscape(r"\linewidth"))
+                mf.add_caption(
+                    "Site map with radar location (circle) and coverage area (red triangle)"
                 )
 
-                if svg_text.strip().endswith("</svg>"):
-                    svg_text = svg_text.rstrip()[:-6] + insert_snippet + "</svg>"
-                else:
-                    svg_text = svg_text + insert_snippet
-
-                with open(temp_svg, "w", encoding="utf-8") as tf:
-                    tf.write(svg_text)
-
-                # When we successfully wrote a temp SVG containing the
-                # marker, make sure we convert it to PDF (force a
-                # conversion) rather than re-using an existing map.pdf that
-                # may not contain the overlay.
-                source_svg_for_conversion = temp_svg
-                need_convert = True
-            except Exception as e:
-                print(f"Warning: failed to create map_with_marker.svg: {e}")
-                source_svg_for_conversion = map_svg
-
-        if need_convert:
-            converted = False
-            # Try Python-based conversion first
-            try:
-                import importlib
-
-                if importlib.util.find_spec("cairosvg") is not None:
-                    from cairosvg import svg2pdf
-
-                    with open(map_pdf, "wb") as out_f:
-                        svg2pdf(url=source_svg_for_conversion, write_to=out_f)
-                    converted = True
-            except Exception:
-                converted = False
-
-            # Fallback to command-line tools if cairosvg not present
-            if not converted:
-                # Try inkscape
-                try:
-                    import subprocess
-
-                    subprocess.check_call(["inkscape", "--version"])  # quick check
-                    # inkscape CLI: inkscape input.svg --export-type=pdf --export-filename=out.pdf
-                    subprocess.check_call(
-                        [
-                            "inkscape",
-                            source_svg_for_conversion,
-                            "--export-type=pdf",
-                            "--export-filename",
-                            map_pdf,
-                        ]
-                    )
-                    converted = True
-                except Exception:
-                    converted = False
-
-            if not converted:
-                # Try rsvg-convert
-                try:
-                    import subprocess
-
-                    subprocess.check_call(["rsvg-convert", "--version"])  # quick check
-                    with open(map_pdf, "wb") as out_f:
-                        subprocess.check_call(
-                            [
-                                "rsvg-convert",
-                                "-f",
-                                "pdf",
-                                source_svg_for_conversion,
-                            ],
-                            stdout=out_f,
-                        )
-                    converted = True
-                except Exception:
-                    converted = False
-
-            if not converted:
-                print(
-                    "Warning: map.svg found but failed to convert to PDF; skipping map inclusion"
-                )
-
-        # If map.pdf now exists, include it
-        if os.path.exists(map_pdf):
-            map_path = os.path.abspath(map_pdf)
-            with doc.create(Center()) as map_center:
-                with map_center.create(Figure(position="H")) as mf:
-                    mf.add_image(map_path, width=NoEscape(r"\linewidth"))
-                    mf.add_caption(
-                        "Site map with radar location (circle) and coverage area (red triangle)"
-                    )
 
     engines = ("xelatex", "lualatex", "pdflatex")
     generated = False
