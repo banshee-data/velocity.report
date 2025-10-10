@@ -68,7 +68,7 @@ def create_example_config(output_path: str = "config.example.json") -> None:
             file_prefix="clarendon-survey",
             output_dir="./reports",
             debug=False,
-            no_map=False,
+            map=False,
         ),
     )
 
@@ -149,13 +149,13 @@ def create_example_config(output_path: str = "config.example.json") -> None:
             "file_prefix": "clarendon-survey",
             "output_dir": "./reports",
             "debug": False,
-            "no_map": False,
+            "map": False,
             "run_id": "auto-generated",
             "_field_notes": {
-                "file_prefix": "Prefix for generated files (default: auto-generated)",
+                "file_prefix": "REQUIRED: Prefix for generated files",
                 "output_dir": "Output directory (default: current directory)",
                 "debug": "Enable debug output: true or false",
-                "no_map": "Skip map generation: true or false (useful when no GPS data)",
+                "map": "Include map in report: true or false (default: false)",
                 "run_id": "Auto-generated unique ID for this report generation",
             },
         },
@@ -188,22 +188,26 @@ def create_minimal_config(output_path: str = "config.minimal.json") -> None:
         output_path: Path to write minimal config
     """
     minimal = {
+        "site": {
+            "location": "Main Street, Springfield",
+            "surveyor": "City Traffic Department",
+            "contact": "traffic@springfield.gov",
+        },
         "query": {
             "start_date": "2025-06-01",
             "end_date": "2025-06-07",
-            "histogram": True,
-            "hist_bucket_size": 5.0,
+            "timezone": "US/Pacific",
         },
-        "output": {
-            "file_prefix": "my-report",
-        },
+        "output": {"file_prefix": "my-report"},
     }
 
     with open(output_path, "w") as f:
         json.dump(minimal, f, indent=2)
 
     print(f"✅ Created minimal configuration: {output_path}")
-    print("   (Uses defaults for all optional fields)")
+    print(
+        "   (Only required fields: site.location/surveyor/contact, query.start_date/end_date/timezone, output.file_prefix)"
+    )
 
 
 if __name__ == "__main__":

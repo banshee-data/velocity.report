@@ -445,7 +445,7 @@ def assemble_pdf_report(
     tz_display = args.timezone or "UTC"
     pdf_path = f"{prefix}_report.pdf"
     location = SITE_INFO["location"]
-    include_map = not getattr(args, "no_map", False)
+    include_map = getattr(args, "map", False)
 
     try:
         generate_pdf_report(
@@ -726,7 +726,7 @@ if __name__ == "__main__":
     args.hist_bucket_size = config.query.hist_bucket_size
     args.hist_max = config.query.hist_max
     args.debug = config.output.debug
-    args.no_map = config.output.no_map
+    args.map = config.output.map
 
     # Validate dates
     if not args.dates or len(args.dates) != 2:

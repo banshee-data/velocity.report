@@ -71,13 +71,13 @@
     "file_prefix": "clarendon-survey",
     "output_dir": "./reports",
     "debug": false,
-    "no_map": false,
+    "map": false,
     "run_id": "auto-generated",
     "_field_notes": {
-      "file_prefix": "Prefix for generated files (default: auto-generated)",
+      "file_prefix": "REQUIRED: Prefix for generated files",
       "output_dir": "Output directory (default: current directory)",
       "debug": "Enable debug output: true or false",
-      "no_map": "Skip map generation: true or false (useful when no GPS data)",
+      "map": "Include map in report: true or false (default: false)",
       "run_id": "Auto-generated unique ID for this report generation"
     }
   },

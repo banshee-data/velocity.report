@@ -102,7 +102,7 @@ def generate_report_from_config(
             args.hist_bucket_size = config.query.hist_bucket_size
             args.hist_max = config.query.hist_max
             args.debug = config.output.debug
-            args.no_map = config.output.no_map
+            args.map = config.output.map
 
             # Generate reports using existing get_stats.py logic
             date_ranges = [(config.query.start_date, config.query.end_date)]

@@ -26,23 +26,17 @@ from dataclasses import dataclass, field, asdict
 class SiteConfig:
     """Site-specific information and content."""
 
-    location: str = "Clarendon Avenue, San Francisco"
-    surveyor: str = "Banshee, INC."
-    contact: str = "david@banshee-data.com"
-    speed_limit: int = 25
-    site_description: str = (
-        "This survey was conducted from the southbound parking lane outside "
-        "500 Clarendon Avenue, directly in front of an elementary school. "
-        "The site is located on a downhill grade, which may influence vehicle "
-        "speed and braking behavior. Data was collected from a fixed position "
-        "over three consecutive days."
-    )
-    speed_limit_note: str = (
-        "The posted speed limit at this location is 35 mph, reduced to 25 mph "
-        "when school children are present."
-    )
+    # REQUIRED fields
+    location: str = ""  # Survey location (REQUIRED)
+    surveyor: str = ""  # Surveyor name/organization (REQUIRED)
+    contact: str = ""  # Contact email/phone (REQUIRED)
 
-    # Map/location data (for future use)
+    # Optional fields
+    speed_limit: int = 25
+    site_description: str = ""
+    speed_limit_note: str = ""
+
+    # Map/location data (optional)
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     map_angle: Optional[float] = None
@@ -67,33 +61,33 @@ class RadarConfig:
 class QueryConfig:
     """API query and data processing parameters."""
 
-    # Date range
+    # Date range (REQUIRED)
     start_date: str = ""  # YYYY-MM-DD or unix timestamp
     end_date: str = ""  # YYYY-MM-DD or unix timestamp
+    timezone: str = ""  # Timezone for display (REQUIRED, e.g., US/Pacific, UTC)
 
     # API parameters
     group: str = "1h"  # Time grouping (15m, 30m, 1h, 2h, 6h, 12h, 24h, all)
     units: str = "mph"  # Display units (mph, kph)
     source: str = "radar_data_transits"  # radar_objects or radar_data_transits
     model_version: str = "rebuild-full"  # Transit model version
-    timezone: str = "US/Pacific"  # Timezone for display
-    min_speed: Optional[float] = 5.0  # Minimum speed filter
+    min_speed: Optional[float] = None  # Minimum speed filter (optional)
 
-    # Histogram configuration
-    histogram: bool = True  # Generate histogram
-    hist_bucket_size: float = 5.0  # Bucket size in display units
-    hist_max: Optional[float] = 50.0  # Maximum bucket value
+    # Histogram configuration (optional)
+    histogram: bool = False  # Generate histogram (default: false)
+    hist_bucket_size: Optional[float] = None  # Bucket size in display units
+    hist_max: Optional[float] = None  # Maximum bucket value
 
 
 @dataclass
 class OutputConfig:
     """Output file configuration."""
 
-    file_prefix: str = ""  # Output file prefix (auto-generated if empty)
+    file_prefix: str = ""  # Output file prefix (REQUIRED - or auto-generated)
     output_dir: str = "."  # Output directory
     run_id: Optional[str] = None  # Unique run identifier (from Go server)
     debug: bool = False  # Enable debug output
-    no_map: bool = False  # Skip map generation (when location/GPS not available)
+    map: bool = False  # Include map in report (default: false, no map)
 
 
 @dataclass
@@ -177,11 +171,13 @@ class ReportConfig:
         """
         errors = []
 
-        # Validate query config
+        # Validate query config (REQUIRED)
         if not self.query.start_date:
-            errors.append("start_date is required")
+            errors.append("query.start_date is required")
         if not self.query.end_date:
-            errors.append("end_date is required")
+            errors.append("query.end_date is required")
+        if not self.query.timezone:
+            errors.append("query.timezone is required")
 
         if self.query.histogram and not self.query.hist_bucket_size:
             errors.append("hist_bucket_size is required when histogram is enabled")
@@ -192,9 +188,17 @@ class ReportConfig:
         if self.query.units not in ["mph", "kph"]:
             errors.append(f"Invalid units: {self.query.units}")
 
-        # Validate site config
+        # Validate site config (REQUIRED)
         if not self.site.location:
             errors.append("site.location is required")
+        if not self.site.surveyor:
+            errors.append("site.surveyor is required")
+        if not self.site.contact:
+            errors.append("site.contact is required")
+
+        # Validate output config (REQUIRED)
+        if not self.output.file_prefix:
+            errors.append("output.file_prefix is required")
 
         return len(errors) == 0, errors
 
