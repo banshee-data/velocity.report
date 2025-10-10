@@ -324,6 +324,54 @@ class TestPDFIntegration(unittest.TestCase):
 
     @patch("pdf_generator.MapProcessor")
     @patch("pdf_generator.chart_exists")
+    def test_tex_file_contains_footer_with_dates_and_page_numbers(
+        self, mock_chart_exists, mock_map_processor
+    ):
+        """Test that .tex file contains footer with date range and page numbers."""
+        mock_chart_exists.return_value = False
+        mock_processor = MagicMock()
+        mock_processor.process_map.return_value = (False, None)
+        mock_map_processor.return_value = mock_processor
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "test_report.pdf")
+
+            try:
+                generate_pdf_report(
+                    output_path=output_path,
+                    start_iso="2025-06-02T00:00:00-07:00",
+                    end_iso="2025-06-04T23:59:59-07:00",
+                    group="1h",
+                    units="mph",
+                    timezone_display="US/Pacific",
+                    min_speed_str="5.0 mph",
+                    location="Clarendon Avenue, San Francisco",
+                    overall_metrics=self.overall_metrics,
+                    daily_metrics=self.daily_metrics,
+                    granular_metrics=self.granular_metrics,
+                    histogram=self.histogram,
+                    tz_name="US/Pacific",
+                    charts_prefix="test",
+                    speed_limit=25,
+                )
+            except Exception:
+                pass
+
+            tex_path = output_path.replace(".pdf", ".tex")
+            with open(tex_path, "r") as f:
+                content = f.read()
+
+            # Check footer contains date range on left
+            self.assertIn(r"\fancyfoot[L]{\small 2025-06-02 to 2025-06-04}", content)
+            # Check footer contains page number on right
+            self.assertIn(r"\fancyfoot[R]{\small Page \thepage}", content)
+            # Check footer rule is present
+            self.assertIn(r"\renewcommand{\footrulewidth}{0.8pt}", content)
+            # Check that date range is NOT in header center anymore
+            self.assertNotIn(r"\fancyhead[C]", content)
+
+    @patch("pdf_generator.MapProcessor")
+    @patch("pdf_generator.chart_exists")
     def test_tex_file_contains_histogram_table(
         self, mock_chart_exists, mock_map_processor
     ):

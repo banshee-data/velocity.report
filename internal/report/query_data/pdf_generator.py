@@ -153,6 +153,8 @@ def generate_pdf_report(
     # Increase headheight to avoid fancyhdr warnings on some templates
     doc.append(NoEscape(f"\\setlength{{\\headheight}}{{{PDF_CONFIG['headheight']}}}"))
     doc.append(NoEscape(f"\\setlength{{\\headsep}}{{{PDF_CONFIG['headsep']}}}"))
+    # Set up footer spacing
+    doc.append(NoEscape("\\setlength{\\footskip}{28pt}"))
     doc.append(NoEscape("\\pagestyle{fancy}"))
     doc.append(NoEscape("\\fancyhf{}"))
     doc.append(
@@ -160,9 +162,15 @@ def generate_pdf_report(
             "\\fancyhead[L]{\\textbf{\\protect\\href{https://velocity.report}{velocity.report}}}"
         )
     )
-    doc.append(NoEscape(f"\\fancyhead[C]{{ {start_iso[:10]} to {end_iso[:10]} }}"))
     doc.append(NoEscape(f"\\fancyhead[R]{{ \\textit{{{location}}}}}"))
     doc.append(NoEscape("\\renewcommand{\\headrulewidth}{0.8pt}"))
+
+    # Set up footer with time range on left and page number on right
+    doc.append(
+        NoEscape(f"\\fancyfoot[L]{{\\small {start_iso[:10]} to {end_iso[:10]}}}")
+    )
+    doc.append(NoEscape("\\fancyfoot[R]{\\small Page \\thepage}"))
+    doc.append(NoEscape("\\renewcommand{\\footrulewidth}{0.8pt}"))
 
     # Title formatting: make section headings sans-serif (local style)
     doc.preamble.append(
