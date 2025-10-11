@@ -76,16 +76,19 @@ class TestGenerateReportFromDict(unittest.TestCase):
         self.assertIn("config_used", result)
 
     def test_generate_report_from_dict_invalid_dict_structure(self):
-        """Test API with completely invalid dictionary structure."""
-        invalid_config = {"invalid": "config", "random": "data"}
+        """Test dict API with completely invalid dictionary."""
+        result = generate_report_from_dict({"invalid": "config", "random": "data"})
+        assert result["success"] is False
+        assert "is required" in result["errors"][0]
+        assert result["config_used"]["site"]["location"] == ""
 
-        result = generate_report_from_dict(invalid_config)
-
-        self.assertFalse(result["success"])
-        self.assertGreater(len(result["errors"]), 0)
-        self.assertTrue(
-            any("Invalid configuration" in str(e) for e in result["errors"])
-        )
+    def test_generate_report_from_dict_not_a_dict(self):
+        """Test dict API with non-dict input that triggers exception."""
+        # Pass something that's not a dict to trigger the exception path
+        result = generate_report_from_dict("not a dict")
+        assert result["success"] is False
+        assert "Invalid configuration dictionary" in result["errors"][0]
+        assert result["config_used"] == "not a dict"
 
     @patch("generate_report_api.get_stats")
     @patch("generate_report_api.os.makedirs")
