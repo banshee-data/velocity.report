@@ -7,6 +7,8 @@ complete PDF reports including statistics tables, charts, and science sections.
 """
 
 import os
+import math
+
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -147,8 +149,6 @@ def generate_pdf_report(
     """
 
     # Calculate cosine error factor from angle
-    import math
-
     cosine_error_factor = 1.0
     if cosine_error_angle != 0:
         angle_rad = math.radians(cosine_error_angle)

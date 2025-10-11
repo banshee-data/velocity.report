@@ -551,7 +551,7 @@ class HistogramTableBuilder:
 
 
 # =============================================================================
-# Convenience Functions (backward compatibility)
+# Convenience Functions
 # =============================================================================
 
 
@@ -563,10 +563,7 @@ def create_stats_table(
     include_start_time: bool = True,
     center_table: bool = True,
 ) -> object:
-    """Create statistics table (convenience function).
-
-    This provides backward compatibility with the original pdf_generator API.
-    """
+    """Create statistics table (convenience wrapper)."""
     builder = StatsTableBuilder()
     return builder.build(
         stats, tz_name, units, caption, include_start_time, center_table
@@ -574,10 +571,7 @@ def create_stats_table(
 
 
 def create_param_table(entries: List[Dict[str, str]]) -> Tabular:
-    """Create parameter table (convenience function).
-
-    This provides backward compatibility with the original pdf_generator API.
-    """
+    """Create parameter table (convenience wrapper)."""
     builder = ParameterTableBuilder()
     return builder.build(entries)
 
@@ -589,10 +583,7 @@ def create_histogram_table(
     bucket_size: float = 5.0,
     max_bucket: Optional[float] = None,
 ) -> Center:
-    """Create histogram table (convenience function).
-
-    This provides backward compatibility with the original pdf_generator API.
-    """
+    """Create histogram table (convenience wrapper)."""
     builder = HistogramTableBuilder()
     return builder.build(histogram, units, cutoff, bucket_size, max_bucket)
 
@@ -604,9 +595,6 @@ def create_twocolumn_stats_table(
     units: str,
     caption: str,
 ) -> None:
-    """Create two-column statistics table (convenience function).
-
-    This provides backward compatibility with the original pdf_generator API.
-    """
+    """Create two-column statistics table (convenience wrapper)."""
     builder = StatsTableBuilder()
     builder.build_twocolumn(doc, stats, tz_name, units, caption)

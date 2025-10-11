@@ -337,7 +337,7 @@ class SurveyParametersSection:
 
 
 # =============================================================================
-# Convenience Functions (backward compatibility)
+# Convenience Functions
 # =============================================================================
 
 
@@ -353,10 +353,7 @@ def add_metric_data_intro(
     p98: float,
     max_speed: float,
 ) -> None:
-    """Add velocity overview section (convenience function).
-
-    This provides backward compatibility with the original pdf_generator API.
-    """
+    """Add velocity overview section (convenience wrapper)."""
     builder = VelocityOverviewSection()
     builder.build(
         doc,
@@ -375,9 +372,7 @@ def add_metric_data_intro(
 def add_site_specifics(
     doc: Document, site_description: str = "", speed_limit_note: str = ""
 ) -> None:
-    """Add site information section (convenience function).
-
-    This provides backward compatibility with the original pdf_generator API.
+    """Add site information section (convenience wrapper).
 
     Args:
         doc: PyLaTeX Document to append to
@@ -389,10 +384,7 @@ def add_site_specifics(
 
 
 def add_science(doc: Document) -> None:
-    """Add science and methodology section (convenience function).
-
-    This provides backward compatibility with the original pdf_generator API.
-    """
+    """Add science and methodology section (convenience wrapper)."""
     builder = ScienceMethodologySection()
     builder.build(doc)
 
@@ -406,11 +398,7 @@ def add_survey_parameters(
     units: str,
     min_speed_str: str,
 ) -> None:
-    """Add survey parameters section (convenience function).
-
-    This provides backward compatibility and simplifies the common use case
-    of adding all survey parameters at once.
-    """
+    """Add survey parameters section (convenience wrapper)."""
     builder = SurveyParametersSection()
     builder.build(
         doc, start_iso, end_iso, timezone_display, group, units, min_speed_str

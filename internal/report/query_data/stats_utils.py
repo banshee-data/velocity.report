@@ -15,8 +15,15 @@ import numpy as np
 
 from date_parser import parse_server_time
 from report_config import FONTS, LAYOUT, HISTOGRAM_CONFIG
-from chart_builder import HistogramChartBuilder
-from chart_saver import save_chart_as_pdf  # Re-export for backward compatibility
+
+# Optional matplotlib dependencies
+try:
+    from chart_builder import HistogramChartBuilder
+
+    HAVE_CHARTS = True
+except ImportError:
+    HistogramChartBuilder = None  # type: ignore
+    HAVE_CHARTS = False
 
 
 def format_time(tval: Any, tz_name: Optional[str]) -> str:
@@ -122,6 +129,9 @@ def plot_histogram(
     Returns:
         matplotlib figure object or None if matplotlib not available
     """
+    if not HAVE_CHARTS or HistogramChartBuilder is None:
+        return None
+
     builder = HistogramChartBuilder()
     return builder.build(histogram, title, units, debug)
 

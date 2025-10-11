@@ -238,7 +238,7 @@ class TestSurveyParametersSection(unittest.TestCase):
 
 
 class TestConvenienceFunctions(unittest.TestCase):
-    """Tests for backward compatibility convenience functions."""
+    """Tests for convenience wrapper functions."""
 
     @patch("report_sections.VelocityOverviewSection")
     def test_add_metric_data_intro(self, mock_builder_class):

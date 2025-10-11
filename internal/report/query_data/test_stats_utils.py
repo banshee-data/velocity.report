@@ -14,9 +14,9 @@ from stats_utils import (
     count_in_histogram_range,
     count_histogram_ge,
     plot_histogram,
-    save_chart_as_pdf,
     chart_exists,
 )
+from chart_saver import save_chart_as_pdf
 
 
 class TestStatsUtils(unittest.TestCase):

@@ -390,7 +390,7 @@ class TestHistogramTableBuilder(unittest.TestCase):
 
 
 class TestConvenienceFunctions(unittest.TestCase):
-    """Tests for backward compatibility convenience functions."""
+    """Tests for convenience wrapper functions."""
 
     @patch("table_builders.StatsTableBuilder")
     def test_create_stats_table(self, mock_builder_class):
@@ -482,11 +482,10 @@ class TestHistogramEdgeCases(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.mock_doc = MagicMock()
+        self.builder = HistogramTableBuilder()
 
     def test_histogram_with_all_values_below_cutoff(self):
         """Test histogram when all values are below the cutoff speed."""
-        from table_builders import create_histogram_table
-
         histogram = {
             "0.0": 5,
             "5.0": 10,
@@ -495,8 +494,8 @@ class TestHistogramEdgeCases(unittest.TestCase):
             # All below cutoff of 25
         }
 
-        # Call create_histogram_table with cutoff=25, bucket_size=5, max_bucket=20
-        table = create_histogram_table(
+        # Call builder with cutoff=25, bucket_size=5, max_bucket=20
+        table = self.builder.build(
             histogram,
             units="mph",
             cutoff=25.0,
@@ -509,12 +508,10 @@ class TestHistogramEdgeCases(unittest.TestCase):
 
     def test_histogram_with_zero_total_count(self):
         """Test histogram table with zero total count."""
-        from table_builders import create_histogram_table
-
         histogram = {}  # Empty histogram = zero total
 
         # Should handle empty histogram gracefully
-        table = create_histogram_table(
+        table = self.builder.build(
             histogram,
             units="mph",
             cutoff=25.0,
@@ -526,13 +523,11 @@ class TestHistogramEdgeCases(unittest.TestCase):
 
     def test_histogram_with_single_bucket(self):
         """Test histogram with only one bucket."""
-        from table_builders import create_histogram_table
-
         histogram = {
             "20.0": 100,  # Single bucket
         }
 
-        table = create_histogram_table(
+        table = self.builder.build(
             histogram,
             units="mph",
             cutoff=25.0,
@@ -544,8 +539,6 @@ class TestHistogramEdgeCases(unittest.TestCase):
 
     def test_histogram_with_max_bucket_equal_to_cutoff(self):
         """Test edge case where max bucket value equals cutoff."""
-        from table_builders import create_histogram_table
-
         histogram = {
             "10.0": 20,
             "15.0": 30,
@@ -553,7 +546,7 @@ class TestHistogramEdgeCases(unittest.TestCase):
             "25.0": 50,  # Exactly at cutoff
         }
 
-        table = create_histogram_table(
+        table = self.builder.build(
             histogram,
             units="mph",
             cutoff=25.0,
@@ -565,8 +558,6 @@ class TestHistogramEdgeCases(unittest.TestCase):
 
     def test_histogram_with_no_below_cutoff_values(self):
         """Test histogram where no values are below cutoff."""
-        from table_builders import create_histogram_table
-
         histogram = {
             "30.0": 20,
             "35.0": 30,
@@ -574,7 +565,7 @@ class TestHistogramEdgeCases(unittest.TestCase):
             # All above cutoff of 25
         }
 
-        table = create_histogram_table(
+        table = self.builder.build(
             histogram,
             units="mph",
             cutoff=25.0,
