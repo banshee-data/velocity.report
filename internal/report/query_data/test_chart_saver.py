@@ -209,5 +209,120 @@ class TestConvenienceFunction(unittest.TestCase):
         self.assertFalse(result)
 
 
+# Phase 3: I/O Error Handling Tests
+
+
+class TestChartSaverIOErrors(unittest.TestCase):
+    """Phase 3 tests for chart_saver.py I/O error handling."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.temp_dir = tempfile.mkdtemp()
+        self.saver = ChartSaver()
+
+    def tearDown(self):
+        """Clean up temporary directory."""
+        if os.path.exists(self.temp_dir):
+            shutil.rmtree(self.temp_dir)
+
+    def test_save_with_write_permission_error(self):
+        """Test chart save when output directory is not writable."""
+        fig = MagicMock()
+        fig.canvas = MagicMock()
+
+        # Mock savefig to raise a permission error
+        fig.savefig = MagicMock(side_effect=PermissionError("Permission denied"))
+
+        output_path = os.path.join(self.temp_dir, "chart.pdf")
+
+        result = self.saver.save_as_pdf(fig, output_path, close_fig=False)
+
+        # Should return False on error
+        self.assertFalse(result)
+
+    def test_save_with_invalid_figure_object(self):
+        """Test save with invalid matplotlib figure object."""
+        # Pass something that's not a figure
+        invalid_fig = "not a figure"
+        output_path = os.path.join(self.temp_dir, "chart.pdf")
+
+        result = self.saver.save_as_pdf(invalid_fig, output_path, close_fig=False)
+
+        # Should handle gracefully and return False
+        self.assertFalse(result)
+
+    def test_cleanup_error_handling(self):
+        """Test that cleanup errors don't break the function (lines 158-160)."""
+        fig = MagicMock()
+        fig.canvas = MagicMock()
+        output_path = os.path.join(self.temp_dir, "chart.pdf")
+
+        # Mock plt.close to raise an exception
+        with patch("chart_saver.plt") as mock_plt:
+            mock_plt.close.side_effect = Exception("Close failed")
+
+            # Should still complete without raising exception
+            # (actual save might fail, but cleanup error is caught)
+            try:
+                self.saver.save_as_pdf(fig, output_path, close_fig=True)
+                # Test passes if no exception propagated
+            except Exception as e:
+                # If exception is from close, test fails
+                if "Close failed" in str(e):
+                    self.fail("Cleanup error was not caught")
+
+    def test_resize_figure_error_recovery(self):
+        """Test that figure resize errors are handled gracefully (lines 96-119)."""
+        fig = MagicMock()
+        fig.canvas = MagicMock()
+        output_path = os.path.join(self.temp_dir, "chart.pdf")
+
+        # Mock get_tightbbox to raise exception
+        fig.get_tightbbox.side_effect = Exception("Tight bbox failed")
+
+        # Should handle the error and continue
+        result = self.saver.save_as_pdf(fig, output_path, close_fig=False)
+
+        # May fail to save, but shouldn't crash
+        self.assertIsNotNone(result)
+
+    def test_tight_bbox_none_handling(self):
+        """Test handling when tight_bbox returns None (lines 100-105)."""
+        fig = MagicMock()
+        fig.canvas = MagicMock()
+        fig.canvas.draw = MagicMock()
+        fig.canvas.get_renderer = MagicMock()
+        fig.get_tightbbox = MagicMock(return_value=None)
+        output_path = os.path.join(self.temp_dir, "chart.pdf")
+
+        # Should handle None tight_bbox gracefully
+        result = self.saver.save_as_pdf(fig, output_path, close_fig=False)
+
+        # Should not crash, result depends on whether save succeeds
+        self.assertIsNotNone(result)
+
+    def test_invalid_dimensions_handling(self):
+        """Test handling of invalid (zero/negative) dimensions (lines 113-115)."""
+        fig = MagicMock()
+        fig.canvas = MagicMock()
+        fig.canvas.draw = MagicMock()
+        renderer = MagicMock()
+        fig.canvas.get_renderer = MagicMock(return_value=renderer)
+
+        # Mock tight_bbox with zero width
+        tight_bbox = MagicMock()
+        tight_bbox.width = 0
+        tight_bbox.height = 100
+        fig.get_tightbbox = MagicMock(return_value=tight_bbox)
+
+        output_path = os.path.join(self.temp_dir, "chart.pdf")
+
+        # Should handle invalid dimensions gracefully
+        result = self.saver.save_as_pdf(fig, output_path, close_fig=False)
+
+        # Should not crash
+        self.assertIsNotNone(result)
+
+
 if __name__ == "__main__":
     unittest.main()

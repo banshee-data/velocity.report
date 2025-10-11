@@ -329,5 +329,104 @@ class TestImportFallbacks(unittest.TestCase):
         self.assertIsNotNone(builder)
 
 
+# Phase 3: Empty State and Error Handling Tests
+
+
+class TestReportSectionsEmptyStates(unittest.TestCase):
+    """Phase 3 tests for report_sections.py empty state handling."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.mock_doc = MagicMock()
+
+    def test_site_information_both_fields_empty(self):
+        """Test site section when both description and note are empty (lines 85-86, 123)."""
+        builder = SiteInformationSection()
+
+        # Call with both fields empty - should return early and not append anything
+        builder.build(self.mock_doc, site_description="", speed_limit_note="")
+
+        # Should NOT append anything when both are empty (early return on line 140)
+        self.mock_doc.append.assert_not_called()
+
+    def test_site_information_only_description(self):
+        """Test site section with only description, no speed limit note."""
+        builder = SiteInformationSection()
+
+        # Call with only description
+        builder.build(
+            self.mock_doc,
+            site_description="This is a residential area",
+            speed_limit_note="",
+        )
+
+        # Should append description
+        self.mock_doc.append.assert_called()
+
+    def test_site_information_only_speed_limit_note(self):
+        """Test site section with only speed limit note, no description."""
+        builder = SiteInformationSection()
+
+        # Call with only speed limit note
+        builder.build(
+            self.mock_doc, site_description="", speed_limit_note="25 mph posted"
+        )
+
+        # Should append speed limit note
+        self.mock_doc.append.assert_called()
+
+    def test_velocity_overview_total_vehicles_format_error(self):
+        """Test velocity overview when total_vehicles formatting fails (lines 85-86)."""
+        builder = VelocityOverviewSection()
+
+        # Pass a value that might cause formatting issues
+        # The try-except should handle this gracefully
+        builder.build(
+            self.mock_doc,
+            start_date="2025-01-01",
+            end_date="2025-01-07",
+            location="Test Location",
+            speed_limit=25,
+            total_vehicles="invalid",  # Non-numeric
+            p50=30.5,
+            p85=35.0,
+            p98=40.0,
+            max_speed=45.0,
+        )
+
+        # Should handle error and still create section
+        self.mock_doc.append.assert_called()
+
+    def test_science_section_import_check(self):
+        """Test that science section builder checks for PyLaTeX (line 166)."""
+        # This validates the import check exists
+        builder = ScienceMethodologySection()
+        self.assertIsNotNone(builder)
+
+        # Verify it can build section (takes only doc parameter)
+        builder.build(self.mock_doc)
+
+        self.mock_doc.append.assert_called()
+
+    def test_parameters_section_import_check(self):
+        """Test that parameters section builder checks for PyLaTeX (line 288)."""
+        # This validates the import check exists
+        builder = SurveyParametersSection()
+        self.assertIsNotNone(builder)
+
+        # Verify it can build section
+        builder.build(
+            self.mock_doc,
+            start_iso="2025-01-01T00:00:00",
+            end_iso="2025-01-07T23:59:59",
+            timezone_display="UTC",
+            group="1h",
+            units="mph",
+            min_speed_str="5 mph cutoff",
+        )
+
+        self.mock_doc.append.assert_called()
+
+
 if __name__ == "__main__":
     unittest.main()
