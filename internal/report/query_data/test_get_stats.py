@@ -620,7 +620,13 @@ class TestNextSequencedPrefix(unittest.TestCase):
 
         mock_listdir.return_value = []
         result = _next_sequenced_prefix("test")
-        self.assertEqual(result, "test-1")
+        # Result should be test-1-HHMMSS
+        self.assertTrue(result.startswith("test-1-"))
+        self.assertEqual(len(result), len("test-1-HHMMSS"))
+        # Verify timestamp portion is 6 digits
+        timestamp = result.split("-")[-1]
+        self.assertEqual(len(timestamp), 6)
+        self.assertTrue(timestamp.isdigit())
 
     @patch("os.listdir")
     def test_existing_sequence(self, mock_listdir):
@@ -634,7 +640,11 @@ class TestNextSequencedPrefix(unittest.TestCase):
             "other-file.pdf",
         ]
         result = _next_sequenced_prefix("test")
-        self.assertEqual(result, "test-4")
+        # Result should be test-4-HHMMSS
+        self.assertTrue(result.startswith("test-4-"))
+        timestamp = result.split("-")[-1]
+        self.assertEqual(len(timestamp), 6)
+        self.assertTrue(timestamp.isdigit())
 
     @patch("os.listdir")
     def test_non_sequential_numbers(self, mock_listdir):
@@ -647,7 +657,11 @@ class TestNextSequencedPrefix(unittest.TestCase):
             "test-10_histogram.pdf",
         ]
         result = _next_sequenced_prefix("test")
-        self.assertEqual(result, "test-11")  # max + 1
+        # Result should be test-11-HHMMSS (max + 1)
+        self.assertTrue(result.startswith("test-11-"))
+        timestamp = result.split("-")[-1]
+        self.assertEqual(len(timestamp), 6)
+        self.assertTrue(timestamp.isdigit())
 
     @patch("os.listdir")
     def test_invalid_numbers_ignored(self, mock_listdir):
@@ -660,7 +674,28 @@ class TestNextSequencedPrefix(unittest.TestCase):
             "test-2_histogram.pdf",
         ]
         result = _next_sequenced_prefix("test")
-        self.assertEqual(result, "test-3")
+        # Result should be test-3-HHMMSS
+        self.assertTrue(result.startswith("test-3-"))
+        timestamp = result.split("-")[-1]
+        self.assertEqual(len(timestamp), 6)
+        self.assertTrue(timestamp.isdigit())
+
+    @patch("os.listdir")
+    def test_with_timestamp_files(self, mock_listdir):
+        """Test sequencing with existing timestamped files."""
+        from get_stats import _next_sequenced_prefix
+
+        mock_listdir.return_value = [
+            "test-1-120530_report.pdf",
+            "test-2-143045_stats.pdf",
+            "test-3-183010_histogram.pdf",
+        ]
+        result = _next_sequenced_prefix("test")
+        # Result should be test-4-HHMMSS (continues sequence)
+        self.assertTrue(result.startswith("test-4-"))
+        timestamp = result.split("-")[-1]
+        self.assertEqual(len(timestamp), 6)
+        self.assertTrue(timestamp.isdigit())
 
 
 class TestGenerateHistogramChartEdgeCases(unittest.TestCase):

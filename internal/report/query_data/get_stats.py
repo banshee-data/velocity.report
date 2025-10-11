@@ -106,13 +106,15 @@ def should_produce_daily(group_token: str) -> bool:
 
 
 def _next_sequenced_prefix(base: str) -> str:
-    """Return a sequenced prefix like base-1, base-2, ... based on files in CWD.
+    """Return a sequenced prefix like base-1-HHMMSS, base-2-HHMMSS, ... based on files in CWD.
 
     This scans the current directory for files beginning with ``base-<n>`` and
-    returns the next number in the sequence. Always returns base-<n> (start at 1).
+    returns the next number in the sequence with a timestamp suffix.
+    Always returns base-<n>-HHMMSS (start at 1).
+    The timestamp helps avoid caching issues with PDF viewers.
     """
     files = os.listdir(".")
-    pat = re.compile(r"^" + re.escape(base) + r"-(\d+)(?:_|$)")
+    pat = re.compile(r"^" + re.escape(base) + r"-(\d+)(?:-\d{6})?(?:_|$)")
     nums = []
     for fn in files:
         m = pat.match(fn)
@@ -122,7 +124,8 @@ def _next_sequenced_prefix(base: str) -> str:
             except Exception:
                 continue
     next_n = max(nums) + 1 if nums else 1
-    return f"{base}-{next_n}"
+    timestamp = datetime.now().strftime("%H%M%S")
+    return f"{base}-{next_n}-{timestamp}"
 
 
 def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = None):
