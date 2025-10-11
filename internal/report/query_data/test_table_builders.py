@@ -473,5 +473,118 @@ class TestImportFallbacks(unittest.TestCase):
         self.assertIsNotNone(builder)
 
 
+# Phase 2: Edge Case Tests
+
+
+class TestHistogramEdgeCases(unittest.TestCase):
+    """Phase 2 tests for histogram table edge cases (lines 524-551)."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.mock_doc = MagicMock()
+
+    def test_histogram_with_all_values_below_cutoff(self):
+        """Test histogram when all values are below the cutoff speed."""
+        from table_builders import create_histogram_table
+
+        histogram = {
+            "0.0": 5,
+            "5.0": 10,
+            "10.0": 15,
+            "15.0": 20,
+            # All below cutoff of 25
+        }
+
+        # Call create_histogram_table with cutoff=25, bucket_size=5, max_bucket=20
+        table = create_histogram_table(
+            histogram,
+            units="mph",
+            cutoff=25.0,
+            bucket_size=5.0,
+            max_bucket=20.0,
+        )
+
+        # Should handle this case gracefully
+        self.assertIsNotNone(table)
+
+    def test_histogram_with_zero_total_count(self):
+        """Test histogram table with zero total count."""
+        from table_builders import create_histogram_table
+
+        histogram = {}  # Empty histogram = zero total
+
+        # Should handle empty histogram gracefully
+        table = create_histogram_table(
+            histogram,
+            units="mph",
+            cutoff=25.0,
+            bucket_size=5.0,
+            max_bucket=None,
+        )
+
+        self.assertIsNotNone(table)
+
+    def test_histogram_with_single_bucket(self):
+        """Test histogram with only one bucket."""
+        from table_builders import create_histogram_table
+
+        histogram = {
+            "20.0": 100,  # Single bucket
+        }
+
+        table = create_histogram_table(
+            histogram,
+            units="mph",
+            cutoff=25.0,
+            bucket_size=5.0,
+            max_bucket=None,
+        )
+
+        self.assertIsNotNone(table)
+
+    def test_histogram_with_max_bucket_equal_to_cutoff(self):
+        """Test edge case where max bucket value equals cutoff."""
+        from table_builders import create_histogram_table
+
+        histogram = {
+            "10.0": 20,
+            "15.0": 30,
+            "20.0": 40,
+            "25.0": 50,  # Exactly at cutoff
+        }
+
+        table = create_histogram_table(
+            histogram,
+            units="mph",
+            cutoff=25.0,
+            bucket_size=5.0,
+            max_bucket=25.0,  # Max equals cutoff
+        )
+
+        self.assertIsNotNone(table)
+
+    def test_histogram_with_no_below_cutoff_values(self):
+        """Test histogram where no values are below cutoff."""
+        from table_builders import create_histogram_table
+
+        histogram = {
+            "30.0": 20,
+            "35.0": 30,
+            "40.0": 40,
+            # All above cutoff of 25
+        }
+
+        table = create_histogram_table(
+            histogram,
+            units="mph",
+            cutoff=25.0,
+            bucket_size=5.0,
+            max_bucket=None,
+        )
+
+        # Should skip the below-cutoff row
+        self.assertIsNotNone(table)
+
+
 if __name__ == "__main__":
     unittest.main()
