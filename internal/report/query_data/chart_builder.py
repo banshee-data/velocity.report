@@ -33,13 +33,57 @@ except Exception:  # pragma: no cover
     plt = None
     Patch = None
 
-from report_config import COLORS, FONTS, LAYOUT, DEBUG
 from data_transformers import (
     MetricsNormalizer,
     extract_start_time_from_row,
     extract_count_from_row,
 )
 from date_parser import parse_server_time
+
+# Default configuration values matching config_manager dataclass defaults
+DEFAULT_COLORS = {
+    "p50": "#fbd92f",
+    "p85": "#f7b32b",
+    "p98": "#f25f5c",
+    "max": "#2d1e2f",
+    "count_bar": "#2d1e2f",
+    "low_sample": "#f7b32b",
+}
+
+DEFAULT_FONTS = {
+    "chart_title": 14,
+    "chart_label": 13,
+    "chart_tick": 11,
+    "chart_axis_label": 8,
+    "chart_axis_tick": 7,
+    "chart_legend": 7,
+    "histogram_title": 14,
+    "histogram_label": 13,
+    "histogram_tick": 11,
+}
+
+DEFAULT_LAYOUT = {
+    "chart_figsize": (24, 8),
+    "histogram_figsize": (3, 2),
+    "low_sample_threshold": 50,
+    "count_missing_threshold": 5,
+    "bar_width_bg_fraction": 0.95,
+    "bar_width_fraction": 0.7,
+    "min_chart_width_in": 6.0,
+    "max_chart_width_in": 11.0,
+    "chart_left": 0.02,
+    "chart_right": 0.96,
+    "chart_top": 0.995,
+    "chart_bottom": 0.16,
+    "count_axis_scale": 1.6,
+    "line_width": 1.0,
+    "marker_size": 4,
+    "marker_edge_width": 0.4,
+}
+
+DEFAULT_DEBUG = {
+    "plot_debug": False,
+}
 
 
 class TimeSeriesChartBuilder:
@@ -57,13 +101,15 @@ class TimeSeriesChartBuilder:
         colors: Optional[Dict[str, str]] = None,
         fonts: Optional[Dict[str, int]] = None,
         layout: Optional[Dict[str, Any]] = None,
+        debug: Optional[Dict[str, bool]] = None,
     ):
         """Initialize chart builder with styling configuration.
 
         Args:
-            colors: Color palette dict (defaults to COLORS from report_config)
-            fonts: Font size dict (defaults to FONTS from report_config)
-            layout: Layout config dict (defaults to LAYOUT from report_config)
+            colors: Color palette dict (defaults to DEFAULT_COLORS)
+            fonts: Font size dict (defaults to DEFAULT_FONTS)
+            layout: Layout config dict (defaults to DEFAULT_LAYOUT)
+            debug: Debug config dict (defaults to DEFAULT_DEBUG)
         """
         if not HAVE_MATPLOTLIB:
             raise ImportError(
@@ -71,9 +117,10 @@ class TimeSeriesChartBuilder:
                 "Install it with: pip install matplotlib"
             )
 
-        self.colors = colors or COLORS
-        self.fonts = fonts or FONTS
-        self.layout = layout or LAYOUT
+        self.colors = colors or DEFAULT_COLORS
+        self.fonts = fonts or DEFAULT_FONTS
+        self.layout = layout or DEFAULT_LAYOUT
+        self.debug = debug or DEFAULT_DEBUG
         self.normalizer = MetricsNormalizer()
 
     def build(
@@ -234,7 +281,7 @@ class TimeSeriesChartBuilder:
             mx_a = np.ma.array(mx_a, mask=(np.ma.getmaskarray(mx_a) | zero_mask))
 
             # Debug output
-            if os.environ.get("VELOCITY_PLOT_DEBUG") == "1" or DEBUG["plot_debug"]:
+            if self.debug["plot_debug"]:
                 import sys
 
                 print(f"DEBUG_PLOT: missing_threshold={thresh}", file=sys.stderr)
@@ -252,7 +299,7 @@ class TimeSeriesChartBuilder:
     ) -> None:
         """Print debug information if enabled."""
         try:
-            if os.environ.get("VELOCITY_PLOT_DEBUG") == "1" or DEBUG["plot_debug"]:
+            if self.debug["plot_debug"]:
                 import sys
 
                 print(f"DEBUG_PLOT: times(len)={len(times)}", file=sys.stderr)
@@ -369,7 +416,7 @@ class TimeSeriesChartBuilder:
                 gap_threshold = base_delta * 2
 
                 # Debug output
-                if os.environ.get("VELOCITY_PLOT_DEBUG") == "1" or DEBUG["plot_debug"]:
+                if self.debug["plot_debug"]:
                     import sys
 
                     print(
@@ -691,9 +738,9 @@ class HistogramChartBuilder:
         """Initialize histogram builder with styling configuration.
 
         Args:
-            colors: Color palette dict (defaults to COLORS from report_config)
-            fonts: Font size dict (defaults to FONTS from report_config)
-            layout: Layout config dict (defaults to LAYOUT from report_config)
+            colors: Color palette dict (defaults to DEFAULT_COLORS)
+            fonts: Font size dict (defaults to DEFAULT_FONTS)
+            layout: Layout config dict (defaults to DEFAULT_LAYOUT)
         """
         if not HAVE_MATPLOTLIB:
             raise ImportError(
@@ -701,9 +748,9 @@ class HistogramChartBuilder:
                 "Install it with: pip install matplotlib"
             )
 
-        self.colors = colors or COLORS
-        self.fonts = fonts or FONTS
-        self.layout = layout or LAYOUT
+        self.colors = colors or DEFAULT_COLORS
+        self.fonts = fonts or DEFAULT_FONTS
+        self.layout = layout or DEFAULT_LAYOUT
 
     def build(
         self,

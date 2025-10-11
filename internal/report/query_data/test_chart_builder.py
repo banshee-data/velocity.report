@@ -227,25 +227,27 @@ class TestTimeSeriesChartBuilder(unittest.TestCase):
 
     def test_debug_output_when_enabled(self):
         """Test _debug_output() prints when debug enabled."""
-        with patch("chart_builder.DEBUG", {"plot_debug": True}):
-            with patch("builtins.print") as mock_print:
-                times = [datetime.now()]
-                counts = [100]
-                p50_f = np.array([30.5])
-                self.builder._debug_output(times, counts, p50_f)
-                # Should have printed something
-                mock_print.assert_called()
+        # Create builder with debug enabled
+        builder = TimeSeriesChartBuilder(debug={"plot_debug": True})
+        with patch("builtins.print") as mock_print:
+            times = [datetime.now()]
+            counts = [100]
+            p50_f = np.array([30.5])
+            builder._debug_output(times, counts, p50_f)
+            # Should have printed something
+            mock_print.assert_called()
 
     def test_debug_output_when_disabled(self):
         """Test _debug_output() silent when debug disabled."""
-        with patch("chart_builder.DEBUG", {"plot_debug": False}):
-            with patch("builtins.print") as mock_print:
-                times = [datetime.now()]
-                counts = [100]
-                p50_f = np.array([30.5])
-                self.builder._debug_output(times, counts, p50_f)
-                # Should not print
-                mock_print.assert_not_called()
+        # Create builder with debug disabled (default)
+        builder = TimeSeriesChartBuilder(debug={"plot_debug": False})
+        with patch("builtins.print") as mock_print:
+            times = [datetime.now()]
+            counts = [100]
+            p50_f = np.array([30.5])
+            builder._debug_output(times, counts, p50_f)
+            # Should not print
+            mock_print.assert_not_called()
 
 
 class TestHistogramChartBuilder(unittest.TestCase):

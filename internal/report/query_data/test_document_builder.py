@@ -311,7 +311,7 @@ class TestDocumentBuilder(unittest.TestCase):
     @patch("document_builder.DocumentBuilder.setup_header")
     @patch("document_builder.DocumentBuilder.begin_twocolumn_layout")
     @patch(
-        "document_builder.SITE_INFO",
+        "document_builder.DEFAULT_SITE_INFO",
         {"surveyor": "Default Surveyor", "contact": "default@example.com"},
     )
     def test_build_uses_site_info_defaults(
@@ -323,7 +323,7 @@ class TestDocumentBuilder(unittest.TestCase):
         mock_packages,
         mock_create,
     ):
-        """Test build() uses SITE_INFO defaults when surveyor/contact not provided."""
+        """Test build() uses DEFAULT_SITE_INFO defaults when surveyor/contact not provided."""
         mock_doc = MagicMock()
         mock_create.return_value = mock_doc
 
@@ -333,7 +333,7 @@ class TestDocumentBuilder(unittest.TestCase):
 
         result = self.builder.build(start_iso, end_iso, location)
 
-        # Should use SITE_INFO defaults
+        # Should use DEFAULT_SITE_INFO defaults
         mock_twocolumn.assert_called_once()
         call_args = mock_twocolumn.call_args[0]
         self.assertEqual(call_args[2], "Default Surveyor")

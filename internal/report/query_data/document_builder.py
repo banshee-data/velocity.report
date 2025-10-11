@@ -27,7 +27,25 @@ except Exception:  # pragma: no cover
         pass
 
 
-from report_config import PDF_CONFIG, SITE_INFO
+# Default PDF configuration (matches config_manager.PdfConfig)
+DEFAULT_PDF_CONFIG = {
+    "geometry": {
+        "top": "1.8cm",
+        "bottom": "1.0cm",
+        "left": "1.0cm",
+        "right": "1.0cm",
+    },
+    "columnsep": "14",
+    "headheight": "12pt",
+    "headsep": "10pt",
+    "fonts_dir": "fonts",
+}
+
+# Default site information (matches config_manager.SiteConfig)
+DEFAULT_SITE_INFO = {
+    "surveyor": "Banshee, INC.",
+    "contact": "david@banshee-data.com",
+}
 
 
 class DocumentBuilder:
@@ -45,9 +63,9 @@ class DocumentBuilder:
         """Initialize with optional config override.
 
         Args:
-            config: Optional dict to override PDF_CONFIG defaults
+            config: Optional dict to override default PDF configuration
         """
-        self.config = config or PDF_CONFIG
+        self.config = config or DEFAULT_PDF_CONFIG
 
     def create_document(self, page_numbers: bool = False) -> Document:
         """Create base Document with geometry.
@@ -238,17 +256,17 @@ class DocumentBuilder:
             start_iso: Start date in ISO format
             end_iso: End date in ISO format
             location: Location name
-            surveyor: Surveyor name (defaults to SITE_INFO)
-            contact: Contact email (defaults to SITE_INFO)
+            surveyor: Surveyor name (uses default if not provided)
+            contact: Contact email (uses default if not provided)
 
         Returns:
             Fully configured Document ready for content addition
         """
-        # Use defaults from SITE_INFO only if None (not if empty string)
+        # Use defaults only if None (not if empty string)
         if surveyor is None:
-            surveyor = SITE_INFO["surveyor"]
+            surveyor = DEFAULT_SITE_INFO["surveyor"]
         if contact is None:
-            contact = SITE_INFO["contact"]
+            contact = DEFAULT_SITE_INFO["contact"]
 
         # Create base document
         doc = self.create_document(page_numbers=False)
