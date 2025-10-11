@@ -28,7 +28,6 @@ except Exception:  # pragma: no cover
         return s
 
 
-from report_config import SITE_INFO
 from table_builders import create_param_table
 
 

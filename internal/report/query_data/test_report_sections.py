@@ -97,13 +97,6 @@ class TestSiteInformationSection(unittest.TestCase):
         """Test builder initialization."""
         self.assertIsNotNone(self.builder)
 
-    @patch(
-        "report_sections.SITE_INFO",
-        {
-            "site_description": "Test site description",
-            "speed_limit_note": "Speed limit is 25 mph",
-        },
-    )
     @patch("report_sections.NoEscape")
     @patch("report_sections.escape_latex")
     def test_build(self, mock_escape, mock_noescape):
