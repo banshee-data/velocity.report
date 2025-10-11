@@ -47,7 +47,7 @@ class RadarConfig:
     """Radar sensor technical parameters."""
 
     # REQUIRED field
-    cosine_error_angle: float = 0.0  # Mounting angle in degrees (REQUIRED)
+    cosine_error_angle: Optional[float] = None  # Mounting angle in degrees (REQUIRED)
 
     # Optional technical parameters
     sensor_model: str = "OmniPreSense OPS243-A"
@@ -63,7 +63,7 @@ class RadarConfig:
         """Calculate cosine error factor from angle: 1/cos(angle_degrees)."""
         import math
 
-        if self.cosine_error_angle == 0:
+        if self.cosine_error_angle is None or self.cosine_error_angle == 0:
             return 1.0
         angle_rad = math.radians(self.cosine_error_angle)
         return 1.0 / math.cos(angle_rad)
@@ -218,7 +218,7 @@ class ReportConfig:
             errors.append("site.contact is required")
 
         # Validate radar config (REQUIRED)
-        if self.radar.cosine_error_angle == 0.0:
+        if self.radar.cosine_error_angle is None:
             errors.append("radar.cosine_error_angle is required")
 
         return len(errors) == 0, errors

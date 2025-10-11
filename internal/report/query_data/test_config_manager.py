@@ -181,6 +181,53 @@ def test_validation_success():
     assert len(errors) == 0
 
 
+def test_validation_zero_degree_angle_is_valid():
+    """Test that 0.0 degree angle is valid (perfectly aligned radar)."""
+    config = ReportConfig(
+        site=SiteConfig(
+            location="Test Location",
+            surveyor="Test Surveyor",
+            contact="test@test.com",
+        ),
+        query=QueryConfig(
+            start_date="2025-06-01",
+            end_date="2025-06-07",
+            timezone="UTC",
+            histogram=True,
+            hist_bucket_size=5.0,
+        ),
+        radar=RadarConfig(cosine_error_angle=0.0),  # 0.0 should be valid
+    )
+
+    is_valid, errors = config.validate()
+    assert is_valid, f"Validation failed with errors: {errors}"
+    assert len(errors) == 0
+    assert config.radar.cosine_error_factor == 1.0  # cos(0°) = 1
+
+
+def test_validation_missing_cosine_error_angle():
+    """Test validation fails when cosine_error_angle is None."""
+    config = ReportConfig(
+        site=SiteConfig(
+            location="Test Location",
+            surveyor="Test Surveyor",
+            contact="test@test.com",
+        ),
+        query=QueryConfig(
+            start_date="2025-06-01",
+            end_date="2025-06-07",
+            timezone="UTC",
+            histogram=True,
+            hist_bucket_size=5.0,
+        ),
+        radar=RadarConfig(cosine_error_angle=None),  # None should be invalid
+    )
+
+    is_valid, errors = config.validate()
+    assert not is_valid
+    assert "radar.cosine_error_angle is required" in errors
+
+
 def test_load_config_from_file(tmp_path):
     """Test load_config function with config file."""
     config_data = {
