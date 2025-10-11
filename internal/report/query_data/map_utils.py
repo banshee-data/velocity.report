@@ -20,6 +20,27 @@ import importlib.util
 from typing import Dict, Any, Optional, Tuple
 
 
+# =============================================================================
+# SVG Parsing Patterns
+# =============================================================================
+
+# Pattern for extracting SVG viewBox attribute (4 numeric values: minX minY width height)
+SVG_VIEWBOX_PATTERN = re.compile(
+    r"viewBox\s*=\s*[\"']\s*"
+    r"([0-9.+\-eE]+)\s+"  # minX
+    r"([0-9.+\-eE]+)\s+"  # minY
+    r"([0-9.+\-eE]+)\s+"  # width
+    r"([0-9.+\-eE]+)"  # height
+    r"\s*[\"']"
+)
+
+# Pattern for extracting SVG width attribute
+SVG_WIDTH_PATTERN = re.compile(r"width\s*=\s*\"?([0-9.+\-eE]+)")
+
+# Pattern for extracting SVG height attribute
+SVG_HEIGHT_PATTERN = re.compile(r"height\s*=\s*\"?([0-9.+\-eE]+)")
+
+
 class RadarMarker:
     """Represents a radar sensor marker with GPS-compatible positioning.
 
@@ -131,10 +152,7 @@ class SVGMarkerInjector:
             RuntimeError: If viewBox cannot be determined
         """
         # Try viewBox attribute first
-        vb_match = re.search(
-            r"viewBox\s*=\s*[\"']\s*([0-9.+\-eE]+)\s+([0-9.+\-eE]+)\s+([0-9.+\-eE]+)\s+([0-9.+\-eE]+)\s*[\"']",
-            svg_text,
-        )
+        vb_match = SVG_VIEWBOX_PATTERN.search(svg_text)
         if vb_match:
             return (
                 float(vb_match.group(1)),
@@ -144,8 +162,8 @@ class SVGMarkerInjector:
             )
 
         # Fallback to width/height attributes
-        w_match = re.search(r"width\s*=\s*\"?([0-9.+\-eE]+)", svg_text)
-        h_match = re.search(r"height\s*=\s*\"?([0-9.+\-eE]+)", svg_text)
+        w_match = SVG_WIDTH_PATTERN.search(svg_text)
+        h_match = SVG_HEIGHT_PATTERN.search(svg_text)
         if w_match and h_match:
             return 0.0, 0.0, float(w_match.group(1)), float(h_match.group(1))
 
