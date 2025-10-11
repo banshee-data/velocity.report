@@ -352,6 +352,37 @@ class TestHelperFunctions(unittest.TestCase):
             override_site_info(invalid_key="value")
         self.assertIn("Unknown site_info key", str(context.exception))
 
+    def test_get_map_config_with_overrides_basic(self):
+        """Test get_map_config_with_overrides() with simple override."""
+        from report_config import get_map_config_with_overrides
+
+        config = get_map_config_with_overrides(triangle_color="#0000ff")
+
+        # Verify override applied
+        self.assertEqual(config["triangle_color"], "#0000ff")
+        # Verify circle_stroke follows triangle_color
+        self.assertEqual(config["circle_stroke"], "#0000ff")
+
+    def test_get_map_config_with_overrides_explicit_stroke(self):
+        """Test get_map_config_with_overrides() with explicit circle_stroke."""
+        from report_config import get_map_config_with_overrides
+
+        config = get_map_config_with_overrides(
+            triangle_color="#ff0000", circle_stroke="#00ff00"
+        )
+
+        # Verify both overrides applied independently
+        self.assertEqual(config["triangle_color"], "#ff0000")
+        self.assertEqual(config["circle_stroke"], "#00ff00")
+
+    def test_get_map_config_with_overrides_invalid_key(self):
+        """Test get_map_config_with_overrides() rejects invalid keys."""
+        from report_config import get_map_config_with_overrides
+
+        with self.assertRaises(ValueError) as context:
+            get_map_config_with_overrides(invalid_key="value")
+        self.assertIn("Unknown map_config key", str(context.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

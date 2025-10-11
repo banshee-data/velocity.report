@@ -4,6 +4,12 @@
 This module centralizes all configuration values used across the report generation
 workflow, including colors, font sizes, layout dimensions, and site-specific content.
 Environment variables can override some values for flexibility.
+
+Note on Configuration Patterns:
+- Most config dictionaries are immutable after definition
+- MAP_CONFIG uses computed defaults to avoid post-definition mutation
+- Use helper functions (get_config, override_site_info, get_map_config_with_overrides)
+  for runtime customization
 """
 
 import os
@@ -127,7 +133,8 @@ PDF_CONFIG: Dict[str, Any] = {
 # Map/SVG Marker Configuration
 # =============================================================================
 
-MAP_CONFIG: Dict[str, Any] = {
+# Base map configuration values (immutable)
+_MAP_CONFIG_BASE: Dict[str, Any] = {
     # Triangle marker properties
     "triangle_len": float(os.getenv("MAP_TRIANGLE_LEN", "0.42")),
     "triangle_cx": float(os.getenv("MAP_TRIANGLE_CX", "0.385")),
@@ -139,15 +146,32 @@ MAP_CONFIG: Dict[str, Any] = {
     # Circle marker at triangle apex
     "circle_radius": float(os.getenv("MAP_TRIANGLE_CIRCLE_RADIUS", "20")),
     "circle_fill": os.getenv("MAP_TRIANGLE_CIRCLE_FILL", "#ffffff"),
-    "circle_stroke": os.getenv(
-        "MAP_TRIANGLE_CIRCLE_STROKE", None
-    ),  # Defaults to triangle_color
+    "circle_stroke": os.getenv("MAP_TRIANGLE_CIRCLE_STROKE", None),
     "circle_stroke_width": os.getenv("MAP_TRIANGLE_CIRCLE_STROKE_WIDTH", "2"),
 }
 
-# Set circle stroke to triangle color if not explicitly set
-if MAP_CONFIG["circle_stroke"] is None:
-    MAP_CONFIG["circle_stroke"] = MAP_CONFIG["triangle_color"]
+
+def _get_map_config() -> Dict[str, Any]:
+    """Get map configuration with computed defaults.
+
+    Dynamically computes circle_stroke default to match triangle_color if not
+    explicitly set via environment variable. This avoids modifying the config
+    dictionary after definition, which could lead to bugs.
+
+    Returns:
+        Map configuration dictionary with all defaults resolved
+    """
+    config = _MAP_CONFIG_BASE.copy()
+
+    # Compute circle_stroke default: use triangle_color if not explicitly set
+    if config["circle_stroke"] is None:
+        config["circle_stroke"] = config["triangle_color"]
+
+    return config
+
+
+# Public map configuration (computed on first access)
+MAP_CONFIG = _get_map_config()
 
 
 # =============================================================================
@@ -204,3 +228,42 @@ def override_site_info(**kwargs) -> None:
             SITE_INFO[key] = value
         else:
             raise ValueError(f"Unknown site_info key: {key}")
+
+
+def get_map_config_with_overrides(**kwargs) -> Dict[str, Any]:
+    """Get map configuration with custom overrides.
+
+    This creates a fresh map configuration dictionary with any specified
+    overrides applied. The circle_stroke default is still computed dynamically
+    if not explicitly provided.
+
+    Args:
+        **kwargs: Key-value pairs to override in the map configuration
+
+    Returns:
+        Map configuration dictionary with overrides and computed defaults
+
+    Raises:
+        ValueError: If an unknown configuration key is provided
+
+    Usage:
+        config = get_map_config_with_overrides(
+            triangle_color='#0000ff',
+            triangle_angle=45.0
+        )
+    """
+    # Start with base config
+    config = _MAP_CONFIG_BASE.copy()
+
+    # Apply overrides
+    for key, value in kwargs.items():
+        if key in config:
+            config[key] = value
+        else:
+            raise ValueError(f"Unknown map_config key: {key}")
+
+    # Compute circle_stroke default if not explicitly set
+    if config["circle_stroke"] is None:
+        config["circle_stroke"] = config["triangle_color"]
+
+    return config
