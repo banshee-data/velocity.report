@@ -706,13 +706,32 @@ if __name__ == "__main__":
         "Use create_config_example.py to generate a template config file."
     )
 
-    # Configuration file - now REQUIRED
+    # Configuration file - now REQUIRED (unless --check is used)
     parser.add_argument(
         "config_file",
+        nargs="?",  # Make optional when --check is used
         help="Path to JSON configuration file (required). Use create_config_example.py to generate a template.",
     )
 
+    # Dependency check flag
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Check system dependencies (Python packages, LaTeX, virtual environment) and exit",
+    )
+
     args = parser.parse_args()
+
+    # Handle --check flag
+    if args.check:
+        from dependency_checker import check_dependencies
+
+        system_ready = check_dependencies(verbose=False)
+        sys.exit(0 if system_ready else 1)
+
+    # Validate config_file is provided when not checking
+    if not args.config_file:
+        parser.error("config_file is required (unless using --check)")
 
     # Load configuration from JSON file
     from config_manager import load_config, ReportConfig

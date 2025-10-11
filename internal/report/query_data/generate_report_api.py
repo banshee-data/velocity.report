@@ -185,6 +185,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "config_file",
+        nargs="?",  # Make optional when --check is used
         help="Path to JSON configuration file",
     )
     parser.add_argument(
@@ -196,8 +197,24 @@ if __name__ == "__main__":
         action="store_true",
         help="Output result as JSON (for programmatic use)",
     )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Check system dependencies and exit",
+    )
 
     args = parser.parse_args()
+
+    # Handle --check flag
+    if args.check:
+        from dependency_checker import check_dependencies
+
+        system_ready = check_dependencies(verbose=False)
+        sys.exit(0 if system_ready else 1)
+
+    # Validate config_file is provided when not checking
+    if not args.config_file:
+        parser.error("config_file is required (unless using --check)")
 
     result = generate_report_from_file(args.config_file, args.output_dir)
 
