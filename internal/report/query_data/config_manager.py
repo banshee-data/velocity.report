@@ -107,6 +107,145 @@ class OutputConfig:
 
 
 @dataclass
+class ColorConfig:
+    """Color palette for charts and reports."""
+
+    p50: str = "#fbd92f"  # Yellow - 50th percentile
+    p85: str = "#f7b32b"  # Orange - 85th percentile
+    p98: str = "#f25f5c"  # Red/Pink - 98th percentile
+    max: str = "#2d1e2f"  # Dark purple/black - maximum
+    count_bar: str = "#2d1e2f"  # Gray bars for counts
+    low_sample: str = "#f7b32b"  # Orange highlight for low-sample periods
+
+
+@dataclass
+class FontConfig:
+    """Font sizes for charts and documents."""
+
+    chart_title: int = 14
+    chart_label: int = 13
+    chart_tick: int = 11
+    chart_axis_label: int = 8
+    chart_axis_tick: int = 7
+    chart_legend: int = 7
+    histogram_title: int = 14
+    histogram_label: int = 13
+    histogram_tick: int = 11
+
+
+@dataclass
+class LayoutConfig:
+    """Layout dimensions and constraints."""
+
+    # Figure dimensions (stored as separate width/height for JSON serialization)
+    chart_figsize_width: float = 24.0
+    chart_figsize_height: float = 8.0
+    histogram_figsize_width: float = 3.0
+    histogram_figsize_height: float = 2.0
+
+    # Thresholds
+    low_sample_threshold: int = 50
+    count_missing_threshold: int = 5
+
+    # Bar chart widths (as fractions of bucket spacing)
+    bar_width_bg_fraction: float = 0.95
+    bar_width_fraction: float = 0.7
+
+    # Chart sizing constraints
+    min_chart_width_in: float = 6.0
+    max_chart_width_in: float = 11.0
+
+    # Chart margins and spacing (for fig.subplots_adjust)
+    chart_left: float = 0.02
+    chart_right: float = 0.96
+    chart_top: float = 0.995
+    chart_bottom: float = 0.16
+
+    # Y-axis scaling
+    count_axis_scale: float = 1.6
+
+    # Line and marker styling
+    line_width: float = 1.0
+    marker_size: int = 4
+    marker_edge_width: float = 0.4
+
+    @property
+    def chart_figsize(self) -> tuple:
+        """Get chart figure size as tuple for matplotlib."""
+        return (self.chart_figsize_width, self.chart_figsize_height)
+
+    @property
+    def histogram_figsize(self) -> tuple:
+        """Get histogram figure size as tuple for matplotlib."""
+        return (self.histogram_figsize_width, self.histogram_figsize_height)
+
+
+@dataclass
+class PdfConfig:
+    """PDF/LaTeX document settings."""
+
+    geometry_top: str = "1.8cm"
+    geometry_bottom: str = "1.0cm"
+    geometry_left: str = "1.0cm"
+    geometry_right: str = "1.0cm"
+    columnsep: str = "14"  # Points
+    headheight: str = "12pt"
+    headsep: str = "10pt"
+    fonts_dir: str = "fonts"
+
+    @property
+    def geometry(self) -> Dict[str, str]:
+        """Get geometry as dictionary for backward compatibility."""
+        return {
+            "top": self.geometry_top,
+            "bottom": self.geometry_bottom,
+            "left": self.geometry_left,
+            "right": self.geometry_right,
+        }
+
+
+@dataclass
+class MapConfig:
+    """SVG map marker configuration."""
+
+    # Triangle marker properties
+    triangle_len: float = 0.42
+    triangle_cx: float = 0.385
+    triangle_cy: float = 0.71
+    triangle_apex_angle: float = 20.0
+    triangle_angle: float = 32.0
+    triangle_color: str = "#f25f5c"
+    triangle_opacity: float = 0.9
+
+    # Circle marker at triangle apex
+    circle_radius: float = 20.0
+    circle_fill: str = "#ffffff"
+    circle_stroke: Optional[str] = None  # Defaults to triangle_color
+    circle_stroke_width: str = "2"
+
+    def __post_init__(self):
+        """Compute circle_stroke default to match triangle_color."""
+        if self.circle_stroke is None:
+            self.circle_stroke = self.triangle_color
+
+
+@dataclass
+class HistogramProcessingConfig:
+    """Histogram processing defaults."""
+
+    default_cutoff: float = 5.0
+    default_bucket_size: float = 5.0
+    default_max_bucket: float = 50.0
+
+
+@dataclass
+class DebugConfig:
+    """Debug settings."""
+
+    plot_debug: bool = False
+
+
+@dataclass
 class ReportConfig:
     """Complete report configuration."""
 
@@ -114,6 +253,17 @@ class ReportConfig:
     radar: RadarConfig = field(default_factory=RadarConfig)
     query: QueryConfig = field(default_factory=QueryConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
+
+    # Visual/presentation configuration
+    colors: ColorConfig = field(default_factory=ColorConfig)
+    fonts: FontConfig = field(default_factory=FontConfig)
+    layout: LayoutConfig = field(default_factory=LayoutConfig)
+    pdf: PdfConfig = field(default_factory=PdfConfig)
+    map: MapConfig = field(default_factory=MapConfig)
+    histogram_processing: HistogramProcessingConfig = field(
+        default_factory=HistogramProcessingConfig
+    )
+    debug: DebugConfig = field(default_factory=DebugConfig)
 
     # Metadata
     created_at: Optional[str] = None
@@ -159,12 +309,26 @@ class ReportConfig:
         radar_data = filter_meta(data.get("radar", {}))
         query_data = filter_meta(data.get("query", {}))
         output_data = filter_meta(data.get("output", {}))
+        colors_data = filter_meta(data.get("colors", {}))
+        fonts_data = filter_meta(data.get("fonts", {}))
+        layout_data = filter_meta(data.get("layout", {}))
+        pdf_data = filter_meta(data.get("pdf", {}))
+        map_data = filter_meta(data.get("map", {}))
+        histogram_processing_data = filter_meta(data.get("histogram_processing", {}))
+        debug_data = filter_meta(data.get("debug", {}))
 
         return cls(
             site=SiteConfig(**site_data),
             radar=RadarConfig(**radar_data),
             query=QueryConfig(**query_data),
             output=OutputConfig(**output_data),
+            colors=ColorConfig(**colors_data),
+            fonts=FontConfig(**fonts_data),
+            layout=LayoutConfig(**layout_data),
+            pdf=PdfConfig(**pdf_data),
+            map=MapConfig(**map_data),
+            histogram_processing=HistogramProcessingConfig(**histogram_processing_data),
+            debug=DebugConfig(**debug_data),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
             version=data.get("version", "1.0"),
@@ -252,7 +416,7 @@ def load_config(
 
 # Example usage and template generation
 def create_example_config(output_path: str = "report_config_example.json") -> None:
-    """Create an example configuration file.
+    """Create an example configuration file with all sections populated.
 
     Args:
         output_path: Path to write example config
@@ -266,6 +430,11 @@ def create_example_config(output_path: str = "report_config_example.json") -> No
             latitude=37.7749,
             longitude=-122.4194,
             map_angle=32.0,
+        ),
+        radar=RadarConfig(
+            cosine_error_angle=15.0,
+            sensor_model="OmniPreSense OPS243-A",
+            firmware_version="v1.2.3",
         ),
         query=QueryConfig(
             start_date="2025-06-02",
@@ -283,6 +452,40 @@ def create_example_config(output_path: str = "report_config_example.json") -> No
             output_dir="/var/reports",
             run_id="run-20250610-123456",
             debug=False,
+            map=True,
+        ),
+        colors=ColorConfig(
+            p50="#fbd92f",
+            p85="#f7b32b",
+            p98="#f25f5c",
+            max="#2d1e2f",
+        ),
+        fonts=FontConfig(
+            chart_title=14,
+            chart_label=13,
+            histogram_title=14,
+        ),
+        layout=LayoutConfig(
+            chart_figsize_width=24.0,
+            chart_figsize_height=8.0,
+            low_sample_threshold=50,
+        ),
+        pdf=PdfConfig(
+            geometry_top="1.8cm",
+            geometry_bottom="1.0cm",
+            columnsep="14",
+        ),
+        map=MapConfig(
+            triangle_color="#f25f5c",
+            triangle_angle=32.0,
+            circle_fill="#ffffff",
+        ),
+        histogram_processing=HistogramProcessingConfig(
+            default_cutoff=5.0,
+            default_bucket_size=5.0,
+        ),
+        debug=DebugConfig(
+            plot_debug=False,
         ),
     )
 
