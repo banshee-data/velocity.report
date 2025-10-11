@@ -410,7 +410,11 @@ class HistogramTableBuilder:
         max_bucket: Optional[float],
         fallback_ranges: List[tuple],
     ) -> List[tuple]:
-        """Compute bucket ranges from actual data."""
+        """Compute bucket ranges from actual data.
+
+        The last bucket will always be shown as N+ where N is the start of the
+        highest bucket with actual data, not max_bucket. This matches the chart behavior.
+        """
         ranges = []
         inferred_bucket = float(bucket_size)
 
@@ -434,24 +438,12 @@ class HistogramTableBuilder:
             if inferred_bucket <= 0:
                 inferred_bucket = float(bucket_size) or 5.0
 
-            # Build ranges from min_k upward
+            # Build ranges from min_k up to max_k (highest bucket with data)
+            # Ignore max_bucket parameter - we only show buckets with actual data
             s = min_k
-            if max_bucket is not None:
-                # Build ranges up to max_k, ensuring coverage of max_bucket
-                while s <= max_k:
-                    ranges.append((s, s + inferred_bucket))
-                    s += inferred_bucket
-
-                # Add one more bucket if needed to reach max_bucket
-                if ranges and ranges[-1][0] < max_bucket:
-                    last_end = ranges[-1][1]
-                    if last_end < max_bucket:
-                        ranges.append((last_end, last_end + inferred_bucket))
-            else:
-                # No explicit max: build ranges up to max_k
-                while s <= max_k:
-                    ranges.append((s, s + inferred_bucket))
-                    s += inferred_bucket
+            while s <= max_k:
+                ranges.append((s, s + inferred_bucket))
+                s += inferred_bucket
 
         except Exception:
             return fallback_ranges
@@ -468,7 +460,11 @@ class HistogramTableBuilder:
         max_bucket: Optional[float],
         proc_max: float,
     ) -> None:
-        """Add histogram data rows to table."""
+        """Add histogram data rows to table.
+
+        The last bucket is always shown as N+ where N is the start of the highest
+        bucket with actual data, matching the chart behavior.
+        """
         first_start = ranges[0][0]
 
         # Below-cutoff row (only add if there's actually data below the first bucket)
@@ -488,13 +484,10 @@ class HistogramTableBuilder:
             is_last = idx == len(ranges) - 1
 
             if is_last:
-                # Last bucket: render as "N+" (open-ended)
-                if max_bucket is not None:
-                    label = f"{int(max_bucket)}+"
-                    cnt = count_histogram_ge(numeric_buckets, a)
-                else:
-                    label = f"{int(a)}+"
-                    cnt = count_histogram_ge(numeric_buckets, a)
+                # Last bucket: render as "N+" where N is the start of this bucket
+                # This matches the chart behavior (highest bucket with data as N+)
+                label = f"{int(a)}+"
+                cnt = count_histogram_ge(numeric_buckets, a)
                 pct = (cnt / total * 100.0) if total > 0 else 0.0
             else:
                 # Regular bucket: render as "A-B"
