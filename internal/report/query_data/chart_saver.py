@@ -20,7 +20,10 @@ except Exception:  # pragma: no cover
     HAVE_MATPLOTLIB = False
     plt = None
 
-from report_config import LAYOUT
+
+# Default chart size constraints (matches config_manager.LayoutConfig)
+DEFAULT_MIN_CHART_WIDTH_IN = 6.0
+DEFAULT_MAX_CHART_WIDTH_IN = 11.0
 
 
 class ChartSaver:
@@ -50,8 +53,8 @@ class ChartSaver:
                 "Install it with: pip install matplotlib"
             )
 
-        self.min_width_in = min_width_in or LAYOUT["min_chart_width_in"]
-        self.max_width_in = max_width_in or LAYOUT["max_chart_width_in"]
+        self.min_width_in = min_width_in or DEFAULT_MIN_CHART_WIDTH_IN
+        self.max_width_in = max_width_in or DEFAULT_MAX_CHART_WIDTH_IN
 
     def save_as_pdf(
         self,
