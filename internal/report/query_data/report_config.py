@@ -1,19 +1,40 @@
 #!/usr/bin/env python3
 """Configuration constants for PDF report generation.
 
-This module centralizes all configuration values used across the report generation
-workflow, including colors, font sizes, layout dimensions, and site-specific content.
-Environment variables can override some values for flexibility.
+⚠️  DEPRECATED: This module is deprecated. Use config_manager.ReportConfig instead.
 
-Note on Configuration Patterns:
-- Most config dictionaries are immutable after definition
-- MAP_CONFIG uses computed defaults to avoid post-definition mutation
+This module provides backward compatibility for legacy code that imports
+configuration dictionaries. All new code should use the JSON-based configuration
+system in config_manager.py.
+
+Migration Guide:
+    See docs/REFACTOR_CONFIG_CONSOLIDATION.md for migration instructions.
+
+    Old (Deprecated):
+        from report_config import COLORS, FONTS, SITE_INFO
+        color = COLORS["p50"]
+
+    New (Recommended):
+        from config_manager import ReportConfig
+        config = ReportConfig.from_json("config.json")
+        color = config.colors.p50
+
+Legacy Behavior:
+- Configuration dictionaries use hardcoded defaults (no environment variables)
 - Use helper functions (get_config, override_site_info, get_map_config_with_overrides)
   for runtime customization
 """
 
-import os
+import warnings
 from typing import Dict, Any
+
+# Issue deprecation warning when module is imported
+warnings.warn(
+    "report_config module is deprecated. Use config_manager.ReportConfig instead. "
+    "See docs/REFACTOR_CONFIG_CONSOLIDATION.md for migration guide.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 # =============================================================================
@@ -85,13 +106,13 @@ LAYOUT: Dict[str, Any] = {
 # =============================================================================
 # Site Information
 # =============================================================================
-# These are defaults and can be overridden via CLI arguments or environment variables
+# These are defaults and can be overridden via CLI arguments or JSON configuration
 
 SITE_INFO: Dict[str, Any] = {
-    "location": os.getenv("REPORT_LOCATION", "Clarendon Avenue, San Francisco"),
-    "surveyor": os.getenv("REPORT_SURVEYOR", "Banshee, INC."),
-    "contact": os.getenv("REPORT_CONTACT", "david@banshee-data.com"),
-    "speed_limit": int(os.getenv("REPORT_SPEED_LIMIT", "25")),
+    "location": "Clarendon Avenue, San Francisco",
+    "surveyor": "Banshee, INC.",
+    "contact": "david@banshee-data.com",
+    "speed_limit": 25,
     # Site-specific narrative content
     "site_description": (
         "This survey was conducted from the southbound parking lane outside "
@@ -120,7 +141,7 @@ PDF_CONFIG: Dict[str, Any] = {
         "right": "1.0cm",
     },
     # Column separation
-    "columnsep": os.getenv("REPORT_COLUMNSEP_PT", "14"),  # Points
+    "columnsep": "14",  # Points
     # Header/footer spacing
     "headheight": "12pt",
     "headsep": "10pt",
@@ -136,18 +157,18 @@ PDF_CONFIG: Dict[str, Any] = {
 # Base map configuration values (immutable)
 _MAP_CONFIG_BASE: Dict[str, Any] = {
     # Triangle marker properties
-    "triangle_len": float(os.getenv("MAP_TRIANGLE_LEN", "0.42")),
-    "triangle_cx": float(os.getenv("MAP_TRIANGLE_CX", "0.385")),
-    "triangle_cy": float(os.getenv("MAP_TRIANGLE_CY", "0.71")),
-    "triangle_apex_angle": float(os.getenv("MAP_TRIANGLE_APEX_ANGLE", "20")),
-    "triangle_angle": float(os.getenv("MAP_TRIANGLE_ANGLE", "32")),
-    "triangle_color": os.getenv("MAP_TRIANGLE_COLOR", "#f25f5c"),
-    "triangle_opacity": float(os.getenv("MAP_TRIANGLE_OPACITY", "0.9")),
+    "triangle_len": 0.42,
+    "triangle_cx": 0.385,
+    "triangle_cy": 0.71,
+    "triangle_apex_angle": 20.0,
+    "triangle_angle": 32.0,
+    "triangle_color": "#f25f5c",
+    "triangle_opacity": 0.9,
     # Circle marker at triangle apex
-    "circle_radius": float(os.getenv("MAP_TRIANGLE_CIRCLE_RADIUS", "20")),
-    "circle_fill": os.getenv("MAP_TRIANGLE_CIRCLE_FILL", "#ffffff"),
-    "circle_stroke": os.getenv("MAP_TRIANGLE_CIRCLE_STROKE", None),
-    "circle_stroke_width": os.getenv("MAP_TRIANGLE_CIRCLE_STROKE_WIDTH", "2"),
+    "circle_radius": 20.0,
+    "circle_fill": "#ffffff",
+    "circle_stroke": None,
+    "circle_stroke_width": "2",
 }
 
 
@@ -190,7 +211,7 @@ HISTOGRAM_CONFIG: Dict[str, Any] = {
 # =============================================================================
 
 DEBUG: Dict[str, bool] = {
-    "plot_debug": os.getenv("VELOCITY_PLOT_DEBUG", "0") == "1",
+    "plot_debug": False,
 }
 
 

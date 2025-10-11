@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """Unit tests for report_config.py configuration module."""
 
-import os
 import unittest
-from unittest.mock import patch
 
 # Import all config sections
 from report_config import (
@@ -164,16 +162,6 @@ class TestSiteInfoConfig(unittest.TestCase):
             value = SITE_INFO[key]
             self.assertIsInstance(value, str, f"{key} should be a string")
             self.assertTrue(len(value) > 0, f"{key} should not be empty")
-
-    @patch.dict(os.environ, {"REPORT_LOCATION": "Test Street"})
-    def test_env_var_override_location(self):
-        """Test that environment variables can override location."""
-        # Need to reimport to pick up env var
-        import importlib
-        import report_config
-
-        importlib.reload(report_config)
-        self.assertEqual(report_config.SITE_INFO["location"], "Test Street")
 
 
 class TestPDFConfig(unittest.TestCase):
