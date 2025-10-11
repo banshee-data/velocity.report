@@ -230,5 +230,80 @@ def test_example_config_generation():
             os.unlink(temp_path)
 
 
+def test_load_config_with_invalid_json_syntax():
+    """Test load_config with syntactically invalid JSON."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        f.write('{"invalid": json content}')  # Invalid syntax
+        temp_file = f.name
+
+    try:
+        with pytest.raises(json.JSONDecodeError):
+            load_config(config_file=temp_file)
+    finally:
+        os.unlink(temp_file)
+
+
+def test_load_config_with_neither_file_nor_dict():
+    """Test load_config when both file and dict are None."""
+    with pytest.raises(ValueError) as exc_info:
+        load_config(config_file=None, config_dict=None)
+
+    error_msg = str(exc_info.value).lower()
+    assert "either" in error_msg or "neither" in error_msg
+
+
+def test_load_config_file_not_found_error_message():
+    """Test load_config error message for non-existent file."""
+    with pytest.raises(ValueError) as exc_info:
+        load_config(config_file="/nonexistent/path/config.json")
+
+    error_msg = str(exc_info.value).lower()
+    assert "not found" in error_msg
+    assert "config.json" in str(exc_info.value)
+
+
+def test_load_config_with_both_file_and_dict_prefers_file():
+    """Test load_config when both file and dict are provided (should prefer file)."""
+    config_data = {
+        "site": {
+            "location": "File Location",
+            "surveyor": "Test",
+            "contact": "test@test.com",
+        },
+        "radar": {"cosine_error_angle": 20.0},
+        "query": {
+            "start_date": "2025-06-01",
+            "end_date": "2025-06-07",
+            "timezone": "UTC",
+        },
+    }
+
+    dict_data = {
+        "site": {
+            "location": "Dict Location",
+            "surveyor": "Test",
+            "contact": "test@test.com",
+        },
+        "radar": {"cosine_error_angle": 15.0},
+        "query": {
+            "start_date": "2025-06-01",
+            "end_date": "2025-06-07",
+            "timezone": "UTC",
+        },
+    }
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        json.dump(config_data, f)
+        temp_file = f.name
+
+    try:
+        config = load_config(config_file=temp_file, config_dict=dict_data)
+        # Should use file data, not dict data
+        assert config.site.location == "File Location"
+        assert config.radar.cosine_error_angle == 20.0
+    finally:
+        os.unlink(temp_file)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
