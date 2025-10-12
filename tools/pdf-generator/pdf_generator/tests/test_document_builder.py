@@ -321,7 +321,7 @@ class TestDocumentBuilder(unittest.TestCase):
     ):
         """Test build() uses DEFAULT_SITE_CONFIG defaults when surveyor/contact not provided."""
         # Import and patch DEFAULT_SITE_CONFIG with a real SiteConfig instance
-        from config_manager import SiteConfig
+        from pdf_generator.core.config_manager import SiteConfig
 
         test_config = SiteConfig(
             surveyor="Default Surveyor", contact="default@example.com"

@@ -262,7 +262,7 @@ def test_example_config_generation():
         temp_path = f.name
 
     try:
-        from config_manager import create_example_config
+        from pdf_generator.core.config_manager import create_example_config
 
         create_example_config(temp_path)
 

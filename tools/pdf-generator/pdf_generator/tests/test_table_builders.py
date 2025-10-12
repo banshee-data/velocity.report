@@ -459,7 +459,7 @@ class TestImportFallbacks(unittest.TestCase):
 
     def test_pylatex_available(self):
         """Test that PyLaTeX is available in normal environment."""
-        from table_builders import HAVE_PYLATEX
+        from pdf_generator.core.table_builders import HAVE_PYLATEX
 
         # In test environment, should be True
         self.assertTrue(HAVE_PYLATEX)

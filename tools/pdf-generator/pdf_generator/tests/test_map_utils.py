@@ -859,7 +859,7 @@ class TestMapUtilsErrorHandling(unittest.TestCase):
     def test_map_generation_exception_in_osmium_download(self):
         """Test exception handling in OSM download (line 517)."""
         # Test the NotImplementedError in download_osm_map
-        from map_utils import download_osm_map
+        from pdf_generator.core.map_utils import download_osm_map
 
         with self.assertRaises(NotImplementedError) as context:
             download_osm_map(37.7749, -122.4194, 15, 500.0)
@@ -868,7 +868,7 @@ class TestMapUtilsErrorHandling(unittest.TestCase):
 
     def test_viewbox_conversion_not_implemented(self):
         """Test GPS-to-viewBox conversion raises NotImplementedError."""
-        from map_utils import compute_viewbox_from_gps
+        from pdf_generator.core.map_utils import compute_viewbox_from_gps
 
         with self.assertRaises(NotImplementedError) as context:
             compute_viewbox_from_gps(37.7749, -122.4194, 500.0)
