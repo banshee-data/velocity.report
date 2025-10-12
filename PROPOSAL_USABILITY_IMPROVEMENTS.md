@@ -1,8 +1,24 @@
 # Proposal: Usability & Organization Improvements
 
 **Date**: October 11, 2025
-**Status**: Proposed
+**Status**: ⚠️ **SUPERSEDED** - See `RESTRUCTURE_BEST_PRACTICE.md` for current implementation guide
 **Scope**: Python PDF Generator Utility (within Go monorepo)
+
+> **⚡ Quick Start**: This document contains the original proposal with multiple options. For the **recommended implementation**, see:
+> - **`RESTRUCTURE_BEST_PRACTICE.md`** - Complete step-by-step guide for moving to `tools/pdf-generator/`
+
+---
+
+## Updates Since Original Proposal
+
+**October 11, 2025** - Recent cleanup completed:
+- ✅ Removed deprecated `report_config.py` and `test_report_config.py` (36 tests)
+- ✅ Removed `generate_report_api.py` web API and tests (17 tests)
+- ✅ 18 production Python modules remain (down from 20)
+- ✅ 451 tests passing (down from 504)
+- 📝 Ready for restructure to `tools/pdf-generator/`
+
+---
 
 ## Executive Summary
 
