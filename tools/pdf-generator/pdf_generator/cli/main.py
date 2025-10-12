@@ -23,7 +23,11 @@ import numpy as np
 
 from pdf_generator.core.api_client import RadarStatsClient, SUPPORTED_GROUPS
 from pdf_generator.core.config_manager import ReportConfig
-from pdf_generator.core.date_parser import parse_date_to_unix, is_date_only, parse_server_time
+from pdf_generator.core.date_parser import (
+    parse_date_to_unix,
+    is_date_only,
+    parse_server_time,
+)
 from pdf_generator.core.pdf_generator import generate_pdf_report
 from pdf_generator.core.stats_utils import plot_histogram
 from pdf_generator.core.data_transformers import (
@@ -52,7 +56,9 @@ def _import_chart_builder():
         return TimeSeriesChartBuilder
 
     try:
-        from chart_builder import TimeSeriesChartBuilder as _TimeSeriesChartBuilder
+        from pdf_generator.core.chart_builder import (
+            TimeSeriesChartBuilder as _TimeSeriesChartBuilder,
+        )
     except ImportError as exc:  # pragma: no cover - optional dependency
         raise ImportError("chart_builder module unavailable") from exc
 
@@ -69,7 +75,9 @@ def _import_chart_saver():
         return save_chart_as_pdf
 
     try:
-        from chart_saver import save_chart_as_pdf as _save_chart_as_pdf
+        from pdf_generator.core.chart_saver import (
+            save_chart_as_pdf as _save_chart_as_pdf,
+        )
     except ImportError as exc:  # pragma: no cover - optional dependency
         raise ImportError("chart_saver module unavailable") from exc
 
