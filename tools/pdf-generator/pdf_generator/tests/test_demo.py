@@ -164,8 +164,8 @@ class TestDemoValidation:
         config = demo_create_config()
         demo_validation(config)
 
-        output = mock_stdout.getvalue()
-        assert "Valid config" in output.lower()
+        output = mock_stdout.getvalue().lower()
+        assert "valid config: true" in output
 
     @patch("sys.stdout", new_callable=StringIO)
     def test_demonstrates_invalid_config(self, mock_stdout):
@@ -173,10 +173,10 @@ class TestDemoValidation:
         config = demo_create_config()
         demo_validation(config)
 
-        output = mock_stdout.getvalue()
+        output = mock_stdout.getvalue().lower()
         # Should show both valid and invalid examples
-        assert "Invalid config" in output.lower()
-        assert "Errors:" in output
+        assert "invalid config" in output
+        assert "errors:" in output
 
     @patch("sys.stdout", new_callable=StringIO)
     def test_shows_error_messages(self, mock_stdout):
