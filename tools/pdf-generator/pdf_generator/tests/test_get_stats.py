@@ -165,7 +165,7 @@ class TestComputeIsoTimestamps(unittest.TestCase):
 class TestResolveFilePrefix(unittest.TestCase):
     """Tests for resolve_file_prefix function."""
 
-    @patch("get_stats._next_sequenced_prefix")
+    @patch("pdf_generator.cli.main._next_sequenced_prefix")
     def test_with_user_provided_prefix(self, mock_next_seq):
         """Test prefix resolution with user-provided prefix."""
         mock_next_seq.return_value = "my-prefix-1"
@@ -360,8 +360,8 @@ class TestFetchDailySummary(unittest.TestCase):
 class TestGenerateHistogramChart(unittest.TestCase):
     """Tests for generate_histogram_chart function."""
 
-    @patch("get_stats.save_chart_as_pdf")
-    @patch("get_stats.plot_histogram")
+    @patch("pdf_generator.cli.main.save_chart_as_pdf")
+    @patch("pdf_generator.cli.main.plot_histogram")
     def test_successful_generation(self, mock_plot, mock_save):
         """Test successful histogram chart generation."""
         mock_fig = Mock()
@@ -380,8 +380,8 @@ class TestGenerateHistogramChart(unittest.TestCase):
         mock_plot.assert_called_once()
         mock_save.assert_called_once_with(mock_fig, "test-prefix_histogram.pdf")
 
-    @patch("get_stats.save_chart_as_pdf")
-    @patch("get_stats.plot_histogram")
+    @patch("pdf_generator.cli.main.save_chart_as_pdf")
+    @patch("pdf_generator.cli.main.plot_histogram")
     def test_save_failure_returns_false(self, mock_plot, mock_save):
         """Test that save failure returns False."""
         mock_fig = Mock()
@@ -395,7 +395,7 @@ class TestGenerateHistogramChart(unittest.TestCase):
 
         self.assertFalse(result)
 
-    @patch("get_stats.plot_histogram")
+    @patch("pdf_generator.cli.main.plot_histogram")
     def test_exception_returns_false(self, mock_plot):
         """Test that exception returns False."""
         mock_plot.side_effect = Exception("Plot error")
@@ -411,8 +411,8 @@ class TestGenerateHistogramChart(unittest.TestCase):
 class TestGenerateTimeseriesChart(unittest.TestCase):
     """Tests for generate_timeseries_chart function."""
 
-    @patch("get_stats.save_chart_as_pdf")
-    @patch("get_stats._plot_stats_page")
+    @patch("pdf_generator.cli.main.save_chart_as_pdf")
+    @patch("pdf_generator.cli.main._plot_stats_page")
     def test_successful_generation(self, mock_plot, mock_save):
         """Test successful time-series chart generation."""
         mock_fig = Mock()
@@ -432,7 +432,7 @@ class TestGenerateTimeseriesChart(unittest.TestCase):
         )
         mock_save.assert_called_once_with(mock_fig, "test_stats.pdf")
 
-    @patch("get_stats._plot_stats_page")
+    @patch("pdf_generator.cli.main._plot_stats_page")
     def test_exception_returns_false(self, mock_plot):
         """Test that exception returns False."""
         mock_plot.side_effect = Exception("Plot error")
@@ -450,7 +450,7 @@ class TestGenerateTimeseriesChart(unittest.TestCase):
 class TestAssemblePdfReport(unittest.TestCase):
     """Tests for assemble_pdf_report function."""
 
-    @patch("get_stats.generate_pdf_report")
+    @patch("pdf_generator.cli.main.generate_pdf_report")
     def test_successful_assembly(self, mock_generate):
         """Test successful PDF assembly."""
         config = create_test_config(
@@ -471,7 +471,7 @@ class TestAssemblePdfReport(unittest.TestCase):
         self.assertTrue(result)
         mock_generate.assert_called_once()
 
-    @patch("get_stats.generate_pdf_report")
+    @patch("pdf_generator.cli.main.generate_pdf_report")
     def test_exception_returns_false(self, mock_generate):
         """Test that exception returns False."""
         mock_generate.side_effect = Exception("PDF error")
@@ -497,11 +497,11 @@ class TestAssemblePdfReport(unittest.TestCase):
 class TestProcessDateRange(unittest.TestCase):
     """Tests for process_date_range orchestration."""
 
-    @patch("get_stats.assemble_pdf_report")
-    @patch("get_stats.fetch_daily_summary")
-    @patch("get_stats.fetch_overall_summary")
-    @patch("get_stats.fetch_granular_metrics")
-    @patch("get_stats.parse_date_to_unix")
+    @patch("pdf_generator.cli.main.assemble_pdf_report")
+    @patch("pdf_generator.cli.main.fetch_daily_summary")
+    @patch("pdf_generator.cli.main.fetch_overall_summary")
+    @patch("pdf_generator.cli.main.fetch_granular_metrics")
+    @patch("pdf_generator.cli.main.parse_date_to_unix")
     def test_successful_processing(
         self,
         mock_parse,
@@ -536,7 +536,7 @@ class TestProcessDateRange(unittest.TestCase):
         mock_fetch_overall.assert_called_once()
         mock_assemble.assert_called_once()
 
-    @patch("get_stats.parse_date_to_unix")
+    @patch("pdf_generator.cli.main.parse_date_to_unix")
     def test_invalid_date_returns_early(self, mock_parse):
         """Test that invalid date returns early."""
         mock_parse.side_effect = ValueError("Invalid date")
@@ -550,8 +550,8 @@ class TestProcessDateRange(unittest.TestCase):
         # Client should not be called
         mock_client.get_stats.assert_not_called()
 
-    @patch("get_stats.fetch_granular_metrics")
-    @patch("get_stats.parse_date_to_unix")
+    @patch("pdf_generator.cli.main.fetch_granular_metrics")
+    @patch("pdf_generator.cli.main.parse_date_to_unix")
     def test_no_data_returns_early(self, mock_parse, mock_fetch):
         """Test that no data returns early."""
         mock_parse.side_effect = [1704067200, 1704153600]
@@ -701,8 +701,8 @@ class TestNextSequencedPrefix(unittest.TestCase):
 class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
     """Additional tests for generate_histogram_chart."""
 
-    @patch("get_stats.save_chart_as_pdf")
-    @patch("get_stats.plot_histogram")
+    @patch("pdf_generator.cli.main.save_chart_as_pdf")
+    @patch("pdf_generator.cli.main.plot_histogram")
     def test_save_failure_returns_false(self, mock_plot, mock_save):
         """Test that save failure returns False."""
         mock_plot.return_value = Mock()
@@ -714,7 +714,7 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         self.assertFalse(result)
         mock_save.assert_called_once()
 
-    @patch("get_stats.plot_histogram")
+    @patch("pdf_generator.cli.main.plot_histogram")
     def test_import_error_returns_false(self, mock_plot):
         """Test that ImportError returns False."""
         mock_plot.side_effect = ImportError("No matplotlib")
@@ -724,7 +724,7 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
 
         self.assertFalse(result)
 
-    @patch("get_stats.plot_histogram")
+    @patch("pdf_generator.cli.main.plot_histogram")
     def test_import_error_debug_mode(self, mock_plot):
         """Test ImportError with debug mode enabled."""
         mock_plot.side_effect = ImportError("No matplotlib")
@@ -734,8 +734,8 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
 
         self.assertFalse(result)
 
-    @patch("get_stats.save_chart_as_pdf")
-    @patch("get_stats.plot_histogram")
+    @patch("pdf_generator.cli.main.save_chart_as_pdf")
+    @patch("pdf_generator.cli.main.plot_histogram")
     def test_exception_returns_false(self, mock_plot, mock_save):
         """Test that general exception returns False."""
         mock_plot.return_value = Mock()
@@ -746,8 +746,8 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
 
         self.assertFalse(result)
 
-    @patch("get_stats.save_chart_as_pdf")
-    @patch("get_stats.plot_histogram")
+    @patch("pdf_generator.cli.main.save_chart_as_pdf")
+    @patch("pdf_generator.cli.main.plot_histogram")
     def test_exception_debug_mode(self, mock_plot, mock_save):
         """Test exception with debug mode enabled."""
         mock_plot.return_value = Mock()
@@ -758,8 +758,8 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
 
         self.assertFalse(result)
 
-    @patch("get_stats.save_chart_as_pdf")
-    @patch("get_stats.plot_histogram")
+    @patch("pdf_generator.cli.main.save_chart_as_pdf")
+    @patch("pdf_generator.cli.main.plot_histogram")
     def test_sample_n_extraction_with_dict(self, mock_plot, mock_save):
         """Test sample size extraction from dict metrics."""
         mock_plot.return_value = Mock()
@@ -774,8 +774,8 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         # Verify plot_histogram was called (sample label will be in title)
         mock_plot.assert_called_once()
 
-    @patch("get_stats.save_chart_as_pdf")
-    @patch("get_stats.plot_histogram")
+    @patch("pdf_generator.cli.main.save_chart_as_pdf")
+    @patch("pdf_generator.cli.main.plot_histogram")
     def test_sample_n_extraction_with_list(self, mock_plot, mock_save):
         """Test sample size extraction from list metrics."""
         mock_plot.return_value = Mock()
@@ -788,8 +788,8 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
 
         self.assertTrue(result)
 
-    @patch("get_stats.save_chart_as_pdf")
-    @patch("get_stats.plot_histogram")
+    @patch("pdf_generator.cli.main.save_chart_as_pdf")
+    @patch("pdf_generator.cli.main.plot_histogram")
     def test_sample_n_extraction_exception(self, mock_plot, mock_save):
         """Test sample size extraction handles exceptions gracefully."""
         mock_plot.return_value = Mock()
@@ -806,8 +806,8 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
 class TestGenerateTimeseriesChartEdgeCases(unittest.TestCase):
     """Additional tests for generate_timeseries_chart."""
 
-    @patch("get_stats.save_chart_as_pdf")
-    @patch("get_stats._plot_stats_page")
+    @patch("pdf_generator.cli.main.save_chart_as_pdf")
+    @patch("pdf_generator.cli.main._plot_stats_page")
     def test_save_failure_returns_false(self, mock_plot, mock_save):
         """Test that save failure returns False."""
         mock_plot.return_value = Mock()
@@ -820,8 +820,8 @@ class TestGenerateTimeseriesChartEdgeCases(unittest.TestCase):
 
         self.assertFalse(result)
 
-    @patch("get_stats.save_chart_as_pdf")
-    @patch("get_stats._plot_stats_page")
+    @patch("pdf_generator.cli.main.save_chart_as_pdf")
+    @patch("pdf_generator.cli.main._plot_stats_page")
     def test_exception_returns_false(self, mock_plot, mock_save):
         """Test that exception returns False."""
         mock_plot.side_effect = Exception("Plot error")
@@ -833,8 +833,8 @@ class TestGenerateTimeseriesChartEdgeCases(unittest.TestCase):
 
         self.assertFalse(result)
 
-    @patch("get_stats.save_chart_as_pdf")
-    @patch("get_stats._plot_stats_page")
+    @patch("pdf_generator.cli.main.save_chart_as_pdf")
+    @patch("pdf_generator.cli.main._plot_stats_page")
     def test_exception_debug_mode(self, mock_plot, mock_save):
         """Test exception with debug mode enabled."""
         mock_plot.side_effect = Exception("Plot error")
@@ -858,7 +858,7 @@ class TestCheckChartsAvailable(unittest.TestCase):
         result = check_charts_available()
         self.assertTrue(result)
 
-    @patch("get_stats.TimeSeriesChartBuilder", create=True)
+    @patch("pdf_generator.cli.main.TimeSeriesChartBuilder", create=True)
     def test_returns_false_on_import_error(self, mock_builder):
         """Test that check_charts_available returns False on ImportError."""
         # This is tricky to test since the import happens at function definition
@@ -871,9 +871,9 @@ class TestCheckChartsAvailable(unittest.TestCase):
 class TestGenerateAllCharts(unittest.TestCase):
     """Tests for generate_all_charts orchestration."""
 
-    @patch("get_stats.generate_timeseries_chart")
-    @patch("get_stats.generate_histogram_chart")
-    @patch("get_stats.check_charts_available")
+    @patch("pdf_generator.cli.main.generate_timeseries_chart")
+    @patch("pdf_generator.cli.main.generate_histogram_chart")
+    @patch("pdf_generator.cli.main.check_charts_available")
     def test_charts_unavailable_returns_early(self, mock_check, mock_hist, mock_ts):
         """Test that unavailable charts returns early."""
         mock_check.return_value = False
@@ -888,9 +888,9 @@ class TestGenerateAllCharts(unittest.TestCase):
         mock_hist.assert_not_called()
         mock_ts.assert_not_called()
 
-    @patch("get_stats.generate_timeseries_chart")
-    @patch("get_stats.generate_histogram_chart")
-    @patch("get_stats.check_charts_available")
+    @patch("pdf_generator.cli.main.generate_timeseries_chart")
+    @patch("pdf_generator.cli.main.generate_histogram_chart")
+    @patch("pdf_generator.cli.main.check_charts_available")
     def test_charts_unavailable_debug_mode(self, mock_check, mock_hist, mock_ts):
         """Test unavailable charts in debug mode."""
         mock_check.return_value = False
@@ -904,10 +904,10 @@ class TestGenerateAllCharts(unittest.TestCase):
         mock_hist.assert_not_called()
         mock_ts.assert_not_called()
 
-    @patch("get_stats.print_api_debug_info")
-    @patch("get_stats.generate_timeseries_chart")
-    @patch("get_stats.generate_histogram_chart")
-    @patch("get_stats.check_charts_available")
+    @patch("pdf_generator.cli.main.print_api_debug_info")
+    @patch("pdf_generator.cli.main.generate_timeseries_chart")
+    @patch("pdf_generator.cli.main.generate_histogram_chart")
+    @patch("pdf_generator.cli.main.check_charts_available")
     def test_debug_info_printed_when_resp_provided(
         self, mock_check, mock_hist, mock_ts, mock_debug
     ):
@@ -927,9 +927,9 @@ class TestGenerateAllCharts(unittest.TestCase):
 
         mock_debug.assert_called_once_with(resp, [{"p50": 25}], {"10": 5})
 
-    @patch("get_stats.generate_timeseries_chart")
-    @patch("get_stats.generate_histogram_chart")
-    @patch("get_stats.check_charts_available")
+    @patch("pdf_generator.cli.main.generate_timeseries_chart")
+    @patch("pdf_generator.cli.main.generate_histogram_chart")
+    @patch("pdf_generator.cli.main.check_charts_available")
     def test_daily_chart_generated_when_available(self, mock_check, mock_hist, mock_ts):
         """Test that daily chart is generated when data available."""
         mock_check.return_value = True
@@ -949,9 +949,9 @@ class TestGenerateAllCharts(unittest.TestCase):
         # Should be called twice: once for stats, once for daily
         self.assertEqual(mock_ts.call_count, 2)
 
-    @patch("get_stats.generate_timeseries_chart")
-    @patch("get_stats.generate_histogram_chart")
-    @patch("get_stats.check_charts_available")
+    @patch("pdf_generator.cli.main.generate_timeseries_chart")
+    @patch("pdf_generator.cli.main.generate_histogram_chart")
+    @patch("pdf_generator.cli.main.check_charts_available")
     def test_histogram_generated_when_available(self, mock_check, mock_hist, mock_ts):
         """Test that histogram is generated when data available."""
         mock_check.return_value = True
@@ -998,8 +998,8 @@ class TestPrintApiDebugInfo(unittest.TestCase):
 class TestMainFunction(unittest.TestCase):
     """Tests for main function."""
 
-    @patch("get_stats.process_date_range")
-    @patch("get_stats.RadarStatsClient")
+    @patch("pdf_generator.cli.main.process_date_range")
+    @patch("pdf_generator.cli.main.RadarStatsClient")
     def test_processes_multiple_date_ranges(self, mock_client_class, mock_process):
         """Test that main processes multiple date ranges."""
         from pdf_generator.cli.main import main
@@ -1033,8 +1033,8 @@ class TestMainFunction(unittest.TestCase):
 class TestParseDateRange(unittest.TestCase):
     """Tests for parse_date_range function."""
 
-    @patch("get_stats.parse_date_to_unix")
-    @patch("get_stats.is_date_only")
+    @patch("pdf_generator.cli.main.parse_date_to_unix")
+    @patch("pdf_generator.cli.main.is_date_only")
     def test_successful_parse(self, mock_is_date_only, mock_parse):
         """Test successful date range parsing."""
         from pdf_generator.cli.main import parse_date_range
@@ -1048,7 +1048,7 @@ class TestParseDateRange(unittest.TestCase):
         self.assertEqual(end_ts, 1704153600)
         self.assertEqual(mock_parse.call_count, 2)
 
-    @patch("get_stats.parse_date_to_unix")
+    @patch("pdf_generator.cli.main.parse_date_to_unix")
     def test_parse_failure_returns_none(self, mock_parse):
         """Test that parse failure returns None values."""
         from pdf_generator.cli.main import parse_date_range
@@ -1095,7 +1095,7 @@ class TestGetModelVersion(unittest.TestCase):
 class TestPlotStatsPage(unittest.TestCase):
     """Tests for _plot_stats_page function."""
 
-    @patch("get_stats.TimeSeriesChartBuilder")
+    @patch("pdf_generator.cli.main.TimeSeriesChartBuilder")
     def test_creates_chart(self, mock_builder_class):
         """Test that _plot_stats_page creates chart."""
         from pdf_generator.cli.main import _plot_stats_page
@@ -1114,14 +1114,14 @@ class TestPlotStatsPage(unittest.TestCase):
 class TestProcessDateRangeEdgeCases(unittest.TestCase):
     """Additional edge case tests for process_date_range."""
 
-    @patch("get_stats.assemble_pdf_report")
-    @patch("get_stats.generate_all_charts")
-    @patch("get_stats.fetch_daily_summary")
-    @patch("get_stats.fetch_overall_summary")
-    @patch("get_stats.fetch_granular_metrics")
-    @patch("get_stats.resolve_file_prefix")
-    @patch("get_stats.get_model_version")
-    @patch("get_stats.parse_date_range")
+    @patch("pdf_generator.cli.main.assemble_pdf_report")
+    @patch("pdf_generator.cli.main.generate_all_charts")
+    @patch("pdf_generator.cli.main.fetch_daily_summary")
+    @patch("pdf_generator.cli.main.fetch_overall_summary")
+    @patch("pdf_generator.cli.main.fetch_granular_metrics")
+    @patch("pdf_generator.cli.main.resolve_file_prefix")
+    @patch("pdf_generator.cli.main.get_model_version")
+    @patch("pdf_generator.cli.main.parse_date_range")
     def test_parse_failure_returns_early(
         self,
         mock_parse_range,
@@ -1150,10 +1150,10 @@ class TestProcessDateRangeEdgeCases(unittest.TestCase):
         mock_fetch_granular.assert_not_called()
         mock_assemble.assert_not_called()
 
-    @patch("get_stats.fetch_granular_metrics")
-    @patch("get_stats.resolve_file_prefix")
-    @patch("get_stats.get_model_version")
-    @patch("get_stats.parse_date_range")
+    @patch("pdf_generator.cli.main.fetch_granular_metrics")
+    @patch("pdf_generator.cli.main.resolve_file_prefix")
+    @patch("pdf_generator.cli.main.get_model_version")
+    @patch("pdf_generator.cli.main.parse_date_range")
     def test_no_data_returns_early_v2(
         self,
         mock_parse_range,
@@ -1180,15 +1180,15 @@ class TestProcessDateRangeEdgeCases(unittest.TestCase):
         # Early return, so overall summary should not be called
         mock_client.get_stats.assert_not_called()
 
-    @patch("get_stats.assemble_pdf_report")
-    @patch("get_stats.generate_all_charts")
-    @patch("get_stats.compute_iso_timestamps")
-    @patch("get_stats.fetch_daily_summary")
-    @patch("get_stats.fetch_overall_summary")
-    @patch("get_stats.fetch_granular_metrics")
-    @patch("get_stats.resolve_file_prefix")
-    @patch("get_stats.get_model_version")
-    @patch("get_stats.parse_date_range")
+    @patch("pdf_generator.cli.main.assemble_pdf_report")
+    @patch("pdf_generator.cli.main.generate_all_charts")
+    @patch("pdf_generator.cli.main.compute_iso_timestamps")
+    @patch("pdf_generator.cli.main.fetch_daily_summary")
+    @patch("pdf_generator.cli.main.fetch_overall_summary")
+    @patch("pdf_generator.cli.main.fetch_granular_metrics")
+    @patch("pdf_generator.cli.main.resolve_file_prefix")
+    @patch("pdf_generator.cli.main.get_model_version")
+    @patch("pdf_generator.cli.main.parse_date_range")
     def test_histogram_without_metrics_proceeds(
         self,
         mock_parse_range,
@@ -1233,9 +1233,9 @@ class TestProcessDateRangeEdgeCases(unittest.TestCase):
 class TestSampleLabelEdgeCases(unittest.TestCase):
     """Tests for sample label generation edge cases in histogram chart."""
 
-    @patch("get_stats.save_chart_as_pdf")
-    @patch("get_stats.plot_histogram")
-    @patch("get_stats.extract_count_from_row")
+    @patch("pdf_generator.cli.main.save_chart_as_pdf")
+    @patch("pdf_generator.cli.main.plot_histogram")
+    @patch("pdf_generator.cli.main.extract_count_from_row")
     def test_sample_label_int_conversion_failure(
         self, mock_extract, mock_plot, mock_save
     ):
@@ -1254,8 +1254,8 @@ class TestSampleLabelEdgeCases(unittest.TestCase):
         # Should have called plot_histogram with fallback label
         mock_plot.assert_called_once()
 
-    @patch("get_stats.save_chart_as_pdf")
-    @patch("get_stats.plot_histogram")
+    @patch("pdf_generator.cli.main.save_chart_as_pdf")
+    @patch("pdf_generator.cli.main.plot_histogram")
     def test_sample_extraction_with_list_non_dict_items(self, mock_plot, mock_save):
         """Test sample extraction when list contains non-dict items."""
         mock_plot.return_value = Mock()

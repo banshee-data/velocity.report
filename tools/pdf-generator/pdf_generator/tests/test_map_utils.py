@@ -263,7 +263,7 @@ class TestSVGToPDFConverter(unittest.TestCase):
         """Clean up temporary directory."""
         shutil.rmtree(self.temp_dir)
 
-    @patch("map_utils.importlib.util.find_spec")
+    @patch("pdf_generator.core.map_utils.importlib.util.find_spec")
     def test_try_cairosvg_success(self, mock_find_spec):
         """Test successful conversion with cairosvg."""
         mock_find_spec.return_value = MagicMock()  # cairosvg available
@@ -277,7 +277,7 @@ class TestSVGToPDFConverter(unittest.TestCase):
             # Result depends on whether cairosvg is actually installed
             self.assertIsInstance(result, bool)
 
-    @patch("map_utils.importlib.util.find_spec")
+    @patch("pdf_generator.core.map_utils.importlib.util.find_spec")
     def test_try_cairosvg_not_available(self, mock_find_spec):
         """Test cairosvg not available."""
         mock_find_spec.return_value = None  # cairosvg not available
@@ -747,7 +747,7 @@ class TestSVGToPDFConverterEdgeCases(unittest.TestCase):
 class TestMapProcessorEdgeCases(unittest.TestCase):
     """Test edge cases in MapProcessor."""
 
-    @patch("map_utils.SVGToPDFConverter.convert")
+    @patch("pdf_generator.core.map_utils.SVGToPDFConverter.convert")
     def test_getmtime_exception_handler(self, mock_convert):
         """Test exception in os.path.getmtime (lines 421-424)."""
         mock_convert.return_value = True
@@ -772,7 +772,7 @@ class TestMapProcessorEdgeCases(unittest.TestCase):
                 self.assertTrue(success)
                 self.assertIsNotNone(path)
 
-    @patch("map_utils.SVGToPDFConverter.convert")
+    @patch("pdf_generator.core.map_utils.SVGToPDFConverter.convert")
     def test_conversion_failure_warning(self, mock_convert):
         """Test conversion failure warning (lines 455-459)."""
         # Make conversion fail

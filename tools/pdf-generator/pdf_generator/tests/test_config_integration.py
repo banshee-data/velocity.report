@@ -77,9 +77,9 @@ class TestConfigIntegration(unittest.TestCase):
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
 
-    @patch("pdf_generator.DocumentBuilder")
-    @patch("pdf_generator.chart_exists")
-    @patch("pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.DocumentBuilder")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
     def test_radar_config_values_in_report(self, mock_map, mock_chart, mock_builder):
         """Test that all radar config values appear in the generated report."""
         # Setup mocks
@@ -157,9 +157,9 @@ class TestConfigIntegration(unittest.TestCase):
             self.assertIn("Cosine Error Factor", params_dict)
             self.assertTrue(params_dict["Cosine Error Factor"].startswith("1.03"))
 
-    @patch("pdf_generator.DocumentBuilder")
-    @patch("pdf_generator.chart_exists")
-    @patch("pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.DocumentBuilder")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
     def test_site_config_values_in_report(self, mock_map, mock_chart, mock_builder):
         """Test that site config values appear in the generated report."""
         mock_chart.return_value = False
@@ -206,10 +206,10 @@ class TestConfigIntegration(unittest.TestCase):
             self.assertEqual(call_args[0][3], "Test Surveyor Beta")
             self.assertEqual(call_args[0][4], "test@example.com")
 
-    @patch("pdf_generator.DocumentBuilder")
-    @patch("pdf_generator.chart_exists")
-    @patch("pdf_generator.MapProcessor")
-    @patch("pdf_generator.add_site_specifics")
+    @patch("pdf_generator.core.pdf_generator.DocumentBuilder")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.add_site_specifics")
     def test_site_description_propagation(
         self, mock_site_spec, mock_map, mock_chart, mock_builder
     ):

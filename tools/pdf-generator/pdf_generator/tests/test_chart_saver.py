@@ -94,7 +94,7 @@ class TestChartSaver(unittest.TestCase):
         # Should get matplotlib's default (typically 100 or 72)
         self.assertIn(dpi, [72, 100.0])  # Accept either common default
 
-    @patch("chart_saver.plt")
+    @patch("pdf_generator.core.chart_saver.plt")
     def test_close_figure_success(self, mock_plt):
         """Test successful figure closing."""
         saver = ChartSaver()
@@ -104,7 +104,7 @@ class TestChartSaver(unittest.TestCase):
 
         mock_plt.close.assert_called_once_with(fig)
 
-    @patch("chart_saver.plt", None)
+    @patch("pdf_generator.core.chart_saver.plt", None)
     def test_close_figure_no_matplotlib(self):
         """Test figure closing when matplotlib not available."""
         saver = ChartSaver()
@@ -184,7 +184,7 @@ class TestConvenienceFunction(unittest.TestCase):
         """Clean up temporary directory."""
         shutil.rmtree(self.temp_dir)
 
-    @patch("chart_saver.ChartSaver")
+    @patch("pdf_generator.core.chart_saver.ChartSaver")
     def test_save_chart_as_pdf(self, mock_saver_class):
         """Test convenience function delegates to ChartSaver."""
         mock_saver = MagicMock()
@@ -198,7 +198,7 @@ class TestConvenienceFunction(unittest.TestCase):
         mock_saver_class.assert_called_once()
         mock_saver.save_as_pdf.assert_called_once_with(fig, self.output_path, True)
 
-    @patch("chart_saver.ChartSaver")
+    @patch("pdf_generator.core.chart_saver.ChartSaver")
     def test_save_chart_as_pdf_exception(self, mock_saver_class):
         """Test convenience function error handling."""
         mock_saver_class.side_effect = Exception("Initialization failed")

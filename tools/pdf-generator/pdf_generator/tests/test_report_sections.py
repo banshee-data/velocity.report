@@ -29,8 +29,8 @@ class TestVelocityOverviewSection(unittest.TestCase):
         """Test builder initialization."""
         self.assertIsNotNone(self.builder)
 
-    @patch("report_sections.NoEscape")
-    @patch("report_sections.create_param_table")
+    @patch("pdf_generator.core.report_sections.NoEscape")
+    @patch("pdf_generator.core.report_sections.create_param_table")
     def test_build(self, mock_create_table, mock_noescape):
         """Test building velocity overview section."""
         mock_noescape.side_effect = lambda x: f"NoEscape({x})"
@@ -57,8 +57,8 @@ class TestVelocityOverviewSection(unittest.TestCase):
         call_args = mock_create_table.call_args[0][0]
         self.assertEqual(len(call_args), 4)  # 4 metrics
 
-    @patch("report_sections.NoEscape")
-    @patch("report_sections.escape_latex")
+    @patch("pdf_generator.core.report_sections.NoEscape")
+    @patch("pdf_generator.core.report_sections.escape_latex")
     def test_build_formats_vehicle_count(self, mock_escape, mock_noescape):
         """Test that total vehicles is formatted with thousands separator."""
         mock_escape.side_effect = lambda x: x
@@ -97,8 +97,8 @@ class TestSiteInformationSection(unittest.TestCase):
         """Test builder initialization."""
         self.assertIsNotNone(self.builder)
 
-    @patch("report_sections.NoEscape")
-    @patch("report_sections.escape_latex")
+    @patch("pdf_generator.core.report_sections.NoEscape")
+    @patch("pdf_generator.core.report_sections.escape_latex")
     def test_build(self, mock_escape, mock_noescape):
         """Test building site information section."""
         mock_escape.side_effect = lambda x: x
@@ -131,8 +131,8 @@ class TestScienceMethodologySection(unittest.TestCase):
         """Test builder initialization."""
         self.assertIsNotNone(self.builder)
 
-    @patch("report_sections.Center")
-    @patch("report_sections.NoEscape")
+    @patch("pdf_generator.core.report_sections.Center")
+    @patch("pdf_generator.core.report_sections.NoEscape")
     def test_build(self, mock_noescape, mock_center):
         """Test building science section."""
         mock_noescape.side_effect = lambda x: f"NoEscape({x})"
@@ -147,7 +147,7 @@ class TestScienceMethodologySection(unittest.TestCase):
         # Should create Center environment for formula explanation
         mock_center.assert_called()
 
-    @patch("report_sections.NoEscape")
+    @patch("pdf_generator.core.report_sections.NoEscape")
     def test_add_citizen_radar_intro(self, mock_noescape):
         """Test adding citizen radar introduction."""
         mock_noescape.side_effect = lambda x: f"NoEscape({x})"
@@ -162,7 +162,7 @@ class TestScienceMethodologySection(unittest.TestCase):
         found_formula = any("K_E" in str(c) and "tfrac" in str(c) for c in calls)
         self.assertTrue(found_formula, "Should include kinetic energy formula")
 
-    @patch("report_sections.NoEscape")
+    @patch("pdf_generator.core.report_sections.NoEscape")
     def test_add_aggregation_percentiles(self, mock_noescape):
         """Test adding aggregation and percentiles explanation."""
         mock_noescape.side_effect = lambda x: f"NoEscape({x})"
@@ -195,8 +195,8 @@ class TestSurveyParametersSection(unittest.TestCase):
         """Test builder initialization."""
         self.assertIsNotNone(self.builder)
 
-    @patch("report_sections.create_param_table")
-    @patch("report_sections.NoEscape")
+    @patch("pdf_generator.core.report_sections.create_param_table")
+    @patch("pdf_generator.core.report_sections.NoEscape")
     def test_build(self, mock_noescape, mock_create_table):
         """Test building survey parameters section."""
         mock_noescape.side_effect = lambda x: f"NoEscape({x})"
@@ -233,7 +233,7 @@ class TestSurveyParametersSection(unittest.TestCase):
 class TestConvenienceFunctions(unittest.TestCase):
     """Tests for convenience wrapper functions."""
 
-    @patch("report_sections.VelocityOverviewSection")
+    @patch("pdf_generator.core.report_sections.VelocityOverviewSection")
     def test_add_metric_data_intro(self, mock_builder_class):
         """Test add_metric_data_intro convenience function."""
         mock_builder = MagicMock()
@@ -257,7 +257,7 @@ class TestConvenienceFunctions(unittest.TestCase):
         mock_builder_class.assert_called_once()
         mock_builder.build.assert_called_once()
 
-    @patch("report_sections.SiteInformationSection")
+    @patch("pdf_generator.core.report_sections.SiteInformationSection")
     def test_add_site_specifics(self, mock_builder_class):
         """Test add_site_specifics convenience function."""
         mock_builder = MagicMock()
@@ -270,7 +270,7 @@ class TestConvenienceFunctions(unittest.TestCase):
         mock_builder_class.assert_called_once()
         mock_builder.build.assert_called_once_with(mock_doc, "site desc", "speed limit")
 
-    @patch("report_sections.ScienceMethodologySection")
+    @patch("pdf_generator.core.report_sections.ScienceMethodologySection")
     def test_add_science(self, mock_builder_class):
         """Test add_science convenience function."""
         mock_builder = MagicMock()
@@ -283,7 +283,7 @@ class TestConvenienceFunctions(unittest.TestCase):
         mock_builder_class.assert_called_once()
         mock_builder.build.assert_called_once_with(mock_doc)
 
-    @patch("report_sections.SurveyParametersSection")
+    @patch("pdf_generator.core.report_sections.SurveyParametersSection")
     def test_add_survey_parameters(self, mock_builder_class):
         """Test add_survey_parameters convenience function."""
         mock_builder = MagicMock()

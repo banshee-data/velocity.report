@@ -190,7 +190,7 @@ class TestDependencyChecker(unittest.TestCase):
 class TestCheckDependenciesFunction(unittest.TestCase):
     """Tests for the check_dependencies convenience function."""
 
-    @patch("dependency_checker.DependencyChecker")
+    @patch("pdf_generator.core.dependency_checker.DependencyChecker")
     def test_check_dependencies_returns_bool(self, mock_checker_class):
         """Test that check_dependencies returns a boolean."""
         mock_instance = MagicMock()

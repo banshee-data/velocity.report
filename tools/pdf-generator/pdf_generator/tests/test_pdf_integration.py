@@ -96,8 +96,8 @@ class TestPDFIntegration(unittest.TestCase):
             "50": 3,
         }
 
-    @patch("pdf_generator.MapProcessor")
-    @patch("pdf_generator.chart_exists")
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
     def test_generate_pdf_creates_tex_file(self, mock_chart_exists, mock_map_processor):
         """Test that PDF generation creates .tex file when LaTeX fails."""
         # Mock chart_exists to return False (no charts)
@@ -140,8 +140,8 @@ class TestPDFIntegration(unittest.TestCase):
                 os.path.exists(tex_path), f"Expected .tex file at {tex_path}"
             )
 
-    @patch("pdf_generator.MapProcessor")
-    @patch("pdf_generator.chart_exists")
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
     def test_tex_file_contains_expected_structure(
         self, mock_chart_exists, mock_map_processor
     ):
@@ -188,8 +188,8 @@ class TestPDFIntegration(unittest.TestCase):
             self.assertIn(r"\usepackage{fontspec}", content)
             self.assertIn(r"\usepackage{graphicx}", content)
 
-    @patch("pdf_generator.MapProcessor")
-    @patch("pdf_generator.chart_exists")
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
     def test_tex_file_contains_correct_metrics(
         self, mock_chart_exists, mock_map_processor
     ):
@@ -239,8 +239,8 @@ class TestPDFIntegration(unittest.TestCase):
             self.assertIn("36.94", content)  # p85
             self.assertIn("30.54", content)  # p50
 
-    @patch("pdf_generator.MapProcessor")
-    @patch("pdf_generator.chart_exists")
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
     def test_tex_file_contains_location_info(
         self, mock_chart_exists, mock_map_processor
     ):
@@ -281,8 +281,8 @@ class TestPDFIntegration(unittest.TestCase):
             # Check location appears
             self.assertIn("Clarendon Avenue, San Francisco", content)
 
-    @patch("pdf_generator.MapProcessor")
-    @patch("pdf_generator.chart_exists")
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
     def test_tex_file_contains_date_range(self, mock_chart_exists, mock_map_processor):
         """Test that .tex file contains correct date range."""
         mock_chart_exists.return_value = False
@@ -322,8 +322,8 @@ class TestPDFIntegration(unittest.TestCase):
             self.assertIn("2025-06-02", content)
             self.assertIn("2025-06-04", content)
 
-    @patch("pdf_generator.MapProcessor")
-    @patch("pdf_generator.chart_exists")
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
     def test_tex_file_contains_footer_with_dates_and_page_numbers(
         self, mock_chart_exists, mock_map_processor
     ):
@@ -370,8 +370,8 @@ class TestPDFIntegration(unittest.TestCase):
             # Check that date range is NOT in header center anymore
             self.assertNotIn(r"\fancyhead[C]", content)
 
-    @patch("pdf_generator.MapProcessor")
-    @patch("pdf_generator.chart_exists")
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
     def test_tex_file_contains_histogram_table(
         self, mock_chart_exists, mock_map_processor
     ):
@@ -414,8 +414,8 @@ class TestPDFIntegration(unittest.TestCase):
             self.assertIn("66", content)  # Count for first bucket
             self.assertIn("971", content)  # Highest count
 
-    @patch("pdf_generator.MapProcessor")
-    @patch("pdf_generator.chart_exists")
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
     def test_tex_file_contains_daily_metrics_table(
         self, mock_chart_exists, mock_map_processor
     ):
@@ -458,8 +458,8 @@ class TestPDFIntegration(unittest.TestCase):
             self.assertIn("1315", content)  # Count from second day
             self.assertIn("1263", content)  # Count from third day
 
-    @patch("pdf_generator.MapProcessor")
-    @patch("pdf_generator.chart_exists")
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
     def test_tex_file_contains_survey_parameters(
         self, mock_chart_exists, mock_map_processor
     ):
@@ -507,8 +507,8 @@ class TestPDFIntegration(unittest.TestCase):
 class TestPDFGenerationEdgeCases(unittest.TestCase):
     """Test edge cases in PDF generation."""
 
-    @patch("pdf_generator.MapProcessor")
-    @patch("pdf_generator.chart_exists")
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
     def test_generate_without_overall_metrics(
         self, mock_chart_exists, mock_map_processor
     ):
@@ -551,8 +551,8 @@ class TestPDFGenerationEdgeCases(unittest.TestCase):
             tex_path = output_path.replace(".pdf", ".tex")
             self.assertTrue(os.path.exists(tex_path))
 
-    @patch("pdf_generator.MapProcessor")
-    @patch("pdf_generator.chart_exists")
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
     def test_with_stats_chart(self, mock_chart_exists, mock_map_processor):
         """Test PDF generation with stats chart available (lines 368-373)."""
 
@@ -592,8 +592,8 @@ class TestPDFGenerationEdgeCases(unittest.TestCase):
             tex_path = output_path.replace(".pdf", ".tex")
             self.assertTrue(os.path.exists(tex_path))
 
-    @patch("pdf_generator.MapProcessor")
-    @patch("pdf_generator.chart_exists")
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
     def test_with_map_success(self, mock_chart_exists, mock_map_processor):
         """Test PDF generation with successful map processing (lines 398-401)."""
         mock_chart_exists.return_value = False
@@ -629,8 +629,8 @@ class TestPDFGenerationEdgeCases(unittest.TestCase):
             tex_path = output_path.replace(".pdf", ".tex")
             self.assertTrue(os.path.exists(tex_path))
 
-    @patch("pdf_generator.MapProcessor")
-    @patch("pdf_generator.chart_exists")
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
     def test_mono_font_fallback(self, mock_chart_exists, mock_map_processor):
         """Test mono font fallback when font file doesn't exist (line 232)."""
         mock_chart_exists.return_value = False
@@ -667,8 +667,8 @@ class TestPDFGenerationEdgeCases(unittest.TestCase):
                 except Exception:
                     pass
 
-    @patch("pdf_generator.MapProcessor")
-    @patch("pdf_generator.chart_exists")
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
     def test_generate_with_empty_histogram(self, mock_chart_exists, mock_map_processor):
         """Test PDF generation with empty histogram."""
         mock_chart_exists.return_value = False
@@ -705,8 +705,8 @@ class TestPDFGenerationEdgeCases(unittest.TestCase):
             tex_path = output_path.replace(".pdf", ".tex")
             self.assertTrue(os.path.exists(tex_path))
 
-    @patch("pdf_generator.MapProcessor")
-    @patch("pdf_generator.chart_exists")
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
     def test_generate_with_no_daily_metrics(
         self, mock_chart_exists, mock_map_processor
     ):
@@ -744,8 +744,8 @@ class TestPDFGenerationEdgeCases(unittest.TestCase):
             tex_path = output_path.replace(".pdf", ".tex")
             self.assertTrue(os.path.exists(tex_path))
 
-    @patch("pdf_generator.MapProcessor")
-    @patch("pdf_generator.chart_exists")
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
     def test_pdf_generation_all_engines_fail(
         self, mock_chart_exists, mock_map_processor
     ):

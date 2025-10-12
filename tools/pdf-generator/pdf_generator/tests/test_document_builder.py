@@ -28,7 +28,7 @@ class TestDocumentBuilder(unittest.TestCase):
         self.assertEqual(builder.config, custom_config)
         self.assertEqual(builder.config["fonts_dir"], "custom_fonts")
 
-    @patch("document_builder.Document")
+    @patch("pdf_generator.core.document_builder.Document")
     def test_create_document_no_page_numbers(self, mock_doc_class):
         """Test document creation without page numbers."""
         mock_doc = MagicMock()
@@ -41,7 +41,7 @@ class TestDocumentBuilder(unittest.TestCase):
         self.assertFalse(call_kwargs["page_numbers"])
         self.assertIn("geometry_options", call_kwargs)
 
-    @patch("document_builder.Document")
+    @patch("pdf_generator.core.document_builder.Document")
     def test_create_document_with_page_numbers(self, mock_doc_class):
         """Test document creation with page numbers."""
         mock_doc = MagicMock()
@@ -52,7 +52,7 @@ class TestDocumentBuilder(unittest.TestCase):
         call_kwargs = mock_doc_class.call_args[1]
         self.assertTrue(call_kwargs["page_numbers"])
 
-    @patch("document_builder.Package")
+    @patch("pdf_generator.core.document_builder.Package")
     def test_add_packages(self, mock_package):
         """Test all required packages are added."""
         mock_doc = MagicMock()
@@ -81,7 +81,7 @@ class TestDocumentBuilder(unittest.TestCase):
         for pkg in expected_packages:
             self.assertIn(pkg, package_names, f"Package {pkg} not added")
 
-    @patch("document_builder.Package")
+    @patch("pdf_generator.core.document_builder.Package")
     def test_add_packages_with_options(self, mock_package):
         """Test packages with options are added correctly."""
         mock_doc = MagicMock()
@@ -99,7 +99,7 @@ class TestDocumentBuilder(unittest.TestCase):
         # Verify options were passed
         self.assertIn("options", caption_calls[0][1])
 
-    @patch("document_builder.NoEscape")
+    @patch("pdf_generator.core.document_builder.NoEscape")
     def test_setup_preamble(self, mock_noescape):
         """Test preamble configuration."""
         mock_doc = MagicMock()
@@ -140,7 +140,7 @@ class TestDocumentBuilder(unittest.TestCase):
         self.assertTrue(any("20pt" in str(item) for item in appended_items))
 
     @patch("os.path.exists")
-    @patch("document_builder.NoEscape")
+    @patch("pdf_generator.core.document_builder.NoEscape")
     def test_setup_fonts_with_mono(self, mock_noescape, mock_exists):
         """Test font setup when mono font exists."""
         # Fonts directory and mono font both exist
@@ -172,7 +172,7 @@ class TestDocumentBuilder(unittest.TestCase):
         self.assertTrue(any("familydefault" in call for call in noescape_calls))
 
     @patch("os.path.exists")
-    @patch("document_builder.NoEscape")
+    @patch("pdf_generator.core.document_builder.NoEscape")
     def test_setup_fonts_without_mono(self, mock_noescape, mock_exists):
         """Test font setup fallback without mono font."""
 
@@ -210,7 +210,7 @@ class TestDocumentBuilder(unittest.TestCase):
         # Should not have added any font configuration
         self.assertEqual(mock_doc.preamble.append.call_count, 0)
 
-    @patch("document_builder.NoEscape")
+    @patch("pdf_generator.core.document_builder.NoEscape")
     def test_setup_header(self, mock_noescape):
         """Test header/footer configuration."""
         mock_doc = MagicMock()
@@ -240,7 +240,7 @@ class TestDocumentBuilder(unittest.TestCase):
         # Check for velocity.report link
         self.assertTrue(any("velocity.report" in call for call in noescape_calls))
 
-    @patch("document_builder.NoEscape")
+    @patch("pdf_generator.core.document_builder.NoEscape")
     def test_begin_twocolumn_layout(self, mock_noescape):
         """Test two-column layout initialization."""
         mock_doc = MagicMock()
@@ -266,12 +266,12 @@ class TestDocumentBuilder(unittest.TestCase):
         # Check for contact email
         self.assertTrue(any("john@example.com" in call for call in noescape_calls))
 
-    @patch("document_builder.DocumentBuilder.create_document")
-    @patch("document_builder.DocumentBuilder.add_packages")
-    @patch("document_builder.DocumentBuilder.setup_preamble")
-    @patch("document_builder.DocumentBuilder.setup_fonts")
-    @patch("document_builder.DocumentBuilder.setup_header")
-    @patch("document_builder.DocumentBuilder.begin_twocolumn_layout")
+    @patch("pdf_generator.core.document_builder.DocumentBuilder.create_document")
+    @patch("pdf_generator.core.document_builder.DocumentBuilder.add_packages")
+    @patch("pdf_generator.core.document_builder.DocumentBuilder.setup_preamble")
+    @patch("pdf_generator.core.document_builder.DocumentBuilder.setup_fonts")
+    @patch("pdf_generator.core.document_builder.DocumentBuilder.setup_header")
+    @patch("pdf_generator.core.document_builder.DocumentBuilder.begin_twocolumn_layout")
     def test_build_orchestrates_all_steps(
         self,
         mock_twocolumn,
@@ -304,12 +304,12 @@ class TestDocumentBuilder(unittest.TestCase):
         # Should return the document
         self.assertEqual(result, mock_doc)
 
-    @patch("document_builder.DocumentBuilder.create_document")
-    @patch("document_builder.DocumentBuilder.add_packages")
-    @patch("document_builder.DocumentBuilder.setup_preamble")
-    @patch("document_builder.DocumentBuilder.setup_fonts")
-    @patch("document_builder.DocumentBuilder.setup_header")
-    @patch("document_builder.DocumentBuilder.begin_twocolumn_layout")
+    @patch("pdf_generator.core.document_builder.DocumentBuilder.create_document")
+    @patch("pdf_generator.core.document_builder.DocumentBuilder.add_packages")
+    @patch("pdf_generator.core.document_builder.DocumentBuilder.setup_preamble")
+    @patch("pdf_generator.core.document_builder.DocumentBuilder.setup_fonts")
+    @patch("pdf_generator.core.document_builder.DocumentBuilder.setup_header")
+    @patch("pdf_generator.core.document_builder.DocumentBuilder.begin_twocolumn_layout")
     def test_build_uses_site_info_defaults(
         self,
         mock_twocolumn,

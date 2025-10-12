@@ -84,8 +84,8 @@ class TestStatsTableBuilder(unittest.TestCase):
         self.assertEqual(len(rows[0]), 5)
         self.assertEqual(len(rows[1]), 5)
 
-    @patch("table_builders.Tabular")
-    @patch("table_builders.Center")
+    @patch("pdf_generator.core.table_builders.Tabular")
+    @patch("pdf_generator.core.table_builders.Center")
     def test_build_centered(self, mock_center, mock_tabular):
         """Test building centered table."""
         mock_table = MagicMock()
@@ -109,7 +109,7 @@ class TestStatsTableBuilder(unittest.TestCase):
         # Should add table to center
         mock_centered.append.assert_called()
 
-    @patch("table_builders.Tabular")
+    @patch("pdf_generator.core.table_builders.Tabular")
     def test_build_not_centered(self, mock_tabular):
         """Test building non-centered table."""
         mock_table = MagicMock()
@@ -165,7 +165,7 @@ class TestParameterTableBuilder(unittest.TestCase):
         """Test builder initialization."""
         self.assertIsNotNone(self.builder)
 
-    @patch("table_builders.Tabular")
+    @patch("pdf_generator.core.table_builders.Tabular")
     def test_build(self, mock_tabular):
         """Test building parameter table."""
         mock_table = MagicMock()
@@ -178,7 +178,7 @@ class TestParameterTableBuilder(unittest.TestCase):
         # Should add 3 rows
         self.assertEqual(mock_table.add_row.call_count, 3)
 
-    @patch("table_builders.Tabular")
+    @patch("pdf_generator.core.table_builders.Tabular")
     def test_build_empty_entries(self, mock_tabular):
         """Test building table with empty entries."""
         mock_table = MagicMock()
@@ -191,8 +191,8 @@ class TestParameterTableBuilder(unittest.TestCase):
         # Should not add any rows
         mock_table.add_row.assert_not_called()
 
-    @patch("table_builders.Tabular")
-    @patch("table_builders.NoEscape")
+    @patch("pdf_generator.core.table_builders.Tabular")
+    @patch("pdf_generator.core.table_builders.NoEscape")
     def test_build_formatting(self, mock_noescape, mock_tabular):
         """Test that keys are bold and values are monospace."""
         mock_table = MagicMock()
@@ -231,9 +231,9 @@ class TestHistogramTableBuilder(unittest.TestCase):
         """Test builder initialization."""
         self.assertIsNotNone(self.builder)
 
-    @patch("table_builders.process_histogram")
-    @patch("table_builders.Center")
-    @patch("table_builders.Tabular")
+    @patch("pdf_generator.core.table_builders.process_histogram")
+    @patch("pdf_generator.core.table_builders.Center")
+    @patch("pdf_generator.core.table_builders.Tabular")
     def test_build_basic(self, mock_tabular, mock_center, mock_process):
         """Test basic histogram table building."""
         # Mock process_histogram to return test data
@@ -273,11 +273,11 @@ class TestHistogramTableBuilder(unittest.TestCase):
         self.assertGreater(mock_table.add_row.call_count, 0)
         self.assertGreater(mock_table.add_hline.call_count, 0)
 
-    @patch("table_builders.process_histogram")
-    @patch("table_builders.count_in_histogram_range")
-    @patch("table_builders.count_histogram_ge")
-    @patch("table_builders.Center")
-    @patch("table_builders.Tabular")
+    @patch("pdf_generator.core.table_builders.process_histogram")
+    @patch("pdf_generator.core.table_builders.count_in_histogram_range")
+    @patch("pdf_generator.core.table_builders.count_histogram_ge")
+    @patch("pdf_generator.core.table_builders.Center")
+    @patch("pdf_generator.core.table_builders.Tabular")
     def test_build_with_max_bucket(
         self, mock_tabular, mock_center, mock_ge, mock_range, mock_process
     ):
@@ -306,9 +306,9 @@ class TestHistogramTableBuilder(unittest.TestCase):
         # Should call count_histogram_ge for the last bucket
         mock_ge.assert_called()
 
-    @patch("table_builders.process_histogram")
-    @patch("table_builders.Center")
-    @patch("table_builders.Tabular")
+    @patch("pdf_generator.core.table_builders.process_histogram")
+    @patch("pdf_generator.core.table_builders.Center")
+    @patch("pdf_generator.core.table_builders.Tabular")
     def test_compute_ranges(self, mock_tabular, mock_center, mock_process):
         """Test range computation from histogram data."""
         numeric_buckets = {5.0: 50, 10.0: 100, 15.0: 80, 20.0: 60, 25.0: 40}
@@ -340,9 +340,9 @@ class TestHistogramTableBuilder(unittest.TestCase):
         # Should return fallback ranges
         self.assertEqual(ranges, fallback_ranges)
 
-    @patch("table_builders.process_histogram")
-    @patch("table_builders.Center")
-    @patch("table_builders.Tabular")
+    @patch("pdf_generator.core.table_builders.process_histogram")
+    @patch("pdf_generator.core.table_builders.Center")
+    @patch("pdf_generator.core.table_builders.Tabular")
     def test_no_below_cutoff_row_when_zero_count(
         self, mock_tabular, mock_center, mock_process
     ):
@@ -392,7 +392,7 @@ class TestHistogramTableBuilder(unittest.TestCase):
 class TestConvenienceFunctions(unittest.TestCase):
     """Tests for convenience wrapper functions."""
 
-    @patch("table_builders.StatsTableBuilder")
+    @patch("pdf_generator.core.table_builders.StatsTableBuilder")
     def test_create_stats_table(self, mock_builder_class):
         """Test create_stats_table convenience function."""
         mock_builder = MagicMock()
@@ -408,7 +408,7 @@ class TestConvenienceFunctions(unittest.TestCase):
             stats, "UTC", "mph", "Caption", True, True
         )
 
-    @patch("table_builders.ParameterTableBuilder")
+    @patch("pdf_generator.core.table_builders.ParameterTableBuilder")
     def test_create_param_table(self, mock_builder_class):
         """Test create_param_table convenience function."""
         mock_builder = MagicMock()
@@ -422,7 +422,7 @@ class TestConvenienceFunctions(unittest.TestCase):
         mock_builder_class.assert_called_once()
         mock_builder.build.assert_called_once_with(entries)
 
-    @patch("table_builders.HistogramTableBuilder")
+    @patch("pdf_generator.core.table_builders.HistogramTableBuilder")
     def test_create_histogram_table(self, mock_builder_class):
         """Test create_histogram_table convenience function."""
         mock_builder = MagicMock()
@@ -436,7 +436,7 @@ class TestConvenienceFunctions(unittest.TestCase):
         mock_builder_class.assert_called_once()
         mock_builder.build.assert_called_once_with(histogram, "mph", 5.0, 5.0, None)
 
-    @patch("table_builders.StatsTableBuilder")
+    @patch("pdf_generator.core.table_builders.StatsTableBuilder")
     def test_create_twocolumn_stats_table(self, mock_builder_class):
         """Test create_twocolumn_stats_table convenience function."""
         mock_builder = MagicMock()
