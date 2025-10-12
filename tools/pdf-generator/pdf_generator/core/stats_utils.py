@@ -18,7 +18,7 @@ from pdf_generator.core.config_manager import DEFAULT_HISTOGRAM_PROCESSING_CONFI
 
 # Optional matplotlib dependencies
 try:
-    from chart_builder import HistogramChartBuilder
+    from pdf_generator.core.chart_builder import HistogramChartBuilder
 
     HAVE_CHARTS = True
 except ImportError:

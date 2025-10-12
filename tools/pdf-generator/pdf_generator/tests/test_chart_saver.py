@@ -258,7 +258,7 @@ class TestChartSaverIOErrors(unittest.TestCase):
         output_path = os.path.join(self.temp_dir, "chart.pdf")
 
         # Mock plt.close to raise an exception
-        with patch("chart_saver.plt") as mock_plt:
+        with patch("pdf_generator.core.chart_saver.plt") as mock_plt:
             mock_plt.close.side_effect = Exception("Close failed")
 
             # Should still complete without raising exception

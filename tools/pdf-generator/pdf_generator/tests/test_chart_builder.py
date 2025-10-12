@@ -8,7 +8,11 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 # Import classes and functions to test
-from pdf_generator.core.chart_builder import TimeSeriesChartBuilder, HistogramChartBuilder, HAVE_MATPLOTLIB
+from pdf_generator.core.chart_builder import (
+    TimeSeriesChartBuilder,
+    HistogramChartBuilder,
+    HAVE_MATPLOTLIB,
+)
 
 # Skip tests if matplotlib not available
 if not HAVE_MATPLOTLIB:
@@ -1554,7 +1558,7 @@ class TestTimeSeriesChartBuilderEdgeCases(unittest.TestCase):
         ]
 
         # Temporarily disable mdates
-        import chart_builder
+        from pdf_generator.core import chart_builder
 
         original_mdates = chart_builder.mdates
         try:

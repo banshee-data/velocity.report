@@ -104,7 +104,9 @@ class TestConfigIntegration(unittest.TestCase):
         # Generate report with our test config
         output_path = os.path.join(self.temp_dir, "test_report.pdf")
 
-        with patch("pdf_generator.create_param_table") as mock_param_table:
+        with patch(
+            "pdf_generator.core.pdf_generator.create_param_table"
+        ) as mock_param_table:
             mock_param_table.return_value = MagicMock()
 
             generate_pdf_report(

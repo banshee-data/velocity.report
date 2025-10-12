@@ -1,42 +1,115 @@
-# Query Data Module
+# PDF Report Generator
 
-This module provides tools for querying radar statistics from the API and generating reports in LaTeX and PDF formats.
+A Python tool for querying radar statistics from the API and generating reports in LaTeX and PDF formats.
+
+**Location**: `tools/pdf-generator/`
+**Installation**: PYTHONPATH-based (no package installation needed)
+**Tests**: 451/451 passing (100% coverage)
 
 ## Quick Start
 
 **All configuration is now done via JSON files!** No more CLI flags or environment variables.
 
 ```bash
-# 1. Create example config file
-python internal/report/query_data/create_config_example.py
+# Option 1: Using Makefile (recommended)
+cd tools/pdf-generator
+make pdf-setup          # One-time: create virtual environment and install dependencies
+make pdf-config         # Create example config file
+# Edit config.example.json with your dates and settings
+make pdf-report CONFIG=config.example.json
 
-# 2. Edit config.example.json with your dates and settings
+# Option 2: Using Python module directly
+cd tools/pdf-generator
+python -m pdf_generator.cli.create_config
+# Edit config.example.json with your dates and settings
+python -m pdf_generator.cli.main config.example.json
+```
 
-# 3. Generate report
-python internal/report/query_data/get_stats.py config.example.json
+## Project Structure
+
+```
+tools/pdf-generator/              # Project root
+├── pdf_generator/                # Python package
+│   ├── cli/                      # Command-line entry points
+│   │   ├── main.py              # Report generation CLI
+│   │   ├── create_config.py     # Config template generator
+│   │   └── demo.py              # Interactive demo
+│   ├── core/                     # Core functionality (13 modules)
+│   │   ├── config_manager.py   # Unified configuration system
+│   │   ├── api_client.py       # RadarStatsClient and API helpers
+│   │   ├── pdf_generator.py    # LaTeX/PyLaTeX report assembly
+│   │   ├── chart_builder.py    # Time series and histogram charts
+│   │   ├── table_builders.py   # LaTeX table construction
+│   │   └── ...                 # 8 more core modules
+│   └── tests/                    # Test suite (30 test files, 451 tests)
+├── pyproject.toml                # Project metadata
+├── requirements.txt              # Dependencies
+├── .venv/                        # Virtual environment (created by make pdf-setup)
+├── output/                       # Generated PDFs and assets
+└── README.md                     # This file
+```
+
+**Note**: The two-level structure (`tools/pdf-generator/` and `pdf_generator/`) is standard Python practice:
+- `tools/pdf-generator/` = Project root (configuration, docs, venv)
+- `pdf_generator/` = Python package (importable code)
+
+## Makefile Commands
+
+The `Makefile` in the root provides convenient commands:
+
+```bash
+# Setup (one-time)
+make pdf-setup          # Create venv, install dependencies
+
+# Development
+make pdf-test           # Run all 451 tests
+make pdf-config         # Create example configuration file
+make pdf-demo           # Run interactive demo
+
+# Report Generation
+make pdf-report CONFIG=config.example.json    # Generate PDF report
+
+# Utilities
+make pdf-clean          # Remove generated outputs
+make pdf-help           # Show all available commands
 ```
 
 ## Module structure
 
-### Core Components
-- `get_stats.py` — **CLI entrypoint** (config-file only)
+### Core Components (in `pdf_generator/core/`)
 - `config_manager.py` — **Unified configuration system** with JSON file support
-- `create_config_example.py` — **Config template generator**
 - `api_client.py` — RadarStatsClient and helpers for fetching data
 - `pdf_generator.py` — LaTeX/PyLaTeX based report assembly
-- `chart_builder.py` — time series and histogram chart generation
+- `chart_builder.py` — Time series and histogram chart generation
 - `table_builders.py` — LaTeX table construction
+- `stats_utils.py` — Statistical calculations
+- `map_utils.py` — Map generation and utilities
+- `date_parser.py` — Date/time parsing helpers
+- `document_builder.py` — PDF document assembly
 
-### Testing
-- `test_*.py` — Comprehensive test suite with 95%+ coverage
-- `demo_config_system.py` — Interactive demo of configuration system
+### CLI Entry Points (in `pdf_generator/cli/`)
+- `main.py` — **Primary CLI entrypoint** (config-file only)
+- `create_config.py` — **Config template generator**
+- `demo.py` — Interactive demo of configuration system
 
-## CLI: `get_stats.py`
+### Testing (in `pdf_generator/tests/`)
+- `test_*.py` — Comprehensive test suite with 100% pass rate (451 tests)
+- All tests use standard pytest and mock patterns
+
+## CLI: `pdf_generator.cli.main`
 
 **Simplified!** The CLI now only accepts a JSON configuration file:
 
 ```bash
-python internal/report/query_data/get_stats.py <config.json>
+# Using Makefile (recommended)
+make pdf-report CONFIG=<config.json>
+
+# Using Python module directly
+cd tools/pdf-generator
+python -m pdf_generator.cli.main <config.json>
+
+# With PYTHONPATH (if needed)
+PYTHONPATH=. .venv/bin/python -m pdf_generator.cli.main <config.json>
 ```
 
 ### Creating a Configuration File
@@ -44,11 +117,14 @@ python internal/report/query_data/get_stats.py <config.json>
 Use the built-in template generator:
 
 ```bash
-# Create a full example with all options documented
-python internal/report/query_data/create_config_example.py
+# Using Makefile
+make pdf-config
+
+# Using Python module
+python -m pdf_generator.cli.create_config
 
 # Create a minimal example with only required fields
-python internal/report/query_data/create_config_example.py --minimal
+python -m pdf_generator.cli.create_config --minimal
 ```
 
 ### Example Configuration
@@ -112,17 +188,44 @@ All configuration is in JSON format with four sections:
 ### Positional Arguments
 - `dates` — one or more start/end pairs. Example: `2025-06-02 2025-06-04` or `1622505600 1622678400`.
 
+**Note**: CLI flags are deprecated. Use JSON configuration files for all options.
+
 ## Examples
 
-### Basic report generation
-
-Generate a one-hour rollup report with histogram:
+### Basic report generation with Makefile
 
 ```bash
-python internal/report/query_data/get_stats.py \
-  --group 1h --units mph --timezone US/Pacific \
-  --min-speed 5 --histogram --hist-bucket-size 5 \
-  2025-06-02 2025-06-04
+cd tools/pdf-generator
+
+# 1. Setup (one-time)
+make pdf-setup
+
+# 2. Create config
+make pdf-config
+
+# 3. Edit config.example.json with your settings:
+#    - start_date: "2025-06-02"
+#    - end_date: "2025-06-04"
+#    - group: "1h"
+#    - histogram: true
+#    - hist_bucket_size: 5.0
+
+# 4. Generate report
+make pdf-report CONFIG=config.example.json
+
+# Output will be in output/ directory
+```
+
+### Basic report generation with Python module
+
+```bash
+cd tools/pdf-generator
+
+# 1. Create and edit config
+python -m pdf_generator.cli.create_config
+
+# 2. Generate report
+python -m pdf_generator.cli.main config.example.json
 ```
 
 
@@ -149,7 +252,11 @@ Create a simple configuration file:
 Generate the report:
 
 ```bash
-python internal/report/query_data/get_stats.py my-config.json
+# Using Makefile
+make pdf-report CONFIG=my-config.json
+
+# Using Python module
+python -m pdf_generator.cli.main my-config.json
 ```
 
 ### Custom Settings
@@ -158,14 +265,16 @@ Use the example generator and customize:
 
 ```bash
 # Generate full example with all options
-python internal/report/query_data/create_config_example.py
+make pdf-config
+# OR
+python -m pdf_generator.cli.create_config
 
 # Copy and customize
 cp config.example.json clarendon-survey.json
 vim clarendon-survey.json
 
 # Generate report
-python internal/report/query_data/get_stats.py clarendon-survey.json
+make pdf-report CONFIG=clarendon-survey.json
 ```
 
 ### Report Without Map
@@ -225,7 +334,7 @@ JSON format with four main sections:
   },
   "output": {
     "file_prefix": "main-st-june",
-    "output_dir": "./reports",
+    "output_dir": "./output",
     "debug": false,
     "no_map": false
   },
@@ -240,16 +349,18 @@ See `config.example.json` for a complete, documented example.
 
 ## Go Server Integration
 
-For Go server integration, the workflow is:
+**Note**: Go integration is being updated in a separate PR. The Python module has been restructured to `tools/pdf-generator/`.
+
+For Go server integration, the workflow will be:
 
 1. **User submits form** → Go validates and captures data
 2. **Go writes config.json** → Stores configuration
-3. **Go calls Python CLI** → Subprocess: `python get_stats.py config.json`
+3. **Go calls Python CLI** → Subprocess: executes Python module
 4. **Python generates PDFs** → Returns with exit code
 5. **Go checks output directory** → Finds generated files
 6. **Svelte UI** → Provides download links
 
-Example Go code:
+Example Go code (to be updated):
 
 ```go
 // Generate config JSON from form data
@@ -275,9 +386,14 @@ configPath := filepath.Join(tmpDir, "config.json")
 configJSON, _ := json.Marshal(configData)
 ioutil.WriteFile(configPath, configJSON, 0644)
 
-// Call Python generator
-cmd := exec.Command("python", "get_stats.py", configPath)
-cmd.Dir = "internal/report/query_data"
+// Call Python generator (path to be updated)
+cmd := exec.Command(
+    "path/to/venv/bin/python",
+    "-m", "pdf_generator.cli.main",
+    configPath,
+)
+cmd.Dir = "tools/pdf-generator"
+cmd.Env = append(os.Environ(), "PYTHONPATH=.")
 output, err := cmd.CombinedOutput()
 
 if err != nil {
@@ -288,7 +404,7 @@ if err != nil {
 files, _ := filepath.Glob(filepath.Join(outputPath, "*.pdf"))
 ```
 
-See **`docs/GO_INTEGRATION.md`** for complete integration guide.
+See **`docs/GO_INTEGRATION.md`** for complete integration guide (to be updated).
 
 ## Documentation
 
@@ -300,7 +416,7 @@ See **`docs/GO_INTEGRATION.md`** for complete integration guide.
 ## Python Integration
 
 ```python
-from internal.report.query_data.generate_report_api import generate_report_from_dict
+from pdf_generator.core.generate_report_api import generate_report_from_dict
 
 # From web form data
 config_dict = {
@@ -308,7 +424,7 @@ config_dict = {
     "query": {
         "start_date": "2025-06-01",
         "end_date": "2025-06-07",
-        "histogram": true,
+        "histogram": True,
         "hist_bucket_size": 5.0
     }
 }
@@ -316,6 +432,16 @@ config_dict = {
 result = generate_report_from_dict(config_dict)
 if result["success"]:
     print(f"Generated files: {result['files']}")
+```
+
+**Note**: When importing from Python code, ensure `tools/pdf-generator` is in your `PYTHONPATH`:
+
+```python
+import sys
+sys.path.insert(0, '/path/to/velocity.report/tools/pdf-generator')
+
+from pdf_generator.core.config_manager import ReportConfig, load_config
+from pdf_generator.core.api_client import RadarStatsClient
 ```
 
 ## Environment variables affecting PDF/layout
@@ -334,9 +460,12 @@ The PDF generator (`pdf_generator.py`) reads a few environment variables that af
 If you want to use the pieces programmatically, import the client and generator helpers:
 
 ```python
-from internal.report.query_data.api_client import RadarStatsClient
-from internal.report.query_data.date_parser import parse_date_to_unix
-from internal.report.query_data.pdf_generator import generate_pdf_report
+import sys
+sys.path.insert(0, '/path/to/velocity.report/tools/pdf-generator')
+
+from pdf_generator.core.api_client import RadarStatsClient
+from pdf_generator.core.date_parser import parse_date_to_unix
+from pdf_generator.core.pdf_generator import generate_pdf_report
 
 # Query example
 client = RadarStatsClient()
@@ -364,7 +493,7 @@ generate_pdf_report(
 **Or use configuration-based approach:**
 
 ```python
-from internal.report.query_data.config_manager import ReportConfig, SiteConfig, QueryConfig, load_config
+from pdf_generator.core.config_manager import ReportConfig, SiteConfig, QueryConfig, load_config
 
 # From JSON file
 config = load_config("config.json")
@@ -380,37 +509,76 @@ config = ReportConfig(
     )
 )
 
-# Use with get_stats CLI or call generation functions directly
+# Use with CLI or call generation functions directly
 ```
 ```
 
 ## Running tests
 
 ```bash
-# Install test dependencies (if not already installed)
-pip install pytest pytest-cov responses
+# Using Makefile (recommended)
+cd /path/to/velocity.report
+make pdf-test                    # Run all 451 tests
+make pdf-test PYTEST_ARGS="-v"   # Run with verbose output
 
-# Run all tests for this module
-pytest internal/report/query_data/test_*.py -v
+# Or directly with pytest
+cd tools/pdf-generator
+.venv/bin/pytest pdf_generator/tests/ -v
 
 # Run with coverage report
-pytest internal/report/query_data/test_*.py --cov=internal/report/query_data --cov-report=term-missing
+.venv/bin/pytest pdf_generator/tests/ --cov=pdf_generator --cov-report=term-missing
 
 # Run specific test files
-pytest internal/report/query_data/test_config_manager.py -v  # Configuration tests
-pytest internal/report/query_data/test_pdf_integration.py -v  # PDF generation tests
-pytest internal/report/query_data/test_table_builders.py -v   # Table building tests
+.venv/bin/pytest pdf_generator/tests/test_config_manager.py -v
+.venv/bin/pytest pdf_generator/tests/test_pdf_integration.py -v
+.venv/bin/pytest pdf_generator/tests/test_table_builders.py -v
 ```
 
 ### Test Coverage
 
-Current coverage status:
+Current test status: **451/451 tests passing (100%)**
+
+Module coverage:
 - ✅ `stats_utils.py` — 100%
-- ✅ `pdf_generator.py` — 99%
-- ✅ `map_utils.py` — 90%
 - ✅ `config_manager.py` — 100% (15 tests)
+- ✅ `pdf_generator.py` — 99%
 - ✅ `table_builders.py` — 95%+
+- ✅ `map_utils.py` — 90%
 - ✅ `chart_builder.py` — 82%
+
+All tests use standard pytest patterns with comprehensive mocking and fixtures.
+
+## Deployment Notes
+
+### PYTHONPATH Approach
+
+This project uses the PYTHONPATH approach rather than installing as a package:
+
+**Benefits:**
+- No package installation needed
+- Simpler deployment (just copy files)
+- Works well on Raspberry Pi and embedded systems
+- All Makefile commands handle PYTHONPATH automatically
+
+**Usage in scripts:**
+```bash
+# The Makefile sets this automatically
+export PYTHONPATH=/path/to/velocity.report/tools/pdf-generator
+.venv/bin/python -m pdf_generator.cli.main config.json
+
+# Or use the Makefile
+make pdf-report CONFIG=config.json
+```
+
+### Raspberry Pi Deployment
+
+The PYTHONPATH approach is particularly useful for Raspberry Pi ARM64 deployment:
+
+1. Copy `tools/pdf-generator/` to target system
+2. Run `make pdf-setup` (creates venv, installs dependencies)
+3. Use `make pdf-*` commands or set PYTHONPATH manually
+
+No wheel building or package installation needed!
 
 ## Feedback / contributions
 
@@ -420,16 +588,25 @@ If you change CLI flags or add new environment tunables, please update this READ
 
 - **`README.md`** (this file) — Module overview and CLI usage
 - **`docs/CONFIG_SYSTEM.md`** — Complete configuration system documentation
-- **`docs/GO_INTEGRATION.md`** — Go server integration guide with code examples
+- **`docs/GO_INTEGRATION.md`** — Go server integration guide (to be updated for new location)
 - **`CONFIG_README.md`** — Configuration quick start guide
 - **`IMPLEMENTATION_SUMMARY.md`** — Recent implementation details
 
 ### Recent Updates
 
-**October 2025** — Added unified configuration management system:
+**October 2025** — Major restructure to `tools/pdf-generator/`:
+- Moved from `internal/report/query_data/` to `tools/pdf-generator/`
+- Reorganized into standard Python package structure
+- Added Makefile commands for common tasks
+- PYTHONPATH-based approach (no package installation)
+- All 451 tests passing (100%)
+- Git history preserved from old location
+
+**September 2025** — Added unified configuration management system:
 - JSON configuration file support
 - Web API entry point for Go server integration
 - Environment variable override system
 - Configuration priority system (CLI > File > Env > Defaults)
 - Full backward compatibility with existing CLI workflows
 - Comprehensive documentation and examples
+

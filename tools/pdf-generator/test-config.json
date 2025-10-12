@@ -1,0 +1,23 @@
+{
+  "site": {
+    "location": "Test Street, Test City",
+    "surveyor": "Test Surveyor",
+    "contact": "test@example.com"
+  },
+  "radar": {
+    "cosine_error_angle": 30.0
+  },
+  "query": {
+    "start_date": "2025-06-02",
+    "end_date": "2025-06-04",
+    "group": "1h",
+    "timezone": "US/Pacific",
+    "histogram": true,
+    "hist_bucket_size": 5.0
+  },
+  "output": {
+    "file_prefix": "verification-test",
+    "output_dir": "./output",
+    "debug": false
+  }
+}

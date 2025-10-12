@@ -36,8 +36,8 @@
     "transmit_frequency": "24.125 GHz",
     "sample_rate": "20 kSPS",
     "velocity_resolution": "0.272 mph",
-    "azimuth_fov": "20°",
-    "elevation_fov": "24°",
+    "azimuth_fov": "20\u00b0",
+    "elevation_fov": "24\u00b0",
     "_field_notes": {
       "_note": "These fields are included in the report for documentation",
       "cosine_error_angle": "REQUIRED: Radar mounting angle in degrees (affects velocity correction)"
@@ -74,7 +74,7 @@
     "file_prefix": "clarendon-survey",
     "output_dir": "./reports",
     "debug": false,
-    "map": true,
+    "map": false,
     "run_id": "auto-generated",
     "_field_notes": {
       "file_prefix": "REQUIRED: Prefix for generated files",

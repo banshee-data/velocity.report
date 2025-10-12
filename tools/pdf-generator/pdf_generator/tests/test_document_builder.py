@@ -327,7 +327,9 @@ class TestDocumentBuilder(unittest.TestCase):
             surveyor="Default Surveyor", contact="default@example.com"
         )
 
-        with patch("document_builder.DEFAULT_SITE_CONFIG", test_config):
+        with patch(
+            "pdf_generator.core.document_builder.DEFAULT_SITE_CONFIG", test_config
+        ):
             mock_doc = MagicMock()
             mock_create.return_value = mock_doc
 

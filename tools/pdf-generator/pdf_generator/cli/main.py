@@ -37,12 +37,12 @@ from pdf_generator.core.data_transformers import (
 )
 
 try:  # Optional chart dependencies (matplotlib)
-    from chart_builder import TimeSeriesChartBuilder  # type: ignore  # noqa: F401
+    from pdf_generator.core.chart_builder import TimeSeriesChartBuilder  # type: ignore  # noqa: F401
 except ImportError:  # pragma: no cover - optional dependency missing during runtime
     TimeSeriesChartBuilder = None  # type: ignore[assignment]
 
 try:
-    from chart_saver import save_chart_as_pdf  # type: ignore  # noqa: F401
+    from pdf_generator.core.chart_saver import save_chart_as_pdf  # type: ignore  # noqa: F401
 except ImportError:  # pragma: no cover - optional dependency missing during runtime
     save_chart_as_pdf = None  # type: ignore[assignment]
 
@@ -736,7 +736,7 @@ if __name__ == "__main__":
 
     # Handle --check flag
     if args.check:
-        from dependency_checker import check_dependencies
+        from pdf_generator.core.dependency_checker import check_dependencies
 
         system_ready = check_dependencies(verbose=False)
         sys.exit(0 if system_ready else 1)
@@ -746,7 +746,7 @@ if __name__ == "__main__":
         parser.error("config_file is required (unless using --check)")
 
     # Load configuration from JSON file
-    from config_manager import load_config, ReportConfig
+    from pdf_generator.core.config_manager import load_config, ReportConfig
 
     # Load config file (required)
     if not os.path.exists(args.config_file):

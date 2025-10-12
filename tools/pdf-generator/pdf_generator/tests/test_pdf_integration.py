@@ -642,7 +642,9 @@ class TestPDFGenerationEdgeCases(unittest.TestCase):
             output_path = os.path.join(tmpdir, "test_report.pdf")
 
             # Mock os.path.exists to return False for mono font
-            with patch("pdf_generator.os.path.exists") as mock_exists:
+            with patch(
+                "pdf_generator.core.pdf_generator.os.path.exists"
+            ) as mock_exists:
                 # First call is for font dir, return False for mono font check
                 mock_exists.side_effect = lambda p: "Mono" not in p
 
@@ -759,7 +761,9 @@ class TestPDFGenerationEdgeCases(unittest.TestCase):
             output_path = os.path.join(tmpdir, "test_report.pdf")
 
             # Mock DocumentBuilder to return a document that fails generation
-            with patch("pdf_generator.DocumentBuilder") as mock_builder_class:
+            with patch(
+                "pdf_generator.core.pdf_generator.DocumentBuilder"
+            ) as mock_builder_class:
                 mock_builder = MagicMock()
                 mock_doc = MagicMock()
                 mock_builder.build.return_value = mock_doc
