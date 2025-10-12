@@ -27,6 +27,24 @@ Legacy Behavior:
 
 import warnings
 from typing import Dict, Any
+from config_manager import (
+    DEFAULT_COLOR_CONFIG,
+    DEFAULT_FONT_CONFIG,
+    DEFAULT_LAYOUT_CONFIG,
+    DEFAULT_PDF_CONFIG,
+    DEFAULT_MAP_CONFIG,
+    DEFAULT_HISTOGRAM_PROCESSING_CONFIG,
+    DEFAULT_SITE_CONFIG,
+    DEFAULT_DEBUG_CONFIG,
+    _colors_to_dict,
+    _fonts_to_dict,
+    _layout_to_dict,
+    _pdf_to_dict,
+    _map_to_dict,
+    _histogram_processing_to_dict,
+    _debug_to_dict,
+    _site_to_dict,
+)
 
 # Issue deprecation warning when module is imported
 warnings.warn(
@@ -41,66 +59,24 @@ warnings.warn(
 # Color Palette
 # =============================================================================
 
-COLORS: Dict[str, str] = {
-    # Speed percentile line colors
-    "p50": "#fbd92f",  # Yellow
-    "p85": "#f7b32b",  # Orange
-    "p98": "#f25f5c",  # Red/Pink
-    "max": "#2d1e2f",  # Dark purple/black
-    # Chart elements
-    "count_bar": "#2d1e2f",  # Gray bars for counts
-    "low_sample": "#f7b32b",  # Orange highlight for low-sample periods
-}
+# Use config_manager as single source of truth
+COLORS: Dict[str, str] = _colors_to_dict(DEFAULT_COLOR_CONFIG)
 
 
 # =============================================================================
 # Font Sizes
 # =============================================================================
 
-FONTS: Dict[str, int] = {
-    # Chart title and labels (matplotlib)
-    "chart_title": 14,
-    "chart_label": 13,
-    "chart_tick": 11,
-    "chart_axis_label": 8,
-    "chart_axis_tick": 7,
-    "chart_legend": 7,
-    # Histogram-specific
-    "histogram_title": 14,
-    "histogram_label": 13,
-    "histogram_tick": 11,
-}
+# Use config_manager as single source of truth
+FONTS: Dict[str, int] = _fonts_to_dict(DEFAULT_FONT_CONFIG)
 
 
 # =============================================================================
 # Layout Constants
 # =============================================================================
 
-LAYOUT: Dict[str, Any] = {
-    # Figure dimensions (inches)
-    "chart_figsize": (24, 8),
-    "histogram_figsize": (3, 2),
-    # Thresholds
-    "low_sample_threshold": 50,  # Counts below this trigger orange highlight
-    "count_missing_threshold": 5,  # Counts below this are treated as missing data
-    # Bar chart widths (as fractions of bucket spacing)
-    "bar_width_bg_fraction": 0.95,  # Background highlight bars
-    "bar_width_fraction": 0.7,  # Primary count bars
-    # Chart sizing constraints
-    "min_chart_width_in": 6.0,  # Minimum PDF width (inches)
-    "max_chart_width_in": 11.0,  # Maximum PDF width (inches)
-    # Chart margins and spacing (for fig.subplots_adjust)
-    "chart_left": 0.02,
-    "chart_right": 0.96,
-    "chart_top": 0.995,
-    "chart_bottom": 0.16,
-    # Y-axis scaling
-    "count_axis_scale": 1.6,  # Scale count axis by this factor for headroom
-    # Line and marker styling
-    "line_width": 1.0,
-    "marker_size": 4,
-    "marker_edge_width": 0.4,
-}
+# Use config_manager as single source of truth
+LAYOUT: Dict[str, Any] = _layout_to_dict(DEFAULT_LAYOUT_CONFIG)
 
 
 # =============================================================================
@@ -108,111 +84,61 @@ LAYOUT: Dict[str, Any] = {
 # =============================================================================
 # These are defaults and can be overridden via CLI arguments or JSON configuration
 
-SITE_INFO: Dict[str, Any] = {
-    "location": "Clarendon Avenue, San Francisco",
-    "surveyor": "Banshee, INC.",
-    "contact": "david@banshee-data.com",
-    "speed_limit": 25,
-    # Site-specific narrative content
-    "site_description": (
+# Use config_manager as single source of truth, but with example values for backward compat
+from config_manager import SiteConfig
+
+_EXAMPLE_SITE_CONFIG = SiteConfig(
+    location="Clarendon Avenue, San Francisco",
+    surveyor="Banshee, INC.",
+    contact="david@banshee-data.com",
+    speed_limit=25,
+    site_description=(
         "This survey was conducted from the southbound parking lane outside "
         "500 Clarendon Avenue, directly in front of an elementary school. "
         "The site is located on a downhill grade, which may influence vehicle "
         "speed and braking behavior. Data was collected from a fixed position "
         "over three consecutive days."
     ),
-    "speed_limit_note": (
+    speed_limit_note=(
         "The posted speed limit at this location is 35 mph, reduced to 25 mph "
         "when school children are present."
     ),
-}
+)
+SITE_INFO: Dict[str, Any] = _site_to_dict(_EXAMPLE_SITE_CONFIG)
 
 
 # =============================================================================
 # PDF/LaTeX Document Settings
 # =============================================================================
 
-PDF_CONFIG: Dict[str, Any] = {
-    # Page geometry (margins in cm)
-    "geometry": {
-        "top": "1.8cm",
-        "bottom": "1.0cm",
-        "left": "1.0cm",
-        "right": "1.0cm",
-    },
-    # Column separation
-    "columnsep": "14",  # Points
-    # Header/footer spacing
-    "headheight": "12pt",
-    "headsep": "10pt",
-    # Fonts directory (relative to pdf_generator.py)
-    "fonts_dir": "fonts",
-}
+# Use config_manager as single source of truth
+PDF_CONFIG: Dict[str, Any] = _pdf_to_dict(DEFAULT_PDF_CONFIG)
 
 
 # =============================================================================
 # Map/SVG Marker Configuration
 # =============================================================================
 
-# Base map configuration values (immutable)
-_MAP_CONFIG_BASE: Dict[str, Any] = {
-    # Triangle marker properties
-    "triangle_len": 0.42,
-    "triangle_cx": 0.385,
-    "triangle_cy": 0.71,
-    "triangle_apex_angle": 20.0,
-    "triangle_angle": 32.0,
-    "triangle_color": "#f25f5c",
-    "triangle_opacity": 0.9,
-    # Circle marker at triangle apex
-    "circle_radius": 20.0,
-    "circle_fill": "#ffffff",
-    "circle_stroke": None,
-    "circle_stroke_width": "2",
-}
-
-
-def _get_map_config() -> Dict[str, Any]:
-    """Get map configuration with computed defaults.
-
-    Dynamically computes circle_stroke default to match triangle_color if not
-    explicitly set via environment variable. This avoids modifying the config
-    dictionary after definition, which could lead to bugs.
-
-    Returns:
-        Map configuration dictionary with all defaults resolved
-    """
-    config = _MAP_CONFIG_BASE.copy()
-
-    # Compute circle_stroke default: use triangle_color if not explicitly set
-    if config["circle_stroke"] is None:
-        config["circle_stroke"] = config["triangle_color"]
-
-    return config
-
-
-# Public map configuration (computed on first access)
-MAP_CONFIG = _get_map_config()
+# Use config_manager as single source of truth
+MAP_CONFIG = _map_to_dict(DEFAULT_MAP_CONFIG)
 
 
 # =============================================================================
 # Histogram Processing
 # =============================================================================
 
-HISTOGRAM_CONFIG: Dict[str, Any] = {
-    "default_cutoff": 5.0,
-    "default_bucket_size": 5.0,
-    "default_max_bucket": 50.0,
-}
+# Use config_manager as single source of truth
+HISTOGRAM_CONFIG: Dict[str, Any] = _histogram_processing_to_dict(
+    DEFAULT_HISTOGRAM_PROCESSING_CONFIG
+)
 
 
 # =============================================================================
 # Debug Settings
 # =============================================================================
 
-DEBUG: Dict[str, bool] = {
-    "plot_debug": False,
-}
+# Use config_manager as single source of truth
+DEBUG: Dict[str, bool] = _debug_to_dict(DEFAULT_DEBUG_CONFIG)
 
 
 # =============================================================================
@@ -273,8 +199,8 @@ def get_map_config_with_overrides(**kwargs) -> Dict[str, Any]:
             triangle_angle=45.0
         )
     """
-    # Start with base config
-    config = _MAP_CONFIG_BASE.copy()
+    # Start with defaults from config_manager
+    config = _map_to_dict(DEFAULT_MAP_CONFIG)
 
     # Apply overrides
     for key, value in kwargs.items():
@@ -283,8 +209,9 @@ def get_map_config_with_overrides(**kwargs) -> Dict[str, Any]:
         else:
             raise ValueError(f"Unknown map_config key: {key}")
 
-    # Compute circle_stroke default if not explicitly set
-    if config["circle_stroke"] is None:
+    # If triangle_color was changed but circle_stroke wasn't explicitly set,
+    # update circle_stroke to match the new triangle_color
+    if "triangle_color" in kwargs and "circle_stroke" not in kwargs:
         config["circle_stroke"] = config["triangle_color"]
 
     return config

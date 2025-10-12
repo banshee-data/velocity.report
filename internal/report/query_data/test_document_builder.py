@@ -310,10 +310,6 @@ class TestDocumentBuilder(unittest.TestCase):
     @patch("document_builder.DocumentBuilder.setup_fonts")
     @patch("document_builder.DocumentBuilder.setup_header")
     @patch("document_builder.DocumentBuilder.begin_twocolumn_layout")
-    @patch(
-        "document_builder.DEFAULT_SITE_INFO",
-        {"surveyor": "Default Surveyor", "contact": "default@example.com"},
-    )
     def test_build_uses_site_info_defaults(
         self,
         mock_twocolumn,
@@ -323,21 +319,29 @@ class TestDocumentBuilder(unittest.TestCase):
         mock_packages,
         mock_create,
     ):
-        """Test build() uses DEFAULT_SITE_INFO defaults when surveyor/contact not provided."""
-        mock_doc = MagicMock()
-        mock_create.return_value = mock_doc
+        """Test build() uses DEFAULT_SITE_CONFIG defaults when surveyor/contact not provided."""
+        # Import and patch DEFAULT_SITE_CONFIG with a real SiteConfig instance
+        from config_manager import SiteConfig
 
-        start_iso = "2025-01-13T00:00:00Z"
-        end_iso = "2025-01-19T23:59:59Z"
-        location = "Test St"
+        test_config = SiteConfig(
+            surveyor="Default Surveyor", contact="default@example.com"
+        )
 
-        result = self.builder.build(start_iso, end_iso, location)
+        with patch("document_builder.DEFAULT_SITE_CONFIG", test_config):
+            mock_doc = MagicMock()
+            mock_create.return_value = mock_doc
 
-        # Should use DEFAULT_SITE_INFO defaults
-        mock_twocolumn.assert_called_once()
-        call_args = mock_twocolumn.call_args[0]
-        self.assertEqual(call_args[2], "Default Surveyor")
-        self.assertEqual(call_args[3], "default@example.com")
+            start_iso = "2025-01-13T00:00:00Z"
+            end_iso = "2025-01-19T23:59:59Z"
+            location = "Test St"
+
+            result = self.builder.build(start_iso, end_iso, location)
+
+            # Should use DEFAULT_SITE_CONFIG defaults
+            mock_twocolumn.assert_called_once()
+            call_args = mock_twocolumn.call_args[0]
+            self.assertEqual(call_args[2], "Default Surveyor")
+            self.assertEqual(call_args[3], "default@example.com")
 
     def test_font_path_resolution(self):
         """Test fonts directory path resolution."""

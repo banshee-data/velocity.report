@@ -26,7 +26,6 @@ from config_manager import ReportConfig
 from date_parser import parse_date_to_unix, is_date_only, parse_server_time
 from pdf_generator import generate_pdf_report
 from stats_utils import plot_histogram
-from report_config import COLORS, FONTS, LAYOUT, SITE_INFO, DEBUG
 from data_transformers import (
     MetricsNormalizer,
     extract_start_time_from_row,

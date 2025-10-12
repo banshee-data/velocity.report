@@ -39,51 +39,16 @@ from data_transformers import (
     extract_count_from_row,
 )
 from date_parser import parse_server_time
-
-# Default configuration values matching config_manager dataclass defaults
-DEFAULT_COLORS = {
-    "p50": "#fbd92f",
-    "p85": "#f7b32b",
-    "p98": "#f25f5c",
-    "max": "#2d1e2f",
-    "count_bar": "#2d1e2f",
-    "low_sample": "#f7b32b",
-}
-
-DEFAULT_FONTS = {
-    "chart_title": 14,
-    "chart_label": 13,
-    "chart_tick": 11,
-    "chart_axis_label": 8,
-    "chart_axis_tick": 7,
-    "chart_legend": 7,
-    "histogram_title": 14,
-    "histogram_label": 13,
-    "histogram_tick": 11,
-}
-
-DEFAULT_LAYOUT = {
-    "chart_figsize": (24, 8),
-    "histogram_figsize": (3, 2),
-    "low_sample_threshold": 50,
-    "count_missing_threshold": 5,
-    "bar_width_bg_fraction": 0.95,
-    "bar_width_fraction": 0.7,
-    "min_chart_width_in": 6.0,
-    "max_chart_width_in": 11.0,
-    "chart_left": 0.02,
-    "chart_right": 0.96,
-    "chart_top": 0.995,
-    "chart_bottom": 0.16,
-    "count_axis_scale": 1.6,
-    "line_width": 1.0,
-    "marker_size": 4,
-    "marker_edge_width": 0.4,
-}
-
-DEFAULT_DEBUG = {
-    "plot_debug": False,
-}
+from config_manager import (
+    _colors_to_dict,
+    _fonts_to_dict,
+    _layout_to_dict,
+    _debug_to_dict,
+    DEFAULT_COLOR_CONFIG,
+    DEFAULT_FONT_CONFIG,
+    DEFAULT_LAYOUT_CONFIG,
+    DEFAULT_DEBUG_CONFIG,
+)
 
 
 class TimeSeriesChartBuilder:
@@ -117,10 +82,10 @@ class TimeSeriesChartBuilder:
                 "Install it with: pip install matplotlib"
             )
 
-        self.colors = colors or DEFAULT_COLORS
-        self.fonts = fonts or DEFAULT_FONTS
-        self.layout = layout or DEFAULT_LAYOUT
-        self.debug = debug or DEFAULT_DEBUG
+        self.colors = colors or _colors_to_dict(DEFAULT_COLOR_CONFIG)
+        self.fonts = fonts or _fonts_to_dict(DEFAULT_FONT_CONFIG)
+        self.layout = layout or _layout_to_dict(DEFAULT_LAYOUT_CONFIG)
+        self.debug = debug or _debug_to_dict(DEFAULT_DEBUG_CONFIG)
         self.normalizer = MetricsNormalizer()
 
     def build(
@@ -738,9 +703,9 @@ class HistogramChartBuilder:
         """Initialize histogram builder with styling configuration.
 
         Args:
-            colors: Color palette dict (defaults to DEFAULT_COLORS)
-            fonts: Font size dict (defaults to DEFAULT_FONTS)
-            layout: Layout config dict (defaults to DEFAULT_LAYOUT)
+            colors: Color palette dict (defaults to DEFAULT_COLOR_CONFIG)
+            fonts: Font size dict (defaults to DEFAULT_FONT_CONFIG)
+            layout: Layout config dict (defaults to DEFAULT_LAYOUT_CONFIG)
         """
         if not HAVE_MATPLOTLIB:
             raise ImportError(
@@ -748,9 +713,9 @@ class HistogramChartBuilder:
                 "Install it with: pip install matplotlib"
             )
 
-        self.colors = colors or DEFAULT_COLORS
-        self.fonts = fonts or DEFAULT_FONTS
-        self.layout = layout or DEFAULT_LAYOUT
+        self.colors = colors or _colors_to_dict(DEFAULT_COLOR_CONFIG)
+        self.fonts = fonts or _fonts_to_dict(DEFAULT_FONT_CONFIG)
+        self.layout = layout or _layout_to_dict(DEFAULT_LAYOUT_CONFIG)
 
     def build(
         self,

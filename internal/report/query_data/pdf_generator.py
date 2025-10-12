@@ -77,7 +77,6 @@ except Exception:  # pragma: no cover - allow tests to run without pylatex insta
 
 
 from stats_utils import chart_exists
-from report_config import PDF_CONFIG, MAP_CONFIG, SITE_INFO
 from data_transformers import MetricsNormalizer, extract_count_from_row
 from map_utils import MapProcessor, create_marker_from_config
 from document_builder import DocumentBuilder
@@ -92,6 +91,7 @@ from report_sections import (
     add_site_specifics,
     add_science,
 )
+from config_manager import DEFAULT_MAP_CONFIG, _map_to_dict
 
 
 # Removed MultiCol class - using \twocolumn instead of multicols package
@@ -147,6 +147,9 @@ def generate_pdf_report(
         azimuth_fov: Radar azimuth field of view
         elevation_fov: Radar elevation field of view
     """
+
+    # Convert map config dataclass to dict for use in this function
+    map_config_dict = _map_to_dict(DEFAULT_MAP_CONFIG)
 
     # Calculate cosine error factor from angle
     cosine_error_factor = 1.0
@@ -290,17 +293,17 @@ def generate_pdf_report(
         map_processor = MapProcessor(
             base_dir=os.path.dirname(__file__),
             marker_config={
-                "circle_radius": MAP_CONFIG["circle_radius"],
-                "circle_fill": MAP_CONFIG["circle_fill"],
-                "circle_stroke": MAP_CONFIG["circle_stroke"],
-                "circle_stroke_width": MAP_CONFIG["circle_stroke_width"],
+                "circle_radius": map_config_dict["circle_radius"],
+                "circle_fill": map_config_dict["circle_fill"],
+                "circle_stroke": map_config_dict["circle_stroke"],
+                "circle_stroke_width": map_config_dict["circle_stroke_width"],
             },
         )
 
         # Create radar marker from config (or None to skip marker)
         marker = None
-        if MAP_CONFIG["triangle_len"] and MAP_CONFIG["triangle_len"] > 0:
-            marker = create_marker_from_config(MAP_CONFIG)
+        if map_config_dict["triangle_len"] and map_config_dict["triangle_len"] > 0:
+            marker = create_marker_from_config(map_config_dict)
 
         # Process map (adds marker if provided, converts to PDF)
         success, map_pdf_path = map_processor.process_map(marker=marker)

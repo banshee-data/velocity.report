@@ -454,43 +454,81 @@ def create_example_config(output_path: str = "report_config_example.json") -> No
             debug=False,
             map=True,
         ),
-        colors=ColorConfig(
-            p50="#fbd92f",
-            p85="#f7b32b",
-            p98="#f25f5c",
-            max="#2d1e2f",
-        ),
-        fonts=FontConfig(
-            chart_title=14,
-            chart_label=13,
-            histogram_title=14,
-        ),
-        layout=LayoutConfig(
-            chart_figsize_width=24.0,
-            chart_figsize_height=8.0,
-            low_sample_threshold=50,
-        ),
-        pdf=PdfConfig(
-            geometry_top="1.8cm",
-            geometry_bottom="1.0cm",
-            columnsep="14",
-        ),
-        map=MapConfig(
-            triangle_color="#f25f5c",
-            triangle_angle=32.0,
-            circle_fill="#ffffff",
-        ),
-        histogram_processing=HistogramProcessingConfig(
-            default_cutoff=5.0,
-            default_bucket_size=5.0,
-        ),
-        debug=DebugConfig(
-            plot_debug=False,
-        ),
+        # Visual configs use defaults - no need to specify them
+        # colors, fonts, layout, pdf, map, histogram_processing, debug all use defaults
     )
 
     config.to_json(output_path)
     print(f"Example configuration written to: {output_path}")
+
+
+# =============================================================================
+# Default Configuration Instances
+# These are the single source of truth for all default values.
+# Other modules should import and use these instances instead of duplicating values.
+# =============================================================================
+
+DEFAULT_SITE_CONFIG = SiteConfig()
+DEFAULT_RADAR_CONFIG = RadarConfig()
+DEFAULT_QUERY_CONFIG = QueryConfig()
+DEFAULT_OUTPUT_CONFIG = OutputConfig()
+DEFAULT_COLOR_CONFIG = ColorConfig()
+DEFAULT_FONT_CONFIG = FontConfig()
+DEFAULT_LAYOUT_CONFIG = LayoutConfig()
+DEFAULT_PDF_CONFIG = PdfConfig()
+DEFAULT_MAP_CONFIG = MapConfig()
+DEFAULT_HISTOGRAM_PROCESSING_CONFIG = HistogramProcessingConfig()
+DEFAULT_DEBUG_CONFIG = DebugConfig()
+
+
+# Helper functions to convert dataclass instances to dictionaries
+# These provide backward compatibility with code expecting dict access
+def _colors_to_dict(config: ColorConfig) -> Dict[str, str]:
+    """Convert ColorConfig to dictionary."""
+    return asdict(config)
+
+
+def _fonts_to_dict(config: FontConfig) -> Dict[str, int]:
+    """Convert FontConfig to dictionary."""
+    return asdict(config)
+
+
+def _layout_to_dict(config: LayoutConfig) -> Dict[str, Any]:
+    """Convert LayoutConfig to dictionary with tuple figsize."""
+    d = asdict(config)
+    # Convert separate width/height back to tuple for backward compatibility
+    d["chart_figsize"] = config.chart_figsize
+    d["histogram_figsize"] = config.histogram_figsize
+    return d
+
+
+def _pdf_to_dict(config: PdfConfig) -> Dict[str, Any]:
+    """Convert PdfConfig to dictionary with geometry dict."""
+    d = asdict(config)
+    d["geometry"] = config.geometry
+    return d
+
+
+def _map_to_dict(config: MapConfig) -> Dict[str, Any]:
+    """Convert MapConfig to dictionary."""
+    return asdict(config)
+
+
+def _histogram_processing_to_dict(
+    config: HistogramProcessingConfig,
+) -> Dict[str, float]:
+    """Convert HistogramProcessingConfig to dictionary."""
+    return asdict(config)
+
+
+def _debug_to_dict(config: DebugConfig) -> Dict[str, bool]:
+    """Convert DebugConfig to dictionary."""
+    return asdict(config)
+
+
+def _site_to_dict(config: SiteConfig) -> Dict[str, Any]:
+    """Convert SiteConfig to dictionary."""
+    return asdict(config)
 
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 
 from date_parser import parse_server_time
-from report_config import FONTS, LAYOUT, HISTOGRAM_CONFIG
+from config_manager import DEFAULT_HISTOGRAM_PROCESSING_CONFIG
 
 # Optional matplotlib dependencies
 try:
@@ -76,11 +76,11 @@ def process_histogram(
     """
     # Use config defaults if not provided
     if cutoff is None:
-        cutoff = HISTOGRAM_CONFIG["default_cutoff"]
+        cutoff = DEFAULT_HISTOGRAM_PROCESSING_CONFIG.default_cutoff
     if bucket_size is None:
-        bucket_size = HISTOGRAM_CONFIG["default_bucket_size"]
+        bucket_size = DEFAULT_HISTOGRAM_PROCESSING_CONFIG.default_bucket_size
     if max_bucket is None:
-        max_bucket = HISTOGRAM_CONFIG["default_max_bucket"]
+        max_bucket = DEFAULT_HISTOGRAM_PROCESSING_CONFIG.default_max_bucket
 
     # Coerce numeric keys into buckets and compute total
     numeric_buckets: Dict[float, int] = {}

@@ -27,25 +27,12 @@ except Exception:  # pragma: no cover
         pass
 
 
-# Default PDF configuration (matches config_manager.PdfConfig)
-DEFAULT_PDF_CONFIG = {
-    "geometry": {
-        "top": "1.8cm",
-        "bottom": "1.0cm",
-        "left": "1.0cm",
-        "right": "1.0cm",
-    },
-    "columnsep": "14",
-    "headheight": "12pt",
-    "headsep": "10pt",
-    "fonts_dir": "fonts",
-}
-
-# Default site information (matches config_manager.SiteConfig)
-DEFAULT_SITE_INFO = {
-    "surveyor": "Banshee, INC.",
-    "contact": "david@banshee-data.com",
-}
+from config_manager import (
+    DEFAULT_PDF_CONFIG,
+    DEFAULT_SITE_CONFIG,
+    _pdf_to_dict,
+    _site_to_dict,
+)
 
 
 class DocumentBuilder:
@@ -65,7 +52,7 @@ class DocumentBuilder:
         Args:
             config: Optional dict to override default PDF configuration
         """
-        self.config = config or DEFAULT_PDF_CONFIG
+        self.config = config or _pdf_to_dict(DEFAULT_PDF_CONFIG)
 
     def create_document(self, page_numbers: bool = False) -> Document:
         """Create base Document with geometry.
@@ -264,9 +251,9 @@ class DocumentBuilder:
         """
         # Use defaults only if None (not if empty string)
         if surveyor is None:
-            surveyor = DEFAULT_SITE_INFO["surveyor"]
+            surveyor = _site_to_dict(DEFAULT_SITE_CONFIG)["surveyor"]
         if contact is None:
-            contact = DEFAULT_SITE_INFO["contact"]
+            contact = _site_to_dict(DEFAULT_SITE_CONFIG)["contact"]
 
         # Create base document
         doc = self.create_document(page_numbers=False)

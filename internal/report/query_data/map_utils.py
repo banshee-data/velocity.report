@@ -19,6 +19,8 @@ import math
 import importlib.util
 from typing import Dict, Any, Optional, Tuple
 
+from config_manager import DEFAULT_MAP_CONFIG
+
 
 # =============================================================================
 # SVG Parsing Patterns
@@ -403,13 +405,21 @@ class MapProcessor:
         """
         self.base_dir = base_dir or os.path.dirname(__file__)
 
-        # Initialize marker injector with config
+        # Initialize marker injector with config (use DEFAULT_MAP_CONFIG for fallbacks)
         marker_config = marker_config or {}
         self.injector = SVGMarkerInjector(
-            circle_radius=marker_config.get("circle_radius", 20.0),
-            circle_fill=marker_config.get("circle_fill", "#ffffff"),
-            circle_stroke=marker_config.get("circle_stroke", None),
-            circle_stroke_width=marker_config.get("circle_stroke_width", 2.0),
+            circle_radius=marker_config.get(
+                "circle_radius", DEFAULT_MAP_CONFIG.circle_radius
+            ),
+            circle_fill=marker_config.get(
+                "circle_fill", DEFAULT_MAP_CONFIG.circle_fill
+            ),
+            circle_stroke=marker_config.get(
+                "circle_stroke", DEFAULT_MAP_CONFIG.circle_stroke
+            ),
+            circle_stroke_width=marker_config.get(
+                "circle_stroke_width", DEFAULT_MAP_CONFIG.circle_stroke_width
+            ),
         )
 
     def process_map(
@@ -495,14 +505,17 @@ def create_marker_from_config(config: Dict[str, Any]) -> RadarMarker:
     Returns:
         RadarMarker instance
     """
+    # Use DEFAULT_MAP_CONFIG for all fallback values (single source of truth)
     return RadarMarker(
-        cx_frac=config.get("triangle_cx", 0.385),
-        cy_frac=config.get("triangle_cy", 0.71),
-        bearing_deg=config.get("triangle_angle", 32.0),
-        coverage_length=config.get("triangle_len", 0.42),
-        coverage_angle=config.get("triangle_apex_angle", 20.0),
-        color=config.get("triangle_color", "#f25f5c"),
-        opacity=config.get("triangle_opacity", 0.9),
+        cx_frac=config.get("triangle_cx", DEFAULT_MAP_CONFIG.triangle_cx),
+        cy_frac=config.get("triangle_cy", DEFAULT_MAP_CONFIG.triangle_cy),
+        bearing_deg=config.get("triangle_angle", DEFAULT_MAP_CONFIG.triangle_angle),
+        coverage_length=config.get("triangle_len", DEFAULT_MAP_CONFIG.triangle_len),
+        coverage_angle=config.get(
+            "triangle_apex_angle", DEFAULT_MAP_CONFIG.triangle_apex_angle
+        ),
+        color=config.get("triangle_color", DEFAULT_MAP_CONFIG.triangle_color),
+        opacity=config.get("triangle_opacity", DEFAULT_MAP_CONFIG.triangle_opacity),
     )
 
 
