@@ -22,6 +22,7 @@ from pdf_generator.core.config_manager import (
     SiteConfig,
     QueryConfig,
     OutputConfig,
+    RadarConfig,
     load_config,
 )
 
@@ -38,6 +39,9 @@ def demo_create_config():
             surveyor="City Traffic Department",
             contact="traffic@springfield.gov",
             speed_limit=30,
+        ),
+        radar=RadarConfig(
+            cosine_error_angle=21.0,
         ),
         query=QueryConfig(
             start_date="2025-06-01",

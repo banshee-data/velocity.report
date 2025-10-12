@@ -77,7 +77,10 @@ except Exception:  # pragma: no cover - allow tests to run without pylatex insta
 
 
 from pdf_generator.core.stats_utils import chart_exists
-from pdf_generator.core.data_transformers import MetricsNormalizer, extract_count_from_row
+from pdf_generator.core.data_transformers import (
+    MetricsNormalizer,
+    extract_count_from_row,
+)
 from pdf_generator.core.map_utils import MapProcessor, create_marker_from_config
 from pdf_generator.core.document_builder import DocumentBuilder
 from pdf_generator.core.table_builders import (
@@ -289,7 +292,23 @@ def generate_pdf_report(
     # If a map.svg exists next to this module, include it before the stats chart.
     # Use map_utils module for marker injection and PDF conversion.
     # Skip map if include_map=False (e.g., when --no-map flag is used)
+
+    print(f"\n=== MAP GENERATION DEBUG ===")
+    print(f"include_map parameter: {include_map}")
+
     if include_map:
+        print(f"Map generation ENABLED")
+        print(f"Map config:")
+        print(f"  - circle_radius: {map_config_dict['circle_radius']}")
+        print(f"  - circle_fill: {map_config_dict['circle_fill']}")
+        print(f"  - circle_stroke: {map_config_dict['circle_stroke']}")
+        print(f"  - triangle_len: {map_config_dict['triangle_len']}")
+        print(f"  - triangle_cx: {map_config_dict['triangle_cx']}")
+        print(f"  - triangle_cy: {map_config_dict['triangle_cy']}")
+        print(f"  - triangle_angle: {map_config_dict['triangle_angle']}")
+        print(f"  - triangle_color: {map_config_dict['triangle_color']}")
+        print(f"  - triangle_opacity: {map_config_dict['triangle_opacity']}")
+
         map_processor = MapProcessor(
             base_dir=os.path.dirname(__file__),
             marker_config={
@@ -303,19 +322,37 @@ def generate_pdf_report(
         # Create radar marker from config (or None to skip marker)
         marker = None
         if map_config_dict["triangle_len"] and map_config_dict["triangle_len"] > 0:
+            print(
+                f"Creating radar marker (triangle_len={map_config_dict['triangle_len']} > 0)"
+            )
             marker = create_marker_from_config(map_config_dict)
+            print(f"Marker created: {marker is not None}")
+        else:
+            print(
+                f"Skipping marker creation (triangle_len={map_config_dict['triangle_len']} <= 0)"
+            )
 
         # Process map (adds marker if provided, converts to PDF)
+        print(f"Processing map (marker={'provided' if marker else 'None'})...")
         success, map_pdf_path = map_processor.process_map(marker=marker)
+        print(f"Map processing result: success={success}, path={map_pdf_path}")
 
         # If map PDF was generated, include it in the document
         if success and map_pdf_path:
+            print(f"✓ Including map in document: {map_pdf_path}")
             with doc.create(Center()) as map_center:
                 with map_center.create(Figure(position="H")) as mf:
                     mf.add_image(map_pdf_path, width=NoEscape(r"\linewidth"))
                     mf.add_caption(
                         "Site map with radar location (circle) and coverage area (red triangle)"
                     )
+        else:
+            print(
+                f"✗ Map NOT included (success={success}, path exists={map_pdf_path is not None})"
+            )
+    else:
+        print(f"Map generation DISABLED (include_map=False)")
+    print(f"=== END MAP DEBUG ===\n")
 
     engines = ("xelatex", "lualatex", "pdflatex")
     generated = False

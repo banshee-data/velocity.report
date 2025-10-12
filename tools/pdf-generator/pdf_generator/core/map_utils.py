@@ -439,9 +439,15 @@ class MapProcessor:
         map_svg = os.path.join(self.base_dir, "map.svg")
         map_pdf = os.path.join(self.base_dir, "map.pdf")
 
+        print(f"  [MapProcessor] Looking for map.svg at: {map_svg}")
+
         # Check if source SVG exists
         if not os.path.exists(map_svg):
+            print(f"  [MapProcessor] ✗ map.svg NOT FOUND - map will be skipped")
             return False, None
+
+        print(f"  [MapProcessor] ✓ map.svg found")
+        print(f"  [MapProcessor] Target map.pdf: {map_pdf}")
 
         # Determine if conversion is needed
         need_convert = force_convert or not os.path.exists(map_pdf)
@@ -451,12 +457,19 @@ class MapProcessor:
             except Exception:
                 need_convert = True
 
+        print(
+            f"  [MapProcessor] Conversion needed: {need_convert} (force={force_convert}, pdf_exists={os.path.exists(map_pdf)})"
+        )
+
         # Determine source SVG for conversion
         source_svg = map_svg
         temp_svg = None
 
         # If marker is provided, create temporary SVG with marker overlay
         if marker is not None and marker.coverage_length > 0:
+            print(
+                f"  [MapProcessor] Adding marker overlay (coverage_length={marker.coverage_length})"
+            )
             try:
                 with open(map_svg, "r", encoding="utf-8") as f:
                     svg_text = f.read()
@@ -472,24 +485,43 @@ class MapProcessor:
                 # Use temporary SVG as conversion source
                 source_svg = temp_svg
                 need_convert = True  # Force conversion when marker is added
+                print(f"  [MapProcessor] ✓ Marker overlay created: {temp_svg}")
 
             except Exception as e:
-                print(f"Warning: failed to create map with marker overlay: {e}")
+                print(
+                    f"  [MapProcessor] ✗ Warning: failed to create map with marker overlay: {e}"
+                )
                 source_svg = map_svg
+        elif marker is not None:
+            print(
+                f"  [MapProcessor] Marker provided but coverage_length={marker.coverage_length} <= 0, skipping overlay"
+            )
+        else:
+            print(f"  [MapProcessor] No marker provided, using original map.svg")
 
         # Convert to PDF if needed
         if need_convert:
+            print(
+                f"  [MapProcessor] Converting {os.path.basename(source_svg)} to PDF..."
+            )
             if not SVGToPDFConverter.convert(source_svg, map_pdf):
                 print(
-                    "Warning: map.svg found but failed to convert to PDF; "
+                    f"  [MapProcessor] ✗ WARNING: map.svg found but failed to convert to PDF; "
                     "skipping map inclusion"
                 )
                 return False, None
+            print(f"  [MapProcessor] ✓ PDF conversion successful")
+        else:
+            print(f"  [MapProcessor] Using existing map.pdf (up to date)")
 
         # Return success if PDF exists
         if os.path.exists(map_pdf):
+            print(
+                f"  [MapProcessor] ✓ Returning success with path: {os.path.abspath(map_pdf)}"
+            )
             return True, os.path.abspath(map_pdf)
 
+        print(f"  [MapProcessor] ✗ map.pdf does not exist after processing")
         return False, None
 
 
