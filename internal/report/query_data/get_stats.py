@@ -16,7 +16,7 @@ import os
 import re
 import sys
 from typing import List, Tuple, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone as dt_timezone
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -154,7 +154,7 @@ def compute_iso_timestamps(
         Tuple of (start_iso, end_iso) strings
     """
     try:
-        tzobj = ZoneInfo(timezone) if timezone else timezone.utc
+        tzobj = ZoneInfo(timezone) if timezone else dt_timezone.utc
         start_iso = datetime.fromtimestamp(start_ts, tz=tzobj).isoformat()
         end_iso = datetime.fromtimestamp(end_ts, tz=tzobj).isoformat()
         return start_iso, end_iso
@@ -180,7 +180,9 @@ def resolve_file_prefix(config: ReportConfig, start_ts: int, end_ts: int) -> str
     else:
         # Auto-generate from date range
         tzobj = (
-            ZoneInfo(config.query.timezone) if config.query.timezone else timezone.utc
+            ZoneInfo(config.query.timezone)
+            if config.query.timezone
+            else dt_timezone.utc
         )
         start_label = datetime.fromtimestamp(start_ts, tz=tzobj).date().isoformat()
         end_label = datetime.fromtimestamp(end_ts, tz=tzobj).date().isoformat()

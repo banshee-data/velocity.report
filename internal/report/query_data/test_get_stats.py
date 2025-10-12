@@ -128,15 +128,15 @@ class TestComputeIsoTimestamps(unittest.TestCase):
     """Tests for compute_iso_timestamps function."""
 
     def test_compute_with_utc(self):
-        """Test ISO timestamp generation with UTC (fallback to string)."""
+        """Test ISO timestamp generation with UTC (when timezone is None)."""
         start_ts = 1704067200  # 2024-01-01 00:00:00 UTC
         end_ts = 1704153600  # 2024-01-02 00:00:00 UTC
 
         start_iso, end_iso = compute_iso_timestamps(start_ts, end_ts, None)
 
-        # When timezone is None, function falls back to string representation
-        self.assertEqual(start_iso, "1704067200")
-        self.assertEqual(end_iso, "1704153600")
+        # When timezone is None, function uses UTC
+        self.assertEqual(start_iso, "2024-01-01T00:00:00+00:00")
+        self.assertEqual(end_iso, "2024-01-02T00:00:00+00:00")
 
     def test_compute_with_timezone(self):
         """Test ISO timestamp generation with specific timezone."""
