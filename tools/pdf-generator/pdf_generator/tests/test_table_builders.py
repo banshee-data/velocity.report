@@ -577,5 +577,122 @@ class TestHistogramEdgeCases(unittest.TestCase):
         self.assertIsNotNone(table)
 
 
+class TestPyLaTeXImportErrors(unittest.TestCase):
+    """Test that ImportError is raised when PyLaTeX is not available."""
+
+    def test_stats_table_builder_import_error(self):
+        """Test that StatsTableBuilder raises ImportError without PyLaTeX."""
+        import pdf_generator.core.table_builders as tb_module
+
+        original_have_pylatex = tb_module.HAVE_PYLATEX
+
+        try:
+            tb_module.HAVE_PYLATEX = False
+
+            with self.assertRaises(ImportError) as context:
+                StatsTableBuilder()
+
+            self.assertIn("PyLaTeX is required", str(context.exception))
+            self.assertIn("pip install pylatex", str(context.exception))
+        finally:
+            tb_module.HAVE_PYLATEX = original_have_pylatex
+
+    def test_parameter_table_builder_import_error(self):
+        """Test that ParameterTableBuilder raises ImportError without PyLaTeX."""
+        import pdf_generator.core.table_builders as tb_module
+
+        original_have_pylatex = tb_module.HAVE_PYLATEX
+
+        try:
+            tb_module.HAVE_PYLATEX = False
+
+            with self.assertRaises(ImportError) as context:
+                ParameterTableBuilder()
+
+            self.assertIn("PyLaTeX is required", str(context.exception))
+            self.assertIn("pip install pylatex", str(context.exception))
+        finally:
+            tb_module.HAVE_PYLATEX = original_have_pylatex
+
+
+class TestHistogramTableFallbackMethod(unittest.TestCase):
+    """Test the histogram fallback method that adds rows."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.builder = HistogramTableBuilder()
+
+    def test_add_histogram_rows_fallback_with_below_cutoff(self):
+        """Test fallback method when there are values below cutoff."""
+        from pylatex import Tabular
+
+        table = Tabular("lrr")
+        numeric_buckets = {
+            5: 10,  # Below cutoff
+            10: 20,  # Below cutoff
+            15: 30,  # Below cutoff
+            20: 40,  # Below cutoff
+            25: 50,
+            30: 60,
+            35: 70,
+            40: 80,
+        }
+        ranges = [(25, 30), (30, 35), (35, 40)]
+        cutoff = 25.0
+        proc_max = 40.0
+        total = sum(numeric_buckets.values())
+
+        # Call the fallback method directly (table, numeric_buckets, total, cutoff, ranges, proc_max)
+        self.builder._add_histogram_rows_fallback(
+            table, numeric_buckets, total, cutoff, ranges, proc_max
+        )
+
+        # Table should have rows
+        # Verify it was built without errors
+        self.assertIsNotNone(table)
+
+    def test_add_histogram_rows_fallback_without_below_cutoff(self):
+        """Test fallback method when there are NO values below cutoff."""
+        from pylatex import Tabular
+
+        table = Tabular("lrr")
+        numeric_buckets = {
+            30: 50,
+            35: 60,
+            40: 70,
+            45: 80,
+        }
+        ranges = [(30, 35), (35, 40), (40, 45)]
+        cutoff = 25.0
+        proc_max = 45.0
+        total = sum(numeric_buckets.values())
+
+        # Call the fallback method directly (table, numeric_buckets, total, cutoff, ranges, proc_max)
+        self.builder._add_histogram_rows_fallback(
+            table, numeric_buckets, total, cutoff, ranges, proc_max
+        )
+
+        # Table should have rows (no below-cutoff row)
+        self.assertIsNotNone(table)
+
+    def test_add_histogram_rows_fallback_edge_case_zero_total(self):
+        """Test fallback method with zero total count."""
+        from pylatex import Tabular
+
+        table = Tabular("lrr")
+        numeric_buckets = {}
+        ranges = [(25, 30), (30, 35)]
+        cutoff = 25.0
+        proc_max = 35.0
+        total = 0
+
+        # Should handle zero total without errors (table, numeric_buckets, total, cutoff, ranges, proc_max)
+        self.builder._add_histogram_rows_fallback(
+            table, numeric_buckets, total, cutoff, ranges, proc_max
+        )
+
+        self.assertIsNotNone(table)
+
+
 if __name__ == "__main__":
     unittest.main()

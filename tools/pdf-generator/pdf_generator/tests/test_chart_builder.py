@@ -1624,5 +1624,199 @@ class TestTimeSeriesChartBuilderEdgeCases(unittest.TestCase):
         self.assertGreater(len(axes), 0)
 
 
+class TestMatplotlibImportError(unittest.TestCase):
+    """Test that ImportError is raised when matplotlib is not available."""
+
+    def test_import_error_when_matplotlib_unavailable(self):
+        """Test that TimeSeriesChartBuilder raises ImportError without matplotlib."""
+        # Save original value
+        import pdf_generator.core.chart_builder as cb_module
+
+        original_have_matplotlib = cb_module.HAVE_MATPLOTLIB
+
+        try:
+            # Temporarily set HAVE_MATPLOTLIB to False
+            cb_module.HAVE_MATPLOTLIB = False
+
+            # Should raise ImportError
+            with self.assertRaises(ImportError) as context:
+                TimeSeriesChartBuilder()
+
+            self.assertIn("matplotlib is required", str(context.exception))
+            self.assertIn("pip install matplotlib", str(context.exception))
+        finally:
+            # Restore original value
+            cb_module.HAVE_MATPLOTLIB = original_have_matplotlib
+
+
+class TestDebugPlotOutput(unittest.TestCase):
+    """Test debug output for plot debugging."""
+
+    def test_create_masked_arrays_debug_output(self):
+        """Test debug output in _create_masked_arrays when plot_debug is enabled."""
+        builder = TimeSeriesChartBuilder(debug={"plot_debug": True})
+
+        metrics = [
+            {
+                "timestamp": "2025-01-01T00:00:00",
+                "p50": 25.0,
+                "p85": 30.0,
+                "p98": 35.0,
+                "max": 40.0,
+                "count": 100,
+            },
+            {
+                "timestamp": "2025-01-01T01:00:00",
+                "p50": 0.0,  # This will trigger zero_mask
+                "p85": 0.0,
+                "p98": 0.0,
+                "max": 0.0,
+                "count": 0,
+            },
+        ]
+
+        times, p50_f, p85_f, p98_f, mx_f, counts = builder._extract_data(metrics, None)
+
+        # Capture stderr for debug output
+        import io
+        import sys
+
+        old_stderr = sys.stderr
+        sys.stderr = io.StringIO()
+
+        try:
+            p50_a, p85_a, p98_a, mx_a = builder._create_masked_arrays(
+                p50_f, p85_f, p98_f, mx_f, counts
+            )
+
+            stderr_output = sys.stderr.getvalue()
+            # Debug output should include threshold and zero_mask_count
+            self.assertIn("DEBUG_PLOT:", stderr_output)
+        finally:
+            sys.stderr = old_stderr
+
+    def test_plot_count_bars_debug_output(self):
+        """Test debug output via _debug_output when plot_debug is enabled."""
+        builder = TimeSeriesChartBuilder(debug={"plot_debug": True})
+
+        times = [datetime(2025, 1, 1, i) for i in range(3)]
+        counts = [100, 200, 150]
+        p50_f = np.array([25.0, 30.0, 28.0])
+
+        import io
+        import sys
+
+        old_stderr = sys.stderr
+        sys.stderr = io.StringIO()
+
+        try:
+            # Call _debug_output directly
+            builder._debug_output(times, counts, p50_f)
+
+            stderr_output = sys.stderr.getvalue()
+            # Debug output should include times and counts info
+            self.assertIn("DEBUG_PLOT:", stderr_output)
+            self.assertIn("times(len)=", stderr_output)
+            self.assertIn("counts=", stderr_output)
+            self.assertIn("p50_f=", stderr_output)
+        finally:
+            sys.stderr = old_stderr
+
+    def test_compute_gap_threshold_debug_output(self):
+        """Test debug output in _compute_gap_threshold when plot_debug is enabled."""
+        builder = TimeSeriesChartBuilder(debug={"plot_debug": True})
+
+        times = [datetime(2025, 1, 1, i) for i in range(5)]
+
+        import io
+        import sys
+
+        old_stderr = sys.stderr
+        sys.stderr = io.StringIO()
+
+        try:
+            gap_threshold = builder._compute_gap_threshold(times)
+
+            stderr_output = sys.stderr.getvalue()
+            # Debug output should include base_delta and gap_threshold
+            self.assertIn("DEBUG_PLOT:", stderr_output)
+            self.assertIn("base_delta=", stderr_output)
+            self.assertIn("gap_threshold=", stderr_output)
+        finally:
+            sys.stderr = old_stderr
+
+
+class TestAxisYlimErrorRecovery(unittest.TestCase):
+    """Test error recovery in axis ylim setting."""
+
+    def test_configure_speed_axis_ylim_double_exception(self):
+        """Test configure_speed_axis when both ylim attempts fail."""
+        builder = TimeSeriesChartBuilder()
+
+        fig, ax = plt.subplots()
+
+        # Mock the axis to raise exceptions on both set_ylim and get_ylim
+        original_set_ylim = ax.set_ylim
+        original_get_ylim = ax.get_ylim
+
+        call_count = [0]
+
+        def mock_set_ylim(*args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                raise RuntimeError("First set_ylim failed")
+            return original_set_ylim(*args, **kwargs)
+
+        def mock_get_ylim():
+            raise RuntimeError("get_ylim failed")
+
+        ax.set_ylim = mock_set_ylim
+        ax.get_ylim = mock_get_ylim
+
+        try:
+            # Should not raise, should handle exception gracefully
+            builder._configure_speed_axis(ax, "mph")
+            # Verify it was called correctly (no exception raised)
+            self.assertTrue(call_count[0] >= 1)
+        finally:
+            ax.set_ylim = original_set_ylim
+            ax.get_ylim = original_get_ylim
+            plt.close(fig)
+
+    def test_plot_count_bars_ylim_double_exception(self):
+        """Test _plot_count_bars when both ylim attempts fail."""
+        builder = TimeSeriesChartBuilder()
+
+        fig, ax2 = plt.subplots()
+        times = [datetime(2025, 1, 1, i) for i in range(3)]
+        counts = [100, 200, 150]
+
+        # Mock the axis to raise exceptions on both set_ylim attempts
+        original_set_ylim = ax2.set_ylim
+        original_get_ylim = ax2.get_ylim
+
+        call_count = [0]
+
+        def mock_set_ylim(*args, **kwargs):
+            call_count[0] += 1
+            raise RuntimeError("set_ylim failed")
+
+        def mock_get_ylim():
+            raise RuntimeError("get_ylim failed")
+
+        ax2.set_ylim = mock_set_ylim
+        ax2.get_ylim = mock_get_ylim
+
+        try:
+            # Should not raise, should handle exception gracefully
+            result = builder._plot_count_bars(ax2, times, counts)
+            # Method should complete despite exceptions
+            self.assertTrue(call_count[0] >= 1)
+        finally:
+            ax2.set_ylim = original_set_ylim
+            ax2.get_ylim = original_get_ylim
+            plt.close(fig)
+
+
 if __name__ == "__main__":
     unittest.main()
