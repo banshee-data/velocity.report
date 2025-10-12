@@ -27,7 +27,7 @@ except Exception:  # pragma: no cover
         pass
 
 
-from config_manager import (
+from pdf_generator.core.config_manager import (
     DEFAULT_PDF_CONFIG,
     DEFAULT_SITE_CONFIG,
     _pdf_to_dict,

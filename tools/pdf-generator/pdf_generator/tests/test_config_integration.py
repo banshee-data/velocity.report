@@ -19,14 +19,14 @@ try:
 except ImportError:
     HAVE_PYLATEX = False
 
-from config_manager import (
+from pdf_generator.core.config_manager import (
     ReportConfig,
     RadarConfig,
     SiteConfig,
     QueryConfig,
     OutputConfig,
 )
-from pdf_generator import generate_pdf_report
+from pdf_generator.core.pdf_generator import generate_pdf_report
 
 
 class TestConfigIntegration(unittest.TestCase):

@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import MagicMock, patch, call
 
 # Import section builders
-from report_sections import (
+from pdf_generator.core.report_sections import (
     VelocityOverviewSection,
     SiteInformationSection,
     ScienceMethodologySection,

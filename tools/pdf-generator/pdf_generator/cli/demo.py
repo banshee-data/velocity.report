@@ -17,7 +17,7 @@ import tempfile
 from pathlib import Path
 
 # Import our new configuration system
-from config_manager import (
+from pdf_generator.core.config_manager import (
     ReportConfig,
     SiteConfig,
     QueryConfig,

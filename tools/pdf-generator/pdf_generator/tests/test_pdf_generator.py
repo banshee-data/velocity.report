@@ -7,7 +7,7 @@ import os
 
 sys.path.append(os.path.dirname(__file__))
 
-from pdf_generator import generate_pdf_report
+from pdf_generator.core.pdf_generator import generate_pdf_report
 
 # Sample test data
 overall_metrics = [

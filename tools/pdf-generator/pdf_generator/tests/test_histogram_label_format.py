@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Visual test to verify histogram labels match table format."""
 
-from chart_builder import HistogramChartBuilder
+from pdf_generator.core.chart_builder import HistogramChartBuilder
 import matplotlib.pyplot as plt
 
 

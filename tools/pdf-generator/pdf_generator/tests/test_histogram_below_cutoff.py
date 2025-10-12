@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Test histogram labels with below-cutoff bucket."""
 
-from chart_builder import HistogramChartBuilder
+from pdf_generator.core.chart_builder import HistogramChartBuilder
 import matplotlib.pyplot as plt
 
 

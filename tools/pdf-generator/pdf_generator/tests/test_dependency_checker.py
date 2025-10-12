@@ -6,7 +6,7 @@ from unittest.mock import patch, MagicMock
 import sys
 import os
 
-from dependency_checker import (
+from pdf_generator.core.dependency_checker import (
     DependencyChecker,
     DependencyCheckResult,
     check_dependencies,

@@ -5,7 +5,7 @@ import os
 import unittest
 from unittest.mock import Mock, MagicMock, patch, call
 
-from document_builder import DocumentBuilder
+from pdf_generator.core.document_builder import DocumentBuilder
 
 
 class TestDocumentBuilder(unittest.TestCase):

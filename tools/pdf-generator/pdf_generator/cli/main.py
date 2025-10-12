@@ -21,12 +21,12 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 
-from api_client import RadarStatsClient, SUPPORTED_GROUPS
-from config_manager import ReportConfig
-from date_parser import parse_date_to_unix, is_date_only, parse_server_time
-from pdf_generator import generate_pdf_report
-from stats_utils import plot_histogram
-from data_transformers import (
+from pdf_generator.core.api_client import RadarStatsClient, SUPPORTED_GROUPS
+from pdf_generator.core.config_manager import ReportConfig
+from pdf_generator.core.date_parser import parse_date_to_unix, is_date_only, parse_server_time
+from pdf_generator.core.pdf_generator import generate_pdf_report
+from pdf_generator.core.stats_utils import plot_histogram
+from pdf_generator.core.data_transformers import (
     MetricsNormalizer,
     extract_start_time_from_row,
     extract_count_from_row,

@@ -7,7 +7,7 @@ from unittest.mock import patch, MagicMock
 import tempfile
 import os
 
-from stats_utils import (
+from pdf_generator.core.stats_utils import (
     format_time,
     format_number,
     process_histogram,
@@ -16,7 +16,7 @@ from stats_utils import (
     plot_histogram,
     chart_exists,
 )
-from chart_saver import save_chart_as_pdf
+from pdf_generator.core.chart_saver import save_chart_as_pdf
 
 
 class TestStatsUtils(unittest.TestCase):

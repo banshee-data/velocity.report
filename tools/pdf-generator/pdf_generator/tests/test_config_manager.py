@@ -8,7 +8,7 @@ from datetime import datetime
 
 import pytest
 
-from config_manager import (
+from pdf_generator.core.config_manager import (
     ReportConfig,
     SiteConfig,
     RadarConfig,

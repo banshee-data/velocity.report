@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import argparse
 
-from config_manager import (
+from pdf_generator.core.config_manager import (
     ReportConfig,
     SiteConfig,
     QueryConfig,

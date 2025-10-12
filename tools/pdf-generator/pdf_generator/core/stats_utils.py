@@ -13,8 +13,8 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 
-from date_parser import parse_server_time
-from config_manager import DEFAULT_HISTOGRAM_PROCESSING_CONFIG
+from pdf_generator.core.date_parser import parse_server_time
+from pdf_generator.core.config_manager import DEFAULT_HISTOGRAM_PROCESSING_CONFIG
 
 # Optional matplotlib dependencies
 try:

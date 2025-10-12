@@ -6,7 +6,7 @@ options with comments explaining their purpose.
 """
 
 import json
-from config_manager import (
+from pdf_generator.core.config_manager import (
     ReportConfig,
     SiteConfig,
     QueryConfig,

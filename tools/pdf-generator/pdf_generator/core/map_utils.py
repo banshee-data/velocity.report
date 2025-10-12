@@ -19,7 +19,7 @@ import math
 import importlib.util
 from typing import Dict, Any, Optional, Tuple
 
-from config_manager import DEFAULT_MAP_CONFIG
+from pdf_generator.core.config_manager import DEFAULT_MAP_CONFIG
 
 
 # =============================================================================

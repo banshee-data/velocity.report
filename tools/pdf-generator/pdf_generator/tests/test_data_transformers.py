@@ -3,7 +3,7 @@
 
 import unittest
 import numpy as np
-from data_transformers import (
+from pdf_generator.core.data_transformers import (
     MetricsNormalizer,
     FIELD_ALIASES,
     extract_metrics_from_row,

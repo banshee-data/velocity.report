@@ -6,7 +6,7 @@ from unittest.mock import Mock, MagicMock, patch, call
 from typing import Dict, List, Any
 
 # Import builders
-from table_builders import (
+from pdf_generator.core.table_builders import (
     StatsTableBuilder,
     ParameterTableBuilder,
     HistogramTableBuilder,

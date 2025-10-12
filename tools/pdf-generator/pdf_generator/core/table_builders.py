@@ -31,14 +31,14 @@ except Exception:  # pragma: no cover
         return s
 
 
-from stats_utils import (
+from pdf_generator.core.stats_utils import (
     format_time,
     format_number,
     process_histogram,
     count_in_histogram_range,
     count_histogram_ge,
 )
-from data_transformers import (
+from pdf_generator.core.data_transformers import (
     MetricsNormalizer,
     extract_start_time_from_row,
     extract_count_from_row,

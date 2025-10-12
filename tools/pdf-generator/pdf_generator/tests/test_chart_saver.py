@@ -14,7 +14,7 @@ import tempfile
 import shutil
 from unittest.mock import MagicMock, patch
 
-from chart_saver import ChartSaver, save_chart_as_pdf
+from pdf_generator.core.chart_saver import ChartSaver, save_chart_as_pdf
 
 
 class TestChartSaver(unittest.TestCase):

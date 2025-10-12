@@ -8,7 +8,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 # Import classes and functions to test
-from chart_builder import TimeSeriesChartBuilder, HistogramChartBuilder, HAVE_MATPLOTLIB
+from pdf_generator.core.chart_builder import TimeSeriesChartBuilder, HistogramChartBuilder, HAVE_MATPLOTLIB
 
 # Skip tests if matplotlib not available
 if not HAVE_MATPLOTLIB:

@@ -28,7 +28,7 @@ except Exception:  # pragma: no cover
         return s
 
 
-from table_builders import create_param_table
+from pdf_generator.core.table_builders import create_param_table
 
 
 class VelocityOverviewSection:

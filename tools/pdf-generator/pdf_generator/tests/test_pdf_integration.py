@@ -10,7 +10,7 @@ import tempfile
 import os
 from unittest.mock import patch, MagicMock
 
-from pdf_generator import generate_pdf_report
+from pdf_generator.core.pdf_generator import generate_pdf_report
 
 
 class TestPDFIntegration(unittest.TestCase):

@@ -33,13 +33,13 @@ except Exception:  # pragma: no cover
     plt = None
     Patch = None
 
-from data_transformers import (
+from pdf_generator.core.data_transformers import (
     MetricsNormalizer,
     extract_start_time_from_row,
     extract_count_from_row,
 )
-from date_parser import parse_server_time
-from config_manager import (
+from pdf_generator.core.date_parser import parse_server_time
+from pdf_generator.core.config_manager import (
     _colors_to_dict,
     _fonts_to_dict,
     _layout_to_dict,

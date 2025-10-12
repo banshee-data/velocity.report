@@ -76,22 +76,22 @@ except Exception:  # pragma: no cover - allow tests to run without pylatex insta
         pass
 
 
-from stats_utils import chart_exists
-from data_transformers import MetricsNormalizer, extract_count_from_row
-from map_utils import MapProcessor, create_marker_from_config
-from document_builder import DocumentBuilder
-from table_builders import (
+from pdf_generator.core.stats_utils import chart_exists
+from pdf_generator.core.data_transformers import MetricsNormalizer, extract_count_from_row
+from pdf_generator.core.map_utils import MapProcessor, create_marker_from_config
+from pdf_generator.core.document_builder import DocumentBuilder
+from pdf_generator.core.table_builders import (
     create_stats_table,
     create_param_table,
     create_histogram_table,
     create_twocolumn_stats_table,
 )
-from report_sections import (
+from pdf_generator.core.report_sections import (
     add_metric_data_intro,
     add_site_specifics,
     add_science,
 )
-from config_manager import DEFAULT_MAP_CONFIG, _map_to_dict
+from pdf_generator.core.config_manager import DEFAULT_MAP_CONFIG, _map_to_dict
 
 
 # Removed MultiCol class - using \twocolumn instead of multicols package

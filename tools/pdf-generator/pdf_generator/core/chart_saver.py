@@ -20,7 +20,7 @@ except Exception:  # pragma: no cover
     HAVE_MATPLOTLIB = False
     plt = None
 
-from config_manager import DEFAULT_LAYOUT_CONFIG
+from pdf_generator.core.config_manager import DEFAULT_LAYOUT_CONFIG
 
 
 class ChartSaver:

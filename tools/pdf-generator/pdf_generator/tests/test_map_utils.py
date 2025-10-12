@@ -15,7 +15,7 @@ import tempfile
 import shutil
 from unittest.mock import patch, MagicMock
 
-from map_utils import (
+from pdf_generator.core.map_utils import (
     RadarMarker,
     SVGMarkerInjector,
     SVGToPDFConverter,
