@@ -203,5 +203,105 @@ class TestCheckDependenciesFunction(unittest.TestCase):
         self.assertIsInstance(result, bool)
 
 
+class TestDependencyCheckerSuccessPaths(unittest.TestCase):
+    """Test success paths that create success results."""
+
+    def test_check_python_version_success(self):
+        """Test check_python_version when version is sufficient."""
+        checker = DependencyChecker()
+
+        # Current Python version should be >= 3.8
+        # sys.version_info is a named tuple, need to mock it properly
+        from collections import namedtuple
+
+        VersionInfo = namedtuple(
+            "VersionInfo", ["major", "minor", "micro", "releaselevel", "serial"]
+        )
+
+        with patch("sys.version_info", VersionInfo(3, 11, 0, "final", 0)):
+            checker._check_python_version()
+
+        # Should have added a success result (line 98)
+        results = [r for r in checker.results if r.name == "Python Version"]
+        self.assertEqual(len(results), 1)
+        self.assertTrue(results[0].available)
+
+    def test_check_venv_success(self):
+        """Test check_venv when running in virtual environment."""
+        checker = DependencyChecker()
+
+        # Simulate virtual environment
+        with patch.dict("os.environ", {"VIRTUAL_ENV": "/path/to/venv"}):
+            checker._check_venv()
+
+        # Should have added a success result (line 123)
+        results = [r for r in checker.results if r.name == "Virtual Environment"]
+        self.assertEqual(len(results), 1)
+        self.assertTrue(results[0].available)
+
+    def test_print_results_with_warnings_returns_true(self):
+        """Test print_results returns True when there are warnings but no errors."""
+        checker = DependencyChecker()
+
+        # Add a warning result (non-critical)
+        checker.results.append(
+            DependencyCheckResult(
+                name="Optional Package",
+                available=False,
+                details="Optional package not found",
+                critical=False,  # Non-critical = warning
+            )
+        )
+
+        import io
+        import sys
+
+        old_stdout = sys.stdout
+        sys.stdout = io.StringIO()
+
+        try:
+            # Lines 281-283: Warning path returns True
+            result = checker.print_results()
+
+            output = sys.stdout.getvalue()
+            # Should print warnings message and return True
+            self.assertTrue(result)
+            self.assertIn("optional dependencies missing", output)
+            self.assertIn("System is ready", output)
+        finally:
+            sys.stdout = old_stdout
+
+    def test_print_results_all_ok_returns_true(self):
+        """Test print_results returns True when everything is OK."""
+        checker = DependencyChecker()
+
+        # Add a success result
+        checker.results.append(
+            DependencyCheckResult(
+                name="Test Package",
+                available=True,
+                details="Package found",
+                critical=True,
+            )
+        )
+
+        import io
+        import sys
+
+        old_stdout = sys.stdout
+        sys.stdout = io.StringIO()
+
+        try:
+            # Line 284: All OK path
+            result = checker.print_results()
+
+            output = sys.stdout.getvalue()
+            # Should print all-ok message and return True
+            self.assertTrue(result)
+            self.assertIn("All dependencies available", output)
+        finally:
+            sys.stdout = old_stdout
+
+
 if __name__ == "__main__":
     unittest.main()

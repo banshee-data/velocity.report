@@ -4,7 +4,11 @@ import pytest
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-from pdf_generator.core.date_parser import parse_date_to_unix, parse_server_time, is_date_only
+from pdf_generator.core.date_parser import (
+    parse_date_to_unix,
+    parse_server_time,
+    is_date_only,
+)
 
 
 class TestParseDateToUnix:
@@ -123,3 +127,43 @@ class TestIsDateOnly:
     def test_non_string(self):
         """Test non-string returns False."""
         assert is_date_only(123) is False
+
+    def test_exception_handling_in_is_date_only(self):
+        """Test that exceptions in is_date_only return False."""
+
+        # Pass an object that will raise exception when converted to string
+        class BadObject:
+            def __str__(self):
+                raise RuntimeError("Cannot convert to string")
+
+        # Should handle exception and return False
+        assert is_date_only(BadObject()) is False
+
+
+class TestParseDateToUnixEdgeCases:
+    """Test edge cases in parse_date_to_unix function."""
+
+    def test_naive_datetime_without_tz_assumes_utc(self):
+        """Test that naive datetime without timezone is assumed to be UTC."""
+        # Line 67: dt.replace(tzinfo=timezone.utc)
+        from datetime import datetime
+
+        # This is a naive datetime string
+        result = parse_date_to_unix("2024-01-01T00:00:00", tz_name=None)
+
+        # Should assume UTC
+        expected = int(datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc).timestamp())
+        assert result == expected
+
+    def test_invalid_date_format_raises_valueerror(self):
+        """Test that invalid date format raises ValueError with message."""
+        # Lines 109-110: Exception handling and error message
+        import pytest
+
+        with pytest.raises(ValueError) as exc_info:
+            parse_date_to_unix("not-a-date", tz_name=None)
+
+        # Check that error message includes the expected format information
+        assert "Invalid date format" in str(exc_info.value)
+        assert "YYYY-MM-DD" in str(exc_info.value)
+        assert "not-a-date" in str(exc_info.value)
