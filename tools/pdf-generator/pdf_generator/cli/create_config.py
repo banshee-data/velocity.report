@@ -211,7 +211,8 @@ def create_minimal_config(output_path: str = "config.minimal.json") -> None:
     )
 
 
-if __name__ == "__main__":
+def main():
+    """Console script entry point for pdf-config command."""
     import argparse
 
     parser = argparse.ArgumentParser(
@@ -242,3 +243,7 @@ if __name__ == "__main__":
     print("   - See CONFIG_SYSTEM.md for full documentation")
     print("   - See GO_INTEGRATION.md for Go server integration")
     print("   - See README.md for usage examples")
+
+
+if __name__ == "__main__":
+    main()
