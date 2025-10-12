@@ -1,7 +1,7 @@
 # Removal of report_config.py
 
-**Date:** October 11, 2025  
-**Branch:** dd/tex/tweak-report  
+**Date:** October 11, 2025
+**Branch:** dd/tex/tweak-report
 **Status:** ✅ Complete
 
 ## Summary
