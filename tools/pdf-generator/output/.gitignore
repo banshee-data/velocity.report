@@ -1,0 +1,13 @@
+# Ignore all generated files
+*.pdf
+*.tex
+*.svg
+*.png
+*.log
+*.aux
+*.fdb_latexmk
+*.fls
+*.xdv
+
+# Keep the directory
+!.gitignore
