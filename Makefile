@@ -46,7 +46,16 @@ pdf-report:
 		echo "Error: CONFIG required. Usage: make pdf-report CONFIG=config.json"; \
 		exit 1; \
 	fi
-	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/python -m pdf_generator.cli.main $(CONFIG)
+	@if [ -f "$(CONFIG)" ]; then \
+		CONFIG_PATH="$$(cd $$(dirname "$(CONFIG)") && pwd)/$$(basename "$(CONFIG)")"; \
+	elif [ -f "$(PDF_DIR)/$(CONFIG)" ]; then \
+		CONFIG_PATH="$(CONFIG)"; \
+	else \
+		echo "Error: Config file not found: $(CONFIG)"; \
+		echo "Try: make pdf-report CONFIG=config.example.json"; \
+		exit 1; \
+	fi; \
+	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/python -m pdf_generator.cli.main $$CONFIG_PATH
 
 pdf-config:
 	@echo "Creating example configuration..."
