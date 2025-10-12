@@ -4,7 +4,7 @@ import pytest
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-from .date_parser import parse_date_to_unix, parse_server_time, is_date_only
+from pdf_generator.core.date_parser import parse_date_to_unix, parse_server_time, is_date_only
 
 
 class TestParseDateToUnix:

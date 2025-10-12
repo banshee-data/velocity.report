@@ -14,7 +14,7 @@ from pdf_generator.core.config_manager import (
     RadarConfig,
     OutputConfig,
 )
-from get_stats import (
+from pdf_generator.cli.main import (
     should_produce_daily,
     compute_iso_timestamps,
     resolve_file_prefix,
@@ -616,7 +616,7 @@ class TestNextSequencedPrefix(unittest.TestCase):
     @patch("os.listdir")
     def test_no_existing_files(self, mock_listdir):
         """Test sequencing when no existing files."""
-        from get_stats import _next_sequenced_prefix
+        from pdf_generator.cli.main import _next_sequenced_prefix
 
         mock_listdir.return_value = []
         result = _next_sequenced_prefix("test")
@@ -631,7 +631,7 @@ class TestNextSequencedPrefix(unittest.TestCase):
     @patch("os.listdir")
     def test_existing_sequence(self, mock_listdir):
         """Test sequencing with existing files."""
-        from get_stats import _next_sequenced_prefix
+        from pdf_generator.cli.main import _next_sequenced_prefix
 
         mock_listdir.return_value = [
             "test-1_report.pdf",
@@ -649,7 +649,7 @@ class TestNextSequencedPrefix(unittest.TestCase):
     @patch("os.listdir")
     def test_non_sequential_numbers(self, mock_listdir):
         """Test sequencing with gaps in sequence."""
-        from get_stats import _next_sequenced_prefix
+        from pdf_generator.cli.main import _next_sequenced_prefix
 
         mock_listdir.return_value = [
             "test-1_report.pdf",
@@ -666,7 +666,7 @@ class TestNextSequencedPrefix(unittest.TestCase):
     @patch("os.listdir")
     def test_invalid_numbers_ignored(self, mock_listdir):
         """Test that invalid numbers are ignored."""
-        from get_stats import _next_sequenced_prefix
+        from pdf_generator.cli.main import _next_sequenced_prefix
 
         mock_listdir.return_value = [
             "test-1_report.pdf",
@@ -683,7 +683,7 @@ class TestNextSequencedPrefix(unittest.TestCase):
     @patch("os.listdir")
     def test_with_timestamp_files(self, mock_listdir):
         """Test sequencing with existing timestamped files."""
-        from get_stats import _next_sequenced_prefix
+        from pdf_generator.cli.main import _next_sequenced_prefix
 
         mock_listdir.return_value = [
             "test-1-120530_report.pdf",
@@ -852,7 +852,7 @@ class TestCheckChartsAvailable(unittest.TestCase):
 
     def test_returns_true_when_available(self):
         """Test that check_charts_available returns True when imports work."""
-        from get_stats import check_charts_available
+        from pdf_generator.cli.main import check_charts_available
 
         # Should succeed in test environment where chart_builder exists
         result = check_charts_available()
@@ -863,7 +863,7 @@ class TestCheckChartsAvailable(unittest.TestCase):
         """Test that check_charts_available returns False on ImportError."""
         # This is tricky to test since the import happens at function definition
         # but we can at least verify the function exists
-        from get_stats import check_charts_available
+        from pdf_generator.cli.main import check_charts_available
 
         self.assertTrue(callable(check_charts_available))
 
@@ -880,7 +880,7 @@ class TestGenerateAllCharts(unittest.TestCase):
 
         config = create_test_config(debug=False, units="mph", timezone="UTC")
 
-        from get_stats import generate_all_charts
+        from pdf_generator.cli.main import generate_all_charts
 
         generate_all_charts("test", [], None, None, [], config, None)
 
@@ -897,7 +897,7 @@ class TestGenerateAllCharts(unittest.TestCase):
 
         config = create_test_config(debug=True, units="mph", timezone="UTC")
 
-        from get_stats import generate_all_charts
+        from pdf_generator.cli.main import generate_all_charts
 
         generate_all_charts("test", [], None, None, [], config, None)
 
@@ -919,7 +919,7 @@ class TestGenerateAllCharts(unittest.TestCase):
         config = create_test_config(debug=True, units="mph", timezone="UTC")
         resp = Mock()
 
-        from get_stats import generate_all_charts
+        from pdf_generator.cli.main import generate_all_charts
 
         generate_all_charts(
             "test", [{"p50": 25}], None, {"10": 5}, [{"p50": 25}], config, resp
@@ -940,7 +940,7 @@ class TestGenerateAllCharts(unittest.TestCase):
         )
         daily = [{"p50": 25}]
 
-        from get_stats import generate_all_charts
+        from pdf_generator.cli.main import generate_all_charts
 
         generate_all_charts(
             "prefix", [{"p50": 25}], daily, None, [{"p50": 25}], config, None
@@ -960,7 +960,7 @@ class TestGenerateAllCharts(unittest.TestCase):
         config = create_test_config(debug=False, units="mph", timezone="UTC")
         histogram = {"10": 5, "20": 10}
 
-        from get_stats import generate_all_charts
+        from pdf_generator.cli.main import generate_all_charts
 
         generate_all_charts(
             "prefix", [{"p50": 25}], None, histogram, [{"p50": 25}], config, None
@@ -974,7 +974,7 @@ class TestPrintApiDebugInfo(unittest.TestCase):
 
     def test_prints_debug_info_successfully(self):
         """Test that debug info is printed successfully."""
-        from get_stats import print_api_debug_info
+        from pdf_generator.cli.main import print_api_debug_info
 
         resp = Mock()
         resp.status_code = 200
@@ -985,7 +985,7 @@ class TestPrintApiDebugInfo(unittest.TestCase):
 
     def test_handles_exception_gracefully(self):
         """Test that exceptions in debug info are handled."""
-        from get_stats import print_api_debug_info
+        from pdf_generator.cli.main import print_api_debug_info
 
         resp = Mock()
         resp.status_code = 200
@@ -1002,7 +1002,7 @@ class TestMainFunction(unittest.TestCase):
     @patch("get_stats.RadarStatsClient")
     def test_processes_multiple_date_ranges(self, mock_client_class, mock_process):
         """Test that main processes multiple date ranges."""
-        from get_stats import main
+        from pdf_generator.cli.main import main
 
         mock_client = Mock()
         mock_client_class.return_value = mock_client
@@ -1037,7 +1037,7 @@ class TestParseDateRange(unittest.TestCase):
     @patch("get_stats.is_date_only")
     def test_successful_parse(self, mock_is_date_only, mock_parse):
         """Test successful date range parsing."""
-        from get_stats import parse_date_range
+        from pdf_generator.cli.main import parse_date_range
 
         mock_parse.side_effect = [1704067200, 1704153600]
         mock_is_date_only.return_value = True
@@ -1051,7 +1051,7 @@ class TestParseDateRange(unittest.TestCase):
     @patch("get_stats.parse_date_to_unix")
     def test_parse_failure_returns_none(self, mock_parse):
         """Test that parse failure returns None values."""
-        from get_stats import parse_date_range
+        from pdf_generator.cli.main import parse_date_range
 
         mock_parse.side_effect = ValueError("Invalid date")
 
@@ -1066,7 +1066,7 @@ class TestGetModelVersion(unittest.TestCase):
 
     def test_returns_version_for_transit_source(self):
         """Test that model version is returned for transit source."""
-        from get_stats import get_model_version
+        from pdf_generator.cli.main import get_model_version
 
         config = create_test_config(source="radar_data_transits", model_version="v1.0")
 
@@ -1075,7 +1075,7 @@ class TestGetModelVersion(unittest.TestCase):
 
     def test_returns_default_when_no_version_specified(self):
         """Test default version for transit source."""
-        from get_stats import get_model_version
+        from pdf_generator.cli.main import get_model_version
 
         config = create_test_config(source="radar_data_transits", model_version=None)
 
@@ -1084,7 +1084,7 @@ class TestGetModelVersion(unittest.TestCase):
 
     def test_returns_none_for_radar_objects(self):
         """Test that None is returned for non-transit source."""
-        from get_stats import get_model_version
+        from pdf_generator.cli.main import get_model_version
 
         config = create_test_config(source="radar_objects", model_version="v1.0")
 
@@ -1098,7 +1098,7 @@ class TestPlotStatsPage(unittest.TestCase):
     @patch("get_stats.TimeSeriesChartBuilder")
     def test_creates_chart(self, mock_builder_class):
         """Test that _plot_stats_page creates chart."""
-        from get_stats import _plot_stats_page
+        from pdf_generator.cli.main import _plot_stats_page
 
         mock_builder = Mock()
         mock_fig = Mock()
@@ -1134,7 +1134,7 @@ class TestProcessDateRangeEdgeCases(unittest.TestCase):
         mock_assemble,
     ):
         """Test that parse failure causes early return."""
-        from get_stats import process_date_range
+        from pdf_generator.cli.main import process_date_range
 
         mock_parse_range.return_value = (None, None)
 
@@ -1162,7 +1162,7 @@ class TestProcessDateRangeEdgeCases(unittest.TestCase):
         mock_fetch_granular,
     ):
         """Test that no data and no histogram returns early."""
-        from get_stats import process_date_range
+        from pdf_generator.cli.main import process_date_range
 
         mock_parse_range.return_value = (1704067200, 1704153600)
         mock_get_version.return_value = None
@@ -1202,7 +1202,7 @@ class TestProcessDateRangeEdgeCases(unittest.TestCase):
         mock_assemble,
     ):
         """Test that histogram without metrics still proceeds."""
-        from get_stats import process_date_range
+        from pdf_generator.cli.main import process_date_range
 
         mock_parse_range.return_value = (1704067200, 1704153600)
         mock_get_version.return_value = None

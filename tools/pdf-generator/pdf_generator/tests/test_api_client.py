@@ -4,7 +4,7 @@ import pytest
 import responses
 from datetime import datetime, timezone
 
-from .api_client import RadarStatsClient, SUPPORTED_GROUPS
+from pdf_generator.core.api_client import RadarStatsClient, SUPPORTED_GROUPS
 
 
 class TestRadarStatsClient:
