@@ -11,12 +11,18 @@ import tempfile
 class TestGenerateReportAPICLI(unittest.TestCase):
     """Test CLI functionality of generate_report_api.py."""
 
+    def setUp(self):
+        """Set up test with correct working directory."""
+        # Get the directory containing this test file
+        self.test_dir = os.path.dirname(os.path.abspath(__file__))
+
     def test_cli_help_message(self):
         """Test that --help displays usage information."""
         result = subprocess.run(
             [sys.executable, "generate_report_api.py", "--help"],
             capture_output=True,
             text=True,
+            cwd=self.test_dir,
         )
 
         self.assertEqual(result.returncode, 0)
@@ -30,6 +36,7 @@ class TestGenerateReportAPICLI(unittest.TestCase):
             [sys.executable, "generate_report_api.py"],
             capture_output=True,
             text=True,
+            cwd=self.test_dir,
         )
 
         self.assertNotEqual(result.returncode, 0)
@@ -41,6 +48,7 @@ class TestGenerateReportAPICLI(unittest.TestCase):
             [sys.executable, "generate_report_api.py", "/nonexistent/config.json"],
             capture_output=True,
             text=True,
+            cwd=self.test_dir,
         )
 
         self.assertNotEqual(result.returncode, 0)
@@ -75,6 +83,7 @@ class TestGenerateReportAPICLI(unittest.TestCase):
                 capture_output=True,
                 text=True,
                 timeout=5,
+                cwd=self.test_dir,
             )
 
             # The --json flag should output JSON (may have other text before it)
