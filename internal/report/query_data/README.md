@@ -19,15 +19,13 @@ python internal/report/query_data/get_stats.py config.example.json
 ## Module structure
 
 ### Core Components
-- `get_stats.py` — **CLI entrypoint** (now config-file only)
-- `generate_report_api.py` — **Web API entry point** for Go server integration
+- `get_stats.py` — **CLI entrypoint** (config-file only)
 - `config_manager.py` — **Unified configuration system** with JSON file support
 - `create_config_example.py` — **Config template generator**
 - `api_client.py` — RadarStatsClient and helpers for fetching data
 - `pdf_generator.py` — LaTeX/PyLaTeX based report assembly
 - `chart_builder.py` — time series and histogram chart generation
 - `table_builders.py` — LaTeX table construction
-- `report_config.py` — Site information, colors, fonts, and layout defaults
 
 ### Testing
 - `test_*.py` — Comprehensive test suite with 95%+ coverage
@@ -240,76 +238,57 @@ JSON format with four main sections:
 
 See `config.example.json` for a complete, documented example.
 
-## Web API Entry Point
+## Go Server Integration
 
-For programmatic use (e.g., Go webserver integration), use the web API:
-
-### Command Line
-
-```bash
-# Generate report from JSON config file
-python internal/report/query_data/generate_report_api.py config.json
-
-# With JSON output for parsing
-python internal/report/query_data/generate_report_api.py config.json --json
-```
-
-Returns JSON with status:
-
-```json
-{
-  "success": true,
-  "prefix": "report-prefix",
-  "files": [],
-  "errors": []
-}
-```
-
-### Python Integration
-
-Import directly for use in web frameworks:
-
-```python
-from internal.report.query_data.generate_report_api import (
-    generate_report_from_file,
-    generate_report_from_dict
-)
-
-# From config file
-result = generate_report_from_file("config.json")
-
-# From web form data (dict)
-config_dict = {
-    "query": {
-        "start_date": "2025-06-01",
-        "end_date": "2025-06-07",
-        "histogram": True,
-        "hist_bucket_size": 5.0
-    },
-    "output": {
-        "file_prefix": "web-report"
-    }
-}
-result = generate_report_from_dict(config_dict)
-
-if result["success"]:
-    print(f"Report generated: {result['prefix']}")
-else:
-    print(f"Errors: {result['errors']}")
-```
-
-### Go Server Integration
-
-The Go server workflow:
+For Go server integration, the workflow is:
 
 1. **User submits form** → Go validates and captures data
-2. **Go writes config.json** → Stores in SQLite + file
-3. **Go calls Python API** → Subprocess or HTTP call
-4. **Python generates PDFs** → Returns file paths
-5. **Go moves files** → To report-specific directory
+2. **Go writes config.json** → Stores configuration
+3. **Go calls Python CLI** → Subprocess: `python get_stats.py config.json`
+4. **Python generates PDFs** → Returns with exit code
+5. **Go checks output directory** → Finds generated files
 6. **Svelte UI** → Provides download links
 
-See `docs/GO_INTEGRATION.md` for complete Go code examples.
+Example Go code:
+
+```go
+// Generate config JSON from form data
+configData := map[string]interface{}{
+    "site": map[string]interface{}{
+        "location": formData.Location,
+        "speed_limit": formData.SpeedLimit,
+    },
+    "query": map[string]interface{}{
+        "start_date": formData.StartDate,
+        "end_date": formData.EndDate,
+        "histogram": true,
+        "hist_bucket_size": 5.0,
+    },
+    "output": map[string]interface{}{
+        "file_prefix": reportID,
+        "output_dir": outputPath,
+    },
+}
+
+// Write to file
+configPath := filepath.Join(tmpDir, "config.json")
+configJSON, _ := json.Marshal(configData)
+ioutil.WriteFile(configPath, configJSON, 0644)
+
+// Call Python generator
+cmd := exec.Command("python", "get_stats.py", configPath)
+cmd.Dir = "internal/report/query_data"
+output, err := cmd.CombinedOutput()
+
+if err != nil {
+    return fmt.Errorf("report generation failed: %v", err)
+}
+
+// Check for generated files in output directory
+files, _ := filepath.Glob(filepath.Join(outputPath, "*.pdf"))
+```
+
+See **`docs/GO_INTEGRATION.md`** for complete integration guide.
 
 ## Documentation
 
@@ -338,19 +317,6 @@ result = generate_report_from_dict(config_dict)
 if result["success"]:
     print(f"Generated files: {result['files']}")
 ```
-
-### Go Server Integration
-
-The system is designed for integration with a Go webserver workflow:
-
-1. User submits form → Go server captures data
-2. Go saves config to SQLite + JSON file
-3. Go calls Python API via subprocess
-4. Python generates PDFs and returns file paths
-5. Go moves files to report-specific folder
-6. Svelte frontend displays download links
-
-See **`docs/GO_INTEGRATION.md`** for complete Go code examples, database schema, and deployment instructions.
 
 ## Environment variables affecting PDF/layout
 
@@ -395,13 +361,15 @@ generate_pdf_report(
 )
 ```
 
-**Or use the new configuration-based API:**
+**Or use configuration-based approach:**
 
 ```python
-from internal.report.query_data.config_manager import ReportConfig, SiteConfig, QueryConfig
-from internal.report.query_data.generate_report_api import generate_report_from_config
+from internal.report.query_data.config_manager import ReportConfig, SiteConfig, QueryConfig, load_config
 
-# Create configuration
+# From JSON file
+config = load_config("config.json")
+
+# Or create programmatically
 config = ReportConfig(
     site=SiteConfig(location="Main St", speed_limit=30),
     query=QueryConfig(
@@ -412,11 +380,8 @@ config = ReportConfig(
     )
 )
 
-# Generate report
-result = generate_report_from_config(config)
-if result["success"]:
-    for file in result["files"]:
-        print(f"Generated: {file}")
+# Use with get_stats CLI or call generation functions directly
+```
 ```
 
 ## Running tests
