@@ -178,8 +178,6 @@ def create_example_config(output_path: str = "config.example.json") -> None:
     print(f"  2. Edit my-config.json with your specific values")
     print(f"  3. Generate report: python get_stats.py my-config.json")
     print()
-    print("Or use the API:")
-    print(f"  python generate_report_api.py my-config.json")
 
 
 def create_minimal_config(output_path: str = "config.minimal.json") -> None:

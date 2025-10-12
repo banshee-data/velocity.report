@@ -6,7 +6,7 @@ This demonstrates the different ways to use the configuration system:
 1. Create config from scratch
 2. Save to JSON file
 3. Load from JSON file
-4. Use with API
+4. Dictionary conversion (for Go integration)
 5. Validation
 
 Run this to see the configuration system in action!
@@ -24,7 +24,6 @@ from config_manager import (
     OutputConfig,
     load_config,
 )
-from generate_report_api import generate_report_from_dict
 
 
 def demo_create_config():
@@ -150,13 +149,13 @@ def demo_dict_conversion(config):
 
 
 def demo_api_usage(config_dict):
-    """Demo 5: API usage (Go server integration)."""
+    """Demo 5: Dictionary usage for Go server integration."""
     print("=" * 70)
-    print("DEMO 5: API usage for Go server integration")
+    print("DEMO 5: Dictionary format for Go server integration")
     print("=" * 70)
 
-    print("✅ Configuration can be passed as dictionary to API")
-    print(f"   This is how the Go server calls generate_report_from_dict()")
+    print("✅ Configuration can be passed as dictionary to Python CLI")
+    print(f"   This is how the Go server can prepare config data")
     print()
     print("   Example from Go:")
     print("     config := map[string]interface{}{")
@@ -168,7 +167,7 @@ def demo_api_usage(config_dict):
     print('         "end_date": "2025-06-07",')
     print("       },")
     print("     }")
-    print('     result := callPython("generate_report_from_dict", config)')
+    print("     // Save to JSON file and call: python get_stats.py config.json")
     print()
 
 
@@ -206,8 +205,8 @@ def main():
     print()
     print("Next steps:")
     print("  1. Use config.example.json as a template")
-    print("  2. Integrate with Go server using generate_report_api.py")
-    print("  3. Call ./get_stats.py with JSON config file")
+    print("  2. Call ./get_stats.py with JSON config file")
+    print("  3. Integrate with Go server by generating JSON config files")
     print()
     print(f"Example config saved to: {config_file}")
     print()
