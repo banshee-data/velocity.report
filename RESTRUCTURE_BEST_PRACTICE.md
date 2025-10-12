@@ -403,50 +403,51 @@ if __name__ == "__main__":
     main()
 ```
 
-### Phase 6: Install Package (5 minutes)
+### Phase 6: Setup Virtual Environment (5 minutes)
+
+**Note**: We're using the PYTHONPATH approach (no package installation) for simpler deployment, especially to Raspberry Pi.
 
 ```bash
 cd tools/pdf-generator
 
 # Create virtual environment
 python3 -m venv .venv
-source .venv/bin/activate
 
-# Install in editable mode with dev dependencies
-pip install -e ".[dev]"
-
-# Verify installation
-which pdf-generator
-pdf-generator --help
+# Install dependencies only (no package installation)
+.venv/bin/pip install --upgrade pip
+.venv/bin/pip install -r requirements.txt
 ```
 
-### Phase 7: Update Tests (15 minutes)
+### Phase 7: Update Tests (5 minutes)
+
+Ensure tests can find the package via PYTHONPATH.
 
 **File**: `tools/pdf-generator/pdf_generator/tests/conftest.py`
 
+Add at the top if not already present:
 ```python
 """Pytest configuration for pdf_generator tests."""
 
 import sys
 from pathlib import Path
 
-# Add package to path
+# Add parent directory to Python path so imports work
 pkg_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(pkg_root))
 
 # ... rest of your conftest.py
 ```
 
-### Phase 8: Run Tests (10 minutes)
+### Phase 8: Run Tests (5 minutes)
 
 ```bash
 cd tools/pdf-generator
 
-# Run all tests
-pytest
+# Set PYTHONPATH and run tests
+PYTHONPATH=. .venv/bin/pytest pdf_generator/tests/
 
 # Run with coverage
-pytest --cov=pdf_generator --cov-report=html
+PYTHONPATH=. .venv/bin/pytest --cov=pdf_generator --cov-report=html pdf_generator/tests/
 
 # Should see: 451 passed
 ```
@@ -457,11 +458,10 @@ pytest --cov=pdf_generator --cov-report=html
 
 ```makefile
 # =============================================================================
-# Python PDF Generator
+# Python PDF Generator (PYTHONPATH approach - no package installation)
 # =============================================================================
 
-.PHONY: pdf-setup pdf-install pdf-test pdf-test-cov pdf-report pdf-config \
-        pdf-demo pdf-clean pdf-check
+.PHONY: pdf-setup pdf-test pdf-test-cov pdf-report pdf-config pdf-demo pdf-clean
 
 PDF_DIR = tools/pdf-generator
 PDF_PYTHON = $(PDF_DIR)/.venv/bin/python
@@ -471,19 +471,16 @@ pdf-setup:
 	@echo "Setting up PDF generator..."
 	cd $(PDF_DIR) && python3 -m venv .venv
 	cd $(PDF_DIR) && .venv/bin/pip install --upgrade pip
-	cd $(PDF_DIR) && .venv/bin/pip install -e ".[dev]"
-	@echo "✓ PDF generator setup complete"
-
-pdf-install: pdf-setup
-	@echo "✓ PDF generator installed"
+	cd $(PDF_DIR) && .venv/bin/pip install -r requirements.txt
+	@echo "✓ PDF generator setup complete (no package installation needed)"
 
 pdf-test:
 	@echo "Running PDF generator tests..."
-	cd $(PDF_DIR) && $(PDF_PYTEST)
+	cd $(PDF_DIR) && PYTHONPATH=. $(PDF_PYTEST) pdf_generator/tests/
 
 pdf-test-cov:
 	@echo "Running PDF generator tests with coverage..."
-	cd $(PDF_DIR) && $(PDF_PYTEST) --cov=pdf_generator --cov-report=html
+	cd $(PDF_DIR) && PYTHONPATH=. $(PDF_PYTEST) --cov=pdf_generator --cov-report=html pdf_generator/tests/
 	@echo "Coverage report: $(PDF_DIR)/htmlcov/index.html"
 
 pdf-report:
@@ -491,19 +488,15 @@ pdf-report:
 		echo "Error: CONFIG required. Usage: make pdf-report CONFIG=config.json"; \
 		exit 1; \
 	fi
-	cd $(PDF_DIR) && $(PDF_PYTHON) -m pdf_generator.cli.main $(CONFIG)
+	cd $(PDF_DIR) && PYTHONPATH=. $(PDF_PYTHON) -m pdf_generator.cli.main $(CONFIG)
 
 pdf-config:
 	@echo "Creating example configuration..."
-	cd $(PDF_DIR) && $(PDF_PYTHON) -m pdf_generator.cli.create_config
+	cd $(PDF_DIR) && PYTHONPATH=. $(PDF_PYTHON) -m pdf_generator.cli.create_config
 
 pdf-demo:
 	@echo "Running configuration system demo..."
-	cd $(PDF_DIR) && $(PDF_PYTHON) -m pdf_generator.cli.demo
-
-pdf-check:
-	@echo "Checking PDF generator dependencies..."
-	cd $(PDF_DIR) && $(PDF_PYTHON) -m pdf_generator.core.dependency_checker
+	cd $(PDF_DIR) && PYTHONPATH=. $(PDF_PYTHON) -m pdf_generator.cli.demo
 
 pdf-clean:
 	@echo "Cleaning PDF generator outputs..."
@@ -516,7 +509,7 @@ pdf-clean:
 	rm -rf $(PDF_DIR)/pdf_generator/**/__pycache__
 	@echo "✓ Cleaned"
 
-# Convenience aliases
+# Convenience alias
 pdf: pdf-report
 ```
 
