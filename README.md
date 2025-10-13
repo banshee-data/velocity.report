@@ -199,6 +199,19 @@ make pdf-test         # Run test suite
 make pdf-demo         # Run interactive demo
 ```
 
+### Pre-commit Hooks
+
+Enable the shared formatting and linting hooks after installing dependencies:
+
+```sh
+pip install pre-commit          # Or run scripts/dev-setup.sh
+pre-commit install              # Register git hooks
+pre-commit run --all-files      # Optional: run across the repo once
+```
+
+Hooks cover Go formatting/linting, Python formatting (ruff + black), and the Svelte
+frontend lint pipeline (`pnpm lint`).
+
 See **[tools/pdf-generator/README.md](tools/pdf-generator/README.md)** for comprehensive documentation.
 
 ### Web Frontend Development

@@ -1,0 +1,44 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+  - repo: https://github.com/dnephin/pre-commit-golang
+    rev: v1.5.0
+    hooks:
+      - id: gofmt
+        types: [go]
+      - id: goimports
+        types: [go]
+      - id: golangci-lint
+        types: [go]
+        additional_dependencies:
+          - github.com/golangci/golangci-lint/cmd/golangci-lint@v1.60.1
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: ["--fix", "--exit-non-zero-on-fix"]
+        files: ^tools/pdf-generator/.*\.py$
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+      - id: black
+        language_version: python3
+        files: ^tools/pdf-generator/.*\.py$
+  - repo: local
+    hooks:
+      - id: pnpm-lint
+        name: pnpm lint (web)
+        entry: bash
+        language: system
+        pass_filenames: false
+        files: ^web/
+        stages: [commit]
+        args:
+          - -c
+          - "cd web && pnpm lint"

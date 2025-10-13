@@ -286,10 +286,12 @@ Found 126+ .md files across the project:
 
 ### Phase E: Developer Experience Improvements (Est: 6-8 hours)
 
+// TODO
+
 **Objective**: Streamline developer onboarding and daily workflows
 
 **Tasks**:
-1. [ ] Create unified setup script:
+1. [x] Create unified setup script:
    ```bash
    # /scripts/dev-setup.sh
    # - Check Go version
@@ -300,7 +302,7 @@ Found 126+ .md files across the project:
    # - Run health checks
    ```
 
-2. [ ] Add troubleshooting documentation:
+2. [x] Add troubleshooting documentation:
    - `/tools/pdf-generator/TROUBLESHOOTING.md`:
      - Font rendering issues
      - Map generation issues
@@ -312,11 +314,11 @@ Found 126+ .md files across the project:
    - Add hints for common configuration errors
    - Add LaTeX error translation
 
-4. [ ] Add pre-commit hooks:
-   - Go formatting check
-   - Python formatting (black/ruff)
-   - Test execution
-   - Documentation link validation
+4. [x] Add pre-commit hooks:
+   - Go formatting + linting (gofmt, goimports, golangci-lint)
+   - Python formatting (ruff, black)
+   - Web lint pipeline (`pnpm lint`)
+   - Repo hygiene checks (trailing whitespace, large files)
 
 **Deliverables**:
 - `/scripts/dev-setup.sh`

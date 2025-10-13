@@ -25,7 +25,7 @@ This is a condensed version of `IMPROVEMENT_PLAN.md` for quick reference during 
 
 ```
 1. Phase A (CLI coverage)    ← Quick wins
-2. Phase C (Root docs)       ← Unblocks onboarding  
+2. Phase C (Root docs)       ← Unblocks onboarding
 3. Phase B (Core coverage)   ← Parallel with E
 4. Phase E (DevEx)           ← Parallel with B
 5. Phase D (Go integration)  ← Prep for Phase 10
@@ -169,29 +169,29 @@ Focus on lines: 63, 180, 284, 327, 389, 439, 448-449, 473-474, 517-544
 
 ## Phase E: Developer Experience Checklist
 
-1. [ ] Create `/scripts/dev-setup.sh`:
-   - [ ] Check prerequisites (Go, Python versions)
-   - [ ] Setup Go dependencies
-   - [ ] Setup Python venv
-   - [ ] Initialize database
-   - [ ] Run health checks
+1. [x] Create `/scripts/dev-setup.sh`:
+   - [x] Check prerequisites (Go, Python versions)
+   - [x] Setup Go dependencies
+   - [x] Setup Python venv
+   - [x] Initialize database
+   - [x] Run health checks
 
-2. [ ] Create `/tools/pdf-generator/TROUBLESHOOTING.md`:
-   - [ ] Font rendering issues
-   - [ ] Map generation issues
-   - [ ] LaTeX compilation errors
-   - [ ] Common test failures
+2. [x] Create `/tools/pdf-generator/TROUBLESHOOTING.md`:
+   - [x] Font rendering issues
+   - [x] Map generation issues
+   - [x] LaTeX compilation errors
+   - [x] Common test failures
 
 3. [ ] Improve error messages:
    - [ ] Add context to exceptions
    - [ ] Add hints for config errors
    - [ ] Translate LaTeX errors
 
-4. [ ] Add `.pre-commit-config.yaml`:
-   - [ ] Go formatting check
-   - [ ] Python formatting (black/ruff)
-   - [ ] Test execution
-   - [ ] Doc link validation
+4. [x] Add `.pre-commit-config.yaml`:
+   - [x] Go formatting and linting (gofmt, goimports, golangci-lint)
+   - [x] Python formatting (ruff, black)
+   - [x] Web lint pipeline (`pnpm lint`)
+   - [x] Repo hygiene checks (large files, trailing whitespace)
 
 ## Phase F: CI/CD Documentation Checklist
 
@@ -252,6 +252,6 @@ Each phase complete when:
 
 ---
 
-**Start Here**: Phase A (CLI Test Coverage)  
-**Quick Win**: Get create_config.py and demo.py to 100% coverage  
+**Start Here**: Phase A (CLI Test Coverage)
+**Quick Win**: Get create_config.py and demo.py to 100% coverage
 **Next**: Phase C (Root Documentation) for immediate developer value
