@@ -84,9 +84,9 @@ All components share a common SQLite database as the single source of truth.
 │  │  │  │  │ (Serial Port)    │  │ (Network/UDP)        │    │  │  │  │
 │  │  │  │  │ internal/radar/  │  │ internal/lidar/      │    │  │  │  │
 │  │  │  │  │                  │  │                      │    │  │  │  │
-│  │  │  │  │ • Parse speed    │  │ • Parse UDP frames   │    │  │  │  │
-│  │  │  │  │ • JSON events    │  │ • Background model   │    │  │  │  │
-│  │  │  │  │                  │  │ • Track extraction   │    │  │  │  │
+│  │  │  │  │ • Parse speed    │  │ • Decode UDP blocks  │    │  │  │  │
+│  │  │  │  │ • JSON events    │  │ • FrameBuilder merge │    │  │  │  │
+│  │  │  │  │                  │  │ • Background manager │    │  │  │  │
 │  │  │  │  └───────┬──────────┘  └───────┬──────────────┘    │  │  │  │
 │  │  │  │          │                     │                   │  │  │  │
 │  │  │  │          │ radar_data          │ lidar_bg_snapshot │  │  │  │
@@ -95,10 +95,17 @@ All components share a common SQLite database as the single source of truth.
 │  │  │  └──────────┼─────────────────────┼───────────────────┘  │  │  │
 │  │  │             │                     │                      │  │  │
 │  │  │  ┌──────────▼─────────────────────▼───────────────────┐  │  │  │
-│  │  │  │         Database Layer (internal/db/)              │  │  │  │
-│  │  │  │  • Connection pooling                              │  │  │  │
-│  │  │  │  • Transaction management                          │  │  │  │
-│  │  │  │  • Query optimization                              │  │  │  │
+│  │  │  │  Sensor Pipelines → SQLite                         │  │  │  │
+│  │  │  │                                                    │  │  │  │
+│  │  │  │  Radar Serial (/dev/ttyUSB0)                       │  │  │  │
+│  │  │  │    → ops243 reader → JSON parse                    │  │  │  │
+│  │  │  │    → INSERT radar_data, radar_objects              │  │  │  │
+│  │  │  │                                                    │  │  │  │
+│  │  │  │  LIDAR Ethernet (Hesai UDP 192.168.100.202)        │  │  │  │
+│  │  │  │    → packet decoder → FrameBuilder rotations       │  │  │  │
+│  │  │  │    → BackgroundManager EMA grid                    │  │  │  │
+│  │  │  │    → persist lidar_bg_snapshot rows                │  │  │  │
+│  │  │  │    → emit frame_stats → system_events              │  │  │  │
 │  │  │  └──────────┬──────────────────────┬──────────────────┘  │  │  │
 │  │  │             │                      │                     │  │  │
 │  │  └─────────────┼──────────────────────┼─────────────────────┘  │  │
@@ -127,11 +134,6 @@ All components share a common SQLite database as the single source of truth.
 │  │  │  • Transit Worker: radar_data → radar_data_transits      │  │  │
 │  │  │    (sessionizes raw readings into vehicle transits)      │  │  │
 │  │  │                                                          │  │  │
-│  │  │  • LIDAR Tracker: lidar_bg → lidar_objects [PLANNED]     │  │  │
-│  │  │    (background subtraction → clustering → tracking)      │  │  │
-│  │  │                                                          │  │  │
-│  │  │  • Fusion Worker: Compare 3 transit sources [FUTURE]     │  │  │
-│  │  │    (radar_objects + radar_data_transits + lidar_objects) │  │  │
 │  │  └─────────────┬────────────────────────────────────────────┘  │  │
 │  │                │                                               │  │
 │  │  ┌─────────────▼────────────────────────────────────────────┐  │  │
@@ -151,48 +153,35 @@ All components share a common SQLite database as the single source of truth.
                                  │ HTTP API (JSON)
                                  │ Local Network (192.168.1.x:8080)
                                  │
-        ┌────────────────────────┼───────────────────────┐
-        │                        │                       │
-        │                        │                       │
-┌───────▼─────────────┐  ┌───────▼─────────────┐
-│  PYTHON PROJECT     │  │  WEB PROJECT        │
-│  tools/pdf-generator│  │  web/               │
-├─────────────────────┤  ├─────────────────────┤
-│                     │  │                     │
-│ ┌─────────────────┐ │  │ ┌─────────────────┐ │
-│ │ CLI Tools       │ │  │ │ Svelte Frontend │ │
-│ │ • create_config │ │  │ │ • TypeScript    │ │
-│ │ • demo          │ │  │ │ • Vite          │ │
-│ └────────┬────────┘ │  │ │ • pnpm          │ │
-│          │          │  │ └────────┬────────┘ │
-│          │          │  │          │ Build    │
-│ ┌────────▼────────┐ │  │          │          │
-│ │ Core Modules    │ │  │ ┌────────▼────────┐ │
-│ │ • api_client    │ │  │ │ API Client      │ │
-│ │ • chart_builder │ │  │ │ (fetch/axios)   │ │
-│ │ • table_builders│ │  │ └─────────────────┘ │
-│ │ • doc_builder   │ │  │                     │
-│ └────────┬────────┘ │  │ Runtime:            │
-│          │          │  │ • Dev: localhost:   │
-│          │ Charts & │  │   5173 (Vite)       │
-│          │ Tables   │  │ • Prod: Static      │
-│          │          │  │   files served by   │
-│ ┌────────▼────────┐ │  │   Go server         │
-│ │ LaTeX Compiler  │ │  │                     │
-│ │ • XeLaTeX       │ │  │                     │
-│ │ • matplotlib    │ │  │                     │
-│ └────────┬────────┘ │  │                     │
-│          │          │  │                     │
-│ ┌────────▼────────┐ │  │                     │
-│ │ PDF Output      │ │  │                     │
-│ │ output/*.pdf    │ │  │                     │
-│ └─────────────────┘ │  │                     │
-│                     │  │                     │
-│ Runtime:            │  │                     │
-│ • CLI on demand     │  │                     │
-│ • Python 3.9+       │  │                     │
-│ • Virtual env       │  │                     │
-└─────────────────────┘  └─────────────────────┘
+        ┌────────────────────────┴─────────────┐
+        │                                      │
+        │                                      │
+┌───────▼───────────────────────┐      ┌───────▼───────────────────────┐
+│         WEB PROJECT           │      │         PYTHON PROJECT        │
+├───────────────────────────────┤      ├───────────────────────────────┤
+│  web/                         │      │  tools/pdf-generator          │
+│  Svelte Frontend              │      │  CLI Tools                    │
+│  • TypeScript                 │      │  • create_config              │
+│  • Vite                       │      │  • demo                       │
+│  • pnpm                       │      │                               │
+│                               │      │  Core Modules                 │
+│  API Client                   │      │  • api_client                 │
+│  • fetch/axios                │      │  • chart_builder              │
+│                               │      │  • table_builders             │
+│                               │      │  • doc_builder                │
+│                               │      │                               │
+│                               │      │  LaTeX Compiler               │
+│                               │      │  • XeLaTeX                    │
+│                               │      │  • matplotlib                 │
+│                               │      │                               │
+│                               │      │  PDF Output                   │
+│                               │      │  output/*.pdf                 │
+│                               │      │                               │
+│  Runtime                      │      │  Runtime                      │
+│  • Dev: localhost:5173        │      │  • CLI on demand              │
+│  • Prod: Go-served static     │      │  • Python 3.9+                │
+│                               │      │  • Virtual env                │
+└───────────────────────────────┘      └───────────────────────────────┘
 ```
 
 
@@ -218,24 +207,17 @@ All components share a common SQLite database as the single source of truth.
   - `/command` - Send radar commands
   - RESTful design with JSON responses
 
-- **`internal/db/`** - Database layer
-  - SQLite connection management
-  - Schema migrations
-  - Query builders
-  - Transaction handling
-
 - **`internal/radar/`** - Radar sensor integration
   - Serial port communication
   - Data parsing and validation
   - Error handling and retry logic
 
 - **`internal/lidar/`** - LIDAR sensor integration
-  - UDP packet ingestion and parsing (Hesai Pandar40P)
-  - Frame assembly from UDP packets (360° rotations)
-  - Background subtraction (range-image grid, 40 rings × 1800 azimuth bins)
-  - Clustering and track extraction → `lidar_objects` [PLANNED]
-  - Externally verified in LidarView and CloudCompare
-  - See: `internal/lidar/docs/lidar_sidecar_overview.md`
+  - UDP packet listener and decoder (Hesai Pandar40P)
+  - `FrameBuilder` accumulates complete 360° rotations with sequence checks
+  - `BackgroundManager` maintains EMA grid (40 rings × 1800 azimuth bins)
+  - Persists `lidar_bg_snapshot` rows and emits `frame_stats` into `system_events`
+  - Tooling for ASC export, pose transforms, and background tuning APIs
 
 - **`internal/monitoring/`** - System monitoring
   - Health checks
@@ -390,16 +372,16 @@ These three sources will be compared for initial reporting, with eventual goal o
 
 ```
 Radar (Serial):
-1. Radar Sensor → USB-Serial (/dev/ttyUSB0) → internal/radar/ handler
-2. Parse speed/magnitude → JSON event → INSERT INTO radar_data
-3. Radar classifier detections → INSERT INTO radar_objects
+1. OPS243 radar → USB-Serial (/dev/ttyUSB0)
+2. internal/radar/ reader parses JSON speed/magnitude payloads
+3. INSERT raw packets into `radar_data`; hardware detections → `radar_objects`
 
 LIDAR (Network/UDP):
-1. LIDAR Sensor → Ethernet/UDP (192.168.100.202 → 192.168.100.151)
-2. internal/lidar/ → Parse Hesai UDP packets → Assemble frames
-3. Background subtraction (40 rings × 1800 azimuth bins)
-4. Persist background grid → INSERT INTO lidar_bg_snapshot
-5. [PLANNED] Clustering → Tracking → INSERT INTO lidar_objects
+1. Hesai P40 → Ethernet/UDP (192.168.100.202 → 192.168.100.151 listener)
+2. Packet decoder reconstructs blocks → `FrameBuilder` completes 360° rotations
+3. `BackgroundManager` updates EMA background grid (40 × 1800 cells)
+4. Persist snapshots → INSERT/UPSERT `lidar_bg_snapshot`
+5. Emit frame statistics and performance metrics → `system_events`
 
 Transit Worker (Background Process):
 1. Query recent radar_data points → Sessionization algorithm
