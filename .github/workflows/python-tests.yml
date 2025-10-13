@@ -4,6 +4,8 @@ name: 🐍 Python CI
 permissions:
   contents: read
   pull-requests: write
+  checks: write  # Needed for coverage annotations
+  issues: write  # Needed for PR comments
 
 # Only run on PR events to conserve runner credits
 on:
@@ -47,6 +49,7 @@ jobs:
       - name: Coverage comment
         id: coverage_comment
         uses: py-cov-action/python-coverage-comment-action@v3
+        continue-on-error: true  # Don't fail the workflow if commenting fails
         with:
           GITHUB_TOKEN: ${{ github.token }}
           MINIMUM_GREEN: 90
