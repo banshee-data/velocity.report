@@ -109,14 +109,18 @@ def create_example_config(output_path: str = "config.example.json") -> None:
         },
         "radar": {
             "_description": "Radar sensor technical specifications",
+            "cosine_error_angle": 21.0,
             "sensor_model": "OmniPreSense OPS243-A",
             "firmware_version": "v1.2.3",
             "transmit_frequency": "24.125 GHz",
             "sample_rate": "20 kSPS",
             "velocity_resolution": "0.272 mph",
             "azimuth_fov": "20°",
+            "elevation_fov": "24°",
             "_field_notes": {
-                "_note": "These fields are included in the report for documentation"
+                "cosine_error_angle": "REQUIRED: Mounting angle in degrees for cosine error correction",
+                "elevation_fov": "Elevation field of view",
+                "_note": "Other fields are included in the report for documentation",
             },
         },
         "query": {
