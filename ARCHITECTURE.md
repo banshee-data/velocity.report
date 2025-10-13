@@ -154,48 +154,45 @@ All components share a common SQLite database as the single source of truth.
         ┌────────────────────────┼───────────────────────┐
         │                        │                       │
         │                        │                       │
-┌───────▼─────────────┐  ┌───────▼─────────────┐  ┌──────▼──────────────┐
-│  PYTHON PROJECT     │  │  WEB PROJECT        │  │  DEVELOPER MACHINE  │
-│  tools/pdf-generator│  │  web/               │  │  (Any OS)           │
-├─────────────────────┤  ├─────────────────────┤  ├─────────────────────┤
-│                     │  │                     │  │                     │
-│ ┌─────────────────┐ │  │ ┌─────────────────┐ │  │ ┌─────────────────┐ │
-│ │ CLI Tools       │ │  │ │ Svelte Frontend │ │  │ │ Web Browser     │ │
-│ │ • create_config │ │  │ │ • TypeScript    │ │  │ │ • Chrome/Firefox│ │
-│ │ • demo          │ │  │ │ • Vite          │ │  │ │                 │ │
-│ └────────┬────────┘ │  │ │ • pnpm          │ │  │ └────────┬────────┘ │
-│          │          │  │ └────────┬────────┘ │  │          │          │
-│          │          │  │          │ Build    │  │          │          │
-│ ┌────────▼────────┐ │  │          │          │  │          │          │
-│ │ Core Modules    │ │  │ ┌────────▼────────┐ │  │ ┌────────▼────────┐ │
-│ │ • api_client    │ │  │ │ API Client      │ │  │ │ HTTP Requests   │ │
-│ │ • chart_builder │ │  │ │ (fetch/axios)   │ │  │ │ to :8080        │ │
-│ │ • table_builders│ │  │ └─────────────────┘ │  │ └─────────────────┘ │
-│ │ • doc_builder   │ │  │                     │  │                     │
-│ └────────┬────────┘ │  │ Runtime:            │  │                     │
-│          │          │  │ • Dev: localhost:   │  │                     │
-│          │ Charts & │  │   5173 (Vite)       │  │                     │
-│          │ Tables   │  │ • Prod: Static      │  │                     │
-│          │          │  │   files served by   │  │                     │
-│ ┌────────▼────────┐ │  │   Go server         │  │                     │
-│ │ LaTeX Compiler  │ │  │                     │  │                     │
-│ │ • XeLaTeX       │ │  │                     │  │                     │
-│ │ • matplotlib    │ │  │                     │  │                     │
-│ └────────┬────────┘ │  │                     │  │                     │
-│          │          │  │                     │  │                     │
-│ ┌────────▼────────┐ │  │                     │  │                     │
-│ │ PDF Output      │ │  │                     │  │                     │
-│ │ output/*.pdf    │ │  │                     │  │                     │
-│ └─────────────────┘ │  │                     │  │                     │
-│                     │  │                     │  │                     │
-│ Runtime:            │  │                     │  │                     │
-│ • CLI on demand     │  │                     │  │                     │
-│ • Python 3.9+       │  │                     │  │                     │
-│ • Virtual env       │  │                     │  │                     │
-└─────────────────────┘  └─────────────────────┘  └─────────────────────┘
-
-    Developer Machine        Developer Machine        Any Device on LAN
-    (macOS/Linux/Windows)    (macOS/Linux/Windows)    (Browser)
+┌───────▼─────────────┐  ┌───────▼─────────────┐
+│  PYTHON PROJECT     │  │  WEB PROJECT        │
+│  tools/pdf-generator│  │  web/               │
+├─────────────────────┤  ├─────────────────────┤
+│                     │  │                     │
+│ ┌─────────────────┐ │  │ ┌─────────────────┐ │
+│ │ CLI Tools       │ │  │ │ Svelte Frontend │ │
+│ │ • create_config │ │  │ │ • TypeScript    │ │
+│ │ • demo          │ │  │ │ • Vite          │ │
+│ └────────┬────────┘ │  │ │ • pnpm          │ │
+│          │          │  │ └────────┬────────┘ │
+│          │          │  │          │ Build    │
+│ ┌────────▼────────┐ │  │          │          │
+│ │ Core Modules    │ │  │ ┌────────▼────────┐ │
+│ │ • api_client    │ │  │ │ API Client      │ │
+│ │ • chart_builder │ │  │ │ (fetch/axios)   │ │
+│ │ • table_builders│ │  │ └─────────────────┘ │
+│ │ • doc_builder   │ │  │                     │
+│ └────────┬────────┘ │  │ Runtime:            │
+│          │          │  │ • Dev: localhost:   │
+│          │ Charts & │  │   5173 (Vite)       │
+│          │ Tables   │  │ • Prod: Static      │
+│          │          │  │   files served by   │
+│ ┌────────▼────────┐ │  │   Go server         │
+│ │ LaTeX Compiler  │ │  │                     │
+│ │ • XeLaTeX       │ │  │                     │
+│ │ • matplotlib    │ │  │                     │
+│ └────────┬────────┘ │  │                     │
+│          │          │  │                     │
+│ ┌────────▼────────┐ │  │                     │
+│ │ PDF Output      │ │  │                     │
+│ │ output/*.pdf    │ │  │                     │
+│ └─────────────────┘ │  │                     │
+│                     │  │                     │
+│ Runtime:            │  │                     │
+│ • CLI on demand     │  │                     │
+│ • Python 3.9+       │  │                     │
+│ • Virtual env       │  │                     │
+└─────────────────────┘  └─────────────────────┘
 ```
 
 
