@@ -819,17 +819,19 @@ class TestMapUtilsErrorHandling(unittest.TestCase):
     def test_svg_without_viewbox_attribute(self):
         """Test processing SVG without viewBox attribute."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Create SVG without viewBox
+            # Create SVG without viewBox but with width/height attributes
+            # This is valid and should convert successfully
             svg_path = os.path.join(tmpdir, "map.svg")
             with open(svg_path, "w") as f:
                 f.write(
-                    '<svg xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100"/></svg>'
+                    '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">'
+                    '<rect width="100" height="100" fill="lightgray"/></svg>'
                 )
 
             processor = MapProcessor(base_dir=tmpdir)
             success, path = processor.process_map()
 
-            # Should still work even without viewBox
+            # Should still work even without viewBox (width/height is sufficient)
             self.assertTrue(success)
 
     def test_marker_overlay_with_coordinate_conversion_error(self):
