@@ -36,95 +36,118 @@ All components share a common SQLite database as the single source of truth.
 ### Physical Deployment
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        HARDWARE INFRASTRUCTURE                          │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  ┌────────────────────┐                    ┌────────────────────┐       │
-│  │  Radar Sensor      │                    │  LIDAR Sensor      │       │
-│  │  ┌──────────────┐  │                    │  ┌──────────────┐  │       │
-│  │  │ Omnipresense │  │                    │  │   Hesai P40  │  │       │
-│  │  │   OPS243     │  │                    │  │    40-beam   │  │       │
-│  │  └──────────────┘  │                    │  └──────────────┘  │       │
-│  │   Serial Output    │                    │   Ethernet Output  │       │
-│  │   (USB/RS-232)     │                    │   (RJ45/PoE)       │       │
-│  └─────────┬──────────┘                    └──────────┬─────────┘       │
-│            │                                          │                 │
-│            │ USB-Serial                               │ Ethernet        │
-│            │                                          │                 │
-│            └───────────────────┬──────────────────────┘                 │
-│                                │                                        │
-│  ┌─────────────────────────────┼─────────────────────────────────────┐  │
-│  │       Raspberry Pi 4 (ARM64 Linux)                                │  │
-│  │                             │                                     │  │
-│  │  Hardware:                  │                                     │  │
-│  │  • 4GB RAM                  │                                     │  │
-│  │  • 64GB SD Card             ↓                                     │  │
-│  │  • USB Ports (Radar)   /dev/ttyUSB0                               │  │
-│  │  • Ethernet Port (LIDAR + Network)                                │  │
-│  │                                                                   │  │
-│  │  Network: Local LAN (192.168.1.x)                                 │  │
-│  └───────────────────────────────────────────────────────────────────┘  │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-                                 │
-                                 │ Local Network
-                                 │
-┌────────────────────────────────┼──────────────────────────────────────┐
-│                      SOFTWARE STACK (Raspberry Pi)                    │
-├────────────────────────────────┼──────────────────────────────────────┤
-│                                │                                      │
-│  ┌─────────────────────────────┼──────────────────────────────────┐   │
-│  │             velocity.report Go Server                          │   │
-│  │             (systemd service: go-sensor.service)               │   │
-│  │                            │                                   │   │
-│  │  ┌─────────────────────────┼──────────────────────────────┐    │   │
-│  │  │  cmd/radar/             │                              │    │   │
-│  │  │  ┌──────────────────────▼───────────────────────────┐  │    │   │
-│  │  │  │         Sensor Input Handlers                    │  │    │   │
-│  │  │  │                                                   │ │   │   │
-│  │  │  │  ┌────────────────┐      ┌────────────────────┐ │ │   │   │
-│  │  │  │  │ Radar Handler  │      │  LIDAR Handler     │ │ │   │   │
-│  │  │  │  │ (Serial Port)  │      │  (Network/UDP)     │ │ │   │   │
-│  │  │  │  │ internal/radar/│      │  internal/lidar/   │ │ │   │   │
-│  │  │  │  └───────┬────────┘      └─────────┬──────────┘ │ │   │   │
-│  │  │  │          │                         │            │ │   │   │
-│  │  │  │          └────────┬────────────────┘            │ │   │   │
-│  │  │  │                   │ Speed + Timestamp           │ │   │   │
-│  │  │  └───────────────────┼─────────────────────────────┘ │   │   │
-│  │  │                      │                               │   │   │
-│  │  │  ┌───────────────────▼─────────────────────────────┐ │   │   │
-│  │  │  │         Database Layer (internal/db/)           │ │   │   │
-│  │  │  │  • Connection pooling                           │ │   │   │
-│  │  │  │  • Transaction management                       │ │   │   │
-│  │  │  │  • Query optimization                           │ │   │   │
-│  │  │  └───────────────────┬─────────────────────────────┘ │   │   │
-│  │  └────────────────────────────────────────────────────────┘   │   │
-│  │                         │                                      │   │
-│  │  ┌──────────────────────▼─────────────────────────────────┐  │   │
-│  │  │         SQLite Database (sensor_data.db)               │  │   │
-│  │  │         /var/lib/velocity/sensor_data.db               │  │   │
-│  │  │                                                         │  │   │
-│  │  │  Tables:                                               │  │   │
-│  │  │  • radar_readings (raw sensor data)                   │  │   │
-│  │  │  • aggregated_stats (hourly summaries)                │  │   │
-│  │  │  • config (system settings)                           │  │   │
-│  │  └──────────────────────┬─────────────────────────────────┘  │   │
-│  │                         │                                     │   │
-│  │  ┌──────────────────────▼─────────────────────────────────┐  │   │
-│  │  │         HTTP API Server (internal/api/)                │  │   │
-│  │  │         Listen: 0.0.0.0:8080                           │  │   │
-│  │  │                                                         │  │   │
-│  │  │  Endpoints:                                            │  │   │
-│  │  │  • GET  /api/stats      (time-series data)            │  │   │
-│  │  │  • GET  /api/readings   (raw sensor data)             │  │   │
-│  │  │  • GET  /api/config     (system config)               │  │   │
-│  │  │  • POST /api/config     (update config)               │  │   │
-│  │  └─────────────────────────────────────────────────────────┘  │   │
-│  │                                                                │   │
-│  └────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                        HARDWARE INFRASTRUCTURE                       │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌────────────────────┐                 ┌────────────────────┐       │
+│  │  Radar Sensor      │                 │  LIDAR Sensor      │       │
+│  │  ┌──────────────┐  │                 │  ┌──────────────┐  │       │
+│  │  │ Omnipresense │  │                 │  │   Hesai P40  │  │       │
+│  │  │   OPS243     │  │                 │  │    40-beam   │  │       │
+│  │  └──────────────┘  │                 │  └──────────────┘  │       │
+│  │   Serial Output    │                 │   Ethernet Output  │       │
+│  │   (USB/RS-232)     │                 │   (RJ45/PoE)       │       │
+│  └─────────┬──────────┘                 └──────────┬─────────┘       │
+│            │                                       │                 │
+│            │ USB-Serial                            │ Ethernet        │
+│            │                                       │                 │
+│            └───────────────────┬───────────────────┘                 │
+│                                │                                     │
+│  ┌─────────────────────────────┼──────────────────────────────────┐  │
+│  │       Raspberry Pi 4 (ARM64 Linux)                             │  │
+│  │                             │                                  │  │
+│  │  Hardware:                  │                                  │  │
+│  │  • 4GB RAM                  │                                  │  │
+│  │  • 64GB SD Card             ↓                                  │  │
+│  │  • USB Ports (Radar)   /dev/ttyUSB0                            │  │
+│  │  • Ethernet Port (LIDAR + Network)                             │  │
+│  │    - LIDAR network: 192.168.100.151/24 (listener)              │  │
+│  │    - LIDAR sensor:  192.168.100.202 (UDP source)               │  │
+│  │    - Local LAN:     192.168.1.x (API server)                   │  │
+│  │                                                                │  │
+│  │  Network: Dual configuration (LIDAR subnet + Local LAN)        │  │
+│  │                                                                │  │
+│  ├────────────────────────────────────────────────────────────────┤  │
+│  │                 SOFTWARE STACK (on this Raspberry Pi)          │  │
+│  ├────────────────────────────────────────────────────────────────┤  │
+│  │                                                                │  │
+│  │  ┌──────────────────────────────────────────────────────────┐  │  │
+│  │  │         velocity.report Go Server                        │  │  │
+│  │  │         (systemd service: go-sensor.service)             │  │  │
+│  │  │                                                          │  │  │
+│  │  │  ┌────────────────────────────────────────────────────┐  │  │  │
+│  │  │  │  Sensor Input Handlers                             │  │  │  │
+│  │  │  │                                                    │  │  │  │
+│  │  │  │  ┌──────────────────┐  ┌──────────────────────┐    │  │  │  │
+│  │  │  │  │ Radar Handler    │  │ LIDAR Handler        │    │  │  │  │
+│  │  │  │  │ (Serial Port)    │  │ (Network/UDP)        │    │  │  │  │
+│  │  │  │  │ internal/radar/  │  │ internal/lidar/      │    │  │  │  │
+│  │  │  │  │                  │  │                      │    │  │  │  │
+│  │  │  │  │ • Parse speed    │  │ • Parse UDP frames   │    │  │  │  │
+│  │  │  │  │ • JSON events    │  │ • Background model   │    │  │  │  │
+│  │  │  │  │                  │  │ • Track extraction   │    │  │  │  │
+│  │  │  │  └───────┬──────────┘  └───────┬──────────────┘    │  │  │  │
+│  │  │  │          │                     │                   │  │  │  │
+│  │  │  │          │ radar_data          │ lidar_bg_snapshot │  │  │  │
+│  │  │  │          │ (raw JSON)          │ (BLOB grid)       │  │  │  │
+│  │  │  │          │                     │                   │  │  │  │
+│  │  │  └──────────┼─────────────────────┼───────────────────┘  │  │  │
+│  │  │             │                     │                      │  │  │
+│  │  │  ┌──────────▼─────────────────────▼───────────────────┐  │  │  │
+│  │  │  │         Database Layer (internal/db/)              │  │  │  │
+│  │  │  │  • Connection pooling                              │  │  │  │
+│  │  │  │  • Transaction management                          │  │  │  │
+│  │  │  │  • Query optimization                              │  │  │  │
+│  │  │  └──────────┬──────────────────────┬──────────────────┘  │  │  │
+│  │  │             │                      │                     │  │  │
+│  │  └─────────────┼──────────────────────┼─────────────────────┘  │  │
+│  │                │                      │                        │  │
+│  │  ┌─────────────▼──────────────────────▼─────────────────────┐  │  │
+│  │  │         SQLite Database (sensor_data.db)                 │  │  │
+│  │  │         /var/lib/velocity/sensor_data.db                 │  │  │
+│  │  │                                                          │  │  │
+│  │  │  Core Tables:                                            │  │  │
+│  │  │  • radar_data (raw radar events, JSON)                   │  │  │
+│  │  │  • lidar_bg_snapshot (background grid, BLOB)             │  │  │
+│  │  │                                                          │  │  │
+│  │  │  Transit/Object Tables (3 sources):                      │  │  │
+│  │  │  • radar_objects (radar classifier detections)           │  │  │
+│  │  │  • radar_data_transits (sessionized radar_data)          │  │  │
+│  │  │  • lidar_objects (LIDAR track extraction) [PLANNED]      │  │  │
+│  │  │                                                          │  │  │
+│  │  │  Support Tables:                                         │  │  │
+│  │  │  • radar_transit_links (radar_data ↔ transits)           │  │  │
+│  │  │  • radar_commands / radar_command_log                    │  │  │
+│  │  └─────────────┬────────────────────────────────────────────┘  │  │
+│  │                │                                               │  │
+│  │  ┌─────────────▼────────────────────────────────────────────┐  │  │
+│  │  │         Background Workers                               │  │  │
+│  │  │                                                          │  │  │
+│  │  │  • Transit Worker: radar_data → radar_data_transits      │  │  │
+│  │  │    (sessionizes raw readings into vehicle transits)      │  │  │
+│  │  │                                                          │  │  │
+│  │  │  • LIDAR Tracker: lidar_bg → lidar_objects [PLANNED]     │  │  │
+│  │  │    (background subtraction → clustering → tracking)      │  │  │
+│  │  │                                                          │  │  │
+│  │  │  • Fusion Worker: Compare 3 transit sources [FUTURE]     │  │  │
+│  │  │    (radar_objects + radar_data_transits + lidar_objects) │  │  │
+│  │  └─────────────┬────────────────────────────────────────────┘  │  │
+│  │                │                                               │  │
+│  │  ┌─────────────▼────────────────────────────────────────────┐  │  │
+│  │  │         HTTP API Server (internal/api/)                  │  │  │
+│  │  │         Listen: 0.0.0.0:8080                             │  │  │
+│  │  │                                                          │  │  │
+│  │  │  Endpoints:                                              │  │  │
+│  │  │  • GET  /api/stats      (aggregated transit data)        │  │  │
+│  │  │  • GET  /api/readings   (raw sensor data)                │  │  │
+│  │  │  • GET  /api/config     (system config)                  │  │  │
+│  │  │  • POST /api/config     (update config)                  │  │  │
+│  │  └──────────────────────────────────────────────────────────┘  │  │
+│  │                                                                │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────┘
                                  │
                                  │ HTTP API (JSON)
                                  │ Local Network (192.168.1.x:8080)
@@ -211,10 +234,12 @@ All components share a common SQLite database as the single source of truth.
   - Error handling and retry logic
 
 - **`internal/lidar/`** - LIDAR sensor integration
-  - Network/Ethernet communication
-  - Point cloud processing
-  - Data normalization
+  - UDP packet ingestion and parsing (Hesai Pandar40P)
+  - Frame assembly from UDP packets (360° rotations)
+  - Background subtraction (range-image grid, 40 rings × 1800 azimuth bins)
+  - Clustering and track extraction → `lidar_objects` [PLANNED]
   - Externally verified in LidarView and CloudCompare
+  - See: `internal/lidar/docs/lidar_sidecar_overview.md`
 
 - **`internal/monitoring/`** - System monitoring
   - Health checks
@@ -302,50 +327,66 @@ All components share a common SQLite database as the single source of truth.
 
 **Database**: SQLite 3.x
 
-**Schema**:
+**Schema Design**:
 
+The database uses a **JSON-first approach** with generated columns for performance. Raw sensor events are stored as JSON, with frequently-queried fields extracted to indexed columns automatically.
+
+**Example - `radar_data` table**:
 ```sql
--- Raw sensor readings
-CREATE TABLE radar_readings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp INTEGER NOT NULL,        -- Unix timestamp
-    speed_mph REAL NOT NULL,           -- Vehicle speed
-    sensor_type TEXT NOT NULL,         -- 'radar' or 'lidar'
-    direction TEXT,                    -- 'approaching' or 'departing'
-    created_at INTEGER DEFAULT (strftime('%s', 'now'))
-);
-
--- Aggregated statistics (hourly)
-CREATE TABLE aggregated_stats (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    hour_start INTEGER NOT NULL,       -- Unix timestamp (hour boundary)
-    count INTEGER NOT NULL,            -- Number of readings
-    avg_speed REAL NOT NULL,           -- Average speed
-    max_speed REAL NOT NULL,           -- Maximum speed
-    min_speed REAL NOT NULL,           -- Minimum speed
-    percentile_85 REAL                 -- 85th percentile speed
-);
-
--- System configuration
-CREATE TABLE config (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL,
-    updated_at INTEGER DEFAULT (strftime('%s', 'now'))
-);
-
--- Schema migrations
-CREATE TABLE migrations (
-    version INTEGER PRIMARY KEY,
-    applied_at INTEGER DEFAULT (strftime('%s', 'now'))
+CREATE TABLE radar_data (
+    write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec')),
+    raw_event JSON NOT NULL,
+    -- Generated columns (automatically extracted from JSON)
+    uptime DOUBLE AS (JSON_EXTRACT(raw_event, '$.uptime')) STORED,
+    magnitude DOUBLE AS (JSON_EXTRACT(raw_event, '$.magnitude')) STORED,
+    speed DOUBLE AS (JSON_EXTRACT(raw_event, '$.speed')) STORED
 );
 ```
+
+When a sensor reading arrives, the Go server stores the entire event as JSON in `raw_event`, and SQLite automatically populates the generated columns. This provides:
+- **Flexibility**: Complete event data preserved for future analysis
+- **Performance**: Fast indexed queries on common fields (speed, timestamp)
+- **Schema evolution**: New fields can be added without migration
+
+**Key Tables**:
+- `radar_data` - Raw radar readings (JSON events with speed/magnitude)
+- `radar_objects` - Classified transits from radar's onboard classifier
+- `radar_data_transits` - Sessionized transits built by transit worker from `radar_data`
+- `radar_transit_links` - Many-to-many links between transits and raw radar_data
+- `lidar_bg_snapshot` - LIDAR background grid for motion detection (40×1800 range-image)
+- `lidar_objects` - Track-extracted transits from LIDAR processing [PLANNED]
+- `radar_commands` / `radar_command_log` - Command history and execution logs
+
+**Transit Sources** (3 independent object detection pipelines):
+1. **radar_objects**: Hardware classifier in OPS243 radar sensor
+2. **radar_data_transits**: Software sessionization of raw radar_data points
+3. **lidar_objects**: Software tracking from LIDAR point clouds [PLANNED]
+
+These three sources will be compared for initial reporting, with eventual goal of:
+- FFT-based radar processing for improved object segmentation
+- Sensor fusion using LIDAR data to assist radar object detection
+
+**Key Features**:
+- High-precision timestamps (DOUBLE for subsecond accuracy via `UNIXEPOCH('subsec')`)
+- Sessionization via `radar_data_transits` (avoids expensive CTEs in queries)
+- LIDAR background modeling for change detection (grid stored as BLOB)
+- WAL mode enabled for concurrent readers/writers
+- Indexes on timestamp columns for fast time-range queries
 
 **Migrations**: Located in `/data/migrations/`, managed by Go server
 
 **Access Patterns**:
-- **Go Server**: Read/Write (real-time inserts, aggregations)
+- **Go Server**: Read/Write
+  - Real-time inserts to `radar_data` (raw radar events)
+  - Hardware classifier → `radar_objects`
+  - Transit worker → sessionize `radar_data` → `radar_data_transits`
+  - LIDAR background grid → `lidar_bg_snapshot`
+  - [PLANNED] LIDAR tracking → `lidar_objects`
 - **Python PDF Generator**: Read-only (via HTTP API)
+  - Queries transit data from 3 sources for comparison reports
+  - Aggregates statistics across detection methods
 - **Web Frontend**: Read-only (via HTTP API)
+  - Real-time dashboard showing all 3 transit sources
 
 ## Data Flow
 
@@ -354,17 +395,26 @@ CREATE TABLE migrations (
 ```
 Radar (Serial):
 1. Radar Sensor → USB-Serial (/dev/ttyUSB0) → internal/radar/ handler
-2. Parse speed data → Validate → internal/db
-3. INSERT INTO radar_readings → SQLite
+2. Parse speed/magnitude → JSON event → INSERT INTO radar_data
+3. Radar classifier detections → INSERT INTO radar_objects
 
-LIDAR (Network):
-1. LIDAR Sensor → Ethernet/UDP → internal/lidar/ handler
-2. Process point cloud → Extract speed → Validate → internal/db
-3. INSERT INTO radar_readings → SQLite
+LIDAR (Network/UDP):
+1. LIDAR Sensor → Ethernet/UDP (192.168.100.202 → 192.168.100.151)
+2. internal/lidar/ → Parse Hesai UDP packets → Assemble frames
+3. Background subtraction (40 rings × 1800 azimuth bins)
+4. Persist background grid → INSERT INTO lidar_bg_snapshot
+5. [PLANNED] Clustering → Tracking → INSERT INTO lidar_objects
 
-Background Processing:
-4. Hourly aggregation task → Query radar_readings
-5. Compute statistics (avg, max, p85) → INSERT INTO aggregated_stats
+Transit Worker (Background Process):
+1. Query recent radar_data points → Sessionization algorithm
+2. Group readings into vehicle transits (time-gap based)
+3. INSERT/UPDATE radar_data_transits
+4. Link raw data → INSERT INTO radar_transit_links
+
+Three Transit Sources:
+• radar_objects        (radar hardware classifier)
+• radar_data_transits  (software sessionization)
+• lidar_objects        (LIDAR tracking) [PLANNED]
 ```
 
 ### PDF Report Generation
@@ -389,7 +439,6 @@ Background Processing:
 3. Go Server → Query SQLite → Return JSON
 4. Frontend → Parse JSON → Render Svelte components
 5. Frontend → Display charts/tables → Browser DOM
-6. (Optional) Frontend → Poll for updates → Real-time refresh
 ```
 
 ## Technology Stack
@@ -434,15 +483,18 @@ Background Processing:
 **Interface**: Go database/sql with SQLite driver
 
 **Operations**:
-- INSERT radar_readings (real-time writes)
-- SELECT for aggregations (hourly background task)
-- INSERT aggregated_stats (computed summaries)
-- SELECT for API queries (read optimized)
+- INSERT `radar_data` (real-time writes with JSON events)
+- INSERT `radar_objects` (classified detections)
+- Background sessionization: query `radar_data` → insert/update `radar_data_transits`
+- LIDAR background modeling: update `lidar_bg_snapshot`
+- SELECT for API queries (read optimized with generated columns)
 
 **Performance Considerations**:
-- Indexes on timestamp columns
+- JSON storage with generated columns for fast indexed queries
+- Indexes on timestamp columns (`transit_start_unix`, `transit_end_unix`)
 - Batched inserts for high-frequency sensors
 - WAL mode for concurrent reads during writes
+- Subsecond timestamp precision (DOUBLE type)
 
 ### Go Server ↔ Python PDF Generator
 
