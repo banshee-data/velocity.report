@@ -816,7 +816,8 @@ class TestMapUtilsErrorHandling(unittest.TestCase):
             # Should fail gracefully without crashing
             self.assertIsNotNone(processor)
 
-    def test_svg_without_viewbox_attribute(self):
+    @patch("pdf_generator.core.map_utils.SVGToPDFConverter.convert")
+    def test_svg_without_viewbox_attribute(self, mock_convert):
         """Test processing SVG without viewBox attribute."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create SVG without viewBox but with width/height attributes
@@ -828,11 +829,21 @@ class TestMapUtilsErrorHandling(unittest.TestCase):
                     '<rect width="100" height="100" fill="lightgray"/></svg>'
                 )
 
+            # Mock successful conversion
+            def mock_conversion(src, dst):
+                # Create a stub PDF file
+                with open(dst, "wb") as f:
+                    f.write(b"%PDF-1.4 stub")
+                return True
+
+            mock_convert.side_effect = mock_conversion
+
             processor = MapProcessor(base_dir=tmpdir)
             success, path = processor.process_map()
 
             # Should still work even without viewBox (width/height is sufficient)
             self.assertTrue(success)
+            mock_convert.assert_called_once()
 
     def test_marker_overlay_with_coordinate_conversion_error(self):
         """Test marker overlay when coordinate calculations fail (lines 448-450)."""
