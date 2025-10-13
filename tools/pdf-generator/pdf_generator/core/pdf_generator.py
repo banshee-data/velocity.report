@@ -9,6 +9,8 @@ complete PDF reports including statistics tables, charts, and science sections.
 import os
 import math
 
+from pathlib import Path
+
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -100,6 +102,115 @@ from pdf_generator.core.config_manager import DEFAULT_MAP_CONFIG, _map_to_dict
 # Removed MultiCol class - using \twocolumn instead of multicols package
 # Table building functions moved to table_builders.py
 # Report section builders moved to report_sections.py
+
+
+def _read_latex_log_excerpt(base_path: Path) -> list[str]:
+    """Collect important lines from the LaTeX log for troubleshooting."""
+
+    log_path = base_path.with_suffix(".log")
+    if not log_path.exists():
+        return []
+
+    try:
+        raw_lines = log_path.read_text(errors="ignore").splitlines()
+    except Exception:
+        return []
+
+    excerpt: list[str] = []
+    for line in raw_lines:
+        stripped = line.strip()
+        if stripped.startswith("!") or "Fatal error" in stripped:
+            excerpt.append(stripped)
+        elif excerpt and (stripped.startswith("l.") or stripped.startswith("See the")):
+            excerpt.append(stripped)
+        if len(excerpt) >= 6:
+            break
+    return excerpt
+
+
+def _suggest_latex_fixes(engine: str, message: str, excerpt: list[str]) -> list[str]:
+    """Derive actionable hints based on the error message and log excerpt."""
+
+    hints: list[str] = []
+    lower_message = message.lower()
+    combined_text = " ".join(excerpt).lower()
+
+    if (
+        isinstance(message, str)
+        and "not found" in lower_message
+        and engine
+        in (
+            "xelatex",
+            "lualatex",
+            "pdflatex",
+        )
+    ):
+        hints.append(
+            "The LaTeX engine '{}' is missing. Install TeX Live or MacTeX (macOS) or `sudo apt-get install texlive-xetex`.".format(
+                engine
+            )
+        )
+
+    if "fontspec" in combined_text or "fontspec" in lower_message:
+        hints.append(
+            "Missing `fontspec` package. Install a full TeX distribution (texlive-full or mactex) or add the package manually."
+        )
+
+    if "atkinson" in combined_text:
+        hints.append(
+            "Atkinson fonts not found. Ensure the fonts/ directory is present in pdf_generator/core or disable map fonts."
+        )
+
+    if "file '" in combined_text and ".ttf'" in combined_text:
+        hints.append(
+            "Font files referenced in the log are missing. Confirm the fonts directory is copied alongside the executable."
+        )
+
+    if "undefined control sequence" in combined_text:
+        hints.append(
+            "LaTeX reported an undefined command. Check recent template edits or review the generated .tex file for typos."
+        )
+
+    if not hints:
+        hints.append(
+            "Inspect the generated .tex and .log files for precise errors. Common fixes include installing XeLaTeX and required fonts."
+        )
+
+    # Deduplicate while preserving order
+    seen = set()
+    deduped: list[str] = []
+    for hint in hints:
+        if hint not in seen:
+            deduped.append(hint)
+            seen.add(hint)
+    return deduped
+
+
+def _explain_latex_failure(engine: str, base_path: Path, exc: Exception) -> str:
+    """Create a human-friendly explanation for LaTeX build failures."""
+
+    message = str(exc)
+    excerpt = _read_latex_log_excerpt(base_path)
+    hints = _suggest_latex_fixes(engine, message, excerpt)
+
+    bullet_excerpt = (
+        "\n".join(f"    {line}" for line in excerpt)
+        if excerpt
+        else "    (log excerpt unavailable)"
+    )
+
+    details = [
+        f"LaTeX compilation with {engine} failed.",
+        "Log excerpt:",
+        bullet_excerpt,
+        "Suggested fixes:",
+    ]
+    details.extend(f"  - {hint}" for hint in hints)
+    if message:
+        details.append(f"  - Underlying error: {message}")
+    details.append(f"  - Log file: {base_path.with_suffix('.log')}")
+    details.append(f"  - TeX file: {base_path.with_suffix('.tex')}")
+    return "\n".join(details)
 
 
 def generate_pdf_report(
@@ -357,6 +468,8 @@ def generate_pdf_report(
     engines = ("xelatex", "lualatex", "pdflatex")
     generated = False
     last_exc: Optional[Exception] = None
+    last_failure_message = ""
+    base_prefix_path = Path(output_path).with_suffix("")
     for engine in engines:
         try:
             doc.generate_pdf(
@@ -366,8 +479,10 @@ def generate_pdf_report(
             generated = True
             break
         except Exception as e:
-            print(f"PDF generation with {engine} failed: {e}")
+            failure_details = _explain_latex_failure(engine, base_prefix_path, e)
+            print(failure_details)
             last_exc = e
+            last_failure_message = failure_details
 
     if not generated:
         try:
@@ -378,4 +493,4 @@ def generate_pdf_report(
         except Exception as tex_e:
             print(f"Failed to generate TEX for debugging: {tex_e}")
         if last_exc:
-            raise last_exc
+            raise RuntimeError(last_failure_message or str(last_exc)) from last_exc
