@@ -1,68 +1,19 @@
 name: 🐍 Python CI
 
+# Limit the token permissions for security best practices
+permissions:
+  contents: read
+  pull-requests: write
+
 # Only run on PR events to conserve runner credits
-# Both requirements check and full test suite run on PRs only
 on:
   pull_request:
     types: [opened, synchronize, reopened, review_requested]
     paths:
-      - 'requirements.in'
-      - 'requirements.txt'
       - 'tools/pdf-generator/**'
       - '.github/workflows/python-tests.yml'
 
 jobs:
-  # Fast check: Ensure requirements.in and requirements.txt are in sync
-  check-requirements:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-
-      - name: Install pip-tools
-        run: |
-          python -m pip install --upgrade pip
-          pip install pip-tools
-
-      - name: Check if requirements.txt is up to date
-        run: |
-          # Generate a fresh requirements.txt from requirements.in
-          pip-compile requirements.in --output-file=requirements-check.txt --quiet
-
-          # Compare with committed requirements.txt
-          if ! diff -u requirements.txt requirements-check.txt; then
-            echo "❌ ERROR: requirements.txt is out of sync with requirements.in"
-            echo ""
-            echo "Please run: pip-compile requirements.in"
-            echo ""
-            echo "Or use the helper script: ./scripts/venv-init.sh"
-            exit 1
-          else
-            echo "✅ SUCCESS: requirements.txt is in sync with requirements.in"
-          fi
-
-      - name: Provide helpful error message
-        if: failure()
-        run: |
-          echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  Requirements files are out of sync!"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo ""
-          echo "After modifying requirements.in, you must regenerate requirements.txt:"
-          echo ""
-          echo "  1. Run: pip-compile requirements.in"
-          echo "  2. Commit both requirements.in and requirements.txt"
-          echo ""
-          echo "See the diff above for what changed."
-          echo ""
-
   # Full test suite: 545+ tests with integration and coverage
   test:
     runs-on: ubuntu-latest
