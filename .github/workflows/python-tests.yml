@@ -1,14 +1,8 @@
 name: 🐍 Python CI
 
-# Run requirements sync on every push/PR
-# Run full test suite only on PR events to conserve runner credits
+# Only run on PR events to conserve runner credits
+# Both requirements check and full test suite run on PRs only
 on:
-  push:
-    paths:
-      - 'requirements.in'
-      - 'requirements.txt'
-      - 'tools/pdf-generator/**'
-      - '.github/workflows/python-tests.yml'
   pull_request:
     types: [opened, synchronize, reopened, review_requested]
     paths:
@@ -69,10 +63,8 @@ jobs:
           echo "See the diff above for what changed."
           echo ""
 
-  # Full test suite: Only run on PR events (545+ tests with integration)
+  # Full test suite: 545+ tests with integration and coverage
   test:
-    # Only run tests on PRs to conserve runner credits
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
 
     steps:
