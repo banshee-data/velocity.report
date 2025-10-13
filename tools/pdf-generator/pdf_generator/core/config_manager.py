@@ -22,6 +22,10 @@ from zoneinfo import ZoneInfo
 from dataclasses import dataclass, field, asdict
 
 
+VALID_SOURCES = {"radar_objects", "radar_data_transits"}
+VALID_UNITS = {"mph", "kph", "mps"}
+
+
 @dataclass
 class SiteConfig:
     """Site-specific information and content."""
@@ -358,32 +362,56 @@ class ReportConfig:
 
         # Validate query config (REQUIRED)
         if not self.query.start_date:
-            errors.append("query.start_date is required")
+            errors.append(
+                "query.start_date is required (set to YYYY-MM-DD or unix seconds)."
+            )
         if not self.query.end_date:
-            errors.append("query.end_date is required")
+            errors.append(
+                "query.end_date is required (set to YYYY-MM-DD or unix seconds)."
+            )
         if not self.query.timezone:
-            errors.append("query.timezone is required")
+            errors.append(
+                "query.timezone is required (example: US/Pacific, UTC, Europe/Berlin)."
+            )
 
         if self.query.histogram and not self.query.hist_bucket_size:
-            errors.append("hist_bucket_size is required when histogram is enabled")
+            errors.append(
+                "query.hist_bucket_size must be set when histogram=true (e.g., 5.0 for 5 mph buckets)."
+            )
 
-        if self.query.source not in ["radar_objects", "radar_data_transits"]:
-            errors.append(f"Invalid source: {self.query.source}")
+        if self.query.source not in VALID_SOURCES:
+            errors.append(
+                "query.source must be one of {options}. Got '{value}'.".format(
+                    options=", ".join(sorted(VALID_SOURCES)), value=self.query.source
+                )
+            )
 
-        if self.query.units not in ["mph", "kph"]:
-            errors.append(f"Invalid units: {self.query.units}")
+        if self.query.units not in VALID_UNITS:
+            errors.append(
+                "query.units must be one of {options}. Got '{value}'.".format(
+                    options=", ".join(sorted(VALID_UNITS)), value=self.query.units
+                )
+            )
 
         # Validate site config (REQUIRED)
         if not self.site.location:
-            errors.append("site.location is required")
+            errors.append(
+                "site.location is required (e.g., '123 Main St, Springfield')."
+            )
         if not self.site.surveyor:
-            errors.append("site.surveyor is required")
+            errors.append(
+                "site.surveyor is required (organization or survey team responsible)."
+            )
         if not self.site.contact:
-            errors.append("site.contact is required")
+            errors.append(
+                "site.contact is required (email or phone for follow-up questions)."
+            )
 
         # Validate radar config (REQUIRED)
         if self.radar.cosine_error_angle is None:
-            errors.append("radar.cosine_error_angle is required")
+            errors.append(
+                "radar.cosine_error_angle is required (mounting angle in degrees, e.g., 21.0)."
+            )
 
         return len(errors) == 0, errors
 
