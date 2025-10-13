@@ -39,6 +39,12 @@ jobs:
         run: |
           python -m pytest --cov=pdf_generator --cov-report=term-missing --cov-report=xml --cov-report=html -v
 
+      - name: Ensure coverage data uses relative paths
+        working-directory: tools/pdf-generator
+        run: |
+          # Regenerate XML report to ensure relative paths
+          python -m coverage xml --ignore-errors
+
       - name: Coverage comment
         id: coverage_comment
         uses: py-cov-action/python-coverage-comment-action@v3
