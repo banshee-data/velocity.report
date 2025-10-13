@@ -15,11 +15,14 @@ import argparse
 import os
 import re
 import sys
+import textwrap
+import traceback
 from typing import List, Tuple, Optional
 from datetime import datetime, timezone as dt_timezone
 from zoneinfo import ZoneInfo
 
 import numpy as np
+import requests
 
 from pdf_generator.core.api_client import RadarStatsClient, SUPPORTED_GROUPS
 from pdf_generator.core.config_manager import ReportConfig
@@ -83,6 +86,71 @@ def _import_chart_saver():
 
     save_chart_as_pdf = _save_chart_as_pdf  # type: ignore[assignment]
     return save_chart_as_pdf
+
+
+def _print_error(message: str) -> None:
+    print(message, file=sys.stderr)
+
+
+def _print_info(message: str) -> None:
+    print(message)
+
+
+def _append_debug_hint(message: str, debug_enabled: bool) -> str:
+    if debug_enabled:
+        return message
+    return f"{message}\n  - Re-run with --debug for traceback details."
+
+
+def _maybe_print_debug(exc: Exception, debug_enabled: bool) -> None:
+    if not debug_enabled:
+        return
+    stack = "".join(traceback.format_exception(exc)).rstrip()
+    _print_error(f"DEBUG: {type(exc).__name__}: {exc}")
+    if stack:
+        _print_error(stack)
+
+
+def _format_api_error(action: str, api_url: str, exc: Exception) -> str:
+    parts: List[str] = []
+
+    if isinstance(exc, requests.exceptions.HTTPError):
+        status = (
+            exc.response.status_code if getattr(exc, "response", None) else "unknown"
+        )
+        parts.append(f"HTTP {status} from {api_url}")
+        if status == 400:
+            parts.append("Check date range, group, and filters in config.query.*.")
+        elif status == 404:
+            parts.append(
+                "Endpoint not found. Verify the Go API version or base_url override."
+            )
+        elif status in (401, 403):
+            parts.append("Authentication failed. Confirm the API allows your request.")
+        elif isinstance(status, int) and status >= 500:
+            parts.append(
+                "Go service returned a server error. Inspect `journalctl -u go-sensor.service`."
+            )
+        if getattr(exc, "response", None) is not None:
+            body = exc.response.text.strip()
+            if body:
+                preview = body.splitlines()[0][:200]
+                parts.append(f"Response snippet: {preview}")
+    elif isinstance(exc, requests.exceptions.ConnectionError):
+        parts.append(f"Unable to reach {api_url}. Is the Go API running and reachable?")
+        parts.append("Check network connectivity and device firewall rules.")
+    elif isinstance(exc, requests.exceptions.Timeout):
+        parts.append("Request timed out. The API may be offline or under heavy load.")
+    else:
+        parts.append(str(exc))
+
+    bullet_lines = "\n  - ".join(parts)
+    return textwrap.dedent(
+        f"""\
+        {action} failed.
+          - {bullet_lines}
+        """
+    ).strip()
 
 
 def should_produce_daily(group_token: str) -> bool:
@@ -234,8 +302,11 @@ def fetch_granular_metrics(
             hist_max=config.query.hist_max,
         )
         return metrics, histogram, resp
-    except Exception as e:
-        print(f"Request failed: {e}")
+    except Exception as exc:
+        message = _format_api_error("Fetching granular metrics", client.api_url, exc)
+        message = _append_debug_hint(message, config.output.debug)
+        _print_error(message)
+        _maybe_print_debug(exc, config.output.debug)
         return [], None, None
 
 
@@ -271,8 +342,11 @@ def fetch_overall_summary(
             compute_histogram=False,
         )
         return metrics_all
-    except Exception as e:
-        print(f"Failed to fetch overall summary: {e}")
+    except Exception as exc:
+        message = _format_api_error("Fetching overall summary", client.api_url, exc)
+        message = _append_debug_hint(message, config.output.debug)
+        _print_error(message)
+        _maybe_print_debug(exc, config.output.debug)
         return []
 
 
@@ -311,8 +385,11 @@ def fetch_daily_summary(
             compute_histogram=False,
         )
         return daily_metrics
-    except Exception as e:
-        print(f"Failed to fetch daily summary: {e}")
+    except Exception as exc:
+        message = _format_api_error("Fetching daily summary", client.api_url, exc)
+        message = _append_debug_hint(message, config.output.debug)
+        _print_error(message)
+        _maybe_print_debug(exc, config.output.debug)
         return None
 
 
@@ -371,19 +448,23 @@ def generate_histogram_chart(
             print(f"Wrote histogram PDF: {hist_pdf}")
             return True
         else:
-            print("Failed to save histogram PDF")
+            _print_error(
+                "Error: unable to write histogram PDF. Check disk space and permissions."
+            )
             return False
     except ImportError as ie:
-        if config.output.debug:
-            print(f"DEBUG: histogram plotting unavailable: {ie}")
-        else:
-            print("Histogram plotting unavailable")
+        message = "Histogram plotting unavailable. Install matplotlib and cairo to enable charts."
+        message = f"{message}\n  - Details: {ie}"
+        message = _append_debug_hint(message, config.output.debug)
+        _print_error(message)
+        _maybe_print_debug(ie, config.output.debug)
         return False
-    except Exception as e:
-        if config.output.debug:
-            print(f"DEBUG: failed to generate histogram PDF: {e}")
-        else:
-            print("Failed to generate histogram PDF")
+    except Exception as exc:
+        message = "Error: failed to generate histogram PDF. Verify matplotlib setup and report data."
+        message = f"{message}\n  - Details: {exc}"
+        message = _append_debug_hint(message, config.output.debug)
+        _print_error(message)
+        _maybe_print_debug(exc, config.output.debug)
         return False
 
 
@@ -416,13 +497,16 @@ def generate_timeseries_chart(
             print(f"Wrote {title} PDF: {stats_pdf}")
             return True
         else:
-            print(f"Failed to save {title} PDF")
+            _print_error(
+                f"Error: unable to write {title} PDF. Check disk space and permissions."
+            )
             return False
-    except Exception as e:
-        if config.output.debug:
-            print(f"DEBUG: failed to generate {title} PDF: {e}")
-        else:
-            print(f"Failed to generate {title} PDF")
+    except Exception as exc:
+        message = f"Error: failed to generate {title} PDF. Ensure matplotlib is installed and input data is valid."
+        message = f"{message}\n  - Details: {exc}"
+        message = _append_debug_hint(message, config.output.debug)
+        _print_error(message)
+        _maybe_print_debug(exc, config.output.debug)
         return False
 
 
@@ -496,8 +580,12 @@ def assemble_pdf_report(
         )
         print(f"Generated PDF report: {pdf_path}")
         return True
-    except Exception as e:
-        print(f"Failed to generate PDF report: {e}")
+    except Exception as exc:
+        message = "Error: failed to generate PDF report. Ensure XeLaTeX is installed and the output directory is writable."
+        message = f"{message}\n  - Details: {exc}"
+        message = _append_debug_hint(message, config.output.debug)
+        _print_error(message)
+        _maybe_print_debug(exc, config.output.debug)
         return False
 
 
@@ -525,8 +613,12 @@ def parse_date_range(
             tz_name=timezone,
         )
         return start_ts, end_ts
-    except ValueError as e:
-        print(f"Bad date range ({start_date} - {end_date}): {e}")
+    except ValueError as exc:
+        message = (
+            f"Invalid date range '{start_date}' -> '{end_date}': {exc}. "
+            "Use YYYY-MM-DD or unix timestamps."
+        )
+        _print_error(message)
         return None, None
 
 
@@ -576,6 +668,9 @@ def check_charts_available() -> bool:
 
         return True
     except ImportError:
+        _print_error(
+            "Charts unavailable: install matplotlib, cairo, and associated system libraries to enable chart PDFs."
+        )
         return False
 
 
@@ -649,6 +744,10 @@ def process_date_range(
         config: Report configuration
         client: API client instance
     """
+    _print_info(
+        f"=== Processing {start_date} -> {end_date} (group={config.query.group}, source={config.query.source}) ==="
+    )
+
     # Parse dates to timestamps
     start_ts, end_ts = parse_date_range(
         start_date, end_date, config.query.timezone or None
@@ -659,19 +758,42 @@ def process_date_range(
     # Determine model version and file prefix
     model_version = get_model_version(config)
     prefix = resolve_file_prefix(config, start_ts, end_ts)
+    _print_info(f"Output prefix: {prefix}")
+    if config.query.histogram:
+        _print_info(
+            f"Histogram: enabled (bucket={config.query.hist_bucket_size}, max={config.query.hist_max})"
+        )
+    else:
+        _print_info("Histogram: disabled")
 
     # Fetch all data from API
     metrics, histogram, resp = fetch_granular_metrics(
         client, start_ts, end_ts, config, model_version
     )
     if not metrics and not histogram:
-        print(f"No data returned for {start_date} - {end_date}")
+        _print_error(
+            f"No data returned for {start_date} - {end_date}. "
+            "Check the date range, min_speed filter, and data source."
+        )
         return
 
     overall_metrics = fetch_overall_summary(
         client, start_ts, end_ts, config, model_version
     )
+    if not overall_metrics:
+        _print_error(
+            "Warning: overall metrics empty; PDF will have limited summary data."
+        )
+
+    should_daily = should_produce_daily(config.query.group)
     daily_metrics = fetch_daily_summary(client, start_ts, end_ts, config, model_version)
+    if should_daily and daily_metrics is None:
+        _print_error("Warning: daily metrics unavailable; daily chart will be skipped.")
+    elif not should_daily:
+        _print_info("Daily summary skipped for high-level grouping.")
+
+    if config.query.histogram and histogram is None:
+        _print_error("Warning: histogram data unavailable; histogram chart skipped.")
 
     # Compute ISO timestamps for report
     start_iso, end_iso = compute_iso_timestamps(start_ts, end_ts, config.query.timezone)
@@ -682,7 +804,7 @@ def process_date_range(
     )
 
     # Assemble final PDF report
-    assemble_pdf_report(
+    report_generated = assemble_pdf_report(
         prefix,
         start_iso,
         end_iso,
@@ -692,6 +814,15 @@ def process_date_range(
         histogram,
         config,
     )
+
+    if report_generated:
+        _print_info(
+            f"Completed {start_date} -> {end_date}. PDF and charts use prefix '{prefix}'."
+        )
+    else:
+        _print_error(
+            f"Failed to complete report for {start_date} -> {end_date}. See errors above."
+        )
 
 
 # === Main Entry Point ===
@@ -707,6 +838,20 @@ def main(date_ranges: List[Tuple[str, str]], config: ReportConfig):
         config: Report configuration
     """
     client = RadarStatsClient()
+
+    _print_info(f"API endpoint: {client.api_url}")
+    _print_info(
+        "Query parameters: units={units}, timezone={tz}, min_speed={min_speed}".format(
+            units=config.query.units,
+            tz=config.query.timezone or "UTC",
+            min_speed=(
+                config.query.min_speed if config.query.min_speed is not None else "none"
+            ),
+        )
+    )
+    _print_info(
+        f"Processing {len(date_ranges)} date range(s) with output.dir={config.output.output_dir}"
+    )
 
     for start_date, end_date in date_ranges:
         process_date_range(start_date, end_date, config, client)
