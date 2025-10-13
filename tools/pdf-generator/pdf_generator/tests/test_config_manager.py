@@ -108,8 +108,8 @@ def test_validation_missing_dates():
     is_valid, errors = config.validate()
 
     assert not is_valid
-    assert "query.start_date is required" in errors
-    assert "query.end_date is required" in errors
+    assert any("query.start_date is required" in e for e in errors)
+    assert any("query.end_date is required" in e for e in errors)
 
 
 def test_validation_invalid_source():
@@ -124,7 +124,7 @@ def test_validation_invalid_source():
 
     is_valid, errors = config.validate()
     assert not is_valid
-    assert any("Invalid source" in e for e in errors)
+    assert any("query.source" in e and "invalid_source" in e for e in errors)
 
 
 def test_validation_invalid_units():
@@ -139,7 +139,7 @@ def test_validation_invalid_units():
 
     is_valid, errors = config.validate()
     assert not is_valid
-    assert any("Invalid units" in e for e in errors)
+    assert any("query.units" in e and "invalid_units" in e for e in errors)
 
 
 def test_validation_histogram_requires_bucket_size():
@@ -155,7 +155,7 @@ def test_validation_histogram_requires_bucket_size():
 
     is_valid, errors = config.validate()
     assert not is_valid
-    assert any("hist_bucket_size is required" in e for e in errors)
+    assert any("query.hist_bucket_size" in e and "histogram=true" in e for e in errors)
 
 
 def test_validation_success():
@@ -225,7 +225,7 @@ def test_validation_missing_cosine_error_angle():
 
     is_valid, errors = config.validate()
     assert not is_valid
-    assert "radar.cosine_error_angle is required" in errors
+    assert any("radar.cosine_error_angle is required" in e for e in errors)
 
 
 def test_load_config_from_file(tmp_path):
