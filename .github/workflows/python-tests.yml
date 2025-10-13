@@ -48,6 +48,7 @@ jobs:
           MINIMUM_ORANGE: 80
           ANNOTATE_MISSING_LINES: true
           ANNOTATION_TYPE: warning
+          COVERAGE_PATH: tools/pdf-generator
 
       - name: Store Pull Request comment to be posted
         uses: actions/upload-artifact@v4
