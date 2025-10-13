@@ -2,7 +2,7 @@
 """Unit tests for report_sections module."""
 
 import unittest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 # Import section builders
 from pdf_generator.core.report_sections import (

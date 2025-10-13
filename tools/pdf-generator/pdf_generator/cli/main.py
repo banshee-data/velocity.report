@@ -21,7 +21,6 @@ from typing import List, Tuple, Optional
 from datetime import datetime, timezone as dt_timezone
 from zoneinfo import ZoneInfo
 
-import numpy as np
 import requests
 
 from pdf_generator.core.api_client import RadarStatsClient, SUPPORTED_GROUPS
@@ -29,13 +28,11 @@ from pdf_generator.core.config_manager import ReportConfig
 from pdf_generator.core.date_parser import (
     parse_date_to_unix,
     is_date_only,
-    parse_server_time,
 )
 from pdf_generator.core.pdf_generator import generate_pdf_report
 from pdf_generator.core.stats_utils import plot_histogram
 from pdf_generator.core.data_transformers import (
     MetricsNormalizer,
-    extract_start_time_from_row,
     extract_count_from_row,
 )
 
@@ -903,8 +900,7 @@ if __name__ == "__main__":
     is_valid, errors = config.validate()
     if not is_valid:
         parser.error(
-            f"Configuration validation failed:\n"
-            + "\n".join(f"  - {e}" for e in errors)
+            "Configuration validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
         )
 
     # Validate histogram requirements

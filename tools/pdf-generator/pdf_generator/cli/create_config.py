@@ -191,8 +191,8 @@ def create_example_config(output_path: str = "config.example.json") -> None:
     print()
     print("To use this config:")
     print(f"  1. Copy to your working config: cp {output_path} my-config.json")
-    print(f"  2. Edit my-config.json with your specific values")
-    print(f"  3. Generate report: python get_stats.py my-config.json")
+    print("  2. Edit my-config.json with your specific values")
+    print("  3. Generate report: python get_stats.py my-config.json")
     print()
 
 

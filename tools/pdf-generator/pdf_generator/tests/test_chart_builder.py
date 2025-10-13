@@ -3,7 +3,7 @@
 
 import os
 import unittest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -1381,8 +1381,6 @@ class TestHistogramLabelsAndFormatting(unittest.TestCase):
 
         fig = self.builder.build(histogram, "Grid Test", "mph")
 
-        ax = fig.axes[0]
-
         # Chart should be created (grid is configured internally)
         self.assertIsNotNone(fig)
 
@@ -1512,7 +1510,7 @@ class TestTimeSeriesChartBuilderEdgeCases(unittest.TestCase):
 
         # Set environment variable
         with patch.dict(os.environ, {"VELOCITY_PLOT_DEBUG": "1"}):
-            with patch("sys.stderr") as mock_stderr:
+            with patch("sys.stderr"):
                 fig = self.builder.build(metrics, "Debug Test", "mph")
                 self.assertIsNotNone(fig)
                 # Debug output should have been called (but may not write to mock)
@@ -1735,7 +1733,7 @@ class TestDebugPlotOutput(unittest.TestCase):
         sys.stderr = io.StringIO()
 
         try:
-            gap_threshold = builder._compute_gap_threshold(times)
+            _ = builder._compute_gap_threshold(times)
 
             stderr_output = sys.stderr.getvalue()
             # Debug output should include base_delta and gap_threshold
@@ -1809,7 +1807,7 @@ class TestAxisYlimErrorRecovery(unittest.TestCase):
 
         try:
             # Should not raise, should handle exception gracefully
-            result = builder._plot_count_bars(ax2, times, counts)
+            _ = builder._plot_count_bars(ax2, times, counts)
             # Method should complete despite exceptions
             self.assertTrue(call_count[0] >= 1)
         finally:

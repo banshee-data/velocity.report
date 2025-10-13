@@ -254,7 +254,6 @@ class TestDependencyCheckerSuccessPaths(unittest.TestCase):
         )
 
         import io
-        import sys
 
         old_stdout = sys.stdout
         sys.stdout = io.StringIO()
@@ -286,7 +285,6 @@ class TestDependencyCheckerSuccessPaths(unittest.TestCase):
         )
 
         import io
-        import sys
 
         old_stdout = sys.stdout
         sys.stdout = io.StringIO()

@@ -443,10 +443,10 @@ class MapProcessor:
 
         # Check if source SVG exists
         if not os.path.exists(map_svg):
-            print(f"  [MapProcessor] ✗ map.svg NOT FOUND - map will be skipped")
+            print("  [MapProcessor] ✗ map.svg NOT FOUND - map will be skipped")
             return False, None
 
-        print(f"  [MapProcessor] ✓ map.svg found")
+        print("  [MapProcessor] ✓ map.svg found")
         print(f"  [MapProcessor] Target map.pdf: {map_pdf}")
 
         # Determine if conversion is needed
@@ -497,7 +497,7 @@ class MapProcessor:
                 f"  [MapProcessor] Marker provided but coverage_length={marker.coverage_length} <= 0, skipping overlay"
             )
         else:
-            print(f"  [MapProcessor] No marker provided, using original map.svg")
+            print("  [MapProcessor] No marker provided, using original map.svg")
 
         # Convert to PDF if needed
         if need_convert:
@@ -506,13 +506,13 @@ class MapProcessor:
             )
             if not SVGToPDFConverter.convert(source_svg, map_pdf):
                 print(
-                    f"  [MapProcessor] ✗ WARNING: map.svg found but failed to convert to PDF; "
+                    "  [MapProcessor] ✗ WARNING: map.svg found but failed to convert to PDF; "
                     "skipping map inclusion"
                 )
                 return False, None
-            print(f"  [MapProcessor] ✓ PDF conversion successful")
+            print("  [MapProcessor] ✓ PDF conversion successful")
         else:
-            print(f"  [MapProcessor] Using existing map.pdf (up to date)")
+            print("  [MapProcessor] Using existing map.pdf (up to date)")
 
         # Return success if PDF exists
         if os.path.exists(map_pdf):
@@ -521,7 +521,7 @@ class MapProcessor:
             )
             return True, os.path.abspath(map_pdf)
 
-        print(f"  [MapProcessor] ✗ map.pdf does not exist after processing")
+        print("  [MapProcessor] ✗ map.pdf does not exist after processing")
         return False, None
 
 

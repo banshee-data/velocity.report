@@ -41,15 +41,15 @@ python demo_config_system.py
 
 A **unified configuration management system** supporting:
 
-✅ **CLI Entry Point** - Traditional argparse interface (backward compatible)  
-✅ **Web/API Entry Point** - JSON-based for Go webserver integration  
-✅ **Configuration Files** - JSON format for persistence and sharing  
-✅ **Environment Variables** - Deployment-specific overrides  
-✅ **Per-Report Configuration** - Site info, parameters per report  
-✅ **Validation** - Automatic checking with helpful errors  
-✅ **Priority System** - CLI > File > Env > Defaults  
-✅ **Comprehensive Tests** - 15 tests, all passing  
-✅ **Full Documentation** - 3 detailed guides  
+✅ **CLI Entry Point** - Traditional argparse interface (backward compatible)
+✅ **Web/API Entry Point** - JSON-based for Go webserver integration
+✅ **Configuration Files** - JSON format for persistence and sharing
+✅ **Environment Variables** - Deployment-specific overrides
+✅ **Per-Report Configuration** - Site info, parameters per report
+✅ **Validation** - Automatic checking with helpful errors
+✅ **Priority System** - CLI > File > Env > Defaults
+✅ **Comprehensive Tests** - 15 tests, all passing
+✅ **Full Documentation** - 3 detailed guides
 
 ## Files Created
 
@@ -113,7 +113,7 @@ type ReportResult struct {
 func GenerateReport(configPath string) (*ReportResult, error) {
     cmd := exec.Command("python", "generate_report_api.py", configPath, "--json")
     output, _ := cmd.CombinedOutput()
-    
+
     var result ReportResult
     json.Unmarshal(output, &result)
     return &result, nil

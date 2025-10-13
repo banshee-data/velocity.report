@@ -3,8 +3,6 @@
 
 import json
 import os
-import tempfile
-from unittest.mock import patch, call
 from pathlib import Path
 
 import pytest

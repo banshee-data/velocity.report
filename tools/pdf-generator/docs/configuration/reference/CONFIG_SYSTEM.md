@@ -276,17 +276,17 @@ func GenerateReport(configPath string) (*ReportResult, error) {
         configPath,
         "--json",
     )
-    
+
     output, err := cmd.CombinedOutput()
     if err != nil {
         return nil, fmt.Errorf("command failed: %w, output: %s", err, output)
     }
-    
+
     var result ReportResult
     if err := json.Unmarshal(output, &result); err != nil {
         return nil, fmt.Errorf("failed to parse result: %w", err)
     }
-    
+
     return &result, nil
 }
 
@@ -296,29 +296,29 @@ func handleReportGeneration(runID string, formData map[string]interface{}) error
     if err := db.SaveReportConfig(runID, formData); err != nil {
         return err
     }
-    
+
     // 2. Create config file
     configPath := filepath.Join("/var/reports", runID, "config.json")
     configData := buildConfigFromForm(formData)
     if err := writeJSON(configPath, configData); err != nil {
         return err
     }
-    
+
     // 3. Generate report
     result, err := GenerateReport(configPath)
     if err != nil {
         return err
     }
-    
+
     if !result.Success {
         return fmt.Errorf("generation failed: %v", result.Errors)
     }
-    
+
     // 4. Update database with file paths
     for _, filePath := range result.Files {
         db.SaveReportFile(runID, filePath)
     }
-    
+
     return nil
 }
 ```

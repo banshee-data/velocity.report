@@ -2,10 +2,7 @@
 """Unit tests for refactored get_stats.py functions."""
 
 import unittest
-from unittest.mock import Mock, MagicMock, patch, call
-from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
-import argparse
+from unittest.mock import Mock, patch
 
 from pdf_generator.core.config_manager import (
     ReportConfig,
@@ -206,12 +203,6 @@ class TestResolveFilePrefix(unittest.TestCase):
 
 class TestFetchGranularMetrics(unittest.TestCase):
     """Tests for fetch_granular_metrics function."""
-
-    def test_successful_fetch(self):
-        """Test successful granular metrics fetch."""
-        mock_client = Mock()
-        mock_metrics = [{"p50": 25.0}]
-        mock_histogram = {"10": 5, "20": 10}
 
     def test_successful_fetch(self):
         """Test successful granular metrics fetch."""

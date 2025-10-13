@@ -4,8 +4,7 @@
 import json
 import os
 import tempfile
-from unittest.mock import patch, MagicMock, call
-from pathlib import Path
+from unittest.mock import patch
 from io import StringIO
 
 import pytest
@@ -36,7 +35,7 @@ class TestDemoCreateConfig:
     @patch("sys.stdout", new_callable=StringIO)
     def test_prints_config_summary(self, mock_stdout):
         """Test that demo prints configuration summary."""
-        config = demo_create_config()
+        _ = demo_create_config()
 
         output = mock_stdout.getvalue()
         assert "Creating configuration" in output
@@ -228,7 +227,7 @@ class TestDemoDictConversion:
         config = demo_create_config()
         config.site.location = "Unique Location"
 
-        config_dict = demo_dict_conversion(config)
+        _ = demo_dict_conversion(config)
 
         # Should print confirmation of reconstruction
         output = mock_stdout.getvalue()

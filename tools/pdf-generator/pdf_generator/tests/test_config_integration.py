@@ -8,12 +8,10 @@ properly propagate through the system to the generated reports.
 import unittest
 import os
 import tempfile
-import json
-from unittest.mock import Mock, patch, MagicMock
-from pathlib import Path
+from unittest.mock import patch, MagicMock
 
 try:
-    from pylatex import Document
+    import pylatex  # noqa: F401
 
     HAVE_PYLATEX = True
 except ImportError:
@@ -89,7 +87,6 @@ class TestConfigIntegration(unittest.TestCase):
         mock_builder_inst.build.return_value = mock_doc
 
         # Track all param_entries that get created
-        param_entries_list = []
         original_append = mock_doc.append
 
         def track_append(content):

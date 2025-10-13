@@ -322,4 +322,3 @@ If CLI tests prove difficult:
 - Writing tests: 1.5 hours
 - Debugging and refinement: 1 hour
 - **Total: ~3 hours for Phase 1**
-

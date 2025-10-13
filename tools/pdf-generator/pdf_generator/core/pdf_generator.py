@@ -12,11 +12,7 @@ import math
 from pathlib import Path
 
 from typing import Any, Dict, List, Optional
-from datetime import datetime
-from zoneinfo import ZoneInfo
-from datetime import timezone
 
-import numpy as np
 
 try:
     from pylatex import (
@@ -28,11 +24,7 @@ try:
         Center,
         Figure,
         NoEscape,
-        NewPage,
-        NewLine,
-        LineBreak,
     )
-    from pylatex.table import Tabular
     from pylatex.utils import escape_latex
     from pylatex.base_classes import Environment
 
@@ -86,7 +78,6 @@ from pdf_generator.core.data_transformers import (
 from pdf_generator.core.map_utils import MapProcessor, create_marker_from_config
 from pdf_generator.core.document_builder import DocumentBuilder
 from pdf_generator.core.table_builders import (
-    create_stats_table,
     create_param_table,
     create_histogram_table,
     create_twocolumn_stats_table,
@@ -404,12 +395,12 @@ def generate_pdf_report(
     # Use map_utils module for marker injection and PDF conversion.
     # Skip map if include_map=False (e.g., when --no-map flag is used)
 
-    print(f"\n=== MAP GENERATION DEBUG ===")
+    print("\n=== MAP GENERATION DEBUG ===")
     print(f"include_map parameter: {include_map}")
 
     if include_map:
-        print(f"Map generation ENABLED")
-        print(f"Map config:")
+        print("Map generation ENABLED")
+        print("Map config:")
         print(f"  - circle_radius: {map_config_dict['circle_radius']}")
         print(f"  - circle_fill: {map_config_dict['circle_fill']}")
         print(f"  - circle_stroke: {map_config_dict['circle_stroke']}")
@@ -462,8 +453,8 @@ def generate_pdf_report(
                 f"✗ Map NOT included (success={success}, path exists={map_pdf_path is not None})"
             )
     else:
-        print(f"Map generation DISABLED (include_map=False)")
-    print(f"=== END MAP DEBUG ===\n")
+        print("Map generation DISABLED (include_map=False)")
+    print("=== END MAP DEBUG ===\n")
 
     engines = ("xelatex", "lualatex", "pdflatex")
     generated = False

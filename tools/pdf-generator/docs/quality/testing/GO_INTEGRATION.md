@@ -120,21 +120,21 @@ func GenerateReport(configPath string) (*ReportResult, error) {
         configPath,
         "--json",
     )
-    
+
     output, err := cmd.CombinedOutput()
     if err != nil {
         return nil, fmt.Errorf("python command failed: %w\nOutput: %s", err, output)
     }
-    
+
     var result ReportResult
     if err := json.Unmarshal(output, &result); err != nil {
         return nil, fmt.Errorf("failed to parse result: %w", err)
     }
-    
+
     if !result.Success {
         return &result, fmt.Errorf("report generation failed: %v", result.Errors)
     }
-    
+
     return &result, nil
 }
 ```
@@ -170,41 +170,41 @@ func HandleReportGeneration(ctx context.Context, runID string, formData FormData
     if err := os.MkdirAll(outputDir, 0755); err != nil {
         return err
     }
-    
+
     // 2. Build configuration
     config := CreateReportConfig(formData, runID)
     configPath := filepath.Join(outputDir, "config.json")
-    
+
     // 3. Save to database
     if err := db.SaveReportConfig(ctx, runID, config); err != nil {
         return err
     }
-    
+
     // 4. Save config file
     if err := SaveConfig(config, configPath); err != nil {
         return err
     }
-    
+
     // 5. Generate report
     result, err := GenerateReport(configPath)
     if err != nil {
         db.UpdateReportStatus(ctx, runID, "failed", err.Error())
         return err
     }
-    
+
     // 6. Save file paths to database
     for _, filePath := range result.Files {
         filename := filepath.Base(filePath)
         fileType := getFileType(filename)  // "report", "stats", "daily", "histogram"
-        
+
         if err := db.SaveReportFile(ctx, runID, filename, fileType, filePath); err != nil {
             return err
         }
     }
-    
+
     // 7. Update status
     db.UpdateReportStatus(ctx, runID, "completed", "")
-    
+
     return nil
 }
 
@@ -236,12 +236,12 @@ CREATE TABLE reports (
     status TEXT NOT NULL, -- 'pending', 'generating', 'completed', 'failed'
     error_message TEXT,
     config JSON NOT NULL,
-    
+
     -- Site info (denormalized for easy querying)
     location TEXT,
     start_date DATE,
     end_date DATE,
-    
+
     -- User tracking
     user_id TEXT,
     deleted_at TIMESTAMP NULL
@@ -256,7 +256,7 @@ CREATE TABLE report_files (
     file_path TEXT NOT NULL,
     file_size INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
+
     UNIQUE(report_id, file_type)
 );
 
@@ -287,17 +287,17 @@ func (h *Handler) GenerateReportHandler(w http.ResponseWriter, r *http.Request) 
         http.Error(w, "Invalid form data", http.StatusBadRequest)
         return
     }
-    
+
     // 2. Generate unique run ID
     runID := fmt.Sprintf("run-%s", time.Now().Format("20060102-150405"))
-    
+
     // 3. Create output directory
     outputDir := filepath.Join("/var/reports", runID)
     if err := os.MkdirAll(outputDir, 0755); err != nil {
         http.Error(w, "Failed to create output directory", http.StatusInternalServerError)
         return
     }
-    
+
     // 4. Build configuration
     config := &ReportConfig{
         Site: SiteConfig{
@@ -322,7 +322,7 @@ func (h *Handler) GenerateReportHandler(w http.ResponseWriter, r *http.Request) 
             RunID:      runID,
         },
     }
-    
+
     // 5. Save config
     configPath := filepath.Join(outputDir, "config.json")
     configData, _ := json.MarshalIndent(config, "", "  ")
@@ -330,14 +330,14 @@ func (h *Handler) GenerateReportHandler(w http.ResponseWriter, r *http.Request) 
         http.Error(w, "Failed to save config", http.StatusInternalServerError)
         return
     }
-    
+
     // 6. Save to database
     ctx := r.Context()
     if err := h.db.SaveReport(ctx, runID, config); err != nil {
         http.Error(w, "Database error", http.StatusInternalServerError)
         return
     }
-    
+
     // 7. Generate report (async)
     go func() {
         result, err := h.generateReport(configPath)
@@ -345,15 +345,15 @@ func (h *Handler) GenerateReportHandler(w http.ResponseWriter, r *http.Request) 
             h.db.UpdateReportStatus(context.Background(), runID, "failed", err.Error())
             return
         }
-        
+
         // Save file references
         for _, filePath := range result.Files {
             h.db.SaveReportFile(context.Background(), runID, filePath)
         }
-        
+
         h.db.UpdateReportStatus(context.Background(), runID, "completed", "")
     }()
-    
+
     // 8. Return immediate response
     json.NewEncoder(w).Encode(map[string]interface{}{
         "run_id": runID,
@@ -369,36 +369,36 @@ func (h *Handler) generateReport(configPath string) (*ReportResult, error) {
         configPath,
         "--json",
     )
-    
+
     output, err := cmd.CombinedOutput()
     if err != nil {
         return nil, fmt.Errorf("python failed: %w, output: %s", err, output)
     }
-    
+
     var result ReportResult
     if err := json.Unmarshal(output, &result); err != nil {
         return nil, err
     }
-    
+
     if !result.Success {
         return &result, fmt.Errorf("generation failed: %v", result.Errors)
     }
-    
+
     return &result, nil
 }
 
 // Get report status
 func (h *Handler) GetReportStatusHandler(w http.ResponseWriter, r *http.Request) {
     runID := r.URL.Query().Get("run_id")
-    
+
     report, err := h.db.GetReport(r.Context(), runID)
     if err != nil {
         http.Error(w, "Report not found", http.StatusNotFound)
         return
     }
-    
+
     files, _ := h.db.GetReportFiles(r.Context(), runID)
-    
+
     json.NewEncoder(w).Encode(map[string]interface{}{
         "run_id":  runID,
         "status":  report.Status,
@@ -460,9 +460,9 @@ func (h *Handler) generateReportSafe(configPath string) (*ReportResult, error) {
     // Set timeout
     ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
     defer cancel()
-    
+
     cmd := exec.CommandContext(ctx, "python", "generate_report_api.py", configPath, "--json")
-    
+
     output, err := cmd.CombinedOutput()
     if err != nil {
         if ctx.Err() == context.DeadlineExceeded {
@@ -470,16 +470,16 @@ func (h *Handler) generateReportSafe(configPath string) (*ReportResult, error) {
         }
         return nil, fmt.Errorf("python failed: %w\nOutput: %s", err, output)
     }
-    
+
     var result ReportResult
     if err := json.Unmarshal(output, &result); err != nil {
         return nil, fmt.Errorf("invalid JSON response: %w\nOutput: %s", err, output)
     }
-    
+
     if !result.Success {
         return &result, fmt.Errorf("report generation failed: %v", result.Errors)
     }
-    
+
     return &result, nil
 }
 ```
@@ -491,27 +491,27 @@ func (h *Handler) generateReportSafe(configPath string) (*ReportResult, error) {
 func (h *Handler) CleanupOldReports(ctx context.Context) error {
     // Find reports marked for deletion > 30 days ago
     cutoff := time.Now().AddDate(0, 0, -30)
-    
+
     reports, err := h.db.GetDeletedReportsBefore(ctx, cutoff)
     if err != nil {
         return err
     }
-    
+
     for _, report := range reports {
         // Delete files
         files, _ := h.db.GetReportFiles(ctx, report.RunID)
         for _, file := range files {
             os.Remove(file.FilePath)
         }
-        
+
         // Delete output directory
         outputDir := filepath.Join("/var/reports", report.RunID)
         os.RemoveAll(outputDir)
-        
+
         // Delete from database
         h.db.DeleteReport(ctx, report.RunID)
     }
-    
+
     return nil
 }
 ```

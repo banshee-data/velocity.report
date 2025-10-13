@@ -5,7 +5,7 @@ This module provides utilities for normalizing field names from API responses,
 handling schema variations across different data sources and API versions.
 """
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 import numpy as np
 
 

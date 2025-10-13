@@ -99,6 +99,3 @@ export async function getConfig(): Promise<Config> {
 	if (!res.ok) throw new Error(`Failed to fetch config: ${res.status}`);
 	return res.json();
 }
-
-
-

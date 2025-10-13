@@ -14,7 +14,6 @@ Run this to see the configuration system in action!
 
 import json
 import tempfile
-from pathlib import Path
 
 # Import our new configuration system
 from pdf_generator.core.config_manager import (
@@ -23,7 +22,6 @@ from pdf_generator.core.config_manager import (
     QueryConfig,
     OutputConfig,
     RadarConfig,
-    load_config,
 )
 
 
@@ -93,7 +91,7 @@ def demo_save_load_json(config):
 
     # Load config back
     loaded_config = ReportConfig.from_json(temp_path)
-    print(f"✅ Loaded config from file")
+    print("✅ Loaded config from file")
     print(f"   Location: {loaded_config.site.location}")
     print(
         f"   Dates: {loaded_config.query.start_date} to {loaded_config.query.end_date}"
@@ -120,7 +118,7 @@ def demo_validation(config):
     invalid_config = ReportConfig()
     is_valid, errors = invalid_config.validate()
     print(f"❌ Invalid config (no dates): {is_valid}")
-    print(f"   Errors:")
+    print("   Errors:")
     for error in errors:
         print(f"      - {error}")
     print()
@@ -134,7 +132,7 @@ def demo_dict_conversion(config):
 
     # Convert to dict
     config_dict = config.to_dict()
-    print(f"✅ Converted to dictionary")
+    print("✅ Converted to dictionary")
     print(f"   Keys: {list(config_dict.keys())}")
     print()
 
@@ -145,7 +143,7 @@ def demo_dict_conversion(config):
 
     # Convert back from dict
     reconstructed = ReportConfig.from_dict(config_dict)
-    print(f"✅ Reconstructed from dictionary")
+    print("✅ Reconstructed from dictionary")
     print(f"   Location: {reconstructed.site.location}")
     print()
 
@@ -159,7 +157,7 @@ def demo_api_usage(config_dict):
     print("=" * 70)
 
     print("✅ Configuration can be passed as dictionary to Python CLI")
-    print(f"   This is how the Go server can prepare config data")
+    print("   This is how the Go server can prepare config data")
     print()
     print("   Example from Go:")
     print("     config := map[string]interface{}{")

@@ -11,7 +11,6 @@ The module is designed to work with PyLaTeX but is independent of the overall
 document assembly logic, making sections reusable and testable.
 """
 
-from typing import Dict, List
 
 try:
     from pylatex import Document, NoEscape, Center

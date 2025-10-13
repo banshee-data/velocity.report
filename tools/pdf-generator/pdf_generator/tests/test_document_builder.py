@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Unit tests for document_builder.py"""
 
-import os
 import unittest
-from unittest.mock import Mock, MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 from pdf_generator.core.document_builder import DocumentBuilder
 
@@ -34,7 +33,7 @@ class TestDocumentBuilder(unittest.TestCase):
         mock_doc = MagicMock()
         mock_doc_class.return_value = mock_doc
 
-        doc = self.builder.create_document(page_numbers=False)
+        _ = self.builder.create_document(page_numbers=False)
 
         mock_doc_class.assert_called_once()
         call_kwargs = mock_doc_class.call_args[1]
@@ -47,7 +46,7 @@ class TestDocumentBuilder(unittest.TestCase):
         mock_doc = MagicMock()
         mock_doc_class.return_value = mock_doc
 
-        doc = self.builder.create_document(page_numbers=True)
+        _ = self.builder.create_document(page_numbers=True)
 
         call_kwargs = mock_doc_class.call_args[1]
         self.assertTrue(call_kwargs["page_numbers"])
@@ -337,7 +336,7 @@ class TestDocumentBuilder(unittest.TestCase):
             end_iso = "2025-01-19T23:59:59Z"
             location = "Test St"
 
-            result = self.builder.build(start_iso, end_iso, location)
+            _ = self.builder.build(start_iso, end_iso, location)
 
             # Should use DEFAULT_SITE_CONFIG defaults
             mock_twocolumn.assert_called_once()

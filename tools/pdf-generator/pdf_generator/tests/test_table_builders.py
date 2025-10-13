@@ -2,8 +2,7 @@
 """Unit tests for table_builders module."""
 
 import unittest
-from unittest.mock import Mock, MagicMock, patch, call
-from typing import Dict, List, Any
+from unittest.mock import MagicMock, patch
 
 # Import builders
 from pdf_generator.core.table_builders import (
@@ -93,7 +92,7 @@ class TestStatsTableBuilder(unittest.TestCase):
         mock_centered = MagicMock()
         mock_center.return_value = mock_centered
 
-        result = self.builder.build(
+        _ = self.builder.build(
             self.sample_stats,
             tz_name="UTC",
             units="mph",
@@ -171,7 +170,7 @@ class TestParameterTableBuilder(unittest.TestCase):
         mock_table = MagicMock()
         mock_tabular.return_value = mock_table
 
-        result = self.builder.build(self.sample_entries)
+        _ = self.builder.build(self.sample_entries)
 
         # Should create table with "ll" spec (two left-aligned columns)
         mock_tabular.assert_called_once_with("ll")
@@ -184,7 +183,7 @@ class TestParameterTableBuilder(unittest.TestCase):
         mock_table = MagicMock()
         mock_tabular.return_value = mock_table
 
-        result = self.builder.build([])
+        _ = self.builder.build([])
 
         # Should create table
         mock_tabular.assert_called_once()
@@ -199,7 +198,7 @@ class TestParameterTableBuilder(unittest.TestCase):
         mock_tabular.return_value = mock_table
         mock_noescape.side_effect = lambda x: f"NoEscape({x})"
 
-        result = self.builder.build(self.sample_entries)
+        _ = self.builder.build(self.sample_entries)
 
         # Check that add_row was called with formatted cells
         for call_args in mock_table.add_row.call_args_list:
@@ -257,7 +256,7 @@ class TestHistogramTableBuilder(unittest.TestCase):
         mock_centered = MagicMock()
         mock_center.return_value = mock_centered
 
-        result = self.builder.build(
+        _ = self.builder.build(
             self.sample_histogram,
             units="mph",
             cutoff=5.0,
@@ -295,7 +294,7 @@ class TestHistogramTableBuilder(unittest.TestCase):
         mock_centered = MagicMock()
         mock_center.return_value = mock_centered
 
-        result = self.builder.build(
+        _ = self.builder.build(
             self.sample_histogram,
             units="mph",
             cutoff=5.0,
@@ -364,7 +363,7 @@ class TestHistogramTableBuilder(unittest.TestCase):
         mock_centered = MagicMock()
         mock_center.return_value = mock_centered
 
-        result = self.builder.build(
+        _ = self.builder.build(
             {"5": 50, "10": 100, "15": 80, "20": 60},
             units="mph",
             cutoff=5.0,
@@ -400,7 +399,7 @@ class TestConvenienceFunctions(unittest.TestCase):
         mock_builder.build.return_value = "table"
 
         stats = [{"count": 100, "p50": 25.0}]
-        result = create_stats_table(stats, "UTC", "mph", "Caption")
+        _ = create_stats_table(stats, "UTC", "mph", "Caption")
 
         # Should create builder and call build
         mock_builder_class.assert_called_once()
@@ -416,7 +415,7 @@ class TestConvenienceFunctions(unittest.TestCase):
         mock_builder.build.return_value = "table"
 
         entries = [{"key": "K", "value": "V"}]
-        result = create_param_table(entries)
+        _ = create_param_table(entries)
 
         # Should create builder and call build
         mock_builder_class.assert_called_once()
@@ -430,7 +429,7 @@ class TestConvenienceFunctions(unittest.TestCase):
         mock_builder.build.return_value = "table"
 
         histogram = {"5": 100, "10": 200}
-        result = create_histogram_table(histogram, "mph", cutoff=5.0)
+        _ = create_histogram_table(histogram, "mph", cutoff=5.0)
 
         # Should create builder and call build
         mock_builder_class.assert_called_once()

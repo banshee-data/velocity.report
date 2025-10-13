@@ -154,9 +154,9 @@ class DocumentBuilder:
         mono_regular = os.path.join(
             fonts_path, "AtkinsonHyperlegibleMono-VariableFont_wght.ttf"
         )
-        mono_italic = os.path.join(
-            fonts_path, "AtkinsonHyperlegibleMono-Italic-VariableFont_wght.ttf"
-        )
+        # mono_italic = os.path.join(
+        #     fonts_path, "AtkinsonHyperlegibleMono-Italic-VariableFont_wght.ttf"
+        # )
 
         if os.path.exists(mono_regular):
             # Register new font family command using fontspec

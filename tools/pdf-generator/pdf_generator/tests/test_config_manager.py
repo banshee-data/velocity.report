@@ -13,7 +13,6 @@ from pdf_generator.core.config_manager import (
     SiteConfig,
     RadarConfig,
     QueryConfig,
-    OutputConfig,
     load_config,
 )
 
