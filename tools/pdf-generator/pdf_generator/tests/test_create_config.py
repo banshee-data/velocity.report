@@ -13,6 +13,7 @@ from pdf_generator.cli.create_config import (
     create_example_config,
     create_minimal_config,
 )
+from pdf_generator.core.config_manager import load_config
 
 
 class TestCreateExampleConfig:
@@ -119,10 +120,18 @@ class TestCreateExampleConfig:
             data = json.load(f)
 
         radar = data["radar"]
+        # REQUIRED field
+        assert "cosine_error_angle" in radar
+        assert radar["cosine_error_angle"] is not None
+        assert isinstance(radar["cosine_error_angle"], (int, float))
+
+        # Optional documentation fields
         assert "sensor_model" in radar
         assert "firmware_version" in radar
         assert "transmit_frequency" in radar
+        assert "elevation_fov" in radar
         assert "_description" in radar
+        assert "_field_notes" in radar
 
     def test_includes_field_notes(self, tmp_path):
         """Test that field notes are included for documentation."""
@@ -385,3 +394,163 @@ class TestOutputContent:
 
         # Count top-level fields
         assert len(data) <= 4  # Only site, query, radar, (maybe output)
+
+
+class TestConfigValidation:
+    """Tests that generated configs can be loaded and validated."""
+
+    def test_example_config_loads_successfully(self, tmp_path):
+        """Test that generated example config can be loaded by config_manager."""
+        output_file = tmp_path / "test.json"
+        create_example_config(str(output_file))
+
+        # Should load without errors
+        config = load_config(str(output_file))
+        assert config is not None
+
+    def test_example_config_passes_validation(self, tmp_path):
+        """Test that generated example config passes all validation checks."""
+        output_file = tmp_path / "test.json"
+        create_example_config(str(output_file))
+
+        config = load_config(str(output_file))
+        is_valid, errors = config.validate()
+
+        assert is_valid, f"Config validation failed with errors: {errors}"
+        assert len(errors) == 0
+
+    def test_minimal_config_loads_successfully(self, tmp_path):
+        """Test that generated minimal config can be loaded by config_manager."""
+        output_file = tmp_path / "minimal.json"
+        create_minimal_config(str(output_file))
+
+        # Should load without errors
+        config = load_config(str(output_file))
+        assert config is not None
+
+    def test_minimal_config_passes_validation(self, tmp_path):
+        """Test that generated minimal config passes all validation checks."""
+        output_file = tmp_path / "minimal.json"
+        create_minimal_config(str(output_file))
+
+        config = load_config(str(output_file))
+        is_valid, errors = config.validate()
+
+        assert is_valid, f"Minimal config validation failed with errors: {errors}"
+        assert len(errors) == 0
+
+    def test_example_config_has_all_required_fields(self, tmp_path):
+        """Test that example config includes all required fields."""
+        output_file = tmp_path / "test.json"
+        create_example_config(str(output_file))
+
+        with open(output_file) as f:
+            data = json.load(f)
+
+        # Site required fields
+        assert "location" in data["site"]
+        assert data["site"]["location"] != ""
+        assert "surveyor" in data["site"]
+        assert data["site"]["surveyor"] != ""
+        assert "contact" in data["site"]
+        assert data["site"]["contact"] != ""
+
+        # Query required fields
+        assert "start_date" in data["query"]
+        assert data["query"]["start_date"] != ""
+        assert "end_date" in data["query"]
+        assert data["query"]["end_date"] != ""
+        assert "timezone" in data["query"]
+        assert data["query"]["timezone"] != ""
+
+        # Radar required fields
+        assert "cosine_error_angle" in data["radar"]
+        assert data["radar"]["cosine_error_angle"] is not None
+
+    def test_minimal_config_has_all_required_fields(self, tmp_path):
+        """Test that minimal config includes all required fields."""
+        output_file = tmp_path / "minimal.json"
+        create_minimal_config(str(output_file))
+
+        with open(output_file) as f:
+            data = json.load(f)
+
+        # Site required fields
+        assert "location" in data["site"]
+        assert data["site"]["location"] != ""
+        assert "surveyor" in data["site"]
+        assert data["site"]["surveyor"] != ""
+        assert "contact" in data["site"]
+        assert data["site"]["contact"] != ""
+
+        # Query required fields
+        assert "start_date" in data["query"]
+        assert data["query"]["start_date"] != ""
+        assert "end_date" in data["query"]
+        assert data["query"]["end_date"] != ""
+        assert "timezone" in data["query"]
+        assert data["query"]["timezone"] != ""
+
+        # Radar required fields (THE CRITICAL TEST THAT WAS MISSING)
+        assert "cosine_error_angle" in data["radar"]
+        assert data["radar"]["cosine_error_angle"] is not None
+        assert isinstance(data["radar"]["cosine_error_angle"], (int, float))
+
+    def test_field_notes_document_required_vs_optional(self, tmp_path):
+        """Test that field notes clearly mark required vs optional fields."""
+        output_file = tmp_path / "test.json"
+        create_example_config(str(output_file))
+
+        with open(output_file) as f:
+            data = json.load(f)
+
+        # Check that required fields are marked as REQUIRED
+        site_notes = data["site"]["_field_notes"]
+        assert "REQUIRED" in site_notes["location"]
+        assert "REQUIRED" in site_notes["surveyor"]
+        assert "REQUIRED" in site_notes["contact"]
+
+        query_notes = data["query"]["_field_notes"]
+        assert "REQUIRED" in query_notes["start_date"]
+        assert "REQUIRED" in query_notes["end_date"]
+        assert "REQUIRED" in query_notes["timezone"]
+
+        radar_notes = data["radar"]["_field_notes"]
+        assert "REQUIRED" in radar_notes["cosine_error_angle"]
+
+        output_notes = data["output"]["_field_notes"]
+        assert "REQUIRED" in output_notes["file_prefix"]
+
+        # Check that optional fields are marked as Optional
+        assert "Optional" in site_notes["latitude"]
+        assert "Optional" in query_notes["min_speed"]
+        assert "Optional" in radar_notes["sensor_model"]
+        assert "Optional" in output_notes["debug"]
+
+    def test_cosine_error_angle_is_numeric(self, tmp_path):
+        """Test that cosine_error_angle is a numeric value, not a string."""
+        output_file = tmp_path / "test.json"
+        create_example_config(str(output_file))
+
+        with open(output_file) as f:
+            data = json.load(f)
+
+        cosine_angle = data["radar"]["cosine_error_angle"]
+        assert isinstance(
+            cosine_angle, (int, float)
+        ), f"cosine_error_angle must be numeric, got {type(cosine_angle)}: {cosine_angle}"
+        assert cosine_angle > 0, "cosine_error_angle must be positive"
+
+    def test_minimal_config_cosine_error_angle_is_numeric(self, tmp_path):
+        """Test that minimal config has numeric cosine_error_angle."""
+        output_file = tmp_path / "minimal.json"
+        create_minimal_config(str(output_file))
+
+        with open(output_file) as f:
+            data = json.load(f)
+
+        cosine_angle = data["radar"]["cosine_error_angle"]
+        assert isinstance(
+            cosine_angle, (int, float)
+        ), f"cosine_error_angle must be numeric, got {type(cosine_angle)}: {cosine_angle}"
+        assert cosine_angle > 0, "cosine_error_angle must be positive"
