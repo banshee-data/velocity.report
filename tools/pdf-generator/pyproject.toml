@@ -40,6 +40,7 @@ addopts = "-v --strict-markers"
 [tool.coverage.run]
 source = ["pdf_generator"]
 omit = ["pdf_generator/tests/*"]
+relative_files = true
 
 [tool.coverage.report]
 exclude_lines = [
