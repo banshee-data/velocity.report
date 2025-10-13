@@ -139,10 +139,9 @@ All components share a common SQLite database as the single source of truth.
 │  │  │         Listen: 0.0.0.0:8080                             │  │  │
 │  │  │                                                          │  │  │
 │  │  │  Endpoints:                                              │  │  │
-│  │  │  • GET  /api/stats      (aggregated transit data)        │  │  │
-│  │  │  • GET  /api/readings   (raw sensor data)                │  │  │
-│  │  │  • GET  /api/config     (system config)                  │  │  │
-│  │  │  • POST /api/config     (update config)                  │  │  │
+│  │  │  • GET  /api/radar_stats (aggregated transit stats)      │  │  │
+│  │  │  • GET  /api/config      (system config)                 │  │  │
+│  │  │  • POST /command         (send radar command)            │  │  │
 │  │  └──────────────────────────────────────────────────────────┘  │  │
 │  │                                                                │  │
 │  └────────────────────────────────────────────────────────────────┘  │
@@ -217,9 +216,9 @@ All components share a common SQLite database as the single source of truth.
   - Systemd service integration
 
 - **`internal/api/`** - HTTP API endpoints
-  - `/api/stats` - Statistical summaries
-  - `/api/readings` - Raw sensor readings
-  - `/api/config` - Configuration management
+  - `/api/radar_stats` - Statistical summaries and rollups
+  - `/api/config` - Configuration retrieval
+  - `/command` - Send radar commands
   - RESTful design with JSON responses
 
 - **`internal/db/`** - Database layer
@@ -422,7 +421,7 @@ Three Transit Sources:
 ```
 1. User → Run create_config.py → Generate config.json
 2. User → Run demo.py with config.json
-3. demo.py → api_client.py → HTTP GET /api/stats → Go Server
+3. demo.py → api_client.py → HTTP GET /api/radar_stats → Go Server
 4. Go Server → Query SQLite → Return JSON
 5. api_client.py → Parse JSON → Pass to chart_builder, table_builders
 6. chart_builder → matplotlib → PNG charts
@@ -435,7 +434,7 @@ Three Transit Sources:
 
 ```
 1. User → Open browser → Vite dev server (or static build)
-2. Frontend → Fetch /api/stats → Go Server
+2. Frontend → Fetch /api/radar_stats → Go Server
 3. Go Server → Query SQLite → Return JSON
 4. Frontend → Parse JSON → Render Svelte components
 5. Frontend → Display charts/tables → Browser DOM
@@ -503,28 +502,61 @@ Three Transit Sources:
 **Endpoints**:
 
 ```
-GET /api/stats?start=<unix>&end=<unix>&group_by=<hour|day>
+GET /api/radar_stats?start=<unix>&end=<unix>&group=<15m|1h|24h>&source=<radar_objects|radar_data_transits>
 Response: {
-  "readings": [...],
-  "summary": {
-    "total_count": 1234,
-    "avg_speed": 28.5,
-    "max_speed": 45.2,
-    "percentile_85": 32.1
+  "metrics": [
+    {
+      "start_time": "2025-01-01T00:00:00Z",
+      "count": 1234,
+      "max_speed": 45.2,
+      "p50_speed": 28.5,
+      "p85_speed": 32.1,
+      "p98_speed": 38.4
+    },
+    ...
+  ],
+  "histogram": {
+    "0.00": 10,
+    "5.00": 25,
+    ...
   }
 }
 
 GET /api/config
 Response: {
-  "timezone": "America/Los_Angeles",
-  "speed_limit": 25,
-  "units": "mph"
+  "units": "mph",
+  "timezone": "America/Los_Angeles"
 }
+
+GET /events
+Response: [
+  {
+    "uptime": 12345.67,
+    "magnitude": 3456,
+    "speed": 28.5,
+    "direction": "inbound",
+    "raw_json": "{...}"
+  },
+  ...
+]
 ```
+
+**Query Parameters**:
+- `start`, `end`: Unix timestamps (seconds)
+- `group`: Time bucket size (`15m`, `30m`, `1h`, `2h`, `3h`, `4h`, `6h`, `8h`, `12h`, `24h`, `all`, `2d`, `3d`, `7d`, `14d`, `28d`)
+- `source`: Data source (`radar_objects` or `radar_data_transits`)
+- `model_version`: Transit model version (when using `radar_data_transits`)
+- `min_speed`: Minimum speed filter (in display units)
+- `units`: Override units (`mph`, `kph`, `mps`)
+- `timezone`: Override timezone
+- `compute_histogram`: Enable histogram computation (`true`/`false`)
+- `hist_bucket_size`: Histogram bucket size
+- `hist_max`: Histogram maximum value
 
 **Error Handling**:
 - HTTP 200: Success
 - HTTP 400: Invalid parameters
+- HTTP 405: Method not allowed
 - HTTP 500: Server error
 - Python client retries with exponential backoff
 
@@ -533,9 +565,10 @@ Response: {
 **Interface**: HTTP REST API (JSON) + Static file serving
 
 **Same API as Python**, plus:
-- Static file serving for Svelte build
-- CORS headers for development
-- WebSocket support (planned for real-time updates)
+- Static file serving for Svelte build (`/app/*`)
+- SPA routing with fallback to `index.html`
+- Favicon serving
+- Root redirect to `/app/`
 
 ### Python ↔ LaTeX
 
