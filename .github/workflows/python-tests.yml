@@ -36,14 +36,13 @@ jobs:
 
       - name: Run full test suite with coverage
         working-directory: tools/pdf-generator
+        env:
+          COVERAGE_FILE: .coverage
         run: |
+          # Remove any existing coverage files
+          rm -f .coverage* coverage.xml htmlcov/*
+          # Run tests - pytest-cov will use relative_files from pyproject.toml
           python -m pytest --cov=pdf_generator --cov-report=term-missing --cov-report=xml --cov-report=html -v
-
-      - name: Ensure coverage data uses relative paths
-        working-directory: tools/pdf-generator
-        run: |
-          # Regenerate XML report to ensure relative paths
-          python -m coverage xml --ignore-errors
 
       - name: Coverage comment
         id: coverage_comment
