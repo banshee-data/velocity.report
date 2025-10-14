@@ -117,6 +117,7 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/api/radar_stats", s.showRadarObjectStats)
 	s.mux.HandleFunc("/api/config", s.showConfig)
 	s.mux.HandleFunc("/api/generate_report", s.generateReport)
+	s.mux.HandleFunc("/api/sites", s.handleSites)
 	return s.mux
 }
 
@@ -422,23 +423,182 @@ func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleSites routes site-related requests to appropriate handlers
+func (s *Server) handleSites(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Parse the path to extract ID if present
+	// URL format: /api/sites or /api/sites/123
+	path := strings.TrimPrefix(r.URL.Path, "/api/sites")
+	path = strings.Trim(path, "/")
+
+	// List or Create
+	if path == "" {
+		switch r.Method {
+		case http.MethodGet:
+			s.listSites(w, r)
+		case http.MethodPost:
+			s.createSite(w, r)
+		default:
+			s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		}
+		return
+	}
+
+	// Get, Update, or Delete by ID
+	id, err := strconv.Atoi(path)
+	if err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid site ID")
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		s.getSite(w, r, id)
+	case http.MethodPut:
+		s.updateSite(w, r, id)
+	case http.MethodDelete:
+		s.deleteSite(w, r, id)
+	default:
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+	}
+}
+
+func (s *Server) listSites(w http.ResponseWriter, r *http.Request) {
+	sites, err := s.db.GetAllSites()
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve sites: %v", err))
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(sites); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode sites")
+		return
+	}
+}
+
+func (s *Server) getSite(w http.ResponseWriter, r *http.Request, id int) {
+	site, err := s.db.GetSite(id)
+	if err != nil {
+		if err.Error() == "site not found" {
+			s.writeJSONError(w, http.StatusNotFound, "Site not found")
+		} else {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve site: %v", err))
+		}
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(site); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode site")
+		return
+	}
+}
+
+func (s *Server) createSite(w http.ResponseWriter, r *http.Request) {
+	var site db.Site
+	if err := json.NewDecoder(r.Body).Decode(&site); err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
+		return
+	}
+
+	// Validate required fields
+	if site.Name == "" {
+		s.writeJSONError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	if site.Location == "" {
+		s.writeJSONError(w, http.StatusBadRequest, "location is required")
+		return
+	}
+	if site.CosineErrorAngle == 0 {
+		s.writeJSONError(w, http.StatusBadRequest, "cosine_error_angle is required")
+		return
+	}
+
+	if err := s.db.CreateSite(&site); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to create site: %v", err))
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(site); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode site")
+		return
+	}
+}
+
+func (s *Server) updateSite(w http.ResponseWriter, r *http.Request, id int) {
+	var site db.Site
+	if err := json.NewDecoder(r.Body).Decode(&site); err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
+		return
+	}
+
+	site.ID = id
+
+	// Validate required fields
+	if site.Name == "" {
+		s.writeJSONError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	if site.Location == "" {
+		s.writeJSONError(w, http.StatusBadRequest, "location is required")
+		return
+	}
+	if site.CosineErrorAngle == 0 {
+		s.writeJSONError(w, http.StatusBadRequest, "cosine_error_angle is required")
+		return
+	}
+
+	if err := s.db.UpdateSite(&site); err != nil {
+		if err.Error() == "site not found" {
+			s.writeJSONError(w, http.StatusNotFound, "Site not found")
+		} else {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update site: %v", err))
+		}
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(site); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode site")
+		return
+	}
+}
+
+func (s *Server) deleteSite(w http.ResponseWriter, r *http.Request, id int) {
+	if err := s.db.DeleteSite(id); err != nil {
+		if err.Error() == "site not found" {
+			s.writeJSONError(w, http.StatusNotFound, "Site not found")
+		} else {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to delete site: %v", err))
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // ReportRequest represents the JSON payload for report generation
 type ReportRequest struct {
-	StartDate       string  `json:"start_date"`       // YYYY-MM-DD format
-	EndDate         string  `json:"end_date"`         // YYYY-MM-DD format
-	Timezone        string  `json:"timezone"`         // e.g., "US/Pacific"
-	Units           string  `json:"units"`            // "mph" or "kph"
-	Group           string  `json:"group"`            // e.g., "1h", "4h"
-	Source          string  `json:"source"`           // "radar_objects" or "radar_data_transits"
-	MinSpeed        float64 `json:"min_speed"`        // minimum speed filter
-	Histogram       bool    `json:"histogram"`        // whether to generate histogram
-	HistBucketSize  float64 `json:"hist_bucket_size"` // histogram bucket size
-	HistMax         float64 `json:"hist_max"`         // histogram max value
-	Location        string  `json:"location"`         // site location
-	Surveyor        string  `json:"surveyor"`         // surveyor name
-	Contact         string  `json:"contact"`          // contact info
-	SpeedLimit      int     `json:"speed_limit"`      // posted speed limit
-	SiteDescription string  `json:"site_description"` // site description
+	SiteID         *int    `json:"site_id"`          // Optional: use site configuration
+	StartDate      string  `json:"start_date"`       // YYYY-MM-DD format
+	EndDate        string  `json:"end_date"`         // YYYY-MM-DD format
+	Timezone       string  `json:"timezone"`         // e.g., "US/Pacific"
+	Units          string  `json:"units"`            // "mph" or "kph"
+	Group          string  `json:"group"`            // e.g., "1h", "4h"
+	Source         string  `json:"source"`           // "radar_objects" or "radar_data_transits"
+	MinSpeed       float64 `json:"min_speed"`        // minimum speed filter
+	Histogram      bool    `json:"histogram"`        // whether to generate histogram
+	HistBucketSize float64 `json:"hist_bucket_size"` // histogram bucket size
+	HistMax        float64 `json:"hist_max"`         // histogram max value
+
+	// These can be overridden if site_id is not provided
+	Location         string  `json:"location"`           // site location
+	Surveyor         string  `json:"surveyor"`           // surveyor name
+	Contact          string  `json:"contact"`            // contact info
+	SpeedLimit       int     `json:"speed_limit"`        // posted speed limit
+	SiteDescription  string  `json:"site_description"`   // site description
+	CosineErrorAngle float64 `json:"cosine_error_angle"` // radar mounting angle
 }
 
 func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
@@ -462,7 +622,18 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set defaults
+	// Load site data if site_id is provided
+	var site *db.Site
+	if req.SiteID != nil {
+		var err error
+		site, err = s.db.GetSite(*req.SiteID)
+		if err != nil {
+			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Failed to load site: %v", err))
+			return
+		}
+	}
+
+	// Set defaults from site or fallback values
 	if req.Timezone == "" {
 		req.Timezone = "UTC"
 	}
@@ -475,20 +646,45 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	if req.Source == "" {
 		req.Source = "radar_data_transits"
 	}
-	if req.Location == "" {
-		req.Location = "Survey Location"
-	}
-	if req.Surveyor == "" {
-		req.Surveyor = "Surveyor"
-	}
-	if req.Contact == "" {
-		req.Contact = "contact@example.com"
-	}
-	if req.SpeedLimit == 0 {
-		req.SpeedLimit = 25
-	}
 	if req.HistBucketSize == 0 {
 		req.HistBucketSize = 5.0
+	}
+
+	// Use site data if available, otherwise use request data or defaults
+	location := req.Location
+	surveyor := req.Surveyor
+	contact := req.Contact
+	speedLimit := req.SpeedLimit
+	siteDescription := req.SiteDescription
+	cosineErrorAngle := req.CosineErrorAngle
+
+	if site != nil {
+		location = site.Location
+		surveyor = site.Surveyor
+		contact = site.Contact
+		speedLimit = site.SpeedLimit
+		if site.SiteDescription != nil {
+			siteDescription = *site.SiteDescription
+		}
+		cosineErrorAngle = site.CosineErrorAngle
+	}
+
+	// Apply final defaults if still empty
+	if location == "" {
+		location = "Survey Location"
+	}
+	if surveyor == "" {
+		surveyor = "Surveyor"
+	}
+	if contact == "" {
+		contact = "contact@example.com"
+	}
+	if speedLimit == 0 {
+		speedLimit = 25
+	}
+	if cosineErrorAngle == 0 {
+		s.writeJSONError(w, http.StatusBadRequest, "cosine_error_angle is required (either from site or in request)")
+		return
 	}
 
 	// Create a config JSON for the PDF generator
@@ -506,11 +702,14 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 			"hist_max":         req.HistMax,
 		},
 		"site": map[string]interface{}{
-			"location":         req.Location,
-			"surveyor":         req.Surveyor,
-			"contact":          req.Contact,
-			"speed_limit":      req.SpeedLimit,
-			"site_description": req.SiteDescription,
+			"location":         location,
+			"surveyor":         surveyor,
+			"contact":          contact,
+			"speed_limit":      speedLimit,
+			"site_description": siteDescription,
+		},
+		"radar": map[string]interface{}{
+			"cosine_error_angle": cosineErrorAngle,
 		},
 		"output": map[string]interface{}{
 			"file_prefix": fmt.Sprintf("report_%s_%s", req.StartDate, req.EndDate),
