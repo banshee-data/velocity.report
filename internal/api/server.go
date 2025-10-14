@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -115,6 +116,7 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/command", s.sendCommandHandler)
 	s.mux.HandleFunc("/api/radar_stats", s.showRadarObjectStats)
 	s.mux.HandleFunc("/api/config", s.showConfig)
+	s.mux.HandleFunc("/api/generate_report", s.generateReport)
 	return s.mux
 }
 
@@ -416,6 +418,160 @@ func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewEncoder(w).Encode(apiEvents); err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, "Failed to write events")
+		return
+	}
+}
+
+// ReportRequest represents the JSON payload for report generation
+type ReportRequest struct {
+	StartDate       string  `json:"start_date"`       // YYYY-MM-DD format
+	EndDate         string  `json:"end_date"`         // YYYY-MM-DD format
+	Timezone        string  `json:"timezone"`         // e.g., "US/Pacific"
+	Units           string  `json:"units"`            // "mph" or "kph"
+	Group           string  `json:"group"`            // e.g., "1h", "4h"
+	Source          string  `json:"source"`           // "radar_objects" or "radar_data_transits"
+	MinSpeed        float64 `json:"min_speed"`        // minimum speed filter
+	Histogram       bool    `json:"histogram"`        // whether to generate histogram
+	HistBucketSize  float64 `json:"hist_bucket_size"` // histogram bucket size
+	HistMax         float64 `json:"hist_max"`         // histogram max value
+	Location        string  `json:"location"`         // site location
+	Surveyor        string  `json:"surveyor"`         // surveyor name
+	Contact         string  `json:"contact"`          // contact info
+	SpeedLimit      int     `json:"speed_limit"`      // posted speed limit
+	SiteDescription string  `json:"site_description"` // site description
+}
+
+func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != http.MethodPost {
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	// Parse the JSON request body
+	var req ReportRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
+		return
+	}
+
+	// Validate required fields
+	if req.StartDate == "" || req.EndDate == "" {
+		s.writeJSONError(w, http.StatusBadRequest, "start_date and end_date are required")
+		return
+	}
+
+	// Set defaults
+	if req.Timezone == "" {
+		req.Timezone = "UTC"
+	}
+	if req.Units == "" {
+		req.Units = "mph"
+	}
+	if req.Group == "" {
+		req.Group = "1h"
+	}
+	if req.Source == "" {
+		req.Source = "radar_data_transits"
+	}
+	if req.Location == "" {
+		req.Location = "Survey Location"
+	}
+	if req.Surveyor == "" {
+		req.Surveyor = "Surveyor"
+	}
+	if req.Contact == "" {
+		req.Contact = "contact@example.com"
+	}
+	if req.SpeedLimit == 0 {
+		req.SpeedLimit = 25
+	}
+	if req.HistBucketSize == 0 {
+		req.HistBucketSize = 5.0
+	}
+
+	// Create a config JSON for the PDF generator
+	config := map[string]interface{}{
+		"query": map[string]interface{}{
+			"start_date":       req.StartDate,
+			"end_date":         req.EndDate,
+			"timezone":         req.Timezone,
+			"group":            req.Group,
+			"units":            req.Units,
+			"source":           req.Source,
+			"min_speed":        req.MinSpeed,
+			"histogram":        req.Histogram,
+			"hist_bucket_size": req.HistBucketSize,
+			"hist_max":         req.HistMax,
+		},
+		"site": map[string]interface{}{
+			"location":         req.Location,
+			"surveyor":         req.Surveyor,
+			"contact":          req.Contact,
+			"speed_limit":      req.SpeedLimit,
+			"site_description": req.SiteDescription,
+		},
+		"output": map[string]interface{}{
+			"file_prefix": fmt.Sprintf("report_%s_%s", req.StartDate, req.EndDate),
+			"output_dir":  "./output",
+			"debug":       false,
+		},
+	}
+
+	// Write config to a temporary file
+	configFile := filepath.Join(os.TempDir(), fmt.Sprintf("report_config_%d.json", time.Now().Unix()))
+	configData, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to marshal config: %v", err))
+		return
+	}
+	if err := os.WriteFile(configFile, configData, 0644); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to write config file: %v", err))
+		return
+	}
+	defer os.Remove(configFile) // Clean up after execution
+
+	// Get the repository root (assuming we're running from the repo root)
+	repoRoot, err := os.Getwd()
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get working directory: %v", err))
+		return
+	}
+
+	// Path to the PDF generator
+	pdfDir := filepath.Join(repoRoot, "tools", "pdf-generator")
+	pythonBin := filepath.Join(pdfDir, ".venv", "bin", "python")
+
+	// Check if python binary exists, fallback to system python if not
+	if _, err := os.Stat(pythonBin); os.IsNotExist(err) {
+		pythonBin = "python3"
+		log.Printf("PDF generator venv not found, using system python3")
+	}
+
+	// Execute the PDF generator
+	cmd := exec.Command(
+		pythonBin,
+		"-m", "pdf_generator.cli.main",
+		configFile,
+	)
+	cmd.Dir = pdfDir
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("PDF generation failed: %v\nOutput: %s", err, string(output))
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("PDF generation failed: %v", err))
+		return
+	}
+
+	// Success response
+	response := map[string]interface{}{
+		"success": true,
+		"message": "Report generation started",
+		"output":  string(output),
+	}
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to write response")
 		return
 	}
 }
