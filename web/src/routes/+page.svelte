@@ -6,6 +6,7 @@
 	import { Axis, Chart, Highlight, Spline, Svg, Text } from 'layerchart';
 	import { onMount } from 'svelte';
 	import {
+		Button,
 		Card,
 		DateRangeField,
 		Grid,
@@ -14,7 +15,13 @@
 		ToggleGroup,
 		ToggleOption
 	} from 'svelte-ux';
-	import { getConfig, getRadarStats, type Config, type RadarStats } from '../lib/api';
+	import {
+		generateReport,
+		getConfig,
+		getRadarStats,
+		type Config,
+		type RadarStats
+	} from '../lib/api';
 	import { displayTimezone, initializeTimezone } from '../lib/stores/timezone';
 	import { displayUnits, initializeUnits } from '../lib/stores/units';
 	import { getUnitLabel, type Unit } from '../lib/units';
@@ -248,6 +255,43 @@
 	}
 
 	onMount(loadData);
+
+	// Report generation
+	let generatingReport = false;
+	let reportMessage = '';
+
+	async function handleGenerateReport() {
+		if (!dateRange.from || !dateRange.to) {
+			reportMessage = 'Please select a date range first';
+			return;
+		}
+
+		generatingReport = true;
+		reportMessage = '';
+
+		try {
+			const response = await generateReport({
+				start_date: isoDate(dateRange.from),
+				end_date: isoDate(dateRange.to),
+				timezone: $displayTimezone,
+				units: $displayUnits,
+				group: group,
+				source: selectedSource,
+				histogram: true,
+				hist_bucket_size: 5.0
+			});
+
+			if (response.success) {
+				reportMessage = 'Report generated successfully!';
+			} else {
+				reportMessage = response.error || 'Report generation failed';
+			}
+		} catch (e) {
+			reportMessage = e instanceof Error ? e.message : 'Failed to generate report';
+		} finally {
+			generatingReport = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -275,7 +319,27 @@
 					<ToggleOption value="radar_data_transits">Transits</ToggleOption>
 				</ToggleGroup>
 			</div>
+			<div>
+				<Button
+					on:click={handleGenerateReport}
+					disabled={generatingReport}
+					variant="fill"
+					color="primary"
+				>
+					{generatingReport ? 'Generating...' : 'Generate Report'}
+				</Button>
+			</div>
 		</div>
+
+		{#if reportMessage}
+			<div
+				class="rounded border p-3 {reportMessage.includes('success')
+					? 'border-green-300 bg-green-50 text-green-800'
+					: 'border-red-300 bg-red-50 text-red-800'}"
+			>
+				{reportMessage}
+			</div>
+		{/if}
 
 		<Grid autoColumns="14em" gap={8}>
 			<Card title="Vehicle Count">
