@@ -1,0 +1,52 @@
+\documentclass{article}%
+\usepackage[T1]{fontenc}%
+\usepackage[utf8]{inputenc}%
+\usepackage{lmodern}%
+\usepackage{textcomp}%
+\usepackage{geometry}%
+\geometry{top=1.8cm,bottom=1.0cm,left=1.0cm,right=1.0cm}%
+\usepackage{fancyhdr}%
+\usepackage{graphicx}%
+\usepackage{amsmath}%
+\usepackage{titlesec}%
+\usepackage{hyperref}%
+\usepackage{fontspec}%
+\usepackage[font=sf]{caption}%
+\usepackage{supertabular}%
+\usepackage{float}%
+\usepackage{array}%
+%
+\captionsetup{labelfont=bf,textfont=bf}%
+\titleformat{\section}{\bfseries\Large}{}{0em}{}%
+\setlength{\columnsep}{14pt}%
+\setsansfont[Path=/Users/david/code/velocity.report/internal/report/query_data/fonts/,
+    Extension=.ttf,
+    Scale=MatchLowercase,
+    UprightFont=AtkinsonHyperlegible-Regular,
+    ItalicFont=AtkinsonHyperlegible-Italic,
+    BoldFont=AtkinsonHyperlegible-Bold,
+    BoldItalicFont=AtkinsonHyperlegible-BoldItalic]{AtkinsonHyperlegible-Regular}%
+\renewcommand{\familydefault}{\sfdefault}%
+\newfontfamily\AtkinsonMono[Path=/Users/david/code/velocity.report/internal/report/query_data/fonts/,Extension=.ttf,ItalicFont=AtkinsonHyperlegibleMono-Italic-VariableFont_wght,Scale=MatchLowercase,RawFeature={+wght=800}]{AtkinsonHyperlegibleMono-VariableFont_wght}%
+%
+\begin{document}%
+\pagestyle{empty}%
+\normalsize%
+\setlength{\headheight}{12pt}%
+\setlength{\headsep}{10pt}%
+\pagestyle{fancy}%
+\fancyhf{}%
+\fancyhead[L]{\textbf{\protect\href{https://velocity.report}{velocity.report}}}%
+\fancyhead[C]{ 2025-06-01 to 2025-06-07 }%
+\fancyhead[R]{ \textit{Test Location}}%
+\renewcommand{\headrulewidth}{0.8pt}%
+\twocolumn[%
+\vspace{-8pt}%
+\begin{center}%
+{\huge \sffamily\textbf{ Test Location}}%
+\par%
+\vspace{0.1cm}%
+{\large \sffamily Surveyor: \textit{Test Surveyor} \ \textbullet \ \ Contact: \href{mailto:test@example.com}{test@example.com}}%
+\end{center}%
+]%
+\end{document}

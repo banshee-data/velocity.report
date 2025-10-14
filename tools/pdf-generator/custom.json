@@ -1,0 +1,105 @@
+{
+  "_comment": "Velocity Report Configuration File",
+  "_instructions": [
+    "This file controls all aspects of report generation.",
+    "All CLI flags and environment variables have been replaced by this config.",
+    "Use: python get_stats.py config.json",
+    "",
+    "SECTIONS:",
+    "  site: Location and survey information",
+    "  radar: Technical sensor specifications",
+    "  query: Data query parameters and date range",
+    "  output: Output file settings and options"
+  ],
+  "site": {
+    "_description": "Site location and survey metadata",
+    "location": "Clarendon Avenue, San Francisco",
+    "surveyor": "Banshee, INC.",
+    "contact": "david@banshee-data.com",
+    "speed_limit": 25,
+    "site_description": "This survey was conducted from the southbound parking lane outside 500 Clarendon Avenue, directly in front of an elementary school. The site is located on a downhill grade, which may influence vehicle speed and braking behavior. Data was collected from a fixed position over three consecutive days.",
+    "speed_limit_note": "The posted speed limit at this location is 35 mph, reduced to 25 mph when school children are present.",
+    "latitude": 37.7833,
+    "longitude": -122.4167,
+    "map_angle": 45.0,
+    "_field_notes": {
+      "location": "REQUIRED: Survey location name or address",
+      "surveyor": "REQUIRED: Organization or person conducting the survey",
+      "contact": "REQUIRED: Contact email for survey questions",
+      "speed_limit": "Optional: Posted speed limit in mph (used for compliance reporting)",
+      "site_description": "Optional: Detailed description of survey location and conditions",
+      "speed_limit_note": "Optional: Additional context about speed limit (e.g., school zones)",
+      "latitude": "Optional: GPS latitude for map marker (decimal degrees)",
+      "longitude": "Optional: GPS longitude for map marker (decimal degrees)",
+      "map_angle": "Optional: Rotation angle for map display (degrees)"
+    }
+  },
+  "radar": {
+    "_description": "Radar sensor technical specifications",
+    "cosine_error_angle": 21.0,
+    "sensor_model": "OmniPreSense OPS243-A",
+    "firmware_version": "v1.2.3",
+    "transmit_frequency": "24.125 GHz",
+    "sample_rate": "20 kSPS",
+    "velocity_resolution": "0.272 mph",
+    "azimuth_fov": "20\u00b0",
+    "elevation_fov": "24\u00b0",
+    "_field_notes": {
+      "cosine_error_angle": "REQUIRED: Mounting angle in degrees for cosine error correction (critical for accuracy)",
+      "sensor_model": "Optional: Radar sensor model name (for documentation)",
+      "firmware_version": "Optional: Firmware version (for documentation)",
+      "transmit_frequency": "Optional: Radar frequency (for documentation)",
+      "sample_rate": "Optional: Sample rate (for documentation)",
+      "velocity_resolution": "Optional: Velocity resolution (for documentation)",
+      "azimuth_fov": "Optional: Horizontal field of view (for documentation)",
+      "elevation_fov": "Optional: Vertical field of view (for documentation)"
+    }
+  },
+  "query": {
+    "_description": "Data query parameters",
+    "start_date": "2025-06-01",
+    "end_date": "2025-06-07",
+    "group": "1h",
+    "units": "mph",
+    "source": "radar_data_transits",
+    "model_version": "rebuild-full",
+    "timezone": "US/Pacific",
+    "min_speed": 5.0,
+    "histogram": true,
+    "hist_bucket_size": 5.0,
+    "hist_max": 60.0,
+    "_field_notes": {
+      "start_date": "REQUIRED: Start date (YYYY-MM-DD format or unix timestamp)",
+      "end_date": "REQUIRED: End date (YYYY-MM-DD format or unix timestamp)",
+      "timezone": "REQUIRED: Display timezone (e.g., US/Pacific, UTC, US/Eastern)",
+      "group": "Optional: Time bucket size (15m, 30m, 1h, 2h, 4h, 8h, 12h, 24h, 2d, 7d, 14d, 28d, all)",
+      "units": "Optional: Display units (mph, kph, mps) - default: mph",
+      "source": "Optional: Data source (radar_objects or radar_data_transits) - default: radar_objects",
+      "model_version": "Optional: Transit model version when using radar_data_transits - default: rebuild-full",
+      "min_speed": "Optional: Minimum speed filter in display units (filters out slow/stopped vehicles)",
+      "histogram": "Optional: Generate histogram chart (true or false) - default: false",
+      "hist_bucket_size": "Required if histogram=true: Histogram bucket size in display units (e.g., 5.0 for 5 mph buckets)",
+      "hist_max": "Optional: Maximum speed for histogram (truncates outliers for better visualization)"
+    }
+  },
+  "output": {
+    "_description": "Output file settings",
+    "file_prefix": "clarendon-survey",
+    "output_dir": "./reports",
+    "debug": false,
+    "map": false,
+    "run_id": "auto-generated",
+    "_field_notes": {
+      "file_prefix": "REQUIRED: Prefix for generated files (PDF, LaTeX, charts will use this prefix)",
+      "output_dir": "Optional: Output directory path (default: current directory) - will be created if missing",
+      "debug": "Optional: Enable debug output for troubleshooting (true or false) - default: false",
+      "map": "Optional: Include location map in report (true or false) - default: false, requires lat/lon",
+      "run_id": "Optional: Unique ID for this report generation (auto-generated if not provided)"
+    }
+  },
+  "_metadata": {
+    "created_at": "Auto-generated timestamp",
+    "updated_at": "Auto-generated timestamp",
+    "version": "1.0"
+  }
+}

@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "velocity-report-pdf-generator"
+version = "1.0.0"
+description = "PDF report generator for velocity.report Go application"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Banshee Data", email = "info@banshee.data" }]
+dependencies = [
+  "matplotlib>=3.10.6",
+  "numpy>=2.3.3",
+  "pandas>=2.3.2",
+  "pylatex>=1.4.2",
+  "requests>=2.32.3",
+  "seaborn>=0.13.3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.4.2", "pytest-cov>=7.0.0"]
+
+[project.scripts]
+pdf-generator = "pdf_generator.cli.main:main"
+pdf-config = "pdf_generator.cli.create_config:main"
+pdf-demo = "pdf_generator.cli.demo:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pdf_generator*"]
+
+[tool.pytest.ini_options]
+testpaths = ["pdf_generator/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --strict-markers"
+
+[tool.coverage.run]
+source = ["pdf_generator"]
+omit = ["pdf_generator/tests/*"]
+relative_files = true
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]

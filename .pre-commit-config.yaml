@@ -1,0 +1,29 @@
+repos:
+  # Basic file hygiene (fast, reliable)
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+
+  # Python formatting (PDF generator only)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: ["--fix", "--exit-non-zero-on-fix"]
+        files: ^tools/pdf-generator/.*\.py$
+
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+      - id: black
+        language_version: python3
+        files: ^tools/pdf-generator/.*\.py$
+
+# Note: Go formatting and linting handled by your editor/IDE
+# Note: Web linting (pnpm) handled by CI on PRs
+# This keeps pre-commit fast and reliable!

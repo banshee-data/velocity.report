@@ -144,4 +144,3 @@
 - Individual UDP packets contain only 2-3 points with small azimuth ranges
 - Azimuth wrap detection must account for accumulated vs instantaneous coverage
 - Point-level frame detection requires stricter criteria than packet-level detection
-

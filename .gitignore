@@ -3,10 +3,13 @@ _site/
 .cache/
 archive/
 backup/
-internal/report/query_data/__pycache__/*
 log/
 node_modules/
 web/.svelte-kit/*
+
+__pycache__/*
+matplotlib/__pycache__/*
+internal/report/query_data/__pycache__/*
 
 .DS_Store
 .env

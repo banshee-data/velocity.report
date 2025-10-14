@@ -1,0 +1,15 @@
+{
+  "site": {
+    "location": "Main Street, Springfield",
+    "surveyor": "City Traffic Department",
+    "contact": "traffic@springfield.gov"
+  },
+  "query": {
+    "start_date": "2025-06-01",
+    "end_date": "2025-06-07",
+    "timezone": "US/Pacific"
+  },
+  "radar": {
+    "cosine_error_angle": 1.0
+  }
+}

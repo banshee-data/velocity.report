@@ -168,4 +168,3 @@ The parser applies per-channel corrections:
 - **Sequence gaps**: Indicate network packet loss
 - **Static detection**: Repeated timestamps suggest sensor issues
 - **Range validation**: Distance values beyond 200m flagged as suspect
-
