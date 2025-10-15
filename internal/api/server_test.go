@@ -444,6 +444,244 @@ func TestShowConfig_MethodNotAllowed(t *testing.T) {
 	}
 }
 
+// TestListEvents tests the events endpoint
+func TestListEvents(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	req := httptest.NewRequest(http.MethodGet, "/events", nil)
+	w := httptest.NewRecorder()
+
+	server.listEvents(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	var events []db.EventAPI
+	if err := json.NewDecoder(w.Body).Decode(&events); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	// Should return empty array initially
+	if events == nil {
+		t.Error("Expected non-nil events array")
+	}
+}
+
+// TestListEvents_WithUnitsParam tests unit conversion
+func TestListEvents_WithUnitsParam(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	tests := []struct {
+		name  string
+		units string
+		valid bool
+	}{
+		{"valid mph", "mph", true},
+		{"valid kmph", "kmph", true},
+		{"invalid units", "invalid", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/events?units="+tt.units, nil)
+			w := httptest.NewRecorder()
+
+			server.listEvents(w, req)
+
+			if tt.valid {
+				if w.Code != http.StatusOK {
+					t.Errorf("Expected status 200, got %d", w.Code)
+				}
+			} else {
+				if w.Code != http.StatusBadRequest {
+					t.Errorf("Expected status 400, got %d", w.Code)
+				}
+			}
+		})
+	}
+}
+
+// TestListEvents_MethodNotAllowed tests that only GET is allowed
+func TestListEvents_MethodNotAllowed(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	req := httptest.NewRequest(http.MethodPost, "/events", nil)
+	w := httptest.NewRecorder()
+
+	server.listEvents(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("Expected status 405, got %d", w.Code)
+	}
+}
+
+// TestShowRadarObjectStats tests the radar stats endpoint
+func TestShowRadarObjectStats(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	// Create a query with a valid time range
+	start := "1697318400"
+	end := "1697404800" // 24 hours later
+	req := httptest.NewRequest(http.MethodGet, "/api/radar_stats?start="+start+"&end="+end+"&group=1h", nil)
+	w := httptest.NewRecorder()
+
+	server.showRadarObjectStats(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d. Body: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestShowRadarObjectStats_MissingParams tests required parameter validation
+func TestShowRadarObjectStats_MissingParams(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	tests := []struct {
+		name  string
+		query string
+	}{
+		{"missing start", "end=1697318400&group=1h"},
+		{"missing end", "start=1697318400&group=1h"},
+		{"missing both", "group=1h"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/api/radar_stats?"+tt.query, nil)
+			w := httptest.NewRecorder()
+
+			server.showRadarObjectStats(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Errorf("Expected status 400, got %d", w.Code)
+			}
+		})
+	}
+}
+
+// TestShowRadarObjectStats_InvalidParams tests parameter validation
+func TestShowRadarObjectStats_InvalidParams(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	tests := []struct {
+		name  string
+		query string
+	}{
+		{"invalid start", "start=invalid&end=1697318400&group=1h"},
+		{"invalid end", "start=1697318400&end=invalid&group=1h"},
+		{"invalid group", "start=1697318400&end=1697318400&group=invalid"},
+		{"invalid units", "start=1697318400&end=1697318400&units=invalid"},
+		{"invalid timezone", "start=1697318400&end=1697318400&timezone=Invalid/Zone"},
+		{"invalid min_speed", "start=1697318400&end=1697318400&min_speed=invalid"},
+		{"invalid source", "start=1697318400&end=1697318400&source=invalid_source"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/api/radar_stats?"+tt.query, nil)
+			w := httptest.NewRecorder()
+
+			server.showRadarObjectStats(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Errorf("Expected status 400, got %d. Body: %s", w.Code, w.Body.String())
+			}
+		})
+	}
+}
+
+// TestShowRadarObjectStats_WithHistogram tests histogram generation
+func TestShowRadarObjectStats_WithHistogram(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	start := "1697318400"
+	end := "1697404800" // 24 hours later
+	query := fmt.Sprintf("start=%s&end=%s&compute_histogram=true&hist_bucket_size=5&hist_max=100", start, end)
+	req := httptest.NewRequest(http.MethodGet, "/api/radar_stats?"+query, nil)
+	w := httptest.NewRecorder()
+
+	server.showRadarObjectStats(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d. Body: %s", w.Code, w.Body.String())
+		return
+	}
+
+	var response map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	if _, ok := response["metrics"]; !ok {
+		t.Error("Expected 'metrics' in response")
+	}
+}
+
+// TestShowRadarObjectStats_MethodNotAllowed tests that only GET is allowed
+func TestShowRadarObjectStats_MethodNotAllowed(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/radar_stats", nil)
+	w := httptest.NewRecorder()
+
+	server.showRadarObjectStats(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("Expected status 405, got %d", w.Code)
+	}
+}
+
+// TestWriteJSONError tests the error helper
+func TestWriteJSONError(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	w := httptest.NewRecorder()
+	server.writeJSONError(w, http.StatusBadRequest, "test error")
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+
+	var errResp map[string]string
+	if err := json.NewDecoder(w.Body).Decode(&errResp); err != nil {
+		t.Fatalf("Failed to decode error response: %v", err)
+	}
+
+	if errResp["error"] != "test error" {
+		t.Errorf("Expected error message 'test error', got '%s'", errResp["error"])
+	}
+}
+
+// TestKeysOfMap tests the helper function
+func TestKeysOfMap(t *testing.T) {
+	m := map[string]int64{
+		"b": 2,
+		"a": 1,
+		"c": 3,
+	}
+
+	keys := keysOfMap(m)
+
+	if len(keys) != 3 {
+		t.Errorf("Expected 3 keys, got %d", len(keys))
+	}
+
+	// Should be sorted
+	if keys[0] != "a" || keys[1] != "b" || keys[2] != "c" {
+		t.Errorf("Expected sorted keys [a, b, c], got %v", keys)
+	}
+}
+
 // Helper functions
 
 func setupTestServer(t *testing.T) (*Server, *db.DB) {
