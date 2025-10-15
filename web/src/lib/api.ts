@@ -99,3 +99,120 @@ export async function getConfig(): Promise<Config> {
 	if (!res.ok) throw new Error(`Failed to fetch config: ${res.status}`);
 	return res.json();
 }
+
+export interface ReportRequest {
+	site_id?: number; // Optional: use site configuration
+	start_date: string; // YYYY-MM-DD format
+	end_date: string; // YYYY-MM-DD format
+	timezone: string; // e.g., "US/Pacific"
+	units: string; // "mph" or "kph"
+	group?: string; // e.g., "1h", "4h"
+	source?: string; // "radar_objects" or "radar_data_transits"
+	min_speed?: number; // minimum speed filter
+	histogram?: boolean; // whether to generate histogram
+	hist_bucket_size?: number; // histogram bucket size
+	hist_max?: number; // histogram max value
+	// These can be overridden if site_id is not provided
+	location?: string; // site location
+	surveyor?: string; // surveyor name
+	contact?: string; // contact info
+	speed_limit?: number; // posted speed limit
+	site_description?: string; // site description
+	cosine_error_angle?: number; // radar mounting angle
+}
+
+export interface ReportResponse {
+	success: boolean;
+	message: string;
+	output?: string;
+	error?: string;
+}
+
+export async function generateReport(request: ReportRequest): Promise<ReportResponse> {
+	const res = await fetch(`${API_BASE}/generate_report`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify(request)
+	});
+	if (!res.ok) {
+		const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+		throw new Error(errorData.error || `Failed to generate report: ${res.status}`);
+	}
+	return res.json();
+}
+
+// Site management interfaces and functions
+
+export interface Site {
+	id: number;
+	name: string;
+	location: string;
+	description?: string | null;
+	cosine_error_angle: number;
+	speed_limit: number;
+	surveyor: string;
+	contact: string;
+	address?: string | null;
+	latitude?: number | null;
+	longitude?: number | null;
+	map_angle?: number | null;
+	include_map: boolean;
+	site_description?: string | null;
+	speed_limit_note?: string | null;
+	created_at: string;
+	updated_at: string;
+}
+
+export async function getSites(): Promise<Site[]> {
+	const res = await fetch(`${API_BASE}/sites`);
+	if (!res.ok) throw new Error(`Failed to fetch sites: ${res.status}`);
+	return res.json();
+}
+
+export async function getSite(id: number): Promise<Site> {
+	const res = await fetch(`${API_BASE}/sites/${id}`);
+	if (!res.ok) throw new Error(`Failed to fetch site: ${res.status}`);
+	return res.json();
+}
+
+export async function createSite(site: Partial<Site>): Promise<Site> {
+	const res = await fetch(`${API_BASE}/sites`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify(site)
+	});
+	if (!res.ok) {
+		const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+		throw new Error(errorData.error || `Failed to create site: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function updateSite(id: number, site: Partial<Site>): Promise<Site> {
+	const res = await fetch(`${API_BASE}/sites/${id}`, {
+		method: 'PUT',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify(site)
+	});
+	if (!res.ok) {
+		const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+		throw new Error(errorData.error || `Failed to update site: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function deleteSite(id: number): Promise<void> {
+	const res = await fetch(`${API_BASE}/sites/${id}`, {
+		method: 'DELETE'
+	});
+	if (!res.ok) {
+		const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+		throw new Error(errorData.error || `Failed to delete site: ${res.status}`);
+	}
+}

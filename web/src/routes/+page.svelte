@@ -19,8 +19,10 @@
 		generateReport,
 		getConfig,
 		getRadarStats,
+		getSites,
 		type Config,
-		type RadarStats
+		type RadarStats,
+		type Site
 	} from '../lib/api';
 	import { displayTimezone, initializeTimezone } from '../lib/stores/timezone';
 	import { displayUnits, initializeUnits } from '../lib/stores/units';
@@ -32,6 +34,12 @@
 	let p98Speed = 0;
 	let loading = true;
 	let error = '';
+
+	// Site management
+	let sites: Site[] = [];
+	let selectedSiteId: number | null = null;
+	let siteOptions: Array<{ value: number; label: string }> = [];
+
 	// default DateRangeField to the last 14 days (inclusive)
 	function isoDate(d: Date) {
 		return d.toISOString().slice(0, 10);
@@ -139,6 +147,36 @@
 		}
 	}
 
+	async function loadSites() {
+		try {
+			sites = await getSites();
+			siteOptions = sites.map((site) => ({ value: site.id, label: site.name }));
+
+			// Load selected site from localStorage or default to first site
+			if (browser) {
+				const savedSiteId = localStorage.getItem('selectedSiteId');
+				if (savedSiteId) {
+					const siteId = parseInt(savedSiteId, 10);
+					if (sites.some((s) => s.id === siteId)) {
+						selectedSiteId = siteId;
+					}
+				}
+				// If no saved site or invalid, default to first site
+				if (selectedSiteId === null && sites.length > 0) {
+					selectedSiteId = sites[0].id;
+				}
+			}
+		} catch (e) {
+			console.error('Failed to load sites:', e);
+			// Don't set error here, sites are optional for viewing stats
+		}
+	}
+
+	// Save selected site to localStorage when it changes
+	$: if (browser && selectedSiteId != null) {
+		localStorage.setItem('selectedSiteId', selectedSiteId.toString());
+	}
+
 	async function loadStats(units: Unit) {
 		try {
 			if (!dateRange.from || !dateRange.to) {
@@ -238,6 +276,7 @@
 		error = '';
 		try {
 			await loadConfig();
+			await loadSites();
 			// establish last-known values so the reactive watcher doesn't think things changed
 			lastFrom = dateRange.from.getTime();
 			lastTo = dateRange.to.getTime();
@@ -266,6 +305,11 @@
 			return;
 		}
 
+		if (selectedSiteId == null) {
+			reportMessage = 'Please select a site first';
+			return;
+		}
+
 		generatingReport = true;
 		reportMessage = '';
 
@@ -278,7 +322,8 @@
 				group: group,
 				source: selectedSource,
 				histogram: true,
-				hist_bucket_size: 5.0
+				hist_bucket_size: 5.0,
+				site_id: selectedSiteId
 			});
 
 			if (response.success) {
@@ -306,7 +351,7 @@
 	{:else if error}
 		<p class="text-red-600">{error}</p>
 	{:else}
-		<div class="flex items-end gap-2">
+		<div class="flex flex-wrap items-end gap-2">
 			<div class="w-74">
 				<DateRangeField bind:value={dateRange} periodTypes={[PeriodType.Day]} stepper />
 			</div>
@@ -319,12 +364,21 @@
 					<ToggleOption value="radar_data_transits">Transits</ToggleOption>
 				</ToggleGroup>
 			</div>
-			<div>
+			<div class="w-42">
+				<SelectField
+					bind:value={selectedSiteId}
+					label="Site"
+					options={siteOptions}
+					clearable={false}
+				/>
+			</div>
+			<div class="w-24">
 				<Button
 					on:click={handleGenerateReport}
-					disabled={generatingReport}
+					disabled={generatingReport || selectedSiteId == null}
 					variant="fill"
 					color="primary"
+					class="whitespace-normal"
 				>
 					{generatingReport ? 'Generating...' : 'Generate Report'}
 				</Button>
