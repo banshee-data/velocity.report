@@ -101,14 +101,11 @@ CREATE INDEX IF NOT EXISTS idx_transit_links_data ON radar_transit_links (data_r
           id INTEGER PRIMARY KEY AUTOINCREMENT
         , name TEXT NOT NULL UNIQUE
         , location TEXT NOT NULL
-        , description TEXT
-        , -- Radar configuration
+        , description TEXT, -- Radar configuration
           cosine_error_angle REAL NOT NULL, -- Required: mounting angle in degrees
-          speed_limit INTEGER DEFAULT 25
-        , -- Contact information
+          speed_limit INTEGER DEFAULT 25, -- Contact information
           surveyor TEXT NOT NULL
-        , contact TEXT NOT NULL
-        , -- Address and map information
+        , contact TEXT NOT NULL, -- Address and map information
           address TEXT
         , latitude REAL
         , longitude REAL
@@ -116,8 +113,7 @@ CREATE INDEX IF NOT EXISTS idx_transit_links_data ON radar_transit_links (data_r
         , include_map INTEGER DEFAULT 1, -- boolean: 1 = yes, 0 = no
           -- Report content
           site_description TEXT
-        , speed_limit_note TEXT
-        , -- Timestamps
+        , speed_limit_note TEXT, -- Timestamps
           created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
         , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
           );
@@ -133,8 +129,8 @@ CREATE TRIGGER IF NOT EXISTS update_site_timestamp AFTER
 
 END;
 
--- Insert default site for new installations
-   INSERT INTO site (
+-- Insert default site for new installations (use INSERT OR IGNORE to handle re-runs)
+   INSERT OR IGNORE INTO site (
           name
         , location
         , description
