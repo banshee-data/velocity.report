@@ -314,7 +314,7 @@
 		reportMessage = '';
 
 		try {
-			const response = await generateReport({
+			const pdfBlob = await generateReport({
 				start_date: isoDate(dateRange.from),
 				end_date: isoDate(dateRange.to),
 				timezone: $displayTimezone,
@@ -326,11 +326,17 @@
 				site_id: selectedSiteId
 			});
 
-			if (response.success) {
-				reportMessage = 'Report generated successfully!';
-			} else {
-				reportMessage = response.error || 'Report generation failed';
-			}
+			// Create a download link and trigger it
+			const url = window.URL.createObjectURL(pdfBlob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `${isoDate(dateRange.from)}_velocity.report.pdf`;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			window.URL.revokeObjectURL(url);
+
+			reportMessage = 'Report downloaded successfully!';
 		} catch (e) {
 			reportMessage = e instanceof Error ? e.message : 'Failed to generate report';
 		} finally {

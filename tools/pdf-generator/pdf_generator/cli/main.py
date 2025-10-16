@@ -177,15 +177,24 @@ def should_produce_daily(group_token: str) -> bool:
     return True
 
 
-def _next_sequenced_prefix(base: str) -> str:
-    """Return a sequenced prefix like base-1-HHMMSS, base-2-HHMMSS, ... based on files in CWD.
+def _next_sequenced_prefix(base: str, search_dir: str = ".") -> str:
+    """Return a sequenced prefix like base-1-HHMMSS, base-2-HHMMSS, ... based on files in search_dir.
 
-    This scans the current directory for files beginning with ``base-<n>`` and
+    This scans the specified directory for files beginning with ``base-<n>`` and
     returns the next number in the sequence with a timestamp suffix.
     Always returns base-<n>-HHMMSS (start at 1).
     The timestamp helps avoid caching issues with PDF viewers.
+
+    Args:
+        base: Base prefix for the file
+        search_dir: Directory to search for existing files (default: current directory)
     """
-    files = os.listdir(".")
+    # Handle non-existent directory (will be created later)
+    if not os.path.exists(search_dir):
+        timestamp = datetime.now().strftime("%H%M%S")
+        return f"{base}-1-{timestamp}"
+
+    files = os.listdir(search_dir)
     pat = re.compile(r"^" + re.escape(base) + r"-(\d+)(?:-\d{6})?(?:_|$)")
     nums = []
     for fn in files:
@@ -236,20 +245,23 @@ def compute_iso_timestamps(
         return str(start_ts), str(end_ts)
 
 
-def resolve_file_prefix(config: ReportConfig, start_ts: int, end_ts: int) -> str:
+def resolve_file_prefix(
+    config: ReportConfig, start_ts: int, end_ts: int, output_dir: str = "."
+) -> str:
     """Determine output file prefix (sequenced or date-based).
 
     Args:
         config: Report configuration
         start_ts: Start timestamp
         end_ts: End timestamp
+        output_dir: Directory where files will be created (for sequence checking)
 
     Returns:
         File prefix string
     """
     if config.output.file_prefix:
         # User provided a prefix - create numbered sequence
-        return _next_sequenced_prefix(config.output.file_prefix)
+        return _next_sequenced_prefix(config.output.file_prefix, output_dir)
     else:
         # Auto-generate from date range
         tzobj = (
@@ -745,6 +757,12 @@ def process_date_range(
         f"=== Processing {start_date} -> {end_date} (group={config.query.group}, source={config.query.source}) ==="
     )
 
+    # Create output directory if specified
+    output_dir = config.output.output_dir or "."
+    if output_dir != ".":
+        os.makedirs(output_dir, exist_ok=True)
+        _print_info(f"Output directory: {output_dir}")
+
     # Parse dates to timestamps
     start_ts, end_ts = parse_date_range(
         start_date, end_date, config.query.timezone or None
@@ -754,7 +772,11 @@ def process_date_range(
 
     # Determine model version and file prefix
     model_version = get_model_version(config)
-    prefix = resolve_file_prefix(config, start_ts, end_ts)
+    prefix = resolve_file_prefix(config, start_ts, end_ts, output_dir)
+
+    # Prepend output directory to prefix
+    prefix = os.path.join(output_dir, prefix)
+
     _print_info(f"Output prefix: {prefix}")
     if config.query.histogram:
         _print_info(

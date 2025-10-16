@@ -128,7 +128,7 @@ export interface ReportResponse {
 	error?: string;
 }
 
-export async function generateReport(request: ReportRequest): Promise<ReportResponse> {
+export async function generateReport(request: ReportRequest): Promise<Blob> {
 	const res = await fetch(`${API_BASE}/generate_report`, {
 		method: 'POST',
 		headers: {
@@ -137,10 +137,16 @@ export async function generateReport(request: ReportRequest): Promise<ReportResp
 		body: JSON.stringify(request)
 	});
 	if (!res.ok) {
-		const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-		throw new Error(errorData.error || `Failed to generate report: ${res.status}`);
+		// Try to parse JSON error message
+		const contentType = res.headers.get('content-type');
+		if (contentType && contentType.includes('application/json')) {
+			const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+			throw new Error(errorData.error || `Failed to generate report: ${res.status}`);
+		}
+		throw new Error(`Failed to generate report: ${res.status}`);
 	}
-	return res.json();
+	// Return the PDF blob
+	return res.blob();
 }
 
 // Site management interfaces and functions

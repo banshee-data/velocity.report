@@ -602,9 +602,8 @@ type ReportRequest struct {
 }
 
 func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	if r.Method != http.MethodPost {
+		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
@@ -612,12 +611,14 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	// Parse the JSON request body
 	var req ReportRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
 		return
 	}
 
 	// Validate required fields
 	if req.StartDate == "" || req.EndDate == "" {
+		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusBadRequest, "start_date and end_date are required")
 		return
 	}
@@ -628,6 +629,7 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		var err error
 		site, err = s.db.GetSite(*req.SiteID)
 		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
 			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Failed to load site: %v", err))
 			return
 		}
@@ -683,11 +685,17 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		speedLimit = 25
 	}
 	if cosineErrorAngle == 0 {
+		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusBadRequest, "cosine_error_angle is required (either from site or in request)")
 		return
 	}
 
+	// Create unique run ID for organized output folders
+	runID := time.Now().Format("20060102-150405")
+	outputDir := fmt.Sprintf("output/%s", runID)
+
 	// Create a config JSON for the PDF generator
+	// Note: Not setting file_prefix - let Python auto-generate from source + date range
 	config := map[string]interface{}{
 		"query": map[string]interface{}{
 			"start_date":       req.StartDate,
@@ -712,9 +720,8 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 			"cosine_error_angle": cosineErrorAngle,
 		},
 		"output": map[string]interface{}{
-			"file_prefix": fmt.Sprintf("report_%s_%s", req.StartDate, req.EndDate),
-			"output_dir":  "./output",
-			"debug":       false,
+			"output_dir": outputDir,
+			"debug":      false,
 		},
 	}
 
@@ -722,10 +729,12 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	configFile := filepath.Join(os.TempDir(), fmt.Sprintf("report_config_%d.json", time.Now().Unix()))
 	configData, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to marshal config: %v", err))
 		return
 	}
 	if err := os.WriteFile(configFile, configData, 0644); err != nil {
+		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to write config file: %v", err))
 		return
 	}
@@ -734,6 +743,7 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	// Get the repository root (assuming we're running from the repo root)
 	repoRoot, err := os.Getwd()
 	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get working directory: %v", err))
 		return
 	}
@@ -759,20 +769,45 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("PDF generation failed: %v\nOutput: %s", err, string(output))
+		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("PDF generation failed: %v", err))
 		return
 	}
 
-	// Success response
-	response := map[string]interface{}{
-		"success": true,
-		"message": "Report generation started",
-		"output":  string(output),
-	}
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		s.writeJSONError(w, http.StatusInternalServerError, "Failed to write response")
+	// Locate the generated PDF file
+	// Python auto-generates filename as: {source}_{start_date}_to_{end_date}_report.pdf
+	pdfFilename := fmt.Sprintf("%s_%s_to_%s_report.pdf", req.Source, req.StartDate, req.EndDate)
+	pdfPath := filepath.Join(pdfDir, outputDir, pdfFilename)
+
+	// Check if the PDF file exists
+	if _, err := os.Stat(pdfPath); os.IsNotExist(err) {
+		log.Printf("PDF file not found at expected path: %s\nGenerator output: %s", pdfPath, string(output))
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusInternalServerError, "PDF file not found after generation")
 		return
 	}
+
+	// Read the PDF file
+	pdfData, err := os.ReadFile(pdfPath)
+	if err != nil {
+		log.Printf("Failed to read PDF file: %v", err)
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to read PDF file: %v", err))
+		return
+	}
+
+	// Set headers for PDF download
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", pdfFilename))
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(pdfData)))
+
+	// Stream the PDF file to the client
+	if _, err := w.Write(pdfData); err != nil {
+		log.Printf("Failed to write PDF to response: %v", err)
+		return
+	}
+
+	log.Printf("Successfully generated and sent PDF report: %s", pdfFilename)
 }
 
 // Start launches the HTTP server and blocks until the provided context is done
