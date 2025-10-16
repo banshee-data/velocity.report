@@ -89,10 +89,7 @@
 					<tr>
 						<th>Name</th>
 						<th>Location</th>
-						<th>Surveyor</th>
-						<th>Contact</th>
 						<th>Cosine Angle</th>
-						<th>Speed Limit</th>
 						<th class="text-right">Actions</th>
 					</tr>
 				</thead>
@@ -101,10 +98,7 @@
 						<tr class="border-surface-content/10 border-t">
 							<td class="font-medium">{site.name}</td>
 							<td>{site.location}</td>
-							<td>{site.surveyor}</td>
-							<td>{site.contact}</td>
 							<td>{site.cosine_error_angle}°</td>
-							<td>{site.speed_limit}</td>
 							<td class="text-right">
 								<div class="flex justify-end gap-2">
 									<Button
