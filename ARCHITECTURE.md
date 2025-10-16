@@ -118,10 +118,9 @@ All components share a common SQLite database as the single source of truth.
 │  │  │  • radar_data (raw radar events, JSON)                   │  │  │
 │  │  │  • lidar_bg_snapshot (background grid, BLOB)             │  │  │
 │  │  │                                                          │  │  │
-│  │  │  Transit/Object Tables (3 sources):                      │  │  │
+│  │  │  Transit/Object Tables (2 sources):                      │  │  │
 │  │  │  • radar_objects (radar classifier detections)           │  │  │
 │  │  │  • radar_data_transits (sessionized radar_data)          │  │  │
-│  │  │  • lidar_objects (LIDAR track extraction) [PLANNED]      │  │  │
 │  │  │                                                          │  │  │
 │  │  │  Support Tables:                                         │  │  │
 │  │  │  • radar_transit_links (radar_data ↔ transits)           │  │  │
