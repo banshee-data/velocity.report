@@ -84,46 +84,48 @@
 		</Card>
 	{:else}
 		<Card>
-			<Table>
-				<thead>
-					<tr>
-						<th>Name</th>
-						<th>Location</th>
-						<th>Cosine Angle</th>
-						<th class="text-right">Actions</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each sites as site}
-						<tr class="border-surface-content/10 border-t">
-							<td class="font-medium">{site.name}</td>
-							<td>{site.location}</td>
-							<td>{site.cosine_error_angle}°</td>
-							<td class="text-right">
-								<div class="flex justify-end gap-2">
-									<Button
-										icon={mdiPencil}
-										size="sm"
-										variant="outline"
-										on:click={() => handleEdit(site.id)}
-									>
-										Edit
-									</Button>
-									<Button
-										icon={mdiDelete}
-										size="sm"
-										variant="outline"
-										color="danger"
-										on:click={() => openDeleteDialog(site)}
-									>
-										Delete
-									</Button>
-								</div>
-							</td>
+			<div class="px-4">
+				<Table>
+					<thead>
+						<tr>
+							<th class="py-3">Name</th>
+							<th class="py-3">Location</th>
+							<th class="py-3">Cosine Angle</th>
+							<th class="py-3 text-right">Actions</th>
 						</tr>
-					{/each}
-				</tbody>
-			</Table>
+					</thead>
+					<tbody>
+						{#each sites as site}
+							<tr class="border-surface-content/10 border-t">
+								<td class="py-4 font-medium">{site.name}</td>
+								<td class="py-4">{site.location}</td>
+								<td class="py-4">{site.cosine_error_angle}°</td>
+								<td class="py-4 text-right">
+									<div class="flex justify-end gap-2">
+										<Button
+											icon={mdiPencil}
+											size="sm"
+											variant="outline"
+											on:click={() => handleEdit(site.id)}
+										>
+											Edit
+										</Button>
+										<Button
+											icon={mdiDelete}
+											size="sm"
+											variant="outline"
+											color="danger"
+											on:click={() => openDeleteDialog(site)}
+										>
+											Delete
+										</Button>
+									</div>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</Table>
+			</div>
 		</Card>
 	{/if}
 </main>
