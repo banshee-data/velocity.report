@@ -280,11 +280,10 @@ No installation required - use PYTHONPATH method as documented in [tools/pdf-gen
 ## Documentation
 
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture and component relationships
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Development workflows and contribution guide
-- **[tools/pdf-generator/README.md](tools/pdf-generator/README.md)** - PDF generator documentation (613 lines)
+- **[tools/pdf-generator/README.md](tools/pdf-generator/README.md)** - PDF generator documentation
 - **[web/README.md](web/README.md)** - Web frontend documentation
-- **[docs/](docs/)** - Additional documentation and guides
-- **[data/README.md](data/README.md)** - Data directory documentation
+- **[docs/README.md](docs/README.md)** - Documentation site
+- **[data/README.md](data/README.md)** - Data directory and database documentation
 
 ## Testing
 

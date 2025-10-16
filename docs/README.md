@@ -1,6 +1,11 @@
 # velocity.report/docs
 
-A static documentation site built with [Eleventy](https://www.11ty.dev/) and [Tailwind CSS](https://tailwindcss.com/).
+Documentation site built with Eleventy and Tailwind CSS.
+
+**Location**: `docs/`
+**Framework**: Eleventy (11ty)
+**Styling**: Tailwind CSS
+**Package Manager**: pnpm
 
 ## Prerequisites
 
