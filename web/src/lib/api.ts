@@ -128,7 +128,13 @@ export interface ReportResponse {
 	error?: string;
 }
 
-export async function generateReport(request: ReportRequest): Promise<Blob> {
+export interface GenerateReportResponse {
+	success: boolean;
+	report_id: number;
+	message: string;
+}
+
+export async function generateReport(request: ReportRequest): Promise<GenerateReportResponse> {
 	const res = await fetch(`${API_BASE}/generate_report`, {
 		method: 'POST',
 		headers: {
@@ -137,16 +143,51 @@ export async function generateReport(request: ReportRequest): Promise<Blob> {
 		body: JSON.stringify(request)
 	});
 	if (!res.ok) {
-		// Try to parse JSON error message
-		const contentType = res.headers.get('content-type');
-		if (contentType && contentType.includes('application/json')) {
-			const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-			throw new Error(errorData.error || `Failed to generate report: ${res.status}`);
-		}
-		throw new Error(`Failed to generate report: ${res.status}`);
+		const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+		throw new Error(errorData.error || `Failed to generate report: ${res.status}`);
 	}
-	// Return the PDF blob
+	return res.json();
+}
+
+export interface SiteReport {
+	id: number;
+	site_id: number;
+	start_date: string;
+	end_date: string;
+	filepath: string;
+	filename: string;
+	run_id: string;
+	timezone: string;
+	units: string;
+	source: string;
+	created_at: string;
+}
+
+export async function downloadReport(reportId: number): Promise<Blob> {
+	const res = await fetch(`${API_BASE}/reports/${reportId}/download`);
+	if (!res.ok) {
+		throw new Error(`Failed to download report: ${res.status}`);
+	}
 	return res.blob();
+}
+
+export async function getRecentReports(): Promise<SiteReport[]> {
+	const res = await fetch(`${API_BASE}/reports`);
+	if (!res.ok) throw new Error(`Failed to fetch reports: ${res.status}`);
+	return res.json();
+}
+
+export async function getReportsForSite(siteId: number): Promise<SiteReport[]> {
+	const res = await fetch(`${API_BASE}/reports/site/${siteId}`);
+	if (!res.ok) throw new Error(`Failed to fetch site reports: ${res.status}`);
+	return res.json();
+}
+
+export async function deleteReport(reportId: number): Promise<void> {
+	const res = await fetch(`${API_BASE}/reports/${reportId}`, {
+		method: 'DELETE'
+	});
+	if (!res.ok) throw new Error(`Failed to delete report: ${res.status}`);
 }
 
 // Site management interfaces and functions

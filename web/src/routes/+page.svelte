@@ -314,7 +314,8 @@
 		reportMessage = '';
 
 		try {
-			const pdfBlob = await generateReport({
+			// Generate report and get report ID
+			const response = await generateReport({
 				start_date: isoDate(dateRange.from),
 				end_date: isoDate(dateRange.to),
 				timezone: $displayTimezone,
@@ -326,11 +327,17 @@
 				site_id: selectedSiteId
 			});
 
+			reportMessage = `Report generated! Downloading...`;
+
+			// Download the report using the report ID
+			const { downloadReport } = await import('$lib/api');
+			const pdfBlob = await downloadReport(response.report_id);
+
 			// Create a download link and trigger it
 			const url = window.URL.createObjectURL(pdfBlob);
 			const a = document.createElement('a');
 			a.href = url;
-			a.download = `${isoDate(dateRange.from)}_velocity.report.pdf`;
+			a.download = `report_${isoDate(dateRange.from)}_${isoDate(dateRange.to)}.pdf`;
 			document.body.appendChild(a);
 			a.click();
 			document.body.removeChild(a);

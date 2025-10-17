@@ -118,7 +118,8 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/api/config", s.showConfig)
 	s.mux.HandleFunc("/api/generate_report", s.generateReport)
 	s.mux.HandleFunc("/api/sites", s.handleSites)
-	s.mux.HandleFunc("/api/sites/", s.handleSites) // Handle both /api/sites and /api/sites/*
+	s.mux.HandleFunc("/api/sites/", s.handleSites)     // Note trailing slash to match /api/sites and /api/sites/*
+	s.mux.HandleFunc("/api/reports/", s.handleReports) // Report management endpoints
 	return s.mux
 }
 
@@ -775,16 +776,204 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Locate the generated PDF file
 	// Python auto-generates filename as: {source}_{start_date}_to_{end_date}_report.pdf
 	pdfFilename := fmt.Sprintf("%s_%s_to_%s_report.pdf", req.Source, req.StartDate, req.EndDate)
-	pdfPath := filepath.Join(pdfDir, outputDir, pdfFilename)
 
-	// Check if the PDF file exists
-	if _, err := os.Stat(pdfPath); os.IsNotExist(err) {
-		log.Printf("PDF file not found at expected path: %s\nGenerator output: %s", pdfPath, string(output))
+	// Store relative path from pdf-generator directory
+	relativePath := filepath.Join(outputDir, pdfFilename)
+
+	// Create report record in database
+	siteID := 0
+	if req.SiteID != nil {
+		siteID = *req.SiteID
+	}
+
+	report := &db.SiteReport{
+		SiteID:    siteID,
+		StartDate: req.StartDate,
+		EndDate:   req.EndDate,
+		Filepath:  relativePath,
+		Filename:  pdfFilename,
+		RunID:     runID,
+		Timezone:  req.Timezone,
+		Units:     req.Units,
+		Source:    req.Source,
+	}
+
+	if err := s.db.CreateSiteReport(report); err != nil {
+		log.Printf("Failed to create report record: %v", err)
 		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusInternalServerError, "PDF file not found after generation")
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to create report record")
+		return
+	}
+
+	// Return report ID instead of streaming file
+	w.Header().Set("Content-Type", "application/json")
+	response := map[string]interface{}{
+		"success":   true,
+		"report_id": report.ID,
+		"message":   "Report generated successfully",
+	}
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode response")
+		return
+	}
+
+	log.Printf("Successfully generated PDF report (ID: %d): %s", report.ID, pdfFilename)
+}
+
+// handleReports routes report-related requests to appropriate handlers
+func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Parse the path to extract ID and action
+	// URL formats:
+	//   /api/reports - list all recent reports
+	//   /api/reports/123 - get report metadata
+	//   /api/reports/123/download - download PDF file
+	//   /api/reports/site/456 - list reports for site 456
+	path := strings.TrimPrefix(r.URL.Path, "/api/reports")
+	path = strings.Trim(path, "/")
+
+	// List all recent reports
+	if path == "" && r.Method == http.MethodGet {
+		s.listAllReports(w, r)
+		return
+	}
+
+	// Handle /api/reports/site/{siteID}
+	if strings.HasPrefix(path, "site/") {
+		siteIDStr := strings.TrimPrefix(path, "site/")
+		siteID, err := strconv.Atoi(siteIDStr)
+		if err != nil {
+			s.writeJSONError(w, http.StatusBadRequest, "Invalid site ID")
+			return
+		}
+		if r.Method == http.MethodGet {
+			s.listSiteReports(w, r, siteID)
+		} else {
+			s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		}
+		return
+	}
+
+	// Parse report ID and action
+	parts := strings.Split(path, "/")
+	if len(parts) == 0 {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid request path")
+		return
+	}
+
+	reportID, err := strconv.Atoi(parts[0])
+	if err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid report ID")
+		return
+	}
+
+	// Handle download action
+	if len(parts) == 2 && parts[1] == "download" {
+		if r.Method == http.MethodGet {
+			s.downloadReport(w, r, reportID)
+		} else {
+			s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		}
+		return
+	}
+
+	// Get report metadata or delete
+	switch r.Method {
+	case http.MethodGet:
+		s.getReport(w, r, reportID)
+	case http.MethodDelete:
+		s.deleteReport(w, r, reportID)
+	default:
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+	}
+}
+
+func (s *Server) listAllReports(w http.ResponseWriter, r *http.Request) {
+	reports, err := s.db.GetRecentReportsAllSites(15)
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve reports: %v", err))
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(reports); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode reports")
+		return
+	}
+}
+
+func (s *Server) listSiteReports(w http.ResponseWriter, r *http.Request, siteID int) {
+	reports, err := s.db.GetRecentReportsForSite(siteID, 5)
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve reports: %v", err))
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(reports); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode reports")
+		return
+	}
+}
+
+func (s *Server) getReport(w http.ResponseWriter, r *http.Request, reportID int) {
+	report, err := s.db.GetSiteReport(reportID)
+	if err != nil {
+		if err.Error() == "report not found" {
+			s.writeJSONError(w, http.StatusNotFound, "Report not found")
+		} else {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve report: %v", err))
+		}
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(report); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode report")
+		return
+	}
+}
+
+func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, reportID int) {
+	// Get report metadata from database
+	report, err := s.db.GetSiteReport(reportID)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		if err.Error() == "report not found" {
+			s.writeJSONError(w, http.StatusNotFound, "Report not found")
+		} else {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve report: %v", err))
+		}
+		return
+	}
+
+	// Get the repository root
+	repoRoot, err := os.Getwd()
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to get working directory")
+		return
+	}
+
+	// Construct full path from database record
+	pdfDir := filepath.Join(repoRoot, "tools", "pdf-generator")
+	pdfPath := filepath.Join(pdfDir, report.Filepath)
+
+	// Validate path is within pdf-generator directory (security check)
+	cleanPath := filepath.Clean(pdfPath)
+	if !strings.HasPrefix(cleanPath, pdfDir) {
+		log.Printf("Security: attempted path traversal to %s", pdfPath)
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusForbidden, "Invalid file path")
+		return
+	}
+
+	// Check if file exists
+	if _, err := os.Stat(pdfPath); os.IsNotExist(err) {
+		log.Printf("PDF file not found at path: %s", pdfPath)
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusNotFound, "PDF file not found")
 		return
 	}
 
@@ -793,13 +982,13 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("Failed to read PDF file: %v", err)
 		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to read PDF file: %v", err))
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to read PDF file")
 		return
 	}
 
 	// Set headers for PDF download
 	w.Header().Set("Content-Type", "application/pdf")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", pdfFilename))
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", report.Filename))
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(pdfData)))
 
 	// Stream the PDF file to the client
@@ -808,7 +997,20 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Successfully generated and sent PDF report: %s", pdfFilename)
+	log.Printf("Successfully downloaded PDF report (ID: %d): %s", reportID, report.Filename)
+}
+
+func (s *Server) deleteReport(w http.ResponseWriter, r *http.Request, reportID int) {
+	if err := s.db.DeleteSiteReport(reportID); err != nil {
+		if err.Error() == "report not found" {
+			s.writeJSONError(w, http.StatusNotFound, "Report not found")
+		} else {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to delete report: %v", err))
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // Start launches the HTTP server and blocks until the provided context is done
