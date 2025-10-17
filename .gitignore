@@ -5,6 +5,7 @@ archive/
 backup/
 log/
 node_modules/
+tools/pdf-generator/output/*
 web/.svelte-kit/*
 
 __pycache__/*
@@ -23,3 +24,4 @@ internal/report/query_data/__pycache__/*
 app
 app-*
 mock_serial_port*
+coverage*
