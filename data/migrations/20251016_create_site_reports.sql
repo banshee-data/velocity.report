@@ -1,16 +1,18 @@
 -- Create site_reports table to track generated PDF reports
    CREATE TABLE IF NOT EXISTS site_reports (
           id INTEGER PRIMARY KEY AUTOINCREMENT
-        , site_id INTEGER NOT NULL
+        , site_id INTEGER NOT NULL DEFAULT 0
         , start_date TEXT NOT NULL
         , end_date TEXT NOT NULL
         , filepath TEXT NOT NULL
         , filename TEXT NOT NULL
+        , zip_filepath TEXT
+        , zip_filename TEXT
         , run_id TEXT NOT NULL
         , timezone TEXT NOT NULL
         , units TEXT NOT NULL
         , source TEXT NOT NULL
-        , created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        , created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         , FOREIGN KEY (site_id) REFERENCES sites (id) ON DELETE CASCADE
           );
 

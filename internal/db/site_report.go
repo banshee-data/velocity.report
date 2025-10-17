@@ -8,17 +8,19 @@ import (
 
 // SiteReport represents a generated PDF report for a site
 type SiteReport struct {
-	ID        int       `json:"id"`
-	SiteID    int       `json:"site_id"`
-	StartDate string    `json:"start_date"` // YYYY-MM-DD
-	EndDate   string    `json:"end_date"`   // YYYY-MM-DD
-	Filepath  string    `json:"filepath"`   // Relative path from pdf-generator directory
-	Filename  string    `json:"filename"`   // PDF filename
-	RunID     string    `json:"run_id"`     // Timestamp-based run ID
-	Timezone  string    `json:"timezone"`   // Report timezone
-	Units     string    `json:"units"`      // mph or kph
-	Source    string    `json:"source"`     // radar_objects or radar_data_transits
-	CreatedAt time.Time `json:"created_at"`
+	ID          int       `json:"id"`
+	SiteID      int       `json:"site_id"`
+	StartDate   string    `json:"start_date"`   // YYYY-MM-DD
+	EndDate     string    `json:"end_date"`     // YYYY-MM-DD
+	Filepath    string    `json:"filepath"`     // Relative path from pdf-generator directory
+	Filename    string    `json:"filename"`     // PDF filename
+	ZipFilepath *string   `json:"zip_filepath"` // Relative path to sources ZIP
+	ZipFilename *string   `json:"zip_filename"` // ZIP filename
+	RunID       string    `json:"run_id"`       // Timestamp-based run ID
+	Timezone    string    `json:"timezone"`     // Report timezone
+	Units       string    `json:"units"`        // mph or kph
+	Source      string    `json:"source"`       // radar_objects or radar_data_transits
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 // CreateSiteReport creates a new report record in the database
@@ -26,8 +28,8 @@ func (db *DB) CreateSiteReport(report *SiteReport) error {
 	query := `
 		INSERT INTO site_reports (
 			site_id, start_date, end_date, filepath, filename,
-			run_id, timezone, units, source
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			zip_filepath, zip_filename, run_id, timezone, units, source
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	result, err := db.DB.Exec(
@@ -37,6 +39,8 @@ func (db *DB) CreateSiteReport(report *SiteReport) error {
 		report.EndDate,
 		report.Filepath,
 		report.Filename,
+		report.ZipFilepath,
+		report.ZipFilename,
 		report.RunID,
 		report.Timezone,
 		report.Units,
@@ -55,11 +59,11 @@ func (db *DB) CreateSiteReport(report *SiteReport) error {
 	return nil
 }
 
-// GetSiteReport retrieves a site report by ID
+// GetSiteReport retrieves a report by ID
 func (db *DB) GetSiteReport(id int) (*SiteReport, error) {
 	query := `
 		SELECT id, site_id, start_date, end_date, filepath, filename,
-		       run_id, timezone, units, source, created_at
+		       zip_filepath, zip_filename, run_id, timezone, units, source, created_at
 		FROM site_reports
 		WHERE id = ?
 	`
@@ -72,6 +76,8 @@ func (db *DB) GetSiteReport(id int) (*SiteReport, error) {
 		&report.EndDate,
 		&report.Filepath,
 		&report.Filename,
+		&report.ZipFilepath,
+		&report.ZipFilename,
 		&report.RunID,
 		&report.Timezone,
 		&report.Units,
@@ -92,7 +98,7 @@ func (db *DB) GetSiteReport(id int) (*SiteReport, error) {
 func (db *DB) GetRecentReportsForSite(siteID int, limit int) ([]SiteReport, error) {
 	query := `
 		SELECT id, site_id, start_date, end_date, filepath, filename,
-		       run_id, timezone, units, source, created_at
+		       zip_filepath, zip_filename, run_id, timezone, units, source, created_at
 		FROM site_reports
 		WHERE site_id = ?
 		ORDER BY created_at DESC
@@ -115,6 +121,8 @@ func (db *DB) GetRecentReportsForSite(siteID int, limit int) ([]SiteReport, erro
 			&report.EndDate,
 			&report.Filepath,
 			&report.Filename,
+			&report.ZipFilepath,
+			&report.ZipFilename,
 			&report.RunID,
 			&report.Timezone,
 			&report.Units,
@@ -134,7 +142,7 @@ func (db *DB) GetRecentReportsForSite(siteID int, limit int) ([]SiteReport, erro
 func (db *DB) GetRecentReportsAllSites(limit int) ([]SiteReport, error) {
 	query := `
 		SELECT id, site_id, start_date, end_date, filepath, filename,
-		       run_id, timezone, units, source, created_at
+		       zip_filepath, zip_filename, run_id, timezone, units, source, created_at
 		FROM site_reports
 		ORDER BY created_at DESC
 		LIMIT ?
@@ -156,6 +164,8 @@ func (db *DB) GetRecentReportsAllSites(limit int) ([]SiteReport, error) {
 			&report.EndDate,
 			&report.Filepath,
 			&report.Filename,
+			&report.ZipFilepath,
+			&report.ZipFilename,
 			&report.RunID,
 			&report.Timezone,
 			&report.Units,

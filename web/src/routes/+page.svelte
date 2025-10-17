@@ -298,6 +298,7 @@
 	// Report generation
 	let generatingReport = false;
 	let reportMessage = '';
+	let lastGeneratedReportId: number | null = null;
 
 	async function handleGenerateReport() {
 		if (!dateRange.from || !dateRange.to) {
@@ -312,6 +313,7 @@
 
 		generatingReport = true;
 		reportMessage = '';
+		lastGeneratedReportId = null;
 
 		try {
 			// Generate report and get report ID
@@ -327,27 +329,54 @@
 				site_id: selectedSiteId
 			});
 
-			reportMessage = `Report generated! Downloading...`;
+			lastGeneratedReportId = response.report_id;
+			reportMessage = `Report generated successfully! Use the buttons below to download.`;
+		} catch (e) {
+			reportMessage = e instanceof Error ? e.message : 'Failed to generate report';
+		} finally {
+			generatingReport = false;
+		}
+	}
 
-			// Download the report using the report ID
+	async function downloadPDF() {
+		if (!lastGeneratedReportId) return;
+
+		try {
 			const { downloadReport } = await import('$lib/api');
-			const pdfBlob = await downloadReport(response.report_id);
+			const pdfBlob = await downloadReport(lastGeneratedReportId, 'pdf');
 
 			// Create a download link and trigger it
 			const url = window.URL.createObjectURL(pdfBlob);
 			const a = document.createElement('a');
 			a.href = url;
-			a.download = `report_${isoDate(dateRange.from)}_${isoDate(dateRange.to)}.pdf`;
+			a.download = `report_${isoDate(dateRange.from!)}_${isoDate(dateRange.to!)}.pdf`;
 			document.body.appendChild(a);
 			a.click();
 			document.body.removeChild(a);
 			window.URL.revokeObjectURL(url);
-
-			reportMessage = 'Report downloaded successfully!';
 		} catch (e) {
-			reportMessage = e instanceof Error ? e.message : 'Failed to generate report';
-		} finally {
-			generatingReport = false;
+			reportMessage = e instanceof Error ? e.message : 'Failed to download PDF';
+		}
+	}
+
+	async function downloadSources() {
+		if (!lastGeneratedReportId) return;
+
+		try {
+			const { downloadReport } = await import('$lib/api');
+			const zipBlob = await downloadReport(lastGeneratedReportId, 'zip');
+
+			// Create a download link and trigger it
+			const url = window.URL.createObjectURL(zipBlob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `report_sources_${isoDate(dateRange.from!)}_${isoDate(dateRange.to!)}.zip`;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			window.URL.revokeObjectURL(url);
+		} catch (e) {
+			reportMessage = e instanceof Error ? e.message : 'Failed to download sources';
 		}
 	}
 </script>
@@ -405,6 +434,21 @@
 					: 'border-red-300 bg-red-50 text-red-800'}"
 			>
 				{reportMessage}
+			</div>
+		{/if}
+
+		{#if lastGeneratedReportId !== null}
+			<div class="card space-y-3 p-4">
+				<h3 class="text-base font-semibold">Report Ready</h3>
+				<div class="flex gap-2">
+					<Button on:click={downloadPDF} variant="fill" color="secondary">📄 Download PDF</Button>
+					<Button on:click={downloadSources} variant="outline" color="secondary">
+						📦 Download Sources (ZIP)
+					</Button>
+				</div>
+				<p class="text-surface-600-300-token text-xs">
+					The ZIP file contains LaTeX source files and chart PDFs for custom editing
+				</p>
 			</div>
 		{/if}
 

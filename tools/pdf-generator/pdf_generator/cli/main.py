@@ -29,7 +29,7 @@ from pdf_generator.core.date_parser import (
     parse_date_to_unix,
     is_date_only,
 )
-from pdf_generator.core.pdf_generator import generate_pdf_report
+from pdf_generator.core.pdf_generator import generate_pdf_report, create_sources_zip
 from pdf_generator.core.stats_utils import plot_histogram
 from pdf_generator.core.data_transformers import (
     MetricsNormalizer,
@@ -835,6 +835,14 @@ def process_date_range(
     )
 
     if report_generated:
+        # Create sources ZIP file after successful PDF generation
+        try:
+            zip_path = create_sources_zip(prefix)
+            _print_info(f"Created sources ZIP: {zip_path}")
+        except Exception as exc:
+            _print_error(f"Warning: failed to create sources ZIP: {exc}")
+            # Don't fail the whole process if ZIP creation fails
+
         _print_info(
             f"Completed {start_date} -> {end_date}. PDF and charts use prefix '{prefix}'."
         )

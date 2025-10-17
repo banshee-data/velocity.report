@@ -8,6 +8,8 @@ complete PDF reports including statistics tables, charts, and science sections.
 
 import os
 import math
+import glob
+import zipfile
 
 from pathlib import Path
 
@@ -485,3 +487,55 @@ def generate_pdf_report(
             print(f"Failed to generate TEX for debugging: {tex_e}")
         if last_exc:
             raise RuntimeError(last_failure_message or str(last_exc)) from last_exc
+
+
+def create_sources_zip(prefix: str, output_zip_path: Optional[str] = None) -> str:
+    """Create a ZIP file containing all LaTeX sources and charts (excluding final PDF).
+
+    This allows users to download the source files and make their own edits.
+
+    Args:
+        prefix: File prefix used for all generated files (e.g., "output/20060102-150405/radar_data_transits_2025-01-01_to_2025-01-31")
+        output_zip_path: Optional custom path for the ZIP file. If not provided, uses "{prefix}_sources.zip"
+
+    Returns:
+        Path to the created ZIP file
+
+    Raises:
+        FileNotFoundError: If no source files are found to include in the ZIP
+    """
+    if output_zip_path is None:
+        output_zip_path = f"{prefix}_sources.zip"
+
+    # Files to include (relative to the prefix directory)
+    patterns_to_include = [
+        f"{prefix}.tex",  # LaTeX source
+        f"{prefix}.log",  # LaTeX log file
+        f"{prefix}_*.pdf",  # All chart PDFs (stats, daily, histogram)
+    ]
+
+    # Explicitly exclude the final report PDF
+    exclude_pattern = f"{prefix}_report.pdf"
+
+    # Collect all files to include
+    files_to_zip = []
+    for pattern in patterns_to_include:
+        matched_files = glob.glob(pattern)
+        for filepath in matched_files:
+            # Skip the final report PDF
+            if filepath == exclude_pattern:
+                continue
+            if os.path.isfile(filepath):
+                files_to_zip.append(filepath)
+
+    if not files_to_zip:
+        raise FileNotFoundError(f"No source files found matching prefix: {prefix}")
+
+    # Create the ZIP file
+    with zipfile.ZipFile(output_zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+        for filepath in files_to_zip:
+            # Store files with just their basename to avoid deep directory structures
+            arcname = os.path.basename(filepath)
+            zipf.write(filepath, arcname)
+
+    return output_zip_path

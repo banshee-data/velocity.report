@@ -156,6 +156,8 @@ export interface SiteReport {
 	end_date: string;
 	filepath: string;
 	filename: string;
+	zip_filepath?: string | null;
+	zip_filename?: string | null;
 	run_id: string;
 	timezone: string;
 	units: string;
@@ -163,8 +165,10 @@ export interface SiteReport {
 	created_at: string;
 }
 
-export async function downloadReport(reportId: number): Promise<Blob> {
-	const res = await fetch(`${API_BASE}/reports/${reportId}/download`);
+export async function downloadReport(reportId: number, fileType: 'pdf' | 'zip' = 'pdf'): Promise<Blob> {
+	const url = new URL(`${API_BASE}/reports/${reportId}/download`, window.location.origin);
+	url.searchParams.append('file_type', fileType);
+	const res = await fetch(url);
 	if (!res.ok) {
 		throw new Error(`Failed to download report: ${res.status}`);
 	}

@@ -779,8 +779,12 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	// Python auto-generates filename as: {source}_{start_date}_to_{end_date}_report.pdf
 	pdfFilename := fmt.Sprintf("%s_%s_to_%s_report.pdf", req.Source, req.StartDate, req.EndDate)
 
-	// Store relative path from pdf-generator directory
-	relativePath := filepath.Join(outputDir, pdfFilename)
+	// Python also generates a ZIP with sources: {source}_{start_date}_to_{end_date}_sources.zip
+	zipFilename := fmt.Sprintf("%s_%s_to_%s_sources.zip", req.Source, req.StartDate, req.EndDate)
+
+	// Store relative paths from pdf-generator directory
+	relativePdfPath := filepath.Join(outputDir, pdfFilename)
+	relativeZipPath := filepath.Join(outputDir, zipFilename)
 
 	// Create report record in database
 	siteID := 0
@@ -789,15 +793,17 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	report := &db.SiteReport{
-		SiteID:    siteID,
-		StartDate: req.StartDate,
-		EndDate:   req.EndDate,
-		Filepath:  relativePath,
-		Filename:  pdfFilename,
-		RunID:     runID,
-		Timezone:  req.Timezone,
-		Units:     req.Units,
-		Source:    req.Source,
+		SiteID:      siteID,
+		StartDate:   req.StartDate,
+		EndDate:     req.EndDate,
+		Filepath:    relativePdfPath,
+		Filename:    pdfFilename,
+		ZipFilepath: &relativeZipPath,
+		ZipFilename: &zipFilename,
+		RunID:       runID,
+		Timezone:    req.Timezone,
+		Units:       req.Units,
+		Source:      req.Source,
 	}
 
 	if err := s.db.CreateSiteReport(report); err != nil {
@@ -871,10 +877,15 @@ func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Handle download action
+	// Handle download action with optional file type (pdf or zip)
 	if len(parts) == 2 && parts[1] == "download" {
 		if r.Method == http.MethodGet {
-			s.downloadReport(w, r, reportID)
+			// Check for file_type query parameter (defaults to "pdf")
+			fileType := r.URL.Query().Get("file_type")
+			if fileType == "" {
+				fileType = "pdf"
+			}
+			s.downloadReport(w, r, reportID, fileType)
 		} else {
 			s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		}
@@ -935,7 +946,14 @@ func (s *Server) getReport(w http.ResponseWriter, r *http.Request, reportID int)
 	}
 }
 
-func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, reportID int) {
+func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, reportID int, fileType string) {
+	// Validate file type
+	if fileType != "pdf" && fileType != "zip" {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid file_type parameter. Must be 'pdf' or 'zip'")
+		return
+	}
+
 	// Get report metadata from database
 	report, err := s.db.GetSiteReport(reportID)
 	if err != nil {
@@ -956,48 +974,65 @@ func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, reportID
 		return
 	}
 
-	// Construct full path from database record
+	// Determine which file to serve based on file_type
+	var filePath, filename, contentType string
 	pdfDir := filepath.Join(repoRoot, "tools", "pdf-generator")
-	pdfPath := filepath.Join(pdfDir, report.Filepath)
+
+	if fileType == "zip" {
+		// Check if ZIP file exists
+		if report.ZipFilepath == nil || *report.ZipFilepath == "" {
+			w.Header().Set("Content-Type", "application/json")
+			s.writeJSONError(w, http.StatusNotFound, "ZIP file not available for this report")
+			return
+		}
+		filePath = filepath.Join(pdfDir, *report.ZipFilepath)
+		filename = *report.ZipFilename
+		contentType = "application/zip"
+	} else {
+		// Default to PDF
+		filePath = filepath.Join(pdfDir, report.Filepath)
+		filename = report.Filename
+		contentType = "application/pdf"
+	}
 
 	// Validate path is within pdf-generator directory (security check)
-	cleanPath := filepath.Clean(pdfPath)
+	cleanPath := filepath.Clean(filePath)
 	if !strings.HasPrefix(cleanPath, pdfDir) {
-		log.Printf("Security: attempted path traversal to %s", pdfPath)
+		log.Printf("Security: attempted path traversal to %s", filePath)
 		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusForbidden, "Invalid file path")
 		return
 	}
 
 	// Check if file exists
-	if _, err := os.Stat(pdfPath); os.IsNotExist(err) {
-		log.Printf("PDF file not found at path: %s", pdfPath)
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		log.Printf("File not found at path: %s", filePath)
 		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusNotFound, "PDF file not found")
+		s.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("%s file not found", strings.ToUpper(fileType)))
 		return
 	}
 
-	// Read the PDF file
-	pdfData, err := os.ReadFile(pdfPath)
+	// Read the file
+	fileData, err := os.ReadFile(filePath)
 	if err != nil {
-		log.Printf("Failed to read PDF file: %v", err)
+		log.Printf("Failed to read file: %v", err)
 		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusInternalServerError, "Failed to read PDF file")
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to read %s file", fileType))
 		return
 	}
 
-	// Set headers for PDF download
-	w.Header().Set("Content-Type", "application/pdf")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", report.Filename))
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(pdfData)))
+	// Set headers for file download
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(fileData)))
 
-	// Stream the PDF file to the client
-	if _, err := w.Write(pdfData); err != nil {
-		log.Printf("Failed to write PDF to response: %v", err)
+	// Stream the file to the client
+	if _, err := w.Write(fileData); err != nil {
+		log.Printf("Failed to write file to response: %v", err)
 		return
 	}
 
-	log.Printf("Successfully downloaded PDF report (ID: %d): %s", reportID, report.Filename)
+	log.Printf("Successfully downloaded %s file (ID: %d): %s", strings.ToUpper(fileType), reportID, filename)
 }
 
 func (s *Server) deleteReport(w http.ResponseWriter, r *http.Request, reportID int) {
