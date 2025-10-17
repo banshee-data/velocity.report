@@ -570,6 +570,60 @@ def create_portable_tex(original_tex_path: str, portable_tex_path: str) -> None:
         f.write(portable_content)
 
 
+def create_fonts_tex(original_tex_path: str, fonts_tex_path: str) -> None:
+    """Create a version of the TEX file that uses fonts from ./fonts/ directory.
+
+    This modifies the font paths to reference a local ./fonts/ directory instead of
+    the absolute paths used during report generation. Users can download the fonts
+    and place them in this directory to compile with the original custom fonts.
+
+    Args:
+        original_tex_path: Path to the original .tex file with custom fonts
+        fonts_tex_path: Path where the fonts version .tex file should be written
+    """
+    with open(original_tex_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # Replace absolute font paths with relative ./fonts/ path
+    # The Path= parameter in font declarations points to the absolute path
+    lines = content.split("\n")
+    modified_lines = []
+
+    for line in lines:
+        # Replace absolute paths in font declarations with ./fonts/
+        if "Path=/Users/" in line or "Path=/home/" in line:
+            # Extract everything after Path= up to the next comma
+            import re
+
+            line = re.sub(r"Path=[^,]+,", r"Path=./fonts/,", line)
+        modified_lines.append(line)
+
+    fonts_content = "\n".join(modified_lines)
+
+    # Add a note at the top of the document
+    fonts_content = fonts_content.replace(
+        r"\begin{document}%",
+        r"""% NOTE: This version uses custom fonts from the ./fonts/ directory.
+% Download the fonts from:
+% https://brailleinstitute.org/freefont
+%
+% Place these font files in a ./fonts/ subdirectory:
+% - AtkinsonHyperlegible-Regular.ttf
+% - AtkinsonHyperlegible-Italic.ttf
+% - AtkinsonHyperlegible-Bold.ttf
+% - AtkinsonHyperlegible-BoldItalic.ttf
+% - AtkinsonHyperlegibleMono-VariableFont_wght.ttf
+% - AtkinsonHyperlegibleMono-Italic-VariableFont_wght.ttf
+%
+% Then compile with: xelatex report_fonts.tex
+%
+\begin{document}%""",
+    )
+
+    with open(fonts_tex_path, "w", encoding="utf-8") as f:
+        f.write(fonts_content)
+
+
 def create_sources_zip(prefix: str, output_zip_path: Optional[str] = None) -> str:
     """Create a ZIP file containing all LaTeX sources and charts (excluding final PDF).
 
@@ -591,6 +645,7 @@ def create_sources_zip(prefix: str, output_zip_path: Optional[str] = None) -> st
     # Create a portable version of the TEX file
     original_tex = f"{prefix}_report.tex"
     portable_tex = f"{prefix}_report_portable.tex"
+    fonts_tex = f"{prefix}_report_fonts.tex"
 
     if os.path.isfile(original_tex):
         try:
@@ -598,8 +653,16 @@ def create_sources_zip(prefix: str, output_zip_path: Optional[str] = None) -> st
         except Exception as e:
             print(f"Warning: Failed to create portable TEX file: {e}")
             portable_tex = None
+
+        # Create a version that uses local fonts from ./fonts/
+        try:
+            create_fonts_tex(original_tex, fonts_tex)
+        except Exception as e:
+            print(f"Warning: Failed to create fonts TEX file: {e}")
+            fonts_tex = None
     else:
         portable_tex = None
+        fonts_tex = None
 
     # Create a README for the ZIP
     readme_content = """# Velocity Report Source Files
@@ -608,22 +671,51 @@ This ZIP file contains the LaTeX source and chart PDFs for your velocity report.
 
 ## Contents
 
-- `*.tex` - LaTeX source file (portable version with standard fonts)
+- `*_report.tex` - LaTeX source (portable, standard fonts - compile with pdflatex)
+- `*_report_fonts.tex` - LaTeX source (custom fonts - compile with xelatex)
 - `*_stats.pdf` - Statistics chart over time
 - `*_daily.pdf` - Daily summary chart (if available)
 - `*_histogram.pdf` - Velocity distribution histogram
 - `*.log` - LaTeX compilation log (if available)
 
-## Compiling the Report
+## Quick Start (Portable Version)
 
-The TEX file has been modified for portability and uses standard LaTeX fonts.
-You can compile it with:
+The portable version uses standard LaTeX fonts and works out-of-box:
 
 ```bash
-pdflatex report.tex
+pdflatex *_report.tex
 ```
 
-Or use any LaTeX editor (TeXShop, Overleaf, etc.).
+## Using Custom Fonts (Original Version)
+
+To compile with the original custom fonts (Atkinson Hyperlegible):
+
+### 1. Download the fonts
+
+Visit: https://brailleinstitute.org/freefont
+
+Download the font family and extract these files:
+- AtkinsonHyperlegible-Regular.ttf
+- AtkinsonHyperlegible-Italic.ttf
+- AtkinsonHyperlegible-Bold.ttf
+- AtkinsonHyperlegible-BoldItalic.ttf
+- AtkinsonHyperlegibleMono-VariableFont_wght.ttf
+- AtkinsonHyperlegibleMono-Italic-VariableFont_wght.ttf
+
+### 2. Create fonts directory
+
+```bash
+mkdir fonts
+# Move or copy the .ttf files into the fonts/ directory
+```
+
+### 3. Compile with XeLaTeX
+
+```bash
+xelatex *_report_fonts.tex
+```
+
+The `*_report_fonts.tex` file expects fonts in `./fonts/` relative to the TEX file.
 
 ## Editing Charts
 
@@ -634,11 +726,10 @@ The chart PDFs are included so you can:
 
 ## Notes
 
-- Custom fonts from the original report have been replaced with standard LaTeX fonts
-- If you need the original version with custom fonts, access the full system at:
-  https://github.com/banshee-data/velocity.report
-- The chart PDFs are final rendered versions and cannot be edited directly
-- To modify chart data, you'll need to regenerate reports using the full system
+- The portable version (`*_report.tex`) uses Latin Modern fonts (standard LaTeX)
+- The fonts version (`*_report_fonts.tex`) uses Atkinson Hyperlegible (better readability)
+- Chart PDFs are final rendered versions and cannot be edited directly
+- To modify chart data, regenerate reports using the full system
 
 ## Support
 
@@ -652,11 +743,10 @@ For issues or questions, see: https://github.com/banshee-data/velocity.report
     readme_file = readme_path.name
     readme_path.close()
 
-    # Files to include - note that TEX file has _report suffix
+    # Files to include - note that TEX files have _report suffix
     patterns_to_include = [
-        (
-            portable_tex if portable_tex else f"{prefix}_report.tex"
-        ),  # Portable TEX (or original if conversion failed)
+        portable_tex,  # Portable TEX with standard fonts
+        fonts_tex,  # Fonts TEX with custom fonts from ./fonts/
         f"{prefix}_report.log",  # LaTeX log file (if exists)
         f"{prefix}_stats.pdf",  # Stats chart PDF
         f"{prefix}_daily.pdf",  # Daily chart PDF
@@ -689,10 +779,11 @@ For issues or questions, see: https://github.com/banshee-data/velocity.report
 
         # Add all source files
         for filepath in files_to_zip:
-            # For portable TEX, rename it to remove _portable suffix in the archive
             arcname = os.path.basename(filepath)
-            if "_portable.tex" in arcname:
-                arcname = arcname.replace("_portable.tex", ".tex")
+            # Rename portable TEX to remove _report_portable suffix (becomes *_report.tex)
+            if "_report_portable.tex" in arcname:
+                arcname = arcname.replace("_report_portable.tex", "_report.tex")
+            # Fonts TEX keeps its _report_fonts suffix (stays as *_report_fonts.tex)
             zipf.write(filepath, arcname)
 
     # Clean up temporary files
@@ -704,6 +795,12 @@ For issues or questions, see: https://github.com/banshee-data/velocity.report
     if portable_tex and os.path.isfile(portable_tex):
         try:
             os.remove(portable_tex)
+        except Exception:
+            pass  # Non-critical if cleanup fails
+
+    if fonts_tex and os.path.isfile(fonts_tex):
+        try:
+            os.remove(fonts_tex)
         except Exception:
             pass  # Non-critical if cleanup fails
 
