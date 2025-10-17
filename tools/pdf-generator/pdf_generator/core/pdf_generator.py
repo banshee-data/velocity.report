@@ -10,6 +10,7 @@ import os
 import math
 import glob
 import zipfile
+import tempfile
 
 from pathlib import Path
 
@@ -489,6 +490,86 @@ def generate_pdf_report(
             raise RuntimeError(last_failure_message or str(last_exc)) from last_exc
 
 
+def create_portable_tex(original_tex_path: str, portable_tex_path: str) -> None:
+    """Create a portable version of the TEX file that uses standard LaTeX fonts.
+
+    This replaces custom font paths with standard Computer Modern/Latin Modern fonts
+    that are available in all LaTeX distributions. The portable version can be compiled
+    with pdflatex instead of xelatex.
+
+    Args:
+        original_tex_path: Path to the original .tex file with custom fonts
+        portable_tex_path: Path where the portable .tex file should be written
+    """
+    with open(original_tex_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # Remove fontspec package (requires XeTeX/LuaTeX)
+    content = content.replace(
+        r"\usepackage{fontspec}%", r"% \usepackage{fontspec}% (removed for portability)"
+    )
+
+    # Process line by line to handle multi-line font declarations
+    lines = content.split("\n")
+    filtered_lines = []
+    in_multiline_font_decl = False
+
+    for line in lines:
+        # Detect start of multi-line font declarations
+        if any(
+            cmd in line
+            for cmd in [
+                r"\setsansfont[",
+                r"\newfontfamily\AtkinsonMono[",
+            ]
+        ):
+            filtered_lines.append(f"% {line}  % (removed for portability)")
+            # Check if this declaration continues on next lines (no closing brace)
+            if not (line.rstrip().endswith("}%") or line.rstrip().endswith("}")):
+                in_multiline_font_decl = True
+            continue
+
+        # Skip lines that are part of multi-line font declarations
+        if in_multiline_font_decl:
+            filtered_lines.append(f"% {line}  % (removed for portability)")
+            # Check if this line ends the declaration
+            if line.rstrip().endswith("}%") or line.rstrip().endswith("}"):
+                in_multiline_font_decl = False
+            continue
+
+        # Comment out single-line font commands
+        if r"\renewcommand{\familydefault}{\sfdefault}" in line:
+            filtered_lines.append(f"% {line}  % (removed for portability)")
+            continue
+
+        # Replace \AtkinsonMono with \texttt (monospace font)
+        if r"\AtkinsonMono{" in line:
+            line = line.replace(r"\AtkinsonMono{", r"\texttt{")
+
+        # Also handle >\AtkinsonMono in table column specifications (with braces)
+        if r">{\AtkinsonMono}" in line:
+            line = line.replace(r">{\AtkinsonMono}", r">{\ttfamily}")
+
+        filtered_lines.append(line)
+
+    portable_content = "\n".join(filtered_lines)
+
+    # Add a note at the top of the document
+    portable_content = portable_content.replace(
+        r"\begin{document}%",
+        r"""% NOTE: This is a portable version of the original TEX file.
+% Custom fonts have been replaced with standard LaTeX fonts for compatibility.
+% You can compile this with pdflatex instead of xelatex.
+% To use the original custom fonts, see the full report generation system at:
+% https://github.com/banshee-data/velocity.report
+%
+\begin{document}%""",
+    )
+
+    with open(portable_tex_path, "w", encoding="utf-8") as f:
+        f.write(portable_content)
+
+
 def create_sources_zip(prefix: str, output_zip_path: Optional[str] = None) -> str:
     """Create a ZIP file containing all LaTeX sources and charts (excluding final PDF).
 
@@ -507,11 +588,79 @@ def create_sources_zip(prefix: str, output_zip_path: Optional[str] = None) -> st
     if output_zip_path is None:
         output_zip_path = f"{prefix}_sources.zip"
 
-    # Files to include (relative to the prefix directory)
+    # Create a portable version of the TEX file
+    original_tex = f"{prefix}_report.tex"
+    portable_tex = f"{prefix}_report_portable.tex"
+
+    if os.path.isfile(original_tex):
+        try:
+            create_portable_tex(original_tex, portable_tex)
+        except Exception as e:
+            print(f"Warning: Failed to create portable TEX file: {e}")
+            portable_tex = None
+    else:
+        portable_tex = None
+
+    # Create a README for the ZIP
+    readme_content = """# Velocity Report Source Files
+
+This ZIP file contains the LaTeX source and chart PDFs for your velocity report.
+
+## Contents
+
+- `*.tex` - LaTeX source file (portable version with standard fonts)
+- `*_stats.pdf` - Statistics chart over time
+- `*_daily.pdf` - Daily summary chart (if available)
+- `*_histogram.pdf` - Velocity distribution histogram
+- `*.log` - LaTeX compilation log (if available)
+
+## Compiling the Report
+
+The TEX file has been modified for portability and uses standard LaTeX fonts.
+You can compile it with:
+
+```bash
+pdflatex report.tex
+```
+
+Or use any LaTeX editor (TeXShop, Overleaf, etc.).
+
+## Editing Charts
+
+The chart PDFs are included so you can:
+1. Edit the TEX file to adjust layout, text, or tables
+2. Replace chart PDFs with your own custom versions
+3. Recompile to generate a modified report
+
+## Notes
+
+- Custom fonts from the original report have been replaced with standard LaTeX fonts
+- If you need the original version with custom fonts, access the full system at:
+  https://github.com/banshee-data/velocity.report
+- The chart PDFs are final rendered versions and cannot be edited directly
+- To modify chart data, you'll need to regenerate reports using the full system
+
+## Support
+
+For issues or questions, see: https://github.com/banshee-data/velocity.report
+"""
+
+    readme_path = tempfile.NamedTemporaryFile(
+        mode="w", suffix="_README.txt", delete=False, encoding="utf-8"
+    )
+    readme_path.write(readme_content)
+    readme_file = readme_path.name
+    readme_path.close()
+
+    # Files to include - note that TEX file has _report suffix
     patterns_to_include = [
-        f"{prefix}.tex",  # LaTeX source
-        f"{prefix}.log",  # LaTeX log file
-        f"{prefix}_*.pdf",  # All chart PDFs (stats, daily, histogram)
+        (
+            portable_tex if portable_tex else f"{prefix}_report.tex"
+        ),  # Portable TEX (or original if conversion failed)
+        f"{prefix}_report.log",  # LaTeX log file (if exists)
+        f"{prefix}_stats.pdf",  # Stats chart PDF
+        f"{prefix}_daily.pdf",  # Daily chart PDF
+        f"{prefix}_histogram.pdf",  # Histogram chart PDF
     ]
 
     # Explicitly exclude the final report PDF
@@ -520,9 +669,11 @@ def create_sources_zip(prefix: str, output_zip_path: Optional[str] = None) -> st
     # Collect all files to include
     files_to_zip = []
     for pattern in patterns_to_include:
+        if not pattern:  # Skip if pattern is None
+            continue
         matched_files = glob.glob(pattern)
         for filepath in matched_files:
-            # Skip the final report PDF
+            # Skip the final report PDF (shouldn't match our patterns, but be safe)
             if filepath == exclude_pattern:
                 continue
             if os.path.isfile(filepath):
@@ -533,9 +684,27 @@ def create_sources_zip(prefix: str, output_zip_path: Optional[str] = None) -> st
 
     # Create the ZIP file
     with zipfile.ZipFile(output_zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+        # Add README first
+        zipf.write(readme_file, "README.txt")
+
+        # Add all source files
         for filepath in files_to_zip:
-            # Store files with just their basename to avoid deep directory structures
+            # For portable TEX, rename it to remove _portable suffix in the archive
             arcname = os.path.basename(filepath)
+            if "_portable.tex" in arcname:
+                arcname = arcname.replace("_portable.tex", ".tex")
             zipf.write(filepath, arcname)
+
+    # Clean up temporary files
+    try:
+        os.remove(readme_file)
+    except Exception:
+        pass
+
+    if portable_tex and os.path.isfile(portable_tex):
+        try:
+            os.remove(portable_tex)
+        except Exception:
+            pass  # Non-critical if cleanup fails
 
     return output_zip_path
