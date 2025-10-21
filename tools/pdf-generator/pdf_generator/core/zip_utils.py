@@ -44,6 +44,7 @@ def create_portable_tex(original_tex_path: str, portable_tex_path: str) -> None:
             cmd in line
             for cmd in [
                 r"\setsansfont[",
+                r"\setmonofont[",
                 r"\newfontfamily\AtkinsonMono[",
             ]
         ):
