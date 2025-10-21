@@ -3,6 +3,7 @@
 
 import os
 import unittest
+import unittest.mock
 import tempfile
 import zipfile
 
@@ -420,6 +421,44 @@ Test content
                 "AtkinsonHyperlegibleMono-VariableFont_wght.ttf", fonts_instruction
             )
             self.assertIn("xelatex", fonts_instruction)
+
+    def test_readme_fallback_when_file_missing(self):
+        """Test that fallback README content is used when zip_readme.md doesn't exist."""
+        import shutil
+        from pathlib import Path
+
+        # Path to the README template
+        readme_template = Path(__file__).parent / ".." / "core" / "zip_readme.md"
+        readme_template = readme_template.resolve()
+
+        # Temporarily move the README file so it appears missing
+        backup_path = readme_template.with_suffix(".md.backup")
+        if readme_template.exists():
+            shutil.move(readme_template, backup_path)
+
+        try:
+            prefix = os.path.join(self.temp_dir, "test")
+
+            # Create minimal TEX file
+            original_tex = f"{prefix}_report.tex"
+            with open(original_tex, "w", encoding="utf-8") as f:
+                f.write(r"\begin{document}%\nTest\n\end{document}%")
+
+            # Create ZIP
+            zip_path = create_sources_zip(prefix)
+
+            # Read README from ZIP
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                readme = zf.read("README.txt").decode("utf-8")
+
+                # Check for fallback content
+                self.assertIn("Velocity Report Source Files", readme)
+                self.assertIn("https://github.com/banshee-data/velocity.report", readme)
+
+        finally:
+            # Restore the README file
+            if backup_path.exists():
+                shutil.move(backup_path, readme_template)
 
 
 if __name__ == "__main__":
