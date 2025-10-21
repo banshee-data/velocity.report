@@ -30,9 +30,9 @@ import (
 
 var (
 	fixtureMode  = flag.Bool("fixture", false, "Load fixture to local database")
-	devMode      = flag.Bool("dev", false, "Run in dev mode")
+	debugMode    = flag.Bool("debug", false, "Run in debug mode (enables debug output in reports)")
 	listen       = flag.String("listen", ":8080", "Listen address")
-	port         = flag.String("port", "/dev/ttySC1", "Serial port to use (ignored in dev mode)")
+	port         = flag.String("port", "/dev/ttySC1", "Serial port to use")
 	unitsFlag    = flag.String("units", "mph", "Speed units for display (mps, mph, kmph)")
 	timezoneFlag = flag.String("timezone", "UTC", "Timezone for display (UTC, US/Eastern, US/Pacific, etc.)")
 	disableRadar = flag.Bool("disable-radar", false, "Disable radar serial port (serve DB only)")
@@ -83,7 +83,7 @@ func main() {
 	// absent.
 	if *disableRadar {
 		radarSerial = serialmux.NewDisabledSerialMux()
-	} else if *devMode {
+	} else if *debugMode {
 		radarSerial = serialmux.NewMockSerialMux([]byte(""))
 	} else if *fixtureMode {
 		data, err := os.ReadFile("fixtures.txt")
@@ -177,7 +177,7 @@ func main() {
 				if frame == nil || len(frame.Points) == 0 {
 					return
 				}
-				if *devMode {
+				if *debugMode {
 					log.Printf("[FrameBuilder] Completed frame: %s, Points: %d, Azimuth: %.1f°-%.1f°", frame.FrameID, len(frame.Points), frame.MinAzimuth, frame.MaxAzimuth)
 				}
 				polar := make([]lidar.PointPolar, 0, len(frame.Points))
@@ -194,7 +194,7 @@ func main() {
 					})
 				}
 				if backgroundManager != nil {
-					if *devMode {
+					if *debugMode {
 						log.Printf("[FrameBuilder] Sending %d points to BackgroundManager.ProcessFramePolar", len(polar))
 					}
 					backgroundManager.ProcessFramePolar(polar)
@@ -312,7 +312,7 @@ func main() {
 		radarSerial.AttachAdminRoutes(mux)
 		db.AttachAdminRoutes(mux)
 
-		if err := apiServer.Start(ctx, *listen, *devMode); err != nil {
+		if err := apiServer.Start(ctx, *listen, *debugMode); err != nil {
 			// If ctx was canceled we expect nil or context.Canceled; log other errors
 			if err != context.Canceled {
 				log.Printf("HTTP server error: %v", err)

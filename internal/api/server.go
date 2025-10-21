@@ -38,10 +38,11 @@ func convertEventAPISpeed(event db.EventAPI, targetUnits string) db.EventAPI {
 }
 
 type Server struct {
-	m        serialmux.SerialMuxInterface
-	db       *db.DB
-	units    string
-	timezone string
+	m         serialmux.SerialMuxInterface
+	db        *db.DB
+	units     string
+	timezone  string
+	debugMode bool
 	// mux holds the HTTP handlers; storing it here ensures callers that
 	// obtain the mux via ServeMux() and register additional admin routes
 	// will have those routes preserved when Start uses the mux to run the
@@ -723,7 +724,7 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		},
 		"output": map[string]interface{}{
 			"output_dir": outputDir,
-			"debug":      false,
+			"debug":      s.debugMode,
 		},
 	}
 
@@ -1059,6 +1060,9 @@ func (s *Server) deleteReport(w http.ResponseWriter, r *http.Request, reportID i
 // will be preserved and served. This avoids losing preconfigured routes when
 // starting the server.
 func (s *Server) Start(ctx context.Context, listen string, devMode bool) error {
+	// Store debug mode for use in handlers
+	s.debugMode = devMode
+
 	mux := s.ServeMux()
 
 	// read static files from the embedded filesystem in production or from
