@@ -393,14 +393,20 @@ class TestTimezoneConversionEdgeCases(unittest.TestCase):
         plt.close("all")
 
     def test_convert_timezone_with_invalid_timezone(self):
-        """Test timezone conversion with invalid timezone name (line 189-190)."""
+        """Test timezone conversion with invalid timezone name.
+
+        Ensures passing an invalid timezone name raises the expected exception.
+        """
         dt = datetime(2025, 6, 2, 12, 0, 0)
         # Invalid timezone should return original datetime
         result = self.builder._convert_timezone(dt, "Invalid/Timezone")
         self.assertEqual(result, dt)
 
     def test_convert_timezone_with_naive_datetime(self):
-        """Test timezone conversion with naive datetime (lines 194-198)."""
+        """Test timezone conversion with naive datetime.
+
+        Ensures naive datetimes are handled or converted appropriately.
+        """
         naive_dt = datetime(2025, 6, 2, 12, 0, 0)  # No timezone
         result = self.builder._convert_timezone(naive_dt, "US/Pacific")
         # Should assume UTC and convert
@@ -408,14 +414,20 @@ class TestTimezoneConversionEdgeCases(unittest.TestCase):
         self.assertIsNotNone(result.tzinfo)
 
     def test_convert_timezone_with_aware_datetime(self):
-        """Test timezone conversion with timezone-aware datetime (line 193)."""
+        """Test timezone conversion with timezone-aware datetime.
+
+        Verifies timezone-aware datetimes are preserved in conversion.
+        """
         aware_dt = datetime(2025, 6, 2, 12, 0, 0, tzinfo=ZoneInfo("UTC"))
         result = self.builder._convert_timezone(aware_dt, "US/Eastern")
         self.assertIsNotNone(result)
         self.assertEqual(result.tzinfo, ZoneInfo("US/Eastern"))
 
     def test_convert_timezone_exception_handler(self):
-        """Test timezone conversion exception handler (line 200-201)."""
+        """Test timezone conversion exception handler.
+
+        Confirms the function gracefully reports conversion errors.
+        """
 
         # Create a datetime-like object that will raise on astimezone
         class BadDateTime:
@@ -442,7 +454,10 @@ class TestExtractDataEdgeCases(unittest.TestCase):
         plt.close("all")
 
     def test_extract_data_with_bad_time_format(self):
-        """Test extraction with unparseable time (line 167-168)."""
+        """Test extraction with unparseable time.
+
+        Ensures unparseable time strings are handled or raise proper errors.
+        """
         bad_metrics = [
             {"start_time": "not-a-date", "p50": 30.5, "count": 100},
             {"start_time": "2025-06-02T10:00:00", "p50": 31.2, "count": 120},
@@ -471,7 +486,10 @@ class TestDebugOutput(unittest.TestCase):
             del os.environ["VELOCITY_PLOT_DEBUG"]
 
     def test_debug_output_via_environment_variable(self):
-        """Test debug output when VELOCITY_PLOT_DEBUG=1 (lines 238-246, 261-262)."""
+        """Test debug output when VELOCITY_PLOT_DEBUG=1.
+
+        Checks that debug output is emitted when the debug env var is set.
+        """
         import os
 
         os.environ["VELOCITY_PLOT_DEBUG"] = "1"
@@ -484,7 +502,10 @@ class TestDebugOutput(unittest.TestCase):
         self.builder._debug_output(times, counts, p50_f)
 
     def test_create_masked_arrays_with_debug(self):
-        """Test masked array creation with debug output (lines 238-246)."""
+        """Test masked array creation with debug output.
+
+        Verifies masked array creation emits debug info when enabled.
+        """
         import os
 
         os.environ["VELOCITY_PLOT_DEBUG"] = "1"
@@ -521,7 +542,10 @@ class TestDebugOutput(unittest.TestCase):
         self.assertTrue(p50_a.mask[2])
 
     def test_create_masked_arrays_exception_handler(self):
-        """Test exception handler in masked array creation (line 245-246)."""
+        """Test exception handler in masked array creation.
+
+        Confirms exceptions during masked array creation are handled.
+        """
         # Invalid data that might cause exceptions in masking
         p50 = [30.5, float("inf"), 29.8]
         p85 = [36.9, float("nan"), 35.2]
@@ -738,7 +762,10 @@ class TestBuildRunsEdgeCases(unittest.TestCase):
         plt.close("all")
 
     def test_build_runs_with_gaps(self):
-        """Test building runs with time gaps (lines 394, 414)."""
+        """Test building runs with time gaps.
+
+        Ensures time gaps are detected and handled correctly during run building.
+        """
         times = np.array(
             [
                 datetime(2025, 6, 2, 10, 0, 0),
@@ -757,7 +784,10 @@ class TestBuildRunsEdgeCases(unittest.TestCase):
         self.assertGreater(len(runs), 0)
 
     def test_build_runs_exception_handler(self):
-        """Test exception handler in _build_runs (line 414)."""
+        """Test exception handler in _build_runs.
+
+        Verifies exceptions in the run-building logic are handled.
+        """
         # Create array with objects that might cause exceptions
         times = np.array(
             [
@@ -797,7 +827,10 @@ class TestAxisConfigurationEdgeCases(unittest.TestCase):
         plt.close("all")
 
     def test_configure_speed_axis_exception_handlers(self):
-        """Test exception handlers in _configure_speed_axis (lines 437-442)."""
+        """Test exception handlers in _configure_speed_axis.
+
+        Ensures axis configuration errors are gracefully handled.
+        """
         # Should handle exceptions gracefully
         self.builder._configure_speed_axis(self.ax, "mph")
 
@@ -828,7 +861,10 @@ class TestPlotCountBarsEdgeCases(unittest.TestCase):
         plt.close("all")
 
     def test_plot_count_bars_with_empty_counts(self):
-        """Test count bars with empty data (lines 458-459)."""
+        """Test count bars with empty data.
+
+        Verifies the module handles empty count data without crashing.
+        """
         metrics = []
 
         fig = self.builder.build(metrics, "Empty Test", "mph")

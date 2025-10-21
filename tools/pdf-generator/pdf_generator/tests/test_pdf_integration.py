@@ -2,11 +2,10 @@
 """Consolidated integration tests for PDF generation pipeline.
 
 This module contains streamlined integration tests that maintain full coverage
-while reducing redundancy and test execution time from ~17s to ~6s.
+while reducing redundancy and improving test execution time.
 
-Previous structure: 16 tests (9 redundant content checks + 7 edge cases)
-New structure: 3 comprehensive tests
-Coverage maintained: 94%
+Previous structure: multiple small tests with overlapping work
+New structure: consolidated tests that validate full behavior with less duplication
 """
 
 import unittest
@@ -107,22 +106,22 @@ class TestPDFIntegrationConsolidated(unittest.TestCase):
     ):
         """Comprehensive test validating complete PDF generation and all content.
 
-        This single test replaces 9 previous tests that all generated the same
-        PDF but checked different aspects of the output. By consolidating, we:
-        - Generate PDF once instead of 9 times (~7.5s time savings)
-        - Read .tex file once instead of 9 times
-        - Validate all content in one comprehensive test
+            This single test replaces 9 previous tests that all generated the same
+            PDF but checked different aspects of the output. By consolidating, we:
+        - Generate PDF once instead of multiple times to reduce redundant work and speed up tests
+            - Read .tex file once instead of 9 times
+            - Validate all content in one comprehensive test
 
-        Validates:
-        - File creation (.tex file exists)
-        - LaTeX document structure (documentclass, packages, begin/end)
-        - All metrics (vehicle counts, speed percentiles)
-        - Location information
-        - Date ranges
-        - Footer formatting (dates and page numbers)
-        - Histogram table data
-        - Daily metrics table
-        - Survey parameters section
+            Validates:
+            - File creation (.tex file exists)
+            - LaTeX document structure (documentclass, packages, begin/end)
+            - All metrics (vehicle counts, speed percentiles)
+            - Location information
+            - Date ranges
+            - Footer formatting (dates and page numbers)
+            - Histogram table data
+            - Daily metrics table
+            - Survey parameters section
         """
         mock_chart_exists.return_value = False
         mock_processor = MagicMock()
