@@ -318,12 +318,11 @@ class TestPDFIntegrationConsolidated(unittest.TestCase):
 
     @patch("pdf_generator.core.pdf_generator.MapProcessor")
     @patch("pdf_generator.core.pdf_generator.chart_exists")
-    def test_failure_scenarios(self, mock_chart_exists, mock_map_processor):
-        """Test error handling and failure scenarios.
+    def test_complete_failure_path(self, mock_chart_exists, mock_map_processor):
+        """Test complete failure when all PDF generation engines fail.
 
-        Validates:
-        1. Complete failure path (all engines fail + TEX generation fails)
-        2. Font fallback logic when fonts are missing
+        Validates that when both PDF generation and TEX generation fail,
+        the appropriate exception is raised.
         """
         mock_chart_exists.return_value = False
         mock_processor = MagicMock()
@@ -331,7 +330,6 @@ class TestPDFIntegrationConsolidated(unittest.TestCase):
         mock_map_processor.return_value = mock_processor
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            # === SCENARIO 1: Complete failure (all engines fail) ===
             output_path = os.path.join(tmpdir, "fail_test.pdf")
 
             with patch(
@@ -373,7 +371,20 @@ class TestPDFIntegrationConsolidated(unittest.TestCase):
                     "Should raise PDF generation exception",
                 )
 
-            # === SCENARIO 2: Font fallback ===
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
+    def test_font_fallback(self, mock_chart_exists, mock_map_processor):
+        """Test font fallback logic when custom fonts are missing.
+
+        Validates that the system properly handles missing font files
+        by triggering the fallback mechanism.
+        """
+        mock_chart_exists.return_value = False
+        mock_processor = MagicMock()
+        mock_processor.process_map.return_value = (False, None)
+        mock_map_processor.return_value = mock_processor
+
+        with tempfile.TemporaryDirectory() as tmpdir:
             output_path = os.path.join(tmpdir, "font_fallback.pdf")
 
             with patch(
