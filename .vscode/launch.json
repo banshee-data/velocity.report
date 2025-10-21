@@ -10,15 +10,20 @@
       "request": "launch",
       "mode": "auto",
       "program": "${workspaceFolder}/cmd/radar",
-      "args": ["-port", "/dev/ttyACM1"]
+      "args": [
+        "-port",
+        "/dev/ttyACM1"
+      ]
     },
     {
-      "name": "debug radar server (dev mode)",
+      "name": "debug radar server (disable radar)",
       "type": "go",
       "request": "launch",
       "mode": "auto",
       "program": "${workspaceFolder}/cmd/radar",
-      "args": ["-dev"]
+      "args": [
+        "-disable-radar"
+      ]
     }
   ]
 }
