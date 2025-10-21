@@ -13,7 +13,7 @@
         , units TEXT NOT NULL
         , source TEXT NOT NULL
         , created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        , FOREIGN KEY (site_id) REFERENCES sites (id) ON DELETE CASCADE
+        , FOREIGN KEY (site_id) REFERENCES site (id) ON DELETE CASCADE
           );
 
 -- Index for fast lookups by site
