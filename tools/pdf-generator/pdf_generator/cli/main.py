@@ -806,6 +806,36 @@ def process_date_range(
     else:
         _print_info("Histogram: disabled")
 
+    # If debug mode is enabled, write the submitted config to the output prefix
+    # so it can be included in the sources ZIP for debugging
+    if config.output.debug:
+        try:
+            import json
+            import shutil
+
+            # Write the final merged config (with all defaults applied)
+            final_config_dest = f"{prefix}_final_config.json"
+            with open(final_config_dest, "w") as f:
+                json.dump(config.to_dict(), f, indent=2)
+            print(f"DEBUG: wrote final config to: {final_config_dest}")
+
+            # Copy the original submitted config file (as passed from Go server)
+            # The config_file path is available from the global args parsed in __main__
+            # We need to pass it through - for now, check if it's in sys.argv
+            submitted_config_source = None
+            if len(sys.argv) > 1 and os.path.isfile(sys.argv[-1]):
+                submitted_config_source = sys.argv[-1]
+
+            if submitted_config_source:
+                submitted_config_dest = f"{prefix}_submitted_config.json"
+                shutil.copyfile(submitted_config_source, submitted_config_dest)
+                print(f"DEBUG: wrote submitted config to: {submitted_config_dest}")
+            else:
+                print("DEBUG: could not determine submitted config file path")
+
+        except Exception as e:
+            print(f"DEBUG: failed to write config files: {e}")
+
     # Fetch all data from API
     metrics, histogram, resp = fetch_granular_metrics(
         client, start_ts, end_ts, config, model_version
