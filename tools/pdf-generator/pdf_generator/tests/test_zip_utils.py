@@ -120,6 +120,35 @@ Test content
         self.assertIn(r"%     Path=/some/path/,", result)
         self.assertIn(r"%     UprightFont=*-Regular,", result)
 
+    def test_removes_setmonofont_declarations(self):
+        """Test that setmonofont declarations are also removed."""
+        original = os.path.join(self.temp_dir, "original.tex")
+        portable = os.path.join(self.temp_dir, "portable.tex")
+
+        content = r"""\usepackage{fontspec}%
+\setsansfont[Path=/Users/test/fonts/]{AtkinsonHyperlegible}%
+\setmonofont[Path=/Users/test/fonts/]{AtkinsonHyperlegibleMono-VariableFont_wght}%
+\begin{document}%
+Test content
+\end{document}%"""
+
+        with open(original, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        create_portable_tex(original, portable)
+
+        with open(portable, "r", encoding="utf-8") as f:
+            result = f.read()
+
+        # Both font declarations should be commented out
+        self.assertIn(r"% \setsansfont[", result)
+        self.assertIn(r"% \setmonofont[", result)
+        # Verify the uncommented version is NOT present
+        lines = result.split("\n")
+        for line in lines:
+            if "setmonofont" in line and not line.strip().startswith("%"):
+                self.fail(f"Found uncommented setmonofont: {line}")
+
     def test_adds_portability_note(self):
         """Test that portability note is added to document."""
         original = os.path.join(self.temp_dir, "original.tex")
@@ -459,6 +488,211 @@ Test content
             # Restore the README file
             if backup_path.exists():
                 shutil.move(backup_path, readme_template)
+
+
+class TestPortableTexCompilation(unittest.TestCase):
+    """Integration test to verify portable TEX actually compiles with pdflatex."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.temp_dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        """Clean up test fixtures."""
+        import shutil
+
+        shutil.rmtree(self.temp_dir)
+
+    def test_portable_tex_compiles_with_pdflatex(self):
+        """Integration test: verify portable TEX file from ZIP compiles with pdflatex.
+
+        This is a critical end-to-end test that validates the portable version
+        actually works with standard pdflatex. It:
+        1. Creates a realistic TEX file with custom fonts (as generated normally)
+        2. Creates a ZIP with both versions
+        3. Extracts the portable version
+        4. Attempts to compile it with pdflatex
+        5. Verifies compilation succeeds and produces a PDF
+
+        This test requires pdflatex to be installed and will be skipped if not available.
+        """
+        import subprocess
+        import sys
+
+        # Check if pdflatex is available
+        try:
+            result = subprocess.run(
+                ["pdflatex", "--version"],
+                capture_output=True,
+                timeout=5,
+            )
+            if result.returncode != 0:
+                self.skipTest("pdflatex not available")
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            self.skipTest("pdflatex not available")
+
+        # Create a realistic TEX file with custom fonts (like our generator creates)
+        prefix = os.path.join(self.temp_dir, "test")
+        original_tex = f"{prefix}_report.tex"
+
+        # This is representative of what our PDF generator creates
+        realistic_content = r"""\documentclass[11pt,letterpaper]{article}%
+\usepackage{fontspec}%
+\usepackage{graphicx}%
+\usepackage{geometry}%
+\usepackage{fancyhdr}%
+\usepackage{array}%
+\usepackage{longtable}%
+\usepackage{booktabs}%
+\geometry{letterpaper,margin=0.75in}%
+\setsansfont[Path=/Users/test/fonts/,UprightFont=*-Regular,BoldFont=*-Bold]{AtkinsonHyperlegible}%
+\setmonofont[Path=/Users/test/fonts/]{AtkinsonHyperlegibleMono-VariableFont_wght}%
+\pagestyle{fancy}%
+\fancyhf{}%
+\fancyfoot[L]{\small 2025-06-02 to 2025-06-04}%
+\fancyfoot[R]{\small Page \thepage}%
+\renewcommand{\footrulewidth}{0.8pt}%
+\begin{document}%
+\sffamily%
+\section*{Velocity Report}%
+\subsection*{Site Information}%
+Location: Clarendon Avenue, San Francisco\\
+Survey Period: 2025-06-02 to 2025-06-04\\
+
+\subsection*{Overall Statistics}%
+\begin{tabular}{|l|r|}%
+\hline%
+Vehicle Count & 3,469 \\%
+\hline%
+P50 Speed & 30.54 mph \\%
+\hline%
+P85 Speed & 36.94 mph \\%
+\hline%
+P98 Speed & 43.05 mph \\%
+\hline%
+Max Speed & 53.52 mph \\%
+\hline%
+\end{tabular}%
+
+\subsection*{Survey Parameters}%
+Roll-up Period: 1h\\
+Units: mph\\
+Timezone: US/Pacific\\
+
+Some example code: \AtkinsonMono{radar.measure()} in monospace.
+
+\subsection*{Table with Column Font Spec}%
+\begin{tabular}{|l|>{\AtkinsonMono}l|}%
+\hline%
+Label & Code \\%
+\hline%
+Test & function() \\%
+\hline%
+\end{tabular}%
+
+\end{document}%"""
+
+        with open(original_tex, "w", encoding="utf-8") as f:
+            f.write(realistic_content)
+
+        # Create the ZIP with both versions
+        zip_path = create_sources_zip(prefix)
+
+        # Extract the portable version to a compilation directory
+        compile_dir = os.path.join(self.temp_dir, "compile")
+        os.makedirs(compile_dir)
+
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            # Extract the portable TEX file
+            portable_tex_name = "test_report.tex"
+            zf.extract(portable_tex_name, compile_dir)
+
+        portable_tex_path = os.path.join(compile_dir, portable_tex_name)
+
+        # Verify the portable TEX was extracted
+        self.assertTrue(os.path.exists(portable_tex_path))
+
+        # Read and verify transformations were applied
+        with open(portable_tex_path, "r", encoding="utf-8") as f:
+            portable_content = f.read()
+
+        # Sanity checks on the portable version
+        self.assertIn(
+            "% \\usepackage{fontspec}%",
+            portable_content,
+            "fontspec should be commented out",
+        )
+        self.assertIn(
+            r"\texttt{radar.measure()}",
+            portable_content,
+            "AtkinsonMono should be replaced with texttt",
+        )
+        self.assertIn(
+            r">{\ttfamily}l|",
+            portable_content,
+            "Table column fonts should use ttfamily",
+        )
+        self.assertIn(
+            "NOTE: This is a portable version",
+            portable_content,
+            "Portability note should be present",
+        )
+
+        # Compile with pdflatex
+        try:
+            result = subprocess.run(
+                [
+                    "pdflatex",
+                    "-interaction=nonstopmode",
+                    "-halt-on-error",
+                    portable_tex_name,
+                ],
+                cwd=compile_dir,
+                capture_output=True,
+                timeout=30,
+                text=True,
+            )
+
+            # Check compilation result
+            pdf_path = os.path.join(compile_dir, "test_report.pdf")
+
+            if result.returncode != 0:
+                # Provide detailed error information
+                print("\n=== PDFLATEX COMPILATION FAILED ===", file=sys.stderr)
+                print("STDOUT:", file=sys.stderr)
+                print(result.stdout, file=sys.stderr)
+                print("\nSTDERR:", file=sys.stderr)
+                print(result.stderr, file=sys.stderr)
+
+                # Try to read the log file for more details
+                log_path = os.path.join(compile_dir, "test_report.log")
+                if os.path.exists(log_path):
+                    print("\n=== LATEX LOG (last 50 lines) ===", file=sys.stderr)
+                    with open(log_path, "r", encoding="utf-8", errors="ignore") as lf:
+                        log_lines = lf.readlines()
+                        print("".join(log_lines[-50:]), file=sys.stderr)
+
+                self.fail(
+                    f"pdflatex compilation failed with return code {result.returncode}. "
+                    "See stderr for details."
+                )
+
+            # Verify PDF was created
+            self.assertTrue(
+                os.path.exists(pdf_path),
+                "PDF file should be created after successful compilation",
+            )
+
+            # Verify PDF has some content (not empty)
+            pdf_size = os.path.getsize(pdf_path)
+            self.assertGreater(
+                pdf_size,
+                1000,
+                f"PDF should have substantial content, got {pdf_size} bytes",
+            )
+
+        except subprocess.TimeoutExpired:
+            self.fail("pdflatex compilation timed out after 30 seconds")
 
 
 if __name__ == "__main__":
