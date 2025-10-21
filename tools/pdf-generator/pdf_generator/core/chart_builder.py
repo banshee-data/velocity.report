@@ -12,7 +12,6 @@ The module is designed to be independent of data sources and PDF generation,
 making it reusable for other visualization contexts.
 """
 
-import os
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -231,12 +230,7 @@ class TimeSeriesChartBuilder:
 
         # Mask low-count periods
         try:
-            thresh = int(
-                os.environ.get(
-                    "VELOCITY_COUNT_MISSING_THRESHOLD",
-                    str(self.layout["count_missing_threshold"]),
-                )
-            )
+            thresh = int(self.layout["count_missing_threshold"])
             zero_mask = np.array(counts) < thresh
 
             # Combine masks
