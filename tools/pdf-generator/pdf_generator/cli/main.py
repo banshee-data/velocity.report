@@ -29,7 +29,8 @@ from pdf_generator.core.date_parser import (
     parse_date_to_unix,
     is_date_only,
 )
-from pdf_generator.core.pdf_generator import generate_pdf_report, create_sources_zip
+from pdf_generator.core.pdf_generator import generate_pdf_report
+from pdf_generator.core.zip_utils import create_sources_zip
 from pdf_generator.core.stats_utils import plot_histogram
 from pdf_generator.core.data_transformers import (
     MetricsNormalizer,
