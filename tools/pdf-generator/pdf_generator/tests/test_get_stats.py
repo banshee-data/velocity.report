@@ -174,7 +174,7 @@ class TestResolveFilePrefix(unittest.TestCase):
         result = resolve_file_prefix(config, start_ts, end_ts)
 
         self.assertEqual(result, "my-prefix-1")
-        mock_next_seq.assert_called_once_with("my-prefix")
+        mock_next_seq.assert_called_once_with("my-prefix", ".")
 
     def test_auto_generated_prefix_utc(self):
         """Test auto-generated prefix with UTC."""
