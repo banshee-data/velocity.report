@@ -240,163 +240,80 @@ class TestPDFIntegrationConsolidated(unittest.TestCase):
     @patch("pdf_generator.core.pdf_generator.MapProcessor")
     @patch("pdf_generator.core.pdf_generator.chart_exists")
     def test_edge_cases_combined(self, mock_chart_exists, mock_map_processor):
-        """Test multiple edge cases efficiently in one test.
+        """Validate multiple edge-case behaviors in a single generation.
 
-        This test validates different code paths and data combinations:
-        1. Missing overall metrics (lines 284-289)
-        2. Empty histogram
-        3. No daily metrics (24h grouping)
-        4. Map processing success (lines 398-401)
-        5. Stats chart availability (lines 368-373)
+        Purpose: exercise several independent code paths that may
+        occur together in production while keeping the test focused and
+        maintainable. The test ensures the generator produces a valid LaTeX
+        (.tex) output even when some data or external resources are missing or
+        incomplete.
 
-        Each scenario generates a PDF once and validates basic success criteria.
+        Behaviors covered:
+        - The generator handles missing "overall" summary metrics gracefully.
+        - Empty or missing histogram data does not break LaTeX output.
+        - The generator tolerates missing daily granularity (no daily metrics).
+        - Map processing can succeed and include a map artifact in the output.
+        - Chart-availability checks (such as whether a stats chart exists) are
+          respected and influence which sections are emitted.
         """
         with tempfile.TemporaryDirectory() as tmpdir:
-            # === CASE 1: None overall_metrics ===
-            mock_chart_exists.return_value = True  # Histogram chart exists
-            mock_processor = MagicMock()
-            mock_processor.process_map.return_value = (False, None)
-            mock_map_processor.return_value = mock_processor
-
-            output_path = os.path.join(tmpdir, "case1_no_overall.pdf")
-            try:
-                generate_pdf_report(
-                    output_path=output_path,
-                    start_iso="2025-06-02T00:00:00-07:00",
-                    end_iso="2025-06-04T23:59:59-07:00",
-                    group="1h",
-                    units="mph",
-                    timezone_display="UTC",
-                    min_speed_str="5.0 mph",
-                    location="Test",
-                    overall_metrics=None,  # No overall metrics
-                    daily_metrics=None,
-                    granular_metrics=[],
-                    histogram={"10": 50},
-                    tz_name="UTC",
-                    charts_prefix="case1",
-                    speed_limit=25,
-                )
-            except Exception:
-                pass
-            self.assertTrue(
-                os.path.exists(output_path.replace(".pdf", ".tex")),
-                "Case 1: .tex file should exist with None overall_metrics",
-            )
-
-            # === CASE 2: Empty histogram ===
-            mock_chart_exists.return_value = False
-            output_path = os.path.join(tmpdir, "case2_empty_histogram.pdf")
-            try:
-                generate_pdf_report(
-                    output_path=output_path,
-                    start_iso="2025-06-02T00:00:00-07:00",
-                    end_iso="2025-06-04T23:59:59-07:00",
-                    group="1h",
-                    units="mph",
-                    timezone_display="US/Pacific",
-                    min_speed_str="5.0 mph",
-                    location="Test Location",
-                    overall_metrics=[{"Count": 0}],
-                    daily_metrics=None,
-                    granular_metrics=[],
-                    histogram={},  # Empty histogram
-                    tz_name="UTC",
-                    charts_prefix="case2",
-                    speed_limit=25,
-                )
-            except Exception:
-                pass
-            self.assertTrue(
-                os.path.exists(output_path.replace(".pdf", ".tex")),
-                "Case 2: .tex file should exist with empty histogram",
-            )
-
-            # === CASE 3: No daily metrics (24h group) ===
-            output_path = os.path.join(tmpdir, "case3_no_daily.pdf")
-            try:
-                generate_pdf_report(
-                    output_path=output_path,
-                    start_iso="2025-06-02T00:00:00-07:00",
-                    end_iso="2025-06-04T23:59:59-07:00",
-                    group="24h",  # 24h group shouldn't produce daily
-                    units="mph",
-                    timezone_display="UTC",
-                    min_speed_str="0.0 mph",
-                    location="Test Location",
-                    overall_metrics=[{"Count": 100}],
-                    daily_metrics=None,
-                    granular_metrics=[],
-                    histogram={"10": 50, "20": 50},
-                    tz_name="UTC",
-                    charts_prefix="case3",
-                    speed_limit=25,
-                )
-            except Exception:
-                pass
-            self.assertTrue(
-                os.path.exists(output_path.replace(".pdf", ".tex")),
-                "Case 3: .tex file should exist with no daily metrics",
-            )
-
-            # === CASE 4: Map processing success ===
-            mock_processor.process_map.return_value = (True, "test_map.pdf")
-            output_path = os.path.join(tmpdir, "case4_map_success.pdf")
-            try:
-                generate_pdf_report(
-                    output_path=output_path,
-                    start_iso="2025-06-02T00:00:00-07:00",
-                    end_iso="2025-06-04T23:59:59-07:00",
-                    group="1h",
-                    units="mph",
-                    timezone_display="UTC",
-                    min_speed_str="5.0 mph",
-                    location="Test",
-                    overall_metrics=[{"Count": 100}],
-                    daily_metrics=None,
-                    granular_metrics=[],
-                    histogram={"10": 50},
-                    tz_name="UTC",
-                    charts_prefix="case4",
-                    speed_limit=25,
-                )
-            except Exception:
-                pass
-            self.assertTrue(
-                os.path.exists(output_path.replace(".pdf", ".tex")),
-                "Case 4: .tex file should exist with successful map processing",
-            )
-
-            # === CASE 5: Stats chart available ===
+            # Configure mocks to test multiple paths in one generation
             def chart_side_effect(prefix, chart_type):
+                # Return True for stats chart to exercise that code path
+                # Return False for histogram (since we're testing empty histogram)
                 return chart_type == "stats"
 
             mock_chart_exists.side_effect = chart_side_effect
-            mock_processor.process_map.return_value = (False, None)
-            output_path = os.path.join(tmpdir, "case5_stats_chart.pdf")
+
+            # Mock map processor to return success
+            mock_processor = MagicMock()
+            mock_processor.process_map.return_value = (True, "test_map.pdf")
+            mock_map_processor.return_value = mock_processor
+
+            output_path = os.path.join(tmpdir, "all_edge_cases.pdf")
+
+            # Single generation testing multiple compatible edge cases
             try:
                 generate_pdf_report(
                     output_path=output_path,
                     start_iso="2025-06-02T00:00:00-07:00",
                     end_iso="2025-06-04T23:59:59-07:00",
-                    group="1h",
+                    group="24h",
                     units="mph",
                     timezone_display="UTC",
                     min_speed_str="5.0 mph",
-                    location="Test",
-                    overall_metrics=[{"Count": 100}],
+                    location="Test Location",
+                    overall_metrics=None,
                     daily_metrics=None,
                     granular_metrics=[],
-                    histogram={"10": 50},
+                    histogram={},
                     tz_name="UTC",
-                    charts_prefix="case5",
+                    charts_prefix="edge",
                     speed_limit=25,
                 )
             except Exception:
+                # Expected to fail without a LaTeX compiler available in CI
                 pass
+
+            # Verify .tex file was created despite all edge cases
+            tex_path = output_path.replace(".pdf", ".tex")
             self.assertTrue(
-                os.path.exists(output_path.replace(".pdf", ".tex")),
-                "Case 5: .tex file should exist with stats chart",
+                os.path.exists(tex_path),
+                "Should create .tex file with missing/empty inputs and map/chart",
+            )
+
+            # Verify the document structure is intact
+            with open(tex_path, "r") as f:
+                content = f.read()
+
+            self.assertIn(r"\begin{document}", content)
+            self.assertIn(r"\end{document}", content)
+
+            # Verify edge cases didn't break the document
+            self.assertIn("Test Location", content, "Location should be present")
+            self.assertIn("2025-06-02", content, "Start date should be present")
+            self.assertIn(
+                "Survey Parameters", content, "Parameters section should exist"
             )
 
     @patch("pdf_generator.core.pdf_generator.MapProcessor")
