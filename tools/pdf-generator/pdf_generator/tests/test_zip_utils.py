@@ -390,6 +390,37 @@ Test content
             self.assertIn("Path=./fonts/,", fonts_content)
             self.assertNotIn("Path=/Users/test/fonts/,", fonts_content)
 
+    def test_fonts_directory_included(self):
+        """Test that fonts/ directory with instruction file is included in ZIP."""
+        prefix = os.path.join(self.temp_dir, "test")
+
+        # Create minimal TEX file
+        original_tex = f"{prefix}_report.tex"
+        with open(original_tex, "w", encoding="utf-8") as f:
+            f.write(r"\begin{document}%\nTest\n\end{document}%")
+
+        # Create ZIP
+        zip_path = create_sources_zip(prefix)
+
+        # Check ZIP contents
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            names = zf.namelist()
+
+            # Should have fonts directory with instruction file
+            self.assertIn("fonts/FONTS_GO_HERE.txt", names)
+
+            # Read the instruction file
+            fonts_instruction = zf.read("fonts/FONTS_GO_HERE.txt").decode("utf-8")
+
+            # Verify it contains the key information
+            self.assertIn("brailleinstitute.org/freefont", fonts_instruction)
+            self.assertIn("AtkinsonHyperlegible-Regular.ttf", fonts_instruction)
+            self.assertIn("AtkinsonHyperlegible-Bold.ttf", fonts_instruction)
+            self.assertIn(
+                "AtkinsonHyperlegibleMono-VariableFont_wght.ttf", fonts_instruction
+            )
+            self.assertIn("xelatex", fonts_instruction)
+
 
 if __name__ == "__main__":
     unittest.main()

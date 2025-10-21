@@ -205,6 +205,27 @@ def create_sources_zip(prefix: str, output_zip_path: Optional[str] = None) -> st
     readme_file = readme_temp.name
     readme_temp.close()
 
+    # Create fonts directory instruction file
+    fonts_instruction = """Visit: https://brailleinstitute.org/freefont
+
+Download the font family and extract these files:
+- AtkinsonHyperlegible-Regular.ttf
+- AtkinsonHyperlegible-Italic.ttf
+- AtkinsonHyperlegible-Bold.ttf
+- AtkinsonHyperlegible-BoldItalic.ttf
+- AtkinsonHyperlegibleMono-VariableFont_wght.ttf
+- AtkinsonHyperlegibleMono-Italic-VariableFont_wght.ttf
+
+Place all .ttf files in this directory, then compile with:
+    xelatex *_report_fonts.tex
+"""
+    fonts_instruction_temp = tempfile.NamedTemporaryFile(
+        mode="w", suffix="_FONTS_GO_HERE.txt", delete=False, encoding="utf-8"
+    )
+    fonts_instruction_temp.write(fonts_instruction)
+    fonts_instruction_file = fonts_instruction_temp.name
+    fonts_instruction_temp.close()
+
     # Files to include - note that TEX files have _report suffix
     patterns_to_include = [
         portable_tex,  # Portable TEX with standard fonts
@@ -239,6 +260,9 @@ def create_sources_zip(prefix: str, output_zip_path: Optional[str] = None) -> st
         # Add README first
         zipf.write(readme_file, "README.txt")
 
+        # Add fonts directory with instruction file
+        zipf.write(fonts_instruction_file, "fonts/FONTS_GO_HERE.txt")
+
         # Add all source files
         for filepath in files_to_zip:
             arcname = os.path.basename(filepath)
@@ -251,6 +275,11 @@ def create_sources_zip(prefix: str, output_zip_path: Optional[str] = None) -> st
     # Clean up temporary files
     try:
         os.remove(readme_file)
+    except Exception:
+        pass
+
+    try:
+        os.remove(fonts_instruction_file)
     except Exception:
         pass
 
