@@ -557,6 +557,26 @@ def assemble_pdf_report(
     pdf_path = f"{prefix}_report.pdf"
 
     try:
+        # Debug: surface overall metrics presence to help diagnose missing speed values
+        try:
+            debug_enabled = bool(config.output.debug)
+        except Exception:
+            debug_enabled = False
+
+        if debug_enabled:
+            try:
+                total_overall = (
+                    len(overall_metrics) if overall_metrics is not None else 0
+                )
+            except Exception:
+                total_overall = 0
+            print(f"DEBUG: overall_metrics length={total_overall}")
+            if total_overall:
+                try:
+                    print("DEBUG: overall_metrics[0]=", repr(overall_metrics[0]))
+                except Exception:
+                    print("DEBUG: overall_metrics[0] preview unavailable")
+
         generate_pdf_report(
             output_path=pdf_path,
             start_iso=start_iso,
