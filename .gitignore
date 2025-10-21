@@ -1,6 +1,7 @@
 _site/
 .build/
 .cache/
+.tox/
 archive/
 backup/
 log/
