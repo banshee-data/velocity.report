@@ -661,6 +661,7 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	contact := req.Contact
 	speedLimit := req.SpeedLimit
 	siteDescription := req.SiteDescription
+	speedLimitNote := ""
 	cosineErrorAngle := req.CosineErrorAngle
 
 	if site != nil {
@@ -670,6 +671,9 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		speedLimit = site.SpeedLimit
 		if site.SiteDescription != nil {
 			siteDescription = *site.SiteDescription
+		}
+		if site.SpeedLimitNote != nil {
+			speedLimitNote = *site.SpeedLimitNote
 		}
 		cosineErrorAngle = site.CosineErrorAngle
 	}
@@ -718,6 +722,7 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 			"contact":          contact,
 			"speed_limit":      speedLimit,
 			"site_description": siteDescription,
+			"speed_limit_note": speedLimitNote,
 		},
 		"radar": map[string]interface{}{
 			"cosine_error_angle": cosineErrorAngle,
@@ -741,7 +746,15 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to write config file: %v", err))
 		return
 	}
-	defer os.Remove(configFile) // Clean up after execution
+	// Log the config file and speed_limit_note so we can inspect what is passed to the
+	// Python generator in production/debug runs. For tests we preserve the file when
+	// PDF_GENERATOR_PYTHON is set so the test can inspect the JSON the server wrote.
+	log.Printf("Report config written: %s (site.speed_limit_note=%q)", configFile, speedLimitNote)
+	if os.Getenv("PDF_GENERATOR_PYTHON") == "" {
+		defer os.Remove(configFile) // Clean up after execution in normal runs
+	} else {
+		log.Printf("Preserving config file for test inspection: %s", configFile)
+	}
 
 	// Get the repository root (assuming we're running from the repo root)
 	repoRoot, err := os.Getwd()
@@ -751,14 +764,23 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Path to the PDF generator
+	// Path to the PDF generator - allow overriding the python binary via
+	// PDF_GENERATOR_PYTHON for tests or deployment customization.
+	// Default location (repo/tools/pdf-generator/.venv/bin/python) is used when
+	// the env var is unset.
 	pdfDir := filepath.Join(repoRoot, "tools", "pdf-generator")
-	pythonBin := filepath.Join(pdfDir, ".venv", "bin", "python")
+	defaultPythonBin := filepath.Join(pdfDir, ".venv", "bin", "python")
 
-	// Check if python binary exists, fallback to system python if not
-	if _, err := os.Stat(pythonBin); os.IsNotExist(err) {
-		pythonBin = "python3"
-		log.Printf("PDF generator venv not found, using system python3")
+	pythonBin := os.Getenv("PDF_GENERATOR_PYTHON")
+	if pythonBin == "" {
+		pythonBin = defaultPythonBin
+		// Check if python binary exists, fallback to system python if not
+		if _, err := os.Stat(pythonBin); os.IsNotExist(err) {
+			pythonBin = "python3"
+			log.Printf("PDF generator venv not found, using system python3")
+		}
+	} else {
+		log.Printf("Using overridden PDF generator python: %s", pythonBin)
 	}
 
 	// Execute the PDF generator
