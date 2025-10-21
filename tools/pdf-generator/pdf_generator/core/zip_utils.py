@@ -189,7 +189,7 @@ def create_sources_zip(prefix: str, output_zip_path: Optional[str] = None) -> st
         fonts_tex = None
 
     # Read README content from file
-    readme_path_template = Path(__file__).parent / "zip_readme.txt"
+    readme_path_template = Path(__file__).parent / "zip_readme.md"
     try:
         with open(readme_path_template, "r", encoding="utf-8") as f:
             readme_content = f.read()
@@ -199,7 +199,7 @@ def create_sources_zip(prefix: str, output_zip_path: Optional[str] = None) -> st
 
     # Write README to temp file
     readme_temp = tempfile.NamedTemporaryFile(
-        mode="w", suffix="_README.txt", delete=False, encoding="utf-8"
+        mode="w", suffix="_README.md", delete=False, encoding="utf-8"
     )
     readme_temp.write(readme_content)
     readme_file = readme_temp.name
