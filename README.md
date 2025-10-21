@@ -117,12 +117,19 @@ velocity.report/
 ### Data Flow
 
 ```
-Sensors (Radar/LIDAR) → Go Server → SQLite Database
-                                          ↓
-                                    ┌─────┴──────┐
-                                    ↓            ↓
-                              Python PDF     Web Frontend
-                              Generator      (Svelte)
+   ┌───────────────────┐     ┌───────────────────┐     ┌───────────────────┐
+   │     Sensors       │────►│     Go Server     │◄────│  SQLite Database  │
+   │ (Radar / LIDAR)   │     │ (API/Processing)  │     │ (Time-series)     │
+   └───────────────────┘     └───────────────────┘     └───────────────────┘
+                                     │
+                                     │
+                   ┌─────────────────┼─────────────────┐
+                   │                                   │
+                   ▼                                   ▼
+   ┌─────────────────────────────┐     ┌─────────────────────────────┐
+   │    Python PDF Generator     │     │       Web Frontend          │
+   │ (Offline Reports via LaTeX) │     │   (Real-time via Svelte)    │
+   └─────────────────────────────┘     └─────────────────────────────┘
 ```
 
 ### Components
