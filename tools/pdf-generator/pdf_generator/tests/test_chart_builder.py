@@ -873,7 +873,10 @@ class TestPlotCountBarsEdgeCases(unittest.TestCase):
         self.assertIsNotNone(fig)
 
     def test_plot_count_bars_with_low_counts(self):
-        """Test count bars with low count values (lines 466-467)."""
+        """Test count bars with low count values.
+
+        Ensures the chart builder handles low sample counts without error.
+        """
         metrics = [
             {
                 "start_time": "2025-06-02T10:00:00",
@@ -966,7 +969,10 @@ class TestConfigureCountAxisEdgeCases(unittest.TestCase):
         plt.close("all")
 
     def test_configure_count_axis_normal(self):
-        """Test count axis configuration (lines 565-566)."""
+        """Test count axis configuration.
+
+        Verifies that the count axis is configured and does not raise errors.
+        """
         metrics = [
             {
                 "start_time": "2025-06-02T10:00:00",
@@ -993,7 +999,10 @@ class TestCreateLegendEdgeCases(unittest.TestCase):
         plt.close("all")
 
     def test_create_legend_with_low_sample_data(self):
-        """Test legend creation with low sample indicator (lines 580, 592-593)."""
+        """Test legend creation with low sample indicator.
+
+        Ensures legend includes low-sample indicators when sample counts are low.
+        """
         # Build chart with low sample data to trigger legend
         metrics = [
             {
@@ -1039,7 +1048,10 @@ class TestHistogramSortingEdgeCases(unittest.TestCase):
         plt.close("all")
 
     def test_histogram_sorting_exception_handler(self):
-        """Test exception handler in histogram sorting (lines 738-739)."""
+        """Test exception handler in histogram sorting.
+
+        Validates fallback sorting behavior when histogram keys are mixed types.
+        """
         # Mix of numeric and non-numeric keys
         histogram = {"10": 50, "abc": 30, "20": 70}
 
@@ -1049,7 +1061,10 @@ class TestHistogramSortingEdgeCases(unittest.TestCase):
         self.assertIsNotNone(fig)
 
     def test_histogram_with_debug_output(self):
-        """Test histogram debug output (line 699)."""
+        """Test histogram debug output when debug is enabled.
+
+        Confirms debug paths execute and do not raise errors.
+        """
         histogram = {"10": 50, "20": 100, "30": 75}
 
         # Test with debug enabled
@@ -1058,7 +1073,10 @@ class TestHistogramSortingEdgeCases(unittest.TestCase):
         self.assertIsNotNone(fig)
 
     def test_histogram_with_many_buckets(self):
-        """Test histogram with > 20 buckets to trigger label thinning (lines 805-809)."""
+        """Test histogram with many buckets to trigger label thinning.
+
+        Creates a dense histogram to exercise label-thinning logic.
+        """
         # Create histogram with 25 buckets to trigger thinning logic
         histogram = {str(i * 5): (i % 10) * 10 + 20 for i in range(25)}
 
@@ -1087,7 +1105,10 @@ class TestHistogramPlottingEdgeCases(unittest.TestCase):
         self.assertIsNotNone(fig)
 
     def test_histogram_title_and_labels(self):
-        """Test histogram applies title and labels (lines 772-773, 777-778)."""
+        """Test histogram applies title and labels.
+
+        Ensures title and axis labels are set correctly on the plot.
+        """
         histogram = {"10": 50, "20": 100}
 
         fig = self.builder.build(histogram, "Test Title", "mph")
@@ -1097,7 +1118,10 @@ class TestHistogramPlottingEdgeCases(unittest.TestCase):
         self.assertIn("mph", ax.get_xlabel())
 
     def test_histogram_bar_properties(self):
-        """Test histogram bar styling (lines 789-790)."""
+        """Test histogram bar styling.
+
+        Verifies bars are rendered with expected styling properties.
+        """
         histogram = {"10": 50, "20": 100, "30": 75}
 
         fig = self.builder.build(histogram, "Bar Style", "mph")
@@ -1109,7 +1133,10 @@ class TestHistogramPlottingEdgeCases(unittest.TestCase):
         self.assertGreater(len(patches), 0)
 
     def test_histogram_axis_configuration(self):
-        """Test histogram axis configuration (lines 805-809)."""
+        """Test histogram axis configuration.
+
+        Confirms axis labels and other axis configuration are present.
+        """
         histogram = {"10": 50, "20": 100}
 
         fig = self.builder.build(histogram, "Axis Config", "mph")
@@ -1133,7 +1160,10 @@ class TestTimeAxisFormattingEdgeCases(unittest.TestCase):
         plt.close("all")
 
     def test_format_time_axis_with_timezone(self):
-        """Test time axis formatting with timezone (lines 630, 637-638)."""
+        """Test time axis formatting with timezone.
+
+        Builds a chart with timezone-aware formatting to exercise time-axis code.
+        """
         metrics = [
             {
                 "start_time": "2025-06-02T10:00:00",
@@ -1155,7 +1185,10 @@ class TestTimeAxisFormattingEdgeCases(unittest.TestCase):
         self.assertIsNotNone(fig)
 
     def test_format_time_axis_with_invalid_timezone(self):
-        """Test time axis formatting with invalid timezone (lines 637-638)."""
+        """Test time axis formatting with invalid timezone.
+
+        Verifies the builder handles invalid timezone identifiers gracefully.
+        """
         metrics = [
             {
                 "start_time": "2025-06-02T10:00:00",
@@ -1170,7 +1203,10 @@ class TestTimeAxisFormattingEdgeCases(unittest.TestCase):
         self.assertIsNotNone(fig)
 
     def test_format_time_axis_offset_text(self):
-        """Test offset text handling (lines 654-660)."""
+        """Test offset text handling.
+
+        Exercises configuration that affects the offset text on the time axis.
+        """
         metrics = [
             {
                 "start_time": "2025-06-02T10:00:00",
@@ -1202,7 +1238,10 @@ class TestFinalStylingEdgeCases(unittest.TestCase):
         plt.close("all")
 
     def test_apply_final_styling_tight_layout(self):
-        """Test tight layout application (lines 667-668)."""
+        """Test tight layout application.
+
+        Verifies the final styling step applies tight layout without errors.
+        """
         metrics = [
             {
                 "start_time": "2025-06-02T10:00:00",
@@ -1218,7 +1257,10 @@ class TestFinalStylingEdgeCases(unittest.TestCase):
         self.assertIsNotNone(fig)
 
     def test_apply_final_styling_subplots_adjust(self):
-        """Test subplot adjustment (lines 672-679)."""
+        """Test subplot adjustment.
+
+        Ensures subplot adjustments are applied and do not raise exceptions.
+        """
         metrics = [
             {
                 "start_time": "2025-06-02T10:00:00",
@@ -1245,7 +1287,10 @@ class TestLegendCreationExceptions(unittest.TestCase):
         plt.close("all")
 
     def test_legend_with_exception_fallback(self):
-        """Test legend fallback on exception (lines 617-624)."""
+        """Test legend fallback on exception.
+
+        Builds a chart to exercise the legend fallback handling when exceptions occur.
+        """
         # Build a chart that will create a legend
         metrics = [
             {
@@ -1276,7 +1321,10 @@ class TestComputeGapThresholdExceptions(unittest.TestCase):
         plt.close("all")
 
     def test_compute_gap_threshold_with_exceptions(self):
-        """Test gap threshold with problematic data (line 357)."""
+        """Test gap threshold with problematic data.
+
+        Ensures the gap threshold computation is resilient to problematic input.
+        """
         # Create array with mixed types that might cause exceptions
         times = np.array(
             [
@@ -1303,7 +1351,10 @@ class TestBarWidthComputationFallbacks(unittest.TestCase):
         plt.close("all")
 
     def test_bar_width_with_mdates_unavailable(self):
-        """Test bar width computation when mdates path fails (lines 537-548)."""
+        """Test bar width computation when mdates path fails.
+
+        Verifies fallback behavior when matplotlib.dates (mdates) is unavailable.
+        """
         times = [
             datetime(2025, 6, 2, 10, 0, 0),
             datetime(2025, 6, 2, 11, 0, 0),
@@ -1316,7 +1367,10 @@ class TestBarWidthComputationFallbacks(unittest.TestCase):
         self.assertGreater(bar_width, 0)
 
     def test_bar_width_fallback_exception(self):
-        """Test bar width fallback exception handler (line 550-551)."""
+        """Test bar width fallback exception handler.
+
+        Confirms the builder recovers from exceptions during bar-width computation.
+        """
         times = [
             datetime(2025, 6, 2, 10, 0, 0),
             datetime(2025, 6, 2, 11, 0, 0),

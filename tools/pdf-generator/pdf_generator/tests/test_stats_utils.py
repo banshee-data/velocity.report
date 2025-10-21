@@ -30,20 +30,20 @@ class TestStatsUtils(unittest.TestCase):
 
     def test_format_time_naive_datetime(self):
         """Test time formatting with naive datetime (no timezone info)."""
-        # Line 28: dt.tzinfo is None check
+        # Ensure naive datetime strings (no tz) are parsed and formatted
         # Pass a datetime string without timezone info
         result = format_time("2025-10-10 12:00:00", "America/New_York")
         self.assertIn("10/10", result)
 
     def test_format_time_with_invalid_timezone(self):
         """Test time formatting with invalid timezone falls back to UTC."""
-        # Lines 36-37: Invalid timezone exception handler
+        # Verify function falls back sensibly when timezone is invalid
         result = format_time("2025-10-10T12:00:00Z", "Invalid/Timezone")
         self.assertIn("10/10", result)
 
     def test_format_time_exception(self):
         """Test time formatting with unparseable input."""
-        # Line 40-41: Exception handler returns str(tval)
+        # Should return the original value when parsing fails
         result = format_time("not a date", None)
         self.assertEqual(result, "not a date")
 
@@ -57,7 +57,7 @@ class TestStatsUtils(unittest.TestCase):
         """Test numeric formatting with NaN."""
         import numpy as np
 
-        # Line 51: np.isnan(f) check
+        # Ensure NaN is handled gracefully by numeric formatting
         self.assertEqual(format_number(np.nan), "--")
 
     def test_process_histogram(self):
@@ -81,7 +81,7 @@ class TestStatsUtils(unittest.TestCase):
 
     def test_process_histogram_with_invalid_keys(self):
         """Test histogram processing with invalid keys that can't convert to float."""
-        # Line 86-90: Exception handlers in process_histogram
+        # Ensure invalid keys/values are skipped and valid entries processed
         histogram = {
             "10": 25,
             "invalid": 45,  # Can't convert to float, but value is valid int
@@ -94,7 +94,7 @@ class TestStatsUtils(unittest.TestCase):
         self.assertIn(10.0, numeric_buckets)
         self.assertEqual(numeric_buckets[10.0], 25)
 
-        # Total should include the valid int from "invalid" key (line 88)
+        # Total should include the valid int from "invalid" key and skip fully invalid entries
         # and should skip the fully invalid entry
         self.assertEqual(total, 70)  # 25 + 45
 
@@ -102,7 +102,7 @@ class TestStatsUtils(unittest.TestCase):
         """Test histogram processing with NaN in value."""
         import numpy as np
 
-        # Line 51: np.isnan check in format_number via histogram processing
+        # Verify NaN values in histogram entries are handled gracefully
         histogram = {
             "10": 25,
             "15": np.nan,  # This will trigger the int() conversion exception

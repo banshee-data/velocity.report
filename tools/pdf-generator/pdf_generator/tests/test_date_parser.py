@@ -145,7 +145,7 @@ class TestParseDateToUnixEdgeCases:
 
     def test_naive_datetime_without_tz_assumes_utc(self):
         """Test that naive datetime without timezone is assumed to be UTC."""
-        # Line 67: dt.replace(tzinfo=timezone.utc)
+        # Should treat naive datetimes as UTC when tz_name is None
         from datetime import datetime
 
         # This is a naive datetime string
@@ -157,7 +157,7 @@ class TestParseDateToUnixEdgeCases:
 
     def test_invalid_date_format_raises_valueerror(self):
         """Test that invalid date format raises ValueError with message."""
-        # Lines 109-110: Exception handling and error message
+        # Verify error message contains helpful guidance about expected format
         import pytest
 
         with pytest.raises(ValueError) as exc_info:

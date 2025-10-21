@@ -333,13 +333,17 @@ class TestReportSectionsEmptyStates(unittest.TestCase):
         self.mock_doc = MagicMock()
 
     def test_site_information_both_fields_empty(self):
-        """Test site section when both description and note are empty (lines 85-86, 123)."""
+        """Verify builder skips content when both description and note are empty.
+
+        When both site description and speed limit note are empty the builder
+        should return early and not append content to the document.
+        """
         builder = SiteInformationSection()
 
         # Call with both fields empty - should return early and not append anything
         builder.build(self.mock_doc, site_description="", speed_limit_note="")
 
-        # Should NOT append anything when both are empty (early return on line 140)
+        # Should NOT append anything when both are empty (early return expected)
         self.mock_doc.append.assert_not_called()
 
     def test_site_information_only_description(self):
@@ -369,7 +373,11 @@ class TestReportSectionsEmptyStates(unittest.TestCase):
         self.mock_doc.append.assert_called()
 
     def test_velocity_overview_total_vehicles_format_error(self):
-        """Test velocity overview when total_vehicles formatting fails (lines 85-86)."""
+        """Test velocity overview when total_vehicles formatting fails.
+
+        Verifies the section builder handles non-numeric vehicle counts without
+        raising an exception and still produces output.
+        """
         builder = VelocityOverviewSection()
 
         # Pass a value that might cause formatting issues
@@ -391,7 +399,11 @@ class TestReportSectionsEmptyStates(unittest.TestCase):
         self.mock_doc.append.assert_called()
 
     def test_science_section_import_check(self):
-        """Test that science section builder checks for PyLaTeX (line 166)."""
+        """Confirm ScienceMethodologySection can be constructed and used.
+
+        Validates that the builder is importable in the test environment and
+        that calling build() appends expected content to the document.
+        """
         # This validates the import check exists
         builder = ScienceMethodologySection()
         self.assertIsNotNone(builder)
@@ -402,7 +414,7 @@ class TestReportSectionsEmptyStates(unittest.TestCase):
         self.mock_doc.append.assert_called()
 
     def test_parameters_section_import_check(self):
-        """Test that parameters section builder checks for PyLaTeX (line 288)."""
+        """Confirm SurveyParametersSection can be constructed and used."""
         # This validates the import check exists
         builder = SurveyParametersSection()
         self.assertIsNotNone(builder)
