@@ -231,6 +231,8 @@ Place all .ttf files in this directory, then compile with:
     patterns_to_include = [
         portable_tex,  # Portable TEX with standard fonts
         fonts_tex,  # Fonts TEX with custom fonts from ./fonts/
+        f"{prefix}_submitted_config.json",  # Original submitted JSON config (debug)
+        f"{prefix}_final_config.json",  # Final merged JSON config with defaults (debug)
         f"{prefix}_report.log",  # LaTeX log file (if exists)
         f"{prefix}_stats.pdf",  # Stats chart PDF
         f"{prefix}_daily.pdf",  # Daily chart PDF
