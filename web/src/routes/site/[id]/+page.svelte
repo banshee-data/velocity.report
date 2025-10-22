@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { mdiArrowLeft, mdiContentSave } from '@mdi/js';
 	import { onMount } from 'svelte';
-	import { Button, Card, Header, TextField, Toggle } from 'svelte-ux';
+	import { Button, Card, Header, TextField } from 'svelte-ux';
 	import { createSite, getSite, updateSite } from '../../../lib/api';
 
 	let siteId: string | null = null;
@@ -20,11 +20,8 @@
 		speed_limit: 25,
 		surveyor: '',
 		contact: '',
-		address: '',
 		latitude: null as number | null,
 		longitude: null as number | null,
-		map_angle: null as number | null,
-		include_map: true,
 		site_description: '',
 		speed_limit_note: ''
 	};
@@ -60,11 +57,8 @@
 				speed_limit: site.speed_limit,
 				surveyor: site.surveyor,
 				contact: site.contact,
-				address: site.address || '',
 				latitude: site.latitude || null,
 				longitude: site.longitude || null,
-				map_angle: site.map_angle || null,
-				include_map: site.include_map,
 				site_description: site.site_description || '',
 				speed_limit_note: site.speed_limit_note || ''
 			};
@@ -116,8 +110,7 @@
 				address: formData.address || null,
 				latitude: formData.latitude,
 				longitude: formData.longitude,
-				map_angle: formData.map_angle,
-				include_map: formData.include_map,
+				include_map: false, // Hardcoded to false
 				site_description: formData.site_description || null,
 				speed_limit_note: formData.speed_limit_note || null
 			};
@@ -229,28 +222,6 @@
 						required
 						error={formErrors.contact}
 					/>
-
-					<TextField bind:value={formData.address} label="Address" />
-				</div>
-			</Card>
-
-			<!-- Map Settings -->
-			<Card>
-				<div class="space-y-4 p-6">
-					<h3 class="text-lg font-semibold">Map Settings</h3>
-
-					<div class="grid grid-cols-2 gap-4">
-						<TextField bind:value={formData.latitude} label="Latitude" type="decimal" />
-
-						<TextField bind:value={formData.longitude} label="Longitude" type="decimal" />
-					</div>
-
-					<TextField bind:value={formData.map_angle} label="Map Angle (degrees)" type="decimal" />
-
-					<div class="flex items-center gap-2">
-						<Toggle bind:on={formData.include_map} />
-						<span>Include Map in Report</span>
-					</div>
 				</div>
 			</Card>
 
