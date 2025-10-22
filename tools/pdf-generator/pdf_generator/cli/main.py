@@ -30,6 +30,7 @@ from pdf_generator.core.date_parser import (
     is_date_only,
 )
 from pdf_generator.core.pdf_generator import generate_pdf_report
+from pdf_generator.core.zip_utils import create_sources_zip
 from pdf_generator.core.stats_utils import plot_histogram
 from pdf_generator.core.data_transformers import (
     MetricsNormalizer,
@@ -177,15 +178,24 @@ def should_produce_daily(group_token: str) -> bool:
     return True
 
 
-def _next_sequenced_prefix(base: str) -> str:
-    """Return a sequenced prefix like base-1-HHMMSS, base-2-HHMMSS, ... based on files in CWD.
+def _next_sequenced_prefix(base: str, search_dir: str = ".") -> str:
+    """Return a sequenced prefix like base-1-HHMMSS, base-2-HHMMSS, ... based on files in search_dir.
 
-    This scans the current directory for files beginning with ``base-<n>`` and
+    This scans the specified directory for files beginning with ``base-<n>`` and
     returns the next number in the sequence with a timestamp suffix.
     Always returns base-<n>-HHMMSS (start at 1).
     The timestamp helps avoid caching issues with PDF viewers.
+
+    Args:
+        base: Base prefix for the file
+        search_dir: Directory to search for existing files (default: current directory)
     """
-    files = os.listdir(".")
+    # Handle non-existent directory (will be created later)
+    if not os.path.exists(search_dir):
+        timestamp = datetime.now().strftime("%H%M%S")
+        return f"{base}-1-{timestamp}"
+
+    files = os.listdir(search_dir)
     pat = re.compile(r"^" + re.escape(base) + r"-(\d+)(?:-\d{6})?(?:_|$)")
     nums = []
     for fn in files:
@@ -236,20 +246,23 @@ def compute_iso_timestamps(
         return str(start_ts), str(end_ts)
 
 
-def resolve_file_prefix(config: ReportConfig, start_ts: int, end_ts: int) -> str:
+def resolve_file_prefix(
+    config: ReportConfig, start_ts: int, end_ts: int, output_dir: str = "."
+) -> str:
     """Determine output file prefix (sequenced or date-based).
 
     Args:
         config: Report configuration
         start_ts: Start timestamp
         end_ts: End timestamp
+        output_dir: Directory where files will be created (for sequence checking)
 
     Returns:
         File prefix string
     """
     if config.output.file_prefix:
         # User provided a prefix - create numbered sequence
-        return _next_sequenced_prefix(config.output.file_prefix)
+        return _next_sequenced_prefix(config.output.file_prefix, output_dir)
     else:
         # Auto-generate from date range
         tzobj = (
@@ -544,6 +557,26 @@ def assemble_pdf_report(
     pdf_path = f"{prefix}_report.pdf"
 
     try:
+        # Debug: surface overall metrics presence to help diagnose missing speed values
+        try:
+            debug_enabled = bool(config.output.debug)
+        except Exception:
+            debug_enabled = False
+
+        if debug_enabled:
+            try:
+                total_overall = (
+                    len(overall_metrics) if overall_metrics is not None else 0
+                )
+            except Exception:
+                total_overall = 0
+            print(f"DEBUG: overall_metrics length={total_overall}")
+            if total_overall:
+                try:
+                    print("DEBUG: overall_metrics[0]=", repr(overall_metrics[0]))
+                except Exception:
+                    print("DEBUG: overall_metrics[0] preview unavailable")
+
         generate_pdf_report(
             output_path=pdf_path,
             start_iso=start_iso,
@@ -745,6 +778,12 @@ def process_date_range(
         f"=== Processing {start_date} -> {end_date} (group={config.query.group}, source={config.query.source}) ==="
     )
 
+    # Create output directory if specified
+    output_dir = config.output.output_dir or "."
+    if output_dir != ".":
+        os.makedirs(output_dir, exist_ok=True)
+        _print_info(f"Output directory: {output_dir}")
+
     # Parse dates to timestamps
     start_ts, end_ts = parse_date_range(
         start_date, end_date, config.query.timezone or None
@@ -754,7 +793,11 @@ def process_date_range(
 
     # Determine model version and file prefix
     model_version = get_model_version(config)
-    prefix = resolve_file_prefix(config, start_ts, end_ts)
+    prefix = resolve_file_prefix(config, start_ts, end_ts, output_dir)
+
+    # Prepend output directory to prefix
+    prefix = os.path.join(output_dir, prefix)
+
     _print_info(f"Output prefix: {prefix}")
     if config.query.histogram:
         _print_info(
@@ -762,6 +805,36 @@ def process_date_range(
         )
     else:
         _print_info("Histogram: disabled")
+
+    # If debug mode is enabled, write the submitted config to the output prefix
+    # so it can be included in the sources ZIP for debugging
+    if config.output.debug:
+        try:
+            import json
+            import shutil
+
+            # Write the final merged config (with all defaults applied)
+            final_config_dest = f"{prefix}_final_config.json"
+            with open(final_config_dest, "w") as f:
+                json.dump(config.to_dict(), f, indent=2)
+            print(f"DEBUG: wrote final config to: {final_config_dest}")
+
+            # Copy the original submitted config file (as passed from Go server)
+            # The config_file path is available from the global args parsed in __main__
+            # We need to pass it through - for now, check if it's in sys.argv
+            submitted_config_source = None
+            if len(sys.argv) > 1 and os.path.isfile(sys.argv[-1]):
+                submitted_config_source = sys.argv[-1]
+
+            if submitted_config_source:
+                submitted_config_dest = f"{prefix}_submitted_config.json"
+                shutil.copyfile(submitted_config_source, submitted_config_dest)
+                print(f"DEBUG: wrote submitted config to: {submitted_config_dest}")
+            else:
+                print("DEBUG: could not determine submitted config file path")
+
+        except Exception as e:
+            print(f"DEBUG: failed to write config files: {e}")
 
     # Fetch all data from API
     metrics, histogram, resp = fetch_granular_metrics(
@@ -813,6 +886,14 @@ def process_date_range(
     )
 
     if report_generated:
+        # Create sources ZIP file after successful PDF generation
+        try:
+            zip_path = create_sources_zip(prefix)
+            _print_info(f"Created sources ZIP: {zip_path}")
+        except Exception as exc:
+            _print_error(f"Warning: failed to create sources ZIP: {exc}")
+            # Don't fail the whole process if ZIP creation fails
+
         _print_info(
             f"Completed {start_date} -> {end_date}. PDF and charts use prefix '{prefix}'."
         )

@@ -6,6 +6,7 @@
 	import { Axis, Chart, Highlight, Spline, Svg, Text } from 'layerchart';
 	import { onMount } from 'svelte';
 	import {
+		Button,
 		Card,
 		DateRangeField,
 		Grid,
@@ -14,7 +15,15 @@
 		ToggleGroup,
 		ToggleOption
 	} from 'svelte-ux';
-	import { getConfig, getRadarStats, type Config, type RadarStats } from '../lib/api';
+	import {
+		generateReport,
+		getConfig,
+		getRadarStats,
+		getSites,
+		type Config,
+		type RadarStats,
+		type Site
+	} from '../lib/api';
 	import { displayTimezone, initializeTimezone } from '../lib/stores/timezone';
 	import { displayUnits, initializeUnits } from '../lib/stores/units';
 	import { getUnitLabel, type Unit } from '../lib/units';
@@ -25,6 +34,12 @@
 	let p98Speed = 0;
 	let loading = true;
 	let error = '';
+
+	// Site management
+	let sites: Site[] = [];
+	let selectedSiteId: number | null = null;
+	let siteOptions: Array<{ value: number; label: string }> = [];
+
 	// default DateRangeField to the last 14 days (inclusive)
 	function isoDate(d: Date) {
 		return d.toISOString().slice(0, 10);
@@ -132,6 +147,36 @@
 		}
 	}
 
+	async function loadSites() {
+		try {
+			sites = await getSites();
+			siteOptions = sites.map((site) => ({ value: site.id, label: site.name }));
+
+			// Load selected site from localStorage or default to first site
+			if (browser) {
+				const savedSiteId = localStorage.getItem('selectedSiteId');
+				if (savedSiteId) {
+					const siteId = parseInt(savedSiteId, 10);
+					if (sites.some((s) => s.id === siteId)) {
+						selectedSiteId = siteId;
+					}
+				}
+				// If no saved site or invalid, default to first site
+				if (selectedSiteId === null && sites.length > 0) {
+					selectedSiteId = sites[0].id;
+				}
+			}
+		} catch (e) {
+			console.error('Failed to load sites:', e);
+			// Don't set error here, sites are optional for viewing stats
+		}
+	}
+
+	// Save selected site to localStorage when it changes
+	$: if (browser && selectedSiteId != null) {
+		localStorage.setItem('selectedSiteId', selectedSiteId.toString());
+	}
+
 	async function loadStats(units: Unit) {
 		try {
 			if (!dateRange.from || !dateRange.to) {
@@ -231,6 +276,7 @@
 		error = '';
 		try {
 			await loadConfig();
+			await loadSites();
 			// establish last-known values so the reactive watcher doesn't think things changed
 			lastFrom = dateRange.from.getTime();
 			lastTo = dateRange.to.getTime();
@@ -248,6 +294,91 @@
 	}
 
 	onMount(loadData);
+
+	// Report generation
+	let generatingReport = false;
+	let reportMessage = '';
+	let lastGeneratedReportId: number | null = null;
+
+	async function handleGenerateReport() {
+		if (!dateRange.from || !dateRange.to) {
+			reportMessage = 'Please select a date range first';
+			return;
+		}
+
+		if (selectedSiteId == null) {
+			reportMessage = 'Please select a site first';
+			return;
+		}
+
+		generatingReport = true;
+		reportMessage = '';
+		lastGeneratedReportId = null;
+
+		try {
+			// Generate report and get report ID
+			const response = await generateReport({
+				start_date: isoDate(dateRange.from),
+				end_date: isoDate(dateRange.to),
+				timezone: $displayTimezone,
+				units: $displayUnits,
+				group: group,
+				source: selectedSource,
+				histogram: true,
+				hist_bucket_size: 5.0,
+				site_id: selectedSiteId
+			});
+
+			lastGeneratedReportId = response.report_id;
+			reportMessage = `Report generated successfully! Use the buttons below to download.`;
+		} catch (e) {
+			reportMessage = e instanceof Error ? e.message : 'Failed to generate report';
+		} finally {
+			generatingReport = false;
+		}
+	}
+
+	async function downloadPDF() {
+		if (!lastGeneratedReportId) return;
+
+		try {
+			const { downloadReport } = await import('$lib/api');
+			const pdfBlob = await downloadReport(lastGeneratedReportId, 'pdf');
+
+			// Create a download link and trigger it
+			const url = window.URL.createObjectURL(pdfBlob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `report_${isoDate(dateRange.from!)}_${isoDate(dateRange.to!)}.pdf`;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			window.URL.revokeObjectURL(url);
+		} catch (e) {
+			reportMessage = e instanceof Error ? e.message : 'Failed to download PDF';
+		}
+	}
+
+	async function downloadSources() {
+		if (!lastGeneratedReportId) return;
+
+		try {
+			const { downloadReport } = await import('$lib/api');
+			const zipBlob = await downloadReport(lastGeneratedReportId, 'zip');
+
+			// Create a download link and trigger it
+			const url = window.URL.createObjectURL(zipBlob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `report_sources_${isoDate(dateRange.from!)}_${isoDate(dateRange.to!)}.zip`;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			window.URL.revokeObjectURL(url);
+		} catch (e) {
+			reportMessage = e instanceof Error ? e.message : 'Failed to download sources';
+		}
+	}
 </script>
 
 <svelte:head>
@@ -262,7 +393,7 @@
 	{:else if error}
 		<p class="text-red-600">{error}</p>
 	{:else}
-		<div class="flex items-end gap-2">
+		<div class="flex flex-wrap items-end gap-2">
 			<div class="w-74">
 				<DateRangeField bind:value={dateRange} periodTypes={[PeriodType.Day]} stepper />
 			</div>
@@ -275,7 +406,51 @@
 					<ToggleOption value="radar_data_transits">Transits</ToggleOption>
 				</ToggleGroup>
 			</div>
+			<div class="w-42">
+				<SelectField
+					bind:value={selectedSiteId}
+					label="Site"
+					options={siteOptions}
+					clearable={false}
+				/>
+			</div>
+			<div class="w-24">
+				<Button
+					on:click={handleGenerateReport}
+					disabled={generatingReport || selectedSiteId == null}
+					variant="fill"
+					color="primary"
+					class="whitespace-normal"
+				>
+					{generatingReport ? 'Generating...' : 'Generate Report'}
+				</Button>
+			</div>
 		</div>
+
+		{#if reportMessage}
+			<div
+				class="rounded border p-3 {reportMessage.includes('success')
+					? 'border-green-300 bg-green-50 text-green-800'
+					: 'border-red-300 bg-red-50 text-red-800'}"
+			>
+				{reportMessage}
+			</div>
+		{/if}
+
+		{#if lastGeneratedReportId !== null}
+			<div class="card space-y-3 p-4">
+				<h3 class="text-base font-semibold">Report Ready</h3>
+				<div class="flex gap-2">
+					<Button on:click={downloadPDF} variant="fill" color="secondary">📄 Download PDF</Button>
+					<Button on:click={downloadSources} variant="outline" color="secondary">
+						📦 Download Sources (ZIP)
+					</Button>
+				</div>
+				<p class="text-surface-600-300-token text-xs">
+					The ZIP file contains LaTeX source files and chart PDFs for custom editing
+				</p>
+			</div>
+		{/if}
 
 		<Grid autoColumns="14em" gap={8}>
 			<Card title="Vehicle Count">

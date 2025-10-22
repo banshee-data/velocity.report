@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -37,10 +38,11 @@ func convertEventAPISpeed(event db.EventAPI, targetUnits string) db.EventAPI {
 }
 
 type Server struct {
-	m        serialmux.SerialMuxInterface
-	db       *db.DB
-	units    string
-	timezone string
+	m         serialmux.SerialMuxInterface
+	db        *db.DB
+	units     string
+	timezone  string
+	debugMode bool
 	// mux holds the HTTP handlers; storing it here ensures callers that
 	// obtain the mux via ServeMux() and register additional admin routes
 	// will have those routes preserved when Start uses the mux to run the
@@ -115,6 +117,10 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/command", s.sendCommandHandler)
 	s.mux.HandleFunc("/api/radar_stats", s.showRadarObjectStats)
 	s.mux.HandleFunc("/api/config", s.showConfig)
+	s.mux.HandleFunc("/api/generate_report", s.generateReport)
+	s.mux.HandleFunc("/api/sites", s.handleSites)
+	s.mux.HandleFunc("/api/sites/", s.handleSites)     // Note trailing slash to match /api/sites and /api/sites/*
+	s.mux.HandleFunc("/api/reports/", s.handleReports) // Report management endpoints
 	return s.mux
 }
 
@@ -420,6 +426,654 @@ func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleSites routes site-related requests to appropriate handlers
+func (s *Server) handleSites(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Parse the path to extract ID if present
+	// URL format: /api/sites or /api/sites/123
+	path := strings.TrimPrefix(r.URL.Path, "/api/sites")
+	path = strings.Trim(path, "/")
+
+	// List or Create
+	if path == "" {
+		switch r.Method {
+		case http.MethodGet:
+			s.listSites(w, r)
+		case http.MethodPost:
+			s.createSite(w, r)
+		default:
+			s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		}
+		return
+	}
+
+	// Get, Update, or Delete by ID
+	id, err := strconv.Atoi(path)
+	if err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid site ID")
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		s.getSite(w, r, id)
+	case http.MethodPut:
+		s.updateSite(w, r, id)
+	case http.MethodDelete:
+		s.deleteSite(w, r, id)
+	default:
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+	}
+}
+
+func (s *Server) listSites(w http.ResponseWriter, r *http.Request) {
+	sites, err := s.db.GetAllSites()
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve sites: %v", err))
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(sites); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode sites")
+		return
+	}
+}
+
+func (s *Server) getSite(w http.ResponseWriter, r *http.Request, id int) {
+	site, err := s.db.GetSite(id)
+	if err != nil {
+		if err.Error() == "site not found" {
+			s.writeJSONError(w, http.StatusNotFound, "Site not found")
+		} else {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve site: %v", err))
+		}
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(site); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode site")
+		return
+	}
+}
+
+func (s *Server) createSite(w http.ResponseWriter, r *http.Request) {
+	var site db.Site
+	if err := json.NewDecoder(r.Body).Decode(&site); err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
+		return
+	}
+
+	// Validate required fields
+	if site.Name == "" {
+		s.writeJSONError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	if site.Location == "" {
+		s.writeJSONError(w, http.StatusBadRequest, "location is required")
+		return
+	}
+	if site.CosineErrorAngle == 0 {
+		s.writeJSONError(w, http.StatusBadRequest, "cosine_error_angle is required")
+		return
+	}
+
+	if err := s.db.CreateSite(&site); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to create site: %v", err))
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(site); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode site")
+		return
+	}
+}
+
+func (s *Server) updateSite(w http.ResponseWriter, r *http.Request, id int) {
+	var site db.Site
+	if err := json.NewDecoder(r.Body).Decode(&site); err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
+		return
+	}
+
+	site.ID = id
+
+	// Validate required fields
+	if site.Name == "" {
+		s.writeJSONError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	if site.Location == "" {
+		s.writeJSONError(w, http.StatusBadRequest, "location is required")
+		return
+	}
+	if site.CosineErrorAngle == 0 {
+		s.writeJSONError(w, http.StatusBadRequest, "cosine_error_angle is required")
+		return
+	}
+
+	if err := s.db.UpdateSite(&site); err != nil {
+		if err.Error() == "site not found" {
+			s.writeJSONError(w, http.StatusNotFound, "Site not found")
+		} else {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update site: %v", err))
+		}
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(site); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode site")
+		return
+	}
+}
+
+func (s *Server) deleteSite(w http.ResponseWriter, r *http.Request, id int) {
+	if err := s.db.DeleteSite(id); err != nil {
+		if err.Error() == "site not found" {
+			s.writeJSONError(w, http.StatusNotFound, "Site not found")
+		} else {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to delete site: %v", err))
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ReportRequest represents the JSON payload for report generation
+type ReportRequest struct {
+	SiteID         *int    `json:"site_id"`          // Optional: use site configuration
+	StartDate      string  `json:"start_date"`       // YYYY-MM-DD format
+	EndDate        string  `json:"end_date"`         // YYYY-MM-DD format
+	Timezone       string  `json:"timezone"`         // e.g., "US/Pacific"
+	Units          string  `json:"units"`            // "mph" or "kph"
+	Group          string  `json:"group"`            // e.g., "1h", "4h"
+	Source         string  `json:"source"`           // "radar_objects" or "radar_data_transits"
+	MinSpeed       float64 `json:"min_speed"`        // minimum speed filter
+	Histogram      bool    `json:"histogram"`        // whether to generate histogram
+	HistBucketSize float64 `json:"hist_bucket_size"` // histogram bucket size
+	HistMax        float64 `json:"hist_max"`         // histogram max value
+
+	// These can be overridden if site_id is not provided
+	Location         string  `json:"location"`           // site location
+	Surveyor         string  `json:"surveyor"`           // surveyor name
+	Contact          string  `json:"contact"`            // contact info
+	SpeedLimit       int     `json:"speed_limit"`        // posted speed limit
+	SiteDescription  string  `json:"site_description"`   // site description
+	CosineErrorAngle float64 `json:"cosine_error_angle"` // radar mounting angle
+}
+
+func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	// Parse the JSON request body
+	var req ReportRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
+		return
+	}
+
+	// Validate required fields
+	if req.StartDate == "" || req.EndDate == "" {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusBadRequest, "start_date and end_date are required")
+		return
+	}
+
+	// Load site data if site_id is provided
+	var site *db.Site
+	if req.SiteID != nil {
+		var err error
+		site, err = s.db.GetSite(*req.SiteID)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Failed to load site: %v", err))
+			return
+		}
+	}
+
+	// Set defaults from site or fallback values
+	if req.Timezone == "" {
+		req.Timezone = "UTC"
+	}
+	if req.Units == "" {
+		req.Units = "mph"
+	}
+	if req.Group == "" {
+		req.Group = "1h"
+	}
+	if req.Source == "" {
+		req.Source = "radar_data_transits"
+	}
+	if req.HistBucketSize == 0 {
+		req.HistBucketSize = 5.0
+	}
+
+	// Use site data if available, otherwise use request data or defaults
+	location := req.Location
+	surveyor := req.Surveyor
+	contact := req.Contact
+	speedLimit := req.SpeedLimit
+	siteDescription := req.SiteDescription
+	speedLimitNote := ""
+	cosineErrorAngle := req.CosineErrorAngle
+
+	if site != nil {
+		location = site.Location
+		surveyor = site.Surveyor
+		contact = site.Contact
+		speedLimit = site.SpeedLimit
+		if site.SiteDescription != nil {
+			siteDescription = *site.SiteDescription
+		}
+		if site.SpeedLimitNote != nil {
+			speedLimitNote = *site.SpeedLimitNote
+		}
+		cosineErrorAngle = site.CosineErrorAngle
+	}
+
+	// Apply final defaults if still empty
+	if location == "" {
+		location = "Survey Location"
+	}
+	if surveyor == "" {
+		surveyor = "Surveyor"
+	}
+	if contact == "" {
+		contact = "contact@example.com"
+	}
+	if speedLimit == 0 {
+		speedLimit = 25
+	}
+	if cosineErrorAngle == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusBadRequest, "cosine_error_angle is required (either from site or in request)")
+		return
+	}
+
+	// Create unique run ID for organized output folders
+	// Include nanoseconds to ensure uniqueness under concurrent load
+	now := time.Now()
+	runID := fmt.Sprintf("%s-%d", now.Format("20060102-150405"), now.Nanosecond())
+	outputDir := fmt.Sprintf("output/%s", runID)
+
+	// Create a config JSON for the PDF generator
+	// Note: Not setting file_prefix - let Python auto-generate from source + date range
+	config := map[string]interface{}{
+		"query": map[string]interface{}{
+			"start_date":       req.StartDate,
+			"end_date":         req.EndDate,
+			"timezone":         req.Timezone,
+			"group":            req.Group,
+			"units":            req.Units,
+			"source":           req.Source,
+			"min_speed":        req.MinSpeed,
+			"histogram":        req.Histogram,
+			"hist_bucket_size": req.HistBucketSize,
+			"hist_max":         req.HistMax,
+		},
+		"site": map[string]interface{}{
+			"location":         location,
+			"surveyor":         surveyor,
+			"contact":          contact,
+			"speed_limit":      speedLimit,
+			"site_description": siteDescription,
+			"speed_limit_note": speedLimitNote,
+		},
+		"radar": map[string]interface{}{
+			"cosine_error_angle": cosineErrorAngle,
+		},
+		"output": map[string]interface{}{
+			"output_dir": outputDir,
+			"debug":      s.debugMode,
+		},
+	}
+
+	// Write config to a temporary file
+	// Use nanoseconds to ensure unique filename under concurrent requests
+	configFile := filepath.Join(os.TempDir(), fmt.Sprintf("report_config_%d.json", now.UnixNano()))
+	configData, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to marshal config: %v", err))
+		return
+	}
+	if err := os.WriteFile(configFile, configData, 0644); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to write config file: %v", err))
+		return
+	}
+	// Log the config file and speed_limit_note so we can inspect what is passed to the
+	// Python generator in production/debug runs. For tests we preserve the file when
+	// PDF_GENERATOR_PYTHON is set so the test can inspect the JSON the server wrote.
+	log.Printf("Report config written: %s (site.speed_limit_note=%q)", configFile, speedLimitNote)
+	if os.Getenv("PDF_GENERATOR_PYTHON") == "" {
+		defer os.Remove(configFile) // Clean up after execution in normal runs
+	} else {
+		log.Printf("Preserving config file for test inspection: %s", configFile)
+	}
+
+	// Get the repository root (assuming we're running from the repo root)
+	repoRoot, err := os.Getwd()
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get working directory: %v", err))
+		return
+	}
+
+	// Path to the PDF generator - allow overriding the python binary via
+	// PDF_GENERATOR_PYTHON for tests or deployment customization.
+	// Default location (repo/tools/pdf-generator/.venv/bin/python) is used when
+	// the env var is unset.
+	pdfDir := filepath.Join(repoRoot, "tools", "pdf-generator")
+	defaultPythonBin := filepath.Join(pdfDir, ".venv", "bin", "python")
+
+	pythonBin := os.Getenv("PDF_GENERATOR_PYTHON")
+	if pythonBin == "" {
+		pythonBin = defaultPythonBin
+		// Check if python binary exists, fallback to system python if not
+		if _, err := os.Stat(pythonBin); os.IsNotExist(err) {
+			pythonBin = "python3"
+			log.Printf("PDF generator venv not found, using system python3")
+		}
+	} else {
+		log.Printf("Using overridden PDF generator python: %s", pythonBin)
+	}
+
+	// Execute the PDF generator
+	cmd := exec.Command(
+		pythonBin,
+		"-m", "pdf_generator.cli.main",
+		configFile,
+	)
+	cmd.Dir = pdfDir
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("PDF generation failed: %v\nOutput: %s", err, string(output))
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("PDF generation failed: %v", err))
+		return
+	}
+
+	// Python auto-generates filename as: {source}_{start_date}_to_{end_date}_report.pdf
+	pdfFilename := fmt.Sprintf("%s_%s_to_%s_report.pdf", req.Source, req.StartDate, req.EndDate)
+
+	// Python also generates a ZIP with sources: {source}_{start_date}_to_{end_date}_sources.zip
+	zipFilename := fmt.Sprintf("%s_%s_to_%s_sources.zip", req.Source, req.StartDate, req.EndDate)
+
+	// Store relative paths from pdf-generator directory
+	relativePdfPath := filepath.Join(outputDir, pdfFilename)
+	relativeZipPath := filepath.Join(outputDir, zipFilename)
+
+	// Create report record in database
+	siteID := 0
+	if req.SiteID != nil {
+		siteID = *req.SiteID
+	}
+
+	report := &db.SiteReport{
+		SiteID:      siteID,
+		StartDate:   req.StartDate,
+		EndDate:     req.EndDate,
+		Filepath:    relativePdfPath,
+		Filename:    pdfFilename,
+		ZipFilepath: &relativeZipPath,
+		ZipFilename: &zipFilename,
+		RunID:       runID,
+		Timezone:    req.Timezone,
+		Units:       req.Units,
+		Source:      req.Source,
+	}
+
+	if err := s.db.CreateSiteReport(report); err != nil {
+		log.Printf("Failed to create report record: %v", err)
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to create report record")
+		return
+	}
+
+	// Return report ID instead of streaming file
+	w.Header().Set("Content-Type", "application/json")
+	response := map[string]interface{}{
+		"success":   true,
+		"report_id": report.ID,
+		"message":   "Report generated successfully",
+	}
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode response")
+		return
+	}
+
+	log.Printf("Successfully generated PDF report (ID: %d): %s", report.ID, pdfFilename)
+}
+
+// handleReports routes report-related requests to appropriate handlers
+func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Parse the path to extract ID and action
+	// URL formats:
+	//   /api/reports - list all recent reports
+	//   /api/reports/123 - get report metadata
+	//   /api/reports/123/download - download PDF file
+	//   /api/reports/site/456 - list reports for site 456
+	path := strings.TrimPrefix(r.URL.Path, "/api/reports")
+	path = strings.Trim(path, "/")
+
+	// List all recent reports
+	if path == "" && r.Method == http.MethodGet {
+		s.listAllReports(w, r)
+		return
+	}
+
+	// Handle /api/reports/site/{siteID}
+	if strings.HasPrefix(path, "site/") {
+		siteIDStr := strings.TrimPrefix(path, "site/")
+		siteID, err := strconv.Atoi(siteIDStr)
+		if err != nil {
+			s.writeJSONError(w, http.StatusBadRequest, "Invalid site ID")
+			return
+		}
+		if r.Method == http.MethodGet {
+			s.listSiteReports(w, r, siteID)
+		} else {
+			s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		}
+		return
+	}
+
+	// Parse report ID and action
+	parts := strings.Split(path, "/")
+	if len(parts) == 0 {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid request path")
+		return
+	}
+
+	reportID, err := strconv.Atoi(parts[0])
+	if err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid report ID")
+		return
+	}
+
+	// Handle download action with optional file type (pdf or zip)
+	if len(parts) == 2 && parts[1] == "download" {
+		if r.Method == http.MethodGet {
+			// Check for file_type query parameter (defaults to "pdf")
+			fileType := r.URL.Query().Get("file_type")
+			if fileType == "" {
+				fileType = "pdf"
+			}
+			s.downloadReport(w, r, reportID, fileType)
+		} else {
+			s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		}
+		return
+	}
+
+	// Get report metadata or delete
+	switch r.Method {
+	case http.MethodGet:
+		s.getReport(w, r, reportID)
+	case http.MethodDelete:
+		s.deleteReport(w, r, reportID)
+	default:
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+	}
+}
+
+func (s *Server) listAllReports(w http.ResponseWriter, r *http.Request) {
+	reports, err := s.db.GetRecentReportsAllSites(15)
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve reports: %v", err))
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(reports); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode reports")
+		return
+	}
+}
+
+func (s *Server) listSiteReports(w http.ResponseWriter, r *http.Request, siteID int) {
+	reports, err := s.db.GetRecentReportsForSite(siteID, 5)
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve reports: %v", err))
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(reports); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode reports")
+		return
+	}
+}
+
+func (s *Server) getReport(w http.ResponseWriter, r *http.Request, reportID int) {
+	report, err := s.db.GetSiteReport(reportID)
+	if err != nil {
+		if err.Error() == "report not found" {
+			s.writeJSONError(w, http.StatusNotFound, "Report not found")
+		} else {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve report: %v", err))
+		}
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(report); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode report")
+		return
+	}
+}
+
+func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, reportID int, fileType string) {
+	// Validate file type
+	if fileType != "pdf" && fileType != "zip" {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid file_type parameter. Must be 'pdf' or 'zip'")
+		return
+	}
+
+	// Get report metadata from database
+	report, err := s.db.GetSiteReport(reportID)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		if err.Error() == "report not found" {
+			s.writeJSONError(w, http.StatusNotFound, "Report not found")
+		} else {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve report: %v", err))
+		}
+		return
+	}
+
+	// Get the repository root
+	repoRoot, err := os.Getwd()
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to get working directory")
+		return
+	}
+
+	// Determine which file to serve based on file_type
+	var filePath, filename, contentType string
+	pdfDir := filepath.Join(repoRoot, "tools", "pdf-generator")
+
+	if fileType == "zip" {
+		// Check if ZIP file exists
+		if report.ZipFilepath == nil || *report.ZipFilepath == "" {
+			w.Header().Set("Content-Type", "application/json")
+			s.writeJSONError(w, http.StatusNotFound, "ZIP file not available for this report")
+			return
+		}
+		filePath = filepath.Join(pdfDir, *report.ZipFilepath)
+		filename = *report.ZipFilename
+		contentType = "application/zip"
+	} else {
+		// Default to PDF
+		filePath = filepath.Join(pdfDir, report.Filepath)
+		filename = report.Filename
+		contentType = "application/pdf"
+	}
+
+	// Validate path is within pdf-generator directory (security check)
+	cleanPath := filepath.Clean(filePath)
+	if !strings.HasPrefix(cleanPath, pdfDir) {
+		log.Printf("Security: attempted path traversal to %s", filePath)
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusForbidden, "Invalid file path")
+		return
+	}
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		log.Printf("File not found at path: %s", filePath)
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("%s file not found", strings.ToUpper(fileType)))
+		return
+	}
+
+	// Read the file
+	fileData, err := os.ReadFile(filePath)
+	if err != nil {
+		log.Printf("Failed to read file: %v", err)
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to read %s file", fileType))
+		return
+	}
+
+	// Set headers for file download
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(fileData)))
+
+	// Stream the file to the client
+	if _, err := w.Write(fileData); err != nil {
+		log.Printf("Failed to write file to response: %v", err)
+		return
+	}
+
+	log.Printf("Successfully downloaded %s file (ID: %d): %s", strings.ToUpper(fileType), reportID, filename)
+}
+
+func (s *Server) deleteReport(w http.ResponseWriter, r *http.Request, reportID int) {
+	if err := s.db.DeleteSiteReport(reportID); err != nil {
+		if err.Error() == "report not found" {
+			s.writeJSONError(w, http.StatusNotFound, "Report not found")
+		} else {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to delete report: %v", err))
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // Start launches the HTTP server and blocks until the provided context is done
 // or the server returns an error. It installs the same static file and SPA
 // handlers used previously in the cmd/radar binary.
@@ -431,6 +1085,9 @@ func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 // will be preserved and served. This avoids losing preconfigured routes when
 // starting the server.
 func (s *Server) Start(ctx context.Context, listen string, devMode bool) error {
+	// Store debug mode for use in handlers
+	s.debugMode = devMode
+
 	mux := s.ServeMux()
 
 	// read static files from the embedded filesystem in production or from

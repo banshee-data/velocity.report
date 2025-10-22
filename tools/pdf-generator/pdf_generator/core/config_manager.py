@@ -101,8 +101,8 @@ class QueryConfig:
 class OutputConfig:
     """Output file configuration."""
 
-    file_prefix: str = (
-        "velocity.report"  # Output file prefix (default: velocity.report)
+    file_prefix: Optional[str] = (
+        None  # Output file prefix (None = auto-generate from date range)
     )
     output_dir: str = "."  # Output directory
     run_id: Optional[str] = None  # Unique run identifier (from Go server)

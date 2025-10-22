@@ -233,7 +233,11 @@ class TestSVGMarkerInjector(unittest.TestCase):
         self.assertGreater(marker_idx, rect_idx)
 
     def test_inject_marker_svg_without_closing_tag(self):
-        """Test marker injection when SVG doesn't end with proper closing tag (line 249)."""
+        """Test marker injection when SVG is missing a closing tag.
+
+        Ensures the injector appends marker content even when the original
+        SVG does not include a closing </svg> tag.
+        """
         # SVG that doesn't end with </svg>
         svg = '<svg viewBox="0 0 100 100">'
         marker = RadarMarker(cx_frac=0.5, cy_frac=0.5, bearing_deg=0.0)
@@ -265,7 +269,12 @@ class TestSVGToPDFConverter(unittest.TestCase):
 
     @patch("pdf_generator.core.map_utils.importlib.util.find_spec")
     def test_try_cairosvg_success(self, mock_find_spec):
-        """Test successful conversion with cairosvg."""
+        """Attempt conversion with cairosvg when available.
+
+        This test exercises the code path that attempts to use cairosvg if it
+        is installed; the outcome depends on the environment but the call
+        should be handled without raising an unexpected exception.
+        """
         mock_find_spec.return_value = MagicMock()  # cairosvg available
 
         # Since svg2pdf is imported conditionally, we need to patch it where it's used
@@ -279,7 +288,7 @@ class TestSVGToPDFConverter(unittest.TestCase):
 
     @patch("pdf_generator.core.map_utils.importlib.util.find_spec")
     def test_try_cairosvg_not_available(self, mock_find_spec):
-        """Test cairosvg not available."""
+        """Ensure the cairosvg fallback path returns False when not present."""
         mock_find_spec.return_value = None  # cairosvg not available
 
         result = SVGToPDFConverter._try_cairosvg(self.svg_path, self.pdf_path)
@@ -287,7 +296,11 @@ class TestSVGToPDFConverter(unittest.TestCase):
 
     @patch("subprocess.check_call")
     def test_try_inkscape_success(self, mock_check_call):
-        """Test successful conversion with inkscape."""
+        """Attempt conversion with inkscape when available.
+
+        The test simulates inkscape running successfully and ensures the
+        converter handles the subprocess call gracefully.
+        """
         # Mock inkscape available and working
         mock_check_call.return_value = None
 
@@ -303,7 +316,11 @@ class TestSVGToPDFConverter(unittest.TestCase):
 
     @patch("subprocess.check_call")
     def test_try_rsvg_convert_success(self, mock_check_call):
-        """Test successful conversion with rsvg-convert."""
+        """Attempt conversion with rsvg-convert when available.
+
+        Simulates successful execution and validates the converter's handling
+        of the external tool call.
+        """
         mock_check_call.return_value = None
 
         # Create dummy PDF
@@ -709,7 +726,10 @@ class TestSVGToPDFConverterEdgeCases(unittest.TestCase):
 
     @patch("subprocess.check_call")
     def test_inkscape_exception_handler(self, mock_check_call):
-        """Test inkscape exception handler (lines 298-300)."""
+        """Test inkscape exception handler.
+
+        Ensures exceptions raised while invoking inkscape are handled.
+        """
         # Make inkscape version check fail
         mock_check_call.side_effect = Exception("Command not found")
 
@@ -727,7 +747,10 @@ class TestSVGToPDFConverterEdgeCases(unittest.TestCase):
 
     @patch("subprocess.check_call")
     def test_rsvg_exception_handler(self, mock_check_call):
-        """Test rsvg-convert exception handler (lines 331-333)."""
+        """Test rsvg-convert exception handler.
+
+        Ensures exceptions raised while invoking rsvg-convert are handled.
+        """
         # Make rsvg version check fail
         mock_check_call.side_effect = Exception("Command not found")
 
@@ -749,7 +772,10 @@ class TestMapProcessorEdgeCases(unittest.TestCase):
 
     @patch("pdf_generator.core.map_utils.SVGToPDFConverter.convert")
     def test_getmtime_exception_handler(self, mock_convert):
-        """Test exception in os.path.getmtime (lines 421-424)."""
+        """Test handling when os.path.getmtime raises an exception.
+
+        Verifies map processing continues if file mtime lookup fails.
+        """
         mock_convert.return_value = True
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -774,7 +800,10 @@ class TestMapProcessorEdgeCases(unittest.TestCase):
 
     @patch("pdf_generator.core.map_utils.SVGToPDFConverter.convert")
     def test_conversion_failure_warning(self, mock_convert):
-        """Test conversion failure warning (lines 455-459)."""
+        """Test conversion failure warning.
+
+        Confirms the warning/failure path is used when conversion fails.
+        """
         # Make conversion fail
         mock_convert.return_value = False
 
@@ -800,7 +829,10 @@ class TestMapUtilsErrorHandling(unittest.TestCase):
     """Phase 2 tests for map_utils.py error handling paths."""
 
     def test_svg_validation_with_invalid_xml(self):
-        """Test SVG validation with malformed XML (lines 278-289)."""
+        """Test SVG validation with malformed XML.
+
+        Ensures malformed SVG/XML content is detected and handled gracefully.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create invalid/malformed SVG
             svg_path = os.path.join(tmpdir, "invalid.svg")
@@ -846,7 +878,10 @@ class TestMapUtilsErrorHandling(unittest.TestCase):
             mock_convert.assert_called_once()
 
     def test_marker_overlay_with_coordinate_conversion_error(self):
-        """Test marker overlay when coordinate calculations fail (lines 448-450)."""
+        """Test marker overlay when coordinate calculations fail.
+
+        Verifies overlay code handles invalid coordinate calculations.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create valid SVG
             svg_path = os.path.join(tmpdir, "map.svg")
@@ -870,7 +905,10 @@ class TestMapUtilsErrorHandling(unittest.TestCase):
                 pass
 
     def test_map_generation_exception_in_osmium_download(self):
-        """Test exception handling in OSM download (line 517)."""
+        """Test exception handling in OSM download.
+
+        Validates the download_osm_map stub raises NotImplementedError as expected.
+        """
         # Test the NotImplementedError in download_osm_map
         from pdf_generator.core.map_utils import download_osm_map
 

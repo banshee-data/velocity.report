@@ -59,10 +59,8 @@ PRAGMA busy_timeout = 5000;
 -- repeated CTEs and allows linking to radar_objects without modifying raw data.
    CREATE TABLE IF NOT EXISTS radar_data_transits (
           transit_id INTEGER PRIMARY KEY AUTOINCREMENT
-        , transit_key TEXT NOT NULL UNIQUE -- stable key for idempotent upserts
-
-        , threshold_ms INTEGER NOT NULL -- sessionization threshold used (1000,2000,...)
-
+        , transit_key TEXT NOT NULL UNIQUE
+        , threshold_ms INTEGER NOT NULL
         , transit_start_unix DOUBLE NOT NULL
         , transit_end_unix DOUBLE NOT NULL
         , transit_max_speed DOUBLE NOT NULL
@@ -70,8 +68,7 @@ PRAGMA busy_timeout = 5000;
         , transit_max_magnitude BIGINT
         , transit_min_magnitude BIGINT
         , point_count INTEGER NOT NULL
-        , model_version TEXT -- version/id of the model run that created this grouping
-
+        , model_version TEXT
         , created_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
         , updated_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
           );
@@ -86,8 +83,7 @@ CREATE INDEX IF NOT EXISTS idx_transits_time ON radar_data_transits (transit_sta
           link_id INTEGER PRIMARY KEY AUTOINCREMENT
         , transit_id INTEGER NOT NULL REFERENCES radar_data_transits (transit_id) ON DELETE CASCADE
         , data_rowid INTEGER NOT NULL REFERENCES radar_data (rowid) ON DELETE CASCADE
-        , link_score DOUBLE -- optional score for match confidence
-
+        , link_score DOUBLE
         , created_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
         , UNIQUE (transit_id, data_rowid)
           );
@@ -95,6 +91,84 @@ CREATE INDEX IF NOT EXISTS idx_transits_time ON radar_data_transits (transit_sta
 CREATE INDEX IF NOT EXISTS idx_transit_links_transit ON radar_transit_links (transit_id);
 
 CREATE INDEX IF NOT EXISTS idx_transit_links_data ON radar_transit_links (data_rowid);
+
+-- Site configuration table for storing location information, radar configuration, and report settings
+   CREATE TABLE IF NOT EXISTS site (
+          id INTEGER PRIMARY KEY AUTOINCREMENT
+        , name TEXT NOT NULL UNIQUE
+        , location TEXT NOT NULL
+        , description TEXT
+        , cosine_error_angle REAL NOT NULL
+        , speed_limit INTEGER DEFAULT 25
+        , surveyor TEXT NOT NULL
+        , contact TEXT NOT NULL
+        , address TEXT
+        , latitude REAL
+        , longitude REAL
+        , map_angle REAL
+        , include_map INTEGER DEFAULT 0
+        , site_description TEXT
+        , speed_limit_note TEXT
+        , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+        , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+          );
+
+CREATE INDEX IF NOT EXISTS idx_site_name ON site (name);
+
+-- Create trigger to update updated_at timestamp
+CREATE TRIGGER IF NOT EXISTS update_site_timestamp AFTER
+   UPDATE ON site BEGIN
+   UPDATE site
+      SET updated_at = STRFTIME('%s', 'now')
+    WHERE id = NEW.id;
+
+END;
+
+-- Insert a default site for existing installations
+   INSERT OR IGNORE INTO site (
+          name
+        , location
+        , description
+        , cosine_error_angle
+        , speed_limit
+        , surveyor
+        , contact
+        , site_description
+          )
+   VALUES (
+          'Default Location'
+        , 'Survey Location'
+        , 'Default site configuration'
+        , 0.5
+        , 25
+        , 'Sir Veyor'
+        , 'example@velocity.report'
+        , 'Default site for radar velocity surveys'
+          );
+
+-- Create site_reports table to track generated PDF reports
+   CREATE TABLE IF NOT EXISTS site_reports (
+          id INTEGER PRIMARY KEY AUTOINCREMENT
+        , site_id INTEGER NOT NULL DEFAULT 0
+        , start_date TEXT NOT NULL
+        , end_date TEXT NOT NULL
+        , filepath TEXT NOT NULL
+        , filename TEXT NOT NULL
+        , zip_filepath TEXT
+        , zip_filename TEXT
+        , run_id TEXT NOT NULL
+        , timezone TEXT NOT NULL
+        , units TEXT NOT NULL
+        , source TEXT NOT NULL
+        , created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        , FOREIGN KEY (site_id) REFERENCES site (id) ON DELETE CASCADE
+          );
+
+-- Index for fast lookups by site
+CREATE INDEX IF NOT EXISTS idx_site_reports_site_id ON site_reports (site_id);
+
+-- Index for ordering by creation time
+CREATE INDEX IF NOT EXISTS idx_site_reports_created_at ON site_reports (created_at DESC);
 
 -- Append LiDAR schema (background snapshots, clusters, tracks) from internal/lidar/lidardb/schema.sql
 -- This keeps a single unified schema for both radar and lidar features.

@@ -36,4 +36,20 @@
       ]
     }
   ],
+  // Python settings
+  "python.defaultInterpreterPath": "./tools/pdf-generator/.venv/bin/python",
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": [
+    "pdf_generator/tests",
+    "-v",
+    "--strict-markers"
+  ],
+  "python.testing.cwd": "${workspaceFolder}/tools/pdf-generator",
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "always"
+    }
+  },
 }

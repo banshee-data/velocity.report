@@ -252,7 +252,11 @@ class TestChartSaverIOErrors(unittest.TestCase):
         self.assertFalse(result)
 
     def test_cleanup_error_handling(self):
-        """Test that cleanup errors don't break the function (lines 158-160)."""
+        """Test that cleanup errors don't break the function.
+
+        Ensures cleanup exceptions are swallowed or handled so the saver continues
+        to behave gracefully when cleanup utilities fail.
+        """
         fig = MagicMock()
         fig.canvas = MagicMock()
         output_path = os.path.join(self.temp_dir, "chart.pdf")
@@ -272,7 +276,10 @@ class TestChartSaverIOErrors(unittest.TestCase):
                     self.fail("Cleanup error was not caught")
 
     def test_resize_figure_error_recovery(self):
-        """Test that figure resize errors are handled gracefully (lines 96-119)."""
+        """Test that figure resize errors are handled gracefully.
+
+        Verifies the saver falls back safely when resizing operations error.
+        """
         fig = MagicMock()
         fig.canvas = MagicMock()
         output_path = os.path.join(self.temp_dir, "chart.pdf")
@@ -287,7 +294,10 @@ class TestChartSaverIOErrors(unittest.TestCase):
         self.assertIsNotNone(result)
 
     def test_tight_bbox_none_handling(self):
-        """Test handling when tight_bbox returns None (lines 100-105)."""
+        """Test handling when tight_bbox returns None.
+
+        Ensures the saver does not crash if the bounding box is not available.
+        """
         fig = MagicMock()
         fig.canvas = MagicMock()
         fig.canvas.draw = MagicMock()
@@ -302,7 +312,10 @@ class TestChartSaverIOErrors(unittest.TestCase):
         self.assertIsNotNone(result)
 
     def test_invalid_dimensions_handling(self):
-        """Test handling of invalid (zero/negative) dimensions (lines 113-115)."""
+        """Test handling of invalid (zero/negative) dimensions.
+
+        Confirms negative or zero sizes are detected and handled without exception.
+        """
         fig = MagicMock()
         fig.canvas = MagicMock()
         fig.canvas.draw = MagicMock()

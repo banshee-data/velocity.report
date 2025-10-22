@@ -221,7 +221,7 @@ class TestDependencyCheckerSuccessPaths(unittest.TestCase):
         with patch("sys.version_info", VersionInfo(3, 11, 0, "final", 0)):
             checker._check_python_version()
 
-        # Should have added a success result (line 98)
+        # Should have added a success result for Python Version
         results = [r for r in checker.results if r.name == "Python Version"]
         self.assertEqual(len(results), 1)
         self.assertTrue(results[0].available)
@@ -234,7 +234,7 @@ class TestDependencyCheckerSuccessPaths(unittest.TestCase):
         with patch.dict("os.environ", {"VIRTUAL_ENV": "/path/to/venv"}):
             checker._check_venv()
 
-        # Should have added a success result (line 123)
+        # Should have added a success result for Virtual Environment
         results = [r for r in checker.results if r.name == "Virtual Environment"]
         self.assertEqual(len(results), 1)
         self.assertTrue(results[0].available)
@@ -259,7 +259,7 @@ class TestDependencyCheckerSuccessPaths(unittest.TestCase):
         sys.stdout = io.StringIO()
 
         try:
-            # Lines 281-283: Warning path returns True
+            # Warning path returns True when only non-critical items are missing
             result = checker.print_results()
 
             output = sys.stdout.getvalue()
@@ -290,7 +290,7 @@ class TestDependencyCheckerSuccessPaths(unittest.TestCase):
         sys.stdout = io.StringIO()
 
         try:
-            # Line 284: All OK path
+            # All-OK path should return True when dependencies are present
             result = checker.print_results()
 
             output = sys.stdout.getvalue()

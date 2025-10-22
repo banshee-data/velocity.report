@@ -58,6 +58,10 @@ Notes about this repository's migrations
   the old table to `data_old`, and moving the new table into place.
 - The migration intentionally leaves `data_old` in place so you can verify
   results before dropping it.
+- The migration `20251014_create_site_table.sql` creates the `site` table for
+  storing site-specific configurations including location, radar settings, and
+  contact information. It also creates an index on site.name, a trigger to
+  auto-update timestamps, and inserts a default site record.
 
 If you want me to add a tiny shell helper (e.g. `scripts/run-data-migration.sh`)
 that performs backup + migration + basic verification, tell me the desired

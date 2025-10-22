@@ -476,7 +476,11 @@ class TestImportFallbacks(unittest.TestCase):
 
 
 class TestHistogramEdgeCases(unittest.TestCase):
-    """Phase 2 tests for histogram table edge cases (lines 524-551)."""
+    """Phase 2 tests for histogram table edge cases.
+
+    Tests exercise histogram table behavior for edge conditions such as
+    empty histograms, single buckets, and cutoff boundary conditions.
+    """
 
     def setUp(self):
         """Set up test fixtures."""
