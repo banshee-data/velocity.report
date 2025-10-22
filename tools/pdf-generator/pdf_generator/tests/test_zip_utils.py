@@ -2,9 +2,11 @@
 """Tests for ZIP utilities module."""
 
 import os
+import subprocess
+import sys
+import tempfile
 import unittest
 import unittest.mock
-import tempfile
 import zipfile
 
 from pdf_generator.core.zip_utils import (
@@ -516,8 +518,6 @@ class TestPortableTexCompilation(unittest.TestCase):
 
         This test requires pdflatex to be installed and will be skipped if not available.
         """
-        import subprocess
-        import sys
 
         # Check if pdflatex is available
         try:
