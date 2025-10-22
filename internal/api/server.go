@@ -698,7 +698,9 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create unique run ID for organized output folders
-	runID := time.Now().Format("20060102-150405")
+	// Include nanoseconds to ensure uniqueness under concurrent load
+	now := time.Now()
+	runID := fmt.Sprintf("%s-%d", now.Format("20060102-150405"), now.Nanosecond())
 	outputDir := fmt.Sprintf("output/%s", runID)
 
 	// Create a config JSON for the PDF generator
@@ -734,7 +736,8 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write config to a temporary file
-	configFile := filepath.Join(os.TempDir(), fmt.Sprintf("report_config_%d.json", time.Now().Unix()))
+	// Use nanoseconds to ensure unique filename under concurrent requests
+	configFile := filepath.Join(os.TempDir(), fmt.Sprintf("report_config_%d.json", now.UnixNano()))
 	configData, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
