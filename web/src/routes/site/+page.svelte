@@ -104,7 +104,7 @@
 						</tr>
 					</thead>
 					<tbody>
-						{#each sites as site}
+						{#each sites as site (site.id)}
 							<tr class="border-surface-content/10 border-t">
 								<th scope="row" class="py-4 font-medium">{site.name}</th>
 								<td class="py-4">{site.location}</td>
