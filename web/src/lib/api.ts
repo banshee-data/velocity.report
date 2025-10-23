@@ -38,6 +38,12 @@ type RawRadarStats = {
 // (formatted numbers) and values are counts.
 export type Histogram = Record<string, number>;
 
+// Response from getRadarStats
+export interface RadarStatsResponse {
+	metrics: RadarStats[];
+	histogram?: Histogram;
+}
+
 export interface Config {
 	units: string;
 	timezone: string;
@@ -66,7 +72,7 @@ export async function getRadarStats(
 	units?: string,
 	timezone?: string,
 	source?: string
-): Promise<{ metrics: RadarStats[]; histogram?: Histogram }> {
+): Promise<RadarStatsResponse> {
 	const url = new URL(`${API_BASE}/radar_stats`, window.location.origin);
 	url.searchParams.append('start', start.toString());
 	url.searchParams.append('end', end.toString());

@@ -23,6 +23,7 @@
 		getSites,
 		type Config,
 		type RadarStats,
+		type RadarStatsResponse,
 		type Site,
 		type SiteReport
 	} from '../lib/api';
@@ -99,7 +100,7 @@
 	let lastSource = '';
 	let initialized = false;
 	// Cache the last raw stats response
-	let lastStatsRaw: any | null = null;
+	let lastStatsRaw: RadarStatsResponse | null = null;
 	let lastStatsRequestKey = '';
 
 	$: if (initialized && browser && dateRange.from && dateRange.to) {
@@ -224,7 +225,7 @@
 		let arr: RadarStats[];
 		if (lastStatsRaw && requestKey === lastStatsRequestKey) {
 			// reuse cached stats response (it may be the root object)
-			const cached = lastStatsRaw as any;
+			const cached = lastStatsRaw as RadarStatsResponse;
 			arr = Array.isArray(cached) ? cached : cached.metrics || [];
 			if (browser) console.debug('[dashboard] reusing cached stats for chart');
 		} else {
