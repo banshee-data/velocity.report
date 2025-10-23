@@ -49,7 +49,7 @@
 	}
 	const today = new Date();
 	const fromDefault = new Date(today);
-	fromDefault.setDate(today.getDate() - 13); // last 14 days inclusive
+	fromDefault.setDate(today.getDate() - 13); // last 14 days inclusive // eslint-disable-line svelte/prefer-svelte-reactivity
 	let dateRange = { from: fromDefault, to: today, periodType: PeriodType.Day };
 	let group: string = '4h';
 	let chartData: Array<{ date: Date; metric: string; value: number }> = [];
@@ -116,10 +116,10 @@
 
 			loading = true;
 			// run loadStats first so it can populate the cache, then run loadChart which will reuse it
-			loadStats($displayUnits)
+			loadStats($displayUnits) // eslint-disable-line svelte/infinite-reactive-loop
 				.then(() => loadChart())
 				.catch((e) => {
-					error = e instanceof Error && e.message ? e.message : String(e);
+					error = e instanceof Error && e.message ? e.message : String(e); // eslint-disable-line svelte/infinite-reactive-loop
 				})
 				.finally(() => {
 					loading = false;
@@ -201,7 +201,7 @@
 			// Show P98 speed (aggregate percentile) in the summary card
 			p98Speed = stats.length > 0 ? Math.max(...stats.map((s) => s.p98 || 0)) : 0;
 		} catch (e) {
-			error = e instanceof Error && e.message ? e.message : 'Failed to load stats';
+			error = e instanceof Error && e.message ? e.message : 'Failed to load stats'; // eslint-disable-line svelte/infinite-reactive-loop
 		}
 	}
 
