@@ -42,17 +42,23 @@ jobs:
         uses: pnpm/action-setup@v4
 
       - name: Get pnpm store directory
+        id: get-pnpm-store
         shell: bash
         run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+          echo "store_path=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
 
       - name: Setup pnpm cache
         uses: actions/cache@v4
         with:
-          path: ${{ env.STORE_PATH }}
+          path: ${{ steps.get-pnpm-store.outputs.store_path }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
+
+      - name: Export STORE_PATH to GITHUB_ENV
+        shell: bash
+        run: |
+          echo "STORE_PATH=${{ steps.get-pnpm-store.outputs.store_path }}" >> $GITHUB_ENV
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
