@@ -25,7 +25,7 @@ describe('timezone', () => {
     it('should include key timezones', () => {
       const values = AVAILABLE_TIMEZONES.map((tz) => tz.value);
       expect(values).toContain('America/New_York');
-      expect(values).toContain('Europe/London');
+      expect(values).toContain('Europe/Dublin');
       expect(values).toContain('Asia/Singapore');
       expect(values).toContain('Pacific/Auckland');
     });
@@ -38,8 +38,8 @@ describe('timezone', () => {
 
   describe('getStoredTimezone', () => {
     it('should return stored timezone from localStorage', () => {
-      window.localStorage.setItem('display-timezone', 'Europe/London');
-      expect(getStoredTimezone()).toBe('Europe/London');
+      window.localStorage.setItem('velocity-report-timezone', 'Europe/Dublin');
+      expect(getStoredTimezone()).toBe('Europe/Dublin');
     });
 
     it('should return null when no timezone is stored', () => {
@@ -58,14 +58,14 @@ describe('timezone', () => {
   describe('setStoredTimezone', () => {
     it('should store timezone in localStorage', () => {
       setStoredTimezone('America/New_York');
-      expect(window.localStorage.getItem('display-timezone')).toBe('America/New_York');
+      expect(window.localStorage.getItem('velocity-report-timezone')).toBe('America/New_York');
     });
 
     it('should update existing stored timezone', () => {
       setStoredTimezone('Asia/Singapore');
-      expect(window.localStorage.getItem('display-timezone')).toBe('Asia/Singapore');
+      expect(window.localStorage.getItem('velocity-report-timezone')).toBe('Asia/Singapore');
       setStoredTimezone('Pacific/Auckland');
-      expect(window.localStorage.getItem('display-timezone')).toBe('Pacific/Auckland');
+      expect(window.localStorage.getItem('velocity-report-timezone')).toBe('Pacific/Auckland');
     });
 
     it('should handle SSR gracefully when window is undefined', () => {
@@ -79,62 +79,62 @@ describe('timezone', () => {
 
   describe('getDisplayTimezone', () => {
     it('should return stored timezone when available', () => {
-      window.localStorage.setItem('display-timezone', 'Asia/Seoul');
-      expect(getDisplayTimezone()).toBe('Asia/Seoul');
+      window.localStorage.setItem('velocity-report-timezone', 'Asia/Seoul');
+      expect(getDisplayTimezone('UTC')).toBe('Asia/Seoul');
     });
 
     it('should return default timezone (UTC) when no timezone is stored', () => {
-      expect(getDisplayTimezone()).toBe('UTC');
+      expect(getDisplayTimezone('UTC')).toBe('UTC');
     });
 
     it('should return default timezone when window is undefined (SSR)', () => {
       const originalWindow = global.window;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       delete (global as any).window;
-      expect(getDisplayTimezone()).toBe('UTC');
+      expect(getDisplayTimezone('UTC')).toBe('UTC');
       global.window = originalWindow;
     });
   });
 
   describe('getTimezoneLabel', () => {
     it('should return correct label for UTC', () => {
-      expect(getTimezoneLabel('UTC')).toBe('🌍 UTC (UTC)');
+      expect(getTimezoneLabel('UTC')).toBe('�🇳 UTC (+00:00)');
     });
 
     it('should return correct label for America/New_York', () => {
-      expect(getTimezoneLabel('America/New_York')).toBe('🇺🇸 New York (EST/EDT)');
+      expect(getTimezoneLabel('America/New_York')).toBe('🇺🇸 New York (-05:00/-04:00)');
     });
 
     it('should return correct label for Asia/Singapore', () => {
-      expect(getTimezoneLabel('Asia/Singapore')).toBe('🇸🇬 Singapore (SGT)');
+      expect(getTimezoneLabel('Asia/Singapore')).toBe('🇸🇬 Singapore (+08:00)');
     });
 
     it('should return correct label for Asia/Seoul', () => {
-      expect(getTimezoneLabel('Asia/Seoul')).toBe('🇰🇷 Seoul (KST)');
+      expect(getTimezoneLabel('Asia/Seoul')).toBe('🇰🇷 Seoul (+09:00)');
     });
 
     it('should return correct label for Pacific/Bougainville', () => {
-      expect(getTimezoneLabel('Pacific/Bougainville')).toBe('🇵🇬 Bougainville (BST)');
+      expect(getTimezoneLabel('Pacific/Bougainville')).toBe('🇵🇬 Bougainville (+11:00)');
     });
 
     it('should return correct label for Europe/Athens', () => {
-      expect(getTimezoneLabel('Europe/Athens')).toBe('🇬🇷 Athens (EET/EEST)');
+      expect(getTimezoneLabel('Europe/Athens')).toBe('🇬🇷 Athens (+02:00/+03:00)');
     });
 
     it('should return correct label for Africa/Lagos', () => {
-      expect(getTimezoneLabel('Africa/Lagos')).toBe('🇳🇬 Lagos (WAT)');
+      expect(getTimezoneLabel('Africa/Lagos')).toBe('🇳🇬 Lagos (+01:00)');
     });
 
     it('should return correct label for Africa/Abidjan', () => {
-      expect(getTimezoneLabel('Africa/Abidjan')).toBe('🇨🇮 Abidjan (GMT)');
+      expect(getTimezoneLabel('Africa/Abidjan')).toBe('🇨🇮 Abidjan (+00:00)');
     });
 
     it('should return correct label for America/Santiago', () => {
-      expect(getTimezoneLabel('America/Santiago')).toBe('🇨🇱 Santiago (CLT/CLST)');
+      expect(getTimezoneLabel('America/Santiago')).toBe('🇨🇱 Santiago (-04:00/-03:00)');
     });
 
     it('should return correct label for Atlantic/South_Georgia', () => {
-      expect(getTimezoneLabel('Atlantic/South_Georgia')).toBe('🇬🇸 South Georgia (GST)');
+      expect(getTimezoneLabel('Atlantic/South_Georgia')).toBe('🇬🇸 South Georgia (-02:00)');
     });
 
     it('should handle all timezones in AVAILABLE_TIMEZONES', () => {
