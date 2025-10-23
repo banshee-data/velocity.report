@@ -35,7 +35,8 @@ describe('api', () => {
 
       const result = await getEvents();
 
-      expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/events'));
+      const callUrl = (global.fetch as jest.Mock).mock.calls[0][0].toString();
+      expect(callUrl).toContain('/api/events');
       expect(result).toEqual(mockEvents);
     });
 
