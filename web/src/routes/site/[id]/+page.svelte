@@ -118,9 +118,9 @@
 			};
 
 			if (isNewSite) {
-				await createSite(siteData as any);
+				await createSite(siteData);
 			} else if (siteId) {
-				await updateSite(parseInt(siteId), siteData as any);
+				await updateSite(parseInt(siteId), siteData);
 			}
 
 			goto('/app/site');
