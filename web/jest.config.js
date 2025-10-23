@@ -32,6 +32,9 @@ export default {
     ]
   },
   moduleFileExtensions: ['js', 'ts', 'svelte'],
+  transformIgnorePatterns: [
+    'node_modules/(?!(svelte)/)'
+  ],
   collectCoverageFrom: [
     'src/lib/**/*.{ts,js}',
     '!src/lib/**/*.d.ts',
