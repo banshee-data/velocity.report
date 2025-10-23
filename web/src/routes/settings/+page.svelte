@@ -71,14 +71,15 @@
 
 <svelte:head>
 	<title>Settings 🚴 velocity.report</title>
+	<meta name="description" content="Manage your display preferences for units and timezone" />
 </svelte:head>
 
-<main class="space-y-6 p-4">
+<main id="main-content" class="space-y-6 p-4">
 	<Header title="Settings" subheading="Manage your application settings and preferences." />
 
 	{#if loading}
 		<Card>
-			<div class="p-4">
+			<div class="p-4" role="status" aria-live="polite">
 				<p>Loading settings...</p>
 			</div>
 		</Card>
@@ -118,7 +119,7 @@
 
 		{#if message}
 			<Card>
-				<div class="p-4">
+				<div class="p-4" role={message.includes('Failed') ? 'alert' : 'status'} aria-live="polite">
 					<p
 						class="text-sm"
 						class:text-green-600={message.includes('automatically')}
