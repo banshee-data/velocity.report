@@ -330,53 +330,11 @@
 			});
 
 			lastGeneratedReportId = response.report_id;
-			reportMessage = `Report generated successfully! Use the buttons below to download.`;
+			reportMessage = `Report generated successfully! Use the links below to download.`;
 		} catch (e) {
 			reportMessage = e instanceof Error ? e.message : 'Failed to generate report';
 		} finally {
 			generatingReport = false;
-		}
-	}
-
-	async function downloadPDF() {
-		if (!lastGeneratedReportId) return;
-
-		try {
-			const { downloadReport } = await import('$lib/api');
-			const { blob, filename } = await downloadReport(lastGeneratedReportId, 'pdf');
-
-			// Create a download link and trigger it
-			const url = window.URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = filename; // Use server-provided filename
-			document.body.appendChild(a);
-			a.click();
-			document.body.removeChild(a);
-			window.URL.revokeObjectURL(url);
-		} catch (e) {
-			reportMessage = e instanceof Error ? e.message : 'Failed to download PDF';
-		}
-	}
-
-	async function downloadSources() {
-		if (!lastGeneratedReportId) return;
-
-		try {
-			const { downloadReport } = await import('$lib/api');
-			const { blob, filename } = await downloadReport(lastGeneratedReportId, 'zip');
-
-			// Create a download link and trigger it
-			const url = window.URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = filename; // Use server-provided filename
-			document.body.appendChild(a);
-			a.click();
-			document.body.removeChild(a);
-			window.URL.revokeObjectURL(url);
-		} catch (e) {
-			reportMessage = e instanceof Error ? e.message : 'Failed to download sources';
 		}
 	}
 </script>
@@ -441,10 +399,20 @@
 			<div class="card space-y-3 p-4">
 				<h3 class="text-base font-semibold">Report Ready</h3>
 				<div class="flex gap-2">
-					<Button on:click={downloadPDF} variant="fill" color="secondary">📄 Download PDF</Button>
-					<Button on:click={downloadSources} variant="outline" color="secondary">
+					<a
+						href="/api/reports/{lastGeneratedReportId}/download?file_type=pdf"
+						class="bg-secondary-500 hover:bg-secondary-600 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white transition-colors"
+						download
+					>
+						📄 Download PDF
+					</a>
+					<a
+						href="/api/reports/{lastGeneratedReportId}/download?file_type=zip"
+						class="border-secondary-500 text-secondary-500 hover:bg-secondary-50 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:text-white"
+						download
+					>
 						📦 Download Sources (ZIP)
-					</Button>
+					</a>
 				</div>
 				<p class="text-surface-600-300-token text-xs">
 					The ZIP file contains LaTeX source files and chart PDFs for custom editing
