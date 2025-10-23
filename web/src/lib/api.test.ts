@@ -160,6 +160,15 @@ describe('api', () => {
       expect(global.fetch).toHaveBeenCalled();
       expect(result).toEqual(mockConfig);
     });
+
+    it('should handle errors when fetching config', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 500
+      });
+
+      await expect(getConfig()).rejects.toThrow('Failed to fetch config: 500');
+    });
   });
 
   describe('getSites', () => {
@@ -188,6 +197,15 @@ describe('api', () => {
 
       expect(global.fetch).toHaveBeenCalled();
       expect(result).toEqual(mockSites);
+    });
+
+    it('should handle errors when fetching sites', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 500
+      });
+
+      await expect(getSites()).rejects.toThrow('Failed to fetch sites: 500');
     });
   });
 
