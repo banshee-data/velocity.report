@@ -105,5 +105,10 @@ describe('units', () => {
         expect(typeof label).toBe('string');
       });
     });
+
+    it('should return the unit as-is for unknown units', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(getUnitLabel('unknown_unit' as any)).toBe('unknown_unit');
+    });
   });
 });
