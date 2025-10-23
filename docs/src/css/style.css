@@ -1,3 +1,53 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Syntax highlighting theme - matches GitHub style */
+@layer base {
+  /* Code blocks */
+  pre[class*="language-"] {
+    @apply rounded-lg shadow-sm border border-gray-200;
+  }
+
+  /* Inline code in prose */
+  .prose code {
+    @apply text-sm;
+  }
+
+  /* Header anchors */
+  .header-anchor {
+    @apply ml-2 text-gray-400 no-underline opacity-0 transition-opacity;
+  }
+
+  .prose h1:hover .header-anchor,
+  .prose h2:hover .header-anchor,
+  .prose h3:hover .header-anchor,
+  .prose h4:hover .header-anchor {
+    @apply opacity-100;
+  }
+}
+
+@layer components {
+  /* Custom button styles */
+  .btn-primary {
+    @apply bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors;
+  }
+
+  .btn-secondary {
+    @apply border-2 border-blue-600 text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors;
+  }
+
+  /* Feature card component */
+  .feature-card {
+    @apply bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow;
+  }
+
+  /* Navigation link active state */
+  .nav-link {
+    @apply text-gray-700 hover:text-blue-600 transition-colors;
+  }
+
+  .nav-link-active {
+    @apply text-blue-600 font-semibold;
+  }
+}
