@@ -5,12 +5,12 @@ permissions:
 on:
   push:
     paths:
-      - 'web/**'
-      - '.github/workflows/web-tests.yml'
+      - "web/**"
+      - ".github/workflows/web-tests.yml"
   pull_request:
     paths:
-      - 'web/**'
-      - '.github/workflows/web-tests.yml'
+      - "web/**"
+      - ".github/workflows/web-tests.yml"
 
 jobs:
   test:
@@ -31,12 +31,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
 
       - name: Get pnpm store directory
         shell: bash
