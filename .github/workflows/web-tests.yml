@@ -4,12 +4,11 @@ permissions:
 
 on:
   push:
-    branches:
-      - main
     paths:
       - "web/**"
       - ".github/workflows/web-tests.yml"
   pull_request:
+    types: [opened, reopened]
     paths:
       - "web/**"
       - ".github/workflows/web-tests.yml"
