@@ -1,11 +1,18 @@
 import {
+  createSite,
+  deleteReport,
+  deleteSite,
   downloadReport,
   generateReport,
   getConfig,
   getEvents,
   getRadarStats,
+  getRecentReports,
   getReport,
+  getReportsForSite,
+  getSite,
   getSites,
+  updateSite,
   type Config,
   type Event,
   type Site,
@@ -304,6 +311,343 @@ describe('api', () => {
       const result = await downloadReport(789, 'pdf');
 
       expect(result.filename).toBe('report.pdf');
+    });
+
+    it('should handle download errors', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 404
+      });
+
+      await expect(downloadReport(999, 'pdf')).rejects.toThrow('Failed to download report: 404');
+    });
+  });
+
+  describe('getRecentReports', () => {
+    it('should fetch recent reports', async () => {
+      const mockReports: SiteReport[] = [
+        {
+          id: 1,
+          site_id: 1,
+          start_date: '2025-01-01',
+          end_date: '2025-01-31',
+          filepath: '/path/to/report1.pdf',
+          filename: 'report1.pdf',
+          run_id: 'run-1',
+          timezone: 'UTC',
+          units: 'mph',
+          source: 'radar_data',
+          created_at: '2025-01-31T10:00:00Z'
+        },
+        {
+          id: 2,
+          site_id: 2,
+          start_date: '2025-02-01',
+          end_date: '2025-02-28',
+          filepath: '/path/to/report2.pdf',
+          filename: 'report2.pdf',
+          run_id: 'run-2',
+          timezone: 'America/New_York',
+          units: 'kph',
+          source: 'lidar_data',
+          created_at: '2025-02-28T10:00:00Z'
+        }
+      ];
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockReports
+      });
+
+      const result = await getRecentReports();
+
+      expect(global.fetch).toHaveBeenCalledWith('http://localhost:8080/api/reports');
+      expect(result).toEqual(mockReports);
+    });
+
+    it('should handle errors when fetching recent reports', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 500
+      });
+
+      await expect(getRecentReports()).rejects.toThrow('Failed to fetch reports: 500');
+    });
+  });
+
+  describe('getReportsForSite', () => {
+    it('should fetch reports for a specific site', async () => {
+      const mockReports: SiteReport[] = [
+        {
+          id: 1,
+          site_id: 123,
+          start_date: '2025-01-01',
+          end_date: '2025-01-31',
+          filepath: '/path/to/report.pdf',
+          filename: 'site123-report.pdf',
+          run_id: 'run-123',
+          timezone: 'UTC',
+          units: 'mph',
+          source: 'radar_data',
+          created_at: '2025-01-31T10:00:00Z'
+        }
+      ];
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockReports
+      });
+
+      const result = await getReportsForSite(123);
+
+      expect(global.fetch).toHaveBeenCalledWith('http://localhost:8080/api/reports/site/123');
+      expect(result).toEqual(mockReports);
+    });
+
+    it('should handle errors when fetching site reports', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 404
+      });
+
+      await expect(getReportsForSite(999)).rejects.toThrow('Failed to fetch site reports: 404');
+    });
+  });
+
+  describe('deleteReport', () => {
+    it('should delete a report', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true
+      });
+
+      await deleteReport(123);
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:8080/api/reports/123',
+        { method: 'DELETE' }
+      );
+    });
+
+    it('should handle errors when deleting a report', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 403
+      });
+
+      await expect(deleteReport(123)).rejects.toThrow('Failed to delete report: 403');
+    });
+  });
+
+  describe('getSite', () => {
+    it('should fetch a specific site', async () => {
+      const mockSite: Site = {
+        id: 1,
+        name: 'Test Site',
+        location: 'Test Location',
+        description: 'Test Description',
+        cosine_error_angle: 15,
+        speed_limit: 30,
+        surveyor: 'John Doe',
+        contact: 'john@example.com',
+        address: '123 Main St',
+        latitude: 51.5,
+        longitude: -0.1,
+        map_angle: 45,
+        include_map: true,
+        site_description: 'Site description',
+        speed_limit_note: 'Note',
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z'
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockSite
+      });
+
+      const result = await getSite(1);
+
+      expect(global.fetch).toHaveBeenCalledWith('http://localhost:8080/api/sites/1');
+      expect(result).toEqual(mockSite);
+    });
+
+    it('should handle errors when fetching a site', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 404
+      });
+
+      await expect(getSite(999)).rejects.toThrow('Failed to fetch site: 404');
+    });
+  });
+
+  describe('createSite', () => {
+    it('should create a new site', async () => {
+      const newSite = {
+        name: 'New Site',
+        location: 'New Location',
+        cosine_error_angle: 15,
+        speed_limit: 30,
+        surveyor: 'Jane Doe',
+        contact: 'jane@example.com',
+        include_map: false
+      };
+      const mockCreatedSite: Site = {
+        id: 1,
+        ...newSite,
+        description: null,
+        address: null,
+        latitude: null,
+        longitude: null,
+        map_angle: null,
+        site_description: null,
+        speed_limit_note: null,
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z'
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockCreatedSite
+      });
+
+      const result = await createSite(newSite);
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:8080/api/sites',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newSite)
+        }
+      );
+      expect(result).toEqual(mockCreatedSite);
+    });
+
+    it('should handle errors when creating a site with error message', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: 'Invalid site data' })
+      });
+
+      await expect(createSite({ name: 'Bad Site' })).rejects.toThrow('Invalid site data');
+    });
+
+    it('should handle errors when creating a site without error message', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => {
+          throw new Error('Not JSON');
+        }
+      });
+
+      await expect(createSite({ name: 'Site' })).rejects.toThrow('HTTP 500');
+    });
+  });
+
+  describe('updateSite', () => {
+    it('should update an existing site', async () => {
+      const updates = {
+        name: 'Updated Site',
+        speed_limit: 40
+      };
+      const mockUpdatedSite: Site = {
+        id: 1,
+        name: 'Updated Site',
+        location: 'Location',
+        description: null,
+        cosine_error_angle: 15,
+        speed_limit: 40,
+        surveyor: 'John Doe',
+        contact: 'john@example.com',
+        address: null,
+        latitude: null,
+        longitude: null,
+        map_angle: null,
+        include_map: true,
+        site_description: null,
+        speed_limit_note: null,
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-02T00:00:00Z'
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockUpdatedSite
+      });
+
+      const result = await updateSite(1, updates);
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:8080/api/sites/1',
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates)
+        }
+      );
+      expect(result).toEqual(mockUpdatedSite);
+    });
+
+    it('should handle errors when updating a site with error message', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({ error: 'Site not found' })
+      });
+
+      await expect(updateSite(999, { name: 'Updated' })).rejects.toThrow('Site not found');
+    });
+
+    it('should handle errors when updating a site without error message', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => {
+          throw new Error('Not JSON');
+        }
+      });
+
+      await expect(updateSite(1, { name: 'Updated' })).rejects.toThrow('HTTP 500');
+    });
+  });
+
+  describe('deleteSite', () => {
+    it('should delete a site', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true
+      });
+
+      await deleteSite(123);
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:8080/api/sites/123',
+        { method: 'DELETE' }
+      );
+    });
+
+    it('should handle errors when deleting a site with error message', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 409,
+        json: async () => ({ error: 'Site has associated reports' })
+      });
+
+      await expect(deleteSite(123)).rejects.toThrow('Site has associated reports');
+    });
+
+    it('should handle errors when deleting a site without error message', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => {
+          throw new Error('Not JSON');
+        }
+      });
+
+      await expect(deleteSite(1)).rejects.toThrow('HTTP 500');
     });
   });
 });
