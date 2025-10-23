@@ -349,15 +349,22 @@
 
 <svelte:head>
 	<title>Dashboard 🚴 velocity.report</title>
+	<meta name="description" content="Real-time vehicle traffic statistics and speed analytics" />
 </svelte:head>
 
-<main class="space-y-6 p-4">
+<main id="main-content" class="space-y-6 p-4">
 	<Header title="Dashboard" subheading="Vehicle traffic statistics and analytics" />
 
 	{#if loading}
-		<p>Loading stats…</p>
+		<div role="status" aria-live="polite" aria-busy="true">
+			<p>Loading stats…</p>
+			<span class="sr-only">Please wait while we fetch your traffic data</span>
+		</div>
 	{:else if error}
-		<p class="text-red-600">{error}</p>
+		<div role="alert" aria-live="assertive" class="text-red-600">
+			<strong>Error:</strong>
+			{error}
+		</div>
 	{:else}
 		<div class="flex flex-wrap items-end gap-2">
 			<div class="w-74">
@@ -387,6 +394,7 @@
 					variant="fill"
 					color="primary"
 					class="whitespace-normal"
+					aria-label={generatingReport ? 'Generating report, please wait' : 'Generate report'}
 				>
 					{generatingReport ? 'Generating...' : 'Generate Report'}
 				</Button>
@@ -395,6 +403,8 @@
 
 		{#if reportMessage}
 			<div
+				role={reportMessage.includes('success') ? 'status' : 'alert'}
+				aria-live="polite"
 				class="rounded border p-3 {reportMessage.includes('success')
 					? 'border-green-300 bg-green-50 text-green-800'
 					: 'border-red-300 bg-red-50 text-red-800'}"
@@ -404,7 +414,7 @@
 		{/if}
 
 		{#if lastGeneratedReportId !== null}
-			<div class="card space-y-3 p-4">
+			<div class="card space-y-3 p-4" role="region" aria-label="Report download options">
 				<h3 class="text-base font-semibold">Report Ready</h3>
 				{#if reportMetadata}
 					<div class="flex gap-2">
@@ -412,6 +422,7 @@
 							href="/api/reports/{lastGeneratedReportId}/download/{reportMetadata.filename}"
 							class="bg-secondary-500 hover:bg-secondary-600 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white transition-colors"
 							download
+							aria-label="Download PDF report"
 						>
 							📄 Download PDF
 						</a>
@@ -420,13 +431,16 @@
 								href="/api/reports/{lastGeneratedReportId}/download/{reportMetadata.zip_filename}"
 								class="border-secondary-500 text-secondary-500 hover:bg-secondary-50 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:text-white"
 								download
+								aria-label="Download source files as ZIP archive"
 							>
 								📦 Download Sources (ZIP)
 							</a>
 						{/if}
 					</div>
 				{:else}
-					<p class="text-surface-600-300-token text-sm">Loading download links...</p>
+					<p class="text-surface-600-300-token text-sm" role="status" aria-live="polite">
+						Loading download links...
+					</p>
 				{/if}
 				<p class="text-surface-600-300-token text-xs">
 					The ZIP file contains LaTeX source files and chart PDFs for custom editing
@@ -434,16 +448,18 @@
 			</div>
 		{/if}
 
-		<Grid autoColumns="14em" gap={8}>
-			<Card title="Vehicle Count">
+		<Grid autoColumns="14em" gap={8} role="region" aria-label="Traffic statistics summary">
+			<Card title="Vehicle Count" role="article">
 				<div class="pb-4 pl-4 pr-4 pt-0">
-					<p class="text-3xl font-bold text-blue-600">{totalCount}</p>
+					<p class="text-3xl font-bold text-blue-600" aria-label="Total vehicle count">
+						{totalCount}
+					</p>
 				</div>
 			</Card>
 
-			<Card title="P98 Speed">
+			<Card title="P98 Speed" role="article">
 				<div class="pb-4 pl-4 pr-4 pt-0">
-					<p class="text-3xl font-bold text-green-600">
+					<p class="text-3xl font-bold text-green-600" aria-label="98th percentile speed">
 						{p98Speed.toFixed(1)}
 						{getUnitLabel($displayUnits)}
 					</p>
@@ -457,7 +473,11 @@
 				* hour on the x-axis when zoomed in (Timezone aligned)
 				* Tooltip for multiple metrics
 				-->
-			<div class="mb-4 h-[300px] rounded border p-4">
+			<div
+				class="mb-4 h-[300px] rounded border p-4"
+				role="img"
+				aria-label="Speed distribution over time showing P50, P85, P98, and maximum speeds for the selected date range"
+			>
 				<Chart
 					data={chartData}
 					x="date"
