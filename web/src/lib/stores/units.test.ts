@@ -9,6 +9,8 @@ describe('units store', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     window.localStorage.clear();
+    // Reset store to default value
+    displayUnits.set('mph');
   });
 
   describe('displayUnits store', () => {
