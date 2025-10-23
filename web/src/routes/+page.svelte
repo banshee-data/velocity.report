@@ -54,12 +54,6 @@
 	let group: string = '4h';
 	let chartData: Array<{ date: Date; metric: string; value: number }> = [];
 	let graphData: RadarStats[] = [];
-	const barSeries = [
-		{ key: 'count', label: 'Count', value: (d: RadarStats) => d.count, color: '#16a34a' },
-		{ key: 'p50', label: 'p50', value: (d: RadarStats) => d.p50, color: '#2563eb' },
-		{ key: 'p85', label: 'p85', value: (d: RadarStats) => d.p85, color: '#16a34a' },
-		{ key: 'p98', label: 'p98', value: (d: RadarStats) => d.p98, color: '#f59e0b' }
-	];
 	let selectedSource: string = 'radar_objects';
 
 	// color map mirrors the cDomain/cRange used by the chart so we don't need
