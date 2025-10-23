@@ -14,7 +14,11 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"up-deps": "pnpm update -r -i --latest",
 		"format": "prettier --write .",
-		"lint": "prettier --check . && eslint ."
+		"lint": "prettier --check . && eslint .",
+		"test": "jest",
+		"test:watch": "jest --watch",
+		"test:coverage": "jest --coverage",
+		"test:ci": "jest --ci --coverage --maxWorkers=2"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^1.2.5",
