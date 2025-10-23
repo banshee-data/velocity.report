@@ -343,13 +343,13 @@
 
 		try {
 			const { downloadReport } = await import('$lib/api');
-			const pdfBlob = await downloadReport(lastGeneratedReportId, 'pdf');
+			const { blob, filename } = await downloadReport(lastGeneratedReportId, 'pdf');
 
 			// Create a download link and trigger it
-			const url = window.URL.createObjectURL(pdfBlob);
+			const url = window.URL.createObjectURL(blob);
 			const a = document.createElement('a');
 			a.href = url;
-			a.download = `report_${isoDate(dateRange.from!)}_${isoDate(dateRange.to!)}.pdf`;
+			a.download = filename; // Use server-provided filename
 			document.body.appendChild(a);
 			a.click();
 			document.body.removeChild(a);
@@ -364,13 +364,13 @@
 
 		try {
 			const { downloadReport } = await import('$lib/api');
-			const zipBlob = await downloadReport(lastGeneratedReportId, 'zip');
+			const { blob, filename } = await downloadReport(lastGeneratedReportId, 'zip');
 
 			// Create a download link and trigger it
-			const url = window.URL.createObjectURL(zipBlob);
+			const url = window.URL.createObjectURL(blob);
 			const a = document.createElement('a');
 			a.href = url;
-			a.download = `report_sources_${isoDate(dateRange.from!)}_${isoDate(dateRange.to!)}.zip`;
+			a.download = filename; // Use server-provided filename
 			document.body.appendChild(a);
 			a.click();
 			document.body.removeChild(a);

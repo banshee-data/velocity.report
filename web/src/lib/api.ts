@@ -165,14 +165,31 @@ export interface SiteReport {
 	created_at: string;
 }
 
-export async function downloadReport(reportId: number, fileType: 'pdf' | 'zip' = 'pdf'): Promise<Blob> {
+export interface DownloadResult {
+	blob: Blob;
+	filename: string;
+}
+
+export async function downloadReport(reportId: number, fileType: 'pdf' | 'zip' = 'pdf'): Promise<DownloadResult> {
 	const url = new URL(`${API_BASE}/reports/${reportId}/download`, window.location.origin);
 	url.searchParams.append('file_type', fileType);
 	const res = await fetch(url);
 	if (!res.ok) {
 		throw new Error(`Failed to download report: ${res.status}`);
 	}
-	return res.blob();
+
+	// Extract filename from Content-Disposition header
+	const contentDisposition = res.headers.get('Content-Disposition');
+	let filename = `report.${fileType}`; // fallback
+	if (contentDisposition) {
+		const match = contentDisposition.match(/filename=([^;]+)/);
+		if (match) {
+			filename = match[1].trim();
+		}
+	}
+
+	const blob = await res.blob();
+	return { blob, filename };
 }
 
 export async function getRecentReports(): Promise<SiteReport[]> {

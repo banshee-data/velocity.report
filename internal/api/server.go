@@ -802,11 +802,11 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Python auto-generates filename as: {source}_{start_date}_to_{end_date}_report.pdf
-	pdfFilename := fmt.Sprintf("%s_%s_to_%s_report.pdf", req.Source, req.StartDate, req.EndDate)
+	// Python auto-generates filename as: velocity.report_{source}_{start_date}_to_{end_date}_report.pdf
+	pdfFilename := fmt.Sprintf("velocity.report_%s_%s_to_%s_report.pdf", req.Source, req.StartDate, req.EndDate)
 
-	// Python also generates a ZIP with sources: {source}_{start_date}_to_{end_date}_sources.zip
-	zipFilename := fmt.Sprintf("%s_%s_to_%s_sources.zip", req.Source, req.StartDate, req.EndDate)
+	// Python also generates a ZIP with sources: velocity.report_{source}_{start_date}_to_{end_date}_sources.zip
+	zipFilename := fmt.Sprintf("velocity.report_%s_%s_to_%s_sources.zip", req.Source, req.StartDate, req.EndDate)
 
 	// Store relative paths from pdf-generator directory
 	relativePdfPath := filepath.Join(outputDir, pdfFilename)
