@@ -1,6 +1,10 @@
-name: Web Tests
+name: 🌐 Web CI
+
 permissions:
   contents: read
+  pull-requests: write
+  checks: write
+  issues: write
 
 on:
   push:
