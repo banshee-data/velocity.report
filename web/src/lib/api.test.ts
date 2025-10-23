@@ -7,7 +7,9 @@ import {
   getReport,
   getSites,
   type Config,
-  type Event
+  type Event,
+  type Site,
+  type SiteReport
 } from './api';
 
 // Mock fetch globally
