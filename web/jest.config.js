@@ -4,7 +4,8 @@ export default {
   testEnvironment: 'jsdom',
   moduleNameMapper: {
     '^\\$lib(.*)$': '<rootDir>/src/lib$1',
-    '^\\$app(.*)$': '<rootDir>/src/mocks/$app$1'
+    '^\\$app(.*)$': '<rootDir>/src/mocks/$app$1',
+    '^svelte/store$': '<rootDir>/src/__mocks__/svelte/store.ts'
   },
   transform: {
     '^.+\\.ts$': [
@@ -33,7 +34,7 @@ export default {
   },
   moduleFileExtensions: ['js', 'ts', 'svelte'],
   transformIgnorePatterns: [
-    'node_modules/(?!(svelte)/)'
+    'node_modules/(?!svelte)'
   ],
   collectCoverageFrom: [
     'src/lib/**/*.{ts,js}',
