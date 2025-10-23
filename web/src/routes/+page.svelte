@@ -520,6 +520,40 @@
 					</Svg>
 				</Chart>
 			</div>
+
+			<!-- Accessible data table fallback -->
+			<details class="rounded border p-4">
+				<summary class="cursor-pointer text-sm font-medium">View data table</summary>
+				<div class="mt-4 overflow-x-auto">
+					<table class="w-full text-sm">
+						<caption class="sr-only">
+							Speed statistics over time showing P50, P85, P98, and maximum values
+						</caption>
+						<thead>
+							<tr class="border-b">
+								<th scope="col" class="px-2 py-2 text-left">Time</th>
+								<th scope="col" class="px-2 py-2 text-right">Count</th>
+								<th scope="col" class="px-2 py-2 text-right">P50</th>
+								<th scope="col" class="px-2 py-2 text-right">P85</th>
+								<th scope="col" class="px-2 py-2 text-right">P98</th>
+								<th scope="col" class="px-2 py-2 text-right">Max</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each graphData as row}
+								<tr class="border-b">
+									<td class="px-2 py-2">{format(row.date, 'MMM d HH:mm')}</td>
+									<td class="px-2 py-2 text-right">{row.count}</td>
+									<td class="px-2 py-2 text-right">{row.p50.toFixed(1)}</td>
+									<td class="px-2 py-2 text-right">{row.p85.toFixed(1)}</td>
+									<td class="px-2 py-2 text-right">{row.p98.toFixed(1)}</td>
+									<td class="px-2 py-2 text-right">{row.max.toFixed(1)}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			</details>
 		{/if}
 	{/if}
 </main>
