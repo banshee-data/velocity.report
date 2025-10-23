@@ -7,8 +7,12 @@ permissions:
   issues: write
 
 on:
+  push:
+    paths:
+      - "web/**"
+      - ".github/workflows/web-tests.yml"
   pull_request:
-    types: [opened, synchronize, reopened, review_requested]
+    types: [opened, reopened]
     paths:
       - "web/**"
       - ".github/workflows/web-tests.yml"
