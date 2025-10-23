@@ -59,18 +59,26 @@
 
 <svelte:head>
 	<title>Site Management 🚴 velocity.report</title>
+	<meta name="description" content="Manage radar survey site configurations and settings" />
 </svelte:head>
 
-<main class="space-y-6 p-4">
+<main id="main-content" class="space-y-6 p-4">
 	<div class="flex items-center justify-between">
 		<Header title="Site Management" subheading="Manage radar survey site configurations" />
 		<Button on:click={handleCreate} icon={mdiPlus} variant="fill" color="primary">New Site</Button>
 	</div>
 
 	{#if loading}
-		<p>Loading sites…</p>
+		<div role="status" aria-live="polite">
+			<p>Loading sites…</p>
+		</div>
 	{:else if error}
-		<div class="rounded border border-red-300 bg-red-50 p-3 text-red-800">
+		<div
+			role="alert"
+			aria-live="assertive"
+			class="rounded border border-red-300 bg-red-50 p-3 text-red-800"
+		>
+			<strong>Error:</strong>
 			{error}
 		</div>
 	{:else if sites.length === 0}
@@ -86,18 +94,19 @@
 		<Card>
 			<div class="px-4">
 				<Table>
+					<caption class="sr-only">List of configured radar survey sites</caption>
 					<thead>
 						<tr>
-							<th class="py-3">Name</th>
-							<th class="py-3">Location</th>
-							<th class="py-3">Cosine Angle</th>
-							<th class="py-3 text-right">Actions</th>
+							<th scope="col" class="py-3">Name</th>
+							<th scope="col" class="py-3">Location</th>
+							<th scope="col" class="py-3">Cosine Angle</th>
+							<th scope="col" class="py-3 text-right">Actions</th>
 						</tr>
 					</thead>
 					<tbody>
 						{#each sites as site}
 							<tr class="border-surface-content/10 border-t">
-								<td class="py-4 font-medium">{site.name}</td>
+								<th scope="row" class="py-4 font-medium">{site.name}</th>
 								<td class="py-4">{site.location}</td>
 								<td class="py-4">{site.cosine_error_angle}°</td>
 								<td class="py-4 text-right">
@@ -107,6 +116,7 @@
 											size="sm"
 											variant="outline"
 											on:click={() => handleEdit(site.id)}
+											aria-label="Edit {site.name}"
 										>
 											Edit
 										</Button>
@@ -116,6 +126,7 @@
 											variant="outline"
 											color="danger"
 											on:click={() => openDeleteDialog(site)}
+											aria-label="Delete {site.name}"
 										>
 											Delete
 										</Button>
@@ -131,7 +142,7 @@
 </main>
 
 <!-- Delete Confirmation Dialog -->
-<Dialog bind:open={showDeleteDialog}>
+<Dialog bind:open={showDeleteDialog} aria-modal="true" role="alertdialog">
 	<div slot="title">Confirm Delete</div>
 
 	<div class="space-y-4">
