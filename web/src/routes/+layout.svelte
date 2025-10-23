@@ -56,6 +56,13 @@
 
 <ThemeInit />
 
+<a
+	href="#main-content"
+	class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-primary focus:p-4 focus:text-primary-content"
+>
+	Skip to main content
+</a>
+
 <AppLayout>
 	<nav slot="nav">
 		<NavItem text="Dashboard" icon={mdiHome} path="/app/" currentUrl={page.url} />
@@ -70,7 +77,13 @@
 			</div>
 
 			<Tooltip title="Discord" placement="left" offset={2}>
-				<Button icon={discord} href="https://discord.gg/XXh6jXVFkt" class="p-2" target="_blank" />
+				<Button
+					icon={discord}
+					href="https://discord.gg/XXh6jXVFkt"
+					class="p-2"
+					target="_blank"
+					rel="noopener noreferrer"
+				/>
 			</Tooltip>
 
 			<Tooltip title="View repo" placement="left" offset={2}>
@@ -79,6 +92,7 @@
 					href="https://github.com/banshee-data/velocity.report"
 					class="p-2"
 					target="_blank"
+					rel="noopener noreferrer"
 				/>
 			</Tooltip>
 		</div>
