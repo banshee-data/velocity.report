@@ -502,7 +502,7 @@
 							tickSpacing={100}
 							tickMultiline
 						/>
-						{#each ['p50', 'p85', 'p98', 'max'] as metric}
+						{#each ['p50', 'p85', 'p98', 'max'] as metric (metric)}
 							{@const data = chartData.filter((p) => p.metric === metric)}
 							{@const color = colorMap[metric]}
 							<Spline {data} class="stroke-2" stroke={color}>
