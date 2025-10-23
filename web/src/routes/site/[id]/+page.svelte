@@ -20,6 +20,7 @@
 		speed_limit: 25,
 		surveyor: '',
 		contact: '',
+		address: '',
 		latitude: null as number | null,
 		longitude: null as number | null,
 		site_description: '',
@@ -57,6 +58,7 @@
 				speed_limit: site.speed_limit,
 				surveyor: site.surveyor,
 				contact: site.contact,
+				address: site.address || '',
 				latitude: site.latitude || null,
 				longitude: site.longitude || null,
 				site_description: site.site_description || '',
@@ -134,9 +136,15 @@
 
 <svelte:head>
 	<title>{isNewSite ? 'New Site' : 'Edit Site'} 🚴 velocity.report</title>
+	<meta
+		name="description"
+		content={isNewSite
+			? 'Create a new radar survey site configuration'
+			: 'Edit radar survey site configuration'}
+	/>
 </svelte:head>
 
-<main class="space-y-6 p-4">
+<main id="main-content" class="space-y-6 p-4">
 	<div class="flex items-center justify-between">
 		<Header
 			title={isNewSite ? 'Create New Site' : 'Edit Site'}
@@ -146,15 +154,23 @@
 	</div>
 
 	{#if loading}
-		<p>Loading site…</p>
+		<div role="status" aria-live="polite">
+			<p>Loading site…</p>
+		</div>
 	{:else if error}
-		<div class="rounded border border-red-300 bg-red-50 p-3 text-red-800">
+		<div
+			role="alert"
+			aria-live="assertive"
+			class="rounded border border-red-300 bg-red-50 p-3 text-red-800"
+		>
+			<strong>Error:</strong>
 			{error}
 		</div>
 	{:else}
 		<div class="max-w-3xl space-y-6">
 			{#if saveError}
-				<div class="rounded border border-red-300 bg-red-50 p-3 text-red-800">
+				<div role="alert" class="rounded border border-red-300 bg-red-50 p-3 text-red-800">
+					<strong>Save Error:</strong>
 					{saveError}
 				</div>
 			{/if}
