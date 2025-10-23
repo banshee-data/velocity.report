@@ -32,7 +32,7 @@ type RawRadarStats = {
 	P85Speed: number;
 	P98Speed: number;
 	MaxSpeed: number;
-}
+};
 
 // Histogram shape: server returns a map of bucket label -> count. Keys are strings
 // (formatted numbers) and values are counts.
@@ -87,7 +87,7 @@ export async function getRadarStats(
 		p50: r.P50Speed,
 		p85: r.P85Speed,
 		p98: r.P98Speed,
-		max: r.MaxSpeed,
+		max: r.MaxSpeed
 	})) as RadarStats[];
 
 	const histogram = payload && payload.histogram ? (payload.histogram as Histogram) : undefined;
@@ -170,7 +170,10 @@ export interface DownloadResult {
 	filename: string;
 }
 
-export async function downloadReport(reportId: number, fileType: 'pdf' | 'zip' = 'pdf'): Promise<DownloadResult> {
+export async function downloadReport(
+	reportId: number,
+	fileType: 'pdf' | 'zip' = 'pdf'
+): Promise<DownloadResult> {
 	const url = new URL(`${API_BASE}/reports/${reportId}/download`, window.location.origin);
 	url.searchParams.append('file_type', fileType);
 	const res = await fetch(url);

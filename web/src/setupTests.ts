@@ -36,5 +36,5 @@ Object.defineProperty(window, 'localStorage', {
 
 // Reset localStorage before each test
 beforeEach(() => {
-  window.localStorage.clear();
+	window.localStorage.clear();
 });
