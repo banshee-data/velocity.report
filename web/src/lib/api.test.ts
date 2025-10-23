@@ -141,6 +141,65 @@ describe('api', () => {
       expect(result.metrics).toEqual([]);
       expect(result.histogram).toBeUndefined();
     });
+
+    it('should handle null histogram in response', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ metrics: [], histogram: null })
+      });
+
+      const result = await getRadarStats(1704067200, 1704153600);
+
+      expect(result.metrics).toEqual([]);
+      expect(result.histogram).toBeUndefined();
+    });
+
+    it('should handle false histogram in response', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ metrics: [], histogram: false })
+      });
+
+      const result = await getRadarStats(1704067200, 1704153600);
+
+      expect(result.metrics).toEqual([]);
+      expect(result.histogram).toBeUndefined();
+    });
+
+    it('should handle non-array metrics in response', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ metrics: null })
+      });
+
+      const result = await getRadarStats(1704067200, 1704153600);
+
+      expect(result.metrics).toEqual([]);
+      expect(result.histogram).toBeUndefined();
+    });
+
+    it('should handle undefined histogram when payload is valid', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ metrics: [], histogram: undefined })
+      });
+
+      const result = await getRadarStats(1704067200, 1704153600);
+
+      expect(result.metrics).toEqual([]);
+      expect(result.histogram).toBeUndefined();
+    });
+
+    it('should handle errors when fetching radar stats', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 503
+      });
+
+      await expect(getRadarStats(1704067200, 1704153600)).rejects.toThrow(
+        'Failed to fetch radar stats: 503'
+      );
+    });
   });
 
   describe('getConfig', () => {
@@ -253,6 +312,25 @@ describe('api', () => {
         })
       ).rejects.toThrow('Invalid date range');
     });
+
+    it('should handle error responses without JSON', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => {
+          throw new Error('Not JSON');
+        }
+      });
+
+      await expect(
+        generateReport({
+          start_date: '2025-01-01',
+          end_date: '2025-01-31',
+          timezone: 'UTC',
+          units: 'mph'
+        })
+      ).rejects.toThrow('HTTP 500');
+    });
   });
 
   describe('getReport', () => {
@@ -281,6 +359,15 @@ describe('api', () => {
       expect(global.fetch).toHaveBeenCalled();
       expect(result).toEqual(mockReport);
     });
+
+    it('should handle errors when fetching a report', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 404
+      });
+
+      await expect(getReport(999)).rejects.toThrow('Failed to fetch report: 404');
+    });
   });
 
   describe('downloadReport', () => {
@@ -299,6 +386,22 @@ describe('api', () => {
 
       expect(result.blob).toEqual(mockBlob);
       expect(result.filename).toBe('test-report.pdf');
+    });
+
+    it('should download PDF and trim whitespace from filename', async () => {
+      const mockBlob = new Blob(['PDF content'], { type: 'application/pdf' });
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({
+          'Content-Disposition': 'attachment; filename=  spaced-report.pdf  '
+        }),
+        blob: async () => mockBlob
+      });
+
+      const result = await downloadReport(123, 'pdf');
+
+      expect(result.filename).toBe('spaced-report.pdf');
     });
 
     it('should download ZIP report', async () => {
@@ -323,6 +426,22 @@ describe('api', () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         headers: new Headers(),
+        blob: async () => mockBlob
+      });
+
+      const result = await downloadReport(789, 'pdf');
+
+      expect(result.filename).toBe('report.pdf');
+    });
+
+    it('should handle Content-Disposition without filename match', async () => {
+      const mockBlob = new Blob(['PDF content']);
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({
+          'Content-Disposition': 'attachment'
+        }),
         blob: async () => mockBlob
       });
 
@@ -562,6 +681,26 @@ describe('api', () => {
       });
 
       await expect(createSite({ name: 'Site' })).rejects.toThrow('HTTP 500');
+    });
+
+    it('should handle errors when creating a site with empty error field', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: '' })
+      });
+
+      await expect(createSite({ name: 'Site' })).rejects.toThrow('Failed to create site: 400');
+    });
+
+    it('should handle errors when creating a site with null error field', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: null })
+      });
+
+      await expect(createSite({ name: 'Site' })).rejects.toThrow('Failed to create site: 400');
     });
   });
 
