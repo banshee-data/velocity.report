@@ -769,6 +769,16 @@ describe('api', () => {
 
       await expect(updateSite(1, { name: 'Updated' })).rejects.toThrow('HTTP 500');
     });
+
+    it('should handle errors when updating a site with empty error field', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({ error: '' })
+      });
+
+      await expect(updateSite(999, { name: 'Updated' })).rejects.toThrow('Failed to update site: 404');
+    });
   });
 
   describe('deleteSite', () => {
@@ -805,6 +815,16 @@ describe('api', () => {
       });
 
       await expect(deleteSite(1)).rejects.toThrow('HTTP 500');
+    });
+
+    it('should handle errors when deleting a site with empty error field', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 409,
+        json: async () => ({ error: '' })
+      });
+
+      await expect(deleteSite(123)).rejects.toThrow('Failed to delete site: 409');
     });
   });
 });
