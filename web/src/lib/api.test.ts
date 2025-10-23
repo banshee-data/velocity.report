@@ -361,7 +361,7 @@ describe('api', () => {
 
       const result = await getRecentReports();
 
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:8080/api/reports');
+      expect(global.fetch).toHaveBeenCalledWith('/api/reports');
       expect(result).toEqual(mockReports);
     });
 
@@ -400,7 +400,7 @@ describe('api', () => {
 
       const result = await getReportsForSite(123);
 
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:8080/api/reports/site/123');
+      expect(global.fetch).toHaveBeenCalledWith('/api/reports/site/123');
       expect(result).toEqual(mockReports);
     });
 
@@ -423,7 +423,7 @@ describe('api', () => {
       await deleteReport(123);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8080/api/reports/123',
+        '/api/reports/123',
         { method: 'DELETE' }
       );
     });
@@ -467,7 +467,7 @@ describe('api', () => {
 
       const result = await getSite(1);
 
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:8080/api/sites/1');
+      expect(global.fetch).toHaveBeenCalledWith('/api/sites/1');
       expect(result).toEqual(mockSite);
     });
 
@@ -514,7 +514,7 @@ describe('api', () => {
       const result = await createSite(newSite);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8080/api/sites',
+        '/api/sites',
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -581,7 +581,7 @@ describe('api', () => {
       const result = await updateSite(1, updates);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8080/api/sites/1',
+        '/api/sites/1',
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -623,7 +623,7 @@ describe('api', () => {
       await deleteSite(123);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8080/api/sites/123',
+        '/api/sites/123',
         { method: 'DELETE' }
       );
     });
