@@ -204,6 +204,12 @@ export async function getReportsForSite(siteId: number): Promise<SiteReport[]> {
 	return res.json();
 }
 
+export async function getReport(reportId: number): Promise<SiteReport> {
+	const res = await fetch(`${API_BASE}/reports/${reportId}`);
+	if (!res.ok) throw new Error(`Failed to fetch report: ${res.status}`);
+	return res.json();
+}
+
 export async function deleteReport(reportId: number): Promise<void> {
 	const res = await fetch(`${API_BASE}/reports/${reportId}`, {
 		method: 'DELETE'

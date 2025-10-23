@@ -19,10 +19,12 @@
 		generateReport,
 		getConfig,
 		getRadarStats,
+		getReport,
 		getSites,
 		type Config,
 		type RadarStats,
-		type Site
+		type Site,
+		type SiteReport
 	} from '../lib/api';
 	import { displayTimezone, initializeTimezone } from '../lib/stores/timezone';
 	import { displayUnits, initializeUnits } from '../lib/stores/units';
@@ -299,6 +301,7 @@
 	let generatingReport = false;
 	let reportMessage = '';
 	let lastGeneratedReportId: number | null = null;
+	let reportMetadata: SiteReport | null = null;
 
 	async function handleGenerateReport() {
 		if (!dateRange.from || !dateRange.to) {
@@ -314,6 +317,7 @@
 		generatingReport = true;
 		reportMessage = '';
 		lastGeneratedReportId = null;
+		reportMetadata = null;
 
 		try {
 			// Generate report and get report ID
@@ -330,6 +334,10 @@
 			});
 
 			lastGeneratedReportId = response.report_id;
+
+			// Fetch report metadata to get filenames
+			reportMetadata = await getReport(response.report_id);
+
 			reportMessage = `Report generated successfully! Use the links below to download.`;
 		} catch (e) {
 			reportMessage = e instanceof Error ? e.message : 'Failed to generate report';
@@ -398,22 +406,28 @@
 		{#if lastGeneratedReportId !== null}
 			<div class="card space-y-3 p-4">
 				<h3 class="text-base font-semibold">Report Ready</h3>
-				<div class="flex gap-2">
-					<a
-						href="/api/reports/{lastGeneratedReportId}/download?file_type=pdf"
-						class="bg-secondary-500 hover:bg-secondary-600 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white transition-colors"
-						download
-					>
-						📄 Download PDF
-					</a>
-					<a
-						href="/api/reports/{lastGeneratedReportId}/download?file_type=zip"
-						class="border-secondary-500 text-secondary-500 hover:bg-secondary-50 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:text-white"
-						download
-					>
-						📦 Download Sources (ZIP)
-					</a>
-				</div>
+				{#if reportMetadata}
+					<div class="flex gap-2">
+						<a
+							href="/api/reports/{lastGeneratedReportId}/download/{reportMetadata.filename}"
+							class="bg-secondary-500 hover:bg-secondary-600 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white transition-colors"
+							download
+						>
+							📄 Download PDF
+						</a>
+						{#if reportMetadata.zip_filename}
+							<a
+								href="/api/reports/{lastGeneratedReportId}/download/{reportMetadata.zip_filename}"
+								class="border-secondary-500 text-secondary-500 hover:bg-secondary-50 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:text-white"
+								download
+							>
+								📦 Download Sources (ZIP)
+							</a>
+						{/if}
+					</div>
+				{:else}
+					<p class="text-surface-600-300-token text-sm">Loading download links...</p>
+				{/if}
 				<p class="text-surface-600-300-token text-xs">
 					The ZIP file contains LaTeX source files and chart PDFs for custom editing
 				</p>

@@ -149,6 +149,48 @@ func TestDownloadReport_FilenameFormat(t *testing.T) {
 					}
 				}
 			})
+
+			// Test new URL format with filename in path (PDF)
+			t.Run("pdf_with_filename_in_path", func(t *testing.T) {
+				req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/reports/%d/download/%s", report.ID, tt.dbFilename), nil)
+				w := httptest.NewRecorder()
+
+				server.handleReports(w, req)
+
+				if tt.shouldFindPDF {
+					if w.Code != http.StatusOK {
+						t.Errorf("PDF download via filename path failed: status=%d, body=%s", w.Code, w.Body.String())
+					}
+					if w.Header().Get("Content-Type") != "application/pdf" {
+						t.Errorf("wrong content type: got %s", w.Header().Get("Content-Type"))
+					}
+				} else {
+					if w.Code != http.StatusNotFound {
+						t.Errorf("expected 404 for PDF, got %d", w.Code)
+					}
+				}
+			})
+
+			// Test new URL format with filename in path (ZIP)
+			t.Run("zip_with_filename_in_path", func(t *testing.T) {
+				req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/reports/%d/download/%s", report.ID, tt.dbZipFilename), nil)
+				w := httptest.NewRecorder()
+
+				server.handleReports(w, req)
+
+				if tt.shouldFindZIP {
+					if w.Code != http.StatusOK {
+						t.Errorf("ZIP download via filename path failed: status=%d, body=%s", w.Code, w.Body.String())
+					}
+					if w.Header().Get("Content-Type") != "application/zip" {
+						t.Errorf("wrong content type: got %s", w.Header().Get("Content-Type"))
+					}
+				} else {
+					if w.Code != http.StatusNotFound {
+						t.Errorf("expected 404 for ZIP, got %d", w.Code)
+					}
+				}
+			})
 		})
 	}
 }
