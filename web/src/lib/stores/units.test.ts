@@ -14,7 +14,7 @@ describe('units store', () => {
   describe('displayUnits store', () => {
     it('should initialize with default value', () => {
       const value = get(displayUnits);
-      expect(value).toBe('mps');
+      expect(value).toBe('mph');
     });
 
     it('should be writable', () => {
@@ -31,7 +31,7 @@ describe('units store', () => {
         currentValue = value;
       });
 
-      expect(currentValue).toBe('mps');
+      expect(currentValue).toBe('mph');
 
       displayUnits.set('mph');
       expect(currentValue).toBe('mph');
@@ -44,30 +44,28 @@ describe('units store', () => {
     it('should use stored units when available', () => {
       (unitsModule.getDisplayUnits as jest.Mock).mockReturnValue('mph');
 
-      initializeUnits();
+      initializeUnits('mps');
 
-      expect(unitsModule.getDisplayUnits).toHaveBeenCalled();
+      expect(unitsModule.getDisplayUnits).toHaveBeenCalledWith('mps');
       expect(get(displayUnits)).toBe('mph');
     });
 
     it('should use default units when no stored value', () => {
       (unitsModule.getDisplayUnits as jest.Mock).mockReturnValue('mps');
 
-      initializeUnits();
+      initializeUnits('mps');
 
       expect(get(displayUnits)).toBe('mps');
     });
 
     it('should use server-provided units when specified', () => {
-      (unitsModule.getDisplayUnits as jest.Mock).mockReturnValue('mps');
+      (unitsModule.getDisplayUnits as jest.Mock).mockReturnValue('kmph');
 
       initializeUnits('kmph');
 
-      // Should still call getDisplayUnits to check stored preference
-      expect(unitsModule.getDisplayUnits).toHaveBeenCalled();
-      // But should use server default if no stored value
+      expect(unitsModule.getDisplayUnits).toHaveBeenCalledWith('kmph');
       const storedValue = get(displayUnits);
-      expect(['mps', 'kmph']).toContain(storedValue);
+      expect(storedValue).toBe('kmph');
     });
   });
 
