@@ -144,5 +144,10 @@ describe('timezone', () => {
         expect(label.length).toBeGreaterThan(0);
       });
     });
+
+    it('should return the timezone as-is for unknown timezones', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(getTimezoneLabel('Unknown/Timezone' as any)).toBe('Unknown/Timezone');
+    });
   });
 });
