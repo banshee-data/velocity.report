@@ -1,40 +1,64 @@
 // src/lib/timezone.ts
 // Utility functions for managing timezones in localStorage
+// Ordered from west to east: -11:00 (Niue) to +14:00 (Kiritimati)
 
 export type Timezone =
-  | 'UTC'
-  | 'US/Eastern'
-  | 'US/Central'
-  | 'US/Mountain'
-  | 'US/Pacific'
-  | 'US/Alaska'
-  | 'US/Hawaii'
-  | 'America/New_York'
-  | 'America/Chicago'
-  | 'America/Denver'
-  | 'America/Los_Angeles'
+  | 'Pacific/Niue'
+  | 'America/Adak'
+  | 'Pacific/Honolulu'
+  | 'Pacific/Marquesas'
   | 'America/Anchorage'
-  | 'America/Honolulu'
-  | 'Europe/London'
-  | 'Europe/Paris'
-  | 'Europe/Berlin'
-  | 'Europe/Rome'
-  | 'Europe/Madrid'
-  | 'Europe/Amsterdam'
-  | 'Asia/Tokyo'
-  | 'Asia/Shanghai'
-  | 'Asia/Kolkata'
-  | 'Asia/Dubai'
-  | 'Australia/Sydney'
-  | 'Australia/Melbourne'
-  | 'Australia/Perth'
-  | 'Pacific/Auckland'
-  | 'America/Toronto'
-  | 'America/Vancouver'
+  | 'Pacific/Gambier'
+  | 'America/Los_Angeles'
+  | 'Pacific/Pitcairn'
+  | 'America/Denver'
+  | 'America/Phoenix'
+  | 'America/Chicago'
   | 'America/Mexico_City'
+  | 'America/New_York'
+  | 'America/Lima'
+  | 'America/Barbados'
+  | 'America/Santiago'
+  | 'America/St_Johns'
+  | 'America/Miquelon'
   | 'America/Sao_Paulo'
-  | 'Africa/Cairo'
-  | 'Africa/Johannesburg';
+  | 'America/Godthab'
+  | 'Atlantic/South_Georgia'
+  | 'Atlantic/Azores'
+  | 'Atlantic/Cape_Verde'
+  | 'UTC'
+  | 'Africa/Abidjan'
+  | 'Europe/Dublin'
+  | 'Antarctica/Troll'
+  | 'Africa/Lagos'
+  | 'Europe/Berlin'
+  | 'Africa/Johannesburg'
+  | 'Europe/Athens'
+  | 'Africa/Nairobi'
+  | 'Asia/Tehran'
+  | 'Asia/Dubai'
+  | 'Asia/Kabul'
+  | 'Asia/Karachi'
+  | 'Asia/Kolkata'
+  | 'Asia/Kathmandu'
+  | 'Asia/Dhaka'
+  | 'Asia/Yangon'
+  | 'Asia/Bangkok'
+  | 'Asia/Singapore'
+  | 'Australia/Eucla'
+  | 'Asia/Seoul'
+  | 'Australia/Darwin'
+  | 'Australia/Adelaide'
+  | 'Australia/Brisbane'
+  | 'Australia/Sydney'
+  | 'Australia/Lord_Howe'
+  | 'Pacific/Bougainville'
+  | 'Pacific/Norfolk'
+  | 'Pacific/Fiji'
+  | 'Pacific/Auckland'
+  | 'Pacific/Chatham'
+  | 'Pacific/Apia'
+  | 'Pacific/Kiritimati';
 
 const TIMEZONE_STORAGE_KEY = 'velocity-report-timezone';
 
@@ -55,109 +79,178 @@ export function getDisplayTimezone(defaultTimezone: string): Timezone {
 
 export function getTimezoneLabel(timezone: Timezone): string {
   switch (timezone) {
-    case 'UTC':
-      return 'UTC';
-    case 'US/Eastern':
-      return 'US Eastern (EST/EDT)';
-    case 'US/Central':
-      return 'US Central (CST/CDT)';
-    case 'US/Mountain':
-      return 'US Mountain (MST/MDT)';
-    case 'US/Pacific':
-      return 'US Pacific (PST/PDT)';
-    case 'US/Alaska':
-      return 'US Alaska (AKST/AKDT)';
-    case 'US/Hawaii':
-      return 'US Hawaii (HST)';
-    case 'America/New_York':
-      return 'New York (EST/EDT)';
-    case 'America/Chicago':
-      return 'Chicago (CST/CDT)';
-    case 'America/Denver':
-      return 'Denver (MST/MDT)';
-    case 'America/Los_Angeles':
-      return 'Los Angeles (PST/PDT)';
+    case 'Pacific/Niue':
+      return '🇳🇺 Niue (-11:00)';
+    case 'America/Adak':
+      return '🇺🇸 Adak (-10:00/-09:00)';
+    case 'Pacific/Honolulu':
+      return '🇺🇸 Honolulu (-10:00)';
+    case 'Pacific/Marquesas':
+      return '🇵🇫 Marquesas (-09:30)';
     case 'America/Anchorage':
-      return 'Anchorage (AKST/AKDT)';
-    case 'America/Honolulu':
-      return 'Honolulu (HST)';
-    case 'Europe/London':
-      return 'London (GMT/BST)';
-    case 'Europe/Paris':
-      return 'Paris (CET/CEST)';
-    case 'Europe/Berlin':
-      return 'Berlin (CET/CEST)';
-    case 'Europe/Rome':
-      return 'Rome (CET/CEST)';
-    case 'Europe/Madrid':
-      return 'Madrid (CET/CEST)';
-    case 'Europe/Amsterdam':
-      return 'Amsterdam (CET/CEST)';
-    case 'Asia/Tokyo':
-      return 'Tokyo (JST)';
-    case 'Asia/Shanghai':
-      return 'Shanghai (CST)';
-    case 'Asia/Kolkata':
-      return 'Kolkata (IST)';
-    case 'Asia/Dubai':
-      return 'Dubai (GST)';
-    case 'Australia/Sydney':
-      return 'Sydney (AEST/AEDT)';
-    case 'Australia/Melbourne':
-      return 'Melbourne (AEST/AEDT)';
-    case 'Australia/Perth':
-      return 'Perth (AWST)';
-    case 'Pacific/Auckland':
-      return 'Auckland (NZST/NZDT)';
-    case 'America/Toronto':
-      return 'Toronto (EST/EDT)';
-    case 'America/Vancouver':
-      return 'Vancouver (PST/PDT)';
+      return '🇺🇸 Anchorage (-09:00/-08:00)';
+    case 'Pacific/Gambier':
+      return '🇵🇫 Gambier (-09:00)';
+    case 'America/Los_Angeles':
+      return '🇺🇸 Los Angeles (-08:00/-07:00)';
+    case 'Pacific/Pitcairn':
+      return '🇵🇳 Pitcairn (-08:00)';
+    case 'America/Denver':
+      return '🇺🇸 Denver (-07:00/-06:00)';
+    case 'America/Phoenix':
+      return '🇺🇸 Phoenix (-07:00)';
+    case 'America/Chicago':
+      return '🇺🇸 Chicago (-06:00/-05:00)';
     case 'America/Mexico_City':
-      return 'Mexico City (CST/CDT)';
+      return '🇲🇽 Mexico City (-06:00)';
+    case 'America/New_York':
+      return '🇺🇸 New York (-05:00/-04:00)';
+    case 'America/Lima':
+      return '🇵🇪 Lima (-05:00)';
+    case 'America/Barbados':
+      return '🇧🇧 Barbados (-04:00)';
+    case 'America/Santiago':
+      return '🇨🇱 Santiago (-04:00/-03:00)';
+    case 'America/St_Johns':
+      return '🇨🇦 St. John\'s (-03:30/-02:30)';
+    case 'America/Miquelon':
+      return '🇵🇲 Miquelon (-03:00/-02:00)';
     case 'America/Sao_Paulo':
-      return 'São Paulo (BRT)';
-    case 'Africa/Cairo':
-      return 'Cairo (EET)';
+      return '🇧🇷 São Paulo (-03:00)';
+    case 'America/Godthab':
+      return '🇬🇱 Godthab/Nuuk (-02:00/-01:00)';
+    case 'Atlantic/South_Georgia':
+      return '🇬🇸 South Georgia (-02:00)';
+    case 'Atlantic/Azores':
+      return '🇵🇹 Azores (-01:00/+00:00)';
+    case 'Atlantic/Cape_Verde':
+      return '🇨🇻 Cape Verde (-01:00)';
+    case 'UTC':
+      return '🇺🇳 UTC (+00:00)';
+    case 'Africa/Abidjan':
+      return '🇨🇮 Abidjan (+00:00)';
+    case 'Europe/Dublin':
+      return '🇮🇪 Dublin (+00:00/+01:00)';
+    case 'Antarctica/Troll':
+      return '🇦🇶 Troll (+00:00/+02:00)';
+    case 'Africa/Lagos':
+      return '🇳🇬 Lagos (+01:00)';
+    case 'Europe/Berlin':
+      return '🇩🇪 Berlin (+01:00/+02:00)';
     case 'Africa/Johannesburg':
-      return 'Johannesburg (SAST)';
+      return '🇿🇦 Johannesburg (+02:00)';
+    case 'Europe/Athens':
+      return '🇬🇷 Athens (+02:00/+03:00)';
+    case 'Africa/Nairobi':
+      return '🇰🇪 Nairobi (+03:00)';
+    case 'Asia/Tehran':
+      return '🇮🇷 Tehran (+03:30)';
+    case 'Asia/Dubai':
+      return '🇦🇪 Dubai (+04:00)';
+    case 'Asia/Kabul':
+      return '🇦🇫 Kabul (+04:30)';
+    case 'Asia/Karachi':
+      return '🇵🇰 Karachi (+05:00)';
+    case 'Asia/Kolkata':
+      return '🇮🇳 Mumbai (+05:30)';
+    case 'Asia/Kathmandu':
+      return '🇳🇵 Kathmandu (+05:45)';
+    case 'Asia/Dhaka':
+      return '🇧🇩 Dhaka (+06:00)';
+    case 'Asia/Yangon':
+      return '🇲🇲 Yangon (+06:30)';
+    case 'Asia/Bangkok':
+      return '🇹🇭 Bangkok (+07:00)';
+    case 'Asia/Singapore':
+      return '🇸🇬 Singapore (+08:00)';
+    case 'Australia/Eucla':
+      return '🇦🇺 Eucla (+08:45)';
+    case 'Asia/Seoul':
+      return '🇰🇷 Seoul (+09:00)';
+    case 'Australia/Darwin':
+      return '🇦🇺 Darwin (+09:30)';
+    case 'Australia/Adelaide':
+      return '🇦🇺 Adelaide (+09:30/+10:30)';
+    case 'Australia/Brisbane':
+      return '🇦🇺 Brisbane (+10:00)';
+    case 'Australia/Sydney':
+      return '🇦🇺 Sydney (+10:00/+11:00)';
+    case 'Australia/Lord_Howe':
+      return '🇦🇺 Lord Howe (+10:30/+11:00)';
+    case 'Pacific/Bougainville':
+      return '🇵🇬 Bougainville (+11:00)';
+    case 'Pacific/Norfolk':
+      return '🇦🇺 Norfolk (+11:00/+12:00)';
+    case 'Pacific/Fiji':
+      return '🇫🇯 Fiji (+12:00)';
+    case 'Pacific/Auckland':
+      return '🇳🇿 Auckland (+12:00/+13:00)';
+    case 'Pacific/Chatham':
+      return '🇳🇿 Chatham (+12:45/+13:45)';
+    case 'Pacific/Apia':
+      return '🇼🇸 Apia (+13:00)';
+    case 'Pacific/Kiritimati':
+      return '🇰🇮 Kiritimati (+14:00)';
     default:
       return timezone;
   }
 }
 
 export const AVAILABLE_TIMEZONES: { value: Timezone; label: string }[] = [
-  { value: 'UTC', label: 'UTC' },
-  { value: 'US/Eastern', label: 'US Eastern (EST/EDT)' },
-  { value: 'US/Central', label: 'US Central (CST/CDT)' },
-  { value: 'US/Mountain', label: 'US Mountain (MST/MDT)' },
-  { value: 'US/Pacific', label: 'US Pacific (PST/PDT)' },
-  { value: 'US/Alaska', label: 'US Alaska (AKST/AKDT)' },
-  { value: 'US/Hawaii', label: 'US Hawaii (HST)' },
-  { value: 'America/New_York', label: 'New York (EST/EDT)' },
-  { value: 'America/Chicago', label: 'Chicago (CST/CDT)' },
-  { value: 'America/Denver', label: 'Denver (MST/MDT)' },
-  { value: 'America/Los_Angeles', label: 'Los Angeles (PST/PDT)' },
-  { value: 'America/Anchorage', label: 'Anchorage (AKST/AKDT)' },
-  { value: 'America/Honolulu', label: 'Honolulu (HST)' },
-  { value: 'Europe/London', label: 'London (GMT/BST)' },
-  { value: 'Europe/Paris', label: 'Paris (CET/CEST)' },
-  { value: 'Europe/Berlin', label: 'Berlin (CET/CEST)' },
-  { value: 'Europe/Rome', label: 'Rome (CET/CEST)' },
-  { value: 'Europe/Madrid', label: 'Madrid (CET/CEST)' },
-  { value: 'Europe/Amsterdam', label: 'Amsterdam (CET/CEST)' },
-  { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
-  { value: 'Asia/Shanghai', label: 'Shanghai (CST)' },
-  { value: 'Asia/Kolkata', label: 'Kolkata (IST)' },
-  { value: 'Asia/Dubai', label: 'Dubai (GST)' },
-  { value: 'Australia/Sydney', label: 'Sydney (AEST/AEDT)' },
-  { value: 'Australia/Melbourne', label: 'Melbourne (AEST/AEDT)' },
-  { value: 'Australia/Perth', label: 'Perth (AWST)' },
-  { value: 'Pacific/Auckland', label: 'Auckland (NZST/NZDT)' },
-  { value: 'America/Toronto', label: 'Toronto (EST/EDT)' },
-  { value: 'America/Vancouver', label: 'Vancouver (PST/PDT)' },
-  { value: 'America/Mexico_City', label: 'Mexico City (CST/CDT)' },
-  { value: 'America/Sao_Paulo', label: 'São Paulo (BRT)' },
-  { value: 'Africa/Cairo', label: 'Cairo (EET)' },
-  { value: 'Africa/Johannesburg', label: 'Johannesburg (SAST)' }
+  { value: 'Pacific/Niue', label: '🇳🇺 Niue (-11:00)' },
+  { value: 'America/Adak', label: '🇺🇸 Adak (-10:00/-09:00)' },
+  { value: 'Pacific/Honolulu', label: '🇺🇸 Honolulu (-10:00)' },
+  { value: 'Pacific/Marquesas', label: '🇵🇫 Marquesas (-09:30)' },
+  { value: 'America/Anchorage', label: '🇺🇸 Anchorage (-09:00/-08:00)' },
+  { value: 'Pacific/Gambier', label: '🇵🇫 Gambier (-09:00)' },
+  { value: 'America/Los_Angeles', label: '🇺🇸 Los Angeles (-08:00/-07:00)' },
+  { value: 'Pacific/Pitcairn', label: '🇵🇳 Pitcairn (-08:00)' },
+  { value: 'America/Denver', label: '🇺🇸 Denver (-07:00/-06:00)' },
+  { value: 'America/Phoenix', label: '🇺🇸 Phoenix (-07:00)' },
+  { value: 'America/Chicago', label: '🇺🇸 Chicago (-06:00/-05:00)' },
+  { value: 'America/Mexico_City', label: '🇲🇽 Mexico City (-06:00)' },
+  { value: 'America/New_York', label: '🇺🇸 New York (-05:00/-04:00)' },
+  { value: 'America/Lima', label: '🇵🇪 Lima (-05:00)' },
+  { value: 'America/Barbados', label: '🇧🇧 Barbados (-04:00)' },
+  { value: 'America/Santiago', label: '🇨🇱 Santiago (-04:00/-03:00)' },
+  { value: 'America/St_Johns', label: '🇨🇦 St. John\'s (-03:30/-02:30)' },
+  { value: 'America/Miquelon', label: '🇵🇲 Miquelon (-03:00/-02:00)' },
+  { value: 'America/Sao_Paulo', label: '🇧🇷 São Paulo (-03:00)' },
+  { value: 'America/Godthab', label: '🇬🇱 Godthab/Nuuk (-02:00/-01:00)' },
+  { value: 'Atlantic/South_Georgia', label: '🇬🇸 South Georgia (-02:00)' },
+  { value: 'Atlantic/Azores', label: '🇵🇹 Azores (-01:00/+00:00)' },
+  { value: 'Atlantic/Cape_Verde', label: '🇨🇻 Cape Verde (-01:00)' },
+  { value: 'UTC', label: '🇺🇳 UTC (+00:00)' },
+  { value: 'Africa/Abidjan', label: '🇨🇮 Abidjan (+00:00)' },
+  { value: 'Europe/Dublin', label: '🇮🇪 Dublin (+00:00/+01:00)' },
+  { value: 'Antarctica/Troll', label: '🇦🇶 Troll (+00:00/+02:00)' },
+  { value: 'Africa/Lagos', label: '🇳🇬 Lagos (+01:00)' },
+  { value: 'Europe/Berlin', label: '🇩🇪 Berlin (+01:00/+02:00)' },
+  { value: 'Africa/Johannesburg', label: '🇿🇦 Johannesburg (+02:00)' },
+  { value: 'Europe/Athens', label: '🇬🇷 Athens (+02:00/+03:00)' },
+  { value: 'Africa/Nairobi', label: '🇰🇪 Nairobi (+03:00)' },
+  { value: 'Asia/Tehran', label: '🇮🇷 Tehran (+03:30)' },
+  { value: 'Asia/Dubai', label: '🇦🇪 Dubai (+04:00)' },
+  { value: 'Asia/Kabul', label: '🇦🇫 Kabul (+04:30)' },
+  { value: 'Asia/Karachi', label: '🇵🇰 Karachi (+05:00)' },
+  { value: 'Asia/Kolkata', label: '🇮🇳 Mumbai (+05:30)' },
+  { value: 'Asia/Kathmandu', label: '🇳🇵 Kathmandu (+05:45)' },
+  { value: 'Asia/Dhaka', label: '🇧🇩 Dhaka (+06:00)' },
+  { value: 'Asia/Yangon', label: '🇲🇲 Yangon (+06:30)' },
+  { value: 'Asia/Bangkok', label: '🇹🇭 Bangkok (+07:00)' },
+  { value: 'Asia/Singapore', label: '🇸🇬 Singapore (+08:00)' },
+  { value: 'Australia/Eucla', label: '🇦🇺 Eucla (+08:45)' },
+  { value: 'Asia/Seoul', label: '🇰🇷 Seoul (+09:00)' },
+  { value: 'Australia/Darwin', label: '🇦🇺 Darwin (+09:30)' },
+  { value: 'Australia/Adelaide', label: '🇦🇺 Adelaide (+09:30/+10:30)' },
+  { value: 'Australia/Brisbane', label: '🇦🇺 Brisbane (+10:00)' },
+  { value: 'Australia/Sydney', label: '🇦🇺 Sydney (+10:00/+11:00)' },
+  { value: 'Australia/Lord_Howe', label: '🇦🇺 Lord Howe (+10:30/+11:00)' },
+  { value: 'Pacific/Bougainville', label: '🇵🇬 Bougainville (+11:00)' },
+  { value: 'Pacific/Norfolk', label: '🇦🇺 Norfolk (+11:00/+12:00)' },
+  { value: 'Pacific/Fiji', label: '🇫🇯 Fiji (+12:00)' },
+  { value: 'Pacific/Auckland', label: '🇳🇿 Auckland (+12:00/+13:00)' },
+  { value: 'Pacific/Chatham', label: '🇳🇿 Chatham (+12:45/+13:45)' },
+  { value: 'Pacific/Apia', label: '🇼🇸 Apia (+13:00)' },
+  { value: 'Pacific/Kiritimati', label: '🇰🇮 Kiritimati (+14:00)' }
 ];
