@@ -9,6 +9,8 @@ describe('timezone store', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     window.localStorage.clear();
+    // Reset store to default value
+    displayTimezone.set('UTC');
   });
 
   describe('displayTimezone store', () => {
