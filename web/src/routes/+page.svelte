@@ -535,7 +535,7 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each graphData as row}
+							{#each graphData as row (row.date.getTime())}
 								<tr class="border-b">
 									<td class="px-2 py-2">{format(row.date, 'MMM d HH:mm')}</td>
 									<td class="px-2 py-2 text-right">{row.count}</td>
