@@ -1,5 +1,4 @@
-import { jest } from '@jest/globals';
-
+// Mock implementations for SvelteKit navigation
 export const goto = jest.fn();
 export const invalidate = jest.fn();
 export const invalidateAll = jest.fn();
