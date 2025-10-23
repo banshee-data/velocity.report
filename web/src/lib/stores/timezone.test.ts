@@ -21,8 +21,8 @@ describe('timezone store', () => {
       displayTimezone.set('America/New_York');
       expect(get(displayTimezone)).toBe('America/New_York');
 
-      displayTimezone.set('Europe/London');
-      expect(get(displayTimezone)).toBe('Europe/London');
+      displayTimezone.set('Europe/Dublin');
+      expect(get(displayTimezone)).toBe('Europe/Dublin');
     });
 
     it('should support subscription', () => {
@@ -44,33 +44,34 @@ describe('timezone store', () => {
     it('should use stored timezone when available', () => {
       (timezoneModule.getDisplayTimezone as jest.Mock).mockReturnValue('America/New_York');
 
-      initializeTimezone();
+      initializeTimezone('UTC');
 
-      expect(timezoneModule.getDisplayTimezone).toHaveBeenCalled();
+      expect(timezoneModule.getDisplayTimezone).toHaveBeenCalledWith('UTC');
       expect(get(displayTimezone)).toBe('America/New_York');
     });
 
     it('should use default timezone when no stored value', () => {
       (timezoneModule.getDisplayTimezone as jest.Mock).mockReturnValue('UTC');
 
-      initializeTimezone();
+      initializeTimezone('UTC');
 
       expect(get(displayTimezone)).toBe('UTC');
     });
 
     it('should use server-provided timezone when specified', () => {
-      (timezoneModule.getDisplayTimezone as jest.Mock).mockReturnValue('UTC');
+      (timezoneModule.getDisplayTimezone as jest.Mock).mockReturnValue('Europe/Dublin');
 
-      initializeTimezone('Europe/London');
+      initializeTimezone('Europe/Dublin');
 
+      expect(timezoneModule.getDisplayTimezone).toHaveBeenCalledWith('Europe/Dublin');
       const storedValue = get(displayTimezone);
-      expect(['UTC', 'Europe/London']).toContain(storedValue);
+      expect(storedValue).toBe('Europe/Dublin');
     });
 
     it('should handle IANA timezone identifiers', () => {
       const timezones = [
         'America/New_York',
-        'Europe/London',
+        'Europe/Dublin',
         'Asia/Singapore',
         'Asia/Seoul',
         'Pacific/Bougainville',
@@ -79,7 +80,7 @@ describe('timezone store', () => {
 
       timezones.forEach((tz) => {
         (timezoneModule.getDisplayTimezone as jest.Mock).mockReturnValue(tz);
-        initializeTimezone();
+        initializeTimezone('UTC');
         expect(get(displayTimezone)).toBe(tz);
       });
     });
@@ -97,8 +98,8 @@ describe('timezone store', () => {
       updateTimezone('America/New_York');
       expect(get(displayTimezone)).toBe('America/New_York');
 
-      updateTimezone('Europe/London');
-      expect(get(displayTimezone)).toBe('Europe/London');
+      updateTimezone('Europe/Dublin');
+      expect(get(displayTimezone)).toBe('Europe/Dublin');
 
       updateTimezone('UTC');
       expect(get(displayTimezone)).toBe('UTC');
