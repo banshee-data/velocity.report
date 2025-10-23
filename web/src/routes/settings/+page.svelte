@@ -32,6 +32,7 @@
 			initializeUnits(config.units);
 			initializeTimezone(config.timezone);
 		} catch (e) {
+			console.error('Failed to load configuration:', e);
 			message = 'Failed to load configuration';
 		} finally {
 			loading = false;
@@ -48,6 +49,7 @@
 				message = '';
 			}, 3000);
 		} catch (e) {
+			console.error('Failed to update units:', e);
 			message = 'Failed to update units';
 		}
 	}
@@ -62,6 +64,7 @@
 				message = '';
 			}, 3000);
 		} catch (e) {
+			console.error('Failed to update timezone:', e);
 			message = 'Failed to update timezone';
 		}
 	}
