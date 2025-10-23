@@ -1,4 +1,5 @@
 import { get } from 'svelte/store';
+import type { Timezone } from '../timezone';
 import * as timezoneModule from '../timezone';
 import { displayTimezone, initializeTimezone, updateTimezone } from './timezone';
 
@@ -110,7 +111,7 @@ describe('timezone store', () => {
     });
 
     it('should persist recently updated timezones', () => {
-      const timezones = [
+      const timezones: Timezone[] = [
         'Africa/Lagos',
         'Africa/Abidjan',
         'America/Santiago',
