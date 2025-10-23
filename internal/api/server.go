@@ -468,6 +468,7 @@ func (s *Server) handleSites(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listSites(w http.ResponseWriter, r *http.Request) {
+	_ = r
 	sites, err := s.db.GetAllSites()
 	if err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve sites: %v", err))
@@ -481,6 +482,7 @@ func (s *Server) listSites(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getSite(w http.ResponseWriter, r *http.Request, id int) {
+	_ = r
 	site, err := s.db.GetSite(id)
 	if err != nil {
 		if err.Error() == "site not found" {
@@ -569,6 +571,7 @@ func (s *Server) updateSite(w http.ResponseWriter, r *http.Request, id int) {
 }
 
 func (s *Server) deleteSite(w http.ResponseWriter, r *http.Request, id int) {
+	_ = r
 	if err := s.db.DeleteSite(id); err != nil {
 		if err.Error() == "site not found" {
 			s.writeJSONError(w, http.StatusNotFound, "Site not found")
@@ -945,6 +948,7 @@ func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listAllReports(w http.ResponseWriter, r *http.Request) {
+	_ = r
 	reports, err := s.db.GetRecentReportsAllSites(15)
 	if err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve reports: %v", err))
@@ -958,6 +962,7 @@ func (s *Server) listAllReports(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listSiteReports(w http.ResponseWriter, r *http.Request, siteID int) {
+	_ = r
 	reports, err := s.db.GetRecentReportsForSite(siteID, 5)
 	if err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve reports: %v", err))
@@ -971,6 +976,7 @@ func (s *Server) listSiteReports(w http.ResponseWriter, r *http.Request, siteID 
 }
 
 func (s *Server) getReport(w http.ResponseWriter, r *http.Request, reportID int) {
+	_ = r
 	report, err := s.db.GetSiteReport(reportID)
 	if err != nil {
 		if err.Error() == "report not found" {
@@ -988,6 +994,7 @@ func (s *Server) getReport(w http.ResponseWriter, r *http.Request, reportID int)
 }
 
 func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, reportID int, fileType string) {
+	_ = r
 	// Validate file type
 	if fileType != "pdf" && fileType != "zip" {
 		w.Header().Set("Content-Type", "application/json")
@@ -1077,6 +1084,7 @@ func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, reportID
 }
 
 func (s *Server) deleteReport(w http.ResponseWriter, r *http.Request, reportID int) {
+	_ = r
 	if err := s.db.DeleteSiteReport(reportID); err != nil {
 		if err.Error() == "report not found" {
 			s.writeJSONError(w, http.StatusNotFound, "Report not found")
