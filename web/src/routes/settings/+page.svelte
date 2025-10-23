@@ -135,14 +135,14 @@
 				<Table
 					data={[
 						{
-							setting: 'Units',
-							serverDefault: getUnitLabel(config.units as Unit),
-							yourSetting: getUnitLabel($displayUnits)
-						},
-						{
 							setting: 'Timezone',
 							serverDefault: getTimezoneLabel(config.timezone as Timezone),
 							yourSetting: getTimezoneLabel($displayTimezone)
+						},
+						{
+							setting: 'Units',
+							serverDefault: getUnitLabel(config.units as Unit),
+							yourSetting: getUnitLabel($displayUnits)
 						}
 					]}
 					columns={[
