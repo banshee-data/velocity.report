@@ -32,11 +32,17 @@ type RawRadarStats = {
 	P85Speed: number;
 	P98Speed: number;
 	MaxSpeed: number;
-}
+};
 
 // Histogram shape: server returns a map of bucket label -> count. Keys are strings
 // (formatted numbers) and values are counts.
 export type Histogram = Record<string, number>;
+
+// Response from getRadarStats
+export interface RadarStatsResponse {
+	metrics: RadarStats[];
+	histogram?: Histogram;
+}
 
 export interface Config {
 	units: string;
@@ -66,7 +72,7 @@ export async function getRadarStats(
 	units?: string,
 	timezone?: string,
 	source?: string
-): Promise<{ metrics: RadarStats[]; histogram?: Histogram }> {
+): Promise<RadarStatsResponse> {
 	const url = new URL(`${API_BASE}/radar_stats`, window.location.origin);
 	url.searchParams.append('start', start.toString());
 	url.searchParams.append('end', end.toString());
@@ -87,7 +93,7 @@ export async function getRadarStats(
 		p50: r.P50Speed,
 		p85: r.P85Speed,
 		p98: r.P98Speed,
-		max: r.MaxSpeed,
+		max: r.MaxSpeed
 	})) as RadarStats[];
 
 	const histogram = payload && payload.histogram ? (payload.histogram as Histogram) : undefined;
@@ -165,14 +171,34 @@ export interface SiteReport {
 	created_at: string;
 }
 
-export async function downloadReport(reportId: number, fileType: 'pdf' | 'zip' = 'pdf'): Promise<Blob> {
+export interface DownloadResult {
+	blob: Blob;
+	filename: string;
+}
+
+export async function downloadReport(
+	reportId: number,
+	fileType: 'pdf' | 'zip' = 'pdf'
+): Promise<DownloadResult> {
 	const url = new URL(`${API_BASE}/reports/${reportId}/download`, window.location.origin);
 	url.searchParams.append('file_type', fileType);
 	const res = await fetch(url);
 	if (!res.ok) {
 		throw new Error(`Failed to download report: ${res.status}`);
 	}
-	return res.blob();
+
+	// Extract filename from Content-Disposition header
+	const contentDisposition = res.headers.get('Content-Disposition');
+	let filename = `report.${fileType}`; // fallback
+	if (contentDisposition) {
+		const match = contentDisposition.match(/filename="?([^";]+)"?/);
+		if (match) {
+			filename = match[1].trim();
+		}
+	}
+
+	const blob = await res.blob();
+	return { blob, filename };
 }
 
 export async function getRecentReports(): Promise<SiteReport[]> {
@@ -184,6 +210,12 @@ export async function getRecentReports(): Promise<SiteReport[]> {
 export async function getReportsForSite(siteId: number): Promise<SiteReport[]> {
 	const res = await fetch(`${API_BASE}/reports/site/${siteId}`);
 	if (!res.ok) throw new Error(`Failed to fetch site reports: ${res.status}`);
+	return res.json();
+}
+
+export async function getReport(reportId: number): Promise<SiteReport> {
+	const res = await fetch(`${API_BASE}/reports/${reportId}`);
+	if (!res.ok) throw new Error(`Failed to fetch report: ${res.status}`);
 	return res.json();
 }
 

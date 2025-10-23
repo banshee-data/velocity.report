@@ -32,7 +32,7 @@ func TestGetValidTimezonesString(t *testing.T) {
 	if res == "" {
 		t.Fatal("GetValidTimezonesString returned empty string")
 	}
-	expected := []string{"UTC", "US/Eastern", "Europe/London"}
+	expected := []string{"UTC", "America/New_York", "Europe/Dublin", "Asia/Seoul", "Asia/Singapore", "Europe/Athens", "Pacific/Bougainville"}
 	for _, s := range expected {
 		if !contains(res, s) {
 			t.Fatalf("GetValidTimezonesString missing %s", s)
@@ -54,8 +54,22 @@ func TestConvertTime(t *testing.T) {
 }
 
 func TestGetTimezoneLabel(t *testing.T) {
-	if GetTimezoneLabel("UTC") != "UTC" {
-		t.Fatalf("GetTimezoneLabel UTC mismatch")
+	tests := []struct {
+		tz       string
+		expected string
+	}{
+		{"UTC", "UTC (+00:00)"},
+		{"America/New_York", "New York (-05:00/-04:00)"},
+		{"Pacific/Chatham", "Chatham (+12:45/+13:45)"},
+		{"Pacific/Niue", "Niue (-11:00)"},
+		{"InvalidTimezone", "InvalidTimezone"}, // Should return the input if not found
+	}
+
+	for _, tt := range tests {
+		result := GetTimezoneLabel(tt.tz)
+		if result != tt.expected {
+			t.Errorf("GetTimezoneLabel(%s) = %s, want %s", tt.tz, result, tt.expected)
+		}
 	}
 }
 

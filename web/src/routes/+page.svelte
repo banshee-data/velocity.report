@@ -19,10 +19,13 @@
 		generateReport,
 		getConfig,
 		getRadarStats,
+		getReport,
 		getSites,
 		type Config,
 		type RadarStats,
-		type Site
+		type RadarStatsResponse,
+		type Site,
+		type SiteReport
 	} from '../lib/api';
 	import { displayTimezone, initializeTimezone } from '../lib/stores/timezone';
 	import { displayUnits, initializeUnits } from '../lib/stores/units';
@@ -45,18 +48,12 @@
 		return d.toISOString().slice(0, 10);
 	}
 	const today = new Date();
-	const fromDefault = new Date(today);
+	const fromDefault = new Date(today); // eslint-disable-line svelte/prefer-svelte-reactivity
 	fromDefault.setDate(today.getDate() - 13); // last 14 days inclusive
 	let dateRange = { from: fromDefault, to: today, periodType: PeriodType.Day };
 	let group: string = '4h';
 	let chartData: Array<{ date: Date; metric: string; value: number }> = [];
 	let graphData: RadarStats[] = [];
-	const barSeries = [
-		{ key: 'count', label: 'Count', value: (d: RadarStats) => d.count, color: '#16a34a' },
-		{ key: 'p50', label: 'p50', value: (d: RadarStats) => d.p50, color: '#2563eb' },
-		{ key: 'p85', label: 'p85', value: (d: RadarStats) => d.p85, color: '#16a34a' },
-		{ key: 'p98', label: 'p98', value: (d: RadarStats) => d.p98, color: '#f59e0b' }
-	];
 	let selectedSource: string = 'radar_objects';
 
 	// color map mirrors the cDomain/cRange used by the chart so we don't need
@@ -97,7 +94,7 @@
 	let lastSource = '';
 	let initialized = false;
 	// Cache the last raw stats response
-	let lastStatsRaw: any | null = null;
+	let lastStatsRaw: RadarStatsResponse | null = null;
 	let lastStatsRequestKey = '';
 
 	$: if (initialized && browser && dateRange.from && dateRange.to) {
@@ -119,10 +116,10 @@
 
 			loading = true;
 			// run loadStats first so it can populate the cache, then run loadChart which will reuse it
-			loadStats($displayUnits)
+			loadStats($displayUnits) // eslint-disable-line svelte/infinite-reactive-loop
 				.then(() => loadChart())
 				.catch((e) => {
-					error = e instanceof Error && e.message ? e.message : String(e);
+					error = e instanceof Error && e.message ? e.message : String(e); // eslint-disable-line svelte/infinite-reactive-loop
 				})
 				.finally(() => {
 					loading = false;
@@ -204,7 +201,7 @@
 			// Show P98 speed (aggregate percentile) in the summary card
 			p98Speed = stats.length > 0 ? Math.max(...stats.map((s) => s.p98 || 0)) : 0;
 		} catch (e) {
-			error = e instanceof Error && e.message ? e.message : 'Failed to load stats';
+			error = e instanceof Error && e.message ? e.message : 'Failed to load stats'; // eslint-disable-line svelte/infinite-reactive-loop
 		}
 	}
 
@@ -222,7 +219,7 @@
 		let arr: RadarStats[];
 		if (lastStatsRaw && requestKey === lastStatsRequestKey) {
 			// reuse cached stats response (it may be the root object)
-			const cached = lastStatsRaw as any;
+			const cached = lastStatsRaw as RadarStatsResponse;
 			arr = Array.isArray(cached) ? cached : cached.metrics || [];
 			if (browser) console.debug('[dashboard] reusing cached stats for chart');
 		} else {
@@ -299,6 +296,7 @@
 	let generatingReport = false;
 	let reportMessage = '';
 	let lastGeneratedReportId: number | null = null;
+	let reportMetadata: SiteReport | null = null;
 
 	async function handleGenerateReport() {
 		if (!dateRange.from || !dateRange.to) {
@@ -314,6 +312,7 @@
 		generatingReport = true;
 		reportMessage = '';
 		lastGeneratedReportId = null;
+		reportMetadata = null;
 
 		try {
 			// Generate report and get report ID
@@ -330,68 +329,37 @@
 			});
 
 			lastGeneratedReportId = response.report_id;
-			reportMessage = `Report generated successfully! Use the buttons below to download.`;
+
+			// Fetch report metadata to get filenames
+			reportMetadata = await getReport(response.report_id);
+
+			reportMessage = `Report generated successfully! Use the links below to download.`;
 		} catch (e) {
 			reportMessage = e instanceof Error ? e.message : 'Failed to generate report';
 		} finally {
 			generatingReport = false;
 		}
 	}
-
-	async function downloadPDF() {
-		if (!lastGeneratedReportId) return;
-
-		try {
-			const { downloadReport } = await import('$lib/api');
-			const pdfBlob = await downloadReport(lastGeneratedReportId, 'pdf');
-
-			// Create a download link and trigger it
-			const url = window.URL.createObjectURL(pdfBlob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = `report_${isoDate(dateRange.from!)}_${isoDate(dateRange.to!)}.pdf`;
-			document.body.appendChild(a);
-			a.click();
-			document.body.removeChild(a);
-			window.URL.revokeObjectURL(url);
-		} catch (e) {
-			reportMessage = e instanceof Error ? e.message : 'Failed to download PDF';
-		}
-	}
-
-	async function downloadSources() {
-		if (!lastGeneratedReportId) return;
-
-		try {
-			const { downloadReport } = await import('$lib/api');
-			const zipBlob = await downloadReport(lastGeneratedReportId, 'zip');
-
-			// Create a download link and trigger it
-			const url = window.URL.createObjectURL(zipBlob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = `report_sources_${isoDate(dateRange.from!)}_${isoDate(dateRange.to!)}.zip`;
-			document.body.appendChild(a);
-			a.click();
-			document.body.removeChild(a);
-			window.URL.revokeObjectURL(url);
-		} catch (e) {
-			reportMessage = e instanceof Error ? e.message : 'Failed to download sources';
-		}
-	}
 </script>
 
 <svelte:head>
 	<title>Dashboard 🚴 velocity.report</title>
+	<meta name="description" content="Real-time vehicle traffic statistics and speed analytics" />
 </svelte:head>
 
-<main class="space-y-6 p-4">
+<main id="main-content" class="space-y-6 p-4">
 	<Header title="Dashboard" subheading="Vehicle traffic statistics and analytics" />
 
 	{#if loading}
-		<p>Loading stats…</p>
+		<div role="status" aria-live="polite" aria-busy="true">
+			<p>Loading stats…</p>
+			<span class="sr-only">Please wait while we fetch your traffic data</span>
+		</div>
 	{:else if error}
-		<p class="text-red-600">{error}</p>
+		<div role="alert" aria-live="assertive" class="text-red-600">
+			<strong>Error:</strong>
+			{error}
+		</div>
 	{:else}
 		<div class="flex flex-wrap items-end gap-2">
 			<div class="w-74">
@@ -421,6 +389,7 @@
 					variant="fill"
 					color="primary"
 					class="whitespace-normal"
+					aria-label={generatingReport ? 'Generating report, please wait' : 'Generate report'}
 				>
 					{generatingReport ? 'Generating...' : 'Generate Report'}
 				</Button>
@@ -429,6 +398,8 @@
 
 		{#if reportMessage}
 			<div
+				role={reportMessage.includes('success') ? 'status' : 'alert'}
+				aria-live="polite"
 				class="rounded border p-3 {reportMessage.includes('success')
 					? 'border-green-300 bg-green-50 text-green-800'
 					: 'border-red-300 bg-red-50 text-red-800'}"
@@ -438,30 +409,52 @@
 		{/if}
 
 		{#if lastGeneratedReportId !== null}
-			<div class="card space-y-3 p-4">
+			<div class="card space-y-3 p-4" role="region" aria-label="Report download options">
 				<h3 class="text-base font-semibold">Report Ready</h3>
-				<div class="flex gap-2">
-					<Button on:click={downloadPDF} variant="fill" color="secondary">📄 Download PDF</Button>
-					<Button on:click={downloadSources} variant="outline" color="secondary">
-						📦 Download Sources (ZIP)
-					</Button>
-				</div>
+				{#if reportMetadata}
+					<div class="flex gap-2">
+						<a
+							href="/api/reports/{lastGeneratedReportId}/download/{reportMetadata.filename}"
+							class="bg-secondary-500 hover:bg-secondary-600 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white transition-colors"
+							download
+							aria-label="Download PDF report"
+						>
+							📄 Download PDF
+						</a>
+						{#if reportMetadata.zip_filename}
+							<a
+								href="/api/reports/{lastGeneratedReportId}/download/{reportMetadata.zip_filename}"
+								class="border-secondary-500 text-secondary-500 hover:bg-secondary-50 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:text-white"
+								download
+								aria-label="Download source files as ZIP archive"
+							>
+								📦 Download Sources (ZIP)
+							</a>
+						{/if}
+					</div>
+				{:else}
+					<p class="text-surface-600-300-token text-sm" role="status" aria-live="polite">
+						Loading download links...
+					</p>
+				{/if}
 				<p class="text-surface-600-300-token text-xs">
 					The ZIP file contains LaTeX source files and chart PDFs for custom editing
 				</p>
 			</div>
 		{/if}
 
-		<Grid autoColumns="14em" gap={8}>
-			<Card title="Vehicle Count">
+		<Grid autoColumns="14em" gap={8} role="region" aria-label="Traffic statistics summary">
+			<Card title="Vehicle Count" role="article">
 				<div class="pb-4 pl-4 pr-4 pt-0">
-					<p class="text-3xl font-bold text-blue-600">{totalCount}</p>
+					<p class="text-3xl font-bold text-blue-600" aria-label="Total vehicle count">
+						{totalCount}
+					</p>
 				</div>
 			</Card>
 
-			<Card title="P98 Speed">
+			<Card title="P98 Speed" role="article">
 				<div class="pb-4 pl-4 pr-4 pt-0">
-					<p class="text-3xl font-bold text-green-600">
+					<p class="text-3xl font-bold text-green-600" aria-label="98th percentile speed">
 						{p98Speed.toFixed(1)}
 						{getUnitLabel($displayUnits)}
 					</p>
@@ -475,7 +468,11 @@
 				* hour on the x-axis when zoomed in (Timezone aligned)
 				* Tooltip for multiple metrics
 				-->
-			<div class="mb-4 h-[300px] rounded border p-4">
+			<div
+				class="mb-4 h-[300px] rounded border p-4"
+				role="img"
+				aria-label="Speed distribution over time showing P50, P85, P98, and maximum speeds for the selected date range"
+			>
 				<Chart
 					data={chartData}
 					x="date"
@@ -499,7 +496,7 @@
 							tickSpacing={100}
 							tickMultiline
 						/>
-						{#each ['p50', 'p85', 'p98', 'max'] as metric}
+						{#each ['p50', 'p85', 'p98', 'max'] as metric (metric)}
 							{@const data = chartData.filter((p) => p.metric === metric)}
 							{@const color = colorMap[metric]}
 							<Spline {data} class="stroke-2" stroke={color}>
@@ -518,6 +515,40 @@
 					</Svg>
 				</Chart>
 			</div>
+
+			<!-- Accessible data table fallback -->
+			<details class="rounded border p-4">
+				<summary class="cursor-pointer text-sm font-medium">View data table</summary>
+				<div class="mt-4 overflow-x-auto">
+					<table class="w-full text-sm">
+						<caption class="sr-only">
+							Speed statistics over time showing P50, P85, P98, and maximum values
+						</caption>
+						<thead>
+							<tr class="border-b">
+								<th scope="col" class="px-2 py-2 text-left">Time</th>
+								<th scope="col" class="px-2 py-2 text-right">Count</th>
+								<th scope="col" class="px-2 py-2 text-right">P50</th>
+								<th scope="col" class="px-2 py-2 text-right">P85</th>
+								<th scope="col" class="px-2 py-2 text-right">P98</th>
+								<th scope="col" class="px-2 py-2 text-right">Max</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each graphData as row (row.date.getTime())}
+								<tr class="border-b">
+									<td class="px-2 py-2">{format(row.date, 'MMM d HH:mm')}</td>
+									<td class="px-2 py-2 text-right">{row.count}</td>
+									<td class="px-2 py-2 text-right">{row.p50.toFixed(1)}</td>
+									<td class="px-2 py-2 text-right">{row.p85.toFixed(1)}</td>
+									<td class="px-2 py-2 text-right">{row.p98.toFixed(1)}</td>
+									<td class="px-2 py-2 text-right">{row.max.toFixed(1)}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			</details>
 		{/if}
 	{/if}
 </main>

@@ -7,13 +7,13 @@ export const displayUnits = writable<Unit>('mph');
 
 // Function to initialize the store with config data
 export function initializeUnits(serverDefault: string) {
-  const units = getDisplayUnits(serverDefault);
-  displayUnits.set(units);
-  return units;
+	const units = getDisplayUnits(serverDefault);
+	displayUnits.set(units);
+	return units;
 }
 
 // Function to update units and save to localStorage
 export function updateUnits(newUnits: Unit) {
-  setStoredUnits(newUnits);
-  displayUnits.set(newUnits);
+	setStoredUnits(newUnits);
+	displayUnits.set(newUnits);
 }

@@ -468,6 +468,7 @@ func (s *Server) handleSites(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listSites(w http.ResponseWriter, r *http.Request) {
+	_ = r
 	sites, err := s.db.GetAllSites()
 	if err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve sites: %v", err))
@@ -481,6 +482,7 @@ func (s *Server) listSites(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getSite(w http.ResponseWriter, r *http.Request, id int) {
+	_ = r
 	site, err := s.db.GetSite(id)
 	if err != nil {
 		if err.Error() == "site not found" {
@@ -569,6 +571,7 @@ func (s *Server) updateSite(w http.ResponseWriter, r *http.Request, id int) {
 }
 
 func (s *Server) deleteSite(w http.ResponseWriter, r *http.Request, id int) {
+	_ = r
 	if err := s.db.DeleteSite(id); err != nil {
 		if err.Error() == "site not found" {
 			s.writeJSONError(w, http.StatusNotFound, "Site not found")
@@ -802,11 +805,11 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Python auto-generates filename as: {source}_{start_date}_to_{end_date}_report.pdf
-	pdfFilename := fmt.Sprintf("%s_%s_to_%s_report.pdf", req.Source, req.StartDate, req.EndDate)
+	// Python auto-generates filename as: velocity.report_{source}_{start_date}_to_{end_date}_report.pdf
+	pdfFilename := fmt.Sprintf("velocity.report_%s_%s_to_%s_report.pdf", req.Source, req.StartDate, req.EndDate)
 
-	// Python also generates a ZIP with sources: {source}_{start_date}_to_{end_date}_sources.zip
-	zipFilename := fmt.Sprintf("%s_%s_to_%s_sources.zip", req.Source, req.StartDate, req.EndDate)
+	// Python also generates a ZIP with sources: velocity.report_{source}_{start_date}_to_{end_date}_sources.zip
+	zipFilename := fmt.Sprintf("velocity.report_%s_%s_to_%s_sources.zip", req.Source, req.StartDate, req.EndDate)
 
 	// Store relative paths from pdf-generator directory
 	relativePdfPath := filepath.Join(outputDir, pdfFilename)
@@ -863,7 +866,8 @@ func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
 	// URL formats:
 	//   /api/reports - list all recent reports
 	//   /api/reports/123 - get report metadata
-	//   /api/reports/123/download - download PDF file
+	//   /api/reports/123/download - download PDF file (legacy, with query param)
+	//   /api/reports/123/download/filename.pdf - download file with filename in URL
 	//   /api/reports/site/456 - list reports for site 456
 	path := strings.TrimPrefix(r.URL.Path, "/api/reports")
 	path = strings.Trim(path, "/")
@@ -904,9 +908,23 @@ func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Handle download action with optional file type (pdf or zip)
-	if len(parts) == 2 && parts[1] == "download" {
+	// Supports both:
+	//   /api/reports/123/download?file_type=pdf (legacy with query param)
+	//   /api/reports/123/download/velocity.report_*.pdf (new with filename in path)
+	if len(parts) >= 2 && parts[1] == "download" {
 		if r.Method == http.MethodGet {
-			// Check for file_type query parameter (defaults to "pdf")
+			// New format: filename in URL path
+			if len(parts) == 3 {
+				// Extract file type from filename extension
+				filename := parts[2]
+				fileType := "pdf"
+				if strings.HasSuffix(filename, ".zip") {
+					fileType = "zip"
+				}
+				s.downloadReport(w, r, reportID, fileType)
+				return
+			}
+			// Legacy format: file_type query parameter (defaults to "pdf")
 			fileType := r.URL.Query().Get("file_type")
 			if fileType == "" {
 				fileType = "pdf"
@@ -930,6 +948,7 @@ func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listAllReports(w http.ResponseWriter, r *http.Request) {
+	_ = r
 	reports, err := s.db.GetRecentReportsAllSites(15)
 	if err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve reports: %v", err))
@@ -943,6 +962,7 @@ func (s *Server) listAllReports(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listSiteReports(w http.ResponseWriter, r *http.Request, siteID int) {
+	_ = r
 	reports, err := s.db.GetRecentReportsForSite(siteID, 5)
 	if err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve reports: %v", err))
@@ -956,6 +976,7 @@ func (s *Server) listSiteReports(w http.ResponseWriter, r *http.Request, siteID 
 }
 
 func (s *Server) getReport(w http.ResponseWriter, r *http.Request, reportID int) {
+	_ = r
 	report, err := s.db.GetSiteReport(reportID)
 	if err != nil {
 		if err.Error() == "report not found" {
@@ -973,6 +994,7 @@ func (s *Server) getReport(w http.ResponseWriter, r *http.Request, reportID int)
 }
 
 func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, reportID int, fileType string) {
+	_ = r
 	// Validate file type
 	if fileType != "pdf" && fileType != "zip" {
 		w.Header().Set("Content-Type", "application/json")
@@ -1062,6 +1084,7 @@ func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, reportID
 }
 
 func (s *Server) deleteReport(w http.ResponseWriter, r *http.Request, reportID int) {
+	_ = r
 	if err := s.db.DeleteSiteReport(reportID); err != nil {
 		if err.Error() == "report not found" {
 			s.writeJSONError(w, http.StatusNotFound, "Report not found")

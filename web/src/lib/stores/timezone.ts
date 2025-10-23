@@ -7,13 +7,13 @@ export const displayTimezone = writable<Timezone>('UTC');
 
 // Function to initialize the store with config data
 export function initializeTimezone(serverDefault: string) {
-  const timezone = getDisplayTimezone(serverDefault);
-  displayTimezone.set(timezone);
-  return timezone;
+	const timezone = getDisplayTimezone(serverDefault);
+	displayTimezone.set(timezone);
+	return timezone;
 }
 
 // Function to update timezone and save to localStorage
 export function updateTimezone(newTimezone: Timezone) {
-  setStoredTimezone(newTimezone);
-  displayTimezone.set(newTimezone);
+	setStoredTimezone(newTimezone);
+	displayTimezone.set(newTimezone);
 }

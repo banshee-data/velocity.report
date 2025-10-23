@@ -9,6 +9,10 @@ const config = {
 		adapter: adapter(),
 		paths: {
 			base: '/app'
+		},
+		prerender: {
+			handleMissingId: 'warn',
+			handleUnseenRoutes: 'warn'
 		}
 	}
 };

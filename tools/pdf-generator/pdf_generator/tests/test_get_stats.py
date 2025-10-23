@@ -173,7 +173,7 @@ class TestResolveFilePrefix(unittest.TestCase):
 
         result = resolve_file_prefix(config, start_ts, end_ts)
 
-        self.assertEqual(result, "my-prefix-1")
+        self.assertEqual(result, "velocity.report_my-prefix-1")
         mock_next_seq.assert_called_once_with("my-prefix", ".")
 
     def test_auto_generated_prefix_utc(self):
@@ -186,7 +186,9 @@ class TestResolveFilePrefix(unittest.TestCase):
 
         result = resolve_file_prefix(config, start_ts, end_ts)
 
-        self.assertEqual(result, "radar_data_transits_2024-01-01_to_2024-01-02")
+        self.assertEqual(
+            result, "velocity.report_radar_data_transits_2024-01-01_to_2024-01-02"
+        )
 
     def test_auto_generated_prefix_with_timezone(self):
         """Test auto-generated prefix with specific timezone."""
@@ -198,7 +200,9 @@ class TestResolveFilePrefix(unittest.TestCase):
 
         result = resolve_file_prefix(config, start_ts, end_ts)
 
-        self.assertEqual(result, "radar_objects_2023-12-31_to_2024-01-01")
+        self.assertEqual(
+            result, "velocity.report_radar_objects_2023-12-31_to_2024-01-01"
+        )
 
 
 class TestFetchGranularMetrics(unittest.TestCase):

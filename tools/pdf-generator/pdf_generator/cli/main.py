@@ -251,6 +251,10 @@ def resolve_file_prefix(
 ) -> str:
     """Determine output file prefix (sequenced or date-based).
 
+    All files are prefixed with 'velocity.report_' followed by either:
+    - User-provided prefix (sequenced)
+    - Auto-generated: {source}_{start_date}_to_{end_date}
+
     Args:
         config: Report configuration
         start_ts: Start timestamp
@@ -258,11 +262,12 @@ def resolve_file_prefix(
         output_dir: Directory where files will be created (for sequence checking)
 
     Returns:
-        File prefix string
+        File prefix string with 'velocity.report_' prefix
     """
     if config.output.file_prefix:
         # User provided a prefix - create numbered sequence
-        return _next_sequenced_prefix(config.output.file_prefix, output_dir)
+        base_prefix = _next_sequenced_prefix(config.output.file_prefix, output_dir)
+        return f"velocity.report_{base_prefix}"
     else:
         # Auto-generate from date range
         tzobj = (
@@ -272,7 +277,7 @@ def resolve_file_prefix(
         )
         start_label = datetime.fromtimestamp(start_ts, tz=tzobj).date().isoformat()
         end_label = datetime.fromtimestamp(end_ts, tz=tzobj).date().isoformat()
-        return f"{config.query.source}_{start_label}_to_{end_label}"
+        return f"velocity.report_{config.query.source}_{start_label}_to_{end_label}"
 
 
 # === API Data Fetching ===

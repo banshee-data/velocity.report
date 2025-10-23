@@ -169,7 +169,7 @@ This minimal config will:
 #### Output Configuration
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `file_prefix` | No | "velocity.report" | Prefix for generated files |
+| `file_prefix` | No | auto-generated | User-provided prefix (auto-prefixed with `velocity.report_`) |
 | `output_dir` | No | "." | Output directory |
 | `run_id` | No | auto | Unique run identifier |
 | `debug` | No | false | Enable debug output |

@@ -32,6 +32,7 @@
 			initializeUnits(config.units);
 			initializeTimezone(config.timezone);
 		} catch (e) {
+			console.error('Failed to load configuration:', e);
 			message = 'Failed to load configuration';
 		} finally {
 			loading = false;
@@ -48,6 +49,7 @@
 				message = '';
 			}, 3000);
 		} catch (e) {
+			console.error('Failed to update units:', e);
 			message = 'Failed to update units';
 		}
 	}
@@ -62,6 +64,7 @@
 				message = '';
 			}, 3000);
 		} catch (e) {
+			console.error('Failed to update timezone:', e);
 			message = 'Failed to update timezone';
 		}
 	}
@@ -71,14 +74,15 @@
 
 <svelte:head>
 	<title>Settings 🚴 velocity.report</title>
+	<meta name="description" content="Manage your display preferences for units and timezone" />
 </svelte:head>
 
-<main class="space-y-6 p-4">
+<main id="main-content" class="space-y-6 p-4">
 	<Header title="Settings" subheading="Manage your application settings and preferences." />
 
 	{#if loading}
 		<Card>
-			<div class="p-4">
+			<div class="p-4" role="status" aria-live="polite">
 				<p>Loading settings...</p>
 			</div>
 		</Card>
@@ -118,7 +122,7 @@
 
 		{#if message}
 			<Card>
-				<div class="p-4">
+				<div class="p-4" role={message.includes('Failed') ? 'alert' : 'status'} aria-live="polite">
 					<p
 						class="text-sm"
 						class:text-green-600={message.includes('automatically')}
@@ -135,14 +139,14 @@
 				<Table
 					data={[
 						{
-							setting: 'Units',
-							serverDefault: getUnitLabel(config.units as Unit),
-							yourSetting: getUnitLabel($displayUnits)
-						},
-						{
 							setting: 'Timezone',
 							serverDefault: getTimezoneLabel(config.timezone as Timezone),
 							yourSetting: getTimezoneLabel($displayTimezone)
+						},
+						{
+							setting: 'Units',
+							serverDefault: getUnitLabel(config.units as Unit),
+							yourSetting: getUnitLabel($displayUnits)
 						}
 					]}
 					columns={[

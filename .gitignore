@@ -6,6 +6,7 @@ archive/
 backup/
 log/
 node_modules/
+static/
 tools/pdf-generator/output/*
 web/.svelte-kit/*
 

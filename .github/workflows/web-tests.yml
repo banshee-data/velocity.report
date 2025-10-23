@@ -1,0 +1,86 @@
+name: 🌐 Web CI
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+  issues: write
+
+on:
+  push:
+    paths:
+      - "web/**"
+      - ".github/workflows/web-tests.yml"
+  pull_request:
+    types: [opened, reopened]
+    paths:
+      - "web/**"
+      - ".github/workflows/web-tests.yml"
+
+jobs:
+  test:
+    name: Lint and Test
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Get pnpm store directory
+        id: get-pnpm-store
+        shell: bash
+        run: |
+          echo "store_path=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.get-pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Export STORE_PATH to GITHUB_ENV
+        shell: bash
+        run: |
+          echo "STORE_PATH=${{ steps.get-pnpm-store.outputs.store_path }}" >> $GITHUB_ENV
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Prettier & ESLint
+        run: pnpm run lint
+
+      - name: Run Jest tests with coverage
+        run: pnpm run test:ci
+
+      - name: Coverage comment
+        uses: romeovs/lcov-reporter-action@v0.3.1
+        if: github.event_name == 'pull_request'
+        with:
+          lcov-file: ./web/coverage/lcov.info
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          delete-old-comments: true
+
+      - name: Coverage summary
+        run: |
+          echo "## Test Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          cat coverage/coverage-summary.json | jq -r '.total | to_entries | map("\(.key): \(.value.pct)%") | .[]' >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

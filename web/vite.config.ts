@@ -17,8 +17,8 @@ export default defineConfig({
 		rollupOptions: {
 			output: {
 				// Force everything into a single chunk
-				manualChunks: () => 'everything.js',
+				manualChunks: () => 'everything.js'
 			}
-		},
+		}
 	}
 });
