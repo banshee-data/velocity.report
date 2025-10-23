@@ -98,7 +98,7 @@ describe('timezone', () => {
 
   describe('getTimezoneLabel', () => {
     it('should return correct label for UTC', () => {
-      expect(getTimezoneLabel('UTC')).toBe('�🇳 UTC (+00:00)');
+      expect(getTimezoneLabel('UTC')).toBe('🇺🇳 UTC (+00:00)');
     });
 
     it('should return correct label for America/New_York', () => {
