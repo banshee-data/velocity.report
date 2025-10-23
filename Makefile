@@ -78,3 +78,30 @@ pdf-clean:
 
 # Convenience alias
 pdf: pdf-report
+
+# =============================================================================
+# Test targets
+# =============================================================================
+
+.PHONY: test test-all test-go test-web test-python
+
+WEB_DIR = web
+
+# Run Go unit tests for the whole repository
+test-go:
+	@echo "Running Go unit tests..."
+	@go test ./...
+
+# Run web test suite (Jest) using pnpm inside the web directory
+test-web:
+	@echo "Running web (Jest) tests..."
+	@cd $(WEB_DIR) && pnpm run test:ci
+
+# Run Python tests for the PDF generator. Ensures venv is setup first.
+test-python:
+	@echo "Running Python (PDF generator) tests..."
+	@$(MAKE) pdf-setup
+	@$(MAKE) pdf-test
+
+# Aggregate test target: runs Go, web, and Python tests in sequence
+test: test-go test-web test-python
