@@ -48,8 +48,8 @@
 		return d.toISOString().slice(0, 10);
 	}
 	const today = new Date();
-	const fromDefault = new Date(today);
-	fromDefault.setDate(today.getDate() - 13); // last 14 days inclusive // eslint-disable-line svelte/prefer-svelte-reactivity
+	const fromDefault = new Date(today); // eslint-disable-line svelte/prefer-svelte-reactivity
+	fromDefault.setDate(today.getDate() - 13); // last 14 days inclusive
 	let dateRange = { from: fromDefault, to: today, periodType: PeriodType.Day };
 	let group: string = '4h';
 	let chartData: Array<{ date: Date; metric: string; value: number }> = [];
