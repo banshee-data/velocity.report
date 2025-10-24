@@ -3,7 +3,7 @@
    If you use Tailwind in the web app, replace or extend with your real styles.
 */
 
-@import "tailwindcss/preflight";
+@import 'tailwindcss/preflight';
 @tailwind utilities;
 
 /* local app styles (keep small in source control) */
