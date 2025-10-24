@@ -19,33 +19,35 @@ try {
 		configurable: true,
 		value: mockLocation as unknown as Location
 	});
-} catch (e) {
+} catch {
 	// Fallback: window.location is not configurable in this jsdom version/environment.
 	// Patch the existing location object where possible without triggering navigation.
 	// Assign no-op navigation methods and try to define readable properties.
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const loc: any = window.location;
+	const loc = window.location as unknown as Record<string, unknown>;
+	/* eslint-disable @typescript-eslint/no-explicit-any */
 	try {
-		loc.assign = jest.fn();
-	} catch (e) {
-		void e;
+		// attempt to set no-op navigation methods
+		(loc as any).assign = jest.fn();
+	} catch {
+		/* ignore */
 	}
 	try {
-		loc.replace = jest.fn();
-	} catch (e) {
-		void e;
+		(loc as any).replace = jest.fn();
+	} catch {
+		/* ignore */
 	}
 	try {
-		loc.reload = jest.fn();
-	} catch (e) {
-		void e;
+		(loc as any).reload = jest.fn();
+	} catch {
+		/* ignore */
 	}
+	/* eslint-enable @typescript-eslint/no-explicit-any */
 
 	const safeDefine = (obj: Record<string, unknown>, key: string, val: unknown) => {
 		try {
 			Object.defineProperty(obj, key, { configurable: true, value: val });
-		} catch (e) {
-			void e;
+		} catch {
+			/* ignore */
 		}
 	};
 
