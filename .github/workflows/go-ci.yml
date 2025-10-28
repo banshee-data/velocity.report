@@ -29,7 +29,8 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "1.21"
-          cache: "modules"
+          # Note: `actions/setup-go@v4` does not accept a non-boolean `cache` input
+          # Use actions/cache if module caching is desired. Leaving this blank to satisfy YAML schema.
 
       - name: Run go test
         run: |
