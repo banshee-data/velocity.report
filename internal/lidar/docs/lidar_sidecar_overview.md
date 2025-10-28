@@ -9,6 +9,7 @@
 ## Implementation Status
 
 ### ✅ **Phase 1: Core Infrastructure (COMPLETED)**
+
 - UDP packet ingestion with configurable parameters (4MB buffer, 2369 port)
 - Hesai Pandar40P packet parsing (22-byte tail structure validated)
 - Time-based frame assembly with motor speed adaptation (360° detection, 1s buffer)
@@ -17,18 +18,21 @@
 - Comprehensive test suite with real packet validation
 
 ### 🔄 **Phase 2: Background & Clustering (CURRENT FOCUS)**
+
 - Range-image background subtraction in sensor frame
 - Foreground point clustering with configurable parameters
 - Background model persistence to database
 - Enhanced HTTP endpoints for tuning and monitoring
 
 ### 📋 **Phase 3: Tracking & World Transform (NEXT)**
+
 - Pose management and coordinate transformations
 - Multi-object Kalman filter tracking in world frame
 - Track lifecycle management with configurable retention
 - Complete REST API for tracking data
 
 ### 📋 **Phase 4: Production Optimization (PLANNED)**
+
 - Performance profiling and optimization
 - Memory usage optimization for 100 tracks
 - Advanced configuration options
@@ -51,6 +55,7 @@ internal/lidar/arena.go            🔄 # Background, clustering, tracking (stub
 ```
 
 **Data Flow:**
+
 ```
 [UDP:2369] → [Parse] → [Frame Builder] → [Background (sensor)] → [Foreground Mask]
                                                                         ↓
@@ -62,6 +67,7 @@ internal/lidar/arena.go            🔄 # Background, clustering, tracking (stub
 ## Core Algorithm Implementation
 
 ### UDP Ingestion & Parsing (✅ Complete)
+
 - **UDP Listener**: Configurable port (default 2369), 4MB receive buffer
 - **Packet Validation**: 1262-byte (standard) or 1266-byte (with sequence) packets
 - **Tail Parsing**: Complete 30-byte structure per official Hesai documentation
@@ -70,6 +76,7 @@ internal/lidar/arena.go            🔄 # Background, clustering, tracking (stub
 - **Coordinate Transform**: Spherical → Cartesian with calibration applied
 
 ### Frame Assembly (✅ Complete)
+
 - **Hybrid Frame Detection**: Motor speed-adaptive timing + azimuth validation (prevents timing anomalies)
 - **Time-based Primary**: Frame completion when duration exceeds expected time (RPM-based) + 10% tolerance
 - **Azimuth Secondary**: Azimuth wrap detection (340° → 20°) respects timing constraints
@@ -78,18 +85,21 @@ internal/lidar/arena.go            🔄 # Background, clustering, tracking (stub
 - **Frame Callback**: Configurable callback for frame completion
 
 ### Database Persistence (✅ Complete)
+
 - **SQLite with WAL**: High-performance concurrent access
 - **Comprehensive Schema**: 738 lines covering all LiDAR data types
 - **Performance Optimized**: Prepared statements, batch inserts
 - **Schema Versioning**: Automatic migration support
 
 ### Background Subtraction (🔄 Planned)
+
 ```
 motion_threshold = average_range
                  - closeness_sensitivity_multiplier * range_spread
                  - safety_margin
 is_foreground = (current_range < motion_threshold)
 ```
+
 - **Spatial filtering**: 3×3 neighbor vote
 - **Temporal filtering**: Freeze updates after foreground detection
 - **Learning**: Slow EMA update when not frozen
@@ -97,11 +107,13 @@ is_foreground = (current_range < motion_threshold)
 - **Persistence**: Automatic background snapshots to database
 
 ### Clustering (🔄 Planned)
+
 - **Euclidean clustering**: eps ≈ 0.6m, minPts ≈ 12
 - **Per-cluster metrics**: centroid, PCA bbox, height_p95, intensity_mean
 - **World Frame Processing**: Transform from sensor to world coordinates
 
 ### Tracking (🔄 Planned)
+
 - **State vector**: [x, y, velocity_x, velocity_y]
 - **Constant-velocity Kalman filter** with configurable noise parameters
 - **Association**: Mahalanobis distance on position
@@ -113,6 +125,7 @@ is_foreground = (current_range < motion_threshold)
 ## Configuration
 
 ### ✅ Current Flags (Implemented)
+
 ```bash
 -listen ":8081"              # HTTP server address
 -udp-port 2369               # UDP listen port
@@ -129,6 +142,7 @@ is_foreground = (current_range < motion_threshold)
 ```
 
 ### 🔄 Planned Configuration (Background & Tracking)
+
 ```bash
 # Background subtraction parameters
 -bg.update_fraction 0.02         # EMA learning rate
@@ -148,10 +162,12 @@ is_foreground = (current_range < motion_threshold)
 ## HTTP Interface
 
 ### ✅ Current Endpoints
+
 - `GET /health` - System status and packet statistics
 - `GET /` - HTML dashboard with real-time metrics
 
 ### 🔄 Planned Endpoints
+
 - `GET /fg` - Foreground/background statistics
 - `GET /tracks/recent` - Recent track states
 - `GET /track/:id` - Full track history
@@ -162,6 +178,7 @@ is_foreground = (current_range < motion_threshold)
 ## Performance Metrics
 
 ### ✅ Current Performance
+
 - **Packet Processing**: 36.5μs per packet
 - **UDP Throughput**: Handles 10 Hz LiDAR (typical Pandar40P rate)
 - **Memory Usage**: ~50MB baseline + 170KB per packet burst
@@ -169,6 +186,7 @@ is_foreground = (current_range < motion_threshold)
 - **HTTP Response**: <5ms for health/status endpoints
 
 ### 🎯 Target Performance (Complete System)
+
 - **End-to-end Latency**: <100ms (packet → track update)
 - **CPU Usage**: 1-2 cores at 10-15 Hz LiDAR rate
 - **Memory Usage**: <300MB with 100 concurrent tracks
@@ -180,6 +198,7 @@ is_foreground = (current_range < motion_threshold)
 ## Testing Status
 
 ### ✅ Implemented Tests
+
 ```bash
 # Packet parsing validation
 go test ./internal/lidar/parse -v
@@ -201,6 +220,7 @@ go test ./internal/lidar/ -v                        ✅ Complete test suite with
 ```
 
 Key test coverage:
+
 - Real Hesai packet validation with 22-byte tail structure
 - Point generation with embedded calibration
 - Time-based frame assembly with motor speed adaptation
@@ -218,6 +238,7 @@ Key test coverage:
 ## Development Workflow
 
 ### Next Implementation Steps (Phase 2)
+
 1. **Background Grid**: Range-image binning (40 rings × 1800 azimuth bins)
 2. **Motion Detection**: Per-cell background learning with EMA updates
 3. **Spatial Filtering**: 3×3 neighbor voting for noise reduction
@@ -225,7 +246,9 @@ Key test coverage:
 5. **HTTP Interface**: Add `/fg` endpoint for background tuning
 
 ### Database Schema Overview
+
 The system uses a comprehensive SQLite schema with 738 lines covering:
+
 - **Sites & Sensors**: Physical deployment topology
 - **Poses**: Time-versioned sensor calibration matrices
 - **Frames**: LiDAR rotation data with metadata
@@ -238,6 +261,7 @@ The system uses a comprehensive SQLite schema with 738 lines covering:
 ## Architecture Notes
 
 ### Design Decisions
+
 - **Sensor vs World Frame**: Background subtraction in sensor frame (stable geometry), tracking in world frame (stable coordinates)
 - **Hybrid Frame Detection**: Time-based primary trigger + azimuth validation prevents timing anomalies
 - **22-byte Tail**: Confirmed with official Hesai documentation and real packet validation
@@ -245,6 +269,7 @@ The system uses a comprehensive SQLite schema with 738 lines covering:
 - **Embedded Calibration**: Baked-in calibration avoids runtime configuration complexity
 
 ### Future Extensions
+
 - **Radar Integration**: Modular architecture allows future radar fusion
 - **Multi-sensor**: Support for multiple LiDAR units with pose management
 - **Production Optimization**: Memory pooling and advanced configuration options
@@ -278,18 +303,22 @@ Architecture for modular sensor deployment with independent HTTP interfaces:
 ## Production Readiness Assessment
 
 ### ✅ **Current State Summary**
+
 The LiDAR sidecar has a **solid foundation** with core UDP ingestion, packet parsing, frame assembly, and monitoring fully implemented and tested. The 30-byte packet tail structure is validated against real Hesai Pandar40P data, and the database schema is comprehensive and production-ready.
 
 ### ✅ **Completed Components**
+
 - ✅ **Foundation**: Solid core infrastructure ready for production use
 - ✅ **Performance**: Meets real-time processing requirements
 - ✅ **Testing**: Comprehensive test coverage for implemented components
 - ✅ **Configuration**: Flexible deployment options
 
 ### 🔄 **In Development**
+
 - 🔄 **Perception**: Background subtraction and tracking algorithms needed
 
 ### 📋 **Future Work**
+
 - 📋 **Scale**: Memory optimization needed for 100-track scenarios
 
 **Current Focus**: Implementing background subtraction and clustering algorithms to complete the perception pipeline before adding tracking capabilities.
