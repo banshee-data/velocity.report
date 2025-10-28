@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import { base } from '$app/paths';
 	import { PeriodType } from '@layerstack/utils';
 	import { scaleOrdinal, scaleTime } from 'd3-scale';
 	import { format } from 'date-fns';
@@ -414,7 +415,7 @@
 				{#if reportMetadata}
 					<div class="gap-2 flex">
 						<a
-							href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.filename}`}
+							href={`${base}/api/reports/${lastGeneratedReportId}/download/${reportMetadata.filename}`}
 							class="bg-secondary-500 hover:bg-secondary-600 rounded-md px-4 py-2 text-sm font-medium text-white inline-flex items-center justify-center transition-colors"
 							download
 							aria-label="Download PDF report"
@@ -423,7 +424,7 @@
 						</a>
 						{#if reportMetadata.zip_filename}
 							<a
-								href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.zip_filename}`}
+								href={`${base}/api/reports/${lastGeneratedReportId}/download/${reportMetadata.zip_filename}`}
 								class="border-secondary-500 text-secondary-500 hover:bg-secondary-50 rounded-md px-4 py-2 text-sm font-medium hover:text-white inline-flex items-center justify-center border transition-colors"
 								download
 								aria-label="Download source files as ZIP archive"
