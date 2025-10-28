@@ -274,30 +274,6 @@ The system uses a comprehensive SQLite schema with 738 lines covering:
 - **Multi-sensor**: Support for multiple LiDAR units with pose management
 - **Production Optimization**: Memory pooling and advanced configuration options
 
-Architecture for modular sensor deployment with independent HTTP interfaces:
-
-```
-┌─────────────────┐    gRPC     ┌──────────────────┐
-│   cmd/radar     │ ───────────▶│   cmd/lidar      │
-│                 │             │                  │
-│ • Serial listen │             │ • UDP listen     │
-│ • Parse radar   │             │ • Parse lidar    │
-│ • HTTP endpoints│             │ • HTTP endpoints │
-│ • Standalone OK │             │ • Tracking       │
-└─────────────────┘             │ • Fusion logic   │
-         │                      └──────────────────┘
-         │                               │
-         ▼                               ▼
-    ┌─────────────────────────────────────────┐
-    │           web/ (Svelte/Vite)            │
-    │                                         │
-    │ • Proxy radar HTTP (if available)       │
-    │ • Proxy lidar HTTP (if available)       │
-    │ • Aggregate sensor data for UI          │
-    │ • Handle radar-only or lidar-only       │
-    └─────────────────────────────────────────┘
-```
-
 ---
 
 ## Production Readiness Assessment
