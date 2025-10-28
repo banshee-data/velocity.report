@@ -1,7 +1,7 @@
 ---
 layout: doc.njk
 title: Generate Your First PDF Report
-description: Step-by-step guide to creating your first professional traffic analysis report
+description: Step-by-step guide to creating your first professional citizen radar report
 section: guides
 date: 2025-10-21
 ---
@@ -20,7 +20,7 @@ If you haven't set up the PDF generator yet, see the [Software Installation Guid
 
 Navigate to your dashboard at `http://localhost:8080/app`
 
-The dashboard provides real-time visualization of your traffic data and access to all site management features.
+The dashboard provides real-time visualization of your citizen radar data and access to all site management features.
 
 ## Step 2: Navigate to Site Management
 
@@ -33,6 +33,7 @@ The dashboard provides real-time visualization of your traffic data and access t
 Fill in the report generation form with these key parameters:
 
 ### Date Range
+
 Select the start and end dates for your analysis:
 
 ```bash
@@ -43,6 +44,7 @@ End Date: 2025-10-14
 **Tip**: For meaningful statistics, collect at least 3-7 days of data. Longer periods provide better trend analysis.
 
 ### Timezone
+
 Choose your local timezone to ensure timestamps are correctly displayed:
 
 ```bash
@@ -52,23 +54,26 @@ Timezone: US/Pacific
 Available timezones include all standard IANA timezone identifiers (e.g., `US/Eastern`, `US/Central`, `US/Mountain`, `UTC`).
 
 ### Units
+
 Select your preferred speed units:
 
 - **mph** - Miles per hour (United States)
 - **kph** - Kilometers per hour (International)
 
 ### Data Grouping
+
 Choose how to aggregate your data:
 
-| Grouping | Best For |
-|----------|----------|
-| `1h` | Detailed hourly analysis |
-| `4h` | Daily pattern identification |
-| `24h` | Day-by-day comparison |
+| Grouping | Best For                     |
+| -------- | ---------------------------- |
+| `1h`     | Detailed hourly analysis     |
+| `4h`     | Daily pattern identification |
+| `24h`    | Day-by-day comparison        |
 
 ### Advanced Options
 
 **Data Source**:
+
 - `radar_objects` - Raw radar detections
 - `radar_data_transits` - Processed vehicle transits (recommended)
 
@@ -94,6 +99,7 @@ Once complete:
 ### Report Filename Format
 
 Reports are automatically named with the `velocity.report_` prefix:
+
 ```
 velocity.report_radar_data_transits_2025-10-01_to_2025-10-14_report.pdf
 ```
@@ -112,6 +118,7 @@ Your PDF report includes several key sections:
 ### 2. Speed Distribution Histogram
 
 Visual representation showing:
+
 - Number of vehicles in each speed bin
 - Posted speed limit overlay
 - Normal distribution curve
@@ -119,6 +126,7 @@ Visual representation showing:
 ### 3. Time-Series Analysis
 
 Charts showing:
+
 - Speed trends over time
 - Peak hour patterns
 - Day-of-week variations
@@ -171,6 +179,7 @@ python --version  # Should show Python 3.13+
 **Symptom**: "No data for selected date range"
 
 **Possible causes**:
+
 1. Data collection wasn't running during selected period
 2. Database file path is incorrect
 3. Date range is in the future

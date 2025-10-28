@@ -1,6 +1,6 @@
 # velocity.report/docs
 
-Documentation site built with Eleventy and Tailwind CSS.
+Documentation site for the velocity.report citizen radar system, built with Eleventy and Tailwind CSS.
 
 **Location**: `docs/`
 **Framework**: Eleventy (11ty)
