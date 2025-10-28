@@ -1,4 +1,5 @@
-import sys, os
+import sys
+import os
 
 # Ensure imports from internal/report/query_data resolve when running this file directly
 sys.path.insert(0, os.path.join(os.getcwd(), "internal/report/query_data"))
