@@ -128,12 +128,28 @@ is_background = (cell_diff <= closeness_threshold) OR (neighbor_confirm >= requi
 
 **Implementation Details:**
 
+- **Classification**: Each observation is classified as background or foreground, but foreground points are not yet extracted for further processing.
+- **Spatial filtering**: Same-ring neighbor vote (configurable via NeighborConfirmationCount)
+- **Temporal filtering**: Cell freezing after large divergence (configurable via FreezeDurationNanos)
+- **Learning**: EMA update of cell statistics when observation is background-like (BackgroundUpdateFraction)
+- **Grid**: 40 rings × 1800 azimuth bins (0.2° resolution)
+- **Persistence**: Automatic background snapshots to database with versioning
+- **Noise Scaling**: Distance-adaptive noise threshold via NoiseRelativeFraction
+- **Acceptance Metrics**: Range-bucketed tracking of foreground/background classification rates
+- **Counters**: Real-time ForegroundCount and BackgroundCount telemetry
 
 **What's Implemented:**
 
+- ✅ Background model learning and updating
+- ✅ Foreground/background classification per observation
+- ✅ Neighbor confirmation voting
+- ✅ Cell freezing on large divergence
+- ✅ Acceptance metrics for parameter tuning
 
 **What's Not Yet Implemented:**
 
+- ❌ Foreground point extraction/subtraction (actual filtering of points for clustering)
+- ❌ Clustering of foreground points into objects
 
 ### Clustering (🔄 Planned)
 
