@@ -1,0 +1,10 @@
+/* App stylesheet placeholder.
+   Created to satisfy prettier-plugin-tailwindcss when scanning project CSS.
+   If you use Tailwind in the web app, replace or extend with your real styles.
+*/
+
+@import 'tailwindcss/preflight';
+@tailwind utilities;
+
+/* local app styles (keep small in source control) */
+/* e.g. body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; } */

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, resolve } from '$app/navigation';
 	import { mdiDelete, mdiPencil, mdiPlus } from '@mdi/js';
 	import { onMount } from 'svelte';
 	import { Button, Card, Dialog, Header, Table } from 'svelte-ux';
@@ -30,11 +30,13 @@
 	}
 
 	function handleCreate() {
-		goto(`/app/site/new`);
+		// eslint-disable-next-line svelte/no-navigation-without-resolve
+		goto(resolve(`/app/site/new`));
 	}
 
 	function handleEdit(siteId: number) {
-		goto(`/app/site/${siteId}`);
+		// eslint-disable-next-line svelte/no-navigation-without-resolve
+		goto(resolve(`/app/site/${siteId}`));
 	}
 
 	function openDeleteDialog(site: Site) {
@@ -76,7 +78,7 @@
 		<div
 			role="alert"
 			aria-live="assertive"
-			class="rounded border border-red-300 bg-red-50 p-3 text-red-800"
+			class="rounded border-red-300 bg-red-50 p-3 text-red-800 border"
 		>
 			<strong>Error:</strong>
 			{error}
@@ -110,7 +112,7 @@
 								<td class="py-4">{site.location}</td>
 								<td class="py-4">{site.cosine_error_angle}°</td>
 								<td class="py-4 text-right">
-									<div class="flex justify-end gap-2">
+									<div class="gap-2 flex justify-end">
 										<Button
 											icon={mdiPencil}
 											size="sm"
