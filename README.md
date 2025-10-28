@@ -135,6 +135,7 @@ velocity.report/
 ### Components
 
 **1. Go Server** (`/cmd/`, `/internal/`)
+
 - Collects data from radar/LIDAR sensors
 - Stores time-series data in SQLite
 - Provides HTTP API for data access
@@ -142,6 +143,7 @@ velocity.report/
 - Runs as systemd service on Raspberry Pi
 
 **2. Python PDF Generator** (`/tools/pdf-generator/`)
+
 - Generates professional PDF reports using LaTeX
 - Creates charts and visualizations with matplotlib
 - Processes statistical summaries
@@ -149,6 +151,7 @@ velocity.report/
 - Comprehensive test suite
 
 **3. Web Frontend** (`/web/`)
+
 - Real-time data visualization
 - Interactive charts and graphs
 - Built with Svelte and TypeScript
@@ -161,15 +164,18 @@ See **[ARCHITECTURE.md](ARCHITECTURE.md)** for detailed architecture documentati
 ### Prerequisites
 
 **For Go Development:**
+
 - Go 1.21+ ([installation guide](https://go.dev/doc/install))
 - SQLite3
 
 **For Python PDF Generation:**
+
 - Python 3.9+
 - LaTeX distribution (XeLaTeX)
 - See [tools/pdf-generator/README.md](tools/pdf-generator/README.md)
 
 **For Web Frontend:**
+
 - Node.js 18+
 - pnpm
 - See [web/README.md](web/README.md)
@@ -217,6 +223,7 @@ pre-commit run --all-files      # Optional: run across the repo once
 ```
 
 **What runs on commit:**
+
 - File hygiene (trailing whitespace, large files, etc.)
 - Python formatting (ruff + black) for PDF generator code
 
@@ -312,6 +319,7 @@ make pdf-test-coverage
 ## Contributing
 
 We welcome contributions! Please see **[CONTRIBUTING.md](CONTRIBUTING.md)** for:
+
 - Development workflow (Go + Python + Web)
 - Testing requirements
 - Code style guidelines
@@ -330,6 +338,7 @@ Join our Discord community to discuss the project, get help, and contribute to m
 ## Privacy & Ethics
 
 This project is designed with privacy as a core principle:
+
 - ✅ No license plate recognition
 - ✅ No video recording
 - ✅ No personally identifiable information
