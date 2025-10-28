@@ -41,7 +41,7 @@ Measure vehicle speeds, make streets safer.
 
 ## Overview
 
-**velocity.report** is a complete neighborhood traffic monitoring system built with privacy as the foundation. The system consists of three main components:
+**velocity.report** is a complete citizen radar system for neighborhood traffic monitoring. The system consists of three main components:
 
 - **Go Server** - High-performance data collection and API server
 - **Python PDF Generator** - Professional PDF report generation with LaTeX
