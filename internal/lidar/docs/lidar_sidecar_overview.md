@@ -68,7 +68,7 @@ internal/lidar/parse/extract.go    ✅ # Pandar40P packet -> []Point (22-byte ta
 internal/lidar/parse/config.go     ✅ # Embedded calibration configurations
 internal/lidar/frame_builder.go    ✅ # Time-based frame assembly with motor speed
 internal/lidar/monitor/            ✅ # HTTP endpoints: /health, /api/lidar/*
-internal/lidar/background.go       ✅ # Background subtraction with persistence
+internal/lidar/background.go       ✅ # Background model & classification with persistence
 internal/lidar/export.go           ✅ # ASC point cloud export
 internal/lidar/arena.go            🔄 # Clustering and tracking (stubbed)
 internal/db/db.go                  ✅ # Database schema and BgSnapshot persistence
@@ -110,7 +110,6 @@ internal/db/db.go                  ✅ # Database schema and BgSnapshot persiste
 - **Performance Optimized**: Prepared statements, batch inserts
 
 ### Background Model & Classification (✅ Implemented, Subtraction Not Yet)
-
 
 **Current State:**
 
@@ -313,7 +312,10 @@ Key test coverage:
 - End-to-end integration testing with real PCAP data (76,934 points → 56,929 frame points)
 - Background grid learning and foreground detection
 - Concurrent stress testing with race detection
-- ASC point cloud export with elevation corrections### 🔄 Planned Tests
+- ASC point cloud export with elevation corrections
+
+### 🔄 Planned Tests
+
 - PCAP file reading and replay
 - Parameter sweep automation
 - Background settling with real-world data
