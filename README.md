@@ -118,7 +118,7 @@ velocity.report/
 
 ```
    ┌───────────────────┐     ┌───────────────────┐     ┌───────────────────┐
-   │     Sensors       │────►│     Go Server     │◄────│  SQLite Database  │
+   │     Sensors       │────►│     Go Server     │◄───►│  SQLite Database  │
    │ (Radar / LIDAR)   │     │ (API/Processing)  │     │ (Time-series)     │
    └───────────────────┘     └───────────────────┘     └───────────────────┘
                                      │
@@ -127,8 +127,8 @@ velocity.report/
                    │                                   │
                    ▼                                   ▼
    ┌─────────────────────────────┐     ┌─────────────────────────────┐
-   │    Python PDF Generator     │     │       Web Frontend          │
-   │ (Offline Reports via LaTeX) │     │   (Real-time via Svelte)    │
+   │        Web Frontend         │     │    Python PDF Generator     │
+   │   (Real-time via Svelte)    │     │ (Offline Reports via LaTeX) │
    └─────────────────────────────┘     └─────────────────────────────┘
 ```
 
