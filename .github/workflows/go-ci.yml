@@ -1,0 +1,100 @@
+name: 🧭 Go CI
+
+on:
+  push:
+    paths:
+      - "**/*.go"
+      - "cmd/**"
+      - "internal/**"
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "**/*.go"
+      - "cmd/**"
+      - "internal/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+          # Note: `actions/setup-go@v4` does not accept a non-boolean `cache` input
+          # Use actions/cache if module caching is desired. Leaving this blank to satisfy YAML schema.
+
+      - name: Setup Go environment variables
+        run: |
+          echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
+          echo "GOCACHE=$(go env GOCACHE)" >> $GITHUB_ENV
+
+      - name: Cache Go modules and build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            $GOPATH/pkg/mod
+            $GOCACHE
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install system dependencies (libpcap)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y libpcap-dev
+
+      - name: Build web assets if present
+        run: |
+          if [ -f web/package.json ]; then
+            corepack enable
+            corepack prepare pnpm@latest --activate
+            cd web
+            pnpm install
+            pnpm run build
+          else
+            echo "no web/package.json found; skipping web build"
+          fi
+
+      - name: Run go test
+        run: |
+          go test ./... -v
+
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+
+      - name: Setup Go environment variables
+        run: |
+          echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
+          echo "GOCACHE=$(go env GOCACHE)" >> $GITHUB_ENV
+
+      - name: Cache Go modules and build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            $GOPATH/pkg/mod
+            $GOCACHE
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Run make lint-go (fail if Go formatting required)
+        run: make lint-go

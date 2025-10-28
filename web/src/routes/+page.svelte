@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { resolve } from '$app/navigation';
+	import { base } from '$app/paths';
 	import { PeriodType } from '@layerstack/utils';
 	import { scaleOrdinal, scaleTime } from 'd3-scale';
 	import { format } from 'date-fns';
@@ -413,12 +413,10 @@
 			<div class="card space-y-3 p-4" role="region" aria-label="Report download options">
 				<h3 class="text-base font-semibold">Report Ready</h3>
 				{#if reportMetadata}
-					<!-- eslint-disable svelte/no-navigation-without-resolve -->
 					<div class="gap-2 flex">
+						<!-- eslint-disable svelte/no-navigation-without-resolve -->
 						<a
-							href={resolve(
-								`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.filename}`
-							)}
+							href={`${base}/api/reports/${lastGeneratedReportId}/download/${reportMetadata.filename}`}
 							class="bg-secondary-500 hover:bg-secondary-600 rounded-md px-4 py-2 text-sm font-medium text-white inline-flex items-center justify-center transition-colors"
 							download
 							aria-label="Download PDF report"
@@ -426,10 +424,9 @@
 							📄 Download PDF
 						</a>
 						{#if reportMetadata.zip_filename}
+							<!-- eslint-disable svelte/no-navigation-without-resolve -->
 							<a
-								href={resolve(
-									`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.zip_filename}`
-								)}
+								href={`${base}/api/reports/${lastGeneratedReportId}/download/${reportMetadata.zip_filename}`}
 								class="border-secondary-500 text-secondary-500 hover:bg-secondary-50 rounded-md px-4 py-2 text-sm font-medium hover:text-white inline-flex items-center justify-center border transition-colors"
 								download
 								aria-label="Download source files as ZIP archive"
@@ -437,7 +434,6 @@
 								📦 Download Sources (ZIP)
 							</a>
 						{/if}
-						<!-- eslint-enable svelte/no-navigation-without-resolve -->
 					</div>
 				{:else}
 					<p class="text-surface-600-300-token text-sm" role="status" aria-live="polite">

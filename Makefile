@@ -105,3 +105,98 @@ test-python:
 
 # Aggregate test target: runs Go, web, and Python tests in sequence
 test: test-go test-web test-python
+
+# =============================================================================
+# Formatting target: formats Go, Python and JS/TS (where tooling is available)
+# =============================================================================
+
+.PHONY: format-go format-python format-web fmt
+
+format-go:
+	@echo "Formatting Go source (gofmt)..."
+	@gofmt -s -w . || true
+
+format-python:
+	@echo "Formatting Python (black, ruff) using venv at $(PDF_DIR)/.venv if present..."
+	@if [ -x "$(PDF_DIR)/.venv/bin/black" ]; then \
+		"$(PDF_DIR)/.venv/bin/black" . || true; \
+	elif command -v black >/dev/null 2>&1; then \
+		black . || true; \
+	else \
+		echo "black not found; to install into the PDF venv: cd $(PDF_DIR) && python3 -m venv .venv && .venv/bin/pip install -U black ruff"; \
+	fi
+	@if [ -x "$(PDF_DIR)/.venv/bin/ruff" ]; then \
+		"$(PDF_DIR)/.venv/bin/ruff" check --fix . || true; \
+	elif command -v ruff >/dev/null 2>&1; then \
+		ruff check --fix . || true; \
+	else \
+		echo "ruff not found; to install into the PDF venv: cd $(PDF_DIR) && python3 -m venv .venv && .venv/bin/pip install -U ruff"; \
+	fi
+
+format-web:
+	@echo "Formatting web JS/TS in $(WEB_DIR) (prettier via pnpm or npx)..."
+	@if [ -d "$(WEB_DIR)" ]; then \
+		if command -v pnpm >/dev/null 2>&1; then \
+			cd $(WEB_DIR) && pnpm exec prettier --write . || echo "prettier run failed or not configured"; \
+		elif command -v npx >/dev/null 2>&1; then \
+			cd $(WEB_DIR) && npx prettier --write . || echo "prettier run failed or not configured"; \
+		else \
+			echo "pnpm/npx not found; skipping JS/TS formatting in $(WEB_DIR)"; \
+		fi; \
+	else \
+		echo "$(WEB_DIR) does not exist; skipping web formatting"; \
+	fi
+
+fmt: format-go format-python format-web
+	@echo "\nAll formatting targets complete."
+
+## Lint (non-mutating) checks - fail if formatting is required
+.PHONY:	lint lint-go lint-python lint-web
+
+lint-go:
+	@echo "Checking Go formatting (gofmt -l)..."
+	@files="$$(gofmt -l .)"; \
+	if [ -n "$$files" ]; then \
+		echo "The following Go files are not properly formatted:"; \
+		echo "$$files"; \
+		exit 1; \
+	else \
+		echo "OK"; \
+	fi
+
+lint-python:
+	@echo "Checking Python formatting (black --check, ruff)..."
+	@if [ -x "$(PDF_DIR)/.venv/bin/black" ]; then \
+		"$(PDF_DIR)/.venv/bin/black" --check .; \
+	elif command -v black >/dev/null 2>&1; then \
+		black --check .; \
+	else \
+		echo "black not found; install it (e.g. cd $(PDF_DIR) && python3 -m venv .venv && .venv/bin/pip install -U black)"; \
+		exit 2; \
+	fi
+	@if [ -x "$(PDF_DIR)/.venv/bin/ruff" ]; then \
+		"$(PDF_DIR)/.venv/bin/ruff" check .; \
+	elif command -v ruff >/dev/null 2>&1; then \
+		ruff check .; \
+	else \
+		echo "ruff not found; install it (e.g. cd $(PDF_DIR) && python3 -m venv .venv && .venv/bin/pip install -U ruff)"; \
+		exit 2; \
+	fi
+
+lint-web:
+	@echo "Checking web formatting (prettier --check) in $(WEB_DIR)..."
+	@if [ -d "$(WEB_DIR)" ]; then \
+		if command -v pnpm >/dev/null 2>&1; then \
+			cd $(WEB_DIR) && pnpm exec prettier --check . || exit 1; \
+		elif command -v npx >/dev/null 2>&1; then \
+			cd $(WEB_DIR) && npx prettier --check . || exit 1; \
+		else \
+			echo "pnpm/npx not found; cannot run prettier --check"; \
+			exit 2; \
+		fi; \
+	else \
+		echo "$(WEB_DIR) does not exist; skipping web format check"; \
+	fi
+
+lint: lint-go lint-python lint-web
+	@echo "\nAll lint checks passed."

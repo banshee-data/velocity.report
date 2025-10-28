@@ -194,13 +194,13 @@ class UIProtectLogger:
                         )
                         self.log_notification(event)
                     else:
-                        logger.warning(f"Skipping event - missing type or camera info")
+                        logger.warning("Skipping event - missing type or camera info")
                 else:
                     logger.debug(
                         f"Not an event object or missing attributes: {type(event)}"
                     )
             else:
-                logger.debug(f"No new_obj in message or new_obj is None")
+                logger.debug("No new_obj in message or new_obj is None")
 
         # Subscribe to events
         unsub = self.client.subscribe_websocket(event_callback)

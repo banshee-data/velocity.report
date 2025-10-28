@@ -4,52 +4,78 @@ name: 🐍 Python CI
 permissions:
   contents: read
   pull-requests: write
-  checks: write  # Needed for coverage annotations
-  issues: write  # Needed for PR comments
+  checks: write # Needed for coverage annotations
+  issues: write # Needed for PR comments
 
-# Only run on PR events to conserve runner credits
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, review_requested]
+  push:
     paths:
-      - 'tools/pdf-generator/**'
-      - '.github/workflows/python-tests.yml'
+      - "tools/**"
+      - "data/**"
+      - ".github/workflows/python-tests.yml"
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "tools/**"
+      - "data/**"
+      - ".github/workflows/python-tests.yml"
 
 jobs:
-  # Full test suite: 545+ tests with integration and coverage
-  test:
+  lint:
+    name: Lint (tools + data)
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
-          cache: 'pip'
-          cache-dependency-path: 'requirements.txt'
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: "requirements.txt"
+      - name: Create venv for PDF tools and install linters
+        run: |
+          python -m venv tools/pdf-generator/.venv
+          tools/pdf-generator/.venv/bin/pip install --upgrade pip
+          tools/pdf-generator/.venv/bin/pip install black ruff
+          echo "${{ github.workspace }}/tools/pdf-generator/.venv/bin" >> $GITHUB_PATH
+
+      - name: Run repository formatter (make format-python)
+        run: make format-python
+
+  test:
+    name: Test (tools/)
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+          cache-dependency-path: "requirements.txt"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run full test suite with coverage
+      - name: Run tests with coverage
         working-directory: tools/pdf-generator
         env:
           COVERAGE_FILE: .coverage
         run: |
-          # Remove any existing coverage files
           rm -f .coverage* coverage.xml htmlcov/*
-          # Run tests - pytest-cov will use relative_files from pyproject.toml
           python -m pytest --cov=pdf_generator --cov-report=term-missing --cov-report=xml --cov-report=html -v
 
       - name: Coverage comment
         id: coverage_comment
         uses: py-cov-action/python-coverage-comment-action@v3
-        continue-on-error: true  # Don't fail the workflow if commenting fails
+        continue-on-error: true
         with:
           GITHUB_TOKEN: ${{ github.token }}
           MINIMUM_GREEN: 90
