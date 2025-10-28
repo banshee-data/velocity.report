@@ -9,21 +9,33 @@ repos:
       - id: trailing-whitespace
       - id: mixed-line-ending
 
-  # Python formatting (PDF generator only)
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.9
+  # Run repository-level formatting targets for changed files
+  - repo: local
     hooks:
-      - id: ruff
-        args: ["--fix", "--exit-non-zero-on-fix"]
-        files: ^tools/pdf-generator/.*\.py$
+      - id: format-go
+        name: format-go (gofmt)
+        entry: make format-go
+        language: system
+        pass_filenames: false
+        files: ^.*\.go$
+        stages: [pre-commit]
 
-  - repo: https://github.com/psf/black
-    rev: 24.8.0
-    hooks:
-      - id: black
-        language_version: python3
-        files: ^tools/pdf-generator/.*\.py$
+      - id: format-python
+        name: format-python (black/ruff in data/ & tools/)
+        entry: make format-python
+        language: system
+        pass_filenames: false
+        # Only run the repo-level python formatter on utility and data scripts
+        files: ^(tools|data)/.*\.py$
+        stages: [pre-commit]
 
+      - id: format-web
+        name: format-web (prettier in web/ & docs/)
+        entry: make format-web
+        language: system
+        pass_filenames: false
+        files: ^(web/|docs/).*(\.js|\.ts|\.svelte|\.css|\.json)$
+        stages: [pre-commit]
 # Note: Go formatting and linting handled by your editor/IDE
 # Note: Web linting (pnpm) handled by CI on PRs
 # This keeps pre-commit fast and reliable!
