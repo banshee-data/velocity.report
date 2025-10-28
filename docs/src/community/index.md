@@ -50,8 +50,8 @@ We welcome contributions from the community! Here's how you can help:
 
 ### Code Contributions
 
-- **Bug Fixes** - Help squash bugs and improve stability
 - **New Features** - Implement new capabilities and enhancements, check out [open feature requests](https://github.com/banshee-data/velocity.report/issues?q=is%3Aissue%20state%3Aopen%20type%3AFeature)
+- **Bug Fixes** - Help squash bugs and improve stability
 - **Testing** - Add test coverage and report issues
 
 ### Non-Code Contributions
