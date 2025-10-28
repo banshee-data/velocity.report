@@ -1,0 +1,52 @@
+name: 🧭 Go CI
+
+on:
+  push:
+    paths:
+      - "**/*.go"
+      - "cmd/**"
+      - "internal/**"
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "**/*.go"
+      - "cmd/**"
+      - "internal/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+          cache: "modules"
+
+      - name: Run go test
+        run: |
+          go test ./... -v
+
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+
+      - name: Run make format-go
+        run: make format-go
