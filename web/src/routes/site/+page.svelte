@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { mdiDelete, mdiPencil, mdiPlus } from '@mdi/js';
 	import { onMount } from 'svelte';
 	import { Button, Card, Dialog, Header, Table } from 'svelte-ux';
@@ -30,11 +31,11 @@
 	}
 
 	function handleCreate() {
-		goto('/app/site/new');
+		goto(resolve('/site/new'));
 	}
 
 	function handleEdit(siteId: number) {
-		goto(`/app/site/${siteId}`);
+		goto(resolve(`/site/${siteId}`));
 	}
 
 	function openDeleteDialog(site: Site) {

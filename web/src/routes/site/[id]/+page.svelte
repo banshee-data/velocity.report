@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { mdiArrowLeft, mdiContentSave } from '@mdi/js';
 	import { onMount } from 'svelte';
 	import { Button, Card, Header, TextField } from 'svelte-ux';
@@ -123,14 +124,14 @@
 				await updateSite(parseInt(siteId), siteData);
 			}
 
-			goto('/app/site');
+			goto(resolve('/site'));
 		} catch (e) {
 			saveError = e instanceof Error ? e.message : 'Failed to save site';
 		}
 	}
 
 	function handleCancel() {
-		goto('/app/site');
+		goto(resolve('/site'));
 	}
 </script>
 
