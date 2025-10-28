@@ -1,8 +1,8 @@
 # LiDAR Sidecar — Technical Implementation Overview
 
-**Status:** Core infrastructure completed, background subtraction & tracking in development
+**Status:** Phase 1 & 2 completed, PCAP parameter tuning in progress
 **Scope:** Hesai UDP → parse → frame assembly → background subtraction → clustering → tracking → HTTP API
-**Current Phase:** Phase 2 - Background subtraction and clustering
+**Current Phase:** Phase 2.5 - PCAP-based parameter identification for background tuning
 
 ---
 
@@ -17,12 +17,23 @@
 - HTTP monitoring interface with real-time statistics
 - Comprehensive test suite with real packet validation
 
-### 🔄 **Phase 2: Background & Clustering (CURRENT FOCUS)**
+### 🔄 **Phase 2: Background & Clustering (IN PROGRESS)**
 
-- Range-image background subtraction in sensor frame
-- Foreground point clustering with configurable parameters
-- Background model persistence to database
-- Enhanced HTTP endpoints for tuning and monitoring
+- ✅ Background grid infrastructure with EMA learning (implemented)
+- ✅ Foreground/background classification with neighbor voting (implemented)
+- ✅ Background model persistence to database (implemented)
+- ✅ Enhanced HTTP endpoints for tuning and monitoring (implemented)
+- ✅ Acceptance metrics for parameter tuning (implemented)
+- 🔄 PCAP file reading for parameter identification (current focus)
+- 📋 Foreground point extraction and clustering (planned)
+
+### 📋 **Phase 2.5: PCAP-Based Parameter Tuning (CURRENT FOCUS)**
+
+- PCAP file ingestion and frame replay
+- Automated parameter sweep using bg-sweep and bg-multisweep tools
+- Background settling analysis with real-world data (cars, pedestrians)
+- Optimal threshold identification for noise, learning, filtering, and clustering
+- Integration with existing sweep tools for iterative tuning
 
 ### 📋 **Phase 3: Tracking & World Transform (NEXT)**
 
@@ -31,27 +42,36 @@
 - Track lifecycle management with configurable retention
 - Complete REST API for tracking data
 
-### 📋 **Phase 4: Production Optimization (PLANNED)**
+### 📋 **Phase 4: Multi-Sensor & Production Optimization (PLANNED)**
 
-- Performance profiling and optimization
-- Memory usage optimization for 100 tracks
-- Advanced configuration options
-- Production deployment documentation
+- **Multi-Sensor Architecture**: Support multiple LiDAR sensors per machine
+- **Local Persistence**: Each sensor stores data in local SQLite database
+- **Database Unification**: Merge data from multiple local databases for analysis
+- **World Frame Tracking**: Unified tracking across multiple intersections
+- **Cross-Sensor Association**: Track objects as they move between sensor coverage areas
+- **Distributed Storage**: Copy/consolidate data from edge nodes for whole-street analysis
+- **Performance Profiling**: Optimize for multi-sensor concurrent processing
+- **Memory Optimization**: Efficient handling of 100+ tracks across multiple sensors
+- **Production Deployment**: Documentation for multi-node edge deployment
 
 ---
 
 ## Module Structure
 
 ```
-cmd/lidar/main.go                  ✅ # Complete with flags, goroutines, HTTP
+cmd/radar/radar.go                 ✅ # LiDAR integration with -enable-lidar flag
+cmd/bg-sweep/main.go               ✅ # Single-parameter sweep tool for tuning
+cmd/bg-multisweep/main.go          ✅ # Multi-parameter grid search tool
 internal/lidar/network/listener.go ✅ # UDP socket and packet processing
 internal/lidar/network/forwarder.go✅ # UDP packet forwarding to LidarView
 internal/lidar/parse/extract.go    ✅ # Pandar40P packet -> []Point (22-byte tail)
 internal/lidar/parse/config.go     ✅ # Embedded calibration configurations
 internal/lidar/frame_builder.go    ✅ # Time-based frame assembly with motor speed
-internal/lidar/monitor/            ✅ # HTTP endpoints: /health, /status
-internal/lidar/lidardb/            ✅ # Database schema and persistence
-internal/lidar/arena.go            🔄 # Background, clustering, tracking (stubbed)
+internal/lidar/monitor/            ✅ # HTTP endpoints: /health, /api/lidar/*
+internal/lidar/background.go       ✅ # Background subtraction with persistence
+internal/lidar/export.go           ✅ # ASC point cloud export
+internal/lidar/arena.go            🔄 # Clustering and tracking (stubbed)
+internal/db/db.go                  ✅ # Database schema and BgSnapshot persistence
 ```
 
 **Data Flow:**
@@ -87,24 +107,33 @@ internal/lidar/arena.go            🔄 # Background, clustering, tracking (stub
 ### Database Persistence (✅ Complete)
 
 - **SQLite with WAL**: High-performance concurrent access
-- **Comprehensive Schema**: 738 lines covering all LiDAR data types
 - **Performance Optimized**: Prepared statements, batch inserts
-- **Schema Versioning**: Automatic migration support
 
-### Background Subtraction (🔄 Planned)
+### Background Model & Classification (✅ Implemented, Subtraction Not Yet)
+
+
+**Current State:**
+
+- The system implements background model learning and foreground/background classification for each observation.
+- Actual foreground point extraction (subtraction) is **not yet implemented**; only counters and classification are tracked.
+
+**Algorithm (Implemented):**
 
 ```
-motion_threshold = average_range
-                 - closeness_sensitivity_multiplier * range_spread
-                 - safety_margin
-is_foreground = (current_range < motion_threshold)
+closeness_threshold = closeness_multiplier * (range_spread + noise_relative * observation_mean + 0.01)
+                    + safety_margin
+cell_diff = abs(cell_average_range - observation_mean)
+is_background = (cell_diff <= closeness_threshold) OR (neighbor_confirm >= required_neighbors)
 ```
 
-- **Spatial filtering**: 3×3 neighbor vote
-- **Temporal filtering**: Freeze updates after foreground detection
-- **Learning**: Slow EMA update when not frozen
-- **Grid**: 40 rings × 1800 azimuth bins (0.2° resolution)
-- **Persistence**: Automatic background snapshots to database
+**Implementation Details:**
+
+
+**What's Implemented:**
+
+
+**What's Not Yet Implemented:**
+
 
 ### Clustering (🔄 Planned)
 
@@ -126,32 +155,58 @@ is_foreground = (current_range < motion_threshold)
 
 ### ✅ Current Flags (Implemented)
 
+The LiDAR functionality is integrated into the `cmd/radar/radar.go` binary and enabled via the `-enable-lidar` flag:
+
 ```bash
--listen ":8081"              # HTTP server address
--udp-port 2369               # UDP listen port
--udp-addr ""                 # UDP bind address (default: all interfaces)
--no-parse                    # Disable packet parsing
--forward                     # Enable packet forwarding
--forward-port 2368           # Forward destination port
--forward-addr "localhost"    # Forward destination address
--db "lidar_data.db"         # SQLite database file
--rcvbuf 4194304             # UDP receive buffer (4MB)
--log-interval 2             # Statistics interval (seconds)
--debug                      # Enable debug logging
--sensor-name "hesai-pandar40p" # Sensor identifier for logging
+# Radar binary with LiDAR integration
+./radar [radar flags...] -enable-lidar [lidar flags...]
+
+# LiDAR integration flags
+-enable-lidar                        # Enable lidar components inside radar binary
+-lidar-listen ":8081"                # HTTP listen address for lidar monitor
+-lidar-udp-port 2369                 # UDP port to listen for lidar packets
+-lidar-no-parse                      # Disable lidar packet parsing
+-lidar-sensor "hesai-pandar40p"      # Sensor name identifier for lidar
+-lidar-forward                       # Forward lidar UDP packets to another port
+-lidar-forward-port 2368             # Port to forward lidar UDP packets to
+-lidar-forward-addr "localhost"      # Address to forward lidar UDP packets to
+
+# Background subtraction tuning (runtime-adjustable via HTTP API)
+-bg-noise-relative 0.315             # NoiseRelativeFraction: fraction of range treated as measurement noise
 ```
 
-### 🔄 Planned Configuration (Background & Tracking)
+### ✅ BackgroundParams (All Fields)
+
+These parameters are configured at startup and can be adjusted at runtime via the HTTP API (`/api/lidar/params`):
+
+```go
+BackgroundUpdateFraction       float32  // EMA learning rate (default: 0.02)
+ClosenessSensitivityMultiplier float32  // Motion threshold multiplier (default: 3.0)
+SafetyMarginMeters             float32  // Safety buffer in meters (default: 0.5)
+FreezeDurationNanos            int64    // Freeze after detection (default: 5s)
+NeighborConfirmationCount      int      // Spatial filtering votes (default: 3)
+NoiseRelativeFraction          float32  // Distance-adaptive noise (default: 0.315)
+SettlingPeriodNanos            int64    // Time before first snapshot (default: 5 minutes)
+SnapshotIntervalNanos          int64    // Time between snapshots (default: 2 hours)
+ChangeThresholdForSnapshot     int      // Min changed cells to trigger snapshot (default: 100)
+```
+
+### 🔄 PCAP Reading Flags (Planned)
 
 ```bash
-# Background subtraction parameters
--bg.update_fraction 0.02         # EMA learning rate
--bg.sensitivity_multiplier 3.0   # Motion threshold
--bg.safety_margin_m 0.5         # Safety buffer
--bg.freeze_duration_ms 5000     # Freeze after detection
--bg.neighbor_votes 5            # Spatial filtering votes
+-pcap-file "capture.pcap"            # PCAP file to read instead of live UDP
+-pcap-loop                           # Loop PCAP playback for continuous testing
+-pcap-speed 1.0                      # Playback speed multiplier (1.0 = realtime)
+```
 
-# Tracking parameters
+### 🔄 Planned Configuration (Clustering & Tracking)
+
+```bash
+# Clustering parameters (future)
+-cluster-eps 0.6                     # Euclidean clustering distance threshold
+-cluster-min-points 12               # Minimum points per cluster
+
+# Tracking parameters (future)
 -max_concurrent_tracks 100      # Memory management
 -track_max_age_min 30          # Track retention
 -pose_file "calibration.json"   # Sensor calibration
@@ -165,6 +220,13 @@ is_foreground = (current_range < motion_threshold)
 
 - `GET /health` - System status and packet statistics
 - `GET /` - HTML dashboard with real-time metrics
+- `GET /api/lidar/params?sensor_id=<id>` - Get current background parameters
+- `POST /api/lidar/params?sensor_id=<id>` - Update background parameters
+- `GET /api/lidar/acceptance?sensor_id=<id>` - Get acceptance metrics by range bucket
+- `POST /api/lidar/acceptance/reset?sensor_id=<id>` - Reset acceptance counters
+- `POST /api/lidar/grid_reset?sensor_id=<id>` - Reset background grid (for testing/sweeps)
+- `GET /api/lidar/grid/status?sensor_id=<id>` - Get grid statistics and settling status
+- `GET /api/lidar/grid/export_asc?sensor_id=<id>` - Export background grid as ASC point cloud
 
 ### 🔄 Planned Endpoints
 
@@ -217,6 +279,11 @@ go test ./internal/lidar/ -v                        ✅ Complete test suite with
 === RUN   TestFrameBuilder_AzimuthWrapWithTimeBased      ✅ Azimuth wrap in time-based mode
 === RUN   TestFrameBuilder_TraditionalAzimuthOnly        ✅ Traditional azimuth-only detection
 === RUN   TestHesaiLiDAR_PCAPIntegration                 ✅ End-to-end PCAP→parsing→framing
+
+# Background subtraction tests
+go test ./internal/lidar -run TestBackground            ✅ Background grid operations
+go test ./internal/lidar -run TestStress                ✅ Concurrent load testing
+go test ./internal/lidar -run TestExport                ✅ ASC export functionality
 ```
 
 Key test coverage:
@@ -227,8 +294,14 @@ Key test coverage:
 - HTTP endpoint functionality
 - Comprehensive frame builder testing with production-level data volumes (60,000 points)
 - Both traditional azimuth-based and hybrid time-based frame detection modes
-- End-to-end integration testing with real PCAP data (76,934 points → 56,929 frame points)### 🔄 Planned Tests
-- Background subtraction accuracy
+- End-to-end integration testing with real PCAP data (76,934 points → 56,929 frame points)
+- Background grid learning and foreground detection
+- Concurrent stress testing with race detection
+- ASC point cloud export with elevation corrections### 🔄 Planned Tests
+- PCAP file reading and replay
+- Parameter sweep automation
+- Background settling with real-world data
+- Clustering accuracy with known ground truth
 - Tracking association and lifecycle
 - Performance benchmarks under load
 - Multi-track scenarios
@@ -237,13 +310,76 @@ Key test coverage:
 
 ## Development Workflow
 
-### Next Implementation Steps (Phase 2)
+### Next Implementation Steps (Phase 2.5 - PCAP Parameter Tuning)
 
-1. **Background Grid**: Range-image binning (40 rings × 1800 azimuth bins)
-2. **Motion Detection**: Per-cell background learning with EMA updates
-3. **Spatial Filtering**: 3×3 neighbor voting for noise reduction
-4. **Persistence**: Automatic background snapshot saving to database
-5. **HTTP Interface**: Add `/fg` endpoint for background tuning
+**Goal**: Use existing PCAP captures (cars, pedestrians) to identify optimal background subtraction parameters before implementing clustering.
+
+1. **PCAP Reader Implementation**:
+
+   - Add PCAP file reading capability to UDP listener
+   - Support both live UDP and PCAP file modes
+   - Implement frame replay with configurable speed
+   - Add loop mode for continuous parameter testing
+
+2. **Parameter Sweep Integration**:
+
+   - Use `bg-sweep` tool for single-parameter sweeps (noise_relative)
+   - Use `bg-multisweep` tool for multi-parameter sweeps (noise, closeness, neighbors)
+   - Analyze acceptance metrics to identify optimal thresholds
+   - Document settling behavior with real-world data
+
+3. **Threshold Identification**:
+
+   - Analyze cars PCAP for vehicle detection thresholds
+   - Analyze pedestrians PCAP for human detection thresholds
+   - Identify optimal NoiseRelativeFraction values
+   - Tune ClosenessSensitivityMultiplier for best separation
+   - Optimize NeighborConfirmationCount for noise reduction
+
+4. **Validation & Documentation**:
+   - Validate identified parameters with both PCAP files
+   - Document acceptance rates and foreground/background separation
+   - Prepare parameter recommendations for production deployment
+   - Update sweep tools with findings for future tuning
+
+### Next Implementation Steps (Phase 3 - Clustering)
+
+1. **Foreground Extraction**: Extract points classified as foreground from ProcessFramePolar
+2. **Point Collection**: Build frame-level collection of foreground points
+3. **Euclidean Clustering**: DBSCAN-style clustering with tuned parameters (eps, minPts)
+4. **Cluster Metrics**: Compute centroid, PCA bbox, height_p95, intensity_mean
+5. **World Frame Transform**: Convert clusters from sensor frame to world coordinates
+6. **Database Integration**: Persist clusters to lidar_clusters table
+
+### Development Tools
+
+**Background Parameter Sweep Tools:**
+
+- `cmd/bg-sweep/main.go` - Single-parameter sweeps with acceptance metrics
+
+  - Supports noise_relative sweeps
+  - Multiple modes: standard, settle, incremental
+  - Outputs CSV with acceptance rates by distance bucket
+
+- `cmd/bg-multisweep/main.go` - Multi-parameter grid search
+  - Sweeps noise_relative × closeness_multiplier × neighbor_confirmation_count
+  - Statistical analysis with mean/stddev per parameter combination
+  - Raw and summary CSV outputs for analysis
+
+**Available PCAP Test Data:**
+
+The project has real-world PCAP captures for parameter validation:
+
+- **Cars PCAP**: Vehicle traffic data for tuning vehicle detection thresholds
+- **Pedestrians PCAP**: Pedestrian movement data for tuning human detection sensitivity
+
+These PCAP files will be used to:
+
+1. Identify optimal NoiseRelativeFraction values for distance-adaptive noise handling
+2. Tune ClosenessSensitivityMultiplier for best foreground/background separation
+3. Optimize NeighborConfirmationCount for spatial filtering effectiveness
+4. Analyze background settling behavior with real-world motion patterns
+5. Validate parameter choices across different target types (vehicles vs. pedestrians)
 
 ### Database Schema Overview
 
@@ -270,8 +406,11 @@ The system uses a comprehensive SQLite schema with 738 lines covering:
 
 ### Future Extensions
 
+- **Multi-Sensor Deployment**: Multiple LiDAR units per machine with local storage
+- **Database Consolidation**: Merge SQLite databases from multiple edge nodes
+- **World Frame Tracking**: Unified tracking across sensor coverage areas
+- **Cross-Intersection Analysis**: Track objects moving between multiple intersections
 - **Radar Integration**: Modular architecture allows future radar fusion
-- **Multi-sensor**: Support for multiple LiDAR units with pose management
 - **Production Optimization**: Memory pooling and advanced configuration options
 
 ---
@@ -280,7 +419,7 @@ The system uses a comprehensive SQLite schema with 738 lines covering:
 
 ### ✅ **Current State Summary**
 
-The LiDAR sidecar has a **solid foundation** with core UDP ingestion, packet parsing, frame assembly, and monitoring fully implemented and tested. The 30-byte packet tail structure is validated against real Hesai Pandar40P data, and the database schema is comprehensive and production-ready.
+The LiDAR sidecar has **completed Phase 1 (core infrastructure) and the background classification portion of Phase 2**. Background learning, foreground/background classification, and parameter tuning infrastructure are fully operational. The system is now ready for **Phase 2.5 (PCAP-based parameter identification)** before implementing foreground point extraction and clustering.
 
 ### ✅ **Completed Components**
 
@@ -288,17 +427,32 @@ The LiDAR sidecar has a **solid foundation** with core UDP ingestion, packet par
 - ✅ **Performance**: Meets real-time processing requirements
 - ✅ **Testing**: Comprehensive test coverage for implemented components
 - ✅ **Configuration**: Flexible deployment options
+- ✅ **Background Classification**: Distance-adaptive foreground/background classification with neighbor voting
+- ✅ **Background Learning**: EMA-based background model updates with cell freezing
+- ✅ **Persistence**: Background grid snapshots with versioning
+- ✅ **Parameter Tuning**: Runtime-adjustable parameters via HTTP API
+- ✅ **Monitoring**: Acceptance metrics and grid statistics for tuning
+- ✅ **Sweep Tools**: Automated parameter sweep utilities for optimization
 
-### 🔄 **In Development**
+### 🔄 **In Development (Phase 2.5)**
 
-- 🔄 **Perception**: Background subtraction and tracking algorithms needed
+- 🔄 **PCAP Reading**: File-based replay for parameter identification
+- 🔄 **Parameter Optimization**: Use real-world PCAP data to tune thresholds
 
 ### 📋 **Future Work**
 
-- 📋 **Scale**: Memory optimization needed for 100-track scenarios
+- 📋 **Foreground Extraction**: Extract foreground-classified points from frames
+- 📋 **Clustering**: Euclidean clustering on foreground points
+- 📋 **Tracking**: Kalman filter-based multi-object tracking in world frame
+- 📋 **Multi-Sensor**: Support multiple sensors per machine with local databases
+- 📋 **Database Unification**: Consolidate data from distributed edge nodes
+- 📋 **Cross-Sensor Tracking**: Track objects across multiple sensor coverage areas
+- 📋 **Scale**: Memory optimization for 100+ tracks across multiple sensors
 
-**Current Focus**: Implementing background subtraction and clustering algorithms to complete the perception pipeline before adding tracking capabilities.
+**Current Focus**: Implementing PCAP file reading to enable parameter tuning with real-world data (cars, pedestrians) before implementing foreground extraction and clustering algorithms.
 
-**Architecture**: Modular design with clear separation between UDP ingestion, parsing, frame assembly, background processing, and tracking - ready for production deployment.
+**Architecture**: Modular design with clear separation between UDP ingestion, parsing, frame assembly, background classification, and (future) clustering/tracking. Background classification is production-ready; foreground extraction, clustering, and tracking await parameter identification via PCAP analysis.
 
-The implementation is ready for background subtraction development as the next major milestone.
+**Multi-Sensor Vision (Phase 4)**: The architecture supports a distributed edge deployment model where each machine runs multiple LiDAR sensors, storing data locally in SQLite. Data from multiple edge nodes can be consolidated later for whole-street analysis and cross-intersection tracking in world frame coordinates.
+
+The implementation is ready for PCAP reader development and parameter sweep execution as the next major milestone.
