@@ -66,6 +66,7 @@ func toFloat64Slice(v interface{}, length int) []float64 {
 func main() {
 	monitorURL := flag.String("monitor", "http://localhost:8081", "Base URL for lidar monitor")
 	sensorID := flag.String("sensor", "hesai-pandar40p", "Sensor ID")
+	pcapFile := flag.String("pcap-file", "", "PCAP file to replay on the monitor (optional)")
 	start := flag.Float64("start", 0.01, "Start noise relative fraction")
 	end := flag.Float64("end", 0.3, "End noise relative fraction")
 	step := flag.Float64("step", 0.01, "Step increment")
@@ -162,6 +163,26 @@ func main() {
 		header += ",acceptance_rates_" + b
 	}
 	writeData(header)
+	// If PCAP file is provided, send it to the monitor to start PCAP replay
+	if *pcapFile != "" {
+		params := map[string]interface{}{"pcap_file": *pcapFile}
+		b, _ := json.Marshal(params)
+		req, _ := http.NewRequest(http.MethodPost, *monitorURL+"/api/lidar/pcap/start?sensor_id="+*sensorID, bytes.NewReader(b))
+		req.Header.Set("Content-Type", "application/json")
+		if resp, err := client.Do(req); err != nil {
+			fmt.Fprintf(os.Stderr, "start PCAP replay error: %v\n", err)
+			os.Exit(1)
+		} else {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if resp.StatusCode/100 != 2 {
+				fmt.Fprintf(os.Stderr, "start PCAP returned %d: %s\n", resp.StatusCode, string(body))
+				os.Exit(1)
+			}
+			fmt.Printf("PCAP replay started: %s\n", string(body))
+		}
+	}
+
 	// If settle mode, perform reset + repeated sampling
 	if *settle {
 		// Reset grid

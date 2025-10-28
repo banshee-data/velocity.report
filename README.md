@@ -198,9 +198,9 @@ make test
 Build for production (Raspberry Pi):
 
 ```sh
-make build
+make radar-linux
 # or manually:
-GOARCH=arm64 GOOS=linux go build -o app .
+GOARCH=arm64 GOOS=linux go build -o app-radar-linux-arm64 ./cmd/radar
 ```
 
 ### Python PDF Generator Development

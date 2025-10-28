@@ -18,6 +18,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/parse"
 )
 
@@ -37,6 +38,8 @@ type WebServer struct {
 	udpPort           int
 	db                *db.DB
 	sensorID          string
+	parser            network.Parser
+	frameBuilder      network.FrameBuilder
 }
 
 // WebServerConfig contains configuration options for the web server
@@ -50,6 +53,8 @@ type WebServerConfig struct {
 	UDPPort           int
 	DB                *db.DB
 	SensorID          string
+	Parser            network.Parser
+	FrameBuilder      network.FrameBuilder
 }
 
 // NewWebServer creates a new web server with the provided configuration
@@ -64,6 +69,8 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		udpPort:           config.UDPPort,
 		db:                config.DB,
 		sensorID:          config.SensorID,
+		parser:            config.Parser,
+		frameBuilder:      config.FrameBuilder,
 	}
 
 	ws.server = &http.Server{
@@ -125,6 +132,7 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/api/lidar/params", ws.handleBackgroundParams)
 	mux.HandleFunc("/api/lidar/grid_status", ws.handleGridStatus)
 	mux.HandleFunc("/api/lidar/grid_reset", ws.handleGridReset)
+	mux.HandleFunc("/api/lidar/pcap/start", ws.handlePCAPStart)
 
 	return mux
 }
@@ -705,6 +713,59 @@ func (ws *WebServer) handleAcceptanceReset(w http.ResponseWriter, r *http.Reques
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "sensor_id": sensorID})
+}
+
+// handlePCAPStart triggers PCAP file reading in a background goroutine
+// Method: POST. Query param: sensor_id (required). Body: {"pcap_file": "/path/to/file.pcap"}
+func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use POST")
+		return
+	}
+
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+
+	var req struct {
+		PCAPFile string `json:"pcap_file"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
+		return
+	}
+
+	if req.PCAPFile == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'pcap_file' in request body")
+		return
+	}
+
+	// Verify file exists
+	if _, err := os.Stat(req.PCAPFile); err != nil {
+		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("PCAP file not found: %v", err))
+		return
+	}
+
+	// Start PCAP reading in background goroutine
+	go func() {
+		ctx := context.Background() // TODO: Consider using a cancelable context for stop functionality
+		log.Printf("Starting PCAP replay from file: %s (sensor: %s)", req.PCAPFile, sensorID)
+
+		if err := network.ReadPCAPFile(ctx, req.PCAPFile, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats); err != nil {
+			log.Printf("PCAP replay error: %v", err)
+		} else {
+			log.Printf("PCAP replay completed successfully: %s", req.PCAPFile)
+		}
+	}()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":    "started",
+		"sensor_id": sensorID,
+		"pcap_file": req.PCAPFile,
+	})
 }
 
 // Close shuts down the web server

@@ -44,6 +44,7 @@ type UDPListener struct {
 	frameBuilder   FrameBuilder
 	db             *db.DB
 	disableParsing bool
+	udpPort        int
 }
 
 // UDPListenerConfig contains configuration options for the UDP listener
@@ -57,6 +58,7 @@ type UDPListenerConfig struct {
 	FrameBuilder   FrameBuilder
 	DB             *db.DB
 	DisableParsing bool
+	UDPPort        int // UDP port for normal operation (also used for PCAP filtering)
 }
 
 // NewUDPListener creates a new UDP listener with the provided configuration
@@ -86,6 +88,7 @@ func NewUDPListener(config UDPListenerConfig) *UDPListener {
 		frameBuilder:   config.FrameBuilder,
 		db:             config.DB,
 		disableParsing: config.DisableParsing,
+		udpPort:        config.UDPPort,
 	}
 }
 
@@ -100,6 +103,7 @@ func (n *noopStats) LogStats(parsePackets bool) {}
 
 // Start begins listening for UDP packets and processing them
 func (l *UDPListener) Start(ctx context.Context) error {
+	// Normal UDP socket listening
 	addr, err := net.ResolveUDPAddr("udp", l.address)
 	if err != nil {
 		return fmt.Errorf("failed to resolve UDP address: %w", err)
