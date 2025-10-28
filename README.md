@@ -228,7 +228,8 @@ pre-commit run --all-files      # Optional: run across the repo once
 - Python formatting (ruff + black) for PDF generator code
 
 **What doesn't run on commit:**
-- Go formatting/linting - Use your editor/IDE or run `make fmt` manually
+
+- Go formatting/linting - Run `make fmt` to format Go, Python and JS/TS (prints install hints if formatters are missing)
 - Web linting - Runs in CI on PRs (saves time on local commits)
 
 This keeps commits fast while catching obvious formatting issues early.
