@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto, resolve } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { mdiDelete, mdiPencil, mdiPlus } from '@mdi/js';
 	import { onMount } from 'svelte';
 	import { Button, Card, Dialog, Header, Table } from 'svelte-ux';
@@ -30,13 +30,11 @@
 	}
 
 	function handleCreate() {
-		// eslint-disable-next-line svelte/no-navigation-without-resolve
-		goto(resolve(`/app/site/new`));
+		goto('/app/site/new');
 	}
 
 	function handleEdit(siteId: number) {
-		// eslint-disable-next-line svelte/no-navigation-without-resolve
-		goto(resolve(`/app/site/${siteId}`));
+		goto(`/app/site/${siteId}`);
 	}
 
 	function openDeleteDialog(site: Site) {

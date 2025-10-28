@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto, resolve } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { mdiArrowLeft, mdiContentSave } from '@mdi/js';
 	import { onMount } from 'svelte';
 	import { Button, Card, Header, TextField } from 'svelte-ux';
@@ -123,16 +123,14 @@
 				await updateSite(parseInt(siteId), siteData);
 			}
 
-			// eslint-disable-next-line svelte/no-navigation-without-resolve
-			goto(resolve('/app/site'));
+			goto('/app/site');
 		} catch (e) {
 			saveError = e instanceof Error ? e.message : 'Failed to save site';
 		}
 	}
 
 	function handleCancel() {
-		// eslint-disable-next-line svelte/no-navigation-without-resolve
-		goto(resolve('/app/site'));
+		goto('/app/site');
 	}
 </script>
 
