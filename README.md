@@ -60,7 +60,7 @@ make build-local
 ./app-local -dev
 ```
 
-If an existing SQLite database is available, place it in `./sensor_data.db` or start the server with `--db-path /path/to/sensor_data.db` to point the binary at a different file (useful for production systemd services that store the DB in `/var/lib/velocity.report`).
+If an existing SQLite database is available, place it in `./sensor_data.db` (the default location for development). For production deployments, use the `--db-path` flag to specify a different location (see Deployment section).
 
 ### For PDF Report Generation
 
@@ -86,7 +86,7 @@ velocity.report/
 ├── cmd/                      # Go CLI applications
 │   ├── radar/                # Radar sensor integration
 │   ├── bg-sweep/             # Background sweep utilities
-│   └── tools/                # Utility tools
+│   └── tools/                # Go utility tools
 ├── internal/                 # Go server internals (private packages)
 │   ├── api/                  # HTTP API endpoints
 │   ├── db/                   # SQLite database layer
@@ -107,8 +107,8 @@ velocity.report/
 ├── data/                     # Data directory
 │   ├── migrations/           # Database migrations
 │   └── align/                # Data alignment utilities
-├── docs/                     # Documentation
-├── scripts/                  # Development scripts
+├── docs/                     # Documentation Site
+├── scripts/                  # Development shell scripts
 └── static/                   # Static server assets
 ```
 
@@ -253,27 +253,49 @@ The Go server runs as a systemd service on Raspberry Pi.
 **Deploy new version:**
 
 ```sh
-# 1. Build for ARM64
-make build
+# 1. Build for ARM64 (produces `app-radar-linux-arm64`)
+make radar-linux
 
-# 2. Copy to Raspberry Pi
-scp app pi@raspberrypi:/path/to/deployment/
-
-# 3. Restart service
+# 2. Copy and install on the target (recommended)
+#    - place the binary in a standard system bin directory and name it `velocity-server`
+#    - create a dedicated service user and working directory
+scp app-radar-linux-arm64 pi@raspberrypi:/tmp/
 ssh pi@raspberrypi
-sudo systemctl stop go-sensor.service
-sudo cp /path/to/deployment/app /usr/local/bin/velocity-server
-sudo systemctl start go-sensor.service
+sudo mv /tmp/app-radar-linux-arm64 /usr/local/bin/velocity-server
+sudo chown root:root /usr/local/bin/velocity-server
+sudo chmod 0755 /usr/local/bin/velocity-server
+
+# 3. Create a non-privileged service account and working directory
+#    (run once on the device; you can skip user creation if you prefer an existing user)
+sudo useradd --system --no-create-home --shell /usr/sbin/nologin velocity || true
+sudo mkdir -p /var/lib/velocity.report
+sudo chown velocity:velocity /var/lib/velocity.report
+
+# 4. Install and (re)start the systemd service
+#    - copy the unit file (this repo contains `velocity-report.service`) to /etc/systemd/system/
+#    - the unit file passes --db-path to specify where the SQLite DB is located
+sudo cp velocity-report.service /etc/systemd/system/velocity-server.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now velocity-server.service
+
+# 5. (Optional) Migrate existing database
+#    If you have an existing sensor_data.db, copy it to the new location:
+sudo cp sensor_data.db /var/lib/velocity.report/sensor_data.db
+sudo chown velocity:velocity /var/lib/velocity.report/sensor_data.db
+
+# 6. Check status & logs
+sudo systemctl status velocity-server.service
+sudo journalctl -u velocity-server.service -f
 ```
 
 **Monitor service:**
 
 ```sh
 # View logs
-sudo journalctl -u go-sensor.service -f
+sudo journalctl -u velocity-server.service -f
 
 # Check status
-sudo systemctl status go-sensor.service
+sudo systemctl status velocity-server.service
 ```
 
 **Service configuration:**
@@ -295,10 +317,9 @@ No installation required - use PYTHONPATH method as documented in [tools/pdf-gen
 ## Documentation
 
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture and component relationships
-- **[tools/pdf-generator/README.md](tools/pdf-generator/README.md)** - PDF generator documentation
 - **[web/README.md](web/README.md)** - Web frontend documentation
+- **[tools/pdf-generator/README.md](tools/pdf-generator/README.md)** - PDF generator documentation
 - **[docs/README.md](docs/README.md)** - Documentation site
-- **[data/README.md](data/README.md)** - Data directory and database documentation
 
 ## Testing
 
