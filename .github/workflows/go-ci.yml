@@ -11,6 +11,7 @@ on:
       - "**/*.go"
       - "cmd/**"
       - "internal/**"
+      - ".github/workflows/go-ci.yml"
 
 permissions:
   contents: read
