@@ -36,6 +36,7 @@ var (
 	unitsFlag    = flag.String("units", "mph", "Speed units for display (mps, mph, kmph)")
 	timezoneFlag = flag.String("timezone", "UTC", "Timezone for display (UTC, US/Eastern, US/Pacific, etc.)")
 	disableRadar = flag.Bool("disable-radar", false, "Disable radar serial port (serve DB only)")
+	dbPath       = flag.String("db-path", DB_FILE, "path to sqlite DB file (defaults to sensor_data.db)")
 )
 
 // Lidar options (when enabling lidar via -enable-lidar)
@@ -108,7 +109,9 @@ func main() {
 		log.Printf("initialised device %s", radarSerial)
 	}
 
-	db, err := db.NewDB("sensor_data.db")
+	// Use the CLI flag value (defaults to ./sensor_data.db). We intentionally
+	// avoid relying on environment variables for configuration unless needed.
+	db, err := db.NewDB(*dbPath)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
