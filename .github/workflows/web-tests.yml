@@ -7,10 +7,10 @@ permissions:
   issues: write
 
 on:
+  # Only run web workflow on PRs that change web files, or on push to main
   push:
-    paths:
-      - "web/**"
-      - ".github/workflows/web-tests.yml"
+    branches:
+      - main
   pull_request:
     types: [opened, reopened, synchronize]
     paths:

@@ -1,11 +1,10 @@
 name: 🧭 Go CI
 
 on:
+  # Run on PRs for changed Go files; run on push only for the default branch (main)
   push:
-    paths:
-      - "**/*.go"
-      - "cmd/**"
-      - "internal/**"
+    branches:
+      - main
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
