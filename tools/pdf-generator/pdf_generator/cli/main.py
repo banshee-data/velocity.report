@@ -127,7 +127,7 @@ def _format_api_error(action: str, api_url: str, exc: Exception) -> str:
             parts.append("Authentication failed. Confirm the API allows your request.")
         elif isinstance(status, int) and status >= 500:
             parts.append(
-                "Go service returned a server error. Inspect `journalctl -u go-sensor.service`."
+                "Go service returned a server error. Inspect `journalctl -u velocity-server.service`."
             )
         if getattr(exc, "response", None) is not None:
             body = exc.response.text.strip()
