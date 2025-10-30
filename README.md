@@ -60,7 +60,7 @@ make build-local
 ./app-local -dev
 ```
 
-If an existing SQLite database is available, place it in `./sensor_data.db`
+If an existing SQLite database is available, place it in `./sensor_data.db` or start the server with `--db-path /path/to/sensor_data.db` to point the binary at a different file (useful for production systemd services that store the DB in `/var/lib/velocity.report`).
 
 ### For PDF Report Generation
 

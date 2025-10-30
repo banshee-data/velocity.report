@@ -29,7 +29,7 @@
 
 ### ✅ **Phase 2.5: PCAP-Based Parameter Tuning (COMPLETED)**
 
-- ✅ **PCAP Mode**: `-lidar-pcap-mode` flag disables UDP network listening
+- ✅ **PCAP Mode**: `--lidar-pcap-mode` flag disables UDP network listening
 - ✅ **API-Controlled Replay**: POST to `/api/lidar/pcap/start` with file path
 - ✅ **BPF Filtering**: Filters PCAP by UDP port (supports multi-sensor captures)
 - ✅ **Background Persistence**: Periodic flush every N seconds during replay
@@ -60,7 +60,7 @@
 ## Module Structure
 
 ```
-cmd/radar/radar.go                 ✅ # LiDAR integration with -enable-lidar flag
+cmd/radar/radar.go                 ✅ # LiDAR integration with --enable-lidar flag
 cmd/bg-sweep/main.go               ✅ # Single-parameter sweep tool for tuning
 cmd/bg-multisweep/main.go          ✅ # Multi-parameter grid search tool
 internal/lidar/network/listener.go ✅ # UDP socket and packet processing
@@ -171,26 +171,26 @@ is_background = (cell_diff <= closeness_threshold) OR (neighbor_confirm >= requi
 
 ### ✅ Current Flags (Implemented)
 
-The LiDAR functionality is integrated into the `cmd/radar/radar.go` binary and enabled via the `-enable-lidar` flag:
+The LiDAR functionality is integrated into the `cmd/radar/radar.go` binary and enabled via the `--enable-lidar` flag:
 
 ```bash
 # Radar binary with LiDAR integration
-./radar [radar flags...] -enable-lidar [lidar flags...]
+./radar [radar flags...] --enable-lidar [lidar flags...]
 
 # LiDAR integration flags
--enable-lidar                        # Enable lidar components inside radar binary
--lidar-listen ":8081"                # HTTP listen address for lidar monitor
--lidar-udp-port 2369                 # UDP port to listen for lidar packets
--lidar-no-parse                      # Disable lidar packet parsing
--lidar-sensor "hesai-pandar40p"      # Sensor name identifier for lidar
--lidar-forward                       # Forward lidar UDP packets to another port
--lidar-forward-port 2368             # Port to forward lidar UDP packets to
--lidar-forward-addr "localhost"      # Address to forward lidar UDP packets to
--lidar-pcap-mode                     # Enable PCAP mode: disable UDP listening, use API for PCAP replay
--lidar-bg-flush-interval 10s         # Interval to flush background grid to DB (PCAP mode)
+--enable-lidar                        # Enable lidar components inside radar binary
+--lidar-listen ":8081"                # HTTP listen address for lidar monitor
+--lidar-udp-port 2369                 # UDP port to listen for lidar packets
+--lidar-no-parse                      # Disable lidar packet parsing
+--lidar-sensor "hesai-pandar40p"      # Sensor name identifier for lidar
+--lidar-forward                       # Forward lidar UDP packets to another port
+--lidar-forward-port 2368             # Port to forward lidar UDP packets to
+--lidar-forward-addr "localhost"      # Address to forward lidar UDP packets to
+--lidar-pcap-mode                     # Enable PCAP mode: disable UDP listening, use API for PCAP replay
 
 # Background subtraction tuning (runtime-adjustable via HTTP API)
--bg-noise-relative 0.315             # NoiseRelativeFraction: fraction of range treated as measurement noise
+--lidar-bg-flush-interval 10s         # Interval to flush background grid to DB (PCAP mode)
+--lidar-bg-noise-relative 0.315       # NoiseRelativeFraction: fraction of range treated as measurement noise
 ```
 
 ### PCAP Mode Usage
@@ -204,7 +204,7 @@ make radar-linux              # Linux without PCAP (for Raspberry Pi cross-compi
 make radar-linux-pcap         # Linux with PCAP (requires ARM64 libpcap installed)
 
 # Start radar in PCAP mode (no UDP network listening)
-./radar -enable-lidar -lidar-pcap-mode -lidar-bg-flush-interval=5s [other flags...]
+./radar --enable-lidar --lidar-pcap-mode --lidar-bg-flush-interval=5s [other flags...]
 
 # Trigger PCAP replay via API
 curl -X POST http://localhost:8081/api/lidar/pcap/start?sensor_id=hesai-pandar40p \
@@ -275,7 +275,7 @@ ChangeThresholdForSnapshot     int      // Min changed cells to trigger snapshot
 - `POST /api/lidar/grid_reset?sensor_id=<id>` - Reset background grid (for testing/sweeps)
 - `GET /api/lidar/grid/status?sensor_id=<id>` - Get grid statistics and settling status
 - `GET /api/lidar/grid/export_asc?sensor_id=<id>` - Export background grid as ASC point cloud
-- `POST /api/lidar/pcap/start?sensor_id=<id>` - Start PCAP replay (requires `-lidar-pcap-mode`)
+- `POST /api/lidar/pcap/start?sensor_id=<id>` - Start PCAP replay (requires `--lidar-pcap-mode`)
 
 ### 🔄 Planned Endpoints
 

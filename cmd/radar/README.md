@@ -28,8 +28,8 @@ go build ./cmd/lidar
 # Run without hardware (serve DB/UI only):
 ./radar --disable-radar
 
-# Run in dev mode with a mocked serial port:
-./radar --dev
+# Run in debug mode with a mocked serial port (useful for development):
+./radar --debug
 
 # Enable in-process LiDAR components (UDP listener + forwarder):
 ./radar --enable-lidar --lidar-udp-port 2369 --lidar-listen :8081
@@ -40,9 +40,10 @@ go build ./cmd/lidar
 The radar binary exposes several CLI flags (see `cmd/radar/radar.go` for exact defaults). Key options are listed below.
 
 - `--fixture` (bool) — Load fixture data into the local DB instead of opening a serial port.
-- `--dev` (bool) — Run in development mode (uses a mock serial mux).
+- `--debug` (bool) — Run in debug mode (uses a mock serial mux and enables extra debug logging).
+- `--db-path` (string) — Path to SQLite DB file (default: `sensor_data.db`). Use this when your DB file lives outside the current working directory (for example, systemd services).
 - `--listen` (string) — HTTP listen address for the central API (default: `:8080`).
-- `--port` (string) — Serial device path for the radar (default: `/dev/ttySC1`). Ignored in `--dev` or `--disable-radar`.
+  - `--port` (string) — Serial device path for the radar (default: `/dev/ttySC1`). Ignored in `--debug` or `--disable-radar`.
 - `--units` (string) — Display units (mps, mph, kmph). Default: `mph`.
 - `--timezone` (string) — Timezone for display (default: `UTC`).
 - `--disable-radar` (bool) — Disable radar serial I/O; useful when running without radar hardware. The HTTP server and DB remain active.
@@ -65,7 +66,7 @@ The application is organized into separate components under `internal/` for main
 
 - `internal/serialmux` — Serial port abstraction and event handlers (real, mock, disabled implementations).
 - `internal/api` — Central HTTP server, static assets, and admin endpoints.
-- `internal/db` — SQLite helpers and schema management (single DB file `sensor_data.db` by default).
+- `internal/db` — SQLite helpers and schema management (single DB file `sensor_data.db` by default). Use `--db-path` to point the binary at a different file (for example: `--db-path /var/lib/velocity.report/sensor_data.db`).
 - `internal/lidar` — LiDAR parsers, frame builders, background model, monitor webserver, and DB persistence.
 
 ### LiDAR core components
@@ -103,7 +104,7 @@ To visualize incoming LiDAR data, forward packets to LidarView's listening port 
 
 ## Command & DB notes
 
-- The radar binary uses a single SQLite DB file by default (`sensor_data.db`) and exposes admin routes via the HTTP API.
+- The radar binary uses a single SQLite DB file by default (`sensor_data.db`) and exposes admin routes via the HTTP API. You can override the DB location by passing `--db-path /path/to/your.db` when starting the binary (this is how production systemd units should point the service at `/var/lib/velocity.report/sensor_data.db`).
 - When `--disable-radar` is set, a `DisabledSerialMux` keeps the HTTP/DB APIs available while disabling serial I/O.
 - When `--enable-lidar` is used, the LiDAR components reuse the same DB instance for snapshot persistence and event storage. A `BackgroundManager` is created per sensor and will persist background snapshots into the `lidar_bg_snapshot` table if the manager was constructed with a DB-backed `BgStore`.
 
@@ -116,13 +117,16 @@ To visualize incoming LiDAR data, forward packets to LidarView's listening port 
 - No packets received: check firewall, UDP bind address, and network interface; use `netstat -un` to verify listeners.
 
 ### Port Conflicts
+
 - **Error**: "bind: address already in use"
 - **Solution**: Check for other processes using the UDP port with `lsof -i UDP:2369`
 
 ### LidarView Socket Errors
+
 - **Error**: "Error while opening socket!" in LidarView
 - **Solution**: Use different forwarding ports (avoid 2368 if LidarView binds to it)
 
 ### No Packets Received
+
 - **Check**: Firewall settings, UDP port configuration, network interface binding
 - **Debug**: Use `netstat -un` to verify UDP listener is active
