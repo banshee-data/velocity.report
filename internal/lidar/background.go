@@ -28,6 +28,11 @@ type BackgroundParams struct {
 	// (1%) to 0.02 (2%). If zero, a sensible default (0.01) is used.
 	NoiseRelativeFraction float32
 
+	// SeedFromFirstObservation, when true, will initialize empty background cells
+	// from the first observation seen for that cell. This is useful for PCAP
+	// replay mode where there is no prior live-warmup data; default: false.
+	SeedFromFirstObservation bool
+
 	// Additional params for persistence matching schema requirements
 	SettlingPeriodNanos        int64 // 5 minutes before first snapshot
 	SnapshotIntervalNanos      int64 // 2 hours between snapshots
@@ -440,6 +445,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	// data races and inconsistent thresholds.
 	var closenessMultiplier float64
 	var neighConfirm int
+	var seedFromFirst bool
 	safety := float64(g.Params.SafetyMarginMeters)
 	freezeDur := g.Params.FreezeDurationNanos
 
@@ -465,6 +471,8 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	if neighConfirm <= 0 {
 		neighConfirm = 3
 	}
+	// read seed-from-first flag
+	seedFromFirst = g.Params.SeedFromFirstObservation
 	// if the manager requested diagnostics, and the observed noise changed,
 	// emit a monitoring log so operators see the applied value at runtime.
 	if bm != nil && bm.EnableDiagnostics {
@@ -528,7 +536,14 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 			// Decide if this observation is background-like or foreground-like
 			isBackgroundLike := cellDiff <= closenessThreshold || neighborConfirmCount >= neighConfirm
 
-			if isBackgroundLike {
+			// Optionally seed empty cells from the first observation when configured.
+			// This helps PCAP replay populate a background grid when no prior history exists.
+			initIfEmpty := false
+			if seedFromFirst && cell.TimesSeenCount == 0 {
+				initIfEmpty = true
+			}
+
+			if isBackgroundLike || initIfEmpty {
 				// update EMA for average and spread
 				if cell.TimesSeenCount == 0 {
 					// initialize

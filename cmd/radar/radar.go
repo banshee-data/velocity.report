@@ -139,6 +139,9 @@ func main() {
 			SnapshotIntervalNanos:          int64(2 * time.Hour),
 			ChangeThresholdForSnapshot:     100,
 			NoiseRelativeFraction:          float32(*lidarBgNoiseRelative),
+			// When running in PCAP mode seed the background grid from first observations
+			// so replayed captures can build an initial background without live warmup.
+			SeedFromFirstObservation: *lidarPCAPMode,
 		}
 
 		backgroundManager := lidar.NewBackgroundManager(*lidarSensor, 40, 1800, backgroundParams, lidarDB)
