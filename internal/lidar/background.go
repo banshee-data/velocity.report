@@ -502,6 +502,10 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	foregroundCount := int64(0)
 	backgroundCount := int64(0)
 
+	// Log E: Diagnostic sample counters for decision logging (gated by EnableDiagnostics)
+	var acceptSampleCount, rejectSampleCount int
+	const maxSamplesPerType = 10
+
 	// Iterate over observed cells and update grid
 	g.mu.Lock()
 	// read noiseRel under lock
@@ -590,6 +594,26 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 				initIfEmpty = true
 			}
 
+			// Log E: Sample decision details when diagnostics enabled
+			if bm != nil && bm.EnableDiagnostics {
+				logThis := false
+				if (isBackgroundLike || initIfEmpty) && acceptSampleCount < maxSamplesPerType {
+					acceptSampleCount++
+					logThis = true
+				} else if !isBackgroundLike && !initIfEmpty && rejectSampleCount < maxSamplesPerType {
+					rejectSampleCount++
+					logThis = true
+				}
+
+				if logThis {
+					log.Printf("[ProcessFramePolar:decision] sensor=%s ring=%d azbin=%d obs_mean=%.3f cell_avg=%.3f cell_spread=%.3f times_seen=%d neighbor_confirm=%d closeness_threshold=%.3f cell_diff=%.3f is_background=%v init_if_empty=%v",
+						g.SensorID, ringIdx, azBinIdx, observationMean,
+						cell.AverageRangeMeters, cell.RangeSpreadMeters, cell.TimesSeenCount,
+						neighborConfirmCount, closenessThreshold, cellDiff,
+						isBackgroundLike, initIfEmpty)
+				}
+			}
+
 			if isBackgroundLike || initIfEmpty {
 				// update EMA for average and spread
 				if cell.TimesSeenCount == 0 {
@@ -665,6 +689,18 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 		bm.StartTime = now
 	}
 	bm.LastPersistTime = now
+
+	// Log F: Per-frame acceptance summary (gated by EnableDiagnostics)
+	if bm != nil && bm.EnableDiagnostics && (foregroundCount > 0 || backgroundCount > 0) {
+		total := foregroundCount + backgroundCount
+		acceptPct := 0.0
+		if total > 0 {
+			acceptPct = (float64(backgroundCount) / float64(total)) * 100.0
+		}
+		log.Printf("[ProcessFramePolar:summary] sensor=%s points_in=%d cells_updated=%d bg_accept=%d fg_reject=%d accept_pct=%.2f%% noise_rel=%.6f closeness_mult=%.3f neighbor_confirm=%d seed_from_first=%v",
+			g.SensorID, len(points), total, backgroundCount, foregroundCount, acceptPct,
+			noiseRel, closenessMultiplier, neighConfirm, seedFromFirst)
+	}
 
 	// Log B: Rate-limited diagnostic for grid population tracking
 	// Track how quickly the grid repopulates after reset (useful for debugging multisweep race)
