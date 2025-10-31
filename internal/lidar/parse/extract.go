@@ -333,6 +333,9 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]lidar.PointPolar, error) {
 	var points []lidar.PointPolar
 	dataOffset := 0 // Preambles are at the start of UDP payload data (no header offset)
 
+	// Track non-zero channel counts per block for diagnostics when parsing yields no points
+	blockNonZero := make([]int, 0, BLOCKS_PER_PACKET)
+
 	for blockIdx := 0; blockIdx < BLOCKS_PER_PACKET; blockIdx++ {
 		// Calculate block size: 2 bytes preamble + 2 bytes azimuth + (40 channels × 3 bytes each) = 124 bytes
 		blockSize := BLOCK_SIZE
@@ -346,11 +349,25 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]lidar.PointPolar, error) {
 			return nil, fmt.Errorf("failed to parse block %d: %v", blockIdx, err)
 		}
 
+		// Count non-zero channel measurements in this block for diagnostics
+		nonZero := 0
+		for _, ch := range block.Channels {
+			if ch.Distance != 0 {
+				nonZero++
+			}
+		}
+		blockNonZero = append(blockNonZero, nonZero)
+
 		// Convert raw measurements to calibrated 3D points with accurate timing and motor speed compensation
 		blockPoints := p.blockToPoints(block, blockIdx, tail)
 		points = append(points, blockPoints...)
 
 		dataOffset += blockSize
+	}
+
+	// Diagnostic: if parsing succeeded but produced zero points, log per-block non-zero counts
+	if p.debug && len(points) == 0 {
+		log.Printf("Packet %d parsed -> 0 points; nonzero_channels_per_block=%v; tail=%+v", p.packetCount, blockNonZero, tail)
 	}
 
 	return points, nil
