@@ -56,6 +56,10 @@ var (
 	// FrameBuilder tuning knobs
 	lidarFrameBufferTimeout = flag.Duration("lidar-frame-buffer-timeout", 500*time.Millisecond, "FrameBuilder buffer timeout: finalize idle frames after this duration")
 	lidarMinFramePoints     = flag.Int("lidar-min-frame-points", 1000, "FrameBuilder MinFramePoints: minimum points required for a valid frame before finalizing")
+	// Seed background from first observation (useful for PCAP replay and dev runs)
+	// Default: true in this branch to re-enable the dev-friendly behavior; can be
+	// disabled via CLI when running in production if desired.
+	lidarSeedFromFirst = flag.Bool("lidar-seed-from-first", true, "Seed background cells from first observation (dev/pcap helper)")
 )
 
 // Constants
@@ -142,11 +146,9 @@ func main() {
 			SnapshotIntervalNanos:          int64(2 * time.Hour),
 			ChangeThresholdForSnapshot:     100,
 			NoiseRelativeFraction:          float32(*lidarBgNoiseRelative),
-			// When running in PCAP mode seed the background grid from first observations
+			// When running in PCAP mode / dev runs seed the background grid from first observations
 			// so replayed captures can build an initial background without live warmup.
-			// NOTE: temporarily disabling auto-seed to investigate unexpected background
-			// settling regression. Re-enable if needed after debugging.
-			// SeedFromFirstObservation: *lidarPCAPMode,
+			SeedFromFirstObservation: *lidarSeedFromFirst,
 		}
 
 		backgroundManager := lidar.NewBackgroundManager(*lidarSensor, 40, 1800, backgroundParams, lidarDB)
