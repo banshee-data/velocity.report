@@ -133,6 +133,8 @@ func main() {
 	neighborList := flag.String("neighbors", "", "Comma-separated list of neighbor confirmation integer counts to try (e.g. 1,2,3)")
 	iterationsPer := flag.Int("iterations-per", 30, "Number of acceptance samples to take per parameter combination")
 	intervalPer := flag.Duration("interval-per", 2*time.Second, "Interval between samples")
+	// Time to wait after applying params and resetting grid before sampling
+	settleTime := flag.Duration("settle-time", 5*time.Second, "Time to wait for grid to settle after applying params (or 0 to skip)")
 	output := flag.String("output", "", "Output CSV filename (defaults to bg-multisweep-<timestamp>.csv)")
 	rawOutput := flag.String("raw-output", "", "Raw per-iteration CSV filename (defaults to <output>-raw.csv)")
 	dryRun := flag.Bool("dry-run", false, "Print parsed flags and exit (no network calls)")
@@ -320,6 +322,43 @@ func main() {
 					_, _ = io.Copy(io.Discard, resp.Body)
 					resp.Body.Close()
 				}
+
+				// Wait for grid to settle/populate after reset+params. This helps avoid
+				// sampling too quickly before the BackgroundManager has processed frames.
+				if *settleTime > 0 {
+					deadline := time.Now().Add(*settleTime)
+					for time.Now().Before(deadline) {
+						// Query grid status
+						if resp, err := client.Get(*monitorURL + "/api/lidar/grid_status?sensor_id=" + *sensorID); err == nil {
+							var gs map[string]interface{}
+							dec := json.NewDecoder(resp.Body)
+							if err := dec.Decode(&gs); err == nil {
+								// Prefer background_count if present
+								if bc, ok := gs["background_count"]; ok {
+									if n, ok := bc.(float64); ok && n > 0 {
+										resp.Body.Close()
+										break
+									}
+								}
+								// Fallback: inspect times_seen_dist map to see if not all zeros
+								if tsd, ok := gs["times_seen_dist"].(map[string]interface{}); ok {
+									// if any key != "0" has count > 0, consider settled
+									for k, v := range tsd {
+										if k != "0" {
+											if nv, ok := v.(float64); ok && nv > 0 {
+												resp.Body.Close()
+												goto settled
+											}
+										}
+									}
+								}
+							}
+							resp.Body.Close()
+						}
+						time.Sleep(250 * time.Millisecond)
+					}
+				}
+			settled:
 
 				// sample acceptance rates iterationsPer times and write raw rows
 				rateSamples := make([][]float64, 0, *iterationsPer)
