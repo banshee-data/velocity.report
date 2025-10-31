@@ -13,6 +13,31 @@ radar-mac-intel:
 radar-local:
 	go build -tags=pcap -o app-radar-local ./cmd/radar
 
+.PHONY: dev-go
+dev-go:
+	@mkdir -p logs
+	@ts=$$(date +%Y%m%d-%H%M%S); \
+	 logfile=logs/velocity-$${ts}.log; \
+	 pidfile=logs/velocity-$${ts}.pid; \
+	 DB_PATH=$${DB_PATH:-./sensor_data.db}; \
+	 echo "Building app-radar-local..."; \
+	 go build -tags=pcap -o app-radar-local ./cmd/radar; \
+	 echo "Starting app-radar-local with DB=$$DB_PATH -> $$logfile"; \
+	 nohup ./app-radar-local --disable-radar --enable-lidar --lidar-pcap-mode --debug --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
+	 echo "Started; PID $$(cat $$pidfile)"; \
+	 echo "Log: $$logfile";
+
+.PHONY: tail-log-go
+tail-log-go:
+	@# Tail the most recent velocity log file in logs/ without building or starting anything
+	@if [ -d logs ] && [ $$(ls -1 logs/velocity-*.log 2>/dev/null | wc -l) -gt 0 ]; then \
+		latest=$$(ls -1t logs/velocity-*.log 2>/dev/null | head -n1); \
+		echo "Tailing $$latest"; \
+		tail -F "$$latest"; \
+	else \
+		echo "No logs found in logs/ (try: make dev-go)"; exit 1; \
+	fi
+
 tools-local:
 	go build -o app-bg-sweep ./cmd/bg-sweep
 	go build -o app-bg-multisweep ./cmd/bg-multisweep
