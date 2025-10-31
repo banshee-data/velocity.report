@@ -571,8 +571,11 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame) {
 	// Call callback if provided (in separate goroutine to avoid blocking)
 	if fb.frameCallback != nil {
 		// Add explicit log when invoking the frame callback so we can trace delivery
-		log.Printf("[FrameBuilder] Invoking frame callback for ID=%s, Points=%d, Sensor=%s",
-			frame.FrameID, frame.PointCount, frame.SensorID)
+		// but only emit this in debug mode to avoid noisy logs during normal runs.
+		if fb.debug {
+			log.Printf("[FrameBuilder] Invoking frame callback for ID=%s, Points=%d, Sensor=%s",
+				frame.FrameID, frame.PointCount, frame.SensorID)
+		}
 		go fb.frameCallback(frame)
 	}
 }
