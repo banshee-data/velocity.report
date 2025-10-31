@@ -428,13 +428,14 @@ func main() {
 						}
 						overallSamples = append(overallSamples, overall)
 
-						// fetch snapshot summary to get nonzero cell count (if available)
+						// fetch grid_status to get live in-memory nonzero cell count (avoids DB timing races)
 						nonzero := 0.0
-						if resp2, err := client.Get(*monitorURL + "/api/lidar/snapshot?sensor_id=" + *sensorID); err == nil {
+						if resp2, err := client.Get(*monitorURL + "/api/lidar/grid_status?sensor_id=" + *sensorID); err == nil {
 							var s map[string]interface{}
 							dec2 := json.NewDecoder(resp2.Body)
 							if err := dec2.Decode(&s); err == nil {
-								if v, ok := s["non_empty_cells"]; ok {
+								// Use background_count which is the count of cells with TimesSeenCount > 0
+								if v, ok := s["background_count"]; ok {
 									switch nv := v.(type) {
 									case float64:
 										nonzero = nv
