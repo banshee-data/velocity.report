@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
@@ -40,6 +41,10 @@ type WebServer struct {
 	sensorID          string
 	parser            network.Parser
 	frameBuilder      network.FrameBuilder
+
+	// PCAP replay state
+	pcapMu         sync.Mutex
+	pcapInProgress bool
 }
 
 // WebServerConfig contains configuration options for the web server
@@ -795,8 +800,24 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if another PCAP replay is already in progress
+	ws.pcapMu.Lock()
+	if ws.pcapInProgress {
+		ws.pcapMu.Unlock()
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "PCAP replay already in progress")
+		return
+	}
+	ws.pcapInProgress = true
+	ws.pcapMu.Unlock()
+
 	// Start PCAP reading in background goroutine
 	go func() {
+		defer func() {
+			ws.pcapMu.Lock()
+			ws.pcapInProgress = false
+			ws.pcapMu.Unlock()
+		}()
+
 		ctx := context.Background() // TODO: Consider using a cancelable context for stop functionality
 		log.Printf("Starting PCAP replay from file: %s (sensor: %s)", req.PCAPFile, sensorID)
 
