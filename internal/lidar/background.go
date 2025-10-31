@@ -112,6 +112,8 @@ type BackgroundManager struct {
 	// EnableDiagnostics controls whether this manager emits diagnostic messages
 	// via the shared monitoring logger. Default: false.
 	EnableDiagnostics bool
+	// frameProcessCount tracks the number of ProcessFramePolar calls for rate-limited diagnostics
+	frameProcessCount int64
 }
 
 // GetParams returns a copy of the BackgroundParams for the manager's grid.
@@ -663,6 +665,21 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 		bm.StartTime = now
 	}
 	bm.LastPersistTime = now
+
+	// Log B: Rate-limited diagnostic for grid population tracking
+	// Track how quickly the grid repopulates after reset (useful for debugging multisweep race)
+	bm.frameProcessCount++
+	if bm.frameProcessCount%100 == 0 {
+		// Quick snapshot of nonzero count
+		nonzero := 0
+		for i := range g.Cells {
+			if g.Cells[i].TimesSeenCount > 0 {
+				nonzero++
+			}
+		}
+		log.Printf("[ProcessFramePolar] sensor=%s frames_processed=%d nonzero_cells=%d bg_count=%d fg_count=%d timestamp=%d",
+			g.SensorID, bm.frameProcessCount, nonzero, backgroundCount, foregroundCount, time.Now().UnixNano())
+	}
 }
 
 // serializeGrid compresses the grid cells using gob encoding and gzip compression.
