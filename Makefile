@@ -13,40 +13,51 @@ radar-mac-intel:
 radar-local:
 	go build -tags=pcap -o app-radar-local ./cmd/radar
 
-.PHONY: dev-go
+
+# Reusable script for starting the app in background. Call with extra flags
+# using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we
+# escape $ to $$ inside the define so the resulting shell script receives
+# single-dollar variables.
+define run_dev_go
+mkdir -p logs; \
+ts=$$(date +%Y%m%d-%H%M%S); \
+logfile=logs/velocity-$${ts}.log; \
+piddir=logs/pids; \
+pidfile=$${piddir}/velocity-$${ts}.pid; \
+DB_PATH=$${DB_PATH:-./sensor_data.db}; \
+echo "Stopping previously-launched app-radar-local processes (from $$piddir) ..."; \
+if [ -d "$$piddir" ] && [ $$(ls -1 $$piddir/velocity-*.pid 2>/dev/null | wc -l) -gt 0 ]; then \
+  for pidfile_k in $$(ls -1t $$piddir/velocity-*.pid 2>/dev/null | head -n3); do \
+    pid_k=$$(cat "$$pidfile_k" 2>/dev/null || echo); \
+    if [ -n "$$pid_k" ] && kill -0 $$pid_k 2>/dev/null; then \
+      cmdline=$$(ps -p $$pid_k -o args= 2>/dev/null || true); \
+      case "$$cmdline" in \
+        *app-radar-local*) \
+          echo "Stopping pid $$pid_k (from $$pidfile_k): $$cmdline"; \
+          kill $$pid_k 2>/dev/null || true; \
+          sleep 1; \
+          kill -0 $$pid_k 2>/dev/null && kill -9 $$pid_k 2>/dev/null || true; \
+          ;; \
+        *) echo "Skipping pid $$pid_k (cmd does not match app-radar-local): $$cmdline"; ;; \
+      esac; \
+    fi; \
+  done; \
+fi; \
+echo "Building app-radar-local..."; \
+go build -tags=pcap -o app-radar-local ./cmd/radar; \
+mkdir -p "$$piddir"; \
+echo "Starting app-radar-local (background) with DB=$$DB_PATH -> $$logfile"; \
+nohup ./app-radar-local --disable-radar --enable-lidar $(1) --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
+echo "Started; PID $$(cat $$pidfile)"; \
+echo "Log: $$logfile"
+endef
+
+.PHONY: dev-go dev-go-pcap
 dev-go:
-	@mkdir -p logs
-	@ts=$$(date +%Y%m%d-%H%M%S); \
-	logfile=logs/velocity-$${ts}.log; \
-	piddir=logs/pids; \
-	pidfile=$${piddir}/velocity-$${ts}.pid; \
-	DB_PATH=$${DB_PATH:-./sensor_data.db}; \
-	echo "Stopping previously-launched app-radar-local processes (from $$piddir) ..."; \
-	if [ -d "$$piddir" ] && [ $$(ls -1 $$piddir/velocity-*.pid 2>/dev/null | wc -l) -gt 0 ]; then \
-		for pidfile_k in $$(ls -1t $$piddir/velocity-*.pid 2>/dev/null | head -n3); do \
-			pid_k=$$(cat "$$pidfile_k" 2>/dev/null || echo); \
-			if [ -n "$$pid_k" ] && kill -0 $$pid_k 2>/dev/null; then \
-				cmdline=$$(ps -p $$pid_k -o args= 2>/dev/null || true); \
-				case "$$cmdline" in \
-					*app-radar-local*) \
-						echo "Stopping pid $$pid_k (from $$pidfile_k): $$cmdline"; \
-						kill $$pid_k 2>/dev/null || true; \
-						sleep 1; \
-						kill -0 $$pid_k 2>/dev/null && kill -9 $$pid_k 2>/dev/null || true; \
-						;; \
-					*) \
-						echo "Skipping pid $$pid_k (cmd does not match app-radar-local): $$cmdline"; ;; \
-				esac; \
-			fi; \
-		done; \
-	fi; \
-	echo "Building app-radar-local..."; \
-	go build -tags=pcap -o app-radar-local ./cmd/radar; \
-	mkdir -p "$$piddir"; \
-	echo "Starting app-radar-local (background) with DB=$$DB_PATH -> $$logfile"; \
-	nohup ./app-radar-local --disable-radar --enable-lidar --lidar-pcap-mode --debug --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
-	echo "Started; PID $$(cat $$pidfile)"; \
-	echo "Log: $$logfile"
+	@$(call run_dev_go,)
+
+dev-go-pcap:
+	@$(call run_dev_go,--lidar-pcap-mode --debug)
 
 .PHONY: tail-log-go
 tail-log-go:
