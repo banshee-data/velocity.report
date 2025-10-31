@@ -181,7 +181,7 @@ type AcceptanceMetrics struct {
 // further synchronization.
 func (bm *BackgroundManager) GetAcceptanceMetrics() *AcceptanceMetrics {
 	if bm == nil || bm.Grid == nil {
-		return nil
+		return &AcceptanceMetrics{}
 	}
 	g := bm.Grid
 	g.mu.RLock()
@@ -384,8 +384,8 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 		return
 	}
 
-	// Quick diagnostics when debugging to see what's arriving
-	if len(points) > 0 {
+	// Quick diagnostics when enabled to see what's arriving
+	if bm != nil && bm.EnableDiagnostics && len(points) > 0 {
 		sample := points[0]
 		log.Printf("[BackgroundManager] Received %d points; sample -> Channel=%d Az=%.2f Dist=%.2f", len(points), sample.Channel, sample.Azimuth, sample.Distance)
 	}
@@ -424,10 +424,6 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 		if az < 0 {
 			az += 360.0
 		}
-
-		if skippedInvalid > 0 {
-			log.Printf("[BackgroundManager] Skipped %d invalid points due to channel out-of-range (rings=%d)", skippedInvalid, rings)
-		}
 		azBin := int((az / 360.0) * float64(azBins))
 		if azBin < 0 {
 			azBin = 0
@@ -448,6 +444,10 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	}
 
 	// Parameters with safe defaults
+	// Emit a single summary log if we encountered points with invalid channels
+	if skippedInvalid > 0 && bm != nil && bm.EnableDiagnostics {
+		log.Printf("[BackgroundManager] Skipped %d invalid points due to channel out-of-range (rings=%d)", skippedInvalid, rings)
+	}
 	alpha := float64(g.Params.BackgroundUpdateFraction)
 	if alpha <= 0 || alpha > 1 {
 		alpha = 0.02
