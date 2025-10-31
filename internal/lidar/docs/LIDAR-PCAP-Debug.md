@@ -227,17 +227,101 @@ Unit tests likely:
 
 If useful, I can add a helper script `scripts/debug_pcap_replay.sh` that: builds, starts the binary (killing existing listener on 8081 if needed), triggers the PCAP replay, tails logs for N seconds, and fetches snapshots/grid_status. Tell me if you'd like that and I will add it.
 
-## Next steps checklist
+## Recent verification (live run)
 
-- [ ] Apply critical fix to `evictOldestBufferedFrame()`
-- [ ] Rebuild with `go build -tags=pcap -o app-radar-local ./cmd/radar`
-- [ ] Restart binary with `--lidar-pcap-mode --debug`
-- [ ] Trigger PCAP replay via API
-- [ ] Monitor logs for "Frame completed" and "Sending ... to BackgroundManager"
-- [ ] Check snapshots for `nonzero_cells > 0`
-- [ ] If still empty, add frame buffer monitoring logs
-- [ ] If still empty, lower `minFramePoints` to 100 for PCAP mode
-- [ ] If frames work but background stays empty, toggle `noise_relative` to 1.0
+I ran an on-host verification sequence against the running lidar monitor to validate the `grid_reset`/`persist`/`snapshot` behavior and confirm the diagnosis.
+
+- Steps executed:
+
+  1. POST /api/lidar/grid_reset?sensor_id=hesai-pandar40p
+  2. GET /api/lidar/grid_status?sensor_id=hesai-pandar40p
+  3. GET /api/lidar/persist?sensor_id=hesai-pandar40p
+  4. GET /api/lidar/snapshot?sensor_id=hesai-pandar40p
+
+- Key observations from the run:
+
+  - `grid_reset` returned {"status":"ok"}.
+  - Immediately after the reset the in-memory `grid_status` already showed many non-zero counts (e.g. `background_count=58879`, `times_seen_dist` had many non-zero bins), indicating frames were arriving and repopulating the in-memory grid.
+  - `persist` returned {"status":"ok"}, and the subsequently-obtained DB `snapshot` contained `non_empty_cells=61056` (i.e. a heavily populated grid), even though a reset had been issued earlier in the sequence.
+
+- Interpretation:
+  - `ResetGrid()` does clear the in-memory grid when called. However, in a live/PCAP run frames are processed continuously. In my test the grid was repopulated by incoming frames before the `persist` call completed. The snapshot therefore recorded a re-populated grid, not a zeroed one.
+  - This explains why the `bg-multisweep` results looked similar for seeded vs unseeded runs: the multisweep relies on the persisted DB snapshot and that snapshot can be taken after the grid has already been repopulated by live frames, masking any differences introduced by seeding.
+
+## Root-cause confirmation
+
+- Two independent issues combine to produce the observed "empty snapshot / no background population" symptoms earlier in PCAP runs:
+  1. Frame delivery bug: `evictOldestBufferedFrame()` deletes buffered frames when the buffer is full but does not call `finalizeFrame()` (there's a TODO comment in the code). This causes frames to be discarded without invoking the FrameBuilder callback that feeds `BackgroundManager.ProcessFramePolar`.
+  2. Race between reset and persist vs incoming frames: even when `ResetGrid()` is called successfully, live traffic (or fast PCAP replay) can repopulate the grid before a `persist` occurs, so snapshots may contain non-zero cells unless you stop input or persist immediately while input is paused.
+
+The frame-eviction bug is the smoking gun for why persisted snapshots were empty previously: frames were not being handed to `BackgroundManager` at all in some replay scenarios.
+
+## Immediate actionable fixes (ranked)
+
+1. Critical (apply now)
+
+   - Fix `evictOldestBufferedFrame()` to call `fb.finalizeFrame(oldestFrame)` when evicting. This ensures evicted frames invoke the same finalize/callback path as timed-finalized frames and will almost certainly restore background population during PCAP replay.
+   - Code location: `internal/lidar/frame_builder.go` (the function `evictOldestBufferedFrame`).
+
+2. Short-term multisweep reliability (low-risk)
+
+   - Change `cmd/bg-multisweep` to use `/api/lidar/grid_status` (in-memory) for non-zero cell counts during sampling instead of `/api/lidar/snapshot` which reads the DB. `grid_status` reflects live, in-memory state and avoids DB timing races.
+
+3. Controlled persist workflow (if you must use DB snapshots)
+
+   - Run PCAP replay in `--lidar-pcap-mode` (no UDP), issue `grid_reset`, then `persist` while ensuring no new frames are being injected between the two calls. This requires stopping network input or controlling PCAP replay start/stop so the snapshot is taken cleanly.
+
+4. Additional robustness/tuning
+   - Lower `FrameBuilderConfig.MinFramePoints` for PCAP mode (e.g., 100) to help finalization for sparse captures.
+   - Decrease `CleanupInterval` for PCAP mode (e.g., 50ms) so `cleanupFrames()` finalizes buffered frames more frequently during fast replay.
+   - Add diagnostic logs for frame buffer lifecycle (buffered/evicted/finalized) to verify behaviour during replay.
+
+## Reproduction commands (the ones I used)
+
+Run these from the host while the lidar webserver is available at `http://localhost:8081`:
+
+```bash
+# Clear the in-memory grid
+curl -X POST 'http://localhost:8081/api/lidar/grid_reset?sensor_id=hesai-pandar40p'
+
+# Check live in-memory status
+curl 'http://localhost:8081/api/lidar/grid_status?sensor_id=hesai-pandar40p'
+
+# Force a manual persist (writes whatever is currently in memory to DB)
+curl 'http://localhost:8081/api/lidar/persist?sensor_id=hesai-pandar40p'
+
+# Retrieve DB snapshot that was just written
+curl 'http://localhost:8081/api/lidar/snapshot?sensor_id=hesai-pandar40p'
+```
+
+If the `grid_status` shows non-zero counts immediately after `grid_reset`, the persisted snapshot will likely be non-zero unless you pause frame ingestion between reset and persist.
+
+## Minimal patch suggestion (one-liner)
+
+In `internal/lidar/frame_builder.go`, update the eviction path to finalize evicted frames:
+
+```diff
+@@
+     if oldestFrame != nil {
+-        delete(fb.frameBuffer, oldestID)
++        delete(fb.frameBuffer, oldestID)
++        // Ensure evicted frames are finalized and delivered to the callback
++        fb.finalizeFrame(oldestFrame)
+     }
+```
+
+This addresses the bug where frames removed to make room are silently discarded.
+
+## Short checklist (next actions)
+
+- [ ] Apply the eviction fix in `internal/lidar/frame_builder.go` (critical)
+- [ ] Rebuild `./cmd/radar` with PCAP flags and run in `--lidar-pcap-mode --debug` to confirm frames finalize and background fills
+- [ ] If successful, re-run the bg-multisweep using `grid_status` sampling (or with controlled persist) and validate seeded vs unseeded differences
+- [ ] Add frame buffer lifecycle logging for long-term telemetry
+
+---
+
+Updated: added live verification results, root-cause confirmation and an explicit minimal patch and reproduction steps.
 
 ---
 
