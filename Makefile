@@ -47,17 +47,20 @@ echo "Building app-radar-local..."; \
 go build -tags=pcap -o app-radar-local ./cmd/radar; \
 mkdir -p "$$piddir"; \
 echo "Starting app-radar-local (background) with DB=$$DB_PATH -> $$logfile"; \
-nohup ./app-radar-local --disable-radar --enable-lidar $(1) --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
+nohup ./app-radar-local --disable-radar $(1) --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
 echo "Started; PID $$(cat $$pidfile)"; \
 echo "Log: $$logfile"
 endef
 
 .PHONY: dev-go dev-go-pcap
 dev-go:
-	@$(call run_dev_go,--lidar-bg-flush-interval=60s)
+	@$(call run_dev_go)
+
+dev-go-lidar:
+	@$(call run_dev_go,--enable-lidar --lidar-bg-flush-interval=60s --lidar-seed-from-first=true --lidar-forward)
 
 dev-go-pcap:
-	@$(call run_dev_go,--lidar-pcap-mode --debug --lidar-bg-flush-interval=60s)
+	@$(call run_dev_go,--lidar-pcap-mode --debug --lidar-bg-flush-interval=60s --lidar-seed-from-first=true)
 
 .PHONY: tail-log-go
 tail-log-go:
