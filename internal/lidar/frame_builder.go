@@ -399,6 +399,11 @@ func (fb *FrameBuilder) checkSequenceGaps(sequence uint32) {
 // finalizeCurrentFrame completes the current frame and moves it to buffer
 func (fb *FrameBuilder) finalizeCurrentFrame() {
 	if fb.currentFrame == nil || fb.currentFrame.PointCount < fb.minFramePoints {
+		// Discard incomplete frame; log when in debug to help diagnose why frames aren't completing
+		if fb.currentFrame != nil {
+			log.Printf("[FrameBuilder] Discarding incomplete frame %s: points=%d, min_required=%d",
+				fb.currentFrame.FrameID, fb.currentFrame.PointCount, fb.minFramePoints)
+		}
 		fb.currentFrame = nil // Discard incomplete frame
 		return
 	}
@@ -411,6 +416,11 @@ func (fb *FrameBuilder) finalizeCurrentFrame() {
 
 	// Move to buffer for potential backfill
 	fb.frameBuffer[frame.FrameID] = frame
+
+	if fb.debug {
+		log.Printf("[FrameBuilder] Moved frame %s to buffer (points=%d); buffer_size=%d",
+			frame.FrameID, frame.PointCount, len(fb.frameBuffer))
+	}
 
 	// Enforce buffer size limit
 	if len(fb.frameBuffer) > fb.frameBufferSize {
@@ -486,6 +496,10 @@ func (fb *FrameBuilder) cleanupFrames() {
 	now := time.Now()
 	var frameIDsToFinalize []string
 
+	if fb.debug {
+		log.Printf("[FrameBuilder] cleanupFrames invoked: buffer_size=%d, now=%v", len(fb.frameBuffer), now)
+	}
+
 	// Find frames that are old enough to finalize
 	for frameID, frame := range fb.frameBuffer {
 		frameAge := now.Sub(frame.EndTimestamp)
@@ -499,6 +513,21 @@ func (fb *FrameBuilder) cleanupFrames() {
 		frame := fb.frameBuffer[frameID]
 		delete(fb.frameBuffer, frameID)
 		fb.finalizeFrame(frame)
+	}
+
+	// DEBUG: If a current frame exists but hasn't been moved to buffer (wrap not detected),
+	// force-finalize it after a short age so callbacks and buffering can be exercised.
+	if fb.currentFrame != nil {
+		age := now.Sub(fb.currentFrame.EndTimestamp)
+		// Use configured buffer timeout as the inactivity threshold to finalize
+		// the current frame when no recent points have arrived.
+		if age >= fb.bufferTimeout && fb.currentFrame.PointCount > 0 {
+			if fb.debug {
+				log.Printf("[FrameBuilder] Finalizing idle current frame ID=%s age=%v points=%d (bufferTimeout=%v)",
+					fb.currentFrame.FrameID, age, fb.currentFrame.PointCount, fb.bufferTimeout)
+			}
+			fb.finalizeCurrentFrame()
+		}
 	}
 
 	// Schedule next cleanup
@@ -541,6 +570,9 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame) {
 	}
 	// Call callback if provided (in separate goroutine to avoid blocking)
 	if fb.frameCallback != nil {
+		// Add explicit log when invoking the frame callback so we can trace delivery
+		log.Printf("[FrameBuilder] Invoking frame callback for ID=%s, Points=%d, Sensor=%s",
+			frame.FrameID, frame.PointCount, frame.SensorID)
 		go fb.frameCallback(frame)
 	}
 }

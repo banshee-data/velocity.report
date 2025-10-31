@@ -54,10 +54,10 @@ endef
 
 .PHONY: dev-go dev-go-pcap
 dev-go:
-	@$(call run_dev_go,)
+	@$(call run_dev_go,--lidar-bg-flush-interval=60s)
 
 dev-go-pcap:
-	@$(call run_dev_go,--lidar-pcap-mode --debug)
+	@$(call run_dev_go,--lidar-pcap-mode --debug --lidar-bg-flush-interval=60s)
 
 .PHONY: tail-log-go
 tail-log-go:

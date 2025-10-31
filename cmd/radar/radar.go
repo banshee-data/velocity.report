@@ -53,6 +53,9 @@ var (
 	// Background tuning knobs
 	lidarBgFlushInterval = flag.Duration("lidar-bg-flush-interval", 60*time.Second, "Interval to flush background grid to database when reading PCAP")
 	lidarBgNoiseRelative = flag.Float64("lidar-bg-noise-relative", 0.315, "Background NoiseRelativeFraction: fraction of range treated as expected measurement noise (e.g., 0.01 = 1%)")
+	// FrameBuilder tuning knobs
+	lidarFrameBufferTimeout = flag.Duration("lidar-frame-buffer-timeout", 500*time.Millisecond, "FrameBuilder buffer timeout: finalize idle frames after this duration")
+	lidarMinFramePoints     = flag.Int("lidar-min-frame-points", 1000, "FrameBuilder MinFramePoints: minimum points required for a valid frame before finalizing")
 )
 
 // Constants
@@ -141,7 +144,9 @@ func main() {
 			NoiseRelativeFraction:          float32(*lidarBgNoiseRelative),
 			// When running in PCAP mode seed the background grid from first observations
 			// so replayed captures can build an initial background without live warmup.
-			SeedFromFirstObservation: *lidarPCAPMode,
+			// NOTE: temporarily disabling auto-seed to investigate unexpected background
+			// settling regression. Re-enable if needed after debugging.
+			// SeedFromFirstObservation: *lidarPCAPMode,
 		}
 
 		backgroundManager := lidar.NewBackgroundManager(*lidarSensor, 40, 1800, backgroundParams, lidarDB)
@@ -149,15 +154,21 @@ func main() {
 			log.Printf("BackgroundManager created and registered for sensor %s", *lidarSensor)
 		}
 
-		// Start periodic background grid flushing when in PCAP mode
-		if *lidarPCAPMode && backgroundManager != nil {
+		// Start periodic background grid flushing when a positive flush interval is configured.
+		// Previously this only ran in PCAP mode; enable it in dev runs too so periodic
+		// persisted snapshot logs appear when developers set the flag.
+		if backgroundManager != nil && *lidarBgFlushInterval > 0 {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				ticker := time.NewTicker(*lidarBgFlushInterval)
 				defer ticker.Stop()
 
-				log.Printf("Background grid flush timer started (PCAP mode): interval=%v", *lidarBgFlushInterval)
+				mode := "dev"
+				if *lidarPCAPMode {
+					mode = "pcap"
+				}
+				log.Printf("Background grid flush timer started (mode=%s): interval=%v", mode, *lidarBgFlushInterval)
 
 				for {
 					select {
@@ -171,7 +182,12 @@ func main() {
 						}
 						return
 					case <-ticker.C:
-						if err := backgroundManager.Persist(lidarDB, "periodic_pcap_flush"); err != nil {
+						// Use a descriptive reason depending on mode to make logs clearer
+						reason := "periodic_flush"
+						if *lidarPCAPMode {
+							reason = "periodic_pcap_flush"
+						}
+						if err := backgroundManager.Persist(lidarDB, reason); err != nil {
 							log.Printf("Error flushing background grid: %v", err)
 						} else {
 							log.Printf("Background grid flushed to database")
@@ -234,17 +250,28 @@ func main() {
 				}
 				if backgroundManager != nil {
 					if *debugMode {
-						log.Printf("[FrameBuilder] Sending %d points to BackgroundManager.ProcessFramePolar", len(polar))
+						// Provide extra context at the exact handoff so we can trace delivery
+						var firstAz, lastAz float64
+						var firstTS, lastTS int64
+						if len(polar) > 0 {
+							firstAz = polar[0].Azimuth
+							lastAz = polar[len(polar)-1].Azimuth
+							firstTS = polar[0].Timestamp
+							lastTS = polar[len(polar)-1].Timestamp
+						}
+						log.Printf("[FrameBuilder->Background] Delivering frame %s -> %d points to BackgroundManager (azimuth: %.1f°->%.1f°, ts: %d->%d)", frame.FrameID, len(polar), firstAz, lastAz, firstTS, lastTS)
 					}
 					backgroundManager.ProcessFramePolar(polar)
 				}
 			}
 
 			frameBuilder = lidar.NewFrameBuilder(lidar.FrameBuilderConfig{
-				SensorID:        *lidarSensor,
-				FrameCallback:   callback,
+				SensorID:      *lidarSensor,
+				FrameCallback: callback,
+				// Use CLI-configurable MinFramePoints and BufferTimeout so devs can tune
+				MinFramePoints:  *lidarMinFramePoints,
 				FrameBufferSize: 100,
-				BufferTimeout:   500 * time.Millisecond,
+				BufferTimeout:   *lidarFrameBufferTimeout,
 				CleanupInterval: 250 * time.Millisecond,
 			})
 			// Enable lightweight frame-completion logging when in debug or PCAP mode

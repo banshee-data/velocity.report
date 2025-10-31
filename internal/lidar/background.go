@@ -384,6 +384,12 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 		return
 	}
 
+	// Quick diagnostics when debugging to see what's arriving
+	if len(points) > 0 {
+		sample := points[0]
+		log.Printf("[BackgroundManager] Received %d points; sample -> Channel=%d Az=%.2f Dist=%.2f", len(points), sample.Channel, sample.Azimuth, sample.Distance)
+	}
+
 	g := bm.Grid
 	rings := g.Rings
 	azBins := g.AzimuthBins
@@ -406,15 +412,21 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	}
 
 	// Bin incoming polar points
+	skippedInvalid := 0
 	for _, p := range points {
 		ring := p.Channel - 1
 		if ring < 0 || ring >= rings {
+			skippedInvalid++
 			continue
 		}
 		// Normalize azimuth into [0,360)
 		az := math.Mod(p.Azimuth, 360.0)
 		if az < 0 {
 			az += 360.0
+		}
+
+		if skippedInvalid > 0 {
+			log.Printf("[BackgroundManager] Skipped %d invalid points due to channel out-of-range (rings=%d)", skippedInvalid, rings)
 		}
 		azBin := int((az / 360.0) * float64(azBins))
 		if azBin < 0 {
@@ -699,7 +711,11 @@ func (bm *BackgroundManager) Persist(store BgStore, reason string) error {
 			nonzero++
 		}
 	}
-	log.Printf("[BackgroundManager] Persisted snapshot: sensor=%s, reason=%s, nonzero_cells=%d/%d, grid_blob_size=%d bytes", g.SensorID, reason, nonzero, len(cellsCopy), len(blob))
+	percent := 0.0
+	if len(cellsCopy) > 0 {
+		percent = (float64(nonzero) / float64(len(cellsCopy))) * 100.0
+	}
+	log.Printf("[BackgroundManager] Persisted snapshot: sensor=%s, reason=%s, nonzero_cells=%d/%d (%.2f%%), grid_blob_size=%d bytes", g.SensorID, reason, nonzero, len(cellsCopy), percent, len(blob))
 
 	// Update grid metadata under write lock. We subtract the value we copied
 	// earlier (changesSince) from the current counter so that changes which
