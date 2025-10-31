@@ -60,7 +60,7 @@ dev-go-lidar:
 	@$(call run_dev_go,--enable-lidar --lidar-bg-flush-interval=60s --lidar-seed-from-first=true --lidar-forward)
 
 dev-go-pcap:
-	@$(call run_dev_go,--lidar-pcap-mode --debug --lidar-bg-flush-interval=60s --lidar-seed-from-first=true)
+	@$(call run_dev_go,--enable-lidar --lidar-pcap-mode --debug --lidar-bg-flush-interval=60s --lidar-seed-from-first=true)
 
 .PHONY: tail-log-go
 tail-log-go:
