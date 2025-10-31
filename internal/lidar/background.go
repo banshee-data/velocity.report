@@ -278,6 +278,14 @@ func (bm *BackgroundManager) ResetGrid() error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
+	// Count nonzero cells BEFORE reset (Log A: grid reset diagnostics)
+	nonzeroBefore := 0
+	for i := range g.Cells {
+		if g.Cells[i].AverageRangeMeters != 0 || g.Cells[i].RangeSpreadMeters != 0 || g.Cells[i].TimesSeenCount != 0 {
+			nonzeroBefore++
+		}
+	}
+
 	for i := range g.Cells {
 		g.Cells[i].AverageRangeMeters = 0
 		g.Cells[i].RangeSpreadMeters = 0
@@ -292,6 +300,19 @@ func (bm *BackgroundManager) ResetGrid() error {
 	g.ChangesSinceSnapshot = 0
 	g.ForegroundCount = 0
 	g.BackgroundCount = 0
+
+	// Count nonzero cells AFTER reset (should be 0)
+	nonzeroAfter := 0
+	for i := range g.Cells {
+		if g.Cells[i].AverageRangeMeters != 0 || g.Cells[i].RangeSpreadMeters != 0 || g.Cells[i].TimesSeenCount != 0 {
+			nonzeroAfter++
+		}
+	}
+
+	// Log with timestamp and counts
+	log.Printf("[ResetGrid] sensor=%s nonzero_before=%d nonzero_after=%d total_cells=%d timestamp=%d",
+		g.SensorID, nonzeroBefore, nonzeroAfter, len(g.Cells), time.Now().UnixNano())
+
 	return nil
 }
 
