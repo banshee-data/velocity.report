@@ -93,6 +93,7 @@ cat-log-go:
 	fi
 
 tools-local:
+	go build -o app-sweep ./cmd/sweep
 	go build -o app-bg-sweep ./cmd/bg-sweep
 	go build -o app-bg-multisweep ./cmd/bg-multisweep
 
