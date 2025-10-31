@@ -211,6 +211,12 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 		// Emit an info log so operators can see applied changes in the app logs
 		log.Printf("[Monitor] Applied background params for sensor=%s: noise_relative=%.6f, enable_diagnostics=%v", sensorID, cur.NoiseRelativeFraction, bm.EnableDiagnostics)
 
+		// Log D: API call timing for params with all active settings
+		timestamp := time.Now().UnixNano()
+		log.Printf("[API:params] sensor=%s noise_rel=%.6f closeness=%.3f neighbors=%d seed_from_first=%v timestamp=%d",
+			sensorID, cur.NoiseRelativeFraction, cur.ClosenessSensitivityMultiplier,
+			cur.NeighborConfirmationCount, cur.SeedFromFirstObservation, timestamp)
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "noise_relative": cur.NoiseRelativeFraction, "enable_diagnostics": bm.EnableDiagnostics})
 		return
