@@ -272,10 +272,21 @@ func (ws *WebServer) handleGridReset(w http.ResponseWriter, r *http.Request) {
 		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background manager for sensor '%s'", sensorID))
 		return
 	}
+
+	// Log C: API call timing for grid_reset
+	beforeNanos := time.Now().UnixNano()
+
 	if err := mgr.ResetGrid(); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("reset error: %v", err))
 		return
 	}
+
+	afterNanos := time.Now().UnixNano()
+	elapsedMs := float64(afterNanos-beforeNanos) / 1e6
+
+	log.Printf("[API:grid_reset] sensor=%s reset_duration_ms=%.3f timestamp=%d",
+		sensorID, elapsedMs, afterNanos)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "sensor_id": sensorID})
 }
