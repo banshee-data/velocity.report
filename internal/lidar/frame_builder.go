@@ -431,10 +431,13 @@ func (fb *FrameBuilder) evictOldestBufferedFrame() {
 	}
 
 	if oldestFrame != nil {
+		// Remove from buffer and finalize so the callback is invoked.
 		delete(fb.frameBuffer, oldestID)
-		// Send oldest frame to output channel
-		// Handle finalized frame (for now just log completion)
-		// TODO: Add output channel or callback for completed frames
+		if fb.debug {
+			log.Printf("[FrameBuilder] Evicting buffered frame: %s, buffer_size=%d", oldestID, len(fb.frameBuffer))
+		}
+		// Finalize the frame so the registered callback receives it.
+		fb.finalizeFrame(oldestFrame)
 	}
 }
 
