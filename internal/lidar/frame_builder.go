@@ -303,6 +303,14 @@ func (fb *FrameBuilder) shouldStartNewFrame(azimuth float64, timestamp time.Time
 		// Traditional azimuth-based detection (original logic)
 		// Detect azimuth wrap (360° → 0°) only when crossing from high to low
 		// Require strict conditions to avoid false triggers from individual packets
+		// Also detect large negative jumps in azimuth (e.g., 289° -> 61°) which
+		// indicate a rotation wrap even if values don't cross the 350°->10° band.
+		if fb.lastAzimuth-azimuth > 180.0 {
+			if fb.currentFrame != nil && fb.currentFrame.PointCount > fb.minFramePoints {
+				return true
+			}
+		}
+
 		if fb.lastAzimuth > 350.0 && azimuth < 10.0 {
 			// Additional checks to ensure this is a complete rotation:
 			// 1. Frame must have substantial azimuth coverage (near 360°)
