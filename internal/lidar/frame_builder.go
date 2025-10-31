@@ -441,6 +441,7 @@ func (fb *FrameBuilder) evictOldestBufferedFrame() {
 	}
 
 	if oldestFrame != nil {
+		log.Printf("[FrameBuilder] Evicting frame: ID=%s, Points=%d, Sensor=%s", oldestFrame.FrameID, oldestFrame.PointCount, oldestFrame.SensorID)
 		// Remove from buffer and finalize so the callback is invoked.
 		delete(fb.frameBuffer, oldestID)
 		if fb.debug {
