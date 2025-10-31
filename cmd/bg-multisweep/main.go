@@ -258,6 +258,8 @@ func main() {
 	for _, b := range buckets {
 		rawHeader = append(rawHeader, "acceptance_rates_"+b)
 	}
+	// Also capture nonzero cell count for the background snapshot at each sample
+	rawHeader = append(rawHeader, "nonzero_cells")
 	rawHeader = append(rawHeader, "overall_accept_percent")
 	if err := rawW.Write(rawHeader); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to write raw header: %v\n", err)
@@ -363,6 +365,7 @@ func main() {
 				// sample acceptance rates iterationsPer times and write raw rows
 				rateSamples := make([][]float64, 0, *iterationsPer)
 				overallSamples := make([]float64, 0, *iterationsPer)
+				nonzeroSamples := make([]float64, 0, *iterationsPer)
 				for i := 0; i < *iterationsPer; i++ {
 					if resp, err := client.Get(*monitorURL + "/api/lidar/acceptance?sensor_id=" + *sensorID); err != nil {
 						fmt.Fprintf(os.Stderr, "fetch metrics error: %v\n", err)
@@ -396,6 +399,27 @@ func main() {
 						}
 						overallSamples = append(overallSamples, overall)
 
+						// fetch snapshot summary to get nonzero cell count (if available)
+						nonzero := 0.0
+						if resp2, err := client.Get(*monitorURL + "/api/lidar/snapshot?sensor_id=" + *sensorID); err == nil {
+							var s map[string]interface{}
+							dec2 := json.NewDecoder(resp2.Body)
+							if err := dec2.Decode(&s); err == nil {
+								if v, ok := s["non_empty_cells"]; ok {
+									switch nv := v.(type) {
+									case float64:
+										nonzero = nv
+									case int:
+										nonzero = float64(nv)
+									case int64:
+										nonzero = float64(nv)
+									}
+								}
+							}
+							resp2.Body.Close()
+						}
+						nonzeroSamples = append(nonzeroSamples, nonzero)
+
 						// write raw CSV row: expand arrays into individual numeric columns
 						// reuse acceptCounts and totals already computed above
 						rejectCounts := toInt64Slice(m["RejectCounts"], len(buckets))
@@ -415,6 +439,7 @@ func main() {
 						for _, v := range ratesVals {
 							rawRow = append(rawRow, fmt.Sprintf("%.6f", v))
 						}
+						rawRow = append(rawRow, fmt.Sprintf("%.0f", nonzero))
 						rawRow = append(rawRow, fmt.Sprintf("%.6f", overall))
 						if err := rawW.Write(rawRow); err != nil {
 							fmt.Fprintf(os.Stderr, "failed to write raw csv row: %v\n", err)
@@ -438,14 +463,18 @@ func main() {
 					stds[bi] = fmt.Sprintf("%.6f", sd)
 				}
 
-				// compute overall acceptance mean/stddev and log it
+				// compute overall acceptance mean/stddev and nonzero cell mean/stddev, then log
 				overallMean, overallStd := meanStddev(overallSamples)
-				fmt.Printf("Summary: noise=%.6f closeness=%.6f neigh=%d overall_accept_mean=%.6f overall_accept_std=%.6f\n", noise, clos, neigh, overallMean, overallStd)
+				nonzeroMean, nonzeroStd := meanStddev(nonzeroSamples)
+				fmt.Printf("Summary: noise=%.6f closeness=%.6f neigh=%d overall_accept_mean=%.6f overall_accept_std=%.6f nonzero_cells_mean=%.0f nonzero_cells_std=%.0f\n",
+					noise, clos, neigh, overallMean, overallStd, nonzeroMean, nonzeroStd)
 
-				// write CSV line: noise,closeness,neighbor, means..., stds...
+				// write CSV line: noise,closeness,neighbor, means..., stds..., nonzero_mean, nonzero_std
 				line := []string{fmt.Sprintf("%.6f", noise), fmt.Sprintf("%.6f", clos), fmt.Sprintf("%d", neigh)}
 				line = append(line, means...)
 				line = append(line, stds...)
+				line = append(line, fmt.Sprintf("%.0f", nonzeroMean))
+				line = append(line, fmt.Sprintf("%.0f", nonzeroStd))
 				if err := w.Write(line); err != nil {
 					fmt.Fprintf(os.Stderr, "failed to write csv line: %v\n", err)
 					os.Exit(1)
