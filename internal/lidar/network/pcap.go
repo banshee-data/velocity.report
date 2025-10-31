@@ -33,6 +33,7 @@ func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Pars
 
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 	packetCount := 0
+	totalPoints := 0
 	startTime := time.Now()
 
 	for {
@@ -78,6 +79,18 @@ func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Pars
 				if err != nil {
 					log.Printf("Error parsing PCAP packet %d: %v", packetCount, err)
 					continue
+				}
+
+				// Diagnostic: report parsed point counts to help debug empty backgrounds
+				if len(points) == 0 {
+					log.Printf("PCAP packet %d parsed -> 0 points", packetCount)
+				} else {
+					totalPoints += len(points)
+					// Log more frequently than packet progress: every 1000 packets
+					if packetCount%1000 == 0 {
+						log.Printf("PCAP parsed points: packet=%d, points_this_packet=%d, total_parsed_points=%d",
+							packetCount, len(points), totalPoints)
+					}
 				}
 
 				if stats != nil {

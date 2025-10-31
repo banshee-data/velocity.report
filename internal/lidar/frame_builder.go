@@ -102,6 +102,8 @@ type FrameBuilder struct {
 	// Time-based frame detection for accurate motor speed handling
 	expectedFrameDuration time.Duration // expected duration per frame based on motor speed
 	enableTimeBased       bool          // true to use time-based detection with azimuth validation
+	// debug toggles lightweight frame-completion logging when true
+	debug bool
 }
 
 // FrameBuilderConfig contains configuration for the FrameBuilder
@@ -229,6 +231,12 @@ func (fb *FrameBuilder) addPointsInternal(points []Point) {
 		return
 	}
 
+	// Debug: record previous frame point count when enabled
+	var prevCount int
+	if fb.currentFrame != nil {
+		prevCount = fb.currentFrame.PointCount
+	}
+
 	// Process each point for azimuth-based frame detection
 	for _, point := range points {
 		// Check for UDP sequence gaps
@@ -248,6 +256,15 @@ func (fb *FrameBuilder) addPointsInternal(points []Point) {
 		// Add point to current frame
 		fb.addPointToCurrentFrame(point)
 		fb.lastAzimuth = point.Azimuth
+	}
+
+	if fb.debug {
+		var newCount int
+		if fb.currentFrame != nil {
+			newCount = fb.currentFrame.PointCount
+		}
+		log.Printf("[FrameBuilder] Added %d points; frame_count was=%d now=%d; lastAzimuth=%.2f",
+			len(points), prevCount, newCount, fb.lastAzimuth)
 	}
 }
 
@@ -486,6 +503,17 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame) {
 	// Mark frame as complete
 	frame.SpinComplete = true
 
+	// lightweight debug logging for frame completion
+	if fb.debug {
+		log.Printf("[FrameBuilder] Frame completed - ID: %s, Points: %d, Azimuth: %.1f°-%.1f°, Duration: %v, Sensor: %s",
+			frame.FrameID,
+			frame.PointCount,
+			frame.MinAzimuth,
+			frame.MaxAzimuth,
+			frame.EndTimestamp.Sub(frame.StartTimestamp),
+			frame.SensorID)
+	}
+
 	// Export to ASC if requested
 	if fb.exportNextFrameASC {
 		path := fb.exportNextFramePath
@@ -544,6 +572,13 @@ func (fb *FrameBuilder) GetCurrentFrameStats() (frameCount int, oldestAge time.D
 	}
 
 	return frameCount, now.Sub(oldest), now.Sub(newest)
+}
+
+// SetDebug enables or disables lightweight debug logging for frame completion
+func (fb *FrameBuilder) SetDebug(enabled bool) {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+	fb.debug = enabled
 }
 
 // NewFrameBuilderWithLogging creates a FrameBuilder that logs completed frames

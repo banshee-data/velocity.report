@@ -193,7 +193,7 @@ func main() {
 				log.Fatalf("Invalid embedded lidar configuration: %v", err)
 			}
 			parser = parse.NewPandar40PParser(*config)
-			parser.SetDebug(false)
+			parser.SetDebug(*debugMode)
 			parse.ConfigureTimestampMode(parser)
 
 			// Wire per-ring elevation corrections from parser config into BackgroundManager
@@ -247,6 +247,10 @@ func main() {
 				BufferTimeout:   500 * time.Millisecond,
 				CleanupInterval: 250 * time.Millisecond,
 			})
+			// Enable lightweight frame-completion logging when in debug or PCAP mode
+			if frameBuilder != nil {
+				frameBuilder.SetDebug(*debugMode || *lidarPCAPMode)
+			}
 		}
 
 		// Packet forwarding (optional)
