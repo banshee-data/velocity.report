@@ -711,6 +711,28 @@ func (ws *WebServer) handleAcceptanceMetrics(w http.ResponseWriter, r *http.Requ
 		Totals:          totals,
 		AcceptanceRates: rates,
 	}
+
+	// Log G: Debug mode returns verbose breakdown with active params
+	debug := r.URL.Query().Get("debug") == "true"
+	if debug {
+		debugInfo := map[string]interface{}{
+			"metrics":   resp,
+			"timestamp": time.Now().Format(time.RFC3339Nano),
+			"sensor_id": sensorID,
+		}
+		// Include current params for context
+		params := mgr.GetParams()
+		debugInfo["params"] = map[string]interface{}{
+			"noise_relative":        params.NoiseRelativeFraction,
+			"closeness_multiplier":  params.ClosenessSensitivityMultiplier,
+			"neighbor_confirmation": params.NeighborConfirmationCount,
+			"seed_from_first":       params.SeedFromFirstObservation,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(debugInfo)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
