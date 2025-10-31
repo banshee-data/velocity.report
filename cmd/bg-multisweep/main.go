@@ -137,6 +137,7 @@ func main() {
 	settleTime := flag.Duration("settle-time", 5*time.Second, "Time to wait for grid to settle after applying params (or 0 to skip)")
 	output := flag.String("output", "", "Output CSV filename (defaults to bg-multisweep-<timestamp>.csv)")
 	rawOutput := flag.String("raw-output", "", "Raw per-iteration CSV filename (defaults to <output>-raw.csv)")
+	seedFlag := flag.String("seed", "", "Seed behavior: one of '', 'on', 'off', 'toggle' - applied via API per-parameter-combo")
 	dryRun := flag.Bool("dry-run", false, "Print parsed flags and exit (no network calls)")
 	flag.Parse()
 
@@ -298,6 +299,34 @@ func main() {
 					"noise_relative":              noise,
 					"closeness_multiplier":        clos,
 					"neighbor_confirmation_count": neigh,
+				}
+
+				// handle seed flag variants: on/off/toggle
+				if *seedFlag != "" {
+					if *seedFlag == "on" {
+						params["seed_from_first"] = true
+					} else if *seedFlag == "off" {
+						params["seed_from_first"] = false
+					} else if *seedFlag == "toggle" {
+						// fetch current params and invert seed setting
+						if respCur, err := client.Get(*monitorURL + "/api/lidar/params?sensor_id=" + *sensorID); err == nil {
+							var cur map[string]interface{}
+							dec := json.NewDecoder(respCur.Body)
+							if err := dec.Decode(&cur); err == nil {
+								curSeed := false
+								if v, ok := cur["seed_from_first"]; ok {
+									switch vv := v.(type) {
+									case bool:
+										curSeed = vv
+									case float64:
+										curSeed = vv != 0
+									}
+								}
+								params["seed_from_first"] = !curSeed
+							}
+							respCur.Body.Close()
+						}
+					}
 				}
 				b, _ := json.Marshal(params)
 				req, _ := http.NewRequest(http.MethodPost, *monitorURL+"/api/lidar/params?sensor_id="+*sensorID, strings.NewReader(string(b)))

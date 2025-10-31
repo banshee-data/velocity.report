@@ -161,6 +161,7 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 			"enable_diagnostics":          bm.EnableDiagnostics,
 			"closeness_multiplier":        params.ClosenessSensitivityMultiplier,
 			"neighbor_confirmation_count": params.NeighborConfirmationCount,
+			"seed_from_first":             params.SeedFromFirstObservation,
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)
@@ -171,6 +172,7 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 			EnableDiagnostics    *bool    `json:"enable_diagnostics"`
 			ClosenessMultiplier  *float64 `json:"closeness_multiplier"`
 			NeighborConfirmation *int     `json:"neighbor_confirmation_count"`
+			SeedFromFirst        *bool    `json:"seed_from_first"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			ws.writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
@@ -193,6 +195,12 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 		}
 		if body.NeighborConfirmation != nil {
 			if err := bm.SetNeighborConfirmationCount(*body.NeighborConfirmation); err != nil {
+				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+		}
+		if body.SeedFromFirst != nil {
+			if err := bm.SetSeedFromFirstObservation(*body.SeedFromFirst); err != nil {
 				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
 				return
 			}

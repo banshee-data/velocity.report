@@ -161,6 +161,18 @@ func (bm *BackgroundManager) SetNeighborConfirmationCount(v int) error {
 	return nil
 }
 
+// SetSeedFromFirstObservation toggles seeding empty cells from the first observation.
+func (bm *BackgroundManager) SetSeedFromFirstObservation(v bool) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	g.Params.SeedFromFirstObservation = v
+	g.mu.Unlock()
+	return nil
+}
+
 // SetEnableDiagnostics toggles emission of diagnostics for this manager.
 func (bm *BackgroundManager) SetEnableDiagnostics(v bool) {
 	if bm == nil {
