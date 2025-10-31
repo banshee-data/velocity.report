@@ -59,6 +59,16 @@ tail-log-go:
 		echo "No logs found in logs/ (try: make dev-go)"; exit 1; \
 	fi
 
+.PHONY: cat-log-go
+cat-log-go:
+	@# Cat the entire most recent velocity log file (can be piped to grep, etc.)
+	@if [ -d logs ] && [ $$(ls -1 logs/velocity-*.log 2>/dev/null | wc -l) -gt 0 ]; then \
+		latest=$$(ls -1t logs/velocity-*.log 2>/dev/null | head -n1); \
+		cat "$$latest"; \
+	else \
+		echo "No logs found in logs/ (try: make dev-go)"; exit 1; \
+	fi
+
 tools-local:
 	go build -o app-bg-sweep ./cmd/bg-sweep
 	go build -o app-bg-multisweep ./cmd/bg-multisweep
