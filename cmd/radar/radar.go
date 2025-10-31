@@ -276,9 +276,10 @@ func main() {
 				BufferTimeout:   *lidarFrameBufferTimeout,
 				CleanupInterval: 250 * time.Millisecond,
 			})
-			// Enable lightweight frame-completion logging when in debug or PCAP mode
+			// Enable lightweight frame-completion logging only when --debug is set.
+			// PCAP mode no longer forces debug logging so operators can choose verbosity.
 			if frameBuilder != nil {
-				frameBuilder.SetDebug(*debugMode || *lidarPCAPMode)
+				frameBuilder.SetDebug(*debugMode)
 			}
 		}
 
