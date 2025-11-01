@@ -7,11 +7,17 @@ Plot grid heatmap visualization from /api/lidar/grid_heatmap endpoint
 Creates visualizations showing spatial patterns of filled and settled cells in the LiDAR
 background grid. Supports both polar (ring vs azimuth) and cartesian (X-Y) projections.
 
-Can also process PCAP files with periodic snapshots to track grid evolution over time.
+Can process data in three modes:
+1. Single snapshot - one-time capture
+2. Live snapshots - periodic captures from running system
+3. PCAP replay - periodic captures during PCAP file replay
 
 Usage:
     # Single snapshot
     python3 tools/grid-heatmap/plot_grid_heatmap.py --url http://localhost:8081 --sensor hesai-pandar40p
+
+    # Live periodic snapshots (from running system)
+    python3 tools/grid-heatmap/plot_grid_heatmap.py --url http://localhost:8081 --interval 10 --duration 120
 
     # PCAP replay with periodic snapshots
     python3 tools/grid-heatmap/plot_grid_heatmap.py --url http://localhost:8081 --pcap file.pcap --interval 30
@@ -648,6 +654,205 @@ def process_pcap_with_snapshots(
     print(f"  Metadata: {metadata_file}")
 
 
+def process_live_snapshots(
+    base_url,
+    sensor_id,
+    interval,
+    duration,
+    output_dir,
+    azimuth_bucket,
+    settled_threshold,
+    metric,
+    polar,
+    cartesian,
+    combined,
+    dpi,
+):
+    """
+    Process live grid data and generate heatmap snapshots at regular intervals
+
+    Args:
+        base_url: Monitor base URL
+        sensor_id: Sensor ID
+        interval: Seconds between snapshots
+        duration: Total duration to capture (None = infinite)
+        output_dir: Directory for output files
+        azimuth_bucket: Azimuth bucket size
+        settled_threshold: Settled threshold
+        metric: Metric to visualize
+        polar: Generate polar plots
+        cartesian: Generate cartesian plots
+        combined: Generate combined plots
+        dpi: Image DPI
+    """
+    # Create output directory
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    print("Starting live snapshot capture")
+    print(f"Snapshot interval: {interval}s")
+    if duration:
+        print(f"Total duration: {duration}s")
+    else:
+        print("Duration: infinite (Ctrl+C to stop)")
+    print(f"Output directory: {output_dir}")
+    print()
+
+    # Metadata tracking
+    metadata = {
+        "mode": "live",
+        "sensor_id": sensor_id,
+        "interval_seconds": interval,
+        "duration_seconds": duration,
+        "metric": metric,
+        "azimuth_bucket_deg": azimuth_bucket,
+        "settled_threshold": settled_threshold,
+        "snapshots": [],
+    }
+
+    snapshot_count = 0
+    start_time = time.time()
+    next_snapshot_time = start_time
+    last_heatmap = None
+    stable_count = 0
+
+    print("Starting snapshot capture...")
+    print()
+
+    try:
+        while True:
+            current_time = time.time()
+            elapsed = current_time - start_time
+
+            # Check if we've reached the duration limit
+            if duration and elapsed >= duration:
+                print(f"Reached duration limit of {duration}s")
+                break
+
+            # Wait until next snapshot time
+            if current_time < next_snapshot_time:
+                time.sleep(0.5)
+                continue
+
+            snapshot_count += 1
+            print(f"[Snapshot {snapshot_count} at {elapsed:.1f}s]")
+
+            # Fetch heatmap
+            try:
+                heatmap = fetch_heatmap(
+                    base_url, sensor_id, azimuth_bucket, settled_threshold
+                )
+            except Exception as e:
+                print(f"Failed to fetch heatmap: {e}")
+                print("Retrying in next interval...")
+                next_snapshot_time += interval
+                continue
+
+            summary = heatmap["summary"]
+            print(
+                f"  Filled: {summary['total_filled']:,} ({summary['fill_rate']:.1%}), "
+                f"Settled: {summary['total_settled']:,} ({summary['settle_rate']:.1%})"
+            )
+
+            # Generate filename prefix
+            prefix = f"snapshot_{snapshot_count:03d}_t{int(elapsed):04d}s"
+
+            # Save snapshot metadata
+            snapshot_meta = {
+                "snapshot": snapshot_count,
+                "elapsed_seconds": elapsed,
+                "timestamp": heatmap["timestamp"],
+                "summary": summary,
+            }
+            metadata["snapshots"].append(snapshot_meta)
+
+            # Save raw heatmap data
+            heatmap_file = output_path / f"{prefix}_heatmap.json"
+            with open(heatmap_file, "w") as f:
+                json.dump(heatmap, f, indent=2)
+
+            # Generate plots
+            if polar:
+                polar_output = output_path / f"{prefix}_polar.png"
+                plot_polar_heatmap(heatmap, metric, str(polar_output), dpi)
+                print(f"  Saved: {polar_output.name}")
+
+            if cartesian:
+                xy_output = output_path / f"{prefix}_xy.png"
+                plot_cartesian_heatmap(heatmap, metric, str(xy_output), dpi)
+                print(f"  Saved: {xy_output.name}")
+
+            if combined:
+                combined_output = output_path / f"{prefix}_combined.png"
+                plot_combined_metrics(heatmap, str(combined_output), dpi)
+                print(f"  Saved: {combined_output.name}")
+
+            print()
+
+            # Check for grid stability (auto-stop after 3 stable snapshots)
+            if last_heatmap is not None:
+                if (
+                    summary["total_filled"] == last_heatmap["summary"]["total_filled"]
+                    and summary["total_settled"]
+                    == last_heatmap["summary"]["total_settled"]
+                ):
+                    stable_count += 1
+                    if stable_count >= 3:
+                        print(
+                            "Grid appears stable (no changes in last 3 snapshots), stopping"
+                        )
+                        print()
+                        break
+                else:
+                    stable_count = 0
+
+            last_heatmap = heatmap
+            next_snapshot_time += interval
+
+    except KeyboardInterrupt:
+        print("\nInterrupted by user")
+        print()
+
+    # Save metadata
+    metadata["total_duration"] = time.time() - start_time
+    metadata["total_snapshots"] = snapshot_count
+
+    metadata_file = output_path / "metadata.json"
+    with open(metadata_file, "w") as f:
+        json.dump(metadata, f, indent=2)
+
+    print(f"\n✓ Completed {snapshot_count} snapshots")
+    print(f"  Total duration: {metadata['total_duration']:.1f}s")
+    print(f"  Output directory: {output_dir}")
+    print(f"  Metadata: {metadata_file}")
+
+
+def get_next_run_dir(base_dir):
+    """
+    Find the next available run number in base_dir.
+    Returns path like base_dir/1, base_dir/2, etc.
+
+    Args:
+        base_dir: Base directory path (e.g., output/grid-heatmap-filename)
+
+    Returns:
+        Path to next run directory
+    """
+    base_path = Path(base_dir)
+    base_path.mkdir(parents=True, exist_ok=True)
+
+    # Find existing numbered subdirectories
+    existing_runs = []
+    for item in base_path.iterdir():
+        if item.is_dir() and item.name.isdigit():
+            existing_runs.append(int(item.name))
+
+    # Next run number
+    next_run = max(existing_runs) + 1 if existing_runs else 1
+
+    return base_path / str(next_run)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Plot grid heatmap from LiDAR monitor API"
@@ -707,19 +912,19 @@ def main():
         "--interval",
         type=int,
         default=30,
-        help="Interval between snapshots in seconds (PCAP mode, default: 30)",
+        help="Interval between snapshots in seconds (snapshot mode, default: 30)",
     )
     parser.add_argument(
         "--duration",
         type=int,
         default=None,
-        help="Total duration to capture in seconds (PCAP mode, default: until stable)",
+        help="Total duration to capture in seconds (snapshot mode, default: until stable or infinite)",
     )
     parser.add_argument(
         "--output-dir",
         type=str,
         default=None,
-        help="Output directory for PCAP snapshots (default: grid-heatmap-snapshots)",
+        help="Output directory for snapshots (default: tools/grid-heatmap/output/...)",
     )
 
     args = parser.parse_args()
@@ -734,12 +939,44 @@ def main():
         # Default output directory
         if args.output_dir is None:
             pcap_name = Path(args.pcap).stem
-            args.output_dir = f"grid-heatmap-{pcap_name}"
+            script_dir = Path(__file__).parent
+            output_base = script_dir / "output" / f"grid-heatmap-{pcap_name}"
+            args.output_dir = str(get_next_run_dir(output_base))
 
         process_pcap_with_snapshots(
             base_url=args.url,
             sensor_id=args.sensor,
             pcap_file=args.pcap,
+            interval=args.interval,
+            duration=args.duration,
+            output_dir=args.output_dir,
+            azimuth_bucket=args.azimuth_bucket,
+            settled_threshold=args.settled_threshold,
+            metric=args.metric,
+            polar=args.polar,
+            cartesian=args.cartesian,
+            combined=args.combined,
+            dpi=args.dpi,
+        )
+        return
+
+    # Live snapshot mode - periodic captures from running system
+    # Triggered by --interval or --duration without --pcap
+    if args.interval != 30 or args.duration is not None:
+        # Default to all plot types in snapshot mode if none specified
+        if not args.polar and not args.cartesian and not args.combined:
+            args.polar = True
+            args.combined = True
+
+        # Default output directory
+        if args.output_dir is None:
+            script_dir = Path(__file__).parent
+            output_base = script_dir / "output" / "live-snapshots"
+            args.output_dir = str(get_next_run_dir(output_base))
+
+        process_live_snapshots(
+            base_url=args.url,
+            sensor_id=args.sensor,
             interval=args.interval,
             duration=args.duration,
             output_dir=args.output_dir,

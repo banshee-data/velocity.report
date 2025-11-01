@@ -99,88 +99,50 @@ tools-local:
 # Sweep Plotting (uses root .venv)
 # =============================================================================
 
-.PHONY: plot-noise-sweep plot-multisweep plot-noise-buckets plot-grid-heatmap
+.PHONY: plot-noise-sweep plot-multisweep plot-noise-buckets stats-live stats-pcap
 
 VENV_PYTHON = .venv/bin/python3
 
+# Noise sweep line plot (neighbor=1, closeness=2.5 by default)
 plot-noise-sweep:
-	@if [ -z "$(FILE)" ]; then \
-		echo "Error: FILE required. Usage: make plot-noise-sweep FILE=noise-sweep-test-raw.csv [OUT=output.png]"; \
-		exit 1; \
-	fi
-	@if [ ! -f "$(FILE)" ]; then \
-		echo "Error: File not found: $(FILE)"; \
-		exit 1; \
-	fi
-	@OUT_FILE=$${OUT:-noise-sweep-plot.png}; \
-	EXTRA_FLAGS=""; \
-	[ -n "$(NEIGHBOR)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --neighbor $(NEIGHBOR)"; \
-	[ -n "$(CLOSENESS)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --closeness $(CLOSENESS)"; \
-	[ "$(SHOW_ITER)" = "true" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --show-iterations"; \
-	[ -n "$(TITLE)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --title '$(TITLE)'"; \
-	echo "Plotting $(FILE) -> $$OUT_FILE"; \
-	$(VENV_PYTHON) data/multisweep-graph/plot_noise_sweep.py --file "$(FILE)" --out "$$OUT_FILE" $$EXTRA_FLAGS
+	@[ -z "$(FILE)" ] && echo "Usage: make plot-noise-sweep FILE=data.csv [OUT=plot.png]" && exit 1 || true
+	@[ ! -f "$(FILE)" ] && echo "File not found: $(FILE)" && exit 1 || true
+	$(VENV_PYTHON) data/multisweep-graph/plot_noise_sweep.py --file "$(FILE)" \
+		--out "$${OUT:-noise-sweep.png}" --neighbor $${NEIGHBOR:-1} --closeness $${CLOSENESS:-2.5}
 
+# Multi-sweep grid (neighbor=1 by default)
 plot-multisweep:
-	@if [ -z "$(FILE)" ]; then \
-		echo "Error: FILE required. Usage: make plot-multisweep FILE=bg-multisweep-...-raw.csv [OUT=output.png] [NEIGHBOR=3]"; \
-		exit 1; \
-	fi
-	@if [ ! -f "$(FILE)" ]; then \
-		echo "Error: File not found: $(FILE)"; \
-		exit 1; \
-	fi
-	@OUT_FILE=$${OUT:-multisweep-plot.png}; \
-	EXTRA_FLAGS=""; \
-	[ -n "$(NEIGHBOR)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --neighbor $(NEIGHBOR)"; \
-	[ -n "$(MAX_COLS)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --max-cols $(MAX_COLS)"; \
-	[ -n "$(MAX_ROWS)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --max-rows $(MAX_ROWS)"; \
-	[ "$(SHOW_ITER)" = "true" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --show-iterations"; \
-	echo "Plotting $(FILE) -> $$OUT_FILE"; \
-	$(VENV_PYTHON) data/multisweep-graph/plot_multisweep.py --file "$(FILE)" --out "$$OUT_FILE" $$EXTRA_FLAGS
+	@[ -z "$(FILE)" ] && echo "Usage: make plot-multisweep FILE=data.csv [OUT=plot.png]" && exit 1 || true
+	@[ ! -f "$(FILE)" ] && echo "File not found: $(FILE)" && exit 1 || true
+	$(VENV_PYTHON) data/multisweep-graph/plot_multisweep.py --file "$(FILE)" \
+		--out "$${OUT:-multisweep.png}" --neighbor $${NEIGHBOR:-1}
 
+# Per-noise bar charts (neighbor=1, closeness=2.5 by default)
 plot-noise-buckets:
-	@if [ -z "$(FILE)" ]; then \
-		echo "Error: FILE required. Usage: make plot-noise-buckets FILE=noise-sweep-test-raw.csv [OUT_DIR=plots/] [COMBINED=true]"; \
-		exit 1; \
-	fi
-	@if [ ! -f "$(FILE)" ]; then \
-		echo "Error: File not found: $(FILE)"; \
-		exit 1; \
-	fi
-	@OUT_DIR=$${OUT_DIR:-noise-plots}; \
-	EXTRA_FLAGS=""; \
-	[ -n "$(NEIGHBOR)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --neighbor $(NEIGHBOR)"; \
-	[ -n "$(CLOSENESS)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --closeness $(CLOSENESS)"; \
-	[ "$(COMBINED)" = "true" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --combined"; \
-	echo "Creating per-noise charts: $(FILE) -> $$OUT_DIR/"; \
-	$(VENV_PYTHON) data/multisweep-graph/plot_noise_buckets.py --file "$(FILE)" --out-dir "$$OUT_DIR" $$EXTRA_FLAGS
+	@[ -z "$(FILE)" ] && echo "Usage: make plot-noise-buckets FILE=data.csv [OUT_DIR=plots/]" && exit 1 || true
+	@[ ! -f "$(FILE)" ] && echo "File not found: $(FILE)" && exit 1 || true
+	$(VENV_PYTHON) data/multisweep-graph/plot_noise_buckets.py --file "$(FILE)" \
+		--out-dir "$${OUT_DIR:-noise-plots}" --neighbor $${NEIGHBOR:-1} --closeness $${CLOSENESS:-2.5}
 
-plot-grid-heatmap:
-	@URL=$${URL:-http://localhost:8081}; \
-	SENSOR=$${SENSOR:-hesai-pandar40p}; \
-	METRIC=$${METRIC:-unsettled_ratio}; \
-	OUT=$${OUT:-grid-heatmap.png}; \
-	EXTRA_FLAGS=""; \
-	[ -n "$(AZIMUTH_BUCKET)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --azimuth-bucket $(AZIMUTH_BUCKET)"; \
-	[ -n "$(SETTLED_THRESHOLD)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --settled-threshold $(SETTLED_THRESHOLD)"; \
-	[ "$(POLAR)" = "true" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --polar"; \
-	[ "$(CARTESIAN)" = "true" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --cartesian"; \
-	[ "$(COMBINED)" = "true" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --combined"; \
-	[ -n "$(DPI)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --dpi $(DPI)"; \
-	if [ -n "$(PCAP)" ]; then \
-		INTERVAL=$${INTERVAL:-30}; \
-		OUT_DIR=$${OUT_DIR}; \
-		[ -z "$$OUT_DIR" ] && OUT_DIR="grid-heatmap-$$(basename $(PCAP) .pcap)"; \
-		[ -n "$(DURATION)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --duration $(DURATION)"; \
-		[ -n "$$OUT_DIR" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --output-dir $$OUT_DIR"; \
-		echo "Processing PCAP file: $(PCAP)"; \
-		echo "  Interval: $${INTERVAL}s, Output dir: $$OUT_DIR"; \
-		$(VENV_PYTHON) tools/grid-heatmap/plot_grid_heatmap.py --url "$$URL" --sensor "$$SENSOR" --metric "$$METRIC" --pcap "$(PCAP)" --interval $$INTERVAL $$EXTRA_FLAGS; \
-	else \
-		echo "Fetching grid heatmap from $$URL for $$SENSOR (metric: $$METRIC)"; \
-		$(VENV_PYTHON) tools/grid-heatmap/plot_grid_heatmap.py --url "$$URL" --sensor "$$SENSOR" --metric "$$METRIC" --output "$$OUT" $$EXTRA_FLAGS; \
-	fi
+# Live grid stats - periodic snapshots from running lidar system
+# Usage: make stats-live [INTERVAL=10] [DURATION=60]
+stats-live:
+	@echo "Starting live lidar server..."
+	@$(MAKE) dev-go-lidar
+	@sleep 2
+	@echo "Capturing live grid snapshots..."
+	$(VENV_PYTHON) tools/grid-heatmap/plot_grid_heatmap.py --interval $${INTERVAL:-30} $${DURATION:+--duration $$DURATION}
+
+# PCAP replay grid stats - periodic snapshots during PCAP replay
+# Usage: make stats-pcap PCAP=file.pcap [INTERVAL=5]
+stats-pcap:
+	@[ -z "$(PCAP)" ] && echo "Usage: make stats-pcap PCAP=file.pcap [INTERVAL=5]" && exit 1 || true
+	@[ ! -f "$(PCAP)" ] && echo "PCAP file not found: $(PCAP)" && exit 1 || true
+	@echo "Starting PCAP-mode lidar server..."
+	@$(MAKE) dev-go-pcap
+	@sleep 2
+	@echo "Capturing PCAP replay snapshots..."
+	$(VENV_PYTHON) tools/grid-heatmap/plot_grid_heatmap.py --pcap "$(PCAP)" --interval $${INTERVAL:-5}
 
 # =============================================================================
 # Python PDF Generator (PYTHONPATH approach - no package installation)
