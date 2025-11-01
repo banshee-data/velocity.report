@@ -99,7 +99,7 @@ tools-local:
 # Sweep Plotting (uses root .venv)
 # =============================================================================
 
-.PHONY: plot-noise-sweep plot-multisweep plot-noise-buckets
+.PHONY: plot-noise-sweep plot-multisweep plot-noise-buckets plot-grid-heatmap
 
 VENV_PYTHON = .venv/bin/python3
 
@@ -155,6 +155,21 @@ plot-noise-buckets:
 	[ "$(COMBINED)" = "true" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --combined"; \
 	echo "Creating per-noise charts: $(FILE) -> $$OUT_DIR/"; \
 	$(VENV_PYTHON) data/multisweep-graph/plot_noise_buckets.py --file "$(FILE)" --out-dir "$$OUT_DIR" $$EXTRA_FLAGS
+
+plot-grid-heatmap:
+	@URL=$${URL:-http://localhost:8081}; \
+	SENSOR=$${SENSOR:-hesai-pandar40p}; \
+	METRIC=$${METRIC:-unsettled_ratio}; \
+	OUT=$${OUT:-grid-heatmap.png}; \
+	EXTRA_FLAGS=""; \
+	[ -n "$(AZIMUTH_BUCKET)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --azimuth-bucket $(AZIMUTH_BUCKET)"; \
+	[ -n "$(SETTLED_THRESHOLD)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --settled-threshold $(SETTLED_THRESHOLD)"; \
+	[ "$(POLAR)" = "true" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --polar"; \
+	[ "$(CARTESIAN)" = "true" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --cartesian"; \
+	[ "$(COMBINED)" = "true" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --combined"; \
+	[ -n "$(DPI)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --dpi $(DPI)"; \
+	echo "Fetching grid heatmap from $$URL for $$SENSOR (metric: $$METRIC)"; \
+	$(VENV_PYTHON) tools/plot_grid_heatmap.py --url "$$URL" --sensor "$$SENSOR" --metric "$$METRIC" --output "$$OUT" $$EXTRA_FLAGS
 
 # =============================================================================
 # Python PDF Generator (PYTHONPATH approach - no package installation)
