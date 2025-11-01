@@ -7,12 +7,12 @@ backup/
 logs/
 node_modules/
 static/
-tools/pdf-generator/output/*
+tools/*/output/*
 web/.svelte-kit/*
 
 __pycache__/*
 matplotlib/__pycache__/*
-internal/report/query_data/__pycache__/*
+tools/__pycache__/*
 
 .DS_Store
 .env
