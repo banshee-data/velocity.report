@@ -408,8 +408,8 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
     Optimized for 4K monitors (3840x2160, 16:9 aspect ratio)
 
     Layout:
-    - Top: Polar heatmap + Cartesian scatter + Spatial XY distance map (background)
-    - Bottom: 4 metric panels in grid
+    - Top: Polar settle rate + Polar (selected metric) + Spatial XY distance map (background)
+    - Bottom: 4 metric panels stacked vertically (fill_rate, settle_rate, unsettled_ratio, mean_times_seen)
 
     Args:
         heatmap: Heatmap data from API
@@ -426,12 +426,60 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
 
     # Create figure optimized for 4K (3840x2160 at 150dpi = 25.6x14.4 inches)
     fig = plt.figure(figsize=(25.6, 14.4))
+    # 6 rows: rows 0-2 for top charts (50%), rows 3-6 for bottom metric charts (50%)
+    # Height ratios: top section gets 3 units, each bottom chart gets 0.75 units
     gs = fig.add_gridspec(
-        2, 12, hspace=0.25, wspace=0.30, top=0.95, bottom=0.05, left=0.05, right=0.98
+        7,
+        12,
+        height_ratios=[1, 1, 1, 0.75, 0.75, 0.75, 0.75],
+        hspace=0.15,
+        wspace=0.30,
+        top=0.95,
+        bottom=0.05,
+        left=0.05,
+        right=0.95,
     )
 
-    # === TOP LEFT: Polar Heatmap ===
-    ax_polar = fig.add_subplot(gs[0, :4], projection="polar")
+    # === TOP LEFT: Polar Settle Rate ===
+    ax_settle = fig.add_subplot(gs[0:3, :4], projection="polar")
+
+    # Build settle rate data
+    data_settle = np.zeros((rings, az_buckets))
+    for bucket in buckets:
+        ring = bucket["ring"]
+        az_idx = int(bucket["azimuth_deg_start"] / params["azimuth_bucket_deg"])
+
+        if bucket["filled_cells"] > 0:
+            data_settle[ring, az_idx] = bucket["settled_cells"] / bucket["filled_cells"]
+        else:
+            data_settle[ring, az_idx] = 0
+
+    # Create polar mesh
+    theta = np.linspace(0, 2 * np.pi, az_buckets + 1)
+    r = np.arange(rings + 1)
+    theta_grid, r_grid = np.meshgrid(theta, r)
+
+    im_settle = ax_settle.pcolormesh(
+        theta_grid,
+        r_grid,
+        data_settle,
+        cmap="YlOrRd",
+        vmin=0,
+        vmax=1,
+        shading="auto",
+    )
+    ax_settle.set_theta_zero_location("N")
+    ax_settle.set_theta_direction(-1)
+    ax_settle.set_ylim(0, rings)
+    ax_settle.set_title(
+        "Polar View: Settle Rate", fontsize=16, fontweight="bold", pad=20
+    )
+    ax_settle.grid(True, alpha=0.3)
+    cbar_settle = plt.colorbar(im_settle, ax=ax_settle, fraction=0.046, pad=0.08)
+    cbar_settle.set_label("Settle Rate", fontsize=12)
+
+    # === TOP MIDDLE: Polar Heatmap (Selected Metric) ===
+    ax_polar = fig.add_subplot(gs[0:3, 4:8], projection="polar")
 
     metric_map = {
         "fill_rate": ("Fill Rate", "YlGn", (0, 1)),
@@ -491,73 +539,10 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
     ax_polar.grid(True, alpha=0.3)
     cbar_polar = plt.colorbar(im_polar, ax=ax_polar, fraction=0.046, pad=0.08)
     cbar_polar.set_label(metric_title, fontsize=12)
-
-    # === TOP MIDDLE: Cartesian Scatter ===
-    ax_cart = fig.add_subplot(gs[0, 4:8])
-
-    x_coords, y_coords, values = [], [], []
-    for bucket in buckets:
-        ring = bucket["ring"]
-        az_start = np.radians(bucket["azimuth_deg_start"])
-        az_end = np.radians(bucket["azimuth_deg_end"])
-        az_mid = (az_start + az_end) / 2
-
-        r_mid = ring + 0.5
-        x = r_mid * np.sin(az_mid)
-        y = r_mid * np.cos(az_mid)
-
-        if metric == "fill_rate":
-            val = bucket["filled_cells"] / bucket["total_cells"]
-        elif metric == "settle_rate":
-            val = (
-                bucket["settled_cells"] / bucket["filled_cells"]
-                if bucket["filled_cells"] > 0
-                else 0
-            )
-        elif metric == "unsettled_ratio":
-            if bucket["filled_cells"] > 0:
-                unsettled = bucket["filled_cells"] - bucket["settled_cells"]
-                val = unsettled / bucket["filled_cells"]
-            else:
-                val = 0
-        elif metric == "mean_times_seen":
-            val = bucket["mean_times_seen"]
-        elif metric == "frozen_ratio":
-            val = (
-                bucket["frozen_cells"] / bucket["filled_cells"]
-                if bucket["filled_cells"] > 0
-                else 0
-            )
-        else:
-            val = 0
-
-        x_coords.append(x)
-        y_coords.append(y)
-        values.append(val)
-
-    scatter = ax_cart.scatter(
-        x_coords,
-        y_coords,
-        c=values,
-        cmap=cmap,
-        s=50,
-        vmin=vmin_base,
-        vmax=vmax,
-        alpha=0.8,
-        edgecolors="none",
-    )
-    ax_cart.set_xlabel("X (rings)", fontsize=12)
-    ax_cart.set_ylabel("Y (rings)", fontsize=12)
-    ax_cart.set_title(f"Cartesian View: {metric_title}", fontsize=16, fontweight="bold")
-    ax_cart.set_aspect("equal")
-    ax_cart.grid(True, alpha=0.3)
-    ax_cart.plot(0, 0, "r*", markersize=15, label="Sensor", zorder=5)
-    ax_cart.legend(loc="upper right")
-    cbar_cart = plt.colorbar(scatter, ax=ax_cart, fraction=0.046, pad=0.04)
-    cbar_cart.set_label(metric_title, fontsize=12)
+    cbar_settle.set_label("Settle Rate", fontsize=12)
 
     # === TOP RIGHT: Spatial XY Distance Heatmap ===
-    ax_spatial = fig.add_subplot(gs[0, 8:])
+    ax_spatial = fig.add_subplot(gs[0:3, 8:])
 
     # Build spatial grid - plot actual distance (range) from sensor in XY space
     x_coords_all, y_coords_all, range_values = [], [], []
@@ -635,7 +620,7 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
             "Spatial XY: Background Distance", fontsize=16, fontweight="bold"
         )
 
-    # === BOTTOM: 4 Metric Panels ===
+    # === BOTTOM: 4 Metric Panels (Stacked Vertically) ===
     metric_configs = [
         ("fill_rate", "Fill Rate", "YlGn", (0, 1)),
         ("settle_rate", "Settle Rate", "YlOrRd", (0, 1)),
@@ -643,10 +628,10 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
         ("mean_times_seen", "Mean Times Seen", "viridis", (0, None)),
     ]
 
-    # Distribute 4 panels evenly across 12 columns (each gets 3 columns)
+    # Stack panels vertically, each spanning full width (all 12 columns)
     for idx, (met, title, cm, (vmin, vmax)) in enumerate(metric_configs):
-        col_start = idx * 3
-        ax = fig.add_subplot(gs[1, col_start : col_start + 3])
+        row = idx + 3  # Rows 3-6 for the 4 metrics
+        ax = fig.add_subplot(gs[row, :])  # Span all 12 columns
 
         data = np.zeros((rings, az_buckets))
         for bucket in buckets:
@@ -682,21 +667,41 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
             interpolation="nearest",
         )
 
-        ax.set_xlabel("Azimuth (°)", fontsize=10)
+        # Only show x-axis labels on the bottom-most chart (last one)
+        if idx == len(metric_configs) - 1:
+            ax.set_xlabel("Azimuth (°)", fontsize=10)
+            ax.set_xticks(np.arange(0, 361, 90))
+        else:
+            ax.set_xticks([])
+            ax.tick_params(axis="x", which="both", bottom=False, labelbottom=False)
+
         ax.set_ylabel("Ring", fontsize=10)
-        ax.set_title(title, fontsize=12, fontweight="bold")
-        ax.set_xticks(np.arange(0, 361, 90))
+        # Title aligned to the left
+        ax.set_title(title, fontsize=12, fontweight="bold", loc="left")
         ax.set_yticks(np.arange(0, rings + 1, 10))
         ax.grid(True, alpha=0.3, linewidth=0.5)
 
-        cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+        cbar = plt.colorbar(im, ax=ax, fraction=0.015, pad=0.01)
         cbar.ax.tick_params(labelsize=8)
 
     # === Title and Summary ===
-    title_text = (
-        f"{heatmap['sensor_id']} - Grid Analysis Dashboard\n{heatmap['timestamp'][:19]}"
+    # Place title in top right corner on single line to make it wider
+    title_text = f"{heatmap['sensor_id']} - Grid Analysis Dashboard - {heatmap['timestamp'][:19]}"
+    fig.text(
+        0.963,
+        0.995,
+        title_text,
+        ha="right",
+        va="top",
+        fontsize=14,
+        fontweight="bold",
+        bbox=dict(
+            boxstyle="round,pad=0.5",
+            facecolor="white",
+            alpha=0.9,
+            edgecolor="gray",
+        ),
     )
-    fig.suptitle(title_text, fontsize=18, fontweight="bold", y=0.98)
 
     summary_text = (
         f"Filled: {summary['total_filled']:,}/{summary['total_filled'] + (72000 - summary['total_filled']):,} "
