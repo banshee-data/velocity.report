@@ -329,3 +329,62 @@ lint-web:
 
 lint: lint-go lint-python lint-web
 	@echo "\nAll lint checks passed."
+
+# =============================================================================
+# API Script Shortcuts
+# =============================================================================
+
+.PHONY: api-grid-status api-grid-reset api-grid-heatmap \
+        api-snapshot api-snapshots \
+        api-acceptance api-acceptance-reset \
+        api-params api-params-set \
+        api-persist api-export-snapshot api-export-next-frame \
+        api-start-pcap
+
+# Grid endpoints
+api-grid-status:
+	@./scripts/api/lidar/get_grid_status.sh $(SENSOR)
+
+api-grid-reset:
+	@./scripts/api/lidar/reset_grid.sh $(SENSOR)
+
+api-grid-heatmap:
+	@./scripts/api/lidar/get_grid_heatmap.sh $(SENSOR) $(AZIMUTH) $(THRESHOLD)
+
+# Snapshot endpoints
+api-snapshot:
+	@./scripts/api/lidar/get_snapshot.sh $(SENSOR)
+
+api-snapshots:
+	@./scripts/api/lidar/get_snapshots.sh $(SENSOR)
+
+# Acceptance endpoints
+api-acceptance:
+	@./scripts/api/lidar/get_acceptance.sh $(SENSOR)
+
+api-acceptance-reset:
+	@./scripts/api/lidar/reset_acceptance.sh $(SENSOR)
+
+# Parameter endpoints
+api-params:
+	@./scripts/api/lidar/get_params.sh $(SENSOR)
+
+api-params-set:
+	@[ -z "$(PARAMS)" ] && echo "Usage: make api-params-set SENSOR=sensor-id PARAMS='{\"noise_relative\": 0.15}'" && exit 1 || true
+	@./scripts/api/lidar/set_params.sh $(SENSOR) '$(PARAMS)'
+
+# Persistence and export endpoints
+api-persist:
+	@./scripts/api/lidar/trigger_persist.sh $(SENSOR)
+
+api-export-snapshot:
+	@./scripts/api/lidar/export_snapshot.sh $(SENSOR) $(SNAPSHOT_ID) $(OUT)
+
+api-export-next-frame:
+	@./scripts/api/lidar/export_next_frame.sh $(SENSOR) $(OUT)
+
+# PCAP replay
+api-start-pcap:
+	@[ -z "$(PCAP)" ] && echo "Usage: make api-start-pcap PCAP=file.pcap [SENSOR=hesai-pandar40p]" && exit 1 || true
+	@[ ! -f "$(PCAP)" ] && echo "PCAP file not found: $(PCAP)" && exit 1 || true
+	@./scripts/api/lidar/start_pcap.sh "$(PCAP)" $(SENSOR)

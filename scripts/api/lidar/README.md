@@ -67,18 +67,18 @@ make api-start-pcap PCAP=/path/to/file.pcap [SENSOR=hesai-pandar40p]
 
 All scripts connect to `http://127.0.0.1:8081` and require `jq` for pretty JSON output.
 
-| Endpoint                       | Script                 | Make Target             | Description                      |
-| ------------------------------ | ---------------------- | ----------------------- | -------------------------------- |
-| `/api/lidar/grid_status`       | `get_grid_status.sh`   | `api-grid-status`       | Get grid cell statistics         |
-| `/api/lidar/grid_reset`        | `reset_grid.sh`        | `api-grid-reset`        | Reset grid to zero state         |
-| `/api/lidar/grid_heatmap`      | `get_grid_heatmap.sh`  | `api-grid-heatmap`      | Get aggregated heatmap data      |
-| `/api/lidar/snapshot`          | `get_snapshot.sh`      | `api-snapshot`          | Get latest snapshot details      |
-| `/api/lidar/snapshots`         | `get_snapshots.sh`     | `api-snapshots`         | List recent snapshots            |
-| `/api/lidar/acceptance`        | `get_acceptance.sh`    | `api-acceptance`        | Get acceptance/rejection metrics |
-| `/api/lidar/acceptance/reset`  | `reset_acceptance.sh`  | `api-acceptance-reset`  | Reset acceptance counters        |
-| `/api/lidar/params`            | `get_params.sh`        | `api-params`            | Get background parameters        |
-| `/api/lidar/params`            | `set_params.sh`        | `api-params-set`        | Update background parameters     |
-| `/api/lidar/persist`           | `trigger_persist.sh`   | `api-persist`           | Trigger manual snapshot          |
-| `/api/lidar/export_snapshot`   | `export_snapshot.sh`   | `api-export-snapshot`   | Export snapshot to ASC           |
-| `/api/lidar/export_next_frame` | `export_next_frame.sh` | `api-export-next-frame` | Export next frame to ASC         |
-| `/api/lidar/pcap/start`        | `start_pcap.sh`        | `api-start-pcap`        | Start PCAP replay                |
+| Endpoint | Script | Make Target | Description |
+|----------|--------|-------------|-------------|
+| `/api/lidar/grid_status` | `get_grid_status.sh` | `api-grid-status` | Get grid cell statistics |
+| `/api/lidar/grid_reset` | `reset_grid.sh` | `api-grid-reset` | Reset grid to zero state |
+| `/api/lidar/grid_heatmap` | `get_grid_heatmap.sh` | `api-grid-heatmap` | Get aggregated heatmap data |
+| `/api/lidar/snapshot` | `get_snapshot.sh` | `api-snapshot` | Get latest snapshot details |
+| `/api/lidar/snapshots` | `get_snapshots.sh` | `api-snapshots` | List recent snapshots |
+| `/api/lidar/acceptance` | `get_acceptance.sh` | `api-acceptance` | Get acceptance/rejection metrics |
+| `/api/lidar/acceptance/reset` | `reset_acceptance.sh` | `api-acceptance-reset` | Reset acceptance counters |
+| `/api/lidar/params` | `get_params.sh` | `api-params` | Get background parameters |
+| `/api/lidar/params` | `set_params.sh` | `api-params-set` | Update background parameters |
+| `/api/lidar/persist` | `trigger_persist.sh` | `api-persist` | Trigger manual snapshot |
+| `/api/lidar/export_snapshot` | `export_snapshot.sh` | `api-export-snapshot` | Export snapshot to ASC |
+| `/api/lidar/export_next_frame` | `export_next_frame.sh` | `api-export-next-frame` | Export next frame to ASC |
+| `/api/lidar/pcap/start` | `start_pcap.sh` | `api-start-pcap` | Start PCAP replay |
