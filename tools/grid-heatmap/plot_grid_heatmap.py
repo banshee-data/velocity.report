@@ -7,15 +7,25 @@ Plot grid heatmap visualization from /api/lidar/grid_heatmap endpoint
 Creates visualizations showing spatial patterns of filled and settled cells in the LiDAR
 background grid. Supports both polar (ring vs azimuth) and cartesian (X-Y) projections.
 
+Can also process PCAP files with periodic snapshots to track grid evolution over time.
+
 Usage:
-    python3 tools/plot_grid_heatmap.py --url http://localhost:8081 --sensor hesai-pandar40p
-    python3 tools/plot_grid_heatmap.py --url http://localhost:8081 --polar --cartesian
-    python3 tools/plot_grid_heatmap.py --url http://localhost:8081 --metric unsettled_ratio
+    # Single snapshot
+    python3 tools/grid-heatmap/plot_grid_heatmap.py --url http://localhost:8081 --sensor hesai-pandar40p
+
+    # PCAP replay with periodic snapshots
+    python3 tools/grid-heatmap/plot_grid_heatmap.py --url http://localhost:8081 --pcap file.pcap --interval 30
+
+    # Custom metrics and views
+    python3 tools/grid-heatmap/plot_grid_heatmap.py --url http://localhost:8081 --polar --cartesian
     python3 tools/grid-heatmap/plot_grid_heatmap.py --url http://localhost:8081 --metric unsettled_ratio
 """
 
 import argparse
+import json
 import sys
+import time
+from pathlib import Path
 
 try:
     import matplotlib.pyplot as plt
@@ -386,6 +396,257 @@ def plot_combined_metrics(heatmap, output="grid_heatmap_combined.png", dpi=150):
     plt.close()
 
 
+def start_pcap_replay(base_url, sensor_id, pcap_file):
+    """
+    Start PCAP replay via the monitor API
+
+    Args:
+        base_url: Monitor base URL
+        sensor_id: Sensor ID
+        pcap_file: Path to PCAP file
+
+    Returns:
+        True if successful, False otherwise
+    """
+    url = f"{base_url}/api/lidar/pcap/start"
+    params = {"sensor_id": sensor_id, "pcap_file": pcap_file}
+
+    try:
+        resp = requests.post(url, params=params, timeout=10)
+        resp.raise_for_status()
+        result = resp.json()
+        print(f"PCAP replay started: {result}")
+        return True
+    except requests.exceptions.RequestException as e:
+        print(f"Error starting PCAP replay: {e}")
+        return False
+
+
+def reset_grid(base_url, sensor_id):
+    """Reset the grid to empty state"""
+    url = f"{base_url}/api/lidar/grid_reset"
+    params = {"sensor_id": sensor_id}
+
+    try:
+        resp = requests.post(url, params=params, timeout=10)
+        resp.raise_for_status()
+        print("Grid reset successful")
+        return True
+    except requests.exceptions.RequestException as e:
+        print(f"Error resetting grid: {e}")
+        return False
+
+
+def wait_for_grid_population(base_url, sensor_id, min_filled=1000, timeout=60):
+    """
+    Wait for grid to start populating
+
+    Args:
+        base_url: Monitor base URL
+        sensor_id: Sensor ID
+        min_filled: Minimum filled cells to consider grid populated
+        timeout: Maximum time to wait in seconds
+    """
+    url = f"{base_url}/api/lidar/grid_heatmap"
+    params = {"sensor_id": sensor_id}
+
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        try:
+            resp = requests.get(url, params=params, timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+            filled = data["summary"]["total_filled"]
+
+            if filled >= min_filled:
+                print(f"Grid populated: {filled:,} filled cells")
+                return True
+
+            time.sleep(1)
+        except requests.exceptions.RequestException:
+            time.sleep(1)
+
+    print("Timeout waiting for grid population")
+    return False
+
+
+def process_pcap_with_snapshots(
+    base_url,
+    sensor_id,
+    pcap_file,
+    interval,
+    duration,
+    output_dir,
+    azimuth_bucket,
+    settled_threshold,
+    metric,
+    polar,
+    cartesian,
+    combined,
+    dpi,
+):
+    """
+    Process PCAP file and generate heatmap snapshots at regular intervals
+
+    Args:
+        base_url: Monitor base URL
+        sensor_id: Sensor ID
+        pcap_file: Path to PCAP file
+        interval: Seconds between snapshots
+        duration: Total duration to capture (None = until PCAP ends)
+        output_dir: Directory for output files
+        azimuth_bucket: Azimuth bucket size
+        settled_threshold: Settled threshold
+        metric: Metric to visualize
+        polar: Generate polar plots
+        cartesian: Generate cartesian plots
+        combined: Generate combined plots
+        dpi: Image DPI
+    """
+    # Create output directory
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    # Save metadata
+    metadata = {
+        "pcap_file": str(pcap_file),
+        "sensor_id": sensor_id,
+        "interval": interval,
+        "duration": duration,
+        "metric": metric,
+        "azimuth_bucket_deg": azimuth_bucket,
+        "settled_threshold": settled_threshold,
+        "snapshots": [],
+    }
+
+    print(f"Starting PCAP replay: {pcap_file}")
+    print(f"Snapshot interval: {interval}s")
+    print(f"Output directory: {output_dir}")
+    print()
+
+    # Reset grid to start clean
+    if not reset_grid(base_url, sensor_id):
+        print("Failed to reset grid, continuing anyway...")
+
+    time.sleep(2)
+
+    # Start PCAP replay
+    if not start_pcap_replay(base_url, sensor_id, pcap_file):
+        print("Failed to start PCAP replay")
+        return
+
+    # Wait for grid to start populating
+    print("Waiting for grid to populate...")
+    if not wait_for_grid_population(base_url, sensor_id, min_filled=100, timeout=30):
+        print("Grid not populating, check PCAP replay status")
+        return
+
+    print()
+    print("Starting snapshot capture...")
+
+    snapshot_count = 0
+    start_time = time.time()
+    next_snapshot_time = start_time
+
+    while True:
+        current_time = time.time()
+        elapsed = current_time - start_time
+
+        # Check if we've exceeded duration
+        if duration and elapsed >= duration:
+            print(f"\nReached duration limit ({duration}s), stopping")
+            break
+
+        # Check if it's time for next snapshot
+        if current_time >= next_snapshot_time:
+            snapshot_count += 1
+            elapsed_str = f"{elapsed:.1f}s"
+
+            print(f"\n[Snapshot {snapshot_count} at {elapsed_str}]")
+
+            # Fetch heatmap
+            try:
+                heatmap = fetch_heatmap(
+                    base_url, sensor_id, azimuth_bucket, settled_threshold
+                )
+            except SystemExit:
+                print("Failed to fetch heatmap, retrying...")
+                next_snapshot_time += interval
+                continue
+
+            summary = heatmap["summary"]
+            print(
+                f"  Filled: {summary['total_filled']:,} ({summary['fill_rate']:.1%}), "
+                f"Settled: {summary['total_settled']:,} ({summary['settle_rate']:.1%})"
+            )
+
+            # Generate filename prefix
+            prefix = f"snapshot_{snapshot_count:03d}_t{int(elapsed):04d}s"
+
+            # Save snapshot metadata
+            snapshot_meta = {
+                "snapshot": snapshot_count,
+                "elapsed_seconds": elapsed,
+                "timestamp": heatmap["timestamp"],
+                "summary": summary,
+            }
+            metadata["snapshots"].append(snapshot_meta)
+
+            # Generate plots
+            if polar:
+                polar_output = output_path / f"{prefix}_polar.png"
+                plot_polar_heatmap(heatmap, metric, str(polar_output), dpi)
+                print(f"  Saved: {polar_output.name}")
+
+            if cartesian:
+                xy_output = output_path / f"{prefix}_xy.png"
+                plot_cartesian_heatmap(heatmap, metric, str(xy_output), dpi)
+                print(f"  Saved: {xy_output.name}")
+
+            if combined:
+                combined_output = output_path / f"{prefix}_combined.png"
+                plot_combined_metrics(heatmap, str(combined_output), dpi)
+                print(f"  Saved: {combined_output.name}")
+
+            # Save raw heatmap data
+            heatmap_json = output_path / f"{prefix}_heatmap.json"
+            with open(heatmap_json, "w") as f:
+                json.dump(heatmap, f, indent=2)
+
+            # Schedule next snapshot
+            next_snapshot_time += interval
+
+        # Check if grid is still changing (heuristic: check if PCAP is still replaying)
+        # If total_filled hasn't changed in last few snapshots and we have enough data, stop
+        if snapshot_count >= 3 and len(metadata["snapshots"]) >= 3:
+            last_three_filled = [
+                s["summary"]["total_filled"] for s in metadata["snapshots"][-3:]
+            ]
+            if (
+                len(set(last_three_filled)) == 1 and elapsed > interval * 3
+            ):  # All same value
+                print(
+                    "\nGrid appears stable (no changes in last 3 snapshots), stopping"
+                )
+                break
+
+        # Sleep briefly to avoid busy loop
+        time.sleep(0.5)
+
+    # Save final metadata
+    metadata["total_snapshots"] = snapshot_count
+    metadata["total_duration"] = time.time() - start_time
+
+    metadata_file = output_path / "metadata.json"
+    with open(metadata_file, "w") as f:
+        json.dump(metadata, f, indent=2)
+
+    print(f"\n✓ Completed {snapshot_count} snapshots")
+    print(f"  Total duration: {metadata['total_duration']:.1f}s")
+    print(f"  Output directory: {output_dir}")
+    print(f"  Metadata: {metadata_file}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Plot grid heatmap from LiDAR monitor API"
@@ -427,11 +688,71 @@ def main():
     parser.add_argument(
         "--combined", action="store_true", help="Create combined multi-metric view"
     )
-    parser.add_argument("--output", default="grid_heatmap.png", help="Output filename")
+    parser.add_argument(
+        "--output",
+        default="grid_heatmap.png",
+        help="Output filename (or directory for PCAP mode)",
+    )
     parser.add_argument("--dpi", type=int, default=150, help="Output image DPI")
+
+    # PCAP replay options
+    parser.add_argument(
+        "--pcap",
+        type=str,
+        default=None,
+        help="PCAP file to replay (enables periodic snapshot mode)",
+    )
+    parser.add_argument(
+        "--interval",
+        type=int,
+        default=30,
+        help="Interval between snapshots in seconds (PCAP mode, default: 30)",
+    )
+    parser.add_argument(
+        "--duration",
+        type=int,
+        default=None,
+        help="Total duration to capture in seconds (PCAP mode, default: until stable)",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Output directory for PCAP snapshots (default: grid-heatmap-snapshots)",
+    )
 
     args = parser.parse_args()
 
+    # PCAP mode - process PCAP file with periodic snapshots
+    if args.pcap:
+        # Default to all plot types in PCAP mode if none specified
+        if not args.polar and not args.cartesian and not args.combined:
+            args.polar = True
+            args.combined = True
+
+        # Default output directory
+        if args.output_dir is None:
+            pcap_name = Path(args.pcap).stem
+            args.output_dir = f"grid-heatmap-{pcap_name}"
+
+        process_pcap_with_snapshots(
+            base_url=args.url,
+            sensor_id=args.sensor,
+            pcap_file=args.pcap,
+            interval=args.interval,
+            duration=args.duration,
+            output_dir=args.output_dir,
+            azimuth_bucket=args.azimuth_bucket,
+            settled_threshold=args.settled_threshold,
+            metric=args.metric,
+            polar=args.polar,
+            cartesian=args.cartesian,
+            combined=args.combined,
+            dpi=args.dpi,
+        )
+        return
+
+    # Single snapshot mode (original behavior)
     # Default to polar if nothing specified
     if not args.polar and not args.cartesian and not args.combined:
         args.polar = True

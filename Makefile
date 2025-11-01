@@ -168,8 +168,19 @@ plot-grid-heatmap:
 	[ "$(CARTESIAN)" = "true" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --cartesian"; \
 	[ "$(COMBINED)" = "true" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --combined"; \
 	[ -n "$(DPI)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --dpi $(DPI)"; \
-	echo "Fetching grid heatmap from $$URL for $$SENSOR (metric: $$METRIC)"; \
-	$(VENV_PYTHON) tools/plot_grid_heatmap.py --url "$$URL" --sensor "$$SENSOR" --metric "$$METRIC" --output "$$OUT" $$EXTRA_FLAGS
+	if [ -n "$(PCAP)" ]; then \
+		INTERVAL=$${INTERVAL:-30}; \
+		OUT_DIR=$${OUT_DIR}; \
+		[ -z "$$OUT_DIR" ] && OUT_DIR="grid-heatmap-$$(basename $(PCAP) .pcap)"; \
+		[ -n "$(DURATION)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --duration $(DURATION)"; \
+		[ -n "$$OUT_DIR" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --output-dir $$OUT_DIR"; \
+		echo "Processing PCAP file: $(PCAP)"; \
+		echo "  Interval: $${INTERVAL}s, Output dir: $$OUT_DIR"; \
+		$(VENV_PYTHON) tools/grid-heatmap/plot_grid_heatmap.py --url "$$URL" --sensor "$$SENSOR" --metric "$$METRIC" --pcap "$(PCAP)" --interval $$INTERVAL $$EXTRA_FLAGS; \
+	else \
+		echo "Fetching grid heatmap from $$URL for $$SENSOR (metric: $$METRIC)"; \
+		$(VENV_PYTHON) tools/grid-heatmap/plot_grid_heatmap.py --url "$$URL" --sensor "$$SENSOR" --metric "$$METRIC" --output "$$OUT" $$EXTRA_FLAGS; \
+	fi
 
 # =============================================================================
 # Python PDF Generator (PYTHONPATH approach - no package installation)
