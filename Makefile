@@ -94,9 +94,67 @@ cat-log-go:
 
 tools-local:
 	go build -o app-sweep ./cmd/sweep
-	go build -o app-bg-sweep ./cmd/bg-sweep
-	go build -o app-bg-multisweep ./cmd/bg-multisweep
 
+# =============================================================================
+# Sweep Plotting (uses root .venv)
+# =============================================================================
+
+.PHONY: plot-noise-sweep plot-multisweep plot-noise-buckets
+
+VENV_PYTHON = .venv/bin/python3
+
+plot-noise-sweep:
+	@if [ -z "$(FILE)" ]; then \
+		echo "Error: FILE required. Usage: make plot-noise-sweep FILE=noise-sweep-test-raw.csv [OUT=output.png]"; \
+		exit 1; \
+	fi
+	@if [ ! -f "$(FILE)" ]; then \
+		echo "Error: File not found: $(FILE)"; \
+		exit 1; \
+	fi
+	@OUT_FILE=$${OUT:-noise-sweep-plot.png}; \
+	EXTRA_FLAGS=""; \
+	[ -n "$(NEIGHBOR)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --neighbor $(NEIGHBOR)"; \
+	[ -n "$(CLOSENESS)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --closeness $(CLOSENESS)"; \
+	[ "$(SHOW_ITER)" = "true" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --show-iterations"; \
+	[ -n "$(TITLE)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --title '$(TITLE)'"; \
+	echo "Plotting $(FILE) -> $$OUT_FILE"; \
+	$(VENV_PYTHON) data/multisweep-graph/plot_noise_sweep.py --file "$(FILE)" --out "$$OUT_FILE" $$EXTRA_FLAGS
+
+plot-multisweep:
+	@if [ -z "$(FILE)" ]; then \
+		echo "Error: FILE required. Usage: make plot-multisweep FILE=bg-multisweep-...-raw.csv [OUT=output.png] [NEIGHBOR=3]"; \
+		exit 1; \
+	fi
+	@if [ ! -f "$(FILE)" ]; then \
+		echo "Error: File not found: $(FILE)"; \
+		exit 1; \
+	fi
+	@OUT_FILE=$${OUT:-multisweep-plot.png}; \
+	EXTRA_FLAGS=""; \
+	[ -n "$(NEIGHBOR)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --neighbor $(NEIGHBOR)"; \
+	[ -n "$(MAX_COLS)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --max-cols $(MAX_COLS)"; \
+	[ -n "$(MAX_ROWS)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --max-rows $(MAX_ROWS)"; \
+	[ "$(SHOW_ITER)" = "true" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --show-iterations"; \
+	echo "Plotting $(FILE) -> $$OUT_FILE"; \
+	$(VENV_PYTHON) data/multisweep-graph/plot_multisweep.py --file "$(FILE)" --out "$$OUT_FILE" $$EXTRA_FLAGS
+
+plot-noise-buckets:
+	@if [ -z "$(FILE)" ]; then \
+		echo "Error: FILE required. Usage: make plot-noise-buckets FILE=noise-sweep-test-raw.csv [OUT_DIR=plots/] [COMBINED=true]"; \
+		exit 1; \
+	fi
+	@if [ ! -f "$(FILE)" ]; then \
+		echo "Error: File not found: $(FILE)"; \
+		exit 1; \
+	fi
+	@OUT_DIR=$${OUT_DIR:-noise-plots}; \
+	EXTRA_FLAGS=""; \
+	[ -n "$(NEIGHBOR)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --neighbor $(NEIGHBOR)"; \
+	[ -n "$(CLOSENESS)" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --closeness $(CLOSENESS)"; \
+	[ "$(COMBINED)" = "true" ] && EXTRA_FLAGS="$$EXTRA_FLAGS --combined"; \
+	echo "Creating per-noise charts: $(FILE) -> $$OUT_DIR/"; \
+	$(VENV_PYTHON) data/multisweep-graph/plot_noise_buckets.py --file "$(FILE)" --out-dir "$$OUT_DIR" $$EXTRA_FLAGS
 
 # =============================================================================
 # Python PDF Generator (PYTHONPATH approach - no package installation)
