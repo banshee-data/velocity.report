@@ -269,6 +269,152 @@ func (bm *BackgroundManager) GridStatus() map[string]interface{} {
 	}
 }
 
+// CoarseBucket represents aggregated metrics for a spatial bucket
+type CoarseBucket struct {
+	Ring            int     `json:"ring"`
+	AzimuthDegStart float64 `json:"azimuth_deg_start"`
+	AzimuthDegEnd   float64 `json:"azimuth_deg_end"`
+	TotalCells      int     `json:"total_cells"`
+	FilledCells     int     `json:"filled_cells"`
+	SettledCells    int     `json:"settled_cells"`
+	FrozenCells     int     `json:"frozen_cells"`
+	MeanTimesSeen   float64 `json:"mean_times_seen"`
+	MeanRangeMeters float64 `json:"mean_range_meters"`
+	MinRangeMeters  float64 `json:"min_range_meters"`
+	MaxRangeMeters  float64 `json:"max_range_meters"`
+}
+
+// GridHeatmap represents the full aggregated grid state
+type GridHeatmap struct {
+	SensorID      string                 `json:"sensor_id"`
+	Timestamp     time.Time              `json:"timestamp"`
+	GridParams    map[string]interface{} `json:"grid_params"`
+	HeatmapParams map[string]interface{} `json:"heatmap_params"`
+	Summary       map[string]interface{} `json:"summary"`
+	Buckets       []CoarseBucket         `json:"buckets"`
+}
+
+// GetGridHeatmap aggregates the fine-grained grid into coarse spatial buckets
+// for visualization and analysis. Returns nil if the manager or grid is nil.
+//
+// Parameters:
+//   - azimuthBucketDeg: size of each azimuth bucket in degrees (e.g., 3.0 for 120 buckets)
+//   - settledThreshold: minimum TimesSeenCount to consider a cell "settled"
+func (bm *BackgroundManager) GetGridHeatmap(azimuthBucketDeg float64, settledThreshold uint32) *GridHeatmap {
+	if bm == nil || bm.Grid == nil {
+		return nil
+	}
+
+	g := bm.Grid
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	// Calculate bucket dimensions
+	azBinResDeg := 360.0 / float64(g.AzimuthBins)
+	numAzBuckets := int(360.0 / azimuthBucketDeg)
+	cellsPerAzBucket := int(azimuthBucketDeg / azBinResDeg)
+
+	// Initialize buckets
+	buckets := make([]CoarseBucket, 0, g.Rings*numAzBuckets)
+	nowNanos := time.Now().UnixNano()
+
+	totalFilled := 0
+	totalSettled := 0
+	totalFrozen := 0
+
+	// Aggregate by ring and azimuth bucket
+	for ring := 0; ring < g.Rings; ring++ {
+		for azBucket := 0; azBucket < numAzBuckets; azBucket++ {
+			bucket := CoarseBucket{
+				Ring:            ring,
+				AzimuthDegStart: float64(azBucket) * azimuthBucketDeg,
+				AzimuthDegEnd:   float64(azBucket+1) * azimuthBucketDeg,
+				TotalCells:      cellsPerAzBucket,
+				MinRangeMeters:  math.MaxFloat64,
+			}
+
+			// Aggregate stats from fine cells in this bucket
+			startAzBin := azBucket * cellsPerAzBucket
+			endAzBin := startAzBin + cellsPerAzBucket
+
+			var sumTimesSeen uint32
+			var sumRange float64
+			filledCount := 0
+
+			for azBin := startAzBin; azBin < endAzBin && azBin < g.AzimuthBins; azBin++ {
+				idx := g.Idx(ring, azBin)
+				cell := g.Cells[idx]
+
+				if cell.TimesSeenCount > 0 {
+					bucket.FilledCells++
+					filledCount++
+					sumTimesSeen += cell.TimesSeenCount
+					sumRange += float64(cell.AverageRangeMeters)
+
+					if cell.TimesSeenCount >= settledThreshold {
+						bucket.SettledCells++
+					}
+
+					if cell.AverageRangeMeters < float32(bucket.MinRangeMeters) {
+						bucket.MinRangeMeters = float64(cell.AverageRangeMeters)
+					}
+					if cell.AverageRangeMeters > float32(bucket.MaxRangeMeters) {
+						bucket.MaxRangeMeters = float64(cell.AverageRangeMeters)
+					}
+				}
+
+				if cell.FrozenUntilUnixNanos > nowNanos {
+					bucket.FrozenCells++
+				}
+			}
+
+			// Calculate means
+			if filledCount > 0 {
+				bucket.MeanTimesSeen = float64(sumTimesSeen) / float64(filledCount)
+				bucket.MeanRangeMeters = sumRange / float64(filledCount)
+			}
+			if bucket.FilledCells == 0 {
+				bucket.MinRangeMeters = 0
+				bucket.MaxRangeMeters = 0
+			}
+
+			totalFilled += bucket.FilledCells
+			totalSettled += bucket.SettledCells
+			totalFrozen += bucket.FrozenCells
+
+			buckets = append(buckets, bucket)
+		}
+	}
+
+	totalCells := g.Rings * g.AzimuthBins
+
+	return &GridHeatmap{
+		SensorID:  g.SensorID,
+		Timestamp: time.Now(),
+		GridParams: map[string]interface{}{
+			"total_rings":                g.Rings,
+			"total_azimuth_bins":         g.AzimuthBins,
+			"azimuth_bin_resolution_deg": 360.0 / float64(g.AzimuthBins),
+			"total_cells":                totalCells,
+		},
+		HeatmapParams: map[string]interface{}{
+			"azimuth_bucket_deg": azimuthBucketDeg,
+			"azimuth_buckets":    numAzBuckets,
+			"ring_buckets":       g.Rings,
+			"settled_threshold":  settledThreshold,
+			"cells_per_bucket":   cellsPerAzBucket,
+		},
+		Summary: map[string]interface{}{
+			"total_filled":  totalFilled,
+			"total_settled": totalSettled,
+			"total_frozen":  totalFrozen,
+			"fill_rate":     float64(totalFilled) / float64(totalCells),
+			"settle_rate":   float64(totalSettled) / float64(totalCells),
+		},
+		Buckets: buckets,
+	}
+}
+
 // ResetGrid zeros per-cell stats (AverageRangeMeters, RangeSpreadMeters, TimesSeenCount,
 // LastUpdateUnixNanos, FrozenUntilUnixNanos) and acceptance counters. Intended for
 // testing and A/B sweeps only.
