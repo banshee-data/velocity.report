@@ -11,6 +11,7 @@ Usage:
     python3 tools/plot_grid_heatmap.py --url http://localhost:8081 --sensor hesai-pandar40p
     python3 tools/plot_grid_heatmap.py --url http://localhost:8081 --polar --cartesian
     python3 tools/plot_grid_heatmap.py --url http://localhost:8081 --metric unsettled_ratio
+    python3 tools/grid-heatmap/plot_grid_heatmap.py --url http://localhost:8081 --metric unsettled_ratio
 """
 
 import argparse

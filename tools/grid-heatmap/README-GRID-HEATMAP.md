@@ -29,19 +29,19 @@ make plot-grid-heatmap URL=http://192.168.1.100:8081 SENSOR=my-sensor
 
 ```bash
 # Polar heatmap (ring vs azimuth)
-.venv/bin/python3 tools/plot_grid_heatmap.py --url http://localhost:8081 --polar
+.venv/bin/python3 tools/grid-heatmap/plot_grid_heatmap.py --url http://localhost:8081 --polar
 
 # Cartesian heatmap (X-Y spatial)
-.venv/bin/python3 tools/plot_grid_heatmap.py --url http://localhost:8081 --cartesian
+.venv/bin/python3 tools/grid-heatmap/plot_grid_heatmap.py --url http://localhost:8081 --cartesian
 
 # Combined multi-metric view
-.venv/bin/python3 tools/plot_grid_heatmap.py --url http://localhost:8081 --combined
+.venv/bin/python3 tools/grid-heatmap/plot_grid_heatmap.py --url http://localhost:8081 --combined
 
 # Custom metric
-.venv/bin/python3 tools/plot_grid_heatmap.py --metric fill_rate --polar
+.venv/bin/python3 tools/grid-heatmap/plot_grid_heatmap.py --metric fill_rate --polar
 
 # All options
-.venv/bin/python3 tools/plot_grid_heatmap.py \
+.venv/bin/python3 tools/grid-heatmap/plot_grid_heatmap.py \
   --url http://localhost:8081 \
   --sensor hesai-pandar40p \
   --azimuth-bucket 3.0 \
@@ -215,7 +215,7 @@ make plot-grid-heatmap METRIC=fill_rate CARTESIAN=true
 Use the test script to generate example plots with synthetic data:
 
 ```bash
-.venv/bin/python3 tools/test_plot_grid_heatmap.py
+.venv/bin/python3 tools/grid-heatmap/test_plot_grid_heatmap.py
 ```
 
 This creates 6 example visualizations demonstrating all plot types and metrics.
@@ -311,13 +311,13 @@ This creates 6 example visualizations demonstrating all plot types and metrics.
 
 ## Related Tools
 
-- `tools/test_grid_heatmap.sh` - Test API endpoint and display summary
-- `tools/test_plot_grid_heatmap.py` - Generate example plots with mock data
+- `tools/grid-heatmap/test_grid_heatmap.sh` - Test API endpoint and display summary
+- `tools/grid-heatmap/test_plot_grid_heatmap.py` - Generate example plots with mock data
 - `internal/lidar/docs/GRID-HEATMAP-API.md` - API documentation
 
 ## Files
 
-- **Script**: `tools/plot_grid_heatmap.py`
-- **Test**: `tools/test_plot_grid_heatmap.py`
+- **Script**: `tools/grid-heatmap/plot_grid_heatmap.py`
+- **Test**: `tools/grid-heatmap/test_plot_grid_heatmap.py`
 - **Makefile target**: `plot-grid-heatmap`
 - **Dependencies**: matplotlib, numpy, requests (in `.venv`)

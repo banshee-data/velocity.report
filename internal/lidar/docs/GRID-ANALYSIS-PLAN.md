@@ -321,7 +321,7 @@ func (ws *WebServer) handleGridHeatmap(w http.ResponseWriter, r *http.Request) {
 
 #### Step 2.1: Heatmap Plotting Script
 
-**File**: `tools/plot_grid_heatmap.py`
+**File**: `tools/grid-heatmap/plot_grid_heatmap.py`
 
 ```python
 #!/usr/bin/env python3
@@ -329,7 +329,7 @@ func (ws *WebServer) handleGridHeatmap(w http.ResponseWriter, r *http.Request) {
 Plot grid heatmap visualization from /api/lidar/grid_heatmap endpoint
 
 Usage:
-    python3 tools/plot_grid_heatmap.py --url http://localhost:8081 --sensor hesai-pandar40p
+    python3 tools/grid-heatmap/plot_grid_heatmap.py --url http://localhost:8081 --sensor hesai-pandar40p
 """
 
 import argparse
@@ -512,7 +512,7 @@ plot-grid-heatmap:
 	[ "$(POLAR)" = "true" ] && EXTRA="$$EXTRA --polar"; \
 	[ "$(CARTESIAN)" = "true" ] && EXTRA="$$EXTRA --cartesian"; \
 	echo "Fetching grid heatmap from $$URL for $$SENSOR"; \
-	$(VENV_PYTHON) tools/plot_grid_heatmap.py --url "$$URL" --sensor "$$SENSOR" --metric "$$METRIC" --output "$$OUT" $$EXTRA
+	$(VENV_PYTHON) tools/grid-heatmap/plot_grid_heatmap.py --url "$$URL" --sensor "$$SENSOR" --metric "$$METRIC" --output "$$OUT" $$EXTRA
 ```
 
 ### Phase 3: Integration with Sweep Testing
@@ -584,7 +584,7 @@ Add to sampling loop to save heatmap snapshots for each parameter combination.
 
 ### New Files
 
-- `tools/plot_grid_heatmap.py` - Visualization script
+- `tools/grid-heatmap/plot_grid_heatmap.py` - Visualization script
 
 ### Modified Files
 
