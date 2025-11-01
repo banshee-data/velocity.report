@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 
@@ -137,6 +138,7 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/api/lidar/params", ws.handleBackgroundParams)
 	mux.HandleFunc("/api/lidar/grid_status", ws.handleGridStatus)
 	mux.HandleFunc("/api/lidar/grid_reset", ws.handleGridReset)
+	mux.HandleFunc("/api/lidar/grid_heatmap", ws.handleGridHeatmap)
 	mux.HandleFunc("/api/lidar/pcap/start", ws.handlePCAPStart)
 
 	return mux
@@ -294,6 +296,55 @@ func (ws *WebServer) handleGridReset(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "sensor_id": sensorID})
+}
+
+// handleGridHeatmap returns aggregated grid metrics in coarse spatial buckets
+// for visualization and analysis of filled vs settled cells.
+// Query params:
+//   - sensor_id (required)
+//   - azimuth_bucket_deg (optional, default 3.0)
+//   - settled_threshold (optional, default 5)
+func (ws *WebServer) handleGridHeatmap(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "only GET supported")
+		return
+	}
+
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+
+	bm := lidar.GetBackgroundManager(sensorID)
+	if bm == nil || bm.Grid == nil {
+		ws.writeJSONError(w, http.StatusNotFound, "no background manager for sensor")
+		return
+	}
+
+	// Parse optional parameters
+	azBucketDeg := 3.0
+	if azStr := r.URL.Query().Get("azimuth_bucket_deg"); azStr != "" {
+		if val, err := strconv.ParseFloat(azStr, 64); err == nil && val > 0 {
+			azBucketDeg = val
+		}
+	}
+
+	settledThreshold := uint32(5)
+	if stStr := r.URL.Query().Get("settled_threshold"); stStr != "" {
+		if val, err := strconv.ParseUint(stStr, 10, 32); err == nil {
+			settledThreshold = uint32(val)
+		}
+	}
+
+	heatmap := bm.GetGridHeatmap(azBucketDeg, settledThreshold)
+	if heatmap == nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, "failed to generate heatmap")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(heatmap)
 }
 
 // handleExportSnapshotASC triggers an export to ASC for a given snapshot_id (or latest if not provided).
