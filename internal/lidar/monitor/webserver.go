@@ -845,9 +845,42 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify file exists
-	if _, err := os.Stat(req.PCAPFile); err != nil {
-		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("PCAP file not found: %v", err))
+	// Sanitize and validate the PCAP file path to prevent path traversal attacks
+	cleanPath := filepath.Clean(req.PCAPFile)
+
+	// Ensure the path is absolute to prevent relative path traversal
+	if !filepath.IsAbs(cleanPath) {
+		ws.writeJSONError(w, http.StatusBadRequest, "pcap_file must be an absolute path")
+		return
+	}
+
+	// Check for path traversal attempts (Clean should handle this, but double-check)
+	if cleanPath != req.PCAPFile {
+		ws.writeJSONError(w, http.StatusBadRequest, "invalid pcap_file path: contains traversal sequences")
+		return
+	}
+
+	// Verify file exists and is a regular file (not a directory or symlink)
+	fileInfo, err := os.Stat(cleanPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			ws.writeJSONError(w, http.StatusNotFound, "PCAP file not found")
+		} else {
+			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("cannot access PCAP file: %v", err))
+		}
+		return
+	}
+
+	// Ensure it's a regular file, not a directory or device
+	if !fileInfo.Mode().IsRegular() {
+		ws.writeJSONError(w, http.StatusBadRequest, "pcap_file must be a regular file")
+		return
+	}
+
+	// Optionally: Verify file extension (pcap, pcapng)
+	ext := filepath.Ext(cleanPath)
+	if ext != ".pcap" && ext != ".pcapng" {
+		ws.writeJSONError(w, http.StatusBadRequest, "pcap_file must have .pcap or .pcapng extension")
 		return
 	}
 
@@ -870,12 +903,12 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		}()
 
 		ctx := context.Background() // TODO: Consider using a cancelable context for stop functionality
-		log.Printf("Starting PCAP replay from file: %s (sensor: %s)", req.PCAPFile, sensorID)
+		log.Printf("Starting PCAP replay from file: %s (sensor: %s)", cleanPath, sensorID)
 
-		if err := network.ReadPCAPFile(ctx, req.PCAPFile, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats); err != nil {
+		if err := network.ReadPCAPFile(ctx, cleanPath, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats); err != nil {
 			log.Printf("PCAP replay error: %v", err)
 		} else {
-			log.Printf("PCAP replay completed successfully: %s", req.PCAPFile)
+			log.Printf("PCAP replay completed successfully: %s", cleanPath)
 		}
 	}()
 
@@ -883,7 +916,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{
 		"status":    "started",
 		"sensor_id": sensorID,
-		"pcap_file": req.PCAPFile,
+		"pcap_file": cleanPath,
 	})
 }
 
