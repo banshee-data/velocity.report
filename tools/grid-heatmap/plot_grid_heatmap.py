@@ -402,6 +402,322 @@ def plot_combined_metrics(heatmap, output="grid_heatmap_combined.png", dpi=150):
     plt.close()
 
 
+def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
+    """
+    Create a comprehensive full-screen dashboard with all visualizations
+    Optimized for 4K monitors (3840x2160, 16:9 aspect ratio)
+
+    Layout:
+    - Top: Polar heatmap + Cartesian scatter + Spatial XY distance map (background)
+    - Bottom: 4 metric panels in grid
+
+    Args:
+        heatmap: Heatmap data from API
+        metric: Primary metric to highlight in polar/cartesian views
+        output: Output filename
+        dpi: Image resolution
+    """
+    buckets = heatmap["buckets"]
+    params = heatmap["heatmap_params"]
+    summary = heatmap["summary"]
+
+    rings = params["ring_buckets"]
+    az_buckets = params["azimuth_buckets"]
+
+    # Create figure optimized for 4K (3840x2160 at 150dpi = 25.6x14.4 inches)
+    fig = plt.figure(figsize=(25.6, 14.4))
+    gs = fig.add_gridspec(
+        2, 12, hspace=0.25, wspace=0.30, top=0.95, bottom=0.05, left=0.05, right=0.98
+    )
+
+    # === TOP LEFT: Polar Heatmap ===
+    ax_polar = fig.add_subplot(gs[0, :4], projection="polar")
+
+    metric_map = {
+        "fill_rate": ("Fill Rate", "YlGn", (0, 1)),
+        "settle_rate": ("Settle Rate", "YlOrRd", (0, 1)),
+        "unsettled_ratio": ("Unsettled Ratio", "RdYlGn_r", (0, 1)),
+        "mean_times_seen": ("Mean Times Seen", "viridis", (0, None)),
+        "frozen_ratio": ("Frozen Ratio", "Blues", (0, 1)),
+    }
+    metric_title, cmap, (vmin_base, vmax_base) = metric_map.get(
+        metric, ("Unknown", "viridis", (0, 1))
+    )
+
+    data_polar = np.zeros((rings, az_buckets))
+    for bucket in buckets:
+        ring = bucket["ring"]
+        az_idx = int(bucket["azimuth_deg_start"] / params["azimuth_bucket_deg"])
+
+        if metric == "fill_rate":
+            data_polar[ring, az_idx] = bucket["filled_cells"] / bucket["total_cells"]
+        elif metric == "settle_rate":
+            if bucket["filled_cells"] > 0:
+                data_polar[ring, az_idx] = (
+                    bucket["settled_cells"] / bucket["filled_cells"]
+                )
+        elif metric == "unsettled_ratio":
+            if bucket["filled_cells"] > 0:
+                unsettled = bucket["filled_cells"] - bucket["settled_cells"]
+                data_polar[ring, az_idx] = unsettled / bucket["filled_cells"]
+        elif metric == "mean_times_seen":
+            data_polar[ring, az_idx] = bucket["mean_times_seen"]
+        elif metric == "frozen_ratio":
+            if bucket["filled_cells"] > 0:
+                data_polar[ring, az_idx] = (
+                    bucket["frozen_cells"] / bucket["filled_cells"]
+                )
+
+    vmax = vmax_base if vmax_base is not None else np.max(data_polar)
+    theta = np.linspace(0, 2 * np.pi, az_buckets + 1)
+    r = np.arange(rings + 1)
+    theta_grid, r_grid = np.meshgrid(theta, r)
+
+    im_polar = ax_polar.pcolormesh(
+        theta_grid,
+        r_grid,
+        data_polar,
+        cmap=cmap,
+        vmin=vmin_base,
+        vmax=vmax,
+        shading="auto",
+    )
+    ax_polar.set_theta_zero_location("N")
+    ax_polar.set_theta_direction(-1)
+    ax_polar.set_ylim(0, rings)
+    ax_polar.set_title(
+        f"Polar View: {metric_title}", fontsize=16, fontweight="bold", pad=20
+    )
+    ax_polar.grid(True, alpha=0.3)
+    cbar_polar = plt.colorbar(im_polar, ax=ax_polar, fraction=0.046, pad=0.08)
+    cbar_polar.set_label(metric_title, fontsize=12)
+
+    # === TOP MIDDLE: Cartesian Scatter ===
+    ax_cart = fig.add_subplot(gs[0, 4:8])
+
+    x_coords, y_coords, values = [], [], []
+    for bucket in buckets:
+        ring = bucket["ring"]
+        az_start = np.radians(bucket["azimuth_deg_start"])
+        az_end = np.radians(bucket["azimuth_deg_end"])
+        az_mid = (az_start + az_end) / 2
+
+        r_mid = ring + 0.5
+        x = r_mid * np.sin(az_mid)
+        y = r_mid * np.cos(az_mid)
+
+        if metric == "fill_rate":
+            val = bucket["filled_cells"] / bucket["total_cells"]
+        elif metric == "settle_rate":
+            val = (
+                bucket["settled_cells"] / bucket["filled_cells"]
+                if bucket["filled_cells"] > 0
+                else 0
+            )
+        elif metric == "unsettled_ratio":
+            if bucket["filled_cells"] > 0:
+                unsettled = bucket["filled_cells"] - bucket["settled_cells"]
+                val = unsettled / bucket["filled_cells"]
+            else:
+                val = 0
+        elif metric == "mean_times_seen":
+            val = bucket["mean_times_seen"]
+        elif metric == "frozen_ratio":
+            val = (
+                bucket["frozen_cells"] / bucket["filled_cells"]
+                if bucket["filled_cells"] > 0
+                else 0
+            )
+        else:
+            val = 0
+
+        x_coords.append(x)
+        y_coords.append(y)
+        values.append(val)
+
+    scatter = ax_cart.scatter(
+        x_coords,
+        y_coords,
+        c=values,
+        cmap=cmap,
+        s=50,
+        vmin=vmin_base,
+        vmax=vmax,
+        alpha=0.8,
+        edgecolors="none",
+    )
+    ax_cart.set_xlabel("X (rings)", fontsize=12)
+    ax_cart.set_ylabel("Y (rings)", fontsize=12)
+    ax_cart.set_title(f"Cartesian View: {metric_title}", fontsize=16, fontweight="bold")
+    ax_cart.set_aspect("equal")
+    ax_cart.grid(True, alpha=0.3)
+    ax_cart.plot(0, 0, "r*", markersize=15, label="Sensor", zorder=5)
+    ax_cart.legend(loc="upper right")
+    cbar_cart = plt.colorbar(scatter, ax=ax_cart, fraction=0.046, pad=0.04)
+    cbar_cart.set_label(metric_title, fontsize=12)
+
+    # === TOP RIGHT: Spatial XY Distance Heatmap ===
+    ax_spatial = fig.add_subplot(gs[0, 8:])
+
+    # Build spatial grid - plot actual distance (range) from sensor in XY space
+    x_coords_all, y_coords_all, range_values = [], [], []
+    for bucket in buckets:
+        # Only plot buckets with actual range data
+        if bucket["filled_cells"] == 0 or bucket["mean_range_meters"] == 0:
+            continue
+
+        ring = bucket["ring"]
+        az_start = np.radians(bucket["azimuth_deg_start"])
+        az_end = np.radians(bucket["azimuth_deg_end"])
+        az_mid = (az_start + az_end) / 2
+
+        # Use actual measured range from background snapshot
+        range_m = bucket["mean_range_meters"]
+
+        # Convert to XY coordinates (sensor at origin)
+        x = range_m * np.sin(az_mid)
+        y = range_m * np.cos(az_mid)
+
+        x_coords_all.append(x)
+        y_coords_all.append(y)
+        range_values.append(range_m)
+
+    if len(x_coords_all) > 0:
+        # Create 2D histogram/heatmap
+        x_bins = np.linspace(min(x_coords_all), max(x_coords_all), 80)
+        y_bins = np.linspace(min(y_coords_all), max(y_coords_all), 80)
+
+        # Create grid for heatmap
+        H, xedges, yedges = np.histogram2d(
+            x_coords_all, y_coords_all, bins=[x_bins, y_bins], weights=range_values
+        )
+        counts, _, _ = np.histogram2d(x_coords_all, y_coords_all, bins=[x_bins, y_bins])
+
+        # Average values in each bin
+        with np.errstate(divide="ignore", invalid="ignore"):
+            H_avg = np.divide(H, counts)
+            H_avg[~np.isfinite(H_avg)] = 0
+
+        # Use viridis colormap for distance (meters)
+        im_spatial = ax_spatial.imshow(
+            H_avg.T,
+            origin="lower",
+            extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
+            cmap="viridis",
+            aspect="equal",
+            interpolation="bilinear",
+        )
+
+        ax_spatial.set_xlabel("X (meters)", fontsize=12)
+        ax_spatial.set_ylabel("Y (meters)", fontsize=12)
+        ax_spatial.set_title(
+            "Spatial XY: Background Distance", fontsize=16, fontweight="bold"
+        )
+        ax_spatial.grid(True, alpha=0.3)
+        ax_spatial.plot(0, 0, "r*", markersize=15, label="Sensor", zorder=5)
+        ax_spatial.legend(loc="upper right")
+        cbar_spatial = plt.colorbar(im_spatial, ax=ax_spatial, fraction=0.046, pad=0.04)
+        cbar_spatial.set_label("Distance (m)", fontsize=12)
+    else:
+        # No data to plot
+        ax_spatial.text(
+            0.5,
+            0.5,
+            "No background data available",
+            ha="center",
+            va="center",
+            transform=ax_spatial.transAxes,
+            fontsize=14,
+        )
+        ax_spatial.set_xlabel("X (meters)", fontsize=12)
+        ax_spatial.set_ylabel("Y (meters)", fontsize=12)
+        ax_spatial.set_title(
+            "Spatial XY: Background Distance", fontsize=16, fontweight="bold"
+        )
+
+    # === BOTTOM: 4 Metric Panels ===
+    metric_configs = [
+        ("fill_rate", "Fill Rate", "YlGn", (0, 1)),
+        ("settle_rate", "Settle Rate", "YlOrRd", (0, 1)),
+        ("unsettled_ratio", "Unsettled Ratio", "RdYlGn_r", (0, 1)),
+        ("mean_times_seen", "Mean Times Seen", "viridis", (0, None)),
+    ]
+
+    # Distribute 4 panels evenly across 12 columns (each gets 3 columns)
+    for idx, (met, title, cm, (vmin, vmax)) in enumerate(metric_configs):
+        col_start = idx * 3
+        ax = fig.add_subplot(gs[1, col_start : col_start + 3])
+
+        data = np.zeros((rings, az_buckets))
+        for bucket in buckets:
+            ring = bucket["ring"]
+            az_idx = int(bucket["azimuth_deg_start"] / params["azimuth_bucket_deg"])
+
+            if met == "fill_rate":
+                data[ring, az_idx] = bucket["filled_cells"] / bucket["total_cells"]
+            elif met == "settle_rate":
+                if bucket["filled_cells"] > 0:
+                    data[ring, az_idx] = (
+                        bucket["settled_cells"] / bucket["filled_cells"]
+                    )
+            elif met == "unsettled_ratio":
+                if bucket["filled_cells"] > 0:
+                    unsettled = bucket["filled_cells"] - bucket["settled_cells"]
+                    data[ring, az_idx] = unsettled / bucket["filled_cells"]
+            elif met == "mean_times_seen":
+                data[ring, az_idx] = bucket["mean_times_seen"]
+
+        vmax_plot = (
+            vmax if vmax is not None else (np.max(data) if np.max(data) > 0 else 1)
+        )
+
+        im = ax.imshow(
+            data,
+            aspect="auto",
+            cmap=cm,
+            origin="lower",
+            extent=[0, 360, 0, rings],
+            vmin=vmin,
+            vmax=vmax_plot,
+            interpolation="nearest",
+        )
+
+        ax.set_xlabel("Azimuth (°)", fontsize=10)
+        ax.set_ylabel("Ring", fontsize=10)
+        ax.set_title(title, fontsize=12, fontweight="bold")
+        ax.set_xticks(np.arange(0, 361, 90))
+        ax.set_yticks(np.arange(0, rings + 1, 10))
+        ax.grid(True, alpha=0.3, linewidth=0.5)
+
+        cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+        cbar.ax.tick_params(labelsize=8)
+
+    # === Title and Summary ===
+    title_text = (
+        f"{heatmap['sensor_id']} - Grid Analysis Dashboard\n{heatmap['timestamp'][:19]}"
+    )
+    fig.suptitle(title_text, fontsize=18, fontweight="bold", y=0.98)
+
+    summary_text = (
+        f"Filled: {summary['total_filled']:,}/{summary['total_filled'] + (72000 - summary['total_filled']):,} "
+        f"({summary['fill_rate']:.1%})  |  "
+        f"Settled: {summary['total_settled']:,} ({summary['settle_rate']:.1%})  |  "
+        f"Frozen: {summary['total_frozen']:,}"
+    )
+    fig.text(
+        0.5,
+        0.02,
+        summary_text,
+        ha="center",
+        fontsize=12,
+        bbox=dict(boxstyle="round", facecolor="white", alpha=0.9, edgecolor="gray"),
+    )
+
+    plt.savefig(output, dpi=dpi, bbox_inches="tight")
+    print(f"Saved full dashboard: {output}")
+    plt.close()
+
+
 def start_pcap_replay(base_url, sensor_id, pcap_file):
     """
     Start PCAP replay via the monitor API
@@ -487,9 +803,6 @@ def process_pcap_with_snapshots(
     azimuth_bucket,
     settled_threshold,
     metric,
-    polar,
-    cartesian,
-    combined,
     dpi,
 ):
     """
@@ -505,9 +818,6 @@ def process_pcap_with_snapshots(
         azimuth_bucket: Azimuth bucket size
         settled_threshold: Settled threshold
         metric: Metric to visualize
-        polar: Generate polar plots
-        cartesian: Generate cartesian plots
-        combined: Generate combined plots
         dpi: Image DPI
     """
     # Create output directory
@@ -599,26 +909,10 @@ def process_pcap_with_snapshots(
             }
             metadata["snapshots"].append(snapshot_meta)
 
-            # Generate plots
-            if polar:
-                polar_output = output_path / f"{prefix}_polar.png"
-                plot_polar_heatmap(heatmap, metric, str(polar_output), dpi)
-                print(f"  Saved: {polar_output.name}")
-
-            if cartesian:
-                xy_output = output_path / f"{prefix}_xy.png"
-                plot_cartesian_heatmap(heatmap, metric, str(xy_output), dpi)
-                print(f"  Saved: {xy_output.name}")
-
-            if combined:
-                combined_output = output_path / f"{prefix}_combined.png"
-                plot_combined_metrics(heatmap, str(combined_output), dpi)
-                print(f"  Saved: {combined_output.name}")
-
-            # Save raw heatmap data
-            heatmap_json = output_path / f"{prefix}_heatmap.json"
-            with open(heatmap_json, "w") as f:
-                json.dump(heatmap, f, indent=2)
+            # Generate full dashboard (single comprehensive PNG)
+            dashboard_output = output_path / f"{prefix}.png"
+            plot_full_dashboard(heatmap, metric, str(dashboard_output), dpi)
+            print(f"  Saved: {dashboard_output.name}")
 
             # Schedule next snapshot
             next_snapshot_time += interval
@@ -663,9 +957,6 @@ def process_live_snapshots(
     azimuth_bucket,
     settled_threshold,
     metric,
-    polar,
-    cartesian,
-    combined,
     dpi,
 ):
     """
@@ -680,9 +971,6 @@ def process_live_snapshots(
         azimuth_bucket: Azimuth bucket size
         settled_threshold: Settled threshold
         metric: Metric to visualize
-        polar: Generate polar plots
-        cartesian: Generate cartesian plots
-        combined: Generate combined plots
         dpi: Image DPI
     """
     # Create output directory
@@ -766,26 +1054,10 @@ def process_live_snapshots(
             }
             metadata["snapshots"].append(snapshot_meta)
 
-            # Save raw heatmap data
-            heatmap_file = output_path / f"{prefix}_heatmap.json"
-            with open(heatmap_file, "w") as f:
-                json.dump(heatmap, f, indent=2)
-
-            # Generate plots
-            if polar:
-                polar_output = output_path / f"{prefix}_polar.png"
-                plot_polar_heatmap(heatmap, metric, str(polar_output), dpi)
-                print(f"  Saved: {polar_output.name}")
-
-            if cartesian:
-                xy_output = output_path / f"{prefix}_xy.png"
-                plot_cartesian_heatmap(heatmap, metric, str(xy_output), dpi)
-                print(f"  Saved: {xy_output.name}")
-
-            if combined:
-                combined_output = output_path / f"{prefix}_combined.png"
-                plot_combined_metrics(heatmap, str(combined_output), dpi)
-                print(f"  Saved: {combined_output.name}")
+            # Generate full dashboard (single comprehensive PNG)
+            dashboard_output = output_path / f"{prefix}.png"
+            plot_full_dashboard(heatmap, metric, str(dashboard_output), dpi)
+            print(f"  Saved: {dashboard_output.name}")
 
             print()
 
@@ -886,15 +1158,6 @@ def main():
         help="Metric to visualize",
     )
     parser.add_argument(
-        "--polar", action="store_true", help="Create polar heatmap (ring vs azimuth)"
-    )
-    parser.add_argument(
-        "--cartesian", action="store_true", help="Create cartesian heatmap (X-Y)"
-    )
-    parser.add_argument(
-        "--combined", action="store_true", help="Create combined multi-metric view"
-    )
-    parser.add_argument(
         "--output",
         default="grid_heatmap.png",
         help="Output filename (or directory for PCAP mode)",
@@ -931,11 +1194,6 @@ def main():
 
     # PCAP mode - process PCAP file with periodic snapshots
     if args.pcap:
-        # Default to all plot types in PCAP mode if none specified
-        if not args.polar and not args.cartesian and not args.combined:
-            args.polar = True
-            args.combined = True
-
         # Default output directory
         if args.output_dir is None:
             pcap_name = Path(args.pcap).stem
@@ -953,9 +1211,6 @@ def main():
             azimuth_bucket=args.azimuth_bucket,
             settled_threshold=args.settled_threshold,
             metric=args.metric,
-            polar=args.polar,
-            cartesian=args.cartesian,
-            combined=args.combined,
             dpi=args.dpi,
         )
         return
@@ -963,11 +1218,6 @@ def main():
     # Live snapshot mode - periodic captures from running system
     # Triggered by --interval or --duration without --pcap
     if args.interval != 30 or args.duration is not None:
-        # Default to all plot types in snapshot mode if none specified
-        if not args.polar and not args.cartesian and not args.combined:
-            args.polar = True
-            args.combined = True
-
         # Default output directory
         if args.output_dir is None:
             script_dir = Path(__file__).parent
@@ -983,18 +1233,11 @@ def main():
             azimuth_bucket=args.azimuth_bucket,
             settled_threshold=args.settled_threshold,
             metric=args.metric,
-            polar=args.polar,
-            cartesian=args.cartesian,
-            combined=args.combined,
             dpi=args.dpi,
         )
         return
 
-    # Single snapshot mode (original behavior)
-    # Default to polar if nothing specified
-    if not args.polar and not args.cartesian and not args.combined:
-        args.polar = True
-
+    # Single snapshot mode (original behavior) - generate full dashboard
     print(f"Fetching heatmap data from {args.url}...")
     heatmap = fetch_heatmap(
         args.url, args.sensor, args.azimuth_bucket, args.settled_threshold
@@ -1014,18 +1257,9 @@ def main():
     )
     print()
 
-    if args.polar:
-        plot_polar_heatmap(heatmap, args.metric, args.output, args.dpi)
-
-    if args.cartesian:
-        xy_output = args.output.replace(".png", "_xy.png")
-        plot_cartesian_heatmap(heatmap, args.metric, xy_output, args.dpi)
-
-    if args.combined:
-        combined_output = args.output.replace(".png", "_combined.png")
-        plot_combined_metrics(heatmap, combined_output, args.dpi)
-
-    print("\n✓ Plotting completed successfully")
+    # Generate full dashboard
+    plot_full_dashboard(heatmap, args.metric, args.output, args.dpi)
+    print(f"\n✓ Saved: {args.output}")
 
 
 if __name__ == "__main__":
