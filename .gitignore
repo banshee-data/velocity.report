@@ -13,6 +13,7 @@ web/.svelte-kit/*
 __pycache__/*
 matplotlib/__pycache__/*
 tools/__pycache__/*
+tools/grid-heatmap/__pycache__/*
 
 .DS_Store
 .env
