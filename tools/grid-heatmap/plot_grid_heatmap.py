@@ -409,10 +409,11 @@ def start_pcap_replay(base_url, sensor_id, pcap_file):
         True if successful, False otherwise
     """
     url = f"{base_url}/api/lidar/pcap/start"
-    params = {"sensor_id": sensor_id, "pcap_file": pcap_file}
+    params = {"sensor_id": sensor_id}
+    body = {"pcap_file": pcap_file}
 
     try:
-        resp = requests.post(url, params=params, timeout=10)
+        resp = requests.post(url, params=params, json=body, timeout=10)
         resp.raise_for_status()
         result = resp.json()
         print(f"PCAP replay started: {result}")
