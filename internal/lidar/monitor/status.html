@@ -1,13 +1,43 @@
 <!DOCTYPE html>
 <html>
-  <head><title>Lidar UDP Listener</title></head>
+  <head><title>Lidar Monitor - {{.SensorID}}</title></head>
   <body>
-    <h1>Lidar UDP Listener</h1>
-    <p>Listening on UDP port {{.UDPPort}}</p>
-    <p>HTTP server running on {{.HTTPAddress}}</p>
-    <p>Packet forwarding: {{.ForwardingStatus}}</p>
-    <p>Packet parsing: {{.ParsingStatus}}</p>
-    <p><strong>Uptime:</strong> {{.Uptime}}</p>
+    <h1>LiDAR Monitor - {{.SensorID}}</h1>
+
+    <h2>Configuration</h2>
+    <table border="1" cellpadding="5" cellspacing="0">
+      <tr><td><strong>Mode:</strong></td><td><strong>{{.Mode}}</strong></td></tr>
+      <tr><td><strong>UDP Port:</strong></td><td>{{.UDPPort}}</td></tr>
+      <tr><td><strong>HTTP Address:</strong></td><td>{{.HTTPAddress}}</td></tr>
+      <tr><td><strong>Packet
+            Forwarding:</strong></td><td>{{.ForwardingStatus}}</td></tr>
+      <tr><td><strong>Packet
+            Parsing:</strong></td><td>{{.ParsingStatus}}</td></tr>
+      {{if .PCAPSafeDir}}
+      <tr><td><strong>PCAP Safe
+            Directory:</strong></td><td>{{.PCAPSafeDir}}</td></tr>
+      {{end}}
+      <tr><td><strong>Uptime:</strong></td><td>{{.Uptime}}</td></tr>
+    </table>
+
+    {{if .BGParams}}
+    <h2>Background Subtraction Parameters</h2>
+    <table border="1" cellpadding="5" cellspacing="0">
+      <tr><td><strong>Noise Relative Fraction:</strong></td><td>{{printf "%.4f"
+          .BGParams.NoiseRelativeFraction}}</td></tr>
+      <tr><td><strong>Closeness Sensitivity
+            Multiplier:</strong></td><td>{{printf "%.2f"
+          .BGParams.ClosenessSensitivityMultiplier}}</td></tr>
+      <tr><td><strong>Neighbor Confirmation
+            Count:</strong></td><td>{{.BGParams.NeighborConfirmationCount}}</td></tr>
+      <tr><td><strong>Background Update Fraction:</strong></td><td>{{printf
+          "%.4f" .BGParams.BackgroundUpdateFraction}}</td></tr>
+      <tr><td><strong>Safety Margin (meters):</strong></td><td>{{printf "%.2f"
+          .BGParams.SafetyMarginMeters}}</td></tr>
+      <tr><td><strong>Seed From First
+            Observation:</strong></td><td>{{.BGParams.SeedFromFirstObservation}}</td></tr>
+    </table>
+    {{end}}
 
     {{if .Stats}}
     <h2>Latest Statistics</h2>
@@ -27,22 +57,29 @@
     <p><em>No statistics available yet...</em></p>
     {{end}}
 
+    <h2>API Endpoints</h2>
     <ul>
       <li><a href="/health">Health check</a></li>
-      <li><a href="/api/lidar/persist?sensor_id={{.SensorID}}">Save
-          Background Snapshot</a></li>
-      <li><a href="/api/lidar/snapshot?sensor_id={{.SensorID}}">Get Latest
+      <li><a href="/api/lidar/params?sensor_id={{.SensorID}}"
+          target="_blank">Get Background Parameters</a></li>
+      <li><a href="/api/lidar/grid_status?sensor_id={{.SensorID}}"
+          target="_blank">Grid Status</a></li>
+      <li><a href="/api/lidar/grid_heatmap?sensor_id={{.SensorID}}"
+          target="_blank">Grid Heatmap</a></li>
+      <li><a href="/api/lidar/acceptance?sensor_id={{.SensorID}}"
+          target="_blank">Background Acceptance Metrics</a></li>
+      <li><a href="/api/lidar/acceptance/reset?sensor_id={{.SensorID}}"
+          target="_blank">Reset Acceptance Metrics</a></li>
+      <li><a href="/api/lidar/persist?sensor_id={{.SensorID}}">Save Background
           Snapshot</a></li>
-      <li><a href="/api/lidar/snapshots?sensor_id={{.SensorID}}">List Recent
-          Snapshots</a></li>
+      <li><a href="/api/lidar/snapshot?sensor_id={{.SensorID}}"
+          target="_blank">Get Latest Snapshot</a></li>
+      <li><a href="/api/lidar/snapshots?sensor_id={{.SensorID}}"
+          target="_blank">List Recent Snapshots</a></li>
       <li><a href="/api/lidar/export_snapshot?sensor_id={{.SensorID}}">Export
           Latest Snapshot to ASC</a></li>
       <li><a href="/api/lidar/export_next_frame?sensor_id={{.SensorID}}">Export
           Next Completed Frame to ASC</a></li>
-      <li><a href="/api/lidar/acceptance?sensor_id={{.SensorID}}"
-          target="_blank">View Background Acceptance Metrics</a></li>
-      <li><a href="/api/lidar/acceptance/reset?sensor_id={{.SensorID}}"
-          target="_blank">Reset Background Acceptance Metrics</a></li>
     </ul>
   </body>
 </html>

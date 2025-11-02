@@ -44,6 +44,7 @@ type WebServer struct {
 	parser            network.Parser
 	frameBuilder      network.FrameBuilder
 	pcapSafeDir       string // Safe directory for PCAP file access
+	pcapMode          bool   // True if running in PCAP mode (no UDP listener)
 
 	// PCAP replay state
 	pcapMu         sync.Mutex
@@ -64,6 +65,7 @@ type WebServerConfig struct {
 	Parser            network.Parser
 	FrameBuilder      network.FrameBuilder
 	PCAPSafeDir       string // Safe directory for PCAP file access (restricts path traversal)
+	PCAPMode          bool   // True if running in PCAP mode (no UDP listener)
 }
 
 // NewWebServer creates a new web server with the provided configuration
@@ -81,6 +83,7 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		parser:            config.Parser,
 		frameBuilder:      config.FrameBuilder,
 		pcapSafeDir:       config.PCAPSafeDir,
+		pcapMode:          config.PCAPMode,
 	}
 
 	ws.server = &http.Server{
@@ -525,6 +528,19 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		parsingStatus = "disabled"
 	}
 
+	// Determine mode (PCAP vs Live)
+	mode := "Live UDP"
+	if ws.pcapMode {
+		mode = "PCAP Replay"
+	}
+
+	// Get background manager to show current params
+	var bgParams *lidar.BackgroundParams
+	if mgr := lidar.GetBackgroundManager(ws.sensorID); mgr != nil {
+		params := mgr.GetParams()
+		bgParams = &params
+	}
+
 	// Load and parse the HTML template from embedded filesystem
 	tmpl, err := template.ParseFS(StatusHTML, "status.html")
 	if err != nil {
@@ -538,17 +554,23 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		HTTPAddress      string
 		ForwardingStatus string
 		ParsingStatus    string
+		Mode             string
+		PCAPSafeDir      string
 		Uptime           string
 		Stats            *StatsSnapshot
 		SensorID         string
+		BGParams         *lidar.BackgroundParams
 	}{
 		UDPPort:          ws.udpPort,
 		HTTPAddress:      ws.address,
 		ForwardingStatus: forwardingStatus,
 		ParsingStatus:    parsingStatus,
+		Mode:             mode,
+		PCAPSafeDir:      ws.pcapSafeDir,
 		Uptime:           ws.stats.GetUptime().Round(time.Second).String(),
 		Stats:            ws.stats.GetLatestSnapshot(),
 		SensorID:         ws.sensorID,
+		BGParams:         bgParams,
 	}
 
 	if err := tmpl.Execute(w, data); err != nil {

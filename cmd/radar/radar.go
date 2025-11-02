@@ -346,6 +346,7 @@ func main() {
 			Parser:            parser,
 			FrameBuilder:      frameBuilder,
 			PCAPSafeDir:       *lidarPCAPDir,
+			PCAPMode:          *lidarPCAPMode,
 		})
 		wg.Add(1)
 		go func() {
