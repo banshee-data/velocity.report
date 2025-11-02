@@ -11,12 +11,12 @@
 ## September 22, 2025 - Background model fixes, snapshot export & backfill
 
 - Wired the `BackgroundManager` into the LiDAR pipeline and made snapshots self-contained by
-	persisting per-ring elevation angles (`ring_elevations_json`) with each `lidar_bg_snapshot`.
+  persisting per-ring elevation angles (`ring_elevations_json`) with each `lidar_bg_snapshot`.
 - Centralized snapshot-to-ASC export so exports prefer snapshot-embedded elevations (fallbacks: caller-supplied, then live manager) and added frame-export fallbacks that recompute Z from polar values when needed.
 - Added a small CLI backfill tool to populate `ring_elevations_json` for existing snapshots (used embedded Pandar40P config to backfill many rows).
 - Small algorithmic improvements to `ProcessFramePolar` to reduce outward drift:
-	- restrict neighbor confirmation to same-ring neighbors (avoid cross-ring elevation leakage),
-	- update spread EMA relative to the previous mean (reduces alpha-related bias).
+  - restrict neighbor confirmation to same-ring neighbors (avoid cross-ring elevation leakage),
+  - update spread EMA relative to the previous mean (reduces alpha-related bias).
 - Added unit tests: export behavior (ensures exported Z is correct when elevations are available) and backfill DB tests; fixed concurrent SQLite update pattern (read candidates first, then write) to avoid SQLITE_BUSY.
 - Cleaned up debugging prints and standardized CLI logging in the backfill tool; left data-export writes unchanged.
 
@@ -64,13 +64,15 @@
 ## September 13, 2025 - Test Code Maintainability & Optimization
 
 ### Parse Test Improvements
-- **Eliminated implementation dependencies**: Replaced external constants (CHANNELS_PER_BLOCK, PACKET_SIZE_*) with local test constants
+
+- **Eliminated implementation dependencies**: Replaced external constants (CHANNELS*PER_BLOCK, PACKET_SIZE*\*) with local test constants
 - **Enhanced maintainability**: Tests now self-contained and independent of implementation changes
 - **Fixed boundary conditions**: Corrected loop bounds in PCAP extraction to include valid edge cases
 - **Removed redundant checks**: Eliminated unnecessary bounds checking in packet extraction logic
 - **Performance optimization**: Streamlined extractUDPPayloads function by removing redundant conditional checks
 
 ### Technical Changes
+
 - **Local test constants**: Added testChannelsPerBlock, testPacketSizeStandard, etc. for test isolation
 - **Boundary fix**: Changed `i < len(data)-testPacketSizeStandard` to `i <= len(data)-testPacketSizeStandard`
 - **Logic optimization**: Removed redundant `if i+testPacketSizeStandard <= len(data)` check
@@ -79,6 +81,7 @@
 ## September 12, 2025 - Frame Builder Test Suite Fixes & Validation
 
 ### Test Suite Completion
+
 - **All frame builder tests passing**: Fixed 3 previously failing tests using realistic production data patterns
 - **Integration test relocation**: Moved PCAP integration test from `cmd/pcap-test/` to `internal/lidar/integration_test.go`
 - **Test data organization**: Created `internal/lidar/testdata/` directory following Go conventions
@@ -88,11 +91,13 @@
 - **Configuration completeness**: Added BufferTimeout and CleanupInterval settings for proper async frame processing
 
 ### Fixed Test Cases
+
 - **TestFrameBuilder_TraditionalAzimuthOnly**: Traditional azimuth-only detection (350° → 10°) with 60,000 points
 - **TestFrameBuilder_HybridDetection**: Time-based detection with azimuth validation and realistic timing
 - **TestFrameBuilder_AzimuthWrapWithTimeBased**: Azimuth wrap in time-based mode with proper configuration
 
 ### Test Pattern Analysis
+
 - **Successful data patterns**: 0°-356° azimuth coverage with wrap at 356°→5° triggers completion
 - **Timing validation**: ~60ms frame duration matches production expectations (600 RPM motor speed)
 - **Point distribution**: Even azimuth distribution across 60,000 points provides adequate coverage
@@ -101,6 +106,7 @@
 ## September 12, 2025 - Time-Based Frame Detection & Documentation
 
 ### Time-Based Frame Detection Implementation
+
 - **Hybrid frame detection**: Time-based primary trigger with azimuth validation for anomaly prevention
 - **Motor speed integration**: Real-time motor speed extraction from packet tail (bytes 8-9)
 - **Frame timing adaptation**: Dynamic frame duration based on actual RPM (50ms at 1200 RPM, 100ms at 600 RPM)
@@ -111,6 +117,7 @@
 - **Testing validation**: Confirmed proper frame duration changes during RPM transitions (600→1200→600)
 
 ### Code Documentation Enhancement
+
 - **Comment verbosity upgrade**: Comprehensive documentation updates in extract.go
 - **Packet structure details**: Complete 22-byte tail parsing documentation with all fields
 - **Timestamp mode documentation**: Added detailed explanations for all 5 supported modes
@@ -118,6 +125,7 @@
 - **Performance optimization notes**: Documented trigonometric optimizations and memory allocations
 
 ### Technical Improvements
+
 - **CLI configurability**: Added --sensor-name flag for flexible deployment scenarios
 - **Real-time adaptation**: Frame builder now responds immediately to motor speed changes
 - **Accurate timing**: Eliminated hardcoded 600 RPM assumption, uses actual motor speed throughout
@@ -126,6 +134,7 @@
 ## September 11, 2025 - Memory Optimization & Frame Rate Fixes
 
 ### Packet Structure Analysis
+
 - **Wireshark investigation**: Analyzed Hesai Pandar40P UDP packet structure
 - **Discovered Ethernet tail issue**: Extra 4 bytes appended to UDP packets
 - **Tail composition**: 2-byte sequence + 2-byte unknown data (0x00 0x00)
@@ -133,11 +142,13 @@
 - **Validation**: Confirmed correct UDP sequence extraction and point parsing
 
 ### Performance Validation
+
 - **Proper frame characteristics**: ~69,000 points per frame, ~100ms duration
 - **Correct LiDAR operation**: Full 360° rotations with expected Hesai Pandar40P output
 - **Debug logging**: Added temporary logging to diagnose, then removed for production
 
 ### Technical Discoveries
+
 - **Ethernet vs UDP parsing**: Raw UDP data includes Ethernet layer artifacts
 - **Tail offset critical**: Incorrect offset leads to malformed sequence numbers
 - Frame builder processes points individually, not in packets
