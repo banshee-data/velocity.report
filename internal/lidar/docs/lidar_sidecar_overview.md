@@ -17,7 +17,7 @@
 - HTTP monitoring interface with real-time statistics
 - Comprehensive test suite with real packet validation
 
-### 🔄 **Phase 2: Background & Clustering (IN PROGRESS)**
+### ✅ **Phase 2: Background & Clustering (COMPLETED)**
 
 - ✅ Background grid infrastructure with EMA learning (implemented)
 - ✅ Foreground/background classification with neighbor voting (implemented)
@@ -25,16 +25,24 @@
 - ✅ Enhanced HTTP endpoints for tuning and monitoring (implemented)
 - ✅ Acceptance metrics for parameter tuning (implemented)
 - ✅ PCAP file reading for parameter identification (implemented)
-- 📋 Foreground point extraction and clustering (planned)
+- ✅ Grid heatmap visualization API for spatial analysis (implemented)
+- ✅ Comprehensive debug logging for diagnostics (implemented)
 
 ### ✅ **Phase 2.5: PCAP-Based Parameter Tuning (COMPLETED)**
 
 - ✅ **PCAP Mode**: `--lidar-pcap-mode` flag disables UDP network listening
 - ✅ **API-Controlled Replay**: POST to `/api/lidar/pcap/start` with file path
+- ✅ **Safe Directory Restriction**: `--lidar-pcap-dir` limits file access to prevent path traversal attacks
 - ✅ **BPF Filtering**: Filters PCAP by UDP port (supports multi-sensor captures)
 - ✅ **Background Persistence**: Periodic flush every N seconds during replay
 - ✅ **Sweep Tool Integration**: bg-sweep and bg-multisweep use PCAP API
 - ✅ **No Server Restart**: Change PCAP files via API without restarting radar binary
+- ✅ **Frame Builder Fix**: Fixed eviction bug that prevented frame callback delivery
+- ✅ **Grid Visualization**: Spatial heatmap API for analyzing filled vs settled cells
+
+### 📋 **Phase 2.9: Foreground point extrction (NEXT)**
+
+- 📋 Foreground point extraction and clustering (planned)
 
 ### 📋 **Phase 3: Tracking & World Transform (NEXT)**
 
@@ -65,6 +73,7 @@ cmd/bg-sweep/main.go               ✅ # Single-parameter sweep tool for tuning
 cmd/bg-multisweep/main.go          ✅ # Multi-parameter grid search tool
 internal/lidar/network/listener.go ✅ # UDP socket and packet processing
 internal/lidar/network/forwarder.go✅ # UDP packet forwarding to LidarView
+internal/lidar/network/pcap.go     ✅ # PCAP file reading with BPF filtering
 internal/lidar/parse/extract.go    ✅ # Pandar40P packet -> []Point (22-byte tail)
 internal/lidar/parse/config.go     ✅ # Embedded calibration configurations
 internal/lidar/frame_builder.go    ✅ # Time-based frame assembly with motor speed
@@ -73,6 +82,7 @@ internal/lidar/background.go       ✅ # Background model & classification with 
 internal/lidar/export.go           ✅ # ASC point cloud export
 internal/lidar/arena.go            🔄 # Clustering and tracking (stubbed)
 internal/db/db.go                  ✅ # Database schema and BgSnapshot persistence
+tools/grid-heatmap/                ✅ # Grid visualization and analysis tools
 ```
 
 **Data Flow:**
@@ -219,6 +229,255 @@ curl -X POST http://localhost:8081/api/lidar/pcap/start?sensor_id=hesai-pandar40
 **Build Notes:**
 
 - PCAP support requires the `pcap` build tag and libpcap C library
+- Safe directory restriction: `--lidar-pcap-dir` (default: `../sensor-data/lidar`) prevents path traversal attacks
+- Only files within the safe directory can be replayed via the API
+- Systemd service automatically creates the safe directory on startup
+
+---
+
+## Grid Analysis & Visualization
+
+### Grid Heatmap API
+
+The grid heatmap API aggregates the fine-grained background grid (40 rings × 1800 azimuth bins = 72,000 cells) into coarse spatial buckets for visualization and analysis.
+
+**Endpoint**: `GET /api/lidar/grid_heatmap`
+
+**Query Parameters**:
+
+- `sensor_id` (required): Sensor identifier
+- `azimuth_bucket_deg` (optional, default=3.0): Degrees per azimuth bucket
+- `settled_threshold` (optional, default=5): Minimum TimesSeenCount for "settled" classification
+
+**Response Structure**:
+
+```json
+{
+  "sensor_id": "hesai-pandar40p",
+  "timestamp": "2025-11-01T12:00:00Z",
+  "grid_params": {
+    "total_rings": 40,
+    "total_azimuth_bins": 1800,
+    "total_cells": 72000
+  },
+  "heatmap_params": {
+    "azimuth_bucket_deg": 3.0,
+    "azimuth_buckets": 120,
+    "ring_buckets": 40,
+    "settled_threshold": 5
+  },
+  "summary": {
+    "total_filled": 58234,
+    "total_settled": 52100,
+    "fill_rate": 0.809,
+    "settle_rate": 0.724
+  },
+  "buckets": [
+    {
+      "ring": 0,
+      "azimuth_deg_start": 0.0,
+      "azimuth_deg_end": 3.0,
+      "total_cells": 15,
+      "filled_cells": 14,
+      "settled_cells": 12,
+      "mean_times_seen": 8.5,
+      "mean_range_meters": 25.3
+    }
+    // ... 4800 buckets total
+  ]
+}
+```
+
+### Visualization Tools
+
+**Polar Heatmap**: Ring vs Azimuth visualization showing fill/settle rates
+
+```bash
+python3 tools/grid-heatmap/plot_grid_heatmap.py \
+  --url http://localhost:8081 \
+  --sensor hesai-pandar40p \
+  --metric unsettled_ratio
+```
+
+**Full Dashboard**: Comprehensive 4K-optimized visualization with multiple views
+
+```bash
+# Single snapshot
+python3 tools/grid-heatmap/plot_grid_heatmap.py \
+  --url http://localhost:8081 \
+  --output grid_dashboard.png
+
+# PCAP replay with periodic snapshots
+python3 tools/grid-heatmap/plot_grid_heatmap.py \
+  --url http://localhost:8081 \
+  --pcap /path/to/file.pcap \
+  --interval 30 \
+  --output-dir output/snapshots
+```
+
+**Dashboard Layout** (25.6×14.4 inches @ 150 DPI):
+
+- Top 50%: Polar settle rate + Polar metric + Spatial XY distance
+- Bottom 50%: 4 stacked metric panels (fill rate, settle rate, unsettled ratio, mean times seen)
+
+### Use Cases
+
+1. **Spatial Pattern Analysis**: Identify regions not filling or settling properly
+2. **Parameter Tuning**: Visualize impact of noise/closeness/neighbor parameters
+3. **Diagnostic Visualization**: Create heatmaps for filled vs settled cells
+4. **Anomaly Detection**: Find unexpected patterns in grid population
+5. **Temporal Analysis**: Track grid settlement progress during warmup
+
+---
+
+## Debugging & Diagnostics
+
+### Critical Bug Fixes
+
+**FrameBuilder Eviction Bug** (Fixed):
+
+- **Issue**: `evictOldestBufferedFrame()` deleted frames without calling `finalizeFrame()`
+- **Impact**: Frames accumulated but callback never fired, preventing background population
+- **Fix**: Added `fb.finalizeFrame(oldestFrame)` to eviction path
+- **Location**: `internal/lidar/frame_builder.go:~436`
+
+### Debug Logging Strategy
+
+The system includes comprehensive debug logging for diagnosing issues with grid reset, acceptance rates, and frame delivery.
+
+**Enable Debug Mode**:
+
+```bash
+# Via CLI flag
+./radar --enable-lidar --debug
+
+# Via API (runtime)
+curl -X POST 'http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p' \
+  -H 'Content-Type: application/json' \
+  -d '{"enable_diagnostics": true}'
+```
+
+**Key Log Patterns**:
+
+1. **Grid Reset Timing**:
+
+   - `[ResetGrid]`: Shows before/after nonzero cell counts
+   - `[API:grid_reset]`: API call timing and duration
+   - `[API:params]`: Parameter change timing
+
+2. **Grid Population**:
+
+   - `[ProcessFramePolar]`: Frame-by-frame grid growth
+   - Rate-limited logging every 100 frames or at significant thresholds
+
+3. **Acceptance Decisions**:
+
+   - `[ProcessFramePolar:decision]`: Per-cell acceptance/rejection details
+   - `[ProcessFramePolar:summary]`: Frame-level acceptance rates
+   - Includes: cell state, closeness threshold, neighbor confirmation
+
+4. **Frame Delivery**:
+   - `[FrameBuilder:finalize]`: Frame completion events
+   - `[FrameBuilder:evict]`: Buffer eviction events
+   - `[FrameBuilder:callback]`: Callback invocation
+   - `[BackgroundManager]`: Frame processing and snapshot persistence
+
+**Common Diagnostic Scenarios**:
+
+**Grid Reset Race Condition**:
+
+- Symptom: `nonzero_cells` stays high after reset
+- Diagnosis: Check timing between reset API call and first ProcessFramePolar log
+- Expected: Grid grows from 0 to 60k+ within 1-2 seconds during live operation
+
+**Low Acceptance Rates**:
+
+- Symptom: Seeing <99% acceptance when expected higher
+- Diagnosis: Enable diagnostics and examine decision logs
+- Common causes:
+  - Empty cells rejecting before seeding (check `SeedFromFirstObservation`)
+  - Tight thresholds at long range (check `NoiseRelativeFraction`)
+  - Strict neighbor confirmation (check `NeighborConfirmationCount`)
+
+**Frames Not Finalizing**:
+
+- Symptom: Points added but no frame completion logs
+- Diagnosis: Check frame buffer size and cleanup timing
+- Common causes:
+  - `minFramePoints` threshold too high for sparse data
+  - Buffer timeout too long for fast PCAP replay
+  - Eviction bug (now fixed)
+
+### Performance Tuning
+
+**PCAP Replay Optimization**:
+
+```bash
+# Lower minFramePoints for sparse data
+--lidar-min-frame-points 100
+
+# Faster cleanup for rapid replay
+# (modify CleanupInterval in code to 50ms for PCAP mode)
+
+# Frequent background snapshots
+--lidar-bg-flush-interval 5s
+```
+
+**Grid Analysis**:
+
+```bash
+# Quick status check
+curl "http://localhost:8081/api/lidar/grid_status?sensor_id=hesai-pandar40p" | jq
+
+# Detailed heatmap for analysis
+curl "http://localhost:8081/api/lidar/grid_heatmap?sensor_id=hesai-pandar40p" | \
+  jq '.summary'
+```
+
+---
+
+## Security
+
+### PCAP File Access Restriction
+
+PCAP file access is restricted to a designated safe directory to prevent path traversal attacks.
+
+**Configuration**:
+
+- CLI flag: `--lidar-pcap-dir <path>` (default: `../sensor-data/lidar`)
+- Only files within this directory tree can be accessed
+- Absolute paths are converted to be relative to safe directory
+
+**Security Features**:
+
+- Path sanitization with `filepath.Clean()`
+- Absolute path requirement verification
+- Safe directory prefix validation
+- Regular file type enforcement (no directories/symlinks/devices)
+- File extension whitelist (`.pcap`, `.pcapng`)
+
+**Usage Examples**:
+
+```bash
+# Valid: filename only
+{"pcap_file": "cars.pcap"}
+
+# Valid: relative path within safe dir
+{"pcap_file": "subfolder/pedestrians.pcap"}
+
+# Rejected: path traversal attempt
+{"pcap_file": "../../../etc/passwd"}
+# Returns: 403 Forbidden
+```
+
+**Systemd Integration**:
+The service file automatically creates the safe directory on startup:
+
+```ini
+ExecStartPre=/bin/mkdir -p /home/david/sensor-data/lidar
+ExecStart=/home/david/code/velocity.report/radar --lidar-pcap-dir /home/david/sensor-data/lidar
+```
+
 - Raspberry Pi builds (`radar-linux`) omit PCAP support by default to avoid cross-compile complexity
 - If PCAP API is called without PCAP support, returns error: "PCAP support not enabled: rebuild with -tags=pcap"
 
