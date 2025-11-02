@@ -48,15 +48,7 @@ type WebServer struct {
 
 ### 2. New HTTP Endpoint
 
-**Route**: `POST /api/lidar/data_source?source={live|pcap}`
-
-**Request Body** (for PCAP source):
-
-```json
-{
-  "pcap_file": "/path/to/file.pcap" // Required when source=pcap
-}
-```
+**Route**: `GET /api/lidar/data_source?source={live|pcap}`
 
 **Response**:
 
@@ -214,27 +206,8 @@ func (ws *WebServer) handleDataSourceSwitch(...) {
 
 ## API Design Considerations
 
-### Option A: Single Combined Endpoint (Recommended)
-
 ```
-POST /api/lidar/data_source?source={live|pcap}
-Body: {"pcap_file": "..."} (only for pcap)
-```
-
-**Pros**:
-
-- Single responsibility: manage data source
-- Clear semantics: source is the primary parameter
-- Easy to understand and document
-
-**Cons**:
-
-- Breaking change: replaces existing `/api/lidar/pcap/start`
-
-### Option B: Keep Separate Endpoints
-
-```
-POST /api/lidar/data_source?source=live
+GET /api/lidar/data_source?source=pcap
 POST /api/lidar/pcap/start (existing, modified to switch source)
 ```
 
