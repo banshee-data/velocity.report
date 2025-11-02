@@ -1,6 +1,8 @@
 _site/
 .build/
 .cache/
+.gocache/
+.gomodcache/
 .tox/
 archive/
 backup/
