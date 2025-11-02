@@ -7,6 +7,11 @@
     <h2>Configuration</h2>
     <table border="1" cellpadding="5" cellspacing="0">
       <tr><td><strong>Mode:</strong></td><td><strong>{{.Mode}}</strong></td></tr>
+      {{if .PCAPFile}}
+      <tr><td><strong>PCAP File:</strong></td><td>{{.PCAPFile}}</td></tr>
+      {{end}}
+      <tr><td><strong>PCAP In
+            Progress:</strong></td><td>{{.PCAPInProgress}}</td></tr>
       <tr><td><strong>UDP Port:</strong></td><td>{{.UDPPort}}</td></tr>
       <tr><td><strong>HTTP Address:</strong></td><td>{{.HTTPAddress}}</td></tr>
       <tr><td><strong>Packet
@@ -80,6 +85,49 @@
           Latest Snapshot to ASC</a></li>
       <li><a href="/api/lidar/export_next_frame?sensor_id={{.SensorID}}">Export
           Next Completed Frame to ASC</a></li>
+      <li><a href="/api/lidar/pcap/stop?sensor_id={{.SensorID}}"
+          target="_blank">Stop
+          PCAP replay (GET)</a></li>
+      <li>
+        <form id="pcapStartForm" style="display: inline;">
+          <strong>Start PCAP Replay:</strong>
+          <input type="text" id="pcapFilePath" name="pcap_file"
+            placeholder="file.pcap" size="30"
+            style="margin-left: 5px; margin-right: 5px;" />
+          <button type="submit">Run</button>
+        </form>
+        <script>
+          document.getElementById('pcapStartForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const pcapFile = document.getElementById('pcapFilePath').value;
+            if (!pcapFile) {
+              alert('Please enter a PCAP file path');
+              return;
+            }
+            const url = '/api/lidar/pcap/start?sensor_id={{.SensorID}}';
+            const body = JSON.stringify({ pcap_file: pcapFile });
+
+            // Open result in new window
+            const resultWindow = window.open('', '_blank');
+            resultWindow.document.write('<html><body><pre>Submitting request...</pre></body></html>');
+
+            fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: body
+            })
+            .then(response => response.json())
+            .then(data => {
+              resultWindow.document.write('<html><body><pre>' +
+                JSON.stringify(data, null, 2) + '</pre></body></html>');
+            })
+            .catch(error => {
+              resultWindow.document.write('<html><body><pre>Error: ' +
+                error.message + '</pre></body></html>');
+            });
+          });
+        </script>
+      </li>
     </ul>
   </body>
 </html>
