@@ -1433,14 +1433,17 @@ func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ws.dataSourceMu.RLock()
-	inPCAP := ws.currentSource == DataSourcePCAP
-	ws.dataSourceMu.RUnlock()
-	if !inPCAP {
+	// Acquire dataSourceMu first to maintain consistent lock ordering with handlePCAPStart
+	// (always dataSourceMu → pcapMu) to prevent deadlock
+	ws.dataSourceMu.Lock()
+	defer ws.dataSourceMu.Unlock()
+
+	if ws.currentSource != DataSourcePCAP {
 		ws.writeJSONError(w, http.StatusConflict, "system is not in PCAP mode")
 		return
 	}
 
+	// Now acquire pcapMu while holding dataSourceMu (consistent ordering)
 	ws.pcapMu.Lock()
 	if !ws.pcapInProgress {
 		ws.pcapMu.Unlock()
@@ -1459,9 +1462,6 @@ func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 	if done != nil {
 		<-done
 	}
-
-	ws.dataSourceMu.Lock()
-	defer ws.dataSourceMu.Unlock()
 
 	if err := ws.resetBackgroundGrid(); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to reset background grid: %v", err))
