@@ -541,11 +541,11 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
     cbar_polar = plt.colorbar(im_polar, ax=ax_polar, fraction=0.046, pad=0.08)
     cbar_polar.set_label(metric_title, fontsize=12)
 
-    # === TOP RIGHT: Spatial XY Distance Heatmap ===
+    # === TOP RIGHT: Spatial XY Observation Intensity Heatmap ===
     ax_spatial = fig.add_subplot(gs[0:3, 8:])
 
-    # Build spatial grid - plot actual distance (range) from sensor in XY space
-    x_coords_all, y_coords_all = [], []
+    # Build spatial grid weighted by observation count (mean_times_seen)
+    x_coords_all, y_coords_all, times_seen_all = [], [], []
     for bucket in buckets:
         # Only plot buckets with actual range data
         if bucket["filled_cells"] == 0 or bucket["mean_range_meters"] == 0:
@@ -564,6 +564,7 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
 
         x_coords_all.append(x)
         y_coords_all.append(y)
+        times_seen_all.append(bucket["mean_times_seen"])
 
     if len(x_coords_all) > 0:
         # Determine extent with equal aspect ratio (square pixels)
@@ -593,31 +594,48 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
         x_bins = np.linspace(extent[0], extent[1], num_bins)
         y_bins = np.linspace(extent[2], extent[3], num_bins)
 
-        # Create binary occupancy grid (1 where background exists, 0 elsewhere)
-        counts, _, _ = np.histogram2d(x_coords_all, y_coords_all, bins=[x_bins, y_bins])
+        # Create weighted histogram using mean_times_seen
+        # For each bin, sum the times_seen values and normalize by count
+        observation_grid = np.zeros((num_bins - 1, num_bins - 1))
+        count_grid = np.zeros((num_bins - 1, num_bins - 1))
 
-        # Binary mask: 1 where there's data, 0 where empty
-        occupancy = (counts > 0).astype(float)
+        for x, y, times_seen in zip(x_coords_all, y_coords_all, times_seen_all):
+            # Find bin indices
+            x_idx = np.searchsorted(x_bins, x) - 1
+            y_idx = np.searchsorted(y_bins, y) - 1
+
+            # Bounds check
+            if 0 <= x_idx < num_bins - 1 and 0 <= y_idx < num_bins - 1:
+                observation_grid[x_idx, y_idx] += times_seen
+                count_grid[x_idx, y_idx] += 1
+
+        # Calculate average times_seen per bin
+        intensity = np.divide(
+            observation_grid,
+            count_grid,
+            out=np.zeros_like(observation_grid),
+            where=count_grid > 0,
+        )
 
         # Mask zero values for clean display
-        occupancy_masked = np.ma.masked_where(occupancy == 0, occupancy)
+        intensity_masked = np.ma.masked_where(intensity == 0, intensity)
 
-        # Use monochrome colormap (Greys: white background, black for occupied cells)
+        vmax = np.percentile(times_seen_all, 95) if len(times_seen_all) > 0 else 1
         im_spatial = ax_spatial.imshow(
-            occupancy_masked.T,
+            intensity_masked.T,
             origin="lower",
             extent=extent,
-            cmap="Greys",
+            cmap="viridis",
             aspect="equal",  # Force square pixels
             interpolation="nearest",  # Sharp boundaries for grid cells
             vmin=0,
-            vmax=1,
+            vmax=vmax,
         )
 
         ax_spatial.set_xlabel("X (meters)", fontsize=12)
         ax_spatial.set_ylabel("Y (meters)", fontsize=12)
         ax_spatial.set_title(
-            "Spatial XY: Background Occupancy", fontsize=16, fontweight="bold"
+            "Spatial XY: Observation Intensity", fontsize=16, fontweight="bold"
         )
         ax_spatial.grid(True, alpha=0.3, linestyle="--", linewidth=0.5)
         ax_spatial.plot(
@@ -646,6 +664,10 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
                     zorder=3,
                 )
                 ax_spatial.add_patch(circle)
+
+        # Add colorbar for observation intensity
+        cbar_spatial = plt.colorbar(im_spatial, ax=ax_spatial, fraction=0.046, pad=0.04)
+        cbar_spatial.set_label("Avg Observations", fontsize=12)
 
         ax_spatial.legend(loc="upper right", fontsize=10)
         ax_spatial.set_xlim(extent[0], extent[1])
