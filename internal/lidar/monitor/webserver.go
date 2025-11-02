@@ -8,8 +8,10 @@ import (
 	"encoding/gob"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -28,6 +30,22 @@ import (
 //go:embed status.html
 var StatusHTML embed.FS
 
+type DataSource string
+
+const (
+	DataSourceLive DataSource = "live"
+	DataSourcePCAP DataSource = "pcap"
+)
+
+type switchError struct {
+	status int
+	err    error
+}
+
+func (e *switchError) Error() string { return e.err.Error() }
+
+func (e *switchError) Unwrap() error { return e.err }
+
 // WebServer handles the HTTP interface for monitoring LiDAR statistics
 // It provides endpoints for health checks and real-time status information
 type WebServer struct {
@@ -44,12 +62,24 @@ type WebServer struct {
 	parser            network.Parser
 	frameBuilder      network.FrameBuilder
 	pcapSafeDir       string // Safe directory for PCAP file access
-	pcapMode          bool   // True if running in PCAP mode (no UDP listener)
+	packetForwarder   *network.PacketForwarder
+
+	// UDP listener lifecycle (live data source)
+	udpListenerConfig network.UDPListenerConfig
+	dataSourceMu      sync.RWMutex
+	currentSource     DataSource
+	currentPCAPFile   string
+	udpListener       *network.UDPListener
+	udpListenerCancel context.CancelFunc
+	udpListenerDone   chan struct{}
+	baseCtxMu         sync.RWMutex
+	baseCtx           context.Context
 
 	// PCAP replay state
 	pcapMu         sync.Mutex
 	pcapInProgress bool
 	pcapCancel     context.CancelFunc
+	pcapDone       chan struct{}
 }
 
 // WebServerConfig contains configuration options for the web server
@@ -66,11 +96,32 @@ type WebServerConfig struct {
 	Parser            network.Parser
 	FrameBuilder      network.FrameBuilder
 	PCAPSafeDir       string // Safe directory for PCAP file access (restricts path traversal)
-	PCAPMode          bool   // True if running in PCAP mode (no UDP listener)
+	PacketForwarder   *network.PacketForwarder
+	UDPListenerConfig network.UDPListenerConfig
 }
 
 // NewWebServer creates a new web server with the provided configuration
 func NewWebServer(config WebServerConfig) *WebServer {
+	listenerConfig := config.UDPListenerConfig
+	if listenerConfig.Stats == nil {
+		listenerConfig.Stats = config.Stats
+	}
+	if listenerConfig.Parser == nil {
+		listenerConfig.Parser = config.Parser
+	}
+	if listenerConfig.FrameBuilder == nil {
+		listenerConfig.FrameBuilder = config.FrameBuilder
+	}
+	if listenerConfig.DB == nil {
+		listenerConfig.DB = config.DB
+	}
+	if listenerConfig.Forwarder == nil {
+		listenerConfig.Forwarder = config.PacketForwarder
+	}
+	if listenerConfig.Address == "" && config.UDPPort != 0 {
+		listenerConfig.Address = fmt.Sprintf(":%d", config.UDPPort)
+	}
+
 	ws := &WebServer{
 		address:           config.Address,
 		stats:             config.Stats,
@@ -84,7 +135,9 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		parser:            config.Parser,
 		frameBuilder:      config.FrameBuilder,
 		pcapSafeDir:       config.PCAPSafeDir,
-		pcapMode:          config.PCAPMode,
+		packetForwarder:   config.PacketForwarder,
+		udpListenerConfig: listenerConfig,
+		currentSource:     DataSourceLive,
 	}
 
 	ws.server = &http.Server{
@@ -95,6 +148,185 @@ func NewWebServer(config WebServerConfig) *WebServer {
 	return ws
 }
 
+func (ws *WebServer) setBaseContext(ctx context.Context) {
+	ws.baseCtxMu.Lock()
+	ws.baseCtx = ctx
+	ws.baseCtxMu.Unlock()
+}
+
+func (ws *WebServer) baseContext() context.Context {
+	ws.baseCtxMu.RLock()
+	defer ws.baseCtxMu.RUnlock()
+	return ws.baseCtx
+}
+
+func (ws *WebServer) startLiveListenerLocked() error {
+	if ws.udpListener != nil {
+		return nil
+	}
+	baseCtx := ws.baseContext()
+	if baseCtx == nil {
+		return errors.New("webserver base context not initialized")
+	}
+
+	ws.udpListener = network.NewUDPListener(ws.udpListenerConfig)
+	listenerCtx, cancel := context.WithCancel(baseCtx)
+	ws.udpListenerCancel = cancel
+	done := make(chan struct{})
+	ws.udpListenerDone = done
+
+	go func(listener *network.UDPListener, ctx context.Context, finished chan struct{}) {
+		defer close(finished)
+		if err := listener.Start(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			log.Printf("Lidar UDP listener error: %v", err)
+		}
+	}(ws.udpListener, listenerCtx, done)
+
+	return nil
+}
+
+func (ws *WebServer) stopLiveListenerLocked() {
+	cancel := ws.udpListenerCancel
+	done := ws.udpListenerDone
+
+	if cancel != nil {
+		cancel()
+	}
+	if done != nil {
+		<-done
+	}
+
+	ws.udpListener = nil
+	ws.udpListenerCancel = nil
+	ws.udpListenerDone = nil
+}
+
+func (ws *WebServer) resolvePCAPPath(candidate string) (string, error) {
+	if candidate == "" {
+		return "", &switchError{status: http.StatusBadRequest, err: errors.New("missing 'pcap_file' in request body")}
+	}
+	if ws.pcapSafeDir == "" {
+		return "", &switchError{status: http.StatusInternalServerError, err: errors.New("pcap safe directory not configured")}
+	}
+
+	safeDirAbs, err := filepath.Abs(ws.pcapSafeDir)
+	if err != nil {
+		return "", &switchError{status: http.StatusInternalServerError, err: fmt.Errorf("invalid PCAP safe directory configuration: %w", err)}
+	}
+
+	candidatePath := filepath.Join(safeDirAbs, candidate)
+	resolvedPath, err := filepath.Abs(candidatePath)
+	if err != nil {
+		return "", &switchError{status: http.StatusBadRequest, err: fmt.Errorf("invalid pcap_file path: %w", err)}
+	}
+
+	canonicalPath, err := filepath.EvalSymlinks(resolvedPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", &switchError{status: http.StatusNotFound, err: errors.New("pcap file not found")}
+		}
+		return "", &switchError{status: http.StatusBadRequest, err: fmt.Errorf("cannot resolve PCAP file path: %w", err)}
+	}
+
+	relPath, err := filepath.Rel(safeDirAbs, canonicalPath)
+	if err != nil || relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) || filepath.IsAbs(relPath) {
+		return "", &switchError{
+			status: http.StatusForbidden,
+			err:    fmt.Errorf("access denied: pcap_file must be within safe directory (%s)", ws.pcapSafeDir),
+		}
+	}
+
+	fileInfo, err := os.Stat(canonicalPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", &switchError{status: http.StatusNotFound, err: errors.New("pcap file not found")}
+		}
+		return "", &switchError{status: http.StatusBadRequest, err: fmt.Errorf("cannot access PCAP file: %w", err)}
+	}
+
+	if !fileInfo.Mode().IsRegular() {
+		return "", &switchError{status: http.StatusBadRequest, err: errors.New("pcap_file must be a regular file")}
+	}
+
+	ext := strings.ToLower(filepath.Ext(canonicalPath))
+	if ext != ".pcap" && ext != ".pcapng" {
+		return "", &switchError{status: http.StatusBadRequest, err: errors.New("pcap_file must have .pcap or .pcapng extension")}
+	}
+
+	return canonicalPath, nil
+}
+
+func (ws *WebServer) startPCAPLocked(pcapFile string) error {
+	resolvedPath, err := ws.resolvePCAPPath(pcapFile)
+	if err != nil {
+		return err
+	}
+
+	baseCtx := ws.baseContext()
+	if baseCtx == nil {
+		return &switchError{status: http.StatusInternalServerError, err: errors.New("webserver base context not initialized")}
+	}
+
+	ws.pcapMu.Lock()
+	if ws.pcapInProgress {
+		ws.pcapMu.Unlock()
+		return &switchError{status: http.StatusConflict, err: errors.New("pcap replay already in progress")}
+	}
+	ctx, cancel := context.WithCancel(baseCtx)
+	done := make(chan struct{})
+	ws.pcapInProgress = true
+	ws.pcapCancel = cancel
+	ws.pcapDone = done
+	ws.pcapMu.Unlock()
+
+	ws.currentPCAPFile = resolvedPath
+
+	go func(path string, ctx context.Context, finished chan struct{}) {
+		defer close(finished)
+		log.Printf("Starting PCAP replay from file: %s (sensor: %s)", path, ws.sensorID)
+
+		if err := network.ReadPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats); err != nil && !errors.Is(err, context.Canceled) {
+			log.Printf("PCAP replay error: %v", err)
+		} else {
+			log.Printf("PCAP replay completed: %s", path)
+		}
+
+		ws.pcapMu.Lock()
+		ws.pcapInProgress = false
+		ws.pcapCancel = nil
+		ws.pcapDone = nil
+		ws.pcapMu.Unlock()
+
+		ws.dataSourceMu.Lock()
+		if ws.currentSource == DataSourcePCAP {
+			if err := ws.resetBackgroundGrid(); err != nil {
+				log.Printf("Failed to reset background grid after PCAP: %v", err)
+			}
+			if err := ws.startLiveListenerLocked(); err != nil {
+				log.Printf("Failed to restart live listener after PCAP: %v", err)
+			} else {
+				ws.currentSource = DataSourceLive
+				ws.currentPCAPFile = ""
+				log.Printf("[DataSource] auto-switched to Live after PCAP for sensor=%s", ws.sensorID)
+			}
+		}
+		ws.dataSourceMu.Unlock()
+	}(resolvedPath, ctx, done)
+
+	return nil
+}
+
+func (ws *WebServer) resetBackgroundGrid() error {
+	mgr := lidar.GetBackgroundManager(ws.sensorID)
+	if mgr == nil {
+		return nil
+	}
+	if err := mgr.ResetGrid(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (ws *WebServer) writeJSONError(w http.ResponseWriter, status int, msg string) {
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
@@ -102,6 +334,17 @@ func (ws *WebServer) writeJSONError(w http.ResponseWriter, status int, msg strin
 
 // Start begins the HTTP server in a goroutine and handles graceful shutdown
 func (ws *WebServer) Start(ctx context.Context) error {
+	ws.setBaseContext(ctx)
+
+	ws.dataSourceMu.Lock()
+	if ws.currentSource == DataSourceLive && ws.udpListener == nil {
+		if err := ws.startLiveListenerLocked(); err != nil {
+			ws.dataSourceMu.Unlock()
+			return err
+		}
+	}
+	ws.dataSourceMu.Unlock()
+
 	// Start server in a goroutine so it doesn't block
 	go func() {
 		log.Printf("Starting HTTP server on %s", ws.address)
@@ -113,6 +356,26 @@ func (ws *WebServer) Start(ctx context.Context) error {
 	// Wait for context cancellation to shut down server
 	<-ctx.Done()
 	log.Println("shutting down HTTP server...")
+
+	ws.dataSourceMu.Lock()
+	if ws.udpListener != nil {
+		ws.stopLiveListenerLocked()
+	}
+	ws.dataSourceMu.Unlock()
+
+	ws.pcapMu.Lock()
+	pcapCancel := ws.pcapCancel
+	pcapDone := ws.pcapDone
+	ws.pcapCancel = nil
+	ws.pcapDone = nil
+	ws.pcapMu.Unlock()
+
+	if pcapCancel != nil {
+		pcapCancel()
+	}
+	if pcapDone != nil {
+		<-pcapDone
+	}
 
 	// Create a shutdown context with a shorter timeout
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
@@ -136,6 +399,7 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 
 	mux.HandleFunc("/health", ws.handleHealth)
 	mux.HandleFunc("/", ws.handleStatus)
+	mux.HandleFunc("/api/lidar/status", ws.handleLidarStatus)
 	mux.HandleFunc("/api/lidar/persist", ws.handleLidarPersist)
 	mux.HandleFunc("/api/lidar/snapshot", ws.handleLidarSnapshot)
 	mux.HandleFunc("/api/lidar/snapshots", ws.handleLidarSnapshots)
@@ -147,6 +411,7 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/api/lidar/grid_status", ws.handleGridStatus)
 	mux.HandleFunc("/api/lidar/grid_reset", ws.handleGridReset)
 	mux.HandleFunc("/api/lidar/grid_heatmap", ws.handleGridHeatmap)
+	mux.HandleFunc("/api/lidar/data_source", ws.handleDataSource)
 	mux.HandleFunc("/api/lidar/pcap/start", ws.handlePCAPStart)
 	mux.HandleFunc("/api/lidar/pcap/stop", ws.handlePCAPStop)
 
@@ -354,6 +619,32 @@ func (ws *WebServer) handleGridHeatmap(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(heatmap)
+}
+
+func (ws *WebServer) handleDataSource(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use GET")
+		return
+	}
+
+	ws.dataSourceMu.RLock()
+	currentSource := ws.currentSource
+	currentPCAPFile := ws.currentPCAPFile
+	ws.dataSourceMu.RUnlock()
+
+	ws.pcapMu.Lock()
+	pcapInProgress := ws.pcapInProgress
+	ws.pcapMu.Unlock()
+
+	response := map[string]interface{}{
+		"status":           "ok",
+		"data_source":      string(currentSource),
+		"pcap_file":        currentPCAPFile,
+		"pcap_in_progress": pcapInProgress,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 // handleExportSnapshotASC triggers an export to ASC for a given snapshot_id (or latest if not provided).
@@ -568,6 +859,67 @@ func (ws *WebServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, `{"status": "ok", "service": "lidar", "timestamp": "%s"}`, time.Now().UTC().Format(time.RFC3339))
 }
 
+func (ws *WebServer) handleLidarStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	ws.dataSourceMu.RLock()
+	currentSource := ws.currentSource
+	currentPCAPFile := ws.currentPCAPFile
+	ws.dataSourceMu.RUnlock()
+
+	ws.pcapMu.Lock()
+	pcapInProgress := ws.pcapInProgress
+	ws.pcapMu.Unlock()
+
+	var statsSnapshot *StatsSnapshot
+	if ws.stats != nil {
+		statsSnapshot = ws.stats.GetLatestSnapshot()
+	}
+
+	uptime := ""
+	if ws.stats != nil {
+		uptime = ws.stats.GetUptime().Round(time.Second).String()
+	}
+
+	response := struct {
+		Status           string         `json:"status"`
+		SensorID         string         `json:"sensor_id"`
+		UDPPort          int            `json:"udp_port"`
+		Forwarding       bool           `json:"forwarding_enabled"`
+		ForwardAddr      string         `json:"forward_addr,omitempty"`
+		ForwardPort      int            `json:"forward_port,omitempty"`
+		ParsingEnabled   bool           `json:"parsing_enabled"`
+		DataSource       string         `json:"data_source"`
+		PCAPFile         string         `json:"pcap_file,omitempty"`
+		PCAPInProgress   bool           `json:"pcap_in_progress"`
+		Uptime           string         `json:"uptime"`
+		Stats            *StatsSnapshot `json:"stats,omitempty"`
+		PCAPSafeDir      string         `json:"pcap_safe_dir,omitempty"`
+		BackgroundSensor string         `json:"background_sensor_id,omitempty"`
+	}{
+		Status:           "ok",
+		SensorID:         ws.sensorID,
+		UDPPort:          ws.udpPort,
+		Forwarding:       ws.forwardingEnabled,
+		ForwardAddr:      ws.forwardAddr,
+		ForwardPort:      ws.forwardPort,
+		ParsingEnabled:   ws.parsingEnabled,
+		DataSource:       string(currentSource),
+		PCAPFile:         currentPCAPFile,
+		PCAPInProgress:   pcapInProgress,
+		Uptime:           uptime,
+		Stats:            statsSnapshot,
+		PCAPSafeDir:      ws.pcapSafeDir,
+		BackgroundSensor: ws.sensorID,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
 // handleStatus handles the main status page endpoint
 func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
@@ -588,11 +940,20 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		parsingStatus = "disabled"
 	}
 
-	// Determine mode (PCAP vs Live)
+	ws.dataSourceMu.RLock()
 	mode := "Live UDP"
-	if ws.pcapMode {
+	switch ws.currentSource {
+	case DataSourcePCAP:
 		mode = "PCAP Replay"
+	case DataSourceLive:
+		mode = "Live UDP"
 	}
+	currentPCAPFile := ws.currentPCAPFile
+	ws.dataSourceMu.RUnlock()
+
+	ws.pcapMu.Lock()
+	pcapInProgress := ws.pcapInProgress
+	ws.pcapMu.Unlock()
 
 	// Get background manager to show current params
 	var bgParams *lidar.BackgroundParams
@@ -620,6 +981,8 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		Stats            *StatsSnapshot
 		SensorID         string
 		BGParams         *lidar.BackgroundParams
+		PCAPFile         string
+		PCAPInProgress   bool
 	}{
 		UDPPort:          ws.udpPort,
 		HTTPAddress:      ws.address,
@@ -631,6 +994,8 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		Stats:            ws.stats.GetLatestSnapshot(),
 		SensorID:         ws.sensorID,
 		BGParams:         bgParams,
+		PCAPFile:         currentPCAPFile,
+		PCAPInProgress:   pcapInProgress,
 	}
 
 	if err := tmpl.Execute(w, data); err != nil {
@@ -904,8 +1269,8 @@ func (ws *WebServer) handleAcceptanceReset(w http.ResponseWriter, r *http.Reques
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "sensor_id": sensorID})
 }
 
-// handlePCAPStart triggers PCAP file reading in a background goroutine
-// Method: POST. Query param: sensor_id (required). Body: {"pcap_file": "/path/to/file.pcap"}
+// handlePCAPStart switches the data source to PCAP replay and starts ingestion.
+// Method: POST. Query param: sensor_id (required to match configured sensor).
 func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use POST")
@@ -917,132 +1282,77 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
 		return
 	}
+	if sensorID != ws.sensorID {
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("unexpected sensor_id '%s'", sensorID))
+		return
+	}
 
 	var req struct {
 		PCAPFile string `json:"pcap_file"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if errors.Is(err, io.EOF) {
+			ws.writeJSONError(w, http.StatusBadRequest, "missing JSON body for PCAP request")
+			return
+		}
 		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
 		return
 	}
-
 	if req.PCAPFile == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'pcap_file' in request body")
 		return
 	}
 
-	// Safe directory validation to prevent path traversal attacks
-	// Convert safe directory to absolute path
-	safeDirAbs, err := filepath.Abs(ws.pcapSafeDir)
-	if err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("invalid PCAP safe directory configuration: %v", err))
+	ws.dataSourceMu.Lock()
+	defer ws.dataSourceMu.Unlock()
+
+	if ws.currentSource == DataSourcePCAP {
+		ws.writeJSONError(w, http.StatusConflict, "PCAP replay already active")
 		return
 	}
 
-	// Join user input with safe directory (handles both filenames and relative paths)
-	// This prevents absolute paths from bypassing the safe directory
-	candidatePath := filepath.Join(safeDirAbs, req.PCAPFile)
+	ws.stopLiveListenerLocked()
 
-	// Resolve to absolute path and clean it
-	resolvedPath, err := filepath.Abs(candidatePath)
-	if err != nil {
-		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid pcap_file path: %v", err))
-		return
-	}
-
-	// Resolve all symlinks to get the canonical path
-	// This prevents symlink-based attacks where a symlink points outside the safe directory
-	canonicalPath, err := filepath.EvalSymlinks(resolvedPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			ws.writeJSONError(w, http.StatusNotFound, "PCAP file not found")
-		} else {
-			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("cannot resolve PCAP file path: %v", err))
+	if err := ws.resetBackgroundGrid(); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to reset background grid: %v", err))
+		if restartErr := ws.startLiveListenerLocked(); restartErr != nil {
+			log.Printf("Failed to restart live listener after reset error: %v", restartErr)
 		}
 		return
 	}
 
-	// Verify the canonical path is still within the safe directory
-	// Use filepath.Rel for robust path validation (handles edge cases like trailing slashes)
-	relPath, err := filepath.Rel(safeDirAbs, canonicalPath)
-	if err != nil || relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) || filepath.IsAbs(relPath) {
-		ws.writeJSONError(w, http.StatusForbidden, fmt.Sprintf("access denied: pcap_file must be within safe directory (%s)", ws.pcapSafeDir))
-		return
-	}
-
-	// Verify file exists and is a regular file (not a directory or device)
-	fileInfo, err := os.Stat(canonicalPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			ws.writeJSONError(w, http.StatusNotFound, "PCAP file not found")
+	if err := ws.startPCAPLocked(req.PCAPFile); err != nil {
+		var sErr *switchError
+		if errors.As(err, &sErr) {
+			ws.writeJSONError(w, sErr.status, sErr.Error())
 		} else {
-			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("cannot access PCAP file: %v", err))
+			ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
+		}
+		if restartErr := ws.startLiveListenerLocked(); restartErr != nil {
+			log.Printf("Failed to restart live listener after PCAP error: %v", restartErr)
 		}
 		return
 	}
 
-	// Ensure it's a regular file, not a directory or device
-	if !fileInfo.Mode().IsRegular() {
-		ws.writeJSONError(w, http.StatusBadRequest, "pcap_file must be a regular file")
-		return
-	}
+	ws.currentSource = DataSourcePCAP
+	currentFile := ws.currentPCAPFile
 
-	// Verify file extension (pcap, pcapng)
-	ext := filepath.Ext(canonicalPath)
-	if ext != ".pcap" && ext != ".pcapng" {
-		ws.writeJSONError(w, http.StatusBadRequest, "pcap_file must have .pcap or .pcapng extension")
-		return
-	}
-
-	// Check if another PCAP replay is already in progress
-	ws.pcapMu.Lock()
-	if ws.pcapInProgress {
-		ws.pcapMu.Unlock()
-		ws.writeJSONError(w, http.StatusServiceUnavailable, "PCAP replay already in progress")
-		return
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	ws.pcapInProgress = true
-	ws.pcapCancel = cancel
-	ws.pcapMu.Unlock()
-
-	// Start PCAP reading in background goroutine
-	go func(ctx context.Context, cancel context.CancelFunc) {
-		defer cancel()
-		defer func() {
-			ws.pcapMu.Lock()
-			ws.pcapInProgress = false
-			// Clear stored cancel func. Comparing function values for equality is
-			// invalid in Go (only comparison to nil is allowed), so just nil it
-			// while holding the mutex. This is safe because pcapInProgress is
-			// still true until we set it false above, preventing a new PCAP
-			// start from racing in between.
-			ws.pcapCancel = nil
-			ws.pcapMu.Unlock()
-		}()
-
-		log.Printf("Starting PCAP replay from file: %s (sensor: %s)", canonicalPath, sensorID)
-
-		if err := network.ReadPCAPFile(ctx, canonicalPath, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats); err != nil {
-			log.Printf("PCAP replay error: %v", err)
-		} else {
-			log.Printf("PCAP replay completed successfully: %s", canonicalPath)
-		}
-	}(ctx, cancel)
+	log.Printf("[DataSource] switched to PCAP for sensor=%s file=%s", sensorID, currentFile)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"status":    "started",
-		"sensor_id": sensorID,
-		"pcap_file": canonicalPath,
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":         "started",
+		"sensor_id":      sensorID,
+		"current_source": string(ws.currentSource),
+		"pcap_file":      currentFile,
 	})
 }
 
-// handlePCAPStop cancels an in-progress PCAP replay via the stored cancel func
-// Method: POST. Query param: sensor_id (required).
+// handlePCAPStop cancels any active PCAP replay and returns to live UDP.
+// Method: GET. Query param: sensor_id (required to match configured sensor).
 func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use POST")
+	if r.Method != http.MethodGet {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use GET")
 		return
 	}
 
@@ -1051,34 +1361,83 @@ func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
 		return
 	}
+	if sensorID != ws.sensorID {
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("unexpected sensor_id '%s'", sensorID))
+		return
+	}
+
+	ws.dataSourceMu.RLock()
+	inPCAP := ws.currentSource == DataSourcePCAP
+	ws.dataSourceMu.RUnlock()
+	if !inPCAP {
+		ws.writeJSONError(w, http.StatusConflict, "system is not in PCAP mode")
+		return
+	}
 
 	ws.pcapMu.Lock()
-	cancel := ws.pcapCancel
-	if !ws.pcapInProgress || cancel == nil {
+	if !ws.pcapInProgress {
 		ws.pcapMu.Unlock()
 		ws.writeJSONError(w, http.StatusConflict, "no PCAP replay in progress")
 		return
 	}
+	cancel := ws.pcapCancel
+	done := ws.pcapDone
 	ws.pcapCancel = nil
+	ws.pcapDone = nil
 	ws.pcapMu.Unlock()
 
-	log.Printf("Stop requested for PCAP replay (sensor: %s)", sensorID)
-	cancel()
+	if cancel != nil {
+		cancel()
+	}
+	if done != nil {
+		<-done
+	}
+
+	ws.dataSourceMu.Lock()
+	defer ws.dataSourceMu.Unlock()
+
+	if err := ws.resetBackgroundGrid(); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to reset background grid: %v", err))
+		return
+	}
+
+	if err := ws.startLiveListenerLocked(); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to start live listener: %v", err))
+		return
+	}
+
+	ws.currentSource = DataSourceLive
+	ws.currentPCAPFile = ""
+
+	log.Printf("[DataSource] switched to Live after PCAP stop for sensor=%s", sensorID)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"status":    "stopping",
-		"sensor_id": sensorID,
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":         "stopped",
+		"sensor_id":      sensorID,
+		"current_source": string(ws.currentSource),
 	})
 }
 
 // Close shuts down the web server
 func (ws *WebServer) Close() error {
+	ws.dataSourceMu.Lock()
+	if ws.udpListener != nil {
+		ws.stopLiveListenerLocked()
+	}
+	ws.dataSourceMu.Unlock()
+
 	ws.pcapMu.Lock()
 	cancel := ws.pcapCancel
+	done := ws.pcapDone
+	ws.pcapCancel = nil
+	ws.pcapDone = nil
 	ws.pcapMu.Unlock()
 	if cancel != nil {
 		cancel()
+	}
+	if done != nil {
+		<-done
 	}
 	if ws.server != nil {
 		return ws.server.Close()
