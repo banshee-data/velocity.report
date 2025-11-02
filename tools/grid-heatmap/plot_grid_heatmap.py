@@ -35,6 +35,7 @@ from pathlib import Path
 
 try:
     import matplotlib.pyplot as plt
+    import matplotlib.colors as mcolors
     import numpy as np
     import requests
 except Exception as e:
@@ -44,6 +45,27 @@ except Exception as e:
         )
         print("Error details:", e)
     raise
+
+
+def create_custom_inferno_cmap():
+    """
+    Create a custom colormap that is reverse inferno starting at 15% (orange tones).
+    This gives us a progression from orange/yellow (low values) to dark purple (high values).
+    """
+    # Get the full inferno colormap
+    inferno = plt.cm.get_cmap("inferno", 256)
+
+    # Reverse it
+    inferno_r = inferno.reversed()
+
+    # Sample from 15% onwards (skip the first 15% which are the darkest purples)
+    # This starts us in the orange/yellow range
+    start_idx = int(256 * 0.15)
+    colors = inferno_r(np.linspace(start_idx / 256, 1.0, 256))
+
+    # Create new colormap
+    custom_cmap = mcolors.LinearSegmentedColormap.from_list("custom_inferno", colors)
+    return custom_cmap
 
 
 def fetch_heatmap(base_url, sensor_id, azimuth_bucket_deg=3, settled_threshold=5):
@@ -620,12 +642,15 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
         # Mask zero values for clean display
         intensity_masked = np.ma.masked_where(intensity == 0, intensity)
 
+        # Create custom colormap (reverse inferno starting at 15% - orange tones)
+        custom_cmap = create_custom_inferno_cmap()
+
         vmax = np.percentile(times_seen_all, 95) if len(times_seen_all) > 0 else 1
         im_spatial = ax_spatial.imshow(
             intensity_masked.T,
             origin="lower",
             extent=extent,
-            cmap="viridis",
+            cmap=custom_cmap,
             aspect="equal",  # Force square pixels
             interpolation="nearest",  # Sharp boundaries for grid cells
             vmin=0,
