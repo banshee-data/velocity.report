@@ -38,8 +38,6 @@ try:
     import numpy as np
     import requests
 except Exception as e:
-    import sys
-
     if __name__ == "__main__":
         print(
             "Missing Python dependencies for plotting:\n  pip install matplotlib numpy requests"
