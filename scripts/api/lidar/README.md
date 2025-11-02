@@ -28,9 +28,13 @@ Small shell helpers for exercising the local monitor API used during PCAP replay
 ./export_snapshot.sh [sensor_id] [snapshot_id] [output_path]
 ./export_next_frame.sh [sensor_id] [output_path]
 
-# PCAP replay
-./start_pcap.sh /path/to/file.pcap [sensor_id]
-./stop_pcap.sh [sensor_id]
+# Data source switching
+./switch_data_source.sh live [sensor_id] [base_url]
+./switch_data_source.sh pcap /path/to/file.pcap [sensor_id] [base_url]
+# Convenience aliases
+./start_pcap.sh /path/to/file.pcap [sensor_id] [base_url]
+./stop_pcap.sh [sensor_id] [base_url]
+./get_status.sh [base_url]
 ```
 
 ## Make targets
@@ -60,9 +64,12 @@ make api-persist [SENSOR=hesai-pandar40p]
 make api-export-snapshot [SENSOR=hesai-pandar40p] [SNAPSHOT_ID=123] [OUT=/path/to/output.asc]
 make api-export-next-frame [SENSOR=hesai-pandar40p] [OUT=/path/to/output.asc]
 
-# PCAP replay
-make api-start-pcap PCAP=/path/to/file.pcap [SENSOR=hesai-pandar40p]
-make api-stop-pcap [SENSOR=hesai-pandar40p]
+# Data source switching
+make api-switch-data-source SOURCE=live [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8081]
+make api-switch-data-source SOURCE=pcap PCAP=/path/to/file.pcap [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8081]
+make api-start-pcap PCAP=/path/to/file.pcap [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8081]
+make api-stop-pcap [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8081]
+make api-status [BASE_URL=http://127.0.0.1:8081]
 ```
 
 ## API Endpoints Reference
@@ -83,5 +90,7 @@ All scripts connect to `http://127.0.0.1:8081` and require `jq` for pretty JSON 
 | `/api/lidar/persist` | `trigger_persist.sh` | `api-persist` | Trigger manual snapshot |
 | `/api/lidar/export_snapshot` | `export_snapshot.sh` | `api-export-snapshot` | Export snapshot to ASC |
 | `/api/lidar/export_next_frame` | `export_next_frame.sh` | `api-export-next-frame` | Export next frame to ASC |
-| `/api/lidar/pcap/start` | `start_pcap.sh` | `api-start-pcap` | Start PCAP replay |
-| `/api/lidar/pcap/stop` | `stop_pcap.sh` | `api-stop-pcap` | Stop in-progress PCAP replay |
+| `/api/lidar/status` | `get_status.sh` | `api-status` | Get current data source + monitor stats |
+| `/api/lidar/pcap/start` | `start_pcap.sh` | `api-start-pcap` | Start PCAP replay (switch to PCAP source) |
+| `/api/lidar/pcap/stop` | `stop_pcap.sh` | `api-stop-pcap` | Stop PCAP replay (return to live source) |
+| `/api/lidar/data_source` | `switch_data_source.sh` | `api-switch-data-source` | Convenience wrapper for start/stop |
