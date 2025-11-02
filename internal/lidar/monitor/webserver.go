@@ -1384,6 +1384,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to reset background grid: %v", err))
 		if restartErr := ws.startLiveListenerLocked(); restartErr != nil {
 			log.Printf("Failed to restart live listener after reset error: %v", restartErr)
+			return
 		}
 		return
 	}
