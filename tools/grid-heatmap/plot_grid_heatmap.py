@@ -539,7 +539,6 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
     ax_polar.grid(True, alpha=0.3)
     cbar_polar = plt.colorbar(im_polar, ax=ax_polar, fraction=0.046, pad=0.08)
     cbar_polar.set_label(metric_title, fontsize=12)
-    cbar_settle.set_label("Settle Rate", fontsize=12)
 
     # === TOP RIGHT: Spatial XY Distance Heatmap ===
     ax_spatial = fig.add_subplot(gs[0:3, 8:])
