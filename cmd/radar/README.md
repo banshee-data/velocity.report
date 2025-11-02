@@ -59,12 +59,11 @@ LiDAR integration flags (only relevant when `--enable-lidar` is supplied):
 - `--lidar-forward` (bool) — Forward incoming LiDAR packets to another port (useful for LidarView).
 - `--lidar-forward-port` (int) — Forward destination port (default: `2368`).
 - `--lidar-forward-addr` (string) — Forward destination address (default: `localhost`).
-- `--lidar-pcap-mode` (bool) — Enable PCAP replay mode: disables UDP network listening, accepts PCAP files via API.
 - `--lidar-pcap-dir` (string) — Safe directory for PCAP files (default: `../sensor-data/lidar`). Only files within this directory can be replayed via the API. This prevents path traversal attacks.
 
 ## PCAP Replay Setup
 
-When using PCAP replay mode (`--lidar-pcap-mode`), you need to:
+Runtime switching lets you replay captures without special startup flags:
 
 1. **Create the PCAP directory** (default: `../sensor-data/lidar`):
 
@@ -78,27 +77,31 @@ When using PCAP replay mode (`--lidar-pcap-mode`), you need to:
    cp /path/to/your/file.pcap ../sensor-data/lidar/
    ```
 
-3. **Start the server** in PCAP mode:
+3. **Start the server** with LiDAR enabled (no dedicated PCAP mode required):
 
    ```bash
-   ./radar --enable-lidar --lidar-pcap-mode --lidar-pcap-dir ../sensor-data/lidar
+   ./radar --enable-lidar --lidar-pcap-dir ../sensor-data/lidar
    ```
 
-4. **Trigger replay** via the API:
+4. **Switch to PCAP** via the API:
+
    ```bash
-   curl -X POST http://localhost:8081/api/lidar/pcap/start?sensor_id=hesai-pandar40p \
+   curl -X POST "http://localhost:8081/api/lidar/pcap/start?sensor_id=hesai-pandar40p" \
      -H "Content-Type: application/json" \
      -d '{"pcap_file": "file.pcap"}'
    ```
 
+   The server stops the live UDP listener, resets the background grid, and starts replaying the requested PCAP. If a replay is already running the endpoint returns `409 Conflict`; wait for completion (check `/api/lidar/data_source`) and retry.
+
+5. **Switch back to live data** when finished:
+
+   ```bash
+   curl "http://localhost:8081/api/lidar/pcap/stop?sensor_id=hesai-pandar40p"
+   ```
+
 **Security Note**: The `--lidar-pcap-dir` flag restricts file access to prevent path traversal attacks. Only files within the specified directory (or its subdirectories) can be accessed. Attempting to access files outside this directory (e.g., using `../../../etc/passwd`) will be rejected with a 403 Forbidden error.
 
-You can use either:
-
-- Just the filename: `"pcap_file": "file.pcap"`
-- A relative path within the safe directory: `"pcap_file": "subfolder/file.pcap"`
-
-Absolute paths are automatically converted to be relative to the safe directory.
+You can provide either a bare filename (`"pcap_file": "file.pcap"`) or a relative path within the safe directory (`"pcap_file": "subfolder/file.pcap"`). Absolute paths are automatically resolved relative to the safe directory.
 
 ## Architecture
 
