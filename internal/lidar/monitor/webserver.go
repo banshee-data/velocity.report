@@ -175,14 +175,56 @@ func (ws *WebServer) startLiveListenerLocked() error {
 	done := make(chan struct{})
 	ws.udpListenerDone = done
 
-	go func(listener *network.UDPListener, ctx context.Context, finished chan struct{}) {
-		defer close(finished)
-		if err := listener.Start(ctx); err != nil && !errors.Is(err, context.Canceled) {
-			log.Printf("Lidar UDP listener error: %v", err)
-		}
-	}(ws.udpListener, listenerCtx, done)
+	// Create error channel to receive startup result
+	startupErr := make(chan error, 1)
 
-	return nil
+	go func(listener *network.UDPListener, ctx context.Context, finished chan struct{}, errCh chan error) {
+		defer close(finished)
+		err := listener.Start(ctx)
+
+		// Send startup error (or nil on success) before entering main loop
+		select {
+		case errCh <- err:
+		case <-ctx.Done():
+			// Context cancelled before we could report startup status
+			return
+		}
+
+		// If startup failed or context cancelled, exit immediately
+		if err != nil {
+			if !errors.Is(err, context.Canceled) {
+				log.Printf("Lidar UDP listener startup error: %v", err)
+			}
+			return
+		}
+
+		// Listener is running; wait for context cancellation
+		<-ctx.Done()
+	}(ws.udpListener, listenerCtx, done, startupErr)
+
+	// Wait for startup to complete (success or failure)
+	select {
+	case err := <-startupErr:
+		if err != nil {
+			// Startup failed; clean up and propagate error
+			cancel()
+			<-done
+			ws.udpListener = nil
+			ws.udpListenerCancel = nil
+			ws.udpListenerDone = nil
+			return fmt.Errorf("failed to start UDP listener: %w", err)
+		}
+		// Startup succeeded
+		return nil
+	case <-time.After(5 * time.Second):
+		// Startup timed out
+		cancel()
+		<-done
+		ws.udpListener = nil
+		ws.udpListenerCancel = nil
+		ws.udpListenerDone = nil
+		return errors.New("UDP listener startup timed out after 5 seconds")
+	}
 }
 
 func (ws *WebServer) stopLiveListenerLocked() {
