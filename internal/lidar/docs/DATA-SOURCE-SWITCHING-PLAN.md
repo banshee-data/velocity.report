@@ -46,52 +46,43 @@ type WebServer struct {
 
 **Rationale**: Centralize data source management in WebServer since it already handles PCAP replay and has access to all necessary components.
 
-### 2. New HTTP Endpoint
+### 2. Data Source Endpoints
 
-**Route**: `GET /api/lidar/data_source?source={live|pcap}`
+**Status Endpoint**: `GET /api/lidar/data_source`
 
-**Response**:
+Returns the current data source, active PCAP file (if any), and whether a replay is running. This endpoint is read-only and intended for dashboards/clients that need to poll the current mode.
 
-```json
-{
-  "status": "success",
-  "previous_source": "live",
-  "current_source": "pcap",
-  "message": "Data source switched to pcap, background grid reset"
-}
-```
+**Switching Endpoints**:
 
-**Error Cases**:
+- `POST /api/lidar/pcap/start?sensor_id=<id>`
+  - Body: `{ "pcap_file": "capture.pcap" }`
+  - Starts PCAP replay (stops UDP listener, resets background, launches replay)
+  - 409 when a replay is already active
+- `GET /api/lidar/pcap/stop?sensor_id=<id>`
+  - Cancels an in-progress replay, resets the grid, and resumes live UDP ingestion
+  - 409 when no replay is active
 
-- 400: Invalid source type (not "live" or "pcap")
-- 400: Missing pcap_file when source=pcap
-- 404: PCAP file not found
-- 409: **PCAP replay currently in progress - cannot switch until complete**
-- 500: Failed to stop/start data source
+These endpoints preserve the existing `/api/lidar/pcap/*` contract while adding live-mode management and grid reset semantics.
 
 ### 3. Implementation Flow
 
-**Handler Function**: `handleDataSourceSwitch(w http.ResponseWriter, r *http.Request)`
+**Handler Flow**
 
-```
-1. Parse query param: source (live|pcap)
-2. Validate request (source type, pcap_file if needed)
-3. Lock dataSourceMu (write lock)
-4. Check if PCAP replay in progress:
-   - If switching away from PCAP and pcapInProgress=true → return 409 Conflict
-   - Client should wait and retry
-5. Check if already on requested source → return early if no change needed
-6. Stop current data source:
-   - If live: cancel UDP listener context, wait for goroutine exit
-   - If pcap: already stopped (replay finished or blocked by step 4)
-7. Reset background grid via BackgroundManager.ResetBackground()
-8. Start new data source:
-   - If live: create new UDP listener with new context, start goroutine
-   - If pcap: validate file, trigger ReadPCAPFile in goroutine
-9. Update currentSource field
-10. Unlock dataSourceMu
-11. Return success response with previous/current source
-```
+- `handlePCAPStart`
+  1. Validate `sensor_id` and JSON body (`pcap_file` required)
+  2. Acquire `dataSourceMu`, stop live listener, reset background grid
+  3. Validate PCAP path (safe directory enforcement)
+  4. Launch `ReadPCAPFile` goroutine and set `currentSource` to PCAP
+  5. Return canonical file path in response
+
+- `handlePCAPStop`
+  1. Validate `sensor_id`
+  2. Cancel the running replay (if active) and wait for completion
+  3. Reset background grid and restart live UDP listener
+  4. Update `currentSource` to live and clear `currentPCAPFile`
+
+- `handleDataSource` (GET)
+  - Return current source state for observability (live/pcap, file path, replay status)
 
 ### 4. UDP Listener Lifecycle Changes
 
@@ -117,15 +108,13 @@ type WebServer struct {
 
 # New way:
 ./radar  # starts in live mode
-# Option A (two-step, recommended change):
-# 1) Switch runtime data source to PCAP (mode switch only)
-curl -X POST "http://localhost:8081/api/lidar/data_source?source=pcap"
-
-# 2) Separately start PCAP replay (provide the file to replay). Keeping these
-# as separate steps allows validation of the file and safer operations.
-curl -X POST "http://localhost:8081/api/lidar/pcap/start" \
+# Trigger PCAP replay at runtime (sensor id required)
+curl -X POST "http://localhost:8081/api/lidar/pcap/start?sensor_id=hesai-pandar40p" \
    -H "Content-Type: application/json" \
-   -d '{"pcap_file": "/path/to/file.pcap"}'
+   -d '{"pcap_file": "file.pcap"}'
+
+# Return to live data when finished
+curl "http://localhost:8081/api/lidar/pcap/stop?sensor_id=hesai-pandar40p"
 ```
 
 ### 5. WebServer Configuration Updates
@@ -194,44 +183,23 @@ Already has `ResetBackground()` method - use it during source switch.
 
 **Solution**:
 
-```go
-func (ws *WebServer) handleDataSourceSwitch(...) {
-    ws.dataSourceMu.Lock()
-    defer ws.dataSourceMu.Unlock()
-
-    // Source switching logic here
-    // This blocks other switches but allows reads via RWMutex
-}
-```
+- `handlePCAPStart` acquires `dataSourceMu` while stopping live ingestion/resetting the grid
+- `handlePCAPStop` cancels the replay without holding `dataSourceMu`, waits for completion, then restarts live under the lock
+- The status endpoint uses a read lock to avoid blocking active switches
 
 ## API Design Considerations
 
-```
-GET /api/lidar/data_source?source=pcap
-POST /api/lidar/pcap/start (existing, modified to switch source)
-```
-
-**Pros**:
-
-- Backward compatible with existing PCAP endpoint
-- Gradual migration path
-
-**Cons**:
-
-- Two ways to do the same thing (confusing)
-- PCAP endpoint needs to know about live source
-
-**Recommendation**: Go with Option A, update documentation and scripts
+Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/pcap/stop` (GET) endpoints for switching, plus `/api/lidar/data_source` (GET) for status. This preserves backward compatibility for tooling that already targets the PCAP routes while adding a lightweight status endpoint for UI polling.
 
 ## Migration Path
 
 ### Phase 1: Implement Core Functionality
 
 1. Add `currentSource`, `currentPCAPFile` state to WebServer
-2. Implement `handleDataSourceSwitch` endpoint with 409 blocking
+2. Implement `handlePCAPStart`/`handlePCAPStop` with proper locking + 409 handling
 3. Add UDP listener lifecycle management (start/stop)
-4. Update status endpoint to expose data source state
-5. Add tests for source switching
+4. Expose data source status via `/api/lidar/data_source`
+5. Add tests for status endpoint / start-stop flows
 
 ### Phase 2: Remove CLI Flag (BREAKING)
 
@@ -269,9 +237,9 @@ POST /api/lidar/pcap/start (existing, modified to switch source)
 1. **`internal/lidar/monitor/webserver.go`** (~200 lines added)
 
    - Add data source state fields (including currentPCAPFile)
-   - Add `handleDataSourceSwitch` handler with 409 blocking
+   - Add PCAP start/stop handlers and status endpoint
    - Add UDP listener lifecycle management
-   - Update `setupRoutes()` to register new endpoint
+   - Update `setupRoutes()` to register PCAP and status endpoints
    - Modify `Start()` to initialize in live mode (start UDP listener)
    - Update status endpoint to include data_source, pcap_file, pcap_in_progress
 
@@ -285,20 +253,18 @@ POST /api/lidar/pcap/start (existing, modified to switch source)
 
 3. **`tools/grid-heatmap/plot_grid_heatmap.py`** (~20 lines changed)
 
-   - Add `switch_data_source()` function
-   - Call switch API before starting PCAP snapshots
-   - Handle 409 responses (retry logic)
+   - Call `/api/lidar/pcap/start` and `/api/lidar/pcap/stop` with retry logic
+   - Automatically restore live mode after snapshot capture
 
-4. **`scripts/api/lidar/switch_data_source.sh`** (new helper script, ~20 lines)
+4. **`scripts/api/lidar/*.sh`** (~60 lines changed)
 
-   - Wrapper for new API endpoint
-   - Usage: `./switch_data_source.sh live` or `./switch_data_source.sh pcap /path/to/file.pcap`
+   - Update helper scripts to use the dedicated PCAP start/stop endpoints
+   - Add status helper for `/api/lidar/data_source`
 
 5. **`Makefile`** (~15 lines changed)
 
    - Remove `dev-go-pcap` target (no longer needed)
-   - Update `stats-pcap` to switch source before plotting
-   - Simplify - single server startup command for all modes
+   - Update `stats-pcap` / API targets to call start/stop helpers
 
 6. **Documentation Updates** (~100 lines changed)
    - `internal/lidar/docs/lidar_sidecar_overview.md` - remove PCAP mode flag references
