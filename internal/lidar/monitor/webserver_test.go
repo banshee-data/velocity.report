@@ -393,3 +393,65 @@ func BenchmarkWebServer_HealthHandler(b *testing.B) {
 		mux.ServeHTTP(rr, req)
 	}
 }
+
+func TestIsPathWithinDirectory(t *testing.T) {
+	tests := []struct {
+		name    string
+		absPath string
+		safeDir string
+		want    bool
+	}{
+		{
+			name:    "valid path within directory",
+			absPath: "/tmp/output/file.txt",
+			safeDir: "/tmp",
+			want:    true,
+		},
+		{
+			name:    "path at safe directory root",
+			absPath: "/tmp/file.txt",
+			safeDir: "/tmp",
+			want:    true,
+		},
+		{
+			name:    "path escapes with ..",
+			absPath: "/tmp/../etc/passwd",
+			safeDir: "/tmp",
+			want:    false,
+		},
+		{
+			name:    "path is parent directory",
+			absPath: "/tmp",
+			safeDir: "/tmp/subdir",
+			want:    false,
+		},
+		{
+			name:    "completely different path",
+			absPath: "/etc/config",
+			safeDir: "/tmp",
+			want:    false,
+		},
+		{
+			name:    "nested safe path",
+			absPath: "/home/user/projects/app/data/file.txt",
+			safeDir: "/home/user/projects/app",
+			want:    true,
+		},
+		{
+			name:    "sibling directory escape",
+			absPath: "/home/user/other/file.txt",
+			safeDir: "/home/user/projects",
+			want:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isPathWithinDirectory(tt.absPath, tt.safeDir)
+			if got != tt.want {
+				t.Errorf("isPathWithinDirectory(%q, %q) = %v, want %v",
+					tt.absPath, tt.safeDir, got, tt.want)
+			}
+		})
+	}
+}

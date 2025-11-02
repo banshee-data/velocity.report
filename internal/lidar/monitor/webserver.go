@@ -369,6 +369,24 @@ func (ws *WebServer) writeJSONError(w http.ResponseWriter, status int, msg strin
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
 
+// isPathWithinDirectory checks if absPath is safely contained within safeDir.
+// It returns true if the path is within the directory (no .. escapes, not absolute relative path).
+// This prevents directory traversal attacks.
+func isPathWithinDirectory(absPath, safeDir string) bool {
+	relPath, err := filepath.Rel(safeDir, absPath)
+	if err != nil {
+		return false
+	}
+	// Reject paths that:
+	// - Are exactly ".." (parent directory)
+	// - Start with "../" (escape to parent)
+	// - Are absolute when expressed relative to safeDir (e.g., result is "/other/path")
+	if relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) || filepath.IsAbs(relPath) {
+		return false
+	}
+	return true
+}
+
 // Start begins the HTTP server in a goroutine and handles graceful shutdown
 func (ws *WebServer) Start(ctx context.Context) error {
 	ws.setBaseContext(ctx)
@@ -732,8 +750,7 @@ func (ws *WebServer) handleExportSnapshotASC(w http.ResponseWriter, r *http.Requ
 
 		// Allow writes to temp directory
 		tempDir := os.TempDir()
-		relPath, err := filepath.Rel(tempDir, absOutPath)
-		if err == nil && relPath != ".." && !strings.HasPrefix(relPath, ".."+string(filepath.Separator)) && !filepath.IsAbs(relPath) {
+		if isPathWithinDirectory(absOutPath, tempDir) {
 			outPath = absOutPath
 		} else {
 			// Also allow writes to current working directory
@@ -742,8 +759,7 @@ func (ws *WebServer) handleExportSnapshotASC(w http.ResponseWriter, r *http.Requ
 				ws.writeJSONError(w, http.StatusInternalServerError, "cannot determine working directory")
 				return
 			}
-			relPath, err = filepath.Rel(cwd, absOutPath)
-			if err != nil || relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) || filepath.IsAbs(relPath) {
+			if !isPathWithinDirectory(absOutPath, cwd) {
 				ws.writeJSONError(w, http.StatusForbidden, "output path must be within temp directory or current working directory")
 				return
 			}
@@ -785,8 +801,7 @@ func (ws *WebServer) handleExportNextFrameASC(w http.ResponseWriter, r *http.Req
 
 		// Allow writes to temp directory
 		tempDir := os.TempDir()
-		relPath, err := filepath.Rel(tempDir, absOutPath)
-		if err == nil && relPath != ".." && !strings.HasPrefix(relPath, ".."+string(filepath.Separator)) && !filepath.IsAbs(relPath) {
+		if isPathWithinDirectory(absOutPath, tempDir) {
 			outPath = absOutPath
 		} else {
 			// Also allow writes to current working directory
@@ -795,8 +810,7 @@ func (ws *WebServer) handleExportNextFrameASC(w http.ResponseWriter, r *http.Req
 				ws.writeJSONError(w, http.StatusInternalServerError, "cannot determine working directory")
 				return
 			}
-			relPath, err = filepath.Rel(cwd, absOutPath)
-			if err != nil || relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) || filepath.IsAbs(relPath) {
+			if !isPathWithinDirectory(absOutPath, cwd) {
 				ws.writeJSONError(w, http.StatusForbidden, "output path must be within temp directory or current working directory")
 				return
 			}
