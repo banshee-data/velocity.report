@@ -1012,9 +1012,12 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			ws.pcapMu.Lock()
 			ws.pcapInProgress = false
-			if ws.pcapCancel == cancel {
-				ws.pcapCancel = nil
-			}
+			// Clear stored cancel func. Comparing function values for equality is
+			// invalid in Go (only comparison to nil is allowed), so just nil it
+			// while holding the mutex. This is safe because pcapInProgress is
+			// still true until we set it false above, preventing a new PCAP
+			// start from racing in between.
+			ws.pcapCancel = nil
 			ws.pcapMu.Unlock()
 		}()
 
