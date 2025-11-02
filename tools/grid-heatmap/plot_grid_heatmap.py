@@ -850,7 +850,7 @@ def start_pcap_replay(base_url, sensor_id, pcap_file, retries=3, backoff=2.0):
             print(f"PCAP replay started: {result}")
             return True
         except requests.exceptions.RequestException as e:
-            print(f"Error starting PCAP replay: {e}")
+            print(f"Error starting PCAP replay (attempt {attempt}/{retries}): {e}")
             time.sleep(backoff)
 
     return False
