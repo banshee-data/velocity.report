@@ -550,7 +550,6 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
         if bucket["filled_cells"] == 0 or bucket["mean_range_meters"] == 0:
             continue
 
-        ring = bucket["ring"]
         az_start = np.radians(bucket["azimuth_deg_start"])
         az_end = np.radians(bucket["azimuth_deg_end"])
         az_mid = (az_start + az_end) / 2
