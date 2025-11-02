@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -42,6 +43,7 @@ type WebServer struct {
 	sensorID          string
 	parser            network.Parser
 	frameBuilder      network.FrameBuilder
+	pcapSafeDir       string // Safe directory for PCAP file access
 
 	// PCAP replay state
 	pcapMu         sync.Mutex
@@ -61,6 +63,7 @@ type WebServerConfig struct {
 	SensorID          string
 	Parser            network.Parser
 	FrameBuilder      network.FrameBuilder
+	PCAPSafeDir       string // Safe directory for PCAP file access (restricts path traversal)
 }
 
 // NewWebServer creates a new web server with the provided configuration
@@ -77,6 +80,7 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		sensorID:          config.SensorID,
 		parser:            config.Parser,
 		frameBuilder:      config.FrameBuilder,
+		pcapSafeDir:       config.PCAPSafeDir,
 	}
 
 	ws.server = &http.Server{
@@ -845,23 +849,34 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Sanitize and validate the PCAP file path to prevent path traversal attacks
-	cleanPath := filepath.Clean(req.PCAPFile)
-
-	// Ensure the path is absolute to prevent relative path traversal
-	if !filepath.IsAbs(cleanPath) {
-		ws.writeJSONError(w, http.StatusBadRequest, "pcap_file must be an absolute path")
+	// Safe directory validation to prevent path traversal attacks
+	// Convert safe directory to absolute path
+	safeDirAbs, err := filepath.Abs(ws.pcapSafeDir)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("invalid PCAP safe directory configuration: %v", err))
 		return
 	}
 
-	// Check for path traversal attempts (Clean should handle this, but double-check)
-	if cleanPath != req.PCAPFile {
-		ws.writeJSONError(w, http.StatusBadRequest, "invalid pcap_file path: contains traversal sequences")
+	// Join user input with safe directory (handles both filenames and relative paths)
+	// This prevents absolute paths from bypassing the safe directory
+	candidatePath := filepath.Join(safeDirAbs, req.PCAPFile)
+
+	// Resolve to absolute path and clean it
+	resolvedPath, err := filepath.Abs(candidatePath)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid pcap_file path: %v", err))
+		return
+	}
+
+	// Verify the resolved path is still within the safe directory
+	// This prevents traversal attacks like "../../../etc/passwd"
+	if !strings.HasPrefix(resolvedPath, safeDirAbs+string(filepath.Separator)) && resolvedPath != safeDirAbs {
+		ws.writeJSONError(w, http.StatusForbidden, fmt.Sprintf("access denied: pcap_file must be within safe directory (%s)", ws.pcapSafeDir))
 		return
 	}
 
 	// Verify file exists and is a regular file (not a directory or symlink)
-	fileInfo, err := os.Stat(cleanPath)
+	fileInfo, err := os.Stat(resolvedPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			ws.writeJSONError(w, http.StatusNotFound, "PCAP file not found")
@@ -877,8 +892,8 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Optionally: Verify file extension (pcap, pcapng)
-	ext := filepath.Ext(cleanPath)
+	// Verify file extension (pcap, pcapng)
+	ext := filepath.Ext(resolvedPath)
 	if ext != ".pcap" && ext != ".pcapng" {
 		ws.writeJSONError(w, http.StatusBadRequest, "pcap_file must have .pcap or .pcapng extension")
 		return
@@ -903,12 +918,12 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		}()
 
 		ctx := context.Background() // TODO: Consider using a cancelable context for stop functionality
-		log.Printf("Starting PCAP replay from file: %s (sensor: %s)", cleanPath, sensorID)
+		log.Printf("Starting PCAP replay from file: %s (sensor: %s)", resolvedPath, sensorID)
 
-		if err := network.ReadPCAPFile(ctx, cleanPath, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats); err != nil {
+		if err := network.ReadPCAPFile(ctx, resolvedPath, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats); err != nil {
 			log.Printf("PCAP replay error: %v", err)
 		} else {
-			log.Printf("PCAP replay completed successfully: %s", cleanPath)
+			log.Printf("PCAP replay completed successfully: %s", resolvedPath)
 		}
 	}()
 
@@ -916,7 +931,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{
 		"status":    "started",
 		"sensor_id": sensorID,
-		"pcap_file": cleanPath,
+		"pcap_file": resolvedPath,
 	})
 }
 

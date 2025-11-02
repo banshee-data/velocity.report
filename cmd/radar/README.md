@@ -59,6 +59,46 @@ LiDAR integration flags (only relevant when `--enable-lidar` is supplied):
 - `--lidar-forward` (bool) — Forward incoming LiDAR packets to another port (useful for LidarView).
 - `--lidar-forward-port` (int) — Forward destination port (default: `2368`).
 - `--lidar-forward-addr` (string) — Forward destination address (default: `localhost`).
+- `--lidar-pcap-mode` (bool) — Enable PCAP replay mode: disables UDP network listening, accepts PCAP files via API.
+- `--lidar-pcap-dir` (string) — Safe directory for PCAP files (default: `../sensor-data/lidar`). Only files within this directory can be replayed via the API. This prevents path traversal attacks.
+
+## PCAP Replay Setup
+
+When using PCAP replay mode (`--lidar-pcap-mode`), you need to:
+
+1. **Create the PCAP directory** (default: `../sensor-data/lidar`):
+
+   ```bash
+   mkdir -p ../sensor-data/lidar
+   ```
+
+2. **Place your PCAP files** in this directory:
+
+   ```bash
+   cp /path/to/your/file.pcap ../sensor-data/lidar/
+   ```
+
+3. **Start the server** in PCAP mode:
+
+   ```bash
+   ./radar --enable-lidar --lidar-pcap-mode --lidar-pcap-dir ../sensor-data/lidar
+   ```
+
+4. **Trigger replay** via the API:
+   ```bash
+   curl -X POST http://localhost:8081/api/lidar/pcap/start?sensor_id=hesai-pandar40p \
+     -H "Content-Type: application/json" \
+     -d '{"pcap_file": "file.pcap"}'
+   ```
+
+**Security Note**: The `--lidar-pcap-dir` flag restricts file access to prevent path traversal attacks. Only files within the specified directory (or its subdirectories) can be accessed. Attempting to access files outside this directory (e.g., using `../../../etc/passwd`) will be rejected with a 403 Forbidden error.
+
+You can use either:
+
+- Just the filename: `"pcap_file": "file.pcap"`
+- A relative path within the safe directory: `"pcap_file": "subfolder/file.pcap"`
+
+Absolute paths are automatically converted to be relative to the safe directory.
 
 ## Architecture
 
@@ -107,6 +147,23 @@ To visualize incoming LiDAR data, forward packets to LidarView's listening port 
 - The radar binary uses a single SQLite DB file by default (`sensor_data.db`) and exposes admin routes via the HTTP API. You can override the DB location by passing `--db-path /path/to/your.db` when starting the binary (this is how production systemd units should point the service at `/var/lib/velocity.report/sensor_data.db`).
 - When `--disable-radar` is set, a `DisabledSerialMux` keeps the HTTP/DB APIs available while disabling serial I/O.
 - When `--enable-lidar` is used, the LiDAR components reuse the same DB instance for snapshot persistence and event storage. A `BackgroundManager` is created per sensor and will persist background snapshots into the `lidar_bg_snapshot` table if the manager was constructed with a DB-backed `BgStore`.
+
+## Systemd Service Setup
+
+When running as a systemd service, the included `velocity-report.service` file:
+
+- Automatically creates the PCAP safe directory (`/home/david/sensor-data/lidar`) on service start
+- Passes the `--lidar-pcap-dir` flag to restrict PCAP file access to this directory
+- Ensures proper permissions and directory structure before the service starts
+
+To install and enable the service:
+
+```bash
+sudo cp velocity-report.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable velocity-report
+sudo systemctl start velocity-report
+```
 
 ## Troubleshooting
 
