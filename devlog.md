@@ -1,5 +1,85 @@
 # Development Log
 
+## November 1, 2025 - PCAP Security & Grid Visualization (dd/lidar/read-pcap)
+
+- Implemented path traversal protection with `--lidar-pcap-dir` flag (default: `../sensor-data/lidar`) using `filepath.Join()` + `filepath.Abs()` + prefix checking to prevent `../../` attacks.
+- File validation: regular files only, `.pcap`/`.pcapng` extensions required, returns 403 Forbidden for path escape attempts.
+- Systemd integration: service auto-creates PCAP directory on startup via `ExecStartPre` directive.
+- Enhanced 4K-optimized dashboard (25.6×14.4" @ 150 DPI): 3 polar/spatial charts (top 50%) + 4 stacked metric panels (bottom 50%).
+- Chart layout improvements: settle rate left, selected metric middle, optimized spacing (hspace=0.15), title repositioned to top right.
+- PCAP snapshot mode: periodic captures with configurable interval/duration, auto-numbered output directories, metadata tracking (JSON).
+- Live snapshot mode for continuous monitoring of grid state during operation.
+- API helper scripts: grid reset, PCAP replay, background status fetching with sensor_id support.
+- Makefile targets for noise sweep/multisweep plotting and visualization workflows.
+- Python plotting tools: polar/cartesian heatmaps with live and PCAP replay modes, JSON body support for requests.
+- Fixed Python import errors to only display when running as `__main__` (prevents noise during imports).
+- Removed duplicate colorbar labels and unused variables in visualization code.
+- Moved grid-heatmap files to project structure for better organization.
+- Consolidated DEBUG-LOGGING-PLAN, GRID-ANALYSIS-PLAN, GRID-HEATMAP-API, LIDAR-PCAP-Debug docs into sidecar overview.
+- Added Grid Analysis, Debugging & Diagnostics, and Security sections to overview.
+- Updated Phase 2 status to COMPLETED with visualization and security features.
+
+## October 31, 2025 - Grid Analysis API & Debug Logging
+
+- Added `GET /api/lidar/grid_heatmap` endpoint for spatial bucket aggregation (40 rings × 120 azimuth buckets).
+- Implemented `GetGridHeatmap()` method with configurable bucket size and settled threshold.
+- Response includes summary stats and per-bucket metrics: fill/settle rates, mean range/times seen, frozen cells.
+- Unit tests for GetGridHeatmap method validating grid metrics aggregation.
+- Comprehensive API documentation for grid heatmap endpoint design and usage.
+- Python plotting tools: polar (ring vs azimuth) and cartesian (X-Y) heatmaps with multiple metrics.
+- Noise analysis scripts: `plot_noise_sweep.py`, `plot_noise_buckets.py` for acceptance rate visualization.
+- Data analysis scripts for convergence patterns: noise vs distance, neighbor/closeness parameters.
+- Comprehensive logging plan: grid reset timing, API call logs, rate-limited population tracking.
+- FrameBuilder diagnostics: eviction logging, frame callback (debug mode only), enhanced azimuth wrap detection for large negative jumps (>180°).
+- BackgroundManager diagnostics: acceptance decision logging, nonzero cell tracking in snapshots, per-frame acceptance summary with active parameters.
+- Re-enabled `SeedFromFirstObservation` with `--lidar-seed-from-first` flag for PCAP mode.
+- Added settle time flag for grid stabilization after parameter changes.
+- Configurable background flush interval and frame buffer timeout.
+- Sweep tools: fetch live nonzero counts from grid_status API (avoids DB timing races), multisweep tracking.
+- Makefile improvements: dev-go, tail-log-go, cat-log-go targets with process management.
+- Added dev-go-pcap target and streamlined lidar options.
+- PCAP replay mutex for state management to prevent concurrent replays.
+- Fixed frame eviction callback delivery bug (frames were discarded without invoking callback).
+- Improved azimuth detection for large negative jumps to catch more wrap cases.
+- Debug verbosity: frame-completion logs only when --debug flag set.
+
+## October 30, 2025 - PCAP Debugging & Development Tools
+
+- Enhanced frame eviction logging and finalized frame callback delivery path.
+- Added diagnostics for non-zero channel counts in ParsePacket function.
+- Improved azimuth wrap detection to handle edge cases (large negative jumps).
+- Enable debug logging for frame completion and PCAP parsing via --debug flag.
+- Updated lidar PCAP debug plan with findings and recommendations.
+- Added local API helper scripts for PCAP replay and lidar background status fetching.
+- Enhanced scripts to include sensor_id in grid status and snapshots requests.
+- Consolidated dev-go logic into reusable run_dev_go function in Makefile.
+- Added dev-go-pcap target for PCAP mode development workflow.
+- Added cat-log-go and tail-log-go targets for log management.
+- Enhanced dev-go to stop previously running app-radar-local processes before starting.
+- Corrected log directory name in .gitignore (logs/ instead of log/).
+- Moved lidar debug documentation to proper location in docs structure.
+
+## October 29, 2025 - Configuration & Documentation Cleanup
+
+- Updated lidar configuration flags for improved clarity and consistency.
+- Enhanced documentation for database path and command flags.
+- Added `SeedFromFirstObservation` parameter for PCAP mode background initialization.
+- Updated README and documentation for improved clarity on database path usage.
+- Removed outdated Frontend Units Override Feature documentation.
+- Improved consistency across configuration documentation.
+
+## October 28, 2025 - PCAP Support Foundation
+
+- Added PCAP file replay support with BPF filtering for multi-sensor PCAP files.
+- Integration with existing parser and frame builder for seamless replay.
+- Background persistence during PCAP replay with configurable flush intervals.
+- Added `--lidar-pcap-mode` flag to disable UDP listening for replay-only mode.
+- POST `/api/lidar/pcap/start` endpoint for triggering PCAP replay via API.
+- Enhanced LiDAR sidecar overview with classification, filtering, and metrics implementation details.
+- Updated overview to reflect current status and PCAP parameter tuning phase (Phase 2.5).
+- Removed outdated architecture diagram from LiDAR overview.
+- Documentation nits and minor fixes throughout.
+
 ## September 23, 2025 - Background diagnostics, monitor APIs & bg-sweep
 
 - Centralized runtime diagnostics: added `internal/monitoring` logger and per-manager `EnableDiagnostics` flag.
