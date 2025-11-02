@@ -820,35 +820,61 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
     plt.close()
 
 
-def start_pcap_replay(base_url, sensor_id, pcap_file):
+def start_pcap_replay(base_url, sensor_id, pcap_file, retries=3, backoff=2.0):
     """
-    Start PCAP file replay via API
+    Start PCAP file replay via API.
 
     Args:
         base_url: Monitor base URL
         sensor_id: Sensor ID
-        pcap_file: Path to PCAP file (will be converted to basename for API call)
-
-    Returns:
-        True if successful, False otherwise
+        pcap_file: Path to PCAP file (basename is sent to API)
+        retries: Number of retries on conflict (409)
+        backoff: Base backoff seconds between retries
     """
-    # Convert to just the filename since the server expects files relative to safe directory
-    from pathlib import Path
-
-    pcap_filename = Path(pcap_file).name
-
     url = f"{base_url}/api/lidar/pcap/start"
     params = {"sensor_id": sensor_id}
-    body = {"pcap_file": pcap_filename}
+    payload = {"pcap_file": Path(pcap_file).name}
+
+    for attempt in range(1, retries + 1):
+        try:
+            resp = requests.post(url, params=params, json=payload, timeout=10)
+            if resp.status_code == 409:
+                wait_time = backoff * attempt
+                print(
+                    f"PCAP replay busy (attempt {attempt}/{retries}), retrying in {wait_time:.1f}s..."
+                )
+                time.sleep(wait_time)
+                continue
+            resp.raise_for_status()
+            result = resp.json()
+            print(f"PCAP replay started: {result}")
+            return True
+        except requests.exceptions.RequestException as e:
+            print(f"Error starting PCAP replay: {e}")
+            time.sleep(backoff)
+
+    return False
+
+
+def stop_pcap_replay(base_url, sensor_id):
+    """
+    Stop an active PCAP replay (switch back to live data).
+
+    Args:
+        base_url: Monitor base URL
+        sensor_id: Sensor ID
+    """
+    url = f"{base_url}/api/lidar/pcap/stop"
+    params = {"sensor_id": sensor_id}
 
     try:
-        resp = requests.post(url, params=params, json=body, timeout=10)
+        resp = requests.get(url, params=params, timeout=10)
         resp.raise_for_status()
         result = resp.json()
-        print(f"PCAP replay started: {result}")
+        print(f"PCAP replay stopped: {result}")
         return True
     except requests.exceptions.RequestException as e:
-        print(f"Error starting PCAP replay: {e}")
+        print(f"Error stopping PCAP replay: {e}")
         return False
 
 
@@ -954,105 +980,114 @@ def process_pcap_with_snapshots(
 
     time.sleep(2)
 
-    # Start PCAP replay
+    # Start PCAP replay and capture snapshots
     if not start_pcap_replay(base_url, sensor_id, pcap_file):
         print("Failed to start PCAP replay")
         return
 
-    # Wait for grid to start populating
-    print("Waiting for grid to populate...")
-    if not wait_for_grid_population(base_url, sensor_id, min_filled=100, timeout=30):
-        print("Grid not populating, check PCAP replay status")
-        return
+    try:
+        # Wait for grid to start populating
+        print("Waiting for grid to populate...")
+        if not wait_for_grid_population(
+            base_url, sensor_id, min_filled=100, timeout=30
+        ):
+            print("Grid not populating, check PCAP replay status")
+            return
 
-    print()
-    print("Starting snapshot capture...")
+        print()
+        print("Starting snapshot capture...")
 
-    snapshot_count = 0
-    start_time = time.time()
-    next_snapshot_time = start_time
+        snapshot_count = 0
+        start_time = time.time()
+        next_snapshot_time = start_time
 
-    while True:
-        current_time = time.time()
-        elapsed = current_time - start_time
+        while True:
+            current_time = time.time()
+            elapsed = current_time - start_time
 
-        # Check if we've exceeded duration
-        if duration and elapsed >= duration:
-            print(f"\nReached duration limit ({duration}s), stopping")
-            break
-
-        # Check if it's time for next snapshot
-        if current_time >= next_snapshot_time:
-            snapshot_count += 1
-            elapsed_str = f"{elapsed:.1f}s"
-
-            print(f"\n[Snapshot {snapshot_count} at {elapsed_str}]")
-
-            # Fetch heatmap
-            try:
-                heatmap = fetch_heatmap(
-                    base_url, sensor_id, azimuth_bucket, settled_threshold
-                )
-            except SystemExit:
-                print("Failed to fetch heatmap, retrying...")
-                next_snapshot_time += interval
-                continue
-
-            summary = heatmap["summary"]
-            print(
-                f"  Filled: {summary['total_filled']:,} ({summary['fill_rate']:.1%}), "
-                f"Settled: {summary['total_settled']:,} ({summary['settle_rate']:.1%})"
-            )
-
-            # Generate filename prefix
-            prefix = f"snapshot_{snapshot_count:03d}_t{int(elapsed):04d}s"
-
-            # Save snapshot metadata
-            snapshot_meta = {
-                "snapshot": snapshot_count,
-                "elapsed_seconds": elapsed,
-                "timestamp": heatmap["timestamp"],
-                "summary": summary,
-            }
-            metadata["snapshots"].append(snapshot_meta)
-
-            # Generate full dashboard (single comprehensive PNG)
-            dashboard_output = output_path / f"{prefix}.png"
-            plot_full_dashboard(heatmap, metric, str(dashboard_output), dpi)
-            print(f"  Saved: {dashboard_output.name}")
-
-            # Schedule next snapshot
-            next_snapshot_time += interval
-
-        # Check if grid is still changing (heuristic: check if PCAP is still replaying)
-        # If total_filled hasn't changed in last few snapshots and we have enough data, stop
-        if snapshot_count >= 3 and len(metadata["snapshots"]) >= 3:
-            last_three_filled = [
-                s["summary"]["total_filled"] for s in metadata["snapshots"][-3:]
-            ]
-            if (
-                len(set(last_three_filled)) == 1 and elapsed > interval * 3
-            ):  # All same value
-                print(
-                    "\nGrid appears stable (no changes in last 3 snapshots), stopping"
-                )
+            # Check if we've exceeded duration
+            if duration and elapsed >= duration:
+                print(f"\nReached duration limit ({duration}s), stopping")
                 break
 
-        # Sleep briefly to avoid busy loop
-        time.sleep(0.5)
+            # Check if it's time for next snapshot
+            if current_time >= next_snapshot_time:
+                snapshot_count += 1
+                elapsed_str = f"{elapsed:.1f}s"
 
-    # Save final metadata
-    metadata["total_snapshots"] = snapshot_count
-    metadata["total_duration"] = time.time() - start_time
+                print(f"\n[Snapshot {snapshot_count} at {elapsed_str}]")
 
-    metadata_file = output_path / "metadata.json"
-    with open(metadata_file, "w") as f:
-        json.dump(metadata, f, indent=2)
+                # Fetch heatmap
+                try:
+                    heatmap = fetch_heatmap(
+                        base_url, sensor_id, azimuth_bucket, settled_threshold
+                    )
+                except SystemExit:
+                    print("Failed to fetch heatmap, retrying...")
+                    next_snapshot_time += interval
+                    continue
 
-    print(f"\n✓ Completed {snapshot_count} snapshots")
-    print(f"  Total duration: {metadata['total_duration']:.1f}s")
-    print(f"  Output directory: {output_dir}")
-    print(f"  Metadata: {metadata_file}")
+                summary = heatmap["summary"]
+                print(
+                    f"  Filled: {summary['total_filled']:,} ({summary['fill_rate']:.1%}), "
+                    f"Settled: {summary['total_settled']:,} ({summary['settle_rate']:.1%})"
+                )
+
+                # Generate filename prefix
+                prefix = f"snapshot_{snapshot_count:03d}_t{int(elapsed):04d}s"
+
+                # Save snapshot metadata
+                snapshot_meta = {
+                    "snapshot": snapshot_count,
+                    "elapsed_seconds": elapsed,
+                    "timestamp": heatmap["timestamp"],
+                    "summary": summary,
+                }
+                metadata["snapshots"].append(snapshot_meta)
+
+                # Generate full dashboard (single comprehensive PNG)
+                dashboard_output = output_path / f"{prefix}.png"
+                plot_full_dashboard(heatmap, metric, str(dashboard_output), dpi)
+                print(f"  Saved: {dashboard_output.name}")
+
+                # Schedule next snapshot
+                next_snapshot_time += interval
+
+            # Check if grid is still changing (heuristic: check if PCAP is still replaying)
+            # If total_filled hasn't changed in last few snapshots and we have enough data, stop
+            if snapshot_count >= 3 and len(metadata["snapshots"]) >= 3:
+                last_three_filled = [
+                    s["summary"]["total_filled"] for s in metadata["snapshots"][-3:]
+                ]
+                if (
+                    len(set(last_three_filled)) == 1 and elapsed > interval * 3
+                ):  # All same value
+                    print(
+                        "\nGrid appears stable (no changes in last 3 snapshots), stopping"
+                    )
+                    break
+
+            # Sleep briefly to avoid busy loop
+            time.sleep(0.5)
+
+        # Save final metadata
+        metadata["total_snapshots"] = snapshot_count
+        metadata["total_duration"] = time.time() - start_time
+
+        metadata_file = output_path / "metadata.json"
+        with open(metadata_file, "w") as f:
+            json.dump(metadata, f, indent=2)
+
+        print(f"\n✓ Completed {snapshot_count} snapshots")
+        print(f"  Total duration: {metadata['total_duration']:.1f}s")
+        print(f"  Output directory: {output_dir}")
+        print(f"  Metadata: {metadata_file}")
+    finally:
+        print("\nSwitching back to live source...")
+        if not stop_pcap_replay(base_url, sensor_id):
+            print(
+                "Warning: failed to switch back to live mode; please trigger manually"
+            )
 
 
 def process_live_snapshots(
