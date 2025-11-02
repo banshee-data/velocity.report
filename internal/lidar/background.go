@@ -75,6 +75,8 @@ type BackgroundGrid struct {
 	// Telemetry for monitoring (feeds into system_events)
 	ForegroundCount int64
 	BackgroundCount int64
+	// nonzeroCellCount tracks cells with TimesSeenCount > 0; guarded by mu.
+	nonzeroCellCount int
 
 	// Simple range-bucketed acceptance metrics to help tune NoiseRelativeFraction.
 	// Buckets are upper bounds in meters; counts are number of accepted/rejected
@@ -450,6 +452,7 @@ func (bm *BackgroundManager) ResetGrid() error {
 	g.ChangesSinceSnapshot = 0
 	g.ForegroundCount = 0
 	g.BackgroundCount = 0
+	g.nonzeroCellCount = 0
 
 	// Count nonzero cells AFTER reset (should be 0)
 	nonzeroAfter := 0
@@ -769,6 +772,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 					cell.AverageRangeMeters = float32(observationMean)
 					cell.RangeSpreadMeters = float32((maxDistances[cellIdx] - minDistances[cellIdx]) / 2.0)
 					cell.TimesSeenCount = 1
+					g.nonzeroCellCount++
 				} else {
 					oldAvg := float64(cell.AverageRangeMeters)
 					newAvg := (1.0-alpha)*oldAvg + alpha*observationMean
@@ -787,6 +791,9 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 				// Decrease confidence and possibly freeze the cell if divergence is large
 				if cell.TimesSeenCount > 0 {
 					cell.TimesSeenCount--
+					if cell.TimesSeenCount == 0 && g.nonzeroCellCount > 0 {
+						g.nonzeroCellCount--
+					}
 				}
 				// If difference very large relative to spread, freeze the cell briefly
 				if cellDiff > 3.0*closenessThreshold {
@@ -855,15 +862,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	frameCount := atomic.AddInt64(&bm.frameProcessCount, 1)
 	if frameCount%100 == 0 {
 		// Quick snapshot of nonzero count
-		nonzero := 0
-		for i := range g.Cells {
-			if g.Cells[i].TimesSeenCount > 0 {
-				nonzero++
-			}
-		}
-		// TODO: The nonzero cell count is computed every 100 frames by iterating through
-		// all cells (potentially 72,000 cells). This could be a performance bottleneck.
-		// Consider tracking the nonzero count incrementally or computing it less frequently.
+		nonzero := g.nonzeroCellCount
 		log.Printf("[ProcessFramePolar] sensor=%s frames_processed=%d nonzero_cells=%d bg_count=%d fg_count=%d timestamp=%d",
 			g.SensorID, frameCount, nonzero, backgroundCount, foregroundCount, time.Now().UnixNano())
 	}
