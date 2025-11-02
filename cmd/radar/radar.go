@@ -50,7 +50,7 @@ var (
 	lidarFwdPort  = flag.Int("lidar-forward-port", 2368, "Port to forward lidar UDP packets to")
 	lidarFwdAddr  = flag.String("lidar-forward-addr", "localhost", "Address to forward lidar UDP packets to")
 	lidarPCAPMode = flag.Bool("lidar-pcap-mode", false, "Enable PCAP mode: disable UDP network listening, accept PCAP files via API for replay")
-	lidarPCAPDir  = flag.String("lidar-pcap-dir", "../sensor-data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
+	lidarPCAPDir  = flag.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
 	// Background tuning knobs
 	lidarBgFlushInterval = flag.Duration("lidar-bg-flush-interval", 60*time.Second, "Interval to flush background grid to database when reading PCAP")
 	lidarBgNoiseRelative = flag.Float64("lidar-bg-noise-relative", 0.315, "Background NoiseRelativeFraction: fraction of range treated as expected measurement noise (e.g., 0.01 = 1%)")
