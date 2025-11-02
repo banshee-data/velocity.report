@@ -111,9 +111,13 @@ tools/grid-heatmap/                ✅ # Grid visualization and analysis tools
 - **Hybrid Frame Detection**: Motor speed-adaptive timing + azimuth validation (prevents timing anomalies)
 - **Time-based Primary**: Frame completion when duration exceeds expected time (RPM-based) + 10% tolerance
 - **Azimuth Secondary**: Azimuth wrap detection (340° → 20°) respects timing constraints
+- **Enhanced Wrap Detection**: Catches large negative azimuth jumps (>180°) like 289° → 61° transitions
 - **Traditional Fallback**: Pure azimuth-based detection (350° → 10°) when motor speed unavailable
 - **Late Packet Handling**: 1-second buffer for out-of-order packets before final callback
 - **Frame Callback**: Configurable callback for frame completion
+- **Buffer Management**: Fixed eviction bug - frames now properly finalized when evicted from buffer
+- **Frame Buffer**: Holds up to 100 frames with 500ms timeout before cleanup
+- **Cleanup Interval**: 250ms periodic sweep for frame finalization (configurable for PCAP mode)
 
 ### Database Persistence (✅ Complete)
 
@@ -299,6 +303,16 @@ python3 tools/grid-heatmap/plot_grid_heatmap.py \
   --metric unsettled_ratio
 ```
 
+**Cartesian Heatmap**: X-Y spatial visualization showing physical location patterns
+
+```bash
+python3 tools/grid-heatmap/plot_grid_heatmap.py \
+  --url http://localhost:8081 \
+  --sensor hesai-pandar40p \
+  --cartesian \
+  --metric fill_rate
+```
+
 **Full Dashboard**: Comprehensive 4K-optimized visualization with multiple views
 
 ```bash
@@ -313,12 +327,43 @@ python3 tools/grid-heatmap/plot_grid_heatmap.py \
   --pcap /path/to/file.pcap \
   --interval 30 \
   --output-dir output/snapshots
+
+# Live snapshot mode for continuous monitoring
+python3 tools/grid-heatmap/plot_grid_heatmap.py \
+  --url http://localhost:8081 \
+  --live \
+  --interval 10
 ```
 
 **Dashboard Layout** (25.6×14.4 inches @ 150 DPI):
 
 - Top 50%: Polar settle rate + Polar metric + Spatial XY distance
 - Bottom 50%: 4 stacked metric panels (fill rate, settle rate, unsettled ratio, mean times seen)
+- Layout optimizations: hspace=0.15, title repositioned to top right, settle rate chart on left
+
+**Available Metrics**:
+
+- `fill_rate`: Fraction of cells with TimesSeenCount > 0
+- `settle_rate`: Fraction of cells meeting settled threshold
+- `unsettled_ratio`: Filled but not settled cells (fill_rate - settle_rate)
+- `mean_times_seen`: Average observation count per filled cell
+- `frozen_cells`: Cells currently frozen due to dynamic obstacle detection
+
+### Noise Analysis Scripts
+
+**Noise Sweep Plotting**: Visualize acceptance rates vs noise parameters
+
+```bash
+python3 plot_noise_sweep.py sweep-results.csv
+python3 plot_noise_buckets.py sweep-results.csv
+```
+
+**Convergence Analysis**: Analyze neighbor/closeness parameter impact
+
+```bash
+# Data analysis scripts for parameter tuning
+tools/data-analysis/*.py
+```
 
 ### Use Cases
 
@@ -327,6 +372,8 @@ python3 tools/grid-heatmap/plot_grid_heatmap.py \
 3. **Diagnostic Visualization**: Create heatmaps for filled vs settled cells
 4. **Anomaly Detection**: Find unexpected patterns in grid population
 5. **Temporal Analysis**: Track grid settlement progress during warmup
+6. **PCAP Snapshot Mode**: Periodic captures with configurable interval/duration, auto-numbered output directories
+7. **Metadata Tracking**: JSON metadata for snapshot sessions
 
 ---
 
@@ -389,24 +436,41 @@ curl -X POST 'http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p' 
 - Symptom: `nonzero_cells` stays high after reset
 - Diagnosis: Check timing between reset API call and first ProcessFramePolar log
 - Expected: Grid grows from 0 to 60k+ within 1-2 seconds during live operation
+- Root cause: Between `POST /api/lidar/grid_reset` and grid sampling, incoming frames continuously repopulate cells
+- Solution: For testing, use shorter settle times and understand that grid repopulation is normal during live operation
 
 **Low Acceptance Rates**:
 
-- Symptom: Seeing <99% acceptance when expected higher
+- Symptom: Seeing <99% acceptance when expected higher (e.g., 98% instead of 99%+)
 - Diagnosis: Enable diagnostics and examine decision logs
 - Common causes:
-  - Empty cells rejecting before seeding (check `SeedFromFirstObservation`)
+  - Cold start rejection: Empty cells (TimesSeenCount=0) reject observations until seeded
+  - Empty cells rejecting before seeding (check `SeedFromFirstObservation` via `--lidar-seed-from-first` flag)
   - Tight thresholds at long range (check `NoiseRelativeFraction`)
-  - Strict neighbor confirmation (check `NeighborConfirmationCount`)
+  - Strict neighbor confirmation (check `NeighborConfirmationCount` - neighbor=2 requires 2 of 2 neighbors)
+  - NoiseRelativeFraction too strict (0.01 = 1% may be too tight for real sensor noise at long ranges)
+- Analysis: After settling period, rates typically converge to 99.8%+
 
 **Frames Not Finalizing**:
 
 - Symptom: Points added but no frame completion logs
 - Diagnosis: Check frame buffer size and cleanup timing
 - Common causes:
-  - `minFramePoints` threshold too high for sparse data
-  - Buffer timeout too long for fast PCAP replay
-  - Eviction bug (now fixed)
+  - `minFramePoints` threshold too high for sparse data (default: 1000 points)
+  - Buffer timeout too long for fast PCAP replay (bufferTimeout: 500ms)
+  - Eviction bug (now fixed - frames were deleted without callback)
+- Buffer behavior: Frames wait for `bufferTimeout` before cleanup timer finalizes them
+- Fast PCAP replay: At 5k+ pkt/s, buffer may fill before cleanup timer fires (consider reducing CleanupInterval to 50ms)
+
+**PCAP Replay Issues**:
+
+- Symptom: PCAP reads but background stays empty (nonzero_cells=0)
+- Root cause findings:
+  - Azimuth wrap detection initially only checked 350°→10°, missing wraps like 289°→61°
+  - Enhanced detection now catches large negative jumps (>180°)
+  - FrameBuilder eviction bug: frames deleted from buffer without invoking callback
+  - Fix applied: `evictOldestBufferedFrame()` now calls `finalizeFrame(oldestFrame)`
+- Verification: Check logs for frame completion, callback invocation, and background snapshot persistence
 
 ### Performance Tuning
 
@@ -421,6 +485,26 @@ curl -X POST 'http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p' 
 
 # Frequent background snapshots
 --lidar-bg-flush-interval 5s
+
+# Enable seeding from first observation (PCAP mode)
+--lidar-seed-from-first
+
+# Settle time for grid stabilization after parameter changes
+--lidar-settle-time 5s
+```
+
+**Runtime Parameter Adjustment**:
+
+```bash
+# Permissive settings for debugging (via API)
+curl -X POST 'http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "noise_relative_fraction": 1.0,
+    "closeness_sensitivity_multiplier": 10.0,
+    "neighbor_confirmation_count": 1,
+    "enable_diagnostics": true
+  }'
 ```
 
 **Grid Analysis**:
@@ -432,6 +516,43 @@ curl "http://localhost:8081/api/lidar/grid_status?sensor_id=hesai-pandar40p" | j
 # Detailed heatmap for analysis
 curl "http://localhost:8081/api/lidar/grid_heatmap?sensor_id=hesai-pandar40p" | \
   jq '.summary'
+
+# Find buckets with low settlement
+curl -s "http://localhost:8081/api/lidar/grid_heatmap?sensor_id=hesai-pandar40p" | \
+  jq '.buckets[] | select(.filled_cells > 0 and .settled_cells == 0) | {ring, azimuth_deg_start, filled_cells}'
+
+# Extract summary with custom thresholds
+curl "http://localhost:8081/api/lidar/grid_heatmap?sensor_id=hesai-pandar40p&azimuth_bucket_deg=6.0&settled_threshold=10" | \
+  jq '.summary'
+```
+
+**Background Parameter Sweep**:
+
+```bash
+# Single parameter sweep (noise_relative)
+./bg-sweep -pcap-file=/path/to/cars.pcap -start=0.01 -end=0.3 -step=0.01
+
+# Multi-parameter grid search
+./bg-multisweep -pcap-file=/path/to/pedestrians.pcap \
+  -closeness=2.0,3.0,4.0 \
+  -neighbors=1,2,3 \
+  -noise-start=0.01 -noise-end=0.5 -noise-step=0.05
+
+# Fetch live nonzero counts (avoids DB timing races)
+# Sweep tools use grid_status API for real-time metrics
+```
+
+**Makefile Targets**:
+
+```bash
+# Development workflow
+make dev-go          # Build and run with auto-restart
+make dev-go-pcap     # PCAP mode development
+make tail-log-go     # Tail application logs
+make cat-log-go      # View full logs
+
+# Visualization
+make plot-grid-heatmap URL=http://localhost:8081 SENSOR=hesai-pandar40p
 ```
 
 ---
@@ -528,13 +649,18 @@ ChangeThresholdForSnapshot     int      // Min changed cells to trigger snapshot
 - `GET /health` - System status and packet statistics
 - `GET /` - HTML dashboard with real-time metrics
 - `GET /api/lidar/params?sensor_id=<id>` - Get current background parameters
-- `POST /api/lidar/params?sensor_id=<id>` - Update background parameters
+- `POST /api/lidar/params?sensor_id=<id>` - Update background parameters (JSON body)
 - `GET /api/lidar/acceptance?sensor_id=<id>` - Get acceptance metrics by range bucket
+  - Optional: `?debug=true` for per-bucket details with active parameter context
 - `POST /api/lidar/acceptance/reset?sensor_id=<id>` - Reset acceptance counters
 - `POST /api/lidar/grid_reset?sensor_id=<id>` - Reset background grid (for testing/sweeps)
-- `GET /api/lidar/grid/status?sensor_id=<id>` - Get grid statistics and settling status
+- `GET /api/lidar/grid_status?sensor_id=<id>` - Get grid statistics and settling status
+- `GET /api/lidar/grid_heatmap?sensor_id=<id>` - Get spatial bucket aggregation (40 rings × 120 azimuth buckets)
 - `GET /api/lidar/grid/export_asc?sensor_id=<id>` - Export background grid as ASC point cloud
 - `POST /api/lidar/pcap/start?sensor_id=<id>` - Start PCAP replay (requires `--lidar-pcap-mode`)
+  - JSON body: `{"pcap_file": "filename.pcap"}` or `{"pcap_file": "subfolder/file.pcap"}`
+- `POST /api/lidar/snapshot/persist?sensor_id=<id>` - Force immediate background snapshot to database
+- `GET /api/lidar/snapshot?sensor_id=<id>` - Retrieve latest background snapshot from database
 
 ### 🔄 Planned Endpoints
 
