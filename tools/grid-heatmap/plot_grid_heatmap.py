@@ -724,19 +724,24 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
 
 def start_pcap_replay(base_url, sensor_id, pcap_file):
     """
-    Start PCAP replay via the monitor API
+    Start PCAP file replay via API
 
     Args:
         base_url: Monitor base URL
         sensor_id: Sensor ID
-        pcap_file: Path to PCAP file
+        pcap_file: Path to PCAP file (will be converted to basename for API call)
 
     Returns:
         True if successful, False otherwise
     """
+    # Convert to just the filename since the server expects files relative to safe directory
+    from pathlib import Path
+
+    pcap_filename = Path(pcap_file).name
+
     url = f"{base_url}/api/lidar/pcap/start"
     params = {"sensor_id": sensor_id}
-    body = {"pcap_file": pcap_file}
+    body = {"pcap_file": pcap_filename}
 
     try:
         resp = requests.post(url, params=params, json=body, timeout=10)
