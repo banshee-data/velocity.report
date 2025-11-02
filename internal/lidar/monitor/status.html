@@ -6,41 +6,110 @@
 
     <h2>Configuration</h2>
     <table border="1" cellpadding="5" cellspacing="0">
-      <tr><td><strong>Mode:</strong></td><td><strong>{{.Mode}}</strong></td></tr>
+      <tr>
+        <td>
+          <strong>Mode:</strong>
+        </td>
+        <td>
+          <strong>{{.Mode}}</strong></td>
+      </tr>
       {{if .PCAPFile}}
-      <tr><td><strong>PCAP File:</strong></td><td>{{.PCAPFile}}</td></tr>
+      <tr>
+        <td>
+          <strong>PCAP File:</strong>
+        </td>
+        <td>{{.PCAPFile}}</td>
+      </tr>
       {{end}}
-      <tr><td><strong>PCAP In
-            Progress:</strong></td><td>{{.PCAPInProgress}}</td></tr>
-      <tr><td><strong>UDP Port:</strong></td><td>{{.UDPPort}}</td></tr>
-      <tr><td><strong>HTTP Address:</strong></td><td>{{.HTTPAddress}}</td></tr>
-      <tr><td><strong>Packet
-            Forwarding:</strong></td><td>{{.ForwardingStatus}}</td></tr>
-      <tr><td><strong>Packet
-            Parsing:</strong></td><td>{{.ParsingStatus}}</td></tr>
+      <tr>
+        <td>
+          <strong>PCAP In Progress:</strong>
+        </td>
+        <td>{{.PCAPInProgress}}</td>
+      </tr>
+      <tr>
+        <td>
+          <strong>UDP Port:</strong>
+        </td>
+        <td>{{.UDPPort}}</td>
+      </tr>
+      <tr>
+        <td>
+          <strong>HTTP Address:</strong>
+        </td>
+        <td>{{.HTTPAddress}}</td>
+      </tr>
+      <tr>
+        <td>
+          <strong>Packet Forwarding:</strong>
+        </td>
+        <td>{{.ForwardingStatus}}</td>
+      </tr>
+      <tr>
+        <td>
+          <strong>Packet Parsing:</strong>
+        </td>
+        <td>{{.ParsingStatus}}</td>
+      </tr>
       {{if .PCAPSafeDir}}
-      <tr><td><strong>PCAP Safe
-            Directory:</strong></td><td>{{.PCAPSafeDir}}</td></tr>
+      <tr>
+        <td>
+          <strong>PCAP Safe Directory:</strong>
+        </td>
+        <td>{{.PCAPSafeDir}}</td>
+      </tr>
       {{end}}
-      <tr><td><strong>Uptime:</strong></td><td>{{.Uptime}}</td></tr>
+      <tr>
+        <td>
+          <strong>Uptime:</strong>
+        </td>
+        <td>{{.Uptime}}</td>
+      </tr>
     </table>
 
     {{if .BGParams}}
     <h2>Background Subtraction Parameters</h2>
     <table border="1" cellpadding="5" cellspacing="0">
-      <tr><td><strong>Noise Relative Fraction:</strong></td><td>{{printf "%.4f"
-          .BGParams.NoiseRelativeFraction}}</td></tr>
-      <tr><td><strong>Closeness Sensitivity
-            Multiplier:</strong></td><td>{{printf "%.2f"
-          .BGParams.ClosenessSensitivityMultiplier}}</td></tr>
-      <tr><td><strong>Neighbor Confirmation
-            Count:</strong></td><td>{{.BGParams.NeighborConfirmationCount}}</td></tr>
-      <tr><td><strong>Background Update Fraction:</strong></td><td>{{printf
-          "%.4f" .BGParams.BackgroundUpdateFraction}}</td></tr>
-      <tr><td><strong>Safety Margin (meters):</strong></td><td>{{printf "%.2f"
-          .BGParams.SafetyMarginMeters}}</td></tr>
-      <tr><td><strong>Seed From First
-            Observation:</strong></td><td>{{.BGParams.SeedFromFirstObservation}}</td></tr>
+      <tr>
+        <td>
+          <strong>Noise Relative Fraction:</strong>
+        </td>
+        <td>{{printf "%.4f"
+          .BGParams.NoiseRelativeFraction}}</td>
+      </tr>
+      <tr>
+        <td>
+          <strong>Closeness Sensitivity Multiplier:</strong>
+        </td>
+        <td>{{printf "%.2f"
+          .BGParams.ClosenessSensitivityMultiplier}}</td>
+      </tr>
+      <tr>
+        <td>
+          <strong>Neighbor Confirmation Count:</strong>
+        </td>
+        <td>{{.BGParams.NeighborConfirmationCount}}</td>
+      </tr>
+      <tr>
+        <td>
+          <strong>Background Update Fraction:</strong>
+        </td>
+        <td>{{printf
+          "%.4f" .BGParams.BackgroundUpdateFraction}}</td>
+      </tr>
+      <tr>
+        <td>
+          <strong>Safety Margin (meters):</strong>
+        </td>
+        <td>{{printf "%.2f"
+          .BGParams.SafetyMarginMeters}}</td>
+      </tr>
+      <tr>
+        <td>
+          <strong>Seed From First Observation:</strong>
+        </td>
+        <td>{{.BGParams.SeedFromFirstObservation}}</td>
+      </tr>
     </table>
     {{end}}
 
@@ -64,69 +133,76 @@
 
     <h2>API Endpoints</h2>
     <ul>
-      <li><a href="/health">Health check</a></li>
-      <li><a href="/api/lidar/params?sensor_id={{.SensorID}}"
-          target="_blank">Get Background Parameters</a></li>
-      <li><a href="/api/lidar/grid_status?sensor_id={{.SensorID}}"
-          target="_blank">Grid Status</a></li>
-      <li><a href="/api/lidar/grid_heatmap?sensor_id={{.SensorID}}"
-          target="_blank">Grid Heatmap</a></li>
-      <li><a href="/api/lidar/acceptance?sensor_id={{.SensorID}}"
-          target="_blank">Background Acceptance Metrics</a></li>
-      <li><a href="/api/lidar/acceptance/reset?sensor_id={{.SensorID}}"
-          target="_blank">Reset Acceptance Metrics</a></li>
-      <li><a href="/api/lidar/persist?sensor_id={{.SensorID}}">Save Background
-          Snapshot</a></li>
-      <li><a href="/api/lidar/snapshot?sensor_id={{.SensorID}}"
-          target="_blank">Get Latest Snapshot</a></li>
-      <li><a href="/api/lidar/snapshots?sensor_id={{.SensorID}}"
-          target="_blank">List Recent Snapshots</a></li>
-      <li><a href="/api/lidar/export_snapshot?sensor_id={{.SensorID}}">Export
-          Latest Snapshot to ASC</a></li>
-      <li><a href="/api/lidar/export_next_frame?sensor_id={{.SensorID}}">Export
-          Next Completed Frame to ASC</a></li>
-      <li><a href="/api/lidar/pcap/stop?sensor_id={{.SensorID}}"
-          target="_blank">Stop
-          PCAP replay (GET)</a></li>
       <li>
-        <form id="pcapStartForm" style="display: inline;">
-          <strong>Start PCAP Replay:</strong>
-          <input type="text" id="pcapFilePath" name="pcap_file"
-            placeholder="file.pcap" size="30"
-            style="margin-left: 5px; margin-right: 5px;" />
+        <a href="/health">Health check</a>
+      </li>
+      <li>
+        <a href="/api/lidar/params?sensor_id={{.SensorID}}" target="_blank">
+          Get Background Parameters</a>
+      </li>
+      <li> <a href="/api/lidar/grid_status?sensor_id={{.SensorID}}"
+          target="_blank">
+          Grid Status</a>
+      </li>
+      <li>
+        <a href="/api/lidar/grid_heatmap?sensor_id={{.SensorID}}"
+          target="_blank">
+          Grid Heatmap</a>
+      </li>
+      <li>
+        <a href="/api/lidar/acceptance?sensor_id={{.SensorID}}" target="_blank">
+          Background Acceptance Metrics
+        </a>
+      </li>
+      <li>
+        <a href="/api/lidar/acceptance/reset?sensor_id={{.SensorID}}"
+          target="_blank">
+          Reset Acceptance Metrics
+        </a>
+      </li>
+      <li>
+        <a href="/api/lidar/persist?sensor_id={{.SensorID}}">
+          Save Background Snapshot
+        </a>
+      </li>
+      <li>
+        <a href="/api/lidar/snapshot?sensor_id={{.SensorID}}" target="_blank">
+          Get Latest Snapshot
+        </a>
+      </li>
+      <li>
+        <a href="/api/lidar/snapshots?sensor_id={{.SensorID}}" target="_blank">
+          List Recent Snapshots
+        </a>
+      </li>
+      <li>
+        <a href="/api/lidar/export_snapshot?sensor_id={{.SensorID}}">
+          Export Latest Snapshot to ASC
+        </a>
+      </li>
+      <li>
+        <a href="/api/lidar/export_next_frame?sensor_id={{.SensorID}}">Export
+          Next Completed Frame to ASC
+        </a>
+      </li>
+      <li>
+        <a href="/api/lidar/pcap/stop?sensor_id={{.SensorID}}"
+          target="_blank">
+          Stop PCAP replay (GET)
+        </a>
+      </li>
+      <li>
+        <form action="/api/lidar/pcap/start?sensor_id={{.SensorID}}"
+          method="POST"
+          target="_blank"
+          style="display: inline;">
+          Start PCAP Replay:
+          <input type="text" name="pcap_file"
+            placeholder="../sensor_data/lidar/file.pcap" size="30"
+            style="margin-left: 5px; margin-right: 5px;"
+            required />
           <button type="submit">Run</button>
         </form>
-        <script>
-          document.getElementById('pcapStartForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const pcapFile = document.getElementById('pcapFilePath').value;
-            if (!pcapFile) {
-              alert('Please enter a PCAP file path');
-              return;
-            }
-            const url = '/api/lidar/pcap/start?sensor_id={{.SensorID}}';
-            const body = JSON.stringify({ pcap_file: pcapFile });
-
-            // Open result in new window
-            const resultWindow = window.open('', '_blank');
-            resultWindow.document.write('<html><body><pre>Submitting request...</pre></body></html>');
-
-            fetch(url, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: body
-            })
-            .then(response => response.json())
-            .then(data => {
-              resultWindow.document.write('<html><body><pre>' +
-                JSON.stringify(data, null, 2) + '</pre></body></html>');
-            })
-            .catch(error => {
-              resultWindow.document.write('<html><body><pre>Error: ' +
-                error.message + '</pre></body></html>');
-            });
-          });
-        </script>
       </li>
     </ul>
   </body>
