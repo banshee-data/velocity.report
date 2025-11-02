@@ -57,15 +57,12 @@ define run_dev_go_kill_server
 	fi
 endef
 
-.PHONY: dev-go dev-go-pcap dev-go-lidar dev-go-kill-server
+.PHONY: dev-go dev-go-lidar dev-go-kill-server
 dev-go:
 	@$(call run_dev_go)
 
 dev-go-lidar:
 	@$(call run_dev_go,--enable-lidar --lidar-bg-flush-interval=60s --lidar-seed-from-first=true --lidar-forward)
-
-dev-go-pcap:
-	@$(call run_dev_go,--enable-lidar --lidar-pcap-mode --debug --lidar-bg-flush-interval=60s --lidar-seed-from-first=true)
 
 dev-go-kill-server:
 	@$(call run_dev_go_kill_server)
@@ -138,10 +135,7 @@ stats-live:
 stats-pcap:
 	@[ -z "$(PCAP)" ] && echo "Usage: make stats-pcap PCAP=file.pcap [INTERVAL=5]" && exit 1 || true
 	@[ ! -f "$(PCAP)" ] && echo "PCAP file not found: $(PCAP)" && exit 1 || true
-	@echo "Starting PCAP-mode lidar server..."
-	@$(MAKE) dev-go-pcap
-	@sleep 2
-	@echo "Capturing PCAP replay snapshots..."
+	@echo "Capturing PCAP replay snapshots via runtime data source switching..."
 	$(VENV_PYTHON) tools/grid-heatmap/plot_grid_heatmap.py --pcap "$(PCAP)" --interval $${INTERVAL:-5}
 
 # =============================================================================
@@ -383,11 +377,25 @@ api-export-snapshot:
 api-export-next-frame:
 	@./scripts/api/lidar/export_next_frame.sh $(SENSOR) $(OUT)
 
+# Status & data source endpoints
+api-status:
+	@./scripts/api/lidar/get_status.sh $(BASE_URL)
+
 # PCAP replay
 api-start-pcap:
-	@[ -z "$(PCAP)" ] && echo "Usage: make api-start-pcap PCAP=file.pcap [SENSOR=hesai-pandar40p]" && exit 1 || true
+	@[ -z "$(PCAP)" ] && echo "Usage: make api-start-pcap PCAP=file.pcap [BASE_URL=http://127.0.0.1:8081]" && exit 1 || true
 	@[ ! -f "$(PCAP)" ] && echo "PCAP file not found: $(PCAP)" && exit 1 || true
-	@./scripts/api/lidar/start_pcap.sh "$(PCAP)" $(SENSOR)
+	@./scripts/api/lidar/start_pcap.sh "$(PCAP)" $(SENSOR) $(BASE_URL)
 
 api-stop-pcap:
-	@./scripts/api/lidar/stop_pcap.sh $(SENSOR)
+	@./scripts/api/lidar/stop_pcap.sh $(SENSOR) $(BASE_URL)
+
+api-switch-data-source:
+	@[ -z "$(SOURCE)" ] && echo "Usage: make api-switch-data-source SOURCE={live|pcap} [PCAP=file.pcap] [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8081]" && exit 1 || true
+	@if [ "$(SOURCE)" = "pcap" ]; then \
+		[ -z "$(PCAP)" ] && echo "PCAP file required when SOURCE=pcap" && exit 1 || true; \
+		[ ! -f "$(PCAP)" ] && echo "PCAP file not found: $(PCAP)" && exit 1 || true; \
+		./scripts/api/lidar/switch_data_source.sh $(SOURCE) "$(PCAP)" $(SENSOR) $(BASE_URL); \
+	else \
+		./scripts/api/lidar/switch_data_source.sh $(SOURCE) $(SENSOR) $(BASE_URL); \
+	fi
