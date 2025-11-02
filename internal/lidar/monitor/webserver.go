@@ -389,8 +389,36 @@ func (ws *WebServer) handleExportSnapshotASC(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
+	// Validate and sanitize output path
 	if outPath == "" {
 		outPath = filepath.Join(os.TempDir(), fmt.Sprintf("bg_snapshot_%s_%d.asc", sensorID, snap.TakenUnixNanos))
+	} else {
+		// If user provides a path, ensure it's within temp directory or current working directory
+		absOutPath, err := filepath.Abs(outPath)
+		if err != nil {
+			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid output path: %v", err))
+			return
+		}
+
+		// Allow writes to temp directory
+		tempDir := os.TempDir()
+		relPath, err := filepath.Rel(tempDir, absOutPath)
+		if err == nil && relPath != ".." && !strings.HasPrefix(relPath, ".."+string(filepath.Separator)) && !filepath.IsAbs(relPath) {
+			outPath = absOutPath
+		} else {
+			// Also allow writes to current working directory
+			cwd, err := os.Getwd()
+			if err != nil {
+				ws.writeJSONError(w, http.StatusInternalServerError, "cannot determine working directory")
+				return
+			}
+			relPath, err = filepath.Rel(cwd, absOutPath)
+			if err != nil || relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) || filepath.IsAbs(relPath) {
+				ws.writeJSONError(w, http.StatusForbidden, "output path must be within temp directory or current working directory")
+				return
+			}
+			outPath = absOutPath
+		}
 	}
 
 	if err := lidar.ExportBgSnapshotToASC(snap, outPath, elevs); err != nil {
@@ -416,6 +444,36 @@ func (ws *WebServer) handleExportNextFrameASC(w http.ResponseWriter, r *http.Req
 		ws.writeJSONError(w, http.StatusNotFound, "no FrameBuilder for sensor")
 		return
 	}
+
+	// Validate and sanitize output path if provided
+	if outPath != "" {
+		absOutPath, err := filepath.Abs(outPath)
+		if err != nil {
+			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid output path: %v", err))
+			return
+		}
+
+		// Allow writes to temp directory
+		tempDir := os.TempDir()
+		relPath, err := filepath.Rel(tempDir, absOutPath)
+		if err == nil && relPath != ".." && !strings.HasPrefix(relPath, ".."+string(filepath.Separator)) && !filepath.IsAbs(relPath) {
+			outPath = absOutPath
+		} else {
+			// Also allow writes to current working directory
+			cwd, err := os.Getwd()
+			if err != nil {
+				ws.writeJSONError(w, http.StatusInternalServerError, "cannot determine working directory")
+				return
+			}
+			relPath, err = filepath.Rel(cwd, absOutPath)
+			if err != nil || relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) || filepath.IsAbs(relPath) {
+				ws.writeJSONError(w, http.StatusForbidden, "output path must be within temp directory or current working directory")
+				return
+			}
+			outPath = absOutPath
+		}
+	}
+
 	// Set flag to export next frame
 	fb.RequestExportNextFrameASC(outPath)
 	w.Header().Set("Content-Type", "application/json")
@@ -903,8 +961,9 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify the canonical path is still within the safe directory
-	// This prevents traversal attacks like "../../../etc/passwd" and symlink escapes
-	if !strings.HasPrefix(canonicalPath, safeDirAbs+string(filepath.Separator)) && canonicalPath != safeDirAbs {
+	// Use filepath.Rel for robust path validation (handles edge cases like trailing slashes)
+	relPath, err := filepath.Rel(safeDirAbs, canonicalPath)
+	if err != nil || relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) || filepath.IsAbs(relPath) {
 		ws.writeJSONError(w, http.StatusForbidden, fmt.Sprintf("access denied: pcap_file must be within safe directory (%s)", ws.pcapSafeDir))
 		return
 	}

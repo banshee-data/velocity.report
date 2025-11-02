@@ -1045,7 +1045,8 @@ func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, reportID
 
 	// Validate path is within pdf-generator directory (security check)
 	cleanPath := filepath.Clean(filePath)
-	if !strings.HasPrefix(cleanPath, pdfDir) {
+	relPath, err := filepath.Rel(pdfDir, cleanPath)
+	if err != nil || relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) || filepath.IsAbs(relPath) {
 		log.Printf("Security: attempted path traversal to %s", filePath)
 		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusForbidden, "Invalid file path")
