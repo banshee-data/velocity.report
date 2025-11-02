@@ -868,15 +868,27 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify the resolved path is still within the safe directory
-	// This prevents traversal attacks like "../../../etc/passwd"
-	if !strings.HasPrefix(resolvedPath, safeDirAbs+string(filepath.Separator)) && resolvedPath != safeDirAbs {
+	// Resolve all symlinks to get the canonical path
+	// This prevents symlink-based attacks where a symlink points outside the safe directory
+	canonicalPath, err := filepath.EvalSymlinks(resolvedPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			ws.writeJSONError(w, http.StatusNotFound, "PCAP file not found")
+		} else {
+			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("cannot resolve PCAP file path: %v", err))
+		}
+		return
+	}
+
+	// Verify the canonical path is still within the safe directory
+	// This prevents traversal attacks like "../../../etc/passwd" and symlink escapes
+	if !strings.HasPrefix(canonicalPath, safeDirAbs+string(filepath.Separator)) && canonicalPath != safeDirAbs {
 		ws.writeJSONError(w, http.StatusForbidden, fmt.Sprintf("access denied: pcap_file must be within safe directory (%s)", ws.pcapSafeDir))
 		return
 	}
 
-	// Verify file exists and is a regular file (not a directory or symlink)
-	fileInfo, err := os.Stat(resolvedPath)
+	// Verify file exists and is a regular file (not a directory or device)
+	fileInfo, err := os.Stat(canonicalPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			ws.writeJSONError(w, http.StatusNotFound, "PCAP file not found")
@@ -893,7 +905,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify file extension (pcap, pcapng)
-	ext := filepath.Ext(resolvedPath)
+	ext := filepath.Ext(canonicalPath)
 	if ext != ".pcap" && ext != ".pcapng" {
 		ws.writeJSONError(w, http.StatusBadRequest, "pcap_file must have .pcap or .pcapng extension")
 		return
@@ -918,12 +930,12 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		}()
 
 		ctx := context.Background() // TODO: Consider using a cancelable context for stop functionality
-		log.Printf("Starting PCAP replay from file: %s (sensor: %s)", resolvedPath, sensorID)
+		log.Printf("Starting PCAP replay from file: %s (sensor: %s)", canonicalPath, sensorID)
 
-		if err := network.ReadPCAPFile(ctx, resolvedPath, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats); err != nil {
+		if err := network.ReadPCAPFile(ctx, canonicalPath, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats); err != nil {
 			log.Printf("PCAP replay error: %v", err)
 		} else {
-			log.Printf("PCAP replay completed successfully: %s", resolvedPath)
+			log.Printf("PCAP replay completed successfully: %s", canonicalPath)
 		}
 	}()
 
@@ -931,7 +943,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{
 		"status":    "started",
 		"sensor_id": sensorID,
-		"pcap_file": resolvedPath,
+		"pcap_file": canonicalPath,
 	})
 }
 
