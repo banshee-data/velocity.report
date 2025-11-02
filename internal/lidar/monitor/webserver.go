@@ -1338,18 +1338,34 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req struct {
-		PCAPFile string `json:"pcap_file"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		if errors.Is(err, io.EOF) {
-			ws.writeJSONError(w, http.StatusBadRequest, "missing JSON body for PCAP request")
+	var pcapFile string
+
+	// Accept both JSON and form data
+	contentType := r.Header.Get("Content-Type")
+	if contentType == "application/json" || contentType == "application/json; charset=utf-8" {
+		// Parse JSON body
+		var req struct {
+			PCAPFile string `json:"pcap_file"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			if errors.Is(err, io.EOF) {
+				ws.writeJSONError(w, http.StatusBadRequest, "missing JSON body for PCAP request")
+				return
+			}
+			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
 			return
 		}
-		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
-		return
+		pcapFile = req.PCAPFile
+	} else {
+		// Parse form data (default for HTML forms)
+		if err := r.ParseForm(); err != nil {
+			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid form data: %v", err))
+			return
+		}
+		pcapFile = r.FormValue("pcap_file")
 	}
-	if req.PCAPFile == "" {
+
+	if pcapFile == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'pcap_file' in request body")
 		return
 	}
@@ -1372,7 +1388,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := ws.startPCAPLocked(req.PCAPFile); err != nil {
+	if err := ws.startPCAPLocked(pcapFile); err != nil {
 		var sErr *switchError
 		if errors.As(err, &sErr) {
 			ws.writeJSONError(w, sErr.status, sErr.Error())

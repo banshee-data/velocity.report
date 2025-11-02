@@ -198,10 +198,15 @@
           style="display: inline;">
           Start PCAP Replay:
           <input type="text" name="pcap_file"
-            placeholder="../sensor_data/lidar/file.pcap" size="30"
+            placeholder="filename.pcap" size="30"
             style="margin-left: 5px; margin-right: 5px;"
             required />
           <button type="submit">Run</button>
+          {{if .PCAPSafeDir}}
+          <span style="font-size: 0.9em; color: #666;">
+            (from {{.PCAPSafeDir}})
+          </span>
+          {{end}}
         </form>
       </li>
     </ul>
