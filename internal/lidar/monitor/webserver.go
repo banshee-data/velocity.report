@@ -49,6 +49,7 @@ type WebServer struct {
 	// PCAP replay state
 	pcapMu         sync.Mutex
 	pcapInProgress bool
+	pcapCancel     context.CancelFunc
 }
 
 // WebServerConfig contains configuration options for the web server
@@ -147,6 +148,7 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/api/lidar/grid_reset", ws.handleGridReset)
 	mux.HandleFunc("/api/lidar/grid_heatmap", ws.handleGridHeatmap)
 	mux.HandleFunc("/api/lidar/pcap/start", ws.handlePCAPStart)
+	mux.HandleFunc("/api/lidar/pcap/stop", ws.handlePCAPStop)
 
 	return mux
 }
@@ -999,18 +1001,23 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "PCAP replay already in progress")
 		return
 	}
+	ctx, cancel := context.WithCancel(context.Background())
 	ws.pcapInProgress = true
+	ws.pcapCancel = cancel
 	ws.pcapMu.Unlock()
 
 	// Start PCAP reading in background goroutine
-	go func() {
+	go func(ctx context.Context, cancel context.CancelFunc) {
+		defer cancel()
 		defer func() {
 			ws.pcapMu.Lock()
 			ws.pcapInProgress = false
+			if ws.pcapCancel == cancel {
+				ws.pcapCancel = nil
+			}
 			ws.pcapMu.Unlock()
 		}()
 
-		ctx := context.Background() // TODO: Consider using a cancelable context for stop functionality
 		log.Printf("Starting PCAP replay from file: %s (sensor: %s)", canonicalPath, sensorID)
 
 		if err := network.ReadPCAPFile(ctx, canonicalPath, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats); err != nil {
@@ -1018,7 +1025,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		} else {
 			log.Printf("PCAP replay completed successfully: %s", canonicalPath)
 		}
-	}()
+	}(ctx, cancel)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
@@ -1028,8 +1035,48 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handlePCAPStop cancels an in-progress PCAP replay via the stored cancel func
+// Method: POST. Query param: sensor_id (required).
+func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use POST")
+		return
+	}
+
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+
+	ws.pcapMu.Lock()
+	cancel := ws.pcapCancel
+	if !ws.pcapInProgress || cancel == nil {
+		ws.pcapMu.Unlock()
+		ws.writeJSONError(w, http.StatusConflict, "no PCAP replay in progress")
+		return
+	}
+	ws.pcapCancel = nil
+	ws.pcapMu.Unlock()
+
+	log.Printf("Stop requested for PCAP replay (sensor: %s)", sensorID)
+	cancel()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":    "stopping",
+		"sensor_id": sensorID,
+	})
+}
+
 // Close shuts down the web server
 func (ws *WebServer) Close() error {
+	ws.pcapMu.Lock()
+	cancel := ws.pcapCancel
+	ws.pcapMu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 	if ws.server != nil {
 		return ws.server.Close()
 	}

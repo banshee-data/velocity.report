@@ -339,7 +339,7 @@ lint: lint-go lint-python lint-web
         api-acceptance api-acceptance-reset \
         api-params api-params-set \
         api-persist api-export-snapshot api-export-next-frame \
-        api-start-pcap
+        api-start-pcap api-stop-pcap
 
 # Grid endpoints
 api-grid-status:
@@ -388,3 +388,6 @@ api-start-pcap:
 	@[ -z "$(PCAP)" ] && echo "Usage: make api-start-pcap PCAP=file.pcap [SENSOR=hesai-pandar40p]" && exit 1 || true
 	@[ ! -f "$(PCAP)" ] && echo "PCAP file not found: $(PCAP)" && exit 1 || true
 	@./scripts/api/lidar/start_pcap.sh "$(PCAP)" $(SENSOR)
+
+api-stop-pcap:
+	@./scripts/api/lidar/stop_pcap.sh $(SENSOR)

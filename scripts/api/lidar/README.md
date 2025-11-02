@@ -30,6 +30,7 @@ Small shell helpers for exercising the local monitor API used during PCAP replay
 
 # PCAP replay
 ./start_pcap.sh /path/to/file.pcap [sensor_id]
+./stop_pcap.sh [sensor_id]
 ```
 
 ## Make targets
@@ -61,6 +62,7 @@ make api-export-next-frame [SENSOR=hesai-pandar40p] [OUT=/path/to/output.asc]
 
 # PCAP replay
 make api-start-pcap PCAP=/path/to/file.pcap [SENSOR=hesai-pandar40p]
+make api-stop-pcap [SENSOR=hesai-pandar40p]
 ```
 
 ## API Endpoints Reference
@@ -82,3 +84,4 @@ All scripts connect to `http://127.0.0.1:8081` and require `jq` for pretty JSON 
 | `/api/lidar/export_snapshot` | `export_snapshot.sh` | `api-export-snapshot` | Export snapshot to ASC |
 | `/api/lidar/export_next_frame` | `export_next_frame.sh` | `api-export-next-frame` | Export next frame to ASC |
 | `/api/lidar/pcap/start` | `start_pcap.sh` | `api-start-pcap` | Start PCAP replay |
+| `/api/lidar/pcap/stop` | `stop_pcap.sh` | `api-stop-pcap` | Stop in-progress PCAP replay |
