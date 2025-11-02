@@ -545,7 +545,7 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
     ax_spatial = fig.add_subplot(gs[0:3, 8:])
 
     # Build spatial grid - plot actual distance (range) from sensor in XY space
-    x_coords_all, y_coords_all, range_values = [], [], []
+    x_coords_all, y_coords_all = [], []
     for bucket in buckets:
         # Only plot buckets with actual range data
         if bucket["filled_cells"] == 0 or bucket["mean_range_meters"] == 0:
@@ -564,7 +564,6 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
 
         x_coords_all.append(x)
         y_coords_all.append(y)
-        range_values.append(range_m)
 
     if len(x_coords_all) > 0:
         # Determine extent with equal aspect ratio (square pixels)
@@ -594,45 +593,37 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
         x_bins = np.linspace(extent[0], extent[1], num_bins)
         y_bins = np.linspace(extent[2], extent[3], num_bins)
 
-        # Create grid for heatmap
-        H, xedges, yedges = np.histogram2d(
-            x_coords_all, y_coords_all, bins=[x_bins, y_bins], weights=range_values
-        )
+        # Create binary occupancy grid (1 where background exists, 0 elsewhere)
         counts, _, _ = np.histogram2d(x_coords_all, y_coords_all, bins=[x_bins, y_bins])
 
-        # Average values in each bin
-        with np.errstate(divide="ignore", invalid="ignore"):
-            H_avg = np.divide(H, counts)
-            H_avg[~np.isfinite(H_avg)] = 0
+        # Binary mask: 1 where there's data, 0 where empty
+        occupancy = (counts > 0).astype(float)
 
-        # Mask zero values for better color scale
-        H_avg_masked = np.ma.masked_where(H_avg == 0, H_avg)
+        # Mask zero values for clean display
+        occupancy_masked = np.ma.masked_where(occupancy == 0, occupancy)
 
-        # Use RdYlGn_r colormap for distance (red=far, green=close)
-        # This makes obstacles (close objects) stand out in green/yellow
+        # Use monochrome colormap (Greys: white background, black for occupied cells)
         im_spatial = ax_spatial.imshow(
-            H_avg_masked.T,
+            occupancy_masked.T,
             origin="lower",
             extent=extent,
-            cmap="RdYlGn_r",
+            cmap="Greys",
             aspect="equal",  # Force square pixels
             interpolation="nearest",  # Sharp boundaries for grid cells
             vmin=0,
-            vmax=(
-                np.percentile(H_avg[H_avg > 0], 95) if np.any(H_avg > 0) else 1
-            ),  # Cap at 95th percentile for better contrast
+            vmax=1,
         )
 
         ax_spatial.set_xlabel("X (meters)", fontsize=12)
         ax_spatial.set_ylabel("Y (meters)", fontsize=12)
         ax_spatial.set_title(
-            "Spatial XY: Background Distance", fontsize=16, fontweight="bold"
+            "Spatial XY: Background Occupancy", fontsize=16, fontweight="bold"
         )
         ax_spatial.grid(True, alpha=0.3, linestyle="--", linewidth=0.5)
         ax_spatial.plot(
             0,
             0,
-            "k*",
+            "r*",
             markersize=20,
             markeredgewidth=1.5,
             markeredgecolor="white",
@@ -648,10 +639,10 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
                     (0, 0),
                     radius,
                     fill=False,
-                    color="white",
+                    color="gray",
                     linestyle="--",
                     linewidth=0.8,
-                    alpha=0.4,
+                    alpha=0.5,
                     zorder=3,
                 )
                 ax_spatial.add_patch(circle)
@@ -659,9 +650,6 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
         ax_spatial.legend(loc="upper right", fontsize=10)
         ax_spatial.set_xlim(extent[0], extent[1])
         ax_spatial.set_ylim(extent[2], extent[3])
-
-        cbar_spatial = plt.colorbar(im_spatial, ax=ax_spatial, fraction=0.046, pad=0.04)
-        cbar_spatial.set_label("Distance (m)", fontsize=12)
     else:
         # No data to plot
         ax_spatial.text(
