@@ -58,10 +58,12 @@ def create_custom_inferno_cmap():
     # Reverse it
     inferno_r = inferno.reversed()
 
-    # Sample from 15% onwards (skip the first 15% which are the darkest purples)
-    # This starts us in the orange/yellow range
-    start_idx = int(256 * 0.15)
-    colors = inferno_r(np.linspace(start_idx / 256, 1.0, 256))
+    # Sample from 15% (start_frac) up to 80% (end_frac) of the reversed colormap.
+    # This skips the darkest purples at the low end and the extreme light end,
+    # landing the palette solidly in the orange -> red -> purple range.
+    start_frac = 0.15  # skip first 15%
+    end_frac = 0.80  # skip last 20%
+    colors = inferno_r(np.linspace(start_frac, end_frac, 256))
 
     # Create new colormap
     custom_cmap = mcolors.LinearSegmentedColormap.from_list("custom_inferno", colors)
@@ -139,7 +141,7 @@ def plot_polar_heatmap(
         cmap = "Blues"
         vmin, vmax = 0, 1
     else:  # mean_times_seen
-        cmap = "viridis"
+        cmap = create_custom_inferno_cmap()
         vmin, vmax = 0, np.max(data) if np.max(data) > 0 else 1
 
     im = ax.imshow(
@@ -274,7 +276,7 @@ def plot_cartesian_heatmap(
         cmap = "Blues"
         vmin, vmax = 0, 1
     else:  # mean_times_seen
-        cmap = "viridis"
+        cmap = create_custom_inferno_cmap()
         vmin, vmax = 0, max(values) if values else 1
 
     scatter = ax.scatter(
@@ -388,7 +390,7 @@ def plot_combined_metrics(heatmap, output="grid_heatmap_combined.png", dpi=150):
             cmap = "RdYlGn_r"
             vmin, vmax = 0, 1
         else:  # mean_times_seen
-            cmap = "viridis"
+            cmap = create_custom_inferno_cmap()
             vmin, vmax = 0, np.max(data) if np.max(data) > 0 else 1
 
         im = ax.imshow(
@@ -508,7 +510,7 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
         "fill_rate": ("Fill Rate", "YlGn", (0, 1)),
         "settle_rate": ("Settle Rate", "YlOrRd", (0, 1)),
         "unsettled_ratio": ("Unsettled Ratio", "RdYlGn_r", (0, 1)),
-        "mean_times_seen": ("Mean Times Seen", "viridis", (0, None)),
+        "mean_times_seen": ("Mean Times Seen", create_custom_inferno_cmap(), (0, None)),
         "frozen_ratio": ("Frozen Ratio", "Blues", (0, 1)),
     }
     metric_title, cmap, (vmin_base, vmax_base) = metric_map.get(
@@ -720,7 +722,7 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
         ("fill_rate", "Fill Rate", "YlGn", (0, 1)),
         ("settle_rate", "Settle Rate", "YlOrRd", (0, 1)),
         ("unsettled_ratio", "Unsettled Ratio", "RdYlGn_r", (0, 1)),
-        ("mean_times_seen", "Mean Times Seen", "viridis", (0, None)),
+        ("mean_times_seen", "Mean Times Seen", create_custom_inferno_cmap(), (0, None)),
     ]
 
     # Stack panels vertically, each spanning full width (all 12 columns)
