@@ -567,9 +567,32 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
         range_values.append(range_m)
 
     if len(x_coords_all) > 0:
-        # Create 2D histogram/heatmap
-        x_bins = np.linspace(min(x_coords_all), max(x_coords_all), 80)
-        y_bins = np.linspace(min(y_coords_all), max(y_coords_all), 80)
+        # Determine extent with equal aspect ratio (square pixels)
+        x_min, x_max = min(x_coords_all), max(x_coords_all)
+        y_min, y_max = min(y_coords_all), max(y_coords_all)
+
+        # Calculate range for each axis
+        x_range = x_max - x_min
+        y_range = y_max - y_min
+        max_range = max(x_range, y_range)
+
+        # Center and expand to square extent with padding
+        x_center = (x_min + x_max) / 2
+        y_center = (y_min + y_max) / 2
+        padding_factor = 1.1  # 10% padding
+        half_extent = (max_range * padding_factor) / 2
+
+        extent = [
+            x_center - half_extent,
+            x_center + half_extent,
+            y_center - half_extent,
+            y_center + half_extent,
+        ]
+
+        # Create square bins for proper aspect ratio
+        num_bins = 100
+        x_bins = np.linspace(extent[0], extent[1], num_bins)
+        y_bins = np.linspace(extent[2], extent[3], num_bins)
 
         # Create grid for heatmap
         H, xedges, yedges = np.histogram2d(
@@ -582,14 +605,22 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
             H_avg = np.divide(H, counts)
             H_avg[~np.isfinite(H_avg)] = 0
 
-        # Use viridis colormap for distance (meters)
+        # Mask zero values for better color scale
+        H_avg_masked = np.ma.masked_where(H_avg == 0, H_avg)
+
+        # Use RdYlGn_r colormap for distance (red=far, green=close)
+        # This makes obstacles (close objects) stand out in green/yellow
         im_spatial = ax_spatial.imshow(
-            H_avg.T,
+            H_avg_masked.T,
             origin="lower",
-            extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
-            cmap="viridis",
-            aspect="equal",
-            interpolation="bilinear",
+            extent=extent,
+            cmap="RdYlGn_r",
+            aspect="equal",  # Force square pixels
+            interpolation="nearest",  # Sharp boundaries for grid cells
+            vmin=0,
+            vmax=(
+                np.percentile(H_avg[H_avg > 0], 95) if np.any(H_avg > 0) else 1
+            ),  # Cap at 95th percentile for better contrast
         )
 
         ax_spatial.set_xlabel("X (meters)", fontsize=12)
@@ -597,9 +628,38 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
         ax_spatial.set_title(
             "Spatial XY: Background Distance", fontsize=16, fontweight="bold"
         )
-        ax_spatial.grid(True, alpha=0.3)
-        ax_spatial.plot(0, 0, "r*", markersize=15, label="Sensor", zorder=5)
-        ax_spatial.legend(loc="upper right")
+        ax_spatial.grid(True, alpha=0.3, linestyle="--", linewidth=0.5)
+        ax_spatial.plot(
+            0,
+            0,
+            "k*",
+            markersize=20,
+            markeredgewidth=1.5,
+            markeredgecolor="white",
+            label="Sensor",
+            zorder=5,
+        )
+
+        # Add range circles for reference
+        max_display_range = half_extent
+        for radius in [10, 20, 30, 40, 50]:
+            if radius < max_display_range:
+                circle = plt.Circle(
+                    (0, 0),
+                    radius,
+                    fill=False,
+                    color="white",
+                    linestyle="--",
+                    linewidth=0.8,
+                    alpha=0.4,
+                    zorder=3,
+                )
+                ax_spatial.add_patch(circle)
+
+        ax_spatial.legend(loc="upper right", fontsize=10)
+        ax_spatial.set_xlim(extent[0], extent[1])
+        ax_spatial.set_ylim(extent[2], extent[3])
+
         cbar_spatial = plt.colorbar(im_spatial, ax=ax_spatial, fraction=0.046, pad=0.04)
         cbar_spatial.set_label("Distance (m)", fontsize=12)
     else:
@@ -618,6 +678,7 @@ def plot_full_dashboard(heatmap, metric, output="grid_dashboard.png", dpi=150):
         ax_spatial.set_title(
             "Spatial XY: Background Distance", fontsize=16, fontweight="bold"
         )
+        ax_spatial.set_aspect("equal")
 
     # === BOTTOM: 4 Metric Panels (Stacked Vertically) ===
     metric_configs = [
