@@ -859,6 +859,9 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 				nonzero++
 			}
 		}
+		// TODO: The nonzero cell count is computed every 100 frames by iterating through
+		// all cells (potentially 72,000 cells). This could be a performance bottleneck.
+		// Consider tracking the nonzero count incrementally or computing it less frequently.
 		log.Printf("[ProcessFramePolar] sensor=%s frames_processed=%d nonzero_cells=%d bg_count=%d fg_count=%d timestamp=%d",
 			g.SensorID, bm.frameProcessCount, nonzero, backgroundCount, foregroundCount, time.Now().UnixNano())
 	}
