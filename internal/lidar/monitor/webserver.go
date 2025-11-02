@@ -180,50 +180,45 @@ func (ws *WebServer) startLiveListenerLocked() error {
 
 	go func(listener *network.UDPListener, ctx context.Context, finished chan struct{}, errCh chan error) {
 		defer close(finished)
+
+		// listener.Start() blocks until context is cancelled or a fatal error occurs.
+		// It returns immediately with an error if socket binding fails.
 		err := listener.Start(ctx)
 
-		// Send startup error (or nil on success) before entering main loop
+		// Try to send the error (whether nil or actual error) to the startup channel.
+		// This will succeed only if the parent is still waiting; otherwise it's buffered or ignored.
 		select {
 		case errCh <- err:
-		case <-ctx.Done():
-			// Context cancelled before we could report startup status
-			return
-		}
-
-		// If startup failed or context cancelled, exit immediately
-		if err != nil {
-			if !errors.Is(err, context.Canceled) {
-				log.Printf("Lidar UDP listener startup error: %v", err)
+		default:
+			// Parent already timed out or succeeded; log if there was a runtime error
+			if err != nil && !errors.Is(err, context.Canceled) {
+				log.Printf("Lidar UDP listener error: %v", err)
 			}
-			return
 		}
-
-		// Listener is running; wait for context cancellation
-		<-ctx.Done()
 	}(ws.udpListener, listenerCtx, done, startupErr)
 
-	// Wait for startup to complete (success or failure)
+	// Wait for either:
+	// 1. Immediate startup error (socket bind failure) - returned quickly
+	// 2. Timeout if listener hangs during startup
+	//
+	// Note: successful socket binding means Start() will block in the read loop,
+	// so we won't receive anything on startupErr channel in the success case.
+	// We use a short timeout to detect startup completion.
 	select {
 	case err := <-startupErr:
-		if err != nil {
-			// Startup failed; clean up and propagate error
-			cancel()
-			<-done
-			ws.udpListener = nil
-			ws.udpListenerCancel = nil
-			ws.udpListenerDone = nil
-			return fmt.Errorf("failed to start UDP listener: %w", err)
-		}
-		// Startup succeeded
-		return nil
-	case <-time.After(5 * time.Second):
-		// Startup timed out
+		// Received an error from Start() - this means socket binding failed
+		// or listener exited immediately for another reason
 		cancel()
 		<-done
 		ws.udpListener = nil
 		ws.udpListenerCancel = nil
 		ws.udpListenerDone = nil
-		return errors.New("UDP listener startup timed out after 5 seconds")
+		return fmt.Errorf("failed to start UDP listener: %w", err)
+	case <-time.After(500 * time.Millisecond):
+		// Timeout elapsed without receiving an error.
+		// This means Start() successfully bound the socket and entered the read loop.
+		// The listener is now running in the background goroutine.
+		return nil
 	}
 }
 
