@@ -1,19 +1,148 @@
 radar-linux:
 	GOOS=linux GOARCH=arm64 go build -o app-radar-linux-arm64 ./cmd/radar
 
+radar-linux-pcap:
+	GOOS=linux GOARCH=arm64 go build -tags=pcap -o app-radar-linux-arm64 ./cmd/radar
+
 radar-mac:
-	GOOS=darwin GOARCH=arm64 go build -o app-radar-mac-arm64 ./cmd/radar
+	GOOS=darwin GOARCH=arm64 go build -tags=pcap -o app-radar-mac-arm64 ./cmd/radar
 
 radar-mac-intel:
-	GOOS=darwin GOARCH=amd64 go build -o app-radar-mac-amd64 ./cmd/radar
+	GOOS=darwin GOARCH=amd64 go build -tags=pcap -o app-radar-mac-amd64 ./cmd/radar
 
 radar-local:
-	go build -o app-radar-local ./cmd/radar
+	go build -tags=pcap -o app-radar-local ./cmd/radar
+
+
+# Reusable script for starting the app in background. Call with extra flags
+# using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we
+# escape $ to $$ inside the define so the resulting shell script receives
+# single-dollar variables.
+define run_dev_go
+	mkdir -p logs; \
+	ts=$$(date +%Y%m%d-%H%M%S); \
+	logfile=logs/velocity-$${ts}.log; \
+	piddir=logs/pids; \
+	pidfile=$${piddir}/velocity-$${ts}.pid; \
+	DB_PATH=$${DB_PATH:-./sensor_data.db}; \
+	$(call run_dev_go_kill_server); \
+	echo "Building app-radar-local..."; \
+	go build -tags=pcap -o app-radar-local ./cmd/radar; \
+	mkdir -p "$$piddir"; \
+	echo "Starting app-radar-local (background) with DB=$$DB_PATH -> $$logfile"; \
+	nohup ./app-radar-local --disable-radar $(1) --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
+	echo "Started; PID $$(cat $$pidfile)"; \
+	echo "Log: $$logfile"
+endef
+
+define run_dev_go_kill_server
+	piddir=logs/pids; \
+	echo "Stopping previously-launched app-radar-local processes (from $$piddir) ..."; \
+	if [ -d "$$piddir" ] && [ $$(ls -1 $$piddir/velocity-*.pid 2>/dev/null | wc -l) -gt 0 ]; then \
+	  for pidfile_k in $$(ls -1t $$piddir/velocity-*.pid 2>/dev/null | head -n3); do \
+	    pid_k=$$(cat "$$pidfile_k" 2>/dev/null || echo); \
+	    if [ -n "$$pid_k" ] && kill -0 $$pid_k 2>/dev/null; then \
+	      cmdline=$$(ps -p $$pid_k -o args= 2>/dev/null || true); \
+	      case "$$cmdline" in \
+	        *app-radar-local*) \
+	          echo "Stopping pid $$pid_k (from $$pidfile_k): $$cmdline"; \
+	          kill $$pid_k 2>/dev/null || true; \
+	          sleep 1; \
+	          kill -0 $$pid_k 2>/dev/null && kill -9 $$pid_k 2>/dev/null || true; \
+	          ;; \
+	        *) echo "Skipping pid $$pid_k (cmd does not match app-radar-local): $$cmdline"; ;; \
+	      esac; \
+	    fi; \
+	  done; \
+	fi
+endef
+
+.PHONY: dev-go dev-go-pcap dev-go-lidar dev-go-kill-server
+dev-go:
+	@$(call run_dev_go)
+
+dev-go-lidar:
+	@$(call run_dev_go,--enable-lidar --lidar-bg-flush-interval=60s --lidar-seed-from-first=true --lidar-forward)
+
+dev-go-pcap:
+	@$(call run_dev_go,--enable-lidar --lidar-pcap-mode --debug --lidar-bg-flush-interval=60s --lidar-seed-from-first=true)
+
+dev-go-kill-server:
+	@$(call run_dev_go_kill_server)
+
+
+.PHONY: tail-log-go
+tail-log-go:
+	@# Tail the most recent velocity log file in logs/ without building or starting anything
+	@if [ -d logs ] && [ $$(ls -1 logs/velocity-*.log 2>/dev/null | wc -l) -gt 0 ]; then \
+		latest=$$(ls -1t logs/velocity-*.log 2>/dev/null | head -n1); \
+		echo "Tailing $$latest"; \
+		tail -F "$$latest"; \
+	else \
+		echo "No logs found in logs/ (try: make dev-go)"; exit 1; \
+	fi
+
+.PHONY: cat-log-go
+cat-log-go:
+	@# Cat the entire most recent velocity log file (can be piped to grep, etc.)
+	@if [ -d logs ] && [ $$(ls -1 logs/velocity-*.log 2>/dev/null | wc -l) -gt 0 ]; then \
+		latest=$$(ls -1t logs/velocity-*.log 2>/dev/null | head -n1); \
+		cat "$$latest"; \
+	else \
+		echo "No logs found in logs/ (try: make dev-go)"; exit 1; \
+	fi
 
 tools-local:
-	go build -o app-bg-sweep ./cmd/bg-sweep
-	go build -o app-bg-multisweep ./cmd/bg-multisweep
+	go build -o app-sweep ./cmd/sweep
 
+# =============================================================================
+# Sweep Plotting (uses root .venv)
+# =============================================================================
+
+.PHONY: plot-noise-sweep plot-multisweep plot-noise-buckets stats-live stats-pcap
+
+VENV_PYTHON = .venv/bin/python3
+
+# Noise sweep line plot (neighbor=1, closeness=2.5 by default)
+plot-noise-sweep:
+	@[ -z "$(FILE)" ] && echo "Usage: make plot-noise-sweep FILE=data.csv [OUT=plot.png]" && exit 1 || true
+	@[ ! -f "$(FILE)" ] && echo "File not found: $(FILE)" && exit 1 || true
+	$(VENV_PYTHON) data/multisweep-graph/plot_noise_sweep.py --file "$(FILE)" \
+		--out "$${OUT:-noise-sweep.png}" --neighbor $${NEIGHBOR:-1} --closeness $${CLOSENESS:-2.5}
+
+# Multi-sweep grid (neighbor=1 by default)
+plot-multisweep:
+	@[ -z "$(FILE)" ] && echo "Usage: make plot-multisweep FILE=data.csv [OUT=plot.png]" && exit 1 || true
+	@[ ! -f "$(FILE)" ] && echo "File not found: $(FILE)" && exit 1 || true
+	$(VENV_PYTHON) data/multisweep-graph/plot_multisweep.py --file "$(FILE)" \
+		--out "$${OUT:-multisweep.png}" --neighbor $${NEIGHBOR:-1}
+
+# Per-noise bar charts (neighbor=1, closeness=2.5 by default)
+plot-noise-buckets:
+	@[ -z "$(FILE)" ] && echo "Usage: make plot-noise-buckets FILE=data.csv [OUT_DIR=plots/]" && exit 1 || true
+	@[ ! -f "$(FILE)" ] && echo "File not found: $(FILE)" && exit 1 || true
+	$(VENV_PYTHON) data/multisweep-graph/plot_noise_buckets.py --file "$(FILE)" \
+		--out-dir "$${OUT_DIR:-noise-plots}" --neighbor $${NEIGHBOR:-1} --closeness $${CLOSENESS:-2.5}
+
+# Live grid stats - periodic snapshots from running lidar system
+# Usage: make stats-live [INTERVAL=10] [DURATION=60]
+stats-live:
+	@echo "Starting live lidar server..."
+	@$(MAKE) dev-go-lidar
+	@sleep 2
+	@echo "Capturing live grid snapshots..."
+	$(VENV_PYTHON) tools/grid-heatmap/plot_grid_heatmap.py --interval $${INTERVAL:-30} $${DURATION:+--duration $$DURATION}
+
+# PCAP replay grid stats - periodic snapshots during PCAP replay
+# Usage: make stats-pcap PCAP=file.pcap [INTERVAL=5]
+stats-pcap:
+	@[ -z "$(PCAP)" ] && echo "Usage: make stats-pcap PCAP=file.pcap [INTERVAL=5]" && exit 1 || true
+	@[ ! -f "$(PCAP)" ] && echo "PCAP file not found: $(PCAP)" && exit 1 || true
+	@echo "Starting PCAP-mode lidar server..."
+	@$(MAKE) dev-go-pcap
+	@sleep 2
+	@echo "Capturing PCAP replay snapshots..."
+	$(VENV_PYTHON) tools/grid-heatmap/plot_grid_heatmap.py --pcap "$(PCAP)" --interval $${INTERVAL:-5}
 
 # =============================================================================
 # Python PDF Generator (PYTHONPATH approach - no package installation)
@@ -200,3 +329,65 @@ lint-web:
 
 lint: lint-go lint-python lint-web
 	@echo "\nAll lint checks passed."
+
+# =============================================================================
+# API Script Shortcuts
+# =============================================================================
+
+.PHONY: api-grid-status api-grid-reset api-grid-heatmap \
+        api-snapshot api-snapshots \
+        api-acceptance api-acceptance-reset \
+        api-params api-params-set \
+        api-persist api-export-snapshot api-export-next-frame \
+        api-start-pcap api-stop-pcap
+
+# Grid endpoints
+api-grid-status:
+	@./scripts/api/lidar/get_grid_status.sh $(SENSOR)
+
+api-grid-reset:
+	@./scripts/api/lidar/reset_grid.sh $(SENSOR)
+
+api-grid-heatmap:
+	@./scripts/api/lidar/get_grid_heatmap.sh $(SENSOR) $(AZIMUTH) $(THRESHOLD)
+
+# Snapshot endpoints
+api-snapshot:
+	@./scripts/api/lidar/get_snapshot.sh $(SENSOR)
+
+api-snapshots:
+	@./scripts/api/lidar/get_snapshots.sh $(SENSOR)
+
+# Acceptance endpoints
+api-acceptance:
+	@./scripts/api/lidar/get_acceptance.sh $(SENSOR)
+
+api-acceptance-reset:
+	@./scripts/api/lidar/reset_acceptance.sh $(SENSOR)
+
+# Parameter endpoints
+api-params:
+	@./scripts/api/lidar/get_params.sh $(SENSOR)
+
+api-params-set:
+	@[ -z "$(PARAMS)" ] && echo "Usage: make api-params-set SENSOR=sensor-id PARAMS='{\"noise_relative\": 0.15}'" && exit 1 || true
+	@./scripts/api/lidar/set_params.sh $(SENSOR) '$(PARAMS)'
+
+# Persistence and export endpoints
+api-persist:
+	@./scripts/api/lidar/trigger_persist.sh $(SENSOR)
+
+api-export-snapshot:
+	@./scripts/api/lidar/export_snapshot.sh $(SENSOR) $(SNAPSHOT_ID) $(OUT)
+
+api-export-next-frame:
+	@./scripts/api/lidar/export_next_frame.sh $(SENSOR) $(OUT)
+
+# PCAP replay
+api-start-pcap:
+	@[ -z "$(PCAP)" ] && echo "Usage: make api-start-pcap PCAP=file.pcap [SENSOR=hesai-pandar40p]" && exit 1 || true
+	@[ ! -f "$(PCAP)" ] && echo "PCAP file not found: $(PCAP)" && exit 1 || true
+	@./scripts/api/lidar/start_pcap.sh "$(PCAP)" $(SENSOR)
+
+api-stop-pcap:
+	@./scripts/api/lidar/stop_pcap.sh $(SENSOR)

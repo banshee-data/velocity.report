@@ -1,13 +1,11 @@
-Local migrations for sensor data database
-======================================
+# Local migrations for sensor data database
 
 This folder contains SQL migration scripts intended to be applied directly
 against the local SQLite sensor database (commonly `sensor_data.db`). These
 migrations are intentionally simple SQL files so they can be applied without
 Docker or other tooling.
 
-Quick safety checklist
-----------------------
+## Quick safety checklist
 
 - Always make a backup before running a migration:
 
@@ -17,10 +15,15 @@ Quick safety checklist
 
   sqlite3 sensor_data.db < data/migrations/20250929_migrate_data_to_radar_data.sql
 
+If your SQLite file lives at a different path (for example in production `/var/lib/velocity.report/sensor_data.db`), substitute that path in the commands above. For example:
+
+sqlite3 /var/lib/velocity.report/sensor_data.db < data/migrations/20250929_migrate_data_to_radar_data.sql
+
+Note: the radar binary accepts `--db-path /path/to/db` to point the server at a non-default DB file; migrations operate on the file you provide to sqlite3 and are independent of the running binary.
+
 - Inspect the database after migration and before deleting backups.
 
-About PRAGMA and transactional behavior
---------------------------------------
+## About PRAGMA and transactional behavior
 
 SQLite supports running DDL inside transactions, but behaviour can vary with
 PRAGMA settings. The repository's canonical `internal/db/schema.sql` sets some
@@ -41,15 +44,13 @@ Recommended sequence for a single-machine migration:
 
 5. Inspect results, then remove backup when satisfied.
 
-Baselining and migrate CLI
---------------------------
+## Baselining and migrate CLI
 
 If you later adopt a CLI migration tool (like golang-migrate) you can "baseline"
 the DB at the current schema version so the CLI won't try to re-apply previous
 changes. Baseline steps vary by tool; consult the tool's docs.
 
-Notes about this repository's migrations
----------------------------------------
+## Notes about this repository's migrations
 
 - Existing migration files in this folder follow the pattern `YYYYMMDD_...`.
 - The migration `20250929_migrate_data_to_radar_data.sql` migrates the legacy

@@ -102,6 +102,8 @@ type FrameBuilder struct {
 	// Time-based frame detection for accurate motor speed handling
 	expectedFrameDuration time.Duration // expected duration per frame based on motor speed
 	enableTimeBased       bool          // true to use time-based detection with azimuth validation
+	// debug toggles lightweight frame-completion logging when true
+	debug bool
 }
 
 // FrameBuilderConfig contains configuration for the FrameBuilder
@@ -229,6 +231,12 @@ func (fb *FrameBuilder) addPointsInternal(points []Point) {
 		return
 	}
 
+	// Debug: record previous frame point count when enabled
+	var prevCount int
+	if fb.currentFrame != nil {
+		prevCount = fb.currentFrame.PointCount
+	}
+
 	// Process each point for azimuth-based frame detection
 	for _, point := range points {
 		// Check for UDP sequence gaps
@@ -248,6 +256,15 @@ func (fb *FrameBuilder) addPointsInternal(points []Point) {
 		// Add point to current frame
 		fb.addPointToCurrentFrame(point)
 		fb.lastAzimuth = point.Azimuth
+	}
+
+	if fb.debug {
+		var newCount int
+		if fb.currentFrame != nil {
+			newCount = fb.currentFrame.PointCount
+		}
+		log.Printf("[FrameBuilder] Added %d points; frame_count was=%d now=%d; lastAzimuth=%.2f",
+			len(points), prevCount, newCount, fb.lastAzimuth)
 	}
 }
 
@@ -286,6 +303,14 @@ func (fb *FrameBuilder) shouldStartNewFrame(azimuth float64, timestamp time.Time
 		// Traditional azimuth-based detection (original logic)
 		// Detect azimuth wrap (360° → 0°) only when crossing from high to low
 		// Require strict conditions to avoid false triggers from individual packets
+		// Also detect large negative jumps in azimuth (e.g., 289° -> 61°) which
+		// indicate a rotation wrap even if values don't cross the 350°->10° band.
+		if fb.lastAzimuth-azimuth > 180.0 {
+			if fb.currentFrame != nil && fb.currentFrame.PointCount > fb.minFramePoints {
+				return true
+			}
+		}
+
 		if fb.lastAzimuth > 350.0 && azimuth < 10.0 {
 			// Additional checks to ensure this is a complete rotation:
 			// 1. Frame must have substantial azimuth coverage (near 360°)
@@ -374,6 +399,11 @@ func (fb *FrameBuilder) checkSequenceGaps(sequence uint32) {
 // finalizeCurrentFrame completes the current frame and moves it to buffer
 func (fb *FrameBuilder) finalizeCurrentFrame() {
 	if fb.currentFrame == nil || fb.currentFrame.PointCount < fb.minFramePoints {
+		// Discard incomplete frame; log when in debug to help diagnose why frames aren't completing
+		if fb.currentFrame != nil {
+			log.Printf("[FrameBuilder] Discarding incomplete frame %s: points=%d, min_required=%d",
+				fb.currentFrame.FrameID, fb.currentFrame.PointCount, fb.minFramePoints)
+		}
 		fb.currentFrame = nil // Discard incomplete frame
 		return
 	}
@@ -386,6 +416,11 @@ func (fb *FrameBuilder) finalizeCurrentFrame() {
 
 	// Move to buffer for potential backfill
 	fb.frameBuffer[frame.FrameID] = frame
+
+	if fb.debug {
+		log.Printf("[FrameBuilder] Moved frame %s to buffer (points=%d); buffer_size=%d",
+			frame.FrameID, frame.PointCount, len(fb.frameBuffer))
+	}
 
 	// Enforce buffer size limit
 	if len(fb.frameBuffer) > fb.frameBufferSize {
@@ -406,10 +441,14 @@ func (fb *FrameBuilder) evictOldestBufferedFrame() {
 	}
 
 	if oldestFrame != nil {
+		log.Printf("[FrameBuilder] Evicting frame: ID=%s, Points=%d, Sensor=%s", oldestFrame.FrameID, oldestFrame.PointCount, oldestFrame.SensorID)
+		// Remove from buffer and finalize so the callback is invoked.
 		delete(fb.frameBuffer, oldestID)
-		// Send oldest frame to output channel
-		// Handle finalized frame (for now just log completion)
-		// TODO: Add output channel or callback for completed frames
+		if fb.debug {
+			log.Printf("[FrameBuilder] Evicting buffered frame: %s, buffer_size=%d", oldestID, len(fb.frameBuffer))
+		}
+		// Finalize the frame so the registered callback receives it.
+		fb.finalizeFrame(oldestFrame)
 	}
 }
 
@@ -458,6 +497,10 @@ func (fb *FrameBuilder) cleanupFrames() {
 	now := time.Now()
 	var frameIDsToFinalize []string
 
+	if fb.debug {
+		log.Printf("[FrameBuilder] cleanupFrames invoked: buffer_size=%d, now=%v", len(fb.frameBuffer), now)
+	}
+
 	// Find frames that are old enough to finalize
 	for frameID, frame := range fb.frameBuffer {
 		frameAge := now.Sub(frame.EndTimestamp)
@@ -473,6 +516,21 @@ func (fb *FrameBuilder) cleanupFrames() {
 		fb.finalizeFrame(frame)
 	}
 
+	// DEBUG: If a current frame exists but hasn't been moved to buffer (wrap not detected),
+	// force-finalize it after a short age so callbacks and buffering can be exercised.
+	if fb.currentFrame != nil {
+		age := now.Sub(fb.currentFrame.EndTimestamp)
+		// Use configured buffer timeout as the inactivity threshold to finalize
+		// the current frame when no recent points have arrived.
+		if age >= fb.bufferTimeout && fb.currentFrame.PointCount > 0 {
+			if fb.debug {
+				log.Printf("[FrameBuilder] Finalizing idle current frame ID=%s age=%v points=%d (bufferTimeout=%v)",
+					fb.currentFrame.FrameID, age, fb.currentFrame.PointCount, fb.bufferTimeout)
+			}
+			fb.finalizeCurrentFrame()
+		}
+	}
+
 	// Schedule next cleanup
 	fb.cleanupTimer = time.AfterFunc(fb.cleanupInterval, fb.cleanupFrames)
 }
@@ -485,6 +543,17 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame) {
 
 	// Mark frame as complete
 	frame.SpinComplete = true
+
+	// lightweight debug logging for frame completion
+	if fb.debug {
+		log.Printf("[FrameBuilder] Frame completed - ID: %s, Points: %d, Azimuth: %.1f°-%.1f°, Duration: %v, Sensor: %s",
+			frame.FrameID,
+			frame.PointCount,
+			frame.MinAzimuth,
+			frame.MaxAzimuth,
+			frame.EndTimestamp.Sub(frame.StartTimestamp),
+			frame.SensorID)
+	}
 
 	// Export to ASC if requested
 	if fb.exportNextFrameASC {
@@ -502,6 +571,12 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame) {
 	}
 	// Call callback if provided (in separate goroutine to avoid blocking)
 	if fb.frameCallback != nil {
+		// Add explicit log when invoking the frame callback so we can trace delivery
+		// but only emit this in debug mode to avoid noisy logs during normal runs.
+		if fb.debug {
+			log.Printf("[FrameBuilder] Invoking frame callback for ID=%s, Points=%d, Sensor=%s",
+				frame.FrameID, frame.PointCount, frame.SensorID)
+		}
 		go fb.frameCallback(frame)
 	}
 }
@@ -544,6 +619,13 @@ func (fb *FrameBuilder) GetCurrentFrameStats() (frameCount int, oldestAge time.D
 	}
 
 	return frameCount, now.Sub(oldest), now.Sub(newest)
+}
+
+// SetDebug enables or disables lightweight debug logging for frame completion
+func (fb *FrameBuilder) SetDebug(enabled bool) {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+	fb.debug = enabled
 }
 
 // NewFrameBuilderWithLogging creates a FrameBuilder that logs completed frames

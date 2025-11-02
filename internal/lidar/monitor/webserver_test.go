@@ -83,8 +83,8 @@ func TestWebServer_StatusHandler(t *testing.T) {
 	// Check that the response contains expected content
 	body := rr.Body.String()
 
-	if !strings.Contains(body, "Lidar UDP Listener") {
-		t.Error("Response should contain 'Lidar UDP Listener'")
+	if !strings.Contains(body, "LiDAR Monitor") {
+		t.Error("Response should contain 'LiDAR Monitor'")
 	}
 
 	if !strings.Contains(body, "2369") {

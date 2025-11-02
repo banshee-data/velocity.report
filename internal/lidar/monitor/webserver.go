@@ -14,10 +14,14 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/parse"
 )
 
@@ -37,6 +41,15 @@ type WebServer struct {
 	udpPort           int
 	db                *db.DB
 	sensorID          string
+	parser            network.Parser
+	frameBuilder      network.FrameBuilder
+	pcapSafeDir       string // Safe directory for PCAP file access
+	pcapMode          bool   // True if running in PCAP mode (no UDP listener)
+
+	// PCAP replay state
+	pcapMu         sync.Mutex
+	pcapInProgress bool
+	pcapCancel     context.CancelFunc
 }
 
 // WebServerConfig contains configuration options for the web server
@@ -50,6 +63,10 @@ type WebServerConfig struct {
 	UDPPort           int
 	DB                *db.DB
 	SensorID          string
+	Parser            network.Parser
+	FrameBuilder      network.FrameBuilder
+	PCAPSafeDir       string // Safe directory for PCAP file access (restricts path traversal)
+	PCAPMode          bool   // True if running in PCAP mode (no UDP listener)
 }
 
 // NewWebServer creates a new web server with the provided configuration
@@ -64,6 +81,10 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		udpPort:           config.UDPPort,
 		db:                config.DB,
 		sensorID:          config.SensorID,
+		parser:            config.Parser,
+		frameBuilder:      config.FrameBuilder,
+		pcapSafeDir:       config.PCAPSafeDir,
+		pcapMode:          config.PCAPMode,
 	}
 
 	ws.server = &http.Server{
@@ -125,6 +146,9 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/api/lidar/params", ws.handleBackgroundParams)
 	mux.HandleFunc("/api/lidar/grid_status", ws.handleGridStatus)
 	mux.HandleFunc("/api/lidar/grid_reset", ws.handleGridReset)
+	mux.HandleFunc("/api/lidar/grid_heatmap", ws.handleGridHeatmap)
+	mux.HandleFunc("/api/lidar/pcap/start", ws.handlePCAPStart)
+	mux.HandleFunc("/api/lidar/pcap/stop", ws.handlePCAPStop)
 
 	return mux
 }
@@ -153,6 +177,7 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 			"enable_diagnostics":          bm.EnableDiagnostics,
 			"closeness_multiplier":        params.ClosenessSensitivityMultiplier,
 			"neighbor_confirmation_count": params.NeighborConfirmationCount,
+			"seed_from_first":             params.SeedFromFirstObservation,
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)
@@ -163,6 +188,7 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 			EnableDiagnostics    *bool    `json:"enable_diagnostics"`
 			ClosenessMultiplier  *float64 `json:"closeness_multiplier"`
 			NeighborConfirmation *int     `json:"neighbor_confirmation_count"`
+			SeedFromFirst        *bool    `json:"seed_from_first"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			ws.writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
@@ -189,11 +215,23 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 				return
 			}
 		}
+		if body.SeedFromFirst != nil {
+			if err := bm.SetSeedFromFirstObservation(*body.SeedFromFirst); err != nil {
+				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+		}
 
 		// Read back current params for confirmation
 		cur := bm.GetParams()
 		// Emit an info log so operators can see applied changes in the app logs
 		log.Printf("[Monitor] Applied background params for sensor=%s: noise_relative=%.6f, enable_diagnostics=%v", sensorID, cur.NoiseRelativeFraction, bm.EnableDiagnostics)
+
+		// Log D: API call timing for params with all active settings
+		timestamp := time.Now().UnixNano()
+		log.Printf("[API:params] sensor=%s noise_rel=%.6f closeness=%.3f neighbors=%d seed_from_first=%v timestamp=%d",
+			sensorID, cur.NoiseRelativeFraction, cur.ClosenessSensitivityMultiplier,
+			cur.NeighborConfirmationCount, cur.SeedFromFirstObservation, timestamp)
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "noise_relative": cur.NoiseRelativeFraction, "enable_diagnostics": bm.EnableDiagnostics})
@@ -250,12 +288,72 @@ func (ws *WebServer) handleGridReset(w http.ResponseWriter, r *http.Request) {
 		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background manager for sensor '%s'", sensorID))
 		return
 	}
+
+	// Log C: API call timing for grid_reset
+	beforeNanos := time.Now().UnixNano()
+
 	if err := mgr.ResetGrid(); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("reset error: %v", err))
 		return
 	}
+
+	afterNanos := time.Now().UnixNano()
+	elapsedMs := float64(afterNanos-beforeNanos) / 1e6
+
+	log.Printf("[API:grid_reset] sensor=%s reset_duration_ms=%.3f timestamp=%d",
+		sensorID, elapsedMs, afterNanos)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "sensor_id": sensorID})
+}
+
+// handleGridHeatmap returns aggregated grid metrics in coarse spatial buckets
+// for visualization and analysis of filled vs settled cells.
+// Query params:
+//   - sensor_id (required)
+//   - azimuth_bucket_deg (optional, default 3.0)
+//   - settled_threshold (optional, default 5)
+func (ws *WebServer) handleGridHeatmap(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "only GET supported")
+		return
+	}
+
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+
+	bm := lidar.GetBackgroundManager(sensorID)
+	if bm == nil || bm.Grid == nil {
+		ws.writeJSONError(w, http.StatusNotFound, "no background manager for sensor")
+		return
+	}
+
+	// Parse optional parameters
+	azBucketDeg := 3.0
+	if azStr := r.URL.Query().Get("azimuth_bucket_deg"); azStr != "" {
+		if val, err := strconv.ParseFloat(azStr, 64); err == nil && val > 0 {
+			azBucketDeg = val
+		}
+	}
+
+	settledThreshold := uint32(5)
+	if stStr := r.URL.Query().Get("settled_threshold"); stStr != "" {
+		if val, err := strconv.ParseUint(stStr, 10, 32); err == nil {
+			settledThreshold = uint32(val)
+		}
+	}
+
+	heatmap := bm.GetGridHeatmap(azBucketDeg, settledThreshold)
+	if heatmap == nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, "failed to generate heatmap")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(heatmap)
 }
 
 // handleExportSnapshotASC triggers an export to ASC for a given snapshot_id (or latest if not provided).
@@ -293,8 +391,36 @@ func (ws *WebServer) handleExportSnapshotASC(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
+	// Validate and sanitize output path
 	if outPath == "" {
 		outPath = filepath.Join(os.TempDir(), fmt.Sprintf("bg_snapshot_%s_%d.asc", sensorID, snap.TakenUnixNanos))
+	} else {
+		// If user provides a path, ensure it's within temp directory or current working directory
+		absOutPath, err := filepath.Abs(outPath)
+		if err != nil {
+			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid output path: %v", err))
+			return
+		}
+
+		// Allow writes to temp directory
+		tempDir := os.TempDir()
+		relPath, err := filepath.Rel(tempDir, absOutPath)
+		if err == nil && relPath != ".." && !strings.HasPrefix(relPath, ".."+string(filepath.Separator)) && !filepath.IsAbs(relPath) {
+			outPath = absOutPath
+		} else {
+			// Also allow writes to current working directory
+			cwd, err := os.Getwd()
+			if err != nil {
+				ws.writeJSONError(w, http.StatusInternalServerError, "cannot determine working directory")
+				return
+			}
+			relPath, err = filepath.Rel(cwd, absOutPath)
+			if err != nil || relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) || filepath.IsAbs(relPath) {
+				ws.writeJSONError(w, http.StatusForbidden, "output path must be within temp directory or current working directory")
+				return
+			}
+			outPath = absOutPath
+		}
 	}
 
 	if err := lidar.ExportBgSnapshotToASC(snap, outPath, elevs); err != nil {
@@ -320,6 +446,36 @@ func (ws *WebServer) handleExportNextFrameASC(w http.ResponseWriter, r *http.Req
 		ws.writeJSONError(w, http.StatusNotFound, "no FrameBuilder for sensor")
 		return
 	}
+
+	// Validate and sanitize output path if provided
+	if outPath != "" {
+		absOutPath, err := filepath.Abs(outPath)
+		if err != nil {
+			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid output path: %v", err))
+			return
+		}
+
+		// Allow writes to temp directory
+		tempDir := os.TempDir()
+		relPath, err := filepath.Rel(tempDir, absOutPath)
+		if err == nil && relPath != ".." && !strings.HasPrefix(relPath, ".."+string(filepath.Separator)) && !filepath.IsAbs(relPath) {
+			outPath = absOutPath
+		} else {
+			// Also allow writes to current working directory
+			cwd, err := os.Getwd()
+			if err != nil {
+				ws.writeJSONError(w, http.StatusInternalServerError, "cannot determine working directory")
+				return
+			}
+			relPath, err = filepath.Rel(cwd, absOutPath)
+			if err != nil || relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) || filepath.IsAbs(relPath) {
+				ws.writeJSONError(w, http.StatusForbidden, "output path must be within temp directory or current working directory")
+				return
+			}
+			outPath = absOutPath
+		}
+	}
+
 	// Set flag to export next frame
 	fb.RequestExportNextFrameASC(outPath)
 	w.Header().Set("Content-Type", "application/json")
@@ -432,6 +588,19 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		parsingStatus = "disabled"
 	}
 
+	// Determine mode (PCAP vs Live)
+	mode := "Live UDP"
+	if ws.pcapMode {
+		mode = "PCAP Replay"
+	}
+
+	// Get background manager to show current params
+	var bgParams *lidar.BackgroundParams
+	if mgr := lidar.GetBackgroundManager(ws.sensorID); mgr != nil {
+		params := mgr.GetParams()
+		bgParams = &params
+	}
+
 	// Load and parse the HTML template from embedded filesystem
 	tmpl, err := template.ParseFS(StatusHTML, "status.html")
 	if err != nil {
@@ -445,17 +614,23 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		HTTPAddress      string
 		ForwardingStatus string
 		ParsingStatus    string
+		Mode             string
+		PCAPSafeDir      string
 		Uptime           string
 		Stats            *StatsSnapshot
 		SensorID         string
+		BGParams         *lidar.BackgroundParams
 	}{
 		UDPPort:          ws.udpPort,
 		HTTPAddress:      ws.address,
 		ForwardingStatus: forwardingStatus,
 		ParsingStatus:    parsingStatus,
+		Mode:             mode,
+		PCAPSafeDir:      ws.pcapSafeDir,
 		Uptime:           ws.stats.GetUptime().Round(time.Second).String(),
 		Stats:            ws.stats.GetLatestSnapshot(),
 		SensorID:         ws.sensorID,
+		BGParams:         bgParams,
 	}
 
 	if err := tmpl.Execute(w, data); err != nil {
@@ -678,6 +853,28 @@ func (ws *WebServer) handleAcceptanceMetrics(w http.ResponseWriter, r *http.Requ
 		Totals:          totals,
 		AcceptanceRates: rates,
 	}
+
+	// Log G: Debug mode returns verbose breakdown with active params
+	debug := r.URL.Query().Get("debug") == "true"
+	if debug {
+		debugInfo := map[string]interface{}{
+			"metrics":   resp,
+			"timestamp": time.Now().Format(time.RFC3339Nano),
+			"sensor_id": sensorID,
+		}
+		// Include current params for context
+		params := mgr.GetParams()
+		debugInfo["params"] = map[string]interface{}{
+			"noise_relative":        params.NoiseRelativeFraction,
+			"closeness_multiplier":  params.ClosenessSensitivityMultiplier,
+			"neighbor_confirmation": params.NeighborConfirmationCount,
+			"seed_from_first":       params.SeedFromFirstObservation,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(debugInfo)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
@@ -707,8 +904,182 @@ func (ws *WebServer) handleAcceptanceReset(w http.ResponseWriter, r *http.Reques
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "sensor_id": sensorID})
 }
 
+// handlePCAPStart triggers PCAP file reading in a background goroutine
+// Method: POST. Query param: sensor_id (required). Body: {"pcap_file": "/path/to/file.pcap"}
+func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use POST")
+		return
+	}
+
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+
+	var req struct {
+		PCAPFile string `json:"pcap_file"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
+		return
+	}
+
+	if req.PCAPFile == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'pcap_file' in request body")
+		return
+	}
+
+	// Safe directory validation to prevent path traversal attacks
+	// Convert safe directory to absolute path
+	safeDirAbs, err := filepath.Abs(ws.pcapSafeDir)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("invalid PCAP safe directory configuration: %v", err))
+		return
+	}
+
+	// Join user input with safe directory (handles both filenames and relative paths)
+	// This prevents absolute paths from bypassing the safe directory
+	candidatePath := filepath.Join(safeDirAbs, req.PCAPFile)
+
+	// Resolve to absolute path and clean it
+	resolvedPath, err := filepath.Abs(candidatePath)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid pcap_file path: %v", err))
+		return
+	}
+
+	// Resolve all symlinks to get the canonical path
+	// This prevents symlink-based attacks where a symlink points outside the safe directory
+	canonicalPath, err := filepath.EvalSymlinks(resolvedPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			ws.writeJSONError(w, http.StatusNotFound, "PCAP file not found")
+		} else {
+			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("cannot resolve PCAP file path: %v", err))
+		}
+		return
+	}
+
+	// Verify the canonical path is still within the safe directory
+	// Use filepath.Rel for robust path validation (handles edge cases like trailing slashes)
+	relPath, err := filepath.Rel(safeDirAbs, canonicalPath)
+	if err != nil || relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) || filepath.IsAbs(relPath) {
+		ws.writeJSONError(w, http.StatusForbidden, fmt.Sprintf("access denied: pcap_file must be within safe directory (%s)", ws.pcapSafeDir))
+		return
+	}
+
+	// Verify file exists and is a regular file (not a directory or device)
+	fileInfo, err := os.Stat(canonicalPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			ws.writeJSONError(w, http.StatusNotFound, "PCAP file not found")
+		} else {
+			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("cannot access PCAP file: %v", err))
+		}
+		return
+	}
+
+	// Ensure it's a regular file, not a directory or device
+	if !fileInfo.Mode().IsRegular() {
+		ws.writeJSONError(w, http.StatusBadRequest, "pcap_file must be a regular file")
+		return
+	}
+
+	// Verify file extension (pcap, pcapng)
+	ext := filepath.Ext(canonicalPath)
+	if ext != ".pcap" && ext != ".pcapng" {
+		ws.writeJSONError(w, http.StatusBadRequest, "pcap_file must have .pcap or .pcapng extension")
+		return
+	}
+
+	// Check if another PCAP replay is already in progress
+	ws.pcapMu.Lock()
+	if ws.pcapInProgress {
+		ws.pcapMu.Unlock()
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "PCAP replay already in progress")
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	ws.pcapInProgress = true
+	ws.pcapCancel = cancel
+	ws.pcapMu.Unlock()
+
+	// Start PCAP reading in background goroutine
+	go func(ctx context.Context, cancel context.CancelFunc) {
+		defer cancel()
+		defer func() {
+			ws.pcapMu.Lock()
+			ws.pcapInProgress = false
+			// Clear stored cancel func. Comparing function values for equality is
+			// invalid in Go (only comparison to nil is allowed), so just nil it
+			// while holding the mutex. This is safe because pcapInProgress is
+			// still true until we set it false above, preventing a new PCAP
+			// start from racing in between.
+			ws.pcapCancel = nil
+			ws.pcapMu.Unlock()
+		}()
+
+		log.Printf("Starting PCAP replay from file: %s (sensor: %s)", canonicalPath, sensorID)
+
+		if err := network.ReadPCAPFile(ctx, canonicalPath, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats); err != nil {
+			log.Printf("PCAP replay error: %v", err)
+		} else {
+			log.Printf("PCAP replay completed successfully: %s", canonicalPath)
+		}
+	}(ctx, cancel)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":    "started",
+		"sensor_id": sensorID,
+		"pcap_file": canonicalPath,
+	})
+}
+
+// handlePCAPStop cancels an in-progress PCAP replay via the stored cancel func
+// Method: POST. Query param: sensor_id (required).
+func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use POST")
+		return
+	}
+
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+
+	ws.pcapMu.Lock()
+	cancel := ws.pcapCancel
+	if !ws.pcapInProgress || cancel == nil {
+		ws.pcapMu.Unlock()
+		ws.writeJSONError(w, http.StatusConflict, "no PCAP replay in progress")
+		return
+	}
+	ws.pcapCancel = nil
+	ws.pcapMu.Unlock()
+
+	log.Printf("Stop requested for PCAP replay (sensor: %s)", sensorID)
+	cancel()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":    "stopping",
+		"sensor_id": sensorID,
+	})
+}
+
 // Close shuts down the web server
 func (ws *WebServer) Close() error {
+	ws.pcapMu.Lock()
+	cancel := ws.pcapCancel
+	ws.pcapMu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 	if ws.server != nil {
 		return ws.server.Close()
 	}

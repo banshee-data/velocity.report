@@ -9,6 +9,7 @@ import (
 	"log"
 	"math"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/monitoring"
@@ -27,6 +28,11 @@ type BackgroundParams struct {
 	// absolute noise) aren't biased as foreground. Typical values: 0.01
 	// (1%) to 0.02 (2%). If zero, a sensible default (0.01) is used.
 	NoiseRelativeFraction float32
+
+	// SeedFromFirstObservation, when true, will initialize empty background cells
+	// from the first observation seen for that cell. This is useful for PCAP
+	// replay mode where there is no prior live-warmup data; default: false.
+	SeedFromFirstObservation bool
 
 	// Additional params for persistence matching schema requirements
 	SettlingPeriodNanos        int64 // 5 minutes before first snapshot
@@ -69,6 +75,8 @@ type BackgroundGrid struct {
 	// Telemetry for monitoring (feeds into system_events)
 	ForegroundCount int64
 	BackgroundCount int64
+	// nonzeroCellCount tracks cells with TimesSeenCount > 0; guarded by mu.
+	nonzeroCellCount int
 
 	// Simple range-bucketed acceptance metrics to help tune NoiseRelativeFraction.
 	// Buckets are upper bounds in meters; counts are number of accepted/rejected
@@ -107,6 +115,9 @@ type BackgroundManager struct {
 	// EnableDiagnostics controls whether this manager emits diagnostic messages
 	// via the shared monitoring logger. Default: false.
 	EnableDiagnostics bool
+	// frameProcessCount tracks the number of ProcessFramePolar calls for rate-limited diagnostics.
+	// Accessed atomically to allow concurrent ProcessFramePolar invocations.
+	frameProcessCount int64
 }
 
 // GetParams returns a copy of the BackgroundParams for the manager's grid.
@@ -156,6 +167,18 @@ func (bm *BackgroundManager) SetNeighborConfirmationCount(v int) error {
 	return nil
 }
 
+// SetSeedFromFirstObservation toggles seeding empty cells from the first observation.
+func (bm *BackgroundManager) SetSeedFromFirstObservation(v bool) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	g.Params.SeedFromFirstObservation = v
+	g.mu.Unlock()
+	return nil
+}
+
 // SetEnableDiagnostics toggles emission of diagnostics for this manager.
 func (bm *BackgroundManager) SetEnableDiagnostics(v bool) {
 	if bm == nil {
@@ -176,7 +199,7 @@ type AcceptanceMetrics struct {
 // further synchronization.
 func (bm *BackgroundManager) GetAcceptanceMetrics() *AcceptanceMetrics {
 	if bm == nil || bm.Grid == nil {
-		return nil
+		return &AcceptanceMetrics{}
 	}
 	g := bm.Grid
 	g.mu.RLock()
@@ -250,6 +273,152 @@ func (bm *BackgroundManager) GridStatus() map[string]interface{} {
 	}
 }
 
+// CoarseBucket represents aggregated metrics for a spatial bucket
+type CoarseBucket struct {
+	Ring            int     `json:"ring"`
+	AzimuthDegStart float64 `json:"azimuth_deg_start"`
+	AzimuthDegEnd   float64 `json:"azimuth_deg_end"`
+	TotalCells      int     `json:"total_cells"`
+	FilledCells     int     `json:"filled_cells"`
+	SettledCells    int     `json:"settled_cells"`
+	FrozenCells     int     `json:"frozen_cells"`
+	MeanTimesSeen   float64 `json:"mean_times_seen"`
+	MeanRangeMeters float64 `json:"mean_range_meters"`
+	MinRangeMeters  float64 `json:"min_range_meters"`
+	MaxRangeMeters  float64 `json:"max_range_meters"`
+}
+
+// GridHeatmap represents the full aggregated grid state
+type GridHeatmap struct {
+	SensorID      string                 `json:"sensor_id"`
+	Timestamp     time.Time              `json:"timestamp"`
+	GridParams    map[string]interface{} `json:"grid_params"`
+	HeatmapParams map[string]interface{} `json:"heatmap_params"`
+	Summary       map[string]interface{} `json:"summary"`
+	Buckets       []CoarseBucket         `json:"buckets"`
+}
+
+// GetGridHeatmap aggregates the fine-grained grid into coarse spatial buckets
+// for visualization and analysis. Returns nil if the manager or grid is nil.
+//
+// Parameters:
+//   - azimuthBucketDeg: size of each azimuth bucket in degrees (e.g., 3.0 for 120 buckets)
+//   - settledThreshold: minimum TimesSeenCount to consider a cell "settled"
+func (bm *BackgroundManager) GetGridHeatmap(azimuthBucketDeg float64, settledThreshold uint32) *GridHeatmap {
+	if bm == nil || bm.Grid == nil {
+		return nil
+	}
+
+	g := bm.Grid
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	// Calculate bucket dimensions
+	azBinResDeg := 360.0 / float64(g.AzimuthBins)
+	numAzBuckets := int(360.0 / azimuthBucketDeg)
+	cellsPerAzBucket := int(azimuthBucketDeg / azBinResDeg)
+
+	// Initialize buckets
+	buckets := make([]CoarseBucket, 0, g.Rings*numAzBuckets)
+	nowNanos := time.Now().UnixNano()
+
+	totalFilled := 0
+	totalSettled := 0
+	totalFrozen := 0
+
+	// Aggregate by ring and azimuth bucket
+	for ring := 0; ring < g.Rings; ring++ {
+		for azBucket := 0; azBucket < numAzBuckets; azBucket++ {
+			bucket := CoarseBucket{
+				Ring:            ring,
+				AzimuthDegStart: float64(azBucket) * azimuthBucketDeg,
+				AzimuthDegEnd:   float64(azBucket+1) * azimuthBucketDeg,
+				TotalCells:      cellsPerAzBucket,
+				MinRangeMeters:  math.MaxFloat64,
+			}
+
+			// Aggregate stats from fine cells in this bucket
+			startAzBin := azBucket * cellsPerAzBucket
+			endAzBin := startAzBin + cellsPerAzBucket
+
+			var sumTimesSeen uint32
+			var sumRange float64
+			filledCount := 0
+
+			for azBin := startAzBin; azBin < endAzBin && azBin < g.AzimuthBins; azBin++ {
+				idx := g.Idx(ring, azBin)
+				cell := g.Cells[idx]
+
+				if cell.TimesSeenCount > 0 {
+					bucket.FilledCells++
+					filledCount++
+					sumTimesSeen += cell.TimesSeenCount
+					sumRange += float64(cell.AverageRangeMeters)
+
+					if cell.TimesSeenCount >= settledThreshold {
+						bucket.SettledCells++
+					}
+
+					if cell.AverageRangeMeters < float32(bucket.MinRangeMeters) {
+						bucket.MinRangeMeters = float64(cell.AverageRangeMeters)
+					}
+					if cell.AverageRangeMeters > float32(bucket.MaxRangeMeters) {
+						bucket.MaxRangeMeters = float64(cell.AverageRangeMeters)
+					}
+				}
+
+				if cell.FrozenUntilUnixNanos > nowNanos {
+					bucket.FrozenCells++
+				}
+			}
+
+			// Calculate means
+			if filledCount > 0 {
+				bucket.MeanTimesSeen = float64(sumTimesSeen) / float64(filledCount)
+				bucket.MeanRangeMeters = sumRange / float64(filledCount)
+			}
+			if bucket.FilledCells == 0 {
+				bucket.MinRangeMeters = 0
+				bucket.MaxRangeMeters = 0
+			}
+
+			totalFilled += bucket.FilledCells
+			totalSettled += bucket.SettledCells
+			totalFrozen += bucket.FrozenCells
+
+			buckets = append(buckets, bucket)
+		}
+	}
+
+	totalCells := g.Rings * g.AzimuthBins
+
+	return &GridHeatmap{
+		SensorID:  g.SensorID,
+		Timestamp: time.Now(),
+		GridParams: map[string]interface{}{
+			"total_rings":                g.Rings,
+			"total_azimuth_bins":         g.AzimuthBins,
+			"azimuth_bin_resolution_deg": 360.0 / float64(g.AzimuthBins),
+			"total_cells":                totalCells,
+		},
+		HeatmapParams: map[string]interface{}{
+			"azimuth_bucket_deg": azimuthBucketDeg,
+			"azimuth_buckets":    numAzBuckets,
+			"ring_buckets":       g.Rings,
+			"settled_threshold":  settledThreshold,
+			"cells_per_bucket":   cellsPerAzBucket,
+		},
+		Summary: map[string]interface{}{
+			"total_filled":  totalFilled,
+			"total_settled": totalSettled,
+			"total_frozen":  totalFrozen,
+			"fill_rate":     float64(totalFilled) / float64(totalCells),
+			"settle_rate":   float64(totalSettled) / float64(totalCells),
+		},
+		Buckets: buckets,
+	}
+}
+
 // ResetGrid zeros per-cell stats (AverageRangeMeters, RangeSpreadMeters, TimesSeenCount,
 // LastUpdateUnixNanos, FrozenUntilUnixNanos) and acceptance counters. Intended for
 // testing and A/B sweeps only.
@@ -260,6 +429,14 @@ func (bm *BackgroundManager) ResetGrid() error {
 	g := bm.Grid
 	g.mu.Lock()
 	defer g.mu.Unlock()
+
+	// Count nonzero cells BEFORE reset (Log A: grid reset diagnostics)
+	nonzeroBefore := 0
+	for i := range g.Cells {
+		if g.Cells[i].AverageRangeMeters != 0 || g.Cells[i].RangeSpreadMeters != 0 || g.Cells[i].TimesSeenCount != 0 {
+			nonzeroBefore++
+		}
+	}
 
 	for i := range g.Cells {
 		g.Cells[i].AverageRangeMeters = 0
@@ -275,6 +452,20 @@ func (bm *BackgroundManager) ResetGrid() error {
 	g.ChangesSinceSnapshot = 0
 	g.ForegroundCount = 0
 	g.BackgroundCount = 0
+	g.nonzeroCellCount = 0
+
+	// Count nonzero cells AFTER reset (should be 0)
+	nonzeroAfter := 0
+	for i := range g.Cells {
+		if g.Cells[i].AverageRangeMeters != 0 || g.Cells[i].RangeSpreadMeters != 0 || g.Cells[i].TimesSeenCount != 0 {
+			nonzeroAfter++
+		}
+	}
+
+	// Log with timestamp and counts
+	log.Printf("[ResetGrid] sensor=%s nonzero_before=%d nonzero_after=%d total_cells=%d timestamp=%d",
+		g.SensorID, nonzeroBefore, nonzeroAfter, len(g.Cells), time.Now().UnixNano())
+
 	return nil
 }
 
@@ -379,6 +570,12 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 		return
 	}
 
+	// Quick diagnostics when enabled to see what's arriving
+	if bm != nil && bm.EnableDiagnostics && len(points) > 0 {
+		sample := points[0]
+		log.Printf("[BackgroundManager] Received %d points; sample -> Channel=%d Az=%.2f Dist=%.2f", len(points), sample.Channel, sample.Azimuth, sample.Distance)
+	}
+
 	g := bm.Grid
 	rings := g.Rings
 	azBins := g.AzimuthBins
@@ -401,9 +598,11 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	}
 
 	// Bin incoming polar points
+	skippedInvalid := 0
 	for _, p := range points {
 		ring := p.Channel - 1
 		if ring < 0 || ring >= rings {
+			skippedInvalid++
 			continue
 		}
 		// Normalize azimuth into [0,360)
@@ -431,6 +630,10 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	}
 
 	// Parameters with safe defaults
+	// Emit a single summary log if we encountered points with invalid channels
+	if skippedInvalid > 0 && bm != nil && bm.EnableDiagnostics {
+		log.Printf("[BackgroundManager] Skipped %d invalid points due to channel out-of-range (rings=%d)", skippedInvalid, rings)
+	}
 	alpha := float64(g.Params.BackgroundUpdateFraction)
 	if alpha <= 0 || alpha > 1 {
 		alpha = 0.02
@@ -440,6 +643,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	// data races and inconsistent thresholds.
 	var closenessMultiplier float64
 	var neighConfirm int
+	var seedFromFirst bool
 	safety := float64(g.Params.SafetyMarginMeters)
 	freezeDur := g.Params.FreezeDurationNanos
 
@@ -448,6 +652,10 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 
 	foregroundCount := int64(0)
 	backgroundCount := int64(0)
+
+	// Log E: Diagnostic sample counters for decision logging (gated by EnableDiagnostics)
+	var acceptSampleCount, rejectSampleCount int
+	const maxSamplesPerType = 10
 
 	// Iterate over observed cells and update grid
 	g.mu.Lock()
@@ -465,6 +673,8 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	if neighConfirm <= 0 {
 		neighConfirm = 3
 	}
+	// read seed-from-first flag
+	seedFromFirst = g.Params.SeedFromFirstObservation
 	// if the manager requested diagnostics, and the observed noise changed,
 	// emit a monitoring log so operators see the applied value at runtime.
 	if bm != nil && bm.EnableDiagnostics {
@@ -528,13 +738,41 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 			// Decide if this observation is background-like or foreground-like
 			isBackgroundLike := cellDiff <= closenessThreshold || neighborConfirmCount >= neighConfirm
 
-			if isBackgroundLike {
+			// Optionally seed empty cells from the first observation when configured.
+			// This helps PCAP replay populate a background grid when no prior history exists.
+			initIfEmpty := false
+			if seedFromFirst && cell.TimesSeenCount == 0 {
+				initIfEmpty = true
+			}
+
+			// Log E: Sample decision details when diagnostics enabled
+			if bm != nil && bm.EnableDiagnostics {
+				logThis := false
+				if (isBackgroundLike || initIfEmpty) && acceptSampleCount < maxSamplesPerType {
+					acceptSampleCount++
+					logThis = true
+				} else if !isBackgroundLike && !initIfEmpty && rejectSampleCount < maxSamplesPerType {
+					rejectSampleCount++
+					logThis = true
+				}
+
+				if logThis {
+					log.Printf("[ProcessFramePolar:decision] sensor=%s ring=%d azbin=%d obs_mean=%.3f cell_avg=%.3f cell_spread=%.3f times_seen=%d neighbor_confirm=%d closeness_threshold=%.3f cell_diff=%.3f is_background=%v init_if_empty=%v",
+						g.SensorID, ringIdx, azBinIdx, observationMean,
+						cell.AverageRangeMeters, cell.RangeSpreadMeters, cell.TimesSeenCount,
+						neighborConfirmCount, closenessThreshold, cellDiff,
+						isBackgroundLike, initIfEmpty)
+				}
+			}
+
+			if isBackgroundLike || initIfEmpty {
 				// update EMA for average and spread
 				if cell.TimesSeenCount == 0 {
 					// initialize
 					cell.AverageRangeMeters = float32(observationMean)
 					cell.RangeSpreadMeters = float32((maxDistances[cellIdx] - minDistances[cellIdx]) / 2.0)
 					cell.TimesSeenCount = 1
+					g.nonzeroCellCount++
 				} else {
 					oldAvg := float64(cell.AverageRangeMeters)
 					newAvg := (1.0-alpha)*oldAvg + alpha*observationMean
@@ -553,6 +791,9 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 				// Decrease confidence and possibly freeze the cell if divergence is large
 				if cell.TimesSeenCount > 0 {
 					cell.TimesSeenCount--
+					if cell.TimesSeenCount == 0 && g.nonzeroCellCount > 0 {
+						g.nonzeroCellCount--
+					}
 				}
 				// If difference very large relative to spread, freeze the cell briefly
 				if cellDiff > 3.0*closenessThreshold {
@@ -603,6 +844,28 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 		bm.StartTime = now
 	}
 	bm.LastPersistTime = now
+
+	// Log F: Per-frame acceptance summary (gated by EnableDiagnostics)
+	if bm != nil && bm.EnableDiagnostics && (foregroundCount > 0 || backgroundCount > 0) {
+		total := foregroundCount + backgroundCount
+		acceptPct := 0.0
+		if total > 0 {
+			acceptPct = (float64(backgroundCount) / float64(total)) * 100.0
+		}
+		log.Printf("[ProcessFramePolar:summary] sensor=%s points_in=%d cells_updated=%d bg_accept=%d fg_reject=%d accept_pct=%.2f%% noise_rel=%.6f closeness_mult=%.3f neighbor_confirm=%d seed_from_first=%v",
+			g.SensorID, len(points), total, backgroundCount, foregroundCount, acceptPct,
+			noiseRel, closenessMultiplier, neighConfirm, seedFromFirst)
+	}
+
+	// Log B: Rate-limited diagnostic for grid population tracking
+	// Track how quickly the grid repopulates after reset (useful for debugging multisweep race)
+	frameCount := atomic.AddInt64(&bm.frameProcessCount, 1)
+	if frameCount%100 == 0 {
+		// Quick snapshot of nonzero count
+		nonzero := g.nonzeroCellCount
+		log.Printf("[ProcessFramePolar] sensor=%s frames_processed=%d nonzero_cells=%d bg_count=%d fg_count=%d timestamp=%d",
+			g.SensorID, frameCount, nonzero, backgroundCount, foregroundCount, time.Now().UnixNano())
+	}
 }
 
 // serializeGrid compresses the grid cells using gob encoding and gzip compression.
@@ -684,7 +947,11 @@ func (bm *BackgroundManager) Persist(store BgStore, reason string) error {
 			nonzero++
 		}
 	}
-	log.Printf("[BackgroundManager] Persisted snapshot: sensor=%s, reason=%s, nonzero_cells=%d/%d, grid_blob_size=%d bytes", g.SensorID, reason, nonzero, len(cellsCopy), len(blob))
+	percent := 0.0
+	if len(cellsCopy) > 0 {
+		percent = (float64(nonzero) / float64(len(cellsCopy))) * 100.0
+	}
+	log.Printf("[BackgroundManager] Persisted snapshot: sensor=%s, reason=%s, nonzero_cells=%d/%d (%.2f%%), grid_blob_size=%d bytes", g.SensorID, reason, nonzero, len(cellsCopy), percent, len(blob))
 
 	// Update grid metadata under write lock. We subtract the value we copied
 	// earlier (changesSince) from the current counter so that changes which
