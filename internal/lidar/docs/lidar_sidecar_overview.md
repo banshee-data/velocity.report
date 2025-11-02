@@ -207,7 +207,7 @@ The LiDAR functionality is integrated into the `cmd/radar/radar.go` binary and e
 --lidar-bg-noise-relative 0.315       # NoiseRelativeFraction: fraction of range treated as measurement noise
 ```
 
-### PCAP Mode Usage
+### PCAP Replay Workflow
 
 **PCAP mode** allows parameter tuning without live sensor data:
 
