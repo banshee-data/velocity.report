@@ -830,6 +830,9 @@ def start_pcap_replay(base_url, sensor_id, pcap_file, retries=3, backoff=2.0):
         pcap_file: Path to PCAP file (basename is sent to API)
         retries: Number of retries on conflict (409)
         backoff: Base backoff seconds between retries
+
+    Returns:
+        True if the PCAP replay was successfully started, False otherwise.
     """
     url = f"{base_url}/api/lidar/pcap/start"
     params = {"sensor_id": sensor_id}
@@ -851,7 +854,7 @@ def start_pcap_replay(base_url, sensor_id, pcap_file, retries=3, backoff=2.0):
             return True
         except requests.exceptions.RequestException as e:
             print(f"Error starting PCAP replay (attempt {attempt}/{retries}): {e}")
-            time.sleep(backoff)
+            time.sleep(backoff * attempt)
 
     return False
 
