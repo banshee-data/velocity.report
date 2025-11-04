@@ -5,8 +5,8 @@
 	"type": "module",
 	"license": "Apache-2.0",
 	"scripts": {
-		"dev": "vite dev",
-		"build": "vite build",
+		"dev": "PUBLIC_GIT_SHA=$(git rev-parse --short HEAD) PUBLIC_BUILD_TIME='DEV_MODE' vite dev",
+		"build": "PUBLIC_GIT_SHA=$(git rev-parse --short HEAD) PUBLIC_BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ) vite build",
 		"postbuild": "rm -rf ../static/app && cp -r build/* ../static/",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",

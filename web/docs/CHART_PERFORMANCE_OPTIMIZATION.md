@@ -48,14 +48,14 @@ For a typical 14-day period with 4h grouping:
 **Implementation**:
 
 ```typescript
-let lastTransformedData: Array<{date: Date; metric: string; value: number}> | null = null;
+let lastTransformedData: Array<{ date: Date; metric: string; value: number }> | null = null;
 let lastTransformKey = '';
 
 // In loadChart(), before transformation:
 const transformKey = `${requestKey}`;
 if (lastTransformedData && transformKey === lastTransformKey) {
-  chartData = lastTransformedData;
-  return;
+	chartData = lastTransformedData;
+	return;
 }
 // ... do transformation ...
 lastTransformedData = rows;
@@ -79,7 +79,7 @@ import { tick } from 'svelte';
 // In loadChart(), at the end:
 await tick(); // flush pending updates
 requestAnimationFrame(() => {
-  chartData = rows;
+	chartData = rows;
 });
 ```
 
@@ -100,9 +100,9 @@ let chartLoading = false;
 // In loadChart():
 chartLoading = true;
 try {
-  // ... transformation ...
+	// ... transformation ...
 } finally {
-  chartLoading = false;
+	chartLoading = false;
 }
 ```
 
@@ -138,13 +138,13 @@ try {
 
 ```typescript
 async function processInChunks(validRows: RadarStats[], chunkSize = 50) {
-  const rows: Array<{date: Date; metric: string; value: number}> = [];
-  for (let i = 0; i < validRows.length; i += chunkSize) {
-    const chunk = validRows.slice(i, i + chunkSize);
-    // process chunk...
-    await new Promise(resolve => requestIdleCallback(resolve));
-  }
-  return rows;
+	const rows: Array<{ date: Date; metric: string; value: number }> = [];
+	for (let i = 0; i < validRows.length; i += chunkSize) {
+		const chunk = validRows.slice(i, i + chunkSize);
+		// process chunk...
+		await new Promise((resolve) => requestIdleCallback(resolve));
+	}
+	return rows;
 }
 ```
 
