@@ -2,11 +2,14 @@ package monitor
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/network"
 )
 
 func TestNewWebServer(t *testing.T) {
@@ -21,6 +24,7 @@ func TestNewWebServer(t *testing.T) {
 		ParsingEnabled:    true,
 		UDPPort:           2369,
 		DB:                nil,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
 
 	server := NewWebServer(config)
@@ -52,6 +56,7 @@ func TestWebServer_StatusHandler(t *testing.T) {
 		ParsingEnabled:    true,
 		UDPPort:           2369,
 		DB:                nil,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
 
 	server := NewWebServer(config)
@@ -100,6 +105,9 @@ func TestWebServer_HealthHandler(t *testing.T) {
 		Stats:          stats,
 		ParsingEnabled: false,
 		UDPPort:        2369,
+		UDPListenerConfig: network.UDPListenerConfig{
+			Address: ":0",
+		},
 	}
 
 	server := NewWebServer(config)
@@ -151,6 +159,9 @@ func TestWebServer_StartStop(t *testing.T) {
 		ParsingEnabled: true,
 		UDPPort:        2369,
 		DB:             nil,
+		UDPListenerConfig: network.UDPListenerConfig{
+			Address: ":0",
+		},
 	}
 
 	server := NewWebServer(config)
@@ -197,6 +208,7 @@ func TestWebServer_ForwardingConfig(t *testing.T) {
 		ParsingEnabled:    false,
 		UDPPort:           3000,
 		DB:                nil,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
 
 	server := NewWebServer(config)
@@ -242,6 +254,9 @@ func TestWebServer_InvalidHTTPMethod(t *testing.T) {
 		Stats:          stats,
 		ParsingEnabled: true,
 		UDPPort:        2369,
+		UDPListenerConfig: network.UDPListenerConfig{
+			Address: ":0",
+		},
 	}
 
 	server := NewWebServer(config)
@@ -263,14 +278,70 @@ func TestWebServer_InvalidHTTPMethod(t *testing.T) {
 	}
 }
 
-func BenchmarkWebServer_StatusHandler(b *testing.B) {
+func TestWebServer_DataSourceStatus(t *testing.T) {
 	stats := NewPacketStats()
-
 	config := WebServerConfig{
 		Address:        ":0",
 		Stats:          stats,
 		ParsingEnabled: true,
 		UDPPort:        2369,
+		UDPListenerConfig: network.UDPListenerConfig{
+			Address: ":0",
+		},
+	}
+	server := NewWebServer(config)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/data_source", nil)
+	rr := httptest.NewRecorder()
+
+	server.handleDataSource(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", rr.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp["data_source"] != string(DataSourceLive) {
+		t.Errorf("expected data_source=live, got %v", resp["data_source"])
+	}
+}
+
+func TestWebServer_DataSourceStatus_MethodNotAllowed(t *testing.T) {
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:        ":0",
+		Stats:          stats,
+		ParsingEnabled: true,
+		UDPPort:        2369,
+		UDPListenerConfig: network.UDPListenerConfig{
+			Address: ":0",
+		},
+	}
+	server := NewWebServer(config)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/data_source", nil)
+	rr := httptest.NewRecorder()
+
+	server.handleDataSource(rr, req)
+
+	if rr.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405 MethodNotAllowed, got %d", rr.Code)
+	}
+}
+
+func BenchmarkWebServer_StatusHandler(b *testing.B) {
+	stats := NewPacketStats()
+
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		ParsingEnabled:    true,
+		UDPPort:           2369,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
 
 	server := NewWebServer(config)
@@ -299,10 +370,11 @@ func BenchmarkWebServer_HealthHandler(b *testing.B) {
 	stats := NewPacketStats()
 
 	config := WebServerConfig{
-		Address:        ":0",
-		Stats:          stats,
-		ParsingEnabled: true,
-		UDPPort:        2369,
+		Address:           ":0",
+		Stats:             stats,
+		ParsingEnabled:    true,
+		UDPPort:           2369,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
 
 	server := NewWebServer(config)
@@ -319,5 +391,67 @@ func BenchmarkWebServer_HealthHandler(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		rr := httptest.NewRecorder()
 		mux.ServeHTTP(rr, req)
+	}
+}
+
+func TestIsPathWithinDirectory(t *testing.T) {
+	tests := []struct {
+		name    string
+		absPath string
+		safeDir string
+		want    bool
+	}{
+		{
+			name:    "valid path within directory",
+			absPath: "/tmp/output/file.txt",
+			safeDir: "/tmp",
+			want:    true,
+		},
+		{
+			name:    "path at safe directory root",
+			absPath: "/tmp/file.txt",
+			safeDir: "/tmp",
+			want:    true,
+		},
+		{
+			name:    "path escapes with ..",
+			absPath: "/tmp/../etc/passwd",
+			safeDir: "/tmp",
+			want:    false,
+		},
+		{
+			name:    "path is parent directory",
+			absPath: "/tmp",
+			safeDir: "/tmp/subdir",
+			want:    false,
+		},
+		{
+			name:    "completely different path",
+			absPath: "/etc/config",
+			safeDir: "/tmp",
+			want:    false,
+		},
+		{
+			name:    "nested safe path",
+			absPath: "/home/user/projects/app/data/file.txt",
+			safeDir: "/home/user/projects/app",
+			want:    true,
+		},
+		{
+			name:    "sibling directory escape",
+			absPath: "/home/user/other/file.txt",
+			safeDir: "/home/user/projects",
+			want:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isPathWithinDirectory(tt.absPath, tt.safeDir)
+			if got != tt.want {
+				t.Errorf("isPathWithinDirectory(%q, %q) = %v, want %v",
+					tt.absPath, tt.safeDir, got, tt.want)
+			}
+		})
 	}
 }

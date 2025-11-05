@@ -30,8 +30,8 @@
 
 ### ✅ **Phase 2.5: PCAP-Based Parameter Tuning (COMPLETED)**
 
-- ✅ **PCAP Mode**: `--lidar-pcap-mode` flag disables UDP network listening
-- ✅ **API-Controlled Replay**: POST to `/api/lidar/pcap/start` with file path
+- ✅ **Runtime Source Switching**: Live UDP ↔ PCAP toggled via API (no restart)
+- ✅ **API-Controlled Replay**: POST to `/api/lidar/pcap/start?sensor_id=<id>` with file path
 - ✅ **Safe Directory Restriction**: `--lidar-pcap-dir` limits file access to prevent path traversal attacks
 - ✅ **BPF Filtering**: Filters PCAP by UDP port (supports multi-sensor captures)
 - ✅ **Background Persistence**: Periodic flush every N seconds during replay
@@ -200,16 +200,15 @@ The LiDAR functionality is integrated into the `cmd/radar/radar.go` binary and e
 --lidar-forward                       # Forward lidar UDP packets to another port
 --lidar-forward-port 2368             # Port to forward lidar UDP packets to
 --lidar-forward-addr "localhost"      # Address to forward lidar UDP packets to
---lidar-pcap-mode                     # Enable PCAP mode: disable UDP listening, use API for PCAP replay
 
 # Background subtraction tuning (runtime-adjustable via HTTP API)
 --lidar-bg-flush-interval 10s         # Interval to flush background grid to DB (PCAP mode)
 --lidar-bg-noise-relative 0.315       # NoiseRelativeFraction: fraction of range treated as measurement noise
 ```
 
-### PCAP Mode Usage
+### PCAP Replay Workflow
 
-**PCAP mode** allows parameter tuning without live sensor data:
+PCAP replay now happens via runtime data source switching:
 
 ```bash
 # Build with PCAP support (requires libpcap)
@@ -217,15 +216,21 @@ make radar-local              # macOS with PCAP support
 make radar-linux              # Linux without PCAP (for Raspberry Pi cross-compile)
 make radar-linux-pcap         # Linux with PCAP (requires ARM64 libpcap installed)
 
-# Start radar in PCAP mode (no UDP network listening)
-./radar --enable-lidar --lidar-pcap-mode --lidar-bg-flush-interval=5s [other flags...]
+# Start radar with LiDAR enabled (no PCAP-only mode required)
+./radar --enable-lidar --lidar-bg-flush-interval=5s --lidar-pcap-dir ../sensor-data/lidar
 
-# Trigger PCAP replay via API
-curl -X POST http://localhost:8081/api/lidar/pcap/start?sensor_id=hesai-pandar40p \
+# Switch to PCAP replay
+curl -X POST "http://localhost:8081/api/lidar/pcap/start?sensor_id=hesai-pandar40p" \
   -H "Content-Type: application/json" \
-  -d '{"pcap_file": "/path/to/cars.pcap"}'
+  -d '{"pcap_file": "cars.pcap"}'
 
-# Use sweep tools with PCAP
+# ...monitor status during replay
+curl http://localhost:8081/api/lidar/status | jq .
+
+# Switch back to live UDP data when finished
+curl "http://localhost:8081/api/lidar/pcap/stop?sensor_id=hesai-pandar40p"
+
+# Sweep tools continue to point at the API
 ./bg-sweep -pcap-file=/path/to/cars.pcap -start=0.01 -end=0.3 -step=0.01
 ./bg-multisweep -pcap-file=/path/to/pedestrians.pcap -closeness=2.0,3.0,4.0 -neighbors=1,2,3
 ```
@@ -657,8 +662,10 @@ ChangeThresholdForSnapshot     int      // Min changed cells to trigger snapshot
 - `GET /api/lidar/grid_status?sensor_id=<id>` - Get grid statistics and settling status
 - `GET /api/lidar/grid_heatmap?sensor_id=<id>` - Get spatial bucket aggregation (40 rings × 120 azimuth buckets)
 - `GET /api/lidar/grid/export_asc?sensor_id=<id>` - Export background grid as ASC point cloud
-- `POST /api/lidar/pcap/start?sensor_id=<id>` - Start PCAP replay (requires `--lidar-pcap-mode`)
+- `POST /api/lidar/pcap/start?sensor_id=<id>` - Start PCAP replay (resets grid, stops UDP listener)
   - JSON body: `{"pcap_file": "filename.pcap"}` or `{"pcap_file": "subfolder/file.pcap"}`
+- `GET /api/lidar/pcap/stop?sensor_id=<id>` - Stop replay and return to live UDP packets
+- `GET /api/lidar/data_source` - Current data source, PCAP file, and replay status
 - `POST /api/lidar/snapshot/persist?sensor_id=<id>` - Force immediate background snapshot to database
 - `GET /api/lidar/snapshot?sensor_id=<id>` - Retrieve latest background snapshot from database
 

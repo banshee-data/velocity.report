@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Stop an in-progress PCAP replay via the local monitor API.
-# Usage: ./stop_pcap.sh [sensor_id]
+# Switch back to live LiDAR data via the monitor API.
+# Usage: ./stop_pcap.sh [sensor_id] [base_url]
 set -euo pipefail
 
 SENSOR_ID=${1:-hesai-pandar40p}
+BASE_URL=${2:-http://127.0.0.1:8081}
 
-echo "Stopping PCAP replay (sensor_id=$SENSOR_ID)"
-curl -s -X POST "http://127.0.0.1:8081/api/lidar/pcap/stop?sensor_id=$SENSOR_ID" \
-  -H 'Content-Type: application/json' \
-  -d '{}' | jq . || true
+echo "Stopping PCAP replay (sensor_id=$SENSOR_ID) via $BASE_URL"
+curl -s "$BASE_URL/api/lidar/pcap/stop?sensor_id=$SENSOR_ID" | jq . || true
 echo

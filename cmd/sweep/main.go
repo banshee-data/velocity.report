@@ -11,6 +11,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -376,10 +377,12 @@ func generateIntRange(start, end, step int) []int {
 
 func startPCAPReplay(client *http.Client, baseURL, sensorID, pcapFile string) error {
 	url := fmt.Sprintf("%s/api/lidar/pcap/start?sensor_id=%s", baseURL, sensorID)
-	payload := map[string]string{"pcap_file": pcapFile}
+	payload := map[string]string{"pcap_file": filepath.Base(pcapFile)}
 	data, _ := json.Marshal(payload)
 
-	// Retry logic for 503 (PCAP already in progress)
+	log.Printf("Requesting PCAP replay for sensor %s: %s", sensorID, payload["pcap_file"])
+
+	// Retry logic for 409 (PCAP already in progress)
 	maxRetries := 60
 	for retry := 0; retry < maxRetries; retry++ {
 		req, _ := http.NewRequest(http.MethodPost, url, bytes.NewReader(data))
@@ -398,7 +401,7 @@ func startPCAPReplay(client *http.Client, baseURL, sensorID, pcapFile string) er
 		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
 
-		if resp.StatusCode == http.StatusServiceUnavailable {
+		if resp.StatusCode == http.StatusConflict {
 			if retry == 0 {
 				log.Printf("PCAP replay in progress, waiting...")
 			}
