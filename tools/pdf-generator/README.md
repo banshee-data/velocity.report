@@ -332,7 +332,6 @@ make pdf-report CONFIG=config.example.json    # Generate PDF report
 
 # Utilities
 make clean-python       # Remove generated outputs
-make pdf-help           # Show all available commands
 ```
 
 ## Usage Examples
