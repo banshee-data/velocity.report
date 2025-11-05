@@ -58,6 +58,9 @@ help:
 	@echo "  pdf                  Alias for pdf-report"
 	@echo "  clean-python         Clean PDF output files"
 	@echo ""
+	@echo "DEPLOYMENT:"
+	@echo "  setup-radar          Install server on this host (requires sudo)"
+	@echo ""
 	@echo "UTILITIES:"
 	@echo "  log-go-tail          Tail most recent Go server log"
 	@echo "  log-go-cat           Cat most recent Go server log"
@@ -429,6 +432,26 @@ clean-python:
 	rm -rf $(PDF_DIR)/.coverage
 	rm -rf $(PDF_DIR)/pdf_generator/**/__pycache__
 	@echo "✓ Cleaned"
+
+# =============================================================================
+# DEPLOYMENT
+# =============================================================================
+
+.PHONY: setup-radar
+
+setup-radar:
+	@if [ ! -f "app-radar-linux-arm64" ]; then \
+		echo "Error: app-radar-linux-arm64 not found!"; \
+		echo "Run 'make build-radar-linux' first."; \
+		exit 1; \
+	fi
+	@echo "Setting up velocity.report server on this host..."
+	@echo "This will:"
+	@echo "  1. Install binary to /usr/local/bin/velocity-server"
+	@echo "  2. Create service user and working directory"
+	@echo "  3. Install and start systemd service"
+	@echo ""
+	@sudo ./scripts/setup-radar-host.sh
 
 # =============================================================================
 # UTILITIES

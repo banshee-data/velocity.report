@@ -198,9 +198,9 @@ make test
 Build for production (Raspberry Pi):
 
 ```sh
-make radar-linux
+make build-radar-linux
 # or manually:
-GOARCH=arm64 GOOS=linux go build -o app-radar-linux-arm64 ./cmd/radar
+GOOS=linux GOARCH=arm64 go build -o app-radar-linux-arm64 ./cmd/radar
 ```
 
 ### Python PDF Generator Development
@@ -253,40 +253,21 @@ The Go server runs as a systemd service on Raspberry Pi.
 **Deploy new version:**
 
 ```sh
-# 1. Build for ARM64 (produces `app-radar-linux-arm64`)
-make radar-linux
+# On the Raspberry Pi, clone the repository
+git clone https://github.com/banshee-data/velocity.report.git
+cd velocity.report
 
-# 2. Copy and install on the target (recommended)
-#    - place the binary in a standard system bin directory and name it `velocity-server`
-#    - create a dedicated service user and working directory
-scp app-radar-linux-arm64 pi@raspberrypi:/tmp/
-ssh pi@raspberrypi
-sudo mv /tmp/app-radar-linux-arm64 /usr/local/bin/velocity-server
-sudo chown root:root /usr/local/bin/velocity-server
-sudo chmod 0755 /usr/local/bin/velocity-server
-
-# 3. Create a non-privileged service account and working directory
-#    (run once on the device; you can skip user creation if you prefer an existing user)
-sudo useradd --system --no-create-home --shell /usr/sbin/nologin velocity || true
-sudo mkdir -p /var/lib/velocity.report
-sudo chown velocity:velocity /var/lib/velocity.report
-
-# 4. Install and (re)start the systemd service
-#    - copy the unit file (this repo contains `velocity-report.service`) to /etc/systemd/system/
-#    - the unit file passes --db-path to specify where the SQLite DB is located
-sudo cp velocity-report.service /etc/systemd/system/velocity-server.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now velocity-server.service
-
-# 5. (Optional) Migrate existing database
-#    If you have an existing sensor_data.db, copy it to the new location:
-sudo cp sensor_data.db /var/lib/velocity.report/sensor_data.db
-sudo chown velocity:velocity /var/lib/velocity.report/sensor_data.db
-
-# 6. Check status & logs
-sudo systemctl status velocity-server.service
-sudo journalctl -u velocity-server.service -f
+# Build and install
+make build-radar-linux
+make setup-radar
 ```
+
+The setup will:
+
+- Install the binary to `/usr/local/bin/velocity-server`
+- Create a dedicated service user and working directory
+- Install and enable the systemd service
+- Optionally migrate existing database
 
 **Monitor service:**
 
@@ -297,6 +278,10 @@ sudo journalctl -u velocity-server.service -f
 # Check status
 sudo systemctl status velocity-server.service
 ```
+
+**Manual deployment:**
+
+If you prefer manual deployment or need to customize the setup, see the deployment script at `scripts/setup-radar-host.sh` for the individual steps.
 
 **Service configuration:**
 
@@ -363,13 +348,18 @@ The project uses a consistent naming scheme for all make targets: `<action>-<sub
 
 ### Build Targets (Go cross-compilation)
 
-- `radar-linux` - Build for Linux ARM64 (no pcap)
-- `radar-linux-pcap` - Build for Linux ARM64 with pcap
-- `radar-mac` - Build for macOS ARM64 with pcap
-- `radar-mac-intel` - Build for macOS AMD64 with pcap
-- `radar-local` - Build for local development with pcap
-- `tools-local` - Build sweep tool
+- `build-radar-linux` - Build for Linux ARM64 (no pcap)
+- `build-radar-linux-pcap` - Build for Linux ARM64 with pcap
+- `build-radar-mac` - Build for macOS ARM64 with pcap
+- `build-radar-mac-intel` - Build for macOS AMD64 with pcap
+- `build-radar-local` - Build for local development with pcap
+- `build-tools` - Build sweep tool
 - `build-web` - Build web frontend (SvelteKit)
+- `build-docs` - Build documentation site (Eleventy)
+
+### Deployment Targets
+
+- `setup-radar` - Install server on this host (requires sudo)
 
 ### PDF Generator Targets
 
