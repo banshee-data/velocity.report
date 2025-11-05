@@ -10,7 +10,7 @@ date: 2025-11-05
 
 ### A DIY traffic logger that keeps data local, skips the camera, and helps your neighborhood get safer streets.
 
-**Difficulty**: Intermediate | **Time**: 2-3 hours | **Cost**: ~$200-300
+**Difficulty**: Intermediate | **Time**: 2-4 hours | **Cost**: ~$XXX-YYY
 
 ---
 
@@ -28,9 +28,9 @@ Whether you're a concerned parent, a local activist, or just someone who likes b
 
 ### **Why Speed Matters: The Physics of Safety**
 
-Speed isn't just a number on a sign—it's physics, and physics always wins.
+Speed isn't just a number on a sign: it's physics! And physics always wins.
 
-The kinetic energy of a moving vehicle follows this formula:
+The kinetic energy of a moving object follows this formula:
 
 $$K_E = \frac{1}{2} m v^2$$
 
@@ -42,9 +42,9 @@ Where $m$ is mass and $v$ is velocity. The key insight: energy scales with the _
 - At **50 mph**, that energy jumps to **6.25 times** what it was at 20 mph
 - Even a 5 mph difference (say, 30 mph vs 35 mph) increases crash energy by 36%
 
-For anyone outside the vehicle—pedestrians, cyclists, kids—this exponential relationship is the difference between walking away and not walking at all.
+For anyone outside the vehicle (pedestrians, cyclists, kids) this exponential relationship is the difference between walking away and never walking again.
 
-Streets designed for 25 mph but driven at 40? That's not just a little faster—it's 2.56× the destructive force on impact.
+Streets designed for 25 mph but driven at 40? That's not just a little faster: it's 2.56× the destructive force on impact.
 
 **Your radar measures what matters**: actual speeds, not posted limits. You'll capture the real behavior, quantify the risk, and have data that speaks louder than feelings.
 
@@ -77,7 +77,6 @@ By the end of this guide, you'll have:
 | Enclosure & Mount       | Waterproof project box | Optional: suction mount, tripod, etc.   |
 | Optional Serial Adapter | FTDI USB-to-Serial     | Needed if not using GPIO/UART directly. |
 | SD Card                 | 16GB+                  | For Pi OS and data logging.             |
-| USB Flash Drive         | Any reliable brand     | For backups (optional).                 |
 
 ### Tools
 
@@ -128,21 +127,33 @@ Here's how to check and update the output mode:
 1. **Connect via terminal**
 
    ```bash
-   stty -F /dev/ttyUSB0 115200
-   screen /dev/ttyUSB0 115200
+   stty -F /dev/ttyUSB0 19200 cs8 -parenb -cstopb
+   screen /dev/ttyUSB0 19200
    ```
 
-   This opens a serial connection at 115200 baud (the sensor's default communication speed).
+   This opens a serial connection at 19200 baud with 8 data bits, no parity, and 1 stop bit (the sensor's default communication settings).
 
-2. **Enter two-character commands** quickly (e.g., `VO` to switch to JSON output).
+2. **Enter two-character commands** quickly (e.g., `OJ` to switch to JSON output).
 
    The sensor expects complete two-character commands without delay. Type both characters rapidly.
 
-   Common commands:
+   **Essential commands**:
 
-   - `VO` - Switch to JSON velocity output
-   - `FV` - Display firmware version
-   - `??` - Show available commands
+   - `??` - Query overall module information
+   - `?V` - Read firmware version
+   - `OJ` - Enable JSON output mode
+   - `OM` - Enable magnitude reporting (Doppler)
+   - `Om` - Disable magnitude reporting (Doppler)
+   - `A!` - Save current configuration to persistent memory
+   - `A?` - Query persistent memory settings
+   - `AX` - Reset flash settings to factory defaults
+
+   **Additional useful commands**:
+
+   - `?R` - Read reset reason
+   - `US` - Set units to miles per hour
+   - `R?` - Query current speed filter settings
+   - `PA` - Set active power mode
 
 3. **Verify response**
 
@@ -164,94 +175,75 @@ With the sensor powered and connected:
 - Expect JSON lines like:
 
 ```json
-{ "speed": 31.2, "units": "mph", "direction": "approaching" }
+{ "magnitude": 1.2, "speed": 3.4 }
+```
+
+For detected vehicle objects (transits), you'll see more detailed JSON:
+
+```json
+{
+  "classifier": "object_outbound",
+  "end_time": "1750719826.467",
+  "start_time": "1750719826.731",
+  "delta_time_msec": 736,
+  "max_speed_mps": 13.39,
+  "min_speed_mps": 11.33,
+  "max_magnitude": 55,
+  "avg_magnitude": 36,
+  "total_frames": 7,
+  "frames_per_mps": 0.5228,
+  "length_m": 9.86,
+  "speed_change": 2.799
+}
 ```
 
 - If you see nothing, check:
-  - Baud rate (115200)
+  - Baud rate (19200)
   - Correct port (`/dev/ttyUSB0`, `/dev/serial0`, etc.)
   - Proper wiring (for UART)
 
 ---
 
-### **Step 5: Download & Build the Software**
+### **Step 5: Download & Install the Software**
 
-Head to the open-source repository and build the radar application:
+On your Raspberry Pi, clone the repository and run the automated setup:
 
 ```bash
-git clone https://github.com/banshee-labs/velocity.report
+git clone https://github.com/banshee-data/velocity.report.git
 cd velocity.report
-make radar-local
+make build-radar-linux
+sudo ./scripts/setup-radar-host.sh
 ```
 
-This builds `app-radar-local` with pcap support (needed for packet capture and advanced debugging). The build process compiles the Go application into a single binary with no external dependencies.
+The setup script will:
 
-**Installation options**:
+1. Install the binary to `/usr/local/bin/velocity-report`
+2. Create a dedicated `velocity` service user
+3. Create the data directory at `/var/lib/velocity-report/`
+4. Install and start the systemd service
+5. Optionally migrate an existing database
 
-1. **Run from current directory**: `./app-radar-local`
-2. **Install system-wide**: `sudo cp app-radar-local /usr/local/bin/`
-3. **Run as a service**: Set up a systemd service to start on boot (see below)
+**Where files are stored**:
 
-**Optional: Set up systemd service for automatic startup**
+- **Database**: `/var/lib/velocity-report/sensor_data.db` (SQLite database with all vehicle detections)
+- **PDF Reports**: Generated in the repository at `tools/pdf-generator/output/` when requested via web dashboard or command line
+- **Application logs**: View with `sudo journalctl -u velocity-report.service -f`
 
-Create `/etc/systemd/system/velocity-report.service`:
-
-```ini
-[Unit]
-Description=Velocity Report Traffic Logger
-After=network.target
-
-[Service]
-Type=simple
-User=pi
-WorkingDirectory=/home/pi/velocity.report
-ExecStart=/usr/local/bin/app-radar-local --input /dev/ttyUSB0 --db-path /home/pi/sensor_data.db
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start:
+**Useful commands**:
 
 ```bash
-sudo systemctl enable velocity-report
-sudo systemctl start velocity-report
-sudo systemctl status velocity-report
+sudo systemctl status velocity-report    # Check service status
+sudo systemctl restart velocity-report   # Restart the service
+sudo journalctl -u velocity-report -f   # View live logs
 ```
 
 ---
 
-### **Step 6: Start Logging & Access the Web Dashboard**
+### **Step 6: Access the Web Dashboard**
 
-1. **Start the logger**:
+The service starts automatically after installation and runs on port 8000.
 
-```bash
-./app-radar-local --input /dev/ttyUSB0
-```
-
-The application will:
-
-- Connect to the radar sensor on the specified serial port
-- Create a SQLite database at `./sensor_data.db` (default location)
-- Start an embedded web server on port 8000
-- Begin logging vehicle detections in real-time
-
-**Command-line options**:
-
-- `--input /dev/ttyUSB0` - Serial port where radar is connected
-- `--db-path /path/to/database.db` - Custom database location (optional)
-- `--disable-radar` - Run without radar hardware for development/testing
-
-**Understanding the database**: All vehicle detections are stored locally in a SQLite database. This means:
-
-- No cloud uploads—your data stays on your device
-- You can back up the database file to preserve your data
-- You can query it directly with any SQLite tool
-- The database grows over time—plan for ~1-5 MB per day of continuous logging
-
-2. **Open your browser and visit**:
+**Open your browser and visit**:
 
 ```text
 http://raspberrypi.local:8000
@@ -268,9 +260,10 @@ http://raspberrypi.local:8000
 
 **Troubleshooting**:
 
-- If you can't connect, check the Pi's IP address: `hostname -I`
-- Make sure port 8000 isn't blocked by a firewall
-- On the Pi itself, you can access `http://localhost:8000`
+- Check service is running: `sudo systemctl status velocity-report`
+- View logs: `sudo journalctl -u velocity-report -f`
+- Find Pi's IP address: `hostname -I`
+- Ensure port 8000 isn't blocked by a firewall
 
 ---
 
@@ -278,25 +271,26 @@ http://raspberrypi.local:8000
 
 After collecting several days of data, you can generate professional PDF reports to share with city officials, neighbors, or community groups.
 
-**Using the Web Dashboard** (coming soon):
+**Using the Web Dashboard**
 
-1. Navigate to the **Settings** tab in the web dashboard
+1. Configure a **Site** tab in the web dashboard
 2. Enable **PDF Report Generation**
 3. Click **Generate Report**
 
-**Using the Command Line** (current method):
+**Using the Command Line**
 
-The PDF generator is a separate Python tool. See the [PDF Generator README](https://github.com/banshee-labs/velocity.report/tree/main/tools/pdf-generator) for complete instructions.
-
-Quick version:
+The PDF generator uses the repository's unified Python environment. From the repository root:
 
 ```bash
-cd tools/pdf-generator
-make install-python      # One-time setup
+make install-python      # One-time setup: creates .venv/ with all dependencies
 make pdf-config          # Create configuration template
 # Edit config.json with your date range and location
 make pdf-report CONFIG=config.json
 ```
+
+**Note**: The Python environment is created at the repository root (`.venv/`) and is shared across all Python tools including the PDF generator, data visualization scripts, and analysis utilities.
+
+See the [PDF Generator README](https://github.com/banshee-data/velocity.report/tree/main/tools/pdf-generator) for complete instructions.
 
 **What's in the report**:
 
@@ -367,7 +361,7 @@ Let's build safer streets, one Pi at a time.
 
   - Firmware updates, datasheets, and configuration guides
 
-- **GitHub Repository**: [https://github.com/banshee-labs/velocity.report](https://github.com/banshee-labs/velocity.report)
+- **GitHub Repository**: [https://github.com/banshee-data/velocity.report](https://github.com/banshee-data/velocity.report)
 
   - Source code, issue tracker, and contribution guidelines
 
