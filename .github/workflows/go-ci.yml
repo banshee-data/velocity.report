@@ -1,10 +1,7 @@
 name: 🧭 Go CI
 
 on:
-  # Run on PRs for changed Go files; run on push only for the default branch (main)
-  push:
-    branches:
-      - main
+  # Run only on PRs when Go files change
   pull_request:
     types: [opened, synchronize, reopened]
     paths:

@@ -7,10 +7,7 @@ permissions:
   issues: write
 
 on:
-  # Only run web workflow on PRs that change web files, or on push to main
-  push:
-    branches:
-      - main
+  # Run only on PRs that change web files
   pull_request:
     types: [opened, reopened, synchronize]
     paths:
