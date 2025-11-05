@@ -1,0 +1,130 @@
+name: 📚 Docs CI
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+  issues: write
+
+on:
+  # Run only on PRs that change docs files
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - "docs/**"
+      - ".github/workflows/docs-ci.yml"
+
+jobs:
+  lint:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Get pnpm store directory
+        id: get-pnpm-store
+        shell: bash
+        run: |
+          echo "store_path=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.get-pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('docs/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check for Prettier configuration
+        id: prettier-check
+        run: |
+          if [ -f ".prettierrc" ] || [ -f ".prettierrc.json" ] || [ -f ".prettierrc.js" ] || grep -q "prettier" package.json; then
+            echo "has_prettier=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_prettier=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Prettier check
+        if: steps.prettier-check.outputs.has_prettier == 'true'
+        run: |
+          if command -v pnpm >/dev/null 2>&1; then
+            pnpm exec prettier --check .
+          else
+            npx prettier --check .
+          fi
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Get pnpm store directory
+        id: get-pnpm-store
+        shell: bash
+        run: |
+          echo "store_path=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.get-pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('docs/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build documentation site
+        run: pnpm run build
+
+      - name: Verify build output
+        run: |
+          if [ ! -d "_site" ]; then
+            echo "Error: _site directory not found after build"
+            exit 1
+          fi
+          echo "✓ Build successful"
+          echo "Build output size: $(du -sh _site | cut -f1)"
+          echo "Files generated: $(find _site -type f | wc -l)"
+
+      - name: Build summary
+        run: |
+          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Output directory: \`_site/\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Total size: $(du -sh _site | cut -f1)" >> $GITHUB_STEP_SUMMARY
+          echo "- Files generated: $(find _site -type f | wc -l)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### File Types" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          find _site -type f | sed 's/.*\.//' | sort | uniq -c | sort -rn | head -10 >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

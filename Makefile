@@ -13,6 +13,7 @@ help:
 	@echo "  radar-local          Build for local development with pcap"
 	@echo "  tools-local          Build sweep tool"
 	@echo "  build-web            Build web frontend (SvelteKit)"
+	@echo "  build-docs           Build documentation site (Eleventy)"
 	@echo ""
 	@echo "INSTALLATION:"
 	@echo "  install-python       Set up Python PDF generator (venv + deps)"
@@ -231,6 +232,18 @@ build-web:
 		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
 	fi
 	@echo "✓ Web build complete: web/build/"
+
+.PHONY: build-docs
+build-docs:
+	@echo "Building documentation site..."
+	@cd docs && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm run build; \
+	elif command -v npm >/dev/null 2>&1; then \
+		npm run build; \
+	else \
+		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+	fi
+	@echo "✓ Docs build complete: docs/_site/"
 
 # =============================================================================
 # Sweep Plotting (uses root .venv)
