@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { cpSync, existsSync, rmSync } from 'fs';
+import { cpSync, existsSync, readdirSync, rmSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -17,10 +17,20 @@ if (existsSync(appStaticDir)) {
 	rmSync(appStaticDir, { recursive: true, force: true });
 }
 
-// Copy build contents to static
+// Copy build contents (not the directory itself) to static
 if (existsSync(buildDir)) {
-	console.log(`Copying from ${buildDir} to ${staticDir}...`);
-	cpSync(buildDir, staticDir, { recursive: true });
+	console.log(`Copying contents from ${buildDir} to ${staticDir}...`);
+
+	// Read all files/folders in build directory
+	const items = readdirSync(buildDir);
+
+	// Copy each item from build/* to static/
+	for (const item of items) {
+		const source = join(buildDir, item);
+		const destination = join(staticDir, item);
+		cpSync(source, destination, { recursive: true, force: true });
+	}
+
 	console.log('Build copied successfully!');
 } else {
 	console.error('Error: build directory does not exist!');
