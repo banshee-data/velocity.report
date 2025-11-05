@@ -241,15 +241,15 @@ sudo journalctl -u velocity-report -f   # View live logs
 
 ### **Step 6: Access the Web Dashboard**
 
-The service starts automatically after installation and runs on port 8000.
+The service starts automatically after installation and runs on port 8080.
 
 **Open your browser and visit**:
 
 ```text
-http://raspberrypi.local:8000
+http://raspberrypi.local:8080
 ```
 
-(Or replace `raspberrypi.local` with the actual IP address of your Pi, e.g., `http://192.168.1.100:8000`)
+(Or replace `raspberrypi.local` with the actual IP address of your Pi, e.g., `http://192.168.1.100:8080`)
 
 **What you'll see**:
 
@@ -263,7 +263,7 @@ http://raspberrypi.local:8000
 - Check service is running: `sudo systemctl status velocity-report`
 - View logs: `sudo journalctl -u velocity-report -f`
 - Find Pi's IP address: `hostname -I`
-- Ensure port 8000 isn't blocked by a firewall
+- Ensure port 8080 isn't blocked by a firewall
 
 ---
 
