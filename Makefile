@@ -57,7 +57,7 @@ define run_dev_go_kill_server
 	fi
 endef
 
-.PHONY: dev-go dev-go-lidar dev-go-kill-server
+.PHONY: dev-go dev-go-lidar dev-go-kill-server dev-docs dev-web docs-install web-install
 dev-go:
 	@$(call run_dev_go)
 
@@ -66,6 +66,46 @@ dev-go-lidar:
 
 dev-go-kill-server:
 	@$(call run_dev_go_kill_server)
+
+docs-install:
+	@echo "Installing docs dependencies..."
+	@cd docs && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm install --frozen-lockfile; \
+		elif command -v npm >/dev/null 2>&1; then \
+			npm install; \
+		else \
+			echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+		fi
+
+web-install:
+	@echo "Installing web dependencies..."
+	@cd web && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm install --frozen-lockfile; \
+		elif command -v npm >/dev/null 2>&1; then \
+			npm install; \
+		else \
+			echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+		fi
+
+dev-docs:
+	@echo "Starting docs dev server..."
+	@cd docs && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm run dev; \
+		elif command -v npm >/dev/null 2>&1; then \
+		npm run dev; \
+		else \
+			echo "pnpm/npm not found; install dependencies (pnpm install) and run 'pnpm run dev'"; exit 1; \
+		fi
+
+dev-web:
+	@echo "Starting web dev server..."
+	@cd web && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm run dev; \
+		elif command -v npm >/dev/null 2>&1; then \
+		npm run dev; \
+		else \
+			echo "pnpm/npm not found; install dependencies (pnpm install) and run 'pnpm run dev'"; exit 1; \
+		fi
 
 
 .PHONY: tail-log-go
