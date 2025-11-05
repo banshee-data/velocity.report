@@ -10,9 +10,9 @@ Type=simple
 # The deployed binary (rename/copy from build output to this path)
 # Pass explicit DB path so the process finds the SQLite DB in a stable location
 # (the binary still defaults to ./sensor_data.db when no flag/env is provided)
-ExecStart=/usr/local/bin/velocity-report --db-path /var/lib/velocity.report/sensor_data.db
+ExecStart=/usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sensor_data.db
 # A stable working directory for runtime files; owned by the `velocity` user
-WorkingDirectory=/var/lib/velocity.report
+WorkingDirectory=/var/lib/velocity-report
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal

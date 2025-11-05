@@ -15,9 +15,11 @@ Docker or other tooling.
 
   sqlite3 sensor_data.db < data/migrations/20250929_migrate_data_to_radar_data.sql
 
-If your SQLite file lives at a different path (for example in production `/var/lib/velocity.report/sensor_data.db`), substitute that path in the commands above. For example:
+If your SQLite file lives at a different path (for example in production `/var/lib/velocity-report/sensor_data.db`), substitute that path in the commands above. For example:
 
-sqlite3 /var/lib/velocity.report/sensor_data.db < data/migrations/20250929_migrate_data_to_radar_data.sql
+```bash
+sqlite3 /var/lib/velocity-report/sensor_data.db < data/migrations/20250929_migrate_data_to_radar_data.sql
+```
 
 Note: the radar binary accepts `--db-path /path/to/db` to point the server at a non-default DB file; migrations operate on the file you provide to sqlite3 and are independent of the running binary.
 

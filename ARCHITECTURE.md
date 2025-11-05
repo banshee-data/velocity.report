@@ -112,7 +112,7 @@ All components share a common SQLite database as the single source of truth.
 │  │                │                      │                        │  │
 │  │  ┌─────────────▼──────────────────────▼─────────────────────┐  │  │
 │  │  │         SQLite Database (sensor_data.db)                 │  │  │
-│  │  │         /var/lib/velocity.report/sensor_data.db          │  │  │
+│  │  │         /var/lib/velocity-report/sensor_data.db          │  │  │
 │  │  │                                                          │  │  │
 │  │  │  Core Tables:                                            │  │  │
 │  │  │  • radar_data (raw radar events, JSON)                   │  │  │
@@ -595,7 +595,7 @@ Response: [
 │  │  systemd (velocity-report.service)       │  │
 │  │  ↓                                       │  │
 │  │  /usr/local/bin/velocity-report          │  │
-│  │  --db-path /var/lib/velocity.report/...  │  │
+│  │  --db-path /var/lib/velocity-report/...  │  │
 │  │  (Go Server Binary)                      │  │
 │  │                                          │  │
 │  │  Configuration:                          │  │
@@ -606,7 +606,7 @@ Response: [
 │                                                │
 │  ┌──────────────────────────────────────────┐  │
 │  │  SQLite Database                         │  │
-│  │  /var/lib/velocity.report/sensor_data.db │  │
+│  │  /var/lib/velocity-report/sensor_data.db │  │
 │  └──────────────────────────────────────────┘  │
 │                                                │
 │  Sensor Connections:                           │
