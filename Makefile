@@ -1,3 +1,91 @@
+.PHONY: help
+help:
+	@echo "velocity.report - Make Targets"
+	@echo "=============================="
+	@echo ""
+	@echo "Pattern: <action>-<subsystem>[-<variant>]"
+	@echo ""
+	@echo "BUILD TARGETS (Go cross-compilation):"
+	@echo "  radar-linux          Build for Linux ARM64 (no pcap)"
+	@echo "  radar-linux-pcap     Build for Linux ARM64 with pcap"
+	@echo "  radar-mac            Build for macOS ARM64 with pcap"
+	@echo "  radar-mac-intel      Build for macOS AMD64 with pcap"
+	@echo "  radar-local          Build for local development with pcap"
+	@echo "  tools-local          Build sweep tool"
+	@echo "  build-web            Build web frontend (SvelteKit)"
+	@echo ""
+	@echo "INSTALLATION:"
+	@echo "  install-python       Set up Python PDF generator (venv + deps)"
+	@echo "  install-web          Install web dependencies (pnpm/npm)"
+	@echo "  install-docs         Install docs dependencies (pnpm/npm)"
+	@echo ""
+	@echo "DEVELOPMENT SERVERS:"
+	@echo "  dev-go               Start Go server (radar disabled)"
+	@echo "  dev-go-lidar         Start Go server with LiDAR enabled"
+	@echo "  dev-go-kill-server   Stop background Go server"
+	@echo "  dev-web              Start web dev server"
+	@echo "  dev-docs             Start docs dev server"
+	@echo ""
+	@echo "TESTING:"
+	@echo "  test                 Run all tests (Go + Python + Web)"
+	@echo "  test-go              Run Go unit tests"
+	@echo "  test-python          Run Python PDF generator tests"
+	@echo "  test-python-cov      Run Python tests with coverage"
+	@echo "  test-web             Run web tests (Jest)"
+	@echo ""
+	@echo "FORMATTING (mutating):"
+	@echo "  format               Format all code (Go + Python + Web)"
+	@echo "  format-go            Format Go code (gofmt)"
+	@echo "  format-python        Format Python code (black + ruff)"
+	@echo "  format-web           Format web code (prettier)"
+	@echo ""
+	@echo "LINTING (non-mutating, CI-friendly):"
+	@echo "  lint                 Lint all code, fail if formatting needed"
+	@echo "  lint-go              Check Go formatting"
+	@echo "  lint-python          Check Python formatting"
+	@echo "  lint-web             Check web formatting"
+	@echo ""
+	@echo "PDF GENERATOR:"
+	@echo "  pdf-report           Generate PDF from config (CONFIG=file.json)"
+	@echo "  pdf-config           Create example configuration"
+	@echo "  pdf-demo             Run configuration demo"
+	@echo "  pdf-test             Run PDF tests (alias for test-python)"
+	@echo "  pdf                  Alias for pdf-report"
+	@echo "  clean-python         Clean PDF output files"
+	@echo ""
+	@echo "UTILITIES:"
+	@echo "  log-go-tail          Tail most recent Go server log"
+	@echo "  log-go-cat           Cat most recent Go server log"
+	@echo ""
+	@echo "DATA VISUALIZATION:"
+	@echo "  plot-noise-sweep     Generate noise sweep line plot (FILE=data.csv)"
+	@echo "  plot-multisweep      Generate multi-parameter grid (FILE=data.csv)"
+	@echo "  plot-noise-buckets   Generate per-noise bar charts (FILE=data.csv)"
+	@echo "  stats-live           Capture live LiDAR snapshots"
+	@echo "  stats-pcap           Capture PCAP replay snapshots (PCAP=file.pcap)"
+	@echo ""
+	@echo "API SHORTCUTS (LiDAR HTTP API):"
+	@echo "  api-grid-status      Get grid status"
+	@echo "  api-grid-reset       Reset background grid"
+	@echo "  api-grid-heatmap     Get grid heatmap"
+	@echo "  api-snapshot         Get current snapshot"
+	@echo "  api-snapshots        List all snapshots"
+	@echo "  api-acceptance       Get acceptance metrics"
+	@echo "  api-acceptance-reset Reset acceptance counters"
+	@echo "  api-params           Get algorithm parameters"
+	@echo "  api-params-set       Set parameters (PARAMS='{...}')"
+	@echo "  api-persist          Trigger snapshot persistence"
+	@echo "  api-export-snapshot  Export specific snapshot"
+	@echo "  api-export-next-frame Export next LiDAR frame"
+	@echo "  api-status           Get server status"
+	@echo "  api-start-pcap       Start PCAP replay (PCAP=file.pcap)"
+	@echo "  api-stop-pcap        Stop PCAP replay"
+	@echo "  api-switch-data-source Switch live/pcap (SOURCE=live|pcap)"
+	@echo ""
+	@echo "For detailed information, see README.md or inspect the Makefile"
+
+.DEFAULT_GOAL := help
+
 radar-linux:
 	GOOS=linux GOARCH=arm64 go build -o app-radar-linux-arm64 ./cmd/radar
 
@@ -57,7 +145,7 @@ define run_dev_go_kill_server
 	fi
 endef
 
-.PHONY: dev-go dev-go-lidar dev-go-kill-server
+.PHONY: dev-go dev-go-lidar dev-go-kill-server dev-docs dev-web install-docs install-web
 dev-go:
 	@$(call run_dev_go)
 
@@ -67,9 +155,49 @@ dev-go-lidar:
 dev-go-kill-server:
 	@$(call run_dev_go_kill_server)
 
+install-docs:
+	@echo "Installing docs dependencies..."
+	@cd docs && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm install --frozen-lockfile; \
+		elif command -v npm >/dev/null 2>&1; then \
+			npm install; \
+		else \
+			echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+		fi
 
-.PHONY: tail-log-go
-tail-log-go:
+install-web:
+	@echo "Installing web dependencies..."
+	@cd web && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm install --frozen-lockfile; \
+		elif command -v npm >/dev/null 2>&1; then \
+			npm install; \
+		else \
+			echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+		fi
+
+dev-docs:
+	@echo "Starting docs dev server..."
+	@cd docs && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm run dev; \
+		elif command -v npm >/dev/null 2>&1; then \
+		npm run dev; \
+		else \
+			echo "pnpm/npm not found; install dependencies (pnpm install) and run 'pnpm run dev'"; exit 1; \
+		fi
+
+dev-web:
+	@echo "Starting web dev server..."
+	@cd web && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm run dev; \
+		elif command -v npm >/dev/null 2>&1; then \
+		npm run dev; \
+		else \
+			echo "pnpm/npm not found; install dependencies (pnpm install) and run 'pnpm run dev'"; exit 1; \
+		fi
+
+
+.PHONY: log-go-tail
+log-go-tail:
 	@# Tail the most recent velocity log file in logs/ without building or starting anything
 	@if [ -d logs ] && [ $$(ls -1 logs/velocity-*.log 2>/dev/null | wc -l) -gt 0 ]; then \
 		latest=$$(ls -1t logs/velocity-*.log 2>/dev/null | head -n1); \
@@ -79,8 +207,8 @@ tail-log-go:
 		echo "No logs found in logs/ (try: make dev-go)"; exit 1; \
 	fi
 
-.PHONY: cat-log-go
-cat-log-go:
+.PHONY: log-go-cat
+log-go-cat:
 	@# Cat the entire most recent velocity log file (can be piped to grep, etc.)
 	@if [ -d logs ] && [ $$(ls -1 logs/velocity-*.log 2>/dev/null | wc -l) -gt 0 ]; then \
 		latest=$$(ls -1t logs/velocity-*.log 2>/dev/null | head -n1); \
@@ -91,6 +219,18 @@ cat-log-go:
 
 tools-local:
 	go build -o app-sweep ./cmd/sweep
+
+.PHONY: build-web
+build-web:
+	@echo "Building web frontend..."
+	@cd web && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm run build; \
+	elif command -v npm >/dev/null 2>&1; then \
+		npm run build; \
+	else \
+		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+	fi
+	@echo "✓ Web build complete: web/build/"
 
 # =============================================================================
 # Sweep Plotting (uses root .venv)
@@ -142,13 +282,13 @@ stats-pcap:
 # Python PDF Generator (PYTHONPATH approach - no package installation)
 # =============================================================================
 
-.PHONY: pdf-setup pdf-test pdf-test-cov pdf-report pdf-config pdf-demo pdf-clean
+.PHONY: install-python test-python-cov clean-python pdf-test pdf-report pdf-config pdf-demo
 
 PDF_DIR = tools/pdf-generator
 PDF_PYTHON = $(PDF_DIR)/.venv/bin/python
 PDF_PYTEST = $(PDF_DIR)/.venv/bin/pytest
 
-pdf-setup:
+install-python:
 	@echo "Setting up PDF generator..."
 	cd $(PDF_DIR) && python3 -m venv .venv
 	cd $(PDF_DIR) && .venv/bin/pip install --upgrade pip
@@ -159,7 +299,7 @@ pdf-test:
 	@echo "Running PDF generator tests..."
 	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/pytest pdf_generator/tests/
 
-pdf-test-cov:
+test-python-cov:
 	@echo "Running PDF generator tests with coverage..."
 	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/pytest --cov=pdf_generator --cov-report=html pdf_generator/tests/
 	@echo "Coverage report: $(PDF_DIR)/htmlcov/index.html"
@@ -188,7 +328,7 @@ pdf-demo:
 	@echo "Running configuration system demo..."
 	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/python -m pdf_generator.cli.demo
 
-pdf-clean:
+clean-python:
 	@echo "Cleaning PDF generator outputs..."
 	rm -rf $(PDF_DIR)/output/*.pdf
 	rm -rf $(PDF_DIR)/output/*.tex
@@ -223,7 +363,7 @@ test-web:
 # Run Python tests for the PDF generator. Ensures venv is setup first.
 test-python:
 	@echo "Running Python (PDF generator) tests..."
-	@$(MAKE) pdf-setup
+	@$(MAKE) install-python
 	@$(MAKE) pdf-test
 
 # Aggregate test target: runs Go, web, and Python tests in sequence
@@ -270,7 +410,7 @@ format-web:
 		echo "$(WEB_DIR) does not exist; skipping web formatting"; \
 	fi
 
-fmt: format-go format-python format-web
+format: format-go format-python format-web
 	@echo "\nAll formatting targets complete."
 
 ## Lint (non-mutating) checks - fail if formatting is required

@@ -36,7 +36,7 @@
 - Added settle time flag for grid stabilization after parameter changes.
 - Configurable background flush interval and frame buffer timeout.
 - Sweep tools: fetch live nonzero counts from grid_status API (avoids DB timing races), multisweep tracking.
-- Makefile improvements: dev-go, tail-log-go, cat-log-go targets with process management.
+- Makefile improvements: dev-go, log-go-tail, log-go-cat targets with process management.
 - Added dev-go-pcap target and streamlined lidar options.
 - PCAP replay mutex for state management to prevent concurrent replays.
 - Fixed frame eviction callback delivery bug (frames were discarded without invoking callback).
@@ -54,7 +54,7 @@
 - Enhanced scripts to include sensor_id in grid status and snapshots requests.
 - Consolidated dev-go logic into reusable run_dev_go function in Makefile.
 - Added dev-go-pcap target for PCAP mode development workflow.
-- Added cat-log-go and tail-log-go targets for log management.
+- Added log-go-cat and log-go-tail targets for log management.
 - Enhanced dev-go to stop previously running app-radar-local processes before starting.
 - Corrected log directory name in .gitignore (logs/ instead of log/).
 - Moved lidar debug documentation to proper location in docs structure.
