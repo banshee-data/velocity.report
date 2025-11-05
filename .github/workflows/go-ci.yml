@@ -44,6 +44,23 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
+      - name: Install system dependencies (libpcap)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y libpcap-dev
+
+      - name: Build web assets if present
+        run: |
+          if [ -f web/package.json ]; then
+            corepack enable
+            corepack prepare pnpm@latest --activate
+            cd web
+            pnpm install
+            pnpm run build
+          else
+            echo "no web/package.json found; skipping web build"
+          fi
+
       - name: Run go test
         run: |
           go test ./... -v
