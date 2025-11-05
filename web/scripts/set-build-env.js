@@ -32,5 +32,5 @@ const child = spawn(command, commandArgs, {
 });
 
 child.on('exit', (code) => {
-	process.exit(code || 0);
+	process.exit(code ?? 0);
 });
