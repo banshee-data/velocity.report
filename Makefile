@@ -77,9 +77,6 @@ install-docs:
 			echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
 		fi
 
-# Backward-compatible alias
-docs-install: install-docs
-
 install-web:
 	@echo "Installing web dependencies..."
 	@cd web && if command -v pnpm >/dev/null 2>&1; then \
@@ -89,9 +86,6 @@ install-web:
 		else \
 			echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
 		fi
-
-# Backward-compatible alias
-web-install: install-web
 
 dev-docs:
 	@echo "Starting docs dev server..."
@@ -188,9 +182,7 @@ stats-pcap:
 # Python PDF Generator (PYTHONPATH approach - no package installation)
 # =============================================================================
 
-.PHONY: install-python test-python-cov clean-python pdf-test pdf-report pdf-config pdf-demo pdf-clean
-# Backward-compatible aliases
-.PHONY: pdf-setup pdf-test-cov test-cov-python
+.PHONY: install-python test-python-cov clean-python pdf-test pdf-report pdf-config pdf-demo
 
 PDF_DIR = tools/pdf-generator
 PDF_PYTHON = $(PDF_DIR)/.venv/bin/python
@@ -203,9 +195,6 @@ install-python:
 	cd $(PDF_DIR) && .venv/bin/pip install -r requirements.txt
 	@echo "✓ PDF generator setup complete (no package installation needed)"
 
-# Backward-compatible alias
-pdf-setup: install-python
-
 pdf-test:
 	@echo "Running PDF generator tests..."
 	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/pytest pdf_generator/tests/
@@ -214,10 +203,6 @@ test-python-cov:
 	@echo "Running PDF generator tests with coverage..."
 	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/pytest --cov=pdf_generator --cov-report=html pdf_generator/tests/
 	@echo "Coverage report: $(PDF_DIR)/htmlcov/index.html"
-
-# Backward-compatible aliases
-pdf-test-cov: test-python-cov
-test-cov-python: test-python-cov
 
 pdf-report:
 	@if [ -z "$(CONFIG)" ]; then \
@@ -253,9 +238,6 @@ clean-python:
 	rm -rf $(PDF_DIR)/.coverage
 	rm -rf $(PDF_DIR)/pdf_generator/**/__pycache__
 	@echo "✓ Cleaned"
-
-# Backward-compatible alias
-pdf-clean: clean-python
 
 # Convenience alias
 pdf: pdf-report
