@@ -75,7 +75,19 @@ chmod 0755 "${INSTALL_PATH}"
 
 # Step 2: Create service user and working directory
 log_info "Step 2/4: Creating service user and working directory..."
-useradd --system --no-create-home --shell /usr/sbin/nologin velocity 2>/dev/null || true
+
+# Check if user already exists
+if id "velocity" &>/dev/null; then
+    log_info "User 'velocity' already exists, skipping creation"
+else
+    log_info "Creating system user 'velocity'..."
+    if ! useradd --system --no-create-home --shell /usr/sbin/nologin velocity; then
+        log_error "Failed to create user 'velocity'"
+        exit 1
+    fi
+    log_info "User 'velocity' created successfully"
+fi
+
 mkdir -p "${DATA_DIR}"
 chown velocity:velocity "${DATA_DIR}"
 
