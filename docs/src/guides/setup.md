@@ -184,7 +184,7 @@ For detected vehicle objects (transits), you'll see more detailed JSON:
 {
   "classifier": "object_outbound",
   "end_time": "1750719826.467",
-  "start_time": "1750719826.731",
+  "start_time": "1750719826.031",
   "delta_time_msec": 736,
   "max_speed_mps": 13.39,
   "min_speed_mps": 11.33,
