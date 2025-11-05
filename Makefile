@@ -108,8 +108,8 @@ dev-web:
 		fi
 
 
-.PHONY: tail-log-go
-tail-log-go:
+.PHONY: log-go-tail
+log-go-tail:
 	@# Tail the most recent velocity log file in logs/ without building or starting anything
 	@if [ -d logs ] && [ $$(ls -1 logs/velocity-*.log 2>/dev/null | wc -l) -gt 0 ]; then \
 		latest=$$(ls -1t logs/velocity-*.log 2>/dev/null | head -n1); \
@@ -119,8 +119,8 @@ tail-log-go:
 		echo "No logs found in logs/ (try: make dev-go)"; exit 1; \
 	fi
 
-.PHONY: cat-log-go
-cat-log-go:
+.PHONY: log-go-cat
+log-go-cat:
 	@# Cat the entire most recent velocity log file (can be piped to grep, etc.)
 	@if [ -d logs ] && [ $$(ls -1 logs/velocity-*.log 2>/dev/null | wc -l) -gt 0 ]; then \
 		latest=$$(ls -1t logs/velocity-*.log 2>/dev/null | head -n1); \
@@ -310,7 +310,7 @@ format-web:
 		echo "$(WEB_DIR) does not exist; skipping web formatting"; \
 	fi
 
-fmt: format-go format-python format-web
+format: format-go format-python format-web
 	@echo "\nAll formatting targets complete."
 
 ## Lint (non-mutating) checks - fail if formatting is required

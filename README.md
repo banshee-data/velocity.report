@@ -229,7 +229,7 @@ pre-commit run --all-files      # Optional: run across the repo once
 
 **What doesn't run on commit:**
 
-- Go formatting/linting - Run `make fmt` to format Go, Python and JS/TS (prints install hints if formatters are missing)
+- Go formatting/linting - Run `make format` to format Go, Python and JS/TS (prints install hints if formatters are missing)
 - Web linting - Runs in CI on PRs (saves time on local commits)
 
 This keeps commits fast while catching obvious formatting issues early.

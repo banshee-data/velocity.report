@@ -553,8 +553,8 @@ curl "http://localhost:8081/api/lidar/grid_heatmap?sensor_id=hesai-pandar40p&azi
 # Development workflow
 make dev-go          # Build and run with auto-restart
 make dev-go-pcap     # PCAP mode development
-make tail-log-go     # Tail application logs
-make cat-log-go      # View full logs
+make log-go-tail     # Tail application logs
+make log-go-cat      # View full logs
 
 # Visualization
 make plot-grid-heatmap URL=http://localhost:8081 SENSOR=hesai-pandar40p
