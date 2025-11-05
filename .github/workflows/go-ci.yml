@@ -1,17 +1,14 @@
 name: 🧭 Go CI
 
 on:
-  push:
-    paths:
-      - "**/*.go"
-      - "cmd/**"
-      - "internal/**"
+  # Run only on PRs when Go files change
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
       - "**/*.go"
       - "cmd/**"
       - "internal/**"
+      - ".github/workflows/go-ci.yml"
 
 permissions:
   contents: read
