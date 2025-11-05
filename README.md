@@ -317,6 +317,70 @@ make pdf-test
 make test-python-cov
 ```
 
+## Make Targets
+
+The project uses a consistent naming scheme for all make targets: `<action>-<subsystem>[-<variant>]`
+
+### Core Subsystem Targets
+
+| Action             | Go                                     | Python            | Web           | Docs           |
+| ------------------ | -------------------------------------- | ----------------- | ------------- | -------------- |
+| **install**        | -                                      | `install-python`  | `install-web` | `install-docs` |
+| **dev**            | `dev-go`                               | -                 | `dev-web`     | `dev-docs`     |
+| **dev (variant)**  | `dev-go-lidar`<br>`dev-go-kill-server` | -                 | -             | -              |
+| **test**           | `test-go`                              | `test-python`     | `test-web`    | -              |
+| **test (variant)** | -                                      | `test-python-cov` | -             | -              |
+| **format**         | `format-go`                            | `format-python`   | `format-web`  | -              |
+| **lint**           | `lint-go`                              | `lint-python`     | `lint-web`    | -              |
+| **clean**          | -                                      | `clean-python`    | -             | -              |
+
+### Aggregate Targets
+
+- `test` - Run all tests (Go + Python + Web)
+- `format` - Format all code (Go + Python + Web)
+- `lint` - Lint all code (Go + Python + Web), fails if formatting needed
+
+### Build Targets (Go cross-compilation)
+
+- `radar-linux` - Build for Linux ARM64 (no pcap)
+- `radar-linux-pcap` - Build for Linux ARM64 with pcap
+- `radar-mac` - Build for macOS ARM64 with pcap
+- `radar-mac-intel` - Build for macOS AMD64 with pcap
+- `radar-local` - Build for local development with pcap
+- `tools-local` - Build sweep tool
+
+### PDF Generator Targets
+
+- `pdf-report` - Generate PDF from config file
+- `pdf-config` - Create example configuration
+- `pdf-demo` - Run configuration demo
+- `pdf-test` - Run PDF tests (alias for test-python)
+- `pdf` - Convenience alias for pdf-report
+
+### Utility Targets
+
+- `log-go-tail` - Tail most recent Go server log
+- `log-go-cat` - Cat most recent Go server log
+
+### Data Visualization Targets
+
+- `plot-noise-sweep` - Generate noise sweep line plot
+- `plot-multisweep` - Generate multi-parameter grid plot
+- `plot-noise-buckets` - Generate per-noise bar charts
+- `stats-live` - Capture live LiDAR grid snapshots
+- `stats-pcap` - Capture snapshots during PCAP replay
+
+### API Shortcut Targets (LiDAR HTTP API)
+
+Grid operations: `api-grid-status`, `api-grid-reset`, `api-grid-heatmap`
+Snapshots: `api-snapshot`, `api-snapshots`
+Acceptance metrics: `api-acceptance`, `api-acceptance-reset`
+Parameters: `api-params`, `api-params-set`
+Export: `api-persist`, `api-export-snapshot`, `api-export-next-frame`
+Status & PCAP: `api-status`, `api-start-pcap`, `api-stop-pcap`, `api-switch-data-source`
+
+Run `make help` or `make` to see all available targets with descriptions.
+
 ## Contributing
 
 We welcome contributions! Please see **[CONTRIBUTING.md](CONTRIBUTING.md)** for:
