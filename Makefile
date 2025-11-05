@@ -57,7 +57,7 @@ define run_dev_go_kill_server
 	fi
 endef
 
-.PHONY: dev-go dev-go-lidar dev-go-kill-server dev-docs dev-web docs-install web-install
+.PHONY: dev-go dev-go-lidar dev-go-kill-server dev-docs dev-web install-docs install-web
 dev-go:
 	@$(call run_dev_go)
 
@@ -67,7 +67,7 @@ dev-go-lidar:
 dev-go-kill-server:
 	@$(call run_dev_go_kill_server)
 
-docs-install:
+install-docs:
 	@echo "Installing docs dependencies..."
 	@cd docs && if command -v pnpm >/dev/null 2>&1; then \
 		pnpm install --frozen-lockfile; \
@@ -77,7 +77,10 @@ docs-install:
 			echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
 		fi
 
-web-install:
+# Backward-compatible alias
+docs-install: install-docs
+
+install-web:
 	@echo "Installing web dependencies..."
 	@cd web && if command -v pnpm >/dev/null 2>&1; then \
 		pnpm install --frozen-lockfile; \
@@ -86,6 +89,9 @@ web-install:
 		else \
 			echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
 		fi
+
+# Backward-compatible alias
+web-install: install-web
 
 dev-docs:
 	@echo "Starting docs dev server..."
@@ -182,27 +188,36 @@ stats-pcap:
 # Python PDF Generator (PYTHONPATH approach - no package installation)
 # =============================================================================
 
-.PHONY: pdf-setup pdf-test pdf-test-cov pdf-report pdf-config pdf-demo pdf-clean
+.PHONY: install-python test-python-cov clean-python pdf-test pdf-report pdf-config pdf-demo pdf-clean
+# Backward-compatible aliases
+.PHONY: pdf-setup pdf-test-cov test-cov-python
 
 PDF_DIR = tools/pdf-generator
 PDF_PYTHON = $(PDF_DIR)/.venv/bin/python
 PDF_PYTEST = $(PDF_DIR)/.venv/bin/pytest
 
-pdf-setup:
+install-python:
 	@echo "Setting up PDF generator..."
 	cd $(PDF_DIR) && python3 -m venv .venv
 	cd $(PDF_DIR) && .venv/bin/pip install --upgrade pip
 	cd $(PDF_DIR) && .venv/bin/pip install -r requirements.txt
 	@echo "✓ PDF generator setup complete (no package installation needed)"
 
+# Backward-compatible alias
+pdf-setup: install-python
+
 pdf-test:
 	@echo "Running PDF generator tests..."
 	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/pytest pdf_generator/tests/
 
-pdf-test-cov:
+test-python-cov:
 	@echo "Running PDF generator tests with coverage..."
 	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/pytest --cov=pdf_generator --cov-report=html pdf_generator/tests/
 	@echo "Coverage report: $(PDF_DIR)/htmlcov/index.html"
+
+# Backward-compatible aliases
+pdf-test-cov: test-python-cov
+test-cov-python: test-python-cov
 
 pdf-report:
 	@if [ -z "$(CONFIG)" ]; then \
@@ -228,7 +243,7 @@ pdf-demo:
 	@echo "Running configuration system demo..."
 	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/python -m pdf_generator.cli.demo
 
-pdf-clean:
+clean-python:
 	@echo "Cleaning PDF generator outputs..."
 	rm -rf $(PDF_DIR)/output/*.pdf
 	rm -rf $(PDF_DIR)/output/*.tex
@@ -238,6 +253,9 @@ pdf-clean:
 	rm -rf $(PDF_DIR)/.coverage
 	rm -rf $(PDF_DIR)/pdf_generator/**/__pycache__
 	@echo "✓ Cleaned"
+
+# Backward-compatible alias
+pdf-clean: clean-python
 
 # Convenience alias
 pdf: pdf-report
@@ -263,7 +281,7 @@ test-web:
 # Run Python tests for the PDF generator. Ensures venv is setup first.
 test-python:
 	@echo "Running Python (PDF generator) tests..."
-	@$(MAKE) pdf-setup
+	@$(MAKE) install-python
 	@$(MAKE) pdf-test
 
 # Aggregate test target: runs Go, web, and Python tests in sequence
