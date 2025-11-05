@@ -348,6 +348,7 @@ The project uses a consistent naming scheme for all make targets: `<action>-<sub
 - `radar-mac-intel` - Build for macOS AMD64 with pcap
 - `radar-local` - Build for local development with pcap
 - `tools-local` - Build sweep tool
+- `build-web` - Build web frontend (SvelteKit)
 
 ### PDF Generator Targets
 
