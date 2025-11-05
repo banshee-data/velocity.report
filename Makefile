@@ -179,53 +179,6 @@ install-docs:
 # =============================================================================
 
 .PHONY: dev-go dev-go-lidar dev-go-kill-server dev-web dev-docs
-# using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we
-# escape $ to $$ inside the define so the resulting shell script receives
-# single-dollar variables.
-define run_dev_go
-	mkdir -p logs; \
-	ts=$$(date +%Y%m%d-%H%M%S); \
-	logfile=logs/velocity-$${ts}.log; \
-	piddir=logs/pids; \
-	pidfile=$${piddir}/velocity-$${ts}.pid; \
-	DB_PATH=$${DB_PATH:-./sensor_data.db}; \
-	$(call run_dev_go_kill_server); \
-	echo "Building app-radar-local..."; \
-	go build -tags=pcap -o app-radar-local ./cmd/radar; \
-	mkdir -p "$$piddir"; \
-	echo "Starting app-radar-local (background) with DB=$$DB_PATH -> $$logfile"; \
-	nohup ./app-radar-local --disable-radar $(1) --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
-	echo "Started; PID $$(cat $$pidfile)"; \
-	echo "Log: $$logfile"
-endef
-
-define run_dev_go_kill_server
-	piddir=logs/pids; \
-	echo "Stopping previously-launched app-radar-local processes (from $$piddir) ..."; \
-	if [ -d "$$piddir" ] && [ $$(ls -1 $$piddir/velocity-*.pid 2>/dev/null | wc -l) -gt 0 ]; then \
-	  for pidfile_k in $$(ls -1t $$piddir/velocity-*.pid 2>/dev/null | head -n3); do \
-	    pid_k=$$(cat "$$pidfile_k" 2>/dev/null || echo); \
-	    if [ -n "$$pid_k" ] && kill -0 $$pid_k 2>/dev/null; then \
-	      cmdline=$$(ps -p $$pid_k -o args= 2>/dev/null || true); \
-	      case "$$cmdline" in \
-	        *app-radar-local*) \
-	          echo "Stopping pid $$pid_k (from $$pidfile_k): $$cmdline"; \
-	          kill $$pid_k 2>/dev/null || true; \
-	          sleep 1; \
-	          kill -0 $$pid_k 2>/dev/null && kill -9 $$pid_k 2>/dev/null || true; \
-	          ;; \
-	        *) echo "Skipping pid $$pid_k (cmd does not match app-radar-local): $$cmdline"; ;; \
-	      esac; \
-	    fi; \
-	  done; \
-	fi
-endef
-
-# =============================================================================
-# DEVELOPMENT SERVERS
-# =============================================================================
-
-.PHONY: dev-go dev-go-lidar dev-go-kill-server dev-web dev-docs
 
 # Reusable script for starting the app in background. Call with extra flags
 # using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we
@@ -510,14 +463,6 @@ log-go-cat:
 
 VENV_PYTHON = .venv/bin/python3
 
-# =============================================================================
-# DATA VISUALIZATION
-# =============================================================================
-
-.PHONY: plot-noise-sweep plot-multisweep plot-noise-buckets stats-live stats-pcap
-
-VENV_PYTHON = .venv/bin/python3
-
 # Noise sweep line plot (neighbor=1, closeness=2.5 by default)
 plot-noise-sweep:
 	@[ -z "$(FILE)" ] && echo "Usage: make plot-noise-sweep FILE=data.csv [OUT=plot.png]" && exit 1 || true
@@ -555,17 +500,6 @@ stats-pcap:
 	@[ ! -f "$(PCAP)" ] && echo "PCAP file not found: $(PCAP)" && exit 1 || true
 	@echo "Capturing PCAP replay snapshots via runtime data source switching..."
 	$(VENV_PYTHON) tools/grid-heatmap/plot_grid_heatmap.py --pcap "$(PCAP)" --interval $${INTERVAL:-5}
-
-# =============================================================================
-# API SHORTCUTS (LiDAR HTTP API)
-# =============================================================================
-
-.PHONY: api-grid-status api-grid-reset api-grid-heatmap \
-        api-snapshot api-snapshots \
-        api-acceptance api-acceptance-reset \
-        api-params api-params-set \
-        api-persist api-export-snapshot api-export-next-frame \
-        api-status api-start-pcap api-stop-pcap api-switch-data-source
 
 # =============================================================================
 # API SHORTCUTS (LiDAR HTTP API)
