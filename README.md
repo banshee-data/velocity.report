@@ -70,7 +70,7 @@ Quick version:
 
 ```sh
 cd tools/pdf-generator
-make pdf-setup              # One-time setup
+make install-python         # One-time setup
 make pdf-config             # Create config template
 make pdf-report CONFIG=config.json
 ```
@@ -207,7 +207,7 @@ GOARCH=arm64 GOOS=linux go build -o app-radar-linux-arm64 ./cmd/radar
 
 ```sh
 cd tools/pdf-generator
-make pdf-setup        # Create venv, install dependencies
+make install-python   # Create venv, install dependencies
 make pdf-test         # Run test suite
 make pdf-demo         # Run interactive demo
 ```
@@ -286,7 +286,7 @@ The PDF generator is deployed as a Python package via PYTHONPATH:
 
 ```sh
 cd tools/pdf-generator
-make pdf-setup
+make install-python
 # PDF generator is now ready at tools/pdf-generator/pdf_generator/
 ```
 
@@ -314,7 +314,7 @@ make test
 cd tools/pdf-generator
 make pdf-test
 # or with coverage:
-make pdf-test-coverage
+make test-python-cov
 ```
 
 ## Contributing
