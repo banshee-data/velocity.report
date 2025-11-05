@@ -447,7 +447,7 @@ setup-radar:
 	fi
 	@echo "Setting up velocity.report server on this host..."
 	@echo "This will:"
-	@echo "  1. Install binary to /usr/local/bin/velocity-server"
+	@echo "  1. Install binary to /usr/local/bin/velocity-report"
 	@echo "  2. Create service user and working directory"
 	@echo "  3. Install and start systemd service"
 	@echo ""

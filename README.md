@@ -264,7 +264,7 @@ make setup-radar
 
 The setup will:
 
-- Install the binary to `/usr/local/bin/velocity-server`
+- Install the binary to `/usr/local/bin/velocity-report`
 - Create a dedicated service user and working directory
 - Install and enable the systemd service
 - Optionally migrate existing database
@@ -273,10 +273,10 @@ The setup will:
 
 ```sh
 # View logs
-sudo journalctl -u velocity-server.service -f
+sudo journalctl -u velocity-report.service -f
 
 # Check status
-sudo systemctl status velocity-server.service
+sudo systemctl status velocity-report.service
 ```
 
 **Manual deployment:**

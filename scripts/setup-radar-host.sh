@@ -12,7 +12,7 @@
 #   4. Run this script: sudo ./scripts/setup-radar-host.sh
 #
 # The script will:
-#   - Copy the binary to /usr/local/bin/velocity-server
+#   - Copy the binary to /usr/local/bin/velocity-report
 #   - Create a dedicated service user and working directory
 #   - Install and enable the systemd service
 #   - Optionally migrate existing database
@@ -28,9 +28,9 @@ fi
 
 # Configuration
 BINARY="app-radar-linux-arm64"
-SERVICE_NAME="velocity-server"
+SERVICE_NAME="velocity-report"
 INSTALL_PATH="/usr/local/bin/${SERVICE_NAME}"
-DATA_DIR="/var/lib/velocity.report"
+DATA_DIR="/var/lib/velocity-report"
 SERVICE_FILE="velocity-report.service"
 
 # Colors for output

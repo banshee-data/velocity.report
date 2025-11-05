@@ -74,7 +74,7 @@ All components share a common SQLite database as the single source of truth.
 │  │                                                                │  │
 │  │  ┌──────────────────────────────────────────────────────────┐  │  │
 │  │  │         velocity.report Go Server                        │  │  │
-│  │  │         (systemd service: velocity-server.service)       │  │  │
+│  │  │         (systemd service: velocity-report.service)       │  │  │
 │  │  │                                                          │  │  │
 │  │  │  ┌────────────────────────────────────────────────────┐  │  │  │
 │  │  │  │  Sensor Input Handlers                             │  │  │  │
@@ -592,9 +592,9 @@ Response: [
 │         Raspberry Pi 4 (ARM64, Linux)          │
 │                                                │
 │  ┌──────────────────────────────────────────┐  │
-│  │  systemd (velocity-server.service)       │  │
+│  │  systemd (velocity-report.service)       │  │
 │  │  ↓                                       │  │
-│  │  /usr/local/bin/velocity-server          │  │
+│  │  /usr/local/bin/velocity-report          │  │
 │  │  --db-path /var/lib/velocity.report/...  │  │
 │  │  (Go Server Binary)                      │  │
 │  │                                          │  │
@@ -618,9 +618,9 @@ Response: [
 **Service Management**:
 
 ```sh
-sudo systemctl status velocity-server.service
-sudo systemctl restart velocity-server.service
-sudo journalctl -u velocity-server.service -f
+sudo systemctl status velocity-report.service
+sudo systemctl restart velocity-report.service
+sudo journalctl -u velocity-report.service -f
 ```
 
 ### Development Environment
