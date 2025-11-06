@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -117,7 +118,7 @@ func TestSerialConfigEndpoints(t *testing.T) {
 
 	// Test GET /api/serial/configs/:id
 	t.Run("GET /api/serial/configs/:id", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/api/serial/configs/"+string(rune(createdID+'0')), nil)
+		req := httptest.NewRequest("GET", "/api/serial/configs/"+fmt.Sprintf("%d", createdID), nil)
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, req)
 
@@ -150,7 +151,7 @@ func TestSerialConfigEndpoints(t *testing.T) {
 		}
 
 		body, _ := json.Marshal(updateReq)
-		req := httptest.NewRequest("PUT", "/api/serial/configs/"+string(rune(createdID+'0')), bytes.NewReader(body))
+		req := httptest.NewRequest("PUT", "/api/serial/configs/"+fmt.Sprintf("%d", createdID), bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, req)
@@ -175,7 +176,7 @@ func TestSerialConfigEndpoints(t *testing.T) {
 
 	// Test DELETE /api/serial/configs/:id
 	t.Run("DELETE /api/serial/configs/:id", func(t *testing.T) {
-		req := httptest.NewRequest("DELETE", "/api/serial/configs/"+string(rune(createdID+'0')), nil)
+		req := httptest.NewRequest("DELETE", "/api/serial/configs/"+fmt.Sprintf("%d", createdID), nil)
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, req)
 
