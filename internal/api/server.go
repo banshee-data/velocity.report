@@ -143,6 +143,8 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/api/serial/configs", s.handleSerialConfigsOrCreate)
 	s.mux.HandleFunc("/api/serial/configs/", s.handleSerialConfigByID)
 	s.mux.HandleFunc("/api/serial/models", s.handleSensorModels)
+	s.mux.HandleFunc("/api/serial/test", s.handleSerialTest)
+	s.mux.HandleFunc("/api/serial/devices", s.handleSerialDevices)
 
 	s.mux.HandleFunc("/api/transit_worker", s.handleTransitWorker) // Transit worker control
 	return s.mux
