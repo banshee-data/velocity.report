@@ -9,6 +9,28 @@ import (
 func TestValidatePathWithinDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 
+	// Create directories for symlink tests
+	safeDir := filepath.Join(tmpDir, "safe")
+	unsafeDir := filepath.Join(tmpDir, "unsafe")
+	if err := os.MkdirAll(safeDir, 0755); err != nil {
+		t.Fatalf("Failed to create safe directory: %v", err)
+	}
+	if err := os.MkdirAll(unsafeDir, 0755); err != nil {
+		t.Fatalf("Failed to create unsafe directory: %v", err)
+	}
+
+	// Create a file in the unsafe directory
+	unsafeFile := filepath.Join(unsafeDir, "secret.txt")
+	if err := os.WriteFile(unsafeFile, []byte("secret"), 0644); err != nil {
+		t.Fatalf("Failed to create unsafe file: %v", err)
+	}
+
+	// Create a symlink inside safe directory pointing to unsafe directory
+	symlinkPath := filepath.Join(safeDir, "evil-symlink")
+	if err := os.Symlink(unsafeDir, symlinkPath); err != nil {
+		t.Fatalf("Failed to create symlink: %v", err)
+	}
+
 	tests := []struct {
 		name      string
 		filePath  string
@@ -43,6 +65,18 @@ func TestValidatePathWithinDirectory(t *testing.T) {
 			name:      "absolute path outside safe dir",
 			filePath:  "/etc/passwd",
 			safeDir:   tmpDir,
+			wantError: true,
+		},
+		{
+			name:      "symlink escape attack - following symlink to outside dir",
+			filePath:  filepath.Join(symlinkPath, "secret.txt"),
+			safeDir:   safeDir,
+			wantError: true,
+		},
+		{
+			name:      "symlink escape attack - accessing symlink directly",
+			filePath:  symlinkPath,
+			safeDir:   safeDir,
 			wantError: true,
 		},
 	}

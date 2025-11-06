@@ -9,7 +9,7 @@ import (
 
 // ValidatePathWithinDirectory checks if a file path is within a safe directory.
 // It prevents path traversal attacks by ensuring the resolved path doesn't escape
-// the specified safe directory.
+// the specified safe directory. This includes protection against symlink-based attacks.
 func ValidatePathWithinDirectory(filePath, safeDir string) error {
 	// Clean the path to resolve . and .. components
 	cleanPath := filepath.Clean(filePath)
@@ -25,8 +25,44 @@ func ValidatePathWithinDirectory(filePath, safeDir string) error {
 		return fmt.Errorf("failed to resolve safe directory path: %w", err)
 	}
 
-	// Check if path is within safe directory
-	relPath, err := filepath.Rel(absSafeDir, absPath)
+	// Resolve symlinks to get canonical paths (prevents symlink-based traversal attacks)
+	// Note: EvalSymlinks returns an error if the path doesn't exist
+	canonicalPath := absPath
+	if resolved, err := filepath.EvalSymlinks(absPath); err == nil {
+		// Path exists and all symlinks resolved successfully
+		canonicalPath = resolved
+	} else {
+		// Path doesn't exist. Check parent directories for symlinks to prevent attacks like:
+		// /tmp/evil-symlink/newfile.txt where evil-symlink -> /etc
+		// We walk up the directory tree until we find an existing directory
+		checkPath := absPath
+		for {
+			parentDir := filepath.Dir(checkPath)
+			if parentDir == checkPath {
+				// Reached root without finding existing directory
+				// This shouldn't happen in practice, but use original path
+				break
+			}
+
+			if resolved, err := filepath.EvalSymlinks(parentDir); err == nil {
+				// Found an existing parent directory with resolved symlinks
+				// Reconstruct the path with canonical parent and remaining path components
+				relToParent, _ := filepath.Rel(parentDir, absPath)
+				canonicalPath = filepath.Join(resolved, relToParent)
+				break
+			}
+
+			checkPath = parentDir
+		}
+	}
+
+	canonicalSafeDir, err := filepath.EvalSymlinks(absSafeDir)
+	if err != nil {
+		return fmt.Errorf("failed to resolve safe directory symlinks: %w", err)
+	}
+
+	// Check if canonical path is within canonical safe directory
+	relPath, err := filepath.Rel(canonicalSafeDir, canonicalPath)
 	if err != nil {
 		return fmt.Errorf("path is outside safe directory: %w", err)
 	}
