@@ -35,16 +35,17 @@ var (
 )
 
 var (
-	fixtureMode  = flag.Bool("fixture", false, "Load fixture to local database")
-	debugMode    = flag.Bool("debug", false, "Run in debug mode (enables debug output in reports)")
-	listen       = flag.String("listen", ":8080", "Listen address")
-	port         = flag.String("port", "/dev/ttySC1", "Serial port to use")
-	unitsFlag    = flag.String("units", "mph", "Speed units for display (mps, mph, kmph)")
-	timezoneFlag = flag.String("timezone", "UTC", "Timezone for display (UTC, US/Eastern, US/Pacific, etc.)")
-	disableRadar = flag.Bool("disable-radar", false, "Disable radar serial port (serve DB only)")
-	dbPathFlag   = flag.String("db-path", "sensor_data.db", "path to sqlite DB file (defaults to sensor_data.db)")
-	versionFlag  = flag.Bool("version", false, "Print version information and exit")
-	versionShort = flag.Bool("v", false, "Print version information and exit (shorthand)")
+	fixtureMode    = flag.Bool("fixture", false, "Load fixture to local database")
+	debugMode      = flag.Bool("debug", false, "Run in debug mode (enables debug output in reports)")
+	listen         = flag.String("listen", ":8080", "Listen address")
+	port           = flag.String("port", "/dev/ttySC1", "Serial port to use")
+	unitsFlag      = flag.String("units", "mph", "Speed units for display (mps, mph, kmph)")
+	timezoneFlag   = flag.String("timezone", "UTC", "Timezone for display (UTC, US/Eastern, US/Pacific, etc.)")
+	disableRadar   = flag.Bool("disable-radar", false, "Disable radar serial port (serve DB only)")
+	dbPathFlag     = flag.String("db-path", "sensor_data.db", "path to sqlite DB file (defaults to sensor_data.db)")
+	ignoreDBSerial = flag.Bool("ignore-db-serial", false, "Ignore database serial configuration and use CLI flag instead")
+	versionFlag    = flag.Bool("version", false, "Print version information and exit")
+	versionShort   = flag.Bool("v", false, "Print version information and exit (shorthand)")
 )
 
 // Lidar options (when enabling lidar via -enable-lidar)
@@ -139,6 +140,40 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Initialize database first so we can load serial configuration
+	// Use the CLI flag value (defaults to ./sensor_data.db). We intentionally
+	// avoid relying on environment variables for configuration unless needed.
+	database, err := db.NewDB(*dbPathFlag)
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer database.Close()
+
+	// Determine which serial port to use (database config takes precedence unless --ignore-db-serial is set)
+	var serialPortPath string
+	if !*ignoreDBSerial && !*disableRadar && !*debugMode && !*fixtureMode {
+		// Try to load enabled serial configs from database
+		enabledConfigs, err := database.GetEnabledSerialConfigs()
+		if err != nil {
+			log.Printf("Warning: Failed to load serial configs from database: %v", err)
+			log.Printf("Falling back to CLI flag: %s", *port)
+			serialPortPath = *port
+		} else if len(enabledConfigs) > 0 {
+			// Use the first enabled config (multi-sensor support is future work)
+			serialPortPath = enabledConfigs[0].PortPath
+			log.Printf("Using serial port from database: %s (config: %s)", serialPortPath, enabledConfigs[0].Name)
+			if len(enabledConfigs) > 1 {
+				log.Printf("Note: Multiple serial configs found, using first one. Multi-sensor support is not yet implemented.")
+			}
+		} else {
+			// No enabled configs in database, fall back to CLI flag
+			log.Printf("No enabled serial configs in database, using CLI flag: %s", *port)
+			serialPortPath = *port
+		}
+	} else {
+		serialPortPath = *port
+	}
+
 	// var r radar.RadarPortInterface
 	var radarSerial serialmux.SerialMuxInterface
 
@@ -159,7 +194,7 @@ func main() {
 		radarSerial = serialmux.NewMockSerialMux([]byte(firstLine + "\n"))
 	} else {
 		var err error
-		radarSerial, err = serialmux.NewRealSerialMux(*port)
+		radarSerial, err = serialmux.NewRealSerialMux(serialPortPath)
 		if err != nil {
 			log.Fatalf("failed to create radar port: %v", err)
 		}
