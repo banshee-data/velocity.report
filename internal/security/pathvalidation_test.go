@@ -179,7 +179,11 @@ func TestValidateExportPath(t *testing.T) {
 				if err := os.Chdir(tt.setupWd); err != nil {
 					t.Fatalf("Failed to change directory: %v", err)
 				}
-				defer os.Chdir(originalWd)
+				t.Cleanup(func() {
+					if err := os.Chdir(originalWd); err != nil {
+						t.Errorf("Failed to restore directory: %v", err)
+					}
+				})
 			}
 
 			err := ValidateExportPath(tt.filePath)
