@@ -104,47 +104,6 @@ type SerialPorter interface {
 **Schema Design:**
 
 ```sql
--- Sensor models reference table with model-specific capabilities and commands
-CREATE TABLE IF NOT EXISTS radar_sensor_models (
-       id INTEGER PRIMARY KEY AUTOINCREMENT
-     , model_name TEXT NOT NULL UNIQUE
-     , has_doppler INTEGER NOT NULL DEFAULT 1
-     , has_fmcw INTEGER NOT NULL DEFAULT 0
-     , has_distance INTEGER NOT NULL DEFAULT 0
-     , default_baud_rate INTEGER NOT NULL DEFAULT 19200
-     , init_commands TEXT NOT NULL
-     , description TEXT
-     );
-
--- Insert known sensor models
-INSERT INTO radar_sensor_models (
-       model_name
-     , has_doppler
-     , has_fmcw
-     , has_distance
-     , default_baud_rate
-     , init_commands
-     , description
-     )
-VALUES (
-       'OmniPreSense OPS243-A'
-     , 1
-     , 0
-     , 0
-     , 19200
-     , 'AX,OJ,OS,OM,OH,OC'
-     , 'Doppler radar with speed measurement only'
-     ),
-     (
-       'OmniPreSense OPS243-C'
-     , 1
-     , 1
-     , 1
-     , 19200
-     , 'AX,OJ,OS,oD,OM,oM,OH,OC'
-     , 'FMCW radar with both speed and distance measurement'
-     );
-
 -- Serial port configurations table
 CREATE TABLE IF NOT EXISTS radar_serial_config (
        id INTEGER PRIMARY KEY AUTOINCREMENT
@@ -156,10 +115,10 @@ CREATE TABLE IF NOT EXISTS radar_serial_config (
      , parity TEXT NOT NULL DEFAULT 'N'
      , enabled INTEGER NOT NULL DEFAULT 1
      , description TEXT
-     , sensor_model_id INTEGER NOT NULL DEFAULT 1
+     , sensor_model TEXT NOT NULL DEFAULT 'ops243-a'
      , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
      , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
-     , FOREIGN KEY (sensor_model_id) REFERENCES radar_sensor_models (id)
+     , CHECK (sensor_model IN ('ops243-a', 'ops243-c'))
      );
 
 CREATE INDEX IF NOT EXISTS idx_radar_serial_config_enabled 
@@ -183,7 +142,7 @@ INSERT INTO radar_serial_config (
      , parity
      , enabled
      , description
-     , sensor_model_id
+     , sensor_model
      )
 VALUES (
        'Default HAT'
@@ -194,20 +153,61 @@ VALUES (
      , 'N'
      , 1
      , 'Default serial configuration for Raspberry Pi HAT (SC16IS762)'
-     , 1
+     , 'ops243-a'
      );
 ```
 
 **Rationale:**
-- **Sensor Models Table:** Reference table defining capabilities and initialization commands for each radar model (OPS243-A vs OPS243-C require different commands)
-- **Model-Specific Init:** OPS243-A uses Doppler only (`OS,OM`), OPS243-C adds FMCW distance reporting (`oD,oM`)
+- **Sensor Model Slugs:** Use simple text identifiers (`ops243-a`, `ops243-c`) validated via SQLite CHECK constraint
+- **Application-Side Logic:** Sensor capabilities and initialization commands stored in application code, not database
+- **CHECK Constraint:** Validates sensor model values at database level without requiring separate table
+- **Migration-Friendly:** Adding new sensor models only requires application update, not database migration
 - **Serial Settings (8N1):** Standard configuration for OPS243A radar (8 data bits, No parity, 1 stop bit)
 - **Multiple Configs:** Support future multi-radar scenarios
 - **Enabled Flag:** Allow disabling sensors without deletion
 - **Default HAT Config:** `/dev/ttySC1` is the SC16IS762 HAT default for Raspberry Pi
-- **Foreign Key to Models:** `sensor_model_id` references the models table for validation and initialization
 
 **Migration File:** `data/migrations/20251106_create_radar_serial_config.sql`
+
+**Sensor Model Information (Application Code):**
+
+The application will define sensor model capabilities and initialization commands:
+
+```go
+type SensorModel struct {
+    Slug            string
+    DisplayName     string
+    HasDoppler      bool
+    HasFMCW         bool
+    HasDistance     bool
+    DefaultBaudRate int
+    InitCommands    []string
+    Description     string
+}
+
+var SupportedSensorModels = map[string]SensorModel{
+    "ops243-a": {
+        Slug:            "ops243-a",
+        DisplayName:     "OmniPreSense OPS243-A",
+        HasDoppler:      true,
+        HasFMCW:         false,
+        HasDistance:     false,
+        DefaultBaudRate: 19200,
+        InitCommands:    []string{"AX", "OJ", "OS", "OM", "OH", "OC"},
+        Description:     "Doppler radar with speed measurement only",
+    },
+    "ops243-c": {
+        Slug:            "ops243-c",
+        DisplayName:     "OmniPreSense OPS243-C",
+        HasDoppler:      true,
+        HasFMCW:         true,
+        HasDistance:     true,
+        DefaultBaudRate: 19200,
+        InitCommands:    []string{"AX", "OJ", "OS", "oD", "OM", "oM", "OH", "OC"},
+        Description:     "FMCW radar with both speed and distance measurement",
+    },
+}
+```
 
 #### FR2: Go API Endpoints for Serial Configuration
 
@@ -231,13 +231,7 @@ VALUES (
          "parity": "N",
          "enabled": true,
          "description": "Default serial configuration for Raspberry Pi HAT",
-         "sensor_model": {
-           "id": 1,
-           "model_name": "OmniPreSense OPS243-A",
-           "has_doppler": true,
-           "has_fmcw": false,
-           "has_distance": false
-         },
+         "sensor_model": "ops243-a",
          "created_at": 1699123456,
          "updated_at": 1699123456
        }
@@ -259,7 +253,7 @@ VALUES (
        "port_path": "/dev/ttyUSB0",
        "baud_rate": 19200,
        "description": "USB-connected OPS243A sensor",
-       "sensor_model_id": 1
+       "sensor_model": "ops243-a"
      }
      ```
    - **Response:** Created config object with assigned ID
@@ -278,27 +272,27 @@ VALUES (
 6. **List Sensor Models**
    - **Method:** `GET`
    - **Path:** `/api/serial/models`
-   - **Response:**
+   - **Response:** (Returns sensor models from application code)
      ```json
      [
        {
-         "id": 1,
-         "model_name": "OmniPreSense OPS243-A",
+         "slug": "ops243-a",
+         "display_name": "OmniPreSense OPS243-A",
          "has_doppler": true,
          "has_fmcw": false,
          "has_distance": false,
          "default_baud_rate": 19200,
-         "init_commands": "AX,OJ,OS,OM,OH,OC",
+         "init_commands": ["AX", "OJ", "OS", "OM", "OH", "OC"],
          "description": "Doppler radar with speed measurement only"
        },
        {
-         "id": 2,
-         "model_name": "OmniPreSense OPS243-C",
+         "slug": "ops243-c",
+         "display_name": "OmniPreSense OPS243-C",
          "has_doppler": true,
          "has_fmcw": true,
          "has_distance": true,
          "default_baud_rate": 19200,
-         "init_commands": "AX,OJ,OS,oD,OM,oM,OH,OC",
+         "init_commands": ["AX", "OJ", "OS", "oD", "OM", "oM", "OH", "OC"],
          "description": "FMCW radar with both speed and distance measurement"
        }
      ]
@@ -307,10 +301,12 @@ VALUES (
 **Implementation Location:** `internal/api/serial_config.go` (new file)
 
 **Error Handling:**
-- `400 Bad Request`: Invalid configuration values
+- `400 Bad Request`: Invalid configuration values or unsupported sensor model
 - `404 Not Found`: Config ID does not exist
 - `409 Conflict`: Name already exists (unique constraint)
 - `500 Internal Server Error`: Database errors
+
+**Note:** The `/api/serial/models` endpoint returns sensor model information from application code, not from the database. This eliminates the need for database migrations when adding new sensor models.
 
 #### FR3: Serial Port Testing Endpoint
 
@@ -538,30 +534,41 @@ port = flag.String("port", "/dev/ttySC1", "Serial port to use")
 - **Structure:**
   ```go
   type SerialConfig struct {
-      ID            int
-      Name          string
-      PortPath      string
-      BaudRate      int
-      DataBits      int
-      StopBits      int
-      Parity        string
-      Enabled       bool
-      Description   string
-      SensorModelID int
-      SensorModel   SensorModel
+      ID           int
+      Name         string
+      PortPath     string
+      BaudRate     int
+      DataBits     int
+      StopBits     int
+      Parity       string
+      Enabled      bool
+      Description  string
+      SensorModel  string  // Slug like "ops243-a"
   }
   
   type SensorModel struct {
-      ID             int
-      ModelName      string
-      HasDoppler     bool
-      HasFMCW        bool
-      HasDistance    bool
-      DefaultBaud    int
-      InitCommands   string  // Comma-separated commands
-      Description    string
+      Slug            string
+      DisplayName     string
+      HasDoppler      bool
+      HasFMCW         bool
+      HasDistance     bool
+      DefaultBaudRate int
+      InitCommands    []string
+      Description     string
+  }
+  
+  // GetSensorModel looks up sensor model from application code
+  func GetSensorModel(slug string) (SensorModel, error) {
+      model, ok := SupportedSensorModels[slug]
+      if !ok {
+          return SensorModel{}, fmt.Errorf("unsupported sensor model: %s", slug)
+      }
+      return model, nil
   }
   ```
+
+**Application-Side Model Registry:**
+Sensor models are defined in the application code (as shown in the rationale section above), eliminating the need for database migrations when adding new sensor support.
 
 **Backward Compatibility:**
 - If database is empty, fall back to CLI flag
@@ -744,6 +751,31 @@ port = flag.String("port", "/dev/ttySC1", "Serial port to use")
 - ❌ Higher memory footprint
 
 **Rejected:** Single multiplexed instance is complex. Separate processes complicate deployment.
+
+### Decision 5: Sensor Model Storage (Application vs Database)
+
+**Options:**
+- **A) Application-side with CHECK constraint** (Selected)
+- **B) Database reference table with foreign key**
+- **C) Freeform text without validation**
+
+**Rationale for Application-Side:**
+- ✅ No database migrations needed when adding new sensor models
+- ✅ Sensor capabilities and init commands versioned with application code
+- ✅ CHECK constraint provides database-level validation
+- ✅ Simpler for developers to update sensor definitions
+- ✅ Easier to test sensor model logic
+- ❌ Cannot add sensor models without application update
+
+**Rejected:** Database reference table requires migrations for new sensors. Freeform text lacks validation and type safety.
+
+**Implementation:**
+```sql
+sensor_model TEXT NOT NULL DEFAULT 'ops243-a',
+CHECK (sensor_model IN ('ops243-a', 'ops243-c'))
+```
+
+The CHECK constraint is updated via migration when the application adds support for new sensor models. This approach balances flexibility (easy to add sensors) with safety (database validates values).
 
 ## Migration Path for Existing Deployments
 

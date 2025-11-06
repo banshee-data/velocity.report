@@ -44,25 +44,14 @@ Users can configure and test radar serial ports through a web interface instead 
 ## Key Design Decisions
 
 1. **Database over config files** - Consistent with existing patterns
-2. **Read-only testing** - Safe and non-disruptive
-3. **Selectable baud rates** - Prevents errors, auto-detect as helper
-4. **Multiple SerialMux instances** - Future-ready for multi-sensor
+2. **Application-side sensor models** - No migrations needed for new sensors, CHECK constraint validates
+3. **Read-only testing** - Safe and non-disruptive
+4. **Selectable baud rates** - Prevents errors, auto-detect as helper
+5. **Multiple SerialMux instances** - Future-ready for multi-sensor
 
 ## Database Schema (FR1)
 
 ```sql
--- Sensor models reference table
-CREATE TABLE IF NOT EXISTS radar_sensor_models (
-       id INTEGER PRIMARY KEY AUTOINCREMENT
-     , model_name TEXT NOT NULL UNIQUE
-     , has_doppler INTEGER NOT NULL DEFAULT 1
-     , has_fmcw INTEGER NOT NULL DEFAULT 0
-     , has_distance INTEGER NOT NULL DEFAULT 0
-     , default_baud_rate INTEGER NOT NULL DEFAULT 19200
-     , init_commands TEXT NOT NULL
-     , description TEXT
-     );
-
 -- Serial port configurations table
 CREATE TABLE IF NOT EXISTS radar_serial_config (
        id INTEGER PRIMARY KEY AUTOINCREMENT
@@ -74,21 +63,23 @@ CREATE TABLE IF NOT EXISTS radar_serial_config (
      , parity TEXT NOT NULL DEFAULT 'N'
      , enabled INTEGER NOT NULL DEFAULT 1
      , description TEXT
-     , sensor_model_id INTEGER NOT NULL DEFAULT 1
+     , sensor_model TEXT NOT NULL DEFAULT 'ops243-a'
      , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
      , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
-     , FOREIGN KEY (sensor_model_id) REFERENCES radar_sensor_models (id)
+     , CHECK (sensor_model IN ('ops243-a', 'ops243-c'))
      );
 ```
+
+**Note:** Sensor model information (capabilities, init commands) is stored in application code, not the database. The CHECK constraint validates that only supported sensor models are used.
 
 ## API Endpoints (FR2-FR4)
 
 - `GET /api/serial/configs` - List all configurations
 - `GET /api/serial/configs/:id` - Get single configuration
-- `POST /api/serial/configs` - Create configuration
+- `POST /api/serial/configs` - Create configuration (sensor_model validated against CHECK constraint)
 - `PUT /api/serial/configs/:id` - Update configuration
 - `DELETE /api/serial/configs/:id` - Delete configuration
-- `GET /api/serial/models` - List available sensor models
+- `GET /api/serial/models` - List available sensor models (from application code)
 - `POST /api/serial/test` - Test serial port connection (with auto-correct baud option)
 - `POST /api/serial/detect-baud` - Auto-detect baud rate
 
