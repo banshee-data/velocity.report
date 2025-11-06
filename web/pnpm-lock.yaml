@@ -13,8 +13,8 @@ importers:
   .:
     dependencies:
       '@layerstack/utils':
-        specifier: 2.0.0-next.14
-        version: 2.0.0-next.14
+        specifier: 2.0.0-next.16
+        version: 2.0.0-next.16
     devDependencies:
       '@eslint/compat':
         specifier: ^1.4.0
@@ -712,6 +712,9 @@ packages:
 
   '@layerstack/utils@2.0.0-next.14':
     resolution: {integrity: sha512-1I2CS0Cwgs53W35qVg1eBdYhB/CiPvL3s0XE61b8jWkTHxgjBF65yYNgXjW74kv7WI7GsJcWMNBufPd0rnu9kA==}
+
+  '@layerstack/utils@2.0.0-next.16':
+    resolution: {integrity: sha512-V0aTlVpEylaVgwUOrVhMcEVAN8ysChP1Y4uPCcohl048Ocv+h37eW67pVxj81c+aLAavCd3BXt9IhJfELqTVmw==}
 
   '@lucide/svelte@0.536.0':
     resolution: {integrity: sha512-YAeoWU+0B/RriFZZ3wHno1FMkbrVrFdityuo2B0YuphD0vtJWXStzZkWLGVhT3jMb7zhugmhayIg+gI4+AZu1g==}
@@ -3907,13 +3910,20 @@ snapshots:
 
   '@layerstack/tailwind@2.0.0-next.17':
     dependencies:
-      '@layerstack/utils': 2.0.0-next.14
+      '@layerstack/utils': 2.0.0-next.16
       clsx: 2.1.1
       d3-array: 3.2.4
       lodash-es: 4.17.21
       tailwind-merge: 3.3.1
 
   '@layerstack/utils@2.0.0-next.14':
+    dependencies:
+      d3-array: 3.2.4
+      d3-time: 3.1.0
+      d3-time-format: 4.1.0
+      lodash-es: 4.17.21
+
+  '@layerstack/utils@2.0.0-next.16':
     dependencies:
       d3-array: 3.2.4
       d3-time: 3.1.0

@@ -69,6 +69,6 @@
 		}
 	},
 	"dependencies": {
-		"@layerstack/utils": "2.0.0-next.14"
+		"@layerstack/utils": "2.0.0-next.16"
 	}
 }
