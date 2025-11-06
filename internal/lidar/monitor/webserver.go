@@ -25,6 +25,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidar/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/parse"
+	"github.com/banshee-data/velocity.report/internal/security"
 )
 
 //go:embed status.html
@@ -367,24 +368,6 @@ func (ws *WebServer) resetBackgroundGrid() error {
 func (ws *WebServer) writeJSONError(w http.ResponseWriter, status int, msg string) {
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
-}
-
-// isPathWithinDirectory checks if absPath is safely contained within safeDir.
-// It returns true if the path is within the directory (no .. escapes, not absolute relative path).
-// This prevents directory traversal attacks.
-func isPathWithinDirectory(absPath, safeDir string) bool {
-	relPath, err := filepath.Rel(safeDir, absPath)
-	if err != nil {
-		return false
-	}
-	// Reject paths that:
-	// - Are exactly ".." (parent directory)
-	// - Start with "../" (escape to parent)
-	// - Are absolute when expressed relative to safeDir (e.g., result is "/other/path")
-	if relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) || filepath.IsAbs(relPath) {
-		return false
-	}
-	return true
 }
 
 // Start begins the HTTP server in a goroutine and handles graceful shutdown
@@ -748,23 +731,12 @@ func (ws *WebServer) handleExportSnapshotASC(w http.ResponseWriter, r *http.Requ
 			return
 		}
 
-		// Allow writes to temp directory
-		tempDir := os.TempDir()
-		if isPathWithinDirectory(absOutPath, tempDir) {
-			outPath = absOutPath
-		} else {
-			// Also allow writes to current working directory
-			cwd, err := os.Getwd()
-			if err != nil {
-				ws.writeJSONError(w, http.StatusInternalServerError, "cannot determine working directory")
-				return
-			}
-			if !isPathWithinDirectory(absOutPath, cwd) {
-				ws.writeJSONError(w, http.StatusForbidden, "output path must be within temp directory or current working directory")
-				return
-			}
-			outPath = absOutPath
+		// Validate path is within allowed directories (temp or cwd)
+		if err := security.ValidateExportPath(absOutPath); err != nil {
+			ws.writeJSONError(w, http.StatusForbidden, err.Error())
+			return
 		}
+		outPath = absOutPath
 	}
 
 	if err := lidar.ExportBgSnapshotToASC(snap, outPath, elevs); err != nil {
@@ -799,23 +771,12 @@ func (ws *WebServer) handleExportNextFrameASC(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		// Allow writes to temp directory
-		tempDir := os.TempDir()
-		if isPathWithinDirectory(absOutPath, tempDir) {
-			outPath = absOutPath
-		} else {
-			// Also allow writes to current working directory
-			cwd, err := os.Getwd()
-			if err != nil {
-				ws.writeJSONError(w, http.StatusInternalServerError, "cannot determine working directory")
-				return
-			}
-			if !isPathWithinDirectory(absOutPath, cwd) {
-				ws.writeJSONError(w, http.StatusForbidden, "output path must be within temp directory or current working directory")
-				return
-			}
-			outPath = absOutPath
+		// Validate path is within allowed directories (temp or cwd)
+		if err := security.ValidateExportPath(absOutPath); err != nil {
+			ws.writeJSONError(w, http.StatusForbidden, err.Error())
+			return
 		}
+		outPath = absOutPath
 	}
 
 	// Set flag to export next frame
