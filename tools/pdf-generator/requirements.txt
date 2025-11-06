@@ -14,7 +14,7 @@ cycler==0.12.1
     # via matplotlib
 fonttools==4.60.0
     # via matplotlib
-idna==3.10
+idna==3.11
     # via requests
 iniconfig==2.1.0
     # via pytest
