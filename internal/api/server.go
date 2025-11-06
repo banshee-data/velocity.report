@@ -122,6 +122,12 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/api/sites", s.handleSites)
 	s.mux.HandleFunc("/api/sites/", s.handleSites)     // Note trailing slash to match /api/sites and /api/sites/*
 	s.mux.HandleFunc("/api/reports/", s.handleReports) // Report management endpoints
+
+	// Serial configuration endpoints
+	s.mux.HandleFunc("/api/serial/configs", s.handleSerialConfigsOrCreate)
+	s.mux.HandleFunc("/api/serial/configs/", s.handleSerialConfigByID)
+	s.mux.HandleFunc("/api/serial/models", s.handleSensorModels)
+
 	return s.mux
 }
 
