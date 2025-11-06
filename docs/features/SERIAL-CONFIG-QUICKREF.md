@@ -96,13 +96,21 @@ CREATE TABLE IF NOT EXISTS radar_serial_config (
 
 1. Open serial port with specified settings
 2. Send safe query command (`??`)
-3. Wait for JSON response (5 second timeout)
-4. Validate response format
-5. Auto-correct baud rate if enabled (query with `I?` command)
-6. Return success/failure with diagnostics
+3. Wait for response (5 second timeout)
+4. Parse and log response (JSON or non-JSON)
+   - Log both JSON and non-JSON responses for diagnostics
+   - Non-JSON responses are valid for certain commands (e.g., `I?` returns plain text)
+5. Auto-correct baud rate if enabled (query with `I?` command, returns non-JSON response)
+6. Return success/failure with diagnostics and captured responses
 
 **Baud Rate Auto-Correction:**
-When `auto_correct_baud: true` is set in test request, the system queries the device's current baud rate using the `I?` command. If the device reports a different rate than configured (e.g., user manually issued `I1`, `I2`, `I4`, or `I5` commands), the configuration is automatically updated to match the device's actual setting.
+When `auto_correct_baud: true` is set in test request, the system queries the device's current baud rate using the `I?` command (which returns a non-JSON numeric response). If the device reports a different rate than configured (e.g., user manually issued `I1`, `I2`, `I4`, or `I5` commands), the configuration is automatically updated to match the device's actual setting.
+
+**Response Logging:**
+All command responses are logged, including both JSON and non-JSON formats. This is essential because:
+- Query commands like `I?` return non-JSON text (e.g., "19200")
+- Device may not be in JSON mode before initialization
+- Raw responses provide diagnostic information for troubleshooting
 
 ## File Locations
 

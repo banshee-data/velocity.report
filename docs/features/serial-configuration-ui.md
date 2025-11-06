@@ -341,6 +341,10 @@ VALUES (
     "test_duration_ms": 342,
     "bytes_received": 128,
     "sample_data": "{\"speed\": 15.2, \"magnitude\": 456, ...}",
+    "raw_responses": [
+      {"command": "??", "response": "{\"module\":\"OPS243-A\",\"version\":\"1.2.3\"}", "is_json": true},
+      {"command": "I?", "response": "19200", "is_json": false}
+    ],
     "message": "Serial port communication successful"
   }
   ```
@@ -361,20 +365,26 @@ VALUES (
 1. **Open Port:** Attempt to open serial port with specified settings
 2. **Send Command:** Send a safe query command (e.g., `??` for firmware version)
 3. **Wait for Response:** Read with timeout (default 5 seconds)
-4. **Parse Response:** Attempt to parse as JSON (OPS243A uses JSON mode)
+4. **Parse and Log Response:** 
+   - Attempt to parse as JSON (OPS243A uses JSON mode after `OJ` command)
+   - If JSON parsing fails, log the raw text response (some commands like `I?` return non-JSON text)
+   - Store both JSON and non-JSON responses for diagnostics and testing verification
+   - Non-JSON responses are valid and expected for certain commands (e.g., `I?` returns just the baud rate number)
 5. **Auto-Correct Baud Rate (Optional):** If `auto_correct_baud` is true and connection succeeds:
-   - Query current baud rate with `I?` command
+   - Query current baud rate with `I?` command (returns non-JSON response)
+   - Parse the numeric response to determine actual baud rate
    - If device reports different rate than configured, update the configuration
    - This handles cases where user issued `I1`, `I2`, `I4`, or `I5` commands manually
 6. **Close Port:** Clean up connection
-7. **Return Results:** Success/failure with diagnostic information
+7. **Return Results:** Success/failure with diagnostic information, including captured responses (both JSON and non-JSON)
 
 **Diagnostic Suggestions:**
 
 - **Port not found:** "Check that the device is connected and appears in /dev/"
 - **Permission denied:** "Run: sudo usermod -a -G dialout velocity && sudo reboot"
 - **Timeout:** "Device may be at wrong baud rate. Try 9600, 115200, or other common rates"
-- **Invalid response:** "Device responded but data is not valid JSON. Check sensor model"
+- **Invalid response:** "Device responded but data format is unexpected. Check sensor model and output mode (use `OJ` for JSON mode)"
+- **Non-JSON response:** "Device returned non-JSON response. This is normal for query commands like `I?`. Response logged for diagnostics."
 - **Baud rate mismatch:** If timeout at 19200, suggest testing other common rates
 - **Baud rate changed:** "Device reports different baud rate (detected via I? command). Configuration updated automatically."
 
@@ -393,6 +403,8 @@ VALUES (
 - Timeout prevents hanging on unresponsive devices
 - Automatic cleanup even on errors
 - Concurrent test prevention (mutex on port access)
+- Log all responses (JSON and non-JSON) for diagnostics without failing the test
+- Non-JSON responses are expected and valid for certain commands (e.g., `I?` returns plain text)
 
 #### FR4: Baud Rate Auto-Detection
 
