@@ -101,8 +101,8 @@ importers:
         specifier: ^5.0.0
         version: 5.0.0(jest@30.2.0(@types/node@24.9.1))(svelte@5.43.4)
       svelte-ux:
-        specifier: 2.0.0-next.18
-        version: 2.0.0-next.18(@babel/core@7.28.4)(postcss-load-config@4.0.2(postcss@8.5.6))(postcss@8.5.6)(svelte@5.43.4)
+        specifier: 2.0.0-next.21
+        version: 2.0.0-next.21(@babel/core@7.28.4)(postcss-load-config@4.0.2(postcss@8.5.6))(postcss@8.5.6)(svelte@5.43.4)
       tailwindcss:
         specifier: ^4.1.15
         version: 4.1.15
@@ -702,17 +702,23 @@ packages:
   '@layerstack/svelte-actions@1.0.1-next.14':
     resolution: {integrity: sha512-MPBmVaB+GfNHvBkg5nJkPG18smoXKvsvJRpsdWnrUBfca+TieZLoaEzNxDH+9LG11dIXP9gghsXt1mUqbbyAsA==}
 
+  '@layerstack/svelte-actions@1.0.1-next.16':
+    resolution: {integrity: sha512-f3VItwMCludqe44/yFzUOwz8ltq5pBgwvkce2FxZOylJUTY5hhZIPtPvEB1S1UfJ7HyY9vshqP0TJeI3+mUteQ==}
+
   '@layerstack/svelte-state@0.1.0-next.19':
     resolution: {integrity: sha512-yCYoQAIbeP8y1xmOB/r0+UundgP4JFnpNURgMki+26TotzoqrZ5oLpHvhPSVm60ks+buR3ebDBTeUFdHzxwzQQ==}
 
-  '@layerstack/svelte-stores@1.0.2-next.14':
-    resolution: {integrity: sha512-UI8VO35hgoG0XOenPgJlieUv6f/1nomFuXnHpFwXj0+OkqIwFoJxdsA8OjbE/gS0lImqv2KKsSCqDpXsKrGi9g==}
+  '@layerstack/svelte-stores@1.0.2-next.16':
+    resolution: {integrity: sha512-1QFdGBtXvPOr8X/P5b2LjSWi1IH1SDgjS678uvdnUouQCWT2OB3+7RhHPPw7pBp9nC7eU45zS4fsN5qI7cZf9A==}
 
-  '@layerstack/svelte-table@1.0.1-next.14':
-    resolution: {integrity: sha512-PZG3l7iylA3Fazff4L/dviI47vwML1gjuk8awTh/yKFGhKcy4Zk7TkDKnM49cdip3+6077p6acwyKysdQ6wxSg==}
+  '@layerstack/svelte-table@1.0.1-next.16':
+    resolution: {integrity: sha512-ohAg/HuKL6NRJbzvohfgMnCCJiDJTyXadKSYLjML52dvnB/f4mfJuHKwqEMERFEtaNfS5xOcHN5IvHa96690jg==}
 
   '@layerstack/tailwind@2.0.0-next.17':
     resolution: {integrity: sha512-ZSn6ouqpnzB6DKzSKLVwrUBOQsrzpDA/By2/ba9ApxgTGnaD1nyqNwrvmZ+kswdAwB4YnrGEAE4VZkKrB2+DaQ==}
+
+  '@layerstack/tailwind@2.0.0-next.19':
+    resolution: {integrity: sha512-ITnwo/CdV5h5N0iSss5WoZKIjF1xxOzaO+v82Th8t+OPSYUz0SzrpwEViQ+36Zty+zeYRvRYfyGDwV4h1Hxnww==}
 
   '@layerstack/utils@2.0.0-next.14':
     resolution: {integrity: sha512-1I2CS0Cwgs53W35qVg1eBdYhB/CiPvL3s0XE61b8jWkTHxgjBF65yYNgXjW74kv7WI7GsJcWMNBufPd0rnu9kA==}
@@ -720,8 +726,8 @@ packages:
   '@layerstack/utils@2.0.0-next.16':
     resolution: {integrity: sha512-V0aTlVpEylaVgwUOrVhMcEVAN8ysChP1Y4uPCcohl048Ocv+h37eW67pVxj81c+aLAavCd3BXt9IhJfELqTVmw==}
 
-  '@lucide/svelte@0.536.0':
-    resolution: {integrity: sha512-YAeoWU+0B/RriFZZ3wHno1FMkbrVrFdityuo2B0YuphD0vtJWXStzZkWLGVhT3jMb7zhugmhayIg+gI4+AZu1g==}
+  '@lucide/svelte@0.544.0':
+    resolution: {integrity: sha512-9f9O6uxng2pLB01sxNySHduJN3HTl5p0HDu4H26VR51vhZfiMzyOMe9Mhof3XAk4l813eTtl+/DYRvGyoRR+yw==}
     peerDependencies:
       svelte: ^5
 
@@ -1091,6 +1097,9 @@ packages:
 
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
+
+  '@types/node@24.10.0':
+    resolution: {integrity: sha512-qzQZRBqkFsYyaSWXuEHc2WR9c0a0CXwiE5FWUvn7ZM+vdy1uZLfCunD38UzhuB7YN/J11ndbDBcTmOdxJo9Q7A==}
 
   '@types/node@24.9.1':
     resolution: {integrity: sha512-QoiaXANRkSXK6p0Duvt56W208du4P9Uye9hWLWgGMDTEoKPhuenzNcC4vGUmrNkiOKTlIrBoyNQYNpSwfEZXSg==}
@@ -1943,8 +1952,8 @@ packages:
     resolution: {integrity: sha512-Hs59xBNfUIunMFgWAbGX5cq6893IbWg4KnrjbYwX3tx0ztorVgTDA6B2sxf8ejHJ4wz8BqGUMYlnzNBer5NvGg==}
     engines: {node: '>= 4'}
 
-  immer@10.1.3:
-    resolution: {integrity: sha512-tmjF/k8QDKydUlm3mZU+tjM6zeq9/fFpPqH9SzWmBnVVKsPBg/V66qsMwb3/Bo90cgUN+ghdVBess+hPsxUyRw==}
+  immer@10.2.0:
+    resolution: {integrity: sha512-d/+XTN3zfODyjr89gM3mPq1WNX2B8pYsu7eORitdwyA2sBubnTl3laYlBk4sXY5FUa5qTZGBDPJICVbvqzjlbw==}
 
   import-fresh@3.3.1:
     resolution: {integrity: sha512-TR3KfrTZTYLPB6jUjfx6MF9WcWrHL9su5TObK4ZkYgBdWKPOFoSoQIdEuTuR82pmtxH2spWG9h6etwfr1pLBqQ==}
@@ -2885,8 +2894,8 @@ packages:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
 
-  sveld@0.22.1:
-    resolution: {integrity: sha512-81zODtru1jsOujk+RUgj4RT3fXaG2nFZIWkeVkm0ZyqsrHxTNUfGJEQgkj6jcvwiEEVbYLUHvehnkfCbKDnarQ==}
+  sveld@0.22.2:
+    resolution: {integrity: sha512-P/YLwxU5zkxtFRnL8wd34GGp8M7ns1VP2Kpf/toWKZacgs5/VlmMyYM8EEWb2CZOWxzUBcd7LK2MNPign66MZQ==}
     hasBin: true
 
   svelte-check@4.3.3:
@@ -2950,8 +2959,8 @@ packages:
       typescript:
         optional: true
 
-  svelte-ux@2.0.0-next.18:
-    resolution: {integrity: sha512-u0J7hpB0mNf4MXOitsaOHNbbY6+dYpoAZM/LBhCNKBxtrcJAZ59o3SRwW+9QKWsvTgPt4DYZuidP1d0XhEj5aw==}
+  svelte-ux@2.0.0-next.21:
+    resolution: {integrity: sha512-I4axAa0i07lQEdnd+YcSxxFsq1qaP1gsc3ZdqjfHAoLGBqzFnEFlF25PQuoFD9WS8WMBc1E2muj+4mdzUS/nkA==}
     peerDependencies:
       svelte: ^3.56.0 || ^4.0.0 || ^5.0.0
 
@@ -3899,25 +3908,39 @@ snapshots:
       '@layerstack/utils': 2.0.0-next.14
       d3-scale: 4.0.2
 
+  '@layerstack/svelte-actions@1.0.1-next.16':
+    dependencies:
+      '@floating-ui/dom': 1.7.4
+      '@layerstack/utils': 2.0.0-next.16
+      d3-scale: 4.0.2
+
   '@layerstack/svelte-state@0.1.0-next.19':
     dependencies:
       '@layerstack/utils': 2.0.0-next.14
 
-  '@layerstack/svelte-stores@1.0.2-next.14':
+  '@layerstack/svelte-stores@1.0.2-next.16':
     dependencies:
-      '@layerstack/utils': 2.0.0-next.14
-      immer: 10.1.3
+      '@layerstack/utils': 2.0.0-next.16
+      immer: 10.2.0
       lodash-es: 4.17.21
       zod: 3.25.76
 
-  '@layerstack/svelte-table@1.0.1-next.14':
+  '@layerstack/svelte-table@1.0.1-next.16':
     dependencies:
-      '@layerstack/svelte-actions': 1.0.1-next.14
-      '@layerstack/utils': 2.0.0-next.14
+      '@layerstack/svelte-actions': 1.0.1-next.16
+      '@layerstack/utils': 2.0.0-next.16
       d3-array: 3.2.4
       lodash-es: 4.17.21
 
   '@layerstack/tailwind@2.0.0-next.17':
+    dependencies:
+      '@layerstack/utils': 2.0.0-next.16
+      clsx: 2.1.1
+      d3-array: 3.2.4
+      lodash-es: 4.17.21
+      tailwind-merge: 3.3.1
+
+  '@layerstack/tailwind@2.0.0-next.19':
     dependencies:
       '@layerstack/utils': 2.0.0-next.16
       clsx: 2.1.1
@@ -3939,7 +3962,7 @@ snapshots:
       d3-time-format: 4.1.0
       lodash-es: 4.17.21
 
-  '@lucide/svelte@0.536.0(svelte@5.43.4)':
+  '@lucide/svelte@0.544.0(svelte@5.43.4)':
     dependencies:
       svelte: 5.43.4
 
@@ -4277,13 +4300,17 @@ snapshots:
 
   '@types/json-schema@7.0.15': {}
 
+  '@types/node@24.10.0':
+    dependencies:
+      undici-types: 7.16.0
+
   '@types/node@24.9.1':
     dependencies:
       undici-types: 7.16.0
 
   '@types/resolve@1.17.1':
     dependencies:
-      '@types/node': 24.9.1
+      '@types/node': 24.10.0
 
   '@types/stack-utils@2.0.3': {}
 
@@ -5142,7 +5169,7 @@ snapshots:
 
   ignore@7.0.5: {}
 
-  immer@10.1.3: {}
+  immer@10.2.0: {}
 
   import-fresh@3.3.1:
     dependencies:
@@ -6153,7 +6180,7 @@ snapshots:
 
   supports-preserve-symlinks-flag@1.0.0: {}
 
-  sveld@0.22.1(@babel/core@7.28.4)(postcss-load-config@4.0.2(postcss@8.5.6))(postcss@8.5.6):
+  sveld@0.22.2(@babel/core@7.28.4)(postcss-load-config@4.0.2(postcss@8.5.6))(postcss@8.5.6):
     dependencies:
       '@rollup/plugin-node-resolve': 13.3.0(rollup@2.79.2)
       acorn: 8.15.0
@@ -6213,24 +6240,24 @@ snapshots:
       postcss-load-config: 4.0.2(postcss@8.5.6)
       typescript: 5.9.3
 
-  svelte-ux@2.0.0-next.18(@babel/core@7.28.4)(postcss-load-config@4.0.2(postcss@8.5.6))(postcss@8.5.6)(svelte@5.43.4):
+  svelte-ux@2.0.0-next.21(@babel/core@7.28.4)(postcss-load-config@4.0.2(postcss@8.5.6))(postcss@8.5.6)(svelte@5.43.4):
     dependencies:
       '@floating-ui/dom': 1.7.4
-      '@layerstack/svelte-actions': 1.0.1-next.14
-      '@layerstack/svelte-stores': 1.0.2-next.14
-      '@layerstack/svelte-table': 1.0.1-next.14
-      '@layerstack/tailwind': 2.0.0-next.17
-      '@layerstack/utils': 2.0.0-next.14
-      '@lucide/svelte': 0.536.0(svelte@5.43.4)
+      '@layerstack/svelte-actions': 1.0.1-next.16
+      '@layerstack/svelte-stores': 1.0.2-next.16
+      '@layerstack/svelte-table': 1.0.1-next.16
+      '@layerstack/tailwind': 2.0.0-next.19
+      '@layerstack/utils': 2.0.0-next.16
+      '@lucide/svelte': 0.544.0(svelte@5.43.4)
       d3-array: 3.2.4
       d3-scale: 4.0.2
       esm-env: 1.2.2
-      immer: 10.1.3
+      immer: 10.2.0
       lodash-es: 4.17.21
       prism-svelte: 0.5.0
       prism-themes: 1.9.0
       prismjs: 1.30.0
-      sveld: 0.22.1(@babel/core@7.28.4)(postcss-load-config@4.0.2(postcss@8.5.6))(postcss@8.5.6)
+      sveld: 0.22.2(@babel/core@7.28.4)(postcss-load-config@4.0.2(postcss@8.5.6))(postcss@8.5.6)
       svelte: 5.43.4
       zod: 3.25.76
     transitivePeerDependencies:

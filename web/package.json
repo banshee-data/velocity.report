@@ -49,7 +49,7 @@
 		"svelte": "^5.43.4",
 		"svelte-check": "^4.3.3",
 		"svelte-jester": "^5.0.0",
-		"svelte-ux": "2.0.0-next.18",
+		"svelte-ux": "2.0.0-next.21",
 		"tailwindcss": "^4.1.15",
 		"ts-jest": "^29.4.5",
 		"typescript": "^5.9.3",
