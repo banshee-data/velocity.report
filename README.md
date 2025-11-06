@@ -41,7 +41,7 @@ Measure vehicle speeds, make streets safer.
 
 ## Overview
 
-**velocity.report** is a complete neighborhood traffic monitoring system built with privacy as the foundation. The system consists of three main components:
+**velocity.report** is a complete citizen radar system for neighborhood traffic monitoring. The system consists of three main components:
 
 - **Go Server** - High-performance data collection and API server
 - **Python PDF Generator** - Professional PDF report generation with LaTeX
@@ -60,7 +60,7 @@ make build-local
 ./app-local -dev
 ```
 
-If an existing SQLite database is available, place it in `./sensor_data.db` or start the server with `--db-path /path/to/sensor_data.db` to point the binary at a different file (useful for production systemd services that store the DB in `/var/lib/velocity.report`).
+If an existing SQLite database is available, place it in `./sensor_data.db` (the default location for development). For production deployments, use the `--db-path` flag to specify a different location (see Deployment section).
 
 ### For PDF Report Generation
 
@@ -86,7 +86,7 @@ velocity.report/
 ├── cmd/                      # Go CLI applications
 │   ├── radar/                # Radar sensor integration
 │   ├── bg-sweep/             # Background sweep utilities
-│   └── tools/                # Utility tools
+│   └── tools/                # Go utility tools
 ├── internal/                 # Go server internals (private packages)
 │   ├── api/                  # HTTP API endpoints
 │   ├── db/                   # SQLite database layer
@@ -107,8 +107,8 @@ velocity.report/
 ├── data/                     # Data directory
 │   ├── migrations/           # Database migrations
 │   └── align/                # Data alignment utilities
-├── docs/                     # Documentation
-├── scripts/                  # Development scripts
+├── docs/                     # Documentation Site
+├── scripts/                  # Development shell scripts
 └── static/                   # Static server assets
 ```
 
@@ -118,7 +118,7 @@ velocity.report/
 
 ```
    ┌───────────────────┐     ┌───────────────────┐     ┌───────────────────┐
-   │     Sensors       │────►│     Go Server     │◄────│  SQLite Database  │
+   │     Sensors       │────►│     Go Server     │◄───►│  SQLite Database  │
    │ (Radar / LIDAR)   │     │ (API/Processing)  │     │ (Time-series)     │
    └───────────────────┘     └───────────────────┘     └───────────────────┘
                                      │
@@ -127,8 +127,8 @@ velocity.report/
                    │                                   │
                    ▼                                   ▼
    ┌─────────────────────────────┐     ┌─────────────────────────────┐
-   │    Python PDF Generator     │     │       Web Frontend          │
-   │ (Offline Reports via LaTeX) │     │   (Real-time via Svelte)    │
+   │        Web Frontend         │     │    Python PDF Generator     │
+   │   (Real-time via Svelte)    │     │ (Offline Reports via LaTeX) │
    └─────────────────────────────┘     └─────────────────────────────┘
 ```
 
@@ -198,9 +198,9 @@ make test
 Build for production (Raspberry Pi):
 
 ```sh
-make radar-linux
+make build-radar-linux
 # or manually:
-GOARCH=arm64 GOOS=linux go build -o app-radar-linux-arm64 ./cmd/radar
+GOOS=linux GOARCH=arm64 go build -o app-radar-linux-arm64 ./cmd/radar
 ```
 
 ### Python PDF Generator Development
@@ -253,28 +253,35 @@ The Go server runs as a systemd service on Raspberry Pi.
 **Deploy new version:**
 
 ```sh
-# 1. Build for ARM64
-make build
+# On the Raspberry Pi, clone the repository
+git clone https://github.com/banshee-data/velocity.report.git
+cd velocity.report
 
-# 2. Copy to Raspberry Pi
-scp app pi@raspberrypi:/path/to/deployment/
-
-# 3. Restart service
-ssh pi@raspberrypi
-sudo systemctl stop go-sensor.service
-sudo cp /path/to/deployment/app /usr/local/bin/velocity-server
-sudo systemctl start go-sensor.service
+# Build and install
+make build-radar-linux
+make setup-radar
 ```
+
+The setup will:
+
+- Install the binary to `/usr/local/bin/velocity-report`
+- Create a dedicated service user and working directory
+- Install and enable the systemd service
+- Optionally migrate existing database
 
 **Monitor service:**
 
 ```sh
 # View logs
-sudo journalctl -u go-sensor.service -f
+sudo journalctl -u velocity-report.service -f
 
 # Check status
-sudo systemctl status go-sensor.service
+sudo systemctl status velocity-report.service
 ```
+
+**Manual deployment:**
+
+If you prefer manual deployment or need to customize the setup, see the deployment script at `scripts/setup-radar-host.sh` for the individual steps.
 
 **Service configuration:**
 
@@ -295,10 +302,9 @@ No installation required - use PYTHONPATH method as documented in [tools/pdf-gen
 ## Documentation
 
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture and component relationships
-- **[tools/pdf-generator/README.md](tools/pdf-generator/README.md)** - PDF generator documentation
 - **[web/README.md](web/README.md)** - Web frontend documentation
+- **[tools/pdf-generator/README.md](tools/pdf-generator/README.md)** - PDF generator documentation
 - **[docs/README.md](docs/README.md)** - Documentation site
-- **[data/README.md](data/README.md)** - Data directory and database documentation
 
 ## Testing
 
@@ -342,13 +348,18 @@ The project uses a consistent naming scheme for all make targets: `<action>-<sub
 
 ### Build Targets (Go cross-compilation)
 
-- `radar-linux` - Build for Linux ARM64 (no pcap)
-- `radar-linux-pcap` - Build for Linux ARM64 with pcap
-- `radar-mac` - Build for macOS ARM64 with pcap
-- `radar-mac-intel` - Build for macOS AMD64 with pcap
-- `radar-local` - Build for local development with pcap
-- `tools-local` - Build sweep tool
+- `build-radar-linux` - Build for Linux ARM64 (no pcap)
+- `build-radar-linux-pcap` - Build for Linux ARM64 with pcap
+- `build-radar-mac` - Build for macOS ARM64 with pcap
+- `build-radar-mac-intel` - Build for macOS AMD64 with pcap
+- `build-radar-local` - Build for local development with pcap
+- `build-tools` - Build sweep tool
 - `build-web` - Build web frontend (SvelteKit)
+- `build-docs` - Build documentation site (Eleventy)
+
+### Deployment Targets
+
+- `setup-radar` - Install server on this host (requires sudo)
 
 ### PDF Generator Targets
 

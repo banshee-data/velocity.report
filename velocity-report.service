@@ -1,18 +1,23 @@
 [Unit]
-Description=Radar Monitor Service
+Description=Velocity.report radar monitor service
 After=network.target
 
 [Service]
+# Run as a dedicated, non-privileged user created during deployment (see README)
+User=velocity
+Group=velocity
 Type=simple
-User=david
-Group=david
-ExecStart=/home/david/code/velocity.report/radar
-WorkingDirectory=/home/david/code/velocity.report
+# The deployed binary (rename/copy from build output to this path)
+# Pass explicit DB path so the process finds the SQLite DB in a stable location
+# (the binary still defaults to ./sensor_data.db when no flag/env is provided)
+ExecStart=/usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sensor_data.db
+# A stable working directory for runtime files; owned by the `velocity` user
+WorkingDirectory=/var/lib/velocity-report
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=go-sensor
+SyslogIdentifier=velocity-report
 
 [Install]
 WantedBy=multi-user.target

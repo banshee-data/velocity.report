@@ -109,7 +109,7 @@ The application is organized into separate components under `internal/` for main
 
 - `internal/serialmux` — Serial port abstraction and event handlers (real, mock, disabled implementations).
 - `internal/api` — Central HTTP server, static assets, and admin endpoints.
-- `internal/db` — SQLite helpers and schema management (single DB file `sensor_data.db` by default). Use `--db-path` to point the binary at a different file (for example: `--db-path /var/lib/velocity.report/sensor_data.db`).
+- `internal/db` — SQLite helpers and schema management (single DB file `sensor_data.db` by default). Use `--db-path` to point the binary at a different file (for example: `--db-path /var/lib/velocity-report/sensor_data.db`).
 - `internal/lidar` — LiDAR parsers, frame builders, background model, monitor webserver, and DB persistence.
 
 ### LiDAR core components
@@ -147,7 +147,7 @@ To visualize incoming LiDAR data, forward packets to LidarView's listening port 
 
 ## Command & DB notes
 
-- The radar binary uses a single SQLite DB file by default (`sensor_data.db`) and exposes admin routes via the HTTP API. You can override the DB location by passing `--db-path /path/to/your.db` when starting the binary (this is how production systemd units should point the service at `/var/lib/velocity.report/sensor_data.db`).
+- The radar binary uses a single SQLite DB file by default (`sensor_data.db`) and exposes admin routes via the HTTP API. You can override the DB location by passing `--db-path /path/to/your.db` when starting the binary (this is how production systemd units should point the service at `/var/lib/velocity-report/sensor_data.db`).
 - When `--disable-radar` is set, a `DisabledSerialMux` keeps the HTTP/DB APIs available while disabling serial I/O.
 - When `--enable-lidar` is used, the LiDAR components reuse the same DB instance for snapshot persistence and event storage. A `BackgroundManager` is created per sensor and will persist background snapshots into the `lidar_bg_snapshot` table if the manager was constructed with a DB-backed `BgStore`.
 

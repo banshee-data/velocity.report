@@ -1,3 +1,7 @@
+# =============================================================================
+# HELP TARGET (default)
+# =============================================================================
+
 .PHONY: help
 help:
 	@echo "velocity.report - Make Targets"
@@ -6,13 +10,14 @@ help:
 	@echo "Pattern: <action>-<subsystem>[-<variant>]"
 	@echo ""
 	@echo "BUILD TARGETS (Go cross-compilation):"
-	@echo "  radar-linux          Build for Linux ARM64 (no pcap)"
-	@echo "  radar-linux-pcap     Build for Linux ARM64 with pcap"
-	@echo "  radar-mac            Build for macOS ARM64 with pcap"
-	@echo "  radar-mac-intel      Build for macOS AMD64 with pcap"
-	@echo "  radar-local          Build for local development with pcap"
-	@echo "  tools-local          Build sweep tool"
+	@echo "  build-radar-linux    Build for Linux ARM64 (no pcap)"
+	@echo "  build-radar-linux-pcap Build for Linux ARM64 with pcap"
+	@echo "  build-radar-mac      Build for macOS ARM64 with pcap"
+	@echo "  build-radar-mac-intel Build for macOS AMD64 with pcap"
+	@echo "  build-radar-local    Build for local development with pcap"
+	@echo "  build-tools          Build sweep tool"
 	@echo "  build-web            Build web frontend (SvelteKit)"
+	@echo "  build-docs           Build documentation site (Eleventy)"
 	@echo ""
 	@echo "INSTALLATION:"
 	@echo "  install-python       Set up Python PDF generator (venv + deps)"
@@ -53,6 +58,9 @@ help:
 	@echo "  pdf                  Alias for pdf-report"
 	@echo "  clean-python         Clean PDF output files"
 	@echo ""
+	@echo "DEPLOYMENT:"
+	@echo "  setup-radar          Install server on this host (requires sudo)"
+	@echo ""
 	@echo "UTILITIES:"
 	@echo "  log-go-tail          Tail most recent Go server log"
 	@echo "  log-go-cat           Cat most recent Go server log"
@@ -86,21 +94,94 @@ help:
 
 .DEFAULT_GOAL := help
 
-radar-linux:
+# =============================================================================
+# BUILD TARGETS (Go cross-compilation)
+# =============================================================================
+
+build-radar-linux:
 	GOOS=linux GOARCH=arm64 go build -o app-radar-linux-arm64 ./cmd/radar
 
-radar-linux-pcap:
+build-radar-linux-pcap:
 	GOOS=linux GOARCH=arm64 go build -tags=pcap -o app-radar-linux-arm64 ./cmd/radar
 
-radar-mac:
+build-radar-mac:
 	GOOS=darwin GOARCH=arm64 go build -tags=pcap -o app-radar-mac-arm64 ./cmd/radar
 
-radar-mac-intel:
+build-radar-mac-intel:
 	GOOS=darwin GOARCH=amd64 go build -tags=pcap -o app-radar-mac-amd64 ./cmd/radar
 
-radar-local:
+build-radar-local:
 	go build -tags=pcap -o app-radar-local ./cmd/radar
 
+build-tools:
+	go build -o app-sweep ./cmd/sweep
+
+.PHONY: build-web
+build-web:
+	@echo "Building web frontend..."
+	@cd web && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm run build; \
+	elif command -v npm >/dev/null 2>&1; then \
+		npm run build; \
+	else \
+		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+	fi
+	@echo "✓ Web build complete: web/build/"
+
+.PHONY: build-docs
+build-docs:
+	@echo "Building documentation site..."
+	@cd docs && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm run build; \
+	elif command -v npm >/dev/null 2>&1; then \
+		npm run build; \
+	else \
+		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+	fi
+	@echo "✓ Docs build complete: docs/_site/"
+
+# =============================================================================
+# INSTALLATION
+# =============================================================================
+
+.PHONY: install-python install-web install-docs
+
+PDF_DIR = tools/pdf-generator
+PDF_PYTHON = $(PDF_DIR)/.venv/bin/python
+PDF_PYTEST = $(PDF_DIR)/.venv/bin/pytest
+
+install-python:
+	@echo "Setting up PDF generator..."
+	cd $(PDF_DIR) && python3 -m venv .venv
+	cd $(PDF_DIR) && .venv/bin/pip install --upgrade pip
+	cd $(PDF_DIR) && .venv/bin/pip install -r requirements.txt
+	@echo "✓ PDF generator setup complete (no package installation needed)"
+
+install-web:
+	@echo "Installing web dependencies..."
+	@cd web && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm install --frozen-lockfile; \
+		elif command -v npm >/dev/null 2>&1; then \
+			npm install; \
+		else \
+			echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+		fi
+
+install-docs:
+	@echo "Installing docs dependencies..."
+	@cd docs && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm install --frozen-lockfile; \
+		elif command -v npm >/dev/null 2>&1; then \
+			npm install; \
+		else \
+			echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+		fi
+
+# =============================================================================
+# DEVELOPMENT SERVERS
+# =============================================================================
+
+.PHONY: dev-go dev-go-lidar dev-go-kill-server dev-web dev-docs
 
 # Reusable script for starting the app in background. Call with extra flags
 # using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we
@@ -145,7 +226,6 @@ define run_dev_go_kill_server
 	fi
 endef
 
-.PHONY: dev-go dev-go-lidar dev-go-kill-server dev-docs dev-web install-docs install-web
 dev-go:
 	@$(call run_dev_go)
 
@@ -155,24 +235,14 @@ dev-go-lidar:
 dev-go-kill-server:
 	@$(call run_dev_go_kill_server)
 
-install-docs:
-	@echo "Installing docs dependencies..."
-	@cd docs && if command -v pnpm >/dev/null 2>&1; then \
-		pnpm install --frozen-lockfile; \
-		elif command -v npm >/dev/null 2>&1; then \
-			npm install; \
-		else \
-			echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
-		fi
-
-install-web:
-	@echo "Installing web dependencies..."
+dev-web:
+	@echo "Starting web dev server..."
 	@cd web && if command -v pnpm >/dev/null 2>&1; then \
-		pnpm install --frozen-lockfile; \
+		pnpm run dev; \
 		elif command -v npm >/dev/null 2>&1; then \
-			npm install; \
+		npm run dev; \
 		else \
-			echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+			echo "pnpm/npm not found; install dependencies (pnpm install) and run 'pnpm run dev'"; exit 1; \
 		fi
 
 dev-docs:
@@ -185,180 +255,21 @@ dev-docs:
 			echo "pnpm/npm not found; install dependencies (pnpm install) and run 'pnpm run dev'"; exit 1; \
 		fi
 
-dev-web:
-	@echo "Starting web dev server..."
-	@cd web && if command -v pnpm >/dev/null 2>&1; then \
-		pnpm run dev; \
-		elif command -v npm >/dev/null 2>&1; then \
-		npm run dev; \
-		else \
-			echo "pnpm/npm not found; install dependencies (pnpm install) and run 'pnpm run dev'"; exit 1; \
-		fi
-
-
-.PHONY: log-go-tail
-log-go-tail:
-	@# Tail the most recent velocity log file in logs/ without building or starting anything
-	@if [ -d logs ] && [ $$(ls -1 logs/velocity-*.log 2>/dev/null | wc -l) -gt 0 ]; then \
-		latest=$$(ls -1t logs/velocity-*.log 2>/dev/null | head -n1); \
-		echo "Tailing $$latest"; \
-		tail -F "$$latest"; \
-	else \
-		echo "No logs found in logs/ (try: make dev-go)"; exit 1; \
-	fi
-
-.PHONY: log-go-cat
-log-go-cat:
-	@# Cat the entire most recent velocity log file (can be piped to grep, etc.)
-	@if [ -d logs ] && [ $$(ls -1 logs/velocity-*.log 2>/dev/null | wc -l) -gt 0 ]; then \
-		latest=$$(ls -1t logs/velocity-*.log 2>/dev/null | head -n1); \
-		cat "$$latest"; \
-	else \
-		echo "No logs found in logs/ (try: make dev-go)"; exit 1; \
-	fi
-
-tools-local:
-	go build -o app-sweep ./cmd/sweep
-
-.PHONY: build-web
-build-web:
-	@echo "Building web frontend..."
-	@cd web && if command -v pnpm >/dev/null 2>&1; then \
-		pnpm run build; \
-	elif command -v npm >/dev/null 2>&1; then \
-		npm run build; \
-	else \
-		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
-	fi
-	@echo "✓ Web build complete: web/build/"
-
 # =============================================================================
-# Sweep Plotting (uses root .venv)
+# TESTING
 # =============================================================================
 
-.PHONY: plot-noise-sweep plot-multisweep plot-noise-buckets stats-live stats-pcap
-
-VENV_PYTHON = .venv/bin/python3
-
-# Noise sweep line plot (neighbor=1, closeness=2.5 by default)
-plot-noise-sweep:
-	@[ -z "$(FILE)" ] && echo "Usage: make plot-noise-sweep FILE=data.csv [OUT=plot.png]" && exit 1 || true
-	@[ ! -f "$(FILE)" ] && echo "File not found: $(FILE)" && exit 1 || true
-	$(VENV_PYTHON) data/multisweep-graph/plot_noise_sweep.py --file "$(FILE)" \
-		--out "$${OUT:-noise-sweep.png}" --neighbor $${NEIGHBOR:-1} --closeness $${CLOSENESS:-2.5}
-
-# Multi-sweep grid (neighbor=1 by default)
-plot-multisweep:
-	@[ -z "$(FILE)" ] && echo "Usage: make plot-multisweep FILE=data.csv [OUT=plot.png]" && exit 1 || true
-	@[ ! -f "$(FILE)" ] && echo "File not found: $(FILE)" && exit 1 || true
-	$(VENV_PYTHON) data/multisweep-graph/plot_multisweep.py --file "$(FILE)" \
-		--out "$${OUT:-multisweep.png}" --neighbor $${NEIGHBOR:-1}
-
-# Per-noise bar charts (neighbor=1, closeness=2.5 by default)
-plot-noise-buckets:
-	@[ -z "$(FILE)" ] && echo "Usage: make plot-noise-buckets FILE=data.csv [OUT_DIR=plots/]" && exit 1 || true
-	@[ ! -f "$(FILE)" ] && echo "File not found: $(FILE)" && exit 1 || true
-	$(VENV_PYTHON) data/multisweep-graph/plot_noise_buckets.py --file "$(FILE)" \
-		--out-dir "$${OUT_DIR:-noise-plots}" --neighbor $${NEIGHBOR:-1} --closeness $${CLOSENESS:-2.5}
-
-# Live grid stats - periodic snapshots from running lidar system
-# Usage: make stats-live [INTERVAL=10] [DURATION=60]
-stats-live:
-	@echo "Starting live lidar server..."
-	@$(MAKE) dev-go-lidar
-	@sleep 2
-	@echo "Capturing live grid snapshots..."
-	$(VENV_PYTHON) tools/grid-heatmap/plot_grid_heatmap.py --interval $${INTERVAL:-30} $${DURATION:+--duration $$DURATION}
-
-# PCAP replay grid stats - periodic snapshots during PCAP replay
-# Usage: make stats-pcap PCAP=file.pcap [INTERVAL=5]
-stats-pcap:
-	@[ -z "$(PCAP)" ] && echo "Usage: make stats-pcap PCAP=file.pcap [INTERVAL=5]" && exit 1 || true
-	@[ ! -f "$(PCAP)" ] && echo "PCAP file not found: $(PCAP)" && exit 1 || true
-	@echo "Capturing PCAP replay snapshots via runtime data source switching..."
-	$(VENV_PYTHON) tools/grid-heatmap/plot_grid_heatmap.py --pcap "$(PCAP)" --interval $${INTERVAL:-5}
-
-# =============================================================================
-# Python PDF Generator (PYTHONPATH approach - no package installation)
-# =============================================================================
-
-.PHONY: install-python test-python-cov clean-python pdf-test pdf-report pdf-config pdf-demo
-
-PDF_DIR = tools/pdf-generator
-PDF_PYTHON = $(PDF_DIR)/.venv/bin/python
-PDF_PYTEST = $(PDF_DIR)/.venv/bin/pytest
-
-install-python:
-	@echo "Setting up PDF generator..."
-	cd $(PDF_DIR) && python3 -m venv .venv
-	cd $(PDF_DIR) && .venv/bin/pip install --upgrade pip
-	cd $(PDF_DIR) && .venv/bin/pip install -r requirements.txt
-	@echo "✓ PDF generator setup complete (no package installation needed)"
-
-pdf-test:
-	@echo "Running PDF generator tests..."
-	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/pytest pdf_generator/tests/
-
-test-python-cov:
-	@echo "Running PDF generator tests with coverage..."
-	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/pytest --cov=pdf_generator --cov-report=html pdf_generator/tests/
-	@echo "Coverage report: $(PDF_DIR)/htmlcov/index.html"
-
-pdf-report:
-	@if [ -z "$(CONFIG)" ]; then \
-		echo "Error: CONFIG required. Usage: make pdf-report CONFIG=config.json"; \
-		exit 1; \
-	fi
-	@if [ -f "$(CONFIG)" ]; then \
-		CONFIG_PATH="$$(cd $$(dirname "$(CONFIG)") && pwd)/$$(basename "$(CONFIG)")"; \
-	elif [ -f "$(PDF_DIR)/$(CONFIG)" ]; then \
-		CONFIG_PATH="$(CONFIG)"; \
-	else \
-		echo "Error: Config file not found: $(CONFIG)"; \
-		echo "Try: make pdf-report CONFIG=config.example.json"; \
-		exit 1; \
-	fi; \
-	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/python -m pdf_generator.cli.main $$CONFIG_PATH
-
-pdf-config:
-	@echo "Creating example configuration..."
-	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/python -m pdf_generator.cli.create_config
-
-pdf-demo:
-	@echo "Running configuration system demo..."
-	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/python -m pdf_generator.cli.demo
-
-clean-python:
-	@echo "Cleaning PDF generator outputs..."
-	rm -rf $(PDF_DIR)/output/*.pdf
-	rm -rf $(PDF_DIR)/output/*.tex
-	rm -rf $(PDF_DIR)/output/*.svg
-	rm -rf $(PDF_DIR)/.pytest_cache
-	rm -rf $(PDF_DIR)/htmlcov
-	rm -rf $(PDF_DIR)/.coverage
-	rm -rf $(PDF_DIR)/pdf_generator/**/__pycache__
-	@echo "✓ Cleaned"
-
-# Convenience alias
-pdf: pdf-report
-
-# =============================================================================
-# Test targets
-# =============================================================================
-
-.PHONY: test test-all test-go test-web test-python
+.PHONY: test test-go test-python test-python-cov test-web
 
 WEB_DIR = web
+
+# Aggregate test target: runs Go, web, and Python tests in sequence
+test: test-go test-web test-python
 
 # Run Go unit tests for the whole repository
 test-go:
 	@echo "Running Go unit tests..."
 	@go test ./...
-
-# Run web test suite (Jest) using pnpm inside the web directory
-test-web:
-	@echo "Running web (Jest) tests..."
-	@cd $(WEB_DIR) && pnpm run test:ci
 
 # Run Python tests for the PDF generator. Ensures venv is setup first.
 test-python:
@@ -366,14 +277,24 @@ test-python:
 	@$(MAKE) install-python
 	@$(MAKE) pdf-test
 
-# Aggregate test target: runs Go, web, and Python tests in sequence
-test: test-go test-web test-python
+test-python-cov:
+	@echo "Running PDF generator tests with coverage..."
+	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/pytest --cov=pdf_generator --cov-report=html pdf_generator/tests/
+	@echo "Coverage report: $(PDF_DIR)/htmlcov/index.html"
+
+# Run web test suite (Jest) using pnpm inside the web directory
+test-web:
+	@echo "Running web (Jest) tests..."
+	@cd $(WEB_DIR) && pnpm run test:ci
 
 # =============================================================================
-# Formatting target: formats Go, Python and JS/TS (where tooling is available)
+# FORMATTING (mutating)
 # =============================================================================
 
-.PHONY: format-go format-python format-web fmt
+.PHONY: format format-go format-python format-web
+
+format: format-go format-python format-web
+	@echo "\nAll formatting targets complete."
 
 format-go:
 	@echo "Formatting Go source (gofmt)..."
@@ -410,11 +331,14 @@ format-web:
 		echo "$(WEB_DIR) does not exist; skipping web formatting"; \
 	fi
 
-format: format-go format-python format-web
-	@echo "\nAll formatting targets complete."
+# =============================================================================
+# LINTING (non-mutating, CI-friendly)
+# =============================================================================
 
-## Lint (non-mutating) checks - fail if formatting is required
-.PHONY:	lint lint-go lint-python lint-web
+.PHONY: lint lint-go lint-python lint-web
+
+lint: lint-go lint-python lint-web
+	@echo "\nAll lint checks passed."
 
 lint-go:
 	@echo "Checking Go formatting (gofmt -l)..."
@@ -461,11 +385,147 @@ lint-web:
 		echo "$(WEB_DIR) does not exist; skipping web format check"; \
 	fi
 
-lint: lint-go lint-python lint-web
-	@echo "\nAll lint checks passed."
+# =============================================================================
+# PDF GENERATOR
+# =============================================================================
+
+.PHONY: pdf-test pdf-report pdf-config pdf-demo pdf clean-python
+
+pdf-test:
+	@echo "Running PDF generator tests..."
+	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/pytest pdf_generator/tests/
+
+pdf-report:
+	@if [ -z "$(CONFIG)" ]; then \
+		echo "Error: CONFIG required. Usage: make pdf-report CONFIG=config.json"; \
+		exit 1; \
+	fi
+	@if [ -f "$(CONFIG)" ]; then \
+		CONFIG_PATH="$$(cd $$(dirname "$(CONFIG)") && pwd)/$$(basename "$(CONFIG)")"; \
+	elif [ -f "$(PDF_DIR)/$(CONFIG)" ]; then \
+		CONFIG_PATH="$(CONFIG)"; \
+	else \
+		echo "Error: Config file not found: $(CONFIG)"; \
+		echo "Try: make pdf-report CONFIG=config.example.json"; \
+		exit 1; \
+	fi; \
+	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/python -m pdf_generator.cli.main $$CONFIG_PATH
+
+pdf-config:
+	@echo "Creating example configuration..."
+	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/python -m pdf_generator.cli.create_config
+
+pdf-demo:
+	@echo "Running configuration system demo..."
+	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/python -m pdf_generator.cli.demo
+
+# Convenience alias
+pdf: pdf-report
+
+clean-python:
+	@echo "Cleaning PDF generator outputs..."
+	rm -rf $(PDF_DIR)/output/*.pdf
+	rm -rf $(PDF_DIR)/output/*.tex
+	rm -rf $(PDF_DIR)/output/*.svg
+	rm -rf $(PDF_DIR)/.pytest_cache
+	rm -rf $(PDF_DIR)/htmlcov
+	rm -rf $(PDF_DIR)/.coverage
+	rm -rf $(PDF_DIR)/pdf_generator/**/__pycache__
+	@echo "✓ Cleaned"
 
 # =============================================================================
-# API Script Shortcuts
+# DEPLOYMENT
+# =============================================================================
+
+.PHONY: setup-radar
+
+setup-radar:
+	@if [ ! -f "app-radar-linux-arm64" ]; then \
+		echo "Error: app-radar-linux-arm64 not found!"; \
+		echo "Run 'make build-radar-linux' first."; \
+		exit 1; \
+	fi
+	@echo "Setting up velocity.report server on this host..."
+	@echo "This will:"
+	@echo "  1. Install binary to /usr/local/bin/velocity-report"
+	@echo "  2. Create service user and working directory"
+	@echo "  3. Install and start systemd service"
+	@echo ""
+	@sudo ./scripts/setup-radar-host.sh
+
+# =============================================================================
+# UTILITIES
+# =============================================================================
+
+.PHONY: log-go-tail log-go-cat
+
+log-go-tail:
+	@# Tail the most recent velocity log file in logs/ without building or starting anything
+	@if [ -d logs ] && [ $$(ls -1 logs/velocity-*.log 2>/dev/null | wc -l) -gt 0 ]; then \
+		latest=$$(ls -1t logs/velocity-*.log 2>/dev/null | head -n1); \
+		echo "Tailing $$latest"; \
+		tail -F "$$latest"; \
+	else \
+		echo "No logs found in logs/ (try: make dev-go)"; exit 1; \
+	fi
+
+log-go-cat:
+	@# Cat the entire most recent velocity log file (can be piped to grep, etc.)
+	@if [ -d logs ] && [ $$(ls -1 logs/velocity-*.log 2>/dev/null | wc -l) -gt 0 ]; then \
+		latest=$$(ls -1t logs/velocity-*.log 2>/dev/null | head -n1); \
+		cat "$$latest"; \
+	else \
+		echo "No logs found in logs/ (try: make dev-go)"; exit 1; \
+	fi
+
+# =============================================================================
+# DATA VISUALIZATION
+# =============================================================================
+
+.PHONY: plot-noise-sweep plot-multisweep plot-noise-buckets stats-live stats-pcap
+
+VENV_PYTHON = .venv/bin/python3
+
+# Noise sweep line plot (neighbor=1, closeness=2.5 by default)
+plot-noise-sweep:
+	@[ -z "$(FILE)" ] && echo "Usage: make plot-noise-sweep FILE=data.csv [OUT=plot.png]" && exit 1 || true
+	@[ ! -f "$(FILE)" ] && echo "File not found: $(FILE)" && exit 1 || true
+	$(VENV_PYTHON) data/multisweep-graph/plot_noise_sweep.py --file "$(FILE)" \
+		--out "$${OUT:-noise-sweep.png}" --neighbor $${NEIGHBOR:-1} --closeness $${CLOSENESS:-2.5}
+
+# Multi-sweep grid (neighbor=1 by default)
+plot-multisweep:
+	@[ -z "$(FILE)" ] && echo "Usage: make plot-multisweep FILE=data.csv [OUT=plot.png]" && exit 1 || true
+	@[ ! -f "$(FILE)" ] && echo "File not found: $(FILE)" && exit 1 || true
+	$(VENV_PYTHON) data/multisweep-graph/plot_multisweep.py --file "$(FILE)" \
+		--out "$${OUT:-multisweep.png}" --neighbor $${NEIGHBOR:-1}
+
+# Per-noise bar charts (neighbor=1, closeness=2.5 by default)
+plot-noise-buckets:
+	@[ -z "$(FILE)" ] && echo "Usage: make plot-noise-buckets FILE=data.csv [OUT_DIR=plots/]" && exit 1 || true
+	@[ ! -f "$(FILE)" ] && echo "File not found: $(FILE)" && exit 1 || true
+	$(VENV_PYTHON) data/multisweep-graph/plot_noise_buckets.py --file "$(FILE)" \
+		--out-dir "$${OUT_DIR:-noise-plots}" --neighbor $${NEIGHBOR:-1} --closeness $${CLOSENESS:-2.5}
+
+# Live grid stats - periodic snapshots from running lidar system
+# Usage: make stats-live [INTERVAL=10] [DURATION=60]
+stats-live:
+	@echo "Starting live lidar server..."
+	@$(MAKE) dev-go-lidar
+	@sleep 2
+	@echo "Capturing live grid snapshots..."
+	$(VENV_PYTHON) tools/grid-heatmap/plot_grid_heatmap.py --interval $${INTERVAL:-30} $${DURATION:+--duration $$DURATION}
+
+# PCAP replay grid stats - periodic snapshots during PCAP replay
+# Usage: make stats-pcap PCAP=file.pcap [INTERVAL=5]
+stats-pcap:
+	@[ -z "$(PCAP)" ] && echo "Usage: make stats-pcap PCAP=file.pcap [INTERVAL=5]" && exit 1 || true
+	@[ ! -f "$(PCAP)" ] && echo "PCAP file not found: $(PCAP)" && exit 1 || true
+	@echo "Capturing PCAP replay snapshots via runtime data source switching..."
+	$(VENV_PYTHON) tools/grid-heatmap/plot_grid_heatmap.py --pcap "$(PCAP)" --interval $${INTERVAL:-5}
+
+# =============================================================================
+# API SHORTCUTS (LiDAR HTTP API)
 # =============================================================================
 
 .PHONY: api-grid-status api-grid-reset api-grid-heatmap \
@@ -473,7 +533,7 @@ lint: lint-go lint-python lint-web
         api-acceptance api-acceptance-reset \
         api-params api-params-set \
         api-persist api-export-snapshot api-export-next-frame \
-        api-start-pcap api-stop-pcap
+        api-status api-start-pcap api-stop-pcap api-switch-data-source
 
 # Grid endpoints
 api-grid-status:
