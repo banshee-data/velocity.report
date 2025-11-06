@@ -11,9 +11,10 @@ Users can configure and test radar serial ports through a web interface instead 
 1. **Database Schema** - Store serial port configurations in SQLite
 2. **API Endpoints** - REST API for CRUD operations and testing
 3. **Serial Testing** - Validate port connectivity and auto-detect baud rate
-4. **Web UI** - User-friendly interface at `/settings/serial`
-5. **Server Integration** - Load configs from DB at startup
-6. **Backward Compatible** - CLI flags still work
+4. **Device Discovery** - List unassigned serial devices and auto-detect connected sensors
+5. **Web UI** - User-friendly interface at `/settings/serial`
+6. **Server Integration** - Load configs from DB at startup
+7. **Backward Compatible** - CLI flags still work
 
 ## Implementation Phases
 
@@ -25,15 +26,18 @@ Users can configure and test radar serial ports through a web interface instead 
 
 ### Phase 2: API Endpoints (3-4 days)
 - `/api/serial/configs` - CRUD operations
+- `/api/serial/devices` - Enumerate available serial paths (excludes ones already configured)
 - `/api/serial/test` - Test connection
-- `/api/serial/detect-baud` - Auto-detect baud rate
+- `/api/serial/auto-detect` - Find connected device + baud
+- `/api/serial/detect-baud` - Auto-detect baud rate for known port
 - Unit and integration tests
 
 ### Phase 3: Web UI (4-5 days)
 - Configuration list page
 - Edit/create modal
 - Test connection UI
-- Auto-detect button
+- Device detection workflow (Detect Device button + filtered port dropdown)
+- Auto-detect baud button
 - User documentation
 
 ### Phase 4: Multi-Sensor (Future)
@@ -79,9 +83,11 @@ CREATE TABLE IF NOT EXISTS radar_serial_config (
 - `POST /api/serial/configs` - Create configuration (sensor_model validated against CHECK constraint)
 - `PUT /api/serial/configs/:id` - Update configuration
 - `DELETE /api/serial/configs/:id` - Delete configuration
+- `GET /api/serial/devices` - List available serial devices (skips any port_path already in `radar_serial_config`)
 - `GET /api/serial/models` - List available sensor models (from application code)
 - `POST /api/serial/test` - Test serial port connection (with auto-correct baud option)
-- `POST /api/serial/detect-baud` - Auto-detect baud rate
+- `POST /api/serial/auto-detect` - Probe all unassigned devices to find connected OPS243 sensors
+- `POST /api/serial/detect-baud` - Auto-detect baud rate for specified port
 
 ## Testing Algorithm (FR3)
 
@@ -102,6 +108,14 @@ All command responses are logged, including both JSON and non-JSON formats. This
 - Query commands like `I?` return non-JSON text (e.g., "19200")
 - Device may not be in JSON mode before initialization
 - Raw responses provide diagnostic information for troubleshooting
+
+## Auto-Detection (FR4)
+
+1. `GET /api/serial/devices` enumerates `/dev/tty*` and `/dev/serial*` entries, removes anything already saved in `radar_serial_config`, and returns USB metadata for labeling
+2. `POST /api/serial/auto-detect` iterates through the remaining device paths, probing each at common baud rates using safe commands (`??`, `I?`)
+3. On success, returns the detected `port_path`, `detected_baud_rate`, inferred `sensor_model`, and raw responses for diagnostics
+4. On failure, reports the ports tested and the ones excluded because they are already assigned, along with troubleshooting suggestions
+5. Users can still call `POST /api/serial/detect-baud` when only the baud rate needs to be identified for a known port
 
 ## File Locations
 

@@ -269,7 +269,34 @@ var SupportedSensorModels = map[string]SensorModel{
    - **Path:** `/api/serial/configs/:id`
    - **Response:** `204 No Content` on success
 
-6. **List Sensor Models**
+6. **List Available Serial Devices**
+   - **Method:** `GET`
+   - **Path:** `/api/serial/devices`
+   - **Response:** (Only includes device paths that are not already assigned to a saved configuration)
+     ```json
+     [
+       {
+         "port_path": "/dev/ttyUSB0",
+         "friendly_name": "OPS243-A (FTDI)",
+         "vendor_id": "0403",
+         "product_id": "6001",
+         "last_seen": 1699123901
+       },
+       {
+         "port_path": "/dev/ttyACM0",
+         "friendly_name": "OPS243-C (CDC)",
+         "vendor_id": "2A19",
+         "product_id": "5443",
+         "last_seen": 1699123895
+       }
+     ]
+     ```
+   - **Notes:**
+     - Enumerates `/dev/tty*` and `/dev/serial*` devices via udev/sysfs
+     - Filters out any `port_path` already present in `radar_serial_config`
+     - Includes basic USB metadata (vendor/product) when available for UI labeling
+
+7. **List Sensor Models**
    - **Method:** `GET`
    - **Path:** `/api/serial/models`
    - **Response:** (Returns sensor models from application code)
@@ -402,48 +429,87 @@ var SupportedSensorModels = map[string]SensorModel{
 - Log all responses (JSON and non-JSON) for diagnostics without failing the test
 - Non-JSON responses are expected and valid for certain commands (e.g., `I?` returns plain text)
 
-#### FR4: Baud Rate Auto-Detection
+#### FR4: Serial Auto-Detection (Port + Baud)
 
-**Requirement:** Automatically detect correct baud rate for connected device
+**Requirement:** Help users find connected radar devices without guessing port paths or baud rates
 
-**Endpoint:**
+**Endpoints:**
 
-- **Method:** `POST`
-- **Path:** `/api/serial/detect-baud`
-- **Body:**
-  ```json
-  {
-    "port_path": "/dev/ttySC1",
-    "timeout_seconds": 10
-  }
-  ```
-- **Response:**
-  ```json
-  {
-    "success": true,
-    "port_path": "/dev/ttySC1",
-    "detected_baud_rate": 19200,
-    "test_duration_ms": 1543,
-    "rates_tested": [9600, 19200, 38400, 57600, 115200],
-    "message": "Detected working baud rate: 19200",
-    "sample_data": "{\"speed\": 0.0, \"magnitude\": 12, ...}"
-  }
-  ```
+1. **Auto-Detect Connected Device**
+   - **Method:** `POST`
+   - **Path:** `/api/serial/auto-detect`
+   - **Body:**
+     ```json
+     {
+       "candidate_models": ["ops243-a", "ops243-c"],
+       "timeout_seconds": 15
+     }
+     ```
+   - **Response (Success):**
+     ```json
+     {
+       "success": true,
+       "port_path": "/dev/ttyUSB0",
+       "detected_baud_rate": 19200,
+       "sensor_model": "ops243-c",
+       "raw_responses": [
+         {"command": "??", "response": "OPS243-C Ready", "is_json": false},
+         {"command": "I?", "response": "19200", "is_json": false}
+       ],
+       "ports_tested": ["/dev/ttyUSB0", "/dev/ttyACM0"],
+       "excluded_assigned_ports": ["/dev/ttySC1"],
+       "message": "Detected OPS243-C on /dev/ttyUSB0 at 19200 baud"
+     }
+     ```
+   - **Response (Failure):**
+     ```json
+     {
+       "success": false,
+       "ports_tested": ["/dev/ttyUSB0"],
+       "excluded_assigned_ports": ["/dev/ttySC1"],
+       "error": "No responsive OPS243 devices found",
+       "suggestion": "Check cabling and ensure the radar is powered on"
+     }
+     ```
+
+2. **Auto-Detect Baud Rate for Known Port**
+   - **Method:** `POST`
+   - **Path:** `/api/serial/detect-baud`
+   - **Body:**
+     ```json
+     {
+       "port_path": "/dev/ttySC1",
+       "timeout_seconds": 10
+     }
+     ```
+   - **Response:**
+     ```json
+     {
+       "success": true,
+       "port_path": "/dev/ttySC1",
+       "detected_baud_rate": 19200,
+       "test_duration_ms": 1543,
+       "rates_tested": [9600, 19200, 38400, 57600, 115200],
+       "message": "Detected working baud rate: 19200",
+       "sample_data": "{\"speed\": 0.0, \"magnitude\": 12, ...}"
+     }
+     ```
 
 **Auto-Detection Algorithm:**
 
-1. **Test Common Rates:** Iterate through [9600, 19200, 38400, 57600, 115200]
-2. **For Each Rate:**
-   - Open port at rate
-   - Send query command (`??`)
-   - Wait for valid JSON response (timeout: 2 seconds per rate)
-   - If valid response received, return that rate
-   - Close port and try next rate
-3. **Return Results:** First working rate or failure if none work
+1. **Enumerate Devices:** Call `GET /api/serial/devices` to retrieve all available `/dev/tty*` paths not already stored in `radar_serial_config`
+2. **Prioritize Likely Matches:** Sort by USB metadata (vendor/product IDs known for OPS243) and stable names (`/dev/serial/by-id/*`)
+3. **Probe Each Port:**
+   - For each unassigned port, iterate through [9600, 19200, 38400, 57600, 115200]
+   - Send safe query commands (`??`, `I?`) without changing device state
+   - Record raw responses (JSON and non-JSON)
+   - Detect sensor model based on response signatures and include in result
+4. **Return Results:** First working combination wins; include diagnostic data for UI display
+5. **Handle Failure:** If no port responds, return actionable suggestion and the list of ports tested/excluded
 
 **Implementation Location:** `internal/api/serial_test.go` (same file as FR3)
 
-**UX Benefit:** Users can click "Auto-Detect" instead of manually trying different baud rates
+**UX Benefit:** Users can click "Detect Device" to populate the form automatically, or "Auto-Detect Baud" when the port is already known
 
 #### FR5: Web UI for Serial Configuration
 
@@ -461,14 +527,18 @@ var SupportedSensorModels = map[string]SensorModel{
 2. **Configuration Editor (Modal/Drawer)**
    - Form fields:
      - Name (text, required, unique)
-     - Port Path (text, required, e.g., `/dev/ttySC1`)
+     - Port Path (select + manual override, required)
+       - Default dropdown options come from `GET /api/serial/devices`
+       - Excludes any paths already assigned to another configuration
+       - Allows manual entry for advanced cases (validation still enforces `/dev/tty*` / `/dev/serial*`)
      - Baud Rate (select: 9600, 19200, 38400, 57600, 115200)
      - Description (textarea, optional)
      - Sensor Model (select from `/api/serial/models`, shows capabilities)
      - Advanced: Data Bits, Stop Bits, Parity (defaults to 8N1)
    - Buttons:
      - "Test Connection" - Runs FR3 test with auto-correct option
-     - "Auto-Detect Baud" - Runs FR4 detection
+     - "Detect Device" - Calls `/api/serial/auto-detect` and populates port + baud + model on success
+     - "Auto-Detect Baud" - Runs FR4 baud detection when port is chosen manually
      - "Save" - Creates/updates configuration
      - "Cancel" - Discards changes
 
@@ -638,10 +708,12 @@ Sensor models are defined in the application code (as shown in the rationale sec
 
 **Deliverables:**
 1. `/api/serial/configs` CRUD endpoints (FR2)
-2. `/api/serial/test` testing endpoint (FR3)
-3. `/api/serial/detect-baud` auto-detection endpoint (FR4)
-4. Unit tests for all endpoints
-5. Integration tests for serial port testing
+2. `/api/serial/devices` discovery endpoint with filtering (FR2)
+3. `/api/serial/test` testing endpoint (FR3)
+4. `/api/serial/auto-detect` device/baud discovery endpoint (FR4)
+5. `/api/serial/detect-baud` fallback endpoint for known ports (FR4)
+6. Unit tests for all endpoints
+7. Integration tests for serial port testing
 
 **Testing:**
 - API endpoint tests with mock serial ports
@@ -660,9 +732,10 @@ Sensor models are defined in the application code (as shown in the rationale sec
 2. Configuration list view
 3. Edit/Create modal with form validation
 4. Test connection button with results display
-5. Auto-detect baud rate functionality
-6. Delete confirmation dialogs
-7. User documentation
+5. Device discovery workflow (Detect Device button + available ports dropdown)
+6. Auto-detect baud rate functionality
+7. Delete confirmation dialogs
+8. User documentation
 
 **Testing:**
 - UI component tests
