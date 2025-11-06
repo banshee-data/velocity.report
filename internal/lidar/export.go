@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+
+	"github.com/banshee-data/velocity.report/internal/security"
 )
 
 // PointASC is a cartesian point with optional extra columns for export
@@ -24,6 +26,13 @@ func ExportPointsToASC(points []PointASC, filePath string, extraHeader string) e
 	if len(points) == 0 {
 		return fmt.Errorf("no points to export")
 	}
+
+	// Validate path to prevent path traversal attacks
+	if err := security.ValidateExportPath(filePath); err != nil {
+		log.Printf("Security: rejected export path %s: %v", filePath, err)
+		return fmt.Errorf("invalid export path: %w", err)
+	}
+
 	f, err := os.Create(filePath)
 	if err != nil {
 		return err
@@ -61,6 +70,12 @@ func ExportPointsToASC(points []PointASC, filePath string, extraHeader string) e
 func ExportBgSnapshotToASC(snap *BgSnapshot, outPath string, ringElevations []float64) error {
 	if snap == nil {
 		return fmt.Errorf("nil snapshot")
+	}
+
+	// Validate path to prevent path traversal attacks
+	if err := security.ValidateExportPath(outPath); err != nil {
+		log.Printf("Security: rejected export path %s: %v", outPath, err)
+		return fmt.Errorf("invalid export path: %w", err)
 	}
 	// Decode grid blob
 	gz, err := gzip.NewReader(bytes.NewReader(snap.GridBlob))

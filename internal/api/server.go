@@ -17,6 +17,7 @@ import (
 
 	radar "github.com/banshee-data/velocity.report"
 	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/security"
 	"github.com/banshee-data/velocity.report/internal/serialmux"
 	"github.com/banshee-data/velocity.report/internal/units"
 )
@@ -1044,10 +1045,8 @@ func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, reportID
 	}
 
 	// Validate path is within pdf-generator directory (security check)
-	cleanPath := filepath.Clean(filePath)
-	relPath, err := filepath.Rel(pdfDir, cleanPath)
-	if err != nil || relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) || filepath.IsAbs(relPath) {
-		log.Printf("Security: attempted path traversal to %s", filePath)
+	if err := security.ValidatePathWithinDirectory(filePath, pdfDir); err != nil {
+		log.Printf("Security: rejected download path %s: %v", filePath, err)
 		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusForbidden, "Invalid file path")
 		return
@@ -1162,7 +1161,15 @@ func (s *Server) Start(ctx context.Context, listen string, devMode bool) error {
 		tryServeFile := func(requestedPath string) bool {
 			if devMode {
 				// Dev mode: serve from filesystem
-				fullPath := filepath.Join("./web/build", requestedPath)
+				buildDir := "./web/build"
+				fullPath := filepath.Join(buildDir, requestedPath)
+
+				// Security: Validate path is within build directory to prevent path traversal
+				if err := security.ValidatePathWithinDirectory(fullPath, buildDir); err != nil {
+					log.Printf("Security: rejected path %s: %v", fullPath, err)
+					return false
+				}
+
 				if _, err := os.Stat(fullPath); err == nil {
 					http.ServeFile(w, r, fullPath)
 					return true
