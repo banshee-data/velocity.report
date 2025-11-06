@@ -1,6 +1,6 @@
 module github.com/banshee-data/velocity.report
 
-go 1.24.4
+go 1.25.3
 
 require (
 	github.com/google/go-cmp v0.7.0
@@ -9,7 +9,7 @@ require (
 	go.bug.st/serial v1.6.4
 	gonum.org/v1/gonum v0.16.0
 	modernc.org/sqlite v1.40.0
-	tailscale.com v1.87.0-pre.0.20250728175739-4df02bbb486d
+	tailscale.com v1.91.0-pre
 )
 
 require (
