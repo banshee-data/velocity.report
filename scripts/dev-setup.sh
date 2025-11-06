@@ -399,7 +399,6 @@ create_example_configs() {
         print_success "config.example.json already exists"
     fi
 }
-}
 
 # Print next steps
 print_next_steps() {
