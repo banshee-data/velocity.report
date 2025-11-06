@@ -6,7 +6,9 @@ const config = {
 	preprocess: vitePreprocess(),
 
 	kit: {
-		adapter: adapter(),
+		adapter: adapter({
+			fallback: 'index.html' // Enable SPA mode for dynamic routes
+		}),
 		paths: {
 			base: '/app'
 		},
