@@ -1161,7 +1161,11 @@ func (s *Server) Start(ctx context.Context, listen string, devMode bool) error {
 		tryServeFile := func(requestedPath string) bool {
 			if devMode {
 				// Dev mode: serve from filesystem
-				buildDir := "./web/build"
+				buildDir, err := filepath.Abs("./web/build")
+				if err != nil {
+					log.Printf("Security: failed to resolve build directory: %v", err)
+					return false
+				}
 				fullPath := filepath.Join(buildDir, requestedPath)
 
 				// Security: Validate path is within build directory to prevent path traversal
