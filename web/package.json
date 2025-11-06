@@ -23,7 +23,7 @@
 	"devDependencies": {
 		"@eslint/compat": "^1.4.0",
 		"@eslint/js": "^9.39.1",
-		"@layerstack/tailwind": "2.0.0-next.17",
+		"@layerstack/tailwind": "2.0.0-next.19",
 		"@mdi/js": "^7.4.47",
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.48.4",
