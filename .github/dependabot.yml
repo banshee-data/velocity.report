@@ -14,14 +14,14 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 10
 
-  # Python dependencies (DEPRECATED:, see docs/python-venv-consolidation-plan.md )
+  # [DEPRECATED] Python dependencies @TODO: remove, see docs/python-venv-consolidation-plan.md
   - package-ecosystem: "pip"
     directory: "/tools/pdf-generator"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
 
-  # Python dependencies (DEPRECATED:, see docs/python-venv-consolidation-plan.md )
+  # [DEPRECATED] Python dependencies @TODO: remove, see docs/python-venv-consolidation-plan.md
   - package-ecosystem: "pip"
     directory: "/data/multisweep-graph"
     schedule:
