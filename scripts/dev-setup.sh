@@ -249,8 +249,6 @@ setup_python() {
 
     print_step "Setting up Python development environment"
 
-    cd tools/pdf-generator
-
     # Check Python installation
     if ! command_exists python3; then
         print_error "Python 3 is not installed"
@@ -268,7 +266,7 @@ setup_python() {
     local python_version=$(python3 --version)
     print_success "Python installed: $python_version"
 
-    # Create virtual environment
+    # Create virtual environment at repository root
     if [ ! -d ".venv" ]; then
         run_with_log "Creating Python virtual environment" python3 -m venv .venv
     else
@@ -285,9 +283,6 @@ setup_python() {
     if [ -f "requirements.txt" ]; then
         run_with_log "Installing python requirements" pip install -r requirements.txt
     fi
-
-    # Install development dependencies
-    run_with_log "Installing python development tools" pip install pytest pytest-cov black ruff mypy pre-commit
 
     # Check LaTeX installation
     print_step "Checking LaTeX installation"
@@ -307,7 +302,6 @@ setup_python() {
     fi
 
     deactivate
-    cd ../..
 }
 
 # Setup Web environment
@@ -397,17 +391,14 @@ setup_database() {
 create_example_configs() {
     print_step "Creating example configuration files"
 
-    cd tools/pdf-generator
-
-    if [ ! -f "config.example.json" ]; then
+    if [ ! -f "tools/pdf-generator/config.example.json" ]; then
         source .venv/bin/activate
-    run_with_log "Generating config.example.json" python -m pdf_generator.cli.create_config --output config.example.json
+        run_with_log "Generating config.example.json" bash -c "cd tools/pdf-generator && python -m pdf_generator.cli.create_config --output config.example.json"
         deactivate
     else
         print_success "config.example.json already exists"
     fi
-
-    cd ../..
+}
 }
 
 # Print next steps
@@ -430,8 +421,8 @@ print_next_steps() {
 
     if [ "$SKIP_PYTHON" = false ]; then
         echo -e "${BLUE}Python PDF Generator:${NC}"
-        echo "  cd tools/pdf-generator"
         echo "  source .venv/bin/activate"
+        echo "  cd tools/pdf-generator"
         echo "  python -m pdf_generator.cli.create_config --output my-config.json"
         echo "  # Edit my-config.json with your values"
         echo "  python internal/report/query_data/get_stats.py my-config.json"

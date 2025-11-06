@@ -773,10 +773,10 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 
 	// Path to the PDF generator - allow overriding the python binary via
 	// PDF_GENERATOR_PYTHON for tests or deployment customization.
-	// Default location (repo/tools/pdf-generator/.venv/bin/python) is used when
+	// Default location (repo/.venv/bin/python) is used when
 	// the env var is unset.
 	pdfDir := filepath.Join(repoRoot, "tools", "pdf-generator")
-	defaultPythonBin := filepath.Join(pdfDir, ".venv", "bin", "python")
+	defaultPythonBin := filepath.Join(repoRoot, ".venv", "bin", "python")
 
 	pythonBin := os.Getenv("PDF_GENERATOR_PYTHON")
 	if pythonBin == "" {

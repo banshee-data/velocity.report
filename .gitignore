@@ -12,6 +12,10 @@ static/
 tools/*/output/*
 web/.svelte-kit/*
 
+# Python virtual environments
+.venv/
+venv/
+
 __pycache__/*
 matplotlib/__pycache__/*
 tools/__pycache__/*

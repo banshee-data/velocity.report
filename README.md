@@ -205,11 +205,35 @@ GOOS=linux GOARCH=arm64 go build -o app-radar-linux-arm64 ./cmd/radar
 
 ### Python PDF Generator Development
 
+The repository uses a **single shared Python virtual environment** for all Python tools (PDF generator, data visualization, analysis scripts).
+
+**Setup:**
+
 ```sh
-cd tools/pdf-generator
-make install-python   # Create venv, install dependencies
+make install-python  # Creates .venv and installs all dependencies
+```
+
+**Activate manually (optional):**
+
+```sh
+source .venv/bin/activate
+```
+
+**What's installed:**
+
+- PDF generation: PyLaTeX, reportlab
+- Data analysis: pandas, numpy, scipy
+- Visualization: matplotlib, seaborn
+- Testing: pytest, pytest-cov
+- Formatting: black, ruff
+
+**Run PDF Generator:**
+
+```sh
 make pdf-test         # Run test suite
 make pdf-demo         # Run interactive demo
+make pdf-config       # Create config template
+make pdf-report CONFIG=config.json  # Generate PDF report
 ```
 
 ### Pre-commit Hooks
