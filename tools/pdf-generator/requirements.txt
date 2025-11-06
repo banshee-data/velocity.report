@@ -20,7 +20,7 @@ iniconfig==2.1.0
     # via pytest
 kiwisolver==1.4.9
     # via matplotlib
-matplotlib==3.10.6
+matplotlib==3.10.7
     # via
     #   -r requirements.in
     #   seaborn
