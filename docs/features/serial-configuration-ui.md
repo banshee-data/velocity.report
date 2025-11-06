@@ -104,20 +104,63 @@ type SerialPorter interface {
 **Schema Design:**
 
 ```sql
+-- Sensor models reference table with model-specific capabilities and commands
+CREATE TABLE IF NOT EXISTS radar_sensor_models (
+       id INTEGER PRIMARY KEY AUTOINCREMENT
+     , model_name TEXT NOT NULL UNIQUE
+     , has_doppler INTEGER NOT NULL DEFAULT 1
+     , has_fmcw INTEGER NOT NULL DEFAULT 0
+     , has_distance INTEGER NOT NULL DEFAULT 0
+     , default_baud_rate INTEGER NOT NULL DEFAULT 19200
+     , init_commands TEXT NOT NULL
+     , description TEXT
+     );
+
+-- Insert known sensor models
+INSERT INTO radar_sensor_models (
+       model_name
+     , has_doppler
+     , has_fmcw
+     , has_distance
+     , default_baud_rate
+     , init_commands
+     , description
+     )
+VALUES (
+       'OmniPreSense OPS243-A'
+     , 1
+     , 0
+     , 0
+     , 19200
+     , 'AX,OJ,OS,OM,OH,OC'
+     , 'Doppler radar with speed measurement only'
+     ),
+     (
+       'OmniPreSense OPS243-C'
+     , 1
+     , 1
+     , 1
+     , 19200
+     , 'AX,OJ,OS,oD,OM,oM,OH,OC'
+     , 'FMCW radar with both speed and distance measurement'
+     );
+
+-- Serial port configurations table
 CREATE TABLE IF NOT EXISTS radar_serial_config (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
-    port_path TEXT NOT NULL,
-    baud_rate INTEGER NOT NULL DEFAULT 19200,
-    data_bits INTEGER NOT NULL DEFAULT 8,
-    stop_bits INTEGER NOT NULL DEFAULT 1,
-    parity TEXT NOT NULL DEFAULT 'N',
-    enabled INTEGER NOT NULL DEFAULT 1,
-    description TEXT,
-    sensor_model TEXT DEFAULT 'OmniPreSense OPS243-A',
-    created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now')),
-    updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
-);
+       id INTEGER PRIMARY KEY AUTOINCREMENT
+     , name TEXT NOT NULL UNIQUE
+     , port_path TEXT NOT NULL
+     , baud_rate INTEGER NOT NULL DEFAULT 19200
+     , data_bits INTEGER NOT NULL DEFAULT 8
+     , stop_bits INTEGER NOT NULL DEFAULT 1
+     , parity TEXT NOT NULL DEFAULT 'N'
+     , enabled INTEGER NOT NULL DEFAULT 1
+     , description TEXT
+     , sensor_model_id INTEGER NOT NULL DEFAULT 1
+     , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+     , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+     , FOREIGN KEY (sensor_model_id) REFERENCES radar_sensor_models (id)
+     );
 
 CREATE INDEX IF NOT EXISTS idx_radar_serial_config_enabled 
     ON radar_serial_config (enabled);
@@ -132,36 +175,39 @@ END;
 
 -- Insert default configuration for HAT (Raspberry Pi header)
 INSERT INTO radar_serial_config (
-    name, 
-    port_path, 
-    baud_rate, 
-    data_bits, 
-    stop_bits, 
-    parity, 
-    enabled, 
-    description,
-    sensor_model
-) VALUES (
-    'Default HAT', 
-    '/dev/ttySC1', 
-    19200, 
-    8, 
-    1, 
-    'N', 
-    1,
-    'Default serial configuration for Raspberry Pi HAT (SC16IS762)',
-    'OmniPreSense OPS243-A'
-);
+       name
+     , port_path
+     , baud_rate
+     , data_bits
+     , stop_bits
+     , parity
+     , enabled
+     , description
+     , sensor_model_id
+     )
+VALUES (
+       'Default HAT'
+     , '/dev/ttySC1'
+     , 19200
+     , 8
+     , 1
+     , 'N'
+     , 1
+     , 'Default serial configuration for Raspberry Pi HAT (SC16IS762)'
+     , 1
+     );
 ```
 
 **Rationale:**
+- **Sensor Models Table:** Reference table defining capabilities and initialization commands for each radar model (OPS243-A vs OPS243-C require different commands)
+- **Model-Specific Init:** OPS243-A uses Doppler only (`OS,OM`), OPS243-C adds FMCW distance reporting (`oD,oM`)
 - **Serial Settings (8N1):** Standard configuration for OPS243A radar (8 data bits, No parity, 1 stop bit)
 - **Multiple Configs:** Support future multi-radar scenarios
 - **Enabled Flag:** Allow disabling sensors without deletion
 - **Default HAT Config:** `/dev/ttySC1` is the SC16IS762 HAT default for Raspberry Pi
-- **Sensor Model:** Track which radar model for future sensor-specific tuning
+- **Foreign Key to Models:** `sensor_model_id` references the models table for validation and initialization
 
-**Migration File:** `data/migrations/YYYYMMDD_create_radar_serial_config.sql`
+**Migration File:** `data/migrations/20251106_create_radar_serial_config.sql`
 
 #### FR2: Go API Endpoints for Serial Configuration
 
@@ -185,7 +231,13 @@ INSERT INTO radar_serial_config (
          "parity": "N",
          "enabled": true,
          "description": "Default serial configuration for Raspberry Pi HAT",
-         "sensor_model": "OmniPreSense OPS243-A",
+         "sensor_model": {
+           "id": 1,
+           "model_name": "OmniPreSense OPS243-A",
+           "has_doppler": true,
+           "has_fmcw": false,
+           "has_distance": false
+         },
          "created_at": 1699123456,
          "updated_at": 1699123456
        }
@@ -207,7 +259,7 @@ INSERT INTO radar_serial_config (
        "port_path": "/dev/ttyUSB0",
        "baud_rate": 19200,
        "description": "USB-connected OPS243A sensor",
-       "sensor_model": "OmniPreSense OPS243-A"
+       "sensor_model_id": 1
      }
      ```
    - **Response:** Created config object with assigned ID
@@ -222,6 +274,35 @@ INSERT INTO radar_serial_config (
    - **Method:** `DELETE`
    - **Path:** `/api/serial/configs/:id`
    - **Response:** `204 No Content` on success
+
+6. **List Sensor Models**
+   - **Method:** `GET`
+   - **Path:** `/api/serial/models`
+   - **Response:**
+     ```json
+     [
+       {
+         "id": 1,
+         "model_name": "OmniPreSense OPS243-A",
+         "has_doppler": true,
+         "has_fmcw": false,
+         "has_distance": false,
+         "default_baud_rate": 19200,
+         "init_commands": "AX,OJ,OS,OM,OH,OC",
+         "description": "Doppler radar with speed measurement only"
+       },
+       {
+         "id": 2,
+         "model_name": "OmniPreSense OPS243-C",
+         "has_doppler": true,
+         "has_fmcw": true,
+         "has_distance": true,
+         "default_baud_rate": 19200,
+         "init_commands": "AX,OJ,OS,oD,OM,oM,OH,OC",
+         "description": "FMCW radar with both speed and distance measurement"
+       }
+     ]
+     ```
 
 **Implementation Location:** `internal/api/serial_config.go` (new file)
 
@@ -247,7 +328,8 @@ INSERT INTO radar_serial_config (
     "data_bits": 8,
     "stop_bits": 1,
     "parity": "N",
-    "timeout_seconds": 5
+    "timeout_seconds": 5,
+    "auto_correct_baud": true
   }
   ```
 - **Response (Success):**
@@ -280,8 +362,12 @@ INSERT INTO radar_serial_config (
 2. **Send Command:** Send a safe query command (e.g., `??` for firmware version)
 3. **Wait for Response:** Read with timeout (default 5 seconds)
 4. **Parse Response:** Attempt to parse as JSON (OPS243A uses JSON mode)
-5. **Close Port:** Clean up connection
-6. **Return Results:** Success/failure with diagnostic information
+5. **Auto-Correct Baud Rate (Optional):** If `auto_correct_baud` is true and connection succeeds:
+   - Query current baud rate with `I?` command
+   - If device reports different rate than configured, update the configuration
+   - This handles cases where user issued `I1`, `I2`, `I4`, or `I5` commands manually
+6. **Close Port:** Clean up connection
+7. **Return Results:** Success/failure with diagnostic information
 
 **Diagnostic Suggestions:**
 
@@ -290,6 +376,15 @@ INSERT INTO radar_serial_config (
 - **Timeout:** "Device may be at wrong baud rate. Try 9600, 115200, or other common rates"
 - **Invalid response:** "Device responded but data is not valid JSON. Check sensor model"
 - **Baud rate mismatch:** If timeout at 19200, suggest testing other common rates
+- **Baud rate changed:** "Device reports different baud rate (detected via I? command). Configuration updated automatically."
+
+**Baud Rate Commands (OPS243 Series):**
+- `I1` - Set to 9,600 baud
+- `I2` - Set to 19,200 baud (default)
+- `I3` - Set to 57,600 baud
+- `I4` - Set to 115,200 baud
+- `I5` - Set to 230,400 baud
+- `I?` - Query current baud rate
 
 **Implementation Location:** `internal/api/serial_test.go` (new file)
 
@@ -361,10 +456,10 @@ INSERT INTO radar_serial_config (
      - Port Path (text, required, e.g., `/dev/ttySC1`)
      - Baud Rate (select: 9600, 19200, 38400, 57600, 115200)
      - Description (textarea, optional)
-     - Sensor Model (select: OPS243-A, OPS243-C, Custom)
+     - Sensor Model (select from `/api/serial/models`, shows capabilities)
      - Advanced: Data Bits, Stop Bits, Parity (defaults to 8N1)
    - Buttons:
-     - "Test Connection" - Runs FR3 test
+     - "Test Connection" - Runs FR3 test with auto-correct option
      - "Auto-Detect Baud" - Runs FR4 detection
      - "Save" - Creates/updates configuration
      - "Cancel" - Discards changes
@@ -431,16 +526,28 @@ port = flag.String("port", "/dev/ttySC1", "Serial port to use")
 - **Structure:**
   ```go
   type SerialConfig struct {
-      ID          int
-      Name        string
-      PortPath    string
-      BaudRate    int
-      DataBits    int
-      StopBits    int
-      Parity      string
-      Enabled     bool
-      Description string
-      SensorModel string
+      ID            int
+      Name          string
+      PortPath      string
+      BaudRate      int
+      DataBits      int
+      StopBits      int
+      Parity        string
+      Enabled       bool
+      Description   string
+      SensorModelID int
+      SensorModel   SensorModel
+  }
+  
+  type SensorModel struct {
+      ID             int
+      ModelName      string
+      HasDoppler     bool
+      HasFMCW        bool
+      HasDistance    bool
+      DefaultBaud    int
+      InitCommands   string  // Comma-separated commands
+      Description    string
   }
   ```
 

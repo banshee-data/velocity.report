@@ -51,20 +51,34 @@ Users can configure and test radar serial ports through a web interface instead 
 ## Database Schema (FR1)
 
 ```sql
+-- Sensor models reference table
+CREATE TABLE IF NOT EXISTS radar_sensor_models (
+       id INTEGER PRIMARY KEY AUTOINCREMENT
+     , model_name TEXT NOT NULL UNIQUE
+     , has_doppler INTEGER NOT NULL DEFAULT 1
+     , has_fmcw INTEGER NOT NULL DEFAULT 0
+     , has_distance INTEGER NOT NULL DEFAULT 0
+     , default_baud_rate INTEGER NOT NULL DEFAULT 19200
+     , init_commands TEXT NOT NULL
+     , description TEXT
+     );
+
+-- Serial port configurations table
 CREATE TABLE IF NOT EXISTS radar_serial_config (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
-    port_path TEXT NOT NULL,
-    baud_rate INTEGER NOT NULL DEFAULT 19200,
-    data_bits INTEGER NOT NULL DEFAULT 8,
-    stop_bits INTEGER NOT NULL DEFAULT 1,
-    parity TEXT NOT NULL DEFAULT 'N',
-    enabled INTEGER NOT NULL DEFAULT 1,
-    description TEXT,
-    sensor_model TEXT DEFAULT 'OmniPreSense OPS243-A',
-    created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now')),
-    updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
-);
+       id INTEGER PRIMARY KEY AUTOINCREMENT
+     , name TEXT NOT NULL UNIQUE
+     , port_path TEXT NOT NULL
+     , baud_rate INTEGER NOT NULL DEFAULT 19200
+     , data_bits INTEGER NOT NULL DEFAULT 8
+     , stop_bits INTEGER NOT NULL DEFAULT 1
+     , parity TEXT NOT NULL DEFAULT 'N'
+     , enabled INTEGER NOT NULL DEFAULT 1
+     , description TEXT
+     , sensor_model_id INTEGER NOT NULL DEFAULT 1
+     , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+     , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+     , FOREIGN KEY (sensor_model_id) REFERENCES radar_sensor_models (id)
+     );
 ```
 
 ## API Endpoints (FR2-FR4)
@@ -74,7 +88,8 @@ CREATE TABLE IF NOT EXISTS radar_serial_config (
 - `POST /api/serial/configs` - Create configuration
 - `PUT /api/serial/configs/:id` - Update configuration
 - `DELETE /api/serial/configs/:id` - Delete configuration
-- `POST /api/serial/test` - Test serial port connection
+- `GET /api/serial/models` - List available sensor models
+- `POST /api/serial/test` - Test serial port connection (with auto-correct baud option)
 - `POST /api/serial/detect-baud` - Auto-detect baud rate
 
 ## Testing Algorithm (FR3)
@@ -83,12 +98,16 @@ CREATE TABLE IF NOT EXISTS radar_serial_config (
 2. Send safe query command (`??`)
 3. Wait for JSON response (5 second timeout)
 4. Validate response format
-5. Return success/failure with diagnostics
+5. Auto-correct baud rate if enabled (query with `I?` command)
+6. Return success/failure with diagnostics
+
+**Baud Rate Auto-Correction:**
+When `auto_correct_baud: true` is set in test request, the system queries the device's current baud rate using the `I?` command. If the device reports a different rate than configured (e.g., user manually issued `I1`, `I2`, `I4`, or `I5` commands), the configuration is automatically updated to match the device's actual setting.
 
 ## File Locations
 
 **Backend:**
-- Migration: `data/migrations/YYYYMMDD_create_radar_serial_config.sql`
+- Migration: `data/migrations/20251106_create_radar_serial_config.sql`
 - API handlers: `internal/api/serial_config.go`
 - Serial testing: `internal/api/serial_test.go`
 - Server changes: `cmd/radar/radar.go`
