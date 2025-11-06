@@ -16,7 +16,7 @@ fonttools==4.60.1
     # via matplotlib
 idna==3.11
     # via requests
-iniconfig==2.1.0
+iniconfig==2.3.0
     # via pytest
 kiwisolver==1.4.9
     # via matplotlib
