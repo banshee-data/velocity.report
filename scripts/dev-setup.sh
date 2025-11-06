@@ -393,7 +393,9 @@ create_example_configs() {
 
     if [ ! -f "tools/pdf-generator/config.example.json" ]; then
         source .venv/bin/activate
-        run_with_log "Generating config.example.json" bash -c "cd tools/pdf-generator && python -m pdf_generator.cli.create_config --output config.example.json"
+        cd tools/pdf-generator
+        run_with_log "Generating config.example.json" python -m pdf_generator.cli.create_config --output config.example.json
+        cd ../..
         deactivate
     else
         print_success "config.example.json already exists"
