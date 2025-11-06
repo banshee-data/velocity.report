@@ -4,7 +4,7 @@
 #
 #    pip-compile requirements.in
 #
-certifi==2025.8.3
+certifi==2025.10.5
     # via requests
 charset-normalizer==3.4.4
     # via requests
@@ -16,7 +16,7 @@ fonttools==4.60.1
     # via matplotlib
 idna==3.11
     # via requests
-iniconfig==2.1.0
+iniconfig==2.3.0
     # via pytest
 kiwisolver==1.4.9
     # via matplotlib
@@ -38,7 +38,7 @@ packaging==25.0
     # via
     #   matplotlib
     #   pytest
-pandas==2.3.2
+pandas==2.3.3
     # via
     #   -r requirements.in
     #   seaborn

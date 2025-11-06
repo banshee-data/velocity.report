@@ -23,7 +23,7 @@
 	"devDependencies": {
 		"@eslint/compat": "^1.4.0",
 		"@eslint/js": "^9.39.1",
-		"@layerstack/tailwind": "2.0.0-next.17",
+		"@layerstack/tailwind": "2.0.0-next.19",
 		"@mdi/js": "^7.4.47",
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.48.4",
@@ -50,11 +50,11 @@
 		"svelte-check": "^4.3.3",
 		"svelte-jester": "^5.0.0",
 		"svelte-ux": "2.0.0-next.21",
-		"tailwindcss": "^4.1.15",
+		"tailwindcss": "^4.1.17",
 		"ts-jest": "^29.4.5",
 		"typescript": "^5.9.3",
 		"typescript-eslint": "^8.46.2",
-		"vite": "^7.1.12"
+		"vite": "^7.2.1"
 	},
 	"pnpm": {
 		"onlyBuiltDependencies": [
