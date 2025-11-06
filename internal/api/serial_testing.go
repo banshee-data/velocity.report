@@ -24,16 +24,16 @@ type SerialTestRequest struct {
 
 // SerialTestResponse represents the response from testing serial port
 type SerialTestResponse struct {
-	Success         bool                   `json:"success"`
-	PortPath        string                 `json:"port_path"`
-	BaudRate        int                    `json:"baud_rate"`
-	TestDurationMS  int64                  `json:"test_duration_ms"`
-	BytesReceived   int                    `json:"bytes_received,omitempty"`
-	SampleData      string                 `json:"sample_data,omitempty"`
-	RawResponses    []SerialCommandResult  `json:"raw_responses,omitempty"`
-	Error           string                 `json:"error,omitempty"`
-	Message         string                 `json:"message"`
-	Suggestion      string                 `json:"suggestion,omitempty"`
+	Success        bool                  `json:"success"`
+	PortPath       string                `json:"port_path"`
+	BaudRate       int                   `json:"baud_rate"`
+	TestDurationMS int64                 `json:"test_duration_ms"`
+	BytesReceived  int                   `json:"bytes_received,omitempty"`
+	SampleData     string                `json:"sample_data,omitempty"`
+	RawResponses   []SerialCommandResult `json:"raw_responses,omitempty"`
+	Error          string                `json:"error,omitempty"`
+	Message        string                `json:"message"`
+	Suggestion     string                `json:"suggestion,omitempty"`
 }
 
 // SerialCommandResult represents a single command/response pair
