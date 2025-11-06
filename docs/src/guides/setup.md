@@ -335,14 +335,6 @@ Nice work! You've built a working traffic radar from scratch.
 
 **Keep it running**: The longer you log, the better your data. A week shows patterns. A month is compelling. Three months across different seasons? That's irrefutable evidence.
 
-**Ideas for expansion**:
-
-- **Multiple sensors**: Compare speeds on different streets or at different times
-- **GPS logging**: Track sensor location for mobile deployments
-- **Solar power**: Deploy in locations without electrical access (add a battery + solar panel)
-- **Data sharing**: Export anonymized datasets for traffic safety research
-- **Community network**: Coordinate with neighbors to build comprehensive coverage
-
 **Make it count**:
 
 You've got data now. Use it.
