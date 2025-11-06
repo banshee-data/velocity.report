@@ -20,11 +20,11 @@ Ever wonder how fast cars are really going past your house or down your kid's sc
 
 Here's a weekend project that fixes that.
 
-Using an off-the-shelf Doppler radar module (the same tech police use) and open-source software, you can build your own privacy-first traffic logger. No cameras, no license plates, no faces—just speed data, stored locally on a Raspberry Pi.
+Using an off-the-shelf Doppler radar module (the same tech police use) and open-source software, you can build your own privacy-first traffic logger. No cameras, no license plates—just speed data stored locally on a Raspberry Pi.
 
-Think of it as a science project meets civic engagement. You'll wire up some hardware, configure a sensor over serial, build a Go application, and end up with a live web dashboard showing real-time vehicle speeds. After a few days, generate a professional PDF report with industry-standard metrics.
+You'll wire up hardware, configure a sensor, and deploy a web dashboard showing real-time vehicle speeds. After collecting data for a few days or weeks, generate professional PDF reports with industry-standard traffic metrics.
 
-Whether you're a concerned parent, a local activist, or just someone who likes building useful things with a Pi and a soldering iron, this is a meaningful project with real-world impact.
+Whether you're a concerned parent, a local activist, or someone who likes building useful things, this is a meaningful project with real-world impact.
 
 ### **Why Speed Matters: The Physics of Safety**
 
@@ -54,14 +54,12 @@ Streets designed for 25 mph but driven at 40? That's not just a little faster: i
 
 By the end of this guide, you'll have:
 
-- A Raspberry Pi-based radar logger that captures vehicle speeds via Doppler radar
-- A SQLite database storing all detections locally (no cloud required)
-- A live web dashboard showing real-time speeds, histograms, and time-of-day patterns
-- The ability to generate professional PDF reports with traffic engineering metrics
+- A Raspberry Pi radar logger capturing vehicle speeds via Doppler radar
+- A SQLite database storing detections locally (no cloud)
+- A live web dashboard with real-time speeds, histograms, and time-of-day patterns
+- Professional PDF reports with traffic engineering metrics (p50, p85, p98)
 
-**Technical stack**: Go backend, Python PDF generator, Svelte web frontend, SQLite database.
-
-**Privacy by design**: No cameras. No license plates. No facial recognition. Just velocity measurements.
+**Privacy by design**: No cameras, license plates, or identifying information—just velocity measurements.
 
 ---
 
@@ -82,7 +80,7 @@ By the end of this guide, you'll have:
 
 - Basic screwdrivers, drill, adhesive
 - Computer for flashing/config
-- Optional: multimeter, breadboard
+- Optional: multimeter for testing connections
 
 ---
 
@@ -131,54 +129,49 @@ Here's how to check and update the output mode:
    screen /dev/ttyUSB0 19200
    ```
 
-   This opens a serial connection at 19200 baud with 8 data bits, no parity, and 1 stop bit (the sensor's default communication settings).
+2. **Configure sensor** (type these two-character commands quickly):
 
-2. **Enter two-character commands** quickly (e.g., `OJ` to switch to JSON output).
+   ```
+   OJ    # Enable JSON output mode
+   US    # Set units to MPH
+   OM    # Enable magnitude reporting
+   A!    # Save configuration to memory
+   ```
 
-   The sensor expects complete two-character commands without delay. Type both characters rapidly.
+3. **Verify** you see JSON output:
 
-   **Essential commands**:
+   ```json
+   { "magnitude": 1.2, "speed": 3.4 }
+   ```
 
-   - `??` - Query overall module information
-   - `?V` - Read firmware version
-   - `OJ` - Enable JSON output mode
-   - `OM` - Enable magnitude reporting (Doppler)
-   - `Om` - Disable magnitude reporting (Doppler)
-   - `A!` - Save current configuration to persistent memory
-   - `A?` - Query persistent memory settings
-   - `AX` - Reset flash settings to factory defaults
+**Common commands**:
 
-   **Additional useful commands**:
+- `??` - Module information
+- `?V` - Firmware version
+- `Om` - Disable magnitude (if too noisy)
+- `AX` - Reset to factory defaults
 
-   - `?R` - Read reset reason
-   - `US` - Set units to miles per hour
-   - `R?` - Query current speed filter settings
-   - `PA` - Set active power mode
-
-3. **Verify response**
-
-   The sensor will respond with its current configuration or confirmation of the change.
-
-4. **Why JSON?** JSON output provides structured data with named fields, making it easier to parse, validate, and extend. CSV requires you to remember column positions and doesn't handle new fields gracefully.
-
-5. **Manufacturer Docs**
-
-   For the latest firmware and complete command reference, visit: [https://www.omnipresense.com/support](https://www.omnipresense.com/support)
+**Full documentation**: [OmniPreSense Support](https://www.omnipresense.com/support)
 
 ---
 
 ### **Step 4: Verify Data Stream**
 
-With the sensor powered and connected:
+Confirm the sensor is streaming data:
 
-- Use `screen` or `cat /dev/ttyUSB0` to verify that output is streaming.
-- Expect JSON lines like:
+```bash
+cat /dev/ttyUSB0
+# or
+screen /dev/ttyUSB0 19200
+```
+
+You should see JSON output like:
 
 ```json
 { "magnitude": 1.2, "speed": 3.4 }
 ```
 
-For detected vehicle objects (transits), you'll see more detailed JSON:
+For detected vehicles, expect detailed transit data:
 
 ```json
 {
@@ -197,16 +190,17 @@ For detected vehicle objects (transits), you'll see more detailed JSON:
 }
 ```
 
-- If you see nothing, check:
-  - Baud rate (19200)
-  - Correct port (`/dev/ttyUSB0`, `/dev/serial0`, etc.)
-  - Proper wiring (for UART)
+**Troubleshooting**:
+
+- No output? Check baud rate (19200) and port (`/dev/ttyUSB0` or `/dev/serial0`)
+- Garbled output? Verify sensor is in JSON mode (`OJ` command)
+- For RS232, verify TX/RX crossover wiring
 
 ---
 
-### **Step 5: Download & Install the Software**
+### **Step 5: Install Software**
 
-On your Raspberry Pi, clone the repository and run the automated setup:
+On your Raspberry Pi:
 
 ```bash
 git clone https://github.com/banshee-data/velocity.report.git
@@ -232,31 +226,29 @@ The setup script will:
 **Useful commands**:
 
 ```bash
-sudo systemctl status velocity-report    # Check service status
-sudo systemctl restart velocity-report   # Restart the service
-sudo journalctl -u velocity-report -f   # View live logs
+sudo systemctl status velocity-report    # Check status
+sudo systemctl restart velocity-report   # Restart
+sudo journalctl -u velocity-report -f   # View logs
 ```
 
 ---
 
 ### **Step 6: Access the Web Dashboard**
 
-The service starts automatically after installation and runs on port 8080.
-
-**Open your browser and visit**:
+Open your browser and visit:
 
 ```text
 http://raspberrypi.local:8080
 ```
 
-(Or replace `raspberrypi.local` with the actual IP address of your Pi, e.g., `http://192.168.1.100:8080`)
+(Or use your Pi's IP address: `http://192.168.1.XXX:8080`)
 
 **What you'll see**:
 
-- **Recent vehicle transits**: Live feed of detected vehicles with timestamps and speeds
-- **Speed heatmap**: Visual representation of when fast vehicles pass
-- **Histograms**: Distribution of speeds showing how many vehicles travel at each speed
-- **Time-of-day graphs**: Patterns showing when traffic is fastest/slowest
+- Real-time vehicle detections with speeds and timestamps
+- Speed distribution histograms
+- Time-of-day traffic patterns
+- Speed heatmaps
 
 **Troubleshooting**:
 
@@ -269,55 +261,151 @@ http://raspberrypi.local:8080
 
 ### **Step 7: Generate PDF Reports**
 
-After collecting several days of data, you can generate professional PDF reports to share with city officials, neighbors, or community groups.
+After collecting data for a few days or weeks, generate professional reports.
 
-**Using the Web Dashboard**
+**Via Web Dashboard**:
 
-1. Configure a **Site** tab in the web dashboard
-2. Enable **PDF Report Generation**
+1. Navigate to the **Sites** tab
+2. Configure your site details
 3. Click **Generate Report**
 
-**Using the Command Line**
-
-The PDF generator uses the repository's unified Python environment. From the repository root:
+**Via Command Line**:
 
 ```bash
-make install-python      # One-time setup: creates .venv/ with all dependencies
-make pdf-config          # Create configuration template
-# Edit config.json with your date range and location
+make install-python      # One-time: install dependencies
+make pdf-config          # Create config template
+# Edit config.json with date range and location
 make pdf-report CONFIG=config.json
 ```
 
-**Note**: The Python environment is created at the repository root (`.venv/`) and is shared across all Python tools including the PDF generator, data visualization scripts, and analysis utilities.
-
-See the [PDF Generator README](https://github.com/banshee-data/velocity.report/tree/main/tools/pdf-generator) for complete instructions.
+See the [PDF Generator README](https://github.com/banshee-data/velocity.report/tree/main/tools/pdf-generator) for details.
 
 **What's in the report**:
 
-- **Summary statistics**:
+- **p50 (median)**: Half of vehicles go faster than this
+- **p85 (traffic engineering standard)**: Speed at which 85% of traffic travels at or below
+- **p98 (top 2%)**: Threshold where the fastest regular drivers operate
+- Histograms, time-of-day charts, and crash physics analysis
 
-  - Median speed (p50) - Half of vehicles travel faster than this
-  - 85th percentile (p85) - The traffic engineering standard
-  - 98th percentile (p98) - Where the top 2% of speeds begin
-  - Maximum speed recorded
+**Making your case**: Print the report and bring it to city council. Instead of "cars go too fast," say "85% of drivers exceed the posted 25 mph limit, with p85 at 38 mph."
 
-- **Visualizations**:
+---
 
-  - Histograms showing the full distribution of vehicle speeds
-  - Time-of-day charts revealing when the fastest speeds occur
+## **Network Access & Security**
 
-- **Scientific methodology**:
-  - Explanation of Doppler radar principles
-  - Discussion of kinetic energy and crash physics
-  - Data collection methods and reliability
+### **Local Network Deployment (Recommended)**
 
-**Understanding the percentiles**:
+By default, the web dashboard runs on port 8080 and is accessible on your local network:
 
-The **85th percentile (p85)** is the traffic engineering gold standard. It's the speed at or below which 85% of vehicles travel. Many jurisdictions use p85 to set speed limits because it filters out rare extreme speeders while capturing typical "fast" traffic.
+```text
+http://raspberrypi.local:8080
+# or
+http://192.168.1.XXX:8080
+```
 
-The **98th percentile (p98)** marks where the top 2% of speeds begin. This isn't the one weird outlier doing 60 in a 25 mph zone—it's the threshold where the fastest regular drivers operate. Everything from p98 to the maximum represents your most dangerous traffic.
+**Security considerations for LAN-only deployment**:
 
-**Making your case**: Print the report, show your neighbors, bring it to city council. Hard data changes conversations. Instead of "cars go too fast," you can say "the top 2% of drivers exceed 44 mph on a street posted for 25."
+- ✅ **No authentication required** if your network is trusted (home/office)
+- ✅ **Router firewall** blocks external access by default
+- ✅ **Data never leaves your network** - no cloud services
+- ⚠️ **Anyone on your WiFi** can access the dashboard
+
+**Best practices**:
+
+- Use strong WiFi password (WPA3 if supported)
+- Change default Pi password immediately
+- Keep Pi OS updated: `sudo apt update && sudo apt upgrade`
+
+---
+
+### **Remote Access with Tailscale (Optional)**
+
+For secure remote access from anywhere without exposing your Pi to the public internet, use [Tailscale](https://tailscale.com):
+
+**Why Tailscale?**
+
+- Zero-configuration VPN
+- End-to-end encrypted
+- NAT traversal (works behind routers)
+- Free for personal use (up to 20 devices)
+- No port forwarding or dynamic DNS needed
+
+**Setup** (5 minutes):
+
+1. **Install Tailscale on your Pi**:
+
+```bash
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+```
+
+2. **Authenticate** via the URL shown (opens browser)
+
+3. **Install Tailscale on your phone/laptop** from app store
+
+4. **Access dashboard** from anywhere:
+
+```text
+http://100.x.y.z:8080
+# (Use the Tailscale IP shown in admin console)
+```
+
+**Benefits**:
+
+- Access dashboard while away from home
+- Share access with trusted colleagues (invite to Tailscale network)
+- Monitor multiple deployments from single dashboard
+- No exposure to public internet scanners
+
+**See also**: [Tailscale documentation](https://tailscale.com/kb/start)
+
+---
+
+### **Public Internet Deployment (Not Recommended)**
+
+**Do not expose this service directly to the public internet.** The dashboard has no authentication, no HTTPS, and no rate limiting.
+
+If you need public access, use Tailscale (above) or set up a reverse proxy with:
+
+- HTTPS (Caddy/nginx with Let's Encrypt)
+- Authentication (HTTP basic auth minimum)
+- Rate limiting
+
+See [Security Analysis](https://github.com/banshee-data/velocity.report/blob/main/docs/security-analysis.md) for detailed hardening guidance.
+
+---
+
+## **Legal & Privacy Considerations**
+
+### **What This System Collects**
+
+- ✅ Vehicle speed and direction
+- ✅ Timestamp of detection
+- ❌ **No** cameras, license plates, or identifying information
+- ❌ **No** cloud transmission - all data stays local
+
+This privacy-first design is legal for civic use in most jurisdictions. You're measuring public behavior on public streets, similar to what traffic engineers do.
+
+### **Know Your Local Rules**
+
+**We are not lawyers.** Before deploying, check if you need permission for:
+
+- Mounting equipment on utility poles (usually requires permission)
+- Long-term installations in public spaces
+- School zones or government property
+
+**Generally OK**: Monitoring the street in front of your home for community advocacy, temporary studies (1-4 weeks), presenting findings to local government.
+
+**Not OK**: Monitoring private property, interfering with traffic devices, creating safety hazards.
+
+### **Use Data Responsibly**
+
+- Share aggregate statistics (PDF reports), not raw database dumps
+- Focus on safety improvements, not shaming individuals
+- Inform neighbors about your monitoring project
+- Be transparent about methodology and limitations
+
+**Disclaimer**: This is not legal advice. Laws vary by location and use case. When in doubt, consult local authorities or an attorney.
 
 ---
 
@@ -327,45 +415,40 @@ Nice work! You've built a working traffic radar from scratch.
 
 **What you've accomplished**:
 
-- Assembled hardware that does the same job as $10k+ professional traffic counters
-- Configured a Doppler radar sensor over serial
-- Built and deployed a Go application with embedded web server
-- Set up local data collection with SQLite (no cloud, no surveillance)
-- Gained access to industry-standard traffic metrics
+- Built hardware equivalent to $10k+ professional traffic counters
+- Configured a Doppler radar sensor (USB or RS232)
+- Deployed a complete web-based monitoring system
+- Set up local data storage with no cloud dependencies
+- (Infrastructure only) Created a weatherproof permanent installation
 
-**Keep it running**: The longer you log, the better your data. A week shows patterns. A month is compelling. Three months across different seasons? That's irrefutable evidence.
+**Keep it running**: A week of data shows patterns. A month is compelling. Three months across different seasons is irrefutable evidence.
+
+**Deployment-specific tips**:
+
+- **DIY**: Move sensor to test different locations, monitor during different times (school hours, weekends), bring indoors during bad weather
+- **Infrastructure**: Check enclosure monthly for condensation, clean sensor lens seasonally, document installation with photos
 
 **Make it count**:
 
-You've got data now. Use it.
+Traffic safety advocacy shouldn't require a six-figure budget or an engineering degree. With $150-450 in parts and a weekend of work, you've built something that produces the same metrics cities pay consultants thousands for.
 
-Traffic safety advocacy shouldn't require a six-figure budget or an engineering degree. With $200 in parts and a weekend of hacking, you've built something that produces the same quality metrics cities pay consultants thousands for.
-
-Show your neighbors. File a public records request to compare your data to official counts. Bring your PDF to a city council meeting. Advocate for traffic calming with evidence nobody can dismiss.
-
-Let's build safer streets, one Pi at a time.
+Show your neighbors. File public records requests to compare your data to official counts. Bring your PDF report to city council meetings. Advocate for traffic calming with evidence nobody can dismiss.
 
 ---
 
 ## **Resources & Links**
 
-- **OmniPreSense OPS243 Support**: [https://www.omnipresense.com/support](https://www.omnipresense.com/support)
+- **GitHub Repository**: [github.com/banshee-data/velocity.report](https://github.com/banshee-data/velocity.report)
+- **OmniPreSense Support**: [omnipresense.com/support](https://www.omnipresense.com/support)
+- **Community Discord**: [discord.gg/XXh6jXVFkt](https://discord.gg/XXh6jXVFkt)
+- **Project Website**: [velocity.report](https://velocity.report)
 
-  - Firmware updates, datasheets, and configuration guides
+**Traffic Safety Resources**:
 
-- **GitHub Repository**: [https://github.com/banshee-data/velocity.report](https://github.com/banshee-data/velocity.report)
+- Vision Zero Network: [visionzeronetwork.org](https://visionzeronetwork.org)
+- NACTO Urban Street Design Guide: [nacto.org](https://nacto.org/publication/urban-street-design-guide/)
+- FHWA Speed Management: [safety.fhwa.dot.gov/speedmgt](https://safety.fhwa.dot.gov/speedmgt/)
 
-  - Source code, issue tracker, and contribution guidelines
+---
 
-- **Community Discord**: [https://discord.gg/XXh6jXVFkt](https://discord.gg/XXh6jXVFkt)
-
-  - Get help, share your deployments, discuss traffic safety advocacy
-
-- **Project Website**: [https://velocity.report](https://velocity.report)
-  - Documentation, guides, and sample reports
-
-**Further Reading on Traffic Safety**:
-
-- Vision Zero Network: [https://visionzeronetwork.org](https://visionzeronetwork.org)
-- NACTO Urban Street Design Guide: [https://nacto.org/publication/urban-street-design-guide/](https://nacto.org/publication/urban-street-design-guide/)
-- FHWA Speed Management Guide: [https://safety.fhwa.dot.gov/speedmgt/](https://safety.fhwa.dot.gov/speedmgt/)
+Let's build safer streets, one Pi at a time.
