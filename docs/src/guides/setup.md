@@ -10,7 +10,33 @@ date: 2025-11-05
 
 ### A DIY traffic logger that keeps data local, skips the camera, and helps your neighborhood get safer streets.
 
-**Difficulty**: Intermediate | **Time**: 2-4 hours | **Cost**: ~$XXX-YYY
+**Difficulty**: Intermediate | **Time**: 2-4 hours (DIY) or 4-6 hours (Infrastructure)
+
+---
+
+## **Choose Your Deployment**
+
+This guide covers two deployment options:
+
+### **DIY Deployment** (~$150-200)
+
+- **Best for**: Temporary monitoring, testing locations, short-term studies
+- **Hardware**: Raspberry Pi Zero 2 W, USB radar sensor (OPS243 A-CW-RP or A-CW-WB)
+- **Enclosure**: 3D printed case (no weatherproofing)
+- **Mounting**: 1/4-20 tripod mount (camera tripod compatible)
+- **Pros**: Lower cost, portable, easy to relocate
+- **Cons**: Indoor or sheltered outdoor only, less stable mounting
+
+### **Infrastructure Deployment** (~$350-450)
+
+- **Best for**: Permanent installations, long-term monitoring, all-weather deployment
+- **Hardware**: Raspberry Pi 4, radar sensor (OPS7243-A-CW-R2 for 100m range), serial HAT
+- **Enclosure**: IP67 waterproof housing
+- **Mounting**: Pole clamps for street/utility poles (adjustable diameter)
+- **Pros**: Weatherproof, stable mounting, professional appearance, long range (100m)
+- **Cons**: Higher cost, harder to relocate
+
+**Choose your path and follow the corresponding instructions below.**
 
 ---
 
@@ -65,18 +91,164 @@ By the end of this guide, you'll have:
 
 ## **Parts and Tools List**
 
-### Hardware
+### **Understanding OmniPreSense Product Codes**
 
-| Part                    | Example Model          | Notes                                   |
-| ----------------------- | ---------------------- | --------------------------------------- |
-| Doppler Radar Sensor    | OmniPreSense OPS243A   | Outputs JSON via USB/serial.            |
-| Microcontroller/SBC     | Raspberry Pi 4 or 3B+  | Or similar Linux-capable board.         |
-| Power Supply            | 12V 2A adapter or HAT  | Stable voltage is important—see notes.  |
-| Enclosure & Mount       | Waterproof project box | Optional: suction mount, tripod, etc.   |
-| Optional Serial Adapter | FTDI USB-to-Serial     | Needed if not using GPIO/UART directly. |
-| SD Card                 | 16GB+                  | For Pi OS and data logging.             |
+OmniPreSense radar sensors are available in multiple configurations. The product code format is:
 
-### Tools
+```
+203-OPS[model]-[data_type]-[modulation]-[interface]
+```
+
+**Product Code Breakdown**:
+
+| Component      | Options      | Meaning                                              |
+| -------------- | ------------ | ---------------------------------------------------- |
+| **203-**       | Fixed prefix | Mouser manufacturer code for OmniPreSense            |
+| **OPS[model]** | 243, 7243    | Sensor model (243 = standard, 7243 = IP67 enclosure) |
+| **Data Type**  | A, C         | A = Speed only, C = Speed + Distance                 |
+| **Modulation** | CW, FC       | CW = Continuous Wave, FC = FMCW (range capability)   |
+| **Interface**  | RP, WB, R2   | RP = USB, WB = USB + Bluetooth, R2 = RS-232          |
+
+**Examples**:
+
+- `203-OPS243-A-CW-RP` = Sensor PCB, speed-only, continuous wave, USB interface
+- `203-OPS7243-C-FC-R2` = Sensor in IP67 housing, speed+distance, FMCW, RS232 interface
+
+---
+
+### **Available Models**
+
+All available OmniPreSense radar sensors we document:
+
+| Model               | Type / Modulation         | Interface  | IP67 | Range | Price     |
+| ------------------- | ------------------------- | ---------- | ---- | ----- | --------- |
+| 203-OPS243-A-CW-RP  | A / CW — Speed only       | USB (RP)   | No   | 100m  | ~$100-130 |
+| 203-OPS243-C-FC-RP  | C / FC — Speed + Distance | USB (RP)   | No   | 60m   | ~$130-160 |
+| 203-OPS7243-A-CW-R2 | A / CW — Speed only       | RS232 (R2) | Yes  | 100m  | ~$150-180 |
+| 203-OPS7243-C-FC-R2 | C / FC — Speed + Distance | RS232 (R2) | Yes  | 60m   | ~$150-180 |
+| 203-OPS7243-C-FC-RP | C / FC — Speed + Distance | USB (RP)   | Yes  | 60m   | ~$150-180 |
+
+**Key specifications (short)**:
+
+- A = speed only (≈100 m). C = speed + distance (≈60 m).
+- CW = Doppler (speed). FC = FMCW (adds range/frequency-modulated distance).
+- RP = USB plug-and-play. R2 = RS232 industrial (use a serial HAT).
+- WB (Bluetooth/Wi‑Fi) variants are omitted from our recommendations.
+
+---
+
+### **Our Recommendations**
+
+#### **DIY Deployment (~$150-200)**
+
+**Best choice**: `203-OPS243-A-CW-RP`
+
+- Affordable (~$100–130), USB plug-and-play, speed-only (recommended for most DIY use).
+
+**Alternative**: `203-OPS243-C-FC-RP`
+
+- Adds distance (FMCW) if you need it (60 m). We do not recommend WB (wireless) variants.
+
+#### **Infrastructure Deployment (~$350-450)**
+
+**Best choice**: `203-OPS7243-A-CW-R2`
+
+- 100 m range, industrial RS232, robust for outdoor installations. Requires a serial HAT and enclosure.
+
+**Alternative**: `203-OPS7243-C-FC-R2` (60 m) if you need distance measurements.
+
+---
+
+### **Quick Decision Guide**
+
+**I want the cheapest option that works**:
+→ `203-OPS243-A-CW-RP` (~$100-130)
+
+**I need maximum range (100 m) for outdoor installation**:
+→ `203-OPS7243-A-CW-R2` (RS232, requires serial HAT)
+
+**I want distance measurement too**:
+→ `203-OPS243-C-FC-RP` (60 m)
+
+**I need long range for an outdoor installation**:
+→ `203-OPS7243-A-CW-R2` (~$415, includes IP67 weatherproof enclosure)
+
+**I don't know which to choose**:
+→ `203-OPS243-A-CW-RP` is the safe, budget-friendly choice
+
+---
+
+### **Power Requirements**
+
+All models operate on **5V DC**:
+
+-- **RP/ENC interface models (USB)**: Draw power directly from USB connection (5V via USB)
+
+- **R2 interface models (RS232)**: Require separate 5-24V power supply (RS232 data lines only, no power)
+- **Typical draw**: 300-440mA at 5V (~2.2W)
+
+**Important**: The USB interface models (RP, WB, ENC) are powered via USB. The RS232 models (R2) require external 5V power in addition to the RS232 data connection.
+
+---
+
+### **DIY Deployment Bill of Materials**
+
+| Part                 | Example Model/Part Number                   | Price (approx) | Notes                                 |
+| -------------------- | ------------------------------------------- | -------------- | ------------------------------------- |
+| Doppler Radar Sensor | OPS243-A-CW-RP (Mouser: 203-OPS243-A-CW-RP) | ~$100-130      | Speed-only (A), USB interface (RP)    |
+| Microcontroller      | Raspberry Pi Zero 2 W                       | ~$15-20        | WiFi built-in for dashboard access    |
+| Power Supply         | 5V 2.5A USB-C adapter                       | ~$10-15        | Official Pi power supply recommended  |
+| SD Card              | SanDisk 32GB microSD                        | ~$8-12         | A1/A2 rated for better performance    |
+| USB Cable (optional) | USB-A to micro-USB or USB-C                 | ~$5-10         | If sensor doesn't include USB cable   |
+| Tripod (optional)    | Desktop or camera tripod                    | ~$10-25        | Standard 1/4-20 threading             |
+| **TOTAL**            |                                             | **~$150-210**  | Add $20-30 for WB variant w/Bluetooth |
+
+**Alternative sensors**:
+
+-- **With distance measurement**: `203-OPS243-C-FC-RP` (~$130-160) - adds range capability (FMCW)
+
+**3D printing files**: Available at [project repository](https://github.com/banshee-data/velocity.report/tree/main/hardware/enclosures)
+
+**Note**: DIY deployment is **not fully weatherproof**. Deploy indoors (e.g., window facing street) or under shelter only.
+
+---
+
+### **Infrastructure Deployment Bill of Materials**
+
+| Part                 | Example Model/Part Number                     | Price (approx) | Notes                                  |
+| -------------------- | --------------------------------------------- | -------------- | -------------------------------------- |
+| Doppler Radar Sensor | OPS7243-A-CW-R2 (Mouser: 203-OPS7243-A-CW-R2) | ~$415          | Speed-only (A), RS232 (R2), 100m range |
+| Microcontroller      | Raspberry Pi 4 (4GB)                          | ~$55-75        | More reliable for 24/7 operation       |
+| Serial HAT           | Waveshare RS232/485 HAT                       | ~$25-35        | Required for R2 (RS232) interface      |
+| Power Supply         | 5V 4A industrial adapter                      | ~$20-30        | Stable power for continuous operation  |
+| SD Card              | SanDisk High Endurance 64GB                   | ~$15-20        | Designed for continuous recording      |
+| Cable Glands         | PG11 cable glands (2-pack)                    | ~$8-12         | Weatherproof cable entry               |
+| Pole Mount           | Stainless steel hose clamps                   | ~$10-15        | 2-4" diameter range                    |
+| Mounting Plate       | Aluminum or HDPE plate                        | ~$10-20        | Custom cut to fit enclosure            |
+| **TOTAL**            |                                               | **~$341-459**  | Using OPS7243-A-CW-R2 (100m range)     |
+
+**Alternative sensors**:
+
+- **USB instead of RS232**: `203-OPS7243-C-FC-R2` (~$435) - 60m range, adds distance measurement
+
+**Note**: The A-type sensor (OPS7243-A-CW-R2) provides 100m range vs 60m for C-type sensors. For outdoor traffic monitoring, the longer range is more important than distance measurement capability.
+
+**Alternative sensors**:
+
+- **USB instead of RS232**: `203-OPS7243-C-FC-RP` (~$150-180) - No HAT required, still needs weatherproof enclosure
+
+**Note**: R2 (RS232) interface provides the most robust industrial-grade connection for permanent outdoor installations, but USB interfaces (RP/WB) are simpler to set up if you don't need the extra reliability.
+
+**Pole mounting**: Standard utility poles are typically 4-6" diameter. Adjustable hose clamps provide secure, non-invasive mounting.
+
+**Power options**: For locations without AC power, consider:
+
+- Solar panel + battery (add ~$80-150)
+- PoE HAT + PoE injector (add ~$40-60, requires Ethernet run)
+
+---
+
+### Tools (Both Deployments)
 
 - Basic screwdrivers, drill, adhesive
 - Computer for flashing/config
@@ -88,41 +260,163 @@ By the end of this guide, you'll have:
 
 ### **Step 1: Mount the Radar Sensor**
 
-Secure the radar sensor inside your enclosure or mount it directly on a bracket. Make sure it's:
+#### **DIY Deployment: Tripod Mount**
 
-- **Facing directly at oncoming or passing traffic**: The Doppler effect works by measuring the change in frequency of radio waves bouncing off moving objects. For accurate readings, the sensor needs a clear view of vehicles as they approach or recede.
-- **Positioned at a fixed angle (ideally 20°–45° off-axis)**: Mounting perpendicular to traffic (90°) won't work—Doppler radar measures the component of motion toward or away from the sensor. A slight angle ensures you're measuring meaningful velocity.
-- **Clear of obstructions (no walls, poles, or trees blocking view)**: Radio waves can be absorbed or reflected by obstacles, reducing accuracy or causing false readings.
+1. **Install threaded insert** in 3D printed case bottom:
 
-**Why mount higher?** Mounting the sensor 3-6 feet off the ground helps reduce false positives from small objects like animals, bouncing balls, or blowing debris. It also provides a cleaner line of sight to vehicle traffic.
+   - Use 1/4-20 threaded insert (standard camera tripod size)
+   - Heat insert with soldering iron and press into mounting hole
+   - Ensure insert is flush and threads are clean
+
+2. **Mount to tripod**:
+
+   - Use any standard camera tripod or desktop tripod
+   - Position near window facing street
+   - Ensure sensor has clear view through glass (Doppler radar works through windows)
+
+3. **Aiming the sensor**:
+   - **Angle**: 20-45° off-axis from traffic flow (NOT perpendicular)
+   - **Height**: Window height is typically fine; avoid ground-level clutter
+   - **Clear view**: No curtains, screens, or obstructions between sensor and street
+
+**Limitation**: DIY deployment works through windows but range may be reduced. Glass causes some signal attenuation.
+
+---
+
+#### **Infrastructure Deployment: Pole Mount**
+
+1. **Prepare weatherproof enclosure**:
+
+   - Drill mounting holes in back plate for hose clamps
+   - Install cable glands in appropriate positions for power and (optional) Ethernet
+   - Mount sensor inside enclosure with clear view through front panel
+   - Consider acrylic or polycarbonate window if sensor doesn't face forward
+
+2. **Position sensor correctly inside enclosure**:
+
+   - Radar sensor should aim through front of enclosure
+   - **Critical**: Doppler radar uses RF energy; avoid metal obstructions in front of sensor
+   - Use plastic/nylon standoffs to mount sensor board
+
+3. **Mount enclosure to pole**:
+
+   - Position 4-8 feet off ground (reduces false positives from small objects)
+   - Use two stainless steel hose clamps (top and bottom of enclosure)
+   - **Angle**: 20-45° off-axis from traffic flow
+   - **Orientation**: Sensor should face oncoming OR receding traffic (not perpendicular)
+   - Tighten clamps securely but avoid over-tightening (can crack enclosure)
+
+4. **Weatherproofing checklist**:
+   - All cable glands properly sealed
+   - Desiccant pack inside enclosure
+   - Enclosure gasket intact and clean
+   - Test enclosure seal before final mounting
+
+**Why mount higher?** Mounting 4-8 feet off ground helps reduce false positives from small objects like animals, bouncing balls, or blowing debris. It also provides a cleaner line of sight to vehicle traffic.
+
+**Pole mounting best practices**:
+
+- Choose location with clear view of traffic (no trees/signs blocking)
+- Ensure pole is stable (utility poles preferred over signposts)
+- Check local regulations about attaching equipment to public infrastructure
+- Consider solar panel if no AC power available nearby
 
 ---
 
 ### **Step 2: Connect the Sensor to the Raspberry Pi**
 
-Wire up the sensor’s pins or USB cable depending on your model:
+#### **DIY Deployment: USB Connection (Pi Zero)**
 
-- **USB version (e.g. OPS243A)**: Plug it directly into the Pi’s USB port.
-- **UART version (e.g. OPS7243C)**: Connect to GPIO pins as follows:
+The OPS243/OPS7243 A-CW series sensors with RP, WB, or ENC interfaces use USB connection:
 
-| Radar Pin | Pi GPIO Pin | Description           |
-| --------- | ----------- | --------------------- |
-| VCC       | 5V (Pin 2)  | Power (check voltage) |
-| GND       | GND (Pin 6) | Ground                |
-| TX        | RX (Pin 10) | Data from sensor      |
-| RX        | TX (Pin 8)  | Data to sensor        |
+1. **Flash Raspberry Pi OS** to your microSD card:
 
-📌 **Note**: If you see the sensor rebooting constantly or not outputting data, it may be undervolted. Consider using a HAT or USB-to-serial adapter with isolated 12V rail.
+   - Use [Raspberry Pi Imager](https://www.raspberrypi.com/software/)
+   - Choose "Raspberry Pi OS Lite" (64-bit recommended for Pi Zero 2 W)
+   - Configure WiFi and SSH in advanced settings before writing
+
+2. **Connect sensor**:
+
+   - Plug sensor's USB connector directly into Pi Zero's USB port
+   - Use USB OTG adapter if needed
+   - Sensor will appear as `/dev/ttyUSB0` or `/dev/ttyACM0`
+
+3. **Power on**:
+   - Connect 5V power supply to Pi's USB-C port
+   - Wait for boot (first boot takes 1-2 minutes)
+   - SSH into Pi: `ssh pi@raspberrypi.local`
+
+**Verify sensor connection**:
+
+```bash
+ls /dev/tty* | grep -E 'ttyUSB|ttyACM'
+# Should show /dev/ttyUSB0 or similar
+```
 
 ---
 
-### **Step 3: (Optional) Flash Firmware & Set Output Mode**
+#### **Infrastructure Deployment: RS232 Serial Connection (Pi 4)**
 
-The OmniPreSense OPS243 radar sensor can output data in multiple formats. Most sensors ship configured for CSV output, but our software works best with **JSON output** for easier parsing and better data structure.
+The OPS7243-A-CW-R2 sensor (or OPS7243-C-FC-R2 variant) uses RS232 serial, requiring a serial HAT:
 
-Here's how to check and update the output mode:
+1. **Install serial HAT on Raspberry Pi 4**:
 
-1. **Connect via terminal**
+   - Power off Pi completely
+   - Attach Waveshare RS232/485 HAT to 40-pin GPIO header
+   - Ensure all pins are aligned and fully seated
+
+2. **Wire sensor to HAT**:
+
+| Sensor Pin (RS232) | HAT Terminal           | Wire Color (typical) |
+| ------------------ | ---------------------- | -------------------- |
+| VCC (5V)           | +5V or separate supply | Red                  |
+| GND                | GND                    | Black                |
+| TX                 | RX (receive)           | Green/Yellow         |
+| RX                 | TX (transmit)          | Blue/White           |
+
+**Critical**: RS232 uses RX↔TX crossover. Sensor TX connects to HAT RX, and vice versa.
+
+3. **Configure Pi serial port**:
+
+```bash
+# Disable serial console (enables serial for sensor)
+sudo raspi-config
+# Navigate to: Interface Options → Serial Port
+# - "Login shell over serial?" → NO
+# - "Serial port hardware enabled?" → YES
+```
+
+4. **Enable serial HAT** (add to `/boot/config.txt`):
+
+```bash
+sudo nano /boot/config.txt
+# Add these lines:
+dtoverlay=uart0
+enable_uart=1
+```
+
+5. **Reboot and verify**:
+
+```bash
+sudo reboot
+# After reboot:
+ls -l /dev/serial0
+# Should show link to ttyAMA0 or ttyS0
+```
+
+**Power considerations**:
+
+- RS232 sensor draws ~150mA at 5V
+- Power from dedicated supply (not Pi's 5V pin) for stability
+- Use low-voltage disconnect if running on battery/solar
+
+---
+
+### **Step 3: Configure Sensor Output Mode**
+
+The OPS243 sensor ships with CSV output by default, but this software expects **JSON output**.
+
+1. **Connect via serial terminal**:
 
    ```bash
    stty -F /dev/ttyUSB0 19200 cs8 -parenb -cstopb
@@ -133,7 +427,7 @@ Here's how to check and update the output mode:
 
    ```
    OJ    # Enable JSON output mode
-   US    # Set units to MPH
+   UM    # Set units to Meters per second (software default)
    OM    # Enable magnitude reporting
    A!    # Save configuration to memory
    ```
