@@ -29,7 +29,20 @@ except Exception:  # pragma: no cover
 
     def escape_latex(s: str) -> str:  # type: ignore
         """Fallback escape_latex when pylatex is not available."""
-        return s
+        # Basic LaTeX escaping for special characters
+        latex_special_chars = {
+            '\\': r'\textbackslash{}',
+            '{': r'\{',
+            '}': r'\}',
+            '$': r'\$',
+            '&': r'\&',
+            '#': r'\#',
+            '_': r'\_',
+            '%': r'\%',
+            '~': r'\textasciitilde{}',
+            '^': r'\textasciicircum{}',
+        }
+        return ''.join(latex_special_chars.get(c, c) for c in s)
 
 
 from pdf_generator.core.config_manager import (
