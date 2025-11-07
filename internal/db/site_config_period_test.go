@@ -27,7 +27,7 @@ func TestCreateSiteConfigPeriod(t *testing.T) {
 
 	now := float64(time.Now().Unix())
 	notes := "Test period"
-	
+
 	period := &SiteConfigPeriod{
 		SiteID:             site.ID,
 		EffectiveStartUnix: now,
@@ -66,7 +66,7 @@ func TestGetActiveSiteConfigPeriod(t *testing.T) {
 	}
 
 	now := float64(time.Now().Unix())
-	
+
 	// Create an active period
 	period := &SiteConfigPeriod{
 		SiteID:             site.ID,
@@ -132,7 +132,7 @@ func TestGetSiteConfigPeriodForTimestamp(t *testing.T) {
 
 	// Create periods with specific time ranges
 	baseTime := float64(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC).Unix())
-	
+
 	// Period 1: Jan 1 - Jan 31 (site 1, angle 5.0)
 	endTime1 := float64(time.Date(2024, 1, 31, 23, 59, 59, 0, time.UTC).Unix())
 	period1 := &SiteConfigPeriod{
@@ -281,7 +281,7 @@ func TestCloseSiteConfigPeriod(t *testing.T) {
 	}
 
 	now := float64(time.Now().Unix())
-	
+
 	// Create an open-ended period
 	period := &SiteConfigPeriod{
 		SiteID:             site.ID,
@@ -337,7 +337,7 @@ func TestGetAllSiteConfigPeriods(t *testing.T) {
 	}
 
 	baseTime := float64(time.Now().Unix())
-	
+
 	// Create multiple periods
 	for i := 0; i < 3; i++ {
 		period := &SiteConfigPeriod{
