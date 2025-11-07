@@ -146,16 +146,23 @@ build-docs:
 
 .PHONY: install-python install-web install-docs
 
+# Python environment variables (unified at repository root)
+VENV_DIR = .venv
+VENV_PYTHON = $(VENV_DIR)/bin/python3
+VENV_PIP = $(VENV_DIR)/bin/pip
+VENV_PYTEST = $(VENV_DIR)/bin/pytest
 PDF_DIR = tools/pdf-generator
-PDF_PYTHON = $(PDF_DIR)/.venv/bin/python
-PDF_PYTEST = $(PDF_DIR)/.venv/bin/pytest
 
 install-python:
-	@echo "Setting up PDF generator..."
-	cd $(PDF_DIR) && python3 -m venv .venv
-	cd $(PDF_DIR) && .venv/bin/pip install --upgrade pip
-	cd $(PDF_DIR) && .venv/bin/pip install -r requirements.txt
-	@echo "✓ PDF generator setup complete (no package installation needed)"
+	@echo "Setting up Python environment..."
+	@if [ ! -d "$(VENV_DIR)" ]; then \
+		python3 -m venv $(VENV_DIR); \
+	fi
+	@$(VENV_PIP) install --upgrade pip
+	@$(VENV_PIP) install -r requirements.txt
+	@echo "✓ Python environment ready at $(VENV_DIR)"
+	@echo ""
+	@echo "Activate with: source $(VENV_DIR)/bin/activate"
 
 install-web:
 	@echo "Installing web dependencies..."
@@ -279,7 +286,7 @@ test-python:
 
 test-python-cov:
 	@echo "Running PDF generator tests with coverage..."
-	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/pytest --cov=pdf_generator --cov-report=html pdf_generator/tests/
+	cd $(PDF_DIR) && PYTHONPATH=. ../../$(VENV_PYTEST) --cov=pdf_generator --cov-report=html pdf_generator/tests/
 	@echo "Coverage report: $(PDF_DIR)/htmlcov/index.html"
 
 # Run web test suite (Jest) using pnpm inside the web directory
@@ -301,20 +308,20 @@ format-go:
 	@gofmt -s -w . || true
 
 format-python:
-	@echo "Formatting Python (black, ruff) using venv at $(PDF_DIR)/.venv if present..."
-	@if [ -x "$(PDF_DIR)/.venv/bin/black" ]; then \
-		"$(PDF_DIR)/.venv/bin/black" . || true; \
+	@echo "Formatting Python (black, ruff) using venv at $(VENV_DIR)..."
+	@if [ -x "$(VENV_DIR)/bin/black" ]; then \
+		"$(VENV_DIR)/bin/black" . || true; \
 	elif command -v black >/dev/null 2>&1; then \
 		black . || true; \
 	else \
-		echo "black not found; to install into the PDF venv: cd $(PDF_DIR) && python3 -m venv .venv && .venv/bin/pip install -U black ruff"; \
+		echo "black not found; run 'make install-python' to install"; \
 	fi
-	@if [ -x "$(PDF_DIR)/.venv/bin/ruff" ]; then \
-		"$(PDF_DIR)/.venv/bin/ruff" check --fix . || true; \
+	@if [ -x "$(VENV_DIR)/bin/ruff" ]; then \
+		"$(VENV_DIR)/bin/ruff" check --fix . || true; \
 	elif command -v ruff >/dev/null 2>&1; then \
 		ruff check --fix . || true; \
 	else \
-		echo "ruff not found; to install into the PDF venv: cd $(PDF_DIR) && python3 -m venv .venv && .venv/bin/pip install -U ruff"; \
+		echo "ruff not found; run 'make install-python' to install"; \
 	fi
 
 format-web:
@@ -353,20 +360,20 @@ lint-go:
 
 lint-python:
 	@echo "Checking Python formatting (black --check, ruff)..."
-	@if [ -x "$(PDF_DIR)/.venv/bin/black" ]; then \
-		"$(PDF_DIR)/.venv/bin/black" --check .; \
+	@if [ -x "$(VENV_DIR)/bin/black" ]; then \
+		"$(VENV_DIR)/bin/black" --check .; \
 	elif command -v black >/dev/null 2>&1; then \
 		black --check .; \
 	else \
-		echo "black not found; install it (e.g. cd $(PDF_DIR) && python3 -m venv .venv && .venv/bin/pip install -U black)"; \
+		echo "black not found; install it with 'make install-python'"; \
 		exit 2; \
 	fi
-	@if [ -x "$(PDF_DIR)/.venv/bin/ruff" ]; then \
-		"$(PDF_DIR)/.venv/bin/ruff" check .; \
+	@if [ -x "$(VENV_DIR)/bin/ruff" ]; then \
+		"$(VENV_DIR)/bin/ruff" check .; \
 	elif command -v ruff >/dev/null 2>&1; then \
 		ruff check .; \
 	else \
-		echo "ruff not found; install it (e.g. cd $(PDF_DIR) && python3 -m venv .venv && .venv/bin/pip install -U ruff)"; \
+		echo "ruff not found; install it with 'make install-python'"; \
 		exit 2; \
 	fi
 
@@ -393,7 +400,7 @@ lint-web:
 
 pdf-test:
 	@echo "Running PDF generator tests..."
-	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/pytest pdf_generator/tests/
+	cd $(PDF_DIR) && PYTHONPATH=. ../../$(VENV_PYTEST) pdf_generator/tests/
 
 pdf-report:
 	@if [ -z "$(CONFIG)" ]; then \
@@ -409,15 +416,15 @@ pdf-report:
 		echo "Try: make pdf-report CONFIG=config.example.json"; \
 		exit 1; \
 	fi; \
-	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/python -m pdf_generator.cli.main $$CONFIG_PATH
+	cd $(PDF_DIR) && PYTHONPATH=. ../../$(VENV_PYTHON) -m pdf_generator.cli.main $$CONFIG_PATH
 
 pdf-config:
 	@echo "Creating example configuration..."
-	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/python -m pdf_generator.cli.create_config
+	cd $(PDF_DIR) && PYTHONPATH=. ../../$(VENV_PYTHON) -m pdf_generator.cli.create_config
 
 pdf-demo:
 	@echo "Running configuration system demo..."
-	cd $(PDF_DIR) && PYTHONPATH=. .venv/bin/python -m pdf_generator.cli.demo
+	cd $(PDF_DIR) && PYTHONPATH=. ../../$(VENV_PYTHON) -m pdf_generator.cli.demo
 
 # Convenience alias
 pdf: pdf-report
@@ -483,8 +490,6 @@ log-go-cat:
 # =============================================================================
 
 .PHONY: plot-noise-sweep plot-multisweep plot-noise-buckets stats-live stats-pcap
-
-VENV_PYTHON = .venv/bin/python3
 
 # Noise sweep line plot (neighbor=1, closeness=2.5 by default)
 plot-noise-sweep:

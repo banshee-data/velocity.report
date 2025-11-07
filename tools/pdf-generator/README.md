@@ -10,15 +10,17 @@ A Python tool for generating professional PDF reports from radar statistics with
 
 All configuration is done via JSON files - no CLI flags needed!
 
+The PDF generator uses the repository's shared Python environment.
+
 ```bash
-# Using Makefile (recommended)
-cd tools/pdf-generator
-make install-python     # One-time: create venv and install dependencies
-make pdf-config         # Create example config.json
+# From repository root:
+make install-python      # One-time: create .venv and install all dependencies
+make pdf-config          # Create example config.json
 # Edit config.example.json with your dates and settings
 make pdf-report CONFIG=config.example.json
 
-# Using Python module directly
+# Or use Python module directly (activate venv first):
+source .venv/bin/activate
 cd tools/pdf-generator
 python -m pdf_generator.cli.create_config > my_config.json
 # Edit my_config.json with your settings
@@ -300,8 +302,6 @@ tools/pdf-generator/              # Project root
 │   │   └── ...                 # 5 more core modules
 │   └── tests/                    # Test suite
 ├── pyproject.toml                # Project metadata
-├── requirements.txt              # Dependencies
-├── .venv/                        # Virtual environment (created by make)
 ├── output/                       # Generated PDFs and assets
 ├── docs/                         # Additional documentation
 │   ├── CONFIG.md                # Complete configuration reference
@@ -311,16 +311,20 @@ tools/pdf-generator/              # Project root
 └── README.md                     # This file
 ```
 
-**Note**: Two-level structure is standard Python practice:
+**Note**: The PDF generator uses the repository's shared `.venv/` at the root level.
 
-- `tools/pdf-generator/` = Project root (config, docs, venv)
+Two-level structure is standard Python practice:
+
+- `tools/pdf-generator/` = Project root (config, docs)
 - `pdf_generator/` = Python package (importable code)
 
 ## Makefile Commands
 
+All make commands should be run from the repository root:
+
 ```bash
 # Setup (one-time)
-make install-python     # Create venv, install dependencies
+make install-python     # Create .venv at repo root, install all dependencies
 
 # Development
 make pdf-test           # Run all 545 tests
@@ -429,20 +433,21 @@ make pdf-report CONFIG=map-report.json
 ## Testing
 
 ```bash
-# Using Makefile (recommended)
+# Using Makefile (recommended, from repository root)
 make pdf-test
-make pdf-test PYTEST_ARGS="-v"   # Run with verbose output
+make test-python-cov   # Run with coverage report
 
-# Or directly with pytest
+# Or directly with pytest (activate venv first)
+source .venv/bin/activate
 cd tools/pdf-generator
-.venv/bin/pytest pdf_generator/tests/ -v
+pytest pdf_generator/tests/ -v
 
 # Run with coverage report
-.venv/bin/pytest pdf_generator/tests/ --cov=pdf_generator --cov-report=term-missing
+pytest pdf_generator/tests/ --cov=pdf_generator --cov-report=term-missing
 
 # Run specific test files
-.venv/bin/pytest pdf_generator/tests/test_config_manager.py -v
-.venv/bin/pytest pdf_generator/tests/test_pdf_integration.py -v
+pytest pdf_generator/tests/test_config_manager.py -v
+pytest pdf_generator/tests/test_pdf_integration.py -v
 ```
 
 ## Deployment Notes
@@ -463,18 +468,19 @@ This project uses PYTHONPATH rather than package installation:
 ```bash
 # The Makefile sets this automatically
 export PYTHONPATH=/path/to/velocity.report/tools/pdf-generator
-.venv/bin/python -m pdf_generator.cli.main config.json
+source /path/to/velocity.report/.venv/bin/activate
+python -m pdf_generator.cli.main config.json
 
-# Or use the Makefile
+# Or use the Makefile from repository root
 make pdf-report CONFIG=config.json
 ```
 
 ### Raspberry Pi Deployment
 
-The PYTHONPATH approach is ideal for Raspberry Pi ARM64:
+The shared venv approach is ideal for Raspberry Pi ARM64:
 
-1. Copy `tools/pdf-generator/` to target system
-2. Run `make install-python` (creates venv, installs dependencies)
-3. Use `make pdf-*` commands or set PYTHONPATH manually
+1. Copy entire `velocity.report/` repository to target system
+2. Run `make install-python` from repository root (creates .venv, installs dependencies)
+3. Use `make pdf-*` commands from repository root
 
 No wheel building or package installation needed!

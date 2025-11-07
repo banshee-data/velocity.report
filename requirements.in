@@ -20,4 +20,8 @@ pytest
 pytest-cov
 responses
 
+# Development tools (formatting/linting)
+black
+ruff
+
 # Add any other top-level tools that should be available to all data projects here.
