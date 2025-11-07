@@ -170,6 +170,70 @@ CREATE INDEX IF NOT EXISTS idx_site_reports_site_id ON site_reports (site_id);
 -- Index for ordering by creation time
 CREATE INDEX IF NOT EXISTS idx_site_reports_created_at ON site_reports (created_at DESC);
 
+-- Site configuration periods table (Type 6 SCD for site config history)
+-- Tracks which site configuration was active during different time periods
+   CREATE TABLE IF NOT EXISTS site_config_periods (
+          id INTEGER PRIMARY KEY AUTOINCREMENT
+        , site_id INTEGER NOT NULL
+        , effective_start_unix DOUBLE NOT NULL
+        , effective_end_unix DOUBLE
+        , is_active INTEGER NOT NULL DEFAULT 0
+        , notes TEXT
+        , created_at DOUBLE NOT NULL DEFAULT (UNIXEPOCH('subsec'))
+        , updated_at DOUBLE NOT NULL DEFAULT (UNIXEPOCH('subsec'))
+        , FOREIGN KEY (site_id) REFERENCES site (id) ON DELETE CASCADE
+        , CHECK (effective_end_unix IS NULL OR effective_end_unix > effective_start_unix)
+          );
+
+CREATE INDEX IF NOT EXISTS idx_site_config_periods_time ON site_config_periods (effective_start_unix, effective_end_unix);
+
+CREATE INDEX IF NOT EXISTS idx_site_config_periods_active ON site_config_periods (is_active)
+ WHERE is_active = 1;
+
+CREATE INDEX IF NOT EXISTS idx_site_config_periods_site ON site_config_periods (site_id, effective_start_unix);
+
+CREATE TRIGGER IF NOT EXISTS update_site_config_periods_timestamp AFTER
+   UPDATE ON site_config_periods BEGIN
+   UPDATE site_config_periods
+      SET updated_at = UNIXEPOCH('subsec')
+    WHERE id = NEW.id;
+
+END;
+
+CREATE TRIGGER IF NOT EXISTS enforce_single_active_period BEFORE
+   INSERT ON site_config_periods
+    WHEN NEW.is_active = 1 BEGIN
+   UPDATE site_config_periods
+      SET is_active = 0
+    WHERE is_active = 1;
+
+END;
+
+CREATE TRIGGER IF NOT EXISTS enforce_single_active_period_update BEFORE
+   UPDATE ON site_config_periods
+    WHEN NEW.is_active = 1 BEGIN
+   UPDATE site_config_periods
+      SET is_active = 0
+    WHERE is_active = 1
+      AND id != NEW.id;
+
+END;
+
+   INSERT OR IGNORE INTO site_config_periods (
+          site_id
+        , effective_start_unix
+        , effective_end_unix
+        , is_active
+        , notes
+          )
+   SELECT id
+        , 0.0
+        , NULL
+        , 1
+        , 'Initial default period created during migration'
+     FROM site
+    WHERE id = 1 LIMIT 1;
+
 -- Append LiDAR schema (background snapshots, clusters, tracks) from internal/lidar/lidardb/schema.sql
 -- This keeps a single unified schema for both radar and lidar features.
    CREATE TABLE IF NOT EXISTS lidar_bg_snapshot (
