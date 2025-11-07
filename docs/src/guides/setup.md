@@ -16,35 +16,9 @@ tags: [hardware, raspberry-pi, diy, traffic-safety]
 
 **Difficulty**: Intermediate • **Time**: 2-4 hours • **Cost**: ~$150-200
 
-*Weatherproof infrastructure deployment: 4-6 hours, ~$350-450*
+_Weatherproof infrastructure deployment: 4-6 hours, ~$350-450_
 
-**In this guide**: [Choose Deployment](#choose-your-deployment) • [Parts List](#parts-and-tools-list) • [Build Steps](#step-by-step-build-guide) • [Generate Reports](#step-7-generate-pdf-reports) • [Troubleshooting](#troubleshooting)
-
----
-
-## **Choose Your Deployment**
-
-This guide covers two deployment options:
-
-### **DIY Deployment** (~$150-200)
-
-- **Best for**: Temporary monitoring, testing locations, short-term studies
-- **Hardware**: Raspberry Pi Zero 2 W, USB radar sensor (OPS243 A-CW-RP or A-CW-WB)
-- **Enclosure**: 3D printed case (no weatherproofing)
-- **Mounting**: 1/4-20 tripod mount (camera tripod compatible)
-- **Pros**: Lower cost, portable, easy to relocate
-- **Cons**: Indoor or sheltered outdoor only, less stable mounting
-
-### **Infrastructure Deployment** (~$350-450)
-
-- **Best for**: Permanent installations, long-term monitoring, all-weather deployment
-- **Hardware**: Raspberry Pi 4, radar sensor (OPS7243-A-CW-R2 for 100m range), serial HAT
-- **Enclosure**: IP67 waterproof housing
-- **Mounting**: Pole clamps for street/utility poles (adjustable diameter)
-- **Pros**: Weatherproof, stable mounting, professional appearance, long range (100m)
-- **Cons**: Higher cost, harder to relocate
-
-**Choose your path and follow the corresponding instructions below.**
+**In this guide**: [Parts List](#parts-and-tools-list) • [Choose Deployment](#choose-your-deployment) • [Build Steps](#step-by-step-build-guide) • [Generate Reports](#step-7-generate-pdf-reports) • [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -58,9 +32,9 @@ This weekend project gives community advocates, parents, and civic-minded makers
 
 ## Who This Guide Is For
 
-**Community advocates**: Get professional data for traffic calming proposals  
-**Parents**: Prove speeding near schools with evidence, not emotion  
-**Data enthusiasts**: Build useful civic tech with open hardware  
+**Community advocates**: Get professional data for traffic calming proposals
+**Parents**: Prove speeding near schools with evidence, not emotion
+**Data enthusiasts**: Build useful civic tech with open hardware
 **Local officials**: Validate commercial traffic studies with independent data
 
 **Not sure?** This project takes 2-4 hours and costs ~$150-200. If you care about street safety, you'll find it worthwhile.
@@ -68,11 +42,13 @@ This weekend project gives community advocates, parents, and civic-minded makers
 ## Before You Begin
 
 **Skills required**:
+
 - Basic Linux command line (SSH, file editing, navigation)
 - Basic hardware assembly (connecting cables, mounting)
 - Patience for troubleshooting (sensor configuration can be finicky)
 
 **Tools needed**:
+
 - Computer for flashing SD card and SSH access
 - Screwdrivers for assembly
 - Optional: Multimeter for troubleshooting connections
@@ -83,8 +59,8 @@ This weekend project gives community advocates, parents, and civic-minded makers
 
 ### What This System Measures
 
-✅ **Collected**: Vehicle speed, direction, timestamp  
-❌ **Not collected**: License plates, vehicle photos, driver identity  
+✅ **Collected**: Vehicle speed, direction, timestamp
+❌ **Not collected**: License plates, vehicle photos, driver identity
 ❌ **Not transmitted**: All data stays on your device
 
 ### Is This Legal?
@@ -92,17 +68,20 @@ This weekend project gives community advocates, parents, and civic-minded makers
 **In most jurisdictions, yes.** You're measuring public behavior on public streets, similar to what traffic engineers and academic researchers do.
 
 **Generally allowed**:
+
 - Monitoring streets visible from your property
 - Temporary studies (1-4 weeks) for community advocacy
 - Presenting findings to local government
 - Sharing aggregate statistics (PDF reports)
 
 **May require permission**:
+
 - Mounting on utility poles (contact utility company)
 - Long-term installations (>1 month)
 - School zones or government property
 
 **Not allowed**:
+
 - Monitoring private property
 - Selling data commercially
 - Creating safety hazards
@@ -146,21 +125,47 @@ This guide walks you through building:
 
 ---
 
+## **Choose Your Deployment**
+
+This guide covers two deployment options:
+
+### **DIY Deployment** (~$150-200)
+
+- **Best for**: Temporary monitoring, testing locations, short-term studies
+- **Hardware**: Raspberry Pi Zero 2 W, USB radar sensor (OPS243 A-CW-RP or A-CW-WB)
+- **Enclosure**: 3D printed case (no weatherproofing)
+- **Mounting**: 1/4-20 tripod mount (camera tripod compatible)
+- **Pros**: Lower cost, portable, easy to relocate
+- **Cons**: Indoor or sheltered outdoor only, less stable mounting
+
+### **Infrastructure Deployment** (~$350-450)
+
+- **Best for**: Permanent installations, long-term monitoring, all-weather deployment
+- **Hardware**: Raspberry Pi 4, radar sensor (OPS7243-A-CW-R2 for 100m range), serial HAT
+- **Enclosure**: IP67 waterproof housing
+- **Mounting**: Pole clamps for street/utility poles (adjustable diameter)
+- **Pros**: Weatherproof, stable mounting, professional appearance, long range (100m)
+- **Cons**: Higher cost, harder to relocate
+
+**Choose your path and follow the corresponding instructions below.**
+
+---
+
 ## Parts and Tools List
 
 > **New to radar sensors?** Start with the **OmniPreSense OPS243-A-CW-RP** (~$100-130). It's USB-powered, works immediately, and handles most use cases.
 
 ### DIY Deployment Bill of Materials (~$150-200)
 
-| Part | Recommended Model | Price (approx) | Notes |
-|------|------------------|----------------|-------|
-| Doppler Radar Sensor | OPS243-A-CW-RP | ~$100-130 | Speed-only, USB interface (designated RP in product codes) |
-| Microcontroller | Raspberry Pi Zero 2 W | ~$15-20 | WiFi built-in for dashboard access |
-| Power Supply | 5V 2.5A USB-C adapter | ~$10-15 | Official Pi power supply recommended |
-| SD Card | SanDisk 32GB microSD (A1/A2 rated) | ~$8-12 | Better performance for database |
-| USB Cable (optional) | USB-A to micro-USB or USB-C | ~$5-10 | If sensor doesn't include cable |
-| Tripod (optional) | Desktop or camera tripod | ~$10-25 | Standard 1/4-20 threading |
-| **TOTAL** | | **~$150-210** | |
+| Part                 | Recommended Model                  | Price (approx) | Notes                                                      |
+| -------------------- | ---------------------------------- | -------------- | ---------------------------------------------------------- |
+| Doppler Radar Sensor | OPS243-A-CW-RP                     | ~$100-130      | Speed-only, USB interface (designated RP in product codes) |
+| Microcontroller      | Raspberry Pi Zero 2 W              | ~$15-20        | WiFi built-in for dashboard access                         |
+| Power Supply         | 5V 2.5A USB-C adapter              | ~$10-15        | Official Pi power supply recommended                       |
+| SD Card              | SanDisk 32GB microSD (A1/A2 rated) | ~$8-12         | Better performance for database                            |
+| USB Cable (optional) | USB-A to micro-USB or USB-C        | ~$5-10         | If sensor doesn't include cable                            |
+| Tripod (optional)    | Desktop or camera tripod           | ~$10-25        | Standard 1/4-20 threading                                  |
+| **TOTAL**            |                                    | **~$150-210**  |                                                            |
 
 **Alternative sensor with distance measurement**: OPS243-C-FC-RP (~$130-160) - adds range capability via FMCW
 
@@ -172,23 +177,25 @@ This guide walks you through building:
 
 ### Infrastructure Deployment Bill of Materials (~$350-450)
 
-| Part | Recommended Model | Price (approx) | Notes |
-|------|------------------|----------------|-------|
-| Doppler Radar Sensor | OPS7243-A-CW-R2 | ~$415 | Speed-only, RS232 interface (designated R2), 100m range, IP67 enclosure |
-| Microcontroller | Raspberry Pi 4 (4GB) | ~$55-75 | More reliable for 24/7 operation |
-| Serial HAT | Waveshare RS232/485 HAT | ~$25-35 | Required for R2 (RS232) interface |
-| Power Supply | 5V 4A industrial adapter | ~$20-30 | Stable power for continuous operation |
-| SD Card | SanDisk High Endurance 64GB | ~$15-20 | Designed for continuous recording |
-| Cable Glands | PG11 cable glands (2-pack) | ~$8-12 | Weatherproof cable entry |
-| Pole Mount | Stainless steel hose clamps | ~$10-15 | 2-4" diameter range |
-| Mounting Plate | Aluminum or HDPE plate | ~$10-20 | Custom cut to fit enclosure |
-| **TOTAL** | | **~$341-459** | |
+| Part                 | Recommended Model           | Price (approx) | Notes                                                                   |
+| -------------------- | --------------------------- | -------------- | ----------------------------------------------------------------------- |
+| Doppler Radar Sensor | OPS7243-A-CW-R2             | ~$415          | Speed-only, RS232 interface (designated R2), 100m range, IP67 enclosure |
+| Microcontroller      | Raspberry Pi 4 (4GB)        | ~$55-75        | More reliable for 24/7 operation                                        |
+| Serial HAT           | Waveshare RS232/485 HAT     | ~$25-35        | Required for R2 (RS232) interface                                       |
+| Power Supply         | 5V 4A industrial adapter    | ~$20-30        | Stable power for continuous operation                                   |
+| SD Card              | SanDisk High Endurance 64GB | ~$15-20        | Designed for continuous recording                                       |
+| Cable Glands         | PG11 cable glands (2-pack)  | ~$8-12         | Weatherproof cable entry                                                |
+| Pole Mount           | Stainless steel hose clamps | ~$10-15        | 2-4" diameter range                                                     |
+| Mounting Plate       | Aluminum or HDPE plate      | ~$10-20        | Custom cut to fit enclosure                                             |
+| **TOTAL**            |                             | **~$341-459**  |                                                                         |
 
 **Alternative sensors**:
+
 - **USB instead of RS232**: OPS7243-C-FC-RP (~$150-180) - No HAT required, still needs weatherproof enclosure
 - **With distance measurement**: OPS7243-C-FC-R2 (~$435) - 60m range vs 100m
 
 **Power options** for locations without AC power:
+
 - Solar panel + battery (add ~$80-150)
 - PoE HAT + PoE injector (add ~$40-60, requires Ethernet run)
 
@@ -206,8 +213,8 @@ This guide walks you through building:
 
 ### Quick Sensor Decision Guide
 
-**Budget-conscious**: OPS243-A-CW-RP (~$100-130) - Best value, USB plug-and-play  
-**Maximum range for outdoor**: OPS7243-A-CW-R2 (~$415) - 100m range, weatherproof, RS232  
+**Budget-conscious**: OPS243-A-CW-RP (~$100-130) - Best value, USB plug-and-play
+**Maximum range for outdoor**: OPS7243-A-CW-R2 (~$415) - 100m range, weatherproof, RS232
 **Want distance data**: OPS243-C-FC-RP (~$130-160) - 60m range with FMCW
 
 **Don't know which to choose?** The OPS243-A-CW-RP is the safe, budget-friendly choice for most users.
@@ -218,79 +225,19 @@ This guide walks you through building:
 
 ## Step-by-Step Build Guide
 
-### Step 1: Mount the Radar Sensor (15-30 minutes)
+**Build overview** (total time: 2-4 hours for DIY, 4-6 hours for Infrastructure):
 
-#### DIY Deployment: Tripod Mount
-
-**Prepare the case**:
-1. Use 1/4-20 threaded insert (standard camera tripod size)
-2. Heat insert with soldering iron and press into mounting hole
-3. Ensure insert is flush and threads are clean
-
-**Mount to tripod**:
-- Use any standard camera tripod or desktop tripod
-- Position near window facing street
-- Ensure sensor has clear view through glass (Doppler radar works through windows)
-
-**Aiming the sensor**:
-- **Angle**: 20-45° off-axis from traffic flow (NOT perpendicular)
-- **Height**: Window height is typically fine; avoid ground-level clutter
-- **Clear view**: No curtains, screens, or obstructions between sensor and street
-
-**Success criteria**: Sensor is stable, angled properly, with clear view to street
-
-**Note**: DIY deployment works through windows but range may be reduced. Glass causes some signal attenuation.
+1. [Connect Sensor to Raspberry Pi](#step-1-connect-the-sensor-to-the-raspberry-pi-10-15-minutes) — 10-15 minutes
+2. [Configure Sensor Output Mode](#step-2-configure-sensor-output-mode-10-minutes) — 10 minutes
+3. [Verify Data Stream](#step-3-verify-data-stream-5-minutes) — 5 minutes
+4. [Install Software](#step-4-install-software-30-60-minutes) — 30-60 minutes
+5. [Access the Web Dashboard](#step-5-access-the-web-dashboard-5-minutes) — 5 minutes
+6. [Mount the Radar Sensor](#step-6-mount-the-radar-sensor-15-30-minutes) — 15-30 minutes
+7. [Generate PDF Reports](#step-7-generate-pdf-reports-varies---requires-data-collection-period) — After data collection
 
 ---
 
-#### Infrastructure Deployment: Pole Mount
-
-**1. Prepare weatherproof enclosure**:
-
-**Mounting preparation**:
-- Drill mounting holes in back plate for hose clamps
-- Install cable glands for power and (optional) Ethernet
-
-**Sensor positioning**:
-- Mount sensor inside with clear view through front panel
-- Use acrylic or polycarbonate window if sensor doesn't face forward
-
-**2. Install sensor inside**:
-
-- Aim radar sensor through front of enclosure
-- **Critical**: Avoid metal obstructions in front of sensor (Doppler radar uses RF energy)
-- Use plastic/nylon standoffs to mount sensor board
-
-**3. Mount enclosure to pole**:
-
-**Positioning**:
-- Mount 4-8 feet off ground (reduces false positives from small objects)
-- Use two stainless steel hose clamps (top and bottom)
-
-**Aiming**:
-- **Angle**: 20-45° off-axis from traffic flow
-- **Orientation**: Face oncoming OR receding traffic (not perpendicular)
-- Tighten clamps securely but avoid over-tightening (can crack enclosure)
-
-**4. Weatherproofing checklist**:
-- ✅ All cable glands properly sealed
-- ✅ Desiccant pack inside enclosure
-- ✅ Enclosure gasket intact and clean
-- ✅ Test enclosure seal before final mounting
-
-**Success criteria**: Enclosure is weatherproof, sensor aims correctly, mounting is secure
-
-**Why mount higher?** Mounting 4-8 feet off ground reduces false positives from animals, balls, or blowing debris. It provides cleaner line of sight to vehicle traffic.
-
-**Pole mounting best practices**:
-- Choose location with clear view (no trees/signs blocking)
-- Ensure pole is stable (utility poles preferred over signposts)
-- Check local regulations about attaching equipment to public infrastructure
-- Consider solar panel if no AC power available nearby
-
----
-
-### Step 2: Connect the Sensor to the Raspberry Pi (10-15 minutes)
+### Step 1: Connect the Sensor to the Raspberry Pi (10-15 minutes)
 
 #### DIY Deployment: USB Connection (Pi Zero)
 
@@ -337,12 +284,12 @@ The OPS7243-A-CW-R2 sensor (RS232 interface, designated R2) requires a serial HA
 
 2. **Wire sensor to HAT**:
 
-| Sensor Pin (RS232) | HAT Terminal | Wire Color (typical) |
-| ------------------ | ------------ | -------------------- |
-| VCC (5V) | +5V or separate supply | Red |
-| GND | GND | Black |
-| TX | RX (receive) | Green/Yellow |
-| RX | TX (transmit) | Blue/White |
+| Sensor Pin (RS232) | HAT Terminal           | Wire Color (typical) |
+| ------------------ | ---------------------- | -------------------- |
+| VCC (5V)           | +5V or separate supply | Red                  |
+| GND                | GND                    | Black                |
+| TX                 | RX (receive)           | Green/Yellow         |
+| RX                 | TX (transmit)          | Blue/White           |
 
 **Critical**: RS232 uses RX↔TX crossover. Sensor TX connects to HAT RX, and vice versa.
 
@@ -381,6 +328,7 @@ ls -l /dev/serial0
 **Success criteria**: `/dev/serial0` exists and links to a serial device
 
 **Power considerations**:
+
 - RS232 sensor draws ~150mA at 5V
 - Power from dedicated supply (not Pi's 5V pin) for stability
 - Use low-voltage disconnect if running on battery/solar
@@ -389,7 +337,7 @@ ls -l /dev/serial0
 
 ---
 
-### Step 3: Configure Sensor Output Mode (10 minutes)
+### Step 2: Configure Sensor Output Mode (10 minutes)
 
 The OmniPreSense OPS243 sensor ships with CSV output by default, but this software expects **JSON output**.
 
@@ -398,7 +346,7 @@ The OmniPreSense OPS243 sensor ships with CSV output by default, but this softwa
    ```bash
    # Set serial port parameters (baud rate 19200, 8 data bits, no parity, 1 stop bit)
    stty -F /dev/ttyUSB0 19200 cs8 -parenb -cstopb
-   
+
    # Connect to sensor (press Ctrl+A then K to exit)
    screen /dev/ttyUSB0 19200
    ```
@@ -423,6 +371,7 @@ The OmniPreSense OPS243 sensor ships with CSV output by default, but this softwa
 **Success criteria**: You see JSON output (not CSV) when vehicles pass
 
 **Troubleshooting**:
+
 - **Still seeing CSV?** → Type `OJ` command again and verify with `??`
 - **No response?** → Check baud rate is 19200
 - **Garbled output?** → Verify serial port settings (8N1: 8 data bits, no parity, 1 stop bit)
@@ -438,7 +387,7 @@ The OmniPreSense OPS243 sensor ships with CSV output by default, but this softwa
 
 ---
 
-### Step 4: Verify Data Stream (5 minutes)
+### Step 3: Verify Data Stream (5 minutes)
 
 Confirm the sensor is streaming data correctly:
 
@@ -452,11 +401,13 @@ screen /dev/ttyUSB0 19200
 **Success looks like**:
 
 For ambient noise/small movements:
+
 ```json
 { "magnitude": 1.2, "speed": 3.4 }
 ```
 
 For detected vehicles, expect detailed transit data:
+
 ```json
 {
   "classifier": "object_outbound",
@@ -484,7 +435,7 @@ For detected vehicles, expect detailed transit data:
 
 ---
 
-### Step 5: Install Software (30-60 minutes)
+### Step 4: Install Software (30-60 minutes)
 
 On your Raspberry Pi:
 
@@ -531,13 +482,14 @@ sudo journalctl -u velocity-report -f    # View live logs (Ctrl+C to exit)
 ```
 
 **Troubleshooting**:
+
 - **Service won't start?** → Check logs: `sudo journalctl -u velocity-report -n 50`
 - **Binary not found?** → Verify: `ls -l /usr/local/bin/velocity-report`
 - **Permission denied?** → Check: `ls -l /var/lib/velocity-report/`
 
 ---
 
-### Step 6: Access the Web Dashboard (5 minutes)
+### Step 5: Access the Web Dashboard (5 minutes)
 
 Open your browser and visit:
 
@@ -564,6 +516,87 @@ http://raspberrypi.local:8080
 - **Firewall blocking?** → Check firewall: `sudo ufw status` (if using ufw)
 - **Works on Pi but not other devices?** → Try from Pi itself: `curl http://localhost:8080/`
 - **View detailed logs**: `sudo journalctl -u velocity-report -f`
+
+---
+
+### Step 6: Mount the Radar Sensor (15-30 minutes)
+
+#### DIY Deployment: Tripod Mount
+
+**Prepare the case**:
+
+1. Use 1/4-20 threaded insert (standard camera tripod size)
+2. Heat insert with soldering iron and press into mounting hole
+3. Ensure insert is flush and threads are clean
+
+**Mount to tripod**:
+
+- Use any standard camera tripod or desktop tripod
+- Position near window facing street
+- Ensure sensor has clear view through glass (Doppler radar works through windows)
+
+**Aiming the sensor**:
+
+- **Angle**: 20-45° off-axis from traffic flow (NOT perpendicular)
+- **Height**: Window height is typically fine; avoid ground-level clutter
+- **Clear view**: No curtains, screens, or obstructions between sensor and street
+
+**Success criteria**: Sensor is stable, angled properly, with clear view to street
+
+**Note**: DIY deployment works through windows but range may be reduced. Glass causes some signal attenuation.
+
+---
+
+#### Infrastructure Deployment: Pole Mount
+
+**1. Prepare weatherproof enclosure**:
+
+**Mounting preparation**:
+
+- Drill mounting holes in back plate for hose clamps
+- Install cable glands for power and (optional) Ethernet
+
+**Sensor positioning**:
+
+- Mount sensor inside with clear view through front panel
+- Use acrylic or polycarbonate window if sensor doesn't face forward
+
+**2. Install sensor inside**:
+
+- Aim radar sensor through front of enclosure
+- **Critical**: Avoid metal obstructions in front of sensor (Doppler radar uses RF energy)
+- Use plastic/nylon standoffs to mount sensor board
+
+**3. Mount enclosure to pole**:
+
+**Positioning**:
+
+- Mount 4-8 feet off ground (reduces false positives from small objects)
+- Use two stainless steel hose clamps (top and bottom)
+
+**Aiming**:
+
+- **Angle**: 20-45° off-axis from traffic flow
+- **Orientation**: Face oncoming OR receding traffic (not perpendicular)
+- Tighten clamps securely but avoid over-tightening (can crack enclosure)
+
+**4. Weatherproofing checklist**:
+
+- ✅ All cable glands properly sealed
+- ✅ Desiccant pack inside enclosure
+- ✅ Enclosure gasket intact and clean
+- ✅ Test enclosure seal before final mounting
+
+**Success criteria**: Enclosure is weatherproof, sensor aims correctly, mounting is secure
+
+**Why mount higher?** Mounting 4-8 feet off ground reduces false positives from animals, balls, or blowing debris. It provides cleaner line of sight to vehicle traffic.
+
+**Pole mounting best practices**:
+
+- Choose location with clear view (no trees/signs blocking)
+- Ensure pole is stable (utility poles preferred over signposts)
+- Check local regulations about attaching equipment to public infrastructure
+- Consider solar panel if no AC power available nearby
 
 ---
 
@@ -605,6 +638,7 @@ See the [PDF Generator README](../../tools/pdf-generator/README.md) for customiz
 **Making your case**: Print the report and bring it to city council. Instead of "cars go too fast," say "85% of drivers exceed the posted 25 mph limit, with p85 at 38 mph."
 
 **Troubleshooting**:
+
 - **Python command not found?** → Verify Python environment: `which python` (should be in `.venv`)
 - **LaTeX errors?** → Check LaTeX installed: `xelatex --version`
 - **PDF generation fails?** → Check error logs in `tools/pdf-generator/output/`
@@ -694,14 +728,6 @@ If you need public access, use Tailscale (above) or set up a reverse proxy with:
 - Authentication (HTTP basic auth minimum)
 - Rate limiting
 
-See [Security Analysis](https://github.com/banshee-data/velocity.report/blob/main/docs/security-analysis.md) for detailed hardening guidance.
-
----
-
-## **Legal & Privacy Considerations**
-
-*This section has been moved earlier in the document. See [Privacy & Legal Considerations](#privacy--legal-considerations) above.*
-
 ---
 
 ## Using Your Data for Advocacy
@@ -709,12 +735,14 @@ See [Security Analysis](https://github.com/banshee-data/velocity.report/blob/mai
 ### Presenting to City Council
 
 **Do**:
+
 - Print professional PDF reports
 - Compare your data to posted speed limits
 - Propose specific solutions (speed humps, signage, enforcement)
 - Bring photos showing context (residential area, school zone)
 
 **Don't**:
+
 - Share raw database dumps
 - Attack specific drivers
 - Make emotional appeals without data backup
@@ -729,10 +757,10 @@ See [Security Analysis](https://github.com/banshee-data/velocity.report/blob/mai
 
 ### Example Talking Points
 
-❌ "Cars go way too fast on our street!"  
+❌ "Cars go way too fast on our street!"
 ✅ "85% of drivers exceed the 25 mph limit, with p85 at 38 mph—well above the engineering standard for residential safety."
 
-❌ "Someone's going to get hurt!"  
+❌ "Someone's going to get hurt!"
 ✅ "At 38 mph, crash energy is 2.3× higher than at the posted 25 mph limit. Our data shows consistent speeding during school hours."
 
 ---
@@ -742,6 +770,7 @@ See [Security Analysis](https://github.com/banshee-data/velocity.report/blob/mai
 ### Common Issues
 
 **Most failures happen because**:
+
 1. Wrong baud rate (must be 19200, not 9600 or 115200)
 2. Wrong USB device (use `ls /dev/tty*` to find correct port)
 3. Insufficient power (use quality 2.5A+ power supply)
@@ -835,6 +864,7 @@ Show your neighbors. File public records requests to compare your data to offici
 - **Project Website**: [velocity.report](https://velocity.report)
 
 **Related Documentation**:
+
 - **Troubleshooting**: See [TROUBLESHOOTING.md](../../TROUBLESHOOTING.md) for common issues
 - **System Design**: Read [ARCHITECTURE.md](../../ARCHITECTURE.md) for technical details
 - **Report Customization**: Check [PDF Generator README](../../tools/pdf-generator/README.md)
@@ -860,13 +890,13 @@ OmniPreSense offers radar sensors in multiple configurations. The product code f
 
 **Product Code Breakdown**:
 
-| Component | Options | Meaning |
-|-----------|---------|---------|
-| **203-** | Fixed prefix | Mouser manufacturer code for OmniPreSense |
-| **OPS[model]** | 243, 7243 | Sensor model (243 = standard PCB, 7243 = IP67 enclosure) |
-| **Data Type** | A, C | A = Speed only, C = Speed + Distance |
-| **Modulation** | CW, FC | CW = Continuous Wave, FC = FMCW (range capability) |
-| **Interface** | RP, WB, R2 | RP = USB, WB = USB + Bluetooth, R2 = RS-232 |
+| Component      | Options      | Meaning                                                  |
+| -------------- | ------------ | -------------------------------------------------------- |
+| **203-**       | Fixed prefix | Mouser manufacturer code for OmniPreSense                |
+| **OPS[model]** | 243, 7243    | Sensor model (243 = standard PCB, 7243 = IP67 enclosure) |
+| **Data Type**  | A, C         | A = Speed only, C = Speed + Distance                     |
+| **Modulation** | CW, FC       | CW = Continuous Wave, FC = FMCW (range capability)       |
+| **Interface**  | RP, WB, R2   | RP = USB, WB = USB + Bluetooth, R2 = RS-232              |
 
 **Examples**:
 
@@ -875,13 +905,13 @@ OmniPreSense offers radar sensors in multiple configurations. The product code f
 
 ### Available Models Comparison
 
-| Model | Type / Modulation | Interface | IP67 | Range | Price |
-|-------|------------------|-----------|------|-------|-------|
-| 203-OPS243-A-CW-RP | A / CW — Speed only | USB (RP) | No | 100m | ~$100-130 |
-| 203-OPS243-C-FC-RP | C / FC — Speed + Distance | USB (RP) | No | 60m | ~$130-160 |
-| 203-OPS7243-A-CW-R2 | A / CW — Speed only | RS232 (R2) | Yes | 100m | ~$150-180 |
-| 203-OPS7243-C-FC-R2 | C / FC — Speed + Distance | RS232 (R2) | Yes | 60m | ~$150-180 |
-| 203-OPS7243-C-FC-RP | C / FC — Speed + Distance | USB (RP) | Yes | 60m | ~$150-180 |
+| Model               | Type / Modulation         | Interface  | IP67 | Range | Price     |
+| ------------------- | ------------------------- | ---------- | ---- | ----- | --------- |
+| 203-OPS243-A-CW-RP  | A / CW — Speed only       | USB (RP)   | No   | 100m  | ~$100-130 |
+| 203-OPS243-C-FC-RP  | C / FC — Speed + Distance | USB (RP)   | No   | 60m   | ~$130-160 |
+| 203-OPS7243-A-CW-R2 | A / CW — Speed only       | RS232 (R2) | Yes  | 100m  | ~$150-180 |
+| 203-OPS7243-C-FC-R2 | C / FC — Speed + Distance | RS232 (R2) | Yes  | 60m   | ~$150-180 |
+| 203-OPS7243-C-FC-RP | C / FC — Speed + Distance | USB (RP)   | Yes  | 60m   | ~$150-180 |
 
 **Key specifications**:
 
@@ -898,9 +928,11 @@ OmniPreSense offers radar sensors in multiple configurations. The product code f
 All models operate on **5V DC**:
 
 **USB models** (RP/ENC interface):
+
 - Draw power directly from USB connection (5V via USB)
 
 **RS232 models** (R2 interface):
+
 - Require separate 5-24V power supply
 - RS232 provides data lines only, no power
 - Typical draw: 300-440mA at 5V (~2.2W)
