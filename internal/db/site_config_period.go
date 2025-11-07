@@ -10,15 +10,15 @@ import (
 // This is a Type 6 SCD (Slowly Changing Dimension) that tracks configuration history
 // Many periods can reference the same site_variable_config (many-to-one)
 type SiteConfigPeriod struct {
-	ID                    int      `json:"id"`
-	SiteID                int      `json:"site_id"`
-	SiteVariableConfigID  *int     `json:"site_variable_config_id"` // References site_variable_config
-	EffectiveStartUnix    float64  `json:"effective_start_unix"`
-	EffectiveEndUnix      *float64 `json:"effective_end_unix"` // NULL means currently active/open-ended
-	IsActive              bool     `json:"is_active"`          // True if this is the active period for new data
-	Notes                 *string  `json:"notes"`
-	CreatedAt             float64  `json:"created_at"`
-	UpdatedAt             float64  `json:"updated_at"`
+	ID                   int      `json:"id"`
+	SiteID               int      `json:"site_id"`
+	SiteVariableConfigID *int     `json:"site_variable_config_id"` // References site_variable_config
+	EffectiveStartUnix   float64  `json:"effective_start_unix"`
+	EffectiveEndUnix     *float64 `json:"effective_end_unix"` // NULL means currently active/open-ended
+	IsActive             bool     `json:"is_active"`          // True if this is the active period for new data
+	Notes                *string  `json:"notes"`
+	CreatedAt            float64  `json:"created_at"`
+	UpdatedAt            float64  `json:"updated_at"`
 }
 
 // SiteConfigPeriodWithDetails includes site and variable config details
@@ -101,7 +101,7 @@ func (db *DB) GetSiteConfigPeriod(id int) (*SiteConfigPeriod, error) {
 // GetActiveSiteConfigPeriod retrieves the currently active site configuration period
 func (db *DB) GetActiveSiteConfigPeriod() (*SiteConfigPeriodWithDetails, error) {
 	query := `
-		SELECT 
+		SELECT
 			p.id, p.site_id, p.site_variable_config_id, p.effective_start_unix, p.effective_end_unix, p.is_active, p.notes, p.created_at, p.updated_at,
 			s.id, s.name, s.location, s.description, s.speed_limit,
 			s.surveyor, s.contact, s.address, s.latitude, s.longitude, s.map_angle,
@@ -184,7 +184,7 @@ func (db *DB) GetActiveSiteConfigPeriod() (*SiteConfigPeriodWithDetails, error) 
 // GetSiteConfigPeriodForTimestamp finds the site configuration period that was effective at a given timestamp
 func (db *DB) GetSiteConfigPeriodForTimestamp(timestamp float64) (*SiteConfigPeriodWithDetails, error) {
 	query := `
-		SELECT 
+		SELECT
 			p.id, p.site_id, p.site_variable_config_id, p.effective_start_unix, p.effective_end_unix, p.is_active, p.notes, p.created_at, p.updated_at,
 			s.id, s.name, s.location, s.description, s.speed_limit,
 			s.surveyor, s.contact, s.address, s.latitude, s.longitude, s.map_angle,
@@ -269,7 +269,7 @@ func (db *DB) GetSiteConfigPeriodForTimestamp(timestamp float64) (*SiteConfigPer
 // GetAllSiteConfigPeriods retrieves all site configuration periods, ordered by start time
 func (db *DB) GetAllSiteConfigPeriods() ([]SiteConfigPeriodWithDetails, error) {
 	query := `
-		SELECT 
+		SELECT
 			p.id, p.site_id, p.site_variable_config_id, p.effective_start_unix, p.effective_end_unix, p.is_active, p.notes, p.created_at, p.updated_at,
 			s.id, s.name, s.location, s.description, s.speed_limit,
 			s.surveyor, s.contact, s.address, s.latitude, s.longitude, s.map_angle,
@@ -468,12 +468,12 @@ func (db *DB) DeleteSiteConfigPeriod(id int) error {
 
 // TimelineEntry represents a time period with associated data and site configuration
 type TimelineEntry struct {
-	StartUnix          float64                   `json:"start_unix"`
-	EndUnix            *float64                  `json:"end_unix"` // NULL means ongoing
-	HasData            bool                      `json:"has_data"`
-	DataCount          int                       `json:"data_count"`
-	SiteConfigPeriod   *SiteConfigPeriodWithDetails `json:"site_config_period"`   // NULL if no config assigned
-	UnconfiguredPeriod bool                      `json:"unconfigured_period"`  // True if data exists but no site config
+	StartUnix          float64                      `json:"start_unix"`
+	EndUnix            *float64                     `json:"end_unix"` // NULL means ongoing
+	HasData            bool                         `json:"has_data"`
+	DataCount          int                          `json:"data_count"`
+	SiteConfigPeriod   *SiteConfigPeriodWithDetails `json:"site_config_period"`  // NULL if no config assigned
+	UnconfiguredPeriod bool                         `json:"unconfigured_period"` // True if data exists but no site config
 }
 
 // GetTimeline returns a timeline showing all time periods where data exists,
@@ -483,7 +483,7 @@ func (db *DB) GetTimeline(startUnix, endUnix float64) ([]TimelineEntry, error) {
 	// 1. radar_data exists
 	// 2. A site_config_period is defined
 	// Then associates each data period with the relevant site config (if any)
-	
+
 	query := `
 		WITH data_periods AS (
 			-- Get time boundaries where radar data exists
@@ -495,7 +495,7 @@ func (db *DB) GetTimeline(startUnix, endUnix float64) ([]TimelineEntry, error) {
 		),
 		config_periods AS (
 			-- Get all site config periods in the time range
-			SELECT 
+			SELECT
 				p.id,
 				p.site_id,
 				p.effective_start_unix,
@@ -523,12 +523,12 @@ func (db *DB) GetTimeline(startUnix, endUnix float64) ([]TimelineEntry, error) {
 		),
 		time_segments AS (
 			-- Create continuous time segments from boundaries
-			SELECT 
+			SELECT
 				boundary as seg_start,
 				LEAD(boundary) OVER (ORDER BY boundary) as seg_end
 			FROM period_boundaries
 		)
-		SELECT 
+		SELECT
 			ts.seg_start,
 			ts.seg_end,
 			COUNT(DISTINCT rd.rowid) as data_count,
@@ -541,7 +541,7 @@ func (db *DB) GetTimeline(startUnix, endUnix float64) ([]TimelineEntry, error) {
 			cp.name as site_name,
 			cp.cosine_error_angle
 		FROM time_segments ts
-		LEFT JOIN radar_data rd ON rd.write_timestamp >= ts.seg_start 
+		LEFT JOIN radar_data rd ON rd.write_timestamp >= ts.seg_start
 		                        AND (ts.seg_end IS NULL OR rd.write_timestamp < ts.seg_end)
 		LEFT JOIN config_periods cp ON ts.seg_start >= cp.effective_start_unix
 		                           AND (cp.effective_end_unix IS NULL OR ts.seg_start < cp.effective_end_unix)
