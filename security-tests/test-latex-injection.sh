@@ -16,14 +16,15 @@ echo "API URL: $API_URL"
 echo ""
 
 # Test 1: File read via \input
-echo "[Test 1] LaTeX \\input command injection"
-echo "Payload: \\input{/etc/passwd}"
+echo "[Test 1] LaTeX \\\\input command injection"
+echo "Payload: \\\\input{/etc/passwd} (JSON escaped)"
+echo "Note: JSON requires double backslash, which becomes single backslash in LaTeX"
 echo ""
 
-RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$API_URL/api/sites/reports" \
+RESPONSE=$(curl -s -w "\n%{http_code}" --max-time 30 --connect-timeout 10 -X POST "$API_URL/api/sites/reports" \
   -H "Content-Type: application/json" \
   -d '{
-    "location": "\\input{/etc/passwd}",
+    "location": "\\\\input{/etc/passwd}",
     "surveyor": "Security Test",
     "contact": "test@example.com",
     "start_date": "2024-01-01",

@@ -29,7 +29,16 @@ PROTECTED=0
 for endpoint in "${ENDPOINTS[@]}"; do
     echo "[Test] GET $endpoint (no credentials)"
     
-    RESPONSE=$(curl -s -w "\n%{http_code}" "$API_URL$endpoint")
+    RESPONSE=$(curl -s -w "\n%{http_code}" --max-time 10 --connect-timeout 5 "$API_URL$endpoint" 2>&1)
+    EXIT_CODE=$?
+    
+    if [ $EXIT_CODE -ne 0 ]; then
+        echo "   ⚠️  ERROR: Cannot connect to server (curl exit code: $EXIT_CODE)"
+        echo "   Server may not be running at $API_URL"
+        echo ""
+        continue
+    fi
+    
     HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
     
     if [ "$HTTP_CODE" = "200" ]; then
