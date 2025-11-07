@@ -227,17 +227,19 @@ This guide covers two deployment options:
 
 **Build overview** (total time: 2-4 hours for DIY, 4-6 hours for Infrastructure):
 
-1. [Connect Sensor to Raspberry Pi](#step-1-connect-the-sensor-to-the-raspberry-pi-10-15-minutes) — 10-15 minutes
-2. [Configure Sensor Output Mode](#step-2-configure-sensor-output-mode-10-minutes) — 10 minutes
-3. [Verify Data Stream](#step-3-verify-data-stream-5-minutes) — 5 minutes
-4. [Install Software](#step-4-install-software-30-60-minutes) — 30-60 minutes
-5. [Access the Web Dashboard](#step-5-access-the-web-dashboard-5-minutes) — 5 minutes
-6. [Mount the Radar Sensor](#step-6-mount-the-radar-sensor-15-30-minutes) — 15-30 minutes
-7. [Generate PDF Reports](#step-7-generate-pdf-reports-varies---requires-data-collection-period) — After data collection
+1. [Connect Sensor to Raspberry Pi](#step-1-connect-the-sensor-to-the-raspberry-pi) — 10-15 minutes
+2. [Configure Sensor Output Mode](#step-2-configure-sensor-output-mode) — 10 minutes
+3. [Verify Data Stream](#step-3-verify-data-stream) — 5 minutes
+4. [Install Software](#step-4-install-software) — 30-60 minutes
+5. [Access the Web Dashboard](#step-5-access-the-web-dashboard) — 5 minutes
+6. [Mount the Radar Sensor](#step-6-mount-the-radar-sensor) — 15-30 minutes
+7. [Generate PDF Reports](#step-7-generate-pdf-reports) — After data collection
 
 ---
 
-### Step 1: Connect the Sensor to the Raspberry Pi (10-15 minutes)
+### Step 1: Connect the Sensor to the Raspberry Pi
+
+_Estimated time: 10-15 minutes_
 
 #### DIY Deployment: USB Connection (Pi Zero)
 
@@ -337,7 +339,9 @@ ls -l /dev/serial0
 
 ---
 
-### Step 2: Configure Sensor Output Mode (10 minutes)
+### Step 2: Configure Sensor Output Mode
+
+_Estimated time: 10 minutes_
 
 The OmniPreSense OPS243 sensor ships with CSV output by default, but this software expects **JSON output**.
 
@@ -387,7 +391,9 @@ The OmniPreSense OPS243 sensor ships with CSV output by default, but this softwa
 
 ---
 
-### Step 3: Verify Data Stream (5 minutes)
+### Step 3: Verify Data Stream
+
+_Estimated time: 5 minutes_
 
 Confirm the sensor is streaming data correctly:
 
@@ -435,7 +441,9 @@ For detected vehicles, expect detailed transit data:
 
 ---
 
-### Step 4: Install Software (30-60 minutes)
+### Step 4: Install Software
+
+_Estimated time: 30-60 minutes_
 
 On your Raspberry Pi:
 
@@ -489,7 +497,9 @@ sudo journalctl -u velocity-report -f    # View live logs (Ctrl+C to exit)
 
 ---
 
-### Step 5: Access the Web Dashboard (5 minutes)
+### Step 5: Access the Web Dashboard
+
+_Estimated time: 5 minutes_
 
 Open your browser and visit:
 
@@ -519,7 +529,9 @@ http://raspberrypi.local:8080
 
 ---
 
-### Step 6: Mount the Radar Sensor (15-30 minutes)
+### Step 6: Mount the Radar Sensor
+
+_Estimated time: 15-30 minutes_
 
 #### DIY Deployment: Tripod Mount
 
@@ -600,7 +612,9 @@ http://raspberrypi.local:8080
 
 ---
 
-### Step 7: Generate PDF Reports (Varies - requires data collection period)
+### Step 7: Generate PDF Reports
+
+_Estimated time: Varies — requires data collection period_
 
 After collecting data for a few days or weeks, generate professional reports.
 
@@ -720,13 +734,9 @@ http://100.x.y.z:8080
 
 ### Public Internet Deployment (Not Recommended)
 
-**Do not expose this service directly to the public internet.** The dashboard has no authentication, no HTTPS, and no rate limiting.
+**Please, do not expose this service directly to the public internet.** The dashboard has no authentication, no HTTPS, and no rate limiting.
 
-If you need public access, use Tailscale (above) or set up a reverse proxy with:
-
-- HTTPS (Caddy/nginx with Let's Encrypt)
-- Authentication (HTTP basic auth minimum)
-- Rate limiting
+If you need remote access, please use [Tailscale](#remote-access-with-tailscale-optional).
 
 ---
 
@@ -905,13 +915,13 @@ OmniPreSense offers radar sensors in multiple configurations. The product code f
 
 ### Available Models Comparison
 
-| Model               | Type / Modulation         | Interface  | IP67 | Range | Price     |
-| ------------------- | ------------------------- | ---------- | ---- | ----- | --------- |
-| 203-OPS243-A-CW-RP  | A / CW — Speed only       | USB (RP)   | No   | 100m  | ~$100-130 |
-| 203-OPS243-C-FC-RP  | C / FC — Speed + Distance | USB (RP)   | No   | 60m   | ~$130-160 |
-| 203-OPS7243-A-CW-R2 | A / CW — Speed only       | RS232 (R2) | Yes  | 100m  | ~$150-180 |
-| 203-OPS7243-C-FC-R2 | C / FC — Speed + Distance | RS232 (R2) | Yes  | 60m   | ~$150-180 |
-| 203-OPS7243-C-FC-RP | C / FC — Speed + Distance | USB (RP)   | Yes  | 60m   | ~$150-180 |
+| Model               | Modulation | Speed | Distance | Interface  | IP67 | Range | Price     |
+| ------------------- | ---------- | ----- | -------- | ---------- | ---- | ----- | --------- |
+| 203-OPS243-A-CW-RP  | Doppler    | Yes   | No       | USB (RP)   | No   | 100m  | ~$100-130 |
+| 203-OPS7243-A-CW-R2 | Doppler    | Yes   | No       | RS232 (R2) | Yes  | 100m  | ~$150-180 |
+| 203-OPS243-C-FC-RP  | FMCW       | Yes   | Yes      | USB (RP)   | No   | 60m   | ~$130-160 |
+| 203-OPS7243-C-FC-R2 | FMCW       | Yes   | Yes      | RS232 (R2) | Yes  | 60m   | ~$150-180 |
+| 203-OPS7243-C-FC-RP | FMCW       | Yes   | Yes      | USB (RP)   | Yes  | 60m   | ~$150-180 |
 
 **Key specifications**:
 
