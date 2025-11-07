@@ -10,6 +10,7 @@ from typing import Dict, Optional, Any
 
 try:
     from pylatex import Document, Package, NoEscape
+    from pylatex.utils import escape_latex
 
     HAVE_PYLATEX = True
 except Exception:  # pragma: no cover
@@ -25,6 +26,23 @@ except Exception:  # pragma: no cover
 
     class NoEscape(str):  # type: ignore
         pass
+
+    def escape_latex(s: str) -> str:  # type: ignore
+        """Fallback escape_latex when pylatex is not available."""
+        # Basic LaTeX escaping for special characters
+        latex_special_chars = {
+            '\\': r'\textbackslash{}',
+            '{': r'\{',
+            '}': r'\}',
+            '$': r'\$',
+            '&': r'\&',
+            '#': r'\#',
+            '_': r'\_',
+            '%': r'\%',
+            '~': r'\textasciitilde{}',
+            '^': r'\textasciicircum{}',
+        }
+        return ''.join(latex_special_chars.get(c, c) for c in s)
 
 
 from pdf_generator.core.config_manager import (
@@ -193,7 +211,9 @@ class DocumentBuilder:
             )
         )
         # Date range moved to footer, header center is empty
-        doc.append(NoEscape(f"\\fancyhead[R]{{ \\textit{{{location}}}}}"))
+        # Escape user-controlled location to prevent LaTeX injection
+        escaped_location = escape_latex(location)
+        doc.append(NoEscape(f"\\fancyhead[R]{{ \\textit{{{escaped_location}}}}}"))
         doc.append(NoEscape("\\renewcommand{\\headrulewidth}{0.8pt}"))
         # Add footer with date range on left and page number on right
         doc.append(
@@ -219,10 +239,14 @@ class DocumentBuilder:
         doc.append(NoEscape("\\twocolumn["))
         doc.append(NoEscape("\\vspace{-8pt}"))
         doc.append(NoEscape("\\begin{center}"))
-        doc.append(NoEscape(f"{{\\huge \\sffamily\\textbf{{ {location}}}}}"))
+        # Escape user-controlled strings to prevent LaTeX injection
+        escaped_location = escape_latex(location)
+        escaped_surveyor = escape_latex(surveyor)
+        escaped_contact = escape_latex(contact)
+        doc.append(NoEscape(f"{{\\huge \\sffamily\\textbf{{ {escaped_location}}}}}"))
         doc.append(NoEscape("\\par"))
         doc.append(NoEscape("\\vspace{0.1cm}"))
-        surveyor_line = f"{{\\large \\sffamily Surveyor: \\textit{{{surveyor}}} \\ \\textbullet \\ \\ Contact: \\href{{mailto:{contact}}}{{{contact}}}}}"
+        surveyor_line = f"{{\\large \\sffamily Surveyor: \\textit{{{escaped_surveyor}}} \\ \\textbullet \\ \\ Contact: \\href{{mailto:{escaped_contact}}}{{{escaped_contact}}}}}"
         doc.append(NoEscape(surveyor_line))
         doc.append(NoEscape("\\end{center}"))
         doc.append(NoEscape("]"))
