@@ -216,67 +216,74 @@ By the end of this guide, you'll have:
 
 ---
 
-## **Step-by-Step Build Guide**
+## Step-by-Step Build Guide
 
-### **Step 1: Mount the Radar Sensor**
+### Step 1: Mount the Radar Sensor (15-30 minutes)
 
-#### **DIY Deployment: Tripod Mount**
+#### DIY Deployment: Tripod Mount
 
-1. **Install threaded insert** in 3D printed case bottom:
+**Prepare the case**:
+1. Use 1/4-20 threaded insert (standard camera tripod size)
+2. Heat insert with soldering iron and press into mounting hole
+3. Ensure insert is flush and threads are clean
 
-   - Use 1/4-20 threaded insert (standard camera tripod size)
-   - Heat insert with soldering iron and press into mounting hole
-   - Ensure insert is flush and threads are clean
+**Mount to tripod**:
+- Use any standard camera tripod or desktop tripod
+- Position near window facing street
+- Ensure sensor has clear view through glass (Doppler radar works through windows)
 
-2. **Mount to tripod**:
+**Aiming the sensor**:
+- **Angle**: 20-45° off-axis from traffic flow (NOT perpendicular)
+- **Height**: Window height is typically fine; avoid ground-level clutter
+- **Clear view**: No curtains, screens, or obstructions between sensor and street
 
-   - Use any standard camera tripod or desktop tripod
-   - Position near window facing street
-   - Ensure sensor has clear view through glass (Doppler radar works through windows)
+**Success criteria**: Sensor is stable, angled properly, with clear view to street
 
-3. **Aiming the sensor**:
-   - **Angle**: 20-45° off-axis from traffic flow (NOT perpendicular)
-   - **Height**: Window height is typically fine; avoid ground-level clutter
-   - **Clear view**: No curtains, screens, or obstructions between sensor and street
-
-**Limitation**: DIY deployment works through windows but range may be reduced. Glass causes some signal attenuation.
+**Note**: DIY deployment works through windows but range may be reduced. Glass causes some signal attenuation.
 
 ---
 
-#### **Infrastructure Deployment: Pole Mount**
+#### Infrastructure Deployment: Pole Mount
 
-1. **Prepare weatherproof enclosure**:
+**1. Prepare weatherproof enclosure**:
 
-   - Drill mounting holes in back plate for hose clamps
-   - Install cable glands in appropriate positions for power and (optional) Ethernet
-   - Mount sensor inside enclosure with clear view through front panel
-   - Consider acrylic or polycarbonate window if sensor doesn't face forward
+**Mounting preparation**:
+- Drill mounting holes in back plate for hose clamps
+- Install cable glands for power and (optional) Ethernet
 
-2. **Position sensor correctly inside enclosure**:
+**Sensor positioning**:
+- Mount sensor inside with clear view through front panel
+- Use acrylic or polycarbonate window if sensor doesn't face forward
 
-   - Radar sensor should aim through front of enclosure
-   - **Critical**: Doppler radar uses RF energy; avoid metal obstructions in front of sensor
-   - Use plastic/nylon standoffs to mount sensor board
+**2. Install sensor inside**:
 
-3. **Mount enclosure to pole**:
+- Aim radar sensor through front of enclosure
+- **Critical**: Avoid metal obstructions in front of sensor (Doppler radar uses RF energy)
+- Use plastic/nylon standoffs to mount sensor board
 
-   - Position 4-8 feet off ground (reduces false positives from small objects)
-   - Use two stainless steel hose clamps (top and bottom of enclosure)
-   - **Angle**: 20-45° off-axis from traffic flow
-   - **Orientation**: Sensor should face oncoming OR receding traffic (not perpendicular)
-   - Tighten clamps securely but avoid over-tightening (can crack enclosure)
+**3. Mount enclosure to pole**:
 
-4. **Weatherproofing checklist**:
-   - All cable glands properly sealed
-   - Desiccant pack inside enclosure
-   - Enclosure gasket intact and clean
-   - Test enclosure seal before final mounting
+**Positioning**:
+- Mount 4-8 feet off ground (reduces false positives from small objects)
+- Use two stainless steel hose clamps (top and bottom)
 
-**Why mount higher?** Mounting 4-8 feet off ground helps reduce false positives from small objects like animals, bouncing balls, or blowing debris. It also provides a cleaner line of sight to vehicle traffic.
+**Aiming**:
+- **Angle**: 20-45° off-axis from traffic flow
+- **Orientation**: Face oncoming OR receding traffic (not perpendicular)
+- Tighten clamps securely but avoid over-tightening (can crack enclosure)
+
+**4. Weatherproofing checklist**:
+- ✅ All cable glands properly sealed
+- ✅ Desiccant pack inside enclosure
+- ✅ Enclosure gasket intact and clean
+- ✅ Test enclosure seal before final mounting
+
+**Success criteria**: Enclosure is weatherproof, sensor aims correctly, mounting is secure
+
+**Why mount higher?** Mounting 4-8 feet off ground reduces false positives from animals, balls, or blowing debris. It provides cleaner line of sight to vehicle traffic.
 
 **Pole mounting best practices**:
-
-- Choose location with clear view of traffic (no trees/signs blocking)
+- Choose location with clear view (no trees/signs blocking)
 - Ensure pole is stable (utility poles preferred over signposts)
 - Check local regulations about attaching equipment to public infrastructure
 - Consider solar panel if no AC power available nearby
@@ -690,45 +697,112 @@ See [Security Analysis](https://github.com/banshee-data/velocity.report/blob/mai
 
 ## **Legal & Privacy Considerations**
 
-### **What This System Collects**
-
-- ✅ Vehicle speed and direction
-- ✅ Timestamp of detection
-- ❌ **No** cameras, license plates, or identifying information
-- ❌ **No** cloud transmission - all data stays local
-
-This privacy-first design is legal for civic use in most jurisdictions. You're measuring public behavior on public streets, similar to what traffic engineers do.
-
-### **Know Your Local Rules**
-
-**We are not lawyers.** Before deploying, check if you need permission for:
-
-- Mounting equipment on utility poles (usually requires permission)
-- Long-term installations in public spaces
-- School zones or government property
-
-**Generally OK**: Monitoring the street in front of your home for community advocacy, temporary studies (1-4 weeks), presenting findings to local government.
-
-**Not OK**: Monitoring private property, interfering with traffic devices, creating safety hazards.
-
-### **Use Data Responsibly**
-
-- Share aggregate statistics (PDF reports), not raw database dumps
-- Focus on safety improvements, not shaming individuals
-- Inform neighbors about your monitoring project
-- Be transparent about methodology and limitations
-
-**Disclaimer**: This is not legal advice. Laws vary by location and use case. When in doubt, consult local authorities or an attorney.
+*This section has been moved earlier in the document. See [Privacy & Legal Considerations](#privacy--legal-considerations) above.*
 
 ---
 
-## **Wrap-Up & Next Steps**
+## Using Your Data for Advocacy
 
-Nice work! You've built a working traffic radar from scratch.
+### Presenting to City Council
+
+**Do**:
+- Print professional PDF reports
+- Compare your data to posted speed limits
+- Propose specific solutions (speed humps, signage, enforcement)
+- Bring photos showing context (residential area, school zone)
+
+**Don't**:
+- Share raw database dumps
+- Attack specific drivers
+- Make emotional appeals without data backup
+- Demand immediate action without acknowledging budget constraints
+
+### Building Community Support
+
+1. **Share with neighbors** - Show them the data
+2. **Partner with local groups** - PTA, neighborhood associations
+3. **File public records requests** - Compare to city traffic studies
+4. **Document over time** - Show patterns, not one-off incidents
+
+### Example Talking Points
+
+❌ "Cars go way too fast on our street!"  
+✅ "85% of drivers exceed the 25 mph limit, with p85 at 38 mph—well above the engineering standard for residential safety."
+
+❌ "Someone's going to get hurt!"  
+✅ "At 38 mph, crash energy is 2.3× higher than at the posted 25 mph limit. Our data shows consistent speeding during school hours."
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**Most failures happen because**:
+1. Wrong baud rate (must be 19200, not 9600 or 115200)
+2. Wrong USB device (use `ls /dev/tty*` to find correct port)
+3. Insufficient power (use quality 2.5A+ power supply)
+4. Sensor still in CSV mode (must configure to JSON with `OJ` command)
+
+**Pro tip**: When stuck, check these four things before searching forums.
+
+### No Data from Sensor
+
+- Check baud rate: 19200
+- Verify port: `ls /dev/tty*` before/after plugging in
+- Check power: 12V stable for RS232 models
+- View USB logs: `dmesg | tail`
+
+### Service Won't Start
+
+- Check binary exists: `ls -l /usr/local/bin/velocity-report`
+- Check permissions: `ls -l /var/lib/velocity-report/`
+- View detailed logs: `sudo journalctl -u velocity-report -n 50`
+
+### Web Dashboard Not Accessible
+
+- Check service: `sudo systemctl status velocity-report`
+- Check port: `sudo netstat -tlnp | grep 8080`
+- Try locally: `curl http://localhost:8080/`
+- Check firewall: `sudo ufw status` (if using ufw)
+
+### PDF Generation Fails
+
+- Check Python: `which python` (should be in venv)
+- Check LaTeX: `xelatex --version`
+- Check logs in: `tools/pdf-generator/output/`
+
+---
+
+## Uninstalling
+
+To completely remove velocity.report:
+
+```bash
+# Stop and disable service
+sudo systemctl stop velocity-report
+sudo systemctl disable velocity-report
+
+# Remove files
+sudo rm /usr/local/bin/velocity-report
+sudo rm /etc/systemd/system/velocity-report.service
+sudo rm -rf /var/lib/velocity-report/
+
+# Remove service user
+sudo userdel velocity
+```
+
+**Warning**: This deletes all collected data. Export PDFs first if you want to keep them.
+
+---
+
+## Wrap-Up & Next Steps
+
+You've successfully built a working traffic radar from scratch.
 
 **What you've accomplished**:
 
-- Built hardware equivalent to $10k+ professional traffic counters
+- Built hardware for neighborhood traffic monitoring
 - Configured a Doppler radar sensor (USB or RS232)
 - Deployed a complete web-based monitoring system
 - Set up local data storage with no cloud dependencies
@@ -749,18 +823,90 @@ Show your neighbors. File public records requests to compare your data to offici
 
 ---
 
-## **Resources & Links**
+## Resources & Links
 
+- **Project Overview**: See the [main README](../../README.md) for project background and philosophy
 - **GitHub Repository**: [github.com/banshee-data/velocity.report](https://github.com/banshee-data/velocity.report)
 - **OmniPreSense Support**: [omnipresense.com/support](https://www.omnipresense.com/support)
 - **Community Discord**: [discord.gg/XXh6jXVFkt](https://discord.gg/XXh6jXVFkt)
 - **Project Website**: [velocity.report](https://velocity.report)
+
+**Related Documentation**:
+- **Troubleshooting**: See [TROUBLESHOOTING.md](../../TROUBLESHOOTING.md) for common issues
+- **System Design**: Read [ARCHITECTURE.md](../../ARCHITECTURE.md) for technical details
+- **Report Customization**: Check [PDF Generator README](../../tools/pdf-generator/README.md)
+- **Contributing**: Join us at [CONTRIBUTING.md](../../CONTRIBUTING.md)
 
 **Traffic Safety Resources**:
 
 - Vision Zero Network: [visionzeronetwork.org](https://visionzeronetwork.org)
 - NACTO Urban Street Design Guide: [nacto.org](https://nacto.org/publication/urban-street-design-guide/)
 - FHWA Speed Management: [safety.fhwa.dot.gov/speedmgt](https://safety.fhwa.dot.gov/speedmgt/)
+
+---
+
+## Appendix: Sensor Selection Guide
+
+### Understanding OmniPreSense Product Codes
+
+OmniPreSense offers radar sensors in multiple configurations. The product code format is:
+
+```
+203-OPS[model]-[data_type]-[modulation]-[interface]
+```
+
+**Product Code Breakdown**:
+
+| Component | Options | Meaning |
+|-----------|---------|---------|
+| **203-** | Fixed prefix | Mouser manufacturer code for OmniPreSense |
+| **OPS[model]** | 243, 7243 | Sensor model (243 = standard PCB, 7243 = IP67 enclosure) |
+| **Data Type** | A, C | A = Speed only, C = Speed + Distance |
+| **Modulation** | CW, FC | CW = Continuous Wave, FC = FMCW (range capability) |
+| **Interface** | RP, WB, R2 | RP = USB, WB = USB + Bluetooth, R2 = RS-232 |
+
+**Examples**:
+
+- `203-OPS243-A-CW-RP` = Sensor PCB, speed-only, continuous wave, USB interface
+- `203-OPS7243-C-FC-R2` = Sensor in IP67 housing, speed+distance, FMCW, RS232 interface
+
+### Available Models Comparison
+
+| Model | Type / Modulation | Interface | IP67 | Range | Price |
+|-------|------------------|-----------|------|-------|-------|
+| 203-OPS243-A-CW-RP | A / CW — Speed only | USB (RP) | No | 100m | ~$100-130 |
+| 203-OPS243-C-FC-RP | C / FC — Speed + Distance | USB (RP) | No | 60m | ~$130-160 |
+| 203-OPS7243-A-CW-R2 | A / CW — Speed only | RS232 (R2) | Yes | 100m | ~$150-180 |
+| 203-OPS7243-C-FC-R2 | C / FC — Speed + Distance | RS232 (R2) | Yes | 60m | ~$150-180 |
+| 203-OPS7243-C-FC-RP | C / FC — Speed + Distance | USB (RP) | Yes | 60m | ~$150-180 |
+
+**Key specifications**:
+
+- **A-type**: Speed only, ≈100m range
+- **C-type**: Speed + distance, ≈60m range (FMCW)
+- **CW modulation**: Doppler (speed measurement)
+- **FC modulation**: FMCW (adds range/frequency-modulated distance)
+- **RP interface**: USB plug-and-play
+- **R2 interface**: RS232 industrial (requires serial HAT)
+- **WB variants**: Bluetooth/Wi‑Fi (omitted from recommendations)
+
+### Power Requirements
+
+All models operate on **5V DC**:
+
+**USB models** (RP/ENC interface):
+- Draw power directly from USB connection (5V via USB)
+
+**RS232 models** (R2 interface):
+- Require separate 5-24V power supply
+- RS232 provides data lines only, no power
+- Typical draw: 300-440mA at 5V (~2.2W)
+
+**Important**: USB interface models (RP, WB, ENC) are powered via USB. RS232 models (R2) require external 5V power in addition to the RS232 data connection.
+
+---
+
+[Back to top](#build-your-own-privacy-first-speed-radar)
 
 ---
 
