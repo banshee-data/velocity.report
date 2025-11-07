@@ -14,6 +14,7 @@
 	import { page } from '$app/state';
 	import { discord } from '$lib/icons';
 
+	import { resolve } from '$app/paths';
 	import './app.css';
 
 	let { children } = $props();
@@ -65,9 +66,9 @@
 
 <AppLayout>
 	<nav slot="nav">
-		<NavItem text="Dashboard" icon={mdiHome} path="/app/" currentUrl={page.url} />
-		<NavItem text="Sites" icon={mdiMapMarker} path="/app/site" currentUrl={page.url} />
-		<NavItem text="Settings" icon={mdiCog} path="/app/settings" currentUrl={page.url} />
+		<NavItem text="Dashboard" icon={mdiHome} path={resolve('/')} currentUrl={page.url} />
+		<NavItem text="Sites" icon={mdiMapMarker} path={resolve('/site')} currentUrl={page.url} />
+		<NavItem text="Settings" icon={mdiCog} path={resolve('/settings')} currentUrl={page.url} />
 	</nav>
 
 	<AppBar title="velocity.report">
