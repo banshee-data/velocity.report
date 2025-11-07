@@ -95,3 +95,21 @@ class RadarStatsClient:
         histogram = payload.get("histogram", {}) if isinstance(payload, dict) else {}
 
         return metrics, histogram, resp
+
+    def get_speed_limit_schedules(self, site_id: int) -> List[Dict[str, Any]]:
+        """Query speed limit schedules for a site.
+
+        Args:
+            site_id: Site ID to fetch schedules for
+
+        Returns:
+            List of speed limit schedule dictionaries
+
+        Raises:
+            requests.HTTPError: If the API request fails
+        """
+        url = f"{self.base_url}/api/speed_limit_schedules/site/{site_id}"
+        resp = requests.get(url)
+        resp.raise_for_status()
+        return resp.json()
+

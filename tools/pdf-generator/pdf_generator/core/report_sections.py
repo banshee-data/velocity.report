@@ -112,6 +112,7 @@ class SiteInformationSection:
     Includes:
     - Site description
     - Speed limit notes
+    - Speed limit schedules table
     - Location-specific context
     """
 
@@ -124,7 +125,7 @@ class SiteInformationSection:
             )
 
     def build(
-        self, doc: Document, site_description: str = "", speed_limit_note: str = ""
+        self, doc: Document, site_description: str = "", speed_limit_note: str = "", speed_limit_schedules: list = None
     ) -> None:
         """Add site information section to document.
 
@@ -132,9 +133,10 @@ class SiteInformationSection:
             doc: PyLaTeX Document to append to
             site_description: Optional site description text
             speed_limit_note: Optional speed limit information
+            speed_limit_schedules: Optional list of speed limit schedule dictionaries
         """
-        # Skip section if both are empty (don't use SITE_INFO fallback)
-        if not site_description and not speed_limit_note:
+        # Skip section if all are empty
+        if not site_description and not speed_limit_note and not speed_limit_schedules:
             return
 
         doc.append(NoEscape("\\subsection*{Site Information}"))
@@ -145,6 +147,65 @@ class SiteInformationSection:
 
         if speed_limit_note:
             doc.append(NoEscape(escape_latex(speed_limit_note)))
+            doc.append(NoEscape("\\par"))
+
+        if speed_limit_schedules:
+            self._add_speed_limit_schedule_table(doc, speed_limit_schedules)
+
+    def _add_speed_limit_schedule_table(self, doc: Document, schedules: list) -> None:
+        """Add speed limit schedule table to document.
+
+        Args:
+            doc: PyLaTeX Document to append to
+            schedules: List of speed limit schedule dictionaries
+        """
+        if not schedules:
+            return
+
+        doc.append(NoEscape("\\par"))
+        doc.append(NoEscape("\\textbf{Speed Limit Schedule}"))
+        doc.append(NoEscape("\\par"))
+        doc.append(NoEscape("\\vspace{0.5em}"))
+
+        # Day of week names
+        day_names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+
+        # Group schedules by day of week
+        schedules_by_day = {}
+        for schedule in schedules:
+            day = schedule.get("day_of_week", 0)
+            if day not in schedules_by_day:
+                schedules_by_day[day] = []
+            schedules_by_day[day].append(schedule)
+
+        # Sort schedules within each day by start time
+        for day in schedules_by_day:
+            schedules_by_day[day].sort(key=lambda s: s.get("start_time", "00:00"))
+
+        # Create table
+        doc.append(NoEscape("\\begin{center}"))
+        doc.append(NoEscape("\\begin{tabular}{|l|l|l|l|}"))
+        doc.append(NoEscape("\\hline"))
+        doc.append(NoEscape("\\textbf{Day} & \\textbf{Start Time} & \\textbf{End Time} & \\textbf{Speed Limit} \\\\"))
+        doc.append(NoEscape("\\hline"))
+
+        # Add rows for each day that has schedules
+        for day in sorted(schedules_by_day.keys()):
+            day_schedules = schedules_by_day[day]
+            for i, schedule in enumerate(day_schedules):
+                day_label = day_names[day] if i == 0 else ""
+                start_time = schedule.get("start_time", "")
+                end_time = schedule.get("end_time", "")
+                speed_limit = schedule.get("speed_limit", 0)
+
+                doc.append(NoEscape(
+                    f"{escape_latex(day_label)} & {start_time} & {end_time} & {speed_limit} mph \\\\"
+                ))
+                doc.append(NoEscape("\\hline"))
+
+        doc.append(NoEscape("\\end{tabular}"))
+        doc.append(NoEscape("\\end{center}"))
+        doc.append(NoEscape("\\par"))
 
 
 class ScienceMethodologySection:
@@ -368,7 +429,7 @@ def add_metric_data_intro(
 
 
 def add_site_specifics(
-    doc: Document, site_description: str = "", speed_limit_note: str = ""
+    doc: Document, site_description: str = "", speed_limit_note: str = "", speed_limit_schedules: list = None
 ) -> None:
     """Add site information section (convenience wrapper).
 
@@ -376,9 +437,10 @@ def add_site_specifics(
         doc: PyLaTeX Document to append to
         site_description: Optional site description text
         speed_limit_note: Optional speed limit information
+        speed_limit_schedules: Optional list of speed limit schedule dictionaries
     """
     builder = SiteInformationSection()
-    builder.build(doc, site_description, speed_limit_note)
+    builder.build(doc, site_description, speed_limit_note, speed_limit_schedules)
 
 
 def add_science(doc: Document) -> None:
