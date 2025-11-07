@@ -6,35 +6,44 @@ import (
 	"time"
 )
 
-// Site represents a survey site configuration
+// Site represents a survey site configuration (static properties)
+// Time-varying configuration (like cosine_error_angle) is in SiteVariableConfig
 type Site struct {
-	ID               int       `json:"id"`
-	Name             string    `json:"name"`
-	Location         string    `json:"location"`
-	Description      *string   `json:"description"`
-	CosineErrorAngle float64   `json:"cosine_error_angle"`
-	SpeedLimit       int       `json:"speed_limit"`
-	Surveyor         string    `json:"surveyor"`
-	Contact          string    `json:"contact"`
-	Address          *string   `json:"address"`
-	Latitude         *float64  `json:"latitude"`
-	Longitude        *float64  `json:"longitude"`
-	MapAngle         *float64  `json:"map_angle"`
-	IncludeMap       bool      `json:"include_map"`
-	SiteDescription  *string   `json:"site_description"`
-	SpeedLimitNote   *string   `json:"speed_limit_note"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	ID              int       `json:"id"`
+	Name            string    `json:"name"`
+	Location        string    `json:"location"`
+	Description     *string   `json:"description"`
+	SpeedLimit      int       `json:"speed_limit"`
+	Surveyor        string    `json:"surveyor"`
+	Contact         string    `json:"contact"`
+	Address         *string   `json:"address"`
+	Latitude        *float64  `json:"latitude"`
+	Longitude       *float64  `json:"longitude"`
+	MapAngle        *float64  `json:"map_angle"`
+	IncludeMap      bool      `json:"include_map"`
+	SiteDescription *string   `json:"site_description"`
+	SpeedLimitNote  *string   `json:"speed_limit_note"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+// SiteVariableConfig represents time-varying site configuration values
+// Multiple site_config_periods can reference the same config (many-to-one)
+type SiteVariableConfig struct {
+	ID               int     `json:"id"`
+	CosineErrorAngle float64 `json:"cosine_error_angle"`
+	CreatedAt        float64 `json:"created_at"`
+	UpdatedAt        float64 `json:"updated_at"`
 }
 
 // CreateSite creates a new site in the database
 func (db *DB) CreateSite(site *Site) error {
 	query := `
 		INSERT INTO site (
-			name, location, description, cosine_error_angle, speed_limit,
+			name, location, description, speed_limit,
 			surveyor, contact, address, latitude, longitude, map_angle,
 			include_map, site_description, speed_limit_note
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	includeMapInt := 0
@@ -47,7 +56,6 @@ func (db *DB) CreateSite(site *Site) error {
 		site.Name,
 		site.Location,
 		site.Description,
-		site.CosineErrorAngle,
 		site.SpeedLimit,
 		site.Surveyor,
 		site.Contact,
@@ -76,7 +84,7 @@ func (db *DB) CreateSite(site *Site) error {
 func (db *DB) GetSite(id int) (*Site, error) {
 	query := `
 		SELECT
-			id, name, location, description, cosine_error_angle, speed_limit,
+			id, name, location, description, speed_limit,
 			surveyor, contact, address, latitude, longitude, map_angle,
 			include_map, site_description, speed_limit_note,
 			created_at, updated_at
@@ -93,7 +101,6 @@ func (db *DB) GetSite(id int) (*Site, error) {
 		&site.Name,
 		&site.Location,
 		&site.Description,
-		&site.CosineErrorAngle,
 		&site.SpeedLimit,
 		&site.Surveyor,
 		&site.Contact,
@@ -126,7 +133,7 @@ func (db *DB) GetSite(id int) (*Site, error) {
 func (db *DB) GetAllSites() ([]Site, error) {
 	query := `
 		SELECT
-			id, name, location, description, cosine_error_angle, speed_limit,
+			id, name, location, description, speed_limit,
 			surveyor, contact, address, latitude, longitude, map_angle,
 			include_map, site_description, speed_limit_note,
 			created_at, updated_at
@@ -151,7 +158,6 @@ func (db *DB) GetAllSites() ([]Site, error) {
 			&site.Name,
 			&site.Location,
 			&site.Description,
-			&site.CosineErrorAngle,
 			&site.SpeedLimit,
 			&site.Surveyor,
 			&site.Contact,
@@ -190,7 +196,6 @@ func (db *DB) UpdateSite(site *Site) error {
 			name = ?,
 			location = ?,
 			description = ?,
-			cosine_error_angle = ?,
 			speed_limit = ?,
 			surveyor = ?,
 			contact = ?,
@@ -214,7 +219,6 @@ func (db *DB) UpdateSite(site *Site) error {
 		site.Name,
 		site.Location,
 		site.Description,
-		site.CosineErrorAngle,
 		site.SpeedLimit,
 		site.Surveyor,
 		site.Contact,
@@ -262,4 +266,133 @@ func (db *DB) DeleteSite(id int) error {
 	}
 
 	return nil
+}
+
+// CreateSiteVariableConfig creates a new site variable configuration
+func (db *DB) CreateSiteVariableConfig(config *SiteVariableConfig) error {
+query := `
+INSERT INTO site_variable_config (cosine_error_angle)
+VALUES (?)
+`
+
+result, err := db.DB.Exec(query, config.CosineErrorAngle)
+if err != nil {
+return fmt.Errorf("failed to create site variable config: %w", err)
+}
+
+id, err := result.LastInsertId()
+if err != nil {
+return fmt.Errorf("failed to get last insert ID: %w", err)
+}
+
+config.ID = int(id)
+return nil
+}
+
+// GetSiteVariableConfig retrieves a site variable config by ID
+func (db *DB) GetSiteVariableConfig(id int) (*SiteVariableConfig, error) {
+query := `
+SELECT id, cosine_error_angle, created_at, updated_at
+FROM site_variable_config
+WHERE id = ?
+`
+
+var config SiteVariableConfig
+err := db.DB.QueryRow(query, id).Scan(
+&config.ID,
+&config.CosineErrorAngle,
+&config.CreatedAt,
+&config.UpdatedAt,
+)
+
+if err == sql.ErrNoRows {
+return nil, fmt.Errorf("site variable config not found")
+}
+if err != nil {
+return nil, fmt.Errorf("failed to get site variable config: %w", err)
+}
+
+return &config, nil
+}
+
+// GetAllSiteVariableConfigs retrieves all site variable configs
+func (db *DB) GetAllSiteVariableConfigs() ([]SiteVariableConfig, error) {
+query := `
+SELECT id, cosine_error_angle, created_at, updated_at
+FROM site_variable_config
+ORDER BY id ASC
+`
+
+rows, err := db.DB.Query(query)
+if err != nil {
+return nil, fmt.Errorf("failed to query site variable configs: %w", err)
+}
+defer rows.Close()
+
+var configs []SiteVariableConfig
+for rows.Next() {
+var config SiteVariableConfig
+err := rows.Scan(
+&config.ID,
+&config.CosineErrorAngle,
+&config.CreatedAt,
+&config.UpdatedAt,
+)
+if err != nil {
+return nil, fmt.Errorf("failed to scan site variable config: %w", err)
+}
+configs = append(configs, config)
+}
+
+if err = rows.Err(); err != nil {
+return nil, fmt.Errorf("error iterating site variable configs: %w", err)
+}
+
+return configs, nil
+}
+
+// UpdateSiteVariableConfig updates an existing site variable config
+func (db *DB) UpdateSiteVariableConfig(config *SiteVariableConfig) error {
+query := `
+UPDATE site_variable_config SET
+cosine_error_angle = ?
+WHERE id = ?
+`
+
+result, err := db.DB.Exec(query, config.CosineErrorAngle, config.ID)
+if err != nil {
+return fmt.Errorf("failed to update site variable config: %w", err)
+}
+
+rowsAffected, err := result.RowsAffected()
+if err != nil {
+return fmt.Errorf("failed to get rows affected: %w", err)
+}
+
+if rowsAffected == 0 {
+return fmt.Errorf("site variable config not found")
+}
+
+return nil
+}
+
+// DeleteSiteVariableConfig deletes a site variable config
+func (db *DB) DeleteSiteVariableConfig(id int) error {
+query := `DELETE FROM site_variable_config WHERE id = ?`
+
+result, err := db.DB.Exec(query, id)
+if err != nil {
+return fmt.Errorf("failed to delete site variable config: %w", err)
+}
+
+rowsAffected, err := result.RowsAffected()
+if err != nil {
+return fmt.Errorf("failed to get rows affected: %w", err)
+}
+
+if rowsAffected == 0 {
+return fmt.Errorf("site variable config not found")
+}
+
+return nil
 }
