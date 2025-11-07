@@ -740,6 +740,11 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
+	// Add site_id to config if available so PDF generator can fetch speed limit schedules
+	if req.SiteID != nil {
+		config["site"].(map[string]interface{})["site_id"] = *req.SiteID
+	}
+
 	// Write config to a temporary file
 	// Use nanoseconds to ensure unique filename under concurrent requests
 	configFile := filepath.Join(os.TempDir(), fmt.Sprintf("report_config_%d.json", now.UnixNano()))
