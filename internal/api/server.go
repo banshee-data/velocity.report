@@ -536,11 +536,6 @@ func (s *Server) createSite(w http.ResponseWriter, r *http.Request) {
 		s.writeJSONError(w, http.StatusBadRequest, "location is required")
 		return
 	}
-	if site.CosineErrorAngle == 0 {
-		s.writeJSONError(w, http.StatusBadRequest, "cosine_error_angle is required")
-		return
-	}
-
 	if err := s.db.CreateSite(&site); err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to create site: %v", err))
 		return
@@ -571,11 +566,6 @@ func (s *Server) updateSite(w http.ResponseWriter, r *http.Request, id int) {
 		s.writeJSONError(w, http.StatusBadRequest, "location is required")
 		return
 	}
-	if site.CosineErrorAngle == 0 {
-		s.writeJSONError(w, http.StatusBadRequest, "cosine_error_angle is required")
-		return
-	}
-
 	if err := s.db.UpdateSite(&site); err != nil {
 		if err.Error() == "site not found" {
 			s.writeJSONError(w, http.StatusNotFound, "Site not found")
