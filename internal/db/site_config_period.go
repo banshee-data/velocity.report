@@ -8,29 +8,32 @@ import (
 
 // SiteConfigPeriod represents a time period during which a specific site configuration was effective
 // This is a Type 6 SCD (Slowly Changing Dimension) that tracks configuration history
+// Many periods can reference the same site_variable_config (many-to-one)
 type SiteConfigPeriod struct {
-	ID                 int      `json:"id"`
-	SiteID             int      `json:"site_id"`
-	EffectiveStartUnix float64  `json:"effective_start_unix"`
-	EffectiveEndUnix   *float64 `json:"effective_end_unix"` // NULL means currently active/open-ended
-	IsActive           bool     `json:"is_active"`          // True if this is the active period for new data
-	Notes              *string  `json:"notes"`
-	CreatedAt          float64  `json:"created_at"`
-	UpdatedAt          float64  `json:"updated_at"`
+	ID                    int      `json:"id"`
+	SiteID                int      `json:"site_id"`
+	SiteVariableConfigID  *int     `json:"site_variable_config_id"` // References site_variable_config
+	EffectiveStartUnix    float64  `json:"effective_start_unix"`
+	EffectiveEndUnix      *float64 `json:"effective_end_unix"` // NULL means currently active/open-ended
+	IsActive              bool     `json:"is_active"`          // True if this is the active period for new data
+	Notes                 *string  `json:"notes"`
+	CreatedAt             float64  `json:"created_at"`
+	UpdatedAt             float64  `json:"updated_at"`
 }
 
-// SiteConfigPeriodWithSite includes site details along with the period
-type SiteConfigPeriodWithSite struct {
+// SiteConfigPeriodWithDetails includes site and variable config details
+type SiteConfigPeriodWithDetails struct {
 	SiteConfigPeriod
-	Site *Site `json:"site"`
+	Site           *Site               `json:"site"`
+	VariableConfig *SiteVariableConfig `json:"variable_config"`
 }
 
 // CreateSiteConfigPeriod creates a new site configuration period
 func (db *DB) CreateSiteConfigPeriod(period *SiteConfigPeriod) error {
 	query := `
 		INSERT INTO site_config_periods (
-			site_id, effective_start_unix, effective_end_unix, is_active, notes
-		) VALUES (?, ?, ?, ?, ?)
+			site_id, site_variable_config_id, effective_start_unix, effective_end_unix, is_active, notes
+		) VALUES (?, ?, ?, ?, ?, ?)
 	`
 
 	isActiveInt := 0
@@ -41,6 +44,7 @@ func (db *DB) CreateSiteConfigPeriod(period *SiteConfigPeriod) error {
 	result, err := db.DB.Exec(
 		query,
 		period.SiteID,
+		period.SiteVariableConfigID,
 		period.EffectiveStartUnix,
 		period.EffectiveEndUnix,
 		isActiveInt,
@@ -62,7 +66,7 @@ func (db *DB) CreateSiteConfigPeriod(period *SiteConfigPeriod) error {
 // GetSiteConfigPeriod retrieves a period by ID
 func (db *DB) GetSiteConfigPeriod(id int) (*SiteConfigPeriod, error) {
 	query := `
-		SELECT id, site_id, effective_start_unix, effective_end_unix, is_active, notes, created_at, updated_at
+		SELECT id, site_id, site_variable_config_id, effective_start_unix, effective_end_unix, is_active, notes, created_at, updated_at
 		FROM site_config_periods
 		WHERE id = ?
 	`
@@ -73,6 +77,7 @@ func (db *DB) GetSiteConfigPeriod(id int) (*SiteConfigPeriod, error) {
 	err := db.DB.QueryRow(query, id).Scan(
 		&period.ID,
 		&period.SiteID,
+		&period.SiteVariableConfigID,
 		&period.EffectiveStartUnix,
 		&period.EffectiveEndUnix,
 		&isActiveInt,
@@ -94,51 +99,61 @@ func (db *DB) GetSiteConfigPeriod(id int) (*SiteConfigPeriod, error) {
 }
 
 // GetActiveSiteConfigPeriod retrieves the currently active site configuration period
-func (db *DB) GetActiveSiteConfigPeriod() (*SiteConfigPeriodWithSite, error) {
+func (db *DB) GetActiveSiteConfigPeriod() (*SiteConfigPeriodWithDetails, error) {
 	query := `
 		SELECT 
-			p.id, p.site_id, p.effective_start_unix, p.effective_end_unix, p.is_active, p.notes, p.created_at, p.updated_at,
-			s.id, s.name, s.location, s.description, s.cosine_error_angle, s.speed_limit,
+			p.id, p.site_id, p.site_variable_config_id, p.effective_start_unix, p.effective_end_unix, p.is_active, p.notes, p.created_at, p.updated_at,
+			s.id, s.name, s.location, s.description, s.speed_limit,
 			s.surveyor, s.contact, s.address, s.latitude, s.longitude, s.map_angle,
-			s.include_map, s.site_description, s.speed_limit_note, s.created_at, s.updated_at
+			s.include_map, s.site_description, s.speed_limit_note, s.created_at, s.updated_at,
+			vc.id, vc.cosine_error_angle, vc.created_at, vc.updated_at
 		FROM site_config_periods p
 		JOIN site s ON p.site_id = s.id
+		LEFT JOIN site_variable_config vc ON p.site_variable_config_id = vc.id
 		WHERE p.is_active = 1
 		LIMIT 1
 	`
 
-	var periodWithSite SiteConfigPeriodWithSite
-	periodWithSite.Site = &Site{} // Initialize the Site pointer
+	var periodWithDetails SiteConfigPeriodWithDetails
+	periodWithDetails.Site = &Site{}
+	periodWithDetails.VariableConfig = &SiteVariableConfig{}
 	var isActiveInt int
 	var includeMapInt int
 	var siteCreatedAtUnix, siteUpdatedAtUnix int64
+	var vcID sql.NullInt64
+	var vcCosineAngle sql.NullFloat64
+	var vcCreatedAt, vcUpdatedAt sql.NullFloat64
 
 	err := db.DB.QueryRow(query).Scan(
-		&periodWithSite.ID,
-		&periodWithSite.SiteID,
-		&periodWithSite.EffectiveStartUnix,
-		&periodWithSite.EffectiveEndUnix,
+		&periodWithDetails.ID,
+		&periodWithDetails.SiteID,
+		&periodWithDetails.SiteVariableConfigID,
+		&periodWithDetails.EffectiveStartUnix,
+		&periodWithDetails.EffectiveEndUnix,
 		&isActiveInt,
-		&periodWithSite.Notes,
-		&periodWithSite.CreatedAt,
-		&periodWithSite.UpdatedAt,
-		&periodWithSite.Site.ID,
-		&periodWithSite.Site.Name,
-		&periodWithSite.Site.Location,
-		&periodWithSite.Site.Description,
-		&periodWithSite.Site.CosineErrorAngle,
-		&periodWithSite.Site.SpeedLimit,
-		&periodWithSite.Site.Surveyor,
-		&periodWithSite.Site.Contact,
-		&periodWithSite.Site.Address,
-		&periodWithSite.Site.Latitude,
-		&periodWithSite.Site.Longitude,
-		&periodWithSite.Site.MapAngle,
+		&periodWithDetails.Notes,
+		&periodWithDetails.CreatedAt,
+		&periodWithDetails.UpdatedAt,
+		&periodWithDetails.Site.ID,
+		&periodWithDetails.Site.Name,
+		&periodWithDetails.Site.Location,
+		&periodWithDetails.Site.Description,
+		&periodWithDetails.Site.SpeedLimit,
+		&periodWithDetails.Site.Surveyor,
+		&periodWithDetails.Site.Contact,
+		&periodWithDetails.Site.Address,
+		&periodWithDetails.Site.Latitude,
+		&periodWithDetails.Site.Longitude,
+		&periodWithDetails.Site.MapAngle,
 		&includeMapInt,
-		&periodWithSite.Site.SiteDescription,
-		&periodWithSite.Site.SpeedLimitNote,
+		&periodWithDetails.Site.SiteDescription,
+		&periodWithDetails.Site.SpeedLimitNote,
 		&siteCreatedAtUnix,
 		&siteUpdatedAtUnix,
+		&vcID,
+		&vcCosineAngle,
+		&vcCreatedAt,
+		&vcUpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
@@ -148,39 +163,56 @@ func (db *DB) GetActiveSiteConfigPeriod() (*SiteConfigPeriodWithSite, error) {
 		return nil, fmt.Errorf("failed to get active site config period: %w", err)
 	}
 
-	periodWithSite.IsActive = isActiveInt == 1
-	periodWithSite.Site.IncludeMap = includeMapInt == 1
-	periodWithSite.Site.CreatedAt = time.Unix(siteCreatedAtUnix, 0)
-	periodWithSite.Site.UpdatedAt = time.Unix(siteUpdatedAtUnix, 0)
+	periodWithDetails.IsActive = isActiveInt == 1
+	periodWithDetails.Site.IncludeMap = includeMapInt == 1
+	periodWithDetails.Site.CreatedAt = time.Unix(siteCreatedAtUnix, 0)
+	periodWithDetails.Site.UpdatedAt = time.Unix(siteUpdatedAtUnix, 0)
 
-	return &periodWithSite, nil
+	// Populate variable config if it exists
+	if vcID.Valid {
+		periodWithDetails.VariableConfig.ID = int(vcID.Int64)
+		periodWithDetails.VariableConfig.CosineErrorAngle = vcCosineAngle.Float64
+		periodWithDetails.VariableConfig.CreatedAt = vcCreatedAt.Float64
+		periodWithDetails.VariableConfig.UpdatedAt = vcUpdatedAt.Float64
+	} else {
+		periodWithDetails.VariableConfig = nil
+	}
+
+	return &periodWithDetails, nil
 }
 
 // GetSiteConfigPeriodForTimestamp finds the site configuration period that was effective at a given timestamp
-func (db *DB) GetSiteConfigPeriodForTimestamp(timestamp float64) (*SiteConfigPeriodWithSite, error) {
+func (db *DB) GetSiteConfigPeriodForTimestamp(timestamp float64) (*SiteConfigPeriodWithDetails, error) {
 	query := `
 		SELECT 
-			p.id, p.site_id, p.effective_start_unix, p.effective_end_unix, p.is_active, p.notes, p.created_at, p.updated_at,
-			s.id, s.name, s.location, s.description, s.cosine_error_angle, s.speed_limit,
+			p.id, p.site_id, p.site_variable_config_id, p.effective_start_unix, p.effective_end_unix, p.is_active, p.notes, p.created_at, p.updated_at,
+			s.id, s.name, s.location, s.description, s.speed_limit,
 			s.surveyor, s.contact, s.address, s.latitude, s.longitude, s.map_angle,
-			s.include_map, s.site_description, s.speed_limit_note, s.created_at, s.updated_at
+			s.include_map, s.site_description, s.speed_limit_note, s.created_at, s.updated_at,
+			vc.id, vc.cosine_error_angle, vc.created_at, vc.updated_at
 		FROM site_config_periods p
 		JOIN site s ON p.site_id = s.id
+		LEFT JOIN site_variable_config vc ON p.site_variable_config_id = vc.id
 		WHERE p.effective_start_unix <= ?
 		  AND (p.effective_end_unix IS NULL OR p.effective_end_unix > ?)
 		ORDER BY p.effective_start_unix DESC
 		LIMIT 1
 	`
 
-	var periodWithSite SiteConfigPeriodWithSite
+	var periodWithSite SiteConfigPeriodWithDetails
 	periodWithSite.Site = &Site{}
+	periodWithSite.VariableConfig = &SiteVariableConfig{}
 	var isActiveInt int
 	var includeMapInt int
 	var siteCreatedAtUnix, siteUpdatedAtUnix int64
+	var vcID sql.NullInt64
+	var vcCosineAngle sql.NullFloat64
+	var vcCreatedAt, vcUpdatedAt sql.NullFloat64
 
 	err := db.DB.QueryRow(query, timestamp, timestamp).Scan(
 		&periodWithSite.ID,
 		&periodWithSite.SiteID,
+		&periodWithSite.SiteVariableConfigID,
 		&periodWithSite.EffectiveStartUnix,
 		&periodWithSite.EffectiveEndUnix,
 		&isActiveInt,
@@ -191,7 +223,6 @@ func (db *DB) GetSiteConfigPeriodForTimestamp(timestamp float64) (*SiteConfigPer
 		&periodWithSite.Site.Name,
 		&periodWithSite.Site.Location,
 		&periodWithSite.Site.Description,
-		&periodWithSite.Site.CosineErrorAngle,
 		&periodWithSite.Site.SpeedLimit,
 		&periodWithSite.Site.Surveyor,
 		&periodWithSite.Site.Contact,
@@ -204,6 +235,10 @@ func (db *DB) GetSiteConfigPeriodForTimestamp(timestamp float64) (*SiteConfigPer
 		&periodWithSite.Site.SpeedLimitNote,
 		&siteCreatedAtUnix,
 		&siteUpdatedAtUnix,
+		&vcID,
+		&vcCosineAngle,
+		&vcCreatedAt,
+		&vcUpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
@@ -218,19 +253,31 @@ func (db *DB) GetSiteConfigPeriodForTimestamp(timestamp float64) (*SiteConfigPer
 	periodWithSite.Site.CreatedAt = time.Unix(siteCreatedAtUnix, 0)
 	periodWithSite.Site.UpdatedAt = time.Unix(siteUpdatedAtUnix, 0)
 
+	// Populate variable config if it exists
+	if vcID.Valid {
+		periodWithSite.VariableConfig.ID = int(vcID.Int64)
+		periodWithSite.VariableConfig.CosineErrorAngle = vcCosineAngle.Float64
+		periodWithSite.VariableConfig.CreatedAt = vcCreatedAt.Float64
+		periodWithSite.VariableConfig.UpdatedAt = vcUpdatedAt.Float64
+	} else {
+		periodWithSite.VariableConfig = nil
+	}
+
 	return &periodWithSite, nil
 }
 
 // GetAllSiteConfigPeriods retrieves all site configuration periods, ordered by start time
-func (db *DB) GetAllSiteConfigPeriods() ([]SiteConfigPeriodWithSite, error) {
+func (db *DB) GetAllSiteConfigPeriods() ([]SiteConfigPeriodWithDetails, error) {
 	query := `
 		SELECT 
-			p.id, p.site_id, p.effective_start_unix, p.effective_end_unix, p.is_active, p.notes, p.created_at, p.updated_at,
-			s.id, s.name, s.location, s.description, s.cosine_error_angle, s.speed_limit,
+			p.id, p.site_id, p.site_variable_config_id, p.effective_start_unix, p.effective_end_unix, p.is_active, p.notes, p.created_at, p.updated_at,
+			s.id, s.name, s.location, s.description, s.speed_limit,
 			s.surveyor, s.contact, s.address, s.latitude, s.longitude, s.map_angle,
-			s.include_map, s.site_description, s.speed_limit_note, s.created_at, s.updated_at
+			s.include_map, s.site_description, s.speed_limit_note, s.created_at, s.updated_at,
+			vc.id, vc.cosine_error_angle, vc.created_at, vc.updated_at
 		FROM site_config_periods p
 		JOIN site s ON p.site_id = s.id
+		LEFT JOIN site_variable_config vc ON p.site_variable_config_id = vc.id
 		ORDER BY p.effective_start_unix ASC
 	`
 
@@ -240,17 +287,22 @@ func (db *DB) GetAllSiteConfigPeriods() ([]SiteConfigPeriodWithSite, error) {
 	}
 	defer rows.Close()
 
-	var periods []SiteConfigPeriodWithSite
+	var periods []SiteConfigPeriodWithDetails
 	for rows.Next() {
-		var periodWithSite SiteConfigPeriodWithSite
+		var periodWithSite SiteConfigPeriodWithDetails
 		periodWithSite.Site = &Site{}
+		periodWithSite.VariableConfig = &SiteVariableConfig{}
 		var isActiveInt int
 		var includeMapInt int
 		var siteCreatedAtUnix, siteUpdatedAtUnix int64
+		var vcID sql.NullInt64
+		var vcCosineAngle sql.NullFloat64
+		var vcCreatedAt, vcUpdatedAt sql.NullFloat64
 
 		err := rows.Scan(
 			&periodWithSite.ID,
 			&periodWithSite.SiteID,
+			&periodWithSite.SiteVariableConfigID,
 			&periodWithSite.EffectiveStartUnix,
 			&periodWithSite.EffectiveEndUnix,
 			&isActiveInt,
@@ -261,7 +313,6 @@ func (db *DB) GetAllSiteConfigPeriods() ([]SiteConfigPeriodWithSite, error) {
 			&periodWithSite.Site.Name,
 			&periodWithSite.Site.Location,
 			&periodWithSite.Site.Description,
-			&periodWithSite.Site.CosineErrorAngle,
 			&periodWithSite.Site.SpeedLimit,
 			&periodWithSite.Site.Surveyor,
 			&periodWithSite.Site.Contact,
@@ -274,6 +325,10 @@ func (db *DB) GetAllSiteConfigPeriods() ([]SiteConfigPeriodWithSite, error) {
 			&periodWithSite.Site.SpeedLimitNote,
 			&siteCreatedAtUnix,
 			&siteUpdatedAtUnix,
+			&vcID,
+			&vcCosineAngle,
+			&vcCreatedAt,
+			&vcUpdatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan site config period: %w", err)
@@ -417,7 +472,7 @@ type TimelineEntry struct {
 	EndUnix            *float64                  `json:"end_unix"` // NULL means ongoing
 	HasData            bool                      `json:"has_data"`
 	DataCount          int                       `json:"data_count"`
-	SiteConfigPeriod   *SiteConfigPeriodWithSite `json:"site_config_period"`   // NULL if no config assigned
+	SiteConfigPeriod   *SiteConfigPeriodWithDetails `json:"site_config_period"`   // NULL if no config assigned
 	UnconfiguredPeriod bool                      `json:"unconfigured_period"`  // True if data exists but no site config
 }
 
@@ -536,7 +591,7 @@ func (db *DB) GetTimeline(startUnix, endUnix float64) ([]TimelineEntry, error) {
 
 		// If we have a config period, populate it
 		if configID.Valid {
-			period := &SiteConfigPeriodWithSite{
+			period := &SiteConfigPeriodWithDetails{
 				SiteConfigPeriod: SiteConfigPeriod{
 					ID:                 int(configID.Int64),
 					SiteID:             int(siteID.Int64),

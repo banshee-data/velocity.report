@@ -98,7 +98,6 @@ CREATE INDEX IF NOT EXISTS idx_transit_links_data ON radar_transit_links (data_r
         , name TEXT NOT NULL UNIQUE
         , location TEXT NOT NULL
         , description TEXT
-        , cosine_error_angle REAL NOT NULL
         , speed_limit INTEGER DEFAULT 25
         , surveyor TEXT NOT NULL
         , contact TEXT NOT NULL
@@ -129,7 +128,6 @@ END;
           name
         , location
         , description
-        , cosine_error_angle
         , speed_limit
         , surveyor
         , contact
@@ -139,7 +137,6 @@ END;
           'Default Location'
         , 'Survey Location'
         , 'Default site configuration'
-        , 0.5
         , 25
         , 'Sir Veyor'
         , 'example@velocity.report'
@@ -175,6 +172,7 @@ CREATE INDEX IF NOT EXISTS idx_site_reports_created_at ON site_reports (created_
    CREATE TABLE IF NOT EXISTS site_config_periods (
           id INTEGER PRIMARY KEY AUTOINCREMENT
         , site_id INTEGER NOT NULL
+        , site_variable_config_id INTEGER
         , effective_start_unix DOUBLE NOT NULL
         , effective_end_unix DOUBLE
         , is_active INTEGER NOT NULL DEFAULT 0
@@ -182,6 +180,7 @@ CREATE INDEX IF NOT EXISTS idx_site_reports_created_at ON site_reports (created_
         , created_at DOUBLE NOT NULL DEFAULT (UNIXEPOCH('subsec'))
         , updated_at DOUBLE NOT NULL DEFAULT (UNIXEPOCH('subsec'))
         , FOREIGN KEY (site_id) REFERENCES site (id) ON DELETE CASCADE
+        , FOREIGN KEY (site_variable_config_id) REFERENCES site_variable_config (id)
         , CHECK (effective_end_unix IS NULL OR effective_end_unix > effective_start_unix)
           );
 
@@ -191,6 +190,8 @@ CREATE INDEX IF NOT EXISTS idx_site_config_periods_active ON site_config_periods
  WHERE is_active = 1;
 
 CREATE INDEX IF NOT EXISTS idx_site_config_periods_site ON site_config_periods (site_id, effective_start_unix);
+
+CREATE INDEX IF NOT EXISTS idx_site_config_periods_variable_config ON site_config_periods (site_variable_config_id);
 
 CREATE TRIGGER IF NOT EXISTS update_site_config_periods_timestamp AFTER
    UPDATE ON site_config_periods BEGIN
@@ -216,6 +217,24 @@ CREATE TRIGGER IF NOT EXISTS enforce_single_active_period_update BEFORE
       SET is_active = 0
     WHERE is_active = 1
       AND id != NEW.id;
+
+END;
+
+-- Site variable configuration table (time-varying configuration)
+-- Stores configuration values that can be shared across multiple periods
+-- Many site_config_periods can reference one site_variable_config
+   CREATE TABLE IF NOT EXISTS site_variable_config (
+          id INTEGER PRIMARY KEY AUTOINCREMENT
+        , cosine_error_angle REAL NOT NULL
+        , created_at DOUBLE NOT NULL DEFAULT (UNIXEPOCH('subsec'))
+        , updated_at DOUBLE NOT NULL DEFAULT (UNIXEPOCH('subsec'))
+          );
+
+CREATE TRIGGER IF NOT EXISTS update_site_variable_config_timestamp AFTER
+   UPDATE ON site_variable_config BEGIN
+   UPDATE site_variable_config
+      SET updated_at = UNIXEPOCH('subsec')
+    WHERE id = NEW.id;
 
 END;
 
