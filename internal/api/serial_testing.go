@@ -98,11 +98,8 @@ func (s *Server) handleSerialTest(w http.ResponseWriter, r *http.Request) {
 	result := testSerialPort(req)
 
 	w.Header().Set("Content-Type", "application/json")
-	if result.Success {
-		w.WriteHeader(http.StatusOK)
-	} else {
-		w.WriteHeader(http.StatusOK) // Still return 200 for test failure (not an API error)
-	}
+	// Always return 200 OK, even for test failure (not an API error)
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(result)
 }
 
@@ -162,7 +159,8 @@ func testSerialPort(req SerialTestRequest) SerialTestResponse {
 	var totalBytesRead int
 
 	// Send test commands
-	testCommands := []string{"??", "I?"} // Query firmware info and baud rate
+	// Test commands: "??" queries firmware info, "I?" queries baud rate
+	testCommands := []string{"??", "I?"}
 
 	for _, cmd := range testCommands {
 		// Send command
