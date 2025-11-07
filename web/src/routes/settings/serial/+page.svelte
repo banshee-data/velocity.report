@@ -203,7 +203,7 @@
 </script>
 
 <svelte:head>
-	<title>Serial Configuration 🚴 velocity.report</title>
+	<title>Serial Configuration ⚙️ velocity.report</title>
 	<meta name="description" content="Configure radar serial port settings" />
 </svelte:head>
 
