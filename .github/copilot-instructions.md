@@ -157,7 +157,7 @@ velocity.report/
 
 **Tasks to Avoid Assigning to Copilot:**
 
-- **Complex, broadly scoped changes** requiring cross-repository knowledge
+- **Complex, broadly scoped changes** requiring cross-component knowledge
   - Example: Refactoring data flow across Go server, Python PDF generator, and web frontend
 - **Security-critical changes** involving authentication, data privacy, or sensor data handling
   - Example: Modifying database schema for sensor data, changing data retention policies
@@ -186,7 +186,10 @@ velocity.report/
 ```bash
 make format-go && make lint-go && make test-go
 make build-radar-local   # Verify build
-# Note: If build fails due to missing pcap, install libpcap-dev (Debian/Ubuntu) or libpcap (macOS)
+# Note: If build fails due to missing pcap dependencies:
+#   - Debian/Ubuntu: sudo apt-get install libpcap-dev
+#   - macOS: brew install libpcap
+#   - Windows: Use vcpkg (vcpkg install libpcap) or build without pcap (make build-radar-linux)
 # Or use make build-radar-linux for build without pcap support
 ```
 
