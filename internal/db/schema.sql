@@ -146,6 +146,31 @@ END;
         , 'Default site for radar velocity surveys'
           );
 
+-- Speed limit schedule table for storing time-based speed limits per site
+-- Supports different speed limits by day of week and time of day in 5-minute increments
+   CREATE TABLE IF NOT EXISTS speed_limit_schedule (
+          id INTEGER PRIMARY KEY AUTOINCREMENT
+        , site_id INTEGER NOT NULL
+        , day_of_week INTEGER NOT NULL -- 0=Sunday, 1=Monday, ..., 6=Saturday
+        , start_time TEXT NOT NULL -- HH:MM format (e.g., "06:00")
+        , end_time TEXT NOT NULL -- HH:MM format (e.g., "07:05")
+        , speed_limit INTEGER NOT NULL -- Speed limit for this time block
+        , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+        , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+        , FOREIGN KEY (site_id) REFERENCES site (id) ON DELETE CASCADE
+          );
+
+CREATE INDEX IF NOT EXISTS idx_speed_limit_schedule_site ON speed_limit_schedule (site_id);
+
+-- Create trigger to update updated_at timestamp for speed_limit_schedule
+CREATE TRIGGER IF NOT EXISTS update_speed_limit_schedule_timestamp AFTER
+   UPDATE ON speed_limit_schedule BEGIN
+   UPDATE speed_limit_schedule
+      SET updated_at = STRFTIME('%s', 'now')
+    WHERE id = NEW.id;
+
+END;
+
 -- Create site_reports table to track generated PDF reports
    CREATE TABLE IF NOT EXISTS site_reports (
           id INTEGER PRIMARY KEY AUTOINCREMENT

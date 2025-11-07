@@ -4,7 +4,17 @@
 	import { mdiArrowLeft, mdiContentSave } from '@mdi/js';
 	import { onMount } from 'svelte';
 	import { Button, Card, Header, TextField } from 'svelte-ux';
-	import { createSite, getSite, updateSite } from '../../../lib/api';
+	import {
+		createSite,
+		getSite,
+		updateSite,
+		getSpeedLimitSchedulesForSite,
+		createSpeedLimitSchedule,
+		updateSpeedLimitSchedule,
+		deleteSpeedLimitSchedule,
+		type SpeedLimitSchedule
+	} from '../../../lib/api';
+	import SpeedLimitScheduleEditor from '../../../lib/components/SpeedLimitScheduleEditor.svelte';
 
 	let siteId: string | null = null;
 	let isNewSite = false;
@@ -28,6 +38,9 @@
 		speed_limit_note: ''
 	};
 
+	let speedLimitSchedules: SpeedLimitSchedule[] = [];
+	let originalSchedules: SpeedLimitSchedule[] = [];
+
 	let formErrors: Record<string, string> = {};
 
 	onMount(async () => {
@@ -41,6 +54,7 @@
 		} else {
 			siteId = id;
 			await loadSite();
+			await loadSchedules();
 		}
 	});
 
@@ -72,6 +86,22 @@
 		}
 	}
 
+	async function loadSchedules() {
+		if (!siteId) return;
+
+		try {
+			speedLimitSchedules = await getSpeedLimitSchedulesForSite(parseInt(siteId));
+			originalSchedules = JSON.parse(JSON.stringify(speedLimitSchedules)); // Deep copy
+		} catch (e) {
+			console.error('Failed to load schedules:', e);
+			// Don't fail the whole page if schedules fail to load
+		}
+	}
+
+	function handleSchedulesChange(updatedSchedules: SpeedLimitSchedule[]) {
+		speedLimitSchedules = updatedSchedules;
+	}
+
 	function validateForm(): boolean {
 		formErrors = {};
 
@@ -92,6 +122,44 @@
 		}
 
 		return Object.keys(formErrors).length === 0;
+	}
+
+	async function saveSchedules(savedSiteId: number) {
+		// Determine which schedules to create, update, or delete
+		const schedulesToCreate = speedLimitSchedules.filter((s) => s.id < 0);
+		const schedulesToUpdate = speedLimitSchedules.filter(
+			(s) => s.id > 0 && originalSchedules.find((o) => o.id === s.id)
+		);
+		const schedulesToDelete = originalSchedules.filter(
+			(o) => !speedLimitSchedules.find((s) => s.id === o.id)
+		);
+
+		// Create new schedules
+		for (const schedule of schedulesToCreate) {
+			await createSpeedLimitSchedule({
+				site_id: savedSiteId,
+				day_of_week: schedule.day_of_week,
+				start_time: schedule.start_time,
+				end_time: schedule.end_time,
+				speed_limit: schedule.speed_limit
+			});
+		}
+
+		// Update existing schedules
+		for (const schedule of schedulesToUpdate) {
+			await updateSpeedLimitSchedule(schedule.id, {
+				site_id: savedSiteId,
+				day_of_week: schedule.day_of_week,
+				start_time: schedule.start_time,
+				end_time: schedule.end_time,
+				speed_limit: schedule.speed_limit
+			});
+		}
+
+		// Delete removed schedules
+		for (const schedule of schedulesToDelete) {
+			await deleteSpeedLimitSchedule(schedule.id);
+		}
 	}
 
 	async function handleSave() {
@@ -118,11 +186,20 @@
 				speed_limit_note: formData.speed_limit_note || null
 			};
 
+			let savedSiteId: number;
+
 			if (isNewSite) {
-				await createSite(siteData);
+				const createdSite = await createSite(siteData);
+				savedSiteId = createdSite.id;
 			} else if (siteId) {
 				await updateSite(parseInt(siteId), siteData);
+				savedSiteId = parseInt(siteId);
+			} else {
+				throw new Error('No site ID available');
 			}
+
+			// Save speed limit schedules
+			await saveSchedules(savedSiteId);
 
 			goto(resolve('/site'));
 		} catch (e) {
@@ -257,6 +334,15 @@
 					<TextField bind:value={formData.speed_limit_note} label="Speed Limit Note" />
 				</div>
 			</Card>
+
+			<!-- Speed Limit Schedules -->
+			{#if !isNewSite && siteId}
+				<SpeedLimitScheduleEditor
+					siteId={parseInt(siteId)}
+					schedules={speedLimitSchedules}
+					onSchedulesChange={handleSchedulesChange}
+				/>
+			{/if}
 
 			<!-- Actions -->
 			<div class="gap-2 flex justify-end">

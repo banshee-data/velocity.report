@@ -299,3 +299,84 @@ export async function deleteSite(id: number): Promise<void> {
 		throw new Error(errorData.error || `Failed to delete site: ${res.status}`);
 	}
 }
+
+// Speed Limit Schedule management interfaces and functions
+
+export interface SpeedLimitSchedule {
+	id: number;
+	site_id: number;
+	day_of_week: number; // 0=Sunday, 1=Monday, ..., 6=Saturday
+	start_time: string; // HH:MM format
+	end_time: string; // HH:MM format
+	speed_limit: number;
+	created_at: string;
+	updated_at: string;
+}
+
+export async function getSpeedLimitSchedulesForSite(siteId: number): Promise<SpeedLimitSchedule[]> {
+	const res = await fetch(`${API_BASE}/speed_limit_schedules/site/${siteId}`);
+	if (!res.ok) throw new Error(`Failed to fetch speed limit schedules: ${res.status}`);
+	return res.json();
+}
+
+export async function getSpeedLimitSchedule(id: number): Promise<SpeedLimitSchedule> {
+	const res = await fetch(`${API_BASE}/speed_limit_schedules/${id}`);
+	if (!res.ok) throw new Error(`Failed to fetch speed limit schedule: ${res.status}`);
+	return res.json();
+}
+
+export async function createSpeedLimitSchedule(
+	schedule: Partial<SpeedLimitSchedule>
+): Promise<SpeedLimitSchedule> {
+	const res = await fetch(`${API_BASE}/speed_limit_schedules`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify(schedule)
+	});
+	if (!res.ok) {
+		const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+		throw new Error(errorData.error || `Failed to create speed limit schedule: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function updateSpeedLimitSchedule(
+	id: number,
+	schedule: Partial<SpeedLimitSchedule>
+): Promise<SpeedLimitSchedule> {
+	const res = await fetch(`${API_BASE}/speed_limit_schedules/${id}`, {
+		method: 'PUT',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify(schedule)
+	});
+	if (!res.ok) {
+		const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+		throw new Error(errorData.error || `Failed to update speed limit schedule: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function deleteSpeedLimitSchedule(id: number): Promise<void> {
+	const res = await fetch(`${API_BASE}/speed_limit_schedules/${id}`, {
+		method: 'DELETE'
+	});
+	if (!res.ok) {
+		const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+		throw new Error(errorData.error || `Failed to delete speed limit schedule: ${res.status}`);
+	}
+}
+
+export async function deleteAllSpeedLimitSchedulesForSite(siteId: number): Promise<void> {
+	const res = await fetch(`${API_BASE}/speed_limit_schedules/site/${siteId}`, {
+		method: 'DELETE'
+	});
+	if (!res.ok) {
+		const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+		throw new Error(errorData.error || `Failed to delete speed limit schedules: ${res.status}`);
+	}
+}
+
