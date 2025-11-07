@@ -452,6 +452,8 @@ class TestAssemblePdfReport(unittest.TestCase):
             group="1h", units="mph", timezone="US/Pacific", min_speed=5.0, hist_max=50.0
         )
 
+        mock_client = Mock()
+
         result = assemble_pdf_report(
             "test-prefix",
             "2024-01-01T00:00:00Z",
@@ -461,6 +463,7 @@ class TestAssemblePdfReport(unittest.TestCase):
             [{"p50": 24.0}],
             {"10": 5},
             config,
+            mock_client,
         )
 
         self.assertTrue(result)
@@ -475,6 +478,8 @@ class TestAssemblePdfReport(unittest.TestCase):
             group="1h", units="mph", timezone="UTC", min_speed=None, hist_max=None
         )
 
+        mock_client = Mock()
+
         result = assemble_pdf_report(
             "test-prefix",
             "2024-01-01T00:00:00Z",
@@ -484,6 +489,7 @@ class TestAssemblePdfReport(unittest.TestCase):
             [],
             None,
             config,
+            mock_client,
         )
 
         self.assertFalse(result)

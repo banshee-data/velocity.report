@@ -264,11 +264,11 @@ class TestConvenienceFunctions(unittest.TestCase):
         mock_builder_class.return_value = mock_builder
         mock_doc = MagicMock()
 
-        add_site_specifics(mock_doc, "site desc", "speed limit")
+        add_site_specifics(mock_doc, "site desc", "speed limit", None)
 
         # Should create builder and call build with all parameters
         mock_builder_class.assert_called_once()
-        mock_builder.build.assert_called_once_with(mock_doc, "site desc", "speed limit")
+        mock_builder.build.assert_called_once_with(mock_doc, "site desc", "speed limit", None)
 
     @patch("pdf_generator.core.report_sections.ScienceMethodologySection")
     def test_add_science(self, mock_builder_class):
