@@ -96,6 +96,13 @@ func main() {
 
 	// Determine which serial port to use (database config takes precedence unless --ignore-db-serial is set)
 	var serialPortPath string
+	serialOpts := serialmux.PortOptions{
+		BaudRate: 19200,
+		DataBits: 8,
+		StopBits: 1,
+		Parity:   "N",
+	}
+	var activeConfig *db.SerialConfig
 	if !*ignoreDBSerial && !*disableRadar && !*debugMode && !*fixtureMode {
 		// Try to load enabled serial configs from database
 		enabledConfigs, err := database.GetEnabledSerialConfigs()
@@ -104,9 +111,17 @@ func main() {
 			log.Printf("Falling back to CLI flag: %s", *port)
 			serialPortPath = *port
 		} else if len(enabledConfigs) > 0 {
+			cfg := enabledConfigs[0]
 			// Use the first enabled config (multi-sensor support is future work)
-			serialPortPath = enabledConfigs[0].PortPath
-			log.Printf("Using serial port from database: %s (config: %s)", serialPortPath, enabledConfigs[0].Name)
+			serialPortPath = cfg.PortPath
+			serialOpts = serialmux.PortOptions{
+				BaudRate: cfg.BaudRate,
+				DataBits: cfg.DataBits,
+				StopBits: cfg.StopBits,
+				Parity:   cfg.Parity,
+			}
+			activeConfig = &cfg
+			log.Printf("Using serial port from database: %s (config: %s)", serialPortPath, cfg.Name)
 			if len(enabledConfigs) > 1 {
 				log.Printf("Note: Multiple serial configs found, using first one. Multi-sensor support is not yet implemented.")
 			}
@@ -121,6 +136,7 @@ func main() {
 
 	// var r radar.RadarPortInterface
 	var radarSerial serialmux.SerialMuxInterface
+	var serialManager *api.SerialPortManager
 
 	// If disableRadar is set, provide a no-op serial mux implementation so
 	// the HTTP admin routes and DB remain available while the device is
@@ -138,11 +154,25 @@ func main() {
 		}
 		radarSerial = serialmux.NewMockSerialMux([]byte(firstLine + "\n"))
 	} else {
-		var err error
-		radarSerial, err = serialmux.NewRealSerialMux(serialPortPath)
+		rawSerial, err := serialmux.NewRealSerialMux(serialPortPath, serialOpts)
 		if err != nil {
 			log.Fatalf("failed to create radar port: %v", err)
 		}
+		snapshot := api.SerialConfigSnapshot{
+			PortPath: serialPortPath,
+			Options:  serialOpts,
+			Source:   "cli",
+		}
+		if activeConfig != nil {
+			snapshot.ConfigID = activeConfig.ID
+			snapshot.Name = activeConfig.Name
+			snapshot.Source = "database"
+		}
+		factory := func(path string, opts serialmux.PortOptions) (serialmux.SerialMuxInterface, error) {
+			return serialmux.NewRealSerialMux(path, opts)
+		}
+		serialManager = api.NewSerialPortManager(database, rawSerial, snapshot, factory)
+		radarSerial = serialManager
 	}
 	defer radarSerial.Close()
 
@@ -392,6 +422,9 @@ func main() {
 	go func() {
 		defer wg.Done()
 		apiServer := api.NewServer(radarSerial, database, *unitsFlag, *timezoneFlag)
+		if serialManager != nil {
+			apiServer.SetSerialManager(serialManager)
+		}
 
 		// Attach admin routes that belong to other components
 		// (these modify the mux returned by apiServer.ServeMux internally)

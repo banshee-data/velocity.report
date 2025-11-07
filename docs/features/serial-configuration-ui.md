@@ -53,7 +53,10 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 
 **Initialization Flow (cmd/radar/radar.go:105-118):**
 ```go
-radarSerial, err := serialmux.NewRealSerialMux(*port)
+radarSerial, err := serialmux.NewRealSerialMux(
+    *port,
+    serialmux.PortOptions{BaudRate: 19200, DataBits: 8, StopBits: 1, Parity: "N"},
+)
 if err := radarSerial.Initialize(); err != nil {
     log.Fatalf("failed to initialise device: %v", err)
 }

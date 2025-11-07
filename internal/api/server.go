@@ -39,11 +39,12 @@ func convertEventAPISpeed(event db.EventAPI, targetUnits string) db.EventAPI {
 }
 
 type Server struct {
-	m         serialmux.SerialMuxInterface
-	db        *db.DB
-	units     string
-	timezone  string
-	debugMode bool
+	m             serialmux.SerialMuxInterface
+	db            *db.DB
+	units         string
+	timezone      string
+	debugMode     bool
+	serialManager *SerialPortManager
 	// mux holds the HTTP handlers; storing it here ensures callers that
 	// obtain the mux via ServeMux() and register additional admin routes
 	// will have those routes preserved when Start uses the mux to run the
@@ -129,8 +130,24 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/api/serial/models", s.handleSensorModels)
 	s.mux.HandleFunc("/api/serial/test", s.handleSerialTest)
 	s.mux.HandleFunc("/api/serial/devices", s.handleSerialDevices)
+	s.mux.HandleFunc("/api/serial/reload", s.handleSerialReload)
 
 	return s.mux
+}
+
+// SetSerialManager installs the SerialPortManager that should be used to handle
+// hot-reload requests.
+func (s *Server) SetSerialManager(manager *SerialPortManager) {
+	s.serialManager = manager
+}
+
+func (s *Server) currentSerialMux() serialmux.SerialMuxInterface {
+	if s.serialManager != nil {
+		if mux := s.serialManager.CurrentMux(); mux != nil {
+			return mux
+		}
+	}
+	return s.m
 }
 
 func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
@@ -141,12 +158,42 @@ func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
 
 	command := r.FormValue("command")
 
-	if err := s.m.SendCommand(command); err != nil {
+	mux := s.currentSerialMux()
+	if mux == nil {
+		http.Error(w, "Serial mux unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	if err := mux.SendCommand(command); err != nil {
 		http.Error(w, "Failed to send command", http.StatusInternalServerError)
 		return
 	}
 	if _, err := io.WriteString(w, "Command sent successfully"); err != nil {
 		log.Printf("failed to write command response: %v", err)
+	}
+}
+
+func (s *Server) handleSerialReload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.serialManager == nil {
+		s.writeJSONError(w, http.StatusServiceUnavailable, "Serial reload not available on this instance")
+		return
+	}
+
+	result, err := s.serialManager.ReloadConfig(r.Context())
+	if err != nil {
+		log.Printf("serial reload failed: %v", err)
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to reload serial configuration: %v", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		log.Printf("failed to encode serial reload response: %v", err)
 	}
 }
 
