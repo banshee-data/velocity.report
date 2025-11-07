@@ -123,6 +123,10 @@ This guide walks you through building:
 
 **Privacy by design**: No cameras, license plates, or identifying information—just velocity measurements.
 
+**[PLACEHOLDER: Image showing completed DIY radar assembly (Pi Zero with OPS243 sensor in 3D printed case, mounted on tripod)]**
+
+**[PLACEHOLDER: Image showing completed infrastructure deployment (weatherproof enclosure mounted on utility pole)]**
+
 ---
 
 ## **Choose Your Deployment**
@@ -170,6 +174,8 @@ This guide covers two deployment options:
 **Alternative sensor with distance measurement**: OPS243-C-FC-RP (~$130-160) - adds range capability via FMCW
 
 **3D printing files**: Available at [project repository](https://github.com/banshee-data/velocity.report/tree/main/hardware/enclosures)
+
+**[PLACEHOLDER: Photo of 3D printed case showing sensor mounted inside with 1/4-20 threaded insert for tripod mounting]**
 
 **Note**: DIY deployment is **not fully weatherproof**. Deploy indoors (e.g., window facing street) or under shelter only.
 
@@ -286,6 +292,8 @@ The OPS7243-A-CW-R2 sensor (RS232 interface, designated R2) requires a serial HA
 
 2. **Wire sensor to HAT**:
 
+**[PLACEHOLDER: Diagram showing RS232 wiring connections between OPS7243 sensor and Waveshare HAT, with color-coded wires and pin labels]**
+
 | Sensor Pin (RS232) | HAT Terminal           | Wire Color (typical) |
 | ------------------ | ---------------------- | -------------------- |
 | VCC (5V)           | +5V or separate supply | Red                  |
@@ -371,6 +379,8 @@ The OmniPreSense OPS243 sensor ships with CSV output by default, but this softwa
    ```json
    { "magnitude": 1.2, "speed": 3.4 }
    ```
+
+**[PLACEHOLDER: Screenshot of terminal showing sensor configuration commands and JSON output verification]**
 
 **Success criteria**: You see JSON output (not CSV) when vehicles pass
 
@@ -516,6 +526,8 @@ http://raspberrypi.local:8080
 - Time-of-day traffic patterns
 - Speed heatmaps
 
+**[PLACEHOLDER: Screenshot of web dashboard showing real-time vehicle detections, speed histogram, and time-of-day traffic patterns]**
+
 **Success criteria**: Dashboard loads and shows "No data yet" or live vehicle detections
 
 **Troubleshooting**:
@@ -552,6 +564,8 @@ _Estimated time: 15-30 minutes_
 - **Angle**: 20-45° off-axis from traffic flow (NOT perpendicular)
 - **Height**: Window height is typically fine; avoid ground-level clutter
 - **Clear view**: No curtains, screens, or obstructions between sensor and street
+
+**[PLACEHOLDER: Diagram showing proper radar sensor mounting angle (20-45° off-axis from traffic flow) with top-down view of street and sensor position]**
 
 **Success criteria**: Sensor is stable, angled properly, with clear view to street
 
@@ -591,6 +605,8 @@ _Estimated time: 15-30 minutes_
 - **Angle**: 20-45° off-axis from traffic flow
 - **Orientation**: Face oncoming OR receding traffic (not perpendicular)
 - Tighten clamps securely but avoid over-tightening (can crack enclosure)
+
+**[PLACEHOLDER: Photo showing weatherproof enclosure mounted on utility pole with proper angle and positioning, including close-up of hose clamp mounting]**
 
 **4. Weatherproofing checklist**:
 
@@ -646,6 +662,8 @@ See the [PDF Generator README](../../tools/pdf-generator/README.md) for customiz
 - **p85 (traffic engineering standard)**: Speed at which 85% of traffic travels at or below
 - **p98 (top 2%)**: Threshold where the fastest regular drivers operate
 - Histograms, time-of-day charts, and crash physics analysis
+
+**[PLACEHOLDER: Sample page from PDF report showing speed distribution histogram, p50/p85/p98 statistics, and time-of-day traffic patterns]**
 
 **Success criteria**: PDF file generated in `tools/pdf-generator/output/` directory
 
@@ -772,6 +790,8 @@ If you need remote access, please use [Tailscale](#remote-access-with-tailscale-
 
 ❌ "Someone's going to get hurt!"
 ✅ "At 38 mph, crash energy is 2.3× higher than at the posted 25 mph limit. Our data shows consistent speeding during school hours."
+
+**[PLACEHOLDER: Photo of community member presenting PDF report at city council meeting with speed data displayed on screen]**
 
 ---
 
