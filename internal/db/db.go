@@ -432,9 +432,39 @@ func (e *RadarObject) String() string {
 }
 
 func (db *DB) RadarObjects() ([]RadarObject, error) {
-	rows, err := db.Query(`SELECT classifier, start_time, end_time, delta_time_ms, max_speed, min_speed,
-			speed_change, max_magnitude, avg_magnitude, total_frames,
-			frames_per_mps, length_m FROM radar_objects ORDER BY write_timestamp DESC LIMIT 100`)
+	// Query with cosine error correction from site_config_periods
+	query := `
+		SELECT 
+			ro.classifier, 
+			ro.start_time, 
+			ro.end_time, 
+			ro.delta_time_ms, 
+			CASE 
+				WHEN scp.id IS NOT NULL THEN
+					ro.max_speed / COS(s.cosine_error_angle * 0.0174533)  -- degrees to radians
+				ELSE
+					ro.max_speed
+			END as corrected_max_speed,
+			CASE 
+				WHEN scp.id IS NOT NULL THEN
+					ro.min_speed / COS(s.cosine_error_angle * 0.0174533)  -- degrees to radians
+				ELSE
+					ro.min_speed
+			END as corrected_min_speed,
+			ro.speed_change, 
+			ro.max_magnitude, 
+			ro.avg_magnitude, 
+			ro.total_frames,
+			ro.frames_per_mps, 
+			ro.length_m
+		FROM radar_objects ro
+		LEFT JOIN site_config_periods scp ON ro.write_timestamp >= scp.effective_start_unix
+			AND (scp.effective_end_unix IS NULL OR ro.write_timestamp < scp.effective_end_unix)
+		LEFT JOIN site s ON scp.site_id = s.id
+		ORDER BY ro.write_timestamp DESC 
+		LIMIT 100
+	`
+	rows, err := db.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -539,13 +569,50 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 	var err error
 	switch dataSource {
 	case "radar_objects":
-		rows, err = db.Query(`SELECT write_timestamp, max_speed FROM radar_objects WHERE max_speed > ? AND write_timestamp BETWEEN ? AND ?`, minSpeed, startUnix, endUnix)
+		// Query with cosine error correction from site_config_periods
+		// Formula: corrected_speed = measured_speed / cos(angle_in_radians)
+		// We join on the period that was effective at the time of measurement
+		query := `
+			SELECT 
+				ro.write_timestamp,
+				CASE 
+					WHEN scp.id IS NOT NULL THEN
+						ro.max_speed / COS(s.cosine_error_angle * 0.0174533)  -- degrees to radians: π/180 ≈ 0.0174533
+					ELSE
+						ro.max_speed  -- No site config period, use uncorrected speed
+				END as corrected_speed
+			FROM radar_objects ro
+			LEFT JOIN site_config_periods scp ON ro.write_timestamp >= scp.effective_start_unix
+				AND (scp.effective_end_unix IS NULL OR ro.write_timestamp < scp.effective_end_unix)
+			LEFT JOIN site s ON scp.site_id = s.id
+			WHERE ro.max_speed > ?
+				AND ro.write_timestamp BETWEEN ? AND ?
+		`
+		rows, err = db.Query(query, minSpeed, startUnix, endUnix)
 	case "radar_data_transits":
 		// radar_data_transits stores transit_start_unix and transit_max_speed
 		if modelVersion == "" {
 			modelVersion = "rebuild-full"
 		}
-		rows, err = db.Query(`SELECT transit_start_unix, transit_max_speed FROM radar_data_transits WHERE model_version = ? AND transit_max_speed > ? AND transit_start_unix BETWEEN ? AND ?`, modelVersion, minSpeed, startUnix, endUnix)
+		// Query with cosine error correction from site_config_periods
+		query := `
+			SELECT 
+				rdt.transit_start_unix,
+				CASE 
+					WHEN scp.id IS NOT NULL THEN
+						rdt.transit_max_speed / COS(s.cosine_error_angle * 0.0174533)  -- degrees to radians
+					ELSE
+						rdt.transit_max_speed  -- No site config period, use uncorrected speed
+				END as corrected_speed
+			FROM radar_data_transits rdt
+			LEFT JOIN site_config_periods scp ON rdt.transit_start_unix >= scp.effective_start_unix
+				AND (scp.effective_end_unix IS NULL OR rdt.transit_start_unix < scp.effective_end_unix)
+			LEFT JOIN site s ON scp.site_id = s.id
+			WHERE rdt.model_version = ?
+				AND rdt.transit_max_speed > ?
+				AND rdt.transit_start_unix BETWEEN ? AND ?
+		`
+		rows, err = db.Query(query, modelVersion, minSpeed, startUnix, endUnix)
 	default:
 		return nil, fmt.Errorf("unsupported dataSource: %s", dataSource)
 	}
@@ -736,7 +803,26 @@ func EventToAPI(e Event) EventAPI {
 }
 
 func (db *DB) Events() ([]Event, error) {
-	rows, err := db.Query("SELECT uptime, magnitude, speed FROM radar_data ORDER BY uptime DESC LIMIT 500")
+	// Query with cosine error correction from site_config_periods
+	// Apply correction to speed based on the site configuration period active at write_timestamp
+	query := `
+		SELECT 
+			rd.uptime, 
+			rd.magnitude, 
+			CASE 
+				WHEN scp.id IS NOT NULL AND rd.speed IS NOT NULL THEN
+					rd.speed / COS(s.cosine_error_angle * 0.0174533)  -- degrees to radians
+				ELSE
+					rd.speed  -- No site config or no speed, use uncorrected speed
+			END as corrected_speed
+		FROM radar_data rd
+		LEFT JOIN site_config_periods scp ON rd.write_timestamp >= scp.effective_start_unix
+			AND (scp.effective_end_unix IS NULL OR rd.write_timestamp < scp.effective_end_unix)
+		LEFT JOIN site s ON scp.site_id = s.id
+		ORDER BY rd.uptime DESC 
+		LIMIT 500
+	`
+	rows, err := db.Query(query)
 	if err != nil {
 		return nil, err
 	}
