@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { Card, Header, SelectField, Switch, Table } from 'svelte-ux';
 	import {
@@ -126,7 +127,7 @@
 	<Card title="Settings Sections">
 		<div class="space-y-2 p-4">
 			<a
-				href="/settings/serial"
+				href={resolve('/settings/serial')}
 				class="hover:bg-surface-100 rounded-lg p-4 block border transition-colors"
 			>
 				<h3 class="font-semibold">Serial Configuration</h3>
