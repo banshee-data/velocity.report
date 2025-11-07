@@ -120,8 +120,9 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/api/config", s.showConfig)
 	s.mux.HandleFunc("/api/generate_report", s.generateReport)
 	s.mux.HandleFunc("/api/sites", s.handleSites)
-	s.mux.HandleFunc("/api/sites/", s.handleSites)     // Note trailing slash to match /api/sites and /api/sites/*
-	s.mux.HandleFunc("/api/reports/", s.handleReports) // Report management endpoints
+	s.mux.HandleFunc("/api/sites/", s.handleSites)                             // Note trailing slash to match /api/sites and /api/sites/*
+	s.mux.HandleFunc("/api/speed_limit_schedules/", s.handleSpeedLimitSchedules) // Speed limit schedule endpoints
+	s.mux.HandleFunc("/api/reports/", s.handleReports)                          // Report management endpoints
 	return s.mux
 }
 
@@ -1254,3 +1255,206 @@ func (s *Server) Start(ctx context.Context, listen string, devMode bool) error {
 		return err
 	}
 }
+
+// handleSpeedLimitSchedules routes speed limit schedule requests to appropriate handlers
+func (s *Server) handleSpeedLimitSchedules(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Parse the path to extract site ID and schedule ID if present
+	// URL formats:
+	//   /api/speed_limit_schedules/site/123 - list schedules for site 123
+	//   /api/speed_limit_schedules/123 - get/update/delete schedule 123
+	//   /api/speed_limit_schedules - create new schedule
+	path := strings.TrimPrefix(r.URL.Path, "/api/speed_limit_schedules")
+	path = strings.Trim(path, "/")
+
+	// Handle /api/speed_limit_schedules/site/{siteID}
+	if strings.HasPrefix(path, "site/") {
+		siteIDStr := strings.TrimPrefix(path, "site/")
+		siteID, err := strconv.Atoi(siteIDStr)
+		if err != nil {
+			s.writeJSONError(w, http.StatusBadRequest, "Invalid site ID")
+			return
+		}
+		if r.Method == http.MethodGet {
+			s.listSpeedLimitSchedulesForSite(w, r, siteID)
+		} else if r.Method == http.MethodDelete {
+			s.deleteAllSpeedLimitSchedulesForSite(w, r, siteID)
+		} else {
+			s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		}
+		return
+	}
+
+	// Create new schedule
+	if path == "" {
+		if r.Method == http.MethodPost {
+			s.createSpeedLimitSchedule(w, r)
+		} else {
+			s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		}
+		return
+	}
+
+	// Get, Update, or Delete by ID
+	scheduleID, err := strconv.Atoi(path)
+	if err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid schedule ID")
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		s.getSpeedLimitSchedule(w, r, scheduleID)
+	case http.MethodPut:
+		s.updateSpeedLimitSchedule(w, r, scheduleID)
+	case http.MethodDelete:
+		s.deleteSpeedLimitSchedule(w, r, scheduleID)
+	default:
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+	}
+}
+
+func (s *Server) listSpeedLimitSchedulesForSite(w http.ResponseWriter, r *http.Request, siteID int) {
+	_ = r
+	schedules, err := s.db.GetSpeedLimitSchedulesForSite(siteID)
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve schedules: %v", err))
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(schedules); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode schedules")
+		return
+	}
+}
+
+func (s *Server) getSpeedLimitSchedule(w http.ResponseWriter, r *http.Request, scheduleID int) {
+	_ = r
+	schedule, err := s.db.GetSpeedLimitSchedule(scheduleID)
+	if err != nil {
+		if err.Error() == "speed limit schedule not found" {
+			s.writeJSONError(w, http.StatusNotFound, "Schedule not found")
+		} else {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve schedule: %v", err))
+		}
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(schedule); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode schedule")
+		return
+	}
+}
+
+func (s *Server) createSpeedLimitSchedule(w http.ResponseWriter, r *http.Request) {
+	var schedule db.SpeedLimitSchedule
+	if err := json.NewDecoder(r.Body).Decode(&schedule); err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
+		return
+	}
+
+	// Validate required fields
+	if schedule.SiteID == 0 {
+		s.writeJSONError(w, http.StatusBadRequest, "site_id is required")
+		return
+	}
+	if schedule.DayOfWeek < 0 || schedule.DayOfWeek > 6 {
+		s.writeJSONError(w, http.StatusBadRequest, "day_of_week must be between 0 and 6")
+		return
+	}
+	if schedule.StartTime == "" {
+		s.writeJSONError(w, http.StatusBadRequest, "start_time is required")
+		return
+	}
+	if schedule.EndTime == "" {
+		s.writeJSONError(w, http.StatusBadRequest, "end_time is required")
+		return
+	}
+	if schedule.SpeedLimit <= 0 {
+		s.writeJSONError(w, http.StatusBadRequest, "speed_limit must be positive")
+		return
+	}
+
+	if err := s.db.CreateSpeedLimitSchedule(&schedule); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to create schedule: %v", err))
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(schedule); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode schedule")
+		return
+	}
+}
+
+func (s *Server) updateSpeedLimitSchedule(w http.ResponseWriter, r *http.Request, scheduleID int) {
+	var schedule db.SpeedLimitSchedule
+	if err := json.NewDecoder(r.Body).Decode(&schedule); err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
+		return
+	}
+
+	schedule.ID = scheduleID
+
+	// Validate required fields
+	if schedule.SiteID == 0 {
+		s.writeJSONError(w, http.StatusBadRequest, "site_id is required")
+		return
+	}
+	if schedule.DayOfWeek < 0 || schedule.DayOfWeek > 6 {
+		s.writeJSONError(w, http.StatusBadRequest, "day_of_week must be between 0 and 6")
+		return
+	}
+	if schedule.StartTime == "" {
+		s.writeJSONError(w, http.StatusBadRequest, "start_time is required")
+		return
+	}
+	if schedule.EndTime == "" {
+		s.writeJSONError(w, http.StatusBadRequest, "end_time is required")
+		return
+	}
+	if schedule.SpeedLimit <= 0 {
+		s.writeJSONError(w, http.StatusBadRequest, "speed_limit must be positive")
+		return
+	}
+
+	if err := s.db.UpdateSpeedLimitSchedule(&schedule); err != nil {
+		if err.Error() == "speed limit schedule not found" {
+			s.writeJSONError(w, http.StatusNotFound, "Schedule not found")
+		} else {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update schedule: %v", err))
+		}
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(schedule); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode schedule")
+		return
+	}
+}
+
+func (s *Server) deleteSpeedLimitSchedule(w http.ResponseWriter, r *http.Request, scheduleID int) {
+	_ = r
+	if err := s.db.DeleteSpeedLimitSchedule(scheduleID); err != nil {
+		if err.Error() == "speed limit schedule not found" {
+			s.writeJSONError(w, http.StatusNotFound, "Schedule not found")
+		} else {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to delete schedule: %v", err))
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) deleteAllSpeedLimitSchedulesForSite(w http.ResponseWriter, r *http.Request, siteID int) {
+	_ = r
+	if err := s.db.DeleteAllSpeedLimitSchedulesForSite(siteID); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to delete schedules: %v", err))
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
