@@ -66,8 +66,8 @@ func TestCosineErrorCorrection(t *testing.T) {
 
 	// Query the data using a time range that covers "now" (when the record was inserted)
 	now := time.Now().Unix()
-	startUnix := now - 10 // 10 seconds ago
-	endUnix := now + 10   // 10 seconds from now
+	startUnix := now - 10    // 10 seconds ago
+	endUnix := now + 10      // 10 seconds from now
 	groupSeconds := int64(0) // All data in one bucket
 
 	result, err := db.RadarObjectRollupRange(startUnix, endUnix, groupSeconds, 0.0, "radar_objects", "", 0.0, 0.0)

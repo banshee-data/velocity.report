@@ -270,129 +270,129 @@ func (db *DB) DeleteSite(id int) error {
 
 // CreateSiteVariableConfig creates a new site variable configuration
 func (db *DB) CreateSiteVariableConfig(config *SiteVariableConfig) error {
-query := `
+	query := `
 INSERT INTO site_variable_config (cosine_error_angle)
 VALUES (?)
 `
 
-result, err := db.DB.Exec(query, config.CosineErrorAngle)
-if err != nil {
-return fmt.Errorf("failed to create site variable config: %w", err)
-}
+	result, err := db.DB.Exec(query, config.CosineErrorAngle)
+	if err != nil {
+		return fmt.Errorf("failed to create site variable config: %w", err)
+	}
 
-id, err := result.LastInsertId()
-if err != nil {
-return fmt.Errorf("failed to get last insert ID: %w", err)
-}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return fmt.Errorf("failed to get last insert ID: %w", err)
+	}
 
-config.ID = int(id)
-return nil
+	config.ID = int(id)
+	return nil
 }
 
 // GetSiteVariableConfig retrieves a site variable config by ID
 func (db *DB) GetSiteVariableConfig(id int) (*SiteVariableConfig, error) {
-query := `
+	query := `
 SELECT id, cosine_error_angle, created_at, updated_at
 FROM site_variable_config
 WHERE id = ?
 `
 
-var config SiteVariableConfig
-err := db.DB.QueryRow(query, id).Scan(
-&config.ID,
-&config.CosineErrorAngle,
-&config.CreatedAt,
-&config.UpdatedAt,
-)
+	var config SiteVariableConfig
+	err := db.DB.QueryRow(query, id).Scan(
+		&config.ID,
+		&config.CosineErrorAngle,
+		&config.CreatedAt,
+		&config.UpdatedAt,
+	)
 
-if err == sql.ErrNoRows {
-return nil, fmt.Errorf("site variable config not found")
-}
-if err != nil {
-return nil, fmt.Errorf("failed to get site variable config: %w", err)
-}
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("site variable config not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get site variable config: %w", err)
+	}
 
-return &config, nil
+	return &config, nil
 }
 
 // GetAllSiteVariableConfigs retrieves all site variable configs
 func (db *DB) GetAllSiteVariableConfigs() ([]SiteVariableConfig, error) {
-query := `
+	query := `
 SELECT id, cosine_error_angle, created_at, updated_at
 FROM site_variable_config
 ORDER BY id ASC
 `
 
-rows, err := db.DB.Query(query)
-if err != nil {
-return nil, fmt.Errorf("failed to query site variable configs: %w", err)
-}
-defer rows.Close()
+	rows, err := db.DB.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query site variable configs: %w", err)
+	}
+	defer rows.Close()
 
-var configs []SiteVariableConfig
-for rows.Next() {
-var config SiteVariableConfig
-err := rows.Scan(
-&config.ID,
-&config.CosineErrorAngle,
-&config.CreatedAt,
-&config.UpdatedAt,
-)
-if err != nil {
-return nil, fmt.Errorf("failed to scan site variable config: %w", err)
-}
-configs = append(configs, config)
-}
+	var configs []SiteVariableConfig
+	for rows.Next() {
+		var config SiteVariableConfig
+		err := rows.Scan(
+			&config.ID,
+			&config.CosineErrorAngle,
+			&config.CreatedAt,
+			&config.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan site variable config: %w", err)
+		}
+		configs = append(configs, config)
+	}
 
-if err = rows.Err(); err != nil {
-return nil, fmt.Errorf("error iterating site variable configs: %w", err)
-}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating site variable configs: %w", err)
+	}
 
-return configs, nil
+	return configs, nil
 }
 
 // UpdateSiteVariableConfig updates an existing site variable config
 func (db *DB) UpdateSiteVariableConfig(config *SiteVariableConfig) error {
-query := `
+	query := `
 UPDATE site_variable_config SET
 cosine_error_angle = ?
 WHERE id = ?
 `
 
-result, err := db.DB.Exec(query, config.CosineErrorAngle, config.ID)
-if err != nil {
-return fmt.Errorf("failed to update site variable config: %w", err)
-}
+	result, err := db.DB.Exec(query, config.CosineErrorAngle, config.ID)
+	if err != nil {
+		return fmt.Errorf("failed to update site variable config: %w", err)
+	}
 
-rowsAffected, err := result.RowsAffected()
-if err != nil {
-return fmt.Errorf("failed to get rows affected: %w", err)
-}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
 
-if rowsAffected == 0 {
-return fmt.Errorf("site variable config not found")
-}
+	if rowsAffected == 0 {
+		return fmt.Errorf("site variable config not found")
+	}
 
-return nil
+	return nil
 }
 
 // DeleteSiteVariableConfig deletes a site variable config
 func (db *DB) DeleteSiteVariableConfig(id int) error {
-query := `DELETE FROM site_variable_config WHERE id = ?`
+	query := `DELETE FROM site_variable_config WHERE id = ?`
 
-result, err := db.DB.Exec(query, id)
-if err != nil {
-return fmt.Errorf("failed to delete site variable config: %w", err)
-}
+	result, err := db.DB.Exec(query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete site variable config: %w", err)
+	}
 
-rowsAffected, err := result.RowsAffected()
-if err != nil {
-return fmt.Errorf("failed to get rows affected: %w", err)
-}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
 
-if rowsAffected == 0 {
-return fmt.Errorf("site variable config not found")
-}
+	if rowsAffected == 0 {
+		return fmt.Errorf("site variable config not found")
+	}
 
-return nil
+	return nil
 }
