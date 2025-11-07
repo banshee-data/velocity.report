@@ -286,7 +286,7 @@ test-python:
 
 test-python-cov:
 	@echo "Running PDF generator tests with coverage..."
-	cd $(PDF_DIR) && PYTHONPATH=. $(VENV_PYTEST) --cov=pdf_generator --cov-report=html pdf_generator/tests/
+	cd $(PDF_DIR) && PYTHONPATH=. ../../$(VENV_PYTEST) --cov=pdf_generator --cov-report=html pdf_generator/tests/
 	@echo "Coverage report: $(PDF_DIR)/htmlcov/index.html"
 
 # Run web test suite (Jest) using pnpm inside the web directory
@@ -400,7 +400,7 @@ lint-web:
 
 pdf-test:
 	@echo "Running PDF generator tests..."
-	cd $(PDF_DIR) && PYTHONPATH=. $(VENV_PYTEST) pdf_generator/tests/
+	cd $(PDF_DIR) && PYTHONPATH=. ../../$(VENV_PYTEST) pdf_generator/tests/
 
 pdf-report:
 	@if [ -z "$(CONFIG)" ]; then \
@@ -416,15 +416,15 @@ pdf-report:
 		echo "Try: make pdf-report CONFIG=config.example.json"; \
 		exit 1; \
 	fi; \
-	cd $(PDF_DIR) && PYTHONPATH=. $(VENV_PYTHON) -m pdf_generator.cli.main $$CONFIG_PATH
+	cd $(PDF_DIR) && PYTHONPATH=. ../../$(VENV_PYTHON) -m pdf_generator.cli.main $$CONFIG_PATH
 
 pdf-config:
 	@echo "Creating example configuration..."
-	cd $(PDF_DIR) && PYTHONPATH=. $(VENV_PYTHON) -m pdf_generator.cli.create_config
+	cd $(PDF_DIR) && PYTHONPATH=. ../../$(VENV_PYTHON) -m pdf_generator.cli.create_config
 
 pdf-demo:
 	@echo "Running configuration system demo..."
-	cd $(PDF_DIR) && PYTHONPATH=. $(VENV_PYTHON) -m pdf_generator.cli.demo
+	cd $(PDF_DIR) && PYTHONPATH=. ../../$(VENV_PYTHON) -m pdf_generator.cli.demo
 
 # Convenience alias
 pdf: pdf-report
