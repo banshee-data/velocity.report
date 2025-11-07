@@ -133,12 +133,12 @@ Streets designed for 25 mph but driven at 40? That's not just a little faster: i
 
 ---
 
-## **What You'll Build**
+## What You'll Build
 
-By the end of this guide, you'll have:
+This guide walks you through building:
 
-- A Raspberry Pi radar logger capturing vehicle speeds via Doppler radar
-- A SQLite database storing detections locally (no cloud)
+- A Raspberry Pi radar logger that captures vehicle speeds via Doppler radar
+- A SQLite database that stores detections locally (no cloud)
 - A live web dashboard with real-time speeds, histograms, and time-of-day patterns
 - Professional PDF reports with traffic engineering metrics (p50, p85, p98)
 
@@ -611,11 +611,11 @@ See the [PDF Generator README](../../tools/pdf-generator/README.md) for customiz
 
 ---
 
-## **Network Access & Security**
+## Network Access & Security
 
-### **Local Network Deployment (Recommended)**
+### Local Network Deployment (Recommended)
 
-By default, the web dashboard runs on port 8080 and is accessible on your local network:
+The web dashboard runs on port 8080 and is accessible on your local network by default:
 
 ```text
 http://raspberrypi.local:8080
@@ -638,9 +638,9 @@ http://192.168.1.XXX:8080
 
 ---
 
-### **Remote Access with Tailscale (Optional)**
+### Remote Access with Tailscale (Optional)
 
-For secure remote access from anywhere without exposing your Pi to the public internet, use [Tailscale](https://tailscale.com):
+[Tailscale](https://tailscale.com) provides secure remote access from anywhere without exposing your Pi to the public internet.
 
 **Why Tailscale?**
 
@@ -655,7 +655,10 @@ For secure remote access from anywhere without exposing your Pi to the public in
 1. **Install Tailscale on your Pi**:
 
 ```bash
+# Download and install Tailscale
 curl -fsSL https://tailscale.com/install.sh | sh
+
+# Start Tailscale and authenticate
 sudo tailscale up
 ```
 
@@ -666,8 +669,8 @@ sudo tailscale up
 4. **Access dashboard** from anywhere:
 
 ```text
+# Use the Tailscale IP shown in admin console
 http://100.x.y.z:8080
-# (Use the Tailscale IP shown in admin console)
 ```
 
 **Benefits**:
@@ -681,7 +684,7 @@ http://100.x.y.z:8080
 
 ---
 
-### **Public Internet Deployment (Not Recommended)**
+### Public Internet Deployment (Not Recommended)
 
 **Do not expose this service directly to the public internet.** The dashboard has no authentication, no HTTPS, and no rate limiting.
 
