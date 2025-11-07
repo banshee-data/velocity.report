@@ -34,3 +34,8 @@ app
 app-*
 mock_serial_port*
 coverage*
+
+# Security test artifacts
+security-tests/*.pdf
+security-tests/*.log
+security-tests/exploited.*
