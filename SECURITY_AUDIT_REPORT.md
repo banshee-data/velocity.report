@@ -71,7 +71,7 @@ Result: Sensitive files read and included in PDF output
 
 #### Attack Vector
 The vulnerability can be exploited via:
-1. **HTTP API:** `POST /api/sites/reports` endpoint accepts these fields in JSON
+1. **HTTP API:** `POST /api/generate_report` endpoint accepts these fields in JSON
 2. **No Authentication:** API is completely open (see Vulnerability #2)
 3. **Direct File Access:** Attacker can retrieve generated PDFs containing exfiltrated data
 
@@ -122,13 +122,13 @@ The HTTP API server (port 8080) has **ZERO authentication or authorization** mec
 No authentication required for ANY endpoint:
 
 GET  /api/config           - System configuration
-GET  /api/events           - All speed detection events  
-GET  /api/radar/stats      - Radar statistics
+GET  /events           - All speed detection events  
+GET  /api/radar_stats      - Radar statistics
 GET  /api/sites            - List all monitoring sites
 POST /api/sites            - Create new sites
 PUT  /api/sites/{id}       - Modify site data
 DEL  /api/sites/{id}       - Delete sites
-POST /api/sites/reports    - Generate PDF reports (triggers LaTeX)
+POST /api/generate_report    - Generate PDF reports (triggers LaTeX)
 GET  /api/sites/reports/{id}/download - Download reports
 DEL  /api/sites/reports/{id} - Delete reports
 ```
@@ -140,7 +140,7 @@ func (s *Server) ServeMux() *http.ServeMux {
     mux := http.NewServeMux()
     mux.HandleFunc("/api/config", s.showConfig)
     mux.HandleFunc("/api/events", s.listEvents)
-    mux.HandleFunc("/api/radar/stats", s.showRadarStats)
+    mux.HandleFunc("/api/radar_stats", s.showRadarStats)
     // ... more endpoints, ZERO auth checks
 }
 ```
@@ -152,7 +152,7 @@ No search results for: `auth`, `password`, `login`, `session`, `token`, `Basic`,
 **Scenario 1: Privacy Violation**
 ```bash
 # Attacker on same network or internet-exposed server
-curl http://velocity-server:8080/api/events
+curl http://velocity-server:8080/events
 # Returns: All speed measurements with timestamps
 # Privacy claim: "No PII collection" - but timing patterns can identify vehicles
 ```
@@ -168,7 +168,7 @@ done
 **Scenario 3: Combined Attack (LaTeX Injection + No Auth)**
 ```bash
 # Step 1: Inject malicious LaTeX to read /etc/passwd
-curl -X POST http://velocity-server:8080/api/sites/reports \
+curl -X POST http://velocity-server:8080/api/generate_report \
   -H "Content-Type: application/json" \
   -d '{
     "location": "\\input{/etc/passwd}",
@@ -257,16 +257,16 @@ API endpoints have no rate limiting, allowing attackers to:
 
 **High-Cost Endpoints:**
 ```
-POST /api/sites/reports    - Spawns Python process, generates PDF, queries DB
-GET  /api/radar/stats      - Aggregates database queries, calculates histograms
-GET  /api/events           - Full table scan of event data
+POST /api/generate_report    - Spawns Python process, generates PDF, queries DB
+GET  /api/radar_stats      - Aggregates database queries, calculates histograms
+GET  /events           - Full table scan of event data
 ```
 
 #### Attack Scenario: PDF Generation DoS
 ```bash
 # Flood with PDF generation requests
 for i in {1..1000}; do
-    curl -X POST http://velocity-server:8080/api/sites/reports \
+    curl -X POST http://velocity-server:8080/api/generate_report \
       -H "Content-Type: application/json" \
       -d '{
         "start_date": "2020-01-01",
@@ -327,7 +327,7 @@ globalLimiter := NewRateLimiter(100, 200)
 // PDF generation: 1 req/min (expensive operation)
 pdfLimiter := NewRateLimiter(1, 2)
 
-mux.HandleFunc("/api/sites/reports", 
+mux.HandleFunc("/api/generate_report", 
     RateLimitMiddleware(
         AuthMiddleware(s.generateReport, user, pass),
         pdfLimiter,
@@ -359,7 +359,7 @@ No CORS (Cross-Origin Resource Sharing) headers configured. While this restricts
 
 #### Current State
 ```bash
-$ curl -I http://localhost:8080/api/events
+$ curl -I http://localhost:8080/events
 # No Access-Control-* headers present
 ```
 
@@ -701,17 +701,17 @@ CPUQuota=50%
 
 ```bash
 # 1. LaTeX Injection Tests
-curl -X POST http://localhost:8080/api/sites/reports \
+curl -X POST http://localhost:8080/api/generate_report \
   -H "Content-Type: application/json" \
   -d '{"location": "\\input{/etc/passwd}", ...}'
 # Expected: Escaped output in PDF, no file content
 
 # 2. Authentication Tests
-curl http://localhost:8080/api/events
+curl http://localhost:8080/events
 # Expected: 401 Unauthorized (after fix)
 
 # 3. Rate Limiting Tests
-for i in {1..200}; do curl http://localhost:8080/api/radar/stats & done
+for i in {1..200}; do curl http://localhost:8080/api/radar_stats & done
 # Expected: 429 Too Many Requests (after fix)
 
 # 4. Path Traversal Tests

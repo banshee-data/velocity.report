@@ -17,9 +17,9 @@ echo ""
 
 # Test sensitive endpoints that should require auth
 ENDPOINTS=(
-    "/api/events"
+    "/events"
     "/api/sites"
-    "/api/radar/stats"
+    "/api/radar_stats"
     "/api/config"
 )
 

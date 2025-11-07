@@ -16,7 +16,7 @@
 
 **Proof of Concept:**
 ```bash
-curl -X POST http://localhost:8080/api/sites/reports \
+curl -X POST http://localhost:8080/api/generate_report \
   -H "Content-Type: application/json" \
   -d '{
     "location": "\\input{/etc/passwd}",
@@ -56,7 +56,7 @@ surveyor_line = f"{{\\large \\sffamily Surveyor: \\textit{{{escaped_surveyor}}} 
 **Proof of Concept:**
 ```bash
 # Read all speed data
-curl http://velocity-server:8080/api/events
+curl http://velocity-server:8080/events
 
 # Delete all sites
 curl -X DELETE http://velocity-server:8080/api/sites/1
@@ -112,7 +112,7 @@ VELOCITY_API_PASSWORD=<secure-password>
 ```bash
 # Flood with PDF generation (spawns 1000 Python processes)
 for i in {1..1000}; do
-    curl -X POST http://localhost:8080/api/sites/reports \
+    curl -X POST http://localhost:8080/api/generate_report \
       -H "Content-Type: application/json" \
       -d '{"start_date":"2020-01-01","end_date":"2024-12-31"}' &
 done
@@ -151,7 +151,7 @@ func (s *Server) RateLimitMiddleware(limiter *rate.Limiter) func(http.Handler) h
 }
 
 // Apply to routes
-mux.Handle("/api/sites/reports", 
+mux.Handle("/api/generate_report", 
     s.RateLimitMiddleware(s.pdfLimiter)(
         s.AuthMiddleware(http.HandlerFunc(s.generateReport)),
     ),
@@ -178,22 +178,22 @@ mux.Handle("/api/sites/reports",
 
 ```bash
 # Test 1: LaTeX injection blocked
-curl -X POST http://localhost:8080/api/sites/reports \
+curl -X POST http://localhost:8080/api/generate_report \
   -u admin:password \
   -H "Content-Type: application/json" \
   -d '{"location":"\\input{/etc/passwd}","start_date":"2024-01-01","end_date":"2024-12-31"}'
 # Expected: PDF generated with escaped text "\\input\{/etc/passwd\}", no file content
 
 # Test 2: Authentication required
-curl http://localhost:8080/api/events
+curl http://localhost:8080/events
 # Expected: 401 Unauthorized
 
-curl -u admin:password http://localhost:8080/api/events
+curl -u admin:password http://localhost:8080/events
 # Expected: 200 OK with data
 
 # Test 3: Rate limiting works
 for i in {1..10}; do 
-    curl -u admin:password -X POST http://localhost:8080/api/sites/reports \
+    curl -u admin:password -X POST http://localhost:8080/api/generate_report \
       -H "Content-Type: application/json" \
       -d '{"start_date":"2024-01-01","end_date":"2024-12-31"}'; 
 done

@@ -56,7 +56,7 @@ doc.append(NoEscape(f"\\fancyhead[R]{{ \\textit{{{escaped_location}}}}}"))
 mux.HandleFunc("/api/events", s.listEvents)
 ```
 
-Anyone can access: `curl http://server:8080/api/events`
+Anyone can access: `curl http://server:8080/events`
 
 ### The Fix
 ```go
@@ -106,7 +106,7 @@ mux.Handle("/api/", s.BasicAuthMiddleware(apiRouter))
 ### The Problem
 ```go
 // CURRENT CODE - NO LIMITS:
-mux.HandleFunc("/api/sites/reports", s.generateReport)
+mux.HandleFunc("/api/generate_report", s.generateReport)
 ```
 
 Attacker can send 1000s of requests → system crash
@@ -140,7 +140,7 @@ func (s *Server) RateLimitMiddleware(limiter *rate.Limiter) func(http.Handler) h
 }
 
 // APPLY TO ROUTES:
-mux.Handle("/api/sites/reports", 
+mux.Handle("/api/generate_report", 
     s.RateLimitMiddleware(s.pdfLimiter)(
         s.BasicAuthMiddleware(http.HandlerFunc(s.generateReport)),
     ),
@@ -171,16 +171,16 @@ After implementing fixes:
 - [ ] Verify authentication with curl:
   ```bash
   # Should fail:
-  curl http://localhost:8080/api/events
+  curl http://localhost:8080/events
   
   # Should succeed:
-  curl -u admin:password http://localhost:8080/api/events
+  curl -u admin:password http://localhost:8080/events
   ```
 - [ ] Verify rate limiting:
   ```bash
   # First request succeeds, subsequent rapid requests fail
   for i in {1..10}; do 
-    curl -u admin:password -X POST http://localhost:8080/api/sites/reports \
+    curl -u admin:password -X POST http://localhost:8080/api/generate_report \
       -H "Content-Type: application/json" \
       -d '{"start_date":"2024-01-01","end_date":"2024-12-31"}'
   done
@@ -188,7 +188,7 @@ After implementing fixes:
 - [ ] Verify LaTeX escaping:
   ```bash
   # PDF should contain literal text "\\input{...}", not file contents
-  curl -u admin:password -X POST http://localhost:8080/api/sites/reports \
+  curl -u admin:password -X POST http://localhost:8080/api/generate_report \
     -H "Content-Type: application/json" \
     -d '{"location":"\\input{/etc/passwd}","start_date":"2024-01-01","end_date":"2024-12-31"}'
   ```
