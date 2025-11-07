@@ -10,10 +10,10 @@ import (
 type SpeedLimitSchedule struct {
 	ID         int       `json:"id"`
 	SiteID     int       `json:"site_id"`
-	DayOfWeek  int       `json:"day_of_week"`  // 0=Sunday, 1=Monday, ..., 6=Saturday
-	StartTime  string    `json:"start_time"`   // HH:MM format
-	EndTime    string    `json:"end_time"`     // HH:MM format
-	SpeedLimit int       `json:"speed_limit"`  // Speed limit for this time block
+	DayOfWeek  int       `json:"day_of_week"` // 0=Sunday, 1=Monday, ..., 6=Saturday
+	StartTime  string    `json:"start_time"`  // HH:MM format
+	EndTime    string    `json:"end_time"`    // HH:MM format
+	SpeedLimit int       `json:"speed_limit"` // Speed limit for this time block
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 }
