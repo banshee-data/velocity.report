@@ -224,6 +224,7 @@ def generate_pdf_report(
     include_map: bool = True,
     site_description: str = "",
     speed_limit_note: str = "",
+    speed_limit_schedules: Optional[List[Dict[str, Any]]] = None,
     surveyor: str = "",
     contact: str = "",
     cosine_error_angle: float = 0.0,
@@ -241,6 +242,7 @@ def generate_pdf_report(
         include_map: If False, skip map generation even if map.svg exists
         site_description: Optional site description text
         speed_limit_note: Optional speed limit information
+        speed_limit_schedules: Optional list of speed limit schedule dictionaries
         surveyor: Surveyor name/organization
         contact: Contact email/phone
         cosine_error_angle: Radar mounting angle in degrees
@@ -308,7 +310,7 @@ def generate_pdf_report(
 
     doc.append(NoEscape("\\vspace{-28pt}"))
 
-    add_site_specifics(doc, site_description, speed_limit_note)
+    add_site_specifics(doc, site_description, speed_limit_note, speed_limit_schedules)
 
     doc.append(NoEscape("\\par"))
 
