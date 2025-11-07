@@ -1,16 +1,24 @@
 ---
 layout: doc.njk
-title: Setup your Citizen Radar
-description: Step-by-step guide to assembling and deploying a Citizen Radar for traffic monitoring
+title: Set Up Your Privacy-First Speed Radar
+description: Build a DIY traffic radar with Raspberry Pi and open-source software—no cameras, no cloud, just local speed data
 section: guides
+difficulty: intermediate
+time: 2-4 hours
+cost: $150-200
 date: 2025-11-05
+tags: [hardware, raspberry-pi, diy, traffic-safety]
 ---
 
-# **Build Your Own Privacy-First Speed Radar with Open-Source Tools**
+# Build Your Own Privacy-First Speed Radar
 
-### A DIY traffic logger that keeps data local, skips the camera, and helps your neighborhood get safer streets.
+**A DIY traffic logger that keeps data local, requires no cameras, and helps your neighborhood advocate for safer streets.**
 
-**Difficulty**: Intermediate | **Time**: 2-4 hours (DIY) or 4-6 hours (Infrastructure)
+**Difficulty**: Intermediate • **Time**: 2-4 hours • **Cost**: ~$150-200
+
+*Weatherproof infrastructure deployment: 4-6 hours, ~$350-450*
+
+**In this guide**: [Choose Deployment](#choose-your-deployment) • [Parts List](#parts-and-tools-list) • [Build Steps](#step-by-step-build-guide) • [Generate Reports](#step-7-generate-pdf-reports) • [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -40,19 +48,68 @@ This guide covers two deployment options:
 
 ---
 
-## **Introduction**
+## Introduction
 
-Ever wonder how fast cars are really going past your house or down your kid's school street? You've probably felt like drivers treat your neighborhood like a racetrack—but without hard data, it's tough to get city officials to take action.
+Measuring vehicle speeds on residential streets is the first step toward safer neighborhoods. Without data, convincing city officials to address speeding is nearly impossible.
 
-Here's a weekend project that fixes that.
+Build your own privacy-first traffic radar using off-the-shelf Doppler technology (the same sensors police use) and open-source software. No cameras, no license plates—just local speed data that produces professional traffic reports.
 
-Using an off-the-shelf Doppler radar module (the same tech police use) and open-source software, you can build your own privacy-first traffic logger. No cameras, no license plates—just speed data stored locally on a Raspberry Pi.
+This weekend project gives community advocates, parents, and civic-minded makers the evidence they need to drive change.
 
-You'll wire up hardware, configure a sensor, and deploy a web dashboard showing real-time vehicle speeds. After collecting data for a few days or weeks, generate professional PDF reports with industry-standard traffic metrics.
+## Who This Guide Is For
 
-Whether you're a concerned parent, a local activist, or someone who likes building useful things, this is a meaningful project with real-world impact.
+**Community advocates**: Get professional data for traffic calming proposals  
+**Parents**: Prove speeding near schools with evidence, not emotion  
+**Data enthusiasts**: Build useful civic tech with open hardware  
+**Local officials**: Validate commercial traffic studies with independent data
 
-### **Why Speed Matters: The Physics of Safety**
+**Not sure?** This project takes 2-4 hours and costs ~$150-200. If you care about street safety, you'll find it worthwhile.
+
+## Before You Begin
+
+**Skills required**:
+- Basic Linux command line (SSH, file editing, navigation)
+- Basic hardware assembly (connecting cables, mounting)
+- Patience for troubleshooting (sensor configuration can be finicky)
+
+**Tools needed**:
+- Computer for flashing SD card and SSH access
+- Screwdrivers for assembly
+- Optional: Multimeter for troubleshooting connections
+
+**No soldering required** • **No coding required** • **No prior radar experience needed**
+
+## Privacy & Legal Considerations
+
+### What This System Measures
+
+✅ **Collected**: Vehicle speed, direction, timestamp  
+❌ **Not collected**: License plates, vehicle photos, driver identity  
+❌ **Not transmitted**: All data stays on your device
+
+### Is This Legal?
+
+**In most jurisdictions, yes.** You're measuring public behavior on public streets, similar to what traffic engineers and academic researchers do.
+
+**Generally allowed**:
+- Monitoring streets visible from your property
+- Temporary studies (1-4 weeks) for community advocacy
+- Presenting findings to local government
+- Sharing aggregate statistics (PDF reports)
+
+**May require permission**:
+- Mounting on utility poles (contact utility company)
+- Long-term installations (>1 month)
+- School zones or government property
+
+**Not allowed**:
+- Monitoring private property
+- Selling data commercially
+- Creating safety hazards
+
+**Disclaimer**: Laws vary. When in doubt, consult local authorities or an attorney.
+
+### Understanding Speed: The Physics Behind Street Safety
 
 Speed isn't just a number on a sign: it's physics! And physics always wins.
 
@@ -89,123 +146,23 @@ By the end of this guide, you'll have:
 
 ---
 
-## **Parts and Tools List**
+## Parts and Tools List
 
-### **Understanding OmniPreSense Product Codes**
+> **New to radar sensors?** Start with the **OmniPreSense OPS243-A-CW-RP** (~$100-130). It's USB-powered, works immediately, and handles most use cases.
 
-OmniPreSense radar sensors are available in multiple configurations. The product code format is:
+### DIY Deployment Bill of Materials (~$150-200)
 
-```
-203-OPS[model]-[data_type]-[modulation]-[interface]
-```
+| Part | Recommended Model | Price (approx) | Notes |
+|------|------------------|----------------|-------|
+| Doppler Radar Sensor | OPS243-A-CW-RP | ~$100-130 | Speed-only, USB interface (designated RP in product codes) |
+| Microcontroller | Raspberry Pi Zero 2 W | ~$15-20 | WiFi built-in for dashboard access |
+| Power Supply | 5V 2.5A USB-C adapter | ~$10-15 | Official Pi power supply recommended |
+| SD Card | SanDisk 32GB microSD (A1/A2 rated) | ~$8-12 | Better performance for database |
+| USB Cable (optional) | USB-A to micro-USB or USB-C | ~$5-10 | If sensor doesn't include cable |
+| Tripod (optional) | Desktop or camera tripod | ~$10-25 | Standard 1/4-20 threading |
+| **TOTAL** | | **~$150-210** | |
 
-**Product Code Breakdown**:
-
-| Component      | Options      | Meaning                                              |
-| -------------- | ------------ | ---------------------------------------------------- |
-| **203-**       | Fixed prefix | Mouser manufacturer code for OmniPreSense            |
-| **OPS[model]** | 243, 7243    | Sensor model (243 = standard, 7243 = IP67 enclosure) |
-| **Data Type**  | A, C         | A = Speed only, C = Speed + Distance                 |
-| **Modulation** | CW, FC       | CW = Continuous Wave, FC = FMCW (range capability)   |
-| **Interface**  | RP, WB, R2   | RP = USB, WB = USB + Bluetooth, R2 = RS-232          |
-
-**Examples**:
-
-- `203-OPS243-A-CW-RP` = Sensor PCB, speed-only, continuous wave, USB interface
-- `203-OPS7243-C-FC-R2` = Sensor in IP67 housing, speed+distance, FMCW, RS232 interface
-
----
-
-### **Available Models**
-
-All available OmniPreSense radar sensors we document:
-
-| Model               | Type / Modulation         | Interface  | IP67 | Range | Price     |
-| ------------------- | ------------------------- | ---------- | ---- | ----- | --------- |
-| 203-OPS243-A-CW-RP  | A / CW — Speed only       | USB (RP)   | No   | 100m  | ~$100-130 |
-| 203-OPS243-C-FC-RP  | C / FC — Speed + Distance | USB (RP)   | No   | 60m   | ~$130-160 |
-| 203-OPS7243-A-CW-R2 | A / CW — Speed only       | RS232 (R2) | Yes  | 100m  | ~$150-180 |
-| 203-OPS7243-C-FC-R2 | C / FC — Speed + Distance | RS232 (R2) | Yes  | 60m   | ~$150-180 |
-| 203-OPS7243-C-FC-RP | C / FC — Speed + Distance | USB (RP)   | Yes  | 60m   | ~$150-180 |
-
-**Key specifications (short)**:
-
-- A = speed only (≈100 m). C = speed + distance (≈60 m).
-- CW = Doppler (speed). FC = FMCW (adds range/frequency-modulated distance).
-- RP = USB plug-and-play. R2 = RS232 industrial (use a serial HAT).
-- WB (Bluetooth/Wi‑Fi) variants are omitted from our recommendations.
-
----
-
-### **Our Recommendations**
-
-#### **DIY Deployment (~$150-200)**
-
-**Best choice**: `203-OPS243-A-CW-RP`
-
-- Affordable (~$100–130), USB plug-and-play, speed-only (recommended for most DIY use).
-
-**Alternative**: `203-OPS243-C-FC-RP`
-
-- Adds distance (FMCW) if you need it (60 m). We do not recommend WB (wireless) variants.
-
-#### **Infrastructure Deployment (~$350-450)**
-
-**Best choice**: `203-OPS7243-A-CW-R2`
-
-- 100 m range, industrial RS232, robust for outdoor installations. Requires a serial HAT and enclosure.
-
-**Alternative**: `203-OPS7243-C-FC-R2` (60 m) if you need distance measurements.
-
----
-
-### **Quick Decision Guide**
-
-**I want the cheapest option that works**:
-→ `203-OPS243-A-CW-RP` (~$100-130)
-
-**I need maximum range (100 m) for outdoor installation**:
-→ `203-OPS7243-A-CW-R2` (RS232, requires serial HAT)
-
-**I want distance measurement too**:
-→ `203-OPS243-C-FC-RP` (60 m)
-
-**I need long range for an outdoor installation**:
-→ `203-OPS7243-A-CW-R2` (~$415, includes IP67 weatherproof enclosure)
-
-**I don't know which to choose**:
-→ `203-OPS243-A-CW-RP` is the safe, budget-friendly choice
-
----
-
-### **Power Requirements**
-
-All models operate on **5V DC**:
-
--- **RP/ENC interface models (USB)**: Draw power directly from USB connection (5V via USB)
-
-- **R2 interface models (RS232)**: Require separate 5-24V power supply (RS232 data lines only, no power)
-- **Typical draw**: 300-440mA at 5V (~2.2W)
-
-**Important**: The USB interface models (RP, WB, ENC) are powered via USB. The RS232 models (R2) require external 5V power in addition to the RS232 data connection.
-
----
-
-### **DIY Deployment Bill of Materials**
-
-| Part                 | Example Model/Part Number                   | Price (approx) | Notes                                 |
-| -------------------- | ------------------------------------------- | -------------- | ------------------------------------- |
-| Doppler Radar Sensor | OPS243-A-CW-RP (Mouser: 203-OPS243-A-CW-RP) | ~$100-130      | Speed-only (A), USB interface (RP)    |
-| Microcontroller      | Raspberry Pi Zero 2 W                       | ~$15-20        | WiFi built-in for dashboard access    |
-| Power Supply         | 5V 2.5A USB-C adapter                       | ~$10-15        | Official Pi power supply recommended  |
-| SD Card              | SanDisk 32GB microSD                        | ~$8-12         | A1/A2 rated for better performance    |
-| USB Cable (optional) | USB-A to micro-USB or USB-C                 | ~$5-10         | If sensor doesn't include USB cable   |
-| Tripod (optional)    | Desktop or camera tripod                    | ~$10-25        | Standard 1/4-20 threading             |
-| **TOTAL**            |                                             | **~$150-210**  | Add $20-30 for WB variant w/Bluetooth |
-
-**Alternative sensors**:
-
--- **With distance measurement**: `203-OPS243-C-FC-RP` (~$130-160) - adds range capability (FMCW)
+**Alternative sensor with distance measurement**: OPS243-C-FC-RP (~$130-160) - adds range capability via FMCW
 
 **3D printing files**: Available at [project repository](https://github.com/banshee-data/velocity.report/tree/main/hardware/enclosures)
 
@@ -213,46 +170,49 @@ All models operate on **5V DC**:
 
 ---
 
-### **Infrastructure Deployment Bill of Materials**
+### Infrastructure Deployment Bill of Materials (~$350-450)
 
-| Part                 | Example Model/Part Number                     | Price (approx) | Notes                                  |
-| -------------------- | --------------------------------------------- | -------------- | -------------------------------------- |
-| Doppler Radar Sensor | OPS7243-A-CW-R2 (Mouser: 203-OPS7243-A-CW-R2) | ~$415          | Speed-only (A), RS232 (R2), 100m range |
-| Microcontroller      | Raspberry Pi 4 (4GB)                          | ~$55-75        | More reliable for 24/7 operation       |
-| Serial HAT           | Waveshare RS232/485 HAT                       | ~$25-35        | Required for R2 (RS232) interface      |
-| Power Supply         | 5V 4A industrial adapter                      | ~$20-30        | Stable power for continuous operation  |
-| SD Card              | SanDisk High Endurance 64GB                   | ~$15-20        | Designed for continuous recording      |
-| Cable Glands         | PG11 cable glands (2-pack)                    | ~$8-12         | Weatherproof cable entry               |
-| Pole Mount           | Stainless steel hose clamps                   | ~$10-15        | 2-4" diameter range                    |
-| Mounting Plate       | Aluminum or HDPE plate                        | ~$10-20        | Custom cut to fit enclosure            |
-| **TOTAL**            |                                               | **~$341-459**  | Using OPS7243-A-CW-R2 (100m range)     |
-
-**Alternative sensors**:
-
-- **USB instead of RS232**: `203-OPS7243-C-FC-R2` (~$435) - 60m range, adds distance measurement
-
-**Note**: The A-type sensor (OPS7243-A-CW-R2) provides 100m range vs 60m for C-type sensors. For outdoor traffic monitoring, the longer range is more important than distance measurement capability.
+| Part | Recommended Model | Price (approx) | Notes |
+|------|------------------|----------------|-------|
+| Doppler Radar Sensor | OPS7243-A-CW-R2 | ~$415 | Speed-only, RS232 interface (designated R2), 100m range, IP67 enclosure |
+| Microcontroller | Raspberry Pi 4 (4GB) | ~$55-75 | More reliable for 24/7 operation |
+| Serial HAT | Waveshare RS232/485 HAT | ~$25-35 | Required for R2 (RS232) interface |
+| Power Supply | 5V 4A industrial adapter | ~$20-30 | Stable power for continuous operation |
+| SD Card | SanDisk High Endurance 64GB | ~$15-20 | Designed for continuous recording |
+| Cable Glands | PG11 cable glands (2-pack) | ~$8-12 | Weatherproof cable entry |
+| Pole Mount | Stainless steel hose clamps | ~$10-15 | 2-4" diameter range |
+| Mounting Plate | Aluminum or HDPE plate | ~$10-20 | Custom cut to fit enclosure |
+| **TOTAL** | | **~$341-459** | |
 
 **Alternative sensors**:
+- **USB instead of RS232**: OPS7243-C-FC-RP (~$150-180) - No HAT required, still needs weatherproof enclosure
+- **With distance measurement**: OPS7243-C-FC-R2 (~$435) - 60m range vs 100m
 
-- **USB instead of RS232**: `203-OPS7243-C-FC-RP` (~$150-180) - No HAT required, still needs weatherproof enclosure
-
-**Note**: R2 (RS232) interface provides the most robust industrial-grade connection for permanent outdoor installations, but USB interfaces (RP/WB) are simpler to set up if you don't need the extra reliability.
-
-**Pole mounting**: Standard utility poles are typically 4-6" diameter. Adjustable hose clamps provide secure, non-invasive mounting.
-
-**Power options**: For locations without AC power, consider:
-
+**Power options** for locations without AC power:
 - Solar panel + battery (add ~$80-150)
 - PoE HAT + PoE injector (add ~$40-60, requires Ethernet run)
+
+**Note**: The A-type sensor (OPS7243-A-CW-R2) provides 100m range vs 60m for C-type sensors. For outdoor traffic monitoring, longer range is more important than distance measurement capability.
 
 ---
 
 ### Tools (Both Deployments)
 
 - Basic screwdrivers, drill, adhesive
-- Computer for flashing/config
-- Optional: multimeter for testing connections
+- Computer for flashing SD card and SSH access
+- Optional: Multimeter for testing connections
+
+---
+
+### Quick Sensor Decision Guide
+
+**Budget-conscious**: OPS243-A-CW-RP (~$100-130) - Best value, USB plug-and-play  
+**Maximum range for outdoor**: OPS7243-A-CW-R2 (~$415) - 100m range, weatherproof, RS232  
+**Want distance data**: OPS243-C-FC-RP (~$130-160) - 60m range with FMCW
+
+**Don't know which to choose?** The OPS243-A-CW-RP is the safe, budget-friendly choice for most users.
+
+**Want to understand product codes?** See [Appendix: Sensor Selection Guide](#appendix-sensor-selection-guide) for detailed breakdown.
 
 ---
 
@@ -323,11 +283,11 @@ All models operate on **5V DC**:
 
 ---
 
-### **Step 2: Connect the Sensor to the Raspberry Pi**
+### Step 2: Connect the Sensor to the Raspberry Pi (10-15 minutes)
 
-#### **DIY Deployment: USB Connection (Pi Zero)**
+#### DIY Deployment: USB Connection (Pi Zero)
 
-The OPS243/OPS7243 A-CW series sensors with RP, WB, or ENC interfaces use USB connection:
+The OmniPreSense OPS243-A-CW-RP sensor (USB interface, designated RP in product codes) uses USB connection:
 
 1. **Flash Raspberry Pi OS** to your microSD card:
 
@@ -346,18 +306,21 @@ The OPS243/OPS7243 A-CW series sensors with RP, WB, or ENC interfaces use USB co
    - Wait for boot (first boot takes 1-2 minutes)
    - SSH into Pi: `ssh pi@raspberrypi.local`
 
-**Verify sensor connection**:
+**Success criteria**:
 
 ```bash
+# Verify sensor connection
 ls /dev/tty* | grep -E 'ttyUSB|ttyACM'
 # Should show /dev/ttyUSB0 or similar
 ```
 
+**If you see**: Nothing → Sensor not detected. Try `dmesg | tail` to check USB connection logs
+
 ---
 
-#### **Infrastructure Deployment: RS232 Serial Connection (Pi 4)**
+#### Infrastructure Deployment: RS232 Serial Connection (Pi 4)
 
-The OPS7243-A-CW-R2 sensor (or OPS7243-C-FC-R2 variant) uses RS232 serial, requiring a serial HAT:
+The OPS7243-A-CW-R2 sensor (RS232 interface, designated R2) requires a serial HAT:
 
 1. **Install serial HAT on Raspberry Pi 4**:
 
@@ -367,19 +330,19 @@ The OPS7243-A-CW-R2 sensor (or OPS7243-C-FC-R2 variant) uses RS232 serial, requi
 
 2. **Wire sensor to HAT**:
 
-| Sensor Pin (RS232) | HAT Terminal           | Wire Color (typical) |
-| ------------------ | ---------------------- | -------------------- |
-| VCC (5V)           | +5V or separate supply | Red                  |
-| GND                | GND                    | Black                |
-| TX                 | RX (receive)           | Green/Yellow         |
-| RX                 | TX (transmit)          | Blue/White           |
+| Sensor Pin (RS232) | HAT Terminal | Wire Color (typical) |
+| ------------------ | ------------ | -------------------- |
+| VCC (5V) | +5V or separate supply | Red |
+| GND | GND | Black |
+| TX | RX (receive) | Green/Yellow |
+| RX | TX (transmit) | Blue/White |
 
 **Critical**: RS232 uses RX↔TX crossover. Sensor TX connects to HAT RX, and vice versa.
 
 3. **Configure Pi serial port**:
 
 ```bash
-# Disable serial console (enables serial for sensor)
+# Disable serial console to enable serial for sensor
 sudo raspi-config
 # Navigate to: Interface Options → Serial Port
 # - "Login shell over serial?" → NO
@@ -389,8 +352,10 @@ sudo raspi-config
 4. **Enable serial HAT** (add to `/boot/config.txt`):
 
 ```bash
+# Edit boot configuration
 sudo nano /boot/config.txt
-# Add these lines:
+
+# Add these lines at the end:
 dtoverlay=uart0
 enable_uart=1
 ```
@@ -398,30 +363,40 @@ enable_uart=1
 5. **Reboot and verify**:
 
 ```bash
+# Reboot to apply changes
 sudo reboot
-# After reboot:
+
+# After reboot, verify serial device exists
 ls -l /dev/serial0
 # Should show link to ttyAMA0 or ttyS0
 ```
 
-**Power considerations**:
+**Success criteria**: `/dev/serial0` exists and links to a serial device
 
+**Power considerations**:
 - RS232 sensor draws ~150mA at 5V
 - Power from dedicated supply (not Pi's 5V pin) for stability
 - Use low-voltage disconnect if running on battery/solar
 
+**Platform note**: These commands are for Linux. On macOS, use `stty -f` instead of `stty -F`
+
 ---
 
-### **Step 3: Configure Sensor Output Mode**
+### Step 3: Configure Sensor Output Mode (10 minutes)
 
-The OPS243 sensor ships with CSV output by default, but this software expects **JSON output**.
+The OmniPreSense OPS243 sensor ships with CSV output by default, but this software expects **JSON output**.
 
 1. **Connect via serial terminal**:
 
    ```bash
+   # Set serial port parameters (baud rate 19200, 8 data bits, no parity, 1 stop bit)
    stty -F /dev/ttyUSB0 19200 cs8 -parenb -cstopb
+   
+   # Connect to sensor (press Ctrl+A then K to exit)
    screen /dev/ttyUSB0 19200
    ```
+
+   **Platform note**: On macOS, use `stty -f` instead of `stty -F`. If `screen` is not installed: `sudo apt install screen`
 
 2. **Configure sensor** (type these two-character commands quickly):
 
@@ -438,6 +413,13 @@ The OPS243 sensor ships with CSV output by default, but this software expects **
    { "magnitude": 1.2, "speed": 3.4 }
    ```
 
+**Success criteria**: You see JSON output (not CSV) when vehicles pass
+
+**Troubleshooting**:
+- **Still seeing CSV?** → Type `OJ` command again and verify with `??`
+- **No response?** → Check baud rate is 19200
+- **Garbled output?** → Verify serial port settings (8N1: 8 data bits, no parity, 1 stop bit)
+
 **Common commands**:
 
 - `??` - Module information
@@ -449,24 +431,25 @@ The OPS243 sensor ships with CSV output by default, but this software expects **
 
 ---
 
-### **Step 4: Verify Data Stream**
+### Step 4: Verify Data Stream (5 minutes)
 
-Confirm the sensor is streaming data:
+Confirm the sensor is streaming data correctly:
 
 ```bash
+# View raw sensor output
 cat /dev/ttyUSB0
-# or
+# or use screen for interactive viewing
 screen /dev/ttyUSB0 19200
 ```
 
-You should see JSON output like:
+**Success looks like**:
 
+For ambient noise/small movements:
 ```json
 { "magnitude": 1.2, "speed": 3.4 }
 ```
 
 For detected vehicles, expect detailed transit data:
-
 ```json
 {
   "classifier": "object_outbound",
@@ -486,20 +469,27 @@ For detected vehicles, expect detailed transit data:
 
 **Troubleshooting**:
 
-- No output? Check baud rate (19200) and port (`/dev/ttyUSB0` or `/dev/serial0`)
-- Garbled output? Verify sensor is in JSON mode (`OJ` command)
-- For RS232, verify TX/RX crossover wiring
+- **No output at all?** → Check baud rate (19200) and port (`/dev/ttyUSB0` or `/dev/serial0`)
+- **Garbled text?** → Verify sensor is in JSON mode (type `OJ` command)
+- **CSV format?** → Reconfigure sensor with `OJ` command
+- **Permission denied?** → Add your user to dialout group: `sudo usermod -a -G dialout $USER` then log out/in
+- **For RS232**: Verify TX/RX crossover wiring (sensor TX → HAT RX, sensor RX → HAT TX)
 
 ---
 
-### **Step 5: Install Software**
+### Step 5: Install Software (30-60 minutes)
 
 On your Raspberry Pi:
 
 ```bash
+# Clone the repository
 git clone https://github.com/banshee-data/velocity.report.git
 cd velocity.report
+
+# Build the Go server binary for Linux ARM64
 make build-radar-linux
+
+# Install as system service (creates user, database directory, systemd service)
 sudo ./scripts/setup-radar-host.sh
 ```
 
@@ -511,23 +501,36 @@ The setup script will:
 4. Install and start the systemd service
 5. Optionally migrate an existing database
 
+**Success criteria**:
+
+```bash
+# Verify service is running
+sudo systemctl status velocity-report
+# Should show "active (running)" in green
+```
+
 **Where files are stored**:
 
 - **Database**: `/var/lib/velocity-report/sensor_data.db` (SQLite database with all vehicle detections)
-- **PDF Reports**: Generated in the repository at `tools/pdf-generator/output/` when requested via web dashboard or command line
+- **PDF Reports**: Generated at `tools/pdf-generator/output/` when requested
 - **Application logs**: View with `sudo journalctl -u velocity-report.service -f`
 
 **Useful commands**:
 
 ```bash
-sudo systemctl status velocity-report    # Check status
-sudo systemctl restart velocity-report   # Restart
-sudo journalctl -u velocity-report -f   # View logs
+sudo systemctl status velocity-report    # Check service status
+sudo systemctl restart velocity-report   # Restart service
+sudo journalctl -u velocity-report -f    # View live logs (Ctrl+C to exit)
 ```
+
+**Troubleshooting**:
+- **Service won't start?** → Check logs: `sudo journalctl -u velocity-report -n 50`
+- **Binary not found?** → Verify: `ls -l /usr/local/bin/velocity-report`
+- **Permission denied?** → Check: `ls -l /var/lib/velocity-report/`
 
 ---
 
-### **Step 6: Access the Web Dashboard**
+### Step 6: Access the Web Dashboard (5 minutes)
 
 Open your browser and visit:
 
@@ -544,16 +547,20 @@ http://raspberrypi.local:8080
 - Time-of-day traffic patterns
 - Speed heatmaps
 
+**Success criteria**: Dashboard loads and shows "No data yet" or live vehicle detections
+
 **Troubleshooting**:
 
-- Check service is running: `sudo systemctl status velocity-report`
-- View logs: `sudo journalctl -u velocity-report -f`
-- Find Pi's IP address: `hostname -I`
-- Ensure port 8080 isn't blocked by a firewall
+- **Cannot connect?** → Check service is running: `sudo systemctl status velocity-report`
+- **Still cannot connect?** → Find Pi's IP address: `hostname -I`
+- **Connection refused?** → Verify port 8080 is listening: `sudo netstat -tlnp | grep 8080`
+- **Firewall blocking?** → Check firewall: `sudo ufw status` (if using ufw)
+- **Works on Pi but not other devices?** → Try from Pi itself: `curl http://localhost:8080/`
+- **View detailed logs**: `sudo journalctl -u velocity-report -f`
 
 ---
 
-### **Step 7: Generate PDF Reports**
+### Step 7: Generate PDF Reports (Varies - requires data collection period)
 
 After collecting data for a few days or weeks, generate professional reports.
 
@@ -566,13 +573,18 @@ After collecting data for a few days or weeks, generate professional reports.
 **Via Command Line**:
 
 ```bash
-make install-python      # One-time: install dependencies
-make pdf-config          # Create config template
-# Edit config.json with date range and location
+# One-time: install Python dependencies
+make install-python
+
+# Create configuration template
+make pdf-config
+
+# Edit config.json with your date range and location
+# Then generate report
 make pdf-report CONFIG=config.json
 ```
 
-See the [PDF Generator README](https://github.com/banshee-data/velocity.report/tree/main/tools/pdf-generator) for details.
+See the [PDF Generator README](../../tools/pdf-generator/README.md) for customization options.
 
 **What's in the report**:
 
@@ -581,7 +593,14 @@ See the [PDF Generator README](https://github.com/banshee-data/velocity.report/t
 - **p98 (top 2%)**: Threshold where the fastest regular drivers operate
 - Histograms, time-of-day charts, and crash physics analysis
 
+**Success criteria**: PDF file generated in `tools/pdf-generator/output/` directory
+
 **Making your case**: Print the report and bring it to city council. Instead of "cars go too fast," say "85% of drivers exceed the posted 25 mph limit, with p85 at 38 mph."
+
+**Troubleshooting**:
+- **Python command not found?** → Verify Python environment: `which python` (should be in `.venv`)
+- **LaTeX errors?** → Check LaTeX installed: `xelatex --version`
+- **PDF generation fails?** → Check error logs in `tools/pdf-generator/output/`
 
 ---
 
