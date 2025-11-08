@@ -399,7 +399,11 @@ func (m *SerialPortManager) ReloadConfig(ctx context.Context) (*SerialReloadResu
 	}
 
 	currentSnap := m.Snapshot()
-	if currentSnap.PortPath == cfg.PortPath && currentSnap.Options.Equal(normalized) {
+	optionsEqual, err := currentSnap.Options.Equal(normalized)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compare serial options: %w", err)
+	}
+	if currentSnap.PortPath == cfg.PortPath && optionsEqual {
 		return &SerialReloadResult{
 			Success: true,
 			Message: fmt.Sprintf("Serial configuration %q already active", cfg.Name),
