@@ -219,6 +219,9 @@ func (m *SerialPortManager) ReloadConfig(ctx context.Context) (*SerialReloadResu
 	if m.factory == nil {
 		return nil, errors.New("serial mux factory not configured")
 	}
+	if m.db == nil {
+		return nil, errors.New("database not configured")
+	}
 
 	select {
 	case <-ctx.Done():
