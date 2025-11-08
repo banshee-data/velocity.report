@@ -23,8 +23,9 @@ TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 ANALYSIS_LOG="branch-analysis-${TIMESTAMP}.log"
 SUMMARY_LOG="branch-analysis-summary.log"
 TEMP_PREFIXES=$(mktemp)
+TEMP_NO_TAGS=$(mktemp)
 
-trap "rm -f $TEMP_PREFIXES" EXIT
+trap "rm -f $TEMP_PREFIXES $TEMP_NO_TAGS" EXIT
 
 echo "=========================================="
 echo "Git Branch Analysis"
@@ -77,6 +78,9 @@ echo ""
         if [[ $line =~ \[([a-zA-Z0-9_-]+)\] ]]; then
           tag="${BASH_REMATCH[1]}"
           echo "$tag" >> "$TEMP_PREFIXES"
+        else
+          # Track commits without tags
+          echo "no-tag" >> "$TEMP_NO_TAGS"
         fi
       done
     else
@@ -112,9 +116,32 @@ echo ""
     sort "$TEMP_PREFIXES" | uniq -c | sort -rn | \
       awk '{ printf "  %5d | %s\n", $1, $2 }'
 
+    # Add [NO TAG] count to the table
+    if [ -f "$ANALYSIS_LOG" ]; then
+      total_commits=$(grep -c "^  [a-f0-9]" "$ANALYSIS_LOG" 2>/dev/null || echo "0")
+      if [ "$total_commits" -gt 0 ]; then
+        tagged_count=$(wc -l < "$TEMP_PREFIXES" 2>/dev/null || echo "0")
+        untagged_count=$((total_commits - tagged_count))
+        printf "  %5d | [NO TAG]\n" "$untagged_count"
+      fi
+    fi
+
     echo ""
     echo "Total prefix occurrences: $(wc -l < "$TEMP_PREFIXES")"
     echo "Unique prefixes: $(sort -u "$TEMP_PREFIXES" | wc -l)"
+
+    # Calculate and display percentage breakdown
+    if [ -f "$ANALYSIS_LOG" ]; then
+      total_commits=$(grep -c "^  [a-f0-9]" "$ANALYSIS_LOG" 2>/dev/null || echo "0")
+      if [ "$total_commits" -gt 0 ]; then
+        tagged_count=$(wc -l < "$TEMP_PREFIXES" 2>/dev/null || echo "0")
+        untagged_count=$((total_commits - tagged_count))
+        # Calculate percentages with one decimal place using awk
+        tagged_pct=$(awk "BEGIN {printf \"%.2f\", ($tagged_count / $total_commits) * 100}")
+        untagged_pct=$(awk "BEGIN {printf \"%.2f\", ($untagged_count / $total_commits) * 100}")
+        echo "Distribution: $tagged_pct% with tag / $untagged_pct% without tag"
+      fi
+    fi
   fi
 
   echo ""
