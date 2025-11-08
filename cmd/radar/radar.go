@@ -141,10 +141,16 @@ func main() {
 	// If disableRadar is set, provide a no-op serial mux implementation so
 	// the HTTP admin routes and DB remain available while the device is
 	// absent.
+	//
+	// Note: SerialPortManager (hot-reload capability) is only available in production
+	// mode (real serial connection). In debug, fixture, or disabled modes, the
+	// /api/serial/reload endpoint will return HTTP 503 Service Unavailable.
 	if *disableRadar {
 		radarSerial = serialmux.NewDisabledSerialMux()
+		log.Printf("Serial hot-reload unavailable: radar disabled (use real serial connection for production mode)")
 	} else if *debugMode {
 		radarSerial = serialmux.NewMockSerialMux([]byte(""))
+		log.Printf("Serial hot-reload unavailable: debug mode (use real serial connection for production mode)")
 	} else if *fixtureMode {
 		data, err := os.ReadFile("fixtures.txt")
 		lines := strings.Split(strings.TrimSpace(string(data)), "\n")
@@ -153,6 +159,7 @@ func main() {
 			log.Fatalf("failed to open fixtures file: %v", err)
 		}
 		radarSerial = serialmux.NewMockSerialMux([]byte(firstLine + "\n"))
+		log.Printf("Serial hot-reload unavailable: fixture mode (use real serial connection for production mode)")
 	} else {
 		rawSerial, err := serialmux.NewRealSerialMux(serialPortPath, serialOpts)
 		if err != nil {
@@ -173,6 +180,7 @@ func main() {
 		}
 		serialManager = api.NewSerialPortManager(database, rawSerial, snapshot, factory)
 		radarSerial = serialManager
+		log.Printf("Serial hot-reload available: /api/serial/reload endpoint enabled for production mode")
 	}
 	defer radarSerial.Close()
 

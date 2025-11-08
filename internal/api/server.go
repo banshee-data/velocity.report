@@ -136,7 +136,15 @@ func (s *Server) ServeMux() *http.ServeMux {
 }
 
 // SetSerialManager installs the SerialPortManager that should be used to handle
-// hot-reload requests.
+// hot-reload requests. When not set (nil), the /api/serial/reload endpoint will
+// return HTTP 503 Service Unavailable.
+//
+// Hot-reload is only available in production mode (real serial connection). In
+// debug, fixture, or disabled modes, SetSerialManager is not called, and the
+// endpoint gracefully returns a 503 with a clear error message.
+//
+// This design allows the API to remain fully functional in development/testing
+// modes while reserving dynamic reconfiguration for production deployments.
 func (s *Server) SetSerialManager(manager *SerialPortManager) {
 	s.serialManager = manager
 }
@@ -173,6 +181,17 @@ func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleSerialReload handles POST /api/serial/reload requests to reconfigure the
+// serial port with settings from the database. This endpoint is only available in
+// production mode with a real serial connection.
+//
+// Returns:
+//   - 503 Service Unavailable: if not in production mode (debug/fixture/disabled)
+//   - 500 Internal Server Error: if reload fails
+//   - 200 OK: on successful reload with updated configuration snapshot
+//
+// This graceful 503 response allows clients to reliably detect when hot-reload is
+// unavailable without needing to know about runtime mode flags.
 func (s *Server) handleSerialReload(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
