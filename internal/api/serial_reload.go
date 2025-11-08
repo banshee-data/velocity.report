@@ -43,14 +43,24 @@ type SerialReloadResult struct {
 // so that existing call sites (API handlers, admin routes, monitor routines)
 // automatically delegate to the active mux without additional wiring.
 //
+// Event Fanout:
+// To preserve subscriptions across mux reloads, SerialPortManager maintains an
+// internal event fanout system. When Subscribe() is called, clients receive
+// channels from the fanout, not directly from the mux. A background goroutine
+// subscribes to the current mux and forwards all events to the fanout. When the
+// mux is reloaded, the goroutine automatically reconnects to the new mux, ensuring
+// no event data is lost and all existing subscriptions remain valid.
+//
 // Thread-safety:
-//   - CurrentMux(), Subscribe(), Unsubscribe(), SendCommand(), and Initialize()
-//     safely read/delegate to the current mux using RWMutex protection.
-//   - Close() should only be called during shutdown; callers must ensure no other
-//     operations are in progress. After Close(), subsequent calls to SendCommand()
-//     and Initialize() will return an error; Subscribe() will return a closed channel.
-//   - ReloadConfig() safely swaps the mux and closes the old one; concurrent reads
-//     via CurrentMux() will either use the old or new mux depending on timing.
+//   - CurrentMux(), SendCommand(), and Initialize() safely read/delegate to the
+//     current mux using RWMutex protection.
+//   - Subscribe() and Unsubscribe() work with persistent fanout channels that
+//     survive mux reloads.
+//   - Close() should only be called during shutdown; it signals the fanout loop
+//     to exit and closes all subscriber channels. After Close(), subsequent calls
+//     to SendCommand() and Initialize() will return an error, and Subscribe() will
+//     return a closed channel.
+//   - ReloadConfig() safely swaps the mux; the fanout loop automatically reconnects.
 type SerialPortManager struct {
 	mu       sync.RWMutex
 	current  serialmux.SerialMuxInterface
@@ -61,22 +71,35 @@ type SerialPortManager struct {
 	factory SerialMuxFactory
 
 	reloadMu sync.Mutex
+
+	// Event fanout: bridges subscriptions across mux reloads
+	eventFanoutCh chan string            // Input from mux subscription (internal use)
+	fanoutMu      sync.RWMutex           // Protects subscribers map
+	subscribers   map[string]chan string // Maps subscriber ID -> channel
 }
 
 // NewSerialPortManager constructs a SerialPortManager using the provided
 // dependencies. The initial snapshot is optional; if the port path is empty the
 // manager assumes no configuration has been applied yet.
+//
+// This constructor also starts an internal event fanout goroutine that bridges
+// subscriptions across mux reloads. The goroutine will run until Close() is called.
 func NewSerialPortManager(database *db.DB, initial serialmux.SerialMuxInterface, snapshot SerialConfigSnapshot, factory SerialMuxFactory) *SerialPortManager {
 	mgr := &SerialPortManager{
-		current: initial,
-		db:      database,
-		factory: factory,
+		current:       initial,
+		db:            database,
+		factory:       factory,
+		eventFanoutCh: make(chan string, 100), // Buffered to prevent fanout from blocking
+		subscribers:   make(map[string]chan string),
 	}
 
 	if snapshot.PortPath != "" {
 		snap := snapshot
 		mgr.snapshot = &snap
 	}
+
+	// Start the event fanout goroutine that bridges subscriptions across reloads
+	go mgr.runEventFanout()
 
 	return mgr
 }
@@ -101,27 +124,137 @@ func (m *SerialPortManager) Snapshot() SerialConfigSnapshot {
 	return snap
 }
 
-// Subscribe delegates to the current serial mux. If the mux is unavailable a
-// closed channel is returned so callers can exit gracefully. After Close() is
-// called, a closed channel is immediately returned.
+// runEventFanout is an internal goroutine that bridges subscriptions across mux
+// reloads. It continuously subscribes to the current mux and forwards all events
+// to persistent subscriber channels. When the mux is reloaded, it automatically
+// reconnects to the new mux.
+//
+// This loop runs until Close() is called (signaled via eventFanoutCh being closed).
+func (m *SerialPortManager) runEventFanout() {
+	var currentSubID string
+	var currentSubCh chan string
+
+	defer func() {
+		// Cleanup: unsubscribe from current mux if active
+		if currentSubID != "" {
+			m.mu.RLock()
+			mux := m.current
+			m.mu.RUnlock()
+			if mux != nil {
+				mux.Unsubscribe(currentSubID)
+			}
+		}
+
+		// Close all subscriber channels to signal shutdown
+		m.fanoutMu.Lock()
+		for _, ch := range m.subscribers {
+			close(ch)
+		}
+		m.subscribers = make(map[string]chan string)
+		m.fanoutMu.Unlock()
+
+		log.Printf("Event fanout loop terminated")
+	}()
+
+	for {
+		// Ensure we're subscribed to the current mux
+		if currentSubID == "" {
+			m.mu.RLock()
+			mux := m.current
+			closed := m.closed
+			m.mu.RUnlock()
+
+			if closed {
+				return // Exit on shutdown
+			}
+
+			if mux != nil {
+				currentSubID, currentSubCh = mux.Subscribe()
+				if currentSubID == "" {
+					// Likely nil mux, wait and retry
+					time.Sleep(250 * time.Millisecond)
+					continue
+				}
+			} else {
+				time.Sleep(250 * time.Millisecond)
+				continue
+			}
+		}
+
+		// Wait for an event or shutdown signal
+		select {
+		case <-m.eventFanoutCh:
+			// Shutdown signal (channel closed)
+			return
+
+		case payload, ok := <-currentSubCh:
+			if !ok {
+				// Mux subscription closed (likely due to reload), reconnect on next loop
+				currentSubID = ""
+				currentSubCh = nil
+				log.Printf("Event fanout: mux subscription closed, reconnecting on next iteration")
+				time.Sleep(50 * time.Millisecond)
+				continue
+			}
+
+			// Forward event to all subscribers
+			m.fanoutMu.RLock()
+			subscribers := make([]chan string, 0, len(m.subscribers))
+			for _, ch := range m.subscribers {
+				subscribers = append(subscribers, ch)
+			}
+			m.fanoutMu.RUnlock()
+
+			// Send to all subscribers without blocking
+			for _, ch := range subscribers {
+				select {
+				case ch <- payload:
+				default:
+					log.Printf("Event fanout: subscriber channel full, dropping event")
+				}
+			}
+		}
+	}
+}
+
+// Subscribe returns a persistent channel from the internal fanout system. This
+// channel will remain valid even if the underlying mux is reloaded. Events from
+// the current mux are automatically forwarded to all subscriber channels.
+//
+// If the manager is closed, Subscribe returns a closed channel.
 func (m *SerialPortManager) Subscribe() (string, chan string) {
 	m.mu.RLock()
-	mux := m.current
 	closed := m.closed
 	m.mu.RUnlock()
 
-	if mux == nil || closed {
+	if closed {
 		ch := make(chan string)
 		close(ch)
 		return "", ch
 	}
-	return mux.Subscribe()
+
+	// Generate a unique subscriber ID
+	id := fmt.Sprintf("subscriber-%d", time.Now().UnixNano())
+
+	// Create a buffered channel for this subscriber
+	ch := make(chan string, 10)
+
+	// Register the subscriber
+	m.fanoutMu.Lock()
+	m.subscribers[id] = ch
+	m.fanoutMu.Unlock()
+
+	return id, ch
 }
 
-// Unsubscribe delegates to the current serial mux when available.
+// Unsubscribe removes a subscriber from the fanout system and closes its channel.
 func (m *SerialPortManager) Unsubscribe(id string) {
-	if mux := m.CurrentMux(); mux != nil {
-		mux.Unsubscribe(id)
+	m.fanoutMu.Lock()
+	defer m.fanoutMu.Unlock()
+
+	if ch, ok := m.subscribers[id]; ok {
+		close(ch)
+		delete(m.subscribers, id)
 	}
 }
 
@@ -172,21 +305,29 @@ func (m *SerialPortManager) Monitor(ctx context.Context) error {
 }
 
 // Close closes the currently active mux and marks the manager as closed.
-// This method should only be called during shutdown; callers must ensure that
-// no concurrent operations (SendCommand, Initialize, Subscribe, etc.) are in
-// progress. After Close() is called, subsequent calls to methods like
-// SendCommand() and Initialize() will return an error, and Subscribe() will
-// return a closed channel.
+// It also signals the internal event fanout loop to shut down. This method
+// should only be called during shutdown; callers must ensure that no concurrent
+// operations (SendCommand, Initialize, Subscribe, etc.) are in progress.
+//
+// After Close() is called:
+//   - SendCommand() and Initialize() will return an error
+//   - Subscribe() will return a closed channel
+//   - All existing subscriber channels will be closed
 func (m *SerialPortManager) Close() error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	m.closed = true
-	if m.current == nil {
-		return nil
+	if m.current != nil {
+		if err := m.current.Close(); err != nil {
+			log.Printf("Warning: failed to close current mux during shutdown: %v", err)
+		}
 	}
-	err := m.current.Close()
 	m.current = nil
-	return err
+	m.mu.Unlock()
+
+	// Signal the event fanout loop to exit
+	close(m.eventFanoutCh)
+
+	return nil
 }
 
 // Initialize delegates to the active mux. Returns an error if the mux is
@@ -292,6 +433,15 @@ func (m *SerialPortManager) ReloadConfig(ctx context.Context) (*SerialReloadResu
 	// m.closed is only set during Close() to signal shutdown to all methods.
 	m.mu.Unlock()
 
+	// Close the old mux to signal the event fanout loop to reconnect.
+	// Closing oldMux closes all its subscriber channels, which triggers the
+	// fanout loop to detect the closed channel and automatically reconnect to
+	// the new mux on the next iteration. This ensures no events are lost:
+	// 1. oldMux.Close() closes oldMux's subscriber channels
+	// 2. Fanout loop detects !ok on currentSubCh read
+	// 3. Fanout loop resets subscription (currentSubID = "")
+	// 4. Next iteration subscribes to m.current (now the new mux)
+	// 5. Subsequent events flow through the fanout to all subscribers
 	if oldMux != nil {
 		if err := oldMux.Close(); err != nil {
 			log.Printf("warning: failed to close previous serial mux: %v", err)

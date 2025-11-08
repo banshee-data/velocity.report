@@ -407,6 +407,11 @@ func main() {
 
 	// subscribe to the serial port messages
 	// and pass them to event handler
+	//
+	// Note: This subscription is resilient to serial port reloads. The
+	// SerialPortManager maintains an internal event fanout system that bridges
+	// subscriptions across reloads, so this loop will continue receiving events
+	// even after a reload via /api/serial/reload.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -414,7 +419,12 @@ func main() {
 		defer radarSerial.Unsubscribe(id)
 		for {
 			select {
-			case payload := <-c:
+			case payload, ok := <-c:
+				if !ok {
+					// Channel closed (should only happen on shutdown)
+					log.Printf("subscribe routine: channel closed, exiting")
+					return
+				}
 				if err := serialmux.HandleEvent(database, payload); err != nil {
 					log.Printf("error handling event: %v", err)
 				}
