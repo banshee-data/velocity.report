@@ -26,6 +26,15 @@ func (o PortOptions) Normalize() (PortOptions, error) {
 		opts.BaudRate = 19200
 	}
 
+	// Validate against common supported baud rates
+	// List from https://en.wikipedia.org/wiki/Serial_port#Common_baud_rates
+	standardBaudRates := map[int]struct{}{
+		110: {}, 300: {}, 600: {}, 1200: {}, 2400: {}, 4800: {}, 9600: {},
+		14400: {}, 19200: {}, 28800: {}, 38400: {}, 57600: {}, 115200: {}, 128000: {}, 256000: {},
+	}
+	if _, ok := standardBaudRates[opts.BaudRate]; !ok {
+		return opts, fmt.Errorf("invalid baud rate %d: supported values are 110, 300, 600, 1200, 2400, 4800, 9600, 14400, 19200, 28800, 38400, 57600, 115200, 128000, 256000", opts.BaudRate)
+	}
 	if opts.DataBits == 0 {
 		opts.DataBits = 8
 	}
@@ -61,17 +70,22 @@ func (o PortOptions) Normalize() (PortOptions, error) {
 }
 
 // Equal reports whether two PortOptions describe the same serial configuration.
-func (o PortOptions) Equal(other PortOptions) bool {
+// If either configuration is invalid (i.e., Normalize returns an error), Equal returns false and the error.
+func (o PortOptions) Equal(other PortOptions) (bool, error) {
 	normalizedA, errA := o.Normalize()
 	normalizedB, errB := other.Normalize()
-	if errA != nil || errB != nil {
-		return false
+	if errA != nil {
+		return false, fmt.Errorf("first PortOptions invalid: %w", errA)
+	}
+	if errB != nil {
+		return false, fmt.Errorf("second PortOptions invalid: %w", errB)
 	}
 
-	return normalizedA.BaudRate == normalizedB.BaudRate &&
+	equal := normalizedA.BaudRate == normalizedB.BaudRate &&
 		normalizedA.DataBits == normalizedB.DataBits &&
 		normalizedA.StopBits == normalizedB.StopBits &&
 		normalizedA.Parity == normalizedB.Parity
+	return equal, nil
 }
 
 // SerialMode converts the port options into the serial.Mode structure required by
@@ -95,8 +109,6 @@ func (o PortOptions) SerialMode() (*serial.Mode, error) {
 		mode.Parity = serial.EvenParity
 	case "O":
 		mode.Parity = serial.OddParity
-	default:
-		return nil, fmt.Errorf("unsupported parity %q", opts.Parity)
 	}
 
 	return mode, nil

@@ -354,8 +354,13 @@ func (m *SerialPortManager) AttachAdminRoutes(mux *http.ServeMux) {
 }
 
 // ReloadConfig reloads the serial configuration from the database and swaps the
-// active mux in a thread-safe manner. Any existing monitor/subscriber routines
-// automatically reconnect via the SerialMuxInterface methods.
+// active mux in a thread-safe manner.
+//
+// Note: The Monitor() method (and routines using it) will automatically reconnect
+// after a reload. However, individual subscriber channels obtained via Subscribe()
+// do NOT automatically reconnect: when the old mux is closed, those channels are
+// closed, and callers must call Subscribe() again to obtain a new channel from the
+// new mux.
 func (m *SerialPortManager) ReloadConfig(ctx context.Context) (*SerialReloadResult, error) {
 	if m.factory == nil {
 		return nil, errors.New("serial mux factory not configured")
