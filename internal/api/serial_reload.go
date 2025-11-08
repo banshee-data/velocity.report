@@ -42,10 +42,20 @@ type SerialReloadResult struct {
 // underlying serial configuration. It implements the SerialMuxInterface itself
 // so that existing call sites (API handlers, admin routes, monitor routines)
 // automatically delegate to the active mux without additional wiring.
+//
+// Thread-safety:
+//   - CurrentMux(), Subscribe(), Unsubscribe(), SendCommand(), and Initialize()
+//     safely read/delegate to the current mux using RWMutex protection.
+//   - Close() should only be called during shutdown; callers must ensure no other
+//     operations are in progress. After Close(), subsequent calls to SendCommand()
+//     and Initialize() will return an error; Subscribe() will return a closed channel.
+//   - ReloadConfig() safely swaps the mux and closes the old one; concurrent reads
+//     via CurrentMux() will either use the old or new mux depending on timing.
 type SerialPortManager struct {
 	mu       sync.RWMutex
 	current  serialmux.SerialMuxInterface
 	snapshot *SerialConfigSnapshot
+	closed   bool // Tracks whether Close() has been called
 
 	db      *db.DB
 	factory SerialMuxFactory
@@ -92,10 +102,15 @@ func (m *SerialPortManager) Snapshot() SerialConfigSnapshot {
 }
 
 // Subscribe delegates to the current serial mux. If the mux is unavailable a
-// closed channel is returned so callers can exit gracefully.
+// closed channel is returned so callers can exit gracefully. After Close() is
+// called, a closed channel is immediately returned.
 func (m *SerialPortManager) Subscribe() (string, chan string) {
-	mux := m.CurrentMux()
-	if mux == nil {
+	m.mu.RLock()
+	mux := m.current
+	closed := m.closed
+	m.mu.RUnlock()
+
+	if mux == nil || closed {
 		ch := make(chan string)
 		close(ch)
 		return "", ch
@@ -110,9 +125,17 @@ func (m *SerialPortManager) Unsubscribe(id string) {
 	}
 }
 
-// SendCommand delegates to the current serial mux.
+// SendCommand delegates to the current serial mux. Returns an error if the mux
+// is unavailable or has been closed.
 func (m *SerialPortManager) SendCommand(command string) error {
-	mux := m.CurrentMux()
+	m.mu.RLock()
+	mux := m.current
+	closed := m.closed
+	m.mu.RUnlock()
+
+	if closed {
+		return errors.New("serial manager is closed")
+	}
 	if mux == nil {
 		return errors.New("serial mux unavailable")
 	}
@@ -148,10 +171,16 @@ func (m *SerialPortManager) Monitor(ctx context.Context) error {
 	}
 }
 
-// Close closes the currently active mux.
+// Close closes the currently active mux and marks the manager as closed.
+// This method should only be called during shutdown; callers must ensure that
+// no concurrent operations (SendCommand, Initialize, Subscribe, etc.) are in
+// progress. After Close() is called, subsequent calls to methods like
+// SendCommand() and Initialize() will return an error, and Subscribe() will
+// return a closed channel.
 func (m *SerialPortManager) Close() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.closed = true
 	if m.current == nil {
 		return nil
 	}
@@ -160,9 +189,17 @@ func (m *SerialPortManager) Close() error {
 	return err
 }
 
-// Initialize delegates to the active mux.
+// Initialize delegates to the active mux. Returns an error if the mux is
+// unavailable or has been closed.
 func (m *SerialPortManager) Initialize() error {
-	mux := m.CurrentMux()
+	m.mu.RLock()
+	mux := m.current
+	closed := m.closed
+	m.mu.RUnlock()
+
+	if closed {
+		return errors.New("serial manager is closed")
+	}
 	if mux == nil {
 		return errors.New("serial mux unavailable")
 	}
@@ -248,6 +285,8 @@ func (m *SerialPortManager) ReloadConfig(ctx context.Context) (*SerialReloadResu
 	}
 	m.current = newMux
 	m.snapshot = &snap
+	// Note: We do NOT set m.closed = true here because this is not a shutdown.
+	// m.closed is only set during Close() to signal shutdown to all methods.
 	m.mu.Unlock()
 
 	if oldMux != nil {
