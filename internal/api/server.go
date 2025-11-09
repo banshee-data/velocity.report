@@ -45,6 +45,7 @@ type Server struct {
 	timezone          string
 	debugMode         bool
 	transitController TransitController // Interface for transit worker control
+	serialManager     *SerialPortManager
 	// mux holds the HTTP handlers; storing it here ensures callers that
 	// obtain the mux via ServeMux() and register additional admin routes
 	// will have those routes preserved when Start uses the mux to run the
@@ -145,9 +146,33 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/api/serial/models", s.handleSensorModels)
 	s.mux.HandleFunc("/api/serial/test", s.handleSerialTest)
 	s.mux.HandleFunc("/api/serial/devices", s.handleSerialDevices)
+	s.mux.HandleFunc("/api/serial/reload", s.handleSerialReload)
 
 	s.mux.HandleFunc("/api/transit_worker", s.handleTransitWorker) // Transit worker control
 	return s.mux
+}
+
+// SetSerialManager installs the SerialPortManager that should be used to handle
+// hot-reload requests. When not set (nil), the /api/serial/reload endpoint will
+// return HTTP 503 Service Unavailable.
+//
+// Hot-reload is only available in production mode (real serial connection). In
+// debug, fixture, or disabled modes, SetSerialManager is not called, and the
+// endpoint gracefully returns a 503 with a clear error message.
+//
+// This design allows the API to remain fully functional in development/testing
+// modes while reserving dynamic reconfiguration for production deployments.
+func (s *Server) SetSerialManager(manager *SerialPortManager) {
+	s.serialManager = manager
+}
+
+func (s *Server) currentSerialMux() serialmux.SerialMuxInterface {
+	if s.serialManager != nil {
+		if mux := s.serialManager.CurrentMux(); mux != nil {
+			return mux
+		}
+	}
+	return s.m
 }
 
 func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
@@ -158,12 +183,53 @@ func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
 
 	command := r.FormValue("command")
 
-	if err := s.m.SendCommand(command); err != nil {
+	mux := s.currentSerialMux()
+	if mux == nil {
+		http.Error(w, "Serial mux unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	if err := mux.SendCommand(command); err != nil {
 		http.Error(w, "Failed to send command", http.StatusInternalServerError)
 		return
 	}
 	if _, err := io.WriteString(w, "Command sent successfully"); err != nil {
 		log.Printf("failed to write command response: %v", err)
+	}
+}
+
+// handleSerialReload handles POST /api/serial/reload requests to reconfigure the
+// serial port with settings from the database. This endpoint is only available in
+// production mode with a real serial connection.
+//
+// Returns:
+//   - 503 Service Unavailable: if not in production mode (debug/fixture/disabled)
+//   - 500 Internal Server Error: if reload fails
+//   - 200 OK: on successful reload with updated configuration snapshot
+//
+// This graceful 503 response allows clients to reliably detect when hot-reload is
+// unavailable without needing to know about runtime mode flags.
+func (s *Server) handleSerialReload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.serialManager == nil {
+		s.writeJSONError(w, http.StatusServiceUnavailable, "Serial reload not available on this instance")
+		return
+	}
+
+	result, err := s.serialManager.ReloadConfig(r.Context())
+	if err != nil {
+		log.Printf("serial reload failed: %v", err)
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to reload serial configuration: %v", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		log.Printf("failed to encode serial reload response: %v", err)
 	}
 }
 
