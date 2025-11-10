@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/security"
 )
 
 // SerialConfigRequest represents the request body for creating/updating serial configs
@@ -283,7 +284,19 @@ func (s *Server) handleSensorModels(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(models)
 }
 
-// isValidPortPath validates that a port path is in an allowed format
+// isValidPortPath validates that a port path is in an allowed format and
+// is not a symlink escape attack. It ensures the resolved path is within /dev/tty or /dev/serial.
 func isValidPortPath(path string) bool {
-	return strings.HasPrefix(path, "/dev/tty") || strings.HasPrefix(path, "/dev/serial")
+	if path == "" {
+		return false
+	}
+
+	// Check basic format: must start with /dev/tty or /dev/serial
+	validPrefix := strings.HasPrefix(path, "/dev/tty") || strings.HasPrefix(path, "/dev/serial")
+	if !validPrefix {
+		return false
+	}
+
+	// Validate the path doesn't escape /dev/ via path traversal, symlinks, or other attacks
+	return security.ValidatePathWithinDirectory(path, "/dev") == nil
 }
