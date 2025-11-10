@@ -1,16 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import {
-		Button,
-		Card,
-		Checkbox,
-		Dialog,
-		Header,
-		Notification,
-		SelectField,
-		Table,
-		TextField
-	} from 'svelte-ux';
+	import { Button, Card, Checkbox, Dialog, Header, TextField } from 'svelte-ux';
 	import {
 		createSerialConfig,
 		deleteSerialConfig,
@@ -33,6 +23,11 @@
 	let loading = true;
 	let message = '';
 	let messageType: 'success' | 'error' | 'info' = 'info';
+
+	// Load all data on mount
+	onMount(async () => {
+		await loadData();
+	});
 
 	// Dialog states
 	let showEditDialog = false;
@@ -60,11 +55,6 @@
 	// Delete confirmation state
 	let deletingConfig: SerialConfig | null = null;
 
-	// Load all data on mount
-	onMount(async () => {
-		await loadData();
-	});
-
 	async function loadData() {
 		try {
 			loading = true;
@@ -76,6 +66,16 @@
 			configs = configsData;
 			sensorModels = modelsData;
 			availableDevices = devicesData;
+
+			// Populate stable option arrays when new data arrives
+			portPathOptions = availableDevices.map((d) => ({
+				value: d.port_path,
+				label: `${d.friendly_name} - ${d.port_path}`
+			}));
+			sensorModelOptions = sensorModels.map((model) => ({
+				value: model.slug,
+				label: model.display_name
+			}));
 		} catch (e) {
 			console.error('Failed to load data:', e);
 			showMessage('Failed to load configuration data', 'error');
@@ -105,6 +105,15 @@
 			description: '',
 			sensor_model: 'ops243-a'
 		};
+
+		// Ensure default port is present in the options list (stable array)
+		if (formData.port_path && !portPathOptions.some((o) => o.value === formData.port_path)) {
+			portPathOptions = [
+				{ value: formData.port_path, label: formData.port_path },
+				...portPathOptions
+			];
+		}
+
 		showEditDialog = true;
 	}
 
@@ -121,6 +130,13 @@
 			description: config.description,
 			sensor_model: config.sensor_model
 		};
+
+		// Ensure the editing config's port is present in the options
+		const editPort = config.port_path;
+		if (editPort && !portPathOptions.some((o) => o.value === editPort)) {
+			portPathOptions = [...portPathOptions, { value: editPort, label: editPort }];
+		}
+
 		showEditDialog = true;
 	}
 
@@ -195,11 +211,20 @@
 		{ value: 'E', label: 'Even' },
 		{ value: 'O', label: 'Odd' }
 	];
+	const dataBitsArray = [5, 6, 7, 8];
+	const stopBitsArray = [1, 2];
 
 	// Format timestamp for display
 	function formatTimestamp(timestamp: number): string {
 		return new Date(timestamp * 1000).toLocaleString();
 	}
+
+	// Stable option arrays to avoid recreating arrays every render (prevents SelectField loops)
+	let portPathOptions: { value: string; label: string }[] = [];
+	const baudRateOptions = baudRates.map((rate) => ({ value: rate, label: rate.toString() }));
+	const dataBitsOptions = dataBitsArray.map((n) => ({ value: n, label: n.toString() }));
+	const stopBitsOptions = stopBitsArray.map((n) => ({ value: n, label: n.toString() }));
+	let sensorModelOptions: { value: string; label: string }[] = [];
 </script>
 
 <svelte:head>
@@ -214,11 +239,19 @@
 	/>
 
 	{#if message}
-		<Notification
-			title={messageType === 'success' ? 'Success' : messageType === 'error' ? 'Error' : 'Info'}
-			description={message}
-			variant={messageType}
-		/>
+		<div
+			class="rounded-lg p-4 border {messageType === 'success'
+				? 'bg-green-50 border-green-200 text-green-800'
+				: messageType === 'error'
+					? 'bg-red-50 border-red-200 text-red-800'
+					: 'bg-blue-50 border-blue-200 text-blue-800'}"
+			role="alert"
+		>
+			<h3 class="font-semibold mb-1">
+				{messageType === 'success' ? 'Success' : messageType === 'error' ? 'Error' : 'Info'}
+			</h3>
+			<p>{message}</p>
+		</div>
 	{/if}
 
 	{#if loading}
@@ -240,37 +273,50 @@
 				{#if configs.length === 0}
 					<p class="text-surface-content/70">No serial configurations found.</p>
 				{:else}
-					<Table data={configs} class="w-full">
-						<svelte:fragment slot="default" let:row>
-							<tr class="border-b">
-								<td class="px-4 py-2">{row.name}</td>
-								<td class="px-4 py-2">{row.port_path}</td>
-								<td class="px-4 py-2">{row.baud_rate}</td>
-								<td class="px-4 py-2">
-									{#if row.enabled}
-										<span class="text-success-500">Enabled</span>
-									{:else}
-										<span class="text-surface-content/50">Disabled</span>
-									{/if}
-								</td>
-								<td class="px-4 py-2">
-									<div class="gap-2 flex">
-										<Button on:click={() => openEditDialog(row)} size="sm" variant="outline">
-											Edit
-										</Button>
-										<Button
-											on:click={() => openDeleteDialog(row)}
-											size="sm"
-											variant="outline"
-											color="danger"
-										>
-											Delete
-										</Button>
-									</div>
-								</td>
-							</tr>
-						</svelte:fragment>
-					</Table>
+					<div class="overflow-x-auto">
+						<table class="w-full">
+							<thead class="border-b">
+								<tr>
+									<th class="px-4 py-2 text-left">Name</th>
+									<th class="px-4 py-2 text-left">Port Path</th>
+									<th class="px-4 py-2 text-left">Baud Rate</th>
+									<th class="px-4 py-2 text-left">Status</th>
+									<th class="px-4 py-2 text-left">Actions</th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each configs as row (row.id)}
+									<tr class="hover:bg-surface-50 border-b">
+										<td class="px-4 py-2">{row.name}</td>
+										<td class="px-4 py-2">{row.port_path}</td>
+										<td class="px-4 py-2">{row.baud_rate}</td>
+										<td class="px-4 py-2">
+											{#if row.enabled}
+												<span class="text-success-500">Enabled</span>
+											{:else}
+												<span class="text-surface-content/50">Disabled</span>
+											{/if}
+										</td>
+										<td class="px-4 py-2">
+											<div class="gap-2 flex">
+												<Button on:click={() => openEditDialog(row)} size="sm" variant="outline">
+													Edit
+												</Button>
+												<Button
+													on:click={() => openDeleteDialog(row)}
+													size="sm"
+													variant="outline"
+													color="danger"
+												>
+													Delete
+												</Button>
+											</div>
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
 				{/if}
 			</div>
 		</Card>
@@ -285,54 +331,68 @@
 
 			<TextField label="Configuration Name" bind:value={formData.name} required />
 
-			<SelectField
-				label="Port Path"
-				bind:value={formData.port_path}
-				options={[
-					...availableDevices.map((d) => ({
-						value: d.port_path,
-						label: `${d.friendly_name} - ${d.port_path}`
-					})),
-					...(editingConfig
-						? [{ value: editingConfig.port_path, label: editingConfig.port_path }]
-						: [])
-				]}
-			/>
+			<label class="block">
+				<div class="text-sm mb-1">Port Path</div>
+				<select bind:value={formData.port_path} class="rounded px-2 py-1 w-full border">
+					{#each portPathOptions as opt}
+						<option value={opt.value}>{opt.label}</option>
+					{/each}
+				</select>
+			</label>
 
-			<SelectField
-				label="Baud Rate"
-				bind:value={formData.baud_rate}
-				options={baudRates.map((rate) => ({ value: rate, label: rate.toString() }))}
-			/>
+			<label class="block">
+				<div class="text-sm mb-1">Baud Rate</div>
+				<select bind:value={formData.baud_rate} class="rounded px-2 py-1 w-full border">
+					{#each baudRateOptions as opt}
+						<option value={opt.value}>{opt.label}</option>
+					{/each}
+				</select>
+			</label>
 
-			<SelectField
-				label="Sensor Model"
-				bind:value={formData.sensor_model}
-				options={sensorModels.map((model) => ({
-					value: model.slug,
-					label: model.display_name
-				}))}
-			/>
+			<label class="block">
+				<div class="text-sm mb-1">Sensor Model</div>
+				<select bind:value={formData.sensor_model} class="rounded px-2 py-1 w-full border">
+					{#each sensorModelOptions as opt}
+						<option value={opt.value}>{opt.label}</option>
+					{/each}
+				</select>
+			</label>
 
 			<div class="gap-4 grid grid-cols-3">
-				<SelectField
-					label="Data Bits"
-					bind:value={formData.data_bits}
-					options={[5, 6, 7, 8].map((n) => ({ value: n, label: n.toString() }))}
-				/>
+				<label class="block">
+					<div class="text-sm mb-1">Data Bits</div>
+					<select bind:value={formData.data_bits} class="rounded px-2 py-1 w-full border">
+						{#each dataBitsOptions as opt}
+							<option value={opt.value}>{opt.label}</option>
+						{/each}
+					</select>
+				</label>
 
-				<SelectField
-					label="Stop Bits"
-					bind:value={formData.stop_bits}
-					options={[1, 2].map((n) => ({ value: n, label: n.toString() }))}
-				/>
+				<label class="block">
+					<div class="text-sm mb-1">Stop Bits</div>
+					<select bind:value={formData.stop_bits} class="rounded px-2 py-1 w-full border">
+						{#each stopBitsOptions as opt}
+							<option value={opt.value}>{opt.label}</option>
+						{/each}
+					</select>
+				</label>
 
-				<SelectField label="Parity" bind:value={formData.parity} options={parityOptions} />
+				<label class="block">
+					<div class="text-sm mb-1">Parity</div>
+					<select bind:value={formData.parity} class="rounded px-2 py-1 w-full border">
+						{#each parityOptions as opt}
+							<option value={opt.value}>{opt.label}</option>
+						{/each}
+					</select>
+				</label>
 			</div>
 
 			<TextField label="Description" bind:value={formData.description} multiline rows={3} />
 
-			<Checkbox label="Enabled" bind:checked={formData.enabled} />
+			<label class="gap-2 flex items-center">
+				<Checkbox bind:checked={formData.enabled} />
+				<span>Enabled</span>
+			</label>
 
 			<div class="gap-2 pt-4 flex">
 				<Button on:click={handleTest} variant="outline" disabled={testing}>
