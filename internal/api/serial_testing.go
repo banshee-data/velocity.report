@@ -100,7 +100,9 @@ func (s *Server) handleSerialTest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	// Always return 200 OK, even for test failure (not an API error)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(result)
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		log.Printf("Error encoding serial test response for port %q: %v", req.PortPath, err)
+	}
 }
 
 // testSerialPort tests a serial port with the given configuration
