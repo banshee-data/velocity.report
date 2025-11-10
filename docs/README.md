@@ -47,27 +47,9 @@ docs/
 │   ├── _includes/      # Reusable components
 │   ├── guides/         # Markdown content
 │   └── css/            # Styles with Tailwind
-├── features/           # Feature specifications
-├── database-migration-system-design.md  # Design docs
-├── python-venv-consolidation-plan.md    # Design docs
 ├── package.json        # Dependencies and scripts
 └── README.md           # This file
 ```
-
-## Design Documents
-
-The `docs/` directory also contains design documents and technical specifications:
-
-- **[database-migration-system-design.md](./database-migration-system-design.md)** - Comprehensive design for database migration system with metadata tracking, rollback support, and tool evaluation (golang-migrate, goose, custom implementations)
-- **[python-venv-consolidation-plan.md](./python-venv-consolidation-plan.md)** - Plan for consolidating Python virtual environments from dual-venv to single shared repository-level venv
-
-These design documents follow the pattern:
-- **Problem analysis** with current state and pain points
-- **Design goals** and requirements
-- **Solution options** with pros/cons comparison
-- **Recommended approach** with detailed rationale
-- **Implementation roadmap** with phased rollout
-- **Risk assessment** and mitigation strategies
 
 ## Architecture: Markdown + Nunjucks Pattern
 
