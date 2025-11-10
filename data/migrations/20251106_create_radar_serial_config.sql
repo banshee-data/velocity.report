@@ -31,7 +31,7 @@ BEGIN
 END;
 
 -- Insert default configuration for HAT (Raspberry Pi header)
-INSERT INTO radar_serial_config (
+INSERT OR IGNORE INTO radar_serial_config (
        name
      , port_path
      , baud_rate
