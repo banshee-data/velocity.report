@@ -66,6 +66,13 @@ var (
 // Constants
 const SCHEMA_VERSION = "0.0.2"
 
+// canLoadDatabaseSerialConfig checks if database serial configuration can be loaded.
+// Returns true only in production mode (real serial connection with all compatibility flags disabled).
+// Returns false if any special mode is active (ignore-db-serial, disable-radar, debug, fixture).
+func canLoadDatabaseSerialConfig(ignoreDBSerial, disableRadar, debugMode, fixtureMode bool) bool {
+	return !ignoreDBSerial && !disableRadar && !debugMode && !fixtureMode
+}
+
 // Main
 func main() {
 	flag.Parse()
@@ -103,7 +110,7 @@ func main() {
 		Parity:   "N",
 	}
 	var activeConfig *db.SerialConfig
-	if !*ignoreDBSerial && !*disableRadar && !*debugMode && !*fixtureMode {
+	if canLoadDatabaseSerialConfig(*ignoreDBSerial, *disableRadar, *debugMode, *fixtureMode) {
 		// Try to load enabled serial configs from database
 		enabledConfigs, err := database.GetEnabledSerialConfigs()
 		if err != nil {
