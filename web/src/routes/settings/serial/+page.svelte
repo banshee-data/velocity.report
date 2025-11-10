@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Button, Card, Checkbox, Dialog, Header, TextField } from 'svelte-ux';
+	import { Button, Card, Checkbox, Dialog, Header, Notification, TextField } from 'svelte-ux';
 	import {
 		createSerialConfig,
 		deleteSerialConfig,
@@ -239,19 +239,16 @@
 	/>
 
 	{#if message}
-		<div
-			class="rounded-lg p-4 border {messageType === 'success'
-				? 'bg-green-50 border-green-200 text-green-800'
+		<Notification
+			title={messageType === 'success' ? 'Success' : messageType === 'error' ? 'Error' : 'Info'}
+			description={message}
+			variant={messageType === 'error' ? 'fill' : 'default'}
+			class={messageType === 'success'
+				? 'bg-success-50 text-success-900 border-success-200'
 				: messageType === 'error'
-					? 'bg-red-50 border-red-200 text-red-800'
-					: 'bg-blue-50 border-blue-200 text-blue-800'}"
-			role="alert"
-		>
-			<h3 class="font-semibold mb-1">
-				{messageType === 'success' ? 'Success' : messageType === 'error' ? 'Error' : 'Info'}
-			</h3>
-			<p>{message}</p>
-		</div>
+					? 'bg-danger-50 text-danger-900 border-danger-200'
+					: 'bg-info-50 text-info-900 border-info-200'}
+		/>
 	{/if}
 
 	{#if loading}
@@ -274,25 +271,25 @@
 					<p class="text-surface-content/70">No serial configurations found.</p>
 				{:else}
 					<div class="overflow-x-auto">
-						<table class="w-full">
-							<thead class="border-b">
-								<tr>
-									<th class="px-4 py-2 text-left">Name</th>
-									<th class="px-4 py-2 text-left">Port Path</th>
-									<th class="px-4 py-2 text-left">Baud Rate</th>
-									<th class="px-4 py-2 text-left">Status</th>
-									<th class="px-4 py-2 text-left">Actions</th>
+						<table class="w-full border-collapse">
+							<thead>
+								<tr class="border-b">
+									<th class="px-4 py-2 font-semibold text-left">Name</th>
+									<th class="px-4 py-2 font-semibold text-left">Port Path</th>
+									<th class="px-4 py-2 font-semibold text-left">Baud Rate</th>
+									<th class="px-4 py-2 font-semibold text-left">Status</th>
+									<th class="px-4 py-2 font-semibold text-left">Actions</th>
 								</tr>
 							</thead>
 							<tbody>
 								{#each configs as row (row.id)}
-									<tr class="hover:bg-surface-50 border-b">
+									<tr class="hover:bg-surface-50 border-b transition-colors">
 										<td class="px-4 py-2">{row.name}</td>
 										<td class="px-4 py-2">{row.port_path}</td>
 										<td class="px-4 py-2">{row.baud_rate}</td>
 										<td class="px-4 py-2">
 											{#if row.enabled}
-												<span class="text-success-500">Enabled</span>
+												<span class="text-success-500 font-medium">Enabled</span>
 											{:else}
 												<span class="text-surface-content/50">Disabled</span>
 											{/if}
