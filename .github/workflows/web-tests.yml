@@ -13,6 +13,8 @@ on:
     paths:
       - "web/**"
       - ".github/workflows/web-tests.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
 
 jobs:
   lint:
