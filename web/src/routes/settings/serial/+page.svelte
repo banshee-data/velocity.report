@@ -3,25 +3,25 @@
 	import {
 		Button,
 		Card,
-		Header,
-		Table,
-		TextField,
-		SelectField,
-		Dialog,
 		Checkbox,
-		Notification
+		Dialog,
+		Header,
+		Notification,
+		SelectField,
+		Table,
+		TextField
 	} from 'svelte-ux';
 	import {
-		getSerialConfigs,
 		createSerialConfig,
-		updateSerialConfig,
 		deleteSerialConfig,
 		getSensorModels,
+		getSerialConfigs,
 		getSerialDevices,
 		testSerialPort,
+		updateSerialConfig,
+		type SensorModel,
 		type SerialConfig,
 		type SerialConfigRequest,
-		type SensorModel,
 		type SerialDevice,
 		type SerialTestResponse
 	} from '../../../lib/api';
