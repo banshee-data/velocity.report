@@ -1220,6 +1220,9 @@ jobs:
 
 | Feature | golang-migrate | goose | Custom Go | Shell Script | Python |
 |---------|---------------|-------|-----------|--------------|--------|
+| **SQLite Support** | ✅ First-class | ✅ First-class | ✅ Custom | ✅ Native | ✅ Native |
+| **Separate Up/Down Files** | ✅ Yes | ❌ Single file | ✅ Configurable | ✅ Yes | ✅ Yes |
+| **Manual Execution** | ✅ Pure SQL | ⚠️ Needs markers | ✅ Pure SQL | ✅ Pure SQL | ✅ Pure SQL |
 | Binary Size Impact | +2MB | +500KB | +0KB | +0KB | N/A |
 | Setup Complexity | Medium | Low | High | Very Low | Low |
 | Maintenance Burden | Low | Low | High | Medium | Medium |
@@ -1229,11 +1232,10 @@ jobs:
 | Embedded Migrations | ✅ | ✅ | ✅ | ❌ | ❌ |
 | CLI Tool | ✅ | ✅ | Custom | ✅ | ✅ |
 | Go Library | ✅ | ✅ | ✅ | ❌ | ❌ |
-| File Naming Flexibility | ❌ | ✅ | ✅ | ✅ | ✅ |
 | Checksum Validation | ✅ | ✅ | Custom | ❌ | ✅ |
 | Cross-Platform | ✅ | ✅ | ✅ | ⚠️ | ✅ |
 | Learning Curve | Low | Low | High | Very Low | Low |
-| **Recommendation** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ |
+| **Recommendation** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ |
 
 ## Appendix B: Example Migration Workflows
 
