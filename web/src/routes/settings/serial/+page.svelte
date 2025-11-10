@@ -1,6 +1,17 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Button, Card, Checkbox, Dialog, Header, Notification, TextField } from 'svelte-ux';
+	import {
+		Button,
+		Card,
+		Checkbox,
+		Dialog,
+		Field,
+		Header,
+		Notification,
+		SelectField,
+		TextField
+	} from 'svelte-ux';
+	import { SvelteSet } from 'svelte/reactivity';
 	import {
 		createSerialConfig,
 		deleteSerialConfig,
@@ -16,13 +27,13 @@
 		type SerialTestResponse
 	} from '../../../lib/api';
 
-	// State
-	let configs: SerialConfig[] = [];
-	let sensorModels: SensorModel[] = [];
-	let availableDevices: SerialDevice[] = [];
-	let loading = true;
-	let message = '';
-	let messageType: 'success' | 'error' | 'info' = 'info';
+	// State - Using Svelte 5 $state rune for fine-grained reactivity
+	let configs = $state<SerialConfig[]>([]);
+	let sensorModels = $state<SensorModel[]>([]);
+	let availableDevices = $state<SerialDevice[]>([]);
+	let loading = $state(true);
+	let message = $state('');
+	let messageType = $state<'success' | 'error' | 'info'>('info');
 
 	// Load all data on mount
 	onMount(async () => {
@@ -30,13 +41,13 @@
 	});
 
 	// Dialog states
-	let showEditDialog = false;
-	let showDeleteDialog = false;
-	let showTestResultDialog = false;
+	let showEditDialog = $state(false);
+	let showDeleteDialog = $state(false);
+	let showTestResultDialog = $state(false);
 
 	// Edit form state
-	let editingConfig: SerialConfig | null = null;
-	let formData: SerialConfigRequest = {
+	let editingConfig = $state<SerialConfig | null>(null);
+	let formData = $state<SerialConfigRequest>({
 		name: '',
 		port_path: '',
 		baud_rate: 19200,
@@ -46,14 +57,14 @@
 		enabled: true,
 		description: '',
 		sensor_model: 'ops243-a'
-	};
+	});
 
 	// Test result state
-	let testResult: SerialTestResponse | null = null;
-	let testing = false;
+	let testResult = $state<SerialTestResponse | null>(null);
+	let testing = $state(false);
 
 	// Delete confirmation state
-	let deletingConfig: SerialConfig | null = null;
+	let deletingConfig = $state<SerialConfig | null>(null);
 
 	async function loadData() {
 		try {
@@ -64,14 +75,29 @@
 				getSerialDevices()
 			]);
 			configs = configsData;
-			sensorModels = modelsData;
+			sensorModels = modelsData; // Kept for consistency, used to build sensorModelOptions
 			availableDevices = devicesData;
 
-			// Populate stable option arrays when new data arrives
-			portPathOptions = availableDevices.map((d) => ({
-				value: d.port_path,
-				label: d.port_path
-			}));
+			// Build comprehensive port options including all devices and existing configs
+			// This ensures we never need to mutate the options later
+			const portSet = new SvelteSet<string>();
+
+			// Add all available devices
+			devicesData.forEach((d) => portSet.add(d.port_path));
+
+			// Add all ports from existing configs (may include disconnected devices)
+			configsData.forEach((c) => portSet.add(c.port_path));
+
+			// Store all seen ports for future reference
+			allSeenPorts = portSet; // Create immutable options array - NEVER mutate this after creation
+			portPathOptions = Array.from(portSet)
+				.sort()
+				.map((path) => ({
+					value: path,
+					label: path
+				}));
+
+			// Create immutable sensor model options
 			sensorModelOptions = sensorModels.map((model) => ({
 				value: model.slug,
 				label: model.display_name
@@ -92,11 +118,44 @@
 		}, 5000);
 	}
 
+	/**
+	 * Emergency function to rebuild port options if a port is somehow missing.
+	 * This should rarely be needed since loadData() includes all ports.
+	 * ONLY call this when absolutely necessary, never in a reactive context.
+	 *
+	 * Currently unused but kept for future defensive programming needs.
+	 */
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	function ensurePortInOptions(port: string) {
+		if (!port || allSeenPorts.has(port)) {
+			return; // Already have it
+		}
+
+		console.warn(`Adding missing port ${port} to options`);
+
+		// Add to tracking set
+		allSeenPorts.add(port);
+
+		// Create entirely new array (immutable update pattern)
+		portPathOptions = [...portPathOptions, { value: port, label: port }].sort((a, b) =>
+			a.value.localeCompare(b.value)
+		);
+	}
+
 	function openCreateDialog() {
 		editingConfig = null;
+
+		// Select first available port, or empty string if none available
+		const defaultPort =
+			availableDevices.length > 0
+				? availableDevices[0].port_path
+				: portPathOptions.length > 0
+					? portPathOptions[0].value
+					: '';
+
 		formData = {
 			name: '',
-			port_path: availableDevices.length > 0 ? availableDevices[0].port_path : '',
+			port_path: defaultPort,
 			baud_rate: 19200,
 			data_bits: 8,
 			stop_bits: 1,
@@ -106,13 +165,8 @@
 			sensor_model: 'ops243-a'
 		};
 
-		// Ensure default port is present in the options list (stable array)
-		if (formData.port_path && !portPathOptions.some((o) => o.value === formData.port_path)) {
-			portPathOptions = [
-				{ value: formData.port_path, label: formData.port_path },
-				...portPathOptions
-			];
-		}
+		// CRITICAL: Never mutate portPathOptions here
+		// All possible ports are already loaded in loadData()
 
 		showEditDialog = true;
 	}
@@ -131,10 +185,15 @@
 			sensor_model: config.sensor_model
 		};
 
-		// Ensure the editing config's port is present in the options
-		const editPort = config.port_path;
-		if (editPort && !portPathOptions.some((o) => o.value === editPort)) {
-			portPathOptions = [...portPathOptions, { value: editPort, label: editPort }];
+		// CRITICAL: Never mutate portPathOptions here
+		// The port should already be in the options from loadData()
+		// If somehow it's not, we allow the SelectField to handle it gracefully
+
+		// Optional: Log a warning if port is missing (shouldn't happen)
+		if (config.port_path && !portPathOptions.some((o) => o.value === config.port_path)) {
+			console.warn(
+				`Port ${config.port_path} not found in options. This may indicate a data loading issue.`
+			);
 		}
 
 		showEditDialog = true;
@@ -214,17 +273,17 @@
 	const dataBitsArray = [5, 6, 7, 8];
 	const stopBitsArray = [1, 2];
 
-	// Format timestamp for display
-	function formatTimestamp(timestamp: number): string {
-		return new Date(timestamp * 1000).toLocaleString();
-	}
-
-	// Stable option arrays to avoid recreating arrays every render (prevents SelectField loops)
-	let portPathOptions: { value: string; label: string }[] = [];
+	// Immutable option arrays - NEVER mutate these after initial creation
+	// Using $state rune for Svelte 5 fine-grained reactivity
+	let portPathOptions = $state<{ value: string; label: string }[]>([]);
 	const baudRateOptions = baudRates.map((rate) => ({ value: rate, label: rate.toString() }));
 	const dataBitsOptions = dataBitsArray.map((n) => ({ value: n, label: n.toString() }));
 	const stopBitsOptions = stopBitsArray.map((n) => ({ value: n, label: n.toString() }));
-	let sensorModelOptions: { value: string; label: string }[] = [];
+	let sensorModelOptions = $state<{ value: string; label: string }[]>([]);
+
+	// Track all seen ports to avoid regenerating options
+	// SvelteSet is already reactive, no $state wrapper needed
+	let allSeenPorts = new SvelteSet<string>();
 </script>
 
 <svelte:head>
@@ -328,68 +387,34 @@
 
 			<TextField label="Configuration Name" bind:value={formData.name} required />
 
-			<label class="block">
-				<div class="text-sm mb-1">Port Path</div>
-				<select bind:value={formData.port_path} class="rounded px-2 py-1 w-full border">
-					{#each portPathOptions as opt}
-						<option value={opt.value}>{opt.label}</option>
-					{/each}
-				</select>
-			</label>
+			<SelectField
+				label="Port Path"
+				bind:value={formData.port_path}
+				options={portPathOptions}
+				placeholder="Select a serial port"
+			/>
 
-			<label class="block">
-				<div class="text-sm mb-1">Baud Rate</div>
-				<select bind:value={formData.baud_rate} class="rounded px-2 py-1 w-full border">
-					{#each baudRateOptions as opt}
-						<option value={opt.value}>{opt.label}</option>
-					{/each}
-				</select>
-			</label>
+			<SelectField label="Baud Rate" bind:value={formData.baud_rate} options={baudRateOptions} />
 
-			<label class="block">
-				<div class="text-sm mb-1">Sensor Model</div>
-				<select bind:value={formData.sensor_model} class="rounded px-2 py-1 w-full border">
-					{#each sensorModelOptions as opt}
-						<option value={opt.value}>{opt.label}</option>
-					{/each}
-				</select>
-			</label>
+			<SelectField
+				label="Sensor Model"
+				bind:value={formData.sensor_model}
+				options={sensorModelOptions}
+			/>
 
 			<div class="gap-4 grid grid-cols-3">
-				<label class="block">
-					<div class="text-sm mb-1">Data Bits</div>
-					<select bind:value={formData.data_bits} class="rounded px-2 py-1 w-full border">
-						{#each dataBitsOptions as opt}
-							<option value={opt.value}>{opt.label}</option>
-						{/each}
-					</select>
-				</label>
+				<SelectField label="Data Bits" bind:value={formData.data_bits} options={dataBitsOptions} />
 
-				<label class="block">
-					<div class="text-sm mb-1">Stop Bits</div>
-					<select bind:value={formData.stop_bits} class="rounded px-2 py-1 w-full border">
-						{#each stopBitsOptions as opt}
-							<option value={opt.value}>{opt.label}</option>
-						{/each}
-					</select>
-				</label>
+				<SelectField label="Stop Bits" bind:value={formData.stop_bits} options={stopBitsOptions} />
 
-				<label class="block">
-					<div class="text-sm mb-1">Parity</div>
-					<select bind:value={formData.parity} class="rounded px-2 py-1 w-full border">
-						{#each parityOptions as opt}
-							<option value={opt.value}>{opt.label}</option>
-						{/each}
-					</select>
-				</label>
+				<SelectField label="Parity" bind:value={formData.parity} options={parityOptions} />
 			</div>
 
 			<TextField label="Description" bind:value={formData.description} multiline rows={3} />
 
-			<label class="gap-2 flex items-center">
-				<Checkbox bind:checked={formData.enabled} />
-				<span>Enabled</span>
-			</label>
+			<Field label="Enabled" let:id>
+				<Checkbox {id} bind:checked={formData.enabled} />
+			</Field>
 
 			<div class="gap-2 pt-4 flex">
 				<Button on:click={handleTest} variant="outline" disabled={testing}>
@@ -475,7 +500,7 @@
 						<div>
 							<p class="font-semibold mb-2 text-sm">Raw Responses:</p>
 							<div class="space-y-2">
-								{#each testResult.raw_responses as resp}
+								{#each testResult.raw_responses as resp, idx (idx)}
 									<div class="bg-surface-100 rounded-lg p-3">
 										<p class="text-xs font-semibold">Command: {resp.command}</p>
 										<pre class="text-xs mt-1 overflow-auto">{resp.response}</pre>
