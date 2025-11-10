@@ -16,6 +16,8 @@ help:
 	@echo "  build-radar-mac-intel Build for macOS AMD64 with pcap"
 	@echo "  build-radar-local    Build for local development with pcap"
 	@echo "  build-tools          Build sweep tool"
+	@echo "  build-deploy         Build velocity-deploy deployment manager"
+	@echo "  build-deploy-linux   Build velocity-deploy for Linux ARM64"
 	@echo "  build-web            Build web frontend (SvelteKit)"
 	@echo "  build-docs           Build documentation site (Eleventy)"
 	@echo ""
@@ -68,7 +70,11 @@ help:
 	@echo "  clean-python         Clean PDF output files"
 	@echo ""
 	@echo "DEPLOYMENT:"
-	@echo "  setup-radar          Install server on this host (requires sudo)"
+	@echo "  setup-radar          Install server on this host (requires sudo, legacy)"
+	@echo "  deploy-install       Install using velocity-deploy (local)"
+	@echo "  deploy-upgrade       Upgrade using velocity-deploy (local)"
+	@echo "  deploy-status        Check service status using velocity-deploy"
+	@echo "  deploy-health        Run health check using velocity-deploy"
 	@echo ""
 	@echo "UTILITIES:"
 	@echo "  log-go-tail          Tail most recent Go server log"
@@ -124,6 +130,13 @@ build-radar-local:
 
 build-tools:
 	go build -o app-sweep ./cmd/sweep
+
+# Build velocity-deploy deployment manager
+build-deploy:
+	go build -o velocity-deploy ./cmd/deploy
+
+build-deploy-linux:
+	GOOS=linux GOARCH=arm64 go build -o velocity-deploy-linux-arm64 ./cmd/deploy
 
 .PHONY: build-web
 build-web:
@@ -536,8 +549,9 @@ clean-python:
 # DEPLOYMENT
 # =============================================================================
 
-.PHONY: setup-radar
+.PHONY: setup-radar deploy-install deploy-upgrade deploy-status deploy-health
 
+# Legacy installation script (kept for backward compatibility)
 setup-radar:
 	@if [ ! -f "velocity-report-linux-arm64" ]; then \
 		echo "Error: velocity-report-linux-arm64 not found!"; \
@@ -551,6 +565,47 @@ setup-radar:
 	@echo "  3. Install and start systemd service"
 	@echo ""
 	@sudo ./scripts/setup-radar-host.sh
+
+# Modern deployment using velocity-deploy
+deploy-install:
+	@if [ ! -f "velocity-deploy" ]; then \
+		echo "Building velocity-deploy..."; \
+		make build-deploy; \
+	fi
+	@if [ ! -f "app-radar-linux-arm64" ]; then \
+		echo "Error: app-radar-linux-arm64 not found!"; \
+		echo "Run 'make build-radar-linux' first."; \
+		exit 1; \
+	fi
+	@echo "Installing velocity.report using velocity-deploy..."
+	./velocity-deploy install --binary ./app-radar-linux-arm64
+
+deploy-upgrade:
+	@if [ ! -f "velocity-deploy" ]; then \
+		echo "Building velocity-deploy..."; \
+		make build-deploy; \
+	fi
+	@if [ ! -f "app-radar-linux-arm64" ]; then \
+		echo "Error: app-radar-linux-arm64 not found!"; \
+		echo "Run 'make build-radar-linux' first."; \
+		exit 1; \
+	fi
+	@echo "Upgrading velocity.report using velocity-deploy..."
+	./velocity-deploy upgrade --binary ./app-radar-linux-arm64
+
+deploy-status:
+	@if [ ! -f "velocity-deploy" ]; then \
+		echo "Building velocity-deploy..."; \
+		make build-deploy; \
+	fi
+	./velocity-deploy status
+
+deploy-health:
+	@if [ ! -f "velocity-deploy" ]; then \
+		echo "Building velocity-deploy..."; \
+		make build-deploy; \
+	fi
+	./velocity-deploy health
 
 # =============================================================================
 # UTILITIES

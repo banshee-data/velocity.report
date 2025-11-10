@@ -282,44 +282,64 @@ See **[web/README.md](web/README.md)** for details.
 
 ### Go Server (Raspberry Pi)
 
-The Go server runs as a systemd service on Raspberry Pi.
+The Go server runs as a systemd service on Raspberry Pi. Use the new `velocity-deploy` tool for comprehensive deployment management.
 
-**Deploy new version:**
+**Quick Start - Deploy to Raspberry Pi:**
 
 ```sh
-# On the Raspberry Pi, clone the repository
-git clone https://github.com/banshee-data/velocity.report.git
-cd velocity.report
-
-# Build and install
+# Build the binary and deployment tool
 make build-radar-linux
-make setup-radar
+make build-deploy
+
+# Deploy to remote Pi
+./velocity-deploy install \
+  --target pi@192.168.1.100 \
+  --ssh-key ~/.ssh/id_rsa \
+  --binary ./app-radar-linux-arm64
 ```
 
-The setup will:
+**Or use Make shortcuts for local deployment:**
+
+```sh
+make build-radar-linux
+make deploy-install
+```
+
+The deployment will:
 
 - Install the binary to `/usr/local/bin/velocity-report`
 - Create a dedicated service user and working directory
 - Install and enable the systemd service
 - Optionally migrate existing database
 
-**Monitor service:**
+**Upgrade to new version:**
 
 ```sh
-# View logs
-sudo journalctl -u velocity-report.service -f
-
-# Check status
-sudo systemctl status velocity-report.service
+make build-radar-linux
+./velocity-deploy upgrade --target pi@192.168.1.100 --binary ./app-radar-linux-arm64
 ```
 
-**Manual deployment:**
+**Monitor service health:**
 
-If you prefer manual deployment or need to customize the setup, see the deployment script at `scripts/setup-radar-host.sh` for the individual steps.
+```sh
+# Comprehensive health check
+./velocity-deploy health --target pi@192.168.1.100
 
-**Service configuration:**
+# Check status
+./velocity-deploy status --target pi@192.168.1.100
 
-See `velocity-report.service` for systemd service configuration.
+# View logs
+sudo journalctl -u velocity-report.service -f
+```
+
+**See also:**
+
+- **[docs/deployment-guide.md](docs/deployment-guide.md)** - Complete deployment guide
+- **[cmd/deploy/README.md](cmd/deploy/README.md)** - velocity-deploy CLI reference
+
+**Legacy deployment:**
+
+The previous `scripts/setup-radar-host.sh` script is still available but the new `velocity-deploy` tool is recommended for all deployments.
 
 ### Python PDF Generator
 
