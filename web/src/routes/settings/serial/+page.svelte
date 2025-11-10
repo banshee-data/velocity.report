@@ -70,7 +70,7 @@
 			// Populate stable option arrays when new data arrives
 			portPathOptions = availableDevices.map((d) => ({
 				value: d.port_path,
-				label: `${d.friendly_name} - ${d.port_path}`
+				label: d.port_path
 			}));
 			sensorModelOptions = sensorModels.map((model) => ({
 				value: model.slug,
