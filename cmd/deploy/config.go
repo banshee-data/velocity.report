@@ -16,7 +16,8 @@ type ConfigManager struct {
 func (c *ConfigManager) Show() error {
 	exec := NewExecutor(c.Target, c.SSHUser, c.SSHKey, false)
 
-	fmt.Println("Current velocity.report configuration:\n")
+	fmt.Println("Current velocity.report configuration:")
+	fmt.Println()
 
 	// Show service file
 	fmt.Println("=== Service Configuration ===")
@@ -61,7 +62,8 @@ func (c *ConfigManager) Edit() error {
 	exec := NewExecutor(c.Target, c.SSHUser, c.SSHKey, false)
 
 	fmt.Println("Interactive configuration editing")
-	fmt.Println("==================================\n")
+	fmt.Println("==================================")
+	fmt.Println()
 
 	// Get current ExecStart line
 	grepOutput, err := exec.RunSudo("grep '^ExecStart=' /etc/systemd/system/velocity-report.service")

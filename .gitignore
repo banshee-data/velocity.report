@@ -32,5 +32,6 @@ tools/grid-heatmap/__pycache__/*
 
 app
 app-*
+velocity-deploy*
 mock_serial_port*
 coverage*
