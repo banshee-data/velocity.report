@@ -8,7 +8,6 @@
 		Field,
 		Header,
 		Notification,
-		SelectField,
 		TextField
 	} from 'svelte-ux';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -387,33 +386,84 @@
 
 			<TextField label="Configuration Name" bind:value={formData.name} required />
 
-			<SelectField
-				label="Port Path"
-				bind:value={formData.port_path}
-				options={portPathOptions}
-				placeholder="Select a serial port"
-			/>
+			<Field label="Port Path" let:id>
+				<select
+					{id}
+					bind:value={formData.port_path}
+					class="rounded border-surface-content/20 bg-surface-100 px-3 py-2 text-sm focus:border-primary focus:ring-primary/20 w-full border focus:ring-2 focus:outline-none"
+				>
+					{#each portPathOptions as opt (opt.value)}
+						<option value={opt.value}>{opt.label}</option>
+					{/each}
+				</select>
+			</Field>
 
-			<SelectField label="Baud Rate" bind:value={formData.baud_rate} options={baudRateOptions} />
+			<Field label="Baud Rate" let:id>
+				<select
+					{id}
+					bind:value={formData.baud_rate}
+					class="rounded border-surface-content/20 bg-surface-100 px-3 py-2 text-sm focus:border-primary focus:ring-primary/20 w-full border focus:ring-2 focus:outline-none"
+				>
+					{#each baudRateOptions as opt (opt.value)}
+						<option value={opt.value}>{opt.label}</option>
+					{/each}
+				</select>
+			</Field>
 
-			<SelectField
-				label="Sensor Model"
-				bind:value={formData.sensor_model}
-				options={sensorModelOptions}
-			/>
+			<Field label="Sensor Model" let:id>
+				<select
+					{id}
+					bind:value={formData.sensor_model}
+					class="rounded border-surface-content/20 bg-surface-100 px-3 py-2 text-sm focus:border-primary focus:ring-primary/20 w-full border focus:ring-2 focus:outline-none"
+				>
+					{#each sensorModelOptions as opt (opt.value)}
+						<option value={opt.value}>{opt.label}</option>
+					{/each}
+				</select>
+			</Field>
 
 			<div class="gap-4 grid grid-cols-3">
-				<SelectField label="Data Bits" bind:value={formData.data_bits} options={dataBitsOptions} />
+				<Field label="Data Bits" let:id>
+					<select
+						{id}
+						bind:value={formData.data_bits}
+						class="rounded border-surface-content/20 bg-surface-100 px-3 py-2 text-sm focus:border-primary focus:ring-primary/20 w-full border focus:ring-2 focus:outline-none"
+					>
+						{#each dataBitsOptions as opt (opt.value)}
+							<option value={opt.value}>{opt.label}</option>
+						{/each}
+					</select>
+				</Field>
 
-				<SelectField label="Stop Bits" bind:value={formData.stop_bits} options={stopBitsOptions} />
+				<Field label="Stop Bits" let:id>
+					<select
+						{id}
+						bind:value={formData.stop_bits}
+						class="rounded border-surface-content/20 bg-surface-100 px-3 py-2 text-sm focus:border-primary focus:ring-primary/20 w-full border focus:ring-2 focus:outline-none"
+					>
+						{#each stopBitsOptions as opt (opt.value)}
+							<option value={opt.value}>{opt.label}</option>
+						{/each}
+					</select>
+				</Field>
 
-				<SelectField label="Parity" bind:value={formData.parity} options={parityOptions} />
+				<Field label="Parity" let:id>
+					<select
+						{id}
+						bind:value={formData.parity}
+						class="rounded border-surface-content/20 bg-surface-100 px-3 py-2 text-sm focus:border-primary focus:ring-primary/20 w-full border focus:ring-2 focus:outline-none"
+					>
+						{#each parityOptions as opt (opt.value)}
+							<option value={opt.value}>{opt.label}</option>
+						{/each}
+					</select>
+				</Field>
 			</div>
 
 			<TextField label="Description" bind:value={formData.description} multiline rows={3} />
 
 			<Field label="Enabled" let:id>
-				<Checkbox {id} bind:checked={formData.enabled} />
+				<Checkbox {id} bind:checked={formData.enabled}>Enable</Checkbox>
 			</Field>
 
 			<div class="gap-2 pt-4 flex">
