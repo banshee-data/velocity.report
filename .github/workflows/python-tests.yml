@@ -15,6 +15,9 @@ on:
       - "tools/**"
       - "data/**"
       - ".github/workflows/python-tests.yml"
+      - "requirements.txt"
+      - "requirements.in"
+      - "tox.ini"
 
 jobs:
   lint:
