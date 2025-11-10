@@ -15,22 +15,17 @@
         , total_frames BIGINT NOT NULL AS (JSON_EXTRACT(raw_event, '$.total_frames')) STORED
         , frames_per_mps DOUBLE NOT NULL AS (JSON_EXTRACT(raw_event, '$.frames_per_mps')) STORED
         , length_m DOUBLE NOT NULL AS (JSON_EXTRACT(raw_event, '$.length_m')) STORED
-          )
-;
+          );
 
    INSERT INTO radar_objects_new (write_timestamp, raw_event)
    SELECT UNIXEPOCH(write_timestamp, 'subsec') AS write_timestamp
         , raw_event
-     FROM radar_objects
-;
+     FROM radar_objects;
 
     ALTER TABLE radar_objects
-RENAME TO radar_objects_old
-;
+RENAME TO radar_objects_old;
 
     ALTER TABLE radar_objects_new
-RENAME TO radar_objects
-;
+RENAME TO radar_objects;
 
-     DROP TABLE radar_objects_old
-;
+     DROP TABLE radar_objects_old;
