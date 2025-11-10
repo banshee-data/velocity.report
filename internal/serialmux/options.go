@@ -7,6 +7,16 @@ import (
 	"go.bug.st/serial"
 )
 
+// standardBaudRates defines the set of commonly supported baud rates.
+// Reference: https://en.wikipedia.org/wiki/Serial_port#Common_baud_rates
+var standardBaudRates = map[int]struct{}{
+	110: {}, 300: {}, 600: {}, 1200: {}, 2400: {}, 4800: {}, 9600: {},
+	14400: {}, 19200: {}, 28800: {}, 38400: {}, 57600: {}, 115200: {}, 128000: {}, 256000: {},
+}
+
+// supportedBaudRatesStr is the string representation of supported baud rates for error messages.
+const supportedBaudRatesStr = "110, 300, 600, 1200, 2400, 4800, 9600, 14400, 19200, 28800, 38400, 57600, 115200, 128000, 256000"
+
 // PortOptions describes the serial connection parameters used when opening a real
 // serial port. The fields intentionally mirror the database configuration used by
 // the API layer so that the options can be passed through without additional
@@ -26,14 +36,9 @@ func (o PortOptions) Normalize() (PortOptions, error) {
 		opts.BaudRate = 19200
 	}
 
-	// Validate against common supported baud rates
-	// List from https://en.wikipedia.org/wiki/Serial_port#Common_baud_rates
-	standardBaudRates := map[int]struct{}{
-		110: {}, 300: {}, 600: {}, 1200: {}, 2400: {}, 4800: {}, 9600: {},
-		14400: {}, 19200: {}, 28800: {}, 38400: {}, 57600: {}, 115200: {}, 128000: {}, 256000: {},
-	}
+	// Validate against the standard baud rates map
 	if _, ok := standardBaudRates[opts.BaudRate]; !ok {
-		return opts, fmt.Errorf("invalid baud rate %d: supported values are 110, 300, 600, 1200, 2400, 4800, 9600, 14400, 19200, 28800, 38400, 57600, 115200, 128000, 256000", opts.BaudRate)
+		return opts, fmt.Errorf("invalid baud rate %d: supported values are %s", opts.BaudRate, supportedBaudRatesStr)
 	}
 	if opts.DataBits == 0 {
 		opts.DataBits = 8
