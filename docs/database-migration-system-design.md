@@ -130,9 +130,16 @@ The velocity.report project currently uses an **ad-hoc migration approach**:
 **Repository**: https://github.com/golang-migrate/migrate  
 **Stars**: ~15k | **License**: MIT | **Language**: Go
 
+**SQLite Support**: ✅ Yes, via `sqlite3` driver using `github.com/mattn/go-sqlite3` (cgo)
+- Automatic transaction wrapping for each migration
+- Uses standard `schema_migrations` table
+- Well-documented SQLite-specific behavior
+
 **How it works:**
 ```go
 import "github.com/golang-migrate/migrate/v4"
+import _ "github.com/golang-migrate/migrate/v4/database/sqlite3"
+import _ "github.com/golang-migrate/migrate/v4/source/file"
 
 m, err := migrate.New(
     "file://data/migrations",
@@ -151,12 +158,13 @@ data/migrations/
 
 **Pros:**
 - ✅ Mature, battle-tested (used by thousands of projects)
+- ✅ **SQLite support via `sqlite3` driver** (first-class citizen)
 - ✅ CLI tool + Go library (flexible usage)
 - ✅ Automatic version tracking table (`schema_migrations`)
 - ✅ Dirty state detection (failed migrations flagged)
 - ✅ Up/down migrations with rollback support
 - ✅ Force version (manual override for recovery)
-- ✅ Multiple database support (PostgreSQL, MySQL, SQLite)
+- ✅ **Works with SQLite's transactional DDL** (atomic migrations)
 - ✅ No ORM required (pure SQL)
 
 **Cons:**
@@ -183,6 +191,12 @@ Best choice if we want industry-standard tooling and don't mind the file renamin
 
 **Repository**: https://github.com/pressly/goose  
 **Stars**: ~7k | **License**: MIT | **Language**: Go
+
+**SQLite Support**: ✅ Yes, first-class support
+- SQLite3 listed equally with Postgres and MySQL in documentation
+- Dedicated CLI command: `goose sqlite3 ./database.db`
+- Examples prominently feature SQLite usage
+- No caveats or TODOs for SQLite support
 
 **How it works:**
 ```go
@@ -281,7 +295,8 @@ import (
     "crypto/sha256"
     "database/sql"
     "fmt"
-    "io/fs"
+    "log"
+    "os"
     "path/filepath"
     "sort"
     "strings"
@@ -363,7 +378,10 @@ func (db *DB) ApplyMigrations(dir string) error {
     
     // Get applied migrations
     applied := make(map[string]bool)
-    rows, _ := db.Query("SELECT version FROM schema_migrations WHERE success = 1")
+    rows, err := db.Query("SELECT version FROM schema_migrations WHERE success = 1")
+    if err != nil {
+        return err
+    }
     for rows.Next() {
         var v string
         rows.Scan(&v)
@@ -384,7 +402,10 @@ func (db *DB) ApplyMigrations(dir string) error {
         
         log.Printf("Applying migration %s: %s", m.Version, m.Description)
         
-        tx, _ := db.Begin()
+        tx, err := db.Begin()
+        if err != nil {
+            return err
+        }
         if _, err := tx.Exec(m.UpSQL); err != nil {
             tx.Rollback()
             // Mark as failed
@@ -694,49 +715,87 @@ Good if Python is already a first-class citizen. Reasonable for mixed Go/Python 
 
 ## Recommended Approach
 
-### Primary Recommendation: **Option 2 - pressly/goose**
+### SQLite as First-Class Concern
 
-**Why goose?**
+**Critical Requirement**: Any migration framework must have first-class SQLite support, not just "supports multiple databases including SQLite."
 
-1. **Best balance of simplicity and features**
-   - Lightweight (~500KB binary increase)
-   - Flexible file naming (keeps YYYYMMDD pattern)
-   - Up/down in same file (reduces file proliferation)
+**Both golang-migrate and goose meet this requirement:**
 
-2. **Good fit for velocity.report architecture**
-   - Integrates with Go server startup
-   - Can be called from tests
-   - Supports embedded migrations in binary
-   - CLI tool for manual operations
+| Criterion | golang-migrate | goose |
+|-----------|---------------|-------|
+| SQLite Documentation | Dedicated driver docs | Prominent in examples |
+| CLI Support | ✅ `migrate -database sqlite3://` | ✅ `goose sqlite3` |
+| Production Usage | ✅ Widely used | ✅ Well-established |
+| Transaction Handling | ✅ Auto-wraps migrations | ✅ Standard SQL transactions |
+| Caveats/TODOs | None for main driver | None |
 
-3. **Reduced migration burden**
-   - Only need to add `-- +goose Up/Down` markers
-   - No file renaming required
-   - Active maintenance and community support
+Both are suitable for velocity.report's SQLite-only architecture.
 
-4. **Raspberry Pi friendly**
-   - Small binary size matters on constrained devices
-   - Pure Go (no C dependencies for migrations)
-   - Fast execution
+### Primary Recommendation: **Option 1 - golang-migrate/migrate**
 
-### Alternative Recommendation: **Option 1 - golang-migrate** (If more features needed)
+**Why golang-migrate?**
 
-Choose golang-migrate if:
-- You want the most battle-tested solution
-- File renaming overhead is acceptable
-- Dirty state detection is critical
-- Team prefers industry-standard tools
+1. **Separate up/down files for manual execution** (per user requirement)
+   - Each migration has distinct `.up.sql` and `.down.sql` files
+   - Can run migrations manually with `sqlite3` without framework
+   - Clear separation makes rollback operations explicit
+   - No special markers or syntax in SQL files—pure SQL
 
-### Implementation Roadmap (goose)
+2. **SQLite support is production-ready**
+   - Uses `github.com/mattn/go-sqlite3` (industry standard)
+   - Automatic transaction wrapping per migration
+   - Configurable via `x-no-tx-wrap` parameter if needed
+   - Well-documented SQLite-specific behavior
+
+3. **Battle-tested and mature**
+   - Industry-standard solution used by thousands of projects
+   - Extensive community support and documentation
+   - Dirty state detection (failed migrations flagged)
+   - Force version capability for manual override
+
+4. **Operational reliability**
+   - Clear file structure reduces confusion
+   - Manual fallback option important for production
+   - Pure SQL files can be version-controlled separately
+   - Emergency recovery via direct `sqlite3` execution
+
+**Trade-offs:**
+- ❌ Larger binary size (~2MB vs ~500KB for goose)
+- ❌ Requires renaming existing 6 migration files
+- ❌ More opinionated file naming convention (sequential numbers)
+
+**Why separate files matter**: As noted by project maintainer, separate `.up.sql` and `.down.sql` files can be run directly without the framework if needed—critical for emergency scenarios and production debugging.
+
+### Alternative Recommendation: **Option 2 - pressly/goose** (If binary size is critical)
+
+**Also excellent SQLite support**, choose if:
+- Binary size is a critical constraint for Raspberry Pi (~1.5MB smaller)
+- Combined up/down in single file is acceptable
+- Flexible file naming (keeps existing YYYYMMDD pattern)
+- Team is comfortable with marker syntax (`-- +goose Up/Down`)
+
+**Note**: goose files with markers can still be run manually, but requires editing out markers or running entire file (both up and down sections execute).
+
+### Implementation Roadmap (golang-migrate)
 
 #### Phase 1: Foundation (Week 1)
 
 **Tasks:**
-1. Add `github.com/pressly/goose/v3` to `go.mod`
+1. Add `github.com/golang-migrate/migrate/v4` to `go.mod`
 2. Create `internal/db/migrate.go` wrapper:
    ```go
-   func (db *DB) RunMigrations() error {
-       return goose.Up(db.DB, "data/migrations")
+   import "github.com/golang-migrate/migrate/v4"
+   import _ "github.com/golang-migrate/migrate/v4/database/sqlite3"
+   import _ "github.com/golang-migrate/migrate/v4/source/file"
+   
+   func (db *DB) RunMigrations(migrationsDir string) error {
+       m, err := migrate.New(
+           "file://"+migrationsDir,
+           "sqlite3://"+db.path)
+       if err != nil {
+           return err
+       }
+       return m.Up()
    }
    ```
 3. Create `schema_migrations` baseline for existing databases
@@ -750,23 +809,23 @@ Choose golang-migrate if:
 #### Phase 2: Migration Files (Week 1-2)
 
 **Tasks:**
-1. Add `-- +goose Up/Down` markers to 6 existing migrations:
-   ```sql
-   -- +goose Up
-   ALTER TABLE data RENAME TO radar_data;
-   
-   -- +goose Down
-   ALTER TABLE radar_data RENAME TO data;
+1. Split 6 existing migrations into separate `.up.sql` and `.down.sql` files:
+   ```
+   20250826_rename_tables_column.sql
+     → 20250826_rename_tables_column.up.sql
+     → 20250826_rename_tables_column.down.sql
    ```
 2. Write down migrations for each file:
    - Analyze each migration's changes
-   - Create reverse operations
+   - Create reverse operations (down migrations)
    - Test on copy of production database
-3. Add checksum validation for safety
+   - Verify manual execution: `sqlite3 db.db < migration.up.sql`
+3. Document manual fallback procedures
 
 **Deliverables:**
-- [ ] 6 migration files with up/down sections
+- [ ] 12 migration files (6 up + 6 down)
 - [ ] Migration testing guide
+- [ ] Manual execution documentation
 - [ ] Rollback procedures documented
 
 #### Phase 3: CLI Integration (Week 2)

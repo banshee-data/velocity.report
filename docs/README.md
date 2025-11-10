@@ -68,7 +68,6 @@ These design documents follow the pattern:
 - **Recommended approach** with detailed rationale
 - **Implementation roadmap** with phased rollout
 - **Risk assessment** and mitigation strategies
-```
 
 ## Architecture: Markdown + Nunjucks Pattern
 

@@ -60,26 +60,44 @@ A comprehensive **automated migration system** has been designed to replace the 
 - ✅ **Automated testing** - CI/CD integration
 - ✅ **Baseline support** - existing databases can adopt system
 
-### Recommended Tool: pressly/goose
+### Recommended Tool: golang-migrate
 
-After evaluating 5 approaches (golang-migrate, goose, custom Go, shell scripts, Python), **pressly/goose** was selected for:
+After evaluating 5 approaches (golang-migrate, goose, custom Go, shell scripts, Python), **golang-migrate** was selected for:
 
-- Lightweight (~500KB binary increase)
-- Flexible file naming (keeps YYYYMMDD pattern)
-- Up/down in same file
-- Good fit for Raspberry Pi constraints
-- Active maintenance and community support
+- **Separate `.up.sql` and `.down.sql` files** - can run manually without framework
+- **First-class SQLite support** - production-ready driver with auto-transaction wrapping
+- Battle-tested industry standard (15k+ stars)
+- Pure SQL files with no special markers
+- Clear separation of forward/rollback operations
+- Critical for emergency recovery scenarios
 
 ### Migration File Format (Future)
 
-```sql
--- 20251110_add_feature.sql
--- +goose Up
-CREATE TABLE new_feature (...);
+Separate up/down files for manual execution:
 
--- +goose Down
-DROP TABLE IF EXISTS new_feature;
+```bash
+data/migrations/
+├── 000001_create_site_table.up.sql      # Forward migration
+├── 000001_create_site_table.down.sql    # Rollback migration
+├── 000002_add_reports.up.sql
+├── 000002_add_reports.down.sql
 ```
+
+**Up migration** (`000001_create_site_table.up.sql`):
+```sql
+CREATE TABLE IF NOT EXISTS site (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    ...
+);
+```
+
+**Down migration** (`000001_create_site_table.down.sql`):
+```sql
+DROP TABLE IF EXISTS site;
+```
+
+Files can be run manually: `sqlite3 sensor_data.db < 000001_create_site_table.up.sql`
 
 ### Implementation Timeline
 
