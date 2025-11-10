@@ -12,7 +12,9 @@ on:
     types: [opened, reopened, synchronize]
     paths:
       - "web/**"
-      - ".github/workflows/web-tests.yml"
+      - ".github/workflows/web-ci.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
 
 jobs:
   lint:

@@ -14,7 +14,10 @@ on:
     paths:
       - "tools/**"
       - "data/**"
-      - ".github/workflows/python-tests.yml"
+      - ".github/workflows/python-ci.yml"
+      - "requirements.txt"
+      - "requirements.in"
+      - "tox.ini"
 
 jobs:
   lint:
