@@ -5,13 +5,11 @@ import (
 )
 
 // NewRealSerialMux creates a SerialMux instance backed by a real serial port at the
-// given path.
-func NewRealSerialMux(path string) (*SerialMux[serial.Port], error) {
-	mode := &serial.Mode{
-		BaudRate: 19200,
-		DataBits: 8,
-		Parity:   serial.NoParity,
-		StopBits: serial.OneStopBit,
+// given path using the provided serial options.
+func NewRealSerialMux(path string, opts PortOptions) (*SerialMux[serial.Port], error) {
+	mode, err := opts.SerialMode()
+	if err != nil {
+		return nil, err
 	}
 
 	port, err := serial.Open(path, mode)
