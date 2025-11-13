@@ -397,12 +397,12 @@ func (db *DB) ApplyMigrations(dir string) error {
     if err != nil {
         return err
     }
+    defer rows.Close()
     for rows.Next() {
         var v string
         rows.Scan(&v)
         applied[v] = true
     }
-    rows.Close()
     
     // Load and apply pending migrations
     migrations, err := db.loadMigrations(dir)
@@ -423,17 +423,19 @@ func (db *DB) ApplyMigrations(dir string) error {
         }
         if _, err := tx.Exec(m.UpSQL); err != nil {
             tx.Rollback()
-            // Mark as failed
-            db.Exec(`INSERT INTO schema_migrations (version, applied_at, description, checksum, success) 
-                     VALUES (?, ?, ?, ?, 0)`, m.Version, time.Now().Unix(), m.Description, m.Checksum)
+            // Migration failed; rollback is sufficient to indicate failure.
             return fmt.Errorf("migration %s failed: %w", m.Version, err)
         }
         
         // Record success
-        tx.Exec(`INSERT INTO schema_migrations (version, applied_at, description, checksum, success) 
-                 VALUES (?, ?, ?, ?, 1)`, m.Version, time.Now().Unix(), m.Description, m.Checksum)
-        tx.Commit()
-    }
+        if _, err := tx.Exec(`INSERT INTO schema_migrations (version, applied_at, description, checksum, success) 
+                 VALUES (?, ?, ?, ?, 1)`, m.Version, time.Now().Unix(), m.Description, m.Checksum); err != nil {
+            tx.Rollback()
+            return fmt.Errorf("failed to record migration %s in metadata table: %w", m.Version, err)
+        }
+        if err := tx.Commit(); err != nil {
+            return fmt.Errorf("failed to commit migration %s: %w", m.Version, err)
+        }
     
     return nil
 }
@@ -528,13 +530,15 @@ for migration in "$MIGRATIONS_DIR"/*.sql; do
     
     echo "▶ Applying $VERSION: $DESC"
     
+    # Apply migration SQL
     sqlite3 "$DB_PATH" <<SQL
 BEGIN TRANSACTION;
 $(cat "$migration")
-INSERT INTO schema_migrations (version, applied_at, description) 
-VALUES ('$VERSION', strftime('%s', 'now'), '$DESC');
 COMMIT;
 SQL
+
+    # Record migration metadata securely using parameter binding
+    sqlite3 "$DB_PATH" "INSERT INTO schema_migrations (version, applied_at, description) VALUES (?, strftime('%s', 'now'), ?);" "$VERSION" "$DESC"
     
     if [ $? -eq 0 ]; then
         echo "✓ Migration $VERSION applied successfully"
@@ -607,6 +611,16 @@ class MigrationRunner:
         self.conn = sqlite3.connect(db_path)
         self._ensure_migrations_table()
     
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+    
+    def close(self):
+        if self.conn:
+            self.conn.close()
+            self.conn = None
     def _ensure_migrations_table(self):
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -822,6 +836,8 @@ Both are suitable for velocity.report's SQLite-only architecture.
 4. Add integration test (`internal/db/migrate_test.go`)
 
 **Deliverables:**
+
+**Note:** Mark checkboxes as tasks are completed during implementation.
 - [ ] Migration runner in `internal/db/migrate.go`
 - [ ] Unit tests with coverage >80%
 - [ ] Documentation: `docs/database-migrations.md`
@@ -1004,13 +1020,11 @@ DROP TABLE IF EXISTS site;
 
 ```sql
 CREATE TABLE IF NOT EXISTS schema_migrations (
-    version uint64 NOT NULL,
+    version INTEGER NOT NULL,
     dirty bool NOT NULL
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS version_unique ON schema_migrations (version);
-```
-
 **Field descriptions:**
 - `version`: Migration version number (e.g., 000001, 000002)
 - `dirty`: Boolean flag indicating if a migration failed mid-execution
@@ -1327,8 +1341,8 @@ CREATE TABLE IF NOT EXISTS user_preferences (
     user_id TEXT NOT NULL UNIQUE,
     theme TEXT DEFAULT 'light',
     timezone TEXT DEFAULT 'UTC',
-    created_at INTEGER NOT NULL DEFAULT (UNIXEPOCH('subsec')),
-    updated_at INTEGER NOT NULL DEFAULT (UNIXEPOCH('subsec'))
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+    updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_prefs_user_id ON user_preferences(user_id);
@@ -1355,8 +1369,8 @@ UPDATE radar_data SET confidence = 0.8 WHERE magnitude < 100;
 **File: 000008_add_radar_data_confidence.down.sql**
 ```sql
 -- Rollback: Remove confidence column
--- SQLite doesn't support DROP COLUMN in older versions
--- So we create a new table without the column and copy data
+-- Note: SQLite supports DROP COLUMN since version 3.35.0 (March 2021).
+-- For older SQLite versions, use this workaround: create a new table without the column and copy data.
 
 CREATE TABLE radar_data_new (
     write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec')),
@@ -1432,7 +1446,7 @@ velocity-report migrate status
 
 ```bash
 $ velocity-report migrate up
-Error: Dirty database version 7. Fix and force version.
+error: Dirty database version 7. Fix and force version.
 ```
 
 **Cause**: Previous migration failed mid-execution.
@@ -1469,7 +1483,6 @@ Error: Dirty database version 7. Fix and force version.
 
 -- If you must rollback, this will convert back but lose precision:
 -- (include lossy conversion code here)
-```
 ```
 
 ## Appendix D: References
