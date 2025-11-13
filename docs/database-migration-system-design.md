@@ -254,7 +254,7 @@ Good balance of simplicity and features. Better file naming flexibility than gol
 
 **Core Components:**
 
-1. **Metadata table** (`schema_migrations`):
+1. **Custom metadata table** (`schema_migrations`) - Note: This is a custom schema, not golang-migrate's:
    ```sql
    CREATE TABLE IF NOT EXISTS schema_migrations (
        version TEXT PRIMARY KEY,
@@ -264,6 +264,8 @@ Good balance of simplicity and features. Better file naming flexibility than gol
        success INTEGER NOT NULL DEFAULT 1
    );
    ```
+   
+   **Difference from golang-migrate**: This custom implementation tracks additional metadata (timestamp, description, checksum, success flag) vs. golang-migrate's minimal schema (version, dirty). Choose this approach only if you need the extra tracking capabilities.
 
 2. **Migration file format** (keep existing naming):
    ```
@@ -337,7 +339,8 @@ func (db *DB) loadMigrations(dir string) ([]*Migration, error) {
             continue // Process down migrations separately
         }
         
-        // Extract version (YYYYMMDD) and description
+        // Extract version (numeric) and description from filename
+        // Expected format: {version}_{description}.sql
         parts := strings.SplitN(name, "_", 2)
         if len(parts) < 2 {
             continue
@@ -771,7 +774,7 @@ Both are suitable for velocity.report's SQLite-only architecture.
 **Also excellent SQLite support**, choose if:
 - Binary size is a critical constraint for Raspberry Pi (~1.5MB smaller)
 - Combined up/down in single file is acceptable
-- Flexible file naming (keeps existing YYYYMMDD pattern)
+- Flexible file naming (supports custom patterns like YYYYMMDD)
 - Team is comfortable with marker syntax (`-- +goose Up/Down`)
 
 **Note**: goose files with markers can still be run manually, but requires editing out markers or running entire file (both up and down sections execute).
@@ -809,21 +812,29 @@ Both are suitable for velocity.report's SQLite-only architecture.
 #### Phase 2: Migration Files (Week 1-2)
 
 **Tasks:**
-1. Split 6 existing migrations into separate `.up.sql` and `.down.sql` files:
+1. Rename and split 6 existing migrations to golang-migrate format:
    ```
    20250826_rename_tables_column.sql
-     → 20250826_rename_tables_column.up.sql
-     → 20250826_rename_tables_column.down.sql
+     → 000001_rename_tables_column.up.sql
+     → 000001_rename_tables_column.down.sql
+   
+   20250827_migrate_ro_to_unix_timestamp.sql
+     → 000002_migrate_ro_to_unix_timestamp.up.sql
+     → 000002_migrate_ro_to_unix_timestamp.down.sql
+   
+   ... (and so on for all 6 migrations in chronological order)
    ```
+   
 2. Write down migrations for each file:
    - Analyze each migration's changes
    - Create reverse operations (down migrations)
    - Test on copy of production database
-   - Verify manual execution: `sqlite3 db.db < migration.up.sql`
+   - Verify manual execution: `sqlite3 db.db < 000001_rename_tables_column.up.sql`
+   
 3. Document manual fallback procedures
 
 **Deliverables:**
-- [ ] 12 migration files (6 up + 6 down)
+- [ ] 12 migration files (6 up + 6 down) in sequential format
 - [ ] Migration testing guide
 - [ ] Manual execution documentation
 - [ ] Rollback procedures documented
@@ -903,37 +914,62 @@ Both are suitable for velocity.report's SQLite-only architecture.
 
 #### Naming Convention
 
+**golang-migrate format** (sequential numbering):
+
 ```
-YYYYMMDD_descriptive_name.sql
+{version}_{description}.up.sql
+{version}_{description}.down.sql
 
 Examples:
-20250826_rename_tables_column.sql
-20251110_add_user_preferences_table.sql
-20251115_add_index_on_radar_data_speed.sql
+000001_initial_schema.up.sql
+000001_initial_schema.down.sql
+000002_add_site_table.up.sql
+000002_add_site_table.down.sql
+000003_add_user_preferences_table.up.sql
+000003_add_user_preferences_table.down.sql
 ```
 
-#### File Format (with goose)
+**Version numbering:**
+- Sequential integers (000001, 000002, 000003, ...)
+- Padded with zeros for proper sorting
+- Must be unique across all migrations
+- Version extracted from filename determines execution order
+
+**Note**: Existing migrations in `data/migrations/` use YYYYMMDD format. During implementation, these will need to be renamed to sequential format (e.g., `20250826_rename_tables_column.sql` → `000001_rename_tables_column.up.sql`).
+
+#### File Format (golang-migrate)
+
+**Separate up and down files:**
 
 ```sql
--- Migration: Brief description of what this migration does
+-- File: 000001_create_site_table.up.sql
+-- Migration: Create site table for location and configuration data
 -- Author: Developer Name
 -- Date: YYYY-MM-DD
--- Ticket: GH-123 (if applicable)
 
--- +goose Up
--- Description of forward migration
-CREATE TABLE new_table (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL
+CREATE TABLE IF NOT EXISTS site (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    location TEXT NOT NULL,
+    speed_limit INTEGER DEFAULT 25
 );
 
-CREATE INDEX idx_new_table_name ON new_table(name);
-
--- +goose Down
--- Description of rollback
-DROP INDEX IF EXISTS idx_new_table_name;
-DROP TABLE IF EXISTS new_table;
+CREATE INDEX IF NOT EXISTS idx_site_name ON site(name);
 ```
+
+```sql
+-- File: 000001_create_site_table.down.sql
+-- Rollback: Remove site table
+
+DROP INDEX IF EXISTS idx_site_name;
+DROP TABLE IF EXISTS site;
+```
+
+**Key points:**
+- No special markers or syntax required (pure SQL)
+- Each file can be run manually: `sqlite3 db.db < 000001_create_site_table.up.sql`
+- Comments are optional but recommended for clarity
+- golang-migrate automatically wraps each file in a transaction (unless `x-no-tx-wrap` is set)
 
 #### Best Practices
 
@@ -947,20 +983,25 @@ DROP TABLE IF EXISTS new_table;
 
 ### Metadata Table Schema
 
+**golang-migrate's actual schema** (recommended approach):
+
 ```sql
-CREATE TABLE schema_migrations (
-    version_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    version TEXT UNIQUE NOT NULL,      -- e.g., "20250826"
-    applied_at TIMESTAMP NOT NULL,     -- Unix timestamp
-    description TEXT,                   -- Human-readable description
-    checksum TEXT,                      -- SHA256 of migration SQL
-    execution_time_ms INTEGER,         -- Performance tracking
-    success BOOLEAN NOT NULL DEFAULT 1  -- 1 = success, 0 = failed/dirty
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version uint64 NOT NULL,
+    dirty bool NOT NULL
 );
 
-CREATE INDEX idx_schema_migrations_version ON schema_migrations(version);
-CREATE INDEX idx_schema_migrations_applied_at ON schema_migrations(applied_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS version_unique ON schema_migrations (version);
 ```
+
+**Field descriptions:**
+- `version`: Migration version number (e.g., 000001, 000002)
+- `dirty`: Boolean flag indicating if a migration failed mid-execution
+  - `true` = migration started but didn't complete successfully
+  - `false` = migration completed successfully
+  - Used for detecting and preventing running migrations on corrupted state
+
+**Note**: golang-migrate uses a minimal schema by design. The version number comes from the filename (e.g., `000001_initial_schema.up.sql` → version 1). The `dirty` flag is critical for detecting failed migrations and preventing further migrations until the issue is resolved.
 
 ### Rollback Strategy
 
@@ -980,7 +1021,11 @@ CREATE INDEX idx_schema_migrations_applied_at ON schema_migrations(applied_at DE
 
 2. **Manual rollback** (operator initiated):
    ```bash
-   velocity-report migrate down 20251110
+   # Rollback one migration
+   velocity-report migrate down
+   
+   # Or force to specific version
+   velocity-report migrate force 7
    ```
    - Runs down script
    - Removes entry from `schema_migrations`
@@ -988,7 +1033,7 @@ CREATE INDEX idx_schema_migrations_applied_at ON schema_migrations(applied_at DE
 
 3. **Emergency rollback** (dirty state):
    ```bash
-   velocity-report migrate force 20251109
+   velocity-report migrate force 6
    ```
    - Manually sets version
    - Use only when automated rollback fails
@@ -1003,19 +1048,30 @@ CREATE INDEX idx_schema_migrations_applied_at ON schema_migrations(applied_at DE
 func TestMigrations_UpDown(t *testing.T) {
     db := setupTestDB(t)
     
-    // Apply all migrations
-    if err := goose.Up(db.DB, "../../data/migrations"); err != nil {
+    // Create migrate instance
+    m, err := migrate.New(
+        "file://../../data/migrations",
+        "sqlite3://"+db.path)
+    if err != nil {
         t.Fatal(err)
     }
     
-    // Check version
-    version, _ := goose.GetDBVersion(db.DB)
-    if version != 20251022 {
-        t.Errorf("expected version 20251022, got %d", version)
+    // Apply all migrations
+    if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+        t.Fatal(err)
+    }
+    
+    // Check version (should be 6 after applying all 6 existing migrations)
+    version, dirty, _ := m.Version()
+    if version != 6 {
+        t.Errorf("expected version 6, got %d", version)
+    }
+    if dirty {
+        t.Error("database should not be dirty")
     }
     
     // Test rollback
-    if err := goose.Down(db.DB, "../../data/migrations"); err != nil {
+    if err := m.Down(); err != nil && err != migrate.ErrNoChange {
         t.Fatal(err)
     }
     
@@ -1026,12 +1082,17 @@ func TestMigrations_UpDown(t *testing.T) {
 func TestMigrations_Idempotency(t *testing.T) {
     db := setupTestDB(t)
     
-    // Apply migrations twice
-    goose.Up(db.DB, "../../data/migrations")
-    err := goose.Up(db.DB, "../../data/migrations")
+    m, _ := migrate.New(
+        "file://../../data/migrations",
+        "sqlite3://"+db.path)
     
-    if err != nil {
-        t.Fatal("second up should be no-op")
+    // Apply migrations twice
+    m.Up()
+    err := m.Up()
+    
+    // Second up should return ErrNoChange
+    if err != nil && err != migrate.ErrNoChange {
+        t.Fatal("second up should be no-op or return ErrNoChange")
     }
 }
 ```
@@ -1095,7 +1156,7 @@ jobs:
 ### Creating a New Migration
 
 - [ ] **Plan changes**: Document what tables/columns will change
-- [ ] **Create migration file**: `YYYYMMDD_descriptive_name.sql`
+- [ ] **Create migration files**: `{next_version}_{descriptive_name}.up.sql` and `.down.sql`
 - [ ] **Write up migration**: DDL/DML for forward change
 - [ ] **Write down migration**: Reverse operations (can you?)
 - [ ] **Test locally**:
@@ -1138,10 +1199,10 @@ jobs:
 **Likelihood**: Low | **Impact**: Medium
 
 **Mitigation:**
-- ✅ Date-based naming (YYYYMMDD) naturally orders
+- ✅ Sequential numbering prevents conflicts (next available number)
 - ✅ PR reviews catch conflicts
 - ✅ CI/CD tests detect migration issues
-- ✅ Clear merge conflict resolution process
+- ✅ Clear merge conflict resolution process (renumber if needed)
 
 ### Risk 3: Schema.sql Diverges from Migrations
 
@@ -1241,9 +1302,9 @@ jobs:
 
 ### Workflow 1: Add New Table
 
+**File: 000007_add_user_preferences.up.sql**
 ```sql
--- 20251110_add_user_preferences.sql
--- +goose Up
+-- Migration: Add user preferences table
 CREATE TABLE IF NOT EXISTS user_preferences (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id TEXT NOT NULL UNIQUE,
@@ -1254,23 +1315,29 @@ CREATE TABLE IF NOT EXISTS user_preferences (
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_prefs_user_id ON user_preferences(user_id);
+```
 
--- +goose Down
+**File: 000007_add_user_preferences.down.sql**
+```sql
+-- Rollback: Remove user preferences table
 DROP INDEX IF EXISTS idx_user_prefs_user_id;
 DROP TABLE IF EXISTS user_preferences;
 ```
 
 ### Workflow 2: Add Column (Backward Compatible)
 
+**File: 000008_add_radar_data_confidence.up.sql**
 ```sql
--- 20251111_add_radar_data_confidence.sql
--- +goose Up
+-- Migration: Add confidence score to radar data
 ALTER TABLE radar_data ADD COLUMN confidence REAL DEFAULT 1.0;
 
 -- Update existing rows (optional)
 UPDATE radar_data SET confidence = 0.8 WHERE magnitude < 100;
+```
 
--- +goose Down
+**File: 000008_add_radar_data_confidence.down.sql**
+```sql
+-- Rollback: Remove confidence column
 -- SQLite doesn't support DROP COLUMN in older versions
 -- So we create a new table without the column and copy data
 
@@ -1294,12 +1361,11 @@ ALTER TABLE radar_data_new RENAME TO radar_data;
 
 ### Workflow 3: Data Migration
 
+**File: 000009_normalize_speed_units.up.sql**
 ```sql
--- 20251112_normalize_speed_units.sql
 -- Migration: Convert all speeds from mph to m/s
 -- NOTE: This is a data migration - down migration will lose precision!
 
--- +goose Up
 UPDATE radar_data 
 SET raw_event = json_set(
     raw_event, 
@@ -1310,9 +1376,13 @@ WHERE json_extract(raw_event, '$.speed_unit') = 'mph';
 
 UPDATE radar_data
 SET raw_event = json_set(raw_event, '$.speed_unit', 'mps');
+```
 
--- +goose Down
+**File: 000009_normalize_speed_units.down.sql**
+```sql
+-- Rollback: Convert speeds back from m/s to mph
 -- WARNING: Converting back to mph will lose precision due to floating point
+
 UPDATE radar_data
 SET raw_event = json_set(
     raw_event,
@@ -1331,10 +1401,12 @@ SET raw_event = json_set(raw_event, '$.speed_unit', 'mph');
 
 ```bash
 $ velocity-report migrate up
-⏭ Skipping 20251110 (already applied)
+OK   000001_initial_schema.up.sql
+OK   000002_add_site_table.up.sql
+No change
 ```
 
-**Solution**: This is normal. The migration was already applied. Check status:
+**Solution**: This is normal. All migrations were already applied. Check status:
 ```bash
 velocity-report migrate status
 ```
@@ -1343,7 +1415,7 @@ velocity-report migrate status
 
 ```bash
 $ velocity-report migrate up
-Error: migration 20251110 failed: dirty state detected
+Error: Dirty database version 7. Fix and force version.
 ```
 
 **Cause**: Previous migration failed mid-execution.
@@ -1353,8 +1425,8 @@ Error: migration 20251110 failed: dirty state detected
 2. Manual inspection: Determine if migration partially applied
 3. Fix manually or force version:
    ```bash
-   velocity-report migrate force 20251109  # Go back to last known good
-   velocity-report migrate up              # Try again
+   velocity-report migrate force 6  # Go back to last known good version
+   velocity-report migrate up       # Try again
    ```
 
 ### Problem: Schema.sql and Migrations Out of Sync
@@ -1371,12 +1443,16 @@ Error: migration 20251110 failed: dirty state detected
 
 **Cause**: Down migration would lose data.
 
-**Solution**: Document in migration file:
+**Solution**: Document in down migration file:
 ```sql
--- +goose Down
+-- File: 000009_normalize_speed_units.down.sql
 -- WARNING: This migration cannot be safely rolled back
 -- Data has been transformed and cannot be restored to original state
 -- Manual recovery required if rollback needed
+
+-- If you must rollback, this will convert back but lose precision:
+-- (include lossy conversion code here)
+```
 ```
 
 ## Appendix D: References
