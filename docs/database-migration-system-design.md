@@ -5,6 +5,14 @@
 **Author**: Agent Ictinus  
 **Goal**: Design a lightweight, maintainable database migration system for velocity.report
 
+> **⚠️ CRITICAL: Pure-Go SQLite Driver Required**
+>
+> This design uses **`modernc.org/sqlite`** (pure-Go, no CGO) via golang-migrate's `database/sqlite` driver.
+> The codebase already uses `modernc.org/sqlite` to avoid CGO dependencies and simplify cross-compilation
+> for Raspberry Pi and other ARM64 targets.
+>
+> **DO NOT use `database/sqlite3`** which depends on `github.com/mattn/go-sqlite3` (requires CGO).
+
 ## Executive Summary
 
 This document proposes a database migration system for velocity.report that:
@@ -14,6 +22,7 @@ This document proposes a database migration system for velocity.report that:
 - Minimizes maintenance burden
 - Integrates with current deployment patterns (systemd service, manual setup)
 - Preserves privacy-first, local-only architecture
+- **Uses pure-Go SQLite driver (no CGO)** to match existing codebase
 
 ## Problem Statement
 
@@ -130,7 +139,9 @@ The velocity.report project currently uses an **ad-hoc migration approach**:
 **Repository**: https://github.com/golang-migrate/migrate  
 **Stars**: ~15k | **License**: MIT | **Language**: Go
 
-**SQLite Support**: ✅ Yes, via `sqlite3` driver using `github.com/mattn/go-sqlite3` (cgo)
+**SQLite Support**: ✅ Yes, via pure-Go `sqlite` driver using `modernc.org/sqlite` (no CGO)
+- **Critical**: Uses `database/sqlite` (NOT `database/sqlite3`) to avoid CGO dependency
+- Matches existing codebase which uses `modernc.org/sqlite`
 - Automatic transaction wrapping for each migration
 - Uses standard `schema_migrations` table
 - Well-documented SQLite-specific behavior
@@ -138,12 +149,12 @@ The velocity.report project currently uses an **ad-hoc migration approach**:
 **How it works:**
 ```go
 import "github.com/golang-migrate/migrate/v4"
-import _ "github.com/golang-migrate/migrate/v4/database/sqlite3"
+import _ "github.com/golang-migrate/migrate/v4/database/sqlite"
 import _ "github.com/golang-migrate/migrate/v4/source/file"
 
 m, err := migrate.New(
     "file://data/migrations",
-    "sqlite3:///var/lib/velocity-report/sensor_data.db")
+    "sqlite://"+db.path)  // Note: sqlite:// not sqlite3://
 m.Up() // Apply pending migrations
 ```
 
@@ -158,7 +169,7 @@ data/migrations/
 
 **Pros:**
 - ✅ Mature, battle-tested (used by thousands of projects)
-- ✅ **SQLite support via `sqlite3` driver** (first-class citizen)
+- ✅ **Pure-Go SQLite support via `database/sqlite`** (uses `modernc.org/sqlite`, no CGO)
 - ✅ CLI tool + Go library (flexible usage)
 - ✅ Automatic version tracking table (`schema_migrations`)
 - ✅ Dirty state detection (failed migrations flagged)
@@ -166,6 +177,7 @@ data/migrations/
 - ✅ Force version (manual override for recovery)
 - ✅ **Works with SQLite's transactional DDL** (atomic migrations)
 - ✅ No ORM required (pure SQL)
+- ✅ **Matches existing codebase** (already uses `modernc.org/sqlite`)
 
 **Cons:**
 - ❌ Requires renaming existing migration files (`.up.sql`, `.down.sql` suffix)
@@ -727,10 +739,11 @@ Good if Python is already a first-class citizen. Reasonable for mixed Go/Python 
 | Criterion | golang-migrate | goose |
 |-----------|---------------|-------|
 | SQLite Documentation | Dedicated driver docs | Prominent in examples |
-| CLI Support | ✅ `migrate -database sqlite3://` | ✅ `goose sqlite3` |
+| CLI Support | ✅ `migrate -database sqlite://` | ✅ `goose sqlite3` |
+| Driver Type | ✅ Pure-Go (`modernc.org/sqlite`) | ⚠️ Typically CGO (`mattn/go-sqlite3`) |
 | Production Usage | ✅ Widely used | ✅ Well-established |
 | Transaction Handling | ✅ Auto-wraps migrations | ✅ Standard SQL transactions |
-| Caveats/TODOs | None for main driver | None |
+| Caveats/TODOs | None for pure-Go driver | None |
 
 Both are suitable for velocity.report's SQLite-only architecture.
 
@@ -740,12 +753,14 @@ Both are suitable for velocity.report's SQLite-only architecture.
 
 1. **Separate up/down files for manual execution** (per user requirement)
    - Each migration has distinct `.up.sql` and `.down.sql` files
-   - Can run migrations manually with `sqlite3` without framework
+   - Can run migrations manually with `sqlite3` command-line tool without framework
    - Clear separation makes rollback operations explicit
    - No special markers or syntax in SQL files—pure SQL
 
-2. **SQLite support is production-ready**
-   - Uses `github.com/mattn/go-sqlite3` (industry standard)
+2. **Pure-Go SQLite support (no CGO)**
+   - **Uses `modernc.org/sqlite` via `database/sqlite` driver**
+   - **Matches existing codebase** (already uses `modernc.org/sqlite`)
+   - No CGO dependency = simpler cross-compilation for Raspberry Pi
    - Automatic transaction wrapping per migration
    - Configurable via `x-no-tx-wrap` parameter if needed
    - Well-documented SQLite-specific behavior
@@ -788,19 +803,21 @@ Both are suitable for velocity.report's SQLite-only architecture.
 2. Create `internal/db/migrate.go` wrapper:
    ```go
    import "github.com/golang-migrate/migrate/v4"
-   import _ "github.com/golang-migrate/migrate/v4/database/sqlite3"
+   import _ "github.com/golang-migrate/migrate/v4/database/sqlite"  // Pure-Go driver
    import _ "github.com/golang-migrate/migrate/v4/source/file"
    
    func (db *DB) RunMigrations(migrationsDir string) error {
        m, err := migrate.New(
            "file://"+migrationsDir,
-           "sqlite3://"+db.path)
+           "sqlite://"+db.path)  // Note: sqlite:// not sqlite3://
        if err != nil {
            return err
        }
        return m.Up()
    }
    ```
+   **Important**: Use `database/sqlite` (pure-Go, `modernc.org/sqlite`) NOT `database/sqlite3` (CGO).
+   This matches the existing codebase and avoids CGO dependencies for cross-compilation.
 3. Create `schema_migrations` baseline for existing databases
 4. Add integration test (`internal/db/migrate_test.go`)
 
@@ -1048,10 +1065,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS version_unique ON schema_migrations (version);
 func TestMigrations_UpDown(t *testing.T) {
     db := setupTestDB(t)
     
-    // Create migrate instance
+    // Create migrate instance (use pure-Go sqlite driver)
     m, err := migrate.New(
         "file://../../data/migrations",
-        "sqlite3://"+db.path)
+        "sqlite://"+db.path)  // Note: sqlite:// not sqlite3://
     if err != nil {
         t.Fatal(err)
     }
@@ -1084,7 +1101,7 @@ func TestMigrations_Idempotency(t *testing.T) {
     
     m, _ := migrate.New(
         "file://../../data/migrations",
-        "sqlite3://"+db.path)
+        "sqlite://"+db.path)  // Note: sqlite:// not sqlite3://
     
     // Apply migrations twice
     m.Up()
