@@ -130,32 +130,55 @@ The velocity.report project currently uses an **ad-hoc migration approach**:
 4. **Multiple entry points**: Binary, Python tools, manual sqlite3 access
 5. **Privacy by design**: No external network calls for migrations
 
-## Migration System Design Options
+## Selected Solution: golang-migrate
 
-### Option 1: golang-migrate/migrate (Popular Go Library)
-
-**Overview**: Industry-standard migration library for Go applications.
+**golang-migrate** is an industry-standard migration library for Go applications with first-class pure-Go SQLite support.
 
 **Repository**: https://github.com/golang-migrate/migrate  
-**Stars**: ~15k | **License**: MIT | **Language**: Go
+**License**: MIT | **Language**: Go | **Community**: ~15k stars
 
-**SQLite Support**: ✅ Yes, via pure-Go `sqlite` driver using `modernc.org/sqlite` (no CGO)
-- **Critical**: Uses `database/sqlite` (NOT `database/sqlite3`) to avoid CGO dependency
-- Matches existing codebase which uses `modernc.org/sqlite`
-- Automatic transaction wrapping for each migration
-- Uses standard `schema_migrations` table
-- Well-documented SQLite-specific behavior
+### Why golang-migrate?
 
-**How it works:**
+1. **Separate up/down files for manual execution**
+   - Each migration has distinct `.up.sql` and `.down.sql` files
+   - Can run migrations manually with `sqlite3` command-line tool without the framework
+   - Clear separation makes rollback operations explicit
+   - No special markers or syntax—pure SQL
+
+2. **Pure-Go SQLite support (no CGO)**
+   - Uses `modernc.org/sqlite` via `database/sqlite` driver
+   - Matches existing codebase (already uses `modernc.org/sqlite`)
+   - No CGO dependency = simpler cross-compilation for Raspberry Pi ARM64
+   - Automatic transaction wrapping per migration
+
+3. **Battle-tested and mature**
+   - Industry-standard solution used by thousands of projects
+   - Extensive community support and documentation
+   - Dirty state detection (failed migrations flagged)
+   - Force version capability for manual override
+
+4. **Operational reliability**
+   - Clear file structure reduces confusion
+   - Manual fallback option important for production
+   - Pure SQL files can be version-controlled
+   - Emergency recovery via direct `sqlite3` execution
+
+### Integration Example
+
 ```go
 import "github.com/golang-migrate/migrate/v4"
-import _ "github.com/golang-migrate/migrate/v4/database/sqlite"
+import _ "github.com/golang-migrate/migrate/v4/database/sqlite"  // Pure-Go driver
 import _ "github.com/golang-migrate/migrate/v4/source/file"
 
-m, err := migrate.New(
-    "file://data/migrations",
-    "sqlite://"+db.path)  // Note: sqlite:// not sqlite3://
-m.Up() // Apply pending migrations
+func (db *DB) RunMigrations(migrationsDir string) error {
+    m, err := migrate.New(
+        "file://"+migrationsDir,
+        "sqlite://"+db.path)  // Note: sqlite:// not sqlite3://
+    if err != nil {
+        return err
+    }
+    return m.Up()
+}
 ```
 
 **File structure:**
@@ -167,648 +190,18 @@ data/migrations/
 ├── 000002_add_site_table.down.sql
 ```
 
-**Pros:**
-- ✅ Mature, battle-tested (used by thousands of projects)
-- ✅ **Pure-Go SQLite support via `database/sqlite`** (uses `modernc.org/sqlite`, no CGO)
-- ✅ CLI tool + Go library (flexible usage)
-- ✅ Automatic version tracking table (`schema_migrations`)
-- ✅ Dirty state detection (failed migrations flagged)
-- ✅ Up/down migrations with rollback support
-- ✅ Force version (manual override for recovery)
-- ✅ **Works with SQLite's transactional DDL** (atomic migrations)
-- ✅ No ORM required (pure SQL)
-- ✅ **Matches existing codebase** (already uses `modernc.org/sqlite`)
-
-**Cons:**
-- ❌ Requires renaming existing migration files (`.up.sql`, `.down.sql` suffix)
-- ❌ Adds ~2MB to binary size (full library)
-- ❌ Opinionated file naming convention
-- ❌ More complex than needed for simple use case
-- ❌ Need to write down migrations for existing files retroactively
-
-**Integration effort**: Medium
-- Rename 6 existing migrations (create `.up.sql` + `.down.sql` variants)
-- Add `golang-migrate` to `go.mod`
-- Create CLI command or integrate into `NewDB()`
-- Update documentation
-
-**Recommendation**: ⭐⭐⭐⭐ (4/5)  
-Best choice if we want industry-standard tooling and don't mind the file renaming work.
-
----
-
-### Option 2: pressly/goose (Lightweight Go Library)
-
-**Overview**: Simple database migration tool focused on ease of use.
-
-**Repository**: https://github.com/pressly/goose  
-**Stars**: ~7k | **License**: MIT | **Language**: Go
-
-**SQLite Support**: ✅ Yes, first-class support
-- SQLite3 listed equally with Postgres and MySQL in documentation
-- Dedicated CLI command: `goose sqlite3 ./database.db`
-- Examples prominently feature SQLite usage
-- No caveats or TODOs for SQLite support
-
-**How it works:**
-```go
-import "github.com/pressly/goose/v3"
-
-db, _ := sql.Open("sqlite3", "/var/lib/velocity-report/sensor_data.db")
-goose.Up(db, "data/migrations")
-```
-
-**File structure:**
-```
-data/migrations/
-├── 20250826_rename_tables_column.sql
-├── 20250929_migrate_data_to_radar_data.sql
-```
-
-**SQL file format:**
-```sql
--- +goose Up
-CREATE TABLE site (...);
-
--- +goose Down
-DROP TABLE site;
-```
-
-**Pros:**
-- ✅ Lightweight (~500KB binary increase)
-- ✅ Flexible file naming (supports `YYYYMMDD_*` pattern)
-- ✅ Up/down in same file (via `-- +goose Up/Down` markers)
-- ✅ Can embed migrations in binary with `//go:embed`
-- ✅ CLI + library modes
-- ✅ Hybrid SQL + Go migrations supported
-- ✅ Active maintenance
-
-**Cons:**
-- ❌ Requires modifying existing SQL files (add `-- +goose` markers)
-- ❌ Less popular than golang-migrate (fewer examples)
-- ❌ Must write down migrations for existing files
-- ❌ Marker syntax may confuse users running files manually
-
-**Integration effort**: Medium-Low
-- Add `-- +goose Up/Down` markers to 6 existing migrations
-- Add `goose` to `go.mod`
-- Create migration CLI command
-- Minimal doc updates
-
-**Recommendation**: ⭐⭐⭐⭐ (4/5)  
-Good balance of simplicity and features. Better file naming flexibility than golang-migrate.
-
----
-
-### Option 3: Custom Lightweight Go Implementation
-
-**Overview**: Build a minimal migration system tailored to velocity.report needs.
-
-**Core Components:**
-
-1. **Custom metadata table** (`schema_migrations`) - Note: This is a custom schema, not golang-migrate's:
-   ```sql
-   CREATE TABLE IF NOT EXISTS schema_migrations (
-       version TEXT PRIMARY KEY,
-       applied_at INTEGER NOT NULL,
-       description TEXT,
-       checksum TEXT,
-       success INTEGER NOT NULL DEFAULT 1
-   );
-   ```
-   
-   **Difference from golang-migrate**: This custom implementation tracks additional metadata (timestamp, description, checksum, success flag) vs. golang-migrate's minimal schema (version, dirty). Choose this approach only if you need the extra tracking capabilities.
-
-2. **Migration file format** (keep existing naming):
-   ```
-   data/migrations/
-   ├── 20250826_rename_tables_column.sql      (up migration)
-   ├── 20250826_rename_tables_column.down.sql (down migration)
-   ```
-
-3. **Migration runner** (`internal/db/migrate.go`):
-   ```go
-   func (db *DB) ApplyMigrations(migrationsDir string) error
-   func (db *DB) Rollback(version string) error
-   func (db *DB) CurrentVersion() (string, error)
-   ```
-
-4. **CLI tool** (`cmd/migrate/main.go` or add to existing binary):
-   ```bash
-   velocity-report migrate up
-   velocity-report migrate down [version]
-   velocity-report migrate status
-   ```
-
-**Implementation (~200 lines of Go):**
-
-```go
-package db
-
-import (
-    "crypto/sha256"
-    "database/sql"
-    "fmt"
-    "log"
-    "os"
-    "path/filepath"
-    "sort"
-    "strings"
-    "time"
-)
-
-type Migration struct {
-    Version     string
-    Description string
-    UpSQL       string
-    DownSQL     string
-    Checksum    string
-}
-
-func (db *DB) ensureMigrationsTable() error {
-    _, err := db.Exec(`
-        CREATE TABLE IF NOT EXISTS schema_migrations (
-            version TEXT PRIMARY KEY,
-            applied_at INTEGER NOT NULL,
-            description TEXT,
-            checksum TEXT,
-            success INTEGER NOT NULL DEFAULT 1
-        )
-    `)
-    return err
-}
-
-func (db *DB) loadMigrations(dir string) ([]*Migration, error) {
-    files, err := filepath.Glob(filepath.Join(dir, "*.sql"))
-    if err != nil {
-        return nil, err
-    }
-    
-    migrations := make(map[string]*Migration)
-    for _, f := range files {
-        name := filepath.Base(f)
-        if strings.HasSuffix(name, ".down.sql") {
-            continue // Process down migrations separately
-        }
-        
-        // Extract version (numeric) and description from filename
-        // Expected format: {version}_{description}.sql
-        parts := strings.SplitN(name, "_", 2)
-        if len(parts) < 2 {
-            continue
-        }
-        version := parts[0]
-        desc := strings.TrimSuffix(parts[1], ".sql")
-        
-        upSQL, _ := os.ReadFile(f)
-        downSQL, _ := os.ReadFile(strings.Replace(f, ".sql", ".down.sql", 1))
-        
-        hash := sha256.Sum256(upSQL)
-        
-        migrations[version] = &Migration{
-            Version:     version,
-            Description: desc,
-            UpSQL:       string(upSQL),
-            DownSQL:     string(downSQL),
-            Checksum:    fmt.Sprintf("%x", hash),
-        }
-    }
-    
-    // Sort by version
-    sorted := make([]*Migration, 0, len(migrations))
-    for _, m := range migrations {
-        sorted = append(sorted, m)
-    }
-    sort.Slice(sorted, func(i, j int) bool {
-        return sorted[i].Version < sorted[j].Version
-    })
-    
-    return sorted, nil
-}
-
-func (db *DB) ApplyMigrations(dir string) error {
-    if err := db.ensureMigrationsTable(); err != nil {
-        return err
-    }
-    
-    // Get applied migrations
-    applied := make(map[string]bool)
-    rows, err := db.Query("SELECT version FROM schema_migrations WHERE success = 1")
-    if err != nil {
-        return err
-    }
-    defer rows.Close()
-    for rows.Next() {
-        var v string
-        rows.Scan(&v)
-        applied[v] = true
-    }
-    
-    // Load and apply pending migrations
-    migrations, err := db.loadMigrations(dir)
-    if err != nil {
-        return err
-    }
-    
-    for _, m := range migrations {
-        if applied[m.Version] {
-            continue // Already applied
-        }
-        
-        log.Printf("Applying migration %s: %s", m.Version, m.Description)
-        
-        tx, err := db.Begin()
-        if err != nil {
-            return err
-        }
-        if _, err := tx.Exec(m.UpSQL); err != nil {
-            tx.Rollback()
-            // Migration failed; rollback is sufficient to indicate failure.
-            return fmt.Errorf("migration %s failed: %w", m.Version, err)
-        }
-        
-        // Record success
-        if _, err := tx.Exec(`INSERT INTO schema_migrations (version, applied_at, description, checksum, success) 
-                 VALUES (?, ?, ?, ?, 1)`, m.Version, time.Now().Unix(), m.Description, m.Checksum); err != nil {
-            tx.Rollback()
-            return fmt.Errorf("failed to record migration %s in metadata table: %w", m.Version, err)
-        }
-        if err := tx.Commit(); err != nil {
-            return fmt.Errorf("failed to commit migration %s: %w", m.Version, err)
-        }
-    
-    return nil
-}
-
-func (db *DB) Rollback(targetVersion string) error {
-    // Implementation: Load migrations, apply down scripts in reverse order
-    // Similar structure to ApplyMigrations but in reverse
-}
-
-func (db *DB) CurrentVersion() (string, error) {
-    var version string
-    err := db.QueryRow(`SELECT version FROM schema_migrations 
-                        WHERE success = 1 ORDER BY version DESC LIMIT 1`).Scan(&version)
-    return version, err
-}
-```
-
-**Pros:**
-- ✅ Minimal dependencies (zero external libraries)
-- ✅ Tailored to exact needs (no feature bloat)
-- ✅ Full control over behavior
-- ✅ Can keep existing file naming convention
-- ✅ Easy to understand and modify (~200 LOC)
-- ✅ No binary size increase
-- ✅ Learning opportunity for team
-
-**Cons:**
-- ❌ Need to write and test from scratch
-- ❌ No community support/examples
-- ❌ Need to handle edge cases ourselves
-- ❌ Still need to create `.down.sql` files for rollbacks
-- ❌ Maintenance burden on team
-
-**Integration effort**: High
-- Write `internal/db/migrate.go` (~200 lines)
-- Add CLI commands
-- Write comprehensive tests
-- Document behavior
-- Handle edge cases (dirty migrations, checksums, etc.)
-
-**Recommendation**: ⭐⭐⭐ (3/5)  
-Best for learning and full control, but higher risk and maintenance burden.
-
----
-
-### Option 4: Shell Script + SQLite Pragmas
-
-**Overview**: Minimal shell-based migration runner using SQLite's built-in features.
-
-**File structure:**
-```
-data/migrations/
-├── 20250826_rename_tables_column.sql
-├── 20250826_rename_tables_column.down.sql
-scripts/
-├── migrate-up.sh
-├── migrate-down.sh
-└── migrate-status.sh
-```
-
-**Implementation**: `scripts/migrate-up.sh`
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-DB_PATH="${1:-/var/lib/velocity-report/sensor_data.db}"
-MIGRATIONS_DIR="$(dirname "$0")/../data/migrations"
-
-# Create migrations table if not exists
-sqlite3 "$DB_PATH" <<SQL
-CREATE TABLE IF NOT EXISTS schema_migrations (
-    version TEXT PRIMARY KEY,
-    applied_at INTEGER NOT NULL,
-    description TEXT
-);
-SQL
-
-# Get applied migrations
-APPLIED=$(sqlite3 "$DB_PATH" "SELECT version FROM schema_migrations ORDER BY version")
-
-# Apply pending migrations
-for migration in "$MIGRATIONS_DIR"/*.sql; do
-    [[ "$migration" == *.down.sql ]] && continue
-    
-    VERSION=$(basename "$migration" | cut -d_ -f1)
-    DESC=$(basename "$migration" .sql | cut -d_ -f2-)
-    
-    if echo "$APPLIED" | grep -q "^$VERSION$"; then
-        echo "⏭ Skipping $VERSION (already applied)"
-        continue
-    fi
-    
-    echo "▶ Applying $VERSION: $DESC"
-    
-    # Apply migration SQL
-    sqlite3 "$DB_PATH" <<SQL
-BEGIN TRANSACTION;
-$(cat "$migration")
-COMMIT;
-SQL
-
-    # Record migration metadata securely using parameter binding
-    sqlite3 "$DB_PATH" "INSERT INTO schema_migrations (version, applied_at, description) VALUES (?, strftime('%s', 'now'), ?);" "$VERSION" "$DESC"
-    
-    if [ $? -eq 0 ]; then
-        echo "✓ Migration $VERSION applied successfully"
-    else
-        echo "✗ Migration $VERSION failed"
-        exit 1
-    fi
-done
-
-echo "✓ All migrations applied"
-```
-
-**Pros:**
-- ✅ Zero dependencies (shell + sqlite3)
-- ✅ Extremely simple to understand
-- ✅ No binary changes needed
-- ✅ Easy to debug (plain SQL and bash)
-- ✅ Works anywhere (Raspberry Pi, CI, local)
-- ✅ Can run manually or from systemd
-
-**Cons:**
-- ❌ No integration with Go code
-- ❌ No checksum validation
-- ❌ Limited error handling
-- ❌ Hard to test migrations in Go unit tests
-- ❌ No automatic rollback (must run down scripts manually)
-- ❌ Bash-specific (Windows compatibility issues)
-
-**Integration effort**: Low
-- Write 3 shell scripts (~150 lines total)
-- Create `.down.sql` files for existing migrations
-- Update documentation
-- Add to Makefile targets
-
-**Recommendation**: ⭐⭐⭐ (3/5)  
-Good for quick MVP, but limited features and hard to integrate with Go application lifecycle.
-
----
-
-### Option 5: Python Migration Tool (Custom)
-
-**Overview**: Python-based migration runner that can be used by PDF generator and as standalone tool.
-
-**Why Python?**
-- PDF generator already has SQLite access
-- Python is available on all deployment environments
-- Simple scripting for file I/O and SQL execution
-
-**File structure:**
-```
-tools/db-migrate/
-├── migrate.py
-├── __init__.py
-└── README.md
-```
-
-**Implementation**: `tools/db-migrate/migrate.py`
-```python
-#!/usr/bin/env python3
-import sqlite3
-import hashlib
-import sys
-from pathlib import Path
-from datetime import datetime
-
-class MigrationRunner:
-    def __init__(self, db_path, migrations_dir):
-        self.db_path = Path(db_path)
-        self.migrations_dir = Path(migrations_dir)
-        self.conn = sqlite3.connect(db_path)
-        self._ensure_migrations_table()
-    
-    def __enter__(self):
-        return self
-    
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
-    
-    def close(self):
-        if self.conn:
-            self.conn.close()
-            self.conn = None
-    def _ensure_migrations_table(self):
-        self.conn.execute("""
-            CREATE TABLE IF NOT EXISTS schema_migrations (
-                version TEXT PRIMARY KEY,
-                applied_at INTEGER NOT NULL,
-                description TEXT,
-                checksum TEXT
-            )
-        """)
-        self.conn.commit()
-    
-    def get_applied_migrations(self):
-        cursor = self.conn.execute("SELECT version FROM schema_migrations ORDER BY version")
-        return {row[0] for row in cursor}
-    
-    def load_migrations(self):
-        migrations = []
-        for f in sorted(self.migrations_dir.glob("*.sql")):
-            if f.name.endswith(".down.sql"):
-                continue
-            
-            version = f.name.split("_")[0]
-            desc = "_".join(f.name.split("_")[1:]).replace(".sql", "")
-            up_sql = f.read_text()
-            
-            down_file = f.with_suffix("").with_suffix(".down.sql")
-            down_sql = down_file.read_text() if down_file.exists() else None
-            
-            checksum = hashlib.sha256(up_sql.encode()).hexdigest()
-            
-            migrations.append({
-                "version": version,
-                "description": desc,
-                "up_sql": up_sql,
-                "down_sql": down_sql,
-                "checksum": checksum,
-            })
-        
-        return sorted(migrations, key=lambda m: m["version"])
-    
-    def apply_migrations(self):
-        applied = self.get_applied_migrations()
-        migrations = self.load_migrations()
-        
-        for m in migrations:
-            if m["version"] in applied:
-                print(f"⏭ Skipping {m['version']} (already applied)")
-                continue
-            
-            print(f"▶ Applying {m['version']}: {m['description']}")
-            
-            try:
-                cursor = self.conn.cursor()
-                cursor.execute("BEGIN")
-                cursor.executescript(m["up_sql"])
-                cursor.execute(
-                    "INSERT INTO schema_migrations (version, applied_at, description, checksum) VALUES (?, ?, ?, ?)",
-                    (m["version"], int(datetime.now().timestamp()), m["description"], m["checksum"])
-                )
-                cursor.execute("COMMIT")
-                print(f"✓ Migration {m['version']} applied successfully")
-            except Exception as e:
-                self.conn.rollback()
-                print(f"✗ Migration {m['version']} failed: {e}")
-                return False
-        
-        print("✓ All migrations applied")
-        return True
-    
-    def current_version(self):
-        cursor = self.conn.execute("SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1")
-        row = cursor.fetchone()
-        return row[0] if row else None
-
-if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser(description="Database migration tool")
-    parser.add_argument("--db", default="/var/lib/velocity-report/sensor_data.db", help="Database path")
-    parser.add_argument("--migrations", default="data/migrations", help="Migrations directory")
-    parser.add_argument("command", choices=["up", "status"], help="Command to run")
-    args = parser.parse_args()
-    
-    runner = MigrationRunner(args.db, args.migrations)
-    
-    if args.command == "up":
-        runner.apply_migrations()
-    elif args.command == "status":
-        version = runner.current_version()
-        print(f"Current version: {version or 'none'}")
-```
-
-**Usage:**
-```bash
-python tools/db-migrate/migrate.py --db sensor_data.db up
-python tools/db-migrate/migrate.py --db sensor_data.db status
-```
-
-**Pros:**
-- ✅ Python already available on all systems
-- ✅ Easy to integrate with PDF generator
-- ✅ Simple, readable code (~150 lines)
-- ✅ Cross-platform (Windows, macOS, Linux)
-- ✅ No Go dependencies needed
-- ✅ Can use from virtual environment
-
-**Cons:**
-- ❌ Not integrated with Go server startup
-- ❌ Requires Python to be installed/configured
-- ❌ Separate tool from main binary
-- ❌ Can't easily call from Go unit tests
-- ❌ Another language/ecosystem to maintain
-
-**Integration effort**: Low-Medium
-- Write Python migration tool (~150 lines)
-- Add to Makefile targets
-- Create `.down.sql` files
-- Update documentation
-
-**Recommendation**: ⭐⭐⭐ (3/5)  
-Good if Python is already a first-class citizen. Reasonable for mixed Go/Python codebase.
-
-## Recommended Approach
-
-### SQLite as First-Class Concern
-
-**Critical Requirement**: Any migration framework must have first-class SQLite support, not just "supports multiple databases including SQLite."
-
-**Both golang-migrate and goose meet this requirement:**
-
-| Criterion | golang-migrate | goose |
-|-----------|---------------|-------|
-| SQLite Documentation | Dedicated driver docs | Prominent in examples |
-| CLI Support | ✅ `migrate -database sqlite://` | ✅ `goose sqlite3` |
-| Driver Type | ✅ Pure-Go (`modernc.org/sqlite`) | ⚠️ Typically CGO (`mattn/go-sqlite3`) |
-| Production Usage | ✅ Widely used | ✅ Well-established |
-| Transaction Handling | ✅ Auto-wraps migrations | ✅ Standard SQL transactions |
-| Caveats/TODOs | None for pure-Go driver | None |
-
-Both are suitable for velocity.report's SQLite-only architecture.
-
-### Primary Recommendation: **Option 1 - golang-migrate/migrate**
-
-**Why golang-migrate?**
-
-1. **Separate up/down files for manual execution** (per user requirement)
-   - Each migration has distinct `.up.sql` and `.down.sql` files
-   - Can run migrations manually with `sqlite3` command-line tool without framework
-   - Clear separation makes rollback operations explicit
-   - No special markers or syntax in SQL files—pure SQL
-
-2. **Pure-Go SQLite support (no CGO)**
-   - **Uses `modernc.org/sqlite` via `database/sqlite` driver**
-   - **Matches existing codebase** (already uses `modernc.org/sqlite`)
-   - No CGO dependency = simpler cross-compilation for Raspberry Pi
-   - Automatic transaction wrapping per migration
-   - Configurable via `x-no-tx-wrap` parameter if needed
-   - Well-documented SQLite-specific behavior
-
-3. **Battle-tested and mature**
-   - Industry-standard solution used by thousands of projects
-   - Extensive community support and documentation
-   - Dirty state detection (failed migrations flagged)
-   - Force version capability for manual override
-
-4. **Operational reliability**
-   - Clear file structure reduces confusion
-   - Manual fallback option important for production
-   - Pure SQL files can be version-controlled separately
-   - Emergency recovery via direct `sqlite3` execution
-
-**Trade-offs:**
-- ❌ Larger binary size (~2MB vs ~500KB for goose)
-- ❌ Requires renaming existing 6 migration files
-- ❌ More opinionated file naming convention (sequential numbers)
-
-**Why separate files matter**: As noted by project maintainer, separate `.up.sql` and `.down.sql` files can be run directly without the framework if needed—critical for emergency scenarios and production debugging.
-
-### Alternative Recommendation: **Option 2 - pressly/goose** (If binary size is critical)
-
-**Also excellent SQLite support**, choose if:
-- Binary size is a critical constraint for Raspberry Pi (~1.5MB smaller)
-- Combined up/down in single file is acceptable
-- Flexible file naming (supports custom patterns like YYYYMMDD)
-- Team is comfortable with marker syntax (`-- +goose Up/Down`)
-
-**Note**: goose files with markers can still be run manually, but requires editing out markers or running entire file (both up and down sections execute).
-
-### Implementation Roadmap (golang-migrate)
+### Trade-offs
+
+**Costs:**
+- Requires renaming existing 6 migration files to sequential format
+- Adds ~2MB to binary size
+- More opinionated file naming (sequential numbers)
+
+**Benefits:**
+- Separate files can be run manually (critical for emergency recovery)
+- Pure-Go implementation matches existing codebase
+- Industry-standard with extensive community support
+- Well-documented SQLite-specific behavior
 
 #### Phase 1: Foundation (Week 1)
 
@@ -1021,10 +414,12 @@ DROP TABLE IF EXISTS site;
 ```sql
 CREATE TABLE IF NOT EXISTS schema_migrations (
     version INTEGER NOT NULL,
-    dirty bool NOT NULL
+    dirty INTEGER NOT NULL  -- Boolean: 0=false, 1=true
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS version_unique ON schema_migrations (version);
+
+**Note**: SQLite stores these as INTEGER types. The `dirty` field uses 0 for false and 1 for true.
 **Field descriptions:**
 - `version`: Migration version number (e.g., 000001, 000002)
 - `dirty`: Boolean flag indicating if a migration failed mid-execution
@@ -1093,6 +488,7 @@ func TestMigrations_UpDown(t *testing.T) {
     }
     
     // Check version (should be 6 after applying all 6 existing migrations)
+    // Note: This assumes 1:1 mapping of existing migrations to sequential versions (1-6).
     version, dirty, _ := m.Version()
     if version != 6 {
         t.Errorf("expected version 6, got %d", version)
@@ -1308,27 +704,6 @@ jobs:
 5. **Performance profiling**: Track migration execution time trends
 6. **Notifications**: Slack/email on migration events (careful: privacy!)
 
-## Appendix A: Comparison Matrix
-
-| Feature | golang-migrate | goose | Custom Go | Shell Script | Python |
-|---------|---------------|-------|-----------|--------------|--------|
-| **SQLite Support** | ✅ First-class | ✅ First-class | ✅ Custom | ✅ Native | ✅ Native |
-| **Separate Up/Down Files** | ✅ Yes | ❌ Single file | ✅ Configurable | ✅ Yes | ✅ Yes |
-| **Manual Execution** | ✅ Pure SQL | ⚠️ Needs markers | ✅ Pure SQL | ✅ Pure SQL | ✅ Pure SQL |
-| Binary Size Impact | +2MB | +500KB | +0KB | +0KB | N/A |
-| Setup Complexity | Medium | Low | High | Very Low | Low |
-| Maintenance Burden | Low | Low | High | Medium | Medium |
-| Community Support | High | Medium | None | Low | Low |
-| Up/Down Migrations | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Dirty State Detection | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Embedded Migrations | ✅ | ✅ | ✅ | ❌ | ❌ |
-| CLI Tool | ✅ | ✅ | Custom | ✅ | ✅ |
-| Go Library | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Checksum Validation | ✅ | ✅ | Custom | ❌ | ✅ |
-| Cross-Platform | ✅ | ✅ | ✅ | ⚠️ | ✅ |
-| Learning Curve | Low | Low | High | Very Low | Low |
-| **Recommendation** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ |
-
 ## Appendix B: Example Migration Workflows
 
 ### Workflow 1: Add New Table
@@ -1507,7 +882,11 @@ error: Dirty database version 7. Fix and force version.
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: November 10, 2025  
-**Review Date**: December 10, 2025  
+**Document Version**: 2.0  
+**Last Updated**: November 13, 2025  
+**Review Date**: December 13, 2025  
 **Approvers**: [TBD]
+
+**Changelog**:
+- v2.0 (Nov 13, 2025): Streamlined to focus solely on golang-migrate solution; removed alternative options
+- v1.0 (Nov 10, 2025): Initial version with multiple solution options
