@@ -35,12 +35,6 @@ echo "Repository: $(git rev-parse --show-toplevel)"
 echo "Current branch: $(git rev-parse --abbrev-ref HEAD)"
 echo ""
 
-{
-  echo "=========================================="
-  echo "LOCAL BRANCH ANALYSIS"
-  echo "=========================================="
-  echo ""
-
 # Get all local branches (remove leading * for current branch)
 branches=$(git branch --list | sed 's/^\* //' | sed 's/^  //')
 if [ -z "$branches" ]; then
@@ -49,6 +43,11 @@ if [ -z "$branches" ]; then
 fi
 
 {
+  echo "=========================================="
+  echo "LOCAL BRANCH ANALYSIS"
+  echo "=========================================="
+  echo ""
+
   total_branches=$(echo "$branches" | wc -l)
   echo "Total local branches: $total_branches"
   echo ""
@@ -72,11 +71,11 @@ fi
     # Get log with oneline format for commits unique to this branch and extract [tags]
     if [ "$commit_count" -gt 0 ]; then
       echo "Unique commits:"
-      git log --oneline "$branch" --not "$main_ref" 2>/dev/null | while IFS= read -r line; do
+      while IFS= read -r line; do
         echo "  $line"
 
         # Extract all [TAG]s from the commit message
-        tags=$(echo "$line" | grep -oE '\[[a-zA-Z0-9_-]+\]')
+        tags=$(echo "$line" | grep -oE '\[[a-zA-Z0-9_-]+\]' || true)
         if [ -n "$tags" ]; then
           for tag in $tags; do
             # Remove brackets
@@ -87,15 +86,16 @@ fi
           # Track commits without tags
           echo "no-tag" >> "$TEMP_NO_TAGS"
         fi
-      done
+      done < <(git log --oneline "$branch" --not "$main_ref" 2>/dev/null)
     else
       echo "No unique commits (branch matches $main_ref)"
     fi
 
     echo ""
   done <<< "$branches"
+} > "$ANALYSIS_LOG"
 
-} | tee "$ANALYSIS_LOG"
+echo "Analyzed $total_branches branches → $ANALYSIS_LOG"
 
 echo ""
 echo "=========================================="
