@@ -41,13 +41,14 @@ echo ""
   echo "=========================================="
   echo ""
 
-  # Get all local branches (remove leading * for current branch)
-  branches=$(git branch --list | sed 's/^\* //' | sed 's/^  //')
-    if [ -z "$branches" ]; then
-    echo "No local branches found."
-    exit 0
-  fi
+# Get all local branches (remove leading * for current branch)
+branches=$(git branch --list | sed 's/^\* //' | sed 's/^  //')
+if [ -z "$branches" ]; then
+  echo "No local branches found."
+  exit 0
+fi
 
+{
   total_branches=$(echo "$branches" | wc -l)
   echo "Total local branches: $total_branches"
   echo ""
@@ -74,10 +75,14 @@ echo ""
       git log --oneline "$branch" --not "$main_ref" 2>/dev/null | while IFS= read -r line; do
         echo "  $line"
 
-        # Extract [TAG] from the beginning of commit message
-        if [[ $line =~ \[([a-zA-Z0-9_-]+)\] ]]; then
-          tag="${BASH_REMATCH[1]}"
-          echo "$tag" >> "$TEMP_PREFIXES"
+        # Extract all [TAG]s from the commit message
+        tags=$(echo "$line" | grep -oE '\[[a-zA-Z0-9_-]+\]')
+        if [ -n "$tags" ]; then
+          for tag in $tags; do
+            # Remove brackets
+            clean_tag=$(echo "$tag" | sed 's/^\[\(.*\)\]$/\1/')
+            echo "$clean_tag" >> "$TEMP_PREFIXES"
+          done
         else
           # Track commits without tags
           echo "no-tag" >> "$TEMP_NO_TAGS"
@@ -123,22 +128,12 @@ echo ""
         tagged_count=$(wc -l < "$TEMP_PREFIXES" 2>/dev/null || echo "0")
         untagged_count=$((total_commits - tagged_count))
         printf "  %5d | [NO TAG]\n" "$untagged_count"
-      fi
-    fi
-
-    echo ""
-    echo "Total prefix occurrences: $(wc -l < "$TEMP_PREFIXES")"
-    echo "Unique prefixes: $(sort -u "$TEMP_PREFIXES" | wc -l)"
-
-    # Calculate and display percentage breakdown
-    if [ -f "$ANALYSIS_LOG" ]; then
-      total_commits=$(grep -c "^  [a-f0-9]" "$ANALYSIS_LOG" 2>/dev/null || echo "0")
-      if [ "$total_commits" -gt 0 ]; then
-        tagged_count=$(wc -l < "$TEMP_PREFIXES" 2>/dev/null || echo "0")
-        untagged_count=$((total_commits - tagged_count))
         # Calculate percentages with one decimal place using awk
         tagged_pct=$(awk "BEGIN {printf \"%.2f\", ($tagged_count / $total_commits) * 100}")
         untagged_pct=$(awk "BEGIN {printf \"%.2f\", ($untagged_count / $total_commits) * 100}")
+        echo ""
+        echo "Total prefix occurrences: $(wc -l < "$TEMP_PREFIXES")"
+        echo "Unique prefixes: $(sort -u "$TEMP_PREFIXES" | wc -l)"
         echo "Distribution: $tagged_pct% with tag / $untagged_pct% without tag"
       fi
     fi
@@ -157,10 +152,12 @@ echo ""
     origin_url=$(git config --get remote.origin.url)
 
     # Extract owner and repo from both https and ssh URLs
-    owner=$(echo "$origin_url" | sed -E 's|.*/([^/]+)/[^/]+\.git$|\1|')
-    repo=$(echo "$origin_url" | sed -E 's|.*/([^/]+)\.git$|\1|')
+    owner=$(echo "$origin_url" | sed -E 's|.*[:/]{1}([^/]+)/[^/]+\.git$|\1|')
+    repo=$(echo "$origin_url" | sed -E 's|.*[:/]{1}[^/]+/([^/]+)\.git$|\1|;s|.*[:/]{1}([^/]+)\.git$|\1|')
 
-    if [ -n "$owner" ] && [ -n "$repo" ] && [[ "$origin_url" == *"github.com"* ]]; then      echo "Detected: github.com/$owner/$repo"
+    if [ -n "$owner" ] && [ -n "$repo" ] && [[ "$origin_url" == *"github.com"* ]]
+    then
+      echo "Detected: github.com/$owner/$repo"
       echo ""
       echo "NOTE: To fetch deleted PR branches, you would need:"
       echo "  1. GitHub CLI (gh) installed"
