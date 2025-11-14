@@ -102,11 +102,11 @@ Optional detailed explanation if needed.
 **Notes:**
 
 - Use lowercase prefix abbreviations in square brackets
-- Multiple tags are acceptable (separated by spaces) when a single commit affects multiple languages/systems
+- Multiple tags are acceptable when a single commit affects multiple languages/systems
 - **For AI edits:** Always include `[ai]` tag in addition to language-specific tags (e.g., `[ai][go]`, not just `[ai]`)
 - Preferred: Split multi-language changes into separate language-specific commits to minimize multi-tag usage
 - `[md]` is deprecated in favor of `[docs]` for documentation files
-- Human edits: use language-specific prefix(es) only (e.g., `[go]`, `[js]`, `[go] [js]`)
+- Human edits: use language-specific prefix(es) only (e.g., `[go]`, `[js]`, `[go][js]`)
 - AI edits: always include `[ai]` prefix along with language tag(s) to distinguish from human-authored commits
 - `[sed]` is used for find-and-replace operations across multiple files, not for individual file edits
 
@@ -166,7 +166,7 @@ make dev-docs                 # Start docs dev server
 velocity.report/
 ├── cmd/                      # Go CLI applications
 │   ├── radar/                # Radar sensor integration
-│   ├── sweep/             # Background sweep utilities
+│   ├── sweep/                # Background sweep utilities
 │   └── tools/                # Go utility tools
 ├── internal/                 # Go server internals (private packages)
 │   ├── api/                  # HTTP API endpoints
