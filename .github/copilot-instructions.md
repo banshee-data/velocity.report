@@ -103,11 +103,10 @@ Optional detailed explanation if needed.
 
 - Use lowercase prefix abbreviations in square brackets
 - Multiple tags are acceptable when a single commit affects multiple languages/systems
-- **For AI edits:** Always include `[ai]` tag in addition to language-specific tags (e.g., `[ai][go]`, not just `[ai]`)
+- **For AI edits:** Always include the `[ai]` tag in addition to language-specific tags (e.g., `[ai][go]`, not just `[ai]`) to distinguish AI-generated commits from human-authored ones.
 - Preferred: Split multi-language changes into separate language-specific commits to minimize multi-tag usage
 - `[md]` is deprecated in favor of `[docs]` for documentation files
 - Human edits: use language-specific prefix(es) only (e.g., `[go]`, `[js]`, `[go][js]`)
-- AI edits: always include `[ai]` prefix along with language tag(s) to distinguish from human-authored commits
 - `[sed]` is used for find-and-replace operations across multiple files, not for individual file edits
 
 ## Setup and Build
