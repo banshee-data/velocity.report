@@ -128,7 +128,7 @@ echo ""
         tagged_count=$(wc -l < "$TEMP_PREFIXES" 2>/dev/null || echo "0")
         untagged_count=$((total_commits - tagged_count))
         printf "  %5d | [NO TAG]\n" "$untagged_count"
-        # Calculate percentages with one decimal place using awk
+        # Calculate percentages with two decimal places using awk
         tagged_pct=$(awk "BEGIN {printf \"%.2f\", ($tagged_count / $total_commits) * 100}")
         untagged_pct=$(awk "BEGIN {printf \"%.2f\", ($untagged_count / $total_commits) * 100}")
         echo ""
