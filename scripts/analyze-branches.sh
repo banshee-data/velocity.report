@@ -24,8 +24,9 @@ ANALYSIS_LOG="branch-analysis-${TIMESTAMP}.log"
 SUMMARY_LOG="branch-analysis-summary.log"
 TEMP_PREFIXES=$(mktemp)
 TEMP_NO_TAGS=$(mktemp)
+TEMP_TAGGED_COMMITS=$(mktemp)
 
-trap "rm -f $TEMP_PREFIXES $TEMP_NO_TAGS" EXIT
+trap "rm -f $TEMP_PREFIXES $TEMP_NO_TAGS $TEMP_TAGGED_COMMITS" EXIT
 
 echo "=========================================="
 echo "Git Branch Analysis"
@@ -77,6 +78,8 @@ fi
         # Extract all [TAG]s from the commit message
         tags=$(echo "$line" | grep -oE '\[[a-zA-Z0-9_-]+\]' || true)
         if [ -n "$tags" ]; then
+          # Track this commit as having at least one tag
+          echo "1" >> "$TEMP_TAGGED_COMMITS"
           for tag in $tags; do
             # Remove brackets
             clean_tag=$(echo "$tag" | sed 's/^\[\(.*\)\]$/\1/')
@@ -122,18 +125,21 @@ echo ""
       awk '{ printf "  %5d | %s\n", $1, $2 }'
 
     # Add [NO TAG] count to the table using TEMP_NO_TAGS
-    tagged_count=$(wc -l < "$TEMP_PREFIXES" 2>/dev/null || echo "0")
-    untagged_count=$(wc -l < "$TEMP_NO_TAGS" 2>/dev/null || echo "0")
-    total_commits=$((tagged_count + untagged_count))
+    tag_occurrences=$(wc -l < "$TEMP_PREFIXES" 2>/dev/null || echo "0")
+    tagged_commits=$(wc -l < "$TEMP_TAGGED_COMMITS" 2>/dev/null || echo "0")
+    untagged_commits=$(wc -l < "$TEMP_NO_TAGS" 2>/dev/null || echo "0")
+    total_commits=$((tagged_commits + untagged_commits))
 
     if [ "$total_commits" -gt 0 ]; then
-      printf "  %5d | [NO TAG]\n" "$untagged_count"
+      printf "  %5d | [NO TAG]\n" "$untagged_commits"
       # Calculate percentages with two decimal places using awk
-      tagged_pct=$(awk "BEGIN {printf \"%.2f\", ($tagged_count / $total_commits) * 100}")
-      untagged_pct=$(awk "BEGIN {printf \"%.2f\", ($untagged_count / $total_commits) * 100}")
+      tagged_pct=$(awk "BEGIN {printf \"%.2f\", ($tagged_commits / $total_commits) * 100}")
+      untagged_pct=$(awk "BEGIN {printf \"%.2f\", ($untagged_commits / $total_commits) * 100}")
       echo ""
-      echo "Total prefix occurrences: $tagged_count"
-      echo "Unique prefixes: $(sort -u "$TEMP_PREFIXES" | wc -l)"
+      echo "Total tag occurrences: $tag_occurrences"
+      echo "Unique tag types: $(sort -u "$TEMP_PREFIXES" | wc -l)"
+      echo "Commits with tags: $tagged_commits"
+      echo "Commits without tags: $untagged_commits"
       echo "Total commits analyzed: $total_commits"
       echo "Distribution: $tagged_pct% with tag / $untagged_pct% without tag"
     fi
