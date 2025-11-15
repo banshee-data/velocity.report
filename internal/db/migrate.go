@@ -206,3 +206,89 @@ func (db *DB) GetMigrationStatus(migrationsDir string) (map[string]interface{}, 
 
 	return status, nil
 }
+
+// GetLatestMigrationVersion returns the latest available migration version
+// by scanning the migrations directory.
+func GetLatestMigrationVersion(migrationsDir string) (uint, error) {
+	absPath, err := filepath.Abs(migrationsDir)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	// Read the migrations directory
+	entries, err := filepath.Glob(filepath.Join(absPath, "*.up.sql"))
+	if err != nil {
+		return 0, fmt.Errorf("failed to read migrations directory: %w", err)
+	}
+
+	if len(entries) == 0 {
+		return 0, fmt.Errorf("no migration files found in %s", absPath)
+	}
+
+	// Parse version numbers from filenames
+	var maxVersion uint
+	for _, entry := range entries {
+		var version uint
+		filename := filepath.Base(entry)
+		// Migration files follow format: 000001_name.up.sql
+		if _, err := fmt.Sscanf(filename, "%d_", &version); err == nil {
+			if version > maxVersion {
+				maxVersion = version
+			}
+		}
+	}
+
+	if maxVersion == 0 {
+		return 0, fmt.Errorf("could not determine latest migration version")
+	}
+
+	return maxVersion, nil
+}
+
+// CheckAndPromptMigrations checks if the database version differs from the latest
+// available migration version. If they differ, it prompts the user to apply migrations.
+// Returns true if migrations were needed but not applied (should exit), false otherwise.
+func (db *DB) CheckAndPromptMigrations(migrationsDir string) (bool, error) {
+	// Get current database version
+	currentVersion, dirty, err := db.MigrateVersion(migrationsDir)
+	if err != nil && !errors.Is(err, migrate.ErrNilVersion) {
+		return false, fmt.Errorf("failed to get current migration version: %w", err)
+	}
+
+	// Get latest available migration version
+	latestVersion, err := GetLatestMigrationVersion(migrationsDir)
+	if err != nil {
+		return false, fmt.Errorf("failed to get latest migration version: %w", err)
+	}
+
+	// If versions match, no action needed
+	if currentVersion == latestVersion && !dirty {
+		return false, nil
+	}
+
+	// If database is dirty, report error
+	if dirty {
+		return true, fmt.Errorf("database is in a dirty state (version %d). Run 'velocity-report migrate status' to diagnose", currentVersion)
+	}
+
+	// If current version is ahead, that's an error
+	if currentVersion > latestVersion {
+		return true, fmt.Errorf("database version (%d) is ahead of latest migration (%d). This should not happen", currentVersion, latestVersion)
+	}
+
+	// Migrations are available but not applied
+	log.Printf("⚠️  Database schema version mismatch detected!")
+	log.Printf("   Current database version: %d", currentVersion)
+	log.Printf("   Latest available version: %d", latestVersion)
+	log.Printf("   Outstanding migrations: %d", latestVersion-currentVersion)
+	log.Printf("")
+	log.Printf("This database appears to be from a prior installation.")
+	log.Printf("To apply the outstanding migrations, run:")
+	log.Printf("   velocity-report migrate up")
+	log.Printf("")
+	log.Printf("To see migration status, run:")
+	log.Printf("   velocity-report migrate status")
+	log.Printf("")
+
+	return true, fmt.Errorf("database schema is out of date (version %d, need %d). Please run migrations", currentVersion, latestVersion)
+}

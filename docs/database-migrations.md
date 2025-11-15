@@ -50,6 +50,35 @@ When you create a new database, velocity.report automatically:
 
 **No manual migration needed for fresh installations!**
 
+## Automatic Migration Detection
+
+**New in this version:** When starting the application with an existing database, velocity.report automatically checks if the database schema version matches the latest available migration version.
+
+If a version mismatch is detected (e.g., when upgrading with a database from a prior installation):
+
+1. The application will **display a warning** with migration details
+2. The application will **exit with an error** message
+3. You'll be prompted to run `velocity-report migrate up` to apply outstanding migrations
+
+Example output:
+```
+⚠️  Database schema version mismatch detected!
+   Current database version: 3
+   Latest available version: 7
+   Outstanding migrations: 4
+
+This database appears to be from a prior installation.
+To apply the outstanding migrations, run:
+   velocity-report migrate up
+
+To see migration status, run:
+   velocity-report migrate status
+
+Error: database schema is out of date (version 3, need 7). Please run migrations
+```
+
+This ensures you never run the application with an outdated database schema.
+
 ## Existing Database Migration
 
 If you have an existing database that needs migration:

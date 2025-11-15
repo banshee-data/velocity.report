@@ -78,6 +78,12 @@ func (db *DB) ListRecentBgSnapshots(sensorID string, limit int) ([]*lidar.BgSnap
 var schemaSQL string
 
 func NewDB(path string) (*DB, error) {
+	return NewDBWithMigrationCheck(path, "./data/migrations", true)
+}
+
+// NewDBWithMigrationCheck opens a database and optionally checks for pending migrations.
+// If checkMigrations is true and migrations are pending, returns an error prompting user to run migrations.
+func NewDBWithMigrationCheck(path string, migrationsDir string, checkMigrations bool) (*DB, error) {
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		return nil, err
@@ -99,15 +105,22 @@ func NewDB(path string) (*DB, error) {
 		WHERE type='table' AND name='schema_migrations'
 	`).Scan(&tableExists)
 
+	dbWrapper := &DB{db}
+
 	if err == nil && !tableExists {
 		// Only baseline if schema_migrations doesn't exist (fresh database)
-		dbWrapper := &DB{db}
 		if err := dbWrapper.BaselineAtVersion(7); err != nil {
 			log.Printf("Warning: failed to baseline database: %v", err)
 		}
+	} else if checkMigrations && tableExists {
+		// Database exists with migration history - check if migrations are needed
+		shouldExit, err := dbWrapper.CheckAndPromptMigrations(migrationsDir)
+		if shouldExit {
+			return nil, err
+		}
 	}
 
-	return &DB{db}, nil
+	return dbWrapper, nil
 }
 
 // OpenDB opens a database connection without running schema initialization.
