@@ -537,6 +537,7 @@ def assemble_pdf_report(
     granular_metrics: List,
     histogram: Optional[dict],
     config: ReportConfig,
+    client: RadarStatsClient,
 ) -> bool:
     """Assemble complete PDF report.
 
@@ -549,6 +550,7 @@ def assemble_pdf_report(
         granular_metrics: Granular metrics
         histogram: Histogram data (or None)
         config: Report configuration
+        client: API client instance for fetching additional data
 
     Returns:
         True if PDF was generated successfully
@@ -560,6 +562,24 @@ def assemble_pdf_report(
     )
     tz_display = config.query.timezone or "UTC"
     pdf_path = f"{prefix}_report.pdf"
+
+    # Fetch speed limit schedules if we have a site ID
+    speed_limit_schedules = None
+    try:
+        # Check if we have a site ID in the config
+        site_id = getattr(config.site, 'site_id', None) or getattr(config.site, 'id', None)
+        if site_id:
+            try:
+                speed_limit_schedules = client.get_speed_limit_schedules(site_id)
+                if config.output.debug:
+                    print(f"DEBUG: fetched {len(speed_limit_schedules)} speed limit schedules for site {site_id}")
+            except Exception as e:
+                # Don't fail PDF generation if schedules can't be fetched
+                if config.output.debug:
+                    print(f"DEBUG: failed to fetch speed limit schedules: {e}")
+    except Exception:
+        # No site ID available, continue without schedules
+        pass
 
     try:
         # Debug: surface overall metrics presence to help diagnose missing speed values
@@ -602,6 +622,7 @@ def assemble_pdf_report(
             include_map=config.output.map,
             site_description=config.site.site_description,
             speed_limit_note=config.site.speed_limit_note,
+            speed_limit_schedules=speed_limit_schedules,
             surveyor=config.site.surveyor,
             contact=config.site.contact,
             cosine_error_angle=config.radar.cosine_error_angle,
@@ -888,6 +909,7 @@ def process_date_range(
         metrics,
         histogram,
         config,
+        client,
     )
 
     if report_generated:

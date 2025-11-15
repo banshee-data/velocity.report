@@ -34,3 +34,8 @@ app
 app-*
 mock_serial_port*
 coverage*
+
+# Test artifacts from PDF generator
+tools/pdf-generator/*.png
+tools/pdf-generator/*.pdf
+tools/pdf-generator/*.zip
