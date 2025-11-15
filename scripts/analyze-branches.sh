@@ -121,21 +121,21 @@ echo ""
     sort "$TEMP_PREFIXES" | uniq -c | sort -rn | \
       awk '{ printf "  %5d | %s\n", $1, $2 }'
 
-    # Add [NO TAG] count to the table
-    if [ -f "$ANALYSIS_LOG" ]; then
-      total_commits=$(grep -c "^  [0-9a-f]\{7\}" "$ANALYSIS_LOG" 2>/dev/null || echo "0")
-      if [ "$total_commits" -gt 0 ]; then
-        tagged_count=$(wc -l < "$TEMP_PREFIXES" 2>/dev/null || echo "0")
-        untagged_count=$((total_commits - tagged_count))
-        printf "  %5d | [NO TAG]\n" "$untagged_count"
-        # Calculate percentages with two decimal places using awk
-        tagged_pct=$(awk "BEGIN {printf \"%.2f\", ($tagged_count / $total_commits) * 100}")
-        untagged_pct=$(awk "BEGIN {printf \"%.2f\", ($untagged_count / $total_commits) * 100}")
-        echo ""
-        echo "Total prefix occurrences: $(wc -l < "$TEMP_PREFIXES")"
-        echo "Unique prefixes: $(sort -u "$TEMP_PREFIXES" | wc -l)"
-        echo "Distribution: $tagged_pct% with tag / $untagged_pct% without tag"
-      fi
+    # Add [NO TAG] count to the table using TEMP_NO_TAGS
+    tagged_count=$(wc -l < "$TEMP_PREFIXES" 2>/dev/null || echo "0")
+    untagged_count=$(wc -l < "$TEMP_NO_TAGS" 2>/dev/null || echo "0")
+    total_commits=$((tagged_count + untagged_count))
+
+    if [ "$total_commits" -gt 0 ]; then
+      printf "  %5d | [NO TAG]\n" "$untagged_count"
+      # Calculate percentages with two decimal places using awk
+      tagged_pct=$(awk "BEGIN {printf \"%.2f\", ($tagged_count / $total_commits) * 100}")
+      untagged_pct=$(awk "BEGIN {printf \"%.2f\", ($untagged_count / $total_commits) * 100}")
+      echo ""
+      echo "Total prefix occurrences: $tagged_count"
+      echo "Unique prefixes: $(sort -u "$TEMP_PREFIXES" | wc -l)"
+      echo "Total commits analyzed: $total_commits"
+      echo "Distribution: $tagged_pct% with tag / $untagged_pct% without tag"
     fi
   fi
 
