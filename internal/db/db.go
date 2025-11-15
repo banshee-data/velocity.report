@@ -98,7 +98,7 @@ func NewDB(path string) (*DB, error) {
 		FROM sqlite_master 
 		WHERE type='table' AND name='schema_migrations'
 	`).Scan(&tableExists)
-	
+
 	if err == nil && !tableExists {
 		// Only baseline if schema_migrations doesn't exist (fresh database)
 		dbWrapper := &DB{db}
