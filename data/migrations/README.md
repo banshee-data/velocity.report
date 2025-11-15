@@ -1,71 +1,186 @@
-# Local migrations for sensor data database
+# Database Migrations
 
-This folder contains SQL migration scripts intended to be applied directly
-against the local SQLite sensor database (commonly `sensor_data.db`). These
-migrations are intentionally simple SQL files so they can be applied without
-Docker or other tooling.
+This folder contains SQL migration scripts for the velocity.report SQLite database using [golang-migrate](https://github.com/golang-migrate/migrate).
 
-## Quick safety checklist
+## Migration System
 
-- Always make a backup before running a migration:
+**Status:** Active - Using golang-migrate for automated migration management
 
-  cp sensor_data.db sensor_data.db.bak
+Migrations are managed using golang-migrate with the pure-Go SQLite driver (`modernc.org/sqlite`). Each migration consists of two files:
 
-- Run the migration from the repository root:
+- `{version}_{description}.up.sql` - Forward migration
+- `{version}_{description}.down.sql` - Rollback migration
 
-  sqlite3 sensor_data.db < data/migrations/20250929_migrate_data_to_radar_data.sql
-
-If your SQLite file lives at a different path (for example in production `/var/lib/velocity-report/sensor_data.db`), substitute that path in the commands above. For example:
-
-```bash
-sqlite3 /var/lib/velocity-report/sensor_data.db < data/migrations/20250929_migrate_data_to_radar_data.sql
+Example:
+```
+000001_rename_tables_column.up.sql
+000001_rename_tables_column.down.sql
 ```
 
-Note: the radar binary accepts `--db-path /path/to/db` to point the server at a non-default DB file; migrations operate on the file you provide to sqlite3 and are independent of the running binary.
+## Using the Migration CLI
 
-- Inspect the database after migration and before deleting backups.
+The `velocity-report` binary includes built-in migration commands:
 
-## About PRAGMA and transactional behavior
+### Check Migration Status
+```bash
+velocity-report migrate status
+```
 
-SQLite supports running DDL inside transactions, but behaviour can vary with
-PRAGMA settings. The repository's canonical `internal/db/schema.sql` sets some
-PRAGMA values (WAL, busy_timeout, etc.). When running migrations by hand you
-may want to temporarily set WAL mode and a busy timeout to reduce contention.
+### Apply All Pending Migrations
+```bash
+velocity-report migrate up
+```
 
-Recommended sequence for a single-machine migration:
+### Rollback One Migration
+```bash
+velocity-report migrate down
+```
 
-1. Ensure no other process is writing to the DB (stop services that use it).
-2. Create a backup (see above).
-3. Optionally enable WAL and a larger busy timeout for long migrations:
+### Migrate to Specific Version
+```bash
+velocity-report migrate version 3
+```
 
-   sqlite3 sensor_data.db "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=10000;"
+### Force Version (Recovery)
+```bash
+# Use only to recover from failed migrations
+velocity-report migrate force 2
+```
 
-4. Run the migration SQL file(s):
+## Safety Checklist
 
-   sqlite3 sensor_data.db < data/migrations/20250929_migrate_data_to_radar_data.sql
+**Always before applying migrations:**
 
-5. Inspect results, then remove backup when satisfied.
+1. **Backup the database:**
+   ```bash
+   cp sensor_data.db sensor_data.db.$(date +%Y%m%d_%H%M%S)
+   ```
 
-## Baselining and migrate CLI
+2. **Stop the service** (if running in production):
+   ```bash
+   sudo systemctl stop velocity-report.service
+   ```
 
-If you later adopt a CLI migration tool (like golang-migrate) you can "baseline"
-the DB at the current schema version so the CLI won't try to re-apply previous
-changes. Baseline steps vary by tool; consult the tool's docs.
+3. **Apply migrations:**
+   ```bash
+   velocity-report migrate up
+   ```
 
-## Notes about this repository's migrations
+4. **Verify the migration:**
+   ```bash
+   velocity-report migrate status
+   sqlite3 sensor_data.db ".tables"
+   ```
 
-- Existing migration files in this folder follow the pattern `YYYYMMDD_...`.
-- The migration `20250929_migrate_data_to_radar_data.sql` migrates the legacy
-  `data` table into the newer `radar_data` schema by creating a new table,
-  copying data across (converting textual timestamps where present), renaming
-  the old table to `data_old`, and moving the new table into place.
-- The migration intentionally leaves `data_old` in place so you can verify
-  results before dropping it.
-- The migration `20251014_create_site_table.sql` creates the `site` table for
-  storing site-specific configurations including location, radar settings, and
-  contact information. It also creates an index on site.name, a trigger to
-  auto-update timestamps, and inserts a default site record.
+5. **Restart the service:**
+   ```bash
+   sudo systemctl start velocity-report.service
+   ```
 
-If you want me to add a tiny shell helper (e.g. `scripts/run-data-migration.sh`)
-that performs backup + migration + basic verification, tell me the desired
-name and I'll add it.
+## Migration History
+
+Current migrations (in order of application):
+
+1. **000001_rename_tables_column** - Rename legacy tables to new naming convention
+2. **000002_migrate_ro_to_unix_timestamp** - Convert radar_objects timestamps to UNIX epoch
+3. **000003_migrate_data_to_radar_data** - Migrate legacy data table to radar_data schema
+4. **000004_create_site_table** - Add site configuration table
+5. **000005_create_site_reports** - Add site_reports tracking table
+6. **000006_add_velocity_report_prefix** - Standardize report filename prefixes
+
+## Manual Migration (Advanced)
+
+Migrations can still be applied manually if needed:
+
+```bash
+# Apply a single up migration
+sqlite3 sensor_data.db < data/migrations/000001_rename_tables_column.up.sql
+
+# Apply a single down migration (rollback)
+sqlite3 sensor_data.db < data/migrations/000001_rename_tables_column.down.sql
+```
+
+**Note:** Manual application bypasses the migration tracking system. Use the CLI commands instead.
+
+## Baselining Existing Databases
+
+If you have an existing database that already has all migrations applied (through manual application), you can baseline it:
+
+```bash
+# Baseline at version 6 (assuming all 6 migrations are applied)
+velocity-report migrate baseline 6
+```
+
+This sets the migration version without re-running migrations.
+
+## Creating New Migrations
+
+When adding new migrations:
+
+1. **Determine next version number:**
+   ```bash
+   ls -1 data/migrations/*.up.sql | tail -1
+   # Look at the highest number, add 1
+   ```
+
+2. **Create both files:**
+   ```bash
+   touch data/migrations/000007_your_migration_name.up.sql
+   touch data/migrations/000007_your_migration_name.down.sql
+   ```
+
+3. **Write the SQL:**
+   - `.up.sql` - Forward migration (what changes)
+   - `.down.sql` - Rollback migration (how to undo)
+
+4. **Test thoroughly:**
+   ```bash
+   # Test up
+   velocity-report migrate up
+   
+   # Test down
+   velocity-report migrate down
+   
+   # Test up again (idempotency)
+   velocity-report migrate up
+   ```
+
+5. **Commit both files together**
+
+## Troubleshooting
+
+### "Dirty migration" error
+
+If a migration fails mid-execution:
+
+```bash
+# Check status
+velocity-report migrate status
+
+# Manually inspect database state
+sqlite3 sensor_data.db
+
+# Force to last known good version (use with caution)
+velocity-report migrate force 5
+```
+
+### Rollback not working
+
+Some migrations cannot be fully rolled back (e.g., data transformations with precision loss). Check the `.down.sql` file for warnings.
+
+### Schema drift
+
+If manual changes were made to the database:
+
+1. Create a new migration to formalize the change
+2. Or restore from backup and re-apply migrations
+
+## Legacy Migrations
+
+**Historical Note:** Original migrations used `YYYYMMDD_` format and have been converted to sequential `00000N_` format for golang-migrate compatibility. Original files are preserved with their date-based names for reference.
+
+## References
+
+- [golang-migrate documentation](https://github.com/golang-migrate/migrate)
+- [SQLite ALTER TABLE documentation](https://www.sqlite.org/lang_altertable.html)
+- [Design document](../../docs/database-migration-system-design.md)
