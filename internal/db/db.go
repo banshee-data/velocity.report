@@ -90,6 +90,34 @@ func NewDB(path string) (*DB, error) {
 
 	log.Println("ran database initialisation script")
 
+	// Baseline the database at version 6 since schema.sql includes all migrations up to v6
+	// Check if schema_migrations table exists first
+	var tableExists bool
+	err = db.QueryRow(`
+		SELECT COUNT(*) > 0 
+		FROM sqlite_master 
+		WHERE type='table' AND name='schema_migrations'
+	`).Scan(&tableExists)
+	
+	if err == nil && !tableExists {
+		// Only baseline if schema_migrations doesn't exist (fresh database)
+		dbWrapper := &DB{db}
+		if err := dbWrapper.BaselineAtVersion(6); err != nil {
+			log.Printf("Warning: failed to baseline database: %v", err)
+		}
+	}
+
+	return &DB{db}, nil
+}
+
+// OpenDB opens a database connection without running schema initialization.
+// This is useful for migration commands that manage schema independently.
+func OpenDB(path string) (*DB, error) {
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		return nil, err
+	}
+
 	return &DB{db}, nil
 }
 

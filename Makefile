@@ -38,6 +38,14 @@ help:
 	@echo "  test-python-cov      Run Python tests with coverage"
 	@echo "  test-web             Run web tests (Jest)"
 	@echo ""
+	@echo "DATABASE MIGRATIONS:"
+	@echo "  migrate-up           Apply all pending migrations"
+	@echo "  migrate-down         Rollback one migration"
+	@echo "  migrate-status       Show current migration status"
+	@echo "  migrate-version      Migrate to specific version (VERSION=N)"
+	@echo "  migrate-force        Force version (recovery, VERSION=N)"
+	@echo "  migrate-baseline     Set baseline version (VERSION=N)"
+	@echo ""
 	@echo "FORMATTING (mutating):"
 	@echo "  format               Format all code (Go + Python + Web)"
 	@echo "  format-go            Format Go code (gofmt)"
@@ -293,6 +301,56 @@ test-python-cov:
 test-web:
 	@echo "Running web (Jest) tests..."
 	@cd $(WEB_DIR) && pnpm run test:ci
+
+# =============================================================================
+# DATABASE MIGRATIONS
+# =============================================================================
+
+.PHONY: migrate-up migrate-down migrate-status migrate-version migrate-force migrate-baseline
+
+# Apply all pending migrations
+migrate-up:
+	@echo "Applying all pending migrations..."
+	@./app-radar migrate up
+
+# Rollback one migration
+migrate-down:
+	@echo "Rolling back one migration..."
+	@./app-radar migrate down
+
+# Show current migration status
+migrate-status:
+	@./app-radar migrate status
+
+# Migrate to a specific version (usage: make migrate-version VERSION=3)
+migrate-version:
+	@if [ -z "$(VERSION)" ]; then \
+		echo "Error: VERSION not specified"; \
+		echo "Usage: make migrate-version VERSION=3"; \
+		exit 1; \
+	fi
+	@echo "Migrating to version $(VERSION)..."
+	@./app-radar migrate version $(VERSION)
+
+# Force migration version (recovery only, usage: make migrate-force VERSION=2)
+migrate-force:
+	@if [ -z "$(VERSION)" ]; then \
+		echo "Error: VERSION not specified"; \
+		echo "Usage: make migrate-force VERSION=2"; \
+		exit 1; \
+	fi
+	@echo "Forcing migration version to $(VERSION)..."
+	@./app-radar migrate force $(VERSION)
+
+# Baseline database at version (usage: make migrate-baseline VERSION=6)
+migrate-baseline:
+	@if [ -z "$(VERSION)" ]; then \
+		echo "Error: VERSION not specified"; \
+		echo "Usage: make migrate-baseline VERSION=6"; \
+		exit 1; \
+	fi
+	@echo "Baselining database at version $(VERSION)..."
+	@./app-radar migrate baseline $(VERSION)
 
 # =============================================================================
 # FORMATTING (mutating)

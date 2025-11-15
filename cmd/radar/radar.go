@@ -69,6 +69,16 @@ const SCHEMA_VERSION = "0.0.2"
 func main() {
 	flag.Parse()
 
+	// Check if first argument is a subcommand
+	if flag.NArg() > 0 {
+		subcommand := flag.Arg(0)
+		if subcommand == "migrate" {
+			runMigrateCommand()
+			return
+		}
+		log.Fatalf("Unknown subcommand: %s", subcommand)
+	}
+
 	if *listen == "" {
 		log.Fatal("Listen address is required")
 	}
@@ -383,4 +393,162 @@ func main() {
 	// Wait for all goroutines to finish
 	wg.Wait()
 	log.Printf("Graceful shutdown complete")
+}
+
+// runMigrateCommand handles the 'migrate' subcommand
+func runMigrateCommand() {
+	if flag.NArg() < 2 {
+		printMigrateHelp()
+		os.Exit(1)
+	}
+
+	action := flag.Arg(1)
+	migrationsDir := "./data/migrations"
+
+	// Open database connection without running schema initialization
+	// (migrations will manage the schema)
+	database, err := db.OpenDB(*dbPathFlag)
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer database.Close()
+
+	switch action {
+	case "up":
+		log.Printf("Running migrations from %s...", migrationsDir)
+		if err := database.MigrateUp(migrationsDir); err != nil {
+			log.Fatalf("Migration up failed: %v", err)
+		}
+		log.Println("✓ All migrations applied successfully")
+
+		// Show current version
+		version, dirty, _ := database.MigrateVersion(migrationsDir)
+		log.Printf("Current version: %d (dirty: %v)", version, dirty)
+
+	case "down":
+		log.Printf("Rolling back one migration...")
+		if err := database.MigrateDown(migrationsDir); err != nil {
+			log.Fatalf("Migration down failed: %v", err)
+		}
+		log.Println("✓ Migration rolled back successfully")
+
+		// Show current version
+		version, dirty, _ := database.MigrateVersion(migrationsDir)
+		log.Printf("Current version: %d (dirty: %v)", version, dirty)
+
+	case "status":
+		version, dirty, err := database.MigrateVersion(migrationsDir)
+		if err != nil {
+			log.Fatalf("Failed to get migration status: %v", err)
+		}
+
+		status, err := database.GetMigrationStatus(migrationsDir)
+		if err != nil {
+			log.Fatalf("Failed to get migration status: %v", err)
+		}
+
+		fmt.Println("=== Migration Status ===")
+		fmt.Printf("Current version: %d\n", version)
+		fmt.Printf("Dirty: %v\n", dirty)
+		fmt.Printf("Schema migrations table exists: %v\n", status["schema_migrations_exists"])
+
+		if dirty {
+			fmt.Println("\n⚠️  WARNING: Database is in a dirty state!")
+			fmt.Println("A migration failed mid-execution. You may need to:")
+			fmt.Println("  1. Inspect the database manually")
+			fmt.Println("  2. Fix any issues")
+			fmt.Println("  3. Run: velocity-report migrate force <version>")
+		}
+
+	case "version":
+		if flag.NArg() < 3 {
+			log.Fatal("Usage: velocity-report migrate version <version_number>")
+		}
+		var targetVersion uint
+		if _, err := fmt.Sscanf(flag.Arg(2), "%d", &targetVersion); err != nil {
+			log.Fatalf("Invalid version number: %s", flag.Arg(2))
+		}
+
+		log.Printf("Migrating to version %d...", targetVersion)
+		if err := database.MigrateTo(migrationsDir, targetVersion); err != nil {
+			log.Fatalf("Migration to version %d failed: %v", targetVersion, err)
+		}
+		log.Printf("✓ Migrated to version %d successfully", targetVersion)
+
+	case "force":
+		if flag.NArg() < 3 {
+			log.Fatal("Usage: velocity-report migrate force <version_number>")
+		}
+		var forceVersion int
+		if _, err := fmt.Sscanf(flag.Arg(2), "%d", &forceVersion); err != nil {
+			log.Fatalf("Invalid version number: %s", flag.Arg(2))
+		}
+
+		fmt.Printf("⚠️  WARNING: Forcing migration version to %d\n", forceVersion)
+		fmt.Println("This should only be used to recover from a dirty migration state.")
+		fmt.Print("Continue? [y/N]: ")
+
+		var response string
+		fmt.Scanln(&response)
+		if response != "y" && response != "Y" {
+			log.Println("Aborted")
+			os.Exit(0)
+		}
+
+		if err := database.MigrateForce(migrationsDir, forceVersion); err != nil {
+			log.Fatalf("Force migration failed: %v", err)
+		}
+		log.Printf("✓ Migration version forced to %d", forceVersion)
+
+	case "baseline":
+		if flag.NArg() < 3 {
+			log.Fatal("Usage: velocity-report migrate baseline <version_number>")
+		}
+		var baselineVersion uint
+		if _, err := fmt.Sscanf(flag.Arg(2), "%d", &baselineVersion); err != nil {
+			log.Fatalf("Invalid version number: %s", flag.Arg(2))
+		}
+
+		log.Printf("Baselining database at version %d...", baselineVersion)
+		if err := database.BaselineAtVersion(baselineVersion); err != nil {
+			log.Fatalf("Baseline failed: %v", err)
+		}
+		log.Printf("✓ Database baselined at version %d", baselineVersion)
+
+	case "help":
+		printMigrateHelp()
+
+	default:
+		fmt.Printf("Unknown migrate action: %s\n\n", action)
+		printMigrateHelp()
+		os.Exit(1)
+	}
+}
+
+func printMigrateHelp() {
+	fmt.Println("Database Migration Commands")
+	fmt.Println()
+	fmt.Println("Usage: velocity-report migrate <command> [options]")
+	fmt.Println()
+	fmt.Println("Commands:")
+	fmt.Println("  up              Apply all pending migrations")
+	fmt.Println("  down            Rollback one migration")
+	fmt.Println("  status          Show current migration status")
+	fmt.Println("  version <N>     Migrate to specific version N")
+	fmt.Println("  force <N>       Force migration version to N (recovery only)")
+	fmt.Println("  baseline <N>    Set migration version to N without running migrations")
+	fmt.Println("  help            Show this help message")
+	fmt.Println()
+	fmt.Println("Examples:")
+	fmt.Println("  velocity-report migrate up")
+	fmt.Println("  velocity-report migrate down")
+	fmt.Println("  velocity-report migrate status")
+	fmt.Println("  velocity-report migrate version 3")
+	fmt.Println("  velocity-report migrate force 2")
+	fmt.Println("  velocity-report migrate baseline 6")
+	fmt.Println()
+	fmt.Println("Options:")
+	fmt.Println("  --db-path <path>    Path to database file (default: sensor_data.db)")
+	fmt.Println()
+	fmt.Println("For more information, see: data/migrations/README.md")
 }
