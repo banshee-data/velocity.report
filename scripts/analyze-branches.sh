@@ -123,7 +123,7 @@ echo ""
 
     # Add [NO TAG] count to the table
     if [ -f "$ANALYSIS_LOG" ]; then
-      total_commits=$(grep -c "^  [a-f0-9]" "$ANALYSIS_LOG" 2>/dev/null || echo "0")
+      total_commits=$(grep -c "^  [0-9a-f]\{7\}" "$ANALYSIS_LOG" 2>/dev/null || echo "0")
       if [ "$total_commits" -gt 0 ]; then
         tagged_count=$(wc -l < "$TEMP_PREFIXES" 2>/dev/null || echo "0")
         untagged_count=$((total_commits - tagged_count))
@@ -152,8 +152,8 @@ echo ""
     origin_url=$(git config --get remote.origin.url)
 
     # Extract owner and repo from both https and ssh URLs
-    owner=$(echo "$origin_url" | sed -E 's|.*[:/]{1}([^/]+)/[^/]+\.git$|\1|')
-    repo=$(echo "$origin_url" | sed -E 's|.*[:/]{1}[^/]+/([^/]+)\.git$|\1|;s|.*[:/]{1}([^/]+)\.git$|\1|')
+    owner=$(echo "$origin_url" | sed -E 's|.*[:/]{1}([^/]+)/[^/]+(\.git)?$|\1|')
+    repo=$(echo "$origin_url" | sed -E 's|.*[:/]{1}[^/]+/([^/]+)(\.git)?$|\1|;s|.*[:/]{1}([^/]+)(\.git)?$|\1|')
 
     if [ -n "$owner" ] && [ -n "$repo" ] && [[ "$origin_url" == *"github.com"* ]]
     then
