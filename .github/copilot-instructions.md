@@ -42,6 +42,74 @@ make test      # Run all test suites
 
 All three commands must pass before committing changes.
 
+## Git Commit Message Rules
+
+**Prefix commit messages with the primary language or purpose of the change:**
+
+Allowed prefixes (in order of preference):
+
+- `[go]` - Go code, server, APIs
+- `[py]` - Python code (PDF generator, tools)
+- `[js]` - JavaScript/TypeScript (SvelteKit frontend, Vite)
+- `[docs]` - Documentation (Markdown guides, READMEs)
+- `[sh]` - Shell scripts (Makefile, bash utilities)
+- `[sql]` - Database schema or SQL migrations
+- `[fs]` - Filesystem operations (moving files, directory structure)
+- `[tex]` - LaTeX/template changes
+- `[ci]` - CI/CD configuration (GitHub Actions, etc.)
+- `[make]` - Makefile changes
+- `[git]` - Git configuration or hooks
+- `[sed]` - Find-and-replace across multiple files
+- `[cfg]` - Configuration files (tsconfig, package.json, .env, Makefile, etc.)
+- `[exe]` - Command execution which generates machine edits (e.g. npm install)
+- `[ai]` - **AI-authored edits (Copilot/Codex only)** — Required in addition to language/purpose tags
+
+**Format:**
+
+```
+[prefix] Description of change
+
+Optional detailed explanation if needed.
+```
+
+**Multiple tags:** When a single commit affects multiple languages, include all relevant tags (preferred: minimize multi-tag commits by splitting into language-specific commits):
+
+```
+[go][js] update API and frontend for new report format
+[py][sql] add database schema and report generation logic
+```
+
+**Human-authored examples:**
+
+```
+[go] enhance SerialPortManager for thread-safety and closed state handling
+[js] fix download bug in report generation
+[docs] improve formatting and clarity in setup guide
+[sh] add analyze-branches.sh script for branch analysis
+[sql] add migration for site configuration schema
+[sed] update deprecated function names across codebase
+```
+
+**AI-authored examples (Copilot/Codex):**
+
+```
+[ai][go] enhance SerialPortManager for thread-safety and closed state handling
+[ai][js] fix download bug in report generation
+[ai][docs] align Copilot instructions with documented best practices
+[ai][py][sql] add database schema and report generation logic
+```
+
+**Notes:**
+
+- Use lowercase prefix abbreviations in square brackets
+- Multiple tags are acceptable when a single commit affects multiple languages/systems
+- **For AI edits:** Always include `[ai]` tag in addition to language-specific tags (e.g., `[ai][go]`, not just `[ai]`)
+- Preferred: Split multi-language changes into separate language-specific commits to minimize multi-tag usage
+- `[md]` is deprecated in favor of `[docs]` for documentation files
+- Human edits: use language-specific prefix(es) only (e.g., `[go]`, `[js]`, `[go][js]`)
+- AI edits: always include `[ai]` prefix along with language tag(s) to distinguish from human-authored commits
+- `[sed]` is used for find-and-replace operations across multiple files, not for individual file edits
+
 ## Setup and Build
 
 **Initial Setup:**
@@ -98,7 +166,7 @@ make dev-docs                 # Start docs dev server
 velocity.report/
 ├── cmd/                      # Go CLI applications
 │   ├── radar/                # Radar sensor integration
-│   ├── bg-sweep/             # Background sweep utilities
+│   ├── sweep/                # Background sweep utilities
 │   └── tools/                # Go utility tools
 ├── internal/                 # Go server internals (private packages)
 │   ├── api/                  # HTTP API endpoints
