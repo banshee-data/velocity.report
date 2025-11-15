@@ -1,8 +1,18 @@
--- Migration: Convert radar_objects timestamps from ISO8601 text to UNIX epoch double
--- Date: 2025-08-27
--- Description: Recreates radar_objects table with UNIX timestamp support and generated columns
+-- Migration: Create initial database schema
+-- Date: 2025-08-25
+-- Description: Initial schema with 4 core tables: radar_data, radar_objects, radar_commands, radar_command_log
+-- This represents the baseline schema before any migrations
+-- Note: PRAGMA statements are executed by the application, not in migrations
 
-CREATE TABLE IF NOT EXISTS radar_objects_new (
+CREATE TABLE IF NOT EXISTS radar_data (
+    write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec')),
+    raw_event JSON NOT NULL,
+    uptime DOUBLE AS (JSON_EXTRACT(raw_event, '$.uptime')) STORED,
+    magnitude DOUBLE AS (JSON_EXTRACT(raw_event, '$.magnitude')) STORED,
+    speed DOUBLE AS (JSON_EXTRACT(raw_event, '$.speed')) STORED
+);
+
+CREATE TABLE IF NOT EXISTS radar_objects (
     write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec')),
     raw_event JSON NOT NULL,
     classifier TEXT NOT NULL AS (JSON_EXTRACT(raw_event, '$.classifier')) STORED,
@@ -19,13 +29,16 @@ CREATE TABLE IF NOT EXISTS radar_objects_new (
     length_m DOUBLE NOT NULL AS (JSON_EXTRACT(raw_event, '$.length_m')) STORED
 );
 
-INSERT INTO radar_objects_new (write_timestamp, raw_event)
-SELECT UNIXEPOCH(write_timestamp, 'subsec') AS write_timestamp,
-       raw_event
-FROM radar_objects;
+CREATE TABLE IF NOT EXISTS radar_commands (
+    command_id BIGINT PRIMARY KEY,
+    command TEXT,
+    write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec'))
+);
 
-ALTER TABLE radar_objects RENAME TO radar_objects_old;
-
-ALTER TABLE radar_objects_new RENAME TO radar_objects;
-
-DROP TABLE radar_objects_old;
+CREATE TABLE IF NOT EXISTS radar_command_log (
+    log_id BIGINT PRIMARY KEY,
+    command_id BIGINT,
+    log_data TEXT,
+    write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec')),
+    FOREIGN KEY (command_id) REFERENCES radar_commands (command_id)
+);

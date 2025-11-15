@@ -45,7 +45,7 @@ velocity-report migrate down
 When you create a new database, velocity.report automatically:
 
 1. Runs `schema.sql` to create all tables
-2. Baselines the database at version 6
+2. Baselines the database at version 7
 3. Marks all existing migrations as applied
 
 **No manual migration needed for fresh installations!**
@@ -138,7 +138,7 @@ Set the migration version without running migrations. Use this for databases tha
 
 ```bash
 # Baseline at version 6
-velocity-report migrate baseline 6
+velocity-report migrate baseline 7
 ```
 
 ## Makefile Shortcuts
@@ -151,7 +151,7 @@ make migrate-up                  # Apply all migrations
 make migrate-down                # Rollback one migration
 make migrate-version VERSION=3   # Migrate to version 3
 make migrate-force VERSION=2     # Force to version 2
-make migrate-baseline VERSION=6  # Baseline at version 6
+make migrate-baseline VERSION=7  # Baseline at version 6
 ```
 
 ## Migration History
@@ -160,12 +160,13 @@ Current migrations (in order):
 
 | Version | Name | Description |
 |---------|------|-------------|
-| 000001 | rename_tables_column | Rename legacy tables to new naming convention |
-| 000002 | migrate_ro_to_unix_timestamp | Convert radar_objects timestamps to UNIX epoch |
-| 000003 | migrate_data_to_radar_data | Migrate legacy data table to radar_data schema |
-| 000004 | create_site_table | Add site configuration table |
-| 000005 | create_site_reports | Add site_reports tracking table |
-| 000006 | add_velocity_report_prefix | Standardize report filename prefixes |
+| 000001 | initial_schema | Create initial database schema (4 core tables) |
+| 000002 | create_site_table | Add site configuration table |
+| 000003 | create_site_reports | Add site_reports tracking table |
+| 000004 | add_velocity_report_prefix | Standardize report filename prefixes |
+| 000005 | create_radar_data_transits | Add persisted sessionization table |
+| 000006 | create_radar_transit_links | Add join table for transits |
+| 000007 | create_lidar_bg_snapshot | Add LiDAR background snapshot table |
 
 ## Creating New Migrations
 
@@ -174,19 +175,19 @@ When you need to add a new migration:
 1. **Determine next version:**
    ```bash
    ls -1 data/migrations/*.up.sql | tail -1
-   # Current highest: 000006_add_velocity_report_prefix.up.sql
-   # Next: 000007
+   # Current highest: 000007_create_lidar_bg_snapshot.up.sql
+   # Next: 000008
    ```
 
 2. **Create migration files:**
    ```bash
-   touch data/migrations/000007_your_change.up.sql
-   touch data/migrations/000007_your_change.down.sql
+   touch data/migrations/000008_your_change.up.sql
+   touch data/migrations/000008_your_change.down.sql
    ```
 
 3. **Write the SQL:**
 
-   **000007_your_change.up.sql:**
+   **000008_your_change.up.sql:**
    ```sql
    -- Migration: Brief description
    -- Date: YYYY-MM-DD
@@ -198,7 +199,7 @@ When you need to add a new migration:
    );
    ```
 
-   **000007_your_change.down.sql:**
+   **000008_your_change.down.sql:**
    ```sql
    -- Rollback: Remove new_table
    
@@ -225,7 +226,7 @@ When you need to add a new migration:
 
 5. **Commit both files:**
    ```bash
-   git add data/migrations/000007_your_change.*.sql
+   git add data/migrations/000008_your_change.*.sql
    git commit -m "Add migration: your_change"
    ```
 
@@ -326,7 +327,7 @@ Dirty: true
 sqlite3 sensor_data.db .schema > current_schema.sql
 
 # Create migration to match
-touch data/migrations/000007_fix_schema_drift.up.sql
+touch data/migrations/000008_fix_schema_drift.up.sql
 # Add SQL to match current state
 ```
 

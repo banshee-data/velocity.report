@@ -90,7 +90,7 @@ func NewDB(path string) (*DB, error) {
 
 	log.Println("ran database initialisation script")
 
-	// Baseline the database at version 6 since schema.sql includes all migrations up to v6
+	// Baseline the database at version 7 since schema.sql includes all migrations up to v7
 	// Check if schema_migrations table exists first
 	var tableExists bool
 	err = db.QueryRow(`
@@ -102,7 +102,7 @@ func NewDB(path string) (*DB, error) {
 	if err == nil && !tableExists {
 		// Only baseline if schema_migrations doesn't exist (fresh database)
 		dbWrapper := &DB{db}
-		if err := dbWrapper.BaselineAtVersion(6); err != nil {
+		if err := dbWrapper.BaselineAtVersion(7); err != nil {
 			log.Printf("Warning: failed to baseline database: %v", err)
 		}
 	}

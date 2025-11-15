@@ -81,12 +81,13 @@ velocity-report migrate force 2
 
 Current migrations (in order of application):
 
-1. **000001_rename_tables_column** - Rename legacy tables to new naming convention
-2. **000002_migrate_ro_to_unix_timestamp** - Convert radar_objects timestamps to UNIX epoch
-3. **000003_migrate_data_to_radar_data** - Migrate legacy data table to radar_data schema
-4. **000004_create_site_table** - Add site configuration table
-5. **000005_create_site_reports** - Add site_reports tracking table
-6. **000006_add_velocity_report_prefix** - Standardize report filename prefixes
+1. **000001_initial_schema** - Create initial database schema (4 core tables)
+2. **000002_create_site_table** - Add site configuration table
+3. **000003_create_site_reports** - Add site_reports tracking table
+4. **000004_add_velocity_report_prefix** - Standardize report filename prefixes
+5. **000005_create_radar_data_transits** - Add persisted sessionization table
+6. **000006_create_radar_transit_links** - Add join table for transits
+7. **000007_create_lidar_bg_snapshot** - Add LiDAR background snapshot table
 
 ## Manual Migration (Advanced)
 
@@ -107,8 +108,8 @@ sqlite3 sensor_data.db < data/migrations/000001_rename_tables_column.down.sql
 If you have an existing database that already has all migrations applied (through manual application), you can baseline it:
 
 ```bash
-# Baseline at version 6 (assuming all 6 migrations are applied)
-velocity-report migrate baseline 6
+# Baseline at version 6 (assuming all 7 migrations are applied)
+velocity-report migrate baseline 7
 ```
 
 This sets the migration version without re-running migrations.
