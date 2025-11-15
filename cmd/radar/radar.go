@@ -29,14 +29,15 @@ import (
 )
 
 var (
-	fixtureMode  = flag.Bool("fixture", false, "Load fixture to local database")
-	debugMode    = flag.Bool("debug", false, "Run in debug mode (enables debug output in reports)")
-	listen       = flag.String("listen", ":8080", "Listen address")
-	port         = flag.String("port", "/dev/ttySC1", "Serial port to use")
-	unitsFlag    = flag.String("units", "mph", "Speed units for display (mps, mph, kmph)")
-	timezoneFlag = flag.String("timezone", "UTC", "Timezone for display (UTC, US/Eastern, US/Pacific, etc.)")
-	disableRadar = flag.Bool("disable-radar", false, "Disable radar serial port (serve DB only)")
-	dbPathFlag   = flag.String("db-path", "sensor_data.db", "path to sqlite DB file (defaults to sensor_data.db)")
+	fixtureMode    = flag.Bool("fixture", false, "Load fixture to local database")
+	debugMode      = flag.Bool("debug", false, "Run in debug mode (enables debug output in reports)")
+	listen         = flag.String("listen", ":8080", "Listen address")
+	port           = flag.String("port", "/dev/ttySC1", "Serial port to use")
+	unitsFlag      = flag.String("units", "mph", "Speed units for display (mps, mph, kmph)")
+	timezoneFlag   = flag.String("timezone", "UTC", "Timezone for display (UTC, US/Eastern, US/Pacific, etc.)")
+	disableRadar   = flag.Bool("disable-radar", false, "Disable radar serial port (serve DB only)")
+	dbPathFlag     = flag.String("db-path", "sensor_data.db", "path to sqlite DB file (defaults to sensor_data.db)")
+	ignoreDBSerial = flag.Bool("ignore-db-serial", false, "Ignore database serial configuration and use CLI flag instead")
 )
 
 // Lidar options (when enabling lidar via -enable-lidar)
@@ -65,6 +66,13 @@ var (
 // Constants
 const SCHEMA_VERSION = "0.0.2"
 
+// canLoadDatabaseSerialConfig checks if database serial configuration can be loaded.
+// Returns true only in production mode (real serial connection with all compatibility flags disabled).
+// Returns false if any special mode is active (ignore-db-serial, disable-radar, debug, fixture).
+func canLoadDatabaseSerialConfig(ignoreDBSerial, disableRadar, debugMode, fixtureMode bool) bool {
+	return !ignoreDBSerial && !disableRadar && !debugMode && !fixtureMode
+}
+
 // Main
 func main() {
 	flag.Parse()
@@ -84,16 +92,72 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Initialize database first so we can load serial configuration
+	// Use the CLI flag value (defaults to ./sensor_data.db). We intentionally
+	// avoid relying on environment variables for configuration unless needed.
+	database, err := db.NewDB(*dbPathFlag)
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer database.Close()
+
+	// Determine which serial port to use (database config takes precedence unless --ignore-db-serial is set)
+	var serialPortPath string
+	serialOpts := serialmux.PortOptions{
+		BaudRate: 19200,
+		DataBits: 8,
+		StopBits: 1,
+		Parity:   "N",
+	}
+	var activeConfig *db.SerialConfig
+	if canLoadDatabaseSerialConfig(*ignoreDBSerial, *disableRadar, *debugMode, *fixtureMode) {
+		// Try to load enabled serial configs from database
+		enabledConfigs, err := database.GetEnabledSerialConfigs()
+		if err != nil {
+			log.Printf("Warning: Failed to load serial configs from database: %v", err)
+			log.Printf("Falling back to CLI flag: %s", *port)
+			serialPortPath = *port
+		} else if len(enabledConfigs) > 0 {
+			cfg := enabledConfigs[0]
+			// Use the first enabled config (multi-sensor support is future work)
+			serialPortPath = cfg.PortPath
+			serialOpts = serialmux.PortOptions{
+				BaudRate: cfg.BaudRate,
+				DataBits: cfg.DataBits,
+				StopBits: cfg.StopBits,
+				Parity:   cfg.Parity,
+			}
+			activeConfig = &cfg
+			log.Printf("Using serial port from database: %s (config: %s)", serialPortPath, cfg.Name)
+			if len(enabledConfigs) > 1 {
+				log.Printf("Note: Multiple serial configs found, using first one. Multi-sensor support is not yet implemented.")
+			}
+		} else {
+			// No enabled configs in database, fall back to CLI flag
+			log.Printf("No enabled serial configs in database, using CLI flag: %s", *port)
+			serialPortPath = *port
+		}
+	} else {
+		serialPortPath = *port
+	}
+
 	// var r radar.RadarPortInterface
 	var radarSerial serialmux.SerialMuxInterface
+	var serialManager *api.SerialPortManager
 
 	// If disableRadar is set, provide a no-op serial mux implementation so
 	// the HTTP admin routes and DB remain available while the device is
 	// absent.
+	//
+	// Note: SerialPortManager (hot-reload capability) is only available in production
+	// mode (real serial connection). In debug, fixture, or disabled modes, the
+	// /api/serial/reload endpoint will return HTTP 503 Service Unavailable.
 	if *disableRadar {
 		radarSerial = serialmux.NewDisabledSerialMux()
+		log.Printf("Serial hot-reload unavailable: radar disabled (use real serial connection for production mode)")
 	} else if *debugMode {
 		radarSerial = serialmux.NewMockSerialMux([]byte(""))
+		log.Printf("Serial hot-reload unavailable: debug mode (use real serial connection for production mode)")
 	} else if *fixtureMode {
 		data, err := os.ReadFile("fixtures.txt")
 		lines := strings.Split(strings.TrimSpace(string(data)), "\n")
@@ -102,12 +166,28 @@ func main() {
 			log.Fatalf("failed to open fixtures file: %v", err)
 		}
 		radarSerial = serialmux.NewMockSerialMux([]byte(firstLine + "\n"))
+		log.Printf("Serial hot-reload unavailable: fixture mode (use real serial connection for production mode)")
 	} else {
-		var err error
-		radarSerial, err = serialmux.NewRealSerialMux(*port)
+		rawSerial, err := serialmux.NewRealSerialMux(serialPortPath, serialOpts)
 		if err != nil {
 			log.Fatalf("failed to create radar port: %v", err)
 		}
+		snapshot := api.SerialConfigSnapshot{
+			PortPath: serialPortPath,
+			Options:  serialOpts,
+			Source:   "cli",
+		}
+		if activeConfig != nil {
+			snapshot.ConfigID = activeConfig.ID
+			snapshot.Name = activeConfig.Name
+			snapshot.Source = "database"
+		}
+		factory := func(path string, opts serialmux.PortOptions) (serialmux.SerialMuxInterface, error) {
+			return serialmux.NewRealSerialMux(path, opts)
+		}
+		serialManager = api.NewSerialPortManager(database, rawSerial, snapshot, factory)
+		radarSerial = serialManager
+		log.Printf("Serial hot-reload available: /api/serial/reload endpoint enabled for production mode")
 	}
 	defer radarSerial.Close()
 
@@ -117,14 +197,6 @@ func main() {
 		log.Printf("initialised device %s", radarSerial)
 	}
 
-	// Use the CLI flag value (defaults to ./sensor_data.db). We intentionally
-	// avoid relying on environment variables for configuration unless needed.
-	db, err := db.NewDB(*dbPathFlag)
-	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
-	}
-	defer db.Close()
-
 	// Create a wait group for the HTTP server, serial monitor, and event handler routines
 	var wg sync.WaitGroup
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -133,7 +205,7 @@ func main() {
 	// Optionally initialize lidar components inside this binary
 	if *enableLidar {
 		// Use the main DB instance for lidar data (no separate lidar DB file)
-		lidarDB := db
+		lidarDB := database
 
 		// Create BackgroundManager and register persistence
 		backgroundParams := lidar.BackgroundParams{
@@ -342,6 +414,11 @@ func main() {
 
 	// subscribe to the serial port messages
 	// and pass them to event handler
+	//
+	// Note: This subscription is resilient to serial port reloads. The
+	// SerialPortManager maintains an internal event fanout system that bridges
+	// subscriptions across reloads, so this loop will continue receiving events
+	// even after a reload via /api/serial/reload.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -349,8 +426,13 @@ func main() {
 		defer radarSerial.Unsubscribe(id)
 		for {
 			select {
-			case payload := <-c:
-				if err := serialmux.HandleEvent(db, payload); err != nil {
+			case payload, ok := <-c:
+				if !ok {
+					// Channel closed (should only happen on shutdown)
+					log.Printf("subscribe routine: channel closed, exiting")
+					return
+				}
+				if err := serialmux.HandleEvent(database, payload); err != nil {
 					log.Printf("error handling event: %v", err)
 				}
 			case <-ctx.Done():
@@ -364,13 +446,16 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		apiServer := api.NewServer(radarSerial, db, *unitsFlag, *timezoneFlag)
+		apiServer := api.NewServer(radarSerial, database, *unitsFlag, *timezoneFlag)
+		if serialManager != nil {
+			apiServer.SetSerialManager(serialManager)
+		}
 
 		// Attach admin routes that belong to other components
 		// (these modify the mux returned by apiServer.ServeMux internally)
 		mux := apiServer.ServeMux()
 		radarSerial.AttachAdminRoutes(mux)
-		db.AttachAdminRoutes(mux)
+		database.AttachAdminRoutes(mux)
 
 		if err := apiServer.Start(ctx, *listen, *debugMode); err != nil {
 			// If ctx was canceled we expect nil or context.Canceled; log other errors
