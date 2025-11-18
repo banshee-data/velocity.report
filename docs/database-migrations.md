@@ -52,7 +52,9 @@ When you create a new database, velocity.report automatically:
 
 ## Automatic Migration Detection
 
-**New in this version:** When starting the application with an existing database, velocity.report automatically checks if the database schema version matches the latest available migration version.
+**New in this version:** When starting the application with an existing database, velocity.report automatically detects and handles different migration scenarios.
+
+### Database with schema_migrations Table
 
 If a version mismatch is detected (e.g., when upgrading with a database from a prior installation):
 
@@ -77,7 +79,53 @@ To see migration status, run:
 Error: database schema is out of date (version 3, need 7). Please run migrations
 ```
 
-This ensures you never run the application with an outdated database schema.
+### Legacy Database without schema_migrations Table
+
+If you have an older database from before the migration system was implemented (no `schema_migrations` table), velocity.report will:
+
+1. **Automatically detect the schema version** by comparing the current schema against all known migration points
+2. **Baseline at the detected version** if it's a perfect match (100% similarity)
+3. **Prompt for manual baselining** if the schema doesn't match exactly
+
+Example output for a perfect match:
+```
+⚠️  Database exists but has no schema_migrations table!
+   Attempting to detect schema version...
+   Schema detection results:
+   - Best match: version 3 (score: 100%)
+   - Perfect match! Baselining at version 3
+
+   Database has been baselined at version 3
+   There are 4 additional migrations available (up to version 7)
+
+   To apply remaining migrations, run:
+      velocity-report migrate up
+```
+
+Example output for an imperfect match:
+```
+⚠️  Database exists but has no schema_migrations table!
+   Attempting to detect schema version...
+   Schema detection results:
+   - Best match: version 3 (score: 85%)
+   - No perfect match found (best: 85%)
+
+   Schema differences from version 3:
+     + Extra in current: custom_index
+     ~ Modified: radar_data
+
+   The current schema does not exactly match any known migration version.
+   Closest match is version 3 with 85% similarity.
+
+   Options:
+   1. Baseline at version 3 and apply remaining migrations:
+      velocity-report migrate baseline 3
+      velocity-report migrate up
+
+   2. Manually inspect the differences and adjust your schema
+```
+
+This intelligent detection ensures smooth upgrades from any version, even very old databases.
 
 ## Existing Database Migration
 

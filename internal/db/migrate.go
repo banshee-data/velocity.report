@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/sqlite"
@@ -243,6 +244,158 @@ func GetLatestMigrationVersion(migrationsDir string) (uint, error) {
 	}
 
 	return maxVersion, nil
+}
+
+// GetDatabaseSchema extracts the current schema from the database.
+// Returns a map of object names to their SQL definitions (normalized).
+func (db *DB) GetDatabaseSchema() (map[string]string, error) {
+	schema := make(map[string]string)
+
+	rows, err := db.Query(`
+		SELECT name, sql 
+		FROM sqlite_master 
+		WHERE type IN ('table', 'index', 'trigger', 'view')
+		  AND name NOT LIKE 'sqlite_%'
+		  AND name != 'schema_migrations'
+		  AND name != 'version_unique'
+		  AND sql IS NOT NULL
+		ORDER BY type, name
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query schema: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var name, sqlStr string
+		if err := rows.Scan(&name, &sqlStr); err != nil {
+			return nil, fmt.Errorf("failed to scan schema row: %w", err)
+		}
+		// Normalize SQL for consistent comparison
+		schema[name] = normalizeSQLForComparison(sqlStr)
+	}
+
+	return schema, nil
+}
+
+// normalizeSQLForComparison normalizes SQL statements for consistent comparison
+func normalizeSQLForComparison(sql string) string {
+	// Remove extra whitespace
+	sql = strings.TrimSpace(sql)
+
+	// Replace multiple spaces/newlines with single space
+	fields := strings.Fields(sql)
+	sql = strings.Join(fields, " ")
+
+	// Remove trailing semicolon
+	sql = strings.TrimSuffix(sql, ";")
+
+	// Normalize comma spacing - remove spaces before commas
+	sql = strings.ReplaceAll(sql, " ,", ",")
+
+	return sql
+}
+
+// GetSchemaAtMigration returns the schema that would result from applying migrations up to a specific version.
+// This is done by creating a temporary database and applying migrations.
+func (db *DB) GetSchemaAtMigration(migrationsDir string, targetVersion uint) (map[string]string, error) {
+	// Create a temporary database
+	tmpDB, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp database: %w", err)
+	}
+	defer tmpDB.Close()
+
+	tmpWrapper := &DB{tmpDB}
+
+	// Apply migrations up to target version
+	if err := tmpWrapper.MigrateTo(migrationsDir, targetVersion); err != nil {
+		return nil, fmt.Errorf("failed to apply migrations to version %d: %w", targetVersion, err)
+	}
+
+	// Get the schema
+	return tmpWrapper.GetDatabaseSchema()
+}
+
+// CompareSchemas compares two schemas and returns a similarity score (0-100)
+// and a list of differences.
+func CompareSchemas(schema1, schema2 map[string]string) (score int, differences []string) {
+	allKeys := make(map[string]bool)
+	for k := range schema1 {
+		allKeys[k] = true
+	}
+	for k := range schema2 {
+		allKeys[k] = true
+	}
+
+	totalObjects := len(allKeys)
+	if totalObjects == 0 {
+		return 100, nil
+	}
+
+	matchingObjects := 0
+	for key := range allKeys {
+		sql1, exists1 := schema1[key]
+		sql2, exists2 := schema2[key]
+
+		if !exists1 {
+			differences = append(differences, fmt.Sprintf("- Missing in current: %s", key))
+		} else if !exists2 {
+			differences = append(differences, fmt.Sprintf("+ Extra in current: %s", key))
+		} else if sql1 == sql2 {
+			matchingObjects++
+		} else {
+			differences = append(differences, fmt.Sprintf("~ Modified: %s", key))
+			differences = append(differences, fmt.Sprintf("  Expected: %s", sql2))
+			differences = append(differences, fmt.Sprintf("  Current:  %s", sql1))
+		}
+	}
+
+	score = (matchingObjects * 100) / totalObjects
+	return score, differences
+}
+
+// DetectSchemaVersion attempts to detect which migration version a database is at
+// by comparing its schema to known schemas at each migration point.
+// Returns the detected version, match score, and any differences.
+func (db *DB) DetectSchemaVersion(migrationsDir string) (detectedVersion uint, matchScore int, differences []string, err error) {
+	currentSchema, err := db.GetDatabaseSchema()
+	if err != nil {
+		return 0, 0, nil, fmt.Errorf("failed to get current schema: %w", err)
+	}
+
+	latestVersion, err := GetLatestMigrationVersion(migrationsDir)
+	if err != nil {
+		return 0, 0, nil, fmt.Errorf("failed to get latest version: %w", err)
+	}
+
+	bestVersion := uint(0)
+	bestScore := 0
+	var bestDifferences []string
+
+	// Check each migration version from latest to first
+	for version := latestVersion; version >= 1; version-- {
+		schemaAtVersion, err := db.GetSchemaAtMigration(migrationsDir, version)
+		if err != nil {
+			log.Printf("Warning: could not get schema at version %d: %v", version, err)
+			continue
+		}
+
+		score, diffs := CompareSchemas(currentSchema, schemaAtVersion)
+
+		if score > bestScore {
+			bestScore = score
+			bestVersion = version
+			bestDifferences = diffs
+		}
+
+		// If we found a perfect match, no need to continue
+		if score == 100 {
+			break
+		}
+	}
+
+	return bestVersion, bestScore, bestDifferences, nil
 }
 
 // CheckAndPromptMigrations checks if the database version differs from the latest

@@ -89,6 +89,91 @@ func NewDBWithMigrationCheck(path string, migrationsDir string, checkMigrations 
 		return nil, err
 	}
 
+	// Check if this is an existing database (file exists and has tables)
+	var tableCount int
+	err = db.QueryRow(`
+		SELECT COUNT(*) 
+		FROM sqlite_master 
+		WHERE type='table' AND name NOT LIKE 'sqlite_%'
+	`).Scan(&tableCount)
+
+	isExistingDB := (err == nil && tableCount > 0)
+
+	// Check if schema_migrations table exists
+	var schemaMigrationsExists bool
+	err = db.QueryRow(`
+		SELECT COUNT(*) > 0 
+		FROM sqlite_master 
+		WHERE type='table' AND name='schema_migrations'
+	`).Scan(&schemaMigrationsExists)
+
+	dbWrapper := &DB{db}
+
+	// Handle database without schema_migrations table (legacy database)
+	if isExistingDB && !schemaMigrationsExists && checkMigrations {
+		log.Printf("⚠️  Database exists but has no schema_migrations table!")
+		log.Printf("   Attempting to detect schema version...")
+
+		detectedVersion, matchScore, differences, err := dbWrapper.DetectSchemaVersion(migrationsDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to detect schema version: %w", err)
+		}
+
+		log.Printf("   Schema detection results:")
+		log.Printf("   - Best match: version %d (score: %d%%)", detectedVersion, matchScore)
+
+		if matchScore == 100 {
+			// Perfect match - baseline at this version
+			log.Printf("   - Perfect match! Baselining at version %d", detectedVersion)
+			if err := dbWrapper.BaselineAtVersion(detectedVersion); err != nil {
+				return nil, fmt.Errorf("failed to baseline at version %d: %w", detectedVersion, err)
+			}
+
+			// Check if more migrations are needed
+			latestVersion, err := GetLatestMigrationVersion(migrationsDir)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get latest version: %w", err)
+			}
+
+			if detectedVersion < latestVersion {
+				log.Printf("")
+				log.Printf("   Database has been baselined at version %d", detectedVersion)
+				log.Printf("   There are %d additional migrations available (up to version %d)",
+					latestVersion-detectedVersion, latestVersion)
+				log.Printf("")
+				log.Printf("   To apply remaining migrations, run:")
+				log.Printf("      velocity-report migrate up")
+				log.Printf("")
+				return nil, fmt.Errorf("database baselined at version %d, but migrations to version %d are available. Please run migrations", detectedVersion, latestVersion)
+			}
+
+			log.Printf("   Database is up to date!")
+			return dbWrapper, nil
+		} else {
+			// Not a perfect match - show differences and ask user
+			log.Printf("   - No perfect match found (best: %d%%)", matchScore)
+			log.Printf("")
+			log.Printf("   Schema differences from version %d:", detectedVersion)
+			for _, diff := range differences {
+				log.Printf("     %s", diff)
+			}
+			log.Printf("")
+			log.Printf("   The current schema does not exactly match any known migration version.")
+			log.Printf("   Closest match is version %d with %d%% similarity.", detectedVersion, matchScore)
+			log.Printf("")
+			log.Printf("   Options:")
+			log.Printf("   1. Baseline at version %d and apply remaining migrations:", detectedVersion)
+			log.Printf("      velocity-report migrate baseline %d", detectedVersion)
+			log.Printf("      velocity-report migrate up")
+			log.Printf("")
+			log.Printf("   2. Manually inspect the differences and adjust your schema")
+			log.Printf("")
+
+			return nil, fmt.Errorf("schema does not match any known version (best match: v%d at %d%%). Manual intervention required", detectedVersion, matchScore)
+		}
+	}
+
+	// Run schema.sql for fresh databases or to ensure current state
 	_, err = db.Exec(schemaSQL)
 	if err != nil {
 		return nil, err
@@ -96,23 +181,19 @@ func NewDBWithMigrationCheck(path string, migrationsDir string, checkMigrations 
 
 	log.Println("ran database initialisation script")
 
-	// Baseline the database at version 7 since schema.sql includes all migrations up to v7
-	// Check if schema_migrations table exists first
-	var tableExists bool
+	// Re-check schema_migrations after running schema.sql
 	err = db.QueryRow(`
 		SELECT COUNT(*) > 0 
 		FROM sqlite_master 
 		WHERE type='table' AND name='schema_migrations'
-	`).Scan(&tableExists)
+	`).Scan(&schemaMigrationsExists)
 
-	dbWrapper := &DB{db}
-
-	if err == nil && !tableExists {
-		// Only baseline if schema_migrations doesn't exist (fresh database)
+	if err == nil && !schemaMigrationsExists {
+		// Fresh database - baseline at version 7
 		if err := dbWrapper.BaselineAtVersion(7); err != nil {
 			log.Printf("Warning: failed to baseline database: %v", err)
 		}
-	} else if checkMigrations && tableExists {
+	} else if checkMigrations && schemaMigrationsExists {
 		// Database exists with migration history - check if migrations are needed
 		shouldExit, err := dbWrapper.CheckAndPromptMigrations(migrationsDir)
 		if shouldExit {
