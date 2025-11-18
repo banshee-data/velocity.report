@@ -71,7 +71,7 @@ sudo lsof -i :8080
 kill -9 <PID>
 
 # Or use a different port
-./app-radar-local -listen :8081
+./velocity-report-local -listen :8081
 ```
 
 ---
@@ -120,7 +120,7 @@ sudo usermod -a -G dialout $USER
 # Log out and back in for group membership to take effect
 
 # If using different port, specify it
-./app-radar-local -serial /dev/ttyUSB1
+./velocity-report-local -serial /dev/ttyUSB1
 ```
 
 ---
@@ -144,7 +144,7 @@ echo "??" > /dev/ttyUSB0  # Query radar status
 sqlite3 sensor_data.db "SELECT COUNT(*) FROM radar_data WHERE timestamp > datetime('now', '-1 hour');"
 
 # Enable debug logging
-./app-radar-local -debug
+./velocity-report-local -debug
 ```
 
 ---
@@ -312,7 +312,7 @@ curl http://localhost:8080/api/config
 
 # If not running, start it
 cd /path/to/velocity.report
-./app-radar-local
+./velocity-report-local
 
 # If using different port, update config
 # In config.json, you can't change API host (it's not configurable)
@@ -708,7 +708,7 @@ netstat -tlnp | grep 8080
 # Should show 0.0.0.0:8080, not 127.0.0.1:8080
 
 # Start server with explicit binding
-./app-radar-local -listen 0.0.0.0:8080
+./velocity-report-local -listen 0.0.0.0:8080
 
 # Check firewall
 sudo ufw status
@@ -734,11 +734,11 @@ journalctl -u velocity-report -n 50
 cat /etc/systemd/system/velocity-report.service
 
 # Test manual start
-/usr/local/bin/app-radar-local -db /var/lib/velocity-report/sensor_data.db
+/usr/local/bin/velocity-report-local -db /var/lib/velocity-report/sensor_data.db
 ```
 
 **Common Issues**:
-- Binary path incorrect: verify `/usr/local/bin/app-radar-local` exists
+- Binary path incorrect: verify `/usr/local/bin/velocity-report-local` exists
 - Database path wrong: ensure `/var/lib/velocity-report/` exists and is writable
 - Serial port permissions: add service user to `dialout` group
 - Working directory: ensure `WorkingDirectory=` is set correctly
@@ -783,7 +783,7 @@ lsof sensor_data.db
 free -h
 
 # Check Go server memory
-ps aux | grep app-radar-local
+ps aux | grep velocity-report-local
 
 # Check for memory leaks
 curl http://localhost:8080/debug/pprof/heap > heap.prof
@@ -835,7 +835,7 @@ uname -a
 cat /etc/os-release
 
 # Go server version
-./app-radar-local -version
+./velocity-report-local -version
 
 # Python version and packages
 .venv/bin/python --version
@@ -871,7 +871,7 @@ journalctl -u velocity-report | grep -i error
 journalctl -u velocity-report --since "2025-01-01" --until "2025-01-02" > debug.log
 
 # Enable debug logging
-./app-radar-local -debug
+./velocity-report-local -debug
 ```
 
 ---

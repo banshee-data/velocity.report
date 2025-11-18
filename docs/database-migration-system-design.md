@@ -279,13 +279,13 @@ data/migrations/
 3. Add Makefile targets:
    ```makefile
    migrate-up:
-       ./app-radar migrate up
+       velocity-report migrate up
    
    migrate-down:
-       ./app-radar migrate down
+       velocity-report migrate down
    
    migrate-status:
-       ./app-radar migrate status
+       velocity-report migrate status
    ```
 
 **Deliverables:**
@@ -573,8 +573,8 @@ jobs:
       
       - name: Test migration idempotency
         run: |
-          ./app-radar migrate up --db test.db
-          ./app-radar migrate up --db test.db
+          velocity-report migrate up --db test.db
+          velocity-report migrate up --db test.db
           [ $? -eq 0 ] || exit 1
 ```
 

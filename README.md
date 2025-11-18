@@ -56,8 +56,8 @@ The system collects vehicle speed data from radar/LIDAR sensors, stores it in SQ
 ```sh
 git clone git@github.com:banshee-data/velocity.report.git
 cd velocity.report
-make build-local
-./app-local -dev
+make build-radar-local
+./velocity-report-local --disable-radar
 ```
 
 If an existing SQLite database is available, place it in `./sensor_data.db` (the default location for development). For production deployments, use the `--db-path` flag to specify a different location (see Deployment section).
@@ -185,8 +185,8 @@ See **[ARCHITECTURE.md](ARCHITECTURE.md)** for detailed architecture documentati
 Build the development server:
 
 ```sh
-make build-local
-./app-local -dev
+make build-radar-local
+./velocity-report-local --disable-radar
 ```
 
 Run tests:
@@ -200,7 +200,7 @@ Build for production (Raspberry Pi):
 ```sh
 make build-radar-linux
 # or manually:
-GOOS=linux GOARCH=arm64 go build -o app-radar-linux-arm64 ./cmd/radar
+GOOS=linux GOARCH=arm64 go build -o velocity-report-linux-arm64 ./cmd/radar
 ```
 
 ### Python PDF Generator Development
