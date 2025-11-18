@@ -515,6 +515,90 @@ func runMigrateCommand() {
 		}
 		log.Printf("✓ Database baselined at version %d", baselineVersion)
 
+	case "detect":
+		log.Println("Detecting schema version...")
+		log.Println()
+
+		// Check if schema_migrations exists first
+		var schemaMigrationsExists bool
+		err := database.QueryRow(`
+			SELECT COUNT(*) > 0 
+			FROM sqlite_master 
+			WHERE type='table' AND name='schema_migrations'
+		`).Scan(&schemaMigrationsExists)
+
+		if err != nil {
+			log.Fatalf("Failed to check for schema_migrations table: %v", err)
+		}
+
+		if schemaMigrationsExists {
+			// Database has schema_migrations - show current version
+			version, dirty, err := database.MigrateVersion(migrationsDir)
+			if err != nil {
+				log.Fatalf("Failed to get migration version: %v", err)
+			}
+
+			latestVersion, err := db.GetLatestMigrationVersion(migrationsDir)
+			if err != nil {
+				log.Fatalf("Failed to get latest migration version: %v", err)
+			}
+
+			fmt.Println("=== Schema Migration Status ===")
+			fmt.Printf("Current version: %d\n", version)
+			fmt.Printf("Latest available: %d\n", latestVersion)
+			fmt.Printf("Dirty state: %v\n", dirty)
+			fmt.Println()
+
+			if version < latestVersion {
+				fmt.Printf("⚠️  Database is %d version(s) behind. Run 'velocity-report migrate up' to update.\n", latestVersion-version)
+			} else if version == latestVersion && !dirty {
+				fmt.Println("✓ Database is up to date!")
+			} else if dirty {
+				fmt.Println("⚠️  Database is in a dirty state. Recovery needed.")
+			}
+		} else {
+			// Legacy database - run schema detection
+			fmt.Println("No schema_migrations table found - running automatic detection...")
+			fmt.Println()
+
+			detectedVersion, matchScore, differences, err := database.DetectSchemaVersion(migrationsDir)
+			if err != nil {
+				log.Fatalf("Schema detection failed: %v", err)
+			}
+
+			latestVersion, err := db.GetLatestMigrationVersion(migrationsDir)
+			if err != nil {
+				log.Fatalf("Failed to get latest migration version: %v", err)
+			}
+
+			fmt.Println("=== Schema Detection Results ===")
+			fmt.Printf("Best match: version %d\n", detectedVersion)
+			fmt.Printf("Similarity: %d%%\n", matchScore)
+			fmt.Printf("Latest available: %d\n", latestVersion)
+			fmt.Println()
+
+			if matchScore == 100 {
+				fmt.Println("✓ Perfect match found!")
+				fmt.Println()
+				fmt.Println("To baseline and apply remaining migrations:")
+				fmt.Printf("  1. velocity-report migrate baseline %d\n", detectedVersion)
+				if detectedVersion < latestVersion {
+					fmt.Println("  2. velocity-report migrate up")
+				}
+			} else {
+				fmt.Printf("⚠️  No perfect match found (best: %d%%)\n", matchScore)
+				fmt.Println()
+				fmt.Println("Schema differences:")
+				for _, diff := range differences {
+					fmt.Printf("  %s\n", diff)
+				}
+				fmt.Println()
+				fmt.Println("Options:")
+				fmt.Printf("  1. Baseline at closest version: velocity-report migrate baseline %d\n", detectedVersion)
+				fmt.Println("  2. Manually inspect and adjust schema before baselining")
+			}
+		}
+
 	case "help":
 		printMigrateHelp()
 
@@ -533,22 +617,38 @@ func printMigrateHelp() {
 	fmt.Println("Commands:")
 	fmt.Println("  up              Apply all pending migrations")
 	fmt.Println("  down            Rollback one migration")
-	fmt.Println("  status          Show current migration status")
+	fmt.Println("  status          Show current migration status and version")
+	fmt.Println("  detect          Detect schema version (for databases without schema_migrations)")
 	fmt.Println("  version <N>     Migrate to specific version N")
 	fmt.Println("  force <N>       Force migration version to N (recovery only)")
 	fmt.Println("  baseline <N>    Set migration version to N without running migrations")
 	fmt.Println("  help            Show this help message")
 	fmt.Println()
+	fmt.Println("Schema Detection:")
+	fmt.Println("  The 'detect' command analyzes databases without schema_migrations table:")
+	fmt.Println("  - Compares current schema against all known migration points")
+	fmt.Println("  - Calculates similarity score and identifies differences")
+	fmt.Println("  - Suggests baseline version for legacy database upgrades")
+	fmt.Println("  - Automatically handles databases from pre-migration versions")
+	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println("  velocity-report migrate up")
 	fmt.Println("  velocity-report migrate down")
 	fmt.Println("  velocity-report migrate status")
+	fmt.Println("  velocity-report migrate detect")
 	fmt.Println("  velocity-report migrate version 3")
 	fmt.Println("  velocity-report migrate force 2")
 	fmt.Println("  velocity-report migrate baseline 6")
 	fmt.Println()
+	fmt.Println("Legacy Database Upgrade (typical workflow):")
+	fmt.Println("  1. velocity-report migrate detect        # Find current schema version")
+	fmt.Println("  2. velocity-report migrate baseline <N>  # Set version based on detect results")
+	fmt.Println("  3. velocity-report migrate up            # Apply remaining migrations")
+	fmt.Println()
 	fmt.Println("Options:")
 	fmt.Println("  --db-path <path>    Path to database file (default: sensor_data.db)")
 	fmt.Println()
-	fmt.Println("For more information, see: data/migrations/README.md")
+	fmt.Println("For more information, see:")
+	fmt.Println("  - data/migrations/README.md")
+	fmt.Println("  - docs/database-migrations.md")
 }

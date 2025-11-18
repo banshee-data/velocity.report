@@ -28,6 +28,28 @@ Dirty: false
 Schema migrations table exists: true
 ```
 
+### Detect Schema Version (Legacy Databases)
+
+For databases without `schema_migrations` table:
+
+```bash
+velocity-report migrate detect
+```
+
+Output:
+```
+=== Schema Detection Results ===
+Best match: version 3
+Similarity: 100%
+Latest available: 7
+
+✓ Perfect match found!
+
+To baseline and apply remaining migrations:
+  1. velocity-report migrate baseline 3
+  2. velocity-report migrate up
+```
+
 ### Apply All Pending Migrations
 
 ```bash
@@ -187,6 +209,47 @@ Show the current migration state.
 
 ```bash
 velocity-report migrate status
+```
+
+### `migrate detect`
+
+Detect the schema version of a database (especially useful for legacy databases without `schema_migrations` table).
+
+```bash
+velocity-report migrate detect
+```
+
+This command:
+- Analyzes databases without `schema_migrations` table
+- Compares current schema against all known migration points
+- Calculates similarity score (0-100%)
+- Identifies differences between schemas
+- Suggests baseline version for upgrades
+
+Example output for a legacy database:
+```
+No schema_migrations table found - running automatic detection...
+
+=== Schema Detection Results ===
+Best match: version 3
+Similarity: 100%
+Latest available: 7
+
+✓ Perfect match found!
+
+To baseline and apply remaining migrations:
+  1. velocity-report migrate baseline 3
+  2. velocity-report migrate up
+```
+
+Example output for a database with schema_migrations:
+```
+=== Schema Migration Status ===
+Current version: 3
+Latest available: 7
+Dirty state: false
+
+⚠️  Database is 4 version(s) behind. Run 'velocity-report migrate up' to update.
 ```
 
 ### `migrate version <N>`

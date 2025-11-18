@@ -26,6 +26,16 @@ The `velocity-report` binary includes built-in migration commands:
 velocity-report migrate status
 ```
 
+### Detect Schema Version (Legacy Databases)
+```bash
+velocity-report migrate detect
+```
+
+Use this command to:
+- Identify the schema version of databases without `schema_migrations` table
+- Compare current schema against all known migration points
+- Get recommendations for baselining and upgrading legacy databases
+
 ### Apply All Pending Migrations
 ```bash
 velocity-report migrate up
@@ -39,6 +49,12 @@ velocity-report migrate down
 ### Migrate to Specific Version
 ```bash
 velocity-report migrate version 3
+```
+
+### Baseline Database (Legacy Upgrade)
+```bash
+# Set starting version without running migrations
+velocity-report migrate baseline 3
 ```
 
 ### Force Version (Recovery)

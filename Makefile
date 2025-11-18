@@ -42,6 +42,7 @@ help:
 	@echo "  migrate-up           Apply all pending migrations"
 	@echo "  migrate-down         Rollback one migration"
 	@echo "  migrate-status       Show current migration status"
+	@echo "  migrate-detect       Detect schema version (for legacy databases)"
 	@echo "  migrate-version      Migrate to specific version (VERSION=N)"
 	@echo "  migrate-force        Force version (recovery, VERSION=N)"
 	@echo "  migrate-baseline     Set baseline version (VERSION=N)"
@@ -306,7 +307,7 @@ test-web:
 # DATABASE MIGRATIONS
 # =============================================================================
 
-.PHONY: migrate-up migrate-down migrate-status migrate-version migrate-force migrate-baseline
+.PHONY: migrate-up migrate-down migrate-status migrate-detect migrate-version migrate-force migrate-baseline
 
 # Apply all pending migrations
 migrate-up:
@@ -321,6 +322,11 @@ migrate-down:
 # Show current migration status
 migrate-status:
 	@./velocity-report migrate status
+
+# Detect schema version (for legacy databases)
+migrate-detect:
+	@echo "Detecting schema version..."
+	@./velocity-report migrate detect
 
 # Migrate to a specific version (usage: make migrate-version VERSION=3)
 migrate-version:
