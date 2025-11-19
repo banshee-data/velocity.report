@@ -1,4 +1,7 @@
--- Create site_reports table to track generated PDF reports
+-- Migration: Create site_reports table to track generated reports
+-- Date: 2025-10-21
+-- Description: Add site_reports table to track generated PDF reports
+-- From commit 611b4cf6
    CREATE TABLE IF NOT EXISTS site_reports (
           id INTEGER PRIMARY KEY AUTOINCREMENT
         , site_id INTEGER NOT NULL DEFAULT 0
