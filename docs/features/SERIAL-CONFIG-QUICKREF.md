@@ -19,12 +19,14 @@ Users can configure and test radar serial ports through a web interface instead 
 ## Implementation Phases
 
 ### Phase 1: Database Foundation (1-2 days)
+
 - Create `radar_serial_config` table
 - Migration with default HAT configuration
 - Server loads from database
 - CLI flag fallback for compatibility
 
 ### Phase 2: API Endpoints (3-4 days)
+
 - `/api/serial/configs` - CRUD operations
 - `/api/serial/devices` - Enumerate available serial paths (excludes ones already configured)
 - `/api/serial/test` - Test connection
@@ -33,6 +35,7 @@ Users can configure and test radar serial ports through a web interface instead 
 - Unit and integration tests
 
 ### Phase 3: Web UI (4-5 days)
+
 - Configuration list page
 - Edit/create modal
 - Test connection UI
@@ -41,6 +44,7 @@ Users can configure and test radar serial ports through a web interface instead 
 - User documentation
 
 ### Phase 4: Multi-Sensor (Future)
+
 - Multiple SerialMux instances
 - Data tagging with sensor ID
 - Multi-sensor analytics
@@ -105,6 +109,7 @@ When `auto_correct_baud: true` is set in test request, the system queries the de
 
 **Response Logging:**
 All command responses are logged, including both JSON and non-JSON formats. This is essential because:
+
 - Query commands like `I?` return non-JSON text (e.g., "19200")
 - Device may not be in JSON mode before initialization
 - Raw responses provide diagnostic information for troubleshooting
@@ -120,17 +125,20 @@ All command responses are logged, including both JSON and non-JSON formats. This
 ## File Locations
 
 **Backend:**
-- Migration: `data/migrations/20251106_create_radar_serial_config.sql`
+
+- Migration: `internal/db/migrations/20251106_create_radar_serial_config.sql`
 - API handlers: `internal/api/serial_config.go`
 - Serial testing: `internal/api/serial_test.go`
 - Server changes: `cmd/radar/radar.go`
 
 **Frontend:**
+
 - Route: `web/src/routes/settings/serial/+page.svelte`
 - API client: `web/src/lib/api.ts` (extend)
 - Types: `web/src/lib/types/serial.ts`
 
 **Documentation:**
+
 - User guide: `docs/src/guides/serial-configuration.md`
 - API reference: `docs/api/serial-endpoints.md`
 
@@ -154,6 +162,7 @@ All command responses are logged, including both JSON and non-JSON formats. This
 ## Migration Path
 
 **Existing Users:**
+
 1. Update binary (migration runs automatically)
 2. Serial config appears in database
 3. CLI flags still work (backward compatible)

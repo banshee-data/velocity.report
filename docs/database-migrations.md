@@ -8,7 +8,7 @@ velocity.report uses [golang-migrate](https://github.com/golang-migrate/migrate)
 
 - Tracks applied migrations in a `schema_migrations` table
 - Supports forward (up) and rollback (down) migrations
-- Works with existing `data/migrations/` SQL files
+- Works with existing `internal/db/migrations/` SQL files
 - Uses pure-Go SQLite driver (no CGO dependencies)
 - Integrates with the `velocity-report` binary CLI
 
@@ -21,6 +21,7 @@ velocity-report migrate status
 ```
 
 Output:
+
 ```
 === Migration Status ===
 Current version: 6
@@ -37,6 +38,7 @@ velocity-report migrate detect
 ```
 
 Output:
+
 ```
 === Schema Detection Results ===
 Best match: version 3
@@ -85,6 +87,7 @@ If a version mismatch is detected (e.g., when upgrading with a database from a p
 3. You'll be prompted to run `velocity-report migrate up` to apply outstanding migrations
 
 Example output:
+
 ```
 ⚠️  Database schema version mismatch detected!
    Current database version: 3
@@ -110,6 +113,7 @@ If you have an older database from before the migration system was implemented (
 3. **Prompt for manual baselining** if the schema doesn't match exactly
 
 Example output for a perfect match:
+
 ```
 ⚠️  Database exists but has no schema_migrations table!
    Attempting to detect schema version...
@@ -125,6 +129,7 @@ Example output for a perfect match:
 ```
 
 Example output for an imperfect match:
+
 ```
 ⚠️  Database exists but has no schema_migrations table!
    Attempting to detect schema version...
@@ -154,16 +159,19 @@ This intelligent detection ensures smooth upgrades from any version, even very o
 If you have an existing database that needs migration:
 
 1. **Backup first:**
+
    ```bash
    cp sensor_data.db sensor_data.db.$(date +%Y%m%d_%H%M%S)
    ```
 
 2. **Check current state:**
+
    ```bash
    velocity-report migrate status
    ```
 
 3. **Apply migrations:**
+
    ```bash
    velocity-report migrate up
    ```
@@ -185,8 +193,9 @@ velocity-report migrate up
 ```
 
 Example output:
+
 ```
-Running migrations from ./data/migrations...
+Running migrations from ./internal/db/migrations...
 [migrate] 1/u rename_tables_column (4.5ms)
 [migrate] 2/u migrate_ro_to_unix_timestamp (12.3ms)
 ✓ All migrations applied successfully
@@ -220,6 +229,7 @@ velocity-report migrate detect
 ```
 
 This command:
+
 - Analyzes databases without `schema_migrations` table
 - Compares current schema against all known migration points
 - Calculates similarity score (0-100%)
@@ -227,6 +237,7 @@ This command:
 - Suggests baseline version for upgrades
 
 Example output for a legacy database:
+
 ```
 No schema_migrations table found - running automatic detection...
 
@@ -243,6 +254,7 @@ To baseline and apply remaining migrations:
 ```
 
 Example output for a database with schema_migrations:
+
 ```
 === Schema Migration Status ===
 Current version: 3
@@ -270,7 +282,7 @@ Force the migration version (recovery only). Use this when a migration fails and
 velocity-report migrate force 2
 ```
 
-**⚠️  WARNING:** This command is for emergency recovery only. It doesn't run any migrations, just sets the version number.
+**⚠️ WARNING:** This command is for emergency recovery only. It doesn't run any migrations, just sets the version number.
 
 ### `migrate baseline <N>`
 
@@ -298,41 +310,44 @@ make migrate-baseline VERSION=7  # Baseline at version 6
 
 Current migrations (in order):
 
-| Version | Name | Description |
-|---------|------|-------------|
-| 000001 | initial_schema | Create initial database schema (4 core tables) |
-| 000002 | create_site_table | Add site configuration table |
-| 000003 | create_site_reports | Add site_reports tracking table |
-| 000004 | add_velocity_report_prefix | Standardize report filename prefixes |
-| 000005 | create_radar_data_transits | Add persisted sessionization table |
-| 000006 | create_radar_transit_links | Add join table for transits |
-| 000007 | create_lidar_bg_snapshot | Add LiDAR background snapshot table |
+| Version | Name                       | Description                                    |
+| ------- | -------------------------- | ---------------------------------------------- |
+| 000001  | initial_schema             | Create initial database schema (4 core tables) |
+| 000002  | create_site_table          | Add site configuration table                   |
+| 000003  | create_site_reports        | Add site_reports tracking table                |
+| 000004  | add_velocity_report_prefix | Standardize report filename prefixes           |
+| 000005  | create_radar_data_transits | Add persisted sessionization table             |
+| 000006  | create_radar_transit_links | Add join table for transits                    |
+| 000007  | create_lidar_bg_snapshot   | Add LiDAR background snapshot table            |
 
 ## Creating New Migrations
 
 When you need to add a new migration:
 
 1. **Determine next version:**
+
    ```bash
-   ls -1 data/migrations/*.up.sql | tail -1
+   ls -1 internal/db/migrations/*.up.sql | tail -1
    # Current highest: 000007_create_lidar_bg_snapshot.up.sql
    # Next: 000008
    ```
 
 2. **Create migration files:**
+
    ```bash
-   touch data/migrations/000008_your_change.up.sql
-   touch data/migrations/000008_your_change.down.sql
+   touch internal/db/migrations/000008_your_change.up.sql
+   touch internal/db/migrations/000008_your_change.down.sql
    ```
 
 3. **Write the SQL:**
 
    **000008_your_change.up.sql:**
+
    ```sql
    -- Migration: Brief description
    -- Date: YYYY-MM-DD
    -- Description: Detailed explanation
-   
+
    CREATE TABLE IF NOT EXISTS new_table (
        id INTEGER PRIMARY KEY AUTOINCREMENT,
        name TEXT NOT NULL
@@ -340,33 +355,35 @@ When you need to add a new migration:
    ```
 
    **000008_your_change.down.sql:**
+
    ```sql
    -- Rollback: Remove new_table
-   
+
    DROP TABLE IF EXISTS new_table;
    ```
 
 4. **Test the migration:**
+
    ```bash
    # Create a test database copy
    cp sensor_data.db test.db
-   
+
    # Test up
    velocity-report --db-path test.db migrate up
-   
+
    # Test down
    velocity-report --db-path test.db migrate down
-   
+
    # Test up again (idempotency)
    velocity-report --db-path test.db migrate up
-   
+
    # Cleanup
    rm test.db*
    ```
 
 5. **Commit both files:**
    ```bash
-   git add data/migrations/000008_your_change.*.sql
+   git add internal/db/migrations/000008_your_change.*.sql
    git commit -m "Add migration: your_change"
    ```
 
@@ -418,6 +435,7 @@ One logical change per migration. Don't combine unrelated schema changes.
 ### 6. Document Data Transformations
 
 If your migration transforms data, document:
+
 - What data is affected
 - Whether rollback is safe (or lossy)
 - Any data validation performed
@@ -427,6 +445,7 @@ If your migration transforms data, document:
 ### "Dirty migration" Error
 
 **Symptom:**
+
 ```
 === Migration Status ===
 Current version: 3
@@ -438,6 +457,7 @@ Dirty: true
 **Solution:**
 
 1. Check what went wrong:
+
    ```bash
    sqlite3 sensor_data.db
    .tables
@@ -447,6 +467,7 @@ Dirty: true
 2. Fix the database manually if needed
 
 3. Force to a known good version:
+
    ```bash
    velocity-report migrate force 2
    ```
@@ -467,7 +488,7 @@ Dirty: true
 sqlite3 sensor_data.db .schema > current_schema.sql
 
 # Create migration to match
-touch data/migrations/000008_fix_schema_drift.up.sql
+touch internal/db/migrations/000008_fix_schema_drift.up.sql
 # Add SQL to match current state
 ```
 
@@ -488,6 +509,7 @@ touch data/migrations/000008_fix_schema_drift.up.sql
 **Symptom:** Migration applied twice somehow.
 
 **Prevention:** Always use:
+
 ```sql
 CREATE TABLE IF NOT EXISTS ...
 ALTER TABLE ... ADD COLUMN IF NOT EXISTS ...
@@ -498,16 +520,19 @@ ALTER TABLE ... ADD COLUMN IF NOT EXISTS ...
 Before deploying migrations to production:
 
 - [ ] **Backup database**
+
   ```bash
   cp /var/lib/velocity-report/sensor_data.db /var/lib/velocity-report/sensor_data.db.backup
   ```
 
 - [ ] **Check current version**
+
   ```bash
   velocity-report --db-path /var/lib/velocity-report/sensor_data.db migrate status
   ```
 
 - [ ] **Test on production copy first**
+
   ```bash
   cp /var/lib/velocity-report/sensor_data.db test.db
   velocity-report --db-path test.db migrate up
@@ -516,26 +541,31 @@ Before deploying migrations to production:
   ```
 
 - [ ] **Stop service**
+
   ```bash
   sudo systemctl stop velocity-report.service
   ```
 
 - [ ] **Apply migrations**
+
   ```bash
   velocity-report --db-path /var/lib/velocity-report/sensor_data.db migrate up
   ```
 
 - [ ] **Verify**
+
   ```bash
   velocity-report --db-path /var/lib/velocity-report/sensor_data.db migrate status
   ```
 
 - [ ] **Start service**
+
   ```bash
   sudo systemctl start velocity-report.service
   ```
 
 - [ ] **Monitor logs**
+
   ```bash
   sudo journalctl -u velocity-report.service -f
   ```
@@ -549,6 +579,7 @@ Before deploying migrations to production:
 velocity.report uses `modernc.org/sqlite` (pure-Go, no CGO) via golang-migrate's `database/sqlite` driver.
 
 **Benefits:**
+
 - No CGO dependencies
 - Simpler cross-compilation (Raspberry Pi ARM64)
 - Matches existing codebase design
@@ -572,7 +603,7 @@ Each migration runs in a transaction. If any SQL fails, the entire migration rol
 ## References
 
 - [golang-migrate documentation](https://github.com/golang-migrate/migrate)
-- [Migration file format](../data/migrations/README.md)
+- [Migration file format](../internal/db/migrations/README.md)
 - [Design document](database-migration-system-design.md)
 - [SQLite ALTER TABLE](https://www.sqlite.org/lang_altertable.html)
 
@@ -581,6 +612,6 @@ Each migration runs in a transaction. If any SQL fails, the entire migration rol
 For issues or questions:
 
 1. Check this documentation
-2. Review `data/migrations/README.md`
+2. Review `internal/db/migrations/README.md`
 3. Check migration design doc: `docs/database-migration-system-design.md`
 4. Open an issue on GitHub

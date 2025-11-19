@@ -1,8 +1,8 @@
 # Database Migration System Design
 
-**Status**: Design Proposal  
-**Date**: November 10, 2025  
-**Author**: Agent Ictinus  
+**Status**: Design Proposal
+**Date**: November 10, 2025
+**Author**: Agent Ictinus
 **Goal**: Design a lightweight, maintainable database migration system for velocity.report
 
 > **⚠️ CRITICAL: Pure-Go SQLite Driver Required**
@@ -16,9 +16,10 @@
 ## Executive Summary
 
 This document proposes a database migration system for velocity.report that:
+
 - Tracks applied migrations via a metadata table in SQLite
 - Supports forward (up) and rollback (down) migrations
-- Works with existing `data/migrations/` SQL files
+- Works with existing `internal/db/migrations/` SQL files
 - Minimizes maintenance burden
 - Integrates with current deployment patterns (systemd service, manual setup)
 - Preserves privacy-first, local-only architecture
@@ -33,10 +34,11 @@ The velocity.report project currently uses an **ad-hoc migration approach**:
 1. **Manual SQL execution**: Users run migrations manually via `sqlite3 sensor_data.db < migration.sql`
 2. **No state tracking**: No record of which migrations have been applied
 3. **No rollback support**: Migrations are one-way only
-4. **Documentation-based process**: Users must read `data/migrations/README.md` to know what to run
+4. **Documentation-based process**: Users must read `internal/db/migrations/README.md` to know what to run
 5. **Schema.sql bootstrapping**: `NewDB()` runs full schema.sql, but doesn't help with incremental changes
 
-**Existing migrations** (6 files in `data/migrations/`):
+**Existing migrations** (6 files in `internal/db/migrations/`):
+
 - `20250826_rename_tables_column.sql` - Table/column renames
 - `20250827_migrate_ro_to_unix_timestamp.sql` - Timestamp conversion
 - `20250929_migrate_data_to_radar_data.sql` - Legacy table migration
@@ -56,16 +58,19 @@ The velocity.report project currently uses an **ad-hoc migration approach**:
 ### User Pain Points
 
 **For developers:**
+
 - "Did I already run this migration on my local DB?"
 - "How do I test a new migration without polluting my database?"
 - "What schema version is this database?"
 
 **For operators:**
+
 - "Which migrations do I need to apply after upgrading?"
 - "How do I rollback if a migration breaks production?"
 - "What happens if I accidentally run a migration twice?"
 
 **For new deployments:**
+
 - "Do I run schema.sql or all the migrations?"
 - "What if schema.sql diverges from migrations?"
 
@@ -79,7 +84,7 @@ The velocity.report project currently uses an **ad-hoc migration approach**:
 4. **Rollback support**: Each migration should have a down/rollback script
 5. **Version visibility**: Users can query current schema version
 6. **Baseline support**: Existing databases can be baselined to current version
-7. **File-based migrations**: Continue using SQL files in `data/migrations/`
+7. **File-based migrations**: Continue using SQL files in `internal/db/migrations/`
 8. **Cross-platform**: Works on Raspberry Pi ARM64 and developer machines
 
 ### Non-Functional Requirements
@@ -134,24 +139,27 @@ The velocity.report project currently uses an **ad-hoc migration approach**:
 
 **golang-migrate** is an industry-standard migration library for Go applications with first-class pure-Go SQLite support.
 
-**Repository**: https://github.com/golang-migrate/migrate  
+**Repository**: https://github.com/golang-migrate/migrate
 **License**: MIT | **Language**: Go | **Community**: ~15k stars
 
 ### Why golang-migrate?
 
 1. **Separate up/down files for manual execution**
+
    - Each migration has distinct `.up.sql` and `.down.sql` files
    - Can run migrations manually with `sqlite3` command-line tool without the framework
    - Clear separation makes rollback operations explicit
    - No special markers or syntax—pure SQL
 
 2. **Pure-Go SQLite support (no CGO)**
+
    - Uses `modernc.org/sqlite` via `database/sqlite` driver
    - Matches existing codebase (already uses `modernc.org/sqlite`)
    - No CGO dependency = simpler cross-compilation for Raspberry Pi ARM64
    - Automatic transaction wrapping per migration
 
 3. **Battle-tested and mature**
+
    - Industry-standard solution used by thousands of projects
    - Extensive community support and documentation
    - Dirty state detection (failed migrations flagged)
@@ -182,8 +190,9 @@ func (db *DB) RunMigrations(migrationsDir string) error {
 ```
 
 **File structure:**
+
 ```
-data/migrations/
+internal/db/migrations/
 ├── 000001_initial_schema.up.sql
 ├── 000001_initial_schema.down.sql
 ├── 000002_add_site_table.up.sql
@@ -193,11 +202,13 @@ data/migrations/
 ### Trade-offs
 
 **Costs:**
+
 - Requires renaming existing 6 migration files to sequential format
 - Adds ~2MB to binary size
 - More opinionated file naming (sequential numbers)
 
 **Benefits:**
+
 - Separate files can be run manually (critical for emergency recovery)
 - Pure-Go implementation matches existing codebase
 - Industry-standard with extensive community support
@@ -206,13 +217,15 @@ data/migrations/
 #### Phase 1: Foundation (Week 1)
 
 **Tasks:**
+
 1. Add `github.com/golang-migrate/migrate/v4` to `go.mod`
 2. Create `internal/db/migrate.go` wrapper:
+
    ```go
    import "github.com/golang-migrate/migrate/v4"
    import _ "github.com/golang-migrate/migrate/v4/database/sqlite"  // Pure-Go driver
    import _ "github.com/golang-migrate/migrate/v4/source/file"
-   
+
    func (db *DB) RunMigrations(migrationsDir string) error {
        m, err := migrate.New(
            "file://"+migrationsDir,
@@ -223,14 +236,17 @@ data/migrations/
        return m.Up()
    }
    ```
+
    **Important**: Use `database/sqlite` (pure-Go, `modernc.org/sqlite`) NOT `database/sqlite3` (CGO).
    This matches the existing codebase and avoids CGO dependencies for cross-compilation.
+
 3. Create `schema_migrations` baseline for existing databases
 4. Add integration test (`internal/db/migrate_test.go`)
 
 **Deliverables:**
 
 **Note:** Mark checkboxes as tasks are completed during implementation.
+
 - [ ] Migration runner in `internal/db/migrate.go`
 - [ ] Unit tests with coverage >80%
 - [ ] Documentation: `docs/database-migrations.md`
@@ -238,28 +254,32 @@ data/migrations/
 #### Phase 2: Migration Files (Week 1-2)
 
 **Tasks:**
+
 1. Rename and split 6 existing migrations to golang-migrate format:
+
    ```
    20250826_rename_tables_column.sql
      → 000001_rename_tables_column.up.sql
      → 000001_rename_tables_column.down.sql
-   
+
    20250827_migrate_ro_to_unix_timestamp.sql
      → 000002_migrate_ro_to_unix_timestamp.up.sql
      → 000002_migrate_ro_to_unix_timestamp.down.sql
-   
+
    ... (and so on for all 6 migrations in chronological order)
    ```
-   
+
 2. Write down migrations for each file:
+
    - Analyze each migration's changes
    - Create reverse operations (down migrations)
    - Test on copy of production database
    - Verify manual execution: `sqlite3 db.db < 000001_rename_tables_column.up.sql`
-   
+
 3. Document manual fallback procedures
 
 **Deliverables:**
+
 - [ ] 12 migration files (6 up + 6 down) in sequential format
 - [ ] Migration testing guide
 - [ ] Manual execution documentation
@@ -268,6 +288,7 @@ data/migrations/
 #### Phase 3: CLI Integration (Week 2)
 
 **Tasks:**
+
 1. Add migration commands to radar binary:
    ```bash
    velocity-report migrate up
@@ -277,18 +298,20 @@ data/migrations/
    ```
 2. Update `cmd/radar/radar.go` to run migrations on startup (optional flag)
 3. Add Makefile targets:
+
    ```makefile
    migrate-up:
        velocity-report migrate up
-   
+
    migrate-down:
        velocity-report migrate down
-   
+
    migrate-status:
        velocity-report migrate status
    ```
 
 **Deliverables:**
+
 - [ ] CLI commands in radar binary
 - [ ] Makefile targets
 - [ ] Help text and examples
@@ -296,6 +319,7 @@ data/migrations/
 #### Phase 4: Deployment Integration (Week 3)
 
 **Tasks:**
+
 1. Update `scripts/setup-radar-host.sh` to run migrations:
    ```bash
    log_info "Running database migrations..."
@@ -313,6 +337,7 @@ data/migrations/
 4. Create migration troubleshooting guide
 
 **Deliverables:**
+
 - [ ] Updated setup script
 - [ ] CI/CD integration
 - [ ] Troubleshooting documentation
@@ -321,16 +346,18 @@ data/migrations/
 #### Phase 5: Documentation & Training (Week 3-4)
 
 **Tasks:**
+
 1. Create comprehensive migration guide:
    - How to create new migrations
    - Testing procedures
    - Rollback processes
    - Common issues and solutions
-2. Update `data/migrations/README.md`
+2. Update `internal/db/migrations/README.md`
 3. Add migration examples to documentation site
 4. Record demo video (optional)
 
 **Deliverables:**
+
 - [ ] Migration developer guide
 - [ ] Updated README files
 - [ ] Example migrations
@@ -356,12 +383,13 @@ Examples:
 ```
 
 **Version numbering:**
+
 - Sequential integers (000001, 000002, 000003, ...)
 - Padded with zeros for proper sorting
 - Must be unique across all migrations
 - Version extracted from filename determines execution order
 
-**Note**: Existing migrations in `data/migrations/` use YYYYMMDD format. During implementation, these will need to be renamed to sequential format (e.g., `20250826_rename_tables_column.sql` → `000001_rename_tables_column.up.sql`).
+**Note**: Existing migrations in `internal/db/migrations/` use YYYYMMDD format. During implementation, these will need to be renamed to sequential format (e.g., `20250826_rename_tables_column.sql` → `000001_rename_tables_column.up.sql`).
 
 #### File Format (golang-migrate)
 
@@ -392,6 +420,7 @@ DROP TABLE IF EXISTS site;
 ```
 
 **Key points:**
+
 - No special markers or syntax required (pure SQL)
 - Each file can be run manually: `sqlite3 db.db < 000001_create_site_table.up.sql`
 - Comments are optional but recommended for clarity
@@ -411,7 +440,7 @@ DROP TABLE IF EXISTS site;
 
 **golang-migrate's actual schema** (recommended approach):
 
-```sql
+````sql
 CREATE TABLE IF NOT EXISTS schema_migrations (
     version INTEGER NOT NULL,
     dirty INTEGER NOT NULL  -- Boolean: 0=false, 1=true
@@ -449,13 +478,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS version_unique ON schema_migrations (version);
    ```bash
    # Rollback one migration
    velocity-report migrate down
-   
+
    # Or force to specific version
    velocity-report migrate force 7
-   ```
-   - Runs down script
-   - Removes entry from `schema_migrations`
-   - Validates database state
+````
+
+- Runs down script
+- Removes entry from `schema_migrations`
+- Validates database state
 
 3. **Emergency rollback** (dirty state):
    ```bash
@@ -473,20 +503,20 @@ CREATE UNIQUE INDEX IF NOT EXISTS version_unique ON schema_migrations (version);
 // internal/db/migrate_test.go
 func TestMigrations_UpDown(t *testing.T) {
     db := setupTestDB(t)
-    
+
     // Create migrate instance (use pure-Go sqlite driver)
     m, err := migrate.New(
-        "file://../../data/migrations",
+        "file://migrations",
         "sqlite://"+db.path)  // Note: sqlite:// not sqlite3://
     if err != nil {
         t.Fatal(err)
     }
-    
+
     // Apply all migrations
     if err := m.Up(); err != nil && err != migrate.ErrNoChange {
         t.Fatal(err)
     }
-    
+
     // Check version (should be 6 after applying all 6 existing migrations)
     // Note: This assumes 1:1 mapping of existing migrations to sequential versions (1-6).
     version, dirty, _ := m.Version()
@@ -496,27 +526,27 @@ func TestMigrations_UpDown(t *testing.T) {
     if dirty {
         t.Error("database should not be dirty")
     }
-    
+
     // Test rollback
     if err := m.Down(); err != nil && err != migrate.ErrNoChange {
         t.Fatal(err)
     }
-    
+
     // Verify tables removed
     // ... table existence checks
 }
 
 func TestMigrations_Idempotency(t *testing.T) {
     db := setupTestDB(t)
-    
+
     m, _ := migrate.New(
-        "file://../../data/migrations",
+        "file://migrations",
         "sqlite://"+db.path)  // Note: sqlite:// not sqlite3://
-    
+
     // Apply migrations twice
     m.Up()
     err := m.Up()
-    
+
     // Second up should return ErrNoChange
     if err != nil && err != migrate.ErrNoChange {
         t.Fatal("second up should be no-op or return ErrNoChange")
@@ -560,17 +590,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.25'
-      
+          go-version: "1.25"
+
       - name: Run migration tests
         run: |
           make build-radar-local
           make test-migrations
-      
+
       - name: Test migration idempotency
         run: |
           velocity-report migrate up --db test.db
@@ -615,6 +645,7 @@ jobs:
 **Likelihood**: Medium | **Impact**: High
 
 **Mitigation:**
+
 - ✅ Mandatory backup before applying migrations
 - ✅ Test migrations on copy of production DB first
 - ✅ Rollback procedures documented
@@ -626,6 +657,7 @@ jobs:
 **Likelihood**: Low | **Impact**: Medium
 
 **Mitigation:**
+
 - ✅ Sequential numbering prevents conflicts (next available number)
 - ✅ PR reviews catch conflicts
 - ✅ CI/CD tests detect migration issues
@@ -636,6 +668,7 @@ jobs:
 **Likelihood**: Medium | **Impact**: Medium
 
 **Mitigation:**
+
 - ✅ Generate schema.sql from fully-migrated database periodically
 - ✅ Document which file is authoritative (schema.sql for new DBs, migrations for existing)
 - ✅ Add test to verify schema.sql matches final migration state
@@ -646,6 +679,7 @@ jobs:
 **Likelihood**: Medium | **Impact**: Low
 
 **Mitigation:**
+
 - ✅ PR template checklist includes "down migration exists"
 - ✅ CI/CD fails if down migration missing
 - ✅ Code review catches missing down migrations
@@ -656,6 +690,7 @@ jobs:
 **Likelihood**: Low | **Impact**: Medium
 
 **Mitigation:**
+
 - ✅ Test migrations on production-sized datasets
 - ✅ Add progress logging for long-running migrations
 - ✅ Consider online migrations for large tables
@@ -709,6 +744,7 @@ jobs:
 ### Workflow 1: Add New Table
 
 **File: 000007_add_user_preferences.up.sql**
+
 ```sql
 -- Migration: Add user preferences table
 CREATE TABLE IF NOT EXISTS user_preferences (
@@ -724,6 +760,7 @@ CREATE INDEX IF NOT EXISTS idx_user_prefs_user_id ON user_preferences(user_id);
 ```
 
 **File: 000007_add_user_preferences.down.sql**
+
 ```sql
 -- Rollback: Remove user preferences table
 DROP INDEX IF EXISTS idx_user_prefs_user_id;
@@ -733,6 +770,7 @@ DROP TABLE IF EXISTS user_preferences;
 ### Workflow 2: Add Column (Backward Compatible)
 
 **File: 000008_add_radar_data_confidence.up.sql**
+
 ```sql
 -- Migration: Add confidence score to radar data
 ALTER TABLE radar_data ADD COLUMN confidence REAL DEFAULT 1.0;
@@ -742,6 +780,7 @@ UPDATE radar_data SET confidence = 0.8 WHERE magnitude < 100;
 ```
 
 **File: 000008_add_radar_data_confidence.down.sql**
+
 ```sql
 -- Rollback: Remove confidence column
 -- Note: SQLite supports DROP COLUMN since version 3.35.0 (March 2021).
@@ -768,14 +807,15 @@ ALTER TABLE radar_data_new RENAME TO radar_data;
 ### Workflow 3: Data Migration
 
 **File: 000009_normalize_speed_units.up.sql**
+
 ```sql
 -- Migration: Convert all speeds from mph to m/s
 -- NOTE: This is a data migration - down migration will lose precision!
 
-UPDATE radar_data 
+UPDATE radar_data
 SET raw_event = json_set(
-    raw_event, 
-    '$.speed', 
+    raw_event,
+    '$.speed',
     CAST(json_extract(raw_event, '$.speed') AS REAL) * 0.44704
 )
 WHERE json_extract(raw_event, '$.speed_unit') = 'mph';
@@ -785,6 +825,7 @@ SET raw_event = json_set(raw_event, '$.speed_unit', 'mps');
 ```
 
 **File: 000009_normalize_speed_units.down.sql**
+
 ```sql
 -- Rollback: Convert speeds back from m/s to mph
 -- WARNING: Converting back to mph will lose precision due to floating point
@@ -813,6 +854,7 @@ No change
 ```
 
 **Solution**: This is normal. All migrations were already applied. Check status:
+
 ```bash
 velocity-report migrate status
 ```
@@ -827,6 +869,7 @@ error: Dirty database version 7. Fix and force version.
 **Cause**: Previous migration failed mid-execution.
 
 **Solution**:
+
 1. Check database state: `sqlite3 sensor_data.db ".tables"`
 2. Manual inspection: Determine if migration partially applied
 3. Fix manually or force version:
@@ -840,6 +883,7 @@ error: Dirty database version 7. Fix and force version.
 **Symptoms**: Fresh database has different schema than migrated database.
 
 **Solution**:
+
 1. Create fresh database: `rm test.db && velocity-report --db test.db migrate up`
 2. Dump schema: `sqlite3 test.db .schema > schema_from_migrations.sql`
 3. Compare: `diff internal/db/schema.sql schema_from_migrations.sql`
@@ -850,6 +894,7 @@ error: Dirty database version 7. Fix and force version.
 **Cause**: Down migration would lose data.
 
 **Solution**: Document in down migration file:
+
 ```sql
 -- File: 000009_normalize_speed_units.down.sql
 -- WARNING: This migration cannot be safely rolled back
@@ -882,11 +927,12 @@ error: Dirty database version 7. Fix and force version.
 
 ---
 
-**Document Version**: 2.0  
-**Last Updated**: November 13, 2025  
-**Review Date**: December 13, 2025  
+**Document Version**: 2.0
+**Last Updated**: November 13, 2025
+**Review Date**: December 13, 2025
 **Approvers**: [TBD]
 
 **Changelog**:
+
 - v2.0 (Nov 13, 2025): Streamlined to focus solely on golang-migrate solution; removed alternative options
 - v1.0 (Nov 10, 2025): Initial version with multiple solution options

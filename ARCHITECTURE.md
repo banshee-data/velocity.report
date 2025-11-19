@@ -368,7 +368,7 @@ These three sources will be compared for initial reporting, with eventual goal o
 - WAL mode enabled for concurrent readers/writers
 - Indexes on timestamp columns for fast time-range queries
 
-**Migrations**: Located in `/data/migrations/`, managed by Go server
+**Migrations**: Located in `/internal/db/migrations/`, managed by Go server
 
 **Access Patterns**:
 

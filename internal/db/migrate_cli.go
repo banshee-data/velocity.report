@@ -302,6 +302,6 @@ func PrintMigrateHelp() {
 	fmt.Println("  --db-path <path>    Path to database file (default: sensor_data.db)")
 	fmt.Println()
 	fmt.Println("For more information, see:")
-	fmt.Println("  - data/migrations/README.md")
+	fmt.Println("  - internal/db/migrations/README.md")
 	fmt.Println("  - docs/database-migrations.md")
 }
