@@ -312,21 +312,21 @@ test-web:
 # Apply all pending migrations
 migrate-up:
 	@echo "Applying all pending migrations..."
-	@./velocity-report migrate up
+	@go run ./cmd/radar migrate up
 
 # Rollback one migration
 migrate-down:
 	@echo "Rolling back one migration..."
-	@./velocity-report migrate down
+	@go run ./cmd/radar migrate down
 
 # Show current migration status
 migrate-status:
-	@./velocity-report migrate status
+	@go run ./cmd/radar migrate status
 
 # Detect schema version (for legacy databases)
 migrate-detect:
 	@echo "Detecting schema version..."
-	@./velocity-report migrate detect
+	@go run ./cmd/radar migrate detect
 
 # Migrate to a specific version (usage: make migrate-version VERSION=3)
 migrate-version:
@@ -336,7 +336,7 @@ migrate-version:
 		exit 1; \
 	fi
 	@echo "Migrating to version $(VERSION)..."
-	@./velocity-report migrate version $(VERSION)
+	@go run ./cmd/radar migrate version $(VERSION)
 
 # Force migration version (recovery only, usage: make migrate-force VERSION=2)
 migrate-force:
@@ -346,7 +346,7 @@ migrate-force:
 		exit 1; \
 	fi
 	@echo "Forcing migration version to $(VERSION)..."
-	@./velocity-report migrate force $(VERSION)
+	@go run ./cmd/radar migrate force $(VERSION)
 
 # Baseline database at version (usage: make migrate-baseline VERSION=6)
 migrate-baseline:
@@ -356,7 +356,7 @@ migrate-baseline:
 		exit 1; \
 	fi
 	@echo "Baselining database at version $(VERSION)..."
-	@./velocity-report migrate baseline $(VERSION)
+	@go run ./cmd/radar migrate baseline $(VERSION)
 
 # =============================================================================
 # FORMATTING (mutating)
