@@ -12,6 +12,7 @@ Migrations are managed using golang-migrate with the pure-Go SQLite driver (`mod
 - `{version}_{description}.down.sql` - Rollback migration
 
 Example:
+
 ```
 000001_rename_tables_column.up.sql
 000001_rename_tables_column.down.sql
@@ -22,42 +23,50 @@ Example:
 The `velocity-report` binary includes built-in migration commands:
 
 ### Check Migration Status
+
 ```bash
 velocity-report migrate status
 ```
 
 ### Detect Schema Version (Legacy Databases)
+
 ```bash
 velocity-report migrate detect
 ```
 
 Use this command to:
+
 - Identify the schema version of databases without `schema_migrations` table
 - Compare current schema against all known migration points
 - Get recommendations for baselining and upgrading legacy databases
 
 ### Apply All Pending Migrations
+
 ```bash
 velocity-report migrate up
 ```
 
 ### Rollback One Migration
+
 ```bash
 velocity-report migrate down
 ```
 
 ### Migrate to Specific Version
+
 ```bash
 velocity-report migrate version 3
 ```
 
 ### Baseline Database (Legacy Upgrade)
+
 ```bash
 # Set starting version without running migrations
 velocity-report migrate baseline 3
 ```
 
 ### Force Version (Recovery)
+
 ```bash
 # Use only to recover from failed migrations
 velocity-report migrate force 2
@@ -68,21 +77,25 @@ velocity-report migrate force 2
 **Always before applying migrations:**
 
 1. **Backup the database:**
+
    ```bash
    cp sensor_data.db sensor_data.db.$(date +%Y%m%d_%H%M%S)
    ```
 
 2. **Stop the service** (if running in production):
+
    ```bash
    sudo systemctl stop velocity-report.service
    ```
 
 3. **Apply migrations:**
+
    ```bash
    velocity-report migrate up
    ```
 
 4. **Verify the migration:**
+
    ```bash
    velocity-report migrate status
    sqlite3 sensor_data.db ".tables"
@@ -111,10 +124,10 @@ Migrations can still be applied manually if needed:
 
 ```bash
 # Apply a single up migration
-sqlite3 sensor_data.db < data/migrations/000001_rename_tables_column.up.sql
+sqlite3 sensor_data.db < internal/db/migrations/000001_rename_tables_column.up.sql
 
 # Apply a single down migration (rollback)
-sqlite3 sensor_data.db < data/migrations/000001_rename_tables_column.down.sql
+sqlite3 sensor_data.db < internal/db/migrations/000001_rename_tables_column.down.sql
 ```
 
 **Note:** Manual application bypasses the migration tracking system. Use the CLI commands instead.
@@ -135,29 +148,33 @@ This sets the migration version without re-running migrations.
 When adding new migrations:
 
 1. **Determine next version number:**
+
    ```bash
-   ls -1 data/migrations/*.up.sql | tail -1
+   ls -1 internal/db/migrations/*.up.sql | tail -1
    # Look at the highest number, add 1
    ```
 
 2. **Create both files:**
+
    ```bash
-   touch data/migrations/000007_your_migration_name.up.sql
-   touch data/migrations/000007_your_migration_name.down.sql
+   touch internal/db/migrations/000007_your_migration_name.up.sql
+   touch internal/db/migrations/000007_your_migration_name.down.sql
    ```
 
 3. **Write the SQL:**
+
    - `.up.sql` - Forward migration (what changes)
    - `.down.sql` - Rollback migration (how to undo)
 
 4. **Test thoroughly:**
+
    ```bash
    # Test up
    velocity-report migrate up
-   
+
    # Test down
    velocity-report migrate down
-   
+
    # Test up again (idempotency)
    velocity-report migrate up
    ```
