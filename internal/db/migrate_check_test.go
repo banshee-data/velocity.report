@@ -120,7 +120,7 @@ func TestNewDBWithMigrationCheck_FreshDatabase(t *testing.T) {
 	defer db.Close()
 
 	// Verify schema_migrations exists and version is set
-	var version int
+	var version uint
 	err = db.QueryRow("SELECT version FROM schema_migrations LIMIT 1").Scan(&version)
 	if err != nil {
 		t.Fatalf("Failed to read version: %v", err)
@@ -138,7 +138,7 @@ func TestNewDBWithMigrationCheck_FreshDatabase(t *testing.T) {
 		t.Fatalf("Failed to get latest migration version: %v", err)
 	}
 
-	if version != int(latestVersion) {
+	if version != latestVersion {
 		t.Errorf("Expected baseline version %d (latest from migrations), got %d", latestVersion, version)
 	}
 }
