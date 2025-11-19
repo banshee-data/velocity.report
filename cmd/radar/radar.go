@@ -73,8 +73,24 @@ func main() {
 	if flag.NArg() > 0 {
 		subcommand := flag.Arg(0)
 		if subcommand == "migrate" {
-			// Pass remaining args (after "migrate") to the migrate command handler
-			db.RunMigrateCommand(flag.Args()[1:], *dbPathFlag)
+			// Re-parse flags after "migrate" subcommand to allow:
+			//   velocity-report migrate up --db-path /custom.db
+			// or:
+			//   velocity-report --db-path /custom.db migrate up
+			//
+			// flag.Parse() stops at first non-flag arg, so flags after "migrate"
+			// weren't parsed. Create new FlagSet to parse remaining args.
+			migrateFlags := flag.NewFlagSet("migrate", flag.ExitOnError)
+			migrateDBPath := migrateFlags.String("db-path", *dbPathFlag, "path to sqlite DB file")
+
+			// Parse flags from args after "migrate"
+			remainingArgs := flag.Args()[1:] // Everything after "migrate"
+			if err := migrateFlags.Parse(remainingArgs); err != nil {
+				log.Fatalf("Failed to parse migrate flags: %v", err)
+			}
+
+			// Pass positional args (non-flag args after parsing) to migrate command
+			db.RunMigrateCommand(migrateFlags.Args(), *migrateDBPath)
 			return
 		}
 		log.Fatalf("Unknown subcommand: %s", subcommand)
