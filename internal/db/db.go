@@ -3,9 +3,10 @@ package db
 import (
 	"compress/gzip"
 	"database/sql"
-	_ "embed"
+	"embed"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"math"
 	"net/http"
@@ -77,44 +78,87 @@ func (db *DB) ListRecentBgSnapshots(sensorID string, limit int) ([]*lidar.BgSnap
 //go:embed schema.sql
 var schemaSQL string
 
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
+
+// DevMode controls whether to use filesystem or embedded migrations.
+// Set to true in development for hot-reloading, false in production.
+var DevMode = false
+
+// getMigrationsFS returns the appropriate filesystem for migrations.
+// In dev mode, uses the local filesystem for hot-reloading.
+// In production, uses the embedded filesystem.
+func getMigrationsFS() (fs.FS, error) {
+	if DevMode {
+		// Development: use local filesystem
+		return os.DirFS("internal/db/migrations"), nil
+	}
+	// Production: use embedded filesystem
+	return fs.Sub(migrationsFS, "migrations")
+}
+
 func NewDB(path string) (*DB, error) {
-	return NewDBWithMigrationCheck(path, "./data/migrations", true)
+	return NewDBWithMigrationCheck(path, true)
 }
 
 // NewDBWithMigrationCheck opens a database and optionally checks for pending migrations.
 // If checkMigrations is true and migrations are pending, returns an error prompting user to run migrations.
-func NewDBWithMigrationCheck(path string, migrationsDir string, checkMigrations bool) (*DB, error) {
+func NewDBWithMigrationCheck(path string, checkMigrations bool) (*DB, error) {
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		return nil, err
 	}
 
-	// Check if this is an existing database (file exists and has tables)
-	var tableCount int
-	err = db.QueryRow(`
-		SELECT COUNT(*) 
-		FROM sqlite_master 
-		WHERE type='table' AND name NOT LIKE 'sqlite_%'
-	`).Scan(&tableCount)
-
-	isExistingDB := (err == nil && tableCount > 0)
+	dbWrapper := &DB{db}
 
 	// Check if schema_migrations table exists
 	var schemaMigrationsExists bool
 	err = db.QueryRow(`
-		SELECT COUNT(*) > 0 
-		FROM sqlite_master 
+		SELECT COUNT(*) > 0
+		FROM sqlite_master
 		WHERE type='table' AND name='schema_migrations'
 	`).Scan(&schemaMigrationsExists)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check for schema_migrations table: %w", err)
+	}
 
-	dbWrapper := &DB{db}
+	// Get migrations filesystem
+	migrationsFS, err := getMigrationsFS()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get migrations filesystem: %w", err)
+	}
 
-	// Handle database without schema_migrations table (legacy database)
-	if isExistingDB && !schemaMigrationsExists && checkMigrations {
+	// Case 1: Database with migration history - check if migrations are needed
+	if schemaMigrationsExists {
+		if checkMigrations {
+			shouldExit, err := dbWrapper.CheckAndPromptMigrations(migrationsFS)
+			if shouldExit {
+				return nil, err
+			}
+		}
+		return dbWrapper, nil
+	}
+
+	// Case 2: Database without schema_migrations table
+	// Check if this is a legacy database (has tables) or a fresh database
+	var tableCount int
+	err = db.QueryRow(`
+		SELECT COUNT(*)
+		FROM sqlite_master
+		WHERE type='table' AND name NOT LIKE 'sqlite_%'
+	`).Scan(&tableCount)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count tables: %w", err)
+	}
+
+	isLegacyDB := (tableCount > 0)
+
+	// Case 2a: Legacy database without migration history - detect and baseline
+	if isLegacyDB && checkMigrations {
 		log.Printf("⚠️  Database exists but has no schema_migrations table!")
 		log.Printf("   Attempting to detect schema version...")
 
-		detectedVersion, matchScore, differences, err := dbWrapper.DetectSchemaVersion(migrationsDir)
+		detectedVersion, matchScore, differences, err := dbWrapper.DetectSchemaVersion(migrationsFS)
 		if err != nil {
 			return nil, fmt.Errorf("failed to detect schema version: %w", err)
 		}
@@ -130,7 +174,7 @@ func NewDBWithMigrationCheck(path string, migrationsDir string, checkMigrations 
 			}
 
 			// Check if more migrations are needed
-			latestVersion, err := GetLatestMigrationVersion(migrationsDir)
+			latestVersion, err := GetLatestMigrationVersion(migrationsFS)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get latest version: %w", err)
 			}
@@ -149,56 +193,45 @@ func NewDBWithMigrationCheck(path string, migrationsDir string, checkMigrations 
 
 			log.Printf("   Database is up to date!")
 			return dbWrapper, nil
-		} else {
-			// Not a perfect match - show differences and ask user
-			log.Printf("   - No perfect match found (best: %d%%)", matchScore)
-			log.Printf("")
-			log.Printf("   Schema differences from version %d:", detectedVersion)
-			for _, diff := range differences {
-				log.Printf("     %s", diff)
-			}
-			log.Printf("")
-			log.Printf("   The current schema does not exactly match any known migration version.")
-			log.Printf("   Closest match is version %d with %d%% similarity.", detectedVersion, matchScore)
-			log.Printf("")
-			log.Printf("   Options:")
-			log.Printf("   1. Baseline at version %d and apply remaining migrations:", detectedVersion)
-			log.Printf("      velocity-report migrate baseline %d", detectedVersion)
-			log.Printf("      velocity-report migrate up")
-			log.Printf("")
-			log.Printf("   2. Manually inspect the differences and adjust your schema")
-			log.Printf("")
-
-			return nil, fmt.Errorf("schema does not match any known version (best match: v%d at %d%%). Manual intervention required", detectedVersion, matchScore)
 		}
+
+		// Not a perfect match - show differences and ask user
+		log.Printf("   - No perfect match found (best: %d%%)", matchScore)
+		log.Printf("")
+		log.Printf("   Schema differences from version %d:", detectedVersion)
+		for _, diff := range differences {
+			log.Printf("     %s", diff)
+		}
+		log.Printf("")
+		log.Printf("   The current schema does not exactly match any known migration version.")
+		log.Printf("   Closest match is version %d with %d%% similarity.", detectedVersion, matchScore)
+		log.Printf("")
+		log.Printf("   Options:")
+		log.Printf("   1. Baseline at version %d and apply remaining migrations:", detectedVersion)
+		log.Printf("      velocity-report migrate baseline %d", detectedVersion)
+		log.Printf("      velocity-report migrate up")
+		log.Printf("")
+		log.Printf("   2. Manually inspect the differences and adjust your schema")
+		log.Printf("")
+		return nil, fmt.Errorf("schema does not match any known version (best match: v%d at %d%%). Manual intervention required", detectedVersion, matchScore)
 	}
 
-	// Run schema.sql for fresh databases or to ensure current state
+	// Case 2b: Fresh database - initialize with schema.sql and baseline at latest version
 	_, err = db.Exec(schemaSQL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to initialize database schema: %w", err)
 	}
 
 	log.Println("ran database initialisation script")
 
-	// Re-check schema_migrations after running schema.sql
-	err = db.QueryRow(`
-		SELECT COUNT(*) > 0 
-		FROM sqlite_master 
-		WHERE type='table' AND name='schema_migrations'
-	`).Scan(&schemaMigrationsExists)
+	// Baseline fresh database at latest migration version
+	latestVersion, err := GetLatestMigrationVersion(migrationsFS)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get latest migration version: %w", err)
+	}
 
-	if err == nil && !schemaMigrationsExists {
-		// Fresh database - baseline at version 7
-		if err := dbWrapper.BaselineAtVersion(7); err != nil {
-			log.Printf("Warning: failed to baseline database: %v", err)
-		}
-	} else if checkMigrations && schemaMigrationsExists {
-		// Database exists with migration history - check if migrations are needed
-		shouldExit, err := dbWrapper.CheckAndPromptMigrations(migrationsDir)
-		if shouldExit {
-			return nil, err
-		}
+	if err := dbWrapper.BaselineAtVersion(latestVersion); err != nil {
+		return nil, fmt.Errorf("failed to baseline fresh database at version %d: %w", latestVersion, err)
 	}
 
 	return dbWrapper, nil

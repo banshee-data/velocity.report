@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 )
@@ -14,7 +15,12 @@ func RunMigrateCommand(args []string, dbPath string) {
 	}
 
 	action := args[0]
-	migrationsDir := "./data/migrations"
+
+	// Get migrations filesystem (uses embedded FS in production, local files in dev)
+	migrationsFS, err := getMigrationsFS()
+	if err != nil {
+		log.Fatalf("Failed to get migrations filesystem: %v", err)
+	}
 
 	// Open database connection without running schema initialization
 	// (migrations will manage the schema)
@@ -26,25 +32,25 @@ func RunMigrateCommand(args []string, dbPath string) {
 
 	switch action {
 	case "up":
-		handleMigrateUp(database, migrationsDir)
+		handleMigrateUp(database, migrationsFS)
 
 	case "down":
-		handleMigrateDown(database, migrationsDir)
+		handleMigrateDown(database, migrationsFS)
 
 	case "status":
-		handleMigrateStatus(database, migrationsDir)
+		handleMigrateStatus(database, migrationsFS)
 
 	case "version":
 		if len(args) < 2 {
 			log.Fatal("Usage: velocity-report migrate version <version_number>")
 		}
-		handleMigrateVersion(database, migrationsDir, args[1])
+		handleMigrateVersion(database, migrationsFS, args[1])
 
 	case "force":
 		if len(args) < 2 {
 			log.Fatal("Usage: velocity-report migrate force <version_number>")
 		}
-		handleMigrateForce(database, migrationsDir, args[1])
+		handleMigrateForce(database, migrationsFS, args[1])
 
 	case "baseline":
 		if len(args) < 2 {
@@ -53,7 +59,7 @@ func RunMigrateCommand(args []string, dbPath string) {
 		handleMigrateBaseline(database, args[1])
 
 	case "detect":
-		handleMigrateDetect(database, migrationsDir)
+		handleMigrateDetect(database, migrationsFS)
 
 	case "help":
 		PrintMigrateHelp()
@@ -66,39 +72,39 @@ func RunMigrateCommand(args []string, dbPath string) {
 }
 
 // handleMigrateUp applies all pending migrations
-func handleMigrateUp(database *DB, migrationsDir string) {
-	log.Printf("Running migrations from %s...", migrationsDir)
-	if err := database.MigrateUp(migrationsDir); err != nil {
+func handleMigrateUp(database *DB, migrationsFS fs.FS) {
+	log.Printf("Running migrations...")
+	if err := database.MigrateUp(migrationsFS); err != nil {
 		log.Fatalf("Migration up failed: %v", err)
 	}
 	log.Println("✓ All migrations applied successfully")
 
 	// Show current version
-	version, dirty, _ := database.MigrateVersion(migrationsDir)
+	version, dirty, _ := database.MigrateVersion(migrationsFS)
 	log.Printf("Current version: %d (dirty: %v)", version, dirty)
 }
 
 // handleMigrateDown rolls back one migration
-func handleMigrateDown(database *DB, migrationsDir string) {
+func handleMigrateDown(database *DB, migrationsFS fs.FS) {
 	log.Printf("Rolling back one migration...")
-	if err := database.MigrateDown(migrationsDir); err != nil {
+	if err := database.MigrateDown(migrationsFS); err != nil {
 		log.Fatalf("Migration down failed: %v", err)
 	}
 	log.Println("✓ Migration rolled back successfully")
 
 	// Show current version
-	version, dirty, _ := database.MigrateVersion(migrationsDir)
+	version, dirty, _ := database.MigrateVersion(migrationsFS)
 	log.Printf("Current version: %d (dirty: %v)", version, dirty)
 }
 
 // handleMigrateStatus displays the current migration status
-func handleMigrateStatus(database *DB, migrationsDir string) {
-	version, dirty, err := database.MigrateVersion(migrationsDir)
+func handleMigrateStatus(database *DB, migrationsFS fs.FS) {
+	version, dirty, err := database.MigrateVersion(migrationsFS)
 	if err != nil {
 		log.Fatalf("Failed to get migration status: %v", err)
 	}
 
-	status, err := database.GetMigrationStatus(migrationsDir)
+	status, err := database.GetMigrationStatus(migrationsFS)
 	if err != nil {
 		log.Fatalf("Failed to get migration status: %v", err)
 	}
@@ -118,21 +124,21 @@ func handleMigrateStatus(database *DB, migrationsDir string) {
 }
 
 // handleMigrateVersion migrates to a specific version
-func handleMigrateVersion(database *DB, migrationsDir string, versionStr string) {
+func handleMigrateVersion(database *DB, migrationsFS fs.FS, versionStr string) {
 	var targetVersion uint
 	if _, err := fmt.Sscanf(versionStr, "%d", &targetVersion); err != nil {
 		log.Fatalf("Invalid version number: %s", versionStr)
 	}
 
 	log.Printf("Migrating to version %d...", targetVersion)
-	if err := database.MigrateTo(migrationsDir, targetVersion); err != nil {
+	if err := database.MigrateTo(migrationsFS, targetVersion); err != nil {
 		log.Fatalf("Migration to version %d failed: %v", targetVersion, err)
 	}
 	log.Printf("✓ Migrated to version %d successfully", targetVersion)
 }
 
 // handleMigrateForce forces the migration version (recovery only)
-func handleMigrateForce(database *DB, migrationsDir string, versionStr string) {
+func handleMigrateForce(database *DB, migrationsFS fs.FS, versionStr string) {
 	var forceVersion int
 	if _, err := fmt.Sscanf(versionStr, "%d", &forceVersion); err != nil {
 		log.Fatalf("Invalid version number: %s", versionStr)
@@ -149,7 +155,7 @@ func handleMigrateForce(database *DB, migrationsDir string, versionStr string) {
 		os.Exit(0)
 	}
 
-	if err := database.MigrateForce(migrationsDir, forceVersion); err != nil {
+	if err := database.MigrateForce(migrationsFS, forceVersion); err != nil {
 		log.Fatalf("Force migration failed: %v", err)
 	}
 	log.Printf("✓ Migration version forced to %d", forceVersion)
@@ -170,7 +176,7 @@ func handleMigrateBaseline(database *DB, versionStr string) {
 }
 
 // handleMigrateDetect detects the schema version of a database
-func handleMigrateDetect(database *DB, migrationsDir string) {
+func handleMigrateDetect(database *DB, migrationsFS fs.FS) {
 	log.Println("Detecting schema version...")
 	log.Println()
 
@@ -188,12 +194,12 @@ func handleMigrateDetect(database *DB, migrationsDir string) {
 
 	if schemaMigrationsExists {
 		// Database has schema_migrations - show current version
-		version, dirty, err := database.MigrateVersion(migrationsDir)
+		version, dirty, err := database.MigrateVersion(migrationsFS)
 		if err != nil {
 			log.Fatalf("Failed to get migration version: %v", err)
 		}
 
-		latestVersion, err := GetLatestMigrationVersion(migrationsDir)
+		latestVersion, err := GetLatestMigrationVersion(migrationsFS)
 		if err != nil {
 			log.Fatalf("Failed to get latest migration version: %v", err)
 		}
@@ -216,12 +222,12 @@ func handleMigrateDetect(database *DB, migrationsDir string) {
 		fmt.Println("No schema_migrations table found - running automatic detection...")
 		fmt.Println()
 
-		detectedVersion, matchScore, differences, err := database.DetectSchemaVersion(migrationsDir)
+		detectedVersion, matchScore, differences, err := database.DetectSchemaVersion(migrationsFS)
 		if err != nil {
 			log.Fatalf("Schema detection failed: %v", err)
 		}
 
-		latestVersion, err := GetLatestMigrationVersion(migrationsDir)
+		latestVersion, err := GetLatestMigrationVersion(migrationsFS)
 		if err != nil {
 			log.Fatalf("Failed to get latest migration version: %v", err)
 		}

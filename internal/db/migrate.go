@@ -4,19 +4,19 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
-	"path/filepath"
 	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/sqlite"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
 // MigrateUp runs all pending migrations up to the latest version.
 // Returns nil if no migrations were needed (already at latest version).
-func (db *DB) MigrateUp(migrationsDir string) error {
-	m, err := db.newMigrate(migrationsDir)
+func (db *DB) MigrateUp(migrationsFS fs.FS) error {
+	m, err := db.newMigrate(migrationsFS)
 	if err != nil {
 		return err
 	}
@@ -31,8 +31,8 @@ func (db *DB) MigrateUp(migrationsDir string) error {
 }
 
 // MigrateDown rolls back the most recent migration.
-func (db *DB) MigrateDown(migrationsDir string) error {
-	m, err := db.newMigrate(migrationsDir)
+func (db *DB) MigrateDown(migrationsFS fs.FS) error {
+	m, err := db.newMigrate(migrationsFS)
 	if err != nil {
 		return err
 	}
@@ -47,8 +47,8 @@ func (db *DB) MigrateDown(migrationsDir string) error {
 
 // MigrateVersion returns the current migration version and dirty state.
 // Returns 0, false, nil if no migrations have been applied yet.
-func (db *DB) MigrateVersion(migrationsDir string) (version uint, dirty bool, err error) {
-	m, err := db.newMigrate(migrationsDir)
+func (db *DB) MigrateVersion(migrationsFS fs.FS) (version uint, dirty bool, err error) {
+	m, err := db.newMigrate(migrationsFS)
 	if err != nil {
 		return 0, false, err
 	}
@@ -65,8 +65,8 @@ func (db *DB) MigrateVersion(migrationsDir string) (version uint, dirty bool, er
 
 // MigrateForce forces the migration version to a specific value.
 // This should only be used to recover from a dirty migration state.
-func (db *DB) MigrateForce(migrationsDir string, version int) error {
-	m, err := db.newMigrate(migrationsDir)
+func (db *DB) MigrateForce(migrationsFS fs.FS, version int) error {
+	m, err := db.newMigrate(migrationsFS)
 	if err != nil {
 		return err
 	}
@@ -81,8 +81,8 @@ func (db *DB) MigrateForce(migrationsDir string, version int) error {
 
 // MigrateTo migrates to a specific version.
 // Use this to migrate up or down to a specific version.
-func (db *DB) MigrateTo(migrationsDir string, version uint) error {
-	m, err := db.newMigrate(migrationsDir)
+func (db *DB) MigrateTo(migrationsFS fs.FS, version uint) error {
+	m, err := db.newMigrate(migrationsFS)
 	if err != nil {
 		return err
 	}
@@ -97,11 +97,11 @@ func (db *DB) MigrateTo(migrationsDir string, version uint) error {
 
 // newMigrate creates a new migrate instance configured for this database.
 // The caller is responsible for closing the returned migrate instance.
-func (db *DB) newMigrate(migrationsDir string) (*migrate.Migrate, error) {
-	// Get absolute path to migrations directory
-	absPath, err := filepath.Abs(migrationsDir)
+func (db *DB) newMigrate(migrationsFS fs.FS) (*migrate.Migrate, error) {
+	// Create iofs source driver from the provided filesystem
+	sourceDriver, err := iofs.New(migrationsFS, ".")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get absolute path for migrations: %w", err)
+		return nil, fmt.Errorf("failed to create iofs source driver: %w", err)
 	}
 
 	// Create sqlite driver instance
@@ -111,11 +111,7 @@ func (db *DB) newMigrate(migrationsDir string) (*migrate.Migrate, error) {
 	}
 
 	// Create migrate instance
-	m, err := migrate.NewWithDatabaseInstance(
-		fmt.Sprintf("file://%s", absPath),
-		"sqlite",
-		driver,
-	)
+	m, err := migrate.NewWithInstance("iofs", sourceDriver, "sqlite", driver)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create migrate instance: %w", err)
 	}
@@ -181,8 +177,8 @@ func (db *DB) BaselineAtVersion(version uint) error {
 
 // GetMigrationStatus returns a summary of the migration status including
 // current version, dirty state, and whether migrations are needed.
-func (db *DB) GetMigrationStatus(migrationsDir string) (map[string]interface{}, error) {
-	version, dirty, err := db.MigrateVersion(migrationsDir)
+func (db *DB) GetMigrationStatus(migrationsFS fs.FS) (map[string]interface{}, error) {
+	version, dirty, err := db.MigrateVersion(migrationsFS)
 	if err != nil && !errors.Is(err, migrate.ErrNilVersion) {
 		return nil, fmt.Errorf("failed to get migration version: %w", err)
 	}
@@ -195,8 +191,8 @@ func (db *DB) GetMigrationStatus(migrationsDir string) (map[string]interface{}, 
 	// Check if migrations table exists
 	var tableExists bool
 	err = db.QueryRow(`
-		SELECT COUNT(*) > 0 
-		FROM sqlite_master 
+		SELECT COUNT(*) > 0
+		FROM sqlite_master
 		WHERE type='table' AND name='schema_migrations'
 	`).Scan(&tableExists)
 	if err != nil && err != sql.ErrNoRows {
@@ -209,32 +205,32 @@ func (db *DB) GetMigrationStatus(migrationsDir string) (map[string]interface{}, 
 }
 
 // GetLatestMigrationVersion returns the latest available migration version
-// by scanning the migrations directory.
-func GetLatestMigrationVersion(migrationsDir string) (uint, error) {
-	absPath, err := filepath.Abs(migrationsDir)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get absolute path: %w", err)
-	}
-
+// by scanning the migrations filesystem.
+func GetLatestMigrationVersion(migrationsFS fs.FS) (uint, error) {
 	// Read the migrations directory
-	entries, err := filepath.Glob(filepath.Join(absPath, "*.up.sql"))
+	entries, err := fs.ReadDir(migrationsFS, ".")
 	if err != nil {
-		return 0, fmt.Errorf("failed to read migrations directory: %w", err)
+		return 0, fmt.Errorf("failed to read migrations filesystem: %w", err)
 	}
 
 	if len(entries) == 0 {
-		return 0, fmt.Errorf("no migration files found in %s", absPath)
+		return 0, fmt.Errorf("no migration files found")
 	}
 
 	// Parse version numbers from filenames
 	var maxVersion uint
 	for _, entry := range entries {
-		var version uint
-		filename := filepath.Base(entry)
+		if entry.IsDir() {
+			continue
+		}
+		filename := entry.Name()
 		// Migration files follow format: 000001_name.up.sql
-		if _, err := fmt.Sscanf(filename, "%d_", &version); err == nil {
-			if version > maxVersion {
-				maxVersion = version
+		if strings.HasSuffix(filename, ".up.sql") {
+			var version uint
+			if _, err := fmt.Sscanf(filename, "%d_", &version); err == nil {
+				if version > maxVersion {
+					maxVersion = version
+				}
 			}
 		}
 	}
@@ -252,8 +248,8 @@ func (db *DB) GetDatabaseSchema() (map[string]string, error) {
 	schema := make(map[string]string)
 
 	rows, err := db.Query(`
-		SELECT name, sql 
-		FROM sqlite_master 
+		SELECT name, sql
+		FROM sqlite_master
 		WHERE type IN ('table', 'index', 'trigger', 'view')
 		  AND name NOT LIKE 'sqlite_%'
 		  AND name != 'schema_migrations'
@@ -298,7 +294,7 @@ func normalizeSQLForComparison(sql string) string {
 
 // GetSchemaAtMigration returns the schema that would result from applying migrations up to a specific version.
 // This is done by creating a temporary database and applying migrations.
-func (db *DB) GetSchemaAtMigration(migrationsDir string, targetVersion uint) (map[string]string, error) {
+func (db *DB) GetSchemaAtMigration(migrationsFS fs.FS, targetVersion uint) (map[string]string, error) {
 	// Create a temporary database
 	tmpDB, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
@@ -309,7 +305,7 @@ func (db *DB) GetSchemaAtMigration(migrationsDir string, targetVersion uint) (ma
 	tmpWrapper := &DB{tmpDB}
 
 	// Apply migrations up to target version
-	if err := tmpWrapper.MigrateTo(migrationsDir, targetVersion); err != nil {
+	if err := tmpWrapper.MigrateTo(migrationsFS, targetVersion); err != nil {
 		return nil, fmt.Errorf("failed to apply migrations to version %d: %w", targetVersion, err)
 	}
 
@@ -358,13 +354,13 @@ func CompareSchemas(schema1, schema2 map[string]string) (score int, differences 
 // DetectSchemaVersion attempts to detect which migration version a database is at
 // by comparing its schema to known schemas at each migration point.
 // Returns the detected version, match score, and any differences.
-func (db *DB) DetectSchemaVersion(migrationsDir string) (detectedVersion uint, matchScore int, differences []string, err error) {
+func (db *DB) DetectSchemaVersion(migrationsFS fs.FS) (detectedVersion uint, matchScore int, differences []string, err error) {
 	currentSchema, err := db.GetDatabaseSchema()
 	if err != nil {
 		return 0, 0, nil, fmt.Errorf("failed to get current schema: %w", err)
 	}
 
-	latestVersion, err := GetLatestMigrationVersion(migrationsDir)
+	latestVersion, err := GetLatestMigrationVersion(migrationsFS)
 	if err != nil {
 		return 0, 0, nil, fmt.Errorf("failed to get latest version: %w", err)
 	}
@@ -375,7 +371,7 @@ func (db *DB) DetectSchemaVersion(migrationsDir string) (detectedVersion uint, m
 
 	// Check each migration version from latest to first
 	for version := latestVersion; version >= 1; version-- {
-		schemaAtVersion, err := db.GetSchemaAtMigration(migrationsDir, version)
+		schemaAtVersion, err := db.GetSchemaAtMigration(migrationsFS, version)
 		if err != nil {
 			log.Printf("Warning: could not get schema at version %d: %v", version, err)
 			continue
@@ -401,15 +397,15 @@ func (db *DB) DetectSchemaVersion(migrationsDir string) (detectedVersion uint, m
 // CheckAndPromptMigrations checks if the database version differs from the latest
 // available migration version. If they differ, it prompts the user to apply migrations.
 // Returns true if migrations were needed but not applied (should exit), false otherwise.
-func (db *DB) CheckAndPromptMigrations(migrationsDir string) (bool, error) {
+func (db *DB) CheckAndPromptMigrations(migrationsFS fs.FS) (bool, error) {
 	// Get current database version
-	currentVersion, dirty, err := db.MigrateVersion(migrationsDir)
+	currentVersion, dirty, err := db.MigrateVersion(migrationsFS)
 	if err != nil && !errors.Is(err, migrate.ErrNilVersion) {
 		return false, fmt.Errorf("failed to get current migration version: %w", err)
 	}
 
 	// Get latest available migration version
-	latestVersion, err := GetLatestMigrationVersion(migrationsDir)
+	latestVersion, err := GetLatestMigrationVersion(migrationsFS)
 	if err != nil {
 		return false, fmt.Errorf("failed to get latest migration version: %w", err)
 	}
