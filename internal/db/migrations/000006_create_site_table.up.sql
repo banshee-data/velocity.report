@@ -1,6 +1,7 @@
--- Migration: Create site table for storing site-specific configuration
+-- Migration: Create site table for location and configuration
 -- Date: 2025-10-14
--- Description: Add site table to store location information, radar configuration, and report settings
+-- Description: Add site table for storing location information, radar configuration, and report settings
+-- From commit e53d50da
    CREATE TABLE IF NOT EXISTS site (
           id INTEGER PRIMARY KEY AUTOINCREMENT
         , name TEXT NOT NULL UNIQUE
@@ -21,7 +22,6 @@
         , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
           );
 
--- Create index on name for faster lookups
 CREATE INDEX IF NOT EXISTS idx_site_name ON site (name);
 
 -- Create trigger to update updated_at timestamp
@@ -34,7 +34,7 @@ CREATE TRIGGER IF NOT EXISTS update_site_timestamp AFTER
 END;
 
 -- Insert a default site for existing installations
-   INSERT INTO site (
+   INSERT OR IGNORE INTO site (
           name
         , location
         , description

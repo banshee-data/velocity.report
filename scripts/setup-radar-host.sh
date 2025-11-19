@@ -27,7 +27,7 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # Configuration
-BINARY="app-radar-linux-arm64"
+BINARY="velocity-report-linux-arm64"
 SERVICE_NAME="velocity-report"
 INSTALL_PATH="/usr/local/bin/${SERVICE_NAME}"
 DATA_DIR="/var/lib/velocity-report"

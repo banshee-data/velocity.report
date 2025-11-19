@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -170,28 +171,56 @@ func TestWebServer_StartStop(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	startedChan := make(chan struct{})
 	errChan := make(chan error, 1)
+
+	// Enable debug logging only when ACTIONS_STEP_DEBUG is set (GitHub Actions debug mode)
+	debugLog := func(format string, args ...interface{}) {
+		if os.Getenv("ACTIONS_STEP_DEBUG") == "true" {
+			t.Logf(format, args...)
+		}
+	}
+
 	go func() {
+		debugLog("Starting server in goroutine...")
+		// Signal that we've started attempting to start the server
+		close(startedChan)
+
 		err := server.Start(ctx)
-		if err != nil && err != http.ErrServerClosed {
+		debugLog("Server.Start() returned with error: %v", err)
+
+		// Only report errors that aren't expected shutdown errors
+		if err != nil && err != http.ErrServerClosed && !strings.Contains(err.Error(), "context canceled") {
+			debugLog("Sending unexpected error to errChan: %v", err)
 			errChan <- err
+		} else {
+			debugLog("Server stopped cleanly (err=%v)", err)
 		}
 	}()
 
-	// Give the server time to start
-	time.Sleep(50 * time.Millisecond)
+	// Wait for the goroutine to start
+	<-startedChan
+	debugLog("Server goroutine started")
+
+	// Give the server more time to fully initialize
+	// The UDP listener and HTTP server need time to bind to ports
+	time.Sleep(200 * time.Millisecond)
+	debugLog("Waited for server initialization")
 
 	// Cancel the context to stop the server
+	debugLog("Cancelling context to stop server")
 	cancel()
 
-	// Wait a bit for the server to stop
-	time.Sleep(50 * time.Millisecond)
+	// Wait for the server to stop
+	time.Sleep(200 * time.Millisecond)
+	debugLog("Waited for server shutdown")
 
 	// Check if there were any startup errors
 	select {
 	case err := <-errChan:
 		t.Fatalf("Server start failed: %v", err)
 	default:
+		debugLog("No unexpected errors - test passed")
 		// No error, which is what we expect
 	}
 }

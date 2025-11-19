@@ -43,14 +43,14 @@ ls -l /dev/ttyUSB* 2>/dev/null || echo "No USB-Serial devices found"
 
 ### Common Symptoms and Quick Fixes
 
-| Symptom | Likely Cause | Quick Fix |
-|---------|--------------|-----------|
-| No data appearing | Radar not connected | Check `/dev/ttyUSB0`, verify power |
-| PDF generation fails | Missing LaTeX | Install XeLaTeX: `sudo apt-get install texlive-xetex` |
-| Web frontend blank | Build not generated | Run `cd web && pnpm run build` |
-| API returns 500 errors | Database corruption | Check database with `PRAGMA integrity_check` |
-| High CPU usage | Background worker stuck | Restart Go server |
-| Cosine error warnings | Missing config field | Add `radar.cosine_error_angle` to config |
+| Symptom                | Likely Cause            | Quick Fix                                             |
+| ---------------------- | ----------------------- | ----------------------------------------------------- |
+| No data appearing      | Radar not connected     | Check `/dev/ttyUSB0`, verify power                    |
+| PDF generation fails   | Missing LaTeX           | Install XeLaTeX: `sudo apt-get install texlive-xetex` |
+| Web frontend blank     | Build not generated     | Run `cd web && pnpm run build`                        |
+| API returns 500 errors | Database corruption     | Check database with `PRAGMA integrity_check`          |
+| High CPU usage         | Background worker stuck | Restart Go server                                     |
+| Cosine error warnings  | Missing config field    | Add `radar.cosine_error_angle` to config              |
 
 ---
 
@@ -63,6 +63,7 @@ ls -l /dev/ttyUSB* 2>/dev/null || echo "No USB-Serial devices found"
 **Cause**: Another process is using port 8080
 
 **Solution**:
+
 ```bash
 # Find the process using port 8080
 sudo lsof -i :8080
@@ -71,7 +72,7 @@ sudo lsof -i :8080
 kill -9 <PID>
 
 # Or use a different port
-./app-radar-local -listen :8081
+./velocity-report-local -listen :8081
 ```
 
 ---
@@ -83,6 +84,7 @@ kill -9 <PID>
 **Cause**: Database file is locked by another process or has incorrect permissions
 
 **Solution**:
+
 ```bash
 # Check if another process has the database open
 lsof sensor_data.db
@@ -108,6 +110,7 @@ sqlite3 sensor_data.db < internal/db/schema.sql
 **Cause**: Radar sensor not connected or USB-Serial driver not loaded
 
 **Solution**:
+
 ```bash
 # List available serial devices
 ls -l /dev/tty*
@@ -120,7 +123,7 @@ sudo usermod -a -G dialout $USER
 # Log out and back in for group membership to take effect
 
 # If using different port, specify it
-./app-radar-local -serial /dev/ttyUSB1
+./velocity-report-local -serial /dev/ttyUSB1
 ```
 
 ---
@@ -132,6 +135,7 @@ sudo usermod -a -G dialout $USER
 **Cause**: Radar not sending data, incorrect baud rate, or serial misconfiguration
 
 **Solution**:
+
 ```bash
 # Test serial connection manually
 screen /dev/ttyUSB0 115200
@@ -144,7 +148,7 @@ echo "??" > /dev/ttyUSB0  # Query radar status
 sqlite3 sensor_data.db "SELECT COUNT(*) FROM radar_data WHERE timestamp > datetime('now', '-1 hour');"
 
 # Enable debug logging
-./app-radar-local -debug
+./velocity-report-local -debug
 ```
 
 ---
@@ -156,6 +160,7 @@ sqlite3 sensor_data.db "SELECT COUNT(*) FROM radar_data WHERE timestamp > dateti
 **Cause**: Another process is using the LIDAR UDP port (2368)
 
 **Solution**:
+
 ```bash
 # Find process using port 2368
 sudo netstat -tulpn | grep 2368
@@ -175,6 +180,7 @@ sudo ip addr add 192.168.100.151/24 dev eth0
 **Cause**: LIDAR not configured to send to correct IP, network cable issue, or firewall blocking
 
 **Solution**:
+
 ```bash
 # Check if packets are arriving
 sudo tcpdump -i eth0 udp port 2368
@@ -195,6 +201,7 @@ sudo ufw disable
 **Cause**: No data in date range, incorrect query parameters, or timezone issues
 
 **Solution**:
+
 ```bash
 # Check what data exists in database
 sqlite3 sensor_data.db "SELECT MIN(timestamp), MAX(timestamp), COUNT(*) FROM radar_data;"
@@ -220,6 +227,7 @@ curl "http://localhost:8080/api/radar_stats?start=1717200000&end=1717300000&grou
 **Cause**: XeLaTeX not installed
 
 **Solution**:
+
 ```bash
 # Ubuntu/Debian
 sudo apt-get update
@@ -246,6 +254,7 @@ xelatex --version
 **Cause**: Virtual environment not activated or dependencies not installed
 
 **Solution**:
+
 ```bash
 cd tools/pdf-generator
 
@@ -273,6 +282,7 @@ pip list | grep -E "pylatex|matplotlib|requests"
 **Cause**: Config file missing required field
 
 **Solution**:
+
 ```bash
 # Generate new config with all fields
 .venv/bin/python -m pdf_generator.cli.create_config --output my-config.json
@@ -306,13 +316,14 @@ else:
 **Cause**: Go server not running or wrong host/port
 
 **Solution**:
+
 ```bash
 # Check if server is running
 curl http://localhost:8080/api/config
 
 # If not running, start it
 cd /path/to/velocity.report
-./app-radar-local
+./velocity-report-local
 
 # If using different port, update config
 # In config.json, you can't change API host (it's not configurable)
@@ -332,6 +343,7 @@ curl http://192.168.1.100:8080/api/config
 **Cause**: Missing LaTeX packages
 
 **Solution**:
+
 ```bash
 # Install missing packages
 sudo tlmgr install fontspec
@@ -361,6 +373,7 @@ tlmgr search --global fontspec
 **Cause**: Database schema mismatch or API response format change
 
 **Solution**:
+
 ```bash
 # Check database schema
 sqlite3 sensor_data.db ".schema radar_data"
@@ -381,14 +394,15 @@ curl "http://localhost:8080/api/radar_stats?start=0&end=9999999999&group=1h&unit
 **Cause**: Date range has no data, wrong timezone, or source parameter mismatch
 
 **Solution**:
+
 ```json
 // Check config.json query section:
 {
   "query": {
-    "start_date": "2025-06-01",  // Make sure this matches your data
+    "start_date": "2025-06-01", // Make sure this matches your data
     "end_date": "2025-06-07",
-    "timezone": "US/Pacific",     // Match your local timezone
-    "source": "radar_data_transits"  // Try "radar_objects" instead
+    "timezone": "US/Pacific", // Match your local timezone
+    "source": "radar_data_transits" // Try "radar_objects" instead
   }
 }
 ```
@@ -416,6 +430,7 @@ sqlite3 sensor_data.db "SELECT DATE(MIN(timestamp)), DATE(MAX(timestamp)) FROM r
 **Cause**: Frontend not built
 
 **Solution**:
+
 ```bash
 cd web
 
@@ -441,6 +456,7 @@ pnpm run dev
 **Cause**: SPA routing not configured correctly, missing prerendered routes
 
 **Solution**:
+
 ```bash
 # Check if build has HTML files for routes
 ls web/build/*.html
@@ -462,6 +478,7 @@ curl http://localhost:8080/app/dashboard
 **Cause**: API server not running, CORS misconfiguration, or wrong API URL
 
 **Solution**:
+
 ```bash
 # Check API is accessible
 curl http://localhost:8080/api/config
@@ -485,6 +502,7 @@ curl http://localhost:8080/api/config
 **Cause**: Missing chart library, data format mismatch, or API error
 
 **Solution**:
+
 ```javascript
 // Open browser console (F12) and check for errors
 // Common issues:
@@ -494,7 +512,11 @@ curl http://localhost:8080/api/config
 
 // 2. Data format mismatch
 // Check API response format matches chart expectations
-console.log(await fetch('/api/radar_stats?start=0&end=9999999999&group=1h').then(r => r.json()))
+console.log(
+  await fetch("/api/radar_stats?start=0&end=9999999999&group=1h").then((r) =>
+    r.json()
+  )
+);
 
 // 3. Async data not loading
 // Ensure component waits for data before rendering
@@ -511,6 +533,7 @@ console.log(await fetch('/api/radar_stats?start=0&end=9999999999&group=1h').then
 **Cause**: Multiple processes accessing database, or previous process crashed without releasing lock
 
 **Solution**:
+
 ```bash
 # Check what processes have database open
 lsof sensor_data.db
@@ -538,6 +561,7 @@ sqlite3 sensor_data.db "PRAGMA wal_checkpoint(TRUNCATE);"
 **Cause**: Disk error, power loss during write, or filesystem issue
 
 **Solution**:
+
 ```bash
 # Try to recover
 sqlite3 sensor_data.db ".recover" | sqlite3 recovered.db
@@ -563,6 +587,7 @@ cp /path/to/backup/sensor_data.db.backup sensor_data.db
 **Cause**: Missing indexes, large dataset, or inefficient query
 
 **Solution**:
+
 ```bash
 # Check query plan
 sqlite3 sensor_data.db "EXPLAIN QUERY PLAN SELECT * FROM radar_data WHERE timestamp > datetime('now', '-1 day');"
@@ -590,6 +615,7 @@ ls -lh sensor_data.db
 **Cause**: Database schema out of date
 
 **Solution**:
+
 ```bash
 # Check current schema
 sqlite3 sensor_data.db ".schema radar_data"
@@ -598,7 +624,7 @@ sqlite3 sensor_data.db ".schema radar_data"
 cat internal/db/schema.sql
 
 # Run migrations
-cd data/migrations
+cd internal/db/migrations
 ls -1 *.sql | sort | while read migration; do
   echo "Running $migration..."
   sqlite3 ../../sensor_data.db < "$migration"
@@ -618,6 +644,7 @@ sqlite3 sensor_data.db < internal/db/schema.sql
 **Symptoms**: No data, server logs show no speed readings
 
 **Diagnosis**:
+
 ```bash
 # Test serial connection directly
 screen /dev/ttyUSB0 115200
@@ -633,6 +660,7 @@ echo "R0" > /dev/ttyUSB0  # Set to reporting mode
 ```
 
 **Solutions**:
+
 - Power cycle the radar (unplug, wait 10s, replug)
 - Check USB cable (try different cable/port)
 - Verify baud rate is 115200
@@ -645,6 +673,7 @@ echo "R0" > /dev/ttyUSB0  # Set to reporting mode
 **Symptoms**: Server runs but no LIDAR data in database
 
 **Diagnosis**:
+
 ```bash
 # Check network connectivity
 ping 192.168.100.202
@@ -662,6 +691,7 @@ sudo tcpdump -i eth0 -c 10 udp port 2368
 ```
 
 **Solutions**:
+
 - Power cycle LIDAR
 - Verify network cable connection
 - Reset LIDAR to factory defaults via web interface
@@ -676,6 +706,7 @@ sudo tcpdump -i eth0 -c 10 udp port 2368
 **Cause**: Incorrect `cosine_error_angle` in config
 
 **Diagnosis**:
+
 ```bash
 # Check current angle in config
 jq .radar.cosine_error_angle config.json
@@ -702,13 +733,14 @@ jq .radar.cosine_error_angle config.json
 **Cause**: Server binding to localhost only, or firewall blocking
 
 **Solution**:
+
 ```bash
 # Check server binding
 netstat -tlnp | grep 8080
 # Should show 0.0.0.0:8080, not 127.0.0.1:8080
 
 # Start server with explicit binding
-./app-radar-local -listen 0.0.0.0:8080
+./velocity-report-local -listen 0.0.0.0:8080
 
 # Check firewall
 sudo ufw status
@@ -725,6 +757,7 @@ curl http://<raspberry-pi-ip>:8080/api/config
 **Error**: `systemctl status velocity-report` shows failed
 
 **Diagnosis**:
+
 ```bash
 # Check service status and logs
 systemctl status velocity-report
@@ -734,11 +767,12 @@ journalctl -u velocity-report -n 50
 cat /etc/systemd/system/velocity-report.service
 
 # Test manual start
-/usr/local/bin/app-radar-local -db /var/lib/velocity-report/sensor_data.db
+/usr/local/bin/velocity-report-local -db /var/lib/velocity-report/sensor_data.db
 ```
 
 **Common Issues**:
-- Binary path incorrect: verify `/usr/local/bin/app-radar-local` exists
+
+- Binary path incorrect: verify `/usr/local/bin/velocity-report-local` exists
 - Database path wrong: ensure `/var/lib/velocity-report/` exists and is writable
 - Serial port permissions: add service user to `dialout` group
 - Working directory: ensure `WorkingDirectory=` is set correctly
@@ -752,6 +786,7 @@ cat /etc/systemd/system/velocity-report.service
 **Symptoms**: CPU at 100%, system sluggish
 
 **Diagnosis**:
+
 ```bash
 # Check which process is using CPU
 top
@@ -766,6 +801,7 @@ lsof sensor_data.db
 ```
 
 **Solutions**:
+
 - Restart Go server (background worker may be stuck)
 - Reduce LIDAR frame rate if processing can't keep up
 - Archive old data from database
@@ -778,12 +814,13 @@ lsof sensor_data.db
 **Symptoms**: Out of memory errors, system swapping
 
 **Diagnosis**:
+
 ```bash
 # Check memory usage
 free -h
 
 # Check Go server memory
-ps aux | grep app-radar-local
+ps aux | grep velocity-report-local
 
 # Check for memory leaks
 curl http://localhost:8080/debug/pprof/heap > heap.prof
@@ -791,6 +828,7 @@ go tool pprof heap.prof
 ```
 
 **Solutions**:
+
 - Restart server periodically (add to cron)
 - Reduce histogram bucket counts in API queries
 - Limit query result sizes
@@ -803,6 +841,7 @@ go tool pprof heap.prof
 **Symptoms**: PDF generation takes several minutes
 
 **Diagnosis**:
+
 ```bash
 # Enable debug mode to see timing
 .venv/bin/python internal/report/query_data/get_stats.py --debug ...
@@ -815,6 +854,7 @@ time xelatex test.tex
 ```
 
 **Solutions**:
+
 - Use smaller date ranges
 - Disable histogram if not needed
 - Use faster time grouping (24h instead of 15m)
@@ -835,7 +875,7 @@ uname -a
 cat /etc/os-release
 
 # Go server version
-./app-radar-local -version
+./velocity-report-local -version
 
 # Python version and packages
 .venv/bin/python --version
@@ -871,25 +911,25 @@ journalctl -u velocity-report | grep -i error
 journalctl -u velocity-report --since "2025-01-01" --until "2025-01-02" > debug.log
 
 # Enable debug logging
-./app-radar-local -debug
+./velocity-report-local -debug
 ```
 
 ---
 
 ## Common Error Messages Reference
 
-| Error Message | Component | Solution |
-|---------------|-----------|----------|
-| `bind: address already in use` | Go Server | Kill process on port 8080 |
-| `database is locked` | Database | Check for stale processes with `lsof` |
-| `xelatex: command not found` | PDF Generator | Install texlive-xetex |
-| `ModuleNotFoundError` | PDF Generator | Activate venv, install requirements |
-| `cosine_error_angle is required` | PDF Generator | Add field to config |
-| `Failed to fetch` | Web Frontend | Check API server is running |
-| `no such file or directory: /dev/ttyUSB0` | Go Server | Check radar connection |
-| `no LIDAR packets received` | Go Server | Verify LIDAR network config |
-| `PRAGMA integrity_check: failed` | Database | Restore from backup |
-| `403 Forbidden` | Web Server | Check file permissions |
+| Error Message                             | Component     | Solution                              |
+| ----------------------------------------- | ------------- | ------------------------------------- |
+| `bind: address already in use`            | Go Server     | Kill process on port 8080             |
+| `database is locked`                      | Database      | Check for stale processes with `lsof` |
+| `xelatex: command not found`              | PDF Generator | Install texlive-xetex                 |
+| `ModuleNotFoundError`                     | PDF Generator | Activate venv, install requirements   |
+| `cosine_error_angle is required`          | PDF Generator | Add field to config                   |
+| `Failed to fetch`                         | Web Frontend  | Check API server is running           |
+| `no such file or directory: /dev/ttyUSB0` | Go Server     | Check radar connection                |
+| `no LIDAR packets received`               | Go Server     | Verify LIDAR network config           |
+| `PRAGMA integrity_check: failed`          | Database      | Restore from backup                   |
+| `403 Forbidden`                           | Web Server    | Check file permissions                |
 
 ---
 

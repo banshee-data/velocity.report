@@ -3,9 +3,10 @@ package db
 import (
 	"compress/gzip"
 	"database/sql"
-	_ "embed"
+	"embed"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"math"
 	"net/http"
@@ -73,22 +74,257 @@ func (db *DB) ListRecentBgSnapshots(sensorID string, limit int) ([]*lidar.BgSnap
 // It defines tables such as radar_data, radar_objects, radar_commands, and radar_command_log which store radar event and command information.
 // The schema is embedded directly into the binary and executed when a new database is created
 // via the NewDB function, ensuring consistent schema across all deployments.
+//
+// CRITICAL: schema.sql MUST be kept in sync with the latest migration version.
+// When creating a fresh database, we verify that schema.sql matches the schema produced
+// by applying all migrations. If they differ, database initialization fails with a clear
+// error message. This prevents silently creating databases with incomplete schemas.
+// To regenerate schema.sql from migrations, export the schema from a migrated database:
+//   sqlite3 migrated.db .schema > internal/db/schema.sql
 
 //go:embed schema.sql
 var schemaSQL string
 
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
+
+// DevMode controls whether to use filesystem or embedded migrations.
+// Set to true in development for hot-reloading, false in production.
+var DevMode = false
+
+// getMigrationsFS returns the appropriate filesystem for migrations.
+// In dev mode, uses the local filesystem for hot-reloading.
+// In production, uses the embedded filesystem.
+func getMigrationsFS() (fs.FS, error) {
+	if DevMode {
+		// Development: use local filesystem
+		return os.DirFS("internal/db/migrations"), nil
+	}
+	// Production: use embedded filesystem
+	return fs.Sub(migrationsFS, "migrations")
+}
+
+// applyPragmas applies essential SQLite PRAGMAs for performance and concurrency.
+// These settings are extracted from schema.sql and applied to all databases
+// regardless of whether they were created from scratch or via migrations.
+func applyPragmas(db *sql.DB) error {
+	pragmas := []string{
+		"PRAGMA journal_mode = WAL",
+		"PRAGMA synchronous = NORMAL",
+		"PRAGMA temp_store = MEMORY",
+		"PRAGMA busy_timeout = 5000",
+	}
+
+	for _, pragma := range pragmas {
+		if _, err := db.Exec(pragma); err != nil {
+			return fmt.Errorf("failed to execute %q: %w", pragma, err)
+		}
+	}
+
+	return nil
+}
+
 func NewDB(path string) (*DB, error) {
+	return NewDBWithMigrationCheck(path, true)
+}
+
+// NewDBWithMigrationCheck opens a database and optionally checks for pending migrations.
+// If checkMigrations is true and migrations are pending, returns an error prompting user to run migrations.
+func NewDBWithMigrationCheck(path string, checkMigrations bool) (*DB, error) {
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		return nil, err
 	}
 
+	dbWrapper := &DB{db}
+
+	// Apply essential PRAGMAs for all databases, regardless of how they were created.
+	// These settings are critical for performance and concurrency:
+	// - WAL mode allows concurrent reads and writes
+	// - busy_timeout prevents immediate "database is locked" errors
+	// - NORMAL synchronous mode balances safety and performance
+	// - MEMORY temp_store improves query performance
+	if err := applyPragmas(db); err != nil {
+		return nil, fmt.Errorf("failed to apply PRAGMAs: %w", err)
+	}
+
+	// Check if schema_migrations table exists
+	var schemaMigrationsExists bool
+	err = db.QueryRow(`
+		SELECT COUNT(*) > 0
+		FROM sqlite_master
+		WHERE type='table' AND name='schema_migrations'
+	`).Scan(&schemaMigrationsExists)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check for schema_migrations table: %w", err)
+	}
+
+	// Get migrations filesystem
+	migrationsFS, err := getMigrationsFS()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get migrations filesystem: %w", err)
+	}
+
+	// Case 1: Database with migration history - check if migrations are needed
+	if schemaMigrationsExists {
+		if checkMigrations {
+			shouldExit, err := dbWrapper.CheckAndPromptMigrations(migrationsFS)
+			if shouldExit {
+				return nil, err
+			}
+		}
+		return dbWrapper, nil
+	}
+
+	// Case 2: Database without schema_migrations table
+	// Check if this is a legacy database (has tables) or a fresh database
+	var tableCount int
+	err = db.QueryRow(`
+		SELECT COUNT(*)
+		FROM sqlite_master
+		WHERE type='table' AND name NOT LIKE 'sqlite_%'
+	`).Scan(&tableCount)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count tables: %w", err)
+	}
+
+	isLegacyDB := (tableCount > 0)
+
+	// Case 2a: Legacy database without migration history - detect and baseline
+	if isLegacyDB && checkMigrations {
+		log.Printf("⚠️  Database exists but has no schema_migrations table!")
+		log.Printf("   Attempting to detect schema version...")
+
+		detectedVersion, matchScore, differences, err := dbWrapper.DetectSchemaVersion(migrationsFS)
+		if err != nil {
+			return nil, fmt.Errorf("failed to detect schema version: %w", err)
+		}
+
+		log.Printf("   Schema detection results:")
+		log.Printf("   - Best match: version %d (score: %d%%)", detectedVersion, matchScore)
+
+		if matchScore == 100 {
+			// Perfect match - baseline at this version
+			log.Printf("   - Perfect match! Baselining at version %d", detectedVersion)
+			if err := dbWrapper.BaselineAtVersion(detectedVersion); err != nil {
+				return nil, fmt.Errorf("failed to baseline at version %d: %w", detectedVersion, err)
+			}
+
+			// Check if more migrations are needed
+			latestVersion, err := GetLatestMigrationVersion(migrationsFS)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get latest version: %w", err)
+			}
+
+			if detectedVersion < latestVersion {
+				log.Printf("")
+				log.Printf("   Database has been baselined at version %d", detectedVersion)
+				log.Printf("   There are %d additional migrations available (up to version %d)",
+					latestVersion-detectedVersion, latestVersion)
+				log.Printf("")
+				log.Printf("   To apply remaining migrations, run:")
+				log.Printf("      velocity-report migrate up")
+				log.Printf("")
+				return nil, fmt.Errorf("database baselined at version %d, but migrations to version %d are available. Please run migrations", detectedVersion, latestVersion)
+			}
+
+			log.Printf("   Database is up to date!")
+			return dbWrapper, nil
+		}
+
+		// Not a perfect match - show differences and ask user
+		log.Printf("   - No perfect match found (best: %d%%)", matchScore)
+		log.Printf("")
+		log.Printf("   Schema differences from version %d:", detectedVersion)
+		for _, diff := range differences {
+			log.Printf("     %s", diff)
+		}
+		log.Printf("")
+		log.Printf("   The current schema does not exactly match any known migration version.")
+		log.Printf("   Closest match is version %d with %d%% similarity.", detectedVersion, matchScore)
+		log.Printf("")
+		log.Printf("   Options:")
+		log.Printf("   1. Baseline at version %d and apply remaining migrations:", detectedVersion)
+		log.Printf("      velocity-report migrate baseline %d", detectedVersion)
+		log.Printf("      velocity-report migrate up")
+		log.Printf("")
+		log.Printf("   2. Manually inspect the differences and adjust your schema")
+		log.Printf("")
+		return nil, fmt.Errorf("schema does not match any known version (best match: v%d at %d%%). Manual intervention required", detectedVersion, matchScore)
+	}
+
+	// Case 2b: Fresh database - initialize with schema.sql and baseline at latest version
 	_, err = db.Exec(schemaSQL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize database schema: %w", err)
+	}
+
+	log.Println("ran database initialisation script")
+
+	// Get latest migration version
+	latestVersion, err := GetLatestMigrationVersion(migrationsFS)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get latest migration version: %w", err)
+	}
+
+	// Verify that schema.sql is in sync with the latest migration version
+	// by comparing the schema we just created with what the migrations would produce.
+	// This prevents incorrect baselining if schema.sql is out of date.
+	schemaFromSQL, err := dbWrapper.GetDatabaseSchema()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get schema from schema.sql: %w", err)
+	}
+
+	schemaFromMigrations, err := dbWrapper.GetSchemaAtMigration(migrationsFS, latestVersion)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get schema at migration v%d: %w", latestVersion, err)
+	}
+
+	score, differences := CompareSchemas(schemaFromSQL, schemaFromMigrations)
+	if score != 100 {
+		log.Printf("⚠️  WARNING: schema.sql is out of sync with migrations!")
+		log.Printf("   Schema from schema.sql differs from migration v%d (similarity: %d%%)", latestVersion, score)
+		log.Printf("   Differences:")
+		for _, diff := range differences {
+			log.Printf("     %s", diff)
+		}
+		log.Printf("")
+		log.Printf("   This indicates that schema.sql needs to be updated to match the latest migrations.")
+		log.Printf("   Please run the schema consistency test or regenerate schema.sql from migrations.")
+		log.Printf("")
+		return nil, fmt.Errorf("schema.sql is out of sync with migration v%d (similarity: %d%%). Cannot baseline safely", latestVersion, score)
+	}
+
+	// Schema is consistent - safe to baseline at latest version
+	if err := dbWrapper.BaselineAtVersion(latestVersion); err != nil {
+		return nil, fmt.Errorf("failed to baseline fresh database at version %d: %w", latestVersion, err)
+	}
+
+	// Verify baseline was successful
+	currentVersion, _, err := dbWrapper.MigrateVersion(migrationsFS)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify baseline: %w", err)
+	}
+	if currentVersion != latestVersion {
+		return nil, fmt.Errorf("baseline verification failed: expected version %d, got %d", latestVersion, currentVersion)
+	}
+
+	return dbWrapper, nil
+}
+
+// OpenDB opens a database connection without running schema initialization.
+// This is useful for migration commands that manage schema independently.
+// Note: PRAGMAs are still applied for performance and concurrency.
+func OpenDB(path string) (*DB, error) {
+	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Println("ran database initialisation script")
+	// Apply PRAGMAs even for migration commands
+	if err := applyPragmas(db); err != nil {
+		return nil, fmt.Errorf("failed to apply PRAGMAs: %w", err)
+	}
 
 	return &DB{db}, nil
 }

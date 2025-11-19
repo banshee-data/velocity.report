@@ -38,6 +38,15 @@ help:
 	@echo "  test-python-cov      Run Python tests with coverage"
 	@echo "  test-web             Run web tests (Jest)"
 	@echo ""
+	@echo "DATABASE MIGRATIONS:"
+	@echo "  migrate-up           Apply all pending migrations"
+	@echo "  migrate-down         Rollback one migration"
+	@echo "  migrate-status       Show current migration status"
+	@echo "  migrate-detect       Detect schema version (for legacy databases)"
+	@echo "  migrate-version      Migrate to specific version (VERSION=N)"
+	@echo "  migrate-force        Force version (recovery, VERSION=N)"
+	@echo "  migrate-baseline     Set baseline version (VERSION=N)"
+	@echo ""
 	@echo "FORMATTING (mutating):"
 	@echo "  format               Format all code (Go + Python + Web)"
 	@echo "  format-go            Format Go code (gofmt)"
@@ -99,19 +108,19 @@ help:
 # =============================================================================
 
 build-radar-linux:
-	GOOS=linux GOARCH=arm64 go build -o app-radar-linux-arm64 ./cmd/radar
+	GOOS=linux GOARCH=arm64 go build -o velocity-report-linux-arm64 ./cmd/radar
 
 build-radar-linux-pcap:
-	GOOS=linux GOARCH=arm64 go build -tags=pcap -o app-radar-linux-arm64 ./cmd/radar
+	GOOS=linux GOARCH=arm64 go build -tags=pcap -o velocity-report-linux-arm64 ./cmd/radar
 
 build-radar-mac:
-	GOOS=darwin GOARCH=arm64 go build -tags=pcap -o app-radar-mac-arm64 ./cmd/radar
+	GOOS=darwin GOARCH=arm64 go build -tags=pcap -o velocity-report-mac-arm64 ./cmd/radar
 
 build-radar-mac-intel:
-	GOOS=darwin GOARCH=amd64 go build -tags=pcap -o app-radar-mac-amd64 ./cmd/radar
+	GOOS=darwin GOARCH=amd64 go build -tags=pcap -o velocity-report-mac-amd64 ./cmd/radar
 
 build-radar-local:
-	go build -tags=pcap -o app-radar-local ./cmd/radar
+	go build -tags=pcap -o velocity-report-local ./cmd/radar
 
 build-tools:
 	go build -o app-sweep ./cmd/sweep
@@ -202,31 +211,31 @@ define run_dev_go
 	pidfile=$${piddir}/velocity-$${ts}.pid; \
 	DB_PATH=$${DB_PATH:-./sensor_data.db}; \
 	$(call run_dev_go_kill_server); \
-	echo "Building app-radar-local..."; \
-	go build -tags=pcap -o app-radar-local ./cmd/radar; \
+	echo "Building velocity-report-local..."; \
+	go build -tags=pcap -o velocity-report-local ./cmd/radar; \
 	mkdir -p "$$piddir"; \
-	echo "Starting app-radar-local (background) with DB=$$DB_PATH -> $$logfile"; \
-	nohup ./app-radar-local --disable-radar $(1) --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
+	echo "Starting velocity-report-local (background) with DB=$$DB_PATH -> $$logfile"; \
+	nohup ./velocity-report-local --disable-radar $(1) --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
 	echo "Started; PID $$(cat $$pidfile)"; \
 	echo "Log: $$logfile"
 endef
 
 define run_dev_go_kill_server
 	piddir=logs/pids; \
-	echo "Stopping previously-launched app-radar-local processes (from $$piddir) ..."; \
+	echo "Stopping previously-launched velocity-report-local processes (from $$piddir) ..."; \
 	if [ -d "$$piddir" ] && [ $$(ls -1 $$piddir/velocity-*.pid 2>/dev/null | wc -l) -gt 0 ]; then \
 	  for pidfile_k in $$(ls -1t $$piddir/velocity-*.pid 2>/dev/null | head -n3); do \
 	    pid_k=$$(cat "$$pidfile_k" 2>/dev/null || echo); \
 	    if [ -n "$$pid_k" ] && kill -0 $$pid_k 2>/dev/null; then \
 	      cmdline=$$(ps -p $$pid_k -o args= 2>/dev/null || true); \
 	      case "$$cmdline" in \
-	        *app-radar-local*) \
+	        *velocity-report-local*) \
 	          echo "Stopping pid $$pid_k (from $$pidfile_k): $$cmdline"; \
 	          kill $$pid_k 2>/dev/null || true; \
 	          sleep 1; \
 	          kill -0 $$pid_k 2>/dev/null && kill -9 $$pid_k 2>/dev/null || true; \
 	          ;; \
-	        *) echo "Skipping pid $$pid_k (cmd does not match app-radar-local): $$cmdline"; ;; \
+	        *) echo "Skipping pid $$pid_k (cmd does not match velocity-report-local): $$cmdline"; ;; \
 	      esac; \
 	    fi; \
 	  done; \
@@ -293,6 +302,61 @@ test-python-cov:
 test-web:
 	@echo "Running web (Jest) tests..."
 	@cd $(WEB_DIR) && pnpm run test:ci
+
+# =============================================================================
+# DATABASE MIGRATIONS
+# =============================================================================
+
+.PHONY: migrate-up migrate-down migrate-status migrate-detect migrate-version migrate-force migrate-baseline
+
+# Apply all pending migrations
+migrate-up:
+	@echo "Applying all pending migrations..."
+	@go run ./cmd/radar migrate up
+
+# Rollback one migration
+migrate-down:
+	@echo "Rolling back one migration..."
+	@go run ./cmd/radar migrate down
+
+# Show current migration status
+migrate-status:
+	@go run ./cmd/radar migrate status
+
+# Detect schema version (for legacy databases)
+migrate-detect:
+	@echo "Detecting schema version..."
+	@go run ./cmd/radar migrate detect
+
+# Migrate to a specific version (usage: make migrate-version VERSION=3)
+migrate-version:
+	@if [ -z "$(VERSION)" ]; then \
+		echo "Error: VERSION not specified"; \
+		echo "Usage: make migrate-version VERSION=3"; \
+		exit 1; \
+	fi
+	@echo "Migrating to version $(VERSION)..."
+	@go run ./cmd/radar migrate version $(VERSION)
+
+# Force migration version (recovery only, usage: make migrate-force VERSION=2)
+migrate-force:
+	@if [ -z "$(VERSION)" ]; then \
+		echo "Error: VERSION not specified"; \
+		echo "Usage: make migrate-force VERSION=2"; \
+		exit 1; \
+	fi
+	@echo "Forcing migration version to $(VERSION)..."
+	@go run ./cmd/radar migrate force $(VERSION)
+
+# Baseline database at version (usage: make migrate-baseline VERSION=6)
+migrate-baseline:
+	@if [ -z "$(VERSION)" ]; then \
+		echo "Error: VERSION not specified"; \
+		echo "Usage: make migrate-baseline VERSION=6"; \
+		exit 1; \
+	fi
+	@echo "Baselining database at version $(VERSION)..."
+	@go run ./cmd/radar migrate baseline $(VERSION)
 
 # =============================================================================
 # FORMATTING (mutating)
@@ -447,8 +511,8 @@ clean-python:
 .PHONY: setup-radar
 
 setup-radar:
-	@if [ ! -f "app-radar-linux-arm64" ]; then \
-		echo "Error: app-radar-linux-arm64 not found!"; \
+	@if [ ! -f "velocity-report-linux-arm64" ]; then \
+		echo "Error: velocity-report-linux-arm64 not found!"; \
 		echo "Run 'make build-radar-linux' first."; \
 		exit 1; \
 	fi

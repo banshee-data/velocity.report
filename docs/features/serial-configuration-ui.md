@@ -1,8 +1,8 @@
 # Feature Specification: Serial Configuration and Testing via UI
 
-**Status:** Draft  
-**Created:** 2025-11-06  
-**Author:** Ictinus (Product Architect)  
+**Status:** Draft
+**Created:** 2025-11-06
+**Author:** Ictinus (Product Architect)
 **Issue:** Serial config + test (baud, port) via UI
 
 ## Executive Summary
@@ -14,6 +14,7 @@ Enable users to configure and test radar serial port settings through the web in
 **Problem Statement:**
 
 Currently, radar serial port configuration is hardcoded via command-line flags (`--port /dev/ttySC1`), requiring:
+
 - Manual editing of systemd service files
 - Service restarts for configuration changes
 - No validation that serial settings are correct before deployment
@@ -31,6 +32,7 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 ## Target Users
 
 **Primary Users:**
+
 - DIY radar operators managing Raspberry Pi deployments
 - Community advocates setting up neighborhood monitoring
 - Users with multiple radar sensors for coverage expansion
@@ -46,12 +48,14 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 ### Serial Port Management (Existing)
 
 **Component:** `internal/serialmux`
+
 - **Purpose:** Abstraction over serial port with multiplexing for multiple subscribers
 - **Implementation:** Generic `SerialMux[T SerialPorter]` with real, mock, and disabled modes
 - **Current Configuration:** Hardcoded at startup via `--port` CLI flag (default: `/dev/ttySC1`)
 - **Baud Rate:** Currently hardcoded in serial port initialization (19200 for OPS243A)
 
 **Initialization Flow (cmd/radar/radar.go:105-118):**
+
 ```go
 radarSerial, err := serialmux.NewRealSerialMux(*port)
 if err := radarSerial.Initialize(); err != nil {
@@ -60,6 +64,7 @@ if err := radarSerial.Initialize(); err != nil {
 ```
 
 **Serial Port Interface (internal/serialmux/port.go):**
+
 ```go
 type SerialPorter interface {
     io.ReadWriter
@@ -70,18 +75,21 @@ type SerialPorter interface {
 ### Database Configuration (Existing)
 
 **Schema:** SQLite database at `/var/lib/velocity-report/sensor_data.db`
+
 - **Site Configuration:** `site` table stores location and report settings
 - **Pattern:** Configuration stored in DB, consumed by application at runtime
-- **Migration System:** Timestamped SQL files in `data/migrations/`
+- **Migration System:** Timestamped SQL files in `internal/db/migrations/`
 
 ### Web Interface (Existing)
 
 **Framework:** Svelte/TypeScript with svelte-ux component library
+
 - **Settings Page:** `/settings` route with units and timezone configuration
 - **Pattern:** Auto-save on change with instant feedback
 - **API Integration:** Fetch from `/api/config`, update via stores
 
 **Existing Settings Pattern (web/src/routes/settings/+page.svelte):**
+
 - SelectField components with auto-save
 - Loading states and user feedback messages
 - Server default override with localStorage
@@ -89,6 +97,7 @@ type SerialPorter interface {
 ### HTTP API (Existing)
 
 **Server:** `internal/api/server.go`
+
 - **Config Endpoint:** `/api/config` returns units and timezone
 - **Pattern:** JSON responses with error handling
 - **Admin Routes:** Attached via `AttachAdminRoutes(*http.ServeMux)`
@@ -121,14 +130,14 @@ CREATE TABLE IF NOT EXISTS radar_serial_config (
      , CHECK (sensor_model IN ('ops243-a', 'ops243-c'))
      );
 
-CREATE INDEX IF NOT EXISTS idx_radar_serial_config_enabled 
+CREATE INDEX IF NOT EXISTS idx_radar_serial_config_enabled
     ON radar_serial_config (enabled);
 
-CREATE TRIGGER IF NOT EXISTS update_radar_serial_config_timestamp 
-    AFTER UPDATE ON radar_serial_config 
+CREATE TRIGGER IF NOT EXISTS update_radar_serial_config_timestamp
+    AFTER UPDATE ON radar_serial_config
 BEGIN
-    UPDATE radar_serial_config 
-    SET updated_at = STRFTIME('%s', 'now') 
+    UPDATE radar_serial_config
+    SET updated_at = STRFTIME('%s', 'now')
     WHERE id = NEW.id;
 END;
 
@@ -158,6 +167,7 @@ VALUES (
 ```
 
 **Rationale:**
+
 - **Sensor Model Slugs:** Use simple text identifiers (`ops243-a`, `ops243-c`) validated via SQLite CHECK constraint
 - **Application-Side Logic:** Sensor capabilities and initialization commands stored in application code, not database
 - **CHECK Constraint:** Validates sensor model values at database level without requiring separate table
@@ -167,7 +177,7 @@ VALUES (
 - **Enabled Flag:** Allow disabling sensors without deletion
 - **Default HAT Config:** `/dev/ttySC1` is the SC16IS762 HAT default for Raspberry Pi
 
-**Migration File:** `data/migrations/20251106_create_radar_serial_config.sql`
+**Migration File:** `internal/db/migrations/20251106_create_radar_serial_config.sql`
 
 **Sensor Model Information (Application Code):**
 
@@ -216,6 +226,7 @@ var SupportedSensorModels = map[string]SensorModel{
 **Endpoints:**
 
 1. **List Serial Configurations**
+
    - **Method:** `GET`
    - **Path:** `/api/serial/configs`
    - **Response:**
@@ -239,11 +250,13 @@ var SupportedSensorModels = map[string]SensorModel{
      ```
 
 2. **Get Single Serial Configuration**
+
    - **Method:** `GET`
    - **Path:** `/api/serial/configs/:id`
    - **Response:** Single config object (same structure as list item)
 
 3. **Create Serial Configuration**
+
    - **Method:** `POST`
    - **Path:** `/api/serial/configs`
    - **Body:**
@@ -259,17 +272,20 @@ var SupportedSensorModels = map[string]SensorModel{
    - **Response:** Created config object with assigned ID
 
 4. **Update Serial Configuration**
+
    - **Method:** `PUT`
    - **Path:** `/api/serial/configs/:id`
    - **Body:** Same as create (partial updates supported)
    - **Response:** Updated config object
 
 5. **Delete Serial Configuration**
+
    - **Method:** `DELETE`
    - **Path:** `/api/serial/configs/:id`
    - **Response:** `204 No Content` on success
 
 6. **List Available Serial Devices**
+
    - **Method:** `GET`
    - **Path:** `/api/serial/devices`
    - **Response:** (Only includes device paths that are not already assigned to a saved configuration)
@@ -328,6 +344,7 @@ var SupportedSensorModels = map[string]SensorModel{
 **Implementation Location:** `internal/api/serial_config.go` (new file)
 
 **Error Handling:**
+
 - `400 Bad Request`: Invalid configuration values or unsupported sensor model
 - `404 Not Found`: Config ID does not exist
 - `409 Conflict`: Name already exists (unique constraint)
@@ -365,8 +382,12 @@ var SupportedSensorModels = map[string]SensorModel{
     "bytes_received": 128,
     "sample_data": "{\"speed\": 15.2, \"magnitude\": 456, ...}",
     "raw_responses": [
-      {"command": "??", "response": "{\"module\":\"OPS243-A\",\"version\":\"1.2.3\"}", "is_json": true},
-      {"command": "I?", "response": "19200", "is_json": false}
+      {
+        "command": "??",
+        "response": "{\"module\":\"OPS243-A\",\"version\":\"1.2.3\"}",
+        "is_json": true
+      },
+      { "command": "I?", "response": "19200", "is_json": false }
     ],
     "message": "Serial port communication successful"
   }
@@ -388,7 +409,7 @@ var SupportedSensorModels = map[string]SensorModel{
 1. **Open Port:** Attempt to open serial port with specified settings
 2. **Send Command:** Send a safe query command (e.g., `??` for firmware version)
 3. **Wait for Response:** Read with timeout (default 5 seconds)
-4. **Parse and Log Response:** 
+4. **Parse and Log Response:**
    - Attempt to parse as JSON (OPS243A uses JSON mode after `OJ` command)
    - If JSON parsing fails, log the raw text response (some commands like `I?` return non-JSON text)
    - Store both JSON and non-JSON responses for diagnostics and testing verification
@@ -412,6 +433,7 @@ var SupportedSensorModels = map[string]SensorModel{
 - **Baud rate changed:** "Device reports different baud rate (detected via I? command). Configuration updated automatically."
 
 **Baud Rate Commands (OPS243 Series):**
+
 - `I1` - Set to 9,600 baud
 - `I2` - Set to 19,200 baud (default)
 - `I3` - Set to 57,600 baud
@@ -422,6 +444,7 @@ var SupportedSensorModels = map[string]SensorModel{
 **Implementation Location:** `internal/api/serial_test.go` (new file)
 
 **Safety Considerations:**
+
 - Non-destructive testing only (read-only commands)
 - Timeout prevents hanging on unresponsive devices
 - Automatic cleanup even on errors
@@ -436,6 +459,7 @@ var SupportedSensorModels = map[string]SensorModel{
 **Endpoints:**
 
 1. **Auto-Detect Connected Device**
+
    - **Method:** `POST`
    - **Path:** `/api/serial/auto-detect`
    - **Body:**
@@ -453,8 +477,8 @@ var SupportedSensorModels = map[string]SensorModel{
        "detected_baud_rate": 19200,
        "sensor_model": "ops243-c",
        "raw_responses": [
-         {"command": "??", "response": "OPS243-C Ready", "is_json": false},
-         {"command": "I?", "response": "19200", "is_json": false}
+         { "command": "??", "response": "OPS243-C Ready", "is_json": false },
+         { "command": "I?", "response": "19200", "is_json": false }
        ],
        "ports_tested": ["/dev/ttyUSB0", "/dev/ttyACM0"],
        "excluded_assigned_ports": ["/dev/ttySC1"],
@@ -520,11 +544,13 @@ var SupportedSensorModels = map[string]SensorModel{
 **Page Components:**
 
 1. **Configuration List**
+
    - Table showing all configured serial ports
    - Columns: Name, Port, Baud Rate, Status (Enabled/Disabled), Actions
    - Actions: Edit, Test, Enable/Disable, Delete
 
 2. **Configuration Editor (Modal/Drawer)**
+
    - Form fields:
      - Name (text, required, unique)
      - Port Path (select + manual override, required)
@@ -543,6 +569,7 @@ var SupportedSensorModels = map[string]SensorModel{
      - "Cancel" - Discards changes
 
 3. **Test Results Display**
+
    - Show test results inline with color-coded success/failure
    - Display diagnostic messages and suggestions
    - Show sample data received from device
@@ -558,12 +585,14 @@ var SupportedSensorModels = map[string]SensorModel{
 - **TypeScript Types:** `web/src/lib/types/serial.ts` (new file)
 
 **Design Pattern:** Follow existing settings page patterns
+
 - Auto-save option or explicit "Save" button (recommend explicit for hardware config)
 - Loading states during API calls
 - User feedback messages for actions
 - Confirmation dialogs for destructive actions (delete)
 
 **Accessibility:**
+
 - Proper ARIA labels for form fields
 - Keyboard navigation support
 - Screen reader announcements for test results
@@ -574,6 +603,7 @@ var SupportedSensorModels = map[string]SensorModel{
 **Requirement:** Load serial configuration from database at startup
 
 **Current Behavior:**
+
 ```go
 // cmd/radar/radar.go:35
 port = flag.String("port", "/dev/ttySC1", "Serial port to use")
@@ -582,12 +612,14 @@ port = flag.String("port", "/dev/ttySC1", "Serial port to use")
 **New Behavior:**
 
 1. **Startup Sequence:**
+
    - Initialize database connection
    - Load enabled serial configurations from `radar_serial_config`
    - If no configs found, use CLI flag value (backward compatibility)
    - Create SerialMux instances for each enabled configuration
 
 2. **Configuration Priority:**
+
    - Database configurations take precedence over CLI flags
    - CLI flag `--port` becomes fallback for legacy deployments
    - New flag: `--ignore-db-serial` to force CLI flag usage
@@ -602,6 +634,7 @@ port = flag.String("port", "/dev/ttySC1", "Serial port to use")
 - **File:** `cmd/radar/radar.go`
 - **Function:** New `loadSerialConfigs(db *db.DB) ([]SerialConfig, error)`
 - **Structure:**
+
   ```go
   type SerialConfig struct {
       ID           int
@@ -615,7 +648,7 @@ port = flag.String("port", "/dev/ttySC1", "Serial port to use")
       Description  string
       SensorModel  string  // Slug like "ops243-a"
   }
-  
+
   type SensorModel struct {
       Slug            string
       DisplayName     string
@@ -626,7 +659,7 @@ port = flag.String("port", "/dev/ttySC1", "Serial port to use")
       InitCommands    []string
       Description     string
   }
-  
+
   // GetSensorModel looks up sensor model from application code
   func GetSensorModel(slug string) (SensorModel, error) {
       model, ok := SupportedSensorModels[slug]
@@ -641,6 +674,7 @@ port = flag.String("port", "/dev/ttySC1", "Serial port to use")
 Sensor models are defined in the application code (as shown in the rationale section above), eliminating the need for database migrations when adding new sensor support.
 
 **Backward Compatibility:**
+
 - If database is empty, fall back to CLI flag
 - Log warning if both database config and CLI flag are present
 - Existing deployments continue working without migration
@@ -689,12 +723,14 @@ Sensor models are defined in the application code (as shown in the rationale sec
 **Goal:** Enable database-driven serial configuration without UI
 
 **Deliverables:**
+
 1. Migration file with `radar_serial_config` table schema
 2. Database initialization with default HAT configuration
 3. Go server loads config from database at startup
 4. Backward compatibility with CLI flag fallback
 
 **Testing:**
+
 - Manual database insertion of config
 - Server startup with database config
 - Server startup with empty database (CLI fallback)
@@ -707,6 +743,7 @@ Sensor models are defined in the application code (as shown in the rationale sec
 **Goal:** Full CRUD operations and testing capabilities via API
 
 **Deliverables:**
+
 1. `/api/serial/configs` CRUD endpoints (FR2)
 2. `/api/serial/devices` discovery endpoint with filtering (FR2)
 3. `/api/serial/test` testing endpoint (FR3)
@@ -716,6 +753,7 @@ Sensor models are defined in the application code (as shown in the rationale sec
 7. Integration tests for serial port testing
 
 **Testing:**
+
 - API endpoint tests with mock serial ports
 - Serial testing with real hardware (OPS243A)
 - Error handling for all failure scenarios
@@ -728,6 +766,7 @@ Sensor models are defined in the application code (as shown in the rationale sec
 **Goal:** User-friendly interface for all serial configuration tasks
 
 **Deliverables:**
+
 1. `/settings/serial` route and page component (FR5)
 2. Configuration list view
 3. Edit/Create modal with form validation
@@ -738,6 +777,7 @@ Sensor models are defined in the application code (as shown in the rationale sec
 8. User documentation
 
 **Testing:**
+
 - UI component tests
 - E2E tests for configuration workflows
 - Mobile responsiveness
@@ -751,6 +791,7 @@ Sensor models are defined in the application code (as shown in the rationale sec
 **Goal:** Support multiple radar sensors simultaneously
 
 **Deliverables:**
+
 1. Multiple SerialMux instances in server
 2. Data tagging with sensor ID
 3. UI for sensor selection in visualizations
@@ -763,11 +804,13 @@ Sensor models are defined in the application code (as shown in the rationale sec
 ### Decision 1: Database vs. Configuration File
 
 **Options:**
+
 - **A) SQLite database table** (Selected)
 - **B) JSON configuration file**
 - **C) TOML/YAML configuration file**
 
 **Rationale for Database:**
+
 - ✅ Consistent with existing pattern (site configuration stored in DB)
 - ✅ Easy to expose via REST API
 - ✅ No file system permissions issues
@@ -780,11 +823,13 @@ Sensor models are defined in the application code (as shown in the rationale sec
 ### Decision 2: Testing Strategy
 
 **Options:**
+
 - **A) Non-destructive read-only testing** (Selected)
 - **B) Full initialization sequence**
 - **C) No testing, just configuration storage**
 
 **Rationale for Read-Only Testing:**
+
 - ✅ Safe to run multiple times
 - ✅ Won't interfere with live data collection
 - ✅ Fast feedback for users
@@ -796,11 +841,13 @@ Sensor models are defined in the application code (as shown in the rationale sec
 ### Decision 3: Baud Rate Configuration
 
 **Options:**
+
 - **A) User-selectable from common rates** (Selected)
 - **B) Auto-detect only**
 - **C) Freeform text entry**
 
 **Rationale for Selectable Rates:**
+
 - ✅ Prevents typos and invalid values
 - ✅ Common rates cover 99% of use cases
 - ✅ Auto-detect available as helper function
@@ -812,11 +859,13 @@ Sensor models are defined in the application code (as shown in the rationale sec
 ### Decision 4: Multi-Sensor Architecture
 
 **Options:**
+
 - **A) Multiple SerialMux instances** (Selected for future)
 - **B) Single SerialMux with multiplexing**
 - **C) Separate processes per sensor**
 
 **Rationale for Multiple Instances:**
+
 - ✅ Clean separation of concerns
 - ✅ Independent error handling per sensor
 - ✅ Simpler debugging
@@ -828,11 +877,13 @@ Sensor models are defined in the application code (as shown in the rationale sec
 ### Decision 5: Sensor Model Storage (Application vs Database)
 
 **Options:**
+
 - **A) Application-side with CHECK constraint** (Selected)
 - **B) Database reference table with foreign key**
 - **C) Freeform text without validation**
 
 **Rationale for Application-Side:**
+
 - ✅ No database migrations needed when adding new sensor models
 - ✅ Sensor capabilities and init commands versioned with application code
 - ✅ CHECK constraint provides database-level validation
@@ -843,6 +894,7 @@ Sensor models are defined in the application code (as shown in the rationale sec
 **Rejected:** Database reference table requires migrations for new sensors. Freeform text lacks validation and type safety.
 
 **Implementation:**
+
 ```sql
 sensor_model TEXT NOT NULL DEFAULT 'ops243-a',
 CHECK (sensor_model IN ('ops243-a', 'ops243-c'))
@@ -855,6 +907,7 @@ The CHECK constraint is updated via migration when the application adds support 
 ### For Users on systemd (Production)
 
 **Current Setup:**
+
 ```ini
 ExecStart=/usr/local/bin/velocity-report --port /dev/ttySC1 --db-path /var/lib/velocity-report/sensor_data.db
 ```
@@ -888,6 +941,7 @@ sudo systemctl restart velocity-report
 ### For Users on Manual Deployment
 
 **Current Setup:**
+
 ```bash
 ./radar --port /dev/ttyUSB0
 ```
@@ -957,20 +1011,24 @@ sudo systemctl restart velocity-report
 ### Security
 
 **Input Validation:**
+
 - Port paths restricted to `/dev/tty*` and `/dev/serial*` patterns
 - Prevent command injection via path traversal attacks
 - Sanitize all user inputs before database storage
 
 **Permission Management:**
+
 - Serial port testing respects system permissions
 - Clear error messages for permission issues
 - Documentation for proper permission setup (`dialout` group)
 
 **Rate Limiting:**
+
 - Prevent DoS via repeated test operations
 - Concurrent test prevention to avoid port lock
 
 **Audit Trail:**
+
 - Track configuration changes with `created_at` and `updated_at` timestamps
 - Future: Add audit log for who changed what (if user management added)
 
@@ -979,11 +1037,13 @@ sudo systemctl restart velocity-report
 ### Open Questions
 
 1. **Q: Should we allow configuration of serial timeout values?**
+
    - Current: Hardcoded in Initialize() sequence
    - Trade-off: Flexibility vs. complexity
    - Recommendation: Start with sensible defaults, add if users request
 
 2. **Q: Should we support hot-swapping serial configurations without restart?**
+
    - Current: Changes require server restart
    - Trade-off: Complexity vs. user convenience
    - Recommendation: Phase 2 feature (after basic CRUD)
@@ -996,20 +1056,24 @@ sudo systemctl restart velocity-report
 ### Future Enhancements
 
 1. **Serial Port Health Monitoring:**
+
    - Track connection uptime
    - Alert on serial disconnections
    - Automatic reconnection attempts
 
 2. **Configuration Templates:**
+
    - Pre-configured profiles for common hardware (HAT, USB adapters)
    - One-click setup for known-good configurations
 
 3. **Firmware Update via UI:**
+
    - Upload new firmware to OPS243A via serial
    - Guided firmware update process
    - Rollback on failure
 
 4. **Advanced Diagnostics:**
+
    - Serial port signal strength/quality metrics
    - Packet loss tracking
    - Performance graphs over time
@@ -1024,6 +1088,7 @@ sudo systemctl restart velocity-report
 ### OPS243A Serial Configuration
 
 **Documented Settings:**
+
 - Baud Rate: 9600, 19200, 38400, 57600, 115200 (factory default: 9600)
 - Data Bits: 8
 - Stop Bits: 1
@@ -1035,6 +1100,7 @@ sudo systemctl restart velocity-report
 ### Raspberry Pi HAT (SC16IS762)
 
 **Default Configuration:**
+
 - Device Path: `/dev/ttySC1` (channel 1), `/dev/ttySC0` (channel 0)
 - Driver: `sc16is7xx` kernel module
 - Dual-channel: Supports two serial devices simultaneously
@@ -1044,11 +1110,13 @@ sudo systemctl restart velocity-report
 ### Common Serial Adapters
 
 **USB-Serial Adapters:**
+
 - FTDI FT232: `/dev/ttyUSB0` (most common)
 - Prolific PL2303: `/dev/ttyUSB0`
 - CH340/CH341: `/dev/ttyUSB0`
 
 **Permission Setup:**
+
 ```bash
 sudo usermod -a -G dialout $USER
 sudo reboot
@@ -1059,6 +1127,7 @@ sudo reboot
 This feature enables self-service serial port configuration through a web interface, eliminating technical barriers and supporting future multi-sensor deployments. The phased implementation approach delivers value incrementally while maintaining backward compatibility and system reliability.
 
 **Next Steps:**
+
 1. Review and approve this specification
 2. Create GitHub issues for each implementation phase
 3. Assign to Hadaly (implementation agent) for Phase 1 execution
