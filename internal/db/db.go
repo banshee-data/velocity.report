@@ -74,6 +74,13 @@ func (db *DB) ListRecentBgSnapshots(sensorID string, limit int) ([]*lidar.BgSnap
 // It defines tables such as radar_data, radar_objects, radar_commands, and radar_command_log which store radar event and command information.
 // The schema is embedded directly into the binary and executed when a new database is created
 // via the NewDB function, ensuring consistent schema across all deployments.
+//
+// CRITICAL: schema.sql MUST be kept in sync with the latest migration version.
+// When creating a fresh database, we verify that schema.sql matches the schema produced
+// by applying all migrations. If they differ, database initialization fails with a clear
+// error message. This prevents silently creating databases with incomplete schemas.
+// To regenerate schema.sql from migrations, export the schema from a migrated database:
+//   sqlite3 migrated.db .schema > internal/db/schema.sql
 
 //go:embed schema.sql
 var schemaSQL string
@@ -254,12 +261,41 @@ func NewDBWithMigrationCheck(path string, checkMigrations bool) (*DB, error) {
 
 	log.Println("ran database initialisation script")
 
-	// Baseline fresh database at latest migration version
+	// Get latest migration version
 	latestVersion, err := GetLatestMigrationVersion(migrationsFS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest migration version: %w", err)
 	}
 
+	// Verify that schema.sql is in sync with the latest migration version
+	// by comparing the schema we just created with what the migrations would produce.
+	// This prevents incorrect baselining if schema.sql is out of date.
+	schemaFromSQL, err := dbWrapper.GetDatabaseSchema()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get schema from schema.sql: %w", err)
+	}
+
+	schemaFromMigrations, err := dbWrapper.GetSchemaAtMigration(migrationsFS, latestVersion)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get schema at migration v%d: %w", latestVersion, err)
+	}
+
+	score, differences := CompareSchemas(schemaFromSQL, schemaFromMigrations)
+	if score != 100 {
+		log.Printf("⚠️  WARNING: schema.sql is out of sync with migrations!")
+		log.Printf("   Schema from schema.sql differs from migration v%d (similarity: %d%%)", latestVersion, score)
+		log.Printf("   Differences:")
+		for _, diff := range differences {
+			log.Printf("     %s", diff)
+		}
+		log.Printf("")
+		log.Printf("   This indicates that schema.sql needs to be updated to match the latest migrations.")
+		log.Printf("   Please run the schema consistency test or regenerate schema.sql from migrations.")
+		log.Printf("")
+		return nil, fmt.Errorf("schema.sql is out of sync with migration v%d (similarity: %d%%). Cannot baseline safely", latestVersion, score)
+	}
+
+	// Schema is consistent - safe to baseline at latest version
 	if err := dbWrapper.BaselineAtVersion(latestVersion); err != nil {
 		return nil, fmt.Errorf("failed to baseline fresh database at version %d: %w", latestVersion, err)
 	}

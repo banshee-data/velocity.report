@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"regexp"
 	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -297,6 +298,17 @@ func normalizeSQLForComparison(sql string) string {
 	// Normalize comma spacing - remove spaces before commas
 	sql = strings.ReplaceAll(sql, " ,", ",")
 
+	// Remove quotes from table names that SQLite adds during ALTER TABLE operations
+	// Pattern matches: "table_name" or 'table_name' and replaces with: table_name
+	quotedTablePattern := regexp.MustCompile(`["']([a-z_][a-z0-9_]*)["']`)
+	sql = quotedTablePattern.ReplaceAllString(sql, "$1")
+
+	// SQLite's ALTER TABLE RENAME removes the space after table name in CREATE TABLE
+	// Pattern matches: "table_name(" and replaces with: "table_name ("
+	// This normalizes "CREATE TABLE name(" to "CREATE TABLE name ("
+	tableParenPattern := regexp.MustCompile(`\b([a-z_][a-z0-9_]*)\(`)
+	sql = tableParenPattern.ReplaceAllString(sql, "$1 (")
+
 	return sql
 }
 
@@ -366,7 +378,7 @@ func CompareSchemas(schema1, schema2 map[string]string) (score int, differences 
 // Performance optimization: Iterates from version 1 to latest, applying migrations
 // incrementally to a single temporary database. This is much more efficient than
 // creating a new database for each version. Stops early if a high similarity
-// threshold (95%) is reached or a perfect match (100%) is found.
+// threshold (98%) is reached or a perfect match (100%) is found.
 func (db *DB) DetectSchemaVersion(migrationsFS fs.FS) (detectedVersion uint, matchScore int, differences []string, err error) {
 	currentSchema, err := db.GetDatabaseSchema()
 	if err != nil {
