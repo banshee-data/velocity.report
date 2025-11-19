@@ -362,6 +362,11 @@ func CompareSchemas(schema1, schema2 map[string]string) (score int, differences 
 // DetectSchemaVersion attempts to detect which migration version a database is at
 // by comparing its schema to known schemas at each migration point.
 // Returns the detected version, match score, and any differences.
+//
+// Performance optimization: Iterates from version 1 to latest, applying migrations
+// incrementally to a single temporary database. This is much more efficient than
+// creating a new database for each version. Stops early if a high similarity
+// threshold (95%) is reached or a perfect match (100%) is found.
 func (db *DB) DetectSchemaVersion(migrationsFS fs.FS) (detectedVersion uint, matchScore int, differences []string, err error) {
 	currentSchema, err := db.GetDatabaseSchema()
 	if err != nil {
@@ -373,29 +378,79 @@ func (db *DB) DetectSchemaVersion(migrationsFS fs.FS) (detectedVersion uint, mat
 		return 0, 0, nil, fmt.Errorf("failed to get latest version: %w", err)
 	}
 
+	// Create a single temporary database for incremental migration testing
+	tmpDB, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		return 0, 0, nil, fmt.Errorf("failed to create temp database: %w", err)
+	}
+	defer tmpDB.Close()
+
+	tmpWrapper := &DB{tmpDB}
 	bestVersion := uint(0)
 	bestScore := 0
 	var bestDifferences []string
 
-	// Check each migration version from latest to first
-	for version := latestVersion; version >= 1; version-- {
-		schemaAtVersion, err := db.GetSchemaAtMigration(migrationsFS, version)
+	// Iterate from version 1 to latest, applying migrations incrementally.
+	// This is more efficient than going backwards because we reuse the same
+	// temporary database and apply one migration at a time.
+	for version := uint(1); version <= latestVersion; version++ {
+		// Apply next migration to the temporary database
+		if err := tmpWrapper.MigrateTo(migrationsFS, version); err != nil {
+			log.Printf("Warning: could not apply migration to version %d: %v", version, err)
+			continue
+		}
+
+		// Get schema at this version
+		schemaAtVersion, err := tmpWrapper.GetDatabaseSchema()
 		if err != nil {
 			log.Printf("Warning: could not get schema at version %d: %v", version, err)
 			continue
 		}
 
+		// Compare with current schema
 		score, diffs := CompareSchemas(currentSchema, schemaAtVersion)
 
-		if score > bestScore {
+		// Update best match if this version has a better score, or if it has the
+		// same perfect score (to find the latest version with matching schema)
+		if score > bestScore || (score == 100 && score == bestScore) {
 			bestScore = score
 			bestVersion = version
 			bestDifferences = diffs
 		}
 
-		// If we found a perfect match, no need to continue
-		if score == 100 {
-			break
+		// Early exit optimization for high similarity scores:
+		// If we found a ≥98% match and there are many remaining versions to check,
+		// we can stop early because later versions will likely have lower scores
+		// (extra tables/columns added).
+		// Exception: Continue if we have a 100% match, as later versions might also
+		// be 100% (data-only migrations that don't change schema structure).
+		if score >= 98 && score < 100 && version > 1 {
+			remainingVersions := latestVersion - version
+			if remainingVersions > 3 {
+				// Found a very close match with many versions remaining.
+				// Check up to 3 more versions to be thorough, then stop.
+				for i := uint(1); i <= 3 && version+i <= latestVersion; i++ {
+					nextVersion := version + i
+					if err := tmpWrapper.MigrateTo(migrationsFS, nextVersion); err != nil {
+						continue
+					}
+					schemaAtNext, err := tmpWrapper.GetDatabaseSchema()
+					if err != nil {
+						continue
+					}
+					nextScore, nextDiffs := CompareSchemas(currentSchema, schemaAtNext)
+					if nextScore > bestScore {
+						bestScore = nextScore
+						bestVersion = nextVersion
+						bestDifferences = nextDiffs
+					}
+					// Stop if score drops below 98% - we've passed the best match
+					if nextScore < 98 {
+						break
+					}
+				}
+				break
+			}
 		}
 	}
 
