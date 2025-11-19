@@ -20,8 +20,9 @@ func (db *DB) MigrateUp(migrationsFS fs.FS) error {
 	if err != nil {
 		return err
 	}
-	// Note: We don't close m here because it would close the underlying DB connection.
-	// The migrate instance will be garbage collected when no longer needed.
+	// Note: We cannot call m.Close() when using WithInstance() because the sqlite driver's
+	// Close() method closes the underlying sql.DB connection, which we manage separately.
+	// The source driver (iofs) doesn't hold resources that need explicit cleanup.
 
 	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return fmt.Errorf("migration up failed: %w", err)
@@ -36,7 +37,8 @@ func (db *DB) MigrateDown(migrationsFS fs.FS) error {
 	if err != nil {
 		return err
 	}
-	// Note: We don't close m here because it would close the underlying DB connection.
+	// Note: We cannot call m.Close() when using WithInstance() because the sqlite driver's
+	// Close() method closes the underlying sql.DB connection, which we manage separately.
 
 	if err := m.Steps(-1); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return fmt.Errorf("migration down failed: %w", err)
@@ -52,7 +54,8 @@ func (db *DB) MigrateVersion(migrationsFS fs.FS) (version uint, dirty bool, err 
 	if err != nil {
 		return 0, false, err
 	}
-	// Note: We don't close m here because it would close the underlying DB connection.
+	// Note: We cannot call m.Close() when using WithInstance() because the sqlite driver's
+	// Close() method closes the underlying sql.DB connection, which we manage separately.
 
 	version, dirty, err = m.Version()
 	if err != nil && errors.Is(err, migrate.ErrNilVersion) {
@@ -70,7 +73,8 @@ func (db *DB) MigrateForce(migrationsFS fs.FS, version int) error {
 	if err != nil {
 		return err
 	}
-	// Note: We don't close m here because it would close the underlying DB connection.
+	// Note: We cannot call m.Close() when using WithInstance() because the sqlite driver's
+	// Close() method closes the underlying sql.DB connection, which we manage separately.
 
 	if err := m.Force(version); err != nil {
 		return fmt.Errorf("force migration to version %d failed: %w", version, err)
@@ -86,7 +90,8 @@ func (db *DB) MigrateTo(migrationsFS fs.FS, version uint) error {
 	if err != nil {
 		return err
 	}
-	// Note: We don't close m here because it would close the underlying DB connection.
+	// Note: We cannot call m.Close() when using WithInstance() because the sqlite driver's
+	// Close() method closes the underlying sql.DB connection, which we manage separately.
 
 	if err := m.Migrate(version); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return fmt.Errorf("migration to version %d failed: %w", version, err)
@@ -96,7 +101,10 @@ func (db *DB) MigrateTo(migrationsFS fs.FS, version uint) error {
 }
 
 // newMigrate creates a new migrate instance configured for this database.
-// The caller is responsible for closing the returned migrate instance.
+// Note: The returned migrate instance should NOT be closed when using WithInstance(),
+// because the sqlite driver's Close() method closes the underlying sql.DB connection,
+// which is managed separately by the DB struct. The migrate instance and its drivers
+// will be garbage collected when no longer referenced.
 func (db *DB) newMigrate(migrationsFS fs.FS) (*migrate.Migrate, error) {
 	// Create iofs source driver from the provided filesystem
 	sourceDriver, err := iofs.New(migrationsFS, ".")
