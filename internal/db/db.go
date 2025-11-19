@@ -97,6 +97,26 @@ func getMigrationsFS() (fs.FS, error) {
 	return fs.Sub(migrationsFS, "migrations")
 }
 
+// applyPragmas applies essential SQLite PRAGMAs for performance and concurrency.
+// These settings are extracted from schema.sql and applied to all databases
+// regardless of whether they were created from scratch or via migrations.
+func applyPragmas(db *sql.DB) error {
+	pragmas := []string{
+		"PRAGMA journal_mode = WAL",
+		"PRAGMA synchronous = NORMAL",
+		"PRAGMA temp_store = MEMORY",
+		"PRAGMA busy_timeout = 5000",
+	}
+
+	for _, pragma := range pragmas {
+		if _, err := db.Exec(pragma); err != nil {
+			return fmt.Errorf("failed to execute %q: %w", pragma, err)
+		}
+	}
+
+	return nil
+}
+
 func NewDB(path string) (*DB, error) {
 	return NewDBWithMigrationCheck(path, true)
 }
@@ -110,6 +130,16 @@ func NewDBWithMigrationCheck(path string, checkMigrations bool) (*DB, error) {
 	}
 
 	dbWrapper := &DB{db}
+
+	// Apply essential PRAGMAs for all databases, regardless of how they were created.
+	// These settings are critical for performance and concurrency:
+	// - WAL mode allows concurrent reads and writes
+	// - busy_timeout prevents immediate "database is locked" errors
+	// - NORMAL synchronous mode balances safety and performance
+	// - MEMORY temp_store improves query performance
+	if err := applyPragmas(db); err != nil {
+		return nil, fmt.Errorf("failed to apply PRAGMAs: %w", err)
+	}
 
 	// Check if schema_migrations table exists
 	var schemaMigrationsExists bool
@@ -239,10 +269,16 @@ func NewDBWithMigrationCheck(path string, checkMigrations bool) (*DB, error) {
 
 // OpenDB opens a database connection without running schema initialization.
 // This is useful for migration commands that manage schema independently.
+// Note: PRAGMAs are still applied for performance and concurrency.
 func OpenDB(path string) (*DB, error) {
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		return nil, err
+	}
+
+	// Apply PRAGMAs even for migration commands
+	if err := applyPragmas(db); err != nil {
+		return nil, fmt.Errorf("failed to apply PRAGMAs: %w", err)
 	}
 
 	return &DB{db}, nil

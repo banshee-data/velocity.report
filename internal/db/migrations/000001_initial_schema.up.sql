@@ -2,6 +2,11 @@
 -- Date: 2025-08-26
 -- Description: Initial schema with the original 4 tables: data, radar_objects, commands, log
 -- This represents the very first database schema from commit 57182957
+--
+-- Note: Essential PRAGMAs (journal_mode=WAL, busy_timeout, etc.) are applied
+-- by the Go code in db.go/applyPragmas() rather than in migrations. This ensures
+-- PRAGMAs are set consistently regardless of whether databases are created via
+-- migrations or schema.sql.
    CREATE TABLE IF NOT EXISTS data (
           write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec'))
         , raw_event JSON NOT NULL
@@ -33,7 +38,7 @@
         , write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec'))
           );
 
-   CREATE TABLE IF NOT EXISTS log (
+   CREATE TABLE IF NOT EXISTS LOG(
           log_id BIGINT PRIMARY KEY
         , command_id BIGINT
         , log_data TEXT
