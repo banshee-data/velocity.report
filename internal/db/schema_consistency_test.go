@@ -112,6 +112,12 @@ func normalizeSQL(sql string) string {
 	sql = strings.ReplaceAll(sql, `"radar_commands"`, "radar_commands")
 	sql = strings.ReplaceAll(sql, `"radar_data"`, "radar_data")
 
+	// SQLite's ALTER TABLE RENAME removes the space after table name in CREATE TABLE
+	// Normalize "CREATE TABLE name(" to "CREATE TABLE name ("
+	sql = strings.ReplaceAll(sql, "radar_command_log(", "radar_command_log (")
+	sql = strings.ReplaceAll(sql, "radar_commands(", "radar_commands (")
+	sql = strings.ReplaceAll(sql, "radar_data(", "radar_data (")
+
 	return sql
 }
 

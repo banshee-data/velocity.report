@@ -326,8 +326,7 @@ No installation required - use PYTHONPATH method as documented in [tools/pdf-gen
 ## Documentation
 
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture and component relationships
-- **[docs/database-migrations.md](docs/database-migrations.md)** - Database migration guide
-- **[internal/db/migrations/README.md](internal/db/migrations/README.md)** - Migration file reference
+- **[internal/db/migrations/README.md](internal/db/migrations/README.md)** - Database migration guide and reference
 - **[web/README.md](web/README.md)** - Web frontend documentation
 - **[tools/pdf-generator/README.md](tools/pdf-generator/README.md)** - PDF generator documentation
 - **[docs/README.md](docs/README.md)** - Documentation site
