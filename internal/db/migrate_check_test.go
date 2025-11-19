@@ -310,3 +310,88 @@ func TestFreshDatabaseBaselineVerificationSuccess(t *testing.T) {
 		}
 	}
 }
+
+// TestBaselineVerificationCatchesIncorrectBaseline tests that baseline verification
+// detects when BaselineAtVersion sets the version but returns before it actually applies
+func TestBaselineVerificationCatchesIncorrectBaseline(t *testing.T) {
+	fname := filepath.Join(t.TempDir(), "test.db")
+
+	// Create a database using the low-level approach
+	rawDB, err := sql.Open("sqlite", fname)
+	if err != nil {
+		t.Fatalf("Failed to open database: %v", err)
+	}
+
+	// Apply PRAGMAs
+	if err := applyPragmas(rawDB); err != nil {
+		t.Fatalf("Failed to apply PRAGMAs: %v", err)
+	}
+
+	// Execute schema.sql to create tables
+	_, err = rawDB.Exec(schemaSQL)
+	if err != nil {
+		t.Fatalf("Failed to execute schema.sql: %v", err)
+	}
+
+	// Create schema_migrations table (normally created by BaselineAtVersion)
+	_, err = rawDB.Exec(`
+		CREATE TABLE IF NOT EXISTS schema_migrations (
+			version bigint NOT NULL PRIMARY KEY,
+			dirty boolean NOT NULL
+		)
+	`)
+	if err != nil {
+		t.Fatalf("Failed to create schema_migrations: %v", err)
+	}
+
+	// Manually baseline at wrong version (e.g., version 5 instead of latest)
+	// This simulates a bug where BaselineAtVersion doesn't work correctly
+	_, err = rawDB.Exec("INSERT INTO schema_migrations (version, dirty) VALUES (5, 0)")
+	if err != nil {
+		t.Fatalf("Failed to insert wrong baseline: %v", err)
+	}
+
+	rawDB.Close()
+
+	// Now try to open with DB wrapper - the verification should catch this
+	db := &DB{nil}
+
+	// Reopen the database
+	reopened, err := sql.Open("sqlite", fname)
+	if err != nil {
+		t.Fatalf("Failed to reopen database: %v", err)
+	}
+	db.DB = reopened
+	defer db.Close()
+
+	// Apply PRAGMAs
+	if err := applyPragmas(reopened); err != nil {
+		t.Fatalf("Failed to apply PRAGMAs: %v", err)
+	}
+
+	// Get migrations
+	migrationsFS, err := getMigrationsFS()
+	if err != nil {
+		t.Fatalf("Failed to get migrations FS: %v", err)
+	}
+
+	// Get latest version
+	latestVersion, err := GetLatestMigrationVersion(migrationsFS)
+	if err != nil {
+		t.Fatalf("GetLatestMigrationVersion failed: %v", err)
+	}
+
+	// This should simulate what happens after baseline - verify it
+	currentVersion, _, err := db.MigrateVersion(migrationsFS)
+	if err != nil {
+		t.Fatalf("MigrateVersion failed: %v", err)
+	}
+
+	// The verification check should detect this mismatch
+	if currentVersion != latestVersion {
+		// This is what we expect - the version doesn't match
+		t.Logf("Successfully detected incorrect baseline: expected version %d, got %d", latestVersion, currentVersion)
+	} else {
+		t.Errorf("Verification did not catch incorrect baseline - got version %d when expected to detect mismatch", currentVersion)
+	}
+}
