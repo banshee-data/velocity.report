@@ -1,6 +1,7 @@
 package db
 
 import (
+	"database/sql"
 	"os"
 	"path/filepath"
 	"testing"
@@ -177,4 +178,135 @@ func TestNewDBWithMigrationCheck_OutOfDateDatabase(t *testing.T) {
 	os.Remove(fname)
 	os.Remove(fname + "-shm")
 	os.Remove(fname + "-wal")
+}
+
+// TestBaselineVerification tests that baseline verification catches incorrect baselines
+func TestBaselineVerification(t *testing.T) {
+	fname := filepath.Join(t.TempDir(), "test.db")
+
+	// Create a fresh database
+	rawDB, err := sql.Open("sqlite", fname)
+	if err != nil {
+		t.Fatalf("Failed to open database: %v", err)
+	}
+
+	// Apply PRAGMAs
+	if err := applyPragmas(rawDB); err != nil {
+		t.Fatalf("Failed to apply PRAGMAs: %v", err)
+	}
+
+	// Create schema_migrations table with wrong version
+	_, err = rawDB.Exec(`
+		CREATE TABLE IF NOT EXISTS schema_migrations (
+			version bigint NOT NULL PRIMARY KEY,
+			dirty boolean NOT NULL
+		)
+	`)
+	if err != nil {
+		t.Fatalf("Failed to create schema_migrations: %v", err)
+	}
+
+	// Set baseline at version 5 (but database is actually empty)
+	_, err = rawDB.Exec("INSERT INTO schema_migrations (version, dirty) VALUES (5, 0)")
+	if err != nil {
+		t.Fatalf("Failed to insert baseline: %v", err)
+	}
+
+	rawDB.Close()
+
+	// Open with DB wrapper - this should fail migration check
+	// because the database claims to be at v5 but has no tables
+	db, err := OpenDB(fname)
+	if err != nil {
+		t.Fatalf("Failed to open DB: %v", err)
+	}
+	defer db.Close()
+
+	// Get migrations
+	migrationsFS, err := getMigrationsFS()
+	if err != nil {
+		t.Fatalf("Failed to get migrations FS: %v", err)
+	}
+
+	// Verify baseline with MigrateVersion - should report version 5
+	version, dirty, err := db.MigrateVersion(migrationsFS)
+	if err != nil {
+		t.Fatalf("MigrateVersion failed: %v", err)
+	}
+
+	if version != 5 {
+		t.Errorf("Expected version 5, got %d", version)
+	}
+
+	if dirty {
+		t.Errorf("Expected clean state, got dirty")
+	}
+
+	// Now verify that GetDatabaseSchema shows empty database
+	schema, err := db.GetDatabaseSchema()
+	if err != nil {
+		t.Fatalf("GetDatabaseSchema failed: %v", err)
+	}
+
+	// Schema should only have schema_migrations table
+	if len(schema) > 1 {
+		t.Errorf("Expected only schema_migrations table, got %d tables", len(schema))
+	}
+}
+
+// TestFreshDatabaseBaselineVerificationSuccess tests successful baseline verification
+func TestFreshDatabaseBaselineVerificationSuccess(t *testing.T) {
+	fname := filepath.Join(t.TempDir(), "test.db")
+
+	// Create fresh database - this should succeed and properly verify baseline
+	db, err := NewDBWithMigrationCheck(fname, false)
+	if err != nil {
+		t.Fatalf("NewDBWithMigrationCheck failed: %v", err)
+	}
+	defer db.Close()
+
+	// Get migrations
+	migrationsFS, err := getMigrationsFS()
+	if err != nil {
+		t.Fatalf("Failed to get migrations FS: %v", err)
+	}
+
+	// Verify the baseline is at latest version
+	version, dirty, err := db.MigrateVersion(migrationsFS)
+	if err != nil {
+		t.Fatalf("MigrateVersion failed: %v", err)
+	}
+
+	latestVersion, err := GetLatestMigrationVersion(migrationsFS)
+	if err != nil {
+		t.Fatalf("GetLatestMigrationVersion failed: %v", err)
+	}
+
+	if version != latestVersion {
+		t.Errorf("Expected version %d, got %d", latestVersion, version)
+	}
+
+	if dirty {
+		t.Errorf("Expected clean state, got dirty")
+	}
+
+	// Verify that the database has actual tables (not just schema_migrations)
+	schema, err := db.GetDatabaseSchema()
+	if err != nil {
+		t.Fatalf("GetDatabaseSchema failed: %v", err)
+	}
+
+	// GetDatabaseSchema returns map[objectName]sqlDefinition
+	// Should have multiple objects (tables, indexes, etc.)
+	if len(schema) < 5 {
+		t.Errorf("Expected at least 5 schema objects, got %d", len(schema))
+	}
+
+	// Verify some expected tables exist
+	expectedTables := []string{"radar_data", "radar_objects", "radar_commands"}
+	for _, table := range expectedTables {
+		if _, exists := schema[table]; !exists {
+			t.Errorf("Expected table %q not found in schema", table)
+		}
+	}
 }

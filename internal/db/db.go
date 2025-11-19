@@ -300,6 +300,15 @@ func NewDBWithMigrationCheck(path string, checkMigrations bool) (*DB, error) {
 		return nil, fmt.Errorf("failed to baseline fresh database at version %d: %w", latestVersion, err)
 	}
 
+	// Verify baseline was successful
+	currentVersion, _, err := dbWrapper.MigrateVersion(migrationsFS)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify baseline: %w", err)
+	}
+	if currentVersion != latestVersion {
+		return nil, fmt.Errorf("baseline verification failed: expected version %d, got %d", latestVersion, currentVersion)
+	}
+
 	return dbWrapper, nil
 }
 
