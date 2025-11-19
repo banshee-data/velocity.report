@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -23,7 +24,8 @@ func setupMigrationTestDB(t *testing.T) *DB {
 }
 
 // setupTestMigrations creates a temporary directory with test migration files
-func setupTestMigrations(t *testing.T) string {
+// and returns it as an fs.FS
+func setupTestMigrations(t *testing.T) fs.FS {
 	t.Helper()
 	tmpDir := filepath.Join(t.TempDir(), "migrations")
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
@@ -63,23 +65,23 @@ func setupTestMigrations(t *testing.T) string {
 		}
 	}
 
-	return tmpDir
+	return os.DirFS(tmpDir)
 }
 
 func TestMigrateUp(t *testing.T) {
 	db := setupMigrationTestDB(t)
 	defer cleanupTestDB(t, db)
 
-	migrationsDir := setupTestMigrations(t)
+	migrationsFS := setupTestMigrations(t)
 
 	// Run migrations up
-	err := db.MigrateUp(migrationsDir)
+	err := db.MigrateUp(migrationsFS)
 	if err != nil {
 		t.Fatalf("MigrateUp failed: %v", err)
 	}
 
 	// Verify migration version
-	version, dirty, err := db.MigrateVersion(migrationsDir)
+	version, dirty, err := db.MigrateVersion(migrationsFS)
 	if err != nil {
 		t.Fatalf("MigrateVersion failed: %v", err)
 	}
@@ -95,8 +97,8 @@ func TestMigrateUp(t *testing.T) {
 	// Verify test_table exists and has correct schema
 	var tableExists bool
 	err = db.QueryRow(`
-		SELECT COUNT(*) > 0 
-		FROM sqlite_master 
+		SELECT COUNT(*) > 0
+		FROM sqlite_master
 		WHERE type='table' AND name='test_table'
 	`).Scan(&tableExists)
 	if err != nil {
@@ -110,8 +112,8 @@ func TestMigrateUp(t *testing.T) {
 	// Verify description column exists (from second migration)
 	var hasDescription bool
 	err = db.QueryRow(`
-		SELECT COUNT(*) > 0 
-		FROM pragma_table_info('test_table') 
+		SELECT COUNT(*) > 0
+		FROM pragma_table_info('test_table')
 		WHERE name='description'
 	`).Scan(&hasDescription)
 	if err != nil {
@@ -127,21 +129,21 @@ func TestMigrateUp_Idempotency(t *testing.T) {
 	db := setupMigrationTestDB(t)
 	defer cleanupTestDB(t, db)
 
-	migrationsDir := setupTestMigrations(t)
+	migrationsFS := setupTestMigrations(t)
 
 	// Run migrations up twice
-	err := db.MigrateUp(migrationsDir)
+	err := db.MigrateUp(migrationsFS)
 	if err != nil {
 		t.Fatalf("first MigrateUp failed: %v", err)
 	}
 
-	err = db.MigrateUp(migrationsDir)
+	err = db.MigrateUp(migrationsFS)
 	if err != nil {
 		t.Fatalf("second MigrateUp failed: %v", err)
 	}
 
 	// Verify version is still correct
-	version, _, err := db.MigrateVersion(migrationsDir)
+	version, _, err := db.MigrateVersion(migrationsFS)
 	if err != nil {
 		t.Fatalf("MigrateVersion failed: %v", err)
 	}
@@ -155,22 +157,22 @@ func TestMigrateDown(t *testing.T) {
 	db := setupMigrationTestDB(t)
 	defer cleanupTestDB(t, db)
 
-	migrationsDir := setupTestMigrations(t)
+	migrationsFS := setupTestMigrations(t)
 
 	// Run migrations up first
-	err := db.MigrateUp(migrationsDir)
+	err := db.MigrateUp(migrationsFS)
 	if err != nil {
 		t.Fatalf("MigrateUp failed: %v", err)
 	}
 
 	// Run one migration down
-	err = db.MigrateDown(migrationsDir)
+	err = db.MigrateDown(migrationsFS)
 	if err != nil {
 		t.Fatalf("MigrateDown failed: %v", err)
 	}
 
 	// Verify version is now 1
-	version, dirty, err := db.MigrateVersion(migrationsDir)
+	version, dirty, err := db.MigrateVersion(migrationsFS)
 	if err != nil {
 		t.Fatalf("MigrateVersion failed: %v", err)
 	}
@@ -186,8 +188,8 @@ func TestMigrateDown(t *testing.T) {
 	// Verify description column no longer exists
 	var hasDescription bool
 	err = db.QueryRow(`
-		SELECT COUNT(*) > 0 
-		FROM pragma_table_info('test_table') 
+		SELECT COUNT(*) > 0
+		FROM pragma_table_info('test_table')
 		WHERE name='description'
 	`).Scan(&hasDescription)
 	if err != nil {
@@ -201,8 +203,8 @@ func TestMigrateDown(t *testing.T) {
 	// Verify test_table still exists
 	var tableExists bool
 	err = db.QueryRow(`
-		SELECT COUNT(*) > 0 
-		FROM sqlite_master 
+		SELECT COUNT(*) > 0
+		FROM sqlite_master
 		WHERE type='table' AND name='test_table'
 	`).Scan(&tableExists)
 	if err != nil {
@@ -218,10 +220,10 @@ func TestMigrateVersion_NoMigrations(t *testing.T) {
 	db := setupMigrationTestDB(t)
 	defer cleanupTestDB(t, db)
 
-	migrationsDir := setupTestMigrations(t)
+	migrationsFS := setupTestMigrations(t)
 
 	// Check version before any migrations
-	version, dirty, err := db.MigrateVersion(migrationsDir)
+	version, dirty, err := db.MigrateVersion(migrationsFS)
 	if err != nil {
 		t.Fatalf("MigrateVersion failed: %v", err)
 	}
@@ -239,22 +241,22 @@ func TestMigrateForce(t *testing.T) {
 	db := setupMigrationTestDB(t)
 	defer cleanupTestDB(t, db)
 
-	migrationsDir := setupTestMigrations(t)
+	migrationsFS := setupTestMigrations(t)
 
 	// Run migrations up
-	err := db.MigrateUp(migrationsDir)
+	err := db.MigrateUp(migrationsFS)
 	if err != nil {
 		t.Fatalf("MigrateUp failed: %v", err)
 	}
 
 	// Force version to 1
-	err = db.MigrateForce(migrationsDir, 1)
+	err = db.MigrateForce(migrationsFS, 1)
 	if err != nil {
 		t.Fatalf("MigrateForce failed: %v", err)
 	}
 
 	// Verify version is now 1
-	version, _, err := db.MigrateVersion(migrationsDir)
+	version, _, err := db.MigrateVersion(migrationsFS)
 	if err != nil {
 		t.Fatalf("MigrateVersion failed: %v", err)
 	}
@@ -268,16 +270,16 @@ func TestMigrateTo(t *testing.T) {
 	db := setupMigrationTestDB(t)
 	defer cleanupTestDB(t, db)
 
-	migrationsDir := setupTestMigrations(t)
+	migrationsFS := setupTestMigrations(t)
 
 	// Migrate to version 1 only
-	err := db.MigrateTo(migrationsDir, 1)
+	err := db.MigrateTo(migrationsFS, 1)
 	if err != nil {
 		t.Fatalf("MigrateTo(1) failed: %v", err)
 	}
 
 	// Verify version is 1
-	version, _, err := db.MigrateVersion(migrationsDir)
+	version, _, err := db.MigrateVersion(migrationsFS)
 	if err != nil {
 		t.Fatalf("MigrateVersion failed: %v", err)
 	}
@@ -289,8 +291,8 @@ func TestMigrateTo(t *testing.T) {
 	// Verify description column does not exist yet
 	var hasDescription bool
 	err = db.QueryRow(`
-		SELECT COUNT(*) > 0 
-		FROM pragma_table_info('test_table') 
+		SELECT COUNT(*) > 0
+		FROM pragma_table_info('test_table')
 		WHERE name='description'
 	`).Scan(&hasDescription)
 	if err != nil {
@@ -302,13 +304,13 @@ func TestMigrateTo(t *testing.T) {
 	}
 
 	// Now migrate to version 2
-	err = db.MigrateTo(migrationsDir, 2)
+	err = db.MigrateTo(migrationsFS, 2)
 	if err != nil {
 		t.Fatalf("MigrateTo(2) failed: %v", err)
 	}
 
 	// Verify version is 2
-	version, _, err = db.MigrateVersion(migrationsDir)
+	version, _, err = db.MigrateVersion(migrationsFS)
 	if err != nil {
 		t.Fatalf("MigrateVersion failed: %v", err)
 	}
@@ -319,8 +321,8 @@ func TestMigrateTo(t *testing.T) {
 
 	// Verify description column now exists
 	err = db.QueryRow(`
-		SELECT COUNT(*) > 0 
-		FROM pragma_table_info('test_table') 
+		SELECT COUNT(*) > 0
+		FROM pragma_table_info('test_table')
 		WHERE name='description'
 	`).Scan(&hasDescription)
 	if err != nil {
@@ -345,8 +347,8 @@ func TestBaselineAtVersion(t *testing.T) {
 	// Verify schema_migrations table exists
 	var tableExists bool
 	err = db.QueryRow(`
-		SELECT COUNT(*) > 0 
-		FROM sqlite_master 
+		SELECT COUNT(*) > 0
+		FROM sqlite_master
 		WHERE type='table' AND name='schema_migrations'
 	`).Scan(&tableExists)
 	if err != nil {
@@ -379,10 +381,10 @@ func TestGetMigrationStatus(t *testing.T) {
 	db := setupMigrationTestDB(t)
 	defer cleanupTestDB(t, db)
 
-	migrationsDir := setupTestMigrations(t)
+	migrationsFS := setupTestMigrations(t)
 
 	// Get status before any migrations
-	status, err := db.GetMigrationStatus(migrationsDir)
+	status, err := db.GetMigrationStatus(migrationsFS)
 	if err != nil {
 		t.Fatalf("GetMigrationStatus failed: %v", err)
 	}
@@ -396,13 +398,13 @@ func TestGetMigrationStatus(t *testing.T) {
 	}
 
 	// Run migrations
-	err = db.MigrateUp(migrationsDir)
+	err = db.MigrateUp(migrationsFS)
 	if err != nil {
 		t.Fatalf("MigrateUp failed: %v", err)
 	}
 
 	// Get status after migrations
-	status, err = db.GetMigrationStatus(migrationsDir)
+	status, err = db.GetMigrationStatus(migrationsFS)
 	if err != nil {
 		t.Fatalf("GetMigrationStatus failed: %v", err)
 	}
@@ -420,31 +422,31 @@ func TestMigrateUpDown_FullCycle(t *testing.T) {
 	db := setupMigrationTestDB(t)
 	defer cleanupTestDB(t, db)
 
-	migrationsDir := setupTestMigrations(t)
+	migrationsFS := setupTestMigrations(t)
 
 	// Full cycle: up -> down -> up
-	err := db.MigrateUp(migrationsDir)
+	err := db.MigrateUp(migrationsFS)
 	if err != nil {
 		t.Fatalf("first MigrateUp failed: %v", err)
 	}
 
-	version, _, _ := db.MigrateVersion(migrationsDir)
+	version, _, _ := db.MigrateVersion(migrationsFS)
 	if version != 2 {
 		t.Errorf("expected version 2 after up, got %d", version)
 	}
 
 	// Roll back both migrations
-	err = db.MigrateDown(migrationsDir)
+	err = db.MigrateDown(migrationsFS)
 	if err != nil {
 		t.Fatalf("first MigrateDown failed: %v", err)
 	}
 
-	err = db.MigrateDown(migrationsDir)
+	err = db.MigrateDown(migrationsFS)
 	if err != nil {
 		t.Fatalf("second MigrateDown failed: %v", err)
 	}
 
-	version, _, _ = db.MigrateVersion(migrationsDir)
+	version, _, _ = db.MigrateVersion(migrationsFS)
 	if version != 0 {
 		t.Errorf("expected version 0 after rolling back all, got %d", version)
 	}
@@ -452,8 +454,8 @@ func TestMigrateUpDown_FullCycle(t *testing.T) {
 	// Verify test_table is gone
 	var tableExists bool
 	err = db.QueryRow(`
-		SELECT COUNT(*) > 0 
-		FROM sqlite_master 
+		SELECT COUNT(*) > 0
+		FROM sqlite_master
 		WHERE type='table' AND name='test_table'
 	`).Scan(&tableExists)
 	if err != nil {
@@ -465,20 +467,20 @@ func TestMigrateUpDown_FullCycle(t *testing.T) {
 	}
 
 	// Re-apply migrations
-	err = db.MigrateUp(migrationsDir)
+	err = db.MigrateUp(migrationsFS)
 	if err != nil {
 		t.Fatalf("second MigrateUp failed: %v", err)
 	}
 
-	version, _, _ = db.MigrateVersion(migrationsDir)
+	version, _, _ = db.MigrateVersion(migrationsFS)
 	if version != 2 {
 		t.Errorf("expected version 2 after re-applying, got %d", version)
 	}
 
 	// Verify test_table exists again
 	err = db.QueryRow(`
-		SELECT COUNT(*) > 0 
-		FROM sqlite_master 
+		SELECT COUNT(*) > 0
+		FROM sqlite_master
 		WHERE type='table' AND name='test_table'
 	`).Scan(&tableExists)
 	if err != nil {
@@ -494,33 +496,33 @@ func TestMigrate_NoChangeError(t *testing.T) {
 	db := setupMigrationTestDB(t)
 	defer cleanupTestDB(t, db)
 
-	migrationsDir := setupTestMigrations(t)
+	migrationsFS := setupTestMigrations(t)
 
 	// Apply all migrations
-	err := db.MigrateUp(migrationsDir)
+	err := db.MigrateUp(migrationsFS)
 	if err != nil {
 		t.Fatalf("MigrateUp failed: %v", err)
 	}
 
 	// Try to apply up again (should not error, handled gracefully)
-	err = db.MigrateUp(migrationsDir)
+	err = db.MigrateUp(migrationsFS)
 	if err != nil {
 		t.Errorf("second MigrateUp should not error: %v", err)
 	}
 
 	// Roll back all migrations
-	err = db.MigrateDown(migrationsDir)
+	err = db.MigrateDown(migrationsFS)
 	if err != nil {
 		t.Fatalf("first MigrateDown failed: %v", err)
 	}
 
-	err = db.MigrateDown(migrationsDir)
+	err = db.MigrateDown(migrationsFS)
 	if err != nil {
 		t.Fatalf("second MigrateDown failed: %v", err)
 	}
 
 	// Try to roll back when at version 0 (should error - no migration to roll back)
-	err = db.MigrateDown(migrationsDir)
+	err = db.MigrateDown(migrationsFS)
 	if err == nil {
 		t.Error("MigrateDown at version 0 should error (no migration to roll back)")
 	}

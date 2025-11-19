@@ -3,7 +3,6 @@ package db
 import (
 	"database/sql"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -19,13 +18,13 @@ func TestSchemaConsistency(t *testing.T) {
 	defer cleanupTestDB(t, dbFromSchema)
 
 	// Apply all migrations to the first database
-	migrationsDir := "../../data/migrations"
-	absPath, err := filepath.Abs(migrationsDir)
+	// Use the getMigrationsFS function from db.go which handles DevMode
+	migrationsFS, err := getMigrationsFS()
 	if err != nil {
-		t.Fatalf("Failed to get absolute path: %v", err)
+		t.Fatalf("Failed to get migrations FS: %v", err)
 	}
 
-	err = dbFromMigrations.MigrateUp(absPath)
+	err = dbFromMigrations.MigrateUp(migrationsFS)
 	if err != nil {
 		t.Fatalf("Failed to apply migrations: %v", err)
 	}
@@ -65,8 +64,8 @@ func getSchemaDefinition(t *testing.T, db *sql.DB) map[string]string {
 
 	// Get all tables except sqlite internal tables and schema_migrations
 	rows, err := db.Query(`
-		SELECT name, sql 
-		FROM sqlite_master 
+		SELECT name, sql
+		FROM sqlite_master
 		WHERE type IN ('table', 'index', 'trigger')
 		  AND name NOT LIKE 'sqlite_%'
 		  AND name != 'schema_migrations'
@@ -106,6 +105,12 @@ func normalizeSQL(sql string) string {
 
 	// Normalize comma spacing - remove spaces before commas
 	sql = strings.ReplaceAll(sql, " ,", ",")
+
+	// Remove quotes from table names that SQLite adds during ALTER TABLE operations
+	// This handles both "table_name" and 'table_name' style quotes
+	sql = strings.ReplaceAll(sql, `"radar_command_log"`, "radar_command_log")
+	sql = strings.ReplaceAll(sql, `"radar_commands"`, "radar_commands")
+	sql = strings.ReplaceAll(sql, `"radar_data"`, "radar_data")
 
 	return sql
 }

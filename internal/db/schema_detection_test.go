@@ -83,10 +83,10 @@ func TestGetSchemaAtMigration(t *testing.T) {
 	db := setupEmptyTestDB(t)
 	defer cleanupTestDB(t, db)
 
-	migrationsDir := setupTestMigrations(t)
+	migrationsFS := setupTestMigrations(t)
 
 	// Get schema at version 1
-	schema, err := db.GetSchemaAtMigration(migrationsDir, 1)
+	schema, err := db.GetSchemaAtMigration(migrationsFS, 1)
 	if err != nil {
 		t.Fatalf("GetSchemaAtMigration failed: %v", err)
 	}
@@ -108,10 +108,10 @@ func TestDetectSchemaVersion(t *testing.T) {
 	db := setupEmptyTestDB(t)
 	defer cleanupTestDB(t, db)
 
-	migrationsDir := setupTestMigrations(t)
+	migrationsFS := setupTestMigrations(t)
 
 	// Apply migration 1
-	err := db.MigrateTo(migrationsDir, 1)
+	err := db.MigrateTo(migrationsFS, 1)
 	if err != nil {
 		t.Fatalf("MigrateTo(1) failed: %v", err)
 	}
@@ -123,7 +123,7 @@ func TestDetectSchemaVersion(t *testing.T) {
 	}
 
 	// Detect version
-	detectedVersion, matchScore, diffs, err := db.DetectSchemaVersion(migrationsDir)
+	detectedVersion, matchScore, diffs, err := db.DetectSchemaVersion(migrationsFS)
 	if err != nil {
 		t.Fatalf("DetectSchemaVersion failed: %v", err)
 	}
@@ -148,10 +148,10 @@ func TestDetectSchemaVersion(t *testing.T) {
 func TestNewDBWithMigrationCheck_LegacyDatabase(t *testing.T) {
 	// Create a database at version 1 without schema_migrations
 	tmpDB := setupEmptyTestDB(t)
-	migrationsDir := setupTestMigrations(t)
+	migrationsFS := setupTestMigrations(t)
 
 	// Apply migration 1
-	err := tmpDB.MigrateTo(migrationsDir, 1)
+	err := tmpDB.MigrateTo(migrationsFS, 1)
 	if err != nil {
 		t.Fatalf("MigrateTo(1) failed: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestNewDBWithMigrationCheck_LegacyDatabase(t *testing.T) {
 	tmpDB.Close()
 
 	// Try to open with migration check - should detect version and error
-	_, err = NewDBWithMigrationCheck(dbPath, migrationsDir, true)
+	_, err = NewDBWithMigrationCheck(dbPath, true)
 
 	// Should get an error about needing to run migrations
 	if err == nil {
@@ -186,10 +186,15 @@ func TestNewDBWithMigrationCheck_LegacyDatabase(t *testing.T) {
 func TestNewDBWithMigrationCheck_LegacyDatabasePerfectMatch(t *testing.T) {
 	// Create a database at the latest version without schema_migrations
 	tmpDB := setupEmptyTestDB(t)
-	migrationsDir := setupTestMigrations(t)
+
+	// Get production migrations
+	migrationsFS, err := getMigrationsFS()
+	if err != nil {
+		t.Fatalf("Failed to get migrations FS: %v", err)
+	}
 
 	// Apply all migrations
-	err := tmpDB.MigrateUp(migrationsDir)
+	err = tmpDB.MigrateUp(migrationsFS)
 	if err != nil {
 		t.Fatalf("MigrateUp failed: %v", err)
 	}
@@ -203,8 +208,8 @@ func TestNewDBWithMigrationCheck_LegacyDatabasePerfectMatch(t *testing.T) {
 	dbPath := t.Name() + "_migrations.db"
 	tmpDB.Close()
 
-	// Try to open with migration check - should detect version 2 (latest) and baseline
-	db, err := NewDBWithMigrationCheck(dbPath, migrationsDir, true)
+	// Try to open with migration check - should detect latest version and baseline
+	db, err := NewDBWithMigrationCheck(dbPath, true)
 
 	// Should succeed since we're at latest version
 	if err != nil {

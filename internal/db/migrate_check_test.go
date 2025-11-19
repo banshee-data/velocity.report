@@ -11,16 +11,16 @@ func TestCheckAndPromptMigrations_UpToDate(t *testing.T) {
 	db := setupEmptyTestDB(t)
 	defer cleanupTestDB(t, db)
 
-	migrationsDir := setupTestMigrations(t)
+	migrationsFS := setupTestMigrations(t)
 
 	// Apply all migrations
-	err := db.MigrateUp(migrationsDir)
+	err := db.MigrateUp(migrationsFS)
 	if err != nil {
 		t.Fatalf("MigrateUp failed: %v", err)
 	}
 
 	// Check should pass since we're up to date
-	shouldExit, err := db.CheckAndPromptMigrations(migrationsDir)
+	shouldExit, err := db.CheckAndPromptMigrations(migrationsFS)
 	if err != nil {
 		t.Errorf("Expected no error when up to date, got: %v", err)
 	}
@@ -34,16 +34,16 @@ func TestCheckAndPromptMigrations_OutOfDate(t *testing.T) {
 	db := setupEmptyTestDB(t)
 	defer cleanupTestDB(t, db)
 
-	migrationsDir := setupTestMigrations(t)
+	migrationsFS := setupTestMigrations(t)
 
 	// Apply only first migration
-	err := db.MigrateTo(migrationsDir, 1)
+	err := db.MigrateTo(migrationsFS, 1)
 	if err != nil {
 		t.Fatalf("MigrateTo(1) failed: %v", err)
 	}
 
 	// Check should fail since we're not up to date
-	shouldExit, err := db.CheckAndPromptMigrations(migrationsDir)
+	shouldExit, err := db.CheckAndPromptMigrations(migrationsFS)
 	if err == nil {
 		t.Error("Expected error when migrations are pending")
 	}
@@ -57,10 +57,10 @@ func TestCheckAndPromptMigrations_DirtyState(t *testing.T) {
 	db := setupEmptyTestDB(t)
 	defer cleanupTestDB(t, db)
 
-	migrationsDir := setupTestMigrations(t)
+	migrationsFS := setupTestMigrations(t)
 
 	// Apply migrations
-	err := db.MigrateUp(migrationsDir)
+	err := db.MigrateUp(migrationsFS)
 	if err != nil {
 		t.Fatalf("MigrateUp failed: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestCheckAndPromptMigrations_DirtyState(t *testing.T) {
 	}
 
 	// Check should fail with dirty state error
-	shouldExit, err := db.CheckAndPromptMigrations(migrationsDir)
+	shouldExit, err := db.CheckAndPromptMigrations(migrationsFS)
 	if err == nil {
 		t.Error("Expected error when database is dirty")
 	}
@@ -83,9 +83,9 @@ func TestCheckAndPromptMigrations_DirtyState(t *testing.T) {
 
 // TestGetLatestMigrationVersion verifies we can detect the latest migration version
 func TestGetLatestMigrationVersion(t *testing.T) {
-	migrationsDir := setupTestMigrations(t)
+	migrationsFS := setupTestMigrations(t)
 
-	version, err := GetLatestMigrationVersion(migrationsDir)
+	version, err := GetLatestMigrationVersion(migrationsFS)
 	if err != nil {
 		t.Fatalf("GetLatestMigrationVersion failed: %v", err)
 	}
@@ -99,8 +99,9 @@ func TestGetLatestMigrationVersion(t *testing.T) {
 // TestGetLatestMigrationVersion_NoMigrations verifies error when no migrations exist
 func TestGetLatestMigrationVersion_NoMigrations(t *testing.T) {
 	tmpDir := t.TempDir()
+	emptyFS := os.DirFS(tmpDir)
 
-	_, err := GetLatestMigrationVersion(tmpDir)
+	_, err := GetLatestMigrationVersion(emptyFS)
 	if err == nil {
 		t.Error("Expected error when no migrations exist")
 	}
@@ -110,11 +111,9 @@ func TestGetLatestMigrationVersion_NoMigrations(t *testing.T) {
 func TestNewDBWithMigrationCheck_FreshDatabase(t *testing.T) {
 	fname := filepath.Join(t.TempDir(), "test.db")
 
-	// Create migrations directory
-	migrationsDir := setupTestMigrations(t)
-
 	// NewDBWithMigrationCheck should create and baseline the database
-	db, err := NewDBWithMigrationCheck(fname, migrationsDir, false)
+	// Note: This uses the production embedded migrations
+	db, err := NewDBWithMigrationCheck(fname, false)
 	if err != nil {
 		t.Fatalf("NewDBWithMigrationCheck failed: %v", err)
 	}
@@ -127,9 +126,20 @@ func TestNewDBWithMigrationCheck_FreshDatabase(t *testing.T) {
 		t.Fatalf("Failed to read version: %v", err)
 	}
 
-	// Fresh database should be baselined at version 7 (matches schema.sql)
-	if version != 7 {
-		t.Errorf("Expected baseline version 7, got %d", version)
+	// Fresh database should be baselined at the latest migration version
+	// Get latest version from production embedded migrations
+	migrationsFS, err := getMigrationsFS()
+	if err != nil {
+		t.Fatalf("Failed to get migrations FS: %v", err)
+	}
+
+	latestVersion, err := GetLatestMigrationVersion(migrationsFS)
+	if err != nil {
+		t.Fatalf("Failed to get latest migration version: %v", err)
+	}
+
+	if version != int(latestVersion) {
+		t.Errorf("Expected baseline version %d (latest from migrations), got %d", latestVersion, version)
 	}
 }
 
@@ -137,14 +147,17 @@ func TestNewDBWithMigrationCheck_FreshDatabase(t *testing.T) {
 func TestNewDBWithMigrationCheck_OutOfDateDatabase(t *testing.T) {
 	fname := filepath.Join(t.TempDir(), "test.db")
 
-	// Create migrations directory
-	migrationsDir := setupTestMigrations(t)
+	// Get production migrations
+	migrationsFS, err := getMigrationsFS()
+	if err != nil {
+		t.Fatalf("Failed to get migrations FS: %v", err)
+	}
 
 	// Create database and apply only first migration
 	db := setupEmptyTestDB(t)
 	dbPath := t.Name() + "_migrations.db"
 
-	err := db.MigrateTo(migrationsDir, 1)
+	err = db.MigrateTo(migrationsFS, 1)
 	if err != nil {
 		t.Fatalf("MigrateTo(1) failed: %v", err)
 	}
@@ -155,7 +168,7 @@ func TestNewDBWithMigrationCheck_OutOfDateDatabase(t *testing.T) {
 	os.Rename(srcPath, fname)
 
 	// NewDBWithMigrationCheck should detect out-of-date database and error
-	_, err = NewDBWithMigrationCheck(fname, migrationsDir, true)
+	_, err = NewDBWithMigrationCheck(fname, true)
 	if err == nil {
 		t.Error("Expected error when database is out of date")
 	}
