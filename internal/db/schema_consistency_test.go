@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -107,16 +108,15 @@ func normalizeSQL(sql string) string {
 	sql = strings.ReplaceAll(sql, " ,", ",")
 
 	// Remove quotes from table names that SQLite adds during ALTER TABLE operations
-	// This handles both "table_name" and 'table_name' style quotes
-	sql = strings.ReplaceAll(sql, `"radar_command_log"`, "radar_command_log")
-	sql = strings.ReplaceAll(sql, `"radar_commands"`, "radar_commands")
-	sql = strings.ReplaceAll(sql, `"radar_data"`, "radar_data")
+	// Pattern matches: "table_name" or 'table_name' and replaces with: table_name
+	quotedTablePattern := regexp.MustCompile(`["']([a-z_][a-z0-9_]*)["']`)
+	sql = quotedTablePattern.ReplaceAllString(sql, "$1")
 
 	// SQLite's ALTER TABLE RENAME removes the space after table name in CREATE TABLE
-	// Normalize "CREATE TABLE name(" to "CREATE TABLE name ("
-	sql = strings.ReplaceAll(sql, "radar_command_log(", "radar_command_log (")
-	sql = strings.ReplaceAll(sql, "radar_commands(", "radar_commands (")
-	sql = strings.ReplaceAll(sql, "radar_data(", "radar_data (")
+	// Pattern matches: "table_name(" and replaces with: "table_name ("
+	// This normalizes "CREATE TABLE name(" to "CREATE TABLE name ("
+	tableParenPattern := regexp.MustCompile(`\b([a-z_][a-z0-9_]*)\(`)
+	sql = tableParenPattern.ReplaceAllString(sql, "$1 (")
 
 	return sql
 }
