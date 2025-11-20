@@ -458,8 +458,14 @@ func (db *DB) RadarObjects() ([]RadarObject, error) {
 			ro.frames_per_mps,
 			ro.length_m
 		FROM radar_objects ro
-		LEFT JOIN site_config_periods scp ON ro.write_timestamp >= scp.effective_start_unix
-			AND (scp.effective_end_unix IS NULL OR ro.write_timestamp < scp.effective_end_unix)
+		LEFT JOIN site_config_periods scp ON scp.id = (
+			SELECT p.id
+			FROM site_config_periods p
+			WHERE ro.write_timestamp >= p.effective_start_unix
+				AND (p.effective_end_unix IS NULL OR ro.write_timestamp < p.effective_end_unix)
+			ORDER BY p.effective_start_unix DESC
+			LIMIT 1
+		)
 		LEFT JOIN site_variable_config vc ON scp.site_variable_config_id = vc.id
 		ORDER BY ro.write_timestamp DESC
 		LIMIT 100
