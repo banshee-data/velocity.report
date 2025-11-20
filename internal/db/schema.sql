@@ -155,7 +155,8 @@ END;
 CREATE TRIGGER IF NOT EXISTS enforce_single_active_period BEFORE INSERT ON site_config_periods WHEN NEW.is_active = 1 BEGIN
    UPDATE site_config_periods
       SET is_active = 0
-    WHERE is_active = 1;
+    WHERE is_active = 1
+      AND site_id = NEW.site_id;
 
 END;
 
@@ -165,6 +166,7 @@ CREATE TRIGGER IF NOT EXISTS enforce_single_active_period_update BEFORE
              UPDATE site_config_periods
                 SET is_active = 0
               WHERE is_active = 1
+                AND site_id = NEW.site_id
                 AND id != NEW.id;
 
 END;

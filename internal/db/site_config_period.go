@@ -181,6 +181,90 @@ func (db *DB) GetActiveSiteConfigPeriod() (*SiteConfigPeriodWithDetails, error) 
 	return &periodWithDetails, nil
 }
 
+// GetActiveSiteConfigPeriodForSite retrieves the currently active site configuration period for a specific site
+func (db *DB) GetActiveSiteConfigPeriodForSite(siteID int) (*SiteConfigPeriodWithDetails, error) {
+	query := `
+		SELECT
+			p.id, p.site_id, p.site_variable_config_id, p.effective_start_unix, p.effective_end_unix, p.is_active, p.notes, p.created_at, p.updated_at,
+			s.id, s.name, s.location, s.description, s.speed_limit,
+			s.surveyor, s.contact, s.address, s.latitude, s.longitude, s.map_angle,
+			s.include_map, s.site_description, s.speed_limit_note, s.created_at, s.updated_at,
+			vc.id, vc.cosine_error_angle, vc.created_at, vc.updated_at
+		FROM site_config_periods p
+		JOIN site s ON p.site_id = s.id
+		LEFT JOIN site_variable_config vc ON p.site_variable_config_id = vc.id
+		WHERE p.is_active = 1 AND p.site_id = ?
+		LIMIT 1
+	`
+
+	var periodWithDetails SiteConfigPeriodWithDetails
+	periodWithDetails.Site = &Site{}
+	periodWithDetails.VariableConfig = &SiteVariableConfig{}
+	var isActiveInt int
+	var includeMapInt int
+	var siteCreatedAtUnix, siteUpdatedAtUnix int64
+	var vcID sql.NullInt64
+	var vcCosineAngle sql.NullFloat64
+	var vcCreatedAt, vcUpdatedAt sql.NullFloat64
+
+	err := db.DB.QueryRow(query, siteID).Scan(
+		&periodWithDetails.ID,
+		&periodWithDetails.SiteID,
+		&periodWithDetails.SiteVariableConfigID,
+		&periodWithDetails.EffectiveStartUnix,
+		&periodWithDetails.EffectiveEndUnix,
+		&isActiveInt,
+		&periodWithDetails.Notes,
+		&periodWithDetails.CreatedAt,
+		&periodWithDetails.UpdatedAt,
+		&periodWithDetails.Site.ID,
+		&periodWithDetails.Site.Name,
+		&periodWithDetails.Site.Location,
+		&periodWithDetails.Site.Description,
+		&periodWithDetails.Site.SpeedLimit,
+		&periodWithDetails.Site.Surveyor,
+		&periodWithDetails.Site.Contact,
+		&periodWithDetails.Site.Address,
+		&periodWithDetails.Site.Latitude,
+		&periodWithDetails.Site.Longitude,
+		&periodWithDetails.Site.MapAngle,
+		&includeMapInt,
+		&periodWithDetails.Site.SiteDescription,
+		&periodWithDetails.Site.SpeedLimitNote,
+		&siteCreatedAtUnix,
+		&siteUpdatedAtUnix,
+		&vcID,
+		&vcCosineAngle,
+		&vcCreatedAt,
+		&vcUpdatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("no active site config period found for site %d", siteID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to query active site config period: %w", err)
+	}
+
+	periodWithDetails.IsActive = isActiveInt == 1
+	periodWithDetails.Site.CreatedAt = time.Unix(siteCreatedAtUnix, 0)
+	periodWithDetails.Site.UpdatedAt = time.Unix(siteUpdatedAtUnix, 0)
+	if vcID.Valid {
+		periodWithDetails.VariableConfig.ID = int(vcID.Int64)
+	}
+	if vcCosineAngle.Valid {
+		periodWithDetails.VariableConfig.CosineErrorAngle = vcCosineAngle.Float64
+	}
+	if vcCreatedAt.Valid {
+		periodWithDetails.VariableConfig.CreatedAt = vcCreatedAt.Float64
+	}
+	if vcUpdatedAt.Valid {
+		periodWithDetails.VariableConfig.UpdatedAt = vcUpdatedAt.Float64
+	}
+
+	return &periodWithDetails, nil
+}
+
 // GetSiteConfigPeriodForTimestamp finds the site configuration period that was effective at a given timestamp
 func (db *DB) GetSiteConfigPeriodForTimestamp(timestamp float64) (*SiteConfigPeriodWithDetails, error) {
 	query := `

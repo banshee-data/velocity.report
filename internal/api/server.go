@@ -654,7 +654,7 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 
 		// Get the active site config period for this site
 		// This contains the cosine_error_angle from site_variable_config
-		activePeriod, err = s.db.GetActiveSiteConfigPeriod()
+		activePeriod, err = s.db.GetActiveSiteConfigPeriodForSite(*req.SiteID)
 		if err != nil || activePeriod == nil || activePeriod.SiteID != *req.SiteID {
 			// No active period for this site - that's okay, we'll use the request value or fail later
 			activePeriod = nil

@@ -55,8 +55,8 @@ func TestGetActiveSiteConfigPeriod(t *testing.T) {
 	cosineAngle := 10.0
 	site, varConfig, _ := createTestSiteWithConfig(t, db, "Test Site", cosineAngle)
 
-	// Retrieve the active period
-	activePeriod, err := db.GetActiveSiteConfigPeriod()
+	// Retrieve the active period for this site
+	activePeriod, err := db.GetActiveSiteConfigPeriodForSite(site.ID)
 	if err != nil {
 		t.Fatalf("Failed to get active period: %v", err)
 	}
@@ -202,8 +202,8 @@ func TestEnforceSingleActiveperiod(t *testing.T) {
 		t.Fatalf("Failed to create period 1: %v", err)
 	}
 
-	// Verify it's active
-	activePeriod, err := db.GetActiveSiteConfigPeriod()
+	// Verify it's active for site1
+	activePeriod, err := db.GetActiveSiteConfigPeriodForSite(site1.ID)
 	if err != nil {
 		t.Fatalf("Failed to get active period: %v", err)
 	}
@@ -221,8 +221,8 @@ func TestEnforceSingleActiveperiod(t *testing.T) {
 		t.Fatalf("Failed to create period 2: %v", err)
 	}
 
-	// Verify period 2 is now active
-	activePeriod, err = db.GetActiveSiteConfigPeriod()
+	// Verify period 2 is now active for site2
+	activePeriod, err = db.GetActiveSiteConfigPeriodForSite(site2.ID)
 	if err != nil {
 		t.Fatalf("Failed to get active period after second insert: %v", err)
 	}
@@ -230,13 +230,13 @@ func TestEnforceSingleActiveperiod(t *testing.T) {
 		t.Errorf("Expected site 2 to be active, got site %d", activePeriod.SiteID)
 	}
 
-	// Verify period 1 is no longer active
+	// Verify period 1 remains active (site1 is unaffected by site2's activation)
 	period1Retrieved, err := db.GetSiteConfigPeriod(period1.ID)
 	if err != nil {
 		t.Fatalf("Failed to retrieve period 1: %v", err)
 	}
-	if period1Retrieved.IsActive {
-		t.Error("Expected period 1 to be deactivated")
+	if !period1Retrieved.IsActive {
+		t.Error("Expected period 1 to remain active")
 	}
 }
 
