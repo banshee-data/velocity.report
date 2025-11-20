@@ -1300,8 +1300,9 @@ func (s *Server) createSiteConfigPeriod(w http.ResponseWriter, r *http.Request) 
 		s.writeJSONError(w, http.StatusBadRequest, "site_id is required")
 		return
 	}
-	if period.EffectiveStartUnix == 0 {
-		s.writeJSONError(w, http.StatusBadRequest, "effective_start_unix is required")
+	// Note: 0 is a valid Unix timestamp (epoch: 1970-01-01), so we accept it
+	if period.EffectiveStartUnix < 0 {
+		s.writeJSONError(w, http.StatusBadRequest, "effective_start_unix must be non-negative")
 		return
 	}
 
@@ -1368,19 +1369,24 @@ func (s *Server) activateSiteConfigPeriod(w http.ResponseWriter, r *http.Request
 func (s *Server) closeSiteConfigPeriod(w http.ResponseWriter, r *http.Request, id int) {
 	// Parse the end time from request body
 	var req struct {
-		EndTimeUnix float64 `json:"end_time_unix"`
+		EndTimeUnix *float64 `json:"end_time_unix"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
 		return
 	}
 
-	if req.EndTimeUnix == 0 {
+	if req.EndTimeUnix == nil {
 		s.writeJSONError(w, http.StatusBadRequest, "end_time_unix is required")
 		return
 	}
 
-	if err := s.db.CloseSiteConfigPeriod(id, req.EndTimeUnix); err != nil {
+	if *req.EndTimeUnix < 0 {
+		s.writeJSONError(w, http.StatusBadRequest, "end_time_unix must be non-negative")
+		return
+	}
+
+	if err := s.db.CloseSiteConfigPeriod(id, *req.EndTimeUnix); err != nil {
 		if err.Error() == "site config period not found or already closed" {
 			s.writeJSONError(w, http.StatusNotFound, "Period not found or already closed")
 		} else {

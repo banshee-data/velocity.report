@@ -39,7 +39,7 @@ Users need the ability to:
 
 **Reports:**
 - PDF generator via Python/LaTeX
-- Statistical summaries (p50, p85, p98)
+- Statistical summaries (P50, P85, P98)
 - Site information included in reports
 
 ### Gaps Identified
@@ -106,13 +106,17 @@ Where:
 
 ### 1. Database Schema (✅ Complete)
 
-**Migration:** `data/migrations/20251107_create_site_config_periods.sql`
+**Migration:** `data/migrations/000009_refactor_site_config.up.sql`
 
-- Created `site_config_periods` table
+- Created `site_variable_config` table for reusable configuration values
+- Created `site_config_periods` table (many-to-one with site_variable_config)
 - Indexes on `(effective_start_unix, effective_end_unix)` for range queries
 - Index on `is_active` for finding current active period
 - Triggers to enforce single active period constraint
-- Default period created for backward compatibility (site_id=1, start=epoch, end=NULL)
+- Migration properly pairs sites with configs using ROW_NUMBER() to avoid ID mismatch
+- Only one period set as active (minimum site ID) to avoid trigger conflicts
+
+**Schema Maintenance:** The `schema.sql` file includes PRAGMA statements for database performance (WAL, synchronous=NORMAL, temp_store=MEMORY, busy_timeout) and uses IF NOT EXISTS clauses for idempotent table/index creation.
 
 **Code:** `internal/db/site_config_period.go`
 

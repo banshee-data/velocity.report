@@ -73,6 +73,7 @@ Response:
   {
     "id": 1,
     "site_id": 1,
+    "site_variable_config_id": 1,
     "effective_start_unix": 1704067200.0,
     "effective_end_unix": 1706745600.0,
     "is_active": false,
@@ -80,6 +81,10 @@ Response:
     "site": {
       "id": 1,
       "name": "Main Street",
+      ...
+    },
+    "variable_config": {
+      "id": 1,
       "cosine_error_angle": 5.0,
       ...
     }
@@ -87,6 +92,7 @@ Response:
   {
     "id": 2,
     "site_id": 1,
+    "site_variable_config_id": 2,
     "effective_start_unix": 1706745600.0,
     "effective_end_unix": null,
     "is_active": true,
@@ -94,6 +100,10 @@ Response:
     "site": {
       "id": 1,
       "name": "Main Street",
+      ...
+    },
+    "variable_config": {
+      "id": 2,
       "cosine_error_angle": 10.0,
       ...
     }
@@ -244,25 +254,33 @@ Because correction is applied at query time (not write time), you can:
 
 ### Initial Setup
 
-1. Create a site with your measured angle:
+1. Create a site (without cosine_error_angle):
 ```bash
 POST /api/sites
 {
   "name": "Main Street",
   "location": "Main St & 1st Ave",
-  "cosine_error_angle": 5.0,
   "speed_limit": 25,
   "surveyor": "Jane Doe",
   "contact": "jane@example.com"
 }
 ```
 
-2. Create an initial site config period:
+2. Create a site variable config with your measured angle:
+```bash
+POST /api/site_variable_configs
+{
+  "cosine_error_angle": 5.0
+}
+```
+
+3. Create an initial site config period linking site to config:
 ```bash
 POST /api/site_config_periods
 {
   "site_id": 1,
-  "effective_start_unix": 0.0,  # Start from beginning
+  "site_variable_config_id": 1,
+  "effective_start_unix": 0.0,  # Start from beginning (epoch is valid)
   "effective_end_unix": null,    # Open-ended
   "is_active": true,
   "notes": "Initial configuration"
@@ -287,20 +305,20 @@ POST /api/site_config_periods/1/close
 }
 ```
 
-3. Update the site's cosine angle:
+3. Create a new site variable config with the updated angle:
 ```bash
-PUT /api/sites/1
+POST /api/site_variable_configs
 {
-  "cosine_error_angle": 10.0,
-  ...
+  "cosine_error_angle": 10.0
 }
 ```
 
-4. Create new period with updated angle:
+4. Create new period with updated config:
 ```bash
 POST /api/site_config_periods
 {
   "site_id": 1,
+  "site_variable_config_id": 2,
   "effective_start_unix": 1707350400.0,
   "effective_end_unix": null,
   "is_active": true,
