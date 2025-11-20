@@ -117,14 +117,16 @@ func (s *SerialMux[T]) Initialize() error {
 	}
 
 	for _, command := range []string{
-		"AX", // reset to factory defaults
-		"OJ", // set output format to JSON
-		"OS", // enable speed reporting from doppler radar
-		"oD", // enable range reporting from FMCW radar
-		"OM", // enable magnitude of speed measurement
-		"oM", // enable magnitude of range measurement
-		"OH", // enable human-readable timestamp w/ event
-		"OC", // enable object detection
+		"AX",     // reset to factory defaults
+		"OJ",     // set output format to JSON
+		"OS",     // enable speed reporting from doppler radar
+		"oD",     // enable range reporting from FMCW radar
+		"OM",     // enable magnitude of speed measurement
+		"oM",     // enable magnitude of range measurement
+		"OH",     // enable human-readable timestamp w/ event
+		"OC",     // enable object detection
+		"^/+0.0", // set inbound direction angle to 0 degrees (for cosine correction)
+		"^/-0.0", // set outbound direction angle to 0 degrees (for cosine correction)
 	} {
 		if err := s.SendCommand(command); err != nil {
 			return fmt.Errorf("failed to send start command %q: %w", command, err)
