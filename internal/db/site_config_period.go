@@ -505,9 +505,10 @@ func (db *DB) GetTimeline(startUnix, endUnix float64) ([]TimelineEntry, error) {
 				p.created_at,
 				p.updated_at,
 				s.name,
-				s.cosine_error_angle
+				vc.cosine_error_angle
 			FROM site_config_periods p
 			JOIN site s ON p.site_id = s.id
+			LEFT JOIN site_variable_config vc ON p.site_variable_config_id = vc.id
 			WHERE p.effective_start_unix <= ?
 			  AND (p.effective_end_unix IS NULL OR p.effective_end_unix >= ?)
 		),
@@ -599,8 +600,10 @@ func (db *DB) GetTimeline(startUnix, endUnix float64) ([]TimelineEntry, error) {
 					IsActive:           isActive.Int64 == 1,
 				},
 				Site: &Site{
-					ID:               int(siteID.Int64),
-					Name:             siteName.String,
+					ID:   int(siteID.Int64),
+					Name: siteName.String,
+				},
+				VariableConfig: &SiteVariableConfig{
 					CosineErrorAngle: cosineAngle.Float64,
 				},
 			}

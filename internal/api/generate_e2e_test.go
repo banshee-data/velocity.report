@@ -27,13 +27,12 @@ func TestGenerateReport_E2E(t *testing.T) {
 	// Create a site to reference in the report with a speed_limit_note
 	note := "Posted limit is 25 mph when children are present."
 	site := &db.Site{
-		Name:             "E2E Site",
-		Location:         "Test Location",
-		CosineErrorAngle: 21.0,
-		Surveyor:         "Tester",
-		Contact:          "test@example.com",
-		SpeedLimit:       25,
-		SpeedLimitNote:   &note,
+		Name:           "E2E Site",
+		Location:       "Test Location",
+		Surveyor:       "Tester",
+		Contact:        "test@example.com",
+		SpeedLimit:     25,
+		SpeedLimitNote: &note,
 	}
 	if err := dbInst.CreateSite(site); err != nil {
 		t.Fatalf("failed to create site: %v", err)
