@@ -434,34 +434,34 @@ func (e *RadarObject) String() string {
 func (db *DB) RadarObjects() ([]RadarObject, error) {
 	// Query with cosine error correction from site_variable_config via site_config_periods
 	query := `
-		SELECT 
-			ro.classifier, 
-			ro.start_time, 
-			ro.end_time, 
-			ro.delta_time_ms, 
-			CASE 
+		SELECT
+			ro.classifier,
+			ro.start_time,
+			ro.end_time,
+			ro.delta_time_ms,
+			CASE
 				WHEN vc.id IS NOT NULL THEN
 					ro.max_speed / COS(vc.cosine_error_angle * 0.0174533)  -- degrees to radians
 				ELSE
 					ro.max_speed
 			END as corrected_max_speed,
-			CASE 
+			CASE
 				WHEN vc.id IS NOT NULL THEN
 					ro.min_speed / COS(vc.cosine_error_angle * 0.0174533)  -- degrees to radians
 				ELSE
 					ro.min_speed
 			END as corrected_min_speed,
-			ro.speed_change, 
-			ro.max_magnitude, 
-			ro.avg_magnitude, 
+			ro.speed_change,
+			ro.max_magnitude,
+			ro.avg_magnitude,
 			ro.total_frames,
-			ro.frames_per_mps, 
+			ro.frames_per_mps,
 			ro.length_m
 		FROM radar_objects ro
 		LEFT JOIN site_config_periods scp ON ro.write_timestamp >= scp.effective_start_unix
 			AND (scp.effective_end_unix IS NULL OR ro.write_timestamp < scp.effective_end_unix)
 		LEFT JOIN site_variable_config vc ON scp.site_variable_config_id = vc.id
-		ORDER BY ro.write_timestamp DESC 
+		ORDER BY ro.write_timestamp DESC
 		LIMIT 100
 	`
 	rows, err := db.Query(query)
@@ -573,9 +573,9 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 		// Formula: corrected_speed = measured_speed / cos(angle_in_radians)
 		// We join on the period that was effective at the time of measurement
 		query := `
-			SELECT 
+			SELECT
 				ro.write_timestamp,
-				CASE 
+				CASE
 					WHEN vc.id IS NOT NULL THEN
 						ro.max_speed / COS(vc.cosine_error_angle * 0.0174533)  -- degrees to radians: π/180 ≈ 0.0174533
 					ELSE
@@ -596,9 +596,9 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 		}
 		// Query with cosine error correction from site_variable_config via site_config_periods
 		query := `
-			SELECT 
+			SELECT
 				rdt.transit_start_unix,
-				CASE 
+				CASE
 					WHEN vc.id IS NOT NULL THEN
 						rdt.transit_max_speed / COS(vc.cosine_error_angle * 0.0174533)  -- degrees to radians
 					ELSE
@@ -806,10 +806,10 @@ func (db *DB) Events() ([]Event, error) {
 	// Query with cosine error correction from site_variable_config via site_config_periods
 	// Apply correction to speed based on the site configuration period active at write_timestamp
 	query := `
-		SELECT 
-			rd.uptime, 
-			rd.magnitude, 
-			CASE 
+		SELECT
+			rd.uptime,
+			rd.magnitude,
+			CASE
 				WHEN vc.id IS NOT NULL AND rd.speed IS NOT NULL THEN
 					rd.speed / COS(vc.cosine_error_angle * 0.0174533)  -- degrees to radians
 				ELSE
@@ -819,7 +819,7 @@ func (db *DB) Events() ([]Event, error) {
 		LEFT JOIN site_config_periods scp ON rd.write_timestamp >= scp.effective_start_unix
 			AND (scp.effective_end_unix IS NULL OR rd.write_timestamp < scp.effective_end_unix)
 		LEFT JOIN site_variable_config vc ON scp.site_variable_config_id = vc.id
-		ORDER BY rd.uptime DESC 
+		ORDER BY rd.uptime DESC
 		LIMIT 500
 	`
 	rows, err := db.Query(query)
