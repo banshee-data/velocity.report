@@ -14,12 +14,11 @@ func TestCreateSiteConfigPeriod(t *testing.T) {
 
 	// Create a test site first
 	site := &Site{
-		Name:             "Test Site",
-		Location:         "Test Location",
-		CosineErrorAngle: 5.0,
-		SpeedLimit:       25,
-		Surveyor:         "Test Surveyor",
-		Contact:          "test@example.com",
+		Name:       "Test Site",
+		Location:   "Test Location",
+		SpeedLimit: 25,
+		Surveyor:   "Test Surveyor",
+		Contact:    "test@example.com",
 	}
 	if err := db.CreateSite(site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
@@ -52,31 +51,9 @@ func TestGetActiveSiteConfigPeriod(t *testing.T) {
 	}
 	defer db.Close()
 
-	// Create a test site
-	site := &Site{
-		Name:             "Test Site",
-		Location:         "Test Location",
-		CosineErrorAngle: 10.0,
-		SpeedLimit:       30,
-		Surveyor:         "Test Surveyor",
-		Contact:          "test@example.com",
-	}
-	if err := db.CreateSite(site); err != nil {
-		t.Fatalf("Failed to create site: %v", err)
-	}
-
-	now := float64(time.Now().Unix())
-
-	// Create an active period
-	period := &SiteConfigPeriod{
-		SiteID:             site.ID,
-		EffectiveStartUnix: now,
-		EffectiveEndUnix:   nil,
-		IsActive:           true,
-	}
-	if err := db.CreateSiteConfigPeriod(period); err != nil {
-		t.Fatalf("Failed to create site config period: %v", err)
-	}
+	// Create a test site with config using helper
+	cosineAngle := 10.0
+	site, varConfig, _ := createTestSiteWithConfig(t, db, "Test Site", cosineAngle)
 
 	// Retrieve the active period
 	activePeriod, err := db.GetActiveSiteConfigPeriod()
@@ -93,8 +70,11 @@ func TestGetActiveSiteConfigPeriod(t *testing.T) {
 	if activePeriod.Site == nil {
 		t.Fatal("Expected site to be populated")
 	}
-	if activePeriod.Site.CosineErrorAngle != 10.0 {
-		t.Errorf("Expected cosine angle 10.0, got %f", activePeriod.Site.CosineErrorAngle)
+	if activePeriod.VariableConfig == nil {
+		t.Fatal("Expected variable config to be populated")
+	}
+	if activePeriod.VariableConfig.CosineErrorAngle != varConfig.CosineErrorAngle {
+		t.Errorf("Expected cosine angle %f, got %f", varConfig.CosineErrorAngle, activePeriod.VariableConfig.CosineErrorAngle)
 	}
 }
 
@@ -107,24 +87,22 @@ func TestGetSiteConfigPeriodForTimestamp(t *testing.T) {
 
 	// Create test sites
 	site1 := &Site{
-		Name:             "Site 1",
-		Location:         "Location 1",
-		CosineErrorAngle: 5.0,
-		SpeedLimit:       25,
-		Surveyor:         "Surveyor 1",
-		Contact:          "site1@example.com",
+		Name:       "Site 1",
+		Location:   "Location 1",
+		SpeedLimit: 25,
+		Surveyor:   "Surveyor 1",
+		Contact:    "site1@example.com",
 	}
 	if err := db.CreateSite(site1); err != nil {
 		t.Fatalf("Failed to create site 1: %v", err)
 	}
 
 	site2 := &Site{
-		Name:             "Site 2",
-		Location:         "Location 2",
-		CosineErrorAngle: 10.0,
-		SpeedLimit:       30,
-		Surveyor:         "Surveyor 2",
-		Contact:          "site2@example.com",
+		Name:       "Site 2",
+		Location:   "Location 2",
+		SpeedLimit: 30,
+		Surveyor:   "Surveyor 2",
+		Contact:    "site2@example.com",
 	}
 	if err := db.CreateSite(site2); err != nil {
 		t.Fatalf("Failed to create site 2: %v", err)
@@ -163,8 +141,8 @@ func TestGetSiteConfigPeriodForTimestamp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get period for January: %v", err)
 	}
-	if janPeriod.Site.CosineErrorAngle != 5.0 {
-		t.Errorf("Expected cosine angle 5.0 for January, got %f", janPeriod.Site.CosineErrorAngle)
+	if janPeriod.VariableConfig.CosineErrorAngle != 5.0 {
+		t.Errorf("Expected cosine angle 5.0 for January, got %f", janPeriod.VariableConfig.CosineErrorAngle)
 	}
 
 	// Test timestamp in February (should get period 2 with angle 10.0)
@@ -173,8 +151,8 @@ func TestGetSiteConfigPeriodForTimestamp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get period for February: %v", err)
 	}
-	if febPeriod.Site.CosineErrorAngle != 10.0 {
-		t.Errorf("Expected cosine angle 10.0 for February, got %f", febPeriod.Site.CosineErrorAngle)
+	if febPeriod.VariableConfig.CosineErrorAngle != 10.0 {
+		t.Errorf("Expected cosine angle 10.0 for February, got %f", febPeriod.VariableConfig.CosineErrorAngle)
 	}
 }
 
@@ -187,24 +165,22 @@ func TestEnforceSingleActiveperiod(t *testing.T) {
 
 	// Create test sites
 	site1 := &Site{
-		Name:             "Site 1",
-		Location:         "Location 1",
-		CosineErrorAngle: 5.0,
-		SpeedLimit:       25,
-		Surveyor:         "Surveyor 1",
-		Contact:          "site1@example.com",
+		Name:       "Site 1",
+		Location:   "Location 1",
+		SpeedLimit: 25,
+		Surveyor:   "Surveyor 1",
+		Contact:    "site1@example.com",
 	}
 	if err := db.CreateSite(site1); err != nil {
 		t.Fatalf("Failed to create site 1: %v", err)
 	}
 
 	site2 := &Site{
-		Name:             "Site 2",
-		Location:         "Location 2",
-		CosineErrorAngle: 10.0,
-		SpeedLimit:       30,
-		Surveyor:         "Surveyor 2",
-		Contact:          "site2@example.com",
+		Name:       "Site 2",
+		Location:   "Location 2",
+		SpeedLimit: 30,
+		Surveyor:   "Surveyor 2",
+		Contact:    "site2@example.com",
 	}
 	if err := db.CreateSite(site2); err != nil {
 		t.Fatalf("Failed to create site 2: %v", err)
@@ -269,12 +245,11 @@ func TestCloseSiteConfigPeriod(t *testing.T) {
 
 	// Create a test site
 	site := &Site{
-		Name:             "Test Site",
-		Location:         "Test Location",
-		CosineErrorAngle: 5.0,
-		SpeedLimit:       25,
-		Surveyor:         "Test Surveyor",
-		Contact:          "test@example.com",
+		Name:       "Test Site",
+		Location:   "Test Location",
+		SpeedLimit: 25,
+		Surveyor:   "Test Surveyor",
+		Contact:    "test@example.com",
 	}
 	if err := db.CreateSite(site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
@@ -325,12 +300,11 @@ func TestGetAllSiteConfigPeriods(t *testing.T) {
 
 	// Create test sites
 	site := &Site{
-		Name:             "Test Site",
-		Location:         "Test Location",
-		CosineErrorAngle: 5.0,
-		SpeedLimit:       25,
-		Surveyor:         "Test Surveyor",
-		Contact:          "test@example.com",
+		Name:       "Test Site",
+		Location:   "Test Location",
+		SpeedLimit: 25,
+		Surveyor:   "Test Surveyor",
+		Contact:    "test@example.com",
 	}
 	if err := db.CreateSite(site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
@@ -383,24 +357,22 @@ func TestTimeline(t *testing.T) {
 
 	// Create test sites with different cosine angles
 	site1 := &Site{
-		Name:             "Site 1",
-		Location:         "Location 1",
-		CosineErrorAngle: 5.0,
-		SpeedLimit:       25,
-		Surveyor:         "Surveyor 1",
-		Contact:          "site1@example.com",
+		Name:       "Site 1",
+		Location:   "Location 1",
+		SpeedLimit: 25,
+		Surveyor:   "Surveyor 1",
+		Contact:    "site1@example.com",
 	}
 	if err := db.CreateSite(site1); err != nil {
 		t.Fatalf("Failed to create site 1: %v", err)
 	}
 
 	site2 := &Site{
-		Name:             "Site 2",
-		Location:         "Location 2",
-		CosineErrorAngle: 10.0,
-		SpeedLimit:       30,
-		Surveyor:         "Surveyor 2",
-		Contact:          "site2@example.com",
+		Name:       "Site 2",
+		Location:   "Location 2",
+		SpeedLimit: 30,
+		Surveyor:   "Surveyor 2",
+		Contact:    "site2@example.com",
 	}
 	if err := db.CreateSite(site2); err != nil {
 		t.Fatalf("Failed to create site 2: %v", err)

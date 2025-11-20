@@ -15,28 +15,8 @@ func TestCosineErrorCorrection(t *testing.T) {
 	defer db.Close()
 
 	// Create a test site with a specific cosine error angle (5 degrees)
-	site := &Site{
-		Name:             "Test Site",
-		Location:         "Test Location",
-		CosineErrorAngle: 5.0, // 5 degrees
-		SpeedLimit:       25,
-		Surveyor:         "Test Surveyor",
-		Contact:          "test@example.com",
-	}
-	if err := db.CreateSite(site); err != nil {
-		t.Fatalf("Failed to create site: %v", err)
-	}
-
-	// Create a site configuration period covering all time
-	period := &SiteConfigPeriod{
-		SiteID:             site.ID,
-		EffectiveStartUnix: 0.0, // Start from epoch
-		EffectiveEndUnix:   nil, // Open-ended
-		IsActive:           true,
-	}
-	if err := db.CreateSiteConfigPeriod(period); err != nil {
-		t.Fatalf("Failed to create site config period: %v", err)
-	}
+	cosineErrorAngle := 5.0
+	_, varConfig, _ := createTestSiteWithConfig(t, db, "Test Site", cosineErrorAngle)
 
 	// Insert a radar object with a known speed (e.g., 25 m/s)
 	// Note: write_timestamp will be auto-generated to current time
@@ -61,7 +41,7 @@ func TestCosineErrorCorrection(t *testing.T) {
 
 	// Calculate expected corrected speed
 	// Formula: corrected_speed = measured_speed / cos(angle_in_radians)
-	angleRadians := site.CosineErrorAngle * (math.Pi / 180.0) // Convert to radians
+	angleRadians := varConfig.CosineErrorAngle * (math.Pi / 180.0) // Convert to radians
 	expectedCorrectedSpeed := measuredSpeed / math.Cos(angleRadians)
 
 	// Query the data using a time range that covers "now" (when the record was inserted)
@@ -89,7 +69,7 @@ func TestCosineErrorCorrection(t *testing.T) {
 	}
 
 	t.Logf("Measured speed: %.4f m/s", measuredSpeed)
-	t.Logf("Cosine angle: %.2f degrees (%.6f radians)", site.CosineErrorAngle, angleRadians)
+	t.Logf("Cosine angle: %.2f degrees (%.6f radians)", varConfig.CosineErrorAngle, angleRadians)
 	t.Logf("Correction factor: %.6f (1/cos(angle))", 1.0/math.Cos(angleRadians))
 	t.Logf("Expected corrected speed: %.4f m/s", expectedCorrectedSpeed)
 	t.Logf("Actual corrected speed: %.4f m/s", result.Metrics[0].MaxSpeed)
@@ -104,52 +84,54 @@ func TestCosineErrorCorrectionWithMultiplePeriods(t *testing.T) {
 	}
 	defer db.Close()
 
-	// Create two sites with different angles
-	site1 := &Site{
-		Name:             "Site 1",
-		Location:         "Location 1",
-		CosineErrorAngle: 5.0, // 5 degrees
-		SpeedLimit:       25,
-		Surveyor:         "Surveyor 1",
-		Contact:          "site1@example.com",
-	}
-	if err := db.CreateSite(site1); err != nil {
-		t.Fatalf("Failed to create site 1: %v", err)
+	// Create two variable configs with different angles
+	varConfig1 := &SiteVariableConfig{CosineErrorAngle: 5.0}
+	if err := db.CreateSiteVariableConfig(varConfig1); err != nil {
+		t.Fatalf("Failed to create varConfig1: %v", err)
 	}
 
-	site2 := &Site{
-		Name:             "Site 2",
-		Location:         "Location 2",
-		CosineErrorAngle: 10.0, // 10 degrees
-		SpeedLimit:       30,
-		Surveyor:         "Surveyor 2",
-		Contact:          "site2@example.com",
+	varConfig2 := &SiteVariableConfig{CosineErrorAngle: 10.0}
+	if err := db.CreateSiteVariableConfig(varConfig2); err != nil {
+		t.Fatalf("Failed to create varConfig2: %v", err)
 	}
-	if err := db.CreateSite(site2); err != nil {
-		t.Fatalf("Failed to create site 2: %v", err)
+
+	// Create a single site (periods will reference this site with different configs)
+	site := &Site{
+		Name:       "Test Site",
+		Location:   "Test Location",
+		SpeedLimit: 25,
+		Surveyor:   "Test Surveyor",
+		Contact:    "test@example.com",
+	}
+	if err := db.CreateSite(site); err != nil {
+		t.Fatalf("Failed to create site: %v", err)
 	}
 
 	// Create periods for different time ranges
 	jan1 := float64(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC).Unix())
 	feb1 := float64(time.Date(2024, 2, 1, 0, 0, 0, 0, time.UTC).Unix())
 
-	// Period 1: Jan (site 1, 5 degrees)
+	// Period 1: Jan (5 degrees)
+	varConfig1IDPtr := &varConfig1.ID
 	period1 := &SiteConfigPeriod{
-		SiteID:             site1.ID,
-		EffectiveStartUnix: jan1,
-		EffectiveEndUnix:   &feb1,
-		IsActive:           false,
+		SiteID:               site.ID,
+		SiteVariableConfigID: varConfig1IDPtr,
+		EffectiveStartUnix:   jan1,
+		EffectiveEndUnix:     &feb1,
+		IsActive:             false,
 	}
 	if err := db.CreateSiteConfigPeriod(period1); err != nil {
 		t.Fatalf("Failed to create period 1: %v", err)
 	}
 
-	// Period 2: Feb onwards (site 2, 10 degrees)
+	// Period 2: Feb onwards (10 degrees)
+	varConfig2IDPtr := &varConfig2.ID
 	period2 := &SiteConfigPeriod{
-		SiteID:             site2.ID,
-		EffectiveStartUnix: feb1,
-		EffectiveEndUnix:   nil,
-		IsActive:           true,
+		SiteID:               site.ID,
+		SiteVariableConfigID: varConfig2IDPtr,
+		EffectiveStartUnix:   feb1,
+		EffectiveEndUnix:     nil,
+		IsActive:             true,
 	}
 	if err := db.CreateSiteConfigPeriod(period2); err != nil {
 		t.Fatalf("Failed to create period 2: %v", err)
@@ -199,10 +181,10 @@ func TestCosineErrorCorrectionWithMultiplePeriods(t *testing.T) {
 	}
 
 	// Calculate expected corrected speeds
-	angle1Radians := site1.CosineErrorAngle * (math.Pi / 180.0)
+	angle1Radians := varConfig1.CosineErrorAngle * (math.Pi / 180.0)
 	expectedSpeed1 := measuredSpeed / math.Cos(angle1Radians)
 
-	angle2Radians := site2.CosineErrorAngle * (math.Pi / 180.0)
+	angle2Radians := varConfig2.CosineErrorAngle * (math.Pi / 180.0)
 	expectedSpeed2 := measuredSpeed / math.Cos(angle2Radians)
 
 	// Query January data
@@ -252,7 +234,7 @@ func TestCosineErrorCorrectionWithMultiplePeriods(t *testing.T) {
 	}
 }
 
-// TestNoCosineCorrection verifies that data without a matching site config period gets the default correction
+// TestNoCosineCorrection verifies that data without a matching site config period gets no correction
 func TestNoCosineCorrection(t *testing.T) {
 	db, err := NewDB(":memory:")
 	if err != nil {
@@ -260,12 +242,10 @@ func TestNoCosineCorrection(t *testing.T) {
 	}
 	defer db.Close()
 
+	// Create a site with an active config for testing default correction behavior
 	// The default site (id=1) with default period will exist from the migration
-	// We'll query its cosine angle to understand the default correction
-	defaultSite, err := db.GetSite(1)
-	if err != nil {
-		t.Logf("No default site found, test will verify zero correction")
-	}
+	defaultAngle := 0.5
+	_, defaultVarConfig, _ := createTestSiteWithConfig(t, db, "Default Site", defaultAngle)
 
 	// Insert radar object (will use current time as write_timestamp)
 	measuredSpeed := 25.0 // m/s
@@ -298,17 +278,13 @@ func TestNoCosineCorrection(t *testing.T) {
 		t.Fatalf("Expected 1 metric row, got %d", len(result.Metrics))
 	}
 
-	// Verify the speed has default correction applied (from default site, angle 0.5)
-	if defaultSite != nil {
-		angleRadians := defaultSite.CosineErrorAngle * (math.Pi / 180.0)
-		expectedSpeed := measuredSpeed / math.Cos(angleRadians)
-		tolerance := 0.001
-		if math.Abs(result.Metrics[0].MaxSpeed-expectedSpeed) > tolerance {
-			t.Errorf("Expected default corrected speed %f (angle %.1f°), got %f",
-				expectedSpeed, defaultSite.CosineErrorAngle, result.Metrics[0].MaxSpeed)
-		}
-		t.Logf("Speed with default site config (%.1f°): %.4f m/s", defaultSite.CosineErrorAngle, result.Metrics[0].MaxSpeed)
-	} else {
-		t.Logf("Speed: %.4f m/s (no default site)", result.Metrics[0].MaxSpeed)
+	// Verify the speed has default correction applied (from default site config)
+	angleRadians := defaultVarConfig.CosineErrorAngle * (math.Pi / 180.0)
+	expectedSpeed := measuredSpeed / math.Cos(angleRadians)
+	tolerance := 0.001
+	if math.Abs(result.Metrics[0].MaxSpeed-expectedSpeed) > tolerance {
+		t.Errorf("Expected default corrected speed %f (angle %.1f°), got %f",
+			expectedSpeed, defaultVarConfig.CosineErrorAngle, result.Metrics[0].MaxSpeed)
 	}
+	t.Logf("Speed with default site config (%.1f°): %.4f m/s", defaultVarConfig.CosineErrorAngle, result.Metrics[0].MaxSpeed)
 }

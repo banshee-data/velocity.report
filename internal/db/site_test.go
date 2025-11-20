@@ -11,20 +11,19 @@ func TestCreateSite_Success(t *testing.T) {
 	defer cleanupTestDB(t, db)
 
 	site := &Site{
-		Name:             "Test Site",
-		Location:         "123 Main St",
-		Description:      strPtr("Test Description"),
-		CosineErrorAngle: 21.0,
-		SpeedLimit:       25,
-		Surveyor:         "John Doe",
-		Contact:          "john@example.com",
-		Address:          strPtr("123 Main St, City, State"),
-		Latitude:         floatPtr(37.7749),
-		Longitude:        floatPtr(-122.4194),
-		MapAngle:         floatPtr(45.0),
-		IncludeMap:       true,
-		SiteDescription:  strPtr("Site description"),
-		SpeedLimitNote:   strPtr("Posted speed limit"),
+		Name:            "Test Site",
+		Location:        "123 Main St",
+		Description:     strPtr("Test Description"),
+		SpeedLimit:      25,
+		Surveyor:        "John Doe",
+		Contact:         "john@example.com",
+		Address:         strPtr("123 Main St, City, State"),
+		Latitude:        floatPtr(37.7749),
+		Longitude:       floatPtr(-122.4194),
+		MapAngle:        floatPtr(45.0),
+		IncludeMap:      true,
+		SiteDescription: strPtr("Site description"),
+		SpeedLimitNote:  strPtr("Posted speed limit"),
 	}
 
 	err := db.CreateSite(site)
@@ -57,11 +56,10 @@ func TestCreateSite_DuplicateName(t *testing.T) {
 	defer cleanupTestDB(t, db)
 
 	site1 := &Site{
-		Name:             "Duplicate Site",
-		Location:         "Location 1",
-		CosineErrorAngle: 21.0,
-		Surveyor:         "Surveyor 1",
-		Contact:          "contact1@example.com",
+		Name:     "Duplicate Site",
+		Location: "Location 1",
+		Surveyor: "Surveyor 1",
+		Contact:  "contact1@example.com",
 	}
 
 	err := db.CreateSite(site1)
@@ -70,11 +68,10 @@ func TestCreateSite_DuplicateName(t *testing.T) {
 	}
 
 	site2 := &Site{
-		Name:             "Duplicate Site",
-		Location:         "Location 2",
-		CosineErrorAngle: 22.0,
-		Surveyor:         "Surveyor 2",
-		Contact:          "contact2@example.com",
+		Name:     "Duplicate Site",
+		Location: "Location 2",
+		Surveyor: "Surveyor 2",
+		Contact:  "contact2@example.com",
 	}
 
 	err = db.CreateSite(site2)
@@ -93,11 +90,10 @@ func TestCreateSite_RequiredFields(t *testing.T) {
 
 	// Test that site creation works with all fields
 	site := &Site{
-		Name:             "Valid Site",
-		Location:         "Location",
-		CosineErrorAngle: 21.0,
-		Surveyor:         "Surveyor",
-		Contact:          "contact@example.com",
+		Name:     "Valid Site",
+		Location: "Location",
+		Surveyor: "Surveyor",
+		Contact:  "contact@example.com",
 	}
 
 	err := db.CreateSite(site)
@@ -112,14 +108,13 @@ func TestGetSite_Exists(t *testing.T) {
 	defer cleanupTestDB(t, db)
 
 	original := &Site{
-		Name:             "Get Test Site",
-		Location:         "Test Location",
-		Description:      strPtr("Test Description"),
-		CosineErrorAngle: 21.0,
-		SpeedLimit:       30,
-		Surveyor:         "Jane Doe",
-		Contact:          "jane@example.com",
-		SiteDescription:  strPtr("Site desc"),
+		Name:            "Get Test Site",
+		Location:        "Test Location",
+		Description:     strPtr("Test Description"),
+		SpeedLimit:      30,
+		Surveyor:        "Jane Doe",
+		Contact:         "jane@example.com",
+		SiteDescription: strPtr("Site desc"),
 	}
 
 	err := db.CreateSite(original)
@@ -140,9 +135,6 @@ func TestGetSite_Exists(t *testing.T) {
 	}
 	if retrieved.Location != original.Location {
 		t.Errorf("Location mismatch: got %s, want %s", retrieved.Location, original.Location)
-	}
-	if retrieved.CosineErrorAngle != original.CosineErrorAngle {
-		t.Errorf("CosineErrorAngle mismatch: got %f, want %f", retrieved.CosineErrorAngle, original.CosineErrorAngle)
 	}
 	if retrieved.Surveyor != original.Surveyor {
 		t.Errorf("Surveyor mismatch: got %s, want %s", retrieved.Surveyor, original.Surveyor)
@@ -191,25 +183,22 @@ func TestGetAllSites_Multiple(t *testing.T) {
 	// Create multiple sites
 	sites := []*Site{
 		{
-			Name:             "Site A",
-			Location:         "Location A",
-			CosineErrorAngle: 21.0,
-			Surveyor:         "Surveyor A",
-			Contact:          "a@example.com",
+			Name:     "Site A",
+			Location: "Location A",
+			Surveyor: "Surveyor A",
+			Contact:  "a@example.com",
 		},
 		{
-			Name:             "Site B",
-			Location:         "Location B",
-			CosineErrorAngle: 22.0,
-			Surveyor:         "Surveyor B",
-			Contact:          "b@example.com",
+			Name:     "Site B",
+			Location: "Location B",
+			Surveyor: "Surveyor B",
+			Contact:  "b@example.com",
 		},
 		{
-			Name:             "Site C",
-			Location:         "Location C",
-			CosineErrorAngle: 23.0,
-			Surveyor:         "Surveyor C",
-			Contact:          "c@example.com",
+			Name:     "Site C",
+			Location: "Location C",
+			Surveyor: "Surveyor C",
+			Contact:  "c@example.com",
 		},
 	}
 
@@ -257,12 +246,11 @@ func TestUpdateSite_Success(t *testing.T) {
 	defer cleanupTestDB(t, db)
 
 	original := &Site{
-		Name:             "Original Name",
-		Location:         "Original Location",
-		CosineErrorAngle: 21.0,
-		Surveyor:         "Original Surveyor",
-		Contact:          "original@example.com",
-		SpeedLimit:       25,
+		Name:       "Original Name",
+		Location:   "Original Location",
+		Surveyor:   "Original Surveyor",
+		Contact:    "original@example.com",
+		SpeedLimit: 25,
 	}
 
 	err := db.CreateSite(original)
@@ -282,7 +270,6 @@ func TestUpdateSite_Success(t *testing.T) {
 	// Update the site
 	original.Name = "Updated Name"
 	original.Location = "Updated Location"
-	original.CosineErrorAngle = 22.5
 	original.SpeedLimit = 35
 
 	err = db.UpdateSite(original)
@@ -301,9 +288,6 @@ func TestUpdateSite_Success(t *testing.T) {
 	}
 	if updated.Location != "Updated Location" {
 		t.Errorf("Location not updated: got %s, want Updated Location", updated.Location)
-	}
-	if updated.CosineErrorAngle != 22.5 {
-		t.Errorf("CosineErrorAngle not updated: got %f, want 22.5", updated.CosineErrorAngle)
 	}
 	if updated.SpeedLimit != 35 {
 		t.Errorf("SpeedLimit not updated: got %d, want 35", updated.SpeedLimit)
@@ -326,12 +310,11 @@ func TestUpdateSite_NotFound(t *testing.T) {
 	defer cleanupTestDB(t, db)
 
 	site := &Site{
-		ID:               99999,
-		Name:             "Non-existent",
-		Location:         "Location",
-		CosineErrorAngle: 21.0,
-		Surveyor:         "Surveyor",
-		Contact:          "contact@example.com",
+		ID:       99999,
+		Name:     "Non-existent",
+		Location: "Location",
+		Surveyor: "Surveyor",
+		Contact:  "contact@example.com",
 	}
 
 	err := db.UpdateSite(site)
@@ -349,11 +332,10 @@ func TestDeleteSite_Success(t *testing.T) {
 	defer cleanupTestDB(t, db)
 
 	site := &Site{
-		Name:             "To Delete",
-		Location:         "Location",
-		CosineErrorAngle: 21.0,
-		Surveyor:         "Surveyor",
-		Contact:          "contact@example.com",
+		Name:     "To Delete",
+		Location: "Location",
+		Surveyor: "Surveyor",
+		Contact:  "contact@example.com",
 	}
 
 	err := db.CreateSite(site)
@@ -397,11 +379,10 @@ func TestSite_OptionalFields(t *testing.T) {
 	defer cleanupTestDB(t, db)
 
 	site := &Site{
-		Name:             "Minimal Site",
-		Location:         "Location",
-		CosineErrorAngle: 21.0,
-		Surveyor:         "Surveyor",
-		Contact:          "contact@example.com",
+		Name:     "Minimal Site",
+		Location: "Location",
+		Surveyor: "Surveyor",
+		Contact:  "contact@example.com",
 		// All optional fields left as nil/zero
 	}
 
@@ -454,12 +435,11 @@ func TestSite_BooleanFields(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			site := &Site{
-				Name:             tt.name,
-				Location:         "Location",
-				CosineErrorAngle: 21.0,
-				Surveyor:         "Surveyor",
-				Contact:          "contact@example.com",
-				IncludeMap:       tt.includeMap,
+				Name:       tt.name,
+				Location:   "Location",
+				Surveyor:   "Surveyor",
+				Contact:    "contact@example.com",
+				IncludeMap: tt.includeMap,
 			}
 
 			err := db.CreateSite(site)
@@ -500,12 +480,4 @@ func cleanupTestDB(t *testing.T, db *DB) {
 	_ = os.Remove(fname)
 	_ = os.Remove(fname + "-shm")
 	_ = os.Remove(fname + "-wal")
-}
-
-func strPtr(s string) *string {
-	return &s
-}
-
-func floatPtr(f float64) *float64 {
-	return &f
 }

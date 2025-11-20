@@ -642,6 +642,7 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 
 	// Load site data if site_id is provided
 	var site *db.Site
+	var activePeriod *db.SiteConfigPeriodWithDetails
 	if req.SiteID != nil {
 		var err error
 		site, err = s.db.GetSite(*req.SiteID)
@@ -649,6 +650,14 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Failed to load site: %v", err))
 			return
+		}
+
+		// Get the active site config period for this site
+		// This contains the cosine_error_angle from site_variable_config
+		activePeriod, err = s.db.GetActiveSiteConfigPeriod()
+		if err != nil || activePeriod == nil || activePeriod.SiteID != *req.SiteID {
+			// No active period for this site - that's okay, we'll use the request value or fail later
+			activePeriod = nil
 		}
 	}
 
@@ -689,7 +698,11 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		if site.SpeedLimitNote != nil {
 			speedLimitNote = *site.SpeedLimitNote
 		}
-		cosineErrorAngle = site.CosineErrorAngle
+	}
+
+	// Get cosine_error_angle from active period's variable config
+	if activePeriod != nil && activePeriod.VariableConfig != nil {
+		cosineErrorAngle = activePeriod.VariableConfig.CosineErrorAngle
 	}
 
 	// Apply final defaults if still empty
@@ -707,7 +720,7 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	}
 	if cosineErrorAngle == 0 {
 		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusBadRequest, "cosine_error_angle is required (either from site or in request)")
+		s.writeJSONError(w, http.StatusBadRequest, "cosine_error_angle is required (either from active site config period or in request)")
 		return
 	}
 

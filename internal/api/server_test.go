@@ -55,18 +55,16 @@ func TestHandleSites_List(t *testing.T) {
 
 	// Create some test sites
 	site1 := &db.Site{
-		Name:             "Site 1",
-		Location:         "Location 1",
-		CosineErrorAngle: 21.0,
-		Surveyor:         "Surveyor 1",
-		Contact:          "contact1@example.com",
+		Name:     "Site 1",
+		Location: "Location 1",
+		Surveyor: "Surveyor 1",
+		Contact:  "contact1@example.com",
 	}
 	site2 := &db.Site{
-		Name:             "Site 2",
-		Location:         "Location 2",
-		CosineErrorAngle: 22.0,
-		Surveyor:         "Surveyor 2",
-		Contact:          "contact2@example.com",
+		Name:     "Site 2",
+		Location: "Location 2",
+		Surveyor: "Surveyor 2",
+		Contact:  "contact2@example.com",
 	}
 
 	if err := dbInst.CreateSite(site1); err != nil {
@@ -101,11 +99,10 @@ func TestHandleSites_Get(t *testing.T) {
 	defer cleanupTestServer(t, dbInst)
 
 	site := &db.Site{
-		Name:             "Get Test Site",
-		Location:         "Test Location",
-		CosineErrorAngle: 21.0,
-		Surveyor:         "Test Surveyor",
-		Contact:          "test@example.com",
+		Name:     "Get Test Site",
+		Location: "Test Location",
+		Surveyor: "Test Surveyor",
+		Contact:  "test@example.com",
 	}
 
 	if err := dbInst.CreateSite(site); err != nil {
@@ -152,12 +149,11 @@ func TestHandleSites_Create(t *testing.T) {
 	defer cleanupTestServer(t, dbInst)
 
 	site := db.Site{
-		Name:             "New Site",
-		Location:         "New Location",
-		CosineErrorAngle: 21.0,
-		Surveyor:         "New Surveyor",
-		Contact:          "new@example.com",
-		SpeedLimit:       25,
+		Name:       "New Site",
+		Location:   "New Location",
+		Surveyor:   "New Surveyor",
+		Contact:    "new@example.com",
+		SpeedLimit: 25,
 	}
 
 	body, _ := json.Marshal(site)
@@ -196,19 +192,17 @@ func TestHandleSites_Create_MissingRequiredFields(t *testing.T) {
 		{
 			name: "missing name",
 			site: db.Site{
-				Location:         "Location",
-				CosineErrorAngle: 21.0,
-				Surveyor:         "Surveyor",
-				Contact:          "contact@example.com",
+				Location: "Location",
+				Surveyor: "Surveyor",
+				Contact:  "contact@example.com",
 			},
 		},
 		{
 			name: "missing location",
 			site: db.Site{
-				Name:             "Name",
-				CosineErrorAngle: 21.0,
-				Surveyor:         "Surveyor",
-				Contact:          "contact@example.com",
+				Name:     "Name",
+				Surveyor: "Surveyor",
+				Contact:  "contact@example.com",
 			},
 		},
 		{
@@ -245,11 +239,10 @@ func TestHandleSites_Update(t *testing.T) {
 
 	// Create a site first
 	site := &db.Site{
-		Name:             "Original Name",
-		Location:         "Original Location",
-		CosineErrorAngle: 21.0,
-		Surveyor:         "Original Surveyor",
-		Contact:          "original@example.com",
+		Name:     "Original Name",
+		Location: "Original Location",
+		Surveyor: "Original Surveyor",
+		Contact:  "original@example.com",
 	}
 
 	if err := dbInst.CreateSite(site); err != nil {
@@ -258,12 +251,11 @@ func TestHandleSites_Update(t *testing.T) {
 
 	// Update it
 	update := db.Site{
-		Name:             "Updated Name",
-		Location:         "Updated Location",
-		CosineErrorAngle: 22.0,
-		Surveyor:         "Updated Surveyor",
-		Contact:          "updated@example.com",
-		SpeedLimit:       35,
+		Name:       "Updated Name",
+		Location:   "Updated Location",
+		Surveyor:   "Updated Surveyor",
+		Contact:    "updated@example.com",
+		SpeedLimit: 35,
 	}
 
 	body, _ := json.Marshal(update)
@@ -293,11 +285,10 @@ func TestHandleSites_Update_NotFound(t *testing.T) {
 	defer cleanupTestServer(t, dbInst)
 
 	site := db.Site{
-		Name:             "Name",
-		Location:         "Location",
-		CosineErrorAngle: 21.0,
-		Surveyor:         "Surveyor",
-		Contact:          "contact@example.com",
+		Name:     "Name",
+		Location: "Location",
+		Surveyor: "Surveyor",
+		Contact:  "contact@example.com",
 	}
 
 	body, _ := json.Marshal(site)
@@ -318,11 +309,10 @@ func TestHandleSites_Delete(t *testing.T) {
 	defer cleanupTestServer(t, dbInst)
 
 	site := &db.Site{
-		Name:             "To Delete",
-		Location:         "Location",
-		CosineErrorAngle: 21.0,
-		Surveyor:         "Surveyor",
-		Contact:          "contact@example.com",
+		Name:     "To Delete",
+		Location: "Location",
+		Surveyor: "Surveyor",
+		Contact:  "contact@example.com",
 	}
 
 	if err := dbInst.CreateSite(site); err != nil {
