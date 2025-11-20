@@ -724,3 +724,75 @@ func (db *DB) GetTimeline(startUnix, endUnix float64) ([]TimelineEntry, error) {
 
 	return timeline, nil
 }
+
+// GetSiteConfigPeriodsForTimeRange retrieves all site config periods that overlap with the given time range
+// This is useful for reports to show which configurations were active during the report period
+func (db *DB) GetSiteConfigPeriodsForTimeRange(startUnix, endUnix float64) ([]SiteConfigPeriodWithDetails, error) {
+	query := `
+		SELECT 
+			scp.id, scp.site_id, scp.site_variable_config_id,
+			scp.effective_start_unix, scp.effective_end_unix,
+			scp.is_active, scp.notes, scp.created_at, scp.updated_at,
+			s.id, s.name, s.location, s.surveyor, s.contact,
+			s.speed_limit, s.site_description, s.speed_limit_note,
+			s.latitude, s.longitude, s.created_at, s.updated_at,
+			vc.id, vc.cosine_error_angle, vc.created_at, vc.updated_at
+		FROM site_config_periods scp
+		LEFT JOIN site s ON scp.site_id = s.id
+		LEFT JOIN site_variable_config vc ON scp.site_variable_config_id = vc.id
+		WHERE 
+			scp.effective_start_unix < ? AND 
+			(scp.effective_end_unix IS NULL OR scp.effective_end_unix > ?)
+		ORDER BY scp.effective_start_unix ASC
+	`
+
+	rows, err := db.DB.Query(query, endUnix, startUnix)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query periods for time range: %w", err)
+	}
+	defer rows.Close()
+
+	var periods []SiteConfigPeriodWithDetails
+	for rows.Next() {
+		var periodWithSite SiteConfigPeriodWithDetails
+		var site Site
+		var variableConfig SiteVariableConfig
+
+		var vcID, vcCreatedAt, vcUpdatedAt sql.NullFloat64
+		var vcCosineAngle sql.NullFloat64
+
+		err := rows.Scan(
+			&periodWithSite.ID, &periodWithSite.SiteID, &periodWithSite.SiteVariableConfigID,
+			&periodWithSite.EffectiveStartUnix, &periodWithSite.EffectiveEndUnix,
+			&periodWithSite.IsActive, &periodWithSite.Notes,
+			&periodWithSite.CreatedAt, &periodWithSite.UpdatedAt,
+			&site.ID, &site.Name, &site.Location, &site.Surveyor, &site.Contact,
+			&site.SpeedLimit, &site.SiteDescription, &site.SpeedLimitNote,
+			&site.Latitude, &site.Longitude, &site.CreatedAt, &site.UpdatedAt,
+			&vcID, &vcCosineAngle, &vcCreatedAt, &vcUpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan period: %w", err)
+		}
+
+		periodWithSite.Site = &site
+
+		if vcID.Valid {
+			variableConfig.ID = int(vcID.Float64)
+			variableConfig.CosineErrorAngle = vcCosineAngle.Float64
+			variableConfig.CreatedAt = vcCreatedAt.Float64
+			variableConfig.UpdatedAt = vcUpdatedAt.Float64
+			periodWithSite.VariableConfig = &variableConfig
+		} else {
+			periodWithSite.VariableConfig = nil
+		}
+
+		periods = append(periods, periodWithSite)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating periods: %w", err)
+	}
+
+	return periods, nil
+}
