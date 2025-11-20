@@ -1,19 +1,3 @@
--- Enable Write-Ahead Logging for better concurrency
--- Allows readers and writers to operate simultaneously without blocking
-PRAGMA journal_mode = WAL;
-
--- Use normal synchronous mode for balance of safety and performance
--- Reduces fsync calls while maintaining reasonable crash recovery
-PRAGMA synchronous = NORMAL;
-
--- Store temporary tables and indices in memory for faster processing
--- Improves performance for complex queries and joins
-PRAGMA temp_store = MEMORY;
-
--- Set busy timeout for handling concurrent access
--- Prevents immediate failures when database is locked by other processes
-PRAGMA busy_timeout = 5000;
-
    CREATE TABLE IF NOT EXISTS schema_migrations (version uint64, dirty bool);
 
 CREATE UNIQUE INDEX IF NOT EXISTS version_unique ON schema_migrations (version);
