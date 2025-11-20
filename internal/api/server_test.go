@@ -205,15 +205,6 @@ func TestHandleSites_Create_MissingRequiredFields(t *testing.T) {
 				Contact:  "contact@example.com",
 			},
 		},
-		{
-			name: "missing cosine_error_angle",
-			site: db.Site{
-				Name:     "Name",
-				Location: "Location",
-				Surveyor: "Surveyor",
-				Contact:  "contact@example.com",
-			},
-		},
 	}
 
 	for _, tt := range tests {

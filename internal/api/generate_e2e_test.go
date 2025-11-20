@@ -63,9 +63,10 @@ func TestGenerateReport_E2E(t *testing.T) {
 
 	// Build report request pointing to our site
 	reqBody := map[string]interface{}{
-		"site_id":    site.ID,
-		"start_date": "2025-10-01",
-		"end_date":   "2025-10-02",
+		"site_id":            site.ID,
+		"start_date":         "2025-10-01",
+		"end_date":           "2025-10-02",
+		"cosine_error_angle": 5.0, // Provide angle since site doesn't have active config period
 	}
 	bodyBytes, _ := json.Marshal(reqBody)
 	req := httptest.NewRequest(http.MethodPost, "/api/generate_report", bytes.NewReader(bodyBytes))
