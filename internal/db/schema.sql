@@ -1,8 +1,24 @@
-   CREATE TABLE schema_migrations (version uint64, dirty bool);
+-- Enable Write-Ahead Logging for better concurrency
+-- Allows readers and writers to operate simultaneously without blocking
+PRAGMA journal_mode = WAL;
 
-CREATE UNIQUE INDEX version_unique ON schema_migrations (version);
+-- Use normal synchronous mode for balance of safety and performance
+-- Reduces fsync calls while maintaining reasonable crash recovery
+PRAGMA synchronous = NORMAL;
 
-   CREATE TABLE radar_data (
+-- Store temporary tables and indices in memory for faster processing
+-- Improves performance for complex queries and joins
+PRAGMA temp_store = MEMORY;
+
+-- Set busy timeout for handling concurrent access
+-- Prevents immediate failures when database is locked by other processes
+PRAGMA busy_timeout = 5000;
+
+   CREATE TABLE IF NOT EXISTS schema_migrations (version uint64, dirty bool);
+
+CREATE UNIQUE INDEX IF NOT EXISTS version_unique ON schema_migrations (version);
+
+   CREATE TABLE IF NOT EXISTS radar_data (
           write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec'))
         , raw_event JSON NOT NULL
         , uptime DOUBLE AS (JSON_EXTRACT(raw_event, '$.uptime')) STORED
@@ -10,7 +26,7 @@ CREATE UNIQUE INDEX version_unique ON schema_migrations (version);
         , speed DOUBLE AS (JSON_EXTRACT(raw_event, '$.speed')) STORED
           );
 
-   CREATE TABLE radar_objects (
+   CREATE TABLE IF NOT EXISTS radar_objects (
           write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec'))
         , raw_event JSON NOT NULL
         , classifier TEXT NOT NULL AS (JSON_EXTRACT(raw_event, '$.classifier')) STORED
@@ -27,13 +43,13 @@ CREATE UNIQUE INDEX version_unique ON schema_migrations (version);
         , length_m DOUBLE NOT NULL AS (JSON_EXTRACT(raw_event, '$.length_m')) STORED
           );
 
-   CREATE TABLE radar_commands (
+   CREATE TABLE IF NOT EXISTS radar_commands (
           command_id BIGINT PRIMARY KEY
         , command TEXT
         , write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec'))
           );
 
-   CREATE TABLE radar_command_log (
+   CREATE TABLE IF NOT EXISTS radar_command_log (
           log_id BIGINT PRIMARY KEY
         , command_id BIGINT
         , log_data TEXT
@@ -41,7 +57,7 @@ CREATE UNIQUE INDEX version_unique ON schema_migrations (version);
         , FOREIGN KEY (command_id) REFERENCES "radar_commands" (command_id)
           );
 
-   CREATE TABLE radar_data_transits (
+   CREATE TABLE IF NOT EXISTS radar_data_transits (
           transit_id INTEGER PRIMARY KEY AUTOINCREMENT
         , transit_key TEXT NOT NULL UNIQUE
         , threshold_ms INTEGER NOT NULL
@@ -57,9 +73,9 @@ CREATE UNIQUE INDEX version_unique ON schema_migrations (version);
         , updated_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
           );
 
-CREATE INDEX idx_transits_time ON radar_data_transits (transit_start_unix, transit_end_unix);
+CREATE INDEX IF NOT EXISTS idx_transits_time ON radar_data_transits (transit_start_unix, transit_end_unix);
 
-   CREATE TABLE radar_transit_links (
+   CREATE TABLE IF NOT EXISTS radar_transit_links (
           link_id INTEGER PRIMARY KEY AUTOINCREMENT
         , transit_id INTEGER NOT NULL REFERENCES radar_data_transits (transit_id) ON DELETE CASCADE
         , data_rowid INTEGER NOT NULL REFERENCES radar_data (rowid) ON DELETE CASCADE
@@ -68,11 +84,11 @@ CREATE INDEX idx_transits_time ON radar_data_transits (transit_start_unix, trans
         , UNIQUE (transit_id, data_rowid)
           );
 
-CREATE INDEX idx_transit_links_transit ON radar_transit_links (transit_id);
+CREATE INDEX IF NOT EXISTS idx_transit_links_transit ON radar_transit_links (transit_id);
 
-CREATE INDEX idx_transit_links_data ON radar_transit_links (data_rowid);
+CREATE INDEX IF NOT EXISTS idx_transit_links_data ON radar_transit_links (data_rowid);
 
-   CREATE TABLE site (
+   CREATE TABLE IF NOT EXISTS site (
           id INTEGER PRIMARY KEY AUTOINCREMENT
         , name TEXT NOT NULL UNIQUE
         , location TEXT NOT NULL
@@ -91,9 +107,9 @@ CREATE INDEX idx_transit_links_data ON radar_transit_links (data_rowid);
         , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
           );
 
-CREATE INDEX idx_site_name ON site (name);
+CREATE INDEX IF NOT EXISTS idx_site_name ON site (name);
 
-CREATE TRIGGER update_site_timestamp AFTER
+CREATE TRIGGER IF NOT EXISTS update_site_timestamp AFTER
    UPDATE ON site BEGIN
    UPDATE site
       SET updated_at = STRFTIME('%s', 'now')
@@ -101,7 +117,7 @@ CREATE TRIGGER update_site_timestamp AFTER
 
 END;
 
-   CREATE TABLE site_reports (
+   CREATE TABLE IF NOT EXISTS site_reports (
           id INTEGER PRIMARY KEY AUTOINCREMENT
         , site_id INTEGER NOT NULL DEFAULT 0
         , start_date TEXT NOT NULL
@@ -118,11 +134,11 @@ END;
         , FOREIGN KEY (site_id) REFERENCES site (id) ON DELETE CASCADE
           );
 
-CREATE INDEX idx_site_reports_site_id ON site_reports (site_id);
+CREATE INDEX IF NOT EXISTS idx_site_reports_site_id ON site_reports (site_id);
 
-CREATE INDEX idx_site_reports_created_at ON site_reports (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_site_reports_created_at ON site_reports (created_at DESC);
 
-   CREATE TABLE site_config_periods (
+   CREATE TABLE IF NOT EXISTS site_config_periods (
           id INTEGER PRIMARY KEY AUTOINCREMENT
         , site_id INTEGER NOT NULL
         , site_variable_config_id INTEGER
@@ -136,15 +152,15 @@ CREATE INDEX idx_site_reports_created_at ON site_reports (created_at DESC);
         , FOREIGN KEY (site_variable_config_id) REFERENCES site_variable_config (id)
           );
 
-CREATE INDEX idx_site_config_periods_site ON site_config_periods (site_id);
+CREATE INDEX IF NOT EXISTS idx_site_config_periods_site ON site_config_periods (site_id);
 
-CREATE INDEX idx_site_config_periods_variable_config ON site_config_periods (site_variable_config_id);
+CREATE INDEX IF NOT EXISTS idx_site_config_periods_variable_config ON site_config_periods (site_variable_config_id);
 
-CREATE INDEX idx_site_config_periods_time ON site_config_periods (effective_start_unix, effective_end_unix);
+CREATE INDEX IF NOT EXISTS idx_site_config_periods_time ON site_config_periods (effective_start_unix, effective_end_unix);
 
-CREATE INDEX idx_site_config_periods_active ON site_config_periods (is_active);
+CREATE INDEX IF NOT EXISTS idx_site_config_periods_active ON site_config_periods (is_active);
 
-CREATE TRIGGER update_site_config_periods_timestamp AFTER
+CREATE TRIGGER IF NOT EXISTS update_site_config_periods_timestamp AFTER
    UPDATE ON site_config_periods BEGIN
    UPDATE site_config_periods
       SET updated_at = STRFTIME('%s', 'now')
@@ -152,14 +168,14 @@ CREATE TRIGGER update_site_config_periods_timestamp AFTER
 
 END;
 
-CREATE TRIGGER enforce_single_active_period BEFORE INSERT ON site_config_periods WHEN NEW.is_active = 1 BEGIN
+CREATE TRIGGER IF NOT EXISTS enforce_single_active_period BEFORE INSERT ON site_config_periods WHEN NEW.is_active = 1 BEGIN
    UPDATE site_config_periods
       SET is_active = 0
     WHERE is_active = 1;
 
 END;
 
-CREATE TRIGGER enforce_single_active_period_update BEFORE
+CREATE TRIGGER IF NOT EXISTS enforce_single_active_period_update BEFORE
    UPDATE ON site_config_periods WHEN NEW.is_active = 1
       AND OLD.is_active = 0 BEGIN
              UPDATE site_config_periods
@@ -169,14 +185,14 @@ CREATE TRIGGER enforce_single_active_period_update BEFORE
 
 END;
 
-   CREATE TABLE site_variable_config (
+   CREATE TABLE IF NOT EXISTS site_variable_config (
           id INTEGER PRIMARY KEY AUTOINCREMENT
         , cosine_error_angle REAL NOT NULL
         , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
         , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
           );
 
-CREATE TRIGGER update_site_variable_config_timestamp AFTER
+CREATE TRIGGER IF NOT EXISTS update_site_variable_config_timestamp AFTER
    UPDATE ON site_variable_config BEGIN
    UPDATE site_variable_config
       SET updated_at = STRFTIME('%s', 'now')
@@ -184,7 +200,7 @@ CREATE TRIGGER update_site_variable_config_timestamp AFTER
 
 END;
 
-   CREATE TABLE lidar_bg_snapshot (
+   CREATE TABLE IF NOT EXISTS lidar_bg_snapshot (
           snapshot_id INTEGER PRIMARY KEY
         , sensor_id TEXT NOT NULL
         , taken_unix_nanos INTEGER NOT NULL
@@ -197,4 +213,4 @@ END;
         , snapshot_reason TEXT
           );
 
-CREATE INDEX idx_bg_snapshot_sensor_time ON lidar_bg_snapshot (sensor_id, taken_unix_nanos);
+CREATE INDEX IF NOT EXISTS idx_bg_snapshot_sensor_time ON lidar_bg_snapshot (sensor_id, taken_unix_nanos);

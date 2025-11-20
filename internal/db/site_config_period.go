@@ -339,6 +339,16 @@ func (db *DB) GetAllSiteConfigPeriods() ([]SiteConfigPeriodWithDetails, error) {
 		periodWithSite.Site.CreatedAt = time.Unix(siteCreatedAtUnix, 0)
 		periodWithSite.Site.UpdatedAt = time.Unix(siteUpdatedAtUnix, 0)
 
+		// Populate variable config if it exists
+		if vcID.Valid {
+			periodWithSite.VariableConfig.ID = int(vcID.Int64)
+			periodWithSite.VariableConfig.CosineErrorAngle = vcCosineAngle.Float64
+			periodWithSite.VariableConfig.CreatedAt = vcCreatedAt.Float64
+			periodWithSite.VariableConfig.UpdatedAt = vcUpdatedAt.Float64
+		} else {
+			periodWithSite.VariableConfig = nil
+		}
+
 		periods = append(periods, periodWithSite)
 	}
 
@@ -354,6 +364,7 @@ func (db *DB) UpdateSiteConfigPeriod(period *SiteConfigPeriod) error {
 	query := `
 		UPDATE site_config_periods SET
 			site_id = ?,
+			site_variable_config_id = ?,
 			effective_start_unix = ?,
 			effective_end_unix = ?,
 			is_active = ?,
@@ -369,6 +380,7 @@ func (db *DB) UpdateSiteConfigPeriod(period *SiteConfigPeriod) error {
 	result, err := db.DB.Exec(
 		query,
 		period.SiteID,
+		period.SiteVariableConfigID,
 		period.EffectiveStartUnix,
 		period.EffectiveEndUnix,
 		isActiveInt,
