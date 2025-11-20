@@ -76,7 +76,7 @@ END;
    INSERT INTO site_variable_config (cosine_error_angle)
    SELECT cosine_error_angle
      FROM site
-    ORDER BY id;
+ ORDER BY id;
 
    INSERT INTO site_config_periods (
           site_id
@@ -89,14 +89,28 @@ END;
         , vc.id AS site_variable_config_id
         , 0.0 AS effective_start_unix
         , NULL AS effective_end_unix
-        , CASE WHEN s.id = (SELECT MIN(id) FROM site) THEN 1 ELSE 0 END AS is_active
+        , CASE
+                    WHEN s.id = (
+                       SELECT MIN(id)
+                         FROM site
+                    ) THEN 1
+                    ELSE 0
+          END AS is_active
      FROM (
-         SELECT id, cosine_error_angle, ROW_NUMBER() OVER (ORDER BY id) AS rn FROM site
-     ) s
+             SELECT id
+                  , cosine_error_angle
+                  , ROW_NUMBER() OVER (
+                     ORDER BY id
+                    ) AS rn
+               FROM site
+          ) s
      JOIN (
-         SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn FROM site_variable_config
-     ) vc
-     ON s.rn = vc.rn;
+             SELECT id
+                  , ROW_NUMBER() OVER (
+                     ORDER BY id
+                    ) AS rn
+               FROM site_variable_config
+          ) vc ON s.rn = vc.rn;
 
 -- Step 4: Remove cosine_error_angle from site table
 -- SQLite doesn't support DROP COLUMN, so we need to recreate the table
