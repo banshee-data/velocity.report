@@ -598,3 +598,78 @@ def create_twocolumn_stats_table(
     """Create two-column statistics table (convenience wrapper)."""
     builder = StatsTableBuilder()
     builder.build_twocolumn(doc, stats, tz_name, units, caption)
+
+
+def create_site_config_periods_table(
+    site_config_periods: List[Dict[str, Any]], tz_name: Optional[str]
+) -> Optional[Tabular]:
+    """Create table showing site configuration periods and their cosine angles.
+    
+    Args:
+        site_config_periods: List of period dicts from API
+        tz_name: Timezone name for display
+    
+    Returns:
+        PyLaTeX Tabular object or None if no periods
+    """
+    if not site_config_periods:
+        return None
+    
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    
+    # Create table with 4 columns: Time Period | Site | Angle | Status
+    table = Tabular(">{\\AtkinsonMono}l>{\\sffamily}l>{\\AtkinsonMono}r>{\\sffamily}l")
+    
+    # Add header
+    header_cells = [
+        NoEscape(r"\multicolumn{1}{l}{\sffamily\bfseries Time Period}"),
+        NoEscape(r"\multicolumn{1}{l}{\sffamily\bfseries Site}"),
+        NoEscape(r"\multicolumn{1}{r}{\sffamily\bfseries Angle (°)}"),
+        NoEscape(r"\multicolumn{1}{l}{\sffamily\bfseries Status}"),
+    ]
+    table.add_row(header_cells)
+    table.add_hline()
+    
+    # Add data rows
+    tzobj = ZoneInfo(tz_name) if tz_name else None
+    for period in site_config_periods:
+        # Format time range
+        start_unix = period.get("effective_start_unix", 0)
+        end_unix = period.get("effective_end_unix")
+        
+        start_dt = datetime.fromtimestamp(start_unix, tz=tzobj) if tzobj else datetime.utcfromtimestamp(start_unix)
+        start_str = start_dt.strftime("%Y-%m-%d")
+        
+        if end_unix:
+            end_dt = datetime.fromtimestamp(end_unix, tz=tzobj) if tzobj else datetime.utcfromtimestamp(end_unix)
+            end_str = end_dt.strftime("%Y-%m-%d")
+            time_period = f"{start_str} to {end_str}"
+        else:
+            time_period = f"{start_str} onwards"
+        
+        # Get site name
+        site = period.get("site", {})
+        site_name = site.get("name", "Unknown") if site else "Unknown"
+        
+        # Get angle from variable_config
+        variable_config = period.get("variable_config")
+        if variable_config and variable_config.get("cosine_error_angle") is not None:
+            angle = variable_config.get("cosine_error_angle")
+            angle_str = f"{angle:.1f}"
+            # Highlight if angle is configured
+            status = NoEscape(r"✓")
+        else:
+            angle_str = "—"
+            # Highlight missing configuration with warning color
+            status = NoEscape(r"\textcolor{red}{\textbf{NO ANGLE}}")
+        
+        table.add_row([
+            NoEscape(escape_latex(time_period)),
+            NoEscape(escape_latex(site_name)),
+            NoEscape(escape_latex(angle_str)),
+            status,
+        ])
+    
+    table.add_hline()
+    return table

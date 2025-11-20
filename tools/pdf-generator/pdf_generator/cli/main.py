@@ -612,6 +612,7 @@ def assemble_pdf_report(
             velocity_resolution=config.radar.velocity_resolution,
             azimuth_fov=config.radar.azimuth_fov,
             elevation_fov=config.radar.elevation_fov,
+            site_config_periods=config.site_config_periods,
         )
         print(f"Generated PDF report: {pdf_path}")
         return True

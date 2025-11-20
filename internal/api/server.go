@@ -724,6 +724,30 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Parse date range to get unix timestamps for querying site config periods
+	startTime, err := time.Parse("2006-01-02", req.StartDate)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid start_date format: %v", err))
+		return
+	}
+	endTime, err := time.Parse("2006-01-02", req.EndDate)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid end_date format: %v", err))
+		return
+	}
+	// Add 24 hours to end date to include the entire day
+	endTime = endTime.Add(24 * time.Hour)
+
+	// Get all site config periods that overlap with the report time range
+	siteConfigPeriods, err := s.db.GetSiteConfigPeriodsForTimeRange(float64(startTime.Unix()), float64(endTime.Unix()))
+	if err != nil {
+		log.Printf("Warning: failed to get site config periods for report: %v", err)
+		// Don't fail the report, just log the error
+		siteConfigPeriods = []db.SiteConfigPeriodWithDetails{}
+	}
+
 	// Create unique run ID for organized output folders
 	// Include nanoseconds to ensure uniqueness under concurrent load
 	now := time.Now()
@@ -760,6 +784,7 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 			"output_dir": outputDir,
 			"debug":      s.debugMode,
 		},
+		"site_config_periods": siteConfigPeriods,
 	}
 
 	// Write config to a temporary file
