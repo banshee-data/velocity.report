@@ -300,6 +300,44 @@ export async function deleteSite(id: number): Promise<void> {
 	}
 }
 
+// Site Configuration Period interfaces and functions
+
+export interface SiteVariableConfig {
+	id: number;
+	cosine_error_angle: number;
+	created_at: number;
+	updated_at: number;
+}
+
+export interface SiteConfigPeriod {
+	id: number;
+	site_id: number;
+	site_variable_config_id: number;
+	effective_start_unix: number;
+	effective_end_unix: number | null;
+	is_active: boolean;
+	notes: string;
+	created_at: number;
+	updated_at: number;
+	site?: Site;
+	variable_config?: SiteVariableConfig;
+}
+
+export async function getActiveSiteConfigPeriod(): Promise<SiteConfigPeriod | null> {
+	const res = await fetch(`${API_BASE}/site_config_periods/active`);
+	if (res.status === 404) {
+		return null; // No active period
+	}
+	if (!res.ok) throw new Error(`Failed to fetch active site config period: ${res.status}`);
+	return res.json();
+}
+
+export async function getSiteConfigPeriods(): Promise<SiteConfigPeriod[]> {
+	const res = await fetch(`${API_BASE}/site_config_periods`);
+	if (!res.ok) throw new Error(`Failed to fetch site config periods: ${res.status}`);
+	return res.json();
+}
+
 // Transit Worker API
 export interface TransitWorkerState {
 	enabled: boolean;
