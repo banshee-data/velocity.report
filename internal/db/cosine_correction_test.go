@@ -141,11 +141,11 @@ func TestCosineErrorCorrectionWithMultiplePeriods(t *testing.T) {
 	measuredSpeed := 25.0 // m/s
 
 	// Jan 15 reading (should use 5 degree correction)
-	jan15 := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC).Unix()
+	jan15 := float64(time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC).Unix())
 	radarObject1JSON := `{
 		"classifier": "vehicle",
-		"start_time": ` + string(rune(jan15)) + `.0,
-		"end_time": ` + string(rune(jan15+1)) + `.0,
+		"start_time": 1234567890.0,
+		"end_time": 1234567891.0,
 		"delta_time_msec": 1000,
 		"max_speed_mps": 25.0,
 		"min_speed_mps": 20.0,
@@ -156,16 +156,20 @@ func TestCosineErrorCorrectionWithMultiplePeriods(t *testing.T) {
 		"frames_per_mps": 4.0,
 		"length_m": 5.0
 	}`
+	// Insert and update timestamp to Jan 15
 	if err := db.RecordRadarObject(radarObject1JSON); err != nil {
 		t.Fatalf("Failed to record Jan radar object: %v", err)
 	}
+	if _, err := db.DB.Exec("UPDATE radar_objects SET write_timestamp = ? WHERE rowid = (SELECT MAX(rowid) FROM radar_objects)", jan15); err != nil {
+		t.Fatalf("Failed to set Jan timestamp: %v", err)
+	}
 
 	// Feb 15 reading (should use 10 degree correction)
-	feb15 := time.Date(2024, 2, 15, 12, 0, 0, 0, time.UTC).Unix()
+	feb15 := float64(time.Date(2024, 2, 15, 12, 0, 0, 0, time.UTC).Unix())
 	radarObject2JSON := `{
 		"classifier": "vehicle",
-		"start_time": ` + string(rune(feb15)) + `.0,
-		"end_time": ` + string(rune(feb15+1)) + `.0,
+		"start_time": 1234567892.0,
+		"end_time": 1234567893.0,
 		"delta_time_msec": 1000,
 		"max_speed_mps": 25.0,
 		"min_speed_mps": 20.0,
@@ -176,8 +180,12 @@ func TestCosineErrorCorrectionWithMultiplePeriods(t *testing.T) {
 		"frames_per_mps": 4.0,
 		"length_m": 5.0
 	}`
+	// Insert and update timestamp to Feb 15
 	if err := db.RecordRadarObject(radarObject2JSON); err != nil {
 		t.Fatalf("Failed to record Feb radar object: %v", err)
+	}
+	if _, err := db.DB.Exec("UPDATE radar_objects SET write_timestamp = ? WHERE rowid = (SELECT MAX(rowid) FROM radar_objects)", feb15); err != nil {
+		t.Fatalf("Failed to set Feb timestamp: %v", err)
 	}
 
 	// Calculate expected corrected speeds

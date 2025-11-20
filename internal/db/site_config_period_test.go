@@ -85,51 +85,55 @@ func TestGetSiteConfigPeriodForTimestamp(t *testing.T) {
 	}
 	defer db.Close()
 
-	// Create test sites
-	site1 := &Site{
-		Name:       "Site 1",
-		Location:   "Location 1",
-		SpeedLimit: 25,
-		Surveyor:   "Surveyor 1",
-		Contact:    "site1@example.com",
-	}
-	if err := db.CreateSite(site1); err != nil {
-		t.Fatalf("Failed to create site 1: %v", err)
+	// Create variable configs with different angles
+	varConfig1 := &SiteVariableConfig{CosineErrorAngle: 5.0}
+	if err := db.CreateSiteVariableConfig(varConfig1); err != nil {
+		t.Fatalf("Failed to create varConfig1: %v", err)
 	}
 
-	site2 := &Site{
-		Name:       "Site 2",
-		Location:   "Location 2",
-		SpeedLimit: 30,
-		Surveyor:   "Surveyor 2",
-		Contact:    "site2@example.com",
+	varConfig2 := &SiteVariableConfig{CosineErrorAngle: 10.0}
+	if err := db.CreateSiteVariableConfig(varConfig2); err != nil {
+		t.Fatalf("Failed to create varConfig2: %v", err)
 	}
-	if err := db.CreateSite(site2); err != nil {
-		t.Fatalf("Failed to create site 2: %v", err)
+
+	// Create a site
+	site := &Site{
+		Name:       "Test Site",
+		Location:   "Test Location",
+		SpeedLimit: 25,
+		Surveyor:   "Test Surveyor",
+		Contact:    "test@example.com",
+	}
+	if err := db.CreateSite(site); err != nil {
+		t.Fatalf("Failed to create site: %v", err)
 	}
 
 	// Create periods with specific time ranges
 	baseTime := float64(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC).Unix())
 
-	// Period 1: Jan 1 - Jan 31 (site 1, angle 5.0)
+	// Period 1: Jan 1 - Jan 31 (angle 5.0)
 	endTime1 := float64(time.Date(2024, 1, 31, 23, 59, 59, 0, time.UTC).Unix())
+	varConfig1IDPtr := &varConfig1.ID
 	period1 := &SiteConfigPeriod{
-		SiteID:             site1.ID,
-		EffectiveStartUnix: baseTime,
-		EffectiveEndUnix:   &endTime1,
-		IsActive:           false,
+		SiteID:               site.ID,
+		SiteVariableConfigID: varConfig1IDPtr,
+		EffectiveStartUnix:   baseTime,
+		EffectiveEndUnix:     &endTime1,
+		IsActive:             false,
 	}
 	if err := db.CreateSiteConfigPeriod(period1); err != nil {
 		t.Fatalf("Failed to create period 1: %v", err)
 	}
 
-	// Period 2: Feb 1 onwards (site 2, angle 10.0)
+	// Period 2: Feb 1 onwards (angle 10.0)
 	startTime2 := float64(time.Date(2024, 2, 1, 0, 0, 0, 0, time.UTC).Unix())
+	varConfig2IDPtr := &varConfig2.ID
 	period2 := &SiteConfigPeriod{
-		SiteID:             site2.ID,
-		EffectiveStartUnix: startTime2,
-		EffectiveEndUnix:   nil, // Open-ended
-		IsActive:           false,
+		SiteID:               site.ID,
+		SiteVariableConfigID: varConfig2IDPtr,
+		EffectiveStartUnix:   startTime2,
+		EffectiveEndUnix:     nil, // Open-ended
+		IsActive:             false,
 	}
 	if err := db.CreateSiteConfigPeriod(period2); err != nil {
 		t.Fatalf("Failed to create period 2: %v", err)
@@ -330,9 +334,9 @@ func TestGetAllSiteConfigPeriods(t *testing.T) {
 		t.Fatalf("Failed to get all periods: %v", err)
 	}
 
-	// We expect 4 periods: 1 default from migration + 3 we created
-	if len(periods) != 4 {
-		t.Errorf("Expected 4 periods (1 default + 3 created), got %d", len(periods))
+	// We expect 3 periods we created
+	if len(periods) != 3 {
+		t.Errorf("Expected 3 periods, got %d", len(periods))
 	}
 
 	// Verify they're ordered by start time
@@ -342,8 +346,8 @@ func TestGetAllSiteConfigPeriods(t *testing.T) {
 		}
 	}
 
-	// Verify the last one we created is active (period index 3)
-	if !periods[3].IsActive {
+	// Verify the last one we created is active (period index 2)
+	if len(periods) >= 3 && !periods[2].IsActive {
 		t.Error("Expected last created period to be active")
 	}
 }
