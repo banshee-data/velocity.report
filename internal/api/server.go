@@ -141,7 +141,9 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/api/site_config_periods", s.handleSiteConfigPeriods)
 	s.mux.HandleFunc("/api/site_config_periods/", s.handleSiteConfigPeriods) // Period management endpoints
 	s.mux.HandleFunc("/api/timeline", s.getTimeline)                         // Timeline view
-	s.mux.HandleFunc("/api/transit_worker", s.handleTransitWorker)           // Transit worker control
+	s.mux.HandleFunc("/api/angle_presets", s.handleAnglePresets)
+	s.mux.HandleFunc("/api/angle_presets/", s.handleAnglePresets)  // Angle preset management endpoints
+	s.mux.HandleFunc("/api/transit_worker", s.handleTransitWorker) // Transit worker control
 	return s.mux
 }
 
@@ -1694,4 +1696,155 @@ func (s *Server) Start(ctx context.Context, listen string, devMode bool) error {
 	case err := <-errCh:
 		return err
 	}
+}
+
+// handleAnglePresets manages angle preset CRUD operations
+func (s *Server) handleAnglePresets(w http.ResponseWriter, r *http.Request) {
+	// Extract ID from path if present
+	path := strings.TrimPrefix(r.Path, "/api/angle_presets")
+	path = strings.TrimPrefix(path, "/")
+
+	switch r.Method {
+	case http.MethodGet:
+		if path == "" {
+			s.getAllAnglePresets(w, r)
+		} else {
+			s.getAnglePreset(w, r, path)
+		}
+	case http.MethodPost:
+		s.createAnglePreset(w, r)
+	case http.MethodPut:
+		if path == "" {
+			s.writeJSONError(w, http.StatusBadRequest, "ID required for update")
+			return
+		}
+		s.updateAnglePreset(w, r, path)
+	case http.MethodDelete:
+		if path == "" {
+			s.writeJSONError(w, http.StatusBadRequest, "ID required for delete")
+			return
+		}
+		s.deleteAnglePreset(w, r, path)
+	default:
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+	}
+}
+
+func (s *Server) getAllAnglePresets(w http.ResponseWriter, r *http.Request) {
+	presets, err := s.db.GetAllAnglePresets()
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get presets: %v", err))
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, presets)
+}
+
+func (s *Server) getAnglePreset(w http.ResponseWriter, r *http.Request, idStr string) {
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+
+	preset, err := s.db.GetAnglePreset(id)
+	if err != nil {
+		s.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("Preset not found: %v", err))
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, preset)
+}
+
+func (s *Server) createAnglePreset(w http.ResponseWriter, r *http.Request) {
+	var preset db.AnglePreset
+	if err := json.NewDecoder(r.Body).Decode(&preset); err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
+		return
+	}
+
+	// Validate angle
+	if preset.Angle < 0 || preset.Angle > 90 {
+		s.writeJSONError(w, http.StatusBadRequest, "Angle must be between 0 and 90 degrees")
+		return
+	}
+
+	// Validate color hex format
+	if !isValidHexColor(preset.ColorHex) {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid color hex format (expected #RRGGBB)")
+		return
+	}
+
+	// Force is_system to false for user-created presets
+	preset.IsSystem = false
+
+	created, err := s.db.CreateAnglePreset(preset)
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to create preset: %v", err))
+		return
+	}
+
+	s.writeJSON(w, http.StatusCreated, created)
+}
+
+func (s *Server) updateAnglePreset(w http.ResponseWriter, r *http.Request, idStr string) {
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+
+	var preset db.AnglePreset
+	if err := json.NewDecoder(r.Body).Decode(&preset); err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
+		return
+	}
+
+	// Validate angle
+	if preset.Angle < 0 || preset.Angle > 90 {
+		s.writeJSONError(w, http.StatusBadRequest, "Angle must be between 0 and 90 degrees")
+		return
+	}
+
+	// Validate color hex format
+	if !isValidHexColor(preset.ColorHex) {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid color hex format (expected #RRGGBB)")
+		return
+	}
+
+	updated, err := s.db.UpdateAnglePreset(id, preset)
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update preset: %v", err))
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, updated)
+}
+
+func (s *Server) deleteAnglePreset(w http.ResponseWriter, r *http.Request, idStr string) {
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+
+	if err := s.db.DeleteAnglePreset(id); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to delete preset: %v", err))
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// isValidHexColor validates hex color format #RRGGBB
+func isValidHexColor(color string) bool {
+	if len(color) != 7 || color[0] != '#' {
+		return false
+	}
+	for _, c := range color[1:] {
+		if !((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')) {
+			return false
+		}
+	}
+	return true
 }

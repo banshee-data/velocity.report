@@ -18,10 +18,12 @@
 	import {
 		generateReport,
 		getActiveSiteConfigPeriod,
+		getAnglePresets,
 		getConfig,
 		getRadarStats,
 		getReport,
 		getSites,
+		type AnglePreset,
 		type Config,
 		type RadarStats,
 		type RadarStatsResponse,
@@ -47,6 +49,10 @@
 
 	// Site configuration period (for cosine correction display)
 	let activePeriod: SiteConfigPeriod | null = null;
+	
+	// Angle presets for color coding
+	let anglePresets: AnglePreset[] = [];
+	let anglePresetMap: Map<number, AnglePreset> = new Map();
 
 	// default DateRangeField to the last 14 days (inclusive)
 	function isoDate(d: Date) {
@@ -185,6 +191,24 @@
 			// Don't set error here, this is optional information
 		}
 	}
+	
+	async function loadAnglePresets() {
+		try {
+			anglePresets = await getAnglePresets();
+			anglePresetMap = new Map(anglePresets.map((p) => [p.angle, p]));
+			if (browser) {
+				console.debug('[dashboard] angle presets loaded ->', anglePresets.length);
+			}
+		} catch (e) {
+			console.error('Failed to load angle presets:', e);
+			// Don't set error here, this is optional information
+		}
+	}
+	
+	function getAngleColor(angle: number): string {
+		const preset = anglePresetMap.get(angle);
+		return preset?.color_hex || '#6B7280'; // fallback to gray-500
+	}
 
 	// Save selected site to localStorage when it changes
 	$: if (browser && selectedSiteId != null) {
@@ -292,6 +316,7 @@
 			await loadConfig();
 			await loadSites();
 			await loadActivePeriod();
+			await loadAnglePresets();
 			// establish last-known values so the reactive watcher doesn't think things changed
 			lastFrom = dateRange.from.getTime();
 			lastTo = dateRange.to.getTime();
@@ -476,7 +501,14 @@
 						<strong class="text-blue-900">Cosine Correction Applied</strong>
 						<p class="text-blue-800 mt-1">
 							All displayed speeds are corrected for sensor mounting angle:
-							<strong>{activePeriod.variable_config.cosine_error_angle.toFixed(1)}°</strong>
+							<span
+								class="inline-block px-2 py-1 rounded text-white font-bold text-sm ml-1"
+								style="background-color: {getAngleColor(
+									activePeriod.variable_config.cosine_error_angle
+								)}"
+							>
+								{activePeriod.variable_config.cosine_error_angle.toFixed(1)}°
+							</span>
 							{#if activePeriod.site}
 								(Site: {activePeriod.site.name})
 							{/if}

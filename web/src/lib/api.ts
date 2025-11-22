@@ -338,6 +338,54 @@ export async function getSiteConfigPeriods(): Promise<SiteConfigPeriod[]> {
 	return res.json();
 }
 
+export interface AnglePreset {
+	id: number;
+	angle: number;
+	color_hex: string;
+	is_system: boolean;
+	created_at: number;
+	updated_at: number;
+}
+
+export async function getAnglePresets(): Promise<AnglePreset[]> {
+	const res = await fetch(`${API_BASE}/angle_presets`);
+	if (!res.ok) throw new Error(`Failed to fetch angle presets: ${res.status}`);
+	return res.json();
+}
+
+export async function createAnglePreset(preset: {
+	angle: number;
+	color_hex: string;
+}): Promise<AnglePreset> {
+	const res = await fetch(`${API_BASE}/angle_presets`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(preset)
+	});
+	if (!res.ok) throw new Error(`Failed to create angle preset: ${res.status}`);
+	return res.json();
+}
+
+export async function updateAnglePreset(
+	id: number,
+	preset: { angle: number; color_hex: string }
+): Promise<AnglePreset> {
+	const res = await fetch(`${API_BASE}/angle_presets/${id}`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(preset)
+	});
+	if (!res.ok) throw new Error(`Failed to update angle preset: ${res.status}`);
+	return res.json();
+}
+
+export async function deleteAnglePreset(id: number): Promise<void> {
+	const res = await fetch(`${API_BASE}/angle_presets/${id}`, {
+		method: 'DELETE'
+	});
+	if (!res.ok) throw new Error(`Failed to delete angle preset: ${res.status}`);
+}
+
 // Transit Worker API
 export interface TransitWorkerState {
 	enabled: boolean;
