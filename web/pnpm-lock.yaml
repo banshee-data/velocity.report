@@ -80,8 +80,8 @@ importers:
         specifier: ^30.2.0
         version: 30.2.0
       layerchart:
-        specifier: 2.0.0-next.42
-        version: 2.0.0-next.42(svelte@5.43.6)
+        specifier: 2.0.0-next.43
+        version: 2.0.0-next.43(svelte@5.43.6)
       prettier:
         specifier: ^3.6.2
         version: 3.6.2
@@ -2245,8 +2245,8 @@ packages:
   known-css-properties@0.37.0:
     resolution: {integrity: sha512-JCDrsP4Z1Sb9JwG0aJ8Eo2r7k4Ou5MwmThS/6lcIe1ICyb7UBJKGRIUUdqc2ASdE/42lgz6zFUnzAIhtXnBVrQ==}
 
-  layerchart@2.0.0-next.42:
-    resolution: {integrity: sha512-vLMHaLaU5Glf7OG56cZiD/1Dt6qvYHxc9gbNTq2ypjs+3iGLekx//wvkvCAmx8mH/t6kx1fbmxwKpf+RrFkyew==}
+  layerchart@2.0.0-next.43:
+    resolution: {integrity: sha512-1Ywm38NdzHWKwgaAHq3EcqshIgsq+pylntSnVWAVazXUk/NsxPcxdpR3tMt3ySjWV0ZPBBgLs78sdVf7FTgd+g==}
     peerDependencies:
       svelte: ^5.0.0
 
@@ -5644,7 +5644,7 @@ snapshots:
 
   known-css-properties@0.37.0: {}
 
-  layerchart@2.0.0-next.42(svelte@5.43.6):
+  layerchart@2.0.0-next.43(svelte@5.43.6):
     dependencies:
       '@dagrejs/dagre': 1.1.8
       '@layerstack/svelte-actions': 1.0.1-next.14
