@@ -9,7 +9,7 @@ require (
 	github.com/tailscale/tailsql v0.0.0-20250804154109-d7a0426330bb
 	go.bug.st/serial v1.6.4
 	gonum.org/v1/gonum v0.16.0
-	modernc.org/sqlite v1.40.0
+	modernc.org/sqlite v1.40.1
 	tailscale.com v1.91.0-pre
 )
 
