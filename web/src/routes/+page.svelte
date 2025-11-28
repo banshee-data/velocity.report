@@ -17,14 +17,18 @@
 	} from 'svelte-ux';
 	import {
 		generateReport,
+		getActiveSiteConfigPeriod,
+		getAnglePresets,
 		getConfig,
 		getRadarStats,
 		getReport,
 		getSites,
+		type AnglePreset,
 		type Config,
 		type RadarStats,
 		type RadarStatsResponse,
 		type Site,
+		type SiteConfigPeriod,
 		type SiteReport
 	} from '../lib/api';
 	import { displayTimezone, initializeTimezone } from '../lib/stores/timezone';
@@ -42,6 +46,13 @@
 	let sites: Site[] = [];
 	let selectedSiteId: number | null = null;
 	let siteOptions: Array<{ value: number; label: string }> = [];
+
+	// Site configuration period (for cosine correction display)
+	let activePeriod: SiteConfigPeriod | null = null;
+	
+	// Angle presets for color coding
+	let anglePresets: AnglePreset[] = [];
+	let anglePresetMap: Map<number, AnglePreset> = new Map();
 
 	// default DateRangeField to the last 14 days (inclusive)
 	function isoDate(d: Date) {
@@ -169,6 +180,36 @@
 		}
 	}
 
+	async function loadActivePeriod() {
+		try {
+			activePeriod = await getActiveSiteConfigPeriod();
+			if (browser && activePeriod) {
+				console.debug('[dashboard] active period loaded ->', activePeriod);
+			}
+		} catch (e) {
+			console.error('Failed to load active period:', e);
+			// Don't set error here, this is optional information
+		}
+	}
+	
+	async function loadAnglePresets() {
+		try {
+			anglePresets = await getAnglePresets();
+			anglePresetMap = new Map(anglePresets.map((p) => [p.angle, p]));
+			if (browser) {
+				console.debug('[dashboard] angle presets loaded ->', anglePresets.length);
+			}
+		} catch (e) {
+			console.error('Failed to load angle presets:', e);
+			// Don't set error here, this is optional information
+		}
+	}
+	
+	function getAngleColor(angle: number): string {
+		const preset = anglePresetMap.get(angle);
+		return preset?.color_hex || '#6B7280'; // fallback to gray-500
+	}
+
 	// Save selected site to localStorage when it changes
 	$: if (browser && selectedSiteId != null) {
 		localStorage.setItem('selectedSiteId', selectedSiteId.toString());
@@ -274,6 +315,8 @@
 		try {
 			await loadConfig();
 			await loadSites();
+			await loadActivePeriod();
+			await loadAnglePresets();
 			// establish last-known values so the reactive watcher doesn't think things changed
 			lastFrom = dateRange.from.getTime();
 			lastTo = dateRange.to.getTime();
@@ -445,6 +488,56 @@
 			</div>
 		{/if}
 
+		<!-- Cosine Correction Indicator -->
+		{#if activePeriod && activePeriod.variable_config}
+			<div
+				class="rounded-lg border-blue-200 bg-blue-50 p-3 text-sm border"
+				role="status"
+				aria-live="polite"
+			>
+				<div class="gap-2 flex items-start">
+					<span class="text-blue-600" aria-hidden="true">ℹ️</span>
+					<div>
+						<strong class="text-blue-900">Cosine Correction Applied</strong>
+						<p class="text-blue-800 mt-1">
+							All displayed speeds are corrected for sensor mounting angle:
+							<span
+								class="inline-block px-2 py-1 rounded text-white font-bold text-sm ml-1"
+								style="background-color: {getAngleColor(
+									activePeriod.variable_config.cosine_error_angle
+								)}"
+							>
+								{activePeriod.variable_config.cosine_error_angle.toFixed(1)}°
+							</span>
+							{#if activePeriod.site}
+								(Site: {activePeriod.site.name})
+							{/if}
+						</p>
+						{#if activePeriod.notes}
+							<p class="text-blue-700 text-xs mt-1 italic">{activePeriod.notes}</p>
+						{/if}
+					</div>
+				</div>
+			</div>
+		{:else}
+			<div
+				class="rounded-lg border-amber-200 bg-amber-50 p-3 text-sm border"
+				role="alert"
+				aria-live="polite"
+			>
+				<div class="gap-2 flex items-start">
+					<span class="text-amber-600" aria-hidden="true">⚠️</span>
+					<div>
+						<strong class="text-amber-900">No Active Site Configuration</strong>
+						<p class="text-amber-800 mt-1">
+							Speeds are displayed without cosine correction. Configure a site period to apply
+							mounting angle corrections.
+						</p>
+					</div>
+				</div>
+			</div>
+		{/if}
+
 		<Grid autoColumns="14em" gap={8} role="region" aria-label="Traffic statistics summary">
 			<Card title="Vehicle Count" role="article">
 				<div class="pb-4 pl-4 pr-4 pt-0">
@@ -460,6 +553,11 @@
 						{p98Speed.toFixed(1)}
 						{getUnitLabel($displayUnits)}
 					</p>
+					{#if activePeriod && activePeriod.variable_config}
+						<p class="text-xs text-gray-500 mt-1" aria-label="Cosine corrected indicator">
+							✓ Cosine corrected
+						</p>
+					{/if}
 				</div>
 			</Card>
 		</Grid>

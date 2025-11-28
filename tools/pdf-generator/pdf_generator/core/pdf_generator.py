@@ -234,6 +234,7 @@ def generate_pdf_report(
     velocity_resolution: str = "0.272 mph",
     azimuth_fov: str = "20°",
     elevation_fov: str = "24°",
+    site_config_periods: Optional[List[Dict[str, Any]]] = None,
 ) -> None:
     """Generate a complete PDF report using PyLaTeX.
 
@@ -341,6 +342,30 @@ def generate_pdf_report(
     doc.append(create_param_table(param_entries))
 
     doc.append(NoEscape("\\par"))
+
+    # Add site config periods table if available
+    if site_config_periods:
+        from pdf_generator.core.table_builders import create_site_config_periods_table
+        
+        doc.append(NoEscape("\\subsection*{Site Configuration Periods}"))
+        periods_table = create_site_config_periods_table(site_config_periods, tz_name)
+        if periods_table:
+            # Check if any periods are missing angles
+            has_unconfigured = any(
+                not period.get("variable_config") or 
+                period.get("variable_config", {}).get("cosine_error_angle") is None
+                for period in site_config_periods
+            )
+            
+            if has_unconfigured:
+                doc.append(NoEscape(r"\textcolor{red}{\textbf{Warning: Some time periods have no cosine angle configured. Speeds for these periods may be inaccurate.}}"))
+                doc.append(NoEscape("\\par"))
+            
+            doc.append(periods_table)
+            doc.append(NoEscape("\\par"))
+            doc.append(NoEscape("\\vspace{4pt}"))
+            doc.append(NoEscape(r"\noindent\textit{\small This table shows the cosine error angles applied to different time periods in the report. Data from periods marked ``NO ANGLE'' should be corrected by applying the appropriate angle.}"))
+            doc.append(NoEscape("\\par"))
 
     # Add tables
     # if overall_metrics:

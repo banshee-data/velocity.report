@@ -122,6 +122,11 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/api/sites", s.handleSites)
 	s.mux.HandleFunc("/api/sites/", s.handleSites)     // Note trailing slash to match /api/sites and /api/sites/*
 	s.mux.HandleFunc("/api/reports/", s.handleReports) // Report management endpoints
+	s.mux.HandleFunc("/api/site_config_periods", s.handleSiteConfigPeriods)
+	s.mux.HandleFunc("/api/site_config_periods/", s.handleSiteConfigPeriods) // Period management endpoints
+	s.mux.HandleFunc("/api/timeline", s.getTimeline)                         // Timeline view
+	s.mux.HandleFunc("/api/angle_presets", s.handleAnglePresets)
+	s.mux.HandleFunc("/api/angle_presets/", s.handleAnglePresets) // Angle preset management endpoints
 	return s.mux
 }
 
@@ -516,11 +521,6 @@ func (s *Server) createSite(w http.ResponseWriter, r *http.Request) {
 		s.writeJSONError(w, http.StatusBadRequest, "location is required")
 		return
 	}
-	if site.CosineErrorAngle == 0 {
-		s.writeJSONError(w, http.StatusBadRequest, "cosine_error_angle is required")
-		return
-	}
-
 	if err := s.db.CreateSite(&site); err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to create site: %v", err))
 		return
@@ -551,11 +551,6 @@ func (s *Server) updateSite(w http.ResponseWriter, r *http.Request, id int) {
 		s.writeJSONError(w, http.StatusBadRequest, "location is required")
 		return
 	}
-	if site.CosineErrorAngle == 0 {
-		s.writeJSONError(w, http.StatusBadRequest, "cosine_error_angle is required")
-		return
-	}
-
 	if err := s.db.UpdateSite(&site); err != nil {
 		if err.Error() == "site not found" {
 			s.writeJSONError(w, http.StatusNotFound, "Site not found")
@@ -632,6 +627,7 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 
 	// Load site data if site_id is provided
 	var site *db.Site
+	var activePeriod *db.SiteConfigPeriodWithDetails
 	if req.SiteID != nil {
 		var err error
 		site, err = s.db.GetSite(*req.SiteID)
@@ -639,6 +635,14 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Failed to load site: %v", err))
 			return
+		}
+
+		// Get the active site config period for this site
+		// This contains the cosine_error_angle from site_variable_config
+		activePeriod, err = s.db.GetActiveSiteConfigPeriodForSite(*req.SiteID)
+		if err != nil || activePeriod == nil || activePeriod.SiteID != *req.SiteID {
+			// No active period for this site - that's okay, we'll use the request value or fail later
+			activePeriod = nil
 		}
 	}
 
@@ -679,7 +683,11 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		if site.SpeedLimitNote != nil {
 			speedLimitNote = *site.SpeedLimitNote
 		}
-		cosineErrorAngle = site.CosineErrorAngle
+	}
+
+	// Get cosine_error_angle from active period's variable config
+	if activePeriod != nil && activePeriod.VariableConfig != nil {
+		cosineErrorAngle = activePeriod.VariableConfig.CosineErrorAngle
 	}
 
 	// Apply final defaults if still empty
@@ -697,8 +705,32 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	}
 	if cosineErrorAngle == 0 {
 		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusBadRequest, "cosine_error_angle is required (either from site or in request)")
+		s.writeJSONError(w, http.StatusBadRequest, "cosine_error_angle is required (either from active site config period or in request)")
 		return
+	}
+
+	// Parse date range to get unix timestamps for querying site config periods
+	startTime, err := time.Parse("2006-01-02", req.StartDate)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid start_date format: %v", err))
+		return
+	}
+	endTime, err := time.Parse("2006-01-02", req.EndDate)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid end_date format: %v", err))
+		return
+	}
+	// Add 24 hours to end date to include the entire day
+	endTime = endTime.Add(24 * time.Hour)
+
+	// Get all site config periods that overlap with the report time range
+	siteConfigPeriods, err := s.db.GetSiteConfigPeriodsForTimeRange(float64(startTime.Unix()), float64(endTime.Unix()))
+	if err != nil {
+		log.Printf("Warning: failed to get site config periods for report: %v", err)
+		// Don't fail the report, just log the error
+		siteConfigPeriods = []db.SiteConfigPeriodWithDetails{}
 	}
 
 	// Create unique run ID for organized output folders
@@ -737,6 +769,7 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 			"output_dir": outputDir,
 			"debug":      s.debugMode,
 		},
+		"site_config_periods": siteConfigPeriods,
 	}
 
 	// Write config to a temporary file
@@ -1097,6 +1130,310 @@ func (s *Server) deleteReport(w http.ResponseWriter, r *http.Request, reportID i
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// handleSiteConfigPeriods routes site config period requests to appropriate handlers
+func (s *Server) handleSiteConfigPeriods(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Parse the path to extract action and ID
+	// URL formats:
+	//   /api/site_config_periods - list all periods or create new
+	//   /api/site_config_periods/123 - get/update/delete period 123
+	//   /api/site_config_periods/active - get the active period
+	//   /api/site_config_periods/123/activate - set period 123 as active
+	//   /api/site_config_periods/123/close - close period 123
+	path := strings.TrimPrefix(r.URL.Path, "/api/site_config_periods")
+	path = strings.Trim(path, "/")
+
+	// List all or create new
+	if path == "" {
+		switch r.Method {
+		case http.MethodGet:
+			s.listSiteConfigPeriods(w, r)
+		case http.MethodPost:
+			s.createSiteConfigPeriod(w, r)
+		default:
+			s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		}
+		return
+	}
+
+	// Handle /api/site_config_periods/active
+	if path == "active" {
+		if r.Method == http.MethodGet {
+			s.getActiveSiteConfigPeriod(w, r)
+		} else {
+			s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		}
+		return
+	}
+
+	// Parse action and ID for paths like /123/activate or /123/close
+	parts := strings.Split(path, "/")
+	if len(parts) == 0 {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid path")
+		return
+	}
+
+	periodID, err := strconv.Atoi(parts[0])
+	if err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid period ID")
+		return
+	}
+
+	// Handle /api/site_config_periods/123/activate
+	if len(parts) == 2 && parts[1] == "activate" {
+		if r.Method == http.MethodPost {
+			s.activateSiteConfigPeriod(w, r, periodID)
+		} else {
+			s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		}
+		return
+	}
+
+	// Handle /api/site_config_periods/123/close
+	if len(parts) == 2 && parts[1] == "close" {
+		if r.Method == http.MethodPost {
+			s.closeSiteConfigPeriod(w, r, periodID)
+		} else {
+			s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		}
+		return
+	}
+
+	// Handle /api/site_config_periods/123 - get/update/delete
+	if len(parts) == 1 {
+		switch r.Method {
+		case http.MethodGet:
+			s.getSiteConfigPeriod(w, r, periodID)
+		case http.MethodPut:
+			s.updateSiteConfigPeriod(w, r, periodID)
+		case http.MethodDelete:
+			s.deleteSiteConfigPeriod(w, r, periodID)
+		default:
+			s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		}
+		return
+	}
+
+	s.writeJSONError(w, http.StatusBadRequest, "Invalid path")
+}
+
+func (s *Server) listSiteConfigPeriods(w http.ResponseWriter, r *http.Request) {
+	_ = r
+	periods, err := s.db.GetAllSiteConfigPeriods()
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve periods: %v", err))
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(periods); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode periods")
+		return
+	}
+}
+
+func (s *Server) getSiteConfigPeriod(w http.ResponseWriter, r *http.Request, id int) {
+	_ = r
+	period, err := s.db.GetSiteConfigPeriod(id)
+	if err != nil {
+		if err.Error() == "site config period not found" {
+			s.writeJSONError(w, http.StatusNotFound, "Period not found")
+		} else {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve period: %v", err))
+		}
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(period); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode period")
+		return
+	}
+}
+
+func (s *Server) getActiveSiteConfigPeriod(w http.ResponseWriter, r *http.Request) {
+	_ = r
+	period, err := s.db.GetActiveSiteConfigPeriod()
+	if err != nil {
+		if err.Error() == "no active site config period found" {
+			s.writeJSONError(w, http.StatusNotFound, "No active period found")
+		} else {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve active period: %v", err))
+		}
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(period); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode period")
+		return
+	}
+}
+
+func (s *Server) createSiteConfigPeriod(w http.ResponseWriter, r *http.Request) {
+	var period db.SiteConfigPeriod
+	if err := json.NewDecoder(r.Body).Decode(&period); err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
+		return
+	}
+
+	// Validate required fields
+	if period.SiteID == 0 {
+		s.writeJSONError(w, http.StatusBadRequest, "site_id is required")
+		return
+	}
+	// Note: 0 is a valid Unix timestamp (epoch: 1970-01-01), so we accept it
+	if period.EffectiveStartUnix < 0 {
+		s.writeJSONError(w, http.StatusBadRequest, "effective_start_unix must be non-negative")
+		return
+	}
+
+	if err := s.db.CreateSiteConfigPeriod(&period); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to create period: %v", err))
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(period); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode period")
+		return
+	}
+}
+
+func (s *Server) updateSiteConfigPeriod(w http.ResponseWriter, r *http.Request, id int) {
+	var period db.SiteConfigPeriod
+	if err := json.NewDecoder(r.Body).Decode(&period); err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
+		return
+	}
+
+	period.ID = id
+
+	if err := s.db.UpdateSiteConfigPeriod(&period); err != nil {
+		if err.Error() == "site config period not found" {
+			s.writeJSONError(w, http.StatusNotFound, "Period not found")
+		} else {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update period: %v", err))
+		}
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(period); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode period")
+		return
+	}
+}
+
+func (s *Server) activateSiteConfigPeriod(w http.ResponseWriter, r *http.Request, id int) {
+	_ = r
+	if err := s.db.SetActiveSiteConfigPeriod(id); err != nil {
+		if err.Error() == "site config period not found" {
+			s.writeJSONError(w, http.StatusNotFound, "Period not found")
+		} else {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to activate period: %v", err))
+		}
+		return
+	}
+
+	// Return the updated period
+	period, err := s.db.GetSiteConfigPeriod(id)
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to retrieve updated period")
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(period); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode period")
+		return
+	}
+}
+
+func (s *Server) closeSiteConfigPeriod(w http.ResponseWriter, r *http.Request, id int) {
+	// Parse the end time from request body
+	var req struct {
+		EndTimeUnix *float64 `json:"end_time_unix"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
+		return
+	}
+
+	if req.EndTimeUnix == nil {
+		s.writeJSONError(w, http.StatusBadRequest, "end_time_unix is required")
+		return
+	}
+
+	if *req.EndTimeUnix < 0 {
+		s.writeJSONError(w, http.StatusBadRequest, "end_time_unix must be non-negative")
+		return
+	}
+
+	if err := s.db.CloseSiteConfigPeriod(id, *req.EndTimeUnix); err != nil {
+		if err.Error() == "site config period not found or already closed" {
+			s.writeJSONError(w, http.StatusNotFound, "Period not found or already closed")
+		} else {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to close period: %v", err))
+		}
+		return
+	}
+
+	// Return the updated period
+	period, err := s.db.GetSiteConfigPeriod(id)
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to retrieve updated period")
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(period); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode period")
+		return
+	}
+}
+
+func (s *Server) deleteSiteConfigPeriod(w http.ResponseWriter, r *http.Request, id int) {
+	_ = r
+	if err := s.db.DeleteSiteConfigPeriod(id); err != nil {
+		if err.Error() == "site config period not found" {
+			s.writeJSONError(w, http.StatusNotFound, "Period not found")
+		} else {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to delete period: %v", err))
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// getTimeline returns a timeline showing all time periods with data and their associated site configs
+func (s *Server) getTimeline(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Parse query parameters for time range
+	startStr := r.URL.Query().Get("start")
+	endStr := r.URL.Query().Get("end")
+
+	if startStr == "" || endStr == "" {
+		s.writeJSONError(w, http.StatusBadRequest, "start and end parameters are required (unix timestamps)")
+		return
+	}
+
+	startUnix, err1 := strconv.ParseFloat(startStr, 64)
+	endUnix, err2 := strconv.ParseFloat(endStr, 64)
+	if err1 != nil || err2 != nil {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid start or end parameter; must be numeric unix timestamps")
+		return
+	}
+
+	timeline, err := s.db.GetTimeline(startUnix, endUnix)
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve timeline: %v", err))
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(timeline); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode timeline")
+		return
+	}
+}
+
 // Start launches the HTTP server and blocks until the provided context is done
 // or the server returns an error. It installs the same static file and SPA
 // handlers used previously in the cmd/radar binary.
@@ -1253,4 +1590,155 @@ func (s *Server) Start(ctx context.Context, listen string, devMode bool) error {
 	case err := <-errCh:
 		return err
 	}
+}
+
+// handleAnglePresets manages angle preset CRUD operations
+func (s *Server) handleAnglePresets(w http.ResponseWriter, r *http.Request) {
+	// Extract ID from path if present
+	path := strings.TrimPrefix(r.Path, "/api/angle_presets")
+	path = strings.TrimPrefix(path, "/")
+	
+	switch r.Method {
+	case http.MethodGet:
+		if path == "" {
+			s.getAllAnglePresets(w, r)
+		} else {
+			s.getAnglePreset(w, r, path)
+		}
+	case http.MethodPost:
+		s.createAnglePreset(w, r)
+	case http.MethodPut:
+		if path == "" {
+			s.writeJSONError(w, http.StatusBadRequest, "ID required for update")
+			return
+		}
+		s.updateAnglePreset(w, r, path)
+	case http.MethodDelete:
+		if path == "" {
+			s.writeJSONError(w, http.StatusBadRequest, "ID required for delete")
+			return
+		}
+		s.deleteAnglePreset(w, r, path)
+	default:
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+	}
+}
+
+func (s *Server) getAllAnglePresets(w http.ResponseWriter, r *http.Request) {
+	presets, err := s.db.GetAllAnglePresets()
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get presets: %v", err))
+		return
+	}
+	
+	s.writeJSON(w, http.StatusOK, presets)
+}
+
+func (s *Server) getAnglePreset(w http.ResponseWriter, r *http.Request, idStr string) {
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+	
+	preset, err := s.db.GetAnglePreset(id)
+	if err != nil {
+		s.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("Preset not found: %v", err))
+		return
+	}
+	
+	s.writeJSON(w, http.StatusOK, preset)
+}
+
+func (s *Server) createAnglePreset(w http.ResponseWriter, r *http.Request) {
+	var preset db.AnglePreset
+	if err := json.NewDecoder(r.Body).Decode(&preset); err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
+		return
+	}
+	
+	// Validate angle
+	if preset.Angle < 0 || preset.Angle > 90 {
+		s.writeJSONError(w, http.StatusBadRequest, "Angle must be between 0 and 90 degrees")
+		return
+	}
+	
+	// Validate color hex format
+	if !isValidHexColor(preset.ColorHex) {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid color hex format (expected #RRGGBB)")
+		return
+	}
+	
+	// Force is_system to false for user-created presets
+	preset.IsSystem = false
+	
+	created, err := s.db.CreateAnglePreset(preset)
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to create preset: %v", err))
+		return
+	}
+	
+	s.writeJSON(w, http.StatusCreated, created)
+}
+
+func (s *Server) updateAnglePreset(w http.ResponseWriter, r *http.Request, idStr string) {
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+	
+	var preset db.AnglePreset
+	if err := json.NewDecoder(r.Body).Decode(&preset); err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
+		return
+	}
+	
+	// Validate angle
+	if preset.Angle < 0 || preset.Angle > 90 {
+		s.writeJSONError(w, http.StatusBadRequest, "Angle must be between 0 and 90 degrees")
+		return
+	}
+	
+	// Validate color hex format
+	if !isValidHexColor(preset.ColorHex) {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid color hex format (expected #RRGGBB)")
+		return
+	}
+	
+	updated, err := s.db.UpdateAnglePreset(id, preset)
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update preset: %v", err))
+		return
+	}
+	
+	s.writeJSON(w, http.StatusOK, updated)
+}
+
+func (s *Server) deleteAnglePreset(w http.ResponseWriter, r *http.Request, idStr string) {
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+	
+	if err := s.db.DeleteAnglePreset(id); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to delete preset: %v", err))
+		return
+	}
+	
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// isValidHexColor validates hex color format #RRGGBB
+func isValidHexColor(color string) bool {
+	if len(color) != 7 || color[0] != '#' {
+		return false
+	}
+	for _, c := range color[1:] {
+		if !((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')) {
+			return false
+		}
+	}
+	return true
 }

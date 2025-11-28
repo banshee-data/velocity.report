@@ -1,18 +1,6 @@
--- Enable Write-Ahead Logging for better concurrency
--- Allows readers and writers to operate simultaneously without blocking
-PRAGMA journal_mode = WAL;
+   CREATE TABLE IF NOT EXISTS schema_migrations (version uint64, dirty bool);
 
--- Use normal synchronous mode for balance of safety and performance
--- Reduces fsync calls while maintaining reasonable crash recovery
-PRAGMA synchronous = NORMAL;
-
--- Store temporary tables and indices in memory for faster processing
--- Improves performance for complex queries and joins
-PRAGMA temp_store = MEMORY;
-
--- Set busy timeout for handling concurrent access
--- Prevents immediate failures when database is locked by other processes
-PRAGMA busy_timeout = 5000;
+CREATE UNIQUE INDEX IF NOT EXISTS version_unique ON schema_migrations (version);
 
    CREATE TABLE IF NOT EXISTS radar_data (
           write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec'))
@@ -50,13 +38,9 @@ PRAGMA busy_timeout = 5000;
         , command_id BIGINT
         , log_data TEXT
         , write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec'))
-        , FOREIGN KEY (command_id) REFERENCES radar_commands (command_id)
+        , FOREIGN KEY (command_id) REFERENCES "radar_commands" (command_id)
           );
 
--- Persisted sessionization table for radar_data transits.
--- Populated by a periodic worker (Go process) that scans recent radar_data
--- and inserts/updates transit records. Keeping this as a table avoids expensive
--- repeated CTEs and allows linking to radar_objects without modifying raw data.
    CREATE TABLE IF NOT EXISTS radar_data_transits (
           transit_id INTEGER PRIMARY KEY AUTOINCREMENT
         , transit_key TEXT NOT NULL UNIQUE
@@ -75,10 +59,6 @@ PRAGMA busy_timeout = 5000;
 
 CREATE INDEX IF NOT EXISTS idx_transits_time ON radar_data_transits (transit_start_unix, transit_end_unix);
 
--- Join table linking radar_data_transits to radar_data (many-to-many).
--- Each link associates a transit (an aggregated session) with the underlying
--- radar_data row (an individual raw reading). This enables inspection of which
--- raw samples contributed to a transit.
    CREATE TABLE IF NOT EXISTS radar_transit_links (
           link_id INTEGER PRIMARY KEY AUTOINCREMENT
         , transit_id INTEGER NOT NULL REFERENCES radar_data_transits (transit_id) ON DELETE CASCADE
@@ -92,13 +72,11 @@ CREATE INDEX IF NOT EXISTS idx_transit_links_transit ON radar_transit_links (tra
 
 CREATE INDEX IF NOT EXISTS idx_transit_links_data ON radar_transit_links (data_rowid);
 
--- Site configuration table for storing location information, radar configuration, and report settings
    CREATE TABLE IF NOT EXISTS site (
           id INTEGER PRIMARY KEY AUTOINCREMENT
         , name TEXT NOT NULL UNIQUE
         , location TEXT NOT NULL
         , description TEXT
-        , cosine_error_angle REAL NOT NULL
         , speed_limit INTEGER DEFAULT 25
         , surveyor TEXT NOT NULL
         , contact TEXT NOT NULL
@@ -115,7 +93,6 @@ CREATE INDEX IF NOT EXISTS idx_transit_links_data ON radar_transit_links (data_r
 
 CREATE INDEX IF NOT EXISTS idx_site_name ON site (name);
 
--- Create trigger to update updated_at timestamp
 CREATE TRIGGER IF NOT EXISTS update_site_timestamp AFTER
    UPDATE ON site BEGIN
    UPDATE site
@@ -124,29 +101,6 @@ CREATE TRIGGER IF NOT EXISTS update_site_timestamp AFTER
 
 END;
 
--- Insert a default site for existing installations
-   INSERT OR IGNORE INTO site (
-          name
-        , location
-        , description
-        , cosine_error_angle
-        , speed_limit
-        , surveyor
-        , contact
-        , site_description
-          )
-   VALUES (
-          'Default Location'
-        , 'Survey Location'
-        , 'Default site configuration'
-        , 0.5
-        , 25
-        , 'Sir Veyor'
-        , 'example@velocity.report'
-        , 'Default site for radar velocity surveys'
-          );
-
--- Create site_reports table to track generated PDF reports
    CREATE TABLE IF NOT EXISTS site_reports (
           id INTEGER PRIMARY KEY AUTOINCREMENT
         , site_id INTEGER NOT NULL DEFAULT 0
@@ -164,14 +118,103 @@ END;
         , FOREIGN KEY (site_id) REFERENCES site (id) ON DELETE CASCADE
           );
 
--- Index for fast lookups by site
 CREATE INDEX IF NOT EXISTS idx_site_reports_site_id ON site_reports (site_id);
 
--- Index for ordering by creation time
 CREATE INDEX IF NOT EXISTS idx_site_reports_created_at ON site_reports (created_at DESC);
 
--- Append LiDAR schema (background snapshots, clusters, tracks) from internal/lidar/lidardb/schema.sql
--- This keeps a single unified schema for both radar and lidar features.
+   CREATE TABLE IF NOT EXISTS site_config_periods (
+          id INTEGER PRIMARY KEY AUTOINCREMENT
+        , site_id INTEGER NOT NULL
+        , site_variable_config_id INTEGER
+        , effective_start_unix REAL NOT NULL
+        , effective_end_unix REAL
+        , is_active INTEGER DEFAULT 0
+        , notes TEXT
+        , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+        , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+        , FOREIGN KEY (site_id) REFERENCES site (id)
+        , FOREIGN KEY (site_variable_config_id) REFERENCES site_variable_config (id)
+          );
+
+CREATE INDEX IF NOT EXISTS idx_site_config_periods_site ON site_config_periods (site_id);
+
+CREATE INDEX IF NOT EXISTS idx_site_config_periods_variable_config ON site_config_periods (site_variable_config_id);
+
+CREATE INDEX IF NOT EXISTS idx_site_config_periods_time ON site_config_periods (effective_start_unix, effective_end_unix);
+
+CREATE INDEX IF NOT EXISTS idx_site_config_periods_active ON site_config_periods (is_active);
+
+CREATE TRIGGER IF NOT EXISTS update_site_config_periods_timestamp AFTER
+   UPDATE ON site_config_periods BEGIN
+   UPDATE site_config_periods
+      SET updated_at = STRFTIME('%s', 'now')
+    WHERE id = NEW.id;
+
+END;
+
+CREATE TRIGGER IF NOT EXISTS enforce_single_active_period BEFORE INSERT ON site_config_periods WHEN NEW.is_active = 1 BEGIN
+   UPDATE site_config_periods
+      SET is_active = 0
+    WHERE is_active = 1
+      AND site_id = NEW.site_id;
+
+END;
+
+CREATE TRIGGER IF NOT EXISTS enforce_single_active_period_update BEFORE
+   UPDATE ON site_config_periods WHEN NEW.is_active = 1
+      AND OLD.is_active = 0 BEGIN
+             UPDATE site_config_periods
+                SET is_active = 0
+              WHERE is_active = 1
+                AND site_id = NEW.site_id
+                AND id != NEW.id;
+
+END;
+
+   CREATE TABLE IF NOT EXISTS site_variable_config (
+          id INTEGER PRIMARY KEY AUTOINCREMENT
+        , cosine_error_angle REAL NOT NULL
+        , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+        , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+          );
+
+CREATE TRIGGER IF NOT EXISTS update_site_variable_config_timestamp AFTER
+   UPDATE ON site_variable_config BEGIN
+   UPDATE site_variable_config
+      SET updated_at = STRFTIME('%s', 'now')
+    WHERE id = NEW.id;
+
+END;
+
+   CREATE TABLE IF NOT EXISTS angle_presets (
+         id INTEGER PRIMARY KEY AUTOINCREMENT
+       , angle REAL NOT NULL UNIQUE
+       , color_hex TEXT NOT NULL
+       , is_system INTEGER NOT NULL DEFAULT 0
+       , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+       , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+         );
+
+CREATE INDEX IF NOT EXISTS idx_angle_presets_angle ON angle_presets(angle);
+
+CREATE INDEX IF NOT EXISTS idx_angle_presets_is_system ON angle_presets(is_system);
+
+CREATE TRIGGER IF NOT EXISTS prevent_system_preset_deletion
+BEFORE DELETE ON angle_presets
+FOR EACH ROW
+WHEN OLD.is_system = 1
+BEGIN
+    SELECT RAISE(ABORT, 'Cannot delete system preset');
+END;
+
+CREATE TRIGGER IF NOT EXISTS update_angle_presets_timestamp
+AFTER UPDATE ON angle_presets
+BEGIN
+    UPDATE angle_presets
+       SET updated_at = STRFTIME('%s', 'now')
+     WHERE id = NEW.id;
+END;
+
    CREATE TABLE IF NOT EXISTS lidar_bg_snapshot (
           snapshot_id INTEGER PRIMARY KEY
         , sensor_id TEXT NOT NULL
@@ -185,6 +228,4 @@ CREATE INDEX IF NOT EXISTS idx_site_reports_created_at ON site_reports (created_
         , snapshot_reason TEXT
           );
 
--- (Other lidar tables exist in internal/lidar/lidardb/schema.sql; they are omitted here to avoid duplicating large sections.
--- The critical table for snapshots is included above.)
 CREATE INDEX IF NOT EXISTS idx_bg_snapshot_sensor_time ON lidar_bg_snapshot (sensor_id, taken_unix_nanos);
