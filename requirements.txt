@@ -89,7 +89,7 @@ requests==2.32.5
     #   responses
 responses==0.25.8
     # via -r requirements.in
-ruff==0.14.4
+ruff==0.14.6
     # via -r requirements.in
 scipy==1.16.3
     # via -r requirements.in
