@@ -1,43 +1,30 @@
 version: 2
+
+multi-ecosystem-groups:
+  application:
+    schedule:
+      interval: "monthly"
+  documentation:
+    schedule:
+      interval: "monthly"
+
 updates:
-  # Go dependencies
   - package-ecosystem: "gomod"
     directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
+    patterns: ["*"]
+    multi-ecosystem-group: "application"
 
-  # Python dependencies
   - package-ecosystem: "pip"
     directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
+    patterns: ["*"]
+    multi-ecosystem-group: "application"
 
-  # [DEPRECATED] Python dependencies @TODO: remove, see docs/python-venv-consolidation-plan.md
-  - package-ecosystem: "pip"
-    directory: "/tools/pdf-generator"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
-
-  # [DEPRECATED] Python dependencies @TODO: remove, see docs/python-venv-consolidation-plan.md
-  - package-ecosystem: "pip"
-    directory: "/data/multisweep-graph"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
-
-  # Web frontend dependencies (pnpm)
   - package-ecosystem: "npm"
     directory: "/web"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
+    patterns: ["*"]
+    multi-ecosystem-group: "application"
 
-  # Documentation site dependencies (pnpm)
   - package-ecosystem: "npm"
     directory: "/docs"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
+    patterns: ["*"]
+    multi-ecosystem-group: "documentation"
