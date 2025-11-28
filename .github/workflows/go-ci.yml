@@ -9,6 +9,8 @@ on:
       - "cmd/**"
       - "internal/**"
       - ".github/workflows/go-ci.yml"
+      - "go.mod"
+      - "go.sum"
 
 permissions:
   contents: read
