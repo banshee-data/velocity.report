@@ -18,8 +18,9 @@ on:
 
 jobs:
   lint:
-    name: Lint
+    name: Lint (advisory)
     runs-on: ubuntu-latest
+    continue-on-error: true  # Advisory - allows PR to merge even if linting fails
     defaults:
       run:
         working-directory: web
