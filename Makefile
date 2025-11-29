@@ -164,8 +164,41 @@ PDF_DIR = tools/pdf-generator
 
 install-python:
 	@echo "Setting up Python environment..."
-	@if [ ! -d "$(VENV_DIR)" ]; then \
-		python3 -m venv $(VENV_DIR); \
+	@python3_14_path=$$(command -v python3.14 2>/dev/null || true); \
+	if [ -z "$$python3_14_path" ]; then \
+		echo "python3.14 not found."; \
+		if command -v brew >/dev/null 2>&1; then \
+			echo "Attempting to install python@3.14 via Homebrew..."; \
+			brew install python@3.14 >/dev/null 2>&1 || true; \
+		fi; \
+		if ! command -v python3.14 >/dev/null 2>&1; then \
+			echo "Please install python3.14 (e.g. 'brew install python@3.14' or distro package)."; \
+			echo "The venv will fall back to the default python3 interpreter."; \
+		fi; \
+	fi; \
+	if command -v python3.14 >/dev/null 2>&1; then \
+		python_cmd=python3.14; \
+	elif command -v python3 >/dev/null 2>&1; then \
+		python_cmd=python3; \
+	else \
+		python_cmd=python; \
+	fi; \
+	if ! command -v "$$python_cmd" >/dev/null 2>&1; then \
+		echo "No usable Python interpreter found (python3.14/python3)."; \
+		exit 1; \
+	fi; \
+	echo "Using: $$python_cmd"; \
+	if [ -d "$(VENV_DIR)" ]; then \
+		existing_version=$$($(VENV_DIR)/bin/python3 --version 2>&1 || true); \
+		if echo "$$existing_version" | grep -q "Python 3.14"; then \
+			echo "Reusing existing venv at $(VENV_DIR) ($$existing_version)"; \
+		else \
+			echo "Recreating venv with $$python_cmd (was $$existing_version)"; \
+			rm -rf $(VENV_DIR); \
+			$$python_cmd -m venv $(VENV_DIR); \
+		fi; \
+	else \
+		$$python_cmd -m venv $(VENV_DIR); \
 	fi
 	@$(VENV_PIP) install --upgrade pip
 	@$(VENV_PIP) install -r requirements.txt
@@ -192,6 +225,12 @@ install-docs:
 		else \
 			echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
 		fi
+
+.PHONY: ensure-python-tools
+ensure-python-tools:
+	@if [ ! -d "$(VENV_DIR)" ] || [ ! -x "$(VENV_DIR)/bin/black" ] || [ ! -x "$(VENV_DIR)/bin/ruff" ]; then \
+		$(MAKE) install-python; \
+	fi
 
 # =============================================================================
 # DEVELOPMENT SERVERS
@@ -371,22 +410,10 @@ format-go:
 	@echo "Formatting Go source (gofmt)..."
 	@gofmt -s -w . || true
 
-format-python:
+format-python: ensure-python-tools
 	@echo "Formatting Python (black, ruff) using venv at $(VENV_DIR)..."
-	@if [ -x "$(VENV_DIR)/bin/black" ]; then \
-		"$(VENV_DIR)/bin/black" . || true; \
-	elif command -v black >/dev/null 2>&1; then \
-		black . || true; \
-	else \
-		echo "black not found; run 'make install-python' to install"; \
-	fi
-	@if [ -x "$(VENV_DIR)/bin/ruff" ]; then \
-		"$(VENV_DIR)/bin/ruff" check --fix . || true; \
-	elif command -v ruff >/dev/null 2>&1; then \
-		ruff check --fix . || true; \
-	else \
-		echo "ruff not found; run 'make install-python' to install"; \
-	fi
+	@$(VENV_PYTHON) -m black . || true
+	@$(VENV_PYTHON) -m ruff check --fix . || true
 
 format-web:
 	@echo "Formatting web JS/TS in $(WEB_DIR) (prettier via pnpm or npx)..."
