@@ -1,13 +1,14 @@
-# Investigation: Optional Linting CI & Removing Pre-commit Hooks
+# Investigation: Optional Linting CI & Pre-commit Hooks
 
 ## Executive Summary
 
-This document investigates two improvements for developer onboarding:
+This document investigates three improvements for developer onboarding:
 
-1. **Making linting CI jobs optional** — Allow PRs to merge even if formatting isn't perfect
-2. **Removing pre-commit hooks dependency** — Simplify onboarding by eliminating mandatory local hooks
+1. **Making linting CI jobs optional (advisory)** — Allow PRs to merge even if formatting isn't perfect
+2. **Making pre-commit hooks opt-in** — Simplify onboarding while keeping hooks available for developers who want them
+3. **Automated weekly lint jobs** — Dependabot-style scheduled workflow to auto-fix formatting issues
 
-Both changes aim to reduce friction for new contributors while maintaining code quality through clear documentation and accessible tooling.
+These changes reduce friction for new contributors while maintaining code quality for seasoned developers who prefer automated formatting.
 
 ---
 
@@ -153,36 +154,42 @@ lint:
 
 ---
 
-## Recommendation 2: Remove Pre-commit Hooks Requirement
+## Recommendation 2: Make Pre-commit Hooks Opt-in (Not Removed)
 
-### Why Remove Hooks?
+### Why Make Hooks Opt-in?
 
-Pre-commit hooks create friction for new contributors:
+Pre-commit hooks provide value for seasoned developers who want automatic formatting on every commit. However, they create friction for new contributors:
 
 1. **Extra installation step** — `pip install pre-commit && pre-commit install`
 2. **Environment complexity** — Needs Python even for Go/Web contributors
 3. **First-run delay** — Downloads hook environments on first commit
 4. **Failure confusion** — Hooks failing can block commits unexpectedly
-5. **Opt-out friction** — `git commit --no-verify` feels wrong
 
-### Alternative: Rely on Editor + CI
+**Solution:** Keep hooks available but make them opt-in, not required.
 
-Modern development workflows often eliminate pre-commit hooks by:
+### Benefits for Seasoned Developers
 
-1. **Editor integration** — Format-on-save in VS Code, GoLand, etc.
-2. **CI feedback** — Advisory lint checks in PR
-3. **Manual formatting** — `make format` before commit (documented)
+Developers who enable pre-commit hooks get:
+
+- **Automatic formatting** — Code is cleaned on every commit
+- **Faster feedback** — Catch issues before CI runs
+- **Consistent commits** — No "fix formatting" follow-up commits
+- **File hygiene** — Trailing whitespace, large files, EOF newlines
 
 ### Migration Path
 
-#### Step 1: Make hooks optional (not removed)
+#### Step 1: Keep full `.pre-commit-config.yaml`
 
-Update `README.md` to present hooks as optional:
+**Do NOT simplify or remove the config.** Keep all hooks for developers who want them. The existing `.pre-commit-config.yaml` in the repository should remain unchanged — it already has the complete configuration with all necessary options (`args`, `language`, `stages`, etc.).
+
+#### Step 2: Update documentation to present hooks as optional
+
+Update `README.md` to present hooks as opt-in:
 
 ```markdown
 ### Code Formatting
 
-**Option 1: Format on demand (recommended)**
+**Option 1: Format on demand (recommended for new contributors)**
 ```sh
 make format        # Format all code before commit
 ```
@@ -191,78 +198,180 @@ make format        # Format all code before commit
 - VS Code: Install Prettier, ESLint, Go extensions
 - Format-on-save handles most cases
 
-**Option 3: Pre-commit hooks (optional)**
+**Option 3: Pre-commit hooks (recommended for regular contributors)**
 ```sh
 pip install pre-commit
 pre-commit install
 ```
+Hooks auto-format code on every commit — no manual `make format` needed.
 ```
 
-#### Step 2: Document `make format` prominently
+#### Step 3: Update dev-setup.sh messaging
 
-Ensure `make format` is the primary documented workflow:
-
-```markdown
-## Before Committing
-
-Run `make format` to auto-format all code:
-```sh
-make format    # Formats Go, Python, and Web code
-make lint      # Verify formatting (what CI checks)
-```
-```
-
-#### Step 3: Remove hooks from required setup
-
-Update `scripts/dev-setup.sh` to **not** install pre-commit by default:
+Update `scripts/dev-setup.sh` to present hooks as optional but valuable:
 
 ```bash
-# Current (in the "Git Hooks" section of print_next_steps):
-echo "  pre-commit install         # Enable formatting/lint hooks"
-
-# Recommended:
+# In print_next_steps():
+echo -e "${BLUE}Code Formatting:${NC}"
 echo "  make format                # Format code before committing"
-echo "  make lint                  # Check formatting (optional)"
 echo ""
-echo "Optional: Enable pre-commit hooks"
+echo -e "${BLUE}Optional: Enable pre-commit hooks${NC}"
 echo "  pip install pre-commit && pre-commit install"
+echo "  # Auto-formats code on every commit (recommended for regular contributors)"
 ```
-
-#### Step 4: Simplify `.pre-commit-config.yaml` or remove
-
-**Option A: Keep minimal hooks (file hygiene only)**
-
-```yaml
-repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
-    hooks:
-      - id: check-added-large-files
-        args: ["--maxkb=1024"]
-      - id: end-of-file-fixer
-      - id: trailing-whitespace
-      - id: mixed-line-ending
-
-# Note: Language-specific formatting handled by `make format`
-# Run `make format` before committing, or use editor format-on-save
-```
-
-**Option B: Remove `.pre-commit-config.yaml` entirely**
-
-If hooks aren't used/enforced, the config file may confuse contributors who expect it to work automatically.
 
 ### Recommended Approach
 
-1. **Keep `.pre-commit-config.yaml`** but simplify to file-hygiene only
-2. **Update documentation** to recommend `make format` as primary workflow
-3. **Make CI lint advisory** (not blocking)
-4. **Update dev-setup.sh** to not suggest pre-commit installation by default
+1. **Keep full `.pre-commit-config.yaml`** — Don't remove any hooks
+2. **Update documentation** to present hooks as opt-in
+3. **Make CI lint advisory** — Safety net for contributors without hooks
+4. **Add weekly auto-fix workflow** — Clean up any missed formatting (see below)
 
-This provides:
-- Zero mandatory setup for formatting
-- Clear, simple workflow: `make format && git commit`
-- CI safety net for missed formatting
-- Optional hooks for those who prefer them
+---
+
+## Recommendation 3: Automated Weekly Lint Jobs (Dependabot-style)
+
+### Why Automated Lint Jobs?
+
+With advisory lint CI (yellow warnings instead of red failures), formatting issues may accumulate over time. A weekly automated workflow solves this by:
+
+1. **Auto-fixing formatting** — Runs `make format` on the entire codebase
+2. **Creating PRs automatically** — Like Dependabot for dependencies
+3. **No developer action needed** — Formatting is cleaned up without manual intervention
+4. **Low friction** — Contributors don't need to remember `make format`
+
+### Proposed Workflow: `lint-autofix.yml`
+
+Create `.github/workflows/lint-autofix.yml`:
+
+```yaml
+name: 🧹 Weekly Lint Auto-fix
+
+on:
+  schedule:
+    # Cron format: minute hour day-of-month month day-of-week
+    # Run every Monday at 6:00 AM UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:  # Allow manual trigger
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  autofix:
+    name: Auto-fix Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install Python dependencies
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install web dependencies
+        run: cd web && pnpm install --frozen-lockfile
+
+      - name: Run make format
+        run: make format
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request
+        if: steps.changes.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "[ci] Auto-fix formatting issues"
+          title: "🧹 Weekly formatting cleanup"
+          body: |
+            This PR was automatically created by the weekly lint auto-fix workflow.
+
+            ## Changes
+            - Ran `make format` to fix formatting issues across the codebase
+            - Go: `gofmt -s -w .`
+            - Python: `black .` + `ruff check --fix .`
+            - Web: `prettier --write .`
+
+            ## Why this PR exists
+            CI lint jobs are advisory (non-blocking) to reduce friction for contributors.
+            This weekly cleanup ensures the codebase stays consistently formatted.
+
+            ---
+            _This PR can be merged without review if CI passes._
+          branch: ci/weekly-lint-autofix
+          delete-branch: true
+          labels: |
+            automated
+            formatting
+```
+
+### How It Works
+
+1. **Schedule:** Runs every Monday at 6:00 AM UTC (configurable)
+2. **Format:** Runs `make format` which invokes Go, Python, and Web formatters
+3. **Detect changes:** Checks if any files were modified
+4. **Create PR:** If changes exist, creates a PR with clear description
+5. **Auto-merge:** The PR can be merged without review if CI passes
+
+### Configuration Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| Schedule | `0 6 * * 1` | Every Monday at 6 AM UTC |
+| Branch name | `ci/weekly-lint-autofix` | Target branch for PR |
+| Labels | `automated`, `formatting` | PR labels for filtering |
+| Auto-merge | Manual | Can enable auto-merge via branch rules |
+
+### Enabling Auto-merge (Optional)
+
+For fully hands-off operation, enable auto-merge for the automated PR:
+
+1. In repository settings, enable "Allow auto-merge"
+2. Set branch protection to require CI checks but not reviews for `automated` PRs
+3. Or use the `peter-evans/enable-pull-request-automerge@v3` action
+
+### Benefits
+
+| Benefit | Description |
+|---------|-------------|
+| **Consistent codebase** | Formatting issues cleaned up weekly |
+| **No manual intervention** | Developers don't need to run `make format` |
+| **Visible history** | Each cleanup is a single PR with clear description |
+| **Low noise** | Only creates PR if there are actual changes |
+| **Flexible schedule** | Can be daily, weekly, or triggered manually |
 
 ---
 
@@ -275,17 +384,24 @@ This provides:
 - [ ] Update `docs-ci.yml`: Add `continue-on-error: true` to `lint` job
 - [ ] Update job names to include "(advisory)" suffix
 
-### Phase 2: Simplify Pre-commit Hooks
+### Phase 2: Keep Pre-commit Hooks (Opt-in)
 
-- [ ] Remove language-specific format hooks from `.pre-commit-config.yaml`
-- [ ] Keep file-hygiene hooks (trailing whitespace, large files, etc.)
-- [ ] Add comment explaining `make format` workflow
+- [ ] Keep full `.pre-commit-config.yaml` unchanged
+- [ ] Update `README.md` to present hooks as optional but recommended for regular contributors
+- [ ] Update `scripts/dev-setup.sh` to show hooks as optional
 
-### Phase 3: Update Documentation
+### Phase 3: Add Weekly Lint Auto-fix Workflow
+
+- [ ] Create `.github/workflows/lint-autofix.yml`
+- [ ] Configure schedule (weekly recommended)
+- [ ] Test workflow manually via `workflow_dispatch`
+- [ ] Consider enabling auto-merge for automated PRs
+
+### Phase 4: Update Documentation
 
 - [ ] Update `README.md` development section
-- [ ] Update `scripts/dev-setup.sh` output
-- [ ] Add "Before Committing" section emphasizing `make format`
+- [ ] Add "Code Formatting" section with three options
+- [ ] Document the weekly auto-fix workflow
 
 ---
 
@@ -318,14 +434,16 @@ Custom `.git/hooks/pre-commit` script.
 - Requires manual setup (`cp hooks/pre-commit .git/hooks/`)
 - More maintenance burden
 
-### 4. Strict Linting + Auto-fix PR Bot
+### 4. External Auto-fix Bots (e.g., Restyled.io)
 
-Bot that auto-formats PRs and pushes changes.
+Third-party services that auto-format PRs.
 
-**Rejected because:**
-- Adds external dependency
-- Can conflict with ongoing work
+**Not recommended because:**
+- Adds external dependency and cost
+- Modifies PRs in-flight (can conflict with ongoing work)
 - May surprise contributors
+
+**Better alternative:** Weekly scheduled workflow (Recommendation 3) creates separate PRs instead of modifying existing ones.
 
 ---
 
@@ -334,15 +452,29 @@ Bot that auto-formats PRs and pushes changes.
 | Change | Effort | Impact | Recommendation |
 |--------|--------|--------|----------------|
 | `continue-on-error` for lint jobs | Low | High | ✅ Do this |
-| Simplify pre-commit config | Low | Medium | ✅ Do this |
-| Remove pre-commit entirely | Medium | Medium | Consider later |
+| Keep pre-commit hooks (opt-in) | Low | Medium | ✅ Do this |
+| Weekly lint auto-fix workflow | Medium | High | ✅ Do this |
 | Update documentation | Low | High | ✅ Do this |
 
-**Net effect:** New contributors can:
+### For New Contributors
+
 1. Clone the repo
 2. Make changes
-3. Run `make format`
+3. Run `make format` (optional)
 4. Commit and push
 5. PR passes tests (lint is advisory)
 
 No mandatory global tools, no hook setup, no surprises.
+
+### For Seasoned Developers
+
+1. Clone the repo
+2. Run `pip install pre-commit && pre-commit install`
+3. Make changes and commit — formatting happens automatically
+4. Benefit from clean, consistent commits
+
+### For the Codebase
+
+1. Weekly auto-fix workflow catches any missed formatting
+2. Creates a single PR with all fixes (like Dependabot)
+3. Codebase stays consistently formatted without manual intervention
