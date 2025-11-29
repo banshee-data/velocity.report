@@ -1,0 +1,90 @@
+name: 🧹 Weekly Lint Auto-fix
+
+on:
+  schedule:
+    # Cron format: minute hour day-of-month month day-of-week
+    # Run every Monday at 6:00 AM UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:  # Allow manual trigger
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  autofix:
+    name: Auto-fix Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install Python dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r requirements.txt
+
+      - name: Install web dependencies
+        run: cd web && pnpm install --frozen-lockfile
+
+      - name: Run make format
+        run: make format
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request
+        if: steps.changes.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "[ci] Auto-fix formatting issues"
+          title: "🧹 Weekly formatting cleanup"
+          body: |
+            This PR was automatically created by the weekly lint auto-fix workflow.
+
+            ## Changes
+            - Ran `make format` to fix formatting issues across the codebase
+            - Go: `gofmt -s -w .`
+            - Python: `black .` + `ruff check --fix .`
+            - Web: `prettier --write .`
+
+            ## Why this PR exists
+            CI lint jobs are advisory (non-blocking) to reduce friction for contributors.
+            This weekly cleanup ensures the codebase stays consistently formatted.
+
+            ---
+            _This PR can be merged without review if CI passes._
+          branch: ci/weekly-lint-autofix
+          delete-branch: true
+          labels: |
+            automated
+            formatting

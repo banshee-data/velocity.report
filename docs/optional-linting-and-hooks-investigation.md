@@ -277,7 +277,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -290,9 +290,8 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m venv .venv
-          source .venv/bin/activate
-          pip install --upgrade pip
-          pip install -r requirements.txt
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r requirements.txt
 
       - name: Install web dependencies
         run: cd web && pnpm install --frozen-lockfile
@@ -379,29 +378,29 @@ For fully hands-off operation, enable auto-merge for the automated PR:
 
 ### Phase 1: Make CI Lint Jobs Advisory
 
-- [ ] Update `go-ci.yml`: Add `continue-on-error: true` to `format` job
-- [ ] Update `web-ci.yml`: Add `continue-on-error: true` to `lint` job
-- [ ] Update `docs-ci.yml`: Add `continue-on-error: true` to `lint` job
-- [ ] Update job names to include "(advisory)" suffix
+- [x] Update `go-ci.yml`: Add `continue-on-error: true` to `format` job
+- [x] Update `web-ci.yml`: Add `continue-on-error: true` to `lint` job
+- [x] Update `docs-ci.yml`: Add `continue-on-error: true` to `lint` job
+- [x] Update job names to include "(advisory)" suffix
 
 ### Phase 2: Keep Pre-commit Hooks (Opt-in)
 
-- [ ] Keep full `.pre-commit-config.yaml` unchanged
-- [ ] Update `README.md` to present hooks as optional but recommended for regular contributors
-- [ ] Update `scripts/dev-setup.sh` to show hooks as optional
+- [x] Keep full `.pre-commit-config.yaml` unchanged
+- [x] Update `README.md` to present hooks as optional but recommended for regular contributors
+- [x] Update `scripts/dev-setup.sh` to show hooks as optional
 
 ### Phase 3: Add Weekly Lint Auto-fix Workflow
 
-- [ ] Create `.github/workflows/lint-autofix.yml`
-- [ ] Configure schedule (weekly recommended)
+- [x] Create `.github/workflows/lint-autofix.yml`
+- [x] Configure schedule (weekly recommended)
 - [ ] Test workflow manually via `workflow_dispatch`
 - [ ] Consider enabling auto-merge for automated PRs
 
 ### Phase 4: Update Documentation
 
-- [ ] Update `README.md` development section
-- [ ] Add "Code Formatting" section with three options
-- [ ] Document the weekly auto-fix workflow
+- [x] Update `README.md` development section
+- [x] Add "Code Formatting" section with three options
+- [x] Document the weekly auto-fix workflow
 
 ---
 
