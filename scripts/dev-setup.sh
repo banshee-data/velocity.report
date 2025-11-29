@@ -447,9 +447,14 @@ print_next_steps() {
     echo "  PERFORMANCE.md      # Performance tuning"
     echo ""
 
-    echo -e "${BLUE}Git Hooks:${NC}"
-    echo "  pre-commit install         # Enable formatting/lint hooks"
-    echo "  pre-commit run --all-files # Run hooks across repository"
+    echo -e "${BLUE}Code Formatting:${NC}"
+    echo "  make format                # Format code before committing"
+    echo "  make lint                  # Check formatting (what CI checks)"
+    echo ""
+
+    echo -e "${BLUE}Optional: Enable pre-commit hooks${NC}"
+    echo "  pip install pre-commit && pre-commit install"
+    echo "  # Auto-formats code on every commit (recommended for regular contributors)"
     echo ""
 
     if ! command_exists xelatex; then

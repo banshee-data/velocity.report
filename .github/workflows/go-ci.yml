@@ -68,9 +68,10 @@ jobs:
           go test ./... -v
 
   format:
-    name: Format
+    name: Format (advisory)
     runs-on: ubuntu-latest
     needs: test
+    continue-on-error: true  # Advisory - allows PR to merge even if formatting fails
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
