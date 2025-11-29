@@ -442,7 +442,7 @@ lint-python:
 	fi
 
 lint-web:
-	@echo "Checking web formatting (prettier --check) in $(WEB_DIR)..."
+	@echo "Checking web formatting & lint (prettier + eslint) in $(WEB_DIR)..."
 	@if [ -d "$(WEB_DIR)" ]; then \
 		if command -v pnpm >/dev/null 2>&1; then \
 			cd $(WEB_DIR) && pnpm run lint || exit 1; \
