@@ -49,37 +49,98 @@ jobs:
       - name: Install web dependencies
         run: cd web && pnpm install --frozen-lockfile
 
-      - name: Run make format
-        run: make format
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Check for changes
-        id: changes
+      # Step 1: Check and fix Python version consistency
+      - name: Check Python version consistency
+        id: python_version
+        run: |
+          echo "Checking Python version consistency..."
+          if ! ./scripts/check-python-version.sh; then
+            echo "needs_fix=true" >> $GITHUB_OUTPUT
+            echo "Python version mismatches found"
+          else
+            echo "needs_fix=false" >> $GITHUB_OUTPUT
+            echo "Python versions are consistent"
+          fi
+
+      - name: Fix Python version references
+        if: steps.python_version.outputs.needs_fix == 'true'
+        run: |
+          echo "Fixing Python version references..."
+          ./scripts/check-python-version.sh --fix
+          if [[ -n $(git status --porcelain) ]]; then
+            git add -A
+            git commit -m "[ai][cfg] update Python version references for CI compatibility"
+          fi
+
+      # Step 2: Format Go code
+      - name: Format Go code
+        run: make format-go
+
+      - name: Commit Go formatting
         run: |
           if [[ -n $(git status --porcelain) ]]; then
-            echo "has_changes=true" >> $GITHUB_OUTPUT
+            git add -A
+            git commit -m "[ai][go] auto-fix formatting (gofmt -s -w)"
+          fi
+
+      # Step 3: Format Python code
+      - name: Format Python code
+        run: make format-python
+
+      - name: Commit Python formatting
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            git add -A
+            git commit -m "[ai][py] auto-fix formatting (black + ruff)"
+          fi
+
+      # Step 4: Format Web code
+      - name: Format Web code
+        run: make format-web
+
+      - name: Commit Web formatting
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            git add -A
+            git commit -m "[ai][js] auto-fix formatting (prettier)"
+          fi
+
+      # Step 5: Create PR if any commits were made
+      - name: Check for commits
+        id: commits
+        run: |
+          if [[ $(git rev-list --count HEAD ^origin/main) -gt 0 ]]; then
+            echo "has_commits=true" >> $GITHUB_OUTPUT
+            echo "Created $(git rev-list --count HEAD ^origin/main) commit(s)"
           else
-            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "has_commits=false" >> $GITHUB_OUTPUT
+            echo "No changes needed"
           fi
 
       - name: Create Pull Request
-        if: steps.changes.outputs.has_changes == 'true'
+        if: steps.commits.outputs.has_commits == 'true'
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "[ci] Auto-fix formatting issues"
           title: "🧹 Weekly formatting cleanup"
           body: |
             This PR was automatically created by the weekly lint auto-fix workflow.
 
             ## Changes
-            - Ran `make format` to fix formatting issues across the codebase
-            - Go: `gofmt -s -w .`
-            - Python: `black .` + `ruff check --fix .`
-            - Web: `prettier --write .`
+            This PR contains separate commits for each type of fix:
+            1. **Python version updates** (if needed): Updated Python version references for GitHub Actions compatibility
+            2. **Go formatting**: `make format-go` (gofmt -s -w)
+            3. **Python formatting**: `make format-python` (black + ruff --fix)
+            4. **Web formatting**: `make format-web` (prettier)
 
             ## Why this PR exists
             CI lint jobs are advisory (non-blocking) to reduce friction for contributors.
-            This weekly cleanup ensures the codebase stays consistently formatted.
+            This weekly cleanup ensures the codebase stays consistently formatted and version references stay synchronized with GitHub Actions runners.
 
             ---
             _This PR can be merged without review if CI passes._
