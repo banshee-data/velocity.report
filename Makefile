@@ -161,36 +161,37 @@ VENV_PYTHON = $(VENV_DIR)/bin/python3
 VENV_PIP = $(VENV_DIR)/bin/pip
 VENV_PYTEST = $(VENV_DIR)/bin/pytest
 PDF_DIR = tools/pdf-generator
+PYTHON_VERSION = 3.13
 
 install-python:
 	@echo "Setting up Python environment..."
-	@python3_14_path=$$(command -v python3.14 2>/dev/null || true); \
-	if [ -z "$$python3_14_path" ]; then \
-		echo "python3.14 not found."; \
+	@python_path=$$(command -v python$(PYTHON_VERSION) 2>/dev/null || true); \
+	if [ -z "$$python_path" ]; then \
+		echo "python$(PYTHON_VERSION) not found."; \
 		if command -v brew >/dev/null 2>&1; then \
-			echo "Attempting to install python@3.14 via Homebrew..."; \
-			brew install python@3.14 >/dev/null 2>&1 || true; \
+			echo "Attempting to install python@$(PYTHON_VERSION) via Homebrew..."; \
+			brew install python@$(PYTHON_VERSION) >/dev/null 2>&1 || true; \
 		fi; \
-		if ! command -v python3.14 >/dev/null 2>&1; then \
-			echo "Please install python3.14 (e.g. 'brew install python@3.14' or distro package)."; \
+		if ! command -v python$(PYTHON_VERSION) >/dev/null 2>&1; then \
+			echo "Please install python$(PYTHON_VERSION) (e.g. 'brew install python@$(PYTHON_VERSION)' or distro package)."; \
 			echo "The venv will fall back to the default python3 interpreter."; \
 		fi; \
 	fi; \
-	if command -v python3.14 >/dev/null 2>&1; then \
-		python_cmd=python3.14; \
+	if command -v python$(PYTHON_VERSION) >/dev/null 2>&1; then \
+		python_cmd=python$(PYTHON_VERSION); \
 	elif command -v python3 >/dev/null 2>&1; then \
 		python_cmd=python3; \
 	else \
 		python_cmd=python; \
 	fi; \
 	if ! command -v "$$python_cmd" >/dev/null 2>&1; then \
-		echo "No usable Python interpreter found (python3.14/python3)."; \
+		echo "No usable Python interpreter found (python$(PYTHON_VERSION)/python3)."; \
 		exit 1; \
 	fi; \
 	echo "Using: $$python_cmd"; \
 	if [ -d "$(VENV_DIR)" ]; then \
 		existing_version=$$($(VENV_DIR)/bin/python3 --version 2>&1 || true); \
-		if echo "$$existing_version" | grep -q "Python 3.14"; then \
+		if echo "$$existing_version" | grep -q "Python $(PYTHON_VERSION)"; then \
 			echo "Reusing existing venv at $(VENV_DIR) ($$existing_version)"; \
 		else \
 			echo "Recreating venv with $$python_cmd (was $$existing_version)"; \
