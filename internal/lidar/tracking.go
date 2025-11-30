@@ -16,27 +16,41 @@ const (
 	TrackDeleted   TrackState = "deleted"   // Track marked for removal
 )
 
+// Constants for tracker configuration
+const (
+	// MinDeterminantThreshold is the minimum determinant for covariance matrix inversion
+	MinDeterminantThreshold = 1e-6
+	// SingularDistanceRejection is the distance returned when covariance is singular
+	SingularDistanceRejection = 1e9
+	// MaxSpeedHistoryLength is the maximum number of speed samples kept for percentile computation
+	MaxSpeedHistoryLength = 100
+	// DefaultDeletedTrackGracePeriod is how long to keep deleted tracks before cleanup
+	DefaultDeletedTrackGracePeriod = 5 * time.Second
+)
+
 // TrackerConfig holds configuration parameters for the tracker.
 type TrackerConfig struct {
-	MaxTracks             int     // Maximum number of concurrent tracks
-	MaxMisses             int     // Consecutive misses before deletion
-	HitsToConfirm         int     // Consecutive hits needed for confirmation
-	GatingDistanceSquared float32 // Squared gating distance for association (meters²)
-	ProcessNoisePos       float32 // Process noise for position (σ²)
-	ProcessNoiseVel       float32 // Process noise for velocity (σ²)
-	MeasurementNoise      float32 // Measurement noise (σ²)
+	MaxTracks               int           // Maximum number of concurrent tracks
+	MaxMisses               int           // Consecutive misses before deletion
+	HitsToConfirm           int           // Consecutive hits needed for confirmation
+	GatingDistanceSquared   float32       // Squared gating distance for association (meters²)
+	ProcessNoisePos         float32       // Process noise for position (σ²)
+	ProcessNoiseVel         float32       // Process noise for velocity (σ²)
+	MeasurementNoise        float32       // Measurement noise (σ²)
+	DeletedTrackGracePeriod time.Duration // How long to keep deleted tracks before cleanup
 }
 
 // DefaultTrackerConfig returns default tracker configuration.
 func DefaultTrackerConfig() TrackerConfig {
 	return TrackerConfig{
-		MaxTracks:             100,
-		MaxMisses:             3,
-		HitsToConfirm:         3,
-		GatingDistanceSquared: 25.0, // 5.0 meters squared
-		ProcessNoisePos:       0.1,
-		ProcessNoiseVel:       0.5,
-		MeasurementNoise:      0.2,
+		MaxTracks:               100,
+		MaxMisses:               3,
+		HitsToConfirm:           3,
+		GatingDistanceSquared:   25.0, // 5.0 meters squared
+		ProcessNoisePos:         0.1,
+		ProcessNoiseVel:         0.5,
+		MeasurementNoise:        0.2,
+		DeletedTrackGracePeriod: DefaultDeletedTrackGracePeriod,
 	}
 }
 
@@ -276,8 +290,8 @@ func (t *Tracker) mahalanobisDistanceSquared(track *TrackedObject, cluster World
 
 	// Compute determinant and inverse
 	det := S00*S11 - S01*S10
-	if det < 1e-6 {
-		return 1e9 // Singular covariance, reject association
+	if det < MinDeterminantThreshold {
+		return SingularDistanceRejection // Singular covariance, reject association
 	}
 
 	invS00 := S11 / det
@@ -309,7 +323,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 
 	// Compute S inverse
 	det := S00*S11 - S01*S10
-	if det < 1e-6 {
+	if det < MinDeterminantThreshold {
 		return // Cannot update with singular covariance
 	}
 
@@ -394,9 +408,9 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 		track.PeakSpeedMps = speed
 	}
 
-	// Store speed history for percentile computation (keep last 100)
+	// Store speed history for percentile computation
 	track.speedHistory = append(track.speedHistory, speed)
-	if len(track.speedHistory) > 100 {
+	if len(track.speedHistory) > MaxSpeedHistoryLength {
 		track.speedHistory = track.speedHistory[1:]
 	}
 }
@@ -439,7 +453,7 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 		HeightP95Max:         cluster.HeightP95,
 		IntensityMeanAvg:     cluster.IntensityMean,
 
-		speedHistory: make([]float32, 0, 100),
+		speedHistory: make([]float32, 0, MaxSpeedHistoryLength),
 	}
 
 	t.Tracks[trackID] = track
@@ -448,8 +462,11 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 
 // cleanupDeletedTracks removes tracks that have been deleted for a grace period.
 func (t *Tracker) cleanupDeletedTracks(nowNanos int64) {
-	// Grace period: 5 seconds after deletion
-	const gracePeriodNanos = 5 * int64(time.Second)
+	gracePeriod := t.Config.DeletedTrackGracePeriod
+	if gracePeriod == 0 {
+		gracePeriod = DefaultDeletedTrackGracePeriod
+	}
+	gracePeriodNanos := int64(gracePeriod)
 
 	toRemove := make([]string, 0)
 	for id, track := range t.Tracks {

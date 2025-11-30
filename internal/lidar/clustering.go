@@ -6,6 +6,20 @@ import (
 	"time"
 )
 
+// Constants for clustering configuration
+const (
+	// DefaultDBSCANEps is the default neighborhood radius in meters for DBSCAN
+	DefaultDBSCANEps = 0.6
+	// DefaultDBSCANMinPts is the default minimum points to form a cluster
+	DefaultDBSCANMinPts = 12
+	// EstimatedPointsPerCell is used for initial spatial index capacity estimation
+	EstimatedPointsPerCell = 4
+)
+
+// IdentityTransform4x4 is a 4x4 identity matrix for pose transforms.
+// T is row-major: [m00,m01,m02,m03, m10,m11,m12,m13, m20,m21,m22,m23, m30,m31,m32,m33]
+var IdentityTransform4x4 = [16]float64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
+
 // WorldPoint represents a point in Cartesian world coordinates (site frame).
 // This is the output of the polar → world transformation (Phase 3.0).
 type WorldPoint struct {
@@ -31,12 +45,9 @@ func TransformToWorld(polarPoints []PointPolar, pose *Pose, sensorID string) []W
 	worldPoints := make([]WorldPoint, len(polarPoints))
 
 	// Use identity transform if no pose provided
-	var T [16]float64
+	T := IdentityTransform4x4
 	if pose != nil {
 		T = pose.T
-	} else {
-		// Identity matrix: [1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1]
-		T = [16]float64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 	}
 
 	for i, p := range polarPoints {
@@ -69,11 +80,9 @@ func TransformPointsToWorld(points []Point, pose *Pose) []WorldPoint {
 	worldPoints := make([]WorldPoint, len(points))
 
 	// Use identity transform if no pose provided
-	var T [16]float64
+	T := IdentityTransform4x4
 	if pose != nil {
 		T = pose.T
-	} else {
-		T = [16]float64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 	}
 
 	for i, p := range points {
@@ -114,7 +123,7 @@ func NewSpatialIndex(cellSize float64) *SpatialIndex {
 // Build populates the spatial index from a set of world points.
 // Uses 2D (x, y) coordinates for cell assignment.
 func (si *SpatialIndex) Build(points []WorldPoint) {
-	si.Grid = make(map[int64][]int, len(points)/4)
+	si.Grid = make(map[int64][]int, len(points)/EstimatedPointsPerCell)
 
 	for i, p := range points {
 		cellID := si.getCellID(p.X, p.Y)
@@ -216,8 +225,8 @@ type DBSCANParams struct {
 // DefaultDBSCANParams returns default DBSCAN parameters suitable for vehicle detection.
 func DefaultDBSCANParams() DBSCANParams {
 	return DBSCANParams{
-		Eps:    0.6, // 0.6 meters neighborhood radius
-		MinPts: 12,  // Minimum 12 points for a cluster
+		Eps:    DefaultDBSCANEps,
+		MinPts: DefaultDBSCANMinPts,
 	}
 }
 

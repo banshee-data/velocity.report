@@ -297,10 +297,10 @@ func TestComputeClusterMetrics(t *testing.T) {
 func TestDefaultDBSCANParams(t *testing.T) {
 	params := DefaultDBSCANParams()
 
-	if params.Eps != 0.6 {
-		t.Errorf("expected Eps=0.6, got %v", params.Eps)
+	if params.Eps != DefaultDBSCANEps {
+		t.Errorf("expected Eps=%v, got %v", DefaultDBSCANEps, params.Eps)
 	}
-	if params.MinPts != 12 {
-		t.Errorf("expected MinPts=12, got %d", params.MinPts)
+	if params.MinPts != DefaultDBSCANMinPts {
+		t.Errorf("expected MinPts=%d, got %d", DefaultDBSCANMinPts, params.MinPts)
 	}
 }

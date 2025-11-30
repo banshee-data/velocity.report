@@ -5,6 +5,16 @@ import (
 	"time"
 )
 
+// Constants for foreground extraction configuration
+const (
+	// DefaultClosenessSensitivityMultiplier is the default multiplier for closeness threshold
+	DefaultClosenessSensitivityMultiplier = 3.0
+	// DefaultNeighborConfirmationCount is the default number of neighbors needed for confirmation
+	DefaultNeighborConfirmationCount = 3
+	// FreezeThresholdMultiplier is the multiplier applied to closeness threshold to trigger cell freeze
+	FreezeThresholdMultiplier = 3.0
+)
+
 // ProcessFramePolarWithMask classifies each point as foreground/background in polar coordinates.
 // Returns a mask where true indicates foreground (object), false indicates background (static).
 // This is Phase 2.9 of the foreground tracking pipeline.
@@ -50,11 +60,11 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 	}
 	closenessMultiplier := float64(g.Params.ClosenessSensitivityMultiplier)
 	if closenessMultiplier <= 0 {
-		closenessMultiplier = 3.0
+		closenessMultiplier = DefaultClosenessSensitivityMultiplier
 	}
 	neighConfirm := g.Params.NeighborConfirmationCount
 	if neighConfirm <= 0 {
-		neighConfirm = 3
+		neighConfirm = DefaultNeighborConfirmationCount
 	}
 	seedFromFirst := g.Params.SeedFromFirstObservation
 
@@ -158,7 +168,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 				}
 			}
 			// Freeze cell if divergence is very large
-			if cellDiff > 3.0*closenessThreshold {
+			if cellDiff > FreezeThresholdMultiplier*closenessThreshold {
 				cell.FrozenUntilUnixNanos = nowNanos + freezeDur
 			}
 			cell.LastUpdateUnixNanos = nowNanos
