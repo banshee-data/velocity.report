@@ -16,7 +16,7 @@
 #   - pnpm-lock.yaml dependency conflicts
 #   - Migration format change from date-based (20251106_*) to sequential (000009_*)
 
-set -e
+set -euo pipefail
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -90,7 +90,7 @@ fi
 if echo "$conflicts" | grep -q "internal/db/migrations/000009_create_radar_serial_config.up.sql"; then
     echo -e "${YELLOW}Resolving: Final migration format conversion${NC}"
     
-    # Check if the file exists from a previous resolution
+    # Check if the up.sql file exists from a previous resolution
     if [ ! -f "internal/db/migrations/000009_create_radar_serial_config.up.sql" ]; then
         # Try to restore from HEAD first (most reliable), then fall back to ORIG_HEAD
         git show HEAD:internal/db/migrations/000009_create_radar_serial_config.up.sql > \
@@ -101,9 +101,30 @@ if echo "$conflicts" | grep -q "internal/db/migrations/000009_create_radar_seria
     
     if [ -f "internal/db/migrations/000009_create_radar_serial_config.up.sql" ]; then
         git add internal/db/migrations/000009_create_radar_serial_config.up.sql
-        echo -e "${GREEN}✓ Added 000009 migration${NC}"
+        echo -e "${GREEN}✓ Added 000009 up migration${NC}"
     else
-        echo -e "${RED}Warning: Could not find migration file to restore${NC}"
+        echo -e "${RED}Warning: Could not find up migration file to restore${NC}"
+    fi
+fi
+
+# Handle down migration conflict (golang-migrate requires both up and down files)
+if echo "$conflicts" | grep -q "internal/db/migrations/000009_create_radar_serial_config.down.sql"; then
+    echo -e "${YELLOW}Resolving: Down migration format conversion${NC}"
+    
+    # Check if the down.sql file exists from a previous resolution
+    if [ ! -f "internal/db/migrations/000009_create_radar_serial_config.down.sql" ]; then
+        # Try to restore from HEAD first (most reliable), then fall back to ORIG_HEAD
+        git show HEAD:internal/db/migrations/000009_create_radar_serial_config.down.sql > \
+            internal/db/migrations/000009_create_radar_serial_config.down.sql 2>/dev/null || \
+        git show ORIG_HEAD:internal/db/migrations/000009_create_radar_serial_config.down.sql > \
+            internal/db/migrations/000009_create_radar_serial_config.down.sql 2>/dev/null || true
+    fi
+    
+    if [ -f "internal/db/migrations/000009_create_radar_serial_config.down.sql" ]; then
+        git add internal/db/migrations/000009_create_radar_serial_config.down.sql
+        echo -e "${GREEN}✓ Added 000009 down migration${NC}"
+    else
+        echo -e "${RED}Warning: Could not find down migration file to restore${NC}"
     fi
 fi
 
