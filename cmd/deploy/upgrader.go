@@ -7,6 +7,16 @@ import (
 	"time"
 )
 
+// Service management timing constants
+const (
+	// serviceStopGracePeriod is the time to wait after stopping the service
+	// to allow systemd to fully terminate the process
+	serviceStopGracePeriod = 2 * time.Second
+	// serviceStartGracePeriod is the time to wait after starting the service
+	// to allow it to initialize and be ready for health checks
+	serviceStartGracePeriod = 3 * time.Second
+)
+
 // Upgrader handles upgrading velocity.report to a new version
 type Upgrader struct {
 	Target     string
@@ -147,7 +157,7 @@ func (u *Upgrader) stopService(exec *Executor) error {
 	}
 
 	// Wait for service to stop
-	exec.Run("sleep 2")
+	exec.Run(fmt.Sprintf("sleep %d", int(serviceStopGracePeriod.Seconds())))
 
 	fmt.Println("  ✓ Service stopped")
 	return nil
@@ -187,7 +197,7 @@ func (u *Upgrader) startService(exec *Executor) error {
 	}
 
 	// Wait for service to start
-	exec.Run("sleep 3")
+	exec.Run(fmt.Sprintf("sleep %d", int(serviceStartGracePeriod.Seconds())))
 
 	fmt.Println("  ✓ Service started")
 	return nil

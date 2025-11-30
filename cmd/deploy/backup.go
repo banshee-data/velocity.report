@@ -236,7 +236,8 @@ To restore this backup:
 `, timestamp, b.Target, strings.TrimSpace(versionOutput), strings.TrimSpace(statusOutput))
 
 	metadataFile := filepath.Join(backupDir, "README.txt")
-	if _, err := exec.Run(fmt.Sprintf("cat > %s << 'EOF'\n%s\nEOF", metadataFile, metadata)); err != nil {
+	// Use WriteFile instead of shell heredoc to avoid command injection
+	if err := exec.WriteFile(metadataFile, metadata); err != nil {
 		return err
 	}
 

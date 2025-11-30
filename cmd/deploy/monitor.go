@@ -8,6 +8,14 @@ import (
 	"time"
 )
 
+// Health check configuration constants
+const (
+	// maxAcceptableLogErrors is the threshold for errors in recent logs before marking unhealthy
+	maxAcceptableLogErrors = 5
+	// apiHealthCheckTimeout is the timeout for API health check requests
+	apiHealthCheckTimeout = 5 * time.Second
+)
+
 // Monitor handles status checking and health monitoring
 type Monitor struct {
 	Target  string
@@ -65,9 +73,12 @@ func (m *Monitor) CheckHealth() (*HealthStatus, error) {
 
 	// Check 3: Check for recent errors in logs
 	logsOutput, err := exec.RunSudo("journalctl -u velocity-report.service -n 20 --no-pager")
-	if err == nil {
+	if err != nil {
+		// Log retrieval failed - mark as degraded rather than giving false positive
+		checks = append(checks, "⚠ Logs: COULD NOT CHECK (log retrieval failed)")
+	} else {
 		errorCount := strings.Count(strings.ToLower(logsOutput), "error")
-		if errorCount > 5 {
+		if errorCount > maxAcceptableLogErrors {
 			health.Healthy = false
 			health.Message = fmt.Sprintf("Too many errors in logs (%d)", errorCount)
 			checks = append(checks, fmt.Sprintf("✗ Logs: %d errors found", errorCount))
@@ -94,7 +105,7 @@ func (m *Monitor) CheckHealth() (*HealthStatus, error) {
 	}
 
 	apiURL := fmt.Sprintf("http://%s:%d/api/config", apiHost, apiPort)
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := &http.Client{Timeout: apiHealthCheckTimeout}
 
 	resp, err := client.Get(apiURL)
 	if err != nil {

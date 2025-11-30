@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -86,8 +88,12 @@ func (c *ConfigManager) Edit() error {
 	fmt.Println()
 	fmt.Print("Enter new ExecStart line (or press Enter to keep current): ")
 
-	var newExecStart string
-	fmt.Scanln(&newExecStart)
+	reader := bufio.NewReader(os.Stdin)
+	newExecStart, err := reader.ReadString('\n')
+	if err != nil {
+		return fmt.Errorf("failed to read input: %w", err)
+	}
+	newExecStart = strings.TrimSpace(newExecStart)
 
 	if newExecStart == "" {
 		fmt.Println("No changes made")
@@ -99,11 +105,44 @@ func (c *ConfigManager) Edit() error {
 		newExecStart = "ExecStart=" + newExecStart
 	}
 
-	// Update service file
+	// Validate the ExecStart line doesn't contain dangerous characters
+	if strings.ContainsAny(newExecStart, "|;&$`\\\"'") {
+		return fmt.Errorf("invalid ExecStart line: contains disallowed characters")
+	}
+
+	// Update service file using safe file editing (not sed with user input)
 	fmt.Println("\nUpdating service file...")
 
-	sedCmd := fmt.Sprintf("sed -i 's|^ExecStart=.*|%s|' /etc/systemd/system/velocity-report.service", newExecStart)
-	_, err = exec.RunSudo(sedCmd)
+	// Read the current service file
+	serviceFilePath := "/etc/systemd/system/velocity-report.service"
+	contents, err := exec.RunSudo(fmt.Sprintf("cat %s", serviceFilePath))
+	if err != nil {
+		return fmt.Errorf("failed to read service file: %w", err)
+	}
+
+	// Replace the ExecStart line
+	lines := strings.Split(contents, "\n")
+	found := false
+	for i, line := range lines {
+		if strings.HasPrefix(line, "ExecStart=") {
+			lines[i] = newExecStart
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("ExecStart line not found in service file")
+	}
+
+	newContents := strings.Join(lines, "\n")
+
+	// Write to a temp file and move it into place
+	tmpPath := "/tmp/velocity-report.service.tmp"
+	if err := exec.WriteFile(tmpPath, newContents); err != nil {
+		return fmt.Errorf("failed to write temporary service file: %w", err)
+	}
+
+	_, err = exec.RunSudo(fmt.Sprintf("mv %s %s", tmpPath, serviceFilePath))
 	if err != nil {
 		return fmt.Errorf("failed to update service file: %w", err)
 	}

@@ -12,19 +12,32 @@ import (
 
 // Executor handles command execution locally or via SSH
 type Executor struct {
-	Target  string
-	SSHUser string
-	SSHKey  string
-	DryRun  bool
+	Target      string
+	SSHUser     string
+	SSHKey      string
+	DryRun      bool
+	InsecureSSH bool // Skip SSH host key verification (use with caution)
 }
 
 // NewExecutor creates a new executor
 func NewExecutor(target, sshUser, sshKey string, dryRun bool) *Executor {
 	return &Executor{
-		Target:  target,
-		SSHUser: sshUser,
-		SSHKey:  sshKey,
-		DryRun:  dryRun,
+		Target:      target,
+		SSHUser:     sshUser,
+		SSHKey:      sshKey,
+		DryRun:      dryRun,
+		InsecureSSH: false,
+	}
+}
+
+// NewExecutorWithOptions creates a new executor with additional options
+func NewExecutorWithOptions(target, sshUser, sshKey string, dryRun, insecureSSH bool) *Executor {
+	return &Executor{
+		Target:      target,
+		SSHUser:     sshUser,
+		SSHKey:      sshKey,
+		DryRun:      dryRun,
+		InsecureSSH: insecureSSH,
 	}
 }
 
@@ -119,9 +132,11 @@ func (e *Executor) buildSSHCommand(command string, useSudo bool) *exec.Cmd {
 		args = append(args, "-i", e.SSHKey)
 	}
 
-	// Disable strict host key checking for easier automation
-	args = append(args, "-o", "StrictHostKeyChecking=no")
-	args = append(args, "-o", "UserKnownHostsFile=/dev/null")
+	// Only disable host key checking if explicitly requested (security risk)
+	if e.InsecureSSH {
+		args = append(args, "-o", "StrictHostKeyChecking=no")
+		args = append(args, "-o", "UserKnownHostsFile=/dev/null")
+	}
 
 	target := e.Target
 	if e.SSHUser != "" && !strings.Contains(target, "@") {
@@ -165,8 +180,11 @@ func (e *Executor) copySSH(src, dst string) error {
 		args = append(args, "-i", e.SSHKey)
 	}
 
-	args = append(args, "-o", "StrictHostKeyChecking=no")
-	args = append(args, "-o", "UserKnownHostsFile=/dev/null")
+	// Only disable host key checking if explicitly requested (security risk)
+	if e.InsecureSSH {
+		args = append(args, "-o", "StrictHostKeyChecking=no")
+		args = append(args, "-o", "UserKnownHostsFile=/dev/null")
+	}
 
 	target := e.Target
 	if e.SSHUser != "" && !strings.Contains(target, "@") {

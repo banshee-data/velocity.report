@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -134,13 +136,19 @@ func (r *Rollback) restoreDatabase(exec *Executor, backupDir string) error {
 		return nil
 	}
 
-	fmt.Print("Database backup found. Restore it? This will replace current data. [y/N]: ")
-	var confirm string
-	if !r.DryRun {
-		fmt.Scanln(&confirm)
-	} else {
-		confirm = "n"
+	// In dry-run mode, skip database restore
+	if r.DryRun {
+		fmt.Println("  ⊘ [dry-run] Would prompt to restore database, but no changes made")
+		return nil
 	}
+
+	fmt.Print("Database backup found. Restore it? This will replace current data. [y/N]: ")
+	reader := bufio.NewReader(os.Stdin)
+	confirm, err := reader.ReadString('\n')
+	if err != nil {
+		return fmt.Errorf("failed to read input: %w", err)
+	}
+	confirm = strings.TrimSpace(confirm)
 
 	if strings.ToLower(confirm) != "y" {
 		fmt.Println("  ⊘ Keeping current database")

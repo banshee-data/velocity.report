@@ -99,7 +99,7 @@ func handleInstall(args []string) {
 	fs.Parse(args)
 
 	if *binaryPath == "" {
-		fmt.Fprintln(os.Stderr, "Error: --binary flag is required")
+		fmt.Fprintln(os.Stderr, "Error: --binary flag is required. Specify the path to the velocity-report binary (e.g., --binary ./app-radar-linux-arm64)")
 		fs.Usage()
 		os.Exit(1)
 	}
@@ -130,7 +130,7 @@ func handleUpgrade(args []string) {
 	fs.Parse(args)
 
 	if *binaryPath == "" {
-		fmt.Fprintln(os.Stderr, "Error: --binary flag is required")
+		fmt.Fprintln(os.Stderr, "Error: --binary flag is required. Specify the path to the velocity-report binary (e.g., --binary ./app-radar-linux-arm64)")
 		fs.Usage()
 		os.Exit(1)
 	}

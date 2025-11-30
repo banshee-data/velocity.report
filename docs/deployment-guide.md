@@ -184,11 +184,17 @@ make deploy-health
    ssh-copy-id pi@192.168.1.100
    ```
 
-2. **Sudo Without Password** (recommended):
+2. **Sudo Without Password** (recommended for automation):
    On the target host:
    ```bash
    echo "pi ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/pi
    ```
+
+   > **⚠️ Security Warning**: Using `NOPASSWD: ALL` grants unlimited sudo access without password verification. For production environments, consider restricting sudo to specific commands:
+   > ```bash
+   > # More secure: Only allow specific commands needed by velocity-deploy
+   > echo "pi ALL=(ALL) NOPASSWD: /bin/systemctl, /bin/cp, /bin/mv, /bin/mkdir, /bin/chown, /bin/chmod, /bin/cat, /bin/test, /bin/rm, /usr/bin/journalctl, /bin/ls, /bin/du, /usr/bin/stat, /usr/sbin/useradd" | sudo tee /etc/sudoers.d/pi
+   > ```
 
 3. **Test Connection**:
    ```bash
@@ -200,7 +206,9 @@ make deploy-health
 - Use SSH key authentication (not passwords)
 - Keep private keys secure
 - Consider using SSH agent for key management
-- Restrict sudo access to specific commands if needed
+- Restrict sudo access to specific commands when possible
+- Ensure your SSH known_hosts file is properly configured
+- Avoid using `--insecure-ssh` flag in production environments
 
 ## Troubleshooting
 

@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -103,25 +104,8 @@ func TestServiceContent(t *testing.T) {
 	}
 
 	for _, field := range requiredFields {
-		if !containsString(serviceContent, field) {
+		if !strings.Contains(serviceContent, field) {
 			t.Errorf("Service file missing required field: %s", field)
 		}
 	}
-}
-
-func containsString(s, substr string) bool {
-	return len(s) > 0 && len(substr) > 0 &&
-		(s == substr || len(s) > len(substr) &&
-			(s[:len(substr)] == substr ||
-				s[len(s)-len(substr):] == substr ||
-				containsStringMiddle(s, substr)))
-}
-
-func containsStringMiddle(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
