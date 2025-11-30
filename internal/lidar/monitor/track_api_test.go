@@ -224,24 +224,3 @@ func TestTrackAPI_MethodNotAllowed(t *testing.T) {
 		})
 	}
 }
-
-func TestIndexOf(t *testing.T) {
-	tests := []struct {
-		s      string
-		substr string
-		want   int
-	}{
-		{"hello/world", "/", 5},
-		{"hello", "/", -1},
-		{"", "/", -1},
-		{"/path", "/", 0},
-		{"track_1/observations", "/", 7},
-	}
-
-	for _, tt := range tests {
-		got := indexOf(tt.s, tt.substr)
-		if got != tt.want {
-			t.Errorf("indexOf(%q, %q) = %d, want %d", tt.s, tt.substr, got, tt.want)
-		}
-	}
-}

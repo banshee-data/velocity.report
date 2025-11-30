@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
@@ -278,7 +279,7 @@ func (api *TrackAPI) handleTrackByID(w http.ResponseWriter, r *http.Request) {
 	subPath := ""
 
 	// Check for sub-paths like /observations
-	if idx := indexOf(remainder, "/"); idx != -1 {
+	if idx := strings.Index(remainder, "/"); idx != -1 {
 		trackID = remainder[:idx]
 		subPath = remainder[idx+1:]
 	}
@@ -707,7 +708,9 @@ func (api *TrackAPI) trackToResponse(track *lidar.TrackedObject) TrackResponse {
 		Position: Position{
 			X: track.X,
 			Y: track.Y,
-			Z: 0, // TrackedObject doesn't track Z position
+			// Z is 0 because TrackedObject uses a 2D Kalman filter tracking (x, y, vx, vy).
+			// Height information is captured in bounding_box and height_p95 from cluster features.
+			Z: 0,
 		},
 		Velocity: Velocity{
 			VX: track.VX,
@@ -738,14 +741,4 @@ type classSummaryAccum struct {
 	totalSpeed    float32
 	peakSpeed     float32
 	totalDuration float64
-}
-
-// indexOf returns the index of the first occurrence of substr in s, or -1 if not found.
-func indexOf(s, substr string) int {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
 }
