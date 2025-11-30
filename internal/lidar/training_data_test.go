@@ -29,43 +29,6 @@ func TestExportForegroundFrame(t *testing.T) {
 	}
 }
 
-func TestForegroundFrame_AttachPoseMetadata(t *testing.T) {
-	frame := &ForegroundFrame{}
-	pose := &Pose{
-		PoseID:                    123,
-		RootMeanSquareErrorMeters: 0.05,
-	}
-
-	frame.AttachPoseMetadata(pose)
-
-	if frame.PoseID == nil || *frame.PoseID != 123 {
-		t.Error("expected PoseID to be set to 123")
-	}
-	if frame.PoseRMSE != 0.05 {
-		t.Errorf("expected RMSE 0.05, got %f", frame.PoseRMSE)
-	}
-}
-
-func TestForegroundFrame_IsHighQualityForTraining(t *testing.T) {
-	tests := []struct {
-		rmse     float32
-		expected bool
-	}{
-		{0.00, true},  // Unknown (no pose) is allowed
-		{0.05, true},  // Below threshold
-		{0.10, true},  // Below threshold
-		{0.15, false}, // At threshold
-		{0.20, false}, // Above threshold
-	}
-
-	for _, tt := range tests {
-		frame := &ForegroundFrame{PoseRMSE: tt.rmse}
-		if frame.IsHighQualityForTraining() != tt.expected {
-			t.Errorf("RMSE %.2f: expected high quality=%v", tt.rmse, tt.expected)
-		}
-	}
-}
-
 func TestForegroundFrame_ForegroundFraction(t *testing.T) {
 	tests := []struct {
 		total    int
@@ -170,9 +133,6 @@ func TestEncodeForegroundBlob_NegativeElevation(t *testing.T) {
 func TestDefaultTrainingDataFilter(t *testing.T) {
 	filter := DefaultTrainingDataFilter()
 
-	if filter.MaxPoseRMSE != RMSEThresholdGood {
-		t.Errorf("expected MaxPoseRMSE=%f, got %f", RMSEThresholdGood, filter.MaxPoseRMSE)
-	}
 	if filter.MinForeground != 10 {
 		t.Errorf("expected MinForeground=10, got %d", filter.MinForeground)
 	}

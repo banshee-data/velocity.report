@@ -9,8 +9,8 @@ import (
 // TrackStore defines the interface for track persistence operations.
 type TrackStore interface {
 	InsertCluster(cluster *WorldCluster) (int64, error)
-	InsertTrack(track *TrackedObject, worldFrame string, poseID int64) error
-	UpdateTrack(track *TrackedObject, worldFrame string, poseID int64) error
+	InsertTrack(track *TrackedObject, worldFrame string) error
+	UpdateTrack(track *TrackedObject, worldFrame string) error
 	InsertTrackObservation(obs *TrackObservation) error
 	GetTrack(trackID string) (*TrackedObject, error)
 	GetActiveTracks(sensorID string, state string) ([]*TrackedObject, error)
@@ -23,7 +23,6 @@ type TrackObservation struct {
 	TrackID     string
 	TSUnixNanos int64
 	WorldFrame  string
-	PoseID      int64
 
 	// Position (world frame)
 	X, Y, Z float32
@@ -45,17 +44,16 @@ type TrackObservation struct {
 func InsertCluster(db *sql.DB, cluster *WorldCluster) (int64, error) {
 	query := `
 		INSERT INTO lidar_clusters (
-			sensor_id, world_frame, pose_id, ts_unix_nanos,
+			sensor_id, world_frame, ts_unix_nanos,
 			centroid_x, centroid_y, centroid_z,
 			bounding_box_length, bounding_box_width, bounding_box_height,
 			points_count, height_p95, intensity_mean
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	result, err := db.Exec(query,
 		cluster.SensorID,
 		cluster.WorldFrame,
-		cluster.PoseID,
 		cluster.TSUnixNanos,
 		cluster.CentroidX,
 		cluster.CentroidY,
@@ -80,19 +78,19 @@ func InsertCluster(db *sql.DB, cluster *WorldCluster) (int64, error) {
 }
 
 // InsertTrack inserts a new track into the database.
-func InsertTrack(db *sql.DB, track *TrackedObject, worldFrame string, poseID int64) error {
+func InsertTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 	// Compute speed percentiles
 	p50, p85, p95 := ComputeSpeedPercentiles(track.speedHistory)
 
 	query := `
 		INSERT INTO lidar_tracks (
-			track_id, sensor_id, world_frame, pose_id, track_state,
+			track_id, sensor_id, world_frame, track_state,
 			start_unix_nanos, end_unix_nanos, observation_count,
 			avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
 			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 			height_p95_max, intensity_mean_avg,
 			object_class, object_confidence, classification_model
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	var endNanos interface{}
@@ -104,7 +102,6 @@ func InsertTrack(db *sql.DB, track *TrackedObject, worldFrame string, poseID int
 		track.TrackID,
 		track.SensorID,
 		worldFrame,
-		poseID,
 		string(track.State),
 		track.FirstUnixNanos,
 		endNanos,
@@ -129,7 +126,7 @@ func InsertTrack(db *sql.DB, track *TrackedObject, worldFrame string, poseID int
 }
 
 // UpdateTrack updates an existing track in the database.
-func UpdateTrack(db *sql.DB, track *TrackedObject, worldFrame string, poseID int64) error {
+func UpdateTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 	// Compute speed percentiles
 	p50, p85, p95 := ComputeSpeedPercentiles(track.speedHistory)
 
@@ -187,19 +184,18 @@ func UpdateTrack(db *sql.DB, track *TrackedObject, worldFrame string, poseID int
 func InsertTrackObservation(db *sql.DB, obs *TrackObservation) error {
 	query := `
 		INSERT INTO lidar_track_obs (
-			track_id, ts_unix_nanos, world_frame, pose_id,
+			track_id, ts_unix_nanos, world_frame,
 			x, y, z,
 			velocity_x, velocity_y, speed_mps, heading_rad,
 			bounding_box_length, bounding_box_width, bounding_box_height,
 			height_p95, intensity_mean
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	_, err := db.Exec(query,
 		obs.TrackID,
 		obs.TSUnixNanos,
 		obs.WorldFrame,
-		obs.PoseID,
 		obs.X, obs.Y, obs.Z,
 		obs.VelocityX, obs.VelocityY, obs.SpeedMps, obs.HeadingRad,
 		obs.BoundingBoxLength, obs.BoundingBoxWidth, obs.BoundingBoxHeight,
@@ -310,7 +306,7 @@ func GetActiveTracks(db *sql.DB, sensorID string, state string) ([]*TrackedObjec
 // GetTrackObservations retrieves observations for a track.
 func GetTrackObservations(db *sql.DB, trackID string, limit int) ([]*TrackObservation, error) {
 	query := `
-		SELECT track_id, ts_unix_nanos, world_frame, pose_id,
+		SELECT track_id, ts_unix_nanos, world_frame,
 			x, y, z,
 			velocity_x, velocity_y, speed_mps, heading_rad,
 			bounding_box_length, bounding_box_width, bounding_box_height,
@@ -334,7 +330,6 @@ func GetTrackObservations(db *sql.DB, trackID string, limit int) ([]*TrackObserv
 			&obs.TrackID,
 			&obs.TSUnixNanos,
 			&obs.WorldFrame,
-			&obs.PoseID,
 			&obs.X, &obs.Y, &obs.Z,
 			&obs.VelocityX, &obs.VelocityY, &obs.SpeedMps, &obs.HeadingRad,
 			&obs.BoundingBoxLength, &obs.BoundingBoxWidth, &obs.BoundingBoxHeight,
@@ -356,7 +351,7 @@ func GetTrackObservations(db *sql.DB, trackID string, limit int) ([]*TrackObserv
 // GetRecentClusters retrieves recent clusters from the database.
 func GetRecentClusters(db *sql.DB, sensorID string, startNanos, endNanos int64, limit int) ([]*WorldCluster, error) {
 	query := `
-		SELECT lidar_cluster_id, sensor_id, world_frame, pose_id, ts_unix_nanos,
+		SELECT lidar_cluster_id, sensor_id, world_frame, ts_unix_nanos,
 			centroid_x, centroid_y, centroid_z,
 			bounding_box_length, bounding_box_width, bounding_box_height,
 			points_count, height_p95, intensity_mean
@@ -379,7 +374,6 @@ func GetRecentClusters(db *sql.DB, sensorID string, startNanos, endNanos int64, 
 			&c.ClusterID,
 			&c.SensorID,
 			&c.WorldFrame,
-			&c.PoseID,
 			&c.TSUnixNanos,
 			&c.CentroidX, &c.CentroidY, &c.CentroidZ,
 			&c.BoundingBoxLength, &c.BoundingBoxWidth, &c.BoundingBoxHeight,

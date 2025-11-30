@@ -41,7 +41,7 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
     - [B. Configuration Parameters](#b-configuration-parameters)
     - [C. Related Documentation](#c-related-documentation)
     - [D. ML Training Data Storage](#d-ml-training-data-storage)
-    - [E. Pose Validation & Quality](#e-pose-validation--quality)
+    - [E. Future Work: Pose Validation](#e-future-work-pose-validation)
 
 ---
 
@@ -79,10 +79,12 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 #### Phase 3.0: Polar → World Transform
 - **Implementation:** `internal/lidar/clustering.go`
 - ✅ `WorldPoint` struct for world-frame coordinates
-- ✅ `TransformToWorld()` - converts polar points to world frame using pose
+- ✅ `TransformToWorld()` - converts polar points to world frame
 - ✅ `TransformPointsToWorld()` - convenience function for pre-computed Cartesian points
-- ✅ Identity transform fallback when pose is nil
+- ✅ Identity transform used by default (sensor frame = world frame)
 - ✅ Unit tests for coordinate transformation accuracy
+
+> **Note:** Pose-based transformations are deferred to a future phase. Currently, sensor frame coordinates are used directly as world frame coordinates.
 
 #### Phase 3.1: DBSCAN Clustering (World Frame)
 - **Implementation:** `internal/lidar/clustering.go`
@@ -104,13 +106,15 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 - ✅ Unit tests in `internal/lidar/tracking_test.go`
 
 #### ML Training Data Support
-- **Implementation:** `internal/lidar/training_data.go`, `internal/lidar/pose.go`
+- **Implementation:** `internal/lidar/training_data.go`
 - ✅ `ForegroundFrame` struct for exporting foreground points
 - ✅ `EncodeForegroundBlob()`/`DecodeForegroundBlob()` - compact binary encoding (8 bytes/point)
-- ✅ `ValidatePose()` - pose quality assessment based on RMSE thresholds
-- ✅ `TransformToWorldWithValidation()` - transform with quality gating
-- ✅ `TrainingDataFilter` for filtering by pose quality
-- ✅ Unit tests for pose validation and training data encoding
+- ✅ `TrainingDataFilter` for filtering training data
+- ✅ Unit tests for training data encoding
+
+> **Future Work:** Pose validation and quality assessment will be implemented in a future phase.
+> The current implementation stores training data in polar (sensor) frame, which is pose-independent.
+> This allows training data to remain valid even if the sensor pose changes.
 
 ### ✅ Completed (Phases 3.3 - 3.5)
 
@@ -902,6 +906,8 @@ func (t *Tracker) mahalanobisDistanceSquared(track *Track, cluster WorldCluster)
 
 **Critical:** All tables store **world-frame coordinates only**. Polar coordinates and background grid data are **never** persisted to SQLite.
 
+> **Note:** Pose ID columns have been removed. Data is stored in sensor frame coordinates (identity transform). Pose-based transformations are planned for a future phase.
+
 #### Migration: 000009_create_lidar_tracks.up.sql
 
 ```sql
@@ -910,7 +916,6 @@ CREATE TABLE IF NOT EXISTS lidar_clusters (
     lidar_cluster_id INTEGER PRIMARY KEY,
     sensor_id TEXT NOT NULL,
     world_frame TEXT NOT NULL,
-    pose_id INTEGER NOT NULL,
     ts_unix_nanos INTEGER NOT NULL,
     
     -- World frame position (meters)
@@ -936,7 +941,6 @@ CREATE TABLE IF NOT EXISTS lidar_tracks (
     track_id TEXT PRIMARY KEY,
     sensor_id TEXT NOT NULL,
     world_frame TEXT NOT NULL,
-    pose_id INTEGER NOT NULL,
     track_state TEXT NOT NULL, -- 'tentative', 'confirmed', 'deleted'
     
     -- Lifecycle
@@ -974,7 +978,6 @@ CREATE TABLE IF NOT EXISTS lidar_track_obs (
     track_id TEXT NOT NULL,
     ts_unix_nanos INTEGER NOT NULL,
     world_frame TEXT NOT NULL,
-    pose_id INTEGER NOT NULL,
     
     -- Position (world frame, meters)
     x REAL,
@@ -1407,8 +1410,6 @@ func TestPipeline_PCAPToTracks(t *testing.T) {
 | 3.5 | `internal/lidar/monitor/track_api_test.go` | Unit tests for track API |
 | ML | `internal/lidar/training_data.go` | Training data export and encoding |
 | ML | `internal/lidar/training_data_test.go` | Unit tests for training data |
-| ML | `internal/lidar/pose.go` | Pose validation and quality assessment |
-| ML | `internal/lidar/pose_test.go` | Unit tests for pose validation |
 
 ---
 
@@ -1548,10 +1549,6 @@ CREATE TABLE IF NOT EXISTS lidar_training_frames (
     --              intensity uint8, ring uint8) = 8 bytes per point
     foreground_polar_blob BLOB,
     
-    -- Optional: pose at capture time (for reference, not required)
-    pose_id INTEGER,                  -- FK to lidar_poses, may be NULL
-    pose_rmse REAL,                   -- RMSE when pose was captured (for quality filtering)
-    
     -- Labels (filled during annotation)
     annotation_status TEXT DEFAULT 'unlabeled',  -- 'unlabeled', 'in_progress', 'labeled'
     annotator TEXT,
@@ -1562,6 +1559,8 @@ CREATE INDEX idx_training_sensor_time ON lidar_training_frames(sensor_id, ts_uni
 CREATE INDEX idx_training_sequence ON lidar_training_frames(frame_sequence_id);
 ```
 
+> **Note:** Pose columns have been removed. Data is stored in polar (sensor) frame, which is pose-independent. Pose-based quality filtering is planned for a future phase.
+
 #### Export Functions
 
 ```go
@@ -1571,8 +1570,8 @@ type ForegroundFrame struct {
     TSUnixNanos      int64
     SequenceID       string
     ForegroundPoints []PointPolar
-    PoseID           *int64  // Optional pose reference
-    PoseRMSE         float32 // Quality metric (0 = unknown)
+    TotalPoints      int
+    BackgroundPoints int
 }
 
 // ExportForegroundFrame exports foreground points in polar coordinates for ML training
@@ -1583,124 +1582,43 @@ func ExportForegroundFrame(polarPoints []PointPolar, mask []bool, sensorID strin
         SensorID:         sensorID,
         TSUnixNanos:      ts.UnixNano(),
         ForegroundPoints: foreground,
-    }
-}
-
-// AttachPoseMetadata adds pose information for quality filtering
-func (f *ForegroundFrame) AttachPoseMetadata(pose *Pose) {
-    if pose != nil {
-        f.PoseID = &pose.PoseID
-        f.PoseRMSE = pose.RootMeanSquareErrorMeters
+        TotalPoints:      len(polarPoints),
+        BackgroundPoints: len(polarPoints) - len(foreground),
     }
 }
 ```
 
-### E. Pose Validation & Quality
+### E. Future Work: Pose Validation
 
-#### How Poses Are Computed
+> **Note:** Pose validation and quality assessment have been deferred to a future phase. This section describes the planned functionality.
 
-Poses are determined through sensor calibration, which can be done via:
+#### Planned Features
 
-1. **Manual Measurement:** Physical measurement of sensor position/orientation relative to a known reference point.
-2. **ICP Registration:** Iterative Closest Point algorithm matching sensor point clouds to a reference model.
-3. **Target-Based Calibration:** Using known calibration targets (e.g., checkerboards) with known positions.
+1. **Pose Validation:** Validate sensor calibration quality based on RMSE metrics
+2. **Quality Assessment:** Categorize pose quality (Excellent/Good/Fair/Poor)
+3. **Transform Gating:** Gate world-frame transformations by pose quality
+4. **Training Data Filtering:** Filter ML training data by pose quality
 
-#### Pose Quality Metrics
+#### Design Rationale
 
-Each pose includes a `RootMeanSquareErrorMeters` (RMSE) field indicating calibration accuracy:
+The current implementation stores all data in polar (sensor) frame, which is pose-independent. This design choice:
+
+1. **Preserves Data Validity:** Training data remains valid even if the sensor pose changes
+2. **Simplifies Schema:** No pose foreign keys required in the database
+3. **Enables Future Enhancement:** Pose can be added later without data migration
+
+#### Future Implementation Plan
+
+When pose validation is implemented:
 
 | RMSE (meters) | Quality | Usage Recommendation |
 |---------------|---------|----------------------|
 | < 0.05 | Excellent | Use for all downstream processing |
-| 0.05 - 0.15 | Good | Use for tracking; flag for training data |
+| 0.05 - 0.15 | Good | Use for tracking and training |
 | 0.15 - 0.30 | Fair | Use for tracking; exclude from training |
 | > 0.30 | Poor | Manual recalibration required |
 
-#### Pose Validation Implementation
-
-```go
-// PoseQuality represents the assessed quality of a pose calibration
-type PoseQuality string
-
-const (
-    PoseQualityExcellent PoseQuality = "excellent"  // RMSE < 0.05m
-    PoseQualityGood      PoseQuality = "good"       // RMSE 0.05-0.15m
-    PoseQualityFair      PoseQuality = "fair"       // RMSE 0.15-0.30m
-    PoseQualityPoor      PoseQuality = "poor"       // RMSE > 0.30m
-    PoseQualityUnknown   PoseQuality = "unknown"    // RMSE = 0 (not computed)
-)
-
-// ValidatePose checks if a pose is valid and returns its quality assessment
-func ValidatePose(pose *Pose) (valid bool, quality PoseQuality, issues []string) {
-    issues = make([]string, 0)
-    
-    // Check for nil pose
-    if pose == nil {
-        return false, PoseQualityUnknown, []string{"pose is nil"}
-    }
-    
-    // Check transform matrix validity
-    if !isValidTransformMatrix(pose.T) {
-        issues = append(issues, "invalid transform matrix (not proper rigid transform)")
-        return false, PoseQualityPoor, issues
-    }
-    
-    // Assess quality based on RMSE
-    rmse := pose.RootMeanSquareErrorMeters
-    switch {
-    case rmse == 0:
-        quality = PoseQualityUnknown
-        issues = append(issues, "RMSE not computed - quality unknown")
-    case rmse < 0.05:
-        quality = PoseQualityExcellent
-    case rmse < 0.15:
-        quality = PoseQualityGood
-    case rmse < 0.30:
-        quality = PoseQualityFair
-        issues = append(issues, "pose quality is fair - consider recalibration")
-    default:
-        quality = PoseQualityPoor
-        issues = append(issues, "pose quality is poor - recalibration required")
-    }
-    
-    return len(issues) == 0 || quality != PoseQualityPoor, quality, issues
-}
-
-// isValidTransformMatrix checks if a 4x4 matrix is a valid rigid transform
-func isValidTransformMatrix(T [16]float64) bool {
-    // Check rotation part is orthonormal (R^T * R = I, det(R) = 1)
-    // Extract 3x3 rotation submatrix
-    r00, r01, r02 := T[0], T[1], T[2]
-    r10, r11, r12 := T[4], T[5], T[6]
-    r20, r21, r22 := T[8], T[9], T[10]
-    
-    // Check determinant ≈ 1 (proper rotation, not reflection)
-    det := r00*(r11*r22-r12*r21) - r01*(r10*r22-r12*r20) + r02*(r10*r21-r11*r20)
-    if math.Abs(det-1.0) > 0.01 {
-        return false
-    }
-    
-    // Check last row is [0 0 0 1]
-    if T[12] != 0 || T[13] != 0 || T[14] != 0 || math.Abs(T[15]-1.0) > 0.001 {
-        return false
-    }
-    
-    return true
-}
-```
-
-#### Impact on Training Data
-
-| Pose Quality | Impact on Training Data |
-|--------------|------------------------|
-| Excellent/Good | Include in training datasets |
-| Fair | Flag as `needs_review`, include with caution |
-| Poor/Unknown | Exclude from training, store polar only |
-
-**Recommendation:** Always store foreground data in polar (sensor) frame. When exporting for ML training:
-1. Filter by `pose_rmse < 0.15` for high-quality datasets
-2. Include `pose_rmse` in training metadata for model to learn calibration sensitivity
-3. Use polar-frame data when pose is poor/unknown (model must handle sensor-frame inputs)
+**Current Status:** Training data stored in polar (sensor) frame. World-frame transformations use identity transform (sensor frame = world frame).
 
 ---
 

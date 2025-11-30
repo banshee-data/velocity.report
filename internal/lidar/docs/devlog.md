@@ -1,5 +1,41 @@
 # Development Log
 
+## November 30, 2025 - Pose Simplification
+
+### Pose Code Removed (Deferred to Future Phase)
+- Removed `internal/lidar/pose.go` and `internal/lidar/pose_test.go`
+- Removed pose-related fields from:
+  - `ForegroundFrame` struct (PoseID, PoseRMSE)
+  - `TrainingFrameMetadata` struct (PoseID, PoseRMSE)
+  - `TrainingDataFilter` struct (MaxPoseRMSE)
+  - `TrackObservation` struct (PoseID)
+  - `WorldCluster` struct (PoseID)
+  - `TrackSummary` struct (PoseID)
+- Updated SQL schemas to remove `pose_id` columns from:
+  - `lidar_clusters` table
+  - `lidar_tracks` table  
+  - `lidar_track_obs` table
+- Updated track_store.go database functions to remove poseID parameters
+- Updated track_api.go to use simplified UpdateTrack signature
+
+### Documentation Updates
+- Updated `foreground_tracking_plan.md`:
+  - Appendix E renamed to "Future Work: Pose Validation"
+  - Updated SQL schema examples to remove pose_id columns
+  - Updated training data schema and export functions
+  - Added notes about pose being deferred to future phase
+- Updated `lidar_sidecar_overview.md`:
+  - Updated module structure (removed pose.go)
+  - Updated ML Training Data section
+  - Updated production readiness section
+  - Added pose to "Future Work" section
+
+### Design Rationale
+Training data is stored in polar (sensor) frame, which is pose-independent. This allows:
+1. Training data to remain valid even if sensor pose changes
+2. Simplified database schema without pose foreign keys
+3. Easy future enhancement without data migration
+
 ## November 30, 2025 - REST API Endpoints (Phase 3.5)
 
 ### Phase 3.5: Track/Cluster REST API
@@ -99,10 +135,10 @@
 ### ML Training Data Support
 - Added `ForegroundFrame` struct for exporting foreground points with metadata
 - Implemented `EncodeForegroundBlob()`/`DecodeForegroundBlob()` for compact binary encoding (8 bytes/point)
-- Added `ValidatePose()` for pose quality assessment based on RMSE thresholds
-- Implemented `TransformToWorldWithValidation()` with quality gating
-- Added `TrainingDataFilter` for filtering by pose quality
-- Unit tests in `internal/lidar/training_data_test.go` and `internal/lidar/pose_test.go`
+- Added `TrainingDataFilter` for filtering training data
+- Unit tests in `internal/lidar/training_data_test.go`
+
+> **Note:** Pose validation and quality assessment were initially implemented but later removed to simplify the schema. See November 30, 2025 Pose Simplification entry.
 
 ### Documentation Updates
 - Updated `foreground_tracking_plan.md` with implementation status and file locations

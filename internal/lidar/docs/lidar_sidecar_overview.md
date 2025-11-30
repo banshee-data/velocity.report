@@ -51,11 +51,13 @@
 ### ✅ **Phase 3.0: Polar → World Transform (COMPLETED)**
 
 - ✅ **`WorldPoint`** struct for world-frame Cartesian coordinates
-- ✅ **`TransformToWorld()`**: Converts polar points to world frame using pose transform
+- ✅ **`TransformToWorld()`**: Converts polar points to world frame
 - ✅ **`TransformPointsToWorld()`**: Convenience function for pre-computed Cartesian points
-- ✅ **Identity transform fallback** when pose is nil
+- ✅ **Identity transform**: Currently uses identity transform (sensor frame = world frame)
 - ✅ **Unit Tests**: Transform accuracy validation in `internal/lidar/clustering_test.go`
 - ✅ **Location**: `internal/lidar/clustering.go`
+
+> **Note:** Pose-based transformations are planned for a future phase.
 
 ### ✅ **Phase 3.1: DBSCAN Clustering (COMPLETED)**
 
@@ -82,11 +84,11 @@
 
 - ✅ **`ForegroundFrame`**: Export struct for foreground points with metadata
 - ✅ **`EncodeForegroundBlob()`/`DecodeForegroundBlob()`**: Compact binary encoding (8 bytes/point)
-- ✅ **`ValidatePose()`**: Pose quality assessment based on RMSE thresholds
-- ✅ **`TransformToWorldWithValidation()`**: Transform with quality gating
-- ✅ **`TrainingDataFilter`**: Filtering by pose quality for ML datasets
-- ✅ **Unit Tests**: `internal/lidar/training_data_test.go`, `internal/lidar/pose_test.go`
-- ✅ **Location**: `internal/lidar/training_data.go`, `internal/lidar/pose.go`
+- ✅ **`TrainingDataFilter`**: Filtering training data by sensor, sequence, foreground count
+- ✅ **Unit Tests**: `internal/lidar/training_data_test.go`
+- ✅ **Location**: `internal/lidar/training_data.go`
+
+> **Note:** Pose validation and quality-based filtering are planned for a future phase. Training data is stored in polar (sensor) frame for pose independence.
 
 ### ✅ **Phase 3.3: SQL Schema & Database Persistence (COMPLETED)**
 
@@ -160,7 +162,6 @@ internal/lidar/tracking.go         ✅ # Kalman tracking with lifecycle manageme
 internal/lidar/track_store.go      ✅ # Database persistence for tracks/clusters (Phase 3.3)
 internal/lidar/classification.go   ✅ # Rule-based track classification (Phase 3.4)
 internal/lidar/training_data.go    ✅ # ML training data export and encoding
-internal/lidar/pose.go             ✅ # Pose validation and quality assessment
 internal/lidar/export.go           ✅ # ASC point cloud export
 internal/lidar/arena.go            ✅ # Data structures for clustering and tracking
 internal/db/db.go                  ✅ # Database schema and BgSnapshot persistence
@@ -261,9 +262,10 @@ is_background = (cell_diff <= closeness_threshold) OR (neighbor_confirm >= requi
 
 - **Location**: `internal/lidar/clustering.go`
 - **`TransformToWorld()`**: Converts polar points to world-frame Cartesian coordinates
-- **Pose Support**: Uses 4x4 homogeneous transform matrix (sensor → world)
-- **Identity Fallback**: Uses identity transform when pose is nil
+- **Identity Transform**: Currently uses identity transform (sensor frame = world frame)
 - **`TransformPointsToWorld()`**: Convenience function for pre-computed Cartesian points
+
+> **Future Work:** Pose-based transformations using 4x4 homogeneous matrices are planned for a future phase.
 
 ### Clustering (✅ Complete)
 
@@ -294,17 +296,13 @@ is_background = (cell_diff <= closeness_threshold) OR (neighbor_confirm >= requi
 
 ### ML Training Data (✅ Complete)
 
-- **Location**: `internal/lidar/training_data.go`, `internal/lidar/pose.go`
+- **Location**: `internal/lidar/training_data.go`
 - **`ForegroundFrame`**: Export struct for foreground points with metadata
 - **Compact Encoding**: 8 bytes per point (vs ~40+ bytes for struct)
-- **Pose Validation**: Quality assessment based on RMSE thresholds
-  - Excellent: < 0.05m
-  - Good: 0.05-0.15m (OK for training)
-  - Fair: 0.15-0.30m (OK for tracking, exclude from training)
-  - Poor: > 0.30m (requires recalibration)
-- **`TransformToWorldWithValidation()`**: Transform with pose quality gating
-- **`TrainingDataFilter`**: Filtering by pose quality for ML datasets
-- **Storage Recommendation**: Store in polar (sensor) frame for pose independence
+- **`TrainingDataFilter`**: Filtering training data by sensor, sequence, foreground count
+- **Storage Format**: Polar (sensor) frame for pose independence
+
+> **Future Work:** Pose validation and quality-based filtering for ML datasets are planned for a future phase.
 
 ---
 
@@ -769,8 +767,9 @@ ChangeThresholdForSnapshot     int      // Min changed cells to trigger snapshot
 # Tracking parameters (future)
 -max_concurrent_tracks 100      # Memory management
 -track_max_age_min 30          # Track retention
--pose_file "calibration.json"   # Sensor calibration
 ```
+
+> **Note:** Pose configuration (`-pose_file`) is planned for a future phase.
 
 ---
 
@@ -1008,27 +1007,29 @@ The LiDAR sidecar has **completed Phases 1-2 (core infrastructure, background cl
 - ✅ **Monitoring**: Acceptance metrics and grid statistics for tuning
 - ✅ **Sweep Tools**: Automated parameter sweep utilities for optimization
 - ✅ **Foreground Mask Generation** (Phase 2.9): `ProcessFramePolarWithMask()`, `ExtractForegroundPoints()`
-- ✅ **World Transform** (Phase 3.0): `TransformToWorld()` with pose support
+- ✅ **World Transform** (Phase 3.0): `TransformToWorld()` with identity transform
 - ✅ **DBSCAN Clustering** (Phase 3.1): `SpatialIndex`, `DBSCAN()`, `WorldCluster`
 - ✅ **Kalman Tracking** (Phase 3.2): `Tracker`, `TrackedObject`, lifecycle management
-- ✅ **ML Training Data Support**: `ForegroundFrame`, pose validation, compact encoding
+- ✅ **ML Training Data Support**: `ForegroundFrame`, compact encoding, sensor-frame storage
 
 ### ✅ **Completed (Phase 2.5, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5)**
 
 - ✅ **PCAP Reading**: File-based replay with BPF filtering (Phase 2.5)
 - ✅ **Parameter Optimization**: Runtime-adjustable via HTTP API (Phase 2.5)
 - ✅ **Foreground Extraction**: `ProcessFramePolarWithMask()` and `ExtractForegroundPoints()` (Phase 2.9)
-- ✅ **World Transform**: `TransformToWorld()` with pose support (Phase 3.0)
+- ✅ **World Transform**: `TransformToWorld()` with identity transform (Phase 3.0)
 - ✅ **Clustering**: `DBSCAN()` with `SpatialIndex` for efficient neighbor queries (Phase 3.1)
 - ✅ **Tracking**: `Tracker` with Kalman filter and lifecycle management (Phase 3.2)
-- ✅ **ML Training Data**: `ForegroundFrame` export and pose validation
+- ✅ **ML Training Data**: `ForegroundFrame` export with compact binary encoding
 - ✅ **SQL Schema**: `lidar_clusters`, `lidar_tracks`, `lidar_track_obs` tables (Phase 3.3)
 - ✅ **Track Persistence**: `InsertCluster()`, `InsertTrack()`, `UpdateTrack()` functions (Phase 3.3)
 - ✅ **Classification**: `TrackClassifier` for pedestrian/car/bird/other labels (Phase 3.4)
 - ✅ **REST API Endpoints**: `TrackAPI` HTTP handlers for track/cluster queries (Phase 3.5)
 
-### 📋 **Future Work (Phase 4)**
+### 📋 **Future Work (Phase 4+)**
 
+- 📋 **Pose Validation**: Sensor calibration quality assessment and RMSE-based filtering
+- 📋 **Pose-Based Transform**: 4x4 homogeneous matrix transform from sensor to world frame
 - 📋 **UI Visualization**: Track display components in web frontend
 - 📋 **Multi-Sensor (Phase 4)**: Support multiple sensors per machine with local databases
 - 📋 **Database Unification**: Consolidate data from distributed edge nodes

@@ -32,7 +32,6 @@ func setupTestDB(t *testing.T) (*sql.DB, func()) {
 			lidar_cluster_id INTEGER PRIMARY KEY,
 			sensor_id TEXT NOT NULL,
 			world_frame TEXT NOT NULL,
-			pose_id INTEGER NOT NULL,
 			ts_unix_nanos INTEGER NOT NULL,
 			centroid_x REAL,
 			centroid_y REAL,
@@ -49,7 +48,6 @@ func setupTestDB(t *testing.T) (*sql.DB, func()) {
 			track_id TEXT PRIMARY KEY,
 			sensor_id TEXT NOT NULL,
 			world_frame TEXT NOT NULL,
-			pose_id INTEGER NOT NULL,
 			track_state TEXT NOT NULL,
 			start_unix_nanos INTEGER NOT NULL,
 			end_unix_nanos INTEGER,
@@ -73,7 +71,6 @@ func setupTestDB(t *testing.T) (*sql.DB, func()) {
 			track_id TEXT NOT NULL,
 			ts_unix_nanos INTEGER NOT NULL,
 			world_frame TEXT NOT NULL,
-			pose_id INTEGER NOT NULL,
 			x REAL,
 			y REAL,
 			z REAL,
@@ -111,7 +108,6 @@ func TestInsertCluster(t *testing.T) {
 	cluster := &WorldCluster{
 		SensorID:          "sensor-001",
 		WorldFrame:        "site/main",
-		PoseID:            1,
 		TSUnixNanos:       1234567890000000000,
 		CentroidX:         10.5,
 		CentroidY:         20.5,
@@ -176,7 +172,7 @@ func TestInsertAndGetTrack(t *testing.T) {
 		speedHistory:         []float32{7, 8, 9, 8, 9, 10, 8, 9, 8, 9},
 	}
 
-	err := InsertTrack(db, track, "site/main", 1)
+	err := InsertTrack(db, track, "site/main")
 	if err != nil {
 		t.Fatalf("InsertTrack failed: %v", err)
 	}
@@ -218,7 +214,7 @@ func TestUpdateTrack(t *testing.T) {
 		speedHistory:     []float32{4, 5, 6},
 	}
 
-	err := InsertTrack(db, track, "site/main", 1)
+	err := InsertTrack(db, track, "site/main")
 	if err != nil {
 		t.Fatalf("InsertTrack failed: %v", err)
 	}
@@ -231,7 +227,7 @@ func TestUpdateTrack(t *testing.T) {
 	track.ObjectConfidence = 0.75
 	track.speedHistory = []float32{6, 7, 8, 9, 8, 7, 8, 9, 8, 7}
 
-	err = UpdateTrack(db, track, "site/main", 1)
+	err = UpdateTrack(db, track, "site/main")
 	if err != nil {
 		t.Fatalf("UpdateTrack failed: %v", err)
 	}
@@ -271,7 +267,7 @@ func TestInsertAndGetTrackObservations(t *testing.T) {
 		speedHistory:   []float32{5.0},
 	}
 
-	err := InsertTrack(db, track, "site/main", 1)
+	err := InsertTrack(db, track, "site/main")
 	if err != nil {
 		t.Fatalf("InsertTrack failed: %v", err)
 	}
@@ -282,7 +278,6 @@ func TestInsertAndGetTrackObservations(t *testing.T) {
 			TrackID:           "track-obs-test",
 			TSUnixNanos:       1234567890000000000,
 			WorldFrame:        "site/main",
-			PoseID:            1,
 			X:                 10.0,
 			Y:                 20.0,
 			Z:                 1.0,
@@ -300,7 +295,6 @@ func TestInsertAndGetTrackObservations(t *testing.T) {
 			TrackID:           "track-obs-test",
 			TSUnixNanos:       1234567891000000000,
 			WorldFrame:        "site/main",
-			PoseID:            1,
 			X:                 15.0,
 			Y:                 20.0,
 			Z:                 1.0,
@@ -354,7 +348,7 @@ func TestGetActiveTracksFilterByState(t *testing.T) {
 	}
 
 	for _, track := range tracks {
-		if err := InsertTrack(db, track, "site/main", 1); err != nil {
+		if err := InsertTrack(db, track, "site/main"); err != nil {
 			t.Fatalf("InsertTrack failed: %v", err)
 		}
 	}

@@ -13,10 +13,6 @@ type ForegroundFrame struct {
 	SequenceID       string       // Optional sequence grouping (e.g., "seq_20251130_001")
 	ForegroundPoints []PointPolar // Foreground points in polar (sensor) frame
 
-	// Pose metadata (optional - for quality filtering)
-	PoseID   *int64  // Reference to pose used at capture time
-	PoseRMSE float32 // RMSE of the pose (for quality filtering)
-
 	// Frame statistics
 	TotalPoints      int
 	BackgroundPoints int
@@ -38,15 +34,6 @@ func ExportForegroundFrame(polarPoints []PointPolar, mask []bool, sensorID strin
 	return frame
 }
 
-// AttachPoseMetadata adds pose information for quality filtering.
-// This allows training pipelines to filter by pose quality.
-func (f *ForegroundFrame) AttachPoseMetadata(pose *Pose) {
-	if pose != nil {
-		f.PoseID = &pose.PoseID
-		f.PoseRMSE = pose.RootMeanSquareErrorMeters
-	}
-}
-
 // SetSequenceID assigns this frame to a sequence for grouping.
 func (f *ForegroundFrame) SetSequenceID(sequenceID string) {
 	f.SequenceID = sequenceID
@@ -63,16 +50,6 @@ func (f *ForegroundFrame) ForegroundFraction() float64 {
 		return 0
 	}
 	return float64(len(f.ForegroundPoints)) / float64(f.TotalPoints)
-}
-
-// IsHighQualityForTraining returns true if this frame has sufficient pose quality for ML training.
-func (f *ForegroundFrame) IsHighQualityForTraining() bool {
-	// If no pose metadata, we can still use the frame (polar data is pose-independent)
-	// but flag it as unknown quality
-	if f.PoseRMSE == 0 {
-		return true // Allow unknown - polar data is still valid
-	}
-	return f.PoseRMSE < RMSEThresholdGood
 }
 
 // PolarPointCompact is a compact binary representation of a polar point.
@@ -154,25 +131,21 @@ type TrainingFrameMetadata struct {
 	TotalPoints      int
 	ForegroundPoints int
 	BackgroundPoints int
-	PoseID           *int64
-	PoseRMSE         float32
 	AnnotationStatus string // "unlabeled", "in_progress", "labeled"
 }
 
 // TrainingDataFilter defines criteria for filtering training frames.
 type TrainingDataFilter struct {
-	SensorID       string  // Filter by sensor (empty = all)
-	SequenceID     string  // Filter by sequence (empty = all)
-	MaxPoseRMSE    float32 // Maximum acceptable RMSE (0 = no filter)
-	MinForeground  int     // Minimum foreground points per frame
-	AnnotationOnly bool    // Only return annotated frames
+	SensorID       string // Filter by sensor (empty = all)
+	SequenceID     string // Filter by sequence (empty = all)
+	MinForeground  int    // Minimum foreground points per frame
+	AnnotationOnly bool   // Only return annotated frames
 }
 
 // DefaultTrainingDataFilter returns a filter suitable for high-quality training data.
 func DefaultTrainingDataFilter() TrainingDataFilter {
 	return TrainingDataFilter{
-		MaxPoseRMSE:    RMSEThresholdGood, // 0.15m
-		MinForeground:  10,                // At least 10 foreground points
+		MinForeground:  10, // At least 10 foreground points
 		AnnotationOnly: false,
 	}
 }

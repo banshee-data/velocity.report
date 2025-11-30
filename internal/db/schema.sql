@@ -193,7 +193,6 @@ CREATE TABLE IF NOT EXISTS lidar_clusters (
     lidar_cluster_id INTEGER PRIMARY KEY,
     sensor_id TEXT NOT NULL,
     world_frame TEXT NOT NULL,
-    pose_id INTEGER NOT NULL,
     ts_unix_nanos INTEGER NOT NULL,
     
     -- World frame position (meters)
@@ -219,7 +218,6 @@ CREATE TABLE IF NOT EXISTS lidar_tracks (
     track_id TEXT PRIMARY KEY,
     sensor_id TEXT NOT NULL,
     world_frame TEXT NOT NULL,
-    pose_id INTEGER NOT NULL,
     track_state TEXT NOT NULL, -- 'tentative', 'confirmed', 'deleted'
     
     -- Lifecycle
@@ -257,7 +255,6 @@ CREATE TABLE IF NOT EXISTS lidar_track_obs (
     track_id TEXT NOT NULL,
     ts_unix_nanos INTEGER NOT NULL,
     world_frame TEXT NOT NULL,
-    pose_id INTEGER NOT NULL,
     
     -- Position (world frame, meters)
     x REAL,
