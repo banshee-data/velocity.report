@@ -8,6 +8,12 @@ node_modules
 /.svelte-kit
 /build
 
+# Coverage
+coverage
+
+# Package locks (project uses pnpm)
+package-lock.json
+
 # OS
 .DS_Store
 Thumbs.db

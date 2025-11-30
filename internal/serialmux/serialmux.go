@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -289,6 +290,7 @@ func AttachAdminRoutesForMux(mux *http.ServeMux, serial SerialMuxInterface) {
 
 		// Send initial ping to establish connection
 		if _, err := w.Write([]byte(": ping\n\n")); err != nil {
+			log.Printf("SSE ping write failed: %v", err)
 			return
 		}
 		if flusher, ok := w.(http.Flusher); ok {
@@ -303,6 +305,7 @@ func AttachAdminRoutesForMux(mux *http.ServeMux, serial SerialMuxInterface) {
 					return
 				}
 				if _, err := w.Write([]byte(fmt.Sprintf("data: %s\n\n", payload))); err != nil {
+					log.Printf("SSE event write failed: %v", err)
 					return
 				}
 				if flusher, ok := w.(http.Flusher); ok {

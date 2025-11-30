@@ -1,6 +1,8 @@
 import {
+	createSerialConfig,
 	createSite,
 	deleteReport,
+	deleteSerialConfig,
 	deleteSite,
 	downloadReport,
 	generateReport,
@@ -10,13 +12,23 @@ import {
 	getRecentReports,
 	getReport,
 	getReportsForSite,
+	getSensorModels,
+	getSerialConfig,
+	getSerialConfigs,
+	getSerialDevices,
 	getSite,
 	getSites,
 	getTransitWorkerState,
+	testSerialPort,
+	updateSerialConfig,
 	updateSite,
 	updateTransitWorker,
 	type Config,
 	type Event,
+	type SensorModel,
+	type SerialConfig,
+	type SerialDevice,
+	type SerialTestResponse,
 	type Site,
 	type SiteReport,
 	type TransitWorkerState,
@@ -819,6 +831,348 @@ describe('api', () => {
 			});
 
 			await expect(deleteSite(123)).rejects.toThrow('Failed to delete site: 409');
+		});
+	});
+
+	describe('getSerialConfigs', () => {
+		it('should fetch all serial configurations', async () => {
+			const mockConfigs: SerialConfig[] = [
+				{
+					id: 1,
+					name: 'Config 1',
+					port_path: '/dev/ttyUSB0',
+					baud_rate: 19200,
+					data_bits: 8,
+					stop_bits: 1,
+					parity: 'N',
+					enabled: true,
+					description: 'Test config',
+					sensor_model: 'ops243-a',
+					created_at: '2025-01-01T00:00:00Z',
+					updated_at: '2025-01-01T00:00:00Z'
+				}
+			];
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockConfigs
+			});
+
+			const result = await getSerialConfigs();
+
+			expect(global.fetch).toHaveBeenCalledWith('/api/serial/configs');
+			expect(result).toEqual(mockConfigs);
+		});
+
+		it('should handle errors when fetching serial configs', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 500
+			});
+
+			await expect(getSerialConfigs()).rejects.toThrow('Failed to fetch serial configs: 500');
+		});
+	});
+
+	describe('getSerialConfig', () => {
+		it('should fetch a specific serial configuration', async () => {
+			const mockConfig: SerialConfig = {
+				id: 1,
+				name: 'Config 1',
+				port_path: '/dev/ttyUSB0',
+				baud_rate: 19200,
+				data_bits: 8,
+				stop_bits: 1,
+				parity: 'N',
+				enabled: true,
+				description: 'Test config',
+				sensor_model: 'ops243-a',
+				created_at: '2025-01-01T00:00:00Z',
+				updated_at: '2025-01-01T00:00:00Z'
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockConfig
+			});
+
+			const result = await getSerialConfig(1);
+
+			expect(global.fetch).toHaveBeenCalledWith('/api/serial/configs/1');
+			expect(result).toEqual(mockConfig);
+		});
+
+		it('should handle errors when fetching a serial config', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 404
+			});
+
+			await expect(getSerialConfig(999)).rejects.toThrow('Failed to fetch serial config: 404');
+		});
+	});
+
+	describe('createSerialConfig', () => {
+		it('should create a new serial configuration', async () => {
+			const newConfig = {
+				name: 'New Config',
+				port_path: '/dev/ttyUSB1',
+				baud_rate: 19200,
+				data_bits: 8,
+				stop_bits: 1,
+				parity: 'N',
+				enabled: true,
+				description: 'New test config',
+				sensor_model: 'ops243-a'
+			};
+			const mockCreatedConfig: SerialConfig = {
+				id: 2,
+				...newConfig,
+				created_at: '2025-01-01T00:00:00Z',
+				updated_at: '2025-01-01T00:00:00Z'
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockCreatedConfig
+			});
+
+			const result = await createSerialConfig(newConfig);
+
+			expect(global.fetch).toHaveBeenCalledWith('/api/serial/configs', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(newConfig)
+			});
+			expect(result).toEqual(mockCreatedConfig);
+		});
+
+		it('should handle errors when creating a serial config', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 400,
+				text: async () => 'Invalid configuration'
+			});
+
+			await expect(
+				createSerialConfig({
+					name: 'Bad Config',
+					port_path: '',
+					baud_rate: 0,
+					data_bits: 8,
+					stop_bits: 1,
+					parity: 'N',
+					enabled: true,
+					description: '',
+					sensor_model: 'ops243-a'
+				})
+			).rejects.toThrow('Failed to create serial config: Invalid configuration');
+		});
+	});
+
+	describe('updateSerialConfig', () => {
+		it('should update an existing serial configuration', async () => {
+			const updates = {
+				name: 'Updated Config',
+				port_path: '/dev/ttyUSB0',
+				baud_rate: 9600,
+				data_bits: 8,
+				stop_bits: 1,
+				parity: 'N',
+				enabled: true,
+				description: 'Updated description',
+				sensor_model: 'ops243-a'
+			};
+			const mockUpdatedConfig: SerialConfig = {
+				id: 1,
+				...updates,
+				created_at: '2025-01-01T00:00:00Z',
+				updated_at: '2025-01-02T00:00:00Z'
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockUpdatedConfig
+			});
+
+			const result = await updateSerialConfig(1, updates);
+
+			expect(global.fetch).toHaveBeenCalledWith('/api/serial/configs/1', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(updates)
+			});
+			expect(result).toEqual(mockUpdatedConfig);
+		});
+
+		it('should handle errors when updating a serial config', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 404,
+				text: async () => 'Configuration not found'
+			});
+
+			await expect(
+				updateSerialConfig(999, {
+					name: 'Updated',
+					port_path: '/dev/ttyUSB0',
+					baud_rate: 19200,
+					data_bits: 8,
+					stop_bits: 1,
+					parity: 'N',
+					enabled: true,
+					description: '',
+					sensor_model: 'ops243-a'
+				})
+			).rejects.toThrow('Failed to update serial config: Configuration not found');
+		});
+	});
+
+	describe('deleteSerialConfig', () => {
+		it('should delete a serial configuration', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true
+			});
+
+			await deleteSerialConfig(123);
+
+			expect(global.fetch).toHaveBeenCalledWith('/api/serial/configs/123', { method: 'DELETE' });
+		});
+
+		it('should handle errors when deleting a serial config', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 404,
+				text: async () => 'Configuration not found'
+			});
+
+			await expect(deleteSerialConfig(999)).rejects.toThrow(
+				'Failed to delete serial config: Configuration not found'
+			);
+		});
+	});
+
+	describe('getSensorModels', () => {
+		it('should fetch all sensor models', async () => {
+			const mockModels: SensorModel[] = [
+				{
+					slug: 'ops243-a',
+					display_name: 'OPS243-A',
+					has_doppler: true,
+					has_fmcw: false,
+					has_distance: false,
+					default_baud_rate: 19200,
+					init_commands: ['OJ'],
+					description: 'Speed-only radar'
+				}
+			];
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockModels
+			});
+
+			const result = await getSensorModels();
+
+			expect(global.fetch).toHaveBeenCalledWith('/api/serial/models');
+			expect(result).toEqual(mockModels);
+		});
+
+		it('should handle errors when fetching sensor models', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 500
+			});
+
+			await expect(getSensorModels()).rejects.toThrow('Failed to fetch sensor models: 500');
+		});
+	});
+
+	describe('getSerialDevices', () => {
+		it('should fetch available serial devices', async () => {
+			const mockDevices: SerialDevice[] = [
+				{
+					port_path: '/dev/ttyUSB0',
+					friendly_name: 'USB Serial Adapter (ttyUSB0)',
+					last_seen: 1704067200
+				}
+			];
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockDevices
+			});
+
+			const result = await getSerialDevices();
+
+			expect(global.fetch).toHaveBeenCalledWith('/api/serial/devices');
+			expect(result).toEqual(mockDevices);
+		});
+
+		it('should handle errors when fetching serial devices', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 500
+			});
+
+			await expect(getSerialDevices()).rejects.toThrow('Failed to fetch serial devices: 500');
+		});
+	});
+
+	describe('testSerialPort', () => {
+		it('should test a serial port configuration', async () => {
+			const request = {
+				port_path: '/dev/ttyUSB0',
+				baud_rate: 19200,
+				data_bits: 8,
+				stop_bits: 1,
+				parity: 'N',
+				timeout_seconds: 5,
+				auto_correct_baud: true
+			};
+			const mockResponse: SerialTestResponse = {
+				success: true,
+				port_path: '/dev/ttyUSB0',
+				baud_rate: 19200,
+				test_duration_ms: 150,
+				bytes_received: 256,
+				sample_data: 'Sample radar data',
+				message: 'Serial port communication successful'
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockResponse
+			});
+
+			const result = await testSerialPort(request);
+
+			expect(global.fetch).toHaveBeenCalledWith('/api/serial/test', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(request)
+			});
+			expect(result).toEqual(mockResponse);
+		});
+
+		it('should handle errors when testing a serial port', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 400,
+				text: async () => 'Invalid port path'
+			});
+
+			await expect(
+				testSerialPort({
+					port_path: '/invalid/path',
+					baud_rate: 19200,
+					data_bits: 8,
+					stop_bits: 1,
+					parity: 'N',
+					timeout_seconds: 5,
+					auto_correct_baud: false
+				})
+			).rejects.toThrow('Failed to test serial port: Invalid port path');
 		});
 	});
 

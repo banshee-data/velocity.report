@@ -52,7 +52,9 @@ func (s *Server) handleSerialConfigs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(configs)
+	if err := json.NewEncoder(w).Encode(configs); err != nil {
+		log.Printf("Error encoding serial configs response: %v", err)
+	}
 }
 
 // handleSerialConfigByID handles GET/PUT/DELETE /api/serial/configs/:id
@@ -97,7 +99,9 @@ func (s *Server) handleGetSerialConfig(w http.ResponseWriter, r *http.Request, i
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(config)
+	if err := json.NewEncoder(w).Encode(config); err != nil {
+		log.Printf("Error encoding serial config %d response: %v", id, err)
+	}
 }
 
 // handleCreateSerialConfig handles POST /api/serial/configs
@@ -182,7 +186,9 @@ func (s *Server) handleCreateSerialConfig(w http.ResponseWriter, r *http.Request
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(created)
+	if err := json.NewEncoder(w).Encode(created); err != nil {
+		log.Printf("Error encoding created serial config response: %v", err)
+	}
 }
 
 // handleUpdateSerialConfig handles PUT /api/serial/configs/:id
@@ -252,7 +258,9 @@ func (s *Server) handleUpdateSerialConfig(w http.ResponseWriter, r *http.Request
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(updated)
+	if err := json.NewEncoder(w).Encode(updated); err != nil {
+		log.Printf("Error encoding updated serial config response: %v", err)
+	}
 }
 
 // handleDeleteSerialConfig handles DELETE /api/serial/configs/:id
@@ -281,7 +289,9 @@ func (s *Server) handleSensorModels(w http.ResponseWriter, r *http.Request) {
 	models := GetAllSensorModels()
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(models)
+	if err := json.NewEncoder(w).Encode(models); err != nil {
+		log.Printf("Error encoding sensor models response: %v", err)
+	}
 }
 
 // isValidPortPath validates that a port path is in an allowed format and

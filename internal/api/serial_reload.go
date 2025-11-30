@@ -417,18 +417,62 @@ func (m *SerialPortManager) ReloadConfig(ctx context.Context) (*SerialReloadResu
 		}, nil
 	}
 
-	newMux, err := m.factory(cfg.PortPath, normalized)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open serial port %s: %w", cfg.PortPath, err)
+	// Determine if we're switching to the same port (with different settings).
+	// This affects the reload strategy:
+	// - Different port: open new first, swap, close old (safer - keeps connection on failure)
+	// - Same port: must close old first since serial ports can't be opened twice
+	samePort := currentSnap.PortPath == cfg.PortPath && currentSnap.PortPath != ""
+
+	var newMux serialmux.SerialMuxInterface
+	var oldMux serialmux.SerialMuxInterface
+
+	if samePort {
+		// Same port reload: must close old connection first to release the port.
+		// If opening the new connection fails, we lose the active connection.
+		// This is unavoidable for same-port reloads.
+		m.mu.Lock()
+		oldMux = m.current
+		m.current = nil
+		m.mu.Unlock()
+
+		if oldMux != nil {
+			log.Printf("Closing current serial mux before same-port reload...")
+			if err := oldMux.Close(); err != nil {
+				log.Printf("warning: failed to close previous serial mux: %v", err)
+			}
+		}
+
+		// Now try to open the new mux
+		newMux, err = m.factory(cfg.PortPath, normalized)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open serial port %s: %w", cfg.PortPath, err)
+		}
+
+		if err := newMux.Initialize(); err != nil {
+			newMux.Close()
+			return nil, fmt.Errorf("failed to initialize serial port: %w", err)
+		}
+	} else {
+		// Different port reload: open new connection first, keeping the old one active.
+		// If the new connection fails, the old one remains active (no loss of service).
+		newMux, err = m.factory(cfg.PortPath, normalized)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open serial port %s: %w", cfg.PortPath, err)
+		}
+
+		if err := newMux.Initialize(); err != nil {
+			newMux.Close()
+			return nil, fmt.Errorf("failed to initialize serial port: %w", err)
+		}
+
+		// New mux is ready, now swap and close old
+		m.mu.Lock()
+		oldMux = m.current
+		m.mu.Unlock()
 	}
 
-	if err := newMux.Initialize(); err != nil {
-		newMux.Close()
-		return nil, fmt.Errorf("failed to initialise serial port: %w", err)
-	}
-
+	// Install the new mux
 	m.mu.Lock()
-	oldMux := m.current
 	snap := SerialConfigSnapshot{
 		ConfigID: cfg.ID,
 		Name:     cfg.Name,
@@ -438,20 +482,11 @@ func (m *SerialPortManager) ReloadConfig(ctx context.Context) (*SerialReloadResu
 	}
 	m.current = newMux
 	m.snapshot = &snap
-	// Note: We do NOT set m.closed = true here because this is not a shutdown.
-	// m.closed is only set during Close() to signal shutdown to all methods.
 	m.mu.Unlock()
 
-	// Close the old mux to signal the event fanout loop to reconnect.
-	// Closing oldMux closes all its subscriber channels, which triggers the
-	// fanout loop to detect the closed channel and automatically reconnect to
-	// the new mux on the next iteration. This ensures no events are lost:
-	// 1. oldMux.Close() closes oldMux's subscriber channels
-	// 2. Fanout loop detects !ok on currentSubCh read
-	// 3. Fanout loop resets subscription (currentSubID = "")
-	// 4. Next iteration subscribes to m.current (now the new mux)
-	// 5. Subsequent events flow through the fanout to all subscribers
-	if oldMux != nil {
+	// Close the old mux (for different-port case; already closed for same-port case)
+	if oldMux != nil && !samePort {
+		log.Printf("Closing previous serial mux after successful reload...")
 		if err := oldMux.Close(); err != nil {
 			log.Printf("warning: failed to close previous serial mux: %v", err)
 		}
