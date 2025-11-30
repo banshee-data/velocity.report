@@ -475,7 +475,7 @@ lint-web:
 		if command -v pnpm >/dev/null 2>&1; then \
 			cd $(WEB_DIR) && pnpm run lint || exit 1; \
 		elif command -v npx >/dev/null 2>&1; then \
-			cd $(WEB_DIR) && npx prettier --check . && npx eslint . || exit 1; \
+			(cd $(WEB_DIR) && npx prettier --check . && npx eslint .) || exit 1; \
 		else \
 			echo "pnpm/npx not found; cannot run prettier --check"; \
 			exit 2; \

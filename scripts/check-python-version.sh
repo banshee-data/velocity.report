@@ -137,7 +137,7 @@ else
         # Check if latest version might be pre-release by looking at version output
         latest_full_version=$(python${LATEST_VERSION} --version 2>&1 || echo "")
 
-        # If version contains alpha, beta, rc, dev, or is very recent (3.14+), use second-latest
+        # If version contains alpha, beta, rc, dev, or is very recent, use second-latest
         if echo "$latest_full_version" | grep -qE "(alpha|beta|rc|dev|a[0-9]|b[0-9])"; then
             TARGET_VERSION="${AVAILABLE_VERSIONS[1]}"
             echo -e "  ${RED}⚠ WARNING: Latest version ${LATEST_VERSION} is pre-release${NC}"
