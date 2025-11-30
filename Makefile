@@ -422,7 +422,7 @@ format-web:
 		if command -v pnpm >/dev/null 2>&1; then \
 			cd $(WEB_DIR) && pnpm run prettier:write || echo "prettier run failed or not configured"; \
 		elif command -v npx >/dev/null 2>&1; then \
-			cd $(WEB_DIR) && npx prettier --plugin ./node_modules/prettier-plugin-svelte/plugin.js --write . || echo "prettier run failed or not configured"; \
+			cd $(WEB_DIR) && npx prettier --write . || echo "prettier run failed or not configured"; \
 		else \
 			echo "pnpm/npx not found; skipping JS/TS formatting in $(WEB_DIR)"; \
 		fi; \
@@ -475,7 +475,7 @@ lint-web:
 		if command -v pnpm >/dev/null 2>&1; then \
 			cd $(WEB_DIR) && pnpm run lint || exit 1; \
 		elif command -v npx >/dev/null 2>&1; then \
-			cd $(WEB_DIR) && npx prettier --plugin ./node_modules/prettier-plugin-svelte/plugin.js --check . && npx eslint . || exit 1; \
+			cd $(WEB_DIR) && npx prettier --check . && npx eslint . || exit 1; \
 		else \
 			echo "pnpm/npx not found; cannot run prettier --check"; \
 			exit 2; \
