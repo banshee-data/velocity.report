@@ -151,11 +151,12 @@ echo -e "\n${BLUE}Checking scripts...${NC}"
 if [ -d "scripts" ]; then
     while IFS= read -r -d '' file; do
         ((CHECKED_FILES++))
+
+        # Check for python3.XX pattern
         if grep -n "python3\.[0-9]\+" "$file" >/dev/null 2>&1; then
             while IFS= read -r line; do
                 line_num=$(echo "$line" | cut -d: -f1)
                 content=$(echo "$line" | cut -d: -f2-)
-
                 versions=$(echo "$content" | grep -o "python3\.[0-9]\+" | sort -u)
                 for version in $versions; do
                     version_num=$(echo "$version" | sed 's/python//')
@@ -167,6 +168,22 @@ if [ -d "scripts" ]; then
                     fi
                 done
             done < <(grep -n "python3\.[0-9]\+" "$file")
+        fi
+
+        # Check for python@3.XX pattern (brew)
+        if grep -nE "python@3\.[0-9]+" "$file" >/dev/null 2>&1; then
+            while IFS= read -r line; do
+                line_num=$(echo "$line" | cut -d: -f1)
+                content=$(echo "$line" | cut -d: -f2-)
+                while IFS= read -r version; do
+                    if [[ "$version" != "python@${TARGET_VERSION}" ]]; then
+                        ISSUES+=("${file}:${line_num}: WRONG VERSION ${version} (MUST be python@${TARGET_VERSION})")
+                        echo -e "  ${RED}✗ MISMATCH${NC} ${file}:${line_num} - ${version} ${RED}(MUST be python@${TARGET_VERSION})${NC}"
+                    else
+                        echo -e "  ${GREEN}✓${NC} ${file}:${line_num} - ${version}"
+                    fi
+                done < <(echo "$content" | grep -oE "python@3\.[0-9]+" | sort -u)
+            done < <(grep -nE "python@3\.[0-9]+" "$file")
         fi
     done < <(find scripts -name "*.sh" -type f -print0 2>/dev/null)
 fi
@@ -193,17 +210,77 @@ if [ $shebang_count -gt 0 ]; then
     echo -e "  ${GREEN}Checked ${shebang_count} Python files with versioned shebangs${NC}"
 fi
 
+# Scan Python config files (tox.ini, requirements.txt, setup.py, etc.)
+echo -e "\n${BLUE}Checking Python config files...${NC}"
+for file in tox.ini requirements.txt requirements.in setup.py setup.cfg pyproject.toml; do
+    if [ -f "$file" ]; then
+        ((CHECKED_FILES++))
+
+        # Check for py314, py315, etc. (tox format)
+        if grep -qE "py3[0-9][0-9]" "$file" 2>/dev/null; then
+            target_pyver="py${TARGET_VERSION//./}"
+            while IFS= read -r line; do
+                line_num=$(echo "$line" | cut -d: -f1)
+                content=$(echo "$line" | cut -d: -f2-)
+                py_versions=$(echo "$content" | grep -oE "py3[0-9][0-9]" | sort -u)
+                for pyver in $py_versions; do
+                    if [[ "$pyver" != "$target_pyver" ]]; then
+                        ISSUES+=("${file}:${line_num}: WRONG VERSION ${pyver} (MUST be ${target_pyver})")
+                        echo -e "  ${RED}✗ MISMATCH${NC} ${file}:${line_num} - ${pyver} ${RED}(MUST be ${target_pyver})${NC}"
+                    else
+                        echo -e "  ${GREEN}✓${NC} ${file}:${line_num} - ${pyver}"
+                    fi
+                done
+            done < <(grep -nE "py3[0-9][0-9]" "$file" 2>/dev/null)
+        fi
+
+        # Check for Python 3.14, Python 3.15, etc. (comment headers)
+        if grep -qE "Python 3\.[0-9]+" "$file" 2>/dev/null; then
+            while IFS= read -r line; do
+                line_num=$(echo "$line" | cut -d: -f1)
+                content=$(echo "$line" | cut -d: -f2-)
+                # Use while read to preserve spaces
+                while IFS= read -r pyver; do
+                    if [[ "$pyver" != "Python ${TARGET_VERSION}" ]]; then
+                        ISSUES+=("${file}:${line_num}: WRONG VERSION ${pyver} (MUST be Python ${TARGET_VERSION})")
+                        echo -e "  ${RED}✗ MISMATCH${NC} ${file}:${line_num} - ${pyver} ${RED}(MUST be Python ${TARGET_VERSION})${NC}"
+                    else
+                        echo -e "  ${GREEN}✓${NC} ${file}:${line_num} - ${pyver}"
+                    fi
+                done < <(echo "$content" | grep -oE "Python 3\.[0-9]+" | sort -u)
+            done < <(grep -nE "Python 3\.[0-9]+" "$file" 2>/dev/null)
+        fi
+
+        # Check for python@3.13, python@3.13, etc. (brew install format)
+        if grep -qE "python@3\.[0-9]+" "$file" 2>/dev/null; then
+            while IFS= read -r line; do
+                line_num=$(echo "$line" | cut -d: -f1)
+                content=$(echo "$line" | cut -d: -f2-)
+                py_versions=$(echo "$content" | grep -oE "python@3\.[0-9]+" | sort -u)
+                for pyver in $py_versions; do
+                    if [[ "$pyver" != "python@${TARGET_VERSION}" ]]; then
+                        ISSUES+=("${file}:${line_num}: WRONG VERSION ${pyver} (MUST be python@${TARGET_VERSION})")
+                        echo -e "  ${RED}✗ MISMATCH${NC} ${file}:${line_num} - ${pyver} ${RED}(MUST be python@${TARGET_VERSION})${NC}"
+                    else
+                        echo -e "  ${GREEN}✓${NC} ${file}:${line_num} - ${pyver}"
+                    fi
+                done
+            done < <(grep -nE "python@3\.[0-9]+" "$file" 2>/dev/null)
+        fi
+    fi
+done
+
 # Scan documentation
 echo -e "\n${BLUE}Checking documentation...${NC}"
 doc_files=0
 if [ -f "README.md" ]; then
     ((doc_files++))
     ((CHECKED_FILES++))
-    if grep -n "python3\.[0-9]\+\|Python 3\.[0-9]\+" README.md >/dev/null 2>&1; then
+    if grep -n "python3\.[0-9]\+\|Python 3\.[0-9]\+\|python@3\.[0-9]\+" README.md >/dev/null 2>&1; then
         while IFS= read -r line; do
             line_num=$(echo "$line" | cut -d: -f1)
             echo -e "  ${BLUE}ℹ${NC} README.md:${line_num} - contains Python version reference"
-        done < <(grep -n "python3\.[0-9]\+\|Python 3\.[0-9]\+" README.md | head -5)
+        done < <(grep -n "python3\.[0-9]\+\|Python 3\.[0-9]\+\|python@3\.[0-9]\+" README.md | head -5)
     fi
 fi
 
@@ -213,8 +290,8 @@ if [ -d "docs" ]; then
         ((doc_files++))
         ((CHECKED_FILES++))
         ((doc_count++))
-        if grep -n "python3\.[0-9]\+\|Python 3\.[0-9]\+" "$file" >/dev/null 2>&1; then
-            count=$(grep -c "python3\.[0-9]\+\|Python 3\.[0-9]\+" "$file")
+        if grep -n "python3\.[0-9]\+\|Python 3\.[0-9]\+\|python@3\.[0-9]\+" "$file" >/dev/null 2>&1; then
+            count=$(grep -c "python3\.[0-9]\+\|Python 3\.[0-9]\+\|python@3\.[0-9]\+" "$file")
             echo -e "  ${BLUE}ℹ${NC} ${file} - ${count} Python version reference(s)"
         fi
         # Limit to first 10 docs
@@ -306,9 +383,9 @@ if [ ${#ISSUES[@]} -gt 0 ]; then
         # Fix shell scripts
         if [ -d "scripts" ]; then
             while IFS= read -r -d '' file; do
+                # Fix python3.XX pattern
                 if grep -q "python3\.[0-9]\+" "$file" 2>/dev/null; then
                     wrong_versions=$(grep -o "python3\.[0-9]\+" "$file" | sort -u | grep -v "python${TARGET_VERSION}" || true)
-
                     for wrong_version in $wrong_versions; do
                         if sed -i '' "s/${wrong_version}/python${TARGET_VERSION}/g" "$file" 2>/dev/null; then
                             echo -e "  ${GREEN}✓ FIXED${NC} ${file} - ${wrong_version} → python${TARGET_VERSION}"
@@ -319,10 +396,22 @@ if [ ${#ISSUES[@]} -gt 0 ]; then
                         fi
                     done
                 fi
-            done < <(find scripts -name "*.sh" -type f -print0 2>/dev/null)
-        fi
 
-        # Fix Python shebangs
+                # Fix python@3.XX pattern
+                if grep -qE "python@3\.[0-9]+" "$file" 2>/dev/null; then
+                    wrong_versions=$(grep -oE "python@3\.[0-9]+" "$file" | sort -u | grep -v "python@${TARGET_VERSION}" || true)
+                    for wrong_version in $wrong_versions; do
+                        if sed -i '' "s/${wrong_version}/python@${TARGET_VERSION}/g" "$file" 2>/dev/null; then
+                            echo -e "  ${GREEN}✓ FIXED${NC} ${file} - ${wrong_version} → python@${TARGET_VERSION}"
+                            ((FIXED_COUNT++))
+                        else
+                            echo -e "  ${RED}✗ FAILED${NC} ${file} - could not update ${wrong_version}"
+                            ((FAILED_COUNT++))
+                        fi
+                    done
+                fi
+            done < <(find scripts -name "*.sh" -type f -print0 2>/dev/null)
+        fi        # Fix Python shebangs
         while IFS= read -r -d '' file; do
             if head -n1 "$file" | grep -q "#!/usr/bin/env python3\.[0-9]\+"; then
                 line=$(head -n1 "$file")
@@ -340,6 +429,60 @@ if [ ${#ISSUES[@]} -gt 0 ]; then
                 fi
             fi
         done < <(find . -name "*.py" -type f ! -path "./.venv/*" ! -path "./venv/*" ! -path "*/node_modules/*" ! -path "*/__pycache__/*" -print0 2>/dev/null)
+
+        # Fix Python config files (tox.ini, requirements.txt, etc.)
+        for file in tox.ini requirements.txt requirements.in setup.py setup.cfg pyproject.toml; do
+            if [ -f "$file" ]; then
+                fixed_file=false
+
+                # Fix py314 → py313 pattern (tox.ini)
+                if grep -q "py3[0-9][0-9]" "$file" 2>/dev/null; then
+                    target_pyver="py${TARGET_VERSION//./}"
+                    wrong_patterns=$(grep -o "py3[0-9][0-9]" "$file" | sort -u | grep -v "$target_pyver" || true)
+                    for pattern in $wrong_patterns; do
+                        if sed -i '' "s/${pattern}/${target_pyver}/g" "$file" 2>/dev/null; then
+                            echo -e "  ${GREEN}✓ FIXED${NC} ${file} - ${pattern} → ${target_pyver}"
+                            ((FIXED_COUNT++))
+                            fixed_file=true
+                        fi
+                    done
+                fi
+
+                # Fix Python 3.14 → Python 3.13 pattern (comments, headers)
+                if grep -q "Python 3\.[0-9]\+" "$file" 2>/dev/null; then
+                    wrong_versions=$(grep -oE "Python 3\.[0-9]+" "$file" | sort -u | grep -v "Python ${TARGET_VERSION}" || true)
+                    for version_ref in $wrong_versions; do
+                        if sed -i '' "s/${version_ref}/Python ${TARGET_VERSION}/g" "$file" 2>/dev/null; then
+                            echo -e "  ${GREEN}✓ FIXED${NC} ${file} - ${version_ref} → Python ${TARGET_VERSION}"
+                            ((FIXED_COUNT++))
+                            fixed_file=true
+                        fi
+                    done
+                fi
+
+                # Fix python@3.13 → python@3.13 pattern (brew install commands)
+                if grep -q "python@3\.[0-9]\+" "$file" 2>/dev/null; then
+                    wrong_versions=$(grep -oE "python@3\.[0-9]+" "$file" | sort -u | grep -v "python@${TARGET_VERSION}" || true)
+                    for version_ref in $wrong_versions; do
+                        if sed -i '' "s/${version_ref}/python@${TARGET_VERSION}/g" "$file" 2>/dev/null; then
+                            echo -e "  ${GREEN}✓ FIXED${NC} ${file} - ${version_ref} → python@${TARGET_VERSION}"
+                            ((FIXED_COUNT++))
+                            fixed_file=true
+                        fi
+                    done
+                fi
+
+                if [ "$fixed_file" = false ] && grep -q "python3\.[0-9]\+" "$file" 2>/dev/null; then
+                    wrong_versions=$(grep -oE "python3\.[0-9]+" "$file" | sort -u | grep -v "python${TARGET_VERSION}" || true)
+                    for version_ref in $wrong_versions; do
+                        if sed -i '' "s/${version_ref}/python${TARGET_VERSION}/g" "$file" 2>/dev/null; then
+                            echo -e "  ${GREEN}✓ FIXED${NC} ${file} - ${version_ref} → python${TARGET_VERSION}"
+                            ((FIXED_COUNT++))
+                        fi
+                    done
+                fi
+            fi
+        done
 
         echo ""
         echo -e "${BLUE}=== Fix Summary ===${NC}"
