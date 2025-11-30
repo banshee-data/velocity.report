@@ -156,8 +156,12 @@ func (c *ConfigManager) Edit() error {
 
 	// Ask if user wants to restart service
 	fmt.Print("\nRestart service now to apply changes? [y/N]: ")
-	var restart string
-	fmt.Scanln(&restart)
+	restartReader := bufio.NewReader(os.Stdin)
+	restart, err := restartReader.ReadString('\n')
+	if err != nil {
+		return fmt.Errorf("failed to read input: %w", err)
+	}
+	restart = strings.TrimSpace(restart)
 
 	if strings.ToLower(restart) == "y" {
 		fmt.Println("Restarting service...")
