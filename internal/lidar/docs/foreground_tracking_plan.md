@@ -1,9 +1,9 @@
 # LIDAR Foreground Extraction and Tracking Implementation Plan
 
-**Status:** Implementation Complete through Phase 3.4  
+**Status:** Implementation Complete through Phase 3.5  
 **Date:** November 30, 2025  
 **Author:** Ictinus (Product Architecture Agent)  
-**Version:** 5.0 - SQL Schema & Classification Complete
+**Version:** 6.0 - REST API Endpoints Complete
 
 ---
 
@@ -112,9 +112,9 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 - ✅ `TrainingDataFilter` for filtering by pose quality
 - ✅ Unit tests for pose validation and training data encoding
 
-### ✅ Completed (Phases 3.3 - 3.4)
+### ✅ Completed (Phases 3.3 - 3.5)
 
-#### Phase 3.3: SQL Schema & REST APIs
+#### Phase 3.3: SQL Schema & Database Persistence
 - **Implementation:** `internal/db/migrations/000009_create_lidar_tracks.up.sql`, `internal/lidar/track_store.go`
 - ✅ `lidar_clusters` table for DBSCAN cluster persistence
 - ✅ `lidar_tracks` table for track lifecycle and aggregated features
@@ -133,10 +133,21 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 - ✅ `ComputeSpeedPercentiles()` for P50/P85/P95 speed computation
 - ✅ Unit tests in `internal/lidar/classification_test.go`
 
+#### Phase 3.5: REST API Endpoints
+- **Implementation:** `internal/lidar/monitor/track_api.go`
+- ✅ `TrackAPI` struct with HTTP handlers for track/cluster queries
+- ✅ `GET /api/lidar/tracks` - List tracks with optional state filter
+- ✅ `GET /api/lidar/tracks/active` - Active tracks (real-time from memory or DB)
+- ✅ `GET /api/lidar/tracks/{track_id}` - Get specific track details
+- ✅ `PUT /api/lidar/tracks/{track_id}` - Update track metadata (class, confidence)
+- ✅ `GET /api/lidar/tracks/{track_id}/observations` - Get track trajectory
+- ✅ `GET /api/lidar/tracks/summary` - Aggregated statistics by class/state
+- ✅ `GET /api/lidar/clusters` - Recent clusters by time range
+- ✅ Unit tests in `internal/lidar/monitor/track_api_test.go`
+
 ### 📋 Remaining Components
 
-1. **REST API Endpoints** - HTTP handlers for track/cluster queries (planned)
-2. **UI visualization** - Track display components in web frontend
+1. **UI visualization** - Track display components in web frontend (planned for Phase 4)
 
 ---
 
@@ -1357,12 +1368,13 @@ func TestPipeline_PCAPToTracks(t *testing.T) {
 | 3.0 | Transform (Polar→World) | 1-2 days | ✅ Complete | `TransformToWorld`, `WorldPoint`, unit tests |
 | 3.1 | DBSCAN Clustering | 3-4 days | ✅ Complete | `SpatialIndex`, `DBSCAN`, `computeClusterMetrics`, `WorldCluster` |
 | 3.2 | Kalman Tracking | 4-5 days | ✅ Complete | `Tracker`, `TrackedObject`, Mahalanobis gating, lifecycle management |
-| 3.3 | SQL & APIs | 3-4 days | ✅ Complete | `lidar_clusters`, `lidar_tracks`, `lidar_track_obs` tables, persistence functions |
+| 3.3 | SQL Schema & Persistence | 3-4 days | ✅ Complete | `lidar_clusters`, `lidar_tracks`, `lidar_track_obs` tables, persistence functions |
 | 3.4 | Classification | 2-3 days | ✅ Complete | `TrackClassifier`, rule-based classification, object classes |
+| 3.5 | REST API Endpoints | 1-2 days | ✅ Complete | `TrackAPI` HTTP handlers, list/get/update tracks, cluster queries |
 | Test | Integration Testing | 2-3 days | 📋 Planned | End-to-end tests, performance validation |
 
-**Phases 2.9-3.4: Complete**  
-**Remaining: REST API Endpoints + Integration Testing**
+**Phases 2.9-3.5: Complete**  
+**Remaining: Integration Testing + UI Visualization**
 
 ### Milestones
 
@@ -1371,9 +1383,9 @@ func TestPipeline_PCAPToTracks(t *testing.T) {
 3. ✅ **World Transform Validated** - `TransformToWorld()` tests passing with identity and custom poses
 4. ✅ **Clustering Operational** - `DBSCAN()` detecting clusters with spatial index
 5. ✅ **Tracking Functional** - `Tracker` maintains tracks with Kalman filter and lifecycle management
-6. ✅ **SQL & APIs Ready** - Database persistence with `lidar_clusters`, `lidar_tracks`, `lidar_track_obs` tables
+6. ✅ **SQL Schema Ready** - Database persistence with `lidar_clusters`, `lidar_tracks`, `lidar_track_obs` tables
 7. ✅ **Classification Active** - Rule-based classifier for pedestrian, car, bird, other
-8. 📋 **REST Endpoints** - HTTP handlers for track/cluster API access
+8. ✅ **REST Endpoints** - HTTP handlers for track/cluster API access
 9. 📋 **Production Ready** - All tests passing, documented, deployed
 
 ### Implementation Files
@@ -1391,6 +1403,8 @@ func TestPipeline_PCAPToTracks(t *testing.T) {
 | 3.3 | `internal/lidar/track_store_test.go` | Unit tests for track persistence |
 | 3.4 | `internal/lidar/classification.go` | Rule-based track classification |
 | 3.4 | `internal/lidar/classification_test.go` | Unit tests for classification |
+| 3.5 | `internal/lidar/monitor/track_api.go` | HTTP handlers for track/cluster queries |
+| 3.5 | `internal/lidar/monitor/track_api_test.go` | Unit tests for track API |
 | ML | `internal/lidar/training_data.go` | Training data export and encoding |
 | ML | `internal/lidar/training_data_test.go` | Unit tests for training data |
 | ML | `internal/lidar/pose.go` | Pose validation and quality assessment |
@@ -1690,7 +1704,7 @@ func isValidTransformMatrix(T [16]float64) bool {
 
 ---
 
-**Document Status:** Implementation Complete through Phase 3.4  
-**Next Action:** Add REST API endpoints for track/cluster queries  
+**Document Status:** Implementation Complete through Phase 3.5  
+**Next Action:** UI visualization and integration testing  
 **Last Updated:** November 30, 2025  
 **Contact:** Engineering Team

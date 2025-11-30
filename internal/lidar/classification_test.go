@@ -69,10 +69,10 @@ func TestTrackClassifier_Classify_Pedestrian(t *testing.T) {
 	track := &TrackedObject{
 		TrackID:              "test-pedestrian",
 		ObservationCount:     15,
-		BoundingBoxHeightAvg: 1.7,  // Typical human height
-		BoundingBoxLengthAvg: 0.5,  // Small footprint
+		BoundingBoxHeightAvg: 1.7, // Typical human height
+		BoundingBoxLengthAvg: 0.5, // Small footprint
 		BoundingBoxWidthAvg:  0.5,
-		AvgSpeedMps:          1.5,  // Walking speed ~5.4 km/h
+		AvgSpeedMps:          1.5, // Walking speed ~5.4 km/h
 		PeakSpeedMps:         2.5,
 		speedHistory:         make([]float32, 15),
 	}
@@ -102,7 +102,7 @@ func TestTrackClassifier_Classify_Other(t *testing.T) {
 		BoundingBoxHeightAvg: 0.8, // Between bird and pedestrian
 		BoundingBoxLengthAvg: 1.5,
 		BoundingBoxWidthAvg:  1.0,
-		AvgSpeedMps:          4.0,  // Too fast for pedestrian, too slow for car
+		AvgSpeedMps:          4.0, // Too fast for pedestrian, too slow for car
 		PeakSpeedMps:         5.0,
 		speedHistory:         []float32{3.5, 4.0, 4.2, 3.8, 4.0, 4.5, 4.0, 3.8, 4.2, 4.0},
 	}

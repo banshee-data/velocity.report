@@ -1,8 +1,8 @@
 # LiDAR Sidecar — Technical Implementation Overview
 
-**Status:** Phase 3.4 completed (SQL Schema & Classification), REST API endpoints planned  
+**Status:** Phase 3.5 completed (REST API Endpoints), UI visualization planned  
 **Scope:** Hesai UDP → parse → frame assembly → background subtraction → foreground mask → clustering → tracking → classification → HTTP API  
-**Current Phase:** REST API Endpoints (next)
+**Current Phase:** UI Visualization (next)
 
 ---
 
@@ -111,13 +111,18 @@
 - ✅ **Unit Tests**: `internal/lidar/classification_test.go`
 - ✅ **Location**: `internal/lidar/classification.go`
 
-### 📋 **Phase 3.5: REST API Endpoints (NEXT)**
+### ✅ **Phase 3.5: REST API Endpoints (COMPLETED)**
 
-- HTTP handlers for cluster and track queries
-- GET `/api/lidar/clusters` - Recent clusters by sensor/time range
-- GET `/api/lidar/tracks/active` - Active tracks by state
-- GET `/api/lidar/tracks/:track_id` - Track details with observations
-- GET `/api/lidar/tracks/summary` - Aggregated statistics by class
+- ✅ **TrackAPI**: HTTP handler struct for track/cluster queries
+- ✅ **GET `/api/lidar/tracks`**: List tracks with optional state filter
+- ✅ **GET `/api/lidar/tracks/active`**: Active tracks (real-time from memory or DB)
+- ✅ **GET `/api/lidar/tracks/{track_id}`**: Get specific track details
+- ✅ **PUT `/api/lidar/tracks/{track_id}`**: Update track metadata (class, confidence)
+- ✅ **GET `/api/lidar/tracks/{track_id}/observations`**: Get track trajectory
+- ✅ **GET `/api/lidar/tracks/summary`**: Aggregated statistics by class/state
+- ✅ **GET `/api/lidar/clusters`**: Recent clusters by time range
+- ✅ **Unit Tests**: `internal/lidar/monitor/track_api_test.go`
+- ✅ **Location**: `internal/lidar/monitor/track_api.go`
 
 ### 📋 **Phase 4: Multi-Sensor & Production Optimization (PLANNED)**
 
@@ -130,6 +135,7 @@
 - **Performance Profiling**: Optimize for multi-sensor concurrent processing
 - **Memory Optimization**: Efficient handling of 100+ tracks across multiple sensors
 - **Production Deployment**: Documentation for multi-node edge deployment
+- **UI Visualization**: Track display components in web frontend
 
 ---
 
@@ -146,6 +152,7 @@ internal/lidar/parse/extract.go    ✅ # Pandar40P packet -> []Point (22-byte ta
 internal/lidar/parse/config.go     ✅ # Embedded calibration configurations
 internal/lidar/frame_builder.go    ✅ # Time-based frame assembly with motor speed
 internal/lidar/monitor/            ✅ # HTTP endpoints: /health, /api/lidar/*
+internal/lidar/monitor/track_api.go✅ # Track/cluster REST API handlers (Phase 3.5)
 internal/lidar/background.go       ✅ # Background model & classification with persistence
 internal/lidar/foreground.go       ✅ # Foreground mask generation and extraction (Phase 2.9)
 internal/lidar/clustering.go       ✅ # World transform and DBSCAN clustering (Phase 3.0-3.1)
@@ -789,12 +796,15 @@ ChangeThresholdForSnapshot     int      // Min changed cells to trigger snapshot
 - `POST /api/lidar/snapshot/persist?sensor_id=<id>` - Force immediate background snapshot to database
 - `GET /api/lidar/snapshot?sensor_id=<id>` - Retrieve latest background snapshot from database
 
-### 🔄 Planned Endpoints
+### ✅ Track API Endpoints (Phase 3.5 - Complete)
 
-- `GET /fg` - Foreground/background statistics
-- `GET /tracks/recent` - Recent track states
-- `GET /track/:id` - Full track history
-- `GET /clusters/recent` - Recent cluster detections
+- `GET /api/lidar/tracks` - List tracks with optional state/sensor filter
+- `GET /api/lidar/tracks/active` - Active tracks (real-time from memory or DB)
+- `GET /api/lidar/tracks/{track_id}` - Get specific track details
+- `PUT /api/lidar/tracks/{track_id}` - Update track metadata (class, confidence, model)
+- `GET /api/lidar/tracks/{track_id}/observations` - Get track trajectory (observation history)
+- `GET /api/lidar/tracks/summary` - Aggregated statistics by class and state
+- `GET /api/lidar/clusters` - Recent clusters by sensor and time range
 
 ---
 
@@ -1003,7 +1013,7 @@ The LiDAR sidecar has **completed Phases 1-2 (core infrastructure, background cl
 - ✅ **Kalman Tracking** (Phase 3.2): `Tracker`, `TrackedObject`, lifecycle management
 - ✅ **ML Training Data Support**: `ForegroundFrame`, pose validation, compact encoding
 
-### ✅ **Completed (Phase 2.5, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4)**
+### ✅ **Completed (Phase 2.5, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5)**
 
 - ✅ **PCAP Reading**: File-based replay with BPF filtering (Phase 2.5)
 - ✅ **Parameter Optimization**: Runtime-adjustable via HTTP API (Phase 2.5)
@@ -1015,16 +1025,17 @@ The LiDAR sidecar has **completed Phases 1-2 (core infrastructure, background cl
 - ✅ **SQL Schema**: `lidar_clusters`, `lidar_tracks`, `lidar_track_obs` tables (Phase 3.3)
 - ✅ **Track Persistence**: `InsertCluster()`, `InsertTrack()`, `UpdateTrack()` functions (Phase 3.3)
 - ✅ **Classification**: `TrackClassifier` for pedestrian/car/bird/other labels (Phase 3.4)
+- ✅ **REST API Endpoints**: `TrackAPI` HTTP handlers for track/cluster queries (Phase 3.5)
 
-### 📋 **Future Work (Phase 3.5, 4)**
+### 📋 **Future Work (Phase 4)**
 
-- 📋 **REST API Endpoints (Phase 3.5)**: HTTP handlers for track/cluster queries
+- 📋 **UI Visualization**: Track display components in web frontend
 - 📋 **Multi-Sensor (Phase 4)**: Support multiple sensors per machine with local databases
 - 📋 **Database Unification**: Consolidate data from distributed edge nodes
 - 📋 **Cross-Sensor Tracking**: Track objects across multiple sensor coverage areas
 - 📋 **Scale**: Memory optimization for 100+ tracks across multiple sensors
 
-**Current Focus**: Adding REST API endpoints for track and cluster queries. Database schema and persistence layer (Phases 3.3-3.4) are complete.
+**Current Focus**: UI visualization for track display. REST API endpoints (Phase 3.5) are complete.
 
 **Architecture**: Modular design with clear separation between:
 - UDP ingestion and parsing
@@ -1036,9 +1047,9 @@ The LiDAR sidecar has **completed Phases 1-2 (core infrastructure, background cl
 - Tracking (world frame)
 - Classification (world frame)
 - Database persistence (complete)
-- REST APIs (next)
+- REST APIs (complete)
 
-**Pipeline Status**: The complete foreground tracking pipeline from UDP packets to tracked objects is implemented and tested. Database persistence and REST APIs are the next major milestone.
+**Pipeline Status**: The complete foreground tracking pipeline from UDP packets to tracked objects is implemented and tested. REST API endpoints are ready for UI integration.
 
 **Multi-Sensor Vision (Phase 4)**: The architecture supports a distributed edge deployment model where each machine runs multiple LiDAR sensors, storing data locally in SQLite. Data from multiple edge nodes can be consolidated later for whole-street analysis and cross-intersection tracking in world frame coordinates.
 

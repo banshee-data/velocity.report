@@ -1,5 +1,30 @@
 # Development Log
 
+## November 30, 2025 - REST API Endpoints (Phase 3.5)
+
+### Phase 3.5: Track/Cluster REST API
+- Implemented `TrackAPI` struct in `internal/lidar/monitor/track_api.go`:
+  - `GET /api/lidar/tracks` - List tracks with optional state filter
+  - `GET /api/lidar/tracks/active` - Active tracks (real-time from memory or DB)
+  - `GET /api/lidar/tracks/{track_id}` - Get specific track details
+  - `PUT /api/lidar/tracks/{track_id}` - Update track metadata (class, confidence)
+  - `GET /api/lidar/tracks/{track_id}/observations` - Get track trajectory
+  - `GET /api/lidar/tracks/summary` - Aggregated statistics by class/state
+  - `GET /api/lidar/clusters` - Recent clusters by time range
+- JSON response structures for API consistency:
+  - `TrackResponse` with position, velocity, classification, bounding box
+  - `ClusterResponse` with centroid, bounding box, point metrics
+  - `TracksListResponse` and `ClustersListResponse` for list endpoints
+  - `TrackSummaryResponse` with by-class and by-state aggregation
+- Support for both in-memory tracker (real-time) and database queries
+- Comprehensive unit tests in `internal/lidar/monitor/track_api_test.go`
+
+### Documentation Updates
+- Updated `foreground_tracking_plan.md` to v6.0 (Phase 3.5 complete)
+- Updated `lidar_sidecar_overview.md` with REST API endpoint status
+- Updated implementation files table with track_api.go
+- Updated milestones and production readiness assessment
+
 ## November 30, 2025 - SQL Schema & Track Classification (Phases 3.3-3.4)
 
 ### Phase 3.3: SQL Schema & Database Persistence
