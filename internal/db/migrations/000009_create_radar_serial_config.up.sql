@@ -20,13 +20,14 @@
 
 CREATE INDEX IF NOT EXISTS idx_radar_serial_config_enabled ON radar_serial_config (enabled);
 
+-- +migrate StatementBegin
 CREATE TRIGGER IF NOT EXISTS update_radar_serial_config_timestamp AFTER
    UPDATE ON radar_serial_config BEGIN
    UPDATE radar_serial_config
       SET updated_at = STRFTIME('%s', 'now')
     WHERE id = NEW.id;
-
 END;
+-- +migrate StatementEnd
 
 -- Insert default configuration for HAT (Raspberry Pi header)
    INSERT OR IGNORE INTO radar_serial_config (
