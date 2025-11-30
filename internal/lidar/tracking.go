@@ -90,6 +90,11 @@ type TrackedObject struct {
 
 	// Speed history for percentile computation
 	speedHistory []float32
+
+	// Classification (Phase 3.4)
+	ObjectClass         string  // Classification result: "pedestrian", "car", "bird", "other"
+	ObjectConfidence    float32 // Classification confidence [0, 1]
+	ClassificationModel string  // Model version used for classification
 }
 
 // Tracker manages multi-object tracking with explicit lifecycle states.

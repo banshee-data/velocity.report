@@ -1,8 +1,8 @@
 # LiDAR Sidecar — Technical Implementation Overview
 
-**Status:** Phase 3.2 completed (Foreground Tracking Pipeline), Phase 3.3-3.4 planned  
-**Scope:** Hesai UDP → parse → frame assembly → background subtraction → foreground mask → clustering → tracking → HTTP API  
-**Current Phase:** Phase 3.3 - SQL Schema & REST APIs (planned)
+**Status:** Phase 3.4 completed (SQL Schema & Classification), REST API endpoints planned  
+**Scope:** Hesai UDP → parse → frame assembly → background subtraction → foreground mask → clustering → tracking → classification → HTTP API  
+**Current Phase:** REST API Endpoints (next)
 
 ---
 
@@ -88,17 +88,36 @@
 - ✅ **Unit Tests**: `internal/lidar/training_data_test.go`, `internal/lidar/pose_test.go`
 - ✅ **Location**: `internal/lidar/training_data.go`, `internal/lidar/pose.go`
 
-### 📋 **Phase 3.3: SQL Schema & REST APIs (NEXT)**
+### ✅ **Phase 3.3: SQL Schema & Database Persistence (COMPLETED)**
 
-- Database persistence for clusters, tracks, and observations
-- REST API endpoints for track data access
-- Migration files for SQLite schema
+- ✅ **Migration File**: `internal/db/migrations/000009_create_lidar_tracks.up.sql`
+- ✅ **`lidar_clusters` table**: DBSCAN cluster persistence with world-frame features
+- ✅ **`lidar_tracks` table**: Track lifecycle, kinematics, classification fields
+- ✅ **`lidar_track_obs` table**: Per-observation tracking data with foreign key to tracks
+- ✅ **Persistence Functions**: `InsertCluster()`, `InsertTrack()`, `UpdateTrack()`, `InsertTrackObservation()`
+- ✅ **Query Functions**: `GetActiveTracks()`, `GetTrackObservations()`, `GetRecentClusters()`
+- ✅ **Unit Tests**: `internal/lidar/track_store_test.go`
+- ✅ **Schema Updated**: `internal/db/schema.sql` includes all track tables
+- ✅ **Location**: `internal/lidar/track_store.go`
 
-### 📋 **Phase 3.4: Track Classification (PLANNED)**
+### ✅ **Phase 3.4: Track Classification (COMPLETED)**
 
-- Rule-based or ML-based object type labeling
-- Classification model integration
-- Schema updates for classification data
+- ✅ **`TrackClassifier`**: Rule-based classification engine
+- ✅ **Object Classes**: `pedestrian`, `car`, `bird`, `other`
+- ✅ **Classification Features**: height, length, width, speed, duration, observation count
+- ✅ **Confidence Scoring**: Per-class confidence based on feature match quality
+- ✅ **Speed Percentiles**: `ComputeSpeedPercentiles()` for P50/P85/P95
+- ✅ **Classification Integration**: `ClassifyAndUpdate()` for track field updates
+- ✅ **Unit Tests**: `internal/lidar/classification_test.go`
+- ✅ **Location**: `internal/lidar/classification.go`
+
+### 📋 **Phase 3.5: REST API Endpoints (NEXT)**
+
+- HTTP handlers for cluster and track queries
+- GET `/api/lidar/clusters` - Recent clusters by sensor/time range
+- GET `/api/lidar/tracks/active` - Active tracks by state
+- GET `/api/lidar/tracks/:track_id` - Track details with observations
+- GET `/api/lidar/tracks/summary` - Aggregated statistics by class
 
 ### 📋 **Phase 4: Multi-Sensor & Production Optimization (PLANNED)**
 
@@ -131,11 +150,14 @@ internal/lidar/background.go       ✅ # Background model & classification with 
 internal/lidar/foreground.go       ✅ # Foreground mask generation and extraction (Phase 2.9)
 internal/lidar/clustering.go       ✅ # World transform and DBSCAN clustering (Phase 3.0-3.1)
 internal/lidar/tracking.go         ✅ # Kalman tracking with lifecycle management (Phase 3.2)
+internal/lidar/track_store.go      ✅ # Database persistence for tracks/clusters (Phase 3.3)
+internal/lidar/classification.go   ✅ # Rule-based track classification (Phase 3.4)
 internal/lidar/training_data.go    ✅ # ML training data export and encoding
 internal/lidar/pose.go             ✅ # Pose validation and quality assessment
 internal/lidar/export.go           ✅ # ASC point cloud export
 internal/lidar/arena.go            ✅ # Data structures for clustering and tracking
 internal/db/db.go                  ✅ # Database schema and BgSnapshot persistence
+internal/db/migrations/000009_*    ✅ # SQL migrations for lidar_clusters, lidar_tracks, lidar_track_obs
 tools/grid-heatmap/                ✅ # Grid visualization and analysis tools
 ```
 
@@ -981,7 +1003,7 @@ The LiDAR sidecar has **completed Phases 1-2 (core infrastructure, background cl
 - ✅ **Kalman Tracking** (Phase 3.2): `Tracker`, `TrackedObject`, lifecycle management
 - ✅ **ML Training Data Support**: `ForegroundFrame`, pose validation, compact encoding
 
-### ✅ **Completed (Phase 2.5, 2.9, 3.0, 3.1, 3.2)**
+### ✅ **Completed (Phase 2.5, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4)**
 
 - ✅ **PCAP Reading**: File-based replay with BPF filtering (Phase 2.5)
 - ✅ **Parameter Optimization**: Runtime-adjustable via HTTP API (Phase 2.5)
@@ -990,17 +1012,19 @@ The LiDAR sidecar has **completed Phases 1-2 (core infrastructure, background cl
 - ✅ **Clustering**: `DBSCAN()` with `SpatialIndex` for efficient neighbor queries (Phase 3.1)
 - ✅ **Tracking**: `Tracker` with Kalman filter and lifecycle management (Phase 3.2)
 - ✅ **ML Training Data**: `ForegroundFrame` export and pose validation
+- ✅ **SQL Schema**: `lidar_clusters`, `lidar_tracks`, `lidar_track_obs` tables (Phase 3.3)
+- ✅ **Track Persistence**: `InsertCluster()`, `InsertTrack()`, `UpdateTrack()` functions (Phase 3.3)
+- ✅ **Classification**: `TrackClassifier` for pedestrian/car/bird/other labels (Phase 3.4)
 
-### 📋 **Future Work (Phase 3.3, 3.4, 4)**
+### 📋 **Future Work (Phase 3.5, 4)**
 
-- 📋 **SQL Schema & REST APIs (Phase 3.3)**: Database persistence for clusters/tracks/observations, REST endpoints
-- 📋 **Track Classification (Phase 3.4)**: Rule-based or ML-based object type labeling
+- 📋 **REST API Endpoints (Phase 3.5)**: HTTP handlers for track/cluster queries
 - 📋 **Multi-Sensor (Phase 4)**: Support multiple sensors per machine with local databases
 - 📋 **Database Unification**: Consolidate data from distributed edge nodes
 - 📋 **Cross-Sensor Tracking**: Track objects across multiple sensor coverage areas
 - 📋 **Scale**: Memory optimization for 100+ tracks across multiple sensors
 
-**Current Focus**: Implementing Phase 3.3 (SQL Schema & REST APIs) to enable database persistence for clusters, tracks, and observations. The core foreground tracking pipeline (Phases 2.9-3.2) is complete.
+**Current Focus**: Adding REST API endpoints for track and cluster queries. Database schema and persistence layer (Phases 3.3-3.4) are complete.
 
 **Architecture**: Modular design with clear separation between:
 - UDP ingestion and parsing
@@ -1010,7 +1034,9 @@ The LiDAR sidecar has **completed Phases 1-2 (core infrastructure, background cl
 - World transform (polar → world)
 - Clustering (world frame)
 - Tracking (world frame)
-- Database persistence and REST APIs (planned)
+- Classification (world frame)
+- Database persistence (complete)
+- REST APIs (next)
 
 **Pipeline Status**: The complete foreground tracking pipeline from UDP packets to tracked objects is implemented and tested. Database persistence and REST APIs are the next major milestone.
 

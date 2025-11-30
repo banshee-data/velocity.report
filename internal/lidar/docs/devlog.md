@@ -1,5 +1,44 @@
 # Development Log
 
+## November 30, 2025 - SQL Schema & Track Classification (Phases 3.3-3.4)
+
+### Phase 3.3: SQL Schema & Database Persistence
+- Created migration `000009_create_lidar_tracks.up.sql` with:
+  - `lidar_clusters` table for DBSCAN cluster persistence
+  - `lidar_tracks` table for track lifecycle, kinematics, and classification
+  - `lidar_track_obs` table for per-observation tracking data
+  - Appropriate indexes for sensor_id, time range, and state queries
+- Implemented persistence functions in `internal/lidar/track_store.go`:
+  - `InsertCluster()` - Insert cluster with world-frame features
+  - `InsertTrack()` - Create new track with speed percentiles
+  - `UpdateTrack()` - Update track state, features, and classification
+  - `InsertTrackObservation()` - Record per-observation data
+  - `GetActiveTracks()` - Query tracks by sensor and state
+  - `GetTrackObservations()` - Get trajectory data for track
+  - `GetRecentClusters()` - Query clusters by time range
+- Updated `internal/db/schema.sql` to include all track tables
+- Comprehensive unit tests in `internal/lidar/track_store_test.go`
+
+### Phase 3.4: Track Classification
+- Implemented rule-based classification in `internal/lidar/classification.go`:
+  - `TrackClassifier` with model version tracking
+  - Object classes: `pedestrian`, `car`, `bird`, `other`
+  - Classification features: height, length, width, speed, duration, observation count
+  - Configurable thresholds for each class with reasonable defaults
+  - Confidence scoring based on feature match quality
+- Added speed percentile computation:
+  - `ComputeSpeedPercentiles()` for P50/P85/P95 from speed history
+- Classification integration:
+  - `ClassifyAndUpdate()` for updating track classification fields
+  - Added `ObjectClass`, `ObjectConfidence`, `ClassificationModel` fields to `TrackedObject`
+- Comprehensive unit tests in `internal/lidar/classification_test.go`
+
+### Documentation Updates
+- Updated `foreground_tracking_plan.md` to reflect completion through Phase 3.4
+- Updated `lidar_sidecar_overview.md` with new module structure and completed phases
+- Updated Implementation Files table with Phase 3.3 and 3.4 files
+- Updated milestones and roadmap status
+
 ## November 30, 2025 - Foreground Tracking Pipeline (Phases 2.9-3.2)
 
 ### Phase 2.9: Foreground Mask Generation (Polar Frame)
