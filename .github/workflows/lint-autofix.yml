@@ -1,4 +1,4 @@
-name: 🧹 Weekly Lint Auto-fix
+name: 🧹 Weekly Auto-fix
 
 on:
   schedule:
@@ -39,6 +39,8 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
+        with:
+          version: 10
 
       - name: Install Python dependencies
         run: |
@@ -59,7 +61,7 @@ jobs:
         id: python_version
         run: |
           echo "Checking Python version consistency..."
-          if ! ./scripts/check-python-version.sh; then
+          if ! bash ./scripts/check-python-version.sh; then
             echo "needs_fix=true" >> $GITHUB_OUTPUT
             echo "Python version mismatches found"
           else
@@ -71,10 +73,10 @@ jobs:
         if: steps.python_version.outputs.needs_fix == 'true'
         run: |
           echo "Fixing Python version references..."
-          ./scripts/check-python-version.sh --fix
+          bash ./scripts/check-python-version.sh --fix
           if [[ -n $(git status --porcelain) ]]; then
             git add -A
-            git commit -m "[ai][cfg] update Python version references for CI compatibility"
+            git commit -m "[ci][py] update Python version references for CI compatibility"
           fi
 
       # Step 2: Format Go code
@@ -85,7 +87,7 @@ jobs:
         run: |
           if [[ -n $(git status --porcelain) ]]; then
             git add -A
-            git commit -m "[ai][go] auto-fix formatting (gofmt -s -w)"
+            git commit -m "[ci][go] auto-fix formatting (gofmt -s -w)"
           fi
 
       # Step 3: Format Python code
@@ -96,7 +98,7 @@ jobs:
         run: |
           if [[ -n $(git status --porcelain) ]]; then
             git add -A
-            git commit -m "[ai][py] auto-fix formatting (black + ruff)"
+            git commit -m "[ci][py] auto-fix formatting (black + ruff)"
           fi
 
       # Step 4: Format Web code
@@ -107,7 +109,7 @@ jobs:
         run: |
           if [[ -n $(git status --porcelain) ]]; then
             git add -A
-            git commit -m "[ai][js] auto-fix formatting (prettier)"
+            git commit -m "[ci][js] auto-fix formatting (prettier)"
           fi
 
       # Step 5: Create PR if any commits were made
