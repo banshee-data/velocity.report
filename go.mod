@@ -10,12 +10,12 @@ require (
 	go.bug.st/serial v1.6.4
 	gonum.org/v1/gonum v0.16.0
 	modernc.org/sqlite v1.40.1
-	tailscale.com v1.91.0-pre
+	tailscale.com v1.93.0-pre
 )
 
 require (
-	github.com/creachadair/mds v0.25.2 // indirect
-	github.com/creachadair/msync v0.5.6 // indirect
+	github.com/creachadair/mds v0.25.9 // indirect
+	github.com/creachadair/msync v0.7.1 // indirect
 	github.com/creack/goselect v0.1.3 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-json-experiment/json v0.0.0-20250813233538-9b1f9ea2e11b // indirect
