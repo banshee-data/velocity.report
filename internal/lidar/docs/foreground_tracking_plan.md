@@ -192,11 +192,11 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) ([]bool, err
         foregroundMask[i] = !isBackground
         
         if isBackground {
-            atomic.AddInt64(&g.BackgroundCount, 1)
+            g.BackgroundCount++  // Protected by mutex, no atomic needed
             // Update EMA for background cells only
             updateCellEMA(cell, p.Distance)
         } else {
-            atomic.AddInt64(&g.ForegroundCount, 1)
+            g.ForegroundCount++  // Protected by mutex, no atomic needed
         }
     }
     
@@ -397,8 +397,30 @@ func (si *SpatialIndex) Build(points []WorldPoint) {
 func (si *SpatialIndex) getCellID(x, y float64) int64 {
     cellX := int64(math.Floor(x / si.CellSize))
     cellY := int64(math.Floor(y / si.CellSize))
-    // Cantor pairing function for 2D → 1D
-    return (cellX + cellY) * (cellX + cellY + 1) / 2 + cellY
+    // Szudzik's pairing function for signed integers
+    // Maps signed integers to non-negative before pairing
+    var a, b int64
+    if cellX >= 0 {
+        a = 2 * cellX
+    } else {
+        a = -2*cellX - 1
+    }
+    if cellY >= 0 {
+        b = 2 * cellY
+    } else {
+        b = -2*cellY - 1
+    }
+    var pair int64
+    if a >= b {
+        pair = a*a + a + b
+    } else {
+        pair = a + b*b
+    }
+    // Ensure unique mapping for sign combinations
+    if (cellX < 0) != (cellY < 0) {
+        pair = -pair - 1
+    }
+    return pair
 }
 
 func (si *SpatialIndex) RegionQuery(points []WorldPoint, idx int, eps float64) []int {
@@ -411,10 +433,10 @@ func (si *SpatialIndex) RegionQuery(points []WorldPoint, idx int, eps float64) [
     
     for dx := int64(-1); dx <= 1; dx++ {
         for dy := int64(-1); dy <= 1; dy++ {
-            neighborCellID := si.getCellID(
-                float64(cellX+dx)*si.CellSize,
-                float64(cellY+dy)*si.CellSize,
-            )
+            // Calculate neighbor cell world coordinates and get cell ID
+            neighborX := float64(cellX+dx) * si.CellSize
+            neighborY := float64(cellY+dy) * si.CellSize
+            neighborCellID := si.getCellID(neighborX, neighborY)
             
             for _, candidateIdx := range si.Grid[neighborCellID] {
                 candidate := points[candidateIdx]
