@@ -258,7 +258,7 @@ setup_python() {
             echo "  sudo apt-get update"
             echo "  sudo apt-get install python3 python3-venv python3-pip"
         elif [[ "$OS" == "macos" ]]; then
-            echo "  brew install python@3.14"
+            echo "  brew install python@3.13"
         fi
         exit 1
     fi
