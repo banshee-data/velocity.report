@@ -1,5 +1,51 @@
 # Development Log
 
+## November 30, 2025 - Foreground Tracking Pipeline (Phases 2.9-3.2)
+
+### Phase 2.9: Foreground Mask Generation (Polar Frame)
+- Implemented `ProcessFramePolarWithMask()` in `internal/lidar/foreground.go` for per-point foreground/background classification
+- Added `ExtractForegroundPoints()` helper to filter foreground points using mask
+- Added `ComputeFrameMetrics()` for frame-level statistics (total, foreground, background counts)
+- Comprehensive unit tests in `internal/lidar/foreground_test.go`
+
+### Phase 3.0: Polar → World Transform
+- Implemented `WorldPoint` struct for world-frame Cartesian coordinates
+- Added `TransformToWorld()` function with pose support in `internal/lidar/clustering.go`
+- Added `TransformPointsToWorld()` convenience function for pre-computed Cartesian points
+- Identity transform fallback when pose is nil
+- Unit tests for transform accuracy with identity and custom poses
+
+### Phase 3.1: DBSCAN Clustering (World Frame)
+- Implemented `SpatialIndex` struct with grid-based indexing using Szudzik pairing and zigzag encoding
+- Added `DBSCAN()` algorithm with configurable eps (0.6m default) and minPts (12 default)
+- Implemented `computeClusterMetrics()` for centroid, bounding box, height P95, intensity mean
+- Added `WorldCluster` struct with all required features
+- Comprehensive unit tests in `internal/lidar/clustering_test.go`
+
+### Phase 3.2: Kalman Tracking (World Frame)
+- Implemented `TrackState` lifecycle: Tentative → Confirmed → Deleted
+- Added `TrackedObject` struct with Kalman state (x, y, vx, vy) and covariance matrix
+- Implemented `Tracker` with configurable parameters via `TrackerConfig`
+- Added Mahalanobis distance gating for cluster-to-track association
+- Implemented Kalman predict/update with constant velocity model
+- Track lifecycle management with hits/misses counting, promotion, and deletion
+- Speed statistics: average, peak, and history for percentile computation
+- Comprehensive unit tests in `internal/lidar/tracking_test.go`
+
+### ML Training Data Support
+- Added `ForegroundFrame` struct for exporting foreground points with metadata
+- Implemented `EncodeForegroundBlob()`/`DecodeForegroundBlob()` for compact binary encoding (8 bytes/point)
+- Added `ValidatePose()` for pose quality assessment based on RMSE thresholds
+- Implemented `TransformToWorldWithValidation()` with quality gating
+- Added `TrainingDataFilter` for filtering by pose quality
+- Unit tests in `internal/lidar/training_data_test.go` and `internal/lidar/pose_test.go`
+
+### Documentation Updates
+- Updated `foreground_tracking_plan.md` with implementation status and file locations
+- Updated `lidar_sidecar_overview.md` with completed phases and module structure
+- Added implementation files table to roadmap
+- Updated milestones to reflect completed phases
+
 ## November 1, 2025 - PCAP Security & Grid Visualization (dd/lidar/read-pcap)
 
 - Implemented path traversal protection with `--lidar-pcap-dir` flag (default: `../sensor-data/lidar`) using `filepath.Join()` + `filepath.Abs()` + prefix checking to prevent `../../` attacks.

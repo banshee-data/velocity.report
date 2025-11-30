@@ -1,8 +1,8 @@
 # LiDAR Sidecar — Technical Implementation Overview
 
-**Status:** Phase 1 & 2 completed, PCAP parameter tuning in progress
-**Scope:** Hesai UDP → parse → frame assembly → background subtraction → clustering → tracking → HTTP API
-**Current Phase:** Phase 2.5 - PCAP-based parameter identification for background tuning
+**Status:** Phase 3.2 completed (Foreground Tracking Pipeline), Phase 3.3-3.4 planned  
+**Scope:** Hesai UDP → parse → frame assembly → background subtraction → foreground mask → clustering → tracking → HTTP API  
+**Current Phase:** Phase 3.3 - SQL Schema & REST APIs (planned)
 
 ---
 
@@ -40,16 +40,65 @@
 - ✅ **Frame Builder Fix**: Fixed eviction bug that prevented frame callback delivery
 - ✅ **Grid Visualization**: Spatial heatmap API for analyzing filled vs settled cells
 
-### 📋 **Phase 2.9: Foreground point extrction (NEXT)**
+### ✅ **Phase 2.9: Foreground Mask Generation (COMPLETED)**
 
-- 📋 Foreground point extraction and clustering (planned)
+- ✅ **`ProcessFramePolarWithMask()`**: Per-point foreground/background classification in polar coordinates
+- ✅ **`ExtractForegroundPoints()`**: Helper to filter foreground points from mask
+- ✅ **`ComputeFrameMetrics()`**: Frame-level statistics (total, foreground, background counts)
+- ✅ **Unit Tests**: Comprehensive test coverage in `internal/lidar/foreground_test.go`
+- ✅ **Location**: `internal/lidar/foreground.go`
 
-### 📋 **Phase 3: Tracking & World Transform (NEXT)**
+### ✅ **Phase 3.0: Polar → World Transform (COMPLETED)**
 
-- Pose management and coordinate transformations
-- Multi-object Kalman filter tracking in world frame
-- Track lifecycle management with configurable retention
-- Complete REST API for tracking data
+- ✅ **`WorldPoint`** struct for world-frame Cartesian coordinates
+- ✅ **`TransformToWorld()`**: Converts polar points to world frame using pose transform
+- ✅ **`TransformPointsToWorld()`**: Convenience function for pre-computed Cartesian points
+- ✅ **Identity transform fallback** when pose is nil
+- ✅ **Unit Tests**: Transform accuracy validation in `internal/lidar/clustering_test.go`
+- ✅ **Location**: `internal/lidar/clustering.go`
+
+### ✅ **Phase 3.1: DBSCAN Clustering (COMPLETED)**
+
+- ✅ **`SpatialIndex`**: Grid-based spatial indexing using Szudzik pairing with zigzag encoding
+- ✅ **`DBSCAN()`**: Density-based clustering with configurable eps and minPts
+- ✅ **`computeClusterMetrics()`**: Centroid, bounding box, height P95, intensity mean
+- ✅ **`WorldCluster`** struct with all required features
+- ✅ **Unit Tests**: Clustering validation in `internal/lidar/clustering_test.go`
+- ✅ **Location**: `internal/lidar/clustering.go`
+
+### ✅ **Phase 3.2: Kalman Tracking (COMPLETED)**
+
+- ✅ **`TrackState`** lifecycle: Tentative → Confirmed → Deleted
+- ✅ **`TrackedObject`**: Track state with Kalman filter and aggregated features
+- ✅ **`Tracker`**: Multi-object tracker with configurable parameters
+- ✅ **Mahalanobis distance gating** for cluster-to-track association
+- ✅ **Kalman predict/update** with constant velocity model
+- ✅ **Track lifecycle management**: hits/misses counting, promotion, deletion
+- ✅ **Speed statistics**: Average, peak, and history for percentile computation
+- ✅ **Unit Tests**: Comprehensive tracking tests in `internal/lidar/tracking_test.go`
+- ✅ **Location**: `internal/lidar/tracking.go`
+
+### ✅ **ML Training Data Support (COMPLETED)**
+
+- ✅ **`ForegroundFrame`**: Export struct for foreground points with metadata
+- ✅ **`EncodeForegroundBlob()`/`DecodeForegroundBlob()`**: Compact binary encoding (8 bytes/point)
+- ✅ **`ValidatePose()`**: Pose quality assessment based on RMSE thresholds
+- ✅ **`TransformToWorldWithValidation()`**: Transform with quality gating
+- ✅ **`TrainingDataFilter`**: Filtering by pose quality for ML datasets
+- ✅ **Unit Tests**: `internal/lidar/training_data_test.go`, `internal/lidar/pose_test.go`
+- ✅ **Location**: `internal/lidar/training_data.go`, `internal/lidar/pose.go`
+
+### 📋 **Phase 3.3: SQL Schema & REST APIs (NEXT)**
+
+- Database persistence for clusters, tracks, and observations
+- REST API endpoints for track data access
+- Migration files for SQLite schema
+
+### 📋 **Phase 3.4: Track Classification (PLANNED)**
+
+- Rule-based or ML-based object type labeling
+- Classification model integration
+- Schema updates for classification data
 
 ### 📋 **Phase 4: Multi-Sensor & Production Optimization (PLANNED)**
 
@@ -79,8 +128,13 @@ internal/lidar/parse/config.go     ✅ # Embedded calibration configurations
 internal/lidar/frame_builder.go    ✅ # Time-based frame assembly with motor speed
 internal/lidar/monitor/            ✅ # HTTP endpoints: /health, /api/lidar/*
 internal/lidar/background.go       ✅ # Background model & classification with persistence
+internal/lidar/foreground.go       ✅ # Foreground mask generation and extraction (Phase 2.9)
+internal/lidar/clustering.go       ✅ # World transform and DBSCAN clustering (Phase 3.0-3.1)
+internal/lidar/tracking.go         ✅ # Kalman tracking with lifecycle management (Phase 3.2)
+internal/lidar/training_data.go    ✅ # ML training data export and encoding
+internal/lidar/pose.go             ✅ # Pose validation and quality assessment
 internal/lidar/export.go           ✅ # ASC point cloud export
-internal/lidar/arena.go            🔄 # Clustering and tracking (stubbed)
+internal/lidar/arena.go            ✅ # Data structures for clustering and tracking
 internal/db/db.go                  ✅ # Database schema and BgSnapshot persistence
 tools/grid-heatmap/                ✅ # Grid visualization and analysis tools
 ```
@@ -90,7 +144,17 @@ tools/grid-heatmap/                ✅ # Grid visualization and analysis tools
 ```
 [UDP:2369] → [Parse] → [Frame Builder] → [Background (sensor)] → [Foreground Mask]
                                                                         ↓
-[HTTP API] ← [Tracking (world)] ← [Transform] ← [Clustering] ← [Foreground Points]
+                                                               ProcessFramePolarWithMask()
+                                                                        ↓
+                                                           ExtractForegroundPoints()
+                                                                        ↓
+                                                             TransformToWorld()
+                                                                        ↓
+                                                                  DBSCAN()
+                                                                        ↓
+                                                              Tracker.Update()
+                                                                        ↓
+[HTTP API] ← [Database Persistence] ← [Confirmed Tracks] ← [Track Lifecycle]
 ```
 
 ---
@@ -124,12 +188,12 @@ tools/grid-heatmap/                ✅ # Grid visualization and analysis tools
 - **SQLite with WAL**: High-performance concurrent access
 - **Performance Optimized**: Prepared statements, batch inserts
 
-### Background Model & Classification (✅ Implemented, Subtraction Not Yet)
+### Background Model & Classification (✅ Complete)
 
 **Current State:**
 
 - The system implements background model learning and foreground/background classification for each observation.
-- Actual foreground point extraction (subtraction) is **not yet implemented**; only counters and classification are tracked.
+- **Foreground mask extraction is now implemented** via `ProcessFramePolarWithMask()`.
 
 **Algorithm (Implemented):**
 
@@ -142,7 +206,9 @@ is_background = (cell_diff <= closeness_threshold) OR (neighbor_confirm >= requi
 
 **Implementation Details:**
 
-- **Classification**: Each observation is classified as background or foreground, but foreground points are not yet extracted for further processing.
+- **Classification**: Each observation is classified as background or foreground
+- **Foreground Mask**: `ProcessFramePolarWithMask()` returns per-point boolean mask
+- **Foreground Extraction**: `ExtractForegroundPoints()` filters points using mask
 - **Spatial filtering**: Same-ring neighbor vote (configurable via NeighborConfirmationCount)
 - **Temporal filtering**: Cell freezing after large divergence (configurable via FreezeDurationNanos)
 - **Learning**: EMA update of cell statistics when observation is background-like (BackgroundUpdateFraction)
@@ -159,25 +225,57 @@ is_background = (cell_diff <= closeness_threshold) OR (neighbor_confirm >= requi
 - ✅ Neighbor confirmation voting
 - ✅ Cell freezing on large divergence
 - ✅ Acceptance metrics for parameter tuning
+- ✅ **Foreground mask extraction** (`ProcessFramePolarWithMask()`)
+- ✅ **Foreground point filtering** (`ExtractForegroundPoints()`)
 
-**What's Not Yet Implemented:**
+### Polar → World Transform (✅ Complete)
 
-- ❌ Foreground point extraction/subtraction (actual filtering of points for clustering)
-- ❌ Clustering of foreground points into objects
+- **Location**: `internal/lidar/clustering.go`
+- **`TransformToWorld()`**: Converts polar points to world-frame Cartesian coordinates
+- **Pose Support**: Uses 4x4 homogeneous transform matrix (sensor → world)
+- **Identity Fallback**: Uses identity transform when pose is nil
+- **`TransformPointsToWorld()`**: Convenience function for pre-computed Cartesian points
 
-### Clustering (🔄 Planned)
+### Clustering (✅ Complete)
 
-- **Euclidean clustering**: eps ≈ 0.6m, minPts ≈ 12
-- **Per-cluster metrics**: centroid, PCA bbox, height_p95, intensity_mean
-- **World Frame Processing**: Transform from sensor to world coordinates
+- **Location**: `internal/lidar/clustering.go`
+- **Algorithm**: DBSCAN with required spatial index
+- **Euclidean clustering**: eps = 0.6m (configurable), minPts = 12 (configurable)
+- **`SpatialIndex`**: Grid-based indexing using Szudzik pairing with zigzag encoding for O(1) neighbor queries
+- **Per-cluster metrics**: centroid, bounding box (length/width/height), height_p95, intensity_mean
+- **`WorldCluster`** struct with all required features
+- **2D Clustering**: Uses (x, y) for clustering, z for height features only
 
-### Tracking (🔄 Planned)
+### Tracking (✅ Complete)
 
+- **Location**: `internal/lidar/tracking.go`
 - **State vector**: [x, y, velocity_x, velocity_y]
 - **Constant-velocity Kalman filter** with configurable noise parameters
-- **Association**: Mahalanobis distance on position
-- **Lifecycle**: Birth from unmatched clusters, death after consecutive misses
-- **Track Management**: Birth, association, update, death cycle
+- **Association**: Mahalanobis distance gating for cluster-to-track association
+- **`Tracker`**: Multi-object tracker with configurable parameters via `TrackerConfig`
+- **`TrackedObject`**: Track state with Kalman filter, lifecycle counters, and aggregated features
+- **Lifecycle States**: `Tentative` → `Confirmed` → `Deleted`
+- **Track Management**: 
+  - Birth from unmatched clusters
+  - Promotion after N consecutive hits (default: 3)
+  - Deletion after N consecutive misses (default: 3)
+  - Grace period for deleted tracks before cleanup
+- **Speed Statistics**: Average speed, peak speed, history for percentile computation
+- **Aggregated Features**: Bounding box averages, height P95 max, intensity mean average
+
+### ML Training Data (✅ Complete)
+
+- **Location**: `internal/lidar/training_data.go`, `internal/lidar/pose.go`
+- **`ForegroundFrame`**: Export struct for foreground points with metadata
+- **Compact Encoding**: 8 bytes per point (vs ~40+ bytes for struct)
+- **Pose Validation**: Quality assessment based on RMSE thresholds
+  - Excellent: < 0.05m
+  - Good: 0.05-0.15m (OK for training)
+  - Fair: 0.15-0.30m (OK for tracking, exclude from training)
+  - Poor: > 0.30m (requires recalibration)
+- **`TransformToWorldWithValidation()`**: Transform with pose quality gating
+- **`TrainingDataFilter`**: Filtering by pose quality for ML datasets
+- **Storage Recommendation**: Store in polar (sensor) frame for pose independence
 
 ---
 
@@ -863,7 +961,7 @@ The system uses a comprehensive SQLite schema with 738 lines covering:
 
 ### ✅ **Current State Summary**
 
-The LiDAR sidecar has **completed Phase 1 (core infrastructure) and the background classification portion of Phase 2**. Background learning, foreground/background classification, and parameter tuning infrastructure are fully operational. The system is now ready for **Phase 2.5 (PCAP-based parameter identification)** before implementing foreground point extraction and clustering.
+The LiDAR sidecar has **completed Phases 1-2 (core infrastructure, background classification), Phase 2.5 (PCAP-based parameter tuning), and Phases 2.9-3.2 (foreground tracking pipeline)**. The complete pipeline from UDP packets to tracked objects is implemented and tested. The system is now ready for **Phase 3.3 (SQL Schema & REST APIs)** to enable database persistence and API access.
 
 ### ✅ **Completed Components**
 
@@ -877,26 +975,45 @@ The LiDAR sidecar has **completed Phase 1 (core infrastructure) and the backgrou
 - ✅ **Parameter Tuning**: Runtime-adjustable parameters via HTTP API
 - ✅ **Monitoring**: Acceptance metrics and grid statistics for tuning
 - ✅ **Sweep Tools**: Automated parameter sweep utilities for optimization
+- ✅ **Foreground Mask Generation** (Phase 2.9): `ProcessFramePolarWithMask()`, `ExtractForegroundPoints()`
+- ✅ **World Transform** (Phase 3.0): `TransformToWorld()` with pose support
+- ✅ **DBSCAN Clustering** (Phase 3.1): `SpatialIndex`, `DBSCAN()`, `WorldCluster`
+- ✅ **Kalman Tracking** (Phase 3.2): `Tracker`, `TrackedObject`, lifecycle management
+- ✅ **ML Training Data Support**: `ForegroundFrame`, pose validation, compact encoding
 
-### 🔄 **In Development (Phase 2.5)**
+### ✅ **Completed (Phase 2.5, 2.9, 3.0, 3.1, 3.2)**
 
-- 🔄 **PCAP Reading**: File-based replay for parameter identification
-- 🔄 **Parameter Optimization**: Use real-world PCAP data to tune thresholds
+- ✅ **PCAP Reading**: File-based replay with BPF filtering (Phase 2.5)
+- ✅ **Parameter Optimization**: Runtime-adjustable via HTTP API (Phase 2.5)
+- ✅ **Foreground Extraction**: `ProcessFramePolarWithMask()` and `ExtractForegroundPoints()` (Phase 2.9)
+- ✅ **World Transform**: `TransformToWorld()` with pose support (Phase 3.0)
+- ✅ **Clustering**: `DBSCAN()` with `SpatialIndex` for efficient neighbor queries (Phase 3.1)
+- ✅ **Tracking**: `Tracker` with Kalman filter and lifecycle management (Phase 3.2)
+- ✅ **ML Training Data**: `ForegroundFrame` export and pose validation
 
-### 📋 **Future Work**
+### 📋 **Future Work (Phase 3.3, 3.4, 4)**
 
-- 📋 **Foreground Extraction**: Extract foreground-classified points from frames
-- 📋 **Clustering**: Euclidean clustering on foreground points
-- 📋 **Tracking**: Kalman filter-based multi-object tracking in world frame
-- 📋 **Multi-Sensor**: Support multiple sensors per machine with local databases
+- 📋 **SQL Schema & REST APIs (Phase 3.3)**: Database persistence for clusters/tracks/observations, REST endpoints
+- 📋 **Track Classification (Phase 3.4)**: Rule-based or ML-based object type labeling
+- 📋 **Multi-Sensor (Phase 4)**: Support multiple sensors per machine with local databases
 - 📋 **Database Unification**: Consolidate data from distributed edge nodes
 - 📋 **Cross-Sensor Tracking**: Track objects across multiple sensor coverage areas
 - 📋 **Scale**: Memory optimization for 100+ tracks across multiple sensors
 
-**Current Focus**: Implementing PCAP file reading to enable parameter tuning with real-world data (cars, pedestrians) before implementing foreground extraction and clustering algorithms.
+**Current Focus**: Implementing Phase 3.3 (SQL Schema & REST APIs) to enable database persistence for clusters, tracks, and observations. The core foreground tracking pipeline (Phases 2.9-3.2) is complete.
 
-**Architecture**: Modular design with clear separation between UDP ingestion, parsing, frame assembly, background classification, and (future) clustering/tracking. Background classification is production-ready; foreground extraction, clustering, and tracking await parameter identification via PCAP analysis.
+**Architecture**: Modular design with clear separation between:
+- UDP ingestion and parsing
+- Frame assembly  
+- Background classification (polar frame)
+- Foreground extraction (polar frame)
+- World transform (polar → world)
+- Clustering (world frame)
+- Tracking (world frame)
+- Database persistence and REST APIs (planned)
+
+**Pipeline Status**: The complete foreground tracking pipeline from UDP packets to tracked objects is implemented and tested. Database persistence and REST APIs are the next major milestone.
 
 **Multi-Sensor Vision (Phase 4)**: The architecture supports a distributed edge deployment model where each machine runs multiple LiDAR sensors, storing data locally in SQLite. Data from multiple edge nodes can be consolidated later for whole-street analysis and cross-intersection tracking in world frame coordinates.
 
-The implementation is ready for PCAP reader development and parameter sweep execution as the next major milestone.
+The implementation is ready for Phase 3.3 (SQL Schema & REST APIs) development.

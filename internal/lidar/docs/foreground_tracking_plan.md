@@ -1,9 +1,9 @@
 # LIDAR Foreground Extraction and Tracking Implementation Plan
 
-**Status:** Architecture Review Complete - Ready for Implementation  
+**Status:** Implementation Complete through Phase 3.2  
 **Date:** November 30, 2025  
 **Author:** Ictinus (Product Architecture Agent)  
-**Version:** 3.0 - Consolidated Documentation
+**Version:** 4.0 - Implementation Status Update
 
 ---
 
@@ -67,14 +67,56 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 - ✅ PCAP replay with parameter tuning
 - ✅ HTTP APIs for monitoring and control
 
-### ❌ Missing Components
+### ✅ Completed (Phases 2.9 - 3.2)
 
-1. **Foreground mask extraction** - Classification exists but mask not output
-2. **Polar → World transform stage** - No explicit transform implementation
-3. **DBSCAN clustering** - No spatial clustering in world frame
-4. **Kalman tracking** - No multi-object tracking
-5. **Track classification** - No object type labeling
-6. **UI visualization** - No track display components
+#### Phase 2.9: Foreground Mask Generation (Polar Frame)
+- **Implementation:** `internal/lidar/foreground.go`
+- ✅ `ProcessFramePolarWithMask()` - per-point foreground/background classification returning mask
+- ✅ `ExtractForegroundPoints()` - helper to filter foreground points from mask
+- ✅ `ComputeFrameMetrics()` - frame-level statistics (total, foreground, background counts)
+- ✅ Unit tests in `internal/lidar/foreground_test.go`
+
+#### Phase 3.0: Polar → World Transform
+- **Implementation:** `internal/lidar/clustering.go`
+- ✅ `WorldPoint` struct for world-frame coordinates
+- ✅ `TransformToWorld()` - converts polar points to world frame using pose
+- ✅ `TransformPointsToWorld()` - convenience function for pre-computed Cartesian points
+- ✅ Identity transform fallback when pose is nil
+- ✅ Unit tests for coordinate transformation accuracy
+
+#### Phase 3.1: DBSCAN Clustering (World Frame)
+- **Implementation:** `internal/lidar/clustering.go`
+- ✅ `SpatialIndex` struct with grid-based indexing using Szudzik pairing
+- ✅ `DBSCAN()` - density-based clustering with spatial index
+- ✅ `computeClusterMetrics()` - centroid, bounding box, height P95, intensity mean
+- ✅ `WorldCluster` struct with all required features
+- ✅ Unit tests in `internal/lidar/clustering_test.go`
+
+#### Phase 3.2: Kalman Tracking (World Frame)
+- **Implementation:** `internal/lidar/tracking.go`
+- ✅ `TrackState` lifecycle: Tentative → Confirmed → Deleted
+- ✅ `TrackedObject` struct with Kalman state and aggregated features
+- ✅ `Tracker` with configurable parameters via `TrackerConfig`
+- ✅ Mahalanobis distance gating for association
+- ✅ Kalman predict/update with constant velocity model
+- ✅ Track lifecycle management (hits/misses, promotion, deletion)
+- ✅ Speed statistics (average, peak, history for percentiles)
+- ✅ Unit tests in `internal/lidar/tracking_test.go`
+
+#### ML Training Data Support
+- **Implementation:** `internal/lidar/training_data.go`, `internal/lidar/pose.go`
+- ✅ `ForegroundFrame` struct for exporting foreground points
+- ✅ `EncodeForegroundBlob()`/`DecodeForegroundBlob()` - compact binary encoding (8 bytes/point)
+- ✅ `ValidatePose()` - pose quality assessment based on RMSE thresholds
+- ✅ `TransformToWorldWithValidation()` - transform with quality gating
+- ✅ `TrainingDataFilter` for filtering by pose quality
+- ✅ Unit tests for pose validation and training data encoding
+
+### 📋 Remaining Components
+
+1. **SQL Schema & REST APIs (Phase 3.3)** - Database persistence for clusters/tracks/observations
+2. **Track Classification (Phase 3.4)** - Rule-based or ML-based object type labeling
+3. **UI visualization** - Track display components in web frontend
 
 ---
 
@@ -1289,27 +1331,44 @@ func TestPipeline_PCAPToTracks(t *testing.T) {
 
 ### Phase Timeline
 
-| Phase | Description | Duration | Deliverables |
-|-------|-------------|----------|--------------|
-| 2.9 | Foreground Mask (Polar) | 1-2 days | `ProcessFramePolar` returns mask, frame metrics |
-| 3.0 | Transform (Polar→World) | 1-2 days | `TransformToWorld` function, unit tests |
-| 3.1 | DBSCAN Clustering | 3-4 days | Spatial index, DBSCAN, cluster metrics |
-| 3.2 | Kalman Tracking | 4-5 days | Tracker with lifecycle, Mahalanobis gating |
-| 3.3 | SQL & APIs | 3-4 days | Migrations, endpoints, handlers |
-| 3.4 | Classification | 2-3 days | Rule-based classifier, schema updates |
-| Test | Integration Testing | 2-3 days | End-to-end tests, performance validation |
+| Phase | Description | Duration | Status | Deliverables |
+|-------|-------------|----------|--------|--------------|
+| 2.9 | Foreground Mask (Polar) | 1-2 days | ✅ Complete | `ProcessFramePolarWithMask`, `ExtractForegroundPoints`, `FrameMetrics` |
+| 3.0 | Transform (Polar→World) | 1-2 days | ✅ Complete | `TransformToWorld`, `WorldPoint`, unit tests |
+| 3.1 | DBSCAN Clustering | 3-4 days | ✅ Complete | `SpatialIndex`, `DBSCAN`, `computeClusterMetrics`, `WorldCluster` |
+| 3.2 | Kalman Tracking | 4-5 days | ✅ Complete | `Tracker`, `TrackedObject`, Mahalanobis gating, lifecycle management |
+| 3.3 | SQL & APIs | 3-4 days | 📋 Planned | Migrations, endpoints, handlers |
+| 3.4 | Classification | 2-3 days | 📋 Planned | Rule-based classifier, schema updates |
+| Test | Integration Testing | 2-3 days | 📋 Planned | End-to-end tests, performance validation |
 
-**Total: 16-23 days**
+**Phases 2.9-3.2: Complete**  
+**Remaining: Phases 3.3-3.4 + Integration Testing**
 
 ### Milestones
 
 1. ✅ **Background Learning Complete** (Done - Phase 1-2)
-2. 🎯 **Foreground Masks Working** - Polar classification outputs masks
-3. 🎯 **World Transform Validated** - Transform tests passing
-4. 🎯 **Clustering Operational** - DBSCAN detecting objects
-5. 🎯 **Tracking Functional** - Tracks maintained across frames
-6. 🎯 **Classification Active** - Objects labeled by type
-7. 🎯 **Production Ready** - All tests passing, documented, deployed
+2. ✅ **Foreground Masks Working** - `ProcessFramePolarWithMask()` outputs per-point masks
+3. ✅ **World Transform Validated** - `TransformToWorld()` tests passing with identity and custom poses
+4. ✅ **Clustering Operational** - `DBSCAN()` detecting clusters with spatial index
+5. ✅ **Tracking Functional** - `Tracker` maintains tracks with Kalman filter and lifecycle management
+6. 📋 **SQL & APIs Ready** - Database persistence and REST endpoints
+7. 📋 **Classification Active** - Objects labeled by type
+8. 📋 **Production Ready** - All tests passing, documented, deployed
+
+### Implementation Files
+
+| Phase | File | Description |
+|-------|------|-------------|
+| 2.9 | `internal/lidar/foreground.go` | Foreground mask generation and extraction |
+| 2.9 | `internal/lidar/foreground_test.go` | Unit tests for foreground extraction |
+| 3.0-3.1 | `internal/lidar/clustering.go` | Transform and DBSCAN clustering |
+| 3.0-3.1 | `internal/lidar/clustering_test.go` | Unit tests for transform and clustering |
+| 3.2 | `internal/lidar/tracking.go` | Kalman tracking with lifecycle management |
+| 3.2 | `internal/lidar/tracking_test.go` | Unit tests for tracking |
+| ML | `internal/lidar/training_data.go` | Training data export and encoding |
+| ML | `internal/lidar/training_data_test.go` | Unit tests for training data |
+| ML | `internal/lidar/pose.go` | Pose validation and quality assessment |
+| ML | `internal/lidar/pose_test.go` | Unit tests for pose validation |
 
 ---
 
@@ -1605,6 +1664,7 @@ func isValidTransformMatrix(T [16]float64) bool {
 
 ---
 
-**Document Status:** Complete - Ready for Implementation  
-**Next Action:** Begin Phase 2.9 - Foreground Mask Generation  
+**Document Status:** Implementation Complete through Phase 3.2  
+**Next Action:** Begin Phase 3.3 - SQL Schema & REST APIs  
+**Last Updated:** November 30, 2025  
 **Contact:** Engineering Team
