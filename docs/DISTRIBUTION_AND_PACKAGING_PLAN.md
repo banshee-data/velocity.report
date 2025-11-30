@@ -4,6 +4,52 @@
 **Date:** 2025-11-20  
 **Status:** Proposed Architecture
 
+---
+
+## Quick Reference
+
+### 30-Second Pitch
+
+**Problem:** Multiple scattered tools, no release process, complex Python setup  
+**Solution:** Single `velocity-report` binary with subcommands + optional power-user tools  
+**Result:** Professional distribution with one-line install and GitHub releases
+
+### Recommended Architecture (Hybrid Model)
+
+```
+velocity-report                        # Main binary (all users)
+  ├── serve      (default)            # Start server
+  ├── migrate    (existing)           # DB migrations
+  ├── pdf        (new)                # Generate PDF
+  ├── backfill   (moved)              # Transit backfill
+  └── version    (new)                # Version info
+
+velocity-report-sweep                  # Power user tool
+velocity-report-backfill-rings         # Developer tool
+```
+
+### Key Changes Summary
+
+| What | Before | After |
+|------|--------|-------|
+| **Main binary** | `cmd/radar/` | `cmd/velocity-report/` |
+| **Start server** | `velocity-report` | `velocity-report serve` (or just `velocity-report`) |
+| **PDF generation** | `PYTHONPATH=... python -m ...` | `velocity-report pdf config.json` |
+| **Sweep tool** | `./app-sweep` | `velocity-report-sweep` |
+| **Installation** | Manual build + scp + script | `curl install.sh \| sudo bash` |
+| **Releases** | None | GitHub Releases with CI/CD |
+
+### Timeline Overview
+
+- **Phase 1:** Go restructure (1-2 weeks)
+- **Phase 2:** Python integration (1 week)
+- **Phase 3:** GitHub Actions (3-5 days)
+- **Phase 4:** Install script (3-5 days)
+- **Phase 5:** Testing (1 week)
+- **Total: 4-6 weeks to v1.0.0**
+
+---
+
 ## Executive Summary
 
 This document outlines a comprehensive plan to structure, bundle, and distribute the velocity.report suite, which currently consists of:
@@ -20,14 +66,15 @@ The plan evaluates multiple distribution approaches and recommends a **hybrid mo
 
 ## Table of Contents
 
-1. [Current State Analysis](#1-current-state-analysis)
-2. [User Personas & Use Cases](#2-user-personas--use-cases)
-3. [Distribution Approach Tradeoffs](#3-distribution-approach-tradeoffs)
-4. [Recommended Architecture](#4-recommended-architecture)
-5. [Implementation Plan](#5-implementation-plan)
-6. [Migration Guide](#6-migration-guide)
-7. [Testing & Validation](#7-testing--validation)
-8. [Future Enhancements](#8-future-enhancements)
+1. [Quick Reference](#quick-reference)
+2. [Current State Analysis](#1-current-state-analysis)
+3. [User Personas & Use Cases](#2-user-personas--use-cases)
+4. [Distribution Approach Tradeoffs](#3-distribution-approach-tradeoffs)
+5. [Recommended Architecture](#4-recommended-architecture)
+6. [Implementation Plan](#5-implementation-plan)
+7. [Migration Guide](#6-migration-guide)
+8. [Testing & Validation](#7-testing--validation)
+9. [Future Enhancements](#8-future-enhancements)
 
 ---
 
