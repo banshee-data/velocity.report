@@ -161,11 +161,45 @@ VENV_PYTHON = $(VENV_DIR)/bin/python3
 VENV_PIP = $(VENV_DIR)/bin/pip
 VENV_PYTEST = $(VENV_DIR)/bin/pytest
 PDF_DIR = tools/pdf-generator
+PYTHON_VERSION = 3.12
 
 install-python:
 	@echo "Setting up Python environment..."
-	@if [ ! -d "$(VENV_DIR)" ]; then \
-		python3 -m venv $(VENV_DIR); \
+	@python_path=$$(command -v python$(PYTHON_VERSION) 2>/dev/null || true); \
+	if [ -z "$$python_path" ]; then \
+		echo "python$(PYTHON_VERSION) not found."; \
+		if command -v brew >/dev/null 2>&1; then \
+			echo "Attempting to install python@$(PYTHON_VERSION) via Homebrew..."; \
+			brew install python@$(PYTHON_VERSION) >/dev/null 2>&1 || true; \
+		fi; \
+		if ! command -v python$(PYTHON_VERSION) >/dev/null 2>&1; then \
+			echo "Please install python$(PYTHON_VERSION) (e.g. 'brew install python@$(PYTHON_VERSION)' or distro package)."; \
+			echo "The venv will fall back to the default python3 interpreter."; \
+		fi; \
+	fi; \
+	if command -v python$(PYTHON_VERSION) >/dev/null 2>&1; then \
+		python_cmd=python$(PYTHON_VERSION); \
+	elif command -v python3 >/dev/null 2>&1; then \
+		python_cmd=python3; \
+	else \
+		python_cmd=python; \
+	fi; \
+	if ! command -v "$$python_cmd" >/dev/null 2>&1; then \
+		echo "No usable Python interpreter found (python$(PYTHON_VERSION)/python3)."; \
+		exit 1; \
+	fi; \
+	echo "Using: $$python_cmd"; \
+	if [ -d "$(VENV_DIR)" ]; then \
+		existing_version=$$($(VENV_DIR)/bin/python3 --version 2>&1 || true); \
+		if echo "$$existing_version" | grep -q "Python $(PYTHON_VERSION)"; then \
+			echo "Reusing existing venv at $(VENV_DIR) ($$existing_version)"; \
+		else \
+			echo "Recreating venv with $$python_cmd (was $$existing_version)"; \
+			rm -rf $(VENV_DIR); \
+			$$python_cmd -m venv $(VENV_DIR); \
+		fi; \
+	else \
+		$$python_cmd -m venv $(VENV_DIR); \
 	fi
 	@$(VENV_PIP) install --upgrade pip
 	@$(VENV_PIP) install -r requirements.txt
@@ -192,6 +226,12 @@ install-docs:
 		else \
 			echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
 		fi
+
+.PHONY: ensure-python-tools
+ensure-python-tools:
+	@if [ ! -d "$(VENV_DIR)" ] || [ ! -x "$(VENV_DIR)/bin/black" ] || [ ! -x "$(VENV_DIR)/bin/ruff" ]; then \
+		$(MAKE) install-python; \
+	fi
 
 # =============================================================================
 # DEVELOPMENT SERVERS
@@ -371,22 +411,10 @@ format-go:
 	@echo "Formatting Go source (gofmt)..."
 	@gofmt -s -w . || true
 
-format-python:
+format-python: ensure-python-tools
 	@echo "Formatting Python (black, ruff) using venv at $(VENV_DIR)..."
-	@if [ -x "$(VENV_DIR)/bin/black" ]; then \
-		"$(VENV_DIR)/bin/black" . || true; \
-	elif command -v black >/dev/null 2>&1; then \
-		black . || true; \
-	else \
-		echo "black not found; run 'make install-python' to install"; \
-	fi
-	@if [ -x "$(VENV_DIR)/bin/ruff" ]; then \
-		"$(VENV_DIR)/bin/ruff" check --fix . || true; \
-	elif command -v ruff >/dev/null 2>&1; then \
-		ruff check --fix . || true; \
-	else \
-		echo "ruff not found; run 'make install-python' to install"; \
-	fi
+	@$(VENV_PYTHON) -m black . || true
+	@$(VENV_PYTHON) -m ruff check --fix . || true
 
 format-web:
 	@echo "Formatting web JS/TS in $(WEB_DIR) (prettier via pnpm or npx)..."
@@ -394,7 +422,7 @@ format-web:
 		if command -v pnpm >/dev/null 2>&1; then \
 			cd $(WEB_DIR) && pnpm run prettier:write || echo "prettier run failed or not configured"; \
 		elif command -v npx >/dev/null 2>&1; then \
-			cd $(WEB_DIR) && npx prettier --plugin ./node_modules/prettier-plugin-svelte/plugin.js --write . || echo "prettier run failed or not configured"; \
+			cd $(WEB_DIR) && npx prettier --write . || echo "prettier run failed or not configured"; \
 		else \
 			echo "pnpm/npx not found; skipping JS/TS formatting in $(WEB_DIR)"; \
 		fi; \
@@ -442,12 +470,12 @@ lint-python:
 	fi
 
 lint-web:
-	@echo "Checking web formatting (prettier --check) in $(WEB_DIR)..."
+	@echo "Checking web formatting & lint (prettier + eslint) in $(WEB_DIR)..."
 	@if [ -d "$(WEB_DIR)" ]; then \
 		if command -v pnpm >/dev/null 2>&1; then \
-			cd $(WEB_DIR) && pnpm run prettier:check || exit 1; \
+			cd $(WEB_DIR) && pnpm run lint || exit 1; \
 		elif command -v npx >/dev/null 2>&1; then \
-			cd $(WEB_DIR) && npx prettier --plugin ./node_modules/prettier-plugin-svelte/plugin.js --check . || exit 1; \
+			(cd $(WEB_DIR) && npx prettier --check . && npx eslint .) || exit 1; \
 		else \
 			echo "pnpm/npx not found; cannot run prettier --check"; \
 			exit 2; \

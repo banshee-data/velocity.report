@@ -3,7 +3,6 @@
 A Python tool for generating professional PDF reports from radar statistics with charts, tables, and optional maps.
 
 **Location**: `tools/pdf-generator/`
-**Language**: Python 3.13+
 **Installation**: PYTHONPATH-based (no package installation needed)
 
 ## Quick Start

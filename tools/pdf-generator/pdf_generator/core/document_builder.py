@@ -31,18 +31,18 @@ except Exception:  # pragma: no cover
         """Fallback escape_latex when pylatex is not available."""
         # Basic LaTeX escaping for special characters
         latex_special_chars = {
-            '\\': r'\textbackslash{}',
-            '{': r'\{',
-            '}': r'\}',
-            '$': r'\$',
-            '&': r'\&',
-            '#': r'\#',
-            '_': r'\_',
-            '%': r'\%',
-            '~': r'\textasciitilde{}',
-            '^': r'\textasciicircum{}',
+            "\\": r"\textbackslash{}",
+            "{": r"\{",
+            "}": r"\}",
+            "$": r"\$",
+            "&": r"\&",
+            "#": r"\#",
+            "_": r"\_",
+            "%": r"\%",
+            "~": r"\textasciitilde{}",
+            "^": r"\textasciicircum{}",
         }
-        return ''.join(latex_special_chars.get(c, c) for c in s)
+        return "".join(latex_special_chars.get(c, c) for c in s)
 
 
 from pdf_generator.core.config_manager import (

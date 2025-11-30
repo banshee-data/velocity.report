@@ -258,7 +258,7 @@ setup_python() {
             echo "  sudo apt-get update"
             echo "  sudo apt-get install python3 python3-venv python3-pip"
         elif [[ "$OS" == "macos" ]]; then
-            echo "  brew install python@3.11"
+            echo "  brew install python@3.12"
         fi
         exit 1
     fi
@@ -447,9 +447,14 @@ print_next_steps() {
     echo "  PERFORMANCE.md      # Performance tuning"
     echo ""
 
-    echo -e "${BLUE}Git Hooks:${NC}"
-    echo "  pre-commit install         # Enable formatting/lint hooks"
-    echo "  pre-commit run --all-files # Run hooks across repository"
+    echo -e "${BLUE}Code Formatting:${NC}"
+    echo "  make format                # Format code before committing"
+    echo "  make lint                  # Check formatting (what CI checks)"
+    echo ""
+
+    echo -e "${BLUE}Optional: Enable pre-commit hooks${NC}"
+    echo "  pip install pre-commit && pre-commit install"
+    echo "  # Auto-formats code on every commit (recommended for regular contributors)"
     echo ""
 
     if ! command_exists xelatex; then

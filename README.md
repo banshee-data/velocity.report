@@ -236,27 +236,37 @@ make pdf-config       # Create config template
 make pdf-report CONFIG=config.json  # Generate PDF report
 ```
 
-### Pre-commit Hooks
+### Code Formatting
 
-Enable basic formatting hooks for Python code:
+**Option 1: Format on demand (recommended for new contributors)**
 
 ```sh
-pip install pre-commit          # Or run scripts/dev-setup.sh
-pre-commit install              # Register git hooks
-pre-commit run --all-files      # Optional: run across the repo once
+make format        # Format all code before commit
+make lint          # Verify formatting (what CI checks)
 ```
 
-**What runs on commit:**
+**Option 2: Editor integration**
+
+- VS Code: Install Prettier, ESLint, Go extensions
+- Format-on-save handles most cases
+
+**Option 3: Pre-commit hooks (recommended for regular contributors)**
+
+```sh
+pip install pre-commit
+pre-commit install
+```
+
+Hooks auto-format code on every commit — no manual `make format` needed.
+
+**What runs on commit (if hooks enabled):**
 
 - File hygiene (trailing whitespace, large files, etc.)
+- Go formatting (gofmt)
 - Python formatting (ruff + black) for PDF generator code
+- Web formatting (prettier)
 
-**What doesn't run on commit:**
-
-- Go formatting/linting - Run `make format` to format Go, Python and JS/TS (prints install hints if formatters are missing)
-- Web linting - Runs in CI on PRs (saves time on local commits)
-
-This keeps commits fast while catching obvious formatting issues early.
+**Note:** CI lint jobs are advisory (non-blocking), so PRs can merge even without perfect formatting. A weekly automated workflow cleans up any missed formatting issues. See [`.github/workflows/lint-autofix.yml`](.github/workflows/lint-autofix.yml) for details.
 
 ### Web Frontend Development
 
