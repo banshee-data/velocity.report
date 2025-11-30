@@ -72,6 +72,17 @@ type ClassificationFeatures struct {
 	DurationSecs     float32
 }
 
+// clampConfidence clamps a confidence value to the range [min, max].
+func clampConfidence(value, min, max float32) float32 {
+	if value > max {
+		return max
+	}
+	if value < min {
+		return min
+	}
+	return value
+}
+
 // TrackClassifier performs rule-based classification of tracked objects.
 // This can be replaced with an ML model in future iterations.
 type TrackClassifier struct {
@@ -142,16 +153,9 @@ func (tc *TrackClassifier) extractFeatures(track *TrackedObject) ClassificationF
 		ObservationCount: track.ObservationCount,
 	}
 
-	// Compute speed percentiles from history
+	// Compute speed percentiles from history using shared function
 	if len(track.speedHistory) > 0 {
-		speeds := make([]float32, len(track.speedHistory))
-		copy(speeds, track.speedHistory)
-		sort.Slice(speeds, func(i, j int) bool { return speeds[i] < speeds[j] })
-
-		n := len(speeds)
-		features.P50Speed = speeds[n/2]
-		features.P85Speed = speeds[int(float64(n)*0.85)]
-		features.P95Speed = speeds[int(float64(n)*0.95)]
+		features.P50Speed, features.P85Speed, features.P95Speed = ComputeSpeedPercentiles(track.speedHistory)
 	}
 
 	// Compute duration
@@ -184,15 +188,7 @@ func (tc *TrackClassifier) birdConfidence(f ClassificationFeatures) float32 {
 		confidence -= 0.15
 	}
 
-	// Clamp to valid range
-	if confidence > 1.0 {
-		confidence = 1.0
-	}
-	if confidence < 0.0 {
-		confidence = 0.0
-	}
-
-	return confidence
+	return clampConfidence(confidence, 0.0, 1.0)
 }
 
 // isVehicle checks if features match vehicle classification.
@@ -230,15 +226,7 @@ func (tc *TrackClassifier) vehicleConfidence(f ClassificationFeatures) float32 {
 		confidence += 0.05
 	}
 
-	// Clamp to valid range
-	if confidence > HighConfidence {
-		confidence = HighConfidence
-	}
-	if confidence < LowConfidence {
-		confidence = LowConfidence
-	}
-
-	return confidence
+	return clampConfidence(confidence, LowConfidence, HighConfidence)
 }
 
 // isPedestrian checks if features match pedestrian classification.
@@ -269,15 +257,7 @@ func (tc *TrackClassifier) pedestrianConfidence(f ClassificationFeatures) float3
 		confidence += 0.05
 	}
 
-	// Clamp to valid range
-	if confidence > HighConfidence {
-		confidence = HighConfidence
-	}
-	if confidence < LowConfidence {
-		confidence = LowConfidence
-	}
-
-	return confidence
+	return clampConfidence(confidence, LowConfidence, HighConfidence)
 }
 
 // ClassifyAndUpdate classifies a track and updates its classification fields.
@@ -299,6 +279,9 @@ func (tc *TrackClassifier) ClassifyAndUpdate(track *TrackedObject) {
 // ClassificationModel string  // Model version used
 
 // ComputeSpeedPercentiles computes speed percentiles from a track's speed history.
+// Uses floor-based indexing for percentiles. For small arrays (n<3), all percentiles
+// may return similar values. For production use with precise percentile requirements,
+// consider using linear interpolation between neighboring values.
 func ComputeSpeedPercentiles(speedHistory []float32) (p50, p85, p95 float32) {
 	if len(speedHistory) == 0 {
 		return 0, 0, 0

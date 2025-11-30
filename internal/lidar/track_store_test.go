@@ -2,6 +2,7 @@ package lidar
 
 import (
 	"database/sql"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -132,8 +133,8 @@ func TestInsertCluster(t *testing.T) {
 		t.Errorf("Expected positive cluster ID, got %d", id)
 	}
 
-	// Verify the cluster was inserted
-	clusters, err := GetRecentClusters(db, "sensor-001", 0, int64(1<<62), 10)
+	// Verify the cluster was inserted (use max int64 as far-future timestamp)
+	clusters, err := GetRecentClusters(db, "sensor-001", 0, math.MaxInt64, 10)
 	if err != nil {
 		t.Fatalf("GetRecentClusters failed: %v", err)
 	}

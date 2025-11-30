@@ -408,7 +408,7 @@ func nullString(s string) interface{} {
 }
 
 func nullFloat32(f float32) interface{} {
-	if f == 0 || math.IsNaN(float64(f)) {
+	if math.IsNaN(float64(f)) {
 		return nil
 	}
 	return f
