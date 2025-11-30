@@ -54,33 +54,93 @@ echo ""
 
 # Check GitHub Actions availability
 echo -e "${BLUE}Step 2: Determining target Python version...${NC}"
-echo -e "  ${YELLOW}Note: GitHub Actions supports officially released CPython versions only${NC}"
+echo -e "  ${YELLOW}Note: Checking GitHub Actions runner compatibility...${NC}"
+
+# Query GitHub Actions to find the latest available Python version on ubuntu-latest
+# We check the runner-images README to get the actual Python version installed on runners
+GH_ACTIONS_VERSIONS=()
+if command_exists curl; then
+    # Step 1: Get the latest Ubuntu version from runner-images main README
+    runner_readme_url="https://raw.githubusercontent.com/actions/runner-images/main/README.md"
+    ubuntu_readme=$(curl -sL "$runner_readme_url" 2>/dev/null | grep -oE 'images/ubuntu/Ubuntu[0-9]+-Readme\.md' | head -1 || true)
+
+    if [ -n "$ubuntu_readme" ]; then
+        # Step 2: Fetch the Ubuntu runner README to get installed Python version
+        ubuntu_readme_url="https://raw.githubusercontent.com/actions/runner-images/main/$ubuntu_readme"
+        echo -e "  ${BLUE}ℹ${NC} Checking Python version on GitHub Actions runners..."
+
+        # Extract Python version from the Ubuntu runner README
+        # Look for patterns like "Python 3.12.3" in the installed software section
+        python_version=$(curl -sL "$ubuntu_readme_url" 2>/dev/null | grep -oE 'Python 3\.[0-9]+\.[0-9]+' | head -1 | grep -oE '3\.[0-9]+' || true)
+
+        if [ -n "$python_version" ]; then
+            GH_ACTIONS_VERSIONS+=("$python_version")
+            echo -e "  ${GREEN}✓${NC} GitHub Actions ubuntu-latest uses: Python $python_version"
+
+            # Also check for other Python versions mentioned in the runner
+            other_versions=$(curl -sL "$ubuntu_readme_url" 2>/dev/null | grep -oE 'Python 3\.[0-9]+\.[0-9]+' | grep -oE '3\.[0-9]+' | sort -Vr | uniq || true)
+            while IFS= read -r ver; do
+                [ -n "$ver" ] || continue
+                if [[ "$ver" != "$python_version" ]] && [ ${#GH_ACTIONS_VERSIONS[@]} -lt 5 ]; then
+                    GH_ACTIONS_VERSIONS+=("$ver")
+                    echo -e "  ${BLUE}ℹ${NC} Also available: Python $ver"
+                fi
+            done <<< "$other_versions"
+        else
+            echo -e "  ${YELLOW}⚠${NC} Could not parse Python version from runner README"
+        fi
+    else
+        echo -e "  ${YELLOW}⚠${NC} Could not fetch GitHub Actions runner README (will use fallback logic)"
+    fi
+fi
 
 # Determine target version for ENTIRE repository
-# If the latest system version is unreleased/preview (e.g., 3.15-dev, 3.14.0a1),
-# fall back to the next stable version
-TARGET_VERSION="$LATEST_VERSION"
+# Priority: Latest version that is both locally available AND supported by GitHub Actions
+TARGET_VERSION=""
 
-# Check if there's a more stable version available
-if [ ${#AVAILABLE_VERSIONS[@]} -gt 1 ]; then
-    # Check if latest version might be pre-release by looking at version output
-    latest_full_version=$(python${LATEST_VERSION} --version 2>&1 || echo "")
+if [ ${#GH_ACTIONS_VERSIONS[@]} -gt 0 ]; then
+    # Find the newest version that exists both locally and on GitHub Actions
+    for local_ver in "${AVAILABLE_VERSIONS[@]}"; do
+        for gh_ver in "${GH_ACTIONS_VERSIONS[@]}"; do
+            if [[ "$local_ver" == "$gh_ver" ]]; then
+                TARGET_VERSION="$local_ver"
+                break 2
+            fi
+        done
+    done
 
-    # If version contains alpha, beta, rc, dev, or is very recent (3.14+), use second-latest
-    if echo "$latest_full_version" | grep -qE "(alpha|beta|rc|dev|a[0-9]|b[0-9])"; then
-        TARGET_VERSION="${AVAILABLE_VERSIONS[1]}"
-        echo -e "  ${RED}⚠ WARNING: Latest version ${LATEST_VERSION} is pre-release${NC}"
-        echo -e "  ${YELLOW}→ Using stable version ${TARGET_VERSION} for repository consistency${NC}"
-    elif [[ "${LATEST_VERSION}" > "3.13" ]]; then
-        # Future-proofing: versions beyond 3.13 may not be in GitHub Actions yet
-        TARGET_VERSION="${AVAILABLE_VERSIONS[1]}"
-        echo -e "  ${RED}⚠ WARNING: Python ${LATEST_VERSION} may not be available in GitHub Actions yet${NC}"
-        echo -e "  ${YELLOW}→ Using version ${TARGET_VERSION} for CI compatibility${NC}"
+    if [ -n "$TARGET_VERSION" ]; then
+        echo -e "  ${GREEN}✓ Using Python ${TARGET_VERSION}${NC} (available locally and on GitHub Actions)"
+    else
+        # Fallback: use latest from GitHub Actions even if not available locally
+        TARGET_VERSION="${GH_ACTIONS_VERSIONS[0]}"
+        echo -e "  ${YELLOW}⚠ Using Python ${TARGET_VERSION}${NC} (GitHub Actions latest, not available locally)"
+    fi
+else
+    # Fallback if we can't reach GitHub: use heuristics
+    TARGET_VERSION="$LATEST_VERSION"
+
+    # Check if there's a more stable version available
+    if [ ${#AVAILABLE_VERSIONS[@]} -gt 1 ]; then
+        # Check if latest version might be pre-release by looking at version output
+        latest_full_version=$(python${LATEST_VERSION} --version 2>&1 || echo "")
+
+        # If version contains alpha, beta, rc, dev, or is very recent (3.14+), use second-latest
+        if echo "$latest_full_version" | grep -qE "(alpha|beta|rc|dev|a[0-9]|b[0-9])"; then
+            TARGET_VERSION="${AVAILABLE_VERSIONS[1]}"
+            echo -e "  ${RED}⚠ WARNING: Latest version ${LATEST_VERSION} is pre-release${NC}"
+            echo -e "  ${YELLOW}→ Using stable version ${TARGET_VERSION} (offline fallback)${NC}"
+        elif [[ "${LATEST_VERSION}" > "3.12" ]]; then
+            # Conservative fallback: versions beyond 3.12 may not be in GitHub Actions yet
+            TARGET_VERSION="3.12"
+            echo -e "  ${RED}⚠ WARNING: Could not verify GitHub Actions support${NC}"
+            echo -e "  ${YELLOW}→ Using version ${TARGET_VERSION} for maximum CI compatibility${NC}"
+        else
+            echo -e "  ${GREEN}→ Target version: ${TARGET_VERSION}${NC}"
+        fi
     else
         echo -e "  ${GREEN}→ Target version: ${TARGET_VERSION}${NC}"
     fi
-else
-    echo -e "  ${GREEN}→ Target version: ${TARGET_VERSION}${NC}"
 fi
 echo ""
 echo -e "${BLUE}Policy: ALL Python references must use version ${TARGET_VERSION}${NC}"
@@ -251,7 +311,7 @@ for file in tox.ini requirements.txt requirements.in setup.py setup.cfg pyprojec
             done < <(grep -nE "Python 3\.[0-9]+" "$file" 2>/dev/null)
         fi
 
-        # Check for python@3.13, python@3.13, etc. (brew install format)
+        # Check for python@3.12, python@3.12, etc. (brew install format)
         if grep -qE "python@3\.[0-9]+" "$file" 2>/dev/null; then
             while IFS= read -r line; do
                 line_num=$(echo "$line" | cut -d: -f1)
@@ -411,7 +471,9 @@ if [ ${#ISSUES[@]} -gt 0 ]; then
                     done
                 fi
             done < <(find scripts -name "*.sh" -type f -print0 2>/dev/null)
-        fi        # Fix Python shebangs
+        fi
+
+        # Fix Python shebangs
         while IFS= read -r -d '' file; do
             if head -n1 "$file" | grep -q "#!/usr/bin/env python3\.[0-9]\+"; then
                 line=$(head -n1 "$file")
@@ -460,7 +522,7 @@ if [ ${#ISSUES[@]} -gt 0 ]; then
                     done
                 fi
 
-                # Fix python@3.13 → python@3.13 pattern (brew install commands)
+                # Fix python@3.12 → python@3.12 pattern (brew install commands)
                 if grep -q "python@3\.[0-9]\+" "$file" 2>/dev/null; then
                     wrong_versions=$(grep -oE "python@3\.[0-9]+" "$file" | sort -u | grep -v "python@${TARGET_VERSION}" || true)
                     for version_ref in $wrong_versions; do
