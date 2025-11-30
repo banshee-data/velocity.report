@@ -325,7 +325,9 @@ func (s *Server) handleSerialDevices(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(devices)
+	if err := json.NewEncoder(w).Encode(devices); err != nil {
+		log.Printf("Error encoding serial devices response: %v", err)
+	}
 }
 
 // getFriendlyName generates a user-friendly name for a serial port

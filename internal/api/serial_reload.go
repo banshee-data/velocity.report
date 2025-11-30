@@ -417,6 +417,23 @@ func (m *SerialPortManager) ReloadConfig(ctx context.Context) (*SerialReloadResu
 		}, nil
 	}
 
+	// Close the old mux BEFORE opening the new one.
+	// This is necessary because serial ports cannot be opened twice, and if the
+	// new configuration uses the same port as the current one (with different
+	// settings), we must release the port first.
+	m.mu.Lock()
+	oldMux := m.current
+	m.current = nil // Clear current mux while we're switching
+	m.mu.Unlock()
+
+	if oldMux != nil {
+		log.Printf("Closing current serial mux before reload...")
+		if err := oldMux.Close(); err != nil {
+			log.Printf("warning: failed to close previous serial mux: %v", err)
+		}
+	}
+
+	// Now open the new mux
 	newMux, err := m.factory(cfg.PortPath, normalized)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open serial port %s: %w", cfg.PortPath, err)
@@ -424,11 +441,11 @@ func (m *SerialPortManager) ReloadConfig(ctx context.Context) (*SerialReloadResu
 
 	if err := newMux.Initialize(); err != nil {
 		newMux.Close()
-		return nil, fmt.Errorf("failed to initialise serial port: %w", err)
+		return nil, fmt.Errorf("failed to initialize serial port: %w", err)
 	}
 
+	// Update the current mux and snapshot
 	m.mu.Lock()
-	oldMux := m.current
 	snap := SerialConfigSnapshot{
 		ConfigID: cfg.ID,
 		Name:     cfg.Name,
@@ -441,21 +458,6 @@ func (m *SerialPortManager) ReloadConfig(ctx context.Context) (*SerialReloadResu
 	// Note: We do NOT set m.closed = true here because this is not a shutdown.
 	// m.closed is only set during Close() to signal shutdown to all methods.
 	m.mu.Unlock()
-
-	// Close the old mux to signal the event fanout loop to reconnect.
-	// Closing oldMux closes all its subscriber channels, which triggers the
-	// fanout loop to detect the closed channel and automatically reconnect to
-	// the new mux on the next iteration. This ensures no events are lost:
-	// 1. oldMux.Close() closes oldMux's subscriber channels
-	// 2. Fanout loop detects !ok on currentSubCh read
-	// 3. Fanout loop resets subscription (currentSubID = "")
-	// 4. Next iteration subscribes to m.current (now the new mux)
-	// 5. Subsequent events flow through the fanout to all subscribers
-	if oldMux != nil {
-		if err := oldMux.Close(); err != nil {
-			log.Printf("warning: failed to close previous serial mux: %v", err)
-		}
-	}
 
 	return &SerialReloadResult{
 		Success: true,

@@ -87,8 +87,7 @@
 			// Add all ports from existing configs (may include disconnected devices)
 			configsData.forEach((c) => portSet.add(c.port_path));
 
-			// Store all seen ports for future reference
-			allSeenPorts = portSet; // Create immutable options array - NEVER mutate this after creation
+			// Create immutable options array
 			portPathOptions = Array.from(portSet)
 				.sort()
 				.map((path) => ({
@@ -115,30 +114,6 @@
 		setTimeout(() => {
 			message = '';
 		}, 5000);
-	}
-
-	/**
-	 * Emergency function to rebuild port options if a port is somehow missing.
-	 * This should rarely be needed since loadData() includes all ports.
-	 * ONLY call this when absolutely necessary, never in a reactive context.
-	 *
-	 * Currently unused but kept for future defensive programming needs.
-	 */
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	function ensurePortInOptions(port: string) {
-		if (!port || allSeenPorts.has(port)) {
-			return; // Already have it
-		}
-
-		console.warn(`Adding missing port ${port} to options`);
-
-		// Add to tracking set
-		allSeenPorts.add(port);
-
-		// Create entirely new array (immutable update pattern)
-		portPathOptions = [...portPathOptions, { value: port, label: port }].sort((a, b) =>
-			a.value.localeCompare(b.value)
-		);
 	}
 
 	function openCreateDialog() {
@@ -279,10 +254,6 @@
 	const dataBitsOptions = dataBitsArray.map((n) => ({ value: n, label: n.toString() }));
 	const stopBitsOptions = stopBitsArray.map((n) => ({ value: n, label: n.toString() }));
 	let sensorModelOptions = $state<{ value: string; label: string }[]>([]);
-
-	// Track all seen ports to avoid regenerating options
-	// SvelteSet is already reactive, no $state wrapper needed
-	let allSeenPorts = new SvelteSet<string>();
 </script>
 
 <svelte:head>
