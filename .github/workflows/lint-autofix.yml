@@ -4,8 +4,8 @@ on:
   schedule:
     # Cron format: minute hour day-of-month month day-of-week
     # Run every Monday at 6:00 AM UTC
-    - cron: '0 6 * * 1'
-  workflow_dispatch:  # Allow manual trigger
+    - cron: "0 6 * * 1"
+  workflow_dispatch: # Allow manual trigger
 
 permissions:
   contents: write
