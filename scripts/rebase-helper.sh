@@ -59,7 +59,12 @@ fi
 
 if echo "$conflicts" | grep -q "data/migrations/"; then
     echo -e "${YELLOW}Resolving: Old migration files conflict (SQL lint)${NC}"
-    git rm data/migrations/*.sql 2>/dev/null || true
+    # Only remove specific date-format migration files (YYYYMMDD_*.sql)
+    for f in data/migrations/20[0-9][0-9][0-9][0-9][0-9][0-9]_*.sql; do
+        if [ -f "$f" ]; then
+            git rm "$f" 2>/dev/null || true
+        fi
+    done
     echo -e "${GREEN}✓ Removed all old-format migrations${NC}"
 fi
 
@@ -87,10 +92,10 @@ if echo "$conflicts" | grep -q "internal/db/migrations/000009_create_radar_seria
     
     # Check if the file exists from a previous resolution
     if [ ! -f "internal/db/migrations/000009_create_radar_serial_config.up.sql" ]; then
-        # Try to restore from the commit
-        git show bfebb6b:internal/db/migrations/000009_create_radar_serial_config.up.sql > \
-            internal/db/migrations/000009_create_radar_serial_config.up.sql 2>/dev/null || \
+        # Try to restore from HEAD first (most reliable), then fall back to ORIG_HEAD
         git show HEAD:internal/db/migrations/000009_create_radar_serial_config.up.sql > \
+            internal/db/migrations/000009_create_radar_serial_config.up.sql 2>/dev/null || \
+        git show ORIG_HEAD:internal/db/migrations/000009_create_radar_serial_config.up.sql > \
             internal/db/migrations/000009_create_radar_serial_config.up.sql 2>/dev/null || true
     fi
     
