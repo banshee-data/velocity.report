@@ -161,7 +161,7 @@ VENV_PYTHON = $(VENV_DIR)/bin/python3
 VENV_PIP = $(VENV_DIR)/bin/pip
 VENV_PYTEST = $(VENV_DIR)/bin/pytest
 PDF_DIR = tools/pdf-generator
-PYTHON_VERSION = 3.13
+PYTHON_VERSION = 3.12
 
 install-python:
 	@echo "Setting up Python environment..."
