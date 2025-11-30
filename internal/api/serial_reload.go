@@ -421,6 +421,17 @@ func (m *SerialPortManager) ReloadConfig(ctx context.Context) (*SerialReloadResu
 	// This is necessary because serial ports cannot be opened twice, and if the
 	// new configuration uses the same port as the current one (with different
 	// settings), we must release the port first.
+	//
+	// Design note: We intentionally use two separate critical sections here:
+	// 1. First section: capture and clear the old mux
+	// 2. Second section: install the new mux
+	//
+	// During the window between these sections, m.current may be nil. This is
+	// intentional and safe because:
+	// - reloadMu ensures no concurrent reloads can occur
+	// - All callers (SendCommand, Monitor, etc.) handle nil mux gracefully
+	// - This allows the potentially slow Close() and factory() calls to not
+	//   block other read operations
 	m.mu.Lock()
 	oldMux := m.current
 	m.current = nil // Clear current mux while we're switching
