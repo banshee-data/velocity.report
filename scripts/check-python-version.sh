@@ -25,6 +25,18 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Cross-platform sed in-place editing
+# macOS requires -i '' while GNU sed uses -i without empty string
+sed_inplace() {
+    local pattern="$1"
+    local file="$2"
+    if sed --version 2>&1 | grep -q GNU; then
+        sed -i "$pattern" "$file"
+    else
+        sed -i '' "$pattern" "$file"
+    fi
+}
+
 # Detect latest available CPython version on this system
 echo -e "${BLUE}Step 1: Detecting available Python versions...${NC}"
 AVAILABLE_VERSIONS=()
@@ -408,7 +420,7 @@ if [ ${#ISSUES[@]} -gt 0 ]; then
 
                         if [[ -n "$version" && "$version" != "$TARGET_VERSION" ]]; then
                             # Use sed to replace the version in-place
-                            if sed -i '' "s/python-version: \"${version}\"/python-version: \"${TARGET_VERSION}\"/g" "$file" 2>/dev/null; then
+                            if sed_inplace "s/python-version: \"${version}\"/python-version: \"${TARGET_VERSION}\"/g" "$file" 2>/dev/null; then
                                 echo -e "  ${GREEN}✓ FIXED${NC} ${file}:${line_num} - python-version: \"${version}\" → \"${TARGET_VERSION}\""
                                 ((FIXED_COUNT++))
                             else
@@ -429,7 +441,7 @@ if [ ${#ISSUES[@]} -gt 0 ]; then
 
                 for wrong_version in $wrong_versions; do
                     # Replace all occurrences of this wrong version
-                    if sed -i '' "s/${wrong_version}/python${TARGET_VERSION}/g" Makefile 2>/dev/null; then
+                    if sed_inplace "s/${wrong_version}/python${TARGET_VERSION}/g" Makefile 2>/dev/null; then
                         count=$(grep -c "python${TARGET_VERSION}" Makefile || echo "0")
                         echo -e "  ${GREEN}✓ FIXED${NC} Makefile - ${wrong_version} → python${TARGET_VERSION}"
                         ((FIXED_COUNT++))
@@ -448,7 +460,7 @@ if [ ${#ISSUES[@]} -gt 0 ]; then
                 if grep -q "python3\.[0-9]\+" "$file" 2>/dev/null; then
                     wrong_versions=$(grep -o "python3\.[0-9]\+" "$file" | sort -u | grep -v "python${TARGET_VERSION}" || true)
                     for wrong_version in $wrong_versions; do
-                        if sed -i '' "s/${wrong_version}/python${TARGET_VERSION}/g" "$file" 2>/dev/null; then
+                        if sed_inplace "s/${wrong_version}/python${TARGET_VERSION}/g" "$file" 2>/dev/null; then
                             echo -e "  ${GREEN}✓ FIXED${NC} ${file} - ${wrong_version} → python${TARGET_VERSION}"
                             ((FIXED_COUNT++))
                         else
@@ -462,7 +474,7 @@ if [ ${#ISSUES[@]} -gt 0 ]; then
                 if grep -qE "python@3\.[0-9]+" "$file" 2>/dev/null; then
                     wrong_versions=$(grep -oE "python@3\.[0-9]+" "$file" | sort -u | grep -v "python@${TARGET_VERSION}" || true)
                     for wrong_version in $wrong_versions; do
-                        if sed -i '' "s/${wrong_version}/python@${TARGET_VERSION}/g" "$file" 2>/dev/null; then
+                        if sed_inplace "s/${wrong_version}/python@${TARGET_VERSION}/g" "$file" 2>/dev/null; then
                             echo -e "  ${GREEN}✓ FIXED${NC} ${file} - ${wrong_version} → python@${TARGET_VERSION}"
                             ((FIXED_COUNT++))
                         else
@@ -482,7 +494,7 @@ if [ ${#ISSUES[@]} -gt 0 ]; then
                 version_num=$(echo "$version" | sed 's/python//')
 
                 if [[ "$version_num" != "$TARGET_VERSION" ]]; then
-                    if sed -i '' "1s|#!/usr/bin/env ${version}|#!/usr/bin/env python${TARGET_VERSION}|" "$file" 2>/dev/null; then
+                    if sed_inplace "1s|#!/usr/bin/env ${version}|#!/usr/bin/env python${TARGET_VERSION}|" "$file" 2>/dev/null; then
                         echo -e "  ${GREEN}✓ FIXED${NC} ${file}:1 - shebang ${version} → python${TARGET_VERSION}"
                         ((FIXED_COUNT++))
                     else
@@ -503,7 +515,7 @@ if [ ${#ISSUES[@]} -gt 0 ]; then
                     target_pyver="py${TARGET_VERSION//./}"
                     wrong_patterns=$(grep -o "py3[0-9][0-9]" "$file" | sort -u | grep -v "$target_pyver" || true)
                     for pattern in $wrong_patterns; do
-                        if sed -i '' "s/${pattern}/${target_pyver}/g" "$file" 2>/dev/null; then
+                        if sed_inplace "s/${pattern}/${target_pyver}/g" "$file" 2>/dev/null; then
                             echo -e "  ${GREEN}✓ FIXED${NC} ${file} - ${pattern} → ${target_pyver}"
                             ((FIXED_COUNT++))
                             fixed_file=true
@@ -515,7 +527,7 @@ if [ ${#ISSUES[@]} -gt 0 ]; then
                 if grep -q "Python 3\.[0-9]\+" "$file" 2>/dev/null; then
                     wrong_versions=$(grep -oE "Python 3\.[0-9]+" "$file" | sort -u | grep -v "Python ${TARGET_VERSION}" || true)
                     for version_ref in $wrong_versions; do
-                        if sed -i '' "s/${version_ref}/Python ${TARGET_VERSION}/g" "$file" 2>/dev/null; then
+                        if sed_inplace "s/${version_ref}/Python ${TARGET_VERSION}/g" "$file" 2>/dev/null; then
                             echo -e "  ${GREEN}✓ FIXED${NC} ${file} - ${version_ref} → Python ${TARGET_VERSION}"
                             ((FIXED_COUNT++))
                             fixed_file=true
@@ -527,7 +539,7 @@ if [ ${#ISSUES[@]} -gt 0 ]; then
                 if grep -q "python@3\.[0-9]\+" "$file" 2>/dev/null; then
                     wrong_versions=$(grep -oE "python@3\.[0-9]+" "$file" | sort -u | grep -v "python@${TARGET_VERSION}" || true)
                     for version_ref in $wrong_versions; do
-                        if sed -i '' "s/${version_ref}/python@${TARGET_VERSION}/g" "$file" 2>/dev/null; then
+                        if sed_inplace "s/${version_ref}/python@${TARGET_VERSION}/g" "$file" 2>/dev/null; then
                             echo -e "  ${GREEN}✓ FIXED${NC} ${file} - ${version_ref} → python@${TARGET_VERSION}"
                             ((FIXED_COUNT++))
                             fixed_file=true
@@ -538,7 +550,7 @@ if [ ${#ISSUES[@]} -gt 0 ]; then
                 if [ "$fixed_file" = false ] && grep -q "python3\.[0-9]\+" "$file" 2>/dev/null; then
                     wrong_versions=$(grep -oE "python3\.[0-9]+" "$file" | sort -u | grep -v "python${TARGET_VERSION}" || true)
                     for version_ref in $wrong_versions; do
-                        if sed -i '' "s/${version_ref}/python${TARGET_VERSION}/g" "$file" 2>/dev/null; then
+                        if sed_inplace "s/${version_ref}/python${TARGET_VERSION}/g" "$file" 2>/dev/null; then
                             echo -e "  ${GREEN}✓ FIXED${NC} ${file} - ${version_ref} → python${TARGET_VERSION}"
                             ((FIXED_COUNT++))
                         fi
