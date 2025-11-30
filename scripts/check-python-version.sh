@@ -130,8 +130,9 @@ else
             TARGET_VERSION="${AVAILABLE_VERSIONS[1]}"
             echo -e "  ${RED}⚠ WARNING: Latest version ${LATEST_VERSION} is pre-release${NC}"
             echo -e "  ${YELLOW}→ Using stable version ${TARGET_VERSION} (offline fallback)${NC}"
-        elif [[ "${LATEST_VERSION}" > "3.12" ]]; then
+        elif [ "${LATEST_VERSION//./}" -gt 312 ]; then
             # Conservative fallback: versions beyond 3.12 may not be in GitHub Actions yet
+            # Note: Numeric comparison after removing dots (e.g., "3.13" becomes 313)
             TARGET_VERSION="3.12"
             echo -e "  ${RED}⚠ WARNING: Could not verify GitHub Actions support${NC}"
             echo -e "  ${YELLOW}→ Using version ${TARGET_VERSION} for maximum CI compatibility${NC}"
