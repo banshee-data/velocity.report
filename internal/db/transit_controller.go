@@ -15,6 +15,20 @@ type TransitController struct {
 	enabled       bool
 	mu            sync.RWMutex
 	manualTrigger chan struct{}
+
+	// Status tracking
+	lastRunAt    time.Time
+	lastRunError error
+	runCount     int64
+}
+
+// TransitStatus represents the current state of the transit worker.
+type TransitStatus struct {
+	Enabled      bool      `json:"enabled"`
+	LastRunAt    time.Time `json:"last_run_at"`
+	LastRunError string    `json:"last_run_error,omitempty"`
+	RunCount     int64     `json:"run_count"`
+	IsHealthy    bool      `json:"is_healthy"`
 }
 
 // NewTransitController creates a new controller for the transit worker.
@@ -59,6 +73,44 @@ func (tc *TransitController) TriggerManualRun() {
 	}
 }
 
+// GetStatus returns the current status of the transit worker.
+func (tc *TransitController) GetStatus() TransitStatus {
+	tc.mu.RLock()
+	defer tc.mu.RUnlock()
+
+	status := TransitStatus{
+		Enabled:   tc.enabled,
+		LastRunAt: tc.lastRunAt,
+		RunCount:  tc.runCount,
+		IsHealthy: true,
+	}
+
+	if tc.lastRunError != nil {
+		status.LastRunError = tc.lastRunError.Error()
+		status.IsHealthy = false
+	}
+
+	// Consider unhealthy if enabled but hasn't run in 2x the interval
+	if tc.enabled && !tc.lastRunAt.IsZero() {
+		expectedInterval := tc.worker.Interval * 2
+		if time.Since(tc.lastRunAt) > expectedInterval {
+			status.IsHealthy = false
+		}
+	}
+
+	return status
+}
+
+// recordRun updates the status after a worker run.
+func (tc *TransitController) recordRun(err error) {
+	tc.mu.Lock()
+	defer tc.mu.Unlock()
+
+	tc.lastRunAt = time.Now()
+	tc.lastRunError = err
+	tc.runCount++
+}
+
 // Run starts the transit worker loop. This should be called in a goroutine.
 // It will run periodically based on the worker's Interval, but only when enabled.
 // It also responds to manual triggers from the UI.
@@ -68,7 +120,9 @@ func (tc *TransitController) Run(ctx context.Context) error {
 
 	// Run once immediately on startup if enabled
 	if tc.IsEnabled() {
-		if err := tc.worker.RunOnce(ctx); err != nil {
+		err := tc.worker.RunOnce(ctx)
+		tc.recordRun(err)
+		if err != nil {
 			log.Printf("Transit worker initial run error: %v", err)
 		} else {
 			log.Printf("Transit worker completed initial run")
@@ -80,7 +134,9 @@ func (tc *TransitController) Run(ctx context.Context) error {
 		case <-ticker.C:
 			// Check if enabled before running
 			if tc.IsEnabled() {
-				if err := tc.worker.RunOnce(ctx); err != nil {
+				err := tc.worker.RunOnce(ctx)
+				tc.recordRun(err)
+				if err != nil {
 					log.Printf("Transit worker periodic run error: %v", err)
 				} else {
 					log.Printf("Transit worker completed periodic run")
@@ -92,7 +148,9 @@ func (tc *TransitController) Run(ctx context.Context) error {
 			// Manual trigger from UI
 			if tc.IsEnabled() {
 				log.Printf("Transit worker manual run triggered")
-				if err := tc.worker.RunOnce(ctx); err != nil {
+				err := tc.worker.RunOnce(ctx)
+				tc.recordRun(err)
+				if err != nil {
 					log.Printf("Transit worker manual run error: %v", err)
 				} else {
 					log.Printf("Transit worker completed manual run")

@@ -58,6 +58,7 @@ type TransitController interface {
 	IsEnabled() bool
 	SetEnabled(enabled bool)
 	TriggerManualRun()
+	GetStatus() db.TransitStatus
 }
 
 func NewServer(m serialmux.SerialMuxInterface, db *db.DB, units string, timezone string) *Server {
@@ -1161,12 +1162,10 @@ func (s *Server) handleTransitWorker(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet:
-		// Return current state
-		response := map[string]bool{
-			"enabled": s.transitController.IsEnabled(),
-		}
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			log.Printf("failed to encode transit worker state: %v", err)
+		// Return current status including last run time and error
+		status := s.transitController.GetStatus()
+		if err := json.NewEncoder(w).Encode(status); err != nil {
+			log.Printf("failed to encode transit worker status: %v", err)
 		}
 
 	case http.MethodPost:
@@ -1197,12 +1196,9 @@ func (s *Server) handleTransitWorker(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Transit worker manual run triggered via API")
 		}
 
-		// Return updated state
-		response := map[string]interface{}{
-			"enabled": s.transitController.IsEnabled(),
-			"message": "Transit worker state updated",
-		}
-		if err := json.NewEncoder(w).Encode(response); err != nil {
+		// Return updated status
+		status := s.transitController.GetStatus()
+		if err := json.NewEncoder(w).Encode(status); err != nil {
 			log.Printf("failed to encode transit worker response: %v", err)
 		}
 
