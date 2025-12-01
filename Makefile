@@ -23,6 +23,8 @@ help:
 	@echo ""
 	@echo "INSTALLATION:"
 	@echo "  install-python       Set up Python PDF generator (venv + deps)"
+	@echo "  deploy-install-latex Install LaTeX on remote target (for PDF generation)"
+	@echo "  deploy-update-deps   Update source, LaTeX, and Python deps on remote target"
 	@echo "  install-web          Install web dependencies (pnpm/npm)"
 	@echo "  install-docs         Install docs dependencies (pnpm/npm)"
 	@echo ""
@@ -173,7 +175,7 @@ build-docs:
 # INSTALLATION
 # =============================================================================
 
-.PHONY: install-python install-web install-docs
+.PHONY: install-python install-web install-docs deploy-install-latex deploy-update-deps
 
 # Python environment variables (unified at repository root)
 VENV_DIR = .venv
@@ -182,6 +184,38 @@ VENV_PIP = $(VENV_DIR)/bin/pip
 VENV_PYTEST = $(VENV_DIR)/bin/pytest
 PDF_DIR = tools/pdf-generator
 PYTHON_VERSION = 3.12
+
+# Deploy: Install LaTeX on remote target
+deploy-install-latex:
+	@if [ -z "$(TARGET)" ]; then \
+		echo "Error: TARGET not set. Usage: make deploy-install-latex TARGET=radar-ts"; \
+		exit 1; \
+	fi
+	@echo "Installing LaTeX on $(TARGET)..."
+	@ssh $(TARGET) "if ! command -v pdflatex >/dev/null 2>&1; then \
+		sudo apt-get update && sudo apt-get install -y texlive-xetex texlive-fonts-recommended texlive-latex-extra; \
+	else \
+		echo 'LaTeX already installed'; \
+	fi"
+
+# Deploy: Update dependencies on remote target
+deploy-update-deps:
+	@if [ -z "$(TARGET)" ]; then \
+		echo "Error: TARGET not set. Usage: make deploy-update-deps TARGET=radar-ts"; \
+		exit 1; \
+	fi
+	@echo "Updating dependencies on $(TARGET)..."
+	@echo "  → Updating source code..."
+	@ssh $(TARGET) "test -d /opt/velocity-report/.git && cd /opt/velocity-report && sudo git pull || echo 'No git repo found'"
+	@echo "  → Ensuring LaTeX is installed..."
+	@ssh $(TARGET) "if ! command -v pdflatex >/dev/null 2>&1; then \
+		sudo apt-get update && sudo apt-get install -y texlive-xetex texlive-fonts-recommended texlive-latex-extra; \
+	fi"
+	@echo "  → Updating Python dependencies..."
+	@ssh $(TARGET) "test -d /opt/velocity-report && cd /opt/velocity-report && sudo make install-python || echo 'Source not found'"
+	@echo "  → Fixing ownership..."
+	@ssh $(TARGET) "test -d /opt/velocity-report && sudo chown -R \$$(sudo systemctl show velocity-report.service -p User --value 2>/dev/null || echo 'velocity'):\$$(sudo systemctl show velocity-report.service -p User --value 2>/dev/null || echo 'velocity') /opt/velocity-report || echo 'Source not found'"
+	@echo "✓ Dependencies updated on $(TARGET)"
 
 install-python:
 	@echo "Setting up Python environment..."

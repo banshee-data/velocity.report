@@ -63,12 +63,27 @@ func (u *Upgrader) Upgrade() error {
 		return fmt.Errorf("failed to stop service: %w", err)
 	}
 
-	// Step 5: Install new binary
+	// Step 5: Update source code (if exists)
+	if err := u.updateSourceCode(exec); err != nil {
+		fmt.Printf("⚠️  Warning: Could not update source code: %v\n", err)
+	}
+
+	// Step 6: Ensure LaTeX is installed
+	if err := u.ensureLaTeX(exec); err != nil {
+		fmt.Printf("⚠️  Warning: LaTeX check/install failed: %v\n", err)
+	}
+
+	// Step 7: Update Python dependencies (if source exists)
+	if err := u.updatePythonDependencies(exec); err != nil {
+		fmt.Printf("⚠️  Warning: Could not update Python dependencies: %v\n", err)
+	}
+
+	// Step 8: Install new binary
 	if err := u.installNewBinary(exec); err != nil {
 		return fmt.Errorf("failed to install new binary: %w", err)
 	}
 
-	// Step 6: Start service
+	// Step 9: Start service
 	if err := u.startService(exec); err != nil {
 		return fmt.Errorf("failed to start service: %w", err)
 	}
@@ -234,5 +249,69 @@ func (u *Upgrader) verifyHealth(exec *Executor) error {
 	}
 
 	fmt.Println("  ✓ Service is running")
+	return nil
+}
+
+func (u *Upgrader) updateSourceCode(exec *Executor) error {
+	// Check if source directory exists
+	output, err := exec.Run("test -d /opt/velocity-report/.git && echo 'exists' || echo 'not found'")
+	if err != nil || strings.TrimSpace(output) != "exists" {
+		return fmt.Errorf("source directory not found at /opt/velocity-report")
+	}
+
+	fmt.Println("Updating source code...")
+	updateCmd := "cd /opt/velocity-report && git fetch && git pull"
+	if _, err := exec.RunSudo(updateCmd); err != nil {
+		return fmt.Errorf("git pull failed: %w", err)
+	}
+
+	fmt.Println("  ✓ Source code updated")
+	return nil
+}
+
+func (u *Upgrader) ensureLaTeX(exec *Executor) error {
+	// Check if pdflatex is installed
+	if _, err := exec.Run("command -v pdflatex >/dev/null 2>&1"); err == nil {
+		debugLog("LaTeX already installed")
+		return nil
+	}
+
+	fmt.Println("Installing LaTeX distribution...")
+	installCmd := "apt-get update && apt-get install -y texlive-xetex texlive-fonts-recommended texlive-latex-extra"
+	if _, err := exec.RunSudo(installCmd); err != nil {
+		return fmt.Errorf("failed to install LaTeX: %w", err)
+	}
+
+	fmt.Println("  ✓ LaTeX installed")
+	return nil
+}
+
+func (u *Upgrader) updatePythonDependencies(exec *Executor) error {
+	// Check if source directory exists
+	output, err := exec.Run("test -d /opt/velocity-report && echo 'exists' || echo 'not found'")
+	if err != nil || strings.TrimSpace(output) != "exists" {
+		return fmt.Errorf("source directory not found")
+	}
+
+	fmt.Println("Updating Python dependencies...")
+	installCmd := "cd /opt/velocity-report && make install-python"
+	if _, err := exec.RunSudo(installCmd); err != nil {
+		return fmt.Errorf("make install-python failed: %w", err)
+	}
+
+	// Get service user
+	serviceUserOutput, _ := exec.Run("systemctl show velocity-report.service -p User --value 2>/dev/null || echo 'velocity'")
+	serviceUser := strings.TrimSpace(serviceUserOutput)
+	if serviceUser == "" {
+		serviceUser = "velocity"
+	}
+
+	// Fix ownership
+	venvPath := "/opt/velocity-report/.venv"
+	if _, err := exec.RunSudo(fmt.Sprintf("chown -R %s:%s %s", serviceUser, serviceUser, venvPath)); err != nil {
+		debugLog("Warning: Could not set ownership on venv: %v", err)
+	}
+
+	fmt.Println("  ✓ Python dependencies updated")
 	return nil
 }

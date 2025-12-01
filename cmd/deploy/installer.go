@@ -67,7 +67,14 @@ func (i *Installer) Install() error {
 		fmt.Println("   Source code is needed for PDF generation. You can manually clone:")
 		fmt.Printf("   sudo git clone %s %s\n", defaultRepo, sourceDir)
 	} else {
-		// Step 5a: Install Python dependencies
+		// Step 5a: Install LaTeX (required for PDF compilation)
+		if err := i.installLaTeX(exec); err != nil {
+			fmt.Printf("⚠️  Warning: Could not install LaTeX: %v\n", err)
+			fmt.Println("   PDF generation will not work without LaTeX. Manually install:")
+			fmt.Println("   sudo apt-get install -y texlive-xetex texlive-fonts-recommended texlive-latex-extra")
+		}
+
+		// Step 5b: Install Python dependencies
 		if err := i.installPythonDependencies(exec); err != nil {
 			fmt.Printf("⚠️  Warning: Could not install Python dependencies: %v\n", err)
 			fmt.Println("   PDF generation may not work. Manually run:")
@@ -285,6 +292,26 @@ func (i *Installer) cloneSourceCode(exec *Executor) error {
 	}
 
 	fmt.Println("  ✓ Source code cloned")
+	return nil
+}
+
+func (i *Installer) installLaTeX(exec *Executor) error {
+	fmt.Println("Installing LaTeX distribution...")
+
+	// Check if pdflatex is already installed
+	if _, err := exec.Run("command -v pdflatex >/dev/null 2>&1"); err == nil {
+		fmt.Println("  ✓ LaTeX already installed")
+		return nil
+	}
+
+	// Install texlive packages (Debian/Ubuntu/Raspberry Pi OS)
+	fmt.Println("  → Installing texlive-xetex and dependencies (this may take several minutes)...")
+	installCmd := "apt-get update && apt-get install -y texlive-xetex texlive-fonts-recommended texlive-latex-extra"
+	if _, err := exec.RunSudo(installCmd); err != nil {
+		return fmt.Errorf("failed to install LaTeX: %w", err)
+	}
+
+	fmt.Println("  ✓ LaTeX installed")
 	return nil
 }
 
