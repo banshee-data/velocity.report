@@ -12,16 +12,17 @@
 3. [Current State Analysis](#current-state-analysis)
 4. [Proposed Architecture](#proposed-architecture)
 5. [Detailed Design](#detailed-design)
-6. [Pros and Cons](#pros-and-cons)
-7. [Alternative Approaches](#alternative-approaches)
-8. [Storage Management](#storage-management)
-9. [Migration Path](#migration-path)
-10. [Performance Implications](#performance-implications)
-11. [Operational Considerations](#operational-considerations)
-12. [Implementation Phases](#implementation-phases)
-13. [Success Metrics](#success-metrics)
-14. [Open Questions](#open-questions)
-15. [References](#references)
+6. [API Management for Partition Control](#api-management-for-partition-control)
+7. [Pros and Cons](#pros-and-cons)
+8. [Alternative Approaches](#alternative-approaches)
+9. [Storage Management](#storage-management)
+10. [Migration Path](#migration-path)
+11. [Performance Implications](#performance-implications)
+12. [Operational Considerations](#operational-considerations)
+13. [Implementation Phases](#implementation-phases)
+14. [Success Metrics](#success-metrics)
+15. [Open Questions](#open-questions)
+16. [References](#references)
 
 ---
 
@@ -438,6 +439,665 @@ func AttachPartitions(db *DB) error {
 - Quarterly partitions: 10 partitions = 2.5 years, 125 = 31 years
 
 **Recommendation:** Start with monthly, increase `SQLITE_MAX_ATTACHED` to 125 for long-term deployments.
+
+---
+
+## API Management for Partition Control
+
+### Overview
+
+To support operational flexibility and future UI development, the system provides HTTP API endpoints for managing attached database partitions. These endpoints allow operators to:
+
+1. View currently attached partitions
+2. Safely attach/detach historical partitions (respecting connection limits)
+3. Consolidate multiple monthly/quarterly partitions into yearly archives
+4. Monitor partition status and buffer safety
+
+**Safety Guarantees:**
+- **Write partition protection:** Main database (write partition) can never be detached
+- **Buffer protection:** Prevents detaching partitions with uncommitted data or active queries
+- **Atomic operations:** Attach/detach operations are transactional
+- **Connection limit enforcement:** Respects SQLite `SQLITE_MAX_ATTACHED` limit
+
+### API Endpoints
+
+#### 1. List Attached Partitions
+
+**Endpoint:** `GET /api/partitions`
+
+**Purpose:** List all currently attached database partitions and their status.
+
+**Response:**
+```json
+{
+  "main": {
+    "path": "/var/lib/velocity-report/sensor_data.db",
+    "alias": "main",
+    "writable": true,
+    "active_queries": 2,
+    "size_bytes": 2847583234,
+    "time_range": {
+      "start": "2025-03-01T00:00:00Z",
+      "end": "2025-03-31T23:59:59Z"
+    },
+    "status": "active",
+    "can_detach": false,
+    "detach_reason": "main database is always attached"
+  },
+  "attached": [
+    {
+      "path": "/var/lib/velocity-report/archives/2025-01_data.db",
+      "alias": "m01",
+      "writable": false,
+      "active_queries": 0,
+      "size_bytes": 2641583234,
+      "time_range": {
+        "start": "2025-01-01T00:00:00Z",
+        "end": "2025-01-31T23:59:59Z"
+      },
+      "status": "attached",
+      "can_detach": true,
+      "detach_reason": null
+    },
+    {
+      "path": "/var/lib/velocity-report/archives/2025-02_data.db",
+      "alias": "m02",
+      "writable": false,
+      "active_queries": 1,
+      "size_bytes": 2598234987,
+      "time_range": {
+        "start": "2025-02-01T00:00:00Z",
+        "end": "2025-02-28T23:59:59Z"
+      },
+      "status": "attached",
+      "can_detach": false,
+      "detach_reason": "partition has active queries"
+    }
+  ],
+  "available": [
+    {
+      "path": "/var/lib/velocity-report/archives/2024-12_data.db",
+      "size_bytes": 2712983456,
+      "time_range": {
+        "start": "2024-12-01T00:00:00Z",
+        "end": "2024-12-31T23:59:59Z"
+      },
+      "status": "detached"
+    }
+  ],
+  "limits": {
+    "max_attached": 125,
+    "current_attached": 3,
+    "available_slots": 122
+  },
+  "buffers": {
+    "write_buffer_size_bytes": 4096,
+    "pending_writes": 0,
+    "safe_to_rotate": true
+  }
+}
+```
+
+**Status Codes:**
+- `200 OK` - Success
+- `500 Internal Server Error` - Database error
+
+#### 2. Attach Partition
+
+**Endpoint:** `POST /api/partitions/attach`
+
+**Purpose:** Attach a historical partition to enable queries against it.
+
+**Request Body:**
+```json
+{
+  "path": "/var/lib/velocity-report/archives/2024-12_data.db",
+  "alias": "m12_2024",
+  "priority": "normal"
+}
+```
+
+**Parameters:**
+- `path` (required): Full path to partition database file
+- `alias` (optional): Custom alias for partition. If omitted, auto-generated based on filename
+- `priority` (optional): `high` | `normal` | `low`. If connection limit reached, may detach low-priority partition
+
+**Response:**
+```json
+{
+  "success": true,
+  "partition": {
+    "path": "/var/lib/velocity-report/archives/2024-12_data.db",
+    "alias": "m12_2024",
+    "attached_at": "2025-03-15T14:23:45Z",
+    "time_range": {
+      "start": "2024-12-01T00:00:00Z",
+      "end": "2024-12-31T23:59:59Z"
+    }
+  },
+  "detached_partition": null,
+  "message": "Partition attached successfully"
+}
+```
+
+**Error Response (Connection Limit Reached):**
+```json
+{
+  "success": false,
+  "error": "connection_limit_reached",
+  "message": "Maximum attached databases (125) reached. Detach a partition or use priority='high' to auto-detach low-priority partition.",
+  "limits": {
+    "max_attached": 125,
+    "current_attached": 125
+  },
+  "suggestions": [
+    {
+      "alias": "m01_2023",
+      "path": "/var/lib/velocity-report/archives/2023-01_data.db",
+      "priority": "low",
+      "last_accessed": "2025-01-10T08:15:22Z",
+      "can_detach": true
+    }
+  ]
+}
+```
+
+**Status Codes:**
+- `200 OK` - Partition attached successfully
+- `400 Bad Request` - Invalid path or alias
+- `409 Conflict` - Connection limit reached, no low-priority partitions to detach
+- `422 Unprocessable Entity` - File does not exist or is not a valid SQLite database
+- `500 Internal Server Error` - Database error
+
+**Safety Checks:**
+1. Verify file exists and is readable
+2. Validate SQLite database format
+3. Check schema compatibility
+4. Enforce connection limit
+5. Ensure alias is unique
+
+#### 3. Detach Partition
+
+**Endpoint:** `POST /api/partitions/detach`
+
+**Purpose:** Detach a historical partition to free connection slots.
+
+**Request Body:**
+```json
+{
+  "alias": "m12_2024",
+  "force": false
+}
+```
+
+**Parameters:**
+- `alias` (required): Alias of partition to detach
+- `force` (optional): If `true`, waits for active queries to complete before detaching. Default: `false`
+
+**Response:**
+```json
+{
+  "success": true,
+  "partition": {
+    "alias": "m12_2024",
+    "path": "/var/lib/velocity-report/archives/2024-12_data.db",
+    "detached_at": "2025-03-15T14:25:12Z"
+  },
+  "message": "Partition detached successfully"
+}
+```
+
+**Error Response (Active Queries):**
+```json
+{
+  "success": false,
+  "error": "partition_in_use",
+  "message": "Cannot detach partition with active queries",
+  "partition": {
+    "alias": "m12_2024",
+    "active_queries": 3,
+    "query_details": [
+      {
+        "query_id": "q_1234",
+        "started_at": "2025-03-15T14:20:30Z",
+        "duration_ms": 4520,
+        "sql": "SELECT COUNT(*) FROM m12_2024.radar_data WHERE ..."
+      }
+    ]
+  },
+  "suggestion": "Wait for queries to complete or use force=true"
+}
+```
+
+**Status Codes:**
+- `200 OK` - Partition detached successfully
+- `400 Bad Request` - Invalid alias or attempt to detach main database
+- `409 Conflict` - Partition has active queries (force=false)
+- `404 Not Found` - Alias not found
+- `500 Internal Server Error` - Database error
+
+**Safety Checks:**
+1. Prevent detaching main database (write partition)
+2. Check for active queries (unless force=true)
+3. Check for uncommitted transactions
+4. Verify no pending writes in buffers
+5. Update union views after detach
+
+#### 4. Consolidate Partitions
+
+**Endpoint:** `POST /api/partitions/consolidate`
+
+**Purpose:** Combine multiple monthly/quarterly partitions into a yearly archive (cold storage optimization).
+
+**Request Body:**
+```json
+{
+  "source_partitions": [
+    "/var/lib/velocity-report/archives/2024-01_data.db",
+    "/var/lib/velocity-report/archives/2024-02_data.db",
+    "/var/lib/velocity-report/archives/2024-03_data.db",
+    "/var/lib/velocity-report/archives/2024-04_data.db",
+    "/var/lib/velocity-report/archives/2024-05_data.db",
+    "/var/lib/velocity-report/archives/2024-06_data.db",
+    "/var/lib/velocity-report/archives/2024-07_data.db",
+    "/var/lib/velocity-report/archives/2024-08_data.db",
+    "/var/lib/velocity-report/archives/2024-09_data.db",
+    "/var/lib/velocity-report/archives/2024-10_data.db",
+    "/var/lib/velocity-report/archives/2024-11_data.db",
+    "/var/lib/velocity-report/archives/2024-12_data.db"
+  ],
+  "output_path": "/var/lib/velocity-report/archives/cold/2024_data.db",
+  "delete_sources": false,
+  "compress_sources": true,
+  "strategy": "yearly"
+}
+```
+
+**Parameters:**
+- `source_partitions` (required): Array of partition paths to consolidate
+- `output_path` (required): Path for consolidated archive
+- `delete_sources` (optional): Delete source partitions after successful consolidation. Default: `false`
+- `compress_sources` (optional): If delete_sources=false, compress source partitions with gzip. Default: `false`
+- `strategy` (optional): `yearly` | `biennial` | `custom`. Validates source partitions match strategy. Default: `custom`
+
+**Response:**
+```json
+{
+  "success": true,
+  "job_id": "consolidate_2024_yearly_abc123",
+  "status": "running",
+  "progress": {
+    "current_partition": 1,
+    "total_partitions": 12,
+    "percent_complete": 8,
+    "estimated_completion": "2025-03-15T14:45:00Z"
+  },
+  "output": {
+    "path": "/var/lib/velocity-report/archives/cold/2024_data.db",
+    "size_bytes": 0,
+    "status": "creating"
+  },
+  "message": "Consolidation job started. Poll GET /api/partitions/consolidate/{job_id} for progress."
+}
+```
+
+**Long-Running Job Response (Poll Status):**
+
+`GET /api/partitions/consolidate/{job_id}`
+
+```json
+{
+  "job_id": "consolidate_2024_yearly_abc123",
+  "status": "completed",
+  "started_at": "2025-03-15T14:30:00Z",
+  "completed_at": "2025-03-15T14:42:15Z",
+  "duration_seconds": 735,
+  "result": {
+    "output_path": "/var/lib/velocity-report/archives/cold/2024_data.db",
+    "output_size_bytes": 29847234567,
+    "source_partitions_processed": 12,
+    "total_records_copied": 12456789,
+    "compression_ratio": 0.82,
+    "sources_deleted": false,
+    "sources_compressed": true,
+    "compressed_files": [
+      "/var/lib/velocity-report/archives/2024-01_data.db.gz",
+      "/var/lib/velocity-report/archives/2024-02_data.db.gz"
+      // ... etc
+    ]
+  },
+  "verification": {
+    "record_count_matches": true,
+    "time_ranges_validated": true,
+    "schema_validated": true
+  },
+  "message": "Consolidation completed successfully"
+}
+```
+
+**Status Codes:**
+- `202 Accepted` - Consolidation job started (async operation)
+- `400 Bad Request` - Invalid source partitions or output path
+- `409 Conflict` - Source partitions currently attached or in use
+- `422 Unprocessable Entity` - Source files don't exist or schema mismatch
+- `500 Internal Server Error` - Database error
+
+**Safety Checks:**
+1. Verify all source partitions exist and are readable
+2. Ensure source partitions are detached (no active queries)
+3. Validate schema compatibility across all sources
+4. Verify sufficient disk space for output file
+5. Create atomic transaction: copy → verify → delete/compress sources
+6. Rollback on failure: delete output, restore sources
+
+**Consolidation Algorithm:**
+```go
+func ConsolidatePartitions(sources []string, output string) error {
+    // 1. Create output database with standard schema
+    outputDB := CreatePartitionDB(output)
+    
+    // 2. For each source partition:
+    for _, source := range sources {
+        // 2a. Attach source temporarily
+        AttachDatabase(source, "temp_source")
+        
+        // 2b. Copy all tables to output
+        for _, table := range []string{"radar_data", "radar_objects", "lidar_bg_snapshot", 
+                                        "radar_data_transits", "radar_transit_links"} {
+            CopyTable("temp_source."+table, "main."+table)
+        }
+        
+        // 2c. Detach source
+        DetachDatabase("temp_source")
+    }
+    
+    // 3. Verify record counts and time ranges
+    if !VerifyConsolidation(sources, outputDB) {
+        return errors.New("consolidation verification failed")
+    }
+    
+    // 4. Make output read-only
+    os.Chmod(output, 0444)
+    
+    // 5. Compress or delete sources (if requested)
+    if deleteOrCompress {
+        CompressOrDeleteSources(sources)
+    }
+    
+    return nil
+}
+```
+
+#### 5. Get Partition Metadata
+
+**Endpoint:** `GET /api/partitions/{alias}/metadata`
+
+**Purpose:** Get detailed metadata about a specific partition (attached or detached).
+
+**Response:**
+```json
+{
+  "alias": "m01",
+  "path": "/var/lib/velocity-report/archives/2025-01_data.db",
+  "status": "attached",
+  "writable": false,
+  "size_bytes": 2641583234,
+  "created_at": "2025-02-02T00:05:12Z",
+  "last_modified": "2025-02-02T00:05:12Z",
+  "last_accessed": "2025-03-15T14:20:30Z",
+  "time_range": {
+    "start": "2025-01-01T00:00:00Z",
+    "end": "2025-01-31T23:59:59Z",
+    "days_covered": 31
+  },
+  "tables": {
+    "radar_data": {
+      "row_count": 2456789,
+      "size_bytes": 1847234567
+    },
+    "radar_objects": {
+      "row_count": 145678,
+      "size_bytes": 234567890
+    },
+    "lidar_bg_snapshot": {
+      "row_count": 8760,
+      "size_bytes": 459781236
+    },
+    "radar_data_transits": {
+      "row_count": 98234,
+      "size_bytes": 89234567
+    },
+    "radar_transit_links": {
+      "row_count": 2456789,
+      "size_bytes": 11565445
+    }
+  },
+  "indexes": [
+    "idx_radar_data_time",
+    "idx_transits_time"
+  ],
+  "compression": {
+    "compressed": false,
+    "compression_available": true,
+    "estimated_compressed_size_bytes": 528316647
+  },
+  "queries_24h": {
+    "total_queries": 45,
+    "avg_duration_ms": 125,
+    "p95_duration_ms": 340
+  }
+}
+```
+
+**Status Codes:**
+- `200 OK` - Metadata retrieved
+- `404 Not Found` - Partition not found
+- `500 Internal Server Error` - Database error
+
+#### 6. Buffer Status and Safety
+
+**Endpoint:** `GET /api/partitions/buffers`
+
+**Purpose:** Check write buffer status and rotation safety (critical before rotation operations).
+
+**Response:**
+```json
+{
+  "safe_to_rotate": true,
+  "write_buffer": {
+    "size_bytes": 4096,
+    "pending_writes": 0,
+    "last_flush": "2025-03-15T14:28:50Z"
+  },
+  "wal_checkpoint": {
+    "mode": "PASSIVE",
+    "frames_in_wal": 0,
+    "frames_checkpointed": 234567,
+    "last_checkpoint": "2025-03-15T14:28:50Z"
+  },
+  "active_transactions": 0,
+  "active_queries": {
+    "total": 2,
+    "by_partition": {
+      "main": 2,
+      "m01": 0,
+      "m02": 0
+    }
+  },
+  "recommendation": "Safe to perform rotation or partition management operations"
+}
+```
+
+**Status Codes:**
+- `200 OK` - Buffer status retrieved
+- `500 Internal Server Error` - Database error
+
+**Use Case:** Called before rotation to ensure no data loss:
+```bash
+# Pre-rotation safety check
+curl http://localhost:8080/api/partitions/buffers | jq '.safe_to_rotate'
+# Returns: true
+
+# If false, response includes reason:
+{
+  "safe_to_rotate": false,
+  "reason": "pending_writes",
+  "details": "12 writes pending in buffer. Wait 5-10 seconds and retry.",
+  "recommendation": "Wait for buffer flush before rotation"
+}
+```
+
+### Operational Workflows
+
+#### Workflow 1: Query Historical Data Beyond Connection Limit
+
+**Scenario:** Need to query data from 18 months ago, but only 12 partitions attached due to connection limit.
+
+```bash
+# 1. Check available partitions
+curl http://localhost:8080/api/partitions | jq '.available'
+
+# 2. Detach old partition (low priority)
+curl -X POST http://localhost:8080/api/partitions/detach \
+  -H "Content-Type: application/json" \
+  -d '{"alias": "m01_2024", "force": false}'
+
+# 3. Attach needed partition
+curl -X POST http://localhost:8080/api/partitions/attach \
+  -H "Content-Type: application/json" \
+  -d '{"path": "/var/lib/velocity-report/archives/2023-09_data.db", "priority": "high"}'
+
+# 4. Run query against newly attached partition
+sqlite3 sensor_data.db "SELECT * FROM m09_2023.radar_data WHERE ..."
+
+# 5. Detach when done (optional)
+curl -X POST http://localhost:8080/api/partitions/detach \
+  -H "Content-Type: application/json" \
+  -d '{"alias": "m09_2023"}'
+```
+
+#### Workflow 2: Create Yearly Archive (Cold Storage)
+
+**Scenario:** Consolidate 12 monthly partitions from 2024 into single yearly archive.
+
+```bash
+# 1. List 2024 partitions
+curl http://localhost:8080/api/partitions | jq '.attached[] | select(.path | contains("2024"))'
+
+# 2. Start consolidation job
+curl -X POST http://localhost:8080/api/partitions/consolidate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_partitions": [
+      "/var/lib/velocity-report/archives/2024-01_data.db",
+      "/var/lib/velocity-report/archives/2024-02_data.db",
+      ...
+      "/var/lib/velocity-report/archives/2024-12_data.db"
+    ],
+    "output_path": "/mnt/usb-hdd/velocity-archives/2024_data.db",
+    "delete_sources": false,
+    "compress_sources": true,
+    "strategy": "yearly"
+  }' | jq '.job_id'
+
+# 3. Poll for completion
+JOB_ID="consolidate_2024_yearly_abc123"
+watch -n 5 "curl http://localhost:8080/api/partitions/consolidate/$JOB_ID | jq '.status, .progress'"
+
+# 4. Once completed, attach yearly archive
+curl -X POST http://localhost:8080/api/partitions/attach \
+  -H "Content-Type: application/json" \
+  -d '{
+    "path": "/mnt/usb-hdd/velocity-archives/2024_data.db",
+    "alias": "y2024",
+    "priority": "low"
+  }'
+
+# 5. Optionally detach monthly partitions (now compressed .db.gz files)
+for month in {01..12}; do
+  curl -X POST http://localhost:8080/api/partitions/detach \
+    -H "Content-Type: application/json" \
+    -d "{\"alias\": \"m${month}\"}"
+done
+```
+
+#### Workflow 3: Pre-Rotation Safety Check
+
+**Scenario:** Before automatic monthly rotation, verify safety.
+
+```bash
+# Called by rotation cron job before rotation
+SAFE=$(curl -s http://localhost:8080/api/partitions/buffers | jq -r '.safe_to_rotate')
+
+if [ "$SAFE" = "true" ]; then
+  # Proceed with rotation
+  /usr/local/bin/velocity-report-rotate
+else
+  # Log warning and retry
+  echo "Rotation delayed: buffers not safe" | logger
+  sleep 30
+  # Retry check...
+fi
+```
+
+### Security Considerations
+
+**Authentication:** All partition management endpoints require authentication (future: API key or OAuth).
+
+**Authorization:** Partition management operations require admin role.
+
+**Rate Limiting:** Consolidation operations limited to 1 concurrent job per deployment.
+
+**Audit Logging:** All attach/detach/consolidate operations logged to `system_events` table:
+
+```sql
+INSERT INTO system_events (event_type, event_data, timestamp)
+VALUES ('partition_attached', json_object(
+  'alias', 'm12_2024',
+  'path', '/var/lib/velocity-report/archives/2024-12_data.db',
+  'user', 'admin',
+  'ip', '192.168.1.100'
+), UNIXEPOCH('subsec'));
+```
+
+### Future UI Integration
+
+These API endpoints are designed for future web UI development:
+
+**Partition Manager Dashboard:**
+- Visual timeline of partitions (attached vs available)
+- Drag-and-drop attach/detach interface
+- Progress bars for consolidation jobs
+- Disk space visualization (tiered storage)
+- Query performance metrics per partition
+
+**Consolidation Wizard:**
+- Auto-suggest yearly consolidation when 12 monthly partitions exist
+- Preview storage savings (compression estimates)
+- Schedule consolidation during low-traffic periods
+- Rollback capability if issues detected
+
+**Example UI Mockup (Future State):**
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Partition Manager                                   [Refresh]│
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Timeline: [Jan 2024] ──────────────── [Mar 2025]          │
+│                                                             │
+│  ✓ 2024 (Yearly Archive)  [2.4GB]  📦 Attached  🗑️ Detach  │
+│  ✓ 2025-01               [2.6GB]  📦 Attached  🗑️ Detach  │
+│  ✓ 2025-02               [2.5GB]  📦 Attached  🗑️ Detach  │
+│  ✓ 2025-03 (Current)     [1.2GB]  ✏️ Active    ⛔ Cannot   │
+│                                                  Detach     │
+│  Available Partitions:                                      │
+│  ○ 2023-12               [2.7GB]  📥 Attach                │
+│                                                             │
+│  Connection Limit: 3 / 125 used                             │
+│                                                             │
+│  [Create Yearly Archive] [Import Partition] [Settings]     │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -1196,26 +1856,39 @@ func PreflightChecks() error {
 - [ ] Disk quota monitoring
 - [ ] Storage allocation tools
 
-### Phase 5: Migration Tools (Week 6)
+### Phase 5: API Management Endpoints (Week 6)
+- [ ] Implement `GET /api/partitions` (list attached/available)
+- [ ] Implement `POST /api/partitions/attach` (attach with safety checks)
+- [ ] Implement `POST /api/partitions/detach` (detach with query checks)
+- [ ] Implement `POST /api/partitions/consolidate` (yearly archives)
+- [ ] Implement `GET /api/partitions/{alias}/metadata` (partition info)
+- [ ] Implement `GET /api/partitions/buffers` (rotation safety checks)
+- [ ] Add authentication and authorization
+- [ ] Audit logging to system_events table
+- [ ] Unit and integration tests for API endpoints
+
+### Phase 6: Migration Tools (Week 7)
 - [ ] Configuration flags (`--enable-partitioning`)
 - [ ] Historical backfill tool
-- [ ] Partition consolidation tool (rollback)
+- [ ] Partition consolidation CLI wrapper
 - [ ] Migration documentation
 
-### Phase 6: Testing and Validation (Week 7)
+### Phase 7: Testing and Validation (Week 8)
 - [ ] End-to-end testing on Raspberry Pi
 - [ ] Performance benchmarks (write/query)
 - [ ] Long-running stability tests
 - [ ] Edge case testing (failures, corruption)
+- [ ] API endpoint testing (attach/detach/consolidate)
 
-### Phase 7: Documentation and Release (Week 8)
+### Phase 8: Documentation and Release (Week 9)
 - [ ] User setup guide
 - [ ] Operations guide
 - [ ] API documentation updates
+- [ ] API endpoint reference documentation
 - [ ] CHANGELOG entry
 - [ ] Release notes
 
-### Phase 8: Rollout (Week 9+)
+### Phase 9: Rollout (Week 10+)
 - [ ] Alpha release (opt-in, developer testing)
 - [ ] Beta release (community testing)
 - [ ] Stable release (default for new deployments)
