@@ -166,7 +166,7 @@ func (m *Monitor) GetStatus(ctx context.Context) (*SystemStatus, error) {
 	if logErrors := resultMap["log_errors"]; logErrors != "" {
 		if count, err := strconv.Atoi(logErrors); err == nil {
 			status.LogErrors = count
-			status.LogOK = count <= 5
+			status.LogOK = count <= maxAcceptableLogErrors
 		}
 	}
 

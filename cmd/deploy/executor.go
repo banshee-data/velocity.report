@@ -160,7 +160,11 @@ func (e *Executor) buildSSHCommand(command string, useSudo bool) *exec.Cmd {
 		args = append(args, "-o", fmt.Sprintf("IdentityAgent=%s", e.IdentityAgent))
 	}
 
-	// Disable strict host key checking for easier automation
+	// WARNING: The following options disable SSH strict host key checking and known_hosts verification.
+	// This introduces a security risk: connections are vulnerable to man-in-the-middle (MITM) attacks.
+	// These options are suitable ONLY for automation in trusted environments (e.g., CI/CD, ephemeral hosts).
+	// For production deployments, REMOVE these options and configure known_hosts properly.
+	// See README.md ("SSH Security") for guidance.
 	args = append(args, "-o", "StrictHostKeyChecking=no")
 	args = append(args, "-o", "UserKnownHostsFile=/dev/null")
 	args = append(args, "-o", "LogLevel=ERROR")

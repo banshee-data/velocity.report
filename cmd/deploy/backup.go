@@ -74,7 +74,10 @@ func (b *Backup) scpFromRemote(remotePath, localDest string) error {
 		args = append(args, "-i", b.SSHKey)
 	}
 
-	// Disable strict host key checking for automation
+	// WARNING: The following options disable SSH strict host key checking and known_hosts verification.
+	// This introduces a security risk: connections are vulnerable to man-in-the-middle (MITM) attacks.
+	// These options are suitable ONLY for automation in trusted environments (e.g., CI/CD, ephemeral hosts).
+	// For production deployments, REMOVE these options and configure known_hosts properly.
 	args = append(args, "-o", "StrictHostKeyChecking=no")
 	args = append(args, "-o", "UserKnownHostsFile=/dev/null")
 

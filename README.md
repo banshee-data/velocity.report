@@ -295,7 +295,7 @@ make build-deploy
 ./velocity-deploy install \
   --target pi@192.168.1.100 \
   --ssh-key ~/.ssh/id_rsa \
-  --binary ./app-radar-linux-arm64
+  --binary ./velocity-report-linux-arm64
 ```
 
 **Or use Make shortcuts for local deployment:**
@@ -316,7 +316,7 @@ The deployment will:
 
 ```sh
 make build-radar-linux
-./velocity-deploy upgrade --target pi@192.168.1.100 --binary ./app-radar-linux-arm64
+./velocity-deploy upgrade --target pi@192.168.1.100 --binary ./velocity-report-linux-arm64
 ```
 
 **Monitor service health:**

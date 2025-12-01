@@ -579,26 +579,26 @@ deploy-install:
 		echo "Building velocity-deploy..."; \
 		make build-deploy; \
 	fi
-	@if [ ! -f "app-radar-linux-arm64" ]; then \
-		echo "Error: app-radar-linux-arm64 not found!"; \
+	@if [ ! -f "velocity-report-linux-arm64" ]; then \
+		echo "Error: velocity-report-linux-arm64 not found!"; \
 		echo "Run 'make build-radar-linux' first."; \
 		exit 1; \
 	fi
 	@echo "Installing velocity.report using velocity-deploy..."
-	./velocity-deploy install --binary ./app-radar-linux-arm64
+	./velocity-deploy install --binary ./velocity-report-linux-arm64
 
 deploy-upgrade:
 	@if [ ! -f "velocity-deploy" ]; then \
 		echo "Building velocity-deploy..."; \
 		make build-deploy; \
 	fi
-	@if [ ! -f "app-radar-linux-arm64" ]; then \
-		echo "Error: app-radar-linux-arm64 not found!"; \
+	@if [ ! -f "velocity-report-linux-arm64" ]; then \
+		echo "Error: velocity-report-linux-arm64 not found!"; \
 		echo "Run 'make build-radar-linux' first."; \
 		exit 1; \
 	fi
 	@echo "Upgrading velocity.report using velocity-deploy..."
-	./velocity-deploy upgrade --binary ./app-radar-linux-arm64
+	./velocity-deploy upgrade --binary ./velocity-report-linux-arm64
 
 deploy-status:
 	@if [ ! -f "velocity-deploy" ]; then \

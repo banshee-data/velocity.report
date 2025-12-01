@@ -42,7 +42,7 @@ func main() {
 	case "config":
 		handleConfig(args)
 	case "version":
-		fmt.Printf("velocity-deploy version %s\\n", version)
+		fmt.Printf("velocity-deploy version %s\n", version)
 	case "help":
 		printUsage()
 	default:
@@ -90,19 +90,19 @@ SSH Config Support:
 
 Examples:
   # Install locally
-  velocity-deploy install --binary ./app-radar-linux-arm64
+  velocity-deploy install --binary ./velocity-report-linux-arm64
 
   # Install using SSH config host alias
-  velocity-deploy install --target mypi --binary ./app-radar-linux-arm64
+  velocity-deploy install --target mypi --binary ./velocity-report-linux-arm64
 
   # Install on remote Pi with explicit credentials
-  velocity-deploy install --target pi@192.168.1.100 --ssh-key ~/.ssh/id_rsa --binary ./app-radar-linux-arm64
+  velocity-deploy install --target pi@192.168.1.100 --ssh-key ~/.ssh/id_rsa --binary ./velocity-report-linux-arm64
 
   # Check status using SSH config
   velocity-deploy status --target mypi
 
   # Upgrade local installation
-  velocity-deploy upgrade --binary ./app-radar-linux-arm64
+  velocity-deploy upgrade --binary ./velocity-report-linux-arm64
 
   # Health check on remote host
   velocity-deploy health --target mypi
@@ -124,7 +124,7 @@ func handleInstall(args []string) {
 	DebugMode = *debug
 
 	if *binaryPath == "" {
-		fmt.Fprintln(os.Stderr, "Error: --binary flag is required. Specify the path to the velocity-report binary (e.g., --binary ./app-radar-linux-arm64)")
+		fmt.Fprintln(os.Stderr, "Error: --binary flag is required. Specify the path to the velocity-report binary (e.g., --binary ./velocity-report-linux-arm64)")
 		fs.Usage()
 		os.Exit(1)
 	}
@@ -171,7 +171,7 @@ func handleUpgrade(args []string) {
 	DebugMode = *debug
 
 	if *binaryPath == "" {
-		fmt.Fprintln(os.Stderr, "Error: --binary flag is required. Specify the path to the velocity-report binary (e.g., --binary ./app-radar-linux-arm64)")
+		fmt.Fprintln(os.Stderr, "Error: --binary flag is required. Specify the path to the velocity-report binary (e.g., --binary ./velocity-report-linux-arm64)")
 		fs.Usage()
 		os.Exit(1)
 	}

@@ -31,7 +31,7 @@ This creates `velocity-deploy` binary in the repository root.
 make build-radar-linux
 
 # Install locally
-./velocity-deploy install --binary ./app-radar-linux-arm64
+./velocity-deploy install --binary ./velocity-report-linux-arm64
 ```
 
 ### Install on Remote Raspberry Pi
@@ -44,7 +44,7 @@ make build-radar-linux
 ./velocity-deploy install \
   --target pi@192.168.1.100 \
   --ssh-key ~/.ssh/id_rsa \
-  --binary ./app-radar-linux-arm64
+  --binary ./velocity-report-linux-arm64
 ```
 
 ### Check Service Status
@@ -81,7 +81,7 @@ make build-radar-linux
 # Upgrade (creates backup automatically)
 ./velocity-deploy upgrade \
   --target pi@192.168.1.100 \
-  --binary ./app-radar-linux-arm64
+  --binary ./velocity-report-linux-arm64
 ```
 
 The upgrade process:
@@ -173,7 +173,7 @@ Install velocity.report service.
 **Example:**
 
 ```bash
-velocity-deploy install --binary ./app-radar-linux-arm64 --db-path ./sensor_data.db
+velocity-deploy install --binary ./velocity-report-linux-arm64 --db-path ./sensor_data.db
 ```
 
 #### upgrade
@@ -191,7 +191,7 @@ Upgrade to a new version.
 **Example:**
 
 ```bash
-velocity-deploy upgrade --binary ./app-radar-linux-arm64
+velocity-deploy upgrade --binary ./velocity-report-linux-arm64
 ```
 
 #### status
@@ -277,7 +277,7 @@ This is especially useful for:
 velocity-deploy fix --target pi@192.168.1.100
 
 # Fix with binary replacement
-velocity-deploy fix --target pi@192.168.1.100 --binary ./app-radar-linux-arm64
+velocity-deploy fix --target pi@192.168.1.100 --binary ./velocity-report-linux-arm64
 
 # Build from source on server (requires Go)
 velocity-deploy fix --target pi@192.168.1.100 --build-from-source
@@ -392,13 +392,13 @@ Then deploy using the host alias:
 
 ```bash
 # Uses all config from SSH config file
-velocity-deploy install --target mypi --binary ./app-radar-linux-arm64
+velocity-deploy install --target mypi --binary ./velocity-report-linux-arm64
 
 # Check status
 velocity-deploy status --target mypi
 
 # Upgrade
-velocity-deploy upgrade --target production --binary ./app-radar-linux-arm64
+velocity-deploy upgrade --target production --binary ./velocity-report-linux-arm64
 ```
 
 ### Manual SSH Configuration
@@ -420,7 +420,7 @@ If not using SSH config, ensure:
 
 3. **Provide credentials explicitly**:
    ```bash
-   velocity-deploy install --ssh-key ~/.ssh/id_rsa --target pi@192.168.1.100 --binary ./app-radar-linux-arm64
+   velocity-deploy install --ssh-key ~/.ssh/id_rsa --target pi@192.168.1.100 --binary ./velocity-report-linux-arm64
    ```
 
 ### Override SSH Config
@@ -432,7 +432,7 @@ Command-line flags override SSH config values:
 velocity-deploy status --target mypi --ssh-user admin
 
 # Use SSH config but override key
-velocity-deploy install --target mypi --ssh-key ~/.ssh/different_key --binary ./app-radar-linux-arm64
+velocity-deploy install --target mypi --ssh-key ~/.ssh/different_key --binary ./velocity-report-linux-arm64
 ```
 
 ## Troubleshooting
@@ -497,7 +497,7 @@ Create a test environment:
 ./velocity-deploy install --binary ./test-binary --dry-run
 
 # Test on local machine first
-./velocity-deploy install --binary ./app-radar-linux-arm64 --target localhost
+./velocity-deploy install --binary ./velocity-report-linux-arm64 --target localhost
 ```
 
 ## License
