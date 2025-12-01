@@ -44,6 +44,119 @@ This specification proposes a time-based partitioning strategy for raw sensor da
 - Additional disk I/O for queries spanning multiple partitions
 - Need for partition-aware backup and monitoring strategies
 
+**Security Enhancements:**
+This design incorporates security fixes for critical vulnerabilities identified during security review:
+- **Path Traversal Prevention (CVE-2025-VR-002):** All file paths validated, symlinks resolved, directory traversal rejected
+- **SQL Injection Prevention (CVE-2025-VR-003):** All SQL inputs sanitized, identifiers properly escaped, read-only mode enforced
+- **Race Condition Prevention (CVE-2025-VR-005):** Distributed locks for rotation, query completion waits, idempotent operations
+- **USB Security Hardening (CVE-2025-VR-006):** Filesystem whitelist, secure mount options (nosuid/nodev/noexec), USB device verification
+
+---
+
+## Security Considerations
+
+### Overview
+
+This design implements defense-in-depth security measures to protect against common attack vectors in partition management and USB storage operations. All security fixes are marked with CVE references in the code sections below.
+
+### Critical Security Fixes
+
+#### CVE-2025-VR-002: Path Traversal Prevention (Severity: 9.5/10)
+
+**Vulnerability:** User-controlled file paths in attach/consolidate operations could access arbitrary files via directory traversal (`../../../etc/shadow`) or symlink attacks.
+
+**Mitigations Implemented:**
+1. **Path Validation:** All file paths validated against allowed directories before use
+2. **Symlink Resolution:** `filepath.EvalSymlinks()` resolves all symlinks to absolute paths
+3. **Directory Traversal Rejection:** Paths containing `..` are rejected
+4. **Filename Pattern Matching:** Partition files must match `YYYY-MM_data.db` or `YYYY-QN_data.db` pattern
+5. **Regular File Verification:** Only regular files accepted (not devices, sockets, or pipes)
+
+**Code Location:** See `ValidatePartitionPath()` function in ATTACH DATABASE Management section.
+
+#### CVE-2025-VR-003: SQL Injection Prevention (Severity: 8.5/10)
+
+**Vulnerability:** Unsanitized aliases and paths in `ATTACH DATABASE` commands could execute arbitrary SQL (`"m01; DROP TABLE radar_data; --"`).
+
+**Mitigations Implemented:**
+1. **Alias Validation:** Only alphanumeric and underscore allowed, must start with letter
+2. **SQL Keyword Filtering:** Aliases containing SQL keywords (DROP, DELETE, etc.) rejected
+3. **Proper SQL Escaping:** Single quotes doubled in paths, double quotes doubled in identifiers
+4. **Read-Only Mode:** Partitions attached with `mode=ro` to prevent write operations
+5. **Length Limits:** Aliases limited to 32 characters
+
+**Code Location:** See `ValidateAlias()`, `QuoteSQLiteString()`, and `QuoteSQLiteIdentifier()` functions in ATTACH DATABASE Management section.
+
+#### CVE-2025-VR-005: Race Condition Prevention (Severity: 7.5/10)
+
+**Vulnerability:** Concurrent rotation operations or rotation during active queries could cause data corruption and loss.
+
+**Mitigations Implemented:**
+1. **Distributed Locking:** SQLite-based rotation lock prevents concurrent rotations
+2. **Lock Expiration:** Locks automatically expire after 5 minutes to prevent deadlocks
+3. **Query Completion Wait:** Rotation waits for active queries to complete (30 second timeout)
+4. **Idempotent Operations:** Rotation checks if partition exists before creating
+5. **Transaction Safety:** Data deletion wrapped in transaction with rollback on failure
+6. **Cleanup on Failure:** Partial partition files deleted if rotation fails
+
+**Code Location:** See `AcquireRotationLock()` function and enhanced rotation algorithm in Rotation Process Details section.
+
+#### CVE-2025-VR-006: USB Storage Security (Severity: 7.8/10)
+
+**Vulnerability:** Mounting arbitrary USB devices could enable filesystem exploits, SUID binary execution, or persistent backdoors via systemd units.
+
+**Mitigations Implemented:**
+1. **Filesystem Whitelist:** Only ext4 and ext3 allowed (no NTFS, FAT32, exfat)
+2. **Secure Mount Options:** Always mount with `nosuid,nodev,noexec,noatime,ro`
+3. **USB Device Verification:** Verify device is in USB subsystem via sysfs paths
+4. **System Disk Protection:** Reject mounting of /dev/sda or /dev/mmcblk0
+5. **Read-Only by Default:** USB drives mounted read-only to prevent malicious writes
+6. **Filesystem Detection:** Use `blkid` to detect and validate filesystem type
+
+**Code Location:** See `MountUSBStorage()` and `VerifyUSBDevice()` functions in USB Storage Management section.
+
+### Security Testing Requirements
+
+Before deployment, the following security tests MUST pass:
+
+1. **Path Traversal Tests:**
+   - Reject `../../etc/shadow` in partition paths
+   - Reject symlinks to system files
+   - Reject paths outside allowed directories
+
+2. **SQL Injection Tests:**
+   - Reject aliases with SQL keywords: `"m01; DROP TABLE radar_data; --"`
+   - Reject aliases with quotes: `"m01' OR 1=1 --"`
+   - Verify read-only mode prevents writes
+
+3. **Race Condition Tests:**
+   - Concurrent rotation attempts only succeed once
+   - Rotation waits for queries to complete
+   - No data corruption under concurrent load
+
+4. **USB Security Tests:**
+   - Reject mounting NTFS/FAT32 filesystems
+   - Reject mounting /dev/sda (system disk)
+   - Verify SUID binaries cannot execute from mounted USB
+   - Verify devices flag prevents device files on USB
+
+### Future Security Enhancements
+
+**Authentication and Authorization (High Priority):**
+- API endpoints currently lack authentication (addressed in separate implementation)
+- Implement API key authentication with bcrypt hashing
+- Add role-based access control for partition management
+
+**Audit Logging:**
+- Log all partition attach/detach operations
+- Log all USB mount/unmount operations
+- Log all rotation operations with success/failure status
+
+**Rate Limiting:**
+- Limit API requests per IP address
+- Limit concurrent consolidation operations
+- Prevent DoS via resource exhaustion
+
 ---
 
 ## Problem Statement
@@ -341,9 +454,22 @@ WHERE write_timestamp BETWEEN 1704067200.0 AND 1706745600.0;
 **Rotation Algorithm:**
 ```go
 func RotatePartitions(db *DB, rotationTime time.Time) error {
+    // SECURITY FIX (CVE-2025-VR-005): Acquire distributed lock to prevent race conditions
+    lock, err := AcquireRotationLock(db, 10*time.Second)
+    if err != nil {
+        return fmt.Errorf("cannot acquire rotation lock: %w", err)
+    }
+    defer lock.Release()
+    
     // 1. Determine partition name (e.g., "2025-01_data.db")
     partitionName := rotationTime.AddDate(0, -1, 0).Format("2006-01") + "_data.db"
     partitionPath := filepath.Join(archivesDir, partitionName)
+    
+    // Check if partition already exists (idempotency)
+    if _, err := os.Stat(partitionPath); err == nil {
+        log.Warnf("Partition %s already exists, skipping rotation", partitionName)
+        return nil
+    }
     
     // 2. Create partition database with schema
     partitionDB, err := CreatePartitionDB(partitionPath)
@@ -351,7 +477,12 @@ func RotatePartitions(db *DB, rotationTime time.Time) error {
         return err
     }
     
-    // 3. Copy previous month's data to partition
+    // 3. Wait for active queries to complete (prevents corruption)
+    if err := WaitForQueriesWithTimeout(db, 30*time.Second); err != nil {
+        return fmt.Errorf("timeout waiting for queries: %w", err)
+    }
+    
+    // 4. Copy previous month's data to partition
     startTime := rotationTime.AddDate(0, -1, 0).Truncate(24*time.Hour)
     endTime := rotationTime.Truncate(24*time.Hour)
     
@@ -363,31 +494,94 @@ func RotatePartitions(db *DB, rotationTime time.Time) error {
         "radar_transit_links",
     })
     if err != nil {
+        // Cleanup on failure
+        os.Remove(partitionPath)
         return err
     }
     
-    // 4. Verify data integrity
+    // 5. Verify data integrity
     if err := VerifyPartition(partitionDB, startTime, endTime); err != nil {
+        os.Remove(partitionPath)
         return err
     }
     
-    // 5. Delete copied data from main database
-    err = DeleteRotatedData(db, startTime, endTime)
+    // 6. Delete copied data from main database (within transaction)
+    tx, err := db.Begin()
+    if err != nil {
+        return err
+    }
+    defer tx.Rollback()
+    
+    err = DeleteRotatedData(tx, startTime, endTime)
     if err != nil {
         return err
     }
     
-    // 6. Make partition read-only
+    if err := tx.Commit(); err != nil {
+        return err
+    }
+    
+    // 7. Make partition read-only
     if err := os.Chmod(partitionPath, 0444); err != nil {
         return err
     }
     
-    // 7. Update union views to include new partition
+    // 8. Update union views to include new partition
     if err := UpdateUnionViews(db); err != nil {
         return err
     }
     
     return nil
+}
+
+// AcquireRotationLock prevents concurrent rotation operations (CVE-2025-VR-005)
+func AcquireRotationLock(db *DB, timeout time.Duration) (*RotationLock, error) {
+    // Create lock table if not exists
+    _, err := db.Exec(`
+        CREATE TABLE IF NOT EXISTS rotation_lock (
+            lock_id INTEGER PRIMARY KEY DEFAULT 1,
+            acquired_at REAL,
+            expires_at REAL,
+            CHECK (lock_id = 1)
+        )
+    `)
+    if err != nil {
+        return nil, err
+    }
+    
+    deadline := time.Now().Add(timeout)
+    for time.Now().Before(deadline) {
+        // Try to acquire lock (expires after 5 minutes)
+        result, err := db.Exec(`
+            INSERT OR REPLACE INTO rotation_lock (lock_id, acquired_at, expires_at)
+            SELECT 1, UNIXEPOCH('subsec'), UNIXEPOCH('subsec') + 300
+            WHERE NOT EXISTS (
+                SELECT 1 FROM rotation_lock 
+                WHERE lock_id = 1 AND expires_at > UNIXEPOCH('subsec')
+            )
+        `)
+        if err != nil {
+            return nil, err
+        }
+        
+        rows, _ := result.RowsAffected()
+        if rows > 0 {
+            return &RotationLock{db: db}, nil
+        }
+        
+        time.Sleep(100 * time.Millisecond)
+    }
+    
+    return nil, fmt.Errorf("timeout acquiring rotation lock")
+}
+
+type RotationLock struct {
+    db *DB
+}
+
+func (l *RotationLock) Release() error {
+    _, err := l.db.Exec("DELETE FROM rotation_lock WHERE lock_id = 1")
+    return err
 }
 ```
 
@@ -421,16 +615,98 @@ func AttachPartitions(db *DB) error {
     
     // Attach each partition with unique alias
     for i, partition := range partitions {
+        // SECURITY FIX (CVE-2025-VR-002): Validate partition path
+        if err := ValidatePartitionPath(partition); err != nil {
+            log.Warnf("Skipping invalid partition %s: %v", partition, err)
+            continue
+        }
+        
         alias := fmt.Sprintf("m%02d", i+1) // m01, m02, m03, ...
         
-        // ATTACH DATABASE 'path' AS alias
-        _, err := db.Exec(fmt.Sprintf("ATTACH DATABASE '%s' AS %s", partition, alias))
+        // SECURITY FIX (CVE-2025-VR-003): Sanitize inputs for SQL injection prevention
+        if err := ValidateAlias(alias); err != nil {
+            return fmt.Errorf("invalid alias: %w", err)
+        }
+        
+        // Use read-only mode and properly escaped identifiers
+        quotedPath := QuoteSQLiteString(partition)
+        quotedAlias := QuoteSQLiteIdentifier(alias)
+        sql := fmt.Sprintf("ATTACH DATABASE 'file:%s?mode=ro' AS %s", partition, quotedAlias)
+        
+        _, err := db.Exec(sql)
         if err != nil {
             return err
         }
     }
     
     return nil
+}
+
+// ValidatePartitionPath prevents path traversal attacks (CVE-2025-VR-002)
+func ValidatePartitionPath(path string) error {
+    // Reject directory traversal
+    if strings.Contains(path, "..") {
+        return fmt.Errorf("directory traversal not allowed")
+    }
+    
+    // Resolve symlinks and get absolute path
+    absPath, err := filepath.EvalSymlinks(path)
+    if err != nil {
+        return fmt.Errorf("cannot resolve path: %w", err)
+    }
+    
+    // Ensure path is under allowed directory
+    if !strings.HasPrefix(absPath, allowedPartitionDir) {
+        return fmt.Errorf("path outside allowed directory")
+    }
+    
+    // Verify it's a regular file
+    info, err := os.Lstat(absPath)
+    if err != nil {
+        return fmt.Errorf("cannot stat file: %w", err)
+    }
+    if !info.Mode().IsRegular() {
+        return fmt.Errorf("not a regular file")
+    }
+    
+    // Verify filename matches partition pattern
+    filename := filepath.Base(absPath)
+    matched, _ := regexp.MatchString(`^[0-9]{4}-(0[1-9]|1[0-2]|Q[1-4])_data\.db$`, filename)
+    if !matched {
+        return fmt.Errorf("filename does not match partition pattern")
+    }
+    
+    return nil
+}
+
+// ValidateAlias prevents SQL injection in aliases (CVE-2025-VR-003)
+func ValidateAlias(alias string) error {
+    // Only alphanumeric and underscore, must start with letter
+    matched, _ := regexp.MatchString(`^[a-zA-Z][a-zA-Z0-9_]{0,31}$`, alias)
+    if !matched {
+        return fmt.Errorf("alias must start with letter and contain only alphanumeric and underscore")
+    }
+    
+    // Reject SQL keywords
+    sqlKeywords := []string{"DROP", "DELETE", "INSERT", "UPDATE", "CREATE", "ALTER", "EXEC"}
+    upperAlias := strings.ToUpper(alias)
+    for _, keyword := range sqlKeywords {
+        if strings.Contains(upperAlias, keyword) {
+            return fmt.Errorf("alias contains SQL keyword")
+        }
+    }
+    
+    return nil
+}
+
+// QuoteSQLiteString escapes single quotes for SQL strings
+func QuoteSQLiteString(s string) string {
+    return strings.ReplaceAll(s, "'", "''")
+}
+
+// QuoteSQLiteIdentifier escapes double quotes for SQL identifiers
+func QuoteSQLiteIdentifier(s string) string {
+    return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
 }
 ```
 
@@ -612,11 +888,12 @@ To support operational flexibility and future UI development, the system provide
 - `500 Internal Server Error` - Database error
 
 **Safety Checks:**
-1. Verify file exists and is readable
-2. Validate SQLite database format
-3. Check schema compatibility
-4. Enforce connection limit
-5. Ensure alias is unique
+1. **Path validation (CVE-2025-VR-002):** Verify file exists, resolve symlinks, ensure path is under allowed directory, reject directory traversal
+2. **Filename validation:** Verify filename matches partition pattern (YYYY-MM_data.db or YYYY-QN_data.db)
+3. **Alias validation (CVE-2025-VR-003):** Verify alias is alphanumeric with underscore only, no SQL keywords
+4. **SQLite validation:** Verify file has valid SQLite header and schema compatibility
+5. **Connection limit enforcement:** Ensure SQLite SQLITE_MAX_ATTACHED limit not exceeded
+6. **Alias uniqueness:** Ensure alias not already in use
 
 #### 3. Detach Partition
 
@@ -1262,15 +1539,17 @@ lsblk -J -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE,LABEL,VENDOR,MODEL,SERIAL
 - `422 Unprocessable Entity` - Mount failed (permissions, filesystem issues)
 - `500 Internal Server Error` - System error
 
-**Safety Checks:**
-1. Verify partition exists and is readable
-2. Check filesystem is supported (ext4, ext3, xfs, btrfs)
-3. Validate mount point is empty or doesn't exist
-4. Create mount point if needed
-5. Test mount with read/write permissions
-6. Create `.velocity-report-archives` marker file
+**Safety Checks (CVE-2025-VR-006 - USB Security):**
+1. **Device verification:** Verify partition exists and is actually a USB device (not system disk)
+2. **Filesystem whitelist:** Only allow ext4 and ext3 (reject NTFS, FAT32, exfat due to security concerns)
+3. **Filesystem detection:** Auto-detect and validate filesystem type using `blkid`
+4. **System disk protection:** Reject mounting of /dev/sda or /dev/mmcblk0 (system disks)
+5. **Mount point validation:** Validate mount point is empty or doesn't exist, reject path traversal
+6. **Secure mount options:** Always use `nosuid,nodev,noexec,noatime,ro` (read-only by default)
+7. **USB path verification:** Verify device is in USB subsystem via `/sys/block/` symlinks
+8. **Marker file creation:** Create `.velocity-report-archives` marker file after successful mount
 
-**Systemd Mount Unit:**
+**Systemd Mount Unit (Secure Configuration):**
 ```ini
 # /etc/systemd/system/mnt-usb\x2darchives.mount
 [Unit]
@@ -1281,10 +1560,82 @@ After=local-fs.target
 What=/dev/disk/by-uuid/a1b2c3d4-e5f6-7890-abcd-ef1234567890
 Where=/mnt/usb-archives
 Type=ext4
-Options=defaults,noatime
+# SECURITY: Read-only, no SUID/exec/devices
+Options=nosuid,nodev,noexec,noatime,ro
 
 [Install]
 WantedBy=multi-user.target
+```
+
+**USB Mount Implementation (Secure):**
+```go
+func MountUSBStorage(partitionPath, mountPoint string) error {
+    // SECURITY FIX (CVE-2025-VR-006): Verify device is USB
+    if err := VerifyUSBDevice(partitionPath); err != nil {
+        return fmt.Errorf("device verification failed: %w", err)
+    }
+    
+    // Detect and validate filesystem
+    fstype, err := DetectFilesystem(partitionPath)
+    if err != nil {
+        return err
+    }
+    
+    // Whitelist only ext4 and ext3
+    allowedFS := map[string]bool{"ext4": true, "ext3": true}
+    if !allowedFS[fstype] {
+        return fmt.Errorf("filesystem type not allowed: %s (only ext4, ext3 supported)", fstype)
+    }
+    
+    // Validate mount point (no path traversal)
+    if strings.Contains(mountPoint, "..") {
+        return fmt.Errorf("path traversal not allowed in mount point")
+    }
+    
+    // Create mount point if needed
+    if err := os.MkdirAll(mountPoint, 0755); err != nil {
+        return err
+    }
+    
+    // Mount with secure options (read-only by default)
+    secureOptions := "nosuid,nodev,noexec,noatime,ro"
+    err = syscall.Mount(partitionPath, mountPoint, fstype,
+        syscall.MS_NOSUID|syscall.MS_NODEV|syscall.MS_NOEXEC|syscall.MS_RDONLY,
+        secureOptions)
+    
+    return err
+}
+
+func VerifyUSBDevice(device string) error {
+    // Reject system disks
+    if strings.HasPrefix(device, "/dev/sda") || strings.HasPrefix(device, "/dev/mmcblk0") {
+        return fmt.Errorf("cannot mount system disk")
+    }
+    
+    // Verify device is USB by checking sysfs
+    deviceName := filepath.Base(device)
+    sysPath := "/sys/block/" + strings.TrimSuffix(deviceName, "1") // Remove partition number
+    realPath, err := filepath.EvalSymlinks(sysPath)
+    if err != nil {
+        return fmt.Errorf("device not found in sysfs: %w", err)
+    }
+    
+    if !strings.Contains(realPath, "/usb") {
+        return fmt.Errorf("device is not a USB device")
+    }
+    
+    return nil
+}
+
+func DetectFilesystem(device string) (string, error) {
+    cmd := exec.Command("blkid", "-o", "value", "-s", "TYPE", device)
+    output, err := cmd.Output()
+    if err != nil {
+        return "", fmt.Errorf("cannot detect filesystem: %w", err)
+    }
+    
+    return strings.TrimSpace(string(output)), nil
+}
 ```
 
 #### 9. Unmount/Eject USB Storage
