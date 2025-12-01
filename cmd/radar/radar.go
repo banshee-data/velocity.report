@@ -174,11 +174,11 @@ func main() {
 
 	// Use the CLI flag value (defaults to ./sensor_data.db). We intentionally
 	// avoid relying on environment variables for configuration unless needed.
-	db, err := db.NewDB(*dbPathFlag)
+	database, err := db.NewDB(*dbPathFlag)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
-	defer db.Close()
+	defer database.Close()
 
 	// Create a wait group for the HTTP server, serial monitor, and event handler routines
 	var wg sync.WaitGroup
@@ -188,7 +188,7 @@ func main() {
 	// Optionally initialize lidar components inside this binary
 	if *enableLidar {
 		// Use the main DB instance for lidar data (no separate lidar DB file)
-		lidarDB := db
+		lidarDB := database
 
 		// Create BackgroundManager and register persistence
 		backgroundParams := lidar.BackgroundParams{
@@ -405,7 +405,7 @@ func main() {
 		for {
 			select {
 			case payload := <-c:
-				if err := serialmux.HandleEvent(db, payload); err != nil {
+				if err := serialmux.HandleEvent(database, payload); err != nil {
 					log.Printf("error handling event: %v", err)
 				}
 			case <-ctx.Done():
@@ -418,7 +418,7 @@ func main() {
 	// Create transit worker controller before HTTP server so we can pass it to the API
 	// Always create the controller so the API can provide UI controls
 	var transitController *db.TransitController
-	transitWorker := db.NewTransitWorker(db, *transitWorkerThreshold, *transitWorkerModel)
+	transitWorker := db.NewTransitWorker(database, *transitWorkerThreshold, *transitWorkerModel)
 	transitWorker.Interval = *transitWorkerInterval
 	transitWorker.Window = *transitWorkerWindow
 	transitController = db.NewTransitController(transitWorker)
@@ -443,7 +443,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		apiServer := api.NewServer(radarSerial, db, *unitsFlag, *timezoneFlag)
+		apiServer := api.NewServer(radarSerial, database, *unitsFlag, *timezoneFlag)
 		// Set the transit controller so API can provide UI controls
 		apiServer.SetTransitController(transitController)
 
@@ -451,7 +451,7 @@ func main() {
 		// (these modify the mux returned by apiServer.ServeMux internally)
 		mux := apiServer.ServeMux()
 		radarSerial.AttachAdminRoutes(mux)
-		db.AttachAdminRoutes(mux)
+		database.AttachAdminRoutes(mux)
 
 		if err := apiServer.Start(ctx, *listen, *debugMode); err != nil {
 			// If ctx was canceled we expect nil or context.Canceled; log other errors
