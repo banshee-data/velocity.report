@@ -60,6 +60,7 @@ Usage: velocity-deploy <command> [options]
 Commands:
   install    Install velocity.report service on a host
   upgrade    Upgrade velocity.report to a newer version
+  fix        Diagnose and repair broken installation
   status     Check service status
   health     Perform health check on running service
   rollback   Rollback to previous version
@@ -117,7 +118,10 @@ func handleInstall(args []string) {
 	binaryPath := fs.String("binary", "", "Path to velocity-report binary (required)")
 	dbPath := fs.String("db-path", "", "Path to existing database to migrate")
 	dryRun := fs.Bool("dry-run", false, "Show what would be done")
+	debug := fs.Bool("debug", false, "Enable debug logging")
 	fs.Parse(args)
+
+	DebugMode = *debug
 
 	if *binaryPath == "" {
 		fmt.Fprintln(os.Stderr, "Error: --binary flag is required. Specify the path to the velocity-report binary (e.g., --binary ./app-radar-linux-arm64)")
@@ -161,7 +165,10 @@ func handleUpgrade(args []string) {
 	binaryPath := fs.String("binary", "", "Path to new velocity-report binary (required)")
 	dryRun := fs.Bool("dry-run", false, "Show what would be done")
 	noBackup := fs.Bool("no-backup", false, "Skip backup before upgrade")
+	debug := fs.Bool("debug", false, "Enable debug logging")
 	fs.Parse(args)
+
+	DebugMode = *debug
 
 	if *binaryPath == "" {
 		fmt.Fprintln(os.Stderr, "Error: --binary flag is required. Specify the path to the velocity-report binary (e.g., --binary ./app-radar-linux-arm64)")
@@ -239,7 +246,10 @@ func handleStatus(args []string) {
 	sshKey := fs.String("ssh-key", "", "SSH private key path (defaults to ~/.ssh/config)")
 	apiPort := fs.Int("api-port", 8080, "API server port")
 	timeout := fs.Int("timeout", 30, "Timeout in seconds")
+	debug := fs.Bool("debug", false, "Enable debug logging")
 	fs.Parse(args)
+
+	DebugMode = *debug
 
 	// Resolve SSH config
 	resolvedHost, resolvedUser, resolvedKey, identityAgent, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
@@ -297,7 +307,10 @@ func handleHealth(args []string) {
 	sshUser := fs.String("ssh-user", "", "SSH user (defaults to ~/.ssh/config or current user)")
 	sshKey := fs.String("ssh-key", "", "SSH private key path (defaults to ~/.ssh/config)")
 	apiPort := fs.Int("api-port", 8080, "API server port")
+	debug := fs.Bool("debug", false, "Enable debug logging")
 	fs.Parse(args)
+
+	DebugMode = *debug
 
 	// Resolve SSH config
 	resolvedHost, resolvedUser, resolvedKey, identityAgent, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
@@ -337,7 +350,10 @@ func handleRollback(args []string) {
 	sshUser := fs.String("ssh-user", "", "SSH user (defaults to ~/.ssh/config or current user)")
 	sshKey := fs.String("ssh-key", "", "SSH private key path (defaults to ~/.ssh/config)")
 	dryRun := fs.Bool("dry-run", false, "Show what would be done")
+	debug := fs.Bool("debug", false, "Enable debug logging")
 	fs.Parse(args)
+
+	DebugMode = *debug
 
 	// Resolve SSH config
 	resolvedHost, resolvedUser, resolvedKey, identityAgent, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
@@ -369,7 +385,10 @@ func handleBackup(args []string) {
 	sshUser := fs.String("ssh-user", "", "SSH user (defaults to ~/.ssh/config or current user)")
 	sshKey := fs.String("ssh-key", "", "SSH private key path (defaults to ~/.ssh/config)")
 	outputDir := fs.String("output", ".", "Output directory for backup")
+	debug := fs.Bool("debug", false, "Enable debug logging")
 	fs.Parse(args)
+
+	DebugMode = *debug
 
 	// Resolve SSH config
 	resolvedHost, resolvedUser, resolvedKey, identityAgent, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
@@ -402,7 +421,10 @@ func handleConfig(args []string) {
 	sshKey := fs.String("ssh-key", "", "SSH private key path (defaults to ~/.ssh/config)")
 	show := fs.Bool("show", false, "Show current configuration")
 	edit := fs.Bool("edit", false, "Edit configuration")
+	debug := fs.Bool("debug", false, "Enable debug logging")
 	fs.Parse(args)
+
+	DebugMode = *debug
 
 	// Resolve SSH config
 	resolvedHost, resolvedUser, resolvedKey, identityAgent, err := ResolveSSHTarget(*target, *sshUser, *sshKey)

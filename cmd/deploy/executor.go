@@ -49,10 +49,20 @@ func (e *Executor) Run(command string) (string, error) {
 		return "", nil
 	}
 
+	debugLog("Executing: %s (target=%s, local=%v)", command, e.Target, e.IsLocal())
+
 	if e.IsLocal() {
-		return e.runLocal(command)
+		output, err := e.runLocal(command)
+		if err != nil {
+			debugLog("Command failed: %v, output: %s", err, output)
+		}
+		return output, err
 	}
-	return e.runSSH(command, false)
+	output, err := e.runSSH(command, false)
+	if err != nil {
+		debugLog("SSH command failed: %v, output: %s", err, output)
+	}
+	return output, err
 }
 
 // RunSudo executes a command with sudo
@@ -63,11 +73,20 @@ func (e *Executor) RunSudo(command string) (string, error) {
 	}
 
 	sudoCmd := fmt.Sprintf("sudo %s", command)
+	debugLog("Executing (sudo): %s (target=%s, local=%v)", command, e.Target, e.IsLocal())
 
 	if e.IsLocal() {
-		return e.runLocal(sudoCmd)
+		output, err := e.runLocal(sudoCmd)
+		if err != nil {
+			debugLog("Sudo command failed: %v, output: %s", err, output)
+		}
+		return output, err
 	}
-	return e.runSSH(sudoCmd, true)
+	output, err := e.runSSH(sudoCmd, true)
+	if err != nil {
+		debugLog("SSH sudo command failed: %v, output: %s", err, output)
+	}
+	return output, err
 }
 
 // CopyFile copies a file to the target
@@ -77,10 +96,19 @@ func (e *Executor) CopyFile(src, dst string) error {
 		return nil
 	}
 
+	debugLog("Copying file: %s -> %s (target=%s, local=%v)", src, dst, e.Target, e.IsLocal())
+
+	var err error
 	if e.IsLocal() {
-		return e.copyLocal(src, dst)
+		err = e.copyLocal(src, dst)
+	} else {
+		err = e.copySSH(src, dst)
 	}
-	return e.copySSH(src, dst)
+
+	if err != nil {
+		debugLog("Copy failed: %v", err)
+	}
+	return err
 }
 
 // WriteFile writes content to a file on the target

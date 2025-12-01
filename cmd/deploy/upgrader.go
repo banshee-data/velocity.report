@@ -126,17 +126,21 @@ func (u *Upgrader) backupCurrent(exec *Executor) error {
 	}
 
 	// Backup binary
-	_, err = exec.RunSudo(fmt.Sprintf("cp /usr/local/bin/velocity-report %s/velocity-report", backupDir))
+	debugLog("Backing up binary from /usr/local/bin/velocity-report to %s/velocity-report", backupDir)
+	output, err := exec.RunSudo(fmt.Sprintf("cp /usr/local/bin/velocity-report %s/velocity-report", backupDir))
 	if err != nil {
-		return fmt.Errorf("failed to backup binary: %w", err)
+		return fmt.Errorf("failed to backup binary to %s: %w (output: %s)", backupDir, err, output)
 	}
+	debugLog("Binary backup successful")
 
 	// Backup database
 	dbPath := "/var/lib/velocity-report/sensor_data.db"
-	_, err = exec.RunSudo(fmt.Sprintf("test -f %s && cp %s %s/sensor_data.db || true", dbPath, dbPath, backupDir))
+	debugLog("Checking for database at %s", dbPath)
+	output, err = exec.RunSudo(fmt.Sprintf("test -f %s && cp %s %s/sensor_data.db || true", dbPath, dbPath, backupDir))
 	if err != nil {
-		fmt.Printf("Warning: could not backup database: %v\n", err)
+		fmt.Printf("Warning: could not backup database: %v (output: %s)\n", err, output)
 	}
+	debugLog("Database backup complete (or skipped if not found)")
 
 	// Save version info
 	versionInfo := fmt.Sprintf("Backup created: %s\nBinary: /usr/local/bin/velocity-report\n", timestamp)
