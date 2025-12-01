@@ -104,12 +104,48 @@ func (f *Fixer) Fix() error {
 		fmt.Println("✅ Service is enabled")
 	}
 
-	// Check 6: Database exists (warning only, don't try to fix)
-	if err := f.checkDatabase(exec); err != nil {
+	// Check 6: Database exists and is in correct location
+	dbLocation, err := f.findDatabase(exec)
+	if err != nil {
 		fmt.Printf("⚠️  Database issue: %v\n", err)
 		fmt.Println("   Note: Database must be created by running the service")
+	} else if dbLocation != "/var/lib/velocity-report/sensor_data.db" {
+		fmt.Printf("⚠️  Database found in wrong location: %s\n", dbLocation)
+		fmt.Println("   Attempting to fix...")
+		if err := f.fixDatabaseLocation(exec, dbLocation); err != nil {
+			fmt.Printf("   ⚠️  Could not fix: %v\n\n", err)
+			issues++
+		} else {
+			fmt.Println("   ✅ Fixed - database moved to correct location")
+			fixed++
+		}
 	} else {
-		fmt.Println("✅ Database exists")
+		fmt.Println("✅ Database exists in correct location")
+	}
+
+	// Check 7: Service configuration uses correct db-path
+	if err := f.checkServiceConfig(exec); err != nil {
+		fmt.Printf("❌ Service configuration issue: %v\n", err)
+		fmt.Println("   Attempting to fix...")
+		if err := f.fixServiceConfig(exec); err != nil {
+			fmt.Printf("   ⚠️  Could not fix: %v\n\n", err)
+			issues++
+		} else {
+			fmt.Println("   ✅ Fixed")
+			fixed++
+		}
+	} else {
+		fmt.Println("✅ Service configured with correct --db-path")
+	}
+
+	// Check 8: Database schema is up to date (warning only)
+	if dbLocation != "" {
+		if err := f.checkDatabaseSchema(exec); err != nil {
+			fmt.Printf("⚠️  Database schema issue: %v\n", err)
+			fmt.Println("   Run manually: velocity-report migrate baseline <version> && velocity-report migrate up")
+		} else {
+			fmt.Println("✅ Database schema is up to date")
+		}
 	}
 
 	// Summary
@@ -298,6 +334,102 @@ func (f *Fixer) checkDatabase(exec *Executor) error {
 	if strings.TrimSpace(output) != "exists" {
 		return fmt.Errorf("database does not exist (will be created on first run)")
 	}
+	return nil
+}
+
+func (f *Fixer) findDatabase(exec *Executor) (string, error) {
+	debugLog("Searching for sensor_data.db in common locations")
+
+	// Check expected location first
+	if output, _ := exec.Run("test -f /var/lib/velocity-report/sensor_data.db && echo '/var/lib/velocity-report/sensor_data.db'"); strings.TrimSpace(output) != "" {
+		return strings.TrimSpace(output), nil
+	}
+
+	// Check working directory (common misconfiguration)
+	if output, _ := exec.Run("test -f /home/*/code/velocity.report/sensor_data.db && find /home/*/code/velocity.report -name 'sensor_data.db' 2>/dev/null | head -1"); strings.TrimSpace(output) != "" {
+		return strings.TrimSpace(output), nil
+	}
+
+	// Check old user directory
+	if output, _ := exec.Run("test -f /home/david/code/velocity.report/sensor_data.db && echo '/home/david/code/velocity.report/sensor_data.db'"); strings.TrimSpace(output) != "" {
+		return strings.TrimSpace(output), nil
+	}
+
+	return "", fmt.Errorf("database not found in any expected location")
+}
+
+func (f *Fixer) fixDatabaseLocation(exec *Executor, currentLocation string) error {
+	debugLog("Moving database from %s to /var/lib/velocity-report/sensor_data.db", currentLocation)
+
+	// Stop service first
+	if _, err := exec.RunSudo("systemctl stop velocity-report.service 2>/dev/null || true"); err != nil {
+		return fmt.Errorf("failed to stop service: %w", err)
+	}
+
+	// Ensure target directory exists
+	if err := f.fixDataDirectory(exec); err != nil {
+		return fmt.Errorf("failed to create target directory: %w", err)
+	}
+
+	// Move database
+	cmd := fmt.Sprintf("mv %s /var/lib/velocity-report/sensor_data.db && chown velocity:velocity /var/lib/velocity-report/sensor_data.db", currentLocation)
+	if _, err := exec.RunSudo(cmd); err != nil {
+		return fmt.Errorf("failed to move database: %w", err)
+	}
+
+	return nil
+}
+
+func (f *Fixer) checkServiceConfig(exec *Executor) error {
+	debugLog("Checking service ExecStart configuration")
+	output, err := exec.Run("grep 'ExecStart=' /etc/systemd/system/velocity-report.service 2>/dev/null")
+	if err != nil {
+		return fmt.Errorf("failed to read service file: %w", err)
+	}
+
+	if !strings.Contains(output, "--db-path /var/lib/velocity-report/sensor_data.db") {
+		return fmt.Errorf("service not configured with correct --db-path")
+	}
+
+	return nil
+}
+
+func (f *Fixer) fixServiceConfig(exec *Executor) error {
+	debugLog("Updating service configuration with --db-path flag")
+
+	// Update ExecStart line to include --db-path
+	cmd := `sed -i 's|^ExecStart=/usr/local/bin/velocity-report$|ExecStart=/usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sensor_data.db|' /etc/systemd/system/velocity-report.service`
+	if _, err := exec.RunSudo(cmd); err != nil {
+		return fmt.Errorf("failed to update service file: %w", err)
+	}
+
+	// Reload systemd
+	if _, err := exec.RunSudo("systemctl daemon-reload"); err != nil {
+		return fmt.Errorf("failed to reload systemd: %w", err)
+	}
+
+	return nil
+}
+
+func (f *Fixer) checkDatabaseSchema(exec *Executor) error {
+	debugLog("Checking database schema version")
+
+	// Check if migrations table exists
+	output, err := exec.Run("sqlite3 /var/lib/velocity-report/sensor_data.db \"SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations';\" 2>/dev/null")
+	if err != nil || strings.TrimSpace(output) == "" {
+		return fmt.Errorf("no migrations table found - needs baseline")
+	}
+
+	// Check current version
+	versionOutput, err := exec.Run("sqlite3 /var/lib/velocity-report/sensor_data.db \"SELECT version, dirty FROM schema_migrations ORDER BY version DESC LIMIT 1;\" 2>/dev/null")
+	if err != nil {
+		return fmt.Errorf("could not read schema version: %w", err)
+	}
+
+	if strings.Contains(versionOutput, "1|") {
+		return fmt.Errorf("schema is dirty (version: %s)", strings.TrimSpace(versionOutput))
+	}
+
 	return nil
 }
 
