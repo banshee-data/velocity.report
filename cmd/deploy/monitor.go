@@ -104,7 +104,7 @@ func (m *Monitor) GetStatus(ctx context.Context) (*SystemStatus, error) {
 		"process_count":  "ps aux | grep velocity-report | grep -v grep | wc -l",
 		"cpu_count":      "nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo '1'",
 		"database":       "test -f /var/lib/velocity-report/sensor_data.db && du -h /var/lib/velocity-report/sensor_data.db | cut -f1 || echo 'missing'",
-		"log_errors":     "journalctl -u velocity-report.service -n 20 --no-pager 2>/dev/null | grep -i error | wc -l || echo '0'",
+		"log_errors":     "journalctl -u velocity-report.service -n 50 --no-pager 2>/dev/null | grep -iE 'error|failed|panic|fatal' | grep -v 'File not found' | grep -v '/health' | wc -l || echo '0'",
 	}
 
 	// Launch all commands
