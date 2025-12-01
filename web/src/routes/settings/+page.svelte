@@ -59,7 +59,8 @@
 	async function handleTransitWorkerToggle(enabled: boolean) {
 		transitWorkerLoading = true;
 		try {
-			const response = await updateTransitWorker({ enabled, trigger: enabled });
+			// Only trigger manual run when enabling, not when disabling
+			const response = await updateTransitWorker({ enabled, trigger: enabled ? true : false });
 			transitWorkerEnabled = response.enabled;
 			message = enabled
 				? 'Transit worker enabled and run triggered!'

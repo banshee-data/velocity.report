@@ -1,29 +1,29 @@
-package monitoring
+package db
 
 import (
 	"context"
 	"log"
 	"sync"
 	"time"
-
-	"github.com/banshee-data/velocity.report/internal/db"
 )
 
 // TransitController manages the state and execution of the transit worker.
 // It provides thread-safe control over whether the transit worker runs,
 // and supports manual triggering from the UI.
 type TransitController struct {
-	worker        *db.TransitWorker
+	worker        *TransitWorker
 	enabled       bool
 	mu            sync.RWMutex
 	manualTrigger chan struct{}
 }
 
 // NewTransitController creates a new controller for the transit worker.
-func NewTransitController(worker *db.TransitWorker) *TransitController {
+func NewTransitController(worker *TransitWorker) *TransitController {
 	return &TransitController{
-		worker:        worker,
-		enabled:       true, // Default to enabled on boot
+		worker:  worker,
+		enabled: true, // Default to enabled on boot
+		// Buffered channel of size 1 to coalesce multiple rapid trigger requests.
+		// If a trigger is already pending, subsequent triggers are skipped.
 		manualTrigger: make(chan struct{}, 1),
 	}
 }

@@ -1184,7 +1184,11 @@ func (s *Server) handleTransitWorker(w http.ResponseWriter, r *http.Request) {
 		// Update enabled state if provided
 		if req.Enabled != nil {
 			s.transitController.SetEnabled(*req.Enabled)
-			log.Printf("Transit worker %s via API", map[bool]string{true: "enabled", false: "disabled"}[*req.Enabled])
+			status := "disabled"
+			if *req.Enabled {
+				status = "enabled"
+			}
+			log.Printf("Transit worker %s via API", status)
 		}
 
 		// Trigger manual run if requested

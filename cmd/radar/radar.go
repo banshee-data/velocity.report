@@ -26,7 +26,6 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/monitor"
 	"github.com/banshee-data/velocity.report/internal/lidar/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/parse"
-	"github.com/banshee-data/velocity.report/internal/monitoring"
 )
 
 // Version information (set at build time via ldflags)
@@ -417,14 +416,15 @@ func main() {
 	}()
 
 	// Create transit worker controller before HTTP server so we can pass it to the API
-	var transitController *monitoring.TransitController
+	// Always create the controller so the API can provide UI controls
+	var transitController *db.TransitController
+	transitWorker := db.NewTransitWorker(db, *transitWorkerThreshold, *transitWorkerModel)
+	transitWorker.Interval = *transitWorkerInterval
+	transitWorker.Window = *transitWorkerWindow
+	transitController = db.NewTransitController(transitWorker)
+
+	// Only start the worker goroutine if enabled via CLI flag
 	if *enableTransitWorker {
-		transitWorker := db.NewTransitWorker(db, *transitWorkerThreshold, *transitWorkerModel)
-		transitWorker.Interval = *transitWorkerInterval
-		transitWorker.Window = *transitWorkerWindow
-
-		transitController = monitoring.NewTransitController(transitWorker)
-
 		log.Printf("Starting transit worker: interval=%v, window=%v, threshold=%ds, model=%s",
 			transitWorker.Interval, transitWorker.Window, *transitWorkerThreshold, *transitWorkerModel)
 
@@ -435,6 +435,8 @@ func main() {
 				log.Printf("Transit worker error: %v", err)
 			}
 		}()
+	} else {
+		log.Printf("Transit worker not started (use --enable-transit-worker to enable)")
 	}
 
 	// HTTP server goroutine: construct an api.Server and delegate run/shutdown to it
