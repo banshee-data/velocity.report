@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
+	"time"
 )
 
 const version = "0.1.0"
@@ -235,6 +237,8 @@ func handleStatus(args []string) {
 	target := fs.String("target", "localhost", "Target host")
 	sshUser := fs.String("ssh-user", "", "SSH user (defaults to ~/.ssh/config or current user)")
 	sshKey := fs.String("ssh-key", "", "SSH private key path (defaults to ~/.ssh/config)")
+	apiPort := fs.Int("api-port", 8080, "API server port")
+	timeout := fs.Int("timeout", 30, "Timeout in seconds")
 	fs.Parse(args)
 
 	// Resolve SSH config
@@ -252,15 +256,39 @@ func handleStatus(args []string) {
 		SSHUser:       resolvedUser,
 		SSHKey:        resolvedKey,
 		IdentityAgent: identityAgent,
+		APIPort:       *apiPort,
 	}
 
-	status, err := monitor.GetStatus()
+	// Show spinner while fetching status
+	spinner := NewSpinner("Gathering system status...")
+	done := make(chan bool)
+	go func() {
+		for {
+			select {
+			case <-done:
+				fmt.Print("\r\033[K") // Clear line
+				return
+			default:
+				fmt.Print(spinner.Next())
+				time.Sleep(100 * time.Millisecond)
+			}
+		}
+	}()
+
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*timeout)*time.Second)
+	defer cancel()
+
+	status, err := monitor.GetStatus(ctx)
+	done <- true
+	time.Sleep(100 * time.Millisecond) // Give spinner time to clean up
+
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to get status: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Println(status)
+	fmt.Print(status.FormatStatus())
 }
 
 func handleHealth(args []string) {

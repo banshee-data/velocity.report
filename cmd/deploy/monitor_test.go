@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -17,7 +18,7 @@ func TestMonitor_GetStatus(t *testing.T) {
 
 	// This will fail if systemd service doesn't exist, which is expected in tests
 	// We're just testing the function doesn't panic
-	_, err := m.GetStatus()
+	_, err := m.GetStatus(context.Background())
 	if err == nil {
 		t.Log("Service status retrieved successfully")
 	} else {
@@ -147,14 +148,14 @@ func TestMonitor_GetStatus_ErrorHandling(t *testing.T) {
 	}
 
 	// Should handle errors gracefully
-	status, err := m.GetStatus()
+	status, err := m.GetStatus(context.Background())
 	if err != nil {
 		// Error is expected for invalid host
 		if !strings.Contains(err.Error(), "failed to get service status") {
 			t.Errorf("Expected 'failed to get service status' error, got: %v", err)
 		}
 	} else {
-		t.Logf("Unexpected success with status: %s", status)
+		t.Logf("Unexpected success with status: %v", status)
 	}
 }
 

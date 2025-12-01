@@ -79,7 +79,7 @@ func TestExecutor_buildSSHCommand(t *testing.T) {
 			sshUser:  "testuser",
 			sshKey:   "/test/key",
 			command:  "echo test",
-			wantArgs: []string{"-i", "/test/key", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "testuser@testhost", "echo test"},
+			wantArgs: []string{"-i", "/test/key", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR", "testuser@testhost", "echo test"},
 		},
 		{
 			name:     "no SSH key",
@@ -87,7 +87,7 @@ func TestExecutor_buildSSHCommand(t *testing.T) {
 			sshUser:  "testuser",
 			sshKey:   "",
 			command:  "ls",
-			wantArgs: []string{"-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "testuser@testhost", "ls"},
+			wantArgs: []string{"-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR", "testuser@testhost", "ls"},
 		},
 		{
 			name:     "target with user@host",
@@ -95,7 +95,7 @@ func TestExecutor_buildSSHCommand(t *testing.T) {
 			sshUser:  "",
 			sshKey:   "",
 			command:  "pwd",
-			wantArgs: []string{"-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "user@testhost", "pwd"},
+			wantArgs: []string{"-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR", "user@testhost", "pwd"},
 		},
 	}
 
