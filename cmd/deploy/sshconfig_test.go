@@ -174,7 +174,7 @@ func TestResolveSSHTarget_NoConfig(t *testing.T) {
 	t.Setenv("HOME", tmpDir)
 
 	// No SSH config file
-	host, user, key, err := ResolveSSHTarget("192.168.1.100", "myuser", "/path/to/key")
+	host, user, key, _, err := ResolveSSHTarget("192.168.1.100", "myuser", "/path/to/key")
 	if err != nil {
 		t.Fatalf("ResolveSSHTarget() error: %v", err)
 	}
@@ -194,7 +194,7 @@ func TestResolveSSHTarget_WithUserInTarget(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
-	host, user, key, err := ResolveSSHTarget("admin@server.com", "", "/key")
+	host, user, key, _, err := ResolveSSHTarget("admin@server.com", "", "/key")
 	if err != nil {
 		t.Fatalf("ResolveSSHTarget() error: %v", err)
 	}
@@ -231,7 +231,7 @@ func TestResolveSSHTarget_WithConfig(t *testing.T) {
 	}
 
 	// Test with config values
-	host, user, key, err := ResolveSSHTarget("myserver", "", "")
+	host, user, key, _, err := ResolveSSHTarget("myserver", "", "")
 	if err != nil {
 		t.Fatalf("ResolveSSHTarget() error: %v", err)
 	}
@@ -270,7 +270,7 @@ func TestResolveSSHTarget_OverrideConfig(t *testing.T) {
 	}
 
 	// Test with overrides
-	host, user, key, err := ResolveSSHTarget("myserver", "overrideuser", "/override/key")
+	host, user, key, _, err := ResolveSSHTarget("myserver", "overrideuser", "/override/key")
 	if err != nil {
 		t.Fatalf("ResolveSSHTarget() error: %v", err)
 	}
@@ -305,7 +305,7 @@ func TestResolveSSHTarget_PartialConfig(t *testing.T) {
 	}
 
 	// Config has HostName but not User or IdentityFile
-	host, user, key, err := ResolveSSHTarget("partial", "cmdlineuser", "/cmd/key")
+	host, user, key, _, err := ResolveSSHTarget("partial", "cmdlineuser", "/cmd/key")
 	if err != nil {
 		t.Fatalf("ResolveSSHTarget() error: %v", err)
 	}

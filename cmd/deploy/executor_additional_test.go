@@ -7,7 +7,7 @@ import (
 // Additional tests to increase executor.go coverage
 
 func TestExecutor_CopyFile_DryRun(t *testing.T) {
-	exec := NewExecutor("localhost", "", "", true)
+	exec := NewExecutor("localhost", "", "", "", true)
 
 	// Dry-run should not error
 	err := exec.CopyFile("/tmp/source", "/tmp/dest")
@@ -17,7 +17,7 @@ func TestExecutor_CopyFile_DryRun(t *testing.T) {
 }
 
 func TestExecutor_CopyFile_Remote(t *testing.T) {
-	exec := NewExecutor("testhost", "testuser", "/test/key", true)
+	exec := NewExecutor("testhost", "testuser", "/test/key", "", true)
 
 	// Dry-run remote copy should not error
 	err := exec.CopyFile("/tmp/source", "/tmp/dest")
@@ -27,7 +27,7 @@ func TestExecutor_CopyFile_Remote(t *testing.T) {
 }
 
 func TestExecutor_WriteFile_Remote(t *testing.T) {
-	exec := NewExecutor("testhost", "testuser", "/test/key", true)
+	exec := NewExecutor("testhost", "testuser", "/test/key", "", true)
 
 	// Dry-run remote write should not error
 	err := exec.WriteFile("/tmp/test.txt", "test content")
@@ -37,7 +37,7 @@ func TestExecutor_WriteFile_Remote(t *testing.T) {
 }
 
 func TestExecutor_RunSudo_Remote_DryRun(t *testing.T) {
-	exec := NewExecutor("testhost", "testuser", "/test/key", true)
+	exec := NewExecutor("testhost", "testuser", "/test/key", "", true)
 
 	// Remote sudo in dry-run should not error
 	output, err := exec.RunSudo("systemctl status test")
@@ -51,7 +51,7 @@ func TestExecutor_RunSudo_Remote_DryRun(t *testing.T) {
 }
 
 func TestExecutor_Run_Remote_DryRun(t *testing.T) {
-	exec := NewExecutor("testhost", "testuser", "/test/key", true)
+	exec := NewExecutor("testhost", "testuser", "/test/key", "", true)
 
 	// Remote run in dry-run should not error
 	output, err := exec.Run("echo test")
@@ -101,7 +101,7 @@ func TestExecutor_buildSSHCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			exec := NewExecutor(tt.target, tt.sshUser, tt.sshKey, false)
+			exec := NewExecutor(tt.target, tt.sshUser, tt.sshKey, "", false)
 			cmd := exec.buildSSHCommand(tt.command, false)
 
 			if cmd.Path != "/usr/bin/ssh" && cmd.Path != "ssh" {

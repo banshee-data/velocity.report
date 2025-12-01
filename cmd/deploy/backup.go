@@ -9,15 +9,16 @@ import (
 
 // Backup handles backing up the installation
 type Backup struct {
-	Target    string
-	SSHUser   string
-	SSHKey    string
-	OutputDir string
+	Target        string
+	SSHUser       string
+	SSHKey        string
+	IdentityAgent string
+	OutputDir     string
 }
 
 // Execute performs the backup
 func (b *Backup) Execute() error {
-	exec := NewExecutor(b.Target, b.SSHUser, b.SSHKey, false)
+	exec := NewExecutor(b.Target, b.SSHUser, b.SSHKey, b.IdentityAgent, false)
 
 	fmt.Println("Starting backup of velocity.report...")
 

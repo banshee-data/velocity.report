@@ -19,17 +19,18 @@ const (
 
 // Upgrader handles upgrading velocity.report to a new version
 type Upgrader struct {
-	Target     string
-	SSHUser    string
-	SSHKey     string
-	BinaryPath string
-	DryRun     bool
-	NoBackup   bool
+	Target        string
+	SSHUser       string
+	SSHKey        string
+	IdentityAgent string
+	BinaryPath    string
+	DryRun        bool
+	NoBackup      bool
 }
 
 // Upgrade performs the upgrade
 func (u *Upgrader) Upgrade() error {
-	exec := NewExecutor(u.Target, u.SSHUser, u.SSHKey, u.DryRun)
+	exec := NewExecutor(u.Target, u.SSHUser, u.SSHKey, u.IdentityAgent, u.DryRun)
 
 	fmt.Println("Starting upgrade of velocity.report...")
 

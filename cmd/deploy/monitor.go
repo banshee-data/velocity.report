@@ -18,10 +18,11 @@ const (
 
 // Monitor handles status checking and health monitoring
 type Monitor struct {
-	Target  string
-	SSHUser string
-	SSHKey  string
-	APIPort int
+	Target        string
+	SSHUser       string
+	SSHKey        string
+	IdentityAgent string
+	APIPort       int
 }
 
 // HealthStatus represents the health check result
@@ -33,7 +34,7 @@ type HealthStatus struct {
 
 // GetStatus returns the current service status
 func (m *Monitor) GetStatus() (string, error) {
-	exec := NewExecutor(m.Target, m.SSHUser, m.SSHKey, false)
+	exec := NewExecutor(m.Target, m.SSHUser, m.SSHKey, "", false)
 
 	// Check systemd status
 	output, err := exec.RunSudo("systemctl status velocity-report.service --no-pager")
@@ -44,9 +45,9 @@ func (m *Monitor) GetStatus() (string, error) {
 	return output, nil
 }
 
-// CheckHealth performs comprehensive health check
+// CheckHealth performs a comprehensive health check
 func (m *Monitor) CheckHealth() (*HealthStatus, error) {
-	exec := NewExecutor(m.Target, m.SSHUser, m.SSHKey, false)
+	exec := NewExecutor(m.Target, m.SSHUser, m.SSHKey, m.IdentityAgent, false)
 
 	health := &HealthStatus{
 		Healthy: true,

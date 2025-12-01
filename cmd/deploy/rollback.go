@@ -9,15 +9,16 @@ import (
 
 // Rollback handles rolling back to a previous version
 type Rollback struct {
-	Target  string
-	SSHUser string
-	SSHKey  string
-	DryRun  bool
+	Target        string
+	SSHUser       string
+	SSHKey        string
+	IdentityAgent string
+	DryRun        bool
 }
 
 // Execute performs the rollback
 func (r *Rollback) Execute() error {
-	exec := NewExecutor(r.Target, r.SSHUser, r.SSHKey, r.DryRun)
+	exec := NewExecutor(r.Target, r.SSHUser, r.SSHKey, r.IdentityAgent, r.DryRun)
 
 	fmt.Println("Starting rollback to previous version...")
 

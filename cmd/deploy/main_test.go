@@ -96,7 +96,7 @@ func TestMain_SSHConfigIntegration(t *testing.T) {
 	}
 
 	// Verify ResolveSSHTarget can find the config
-	host, user, key, err := ResolveSSHTarget("testhost", "", "")
+	host, user, key, _, err := ResolveSSHTarget("testhost", "", "")
 	if err != nil {
 		t.Fatalf("ResolveSSHTarget() error: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestMain_FlagDefaults(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			exec := NewExecutor(tt.target, "", "", false)
+			exec := NewExecutor(tt.target, "", "", "", false)
 			if exec.IsLocal() != tt.wantLocal {
 				t.Errorf("IsLocal() = %v, want %v", exec.IsLocal(), tt.wantLocal)
 			}

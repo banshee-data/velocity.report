@@ -8,6 +8,8 @@ import (
 
 const version = "0.1.0"
 
+var DebugMode bool
+
 func main() {
 	flag.Usage = printUsage
 	flag.Parse()
@@ -25,6 +27,8 @@ func main() {
 		handleInstall(args)
 	case "upgrade":
 		handleUpgrade(args)
+	case "fix":
+		handleFix(args)
 	case "status":
 		handleStatus(args)
 	case "health":
@@ -36,7 +40,7 @@ func main() {
 	case "config":
 		handleConfig(args)
 	case "version":
-		fmt.Printf("velocity-deploy version %s\n", version)
+		fmt.Printf("velocity-deploy version %s\\n", version)
 	case "help":
 		printUsage()
 	default:
@@ -120,7 +124,7 @@ func handleInstall(args []string) {
 	}
 
 	// Resolve SSH config
-	resolvedHost, resolvedUser, resolvedKey, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
+	resolvedHost, resolvedUser, resolvedKey, identityAgent, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to resolve SSH config: %v\n", err)
 		os.Exit(1)
@@ -132,12 +136,13 @@ func handleInstall(args []string) {
 	}
 
 	installer := &Installer{
-		Target:     resolvedHost,
-		SSHUser:    resolvedUser,
-		SSHKey:     resolvedKey,
-		BinaryPath: *binaryPath,
-		DBPath:     *dbPath,
-		DryRun:     *dryRun,
+		Target:        resolvedHost,
+		SSHUser:       resolvedUser,
+		SSHKey:        resolvedKey,
+		IdentityAgent: identityAgent,
+		BinaryPath:    *binaryPath,
+		DBPath:        *dbPath,
+		DryRun:        *dryRun,
 	}
 
 	if err := installer.Install(); err != nil {
@@ -163,7 +168,7 @@ func handleUpgrade(args []string) {
 	}
 
 	// Resolve SSH config
-	resolvedHost, resolvedUser, resolvedKey, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
+	resolvedHost, resolvedUser, resolvedKey, identityAgent, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to resolve SSH config: %v\n", err)
 		os.Exit(1)
@@ -173,16 +178,54 @@ func handleUpgrade(args []string) {
 	}
 
 	upgrader := &Upgrader{
-		Target:     resolvedHost,
-		SSHUser:    resolvedUser,
-		SSHKey:     resolvedKey,
-		BinaryPath: *binaryPath,
-		DryRun:     *dryRun,
-		NoBackup:   *noBackup,
+		Target:        resolvedHost,
+		SSHUser:       resolvedUser,
+		SSHKey:        resolvedKey,
+		IdentityAgent: identityAgent,
+		BinaryPath:    *binaryPath,
+		DryRun:        *dryRun,
+		NoBackup:      *noBackup,
 	}
 
 	if err := upgrader.Upgrade(); err != nil {
 		fmt.Fprintf(os.Stderr, "Upgrade failed: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func handleFix(args []string) {
+	fs := flag.NewFlagSet("fix", flag.ExitOnError)
+	target := fs.String("target", "localhost", "Target host")
+	sshUser := fs.String("ssh-user", "", "SSH user (defaults to ~/.ssh/config or current user)")
+	sshKey := fs.String("ssh-key", "", "SSH private key path (defaults to ~/.ssh/config)")
+	binaryPath := fs.String("binary", "", "Path to velocity-report binary (optional, for fixing missing binary)")
+	dryRun := fs.Bool("dry-run", false, "Show what would be done")
+	debug := fs.Bool("debug", false, "Enable debug logging")
+	fs.Parse(args)
+
+	DebugMode = *debug
+
+	// Resolve SSH config
+	resolvedHost, resolvedUser, resolvedKey, identityAgent, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to resolve SSH config: %v\n", err)
+		os.Exit(1)
+	}
+	if resolvedUser == "" {
+		resolvedUser = os.Getenv("USER")
+	}
+
+	fixer := &Fixer{
+		Target:        resolvedHost,
+		SSHUser:       resolvedUser,
+		SSHKey:        resolvedKey,
+		IdentityAgent: identityAgent,
+		BinaryPath:    *binaryPath,
+		DryRun:        *dryRun,
+	}
+
+	if err := fixer.Fix(); err != nil {
+		fmt.Fprintf(os.Stderr, "\nFix completed with errors: %v\n", err)
 		os.Exit(1)
 	}
 }
@@ -195,7 +238,7 @@ func handleStatus(args []string) {
 	fs.Parse(args)
 
 	// Resolve SSH config
-	resolvedHost, resolvedUser, resolvedKey, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
+	resolvedHost, resolvedUser, resolvedKey, identityAgent, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to resolve SSH config: %v\n", err)
 		os.Exit(1)
@@ -205,9 +248,10 @@ func handleStatus(args []string) {
 	}
 
 	monitor := &Monitor{
-		Target:  resolvedHost,
-		SSHUser: resolvedUser,
-		SSHKey:  resolvedKey,
+		Target:        resolvedHost,
+		SSHUser:       resolvedUser,
+		SSHKey:        resolvedKey,
+		IdentityAgent: identityAgent,
 	}
 
 	status, err := monitor.GetStatus()
@@ -228,7 +272,7 @@ func handleHealth(args []string) {
 	fs.Parse(args)
 
 	// Resolve SSH config
-	resolvedHost, resolvedUser, resolvedKey, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
+	resolvedHost, resolvedUser, resolvedKey, identityAgent, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to resolve SSH config: %v\n", err)
 		os.Exit(1)
@@ -238,10 +282,11 @@ func handleHealth(args []string) {
 	}
 
 	monitor := &Monitor{
-		Target:  resolvedHost,
-		SSHUser: resolvedUser,
-		SSHKey:  resolvedKey,
-		APIPort: *apiPort,
+		Target:        resolvedHost,
+		SSHUser:       resolvedUser,
+		SSHKey:        resolvedKey,
+		IdentityAgent: identityAgent,
+		APIPort:       *apiPort,
 	}
 
 	health, err := monitor.CheckHealth()
@@ -267,7 +312,7 @@ func handleRollback(args []string) {
 	fs.Parse(args)
 
 	// Resolve SSH config
-	resolvedHost, resolvedUser, resolvedKey, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
+	resolvedHost, resolvedUser, resolvedKey, identityAgent, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to resolve SSH config: %v\n", err)
 		os.Exit(1)
@@ -277,10 +322,11 @@ func handleRollback(args []string) {
 	}
 
 	rollback := &Rollback{
-		Target:  resolvedHost,
-		SSHUser: resolvedUser,
-		SSHKey:  resolvedKey,
-		DryRun:  *dryRun,
+		Target:        resolvedHost,
+		SSHUser:       resolvedUser,
+		SSHKey:        resolvedKey,
+		IdentityAgent: identityAgent,
+		DryRun:        *dryRun,
 	}
 
 	if err := rollback.Execute(); err != nil {
@@ -298,7 +344,7 @@ func handleBackup(args []string) {
 	fs.Parse(args)
 
 	// Resolve SSH config
-	resolvedHost, resolvedUser, resolvedKey, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
+	resolvedHost, resolvedUser, resolvedKey, identityAgent, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to resolve SSH config: %v\n", err)
 		os.Exit(1)
@@ -308,10 +354,11 @@ func handleBackup(args []string) {
 	}
 
 	backup := &Backup{
-		Target:    resolvedHost,
-		SSHUser:   resolvedUser,
-		SSHKey:    resolvedKey,
-		OutputDir: *outputDir,
+		Target:        resolvedHost,
+		SSHUser:       resolvedUser,
+		SSHKey:        resolvedKey,
+		IdentityAgent: identityAgent,
+		OutputDir:     *outputDir,
 	}
 
 	if err := backup.Execute(); err != nil {
@@ -330,7 +377,7 @@ func handleConfig(args []string) {
 	fs.Parse(args)
 
 	// Resolve SSH config
-	resolvedHost, resolvedUser, resolvedKey, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
+	resolvedHost, resolvedUser, resolvedKey, identityAgent, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to resolve SSH config: %v\n", err)
 		os.Exit(1)
@@ -340,9 +387,10 @@ func handleConfig(args []string) {
 	}
 
 	cfg := &ConfigManager{
-		Target:  resolvedHost,
-		SSHUser: resolvedUser,
-		SSHKey:  resolvedKey,
+		Target:        resolvedHost,
+		SSHUser:       resolvedUser,
+		SSHKey:        resolvedKey,
+		IdentityAgent: identityAgent,
 	}
 
 	if *show {

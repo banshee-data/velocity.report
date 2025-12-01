@@ -10,11 +10,12 @@ import (
 
 // SSHConfig represents parsed SSH configuration for a host
 type SSHConfig struct {
-	Host         string
-	HostName     string
-	User         string
-	IdentityFile string
-	Port         string
+	Host          string
+	HostName      string
+	User          string
+	IdentityFile  string
+	IdentityAgent string
+	Port          string
 }
 
 // ParseSSHConfig reads and parses ~/.ssh/config for the given host
@@ -99,6 +100,17 @@ func ParseSSHConfig(host string) (*SSHConfig, error) {
 			if inMatchingHost {
 				config.Port = value
 			}
+
+		case "identityagent":
+			if inMatchingHost {
+				// Remove quotes if present
+				value = strings.Trim(value, `"`)
+				// Expand ~ to home directory
+				if strings.HasPrefix(value, "~/") {
+					value = filepath.Join(homeDir, value[2:])
+				}
+				config.IdentityAgent = value
+			}
 		}
 	}
 
@@ -122,8 +134,8 @@ func matchHost(target, pattern string) bool {
 }
 
 // ResolveSSHTarget resolves SSH connection details using ~/.ssh/config
-// Returns: hostname, user, keyPath, error
-func ResolveSSHTarget(target, user, keyPath string) (string, string, string, error) {
+// Returns: hostname, user, keyPath, identityAgent, error
+func ResolveSSHTarget(target, user, keyPath string) (string, string, string, string, error) {
 	// If target contains @, split it
 	targetHost := target
 	targetUser := user
@@ -136,12 +148,12 @@ func ResolveSSHTarget(target, user, keyPath string) (string, string, string, err
 	// Try to parse SSH config for this host
 	config, err := ParseSSHConfig(targetHost)
 	if err != nil {
-		return "", "", "", fmt.Errorf("failed to parse SSH config: %w", err)
+		return "", "", "", "", fmt.Errorf("failed to parse SSH config: %w", err)
 	}
 
 	// If no config found, use provided values
 	if config == nil {
-		return targetHost, targetUser, keyPath, nil
+		return targetHost, targetUser, keyPath, "", nil
 	}
 
 	// Use config values, with command-line overrides
@@ -160,5 +172,7 @@ func ResolveSSHTarget(target, user, keyPath string) (string, string, string, err
 		finalKey = config.IdentityFile
 	}
 
-	return finalHost, finalUser, finalKey, nil
+	finalAgent := config.IdentityAgent
+
+	return finalHost, finalUser, finalKey, finalAgent, nil
 }

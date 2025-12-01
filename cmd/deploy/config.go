@@ -9,14 +9,15 @@ import (
 
 // ConfigManager handles configuration management
 type ConfigManager struct {
-	Target  string
-	SSHUser string
-	SSHKey  string
+	Target        string
+	SSHUser       string
+	SSHKey        string
+	IdentityAgent string
 }
 
 // Show displays the current configuration
 func (c *ConfigManager) Show() error {
-	exec := NewExecutor(c.Target, c.SSHUser, c.SSHKey, false)
+	exec := NewExecutor(c.Target, c.SSHUser, c.SSHKey, c.IdentityAgent, false)
 
 	fmt.Println("Current velocity.report configuration:")
 	fmt.Println()
@@ -61,7 +62,7 @@ func (c *ConfigManager) Show() error {
 
 // Edit allows editing the service configuration
 func (c *ConfigManager) Edit() error {
-	exec := NewExecutor(c.Target, c.SSHUser, c.SSHKey, false)
+	exec := NewExecutor(c.Target, c.SSHUser, c.SSHKey, "", false)
 
 	fmt.Println("Interactive configuration editing")
 	fmt.Println("==================================")

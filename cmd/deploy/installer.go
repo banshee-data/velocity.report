@@ -9,12 +9,13 @@ import (
 
 // Installer handles installation of velocity.report service
 type Installer struct {
-	Target     string
-	SSHUser    string
-	SSHKey     string
-	BinaryPath string
-	DBPath     string
-	DryRun     bool
+	Target        string
+	SSHUser       string
+	SSHKey        string
+	IdentityAgent string
+	BinaryPath    string
+	DBPath        string
+	DryRun        bool
 }
 
 const (
@@ -46,7 +47,7 @@ WantedBy=multi-user.target
 
 // Install performs the installation
 func (i *Installer) Install() error {
-	exec := NewExecutor(i.Target, i.SSHUser, i.SSHKey, i.DryRun)
+	exec := NewExecutor(i.Target, i.SSHUser, i.SSHKey, i.IdentityAgent, i.DryRun)
 
 	fmt.Println("Starting installation of velocity.report...")
 

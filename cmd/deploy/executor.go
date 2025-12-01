@@ -6,38 +6,34 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
+	"time"
 )
 
-// Executor handles command execution locally or via SSH
-type Executor struct {
-	Target      string
-	SSHUser     string
-	SSHKey      string
-	DryRun      bool
-	InsecureSSH bool // Skip SSH host key verification (use with caution)
-}
-
-// NewExecutor creates a new executor
-func NewExecutor(target, sshUser, sshKey string, dryRun bool) *Executor {
-	return &Executor{
-		Target:      target,
-		SSHUser:     sshUser,
-		SSHKey:      sshKey,
-		DryRun:      dryRun,
-		InsecureSSH: false,
+// debugLog prints debug messages when DebugMode is enabled
+func debugLog(format string, args ...interface{}) {
+	if DebugMode {
+		fmt.Printf("[DEBUG] "+format+"\n", args...)
 	}
 }
 
-// NewExecutorWithOptions creates a new executor with additional options
-func NewExecutorWithOptions(target, sshUser, sshKey string, dryRun, insecureSSH bool) *Executor {
+// Executor handles command execution on local or remote targets
+type Executor struct {
+	Target        string
+	SSHUser       string
+	SSHKey        string
+	IdentityAgent string
+	DryRun        bool
+}
+
+// NewExecutor creates a new command executor
+func NewExecutor(target, sshUser, sshKey, identityAgent string, dryRun bool) *Executor {
 	return &Executor{
-		Target:      target,
-		SSHUser:     sshUser,
-		SSHKey:      sshKey,
-		DryRun:      dryRun,
-		InsecureSSH: insecureSSH,
+		Target:        target,
+		SSHUser:       sshUser,
+		SSHKey:        sshKey,
+		IdentityAgent: identityAgent,
+		DryRun:        dryRun,
 	}
 }
 
@@ -132,11 +128,14 @@ func (e *Executor) buildSSHCommand(command string, useSudo bool) *exec.Cmd {
 		args = append(args, "-i", e.SSHKey)
 	}
 
-	// Only disable host key checking if explicitly requested (security risk)
-	if e.InsecureSSH {
-		args = append(args, "-o", "StrictHostKeyChecking=no")
-		args = append(args, "-o", "UserKnownHostsFile=/dev/null")
+	if e.IdentityAgent != "" {
+		args = append(args, "-o", fmt.Sprintf("IdentityAgent=%s", e.IdentityAgent))
 	}
+
+	// Disable strict host key checking for easier automation
+	args = append(args, "-o", "StrictHostKeyChecking=no")
+	args = append(args, "-o", "UserKnownHostsFile=/dev/null")
+	args = append(args, "-o", "LogLevel=ERROR")
 
 	target := e.Target
 	if e.SSHUser != "" && !strings.Contains(target, "@") {
@@ -180,33 +179,35 @@ func (e *Executor) copySSH(src, dst string) error {
 		args = append(args, "-i", e.SSHKey)
 	}
 
-	// Only disable host key checking if explicitly requested (security risk)
-	if e.InsecureSSH {
-		args = append(args, "-o", "StrictHostKeyChecking=no")
-		args = append(args, "-o", "UserKnownHostsFile=/dev/null")
-	}
+	args = append(args, "-o", "StrictHostKeyChecking=no")
+	args = append(args, "-o", "UserKnownHostsFile=/dev/null")
 
 	target := e.Target
 	if e.SSHUser != "" && !strings.Contains(target, "@") {
 		target = fmt.Sprintf("%s@%s", e.SSHUser, target)
 	}
 
-	// First copy to temp directory
-	tempPath := filepath.Join("/tmp", filepath.Base(dst))
+	// First copy to temp directory (only if dst is not already in /tmp)
+	tempPath := fmt.Sprintf("/tmp/velocity-report-copy-%d", time.Now().Unix())
 	args = append(args, src, fmt.Sprintf("%s:%s", target, tempPath))
 
+	debugLog("SCP command: scp %v", args)
 	cmd := exec.Command("scp", args...)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("scp failed: %w", err)
 	}
 
-	// Then move to final destination with sudo
-	if strings.HasPrefix(dst, "/usr") || strings.HasPrefix(dst, "/etc") || strings.HasPrefix(dst, "/var") {
-		_, err := e.RunSudo(fmt.Sprintf("mv %s %s", tempPath, dst))
+	// Then move to final destination with sudo if needed
+	if tempPath != dst {
+		if strings.HasPrefix(dst, "/usr") || strings.HasPrefix(dst, "/etc") || strings.HasPrefix(dst, "/var") {
+			_, err := e.RunSudo(fmt.Sprintf("mv %s %s", tempPath, dst))
+			return err
+		}
+
+		// Move to user directory without sudo
+		_, err := e.Run(fmt.Sprintf("mv %s %s", tempPath, dst))
 		return err
 	}
 
-	// Move to user directory without sudo
-	_, err := e.Run(fmt.Sprintf("mv %s %s", tempPath, dst))
-	return err
+	return nil
 }
