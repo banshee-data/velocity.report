@@ -66,6 +66,13 @@ func (i *Installer) Install() error {
 		fmt.Printf("⚠️  Warning: Could not clone source code: %v\n", err)
 		fmt.Println("   Source code is needed for PDF generation. You can manually clone:")
 		fmt.Printf("   sudo git clone %s %s\n", defaultRepo, sourceDir)
+	} else {
+		// Step 5a: Install Python dependencies
+		if err := i.installPythonDependencies(exec); err != nil {
+			fmt.Printf("⚠️  Warning: Could not install Python dependencies: %v\n", err)
+			fmt.Println("   PDF generation may not work. Manually run:")
+			fmt.Printf("   cd %s && make install-python\n", sourceDir)
+		}
 	}
 
 	// Step 6: Install binary
@@ -278,6 +285,39 @@ func (i *Installer) cloneSourceCode(exec *Executor) error {
 	}
 
 	fmt.Println("  ✓ Source code cloned")
+	return nil
+}
+
+func (i *Installer) installPythonDependencies(exec *Executor) error {
+	fmt.Println("Installing Python dependencies...")
+
+	// Check if python3 is installed
+	if _, err := exec.Run("command -v python3 >/dev/null 2>&1"); err != nil {
+		return fmt.Errorf("python3 is not installed on target system")
+	}
+
+	// Check if python3-venv is installed
+	if _, err := exec.Run("python3 -m venv --help >/dev/null 2>&1"); err != nil {
+		fmt.Println("  → python3-venv not found, attempting to install...")
+		if _, err := exec.RunSudo("apt-get update && apt-get install -y python3-venv python3-pip"); err != nil {
+			return fmt.Errorf("failed to install python3-venv: %w", err)
+		}
+	}
+
+	// Run make install-python in the source directory
+	debugLog("Running make install-python in %s", sourceDir)
+	installCmd := fmt.Sprintf("cd %s && make install-python", sourceDir)
+	if _, err := exec.RunSudo(installCmd); err != nil {
+		return fmt.Errorf("failed to run make install-python: %w", err)
+	}
+
+	// Ensure velocity user can access the venv
+	venvPath := fmt.Sprintf("%s/.venv", sourceDir)
+	if _, err := exec.RunSudo(fmt.Sprintf("chown -R %s:%s %s", serviceUser, serviceUser, venvPath)); err != nil {
+		debugLog("Warning: Could not set ownership on venv: %v", err)
+	}
+
+	fmt.Println("  ✓ Python dependencies installed")
 	return nil
 }
 

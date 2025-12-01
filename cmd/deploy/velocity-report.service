@@ -13,6 +13,9 @@ Type=simple
 ExecStart=/usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sensor_data.db
 # A stable working directory for runtime files; owned by the `velocity` user
 WorkingDirectory=/var/lib/velocity-report
+# PDF generator configuration
+Environment="PDF_GENERATOR_DIR=/opt/velocity-report/tools/pdf-generator"
+Environment="PDF_GENERATOR_PYTHON=/opt/velocity-report/.venv/bin/python"
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
