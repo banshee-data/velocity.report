@@ -3,9 +3,9 @@
 	import { Card, Header, SelectField, Switch, Table } from 'svelte-ux';
 	import {
 		getConfig,
-		type Config,
 		getTransitWorkerState,
-		updateTransitWorker
+		updateTransitWorker,
+		type Config
 	} from '../../lib/api';
 	import { displayTimezone, initializeTimezone, updateTimezone } from '../../lib/stores/timezone';
 	import { displayUnits, initializeUnits, updateUnits } from '../../lib/stores/units';
@@ -62,9 +62,7 @@
 			// Only trigger manual run when enabling, not when disabling
 			const response = await updateTransitWorker({ enabled, trigger: enabled ? true : false });
 			transitWorkerEnabled = response.enabled;
-			message = enabled
-				? 'Transit worker enabled and run triggered!'
-				: 'Transit worker disabled!';
+			message = enabled ? 'Transit worker enabled and run triggered!' : 'Transit worker disabled!';
 
 			// Clear message after a few seconds
 			setTimeout(() => {
@@ -172,15 +170,15 @@
 					run.
 				</p>
 
-				<div class="flex items-center gap-3">
+				<div class="gap-3 flex items-center">
 					<Switch
 						checked={transitWorkerEnabled}
 						disabled={transitWorkerLoading}
-						on:change={(e) => handleTransitWorkerToggle(e.detail.value)}
+						on:change={(e) => handleTransitWorkerToggle((e as CustomEvent).detail.value)}
 					/>
-					<label class="text-sm">
+					<span class="text-sm">
 						{transitWorkerEnabled ? 'Enabled (runs hourly)' : 'Disabled'}
-					</label>
+					</span>
 				</div>
 
 				{#if transitWorkerLoading}
