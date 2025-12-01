@@ -244,11 +244,19 @@ func (f *Fixer) checkDataDirectory(exec *Executor) error {
 		return fmt.Errorf("directory /var/lib/velocity-report does not exist")
 	}
 
+	// Get the actual service user from systemd config
+	debugLog("Checking service user configuration")
+	serviceUserOutput, err := exec.Run("systemctl show velocity-report.service -p User --value 2>/dev/null || echo 'velocity'")
+	serviceUser := strings.TrimSpace(serviceUserOutput)
+	if serviceUser == "" {
+		serviceUser = "velocity" // fallback to default
+	}
+
 	// Check ownership
-	debugLog("Checking directory ownership")
+	debugLog("Checking directory ownership (expecting %s)", serviceUser)
 	ownerOutput, err := exec.Run("stat -c '%U:%G' /var/lib/velocity-report 2>/dev/null || stat -f '%Su:%Sg' /var/lib/velocity-report 2>/dev/null")
-	if err == nil && !strings.Contains(ownerOutput, "velocity") {
-		return fmt.Errorf("directory has incorrect ownership: %s (expected velocity:velocity)", strings.TrimSpace(ownerOutput))
+	if err == nil && !strings.Contains(ownerOutput, serviceUser) {
+		return fmt.Errorf("directory has incorrect ownership: %s (expected %s:%s)", strings.TrimSpace(ownerOutput), serviceUser, serviceUser)
 	}
 
 	return nil
@@ -256,7 +264,19 @@ func (f *Fixer) checkDataDirectory(exec *Executor) error {
 
 func (f *Fixer) fixDataDirectory(exec *Executor) error {
 	debugLog("Creating and fixing data directory")
-	_, err := exec.RunSudo("mkdir -p /var/lib/velocity-report && chown velocity:velocity /var/lib/velocity-report && chmod 755 /var/lib/velocity-report")
+
+	// Get the actual service user from systemd config
+	serviceUserOutput, err := exec.Run("systemctl show velocity-report.service -p User --value 2>/dev/null || echo 'velocity'")
+	if err != nil {
+		return fmt.Errorf("failed to get service user: %w", err)
+	}
+	serviceUser := strings.TrimSpace(serviceUserOutput)
+	if serviceUser == "" {
+		serviceUser = "velocity" // fallback to default
+	}
+
+	debugLog("Fixing data directory with user: %s", serviceUser)
+	_, err = exec.RunSudo(fmt.Sprintf("mkdir -p /var/lib/velocity-report && chown %s:%s /var/lib/velocity-report && chmod 755 /var/lib/velocity-report", serviceUser, serviceUser))
 	if err != nil {
 		return fmt.Errorf("failed to fix directory: %w", err)
 	}

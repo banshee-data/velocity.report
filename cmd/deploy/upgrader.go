@@ -119,8 +119,18 @@ func (u *Upgrader) backupCurrent(exec *Executor) error {
 	timestamp := time.Now().Format("20060102-150405")
 	backupDir := fmt.Sprintf("/var/lib/velocity-report/backups/%s", timestamp)
 
-	// Create backup directory
-	_, err := exec.RunSudo(fmt.Sprintf("mkdir -p %s", backupDir))
+	// Get the service user for proper ownership
+	serviceUserOutput, err := exec.Run("systemctl show velocity-report.service -p User --value 2>/dev/null || echo 'velocity'")
+	if err != nil {
+		return fmt.Errorf("failed to get service user: %w", err)
+	}
+	serviceUser := strings.TrimSpace(serviceUserOutput)
+	if serviceUser == "" {
+		serviceUser = "velocity" // fallback to default
+	}
+
+	// Create backup directory - run as the service user to avoid permission issues
+	_, err = exec.Run(fmt.Sprintf("mkdir -p %s", backupDir))
 	if err != nil {
 		return fmt.Errorf("failed to create backup directory: %w", err)
 	}
@@ -183,8 +193,14 @@ func (u *Upgrader) installNewBinary(exec *Executor) error {
 		return fmt.Errorf("failed to move binary: %w", err)
 	}
 
+	// Set ownership
+	_, err = exec.RunSudo("chown root:root /usr/local/bin/velocity-report")
+	if err != nil {
+		return fmt.Errorf("failed to set ownership: %w", err)
+	}
+
 	// Set permissions
-	_, err = exec.RunSudo("chown root:root /usr/local/bin/velocity-report && chmod 0755 /usr/local/bin/velocity-report")
+	_, err = exec.RunSudo("chmod 0755 /usr/local/bin/velocity-report")
 	if err != nil {
 		return fmt.Errorf("failed to set permissions: %w", err)
 	}
