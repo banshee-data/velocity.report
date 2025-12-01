@@ -79,8 +79,7 @@ func main() {
 
 	// Handle version flags (-v, --version)
 	if *versionFlag || *versionShort {
-		fmt.Printf("velocity-report version %s\n", version)
-		fmt.Printf("git commit: %s\n", gitSHA)
+		fmt.Printf("velocity-report v%s (git SHA: %s)\n", version, gitSHA)
 		os.Exit(0)
 	}
 
@@ -88,8 +87,8 @@ func main() {
 	if flag.NArg() > 0 {
 		subcommand := flag.Arg(0)
 		if subcommand == "version" {
-			fmt.Printf("velocity-report version %s\n", version)
-			fmt.Printf("git commit: %s\n", gitSHA)
+			fmt.Printf("velocity-report v%s\n", version)
+			fmt.Printf("git SHA: %s\n", gitSHA)
 			os.Exit(0)
 		}
 		if subcommand == "migrate" {
