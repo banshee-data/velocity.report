@@ -45,6 +45,60 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-12-01
+
+### Radar Server
+
+#### Added
+
+- Transit worker for automatic sessionization of radar data into transits
+  - Configurable via `--enable-transit-worker` flag (enabled by default)
+  - Hourly cron-style processing with configurable interval and window
+  - Manual trigger support via API endpoint
+- Transit worker status tracking and health monitoring
+  - New `/api/transit_worker` endpoint with GET/POST support
+  - Status includes: enabled state, last run time, error info, run count, health status
+- Version and git SHA logging on server startup for better debugging
+- Database migration system with historical schema support
+  - Migration 000001: Original schema (timestamp column, pre-JSON)
+  - Migration 000002: JSON storage and write_timestamp migration
+  - Migrations now properly handle legacy databases
+
+#### Changed
+
+- Database variable naming: `db` → `database` to avoid package shadowing
+- Transit worker API responses now return full status instead of just enabled flag
+
+#### Fixed
+
+- Package shadowing issue where variable `db` conflicted with package name `db`
+- Transit worker compatibility with old database schemas via proper migrations
+
+### Deploy Tool
+
+#### Added
+
+- `--no-migrate` flag for upgrade command to skip database migrations
+- Automatic database migrations during upgrade (enabled by default)
+- Migrations run while service is stopped for safety
+
+#### Changed
+
+- Source code and Python dependency updates are now optional (skip gracefully if source not present)
+- Improved error handling for binary-only installations
+
+#### Fixed
+
+- Upgrade warnings for missing source directory (now handled gracefully)
+- Migration execution properly runs as service user with correct permissions
+
+### Documentation
+
+#### Added
+
+- Database migration documentation explaining historical schema evolution
+- SQL migration files cleaned up with better readability and comments
+
 ## [0.2.0] - 2025-12-01
 
 ### All Components
