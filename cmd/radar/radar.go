@@ -26,6 +26,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/monitor"
 	"github.com/banshee-data/velocity.report/internal/lidar/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/parse"
+	"github.com/banshee-data/velocity.report/internal/monitoring"
 )
 
 // Version information (set at build time via ldflags)
@@ -415,11 +416,34 @@ func main() {
 		}
 	}()
 
+	// Create transit worker controller before HTTP server so we can pass it to the API
+	var transitController *monitoring.TransitController
+	if *enableTransitWorker {
+		transitWorker := db.NewTransitWorker(db, *transitWorkerThreshold, *transitWorkerModel)
+		transitWorker.Interval = *transitWorkerInterval
+		transitWorker.Window = *transitWorkerWindow
+
+		transitController = monitoring.NewTransitController(transitWorker)
+
+		log.Printf("Starting transit worker: interval=%v, window=%v, threshold=%ds, model=%s",
+			transitWorker.Interval, transitWorker.Window, *transitWorkerThreshold, *transitWorkerModel)
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := transitController.Run(ctx); err != nil && err != context.Canceled {
+				log.Printf("Transit worker error: %v", err)
+			}
+		}()
+	}
+
 	// HTTP server goroutine: construct an api.Server and delegate run/shutdown to it
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		apiServer := api.NewServer(radarSerial, db, *unitsFlag, *timezoneFlag)
+		// Set the transit controller so API can provide UI controls
+		apiServer.SetTransitController(transitController)
 
 		// Attach admin routes that belong to other components
 		// (these modify the mux returned by apiServer.ServeMux internally)
@@ -434,45 +458,6 @@ func main() {
 			}
 		}
 	}()
-
-	// Start the transit worker to periodically compute transits from radar_data
-	if *enableTransitWorker {
-		transitWorker := db.NewTransitWorker(db, *transitWorkerThreshold, *transitWorkerModel)
-		transitWorker.Interval = *transitWorkerInterval
-		transitWorker.Window = *transitWorkerWindow
-
-		log.Printf("Starting transit worker: interval=%v, window=%v, threshold=%ds, model=%s",
-			transitWorker.Interval, transitWorker.Window, *transitWorkerThreshold, *transitWorkerModel)
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			// Run periodically until context is cancelled
-			ticker := time.NewTicker(transitWorker.Interval)
-			defer ticker.Stop()
-
-			// Run once immediately on startup to process any pending data
-			if err := transitWorker.RunOnce(ctx); err != nil {
-				log.Printf("Transit worker initial run error: %v", err)
-			} else {
-				log.Printf("Transit worker completed initial run")
-			}
-
-			for {
-				select {
-				case <-ticker.C:
-					if err := transitWorker.RunOnce(ctx); err != nil {
-						log.Printf("Transit worker run error: %v", err)
-					} else {
-						log.Printf("Transit worker completed periodic run")
-					}
-				case <-ctx.Done():
-					log.Printf("Transit worker terminated")
-					return
-				}
-			}
-		}()
-	}
 
 	// Wait for all goroutines to finish
 	wg.Wait()
