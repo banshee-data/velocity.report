@@ -533,7 +533,7 @@ func computeSpeedStats(samples []float32) SpeedStatistics {
 		return SpeedStatistics{}
 	}
 
-	// Sort for percentiles
+	// Sort for min/max and average
 	sorted := make([]float32, len(samples))
 	copy(sorted, samples)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
@@ -543,14 +543,17 @@ func computeSpeedStats(samples []float32) SpeedStatistics {
 		sum += s
 	}
 
+	// Use the shared percentile computation from lidar package
+	p50, p85, p95 := lidar.ComputeSpeedPercentiles(samples)
+
 	n := len(sorted)
 	return SpeedStatistics{
 		MinSpeed: sorted[0],
 		MaxSpeed: sorted[n-1],
 		AvgSpeed: sum / float32(n),
-		P50Speed: sorted[n/2],
-		P85Speed: sorted[int(float64(n)*0.85)],
-		P95Speed: sorted[int(float64(n)*0.95)],
+		P50Speed: p50,
+		P85Speed: p85,
+		P95Speed: p95,
 	}
 }
 
@@ -750,7 +753,7 @@ func persistToDatabase(dbPath string, result *AnalysisResult, tracks []*lidar.Tr
 	// Insert run
 	res, err := db.Exec(`
 		INSERT INTO analysis_runs (pcap_file, analysis_time, duration_secs, total_packets, total_frames, total_tracks, confirmed_tracks)
-		VALUES (?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		result.PCAPFile,
 		time.Now().Format(time.RFC3339),
 		result.DurationSecs,
