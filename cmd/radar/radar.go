@@ -70,6 +70,15 @@ var (
 	lidarSeedFromFirst = flag.Bool("lidar-seed-from-first", true, "Seed background cells from first observation (dev/pcap helper)")
 )
 
+// Transit worker options (compute radar_data -> radar_data_transits)
+var (
+	enableTransitWorker    = flag.Bool("enable-transit-worker", true, "Enable transit worker to periodically compute transits from radar_data")
+	transitWorkerInterval  = flag.Duration("transit-worker-interval", 1*time.Hour, "Interval for transit worker (e.g., 1h)")
+	transitWorkerWindow    = flag.Duration("transit-worker-window", 65*time.Minute, "Lookback window for transit worker (should be slightly larger than interval)")
+	transitWorkerThreshold = flag.Int("transit-worker-threshold", 1, "Gap threshold in seconds for sessionizing transits")
+	transitWorkerModel     = flag.String("transit-worker-model", "hourly-cron", "Model version string for computed transits")
+)
+
 // Constants
 const SCHEMA_VERSION = "0.0.2"
 
@@ -425,6 +434,45 @@ func main() {
 			}
 		}
 	}()
+
+	// Start the transit worker to periodically compute transits from radar_data
+	if *enableTransitWorker {
+		transitWorker := db.NewTransitWorker(db, *transitWorkerThreshold, *transitWorkerModel)
+		transitWorker.Interval = *transitWorkerInterval
+		transitWorker.Window = *transitWorkerWindow
+
+		log.Printf("Starting transit worker: interval=%v, window=%v, threshold=%ds, model=%s",
+			transitWorker.Interval, transitWorker.Window, *transitWorkerThreshold, *transitWorkerModel)
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// Run periodically until context is cancelled
+			ticker := time.NewTicker(transitWorker.Interval)
+			defer ticker.Stop()
+
+			// Run once immediately on startup to process any pending data
+			if err := transitWorker.RunOnce(ctx); err != nil {
+				log.Printf("Transit worker initial run error: %v", err)
+			} else {
+				log.Printf("Transit worker completed initial run")
+			}
+
+			for {
+				select {
+				case <-ticker.C:
+					if err := transitWorker.RunOnce(ctx); err != nil {
+						log.Printf("Transit worker run error: %v", err)
+					} else {
+						log.Printf("Transit worker completed periodic run")
+					}
+				case <-ctx.Done():
+					log.Printf("Transit worker terminated")
+					return
+				}
+			}
+		}()
+	}
 
 	// Wait for all goroutines to finish
 	wg.Wait()
