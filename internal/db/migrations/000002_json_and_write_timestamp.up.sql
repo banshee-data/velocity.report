@@ -1,13 +1,16 @@
--- Migration: Create initial database schema (4 original tables)
--- Date: 2025-08-26
--- Description: Initial schema with the original 4 tables: data, radar_objects, commands, log
--- This represents the very first database schema from commit 57182957
+-- Migration: Migrate from timestamp to write_timestamp and add JSON storage
+-- Date: 2024 (commit 57182957)
+-- Description: Transforms the original schema with timestamp column to use:
+--   1. write_timestamp (DOUBLE with unix epoch) instead of timestamp (TIMESTAMP)
+--   2. raw_event JSON column for storing raw data
+--   3. Generated columns for extracting values from JSON
 --
--- Note: Essential PRAGMAs (journal_mode=WAL, busy_timeout, etc.) are applied
--- by the Go code in db.go/applyPragmas() rather than in migrations. This ensures
--- PRAGMAs are set consistently regardless of whether databases are created via
--- migrations or schema.sql.
-   CREATE TABLE IF NOT EXISTS data (
+-- This migration transforms existing data to the new format.
+-- Migrate data table
+    ALTER TABLE data
+RENAME TO data_old;
+
+   CREATE TABLE data (
           write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec'))
         , raw_event JSON NOT NULL
         , uptime DOUBLE AS (JSON_EXTRACT(raw_event, '$.uptime')) STORED
@@ -15,6 +18,17 @@
         , speed DOUBLE AS (JSON_EXTRACT(raw_event, '$.speed')) STORED
           );
 
+-- Migrate existing data: convert timestamp to write_timestamp and create JSON
+   INSERT INTO data (write_timestamp, raw_event)
+   SELECT CAST(STRFTIME('%s', timestamp) AS DOUBLE) + (
+          CAST(STRFTIME('%f', timestamp) AS DOUBLE) - CAST(STRFTIME('%S', timestamp) AS DOUBLE)
+          )
+        , JSON_OBJECT('uptime', uptime, 'magnitude', magnitude, 'speed', speed)
+     FROM data_old;
+
+     DROP TABLE data_old;
+
+-- Create radar_objects table (new in this migration)
    CREATE TABLE IF NOT EXISTS radar_objects (
           write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec'))
         , raw_event JSON NOT NULL
@@ -32,16 +46,45 @@
         , LENGTH DOUBLE NOT NULL AS (JSON_EXTRACT(raw_event, '$.length_m')) STORED
           );
 
-   CREATE TABLE IF NOT EXISTS commands (
+-- Migrate commands table
+    ALTER TABLE commands
+RENAME TO commands_old;
+
+   CREATE TABLE commands (
           command_id BIGINT PRIMARY KEY
         , command TEXT
         , write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec'))
           );
 
-   CREATE TABLE IF NOT EXISTS LOG(
+   INSERT INTO commands (command_id, command, write_timestamp)
+   SELECT command_id
+        , command
+        , CAST(STRFTIME('%s', timestamp) AS DOUBLE) + (
+          CAST(STRFTIME('%f', timestamp) AS DOUBLE) - CAST(STRFTIME('%S', timestamp) AS DOUBLE)
+          )
+     FROM commands_old;
+
+     DROP TABLE commands_old;
+
+-- Migrate log table
+    ALTER TABLE log
+RENAME TO log_old;
+
+   CREATE TABLE log(
           log_id BIGINT PRIMARY KEY
         , command_id BIGINT
         , log_data TEXT
         , write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec'))
         , FOREIGN KEY (command_id) REFERENCES commands (command_id)
           );
+
+   INSERT INTO log(log_id, command_id, log_data, write_timestamp)
+   SELECT log_id
+        , command_id
+        , log_data
+        , CAST(STRFTIME('%s', timestamp) AS DOUBLE) + (
+          CAST(STRFTIME('%f', timestamp) AS DOUBLE) - CAST(STRFTIME('%S', timestamp) AS DOUBLE)
+          )
+     FROM log_old;
+
+     DROP TABLE log_old;
