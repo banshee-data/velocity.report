@@ -435,6 +435,43 @@ velocity-deploy status --target mypi --ssh-user admin
 velocity-deploy install --target mypi --ssh-key ~/.ssh/different_key --binary ./velocity-report-linux-arm64
 ```
 
+## SSH Security
+
+### Host Key Checking
+
+By default, `velocity-deploy` disables SSH strict host key checking (`StrictHostKeyChecking=no`) to simplify automation in trusted environments like CI/CD pipelines or ephemeral hosts.
+
+**Security Warning:** This makes connections vulnerable to man-in-the-middle (MITM) attacks. For production deployments:
+
+1. **Configure known_hosts properly:**
+   ```bash
+   # Add the host key to known_hosts on first connection
+   ssh-keyscan -H 192.168.1.100 >> ~/.ssh/known_hosts
+   ```
+
+2. **Use SSH config for trusted hosts:**
+   ```ssh-config
+   Host production
+       HostName velocity.example.com
+       User pi
+       StrictHostKeyChecking yes
+       UserKnownHostsFile ~/.ssh/known_hosts
+   ```
+
+3. **Verify host fingerprints** before first connection to each new host.
+
+### Sudo Access
+
+For automated deployments, the target user needs passwordless sudo access. We recommend restricting sudo to specific commands:
+
+```bash
+# More secure: Limit sudo to specific commands
+echo "pi ALL=(ALL) NOPASSWD: /bin/systemctl, /bin/cp, /bin/mv, /bin/mkdir, /bin/chown, /bin/chmod, /bin/cat, /bin/test, /bin/rm, /usr/bin/journalctl, /bin/ls, /bin/du, /usr/bin/stat, /usr/sbin/useradd" | sudo tee /etc/sudoers.d/pi
+
+# Less secure but simpler: Full sudo access
+echo "pi ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/pi
+```
+
 ## Troubleshooting
 
 ### Installation fails with "permission denied"
