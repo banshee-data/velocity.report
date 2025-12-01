@@ -1,11 +1,15 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+//go:embed velocity-report.service
+var serviceContent string
 
 // Installer handles installation of velocity.report service
 type Installer struct {
@@ -19,30 +23,11 @@ type Installer struct {
 }
 
 const (
-	serviceName    = "velocity-report"
-	installPath    = "/usr/local/bin/velocity-report"
-	dataDir        = "/var/lib/velocity-report"
-	serviceFile    = "velocity-report.service"
-	serviceUser    = "velocity"
-	serviceContent = `[Unit]
-Description=Velocity.report radar monitor service
-After=network.target
-
-[Service]
-User=velocity
-Group=velocity
-Type=simple
-ExecStart=/usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sensor_data.db
-WorkingDirectory=/var/lib/velocity-report
-Restart=on-failure
-RestartSec=5
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=velocity-report
-
-[Install]
-WantedBy=multi-user.target
-`
+	serviceName = "velocity-report"
+	installPath = "/usr/local/bin/velocity-report"
+	dataDir     = "/var/lib/velocity-report"
+	serviceFile = "velocity-report.service"
+	serviceUser = "velocity"
 )
 
 // Install performs the installation
@@ -200,7 +185,7 @@ func (i *Installer) installBinary(exec *Executor) error {
 func (i *Installer) installService(exec *Executor) error {
 	fmt.Println("Installing systemd service...")
 
-	// Write service file to temp location
+	// Write service file to temp location (content embedded from velocity-report.service)
 	tempFile := "/tmp/velocity-report.service"
 	if err := exec.WriteFile(tempFile, serviceContent); err != nil {
 		return fmt.Errorf("failed to write service file: %w", err)
