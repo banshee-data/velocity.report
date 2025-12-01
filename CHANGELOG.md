@@ -45,6 +45,12 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-12-01
+
+### All Components
+
+**Version Baseline:** This release establishes version 0.2.0 as the baseline for all components (Radar, PDF Generator, Deploy Tool, Web Frontend).
+
 ## [0.1.0] - 2025-11-30
 
 ### Radar Application
@@ -127,6 +133,7 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
 | Release Date | Radar | PDF Generator | Deploy Tool | Web Frontend | Schema Version |
 | ------------ | ----- | ------------- | ----------- | ------------ | -------------- |
+| 2025-12-01   | 0.2.0 | 0.2.0         | 0.2.0       | 0.2.0        | 8              |
 | 2025-11-30   | 0.1.0 | 1.0.0         | 0.1.0       | 0.0.1        | 8              |
 
 ---
