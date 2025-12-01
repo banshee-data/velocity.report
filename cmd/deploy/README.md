@@ -274,7 +274,41 @@ Standard systemd service with:
 
 ## SSH Configuration
 
-For remote deployment, ensure:
+`velocity-deploy` automatically reads `~/.ssh/config` for host configuration, making remote deployments easier.
+
+### Using SSH Config
+
+Define your hosts in `~/.ssh/config`:
+
+```ssh-config
+Host mypi
+    HostName 192.168.1.100
+    User pi
+    IdentityFile ~/.ssh/id_rsa_pi
+
+Host production
+    HostName velocity.example.com
+    User admin
+    IdentityFile ~/.ssh/id_rsa_prod
+    Port 2222
+```
+
+Then deploy using the host alias:
+
+```bash
+# Uses all config from SSH config file
+velocity-deploy install --target mypi --binary ./app-radar-linux-arm64
+
+# Check status
+velocity-deploy status --target mypi
+
+# Upgrade
+velocity-deploy upgrade --target production --binary ./app-radar-linux-arm64
+```
+
+### Manual SSH Configuration
+
+If not using SSH config, ensure:
 
 1. **SSH access** is configured:
    ```bash
@@ -287,10 +321,22 @@ For remote deployment, ensure:
    echo "pi ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/pi
    ```
 
-3. **SSH key** is available:
+3. **Provide credentials explicitly**:
    ```bash
    velocity-deploy install --ssh-key ~/.ssh/id_rsa --target pi@192.168.1.100 --binary ./app-radar-linux-arm64
    ```
+
+### Override SSH Config
+
+Command-line flags override SSH config values:
+
+```bash
+# Use SSH config host but override user
+velocity-deploy status --target mypi --ssh-user admin
+
+# Use SSH config but override key
+velocity-deploy install --target mypi --ssh-key ~/.ssh/different_key --binary ./app-radar-linux-arm64
+```
 
 ## Troubleshooting
 

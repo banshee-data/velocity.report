@@ -64,26 +64,41 @@ Commands:
 
 Common Flags:
   --target <host>      Target host (default: localhost)
-  --ssh-user <user>    SSH user for remote deployment (default: current user)
+                       Can be a hostname, IP, or SSH config host alias
+  --ssh-user <user>    SSH user for remote deployment
+                       Defaults to ~/.ssh/config or current user
   --ssh-key <path>     SSH private key path
+                       Defaults to ~/.ssh/config
   --config <file>      Configuration file path
   --dry-run            Show what would be done without executing
+
+SSH Config Support:
+  velocity-deploy automatically reads ~/.ssh/config for host configuration.
+  If a host is defined in your SSH config, the tool will use:
+    - HostName (IP or domain)
+    - User
+    - IdentityFile (SSH key)
+
+  Command-line flags override SSH config values.
 
 Examples:
   # Install locally
   velocity-deploy install --binary ./app-radar-linux-arm64
 
-  # Install on remote Pi
+  # Install using SSH config host alias
+  velocity-deploy install --target mypi --binary ./app-radar-linux-arm64
+
+  # Install on remote Pi with explicit credentials
   velocity-deploy install --target pi@192.168.1.100 --ssh-key ~/.ssh/id_rsa --binary ./app-radar-linux-arm64
 
-  # Check status of remote service
-  velocity-deploy status --target pi@192.168.1.100
+  # Check status using SSH config
+  velocity-deploy status --target mypi
 
   # Upgrade local installation
   velocity-deploy upgrade --binary ./app-radar-linux-arm64
 
-  # Health check
-  velocity-deploy health --target localhost
+  # Health check on remote host
+  velocity-deploy health --target mypi
 
 For more information, see: https://github.com/banshee-data/velocity.report`)
 }
@@ -91,8 +106,8 @@ For more information, see: https://github.com/banshee-data/velocity.report`)
 func handleInstall(args []string) {
 	fs := flag.NewFlagSet("install", flag.ExitOnError)
 	target := fs.String("target", "localhost", "Target host for installation")
-	sshUser := fs.String("ssh-user", os.Getenv("USER"), "SSH user")
-	sshKey := fs.String("ssh-key", "", "SSH private key path")
+	sshUser := fs.String("ssh-user", "", "SSH user (defaults to ~/.ssh/config or current user)")
+	sshKey := fs.String("ssh-key", "", "SSH private key path (defaults to ~/.ssh/config)")
 	binaryPath := fs.String("binary", "", "Path to velocity-report binary (required)")
 	dbPath := fs.String("db-path", "", "Path to existing database to migrate")
 	dryRun := fs.Bool("dry-run", false, "Show what would be done")
@@ -104,10 +119,22 @@ func handleInstall(args []string) {
 		os.Exit(1)
 	}
 
+	// Resolve SSH config
+	resolvedHost, resolvedUser, resolvedKey, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to resolve SSH config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Use current user if still not set
+	if resolvedUser == "" {
+		resolvedUser = os.Getenv("USER")
+	}
+
 	installer := &Installer{
-		Target:     *target,
-		SSHUser:    *sshUser,
-		SSHKey:     *sshKey,
+		Target:     resolvedHost,
+		SSHUser:    resolvedUser,
+		SSHKey:     resolvedKey,
 		BinaryPath: *binaryPath,
 		DBPath:     *dbPath,
 		DryRun:     *dryRun,
@@ -122,8 +149,8 @@ func handleInstall(args []string) {
 func handleUpgrade(args []string) {
 	fs := flag.NewFlagSet("upgrade", flag.ExitOnError)
 	target := fs.String("target", "localhost", "Target host")
-	sshUser := fs.String("ssh-user", os.Getenv("USER"), "SSH user")
-	sshKey := fs.String("ssh-key", "", "SSH private key path")
+	sshUser := fs.String("ssh-user", "", "SSH user (defaults to ~/.ssh/config or current user)")
+	sshKey := fs.String("ssh-key", "", "SSH private key path (defaults to ~/.ssh/config)")
 	binaryPath := fs.String("binary", "", "Path to new velocity-report binary (required)")
 	dryRun := fs.Bool("dry-run", false, "Show what would be done")
 	noBackup := fs.Bool("no-backup", false, "Skip backup before upgrade")
@@ -135,10 +162,20 @@ func handleUpgrade(args []string) {
 		os.Exit(1)
 	}
 
+	// Resolve SSH config
+	resolvedHost, resolvedUser, resolvedKey, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to resolve SSH config: %v\n", err)
+		os.Exit(1)
+	}
+	if resolvedUser == "" {
+		resolvedUser = os.Getenv("USER")
+	}
+
 	upgrader := &Upgrader{
-		Target:     *target,
-		SSHUser:    *sshUser,
-		SSHKey:     *sshKey,
+		Target:     resolvedHost,
+		SSHUser:    resolvedUser,
+		SSHKey:     resolvedKey,
 		BinaryPath: *binaryPath,
 		DryRun:     *dryRun,
 		NoBackup:   *noBackup,
@@ -153,14 +190,24 @@ func handleUpgrade(args []string) {
 func handleStatus(args []string) {
 	fs := flag.NewFlagSet("status", flag.ExitOnError)
 	target := fs.String("target", "localhost", "Target host")
-	sshUser := fs.String("ssh-user", os.Getenv("USER"), "SSH user")
-	sshKey := fs.String("ssh-key", "", "SSH private key path")
+	sshUser := fs.String("ssh-user", "", "SSH user (defaults to ~/.ssh/config or current user)")
+	sshKey := fs.String("ssh-key", "", "SSH private key path (defaults to ~/.ssh/config)")
 	fs.Parse(args)
 
+	// Resolve SSH config
+	resolvedHost, resolvedUser, resolvedKey, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to resolve SSH config: %v\n", err)
+		os.Exit(1)
+	}
+	if resolvedUser == "" {
+		resolvedUser = os.Getenv("USER")
+	}
+
 	monitor := &Monitor{
-		Target:  *target,
-		SSHUser: *sshUser,
-		SSHKey:  *sshKey,
+		Target:  resolvedHost,
+		SSHUser: resolvedUser,
+		SSHKey:  resolvedKey,
 	}
 
 	status, err := monitor.GetStatus()
@@ -175,15 +222,25 @@ func handleStatus(args []string) {
 func handleHealth(args []string) {
 	fs := flag.NewFlagSet("health", flag.ExitOnError)
 	target := fs.String("target", "localhost", "Target host")
-	sshUser := fs.String("ssh-user", os.Getenv("USER"), "SSH user")
-	sshKey := fs.String("ssh-key", "", "SSH private key path")
+	sshUser := fs.String("ssh-user", "", "SSH user (defaults to ~/.ssh/config or current user)")
+	sshKey := fs.String("ssh-key", "", "SSH private key path (defaults to ~/.ssh/config)")
 	apiPort := fs.Int("api-port", 8080, "API server port")
 	fs.Parse(args)
 
+	// Resolve SSH config
+	resolvedHost, resolvedUser, resolvedKey, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to resolve SSH config: %v\n", err)
+		os.Exit(1)
+	}
+	if resolvedUser == "" {
+		resolvedUser = os.Getenv("USER")
+	}
+
 	monitor := &Monitor{
-		Target:  *target,
-		SSHUser: *sshUser,
-		SSHKey:  *sshKey,
+		Target:  resolvedHost,
+		SSHUser: resolvedUser,
+		SSHKey:  resolvedKey,
 		APIPort: *apiPort,
 	}
 
@@ -204,15 +261,25 @@ func handleHealth(args []string) {
 func handleRollback(args []string) {
 	fs := flag.NewFlagSet("rollback", flag.ExitOnError)
 	target := fs.String("target", "localhost", "Target host")
-	sshUser := fs.String("ssh-user", os.Getenv("USER"), "SSH user")
-	sshKey := fs.String("ssh-key", "", "SSH private key path")
+	sshUser := fs.String("ssh-user", "", "SSH user (defaults to ~/.ssh/config or current user)")
+	sshKey := fs.String("ssh-key", "", "SSH private key path (defaults to ~/.ssh/config)")
 	dryRun := fs.Bool("dry-run", false, "Show what would be done")
 	fs.Parse(args)
 
+	// Resolve SSH config
+	resolvedHost, resolvedUser, resolvedKey, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to resolve SSH config: %v\n", err)
+		os.Exit(1)
+	}
+	if resolvedUser == "" {
+		resolvedUser = os.Getenv("USER")
+	}
+
 	rollback := &Rollback{
-		Target:  *target,
-		SSHUser: *sshUser,
-		SSHKey:  *sshKey,
+		Target:  resolvedHost,
+		SSHUser: resolvedUser,
+		SSHKey:  resolvedKey,
 		DryRun:  *dryRun,
 	}
 
@@ -225,15 +292,25 @@ func handleRollback(args []string) {
 func handleBackup(args []string) {
 	fs := flag.NewFlagSet("backup", flag.ExitOnError)
 	target := fs.String("target", "localhost", "Target host")
-	sshUser := fs.String("ssh-user", os.Getenv("USER"), "SSH user")
-	sshKey := fs.String("ssh-key", "", "SSH private key path")
+	sshUser := fs.String("ssh-user", "", "SSH user (defaults to ~/.ssh/config or current user)")
+	sshKey := fs.String("ssh-key", "", "SSH private key path (defaults to ~/.ssh/config)")
 	outputDir := fs.String("output", ".", "Output directory for backup")
 	fs.Parse(args)
 
+	// Resolve SSH config
+	resolvedHost, resolvedUser, resolvedKey, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to resolve SSH config: %v\n", err)
+		os.Exit(1)
+	}
+	if resolvedUser == "" {
+		resolvedUser = os.Getenv("USER")
+	}
+
 	backup := &Backup{
-		Target:    *target,
-		SSHUser:   *sshUser,
-		SSHKey:    *sshKey,
+		Target:    resolvedHost,
+		SSHUser:   resolvedUser,
+		SSHKey:    resolvedKey,
 		OutputDir: *outputDir,
 	}
 
@@ -246,16 +323,26 @@ func handleBackup(args []string) {
 func handleConfig(args []string) {
 	fs := flag.NewFlagSet("config", flag.ExitOnError)
 	target := fs.String("target", "localhost", "Target host")
-	sshUser := fs.String("ssh-user", os.Getenv("USER"), "SSH user")
-	sshKey := fs.String("ssh-key", "", "SSH private key path")
+	sshUser := fs.String("ssh-user", "", "SSH user (defaults to ~/.ssh/config or current user)")
+	sshKey := fs.String("ssh-key", "", "SSH private key path (defaults to ~/.ssh/config)")
 	show := fs.Bool("show", false, "Show current configuration")
 	edit := fs.Bool("edit", false, "Edit configuration")
 	fs.Parse(args)
 
+	// Resolve SSH config
+	resolvedHost, resolvedUser, resolvedKey, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to resolve SSH config: %v\n", err)
+		os.Exit(1)
+	}
+	if resolvedUser == "" {
+		resolvedUser = os.Getenv("USER")
+	}
+
 	cfg := &ConfigManager{
-		Target:  *target,
-		SSHUser: *sshUser,
-		SSHKey:  *sshKey,
+		Target:  resolvedHost,
+		SSHUser: resolvedUser,
+		SSHKey:  resolvedKey,
 	}
 
 	if *show {
