@@ -172,6 +172,9 @@ func main() {
 		log.Printf("initialised device %s", radarSerial)
 	}
 
+	// Log version and git SHA on startup
+	log.Printf("velocity-report v%s (git SHA: %s)", version, gitSHA)
+
 	// Use the CLI flag value (defaults to ./sensor_data.db). We intentionally
 	// avoid relying on environment variables for configuration unless needed.
 	database, err := db.NewDB(*dbPathFlag)
