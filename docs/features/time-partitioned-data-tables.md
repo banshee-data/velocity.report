@@ -13,16 +13,18 @@
 4. [Proposed Architecture](#proposed-architecture)
 5. [Detailed Design](#detailed-design)
 6. [API Management for Partition Control](#api-management-for-partition-control)
-7. [Pros and Cons](#pros-and-cons)
-8. [Alternative Approaches](#alternative-approaches)
-9. [Storage Management](#storage-management)
-10. [Migration Path](#migration-path)
-11. [Performance Implications](#performance-implications)
-12. [Operational Considerations](#operational-considerations)
-13. [Implementation Phases](#implementation-phases)
-14. [Success Metrics](#success-metrics)
-15. [Open Questions](#open-questions)
-16. [References](#references)
+7. [USB Storage Management and Growth Projection](#usb-storage-management-and-growth-projection)
+8. [Phased Implementation Plan](#phased-implementation-plan)
+9. [Pros and Cons](#pros-and-cons)
+10. [Alternative Approaches](#alternative-approaches)
+11. [Storage Management](#storage-management)
+12. [Migration Path](#migration-path)
+13. [Performance Implications](#performance-implications)
+14. [Operational Considerations](#operational-considerations)
+15. [Implementation Phases](#implementation-phases)
+16. [Success Metrics](#success-metrics)
+17. [Open Questions](#open-questions)
+18. [References](#references)
 
 ---
 
@@ -1098,6 +1100,814 @@ These API endpoints are designed for future web UI development:
 │  [Create Yearly Archive] [Import Partition] [Settings]     │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## USB Storage Management and Growth Projection
+
+### Overview
+
+To support tiered storage with USB drives and provide proactive capacity planning, the system includes endpoints for USB storage detection, mounting, safe ejection, and growth rate projection.
+
+**Key Capabilities:**
+1. Detect and list available USB storage devices
+2. Mount USB drives for cold storage archives
+3. Safe eject with pre-flight checks (no active queries on partitions)
+4. Project storage growth rate and predict disk full dates
+5. Automated alerts for capacity thresholds
+
+### USB Storage API Endpoints
+
+#### 7. Detect USB Storage Devices
+
+**Endpoint:** `GET /api/storage/usb/devices`
+
+**Purpose:** Detect and list available USB storage devices for cold archive storage.
+
+**Response:**
+```json
+{
+  "devices": [
+    {
+      "device_path": "/dev/sda",
+      "device_name": "USB_HDD_1TB",
+      "vendor": "Seagate",
+      "model": "Backup Plus",
+      "serial": "NA8VQJR5",
+      "size_bytes": 1000204886016,
+      "size_human": "1.0 TB",
+      "partitions": [
+        {
+          "partition_path": "/dev/sda1",
+          "filesystem": "ext4",
+          "label": "velocity-archives",
+          "size_bytes": 999653638144,
+          "size_human": "999.7 GB",
+          "mounted": true,
+          "mount_point": "/mnt/usb-archives",
+          "free_bytes": 712458240000,
+          "free_human": "712.5 GB",
+          "usage_percent": 28.7,
+          "has_velocity_partitions": true,
+          "partition_count": 8
+        }
+      ],
+      "usb_port": "1-1.2",
+      "connected_at": "2025-03-15T08:30:00Z"
+    },
+    {
+      "device_path": "/dev/sdb",
+      "device_name": "USB_SSD_500GB",
+      "vendor": "Samsung",
+      "model": "T7 Portable SSD",
+      "serial": "S6XZNF0T123456",
+      "size_bytes": 500107862016,
+      "size_human": "500 GB",
+      "partitions": [
+        {
+          "partition_path": "/dev/sdb1",
+          "filesystem": "ext4",
+          "label": "velocity-cold",
+          "size_bytes": 499558400000,
+          "size_human": "499.6 GB",
+          "mounted": false,
+          "mount_point": null,
+          "has_velocity_partitions": false,
+          "partition_count": 0
+        }
+      ],
+      "usb_port": "1-1.3",
+      "connected_at": "2025-03-10T14:22:00Z"
+    }
+  ],
+  "recommended_device": "/dev/sda1",
+  "recommendation_reason": "Already mounted with existing velocity partitions"
+}
+```
+
+**Status Codes:**
+- `200 OK` - USB devices detected
+- `500 Internal Server Error` - System error
+
+**Detection Method:**
+```bash
+# Uses lsblk, udevadm, and /proc/mounts
+lsblk -J -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE,LABEL,VENDOR,MODEL,SERIAL
+```
+
+#### 8. Mount USB Storage
+
+**Endpoint:** `POST /api/storage/usb/mount`
+
+**Purpose:** Mount a USB partition for cold archive storage.
+
+**Request Body:**
+```json
+{
+  "partition_path": "/dev/sda1",
+  "mount_point": "/mnt/usb-archives",
+  "filesystem": "ext4",
+  "mount_options": "defaults,noatime",
+  "create_systemd_unit": true,
+  "set_as_cold_storage": true
+}
+```
+
+**Parameters:**
+- `partition_path` (required): Device partition path (e.g., `/dev/sda1`)
+- `mount_point` (optional): Mount point path. Default: `/var/lib/velocity-report/archives/cold`
+- `filesystem` (optional): Filesystem type. Auto-detected if omitted.
+- `mount_options` (optional): Mount options. Default: `defaults,noatime`
+- `create_systemd_unit` (optional): Create systemd mount unit for auto-mount on boot. Default: `true`
+- `set_as_cold_storage` (optional): Configure as default cold storage location. Default: `true`
+
+**Response:**
+```json
+{
+  "success": true,
+  "mount": {
+    "partition_path": "/dev/sda1",
+    "mount_point": "/mnt/usb-archives",
+    "filesystem": "ext4",
+    "mounted_at": "2025-03-15T15:30:45Z",
+    "total_bytes": 999653638144,
+    "free_bytes": 712458240000,
+    "usage_percent": 28.7,
+    "systemd_unit": "mnt-usb\\x2darchives.mount",
+    "systemd_enabled": true
+  },
+  "cold_storage_configured": true,
+  "existing_partitions_found": 8,
+  "message": "USB storage mounted successfully and configured as cold storage"
+}
+```
+
+**Error Response (Already Mounted):**
+```json
+{
+  "success": false,
+  "error": "already_mounted",
+  "message": "Partition /dev/sda1 is already mounted at /mnt/usb-archives",
+  "current_mount": {
+    "mount_point": "/mnt/usb-archives",
+    "mounted_at": "2025-03-15T08:30:00Z"
+  }
+}
+```
+
+**Status Codes:**
+- `200 OK` - Mount successful
+- `400 Bad Request` - Invalid partition path or mount point
+- `409 Conflict` - Already mounted
+- `422 Unprocessable Entity` - Mount failed (permissions, filesystem issues)
+- `500 Internal Server Error` - System error
+
+**Safety Checks:**
+1. Verify partition exists and is readable
+2. Check filesystem is supported (ext4, ext3, xfs, btrfs)
+3. Validate mount point is empty or doesn't exist
+4. Create mount point if needed
+5. Test mount with read/write permissions
+6. Create `.velocity-report-archives` marker file
+
+**Systemd Mount Unit:**
+```ini
+# /etc/systemd/system/mnt-usb\x2darchives.mount
+[Unit]
+Description=Velocity Report USB Archive Storage
+After=local-fs.target
+
+[Mount]
+What=/dev/disk/by-uuid/a1b2c3d4-e5f6-7890-abcd-ef1234567890
+Where=/mnt/usb-archives
+Type=ext4
+Options=defaults,noatime
+
+[Install]
+WantedBy=multi-user.target
+```
+
+#### 9. Unmount/Eject USB Storage
+
+**Endpoint:** `POST /api/storage/usb/unmount`
+
+**Purpose:** Safely unmount and eject USB storage (safe removal).
+
+**Request Body:**
+```json
+{
+  "mount_point": "/mnt/usb-archives",
+  "force": false,
+  "detach_partitions": true,
+  "disable_systemd_unit": false
+}
+```
+
+**Parameters:**
+- `mount_point` (required): Mount point path to unmount
+- `force` (optional): Force unmount even if busy. Default: `false`
+- `detach_partitions` (optional): Detach all SQLite partitions on this mount before unmounting. Default: `true`
+- `disable_systemd_unit` (optional): Disable systemd auto-mount unit. Default: `false`
+
+**Response:**
+```json
+{
+  "success": true,
+  "unmount": {
+    "mount_point": "/mnt/usb-archives",
+    "partition_path": "/dev/sda1",
+    "unmounted_at": "2025-03-15T16:45:30Z",
+    "partitions_detached": [
+      "m01_2024",
+      "m02_2024",
+      "m03_2024"
+    ],
+    "systemd_unit_disabled": false
+  },
+  "safe_to_remove": true,
+  "message": "USB storage safely unmounted. Safe to physically remove device."
+}
+```
+
+**Error Response (Busy - Active Queries):**
+```json
+{
+  "success": false,
+  "error": "device_busy",
+  "message": "Cannot unmount: 2 partitions have active queries",
+  "blocking_partitions": [
+    {
+      "alias": "m01_2024",
+      "path": "/mnt/usb-archives/2024-01_data.db",
+      "active_queries": 1,
+      "query_details": [
+        {
+          "query_id": "q_5678",
+          "started_at": "2025-03-15T16:40:00Z",
+          "duration_ms": 5430,
+          "sql": "SELECT COUNT(*) FROM m01_2024.radar_data WHERE ..."
+        }
+      ]
+    }
+  ],
+  "suggestion": "Wait for queries to complete or use force=true (may cause query failures)"
+}
+```
+
+**Status Codes:**
+- `200 OK` - Unmount successful
+- `400 Bad Request` - Invalid mount point
+- `409 Conflict` - Device busy (active queries/files open)
+- `500 Internal Server Error` - System error
+
+**Safety Checks:**
+1. List all SQLite partitions on this mount point
+2. Check for active queries on each partition
+3. If `detach_partitions=true`, detach all partitions
+4. Sync filesystem buffers (`sync`)
+5. Unmount filesystem
+6. Optionally disable systemd unit
+7. Return "safe to remove" confirmation
+
+**Unmount Algorithm:**
+```go
+func SafeUnmountUSB(mountPoint string, opts UnmountOptions) error {
+    // 1. Find all partitions on this mount
+    partitions := FindPartitionsOnMount(mountPoint)
+    
+    // 2. Check for active queries
+    for _, partition := range partitions {
+        if HasActiveQueries(partition) && !opts.Force {
+            return ErrDeviceBusy{partition, GetActiveQueries(partition)}
+        }
+    }
+    
+    // 3. Detach all partitions if requested
+    if opts.DetachPartitions {
+        for _, partition := range partitions {
+            DetachPartition(partition.Alias)
+        }
+    }
+    
+    // 4. Sync filesystem
+    exec.Command("sync").Run()
+    
+    // 5. Unmount
+    if err := syscall.Unmount(mountPoint, 0); err != nil {
+        if opts.Force {
+            syscall.Unmount(mountPoint, syscall.MNT_FORCE)
+        } else {
+            return err
+        }
+    }
+    
+    // 6. Disable systemd unit if requested
+    if opts.DisableSystemdUnit {
+        DisableSystemdMountUnit(mountPoint)
+    }
+    
+    return nil
+}
+```
+
+#### 10. Storage Growth Projection
+
+**Endpoint:** `GET /api/storage/growth`
+
+**Purpose:** Project storage growth rate and predict disk full dates based on historical data collection patterns.
+
+**Query Parameters:**
+- `lookback_days` (optional): Days of historical data to analyze. Default: `30`
+- `projection_months` (optional): Months to project forward. Default: `12`
+
+**Response:**
+```json
+{
+  "analysis_period": {
+    "start": "2025-02-13T00:00:00Z",
+    "end": "2025-03-15T00:00:00Z",
+    "days": 30
+  },
+  "current_storage": {
+    "total_bytes": 8589934592,
+    "total_human": "8.0 GB",
+    "breakdown": {
+      "main_db": {
+        "bytes": 2684354560,
+        "human": "2.5 GB"
+      },
+      "recent_archives": {
+        "bytes": 5368709120,
+        "human": "5.0 GB",
+        "partition_count": 2
+      },
+      "cold_archives": {
+        "bytes": 536870912,
+        "human": "512 MB",
+        "partition_count": 1
+      }
+    }
+  },
+  "growth_rate": {
+    "daily_bytes": 89478485,
+    "daily_human": "85.3 MB/day",
+    "monthly_bytes": 2684354560,
+    "monthly_human": "2.5 GB/month",
+    "yearly_bytes": 32212254720,
+    "yearly_human": "30 GB/year",
+    "trend": "steady",
+    "confidence": 0.92,
+    "data_points": 30
+  },
+  "storage_tiers": {
+    "sd_card": {
+      "location": "/var/lib/velocity-report",
+      "total_bytes": 64424509440,
+      "free_bytes": 51539607552,
+      "used_bytes": 12884901888,
+      "usage_percent": 20.0,
+      "projected_full_date": "2026-09-15T00:00:00Z",
+      "days_until_full": 549,
+      "months_until_full": 18.0,
+      "status": "healthy",
+      "warning_threshold_reached": false
+    },
+    "usb_cold_storage": {
+      "location": "/mnt/usb-archives",
+      "total_bytes": 999653638144,
+      "free_bytes": 712458240000,
+      "used_bytes": 287195398144,
+      "usage_percent": 28.7,
+      "projected_full_date": "2029-12-25T00:00:00Z",
+      "days_until_full": 1745,
+      "months_until_full": 57.2,
+      "status": "healthy",
+      "warning_threshold_reached": false
+    }
+  },
+  "projections": [
+    {
+      "date": "2025-04-15",
+      "total_storage_bytes": 11274289152,
+      "total_storage_human": "10.5 GB",
+      "sd_card_usage_percent": 22.5,
+      "usb_usage_percent": 29.0
+    },
+    {
+      "date": "2025-05-15",
+      "total_storage_bytes": 13958643712,
+      "total_storage_human": "13.0 GB",
+      "sd_card_usage_percent": 25.0,
+      "usb_usage_percent": 29.3
+    },
+    // ... monthly projections for next 12 months
+  ],
+  "recommendations": [
+    {
+      "priority": "low",
+      "category": "capacity_planning",
+      "message": "SD card has 18 months of capacity remaining. No action required.",
+      "action": null
+    },
+    {
+      "priority": "low",
+      "category": "optimization",
+      "message": "Consider enabling compression for partitions older than 6 months to free ~2.1 GB",
+      "action": "enable_compression",
+      "estimated_savings_bytes": 2252341760,
+      "estimated_savings_human": "2.1 GB"
+    }
+  ],
+  "alerts": []
+}
+```
+
+**Alert Scenarios:**
+
+When storage reaches threshold, alerts are included:
+```json
+{
+  "alerts": [
+    {
+      "severity": "warning",
+      "storage_tier": "sd_card",
+      "threshold": "80%",
+      "current_usage": 82.5,
+      "message": "SD card storage at 82.5%. Projected full in 3.2 months.",
+      "recommendations": [
+        "Move old partitions to USB cold storage",
+        "Enable compression for archived partitions",
+        "Reduce retention policy from 36 to 24 months"
+      ]
+    }
+  ]
+}
+```
+
+**Status Codes:**
+- `200 OK` - Growth analysis retrieved
+- `500 Internal Server Error` - Analysis error
+
+**Growth Rate Calculation:**
+```go
+func CalculateGrowthRate(lookbackDays int) GrowthRate {
+    // 1. Query data volume over time
+    dataPoints := QueryDailyDataVolume(lookbackDays)
+    
+    // 2. Linear regression for trend
+    slope, intercept, r2 := LinearRegression(dataPoints)
+    
+    // 3. Calculate daily growth rate
+    dailyBytes := slope
+    
+    // 4. Project monthly/yearly
+    return GrowthRate{
+        DailyBytes:   dailyBytes,
+        MonthlyBytes: dailyBytes * 30,
+        YearlyBytes:  dailyBytes * 365,
+        Confidence:   r2, // R-squared as confidence metric
+        Trend:        CategorizeTrend(slope, dataPoints),
+    }
+}
+
+func ProjectDiskFull(tier StorageTier, growthRate GrowthRate) time.Time {
+    freeBytes := tier.FreeBytes
+    dailyGrowth := growthRate.DailyBytes
+    
+    // Account for tiered storage policy
+    // SD card only holds active + recent (3 months max)
+    if tier.Type == "sd_card" {
+        // Cap at 3 months of data (~9 GB)
+        maxBytes := 3 * growthRate.MonthlyBytes
+        if freeBytes > maxBytes {
+            freeBytes = maxBytes
+        }
+    }
+    
+    daysUntilFull := freeBytes / dailyGrowth
+    return time.Now().AddDate(0, 0, int(daysUntilFull))
+}
+```
+
+#### 11. Configure Storage Alerts
+
+**Endpoint:** `POST /api/storage/alerts/configure`
+
+**Purpose:** Configure automated storage capacity alerts.
+
+**Request Body:**
+```json
+{
+  "enabled": true,
+  "thresholds": {
+    "warning": 75,
+    "critical": 90
+  },
+  "check_interval_minutes": 60,
+  "notification_channels": [
+    {
+      "type": "log",
+      "enabled": true
+    },
+    {
+      "type": "system_events",
+      "enabled": true
+    },
+    {
+      "type": "email",
+      "enabled": false,
+      "config": {
+        "recipients": ["admin@example.com"],
+        "smtp_server": "localhost:25"
+      }
+    }
+  ],
+  "auto_actions": {
+    "compress_old_partitions": true,
+    "move_to_cold_storage": true,
+    "alert_before_full_days": 30
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "config": {
+    "enabled": true,
+    "thresholds": {
+      "warning": 75,
+      "critical": 90
+    },
+    "check_interval_minutes": 60,
+    "next_check": "2025-03-15T17:30:00Z"
+  },
+  "message": "Storage alerts configured successfully"
+}
+```
+
+**Status Codes:**
+- `200 OK` - Configuration updated
+- `400 Bad Request` - Invalid configuration
+- `500 Internal Server Error` - System error
+
+### USB Storage Workflows
+
+#### Workflow 4: Setup USB Cold Storage
+
+**Scenario:** First-time USB drive setup for cold archive storage.
+
+```bash
+# 1. Detect available USB devices
+curl http://localhost:8080/api/storage/usb/devices | jq '.devices'
+
+# 2. Mount USB drive
+curl -X POST http://localhost:8080/api/storage/usb/mount \
+  -H "Content-Type: application/json" \
+  -d '{
+    "partition_path": "/dev/sda1",
+    "mount_point": "/mnt/usb-archives",
+    "create_systemd_unit": true,
+    "set_as_cold_storage": true
+  }'
+
+# 3. Verify mount and configure cold storage tier
+curl http://localhost:8080/api/storage/growth | jq '.storage_tiers.usb_cold_storage'
+
+# 4. Move old partitions to USB storage (example)
+curl -X POST http://localhost:8080/api/partitions/consolidate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_partitions": [
+      "/var/lib/velocity-report/archives/2024-01_data.db",
+      "/var/lib/velocity-report/archives/2024-02_data.db"
+    ],
+    "output_path": "/mnt/usb-archives/2024-Q1_data.db",
+    "delete_sources": true,
+    "strategy": "quarterly"
+  }'
+```
+
+#### Workflow 5: Safe USB Drive Removal
+
+**Scenario:** Remove USB drive for transport or replacement.
+
+```bash
+# 1. Check storage status
+curl http://localhost:8080/api/storage/growth | jq '.storage_tiers.usb_cold_storage'
+
+# 2. Safely unmount (detaches partitions, waits for queries)
+curl -X POST http://localhost:8080/api/storage/usb/unmount \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mount_point": "/mnt/usb-archives",
+    "detach_partitions": true,
+    "force": false
+  }'
+
+# 3. Verify safe to remove
+# Response: {"safe_to_remove": true, "message": "Safe to physically remove device"}
+
+# 4. Physically unplug USB drive
+```
+
+#### Workflow 6: Monitor Growth and Plan Capacity
+
+**Scenario:** Monthly capacity planning check.
+
+```bash
+# 1. Get growth projection
+curl http://localhost:8080/api/storage/growth?lookback_days=30&projection_months=12 \
+  | jq '{
+      growth_rate: .growth_rate,
+      sd_card: .storage_tiers.sd_card | {usage_percent, months_until_full},
+      usb: .storage_tiers.usb_cold_storage | {usage_percent, months_until_full},
+      recommendations: .recommendations
+    }'
+
+# 2. Configure alerts if approaching thresholds
+curl -X POST http://localhost:8080/api/storage/alerts/configure \
+  -H "Content-Type: application/json" \
+  -d '{
+    "enabled": true,
+    "thresholds": {"warning": 75, "critical": 90},
+    "auto_actions": {
+      "compress_old_partitions": true,
+      "alert_before_full_days": 30
+    }
+  }'
+```
+
+### Integration with Existing Endpoints
+
+**Enhanced Partition Listing:**
+
+`GET /api/partitions` now includes storage tier information:
+```json
+{
+  "attached": [
+    {
+      "alias": "m01_2024",
+      "path": "/mnt/usb-archives/2024-01_data.db",
+      "storage_tier": "usb_cold_storage",
+      "mount_point": "/mnt/usb-archives",
+      "removable": true
+    }
+  ]
+}
+```
+
+**Safe Rotation with Storage Checks:**
+
+Rotation process now includes storage capacity pre-flight:
+```go
+func PreRotationChecks() error {
+    // Check buffer safety (existing)
+    bufferSafe := CheckBufferSafety()
+    
+    // NEW: Check storage capacity
+    growth := GetGrowthProjection(30)
+    sdCard := growth.StorageTiers["sd_card"]
+    
+    if sdCard.UsagePercent > 85 {
+        return ErrInsufficientStorage{
+            Message: "SD card at 85%. Move partitions to cold storage before rotation.",
+        }
+    }
+    
+    return nil
+}
+```
+
+---
+
+## Phased Implementation Plan
+
+To manage the scope of this architecture, the implementation is divided into **5 distinct phases**, each deliverable independently:
+
+### Phase 1: Core Partitioning Foundation (Weeks 1-3)
+**Scope:** Basic time-based partitioning without advanced features.
+
+**Deliverables:**
+- Partition rotation algorithm (2nd of month UTC)
+- Create partition database with schema
+- Copy data from main to partition
+- Delete rotated data from main
+- Set partition to read-only (chmod 444)
+- Dynamic ATTACH DATABASE management
+- Union views (`*_all`) for transparent queries
+- Unit and integration tests
+
+**Document:** `docs/features/phase-1-core-partitioning.md`
+
+**Success Criteria:**
+- Automatic monthly rotation working
+- Union views allow seamless historical queries
+- Zero data loss during rotation
+- Performance benchmarks meet targets (1000 inserts/sec)
+
+---
+
+### Phase 2: API Management and Operational Control (Weeks 4-6)
+**Scope:** HTTP API for partition management.
+
+**Deliverables:**
+- `GET /api/partitions` - List attached/available partitions
+- `POST /api/partitions/attach` - Attach historical partitions
+- `POST /api/partitions/detach` - Safely detach partitions
+- `GET /api/partitions/{alias}/metadata` - Partition information
+- `GET /api/partitions/buffers` - Rotation safety checks
+- Authentication and authorization
+- Audit logging to system_events
+- API documentation and OpenAPI spec
+
+**Document:** `docs/features/phase-2-api-management.md`
+
+**Success Criteria:**
+- All API endpoints functional
+- Safety checks prevent write partition detach
+- Buffer protection prevents data loss
+- API documentation complete
+
+---
+
+### Phase 3: USB Storage and Growth Projection (Weeks 7-9)
+**Scope:** Tiered storage with USB drives and capacity planning.
+
+**Deliverables:**
+- `GET /api/storage/usb/devices` - Detect USB storage
+- `POST /api/storage/usb/mount` - Mount USB for cold storage
+- `POST /api/storage/usb/unmount` - Safe USB eject
+- `GET /api/storage/growth` - Growth rate projection
+- `POST /api/storage/alerts/configure` - Capacity alerts
+- Systemd mount unit generation
+- Growth rate calculation with linear regression
+- Disk full date prediction
+- Automated capacity alerts
+
+**Document:** `docs/features/phase-3-usb-storage-growth.md`
+
+**Success Criteria:**
+- USB detection and mounting working
+- Safe eject prevents data loss
+- Growth projections accurate within 10%
+- Alerts trigger at configured thresholds
+
+---
+
+### Phase 4: Consolidation and Cold Storage (Weeks 10-12)
+**Scope:** Partition consolidation and compression for long-term archival.
+
+**Deliverables:**
+- `POST /api/partitions/consolidate` - Combine partitions into yearly archives
+- Async job execution with progress tracking
+- Verification and rollback on failure
+- Optional gzip compression (80% reduction)
+- Automatic tier migration (recent → cold)
+- Retention policy enforcement
+- Storage optimization recommendations
+
+**Document:** `docs/features/phase-4-consolidation-cold-storage.md`
+
+**Success Criteria:**
+- 12 monthly partitions consolidate into 1 yearly archive
+- Compression achieves 70-80% size reduction
+- Consolidation job completes in <15 minutes
+- Rollback works on failure
+- Automated tier migration based on age
+
+---
+
+### Phase 5: Migration, Testing, and Production Rollout (Weeks 13-15)
+**Scope:** Migration tools, testing, and production deployment.
+
+**Deliverables:**
+- Configuration flags (`--enable-partitioning`)
+- Historical backfill tool
+- Partition consolidation CLI wrapper
+- End-to-end testing on Raspberry Pi
+- Performance benchmarks (write/query)
+- Long-running stability tests
+- User setup guide
+- Operations guide
+- Migration guide for existing deployments
+- Alpha/Beta/Stable releases
+
+**Document:** `docs/features/phase-5-migration-production.md`
+
+**Success Criteria:**
+- Existing deployments can migrate with zero downtime
+- Rollback procedure tested and documented
+- Performance meets or exceeds targets
+- 99.9% rotation success rate over 30-day test period
+- Production documentation complete
+
+---
+
+**Total Timeline:** 15 weeks (3.75 months) for complete implementation.
+
+**Parallel Workstreams:** Phases 3-4 can be developed in parallel with Phase 2 if resources allow.
 
 ---
 
