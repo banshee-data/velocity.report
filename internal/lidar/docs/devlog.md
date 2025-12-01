@@ -1,5 +1,38 @@
 # Development Log
 
+## December 1, 2025 - ML Pipeline Roadmap
+
+### Phase 4.0-4.4 Architecture Planning
+- Created comprehensive ML Pipeline Roadmap (`internal/lidar/docs/ml_pipeline_roadmap.md`)
+- Architectural analysis of current state and next steps for complete ML classification pipeline
+
+### Key Components Planned
+- **Phase 4.0 Analysis Run Infrastructure**:
+  - `lidar_analysis_runs` table with `params_json` storing all LIDAR parameters in single JSON blob
+  - `lidar_run_tracks` table linking tracks to runs with user labels and quality flags
+  - Split/merge detection algorithm for comparing runs with different parameters
+  - Run comparison API for identifying track differences across parameter sets
+
+- **Phase 4.1 Track Labeling UI**:
+  - SvelteKit routes: `/lidar/runs/`, `/lidar/labeling/`, `/lidar/compare/`
+  - Track browser, trajectory viewer, labeling panel components (svelte-ux based)
+  - REST API extensions for labeling workflow and review queue
+
+- **Phase 4.2 ML Classifier Training**:
+  - Feature extraction from labeled tracks (spatial, kinematic, temporal, intensity features)
+  - Python training pipeline with scikit-learn
+  - Model deployment in Go with fallback to rule-based classifier
+
+- **Phase 4.3 Parameter Tuning & Optimization**:
+  - Grid search over background, clustering, and tracking parameters
+  - Quality metrics: track count, splits, merges, noise tracks
+  - Objective function for parameter optimization
+
+### Implementation Priority
+Recommended order: 4.0 → 4.1 → 4.3 (parallel) → 4.2 → 4.4
+
+---
+
 ## December 1, 2025 - PCAP Analysis Tool (Phase 3.6)
 
 ### Phase 3.6: PCAP Analysis Tool for Track Categorization and ML Data Extraction

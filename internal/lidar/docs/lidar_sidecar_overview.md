@@ -159,6 +159,8 @@ pcap-analyze -pcap capture.pcap -training -output ./ml_data
 - **Production Deployment**: Documentation for multi-node edge deployment
 - **UI Visualization**: Track display components in web frontend
 
+> **See also:** [ML Pipeline Roadmap](ml_pipeline_roadmap.md) for detailed Phase 4.0-4.4 architecture (analysis runs, labeling UI, ML training, parameter tuning)
+
 ---
 
 ## Module Structure

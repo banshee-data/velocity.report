@@ -1625,7 +1625,15 @@ When pose validation is implemented:
 
 ---
 
-**Document Status:** Implementation Complete through Phase 3.5  
-**Next Action:** UI visualization and integration testing  
-**Last Updated:** November 30, 2025  
+**Document Status:** Implementation Complete through Phase 3.6  
+**Next Action:** Implement Phase 4.0 Analysis Run Infrastructure (see `ml_pipeline_roadmap.md`)  
+**Last Updated:** December 1, 2025  
 **Contact:** Engineering Team
+
+---
+
+## Related Documentation
+
+- **[ML Pipeline Roadmap](ml_pipeline_roadmap.md)** - Complete architectural plan for Phase 4.0-4.4 (analysis runs, labeling UI, ML training, parameter tuning)
+- **[LIDAR Sidecar Overview](lidar_sidecar_overview.md)** - Technical implementation overview and module structure
+- **[Development Log](devlog.md)** - Chronological implementation history
