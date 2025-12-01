@@ -61,7 +61,7 @@ Commands:
   install    Install velocity.report service on a host
   upgrade    Upgrade velocity.report to a newer version
   fix        Diagnose and repair broken installation
-  status     Check service status
+  status     Check service status (use --scan for detailed disk analysis)
   health     Perform health check on running service
   rollback   Rollback to previous version
   backup     Backup database and configuration
@@ -251,6 +251,7 @@ func handleStatus(args []string) {
 	apiPort := fs.Int("api-port", 8080, "API server port")
 	timeout := fs.Int("timeout", 30, "Timeout in seconds")
 	debug := fs.Bool("debug", false, "Enable debug logging")
+	scan := fs.Bool("scan", false, "Perform detailed disk scan to find largest files and directories")
 	fs.Parse(args)
 
 	DebugMode = *debug
@@ -303,6 +304,38 @@ func handleStatus(args []string) {
 	}
 
 	fmt.Print(status.FormatStatus())
+
+	// Perform detailed disk scan if requested
+	if *scan {
+		fmt.Println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Println("🔍 Detailed Disk Scan")
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+		spinner := NewSpinner("Scanning disk usage...")
+		done := make(chan bool)
+		go func() {
+			for {
+				select {
+				case <-done:
+					fmt.Print("\r\033[K") // Clear line
+					return
+				default:
+					fmt.Print(spinner.Next())
+					time.Sleep(100 * time.Millisecond)
+				}
+			}
+		}()
+
+		diskScan, err := monitor.ScanDiskUsage(ctx)
+		done <- true
+		time.Sleep(100 * time.Millisecond)
+
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Disk scan failed: %v\n", err)
+		} else {
+			fmt.Print(diskScan)
+		}
+	}
 }
 
 func handleHealth(args []string) {

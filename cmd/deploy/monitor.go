@@ -479,3 +479,249 @@ func (m *Monitor) CheckHealth() (*HealthStatus, error) {
 
 	return health, nil
 }
+
+// DiskItem represents a file or directory with its size
+type DiskItem struct {
+	Path string
+	Size string
+	Type string // "file" or "directory"
+}
+
+// ScanDiskUsage performs a detailed disk scan to find largest files and directories
+func (m *Monitor) ScanDiskUsage(ctx context.Context) (string, error) {
+	exec := NewExecutor(m.Target, m.SSHUser, m.SSHKey, m.IdentityAgent, false)
+
+	var output strings.Builder
+
+	// Find top 3 largest directories
+	fmt.Print("\n📁 Scanning directories...")
+	dirCmd := `find /var/lib/velocity-report /home /opt 2>/dev/null -type d -exec du -sh {} + 2>/dev/null | sort -rh | head -3`
+	dirOutput, err := exec.RunSudo(dirCmd)
+	fmt.Print("\r\033[K") // Clear line
+
+	output.WriteString("\n📁 Top 3 Largest Directories:\n")
+	if err != nil {
+		output.WriteString(fmt.Sprintf("  ⚠ Failed to scan directories: %v\n", err))
+	} else {
+		lines := strings.Split(strings.TrimSpace(dirOutput), "\n")
+		for i, line := range lines {
+			if line != "" {
+				parts := strings.Fields(line)
+				if len(parts) >= 2 {
+					size := parts[0]
+					path := strings.Join(parts[1:], " ")
+					output.WriteString(fmt.Sprintf("  %d. %s - %s\n", i+1, size, path))
+				}
+			}
+		}
+	}
+	fmt.Print(output.String())
+	output.Reset()
+
+	// Find top 3 largest files (traverse all directories)
+	fmt.Print("📄 Scanning files...")
+	fileCmd := `find /var/lib/velocity-report /home /opt 2>/dev/null -type f -exec du -h {} + 2>/dev/null | sort -rh | head -3`
+	fileOutput, err := exec.RunSudo(fileCmd)
+	fmt.Print("\r\033[K") // Clear line
+
+	output.WriteString("\n📄 Top 3 Largest Files:\n")
+	if err != nil {
+		output.WriteString(fmt.Sprintf("  ⚠ Failed to scan files: %v\n", err))
+	} else {
+		lines := strings.Split(strings.TrimSpace(fileOutput), "\n")
+		for i, line := range lines {
+			if line != "" {
+				parts := strings.Fields(line)
+				if len(parts) >= 2 {
+					size := parts[0]
+					path := strings.Join(parts[1:], " ")
+					output.WriteString(fmt.Sprintf("  %d. %s - %s\n", i+1, size, path))
+				}
+			}
+		}
+	}
+	fmt.Print(output.String())
+	output.Reset()
+
+	// Show velocity-report specific data breakdown
+	fmt.Print("📊 Scanning data directory...")
+	dataCmd := `du -sh /var/lib/velocity-report/* 2>/dev/null | sort -rh`
+	dataOutput, err := exec.RunSudo(dataCmd)
+	fmt.Print("\r\033[K") // Clear line
+
+	output.WriteString("\n📊 Velocity Report Data Directory:\n")
+	if err != nil {
+		output.WriteString(fmt.Sprintf("  ⚠ Failed to scan data directory: %v\n", err))
+	} else {
+		lines := strings.Split(strings.TrimSpace(dataOutput), "\n")
+		for _, line := range lines {
+			if line != "" {
+				parts := strings.Fields(line)
+				if len(parts) >= 2 {
+					size := parts[0]
+					path := strings.Join(parts[1:], " ")
+					// Extract just the filename
+					filename := path
+					if idx := strings.LastIndex(path, "/"); idx >= 0 {
+						filename = path[idx+1:]
+					}
+					output.WriteString(fmt.Sprintf("  • %s - %s\n", size, filename))
+				}
+			}
+		}
+	}
+	fmt.Print(output.String())
+	output.Reset()
+
+	// Database file analysis (if database exists)
+	fmt.Print("🗄️  Analyzing database...")
+	output.WriteString("\n🗄️  Database Statistics:\n")
+	dbPath := "/var/lib/velocity-report/sensor_data.db"
+	dbCheck, err := exec.RunSudo(fmt.Sprintf("test -f %s && echo 'exists' || echo 'missing'", dbPath))
+	if err == nil && strings.TrimSpace(dbCheck) == "exists" {
+		// Get database size in MB
+		sizeCmd := fmt.Sprintf("du -b %s | cut -f1", dbPath)
+		sizeOutput, err := exec.RunSudo(sizeCmd)
+		if err == nil {
+			bytes := strings.TrimSpace(sizeOutput)
+			sizeMBCmd := fmt.Sprintf("echo 'scale=2; %s / 1048576' | bc 2>/dev/null || echo 'N/A'", bytes)
+			sizeMB, err := exec.RunSudo(sizeMBCmd)
+			if err == nil && strings.TrimSpace(sizeMB) != "N/A" {
+				output.WriteString(fmt.Sprintf("  Total Size: %s MB\n", strings.TrimSpace(sizeMB)))
+			}
+		}
+
+		// Get size per table (requires sqlite3)
+		tablesCmd := fmt.Sprintf(`sqlite3 %s "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name" 2>/dev/null`, dbPath)
+		tablesOutput, err := exec.RunSudo(tablesCmd)
+		if err == nil && tablesOutput != "" {
+			tables := strings.Split(strings.TrimSpace(tablesOutput), "\n")
+			output.WriteString("  \n  Size per Table (MB):\n")
+
+			for _, table := range tables {
+				table = strings.TrimSpace(table)
+				if table == "" {
+					continue
+				}
+
+				// Get row count
+				countCmd := fmt.Sprintf(`sqlite3 %s "SELECT COUNT(*) FROM %s" 2>/dev/null`, dbPath, table)
+				countOutput, err := exec.RunSudo(countCmd)
+				if err == nil {
+					count := strings.TrimSpace(countOutput)
+
+					// Estimate size in MB using dbstat
+					sizeEstCmd := fmt.Sprintf(`sqlite3 %s "SELECT ROUND(CAST(SUM(payload) / 1048576.0 AS REAL), 2) FROM dbstat WHERE name='%s'" 2>/dev/null || echo '0.00'`, dbPath, table)
+					sizeEst, err := exec.RunSudo(sizeEstCmd)
+					if err == nil {
+						sizeMB := strings.TrimSpace(sizeEst)
+						if sizeMB == "" || sizeMB == "0.00" {
+							sizeMB = "< 0.01"
+						}
+						output.WriteString(fmt.Sprintf("    • %-20s %10s rows    %8s MB\n", table, count, sizeMB))
+					} else {
+						output.WriteString(fmt.Sprintf("    • %-20s %10s rows\n", table, count))
+					}
+				}
+			}
+		}
+
+		// Count total records in sensor_data (if table exists)
+		countCmd := fmt.Sprintf("sqlite3 %s 'SELECT COUNT(*) FROM sensor_data' 2>/dev/null || echo 'N/A'", dbPath)
+		countOutput, err := exec.RunSudo(countCmd)
+		if err == nil && strings.TrimSpace(countOutput) != "N/A" {
+			output.WriteString(fmt.Sprintf("  \n  Total Records: %s\n", strings.TrimSpace(countOutput)))
+		}
+
+		// Get date range (if sqlite3 is available)
+		rangeCmd := fmt.Sprintf("sqlite3 %s \"SELECT MIN(timestamp), MAX(timestamp) FROM sensor_data\" 2>/dev/null || echo 'N/A'", dbPath)
+		rangeOutput, err := exec.RunSudo(rangeCmd)
+		if err == nil && strings.TrimSpace(rangeOutput) != "N/A" {
+			parts := strings.Split(strings.TrimSpace(rangeOutput), "|")
+			if len(parts) == 2 {
+				output.WriteString(fmt.Sprintf("  Date Range: %s to %s\n", parts[0], parts[1]))
+			}
+		}
+	} else {
+		output.WriteString("  ⚠ Database file not found\n")
+	}
+	fmt.Print("\r\033[K") // Clear line
+	fmt.Print(output.String())
+	output.Reset()
+
+	// Backup analysis
+	fmt.Print("💾 Analyzing backups...")
+	output.WriteString("\n💾 Backup Statistics:\n")
+	backupDir := "/var/lib/velocity-report/backups"
+
+	// Count existing backups
+	backupCountCmd := fmt.Sprintf("find %s -maxdepth 1 -type d ! -path %s 2>/dev/null | wc -l", backupDir, backupDir)
+	backupCountOutput, err := exec.RunSudo(backupCountCmd)
+	if err == nil {
+		backupCount := strings.TrimSpace(backupCountOutput)
+		output.WriteString(fmt.Sprintf("  Existing Backups: %s\n", backupCount))
+
+		// Get total backup directory size
+		backupSizeCmd := fmt.Sprintf("du -sb %s 2>/dev/null | cut -f1", backupDir)
+		backupSizeOutput, err := exec.RunSudo(backupSizeCmd)
+		if err == nil {
+			bytes := strings.TrimSpace(backupSizeOutput)
+			// Convert to MB
+			sizeMBCmd := fmt.Sprintf("echo 'scale=2; %s / 1048576' | bc 2>/dev/null || echo 'N/A'", bytes)
+			sizeMB, err := exec.RunSudo(sizeMBCmd)
+			if err == nil && strings.TrimSpace(sizeMB) != "N/A" {
+				output.WriteString(fmt.Sprintf("  Total Backup Size: %s MB\n", strings.TrimSpace(sizeMB)))
+			}
+
+			// Calculate average backup size
+			if backupCount != "0" {
+				avgSizeCmd := fmt.Sprintf("echo 'scale=2; %s / %s / 1048576' | bc 2>/dev/null || echo 'N/A'", bytes, backupCount)
+				avgSize, err := exec.RunSudo(avgSizeCmd)
+				if err == nil && strings.TrimSpace(avgSize) != "N/A" {
+					avgSizeMB := strings.TrimSpace(avgSize)
+					output.WriteString(fmt.Sprintf("  Avg Backup Size: %s MB\n", avgSizeMB))
+
+					// Calculate available space and potential backups
+					dfCmd := "df /var/lib/velocity-report | tail -1 | awk '{print $4}'"
+					availOutput, err := exec.RunSudo(dfCmd)
+					if err == nil {
+						availKB := strings.TrimSpace(availOutput)
+						// Convert KB to MB and calculate how many more backups will fit
+						moreBackupsCmd := fmt.Sprintf("echo 'scale=0; (%s / 1024) / %s' | bc 2>/dev/null || echo 'N/A'", availKB, avgSizeMB)
+						moreBackups, err := exec.RunSudo(moreBackupsCmd)
+						if err == nil && strings.TrimSpace(moreBackups) != "N/A" {
+							output.WriteString(fmt.Sprintf("  More Backups Possible: ~%s (based on available space)\n", strings.TrimSpace(moreBackups)))
+						}
+					}
+				}
+			}
+		}
+
+		// List most recent backups
+		recentCmd := fmt.Sprintf("ls -t %s 2>/dev/null | head -5", backupDir)
+		recentOutput, err := exec.RunSudo(recentCmd)
+		if err == nil && recentOutput != "" {
+			output.WriteString("  \n  Most Recent Backups:\n")
+			recent := strings.Split(strings.TrimSpace(recentOutput), "\n")
+			for i, backup := range recent {
+				if backup != "" && i < 5 {
+					// Get size of this backup
+					backupPath := fmt.Sprintf("%s/%s", backupDir, backup)
+					sizeCmd := fmt.Sprintf("du -sh %s 2>/dev/null | cut -f1", backupPath)
+					size, err := exec.RunSudo(sizeCmd)
+					if err == nil {
+						output.WriteString(fmt.Sprintf("    • %s (%s)\n", backup, strings.TrimSpace(size)))
+					} else {
+						output.WriteString(fmt.Sprintf("    • %s\n", backup))
+					}
+				}
+			}
+		}
+	} else {
+		output.WriteString("  ⚠ Backup directory not found\n")
+	}
+	fmt.Print("\r\033[K") // Clear line
+	fmt.Print(output.String())
+
+	return "\n", nil
+}
