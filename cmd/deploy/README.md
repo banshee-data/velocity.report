@@ -65,6 +65,7 @@ make build-radar-linux
 ```
 
 The health check verifies:
+
 - Systemd service is running
 - No excessive errors in logs
 - API endpoint is responding
@@ -84,6 +85,7 @@ make build-radar-linux
 ```
 
 The upgrade process:
+
 1. Checks current installation
 2. Creates backup of binary and database
 3. Stops service
@@ -111,6 +113,7 @@ This restores the most recent backup.
 ```
 
 Creates timestamped backup directory containing:
+
 - Binary
 - Database
 - Service file
@@ -123,6 +126,7 @@ Creates timestamped backup directory containing:
 ```
 
 Shows:
+
 - Service file contents
 - Data directory listing
 - Service status
@@ -135,6 +139,7 @@ Shows:
 ```
 
 Interactive editor for service configuration, allowing you to modify:
+
 - API port (`--listen`)
 - Speed units (`--units`)
 - Timezone (`--timezone`)
@@ -144,12 +149,12 @@ Interactive editor for service configuration, allowing you to modify:
 
 ### Global Flags
 
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--target` | Target host (user@host or hostname) | `localhost` |
-| `--ssh-user` | SSH username | Current user |
-| `--ssh-key` | Path to SSH private key | None (uses default) |
-| `--dry-run` | Show what would be done without executing | `false` |
+| Flag         | Description                               | Default             |
+| ------------ | ----------------------------------------- | ------------------- |
+| `--target`   | Target host (user@host or hostname)       | `localhost`         |
+| `--ssh-user` | SSH username                              | Current user        |
+| `--ssh-key`  | Path to SSH private key                   | None (uses default) |
+| `--dry-run`  | Show what would be done without executing | `false`             |
 
 ### Commands
 
@@ -158,12 +163,15 @@ Interactive editor for service configuration, allowing you to modify:
 Install velocity.report service.
 
 **Required flags:**
+
 - `--binary`: Path to velocity-report binary
 
 **Optional flags:**
+
 - `--db-path`: Path to existing database to migrate
 
 **Example:**
+
 ```bash
 velocity-deploy install --binary ./app-radar-linux-arm64 --db-path ./sensor_data.db
 ```
@@ -173,12 +181,15 @@ velocity-deploy install --binary ./app-radar-linux-arm64 --db-path ./sensor_data
 Upgrade to a new version.
 
 **Required flags:**
+
 - `--binary`: Path to new velocity-report binary
 
 **Optional flags:**
+
 - `--no-backup`: Skip backup before upgrade
 
 **Example:**
+
 ```bash
 velocity-deploy upgrade --binary ./app-radar-linux-arm64
 ```
@@ -188,6 +199,7 @@ velocity-deploy upgrade --binary ./app-radar-linux-arm64
 Check systemd service status.
 
 **Example:**
+
 ```bash
 velocity-deploy status --target pi@192.168.1.100
 ```
@@ -197,9 +209,11 @@ velocity-deploy status --target pi@192.168.1.100
 Perform comprehensive health check.
 
 **Optional flags:**
+
 - `--api-port`: API server port (default: 8080)
 
 **Example:**
+
 ```bash
 velocity-deploy health --target pi@192.168.1.100 --api-port 8080
 ```
@@ -209,6 +223,7 @@ velocity-deploy health --target pi@192.168.1.100 --api-port 8080
 Rollback to previous version from backup.
 
 **Example:**
+
 ```bash
 velocity-deploy rollback --target pi@192.168.1.100
 ```
@@ -218,9 +233,11 @@ velocity-deploy rollback --target pi@192.168.1.100
 Create backup of installation.
 
 **Optional flags:**
+
 - `--output`: Output directory for backup (default: current directory)
 
 **Example:**
+
 ```bash
 velocity-deploy backup --target pi@192.168.1.100 --output ./backups
 ```
@@ -230,10 +247,12 @@ velocity-deploy backup --target pi@192.168.1.100 --output ./backups
 Manage configuration.
 
 **Required flags (one of):**
+
 - `--show`: Display current configuration
 - `--edit`: Edit configuration interactively
 
 **Example:**
+
 ```bash
 velocity-deploy config --show
 velocity-deploy config --edit
@@ -244,6 +263,7 @@ velocity-deploy config --edit
 Show velocity-deploy version.
 
 **Example:**
+
 ```bash
 velocity-deploy version
 ```
@@ -261,6 +281,7 @@ velocity-deploy version
 ### Service User
 
 The service runs as dedicated user `velocity` with:
+
 - No shell access (`/usr/sbin/nologin`)
 - Ownership of data directory
 - Restricted permissions
@@ -268,6 +289,7 @@ The service runs as dedicated user `velocity` with:
 ### Systemd Service
 
 Standard systemd service with:
+
 - Automatic restart on failure
 - Journal logging
 - Dependency on network
@@ -311,11 +333,13 @@ velocity-deploy upgrade --target production --binary ./app-radar-linux-arm64
 If not using SSH config, ensure:
 
 1. **SSH access** is configured:
+
    ```bash
    ssh-copy-id pi@192.168.1.100
    ```
 
 2. **Sudo access** without password (for pi user):
+
    ```bash
    # On the target host
    echo "pi ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/pi
@@ -343,12 +367,14 @@ velocity-deploy install --target mypi --ssh-key ~/.ssh/different_key --binary ./
 ### Installation fails with "permission denied"
 
 Ensure you're running with appropriate privileges:
+
 - Local: May need `sudo` for system directories
 - Remote: Target user needs sudo access
 
 ### Health check fails on API endpoint
 
 Check:
+
 1. Service is running: `velocity-deploy status`
 2. Firewall allows port 8080
 3. API port matches config: `--api-port`
@@ -356,12 +382,14 @@ Check:
 ### Rollback fails with "no backups found"
 
 Backups are created automatically during upgrades. If none exist:
+
 1. Create backup first: `velocity-deploy backup`
 2. Or reinstall: `velocity-deploy install`
 
 ### Remote deployment hangs
 
 Check:
+
 1. SSH connectivity: `ssh user@host`
 2. Network latency
 3. Target host resources (disk space, memory)
@@ -398,21 +426,6 @@ Create a test environment:
 # Test on local machine first
 ./velocity-deploy install --binary ./app-radar-linux-arm64 --target localhost
 ```
-
-## Future Enhancements
-
-Planned features:
-
-- [ ] Multi-host orchestration
-- [ ] Configuration file for managing multiple sites
-- [ ] Automatic version checking and updates
-- [ ] Prometheus metrics export
-- [ ] Email notifications for health issues
-- [ ] Web UI for deployment management
-
-## Contributing
-
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for development guidelines.
 
 ## License
 
