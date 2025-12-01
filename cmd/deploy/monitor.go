@@ -201,13 +201,12 @@ func (m *Monitor) GetStatus(ctx context.Context) (*SystemStatus, error) {
 		}
 	}
 
-	// Check API if service is active
+	// Check API if service is active - use SSH to curl from the target machine
 	if status.ServiceActive && m.APIPort > 0 {
-		apiURL := fmt.Sprintf("http://%s:%d/health", m.Target, m.APIPort)
-		client := &http.Client{Timeout: 2 * time.Second}
-		if resp, err := client.Get(apiURL); err == nil {
-			status.APIResponding = resp.StatusCode == 200
-			resp.Body.Close()
+		checkCmd := fmt.Sprintf("curl -s -o /dev/null -w '%%{http_code}' http://localhost:%d/api/config", m.APIPort)
+		output, err := exec.Run(checkCmd)
+		if err == nil && strings.TrimSpace(output) == "200" {
+			status.APIResponding = true
 		}
 	}
 
