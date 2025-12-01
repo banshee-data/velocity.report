@@ -19,13 +19,12 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/parse"
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcap"
 	_ "modernc.org/sqlite"
 )
 
@@ -191,30 +190,211 @@ func parseFlags() Config {
 	return config
 }
 
+// analysisStats implements network.PacketStatsInterface for tracking analysis statistics.
+type analysisStats struct {
+	mu       sync.Mutex
+	packets  int
+	points   int
+	dropped  int
+	firstPkt time.Time
+	lastPkt  time.Time
+}
+
+func (s *analysisStats) AddPacket(bytes int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.packets++
+	now := time.Now()
+	if s.firstPkt.IsZero() {
+		s.firstPkt = now
+	}
+	s.lastPkt = now
+}
+
+func (s *analysisStats) AddDropped() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.dropped++
+}
+
+func (s *analysisStats) AddPoints(count int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.points += count
+}
+
+func (s *analysisStats) LogStats(parsePackets bool) {
+	// No-op for analysis mode - we report at the end
+}
+
+func (s *analysisStats) getStats() (packets, points int, duration time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.packets, s.points, s.lastPkt.Sub(s.firstPkt)
+}
+
+// analysisFrameBuilder implements network.FrameBuilder for collecting frames and processing.
+type analysisFrameBuilder struct {
+	mu             sync.Mutex
+	points         []lidar.PointPolar
+	lastAzimuth    float64
+	frameStartTime time.Time
+	frameCount     int
+	motorSpeed     uint16
+
+	// Processing components
+	bgManager  *lidar.BackgroundManager
+	tracker    *lidar.Tracker
+	classifier *lidar.TrackClassifier
+	config     Config
+
+	// Results
+	result         *AnalysisResult
+	trainingFrames []*TrainingFrame
+}
+
+func newAnalysisFrameBuilder(config Config, result *AnalysisResult) *analysisFrameBuilder {
+	return &analysisFrameBuilder{
+		points:     make([]lidar.PointPolar, 0, 50000),
+		bgManager:  createBackgroundManager(config.SensorID),
+		tracker:    lidar.NewTracker(lidar.DefaultTrackerConfig()),
+		classifier: lidar.NewTrackClassifier(),
+		config:     config,
+		result:     result,
+	}
+}
+
+func (fb *analysisFrameBuilder) AddPointsPolar(points []lidar.PointPolar) {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+
+	if len(points) == 0 {
+		return
+	}
+
+	// Track packet timestamps
+	pktTime := time.Unix(0, points[0].Timestamp)
+	if fb.frameStartTime.IsZero() {
+		fb.frameStartTime = pktTime
+	}
+
+	// Detect frame completion (360° rotation)
+	for _, p := range points {
+		// Check for azimuth wrap (new frame)
+		if fb.lastAzimuth > 270 && p.Azimuth < 90 {
+			// Frame complete - process it
+			if len(fb.points) > 0 {
+				fb.processCurrentFrame()
+				fb.frameCount++
+			}
+
+			// Start new frame
+			fb.points = fb.points[:0]
+			fb.frameStartTime = pktTime
+		}
+
+		fb.points = append(fb.points, p)
+		fb.lastAzimuth = p.Azimuth
+	}
+}
+
+func (fb *analysisFrameBuilder) SetMotorSpeed(rpm uint16) {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+	fb.motorSpeed = rpm
+}
+
+func (fb *analysisFrameBuilder) processCurrentFrame() {
+	// Step 1: Foreground extraction
+	mask, err := fb.bgManager.ProcessFramePolarWithMask(fb.points)
+	if err != nil || mask == nil {
+		return
+	}
+
+	// Extract foreground points
+	foregroundPoints := lidar.ExtractForegroundPoints(fb.points, mask)
+	foregroundCount := len(foregroundPoints)
+
+	fb.result.TotalFrames++
+	fb.result.ForegroundPoints += foregroundCount
+	fb.result.BackgroundPoints += len(fb.points) - foregroundCount
+
+	if foregroundCount == 0 {
+		return
+	}
+
+	// Step 2: Transform to world frame
+	worldPoints := lidar.TransformToWorld(foregroundPoints, nil, fb.config.SensorID)
+
+	// Step 3: Cluster
+	clusters := lidar.DBSCAN(worldPoints, lidar.DefaultDBSCANParams())
+	fb.result.TotalClusters += len(clusters)
+
+	if len(clusters) == 0 {
+		return
+	}
+
+	// Step 4: Track
+	fb.tracker.Update(clusters, fb.frameStartTime)
+
+	// Step 5: Classify confirmed tracks
+	for _, track := range fb.tracker.GetConfirmedTracks() {
+		if track.ObjectClass == "" && track.ObservationCount >= 5 {
+			fb.classifier.ClassifyAndUpdate(track)
+		}
+	}
+
+	// Collect training data if requested
+	if fb.config.ExportTraining && foregroundCount > 0 {
+		trainingFrame := &TrainingFrame{
+			FrameID:          fb.frameCount,
+			Timestamp:        fb.frameStartTime,
+			SensorID:         fb.config.SensorID,
+			TotalPoints:      len(fb.points),
+			ForegroundPoints: foregroundCount,
+			Clusters:         len(clusters),
+			ActiveTracks:     len(fb.tracker.GetActiveTracks()),
+			ForegroundBlob:   lidar.EncodeForegroundBlob(foregroundPoints),
+		}
+		fb.trainingFrames = append(fb.trainingFrames, trainingFrame)
+	}
+
+	if fb.config.Verbose && fb.frameCount%100 == 0 {
+		log.Printf("Frame %d: %d points, %d foreground, %d clusters, %d tracks",
+			fb.frameCount, len(fb.points), foregroundCount,
+			len(clusters), len(fb.tracker.GetActiveTracks()))
+	}
+}
+
+func (fb *analysisFrameBuilder) finalize() {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+
+	// Process final partial frame
+	if len(fb.points) > 0 {
+		fb.processCurrentFrame()
+	}
+}
+
+func (fb *analysisFrameBuilder) getTracker() *lidar.Tracker {
+	return fb.tracker
+}
+
+func (fb *analysisFrameBuilder) getClassifier() *lidar.TrackClassifier {
+	return fb.classifier
+}
+
+func (fb *analysisFrameBuilder) getTrainingFrames() []*TrainingFrame {
+	return fb.trainingFrames
+}
+
 func analyzePCAP(config Config) (*AnalysisResult, error) {
 	startTime := time.Now()
 
-	// Open PCAP file
-	handle, err := pcap.OpenOffline(config.PCAPFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open PCAP: %w", err)
-	}
-	defer handle.Close()
-
-	// Set BPF filter for UDP port
-	filterStr := fmt.Sprintf("udp port %d", config.UDPPort)
-	if err := handle.SetBPFFilter(filterStr); err != nil {
-		return nil, fmt.Errorf("failed to set BPF filter: %w", err)
-	}
-
-	// Initialize components
+	// Initialize parser
 	parserConfig := parse.LoadEmbeddedPandar40PConfig()
 	parser := parse.NewPandar40PParser(parserConfig)
 	parser.SetTimestampMode(parse.TimestampModeSystemTime)
-
-	bgManager := createBackgroundManager(config.SensorID)
-	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
-	classifier := lidar.NewTrackClassifier()
 
 	// Result tracking
 	result := &AnalysisResult{
@@ -222,124 +402,29 @@ func analyzePCAP(config Config) (*AnalysisResult, error) {
 		TracksByClass: make(map[string]int),
 	}
 
-	// Frame building state
-	var framePoints []lidar.PointPolar
-	var lastAzimuth float64
-	var frameStartTime time.Time
-	frameCount := 0
-	var firstPacketTime, lastPacketTime time.Time
+	// Create analysis-specific frame builder that processes tracking pipeline
+	stats := &analysisStats{}
+	frameBuilder := newAnalysisFrameBuilder(config, result)
 
-	// Training data collection
-	var trainingFrames []*TrainingFrame
-
-	// Process packets
-	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
+	// Use shared PCAP reading infrastructure from internal/lidar/network
 	ctx := context.Background()
-
-	for packet := range packetSource.Packets() {
-		select {
-		case <-ctx.Done():
-			break
-		default:
-		}
-
-		udpLayer := packet.Layer(layers.LayerTypeUDP)
-		if udpLayer == nil {
-			continue
-		}
-
-		udp := udpLayer.(*layers.UDP)
-		payload := udp.Payload
-		if len(payload) == 0 {
-			continue
-		}
-
-		result.TotalPackets++
-
-		// Parse packet
-		points, err := parser.ParsePacket(payload)
-		if err != nil {
-			if config.Verbose {
-				log.Printf("Parse error: %v", err)
-			}
-			continue
-		}
-
-		if len(points) == 0 {
-			continue
-		}
-
-		result.TotalPoints += len(points)
-
-		// Track packet timestamps
-		pktTime := time.Unix(0, points[0].Timestamp)
-		if firstPacketTime.IsZero() {
-			firstPacketTime = pktTime
-			frameStartTime = pktTime
-		}
-		lastPacketTime = pktTime
-
-		// Detect frame completion (360° rotation)
-		for _, p := range points {
-			// Check for azimuth wrap (new frame)
-			if lastAzimuth > 270 && p.Azimuth < 90 {
-				// Frame complete - process it
-				if len(framePoints) > 0 {
-					frameResult := processFrame(
-						bgManager, tracker, classifier,
-						framePoints, frameStartTime, config,
-					)
-
-					result.TotalFrames++
-					result.ForegroundPoints += frameResult.foregroundCount
-					result.BackgroundPoints += len(framePoints) - frameResult.foregroundCount
-					result.TotalClusters += frameResult.clusterCount
-
-					// Collect training data if requested
-					if config.ExportTraining && frameResult.foregroundCount > 0 {
-						trainingFrame := &TrainingFrame{
-							FrameID:          frameCount,
-							Timestamp:        frameStartTime,
-							SensorID:         config.SensorID,
-							TotalPoints:      len(framePoints),
-							ForegroundPoints: frameResult.foregroundCount,
-							Clusters:         frameResult.clusterCount,
-							ActiveTracks:     len(tracker.GetActiveTracks()),
-							ForegroundBlob:   lidar.EncodeForegroundBlob(frameResult.foregroundPoints),
-						}
-						trainingFrames = append(trainingFrames, trainingFrame)
-					}
-
-					if config.Verbose && frameCount%100 == 0 {
-						log.Printf("Frame %d: %d points, %d foreground, %d clusters, %d tracks",
-							frameCount, len(framePoints), frameResult.foregroundCount,
-							frameResult.clusterCount, len(tracker.GetActiveTracks()))
-					}
-
-					frameCount++
-				}
-
-				// Start new frame
-				framePoints = framePoints[:0]
-				frameStartTime = pktTime
-			}
-
-			framePoints = append(framePoints, p)
-			lastAzimuth = p.Azimuth
-		}
+	if err := network.ReadPCAPFile(ctx, config.PCAPFile, config.UDPPort, parser, frameBuilder, stats); err != nil {
+		return nil, fmt.Errorf("failed to read PCAP: %w", err)
 	}
 
-	// Process final partial frame
-	if len(framePoints) > 0 {
-		processFrame(bgManager, tracker, classifier, framePoints, frameStartTime, config)
-		result.TotalFrames++
-	}
+	// Finalize any remaining frame data
+	frameBuilder.finalize()
 
-	// Compute duration
-	result.Duration = lastPacketTime.Sub(firstPacketTime)
-	result.DurationSecs = result.Duration.Seconds()
+	// Get statistics from the shared reader
+	packets, points, duration := stats.getStats()
+	result.TotalPackets = packets
+	result.TotalPoints = points
+	result.Duration = duration
+	result.DurationSecs = duration.Seconds()
 
 	// Collect track results
+	tracker := frameBuilder.getTracker()
+	classifier := frameBuilder.getClassifier()
 	allTracks := tracker.GetAllTracks()
 
 	result.TotalTracks = len(allTracks)
@@ -403,6 +488,7 @@ func analyzePCAP(config Config) (*AnalysisResult, error) {
 	result.ProcessingTimeMs = time.Since(startTime).Milliseconds()
 
 	// Training frame count
+	trainingFrames := frameBuilder.getTrainingFrames()
 	result.TrainingFrames = len(trainingFrames)
 
 	// Persist to DB if requested
@@ -420,61 +506,6 @@ func analyzePCAP(config Config) (*AnalysisResult, error) {
 	}
 
 	return result, nil
-}
-
-type frameProcessResult struct {
-	foregroundCount  int
-	clusterCount     int
-	foregroundPoints []lidar.PointPolar
-}
-
-func processFrame(
-	bgManager *lidar.BackgroundManager,
-	tracker *lidar.Tracker,
-	classifier *lidar.TrackClassifier,
-	points []lidar.PointPolar,
-	timestamp time.Time,
-	config Config,
-) frameProcessResult {
-	result := frameProcessResult{}
-
-	// Step 1: Foreground extraction
-	mask, err := bgManager.ProcessFramePolarWithMask(points)
-	if err != nil || mask == nil {
-		return result
-	}
-
-	// Extract foreground points
-	foregroundPoints := lidar.ExtractForegroundPoints(points, mask)
-	result.foregroundCount = len(foregroundPoints)
-	result.foregroundPoints = foregroundPoints
-
-	if len(foregroundPoints) == 0 {
-		return result
-	}
-
-	// Step 2: Transform to world frame
-	worldPoints := lidar.TransformToWorld(foregroundPoints, nil, config.SensorID)
-
-	// Step 3: Cluster
-	clusters := lidar.DBSCAN(worldPoints, lidar.DefaultDBSCANParams())
-	result.clusterCount = len(clusters)
-
-	if len(clusters) == 0 {
-		return result
-	}
-
-	// Step 4: Track
-	tracker.Update(clusters, timestamp)
-
-	// Step 5: Classify confirmed tracks
-	for _, track := range tracker.GetConfirmedTracks() {
-		if track.ObjectClass == "" && track.ObservationCount >= 5 {
-			classifier.ClassifyAndUpdate(track)
-		}
-	}
-
-	return result
 }
 
 func createBackgroundManager(sensorID string) *lidar.BackgroundManager {
