@@ -294,16 +294,16 @@ func (s *SystemStatus) FormatStatus() string {
 
 	// Database
 	if s.DatabaseOK {
-		b.WriteString(fmt.Sprintf("🛢 Database      ✅ %s\n", s.DatabaseSize))
+		b.WriteString(fmt.Sprintf("🛢  Database     ✅ %s\n", s.DatabaseSize))
 	} else {
-		b.WriteString("🛢 Database      ❌ missing\n")
+		b.WriteString("🛢  Database     ❌ missing\n")
 	}
 
 	// Logs
 	if s.LogOK {
-		b.WriteString(fmt.Sprintf("🪵 Logs          ✅ %d errors\n", s.LogErrors))
+		b.WriteString(fmt.Sprintf("🪵  Logs         ✅ %d errors\n", s.LogErrors))
 	} else {
-		b.WriteString(fmt.Sprintf("🪵 Logs          ⚠️  %d errors\n", s.LogErrors))
+		b.WriteString(fmt.Sprintf("🪵  Logs         ⚠️  %d errors\n", s.LogErrors))
 	}
 
 	// Service Status - compact
