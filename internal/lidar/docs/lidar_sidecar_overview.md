@@ -1,7 +1,7 @@
 # LiDAR Sidecar — Technical Implementation Overview
 
-**Status:** Phase 3.5 completed (REST API Endpoints), UI visualization planned  
-**Scope:** Hesai UDP → parse → frame assembly → background subtraction → foreground mask → clustering → tracking → classification → HTTP API  
+**Status:** Phase 3.6 completed (PCAP Analysis Tool), UI visualization planned  
+**Scope:** Hesai UDP → parse → frame assembly → background subtraction → foreground mask → clustering → tracking → classification → HTTP API → ML data export  
 **Current Phase:** UI Visualization (next)
 
 ---
@@ -126,6 +126,26 @@
 - ✅ **Unit Tests**: `internal/lidar/monitor/track_api_test.go`
 - ✅ **Location**: `internal/lidar/monitor/track_api.go`
 
+### ✅ **Phase 3.6: PCAP Analysis Tool (COMPLETED)**
+
+- ✅ **`pcap-analyze` CLI Tool**: Batch PCAP processing for track categorization
+- ✅ **Full Pipeline Processing**: Parse → Frame → Background → Cluster → Track → Classify
+- ✅ **Track Categorization**: Classify tracks as pedestrian, car, bird, other
+- ✅ **Speed Statistics**: P50/P85/P95 percentile computation per track
+- ✅ **Export Formats**: JSON (full analysis), CSV (track table), training data (binary blobs)
+- ✅ **ML Data Export**: Foreground point cloud blobs for model training
+- ✅ **Database Persistence**: Optional SQLite storage for batch analysis results
+- ✅ **Location**: `cmd/tools/pcap-analyze/main.go`
+
+**Usage:**
+```bash
+# Basic analysis
+pcap-analyze -pcap capture.pcap -output ./results
+
+# With ML training data export  
+pcap-analyze -pcap capture.pcap -training -output ./ml_data
+```
+
 ### 📋 **Phase 4: Multi-Sensor & Production Optimization (PLANNED)**
 
 - **Multi-Sensor Architecture**: Support multiple LiDAR sensors per machine
@@ -147,6 +167,7 @@
 cmd/radar/radar.go                 ✅ # LiDAR integration with --enable-lidar flag
 cmd/bg-sweep/main.go               ✅ # Single-parameter sweep tool for tuning
 cmd/bg-multisweep/main.go          ✅ # Multi-parameter grid search tool
+cmd/tools/pcap-analyze/main.go     ✅ # PCAP batch analysis for ML data export (Phase 3.6)
 internal/lidar/network/listener.go ✅ # UDP socket and packet processing
 internal/lidar/network/forwarder.go✅ # UDP packet forwarding to LidarView
 internal/lidar/network/pcap.go     ✅ # PCAP file reading with BPF filtering

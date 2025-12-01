@@ -541,6 +541,19 @@ func (t *Tracker) GetTrackCount() (total, tentative, confirmed, deleted int) {
 	return
 }
 
+// GetAllTracks returns a slice of all tracks including deleted ones.
+// This is useful for analysis and reporting after processing is complete.
+func (t *Tracker) GetAllTracks() []*TrackedObject {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	all := make([]*TrackedObject, 0, len(t.Tracks))
+	for _, track := range t.Tracks {
+		all = append(all, track)
+	}
+	return all
+}
+
 // Speed returns the current speed magnitude for a track.
 func (track *TrackedObject) Speed() float32 {
 	return float32(math.Sqrt(float64(track.VX*track.VX + track.VY*track.VY)))
@@ -549,4 +562,14 @@ func (track *TrackedObject) Speed() float32 {
 // Heading returns the current heading in radians for a track.
 func (track *TrackedObject) Heading() float32 {
 	return float32(math.Atan2(float64(track.VY), float64(track.VX)))
+}
+
+// SpeedHistory returns a copy of the track's speed history for percentile computation.
+func (track *TrackedObject) SpeedHistory() []float32 {
+	if track.speedHistory == nil {
+		return nil
+	}
+	result := make([]float32, len(track.speedHistory))
+	copy(result, track.speedHistory)
+	return result
 }

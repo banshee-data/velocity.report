@@ -1374,9 +1374,10 @@ func TestPipeline_PCAPToTracks(t *testing.T) {
 | 3.3 | SQL Schema & Persistence | 3-4 days | ✅ Complete | `lidar_clusters`, `lidar_tracks`, `lidar_track_obs` tables, persistence functions |
 | 3.4 | Classification | 2-3 days | ✅ Complete | `TrackClassifier`, rule-based classification, object classes |
 | 3.5 | REST API Endpoints | 1-2 days | ✅ Complete | `TrackAPI` HTTP handlers, list/get/update tracks, cluster queries |
+| 3.6 | PCAP Analysis Tool | 1-2 days | ✅ Complete | `pcap-analyze` CLI tool for batch processing, ML data export |
 | Test | Integration Testing | 2-3 days | 📋 Planned | End-to-end tests, performance validation |
 
-**Phases 2.9-3.5: Complete**  
+**Phases 2.9-3.6: Complete**  
 **Remaining: Integration Testing + UI Visualization**
 
 ### Milestones
@@ -1389,7 +1390,8 @@ func TestPipeline_PCAPToTracks(t *testing.T) {
 6. ✅ **SQL Schema Ready** - Database persistence with `lidar_clusters`, `lidar_tracks`, `lidar_track_obs` tables
 7. ✅ **Classification Active** - Rule-based classifier for pedestrian, car, bird, other
 8. ✅ **REST Endpoints** - HTTP handlers for track/cluster API access
-9. 📋 **Production Ready** - All tests passing, documented, deployed
+9. ✅ **PCAP Analysis Tool** - CLI tool for batch track categorization and ML data export
+10. 📋 **Production Ready** - All tests passing, documented, deployed
 
 ### Implementation Files
 
@@ -1408,6 +1410,7 @@ func TestPipeline_PCAPToTracks(t *testing.T) {
 | 3.4 | `internal/lidar/classification_test.go` | Unit tests for classification |
 | 3.5 | `internal/lidar/monitor/track_api.go` | HTTP handlers for track/cluster queries |
 | 3.5 | `internal/lidar/monitor/track_api_test.go` | Unit tests for track API |
+| 3.6 | `cmd/tools/pcap-analyze/main.go` | PCAP analysis tool for batch processing |
 | ML | `internal/lidar/training_data.go` | Training data export and encoding |
 | ML | `internal/lidar/training_data_test.go` | Unit tests for training data |
 

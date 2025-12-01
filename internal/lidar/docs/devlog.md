@@ -1,5 +1,48 @@
 # Development Log
 
+## December 1, 2025 - PCAP Analysis Tool (Phase 3.6)
+
+### Phase 3.6: PCAP Analysis Tool for Track Categorization and ML Data Extraction
+- Implemented `cmd/tools/pcap-analyze/main.go`:
+  - CLI tool for batch processing PCAP files through the full tracking pipeline
+  - Processes 20+ minute PCAP files with frame building, background subtraction, clustering, tracking, and classification
+  - Exports categorized track data for ML ingestion
+
+### Features
+- **Full Pipeline Processing:**
+  - Parse UDP packets → Build 360° frames → Background classification → Foreground extraction
+  - DBSCAN clustering → Kalman tracking → Rule-based classification
+  - Speed percentile computation (P50/P85/P95)
+
+- **Output Formats:**
+  - JSON: Complete analysis results including all track data and statistics
+  - CSV: Track data table for spreadsheet analysis
+  - Training data: Binary foreground point blobs for ML training
+
+- **Analysis Summary:**
+  - Total packets/points/frames processed
+  - Foreground/background point counts
+  - Track counts by class (pedestrian, car, bird, other)
+  - Speed statistics (min, max, avg, P85)
+  - Classification distribution
+
+### Usage
+```bash
+# Basic analysis
+pcap-analyze -pcap capture.pcap -output ./results
+
+# With training data export
+pcap-analyze -pcap capture.pcap -training -output ./ml_data
+
+# With database persistence
+pcap-analyze -pcap capture.pcap -db ./analysis.db -output ./results
+```
+
+### Additional Changes
+- Added `SpeedHistory()` getter to `TrackedObject` for percentile computation from external packages
+- Added `GetAllTracks()` method to `Tracker` for retrieving all tracks including deleted ones
+- Added build tag `pcap` to `integration_test.go` to skip tests when pcap library unavailable
+
 ## November 30, 2025 - Pose Simplification
 
 ### Pose Code Removed (Deferred to Future Phase)
