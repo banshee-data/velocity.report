@@ -44,6 +44,7 @@ func ParseSSHConfig(host string) (*SSHConfig, error) {
 	config := &SSHConfig{Host: host}
 	inMatchingHost := false
 
+	foundMatch := false
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -64,9 +65,16 @@ func ParseSSHConfig(host string) (*SSHConfig, error) {
 
 		switch keyword {
 		case "host":
+			// If we were in a matching host and hit a new Host line, we're done
+			if inMatchingHost {
+				return config, nil
+			}
 			// Check if this is the host we're looking for
 			currentHost = parts[1]
 			inMatchingHost = matchHost(host, currentHost)
+			if inMatchingHost {
+				foundMatch = true
+			}
 
 		case "hostname":
 			if inMatchingHost {
@@ -99,7 +107,7 @@ func ParseSSHConfig(host string) (*SSHConfig, error) {
 	}
 
 	// If we didn't find any configuration for this host, return nil
-	if !inMatchingHost {
+	if !foundMatch {
 		return nil, nil
 	}
 

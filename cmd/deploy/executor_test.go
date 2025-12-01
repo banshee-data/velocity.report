@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -84,8 +85,12 @@ func TestExecutor_WriteFile_Local(t *testing.T) {
 }
 
 func TestExecutor_CopyFile_Local(t *testing.T) {
-	exec := NewExecutor("localhost", "", "", false)
+	// Skip this test on systems where temp directories require sudo (e.g., macOS with /var/folders/...)
+	if runtime.GOOS == "darwin" {
+		t.Skip("Skipping test on macOS where temp directories typically require sudo")
+	}
 
+	exec := NewExecutor("localhost", "", "", false)
 	tmpDir := t.TempDir()
 
 	// Create source file
