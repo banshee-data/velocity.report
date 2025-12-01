@@ -264,6 +264,9 @@ func (s *SystemStatus) FormatStatus() string {
 	if s.CPUCount > 0 {
 		b.WriteString(fmt.Sprintf("🔧 CPU          %d cores\n", s.CPUCount))
 	}
+	if s.ProcessCount > 0 {
+		b.WriteString(fmt.Sprintf("🔄 Processes    %d\n", s.ProcessCount))
+	}
 
 	// Memory - compact with inline bar (aligned)
 	if s.MemoryUsage != "" {
@@ -317,10 +320,6 @@ func (s *SystemStatus) FormatStatus() string {
 		b.WriteString(fmt.Sprintf(" (since %s)", truncate(s.ServiceUptime, 30)))
 	}
 	b.WriteString("\n")
-
-	if s.ProcessCount > 0 {
-		b.WriteString(fmt.Sprintf("🔄 Processes    %d\n", s.ProcessCount))
-	}
 
 	// API Status - compact
 	if s.APIPort > 0 {
