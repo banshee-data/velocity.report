@@ -1,9 +1,9 @@
 # LIDAR Foreground Extraction and Tracking Implementation Plan
 
-**Status:** Implementation Complete through Phase 3.5  
-**Date:** November 30, 2025  
+**Status:** Implementation Complete through Phase 3.7  
+**Date:** December 1, 2025  
 **Author:** Ictinus (Product Architecture Agent)  
-**Version:** 6.0 - REST API Endpoints Complete
+**Version:** 7.0 - Analysis Run Infrastructure Complete
 
 ---
 
@@ -14,12 +14,17 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 **Key Architectural Principle:** Background subtraction operates purely in sensor-centric polar coordinates (azimuth/elevation/range). Only after foreground extraction are points transformed to world-frame Cartesian coordinates for clustering, tracking, and persistence.
 
 **Implementation Phases:**
-- **Phase 2.9:** Foreground mask generation (polar frame)
-- **Phase 3.0:** Polar → World coordinate transformation (new explicit stage)
-- **Phase 3.1:** DBSCAN clustering (world frame, required spatial index)
-- **Phase 3.2:** Kalman filter tracking (world frame, explicit lifecycle)
-- **Phase 3.3:** SQL schema & REST APIs (world frame only)
-- **Phase 3.4:** Track-level classification (new phase)
+- **Phase 2.9:** ✅ Foreground mask generation (polar frame)
+- **Phase 3.0:** ✅ Polar → World coordinate transformation
+- **Phase 3.1:** ✅ DBSCAN clustering (world frame)
+- **Phase 3.2:** ✅ Kalman filter tracking (world frame)
+- **Phase 3.3:** ✅ SQL schema & database persistence
+- **Phase 3.4:** ✅ Track-level classification
+- **Phase 3.5:** ✅ REST API endpoints
+- **Phase 3.6:** ✅ PCAP Analysis Tool for ML data extraction
+- **Phase 3.7:** ✅ Analysis Run Infrastructure (params JSON, run comparison)
+
+**Next Phases:** See [ML Pipeline Roadmap](ml_pipeline_roadmap.md) for Phases 4.0-4.3.
 
 ---
 
@@ -33,10 +38,13 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 6. [Phase 3.2: Kalman Tracking (World Frame)](#phase-32-kalman-tracking-world-frame)
 7. [Phase 3.3: SQL Schema & REST APIs](#phase-33-sql-schema--rest-apis)
 8. [Phase 3.4: Track Classification](#phase-34-track-classification)
-9. [Performance & Concurrency](#performance--concurrency)
-10. [Testing Strategy](#testing-strategy)
-11. [Implementation Roadmap](#implementation-roadmap)
-12. [Appendix](#appendix)
+9. [Phase 3.5: REST API Endpoints](#phase-35-rest-api-endpoints)
+10. [Phase 3.6: PCAP Analysis Tool](#phase-36-pcap-analysis-tool)
+11. [Phase 3.7: Analysis Run Infrastructure](#phase-37-analysis-run-infrastructure)
+12. [Performance & Concurrency](#performance--concurrency)
+13. [Testing Strategy](#testing-strategy)
+14. [Implementation Roadmap](#implementation-roadmap)
+15. [Appendix](#appendix)
     - [A. Data Structures](#a-data-structures)
     - [B. Configuration Parameters](#b-configuration-parameters)
     - [C. Related Documentation](#c-related-documentation)

@@ -1,17 +1,17 @@
 # LIDAR ML Pipeline Roadmap
 
-**Status:** Architectural Plan  
+**Status:** Phase 3.7 Implemented, Phases 4.0-4.3 Planned  
 **Date:** December 1, 2025  
 **Author:** Copilot (Architectural Analysis)  
-**Version:** 1.0
+**Version:** 1.1
 
 ---
 
 ## Executive Summary
 
-This document outlines the next steps to evolve the LIDAR tracking system from the current rule-based classification (Phase 3.4) to a full ML-driven classification pipeline with labeling UI, parameter tuning, and comparative analysis.
+This document outlines the evolution of the LIDAR tracking system from rule-based classification to a full ML-driven classification pipeline with labeling UI, parameter tuning, and comparative analysis.
 
-**Current State (Completed through Phase 3.6):**
+**Current State (Completed through Phase 3.7):**
 - ✅ Background subtraction and foreground extraction
 - ✅ DBSCAN clustering with spatial indexing
 - ✅ Kalman tracking with lifecycle management
@@ -19,24 +19,25 @@ This document outlines the next steps to evolve the LIDAR tracking system from t
 - ✅ REST API endpoints for track/cluster access
 - ✅ PCAP analysis tool for batch processing
 - ✅ Training data export (compact binary encoding)
+- ✅ **Analysis Run Infrastructure** (params JSON, run comparison, split/merge detection)
 
 **Roadmap Phases:**
-- **Phase 4.0:** Analysis Run Infrastructure (params JSON, run comparison)
-- **Phase 4.1:** Track Labeling UI (web-based annotation)
-- **Phase 4.2:** ML Classifier Training Pipeline
-- **Phase 4.3:** Parameter Tuning & Optimization
-- **Phase 4.4:** Production Deployment
+- **Phase 3.7:** ✅ Analysis Run Infrastructure (IMPLEMENTED)
+- **Phase 4.0:** Track Labeling UI (web-based annotation)
+- **Phase 4.1:** ML Classifier Training Pipeline
+- **Phase 4.2:** Parameter Tuning & Optimization
+- **Phase 4.3:** Production Deployment
 
 ---
 
 ## Table of Contents
 
 1. [Current Architecture](#current-architecture)
-2. [Phase 4.0: Analysis Run Infrastructure](#phase-40-analysis-run-infrastructure)
-3. [Phase 4.1: Track Labeling UI](#phase-41-track-labeling-ui)
-4. [Phase 4.2: ML Classifier Training](#phase-42-ml-classifier-training)
-5. [Phase 4.3: Parameter Tuning & Optimization](#phase-43-parameter-tuning--optimization)
-6. [Phase 4.4: Production Deployment](#phase-44-production-deployment)
+2. [Phase 3.7: Analysis Run Infrastructure](#phase-37-analysis-run-infrastructure) ✅
+3. [Phase 4.0: Track Labeling UI](#phase-40-track-labeling-ui)
+4. [Phase 4.1: ML Classifier Training](#phase-41-ml-classifier-training)
+5. [Phase 4.2: Parameter Tuning & Optimization](#phase-42-parameter-tuning--optimization)
+6. [Phase 4.3: Production Deployment](#phase-43-production-deployment)
 7. [Data Flow Summary](#data-flow-summary)
 
 ---
@@ -68,16 +69,26 @@ PCAP/Live UDP → Parse → Frame → Background → Foreground → Cluster → 
 | REST API | `internal/lidar/monitor/track_api.go` | ✅ Complete |
 | PCAP Analyze Tool | `cmd/tools/pcap-analyze/main.go` | ✅ Complete |
 | Training Data Export | `internal/lidar/training_data.go` | ✅ Complete |
+| **Analysis Run Store** | `internal/lidar/analysis_run.go` | ✅ Complete |
 
 ---
 
-## Phase 4.0: Analysis Run Infrastructure
+## Phase 3.7: Analysis Run Infrastructure ✅ IMPLEMENTED
 
 ### Objective
 
 Enable reproducible analysis runs with versioned parameter configurations, allowing comparison across runs with different parameters and detection of track splits/merges.
 
-### 4.0.1: Analysis Run Schema
+### Implementation Files
+
+| File | Description |
+|------|-------------|
+| `internal/lidar/analysis_run.go` | Core types and database operations |
+| `internal/lidar/analysis_run_test.go` | Unit tests |
+| `internal/db/migrations/000010_create_lidar_analysis_runs.up.sql` | Database migration |
+| `internal/db/schema.sql` | Updated with analysis run tables |
+
+### 3.7.1: Analysis Run Schema
 
 ```sql
 -- Analysis runs with full parameter configuration
@@ -146,8 +157,8 @@ CREATE TABLE IF NOT EXISTS lidar_run_tracks (
     labeled_at INTEGER,                   -- When labeled
     
     -- Track quality flags
-    is_split_candidate BOOLEAN DEFAULT 0,   -- Suspected split
-    is_merge_candidate BOOLEAN DEFAULT 0,   -- Suspected merge
+    is_split_candidate INTEGER DEFAULT 0,   -- Suspected split
+    is_merge_candidate INTEGER DEFAULT 0,   -- Suspected merge
     linked_track_ids TEXT,                  -- JSON array of related track IDs
     
     PRIMARY KEY (run_id, track_id),
@@ -159,7 +170,7 @@ CREATE INDEX idx_run_tracks_class ON lidar_run_tracks(object_class);
 CREATE INDEX idx_run_tracks_label ON lidar_run_tracks(user_label);
 ```
 
-### 4.0.2: Params JSON Structure
+### 3.7.2: Params JSON Structure
 
 All LIDAR parameters stored in a single JSON blob for complete reproducibility:
 
@@ -213,11 +224,11 @@ All LIDAR parameters stored in a single JSON blob for complete reproducibility:
 }
 ```
 
-### 4.0.3: Go Implementation
+### 3.7.3: Go Implementation ✅
+
+The following types and functions are implemented in `internal/lidar/analysis_run.go`:
 
 ```go
-// internal/lidar/analysis_run.go
-
 // AnalysisRun represents a complete analysis session with parameters
 type AnalysisRun struct {
     RunID           string            `json:"run_id"`
@@ -239,27 +250,31 @@ type AnalysisRun struct {
 
 // RunParams captures all configurable parameters for reproducibility
 type RunParams struct {
-    Version    string              `json:"version"`
-    Timestamp  time.Time           `json:"timestamp"`
-    Background BackgroundConfig    `json:"background"`
-    Clustering ClusteringConfig    `json:"clustering"`
-    Tracking   TrackingConfig      `json:"tracking"`
-    Classification ClassifierConfig `json:"classification"`
+    Version        string                     `json:"version"`
+    Timestamp      time.Time                  `json:"timestamp"`
+    Background     BackgroundParamsExport     `json:"background"`
+    Clustering     ClusteringParamsExport     `json:"clustering"`
+    Tracking       TrackingParamsExport       `json:"tracking"`
+    Classification ClassificationParamsExport `json:"classification"`
 }
 
-// CreateAnalysisRun starts a new analysis run with current parameters
-func CreateAnalysisRun(store *TrackStore, sourceType, sourcePath, sensorID string, params *RunParams) (*AnalysisRun, error)
-
-// CompleteAnalysisRun marks a run as completed with final statistics
-func CompleteAnalysisRun(store *TrackStore, runID string, stats *AnalysisStats) error
-
-// GetRunComparison compares tracks between two runs to detect splits/merges
-func GetRunComparison(store *TrackStore, runID1, runID2 string) (*RunComparison, error)
+// AnalysisRunStore provides database operations for analysis runs
+type AnalysisRunStore struct { ... }
+func NewAnalysisRunStore(db *sql.DB) *AnalysisRunStore
+func (s *AnalysisRunStore) InsertRun(run *AnalysisRun) error
+func (s *AnalysisRunStore) CompleteRun(runID string, stats *AnalysisStats) error
+func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error)
+func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error)
+func (s *AnalysisRunStore) InsertRunTrack(track *RunTrack) error
+func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error)
+func (s *AnalysisRunStore) UpdateTrackLabel(...) error
+func (s *AnalysisRunStore) GetLabelingProgress(runID string) (total, labeled int, byClass map[string]int, err error)
+func (s *AnalysisRunStore) GetUnlabeledTracks(runID string, limit int) ([]*RunTrack, error)
 ```
 
-### 4.0.4: Track Split/Merge Detection
+### 3.7.4: Track Split/Merge Detection
 
-Detect when parameter changes cause tracks to split or merge:
+Types for detecting when parameter changes cause tracks to split or merge:
 
 ```go
 // RunComparison shows differences between two analysis runs
@@ -277,37 +292,35 @@ type RunComparison struct {
 type TrackSplit struct {
     OriginalTrack  string   `json:"original_track"`
     SplitTracks    []string `json:"split_tracks"`
-    SplitLocation  Position `json:"split_location"`
+    SplitX, SplitY float32  `json:"split_location"`
     Confidence     float32  `json:"confidence"`
 }
 
 type TrackMerge struct {
     MergedTrack    string   `json:"merged_track"`
     SourceTracks   []string `json:"source_tracks"`
-    MergeLocation  Position `json:"merge_location"`
+    MergeX, MergeY float32  `json:"merge_location"`
     Confidence     float32  `json:"confidence"`
 }
 
-// DetectSplitsMerges compares spatiotemporal overlap between runs
-func DetectSplitsMerges(run1Tracks, run2Tracks []*RunTrack) (*RunComparison, error) {
-    // Algorithm:
-    // 1. Build spatial-temporal index for each run
-    // 2. For each track in run1, find overlapping tracks in run2
-    // 3. If one track maps to multiple: potential split
-    // 4. If multiple tracks map to one: potential merge
-    // 5. Compute confidence based on overlap percentage
-}
+// Future: DetectSplitsMerges compares spatiotemporal overlap between runs
+// Algorithm:
+// 1. Build spatial-temporal index for each run
+// 2. For each track in run1, find overlapping tracks in run2
+// 3. If one track maps to multiple: potential split
+// 4. If multiple tracks map to one: potential merge
+// 5. Compute confidence based on overlap percentage
 ```
 
 ---
 
-## Phase 4.1: Track Labeling UI
+## Phase 4.0: Track Labeling UI
 
 ### Objective
 
 Provide a web-based interface for human annotators to label tracks, review classifications, and mark quality issues.
 
-### 4.1.1: UI Requirements
+### 4.0.1: UI Requirements
 
 **Core Features:**
 1. **Track Browser:** List and filter tracks by run, class, time range
@@ -317,7 +330,7 @@ Provide a web-based interface for human annotators to label tracks, review class
 5. **Bulk Actions:** Apply labels to multiple similar tracks
 6. **Progress Tracking:** Show annotation completion status
 
-### 4.1.2: UI Architecture
+### 4.0.2: UI Architecture
 
 Using the existing SvelteKit frontend (`web/`):
 
@@ -339,7 +352,7 @@ web/src/routes/
 │       └── +page.svelte          # Run comparison tool
 ```
 
-### 4.1.3: UI Components (svelte-ux based)
+### 4.0.3: UI Components (svelte-ux based)
 
 ```svelte
 <!-- web/src/lib/components/lidar/TrackViewer.svelte -->
@@ -380,7 +393,7 @@ web/src/routes/
 </script>
 ```
 
-### 4.1.4: REST API Extensions
+### 4.0.4: REST API Extensions
 
 ```go
 // Additional endpoints for labeling UI
@@ -422,19 +435,19 @@ type ReviewQueueParams struct {
 
 ---
 
-## Phase 4.2: ML Classifier Training
+## Phase 4.1: ML Classifier Training
 
 ### Objective
 
 Train an ML model to replace rule-based classification using labeled track data.
 
-### 4.2.1: Training Data Pipeline
+### 4.1.1: Training Data Pipeline
 
 ```
 Labeled Tracks (DB) → Feature Extraction → Training Dataset → Model Training → Model Deployment
 ```
 
-### 4.2.2: Feature Vector
+### 4.1.2: Feature Vector
 
 Extract features from labeled tracks for ML training:
 
@@ -489,7 +502,7 @@ class TrackFeatures:
         ])
 ```
 
-### 4.2.3: Model Training Script
+### 4.1.3: Model Training Script
 
 ```python
 # tools/ml-training/train_classifier.py
@@ -556,7 +569,7 @@ if __name__ == '__main__':
     export_model(model, 'models/track_classifier_v1.joblib', 'v1.0')
 ```
 
-### 4.2.4: Model Deployment in Go
+### 4.1.4: Model Deployment in Go
 
 ```go
 // internal/lidar/ml_classifier.go
@@ -598,13 +611,13 @@ func (f *ClassifierFactory) Classify(track *TrackedObject) (string, float32) {
 
 ---
 
-## Phase 4.3: Parameter Tuning & Optimization
+## Phase 4.2: Parameter Tuning & Optimization
 
 ### Objective
 
 Systematically explore parameter space to optimize track quality metrics.
 
-### 4.3.1: Tuning Workflow
+### 4.2.1: Tuning Workflow
 
 ```
 1. Define parameter grid
@@ -617,7 +630,7 @@ Systematically explore parameter space to optimize track quality metrics.
 4. Validate on held-out PCAPs
 ```
 
-### 4.3.2: Parameter Grid Search
+### 4.2.2: Parameter Grid Search
 
 ```go
 // cmd/tools/param-sweep/main.go
@@ -657,7 +670,7 @@ type QualityMetrics struct {
 }
 ```
 
-### 4.3.3: Optimization Objective
+### 4.2.3: Optimization Objective
 
 ```go
 // Define objective function for parameter optimization
@@ -680,7 +693,7 @@ func ComputeObjective(metrics *QualityMetrics, comparison *RunComparison) float6
 }
 ```
 
-### 4.3.4: Interactive Tuning UI
+### 4.2.4: Interactive Tuning UI
 
 ```svelte
 <!-- web/src/routes/lidar/tuning/+page.svelte -->
@@ -694,13 +707,13 @@ func ComputeObjective(metrics *QualityMetrics, comparison *RunComparison) float6
 
 ---
 
-## Phase 4.4: Production Deployment
+## Phase 4.3: Production Deployment
 
 ### Objective
 
 Deploy the complete ML pipeline for production use.
 
-### 4.4.1: Deployment Architecture
+### 4.3.1: Deployment Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -726,7 +739,7 @@ Deploy the complete ML pipeline for production use.
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 4.4.2: Model Update Flow
+### 4.3.2: Model Update Flow
 
 ```
 1. Collect labeled tracks from labeling UI
@@ -802,7 +815,7 @@ Deploy the complete ML pipeline for production use.
 │                                    │                                     │
 │                                    ▼                                     │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │               PARAMETER TUNING (Phase 4.3)                       │    │
+│  │               PARAMETER TUNING (Phase 4.2)                       │    │
 │  │                                                                   │    │
 │  │   ┌─────────────┐    ┌────────────────┐    ┌─────────────────┐   │    │
 │  │   │  Parameter  │    │   Run          │    │   Optimal       │   │    │
@@ -820,21 +833,21 @@ Deploy the complete ML pipeline for production use.
 
 | Phase | Priority | Effort | Dependencies |
 |-------|----------|--------|--------------|
-| 4.0 Analysis Run Infrastructure | P0 - Critical | 1 week | None |
-| 4.1 Track Labeling UI | P0 - Critical | 2 weeks | Phase 4.0 |
-| 4.2 ML Classifier Training | P1 - High | 1 week | Phase 4.1 (needs labels) |
-| 4.3 Parameter Tuning | P1 - High | 1 week | Phase 4.0 |
-| 4.4 Production Deployment | P2 - Medium | 1 week | Phases 4.2, 4.3 |
+| 3.7 Analysis Run Infrastructure | ✅ Complete | - | None |
+| 4.0 Track Labeling UI | P0 - Critical | 2 weeks | Phase 3.7 |
+| 4.1 ML Classifier Training | P1 - High | 1 week | Phase 4.0 (needs labels) |
+| 4.2 Parameter Tuning | P1 - High | 1 week | Phase 3.7 |
+| 4.3 Production Deployment | P2 - Medium | 1 week | Phases 4.1, 4.2 |
 
 **Recommended Order:**
-1. Phase 4.0 (infrastructure for all other phases)
-2. Phase 4.1 (critical for getting labels)
-3. Phase 4.3 (can be done in parallel with labeling)
-4. Phase 4.2 (requires labeled data from 4.1)
-5. Phase 4.4 (final deployment)
+1. ✅ Phase 3.7 (COMPLETED - infrastructure for all other phases)
+2. Phase 4.0 (critical for getting labels)
+3. Phase 4.2 (can be done in parallel with labeling)
+4. Phase 4.1 (requires labeled data from 4.0)
+5. Phase 4.3 (final deployment)
 
 ---
 
-**Document Status:** Architectural Plan  
-**Next Action:** Implement Phase 4.0 (Analysis Run Infrastructure)  
+**Document Status:** Phase 3.7 Implemented  
+**Next Action:** Implement Phase 4.0 (Track Labeling UI)  
 **Last Updated:** December 1, 2025

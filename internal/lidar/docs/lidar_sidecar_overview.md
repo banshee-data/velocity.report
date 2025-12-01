@@ -1,8 +1,8 @@
 # LiDAR Sidecar — Technical Implementation Overview
 
-**Status:** Phase 3.6 completed (PCAP Analysis Tool), UI visualization planned  
-**Scope:** Hesai UDP → parse → frame assembly → background subtraction → foreground mask → clustering → tracking → classification → HTTP API → ML data export  
-**Current Phase:** UI Visualization (next)
+**Status:** Phase 3.7 completed (Analysis Run Infrastructure), UI visualization planned  
+**Scope:** Hesai UDP → parse → frame assembly → background subtraction → foreground mask → clustering → tracking → classification → HTTP API → ML data export → Analysis Runs  
+**Current Phase:** Track Labeling UI (Phase 4.0)
 
 ---
 
@@ -146,8 +146,26 @@ pcap-analyze -pcap capture.pcap -output ./results
 pcap-analyze -pcap capture.pcap -training -output ./ml_data
 ```
 
-### 📋 **Phase 4: Multi-Sensor & Production Optimization (PLANNED)**
+### ✅ **Phase 3.7: Analysis Run Infrastructure (COMPLETED)**
 
+- ✅ **`AnalysisRun` Type**: Complete analysis session with `params_json` storing all LIDAR parameters
+- ✅ **`RunParams` Type**: Versioned parameter configuration (background, clustering, tracking, classification)
+- ✅ **`RunTrack` Type**: Track data with user labels and quality flags for ML training
+- ✅ **`AnalysisRunStore`**: Database operations for runs and tracks
+  - `InsertRun()`, `CompleteRun()`, `GetRun()`, `ListRuns()`
+  - `InsertRunTrack()`, `GetRunTracks()`, `UpdateTrackLabel()`
+  - `GetLabelingProgress()`, `GetUnlabeledTracks()`
+- ✅ **Split/Merge Detection Types**: `RunComparison`, `TrackSplit`, `TrackMerge`
+- ✅ **Migration File**: `internal/db/migrations/000010_create_lidar_analysis_runs.up.sql`
+- ✅ **Unit Tests**: `internal/lidar/analysis_run_test.go`
+- ✅ **Location**: `internal/lidar/analysis_run.go`
+
+### 📋 **Phase 4: ML Pipeline & Production Optimization (PLANNED)**
+
+- **Phase 4.0: Track Labeling UI** - SvelteKit web interface for annotation
+- **Phase 4.1: ML Classifier Training** - Feature extraction, Python training, Go deployment
+- **Phase 4.2: Parameter Tuning** - Grid search with split/merge quality metrics
+- **Phase 4.3: Production Deployment** - Edge node architecture, model distribution
 - **Multi-Sensor Architecture**: Support multiple LiDAR sensors per machine
 - **Local Persistence**: Each sensor stores data in local SQLite database
 - **Database Unification**: Merge data from multiple local databases for analysis
@@ -159,7 +177,7 @@ pcap-analyze -pcap capture.pcap -training -output ./ml_data
 - **Production Deployment**: Documentation for multi-node edge deployment
 - **UI Visualization**: Track display components in web frontend
 
-> **See also:** [ML Pipeline Roadmap](ml_pipeline_roadmap.md) for detailed Phase 4.0-4.4 architecture (analysis runs, labeling UI, ML training, parameter tuning)
+> **See also:** [ML Pipeline Roadmap](ml_pipeline_roadmap.md) for detailed Phase 4.0-4.3 architecture (labeling UI, ML training, parameter tuning, production)
 
 ---
 
@@ -184,11 +202,13 @@ internal/lidar/clustering.go       ✅ # World transform and DBSCAN clustering (
 internal/lidar/tracking.go         ✅ # Kalman tracking with lifecycle management (Phase 3.2)
 internal/lidar/track_store.go      ✅ # Database persistence for tracks/clusters (Phase 3.3)
 internal/lidar/classification.go   ✅ # Rule-based track classification (Phase 3.4)
+internal/lidar/analysis_run.go     ✅ # Analysis run infrastructure with params JSON (Phase 3.7)
 internal/lidar/training_data.go    ✅ # ML training data export and encoding
 internal/lidar/export.go           ✅ # ASC point cloud export
 internal/lidar/arena.go            ✅ # Data structures for clustering and tracking
 internal/db/db.go                  ✅ # Database schema and BgSnapshot persistence
 internal/db/migrations/000009_*    ✅ # SQL migrations for lidar_clusters, lidar_tracks, lidar_track_obs
+internal/db/migrations/000010_*    ✅ # SQL migrations for lidar_analysis_runs, lidar_run_tracks (Phase 3.7)
 tools/grid-heatmap/                ✅ # Grid visualization and analysis tools
 ```
 
