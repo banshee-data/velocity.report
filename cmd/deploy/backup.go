@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -18,38 +20,38 @@ type Backup struct {
 
 // Execute performs the backup
 func (b *Backup) Execute() error {
-	exec := NewExecutor(b.Target, b.SSHUser, b.SSHKey, b.IdentityAgent, false)
+	remoteExec := NewExecutor(b.Target, b.SSHUser, b.SSHKey, b.IdentityAgent, false)
 
 	fmt.Println("Starting backup of velocity.report...")
 
 	timestamp := time.Now().Format("20060102-150405")
 	backupName := fmt.Sprintf("velocity-report-backup-%s", timestamp)
 
-	// Step 1: Create local backup directory
+	// Step 1: Create local backup directory (always on local machine)
 	localBackupDir := filepath.Join(b.OutputDir, backupName)
-	if _, err := exec.Run(fmt.Sprintf("mkdir -p %s", localBackupDir)); err != nil {
+	if err := os.MkdirAll(localBackupDir, 0755); err != nil {
 		return fmt.Errorf("failed to create backup directory: %w", err)
 	}
 
 	fmt.Printf("Backup directory: %s\n", localBackupDir)
 
 	// Step 2: Backup binary
-	if err := b.backupBinary(exec, localBackupDir); err != nil {
+	if err := b.backupBinary(remoteExec, localBackupDir); err != nil {
 		return fmt.Errorf("failed to backup binary: %w", err)
 	}
 
 	// Step 3: Backup database
-	if err := b.backupDatabase(exec, localBackupDir); err != nil {
+	if err := b.backupDatabase(remoteExec, localBackupDir); err != nil {
 		fmt.Printf("Warning: could not backup database: %v\n", err)
 	}
 
 	// Step 4: Backup service file
-	if err := b.backupServiceFile(exec, localBackupDir); err != nil {
+	if err := b.backupServiceFile(remoteExec, localBackupDir); err != nil {
 		fmt.Printf("Warning: could not backup service file: %v\n", err)
 	}
 
-	// Step 5: Create metadata file
-	if err := b.createMetadata(exec, localBackupDir, timestamp); err != nil {
+	// Step 5: Create metadata file (locally)
+	if err := b.createMetadata(remoteExec, localBackupDir, timestamp); err != nil {
 		fmt.Printf("Warning: could not create metadata: %v\n", err)
 	}
 
@@ -59,60 +61,84 @@ func (b *Backup) Execute() error {
 	return nil
 }
 
-func (b *Backup) backupBinary(exec *Executor, backupDir string) error {
+// isLocal returns true if target is localhost
+func (b *Backup) isLocal() bool {
+	return b.Target == "localhost" || b.Target == "127.0.0.1" || b.Target == ""
+}
+
+// scpFromRemote copies a file from remote host to local destination
+func (b *Backup) scpFromRemote(remotePath, localDest string) error {
+	args := []string{}
+
+	if b.SSHKey != "" {
+		args = append(args, "-i", b.SSHKey)
+	}
+
+	// Disable strict host key checking for automation
+	args = append(args, "-o", "StrictHostKeyChecking=no")
+	args = append(args, "-o", "UserKnownHostsFile=/dev/null")
+
+	target := b.Target
+	if b.SSHUser != "" && !strings.Contains(target, "@") {
+		target = fmt.Sprintf("%s@%s", b.SSHUser, target)
+	}
+
+	// SCP from remote to local
+	args = append(args, fmt.Sprintf("%s:%s", target, remotePath), localDest)
+
+	debugLog("SCP (pull): scp %v", args)
+	cmd := exec.Command("scp", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("scp failed: %w, output: %s", err, string(output))
+	}
+	return nil
+}
+
+func (b *Backup) backupBinary(remoteExec *Executor, backupDir string) error {
 	fmt.Println("Backing up binary...")
 
 	binaryDest := filepath.Join(backupDir, "velocity-report")
 
-	if exec.IsLocal() {
-		_, err := exec.RunSudo(fmt.Sprintf("cp /usr/local/bin/velocity-report %s", binaryDest))
-		if err != nil {
+	if b.isLocal() {
+		// For local, just copy with sudo
+		cmd := exec.Command("sudo", "cp", "/usr/local/bin/velocity-report", binaryDest)
+		if err := cmd.Run(); err != nil {
 			return err
 		}
 		// Make it readable by current user
-		_, err = exec.RunSudo(fmt.Sprintf("chmod 644 %s", binaryDest))
-		if err != nil {
+		cmd = exec.Command("sudo", "chmod", "644", binaryDest)
+		if err := cmd.Run(); err != nil {
 			return err
 		}
 	} else {
-		// For remote, copy via scp
-		scpArgs := []string{}
-		if b.SSHKey != "" {
-			scpArgs = append(scpArgs, "-i", b.SSHKey)
-		}
-
-		target := b.Target
-		if b.SSHUser != "" && !strings.Contains(target, "@") {
-			target = fmt.Sprintf("%s@%s", b.SSHUser, target)
-		}
-
-		// First ensure we can read the binary
-		_, err := exec.RunSudo("cp /usr/local/bin/velocity-report /tmp/velocity-report-backup && chmod 644 /tmp/velocity-report-backup")
+		// For remote:
+		// 1. Copy binary to temp location on remote (readable)
+		_, err := remoteExec.RunSudo("cp /usr/local/bin/velocity-report /tmp/velocity-report-backup && chmod 644 /tmp/velocity-report-backup")
 		if err != nil {
 			return err
 		}
 
-		// Then scp it
-		args := append(scpArgs, fmt.Sprintf("%s:/tmp/velocity-report-backup", target), binaryDest)
-		if _, err := exec.Run(fmt.Sprintf("scp %s", strings.Join(args, " "))); err != nil {
+		// 2. SCP from remote to local
+		if err := b.scpFromRemote("/tmp/velocity-report-backup", binaryDest); err != nil {
 			return err
 		}
 
-		// Clean up temp file
-		exec.Run("rm /tmp/velocity-report-backup")
+		// 3. Clean up temp file on remote
+		remoteExec.Run("rm -f /tmp/velocity-report-backup")
 	}
 
 	fmt.Println("  ✓ Binary backed up")
 	return nil
 }
 
-func (b *Backup) backupDatabase(exec *Executor, backupDir string) error {
+func (b *Backup) backupDatabase(remoteExec *Executor, backupDir string) error {
 	fmt.Println("Backing up database...")
 
 	dbPath := "/var/lib/velocity-report/sensor_data.db"
 
-	// Check if database exists
-	checkOutput, err := exec.RunSudo(fmt.Sprintf("test -f %s && echo 'exists' || echo 'missing'", dbPath))
+	// Check if database exists (on remote or local target)
+	checkOutput, err := remoteExec.RunSudo(fmt.Sprintf("test -f %s && echo 'exists' || echo 'missing'", dbPath))
 	if err != nil || strings.TrimSpace(checkOutput) != "exists" {
 		fmt.Println("  ⊘ No database found")
 		return nil
@@ -120,100 +146,97 @@ func (b *Backup) backupDatabase(exec *Executor, backupDir string) error {
 
 	dbDest := filepath.Join(backupDir, "sensor_data.db")
 
-	if exec.IsLocal() {
-		_, err := exec.RunSudo(fmt.Sprintf("cp %s %s", dbPath, dbDest))
-		if err != nil {
+	if b.isLocal() {
+		// For local, just copy with sudo
+		cmd := exec.Command("sudo", "cp", dbPath, dbDest)
+		if err := cmd.Run(); err != nil {
 			return err
 		}
-		_, err = exec.RunSudo(fmt.Sprintf("chmod 644 %s", dbDest))
-		if err != nil {
+		cmd = exec.Command("sudo", "chmod", "644", dbDest)
+		if err := cmd.Run(); err != nil {
 			return err
 		}
 	} else {
-		// For remote, copy to temp first
-		_, err := exec.RunSudo("cp /var/lib/velocity-report/sensor_data.db /tmp/sensor_data.db && chmod 644 /tmp/sensor_data.db")
+		// For remote:
+		// 1. Copy database to temp location on remote (readable)
+		_, err := remoteExec.RunSudo("cp /var/lib/velocity-report/sensor_data.db /tmp/sensor_data.db && chmod 644 /tmp/sensor_data.db")
 		if err != nil {
 			return err
 		}
 
-		// Then scp it
-		scpArgs := []string{}
-		if b.SSHKey != "" {
-			scpArgs = append(scpArgs, "-i", b.SSHKey)
-		}
-
-		target := b.Target
-		if b.SSHUser != "" && !strings.Contains(target, "@") {
-			target = fmt.Sprintf("%s@%s", b.SSHUser, target)
-		}
-
-		args := append(scpArgs, fmt.Sprintf("%s:/tmp/sensor_data.db", target), dbDest)
-		if _, err := exec.Run(fmt.Sprintf("scp %s", strings.Join(args, " "))); err != nil {
+		// 2. SCP from remote to local
+		if err := b.scpFromRemote("/tmp/sensor_data.db", dbDest); err != nil {
 			return err
 		}
 
-		// Clean up
-		exec.Run("rm /tmp/sensor_data.db")
+		// 3. Clean up temp file on remote
+		remoteExec.Run("rm -f /tmp/sensor_data.db")
 	}
 
-	// Get database size
-	sizeOutput, _ := exec.Run(fmt.Sprintf("du -h %s | cut -f1", dbDest))
-	fmt.Printf("  ✓ Database backed up (%s)\n", strings.TrimSpace(sizeOutput))
+	// Get database size (locally, since the file is now local)
+	fi, err := os.Stat(dbDest)
+	var sizeStr string
+	if err == nil {
+		size := fi.Size()
+		if size >= 1024*1024 {
+			sizeStr = fmt.Sprintf("%.1fM", float64(size)/(1024*1024))
+		} else if size >= 1024 {
+			sizeStr = fmt.Sprintf("%.1fK", float64(size)/1024)
+		} else {
+			sizeStr = fmt.Sprintf("%dB", size)
+		}
+	} else {
+		sizeStr = "unknown"
+	}
+	fmt.Printf("  ✓ Database backed up (%s)\n", sizeStr)
 
 	return nil
 }
 
-func (b *Backup) backupServiceFile(exec *Executor, backupDir string) error {
+func (b *Backup) backupServiceFile(remoteExec *Executor, backupDir string) error {
 	fmt.Println("Backing up service file...")
 
 	serviceDest := filepath.Join(backupDir, "velocity-report.service")
 
-	if exec.IsLocal() {
-		_, err := exec.RunSudo(fmt.Sprintf("cp /etc/systemd/system/velocity-report.service %s", serviceDest))
-		if err != nil {
+	if b.isLocal() {
+		// For local, just copy with sudo
+		cmd := exec.Command("sudo", "cp", "/etc/systemd/system/velocity-report.service", serviceDest)
+		if err := cmd.Run(); err != nil {
 			return err
 		}
-		_, err = exec.RunSudo(fmt.Sprintf("chmod 644 %s", serviceDest))
-		if err != nil {
+		cmd = exec.Command("sudo", "chmod", "644", serviceDest)
+		if err := cmd.Run(); err != nil {
 			return err
 		}
 	} else {
-		// For remote
-		_, err := exec.RunSudo("cp /etc/systemd/system/velocity-report.service /tmp/velocity-report.service && chmod 644 /tmp/velocity-report.service")
+		// For remote:
+		// 1. Copy service file to temp location on remote (readable)
+		_, err := remoteExec.RunSudo("cp /etc/systemd/system/velocity-report.service /tmp/velocity-report.service && chmod 644 /tmp/velocity-report.service")
 		if err != nil {
 			return err
 		}
 
-		scpArgs := []string{}
-		if b.SSHKey != "" {
-			scpArgs = append(scpArgs, "-i", b.SSHKey)
-		}
-
-		target := b.Target
-		if b.SSHUser != "" && !strings.Contains(target, "@") {
-			target = fmt.Sprintf("%s@%s", b.SSHUser, target)
-		}
-
-		args := append(scpArgs, fmt.Sprintf("%s:/tmp/velocity-report.service", target), serviceDest)
-		if _, err := exec.Run(fmt.Sprintf("scp %s", strings.Join(args, " "))); err != nil {
+		// 2. SCP from remote to local
+		if err := b.scpFromRemote("/tmp/velocity-report.service", serviceDest); err != nil {
 			return err
 		}
 
-		exec.Run("rm /tmp/velocity-report.service")
+		// 3. Clean up temp file on remote
+		remoteExec.Run("rm -f /tmp/velocity-report.service")
 	}
 
 	fmt.Println("  ✓ Service file backed up")
 	return nil
 }
 
-func (b *Backup) createMetadata(exec *Executor, backupDir, timestamp string) error {
+func (b *Backup) createMetadata(remoteExec *Executor, backupDir, timestamp string) error {
 	fmt.Println("Creating backup metadata...")
 
-	// Get version info if possible
-	versionOutput, _ := exec.Run("/usr/local/bin/velocity-report --version 2>&1 || echo 'unknown'")
+	// Get version info from target (may be remote)
+	versionOutput, _ := remoteExec.Run("/usr/local/bin/velocity-report --version 2>&1 || echo 'unknown'")
 
-	// Get service status
-	statusOutput, _ := exec.RunSudo("systemctl is-active velocity-report.service 2>&1 || echo 'unknown'")
+	// Get service status from target
+	statusOutput, _ := remoteExec.RunSudo("systemctl is-active velocity-report.service 2>&1 || echo 'unknown'")
 
 	metadata := fmt.Sprintf(`Velocity.report Backup
 =====================
@@ -236,9 +259,9 @@ To restore this backup:
 6. Start service: sudo systemctl start velocity-report.service
 `, timestamp, b.Target, strings.TrimSpace(versionOutput), strings.TrimSpace(statusOutput))
 
+	// Write metadata file locally (not via executor)
 	metadataFile := filepath.Join(backupDir, "README.txt")
-	// Use WriteFile instead of shell heredoc to avoid command injection
-	if err := exec.WriteFile(metadataFile, metadata); err != nil {
+	if err := os.WriteFile(metadataFile, []byte(metadata), 0644); err != nil {
 		return err
 	}
 

@@ -33,8 +33,12 @@ func (r *Rollback) Execute() error {
 	// Step 2: Confirm rollback
 	if !r.DryRun {
 		fmt.Print("Are you sure you want to rollback? This will stop the service and restore the backup. [y/N]: ")
-		var confirm string
-		fmt.Scanln(&confirm)
+		reader := bufio.NewReader(os.Stdin)
+		confirm, err := reader.ReadString('\n')
+		if err != nil {
+			return fmt.Errorf("failed to read input: %w", err)
+		}
+		confirm = strings.TrimSpace(confirm)
 		if strings.ToLower(confirm) != "y" {
 			fmt.Println("Rollback cancelled")
 			return nil
