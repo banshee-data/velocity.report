@@ -763,28 +763,35 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Preserving config file for test inspection: %s", configFile)
 	}
 
-	// Get the repository root (assuming we're running from the repo root)
-	repoRoot, err := os.Getwd()
+	// Get the PDF generator directory
+	pdfDir, err := getPDFGeneratorDir()
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get working directory: %v", err))
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to determine PDF generator directory: %v", err))
 		return
 	}
 
-	// Path to the PDF generator - allow overriding the python binary via
-	// PDF_GENERATOR_PYTHON for tests or deployment customization.
-	// Default location (repo/.venv/bin/python) is used when
-	// the env var is unset.
-	pdfDir := filepath.Join(repoRoot, "tools", "pdf-generator")
-	defaultPythonBin := filepath.Join(repoRoot, ".venv", "bin", "python")
-
+	// Path to Python binary - allow overriding via PDF_GENERATOR_PYTHON
+	// Check locations in priority order:
+	// 1. Deployed venv: /opt/velocity-report/.venv/bin/python
+	// 2. Development venv: ./.venv/bin/python
+	// 3. System python3
 	pythonBin := os.Getenv("PDF_GENERATOR_PYTHON")
 	if pythonBin == "" {
-		pythonBin = defaultPythonBin
-		// Check if python binary exists, fallback to system python if not
-		if _, err := os.Stat(pythonBin); os.IsNotExist(err) {
-			pythonBin = "python3"
-			log.Printf("PDF generator venv not found, using system python3")
+		deployedPython := "/opt/velocity-report/.venv/bin/python"
+		if _, err := os.Stat(deployedPython); err == nil {
+			pythonBin = deployedPython
+			log.Printf("Using deployed PDF generator python: %s", pythonBin)
+		} else {
+			repoRoot, _ := os.Getwd()
+			defaultPythonBin := filepath.Join(repoRoot, ".venv", "bin", "python")
+			if _, err := os.Stat(defaultPythonBin); err == nil {
+				pythonBin = defaultPythonBin
+				log.Printf("Using development PDF generator python: %s", pythonBin)
+			} else {
+				pythonBin = "python3"
+				log.Printf("PDF generator venv not found, using system python3")
+			}
 		}
 	} else {
 		log.Printf("Using overridden PDF generator python: %s", pythonBin)
@@ -1015,17 +1022,16 @@ func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, reportID
 		return
 	}
 
-	// Get the repository root
-	repoRoot, err := os.Getwd()
+	// Get the PDF generator directory
+	pdfDir, err := getPDFGeneratorDir()
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusInternalServerError, "Failed to get working directory")
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to determine PDF generator directory: %v", err))
 		return
 	}
 
 	// Determine which file to serve based on file_type
 	var filePath, filename, contentType string
-	pdfDir := filepath.Join(repoRoot, "tools", "pdf-generator")
 
 	if fileType == "zip" {
 		// Check if ZIP file exists
@@ -1081,6 +1087,30 @@ func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, reportID
 	}
 
 	log.Printf("Successfully downloaded %s file (ID: %d): %s", strings.ToUpper(fileType), reportID, filename)
+}
+
+// getPDFGeneratorDir determines the PDF generator directory.
+// Can be overridden via PDF_GENERATOR_DIR env var.
+// Default to /opt/velocity-report/tools/pdf-generator for deployed systems,
+// or tools/pdf-generator relative to current directory for development.
+func getPDFGeneratorDir() (string, error) {
+	pdfDir := os.Getenv("PDF_GENERATOR_DIR")
+	if pdfDir != "" {
+		return pdfDir, nil
+	}
+
+	// Check if deployed location exists
+	deployedPath := "/opt/velocity-report/tools/pdf-generator"
+	if _, err := os.Stat(deployedPath); err == nil {
+		return deployedPath, nil
+	}
+
+	// Fall back to development location
+	repoRoot, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get working directory: %w", err)
+	}
+	return filepath.Join(repoRoot, "tools", "pdf-generator"), nil
 }
 
 func (s *Server) deleteReport(w http.ResponseWriter, r *http.Request, reportID int) {

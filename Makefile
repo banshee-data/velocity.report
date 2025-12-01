@@ -16,11 +16,15 @@ help:
 	@echo "  build-radar-mac-intel Build for macOS AMD64 with pcap"
 	@echo "  build-radar-local    Build for local development with pcap"
 	@echo "  build-tools          Build sweep tool"
+	@echo "  build-deploy         Build velocity-deploy deployment manager"
+	@echo "  build-deploy-linux   Build velocity-deploy for Linux ARM64"
 	@echo "  build-web            Build web frontend (SvelteKit)"
 	@echo "  build-docs           Build documentation site (Eleventy)"
 	@echo ""
 	@echo "INSTALLATION:"
 	@echo "  install-python       Set up Python PDF generator (venv + deps)"
+	@echo "  deploy-install-latex Install LaTeX on remote target (for PDF generation)"
+	@echo "  deploy-update-deps   Update source, LaTeX, and Python deps on remote target"
 	@echo "  install-web          Install web dependencies (pnpm/npm)"
 	@echo "  install-docs         Install docs dependencies (pnpm/npm)"
 	@echo ""
@@ -68,7 +72,11 @@ help:
 	@echo "  clean-python         Clean PDF output files"
 	@echo ""
 	@echo "DEPLOYMENT:"
-	@echo "  setup-radar          Install server on this host (requires sudo)"
+	@echo "  setup-radar          Install server on this host (requires sudo, legacy)"
+	@echo "  deploy-install       Install using velocity-deploy (local)"
+	@echo "  deploy-upgrade       Upgrade using velocity-deploy (local)"
+	@echo "  deploy-status        Check service status using velocity-deploy"
+	@echo "  deploy-health        Run health check using velocity-deploy"
 	@echo ""
 	@echo "UTILITIES:"
 	@echo "  log-go-tail          Tail most recent Go server log"
@@ -104,26 +112,40 @@ help:
 .DEFAULT_GOAL := help
 
 # =============================================================================
+# VERSION INFORMATION
+# =============================================================================
+VERSION := 0.1.0
+GIT_SHA := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+LDFLAGS := -X 'main.version=$(VERSION)' -X 'main.gitSHA=$(GIT_SHA)'
+
+# =============================================================================
 # BUILD TARGETS (Go cross-compilation)
 # =============================================================================
 
 build-radar-linux:
-	GOOS=linux GOARCH=arm64 go build -o velocity-report-linux-arm64 ./cmd/radar
+	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o velocity-report-linux-arm64 ./cmd/radar
 
 build-radar-linux-pcap:
-	GOOS=linux GOARCH=arm64 go build -tags=pcap -o velocity-report-linux-arm64 ./cmd/radar
+	GOOS=linux GOARCH=arm64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-linux-arm64 ./cmd/radar
 
 build-radar-mac:
-	GOOS=darwin GOARCH=arm64 go build -tags=pcap -o velocity-report-mac-arm64 ./cmd/radar
+	GOOS=darwin GOARCH=arm64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-mac-arm64 ./cmd/radar
 
 build-radar-mac-intel:
-	GOOS=darwin GOARCH=amd64 go build -tags=pcap -o velocity-report-mac-amd64 ./cmd/radar
+	GOOS=darwin GOARCH=amd64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-mac-amd64 ./cmd/radar
 
 build-radar-local:
-	go build -tags=pcap -o velocity-report-local ./cmd/radar
+	go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-local ./cmd/radar
 
 build-tools:
 	go build -o app-sweep ./cmd/sweep
+
+# Build velocity-deploy deployment manager
+build-deploy:
+	go build -o velocity-deploy ./cmd/deploy
+
+build-deploy-linux:
+	GOOS=linux GOARCH=arm64 go build -o velocity-deploy-linux-arm64 ./cmd/deploy
 
 .PHONY: build-web
 build-web:
@@ -153,7 +175,7 @@ build-docs:
 # INSTALLATION
 # =============================================================================
 
-.PHONY: install-python install-web install-docs
+.PHONY: install-python install-web install-docs deploy-install-latex deploy-update-deps
 
 # Python environment variables (unified at repository root)
 VENV_DIR = .venv
@@ -162,6 +184,38 @@ VENV_PIP = $(VENV_DIR)/bin/pip
 VENV_PYTEST = $(VENV_DIR)/bin/pytest
 PDF_DIR = tools/pdf-generator
 PYTHON_VERSION = 3.12
+
+# Deploy: Install LaTeX on remote target
+deploy-install-latex:
+	@if [ -z "$(TARGET)" ]; then \
+		echo "Error: TARGET not set. Usage: make deploy-install-latex TARGET=radar-ts"; \
+		exit 1; \
+	fi
+	@echo "Installing LaTeX on $(TARGET)..."
+	@ssh $(TARGET) "if ! command -v pdflatex >/dev/null 2>&1; then \
+		sudo apt-get update && sudo apt-get install -y texlive-xetex texlive-fonts-recommended texlive-latex-extra; \
+	else \
+		echo 'LaTeX already installed'; \
+	fi"
+
+# Deploy: Update dependencies on remote target
+deploy-update-deps:
+	@if [ -z "$(TARGET)" ]; then \
+		echo "Error: TARGET not set. Usage: make deploy-update-deps TARGET=radar-ts"; \
+		exit 1; \
+	fi
+	@echo "Updating dependencies on $(TARGET)..."
+	@echo "  → Updating source code..."
+	@ssh $(TARGET) "test -d /opt/velocity-report/.git && cd /opt/velocity-report && sudo git pull || echo 'No git repo found'"
+	@echo "  → Ensuring LaTeX is installed..."
+	@ssh $(TARGET) "if ! command -v pdflatex >/dev/null 2>&1; then \
+		sudo apt-get update && sudo apt-get install -y texlive-xetex texlive-fonts-recommended texlive-latex-extra; \
+	fi"
+	@echo "  → Updating Python dependencies..."
+	@ssh $(TARGET) "test -d /opt/velocity-report && cd /opt/velocity-report && sudo make install-python || echo 'Source not found'"
+	@echo "  → Fixing ownership..."
+	@ssh $(TARGET) "test -d /opt/velocity-report && sudo chown -R \$$(sudo systemctl show velocity-report.service -p User --value 2>/dev/null || echo 'velocity'):\$$(sudo systemctl show velocity-report.service -p User --value 2>/dev/null || echo 'velocity') /opt/velocity-report || echo 'Source not found'"
+	@echo "✓ Dependencies updated on $(TARGET)"
 
 install-python:
 	@echo "Setting up Python environment..."
@@ -536,8 +590,9 @@ clean-python:
 # DEPLOYMENT
 # =============================================================================
 
-.PHONY: setup-radar
+.PHONY: setup-radar deploy-install deploy-upgrade deploy-status deploy-health
 
+# Legacy installation script (kept for backward compatibility)
 setup-radar:
 	@if [ ! -f "velocity-report-linux-arm64" ]; then \
 		echo "Error: velocity-report-linux-arm64 not found!"; \
@@ -551,6 +606,47 @@ setup-radar:
 	@echo "  3. Install and start systemd service"
 	@echo ""
 	@sudo ./scripts/setup-radar-host.sh
+
+# Modern deployment using velocity-deploy
+deploy-install:
+	@if [ ! -f "velocity-deploy" ]; then \
+		echo "Building velocity-deploy..."; \
+		make build-deploy; \
+	fi
+	@if [ ! -f "velocity-report-linux-arm64" ]; then \
+		echo "Error: velocity-report-linux-arm64 not found!"; \
+		echo "Run 'make build-radar-linux' first."; \
+		exit 1; \
+	fi
+	@echo "Installing velocity.report using velocity-deploy..."
+	./velocity-deploy install --binary ./velocity-report-linux-arm64
+
+deploy-upgrade:
+	@if [ ! -f "velocity-deploy" ]; then \
+		echo "Building velocity-deploy..."; \
+		make build-deploy; \
+	fi
+	@if [ ! -f "velocity-report-linux-arm64" ]; then \
+		echo "Error: velocity-report-linux-arm64 not found!"; \
+		echo "Run 'make build-radar-linux' first."; \
+		exit 1; \
+	fi
+	@echo "Upgrading velocity.report using velocity-deploy..."
+	./velocity-deploy upgrade --binary ./velocity-report-linux-arm64
+
+deploy-status:
+	@if [ ! -f "velocity-deploy" ]; then \
+		echo "Building velocity-deploy..."; \
+		make build-deploy; \
+	fi
+	./velocity-deploy status
+
+deploy-health:
+	@if [ ! -f "velocity-deploy" ]; then \
+		echo "Building velocity-deploy..."; \
+		make build-deploy; \
+	fi
+	./velocity-deploy health
 
 # =============================================================================
 # UTILITIES

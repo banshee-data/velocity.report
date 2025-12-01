@@ -1,0 +1,406 @@
+name: Version Bump Advisor
+
+on:
+  pull_request:
+    branches: [main, master]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  check-version-bump:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for diff
+
+      - name: Get base branch
+        id: base
+        run: |
+          echo "ref=origin/${{ github.base_ref }}" >> $GITHUB_OUTPUT
+
+      - name: Check for migration changes
+        id: migrations
+        run: |
+          echo "Checking for new database migrations..."
+          if git diff ${{ steps.base.outputs.ref }}...HEAD --name-only | grep -q 'internal/db/migrations/.*\.up\.sql'; then
+            echo "migration_added=true" >> $GITHUB_OUTPUT
+            MIGRATION_FILES=$(git diff ${{ steps.base.outputs.ref }}...HEAD --name-only | grep 'internal/db/migrations/.*\.up\.sql' | tr '\n' ',' | sed 's/,$//')
+            echo "files=$MIGRATION_FILES" >> $GITHUB_OUTPUT
+            echo "::warning::New database migration(s) detected: $MIGRATION_FILES"
+          else
+            echo "migration_added=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check for API changes
+        id: api
+        run: |
+          echo "Checking for API changes..."
+          API_ADDED=$(git diff ${{ steps.base.outputs.ref }}...HEAD -- internal/api/ | grep -E '^\+.*func.*Handler' | wc -l || echo 0)
+          API_REMOVED=$(git diff ${{ steps.base.outputs.ref }}...HEAD -- internal/api/ | grep -E '^\-.*func.*Handler' | wc -l || echo 0)
+
+          if [ "$API_ADDED" -gt 0 ]; then
+            echo "api_added=true" >> $GITHUB_OUTPUT
+            echo "api_added_count=$API_ADDED" >> $GITHUB_OUTPUT
+            echo "::warning::$API_ADDED new API handler(s) detected"
+          fi
+
+          if [ "$API_REMOVED" -gt 0 ]; then
+            echo "api_removed=true" >> $GITHUB_OUTPUT
+            echo "api_removed_count=$API_REMOVED" >> $GITHUB_OUTPUT
+            echo "::error::$API_REMOVED API handler(s) removed - BREAKING CHANGE"
+          fi
+
+      - name: Check for CLI flag changes
+        id: cli
+        run: |
+          echo "Checking for CLI flag changes..."
+          FLAGS_REMOVED=$(git diff ${{ steps.base.outputs.ref }}...HEAD -- cmd/radar/radar.go | grep -E '^\-.*flag\.(String|Bool|Int)' | wc -l || echo 0)
+          FLAGS_ADDED=$(git diff ${{ steps.base.outputs.ref }}...HEAD -- cmd/radar/radar.go | grep -E '^\+.*flag\.(String|Bool|Int)' | wc -l || echo 0)
+
+          if [ "$FLAGS_REMOVED" -gt 0 ]; then
+            echo "cli_breaking=true" >> $GITHUB_OUTPUT
+            echo "cli_removed_count=$FLAGS_REMOVED" >> $GITHUB_OUTPUT
+            echo "::error::$FLAGS_REMOVED CLI flag(s) removed - BREAKING CHANGE"
+          fi
+
+          if [ "$FLAGS_ADDED" -gt 0 ]; then
+            echo "cli_added=true" >> $GITHUB_OUTPUT
+            echo "cli_added_count=$FLAGS_ADDED" >> $GITHUB_OUTPUT
+            echo "::warning::$FLAGS_ADDED new CLI flag(s) detected"
+          fi
+
+      - name: Check radar version bump
+        id: radar_version
+        run: |
+          echo "Checking radar version..."
+          OLD_VERSION=$(git show ${{ steps.base.outputs.ref }}:Makefile 2>/dev/null | grep '^VERSION :=' | cut -d= -f2 | tr -d ' ' || echo "unknown")
+          NEW_VERSION=$(grep '^VERSION :=' Makefile | cut -d= -f2 | tr -d ' ')
+
+          echo "old=$OLD_VERSION" >> $GITHUB_OUTPUT
+          echo "new=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+          if [ "$OLD_VERSION" = "$NEW_VERSION" ]; then
+            echo "radar_version_unchanged=true" >> $GITHUB_OUTPUT
+            echo "::notice::Radar version unchanged: $NEW_VERSION"
+          else
+            echo "radar_version_changed=true" >> $GITHUB_OUTPUT
+            echo "::notice::Radar version updated: $OLD_VERSION → $NEW_VERSION"
+          fi
+
+      - name: Check PDF generator version
+        id: pdf_version
+        run: |
+          echo "Checking PDF generator changes..."
+          if git diff ${{ steps.base.outputs.ref }}...HEAD --name-only | grep -q 'tools/pdf-generator/'; then
+            echo "pdf_changed=true" >> $GITHUB_OUTPUT
+
+            OLD_VERSION=$(git show ${{ steps.base.outputs.ref }}:tools/pdf-generator/pyproject.toml 2>/dev/null | grep '^version =' | cut -d'"' -f2 || echo "unknown")
+            NEW_VERSION=$(grep '^version =' tools/pdf-generator/pyproject.toml | cut -d'"' -f2)
+
+            echo "old=$OLD_VERSION" >> $GITHUB_OUTPUT
+            echo "new=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+            if [ "$OLD_VERSION" = "$NEW_VERSION" ]; then
+              echo "pdf_version_unchanged=true" >> $GITHUB_OUTPUT
+              echo "::warning::PDF generator code changed but version unchanged: $NEW_VERSION"
+            else
+              echo "::notice::PDF generator version updated: $OLD_VERSION → $NEW_VERSION"
+            fi
+          else
+            echo "pdf_changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check deploy tool version
+        id: deploy_version
+        run: |
+          echo "Checking deploy tool changes..."
+          if git diff ${{ steps.base.outputs.ref }}...HEAD --name-only | grep -q 'cmd/deploy/'; then
+            echo "deploy_changed=true" >> $GITHUB_OUTPUT
+
+            OLD_VERSION=$(git show ${{ steps.base.outputs.ref }}:cmd/deploy/main.go 2>/dev/null | grep 'const version =' | cut -d'"' -f2 || echo "unknown")
+            NEW_VERSION=$(grep 'const version =' cmd/deploy/main.go | cut -d'"' -f2)
+
+            echo "old=$OLD_VERSION" >> $GITHUB_OUTPUT
+            echo "new=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+            if [ "$OLD_VERSION" = "$NEW_VERSION" ]; then
+              echo "deploy_version_unchanged=true" >> $GITHUB_OUTPUT
+              echo "::warning::Deploy tool code changed but version unchanged: $NEW_VERSION"
+            else
+              echo "::notice::Deploy tool version updated: $OLD_VERSION → $NEW_VERSION"
+            fi
+          else
+            echo "deploy_changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check web frontend version
+        id: web_version
+        run: |
+          echo "Checking web frontend changes..."
+          if git diff ${{ steps.base.outputs.ref }}...HEAD --name-only | grep -q 'web/'; then
+            echo "web_changed=true" >> $GITHUB_OUTPUT
+
+            OLD_VERSION=$(git show ${{ steps.base.outputs.ref }}:web/package.json 2>/dev/null | grep '"version"' | cut -d'"' -f4 || echo "unknown")
+            NEW_VERSION=$(grep '"version"' web/package.json | cut -d'"' -f4)
+
+            echo "old=$OLD_VERSION" >> $GITHUB_OUTPUT
+            echo "new=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+            if [ "$OLD_VERSION" = "$NEW_VERSION" ]; then
+              echo "web_version_unchanged=true" >> $GITHUB_OUTPUT
+              echo "::warning::Web frontend code changed but version unchanged: $NEW_VERSION"
+            else
+              echo "::notice::Web frontend version updated: $OLD_VERSION → $NEW_VERSION"
+            fi
+          else
+            echo "web_changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate advisory summary
+        run: |
+          echo "# 📊 Version Bump Advisory" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "_Automated analysis of version requirements based on detected changes_" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Breaking changes
+          BREAKING=false
+
+          if [ "${{ steps.cli.outputs.cli_breaking }}" = "true" ]; then
+            BREAKING=true
+            echo "## 🚨 BREAKING CHANGES DETECTED" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### CLI Flags Removed" >> $GITHUB_STEP_SUMMARY
+            echo "- **${{ steps.cli.outputs.cli_removed_count }} CLI flag(s) removed**" >> $GITHUB_STEP_SUMMARY
+            echo "- **Action Required:** Radar needs **MAJOR version bump**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ steps.api.outputs.api_removed }}" = "true" ]; then
+            BREAKING=true
+            echo "### API Handlers Removed" >> $GITHUB_STEP_SUMMARY
+            echo "- **${{ steps.api.outputs.api_removed_count }} API handler(s) removed**" >> $GITHUB_STEP_SUMMARY
+            echo "- **Action Required:** Radar needs **MAJOR version bump**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Radar changes
+          echo "## 🎯 Radar Application" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.radar_version.outputs.radar_version_changed }}" = "true" ]; then
+            echo "✅ **Version Updated:** ${{ steps.radar_version.outputs.old }} → ${{ steps.radar_version.outputs.new }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ **Version Unchanged:** ${{ steps.radar_version.outputs.new }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.migrations.outputs.migration_added }}" = "true" ]; then
+            echo "### ⚠️ Database Migration Detected" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Files:** ${{ steps.migrations.outputs.files }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Version Bump Required:**" >> $GITHUB_STEP_SUMMARY
+            echo "- If migration removes columns or changes types: **MAJOR**" >> $GITHUB_STEP_SUMMARY
+            echo "- If migration adds tables or optional columns: **MINOR**" >> $GITHUB_STEP_SUMMARY
+            echo "- If migration only fixes data: **PATCH** (if code changes)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ steps.api.outputs.api_added }}" = "true" ]; then
+            echo "### ℹ️ API Handlers Added" >> $GITHUB_STEP_SUMMARY
+            echo "- ${{ steps.api.outputs.api_added_count }} new handler(s)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Version Bump:** MINOR (new features)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ steps.cli.outputs.cli_added }}" = "true" ]; then
+            echo "### ℹ️ CLI Flags Added" >> $GITHUB_STEP_SUMMARY
+            echo "- ${{ steps.cli.outputs.cli_added_count }} new flag(s)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Version Bump:** MINOR (new features)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Other components
+          if [ "${{ steps.pdf_version.outputs.pdf_changed }}" = "true" ]; then
+            echo "## 📄 PDF Generator" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            if [ "${{ steps.pdf_version.outputs.pdf_version_unchanged }}" = "true" ]; then
+              echo "⚠️ **Code changed but version unchanged:** ${{ steps.pdf_version.outputs.new }}" >> $GITHUB_STEP_SUMMARY
+              echo "- Review changes and update `tools/pdf-generator/pyproject.toml` if needed" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ **Version Updated:** ${{ steps.pdf_version.outputs.old }} → ${{ steps.pdf_version.outputs.new }}" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ steps.deploy_version.outputs.deploy_changed }}" = "true" ]; then
+            echo "## 🚀 Deploy Tool" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            if [ "${{ steps.deploy_version.outputs.deploy_version_unchanged }}" = "true" ]; then
+              echo "⚠️ **Code changed but version unchanged:** ${{ steps.deploy_version.outputs.new }}" >> $GITHUB_STEP_SUMMARY
+              echo "- Review changes and update `cmd/deploy/main.go` if needed" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ **Version Updated:** ${{ steps.deploy_version.outputs.old }} → ${{ steps.deploy_version.outputs.new }}" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ steps.web_version.outputs.web_changed }}" = "true" ]; then
+            echo "## 🌐 Web Frontend" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            if [ "${{ steps.web_version.outputs.web_version_unchanged }}" = "true" ]; then
+              echo "⚠️ **Code changed but version unchanged:** ${{ steps.web_version.outputs.new }}" >> $GITHUB_STEP_SUMMARY
+              echo "- Review changes and update `web/package.json` if needed" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ **Version Updated:** ${{ steps.web_version.outputs.old }} → ${{ steps.web_version.outputs.new }}" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Footer
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📖 See [Changelog](./CHANGELOG.md) for detailed guidelines." >> $GITHUB_STEP_SUMMARY
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        if: |
+          steps.migrations.outputs.migration_added == 'true' ||
+          steps.api.outputs.api_added == 'true' ||
+          steps.api.outputs.api_removed == 'true' ||
+          steps.cli.outputs.cli_breaking == 'true' ||
+          steps.cli.outputs.cli_added == 'true' ||
+          steps.pdf_version.outputs.pdf_version_unchanged == 'true' ||
+          steps.deploy_version.outputs.deploy_version_unchanged == 'true' ||
+          steps.web_version.outputs.web_version_unchanged == 'true' ||
+          (steps.radar_version.outputs.radar_version_unchanged == 'true' &&
+           (steps.migrations.outputs.migration_added == 'true' ||
+            steps.api.outputs.api_added == 'true'))
+        with:
+          script: |
+            const migrations = '${{ steps.migrations.outputs.migration_added }}' === 'true';
+            const apiAdded = '${{ steps.api.outputs.api_added }}' === 'true';
+            const apiRemoved = '${{ steps.api.outputs.api_removed }}' === 'true';
+            const cliBreaking = '${{ steps.cli.outputs.cli_breaking }}' === 'true';
+            const cliAdded = '${{ steps.cli.outputs.cli_added }}' === 'true';
+            const radarUnchanged = '${{ steps.radar_version.outputs.radar_version_unchanged }}' === 'true';
+            const pdfUnchanged = '${{ steps.pdf_version.outputs.pdf_version_unchanged }}' === 'true';
+            const deployUnchanged = '${{ steps.deploy_version.outputs.deploy_version_unchanged }}' === 'true';
+            const webUnchanged = '${{ steps.web_version.outputs.web_version_unchanged }}' === 'true';
+
+            let breaking = [];
+            let features = [];
+            let warnings = [];
+            let componentVersions = [];
+
+            if (cliBreaking) {
+              breaking.push('🚨 **CLI flags removed** (${{ steps.cli.outputs.cli_removed_count }} flag(s)) - **MAJOR version bump required**');
+            }
+
+            if (apiRemoved) {
+              breaking.push('🚨 **API handlers removed** (${{ steps.api.outputs.api_removed_count }} handler(s)) - **MAJOR version bump required**');
+            }
+
+            if (migrations) {
+              warnings.push('⚠️ **Database migration detected**\n  - Files: `${{ steps.migrations.outputs.files }}`\n  - Review for breaking changes (MAJOR) vs additive changes (MINOR)');
+            }
+
+            if (apiAdded) {
+              features.push('ℹ️ **New API handlers** (${{ steps.api.outputs.api_added_count }} handler(s)) - MINOR bump suggested');
+            }
+
+            if (cliAdded) {
+              features.push('ℹ️ **New CLI flags** (${{ steps.cli.outputs.cli_added_count }} flag(s)) - MINOR bump suggested');
+            }
+
+            if (radarUnchanged && (migrations || apiAdded || cliAdded)) {
+              warnings.push('❌ **Radar version unchanged** - consider bumping version in `Makefile`');
+            }
+
+            if (pdfUnchanged) {
+              warnings.push('❌ **PDF Generator code changed but version unchanged** - update `tools/pdf-generator/pyproject.toml`');
+            }
+
+            if (deployUnchanged) {
+              warnings.push('❌ **Deploy Tool code changed but version unchanged** - update `cmd/deploy/main.go`');
+            }
+
+            if (webUnchanged) {
+              warnings.push('❌ **Web Frontend code changed but version unchanged** - update `web/package.json`');
+            }
+
+            // Always show version info if any component changed
+            if ('${{ steps.radar_version.outputs.radar_version_changed }}' === 'true') {
+              componentVersions.push('Radar: ${{ steps.radar_version.outputs.old }} → ${{ steps.radar_version.outputs.new }}');
+            }
+            if ('${{ steps.pdf_version.outputs.pdf_changed }}' === 'true' && !pdfUnchanged) {
+              componentVersions.push('PDF Generator: ${{ steps.pdf_version.outputs.old }} → ${{ steps.pdf_version.outputs.new }}');
+            }
+            if ('${{ steps.deploy_version.outputs.deploy_changed }}' === 'true' && !deployUnchanged) {
+              componentVersions.push('Deploy Tool: ${{ steps.deploy_version.outputs.old }} → ${{ steps.deploy_version.outputs.new }}');
+            }
+            if ('${{ steps.web_version.outputs.web_changed }}' === 'true' && !webUnchanged) {
+              componentVersions.push('Web Frontend: ${{ steps.web_version.outputs.old }} → ${{ steps.web_version.outputs.new }}');
+            }
+
+            if (breaking.length === 0 && features.length === 0 && warnings.length === 0 && componentVersions.length === 0) {
+              return; // No need to comment
+            }
+
+            // Check for existing bot comment
+            const comments = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+
+            const botComment = comments.data.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('🤖 Version Bump Advisory')
+            );
+
+            let body = '## 🤖 Version Bump Advisory\n\n';
+
+            if (breaking.length > 0) {
+              body += '### Breaking Changes\n\n' + breaking.join('\n') + '\n\n';
+            }
+
+            if (warnings.length > 0) {
+              body += '### Warnings\n\n' + warnings.join('\n') + '\n\n';
+            }
+
+            if (features.length > 0) {
+              body += '### New Features\n\n' + features.join('\n') + '\n\n';
+            }
+
+            if (componentVersions.length > 0) {
+              body += '### Version Updates\n\n' + componentVersions.map(v => '✅ ' + v).join('\n') + '\n\n';
+            }
+
+            body += '---\n\n';
+            body += '📖 See [CHANGELOG.md](./CHANGELOG.md) for detailed guidelines.\n\n';
+            body += '_This is an automated advisory. Review the detected changes and update versions accordingly._';
+
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+            }
