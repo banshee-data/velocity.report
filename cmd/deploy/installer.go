@@ -26,8 +26,10 @@ const (
 	serviceName = "velocity-report"
 	installPath = "/usr/local/bin/velocity-report"
 	dataDir     = "/var/lib/velocity-report"
+	sourceDir   = "/opt/velocity-report"
 	serviceFile = "velocity-report.service"
 	serviceUser = "velocity"
+	defaultRepo = "https://github.com/banshee-data/velocity.report"
 )
 
 // Install performs the installation
@@ -59,7 +61,14 @@ func (i *Installer) Install() error {
 		return fmt.Errorf("failed to create data directory: %w", err)
 	}
 
-	// Step 5: Install binary
+	// Step 5: Clone source code (for Python scripts)
+	if err := i.cloneSourceCode(exec); err != nil {
+		fmt.Printf("⚠️  Warning: Could not clone source code: %v\n", err)
+		fmt.Println("   Source code is needed for PDF generation. You can manually clone:")
+		fmt.Printf("   sudo git clone %s %s\n", defaultRepo, sourceDir)
+	}
+
+	// Step 6: Install binary
 	if err := i.installBinary(exec); err != nil {
 		return fmt.Errorf("failed to install binary: %w", err)
 	}
@@ -230,6 +239,45 @@ func (i *Installer) migrateDatabase(exec *Executor) error {
 	}
 
 	fmt.Println("  ✓ Database migrated")
+	return nil
+}
+
+func (i *Installer) cloneSourceCode(exec *Executor) error {
+	fmt.Printf("Cloning source code to %s...\n", sourceDir)
+
+	// Check if git is installed
+	if _, err := exec.Run("command -v git >/dev/null 2>&1"); err != nil {
+		return fmt.Errorf("git is not installed on target system")
+	}
+
+	// Check if directory already exists
+	checkOutput, _ := exec.Run(fmt.Sprintf("test -d %s && echo 'exists' || echo 'not found'", sourceDir))
+
+	if strings.Contains(checkOutput, "exists") {
+		fmt.Printf("  → Source directory already exists, updating...\n")
+		if _, err := exec.RunSudo(fmt.Sprintf("cd %s && git fetch origin && git reset --hard origin/main", sourceDir)); err != nil {
+			fmt.Printf("  ⚠️  Could not update existing repo, will clone fresh\n")
+			if _, err := exec.RunSudo(fmt.Sprintf("rm -rf %s", sourceDir)); err != nil {
+				return fmt.Errorf("failed to remove old source: %w", err)
+			}
+		} else {
+			fmt.Println("  ✓ Source code updated")
+			return nil
+		}
+	}
+
+	// Clone repository
+	debugLog("Cloning from %s", defaultRepo)
+	if _, err := exec.RunSudo(fmt.Sprintf("git clone %s %s", defaultRepo, sourceDir)); err != nil {
+		return fmt.Errorf("failed to clone repository: %w", err)
+	}
+
+	// Set permissions so velocity user can read
+	if _, err := exec.RunSudo(fmt.Sprintf("chown -R %s:%s %s", serviceUser, serviceUser, sourceDir)); err != nil {
+		debugLog("Warning: Could not set ownership on source directory: %v", err)
+	}
+
+	fmt.Println("  ✓ Source code cloned")
 	return nil
 }
 

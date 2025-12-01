@@ -208,6 +208,8 @@ func handleFix(args []string) {
 	sshUser := fs.String("ssh-user", "", "SSH user (defaults to ~/.ssh/config or current user)")
 	sshKey := fs.String("ssh-key", "", "SSH private key path (defaults to ~/.ssh/config)")
 	binaryPath := fs.String("binary", "", "Path to velocity-report binary (optional, for fixing missing binary)")
+	repoURL := fs.String("repo-url", "https://github.com/banshee-data/velocity.report", "Git repository URL for source code")
+	buildFromSource := fs.Bool("build-from-source", false, "Build binary from source on server (requires Go and build tools)")
 	dryRun := fs.Bool("dry-run", false, "Show what would be done")
 	debug := fs.Bool("debug", false, "Enable debug logging")
 	fs.Parse(args)
@@ -225,12 +227,14 @@ func handleFix(args []string) {
 	}
 
 	fixer := &Fixer{
-		Target:        resolvedHost,
-		SSHUser:       resolvedUser,
-		SSHKey:        resolvedKey,
-		IdentityAgent: identityAgent,
-		BinaryPath:    *binaryPath,
-		DryRun:        *dryRun,
+		Target:          resolvedHost,
+		SSHUser:         resolvedUser,
+		SSHKey:          resolvedKey,
+		IdentityAgent:   identityAgent,
+		BinaryPath:      *binaryPath,
+		RepoURL:         *repoURL,
+		BuildFromSource: *buildFromSource,
+		DryRun:          *dryRun,
 	}
 
 	if err := fixer.Fix(); err != nil {

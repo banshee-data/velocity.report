@@ -7,12 +7,14 @@ import (
 
 // Fixer handles repairing broken installations
 type Fixer struct {
-	Target        string
-	SSHUser       string
-	SSHKey        string
-	IdentityAgent string
-	BinaryPath    string
-	DryRun        bool
+	Target          string
+	SSHUser         string
+	SSHKey          string
+	IdentityAgent   string
+	BinaryPath      string
+	RepoURL         string
+	BuildFromSource bool
+	DryRun          bool
 }
 
 // Fix performs a comprehensive repair of the installation
@@ -54,10 +56,35 @@ func (f *Fixer) Fix() error {
 		fmt.Println("✅ Data directory exists with correct permissions")
 	}
 
-	// Check 3: Binary exists and is executable
+	// Check 3: Source code repository (for Python scripts and optional builds)
+	sourceDir := "/opt/velocity-report"
+	if err := f.checkSourceCode(exec, sourceDir); err != nil {
+		fmt.Printf("⚠️  Source code: %v\n", err)
+		fmt.Println("   Attempting to clone/update...")
+		if err := f.fixSourceCode(exec, sourceDir); err != nil {
+			fmt.Printf("   ⚠️  Could not fix: %v\n", err)
+			fmt.Println("   Note: Source code is needed for Python PDF generation scripts")
+		} else {
+			fmt.Println("   ✅ Fixed - source code cloned")
+			fixed++
+		}
+	} else {
+		fmt.Println("✅ Source code exists")
+	}
+
+	// Check 4: Binary exists and is executable
 	if err := f.checkBinary(exec); err != nil {
 		fmt.Printf("❌ Binary issue: %v\n", err)
-		if f.BinaryPath != "" {
+		if f.BuildFromSource {
+			fmt.Println("   Attempting to build from source...")
+			if err := f.buildBinaryFromSource(exec, sourceDir); err != nil {
+				fmt.Printf("   ⚠️  Could not build: %v\n\n", err)
+				issues++
+			} else {
+				fmt.Println("   ✅ Built and installed from source")
+				fixed++
+			}
+		} else if f.BinaryPath != "" {
 			fmt.Println("   Attempting to fix...")
 			if err := f.fixBinary(exec); err != nil {
 				fmt.Printf("   ⚠️  Could not fix: %v\n\n", err)
@@ -67,7 +94,7 @@ func (f *Fixer) Fix() error {
 				fixed++
 			}
 		} else {
-			fmt.Println("   ⚠️  No binary provided (use --binary flag to fix)")
+			fmt.Println("   ⚠️  No binary provided (use --binary or --build-from-source flag)")
 			issues++
 		}
 	} else {
@@ -428,6 +455,99 @@ func (f *Fixer) checkDatabaseSchema(exec *Executor) error {
 
 	if strings.Contains(versionOutput, "1|") {
 		return fmt.Errorf("schema is dirty (version: %s)", strings.TrimSpace(versionOutput))
+	}
+
+	return nil
+}
+
+func (f *Fixer) checkSourceCode(exec *Executor, sourceDir string) error {
+	debugLog("Checking source code at %s", sourceDir)
+	output, err := exec.Run(fmt.Sprintf("test -d %s/.git && echo 'exists' || echo 'not found'", sourceDir))
+	if err != nil {
+		return fmt.Errorf("failed to check source directory: %w", err)
+	}
+	if strings.TrimSpace(output) != "exists" {
+		return fmt.Errorf("source code not found at %s", sourceDir)
+	}
+	return nil
+}
+
+func (f *Fixer) fixSourceCode(exec *Executor, sourceDir string) error {
+	debugLog("Cloning/updating source code from %s to %s", f.RepoURL, sourceDir)
+
+	// Check if git is installed
+	if _, err := exec.Run("command -v git >/dev/null 2>&1"); err != nil {
+		return fmt.Errorf("git is not installed on target system")
+	}
+
+	// Check if directory exists
+	checkOutput, _ := exec.Run(fmt.Sprintf("test -d %s && echo 'exists' || echo 'not found'", sourceDir))
+
+	if strings.Contains(checkOutput, "exists") {
+		// Directory exists - try to update
+		debugLog("Source directory exists, attempting git pull")
+		if _, err := exec.RunSudo(fmt.Sprintf("cd %s && git fetch origin && git reset --hard origin/main", sourceDir)); err != nil {
+			fmt.Println("   ⚠️  Could not update, attempting fresh clone...")
+			if _, err := exec.RunSudo(fmt.Sprintf("rm -rf %s", sourceDir)); err != nil {
+				return fmt.Errorf("failed to remove old source: %w", err)
+			}
+		} else {
+			return nil
+		}
+	}
+
+	// Clone fresh
+	debugLog("Cloning repository")
+	if _, err := exec.RunSudo(fmt.Sprintf("git clone %s %s", f.RepoURL, sourceDir)); err != nil {
+		return fmt.Errorf("failed to clone repository: %w", err)
+	}
+
+	// Set permissions
+	if _, err := exec.RunSudo(fmt.Sprintf("chown -R velocity:velocity %s", sourceDir)); err != nil {
+		debugLog("Warning: Could not set ownership on source directory: %v", err)
+	}
+
+	return nil
+}
+
+func (f *Fixer) buildBinaryFromSource(exec *Executor, sourceDir string) error {
+	debugLog("Building binary from source at %s", sourceDir)
+
+	// Check if Go is installed
+	goVersion, err := exec.Run("go version 2>/dev/null")
+	if err != nil {
+		return fmt.Errorf("Go is not installed on target system. Install Go 1.21+ or use --binary flag instead")
+	}
+	debugLog("Found Go: %s", strings.TrimSpace(goVersion))
+
+	// Check for libpcap-dev (needed for pcap builds)
+	if output, _ := exec.Run("dpkg -l | grep libpcap-dev 2>/dev/null"); strings.TrimSpace(output) == "" {
+		fmt.Println("   ⚠️  libpcap-dev not found - attempting to install...")
+		if _, err := exec.RunSudo("apt-get update && apt-get install -y libpcap-dev"); err != nil {
+			fmt.Println("   ⚠️  Could not install libpcap-dev, building without pcap support")
+		}
+	}
+
+	// Build the binary
+	debugLog("Building radar binary")
+	buildCmd := fmt.Sprintf("cd %s && go build -o /tmp/velocity-report-new ./cmd/radar", sourceDir)
+	if output, err := exec.Run(buildCmd); err != nil {
+		return fmt.Errorf("build failed: %w\nOutput: %s", err, output)
+	}
+
+	// Stop service before replacing binary
+	debugLog("Stopping service for binary replacement")
+	exec.RunSudo("systemctl stop velocity-report.service 2>/dev/null || true")
+
+	// Install the binary
+	debugLog("Installing new binary")
+	if _, err := exec.RunSudo("mv /tmp/velocity-report-new /usr/local/bin/velocity-report && chown root:root /usr/local/bin/velocity-report && chmod 0755 /usr/local/bin/velocity-report"); err != nil {
+		return fmt.Errorf("failed to install binary: %w", err)
+	}
+
+	// Verify binary has --db-path flag
+	if output, _ := exec.Run("/usr/local/bin/velocity-report --help 2>&1 | grep -q 'db-path' && echo 'ok'"); strings.TrimSpace(output) != "ok" {
+		fmt.Println("   ⚠️  Warning: Built binary may not support --db-path flag")
 	}
 
 	return nil
