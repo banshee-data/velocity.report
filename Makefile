@@ -110,23 +110,30 @@ help:
 .DEFAULT_GOAL := help
 
 # =============================================================================
+# VERSION INFORMATION
+# =============================================================================
+VERSION := 0.1.0
+GIT_SHA := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+LDFLAGS := -X 'main.version=$(VERSION)' -X 'main.gitSHA=$(GIT_SHA)'
+
+# =============================================================================
 # BUILD TARGETS (Go cross-compilation)
 # =============================================================================
 
 build-radar-linux:
-	GOOS=linux GOARCH=arm64 go build -o velocity-report-linux-arm64 ./cmd/radar
+	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o velocity-report-linux-arm64 ./cmd/radar
 
 build-radar-linux-pcap:
-	GOOS=linux GOARCH=arm64 go build -tags=pcap -o velocity-report-linux-arm64 ./cmd/radar
+	GOOS=linux GOARCH=arm64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-linux-arm64 ./cmd/radar
 
 build-radar-mac:
-	GOOS=darwin GOARCH=arm64 go build -tags=pcap -o velocity-report-mac-arm64 ./cmd/radar
+	GOOS=darwin GOARCH=arm64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-mac-arm64 ./cmd/radar
 
 build-radar-mac-intel:
-	GOOS=darwin GOARCH=amd64 go build -tags=pcap -o velocity-report-mac-amd64 ./cmd/radar
+	GOOS=darwin GOARCH=amd64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-mac-amd64 ./cmd/radar
 
 build-radar-local:
-	go build -tags=pcap -o velocity-report-local ./cmd/radar
+	go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-local ./cmd/radar
 
 build-tools:
 	go build -o app-sweep ./cmd/sweep

@@ -28,6 +28,12 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/parse"
 )
 
+// Version information (set at build time via ldflags)
+var (
+	version = "dev"
+	gitSHA  = "unknown"
+)
+
 var (
 	fixtureMode  = flag.Bool("fixture", false, "Load fixture to local database")
 	debugMode    = flag.Bool("debug", false, "Run in debug mode (enables debug output in reports)")
@@ -37,6 +43,8 @@ var (
 	timezoneFlag = flag.String("timezone", "UTC", "Timezone for display (UTC, US/Eastern, US/Pacific, etc.)")
 	disableRadar = flag.Bool("disable-radar", false, "Disable radar serial port (serve DB only)")
 	dbPathFlag   = flag.String("db-path", "sensor_data.db", "path to sqlite DB file (defaults to sensor_data.db)")
+	versionFlag  = flag.Bool("version", false, "Print version information and exit")
+	versionShort = flag.Bool("v", false, "Print version information and exit (shorthand)")
 )
 
 // Lidar options (when enabling lidar via -enable-lidar)
@@ -69,9 +77,21 @@ const SCHEMA_VERSION = "0.0.2"
 func main() {
 	flag.Parse()
 
+	// Handle version flags (-v, --version)
+	if *versionFlag || *versionShort {
+		fmt.Printf("velocity-report version %s\n", version)
+		fmt.Printf("git commit: %s\n", gitSHA)
+		os.Exit(0)
+	}
+
 	// Check if first argument is a subcommand
 	if flag.NArg() > 0 {
 		subcommand := flag.Arg(0)
+		if subcommand == "version" {
+			fmt.Printf("velocity-report version %s\n", version)
+			fmt.Printf("git commit: %s\n", gitSHA)
+			os.Exit(0)
+		}
 		if subcommand == "migrate" {
 			// Re-parse flags after "migrate" subcommand to allow:
 			//   velocity-report migrate up --db-path /custom.db
