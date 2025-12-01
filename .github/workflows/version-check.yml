@@ -276,6 +276,9 @@ jobs:
           steps.api.outputs.api_removed == 'true' ||
           steps.cli.outputs.cli_breaking == 'true' ||
           steps.cli.outputs.cli_added == 'true' ||
+          steps.pdf_version.outputs.pdf_version_unchanged == 'true' ||
+          steps.deploy_version.outputs.deploy_version_unchanged == 'true' ||
+          steps.web_version.outputs.web_version_unchanged == 'true' ||
           (steps.radar_version.outputs.radar_version_unchanged == 'true' &&
            (steps.migrations.outputs.migration_added == 'true' ||
             steps.api.outputs.api_added == 'true'))
@@ -287,10 +290,14 @@ jobs:
             const cliBreaking = '${{ steps.cli.outputs.cli_breaking }}' === 'true';
             const cliAdded = '${{ steps.cli.outputs.cli_added }}' === 'true';
             const radarUnchanged = '${{ steps.radar_version.outputs.radar_version_unchanged }}' === 'true';
+            const pdfUnchanged = '${{ steps.pdf_version.outputs.pdf_version_unchanged }}' === 'true';
+            const deployUnchanged = '${{ steps.deploy_version.outputs.deploy_version_unchanged }}' === 'true';
+            const webUnchanged = '${{ steps.web_version.outputs.web_version_unchanged }}' === 'true';
 
             let breaking = [];
             let features = [];
             let warnings = [];
+            let componentVersions = [];
 
             if (cliBreaking) {
               breaking.push('🚨 **CLI flags removed** (${{ steps.cli.outputs.cli_removed_count }} flag(s)) - **MAJOR version bump required**');
@@ -316,9 +323,47 @@ jobs:
               warnings.push('❌ **Radar version unchanged** - consider bumping version in `Makefile`');
             }
 
-            if (breaking.length === 0 && features.length === 0 && warnings.length === 0) {
+            if (pdfUnchanged) {
+              warnings.push('❌ **PDF Generator code changed but version unchanged** - update `tools/pdf-generator/pyproject.toml`');
+            }
+
+            if (deployUnchanged) {
+              warnings.push('❌ **Deploy Tool code changed but version unchanged** - update `cmd/deploy/main.go`');
+            }
+
+            if (webUnchanged) {
+              warnings.push('❌ **Web Frontend code changed but version unchanged** - update `web/package.json`');
+            }
+
+            // Always show version info if any component changed
+            if ('${{ steps.radar_version.outputs.radar_version_changed }}' === 'true') {
+              componentVersions.push('Radar: ${{ steps.radar_version.outputs.old }} → ${{ steps.radar_version.outputs.new }}');
+            }
+            if ('${{ steps.pdf_version.outputs.pdf_changed }}' === 'true' && !pdfUnchanged) {
+              componentVersions.push('PDF Generator: ${{ steps.pdf_version.outputs.old }} → ${{ steps.pdf_version.outputs.new }}');
+            }
+            if ('${{ steps.deploy_version.outputs.deploy_changed }}' === 'true' && !deployUnchanged) {
+              componentVersions.push('Deploy Tool: ${{ steps.deploy_version.outputs.old }} → ${{ steps.deploy_version.outputs.new }}');
+            }
+            if ('${{ steps.web_version.outputs.web_changed }}' === 'true' && !webUnchanged) {
+              componentVersions.push('Web Frontend: ${{ steps.web_version.outputs.old }} → ${{ steps.web_version.outputs.new }}');
+            }
+
+            if (breaking.length === 0 && features.length === 0 && warnings.length === 0 && componentVersions.length === 0) {
               return; // No need to comment
             }
+
+            // Check for existing bot comment
+            const comments = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+
+            const botComment = comments.data.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('🤖 Version Bump Advisory')
+            );
 
             let body = '## 🤖 Version Bump Advisory\n\n';
 
@@ -334,13 +379,28 @@ jobs:
               body += '### New Features\n\n' + features.join('\n') + '\n\n';
             }
 
+            if (componentVersions.length > 0) {
+              body += '### Version Updates\n\n' + componentVersions.map(v => '✅ ' + v).join('\n') + '\n\n';
+            }
+
             body += '---\n\n';
-            body += '📖 See [Changelog](./CHANGELOG.md) for detailed guidelines.\n\n';
+            body += '📖 See [CHANGELOG.md](./CHANGELOG.md) for detailed guidelines.\n\n';
             body += '_This is an automated advisory. Review the detected changes and update versions accordingly._';
 
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: body
-            });
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+            }
