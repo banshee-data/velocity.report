@@ -11,6 +11,7 @@ node_modules/
 static/
 tools/*/output/*
 web/.svelte-kit/*
+internal/db/schema.sql.bak
 
 # Python virtual environments
 .venv/
