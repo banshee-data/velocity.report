@@ -1701,7 +1701,7 @@ func (s *Server) Start(ctx context.Context, listen string, devMode bool) error {
 // handleAnglePresets manages angle preset CRUD operations
 func (s *Server) handleAnglePresets(w http.ResponseWriter, r *http.Request) {
 	// Extract ID from path if present
-	path := strings.TrimPrefix(r.Path, "/api/angle_presets")
+	path := strings.TrimPrefix(r.URL.Path, "/api/angle_presets")
 	path = strings.TrimPrefix(path, "/")
 
 	switch r.Method {
@@ -1737,7 +1737,11 @@ func (s *Server) getAllAnglePresets(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.writeJSON(w, http.StatusOK, presets)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(presets); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode response")
+	}
 }
 
 func (s *Server) getAnglePreset(w http.ResponseWriter, r *http.Request, idStr string) {
@@ -1753,7 +1757,11 @@ func (s *Server) getAnglePreset(w http.ResponseWriter, r *http.Request, idStr st
 		return
 	}
 
-	s.writeJSON(w, http.StatusOK, preset)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(preset); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode response")
+	}
 }
 
 func (s *Server) createAnglePreset(w http.ResponseWriter, r *http.Request) {
@@ -1784,7 +1792,11 @@ func (s *Server) createAnglePreset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.writeJSON(w, http.StatusCreated, created)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(created); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode response")
+	}
 }
 
 func (s *Server) updateAnglePreset(w http.ResponseWriter, r *http.Request, idStr string) {
@@ -1818,7 +1830,11 @@ func (s *Server) updateAnglePreset(w http.ResponseWriter, r *http.Request, idStr
 		return
 	}
 
-	s.writeJSON(w, http.StatusOK, updated)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(updated); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode response")
+	}
 }
 
 func (s *Server) deleteAnglePreset(w http.ResponseWriter, r *http.Request, idStr string) {
