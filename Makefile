@@ -50,6 +50,7 @@ help:
 	@echo "  migrate-version      Migrate to specific version (VERSION=N)"
 	@echo "  migrate-force        Force version (recovery, VERSION=N)"
 	@echo "  migrate-baseline     Set baseline version (VERSION=N)"
+	@echo "  schema-sync          Regenerate schema.sql from latest migrations"
 	@echo ""
 	@echo "FORMATTING (mutating):"
 	@echo "  format               Format all code (Go + Python + Web)"
@@ -402,7 +403,7 @@ test-web:
 # DATABASE MIGRATIONS
 # =============================================================================
 
-.PHONY: migrate-up migrate-down migrate-status migrate-detect migrate-version migrate-force migrate-baseline
+.PHONY: migrate-up migrate-down migrate-status migrate-detect migrate-version migrate-force migrate-baseline schema-sync
 
 # Apply all pending migrations
 migrate-up:
@@ -452,6 +453,11 @@ migrate-baseline:
 	fi
 	@echo "Baselining database at version $(VERSION)..."
 	@go run ./cmd/radar migrate baseline $(VERSION)
+
+# Regenerate schema.sql from latest migrations
+schema-sync:
+	@echo "Regenerating schema.sql from latest migrations..."
+	@bash scripts/sync-schema.sh
 
 # =============================================================================
 # FORMATTING (mutating)
