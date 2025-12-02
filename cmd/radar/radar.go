@@ -70,6 +70,15 @@ var (
 	lidarSeedFromFirst = flag.Bool("lidar-seed-from-first", true, "Seed background cells from first observation (dev/pcap helper)")
 )
 
+// Transit worker options (compute radar_data -> radar_data_transits)
+var (
+	enableTransitWorker    = flag.Bool("enable-transit-worker", true, "Enable transit worker to periodically compute transits from radar_data")
+	transitWorkerInterval  = flag.Duration("transit-worker-interval", 1*time.Hour, "Interval for transit worker (e.g., 1h)")
+	transitWorkerWindow    = flag.Duration("transit-worker-window", 65*time.Minute, "Lookback window for transit worker (should be slightly larger than interval)")
+	transitWorkerThreshold = flag.Int("transit-worker-threshold", 1, "Gap threshold in seconds for sessionizing transits")
+	transitWorkerModel     = flag.String("transit-worker-model", "hourly-cron", "Model version string for computed transits")
+)
+
 // Constants
 const SCHEMA_VERSION = "0.0.2"
 
@@ -163,13 +172,16 @@ func main() {
 		log.Printf("initialised device %s", radarSerial)
 	}
 
+	// Log version and git SHA on startup
+	log.Printf("velocity-report v%s (git SHA: %s)", version, gitSHA)
+
 	// Use the CLI flag value (defaults to ./sensor_data.db). We intentionally
 	// avoid relying on environment variables for configuration unless needed.
-	db, err := db.NewDB(*dbPathFlag)
+	database, err := db.NewDB(*dbPathFlag)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
-	defer db.Close()
+	defer database.Close()
 
 	// Create a wait group for the HTTP server, serial monitor, and event handler routines
 	var wg sync.WaitGroup
@@ -179,7 +191,7 @@ func main() {
 	// Optionally initialize lidar components inside this binary
 	if *enableLidar {
 		// Use the main DB instance for lidar data (no separate lidar DB file)
-		lidarDB := db
+		lidarDB := database
 
 		// Create BackgroundManager and register persistence
 		backgroundParams := lidar.BackgroundParams{
@@ -396,7 +408,7 @@ func main() {
 		for {
 			select {
 			case payload := <-c:
-				if err := serialmux.HandleEvent(db, payload); err != nil {
+				if err := serialmux.HandleEvent(database, payload); err != nil {
 					log.Printf("error handling event: %v", err)
 				}
 			case <-ctx.Done():
@@ -406,17 +418,42 @@ func main() {
 		}
 	}()
 
+	// Create transit worker controller before HTTP server so we can pass it to the API
+	// Always create the controller so the API can provide UI controls
+	transitWorker := db.NewTransitWorker(database, *transitWorkerThreshold, *transitWorkerModel)
+	transitWorker.Interval = *transitWorkerInterval
+	transitWorker.Window = *transitWorkerWindow
+	transitController := db.NewTransitController(transitWorker)
+
+	// Only start the worker goroutine if enabled via CLI flag
+	if *enableTransitWorker {
+		log.Printf("Starting transit worker: interval=%v, window=%v, threshold=%ds, model=%s",
+			transitWorker.Interval, transitWorker.Window, *transitWorkerThreshold, *transitWorkerModel)
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := transitController.Run(ctx); err != nil && err != context.Canceled {
+				log.Printf("Transit worker error: %v", err)
+			}
+		}()
+	} else {
+		log.Printf("Transit worker not started (use --enable-transit-worker to enable)")
+	}
+
 	// HTTP server goroutine: construct an api.Server and delegate run/shutdown to it
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		apiServer := api.NewServer(radarSerial, db, *unitsFlag, *timezoneFlag)
+		apiServer := api.NewServer(radarSerial, database, *unitsFlag, *timezoneFlag)
+		// Set the transit controller so API can provide UI controls
+		apiServer.SetTransitController(transitController)
 
 		// Attach admin routes that belong to other components
 		// (these modify the mux returned by apiServer.ServeMux internally)
 		mux := apiServer.ServeMux()
 		radarSerial.AttachAdminRoutes(mux)
-		db.AttachAdminRoutes(mux)
+		database.AttachAdminRoutes(mux)
 
 		if err := apiServer.Start(ctx, *listen, *debugMode); err != nil {
 			// If ctx was canceled we expect nil or context.Canceled; log other errors

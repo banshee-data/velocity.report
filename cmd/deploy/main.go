@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const version = "0.2.0"
+const version = "0.4.0-pre1"
 
 var DebugMode bool
 
@@ -165,6 +165,7 @@ func handleUpgrade(args []string) {
 	binaryPath := fs.String("binary", "", "Path to new velocity-report binary (required)")
 	dryRun := fs.Bool("dry-run", false, "Show what would be done")
 	noBackup := fs.Bool("no-backup", false, "Skip backup before upgrade")
+	noMigrate := fs.Bool("no-migrate", false, "Skip database migrations (migrations run by default)")
 	debug := fs.Bool("debug", false, "Enable debug logging")
 	fs.Parse(args)
 
@@ -194,6 +195,7 @@ func handleUpgrade(args []string) {
 		BinaryPath:    *binaryPath,
 		DryRun:        *dryRun,
 		NoBackup:      *noBackup,
+		NoMigrate:     *noMigrate,
 	}
 
 	if err := upgrader.Upgrade(); err != nil {

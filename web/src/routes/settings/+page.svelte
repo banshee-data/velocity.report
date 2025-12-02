@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Card, Header, SelectField, Table } from 'svelte-ux';
-	import { getConfig, type Config } from '../../lib/api';
+	import { Card, Header, SelectField, Switch, Table } from 'svelte-ux';
+	import {
+		getConfig,
+		getTransitWorkerState,
+		updateTransitWorker,
+		type Config
+	} from '../../lib/api';
 	import { displayTimezone, initializeTimezone, updateTimezone } from '../../lib/stores/timezone';
 	import { displayUnits, initializeUnits, updateUnits } from '../../lib/stores/units';
 	import { AVAILABLE_TIMEZONES, getTimezoneLabel, type Timezone } from '../../lib/timezone';
@@ -12,6 +17,8 @@
 	let selectedTimezone: Timezone = 'UTC';
 	let loading = true;
 	let message = '';
+	let transitWorkerEnabled = true;
+	let transitWorkerLoading = false;
 
 	// Initialize from stores - these will update when the stores change
 	$: selectedUnits = $displayUnits;
@@ -36,6 +43,38 @@
 			message = 'Failed to load configuration';
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function loadTransitWorkerState() {
+		try {
+			const state = await getTransitWorkerState();
+			transitWorkerEnabled = state.enabled;
+		} catch (e) {
+			console.error('Failed to load transit worker state:', e);
+			// Silently fail - transit worker might not be available
+		}
+	}
+
+	async function handleTransitWorkerToggle(enabled: boolean) {
+		transitWorkerLoading = true;
+		try {
+			// Only trigger manual run when enabling, not when disabling
+			const response = await updateTransitWorker({ enabled, trigger: enabled });
+			transitWorkerEnabled = response.enabled;
+			message = enabled ? 'Transit worker enabled and run triggered!' : 'Transit worker disabled!';
+
+			// Clear message after a few seconds
+			setTimeout(() => {
+				message = '';
+			}, 3000);
+		} catch (e) {
+			console.error('Failed to update transit worker:', e);
+			message = 'Failed to update transit worker';
+			// Revert the toggle on error
+			transitWorkerEnabled = !enabled;
+		} finally {
+			transitWorkerLoading = false;
 		}
 	}
 
@@ -69,7 +108,10 @@
 		}
 	}
 
-	onMount(loadConfig);
+	onMount(() => {
+		loadConfig();
+		loadTransitWorkerState();
+	});
 </script>
 
 <svelte:head>
@@ -117,6 +159,31 @@
 					options={AVAILABLE_TIMEZONES}
 					clearable={false}
 				/>
+			</div>
+		</Card>
+
+		<Card title="Transit Worker">
+			<div class="space-y-4 p-4">
+				<p class="text-surface-content/70 text-sm">
+					The transit worker periodically processes raw radar data into vehicle transits. When
+					enabled, it runs hourly in the background. Toggling it on will also trigger an immediate
+					run.
+				</p>
+
+				<div class="gap-3 flex items-center">
+					<Switch
+						checked={transitWorkerEnabled}
+						disabled={transitWorkerLoading}
+						on:change={(e) => handleTransitWorkerToggle((e as CustomEvent).detail.value)}
+					/>
+					<span class="text-sm">
+						{transitWorkerEnabled ? 'Enabled (runs hourly)' : 'Disabled'}
+					</span>
+				</div>
+
+				{#if transitWorkerLoading}
+					<p class="text-surface-content/70 text-xs italic">Updating...</p>
+				{/if}
 			</div>
 		</Card>
 

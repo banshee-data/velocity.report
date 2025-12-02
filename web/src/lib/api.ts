@@ -299,3 +299,48 @@ export async function deleteSite(id: number): Promise<void> {
 		throw new Error(errorData.error || `Failed to delete site: ${res.status}`);
 	}
 }
+
+// Transit Worker API
+export interface TransitWorkerState {
+	enabled: boolean;
+	last_run_at: string;
+	last_run_error?: string;
+	run_count: number;
+	is_healthy: boolean;
+}
+
+export interface TransitWorkerUpdateRequest {
+	enabled?: boolean;
+	trigger?: boolean;
+}
+
+export interface TransitWorkerUpdateResponse {
+	enabled: boolean;
+	last_run_at: string;
+	last_run_error?: string;
+	run_count: number;
+	is_healthy: boolean;
+}
+
+export async function getTransitWorkerState(): Promise<TransitWorkerState> {
+	const res = await fetch(`${API_BASE}/transit_worker`);
+	if (!res.ok) throw new Error(`Failed to fetch transit worker state: ${res.status}`);
+	return res.json();
+}
+
+export async function updateTransitWorker(
+	request: TransitWorkerUpdateRequest
+): Promise<TransitWorkerUpdateResponse> {
+	const res = await fetch(`${API_BASE}/transit_worker`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify(request)
+	});
+	if (!res.ok) {
+		const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+		throw new Error(errorData.error || `Failed to update transit worker: ${res.status}`);
+	}
+	return res.json();
+}

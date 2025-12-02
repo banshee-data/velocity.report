@@ -39,16 +39,26 @@ func convertEventAPISpeed(event db.EventAPI, targetUnits string) db.EventAPI {
 }
 
 type Server struct {
-	m         serialmux.SerialMuxInterface
-	db        *db.DB
-	units     string
-	timezone  string
-	debugMode bool
+	m                 serialmux.SerialMuxInterface
+	db                *db.DB
+	units             string
+	timezone          string
+	debugMode         bool
+	transitController TransitController // Interface for transit worker control
 	// mux holds the HTTP handlers; storing it here ensures callers that
 	// obtain the mux via ServeMux() and register additional admin routes
 	// will have those routes preserved when Start uses the mux to run the
 	// server.
 	mux *http.ServeMux
+}
+
+// TransitController is an interface for controlling the transit worker.
+// This allows the API server to toggle the worker without direct coupling.
+type TransitController interface {
+	IsEnabled() bool
+	SetEnabled(enabled bool)
+	TriggerManualRun()
+	GetStatus() db.TransitStatus
 }
 
 func NewServer(m serialmux.SerialMuxInterface, db *db.DB, units string, timezone string) *Server {
@@ -58,6 +68,12 @@ func NewServer(m serialmux.SerialMuxInterface, db *db.DB, units string, timezone
 		units:    units,
 		timezone: timezone,
 	}
+}
+
+// SetTransitController sets the transit controller for the server.
+// This allows the API to provide UI controls for the transit worker.
+func (s *Server) SetTransitController(tc TransitController) {
+	s.transitController = tc
 }
 
 type loggingResponseWriter struct {
@@ -120,8 +136,9 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/api/config", s.showConfig)
 	s.mux.HandleFunc("/api/generate_report", s.generateReport)
 	s.mux.HandleFunc("/api/sites", s.handleSites)
-	s.mux.HandleFunc("/api/sites/", s.handleSites)     // Note trailing slash to match /api/sites and /api/sites/*
-	s.mux.HandleFunc("/api/reports/", s.handleReports) // Report management endpoints
+	s.mux.HandleFunc("/api/sites/", s.handleSites)                 // Note trailing slash to match /api/sites and /api/sites/*
+	s.mux.HandleFunc("/api/reports/", s.handleReports)             // Report management endpoints
+	s.mux.HandleFunc("/api/transit_worker", s.handleTransitWorker) // Transit worker control
 	return s.mux
 }
 
@@ -1131,6 +1148,65 @@ func (s *Server) deleteReport(w http.ResponseWriter, r *http.Request, reportID i
 // or the server returns an error. It installs the same static file and SPA
 // handlers used previously in the cmd/radar binary.
 //
+// handleTransitWorker provides API endpoints for controlling the transit worker.
+// GET: returns current state { enabled: bool }
+// POST: with { enabled: bool } to update state, optionally { trigger: true } for manual run
+func (s *Server) handleTransitWorker(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Check if transit controller is available
+	if s.transitController == nil {
+		s.writeJSONError(w, http.StatusServiceUnavailable, "Transit worker not available")
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		// Return current status including last run time and error
+		status := s.transitController.GetStatus()
+		if err := json.NewEncoder(w).Encode(status); err != nil {
+			log.Printf("failed to encode transit worker status: %v", err)
+		}
+
+	case http.MethodPost:
+		// Update state or trigger manual run
+		var req struct {
+			Enabled *bool `json:"enabled"`
+			Trigger bool  `json:"trigger"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			s.writeJSONError(w, http.StatusBadRequest, "Invalid request body")
+			return
+		}
+
+		// Update enabled state if provided
+		if req.Enabled != nil {
+			s.transitController.SetEnabled(*req.Enabled)
+			status := "disabled"
+			if *req.Enabled {
+				status = "enabled"
+			}
+			log.Printf("Transit worker %s via API", status)
+		}
+
+		// Trigger manual run if requested
+		if req.Trigger {
+			s.transitController.TriggerManualRun()
+			log.Printf("Transit worker manual run triggered via API")
+		}
+
+		// Return updated status
+		status := s.transitController.GetStatus()
+		if err := json.NewEncoder(w).Encode(status); err != nil {
+			log.Printf("failed to encode transit worker response: %v", err)
+		}
+
+	default:
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+	}
+}
+
 // Note: Start retrieves the mux by calling s.ServeMux(). ServeMux() returns
 // the Server's stored *http.ServeMux (creating and storing it on first
 // call). Callers are therefore free to call s.ServeMux() and register

@@ -26,6 +26,7 @@ type Upgrader struct {
 	BinaryPath    string
 	DryRun        bool
 	NoBackup      bool
+	NoMigrate     bool
 }
 
 // Upgrade performs the upgrade
@@ -83,7 +84,16 @@ func (u *Upgrader) Upgrade() error {
 		return fmt.Errorf("failed to install new binary: %w", err)
 	}
 
-	// Step 9: Start service
+	// Step 9: Run database migrations (while service is stopped)
+	if !u.NoMigrate {
+		if err := u.runMigrations(exec); err != nil {
+			return fmt.Errorf("failed to run migrations: %w", err)
+		}
+	} else {
+		fmt.Println("Skipping database migrations (--no-migrate flag set)")
+	}
+
+	// Step 10: Start service
 	if err := u.startService(exec); err != nil {
 		return fmt.Errorf("failed to start service: %w", err)
 	}
@@ -256,7 +266,8 @@ func (u *Upgrader) updateSourceCode(exec *Executor) error {
 	// Check if source directory exists
 	output, err := exec.Run("test -d /opt/velocity-report/.git && echo 'exists' || echo 'not found'")
 	if err != nil || strings.TrimSpace(output) != "exists" {
-		return fmt.Errorf("source directory not found at /opt/velocity-report")
+		debugLog("Source directory not found at /opt/velocity-report, skipping git pull")
+		return nil // Not an error - binary-only installations don't have source
 	}
 
 	fmt.Println("Updating source code...")
@@ -290,7 +301,8 @@ func (u *Upgrader) updatePythonDependencies(exec *Executor) error {
 	// Check if source directory exists
 	output, err := exec.Run("test -d /opt/velocity-report && echo 'exists' || echo 'not found'")
 	if err != nil || strings.TrimSpace(output) != "exists" {
-		return fmt.Errorf("source directory not found")
+		debugLog("Source directory not found at /opt/velocity-report, skipping Python dependencies")
+		return nil // Not an error - binary-only installations don't have source
 	}
 
 	fmt.Println("Updating Python dependencies...")
@@ -313,5 +325,37 @@ func (u *Upgrader) updatePythonDependencies(exec *Executor) error {
 	}
 
 	fmt.Println("  ✓ Python dependencies updated")
+	return nil
+}
+
+func (u *Upgrader) runMigrations(exec *Executor) error {
+	fmt.Println("Running database migrations...")
+
+	// Get database path from service environment
+	dbPath := "/var/lib/velocity-report/sensor_data.db"
+
+	// Check if database exists
+	output, err := exec.Run(fmt.Sprintf("test -f %s && echo 'exists' || echo 'not found'", dbPath))
+	if err != nil || strings.TrimSpace(output) != "exists" {
+		fmt.Printf("  ⚠️  Database not found at %s, skipping migrations\n", dbPath)
+		return nil
+	}
+
+	// Get service user for proper permissions
+	serviceUserOutput, _ := exec.Run("systemctl show velocity-report.service -p User --value 2>/dev/null || echo 'velocity'")
+	serviceUser := strings.TrimSpace(serviceUserOutput)
+	if serviceUser == "" {
+		serviceUser = "velocity"
+	}
+
+	// Run migrations as the service user to avoid permission issues
+	migrateCmd := fmt.Sprintf("su - %s -c '/usr/local/bin/velocity-report migrate up --db-path %s'", serviceUser, dbPath)
+	output, err = exec.RunSudo(migrateCmd)
+	if err != nil {
+		return fmt.Errorf("migration failed: %w\nOutput: %s", err, output)
+	}
+
+	fmt.Println("  ✓ Database migrations completed")
+	debugLog("Migration output:\n%s", output)
 	return nil
 }
