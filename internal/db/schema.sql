@@ -2,8 +2,6 @@
 
 CREATE UNIQUE INDEX version_unique ON schema_migrations (version);
 
-   CREATE TABLE sqlite_sequence (name, seq);
-
    CREATE TABLE IF NOT EXISTS "radar_data" (
           write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec'))
         , raw_event JSON NOT NULL
@@ -43,6 +41,21 @@ CREATE UNIQUE INDEX version_unique ON schema_migrations (version);
         , FOREIGN KEY (command_id) REFERENCES "radar_commands" (command_id)
           );
 
+   CREATE TABLE lidar_bg_snapshot (
+          snapshot_id INTEGER PRIMARY KEY
+        , sensor_id TEXT NOT NULL
+        , taken_unix_nanos INTEGER NOT NULL
+        , rings INTEGER NOT NULL
+        , azimuth_bins INTEGER NOT NULL
+        , params_json TEXT NOT NULL
+        , ring_elevations_json TEXT
+        , grid_blob BLOB NOT NULL
+        , changed_cells_count INTEGER
+        , snapshot_reason TEXT
+          );
+
+CREATE INDEX idx_bg_snapshot_sensor_time ON lidar_bg_snapshot (sensor_id, taken_unix_nanos);
+
    CREATE TABLE radar_data_transits (
           transit_id INTEGER PRIMARY KEY AUTOINCREMENT
         , transit_key TEXT NOT NULL UNIQUE
@@ -58,6 +71,8 @@ CREATE UNIQUE INDEX version_unique ON schema_migrations (version);
         , created_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
         , updated_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
           );
+
+   CREATE TABLE sqlite_sequence (name, seq);
 
 CREATE INDEX idx_transits_time ON radar_data_transits (transit_start_unix, transit_end_unix);
 
@@ -124,21 +139,6 @@ END;
 CREATE INDEX idx_site_reports_site_id ON site_reports (site_id);
 
 CREATE INDEX idx_site_reports_created_at ON site_reports (created_at DESC);
-
-   CREATE TABLE lidar_bg_snapshot (
-          snapshot_id INTEGER PRIMARY KEY
-        , sensor_id TEXT NOT NULL
-        , taken_unix_nanos INTEGER NOT NULL
-        , rings INTEGER NOT NULL
-        , azimuth_bins INTEGER NOT NULL
-        , params_json TEXT NOT NULL
-        , ring_elevations_json TEXT
-        , grid_blob BLOB NOT NULL
-        , changed_cells_count INTEGER
-        , snapshot_reason TEXT
-          );
-
-CREATE INDEX idx_bg_snapshot_sensor_time ON lidar_bg_snapshot (sensor_id, taken_unix_nanos);
 
    CREATE TABLE lidar_clusters (
           lidar_cluster_id INTEGER PRIMARY KEY
