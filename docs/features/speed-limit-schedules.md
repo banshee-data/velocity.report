@@ -120,7 +120,7 @@ END;
 **Design Notes:**
 
 - **Cascade Deletion:** When a site is deleted, all associated schedules are automatically removed
-- **Day of Week Convention:** Follows ISO 8601 standard with Sunday=0
+- **Day of Week Convention:** Follows ISO 8601 standard with (1=Monday, ..., 7=Sunday)
 - **Time Format:** HH:MM 24-hour format for simplicity and precision
 - **Timestamps:** Unix epoch (seconds since 1970) for consistency with other tables
 - **Indexing:** Fast retrieval of all schedules for a site (common query pattern)
@@ -285,7 +285,7 @@ Response (204 No Content)
 **Validation Rules:**
 
 - `site_id`: Required, must be > 0
-- `day_of_week`: Required, must be 0-6 (1=Monday, 7=Sunday)
+- `day_of_week`: Required, must be 1-7 (1=Monday, 7=Sunday)
 - `start_time`: Required, must be in HH:MM format
 - `end_time`: Required, must be in HH:MM format
 - `speed_limit`: Required, must be > 0
@@ -295,7 +295,7 @@ Response (204 No Content)
 ```json
 // 400 Bad Request - Invalid input
 {
-  "error": "day_of_week must be between 0 and 6"
+  "error": "day_of_week must be between 1 and 7"
 }
 
 // 404 Not Found - Schedule doesn't exist
@@ -1100,7 +1100,7 @@ CREATE TABLE IF NOT EXISTS site (
 - **Schedule:** A time-based speed limit rule for a specific day and time range
 - **Site:** A monitoring location with one or more radar sensors
 - **Speed Limit:** Posted maximum legal speed in mph or kph
-- **Day of Week:** Integer 0-6 representing Monady through Sunday
+- **Day of Week:** Integer 1-7 representing Monday through Sunday
 - **Time Block:** Period defined by start_time and end_time
 - **School Zone:** Area with reduced speed limits during school hours
 - **Cascade Delete:** Automatic deletion of child records when parent is deleted
