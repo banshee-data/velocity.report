@@ -72,8 +72,6 @@ CREATE INDEX idx_bg_snapshot_sensor_time ON lidar_bg_snapshot (sensor_id, taken_
         , updated_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
           );
 
-   CREATE TABLE sqlite_sequence (name, seq);
-
 CREATE INDEX idx_transits_time ON radar_data_transits (transit_start_unix, transit_end_unix);
 
    CREATE TABLE radar_transit_links (

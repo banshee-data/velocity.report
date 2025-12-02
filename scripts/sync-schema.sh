@@ -81,6 +81,14 @@ if ! sqlite3 "$TEMP_DB" ".schema" > "$TEMP_SCHEMA"; then
     exit 1
 fi
 
+# Filter out sqlite_sequence table (internal SQLite table, auto-created with AUTOINCREMENT)
+# This table cannot be imported and causes errors when trying to recreate the schema
+if grep -q "CREATE TABLE sqlite_sequence" "$TEMP_SCHEMA"; then
+    echo "   Filtering out sqlite_sequence table..."
+    sed -i.bak '/CREATE TABLE sqlite_sequence/d' "$TEMP_SCHEMA"
+    rm -f "$TEMP_SCHEMA.bak"
+fi
+
 echo -e "${GREEN}✓ Schema exported successfully${NC}"
 echo ""
 
