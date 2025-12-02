@@ -673,9 +673,692 @@ velocity-tools backfill-transits --start 2024-01-01T00:00:00Z --end 2024-01-31T2
 
 ---
 
-## Implementation Plan
+## Long-Term Stable Architecture
 
-### Phase 1: Documentation & Analysis ✅ (Complete)
+This section outlines the **ideal future state** for velocity.report CLI and API design, optimized for long-term stability, consistency, and ease of use. This goes beyond incremental improvements to define a cohesive architecture.
+
+### Design Philosophy
+
+**Core Tenets:**
+1. **Command-Data Separation** - Commands expressed as verbs, data as structured objects
+2. **CLI-HTTP Alignment** - CLI commands mirror HTTP API structure
+3. **JSON for Complex Parameters** - Use JSON objects for multi-field configurations
+4. **Declarative Configuration** - What to achieve, not how to achieve it
+5. **Single Source of Truth** - Configuration file as canonical state
+6. **Composable Operations** - Small, focused commands that combine well
+
+### Unified Command Structure
+
+```bash
+velocity-report <command> [subcommand] [options]
+```
+
+**Global Options (available for all commands):**
+- `--config <file>` - Configuration file (TOML/JSON/YAML)
+- `--db <path>` - Database path
+- `--log-level <level>` - Logging verbosity (error/warn/info/debug)
+- `--format <format>` - Output format (text/json/yaml)
+- `--dry-run` - Show what would be done without executing
+
+### Core Commands
+
+#### 1. `serve` - Run Production Server (Default)
+
+**Purpose:** Start the main production service with radar and optional lidar.
+
+```bash
+# Start with config file (preferred)
+velocity-report serve --config /etc/velocity-report.toml
+
+# Start with inline parameters (for testing)
+velocity-report serve \
+  --radar.enabled=true \
+  --radar.port=/dev/ttySC1 \
+  --lidar.enabled=true \
+  --lidar.port=:8081
+
+# Start with JSON config (advanced)
+velocity-report serve --params '{"radar":{"enabled":true},"lidar":{"enabled":true}}'
+```
+
+**Subcommands:**
+- None (single-purpose command)
+
+**Configuration Structure:**
+```toml
+[server]
+listen = ":8080"
+db_path = "/var/lib/velocity-report/sensor_data.db"
+
+[radar]
+enabled = true
+port = "/dev/ttySC1"
+units = "mph"
+timezone = "US/Pacific"
+
+[lidar]
+enabled = true
+listen = ":8081"
+udp_port = 2369
+sensor_id = "hesai-pandar40p"
+
+[lidar.background]
+flush_interval = "60s"
+noise_relative = 0.315
+
+[lidar.forwarding]
+enabled = false
+address = "localhost"
+port = 2368
+```
+
+---
+
+#### 2. `sensor` - Sensor Operations
+
+**Purpose:** Manage and configure radar and lidar sensors.
+
+**Subcommands:**
+
+**`sensor radar`** - Radar sensor operations
+```bash
+# Get current radar status
+velocity-report sensor radar status
+
+# Send command to radar
+velocity-report sensor radar command --cmd "P?"
+
+# Configure radar parameters
+velocity-report sensor radar configure --params '{"units":"mph","sample_rate":10}'
+
+# Test radar connection
+velocity-report sensor radar test --port /dev/ttySC1
+```
+
+**`sensor lidar`** - LiDAR sensor operations
+```bash
+# Get lidar status
+velocity-report sensor lidar status
+
+# Configure background model (JSON for complex params)
+velocity-report sensor lidar configure --params '{
+  "background": {
+    "noise_relative": 0.01,
+    "closeness_multiplier": 2.0,
+    "neighbor_confirmation_count": 1
+  }
+}'
+
+# Trigger snapshot
+velocity-report sensor lidar snapshot --persist
+
+# Export data
+velocity-report sensor lidar export --format asc --output /tmp/frame.asc
+
+# Control data source
+velocity-report sensor lidar source --mode live
+velocity-report sensor lidar source --mode pcap --file recording.pcap
+```
+
+**Why JSON for LiDAR config?**
+- **Consistency:** Matches HTTP API `POST /api/lidar/params` which accepts JSON
+- **Structure:** Complex nested parameters (background, forwarding, frame) map naturally to JSON
+- **Validation:** Schema validation easier with structured data
+- **Extensibility:** Easy to add new parameters without flag explosion
+- **Readability:** Clear hierarchy vs. long flat flags like `--lidar-bg-noise-relative`
+
+---
+
+#### 3. `data` - Data Management
+
+**Purpose:** Query, export, and manage collected data.
+
+**Subcommands:**
+
+**`data query`** - Query sensor data
+```bash
+# Query radar events
+velocity-report data query events \
+  --start 2024-01-01T00:00:00Z \
+  --end 2024-01-31T23:59:59Z \
+  --format json
+
+# Query transits (sessionized)
+velocity-report data query transits \
+  --site-id abc123 \
+  --min-speed 25 \
+  --format csv --output transits.csv
+
+# Query lidar snapshots
+velocity-report data query snapshots \
+  --sensor hesai-pandar40p \
+  --limit 10
+```
+
+**`data export`** - Export data
+```bash
+# Export to CSV
+velocity-report data export --format csv \
+  --start 2024-01-01 --end 2024-01-31 \
+  --output /tmp/export.csv
+
+# Export to JSON (for API consumers)
+velocity-report data export --format json \
+  --query '{"site_id":"abc123","min_speed":25}' \
+  --output /tmp/export.json
+```
+
+**`data backfill`** - Backfill operations
+```bash
+# Backfill transits
+velocity-report data backfill transits \
+  --start 2024-01-01T00:00:00Z \
+  --end 2024-01-31T23:59:59Z \
+  --gap-seconds 1
+
+# Backfill lidar elevations
+velocity-report data backfill elevations \
+  --dry-run
+```
+
+**`data stats`** - Statistics
+```bash
+# Get statistics for date range
+velocity-report data stats \
+  --start 2024-01-01 --end 2024-01-31 \
+  --grouping hourly \
+  --format json
+
+# Real-time stats
+velocity-report data stats --live --interval 5s
+```
+
+---
+
+#### 4. `site` - Site Management
+
+**Purpose:** Manage monitoring sites (locations).
+
+**Subcommands:**
+
+**`site list`** - List all sites
+```bash
+velocity-report site list --format json
+```
+
+**`site create`** - Create new site
+```bash
+# Interactive
+velocity-report site create --interactive
+
+# With parameters
+velocity-report site create --params '{
+  "name": "Main Street",
+  "location": "123 Main St",
+  "speed_limit": 25,
+  "timezone": "US/Pacific"
+}'
+```
+
+**`site get`** - Get site details
+```bash
+velocity-report site get <site-id> --format json
+```
+
+**`site update`** - Update site
+```bash
+velocity-report site update <site-id> --params '{
+  "speed_limit": 30,
+  "description": "Updated limit"
+}'
+```
+
+**`site delete`** - Delete site
+```bash
+velocity-report site delete <site-id> --confirm
+```
+
+---
+
+#### 5. `report` - Report Generation
+
+**Purpose:** Generate PDF reports from collected data.
+
+**Subcommands:**
+
+**`report generate`** - Generate new report
+```bash
+# From config file
+velocity-report report generate --config report-config.json
+
+# With inline parameters
+velocity-report report generate --params '{
+  "site_id": "abc123",
+  "start_date": "2024-01-01",
+  "end_date": "2024-01-31",
+  "timezone": "US/Pacific",
+  "units": "mph"
+}'
+
+# From template
+velocity-report report generate --template monthly --site abc123 --month 2024-01
+```
+
+**`report list`** - List reports
+```bash
+velocity-report report list --site abc123 --format json
+```
+
+**`report get`** - Get report metadata
+```bash
+velocity-report report get <report-id> --format json
+```
+
+**`report download`** - Download report
+```bash
+velocity-report report download <report-id> --output /tmp/report.pdf
+```
+
+**`report delete`** - Delete report
+```bash
+velocity-report report delete <report-id> --confirm
+```
+
+---
+
+#### 6. `db` - Database Operations
+
+**Purpose:** Database administration and maintenance.
+
+**Subcommands:**
+
+**`db migrate`** - Run migrations
+```bash
+# Check status
+velocity-report db migrate status
+
+# Run pending migrations
+velocity-report db migrate up
+
+# Rollback
+velocity-report db migrate down --steps 1
+
+# Force to version
+velocity-report db migrate force --version 20240101
+```
+
+**`db backup`** - Backup database
+```bash
+# Create backup
+velocity-report db backup --output /tmp/backup.db
+
+# Automated backup with timestamp
+velocity-report db backup --output /backups/db-$(date +%Y%m%d).db
+```
+
+**`db restore`** - Restore from backup
+```bash
+velocity-report db restore --input /tmp/backup.db --confirm
+```
+
+**`db stats`** - Database statistics
+```bash
+# Show size, record counts
+velocity-report db stats --format json
+
+# Detailed table stats
+velocity-report db stats --detailed
+```
+
+**`db vacuum`** - Optimize database
+```bash
+velocity-report db vacuum
+```
+
+---
+
+#### 7. `config` - Configuration Management
+
+**Purpose:** Manage configuration files and validate settings.
+
+**Subcommands:**
+
+**`config init`** - Initialize config
+```bash
+# Create default config
+velocity-report config init --output /etc/velocity-report.toml
+
+# Interactive wizard
+velocity-report config init --interactive
+
+# From template
+velocity-report config init --template production --output config.toml
+```
+
+**`config validate`** - Validate config
+```bash
+velocity-report config validate --file /etc/velocity-report.toml
+```
+
+**`config show`** - Show current config
+```bash
+# Show effective configuration
+velocity-report config show --format json
+
+# Show with defaults filled in
+velocity-report config show --with-defaults
+
+# Show specific section
+velocity-report config show --section lidar
+```
+
+**`config set`** - Update config value
+```bash
+velocity-report config set server.listen :9090 --file config.toml
+velocity-report config set lidar.enabled true --file config.toml
+```
+
+**`config get`** - Get config value
+```bash
+velocity-report config get server.listen --file config.toml
+```
+
+---
+
+#### 8. `deploy` - Deployment Operations
+
+**Purpose:** Deploy and manage remote installations.
+
+**Subcommands:**
+
+**`deploy install`** - Install on remote host
+```bash
+velocity-report deploy install \
+  --target mypi \
+  --binary velocity-report-linux-arm64 \
+  --config prod-config.toml
+```
+
+**`deploy upgrade`** - Upgrade remote installation
+```bash
+velocity-report deploy upgrade \
+  --target mypi \
+  --binary velocity-report-linux-arm64 \
+  --backup
+```
+
+**`deploy status`** - Check deployment status
+```bash
+velocity-report deploy status --target mypi --format json
+```
+
+**`deploy rollback`** - Rollback deployment
+```bash
+velocity-report deploy rollback --target mypi --confirm
+```
+
+**`deploy config`** - Manage remote config
+```bash
+# Push config
+velocity-report deploy config push --target mypi --file config.toml
+
+# Pull config
+velocity-report deploy config pull --target mypi --output config.toml
+
+# Edit remote config
+velocity-report deploy config edit --target mypi
+```
+
+---
+
+#### 9. `test` - Testing and Diagnostics
+
+**Purpose:** Test system components and diagnose issues.
+
+**Subcommands:**
+
+**`test radar`** - Test radar sensor
+```bash
+velocity-report test radar --port /dev/ttySC1 --duration 10s
+```
+
+**`test lidar`** - Test lidar sensor
+```bash
+velocity-report test lidar --port :2369 --duration 30s
+```
+
+**`test api`** - Test HTTP API
+```bash
+velocity-report test api --url http://localhost:8080 --full
+```
+
+**`test sweep`** - Run parameter sweep
+```bash
+# Parameter sweep with JSON config
+velocity-report test sweep --params '{
+  "mode": "multi",
+  "noise": [0.01, 0.02, 0.03],
+  "closeness": [1.5, 2.0, 2.5],
+  "neighbors": [0, 1, 2],
+  "iterations": 30
+}' --output results.csv
+
+# PCAP-based sweep
+velocity-report test sweep --pcap recording.pcap --params sweep-config.json
+```
+
+**`test health`** - Health check
+```bash
+velocity-report test health --comprehensive
+```
+
+---
+
+#### 10. `admin` - Administrative Operations
+
+**Purpose:** Administrative and maintenance tasks.
+
+**Subcommands:**
+
+**`admin logs`** - View logs
+```bash
+# Tail logs
+velocity-report admin logs --tail --lines 100
+
+# Filter by level
+velocity-report admin logs --level error --since 1h
+
+# Export logs
+velocity-report admin logs --since 24h --output /tmp/logs.txt
+```
+
+**`admin users`** - Manage users (future auth)
+```bash
+velocity-report admin users list
+velocity-report admin users create --username admin --role admin
+velocity-report admin users delete <user-id>
+```
+
+**`admin tokens`** - Manage API tokens (future auth)
+```bash
+velocity-report admin tokens create --name "monitoring" --scopes read:events,read:sites
+velocity-report admin tokens revoke <token-id>
+```
+
+**`admin maintenance`** - Maintenance mode
+```bash
+# Enable maintenance mode
+velocity-report admin maintenance enable --message "System upgrade in progress"
+
+# Disable
+velocity-report admin maintenance disable
+```
+
+---
+
+### JSON Parameter Pattern
+
+**Philosophy:** Use JSON for any parameter group with 3+ related fields or nested structure.
+
+**Examples:**
+
+**Simple parameters (flags):**
+```bash
+velocity-report serve --listen :8080 --debug
+```
+
+**Complex parameters (JSON):**
+```bash
+velocity-report sensor lidar configure --params '{
+  "background": {
+    "noise_relative": 0.01,
+    "closeness_multiplier": 2.0,
+    "neighbor_confirmation_count": 1,
+    "seed_from_first_frame": true
+  },
+  "frame": {
+    "buffer_timeout": "500ms",
+    "min_points": 1000
+  }
+}'
+```
+
+**From file (for reusability):**
+```bash
+velocity-report sensor lidar configure --params @lidar-config.json
+```
+
+**Advantages:**
+1. **Consistency:** Matches HTTP API patterns exactly
+2. **Validation:** JSON schema validation
+3. **Documentation:** Self-documenting with field names
+4. **Tooling:** Easy to generate, parse, version control
+5. **Extensibility:** Add fields without breaking existing usage
+
+---
+
+### HTTP API Alignment
+
+**Principle:** CLI commands should map directly to HTTP endpoints.
+
+| CLI Command | HTTP Endpoint | Method |
+|-------------|---------------|--------|
+| `site list` | `GET /api/v1/sites` | GET |
+| `site create --params '{...}'` | `POST /api/v1/sites` | POST |
+| `site get <id>` | `GET /api/v1/sites/{id}` | GET |
+| `site update <id> --params '{...}'` | `PUT /api/v1/sites/{id}` | PUT |
+| `site delete <id>` | `DELETE /api/v1/sites/{id}` | DELETE |
+| `sensor lidar configure --params '{...}'` | `POST /api/v1/lidar/params` | POST |
+| `sensor lidar status` | `GET /api/v1/lidar/status` | GET |
+| `data query events --start X --end Y` | `GET /api/v1/events?start=X&end=Y` | GET |
+
+**Benefits:**
+- Users familiar with API can predict CLI commands
+- Documentation reusable across CLI and API
+- Testing simplified (same operations, different interface)
+- Code sharing (CLI can call HTTP client internally)
+
+---
+
+### Configuration Priority
+
+**Order (highest to lowest):**
+
+1. **Command-line flags/parameters** - `--listen :9090`
+2. **Environment variables** - `VELOCITY_REPORT_LISTEN=:9090`
+3. **Configuration file** - `config.toml: listen = ":9090"`
+4. **Default values** - Hard-coded in application
+
+**Example:**
+```bash
+# Config file has: listen = ":8080"
+# Command overrides: --listen :9090
+# Result: Server listens on :9090
+
+velocity-report serve --config config.toml --listen :9090
+```
+
+---
+
+### Output Formats
+
+**Support multiple output formats for machine and human consumption:**
+
+**Text (default):**
+```bash
+velocity-report site list
+# Main Street    | 123 Main St | 25 mph
+# Oak Avenue     | 456 Oak Ave | 30 mph
+```
+
+**JSON (for programmatic use):**
+```bash
+velocity-report site list --format json
+# [{"id":"abc","name":"Main Street","speed_limit":25}, ...]
+```
+
+**YAML (for readability):**
+```bash
+velocity-report site list --format yaml
+# - id: abc
+#   name: Main Street
+#   speed_limit: 25
+```
+
+**CSV (for export):**
+```bash
+velocity-report site list --format csv --output sites.csv
+```
+
+---
+
+### Security Architecture
+
+**Authentication & Authorization (Future):**
+
+1. **API Tokens** - Long-lived tokens for CLI and automation
+2. **Session-based** - Web UI authentication
+3. **Role-based Access Control** - admin, operator, viewer roles
+4. **Audit Logging** - Track all administrative operations
+
+**CLI Token Usage:**
+```bash
+# Set token in environment
+export VELOCITY_REPORT_TOKEN="vrt_abc123..."
+
+# Or via flag
+velocity-report site create --token "vrt_abc123..." --params '{...}'
+
+# Or in config file
+[auth]
+token = "vrt_abc123..."
+```
+
+**Sensitive Endpoints (require auth):**
+- All POST/PUT/DELETE operations
+- LiDAR configuration changes
+- Database backups/restores
+- Export operations
+- Deployment commands
+
+---
+
+### Migration Path Summary
+
+**Current → Long-Term:**
+
+| Current | Long-Term | Benefit |
+|---------|-----------|---------|
+| 30+ flat flags | Subcommands + JSON params | Organization, discoverability |
+| `--lidar-bg-noise-relative 0.01` | `sensor lidar configure --params '{...}'` | Consistency with HTTP |
+| 4 separate binaries | Single binary with commands | Unified interface |
+| Multiple HTTP patterns | Versioned API with consistent structure | Predictability |
+| No config validation | `config validate` command | Catch errors early |
+| No testing commands | `test` subcommands | Built-in diagnostics |
+
+---
+
+## Implementation Plan
 
 **Goal:** Document current state and design future structure  
 **Duration:** Completed  
