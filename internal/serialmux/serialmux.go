@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -235,6 +236,14 @@ func (s *SerialMux[T]) Close() error {
 }
 
 func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
+	AttachAdminRoutesForMux(mux, s)
+}
+
+// AttachAdminRoutesForMux attaches admin debugging endpoints for any
+// SerialMuxInterface implementation. This allows higher-level managers to reuse
+// the existing debugging UI while swapping out the underlying serial mux at
+// runtime.
+func AttachAdminRoutesForMux(mux *http.ServeMux, serial SerialMuxInterface) {
 	debug := tsweb.Debugger(mux)
 
 	// Basic command / live tail monitor interface using the below two API endpoints.
@@ -258,7 +267,7 @@ func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
 			http.Error(w, "Missing command", http.StatusBadRequest)
 			return
 		}
-		if err := s.SendCommand(command); err != nil {
+		if err := serial.SendCommand(command); err != nil {
 			http.Error(w, "Failed to write command", http.StatusInternalServerError)
 			return
 		}
@@ -276,12 +285,17 @@ func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
 		w.Header().Set("Connection", "keep-alive")
 		w.Header().Set("X-Accel-Buffering", "no") // Disable buffering for nginx
 
-		id, c := s.Subscribe()
-		defer s.Unsubscribe(id)
+		id, c := serial.Subscribe()
+		defer serial.Unsubscribe(id)
 
 		// Send initial ping to establish connection
-		w.Write([]byte(": ping\n\n"))
-		w.(http.Flusher).Flush()
+		if _, err := w.Write([]byte(": ping\n\n")); err != nil {
+			log.Printf("SSE ping write failed: %v", err)
+			return
+		}
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+		}
 
 		for {
 			select {
@@ -290,11 +304,13 @@ func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
 					// Channel closed, exit gracefully
 					return
 				}
-				_, err := w.Write([]byte(fmt.Sprintf("data: %s\n\n", payload)))
-				if err != nil {
+				if _, err := w.Write([]byte(fmt.Sprintf("data: %s\n\n", payload))); err != nil {
+					log.Printf("SSE event write failed: %v", err)
 					return
 				}
-				w.(http.Flusher).Flush()
+				if flusher, ok := w.(http.Flusher); ok {
+					flusher.Flush()
+				}
 			case <-r.Context().Done():
 				return
 			}

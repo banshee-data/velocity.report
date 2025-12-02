@@ -16,4 +16,4 @@ RENAME TO radar_command_log;
 
 -- Also rename the 'length' column to 'length_m' in radar_objects for clarity
     ALTER TABLE radar_objects
-   RENAME COLUMN LENGTH TO length_m;
+   RENAME COLUMN length TO length_m;
