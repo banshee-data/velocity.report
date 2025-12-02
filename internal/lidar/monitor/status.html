@@ -188,7 +188,13 @@
       <li>
         <a href="/api/lidar/pcap/stop?sensor_id={{.SensorID}}"
           target="_blank">
-          Stop PCAP replay (GET)
+          Stop PCAP replay (resets grid)
+        </a>
+      </li>
+      <li>
+        <a href="/api/lidar/pcap/resume_live?sensor_id={{.SensorID}}"
+          target="_blank">
+          Resume Live from PCAP analysis (preserves grid)
         </a>
       </li>
       <li>
@@ -201,6 +207,10 @@
             placeholder="filename.pcap" size="30"
             style="margin-left: 5px; margin-right: 5px;"
             required />
+          <label style="margin-left: 5px;">
+            <input type="checkbox" name="analysis_mode" value="true" />
+            Analysis Mode (preserve grid)
+          </label>
           <button type="submit">Run</button>
           {{if .PCAPSafeDir}}
           <span style="font-size: 0.9em; color: #666;">
