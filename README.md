@@ -449,26 +449,6 @@ Status & PCAP: `api-status`, `api-start-pcap`, `api-stop-pcap`, `api-switch-data
 
 Run `make help` or `make` to see all available targets with descriptions.
 
-## Documentation
-
-### Architecture & Design
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - System design and data flow
-- **[CLI Analysis](docs/features/cli-analysis.md)** - Comprehensive CLI structure analysis and proposed improvements
-- **[CLI Quick Reference](docs/features/cli-quick-reference.md)** - Quick reference for all command-line interfaces
-
-### Feature Documentation
-- **[Serial Configuration UI](docs/features/serial-configuration-ui.md)** - Radar sensor configuration interface
-- **[Speed Limit Schedules](docs/features/speed-limit-schedules.md)** - Time-based speed limit management
-- **[Time-Partitioned Data Tables](docs/features/time-partitioned-data-tables.md)** - Database partitioning strategy
-
-### Component Guides
-- **[Radar README](cmd/radar/README.md)** - Main server binary documentation
-- **[PDF Generator README](tools/pdf-generator/README.md)** - Report generation guide
-- **[Web Frontend README](web/README.md)** - Web UI development guide
-
-### Troubleshooting
-- **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Common issues and solutions
-
 ## Contributing
 
 We welcome contributions! Please see **[CONTRIBUTING.md](CONTRIBUTING.md)** for:
