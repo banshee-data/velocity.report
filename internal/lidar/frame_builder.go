@@ -244,6 +244,10 @@ func (fb *FrameBuilder) addPointsInternal(points []Point) {
 
 		// Check if we need to start a new frame based on azimuth wrap and/or time
 		if fb.shouldStartNewFrame(point.Azimuth, point.Timestamp) {
+			if fb.currentFrame != nil {
+				log.Printf("[FrameBuilder] Azimuth wrap detected: lastAz=%.2f currAz=%.2f, finalizing frame with %d points",
+					fb.lastAzimuth, point.Azimuth, fb.currentFrame.PointCount)
+			}
 			fb.finalizeCurrentFrame()
 			fb.startNewFrame(point.Timestamp)
 		}
@@ -398,12 +402,14 @@ func (fb *FrameBuilder) checkSequenceGaps(sequence uint32) {
 
 // finalizeCurrentFrame completes the current frame and moves it to buffer
 func (fb *FrameBuilder) finalizeCurrentFrame() {
-	if fb.currentFrame == nil || fb.currentFrame.PointCount < fb.minFramePoints {
-		// Discard incomplete frame; log when in debug to help diagnose why frames aren't completing
-		if fb.currentFrame != nil {
-			log.Printf("[FrameBuilder] Discarding incomplete frame %s: points=%d, min_required=%d",
-				fb.currentFrame.FrameID, fb.currentFrame.PointCount, fb.minFramePoints)
-		}
+	if fb.currentFrame == nil {
+		return
+	}
+
+	if fb.currentFrame.PointCount < fb.minFramePoints {
+		// Discard incomplete frame; always log to help diagnose why frames aren't completing
+		log.Printf("[FrameBuilder] Discarding incomplete frame %s: points=%d, min_required=%d",
+			fb.currentFrame.FrameID, fb.currentFrame.PointCount, fb.minFramePoints)
 		fb.currentFrame = nil // Discard incomplete frame
 		return
 	}
@@ -441,12 +447,9 @@ func (fb *FrameBuilder) evictOldestBufferedFrame() {
 	}
 
 	if oldestFrame != nil {
-		log.Printf("[FrameBuilder] Evicting frame: ID=%s, Points=%d, Sensor=%s", oldestFrame.FrameID, oldestFrame.PointCount, oldestFrame.SensorID)
+		log.Printf("[FrameBuilder] Evicting buffered frame: ID=%s, Points=%d, Sensor=%s", oldestFrame.FrameID, oldestFrame.PointCount, oldestFrame.SensorID)
 		// Remove from buffer and finalize so the callback is invoked.
 		delete(fb.frameBuffer, oldestID)
-		if fb.debug {
-			log.Printf("[FrameBuilder] Evicting buffered frame: %s, buffer_size=%d", oldestID, len(fb.frameBuffer))
-		}
 		// Finalize the frame so the registered callback receives it.
 		fb.finalizeFrame(oldestFrame)
 	}

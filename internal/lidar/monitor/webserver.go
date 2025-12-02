@@ -34,8 +34,9 @@ var StatusHTML embed.FS
 type DataSource string
 
 const (
-	DataSourceLive DataSource = "live"
-	DataSourcePCAP DataSource = "pcap"
+	DataSourceLive         DataSource = "live"
+	DataSourcePCAP         DataSource = "pcap"
+	DataSourcePCAPAnalysis DataSource = "pcap_analysis"
 )
 
 type switchError struct {
@@ -77,10 +78,14 @@ type WebServer struct {
 	baseCtx           context.Context
 
 	// PCAP replay state
-	pcapMu         sync.Mutex
-	pcapInProgress bool
-	pcapCancel     context.CancelFunc
-	pcapDone       chan struct{}
+	pcapMu           sync.Mutex
+	pcapInProgress   bool
+	pcapCancel       context.CancelFunc
+	pcapDone         chan struct{}
+	pcapAnalysisMode bool // When true, preserve grid after PCAP completion
+
+	// Track API for tracking endpoints
+	trackAPI *TrackAPI
 }
 
 // WebServerConfig contains configuration options for the web server
@@ -139,6 +144,11 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		packetForwarder:   config.PacketForwarder,
 		udpListenerConfig: listenerConfig,
 		currentSource:     DataSourceLive,
+	}
+
+	// Initialize TrackAPI if database is configured
+	if config.DB != nil {
+		ws.trackAPI = NewTrackAPI(config.DB.DB, config.SensorID)
 	}
 
 	ws.server = &http.Server{
@@ -336,16 +346,27 @@ func (ws *WebServer) startPCAPLocked(pcapFile string) error {
 		ws.pcapMu.Unlock()
 
 		ws.dataSourceMu.Lock()
-		if ws.currentSource == DataSourcePCAP {
-			if err := ws.resetBackgroundGrid(); err != nil {
-				log.Printf("Failed to reset background grid after PCAP: %v", err)
-			}
-			if err := ws.startLiveListenerLocked(); err != nil {
-				log.Printf("Failed to restart live listener after PCAP: %v", err)
+		if ws.currentSource == DataSourcePCAP || ws.currentSource == DataSourcePCAPAnalysis {
+			ws.pcapMu.Lock()
+			analysisMode := ws.pcapAnalysisMode
+			ws.pcapMu.Unlock()
+
+			if analysisMode {
+				// Analysis mode: keep grid intact, switch to analysis state
+				ws.currentSource = DataSourcePCAPAnalysis
+				log.Printf("[DataSource] PCAP analysis complete for sensor=%s, grid preserved for inspection", ws.sensorID)
 			} else {
-				ws.currentSource = DataSourceLive
-				ws.currentPCAPFile = ""
-				log.Printf("[DataSource] auto-switched to Live after PCAP for sensor=%s", ws.sensorID)
+				// Normal mode: reset grid and return to live
+				if err := ws.resetBackgroundGrid(); err != nil {
+					log.Printf("Failed to reset background grid after PCAP: %v", err)
+				}
+				if err := ws.startLiveListenerLocked(); err != nil {
+					log.Printf("Failed to restart live listener after PCAP: %v", err)
+				} else {
+					ws.currentSource = DataSourceLive
+					ws.currentPCAPFile = ""
+					log.Printf("[DataSource] auto-switched to Live after PCAP for sensor=%s", ws.sensorID)
+				}
 			}
 		}
 		ws.dataSourceMu.Unlock()
@@ -452,6 +473,12 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/api/lidar/data_source", ws.handleDataSource)
 	mux.HandleFunc("/api/lidar/pcap/start", ws.handlePCAPStart)
 	mux.HandleFunc("/api/lidar/pcap/stop", ws.handlePCAPStop)
+	mux.HandleFunc("/api/lidar/pcap/resume_live", ws.handlePCAPResumeLive)
+
+	// Register track API routes if available
+	if ws.trackAPI != nil {
+		ws.trackAPI.RegisterRoutes(mux)
+	}
 
 	return mux
 }
@@ -672,6 +699,7 @@ func (ws *WebServer) handleDataSource(w http.ResponseWriter, r *http.Request) {
 
 	ws.pcapMu.Lock()
 	pcapInProgress := ws.pcapInProgress
+	analysisMode := ws.pcapAnalysisMode
 	ws.pcapMu.Unlock()
 
 	response := map[string]interface{}{
@@ -679,6 +707,7 @@ func (ws *WebServer) handleDataSource(w http.ResponseWriter, r *http.Request) {
 		"data_source":      string(currentSource),
 		"pcap_file":        currentPCAPFile,
 		"pcap_in_progress": pcapInProgress,
+		"analysis_mode":    analysisMode,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -1301,12 +1330,15 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 
 	var pcapFile string
 
+	var analysisMode bool
+
 	// Accept both JSON and form data
 	contentType := r.Header.Get("Content-Type")
 	if contentType == "application/json" || contentType == "application/json; charset=utf-8" {
 		// Parse JSON body
 		var req struct {
-			PCAPFile string `json:"pcap_file"`
+			PCAPFile     string `json:"pcap_file"`
+			AnalysisMode bool   `json:"analysis_mode"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			if errors.Is(err, io.EOF) {
@@ -1317,6 +1349,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		pcapFile = req.PCAPFile
+		analysisMode = req.AnalysisMode
 	} else {
 		// Parse form data (default for HTML forms)
 		if err := r.ParseForm(); err != nil {
@@ -1324,6 +1357,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		pcapFile = r.FormValue("pcap_file")
+		analysisMode = r.FormValue("analysis_mode") == "true" || r.FormValue("analysis_mode") == "1"
 	}
 
 	if pcapFile == "" {
@@ -1363,10 +1397,18 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ws.pcapMu.Lock()
+	ws.pcapAnalysisMode = analysisMode
+	ws.pcapMu.Unlock()
+
 	ws.currentSource = DataSourcePCAP
 	currentFile := ws.currentPCAPFile
 
-	log.Printf("[DataSource] switched to PCAP for sensor=%s file=%s", sensorID, currentFile)
+	mode := "replay"
+	if analysisMode {
+		mode = "analysis"
+	}
+	log.Printf("[DataSource] switched to PCAP %s mode for sensor=%s file=%s", mode, sensorID, currentFile)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -1374,6 +1416,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		"sensor_id":      sensorID,
 		"current_source": string(ws.currentSource),
 		"pcap_file":      currentFile,
+		"analysis_mode":  analysisMode,
 	})
 }
 
@@ -1400,7 +1443,7 @@ func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 	ws.dataSourceMu.Lock()
 	defer ws.dataSourceMu.Unlock()
 
-	if ws.currentSource != DataSourcePCAP {
+	if ws.currentSource != DataSourcePCAP && ws.currentSource != DataSourcePCAPAnalysis {
 		ws.writeJSONError(w, http.StatusConflict, "system is not in PCAP mode")
 		return
 	}
@@ -1425,9 +1468,20 @@ func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 		<-done
 	}
 
-	if err := ws.resetBackgroundGrid(); err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to reset background grid: %v", err))
-		return
+	// If in analysis mode, only reset grid if explicitly requested
+	ws.pcapMu.Lock()
+	analysisMode := ws.pcapAnalysisMode
+	ws.pcapAnalysisMode = false // Clear flag when stopping
+	ws.pcapMu.Unlock()
+
+	if !analysisMode {
+		// Normal mode: always reset grid when stopping
+		if err := ws.resetBackgroundGrid(); err != nil {
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to reset background grid: %v", err))
+			return
+		}
+	} else {
+		log.Printf("[DataSource] preserving grid from PCAP analysis for sensor=%s", sensorID)
 	}
 
 	if err := ws.startLiveListenerLocked(); err != nil {
@@ -1445,6 +1499,57 @@ func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 		"status":         "stopped",
 		"sensor_id":      sensorID,
 		"current_source": string(ws.currentSource),
+	})
+}
+
+// handlePCAPResumeLive switches from PCAP analysis mode back to Live while preserving the background grid.
+// This allows overlaying live data on top of PCAP-analyzed background.
+// Method: GET. Query param: sensor_id (required to match configured sensor).
+func (ws *WebServer) handlePCAPResumeLive(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use GET")
+		return
+	}
+
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+	if sensorID != ws.sensorID {
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("unexpected sensor_id '%s'", sensorID))
+		return
+	}
+
+	ws.dataSourceMu.Lock()
+	defer ws.dataSourceMu.Unlock()
+
+	if ws.currentSource != DataSourcePCAPAnalysis {
+		ws.writeJSONError(w, http.StatusConflict, "system is not in PCAP analysis mode")
+		return
+	}
+
+	// Start live listener without resetting the grid
+	if err := ws.startLiveListenerLocked(); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to start live listener: %v", err))
+		return
+	}
+
+	ws.currentSource = DataSourceLive
+	ws.currentPCAPFile = ""
+
+	ws.pcapMu.Lock()
+	ws.pcapAnalysisMode = false
+	ws.pcapMu.Unlock()
+
+	log.Printf("[DataSource] resumed Live from PCAP analysis for sensor=%s (grid preserved)", sensorID)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":         "resumed_live",
+		"sensor_id":      sensorID,
+		"current_source": string(ws.currentSource),
+		"grid_preserved": true,
 	})
 }
 

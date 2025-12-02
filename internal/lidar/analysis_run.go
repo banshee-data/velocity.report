@@ -1,0 +1,842 @@
+package lidar
+
+import (
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"time"
+)
+
+// Phase 3.7: Analysis Run Infrastructure
+// This file implements the analysis run system that allows:
+// - Versioned parameter configurations stored as JSON
+// - Run comparison to detect parameter impacts
+// - Track split/merge detection between runs
+
+// AnalysisRun represents a complete analysis session with parameters.
+// All LIDAR parameters are stored in ParamsJSON for full reproducibility.
+type AnalysisRun struct {
+	RunID            string          `json:"run_id"`
+	CreatedAt        time.Time       `json:"created_at"`
+	SourceType       string          `json:"source_type"` // "pcap" or "live"
+	SourcePath       string          `json:"source_path,omitempty"`
+	SensorID         string          `json:"sensor_id"`
+	ParamsJSON       json.RawMessage `json:"params_json"`
+	DurationSecs     float64         `json:"duration_secs"`
+	TotalFrames      int             `json:"total_frames"`
+	TotalClusters    int             `json:"total_clusters"`
+	TotalTracks      int             `json:"total_tracks"`
+	ConfirmedTracks  int             `json:"confirmed_tracks"`
+	ProcessingTimeMs int64           `json:"processing_time_ms"`
+	Status           string          `json:"status"` // "running", "completed", "failed"
+	ErrorMessage     string          `json:"error_message,omitempty"`
+	ParentRunID      string          `json:"parent_run_id,omitempty"`
+	Notes            string          `json:"notes,omitempty"`
+}
+
+// RunParams captures all configurable parameters for reproducibility.
+// This is the structure serialized into AnalysisRun.ParamsJSON.
+type RunParams struct {
+	Version        string                     `json:"version"`
+	Timestamp      time.Time                  `json:"timestamp"`
+	Background     BackgroundParamsExport     `json:"background"`
+	Clustering     ClusteringParamsExport     `json:"clustering"`
+	Tracking       TrackingParamsExport       `json:"tracking"`
+	Classification ClassificationParamsExport `json:"classification,omitempty"`
+}
+
+// BackgroundParamsExport is the JSON-serializable background params.
+type BackgroundParamsExport struct {
+	BackgroundUpdateFraction       float32 `json:"background_update_fraction"`
+	ClosenessSensitivityMultiplier float32 `json:"closeness_sensitivity_multiplier"`
+	SafetyMarginMeters             float32 `json:"safety_margin_meters"`
+	NeighborConfirmationCount      int     `json:"neighbor_confirmation_count"`
+	NoiseRelativeFraction          float32 `json:"noise_relative_fraction"`
+	SeedFromFirstObservation       bool    `json:"seed_from_first_observation"`
+	FreezeDurationNanos            int64   `json:"freeze_duration_nanos"`
+}
+
+// ClusteringParamsExport is the JSON-serializable clustering params.
+type ClusteringParamsExport struct {
+	Eps      float64 `json:"eps"`
+	MinPts   int     `json:"min_pts"`
+	CellSize float64 `json:"cell_size,omitempty"`
+}
+
+// TrackingParamsExport is the JSON-serializable tracking params.
+type TrackingParamsExport struct {
+	MaxTracks               int           `json:"max_tracks"`
+	MaxMisses               int           `json:"max_misses"`
+	HitsToConfirm           int           `json:"hits_to_confirm"`
+	GatingDistanceSquared   float32       `json:"gating_distance_squared"`
+	ProcessNoisePos         float32       `json:"process_noise_pos"`
+	ProcessNoiseVel         float32       `json:"process_noise_vel"`
+	MeasurementNoise        float32       `json:"measurement_noise"`
+	DeletedTrackGracePeriod time.Duration `json:"deleted_track_grace_period_nanos"`
+}
+
+// ClassificationParamsExport is the JSON-serializable classification params.
+type ClassificationParamsExport struct {
+	ModelType  string                 `json:"model_type"`
+	Thresholds map[string]interface{} `json:"thresholds,omitempty"`
+}
+
+// DefaultRunParams returns default run parameters.
+func DefaultRunParams() RunParams {
+	return RunParams{
+		Version:   "1.0",
+		Timestamp: time.Now(),
+		Background: BackgroundParamsExport{
+			BackgroundUpdateFraction:       0.02,
+			ClosenessSensitivityMultiplier: 3.0,
+			SafetyMarginMeters:             0.5,
+			NeighborConfirmationCount:      3,
+			NoiseRelativeFraction:          0.01,
+			SeedFromFirstObservation:       true,
+			FreezeDurationNanos:            5e9,
+		},
+		Clustering: ClusteringParamsExport{
+			Eps:      DefaultDBSCANEps,
+			MinPts:   DefaultDBSCANMinPts,
+			CellSize: DefaultDBSCANEps,
+		},
+		Tracking: TrackingParamsExport{
+			MaxTracks:               100,
+			MaxMisses:               3,
+			HitsToConfirm:           3,
+			GatingDistanceSquared:   25.0,
+			ProcessNoisePos:         0.1,
+			ProcessNoiseVel:         0.5,
+			MeasurementNoise:        0.2,
+			DeletedTrackGracePeriod: DefaultDeletedTrackGracePeriod,
+		},
+		Classification: ClassificationParamsExport{
+			ModelType: "rule_based",
+		},
+	}
+}
+
+// FromBackgroundParams creates export params from BackgroundParams.
+func FromBackgroundParams(p BackgroundParams) BackgroundParamsExport {
+	return BackgroundParamsExport{
+		BackgroundUpdateFraction:       p.BackgroundUpdateFraction,
+		ClosenessSensitivityMultiplier: p.ClosenessSensitivityMultiplier,
+		SafetyMarginMeters:             p.SafetyMarginMeters,
+		NeighborConfirmationCount:      p.NeighborConfirmationCount,
+		NoiseRelativeFraction:          p.NoiseRelativeFraction,
+		SeedFromFirstObservation:       p.SeedFromFirstObservation,
+		FreezeDurationNanos:            p.FreezeDurationNanos,
+	}
+}
+
+// FromDBSCANParams creates export params from DBSCANParams.
+func FromDBSCANParams(p DBSCANParams) ClusteringParamsExport {
+	return ClusteringParamsExport{
+		Eps:      p.Eps,
+		MinPts:   p.MinPts,
+		CellSize: p.Eps,
+	}
+}
+
+// FromTrackerConfig creates export params from TrackerConfig.
+func FromTrackerConfig(c TrackerConfig) TrackingParamsExport {
+	return TrackingParamsExport{
+		MaxTracks:               c.MaxTracks,
+		MaxMisses:               c.MaxMisses,
+		HitsToConfirm:           c.HitsToConfirm,
+		GatingDistanceSquared:   c.GatingDistanceSquared,
+		ProcessNoisePos:         c.ProcessNoisePos,
+		ProcessNoiseVel:         c.ProcessNoiseVel,
+		MeasurementNoise:        c.MeasurementNoise,
+		DeletedTrackGracePeriod: c.DeletedTrackGracePeriod,
+	}
+}
+
+// ToJSON serializes RunParams to JSON.
+func (p *RunParams) ToJSON() (json.RawMessage, error) {
+	return json.Marshal(p)
+}
+
+// ParseRunParams deserializes RunParams from JSON.
+func ParseRunParams(data json.RawMessage) (*RunParams, error) {
+	var p RunParams
+	if err := json.Unmarshal(data, &p); err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+// RunTrack represents a track within a specific analysis run.
+// This extends TrackedObject with run-specific fields like user labels.
+type RunTrack struct {
+	RunID   string `json:"run_id"`
+	TrackID string `json:"track_id"`
+
+	// Track fields (from TrackedObject)
+	SensorID             string  `json:"sensor_id"`
+	TrackState           string  `json:"track_state"`
+	StartUnixNanos       int64   `json:"start_unix_nanos"`
+	EndUnixNanos         int64   `json:"end_unix_nanos,omitempty"`
+	ObservationCount     int     `json:"observation_count"`
+	AvgSpeedMps          float32 `json:"avg_speed_mps"`
+	PeakSpeedMps         float32 `json:"peak_speed_mps"`
+	P50SpeedMps          float32 `json:"p50_speed_mps,omitempty"`
+	P85SpeedMps          float32 `json:"p85_speed_mps,omitempty"`
+	P95SpeedMps          float32 `json:"p95_speed_mps,omitempty"`
+	BoundingBoxLengthAvg float32 `json:"bounding_box_length_avg"`
+	BoundingBoxWidthAvg  float32 `json:"bounding_box_width_avg"`
+	BoundingBoxHeightAvg float32 `json:"bounding_box_height_avg"`
+	HeightP95Max         float32 `json:"height_p95_max"`
+	IntensityMeanAvg     float32 `json:"intensity_mean_avg"`
+	ObjectClass          string  `json:"object_class,omitempty"`
+	ObjectConfidence     float32 `json:"object_confidence,omitempty"`
+	ClassificationModel  string  `json:"classification_model,omitempty"`
+
+	// User labels (for ML training)
+	UserLabel       string  `json:"user_label,omitempty"`
+	LabelConfidence float32 `json:"label_confidence,omitempty"`
+	LabelerID       string  `json:"labeler_id,omitempty"`
+	LabeledAt       int64   `json:"labeled_at,omitempty"`
+
+	// Track quality flags
+	IsSplitCandidate bool     `json:"is_split_candidate,omitempty"`
+	IsMergeCandidate bool     `json:"is_merge_candidate,omitempty"`
+	LinkedTrackIDs   []string `json:"linked_track_ids,omitempty"`
+}
+
+// RunTrackFromTrackedObject creates a RunTrack from a TrackedObject.
+func RunTrackFromTrackedObject(runID string, t *TrackedObject) *RunTrack {
+	p50, p85, p95 := ComputeSpeedPercentiles(t.speedHistory)
+	return &RunTrack{
+		RunID:                runID,
+		TrackID:              t.TrackID,
+		SensorID:             t.SensorID,
+		TrackState:           string(t.State),
+		StartUnixNanos:       t.FirstUnixNanos,
+		EndUnixNanos:         t.LastUnixNanos,
+		ObservationCount:     t.ObservationCount,
+		AvgSpeedMps:          t.AvgSpeedMps,
+		PeakSpeedMps:         t.PeakSpeedMps,
+		P50SpeedMps:          p50,
+		P85SpeedMps:          p85,
+		P95SpeedMps:          p95,
+		BoundingBoxLengthAvg: t.BoundingBoxLengthAvg,
+		BoundingBoxWidthAvg:  t.BoundingBoxWidthAvg,
+		BoundingBoxHeightAvg: t.BoundingBoxHeightAvg,
+		HeightP95Max:         t.HeightP95Max,
+		IntensityMeanAvg:     t.IntensityMeanAvg,
+		ObjectClass:          t.ObjectClass,
+		ObjectConfidence:     t.ObjectConfidence,
+		ClassificationModel:  t.ClassificationModel,
+	}
+}
+
+// AnalysisStats holds statistics for a completed analysis run.
+type AnalysisStats struct {
+	DurationSecs     float64
+	TotalFrames      int
+	TotalClusters    int
+	TotalTracks      int
+	ConfirmedTracks  int
+	ProcessingTimeMs int64
+}
+
+// RunComparison shows differences between two analysis runs.
+type RunComparison struct {
+	Run1ID          string         `json:"run1_id"`
+	Run2ID          string         `json:"run2_id"`
+	ParamDiff       map[string]any `json:"param_diff,omitempty"`
+	TracksOnlyRun1  []string       `json:"tracks_only_run1,omitempty"`
+	TracksOnlyRun2  []string       `json:"tracks_only_run2,omitempty"`
+	SplitCandidates []TrackSplit   `json:"split_candidates,omitempty"`
+	MergeCandidates []TrackMerge   `json:"merge_candidates,omitempty"`
+	MatchedTracks   []TrackMatch   `json:"matched_tracks,omitempty"`
+}
+
+// TrackSplit represents a suspected track split between runs.
+type TrackSplit struct {
+	OriginalTrack string   `json:"original_track"`
+	SplitTracks   []string `json:"split_tracks"`
+	SplitX        float32  `json:"split_x"`
+	SplitY        float32  `json:"split_y"`
+	Confidence    float32  `json:"confidence"`
+}
+
+// TrackMerge represents a suspected track merge between runs.
+type TrackMerge struct {
+	MergedTrack  string   `json:"merged_track"`
+	SourceTracks []string `json:"source_tracks"`
+	MergeX       float32  `json:"merge_x"`
+	MergeY       float32  `json:"merge_y"`
+	Confidence   float32  `json:"confidence"`
+}
+
+// TrackMatch represents a matched track between two runs.
+type TrackMatch struct {
+	Track1ID   string  `json:"track1_id"`
+	Track2ID   string  `json:"track2_id"`
+	OverlapPct float32 `json:"overlap_pct"`
+}
+
+// AnalysisRunStore provides persistence for analysis runs.
+type AnalysisRunStore struct {
+	db *sql.DB
+}
+
+// NewAnalysisRunStore creates a new AnalysisRunStore.
+func NewAnalysisRunStore(db *sql.DB) *AnalysisRunStore {
+	return &AnalysisRunStore{db: db}
+}
+
+// InsertRun creates a new analysis run.
+func (s *AnalysisRunStore) InsertRun(run *AnalysisRun) error {
+	query := `
+		INSERT INTO lidar_analysis_runs (
+			run_id, created_at, source_type, source_path, sensor_id,
+			params_json, duration_secs, total_frames, total_clusters,
+			total_tracks, confirmed_tracks, processing_time_ms,
+			status, error_message, parent_run_id, notes
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+
+	_, err := s.db.Exec(query,
+		run.RunID,
+		run.CreatedAt.UnixNano(),
+		run.SourceType,
+		nullString(run.SourcePath),
+		run.SensorID,
+		string(run.ParamsJSON),
+		run.DurationSecs,
+		run.TotalFrames,
+		run.TotalClusters,
+		run.TotalTracks,
+		run.ConfirmedTracks,
+		run.ProcessingTimeMs,
+		run.Status,
+		nullString(run.ErrorMessage),
+		nullString(run.ParentRunID),
+		nullString(run.Notes),
+	)
+	if err != nil {
+		return fmt.Errorf("insert analysis run: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateRunStatus updates the status of an analysis run.
+func (s *AnalysisRunStore) UpdateRunStatus(runID, status, errorMsg string) error {
+	query := `UPDATE lidar_analysis_runs SET status = ?, error_message = ? WHERE run_id = ?`
+	_, err := s.db.Exec(query, status, nullString(errorMsg), runID)
+	if err != nil {
+		return fmt.Errorf("update run status: %w", err)
+	}
+	return nil
+}
+
+// CompleteRun marks a run as completed with final statistics.
+func (s *AnalysisRunStore) CompleteRun(runID string, stats *AnalysisStats) error {
+	query := `
+		UPDATE lidar_analysis_runs SET
+			duration_secs = ?,
+			total_frames = ?,
+			total_clusters = ?,
+			total_tracks = ?,
+			confirmed_tracks = ?,
+			processing_time_ms = ?,
+			status = 'completed'
+		WHERE run_id = ?
+	`
+
+	_, err := s.db.Exec(query,
+		stats.DurationSecs,
+		stats.TotalFrames,
+		stats.TotalClusters,
+		stats.TotalTracks,
+		stats.ConfirmedTracks,
+		stats.ProcessingTimeMs,
+		runID,
+	)
+	if err != nil {
+		return fmt.Errorf("complete run: %w", err)
+	}
+
+	return nil
+}
+
+// GetRun retrieves an analysis run by ID.
+func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
+	query := `
+		SELECT run_id, created_at, source_type, source_path, sensor_id,
+			params_json, duration_secs, total_frames, total_clusters,
+			total_tracks, confirmed_tracks, processing_time_ms,
+			status, error_message, parent_run_id, notes
+		FROM lidar_analysis_runs
+		WHERE run_id = ?
+	`
+
+	var run AnalysisRun
+	var createdAt int64
+	var sourcePath, errorMessage, parentRunID, notes sql.NullString
+	var paramsJSON string
+
+	err := s.db.QueryRow(query, runID).Scan(
+		&run.RunID,
+		&createdAt,
+		&run.SourceType,
+		&sourcePath,
+		&run.SensorID,
+		&paramsJSON,
+		&run.DurationSecs,
+		&run.TotalFrames,
+		&run.TotalClusters,
+		&run.TotalTracks,
+		&run.ConfirmedTracks,
+		&run.ProcessingTimeMs,
+		&run.Status,
+		&errorMessage,
+		&parentRunID,
+		&notes,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("get run: %w", err)
+	}
+
+	run.CreatedAt = time.Unix(0, createdAt)
+	run.ParamsJSON = json.RawMessage(paramsJSON)
+	if sourcePath.Valid {
+		run.SourcePath = sourcePath.String
+	}
+	if errorMessage.Valid {
+		run.ErrorMessage = errorMessage.String
+	}
+	if parentRunID.Valid {
+		run.ParentRunID = parentRunID.String
+	}
+	if notes.Valid {
+		run.Notes = notes.String
+	}
+
+	return &run, nil
+}
+
+// ListRuns retrieves recent analysis runs.
+func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
+	query := `
+		SELECT run_id, created_at, source_type, source_path, sensor_id,
+			params_json, duration_secs, total_frames, total_clusters,
+			total_tracks, confirmed_tracks, processing_time_ms,
+			status, error_message, parent_run_id, notes
+		FROM lidar_analysis_runs
+		ORDER BY created_at DESC
+		LIMIT ?
+	`
+
+	rows, err := s.db.Query(query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list runs: %w", err)
+	}
+	defer rows.Close()
+
+	var runs []*AnalysisRun
+	for rows.Next() {
+		var run AnalysisRun
+		var createdAt int64
+		var sourcePath, errorMessage, parentRunID, notes sql.NullString
+		var paramsJSON string
+
+		err := rows.Scan(
+			&run.RunID,
+			&createdAt,
+			&run.SourceType,
+			&sourcePath,
+			&run.SensorID,
+			&paramsJSON,
+			&run.DurationSecs,
+			&run.TotalFrames,
+			&run.TotalClusters,
+			&run.TotalTracks,
+			&run.ConfirmedTracks,
+			&run.ProcessingTimeMs,
+			&run.Status,
+			&errorMessage,
+			&parentRunID,
+			&notes,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("scan run: %w", err)
+		}
+
+		run.CreatedAt = time.Unix(0, createdAt)
+		run.ParamsJSON = json.RawMessage(paramsJSON)
+		if sourcePath.Valid {
+			run.SourcePath = sourcePath.String
+		}
+		if errorMessage.Valid {
+			run.ErrorMessage = errorMessage.String
+		}
+		if parentRunID.Valid {
+			run.ParentRunID = parentRunID.String
+		}
+		if notes.Valid {
+			run.Notes = notes.String
+		}
+
+		runs = append(runs, &run)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate runs: %w", err)
+	}
+
+	return runs, nil
+}
+
+// InsertRunTrack inserts a track for an analysis run.
+func (s *AnalysisRunStore) InsertRunTrack(track *RunTrack) error {
+	linkedJSON := "[]"
+	if len(track.LinkedTrackIDs) > 0 {
+		if b, err := json.Marshal(track.LinkedTrackIDs); err == nil {
+			linkedJSON = string(b)
+		}
+	}
+
+	query := `
+		INSERT INTO lidar_run_tracks (
+			run_id, track_id, sensor_id, track_state,
+			start_unix_nanos, end_unix_nanos, observation_count,
+			avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
+			height_p95_max, intensity_mean_avg,
+			object_class, object_confidence, classification_model,
+			user_label, label_confidence, labeler_id, labeled_at,
+			is_split_candidate, is_merge_candidate, linked_track_ids
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+
+	var endNanos interface{}
+	if track.EndUnixNanos > 0 {
+		endNanos = track.EndUnixNanos
+	}
+
+	var labeledAt interface{}
+	if track.LabeledAt > 0 {
+		labeledAt = track.LabeledAt
+	}
+
+	_, err := s.db.Exec(query,
+		track.RunID,
+		track.TrackID,
+		track.SensorID,
+		track.TrackState,
+		track.StartUnixNanos,
+		endNanos,
+		track.ObservationCount,
+		track.AvgSpeedMps,
+		track.PeakSpeedMps,
+		track.P50SpeedMps,
+		track.P85SpeedMps,
+		track.P95SpeedMps,
+		track.BoundingBoxLengthAvg,
+		track.BoundingBoxWidthAvg,
+		track.BoundingBoxHeightAvg,
+		track.HeightP95Max,
+		track.IntensityMeanAvg,
+		nullString(track.ObjectClass),
+		nullFloat32(track.ObjectConfidence),
+		nullString(track.ClassificationModel),
+		nullString(track.UserLabel),
+		nullFloat32(track.LabelConfidence),
+		nullString(track.LabelerID),
+		labeledAt,
+		track.IsSplitCandidate,
+		track.IsMergeCandidate,
+		linkedJSON,
+	)
+	if err != nil {
+		return fmt.Errorf("insert run track: %w", err)
+	}
+
+	return nil
+}
+
+// GetRunTracks retrieves all tracks for an analysis run.
+func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
+	query := `
+		SELECT run_id, track_id, sensor_id, track_state,
+			start_unix_nanos, end_unix_nanos, observation_count,
+			avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
+			height_p95_max, intensity_mean_avg,
+			object_class, object_confidence, classification_model,
+			user_label, label_confidence, labeler_id, labeled_at,
+			is_split_candidate, is_merge_candidate, linked_track_ids
+		FROM lidar_run_tracks
+		WHERE run_id = ?
+		ORDER BY start_unix_nanos
+	`
+
+	rows, err := s.db.Query(query, runID)
+	if err != nil {
+		return nil, fmt.Errorf("query run tracks: %w", err)
+	}
+	defer rows.Close()
+
+	var tracks []*RunTrack
+	for rows.Next() {
+		var track RunTrack
+		var endNanos, labeledAt sql.NullInt64
+		var objectClass, classModel, userLabel, labelerID, linkedJSON sql.NullString
+		var objConf, labelConf sql.NullFloat64
+
+		err := rows.Scan(
+			&track.RunID,
+			&track.TrackID,
+			&track.SensorID,
+			&track.TrackState,
+			&track.StartUnixNanos,
+			&endNanos,
+			&track.ObservationCount,
+			&track.AvgSpeedMps,
+			&track.PeakSpeedMps,
+			&track.P50SpeedMps,
+			&track.P85SpeedMps,
+			&track.P95SpeedMps,
+			&track.BoundingBoxLengthAvg,
+			&track.BoundingBoxWidthAvg,
+			&track.BoundingBoxHeightAvg,
+			&track.HeightP95Max,
+			&track.IntensityMeanAvg,
+			&objectClass,
+			&objConf,
+			&classModel,
+			&userLabel,
+			&labelConf,
+			&labelerID,
+			&labeledAt,
+			&track.IsSplitCandidate,
+			&track.IsMergeCandidate,
+			&linkedJSON,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("scan run track: %w", err)
+		}
+
+		if endNanos.Valid {
+			track.EndUnixNanos = endNanos.Int64
+		}
+		if objectClass.Valid {
+			track.ObjectClass = objectClass.String
+		}
+		if objConf.Valid {
+			track.ObjectConfidence = float32(objConf.Float64)
+		}
+		if classModel.Valid {
+			track.ClassificationModel = classModel.String
+		}
+		if userLabel.Valid {
+			track.UserLabel = userLabel.String
+		}
+		if labelConf.Valid {
+			track.LabelConfidence = float32(labelConf.Float64)
+		}
+		if labelerID.Valid {
+			track.LabelerID = labelerID.String
+		}
+		if labeledAt.Valid {
+			track.LabeledAt = labeledAt.Int64
+		}
+		if linkedJSON.Valid && linkedJSON.String != "" && linkedJSON.String != "[]" {
+			json.Unmarshal([]byte(linkedJSON.String), &track.LinkedTrackIDs)
+		}
+
+		tracks = append(tracks, &track)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate run tracks: %w", err)
+	}
+
+	return tracks, nil
+}
+
+// UpdateTrackLabel updates the user label for a track.
+func (s *AnalysisRunStore) UpdateTrackLabel(runID, trackID, userLabel string, confidence float32, labelerID string) error {
+	query := `
+		UPDATE lidar_run_tracks SET
+			user_label = ?,
+			label_confidence = ?,
+			labeler_id = ?,
+			labeled_at = ?
+		WHERE run_id = ? AND track_id = ?
+	`
+
+	_, err := s.db.Exec(query,
+		userLabel,
+		confidence,
+		labelerID,
+		time.Now().UnixNano(),
+		runID,
+		trackID,
+	)
+	if err != nil {
+		return fmt.Errorf("update track label: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateTrackQualityFlags updates the split/merge flags for a track.
+func (s *AnalysisRunStore) UpdateTrackQualityFlags(runID, trackID string, isSplit, isMerge bool, linkedIDs []string) error {
+	linkedJSON := "[]"
+	if len(linkedIDs) > 0 {
+		if b, err := json.Marshal(linkedIDs); err == nil {
+			linkedJSON = string(b)
+		}
+	}
+
+	query := `
+		UPDATE lidar_run_tracks SET
+			is_split_candidate = ?,
+			is_merge_candidate = ?,
+			linked_track_ids = ?
+		WHERE run_id = ? AND track_id = ?
+	`
+
+	_, err := s.db.Exec(query, isSplit, isMerge, linkedJSON, runID, trackID)
+	if err != nil {
+		return fmt.Errorf("update track quality flags: %w", err)
+	}
+
+	return nil
+}
+
+// GetLabelingProgress returns labeling statistics for a run.
+func (s *AnalysisRunStore) GetLabelingProgress(runID string) (total, labeled int, byClass map[string]int, err error) {
+	byClass = make(map[string]int)
+
+	// Get total and labeled counts
+	query := `
+		SELECT 
+			COUNT(*) as total,
+			SUM(CASE WHEN user_label IS NOT NULL AND user_label != '' THEN 1 ELSE 0 END) as labeled
+		FROM lidar_run_tracks
+		WHERE run_id = ?
+	`
+
+	err = s.db.QueryRow(query, runID).Scan(&total, &labeled)
+	if err != nil {
+		return 0, 0, nil, fmt.Errorf("get labeling counts: %w", err)
+	}
+
+	// Get counts by user label
+	query = `
+		SELECT user_label, COUNT(*) as count
+		FROM lidar_run_tracks
+		WHERE run_id = ? AND user_label IS NOT NULL AND user_label != ''
+		GROUP BY user_label
+	`
+
+	rows, err := s.db.Query(query, runID)
+	if err != nil {
+		return total, labeled, nil, fmt.Errorf("get label counts: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var label string
+		var count int
+		if err := rows.Scan(&label, &count); err != nil {
+			return total, labeled, nil, fmt.Errorf("scan label count: %w", err)
+		}
+		byClass[label] = count
+	}
+
+	return total, labeled, byClass, nil
+}
+
+// GetUnlabeledTracks returns tracks that need labeling.
+func (s *AnalysisRunStore) GetUnlabeledTracks(runID string, limit int) ([]*RunTrack, error) {
+	query := `
+		SELECT run_id, track_id, sensor_id, track_state,
+			start_unix_nanos, end_unix_nanos, observation_count,
+			avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
+			height_p95_max, intensity_mean_avg,
+			object_class, object_confidence, classification_model,
+			user_label, label_confidence, labeler_id, labeled_at,
+			is_split_candidate, is_merge_candidate, linked_track_ids
+		FROM lidar_run_tracks
+		WHERE run_id = ? AND (user_label IS NULL OR user_label = '')
+		ORDER BY observation_count DESC
+		LIMIT ?
+	`
+
+	rows, err := s.db.Query(query, runID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("query unlabeled tracks: %w", err)
+	}
+	defer rows.Close()
+
+	var tracks []*RunTrack
+	for rows.Next() {
+		var track RunTrack
+		var endNanos, labeledAt sql.NullInt64
+		var objectClass, classModel, userLabel, labelerID, linkedJSON sql.NullString
+		var objConf, labelConf sql.NullFloat64
+
+		err := rows.Scan(
+			&track.RunID,
+			&track.TrackID,
+			&track.SensorID,
+			&track.TrackState,
+			&track.StartUnixNanos,
+			&endNanos,
+			&track.ObservationCount,
+			&track.AvgSpeedMps,
+			&track.PeakSpeedMps,
+			&track.P50SpeedMps,
+			&track.P85SpeedMps,
+			&track.P95SpeedMps,
+			&track.BoundingBoxLengthAvg,
+			&track.BoundingBoxWidthAvg,
+			&track.BoundingBoxHeightAvg,
+			&track.HeightP95Max,
+			&track.IntensityMeanAvg,
+			&objectClass,
+			&objConf,
+			&classModel,
+			&userLabel,
+			&labelConf,
+			&labelerID,
+			&labeledAt,
+			&track.IsSplitCandidate,
+			&track.IsMergeCandidate,
+			&linkedJSON,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("scan unlabeled track: %w", err)
+		}
+
+		if endNanos.Valid {
+			track.EndUnixNanos = endNanos.Int64
+		}
+		if objectClass.Valid {
+			track.ObjectClass = objectClass.String
+		}
+		if objConf.Valid {
+			track.ObjectConfidence = float32(objConf.Float64)
+		}
+		if classModel.Valid {
+			track.ClassificationModel = classModel.String
+		}
+
+		tracks = append(tracks, &track)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate unlabeled tracks: %w", err)
+	}
+
+	return tracks, nil
+}

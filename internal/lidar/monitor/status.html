@@ -132,34 +132,53 @@
     {{end}}
 
     <h2>API Endpoints</h2>
+
+    <h3>System</h3>
     <ul>
       <li>
-        <a href="/health">Health check</a>
+        <a href="/health">Health Check</a>
       </li>
       <li>
-        <a href="/api/lidar/params?sensor_id={{.SensorID}}" target="_blank">
-          Get Background Parameters</a>
+        <a href="/api/lidar/status?sensor_id={{.SensorID}}" target="_blank">
+          LiDAR Status (JSON)
+        </a>
       </li>
-      <li> <a href="/api/lidar/grid_status?sensor_id={{.SensorID}}"
+      <li>
+        <a href="/api/lidar/data_source?sensor_id={{.SensorID}}"
           target="_blank">
-          Grid Status</a>
+          Data Source Status (live/pcap/pcap_analysis)
+        </a>
+      </li>
+    </ul>
+
+    <h3>Background Grid</h3>
+    <ul>
+      <li>
+        <a href="/api/lidar/params?sensor_id={{.SensorID}}" target="_blank">
+          Get/Update Background Parameters
+        </a>
+      </li>
+      <li>
+        <a href="/api/lidar/grid_status?sensor_id={{.SensorID}}"
+          target="_blank">
+          Grid Status
+        </a>
       </li>
       <li>
         <a href="/api/lidar/grid_heatmap?sensor_id={{.SensorID}}"
           target="_blank">
-          Grid Heatmap</a>
-      </li>
-      <li>
-        <a href="/api/lidar/acceptance?sensor_id={{.SensorID}}" target="_blank">
-          Background Acceptance Metrics
+          Grid Heatmap
         </a>
       </li>
       <li>
-        <a href="/api/lidar/acceptance/reset?sensor_id={{.SensorID}}"
-          target="_blank">
-          Reset Acceptance Metrics
+        <a href="/api/lidar/grid_reset?sensor_id={{.SensorID}}" target="_blank">
+          Reset Grid
         </a>
       </li>
+    </ul>
+
+    <h3>Background Snapshots</h3>
+    <ul>
       <li>
         <a href="/api/lidar/persist?sensor_id={{.SensorID}}">
           Save Background Snapshot
@@ -181,26 +200,43 @@
         </a>
       </li>
       <li>
-        <a href="/api/lidar/export_next_frame?sensor_id={{.SensorID}}">Export
-          Next Completed Frame to ASC
+        <a href="/api/lidar/export_next_frame?sensor_id={{.SensorID}}">
+          Export Next Completed Frame to ASC
+        </a>
+      </li>
+    </ul>
+
+    <h3>Acceptance Metrics</h3>
+    <ul>
+      <li>
+        <a href="/api/lidar/acceptance?sensor_id={{.SensorID}}" target="_blank">
+          Background Acceptance Metrics
         </a>
       </li>
       <li>
-        <a href="/api/lidar/pcap/stop?sensor_id={{.SensorID}}"
+        <a href="/api/lidar/acceptance/reset?sensor_id={{.SensorID}}"
           target="_blank">
-          Stop PCAP replay (GET)
+          Reset Acceptance Metrics
         </a>
       </li>
+    </ul>
+
+    <h3>PCAP Replay</h3>
+    <ul>
       <li>
         <form action="/api/lidar/pcap/start?sensor_id={{.SensorID}}"
           method="POST"
           target="_blank"
           style="display: inline;">
-          Start PCAP Replay:
+          <strong>Start PCAP Replay:</strong>
           <input type="text" name="pcap_file"
             placeholder="filename.pcap" size="30"
             style="margin-left: 5px; margin-right: 5px;"
             required />
+          <label style="margin-left: 5px;">
+            <input type="checkbox" name="analysis_mode" value="true" />
+            Analysis Mode (preserve grid)
+          </label>
           <button type="submit">Run</button>
           {{if .PCAPSafeDir}}
           <span style="font-size: 0.9em; color: #666;">
@@ -208,6 +244,43 @@
           </span>
           {{end}}
         </form>
+      </li>
+      <li>
+        <a href="/api/lidar/pcap/stop?sensor_id={{.SensorID}}" target="_blank">
+          Stop PCAP Replay (resets grid)
+        </a>
+      </li>
+      <li>
+        <a href="/api/lidar/pcap/resume_live?sensor_id={{.SensorID}}"
+          target="_blank">
+          Resume Live from PCAP Analysis (preserves grid)
+        </a>
+      </li>
+    </ul>
+
+    <h3>Tracking</h3>
+    <ul>
+      <li>
+        <a href="/api/lidar/tracks?sensor_id={{.SensorID}}" target="_blank">
+          List All Tracks
+        </a>
+      </li>
+      <li>
+        <a href="/api/lidar/tracks/active?sensor_id={{.SensorID}}"
+          target="_blank">
+          Active Tracks
+        </a>
+      </li>
+      <li>
+        <a href="/api/lidar/tracks/summary?sensor_id={{.SensorID}}"
+          target="_blank">
+          Track Summary Statistics
+        </a>
+      </li>
+      <li>
+        <a href="/api/lidar/clusters?sensor_id={{.SensorID}}" target="_blank">
+          List Clusters
+        </a>
       </li>
     </ul>
   </body>

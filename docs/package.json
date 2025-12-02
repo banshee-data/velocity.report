@@ -1,6 +1,6 @@
 {
   "name": "velocity.report",
-  "version": "1.0.0",
+  "version": "0.4.0-pre2",
   "description": "https://velocity.report",
   "main": "index.js",
   "scripts": {
