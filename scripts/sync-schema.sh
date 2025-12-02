@@ -98,9 +98,23 @@ cp "$TEMP_SCHEMA" "$SCHEMA_FILE"
 echo -e "${GREEN}✓ schema.sql updated successfully${NC}"
 echo ""
 
-# Step 4: Show diff (if backup exists)
+# Step 4: Format schema.sql with sql-formatter
+echo "4. Formatting schema.sql..."
+if command -v sql-formatter &> /dev/null; then
+    if sql-formatter --fix -l sqlite -c "$PROJECT_ROOT/.sql-formatter.json" "$SCHEMA_FILE" 2>&1 > /dev/null; then
+        echo -e "${GREEN}✓ Schema formatted successfully${NC}"
+    else
+        echo -e "${YELLOW}⚠ Failed to format schema (continuing anyway)${NC}"
+    fi
+else
+    echo -e "${YELLOW}⚠ sql-formatter not found (skipping formatting)${NC}"
+    echo "   Install with: npm install -g sql-formatter"
+fi
+echo ""
+
+# Step 5: Show diff (if backup exists)
 if [ -f "$SCHEMA_FILE.bak" ]; then
-    echo "4. Changes made to schema.sql:"
+    echo "5. Changes made to schema.sql:"
     echo "----------------------------------------"
     if diff -u "$SCHEMA_FILE.bak" "$SCHEMA_FILE" || true; then
         echo -e "${YELLOW}No changes detected${NC}"
@@ -109,8 +123,8 @@ if [ -f "$SCHEMA_FILE.bak" ]; then
     echo ""
 fi
 
-# Step 5: Verify consistency
-echo "5. Verifying schema consistency..."
+# Step 6: Verify consistency
+echo "6. Verifying schema consistency..."
 if go test -v ./internal/db -run TestSchemaConsistency 2>&1 | grep -q "PASS"; then
     echo -e "${GREEN}✓ Schema consistency test passed${NC}"
 else
