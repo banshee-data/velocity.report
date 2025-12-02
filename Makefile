@@ -53,10 +53,11 @@ help:
 	@echo "  schema-sync          Regenerate schema.sql from latest migrations"
 	@echo ""
 	@echo "FORMATTING (mutating):"
-	@echo "  format               Format all code (Go + Python + Web)"
+	@echo "  format               Format all code (Go + Python + Web + SQL)"
 	@echo "  format-go            Format Go code (gofmt)"
 	@echo "  format-python        Format Python code (black + ruff)"
 	@echo "  format-web           Format web code (prettier)"
+	@echo "  format-sql           Format SQL files (sql-formatter)"
 	@echo ""
 	@echo "LINTING (non-mutating, CI-friendly):"
 	@echo "  lint                 Lint all code, fail if formatting needed"
@@ -463,9 +464,9 @@ schema-sync:
 # FORMATTING (mutating)
 # =============================================================================
 
-.PHONY: format format-go format-python format-web
+.PHONY: format format-go format-python format-web format-sql
 
-format: format-go format-python format-web
+format: format-go format-python format-web format-sql
 	@echo "\nAll formatting targets complete."
 
 format-go:
@@ -490,6 +491,10 @@ format-web:
 	else \
 		echo "$(WEB_DIR) does not exist; skipping web formatting"; \
 	fi
+
+format-sql:
+	@echo "Formatting SQL files with sql-formatter..."
+	@bash scripts/format-sql.sh
 
 # =============================================================================
 # LINTING (non-mutating, CI-friendly)
