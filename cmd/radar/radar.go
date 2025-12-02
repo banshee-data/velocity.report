@@ -292,9 +292,8 @@ func main() {
 				if frame == nil || len(frame.Points) == 0 {
 					return
 				}
-				if *debugMode {
-					log.Printf("[FrameBuilder] Completed frame: %s, Points: %d, Azimuth: %.1f°-%.1f°", frame.FrameID, len(frame.Points), frame.MinAzimuth, frame.MaxAzimuth)
-				}
+				// Always log frame completion for tracking debugging
+				log.Printf("[FrameBuilder] Completed frame: %s, Points: %d, Azimuth: %.1f°-%.1f°", frame.FrameID, len(frame.Points), frame.MinAzimuth, frame.MaxAzimuth)
 				polar := make([]lidar.PointPolar, 0, len(frame.Points))
 				for _, p := range frame.Points {
 					polar = append(polar, lidar.PointPolar{
@@ -337,9 +336,8 @@ func main() {
 						return
 					}
 
-					if *debugMode && len(foregroundPoints) > 0 {
-						log.Printf("[Tracking] Extracted %d foreground points from %d total", len(foregroundPoints), len(polar))
-					}
+					// Always log foreground extraction for tracking debugging
+					log.Printf("[Tracking] Extracted %d foreground points from %d total", len(foregroundPoints), len(polar))
 
 					// Phase 2: Transform to world coordinates
 					worldPoints := lidar.TransformToWorld(foregroundPoints, nil, *lidarSensor)
@@ -350,9 +348,8 @@ func main() {
 						return
 					}
 
-					if *debugMode {
-						log.Printf("[Tracking] Clustered into %d objects", len(clusters))
-					}
+					// Always log clustering for tracking debugging
+					log.Printf("[Tracking] Clustered into %d objects", len(clusters))
 
 					// Phase 4: Track update
 					if tracker != nil {
@@ -360,6 +357,8 @@ func main() {
 
 						// Phase 5: Classify and persist confirmed tracks
 						confirmedTracks := tracker.GetConfirmedTracks()
+						log.Printf("[Tracking] %d confirmed tracks to persist", len(confirmedTracks))
+
 						for _, track := range confirmedTracks {
 							// Classify if not already classified and has enough observations
 							if track.ObjectClass == "" && track.ObservationCount >= 5 && classifier != nil {
