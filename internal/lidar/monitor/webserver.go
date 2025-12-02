@@ -83,6 +83,9 @@ type WebServer struct {
 	pcapCancel       context.CancelFunc
 	pcapDone         chan struct{}
 	pcapAnalysisMode bool // When true, preserve grid after PCAP completion
+
+	// Track API for tracking endpoints
+	trackAPI *TrackAPI
 }
 
 // WebServerConfig contains configuration options for the web server
@@ -141,6 +144,11 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		packetForwarder:   config.PacketForwarder,
 		udpListenerConfig: listenerConfig,
 		currentSource:     DataSourceLive,
+	}
+
+	// Initialize TrackAPI if database is configured
+	if config.DB != nil {
+		ws.trackAPI = NewTrackAPI(config.DB.DB, config.SensorID)
 	}
 
 	ws.server = &http.Server{
@@ -466,6 +474,11 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/api/lidar/pcap/start", ws.handlePCAPStart)
 	mux.HandleFunc("/api/lidar/pcap/stop", ws.handlePCAPStop)
 	mux.HandleFunc("/api/lidar/pcap/resume_live", ws.handlePCAPResumeLive)
+
+	// Register track API routes if available
+	if ws.trackAPI != nil {
+		ws.trackAPI.RegisterRoutes(mux)
+	}
 
 	return mux
 }

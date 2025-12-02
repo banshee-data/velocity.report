@@ -257,5 +257,31 @@
         </a>
       </li>
     </ul>
+
+    <h3>Tracking</h3>
+    <ul>
+      <li>
+        <a href="/api/lidar/tracks?sensor_id={{.SensorID}}" target="_blank">
+          List All Tracks
+        </a>
+      </li>
+      <li>
+        <a href="/api/lidar/tracks/active?sensor_id={{.SensorID}}"
+          target="_blank">
+          Active Tracks
+        </a>
+      </li>
+      <li>
+        <a href="/api/lidar/tracks/summary?sensor_id={{.SensorID}}"
+          target="_blank">
+          Track Summary Statistics
+        </a>
+      </li>
+      <li>
+        <a href="/api/lidar/clusters?sensor_id={{.SensorID}}" target="_blank">
+          List Clusters
+        </a>
+      </li>
+    </ul>
   </body>
 </html>
