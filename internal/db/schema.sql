@@ -1,4 +1,4 @@
-   CREATE TABLE IF NOT EXISTS schema_migrations (version uint64, dirty bool);
+CREATE TABLE IF NOT EXISTS schema_migrations (version uint64, dirty bool);
 
 CREATE UNIQUE INDEX IF NOT EXISTS version_unique ON schema_migrations (version);
 
@@ -187,32 +187,29 @@ CREATE TRIGGER IF NOT EXISTS update_site_variable_config_timestamp AFTER
 END;
 
    CREATE TABLE IF NOT EXISTS angle_presets (
-         id INTEGER PRIMARY KEY AUTOINCREMENT
-       , angle REAL NOT NULL UNIQUE
-       , color_hex TEXT NOT NULL
-       , is_system INTEGER NOT NULL DEFAULT 0
-       , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
-       , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
-         );
+          id INTEGER PRIMARY KEY AUTOINCREMENT
+        , angle REAL NOT NULL UNIQUE
+        , color_hex TEXT NOT NULL
+        , is_system INTEGER NOT NULL DEFAULT 0
+        , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+        , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+          );
 
-CREATE INDEX IF NOT EXISTS idx_angle_presets_angle ON angle_presets(angle);
+CREATE INDEX IF NOT EXISTS idx_angle_presets_angle ON angle_presets (angle);
 
-CREATE INDEX IF NOT EXISTS idx_angle_presets_is_system ON angle_presets(is_system);
+CREATE INDEX IF NOT EXISTS idx_angle_presets_is_system ON angle_presets (is_system);
 
-CREATE TRIGGER IF NOT EXISTS prevent_system_preset_deletion
-BEFORE DELETE ON angle_presets
-FOR EACH ROW
-WHEN OLD.is_system = 1
-BEGIN
-    SELECT RAISE(ABORT, 'Cannot delete system preset');
+CREATE TRIGGER IF NOT EXISTS prevent_system_preset_deletion BEFORE DELETE ON angle_presets FOR EACH ROW WHEN OLD.is_system = 1 BEGIN
+   SELECT RAISE (ABORT, 'Cannot delete system preset');
+
 END;
 
-CREATE TRIGGER IF NOT EXISTS update_angle_presets_timestamp
-AFTER UPDATE ON angle_presets
-BEGIN
-    UPDATE angle_presets
-       SET updated_at = STRFTIME('%s', 'now')
-     WHERE id = NEW.id;
+CREATE TRIGGER IF NOT EXISTS update_angle_presets_timestamp AFTER
+   UPDATE ON angle_presets BEGIN
+   UPDATE angle_presets
+      SET updated_at = STRFTIME('%s', 'now')
+    WHERE id = NEW.id;
+
 END;
 
    CREATE TABLE IF NOT EXISTS lidar_bg_snapshot (
