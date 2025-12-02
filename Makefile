@@ -79,6 +79,7 @@ help:
 	@echo "  deploy-health        Run health check using velocity-deploy"
 	@echo ""
 	@echo "UTILITIES:"
+	@echo "  set-version          Update version across codebase (VER=0.4.0 TARGETS='--all')"
 	@echo "  log-go-tail          Tail most recent Go server log"
 	@echo "  log-go-cat           Cat most recent Go server log"
 	@echo ""
@@ -652,7 +653,25 @@ deploy-health:
 # UTILITIES
 # =============================================================================
 
-.PHONY: log-go-tail log-go-cat
+.PHONY: set-version log-go-tail log-go-cat
+
+set-version:
+	@if [ -z "$(VER)" ]; then \
+		echo "Usage: make set-version VER=<version> TARGETS='<targets>'"; \
+		echo ""; \
+		echo "Example: make set-version VER=0.4.0-pre2 TARGETS='--all'"; \
+		echo "         make set-version VER=0.5.0 TARGETS='--makefile --deploy'"; \
+		echo ""; \
+		./scripts/set-version.sh; \
+		exit 1; \
+	fi
+	@if [ -z "$(TARGETS)" ]; then \
+		echo "Error: TARGETS not specified"; \
+		echo "Usage: make set-version VER=<version> TARGETS='<targets>'"; \
+		echo "Example: make set-version VER=0.4.0-pre2 TARGETS='--all'"; \
+		exit 1; \
+	fi
+	@./scripts/set-version.sh $(VER) $(TARGETS)
 
 log-go-tail:
 	@# Tail the most recent velocity log file in logs/ without building or starting anything
