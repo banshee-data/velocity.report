@@ -90,7 +90,8 @@ func findTransitGaps(dbConn *db.DB) ([]transitGap, error) {
 			CAST(write_timestamp / 3600 AS INTEGER) * 3600 as hour_start,
 			COUNT(*) as data_count
 		FROM radar_data
-		WHERE speed IS NOT NULL OR magnitude IS NOT NULL
+		WHERE write_timestamp IS NOT NULL
+		  AND (speed IS NOT NULL OR magnitude IS NOT NULL)
 		GROUP BY hour_start
 	),
 	hourly_transits AS (
@@ -99,6 +100,7 @@ func findTransitGaps(dbConn *db.DB) ([]transitGap, error) {
 			CAST(transit_start_unix / 3600 AS INTEGER) * 3600 as hour_start,
 			COUNT(*) as transit_count
 		FROM radar_data_transits
+		WHERE transit_start_unix IS NOT NULL
 		GROUP BY hour_start
 	)
 	SELECT
