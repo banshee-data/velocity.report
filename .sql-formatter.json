@@ -1,0 +1,16 @@
+{
+  "language": "sqlite",
+  "tabWidth": 2,
+  "useTabs": false,
+  "keywordCase": "upper",
+  "dataTypeCase": "upper",
+  "functionCase": "upper",
+  "identifierCase": "preserve",
+  "indentStyle": "tabularRight",
+  "logicalOperatorNewline": "before",
+  "expressionWidth": 70,
+  "commaPosition": "before",
+  "linesBetweenQueries": 1,
+  "denseOperators": false,
+  "newlineBeforeSemicolon": false
+}

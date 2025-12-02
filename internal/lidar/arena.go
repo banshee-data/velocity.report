@@ -163,7 +163,6 @@ type WorldCluster struct {
 	ClusterID         int64   // matches lidar_cluster_id INTEGER PRIMARY KEY
 	SensorID          string  // matches sensor_id TEXT NOT NULL
 	WorldFrame        FrameID // matches world_frame TEXT NOT NULL
-	PoseID            int64   // matches pose_id INTEGER NOT NULL
 	TSUnixNanos       int64   // matches ts_unix_nanos INTEGER NOT NULL
 	CentroidX         float32 // matches centroid_x REAL
 	CentroidY         float32 // matches centroid_y REAL
@@ -188,7 +187,6 @@ type TrackSummary struct {
 	TrackID    string  // matches schema track_id TEXT PRIMARY KEY
 	SensorID   string  // matches schema sensor_id TEXT NOT NULL
 	WorldFrame FrameID // matches schema world_frame TEXT NOT NULL
-	PoseID     int64   // matches schema pose_id INTEGER NOT NULL
 	UnixNanos  int64   // current observation timestamp
 
 	// Current kinematics (world frame; road-plane oriented)

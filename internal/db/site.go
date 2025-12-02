@@ -147,7 +147,7 @@ func (db *DB) GetAllSites() ([]Site, error) {
 	}
 	defer rows.Close()
 
-	var sites []Site
+	sites := []Site{} // Initialize to empty slice, not nil
 	for rows.Next() {
 		var site Site
 		var includeMapInt int

@@ -50,12 +50,14 @@ help:
 	@echo "  migrate-version      Migrate to specific version (VERSION=N)"
 	@echo "  migrate-force        Force version (recovery, VERSION=N)"
 	@echo "  migrate-baseline     Set baseline version (VERSION=N)"
+	@echo "  schema-sync          Regenerate schema.sql from latest migrations"
 	@echo ""
 	@echo "FORMATTING (mutating):"
-	@echo "  format               Format all code (Go + Python + Web)"
+	@echo "  format               Format all code (Go + Python + Web + SQL)"
 	@echo "  format-go            Format Go code (gofmt)"
 	@echo "  format-python        Format Python code (black + ruff)"
 	@echo "  format-web           Format web code (prettier)"
+	@echo "  format-sql           Format SQL files (sql-formatter)"
 	@echo ""
 	@echo "LINTING (non-mutating, CI-friendly):"
 	@echo "  lint                 Lint all code, fail if formatting needed"
@@ -115,7 +117,7 @@ help:
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-VERSION := 0.4.0-pre1
+VERSION := 0.4.0-pre2
 GIT_SHA := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 LDFLAGS := -X 'main.version=$(VERSION)' -X 'main.gitSHA=$(GIT_SHA)'
 
@@ -402,7 +404,7 @@ test-web:
 # DATABASE MIGRATIONS
 # =============================================================================
 
-.PHONY: migrate-up migrate-down migrate-status migrate-detect migrate-version migrate-force migrate-baseline
+.PHONY: migrate-up migrate-down migrate-status migrate-detect migrate-version migrate-force migrate-baseline schema-sync
 
 # Apply all pending migrations
 migrate-up:
@@ -453,13 +455,18 @@ migrate-baseline:
 	@echo "Baselining database at version $(VERSION)..."
 	@go run ./cmd/radar migrate baseline $(VERSION)
 
+# Regenerate schema.sql from latest migrations
+schema-sync:
+	@echo "Regenerating schema.sql from latest migrations..."
+	@bash scripts/sync-schema.sh
+
 # =============================================================================
 # FORMATTING (mutating)
 # =============================================================================
 
-.PHONY: format format-go format-python format-web
+.PHONY: format format-go format-python format-web format-sql
 
-format: format-go format-python format-web
+format: format-go format-python format-web format-sql
 	@echo "\nAll formatting targets complete."
 
 format-go:
@@ -484,6 +491,10 @@ format-web:
 	else \
 		echo "$(WEB_DIR) does not exist; skipping web formatting"; \
 	fi
+
+format-sql:
+	@echo "Formatting SQL files with sql-formatter..."
+	@bash scripts/format-sql.sh
 
 # =============================================================================
 # LINTING (non-mutating, CI-friendly)

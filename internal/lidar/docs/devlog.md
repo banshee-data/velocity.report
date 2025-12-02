@@ -1,5 +1,251 @@
 # Development Log
 
+## December 1, 2025 - Phase 3.7 Analysis Run Infrastructure (IMPLEMENTED)
+
+### Phase 3.7: Analysis Run Infrastructure
+Implemented complete analysis run infrastructure for versioned parameter configurations and run comparison.
+
+### Implementation Files
+- `internal/lidar/analysis_run.go` - Core types and database operations
+- `internal/lidar/analysis_run_test.go` - Unit tests
+- `internal/db/migrations/000010_create_lidar_analysis_runs.up.sql` - Database migration
+- `internal/db/schema.sql` - Updated with analysis run tables
+
+### Key Features
+- **AnalysisRun** type: Stores complete analysis session with params_json containing all LIDAR parameters
+- **RunParams** type: Captures all configurable parameters (background, clustering, tracking, classification)
+- **RunTrack** type: Extends track data with user labels and quality flags for ML training
+- **AnalysisRunStore**: Database operations for runs and tracks
+  - `InsertRun()`, `CompleteRun()`, `GetRun()`, `ListRuns()`
+  - `InsertRunTrack()`, `GetRunTracks()`, `UpdateTrackLabel()`
+  - `GetLabelingProgress()`, `GetUnlabeledTracks()`
+- **Split/Merge Detection Types**: `RunComparison`, `TrackSplit`, `TrackMerge` for comparing runs
+
+### Phase Renumbering
+- Renamed Phase 4.0 → Phase 3.7 (Analysis Run Infrastructure) - NOW IMPLEMENTED
+- Renamed Phase 4.1 → Phase 4.0 (Track Labeling UI)
+- Renamed Phase 4.2 → Phase 4.1 (ML Classifier Training)
+- Renamed Phase 4.3 → Phase 4.2 (Parameter Tuning)
+- Renamed Phase 4.4 → Phase 4.3 (Production Deployment)
+
+---
+
+## December 1, 2025 - ML Pipeline Roadmap
+
+### Phase 4.0-4.3 Architecture Planning
+- Created comprehensive ML Pipeline Roadmap (`internal/lidar/docs/ml_pipeline_roadmap.md`)
+- Architectural analysis of current state and next steps for complete ML classification pipeline
+
+### Key Components Planned
+- **Phase 4.0 Track Labeling UI**:
+  - SvelteKit routes: `/lidar/runs/`, `/lidar/labeling/`, `/lidar/compare/`
+  - Track browser, trajectory viewer, labeling panel components (svelte-ux based)
+  - REST API extensions for labeling workflow and review queue
+
+- **Phase 4.1 ML Classifier Training**:
+  - Feature extraction from labeled tracks (spatial, kinematic, temporal, intensity features)
+  - Python training pipeline with scikit-learn
+  - Model deployment in Go with fallback to rule-based classifier
+
+- **Phase 4.2 Parameter Tuning & Optimization**:
+  - Grid search over background, clustering, and tracking parameters
+  - Quality metrics: track count, splits, merges, noise tracks
+  - Objective function for parameter optimization
+
+### Implementation Priority
+Recommended order: ✅3.7 → 4.0 → 4.2 (parallel) → 4.1 → 4.3
+
+---
+
+## December 1, 2025 - PCAP Analysis Tool (Phase 3.6)
+
+### Phase 3.6: PCAP Analysis Tool for Track Categorization and ML Data Extraction
+- Implemented `cmd/tools/pcap-analyze/main.go`:
+  - CLI tool for batch processing PCAP files through the full tracking pipeline
+  - Processes 20+ minute PCAP files with frame building, background subtraction, clustering, tracking, and classification
+  - Exports categorized track data for ML ingestion
+
+### Features
+- **Full Pipeline Processing:**
+  - Parse UDP packets → Build 360° frames → Background classification → Foreground extraction
+  - DBSCAN clustering → Kalman tracking → Rule-based classification
+  - Speed percentile computation (P50/P85/P95)
+
+- **Output Formats:**
+  - JSON: Complete analysis results including all track data and statistics
+  - CSV: Track data table for spreadsheet analysis
+  - Training data: Binary foreground point blobs for ML training
+
+- **Analysis Summary:**
+  - Total packets/points/frames processed
+  - Foreground/background point counts
+  - Track counts by class (pedestrian, car, bird, other)
+  - Speed statistics (min, max, avg, P85)
+  - Classification distribution
+
+### Usage
+```bash
+# Basic analysis
+pcap-analyze -pcap capture.pcap -output ./results
+
+# With training data export
+pcap-analyze -pcap capture.pcap -training -output ./ml_data
+
+# With database persistence
+pcap-analyze -pcap capture.pcap -db ./analysis.db -output ./results
+```
+
+### Additional Changes
+- Added `SpeedHistory()` getter to `TrackedObject` for percentile computation from external packages
+- Added `GetAllTracks()` method to `Tracker` for retrieving all tracks including deleted ones
+- Added build tag `pcap` to `integration_test.go` to skip tests when pcap library unavailable
+
+## November 30, 2025 - Pose Simplification
+
+### Pose Code Removed (Deferred to Future Phase)
+- Removed `internal/lidar/pose.go` and `internal/lidar/pose_test.go`
+- Removed pose-related fields from:
+  - `ForegroundFrame` struct (PoseID, PoseRMSE)
+  - `TrainingFrameMetadata` struct (PoseID, PoseRMSE)
+  - `TrainingDataFilter` struct (MaxPoseRMSE)
+  - `TrackObservation` struct (PoseID)
+  - `WorldCluster` struct (PoseID)
+  - `TrackSummary` struct (PoseID)
+- Updated SQL schemas to remove `pose_id` columns from:
+  - `lidar_clusters` table
+  - `lidar_tracks` table  
+  - `lidar_track_obs` table
+- Updated track_store.go database functions to remove poseID parameters
+- Updated track_api.go to use simplified UpdateTrack signature
+
+### Documentation Updates
+- Updated `foreground_tracking_plan.md`:
+  - Appendix E renamed to "Future Work: Pose Validation"
+  - Updated SQL schema examples to remove pose_id columns
+  - Updated training data schema and export functions
+  - Added notes about pose being deferred to future phase
+- Updated `lidar_sidecar_overview.md`:
+  - Updated module structure (removed pose.go)
+  - Updated ML Training Data section
+  - Updated production readiness section
+  - Added pose to "Future Work" section
+
+### Design Rationale
+Training data is stored in polar (sensor) frame, which is pose-independent. This allows:
+1. Training data to remain valid even if sensor pose changes
+2. Simplified database schema without pose foreign keys
+3. Easy future enhancement without data migration
+
+## November 30, 2025 - REST API Endpoints (Phase 3.5)
+
+### Phase 3.5: Track/Cluster REST API
+- Implemented `TrackAPI` struct in `internal/lidar/monitor/track_api.go`:
+  - `GET /api/lidar/tracks` - List tracks with optional state filter
+  - `GET /api/lidar/tracks/active` - Active tracks (real-time from memory or DB)
+  - `GET /api/lidar/tracks/{track_id}` - Get specific track details
+  - `PUT /api/lidar/tracks/{track_id}` - Update track metadata (class, confidence)
+  - `GET /api/lidar/tracks/{track_id}/observations` - Get track trajectory
+  - `GET /api/lidar/tracks/summary` - Aggregated statistics by class/state
+  - `GET /api/lidar/clusters` - Recent clusters by time range
+- JSON response structures for API consistency:
+  - `TrackResponse` with position, velocity, classification, bounding box
+  - `ClusterResponse` with centroid, bounding box, point metrics
+  - `TracksListResponse` and `ClustersListResponse` for list endpoints
+  - `TrackSummaryResponse` with by-class and by-state aggregation
+- Support for both in-memory tracker (real-time) and database queries
+- Comprehensive unit tests in `internal/lidar/monitor/track_api_test.go`
+
+### Documentation Updates
+- Updated `foreground_tracking_plan.md` to v6.0 (Phase 3.5 complete)
+- Updated `lidar_sidecar_overview.md` with REST API endpoint status
+- Updated implementation files table with track_api.go
+- Updated milestones and production readiness assessment
+
+## November 30, 2025 - SQL Schema & Track Classification (Phases 3.3-3.4)
+
+### Phase 3.3: SQL Schema & Database Persistence
+- Created migration `000009_create_lidar_tracks.up.sql` with:
+  - `lidar_clusters` table for DBSCAN cluster persistence
+  - `lidar_tracks` table for track lifecycle, kinematics, and classification
+  - `lidar_track_obs` table for per-observation tracking data
+  - Appropriate indexes for sensor_id, time range, and state queries
+- Implemented persistence functions in `internal/lidar/track_store.go`:
+  - `InsertCluster()` - Insert cluster with world-frame features
+  - `InsertTrack()` - Create new track with speed percentiles
+  - `UpdateTrack()` - Update track state, features, and classification
+  - `InsertTrackObservation()` - Record per-observation data
+  - `GetActiveTracks()` - Query tracks by sensor and state
+  - `GetTrackObservations()` - Get trajectory data for track
+  - `GetRecentClusters()` - Query clusters by time range
+- Updated `internal/db/schema.sql` to include all track tables
+- Comprehensive unit tests in `internal/lidar/track_store_test.go`
+
+### Phase 3.4: Track Classification
+- Implemented rule-based classification in `internal/lidar/classification.go`:
+  - `TrackClassifier` with model version tracking
+  - Object classes: `pedestrian`, `car`, `bird`, `other`
+  - Classification features: height, length, width, speed, duration, observation count
+  - Configurable thresholds for each class with reasonable defaults
+  - Confidence scoring based on feature match quality
+- Added speed percentile computation:
+  - `ComputeSpeedPercentiles()` for P50/P85/P95 from speed history
+- Classification integration:
+  - `ClassifyAndUpdate()` for updating track classification fields
+  - Added `ObjectClass`, `ObjectConfidence`, `ClassificationModel` fields to `TrackedObject`
+- Comprehensive unit tests in `internal/lidar/classification_test.go`
+
+### Documentation Updates
+- Updated `foreground_tracking_plan.md` to reflect completion through Phase 3.4
+- Updated `lidar_sidecar_overview.md` with new module structure and completed phases
+- Updated Implementation Files table with Phase 3.3 and 3.4 files
+- Updated milestones and roadmap status
+
+## November 30, 2025 - Foreground Tracking Pipeline (Phases 2.9-3.2)
+
+### Phase 2.9: Foreground Mask Generation (Polar Frame)
+- Implemented `ProcessFramePolarWithMask()` in `internal/lidar/foreground.go` for per-point foreground/background classification
+- Added `ExtractForegroundPoints()` helper to filter foreground points using mask
+- Added `ComputeFrameMetrics()` for frame-level statistics (total, foreground, background counts)
+- Comprehensive unit tests in `internal/lidar/foreground_test.go`
+
+### Phase 3.0: Polar → World Transform
+- Implemented `WorldPoint` struct for world-frame Cartesian coordinates
+- Added `TransformToWorld()` function with pose support in `internal/lidar/clustering.go`
+- Added `TransformPointsToWorld()` convenience function for pre-computed Cartesian points
+- Identity transform fallback when pose is nil
+- Unit tests for transform accuracy with identity and custom poses
+
+### Phase 3.1: DBSCAN Clustering (World Frame)
+- Implemented `SpatialIndex` struct with grid-based indexing using Szudzik pairing and zigzag encoding
+- Added `DBSCAN()` algorithm with configurable eps (0.6m default) and minPts (12 default)
+- Implemented `computeClusterMetrics()` for centroid, bounding box, height P95, intensity mean
+- Added `WorldCluster` struct with all required features
+- Comprehensive unit tests in `internal/lidar/clustering_test.go`
+
+### Phase 3.2: Kalman Tracking (World Frame)
+- Implemented `TrackState` lifecycle: Tentative → Confirmed → Deleted
+- Added `TrackedObject` struct with Kalman state (x, y, vx, vy) and covariance matrix
+- Implemented `Tracker` with configurable parameters via `TrackerConfig`
+- Added Mahalanobis distance gating for cluster-to-track association
+- Implemented Kalman predict/update with constant velocity model
+- Track lifecycle management with hits/misses counting, promotion, and deletion
+- Speed statistics: average, peak, and history for percentile computation
+- Comprehensive unit tests in `internal/lidar/tracking_test.go`
+
+### ML Training Data Support
+- Added `ForegroundFrame` struct for exporting foreground points with metadata
+- Implemented `EncodeForegroundBlob()`/`DecodeForegroundBlob()` for compact binary encoding (8 bytes/point)
+- Added `TrainingDataFilter` for filtering training data
+- Unit tests in `internal/lidar/training_data_test.go`
+
+> **Note:** Pose validation and quality assessment were initially implemented but later removed to simplify the schema. See November 30, 2025 Pose Simplification entry.
+
+### Documentation Updates
+- Updated `foreground_tracking_plan.md` with implementation status and file locations
+- Updated `lidar_sidecar_overview.md` with completed phases and module structure
+- Added implementation files table to roadmap
+- Updated milestones to reflect completed phases
+
 ## November 1, 2025 - PCAP Security & Grid Visualization (dd/lidar/read-pcap)
 
 - Implemented path traversal protection with `--lidar-pcap-dir` flag (default: `../sensor-data/lidar`) using `filepath.Join()` + `filepath.Abs()` + prefix checking to prevent `../../` attacks.

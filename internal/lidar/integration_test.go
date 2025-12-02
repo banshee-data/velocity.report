@@ -1,3 +1,6 @@
+//go:build pcap
+// +build pcap
+
 package lidar_test
 
 import (
