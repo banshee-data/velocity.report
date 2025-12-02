@@ -2,7 +2,9 @@
 
 ## Current State
 
-The LiDAR tracking infrastructure exists but is **not yet integrated** into the data processing pipeline:
+**STATUS: ✅ INTEGRATED** (as of 2024-12-01)
+
+The LiDAR tracking infrastructure is **fully integrated** into the data processing pipeline:
 
 ### ✅ Implemented Components
 
@@ -33,124 +35,128 @@ The LiDAR tracking infrastructure exists but is **not yet integrated** into the 
    - Foreground point extraction
    - PCAP analysis mode with grid preservation
 
-### ❌ Missing Integration
+### ✅ Integrated Pipeline
 
-The tracking pipeline is **not connected** to the frame processing flow:
+The tracking pipeline is **fully connected** to the frame processing flow:
 
 ```
-Current Flow:
-  UDP/PCAP → Parser → FrameBuilder → BackgroundManager
+Complete Flow:
+  UDP/PCAP → Parser → FrameBuilder → FrameCallback
                                           ↓
-                                     (stops here)
-
-Needed Flow:
-  UDP/PCAP → Parser → FrameBuilder → BackgroundManager
+                                     BackgroundManager.ProcessFramePolarWithMask
                                           ↓
-                                     Foreground Extraction
+                                     Foreground Extraction (ExtractForegroundPoints)
                                           ↓
-                                     Clustering
+                                     Transform to World (TransformToWorld)
                                           ↓
-                                     Tracker → DB (tracks/observations)
+                                     Clustering (DBSCAN)
+                                          ↓
+                                     Tracker.Update → Classify → DB (tracks/observations)
 ```
 
-## Why Tracks Are Empty
+## How Tracking Works Now
 
 When you run PCAP analysis mode (`analysis_mode=true`), the system:
 
 1. ✅ Processes packets and builds frames
-2. ✅ Feeds frames to `BackgroundManager`
+2. ✅ Feeds frames to `BackgroundManager.ProcessFramePolarWithMask`
 3. ✅ Builds background grid (preserved in analysis mode)
-4. ❌ Does NOT extract foreground points
-5. ❌ Does NOT cluster foreground points
-6. ❌ Does NOT track clusters
-7. ❌ Does NOT save tracks/observations to database
+4. ✅ Extracts foreground points using `ExtractForegroundPoints`
+5. ✅ Transforms to world coordinates using `TransformToWorld`
+6. ✅ Clusters foreground points using `DBSCAN`
+7. ✅ Updates tracker with clusters using `Tracker.Update`
+8. ✅ Classifies tracks using `TrackClassifier.ClassifyAndUpdate`
+9. ✅ Saves tracks/observations to database
 
-**Result:** `lidar_tracks` and `lidar_track_obs` remain empty.
+**Result:** `lidar_tracks` and `lidar_track_obs` will populate with detected objects.
 
-## Required Integration Work
+## Implementation Details
 
-### Phase 1: Foreground Extraction
+### Integrated Components
 
-Add foreground extraction to `BackgroundManager.ProcessFramePolar()`:
+#### Phase 1: Foreground Extraction (✅ COMPLETE)
+
+Location: `cmd/radar/radar.go` lines 315-330
 
 ```go
-// internal/lidar/background.go
-func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) ForegroundResult {
-    // Existing: Update background grid
-    bm.updateBackgroundCells(points)
+// Phase 1: Foreground extraction
+mask, err := backgroundManager.ProcessFramePolarWithMask(polar)
+if err != nil || mask == nil {
+    return
+}
 
-    // NEW: Extract foreground points
-    foregroundPoints := bm.extractForeground(points)
-
-    return ForegroundResult{
-        Timestamp:        time.Now(),
-        ForegroundPoints: foregroundPoints,
-        Stats:            /* ... */,
-    }
+foregroundPoints := lidar.ExtractForegroundPoints(polar, mask)
+if len(foregroundPoints) == 0 {
+    return // No foreground detected
 }
 ```
 
-### Phase 2: Clustering
+Uses:
 
-Add clustering module to group foreground points:
+- `BackgroundManager.ProcessFramePolarWithMask()` - per-point classification
+- `lidar.ExtractForegroundPoints()` - extract foreground-marked points
+
+#### Phase 2: World Transform & Clustering (✅ COMPLETE)
+
+Location: `cmd/radar/radar.go` lines 335-345
 
 ```go
-// internal/lidar/clustering.go (NEW FILE)
-func ClusterForegroundPoints(points []lidar.Point, config ClusterConfig) []WorldCluster {
-    // DBSCAN or Euclidean clustering
-    // Convert point groups → WorldCluster structs
-    // Return clusters for tracking
+// Phase 2: Transform to world coordinates
+worldPoints := lidar.TransformToWorld(foregroundPoints, nil, *lidarSensor)
+
+// Phase 3: Clustering
+clusters := lidar.DBSCAN(worldPoints, lidar.DefaultDBSCANParams())
+if len(clusters) == 0 {
+    return
 }
 ```
 
-### Phase 3: Tracker Integration
+Uses:
 
-Instantiate and wire tracker in `cmd/radar/radar.go`:
+- `lidar.TransformToWorld()` - polar → world Cartesian conversion
+- `lidar.DBSCAN()` - density-based clustering with default params
+
+#### Phase 3: Tracker Integration (✅ COMPLETE)
+
+Location: `cmd/radar/radar.go` lines 352-405
 
 ```go
-// cmd/radar/radar.go (in lidar initialization section)
-tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+// Phase 4: Track update
+if tracker != nil {
+    tracker.Update(clusters, frame.StartTimestamp)
 
-frameCallback := func(frame *lidar.LiDARFrame) {
-    // Existing: Feed to BackgroundManager
-    foreground := backgroundManager.ProcessFramePolar(polar)
-
-    // NEW: Cluster foreground
-    clusters := lidar.ClusterForegroundPoints(foreground.ForegroundPoints, clusterConfig)
-
-    // NEW: Update tracker
-    tracker.Update(clusters, frame.Timestamp)
-
-    // NEW: Persist tracks
-    for _, track := range tracker.GetActiveTracks() {
-        if track.State == lidar.TrackConfirmed {
-            lidar.InsertTrack(lidarDB, track, worldFrame)
-            obs := lidar.TrackObservationFromTrack(track)
-            lidar.InsertTrackObservation(lidarDB, obs)
+    // Phase 5: Classify and persist confirmed tracks
+    confirmedTracks := tracker.GetConfirmedTracks()
+    for _, track := range confirmedTracks {
+        // Classify if not already classified
+        if track.ObjectClass == "" && track.ObservationCount >= 5 && classifier != nil {
+            classifier.ClassifyAndUpdate(track)
         }
+
+        // Persist track and observation to database
+        worldFrame := fmt.Sprintf("site/%s", *lidarSensor)
+        lidar.InsertTrack(lidarDB.DB, track, worldFrame)
+
+        obs := &lidar.TrackObservation{ /* ... */ }
+        lidar.InsertTrackObservation(lidarDB.DB, obs)
     }
 }
 ```
 
-### Phase 4: Analysis Run Management
-
-Create analysis runs for PCAP sessions:
+Components initialized at startup (lines 257-260):
 
 ```go
-// When starting PCAP analysis mode
-run := &lidar.AnalysisRun{
-    RunID:      generateRunID(),
-    SourceType: "pcap",
-    SourcePath: pcapFile,
-    Status:     "running",
-    Params:     /* tracker + cluster config */,
-}
-analysisStore.InsertRun(run)
+tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+classifier := lidar.NewTrackClassifier()
+```
 
-// After PCAP completion
-run.Status = "completed"
-run.TracksDetected = len(tracker.Tracks)
-analysisStore.UpdateRun(run)
+#### Phase 4: Analysis Run Management (⏸️ DEFERRED)
+
+Analysis runs are not yet created for PCAP sessions. This is tracked as future work:
+
+```go
+// TODO: Create analysis run when starting PCAP analysis mode
+// TODO: Update run status and track count on completion
 ```
 
 ## Workaround for Testing
@@ -247,14 +253,20 @@ Once integrated:
    sqlite3 sensor_data.db "SELECT COUNT(*) FROM lidar_clusters;"
    ```
 
-## Timeline Estimate
+## Integration Status
 
-- **Foreground Extraction:** 4-6 hours
-- **Clustering Module:** 6-8 hours
-- **Tracker Integration:** 4-6 hours
-- **Testing & Refinement:** 8-10 hours
+✅ **COMPLETED** (2024-12-01):
 
-**Total:** 22-30 hours for complete integration
+- Foreground Extraction: ✅
+- World Transform: ✅
+- Clustering (DBSCAN): ✅
+- Tracker Integration: ✅
+- Classification: ✅
+- Database Persistence: ✅
+
+⏸️ **DEFERRED** (future work):
+
+- Analysis Run Management (metadata tracking for PCAP sessions)
 
 ## References
 
