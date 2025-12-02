@@ -96,7 +96,7 @@ Currently, velocity.report sites can only specify a single static speed limit, m
 CREATE TABLE IF NOT EXISTS speed_limit_schedule (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     site_id INTEGER NOT NULL,
-    day_of_week INTEGER NOT NULL,  -- 0=Sunday, 1=Monday, ..., 6=Saturday
+    day_of_week INTEGER NOT NULL,  -- 1=Monday, ..., 7=Sunday
     start_time TEXT NOT NULL,       -- HH:MM format (e.g., "06:00")
     end_time TEXT NOT NULL,         -- HH:MM format (e.g., "07:05")
     speed_limit INTEGER NOT NULL,   -- Speed limit for this time block
@@ -131,7 +131,7 @@ END;
 type SpeedLimitSchedule struct {
     ID         int       `json:"id"`
     SiteID     int       `json:"site_id"`
-    DayOfWeek  int       `json:"day_of_week"` // 0=Sunday, 1=Monday, ..., 6=Saturday
+    DayOfWeek  int       `json:"day_of_week"` // 1=Monday, ..., 7=Sunday
     StartTime  string    `json:"start_time"`  // HH:MM format
     EndTime    string    `json:"end_time"`    // HH:MM format
     SpeedLimit int       `json:"speed_limit"` // Speed limit for this time block
@@ -285,7 +285,7 @@ Response (204 No Content)
 **Validation Rules:**
 
 - `site_id`: Required, must be > 0
-- `day_of_week`: Required, must be 0-6 (0=Sunday, 6=Saturday)
+- `day_of_week`: Required, must be 0-6 (1=Monday, 7=Sunday)
 - `start_time`: Required, must be in HH:MM format
 - `end_time`: Required, must be in HH:MM format
 - `speed_limit`: Required, must be > 0
@@ -1023,7 +1023,7 @@ export let schedules: SpeedLimitSchedule[] = [];  // Current schedules list
 export let onSchedulesChange: (schedules: SpeedLimitSchedule[]) => void;  // Callback
 
 // Local State
-let daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+let daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 let timeOptions: string[];  // Generated 00:00 to 23:55 in 5-min increments
 
 // Methods
@@ -1055,15 +1055,15 @@ function generateTimeOptions(): string[]                    // Generate time dro
 
 | Number | Day | ISO 8601 | Typical Use Case |
 |--------|-----|----------|------------------|
-| 0 | Sunday | 7 | Weekend residential limits |
 | 1 | Monday | 1 | School zone active |
 | 2 | Tuesday | 2 | School zone active |
 | 3 | Wednesday | 3 | School zone active |
 | 4 | Thursday | 4 | School zone active |
 | 5 | Friday | 5 | School zone active |
 | 6 | Saturday | 6 | Weekend residential limits |
+| 7 | Sunday | 7 | Weekend residential limits |
 
-**Note:** This matches JavaScript's `Date.getDay()` convention but differs from ISO 8601 (which uses 1=Monday, 7=Sunday). This choice prioritizes consistency with web frontend date handling.
+**Note:**  ISO 8601 (which uses 1=Monday, 7=Sunday). This conforms with using unix seconds and UTC as date standards. 
 
 ### Appendix F: Related Tables
 
@@ -1100,7 +1100,7 @@ CREATE TABLE IF NOT EXISTS site (
 - **Schedule:** A time-based speed limit rule for a specific day and time range
 - **Site:** A monitoring location with one or more radar sensors
 - **Speed Limit:** Posted maximum legal speed in mph or kph
-- **Day of Week:** Integer 0-6 representing Sunday through Saturday
+- **Day of Week:** Integer 0-6 representing Monady through Sunday
 - **Time Block:** Period defined by start_time and end_time
 - **School Zone:** Area with reduced speed limits during school hours
 - **Cascade Delete:** Automatic deletion of child records when parent is deleted
