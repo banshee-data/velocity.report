@@ -12,11 +12,15 @@ import {
 	getReportsForSite,
 	getSite,
 	getSites,
+	getTransitWorkerState,
 	updateSite,
+	updateTransitWorker,
 	type Config,
 	type Event,
 	type Site,
-	type SiteReport
+	type SiteReport,
+	type TransitWorkerState,
+	type TransitWorkerUpdateResponse
 } from './api';
 
 // Mock fetch globally
@@ -815,6 +819,143 @@ describe('api', () => {
 			});
 
 			await expect(deleteSite(123)).rejects.toThrow('Failed to delete site: 409');
+		});
+	});
+
+	describe('getTransitWorkerState', () => {
+		it('should fetch transit worker state', async () => {
+			const mockState: TransitWorkerState = {
+				enabled: true,
+				last_run_at: '2024-01-01T12:00:00Z',
+				run_count: 5,
+				is_healthy: true
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockState
+			});
+
+			const result = await getTransitWorkerState();
+
+			expect(global.fetch).toHaveBeenCalledWith('/api/transit_worker');
+			expect(result).toEqual(mockState);
+		});
+
+		it('should handle errors when fetching transit worker state', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 503
+			});
+
+			await expect(getTransitWorkerState()).rejects.toThrow(
+				'Failed to fetch transit worker state: 503'
+			);
+		});
+	});
+
+	describe('updateTransitWorker', () => {
+		it('should update transit worker with enabled only', async () => {
+			const mockResponse: TransitWorkerUpdateResponse = {
+				enabled: true,
+				last_run_at: '2024-01-01T12:00:00Z',
+				run_count: 6,
+				is_healthy: true
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockResponse
+			});
+
+			const result = await updateTransitWorker({ enabled: true });
+
+			expect(global.fetch).toHaveBeenCalledWith('/api/transit_worker', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ enabled: true })
+			});
+			expect(result).toEqual(mockResponse);
+		});
+
+		it('should update transit worker with trigger only', async () => {
+			const mockResponse: TransitWorkerUpdateResponse = {
+				enabled: true,
+				last_run_at: '2024-01-01T12:01:00Z',
+				run_count: 7,
+				is_healthy: true
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockResponse
+			});
+
+			const result = await updateTransitWorker({ trigger: true });
+
+			expect(global.fetch).toHaveBeenCalledWith('/api/transit_worker', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ trigger: true })
+			});
+			expect(result).toEqual(mockResponse);
+		});
+
+		it('should update transit worker with both enabled and trigger', async () => {
+			const mockResponse: TransitWorkerUpdateResponse = {
+				enabled: true,
+				last_run_at: '2024-01-01T12:02:00Z',
+				run_count: 8,
+				is_healthy: true
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockResponse
+			});
+
+			const result = await updateTransitWorker({ enabled: true, trigger: true });
+
+			expect(global.fetch).toHaveBeenCalledWith('/api/transit_worker', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ enabled: true, trigger: true })
+			});
+			expect(result).toEqual(mockResponse);
+		});
+
+		it('should handle errors with error message', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 400,
+				json: async () => ({ error: 'Invalid request' })
+			});
+
+			await expect(updateTransitWorker({ enabled: false })).rejects.toThrow('Invalid request');
+		});
+
+		it('should handle errors without error message', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 500,
+				json: async () => {
+					throw new Error('Not JSON');
+				}
+			});
+
+			await expect(updateTransitWorker({ enabled: true })).rejects.toThrow('HTTP 500');
+		});
+
+		it('should handle errors with empty error field', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 503,
+				json: async () => ({ error: '' })
+			});
+
+			await expect(updateTransitWorker({ trigger: true })).rejects.toThrow(
+				'Failed to update transit worker: 503'
+			);
 		});
 	});
 });

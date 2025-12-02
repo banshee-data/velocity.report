@@ -60,7 +60,7 @@
 		transitWorkerLoading = true;
 		try {
 			// Only trigger manual run when enabling, not when disabling
-			const response = await updateTransitWorker({ enabled, trigger: enabled ? true : false });
+			const response = await updateTransitWorker({ enabled, trigger: enabled });
 			transitWorkerEnabled = response.enabled;
 			message = enabled ? 'Transit worker enabled and run triggered!' : 'Transit worker disabled!';
 

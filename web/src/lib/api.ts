@@ -303,6 +303,10 @@ export async function deleteSite(id: number): Promise<void> {
 // Transit Worker API
 export interface TransitWorkerState {
 	enabled: boolean;
+	last_run_at: string;
+	last_run_error?: string;
+	run_count: number;
+	is_healthy: boolean;
 }
 
 export interface TransitWorkerUpdateRequest {
@@ -312,7 +316,10 @@ export interface TransitWorkerUpdateRequest {
 
 export interface TransitWorkerUpdateResponse {
 	enabled: boolean;
-	message: string;
+	last_run_at: string;
+	last_run_error?: string;
+	run_count: number;
+	is_healthy: boolean;
 }
 
 export async function getTransitWorkerState(): Promise<TransitWorkerState> {

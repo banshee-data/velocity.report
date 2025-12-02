@@ -420,11 +420,10 @@ func main() {
 
 	// Create transit worker controller before HTTP server so we can pass it to the API
 	// Always create the controller so the API can provide UI controls
-	var transitController *db.TransitController
 	transitWorker := db.NewTransitWorker(database, *transitWorkerThreshold, *transitWorkerModel)
 	transitWorker.Interval = *transitWorkerInterval
 	transitWorker.Window = *transitWorkerWindow
-	transitController = db.NewTransitController(transitWorker)
+	transitController := db.NewTransitController(transitWorker)
 
 	// Only start the worker goroutine if enabled via CLI flag
 	if *enableTransitWorker {

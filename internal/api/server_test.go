@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/serialmux"
@@ -746,4 +747,262 @@ func cleanupTestServer(t *testing.T, dbInst *db.DB) {
 // Helper function to create float64 pointers
 func floatPtr(f float64) *float64 {
 	return &f
+}
+
+// Mock TransitController for testing
+type mockTransitController struct {
+	enabled       bool
+	lastRunAt     string
+	lastRunError  string
+	runCount      int64
+	isHealthy     bool
+	triggerCalled bool
+}
+
+func (m *mockTransitController) IsEnabled() bool {
+	return m.enabled
+}
+
+func (m *mockTransitController) SetEnabled(enabled bool) {
+	m.enabled = enabled
+}
+
+func (m *mockTransitController) TriggerManualRun() {
+	m.triggerCalled = true
+}
+
+func (m *mockTransitController) GetStatus() db.TransitStatus {
+	return db.TransitStatus{
+		Enabled:      m.enabled,
+		LastRunAt:    parseTimeOrZero(m.lastRunAt),
+		LastRunError: m.lastRunError,
+		RunCount:     m.runCount,
+		IsHealthy:    m.isHealthy,
+	}
+}
+
+func parseTimeOrZero(s string) time.Time {
+	if s == "" {
+		return time.Time{}
+	}
+	t, _ := time.Parse(time.RFC3339, s)
+	return t
+}
+
+// TestHandleTransitWorker_Get tests GET requests to transit worker endpoint
+func TestHandleTransitWorker_Get(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	mockTC := &mockTransitController{
+		enabled:      true,
+		lastRunAt:    "2024-01-01T12:00:00Z",
+		runCount:     5,
+		isHealthy:    true,
+		lastRunError: "",
+	}
+	server.SetTransitController(mockTC)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/transit_worker", nil)
+	w := httptest.NewRecorder()
+
+	server.handleTransitWorker(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	var status db.TransitStatus
+	if err := json.Unmarshal(w.Body.Bytes(), &status); err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+
+	if status.Enabled != true {
+		t.Errorf("Expected enabled=true, got %v", status.Enabled)
+	}
+	if status.RunCount != 5 {
+		t.Errorf("Expected run_count=5, got %d", status.RunCount)
+	}
+	if !status.IsHealthy {
+		t.Errorf("Expected is_healthy=true, got %v", status.IsHealthy)
+	}
+}
+
+// TestHandleTransitWorker_Get_Nil tests GET when controller is nil
+func TestHandleTransitWorker_Get_Nil(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	// Don't set transit controller (nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/transit_worker", nil)
+	w := httptest.NewRecorder()
+
+	server.handleTransitWorker(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("Expected status 503, got %d", w.Code)
+	}
+}
+
+// TestHandleTransitWorker_Post_EnableTrue tests POST with enabled=true
+func TestHandleTransitWorker_Post_EnableTrue(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	mockTC := &mockTransitController{
+		enabled:   false,
+		runCount:  5,
+		isHealthy: true,
+	}
+	server.SetTransitController(mockTC)
+
+	reqBody := map[string]interface{}{"enabled": true}
+	bodyBytes, _ := json.Marshal(reqBody)
+	req := httptest.NewRequest(http.MethodPost, "/api/transit_worker", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	server.handleTransitWorker(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	if !mockTC.enabled {
+		t.Errorf("Expected transit controller to be enabled")
+	}
+}
+
+// TestHandleTransitWorker_Post_EnableFalse tests POST with enabled=false
+func TestHandleTransitWorker_Post_EnableFalse(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	mockTC := &mockTransitController{
+		enabled:   true,
+		runCount:  5,
+		isHealthy: true,
+	}
+	server.SetTransitController(mockTC)
+
+	reqBody := map[string]interface{}{"enabled": false}
+	bodyBytes, _ := json.Marshal(reqBody)
+	req := httptest.NewRequest(http.MethodPost, "/api/transit_worker", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	server.handleTransitWorker(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	if mockTC.enabled {
+		t.Errorf("Expected transit controller to be disabled")
+	}
+}
+
+// TestHandleTransitWorker_Post_Trigger tests POST with trigger=true
+func TestHandleTransitWorker_Post_Trigger(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	mockTC := &mockTransitController{
+		enabled:       true,
+		runCount:      5,
+		isHealthy:     true,
+		triggerCalled: false,
+	}
+	server.SetTransitController(mockTC)
+
+	reqBody := map[string]interface{}{"trigger": true}
+	bodyBytes, _ := json.Marshal(reqBody)
+	req := httptest.NewRequest(http.MethodPost, "/api/transit_worker", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	server.handleTransitWorker(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	if !mockTC.triggerCalled {
+		t.Errorf("Expected TriggerManualRun to be called")
+	}
+}
+
+// TestHandleTransitWorker_Post_Both tests POST with both enabled and trigger
+func TestHandleTransitWorker_Post_Both(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	mockTC := &mockTransitController{
+		enabled:       false,
+		runCount:      5,
+		isHealthy:     true,
+		triggerCalled: false,
+	}
+	server.SetTransitController(mockTC)
+
+	reqBody := map[string]interface{}{"enabled": true, "trigger": true}
+	bodyBytes, _ := json.Marshal(reqBody)
+	req := httptest.NewRequest(http.MethodPost, "/api/transit_worker", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	server.handleTransitWorker(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	if !mockTC.enabled {
+		t.Errorf("Expected transit controller to be enabled")
+	}
+	if !mockTC.triggerCalled {
+		t.Errorf("Expected TriggerManualRun to be called")
+	}
+}
+
+// TestHandleTransitWorker_Post_InvalidBody tests POST with invalid JSON
+func TestHandleTransitWorker_Post_InvalidBody(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	mockTC := &mockTransitController{enabled: true}
+	server.SetTransitController(mockTC)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/transit_worker", bytes.NewReader([]byte("invalid json")))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	server.handleTransitWorker(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+}
+
+// TestHandleTransitWorker_MethodNotAllowed tests unsupported HTTP methods
+func TestHandleTransitWorker_MethodNotAllowed(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	mockTC := &mockTransitController{enabled: true}
+	server.SetTransitController(mockTC)
+
+	methods := []string{http.MethodPut, http.MethodDelete, http.MethodPatch}
+
+	for _, method := range methods {
+		req := httptest.NewRequest(method, "/api/transit_worker", nil)
+		w := httptest.NewRecorder()
+
+		server.handleTransitWorker(w, req)
+
+		if w.Code != http.StatusMethodNotAllowed {
+			t.Errorf("Expected status 405 for method %s, got %d", method, w.Code)
+		}
+	}
 }
