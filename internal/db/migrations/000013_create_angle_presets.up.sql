@@ -20,7 +20,7 @@ BEFORE DELETE ON angle_presets
 FOR EACH ROW
 WHEN OLD.is_system = 1
 BEGIN
-    SELECT RAISE(ABORT, 'Cannot delete system preset');
+    SELECT RAISE (ABORT, 'Cannot delete system preset');
 END;
 
 -- Create trigger to update timestamp
