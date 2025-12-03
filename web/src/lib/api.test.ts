@@ -1,9 +1,13 @@
 import {
+	createAnglePreset,
 	createSite,
+	deleteAnglePreset,
 	deleteReport,
 	deleteSite,
 	downloadReport,
 	generateReport,
+	getActiveSiteConfigPeriod,
+	getAnglePresets,
 	getConfig,
 	getEvents,
 	getRadarStats,
@@ -11,13 +15,17 @@ import {
 	getReport,
 	getReportsForSite,
 	getSite,
+	getSiteConfigPeriods,
 	getSites,
 	getTransitWorkerState,
+	updateAnglePreset,
 	updateSite,
 	updateTransitWorker,
+	type AnglePreset,
 	type Config,
 	type Event,
 	type Site,
+	type SiteConfigPeriod,
 	type SiteReport,
 	type TransitWorkerState,
 	type TransitWorkerUpdateResponse
@@ -956,6 +964,246 @@ describe('api', () => {
 			await expect(updateTransitWorker({ trigger: true })).rejects.toThrow(
 				'Failed to update transit worker: 503'
 			);
+		});
+	});
+
+	describe('getActiveSiteConfigPeriod', () => {
+		it('should fetch active site config period', async () => {
+			const mockPeriod: SiteConfigPeriod = {
+				id: 1,
+				site_id: 1,
+				site_variable_config_id: 1,
+				effective_start_unix: 0,
+				effective_end_unix: null,
+				is_active: true,
+				notes: 'Active period',
+				created_at: 1234567890,
+				updated_at: 1234567890
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockPeriod
+			});
+
+			const result = await getActiveSiteConfigPeriod();
+			expect(result).toEqual(mockPeriod);
+			expect(global.fetch).toHaveBeenCalledWith('/api/site_config_periods/active');
+		});
+
+		it('should return null when no active period found (404)', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 404
+			});
+
+			const result = await getActiveSiteConfigPeriod();
+			expect(result).toBeNull();
+		});
+
+		it('should throw error on non-404 failure', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 500
+			});
+
+			await expect(getActiveSiteConfigPeriod()).rejects.toThrow(
+				'Failed to fetch active site config period: 500'
+			);
+		});
+	});
+
+	describe('getSiteConfigPeriods', () => {
+		it('should fetch all site config periods', async () => {
+			const mockPeriods: SiteConfigPeriod[] = [
+				{
+					id: 1,
+					site_id: 1,
+					site_variable_config_id: 1,
+					effective_start_unix: 0,
+					effective_end_unix: 1000,
+					is_active: false,
+					notes: 'Past period',
+					created_at: 1234567890,
+					updated_at: 1234567890
+				},
+				{
+					id: 2,
+					site_id: 1,
+					site_variable_config_id: 2,
+					effective_start_unix: 1000,
+					effective_end_unix: null,
+					is_active: true,
+					notes: 'Current period',
+					created_at: 1234567891,
+					updated_at: 1234567891
+				}
+			];
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockPeriods
+			});
+
+			const result = await getSiteConfigPeriods();
+			expect(result).toEqual(mockPeriods);
+			expect(global.fetch).toHaveBeenCalledWith('/api/site_config_periods');
+		});
+
+		it('should throw error on failure', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 500
+			});
+
+			await expect(getSiteConfigPeriods()).rejects.toThrow(
+				'Failed to fetch site config periods: 500'
+			);
+		});
+	});
+
+	describe('getAnglePresets', () => {
+		it('should fetch angle presets', async () => {
+			const mockPresets: AnglePreset[] = [
+				{
+					id: 1,
+					angle: 0,
+					color_hex: '#FF0000',
+					is_system: true,
+					created_at: 1234567890,
+					updated_at: 1234567890
+				},
+				{
+					id: 2,
+					angle: 15,
+					color_hex: '#00FF00',
+					is_system: false,
+					created_at: 1234567891,
+					updated_at: 1234567891
+				}
+			];
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockPresets
+			});
+
+			const result = await getAnglePresets();
+			expect(result).toEqual(mockPresets);
+			expect(global.fetch).toHaveBeenCalledWith('/api/angle_presets');
+		});
+
+		it('should throw error on failure', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 500
+			});
+
+			await expect(getAnglePresets()).rejects.toThrow('Failed to fetch angle presets: 500');
+		});
+	});
+
+	describe('createAnglePreset', () => {
+		it('should create angle preset', async () => {
+			const newPreset = {
+				angle: 30,
+				color_hex: '#0000FF'
+			};
+
+			const createdPreset: AnglePreset = {
+				id: 3,
+				...newPreset,
+				is_system: false,
+				created_at: 1234567892,
+				updated_at: 1234567892
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => createdPreset
+			});
+
+			const result = await createAnglePreset(newPreset);
+			expect(result).toEqual(createdPreset);
+			expect(global.fetch).toHaveBeenCalledWith('/api/angle_presets', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(newPreset)
+			});
+		});
+
+		it('should throw error on failure', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 400
+			});
+
+			await expect(createAnglePreset({ angle: 30, color_hex: '#0000FF' })).rejects.toThrow(
+				'Failed to create angle preset: 400'
+			);
+		});
+	});
+
+	describe('updateAnglePreset', () => {
+		it('should update angle preset', async () => {
+			const updates = {
+				angle: 45,
+				color_hex: '#FF00FF'
+			};
+
+			const updatedPreset: AnglePreset = {
+				id: 2,
+				...updates,
+				is_system: false,
+				created_at: 1234567891,
+				updated_at: 1234567900
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => updatedPreset
+			});
+
+			const result = await updateAnglePreset(2, updates);
+			expect(result).toEqual(updatedPreset);
+			expect(global.fetch).toHaveBeenCalledWith('/api/angle_presets/2', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(updates)
+			});
+		});
+
+		it('should throw error on failure', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 404
+			});
+
+			await expect(updateAnglePreset(999, { angle: 45, color_hex: '#FF00FF' })).rejects.toThrow(
+				'Failed to update angle preset: 404'
+			);
+		});
+	});
+
+	describe('deleteAnglePreset', () => {
+		it('should delete angle preset', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true
+			});
+
+			await deleteAnglePreset(2);
+			expect(global.fetch).toHaveBeenCalledWith('/api/angle_presets/2', {
+				method: 'DELETE'
+			});
+		});
+
+		it('should throw error on failure', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 403
+			});
+
+			await expect(deleteAnglePreset(1)).rejects.toThrow('Failed to delete angle preset: 403');
 		});
 	});
 });
