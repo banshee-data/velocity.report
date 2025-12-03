@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import { Button, Card, Header, TextField } from 'svelte-ux';
 	import {
@@ -150,7 +149,7 @@
 						</tr>
 					</thead>
 					<tbody class="divide-y">
-						{#each presets as preset}
+						{#each presets as preset (preset.id)}
 							<tr class="hover:bg-gray-50">
 								<td class="px-4 py-3">
 									{#if editingId === preset.id}
@@ -174,7 +173,7 @@
 												style="background-color: {editColor}"
 											></div>
 											<select bind:value={editColor} class="rounded px-2 py-1 text-sm border">
-												{#each colorPalette as color}
+												{#each colorPalette as color (color.hex)}
 													<option value={color.hex}>{color.name}</option>
 												{/each}
 											</select>
@@ -269,7 +268,7 @@
 								style="background-color: {newColor}"
 							></div>
 							<select id="new-color" bind:value={newColor} class="rounded px-3 py-2 flex-1 border">
-								{#each colorPalette as color}
+								{#each colorPalette as color (color.hex)}
 									<option value={color.hex}>{color.name}</option>
 								{/each}
 							</select>
