@@ -47,5 +47,4 @@ UNION ALL
      JOIN pragma_foreign_key_list (t.name, t.schema) AS f
 UNION ALL
    SELECT '
-}'
-;
+}';
