@@ -1,4 +1,4 @@
-   CREATE TABLE schema_migrations (version uint64, dirty bool);
+CREATE TABLE schema_migrations (version uint64, dirty bool);
 
 CREATE UNIQUE INDEX version_unique ON schema_migrations (version);
 
@@ -262,7 +262,7 @@ CREATE INDEX idx_angle_presets_angle ON angle_presets (angle);
 CREATE INDEX idx_angle_presets_is_system ON angle_presets (is_system);
 
 CREATE TRIGGER prevent_system_preset_deletion BEFORE DELETE ON angle_presets FOR EACH ROW WHEN OLD.is_system = 1 BEGIN
-   SELECT RAISE(ABORT, 'Cannot delete system preset');
+   SELECT RAISE (ABORT, 'Cannot delete system preset');
 
 END;
 
