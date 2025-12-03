@@ -49,7 +49,7 @@
 
 	// Site configuration period (for cosine correction display)
 	let activePeriod: SiteConfigPeriod | null = null;
-	
+
 	// Angle presets for color coding
 	let anglePresets: AnglePreset[] = [];
 	let anglePresetMap: Map<number, AnglePreset> = new Map();
@@ -191,7 +191,7 @@
 			// Don't set error here, this is optional information
 		}
 	}
-	
+
 	async function loadAnglePresets() {
 		try {
 			anglePresets = await getAnglePresets();
@@ -204,7 +204,7 @@
 			// Don't set error here, this is optional information
 		}
 	}
-	
+
 	function getAngleColor(angle: number): string {
 		const preset = anglePresetMap.get(angle);
 		return preset?.color_hex || '#6B7280'; // fallback to gray-500
@@ -502,7 +502,7 @@
 						<p class="text-blue-800 mt-1">
 							All displayed speeds are corrected for sensor mounting angle:
 							<span
-								class="inline-block px-2 py-1 rounded text-white font-bold text-sm ml-1"
+								class="px-2 py-1 rounded text-white font-bold text-sm ml-1 inline-block"
 								style="background-color: {getAngleColor(
 									activePeriod.variable_config.cosine_error_angle
 								)}"

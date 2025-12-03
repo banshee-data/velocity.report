@@ -129,18 +129,18 @@
 	</Header>
 
 	{#if error}
-		<div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded mb-4" role="alert">
+		<div class="bg-red-50 border-red-200 text-red-800 px-4 py-3 rounded mb-4 border" role="alert">
 			{error}
 		</div>
 	{/if}
 
 	{#if loading}
-		<p class="text-center text-gray-500 py-8">Loading angle presets...</p>
+		<p class="text-gray-500 py-8 text-center">Loading angle presets...</p>
 	{:else}
 		<!-- Existing Presets Table -->
 		<Card title="Current Presets" class="mb-6">
 			<div class="overflow-x-auto">
-				<table class="w-full text-left text-sm">
+				<table class="text-sm w-full text-left">
 					<thead class="bg-gray-50 border-b">
 						<tr>
 							<th class="px-4 py-3 font-semibold text-gray-700">Angle (°)</th>
@@ -168,24 +168,21 @@
 								</td>
 								<td class="px-4 py-3">
 									{#if editingId === preset.id}
-										<div class="flex gap-2 items-center">
+										<div class="gap-2 flex items-center">
 											<div
-												class="w-8 h-8 rounded border border-gray-300"
+												class="w-8 h-8 rounded border-gray-300 border"
 												style="background-color: {editColor}"
 											></div>
-											<select
-												bind:value={editColor}
-												class="border rounded px-2 py-1 text-sm"
-											>
+											<select bind:value={editColor} class="rounded px-2 py-1 text-sm border">
 												{#each colorPalette as color}
 													<option value={color.hex}>{color.name}</option>
 												{/each}
 											</select>
 										</div>
 									{:else}
-										<div class="flex gap-2 items-center">
+										<div class="gap-2 flex items-center">
 											<div
-												class="w-8 h-8 rounded border border-gray-300"
+												class="w-8 h-8 rounded border-gray-300 border"
 												style="background-color: {preset.color_hex}"
 											></div>
 											<span class="font-mono text-xs text-gray-600">{preset.color_hex}</span>
@@ -195,14 +192,12 @@
 								<td class="px-4 py-3">
 									{#if preset.is_system}
 										<span
-											class="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded font-semibold"
+											class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded font-semibold inline-block"
 										>
 											System
 										</span>
 									{:else}
-										<span
-											class="inline-block px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded"
-										>
+										<span class="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded inline-block">
 											Custom
 										</span>
 									{/if}
@@ -211,14 +206,14 @@
 									{#if preset.is_system}
 										<span class="text-xs text-gray-400">Protected</span>
 									{:else if editingId === preset.id}
-										<div class="flex gap-2">
+										<div class="gap-2 flex">
 											<Button variant="fill" color="primary" on:click={handleUpdate} size="sm">
 												Save
 											</Button>
 											<Button variant="outline" on:click={cancelEdit} size="sm">Cancel</Button>
 										</div>
 									{:else}
-										<div class="flex gap-2">
+										<div class="gap-2 flex">
 											<Button
 												variant="outline"
 												color="primary"
@@ -248,9 +243,9 @@
 		<!-- Add New Preset Form -->
 		<Card title="Add New Preset">
 			<div class="p-4">
-				<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+				<div class="md:grid-cols-3 gap-4 grid grid-cols-1 items-end">
 					<div>
-						<label for="new-angle" class="block text-sm font-medium text-gray-700 mb-1">
+						<label for="new-angle" class="text-sm font-medium text-gray-700 mb-1 block">
 							Angle (°)
 						</label>
 						<TextField
@@ -265,15 +260,15 @@
 					</div>
 
 					<div>
-						<label for="new-color" class="block text-sm font-medium text-gray-700 mb-1">
+						<label for="new-color" class="text-sm font-medium text-gray-700 mb-1 block">
 							Color
 						</label>
-						<div class="flex gap-2 items-center">
+						<div class="gap-2 flex items-center">
 							<div
-								class="w-10 h-10 rounded border border-gray-300 flex-shrink-0"
+								class="w-10 h-10 rounded border-gray-300 flex-shrink-0 border"
 								style="background-color: {newColor}"
 							></div>
-							<select id="new-color" bind:value={newColor} class="border rounded px-3 py-2 flex-1">
+							<select id="new-color" bind:value={newColor} class="rounded px-3 py-2 flex-1 border">
 								{#each colorPalette as color}
 									<option value={color.hex}>{color.name}</option>
 								{/each}
