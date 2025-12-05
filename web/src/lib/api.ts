@@ -248,8 +248,25 @@ export interface Site {
 	updated_at: string;
 }
 
+export interface PaginatedSitesResponse {
+	sites: Site[];
+	total: number;
+}
+
 export async function getSites(): Promise<Site[]> {
 	const res = await fetch(`${API_BASE}/sites`);
+	if (!res.ok) throw new Error(`Failed to fetch sites: ${res.status}`);
+	return res.json();
+}
+
+export async function getSitesPaginated(
+	page: number = 1,
+	perPage: number = 10
+): Promise<PaginatedSitesResponse> {
+	const url = new URL(`${API_BASE}/sites`, window.location.origin);
+	url.searchParams.append('page', page.toString());
+	url.searchParams.append('perPage', perPage.toString());
+	const res = await fetch(url);
 	if (!res.ok) throw new Error(`Failed to fetch sites: ${res.status}`);
 	return res.json();
 }

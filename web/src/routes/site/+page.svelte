@@ -1,33 +1,81 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { mdiDelete, mdiPencil, mdiPlus } from '@mdi/js';
+	import { mdiChevronLeft, mdiChevronRight, mdiDelete, mdiPencil, mdiPlus } from '@mdi/js';
 	import { onMount } from 'svelte';
-	import { Button, Card, Dialog, Header, Table } from 'svelte-ux';
-	import { deleteSite, getSites, type Site } from '../../lib/api';
+	import { Button, Card, Dialog, Header, Menu, MenuItem, Table, Toggle } from 'svelte-ux';
+	import { deleteSite, getSitesPaginated, type Site } from '../../lib/api';
 
-	let sites: Site[] = [];
-	let loading = true;
-	let error = '';
+	let sites = $state<Site[]>([]);
+	let loading = $state(true);
+	let error = $state('');
+	let totalSites = $state(0);
+
+	// Pagination state
+	let currentPage = $state(1);
+	let perPage = $state(5);
+	const perPageOptions = [3, 5, 10];
+
+	// Computed pagination values
+	let totalPages = $derived(Math.ceil(totalSites / perPage));
+	let from = $derived((currentPage - 1) * perPage + 1);
+	let to = $derived(Math.min(currentPage * perPage, totalSites));
+	let isFirstPage = $derived(currentPage === 1);
+	let isLastPage = $derived(currentPage >= totalPages);
 
 	// Delete confirmation
-	let showDeleteDialog = false;
-	let deletingSite: Site | null = null;
+	let showDeleteDialog = $state(false);
+	let deletingSite = $state<Site | null>(null);
+
+	// Track if this is the first load to avoid double-loading
+	let isInitialLoad = true;
 
 	onMount(async () => {
 		await loadSites();
+		isInitialLoad = false;
+	});
+
+	// Watch pagination changes (but skip initial load)
+	$effect(() => {
+		// Access reactive values to trigger effect
+		void currentPage;
+		void perPage;
+
+		if (!isInitialLoad) {
+			loadSites();
+		}
 	});
 
 	async function loadSites() {
 		loading = true;
 		error = '';
 		try {
-			sites = await getSites();
+			const response = await getSitesPaginated(currentPage, perPage);
+			sites = response.sites;
+			totalSites = response.total;
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load sites';
 		} finally {
 			loading = false;
 		}
+	}
+
+	function nextPage() {
+		if (!isLastPage) {
+			currentPage++;
+		}
+	}
+
+	function prevPage() {
+		if (!isFirstPage) {
+			currentPage--;
+		}
+	}
+
+	function changePerPage(newPerPage: number) {
+		perPage = newPerPage;
+		// Reset to first page when changing perPage
+		currentPage = 1;
 	}
 
 	function handleCreate() {
@@ -137,6 +185,55 @@
 						{/each}
 					</tbody>
 				</Table>
+				<div class="border-surface-content/10 gap-2 p-4 flex items-center justify-center border-t">
+					<!-- Per Page Selector -->
+					<div class="text-surface-content/70 gap-2 text-sm flex items-center">
+						<span>Per page:</span>
+						<Toggle let:on={open} let:toggle let:toggleOff>
+							<Button on:click={toggle} size="sm" variant="outline">
+								{perPage}
+							</Button>
+							<Menu {open} on:close={toggleOff} offset={8}>
+								{#each perPageOptions as option (option)}
+									<MenuItem
+										selected={perPage === option}
+										on:click={() => {
+											changePerPage(option);
+											toggleOff();
+										}}
+									>
+										{option}
+									</MenuItem>
+								{/each}
+							</Menu>
+						</Toggle>
+					</div>
+
+					<!-- Previous Page Button -->
+					<Button
+						icon={mdiChevronLeft}
+						on:click={prevPage}
+						disabled={isFirstPage}
+						size="sm"
+						variant="outline"
+						aria-label="Previous page"
+					/>
+
+					<!-- Page Info -->
+					<div class="text-sm tabular-nums">
+						{from}-{to} of {totalSites}
+					</div>
+
+					<!-- Next Page Button -->
+					<Button
+						icon={mdiChevronRight}
+						on:click={nextPage}
+						disabled={isLastPage}
+						size="sm"
+						variant="outline"
+						aria-label="Next page"
+					/>
+				</div>
 			</div>
 		</Card>
 	{/if}
