@@ -269,6 +269,9 @@ class ReportConfig:
     )
     debug: DebugConfig = field(default_factory=DebugConfig)
 
+    # Site configuration periods (for cosine angle tracking over time)
+    site_config_periods: list = field(default_factory=list)
+
     # Metadata
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
@@ -333,6 +336,7 @@ class ReportConfig:
             map=MapConfig(**map_data),
             histogram_processing=HistogramProcessingConfig(**histogram_processing_data),
             debug=DebugConfig(**debug_data),
+            site_config_periods=data.get("site_config_periods", []),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
             version=data.get("version", "1.0"),

@@ -87,36 +87,6 @@ CREATE INDEX idx_transit_links_transit ON radar_transit_links (transit_id);
 
 CREATE INDEX idx_transit_links_data ON radar_transit_links (data_rowid);
 
-   CREATE TABLE site (
-          id INTEGER PRIMARY KEY AUTOINCREMENT
-        , name TEXT NOT NULL UNIQUE
-        , location TEXT NOT NULL
-        , description TEXT
-        , cosine_error_angle REAL NOT NULL
-        , speed_limit INTEGER DEFAULT 25
-        , surveyor TEXT NOT NULL
-        , contact TEXT NOT NULL
-        , address TEXT
-        , latitude REAL
-        , longitude REAL
-        , map_angle REAL
-        , include_map INTEGER DEFAULT 0
-        , site_description TEXT
-        , speed_limit_note TEXT
-        , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
-        , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
-          );
-
-CREATE INDEX idx_site_name ON site (name);
-
-CREATE TRIGGER update_site_timestamp AFTER
-   UPDATE ON site BEGIN
-   UPDATE site
-      SET updated_at = STRFTIME('%s', 'now')
-    WHERE id = NEW.id;
-
-END;
-
    CREATE TABLE site_reports (
           id INTEGER PRIMARY KEY AUTOINCREMENT
         , site_id INTEGER NOT NULL DEFAULT 0
@@ -277,3 +247,122 @@ CREATE INDEX idx_lidar_run_tracks_class ON lidar_run_tracks (object_class);
 CREATE INDEX idx_lidar_run_tracks_label ON lidar_run_tracks (user_label);
 
 CREATE INDEX idx_lidar_run_tracks_state ON lidar_run_tracks (track_state);
+
+   CREATE TABLE angle_presets (
+          id INTEGER PRIMARY KEY AUTOINCREMENT
+        , angle REAL NOT NULL UNIQUE
+        , color_hex TEXT NOT NULL
+        , is_system INTEGER NOT NULL DEFAULT 0
+        , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+        , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+          );
+
+CREATE INDEX idx_angle_presets_angle ON angle_presets (angle);
+
+CREATE INDEX idx_angle_presets_is_system ON angle_presets (is_system);
+
+CREATE TRIGGER prevent_system_preset_deletion BEFORE DELETE ON angle_presets FOR EACH ROW WHEN OLD.is_system = 1 BEGIN
+   SELECT RAISE (ABORT, 'Cannot delete system preset');
+
+END;
+
+CREATE TRIGGER update_angle_presets_timestamp AFTER
+   UPDATE ON angle_presets BEGIN
+   UPDATE angle_presets
+      SET updated_at = STRFTIME('%s', 'now')
+    WHERE id = NEW.id;
+
+END;
+
+   CREATE TABLE site_variable_config (
+          id INTEGER PRIMARY KEY AUTOINCREMENT
+        , cosine_error_angle REAL NOT NULL
+        , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+        , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+          );
+
+CREATE TRIGGER update_site_variable_config_timestamp AFTER
+   UPDATE ON site_variable_config BEGIN
+   UPDATE site_variable_config
+      SET updated_at = STRFTIME('%s', 'now')
+    WHERE id = NEW.id;
+
+END;
+
+   CREATE TABLE site_config_periods (
+          id INTEGER PRIMARY KEY AUTOINCREMENT
+        , site_id INTEGER NOT NULL
+        , site_variable_config_id INTEGER
+        , effective_start_unix REAL NOT NULL
+        , effective_end_unix REAL
+        , is_active INTEGER DEFAULT 0
+        , notes TEXT
+        , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+        , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+        , FOREIGN KEY (site_id) REFERENCES site (id)
+        , FOREIGN KEY (site_variable_config_id) REFERENCES site_variable_config (id)
+          );
+
+CREATE INDEX idx_site_config_periods_site ON site_config_periods (site_id);
+
+CREATE INDEX idx_site_config_periods_variable_config ON site_config_periods (site_variable_config_id);
+
+CREATE INDEX idx_site_config_periods_time ON site_config_periods (effective_start_unix, effective_end_unix);
+
+CREATE INDEX idx_site_config_periods_active ON site_config_periods (is_active);
+
+CREATE TRIGGER update_site_config_periods_timestamp AFTER
+   UPDATE ON site_config_periods BEGIN
+   UPDATE site_config_periods
+      SET updated_at = STRFTIME('%s', 'now')
+    WHERE id = NEW.id;
+
+END;
+
+CREATE TRIGGER enforce_single_active_period BEFORE INSERT ON site_config_periods WHEN NEW.is_active = 1 BEGIN
+   UPDATE site_config_periods
+      SET is_active = 0
+    WHERE is_active = 1
+      AND site_id = NEW.site_id;
+
+END;
+
+CREATE TRIGGER enforce_single_active_period_update BEFORE
+   UPDATE ON site_config_periods WHEN NEW.is_active = 1
+      AND OLD.is_active = 0 BEGIN
+             UPDATE site_config_periods
+                SET is_active = 0
+              WHERE is_active = 1
+                AND site_id = NEW.site_id
+                AND id != NEW.id;
+
+END;
+
+   CREATE TABLE IF NOT EXISTS "site" (
+          id INTEGER PRIMARY KEY AUTOINCREMENT
+        , name TEXT NOT NULL UNIQUE
+        , location TEXT NOT NULL
+        , description TEXT
+        , speed_limit INTEGER DEFAULT 25
+        , surveyor TEXT NOT NULL
+        , contact TEXT NOT NULL
+        , address TEXT
+        , latitude REAL
+        , longitude REAL
+        , map_angle REAL
+        , include_map INTEGER DEFAULT 0
+        , site_description TEXT
+        , speed_limit_note TEXT
+        , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+        , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+          );
+
+CREATE INDEX idx_site_name ON site (name);
+
+CREATE TRIGGER update_site_timestamp AFTER
+   UPDATE ON site BEGIN
+   UPDATE site
+      SET updated_at = STRFTIME('%s', 'now')
+    WHERE id = NEW.id;
+
+END;

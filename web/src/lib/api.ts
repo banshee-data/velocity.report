@@ -248,8 +248,25 @@ export interface Site {
 	updated_at: string;
 }
 
+export interface PaginatedSitesResponse {
+	sites: Site[];
+	total: number;
+}
+
 export async function getSites(): Promise<Site[]> {
 	const res = await fetch(`${API_BASE}/sites`);
+	if (!res.ok) throw new Error(`Failed to fetch sites: ${res.status}`);
+	return res.json();
+}
+
+export async function getSitesPaginated(
+	page: number = 1,
+	perPage: number = 10
+): Promise<PaginatedSitesResponse> {
+	const url = new URL(`${API_BASE}/sites`, window.location.origin);
+	url.searchParams.append('page', page.toString());
+	url.searchParams.append('perPage', perPage.toString());
+	const res = await fetch(url);
 	if (!res.ok) throw new Error(`Failed to fetch sites: ${res.status}`);
 	return res.json();
 }
@@ -298,6 +315,146 @@ export async function deleteSite(id: number): Promise<void> {
 		const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
 		throw new Error(errorData.error || `Failed to delete site: ${res.status}`);
 	}
+}
+
+// Site Configuration Period interfaces and functions
+
+export interface SiteVariableConfig {
+	id: number;
+	cosine_error_angle: number;
+	created_at: number;
+	updated_at: number;
+}
+
+export interface SiteConfigPeriod {
+	id: number;
+	site_id: number;
+	site_variable_config_id: number;
+	effective_start_unix: number;
+	effective_end_unix: number | null;
+	is_active: boolean;
+	notes: string;
+	created_at: number;
+	updated_at: number;
+	site?: Site;
+	variable_config?: SiteVariableConfig;
+}
+
+export async function getActiveSiteConfigPeriod(): Promise<SiteConfigPeriod | null> {
+	const res = await fetch(`${API_BASE}/site_config_periods/active`);
+	if (res.status === 404) {
+		return null; // No active period
+	}
+	if (!res.ok) throw new Error(`Failed to fetch active site config period: ${res.status}`);
+	return res.json();
+}
+
+export async function getSiteConfigPeriods(): Promise<SiteConfigPeriod[]> {
+	const res = await fetch(`${API_BASE}/site_config_periods`);
+	if (!res.ok) throw new Error(`Failed to fetch site config periods: ${res.status}`);
+	return res.json();
+}
+
+export async function getSiteConfigPeriodsForSite(siteId: number): Promise<SiteConfigPeriod[]> {
+	const res = await fetch(`${API_BASE}/site_config_periods?site_id=${siteId}`);
+	if (!res.ok) throw new Error(`Failed to fetch site config periods: ${res.status}`);
+	return res.json();
+}
+
+export async function createSiteConfigPeriod(period: {
+	site_id: number;
+	site_variable_config_id: number;
+	effective_start_unix: number;
+	effective_end_unix?: number | null;
+	is_active: boolean;
+	notes?: string;
+}): Promise<SiteConfigPeriod> {
+	const res = await fetch(`${API_BASE}/site_config_periods`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(period)
+	});
+	if (!res.ok) throw new Error(`Failed to create site config period: ${res.status}`);
+	return res.json();
+}
+
+export async function updateSiteConfigPeriod(
+	id: number,
+	period: {
+		site_variable_config_id?: number;
+		effective_start_unix?: number;
+		effective_end_unix?: number | null;
+		is_active?: boolean;
+		notes?: string;
+	}
+): Promise<SiteConfigPeriod> {
+	const res = await fetch(`${API_BASE}/site_config_periods/${id}`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(period)
+	});
+	if (!res.ok) throw new Error(`Failed to update site config period: ${res.status}`);
+	return res.json();
+}
+
+export async function createSiteVariableConfig(config: {
+	cosine_error_angle: number;
+}): Promise<SiteVariableConfig> {
+	const res = await fetch(`${API_BASE}/site_variable_configs`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(config)
+	});
+	if (!res.ok) throw new Error(`Failed to create site variable config: ${res.status}`);
+	return res.json();
+}
+
+export interface AnglePreset {
+	id: number;
+	angle: number;
+	color_hex: string;
+	is_system: boolean;
+	created_at: number;
+	updated_at: number;
+}
+
+export async function getAnglePresets(): Promise<AnglePreset[]> {
+	const res = await fetch(`${API_BASE}/angle_presets`);
+	if (!res.ok) throw new Error(`Failed to fetch angle presets: ${res.status}`);
+	return res.json();
+}
+
+export async function createAnglePreset(preset: {
+	angle: number;
+	color_hex: string;
+}): Promise<AnglePreset> {
+	const res = await fetch(`${API_BASE}/angle_presets`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(preset)
+	});
+	if (!res.ok) throw new Error(`Failed to create angle preset: ${res.status}`);
+	return res.json();
+}
+
+export async function updateAnglePreset(
+	id: number,
+	preset: { angle: number; color_hex: string }
+): Promise<AnglePreset> {
+	const res = await fetch(`${API_BASE}/angle_presets/${id}`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(preset)
+	});
+	if (!res.ok) throw new Error(`Failed to update angle preset: ${res.status}`);
+	return res.json();
+}
+
+export async function deleteAnglePreset(id: number): Promise<void> {
+	const res = await fetch(`${API_BASE}/angle_presets/${id}`, {
+		method: 'DELETE'
+	});
+	if (!res.ok) throw new Error(`Failed to delete angle preset: ${res.status}`);
 }
 
 // Transit Worker API
