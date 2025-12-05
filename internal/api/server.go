@@ -491,14 +491,55 @@ func (s *Server) handleSites(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listSites(w http.ResponseWriter, r *http.Request) {
-	_ = r
-	sites, err := s.db.GetAllSites()
+	// Parse pagination parameters
+	pageStr := r.URL.Query().Get("page")
+	perPageStr := r.URL.Query().Get("perPage")
+
+	// If no pagination params, return all sites (backwards compatibility)
+	if pageStr == "" && perPageStr == "" {
+		sites, err := s.db.GetAllSites()
+		if err != nil {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve sites: %v", err))
+			return
+		}
+
+		if err := json.NewEncoder(w).Encode(sites); err != nil {
+			s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode sites")
+			return
+		}
+		return
+	}
+
+	// Parse page (default to 1)
+	page := 1
+	if pageStr != "" {
+		parsedPage, err := strconv.Atoi(pageStr)
+		if err != nil || parsedPage < 1 {
+			s.writeJSONError(w, http.StatusBadRequest, "Invalid page parameter")
+			return
+		}
+		page = parsedPage
+	}
+
+	// Parse perPage (default to 10)
+	perPage := 10
+	if perPageStr != "" {
+		parsedPerPage, err := strconv.Atoi(perPageStr)
+		if err != nil || parsedPerPage < 1 {
+			s.writeJSONError(w, http.StatusBadRequest, "Invalid perPage parameter")
+			return
+		}
+		perPage = parsedPerPage
+	}
+
+	// Get paginated sites
+	result, err := s.db.GetSitesWithPagination(page, perPage)
 	if err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve sites: %v", err))
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(sites); err != nil {
+	if err := json.NewEncoder(w).Encode(result); err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode sites")
 		return
 	}

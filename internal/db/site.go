@@ -129,8 +129,27 @@ func (db *DB) GetSite(id int) (*Site, error) {
 	return &site, nil
 }
 
-// GetAllSites retrieves all sites from the database
-func (db *DB) GetAllSites() ([]Site, error) {
+// PaginatedSitesResult contains paginated sites with total count
+type PaginatedSitesResult struct {
+	Sites []Site `json:"sites"`
+	Total int    `json:"total"`
+}
+
+// GetSitesWithPagination retrieves sites with pagination support
+// page is 1-indexed, perPage is the number of items per page
+func (db *DB) GetSitesWithPagination(page, perPage int) (*PaginatedSitesResult, error) {
+	// Calculate offset (page is 1-indexed)
+	offset := (page - 1) * perPage
+
+	// Get total count
+	var total int
+	countQuery := "SELECT COUNT(*) FROM site"
+	err := db.DB.QueryRow(countQuery).Scan(&total)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count sites: %w", err)
+	}
+
+	// Get paginated sites
 	query := `
 		SELECT
 			id, name, location, description, speed_limit,
@@ -139,9 +158,10 @@ func (db *DB) GetAllSites() ([]Site, error) {
 			created_at, updated_at
 		FROM site
 		ORDER BY name ASC
+		LIMIT ? OFFSET ?
 	`
 
-	rows, err := db.DB.Query(query)
+	rows, err := db.DB.Query(query, perPage, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query sites: %w", err)
 	}
@@ -186,7 +206,20 @@ func (db *DB) GetAllSites() ([]Site, error) {
 		return nil, fmt.Errorf("error iterating sites: %w", err)
 	}
 
-	return sites, nil
+	return &PaginatedSitesResult{
+		Sites: sites,
+		Total: total,
+	}, nil
+}
+
+// GetAllSites retrieves all sites from the database
+// This is a convenience wrapper around GetSitesWithPagination for backward compatibility
+func (db *DB) GetAllSites() ([]Site, error) {
+	result, err := db.GetSitesWithPagination(1, 10000)
+	if err != nil {
+		return nil, err
+	}
+	return result.Sites, nil
 }
 
 // UpdateSite updates an existing site in the database
