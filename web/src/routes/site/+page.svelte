@@ -51,10 +51,12 @@
 		error = '';
 		try {
 			const response = await getSitesPaginated(currentPage, perPage);
-			sites = response.sites;
-			totalSites = response.total;
+			sites = response.sites || [];
+			totalSites = response.total || 0;
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load sites';
+			sites = []; // Ensure sites is always an array
+			totalSites = 0;
 		} finally {
 			loading = false;
 		}
@@ -130,7 +132,7 @@
 			<strong>Error:</strong>
 			{error}
 		</div>
-	{:else if sites.length === 0}
+	{:else if !sites || sites.length === 0}
 		<Card>
 			<div class="text-surface-content/60 p-8 text-center">
 				<p class="mb-4 text-lg">No sites configured yet</p>
