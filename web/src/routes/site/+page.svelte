@@ -1,27 +1,81 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { mdiChevronLeft, mdiChevronRight, mdiDelete, mdiPencil, mdiPlus } from '@mdi/js';
+	import { mdiDelete, mdiPencil, mdiPlus } from '@mdi/js';
 	import { onMount } from 'svelte';
-	import { Button, Card, Dialog, Header, Menu, MenuItem, Table, Toggle } from 'svelte-ux';
+	import { Button, Card, Dialog, Header, Pagination, Table } from 'svelte-ux';
+	import { derived, writable } from 'svelte/store';
 	import { deleteSite, getSitesPaginated, type Site } from '../../lib/api';
 
 	let sites = $state<Site[]>([]);
 	let loading = $state(true);
 	let error = $state('');
-	let totalSites = $state(0);
 
 	// Pagination state
-	let currentPage = $state(1);
-	let perPage = $state(5);
+	const page = writable(1);
+	const perPage = writable(5);
+	const total = writable(0);
 	const perPageOptions = [3, 5, 10];
 
-	// Computed pagination values
-	let totalPages = $derived(Math.ceil(totalSites / perPage));
-	let from = $derived((currentPage - 1) * perPage + 1);
-	let to = $derived(Math.min(currentPage * perPage, totalSites));
-	let isFirstPage = $derived(currentPage === 1);
-	let isLastPage = $derived(currentPage >= totalPages);
+	// Create pagination store compatible with Pagination component
+	const pagination = derived([page, perPage, total], ([$page, $perPage, $total]) => {
+		const totalPages = Math.ceil($total / $perPage);
+		const from = ($page - 1) * $perPage + 1;
+		const to = Math.min($page * $perPage, $total);
+		return {
+			page: $page,
+			perPage: $perPage,
+			total: $total,
+			from,
+			to,
+			totalPages,
+			isFirst: $page === 1,
+			isLast: $page >= totalPages,
+			hasPrevious: $page > 1,
+			hasNext: $page < totalPages,
+			slice: <T,>(data: T[]) => {
+				const start = ($page - 1) * $perPage;
+				const end = start + $perPage;
+				return data.slice(start, end);
+			}
+		};
+	});
+
+	// Create methods for pagination store
+	const paginationWithMethods = {
+		subscribe: pagination.subscribe,
+		nextPage: () => page.update((p) => p + 1),
+		prevPage: () => page.update((p) => Math.max(1, p - 1)),
+		firstPage: () => page.set(1),
+		lastPage: () => {
+			let currentTotal = 0;
+			const unsubscribe = total.subscribe((t) => {
+				currentTotal = t;
+			});
+			unsubscribe();
+			let currentPerPage = 5;
+			const unsubscribe2 = perPage.subscribe((pp) => {
+				currentPerPage = pp;
+			});
+			unsubscribe2();
+			const totalPages = Math.ceil(currentTotal / currentPerPage);
+			page.set(totalPages);
+		},
+		setPage: (newPage: number) => page.set(newPage),
+		setPerPage: (newPerPage: number) => {
+			perPage.set(newPerPage);
+			page.set(1);
+		},
+		setTotal: (newTotal: number) => total.set(newTotal)
+	};
+
+	// Subscribe to pagination changes
+	let currentPage = $state(1);
+	let currentPerPage = $state(5);
+	pagination.subscribe((p) => {
+		currentPage = p.page;
+		currentPerPage = p.perPage;
+	});
 
 	// Delete confirmation
 	let showDeleteDialog = $state(false);
@@ -39,7 +93,7 @@
 	$effect(() => {
 		// Access reactive values to trigger effect
 		void currentPage;
-		void perPage;
+		void currentPerPage;
 
 		if (!isInitialLoad) {
 			loadSites();
@@ -50,34 +104,16 @@
 		loading = true;
 		error = '';
 		try {
-			const response = await getSitesPaginated(currentPage, perPage);
+			const response = await getSitesPaginated(currentPage, currentPerPage);
 			sites = response.sites || [];
-			totalSites = response.total || 0;
+			paginationWithMethods.setTotal(response.total || 0);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load sites';
 			sites = []; // Ensure sites is always an array
-			totalSites = 0;
+			paginationWithMethods.setTotal(0);
 		} finally {
 			loading = false;
 		}
-	}
-
-	function nextPage() {
-		if (!isLastPage) {
-			currentPage++;
-		}
-	}
-
-	function prevPage() {
-		if (!isFirstPage) {
-			currentPage--;
-		}
-	}
-
-	function changePerPage(newPerPage: number) {
-		perPage = newPerPage;
-		// Reset to first page when changing perPage
-		currentPage = 1;
 	}
 
 	function handleCreate() {
@@ -187,54 +223,8 @@
 						{/each}
 					</tbody>
 				</Table>
-				<div class="border-surface-content/10 gap-2 p-4 flex items-center justify-center border-t">
-					<!-- Per Page Selector -->
-					<div class="text-surface-content/70 gap-2 text-sm flex items-center">
-						<span>Per page:</span>
-						<Toggle let:on={open} let:toggle let:toggleOff>
-							<Button on:click={toggle} size="sm" variant="outline">
-								{perPage}
-							</Button>
-							<Menu {open} on:close={toggleOff} offset={8}>
-								{#each perPageOptions as option (option)}
-									<MenuItem
-										selected={perPage === option}
-										on:click={() => {
-											changePerPage(option);
-											toggleOff();
-										}}
-									>
-										{option}
-									</MenuItem>
-								{/each}
-							</Menu>
-						</Toggle>
-					</div>
-
-					<!-- Previous Page Button -->
-					<Button
-						icon={mdiChevronLeft}
-						on:click={prevPage}
-						disabled={isFirstPage}
-						size="sm"
-						variant="outline"
-						aria-label="Previous page"
-					/>
-
-					<!-- Page Info -->
-					<div class="text-sm tabular-nums">
-						{from}-{to} of {totalSites}
-					</div>
-
-					<!-- Next Page Button -->
-					<Button
-						icon={mdiChevronRight}
-						on:click={nextPage}
-						disabled={isLastPage}
-						size="sm"
-						variant="outline"
-						aria-label="Next page"
-					/>
+				<div class="border-surface-content/10 p-4 flex items-center justify-center border-t">
+					<Pagination pagination={paginationWithMethods} {perPageOptions} />
 				</div>
 			</div>
 		</Card>
