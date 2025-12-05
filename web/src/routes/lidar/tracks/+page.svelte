@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
-	import { Button, SelectField, ToggleGroup, ToggleOption } from 'svelte-ux';
+	import { browser } from '$app/environment';
+	import { getBackgroundGrid, getTrackHistory } from '$lib/api';
 	import MapPane from '$lib/components/lidar/MapPane.svelte';
 	import TimelinePane from '$lib/components/lidar/TimelinePane.svelte';
 	import TrackList from '$lib/components/lidar/TrackList.svelte';
-	import { getActiveTracks, getTrackHistory, getBackgroundGrid } from '$lib/api';
-	import type { Track, TrackObservation, BackgroundGrid } from '$lib/types/lidar';
+	import type { BackgroundGrid, Track, TrackObservation } from '$lib/types/lidar';
+	import { onDestroy, onMount } from 'svelte';
+	import { SelectField, ToggleGroup, ToggleOption } from 'svelte-ux';
 
 	// State
 	let sensorId = 'hesai-pandar40p';
@@ -65,7 +66,7 @@
 
 	// Playback controls
 	function handlePlay() {
-		if (!timeRange) return;
+		if (!browser || !timeRange) return;
 
 		isPlaying = true;
 		playbackInterval = window.setInterval(() => {
@@ -79,6 +80,7 @@
 	}
 
 	function handlePause() {
+		if (!browser) return;
 		isPlaying = false;
 		if (playbackInterval !== null) {
 			clearInterval(playbackInterval);
@@ -122,9 +124,9 @@
 	});
 </script>
 
-<div class="h-screen flex flex-col bg-gray-50">
+<div class="bg-gray-50 flex h-screen flex-col">
 	<!-- Header -->
-	<div class="bg-white border-b border-gray-200 px-6 py-4">
+	<div class="bg-white border-gray-200 px-6 py-4 border-b">
 		<div class="flex items-center justify-between">
 			<div>
 				<h1 class="text-2xl font-semibold text-gray-900">LiDAR Track Visualization</h1>
@@ -133,7 +135,7 @@
 				</p>
 			</div>
 
-			<div class="flex items-center gap-4">
+			<div class="gap-4 flex items-center">
 				<!-- Mode Toggle -->
 				<ToggleGroup bind:value={mode} variant="outline" size="sm">
 					<ToggleOption value="playback">Playback</ToggleOption>
@@ -144,9 +146,7 @@
 				<SelectField
 					label="Sensor"
 					bind:value={sensorId}
-					options={[
-						{ label: 'Hesai Pandar40P', value: 'hesai-pandar40p' }
-					]}
+					options={[{ label: 'Hesai Pandar40P', value: 'hesai-pandar40p' }]}
 					size="sm"
 					class="w-48"
 				/>
@@ -155,9 +155,9 @@
 	</div>
 
 	<!-- Main Content: Two-Pane Layout -->
-	<div class="flex-1 flex flex-col overflow-hidden">
+	<div class="flex flex-1 flex-col overflow-hidden">
 		<!-- Top Pane: Map Visualization (60%) -->
-		<div class="flex-[3] border-b border-gray-300 bg-gray-900">
+		<div class="border-gray-300 bg-gray-900 flex-[3] border-b">
 			<MapPane
 				tracks={visibleTracks}
 				{selectedTrackId}
@@ -167,9 +167,9 @@
 		</div>
 
 		<!-- Bottom Pane: Timeline (40%) -->
-		<div class="flex-[2] flex overflow-hidden">
+		<div class="flex flex-[2] overflow-hidden">
 			<!-- Timeline -->
-			<div class="flex-1 bg-white">
+			<div class="bg-white flex-1">
 				<TimelinePane
 					{tracks}
 					{observations}
@@ -186,12 +186,8 @@
 			</div>
 
 			<!-- Track List Sidebar -->
-			<div class="w-80 border-l border-gray-300 bg-white overflow-hidden">
-				<TrackList
-					tracks={visibleTracks}
-					{selectedTrackId}
-					onTrackSelect={handleTrackSelect}
-				/>
+			<div class="w-80 border-gray-300 bg-white overflow-hidden border-l">
+				<TrackList tracks={visibleTracks} {selectedTrackId} onTrackSelect={handleTrackSelect} />
 			</div>
 		</div>
 	</div>

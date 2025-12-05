@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
-	import type { Track, BackgroundGrid } from '$lib/types/lidar';
+	import { browser } from '$app/environment';
+	import type { BackgroundGrid, Track } from '$lib/types/lidar';
 	import { TRACK_COLORS } from '$lib/types/lidar';
+	import { onDestroy, onMount } from 'svelte';
 
 	export let tracks: Track[] = [];
 	export let selectedTrackId: string | null = null;
@@ -334,6 +335,7 @@
 	// Resize handler
 	let resizeTimeout: number | null = null;
 	function handleResize() {
+		if (!browser) return;
 		if (resizeTimeout !== null) {
 			clearTimeout(resizeTimeout);
 		}
@@ -345,6 +347,7 @@
 
 	// Animation loop
 	function startAnimation() {
+		if (!browser) return;
 		function animate() {
 			render();
 			animationFrame = requestAnimationFrame(animate);
@@ -353,6 +356,7 @@
 	}
 
 	function stopAnimation() {
+		if (!browser) return;
 		if (animationFrame !== null) {
 			cancelAnimationFrame(animationFrame);
 			animationFrame = null;
@@ -361,12 +365,14 @@
 
 	// Lifecycle
 	onMount(() => {
+		if (!browser) return;
 		initCanvas();
 		window.addEventListener('resize', handleResize);
 		startAnimation();
 	});
 
 	onDestroy(() => {
+		if (!browser) return;
 		window.removeEventListener('resize', handleResize);
 		stopAnimation();
 	});
@@ -377,7 +383,7 @@
 	}
 </script>
 
-<div class="relative w-full h-full">
+<div class="relative h-full w-full">
 	<canvas
 		bind:this={canvas}
 		on:wheel={handleWheel}
@@ -389,7 +395,7 @@
 	/>
 
 	<!-- Controls overlay -->
-	<div class="absolute top-4 right-4 bg-black bg-opacity-75 text-white p-3 rounded text-sm">
+	<div class="top-4 right-4 bg-black bg-opacity-75 text-white p-3 rounded text-sm absolute">
 		<div class="font-mono">
 			<div>Scale: {scale.toFixed(1)}x</div>
 			<div class="text-xs mt-2 text-gray-400">

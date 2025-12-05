@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { Button } from 'svelte-ux';
-	import { scaleTime } from 'd3-scale';
+	import { browser } from '$app/environment';
 	import type { Track, TrackObservation } from '$lib/types/lidar';
 	import { TRACK_COLORS } from '$lib/types/lidar';
+	import { scaleTime } from 'd3-scale';
+	import { onMount } from 'svelte';
+	import { Button } from 'svelte-ux';
 
 	export let tracks: Track[] = [];
 	export let observations: Record<string, TrackObservation[]> = {};
@@ -89,6 +90,7 @@
 	}
 
 	onMount(() => {
+		if (!browser) return;
 		updateSize();
 		window.addEventListener('resize', updateSize);
 		window.addEventListener('mousemove', handleMouseMove);
@@ -118,10 +120,10 @@
 	}
 </script>
 
-<div class="flex flex-col h-full bg-white">
+<div class="bg-white flex h-full flex-col">
 	<!-- Controls Bar -->
-	<div class="border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-		<div class="flex items-center gap-3">
+	<div class="border-gray-200 px-4 py-3 flex items-center justify-between border-b">
+		<div class="gap-3 flex items-center">
 			<!-- Play/Pause -->
 			<Button on:click={onPlaybackToggle} variant="outline" size="sm">
 				{#if isPlaying}
@@ -146,7 +148,7 @@
 			</Button>
 
 			<!-- Speed Control -->
-			<div class="flex items-center gap-2">
+			<div class="gap-2 flex items-center">
 				<span class="text-sm text-gray-600">Speed:</span>
 				{#each speedOptions as speed}
 					<Button
@@ -173,25 +175,14 @@
 			<g transform={`translate(${MARGIN.left}, ${MARGIN.top})`}>
 				<!-- Time axis -->
 				{#if timeScale}
-					<line
-						x1={0}
-						y1={0}
-						x2={width}
-						y2={0}
-						stroke="#cbd5e1"
-						stroke-width="2"
-					/>
+					<line x1={0} y1={0} x2={width} y2={0} stroke="#cbd5e1" stroke-width="2" />
 
 					<!-- Time ticks -->
 					{#each timeScale.ticks(10) as tick}
 						{@const x = timeScale(tick)}
 						<g transform={`translate(${x}, 0)`}>
 							<line y1={0} y2={5} stroke="#94a3b8" stroke-width="1" />
-							<text
-								y={20}
-								text-anchor="middle"
-								class="text-xs fill-gray-600"
-							>
+							<text y={20} text-anchor="middle" class="text-xs fill-gray-600">
 								{formatTime(tick.getTime())}
 							</text>
 						</g>
@@ -225,7 +216,7 @@
 						<!-- Track bar -->
 						<rect
 							x={startX}
-							y={y}
+							{y}
 							width={barWidth}
 							height={TRACK_HEIGHT}
 							fill={color}
@@ -255,19 +246,8 @@
 						on:mousedown={handleScrubberMouseDown}
 						class="cursor-ew-resize"
 					>
-						<line
-							y1={-10}
-							y2={height}
-							stroke="#ef4444"
-							stroke-width="2"
-						/>
-						<circle
-							cy={-10}
-							r={6}
-							fill="#ef4444"
-							stroke="white"
-							stroke-width="2"
-						/>
+						<line y1={-10} y2={height} stroke="#ef4444" stroke-width="2" />
+						<circle cy={-10} r={6} fill="#ef4444" stroke="white" stroke-width="2" />
 					</g>
 				{/if}
 			</g>

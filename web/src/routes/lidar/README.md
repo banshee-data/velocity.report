@@ -12,20 +12,24 @@ This directory contains the frontend implementation for visualizing LiDAR tracki
 ## Components
 
 ### Main Page
+
 - `tracks/+page.svelte` - Main visualization page with two-pane layout
 
 ### Reusable Components
+
 - `lib/components/lidar/MapPane.svelte` - Canvas-based top-down map view
 - `lib/components/lidar/TimelinePane.svelte` - SVG timeline with playback controls
 - `lib/components/lidar/TrackList.svelte` - Sidebar track browser with filters
 
 ### Data Layer
+
 - `lib/types/lidar.ts` - TypeScript type definitions
 - `lib/api.ts` - API client functions for LiDAR endpoints
 
 ## Features
 
 ### MapPane (Top 60%)
+
 - **Canvas Rendering:** 60fps performance with 100+ tracks
 - **Background Grid:** Visualizes learned background with stability indicators
 - **Track Rendering:** Bounding boxes, velocity vectors, color-coded by classification
@@ -36,6 +40,7 @@ This directory contains the frontend implementation for visualizing LiDAR tracki
 - **Legend:** Shows track classification colors
 
 ### TimelinePane (Bottom 40%)
+
 - **Track Bars:** Horizontal bars showing track lifecycle (start→end)
 - **Time Scrubber:** Red vertical line, draggable to navigate time
 - **Playback Controls:**
@@ -46,6 +51,7 @@ This directory contains the frontend implementation for visualizing LiDAR tracki
 - **Color Coding:** Matches map visualization
 
 ### TrackList (Right Sidebar)
+
 - **Filtering:**
   - By class: pedestrian, car, bird, other
   - By state: confirmed, tentative
@@ -61,6 +67,7 @@ This directory contains the frontend implementation for visualizing LiDAR tracki
 ## Architecture
 
 ### Data Flow
+
 ```
 API Client → Historical Query → Tracks + Observations
                 ↓
@@ -71,11 +78,13 @@ API Client → Historical Query → Tracks + Observations
 ```
 
 ### Coordinate Systems
+
 - **World Frame:** Cartesian (X, Y, Z in meters)
 - **Map Rendering:** Screen coordinates with scale/offset
 - **Background Grid:** Polar (ring, azimuth) → Cartesian conversion
 
 ### Performance
+
 - **Target:** 60fps at 100 tracks
 - **Canvas Optimization:**
   - Off-screen rendering for static elements
@@ -90,10 +99,13 @@ API Client → Historical Query → Tracks + Observations
 These Go API endpoints need to be implemented:
 
 ### 1. Historical Track Query (Critical)
+
 ```
 GET /api/lidar/tracks/history?sensor_id={id}&start_time={nanos}&end_time={nanos}
 ```
+
 Response:
+
 ```json
 {
   "tracks": [
@@ -120,25 +132,28 @@ Response:
 ```
 
 ### 2. Background Grid API (Critical)
+
 ```
 GET /api/lidar/background/grid?sensor_id={id}
 ```
+
 Response:
+
 ```json
 {
-  "sensor_id": "hesai-pandar40p",
-  "timestamp": "2025-12-05T...",
-  "rings": 40,
-  "azimuth_bins": 1800,
-  "cells": [
-    {
-      "ring": 0,
-      "azimuth_deg": 0.2,
-      "average_range_meters": 25.3,
-      "range_spread_meters": 0.5,
-      "times_seen": 100
-    }
-  ]
+	"sensor_id": "hesai-pandar40p",
+	"timestamp": "2025-12-05T...",
+	"rings": 40,
+	"azimuth_bins": 1800,
+	"cells": [
+		{
+			"ring": 0,
+			"azimuth_deg": 0.2,
+			"average_range_meters": 25.3,
+			"range_spread_meters": 0.5,
+			"times_seen": 100
+		}
+	]
 }
 ```
 
@@ -153,6 +168,7 @@ Response:
 ## Development
 
 ### Running Locally
+
 ```bash
 cd web
 npm install
@@ -160,6 +176,7 @@ npm run dev
 ```
 
 ### Testing
+
 ```bash
 npm run check      # TypeScript checking
 npm run lint       # ESLint
@@ -167,6 +184,7 @@ npm run test       # Jest tests
 ```
 
 ### Building
+
 ```bash
 npm run build      # Production build
 ```

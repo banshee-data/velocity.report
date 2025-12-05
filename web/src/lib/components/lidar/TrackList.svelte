@@ -26,9 +26,7 @@
 					return b.age_seconds - a.age_seconds;
 				case 'time':
 				default:
-					return (
-						new Date(a.first_seen).getTime() - new Date(b.first_seen).getTime()
-					);
+					return new Date(a.first_seen).getTime() - new Date(b.first_seen).getTime();
 			}
 		});
 
@@ -55,20 +53,20 @@
 	}
 </script>
 
-<div class="flex flex-col h-full">
+<div class="flex h-full flex-col">
 	<!-- Header -->
-	<div class="border-b border-gray-200 px-4 py-3">
+	<div class="border-gray-200 px-4 py-3 border-b">
 		<h3 class="font-semibold text-gray-900">Tracks ({filteredTracks.length})</h3>
 	</div>
 
 	<!-- Filters -->
-	<div class="border-b border-gray-200 px-4 py-3 space-y-3">
+	<div class="border-gray-200 px-4 py-3 space-y-3 border-b">
 		<!-- Class Filter -->
 		<div>
-			<label class="block text-xs font-medium text-gray-700 mb-1">Class</label>
+			<label class="text-xs font-medium text-gray-700 mb-1 block">Class</label>
 			<select
 				bind:value={classFilter}
-				class="w-full text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+				class="text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 w-full"
 			>
 				<option value="all">All</option>
 				<option value="pedestrian">Pedestrian</option>
@@ -80,10 +78,10 @@
 
 		<!-- State Filter -->
 		<div>
-			<label class="block text-xs font-medium text-gray-700 mb-1">State</label>
+			<label class="text-xs font-medium text-gray-700 mb-1 block">State</label>
 			<select
 				bind:value={stateFilter}
-				class="w-full text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+				class="text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 w-full"
 			>
 				<option value="all">All</option>
 				<option value="confirmed">Confirmed</option>
@@ -93,10 +91,10 @@
 
 		<!-- Sort By -->
 		<div>
-			<label class="block text-xs font-medium text-gray-700 mb-1">Sort By</label>
+			<label class="text-xs font-medium text-gray-700 mb-1 block">Sort By</label>
 			<select
 				bind:value={sortBy}
-				class="w-full text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+				class="text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 w-full"
 			>
 				<option value="time">Start Time</option>
 				<option value="speed">Speed</option>
@@ -109,24 +107,25 @@
 	<div class="flex-1 overflow-y-auto">
 		{#each filteredTracks as track}
 			{@const isSelected = track.track_id === selectedTrackId}
-			{@const color = track.object_class && track.object_class in TRACK_COLORS
-				? TRACK_COLORS[track.object_class as keyof typeof TRACK_COLORS]
-				: TRACK_COLORS.other}
+			{@const color =
+				track.object_class && track.object_class in TRACK_COLORS
+					? TRACK_COLORS[track.object_class as keyof typeof TRACK_COLORS]
+					: TRACK_COLORS.other}
 
 			<button
 				on:click={() => onTrackSelect(track.track_id)}
-				class="w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors {isSelected
-					? 'bg-blue-50 border-l-4 border-l-blue-500'
+				class="px-4 py-3 border-gray-100 hover:bg-gray-50 w-full border-b text-left transition-colors {isSelected
+					? 'bg-blue-50 border-l-blue-500 border-l-4'
 					: ''}"
 			>
-				<div class="flex items-start gap-3">
+				<div class="gap-3 flex items-start">
 					<!-- Icon -->
 					<div class="text-2xl flex-shrink-0">
 						{getClassIcon(track)}
 					</div>
 
 					<!-- Content -->
-					<div class="flex-1 min-w-0">
+					<div class="min-w-0 flex-1">
 						<!-- Track ID -->
 						<div class="font-mono text-sm font-medium text-gray-900 truncate">
 							{track.track_id}
@@ -134,11 +133,8 @@
 
 						<!-- Classification -->
 						{#if track.object_class}
-							<div class="flex items-center gap-2 mt-1">
-								<span
-									class="inline-block w-3 h-3 rounded-full"
-									style="background-color: {color}"
-								/>
+							<div class="gap-2 mt-1 flex items-center">
+								<span class="w-3 h-3 inline-block rounded-full" style="background-color: {color}" />
 								<span class="text-xs text-gray-600 capitalize">
 									{track.object_class}
 									{#if track.object_confidence}
@@ -168,7 +164,7 @@
 						{#if track.state === 'tentative'}
 							<div class="mt-2">
 								<span
-									class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800"
+									class="px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800 inline-flex items-center"
 								>
 									Tentative
 								</span>
@@ -180,9 +176,7 @@
 		{/each}
 
 		{#if filteredTracks.length === 0}
-			<div class="px-4 py-8 text-center text-gray-500 text-sm">
-				No tracks found
-			</div>
+			<div class="px-4 py-8 text-gray-500 text-sm text-center">No tracks found</div>
 		{/if}
 	</div>
 </div>
