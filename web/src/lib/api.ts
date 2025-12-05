@@ -338,6 +338,60 @@ export async function getSiteConfigPeriods(): Promise<SiteConfigPeriod[]> {
 	return res.json();
 }
 
+export async function getSiteConfigPeriodsForSite(siteId: number): Promise<SiteConfigPeriod[]> {
+	const res = await fetch(`${API_BASE}/site_config_periods?site_id=${siteId}`);
+	if (!res.ok) throw new Error(`Failed to fetch site config periods: ${res.status}`);
+	return res.json();
+}
+
+export async function createSiteConfigPeriod(period: {
+	site_id: number;
+	site_variable_config_id: number;
+	effective_start_unix: number;
+	effective_end_unix?: number | null;
+	is_active: boolean;
+	notes?: string;
+}): Promise<SiteConfigPeriod> {
+	const res = await fetch(`${API_BASE}/site_config_periods`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(period)
+	});
+	if (!res.ok) throw new Error(`Failed to create site config period: ${res.status}`);
+	return res.json();
+}
+
+export async function updateSiteConfigPeriod(
+	id: number,
+	period: {
+		site_variable_config_id?: number;
+		effective_start_unix?: number;
+		effective_end_unix?: number | null;
+		is_active?: boolean;
+		notes?: string;
+	}
+): Promise<SiteConfigPeriod> {
+	const res = await fetch(`${API_BASE}/site_config_periods/${id}`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(period)
+	});
+	if (!res.ok) throw new Error(`Failed to update site config period: ${res.status}`);
+	return res.json();
+}
+
+export async function createSiteVariableConfig(config: {
+	cosine_error_angle: number;
+}): Promise<SiteVariableConfig> {
+	const res = await fetch(`${API_BASE}/site_variable_configs`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(config)
+	});
+	if (!res.ok) throw new Error(`Failed to create site variable config: ${res.status}`);
+	return res.json();
+}
+
 export interface AnglePreset {
 	id: number;
 	angle: number;
