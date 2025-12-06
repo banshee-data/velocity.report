@@ -25,6 +25,24 @@
 	// Animation frame
 	let animationFrame: number | null = null;
 
+	// Offscreen canvas for background caching
+	let bgCanvas: HTMLCanvasElement | null = null;
+	let bgCtx: CanvasRenderingContext2D | null = null;
+	let lastBgState = {
+		scale: 0,
+		offsetX: 0,
+		offsetY: 0,
+		width: 0,
+		height: 0,
+		dataVersion: 0
+	};
+
+	// Detect background grid changes
+	let bgDataVersion = 0;
+	$: if (backgroundGrid) {
+		bgDataVersion++;
+	}
+
 	// Initialize canvas
 	function initCanvas() {
 		if (!canvas) return;
@@ -88,32 +106,79 @@
 	function renderBackgroundGrid() {
 		if (!ctx || !backgroundGrid) return;
 
-		ctx.save();
-		ctx.globalAlpha = 0.3;
+		// Initialize offscreen canvas if needed
+		if (!bgCanvas) {
+			bgCanvas = document.createElement('canvas');
+			bgCtx = bgCanvas.getContext('2d');
+		}
 
-		// Draw simplified grid representation
-		// For performance, we sample the grid rather than drawing all 72,000 cells
-		const sampleRate = 10; // Sample every 10th cell
+		if (!bgCanvas || !bgCtx) return;
 
-		backgroundGrid.cells.forEach((cell) => {
-			if (cell.ring % sampleRate !== 0 || Math.floor(cell.azimuth_deg / 2) % sampleRate !== 0) {
-				return;
+		// Check if update needed
+		const needsUpdate =
+			scale !== lastBgState.scale ||
+			offsetX !== lastBgState.offsetX ||
+			offsetY !== lastBgState.offsetY ||
+			containerWidth !== lastBgState.width ||
+			containerHeight !== lastBgState.height ||
+			bgDataVersion !== lastBgState.dataVersion;
+
+		if (needsUpdate) {
+			// Update canvas size
+			if (bgCanvas.width !== containerWidth || bgCanvas.height !== containerHeight) {
+				bgCanvas.width = containerWidth;
+				bgCanvas.height = containerHeight;
 			}
 
-			// Convert polar to Cartesian
-			const angleRad = (cell.azimuth_deg * Math.PI) / 180;
-			const x = cell.average_range_meters * Math.cos(angleRad);
-			const y = cell.average_range_meters * Math.sin(angleRad);
+			// Clear offscreen
+			bgCtx.clearRect(0, 0, containerWidth, containerHeight);
 
-			const [screenX, screenY] = worldToScreen(x, y);
+			// Render grid to offscreen
+			bgCtx.save();
+			bgCtx.globalAlpha = 0.5;
 
-			// Color based on range spread (stability indicator)
-			const stability = Math.max(0, 1 - cell.range_spread_meters / 2);
-			ctx.fillStyle = `rgba(100, 150, 255, ${stability * 0.5})`;
-			ctx.fillRect(screenX - 1, screenY - 1, 2, 2);
-		});
+			// Use local variables to avoid scope lookups in loop
+			const _scale = scale;
+			const _offsetX = offsetX;
+			const _offsetY = offsetY;
+			const _cw = containerWidth;
+			const _ch = containerHeight;
+			const _cells = backgroundGrid.cells;
 
-		ctx.restore();
+			// Pre-calculate constants
+			const halfW = _cw / 2;
+			const halfH = _ch / 2;
+
+			for (let i = 0; i < _cells.length; i++) {
+				const cell = _cells[i];
+
+				// Inline worldToScreen for performance
+				const screenX = halfW + (cell.x - _offsetX) * _scale;
+				const screenY = halfH - (cell.y - _offsetY) * _scale;
+
+				// Skip if out of bounds (culling)
+				if (screenX < -5 || screenX > _cw + 5 || screenY < -5 || screenY > _ch + 5) continue;
+
+				const stability = Math.max(0, 1 - cell.range_spread_meters / 2);
+				bgCtx.fillStyle = `rgba(100, 150, 255, ${stability * 0.5})`;
+				bgCtx.fillRect(screenX - 1.5, screenY - 1.5, 3, 3);
+			}
+
+			bgCtx.restore();
+
+			// Update state
+			lastBgState = {
+				scale,
+				offsetX,
+				offsetY,
+				width: containerWidth,
+				height: containerHeight,
+				dataVersion: bgDataVersion
+			};
+		}
+
+		// Draw offscreen canvas to main canvas
+		ctx.drawImage(bgCanvas, 0, 0);
 	}
 
 	// Render grid lines
@@ -376,11 +441,6 @@
 		window.removeEventListener('resize', handleResize);
 		stopAnimation();
 	});
-
-	// Reactive rendering when tracks change
-	$: if (ctx && (tracks || selectedTrackId || backgroundGrid)) {
-		render();
-	}
 </script>
 
 <div class="relative h-full w-full">
