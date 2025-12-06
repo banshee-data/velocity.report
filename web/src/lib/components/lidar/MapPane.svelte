@@ -455,10 +455,10 @@
 	></canvas>
 
 	<!-- Controls overlay -->
-	<div class="top-4 right-4 bg-black bg-opacity-75 text-white p-3 rounded text-sm absolute">
+	<div class="bg-opacity-75 absolute top-4 right-4 rounded bg-black p-3 text-sm text-white">
 		<div class="font-mono">
 			<div>Scale: {scale.toFixed(1)}x</div>
-			<div class="text-xs mt-2 text-gray-400">
+			<div class="mt-2 text-xs text-gray-400">
 				<div>Left click: Select track</div>
 				<div>Right click + drag: Pan</div>
 				<div>Scroll: Zoom</div>

@@ -55,19 +55,19 @@
 
 <div class="flex h-full flex-col">
 	<!-- Header -->
-	<div class="border-gray-200 px-4 py-3 border-b">
+	<div class="border-b border-gray-200 px-4 py-3">
 		<h3 class="font-semibold text-gray-900">Tracks ({filteredTracks.length})</h3>
 	</div>
 
 	<!-- Filters -->
-	<div class="border-gray-200 px-4 py-3 space-y-3 border-b">
+	<div class="space-y-3 border-b border-gray-200 px-4 py-3">
 		<!-- Class Filter -->
 		<div>
-			<label for="class-filter" class="text-xs font-medium text-gray-700 mb-1 block">Class</label>
+			<label for="class-filter" class="mb-1 block text-xs font-medium text-gray-700">Class</label>
 			<select
 				id="class-filter"
 				bind:value={classFilter}
-				class="text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 w-full"
+				class="w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
 			>
 				<option value="all">All</option>
 				<option value="pedestrian">Pedestrian</option>
@@ -79,11 +79,11 @@
 
 		<!-- State Filter -->
 		<div>
-			<label for="state-filter" class="text-xs font-medium text-gray-700 mb-1 block">State</label>
+			<label for="state-filter" class="mb-1 block text-xs font-medium text-gray-700">State</label>
 			<select
 				id="state-filter"
 				bind:value={stateFilter}
-				class="text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 w-full"
+				class="w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
 			>
 				<option value="all">All</option>
 				<option value="confirmed">Confirmed</option>
@@ -93,11 +93,11 @@
 
 		<!-- Sort By -->
 		<div>
-			<label for="sort-by" class="text-xs font-medium text-gray-700 mb-1 block">Sort By</label>
+			<label for="sort-by" class="mb-1 block text-xs font-medium text-gray-700">Sort By</label>
 			<select
 				id="sort-by"
 				bind:value={sortBy}
-				class="text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 w-full"
+				class="w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
 			>
 				<option value="time">Start Time</option>
 				<option value="speed">Speed</option>
@@ -117,27 +117,27 @@
 
 			<button
 				on:click={() => onTrackSelect(track.track_id)}
-				class="px-4 py-3 border-gray-100 hover:bg-gray-50 w-full border-b text-left transition-colors {isSelected
-					? 'bg-blue-50 border-l-blue-500 border-l-4'
+				class="w-full border-b border-gray-100 px-4 py-3 text-left transition-colors hover:bg-gray-50 {isSelected
+					? 'border-l-4 border-l-blue-500 bg-blue-50'
 					: ''}"
 			>
-				<div class="gap-3 flex items-start">
+				<div class="flex items-start gap-3">
 					<!-- Icon -->
-					<div class="text-2xl flex-shrink-0">
+					<div class="flex-shrink-0 text-2xl">
 						{getClassIcon(track)}
 					</div>
 
 					<!-- Content -->
 					<div class="min-w-0 flex-1">
 						<!-- Track ID -->
-						<div class="font-mono text-sm font-medium text-gray-900 truncate">
+						<div class="truncate font-mono text-sm font-medium text-gray-900">
 							{track.track_id}
 						</div>
 
 						<!-- Classification -->
 						{#if track.object_class}
-							<div class="gap-2 mt-1 flex items-center">
-								<span class="w-3 h-3 inline-block rounded-full" style="background-color: {color}"
+							<div class="mt-1 flex items-center gap-2">
+								<span class="inline-block h-3 w-3 rounded-full" style="background-color: {color}"
 								></span>
 								<span class="text-xs text-gray-600 capitalize">
 									{track.object_class}
@@ -168,7 +168,7 @@
 						{#if track.state === 'tentative'}
 							<div class="mt-2">
 								<span
-									class="px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800 inline-flex items-center"
+									class="inline-flex items-center rounded bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800"
 								>
 									Tentative
 								</span>
@@ -180,7 +180,7 @@
 		{/each}
 
 		{#if filteredTracks.length === 0}
-			<div class="px-4 py-8 text-gray-500 text-sm text-center">No tracks found</div>
+			<div class="px-4 py-8 text-center text-sm text-gray-500">No tracks found</div>
 		{/if}
 	</div>
 </div>

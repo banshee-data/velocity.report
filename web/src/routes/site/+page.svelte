@@ -77,7 +77,7 @@
 		<div
 			role="alert"
 			aria-live="assertive"
-			class="rounded border-red-300 bg-red-50 p-3 text-red-800 border"
+			class="rounded border border-red-300 bg-red-50 p-3 text-red-800"
 		>
 			<strong>Error:</strong>
 			{error}
@@ -111,7 +111,7 @@
 								<td class="py-4">{site.location}</td>
 								<td class="py-4">{site.cosine_error_angle}°</td>
 								<td class="py-4 text-right">
-									<div class="gap-2 flex justify-end">
+									<div class="flex justify-end gap-2">
 										<Button
 											icon={mdiPencil}
 											size="sm"

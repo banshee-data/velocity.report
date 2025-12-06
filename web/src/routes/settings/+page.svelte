@@ -170,7 +170,7 @@
 					run.
 				</p>
 
-				<div class="gap-3 flex items-center">
+				<div class="flex items-center gap-3">
 					<Switch
 						checked={transitWorkerEnabled}
 						disabled={transitWorkerLoading}

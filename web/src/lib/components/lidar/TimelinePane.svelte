@@ -119,14 +119,14 @@
 	}
 </script>
 
-<div class="bg-white flex h-full flex-col">
+<div class="flex h-full flex-col bg-white">
 	<!-- Controls Bar -->
-	<div class="border-gray-200 px-4 py-3 flex items-center justify-between border-b">
-		<div class="gap-3 flex items-center">
+	<div class="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+		<div class="flex items-center gap-3">
 			<!-- Play/Pause -->
 			<Button on:click={onPlaybackToggle} variant="outline" size="sm">
 				{#if isPlaying}
-					<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+					<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
 						<path
 							fill-rule="evenodd"
 							d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z"
@@ -135,7 +135,7 @@
 					</svg>
 					Pause
 				{:else}
-					<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+					<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
 						<path
 							fill-rule="evenodd"
 							d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
@@ -147,7 +147,7 @@
 			</Button>
 
 			<!-- Speed Control -->
-			<div class="gap-2 flex items-center">
+			<div class="flex items-center gap-2">
 				<span class="text-sm text-gray-600">Speed:</span>
 				{#each speedOptions as speed}
 					<Button
@@ -163,7 +163,7 @@
 		</div>
 
 		<!-- Time Display -->
-		<div class="text-sm font-mono text-gray-700">
+		<div class="font-mono text-sm text-gray-700">
 			{formatTime(currentTime)}
 		</div>
 	</div>
@@ -181,7 +181,7 @@
 						{@const x = timeScale(tick)}
 						<g transform={`translate(${x}, 0)`}>
 							<line y1={0} y2={5} stroke="#94a3b8" stroke-width="1" />
-							<text y={20} text-anchor="middle" class="text-xs fill-gray-600">
+							<text y={20} text-anchor="middle" class="fill-gray-600 text-xs">
 								{formatTime(tick.getTime())}
 							</text>
 						</g>
@@ -210,7 +210,7 @@
 							y={y + TRACK_HEIGHT / 2}
 							text-anchor="end"
 							alignment-baseline="middle"
-							class="text-xs fill-gray-700 font-mono"
+							class="fill-gray-700 font-mono text-xs"
 						>
 							{track.track_id.slice(-6)}
 						</text>
@@ -233,7 +233,7 @@
 							y={y + TRACK_HEIGHT / 2}
 							text-anchor="middle"
 							alignment-baseline="middle"
-							class="text-xs fill-white font-medium"
+							class="fill-white text-xs font-medium"
 						>
 							{track.avg_speed_mps.toFixed(1)} m/s
 						</text>

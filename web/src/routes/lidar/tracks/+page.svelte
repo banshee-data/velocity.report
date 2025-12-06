@@ -126,9 +126,9 @@
 	});
 </script>
 
-<main id="main-content" class="bg-gray-50 flex h-full flex-col">
+<main id="main-content" class="flex h-full flex-col bg-gray-50">
 	<!-- Header -->
-	<div class="bg-white border-gray-200 px-6 py-4 border-b">
+	<div class="border-b border-gray-200 bg-white px-6 py-4">
 		<div class="flex items-center justify-between">
 			<div>
 				<Header
@@ -137,7 +137,7 @@
 				/>
 			</div>
 
-			<div class="gap-4 flex items-center">
+			<div class="flex items-center gap-4">
 				<!-- Mode Toggle -->
 				<ToggleGroup bind:value={mode} variant="outline" size="sm">
 					<ToggleOption value="playback">Playback</ToggleOption>
@@ -159,7 +159,7 @@
 	<!-- Main Content: Two-Pane Layout -->
 	<div class="flex flex-1 flex-col overflow-hidden">
 		<!-- Top Pane: Map Visualization (60%) -->
-		<div class="border-gray-300 bg-gray-900 flex-[3] border-b">
+		<div class="flex-[3] border-b border-gray-300 bg-gray-900">
 			<MapPane
 				tracks={visibleTracks}
 				{selectedTrackId}
@@ -171,7 +171,7 @@
 		<!-- Bottom Pane: Timeline (40%) -->
 		<div class="flex flex-[2] overflow-hidden">
 			<!-- Timeline -->
-			<div class="bg-white flex-1">
+			<div class="flex-1 bg-white">
 				<TimelinePane
 					{tracks}
 					currentTime={selectedTime}
@@ -187,7 +187,7 @@
 			</div>
 
 			<!-- Track List Sidebar -->
-			<div class="w-80 border-gray-300 bg-white overflow-hidden border-l">
+			<div class="w-80 overflow-hidden border-l border-gray-300 bg-white">
 				<TrackList tracks={visibleTracks} {selectedTrackId} onTrackSelect={handleTrackSelect} />
 			</div>
 		</div>

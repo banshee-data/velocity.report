@@ -162,7 +162,7 @@
 		<div
 			role="alert"
 			aria-live="assertive"
-			class="rounded border-red-300 bg-red-50 p-3 text-red-800 border"
+			class="rounded border border-red-300 bg-red-50 p-3 text-red-800"
 		>
 			<strong>Error:</strong>
 			{error}
@@ -170,7 +170,7 @@
 	{:else}
 		<div class="max-w-3xl space-y-6">
 			{#if saveError}
-				<div role="alert" class="rounded border-red-300 bg-red-50 p-3 text-red-800 border">
+				<div role="alert" class="rounded border border-red-300 bg-red-50 p-3 text-red-800">
 					<strong>Save Error:</strong>
 					{saveError}
 				</div>
@@ -259,7 +259,7 @@
 			</Card>
 
 			<!-- Actions -->
-			<div class="gap-2 flex justify-end">
+			<div class="flex justify-end gap-2">
 				<Button on:click={handleCancel} variant="outline">Cancel</Button>
 				<Button on:click={handleSave} icon={mdiContentSave} variant="fill" color="primary">
 					{isNewSite ? 'Create Site' : 'Save Changes'}

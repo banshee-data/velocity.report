@@ -58,7 +58,7 @@
 
 <a
 	href="#main-content"
-	class="focus:bg-primary focus:text-primary-content focus:p-4 sr-only focus:not-sr-only focus:absolute focus:z-50"
+	class="focus:bg-primary focus:text-primary-content sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4"
 >
 	Skip to main content
 </a>
@@ -77,8 +77,8 @@
 	</nav>
 
 	<AppBar title="velocity.report">
-		<div slot="actions" class="gap-2 flex items-center">
-			<div class="border-primary-content/40 pr-2 border-r">
+		<div slot="actions" class="flex items-center gap-2">
+			<div class="border-primary-content/40 border-r pr-2">
 				<ThemeSelect keyboardShortcuts />
 			</div>
 
