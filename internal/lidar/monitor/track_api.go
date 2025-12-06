@@ -46,23 +46,31 @@ func (api *TrackAPI) RegisterRoutes(mux *http.ServeMux) {
 
 // TrackResponse represents a track in JSON API responses.
 type TrackResponse struct {
-	TrackID             string   `json:"track_id"`
-	SensorID            string   `json:"sensor_id"`
-	State               string   `json:"state"`
-	Position            Position `json:"position"`
-	Velocity            Velocity `json:"velocity"`
-	SpeedMps            float32  `json:"speed_mps"`
-	HeadingRad          float32  `json:"heading_rad"`
-	ObjectClass         string   `json:"object_class,omitempty"`
-	ObjectConfidence    float32  `json:"object_confidence,omitempty"`
-	ClassificationModel string   `json:"classification_model,omitempty"`
-	ObservationCount    int      `json:"observation_count"`
-	AgeSeconds          float64  `json:"age_seconds"`
-	AvgSpeedMps         float32  `json:"avg_speed_mps"`
-	PeakSpeedMps        float32  `json:"peak_speed_mps"`
-	BoundingBox         BBox     `json:"bounding_box"`
-	FirstSeen           string   `json:"first_seen"`
-	LastSeen            string   `json:"last_seen"`
+	TrackID             string               `json:"track_id"`
+	SensorID            string               `json:"sensor_id"`
+	State               string               `json:"state"`
+	Position            Position             `json:"position"`
+	Velocity            Velocity             `json:"velocity"`
+	SpeedMps            float32              `json:"speed_mps"`
+	HeadingRad          float32              `json:"heading_rad"`
+	ObjectClass         string               `json:"object_class,omitempty"`
+	ObjectConfidence    float32              `json:"object_confidence,omitempty"`
+	ClassificationModel string               `json:"classification_model,omitempty"`
+	ObservationCount    int                  `json:"observation_count"`
+	AgeSeconds          float64              `json:"age_seconds"`
+	AvgSpeedMps         float32              `json:"avg_speed_mps"`
+	PeakSpeedMps        float32              `json:"peak_speed_mps"`
+	BoundingBox         BBox                 `json:"bounding_box"`
+	FirstSeen           string               `json:"first_seen"`
+	LastSeen            string               `json:"last_seen"`
+	History             []TrackPointResponse `json:"history,omitempty"`
+}
+
+// TrackPointResponse represents a point in a track's history.
+type TrackPointResponse struct {
+	X         float32 `json:"x"`
+	Y         float32 `json:"y"`
+	Timestamp string  `json:"timestamp"`
 }
 
 // Position represents a 3D position in world coordinates.
@@ -702,6 +710,15 @@ func (api *TrackAPI) trackToResponse(track *lidar.TrackedObject) TrackResponse {
 	speed := float32(math.Sqrt(float64(track.VX*track.VX + track.VY*track.VY)))
 	heading := float32(math.Atan2(float64(track.VY), float64(track.VX)))
 
+	history := make([]TrackPointResponse, 0, len(track.History))
+	for _, p := range track.History {
+		history = append(history, TrackPointResponse{
+			X:         p.X,
+			Y:         p.Y,
+			Timestamp: time.Unix(0, p.Timestamp).UTC().Format(time.RFC3339Nano),
+		})
+	}
+
 	return TrackResponse{
 		TrackID:  track.TrackID,
 		SensorID: track.SensorID,
@@ -733,6 +750,7 @@ func (api *TrackAPI) trackToResponse(track *lidar.TrackedObject) TrackResponse {
 		},
 		FirstSeen: time.Unix(0, track.FirstUnixNanos).UTC().Format(time.RFC3339Nano),
 		LastSeen:  time.Unix(0, track.LastUnixNanos).UTC().Format(time.RFC3339Nano),
+		History:   history,
 	}
 }
 

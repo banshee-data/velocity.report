@@ -300,6 +300,30 @@ func GetActiveTracks(db *sql.DB, sensorID string, state string) ([]*TrackedObjec
 		return nil, fmt.Errorf("iterate tracks: %w", err)
 	}
 
+	// Populate history for each track
+	for _, track := range tracks {
+		// Fetch recent observations (limit 1000 to capture full history for typical tracks)
+		obs, err := GetTrackObservations(db, track.TrackID, 1000)
+		if err != nil {
+			// Log error but continue, returning track without history is better than failing
+			continue
+		}
+
+		// Convert observations to TrackPoint history
+		// GetTrackObservations returns DESC (newest first), so we prepend or reverse
+		// Pre-allocate history slice
+		track.History = make([]TrackPoint, len(obs))
+		for i, o := range obs {
+			// Store in reverse order (oldest first) for chronological history
+			idx := len(obs) - 1 - i
+			track.History[idx] = TrackPoint{
+				X:         o.X,
+				Y:         o.Y,
+				Timestamp: o.TSUnixNanos,
+			}
+		}
+	}
+
 	return tracks, nil
 }
 
