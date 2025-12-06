@@ -5,6 +5,7 @@ import { defineConfig } from 'vite';
 export default defineConfig({
 	server: {
 		proxy: {
+			'/api/lidar': 'http://localhost:8081',
 			'/api': 'http://localhost:8080'
 		}
 	},
