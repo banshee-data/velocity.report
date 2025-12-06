@@ -1,6 +1,6 @@
-import { defineConfig } from 'vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
+import { defineConfig } from 'vite';
 
 export default defineConfig({
 	server: {
@@ -8,7 +8,15 @@ export default defineConfig({
 			'/api': 'http://localhost:8080'
 		}
 	},
-	plugins: [sveltekit(), tailwindcss()],
+	plugins: [
+		sveltekit(),
+		tailwindcss({
+			// Skip processing node_modules to avoid Snippet type errors
+			content: {
+				files: ['./src/**/*.{html,js,svelte,ts}']
+			}
+		})
+	],
 	optimizeDeps: {
 		exclude: ['svelte-ux', 'layerchart', '@layerstack/tailwind']
 	},
