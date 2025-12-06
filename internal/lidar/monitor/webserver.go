@@ -13,6 +13,7 @@ import (
 	"html/template"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -1614,22 +1615,62 @@ func (ws *WebServer) handleBackgroundGrid(w http.ResponseWriter, r *http.Request
 	// Use the safe accessor from lidar package
 	exportedCells := bm.GetGridCells()
 
-	type APIBackgroundCell struct {
-		Ring       int     `json:"ring"`
-		AzimuthDeg float32 `json:"azimuth_deg"`
-		Range      float32 `json:"average_range_meters"`
-		Spread     float32 `json:"range_spread_meters"`
-		TimesSeen  uint32  `json:"times_seen"`
+	// Downsample grid for frontend visualization (top-down 2D view)
+	// Combine points into spatial buckets to reduce point count from ~72k to ~7k
+	const gridSize = 0.1 // 10cm grid resolution
+	type gridKey struct {
+		x, y int
+	}
+	type gridAccumulator struct {
+		sumX, sumY, sumSpread float64
+		maxTimesSeen          uint32
+		count                 int
+	}
+	grid := make(map[gridKey]*gridAccumulator)
+
+	for _, cell := range exportedCells {
+		if cell.Range < 0.1 {
+			continue
+		}
+
+		// Convert Polar to Cartesian
+		angleRad := float64(cell.AzimuthDeg) * math.Pi / 180.0
+		x := float64(cell.Range) * math.Cos(angleRad)
+		y := float64(cell.Range) * math.Sin(angleRad)
+
+		k := gridKey{
+			x: int(math.Floor(x / gridSize)),
+			y: int(math.Floor(y / gridSize)),
+		}
+
+		acc, exists := grid[k]
+		if !exists {
+			acc = &gridAccumulator{}
+			grid[k] = acc
+		}
+		acc.sumX += x
+		acc.sumY += y
+		acc.sumSpread += float64(cell.Spread)
+		if cell.TimesSeen > acc.maxTimesSeen {
+			acc.maxTimesSeen = cell.TimesSeen
+		}
+		acc.count++
 	}
 
-	cells := make([]APIBackgroundCell, 0, len(exportedCells))
-	for _, cell := range exportedCells {
+	type APIBackgroundCell struct {
+		X         float32 `json:"x"`
+		Y         float32 `json:"y"`
+		Spread    float32 `json:"range_spread_meters"`
+		TimesSeen uint32  `json:"times_seen"`
+	}
+
+	cells := make([]APIBackgroundCell, 0, len(grid))
+	for _, acc := range grid {
 		cells = append(cells, APIBackgroundCell{
-			Ring:       cell.Ring,
-			AzimuthDeg: cell.AzimuthDeg,
-			Range:      cell.Range,
-			Spread:     cell.Spread,
-			TimesSeen:  cell.TimesSeen,
+			X:         float32(acc.sumX / float64(acc.count)),
+			Y:         float32(acc.sumY / float64(acc.count)),
+			Spread:    float32(acc.sumSpread / float64(acc.count)),
+			TimesSeen: acc.maxTimesSeen,
 		})
 	}
 
