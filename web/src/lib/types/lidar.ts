@@ -47,11 +47,14 @@ export interface BackgroundGrid {
 }
 
 export interface BackgroundCell {
-	ring: number;
-	azimuth_deg: number;
-	average_range_meters: number;
+	x: number;
+	y: number;
 	range_spread_meters: number;
 	times_seen: number;
+	// Legacy fields (optional or removed)
+	ring?: number;
+	azimuth_deg?: number;
+	average_range_meters?: number;
 }
 
 export interface TrackListResponse {
