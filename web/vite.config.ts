@@ -1,10 +1,11 @@
-import { defineConfig } from 'vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
+import { defineConfig } from 'vite';
 
 export default defineConfig({
 	server: {
 		proxy: {
+			'/api/lidar': 'http://localhost:8081',
 			'/api': 'http://localhost:8080'
 		}
 	},

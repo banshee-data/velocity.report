@@ -13,6 +13,7 @@ import (
 	"html/template"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -333,6 +334,17 @@ func (ws *WebServer) startPCAPLocked(pcapFile string) error {
 		defer close(finished)
 		log.Printf("Starting PCAP replay from file: %s (sensor: %s)", path, ws.sensorID)
 
+		// Configure parser to use LiDAR timestamps for PCAP replay
+		// This ensures that replayed data has original timestamps, not current system time
+		if p, ok := ws.parser.(interface{ SetTimestampMode(parse.TimestampMode) }); ok {
+			log.Printf("Switching parser to TimestampModeLiDAR for PCAP replay")
+			p.SetTimestampMode(parse.TimestampModeLiDAR)
+			defer func() {
+				log.Printf("Restoring parser to TimestampModeSystemTime after PCAP replay")
+				p.SetTimestampMode(parse.TimestampModeSystemTime)
+			}()
+		}
+
 		if err := network.ReadPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats); err != nil && !errors.Is(err, context.Canceled) {
 			log.Printf("PCAP replay error: %v", err)
 		} else {
@@ -452,12 +464,10 @@ func (ws *WebServer) Start(ctx context.Context) error {
 	return nil
 }
 
-// setupRoutes configures the HTTP routes and handlers
-func (ws *WebServer) setupRoutes() *http.ServeMux {
-	mux := http.NewServeMux()
-
+// RegisterRoutes registers all Lidar monitor routes on the provided mux
+func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/health", ws.handleHealth)
-	mux.HandleFunc("/", ws.handleStatus)
+	mux.HandleFunc("/api/lidar/monitor", ws.handleStatus)
 	mux.HandleFunc("/api/lidar/status", ws.handleLidarStatus)
 	mux.HandleFunc("/api/lidar/persist", ws.handleLidarPersist)
 	mux.HandleFunc("/api/lidar/snapshot", ws.handleLidarSnapshot)
@@ -470,6 +480,7 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/api/lidar/grid_status", ws.handleGridStatus)
 	mux.HandleFunc("/api/lidar/grid_reset", ws.handleGridReset)
 	mux.HandleFunc("/api/lidar/grid_heatmap", ws.handleGridHeatmap)
+	mux.HandleFunc("/api/lidar/background/grid", ws.handleBackgroundGrid) // Full background grid
 	mux.HandleFunc("/api/lidar/data_source", ws.handleDataSource)
 	mux.HandleFunc("/api/lidar/pcap/start", ws.handlePCAPStart)
 	mux.HandleFunc("/api/lidar/pcap/stop", ws.handlePCAPStop)
@@ -479,7 +490,13 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 	if ws.trackAPI != nil {
 		ws.trackAPI.RegisterRoutes(mux)
 	}
+}
 
+// setupRoutes configures the HTTP routes and handlers
+func (ws *WebServer) setupRoutes() *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", ws.handleStatus)
+	ws.RegisterRoutes(mux)
 	return mux
 }
 
@@ -963,7 +980,7 @@ func (ws *WebServer) handleLidarStatus(w http.ResponseWriter, r *http.Request) {
 
 // handleStatus handles the main status page endpoint
 func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
+	if r.URL.Path != "/lidar/monitor" && r.URL.Path != "/" && r.URL.Path != "/api/lidar/monitor" {
 		http.NotFound(w, r)
 		return
 	}
@@ -1577,4 +1594,100 @@ func (ws *WebServer) Close() error {
 		return ws.server.Close()
 	}
 	return nil
+}
+
+// handleBackgroundGrid returns the full background grid cells.
+// Query params: sensor_id (required)
+func (ws *WebServer) handleBackgroundGrid(w http.ResponseWriter, r *http.Request) {
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+	bm := lidar.GetBackgroundManager(sensorID)
+	if bm == nil || bm.Grid == nil {
+		ws.writeJSONError(w, http.StatusNotFound, "no background manager for sensor")
+		return
+	}
+
+	g := bm.Grid
+
+	// Use the safe accessor from lidar package
+	exportedCells := bm.GetGridCells()
+
+	// Downsample grid for frontend visualization (top-down 2D view)
+	// Combine points into spatial buckets to reduce point count from ~72k to ~7k
+	const gridSize = 0.1 // 10cm grid resolution
+	type gridKey struct {
+		x, y int
+	}
+	type gridAccumulator struct {
+		sumX, sumY, sumSpread float64
+		maxTimesSeen          uint32
+		count                 int
+	}
+	grid := make(map[gridKey]*gridAccumulator)
+
+	for _, cell := range exportedCells {
+		if cell.Range < 0.1 {
+			continue
+		}
+
+		// Convert Polar to Cartesian
+		angleRad := float64(cell.AzimuthDeg) * math.Pi / 180.0
+		x := float64(cell.Range) * math.Cos(angleRad)
+		y := float64(cell.Range) * math.Sin(angleRad)
+
+		k := gridKey{
+			x: int(math.Floor(x / gridSize)),
+			y: int(math.Floor(y / gridSize)),
+		}
+
+		acc, exists := grid[k]
+		if !exists {
+			acc = &gridAccumulator{}
+			grid[k] = acc
+		}
+		acc.sumX += x
+		acc.sumY += y
+		acc.sumSpread += float64(cell.Spread)
+		if cell.TimesSeen > acc.maxTimesSeen {
+			acc.maxTimesSeen = cell.TimesSeen
+		}
+		acc.count++
+	}
+
+	type APIBackgroundCell struct {
+		X         float32 `json:"x"`
+		Y         float32 `json:"y"`
+		Spread    float32 `json:"range_spread_meters"`
+		TimesSeen uint32  `json:"times_seen"`
+	}
+
+	cells := make([]APIBackgroundCell, 0, len(grid))
+	for _, acc := range grid {
+		cells = append(cells, APIBackgroundCell{
+			X:         float32(acc.sumX / float64(acc.count)),
+			Y:         float32(acc.sumY / float64(acc.count)),
+			Spread:    float32(acc.sumSpread / float64(acc.count)),
+			TimesSeen: acc.maxTimesSeen,
+		})
+	}
+
+	resp := struct {
+		SensorID    string              `json:"sensor_id"`
+		Timestamp   string              `json:"timestamp"`
+		Rings       int                 `json:"rings"`
+		AzimuthBins int                 `json:"azimuth_bins"`
+		Cells       []APIBackgroundCell `json:"cells"`
+	}{
+		SensorID:    g.SensorID,
+		Timestamp:   time.Now().Format(time.RFC3339),
+		Rings:       g.Rings,
+		AzimuthBins: g.AzimuthBins,
+		Cells:       cells,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }

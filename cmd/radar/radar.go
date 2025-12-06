@@ -189,6 +189,9 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	// Lidar webserver instance (if enabled)
+	var lidarWebServer *monitor.WebServer
+
 	// Optionally initialize lidar components inside this binary
 	if *enableLidar {
 		// Use the main DB instance for lidar data (no separate lidar DB file)
@@ -545,6 +548,11 @@ func main() {
 		mux := apiServer.ServeMux()
 		radarSerial.AttachAdminRoutes(mux)
 		database.AttachAdminRoutes(mux)
+
+		// Attach Lidar routes if enabled
+		if lidarWebServer != nil {
+			lidarWebServer.RegisterRoutes(mux)
+		}
 
 		if err := apiServer.Start(ctx, *listen, *debugMode); err != nil {
 			// If ctx was canceled we expect nil or context.Canceled; log other errors

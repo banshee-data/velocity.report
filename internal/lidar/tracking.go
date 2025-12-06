@@ -54,6 +54,13 @@ func DefaultTrackerConfig() TrackerConfig {
 	}
 }
 
+// TrackPoint represents a single point in a track's history.
+type TrackPoint struct {
+	X         float32
+	Y         float32
+	Timestamp int64 // Unix nanos
+}
+
 // TrackedObject represents a single tracked object in the tracker.
 type TrackedObject struct {
 	// Identity
@@ -87,6 +94,9 @@ type TrackedObject struct {
 	IntensityMeanAvg     float32
 	AvgSpeedMps          float32
 	PeakSpeedMps         float32
+
+	// History of positions
+	History []TrackPoint
 
 	// Speed history for percentile computation
 	speedHistory []float32
@@ -413,6 +423,13 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 		track.PeakSpeedMps = speed
 	}
 
+	// Append to history
+	track.History = append(track.History, TrackPoint{
+		X:         track.X,
+		Y:         track.Y,
+		Timestamp: nowNanos,
+	})
+
 	// Store speed history for percentile computation
 	track.speedHistory = append(track.speedHistory, speed)
 	if len(track.speedHistory) > MaxSpeedHistoryLength {
@@ -457,6 +474,12 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 		BoundingBoxHeightAvg: cluster.BoundingBoxHeight,
 		HeightP95Max:         cluster.HeightP95,
 		IntensityMeanAvg:     cluster.IntensityMean,
+
+		History: []TrackPoint{{
+			X:         cluster.CentroidX,
+			Y:         cluster.CentroidY,
+			Timestamp: nowNanos,
+		}},
 
 		speedHistory: make([]float32, 0, MaxSpeedHistoryLength),
 	}
