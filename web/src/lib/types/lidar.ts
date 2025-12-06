@@ -22,6 +22,11 @@ export interface Track {
 	};
 	first_seen: string; // ISO timestamp
 	last_seen: string; // ISO timestamp
+	history?: {
+		x: number;
+		y: number;
+		timestamp: string;
+	}[];
 }
 
 export interface TrackObservation {

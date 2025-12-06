@@ -27,19 +27,43 @@
 	// Load historical data for playback
 	async function loadHistoricalData() {
 		try {
-			// Get last 24 hours of data
+			// Query ALL historical data (use very wide time range)
 			const endTime = Date.now() * 1e6; // Convert to nanoseconds
-			const startTime = endTime - 24 * 60 * 60 * 1e9; // 24 hours ago
+			const startTime = 0; // Start from epoch to capture all historical data
+
+			console.log(
+				'[TrackHistory] Querying tracks from',
+				new Date(startTime / 1e6).toISOString(),
+				'to',
+				new Date(endTime / 1e6).toISOString()
+			);
 
 			const history = await getTrackHistory(sensorId, startTime, endTime);
 			tracks = history.tracks;
 
+			console.log('[TrackHistory] Loaded', tracks.length, 'tracks');
+
 			if (tracks.length > 0) {
+				// Sample first track for debugging
+				const firstTrack = tracks[0];
+				console.log('[TrackHistory] First track:', {
+					track_id: firstTrack.track_id,
+					first_seen: firstTrack.first_seen,
+					last_seen: firstTrack.last_seen,
+					position: firstTrack.position,
+					history_length: firstTrack.history?.length || 0
+				});
+
 				timeRange = {
 					start: Math.min(...tracks.map((t) => new Date(t.first_seen).getTime())),
 					end: Math.max(...tracks.map((t) => new Date(t.last_seen).getTime()))
 				};
 				selectedTime = timeRange.start;
+
+				console.log('[TrackHistory] Time range:', {
+					start: new Date(timeRange.start).toISOString(),
+					end: new Date(timeRange.end).toISOString()
+				});
 			}
 		} catch (error) {
 			console.error('Failed to load historical data:', error);

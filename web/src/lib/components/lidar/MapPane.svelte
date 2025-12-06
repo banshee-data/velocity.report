@@ -246,6 +246,25 @@
 			color = TRACK_COLORS[track.object_class as keyof typeof TRACK_COLORS];
 		}
 
+		// Draw history path
+		if (track.history && track.history.length > 1) {
+			ctx.beginPath();
+			ctx.strokeStyle = color;
+			ctx.lineWidth = isSelected ? 2 : 1;
+			ctx.globalAlpha = 0.5;
+
+			const [startX, startY] = worldToScreen(track.history[0].x, track.history[0].y);
+			ctx.moveTo(startX, startY);
+
+			for (let i = 1; i < track.history.length; i++) {
+				const [x, y] = worldToScreen(track.history[i].x, track.history[i].y);
+				ctx.lineTo(x, y);
+			}
+
+			ctx.stroke();
+			ctx.globalAlpha = 1.0;
+		}
+
 		ctx.save();
 
 		// Draw bounding box
