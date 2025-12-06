@@ -26,6 +26,7 @@
 
 	// Load historical data for playback
 	async function loadHistoricalData() {
+		console.log('[TrackHistory] Starting data load for sensor:', sensorId);
 		try {
 			// Query ALL historical data (use very wide time range)
 			const endTime = Date.now() * 1e6; // Convert to nanoseconds
@@ -35,10 +36,17 @@
 				'[TrackHistory] Querying tracks from',
 				new Date(startTime / 1e6).toISOString(),
 				'to',
-				new Date(endTime / 1e6).toISOString()
+				new Date(endTime / 1e6).toISOString(),
+				'(startTime:',
+				startTime,
+				'endTime:',
+				endTime,
+				')'
 			);
 
+			console.log('[TrackHistory] Calling API...');
 			const history = await getTrackHistory(sensorId, startTime, endTime);
+			console.log('[TrackHistory] API response:', history);
 			tracks = history.tracks;
 
 			console.log('[TrackHistory] Loaded', tracks.length, 'tracks');
@@ -64,9 +72,15 @@
 					start: new Date(timeRange.start).toISOString(),
 					end: new Date(timeRange.end).toISOString()
 				});
+			} else {
+				console.warn('[TrackHistory] No tracks loaded!');
 			}
 		} catch (error) {
-			console.error('Failed to load historical data:', error);
+			console.error('[TrackHistory] Failed to load historical data:', error);
+			if (error instanceof Error) {
+				console.error('[TrackHistory] Error message:', error.message);
+				console.error('[TrackHistory] Error stack:', error.stack);
+			}
 		}
 	}
 
@@ -86,17 +100,68 @@
 		return selectedTime >= firstSeen && selectedTime <= lastSeen;
 	});
 
+	// Debug visible tracks changes
+	let lastVisibleCount = -1;
+	$: if (visibleTracks.length !== lastVisibleCount) {
+		console.log(
+			'[VisibleTracks] At time',
+			new Date(selectedTime).toISOString(),
+			':',
+			visibleTracks.length,
+			'/',
+			tracks.length,
+			'tracks visible'
+		);
+		if (visibleTracks.length > 0) {
+			console.log(
+				'[VisibleTracks] Sample:',
+				visibleTracks[0].track_id,
+				'range:',
+				visibleTracks[0].first_seen,
+				'to',
+				visibleTracks[0].last_seen
+			);
+		}
+		lastVisibleCount = visibleTracks.length;
+	}
+
 	// Playback controls
 	function handlePlay() {
-		if (!browser || !timeRange) return;
+		if (!browser || !timeRange) {
+			console.log('[Playback] Cannot play - browser:', browser, 'timeRange:', timeRange);
+			return;
+		}
 
+		console.log(
+			'[Playback] Starting at',
+			new Date(selectedTime).toISOString(),
+			'speed:',
+			playbackSpeed,
+			'range:',
+			new Date(timeRange!.start).toISOString(),
+			'to',
+			new Date(timeRange!.end).toISOString()
+		);
 		isPlaying = true;
+		let tickCount = 0;
 		playbackInterval = window.setInterval(() => {
 			selectedTime += 100 * playbackSpeed; // Advance by 100ms * speed
 
+			// Log every 10 ticks (1 second)
+			if (++tickCount % 10 === 0) {
+				console.log(
+					'[Playback] Time:',
+					new Date(selectedTime).toISOString(),
+					'visible:',
+					visibleTracks.length
+				);
+			}
+
 			// Loop back to start if we reach the end
 			if (selectedTime > timeRange!.end) {
+				console.log('[Playback] Reached end, looping back');
 				selectedTime = timeRange!.start;
+				tickCount = 0;
 			}
 		}, 100); // Update at 10Hz
 	}
@@ -140,6 +205,7 @@
 	}
 
 	onMount(() => {
+		console.log('[Page] Component mounted, loading data...');
 		loadHistoricalData();
 		loadBackgroundGrid();
 	});

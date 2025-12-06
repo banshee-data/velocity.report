@@ -46,6 +46,35 @@
 		(a, b) => new Date(a.first_seen).getTime() - new Date(b.first_seen).getTime()
 	);
 
+	// Debug timeline data
+	$: if (sortedTracks.length > 0) {
+		console.log('[Timeline] Tracks:', sortedTracks.length, 'Time range:', timeRange);
+		console.log('[Timeline] First track:', {
+			id: sortedTracks[0].track_id,
+			first_seen: sortedTracks[0].first_seen,
+			last_seen: sortedTracks[0].last_seen
+		});
+		if (sortedTracks.length > 1) {
+			console.log('[Timeline] Last track:', {
+				id: sortedTracks[sortedTracks.length - 1].track_id,
+				first_seen: sortedTracks[sortedTracks.length - 1].first_seen,
+				last_seen: sortedTracks[sortedTracks.length - 1].last_seen
+			});
+		}
+		if (timeScale) {
+			const firstTrackStart = timeScale(new Date(sortedTracks[0].first_seen));
+			const lastTrackEnd = timeScale(new Date(sortedTracks[sortedTracks.length - 1].last_seen));
+			console.log(
+				'[Timeline] Scale test - first track startX:',
+				firstTrackStart,
+				'last track endX:',
+				lastTrackEnd,
+				'width:',
+				width
+			);
+		}
+	}
+
 	// Handle scrubber drag
 	function handleScrubberMouseDown(e: MouseEvent) {
 		isDragging = true;

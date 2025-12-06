@@ -43,6 +43,17 @@
 		bgDataVersion++;
 	}
 
+	// Debug tracks prop changes
+	let lastTrackCount = -1;
+	$: if (tracks.length !== lastTrackCount) {
+		console.log('[MapPane] Tracks changed:', tracks.length);
+		if (tracks.length > 0) {
+			console.log('[MapPane] First track:', tracks[0]);
+			console.log('[MapPane] View:', { scale, offsetX, offsetY, containerWidth, containerHeight });
+		}
+		lastTrackCount = tracks.length;
+	}
+
 	// Re-render when props change
 	$: {
 		void tracks;
@@ -103,7 +114,20 @@
 		// Draw grid lines
 		renderGridLines();
 
-		// Draw tracks
+		// Draw tracks - log for debugging
+		// console.log('[MapPane] View state:', {
+		// 	scale,
+		// 	offsetX,
+		// 	offsetY,
+		// 	containerWidth,
+		// 	containerHeight
+		// });
+		// console.log('[MapPane] Rendering', tracks.length, 'tracks');
+		// if (tracks.length > 0) {
+		// 	console.log('[MapPane] First track:', tracks[0]);
+		// 	console.log('[MapPane] Sample world to screen:', worldToScreen(0, 0), worldToScreen(10, 10));
+		// }
+
 		tracks.forEach((track) => {
 			renderTrack(track, track.track_id === selectedTrackId);
 		});
@@ -237,7 +261,7 @@
 		const [screenX, screenY] = worldToScreen(track.position.x, track.position.y);
 
 		// Get color based on classification or state
-		let color = TRACK_COLORS.other;
+		let color: string = TRACK_COLORS.other;
 		if (track.state === 'tentative') {
 			color = TRACK_COLORS.tentative;
 		} else if (track.state === 'deleted') {
@@ -383,7 +407,7 @@
 			let closestTrack: Track | null = null;
 			let closestDist = Infinity;
 
-			tracks.forEach((track) => {
+			for (const track of tracks) {
 				const dx = track.position.x - worldX;
 				const dy = track.position.y - worldY;
 				const dist = Math.sqrt(dx * dx + dy * dy);
@@ -393,7 +417,7 @@
 					closestTrack = track;
 					closestDist = dist;
 				}
-			});
+			}
 
 			if (closestTrack) {
 				onTrackSelect(closestTrack.track_id);
