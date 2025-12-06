@@ -37,6 +37,7 @@ func (api *TrackAPI) SetTracker(tracker *lidar.Tracker) {
 // RegisterRoutes registers track API routes on the provided mux.
 func (api *TrackAPI) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/tracks", api.handleListTracks)
+	mux.HandleFunc("/api/lidar/tracks/history", api.handleListTracks) // Support both legacy '/history' and canonical '/tracks' endpoints for backward compatibility; '/history' may be deprecated in a future release.
 	mux.HandleFunc("/api/lidar/tracks/active", api.handleActiveTracks)
 	mux.HandleFunc("/api/lidar/tracks/", api.handleTrackByID)
 	mux.HandleFunc("/api/lidar/tracks/summary", api.handleTrackSummary)

@@ -1031,3 +1031,47 @@ func (bm *BackgroundManager) ExportBackgroundGridToASC(filePath string) error {
 	points := bm.ToASCPoints()
 	return ExportPointsToASC(points, filePath, " AverageRangeMeters TimesSeenCount")
 }
+
+// ExportedCell represents a background cell for API consumption
+type ExportedCell struct {
+	Ring        int
+	AzimuthDeg  float32
+	Range       float32
+	Spread      float32
+	TimesSeen   uint32
+	LastUpdate  int64
+	FrozenUntil int64
+}
+
+// GetGridCells returns all non-empty cells from the grid.
+func (bm *BackgroundManager) GetGridCells() []ExportedCell {
+	if bm == nil || bm.Grid == nil {
+		return nil
+	}
+
+	g := bm.Grid
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	cells := make([]ExportedCell, 0, g.nonzeroCellCount)
+	azBinResDeg := 360.0 / float32(g.AzimuthBins)
+
+	for i, cell := range g.Cells {
+		if cell.TimesSeenCount > 0 || cell.AverageRangeMeters > 0 {
+			ring := i / g.AzimuthBins
+			azBin := i % g.AzimuthBins
+			azimuthDeg := float32(azBin) * azBinResDeg
+
+			cells = append(cells, ExportedCell{
+				Ring:        ring,
+				AzimuthDeg:  azimuthDeg,
+				Range:       cell.AverageRangeMeters,
+				Spread:      cell.RangeSpreadMeters,
+				TimesSeen:   cell.TimesSeenCount,
+				LastUpdate:  cell.LastUpdateUnixNanos,
+				FrozenUntil: cell.FrozenUntilUnixNanos,
+			})
+		}
+	}
+	return cells
+}
