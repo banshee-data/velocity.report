@@ -53,21 +53,23 @@
 	}
 </script>
 
-<div class="flex h-full flex-col">
+<div class="bg-surface-100 flex h-full flex-col">
 	<!-- Header -->
-	<div class="border-b border-gray-200 px-4 py-3">
-		<h3 class="font-semibold text-gray-900">Tracks ({filteredTracks.length})</h3>
+	<div class="border-surface-content/10 border-b px-4 py-3">
+		<h3 class="text-surface-content font-semibold">Tracks ({filteredTracks.length})</h3>
 	</div>
 
 	<!-- Filters -->
-	<div class="space-y-3 border-b border-gray-200 px-4 py-3">
+	<div class="border-surface-content/10 space-y-3 border-b px-4 py-3">
 		<!-- Class Filter -->
 		<div>
-			<label for="class-filter" class="mb-1 block text-xs font-medium text-gray-700">Class</label>
+			<label for="class-filter" class="text-surface-content/70 mb-1 block text-xs font-medium"
+				>Class</label
+			>
 			<select
 				id="class-filter"
 				bind:value={classFilter}
-				class="w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
+				class="border-surface-content/20 bg-surface-100 text-surface-content focus:border-primary focus:ring-primary w-full rounded-md text-sm shadow-sm"
 			>
 				<option value="all">All</option>
 				<option value="pedestrian">Pedestrian</option>
@@ -79,11 +81,13 @@
 
 		<!-- State Filter -->
 		<div>
-			<label for="state-filter" class="mb-1 block text-xs font-medium text-gray-700">State</label>
+			<label for="state-filter" class="text-surface-content/70 mb-1 block text-xs font-medium"
+				>State</label
+			>
 			<select
 				id="state-filter"
 				bind:value={stateFilter}
-				class="w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
+				class="border-surface-content/20 bg-surface-100 text-surface-content focus:border-primary focus:ring-primary w-full rounded-md text-sm shadow-sm"
 			>
 				<option value="all">All</option>
 				<option value="confirmed">Confirmed</option>
@@ -93,11 +97,13 @@
 
 		<!-- Sort By -->
 		<div>
-			<label for="sort-by" class="mb-1 block text-xs font-medium text-gray-700">Sort By</label>
+			<label for="sort-by" class="text-surface-content/70 mb-1 block text-xs font-medium"
+				>Sort By</label
+			>
 			<select
 				id="sort-by"
 				bind:value={sortBy}
-				class="w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
+				class="border-surface-content/20 bg-surface-100 text-surface-content focus:border-primary focus:ring-primary w-full rounded-md text-sm shadow-sm"
 			>
 				<option value="time">Start Time</option>
 				<option value="speed">Speed</option>

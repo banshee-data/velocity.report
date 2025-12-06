@@ -6,8 +6,6 @@
 	import TrackList from '$lib/components/lidar/TrackList.svelte';
 	import type { BackgroundGrid, Track, TrackObservation } from '$lib/types/lidar';
 	import { onDestroy, onMount } from 'svelte';
-	import { Header } from 'svelte-ux';
-
 	import { SelectField, ToggleGroup, ToggleOption } from 'svelte-ux';
 
 	// State
@@ -126,18 +124,20 @@
 	});
 </script>
 
-<main id="main-content" class="flex h-full flex-col bg-gray-50">
+<main id="main-content" class="bg-surface-200 flex h-full flex-col">
 	<!-- Header -->
-	<div class="border-b border-gray-200 bg-white px-6 py-4">
-		<div class="flex items-center justify-between">
-			<div>
-				<Header
-					title="LiDAR Track Visualization"
-					subheading="Sensor: {sensorId} • {visibleTracks.length} tracks visible"
-				/>
+	<div class="border-surface-content/10 bg-surface-100 h-20 flex-none border-b px-6 py-4">
+		<div class="flex h-full items-center justify-between overflow-hidden">
+			<div class="min-w-0 flex-1">
+				<h1 class="text-surface-content truncate text-2xl font-semibold">
+					LiDAR Track Visualization
+				</h1>
+				<p class="text-surface-content/60 mt-1 truncate text-sm">
+					Sensor: {sensorId} • {visibleTracks.length} tracks visible
+				</p>
 			</div>
 
-			<div class="flex items-center gap-4">
+			<div class="flex flex-none items-center gap-4 pl-4">
 				<!-- Mode Toggle -->
 				<ToggleGroup bind:value={mode} variant="outline" size="sm">
 					<ToggleOption value="playback">Playback</ToggleOption>
@@ -159,7 +159,7 @@
 	<!-- Main Content: Two-Pane Layout -->
 	<div class="flex flex-1 flex-col overflow-hidden">
 		<!-- Top Pane: Map Visualization (60%) -->
-		<div class="flex-[3] border-b border-gray-300 bg-gray-900">
+		<div class="border-surface-content/20 bg-surface-300 border-b" style="flex: 3">
 			<MapPane
 				tracks={visibleTracks}
 				{selectedTrackId}
@@ -169,9 +169,9 @@
 		</div>
 
 		<!-- Bottom Pane: Timeline (40%) -->
-		<div class="flex flex-[2] overflow-hidden">
+		<div class="flex overflow-hidden" style="flex: 2">
 			<!-- Timeline -->
-			<div class="flex-1 bg-white">
+			<div class="bg-surface-100 flex-1">
 				<TimelinePane
 					{tracks}
 					currentTime={selectedTime}
@@ -187,7 +187,7 @@
 			</div>
 
 			<!-- Track List Sidebar -->
-			<div class="w-80 overflow-hidden border-l border-gray-300 bg-white">
+			<div class="border-surface-content/20 bg-surface-100 w-80 overflow-hidden border-l">
 				<TrackList tracks={visibleTracks} {selectedTrackId} onTrackSelect={handleTrackSelect} />
 			</div>
 		</div>

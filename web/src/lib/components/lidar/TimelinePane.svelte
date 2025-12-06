@@ -119,9 +119,9 @@
 	}
 </script>
 
-<div class="flex h-full flex-col bg-white">
+<div class="bg-surface-100 flex h-full flex-col">
 	<!-- Controls Bar -->
-	<div class="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+	<div class="border-surface-content/10 flex items-center justify-between border-b px-4 py-3">
 		<div class="flex items-center gap-3">
 			<!-- Play/Pause -->
 			<Button on:click={onPlaybackToggle} variant="outline" size="sm">
@@ -148,7 +148,7 @@
 
 			<!-- Speed Control -->
 			<div class="flex items-center gap-2">
-				<span class="text-sm text-gray-600">Speed:</span>
+				<span class="text-surface-content/60 text-sm">Speed:</span>
 				{#each speedOptions as speed}
 					<Button
 						on:click={() => onSpeedChange(speed)}
@@ -163,25 +163,32 @@
 		</div>
 
 		<!-- Time Display -->
-		<div class="font-mono text-sm text-gray-700">
+		<div class="text-surface-content/70 font-mono text-sm">
 			{formatTime(currentTime)}
 		</div>
 	</div>
 
 	<!-- Timeline SVG -->
 	<div class="flex-1 overflow-auto">
-		<svg bind:this={svg} width={containerWidth} height={containerHeight} class="bg-gray-50">
+		<svg bind:this={svg} width={containerWidth} height={containerHeight} class="bg-surface-200">
 			<g transform={`translate(${MARGIN.left}, ${MARGIN.top})`}>
 				<!-- Time axis -->
 				{#if timeScale}
-					<line x1={0} y1={0} x2={width} y2={0} stroke="#cbd5e1" stroke-width="2" />
+					<line
+						x1={0}
+						y1={0}
+						x2={width}
+						y2={0}
+						class="stroke-surface-content/20"
+						stroke-width="2"
+					/>
 
 					<!-- Time ticks -->
 					{#each timeScale.ticks(10) as tick}
 						{@const x = timeScale(tick)}
 						<g transform={`translate(${x}, 0)`}>
-							<line y1={0} y2={5} stroke="#94a3b8" stroke-width="1" />
-							<text y={20} text-anchor="middle" class="fill-gray-600 text-xs">
+							<line y1={0} y2={5} class="stroke-surface-content/40" stroke-width="1" />
+							<text y={20} text-anchor="middle" class="fill-surface-content/60 text-xs">
 								{formatTime(tick.getTime())}
 							</text>
 						</g>
