@@ -43,6 +43,16 @@
 		bgDataVersion++;
 	}
 
+	// Re-render when props change
+	$: {
+		void tracks;
+		void selectedTrackId;
+		void backgroundGrid;
+		if (browser && ctx) {
+			requestAnimationFrame(render);
+		}
+	}
+
 	// Initialize canvas
 	function initCanvas() {
 		if (!canvas) return;

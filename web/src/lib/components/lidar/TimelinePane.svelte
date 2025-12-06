@@ -29,7 +29,10 @@
 
 	// Computed values
 	$: width = containerWidth - MARGIN.left - MARGIN.right;
-	$: height = containerHeight - MARGIN.top - MARGIN.bottom;
+	$: contentHeight =
+		MARGIN.top + sortedTracks.length * (TRACK_HEIGHT + TRACK_SPACING) + MARGIN.bottom;
+	$: svgHeight = Math.max(containerHeight, contentHeight);
+	$: height = svgHeight - MARGIN.top - MARGIN.bottom;
 
 	// Time scale
 	$: timeScale = timeRange
@@ -149,12 +152,12 @@
 			<!-- Speed Control -->
 			<div class="flex items-center gap-2">
 				<span class="text-surface-content/60 text-sm">Speed:</span>
-				{#each speedOptions as speed}
+				{#each speedOptions as speed (speed)}
 					<Button
 						on:click={() => onSpeedChange(speed)}
 						variant={playbackSpeed === speed ? 'fill' : 'outline'}
 						size="sm"
-						class="min-w-[3rem]"
+						class="min-w-12"
 					>
 						{speed}x
 					</Button>
@@ -170,7 +173,7 @@
 
 	<!-- Timeline SVG -->
 	<div class="flex-1 overflow-auto">
-		<svg bind:this={svg} width={containerWidth} height={containerHeight} class="bg-surface-200">
+		<svg bind:this={svg} width={containerWidth} height={svgHeight} class="bg-surface-200">
 			<g transform={`translate(${MARGIN.left}, ${MARGIN.top})`}>
 				<!-- Time axis -->
 				{#if timeScale}
@@ -184,7 +187,7 @@
 					/>
 
 					<!-- Time ticks -->
-					{#each timeScale.ticks(10) as tick}
+					{#each timeScale.ticks(10) as tick (tick.getTime())}
 						{@const x = timeScale(tick)}
 						<g transform={`translate(${x}, 0)`}>
 							<line y1={0} y2={5} class="stroke-surface-content/40" stroke-width="1" />
@@ -196,7 +199,7 @@
 				{/if}
 
 				<!-- Track bars -->
-				{#each sortedTracks as track, i}
+				{#each sortedTracks as track, i (track.track_id)}
 					{@const y = 40 + i * (TRACK_HEIGHT + TRACK_SPACING)}
 					{@const startX = timeScale ? timeScale(new Date(track.first_seen)) : 0}
 					{@const endX = timeScale ? timeScale(new Date(track.last_seen)) : 0}

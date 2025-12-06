@@ -4,7 +4,7 @@
 	import MapPane from '$lib/components/lidar/MapPane.svelte';
 	import TimelinePane from '$lib/components/lidar/TimelinePane.svelte';
 	import TrackList from '$lib/components/lidar/TrackList.svelte';
-	import type { BackgroundGrid, Track, TrackObservation } from '$lib/types/lidar';
+	import type { BackgroundGrid, Track } from '$lib/types/lidar';
 	import { onDestroy, onMount } from 'svelte';
 	import { SelectField, ToggleGroup, ToggleOption } from 'svelte-ux';
 
@@ -17,7 +17,6 @@
 
 	// Data
 	let tracks: Track[] = [];
-	let observations: Record<string, TrackObservation[]> = {};
 	let backgroundGrid: BackgroundGrid | null = null;
 	let selectedTrackId: string | null = null;
 
@@ -34,7 +33,6 @@
 
 			const history = await getTrackHistory(sensorId, startTime, endTime);
 			tracks = history.tracks;
-			observations = history.observations;
 
 			if (tracks.length > 0) {
 				timeRange = {
@@ -110,6 +108,11 @@
 
 	function handleTrackSelect(trackId: string) {
 		selectedTrackId = trackId;
+		// Jump to track start time when selected from list
+		const track = tracks.find((t) => t.track_id === trackId);
+		if (track) {
+			selectedTime = new Date(track.first_seen).getTime();
+		}
 	}
 
 	onMount(() => {
@@ -188,7 +191,7 @@
 
 			<!-- Track List Sidebar -->
 			<div class="border-surface-content/20 bg-surface-100 w-80 overflow-hidden border-l">
-				<TrackList tracks={visibleTracks} {selectedTrackId} onTrackSelect={handleTrackSelect} />
+				<TrackList {tracks} {selectedTrackId} onTrackSelect={handleTrackSelect} />
 			</div>
 		</div>
 	</div>

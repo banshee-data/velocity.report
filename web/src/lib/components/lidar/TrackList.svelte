@@ -113,8 +113,8 @@
 	</div>
 
 	<!-- Track List -->
-	<div class="flex-1 overflow-y-auto">
-		{#each filteredTracks as track}
+	<div class="min-h-0 flex-1 overflow-y-auto">
+		{#each filteredTracks as track (track.track_id)}
 			{@const isSelected = track.track_id === selectedTrackId}
 			{@const color =
 				track.object_class && track.object_class in TRACK_COLORS
@@ -123,8 +123,8 @@
 
 			<button
 				on:click={() => onTrackSelect(track.track_id)}
-				class="w-full border-b border-gray-100 px-4 py-3 text-left transition-colors hover:bg-gray-50 {isSelected
-					? 'border-l-4 border-l-blue-500 bg-blue-50'
+				class="border-surface-content/10 hover:bg-surface-200 w-full border-b px-4 py-3 text-left transition-colors {isSelected
+					? 'border-l-primary bg-primary/10 border-l-4'
 					: ''}"
 			>
 				<div class="flex items-start gap-3">
@@ -136,7 +136,7 @@
 					<!-- Content -->
 					<div class="min-w-0 flex-1">
 						<!-- Track ID -->
-						<div class="truncate font-mono text-sm font-medium text-gray-900">
+						<div class="text-surface-content truncate font-mono text-sm font-medium">
 							{track.track_id}
 						</div>
 
@@ -145,7 +145,7 @@
 							<div class="mt-1 flex items-center gap-2">
 								<span class="inline-block h-3 w-3 rounded-full" style="background-color: {color}"
 								></span>
-								<span class="text-xs text-gray-600 capitalize">
+								<span class="text-surface-content/70 text-xs capitalize">
 									{track.object_class}
 									{#if track.object_confidence}
 										({(track.object_confidence * 100).toFixed(0)}%)
@@ -155,7 +155,7 @@
 						{/if}
 
 						<!-- Stats -->
-						<div class="mt-2 space-y-1 text-xs text-gray-600">
+						<div class="text-surface-content/60 mt-2 space-y-1 text-xs">
 							<div class="flex justify-between">
 								<span>Speed:</span>
 								<span class="font-medium">{track.avg_speed_mps.toFixed(1)} m/s</span>
@@ -186,7 +186,7 @@
 		{/each}
 
 		{#if filteredTracks.length === 0}
-			<div class="px-4 py-8 text-center text-sm text-gray-500">No tracks found</div>
+			<div class="text-surface-content/50 px-4 py-8 text-center text-sm">No tracks found</div>
 		{/if}
 	</div>
 </div>
