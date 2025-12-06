@@ -1,13 +1,12 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import type { Track, TrackObservation } from '$lib/types/lidar';
+	import type { Track } from '$lib/types/lidar';
 	import { TRACK_COLORS } from '$lib/types/lidar';
 	import { scaleTime } from 'd3-scale';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
 
 	export let tracks: Track[] = [];
-	export let observations: Record<string, TrackObservation[]> = {};
 	export let currentTime: number;
 	export let timeRange: { start: number; end: number } | null = null;
 	export let isPlaying: boolean = false;
@@ -200,6 +199,9 @@
 
 					<g
 						on:click={() => handleTrackClick(track.track_id)}
+						on:keydown={(e) => e.key === 'Enter' && handleTrackClick(track.track_id)}
+						role="button"
+						tabindex="0"
 						class="cursor-pointer hover:opacity-80"
 					>
 						<!-- Track label -->
@@ -244,6 +246,9 @@
 					<g
 						transform={`translate(${scrubberX}, 0)`}
 						on:mousedown={handleScrubberMouseDown}
+						role="slider"
+						tabindex="0"
+						aria-valuenow={currentTime}
 						class="cursor-ew-resize"
 					>
 						<line y1={-10} y2={height} stroke="#ef4444" stroke-width="2" />

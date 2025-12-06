@@ -172,7 +172,6 @@
 			<div class="bg-white flex-1">
 				<TimelinePane
 					{tracks}
-					{observations}
 					currentTime={selectedTime}
 					{timeRange}
 					{isPlaying}

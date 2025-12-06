@@ -392,7 +392,7 @@
 		on:mouseup={handleMouseUp}
 		on:contextmenu={handleContextMenu}
 		class="cursor-move"
-	/>
+	></canvas>
 
 	<!-- Controls overlay -->
 	<div class="top-4 right-4 bg-black bg-opacity-75 text-white p-3 rounded text-sm absolute">

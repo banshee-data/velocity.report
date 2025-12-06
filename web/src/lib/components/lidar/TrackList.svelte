@@ -63,8 +63,9 @@
 	<div class="border-gray-200 px-4 py-3 space-y-3 border-b">
 		<!-- Class Filter -->
 		<div>
-			<label class="text-xs font-medium text-gray-700 mb-1 block">Class</label>
+			<label for="class-filter" class="text-xs font-medium text-gray-700 mb-1 block">Class</label>
 			<select
+				id="class-filter"
 				bind:value={classFilter}
 				class="text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 w-full"
 			>
@@ -78,8 +79,9 @@
 
 		<!-- State Filter -->
 		<div>
-			<label class="text-xs font-medium text-gray-700 mb-1 block">State</label>
+			<label for="state-filter" class="text-xs font-medium text-gray-700 mb-1 block">State</label>
 			<select
+				id="state-filter"
 				bind:value={stateFilter}
 				class="text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 w-full"
 			>
@@ -91,8 +93,9 @@
 
 		<!-- Sort By -->
 		<div>
-			<label class="text-xs font-medium text-gray-700 mb-1 block">Sort By</label>
+			<label for="sort-by" class="text-xs font-medium text-gray-700 mb-1 block">Sort By</label>
 			<select
+				id="sort-by"
 				bind:value={sortBy}
 				class="text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 w-full"
 			>
@@ -134,7 +137,8 @@
 						<!-- Classification -->
 						{#if track.object_class}
 							<div class="gap-2 mt-1 flex items-center">
-								<span class="w-3 h-3 inline-block rounded-full" style="background-color: {color}" />
+								<span class="w-3 h-3 inline-block rounded-full" style="background-color: {color}"
+								></span>
 								<span class="text-xs text-gray-600 capitalize">
 									{track.object_class}
 									{#if track.object_confidence}
