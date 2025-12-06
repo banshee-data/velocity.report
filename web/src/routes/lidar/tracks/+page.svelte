@@ -6,6 +6,8 @@
 	import TrackList from '$lib/components/lidar/TrackList.svelte';
 	import type { BackgroundGrid, Track, TrackObservation } from '$lib/types/lidar';
 	import { onDestroy, onMount } from 'svelte';
+	import { Header } from 'svelte-ux';
+
 	import { SelectField, ToggleGroup, ToggleOption } from 'svelte-ux';
 
 	// State
@@ -124,15 +126,15 @@
 	});
 </script>
 
-<div class="bg-gray-50 flex h-screen flex-col">
+<main id="main-content" class="bg-gray-50 flex h-full flex-col">
 	<!-- Header -->
 	<div class="bg-white border-gray-200 px-6 py-4 border-b">
 		<div class="flex items-center justify-between">
 			<div>
-				<h1 class="text-2xl font-semibold text-gray-900">LiDAR Track Visualization</h1>
-				<p class="text-sm text-gray-600 mt-1">
-					Sensor: {sensorId} • {visibleTracks.length} tracks visible
-				</p>
+				<Header
+					title="LiDAR Track Visualization"
+					subheading="Sensor: {sensorId} • {visibleTracks.length} tracks visible"
+				/>
 			</div>
 
 			<div class="gap-4 flex items-center">
@@ -190,12 +192,4 @@
 			</div>
 		</div>
 	</div>
-</div>
-
-<style>
-	:global(body) {
-		margin: 0;
-		padding: 0;
-		overflow: hidden;
-	}
-</style>
+</main>
