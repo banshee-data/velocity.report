@@ -45,10 +45,11 @@
 	}
 
 	// Format duration
+	const SECONDS_PER_MINUTE = 60;
 	function formatDuration(seconds: number): string {
-		if (seconds < 60) return `${seconds.toFixed(0)}s`;
-		const minutes = Math.floor(seconds / 60);
-		const secs = seconds % 60;
+		if (seconds < SECONDS_PER_MINUTE) return `${seconds.toFixed(0)}s`;
+		const minutes = Math.floor(seconds / SECONDS_PER_MINUTE);
+		const secs = seconds % SECONDS_PER_MINUTE;
 		return `${minutes}m ${secs.toFixed(0)}s`;
 	}
 </script>

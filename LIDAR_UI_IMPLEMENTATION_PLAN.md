@@ -361,6 +361,12 @@ func (api *TrackAPI) handleTrackSSE(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Cache-Control", "no-cache")
     w.Header().Set("Connection", "keep-alive")
     
+    flusher, ok := w.(http.Flusher)
+    if !ok {
+        http.Error(w, "Streaming not supported", http.StatusInternalServerError)
+        return
+    }
+    
     ticker := time.NewTicker(100 * time.Millisecond)  // 10Hz
     defer ticker.Stop()
     
@@ -370,7 +376,11 @@ func (api *TrackAPI) handleTrackSSE(w http.ResponseWriter, r *http.Request) {
             return
         case <-ticker.C:
             tracks := api.tracker.GetActiveTracks()
-            data, _ := json.Marshal(tracks)
+            data, err := json.Marshal(tracks)
+            if err != nil {
+                // Log error or send error event to client
+                continue
+            }
             fmt.Fprintf(w, "data: %s\n\n", data)
             flusher.Flush()
         }
@@ -449,9 +459,34 @@ Content-Type: text/event-stream
 
 1. **Circular Buffer for Track History**
 ```typescript
+// Minimal CircularBuffer implementation for TrackObservation
+class CircularBuffer<T extends { timestamp: number }> {
+  private data: T[] = [];
+  private maxSize: number;
+
+  constructor(maxSize: number) {
+    this.maxSize = maxSize;
+  }
+
+  push(item: T) {
+    if (this.data.length >= this.maxSize) {
+      this.data.shift();
+    }
+    this.data.push(item);
+  }
+
+  // Returns true if the most recent observation is older than the given threshold (ms)
+  isOld(thresholdMs: number): boolean {
+    if (this.data.length === 0) return false;
+    const now = Date.now();
+    const last = this.data[this.data.length - 1];
+    return now - last.timestamp > thresholdMs;
+  }
+}
+
 class TrackHistoryBuffer {
   private maxSize = 1000;  // Keep last 1000 observations per track
-  private buffer: Map<string, CircularBuffer<TrackObservation>>;
+  private buffer: Map<string, CircularBuffer<TrackObservation>> = new Map();
   
   add(trackId: string, observation: TrackObservation) {
     if (!this.buffer.has(trackId)) {
@@ -490,7 +525,13 @@ function cleanupDeletedTracks(tracks: Map<string, Track>) {
 ```typescript
 // Reuse canvas objects, avoid creating new objects per frame
 class TrackRenderer {
+  private ctx: CanvasRenderingContext2D;
   private cachedPaths = new Map<string, Path2D>();
+  private trackVersions = new Map<string, number>();
+  
+  constructor(ctx: CanvasRenderingContext2D) {
+    this.ctx = ctx;
+  }
   
   render(tracks: Track[]) {
     for (const track of tracks) {
@@ -502,6 +543,28 @@ class TrackRenderer {
       }
       this.ctx.stroke(path);
     }
+  }
+  
+  // Check if track has changed since last render
+  private needsUpdate(track: Track): boolean {
+    const lastVersion = this.trackVersions.get(track.track_id) || 0;
+    const currentVersion = this.getTrackVersion(track);
+    return currentVersion !== lastVersion;
+  }
+  
+  // Generate version number based on track properties
+  private getTrackVersion(track: Track): number {
+    // Simple hash of position and bounding box
+    return track.position.x + track.position.y * 1000 + 
+           track.bounding_box.length_avg * 100000;
+  }
+  
+  // Create Path2D for track bounding box
+  private createBoundingBoxPath(track: Track): Path2D {
+    const path = new Path2D();
+    const { length_avg, width_avg } = track.bounding_box;
+    path.rect(-length_avg / 2, -width_avg / 2, length_avg, width_avg);
+    return path;
   }
 }
 ```
@@ -533,12 +596,15 @@ class TrackRenderer {
 
 2. Performance Monitoring
 ```typescript
+// NOTE: performance.memory is non-standard and only available in Chrome/Chromium
+// browsers with specific flags enabled. This will not work in Firefox, Safari, etc.
 if (import.meta.env.DEV) {
   setInterval(() => {
     if (performance.memory) {
       console.log({
         usedJSHeapSize: performance.memory.usedJSHeapSize,
-        totalJSHeapSize: performance.memory.totalJSHeapSize
+        totalJSHeapSize: performance.memory.totalJSHeapSize,
+        jsHeapSizeLimit: performance.memory.jsHeapSizeLimit
       });
     }
   }, 10000);

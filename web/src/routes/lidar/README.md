@@ -193,4 +193,4 @@ npm run build      # Production build
 
 - [LIDAR_UI_IMPLEMENTATION_PLAN.md](../../LIDAR_UI_IMPLEMENTATION_PLAN.md) - Full implementation plan
 - [internal/lidar/docs/](../../internal/lidar/docs/) - Backend documentation
-- [Architecture.md](../../ARCHITECTURE.md) - System architecture
+- [ARCHITECTURE.md](../../ARCHITECTURE.md) - System architecture

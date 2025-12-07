@@ -4,6 +4,15 @@
 	import { TRACK_COLORS } from '$lib/types/lidar';
 	import { onDestroy, onMount } from 'svelte';
 
+	// Rendering constants
+	const GRID_SAMPLE_RATE = 10; // Sample every 10th cell for performance
+	const AZIMUTH_SAMPLE_DIVISOR = 2;
+	const RANGE_SPREAD_THRESHOLD = 2.0; // meters - threshold for background stability
+	const MIN_VELOCITY_FOR_ARROW = 0.5; // m/s - only draw velocity arrows for significant movement
+	const TRACK_SELECTION_RADIUS = 2.0; // meters - click tolerance for track selection
+	const MAX_TRACKS_FOR_LABELS = 20; // Show all labels when track count is below this
+	const GRID_CIRCLE_INTERVAL = 10; // meters - spacing between grid circles
+
 	export let tracks: Track[] = [];
 	export let selectedTrackId: string | null = null;
 	export let backgroundGrid: BackgroundGrid | null = null;
@@ -14,16 +23,29 @@
 	let containerWidth = 800;
 	let containerHeight = 600;
 
-	// View state
+	/**
+	 * View state and coordinate system:
+	 * - The visualization uses a "world coordinate" system where units are meters, with (0,0) as the origin.
+	 * - `scale` defines the zoom level: number of pixels per meter in world coordinates.
+	 * - `offsetX` and `offsetY` represent the camera's position in world coordinates (meters).
+	 *   The view is centered at (offsetX, offsetY) in world space.
+	 * - When rendering, world coordinates are transformed to screen coordinates:
+	 *     screenX = containerWidth / 2 + (worldX - offsetX) * scale
+	 *     screenY = containerHeight / 2 - (worldY - offsetY) * scale
+	 *   (Y axis is flipped so that positive Y is upwards on screen.)
+	 * - Panning changes offsetX/offsetY; zooming changes scale.
+	 * - This convention allows for intuitive panning and zooming of the map.
+	 */
 	let scale = 10; // pixels per meter
-	let offsetX = 0; // world coordinates offset
-	let offsetY = 0;
+	let offsetX = 0; // world coordinates offset (camera position X)
+	let offsetY = 0; // world coordinates offset (camera position Y)
 	let isPanning = false;
 	let lastMouseX = 0;
 	let lastMouseY = 0;
 
 	// Animation frame
 	let animationFrame: number | null = null;
+	let isDirty = true; // Track if re-render is needed
 
 	// Offscreen canvas for background caching
 	let bgCanvas: HTMLCanvasElement | null = null;
@@ -43,25 +65,14 @@
 		bgDataVersion++;
 	}
 
-	// Debug tracks prop changes
-	let lastTrackCount = -1;
-	$: if (tracks.length !== lastTrackCount) {
-		console.log('[MapPane] Tracks changed:', tracks.length);
-		if (tracks.length > 0) {
-			console.log('[MapPane] First track:', tracks[0]);
-			console.log('[MapPane] View:', { scale, offsetX, offsetY, containerWidth, containerHeight });
-		}
-		lastTrackCount = tracks.length;
+	// Mark as dirty when props change
+	$: if (tracks || selectedTrackId || backgroundGrid) {
+		markDirty();
 	}
 
-	// Re-render when props change
-	$: {
-		void tracks;
-		void selectedTrackId;
-		void backgroundGrid;
-		if (browser && ctx) {
-			requestAnimationFrame(render);
-		}
+	// Mark view as needing re-render
+	function markDirty() {
+		isDirty = true;
 	}
 
 	// Initialize canvas
@@ -193,7 +204,7 @@
 				// Skip if out of bounds (culling)
 				if (screenX < -5 || screenX > _cw + 5 || screenY < -5 || screenY > _ch + 5) continue;
 
-				const stability = Math.max(0, 1 - cell.range_spread_meters / 2);
+				const stability = Math.max(0, 1 - cell.range_spread_meters / RANGE_SPREAD_THRESHOLD);
 				bgCtx.fillStyle = `rgba(100, 150, 255, ${stability * 0.5})`;
 				bgCtx.fillRect(screenX - 1.5, screenY - 1.5, 3, 3);
 			}
@@ -223,8 +234,8 @@
 		ctx.strokeStyle = '#333';
 		ctx.lineWidth = 1;
 
-		// Draw concentric circles (every 10 meters)
-		for (let r = 10; r <= 50; r += 10) {
+		// Draw concentric circles (every GRID_CIRCLE_INTERVAL meters)
+		for (let r = GRID_CIRCLE_INTERVAL; r <= 50; r += GRID_CIRCLE_INTERVAL) {
 			ctx.beginPath();
 			ctx.arc(containerWidth / 2, containerHeight / 2, r * scale, 0, Math.PI * 2);
 			ctx.stroke();
@@ -316,7 +327,7 @@
 
 		// Draw velocity vector
 		const velLength = Math.sqrt(track.velocity.vx ** 2 + track.velocity.vy ** 2);
-		if (velLength > 0.5) {
+		if (velLength > MIN_VELOCITY_FOR_ARROW) {
 			// Only draw if moving significantly
 			ctx.strokeStyle = color;
 			ctx.lineWidth = 2;
@@ -345,7 +356,7 @@
 		}
 
 		// Draw track ID label
-		if (isSelected || tracks.length < 20) {
+		if (isSelected || tracks.length < MAX_TRACKS_FOR_LABELS) {
 			ctx.fillStyle = color;
 			ctx.font = '12px monospace';
 			ctx.fillText(`${track.track_id}`, screenX + 10, screenY - 10);
@@ -395,7 +406,7 @@
 			scale /= zoomFactor;
 		}
 		scale = Math.max(1, Math.min(100, scale)); // Clamp between 1 and 100
-		render();
+		markDirty();
 	}
 
 	function handleMouseDown(e: MouseEvent) {
@@ -412,8 +423,8 @@
 				const dy = track.position.y - worldY;
 				const dist = Math.sqrt(dx * dx + dy * dy);
 
-				if (dist < 2 && dist < closestDist) {
-					// Within 2 meters
+				if (dist < TRACK_SELECTION_RADIUS && dist < closestDist) {
+					// Within selection radius
 					closestTrack = track;
 					closestDist = dist;
 				}
@@ -438,7 +449,7 @@
 			offsetY += dy / scale; // Flip Y
 			lastMouseX = e.clientX;
 			lastMouseY = e.clientY;
-			render();
+			markDirty();
 		}
 	}
 
@@ -451,23 +462,26 @@
 	}
 
 	// Resize handler
-	let resizeTimeout: number | null = null;
+	let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
 	function handleResize() {
 		if (!browser) return;
 		if (resizeTimeout !== null) {
 			clearTimeout(resizeTimeout);
 		}
-		resizeTimeout = window.setTimeout(() => {
+		resizeTimeout = setTimeout(() => {
 			updateCanvasSize();
-			render();
+			markDirty();
 		}, 100);
 	}
 
-	// Animation loop
+	// Animation loop with dirty flag optimization
 	function startAnimation() {
 		if (!browser) return;
 		function animate() {
-			render();
+			if (isDirty) {
+				render();
+				isDirty = false;
+			}
 			animationFrame = requestAnimationFrame(animate);
 		}
 		animate();
@@ -493,6 +507,10 @@
 		if (!browser) return;
 		window.removeEventListener('resize', handleResize);
 		stopAnimation();
+		if (resizeTimeout !== null) {
+			clearTimeout(resizeTimeout);
+			resizeTimeout = null;
+		}
 	});
 </script>
 

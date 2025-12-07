@@ -1,4 +1,13 @@
 <script lang="ts">
+	/**
+	 * LiDAR Track Visualization - Main Page
+	 *
+	 * Two-pane layout for visualizing LiDAR tracking data:
+	 * - Top pane (60%): Canvas-based map with background grid overlay
+	 * - Bottom pane (40%): SVG timeline with playback controls
+	 *
+	 * Supports both historical playback (24-hour window) and live streaming (Phase 3).
+	 */
 	import { browser } from '$app/environment';
 	import { getBackgroundGrid, getTrackHistory } from '$lib/api';
 	import MapPane from '$lib/components/lidar/MapPane.svelte';
@@ -7,6 +16,10 @@
 	import type { BackgroundGrid, Track } from '$lib/types/lidar';
 	import { onDestroy, onMount } from 'svelte';
 	import { SelectField, ToggleGroup, ToggleOption } from 'svelte-ux';
+
+	// Playback constants
+	const PLAYBACK_UPDATE_INTERVAL_MS = 100; // Update playback position every 100ms
+	const PLAYBACK_UPDATE_FREQUENCY_HZ = 10; // 10Hz
 
 	// State
 	let sensorId = 'hesai-pandar40p';
@@ -145,10 +158,10 @@
 		isPlaying = true;
 		let tickCount = 0;
 		playbackInterval = window.setInterval(() => {
-			selectedTime += 100 * playbackSpeed; // Advance by 100ms * speed
+			selectedTime += PLAYBACK_UPDATE_INTERVAL_MS * playbackSpeed; // Advance by interval * speed
 
 			// Log every 10 ticks (1 second)
-			if (++tickCount % 10 === 0) {
+			if (++tickCount % PLAYBACK_UPDATE_FREQUENCY_HZ === 0) {
 				console.log(
 					'[Playback] Time:',
 					new Date(selectedTime).toISOString(),
@@ -163,7 +176,7 @@
 				selectedTime = timeRange!.start;
 				tickCount = 0;
 			}
-		}, 100); // Update at 10Hz
+		}, PLAYBACK_UPDATE_INTERVAL_MS); // Update at configured frequency
 	}
 
 	function handlePause() {

@@ -22,10 +22,12 @@
 	let containerHeight = 300;
 	let isDragging = false;
 
-	// Constants
+	// Layout constants
 	const MARGIN = { top: 40, right: 20, bottom: 40, left: 100 };
 	const TRACK_HEIGHT = 20;
 	const TRACK_SPACING = 5;
+	const TIME_AXIS_TICKS = 10;
+	const SCRUBBER_HANDLE_RADIUS = 6;
 
 	// Computed values
 	$: width = containerWidth - MARGIN.left - MARGIN.right;
@@ -40,6 +42,9 @@
 				.domain([new Date(timeRange.start), new Date(timeRange.end)])
 				.range([0, width])
 		: null;
+
+	// Memoize time ticks to avoid recalculation
+	$: timeTicks = timeScale ? timeScale.ticks(TIME_AXIS_TICKS) : [];
 
 	// Visible tracks (sorted by start time)
 	$: sortedTracks = [...tracks].sort(
@@ -216,7 +221,7 @@
 					/>
 
 					<!-- Time ticks -->
-					{#each timeScale.ticks(10) as tick (tick.getTime())}
+					{#each timeTicks as tick (tick.getTime())}
 						{@const x = timeScale(tick)}
 						<g transform={`translate(${x}, 0)`}>
 							<line y1={0} y2={5} class="stroke-surface-content/40" stroke-width="1" />
@@ -291,7 +296,13 @@
 						class="cursor-ew-resize"
 					>
 						<line y1={-10} y2={height} stroke="#ef4444" stroke-width="2" />
-						<circle cy={-10} r={6} fill="#ef4444" stroke="white" stroke-width="2" />
+						<circle
+							cy={-10}
+							r={SCRUBBER_HANDLE_RADIUS}
+							fill="#ef4444"
+							stroke="white"
+							stroke-width="2"
+						/>
 					</g>
 				{/if}
 			</g>
