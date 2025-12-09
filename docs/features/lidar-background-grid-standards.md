@@ -30,6 +30,7 @@
 2. **Add an export shim** that converts the grid to a standard container for tooling, without changing the core model:
    - For visualization: emit **VTK `vtkImageData` or `vtkStructuredGrid`** (cell fields: mean range, spread, times seen, frozen-until) and optionally **PCD** with per-cell attributes for LidarView/ParaView inspection.
    - For robotics/SLAM interop: optionally downsample to **2.5D occupancy grid** (occupied if cell deviates from background) for ROS users; treat as offline/analysis path so it doesn’t affect hot loop.
+   - **Update `exportFrameToASC` workflow** to optionally emit LidarView-friendly exports alongside ASC for debugging/introspection (no change to runtime grid storage).
 3. **Defer full TSDF/OctoMap adoption** until we pursue multi-sensor fusion; revisit when pose graphs and world-frame transforms are available.
 
 This keeps our background pipeline stable while enabling standards-based exports for external tools and future fusion work.
