@@ -1163,7 +1163,7 @@ describe('api', () => {
 							state: 'confirmed',
 							position: { x: 20.0, y: 10.0, z: 0.7 },
 							velocity: { vx: 1.5, vy: 0.8 },
-							speed_mps: 1.70,
+							speed_mps: 1.7,
 							heading_rad: 0.49,
 							object_class: 'car',
 							object_confidence: 0.92,
@@ -1187,7 +1187,7 @@ describe('api', () => {
 								timestamp: '2025-12-09T09:00:00Z',
 								position: { x: 20.0, y: 10.0, z: 0.7 },
 								velocity: { vx: 1.5, vy: 0.8 },
-								speed_mps: 1.70,
+								speed_mps: 1.7,
 								heading_rad: 0.49,
 								bounding_box: {
 									length: 4.5,
@@ -1303,7 +1303,7 @@ describe('api', () => {
 						{
 							x: 12.0,
 							y: 6.0,
-							range_spread_meters: 0.20,
+							range_spread_meters: 0.2,
 							times_seen: 95
 						}
 					]
