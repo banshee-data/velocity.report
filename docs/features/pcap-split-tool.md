@@ -213,9 +213,10 @@ err := network.ReadPCAPFile(ctx, inputFile, 2369, parser, analyzer, stats)
 **Location**: `internal/lidar/pcapsplit/analyzer.go` (new package)
 
 **Responsibilities**:
-- Implements `network.FrameBuilder` interface
+- Implements `network.FrameBuilder` interface (including `SetMotorSpeed()`)
 - Processes frames through `BackgroundManager`
 - Tracks settling metrics per frame
+- Tracks motor speed from packet stream for dynamic frame rate calculation
 - Detects motion/static transitions
 - Emits segment boundary events
 
@@ -256,6 +257,11 @@ type FrameMetrics struct {
    │         └─────────────────────────────────┘       │
    │                                                    │
    └────────────────────────────────────────────────────┘
+
+Notes:
+- Transition to Static requires 60s (configurable) of sustained stability
+- Transition to Motion requires 5s of sustained motion
+- MaxMotionGapSec bridges short stable periods within motion segments
 ```
 
 **State Transition Logic**:
@@ -283,6 +289,14 @@ func (a *SettlingAnalyzer) classifyFrame(metrics FrameMetrics) State {
         a.stableFrameCount = 0
     }
     
+    // Compute frame rate from motor speed (RPM to Hz)
+    // Motor speed comes from parser.GetLastMotorSpeed() (see internal/lidar/parse/extract.go)
+    // Typical values: 600-1200 RPM → 10-20 Hz frame rate
+    frameRate := float64(a.lastMotorSpeed) / 60.0
+    if frameRate < 5.0 {
+        frameRate = 10.0 // Use default if motor speed unavailable/unrealistic
+    }
+    
     // Require sustained stability before declaring static
     stableThresholdFrames := int(a.config.SettlingDurationSec * frameRate)
     if a.stableFrameCount >= stableThresholdFrames {
@@ -293,6 +307,16 @@ func (a *SettlingAnalyzer) classifyFrame(metrics FrameMetrics) State {
     motionThresholdFrames := int(5.0 * frameRate) // 5 seconds
     if a.motionFrameCount >= motionThresholdFrames {
         return StateMotion
+    }
+    
+    // MaxMotionGapSec: Bridge short stable periods (e.g., intersection waits)
+    // If stable duration < MaxMotionGapSec AND we were in motion, stay in motion
+    if a.currentState == StateMotion && isCurrentlyStable {
+        stableDurationSec := float64(a.stableFrameCount) / frameRate
+        if stableDurationSec < a.config.MaxMotionGapSec {
+            // Bridge this gap - don't transition to static yet
+            return StateMotion
+        }
     }
     
     // Maintain previous state during ambiguous periods
@@ -332,6 +356,17 @@ type Segment struct {
 }
 
 func (w *SegmentWriter) OnStateChange(newState State, timestamp time.Time) error {
+    // Check if current segment meets minimum duration requirement
+    if w.currentSegment != nil {
+        duration := timestamp.Sub(w.currentSegment.StartTime).Seconds()
+        if duration < w.config.MinSegmentSec {
+            // Segment too short - merge with previous by not flushing
+            // Just update the segment type to match new state
+            w.currentSegment.Type = stateToSegmentType(newState)
+            return nil
+        }
+    }
+    
     // Flush current segment
     if err := w.flushCurrentSegment(); err != nil {
         return err
@@ -540,7 +575,8 @@ func (bm *BackgroundManager) GetAcceptanceMetrics() *AcceptanceMetrics
 
 ```go
 // GetFrameSettlingMetrics returns detailed settling metrics for the most recent frame
-func (bm *BackgroundManager) GetFrameSettlingMetrics() *FrameSettlingMetrics {
+// settledThreshold: minimum TimesSeenCount to consider a cell "settled" (typically 50)
+func (bm *BackgroundManager) GetFrameSettlingMetrics(settledThreshold uint32) *FrameSettlingMetrics {
     g := bm.Grid
     g.mu.RLock()
     defer g.mu.RUnlock()
@@ -549,8 +585,6 @@ func (bm *BackgroundManager) GetFrameSettlingMetrics() *FrameSettlingMetrics {
     settledCount := 0
     frozenCount := 0
     nowNanos := time.Now().UnixNano()
-    
-    settledThreshold := uint32(50) // Configurable
     
     for _, cell := range g.Cells {
         if cell.TimesSeenCount > 0 {
@@ -678,7 +712,6 @@ type State int
 const (
     StateInitial State = iota
     StateMotion
-    StateSettling // Transitioning to static
     StateStatic
 )
 
@@ -740,7 +773,7 @@ func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time
     }
     
     // 3. Get settling metrics
-    metrics := a.bgManager.GetFrameSettlingMetrics()
+    metrics := a.bgManager.GetFrameSettlingMetrics(a.config.SettledCellThreshold)
     deviation := a.bgManager.GetNoiseBoundsDeviation()
     withinBounds := a.bgManager.IsWithinNoiseBounds(2.0)
     
@@ -903,9 +936,9 @@ func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time
 - Add to build system (Makefile targets)
 
 **1.2 Background Manager API Extensions**
-- Implement `GetFrameSettlingMetrics()`
+- Implement `GetFrameSettlingMetrics(settledThreshold uint32)`
 - Implement `GetNoiseBoundsDeviation()`
-- Implement `IsWithinNoiseBounds()`
+- Implement `IsWithinNoiseBounds(threshold float64)`
 - Add unit tests for new methods
 
 **1.3 Basic State Machine**
@@ -1028,7 +1061,7 @@ func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time
 ## Related Documentation
 
 - [PCAP Analysis Mode](pcap-analysis-mode.md) - Web UI analysis workflow
-- [Background Subtraction](background-subtraction.md) - Settling algorithm details
+- Background Subtraction (see [`internal/lidar/background.go`](../../internal/lidar/background.go)) - Settling algorithm details
 - [LIDAR Tracking Integration](lidar-tracking-integration.md) - Object detection pipeline
 - [Architecture](../../ARCHITECTURE.md) - System overview
 
