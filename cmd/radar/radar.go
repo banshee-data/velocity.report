@@ -382,10 +382,8 @@ func main() {
 						backgroundPolar = downsampled
 					}
 
-					foregroundWorld := lidar.TransformToWorld(foregroundPoints, nil, *lidarSensor)
-					backgroundWorld := lidar.TransformToWorld(backgroundPolar, nil, *lidarSensor)
-					// Cache the latest foreground frame for debug visualization (includes downsampled background overlay)
-					lidar.StoreForegroundSnapshot(*lidarSensor, frame.StartTimestamp, foregroundWorld, backgroundWorld, totalPoints, len(foregroundPoints))
+					// Cache sensor-frame projections for debug visualization (aligns with polar background chart)
+					lidar.StoreForegroundSnapshot(*lidarSensor, frame.StartTimestamp, foregroundPoints, backgroundPolar, totalPoints, len(foregroundPoints))
 
 					if len(foregroundPoints) == 0 {
 						// No foreground detected, skip tracking
@@ -396,7 +394,7 @@ func main() {
 					lidar.Debugf("[Tracking] Extracted %d foreground points from %d total", len(foregroundPoints), len(polar))
 
 					// Phase 2: Transform to world coordinates
-					worldPoints := foregroundWorld
+					worldPoints := lidar.TransformToWorld(foregroundPoints, nil, *lidarSensor)
 
 					// Phase 3: Clustering
 					clusters := lidar.DBSCAN(worldPoints, lidar.DefaultDBSCANParams())
