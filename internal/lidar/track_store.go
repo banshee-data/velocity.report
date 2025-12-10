@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"strings"
 )
 
 // TrackStore defines the interface for track persistence operations.
@@ -14,6 +15,7 @@ type TrackStore interface {
 	InsertTrackObservation(obs *TrackObservation) error
 	GetTrack(trackID string) (*TrackedObject, error)
 	GetActiveTracks(sensorID string, state string) ([]*TrackedObject, error)
+	GetTracksInRange(sensorID string, state string, startNanos, endNanos int64, limit int) ([]*TrackedObject, error)
 	GetTrackObservations(trackID string, limit int) ([]*TrackObservation, error)
 	GetRecentClusters(sensorID string, startNanos, endNanos int64, limit int) ([]*WorldCluster, error)
 }
@@ -313,6 +315,122 @@ func GetActiveTracks(db *sql.DB, sensorID string, state string) ([]*TrackedObjec
 		track.History = make([]TrackPoint, len(obs))
 		for i, o := range obs {
 			// Store in reverse order (oldest first) for chronological history
+			idx := len(obs) - 1 - i
+			track.History[idx] = TrackPoint{
+				X:         o.X,
+				Y:         o.Y,
+				Timestamp: o.TSUnixNanos,
+			}
+		}
+	}
+
+	return tracks, nil
+}
+
+// GetTracksInRange retrieves tracks whose lifespan overlaps the given time window (nanoseconds).
+// A track is included if its start is on/before endNanos and its end (or start when end is NULL) is on/after startNanos.
+// Deleted tracks are excluded by default unless state explicitly requests them.
+func GetTracksInRange(db *sql.DB, sensorID string, state string, startNanos, endNanos int64, limit int) ([]*TrackedObject, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+
+	var query strings.Builder
+	var args []interface{}
+
+	query.WriteString(`
+		SELECT track_id, sensor_id, track_state,
+			start_unix_nanos, end_unix_nanos, observation_count,
+			avg_speed_mps, peak_speed_mps,
+			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
+			height_p95_max, intensity_mean_avg,
+			object_class, object_confidence, classification_model
+		FROM lidar_tracks
+		WHERE sensor_id = ?
+	`)
+	args = append(args, sensorID)
+
+	if state != "" {
+		query.WriteString(" AND track_state = ?")
+		args = append(args, state)
+	} else {
+		query.WriteString(" AND track_state != 'deleted'")
+	}
+
+	query.WriteString(`
+		AND start_unix_nanos <= ?
+		AND COALESCE(end_unix_nanos, start_unix_nanos) >= ?
+		ORDER BY start_unix_nanos ASC
+		LIMIT ?
+	`)
+	args = append(args, endNanos, startNanos, limit)
+
+	rows, err := db.Query(query.String(), args...)
+	if err != nil {
+		return nil, fmt.Errorf("query tracks in range: %w", err)
+	}
+	defer rows.Close()
+
+	var tracks []*TrackedObject
+	for rows.Next() {
+		track := &TrackedObject{}
+		var stateStr string
+		var end sql.NullInt64
+		var objectClass sql.NullString
+		var objectConfidence sql.NullFloat64
+		var classificationModel sql.NullString
+
+		err := rows.Scan(
+			&track.TrackID,
+			&track.SensorID,
+			&stateStr,
+			&track.FirstUnixNanos,
+			&end,
+			&track.ObservationCount,
+			&track.AvgSpeedMps,
+			&track.PeakSpeedMps,
+			&track.BoundingBoxLengthAvg,
+			&track.BoundingBoxWidthAvg,
+			&track.BoundingBoxHeightAvg,
+			&track.HeightP95Max,
+			&track.IntensityMeanAvg,
+			&objectClass,
+			&objectConfidence,
+			&classificationModel,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("scan track: %w", err)
+		}
+
+		track.State = TrackState(stateStr)
+		if end.Valid {
+			track.LastUnixNanos = end.Int64
+		}
+		if objectClass.Valid {
+			track.ObjectClass = objectClass.String
+		}
+		if objectConfidence.Valid {
+			track.ObjectConfidence = float32(objectConfidence.Float64)
+		}
+		if classificationModel.Valid {
+			track.ClassificationModel = classificationModel.String
+		}
+
+		tracks = append(tracks, track)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate tracks: %w", err)
+	}
+
+	for _, track := range tracks {
+		obs, err := GetTrackObservations(db, track.TrackID, 1000)
+		if err != nil {
+			continue
+		}
+
+		track.History = make([]TrackPoint, len(obs))
+		for i, o := range obs {
 			idx := len(obs) - 1 - i
 			track.History[idx] = TrackPoint{
 				X:         o.X,
