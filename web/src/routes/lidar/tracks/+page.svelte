@@ -39,12 +39,9 @@
 	let selectedTrackId: string | null = null;
 	let observationsByTrack: Record<string, TrackObservation[]> = {};
 	let selectedTrackObservations: TrackObservation[] = [];
-	// Reserved for Phase 3 error handling UI - will be displayed in loading indicators
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	let _observationsLoading = false;
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	let _observationsError: string | null = null;
 	let observationsRequestId = 0;
+	// Note: observationsLoading and observationsError variables removed (Phase 2)
+	// They will be reintroduced in Phase 3 when error handling UI is implemented
 	let foregroundObservations: TrackObservation[] = [];
 	let foregroundLoading = false;
 	let foregroundError: string | null = null;
@@ -255,8 +252,6 @@
 		}
 
 		const requestId = ++observationsRequestId;
-		_observationsLoading = true;
-		_observationsError = null;
 
 		try {
 			if (!observationsByTrack[trackId]) {
@@ -269,13 +264,9 @@
 			}
 		} catch (error) {
 			if (requestId === observationsRequestId) {
-				_observationsError =
-					error instanceof Error ? error.message : 'Failed to load track observations';
+				// TODO Phase 3: Display error message to user
+				console.error('Failed to load track observations:', error);
 				selectedTrackObservations = [];
-			}
-		} finally {
-			if (requestId === observationsRequestId) {
-				_observationsLoading = false;
 			}
 		}
 	}
