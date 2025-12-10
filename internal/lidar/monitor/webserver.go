@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/api"
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidar/network"
@@ -156,7 +157,7 @@ func NewWebServer(config WebServerConfig) *WebServer {
 
 	ws.server = &http.Server{
 		Addr:    ws.address,
-		Handler: ws.setupRoutes(),
+		Handler: api.LoggingMiddleware(ws.setupRoutes()),
 	}
 
 	return ws
