@@ -84,6 +84,7 @@ help:
 	@echo "  set-version          Update version across codebase (VER=0.4.0 TARGETS='--all')"
 	@echo "  log-go-tail          Tail most recent Go server log"
 	@echo "  log-go-cat           Cat most recent Go server log"
+	@echo "  log-go-tail-all      Tail most recent Go server log plus debug log"
 	@echo ""
 	@echo "DATA VISUALIZATION:"
 	@echo "  plot-noise-sweep     Generate noise sweep line plot (FILE=data.csv)"
@@ -304,6 +305,7 @@ define run_dev_go
 	mkdir -p logs; \
 	ts=$$(date +%Y%m%d-%H%M%S); \
 	logfile=logs/velocity-$${ts}.log; \
+	debuglog=logs/velocity-debug-$${ts}.log; \
 	piddir=logs/pids; \
 	pidfile=$${piddir}/velocity-$${ts}.pid; \
 	DB_PATH=$${DB_PATH:-./sensor_data.db}; \
@@ -311,8 +313,8 @@ define run_dev_go
 	echo "Building velocity-report-local..."; \
 	go build -tags=pcap -o velocity-report-local ./cmd/radar; \
 	mkdir -p "$$piddir"; \
-	echo "Starting velocity-report-local (background) with DB=$$DB_PATH -> $$logfile"; \
-	nohup ./velocity-report-local --disable-radar $(1) --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
+	echo "Starting velocity-report-local (background) with DB=$$DB_PATH -> $$logfile (debug -> $$debuglog)"; \
+	VELOCITY_DEBUG_LOG="$$debuglog" nohup ./velocity-report-local --disable-radar $(1) --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
 	echo "Started; PID $$(cat $$pidfile)"; \
 	echo "Log: $$logfile"
 endef
@@ -664,7 +666,7 @@ deploy-health:
 # UTILITIES
 # =============================================================================
 
-.PHONY: set-version log-go-tail log-go-cat
+.PHONY: set-version log-go-tail log-go-cat log-go-tail-all
 
 set-version:
 	@if [ -z "$(VER)" ]; then \
@@ -699,6 +701,22 @@ log-go-cat:
 	@if [ -d logs ] && [ $$(ls -1 logs/velocity-*.log 2>/dev/null | wc -l) -gt 0 ]; then \
 		latest=$$(ls -1t logs/velocity-*.log 2>/dev/null | head -n1); \
 		cat "$$latest"; \
+	else \
+		echo "No logs found in logs/ (try: make dev-go)"; exit 1; \
+	fi
+
+log-go-tail-all:
+	@# Tail the most recent standard and debug velocity logs together (if present)
+	@if [ -d logs ] && [ $$(ls -1 logs/velocity-*.log 2>/dev/null | wc -l) -gt 0 ]; then \
+		main_log=$$(ls -1t logs/velocity-*.log 2>/dev/null | head -n1); \
+		debug_log=$$(ls -1t logs/velocity-debug-*.log 2>/dev/null | head -n1); \
+		if [ -n "$$debug_log" ] && [ -f "$$debug_log" ]; then \
+			echo "Tailing $$main_log and $$debug_log"; \
+			tail -F "$$main_log" "$$debug_log"; \
+		else \
+			echo "Tailing $$main_log (no debug log found yet)"; \
+			tail -F "$$main_log"; \
+		fi; \
 	else \
 		echo "No logs found in logs/ (try: make dev-go)"; exit 1; \
 	fi

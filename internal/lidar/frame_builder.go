@@ -245,7 +245,7 @@ func (fb *FrameBuilder) addPointsInternal(points []Point) {
 		// Check if we need to start a new frame based on azimuth wrap and/or time
 		if fb.shouldStartNewFrame(point.Azimuth, point.Timestamp) {
 			if fb.currentFrame != nil {
-				log.Printf("[FrameBuilder] Azimuth wrap detected: lastAz=%.2f currAz=%.2f, finalizing frame with %d points",
+				debugf("[FrameBuilder] Azimuth wrap detected: lastAz=%.2f currAz=%.2f, finalizing frame with %d points",
 					fb.lastAzimuth, point.Azimuth, fb.currentFrame.PointCount)
 			}
 			fb.finalizeCurrentFrame()
@@ -267,7 +267,7 @@ func (fb *FrameBuilder) addPointsInternal(points []Point) {
 		if fb.currentFrame != nil {
 			newCount = fb.currentFrame.PointCount
 		}
-		log.Printf("[FrameBuilder] Added %d points; frame_count was=%d now=%d; lastAzimuth=%.2f",
+		debugf("[FrameBuilder] Added %d points; frame_count was=%d now=%d; lastAzimuth=%.2f",
 			len(points), prevCount, newCount, fb.lastAzimuth)
 	}
 }
@@ -407,8 +407,8 @@ func (fb *FrameBuilder) finalizeCurrentFrame() {
 	}
 
 	if fb.currentFrame.PointCount < fb.minFramePoints {
-		// Discard incomplete frame; always log to help diagnose why frames aren't completing
-		log.Printf("[FrameBuilder] Discarding incomplete frame %s: points=%d, min_required=%d",
+		// Discard incomplete frame; log only in debug to reduce noise
+		debugf("[FrameBuilder] Discarding incomplete frame %s: points=%d, min_required=%d",
 			fb.currentFrame.FrameID, fb.currentFrame.PointCount, fb.minFramePoints)
 		fb.currentFrame = nil // Discard incomplete frame
 		return
@@ -424,7 +424,7 @@ func (fb *FrameBuilder) finalizeCurrentFrame() {
 	fb.frameBuffer[frame.FrameID] = frame
 
 	if fb.debug {
-		log.Printf("[FrameBuilder] Moved frame %s to buffer (points=%d); buffer_size=%d",
+		debugf("[FrameBuilder] Moved frame %s to buffer (points=%d); buffer_size=%d",
 			frame.FrameID, frame.PointCount, len(fb.frameBuffer))
 	}
 
@@ -447,7 +447,7 @@ func (fb *FrameBuilder) evictOldestBufferedFrame() {
 	}
 
 	if oldestFrame != nil {
-		log.Printf("[FrameBuilder] Evicting buffered frame: ID=%s, Points=%d, Sensor=%s", oldestFrame.FrameID, oldestFrame.PointCount, oldestFrame.SensorID)
+		debugf("[FrameBuilder] Evicting buffered frame: ID=%s, Points=%d, Sensor=%s", oldestFrame.FrameID, oldestFrame.PointCount, oldestFrame.SensorID)
 		// Remove from buffer and finalize so the callback is invoked.
 		delete(fb.frameBuffer, oldestID)
 		// Finalize the frame so the registered callback receives it.
@@ -501,7 +501,7 @@ func (fb *FrameBuilder) cleanupFrames() {
 	var frameIDsToFinalize []string
 
 	if fb.debug {
-		log.Printf("[FrameBuilder] cleanupFrames invoked: buffer_size=%d, now=%v", len(fb.frameBuffer), now)
+		debugf("[FrameBuilder] cleanupFrames invoked: buffer_size=%d, now=%v", len(fb.frameBuffer), now)
 	}
 
 	// Find frames that are old enough to finalize
@@ -527,7 +527,7 @@ func (fb *FrameBuilder) cleanupFrames() {
 		// the current frame when no recent points have arrived.
 		if age >= fb.bufferTimeout && fb.currentFrame.PointCount > 0 {
 			if fb.debug {
-				log.Printf("[FrameBuilder] Finalizing idle current frame ID=%s age=%v points=%d (bufferTimeout=%v)",
+				debugf("[FrameBuilder] Finalizing idle current frame ID=%s age=%v points=%d (bufferTimeout=%v)",
 					fb.currentFrame.FrameID, age, fb.currentFrame.PointCount, fb.bufferTimeout)
 			}
 			fb.finalizeCurrentFrame()
@@ -549,7 +549,7 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame) {
 
 	// lightweight debug logging for frame completion
 	if fb.debug {
-		log.Printf("[FrameBuilder] Frame completed - ID: %s, Points: %d, Azimuth: %.1f°-%.1f°, Duration: %v, Sensor: %s",
+		debugf("[FrameBuilder] Frame completed - ID: %s, Points: %d, Azimuth: %.1f°-%.1f°, Duration: %v, Sensor: %s",
 			frame.FrameID,
 			frame.PointCount,
 			frame.MinAzimuth,
@@ -567,7 +567,7 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame) {
 		if err := exportFrameToASC(frame); err != nil {
 			log.Printf("[FrameBuilder] Failed to export next frame for sensor %s to %s: %v", frame.SensorID, path, err)
 		} else {
-			log.Printf("[FrameBuilder] Exported next frame for sensor %s to %s", frame.SensorID, path)
+			debugf("[FrameBuilder] Exported next frame for sensor %s to %s", frame.SensorID, path)
 		}
 		fb.exportNextFrameASC = false
 		fb.exportNextFramePath = ""
@@ -577,7 +577,7 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame) {
 		// Add explicit log when invoking the frame callback so we can trace delivery
 		// but only emit this in debug mode to avoid noisy logs during normal runs.
 		if fb.debug {
-			log.Printf("[FrameBuilder] Invoking frame callback for ID=%s, Points=%d, Sensor=%s",
+			debugf("[FrameBuilder] Invoking frame callback for ID=%s, Points=%d, Sensor=%s",
 				frame.FrameID, frame.PointCount, frame.SensorID)
 		}
 		go fb.frameCallback(frame)
@@ -651,7 +651,7 @@ func NewFrameBuilderWithDebugLoggingAndInterval(sensorID string, debug bool, log
 		var exportMutex sync.Mutex
 
 		callback = func(frame *LiDARFrame) {
-			log.Printf("Frame completed - ID: %s, Points: %d, Azimuth: %.1f°-%.1f°, Duration: %v, Sensor: %s",
+			debugf("Frame completed - ID: %s, Points: %d, Azimuth: %.1f°-%.1f°, Duration: %v, Sensor: %s",
 				frame.FrameID,
 				frame.PointCount,
 				frame.MinAzimuth,
@@ -709,7 +709,7 @@ func exportFrameToASC(frame *LiDARFrame) error {
 	}
 	if zNonZero == 0 {
 		// Recompute XYZ from Distance/Azimuth/Elevation
-		log.Printf("[FrameBuilder] all Z==0 for frame %s; recomputing XYZ from polar data before export", frame.FrameID)
+		debugf("[FrameBuilder] all Z==0 for frame %s; recomputing XYZ from polar data before export", frame.FrameID)
 		for i, p := range frame.Points {
 			x, y, z := SphericalToCartesian(p.Distance, p.Azimuth, p.Elevation)
 			ascPoints[i] = PointASC{
