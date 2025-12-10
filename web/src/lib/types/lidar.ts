@@ -53,6 +53,23 @@ export interface Track {
 		y: number;
 		timestamp: string;
 	}[];
+	/** Phase 1: Track quality metrics (optional) */
+	quality?: {
+		/** Total distance traveled (meters) */
+		track_length_meters: number;
+		/** Track duration (seconds) */
+		track_duration_secs: number;
+		/** Number of occlusion gaps */
+		occlusion_count: number;
+		/** Maximum occlusion gap (frames) */
+		max_occlusion_frames: number;
+		/** Spatial coverage ratio (0-1) */
+		spatial_coverage: number;
+		/** Noise point ratio (0-1) */
+		noise_point_ratio: number;
+		/** Composite quality score (0-1, higher is better) */
+		quality_score?: number;
+	};
 }
 
 /**
