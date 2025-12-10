@@ -40,9 +40,9 @@
 	let observationsByTrack: Record<string, TrackObservation[]> = {};
 	let selectedTrackObservations: TrackObservation[] = [];
 	let observationsRequestId = 0;
-	// Phase 3 TODO: Add observationsLoading and observationsError state variables
-	// for error handling UI (inline error messages or toast notifications for failed API calls).
-	// See Phase 3 implementation plan in internal/lidar/docs/ for specifications.
+	// Phase 3 TODO: Add observationsLoading:boolean and observationsError:string|null state variables.
+	// Display loading indicator in TrackList component when observationsLoading is true.
+	// Show error banner above timeline when observationsError is set, with retry button.
 	let foregroundObservations: TrackObservation[] = [];
 	let foregroundLoading = false;
 	let foregroundError: string | null = null;
@@ -270,8 +270,11 @@
 		} catch (error) {
 			// Only handle error if this request is still the latest
 			if (requestId === observationsRequestId) {
-				// Phase 3 TODO: Display error to user via inline error banner or toast notification.
-				// Should show error message, retry button, and option to report issue.
+				// Phase 3 TODO: Set observationsError to error.message and display as:
+				//   1. Error banner component above timeline with red background
+				//   2. Include "Retry" button that calls loadObservationsForTrack(trackId) again
+				//   3. Include "Dismiss" button that clears the error
+				//   4. Auto-dismiss after 10 seconds
 				// For now, errors are logged to console for debugging.
 				console.error('[LiDAR] Failed to load track observations:', error);
 				selectedTrackObservations = [];
