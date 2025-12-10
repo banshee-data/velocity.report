@@ -40,8 +40,9 @@
 	let observationsByTrack: Record<string, TrackObservation[]> = {};
 	let selectedTrackObservations: TrackObservation[] = [];
 	let observationsRequestId = 0;
-	// Note: observationsLoading and observationsError variables removed (Phase 2)
-	// They will be reintroduced in Phase 3 when error handling UI is implemented
+	// Note: observationsLoading and observationsError variables temporarily removed in Phase 2
+	// to avoid code bloat. They will be reintroduced in Phase 3 when error handling UI is
+	// implemented (e.g., inline error messages or toast notifications for failed API calls).
 	let foregroundObservations: TrackObservation[] = [];
 	let foregroundLoading = false;
 	let foregroundError: string | null = null;
@@ -264,7 +265,8 @@
 			}
 		} catch (error) {
 			if (requestId === observationsRequestId) {
-				// TODO Phase 3: Display error message to user
+				// TODO Phase 3: Display error message to user via inline error banner
+				// or toast notification. Consider showing retry button and error details.
 				console.error('Failed to load track observations:', error);
 				selectedTrackObservations = [];
 			}
