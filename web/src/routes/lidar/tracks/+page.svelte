@@ -280,7 +280,7 @@
 				selectedTrackObservations = [];
 			}
 		}
-		// Note: No finally block in Phase 2 - loading state cleanup will be added in Phase 3.
+		// Note: No finally block in Phase 1 & 2 - loading state cleanup will be added in Phase 3.
 		// Trade-off: Users won't see loading indicators for track observations during Phase 1 & 2.
 		// This is acceptable as the observations load quickly and users have visual feedback
 		// from the track selection itself.
