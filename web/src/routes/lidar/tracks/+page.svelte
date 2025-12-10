@@ -252,7 +252,9 @@
 			return;
 		}
 
-		// Concurrent request cancellation pattern: increment requestId to cancel previous requests
+		// Concurrent request cancellation pattern: Each new request increments observationsRequestId.
+		// Previous in-flight requests are cancelled by checking if their requestId still matches
+		// the latest observationsRequestId before updating state.
 		const requestId = ++observationsRequestId;
 
 		try {
@@ -275,8 +277,10 @@
 				selectedTrackObservations = [];
 			}
 		}
-		// Note: No finally block needed - loading state cleanup will be added in Phase 3
-		// when observationsLoading variable is reintroduced for UI indicators.
+		// Note: No finally block in Phase 2 - loading state cleanup will be added in Phase 3.
+		// Trade-off: Users won't see loading indicators for track observations during Phase 1 & 2.
+		// This is acceptable as the observations load quickly and users have visual feedback
+		// from the track selection itself.
 	}
 
 	async function loadForegroundObservations(startMs?: number, endMs?: number) {
