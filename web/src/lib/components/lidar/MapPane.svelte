@@ -612,8 +612,9 @@
 	});
 
 	onDestroy(() => {
-		if (!browser) return;
-		window.removeEventListener('resize', handleResize);
+		if (typeof window !== 'undefined') {
+			window.removeEventListener('resize', handleResize);
+		}
 		stopAnimation();
 		if (resizeTimeout !== null) {
 			clearTimeout(resizeTimeout);
