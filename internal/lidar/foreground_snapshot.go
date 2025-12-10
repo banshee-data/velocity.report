@@ -9,10 +9,11 @@ import (
 type ForegroundSnapshot struct {
 	SensorID         string
 	Timestamp        time.Time
-	Points           []WorldPoint
+	ForegroundPoints []WorldPoint
+	BackgroundPoints []WorldPoint
 	TotalPoints      int
-	ForegroundPoints int
-	BackgroundPoints int
+	ForegroundCount  int
+	BackgroundCount  int
 }
 
 var (
@@ -22,22 +23,26 @@ var (
 
 // StoreForegroundSnapshot saves the latest foreground points for a sensor.
 // Points are copied to avoid data races with downstream consumers.
-func StoreForegroundSnapshot(sensorID string, ts time.Time, points []WorldPoint, totalPoints int, foregroundPoints int) {
+func StoreForegroundSnapshot(sensorID string, ts time.Time, foreground []WorldPoint, background []WorldPoint, totalPoints int, foregroundPoints int) {
 	if sensorID == "" {
 		return
 	}
 
-	copyPoints := make([]WorldPoint, len(points))
-	copy(copyPoints, points)
+	fgCopy := make([]WorldPoint, len(foreground))
+	copy(fgCopy, foreground)
+
+	bgCopy := make([]WorldPoint, len(background))
+	copy(bgCopy, background)
 
 	fgMu.Lock()
 	latestForegrounds[sensorID] = &ForegroundSnapshot{
 		SensorID:         sensorID,
 		Timestamp:        ts,
-		Points:           copyPoints,
+		ForegroundPoints: fgCopy,
+		BackgroundPoints: bgCopy,
 		TotalPoints:      totalPoints,
-		ForegroundPoints: foregroundPoints,
-		BackgroundPoints: totalPoints - foregroundPoints,
+		ForegroundCount:  foregroundPoints,
+		BackgroundCount:  totalPoints - foregroundPoints,
 	}
 	fgMu.Unlock()
 }
@@ -51,15 +56,19 @@ func GetForegroundSnapshot(sensorID string) *ForegroundSnapshot {
 		return nil
 	}
 
-	pointsCopy := make([]WorldPoint, len(snap.Points))
-	copy(pointsCopy, snap.Points)
+	fgCopy := make([]WorldPoint, len(snap.ForegroundPoints))
+	copy(fgCopy, snap.ForegroundPoints)
+
+	bgCopy := make([]WorldPoint, len(snap.BackgroundPoints))
+	copy(bgCopy, snap.BackgroundPoints)
 
 	return &ForegroundSnapshot{
 		SensorID:         snap.SensorID,
 		Timestamp:        snap.Timestamp,
-		Points:           pointsCopy,
+		ForegroundPoints: fgCopy,
+		BackgroundPoints: bgCopy,
 		TotalPoints:      snap.TotalPoints,
-		ForegroundPoints: snap.ForegroundPoints,
-		BackgroundPoints: snap.BackgroundPoints,
+		ForegroundCount:  snap.ForegroundCount,
+		BackgroundCount:  snap.BackgroundCount,
 	}
 }

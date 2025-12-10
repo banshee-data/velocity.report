@@ -1173,15 +1173,16 @@ func (ws *WebServer) handleForegroundFrameChart(w http.ResponseWriter, r *http.R
 	}
 
 	snapshot := lidar.GetForegroundSnapshot(sensorID)
-	if snapshot == nil || len(snapshot.Points) == 0 {
+	if snapshot == nil || (len(snapshot.ForegroundPoints) == 0 && len(snapshot.BackgroundPoints) == 0) {
 		ws.writeJSONError(w, http.StatusNotFound, "no foreground snapshot available")
 		return
 	}
 
-	pts := make([]opts.ScatterData, 0, len(snapshot.Points))
+	fgPts := make([]opts.ScatterData, 0, len(snapshot.ForegroundPoints))
+	bgPts := make([]opts.ScatterData, 0, len(snapshot.BackgroundPoints))
 	maxAbs := 0.0
-	maxIntensity := float32(0)
-	for _, p := range snapshot.Points {
+
+	for _, p := range snapshot.BackgroundPoints {
 		x := p.X
 		y := p.Y
 		if math.Abs(x) > maxAbs {
@@ -1190,44 +1191,53 @@ func (ws *WebServer) handleForegroundFrameChart(w http.ResponseWriter, r *http.R
 		if math.Abs(y) > maxAbs {
 			maxAbs = math.Abs(y)
 		}
-		intensity := float32(p.Intensity)
-		if intensity > maxIntensity {
-			maxIntensity = intensity
+		bgPts = append(bgPts, opts.ScatterData{Value: []interface{}{x, y}})
+	}
+
+	for _, p := range snapshot.ForegroundPoints {
+		x := p.X
+		y := p.Y
+		if math.Abs(x) > maxAbs {
+			maxAbs = math.Abs(x)
 		}
-		pts = append(pts, opts.ScatterData{Value: []interface{}{x, y, intensity}})
+		if math.Abs(y) > maxAbs {
+			maxAbs = math.Abs(y)
+		}
+		fgPts = append(fgPts, opts.ScatterData{Value: []interface{}{x, y}})
 	}
 
 	pad := maxAbs * 1.05
 	if pad == 0 {
 		pad = 1.0
 	}
-	if maxIntensity == 0 {
-		maxIntensity = 1
-	}
 
 	fraction := 0.0
 	if snapshot.TotalPoints > 0 {
-		fraction = float64(snapshot.ForegroundPoints) / float64(snapshot.TotalPoints)
+		fraction = float64(snapshot.ForegroundCount) / float64(snapshot.TotalPoints)
 	}
+
+	subtitle := fmt.Sprintf(
+		"sensor=%s ts=%s fg=%d bg=%d total=%d (%.2f%% fg)",
+		sensorID,
+		snapshot.Timestamp.UTC().Format(time.RFC3339),
+		snapshot.ForegroundCount,
+		snapshot.BackgroundCount,
+		snapshot.TotalPoints,
+		fraction*100,
+	)
 
 	scatter := charts.NewScatter()
 	scatter.SetGlobalOptions(
 		charts.WithInitializationOpts(opts.Initialization{PageTitle: "LiDAR Foreground Frame", Theme: "dark", Width: "900px", Height: "900px"}),
-		charts.WithTitleOpts(opts.Title{Title: "Foreground Frame", Subtitle: fmt.Sprintf("sensor=%s ts=%s fg=%d/%d (%.2f%%)", sensorID, snapshot.Timestamp.UTC().Format(time.RFC3339), snapshot.ForegroundPoints, snapshot.TotalPoints, fraction*100)}),
+		charts.WithTitleOpts(opts.Title{Title: "Foreground vs Background", Subtitle: subtitle}),
 		charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true)}),
+		charts.WithLegendOpts(opts.Legend{Show: opts.Bool(true)}),
 		charts.WithXAxisOpts(opts.XAxis{Min: -pad, Max: pad, Name: "X (m)", NameLocation: "middle", NameGap: 25}),
 		charts.WithYAxisOpts(opts.YAxis{Min: -pad, Max: pad, Name: "Y (m)", NameLocation: "middle", NameGap: 30}),
-		charts.WithVisualMapOpts(opts.VisualMap{
-			Show:       opts.Bool(true),
-			Calculable: opts.Bool(true),
-			Min:        0,
-			Max:        maxIntensity,
-			Dimension:  "2",
-			InRange:    &opts.VisualMapInRange{Color: []string{"#440154", "#482777", "#3e4989", "#31688e", "#26828e", "#1f9e89", "#35b779", "#6ece58", "#b5de2b", "#fde725"}},
-		}),
 	)
 
-	scatter.AddSeries("foreground", pts, charts.WithScatterChartOpts(opts.ScatterChart{SymbolSize: 6}))
+	scatter.AddSeries("background", bgPts, charts.WithScatterChartOpts(opts.ScatterChart{SymbolSize: 4}), charts.WithItemStyleOpts(opts.ItemStyle{Color: "#9e9e9e"}))
+	scatter.AddSeries("foreground", fgPts, charts.WithScatterChartOpts(opts.ScatterChart{SymbolSize: 6}), charts.WithItemStyleOpts(opts.ItemStyle{Color: "#ff5252"}))
 
 	var buf bytes.Buffer
 	if err := scatter.Render(&buf); err != nil {

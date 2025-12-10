@@ -357,6 +357,36 @@ func main() {
 
 					foregroundPoints := lidar.ExtractForegroundPoints(polar, mask)
 					totalPoints := len(polar)
+
+					// Build background subset for debug overlay (downsample to keep chart light)
+					backgroundPolar := make([]lidar.PointPolar, 0, totalPoints-len(foregroundPoints))
+					for i, isForeground := range mask {
+						if !isForeground {
+							backgroundPolar = append(backgroundPolar, polar[i])
+						}
+					}
+
+					const maxBackgroundChartPoints = 5000
+					if len(backgroundPolar) > maxBackgroundChartPoints {
+						stride := len(backgroundPolar) / maxBackgroundChartPoints
+						if stride < 1 {
+							stride = 1
+						}
+						downsampled := make([]lidar.PointPolar, 0, maxBackgroundChartPoints)
+						for i := 0; i < len(backgroundPolar); i += stride {
+							downsampled = append(downsampled, backgroundPolar[i])
+							if len(downsampled) >= maxBackgroundChartPoints {
+								break
+							}
+						}
+						backgroundPolar = downsampled
+					}
+
+					foregroundWorld := lidar.TransformToWorld(foregroundPoints, nil, *lidarSensor)
+					backgroundWorld := lidar.TransformToWorld(backgroundPolar, nil, *lidarSensor)
+					// Cache the latest foreground frame for debug visualization (includes downsampled background overlay)
+					lidar.StoreForegroundSnapshot(*lidarSensor, frame.StartTimestamp, foregroundWorld, backgroundWorld, totalPoints, len(foregroundPoints))
+
 					if len(foregroundPoints) == 0 {
 						// No foreground detected, skip tracking
 						return
@@ -366,9 +396,7 @@ func main() {
 					lidar.Debugf("[Tracking] Extracted %d foreground points from %d total", len(foregroundPoints), len(polar))
 
 					// Phase 2: Transform to world coordinates
-					worldPoints := lidar.TransformToWorld(foregroundPoints, nil, *lidarSensor)
-					// Cache the latest foreground frame for debug visualization
-					lidar.StoreForegroundSnapshot(*lidarSensor, frame.StartTimestamp, worldPoints, totalPoints, len(foregroundPoints))
+					worldPoints := foregroundWorld
 
 					// Phase 3: Clustering
 					clusters := lidar.DBSCAN(worldPoints, lidar.DefaultDBSCANParams())
