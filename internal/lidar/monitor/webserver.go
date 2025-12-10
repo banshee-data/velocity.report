@@ -785,7 +785,7 @@ func (ws *WebServer) handleBackgroundGridPolar(w http.ResponseWriter, r *http.Re
 	scatter.SetGlobalOptions(
 		charts.WithInitializationOpts(opts.Initialization{PageTitle: "LiDAR Background (Polar->XY)", Theme: "dark", Width: "100%", Height: "900px"}),
 		charts.WithTitleOpts(opts.Title{Title: "LiDAR Background Grid", Subtitle: fmt.Sprintf("sensor=%s points=%d stride=%d", sensorID, len(data), stride)}),
-		charts.WithTooltipOpts(opts.Tooltip{Show: true}),
+		charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true)}),
 		charts.WithXAxisOpts(opts.XAxis{Name: "X (m)", NameLocation: "middle", NameGap: 25}),
 		charts.WithYAxisOpts(opts.YAxis{Name: "Y (m)", NameLocation: "middle", NameGap: 30}),
 	)
