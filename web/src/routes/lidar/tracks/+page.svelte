@@ -40,9 +40,9 @@
 	let observationsByTrack: Record<string, TrackObservation[]> = {};
 	let selectedTrackObservations: TrackObservation[] = [];
 	let observationsRequestId = 0;
-	// Note: observationsLoading and observationsError variables temporarily removed in Phase 2
-	// to avoid code bloat. They will be reintroduced in Phase 3 when error handling UI is
-	// implemented (e.g., inline error messages or toast notifications for failed API calls).
+	// Phase 3 TODO: Add observationsLoading and observationsError state variables
+	// for error handling UI (inline error messages or toast notifications for failed API calls).
+	// See Phase 3 implementation plan in internal/lidar/docs/ for specifications.
 	let foregroundObservations: TrackObservation[] = [];
 	let foregroundLoading = false;
 	let foregroundError: string | null = null;
@@ -265,8 +265,9 @@
 			}
 		} catch (error) {
 			if (requestId === observationsRequestId) {
-				// TODO Phase 3: Display error message to user via inline error banner
-				// or toast notification. Consider showing retry button and error details.
+				// Phase 3 TODO: Display error to user via inline error banner or toast notification.
+				// Should show error message, retry button, and option to report issue.
+				// For now, errors are logged to console for debugging.
 				console.error('Failed to load track observations:', error);
 				selectedTrackObservations = [];
 			}
