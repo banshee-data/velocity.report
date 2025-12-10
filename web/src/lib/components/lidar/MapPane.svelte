@@ -5,8 +5,6 @@
 	import { onDestroy, onMount } from 'svelte';
 
 	// Rendering constants
-	const GRID_SAMPLE_RATE = 10; // Sample every 10th cell for performance
-	const AZIMUTH_SAMPLE_DIVISOR = 2;
 	const RANGE_SPREAD_THRESHOLD = 2.0; // meters - threshold for background stability
 	const MIN_VELOCITY_FOR_ARROW = 0.5; // m/s - only draw velocity arrows for significant movement
 	const TRACK_SELECTION_RADIUS = 2.0; // meters - click tolerance for track selection
