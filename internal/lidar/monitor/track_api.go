@@ -780,7 +780,7 @@ func (api *TrackAPI) trackToResponse(track *lidar.TrackedObject) TrackResponse {
 		ObjectConfidence:    track.ObjectConfidence,
 		ClassificationModel: track.ClassificationModel,
 		ObservationCount:    track.ObservationCount,
-		AgeSeconds:          ageSeconds,
+		AgeSeconds:          spanSeconds,
 		AvgSpeedMps:         track.AvgSpeedMps,
 		PeakSpeedMps:        track.PeakSpeedMps,
 		BoundingBox: BBox{

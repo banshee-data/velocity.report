@@ -75,6 +75,10 @@ func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Pars
 
 			// Parse and process the packet if parser is provided
 			if parser != nil {
+				// When replaying from PCAP, prefer capture timestamps over device clock
+				if tsParser, ok := parser.(interface{ SetPacketTime(time.Time) }); ok {
+					tsParser.SetPacketTime(packet.Metadata().Timestamp)
+				}
 				points, err := parser.ParsePacket(payload)
 				if err != nil {
 					log.Printf("Error parsing PCAP packet %d: %v", packetCount, err)
