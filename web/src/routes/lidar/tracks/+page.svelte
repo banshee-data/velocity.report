@@ -9,11 +9,11 @@
 	 * Supports both historical playback (24-hour window) and live streaming (Phase 3).
 	 */
 	import { browser } from '$app/environment';
-	import { getBackgroundGrid, getTrackHistory } from '$lib/api';
+	import { getBackgroundGrid, getTrackHistory, getTrackObservations } from '$lib/api';
 	import MapPane from '$lib/components/lidar/MapPane.svelte';
 	import TimelinePane from '$lib/components/lidar/TimelinePane.svelte';
 	import TrackList from '$lib/components/lidar/TrackList.svelte';
-	import type { BackgroundGrid, Track } from '$lib/types/lidar';
+	import type { BackgroundGrid, Track, TrackObservation } from '$lib/types/lidar';
 	import { onDestroy, onMount } from 'svelte';
 	import { SelectField, ToggleGroup, ToggleOption } from 'svelte-ux';
 
@@ -32,6 +32,11 @@
 	let tracks: Track[] = [];
 	let backgroundGrid: BackgroundGrid | null = null;
 	let selectedTrackId: string | null = null;
+	let observationsByTrack: Record<string, TrackObservation[]> = {};
+	let selectedTrackObservations: TrackObservation[] = [];
+	let observationsLoading = false;
+	let observationsError: string | null = null;
+	let observationsRequestId = 0;
 
 	// Playback state
 	let timeRange: { start: number; end: number } | null = null;
@@ -222,6 +227,38 @@
 		}
 	}
 
+	async function loadObservationsForTrack(trackId: string | null) {
+		if (!trackId) {
+			selectedTrackObservations = [];
+			return;
+		}
+
+		const requestId = ++observationsRequestId;
+		observationsLoading = true;
+		observationsError = null;
+
+		try {
+			if (!observationsByTrack[trackId]) {
+				const obs = await getTrackObservations(trackId);
+				observationsByTrack = { ...observationsByTrack, [trackId]: obs };
+			}
+
+			if (requestId === observationsRequestId) {
+				selectedTrackObservations = observationsByTrack[trackId] ?? [];
+			}
+		} catch (error) {
+			if (requestId === observationsRequestId) {
+				observationsError =
+					error instanceof Error ? error.message : 'Failed to load track observations';
+				selectedTrackObservations = [];
+			}
+		} finally {
+			if (requestId === observationsRequestId) {
+				observationsLoading = false;
+			}
+		}
+	}
+
 	function handleTrackSelect(trackId: string) {
 		selectedTrackId = trackId;
 		// Jump to track start time when selected from list
@@ -229,6 +266,7 @@
 		if (track) {
 			selectedTime = new Date(track.first_seen).getTime();
 		}
+		loadObservationsForTrack(trackId);
 	}
 
 	onMount(() => {
@@ -284,6 +322,7 @@
 				tracks={visibleTracks}
 				{selectedTrackId}
 				{backgroundGrid}
+				observations={selectedTrackObservations}
 				onTrackSelect={handleTrackSelect}
 			/>
 		</div>

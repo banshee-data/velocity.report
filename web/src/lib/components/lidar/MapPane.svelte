@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import type { BackgroundGrid, Track } from '$lib/types/lidar';
+	import type { BackgroundGrid, Track, TrackObservation } from '$lib/types/lidar';
 	import { TRACK_COLORS } from '$lib/types/lidar';
 	import { onDestroy, onMount } from 'svelte';
 
@@ -10,11 +10,19 @@
 	const TRACK_SELECTION_RADIUS = 2.0; // meters - click tolerance for track selection
 	const MAX_TRACKS_FOR_LABELS = 20; // Show all labels when track count is below this
 	const GRID_CIRCLE_INTERVAL = 10; // meters - spacing between grid circles
+	const CROSSHAIR_SIZE = 12; // pixels
 
 	export let tracks: Track[] = [];
 	export let selectedTrackId: string | null = null;
 	export let backgroundGrid: BackgroundGrid | null = null;
 	export let onTrackSelect: (trackId: string) => void = () => {};
+	// Observations for the selected track (optional, used for overlay of raw points)
+	export let observations: TrackObservation[] = [];
+	// Toggles (controlled locally)
+	let showHistory = true;
+	let showObservations = true;
+	let showCrosshair = true;
+	let showMouseCoords = true;
 
 	let canvas: HTMLCanvasElement;
 	let ctx: CanvasRenderingContext2D | null = null;
@@ -63,8 +71,11 @@
 		bgDataVersion++;
 	}
 
+	// Mouse world coordinate readout
+	let hoverWorld: { x: number; y: number } | null = null;
+
 	// Mark as dirty when props change
-	$: if (tracks || selectedTrackId || backgroundGrid) {
+	$: if (tracks || selectedTrackId || backgroundGrid || observations) {
 		markDirty();
 	}
 
@@ -141,8 +152,50 @@
 			renderTrack(track, track.track_id === selectedTrackId);
 		});
 
+		// Draw observations for the selected track if provided
+		if (showObservations && observations.length > 0) {
+			renderObservations();
+		}
+
+		// Draw crosshair at world origin
+		if (showCrosshair) {
+			renderCrosshair();
+		}
+
 		// Draw legend
 		renderLegend();
+	}
+
+	function renderCrosshair() {
+		const ctxLocal = ctx;
+		if (!ctxLocal) return;
+		const [cx, cy] = worldToScreen(0, 0);
+		ctxLocal.save();
+		ctxLocal.strokeStyle = '#4ade80';
+		ctxLocal.lineWidth = 1.5;
+		ctxLocal.beginPath();
+		ctxLocal.moveTo(cx - CROSSHAIR_SIZE, cy);
+		ctxLocal.lineTo(cx + CROSSHAIR_SIZE, cy);
+		ctxLocal.moveTo(cx, cy - CROSSHAIR_SIZE);
+		ctxLocal.lineTo(cx, cy + CROSSHAIR_SIZE);
+		ctxLocal.stroke();
+		ctxLocal.restore();
+	}
+
+	function renderObservations() {
+		const ctxLocal = ctx;
+		if (!ctxLocal) return;
+		ctxLocal.save();
+		ctxLocal.fillStyle = '#60a5fa';
+		ctxLocal.globalAlpha = 0.8;
+		const size = Math.max(2, 4 - scale * 0.02);
+		observations.forEach((obs) => {
+			const [sx, sy] = worldToScreen(obs.position.x, obs.position.y);
+			ctxLocal.beginPath();
+			ctxLocal.arc(sx, sy, size, 0, Math.PI * 2);
+			ctxLocal.fill();
+		});
+		ctxLocal.restore();
 	}
 
 	// Render background grid overlay
@@ -280,7 +333,7 @@
 		}
 
 		// Draw history path
-		if (track.history && track.history.length > 1) {
+		if (showHistory && track.history && track.history.length > 1) {
 			ctx.beginPath();
 			ctx.strokeStyle = color;
 			ctx.lineWidth = isSelected ? 2 : 1;
@@ -449,6 +502,12 @@
 			lastMouseY = e.clientY;
 			markDirty();
 		}
+
+		if (showMouseCoords) {
+			const [wx, wy] = screenToWorld(e.offsetX, e.offsetY);
+			hoverWorld = { x: wx, y: wy };
+			markDirty();
+		}
 	}
 
 	function handleMouseUp() {
@@ -532,6 +591,36 @@
 				<div>Right click + drag: Pan</div>
 				<div>Scroll: Zoom</div>
 			</div>
+		</div>
+	</div>
+
+	<!-- Debug/toggle panel -->
+	<div
+		class="bg-opacity-80 absolute bottom-4 left-4 rounded bg-black p-3 text-xs text-white shadow-lg"
+	>
+		<div class="space-y-1 font-mono">
+			<div class="flex items-center gap-2">
+				<input id="toggle-crosshair" type="checkbox" bind:checked={showCrosshair} />
+				<label for="toggle-crosshair">Crosshair</label>
+			</div>
+			<div class="flex items-center gap-2">
+				<input id="toggle-history" type="checkbox" bind:checked={showHistory} />
+				<label for="toggle-history">Track history</label>
+			</div>
+			<div class="flex items-center gap-2">
+				<input id="toggle-obs" type="checkbox" bind:checked={showObservations} />
+				<label for="toggle-obs">Raw observations</label>
+			</div>
+			<div class="flex items-center gap-2">
+				<input id="toggle-mouse" type="checkbox" bind:checked={showMouseCoords} />
+				<label for="toggle-mouse">Mouse world coords</label>
+			</div>
+			{#if hoverWorld && showMouseCoords}
+				<div class="mt-2 text-blue-200">
+					<span>World:</span>
+					<span>{hoverWorld.x.toFixed(2)}, {hoverWorld.y.toFixed(2)} m</span>
+				</div>
+			{/if}
 		</div>
 	</div>
 </div>
