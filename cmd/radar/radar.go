@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -86,6 +87,27 @@ const SCHEMA_VERSION = "0.0.2"
 // Main
 func main() {
 	flag.Parse()
+
+	// Configure logging: default to stdout; optionally tee to a debug log file via env.
+	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
+	log.SetOutput(os.Stdout)
+
+	var debugLogFile *os.File
+	if debugPath := os.Getenv("VELOCITY_DEBUG_LOG"); debugPath != "" {
+		if err := os.MkdirAll(filepath.Dir(debugPath), 0o755); err == nil {
+			if f, err := os.OpenFile(debugPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644); err == nil {
+				debugLogFile = f
+				lidar.SetDebugLogger(f)
+			} else {
+				log.Printf("warning: failed to open debug log %s: %v", debugPath, err)
+			}
+		} else {
+			log.Printf("warning: failed to create debug log directory for %s", debugPath)
+		}
+	}
+	if debugLogFile != nil {
+		defer debugLogFile.Close()
+	}
 
 	// Handle version flags (-v, --version)
 	if *versionFlag || *versionShort {
@@ -188,6 +210,9 @@ func main() {
 	var wg sync.WaitGroup
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	// Lidar webserver instance (if enabled)
+	var lidarWebServer *monitor.WebServer
 
 	// Optionally initialize lidar components inside this binary
 	if *enableLidar {
@@ -292,8 +317,8 @@ func main() {
 				if frame == nil || len(frame.Points) == 0 {
 					return
 				}
-				// Always log frame completion for tracking debugging
-				log.Printf("[FrameBuilder] Completed frame: %s, Points: %d, Azimuth: %.1f°-%.1f°", frame.FrameID, len(frame.Points), frame.MinAzimuth, frame.MaxAzimuth)
+				// Route frame completion to debug log to keep main log quiet during normal runs.
+				lidar.Debugf("[FrameBuilder] Completed frame: %s, Points: %d, Azimuth: %.1f°-%.1f°", frame.FrameID, len(frame.Points), frame.MinAzimuth, frame.MaxAzimuth)
 				polar := make([]lidar.PointPolar, 0, len(frame.Points))
 				for _, p := range frame.Points {
 					polar = append(polar, lidar.PointPolar{
@@ -331,13 +356,42 @@ func main() {
 					}
 
 					foregroundPoints := lidar.ExtractForegroundPoints(polar, mask)
+					totalPoints := len(polar)
+
+					// Build background subset for debug overlay (downsample to keep chart light)
+					backgroundPolar := make([]lidar.PointPolar, 0, totalPoints-len(foregroundPoints))
+					for i, isForeground := range mask {
+						if !isForeground {
+							backgroundPolar = append(backgroundPolar, polar[i])
+						}
+					}
+
+					const maxBackgroundChartPoints = 5000
+					if len(backgroundPolar) > maxBackgroundChartPoints {
+						stride := len(backgroundPolar) / maxBackgroundChartPoints
+						if stride < 1 {
+							stride = 1
+						}
+						downsampled := make([]lidar.PointPolar, 0, maxBackgroundChartPoints)
+						for i := 0; i < len(backgroundPolar); i += stride {
+							downsampled = append(downsampled, backgroundPolar[i])
+							if len(downsampled) >= maxBackgroundChartPoints {
+								break
+							}
+						}
+						backgroundPolar = downsampled
+					}
+
+					// Cache sensor-frame projections for debug visualization (aligns with polar background chart)
+					lidar.StoreForegroundSnapshot(*lidarSensor, frame.StartTimestamp, foregroundPoints, backgroundPolar, totalPoints, len(foregroundPoints))
+
 					if len(foregroundPoints) == 0 {
 						// No foreground detected, skip tracking
 						return
 					}
 
 					// Always log foreground extraction for tracking debugging
-					log.Printf("[Tracking] Extracted %d foreground points from %d total", len(foregroundPoints), len(polar))
+					lidar.Debugf("[Tracking] Extracted %d foreground points from %d total", len(foregroundPoints), len(polar))
 
 					// Phase 2: Transform to world coordinates
 					worldPoints := lidar.TransformToWorld(foregroundPoints, nil, *lidarSensor)
@@ -349,7 +403,7 @@ func main() {
 					}
 
 					// Always log clustering for tracking debugging
-					log.Printf("[Tracking] Clustered into %d objects", len(clusters))
+					lidar.Debugf("[Tracking] Clustered into %d objects", len(clusters))
 
 					// Phase 4: Track update
 					if tracker != nil {
@@ -357,7 +411,7 @@ func main() {
 
 						// Phase 5: Classify and persist confirmed tracks
 						confirmedTracks := tracker.GetConfirmedTracks()
-						log.Printf("[Tracking] %d confirmed tracks to persist", len(confirmedTracks))
+						lidar.Debugf("[Tracking] %d confirmed tracks to persist", len(confirmedTracks))
 
 						for _, track := range confirmedTracks {
 							// Classify if not already classified and has enough observations
@@ -401,7 +455,7 @@ func main() {
 						}
 
 						if *debugMode && len(confirmedTracks) > 0 {
-							log.Printf("[Tracking] %d confirmed tracks active", len(confirmedTracks))
+							lidar.Debugf("[Tracking] %d confirmed tracks active", len(confirmedTracks))
 						}
 					}
 				}
@@ -545,6 +599,11 @@ func main() {
 		mux := apiServer.ServeMux()
 		radarSerial.AttachAdminRoutes(mux)
 		database.AttachAdminRoutes(mux)
+
+		// Attach Lidar routes if enabled
+		if lidarWebServer != nil {
+			lidarWebServer.RegisterRoutes(mux)
+		}
 
 		if err := apiServer.Start(ctx, *listen, *debugMode); err != nil {
 			// If ctx was canceled we expect nil or context.Canceled; log other errors

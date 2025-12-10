@@ -149,6 +149,11 @@
           Data Source Status (live/pcap/pcap_analysis)
         </a>
       </li>
+      <li>
+        <a href="/debug/lidar?sensor_id={{.SensorID}}" target="_blank">
+          LiDAR Debug Dashboard (iframes)
+        </a>
+      </li>
     </ul>
 
     <h3>Background Grid</h3>
@@ -156,6 +161,12 @@
       <li>
         <a href="/api/lidar/params?sensor_id={{.SensorID}}" target="_blank">
           Get/Update Background Parameters
+        </a>
+      </li>
+      <li>
+        <a href="/api/lidar/background/grid?sensor_id={{.SensorID}}"
+          target="_blank">
+          Full Background Grid (JSON)
         </a>
       </li>
       <li>
@@ -173,6 +184,18 @@
       <li>
         <a href="/api/lidar/grid_reset?sensor_id={{.SensorID}}" target="_blank">
           Reset Grid
+        </a>
+      </li>
+      <li>
+        <a href="/debug/lidar/background/polar?sensor_id={{.SensorID}}"
+          target="_blank">
+          Debug Polar Plot (visual)
+        </a>
+      </li>
+      <li>
+        <a href="/debug/lidar/background/heatmap?sensor_id={{.SensorID}}"
+          target="_blank">
+          Background Heatmap (visual)
         </a>
       </li>
     </ul>
@@ -281,6 +304,31 @@
         <a href="/api/lidar/clusters?sensor_id={{.SensorID}}" target="_blank">
           List Clusters
         </a>
+      </li>
+      <li>
+        <a href="/debug/lidar/clusters?sensor_id={{.SensorID}}" target="_blank">
+          Clusters (visual)
+        </a>
+      </li>
+      <li>
+        <a href="/debug/lidar/foreground?sensor_id={{.SensorID}}"
+          target="_blank">
+          Foreground Frame (visual)
+        </a>
+      </li>
+      <li>
+        <a href="/debug/lidar/tracks?sensor_id={{.SensorID}}" target="_blank">
+          Tracks (visual)
+        </a>
+      </li>
+      <li>
+        <form action="/api/lidar/tracks/clear" method="post" target="_blank"
+          style="margin: 0;">
+          <input type="hidden" name="sensor_id" value="{{.SensorID}}" />
+          <button type="submit">Clear Tracks + Observations (danger)</button>
+          <span style="font-size: 0.9em; color: #666;">Deletes all
+            tracks/obs/clusters for this sensor.</span>
+        </form>
       </li>
     </ul>
   </body>

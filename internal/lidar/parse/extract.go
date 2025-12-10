@@ -217,15 +217,17 @@ const (
 // and provides multiple timestamp modes for different synchronization requirements.
 // Motor speed tracking enables real-time frame timing adaptation for variable RPM operation.
 type Pandar40PParser struct {
-	config         Pandar40PConfig // Sensor-specific calibration parameters (angles & firetimes)
-	timestampMode  TimestampMode   // How to interpret timestamp field (affects frame timing accuracy)
-	bootTime       time.Time       // Device boot time reference for internal timestamp mode
-	packetCount    int             // Packet counter for debugging and diagnostic purposes
-	lastTimestamp  uint32          // Previous timestamp for static detection in PTP/GPS modes
-	staticCount    int             // Counter for static timestamp detection and fallback logic
-	debug          bool            // Enable debug logging for development and troubleshooting
-	debugPackets   int             // Number of initial packets to debug log (prevents log spam)
-	lastMotorSpeed uint16          // Last parsed motor speed in RPM (cached for frame builder integration)
+	config          Pandar40PConfig // Sensor-specific calibration parameters (angles & firetimes)
+	timestampMode   TimestampMode   // How to interpret timestamp field (affects frame timing accuracy)
+	bootTime        time.Time       // Device boot time reference for internal timestamp mode
+	packetCount     int             // Packet counter for debugging and diagnostic purposes
+	lastTimestamp   uint32          // Previous timestamp for static detection in PTP/GPS modes
+	staticCount     int             // Counter for static timestamp detection and fallback logic
+	debug           bool            // Enable debug logging for development and troubleshooting
+	debugPackets    int             // Number of initial packets to debug log (prevents log spam)
+	lastMotorSpeed  uint16          // Last parsed motor speed in RPM (cached for frame builder integration)
+	externalTime    time.Time       // Optional override from capture metadata (e.g., PCAP) for replay
+	externalTimeSet bool            // Tracks when an external time override is available
 }
 
 // NewPandar40PParser creates a new parser instance with the provided calibration configuration
@@ -258,6 +260,12 @@ func (p *Pandar40PParser) SetDebug(enabled bool) {
 // Only affects logging when debug mode is enabled
 func (p *Pandar40PParser) SetDebugPackets(count int) {
 	p.debugPackets = count
+}
+
+// SetPacketTime overrides the packet timestamp (used for PCAP replay capture times)
+func (p *Pandar40PParser) SetPacketTime(ts time.Time) {
+	p.externalTime = ts
+	p.externalTimeSet = true
 }
 
 // GetLastMotorSpeed returns the motor speed from the last parsed packet
@@ -506,6 +514,12 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *Pa
 	default:
 		// Use current system time for reliability (default for street analytics applications)
 		packetTime = time.Now()
+	}
+
+	// Prefer externally provided capture timestamps when available (e.g., PCAP replay)
+	if p.externalTimeSet {
+		packetTime = p.externalTime.UTC()
+		p.externalTimeSet = false
 	}
 
 	// Extract base azimuth angle from block data (in 0.01-degree units, range 0-35999)

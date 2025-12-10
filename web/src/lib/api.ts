@@ -344,3 +344,121 @@ export async function updateTransitWorker(
 	}
 	return res.json();
 }
+
+// LiDAR Track API
+
+import type {
+	BackgroundGrid,
+	ObservationListResponse,
+	Track,
+	TrackHistoryResponse,
+	TrackListResponse,
+	TrackObservation,
+	TrackSummaryResponse
+} from './types/lidar';
+
+/**
+ * Get active tracks from the LiDAR tracker
+ * @param sensorId - Sensor identifier (e.g., "hesai-pandar40p")
+ * @param state - Optional state filter: "tentative", "confirmed", "all"
+ */
+export async function getActiveTracks(
+	sensorId: string,
+	state?: 'tentative' | 'confirmed' | 'all'
+): Promise<TrackListResponse> {
+	const url = new URL(`${API_BASE}/lidar/tracks/active`, window.location.origin);
+	url.searchParams.append('sensor_id', sensorId);
+	if (state) {
+		url.searchParams.append('state', state);
+	}
+	const res = await fetch(url);
+	if (!res.ok) throw new Error(`Failed to fetch active tracks: ${res.status}`);
+	return res.json();
+}
+
+/**
+ * Get details for a specific track
+ * @param trackId - Track identifier
+ */
+export async function getTrackById(trackId: string): Promise<Track> {
+	const res = await fetch(`${API_BASE}/lidar/tracks/${trackId}`);
+	if (!res.ok) throw new Error(`Failed to fetch track: ${res.status}`);
+	return res.json();
+}
+
+/**
+ * Get trajectory observations for a track
+ * @param trackId - Track identifier
+ */
+export async function getTrackObservations(trackId: string): Promise<TrackObservation[]> {
+	const res = await fetch(`${API_BASE}/lidar/tracks/${trackId}/observations`);
+	if (!res.ok) throw new Error(`Failed to fetch track observations: ${res.status}`);
+	return res.json();
+}
+
+/**
+ * Get historical tracks within a time range
+ * @param sensorId - Sensor identifier
+ * @param startTime - Start time in Unix nanoseconds
+ * @param endTime - End time in Unix nanoseconds
+ */
+export async function getTrackHistory(
+	sensorId: string,
+	startTime: number,
+	endTime: number
+): Promise<TrackHistoryResponse> {
+	const url = new URL(`${API_BASE}/lidar/tracks/history`, window.location.origin);
+	url.searchParams.append('sensor_id', sensorId);
+	url.searchParams.append('start_time', startTime.toString());
+	url.searchParams.append('end_time', endTime.toString());
+	const res = await fetch(url);
+	if (!res.ok) throw new Error(`Failed to fetch track history: ${res.status}`);
+	return res.json();
+}
+
+/**
+ * Get raw observations for a sensor within a time window (nanoseconds).
+ */
+export async function getTrackObservationsRange(
+	sensorId: string,
+	startTime: number,
+	endTime: number,
+	limit = 2000,
+	trackId?: string
+): Promise<ObservationListResponse> {
+	const url = new URL(`${API_BASE}/lidar/observations`, window.location.origin);
+	url.searchParams.append('sensor_id', sensorId);
+	url.searchParams.append('start_time', startTime.toString());
+	url.searchParams.append('end_time', endTime.toString());
+	url.searchParams.append('limit', limit.toString());
+	if (trackId) {
+		url.searchParams.append('track_id', trackId);
+	}
+	const res = await fetch(url);
+	if (!res.ok) throw new Error(`Failed to fetch track observations range: ${res.status}`);
+	return res.json();
+}
+
+/**
+ * Get track summary statistics
+ * @param sensorId - Sensor identifier
+ */
+export async function getTrackSummary(sensorId: string): Promise<TrackSummaryResponse> {
+	const url = new URL(`${API_BASE}/lidar/tracks/summary`, window.location.origin);
+	url.searchParams.append('sensor_id', sensorId);
+	const res = await fetch(url);
+	if (!res.ok) throw new Error(`Failed to fetch track summary: ${res.status}`);
+	return res.json();
+}
+
+/**
+ * Get background grid for visualization
+ * @param sensorId - Sensor identifier
+ */
+export async function getBackgroundGrid(sensorId: string): Promise<BackgroundGrid> {
+	const url = new URL(`${API_BASE}/lidar/background/grid`, window.location.origin);
+	url.searchParams.append('sensor_id', sensorId);
+	const res = await fetch(url);
+	if (!res.ok) throw new Error(`Failed to fetch background grid: ${res.status}`);
+	return res.json();
+}

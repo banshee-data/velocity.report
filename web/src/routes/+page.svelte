@@ -361,7 +361,7 @@
 			{error}
 		</div>
 	{:else}
-		<div class="gap-2 flex flex-wrap items-end">
+		<div class="flex flex-wrap items-end gap-2">
 			<div class="w-74">
 				<DateRangeField bind:value={dateRange} periodTypes={[PeriodType.Day]} stepper />
 			</div>
@@ -400,7 +400,7 @@
 			<div
 				role={reportMessage.includes('success') ? 'status' : 'alert'}
 				aria-live="polite"
-				class="rounded p-3 border {reportMessage.includes('success')
+				class="rounded border p-3 {reportMessage.includes('success')
 					? 'border-green-300 bg-green-50 text-green-800'
 					: 'border-red-300 bg-red-50 text-red-800'}"
 			>
@@ -412,11 +412,11 @@
 			<div class="card space-y-3 p-4" role="region" aria-label="Report download options">
 				<h3 class="text-base font-semibold">Report Ready</h3>
 				{#if reportMetadata}
-					<div class="gap-2 flex">
+					<div class="flex gap-2">
 						<!-- eslint-disable svelte/no-navigation-without-resolve -->
 						<a
 							href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.filename}`}
-							class="bg-secondary-500 hover:bg-secondary-600 rounded-md px-4 py-2 text-sm font-medium text-white inline-flex items-center justify-center transition-colors"
+							class="bg-secondary-500 hover:bg-secondary-600 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white transition-colors"
 							download
 							aria-label="Download PDF report"
 						>
@@ -426,7 +426,7 @@
 							<!-- eslint-disable svelte/no-navigation-without-resolve -->
 							<a
 								href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.zip_filename}`}
-								class="border-secondary-500 text-secondary-500 hover:bg-secondary-50 rounded-md px-4 py-2 text-sm font-medium hover:text-white inline-flex items-center justify-center border transition-colors"
+								class="border-secondary-500 text-secondary-500 hover:bg-secondary-50 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:text-white"
 								download
 								aria-label="Download source files as ZIP archive"
 							>
@@ -447,7 +447,7 @@
 
 		<Grid autoColumns="14em" gap={8} role="region" aria-label="Traffic statistics summary">
 			<Card title="Vehicle Count" role="article">
-				<div class="pb-4 pl-4 pr-4 pt-0">
+				<div class="pt-0 pr-4 pb-4 pl-4">
 					<p class="text-3xl font-bold text-blue-600" aria-label="Total vehicle count">
 						{totalCount}
 					</p>
@@ -455,7 +455,7 @@
 			</Card>
 
 			<Card title="P98 Speed" role="article">
-				<div class="pb-4 pl-4 pr-4 pt-0">
+				<div class="pt-0 pr-4 pb-4 pl-4">
 					<p class="text-3xl font-bold text-green-600" aria-label="98th percentile speed">
 						{p98Speed.toFixed(1)}
 						{getUnitLabel($displayUnits)}
@@ -471,7 +471,7 @@
 				* Tooltip for multiple metrics
 				-->
 			<div
-				class="mb-4 rounded p-4 h-[300px] border"
+				class="mb-4 h-[300px] rounded border p-4"
 				role="img"
 				aria-label="Speed distribution over time showing P50, P85, P98, and maximum speeds for the selected date range"
 			>
@@ -519,10 +519,10 @@
 			</div>
 
 			<!-- Accessible data table fallback -->
-			<details class="rounded p-4 border">
-				<summary class="text-sm font-medium cursor-pointer">View data table</summary>
+			<details class="rounded border p-4">
+				<summary class="cursor-pointer text-sm font-medium">View data table</summary>
 				<div class="mt-4 overflow-x-auto">
-					<table class="text-sm w-full">
+					<table class="w-full text-sm">
 						<caption class="sr-only">
 							Speed statistics over time showing P50, P85, P98, and maximum values
 						</caption>

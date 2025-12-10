@@ -37,31 +37,76 @@ func (api *TrackAPI) SetTracker(tracker *lidar.Tracker) {
 // RegisterRoutes registers track API routes on the provided mux.
 func (api *TrackAPI) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/tracks", api.handleListTracks)
+	mux.HandleFunc("/api/lidar/tracks/history", api.handleListTracks) // Support both legacy '/history' and canonical '/tracks' endpoints for backward compatibility; '/history' may be deprecated in a future release.
 	mux.HandleFunc("/api/lidar/tracks/active", api.handleActiveTracks)
 	mux.HandleFunc("/api/lidar/tracks/", api.handleTrackByID)
 	mux.HandleFunc("/api/lidar/tracks/summary", api.handleTrackSummary)
 	mux.HandleFunc("/api/lidar/clusters", api.handleListClusters)
+	mux.HandleFunc("/api/lidar/observations", api.handleListObservations)
+	mux.HandleFunc("/api/lidar/tracks/clear", api.handleClearTracks)
+}
+
+// handleClearTracks deletes all tracks, observations, and clusters for a sensor.
+// Method: POST (or GET for convenience). Query param: sensor_id (required).
+func (api *TrackAPI) handleClearTracks(w http.ResponseWriter, r *http.Request) {
+	if api.db == nil {
+		api.writeJSONError(w, http.StatusServiceUnavailable, "database not configured")
+		return
+	}
+
+	if r.Method != http.MethodPost && r.Method != http.MethodGet {
+		api.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use POST")
+		return
+	}
+
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = api.sensorID
+	}
+	if sensorID == "" {
+		api.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+
+	if err := lidar.ClearTracks(api.db, sensorID); err != nil {
+		api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to clear tracks: %v", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":    "ok",
+		"sensor_id": sensorID,
+	})
 }
 
 // TrackResponse represents a track in JSON API responses.
 type TrackResponse struct {
-	TrackID             string   `json:"track_id"`
-	SensorID            string   `json:"sensor_id"`
-	State               string   `json:"state"`
-	Position            Position `json:"position"`
-	Velocity            Velocity `json:"velocity"`
-	SpeedMps            float32  `json:"speed_mps"`
-	HeadingRad          float32  `json:"heading_rad"`
-	ObjectClass         string   `json:"object_class,omitempty"`
-	ObjectConfidence    float32  `json:"object_confidence,omitempty"`
-	ClassificationModel string   `json:"classification_model,omitempty"`
-	ObservationCount    int      `json:"observation_count"`
-	AgeSeconds          float64  `json:"age_seconds"`
-	AvgSpeedMps         float32  `json:"avg_speed_mps"`
-	PeakSpeedMps        float32  `json:"peak_speed_mps"`
-	BoundingBox         BBox     `json:"bounding_box"`
-	FirstSeen           string   `json:"first_seen"`
-	LastSeen            string   `json:"last_seen"`
+	TrackID             string               `json:"track_id"`
+	SensorID            string               `json:"sensor_id"`
+	State               string               `json:"state"`
+	Position            Position             `json:"position"`
+	Velocity            Velocity             `json:"velocity"`
+	SpeedMps            float32              `json:"speed_mps"`
+	HeadingRad          float32              `json:"heading_rad"`
+	ObjectClass         string               `json:"object_class,omitempty"`
+	ObjectConfidence    float32              `json:"object_confidence,omitempty"`
+	ClassificationModel string               `json:"classification_model,omitempty"`
+	ObservationCount    int                  `json:"observation_count"`
+	AgeSeconds          float64              `json:"age_seconds"`
+	AvgSpeedMps         float32              `json:"avg_speed_mps"`
+	PeakSpeedMps        float32              `json:"peak_speed_mps"`
+	BoundingBox         BBox                 `json:"bounding_box"`
+	FirstSeen           string               `json:"first_seen"`
+	LastSeen            string               `json:"last_seen"`
+	History             []TrackPointResponse `json:"history,omitempty"`
+}
+
+// TrackPointResponse represents a point in a track's history.
+type TrackPointResponse struct {
+	X         float32 `json:"x"`
+	Y         float32 `json:"y"`
+	Timestamp string  `json:"timestamp"`
 }
 
 // Position represents a 3D position in world coordinates.
@@ -112,6 +157,30 @@ type ClustersListResponse struct {
 	Clusters  []ClusterResponse `json:"clusters"`
 	Count     int               `json:"count"`
 	Timestamp string            `json:"timestamp"`
+}
+
+// ObservationsListResponse is the JSON response for observation overlays.
+type ObservationsListResponse struct {
+	Observations []ObservationResponse `json:"observations"`
+	Count        int                   `json:"count"`
+	Timestamp    string                `json:"timestamp"`
+}
+
+// ObservationResponse represents a raw observation for overlaying foreground objects.
+type ObservationResponse struct {
+	TrackID     string   `json:"track_id"`
+	Timestamp   string   `json:"timestamp"`
+	Position    Position `json:"position"`
+	Velocity    Velocity `json:"velocity"`
+	SpeedMps    float32  `json:"speed_mps"`
+	HeadingRad  float32  `json:"heading_rad"`
+	BoundingBox struct {
+		Length float32 `json:"length"`
+		Width  float32 `json:"width"`
+		Height float32 `json:"height"`
+	} `json:"bounding_box"`
+	HeightP95     float32 `json:"height_p95"`
+	IntensityMean float32 `json:"intensity_mean"`
 }
 
 // TrackSummaryResponse is the JSON response for track summary statistics.
@@ -168,20 +237,51 @@ func (api *TrackAPI) handleListTracks(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Optional time window (nanoseconds since epoch)
+	startParam := r.URL.Query().Get("start_time")
+	endParam := r.URL.Query().Get("end_time")
+	startNanos := int64(0)
+	endNanos := time.Now().UnixNano()
+	if startParam != "" {
+		parsed, err := strconv.ParseInt(startParam, 10, 64)
+		if err != nil {
+			api.writeJSONError(w, http.StatusBadRequest, "invalid start_time")
+			return
+		}
+		startNanos = parsed
+	}
+	if endParam != "" {
+		parsed, err := strconv.ParseInt(endParam, 10, 64)
+		if err != nil {
+			api.writeJSONError(w, http.StatusBadRequest, "invalid end_time")
+			return
+		}
+		endNanos = parsed
+	}
+	if endNanos > 0 && startNanos > endNanos {
+		api.writeJSONError(w, http.StatusBadRequest, "start_time must be <= end_time")
+		return
+	}
+
 	if api.db == nil {
 		api.writeJSONError(w, http.StatusServiceUnavailable, "database not configured")
 		return
 	}
 
-	tracks, err := lidar.GetActiveTracks(api.db, sensorID, state)
+	var tracks []*lidar.TrackedObject
+	var err error
+
+	if startParam != "" || endParam != "" {
+		tracks, err = lidar.GetTracksInRange(api.db, sensorID, state, startNanos, endNanos, limit)
+	} else {
+		tracks, err = lidar.GetActiveTracks(api.db, sensorID, state)
+		if err == nil && len(tracks) > limit {
+			tracks = tracks[:limit]
+		}
+	}
 	if err != nil {
 		api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get tracks: %v", err))
 		return
-	}
-
-	// Apply limit
-	if len(tracks) > limit {
-		tracks = tracks[:limit]
 	}
 
 	response := TracksListResponse{
@@ -192,6 +292,113 @@ func (api *TrackAPI) handleListTracks(w http.ResponseWriter, r *http.Request) {
 
 	for _, track := range tracks {
 		response.Tracks = append(response.Tracks, api.trackToResponse(track))
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// handleListObservations handles GET /api/lidar/observations
+// Returns raw track observations for a sensor within a time window (for overlay/debug).
+// Query params:
+//   - sensor_id (optional, defaults to configured sensor)
+//   - track_id (optional): limit to a single track
+//   - start_time, end_time (unix nanoseconds; defaults to last 5 minutes)
+//   - limit (optional, default 1000, max 5000)
+func (api *TrackAPI) handleListObservations(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		api.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if api.db == nil {
+		api.writeJSONError(w, http.StatusServiceUnavailable, "database not configured")
+		return
+	}
+
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = api.sensorID
+	}
+
+	trackID := r.URL.Query().Get("track_id")
+
+	limit := 1000
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil {
+			if parsed > 0 && parsed <= 5000 {
+				limit = parsed
+			}
+		}
+	}
+
+	endNanos := time.Now().UnixNano()
+	startNanos := endNanos - int64(5*time.Minute)
+
+	if s := r.URL.Query().Get("start_time"); s != "" {
+		parsed, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			api.writeJSONError(w, http.StatusBadRequest, "invalid start_time")
+			return
+		}
+		startNanos = parsed
+	}
+
+	if e := r.URL.Query().Get("end_time"); e != "" {
+		parsed, err := strconv.ParseInt(e, 10, 64)
+		if err != nil {
+			api.writeJSONError(w, http.StatusBadRequest, "invalid end_time")
+			return
+		}
+		endNanos = parsed
+	}
+
+	if endNanos > 0 && startNanos > endNanos {
+		api.writeJSONError(w, http.StatusBadRequest, "start_time must be <= end_time")
+		return
+	}
+
+	observations, err := lidar.GetTrackObservationsInRange(api.db, sensorID, startNanos, endNanos, limit, trackID)
+	if err != nil {
+		api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get observations: %v", err))
+		return
+	}
+
+	response := ObservationsListResponse{
+		Observations: make([]ObservationResponse, 0, len(observations)),
+		Count:        len(observations),
+		Timestamp:    time.Now().UTC().Format(time.RFC3339),
+	}
+
+	for _, obs := range observations {
+		posX, posY := toDisplayFrame(obs.X, obs.Y)
+		velX, velY := toDisplayFrame(obs.VelocityX, obs.VelocityY)
+		response.Observations = append(response.Observations, ObservationResponse{
+			TrackID:   obs.TrackID,
+			Timestamp: time.Unix(0, obs.TSUnixNanos).UTC().Format(time.RFC3339Nano),
+			Position: Position{
+				X: posX,
+				Y: posY,
+				Z: obs.Z,
+			},
+			Velocity: Velocity{
+				VX: velX,
+				VY: velY,
+			},
+			SpeedMps:   float32(math.Sqrt(float64(velX*velX + velY*velY))),
+			HeadingRad: headingFromVelocity(velX, velY),
+			BoundingBox: struct {
+				Length float32 `json:"length"`
+				Width  float32 `json:"width"`
+				Height float32 `json:"height"`
+			}{
+				Length: obs.BoundingBoxLength,
+				Width:  obs.BoundingBoxWidth,
+				Height: obs.BoundingBoxHeight,
+			},
+			HeightP95:     obs.HeightP95,
+			IntensityMean: obs.IntensityMean,
+		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -451,19 +658,24 @@ func (api *TrackAPI) handleTrackObservations(w http.ResponseWriter, r *http.Requ
 	}
 
 	for _, obs := range observations {
+		posX, posY := toDisplayFrame(obs.X, obs.Y)
+		velX, velY := toDisplayFrame(obs.VelocityX, obs.VelocityY)
+		speed := float32(math.Sqrt(float64(velX*velX + velY*velY)))
+		heading := headingFromVelocity(velX, velY)
+
 		response.Observations = append(response.Observations, ObsResponse{
 			Timestamp: time.Unix(0, obs.TSUnixNanos).UTC().Format(time.RFC3339Nano),
 			Position: Position{
-				X: obs.X,
-				Y: obs.Y,
+				X: posX,
+				Y: posY,
 				Z: obs.Z,
 			},
 			Velocity: Velocity{
-				VX: obs.VelocityX,
-				VY: obs.VelocityY,
+				VX: velX,
+				VY: velY,
 			},
-			SpeedMps:   obs.SpeedMps,
-			HeadingRad: obs.HeadingRad,
+			SpeedMps:   speed,
+			HeadingRad: heading,
 			BoundingBox: struct {
 				Length float32 `json:"length"`
 				Width  float32 `json:"width"`
@@ -692,29 +904,60 @@ func (api *TrackAPI) writeJSONError(w http.ResponseWriter, status int, msg strin
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
 
+// toDisplayFrame aligns stored track coordinates (sensor frame with azimuth 0 along +Y)
+// to the UI's display frame (azimuth 0 along +X) by swapping X/Y.
+func toDisplayFrame(x, y float32) (float32, float32) {
+	return y, x
+}
+
+func headingFromVelocity(vx, vy float32) float32 {
+	return float32(math.Atan2(float64(vy), float64(vx)))
+}
+
 func (api *TrackAPI) trackToResponse(track *lidar.TrackedObject) TrackResponse {
-	var ageSeconds float64
-	if track.FirstUnixNanos > 0 {
-		ageSeconds = float64(time.Now().UnixNano()-track.FirstUnixNanos) / 1e9
+	first := track.FirstUnixNanos
+	last := track.LastUnixNanos
+	if last == 0 {
+		last = track.FirstUnixNanos
+	}
+	if last < first {
+		last = first
 	}
 
-	speed := float32(math.Sqrt(float64(track.VX*track.VX + track.VY*track.VY)))
-	heading := float32(math.Atan2(float64(track.VY), float64(track.VX)))
+	var spanSeconds float64
+	if first > 0 && last > 0 {
+		spanSeconds = float64(last-first) / 1e9
+	}
+
+	posX, posY := toDisplayFrame(track.X, track.Y)
+	velX, velY := toDisplayFrame(track.VX, track.VY)
+	speed := float32(math.Sqrt(float64(velX*velX + velY*velY)))
+	heading := headingFromVelocity(velX, velY)
+
+	history := make([]TrackPointResponse, 0, len(track.History))
+	for _, p := range track.History {
+		hx, hy := toDisplayFrame(p.X, p.Y)
+		history = append(history, TrackPointResponse{
+			X:         hx,
+			Y:         hy,
+			Timestamp: time.Unix(0, p.Timestamp).UTC().Format(time.RFC3339Nano),
+		})
+	}
 
 	return TrackResponse{
 		TrackID:  track.TrackID,
 		SensorID: track.SensorID,
 		State:    string(track.State),
 		Position: Position{
-			X: track.X,
-			Y: track.Y,
+			X: posX,
+			Y: posY,
 			// Z is 0 because TrackedObject uses a 2D Kalman filter tracking (x, y, vx, vy).
 			// Height information is captured in bounding_box and height_p95 from cluster features.
 			Z: 0,
 		},
 		Velocity: Velocity{
-			VX: track.VX,
-			VY: track.VY,
+			VX: velX,
+			VY: velY,
 		},
 		SpeedMps:            speed,
 		HeadingRad:          heading,
@@ -722,7 +965,7 @@ func (api *TrackAPI) trackToResponse(track *lidar.TrackedObject) TrackResponse {
 		ObjectConfidence:    track.ObjectConfidence,
 		ClassificationModel: track.ClassificationModel,
 		ObservationCount:    track.ObservationCount,
-		AgeSeconds:          ageSeconds,
+		AgeSeconds:          spanSeconds,
 		AvgSpeedMps:         track.AvgSpeedMps,
 		PeakSpeedMps:        track.PeakSpeedMps,
 		BoundingBox: BBox{
@@ -730,8 +973,9 @@ func (api *TrackAPI) trackToResponse(track *lidar.TrackedObject) TrackResponse {
 			WidthAvg:  track.BoundingBoxWidthAvg,
 			HeightAvg: track.BoundingBoxHeightAvg,
 		},
-		FirstSeen: time.Unix(0, track.FirstUnixNanos).UTC().Format(time.RFC3339Nano),
-		LastSeen:  time.Unix(0, track.LastUnixNanos).UTC().Format(time.RFC3339Nano),
+		FirstSeen: time.Unix(0, first).UTC().Format(time.RFC3339Nano),
+		LastSeen:  time.Unix(0, last).UTC().Format(time.RFC3339Nano),
+		History:   history,
 	}
 }
 

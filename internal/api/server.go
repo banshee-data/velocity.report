@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -113,10 +114,25 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		start := time.Now()
 		lrw := &loggingResponseWriter{w, http.StatusOK}
 		next.ServeHTTP(lrw, r)
+
+		// Include the listener port (if present) ahead of the path for clarity across multiple servers.
+		portPrefix := ""
+		if host := r.Host; host != "" {
+			if h, p, err := net.SplitHostPort(host); err == nil {
+				_ = h // host not used currently
+				portPrefix = ":" + p
+			}
+		}
+		if portPrefix == "" {
+			if p := r.URL.Port(); p != "" {
+				portPrefix = ":" + p
+			}
+		}
+		requestTarget := fmt.Sprintf("%s%s", portPrefix, r.RequestURI)
 		log.Printf(
 			"[%s] %s %s%s%s %vms",
 			statusCodeColor(lrw.statusCode), r.Method,
-			colorCyan, r.RequestURI, colorReset,
+			colorCyan, requestTarget, colorReset,
 			float64(time.Since(start).Nanoseconds())/1e6,
 		)
 	})

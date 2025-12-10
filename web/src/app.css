@@ -3,8 +3,9 @@
    If you use Tailwind in the web app, replace or extend with your real styles.
 */
 
-@import 'tailwindcss/preflight';
-@tailwind utilities;
+@import 'tailwindcss';
+@source '.';
+@source '../node_modules/svelte-ux';
 
 /* local app styles (keep small in source control) */
 /* e.g. body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; } */
