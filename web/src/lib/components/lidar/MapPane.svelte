@@ -18,6 +18,10 @@
 	export let onTrackSelect: (trackId: string) => void = () => {};
 	// Observations for the selected track (optional, used for overlay of raw points)
 	export let observations: TrackObservation[] = [];
+	// Foreground observations overlay (time-window slice for debugging)
+	export let foreground: TrackObservation[] = [];
+	export let foregroundEnabled = true;
+	export let foregroundOffset = { x: 0, y: 0 };
 	// Toggles (controlled locally)
 	let showHistory = true;
 	let showObservations = true;
@@ -75,7 +79,15 @@
 	let hoverWorld: { x: number; y: number } | null = null;
 
 	// Mark as dirty when props change
-	$: if (tracks || selectedTrackId || backgroundGrid || observations) {
+	$: if (
+		tracks ||
+		selectedTrackId ||
+		backgroundGrid ||
+		observations ||
+		foreground ||
+		foregroundOffset ||
+		foregroundEnabled
+	) {
 		markDirty();
 	}
 
@@ -152,6 +164,11 @@
 			renderTrack(track, track.track_id === selectedTrackId);
 		});
 
+		// Foreground observation layer (time-window slice)
+		if (foregroundEnabled && foreground.length > 0) {
+			renderForeground();
+		}
+
 		// Draw observations for the selected track if provided
 		if (showObservations && observations.length > 0) {
 			renderObservations();
@@ -191,6 +208,26 @@
 		const size = Math.max(2, 4 - scale * 0.02);
 		observations.forEach((obs) => {
 			const [sx, sy] = worldToScreen(obs.position.x, obs.position.y);
+			ctxLocal.beginPath();
+			ctxLocal.arc(sx, sy, size, 0, Math.PI * 2);
+			ctxLocal.fill();
+		});
+		ctxLocal.restore();
+	}
+
+	function renderForeground() {
+		const ctxLocal = ctx;
+		if (!ctxLocal) return;
+		ctxLocal.save();
+		ctxLocal.fillStyle = '#f472b6';
+		ctxLocal.globalAlpha = 0.85;
+		const size = Math.max(2, 4 - scale * 0.02);
+		const offsetXLocal = foregroundOffset.x || 0;
+		const offsetYLocal = foregroundOffset.y || 0;
+		foreground.forEach((obs) => {
+			const worldX = obs.position.x + offsetXLocal;
+			const worldY = obs.position.y + offsetYLocal;
+			const [sx, sy] = worldToScreen(worldX, worldY);
 			ctxLocal.beginPath();
 			ctxLocal.arc(sx, sy, size, 0, Math.PI * 2);
 			ctxLocal.fill();
@@ -438,6 +475,20 @@
 
 		classes.forEach(({ label, key }) => {
 			ctx!.fillStyle = TRACK_COLORS[key];
+			ctx!.fillRect(legendX, y, 15, 15);
+			ctx!.fillStyle = '#fff';
+			ctx!.fillText(label, legendX + 20, y + 12);
+			y += lineHeight;
+		});
+
+		// Overlay layers
+		const overlays = [
+			{ label: 'Track observations', color: '#60a5fa' },
+			{ label: 'Foreground (window)', color: '#f472b6' }
+		];
+
+		overlays.forEach(({ label, color }) => {
+			ctx!.fillStyle = color;
 			ctx!.fillRect(legendX, y, 15, 15);
 			ctx!.fillStyle = '#fff';
 			ctx!.fillText(label, legendX + 20, y + 12);

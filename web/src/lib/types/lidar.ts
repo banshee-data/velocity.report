@@ -126,6 +126,12 @@ export interface TrackHistoryResponse {
 	observations: Record<string, TrackObservation[]>;
 }
 
+export interface ObservationListResponse {
+	observations: TrackObservation[];
+	count: number;
+	timestamp: string;
+}
+
 export interface ClusterResponse {
 	cluster_id: number;
 	sensor_id: string;

@@ -348,12 +348,13 @@ export async function updateTransitWorker(
 // LiDAR Track API
 
 import type {
+	BackgroundGrid,
+	ObservationListResponse,
 	Track,
-	TrackObservation,
-	TrackListResponse,
 	TrackHistoryResponse,
-	TrackSummaryResponse,
-	BackgroundGrid
+	TrackListResponse,
+	TrackObservation,
+	TrackSummaryResponse
 } from './types/lidar';
 
 /**
@@ -412,6 +413,29 @@ export async function getTrackHistory(
 	url.searchParams.append('end_time', endTime.toString());
 	const res = await fetch(url);
 	if (!res.ok) throw new Error(`Failed to fetch track history: ${res.status}`);
+	return res.json();
+}
+
+/**
+ * Get raw observations for a sensor within a time window (nanoseconds).
+ */
+export async function getTrackObservationsRange(
+	sensorId: string,
+	startTime: number,
+	endTime: number,
+	limit = 2000,
+	trackId?: string
+): Promise<ObservationListResponse> {
+	const url = new URL(`${API_BASE}/lidar/observations`, window.location.origin);
+	url.searchParams.append('sensor_id', sensorId);
+	url.searchParams.append('start_time', startTime.toString());
+	url.searchParams.append('end_time', endTime.toString());
+	url.searchParams.append('limit', limit.toString());
+	if (trackId) {
+		url.searchParams.append('track_id', trackId);
+	}
+	const res = await fetch(url);
+	if (!res.ok) throw new Error(`Failed to fetch track observations range: ${res.status}`);
 	return res.json();
 }
 

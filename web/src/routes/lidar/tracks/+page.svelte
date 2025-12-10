@@ -9,7 +9,12 @@
 	 * Supports both historical playback (24-hour window) and live streaming (Phase 3).
 	 */
 	import { browser } from '$app/environment';
-	import { getBackgroundGrid, getTrackHistory, getTrackObservations } from '$lib/api';
+	import {
+		getBackgroundGrid,
+		getTrackHistory,
+		getTrackObservations,
+		getTrackObservationsRange
+	} from '$lib/api';
 	import MapPane from '$lib/components/lidar/MapPane.svelte';
 	import TimelinePane from '$lib/components/lidar/TimelinePane.svelte';
 	import TrackList from '$lib/components/lidar/TrackList.svelte';
@@ -37,6 +42,14 @@
 	let observationsLoading = false;
 	let observationsError: string | null = null;
 	let observationsRequestId = 0;
+	let foregroundObservations: TrackObservation[] = [];
+	let foregroundLoading = false;
+	let foregroundError: string | null = null;
+	let showForeground = true;
+	let foregroundOffsetX = 0;
+	let foregroundOffsetY = 0;
+	let foregroundOffset = { x: 0, y: 0 };
+	$: foregroundOffset = { x: foregroundOffsetX, y: foregroundOffsetY };
 
 	// Playback state
 	let timeRange: { start: number; end: number } | null = null;
@@ -106,6 +119,11 @@
 				});
 			} else {
 				console.warn('[TrackHistory] No tracks loaded!');
+			}
+
+			// Load foreground observation overlay once we know the time window
+			if (timeRange) {
+				loadForegroundObservations(timeRange.start, timeRange.end);
 			}
 		} catch (error) {
 			console.error('[TrackHistory] Failed to load historical data:', error);
@@ -259,6 +277,32 @@
 		}
 	}
 
+	async function loadForegroundObservations(startMs?: number, endMs?: number) {
+		if (!timeRange && (!startMs || !endMs)) return;
+
+		const windowStart = startMs ?? timeRange!.start;
+		const windowEnd = endMs ?? timeRange!.end;
+
+		foregroundLoading = true;
+		foregroundError = null;
+
+		try {
+			const res = await getTrackObservationsRange(
+				sensorId,
+				Math.floor(windowStart * 1e6),
+				Math.floor(windowEnd * 1e6),
+				4000
+			);
+			foregroundObservations = res.observations ?? [];
+		} catch (error) {
+			foregroundError =
+				error instanceof Error ? error.message : 'Failed to load foreground observations';
+			foregroundObservations = [];
+		} finally {
+			foregroundLoading = false;
+		}
+	}
+
 	function handleTrackSelect(trackId: string) {
 		selectedTrackId = trackId;
 		// Jump to track start time when selected from list
@@ -310,6 +354,37 @@
 					size="sm"
 					class="w-48"
 				/>
+
+				<!-- Foreground overlay controls -->
+				<div class="text-surface-content flex items-center gap-3 text-xs">
+					<label class="flex items-center gap-2">
+						<input type="checkbox" bind:checked={showForeground} class="h-4 w-4" />
+						<span>Foreground overlay</span>
+					</label>
+					<label class="flex items-center gap-1">
+						<span>Offset X</span>
+						<input
+							type="number"
+							step="0.25"
+							bind:value={foregroundOffsetX}
+							class="border-surface-content/30 bg-surface-50 w-20 rounded border px-2 py-1"
+						/>
+					</label>
+					<label class="flex items-center gap-1">
+						<span>Offset Y</span>
+						<input
+							type="number"
+							step="0.25"
+							bind:value={foregroundOffsetY}
+							class="border-surface-content/30 bg-surface-50 w-20 rounded border px-2 py-1"
+						/>
+					</label>
+					{#if foregroundLoading}
+						<span class="text-surface-content/70">Loading…</span>
+					{:else if foregroundError}
+						<span class="text-error-500">{foregroundError}</span>
+					{/if}
+				</div>
 			</div>
 		</div>
 	</div>
@@ -323,6 +398,9 @@
 				{selectedTrackId}
 				{backgroundGrid}
 				observations={selectedTrackObservations}
+				foreground={foregroundObservations}
+				foregroundEnabled={showForeground}
+				{foregroundOffset}
 				onTrackSelect={handleTrackSelect}
 			/>
 		</div>

@@ -17,6 +17,7 @@ type TrackStore interface {
 	GetActiveTracks(sensorID string, state string) ([]*TrackedObject, error)
 	GetTracksInRange(sensorID string, state string, startNanos, endNanos int64, limit int) ([]*TrackedObject, error)
 	GetTrackObservations(trackID string, limit int) ([]*TrackObservation, error)
+	GetTrackObservationsInRange(sensorID string, startNanos, endNanos int64, limit int, trackID string) ([]*TrackObservation, error)
 	GetRecentClusters(sensorID string, startNanos, endNanos int64, limit int) ([]*WorldCluster, error)
 }
 
@@ -206,6 +207,59 @@ func InsertTrackObservation(db *sql.DB, obs *TrackObservation) error {
 	}
 
 	return nil
+}
+
+// GetTrackObservationsInRange returns observations for a sensor within a time window (inclusive).
+// Joins against tracks to scope by sensor.
+func GetTrackObservationsInRange(db *sql.DB, sensorID string, startNanos, endNanos int64, limit int, trackID string) ([]*TrackObservation, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+
+	query := `
+		SELECT o.track_id, o.ts_unix_nanos, o.world_frame,
+			o.x, o.y, o.z,
+			o.velocity_x, o.velocity_y, o.speed_mps, o.heading_rad,
+			o.bounding_box_length, o.bounding_box_width, o.bounding_box_height,
+			o.height_p95, o.intensity_mean
+		FROM lidar_track_obs o
+		JOIN lidar_tracks t ON o.track_id = t.track_id
+		WHERE t.sensor_id = ? AND o.ts_unix_nanos BETWEEN ? AND ?
+	`
+	args := []interface{}{sensorID, startNanos, endNanos}
+
+	if trackID != "" {
+		query += " AND o.track_id = ?"
+		args = append(args, trackID)
+	}
+
+	query += " ORDER BY o.ts_unix_nanos ASC LIMIT ?"
+	args = append(args, limit)
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query track observations in range: %w", err)
+	}
+	defer rows.Close()
+
+	var observations []*TrackObservation
+	for rows.Next() {
+		obs := &TrackObservation{}
+		if err := rows.Scan(
+			&obs.TrackID,
+			&obs.TSUnixNanos,
+			&obs.WorldFrame,
+			&obs.X, &obs.Y, &obs.Z,
+			&obs.VelocityX, &obs.VelocityY, &obs.SpeedMps, &obs.HeadingRad,
+			&obs.BoundingBoxLength, &obs.BoundingBoxWidth, &obs.BoundingBoxHeight,
+			&obs.HeightP95, &obs.IntensityMean,
+		); err != nil {
+			return nil, fmt.Errorf("scan track observation: %w", err)
+		}
+		observations = append(observations, obs)
+	}
+
+	return observations, nil
 }
 
 // GetActiveTracks retrieves active tracks from the database.
