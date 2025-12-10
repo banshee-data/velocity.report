@@ -377,6 +377,28 @@ func computeClusterMetrics(points []WorldPoint, clusterID int64) WorldCluster {
 		sensorID = points[0].SensorID
 	}
 
+	// Phase 1: Compute cluster quality metrics
+	length := float32(maxX - minX)
+	width := float32(maxY - minY)
+	height := float32(maxZ - minZ)
+	
+	// Cluster density: points per cubic meter
+	volume := length * width * height
+	var density float32
+	if volume > 0 {
+		density = float32(len(points)) / volume
+	}
+	
+	// Aspect ratio: max dimension / min dimension
+	var aspectRatio float32
+	if length > 0 && width > 0 {
+		if length > width {
+			aspectRatio = length / width
+		} else {
+			aspectRatio = width / length
+		}
+	}
+
 	return WorldCluster{
 		ClusterID:         clusterID,
 		SensorID:          sensorID,
@@ -384,11 +406,14 @@ func computeClusterMetrics(points []WorldPoint, clusterID int64) WorldCluster {
 		CentroidX:         centroidX,
 		CentroidY:         centroidY,
 		CentroidZ:         centroidZ,
-		BoundingBoxLength: float32(maxX - minX),
-		BoundingBoxWidth:  float32(maxY - minY),
-		BoundingBoxHeight: float32(maxZ - minZ),
+		BoundingBoxLength: length,
+		BoundingBoxWidth:  width,
+		BoundingBoxHeight: height,
 		PointsCount:       len(points),
 		HeightP95:         float32(heights[p95Idx]),
 		IntensityMean:     float32(sumIntensity / uint64(len(points))),
+		ClusterDensity:    density,
+		AspectRatio:       aspectRatio,
+		NoisePointsCount:  0, // Will be computed if noise points are tracked
 	}
 }

@@ -51,8 +51,9 @@ func InsertCluster(db *sql.DB, cluster *WorldCluster) (int64, error) {
 			sensor_id, world_frame, ts_unix_nanos,
 			centroid_x, centroid_y, centroid_z,
 			bounding_box_length, bounding_box_width, bounding_box_height,
-			points_count, height_p95, intensity_mean
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			points_count, height_p95, intensity_mean,
+			noise_points_count, cluster_density, aspect_ratio
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	result, err := db.Exec(query,
@@ -68,6 +69,9 @@ func InsertCluster(db *sql.DB, cluster *WorldCluster) (int64, error) {
 		cluster.PointsCount,
 		cluster.HeightP95,
 		cluster.IntensityMean,
+		cluster.NoisePointsCount,
+		cluster.ClusterDensity,
+		cluster.AspectRatio,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("insert cluster: %w", err)
@@ -83,6 +87,9 @@ func InsertCluster(db *sql.DB, cluster *WorldCluster) (int64, error) {
 
 // InsertTrack inserts a new track into the database.
 func InsertTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
+	// Ensure quality metrics are computed
+	track.ComputeQualityMetrics()
+	
 	// Compute speed percentiles
 	p50, p85, p95 := ComputeSpeedPercentiles(track.speedHistory)
 
@@ -93,8 +100,10 @@ func InsertTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 			avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
 			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 			height_p95_max, intensity_mean_avg,
-			object_class, object_confidence, classification_model
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			object_class, object_confidence, classification_model,
+			track_length_meters, track_duration_secs, occlusion_count, max_occlusion_frames,
+			spatial_coverage, noise_point_ratio
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	// Always set end_unix_nanos to LastUnixNanos for all track states
@@ -120,6 +129,12 @@ func InsertTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 		nullString(track.ObjectClass),
 		nullFloat32(track.ObjectConfidence),
 		nullString(track.ClassificationModel),
+		track.TrackLengthMeters,
+		track.TrackDurationSecs,
+		track.OcclusionCount,
+		track.MaxOcclusionFrames,
+		track.SpatialCoverage,
+		track.NoisePointRatio,
 	)
 	if err != nil {
 		return fmt.Errorf("insert track: %w", err)
@@ -130,6 +145,9 @@ func InsertTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 
 // UpdateTrack updates an existing track in the database.
 func UpdateTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
+	// Ensure quality metrics are computed
+	track.ComputeQualityMetrics()
+	
 	// Compute speed percentiles
 	p50, p85, p95 := ComputeSpeedPercentiles(track.speedHistory)
 
@@ -150,7 +168,13 @@ func UpdateTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 			intensity_mean_avg = ?,
 			object_class = ?,
 			object_confidence = ?,
-			classification_model = ?
+			classification_model = ?,
+			track_length_meters = ?,
+			track_duration_secs = ?,
+			occlusion_count = ?,
+			max_occlusion_frames = ?,
+			spatial_coverage = ?,
+			noise_point_ratio = ?
 		WHERE track_id = ?
 	`
 
@@ -173,6 +197,12 @@ func UpdateTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 		nullString(track.ObjectClass),
 		nullFloat32(track.ObjectConfidence),
 		nullString(track.ClassificationModel),
+		track.TrackLengthMeters,
+		track.TrackDurationSecs,
+		track.OcclusionCount,
+		track.MaxOcclusionFrames,
+		track.SpatialCoverage,
+		track.NoisePointRatio,
 		track.TrackID,
 	)
 	if err != nil {

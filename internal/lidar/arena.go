@@ -174,6 +174,11 @@ type WorldCluster struct {
 	HeightP95         float32 // matches height_p95 REAL
 	IntensityMean     float32 // matches intensity_mean REAL
 
+	// Phase 1: Cluster Quality Metrics
+	NoisePointsCount int     // matches noise_points_count INTEGER
+	ClusterDensity   float32 // matches cluster_density REAL
+	AspectRatio      float32 // matches aspect_ratio REAL
+
 	// Debug hints matching schema optional fields
 	SensorRingHint  *int     // matches sensor_ring_hint INTEGER
 	SensorAzDegHint *float32 // matches sensor_azimuth_deg_hint REAL
