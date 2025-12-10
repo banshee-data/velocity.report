@@ -177,20 +177,51 @@ func (api *TrackAPI) handleListTracks(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Optional time window (nanoseconds since epoch)
+	startParam := r.URL.Query().Get("start_time")
+	endParam := r.URL.Query().Get("end_time")
+	startNanos := int64(0)
+	endNanos := time.Now().UnixNano()
+	if startParam != "" {
+		parsed, err := strconv.ParseInt(startParam, 10, 64)
+		if err != nil {
+			api.writeJSONError(w, http.StatusBadRequest, "invalid start_time")
+			return
+		}
+		startNanos = parsed
+	}
+	if endParam != "" {
+		parsed, err := strconv.ParseInt(endParam, 10, 64)
+		if err != nil {
+			api.writeJSONError(w, http.StatusBadRequest, "invalid end_time")
+			return
+		}
+		endNanos = parsed
+	}
+	if endNanos > 0 && startNanos > endNanos {
+		api.writeJSONError(w, http.StatusBadRequest, "start_time must be <= end_time")
+		return
+	}
+
 	if api.db == nil {
 		api.writeJSONError(w, http.StatusServiceUnavailable, "database not configured")
 		return
 	}
 
-	tracks, err := lidar.GetActiveTracks(api.db, sensorID, state)
+	var tracks []*lidar.TrackedObject
+	var err error
+
+	if startParam != "" || endParam != "" {
+		tracks, err = lidar.GetTracksInRange(api.db, sensorID, state, startNanos, endNanos, limit)
+	} else {
+		tracks, err = lidar.GetActiveTracks(api.db, sensorID, state)
+		if err == nil && len(tracks) > limit {
+			tracks = tracks[:limit]
+		}
+	}
 	if err != nil {
 		api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get tracks: %v", err))
 		return
-	}
-
-	// Apply limit
-	if len(tracks) > limit {
-		tracks = tracks[:limit]
 	}
 
 	response := TracksListResponse{
@@ -702,9 +733,18 @@ func (api *TrackAPI) writeJSONError(w http.ResponseWriter, status int, msg strin
 }
 
 func (api *TrackAPI) trackToResponse(track *lidar.TrackedObject) TrackResponse {
-	var ageSeconds float64
-	if track.FirstUnixNanos > 0 {
-		ageSeconds = float64(time.Now().UnixNano()-track.FirstUnixNanos) / 1e9
+	first := track.FirstUnixNanos
+	last := track.LastUnixNanos
+	if last == 0 {
+		last = track.FirstUnixNanos
+	}
+	if last < first {
+		last = first
+	}
+
+	var spanSeconds float64
+	if first > 0 && last > 0 {
+		spanSeconds = float64(last-first) / 1e9
 	}
 
 	speed := float32(math.Sqrt(float64(track.VX*track.VX + track.VY*track.VY)))
@@ -748,8 +788,8 @@ func (api *TrackAPI) trackToResponse(track *lidar.TrackedObject) TrackResponse {
 			WidthAvg:  track.BoundingBoxWidthAvg,
 			HeightAvg: track.BoundingBoxHeightAvg,
 		},
-		FirstSeen: time.Unix(0, track.FirstUnixNanos).UTC().Format(time.RFC3339Nano),
-		LastSeen:  time.Unix(0, track.LastUnixNanos).UTC().Format(time.RFC3339Nano),
+		FirstSeen: time.Unix(0, first).UTC().Format(time.RFC3339Nano),
+		LastSeen:  time.Unix(0, last).UTC().Format(time.RFC3339Nano),
 		History:   history,
 	}
 }
