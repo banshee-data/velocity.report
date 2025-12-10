@@ -3,28 +3,114 @@
 	import { resolve } from '$app/paths';
 	import { mdiDelete, mdiPencil, mdiPlus } from '@mdi/js';
 	import { onMount } from 'svelte';
-	import { Button, Card, Dialog, Header, Table } from 'svelte-ux';
-	import { deleteSite, getSites, type Site } from '../../lib/api';
+	import { Button, Card, Dialog, Header, Pagination, Table } from 'svelte-ux';
+	import { derived, writable } from 'svelte/store';
+	import { deleteSite, getSitesPaginated, type Site } from '../../lib/api';
 
-	let sites: Site[] = [];
-	let loading = true;
-	let error = '';
+	let sites = $state<Site[]>([]);
+	let loading = $state(true);
+	let error = $state('');
+
+	// Pagination state
+	const page = writable(1);
+	const perPage = writable(5);
+	const total = writable(0);
+	const perPageOptions = [3, 5, 10];
+
+	// Create pagination store compatible with Pagination component
+	const pagination = derived([page, perPage, total], ([$page, $perPage, $total]) => {
+		const totalPages = Math.ceil($total / $perPage);
+		const from = ($page - 1) * $perPage + 1;
+		const to = Math.min($page * $perPage, $total);
+		return {
+			page: $page,
+			perPage: $perPage,
+			total: $total,
+			from,
+			to,
+			totalPages,
+			isFirst: $page === 1,
+			isLast: $page >= totalPages,
+			hasPrevious: $page > 1,
+			hasNext: $page < totalPages,
+			slice: <T,>(data: T[]) => {
+				const start = ($page - 1) * $perPage;
+				const end = start + $perPage;
+				return data.slice(start, end);
+			}
+		};
+	});
+
+	// Create methods for pagination store
+	const paginationWithMethods = {
+		subscribe: pagination.subscribe,
+		nextPage: () => page.update((p) => p + 1),
+		prevPage: () => page.update((p) => Math.max(1, p - 1)),
+		firstPage: () => page.set(1),
+		lastPage: () => {
+			let currentTotal = 0;
+			const unsubscribe = total.subscribe((t) => {
+				currentTotal = t;
+			});
+			unsubscribe();
+			let currentPerPage = 5;
+			const unsubscribe2 = perPage.subscribe((pp) => {
+				currentPerPage = pp;
+			});
+			unsubscribe2();
+			const totalPages = Math.ceil(currentTotal / currentPerPage);
+			page.set(totalPages);
+		},
+		setPage: (newPage: number) => page.set(newPage),
+		setPerPage: (newPerPage: number) => {
+			perPage.set(newPerPage);
+			page.set(1);
+		},
+		setTotal: (newTotal: number) => total.set(newTotal)
+	};
+
+	// Subscribe to pagination changes
+	let currentPage = $state(1);
+	let currentPerPage = $state(5);
+	pagination.subscribe((p) => {
+		currentPage = p.page;
+		currentPerPage = p.perPage;
+	});
 
 	// Delete confirmation
-	let showDeleteDialog = false;
-	let deletingSite: Site | null = null;
+	let showDeleteDialog = $state(false);
+	let deletingSite = $state<Site | null>(null);
+
+	// Track if this is the first load to avoid double-loading
+	let isInitialLoad = true;
 
 	onMount(async () => {
 		await loadSites();
+		isInitialLoad = false;
+	});
+
+	// Watch pagination changes (but skip initial load)
+	$effect(() => {
+		// Access reactive values to trigger effect
+		void currentPage;
+		void currentPerPage;
+
+		if (!isInitialLoad) {
+			loadSites();
+		}
 	});
 
 	async function loadSites() {
 		loading = true;
 		error = '';
 		try {
-			sites = await getSites();
+			const response = await getSitesPaginated(currentPage, currentPerPage);
+			sites = response.sites || [];
+			paginationWithMethods.setTotal(response.total || 0);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load sites';
+			sites = []; // Ensure sites is always an array
+			paginationWithMethods.setTotal(0);
 		} finally {
 			loading = false;
 		}
@@ -82,7 +168,7 @@
 			<strong>Error:</strong>
 			{error}
 		</div>
-	{:else if sites.length === 0}
+	{:else if !sites || sites.length === 0}
 		<Card>
 			<div class="text-surface-content/60 p-8 text-center">
 				<p class="mb-4 text-lg">No sites configured yet</p>
@@ -137,6 +223,9 @@
 						{/each}
 					</tbody>
 				</Table>
+				<div class="border-surface-content/10 p-4 flex items-center justify-center border-t">
+					<Pagination pagination={paginationWithMethods} {perPageOptions} />
+				</div>
 			</div>
 		</Card>
 	{/if}

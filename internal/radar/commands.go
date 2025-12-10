@@ -1,5 +1,10 @@
 package radar
 
+import (
+	"strconv"
+	"strings"
+)
+
 // Define allow list of two character commands
 var AllowedCommands = []string{
 	"??", // Query overall module information
@@ -54,6 +59,10 @@ var AllowedCommands = []string{
 	"R+", // Set to report inbound direction only
 	"R-", // Set to report outbound direction only
 	"R|", // Clear any directional filtering
+
+	// Direction Angle Settings (dynamic commands with numeric parameters)
+	// Note: These are pattern prefixes for dynamic commands like "^/+5.2" or "^/-3.0"
+	// The actual implementation needs to validate the full command format
 
 	// Peak Speed Averaging
 	"K+", // Enable peak speed averaging
@@ -183,4 +192,45 @@ var AllowedCommands = []string{
 	"A?", // Query persistent memory settings
 	"A.", // Read current settings from persistent memory
 	"AX", // Reset flash settings to factory defaults
+}
+
+// IsValidAngleCommand checks if a command is a valid angle setting command.
+// Valid formats: "^/+<angle>" or "^/-<angle>" where angle is a float (e.g., "^/+0.0", "^/-5.2", "^/+5")
+func IsValidAngleCommand(cmd string) bool {
+	if len(cmd) < 4 { // minimum: "^/+0" or "^/-0" (4 chars)
+		return false
+	}
+
+	// Check prefix
+	if !strings.HasPrefix(cmd, "^/+") && !strings.HasPrefix(cmd, "^/-") {
+		return false
+	}
+
+	// Extract and validate the numeric part
+	numPart := cmd[3:] // Skip "^/+" or "^/-"
+
+	// Simple validation: should be parseable as float
+	// Allow formats like: 0, 0.0, 5, 5.2, 10.5
+	if _, err := strconv.ParseFloat(numPart, 64); err != nil {
+		return false
+	}
+
+	return true
+}
+
+// IsAllowedCommand checks if a command is in the allowed list or is a valid dynamic command.
+func IsAllowedCommand(cmd string) bool {
+	// Check static commands
+	for _, allowed := range AllowedCommands {
+		if cmd == allowed {
+			return true
+		}
+	}
+
+	// Check dynamic angle commands
+	if IsValidAngleCommand(cmd) {
+		return true
+	}
+
+	return false
 }
