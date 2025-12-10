@@ -43,6 +43,41 @@ func (api *TrackAPI) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/tracks/summary", api.handleTrackSummary)
 	mux.HandleFunc("/api/lidar/clusters", api.handleListClusters)
 	mux.HandleFunc("/api/lidar/observations", api.handleListObservations)
+	mux.HandleFunc("/api/lidar/tracks/clear", api.handleClearTracks)
+}
+
+// handleClearTracks deletes all tracks, observations, and clusters for a sensor.
+// Method: POST (or GET for convenience). Query param: sensor_id (required).
+func (api *TrackAPI) handleClearTracks(w http.ResponseWriter, r *http.Request) {
+	if api.db == nil {
+		api.writeJSONError(w, http.StatusServiceUnavailable, "database not configured")
+		return
+	}
+
+	if r.Method != http.MethodPost && r.Method != http.MethodGet {
+		api.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use POST")
+		return
+	}
+
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = api.sensorID
+	}
+	if sensorID == "" {
+		api.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+
+	if err := lidar.ClearTracks(api.db, sensorID); err != nil {
+		api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to clear tracks: %v", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":    "ok",
+		"sensor_id": sensorID,
+	})
 }
 
 // TrackResponse represents a track in JSON API responses.

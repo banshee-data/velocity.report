@@ -13,6 +13,7 @@ type TrackStore interface {
 	InsertTrack(track *TrackedObject, worldFrame string) error
 	UpdateTrack(track *TrackedObject, worldFrame string) error
 	InsertTrackObservation(obs *TrackObservation) error
+	ClearTracks(sensorID string) error
 	GetTrack(trackID string) (*TrackedObject, error)
 	GetActiveTracks(sensorID string, state string) ([]*TrackedObject, error)
 	GetTracksInRange(sensorID string, state string, startNanos, endNanos int64, limit int) ([]*TrackedObject, error)
@@ -204,6 +205,40 @@ func InsertTrackObservation(db *sql.DB, obs *TrackObservation) error {
 	)
 	if err != nil {
 		return fmt.Errorf("insert track observation: %w", err)
+	}
+
+	return nil
+}
+
+// ClearTracks removes all tracks, observations, and clusters for a sensor.
+// This is intended for development/debug resets and should not be exposed in production without auth.
+func ClearTracks(db *sql.DB, sensorID string) error {
+	if sensorID == "" {
+		return fmt.Errorf("sensorID is required to clear tracks")
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin clear tracks tx: %w", err)
+	}
+
+	steps := []struct {
+		query string
+	}{
+		{query: `DELETE FROM lidar_track_obs WHERE track_id IN (SELECT track_id FROM lidar_tracks WHERE sensor_id = ?)`},
+		{query: `DELETE FROM lidar_tracks WHERE sensor_id = ?`},
+		{query: `DELETE FROM lidar_clusters WHERE sensor_id = ?`},
+	}
+
+	for _, step := range steps {
+		if _, err := tx.Exec(step.query, sensorID); err != nil {
+			tx.Rollback()
+			return fmt.Errorf("clear tracks step failed: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit clear tracks tx: %w", err)
 	}
 
 	return nil

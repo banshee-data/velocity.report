@@ -321,6 +321,15 @@
           Tracks (visual)
         </a>
       </li>
+      <li>
+        <form action="/api/lidar/tracks/clear" method="post" target="_blank"
+          style="margin: 0;">
+          <input type="hidden" name="sensor_id" value="{{.SensorID}}" />
+          <button type="submit">Clear Tracks + Observations (danger)</button>
+          <span style="font-size: 0.9em; color: #666;">Deletes all
+            tracks/obs/clusters for this sensor.</span>
+        </form>
+      </li>
     </ul>
   </body>
 </html>
