@@ -30,7 +30,7 @@ Deliver an alpha release that adds (1) FFT-based radar observation classificatio
 ## Documentation Plan (create/update)
 
 - **Feature specs**: This plan (docs/features/). Add focused specs per feature: `docs/features/radar-fft-classifier.md`, `docs/features/lidar-stop-survey.md`.
-- **Operator guides**: Update `docs/src/guides/setup.md` and `cmd/radar/README.md` for FFT enablement and configuration flags; add LiDAR survey how-to in `docs/src/guides/`.
+- **Operator guides**: Update `docs/src/guides/index.md` (or add a new guide under `docs/src/guides/`) and `cmd/radar/README.md` for FFT enablement and configuration flags; add LiDAR survey how-to in the guides section.
 - **API/Schema**: Extend `ARCHITECTURE.md` data tables and any API reference (`docs/api/` if present) for new fields/endpoints.
 - **Web/PDF UX**: Update `web/README.md` and `tools/pdf-generator/README.md` to show new cards/sections.
 - **Release notes/comms**: Add `docs/product/alpha-fft-lidar-stop.md` (or release note) and a 2–3 minute demo video script + shot list.
