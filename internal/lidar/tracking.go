@@ -105,6 +105,14 @@ type TrackedObject struct {
 	ObjectClass         string  // Classification result: "pedestrian", "car", "bird", "other"
 	ObjectConfidence    float32 // Classification confidence [0, 1]
 	ClassificationModel string  // Model version used for classification
+
+	// Phase 1: Track Quality Metrics
+	TrackLengthMeters   float32 // Total distance traveled (meters)
+	TrackDurationSecs   float32 // Total lifetime (seconds)
+	OcclusionCount      int     // Number of missed frames (gaps)
+	MaxOcclusionFrames  int     // Longest gap in observations
+	SpatialCoverage     float32 // % of bounding box covered by observations
+	NoisePointRatio     float32 // Ratio of noise points to cluster points
 }
 
 // Tracker manages multi-object tracking with explicit lifecycle states.
@@ -595,4 +603,65 @@ func (track *TrackedObject) SpeedHistory() []float32 {
 	result := make([]float32, len(track.speedHistory))
 	copy(result, track.speedHistory)
 	return result
+}
+
+// ComputeQualityMetrics calculates track quality metrics for Phase 1.
+// This should be called when a track is finalized (state changes to deleted or when exporting).
+func (track *TrackedObject) ComputeQualityMetrics() {
+	// Track length: Sum of Euclidean distances between consecutive positions
+	track.TrackLengthMeters = 0
+	if len(track.History) > 1 {
+		for i := 1; i < len(track.History); i++ {
+			dx := track.History[i].X - track.History[i-1].X
+			dy := track.History[i].Y - track.History[i-1].Y
+			track.TrackLengthMeters += float32(math.Sqrt(float64(dx*dx + dy*dy)))
+		}
+	}
+
+	// Track duration: Total lifetime in seconds
+	if track.LastUnixNanos > track.FirstUnixNanos {
+		track.TrackDurationSecs = float32(track.LastUnixNanos-track.FirstUnixNanos) / 1e9
+	}
+
+	// Occlusion count: Count gaps in observations (>200ms = missed frame at ~10Hz)
+	const occlusionThresholdNanos = 200_000_000 // 200ms
+	track.OcclusionCount = 0
+	track.MaxOcclusionFrames = 0
+	
+	if len(track.History) > 1 {
+		currentGapFrames := 0
+		for i := 1; i < len(track.History); i++ {
+			gap := track.History[i].Timestamp - track.History[i-1].Timestamp
+			if gap > occlusionThresholdNanos {
+				track.OcclusionCount++
+				// Estimate frames at 10Hz
+				gapFrames := int(gap / 100_000_000) // 100ms per frame
+				currentGapFrames += gapFrames
+				if currentGapFrames > track.MaxOcclusionFrames {
+					track.MaxOcclusionFrames = currentGapFrames
+				}
+			} else {
+				currentGapFrames = 0
+			}
+		}
+	}
+
+	// Spatial coverage: Ratio of observed area to theoretical max
+	// This is a simplified metric - more sophisticated versions could track
+	// actual point cloud coverage within the bounding box
+	if track.ObservationCount > 0 {
+		// Estimate coverage as (observations / theoretical_max_observations)
+		// At 10Hz, theoretical max = duration * 10
+		theoreticalMax := track.TrackDurationSecs * 10
+		if theoreticalMax > 0 {
+			track.SpatialCoverage = float32(track.ObservationCount) / theoreticalMax
+			// Clamp to [0, 1]
+			if track.SpatialCoverage > 1.0 {
+				track.SpatialCoverage = 1.0
+			}
+		}
+	}
+
+	// Note: NoisePointRatio is computed during clustering and passed via clusters
+	// It will be aggregated when clusters are associated with tracks
 }
