@@ -852,6 +852,7 @@ func (ws *WebServer) handleLidarDebugDashboard(w http.ResponseWriter, r *http.Re
 	if sensorID != "" {
 		qs = "?sensor_id=" + url.QueryEscape(sensorID)
 	}
+	safeQs := html.EscapeString(qs)
 
 	doc := fmt.Sprintf(`<!DOCTYPE html>
 	<html>
@@ -880,7 +881,7 @@ func (ws *WebServer) handleLidarDebugDashboard(w http.ResponseWriter, r *http.Re
 			<div class="panel"><h2>Tracks</h2><iframe src="/debug/lidar/tracks%s" title="Tracks"></iframe></div>
 		</div>
 	</body>
-	</html>`, safeSensorID, safeSensorID, qs, qs, qs, qs, qs)
+	</html>`, safeSensorID, safeSensorID, safeQs, safeQs, safeQs, safeQs, safeQs)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(doc))
