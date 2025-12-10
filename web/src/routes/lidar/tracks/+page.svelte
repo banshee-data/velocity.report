@@ -252,6 +252,7 @@
 			return;
 		}
 
+		// Concurrent request cancellation pattern: increment requestId to cancel previous requests
 		const requestId = ++observationsRequestId;
 
 		try {
@@ -260,18 +261,22 @@
 				observationsByTrack = { ...observationsByTrack, [trackId]: obs };
 			}
 
+			// Only update if this request is still the latest
 			if (requestId === observationsRequestId) {
 				selectedTrackObservations = observationsByTrack[trackId] ?? [];
 			}
 		} catch (error) {
+			// Only handle error if this request is still the latest
 			if (requestId === observationsRequestId) {
 				// Phase 3 TODO: Display error to user via inline error banner or toast notification.
 				// Should show error message, retry button, and option to report issue.
 				// For now, errors are logged to console for debugging.
-				console.error('Failed to load track observations:', error);
+				console.error('[LiDAR] Failed to load track observations:', error);
 				selectedTrackObservations = [];
 			}
 		}
+		// Note: No finally block needed - loading state cleanup will be added in Phase 3
+		// when observationsLoading variable is reintroduced for UI indicators.
 	}
 
 	async function loadForegroundObservations(startMs?: number, endMs?: number) {
