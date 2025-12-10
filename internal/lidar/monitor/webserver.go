@@ -782,10 +782,7 @@ func (ws *WebServer) handleBackgroundGridPolar(w http.ResponseWriter, r *http.Re
 	maxSeen := float64(0)
 	for i := 0; i < len(cells); i += stride {
 		c := cells[i]
-		theta := float64(c.AzimuthDeg) * math.Pi / 180.0
-		r := float64(c.Range)
-		x := r * math.Cos(theta)
-		y := r * math.Sin(theta)
+		x, y, _ := lidar.SphericalToCartesian(float64(c.Range), float64(c.AzimuthDeg), 0)
 		if math.Abs(x) > maxAbs {
 			maxAbs = math.Abs(x)
 		}
@@ -942,13 +939,11 @@ func (ws *WebServer) handleBackgroundGridHeatmapChart(w http.ResponseWriter, r *
 			continue
 		}
 		azMid := (b.AzimuthDegStart + b.AzimuthDegEnd) / 2.0
-		theta := azMid * math.Pi / 180.0
 		rRange := b.MeanRangeMeters
 		if rRange == 0 {
 			rRange = (b.MinRangeMeters + b.MaxRangeMeters) / 2.0
 		}
-		x := rRange * math.Cos(theta)
-		y := rRange * math.Sin(theta)
+		x, y, _ := lidar.SphericalToCartesian(rRange, azMid, 0)
 		if math.Abs(x) > maxAbs {
 			maxAbs = math.Abs(x)
 		}
