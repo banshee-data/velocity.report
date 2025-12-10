@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"html/template"
 	"io"
 	"log"
@@ -846,6 +847,7 @@ func (ws *WebServer) handleLidarDebugDashboard(w http.ResponseWriter, r *http.Re
 	if sensorID == "" {
 		sensorID = ws.sensorID
 	}
+	safeSensorID := html.EscapeString(sensorID)
 	qs := ""
 	if sensorID != "" {
 		qs = "?sensor_id=" + url.QueryEscape(sensorID)
@@ -878,7 +880,7 @@ func (ws *WebServer) handleLidarDebugDashboard(w http.ResponseWriter, r *http.Re
 			<div class="panel"><h2>Tracks</h2><iframe src="/debug/lidar/tracks%s" title="Tracks"></iframe></div>
 		</div>
 	</body>
-	</html>`, sensorID, sensorID, qs, qs, qs, qs, qs)
+	</html>`, safeSensorID, safeSensorID, qs, qs, qs, qs, qs)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(doc))
@@ -906,7 +908,7 @@ func (ws *WebServer) handleBackgroundGridHeatmapChart(w http.ResponseWriter, r *
 	}
 	settledThreshold := uint32(5)
 	if v := r.URL.Query().Get("settled_threshold"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed >= 0 {
+		if parsed, err := strconv.ParseUint(v, 10, 32); err == nil {
 			settledThreshold = uint32(parsed)
 		}
 	}
