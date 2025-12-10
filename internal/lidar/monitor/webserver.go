@@ -1163,86 +1163,57 @@ func (ws *WebServer) handleTracksChart(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(buf.Bytes())
 }
 
-// handleForegroundFrameChart renders the most recent frame of track observations (foreground points).
-// Uses a short time window to capture the latest timestamp and plots those points in XY.
+// handleForegroundFrameChart renders the most recent foreground frame cached from the pipeline.
+// Points are pulled from the in-memory foreground snapshot instead of the track observations table
+// so the chart reflects the full per-point mask output (point density, foreground fraction, etc.).
 func (ws *WebServer) handleForegroundFrameChart(w http.ResponseWriter, r *http.Request) {
-	if ws.trackAPI == nil || ws.trackAPI.db == nil {
-		ws.writeJSONError(w, http.StatusServiceUnavailable, "track DB not configured")
-		return
-	}
-
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
 		sensorID = ws.sensorID
 	}
 
-	windowSeconds := 5
-	if v := r.URL.Query().Get("window_seconds"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 && parsed <= 60 {
-			windowSeconds = parsed
-		}
-	}
-	limit := 3000
-	if l := r.URL.Query().Get("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 10000 {
-			limit = parsed
-		}
-	}
-
-	endNanos := time.Now().UnixNano()
-	startNanos := endNanos - int64(time.Duration(windowSeconds)*time.Second)
-
-	observations, err := lidar.GetTrackObservationsInRange(ws.trackAPI.db, sensorID, startNanos, endNanos, limit, "")
-	if err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get observations: %v", err))
-		return
-	}
-	if len(observations) == 0 {
-		ws.writeJSONError(w, http.StatusNotFound, "no observations in window")
+	snapshot := lidar.GetForegroundSnapshot(sensorID)
+	if snapshot == nil || len(snapshot.Points) == 0 {
+		ws.writeJSONError(w, http.StatusNotFound, "no foreground snapshot available")
 		return
 	}
 
-	latestTS := observations[len(observations)-1].TSUnixNanos
-	frameTime := time.Unix(0, latestTS).UTC()
-
-	pts := make([]opts.ScatterData, 0, len(observations))
+	pts := make([]opts.ScatterData, 0, len(snapshot.Points))
 	maxAbs := 0.0
-	maxSpeed := float32(0)
-	for _, obs := range observations {
-		if obs.TSUnixNanos != latestTS {
-			continue
-		}
-		x := float64(obs.X)
-		y := float64(obs.Y)
+	maxIntensity := float32(0)
+	for _, p := range snapshot.Points {
+		x := p.X
+		y := p.Y
 		if math.Abs(x) > maxAbs {
 			maxAbs = math.Abs(x)
 		}
 		if math.Abs(y) > maxAbs {
 			maxAbs = math.Abs(y)
 		}
-		if obs.SpeedMps > maxSpeed {
-			maxSpeed = obs.SpeedMps
+		intensity := float32(p.Intensity)
+		if intensity > maxIntensity {
+			maxIntensity = intensity
 		}
-		pts = append(pts, opts.ScatterData{Value: []interface{}{x, y, obs.SpeedMps}, Name: obs.TrackID})
-	}
-
-	if len(pts) == 0 {
-		ws.writeJSONError(w, http.StatusNotFound, "no observations in latest frame")
-		return
+		pts = append(pts, opts.ScatterData{Value: []interface{}{x, y, intensity}})
 	}
 
 	pad := maxAbs * 1.05
 	if pad == 0 {
 		pad = 1.0
 	}
-	if maxSpeed == 0 {
-		maxSpeed = 1
+	if maxIntensity == 0 {
+		maxIntensity = 1
+	}
+
+	fraction := 0.0
+	if snapshot.TotalPoints > 0 {
+		fraction = float64(snapshot.ForegroundPoints) / float64(snapshot.TotalPoints)
 	}
 
 	scatter := charts.NewScatter()
 	scatter.SetGlobalOptions(
 		charts.WithInitializationOpts(opts.Initialization{PageTitle: "LiDAR Foreground Frame", Theme: "dark", Width: "900px", Height: "900px"}),
-		charts.WithTitleOpts(opts.Title{Title: "Foreground Frame", Subtitle: fmt.Sprintf("sensor=%s ts=%s count=%d", sensorID, frameTime.Format(time.RFC3339), len(pts))}),
+		charts.WithTitleOpts(opts.Title{Title: "Foreground Frame", Subtitle: fmt.Sprintf("sensor=%s ts=%s fg=%d/%d (%.2f%%)", sensorID, snapshot.Timestamp.UTC().Format(time.RFC3339), snapshot.ForegroundPoints, snapshot.TotalPoints, fraction*100)}),
 		charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true)}),
 		charts.WithXAxisOpts(opts.XAxis{Min: -pad, Max: pad, Name: "X (m)", NameLocation: "middle", NameGap: 25}),
 		charts.WithYAxisOpts(opts.YAxis{Min: -pad, Max: pad, Name: "Y (m)", NameLocation: "middle", NameGap: 30}),
@@ -1250,13 +1221,13 @@ func (ws *WebServer) handleForegroundFrameChart(w http.ResponseWriter, r *http.R
 			Show:       opts.Bool(true),
 			Calculable: opts.Bool(true),
 			Min:        0,
-			Max:        float32(maxSpeed),
+			Max:        maxIntensity,
 			Dimension:  "2",
 			InRange:    &opts.VisualMapInRange{Color: []string{"#440154", "#482777", "#3e4989", "#31688e", "#26828e", "#1f9e89", "#35b779", "#6ece58", "#b5de2b", "#fde725"}},
 		}),
 	)
 
-	scatter.AddSeries("foreground", pts, charts.WithScatterChartOpts(opts.ScatterChart{SymbolSize: 8}))
+	scatter.AddSeries("foreground", pts, charts.WithScatterChartOpts(opts.ScatterChart{SymbolSize: 6}))
 
 	var buf bytes.Buffer
 	if err := scatter.Render(&buf); err != nil {

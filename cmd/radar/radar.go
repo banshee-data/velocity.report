@@ -356,6 +356,7 @@ func main() {
 					}
 
 					foregroundPoints := lidar.ExtractForegroundPoints(polar, mask)
+					totalPoints := len(polar)
 					if len(foregroundPoints) == 0 {
 						// No foreground detected, skip tracking
 						return
@@ -366,6 +367,8 @@ func main() {
 
 					// Phase 2: Transform to world coordinates
 					worldPoints := lidar.TransformToWorld(foregroundPoints, nil, *lidarSensor)
+					// Cache the latest foreground frame for debug visualization
+					lidar.StoreForegroundSnapshot(*lidarSensor, frame.StartTimestamp, worldPoints, totalPoints, len(foregroundPoints))
 
 					// Phase 3: Clustering
 					clusters := lidar.DBSCAN(worldPoints, lidar.DefaultDBSCANParams())
