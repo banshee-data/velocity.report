@@ -18,6 +18,7 @@ require (
 	github.com/creachadair/msync v0.7.1 // indirect
 	github.com/creack/goselect v0.1.3 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/go-echarts/go-echarts/v2 v2.6.7 // indirect
 	github.com/go-json-experiment/json v0.0.0-20250813233538-9b1f9ea2e11b // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect

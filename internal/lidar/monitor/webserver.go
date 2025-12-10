@@ -27,6 +27,8 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/parse"
 	"github.com/banshee-data/velocity.report/internal/security"
+	"github.com/go-echarts/go-echarts/v2/charts"
+	"github.com/go-echarts/go-echarts/v2/opts"
 )
 
 //go:embed status.html
@@ -481,6 +483,7 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/grid_reset", ws.handleGridReset)
 	mux.HandleFunc("/api/lidar/grid_heatmap", ws.handleGridHeatmap)
 	mux.HandleFunc("/api/lidar/background/grid", ws.handleBackgroundGrid) // Full background grid
+	mux.HandleFunc("/debug/lidar/background/polar", ws.handleBackgroundGridPolar)
 	mux.HandleFunc("/api/lidar/data_source", ws.handleDataSource)
 	mux.HandleFunc("/api/lidar/pcap/start", ws.handlePCAPStart)
 	mux.HandleFunc("/api/lidar/pcap/stop", ws.handlePCAPStop)
@@ -729,6 +732,73 @@ func (ws *WebServer) handleDataSource(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+// handleBackgroundGridPolar renders a quick polar plot (HTML) of the background grid using go-echarts.
+// This is a debugging-only endpoint (no auth) to visually compare grid vs observations without the Svelte UI.
+// Query params:
+//   - sensor_id (optional; defaults to configured sensor)
+//   - max_points (optional; default 8000) to reduce payload size
+func (ws *WebServer) handleBackgroundGridPolar(w http.ResponseWriter, r *http.Request) {
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = ws.sensorID
+	}
+
+	bm := lidar.GetBackgroundManager(sensorID)
+	if bm == nil || bm.Grid == nil {
+		ws.writeJSONError(w, http.StatusNotFound, "no background manager for sensor")
+		return
+	}
+
+	maxPoints := 8000
+	if mp := r.URL.Query().Get("max_points"); mp != "" {
+		if v, err := strconv.Atoi(mp); err == nil && v > 100 && v <= 50000 {
+			maxPoints = v
+		}
+	}
+
+	cells := bm.GetGridCells()
+	if len(cells) == 0 {
+		ws.writeJSONError(w, http.StatusNotFound, "no background cells available")
+		return
+	}
+
+	// Downsample by stride to stay within maxPoints
+	stride := 1
+	if len(cells) > maxPoints {
+		stride = int(math.Ceil(float64(len(cells)) / float64(maxPoints)))
+	}
+
+	data := make([]opts.ScatterData, 0, len(cells)/stride+1)
+	for i := 0; i < len(cells); i += stride {
+		c := cells[i]
+		theta := float64(c.AzimuthDeg) * math.Pi / 180.0
+		r := float64(c.Range)
+		x := r * math.Cos(theta)
+		y := r * math.Sin(theta)
+		data = append(data, opts.ScatterData{Value: []interface{}{x, y}})
+	}
+
+	scatter := charts.NewScatter()
+	scatter.SetGlobalOptions(
+		charts.WithInitializationOpts(opts.Initialization{PageTitle: "LiDAR Background (Polar->XY)", Theme: "dark", Width: "100%", Height: "900px"}),
+		charts.WithTitleOpts(opts.Title{Title: "LiDAR Background Grid", Subtitle: fmt.Sprintf("sensor=%s points=%d stride=%d", sensorID, len(data), stride)}),
+		charts.WithTooltipOpts(opts.Tooltip{Show: true}),
+		charts.WithXAxisOpts(opts.XAxis{Name: "X (m)", NameLocation: "middle", NameGap: 25}),
+		charts.WithYAxisOpts(opts.YAxis{Name: "Y (m)", NameLocation: "middle", NameGap: 30}),
+	)
+
+	scatter.AddSeries("background", data, charts.WithScatterChartOpts(opts.ScatterChart{SymbolSize: 3}))
+
+	var buf bytes.Buffer
+	if err := scatter.Render(&buf); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to render chart: %v", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(buf.Bytes())
 }
 
 // handleExportSnapshotASC triggers an export to ASC for a given snapshot_id (or latest if not provided).
