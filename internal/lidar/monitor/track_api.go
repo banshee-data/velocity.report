@@ -371,20 +371,22 @@ func (api *TrackAPI) handleListObservations(w http.ResponseWriter, r *http.Reque
 	}
 
 	for _, obs := range observations {
+		posX, posY := toDisplayFrame(obs.X, obs.Y)
+		velX, velY := toDisplayFrame(obs.VelocityX, obs.VelocityY)
 		response.Observations = append(response.Observations, ObservationResponse{
 			TrackID:   obs.TrackID,
 			Timestamp: time.Unix(0, obs.TSUnixNanos).UTC().Format(time.RFC3339Nano),
 			Position: Position{
-				X: obs.X,
-				Y: obs.Y,
+				X: posX,
+				Y: posY,
 				Z: obs.Z,
 			},
 			Velocity: Velocity{
-				VX: obs.VelocityX,
-				VY: obs.VelocityY,
+				VX: velX,
+				VY: velY,
 			},
-			SpeedMps:   obs.SpeedMps,
-			HeadingRad: obs.HeadingRad,
+			SpeedMps:   float32(math.Sqrt(float64(velX*velX + velY*velY))),
+			HeadingRad: headingFromVelocity(velX, velY),
 			BoundingBox: struct {
 				Length float32 `json:"length"`
 				Width  float32 `json:"width"`
@@ -656,19 +658,24 @@ func (api *TrackAPI) handleTrackObservations(w http.ResponseWriter, r *http.Requ
 	}
 
 	for _, obs := range observations {
+		posX, posY := toDisplayFrame(obs.X, obs.Y)
+		velX, velY := toDisplayFrame(obs.VelocityX, obs.VelocityY)
+		speed := float32(math.Sqrt(float64(velX*velX + velY*velY)))
+		heading := headingFromVelocity(velX, velY)
+
 		response.Observations = append(response.Observations, ObsResponse{
 			Timestamp: time.Unix(0, obs.TSUnixNanos).UTC().Format(time.RFC3339Nano),
 			Position: Position{
-				X: obs.X,
-				Y: obs.Y,
+				X: posX,
+				Y: posY,
 				Z: obs.Z,
 			},
 			Velocity: Velocity{
-				VX: obs.VelocityX,
-				VY: obs.VelocityY,
+				VX: velX,
+				VY: velY,
 			},
-			SpeedMps:   obs.SpeedMps,
-			HeadingRad: obs.HeadingRad,
+			SpeedMps:   speed,
+			HeadingRad: heading,
 			BoundingBox: struct {
 				Length float32 `json:"length"`
 				Width  float32 `json:"width"`
@@ -897,6 +904,16 @@ func (api *TrackAPI) writeJSONError(w http.ResponseWriter, status int, msg strin
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
 
+// toDisplayFrame aligns stored track coordinates (sensor frame with azimuth 0 along +Y)
+// to the UI's display frame (azimuth 0 along +X) by swapping X/Y.
+func toDisplayFrame(x, y float32) (float32, float32) {
+	return y, x
+}
+
+func headingFromVelocity(vx, vy float32) float32 {
+	return float32(math.Atan2(float64(vy), float64(vx)))
+}
+
 func (api *TrackAPI) trackToResponse(track *lidar.TrackedObject) TrackResponse {
 	first := track.FirstUnixNanos
 	last := track.LastUnixNanos
@@ -912,14 +929,17 @@ func (api *TrackAPI) trackToResponse(track *lidar.TrackedObject) TrackResponse {
 		spanSeconds = float64(last-first) / 1e9
 	}
 
-	speed := float32(math.Sqrt(float64(track.VX*track.VX + track.VY*track.VY)))
-	heading := float32(math.Atan2(float64(track.VY), float64(track.VX)))
+	posX, posY := toDisplayFrame(track.X, track.Y)
+	velX, velY := toDisplayFrame(track.VX, track.VY)
+	speed := float32(math.Sqrt(float64(velX*velX + velY*velY)))
+	heading := headingFromVelocity(velX, velY)
 
 	history := make([]TrackPointResponse, 0, len(track.History))
 	for _, p := range track.History {
+		hx, hy := toDisplayFrame(p.X, p.Y)
 		history = append(history, TrackPointResponse{
-			X:         p.X,
-			Y:         p.Y,
+			X:         hx,
+			Y:         hy,
 			Timestamp: time.Unix(0, p.Timestamp).UTC().Format(time.RFC3339Nano),
 		})
 	}
@@ -929,15 +949,15 @@ func (api *TrackAPI) trackToResponse(track *lidar.TrackedObject) TrackResponse {
 		SensorID: track.SensorID,
 		State:    string(track.State),
 		Position: Position{
-			X: track.X,
-			Y: track.Y,
+			X: posX,
+			Y: posY,
 			// Z is 0 because TrackedObject uses a 2D Kalman filter tracking (x, y, vx, vy).
 			// Height information is captured in bounding_box and height_p95 from cluster features.
 			Z: 0,
 		},
 		Velocity: Velocity{
-			VX: track.VX,
-			VY: track.VY,
+			VX: velX,
+			VY: velY,
 		},
 		SpeedMps:            speed,
 		HeadingRad:          heading,
