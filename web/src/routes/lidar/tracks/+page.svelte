@@ -75,6 +75,18 @@
 					history_length: firstTrack.history?.length || 0
 				});
 
+				// Check for invalid timestamps
+				const lastSeenTimes = tracks.map((t) => new Date(t.last_seen).getTime());
+				const validLastSeen = lastSeenTimes.filter((t) => t > 0 && t < Date.now());
+				console.log(
+					'[TrackHistory] last_seen times - total:',
+					lastSeenTimes.length,
+					'valid:',
+					validLastSeen.length,
+					'sample:',
+					lastSeenTimes.slice(0, 3)
+				);
+
 				timeRange = {
 					start: Math.min(...tracks.map((t) => new Date(t.first_seen).getTime())),
 					end: Math.max(...tracks.map((t) => new Date(t.last_seen).getTime()))
@@ -83,7 +95,9 @@
 
 				console.log('[TrackHistory] Time range:', {
 					start: new Date(timeRange.start).toISOString(),
-					end: new Date(timeRange.end).toISOString()
+					end: new Date(timeRange.end).toISOString(),
+					startMs: timeRange.start,
+					endMs: timeRange.end
 				});
 			} else {
 				console.warn('[TrackHistory] No tracks loaded!');

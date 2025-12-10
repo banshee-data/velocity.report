@@ -93,10 +93,9 @@ func InsertTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
-	var endNanos interface{}
-	if track.State == TrackDeleted {
-		endNanos = track.LastUnixNanos
-	}
+	// Always set end_unix_nanos to LastUnixNanos for all track states
+	// This allows accurate time range queries for track history visualization
+	endNanos := track.LastUnixNanos
 
 	_, err := db.Exec(query,
 		track.TrackID,
@@ -151,10 +150,9 @@ func UpdateTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 		WHERE track_id = ?
 	`
 
-	var endNanos interface{}
-	if track.State == TrackDeleted {
-		endNanos = track.LastUnixNanos
-	}
+	// Always set end_unix_nanos to LastUnixNanos for all track states
+	// This allows accurate time range queries for track history visualization
+	endNanos := track.LastUnixNanos
 
 	_, err := db.Exec(query,
 		string(track.State),
