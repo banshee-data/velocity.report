@@ -15,6 +15,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -484,7 +485,12 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/grid_reset", ws.handleGridReset)
 	mux.HandleFunc("/api/lidar/grid_heatmap", ws.handleGridHeatmap)
 	mux.HandleFunc("/api/lidar/background/grid", ws.handleBackgroundGrid) // Full background grid
+	mux.HandleFunc("/debug/lidar", ws.handleLidarDebugDashboard)
 	mux.HandleFunc("/debug/lidar/background/polar", ws.handleBackgroundGridPolar)
+	mux.HandleFunc("/debug/lidar/background/heatmap", ws.handleBackgroundGridHeatmapChart)
+	mux.HandleFunc("/debug/lidar/foreground", ws.handleForegroundFrameChart)
+	mux.HandleFunc("/debug/lidar/clusters", ws.handleClustersChart)
+	mux.HandleFunc("/debug/lidar/tracks", ws.handleTracksChart)
 	mux.HandleFunc("/api/lidar/data_source", ws.handleDataSource)
 	mux.HandleFunc("/api/lidar/pcap/start", ws.handlePCAPStart)
 	mux.HandleFunc("/api/lidar/pcap/stop", ws.handlePCAPStop)
@@ -772,22 +778,55 @@ func (ws *WebServer) handleBackgroundGridPolar(w http.ResponseWriter, r *http.Re
 	}
 
 	data := make([]opts.ScatterData, 0, len(cells)/stride+1)
+	maxAbs := 0.0
+	maxSeen := float64(0)
 	for i := 0; i < len(cells); i += stride {
 		c := cells[i]
 		theta := float64(c.AzimuthDeg) * math.Pi / 180.0
 		r := float64(c.Range)
 		x := r * math.Cos(theta)
 		y := r * math.Sin(theta)
-		data = append(data, opts.ScatterData{Value: []interface{}{x, y}})
+		if math.Abs(x) > maxAbs {
+			maxAbs = math.Abs(x)
+		}
+		if math.Abs(y) > maxAbs {
+			maxAbs = math.Abs(y)
+		}
+
+		seen := float64(c.TimesSeen)
+		if seen > maxSeen {
+			maxSeen = seen
+		}
+
+		data = append(data, opts.ScatterData{Value: []interface{}{x, y, seen}})
 	}
 
+	// Add a small padding so points at the edges are visible
+	pad := maxAbs * 1.05
+	if pad == 0 {
+		pad = 1.0
+	}
+
+	if maxSeen == 0 {
+		maxSeen = 1
+	}
+
+	// Force a square plot by using equal width/height and symmetric axis ranges
 	scatter := charts.NewScatter()
 	scatter.SetGlobalOptions(
-		charts.WithInitializationOpts(opts.Initialization{PageTitle: "LiDAR Background (Polar->XY)", Theme: "dark", Width: "100%", Height: "900px"}),
+		charts.WithInitializationOpts(opts.Initialization{PageTitle: "LiDAR Background (Polar->XY)", Theme: "dark", Width: "900px", Height: "900px"}),
 		charts.WithTitleOpts(opts.Title{Title: "LiDAR Background Grid", Subtitle: fmt.Sprintf("sensor=%s points=%d stride=%d", sensorID, len(data), stride)}),
 		charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true)}),
-		charts.WithXAxisOpts(opts.XAxis{Name: "X (m)", NameLocation: "middle", NameGap: 25}),
-		charts.WithYAxisOpts(opts.YAxis{Name: "Y (m)", NameLocation: "middle", NameGap: 30}),
+		charts.WithXAxisOpts(opts.XAxis{Min: -pad, Max: pad, Name: "X (m)", NameLocation: "middle", NameGap: 25}),
+		charts.WithYAxisOpts(opts.YAxis{Min: -pad, Max: pad, Name: "Y (m)", NameLocation: "middle", NameGap: 30}),
+		charts.WithVisualMapOpts(opts.VisualMap{
+			Show:       opts.Bool(true),
+			Calculable: opts.Bool(true),
+			Min:        0,
+			Max:        float32(maxSeen),
+			Dimension:  "2",
+			InRange:    &opts.VisualMapInRange{Color: []string{"#440154", "#482777", "#3e4989", "#31688e", "#26828e", "#1f9e89", "#35b779", "#6ece58", "#b5de2b", "#fde725"}},
+		}),
 	)
 
 	scatter.AddSeries("background", data, charts.WithScatterChartOpts(opts.ScatterChart{SymbolSize: 3}))
@@ -795,6 +834,433 @@ func (ws *WebServer) handleBackgroundGridPolar(w http.ResponseWriter, r *http.Re
 	var buf bytes.Buffer
 	if err := scatter.Render(&buf); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to render chart: %v", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(buf.Bytes())
+}
+
+// handleLidarDebugDashboard renders a simple dashboard with iframes to the debug charts.
+func (ws *WebServer) handleLidarDebugDashboard(w http.ResponseWriter, r *http.Request) {
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = ws.sensorID
+	}
+	qs := ""
+	if sensorID != "" {
+		qs = "?sensor_id=" + url.QueryEscape(sensorID)
+	}
+
+	doc := fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<head>
+	<title>LiDAR Debug Dashboard - %s</title>
+	<style>
+		body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 16px auto; max-width: 1400px; background: #f5f7fb; color: #0f172a; }
+		h1 { margin: 0 0 6px 0; }
+		p { margin: 0 0 16px 0; color: #475569; }
+		.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(520px, 1fr)); gap: 12px; align-items: stretch; }
+		.panel { display: flex; flex-direction: column; border: 1px solid #e2e8f0; border-radius: 8px; background: #ffffff; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06); overflow: hidden; }
+		.panel h2 { font-size: 15px; font-weight: 600; margin: 0; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+		iframe { width: 100%%; border: 0; flex: 1; min-height: 480px; background: #111827; }
+		@media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } }
+	</style>
+</head>
+<body>
+	<h1>LiDAR Debug Dashboard</h1>
+	<p>Sensor: %s</p>
+	<div class="grid">
+		<div class="panel"><h2>Background Polar (XY)</h2><iframe src="/debug/lidar/background/polar%s" title="Background Polar"></iframe></div>
+		<div class="panel"><h2>Background Heatmap</h2><iframe src="/debug/lidar/background/heatmap%s" title="Background Heatmap"></iframe></div>
+		<div class="panel"><h2>Foreground Frame</h2><iframe src="/debug/lidar/foreground%s" title="Foreground Frame"></iframe></div>
+		<div class="panel"><h2>Clusters</h2><iframe src="/debug/lidar/clusters%s" title="Clusters"></iframe></div>
+		<div class="panel"><h2>Tracks</h2><iframe src="/debug/lidar/tracks%s" title="Tracks"></iframe></div>
+	</div>
+</body>
+</html>`, sensorID, sensorID, qs, qs, qs, qs, qs)
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write([]byte(doc))
+}
+
+// handleBackgroundGridHeatmapChart renders a coarse heatmap (as colored scatter)
+// using the aggregated buckets returned by GetGridHeatmap.
+func (ws *WebServer) handleBackgroundGridHeatmapChart(w http.ResponseWriter, r *http.Request) {
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = ws.sensorID
+	}
+
+	bm := lidar.GetBackgroundManager(sensorID)
+	if bm == nil || bm.Grid == nil {
+		ws.writeJSONError(w, http.StatusNotFound, "no background manager for sensor")
+		return
+	}
+
+	azBucketDeg := 3.0
+	if v := r.URL.Query().Get("azimuth_bucket_deg"); v != "" {
+		if parsed, err := strconv.ParseFloat(v, 64); err == nil && parsed >= 1.0 {
+			azBucketDeg = parsed
+		}
+	}
+	settledThreshold := uint32(5)
+	if v := r.URL.Query().Get("settled_threshold"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed >= 0 {
+			settledThreshold = uint32(parsed)
+		}
+	}
+
+	heatmap := bm.GetGridHeatmap(azBucketDeg, settledThreshold)
+	if heatmap == nil || len(heatmap.Buckets) == 0 {
+		ws.writeJSONError(w, http.StatusNotFound, "no heatmap buckets available")
+		return
+	}
+
+	// Build scatter points colored by MeanTimesSeen (or settled cells)
+	points := make([]opts.ScatterData, 0, len(heatmap.Buckets))
+	maxVal := 0.0
+	for _, b := range heatmap.Buckets {
+		if b.FilledCells == 0 {
+			continue
+		}
+		val := b.MeanTimesSeen
+		if val == 0 {
+			val = float64(b.SettledCells)
+		}
+		if val > maxVal {
+			maxVal = val
+		}
+	}
+	if maxVal == 0 {
+		maxVal = 1.0
+	}
+
+	maxAbs := 0.0
+	for _, b := range heatmap.Buckets {
+		if b.FilledCells == 0 {
+			continue
+		}
+		azMid := (b.AzimuthDegStart + b.AzimuthDegEnd) / 2.0
+		theta := azMid * math.Pi / 180.0
+		rRange := b.MeanRangeMeters
+		if rRange == 0 {
+			rRange = (b.MinRangeMeters + b.MaxRangeMeters) / 2.0
+		}
+		x := rRange * math.Cos(theta)
+		y := rRange * math.Sin(theta)
+		if math.Abs(x) > maxAbs {
+			maxAbs = math.Abs(x)
+		}
+		if math.Abs(y) > maxAbs {
+			maxAbs = math.Abs(y)
+		}
+
+		norm := b.MeanTimesSeen / maxVal
+		if norm < 0 {
+			norm = 0
+		}
+		if norm > 1 {
+			norm = 1
+		}
+
+		pt := opts.ScatterData{Value: []interface{}{x, y, b.MeanTimesSeen}}
+		points = append(points, pt)
+	}
+
+	pad := maxAbs * 1.05
+	if pad == 0 {
+		pad = 1.0
+	}
+
+	scatter := charts.NewScatter()
+	scatter.SetGlobalOptions(
+		charts.WithInitializationOpts(opts.Initialization{PageTitle: "LiDAR Background Heatmap", Theme: "dark", Width: "900px", Height: "900px"}),
+		charts.WithTitleOpts(opts.Title{Title: "LiDAR Background Heatmap", Subtitle: fmt.Sprintf("sensor=%s buckets=%d az=%g", sensorID, len(points), azBucketDeg)}),
+		charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true)}),
+		charts.WithXAxisOpts(opts.XAxis{Min: -pad, Max: pad, Name: "X (m)", NameLocation: "middle", NameGap: 25}),
+		charts.WithYAxisOpts(opts.YAxis{Min: -pad, Max: pad, Name: "Y (m)", NameLocation: "middle", NameGap: 30}),
+		charts.WithVisualMapOpts(opts.VisualMap{
+			Show:       opts.Bool(true),
+			Calculable: opts.Bool(true),
+			Min:        0,
+			Max:        float32(maxVal),
+			Dimension:  "2",
+			InRange:    &opts.VisualMapInRange{Color: []string{"#440154", "#482777", "#3e4989", "#31688e", "#26828e", "#1f9e89", "#35b779", "#6ece58", "#b5de2b", "#fde725"}},
+		}),
+	)
+	scatter.AddSeries("heatmap", points, charts.WithScatterChartOpts(opts.ScatterChart{SymbolSize: 10}))
+
+	var buf bytes.Buffer
+	if err := scatter.Render(&buf); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to render heatmap chart: %v", err))
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(buf.Bytes())
+}
+
+// handleClustersChart renders recent clusters as scatter points (color by point count).
+func (ws *WebServer) handleClustersChart(w http.ResponseWriter, r *http.Request) {
+	if ws.trackAPI == nil || ws.trackAPI.db == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "track DB not configured")
+		return
+	}
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = ws.sensorID
+	}
+
+	// time window (seconds)
+	var startNanos, endNanos int64
+	if s := r.URL.Query().Get("start"); s != "" {
+		if parsed, err := strconv.ParseInt(s, 10, 64); err == nil {
+			startNanos = parsed * 1e9
+		}
+	}
+	if e := r.URL.Query().Get("end"); e != "" {
+		if parsed, err := strconv.ParseInt(e, 10, 64); err == nil {
+			endNanos = parsed * 1e9
+		}
+	}
+	if endNanos == 0 {
+		endNanos = time.Now().UnixNano()
+	}
+	if startNanos == 0 {
+		startNanos = endNanos - int64(time.Hour)
+	}
+	limit := 100
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 1000 {
+			limit = parsed
+		}
+	}
+
+	clusters, err := lidar.GetRecentClusters(ws.trackAPI.db, sensorID, startNanos, endNanos, limit)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get clusters: %v", err))
+		return
+	}
+
+	pts := make([]opts.ScatterData, 0, len(clusters))
+	maxPts := 1
+	for _, c := range clusters {
+		if c.PointsCount > maxPts {
+			maxPts = c.PointsCount
+		}
+	}
+	maxAbs := 0.0
+	for _, c := range clusters {
+		x := float64(c.CentroidX)
+		y := float64(c.CentroidY)
+		if math.Abs(x) > maxAbs {
+			maxAbs = math.Abs(x)
+		}
+		if math.Abs(y) > maxAbs {
+			maxAbs = math.Abs(y)
+		}
+		pt := opts.ScatterData{Value: []interface{}{x, y, c.PointsCount}}
+		pts = append(pts, pt)
+	}
+	pad := maxAbs * 1.05
+	if pad == 0 {
+		pad = 1.0
+	}
+
+	scatter := charts.NewScatter()
+	scatter.SetGlobalOptions(
+		charts.WithInitializationOpts(opts.Initialization{PageTitle: "LiDAR Clusters", Theme: "dark", Width: "900px", Height: "900px"}),
+		charts.WithTitleOpts(opts.Title{Title: "Recent Clusters", Subtitle: fmt.Sprintf("sensor=%s count=%d", sensorID, len(pts))}),
+		charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true)}),
+		charts.WithXAxisOpts(opts.XAxis{Min: -pad, Max: pad, Name: "X (m)", NameLocation: "middle", NameGap: 25}),
+		charts.WithYAxisOpts(opts.YAxis{Min: -pad, Max: pad, Name: "Y (m)", NameLocation: "middle", NameGap: 30}),
+		charts.WithVisualMapOpts(opts.VisualMap{
+			Show:       opts.Bool(true),
+			Calculable: opts.Bool(true),
+			Min:        0,
+			Max:        float32(maxPts),
+			Dimension:  "2",
+			InRange:    &opts.VisualMapInRange{Color: []string{"#440154", "#482777", "#3e4989", "#31688e", "#26828e", "#1f9e89", "#35b779", "#6ece58", "#b5de2b", "#fde725"}},
+		}),
+	)
+	scatter.AddSeries("clusters", pts, charts.WithScatterChartOpts(opts.ScatterChart{SymbolSize: 10}))
+	var buf bytes.Buffer
+	if err := scatter.Render(&buf); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to render clusters chart: %v", err))
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(buf.Bytes())
+}
+
+// handleTracksChart renders current track positions (and optionally recent observations) as a scatter overlay.
+func (ws *WebServer) handleTracksChart(w http.ResponseWriter, r *http.Request) {
+	if ws.trackAPI == nil || ws.trackAPI.db == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "track DB not configured")
+		return
+	}
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = ws.sensorID
+	}
+
+	state := r.URL.Query().Get("state")
+	tracks, err := lidar.GetActiveTracks(ws.trackAPI.db, sensorID, state)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get tracks: %v", err))
+		return
+	}
+
+	pts := make([]opts.ScatterData, 0, len(tracks))
+	maxAbs := 0.0
+	maxObs := 0
+	for _, t := range tracks {
+		x := float64(t.X)
+		y := float64(t.Y)
+		if math.Abs(x) > maxAbs {
+			maxAbs = math.Abs(x)
+		}
+		if math.Abs(y) > maxAbs {
+			maxAbs = math.Abs(y)
+		}
+		if t.ObservationCount > maxObs {
+			maxObs = t.ObservationCount
+		}
+		pt := opts.ScatterData{Value: []interface{}{x, y, t.ObservationCount}}
+		pts = append(pts, pt)
+	}
+	pad := maxAbs * 1.05
+	if pad == 0 {
+		pad = 1.0
+	}
+	if maxObs == 0 {
+		maxObs = 1
+	}
+
+	scatter := charts.NewScatter()
+	scatter.SetGlobalOptions(
+		charts.WithInitializationOpts(opts.Initialization{PageTitle: "LiDAR Tracks", Theme: "dark", Width: "900px", Height: "900px"}),
+		charts.WithTitleOpts(opts.Title{Title: "Active Tracks", Subtitle: fmt.Sprintf("sensor=%s count=%d", sensorID, len(pts))}),
+		charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true)}),
+		charts.WithXAxisOpts(opts.XAxis{Min: -pad, Max: pad, Name: "X (m)", NameLocation: "middle", NameGap: 25}),
+		charts.WithYAxisOpts(opts.YAxis{Min: -pad, Max: pad, Name: "Y (m)", NameLocation: "middle", NameGap: 30}),
+		charts.WithVisualMapOpts(opts.VisualMap{
+			Show:       opts.Bool(true),
+			Calculable: opts.Bool(true),
+			Min:        0,
+			Max:        float32(maxObs),
+			Dimension:  "2",
+			InRange:    &opts.VisualMapInRange{Color: []string{"#440154", "#482777", "#3e4989", "#31688e", "#26828e", "#1f9e89", "#35b779", "#6ece58", "#b5de2b", "#fde725"}},
+		}),
+	)
+	scatter.AddSeries("tracks", pts, charts.WithScatterChartOpts(opts.ScatterChart{SymbolSize: 8}))
+	var buf bytes.Buffer
+	if err := scatter.Render(&buf); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to render tracks chart: %v", err))
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(buf.Bytes())
+}
+
+// handleForegroundFrameChart renders the most recent frame of track observations (foreground points).
+// Uses a short time window to capture the latest timestamp and plots those points in XY.
+func (ws *WebServer) handleForegroundFrameChart(w http.ResponseWriter, r *http.Request) {
+	if ws.trackAPI == nil || ws.trackAPI.db == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "track DB not configured")
+		return
+	}
+
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = ws.sensorID
+	}
+
+	windowSeconds := 5
+	if v := r.URL.Query().Get("window_seconds"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 && parsed <= 60 {
+			windowSeconds = parsed
+		}
+	}
+	limit := 3000
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 10000 {
+			limit = parsed
+		}
+	}
+
+	endNanos := time.Now().UnixNano()
+	startNanos := endNanos - int64(time.Duration(windowSeconds)*time.Second)
+
+	observations, err := lidar.GetTrackObservationsInRange(ws.trackAPI.db, sensorID, startNanos, endNanos, limit, "")
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get observations: %v", err))
+		return
+	}
+	if len(observations) == 0 {
+		ws.writeJSONError(w, http.StatusNotFound, "no observations in window")
+		return
+	}
+
+	latestTS := observations[len(observations)-1].TSUnixNanos
+	frameTime := time.Unix(0, latestTS).UTC()
+
+	pts := make([]opts.ScatterData, 0, len(observations))
+	maxAbs := 0.0
+	maxSpeed := float32(0)
+	for _, obs := range observations {
+		if obs.TSUnixNanos != latestTS {
+			continue
+		}
+		x := float64(obs.X)
+		y := float64(obs.Y)
+		if math.Abs(x) > maxAbs {
+			maxAbs = math.Abs(x)
+		}
+		if math.Abs(y) > maxAbs {
+			maxAbs = math.Abs(y)
+		}
+		if obs.SpeedMps > maxSpeed {
+			maxSpeed = obs.SpeedMps
+		}
+		pts = append(pts, opts.ScatterData{Value: []interface{}{x, y, obs.SpeedMps}, Name: obs.TrackID})
+	}
+
+	if len(pts) == 0 {
+		ws.writeJSONError(w, http.StatusNotFound, "no observations in latest frame")
+		return
+	}
+
+	pad := maxAbs * 1.05
+	if pad == 0 {
+		pad = 1.0
+	}
+	if maxSpeed == 0 {
+		maxSpeed = 1
+	}
+
+	scatter := charts.NewScatter()
+	scatter.SetGlobalOptions(
+		charts.WithInitializationOpts(opts.Initialization{PageTitle: "LiDAR Foreground Frame", Theme: "dark", Width: "900px", Height: "900px"}),
+		charts.WithTitleOpts(opts.Title{Title: "Foreground Frame", Subtitle: fmt.Sprintf("sensor=%s ts=%s count=%d", sensorID, frameTime.Format(time.RFC3339), len(pts))}),
+		charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true)}),
+		charts.WithXAxisOpts(opts.XAxis{Min: -pad, Max: pad, Name: "X (m)", NameLocation: "middle", NameGap: 25}),
+		charts.WithYAxisOpts(opts.YAxis{Min: -pad, Max: pad, Name: "Y (m)", NameLocation: "middle", NameGap: 30}),
+		charts.WithVisualMapOpts(opts.VisualMap{
+			Show:       opts.Bool(true),
+			Calculable: opts.Bool(true),
+			Min:        0,
+			Max:        float32(maxSpeed),
+			Dimension:  "2",
+			InRange:    &opts.VisualMapInRange{Color: []string{"#440154", "#482777", "#3e4989", "#31688e", "#26828e", "#1f9e89", "#35b779", "#6ece58", "#b5de2b", "#fde725"}},
+		}),
+	)
+
+	scatter.AddSeries("foreground", pts, charts.WithScatterChartOpts(opts.ScatterChart{SymbolSize: 8}))
+
+	var buf bytes.Buffer
+	if err := scatter.Render(&buf); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to render foreground chart: %v", err))
 		return
 	}
 
