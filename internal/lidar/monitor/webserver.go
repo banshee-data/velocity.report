@@ -850,32 +850,33 @@ func (ws *WebServer) handleLidarDebugDashboard(w http.ResponseWriter, r *http.Re
 	}
 
 	doc := fmt.Sprintf(`<!DOCTYPE html>
-<html>
-<head>
-	<title>LiDAR Debug Dashboard - %s</title>
-	<style>
-		body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 16px auto; max-width: 1400px; background: #f5f7fb; color: #0f172a; }
-		h1 { margin: 0 0 6px 0; }
-		p { margin: 0 0 16px 0; color: #475569; }
-		.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(520px, 1fr)); gap: 12px; align-items: stretch; }
-		.panel { display: flex; flex-direction: column; border: 1px solid #e2e8f0; border-radius: 8px; background: #ffffff; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06); overflow: hidden; }
-		.panel h2 { font-size: 15px; font-weight: 600; margin: 0; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
-		iframe { width: 100%%; border: 0; flex: 1; min-height: 480px; background: #111827; }
-		@media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } }
-	</style>
-</head>
-<body>
-	<h1>LiDAR Debug Dashboard</h1>
-	<p>Sensor: %s</p>
-	<div class="grid">
-		<div class="panel"><h2>Background Polar (XY)</h2><iframe src="/debug/lidar/background/polar%s" title="Background Polar"></iframe></div>
-		<div class="panel"><h2>Background Heatmap</h2><iframe src="/debug/lidar/background/heatmap%s" title="Background Heatmap"></iframe></div>
-		<div class="panel"><h2>Foreground Frame</h2><iframe src="/debug/lidar/foreground%s" title="Foreground Frame"></iframe></div>
-		<div class="panel"><h2>Clusters</h2><iframe src="/debug/lidar/clusters%s" title="Clusters"></iframe></div>
-		<div class="panel"><h2>Tracks</h2><iframe src="/debug/lidar/tracks%s" title="Tracks"></iframe></div>
-	</div>
-</body>
-</html>`, sensorID, sensorID, qs, qs, qs, qs, qs)
+	<html>
+	<head>
+		<title>LiDAR Debug Dashboard - %s</title>
+		<style>
+			html, body { height: 100%%; }
+			body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 12px auto; max-width: 1800px; background: #f5f7fb; color: #0f172a; }
+			h1 { margin: 0 0 6px 0; }
+			p { margin: 0 0 16px 0; color: #475569; }
+			.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(600px, 1fr)); gap: 14px; align-items: stretch; }
+			.panel { display: flex; flex-direction: column; border: 1px solid #e2e8f0; border-radius: 8px; background: #ffffff; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08); overflow: hidden; min-height: 700px; }
+			.panel h2 { font-size: 15px; font-weight: 600; margin: 0; padding: 12px 14px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+			iframe { width: 100%%; border: 0; flex: 1; min-height: 700px; height: 100%%; background: #111827; }
+			@media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } }
+		</style>
+	</head>
+	<body>
+		<h1>LiDAR Debug Dashboard</h1>
+		<p>Sensor: %s</p>
+		<div class="grid">
+			<div class="panel"><h2>Background Polar (XY)</h2><iframe src="/debug/lidar/background/polar%s" title="Background Polar"></iframe></div>
+			<div class="panel"><h2>Background Heatmap</h2><iframe src="/debug/lidar/background/heatmap%s" title="Background Heatmap"></iframe></div>
+			<div class="panel"><h2>Foreground Frame</h2><iframe src="/debug/lidar/foreground%s" title="Foreground Frame"></iframe></div>
+			<div class="panel"><h2>Clusters</h2><iframe src="/debug/lidar/clusters%s" title="Clusters"></iframe></div>
+			<div class="panel"><h2>Tracks</h2><iframe src="/debug/lidar/tracks%s" title="Tracks"></iframe></div>
+		</div>
+	</body>
+	</html>`, sensorID, sensorID, qs, qs, qs, qs, qs)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(doc))
