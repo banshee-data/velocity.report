@@ -89,6 +89,8 @@ type WebServer struct {
 	pcapCancel       context.CancelFunc
 	pcapDone         chan struct{}
 	pcapAnalysisMode bool // When true, preserve grid after PCAP completion
+	pcapSpeedMode    string
+	pcapSpeedRatio   float64
 
 	// Track API for tracking endpoints
 	trackAPI *TrackAPI
@@ -310,7 +312,7 @@ func (ws *WebServer) resolvePCAPPath(candidate string) (string, error) {
 	return canonicalPath, nil
 }
 
-func (ws *WebServer) startPCAPLocked(pcapFile string) error {
+func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRatio float64) error {
 	resolvedPath, err := ws.resolvePCAPPath(pcapFile)
 	if err != nil {
 		return err
@@ -334,10 +336,15 @@ func (ws *WebServer) startPCAPLocked(pcapFile string) error {
 	ws.pcapMu.Unlock()
 
 	ws.currentPCAPFile = resolvedPath
+	// Store the requested playback mode for UI visibility
+	ws.pcapMu.Lock()
+	ws.pcapSpeedMode = speedMode
+	ws.pcapSpeedRatio = speedRatio
+	ws.pcapMu.Unlock()
 
 	go func(path string, ctx context.Context, finished chan struct{}) {
 		defer close(finished)
-		log.Printf("Starting PCAP replay from file: %s (sensor: %s)", path, ws.sensorID)
+		log.Printf("Starting PCAP replay from file: %s (sensor: %s, mode: %s, ratio: %.2f)", path, ws.sensorID, speedMode, speedRatio)
 
 		// Configure parser to use LiDAR timestamps for PCAP replay
 		// This ensures that replayed data has original timestamps, not current system time
@@ -350,7 +357,42 @@ func (ws *WebServer) startPCAPLocked(pcapFile string) error {
 			}()
 		}
 
-		if err := network.ReadPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats); err != nil && !errors.Is(err, context.Canceled) {
+		var err error
+		if speedMode == "fastest" {
+			err = network.ReadPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats)
+		} else {
+			// Realtime or fixed ratio
+			multiplier := speedRatio
+			if speedMode == "realtime" {
+				multiplier = 1.0
+			}
+			if multiplier <= 0 {
+				multiplier = 1.0
+			}
+
+			// Initialize foreground forwarder
+			var fgForwarder *network.ForegroundForwarder
+			fgForwarder, err = network.NewForegroundForwarder("localhost", 2370, nil)
+			if err != nil {
+				log.Printf("Warning: Failed to create foreground forwarder: %v", err)
+			} else {
+				fgForwarder.Start(ctx)
+				defer fgForwarder.Close()
+			}
+
+			bgManager := lidar.GetBackgroundManager(ws.sensorID)
+
+			config := network.RealtimeReplayConfig{
+				SpeedMultiplier:     multiplier,
+				PacketForwarder:     ws.packetForwarder,
+				ForegroundForwarder: fgForwarder,
+				BackgroundManager:   bgManager,
+			}
+
+			err = network.ReadPCAPFileRealtime(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, config)
+		}
+
+		if err != nil && !errors.Is(err, context.Canceled) {
 			log.Printf("PCAP replay error: %v", err)
 		} else {
 			log.Printf("PCAP replay completed: %s", path)
@@ -360,6 +402,8 @@ func (ws *WebServer) startPCAPLocked(pcapFile string) error {
 		ws.pcapInProgress = false
 		ws.pcapCancel = nil
 		ws.pcapDone = nil
+		ws.pcapSpeedMode = ""
+		ws.pcapSpeedRatio = 0.0
 		ws.pcapMu.Unlock()
 
 		ws.dataSourceMu.Lock()
@@ -1450,6 +1494,8 @@ func (ws *WebServer) handleLidarStatus(w http.ResponseWriter, r *http.Request) {
 
 	ws.pcapMu.Lock()
 	pcapInProgress := ws.pcapInProgress
+	pcapSpeedMode := ws.pcapSpeedMode
+	pcapSpeedRatio := ws.pcapSpeedRatio
 	ws.pcapMu.Unlock()
 
 	var statsSnapshot *StatsSnapshot
@@ -1561,6 +1607,8 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		BGParams         *lidar.BackgroundParams
 		PCAPFile         string
 		PCAPInProgress   bool
+		PCAPSpeedMode    string
+		PCAPSpeedRatio   float64
 	}{
 		UDPPort:          ws.udpPort,
 		HTTPAddress:      ws.address,
@@ -1574,6 +1622,8 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		BGParams:         bgParams,
 		PCAPFile:         currentPCAPFile,
 		PCAPInProgress:   pcapInProgress,
+		PCAPSpeedMode:    pcapSpeedMode,
+		PCAPSpeedRatio:   pcapSpeedRatio,
 	}
 
 	if err := tmpl.Execute(w, data); err != nil {
@@ -1866,16 +1916,19 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var pcapFile string
-
 	var analysisMode bool
+	var speedMode string
+	var speedRatio float64 = 1.0
 
 	// Accept both JSON and form data
 	contentType := r.Header.Get("Content-Type")
 	if contentType == "application/json" || contentType == "application/json; charset=utf-8" {
 		// Parse JSON body
 		var req struct {
-			PCAPFile     string `json:"pcap_file"`
-			AnalysisMode bool   `json:"analysis_mode"`
+			PCAPFile     string  `json:"pcap_file"`
+			AnalysisMode bool    `json:"analysis_mode"`
+			SpeedMode    string  `json:"speed_mode"`
+			SpeedRatio   float64 `json:"speed_ratio"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			if errors.Is(err, io.EOF) {
@@ -1887,6 +1940,10 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		}
 		pcapFile = req.PCAPFile
 		analysisMode = req.AnalysisMode
+		speedMode = req.SpeedMode
+		if req.SpeedRatio > 0 {
+			speedRatio = req.SpeedRatio
+		}
 	} else {
 		// Parse form data (default for HTML forms)
 		if err := r.ParseForm(); err != nil {
@@ -1895,6 +1952,16 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		}
 		pcapFile = r.FormValue("pcap_file")
 		analysisMode = r.FormValue("analysis_mode") == "true" || r.FormValue("analysis_mode") == "1"
+		speedMode = r.FormValue("speed_mode")
+		if v := r.FormValue("speed_ratio"); v != "" {
+			if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
+				speedRatio = f
+			}
+		}
+	}
+
+	if speedMode == "" {
+		speedMode = "fastest"
 	}
 
 	if pcapFile == "" {
@@ -1921,7 +1988,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := ws.startPCAPLocked(pcapFile); err != nil {
+	if err := ws.startPCAPLocked(pcapFile, speedMode, speedRatio); err != nil {
 		var sErr *switchError
 		if errors.As(err, &sErr) {
 			ws.writeJSONError(w, sErr.status, sErr.Error())

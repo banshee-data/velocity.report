@@ -21,6 +21,15 @@
         <td>{{.PCAPFile}}</td>
       </tr>
       {{end}}
+      {{if .PCAPInProgress}}
+      <tr>
+        <td>
+          <strong>PCAP Speed Mode:</strong>
+        </td>
+        <td>{{.PCAPSpeedMode}}{{if .PCAPSpeedRatio}} (ratio: {{printf "%.2f"
+          .PCAPSpeedRatio}}){{end}}</td>
+      </tr>
+      {{end}}
       <tr>
         <td>
           <strong>PCAP In Progress:</strong>
@@ -277,6 +286,22 @@
             <input type="checkbox" name="analysis_mode" value="true" />
             Analysis Mode (preserve grid)
           </label>
+          <label style="margin-left: 8px;">
+            <span style="font-weight: 600; margin-right: 6px;">Speed:</span>
+            <select name="speed_mode" id="pcap-speed-mode-{{.SensorID}}"
+              style="margin-left: 4px;">
+              <option value="fastest" selected>Fastest</option>
+              <option value="realtime">Realtime (1x)</option>
+              <option value="fixed">Fixed ratio</option>
+            </select>
+          </label>
+          <label style="margin-left: 8px;">
+            <input type="number" name="speed_ratio"
+              id="pcap-speed-ratio-{{.SensorID}}" min="0.01" step="0.1"
+              value="1.0" style="width: 6em; margin-left: 4px;" disabled />
+            <span style="font-size: 0.9em; color: #666; margin-left: 4px;">ratio
+              (when fixed)</span>
+          </label>
           <button type="submit">Run</button>
           {{if .PCAPSafeDir}}
           <span style="font-size: 0.9em; color: #666;">
@@ -284,6 +309,22 @@
           </span>
           {{end}}
         </form>
+        <script>
+          (function() {
+            try {
+              var select = document.getElementById('pcap-speed-mode-{{.SensorID}}');
+              var ratio = document.getElementById('pcap-speed-ratio-{{.SensorID}}');
+              if (!select || !ratio) return;
+              function update() {
+                ratio.disabled = (select.value !== 'fixed');
+              }
+              select.addEventListener('change', update);
+              update();
+            } catch (e) {
+              // no-op: keep template resilient to missing elements
+            }
+          })();
+        </script>
       </li>
       <li>
         <a href="/api/lidar/pcap/stop?sensor_id={{.SensorID}}" target="_blank">
