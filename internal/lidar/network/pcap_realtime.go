@@ -9,6 +9,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
@@ -24,6 +25,9 @@ type RealtimeReplayConfig struct {
 	
 	// ForegroundForwarder forwards foreground points to a separate port (optional)
 	ForegroundForwarder *ForegroundForwarder
+	
+	// BackgroundManager performs foreground/background classification (required for ForegroundForwarder)
+	BackgroundManager *lidar.BackgroundManager
 }
 
 // ReadPCAPFileRealtime reads and replays a PCAP file in real-time, respecting original packet timing.
@@ -166,13 +170,27 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 				}
 				
 				// Forward foreground points if forwarder configured
-				// Note: This requires integration with foreground extraction pipeline
-				// For now, this is a placeholder for future integration
-				if config.ForegroundForwarder != nil {
-					// TODO: Extract foreground points from parsed points
-					// This would require background subtraction to be integrated here
-					// For now, we can forward all points as a starting point
-					// config.ForegroundForwarder.ForwardForeground(points)
+				if config.ForegroundForwarder != nil && config.BackgroundManager != nil {
+					// Extract foreground points using background subtraction
+					foregroundMask, err := config.BackgroundManager.ProcessFramePolarWithMask(points)
+					if err != nil {
+						log.Printf("Error extracting foreground points: %v", err)
+					} else if len(foregroundMask) > 0 {
+						// Extract only foreground points
+						foregroundPoints := lidar.ExtractForegroundPoints(points, foregroundMask)
+						
+						// Forward foreground points to port 2370
+						if len(foregroundPoints) > 0 {
+							config.ForegroundForwarder.ForwardForeground(foregroundPoints)
+							
+							// Log foreground extraction stats periodically
+							if packetCount%1000 == 0 {
+								fgRatio := float64(len(foregroundPoints)) / float64(len(points))
+								log.Printf("Foreground extraction: %d/%d points (%.1f%%)",
+									len(foregroundPoints), len(points), fgRatio*100)
+							}
+						}
+					}
 				}
 			}
 
