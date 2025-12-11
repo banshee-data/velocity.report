@@ -37,10 +37,10 @@ func DefaultPandar40PConfig() *SensorConfig {
 // TrackPointCloudFrame represents a single frame of point cloud data for a track.
 // Points are stored in polar coordinates (sensor frame) for compatibility with parsers.
 type TrackPointCloudFrame struct {
-	TrackID     string        // Track identifier
-	FrameIndex  int           // Frame sequence number within track
-	Timestamp   time.Time     // Frame timestamp
-	PolarPoints []PointPolar  // Points in polar coordinates
+	TrackID     string       // Track identifier
+	FrameIndex  int          // Frame sequence number within track
+	Timestamp   time.Time    // Frame timestamp
+	PolarPoints []PointPolar // Points in polar coordinates
 }
 
 // ExportTrackPointCloud extracts point clouds for a specific track from observation history.
@@ -51,11 +51,11 @@ func ExportTrackPointCloud(track *TrackedObject, observationHistory []*TrackObse
 	}
 
 	frames := make([]*TrackPointCloudFrame, 0, len(observationHistory))
-	
+
 	// TODO: For each observation, extract the associated point cloud
 	// This requires linking observations to their source foreground points
 	// Current implementation returns placeholder - needs integration with point cloud storage
-	
+
 	for i, obs := range observationHistory {
 		frame := &TrackPointCloudFrame{
 			TrackID:    track.TrackID,
@@ -66,7 +66,7 @@ func ExportTrackPointCloud(track *TrackedObject, observationHistory []*TrackObse
 		}
 		frames = append(frames, frame)
 	}
-	
+
 	return frames, nil
 }
 
@@ -79,33 +79,33 @@ func ExportTrackPointCloud(track *TrackedObject, observationHistory []*TrackObse
 // - 22-byte tail with timestamp and metadata
 func EncodePandar40PPacket(points []PointPolar, blockAzimuth float64, config *SensorConfig) ([]byte, error) {
 	const (
-		PACKET_SIZE       = 1262
-		BLOCKS_PER_PACKET = 10
-		BLOCK_SIZE        = 124
+		PACKET_SIZE        = 1262
+		BLOCKS_PER_PACKET  = 10
+		BLOCK_SIZE         = 124
 		CHANNELS_PER_BLOCK = 40
-		TAIL_SIZE         = 22
+		TAIL_SIZE          = 22
 	)
-	
+
 	packet := make([]byte, PACKET_SIZE)
-	
+
 	// Encode data blocks (10 blocks)
 	for blockIdx := 0; blockIdx < BLOCKS_PER_PACKET; blockIdx++ {
 		blockOffset := blockIdx * BLOCK_SIZE
-		
+
 		// Block preamble (0xFFEE)
 		binary.LittleEndian.PutUint16(packet[blockOffset:], 0xFFEE)
-		
+
 		// Block azimuth (2 bytes, little-endian, scaled by 100)
 		azimuthScaled := uint16(blockAzimuth * 100)
 		binary.LittleEndian.PutUint16(packet[blockOffset+2:], azimuthScaled)
-		
+
 		// Channel data (40 channels × 3 bytes)
 		channelOffset := blockOffset + 4
 		for ch := 0; ch < CHANNELS_PER_BLOCK; ch++ {
 			// Find matching point for this channel
 			var distance uint16 = 0
 			var intensity uint8 = 0
-			
+
 			for _, p := range points {
 				if p.Channel == ch && p.BlockID == blockIdx {
 					// Distance in 2mm resolution
@@ -114,42 +114,42 @@ func EncodePandar40PPacket(points []PointPolar, blockAzimuth float64, config *Se
 					break
 				}
 			}
-			
+
 			// Encode: 2 bytes distance + 1 byte intensity
 			idx := channelOffset + (ch * 3)
 			binary.LittleEndian.PutUint16(packet[idx:], distance)
 			packet[idx+2] = intensity
 		}
 	}
-	
+
 	// Encode tail (22 bytes at offset 1240)
 	tailOffset := BLOCKS_PER_PACKET * BLOCK_SIZE
-	
+
 	// Reserved fields (bytes 0-4, 6-7)
 	for i := 0; i < 8; i++ {
 		if i != 5 {
 			packet[tailOffset+i] = 0
 		}
 	}
-	
+
 	// HighTempFlag (byte 5)
 	packet[tailOffset+5] = 0
-	
+
 	// MotorSpeed (bytes 8-9) - RPM * 60
 	motorSpeedEncoded := uint16(config.MotorSpeedRPM * 60)
 	binary.LittleEndian.PutUint16(packet[tailOffset+8:], motorSpeedEncoded)
-	
+
 	// Timestamp (bytes 10-13) - microseconds
 	now := time.Now()
 	timestampMicros := uint32(now.UnixNano() / 1000)
 	binary.LittleEndian.PutUint32(packet[tailOffset+10:], timestampMicros)
-	
+
 	// ReturnMode (byte 14) - 0x37 for strongest return
 	packet[tailOffset+14] = 0x37
-	
+
 	// FactoryInfo (byte 15)
 	packet[tailOffset+15] = 0
-	
+
 	// DateTime (bytes 16-21) - [year-2000, month, day, hour, minute, second]
 	packet[tailOffset+16] = uint8(now.Year() - 2000)
 	packet[tailOffset+17] = uint8(now.Month())
@@ -157,7 +157,7 @@ func EncodePandar40PPacket(points []PointPolar, blockAzimuth float64, config *Se
 	packet[tailOffset+19] = uint8(now.Hour())
 	packet[tailOffset+20] = uint8(now.Minute())
 	packet[tailOffset+21] = uint8(now.Second())
-	
+
 	return packet, nil
 }
 
@@ -189,10 +189,10 @@ type TrackPointCloudMetadata struct {
 	ObjectClass      string    `json:"object_class,omitempty"`
 	ObjectConfidence float32   `json:"object_confidence,omitempty"`
 	// Phase 1 quality metrics
-	TrackLength      float32   `json:"track_length_meters"`
-	Duration         float32   `json:"duration_secs"`
-	OcclusionCount   int       `json:"occlusion_count"`
-	QualityScore     float32   `json:"quality_score,omitempty"`
+	TrackLength    float32 `json:"track_length_meters"`
+	Duration       float32 `json:"duration_secs"`
+	OcclusionCount int     `json:"occlusion_count"`
+	QualityScore   float32 `json:"quality_score,omitempty"`
 }
 
 // ExtractMetadata generates metadata for an exported track point cloud.
@@ -201,10 +201,10 @@ func ExtractMetadata(track *TrackedObject, frames []*TrackPointCloudFrame) *Trac
 	for _, frame := range frames {
 		totalPoints += len(frame.PolarPoints)
 	}
-	
+
 	// Compute quality score using Phase 1 metrics
 	qualityMetrics := ComputeTrackQualityMetrics(track)
-	
+
 	return &TrackPointCloudMetadata{
 		TrackID:          track.TrackID,
 		SensorID:         track.SensorID,
