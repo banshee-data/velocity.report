@@ -107,12 +107,12 @@ type TrackedObject struct {
 	ClassificationModel string  // Model version used for classification
 
 	// Phase 1: Track Quality Metrics
-	TrackLengthMeters   float32 // Total distance traveled (meters)
-	TrackDurationSecs   float32 // Total lifetime (seconds)
-	OcclusionCount      int     // Number of missed frames (gaps)
-	MaxOcclusionFrames  int     // Longest gap in observations
-	SpatialCoverage     float32 // % of bounding box covered by observations
-	NoisePointRatio     float32 // Ratio of noise points to cluster points
+	TrackLengthMeters  float32 // Total distance traveled (meters)
+	TrackDurationSecs  float32 // Total lifetime (seconds)
+	OcclusionCount     int     // Number of missed frames (gaps)
+	MaxOcclusionFrames int     // Longest gap in observations
+	SpatialCoverage    float32 // % of bounding box covered by observations
+	NoisePointRatio    float32 // Ratio of noise points to cluster points
 }
 
 // Tracker manages multi-object tracking with explicit lifecycle states.
@@ -627,7 +627,7 @@ func (track *TrackedObject) ComputeQualityMetrics() {
 	const occlusionThresholdNanos = 200_000_000 // 200ms
 	track.OcclusionCount = 0
 	track.MaxOcclusionFrames = 0
-	
+
 	if len(track.History) > 1 {
 		currentGapFrames := 0
 		for i := 1; i < len(track.History); i++ {

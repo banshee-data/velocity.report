@@ -89,7 +89,7 @@ func InsertCluster(db *sql.DB, cluster *WorldCluster) (int64, error) {
 func InsertTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 	// Ensure quality metrics are computed
 	track.ComputeQualityMetrics()
-	
+
 	// Compute speed percentiles
 	p50, p85, p95 := ComputeSpeedPercentiles(track.speedHistory)
 
@@ -147,7 +147,7 @@ func InsertTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 func UpdateTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 	// Ensure quality metrics are computed
 	track.ComputeQualityMetrics()
-	
+
 	// Compute speed percentiles
 	p50, p85, p95 := ComputeSpeedPercentiles(track.speedHistory)
 
