@@ -5,8 +5,9 @@ import (
 	"sort"
 )
 
-// Phase 3: Track Quality Analysis & Introspection (Scaffolding)
-// This module provides quality metrics, statistics, and introspection capabilities.
+// Phase 3: Track Quality Analysis & Training Data Curation
+// This module provides quality metrics for curating high-quality training datasets.
+// Focus: Identifying tracks suitable for ML training and exporting them for labeling.
 
 // RunStatistics holds aggregate statistics for an analysis run.
 type RunStatistics struct {
@@ -251,39 +252,137 @@ func ComputeNoiseCoverageMetrics(tracks []*TrackedObject) *NoiseCoverageMetrics 
 	return metrics
 }
 
-// TrajectoryGeoJSON exports a track trajectory as GeoJSON for web rendering.
-// Phase 3: Scaffolding for trajectory visualization.
-type TrajectoryGeoJSON struct {
-	Type     string                 `json:"type"`
-	Geometry map[string]interface{} `json:"geometry"`
-	Properties map[string]interface{} `json:"properties"`
+// TrackTrainingFilter defines criteria for selecting high-quality tracks for ML training.
+type TrackTrainingFilter struct {
+	MinQualityScore  float32 // Minimum composite quality score (0-1)
+	MinDuration      float32 // Minimum track duration (seconds)
+	MinLength        float32 // Minimum track length (meters)
+	MaxOcclusionRatio float32 // Maximum occlusion ratio (occlusions / observations)
+	MinObservations  int     // Minimum observation count
+	RequireClass     bool    // Only include tracks with assigned class
+	AllowedStates    []TrackState // Allowed track states (e.g., only confirmed)
 }
 
-// ExportTrajectoryGeoJSON converts a track to GeoJSON format.
-// Phase 3: Placeholder - assumes coordinates are already in appropriate reference frame.
-func ExportTrajectoryGeoJSON(track *TrackedObject) *TrajectoryGeoJSON {
-	// Extract coordinates from history
-	coordinates := make([][2]float32, len(track.History))
-	for i, point := range track.History {
-		coordinates[i] = [2]float32{point.X, point.Y}
+// DefaultTrackTrainingFilter returns sensible defaults for high-quality training tracks.
+func DefaultTrackTrainingFilter() *TrackTrainingFilter {
+	return &TrackTrainingFilter{
+		MinQualityScore:  0.6,   // Good quality or better
+		MinDuration:      2.0,   // At least 2 seconds
+		MinLength:        5.0,   // At least 5 meters traveled
+		MaxOcclusionRatio: 0.3,  // Max 30% occlusions
+		MinObservations:  20,    // At least 20 frames (2s @ 10Hz)
+		RequireClass:     false, // Include unlabeled tracks for annotation
+		AllowedStates:    []TrackState{TrackConfirmed}, // Only confirmed tracks
 	}
+}
 
-	geojson := &TrajectoryGeoJSON{
-		Type: "Feature",
-		Geometry: map[string]interface{}{
-			"type":        "LineString",
-			"coordinates": coordinates,
-		},
-		Properties: map[string]interface{}{
-			"track_id":       track.TrackID,
-			"object_class":   track.ObjectClass,
-			"confidence":     track.ObjectConfidence,
-			"avg_speed":      track.AvgSpeedMps,
-			"duration":       track.TrackDurationSecs,
-			"occlusion_count": track.OcclusionCount,
-			"quality_score":  ComputeTrackQualityMetrics(track).QualityScore,
-		},
+// FilterTracksForTraining selects tracks that meet training data quality criteria.
+func FilterTracksForTraining(tracks []*TrackedObject, filter *TrackTrainingFilter) []*TrackedObject {
+	filtered := make([]*TrackedObject, 0)
+	
+	for _, track := range tracks {
+		// Compute quality metrics
+		qualityMetrics := ComputeTrackQualityMetrics(track)
+		
+		// Check quality score
+		if qualityMetrics.QualityScore < filter.MinQualityScore {
+			continue
+		}
+		
+		// Check duration
+		if track.TrackDurationSecs < filter.MinDuration {
+			continue
+		}
+		
+		// Check length
+		if track.TrackLengthMeters < filter.MinLength {
+			continue
+		}
+		
+		// Check occlusion ratio
+		if track.ObservationCount > 0 {
+			occlusionRatio := float32(track.OcclusionCount) / float32(track.ObservationCount)
+			if occlusionRatio > filter.MaxOcclusionRatio {
+				continue
+			}
+		}
+		
+		// Check observation count
+		if track.ObservationCount < filter.MinObservations {
+			continue
+		}
+		
+		// Check classification requirement
+		if filter.RequireClass && (track.ObjectClass == "" || track.ObjectClass == "other") {
+			continue
+		}
+		
+		// Check state
+		if len(filter.AllowedStates) > 0 {
+			stateAllowed := false
+			for _, allowedState := range filter.AllowedStates {
+				if track.State == allowedState {
+					stateAllowed = true
+					break
+				}
+			}
+			if !stateAllowed {
+				continue
+			}
+		}
+		
+		filtered = append(filtered, track)
 	}
+	
+	return filtered
+}
 
-	return geojson
+// TrainingDatasetSummary provides statistics about a curated training dataset.
+type TrainingDatasetSummary struct {
+	TotalTracks      int                `json:"total_tracks"`
+	TotalFrames      int                `json:"total_frames"`
+	TotalPoints      int                `json:"total_points"`
+	ClassDistribution map[string]int    `json:"class_distribution"`
+	AvgQualityScore  float32            `json:"avg_quality_score"`
+	AvgDuration      float32            `json:"avg_duration_secs"`
+	AvgLength        float32            `json:"avg_length_meters"`
+}
+
+// SummarizeTrainingDataset generates statistics for a curated training dataset.
+func SummarizeTrainingDataset(tracks []*TrackedObject) *TrainingDatasetSummary {
+	if len(tracks) == 0 {
+		return &TrainingDatasetSummary{ClassDistribution: make(map[string]int)}
+	}
+	
+	summary := &TrainingDatasetSummary{
+		TotalTracks:      len(tracks),
+		ClassDistribution: make(map[string]int),
+	}
+	
+	var totalQuality float32
+	var totalDuration float32
+	var totalLength float32
+	
+	for _, track := range tracks {
+		summary.TotalFrames += track.ObservationCount
+		// TODO: Add point count when point cloud storage is integrated
+		
+		className := track.ObjectClass
+		if className == "" {
+			className = "unlabeled"
+		}
+		summary.ClassDistribution[className]++
+		
+		qualityMetrics := ComputeTrackQualityMetrics(track)
+		totalQuality += qualityMetrics.QualityScore
+		totalDuration += track.TrackDurationSecs
+		totalLength += track.TrackLengthMeters
+	}
+	
+	n := float32(len(tracks))
+	summary.AvgQualityScore = totalQuality / n
+	summary.AvgDuration = totalDuration / n
+	summary.AvgLength = totalLength / n
+	
+	return summary
 }
