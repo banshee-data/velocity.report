@@ -271,163 +271,149 @@ type RunStatistics struct {
 
 **Goal:** Extract and export isolated track point clouds for ML training data preparation and visual inspection in LidarView.
 
-#### 2.1 Track Point Cloud Extraction
+#### 2.1 Feature Vector Extraction
 
-**New Module:** `internal/lidar/track_export.go`
+**New Module:** `internal/lidar/features.go`
 
-**Goal:** Extract isolated point clouds for individual tracks in a format compatible with LidarView for visual inspection and ML training data preparation.
+**Feature Categories:**
 
-**Architecture:**
-- Maintain polar frame representation (azimuth, elevation, distance) to minimize transformations
-- Export track point clouds as Pandar40P-compatible UDP packets
-- Support both PCAP file export and network streaming for real-time inspection
-
-**Track Point Cloud Frame:**
+**Spatial Features (Geometry):**
 ```go
-type TrackPointCloudFrame struct {
-    TrackID     string        // Track identifier
-    FrameIndex  int           // Frame sequence number within track
-    Timestamp   time.Time     // Frame timestamp
-    PolarPoints []PointPolar  // Points in polar coordinates (sensor frame)
+type SpatialFeatures struct {
+    BBoxLength      float32  // Bounding box length (m)
+    BBoxWidth       float32  // Bounding box width (m)
+    BBoxHeight      float32  // Bounding box height (m)
+    BBoxVolume      float32  // Volume (m³)
+    BBoxAspectXY    float32  // Length/Width
+    BBoxAspectXZ    float32  // Length/Height
+    HeightP50       float32  // Median height
+    HeightP95       float32  // 95th percentile height
+    HeightStdDev    float32  // Height variance
+    PointDensity    float32  // Points per m³
 }
 ```
 
-**Export Workflow:**
-1. Query track observations from database (`lidar_track_obs`)
-2. For each observation, extract associated foreground point cloud (requires point cloud storage integration)
-3. Filter points belonging to track's cluster/bounding box
-4. Encode points into Pandar40P-compatible packets (maintaining polar coordinates)
-5. Write packets to PCAP file or stream to UDP destination
-
-#### 2.2 PCAP Packet Encoding
-
-**Pandar40P Packet Format (1262 bytes):**
-- **Data Blocks (1240 bytes):** 10 blocks × 124 bytes each
-  - Block preamble: 0xFFEE (2 bytes)
-  - Block azimuth: uint16, scaled by 100 (2 bytes)
-  - Channel data: 40 channels × 3 bytes (distance + intensity)
-    - Distance: uint16, 2mm resolution (2 bytes)
-    - Intensity: uint8 (1 byte)
-- **Tail (22 bytes):** Metadata including motor speed, timestamp, return mode
-
-**Encoder Function:**
+**Kinematic Features (Motion):**
 ```go
-func EncodePandar40PPacket(points []PointPolar, blockAzimuth float64, config *SensorConfig) ([]byte, error)
-```
-
-**Benefits:**
-- **Parser compatibility:** Generated packets can be read by existing `parse.ParsePacket()` function
-- **LidarView support:** PCAP files load directly in LidarView/ParaView for visual inspection
-- **Minimal transformation:** Maintains polar coordinates from foreground extraction
-- **Training ready:** Point clouds can be labeled and used for ML training
-
-#### 2.3 Training Data Curation
-
-**New Module:** `internal/lidar/quality.go` (revised focus)
-
-**Goal:** Filter tracks suitable for ML training based on quality criteria.
-
-**Training Data Filter:**
-```go
-type TrainingDataFilter struct {
-    MinQualityScore  float32  // Minimum composite quality score (0-1)
-    MinDuration      float32  // Minimum track duration (seconds)
-    MinLength        float32  // Minimum track length (meters)
-    MaxOcclusionRatio float32 // Maximum occlusion ratio
-    MinObservations  int      // Minimum observation count
-    RequireClass     bool     // Only include tracks with assigned class
-    AllowedStates    []TrackState // e.g., only confirmed tracks
+type KinematicFeatures struct {
+    SpeedMean       float32  // Average speed (m/s)
+    SpeedStdDev     float32  // Speed variance
+    SpeedP50        float32  // Median speed
+    SpeedP85        float32  // 85th percentile
+    SpeedP95        float32  // 95th percentile
+    AccelMean       float32  // Average acceleration (m/s²)
+    AccelStdDev     float32  // Acceleration variance
+    HeadingVariance float32  // Angular dispersion (radians²)
+    Straightness    float32  // Path straightness (0-1)
 }
 ```
 
-**Default Criteria (High-Quality Training Tracks):**
-- Quality score ≥ 0.6 (good quality or better)
-- Duration ≥ 2.0 seconds (sustained observation)
-- Length ≥ 5.0 meters (sufficient movement)
-- Occlusion ratio ≤ 0.3 (max 30% gaps)
-- Observations ≥ 20 frames (2s @ 10Hz)
-- State = confirmed (validated tracks only)
-
-**Curation Functions:**
+**Temporal Features (Lifecycle):**
 ```go
-// Filter tracks meeting quality criteria
-func FilterTracksForTraining(tracks []*TrackedObject, filter *TrainingDataFilter) []*TrackedObject
-
-// Generate dataset statistics
-func SummarizeTrainingDataset(tracks []*TrackedObject) *TrainingDatasetSummary
-```
-
-**Dataset Summary:**
-```go
-type TrainingDatasetSummary struct {
-    TotalTracks      int                // Count of curated tracks
-    TotalFrames      int                // Total observations
-    TotalPoints      int                // Total point cloud points
-    ClassDistribution map[string]int    // Tracks per class (pedestrian, car, etc.)
-    AvgQualityScore  float32            // Mean quality score
-    AvgDuration      float32            // Mean track duration (seconds)
-    AvgLength        float32            // Mean track length (meters)
+type TemporalFeatures struct {
+    Duration        float32  // Track duration (seconds)
+    ObservationCount int     // Frame count
+    ObservationRate  float32  // Observations per second
+    OcclusionRatio   float32  // Gaps / total duration
+    MaxOcclusionSecs float32  // Longest gap (seconds)
 }
 ```
 
-#### 2.4 Export Formats & Workflow
-
-**PCAP File Export:**
-```
-1. Select high-quality tracks: FilterTracksForTraining()
-2. For each track:
-   a. Extract point cloud frames
-   b. Encode frames as Pandar40P packets
-   c. Write packets to PCAP file: track_<trackID>.pcap
-3. Generate metadata JSON: track_<trackID>.json
+**Appearance Features (Intensity):**
+```go
+type AppearanceFeatures struct {
+    IntensityMean   float32  // Average intensity
+    IntensityStdDev float32  // Intensity variance
+    IntensityP50    float32  // Median intensity
+    IntensityP95    float32  // 95th percentile
+}
 ```
 
-**Network Streaming (Real-Time Inspection):**
-```
-1. Start LidarView listening on UDP port 2368
-2. Stream isolated track packets in real-time
-3. Allows immediate visual verification of track quality
+**Feature Vector:**
+```go
+type TrackFeatureVector struct {
+    TrackID   string
+    Spatial   SpatialFeatures
+    Kinematic KinematicFeatures
+    Temporal  TemporalFeatures
+    Appearance AppearanceFeatures
+    
+    // Normalized features for ML (z-score or min-max)
+    FeaturesNormalized []float32 // 30-40 features
+}
 ```
 
-**Metadata Export (JSON):**
-```json
+#### 2.2 Static Model Support
+
+**Model Interface:**
+```go
+type Classifier interface {
+    Classify(features *TrackFeatureVector) ClassificationResult
+    Model() string // Model identifier/version
+}
+
+// Rule-based classifier (existing)
+type RuleBasedClassifier struct { ... }
+
+// Static ML classifier (new)
+type StaticMLClassifier struct {
+    ModelPath   string
+    ModelType   string // "random_forest", "svm", "xgboost"
+    Scaler      *FeatureScaler
+    ClassMap    map[int]string // Model output → class name
+}
+```
+
+**Model Loading:**
+```go
+func LoadStaticClassifier(modelPath string) (Classifier, error) {
+    // Support formats:
+    // - ONNX (cross-platform, recommended)
+    // - scikit-learn pickle (Python dependency)
+    // - XGBoost binary (native Go binding)
+    // - TensorFlow Lite (embedded models)
+}
+```
+
+**Feature Engineering Pipeline:**
+1. Extract raw features from `TrackedObject`
+2. Compute derived features (aspect ratios, straightness, etc.)
+3. Apply feature scaling (z-score normalization)
+4. Pass to model for inference
+5. Post-process: apply confidence thresholds, handle "unknown" class
+
+**Training Data Export:**
+- Export `RunTrack` features to CSV/JSON for offline training
+- Include user labels from `lidar_run_tracks.user_label`
+- Store feature version metadata for reproducibility
+
+#### 2.3 Model Comparison Framework
+
+**Goal:** A/B test rule-based vs ML classifiers.
+
+**API Endpoint:**
+```
+POST /api/lidar/classify/compare
 {
-  "track_id": "track_001",
-  "sensor_id": "hesai-pandar40p",
-  "start_time": "2024-12-10T12:00:00Z",
-  "end_time": "2024-12-10T12:00:05Z",
-  "total_frames": 50,
-  "total_points": 7500,
-  "object_class": "car",
-  "object_confidence": 0.85,
-  "track_length_meters": 25.5,
-  "duration_secs": 5.0,
-  "occlusion_count": 2,
-  "quality_score": 0.78
+  "run_id": "run_20241210_001",
+  "models": ["rule_based_v1", "random_forest_v1", "xgboost_v1"]
+}
+
+Response:
+{
+  "comparison": {
+    "rule_based_v1": { "accuracy": 0.72, "f1_scores": {...}, "confusion_matrix": [...] },
+    "random_forest_v1": { "accuracy": 0.85, "f1_scores": {...}, "confusion_matrix": [...] },
+    "xgboost_v1": { "accuracy": 0.88, "f1_scores": {...}, "confusion_matrix": [...] }
+  },
+  "best_model": "xgboost_v1"
 }
 ```
 
-#### 2.5 Integration Requirements
-
-**Point Cloud Storage:**
-- **Current gap:** Foreground points are not persisted beyond frame processing
-- **Requirement:** Store or stream foreground points with track/cluster association
-- **Options:**
-  1. Store raw foreground point clouds in database (compressed BLOB)
-  2. Stream foreground points to file during PCAP analysis
-  3. Re-play PCAP with track IDs to reconstruct point clouds
-
-**Recommended Approach:**
-During PCAP analysis mode, simultaneously:
-- Run foreground extraction and tracking (as current)
-- Write foreground points to temporary storage with frame timestamps
-- After tracking completes, extract point clouds for confirmed tracks
-- Export track point clouds as individual PCAP files
-
-**Implementation Phases:**
-1. **Phase 2a (Current PR):** Packet encoding infrastructure (`track_export.go`)
-2. **Phase 2b (Future PR):** Point cloud storage/streaming during PCAP analysis
-3. **Phase 2c (Future PR):** End-to-end export pipeline with LidarView validation
+**Metrics:**
+- Per-class precision, recall, F1 score
+- Confusion matrix (predicted vs user labels)
+- Confidence calibration (histogram of confidences vs accuracy)
 
 ---
 
