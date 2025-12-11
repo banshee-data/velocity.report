@@ -405,12 +405,19 @@
 			ctx.globalAlpha = 1.0;
 
 			// Phase 1: Mark occlusion gaps if enabled
-			if (showOcclusionMarkers && track.quality?.occlusion_count && track.quality.occlusion_count > 0) {
+			if (
+				showOcclusionMarkers &&
+				track.quality?.occlusion_count &&
+				track.quality.occlusion_count > 0
+			) {
 				ctx.fillStyle = '#FF0000';
 				ctx.globalAlpha = 0.7;
 				// Draw small markers at potential occlusion points (simplified - actual gap detection requires timestamps)
 				// For now, mark every Nth point as a visual indicator
-				const gapInterval = Math.max(2, Math.floor(track.history.length / (track.quality.occlusion_count + 1)));
+				const gapInterval = Math.max(
+					2,
+					Math.floor(track.history.length / (track.quality.occlusion_count + 1))
+				);
 				for (let i = gapInterval; i < track.history.length; i += gapInterval) {
 					const [gx, gy] = worldToScreen(track.history[i].x, track.history[i].y);
 					ctx.beginPath();
