@@ -19,13 +19,13 @@ import (
 type RealtimeReplayConfig struct {
 	// SpeedMultiplier controls replay speed (1.0 = real-time, 2.0 = 2x speed, 0.5 = half speed)
 	SpeedMultiplier float64
-	
+
 	// PacketForwarder forwards packets to a UDP destination (optional)
 	PacketForwarder *PacketForwarder
-	
+
 	// ForegroundForwarder forwards foreground points to a separate port (optional)
 	ForegroundForwarder *ForegroundForwarder
-	
+
 	// BackgroundManager performs foreground/background classification (required for ForegroundForwarder)
 	BackgroundManager *lidar.BackgroundManager
 }
@@ -38,7 +38,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 	if config.SpeedMultiplier <= 0 {
 		config.SpeedMultiplier = 1.0
 	}
-	
+
 	// Open PCAP file
 	handle, err := pcap.OpenOffline(pcapFile)
 	if err != nil {
@@ -57,7 +57,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 	packetCount := 0
 	totalPoints := 0
 	startTime := time.Now()
-	
+
 	var firstPacketTime time.Time
 	var lastPacketTime time.Time
 	replayStartTime := time.Now()
@@ -79,7 +79,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 
 			// Calculate timing for real-time replay
 			captureTime := packet.Metadata().Timestamp
-			
+
 			if firstPacketTime.IsZero() {
 				firstPacketTime = captureTime
 				lastPacketTime = captureTime
@@ -87,7 +87,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 				// Calculate delay since last packet (scaled by speed multiplier)
 				delay := captureTime.Sub(lastPacketTime)
 				scaledDelay := time.Duration(float64(delay) / config.SpeedMultiplier)
-				
+
 				// Wait for scaled delay to maintain timing
 				if scaledDelay > 0 {
 					select {
@@ -97,7 +97,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 						// Continue
 					}
 				}
-				
+
 				lastPacketTime = captureTime
 			}
 
@@ -122,7 +122,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 			if stats != nil {
 				stats.AddPacket(len(payload))
 			}
-			
+
 			// Forward packet to UDP destination if configured
 			if config.PacketForwarder != nil {
 				config.PacketForwarder.ForwardAsync(payload)
@@ -134,7 +134,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 				if tsParser, ok := parser.(interface{ SetPacketTime(time.Time) }); ok {
 					tsParser.SetPacketTime(captureTime)
 				}
-				
+
 				points, err := parser.ParsePacket(payload)
 				if err != nil {
 					log.Printf("Error parsing PCAP packet %d: %v", packetCount, err)
@@ -145,13 +145,13 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 					log.Printf("PCAP real-time replay: packet %d parsed -> 0 points", packetCount)
 				} else {
 					totalPoints += len(points)
-					
+
 					// Log progress every 1000 packets
 					if packetCount%1000 == 0 {
 						elapsed := time.Since(replayStartTime)
 						originalDuration := captureTime.Sub(firstPacketTime)
 						compressionRatio := float64(originalDuration) / float64(elapsed)
-						
+
 						log.Printf("PCAP real-time replay: packet=%d, points=%d, total_points=%d, elapsed=%v, original_duration=%v, compression=%.1fx",
 							packetCount, len(points), totalPoints, elapsed, originalDuration, compressionRatio)
 					}
@@ -168,7 +168,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 						frameBuilder.SetMotorSpeed(motorSpeed)
 					}
 				}
-				
+
 				// Forward foreground points if forwarder configured
 				if config.ForegroundForwarder != nil && config.BackgroundManager != nil {
 					// Extract foreground points using background subtraction
@@ -178,11 +178,11 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 					} else if len(foregroundMask) > 0 {
 						// Extract only foreground points
 						foregroundPoints := lidar.ExtractForegroundPoints(points, foregroundMask)
-						
+
 						// Forward foreground points to port 2370
 						if len(foregroundPoints) > 0 {
 							config.ForegroundForwarder.ForwardForeground(foregroundPoints)
-							
+
 							// Log foreground extraction stats periodically
 							if packetCount%1000 == 0 {
 								fgRatio := float64(len(foregroundPoints)) / float64(len(points))
