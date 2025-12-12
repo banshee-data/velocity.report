@@ -41,7 +41,10 @@ func setupTestDB(t *testing.T) (*sql.DB, func()) {
 			bounding_box_height REAL,
 			points_count INTEGER,
 			height_p95 REAL,
-			intensity_mean REAL
+			intensity_mean REAL,
+			noise_points_count INTEGER DEFAULT 0,
+			cluster_density REAL,
+			aspect_ratio REAL
 		);
 
 		CREATE TABLE IF NOT EXISTS lidar_tracks (
@@ -64,7 +67,13 @@ func setupTestDB(t *testing.T) (*sql.DB, func()) {
 			intensity_mean_avg REAL,
 			object_class TEXT,
 			object_confidence REAL,
-			classification_model TEXT
+			classification_model TEXT,
+			track_length_meters REAL,
+			track_duration_secs REAL,
+			occlusion_count INTEGER DEFAULT 0,
+			max_occlusion_frames INTEGER DEFAULT 0,
+			spatial_coverage REAL,
+			noise_point_ratio REAL
 		);
 
 		CREATE TABLE IF NOT EXISTS lidar_track_obs (

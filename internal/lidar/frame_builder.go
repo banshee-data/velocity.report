@@ -461,7 +461,7 @@ func (fb *FrameBuilder) evictOldestBufferedFrame() {
 		// Remove from buffer and finalize so the callback is invoked.
 		delete(fb.frameBuffer, oldestID)
 		// Finalize the frame so the registered callback receives it.
-		fb.finalizeFrame(oldestFrame)
+		fb.finalizeFrame(oldestFrame, "buffer_evict")
 	}
 }
 
@@ -526,7 +526,7 @@ func (fb *FrameBuilder) cleanupFrames() {
 	for _, frameID := range frameIDsToFinalize {
 		frame := fb.frameBuffer[frameID]
 		delete(fb.frameBuffer, frameID)
-		fb.finalizeFrame(frame)
+		fb.finalizeFrame(frame, "buffer_timeout")
 	}
 
 	// DEBUG: If a current frame exists but hasn't been moved to buffer (wrap not detected),
@@ -549,33 +549,48 @@ func (fb *FrameBuilder) cleanupFrames() {
 }
 
 // finalizeFrame completes a frame and calls the callback
-func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame) {
+func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
 	if frame == nil {
 		return
 	}
 
-	// Mark frame as complete
-	frame.SpinComplete = true
-
 	// lightweight debug logging for frame completion
 	if fb.debug {
-		debugf("[FrameBuilder] Frame completed - ID: %s, Points: %d, Azimuth: %.1f°-%.1f°, Duration: %v, Sensor: %s",
+		debugf("[FrameBuilder] Frame completed - ID: %s, Points: %d, Azimuth: %.1f°-%.1f°, Duration: %v, Sensor: %s, reason=%s",
 			frame.FrameID,
 			frame.PointCount,
 			frame.MinAzimuth,
 			frame.MaxAzimuth,
 			frame.EndTimestamp.Sub(frame.StartTimestamp),
-			frame.SensorID)
+			frame.SensorID,
+			reason)
 	}
 
 	// Determine rotation completeness before export
 	coverage := frameAzimuthCoverage(frame)
 	spinComplete := coverage >= MinAzimuthCoverage && frame.PointCount >= MinFramePointsForCompletion
 	frame.SpinComplete = spinComplete
+	coverageGap := 360.0 - coverage
 
-	if !spinComplete {
-		log.Printf("[FrameBuilder] Incomplete rotation: frame=%s cov=%.1f° min=%.1f° points=%d minPoints=%d minAz=%.1f maxAz=%.1f",
-			frame.FrameID, coverage, MinAzimuthCoverage, frame.PointCount, MinFramePointsForCompletion, frame.MinAzimuth, frame.MaxAzimuth)
+	if !spinComplete || frame.PacketGaps > 0 || coverageGap > 0.5 {
+		log.Printf("[FrameBuilder] Incomplete or gappy frame: id=%s sensor=%s reason=%s cov=%.1f° gap=%.1f° min=%.1f° pts=%d/%d gaps=%d completeness=%.3f duration=%v range=[%.1f,%.1f] start=%s end=%s spin_complete=%v",
+			frame.FrameID,
+			frame.SensorID,
+			reason,
+			coverage,
+			coverageGap,
+			MinAzimuthCoverage,
+			frame.PointCount,
+			MinFramePointsForCompletion,
+			frame.PacketGaps,
+			frame.CompletenessRatio,
+			frame.EndTimestamp.Sub(frame.StartTimestamp),
+			frame.MinAzimuth,
+			frame.MaxAzimuth,
+			frame.StartTimestamp.UTC().Format(time.RFC3339Nano),
+			frame.EndTimestamp.UTC().Format(time.RFC3339Nano),
+			spinComplete,
+		)
 	}
 
 	// Export to ASC if requested (single-shot)
