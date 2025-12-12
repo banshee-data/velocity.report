@@ -20,6 +20,9 @@ type RealtimeReplayConfig struct {
 	// SpeedMultiplier controls replay speed (1.0 = real-time, 2.0 = 2x speed, 0.5 = half speed)
 	SpeedMultiplier float64
 
+	// SensorID is used for caching debug foreground snapshots during replay.
+	SensorID string
+
 	// PacketForwarder forwards packets to a UDP destination (optional)
 	PacketForwarder *PacketForwarder
 
@@ -178,6 +181,38 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 					} else if len(foregroundMask) > 0 {
 						// Extract only foreground points
 						foregroundPoints := lidar.ExtractForegroundPoints(points, foregroundMask)
+
+						// Build background subset for debugging/export without overwhelming charts
+						backgroundPolar := make([]lidar.PointPolar, 0, len(points)-len(foregroundPoints))
+						for i, isForeground := range foregroundMask {
+							if !isForeground {
+								backgroundPolar = append(backgroundPolar, points[i])
+							}
+						}
+						const maxBackgroundChartPoints = 5000
+						if len(backgroundPolar) > maxBackgroundChartPoints {
+							stride := len(backgroundPolar) / maxBackgroundChartPoints
+							if stride < 1 {
+								stride = 1
+							}
+							downsampled := make([]lidar.PointPolar, 0, maxBackgroundChartPoints)
+							for i := 0; i < len(backgroundPolar); i += stride {
+								downsampled = append(downsampled, backgroundPolar[i])
+								if len(downsampled) >= maxBackgroundChartPoints {
+									break
+								}
+							}
+							backgroundPolar = downsampled
+						}
+
+						// Cache latest foreground snapshot for export/debug endpoints
+						snapshotTS := time.Now()
+						if len(points) > 0 && points[0].Timestamp > 0 {
+							snapshotTS = time.Unix(0, points[0].Timestamp)
+						}
+						if config.SensorID != "" {
+							lidar.StoreForegroundSnapshot(config.SensorID, snapshotTS, foregroundPoints, backgroundPolar, len(points), len(foregroundPoints))
+						}
 
 						// Forward foreground points to port 2370
 						if len(foregroundPoints) > 0 {

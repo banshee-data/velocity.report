@@ -387,6 +387,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 				PacketForwarder:     ws.packetForwarder,
 				ForegroundForwarder: fgForwarder,
 				BackgroundManager:   bgManager,
+				SensorID:            ws.sensorID,
 			}
 
 			err = network.ReadPCAPFileRealtime(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, config)
