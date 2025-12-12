@@ -108,6 +108,25 @@
       </tr>
       <tr>
         <td>
+          <strong>Post-Settle Update Fraction:</strong>
+        </td>
+        <td>{{printf "%.4f"
+          .BGParams.PostSettleUpdateFraction}}</td>
+      </tr>
+      <tr>
+        <td>
+          <strong>Warmup Duration (ns):</strong>
+        </td>
+        <td>{{.BGParams.WarmupDurationNanos}}</td>
+      </tr>
+      <tr>
+        <td>
+          <strong>Warmup Minimum Frames:</strong>
+        </td>
+        <td>{{.BGParams.WarmupMinFrames}}</td>
+      </tr>
+      <tr>
+        <td>
           <strong>Safety Margin (meters):</strong>
         </td>
         <td>{{printf "%.2f"
@@ -118,6 +137,19 @@
           <strong>Seed From First Observation:</strong>
         </td>
         <td>{{.BGParams.SeedFromFirstObservation}}</td>
+      </tr>
+      <tr>
+        <td>
+          <strong>Foreground Min Cluster Points:</strong>
+        </td>
+        <td>{{.BGParams.ForegroundMinClusterPoints}}</td>
+      </tr>
+      <tr>
+        <td>
+          <strong>Foreground DBSCAN Eps:</strong>
+        </td>
+        <td>{{printf "%.3f"
+          .BGParams.ForegroundDBSCANEps}}</td>
       </tr>
     </table>
     {{end}}
