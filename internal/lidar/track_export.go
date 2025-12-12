@@ -3,6 +3,8 @@ package lidar
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
+	"sort"
 	"time"
 )
 
@@ -79,14 +81,22 @@ func ExportTrackPointCloud(track *TrackedObject, observationHistory []*TrackObse
 // - 22-byte tail with timestamp and metadata
 func EncodePandar40PPacket(points []PointPolar, blockAzimuth float64, config *SensorConfig) ([]byte, error) {
 	const (
-		PACKET_SIZE        = 1262
-		BLOCKS_PER_PACKET  = 10
-		BLOCK_SIZE         = 124
-		CHANNELS_PER_BLOCK = 40
-		TAIL_SIZE          = 22
+		PACKET_SIZE         = 1262
+		BLOCKS_PER_PACKET   = 10
+		BLOCK_SIZE          = 124
+		CHANNELS_PER_BLOCK  = 40
+		TAIL_SIZE           = 22
+		MAX_DISTANCE_METERS = 130.0
 	)
 
 	packet := make([]byte, PACKET_SIZE)
+
+	// Sort by azimuth so buckets are contiguous
+	sort.Slice(points, func(i, j int) bool {
+		return points[i].Azimuth < points[j].Azimuth
+	})
+
+	azBucketSize := 360.0 / float64(BLOCKS_PER_PACKET)
 
 	// Encode data blocks (10 blocks)
 	for blockIdx := 0; blockIdx < BLOCKS_PER_PACKET; blockIdx++ {
@@ -95,21 +105,44 @@ func EncodePandar40PPacket(points []PointPolar, blockAzimuth float64, config *Se
 		// Block preamble (0xFFEE)
 		binary.LittleEndian.PutUint16(packet[blockOffset:], 0xFFEE)
 
-		// Block azimuth (2 bytes, little-endian, scaled by 100)
-		azimuthScaled := uint16(blockAzimuth * 100)
+		// Block azimuth from bucket median (fallback to provided blockAzimuth center if empty)
+		minAz := float64(blockIdx) * azBucketSize
+		maxAz := minAz + azBucketSize
+		bucket := make([]PointPolar, 0)
+		for _, p := range points {
+			az := math.Mod(p.Azimuth+360.0, 360.0)
+			if az >= minAz && az < maxAz {
+				bucket = append(bucket, p)
+			}
+		}
+
+		blockAz := minAz + azBucketSize/2
+		if len(bucket) > 0 {
+			mid := len(bucket) / 2
+			blockAz = bucket[mid].Azimuth
+		} else if blockAzimuth != 0 {
+			blockAz = blockAzimuth
+		}
+
+		azimuthScaled := uint16(math.Mod(blockAz*100.0+36000.0, 36000.0))
 		binary.LittleEndian.PutUint16(packet[blockOffset+2:], azimuthScaled)
 
 		// Channel data (40 channels × 3 bytes)
 		channelOffset := blockOffset + 4
 		for ch := 0; ch < CHANNELS_PER_BLOCK; ch++ {
-			// Find matching point for this channel
-			var distance uint16 = 0
+			var distance uint16 = 0xFFFF
 			var intensity uint8 = 0
-
-			for _, p := range points {
-				if p.Channel == ch && p.BlockID == blockIdx {
-					// Distance in 2mm resolution
-					distance = uint16(p.Distance * 500)
+			for _, p := range bucket {
+				if p.Channel == ch {
+					d := p.Distance
+					switch {
+					case d <= 0:
+						distance = 0xFFFF
+					case d > MAX_DISTANCE_METERS:
+						distance = 0xFFFE
+					default:
+						distance = uint16(d * 500)
+					}
 					intensity = p.Intensity
 					break
 				}
@@ -135,8 +168,8 @@ func EncodePandar40PPacket(points []PointPolar, blockAzimuth float64, config *Se
 	// HighTempFlag (byte 5)
 	packet[tailOffset+5] = 0
 
-	// MotorSpeed (bytes 8-9) - RPM * 60
-	motorSpeedEncoded := uint16(config.MotorSpeedRPM * 60)
+	// MotorSpeed (bytes 8-9) - RPM * 100
+	motorSpeedEncoded := uint16(math.Round(config.MotorSpeedRPM * 100))
 	binary.LittleEndian.PutUint16(packet[tailOffset+8:], motorSpeedEncoded)
 
 	// Timestamp (bytes 10-13) - microseconds
