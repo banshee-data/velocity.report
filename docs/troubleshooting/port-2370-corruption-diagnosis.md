@@ -2,7 +2,7 @@
 
 ## Problem Summary
 
-**Issue 1**: Corrupt network stream on port 2370  
+**Issue 1**: Corrupt network stream on port 2370
 **Issue 2**: Very few points in foreground ASC export
 
 ## Root Cause Analysis
@@ -31,7 +31,7 @@ for blockIdx := 0; blockIdx < BLOCKS_PER_PACKET; blockIdx++ {
     if !azFound && blockIdx < len(packetPoints) {
         blockAzimuth = packetPoints[blockIdx].Azimuth  // ← Fallback uses array index
     }
-    
+
     // PROBLEM 2: Channel matching assumes BlockID correspondence
     for ch := 0; ch < CHANNELS_PER_BLOCK; ch++ {
         for _, p := range packetPoints {
@@ -50,11 +50,13 @@ for blockIdx := 0; blockIdx < BLOCKS_PER_PACKET; blockIdx++ {
 1. **BlockID Mismatch**: `PointPolar.BlockID` represents the **original block** from the source packet (0-9). When foreground extraction filters points, the BlockID values are **preserved from the original scan**.
 
 2. **Sparse Point Distribution**: After foreground extraction, you might have:
+
    - Point 1: BlockID=0, Channel=5, Azimuth=0.2°
    - Point 2: BlockID=3, Channel=12, Azimuth=10.5°
    - Point 3: BlockID=9, Channel=38, Azimuth=89.7°
 
 3. **Encoding Failure**: The encoder tries to fill 10 blocks sequentially (blockIdx 0-9) but:
+
    - Block 0: Finds Point 1 (BlockID=0) ✓
    - Block 1: **No points with BlockID=1** → azimuth=0.0, all channels empty
    - Block 2: **No points with BlockID=2** → azimuth=0.0, all channels empty
@@ -66,6 +68,7 @@ for blockIdx := 0; blockIdx < BLOCKS_PER_PACKET; blockIdx++ {
 #### The Fix
 
 **Option A: Rebuild Blocks by Azimuth Range** (Recommended)
+
 ```go
 // Sort points by azimuth
 sort.Slice(packetPoints, func(i, j int) bool {
@@ -77,7 +80,7 @@ azimuthRange := 360.0 / float64(BLOCKS_PER_PACKET)
 for blockIdx := 0; blockIdx < BLOCKS_PER_PACKET; blockIdx++ {
     minAz := float64(blockIdx) * azimuthRange
     maxAz := minAz + azimuthRange
-    
+
     // Collect points in this azimuth range
     var blockPoints []PointPolar
     for _, p := range packetPoints {
@@ -85,13 +88,13 @@ for blockIdx := 0; blockIdx < BLOCKS_PER_PACKET; blockIdx++ {
             blockPoints = append(blockPoints, p)
         }
     }
-    
+
     // Use median azimuth for block
     blockAzimuth := minAz + azimuthRange/2
     if len(blockPoints) > 0 {
         blockAzimuth = blockPoints[len(blockPoints)/2].Azimuth
     }
-    
+
     // Encode channels (assign points to nearest channel)
     for ch := 0; ch < CHANNELS_PER_BLOCK; ch++ {
         // Find point with matching or closest channel
@@ -107,6 +110,7 @@ for blockIdx := 0; blockIdx < BLOCKS_PER_PACKET; blockIdx++ {
 ```
 
 **Option B: Ignore BlockID, Use Sequential Assignment**
+
 ```go
 // Assign points to blocks round-robin
 pointsPerBlock := (len(packetPoints) + BLOCKS_PER_PACKET - 1) / BLOCKS_PER_PACKET
@@ -114,15 +118,15 @@ pointsPerBlock := (len(packetPoints) + BLOCKS_PER_PACKET - 1) / BLOCKS_PER_PACKE
 for blockIdx := 0; blockIdx < BLOCKS_PER_PACKET; blockIdx++ {
     startIdx := blockIdx * pointsPerBlock
     endIdx := min(startIdx + pointsPerBlock, len(packetPoints))
-    
+
     if startIdx >= len(packetPoints) {
         // No points for this block - fill with empty data
         continue
     }
-    
+
     blockPoints := packetPoints[startIdx:endIdx]
     blockAzimuth := blockPoints[0].Azimuth  // Use first point's azimuth
-    
+
     // Distribute block points across channels
     for i, p := range blockPoints {
         ch := i % CHANNELS_PER_BLOCK  // Sequential channel assignment
@@ -155,6 +159,7 @@ type BackgroundParams struct {
 ```
 
 **Impact**:
+
 - `ClosenessSensitivityMultiplier=3.0` + `NoiseRelativeFraction=0.01` = Very narrow acceptance window
 - At 10m distance: threshold = 3.0 × (0.01 × 10 + 0.01) = 3.0 × 0.11 = **0.33m**
 - At 50m distance: threshold = 3.0 × (0.01 × 50 + 0.01) = 3.0 × 0.51 = **1.53m**
@@ -176,6 +181,7 @@ if cellDiff <= closenessThreshold || neighborConfirmCount >= neighConfirm {
 ```
 
 **Issue**: The `||` operator means:
+
 - Point is background if **either** it matches the cell **or** if 2 neighbors match
 - This is too lenient - vehicles passing through often have 2+ neighbors also seeing the vehicle
 
@@ -189,6 +195,7 @@ if seedFromFirst && cell.TimesSeenCount == 0 {
 ```
 
 **Issue**: When replaying PCAP files:
+
 - No warmup period - background model is **completely empty**
 - Empty cells default to **foreground** (line 78-81)
 - BUT: Most cells stay empty because first observation is foreground → never seeded
@@ -206,16 +213,19 @@ motorSpeedEncoded := uint16(math.Round(f.sensorConfig.MotorSpeedRPM * 100))
 ```
 
 **Pandar40P Specification**: Motor speed field is in **0.01 RPM units**
+
 - For 600 RPM motor: should encode as `600 * 100 = 60,000` (0x EA60)
 - Current code encodes as `600 * 100 = 60,000` ✓ (accidentally correct!)
 
 **However**: Line 138 in `track_export.go` is **WRONG**:
+
 ```go
 // track_export.go:138 - INCORRECT (RPM * 60 instead of RPM * 100)
 motorSpeedEncoded := uint16(config.MotorSpeedRPM * 60)  // ← Should be * 100
 ```
 
 For 600 RPM:
+
 - Current: `600 * 60 = 36,000` (0x8CA0) → Parser sees **360 RPM** motor
 - Correct: `600 * 100 = 60,000` (0xEA60) → Parser sees **600 RPM** motor
 
@@ -231,6 +241,7 @@ distance = uint16(p.Distance * 500)
 ```
 
 **Problem**: Maximum representable distance with uint16:
+
 - Max value: 65,535 (0xFFFF)
 - Max distance: 65,535 / 500 = **131.07 meters**
 - Points beyond 131m → **overflow** → wrap around to small values
@@ -238,6 +249,7 @@ distance = uint16(p.Distance * 500)
 **Pandar40P Spec**: 0xFFFF is the **no-return marker** (should not be used for valid distances)
 
 **Fix**:
+
 ```go
 // Clamp to max representable distance
 const MAX_DISTANCE_M = 130.0  // Leave margin for no-return marker
@@ -265,11 +277,13 @@ if p.Distance > MAX_DISTANCE_M {
 **File**: Caller code (e.g., `cmd/tools/pcap-analyze/main.go`)
 
 1. **Enable seed-from-first for PCAP replay**:
+
    ```go
    bgParams.SeedFromFirstObservation = true
    ```
 
 2. **Relax sensitivity for moving object detection**:
+
    ```go
    bgParams.ClosenessSensitivityMultiplier = 2.0  // Was 3.0
    bgParams.NoiseRelativeFraction = 0.02         // Was 0.01
@@ -298,6 +312,7 @@ Add distance clamping before encoding (see code above).
 ## Validation Tests
 
 ### Test 1: Packet Integrity
+
 ```bash
 # Capture port 2370 traffic
 sudo tcpdump -i any -n udp port 2370 -w /tmp/port2370.pcap -c 1000
@@ -310,6 +325,7 @@ tcpdump -r /tmp/port2370.pcap -X | head -100
 **Expected**: At least 5-7 blocks per packet should have non-zero azimuth and channel data
 
 ### Test 2: Foreground Extraction Ratio
+
 ```bash
 # Enable debug logging in pcap-realtime.go (line 187-191)
 # Run PCAP replay and check logs
@@ -323,6 +339,7 @@ tcpdump -r /tmp/port2370.pcap -X | head -100
 **Good ratio**: 15-40% foreground for typical street scene with vehicles
 
 ### Test 3: LidarView Load Test
+
 ```bash
 # After fixes, try loading foreground PCAP in LidarView
 # Should see:
@@ -382,3 +399,54 @@ config := RealtimeReplayConfig{
 3. **Point distribution**: Spread across azimuth range (not clustered at 0°)
 4. **ASC export**: Hundreds to thousands of points per file (instead of <10)
 5. **Visual quality**: Recognizable vehicle/pedestrian shapes in point clouds
+
+# Foreground Replay & Export Fix Plan
+
+Context:
+
+- Background grid ASC is correct, but foreground ASC (e.g., `lidar_frame_hesai-pandar40p_1504708291.asc`) contains only a small subset.
+- LidarView on port 2370 shows sparse rings and patchy arcs (screenshots), consistent with block/channel mis-encoding and overly aggressive background masking.
+- Foreground debug chart shows ~1.2% fg ratio and missing swaths.
+
+## Work Items
+
+1. **Fix foreground packet encoding (port 2370 & exports)**
+   - Rewrite `encodePointsAsPackets` to bucket points by azimuth, not BlockID; fill block azimuth from median of bucket; map channels within bucket.
+   - Add distance clamp (0xFFFF as no-return, cap >130 m to 0xFFFE) and warn if <3 blocks have data or >50% blocks empty.
+   - Mirror the same logic in `track_export.go` for ASC/export parity; set motor speed to RPM×100.
+2. **Loosen background masking for replay**
+   - For PCAP replay: `SeedFromFirstObservation=true`, `ClosenessSensitivityMultiplier≈2.0`, `NoiseRelativeFraction≈0.02`, `NeighborConfirmationCount≈5`, `SafetyMargin≈0.3`.
+   - Add warmup of ~50–100 frames before forwarding/ASC export so grid seeds before masking/forwarding.
+3. **Snapshot capture alignment**
+   - Ensure foreground snapshot caching happens after mask extraction for both live and PCAP (already added for PCAP; verify live path).
+   - Export endpoint should emit the latest cached snapshot (foreground+background), not a partial frame.
+4. **Observability & guards**
+   - Log per 1k packets: foreground ratio and filled-block count.
+   - Warn/drop packet when block integrity falls below threshold.
+   - Add quick sanity script/endpoint to report latest foreground snapshot counts (fg/bg/total) and last export path.
+
+### Phased Execution
+
+- **Phase 1: Encoding integrity**
+  - Rewrite foreground packet encoder with azimuth bucketing, distance clamp, block-fill validation; mirror logic and motor RPM×100 in `track_export.go`.
+- **Phase 2: Masking & warmup**
+  - Loosen PCAP replay params (seed-from-first, relaxed closeness/noise, higher neighbor count, smaller safety margin) and add 50–100 frame warmup before forwarding/export.
+- **Phase 3: Snapshot/export parity**
+  - Ensure foreground snapshots are cached post-mask for live and replay; export endpoint returns the latest complete snapshot aligned with foreground forwarding.
+- **Phase 4: Observability & validation**
+  - Add foreground ratio + block-fill logs, integrity warnings, and sanity endpoints; validate via tcpdump, LidarView/CloudCompare, and ASC point-count parity.
+
+## Success Criteria
+
+- **Packet integrity:** tcpdump on port 2370 shows ≥7/10 blocks non-empty per packet; no azimuth=0 fills except empty buckets.
+- **Foreground density:** replay logs show 10–40% foreground ratios for street scenes; debug chart shows contiguous arcs, not isolated points.
+- **ASC parity:** foreground ASC files contain similar point counts/distribution as LidarView (order-of-magnitude increase vs current ~6 points); distances not wrapped beyond 130 m.
+- **Motor speed:** exported/forwarded packets report correct RPM (e.g., 600 RPM → 0xEA60).
+- **Warmup:** first exported foreground after warmup reflects full sweep, not partial.
+
+## Validation Steps
+
+1. Run PCAP replay (non-`fastest`) with new encoding and tuned params; capture 1000 packets via `tcpdump -i any -n udp port 2370 -w /tmp/fg.pcap` and spot-check block fill.
+2. Export foreground via `/api/lidar/export_foreground?sensor_id=...` and open in LidarView/CloudCompare; confirm dense arcs and correct range.
+3. Check logs for foreground ratios and block warnings; ensure none below thresholds.
+4. Compare background grid ASC to foreground ASC: foreground should align spatially and be a meaningful subset, not a handful of points.
