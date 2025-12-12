@@ -176,17 +176,14 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 					}
 				}
 
-				// Forward foreground points if forwarder configured (after warmup)
-				if config.ForegroundForwarder != nil && config.BackgroundManager != nil {
-					// Extract foreground points using background subtraction
+				// Foreground extraction & snapshot caching if background manager is available
+				if config.BackgroundManager != nil {
 					foregroundMask, err := config.BackgroundManager.ProcessFramePolarWithMask(points)
 					if err != nil {
 						log.Printf("Error extracting foreground points: %v", err)
 					} else if len(foregroundMask) > 0 {
-						// Extract only foreground points
 						foregroundPoints := lidar.ExtractForegroundPoints(points, foregroundMask)
 
-						// Build background subset for debugging/export without overwhelming charts
 						backgroundPolar := make([]lidar.PointPolar, 0, len(points)-len(foregroundPoints))
 						for i, isForeground := range foregroundMask {
 							if !isForeground {
@@ -209,7 +206,6 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 							backgroundPolar = downsampled
 						}
 
-						// Cache latest foreground snapshot for export/debug endpoints
 						snapshotTS := time.Now()
 						if len(points) > 0 && points[0].Timestamp > 0 {
 							snapshotTS = time.Unix(0, points[0].Timestamp)
@@ -219,16 +215,17 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 						}
 
 						// Warmup: seed background without forwarding until warmupRemaining hits zero
-						if warmupRemaining > 0 {
-							warmupRemaining--
-						} else if len(foregroundPoints) > 0 {
-							config.ForegroundForwarder.ForwardForeground(foregroundPoints)
+						if config.ForegroundForwarder != nil {
+							if warmupRemaining > 0 {
+								warmupRemaining--
+							} else if len(foregroundPoints) > 0 {
+								config.ForegroundForwarder.ForwardForeground(foregroundPoints)
 
-							// Log foreground extraction stats periodically
-							if packetCount%1000 == 0 {
-								fgRatio := float64(len(foregroundPoints)) / float64(len(points))
-								log.Printf("Foreground extraction: %d/%d points (%.1f%%)",
-									len(foregroundPoints), len(points), fgRatio*100)
+								if packetCount%1000 == 0 {
+									fgRatio := float64(len(foregroundPoints)) / float64(len(points))
+									log.Printf("Foreground extraction: %d/%d points (%.1f%%)",
+										len(foregroundPoints), len(points), fgRatio*100)
+								}
 							}
 						}
 					}
