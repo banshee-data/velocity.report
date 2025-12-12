@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
+	"math"
 	"net"
 	"time"
 
@@ -151,18 +152,27 @@ func (f *ForegroundForwarder) encodePointsAsPackets(points []lidar.PointPolar) (
 			// Block preamble (0xFFEE)
 			binary.LittleEndian.PutUint16(packet[blockOffset:], 0xFFEE)
 
-			// Block azimuth (use first point's azimuth in block if available)
-			var blockAzimuth float64 = 0
-			if blockIdx < len(packetPoints) {
+			// Block azimuth: prefer the first point with matching BlockID; otherwise fall back
+			var blockAzimuth float64
+			azFound := false
+			for _, p := range packetPoints {
+				if p.BlockID == blockIdx {
+					blockAzimuth = p.Azimuth
+					azFound = true
+					break
+				}
+			}
+			if !azFound && blockIdx < len(packetPoints) {
 				blockAzimuth = packetPoints[blockIdx].Azimuth
 			}
-			azimuthScaled := uint16(blockAzimuth * 100)
+			azimuthScaled := uint16(math.Mod(blockAzimuth*100.0+36000.0, 36000.0))
 			binary.LittleEndian.PutUint16(packet[blockOffset+2:], azimuthScaled)
 
 			// Channel data (40 channels × 3 bytes)
 			channelOffset := blockOffset + 4
 			for ch := 0; ch < CHANNELS_PER_BLOCK; ch++ {
-				var distance uint16 = 0
+				// Default: no-return marker
+				var distance uint16 = 0xFFFF
 				var intensity uint8 = 0
 
 				// Find point for this channel in this block
@@ -195,8 +205,8 @@ func (f *ForegroundForwarder) encodePointsAsPackets(points []lidar.PointPolar) (
 		// HighTempFlag (byte 5)
 		packet[tailOffset+5] = 0
 
-		// MotorSpeed (bytes 8-9)
-		motorSpeedEncoded := uint16(f.sensorConfig.MotorSpeedRPM * 60)
+		// MotorSpeed (bytes 8-9) in 0.01 RPM units
+		motorSpeedEncoded := uint16(math.Round(f.sensorConfig.MotorSpeedRPM * 100))
 		binary.LittleEndian.PutUint16(packet[tailOffset+8:], motorSpeedEncoded)
 
 		// Timestamp (bytes 10-13)
