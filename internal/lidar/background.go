@@ -22,6 +22,11 @@ type BackgroundParams struct {
 	SafetyMarginMeters             float32 // e.g., 0.5
 	FreezeDurationNanos            int64   // e.g., 5e9 (5s)
 	NeighborConfirmationCount      int     // e.g., 5 of 8 neighbors
+	WarmupDurationNanos            int64   // optional extra settle time before emitting foreground
+	WarmupMinFrames                int     // optional minimum frames before considering settled
+	PostSettleUpdateFraction       float32 // optional lower alpha after settle for stability
+	ForegroundMinClusterPoints     int     // min points for a cluster to be forwarded/considered
+	ForegroundDBSCANEps            float32 // clustering radius for foreground gating
 	// NoiseRelativeFraction is the fraction of range (distance) to treat as
 	// expected measurement noise. This allows closeness thresholds to grow
 	// with distance so that farther returns (which naturally have larger
@@ -187,6 +192,48 @@ func (bm *BackgroundManager) SetSeedFromFirstObservation(v bool) error {
 	g := bm.Grid
 	g.mu.Lock()
 	g.Params.SeedFromFirstObservation = v
+	g.mu.Unlock()
+	return nil
+}
+
+// SetWarmupParams updates settle duration/frame requirements.
+func (bm *BackgroundManager) SetWarmupParams(durationNanos int64, minFrames int) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	g.Params.WarmupDurationNanos = durationNanos
+	g.Params.WarmupMinFrames = minFrames
+	g.mu.Unlock()
+	return nil
+}
+
+// SetPostSettleUpdateFraction updates the post-settle alpha.
+func (bm *BackgroundManager) SetPostSettleUpdateFraction(v float32) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	g.Params.PostSettleUpdateFraction = v
+	g.mu.Unlock()
+	return nil
+}
+
+// SetForegroundClusterParams updates the minimum cluster size and eps used for foreground gating.
+func (bm *BackgroundManager) SetForegroundClusterParams(minPts int, eps float32) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	if minPts > 0 {
+		g.Params.ForegroundMinClusterPoints = minPts
+	}
+	if eps > 0 {
+		g.Params.ForegroundDBSCANEps = eps
+	}
 	g.mu.Unlock()
 	return nil
 }
