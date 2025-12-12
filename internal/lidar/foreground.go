@@ -50,8 +50,19 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 	safety := float64(g.Params.SafetyMarginMeters)
 	freezeDur := g.Params.FreezeDurationNanos
 
+	warmupActive := false
+	effectiveAlpha := alpha
+
 	g.mu.Lock()
 	defer g.mu.Unlock()
+
+	// Initialize warmup counters on first frame
+	if bm.StartTime.IsZero() {
+		bm.StartTime = now
+	}
+	if g.WarmupFramesRemaining == 0 && g.Params.WarmupMinFrames > 0 && !g.SettlingComplete {
+		g.WarmupFramesRemaining = g.Params.WarmupMinFrames
+	}
 
 	// Read runtime-tunable params under lock
 	noiseRel := float64(g.Params.NoiseRelativeFraction)
@@ -67,6 +78,32 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		neighConfirm = DefaultNeighborConfirmationCount
 	}
 	seedFromFirst := g.Params.SeedFromFirstObservation
+
+	// Warmup gating: suppress foreground output until duration and/or frames satisfied.
+	postSettleAlpha := float64(g.Params.PostSettleUpdateFraction)
+	if postSettleAlpha > 0 && postSettleAlpha <= 1 {
+		effectiveAlpha = postSettleAlpha
+	}
+	if !g.SettlingComplete {
+		framesReady := g.Params.WarmupMinFrames <= 0 || g.WarmupFramesRemaining <= 0
+		durReady := g.Params.WarmupDurationNanos <= 0 || (nowNanos-bm.StartTime.UnixNano() >= g.Params.WarmupDurationNanos)
+		if framesReady && durReady {
+			g.SettlingComplete = true
+			if postSettleAlpha > 0 && postSettleAlpha <= 1 {
+				effectiveAlpha = postSettleAlpha
+			}
+		} else {
+			warmupActive = true
+			if g.WarmupFramesRemaining > 0 {
+				g.WarmupFramesRemaining--
+			}
+			// During warmup use pre-set alpha to seed background faster.
+			effectiveAlpha = alpha
+		}
+	}
+	if effectiveAlpha <= 0 || effectiveAlpha > 1 {
+		effectiveAlpha = alpha
+	}
 
 	// Process each point individually
 	foregroundCount := int64(0)
@@ -148,9 +185,9 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 				g.nonzeroCellCount++
 			} else {
 				oldAvg := float64(cell.AverageRangeMeters)
-				newAvg := (1.0-alpha)*oldAvg + alpha*p.Distance
+				newAvg := (1.0-effectiveAlpha)*oldAvg + effectiveAlpha*p.Distance
 				deviation := math.Abs(p.Distance - oldAvg)
-				newSpread := (1.0-alpha)*float64(cell.RangeSpreadMeters) + alpha*deviation
+				newSpread := (1.0-effectiveAlpha)*float64(cell.RangeSpreadMeters) + effectiveAlpha*deviation
 				cell.AverageRangeMeters = float32(newAvg)
 				cell.RangeSpreadMeters = float32(newSpread)
 				cell.TimesSeenCount++
@@ -175,6 +212,15 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		}
 
 		g.ChangesSinceSnapshot++
+	}
+
+	// Suppress foreground output during warmup while still allowing background seeding.
+	if warmupActive {
+		for i := range foregroundMask {
+			foregroundMask[i] = false
+		}
+		foregroundCount = 0
+		backgroundCount = int64(len(points))
 	}
 
 	// Update telemetry counters
