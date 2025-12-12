@@ -13,6 +13,7 @@ import (
 // RealtimeReplayConfig is a stub when pcap is not available.
 type RealtimeReplayConfig struct {
 	SpeedMultiplier     float64
+	SensorID            string
 	PacketForwarder     *PacketForwarder
 	ForegroundForwarder *ForegroundForwarder
 	BackgroundManager   *lidar.BackgroundManager
