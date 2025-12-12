@@ -131,6 +131,18 @@ func (bm *BackgroundManager) GetParams() BackgroundParams {
 	return g.Params
 }
 
+// SetParams replaces the manager's BackgroundParams atomically.
+func (bm *BackgroundManager) SetParams(p BackgroundParams) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	g.Params = p
+	g.mu.Unlock()
+	return nil
+}
+
 // SetNoiseRelativeFraction safely updates the NoiseRelativeFraction parameter.
 func (bm *BackgroundManager) SetNoiseRelativeFraction(v float32) error {
 	if bm == nil || bm.Grid == nil {

@@ -17,6 +17,7 @@ type RealtimeReplayConfig struct {
 	PacketForwarder     *PacketForwarder
 	ForegroundForwarder *ForegroundForwarder
 	BackgroundManager   *lidar.BackgroundManager
+	WarmupPackets       int
 }
 
 // ReadPCAPFileRealtime is a stub that returns an error when pcap support is not compiled in.
