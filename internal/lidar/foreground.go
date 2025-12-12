@@ -1,6 +1,7 @@
 package lidar
 
 import (
+	"log"
 	"math"
 	"time"
 )
@@ -52,6 +53,9 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 
 	warmupActive := false
 	effectiveAlpha := alpha
+	warmupFramesRemaining := 0
+	warmupDuration := int64(0)
+	warmupElapsed := time.Duration(0)
 
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -101,6 +105,9 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 			effectiveAlpha = alpha
 		}
 	}
+	warmupFramesRemaining = g.WarmupFramesRemaining
+	warmupDuration = g.Params.WarmupDurationNanos
+	warmupElapsed = now.Sub(bm.StartTime)
 	if effectiveAlpha <= 0 || effectiveAlpha > 1 {
 		effectiveAlpha = alpha
 	}
@@ -216,11 +223,17 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 
 	// Suppress foreground output during warmup while still allowing background seeding.
 	if warmupActive {
+		suppressedFg := foregroundCount
 		for i := range foregroundMask {
 			foregroundMask[i] = false
 		}
 		foregroundCount = 0
 		backgroundCount = int64(len(points))
+
+		if bm != nil && bm.EnableDiagnostics {
+			log.Printf("[Foreground] warmup active: suppressed_fg=%d total_points=%d warmup_frames_remaining=%d warmup_duration_ns=%d elapsed_ms=%d",
+				suppressedFg, len(points), warmupFramesRemaining, warmupDuration, warmupElapsed.Milliseconds())
+		}
 	}
 
 	// Update telemetry counters
