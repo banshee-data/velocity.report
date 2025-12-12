@@ -75,6 +75,8 @@ type FrameBuilder struct {
 	frameCallback       func(*LiDARFrame) // callback when frame is complete
 	exportNextFrameASC  bool              // flag to export next completed frame
 	exportNextFramePath string            // output path for ASC export
+	exportFrameBatch    []string          // queued batch export paths
+	exportBatchIndex    int               // current index within batch export queue
 	mu                  sync.Mutex        // protect concurrent access
 	frameCounter        int64             // sequential frame number
 
@@ -558,19 +560,34 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame) {
 			frame.SensorID)
 	}
 
-	// Export to ASC if requested
+	// Export to ASC if requested (single-shot)
 	if fb.exportNextFrameASC {
 		path := fb.exportNextFramePath
 		if path == "" {
 			path = filepath.Join(os.TempDir(), fmt.Sprintf("next_frame_%s_%d.asc", frame.SensorID, time.Now().Unix()))
 		}
-		if err := exportFrameToASC(frame); err != nil {
+		if err := exportFrameToASCPath(frame, path); err != nil {
 			log.Printf("[FrameBuilder] Failed to export next frame for sensor %s to %s: %v", frame.SensorID, path, err)
 		} else {
 			debugf("[FrameBuilder] Exported next frame for sensor %s to %s", frame.SensorID, path)
 		}
 		fb.exportNextFrameASC = false
 		fb.exportNextFramePath = ""
+	}
+
+	// Export batch of upcoming frames, if queued
+	if fb.exportBatchIndex < len(fb.exportFrameBatch) {
+		path := fb.exportFrameBatch[fb.exportBatchIndex]
+		if err := exportFrameToASCPath(frame, path); err != nil {
+			log.Printf("[FrameBuilder] Failed to export batch frame %d/%d for sensor %s to %s: %v", fb.exportBatchIndex+1, len(fb.exportFrameBatch), frame.SensorID, path, err)
+		} else if fb.debug {
+			debugf("[FrameBuilder] Exported batch frame %d/%d for sensor %s to %s", fb.exportBatchIndex+1, len(fb.exportFrameBatch), frame.SensorID, path)
+		}
+		fb.exportBatchIndex++
+		if fb.exportBatchIndex >= len(fb.exportFrameBatch) {
+			fb.exportFrameBatch = nil
+			fb.exportBatchIndex = 0
+		}
 	}
 	// Call callback if provided (in separate goroutine to avoid blocking)
 	if fb.frameCallback != nil {
@@ -590,6 +607,20 @@ func (fb *FrameBuilder) RequestExportNextFrameASC(outPath string) {
 	defer fb.mu.Unlock()
 	fb.exportNextFrameASC = true
 	fb.exportNextFramePath = outPath
+}
+
+// RequestExportFrameBatchASC exports the next N completed frames to the provided paths.
+// Paths are consumed in order; length determines how many frames will be exported.
+func (fb *FrameBuilder) RequestExportFrameBatchASC(paths []string) {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+
+	if len(paths) == 0 {
+		return
+	}
+
+	fb.exportFrameBatch = append([]string(nil), paths...)
+	fb.exportBatchIndex = 0
 }
 
 // GetCurrentFrameStats returns statistics about the frames currently being built
@@ -696,8 +727,15 @@ func exportFrameToASC(frame *LiDARFrame) error {
 
 	filename := fmt.Sprintf("lidar_frame_%s_%d.asc", frame.SensorID, frame.StartTimestamp.Unix())
 	filePath := filepath.Join(os.TempDir(), filename)
+	return exportFrameToASCPath(frame, filePath)
+}
 
-	// Convert LiDARFrame points to PointASC
+// exportFrameToASCPath writes a LiDARFrame to ASC at the provided path.
+func exportFrameToASCPath(frame *LiDARFrame, filePath string) error {
+	if frame == nil || len(frame.Points) == 0 {
+		return fmt.Errorf("empty frame")
+	}
+
 	ascPoints := make([]PointASC, len(frame.Points))
 	// Detect if Z values look invalid (all zero) and recompute from polar if needed
 	zNonZero := 0
