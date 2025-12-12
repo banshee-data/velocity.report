@@ -361,6 +361,23 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 		if speedMode == "fastest" {
 			err = network.ReadPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats)
 		} else {
+			// Apply PCAP-friendly background params and restore afterward.
+			var restoreParams func()
+			if bgManager := lidar.GetBackgroundManager(ws.sensorID); bgManager != nil {
+				orig := bgManager.GetParams()
+				tuned := orig
+				tuned.SeedFromFirstObservation = true
+				tuned.ClosenessSensitivityMultiplier = 2.0
+				tuned.NoiseRelativeFraction = 0.02
+				tuned.NeighborConfirmationCount = 5
+				tuned.SafetyMarginMeters = 0.3
+				_ = bgManager.SetParams(tuned)
+				restoreParams = func() { _ = bgManager.SetParams(orig) }
+			}
+			if restoreParams != nil {
+				defer restoreParams()
+			}
+
 			// Realtime or fixed ratio
 			multiplier := speedRatio
 			if speedMode == "realtime" {
@@ -388,6 +405,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 				ForegroundForwarder: fgForwarder,
 				BackgroundManager:   bgManager,
 				SensorID:            ws.sensorID,
+				WarmupPackets:       500,
 			}
 
 			err = network.ReadPCAPFileRealtime(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, config)
