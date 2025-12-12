@@ -196,8 +196,6 @@ CREATE INDEX idx_lidar_tracks_time ON lidar_tracks (start_unix_nanos, end_unix_n
 
 CREATE INDEX idx_lidar_tracks_class ON lidar_tracks (object_class);
 
-CREATE INDEX idx_lidar_tracks_quality ON lidar_tracks (track_length_meters, occlusion_count);
-
    CREATE TABLE lidar_track_obs (
           track_id TEXT NOT NULL
         , ts_unix_nanos INTEGER NOT NULL
@@ -289,3 +287,5 @@ CREATE INDEX idx_lidar_run_tracks_class ON lidar_run_tracks (object_class);
 CREATE INDEX idx_lidar_run_tracks_label ON lidar_run_tracks (user_label);
 
 CREATE INDEX idx_lidar_run_tracks_state ON lidar_run_tracks (track_state);
+
+CREATE INDEX idx_lidar_tracks_quality ON lidar_tracks (track_length_meters, occlusion_count);
