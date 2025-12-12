@@ -94,6 +94,9 @@ type WebServer struct {
 
 	// Track API for tracking endpoints
 	trackAPI *TrackAPI
+
+	// latestFgCounts holds counts from the most recent foreground snapshot for status UI.
+	latestFgCounts map[string]int
 }
 
 // WebServerConfig contains configuration options for the web server
@@ -152,6 +155,7 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		packetForwarder:   config.PacketForwarder,
 		udpListenerConfig: listenerConfig,
 		currentSource:     DataSourceLive,
+		latestFgCounts:    make(map[string]int),
 	}
 
 	// Initialize TrackAPI if database is configured
@@ -1670,6 +1674,7 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		PCAPInProgress   bool
 		PCAPSpeedMode    string
 		PCAPSpeedRatio   float64
+		FgSnapshotCounts map[string]int
 	}{
 		UDPPort:          ws.udpPort,
 		HTTPAddress:      ws.address,
@@ -1685,6 +1690,7 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		PCAPInProgress:   pcapInProgress,
 		PCAPSpeedMode:    pcapSpeedMode,
 		PCAPSpeedRatio:   pcapSpeedRatio,
+		FgSnapshotCounts: ws.latestFgCounts,
 	}
 
 	if err := tmpl.Execute(w, data); err != nil {
