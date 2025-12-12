@@ -523,6 +523,7 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/snapshots", ws.handleLidarSnapshots)
 	mux.HandleFunc("/api/lidar/export_snapshot", ws.handleExportSnapshotASC)
 	mux.HandleFunc("/api/lidar/export_next_frame", ws.handleExportNextFrameASC)
+	mux.HandleFunc("/api/lidar/export_foreground", ws.handleExportForegroundASC)
 	mux.HandleFunc("/api/lidar/acceptance", ws.handleAcceptanceMetrics)
 	mux.HandleFunc("/api/lidar/acceptance/reset", ws.handleAcceptanceReset)
 	mux.HandleFunc("/api/lidar/params", ws.handleBackgroundParams)
@@ -1391,6 +1392,50 @@ func (ws *WebServer) handleExportNextFrameASC(w http.ResponseWriter, r *http.Req
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "note": "Will export next completed frame", "out": outPath})
 }
 
+// handleExportForegroundASC exports the latest foreground snapshot to an ASC file for quick inspection.
+// Query params: sensor_id (required), out (optional file path)
+func (ws *WebServer) handleExportForegroundASC(w http.ResponseWriter, r *http.Request) {
+	sensorID := r.URL.Query().Get("sensor_id")
+	outPath := r.URL.Query().Get("out")
+	if sensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+
+	snap := lidar.GetForegroundSnapshot(sensorID)
+	if snap == nil || len(snap.ForegroundPoints) == 0 {
+		ws.writeJSONError(w, http.StatusNotFound, "no foreground snapshot available")
+		return
+	}
+
+	if outPath == "" {
+		ts := snap.Timestamp
+		if ts.IsZero() {
+			ts = time.Now()
+		}
+		outPath = filepath.Join(os.TempDir(), fmt.Sprintf("foreground_%s_%d.asc", sensorID, ts.Unix()))
+	} else {
+		absOutPath, err := filepath.Abs(outPath)
+		if err != nil {
+			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid output path: %v", err))
+			return
+		}
+		if err := security.ValidateExportPath(absOutPath); err != nil {
+			ws.writeJSONError(w, http.StatusForbidden, err.Error())
+			return
+		}
+		outPath = absOutPath
+	}
+
+	if err := lidar.ExportForegroundSnapshotToASC(snap, outPath); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("export error: %v", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "out": outPath})
+}
+
 // handleLidarSnapshots returns a JSON array of the last N lidar background snapshots for a sensor_id, with nonzero cell count for each.
 // Query params:
 //
@@ -1490,8 +1535,6 @@ func (ws *WebServer) handleLidarStatus(w http.ResponseWriter, r *http.Request) {
 
 	ws.pcapMu.Lock()
 	pcapInProgress := ws.pcapInProgress
-	pcapSpeedMode := ws.pcapSpeedMode
-	pcapSpeedRatio := ws.pcapSpeedRatio
 	ws.pcapMu.Unlock()
 
 	var statsSnapshot *StatsSnapshot
@@ -1573,6 +1616,8 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 
 	ws.pcapMu.Lock()
 	pcapInProgress := ws.pcapInProgress
+	pcapSpeedMode := ws.pcapSpeedMode
+	pcapSpeedRatio := ws.pcapSpeedRatio
 	ws.pcapMu.Unlock()
 
 	// Get background manager to show current params
