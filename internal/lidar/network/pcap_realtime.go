@@ -218,6 +218,9 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 						if config.ForegroundForwarder != nil {
 							if warmupRemaining > 0 {
 								warmupRemaining--
+								if len(foregroundPoints) > 0 && (warmupRemaining%100 == 0 || warmupRemaining < 5) {
+									log.Printf("[ForegroundForwarder] warmup skipping frame: remaining_packets=%d fg_points=%d total_points=%d", warmupRemaining, len(foregroundPoints), len(points))
+								}
 							} else if len(foregroundPoints) > 0 {
 								config.ForegroundForwarder.ForwardForeground(foregroundPoints)
 

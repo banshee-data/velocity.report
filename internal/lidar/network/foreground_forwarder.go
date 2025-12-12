@@ -22,6 +22,7 @@ type ForegroundForwarder struct {
 	port         int
 	sensorConfig *SensorConfig
 	packetCount  uint64
+	frameCount   uint64
 }
 
 // SensorConfig holds sensor configuration for packet encoding.
@@ -80,6 +81,8 @@ func (f *ForegroundForwarder) Start(ctx context.Context) {
 					continue
 				}
 
+				f.frameCount++
+
 				// Encode points as Pandar40P packets
 				packets, err := f.encodePointsAsPackets(points)
 				if err != nil {
@@ -95,6 +98,11 @@ func (f *ForegroundForwarder) Start(ctx context.Context) {
 					} else {
 						f.packetCount++
 					}
+				}
+
+				if f.frameCount <= 5 || f.frameCount%100 == 0 {
+					log.Printf("[ForegroundForwarder] sent frame=%d packets=%d points=%d total_packets=%d dest=%s",
+						f.frameCount, len(packets), len(points), f.packetCount, f.address)
 				}
 			}
 		}
