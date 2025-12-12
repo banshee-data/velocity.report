@@ -405,8 +405,18 @@ func main() {
 					// Phase 2: Transform to world coordinates
 					worldPoints := lidar.TransformToWorld(foregroundPoints, nil, *lidarSensor)
 
-					// Phase 3: Clustering
-					clusters := lidar.DBSCAN(worldPoints, lidar.DefaultDBSCANParams())
+					// Phase 3: Clustering (runtime-tunable via background params)
+					dbscanParams := lidar.DefaultDBSCANParams()
+					if backgroundManager != nil {
+						p := backgroundManager.GetParams()
+						if p.ForegroundMinClusterPoints > 0 {
+							dbscanParams.MinPts = p.ForegroundMinClusterPoints
+						}
+						if p.ForegroundDBSCANEps > 0 {
+							dbscanParams.Eps = float64(p.ForegroundDBSCANEps)
+						}
+					}
+					clusters := lidar.DBSCAN(worldPoints, dbscanParams)
 					if len(clusters) == 0 {
 						return
 					}
