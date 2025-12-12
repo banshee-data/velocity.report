@@ -152,6 +152,9 @@ CREATE INDEX idx_site_reports_created_at ON site_reports (created_at DESC);
         , points_count INTEGER
         , height_p95 REAL
         , intensity_mean REAL
+        , noise_points_count INTEGER DEFAULT 0
+        , cluster_density REAL
+        , aspect_ratio REAL
           );
 
 CREATE INDEX idx_lidar_clusters_sensor_time ON lidar_clusters (sensor_id, ts_unix_nanos);
@@ -177,6 +180,12 @@ CREATE INDEX idx_lidar_clusters_sensor_time ON lidar_clusters (sensor_id, ts_uni
         , object_class TEXT
         , object_confidence REAL
         , classification_model TEXT
+        , track_length_meters REAL
+        , track_duration_secs REAL
+        , occlusion_count INTEGER DEFAULT 0
+        , max_occlusion_frames INTEGER DEFAULT 0
+        , spatial_coverage REAL
+        , noise_point_ratio REAL
           );
 
 CREATE INDEX idx_lidar_tracks_sensor ON lidar_tracks (sensor_id);
@@ -186,6 +195,8 @@ CREATE INDEX idx_lidar_tracks_state ON lidar_tracks (track_state);
 CREATE INDEX idx_lidar_tracks_time ON lidar_tracks (start_unix_nanos, end_unix_nanos);
 
 CREATE INDEX idx_lidar_tracks_class ON lidar_tracks (object_class);
+
+CREATE INDEX idx_lidar_tracks_quality ON lidar_tracks (track_length_meters, occlusion_count);
 
    CREATE TABLE lidar_track_obs (
           track_id TEXT NOT NULL
@@ -228,6 +239,7 @@ CREATE INDEX idx_lidar_track_obs_time ON lidar_track_obs (ts_unix_nanos);
         , error_message TEXT
         , parent_run_id TEXT
         , notes TEXT
+        , statistics_json TEXT
           );
 
 CREATE INDEX idx_lidar_runs_created ON lidar_analysis_runs (created_at);
