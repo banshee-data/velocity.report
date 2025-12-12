@@ -1,4 +1,4 @@
-CREATE TABLE schema_migrations (version uint64, dirty bool);
+   CREATE TABLE schema_migrations (version uint64, dirty bool);
 
 CREATE UNIQUE INDEX version_unique ON schema_migrations (version);
 
