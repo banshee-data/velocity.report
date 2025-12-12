@@ -640,22 +640,32 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 	case http.MethodGet:
 		params := bm.GetParams()
 		resp := map[string]interface{}{
-			"noise_relative":              params.NoiseRelativeFraction,
-			"enable_diagnostics":          bm.EnableDiagnostics,
-			"closeness_multiplier":        params.ClosenessSensitivityMultiplier,
-			"neighbor_confirmation_count": params.NeighborConfirmationCount,
-			"seed_from_first":             params.SeedFromFirstObservation,
+			"noise_relative":                params.NoiseRelativeFraction,
+			"enable_diagnostics":            bm.EnableDiagnostics,
+			"closeness_multiplier":          params.ClosenessSensitivityMultiplier,
+			"neighbor_confirmation_count":   params.NeighborConfirmationCount,
+			"seed_from_first":               params.SeedFromFirstObservation,
+			"warmup_duration_nanos":         params.WarmupDurationNanos,
+			"warmup_min_frames":             params.WarmupMinFrames,
+			"post_settle_update_fraction":   params.PostSettleUpdateFraction,
+			"foreground_min_cluster_points": params.ForegroundMinClusterPoints,
+			"foreground_dbscan_eps":         params.ForegroundDBSCANEps,
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)
 		return
 	case http.MethodPost:
 		var body struct {
-			NoiseRelative        *float64 `json:"noise_relative"`
-			EnableDiagnostics    *bool    `json:"enable_diagnostics"`
-			ClosenessMultiplier  *float64 `json:"closeness_multiplier"`
-			NeighborConfirmation *int     `json:"neighbor_confirmation_count"`
-			SeedFromFirst        *bool    `json:"seed_from_first"`
+			NoiseRelative              *float64 `json:"noise_relative"`
+			EnableDiagnostics          *bool    `json:"enable_diagnostics"`
+			ClosenessMultiplier        *float64 `json:"closeness_multiplier"`
+			NeighborConfirmation       *int     `json:"neighbor_confirmation_count"`
+			SeedFromFirst              *bool    `json:"seed_from_first"`
+			WarmupDurationNanos        *int64   `json:"warmup_duration_nanos"`
+			WarmupMinFrames            *int     `json:"warmup_min_frames"`
+			PostSettleUpdateFraction   *float64 `json:"post_settle_update_fraction"`
+			ForegroundMinClusterPoints *int     `json:"foreground_min_cluster_points"`
+			ForegroundDBSCANEps        *float64 `json:"foreground_dbscan_eps"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			ws.writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
@@ -688,6 +698,40 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 				return
 			}
 		}
+		if body.WarmupDurationNanos != nil || body.WarmupMinFrames != nil {
+			dur := bm.GetParams().WarmupDurationNanos
+			if body.WarmupDurationNanos != nil {
+				dur = *body.WarmupDurationNanos
+			}
+			frames := bm.GetParams().WarmupMinFrames
+			if body.WarmupMinFrames != nil {
+				frames = *body.WarmupMinFrames
+			}
+			if err := bm.SetWarmupParams(dur, frames); err != nil {
+				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+		}
+		if body.PostSettleUpdateFraction != nil {
+			if err := bm.SetPostSettleUpdateFraction(float32(*body.PostSettleUpdateFraction)); err != nil {
+				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+		}
+		if body.ForegroundMinClusterPoints != nil || body.ForegroundDBSCANEps != nil {
+			minPts := bm.GetParams().ForegroundMinClusterPoints
+			if body.ForegroundMinClusterPoints != nil {
+				minPts = *body.ForegroundMinClusterPoints
+			}
+			eps := bm.GetParams().ForegroundDBSCANEps
+			if body.ForegroundDBSCANEps != nil {
+				eps = float32(*body.ForegroundDBSCANEps)
+			}
+			if err := bm.SetForegroundClusterParams(minPts, eps); err != nil {
+				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+		}
 
 		// Read back current params for confirmation
 		cur := bm.GetParams()
@@ -696,12 +740,24 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 
 		// Log D: API call timing for params with all active settings
 		timestamp := time.Now().UnixNano()
-		log.Printf("[API:params] sensor=%s noise_rel=%.6f closeness=%.3f neighbors=%d seed_from_first=%v timestamp=%d",
+		log.Printf("[API:params] sensor=%s noise_rel=%.6f closeness=%.3f neighbors=%d seed_from_first=%v warmup_ns=%d warmup_frames=%d post_settle_alpha=%.4f fg_min_pts=%d fg_eps=%.3f timestamp=%d",
 			sensorID, cur.NoiseRelativeFraction, cur.ClosenessSensitivityMultiplier,
-			cur.NeighborConfirmationCount, cur.SeedFromFirstObservation, timestamp)
+			cur.NeighborConfirmationCount, cur.SeedFromFirstObservation, cur.WarmupDurationNanos, cur.WarmupMinFrames, cur.PostSettleUpdateFraction, cur.ForegroundMinClusterPoints, cur.ForegroundDBSCANEps, timestamp)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "noise_relative": cur.NoiseRelativeFraction, "enable_diagnostics": bm.EnableDiagnostics})
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":                        "ok",
+			"noise_relative":                cur.NoiseRelativeFraction,
+			"enable_diagnostics":            bm.EnableDiagnostics,
+			"closeness_multiplier":          cur.ClosenessSensitivityMultiplier,
+			"neighbor_confirmation_count":   cur.NeighborConfirmationCount,
+			"seed_from_first":               cur.SeedFromFirstObservation,
+			"warmup_duration_nanos":         cur.WarmupDurationNanos,
+			"warmup_min_frames":             cur.WarmupMinFrames,
+			"post_settle_update_fraction":   cur.PostSettleUpdateFraction,
+			"foreground_min_cluster_points": cur.ForegroundMinClusterPoints,
+			"foreground_dbscan_eps":         cur.ForegroundDBSCANEps,
+		})
 		return
 	default:
 		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")

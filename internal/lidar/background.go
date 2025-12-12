@@ -697,6 +697,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	if alpha <= 0 || alpha > 1 {
 		alpha = 0.02
 	}
+	effectiveAlpha := alpha
 	// Defer reading runtime-tunable params that may be updated concurrently
 	// (via setters which take g.mu) until we hold the grid lock to avoid
 	// data races and inconsistent thresholds.
@@ -718,6 +719,34 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 
 	// Iterate over observed cells and update grid
 	g.mu.Lock()
+	if bm.StartTime.IsZero() {
+		bm.StartTime = now
+	}
+	if g.WarmupFramesRemaining == 0 && g.Params.WarmupMinFrames > 0 && !g.SettlingComplete {
+		g.WarmupFramesRemaining = g.Params.WarmupMinFrames
+	}
+	postSettleAlpha := float64(g.Params.PostSettleUpdateFraction)
+	if postSettleAlpha > 0 && postSettleAlpha <= 1 && g.SettlingComplete {
+		effectiveAlpha = postSettleAlpha
+	}
+	if !g.SettlingComplete {
+		framesReady := g.Params.WarmupMinFrames <= 0 || g.WarmupFramesRemaining <= 0
+		durReady := g.Params.WarmupDurationNanos <= 0 || (nowNanos-bm.StartTime.UnixNano() >= g.Params.WarmupDurationNanos)
+		if framesReady && durReady {
+			g.SettlingComplete = true
+			if postSettleAlpha > 0 && postSettleAlpha <= 1 {
+				effectiveAlpha = postSettleAlpha
+			}
+		} else {
+			if g.WarmupFramesRemaining > 0 {
+				g.WarmupFramesRemaining--
+			}
+			effectiveAlpha = alpha
+		}
+	}
+	if effectiveAlpha <= 0 || effectiveAlpha > 1 {
+		effectiveAlpha = alpha
+	}
 	// read noiseRel under lock
 	noiseRel := float64(g.Params.NoiseRelativeFraction)
 	if noiseRel <= 0 {
@@ -834,11 +863,11 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 					g.nonzeroCellCount++
 				} else {
 					oldAvg := float64(cell.AverageRangeMeters)
-					newAvg := (1.0-alpha)*oldAvg + alpha*observationMean
+					newAvg := (1.0-effectiveAlpha)*oldAvg + effectiveAlpha*observationMean
 					// update spread as EMA of absolute deviation from the previous mean
 					// using oldAvg avoids scaling the deviation by alpha twice (alpha^2)
 					deviation := math.Abs(observationMean - oldAvg)
-					newSpread := (1.0-alpha)*float64(cell.RangeSpreadMeters) + alpha*deviation
+					newSpread := (1.0-effectiveAlpha)*float64(cell.RangeSpreadMeters) + effectiveAlpha*deviation
 					cell.AverageRangeMeters = float32(newAvg)
 					cell.RangeSpreadMeters = float32(newSpread)
 					cell.TimesSeenCount++
