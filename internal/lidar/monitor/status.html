@@ -140,6 +140,24 @@
     <p><em>No statistics available yet...</em></p>
     {{end}}
 
+    {{if .FgSnapshotCounts}}
+    <h2>Latest Foreground Snapshot</h2>
+    <table border="1" cellpadding="5" cellspacing="0">
+      <tr>
+        <td><strong>Total Points:</strong></td>
+        <td>{{index .FgSnapshotCounts "total"}}</td>
+      </tr>
+      <tr>
+        <td><strong>Foreground Points:</strong></td>
+        <td>{{index .FgSnapshotCounts "foreground"}}</td>
+      </tr>
+      <tr>
+        <td><strong>Background Points:</strong></td>
+        <td>{{index .FgSnapshotCounts "background"}}</td>
+      </tr>
+    </table>
+    {{end}}
+
     <h2>API Endpoints</h2>
 
     <h3>System</h3>
