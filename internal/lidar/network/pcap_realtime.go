@@ -31,6 +31,9 @@ type RealtimeReplayConfig struct {
 
 	// BackgroundManager performs foreground/background classification (required for ForegroundForwarder)
 	BackgroundManager *lidar.BackgroundManager
+
+	// WarmupPackets skips forwarding for the first N packets to seed background.
+	WarmupPackets int
 }
 
 // ReadPCAPFileRealtime reads and replays a PCAP file in real-time, respecting original packet timing.
@@ -60,6 +63,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 	packetCount := 0
 	totalPoints := 0
 	startTime := time.Now()
+	warmupRemaining := config.WarmupPackets
 
 	var firstPacketTime time.Time
 	var lastPacketTime time.Time
@@ -172,7 +176,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 					}
 				}
 
-				// Forward foreground points if forwarder configured
+				// Forward foreground points if forwarder configured (after warmup)
 				if config.ForegroundForwarder != nil && config.BackgroundManager != nil {
 					// Extract foreground points using background subtraction
 					foregroundMask, err := config.BackgroundManager.ProcessFramePolarWithMask(points)
@@ -214,8 +218,10 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 							lidar.StoreForegroundSnapshot(config.SensorID, snapshotTS, foregroundPoints, backgroundPolar, len(points), len(foregroundPoints))
 						}
 
-						// Forward foreground points to port 2370
-						if len(foregroundPoints) > 0 {
+						// Warmup: seed background without forwarding until warmupRemaining hits zero
+						if warmupRemaining > 0 {
+							warmupRemaining--
+						} else if len(foregroundPoints) > 0 {
 							config.ForegroundForwarder.ForwardForeground(foregroundPoints)
 
 							// Log foreground extraction stats periodically
