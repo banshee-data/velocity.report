@@ -7,6 +7,7 @@ import (
 	"log"
 	"math"
 	"net"
+	"sort"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
@@ -130,6 +131,7 @@ func (f *ForegroundForwarder) encodePointsAsPackets(points []lidar.PointPolar) (
 		CHANNELS_PER_BLOCK    = 40
 		TAIL_SIZE             = 22
 		MAX_POINTS_PER_PACKET = BLOCKS_PER_PACKET * CHANNELS_PER_BLOCK // 400 points max
+		MAX_DISTANCE_METERS   = 130.0
 	)
 
 	// Calculate number of packets needed
@@ -145,51 +147,75 @@ func (f *ForegroundForwarder) encodePointsAsPackets(points []lidar.PointPolar) (
 		packet := make([]byte, PACKET_SIZE)
 		packetPoints := points[i:end]
 
-		// Encode data blocks (10 blocks)
+		// Sort by azimuth to keep buckets contiguous
+		sort.Slice(packetPoints, func(a, b int) bool {
+			return packetPoints[a].Azimuth < packetPoints[b].Azimuth
+		})
+
+		azBucketSize := 360.0 / float64(BLOCKS_PER_PACKET)
+		filledBlocks := 0
+
+		// Encode data blocks (10 blocks) using azimuth buckets rather than BlockID.
 		for blockIdx := 0; blockIdx < BLOCKS_PER_PACKET; blockIdx++ {
 			blockOffset := blockIdx * BLOCK_SIZE
-
-			// Block preamble (0xFFEE)
 			binary.LittleEndian.PutUint16(packet[blockOffset:], 0xFFEE)
 
-			// Block azimuth: prefer the first point with matching BlockID; otherwise fall back
-			var blockAzimuth float64
-			azFound := false
+			// Collect points in this azimuth bucket
+			minAz := float64(blockIdx) * azBucketSize
+			maxAz := minAz + azBucketSize
+			bucket := make([]lidar.PointPolar, 0)
 			for _, p := range packetPoints {
-				if p.BlockID == blockIdx {
-					blockAzimuth = p.Azimuth
-					azFound = true
-					break
+				az := math.Mod(p.Azimuth+360.0, 360.0)
+				if az >= minAz && az < maxAz {
+					bucket = append(bucket, p)
 				}
 			}
-			if !azFound && blockIdx < len(packetPoints) {
-				blockAzimuth = packetPoints[blockIdx].Azimuth
+
+			// Choose block azimuth: median of bucket or center of bucket if empty
+			blockAzimuth := minAz + azBucketSize/2
+			if len(bucket) > 0 {
+				mid := len(bucket) / 2
+				blockAzimuth = bucket[mid].Azimuth
 			}
 			azimuthScaled := uint16(math.Mod(blockAzimuth*100.0+36000.0, 36000.0))
 			binary.LittleEndian.PutUint16(packet[blockOffset+2:], azimuthScaled)
 
 			// Channel data (40 channels × 3 bytes)
 			channelOffset := blockOffset + 4
+			blockHasData := false
 			for ch := 0; ch < CHANNELS_PER_BLOCK; ch++ {
-				// Default: no-return marker
 				var distance uint16 = 0xFFFF
 				var intensity uint8 = 0
-
-				// Find point for this channel in this block
-				for _, p := range packetPoints {
-					if p.Channel == ch && p.BlockID == blockIdx {
-						// Distance in 2mm resolution
-						distance = uint16(p.Distance * 500)
+				for _, p := range bucket {
+					if p.Channel == ch {
+						d := p.Distance
+						switch {
+						case d <= 0:
+							distance = 0xFFFF
+						case d > MAX_DISTANCE_METERS:
+							distance = 0xFFFE
+						default:
+							distance = uint16(d * 500)
+						}
 						intensity = p.Intensity
+						blockHasData = true
 						break
 					}
 				}
 
-				// Encode: 2 bytes distance + 1 byte intensity
 				idx := channelOffset + (ch * 3)
 				binary.LittleEndian.PutUint16(packet[idx:], distance)
 				packet[idx+2] = intensity
 			}
+
+			if blockHasData {
+				filledBlocks++
+			}
+		}
+
+		emptyBlocks := BLOCKS_PER_PACKET - filledBlocks
+		if filledBlocks < 3 || emptyBlocks > BLOCKS_PER_PACKET/2 {
+			log.Printf("Foreground forwarder: sparse packet (%d/%d blocks filled)", filledBlocks, BLOCKS_PER_PACKET)
 		}
 
 		// Encode tail (22 bytes at offset 1240)
