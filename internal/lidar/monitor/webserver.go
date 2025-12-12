@@ -96,6 +96,7 @@ type WebServer struct {
 	trackAPI *TrackAPI
 
 	// latestFgCounts holds counts from the most recent foreground snapshot for status UI.
+	fgCountsMu     sync.RWMutex
 	latestFgCounts map[string]int
 }
 
@@ -181,6 +182,45 @@ func (ws *WebServer) baseContext() context.Context {
 	ws.baseCtxMu.RLock()
 	defer ws.baseCtxMu.RUnlock()
 	return ws.baseCtx
+}
+
+// updateLatestFgCounts refreshes cached foreground counts for the status UI.
+func (ws *WebServer) updateLatestFgCounts(sensorID string) {
+	ws.fgCountsMu.Lock()
+	defer ws.fgCountsMu.Unlock()
+
+	for k := range ws.latestFgCounts {
+		delete(ws.latestFgCounts, k)
+	}
+
+	if sensorID == "" {
+		return
+	}
+
+	snap := lidar.GetForegroundSnapshot(sensorID)
+	if snap == nil {
+		return
+	}
+
+	ws.latestFgCounts["total"] = snap.TotalPoints
+	ws.latestFgCounts["foreground"] = snap.ForegroundCount
+	ws.latestFgCounts["background"] = snap.BackgroundCount
+}
+
+// getLatestFgCounts returns a copy to avoid races in templates.
+func (ws *WebServer) getLatestFgCounts() map[string]int {
+	ws.fgCountsMu.RLock()
+	defer ws.fgCountsMu.RUnlock()
+
+	if len(ws.latestFgCounts) == 0 {
+		return nil
+	}
+
+	copyMap := make(map[string]int, len(ws.latestFgCounts))
+	for k, v := range ws.latestFgCounts {
+		copyMap[k] = v
+	}
+	return copyMap
 }
 
 func (ws *WebServer) startLiveListenerLocked() error {
@@ -1650,6 +1690,9 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		bgParams = &params
 	}
 
+	// Refresh foreground snapshot counts for status rendering.
+	ws.updateLatestFgCounts(ws.sensorID)
+
 	// Load and parse the HTML template from embedded filesystem
 	tmpl, err := template.ParseFS(StatusHTML, "status.html")
 	if err != nil {
@@ -1689,7 +1732,7 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		PCAPInProgress:   pcapInProgress,
 		PCAPSpeedMode:    pcapSpeedMode,
 		PCAPSpeedRatio:   pcapSpeedRatio,
-		FgSnapshotCounts: ws.latestFgCounts,
+		FgSnapshotCounts: ws.getLatestFgCounts(),
 	}
 
 	if err := tmpl.Execute(w, data); err != nil {
