@@ -223,7 +223,7 @@ func (f *ForegroundForwarder) encodePointsAsPackets(points []lidar.PointPolar) (
 
 		emptyBlocks := BLOCKS_PER_PACKET - filledBlocks
 		if filledBlocks < 3 || emptyBlocks > BLOCKS_PER_PACKET/2 {
-			log.Printf("Foreground forwarder: sparse packet (%d/%d blocks filled)", filledBlocks, BLOCKS_PER_PACKET)
+			lidar.Debugf("[ForegroundForwarder] sparse packet (%d/%d blocks filled)", filledBlocks, BLOCKS_PER_PACKET)
 		}
 
 		// Encode tail (22 bytes at offset 1240)
