@@ -53,6 +53,8 @@ type LiDARFrame struct {
 	SensorID       string    // which sensor generated this frame
 	StartTimestamp time.Time // timestamp of first point in frame
 	EndTimestamp   time.Time // timestamp of last point in frame
+	StartWallTime  time.Time // wall-clock time when frame started (ingest time)
+	EndWallTime    time.Time // wall-clock time when last point was ingested
 	Points         []Point   // all points in this complete rotation
 	MinAzimuth     float64   // minimum azimuth angle observed
 	MaxAzimuth     float64   // maximum azimuth angle observed
@@ -105,7 +107,8 @@ type FrameBuilder struct {
 	expectedFrameDuration time.Duration // expected duration per frame based on motor speed
 	enableTimeBased       bool          // true to use time-based detection with azimuth validation
 	// debug toggles lightweight frame-completion logging when true
-	debug bool
+	debug               bool
+	lastArrivalWallTime time.Time
 }
 
 func frameAzimuthCoverage(frame *LiDARFrame) float64 {
@@ -244,6 +247,9 @@ func (fb *FrameBuilder) addPointsInternal(points []Point) {
 		return
 	}
 
+	arrivalNow := time.Now()
+	fb.lastArrivalWallTime = arrivalNow
+
 	// Debug: record previous frame point count when enabled
 	var prevCount int
 	if fb.currentFrame != nil {
@@ -262,17 +268,21 @@ func (fb *FrameBuilder) addPointsInternal(points []Point) {
 					fb.lastAzimuth, point.Azimuth, fb.currentFrame.PointCount)
 			}
 			fb.finalizeCurrentFrame()
-			fb.startNewFrame(point.Timestamp)
+			fb.startNewFrame(point.Timestamp, arrivalNow)
 		}
 
 		// Ensure we have a current frame
 		if fb.currentFrame == nil {
-			fb.startNewFrame(point.Timestamp)
+			fb.startNewFrame(point.Timestamp, arrivalNow)
 		}
 
 		// Add point to current frame
 		fb.addPointToCurrentFrame(point)
 		fb.lastAzimuth = point.Azimuth
+	}
+
+	if fb.currentFrame != nil {
+		fb.currentFrame.EndWallTime = arrivalNow
 	}
 
 	if fb.debug {
@@ -342,13 +352,15 @@ func (fb *FrameBuilder) shouldStartNewFrame(azimuth float64, timestamp time.Time
 }
 
 // startNewFrame creates a new frame for accumulating points
-func (fb *FrameBuilder) startNewFrame(timestamp time.Time) {
+func (fb *FrameBuilder) startNewFrame(timestamp time.Time, wallTime time.Time) {
 	fb.frameCounter++
 	fb.currentFrame = &LiDARFrame{
 		FrameID:         fmt.Sprintf("%s-frame-%d", fb.sensorID, fb.frameCounter),
 		SensorID:        fb.sensorID,
 		StartTimestamp:  timestamp,
 		EndTimestamp:    timestamp,
+		StartWallTime:   wallTime,
+		EndWallTime:     wallTime,
 		Points:          make([]Point, 0, 36000), // pre-allocate for full rotation
 		MinAzimuth:      360.0,
 		MaxAzimuth:      0.0,
@@ -516,7 +528,11 @@ func (fb *FrameBuilder) cleanupFrames() {
 
 	// Find frames that are old enough to finalize
 	for frameID, frame := range fb.frameBuffer {
-		frameAge := now.Sub(frame.EndTimestamp)
+		ageSource := frame.EndWallTime
+		if ageSource.IsZero() {
+			ageSource = frame.EndTimestamp
+		}
+		frameAge := now.Sub(ageSource)
 		if frameAge >= fb.bufferTimeout {
 			frameIDsToFinalize = append(frameIDsToFinalize, frameID)
 		}
@@ -532,7 +548,11 @@ func (fb *FrameBuilder) cleanupFrames() {
 	// DEBUG: If a current frame exists but hasn't been moved to buffer (wrap not detected),
 	// force-finalize it after a short age so callbacks and buffering can be exercised.
 	if fb.currentFrame != nil {
-		age := now.Sub(fb.currentFrame.EndTimestamp)
+		ageSource := fb.currentFrame.EndWallTime
+		if ageSource.IsZero() {
+			ageSource = fb.currentFrame.EndTimestamp
+		}
+		age := now.Sub(ageSource)
 		// Use configured buffer timeout as the inactivity threshold to finalize
 		// the current frame when no recent points have arrived.
 		if age >= fb.bufferTimeout && fb.currentFrame.PointCount > 0 {
