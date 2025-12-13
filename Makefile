@@ -345,7 +345,7 @@ dev-go:
 	@$(call run_dev_go)
 
 dev-go-lidar:
-	@$(call run_dev_go,--enable-lidar --lidar-bg-flush-interval=60s --lidar-seed-from-first=true --lidar-forward)
+	@$(call run_dev_go,--disable-radar --enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward)
 
 dev-go-kill-server:
 	@$(call run_dev_go_kill_server)
