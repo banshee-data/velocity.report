@@ -326,8 +326,18 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 	// Step 2: Transform to world frame
 	worldPoints := lidar.TransformToWorld(foregroundPoints, nil, fb.config.SensorID)
 
-	// Step 3: Cluster
-	clusters := lidar.DBSCAN(worldPoints, lidar.DefaultDBSCANParams())
+	// Step 3: Cluster (respect runtime foreground clustering params)
+	dbscanParams := lidar.DefaultDBSCANParams()
+	if fb.bgManager != nil {
+		p := fb.bgManager.GetParams()
+		if p.ForegroundMinClusterPoints > 0 {
+			dbscanParams.MinPts = p.ForegroundMinClusterPoints
+		}
+		if p.ForegroundDBSCANEps > 0 {
+			dbscanParams.Eps = float64(p.ForegroundDBSCANEps)
+		}
+	}
+	clusters := lidar.DBSCAN(worldPoints, dbscanParams)
 	fb.result.TotalClusters += len(clusters)
 
 	if len(clusters) == 0 {
@@ -758,7 +768,7 @@ func persistToDatabase(dbPath string, result *AnalysisResult, tracks []*lidar.Tr
 			total_tracks INTEGER,
 			confirmed_tracks INTEGER
 		);
-		
+
 		CREATE TABLE IF NOT EXISTS analyzed_tracks (
 			track_id TEXT PRIMARY KEY,
 			run_id INTEGER,
@@ -802,7 +812,7 @@ func persistToDatabase(dbPath string, result *AnalysisResult, tracks []*lidar.Tr
 	// Insert tracks
 	for _, t := range result.Tracks {
 		_, err := db.Exec(`
-			INSERT OR REPLACE INTO analyzed_tracks 
+			INSERT OR REPLACE INTO analyzed_tracks
 			(track_id, run_id, class, confidence, duration_secs, observations, avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps, avg_height, avg_length, avg_width)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			t.TrackID, runID, t.Class, t.Confidence, t.DurationSecs, t.Observations,

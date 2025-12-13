@@ -75,6 +75,8 @@ type FrameBuilder struct {
 	frameCallback       func(*LiDARFrame) // callback when frame is complete
 	exportNextFrameASC  bool              // flag to export next completed frame
 	exportNextFramePath string            // output path for ASC export
+	exportFrameBatch    []string          // queued batch export paths
+	exportBatchIndex    int               // current index within batch export queue
 	mu                  sync.Mutex        // protect concurrent access
 	frameCounter        int64             // sequential frame number
 
@@ -104,6 +106,17 @@ type FrameBuilder struct {
 	enableTimeBased       bool          // true to use time-based detection with azimuth validation
 	// debug toggles lightweight frame-completion logging when true
 	debug bool
+}
+
+func frameAzimuthCoverage(frame *LiDARFrame) float64 {
+	if frame == nil {
+		return 0
+	}
+	cov := frame.MaxAzimuth - frame.MinAzimuth
+	if cov < 0 {
+		cov += 360.0
+	}
+	return cov
 }
 
 // FrameBuilderConfig contains configuration for the FrameBuilder
@@ -282,6 +295,8 @@ func (fb *FrameBuilder) shouldStartNewFrame(azimuth float64, timestamp time.Time
 		return true // No current frame
 	}
 
+	cov := frameAzimuthCoverage(fb.currentFrame)
+
 	// Time-based frame detection (if enabled and duration is configured)
 	if fb.enableTimeBased && fb.expectedFrameDuration > 0 {
 		frameDuration := timestamp.Sub(fb.currentFrame.StartTimestamp)
@@ -289,18 +304,13 @@ func (fb *FrameBuilder) shouldStartNewFrame(azimuth float64, timestamp time.Time
 		// If we've exceeded the expected frame duration, start a new frame
 		// Add a small tolerance (10%) to account for timing variations
 		maxDuration := fb.expectedFrameDuration + (fb.expectedFrameDuration / 10)
-		if frameDuration >= maxDuration {
-			// Additional validation: ensure we have reasonable azimuth coverage
-			// This prevents starting frames on timing anomalies without spatial coverage
-			azimuthRange := fb.currentFrame.MaxAzimuth - fb.currentFrame.MinAzimuth
-			if azimuthRange > 270.0 { // At least 3/4 rotation coverage
-				return true
-			}
+		if frameDuration >= maxDuration && cov >= MinAzimuthCoverage {
+			return true
 		}
 
 		// Even with time-based detection, respect azimuth wraps for precise timing
 		// but with relaxed requirements since we're time-bounded
-		if fb.lastAzimuth > 340.0 && azimuth < 20.0 && frameDuration >= (fb.expectedFrameDuration/2) {
+		if fb.lastAzimuth > 340.0 && azimuth < 20.0 && frameDuration >= (fb.expectedFrameDuration/2) && cov >= MinAzimuthCoverage {
 			return true
 		}
 	} else {
@@ -310,7 +320,7 @@ func (fb *FrameBuilder) shouldStartNewFrame(azimuth float64, timestamp time.Time
 		// Also detect large negative jumps in azimuth (e.g., 289° -> 61°) which
 		// indicate a rotation wrap even if values don't cross the 350°->10° band.
 		if fb.lastAzimuth-azimuth > 180.0 {
-			if fb.currentFrame != nil && fb.currentFrame.PointCount > fb.minFramePoints {
+			if fb.currentFrame != nil && fb.currentFrame.PointCount > fb.minFramePoints && cov >= MinAzimuthCoverage {
 				return true
 			}
 		}
@@ -451,7 +461,7 @@ func (fb *FrameBuilder) evictOldestBufferedFrame() {
 		// Remove from buffer and finalize so the callback is invoked.
 		delete(fb.frameBuffer, oldestID)
 		// Finalize the frame so the registered callback receives it.
-		fb.finalizeFrame(oldestFrame)
+		fb.finalizeFrame(oldestFrame, "buffer_evict")
 	}
 }
 
@@ -516,7 +526,7 @@ func (fb *FrameBuilder) cleanupFrames() {
 	for _, frameID := range frameIDsToFinalize {
 		frame := fb.frameBuffer[frameID]
 		delete(fb.frameBuffer, frameID)
-		fb.finalizeFrame(frame)
+		fb.finalizeFrame(frame, "buffer_timeout")
 	}
 
 	// DEBUG: If a current frame exists but hasn't been moved to buffer (wrap not detected),
@@ -539,38 +549,90 @@ func (fb *FrameBuilder) cleanupFrames() {
 }
 
 // finalizeFrame completes a frame and calls the callback
-func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame) {
+func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
 	if frame == nil {
 		return
 	}
 
-	// Mark frame as complete
-	frame.SpinComplete = true
-
 	// lightweight debug logging for frame completion
 	if fb.debug {
-		debugf("[FrameBuilder] Frame completed - ID: %s, Points: %d, Azimuth: %.1f°-%.1f°, Duration: %v, Sensor: %s",
+		debugf("[FrameBuilder] Frame completed - ID: %s, Points: %d, Azimuth: %.1f°-%.1f°, Duration: %v, Sensor: %s, reason=%s",
 			frame.FrameID,
 			frame.PointCount,
 			frame.MinAzimuth,
 			frame.MaxAzimuth,
 			frame.EndTimestamp.Sub(frame.StartTimestamp),
-			frame.SensorID)
+			frame.SensorID,
+			reason)
 	}
 
-	// Export to ASC if requested
+	// Determine rotation completeness before export
+	coverage := frameAzimuthCoverage(frame)
+	spinComplete := coverage >= MinAzimuthCoverage && frame.PointCount >= MinFramePointsForCompletion
+	frame.SpinComplete = spinComplete
+	coverageGap := 360.0 - coverage
+
+	if !spinComplete || frame.PacketGaps > 0 || coverageGap > 0.5 {
+		log.Printf("[FrameBuilder] Incomplete or gappy frame: id=%s sensor=%s reason=%s cov=%.1f° gap=%.1f° min=%.1f° pts=%d/%d gaps=%d completeness=%.3f duration=%v range=[%.1f,%.1f] start=%s end=%s spin_complete=%v",
+			frame.FrameID,
+			frame.SensorID,
+			reason,
+			coverage,
+			coverageGap,
+			MinAzimuthCoverage,
+			frame.PointCount,
+			MinFramePointsForCompletion,
+			frame.PacketGaps,
+			frame.CompletenessRatio,
+			frame.EndTimestamp.Sub(frame.StartTimestamp),
+			frame.MinAzimuth,
+			frame.MaxAzimuth,
+			frame.StartTimestamp.UTC().Format(time.RFC3339Nano),
+			frame.EndTimestamp.UTC().Format(time.RFC3339Nano),
+			spinComplete,
+		)
+	}
+
+	// Export to ASC if requested (single-shot)
 	if fb.exportNextFrameASC {
-		path := fb.exportNextFramePath
-		if path == "" {
-			path = filepath.Join(os.TempDir(), fmt.Sprintf("next_frame_%s_%d.asc", frame.SensorID, time.Now().Unix()))
-		}
-		if err := exportFrameToASC(frame); err != nil {
-			log.Printf("[FrameBuilder] Failed to export next frame for sensor %s to %s: %v", frame.SensorID, path, err)
+		if !spinComplete {
+			if fb.debug {
+				log.Printf("[FrameBuilder] Skipping export_next_frame: incomplete rotation frame=%s cov=%.1f° points=%d", frame.FrameID, coverage, frame.PointCount)
+			}
 		} else {
-			debugf("[FrameBuilder] Exported next frame for sensor %s to %s", frame.SensorID, path)
+			path := fb.exportNextFramePath
+			if path == "" {
+				path = filepath.Join(os.TempDir(), fmt.Sprintf("next_frame_%s_%d.asc", frame.SensorID, time.Now().Unix()))
+			}
+			if err := exportFrameToASCPath(frame, path); err != nil {
+				log.Printf("[FrameBuilder] Failed to export next frame for sensor %s to %s: %v", frame.SensorID, path, err)
+			} else {
+				debugf("[FrameBuilder] Exported next frame for sensor %s to %s", frame.SensorID, path)
+				fb.exportNextFrameASC = false
+				fb.exportNextFramePath = ""
+			}
 		}
-		fb.exportNextFrameASC = false
-		fb.exportNextFramePath = ""
+	}
+
+	// Export batch of upcoming frames, if queued
+	if fb.exportBatchIndex < len(fb.exportFrameBatch) {
+		if !spinComplete {
+			if fb.debug {
+				log.Printf("[FrameBuilder] Skipping batch export (idx=%d/%d) incomplete rotation frame=%s cov=%.1f° points=%d", fb.exportBatchIndex+1, len(fb.exportFrameBatch), frame.FrameID, coverage, frame.PointCount)
+			}
+		} else {
+			path := fb.exportFrameBatch[fb.exportBatchIndex]
+			if err := exportFrameToASCPath(frame, path); err != nil {
+				log.Printf("[FrameBuilder] Failed to export batch frame %d/%d for sensor %s to %s: %v", fb.exportBatchIndex+1, len(fb.exportFrameBatch), frame.SensorID, path, err)
+			} else if fb.debug {
+				debugf("[FrameBuilder] Exported batch frame %d/%d for sensor %s to %s", fb.exportBatchIndex+1, len(fb.exportFrameBatch), frame.SensorID, path)
+			}
+			fb.exportBatchIndex++
+			if fb.exportBatchIndex >= len(fb.exportFrameBatch) {
+				fb.exportFrameBatch = nil
+				fb.exportBatchIndex = 0
+			}
+		}
 	}
 	// Call callback if provided (in separate goroutine to avoid blocking)
 	if fb.frameCallback != nil {
@@ -590,6 +652,20 @@ func (fb *FrameBuilder) RequestExportNextFrameASC(outPath string) {
 	defer fb.mu.Unlock()
 	fb.exportNextFrameASC = true
 	fb.exportNextFramePath = outPath
+}
+
+// RequestExportFrameBatchASC exports the next N completed frames to the provided paths.
+// Paths are consumed in order; length determines how many frames will be exported.
+func (fb *FrameBuilder) RequestExportFrameBatchASC(paths []string) {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+
+	if len(paths) == 0 {
+		return
+	}
+
+	fb.exportFrameBatch = append([]string(nil), paths...)
+	fb.exportBatchIndex = 0
 }
 
 // GetCurrentFrameStats returns statistics about the frames currently being built
@@ -696,8 +772,15 @@ func exportFrameToASC(frame *LiDARFrame) error {
 
 	filename := fmt.Sprintf("lidar_frame_%s_%d.asc", frame.SensorID, frame.StartTimestamp.Unix())
 	filePath := filepath.Join(os.TempDir(), filename)
+	return exportFrameToASCPath(frame, filePath)
+}
 
-	// Convert LiDARFrame points to PointASC
+// exportFrameToASCPath writes a LiDARFrame to ASC at the provided path.
+func exportFrameToASCPath(frame *LiDARFrame, filePath string) error {
+	if frame == nil || len(frame.Points) == 0 {
+		return fmt.Errorf("empty frame")
+	}
+
 	ascPoints := make([]PointASC, len(frame.Points))
 	// Detect if Z values look invalid (all zero) and recompute from polar if needed
 	zNonZero := 0
