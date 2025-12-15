@@ -31,6 +31,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/parse"
 	"github.com/banshee-data/velocity.report/internal/security"
 	"github.com/go-echarts/go-echarts/v2/charts"
+	"github.com/go-echarts/go-echarts/v2/components"
 	"github.com/go-echarts/go-echarts/v2/opts"
 )
 
@@ -588,6 +589,7 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/export_next_frame", ws.handleExportNextFrameASC)
 	mux.HandleFunc("/api/lidar/export_frame_sequence", ws.handleExportFrameSequenceASC)
 	mux.HandleFunc("/api/lidar/export_foreground", ws.handleExportForegroundASC)
+	mux.HandleFunc("/api/lidar/traffic", ws.handleTrafficStats)
 	mux.HandleFunc("/api/lidar/acceptance", ws.handleAcceptanceMetrics)
 	mux.HandleFunc("/api/lidar/acceptance/reset", ws.handleAcceptanceReset)
 	mux.HandleFunc("/api/lidar/params", ws.handleBackgroundParams)
@@ -599,6 +601,7 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/debug/lidar/background/polar", ws.handleBackgroundGridPolar)
 	mux.HandleFunc("/debug/lidar/background/heatmap", ws.handleBackgroundGridHeatmapChart)
 	mux.HandleFunc("/debug/lidar/foreground", ws.handleForegroundFrameChart)
+	mux.HandleFunc("/debug/lidar/traffic", ws.handleTrafficChart)
 	mux.HandleFunc("/debug/lidar/clusters", ws.handleClustersChart)
 	mux.HandleFunc("/debug/lidar/tracks", ws.handleTracksChart)
 	mux.HandleFunc("/api/lidar/data_source", ws.handleDataSource)
@@ -789,6 +792,40 @@ func (ws *WebServer) handleGridStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := status
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+// handleTrafficStats returns the latest packet/point throughput snapshot.
+// Query params: sensor_id (optional; defaults to configured sensor)
+func (ws *WebServer) handleTrafficStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	if ws.stats == nil {
+		ws.writeJSONError(w, http.StatusNotFound, "no packet stats available")
+		return
+	}
+
+	snap := ws.stats.GetLatestSnapshot()
+	if snap == nil {
+		ws.writeJSONError(w, http.StatusNotFound, "no traffic snapshot yet")
+		return
+	}
+
+	uptime := ws.stats.GetUptime().Seconds()
+	resp := map[string]interface{}{
+		"packets_per_sec": snap.PacketsPerSec,
+		"mb_per_sec":      snap.MBPerSec,
+		"points_per_sec":  snap.PointsPerSec,
+		"dropped_recent":  snap.DroppedCount,
+		"parse_enabled":   snap.ParseEnabled,
+		"timestamp":       snap.Timestamp.Format(time.RFC3339Nano),
+		"uptime_secs":     uptime,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
@@ -1038,6 +1075,7 @@ func (ws *WebServer) handleLidarDebugDashboard(w http.ResponseWriter, r *http.Re
 			<div class="panel"><h2>Background Polar (XY)</h2><iframe src="/debug/lidar/background/polar%s" title="Background Polar"></iframe></div>
 			<div class="panel"><h2>Background Heatmap</h2><iframe src="/debug/lidar/background/heatmap%s" title="Background Heatmap"></iframe></div>
 			<div class="panel"><h2>Foreground Frame</h2><iframe src="/debug/lidar/foreground%s" title="Foreground Frame"></iframe></div>
+			<div class="panel"><h2>Traffic</h2><iframe src="/debug/lidar/traffic%s" title="Traffic"></iframe></div>
 			<div class="panel"><h2>Clusters</h2><iframe src="/debug/lidar/clusters%s" title="Clusters"></iframe></div>
 			<div class="panel"><h2>Tracks</h2><iframe src="/debug/lidar/tracks%s" title="Tracks"></iframe></div>
 		</div>
@@ -1046,6 +1084,51 @@ func (ws *WebServer) handleLidarDebugDashboard(w http.ResponseWriter, r *http.Re
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(doc))
+}
+
+// handleTrafficChart renders a simple bar chart of packet/point throughput.
+func (ws *WebServer) handleTrafficChart(w http.ResponseWriter, r *http.Request) {
+	if ws.stats == nil {
+		ws.writeJSONError(w, http.StatusNotFound, "no packet stats available")
+		return
+	}
+
+	snap := ws.stats.GetLatestSnapshot()
+	if snap == nil {
+		ws.writeJSONError(w, http.StatusNotFound, "no traffic snapshot yet")
+		return
+	}
+
+	x := []string{"Packets/s", "MB/s", "Points/s", "Dropped (recent)"}
+	y := []opts.BarData{
+		{Value: snap.PacketsPerSec},
+		{Value: snap.MBPerSec},
+		{Value: snap.PointsPerSec},
+		{Value: snap.DroppedCount},
+	}
+
+	bar := charts.NewBar()
+	bar.SetGlobalOptions(
+		charts.WithInitializationOpts(opts.Initialization{Width: "100%", Height: "720px"}),
+		charts.WithTitleOpts(opts.Title{Title: "LiDAR Traffic", Subtitle: snap.Timestamp.Format(time.RFC3339)}),
+		charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true)}),
+	)
+	bar.SetXAxis(x).
+		AddSeries("traffic", y,
+			charts.WithLabelOpts(opts.Label{Show: opts.Bool(true), Position: "top"}),
+		)
+
+	page := components.NewPage()
+	page.AddCharts(bar)
+
+	var buf bytes.Buffer
+	if err := page.Render(&buf); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("render error: %v", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(buf.Bytes())
 }
 
 // handleBackgroundGridHeatmapChart renders a coarse heatmap (as colored scatter)
