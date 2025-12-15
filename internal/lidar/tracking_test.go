@@ -446,3 +446,214 @@ func TestTracker_ObservationAggregation(t *testing.T) {
 		t.Errorf("expected HeightP95Max=1.6, got %v", track.HeightP95Max)
 	}
 }
+
+// TestComputeQualityMetrics tests track quality metrics calculation
+func TestComputeQualityMetrics(t *testing.T) {
+	t.Run("empty history", func(t *testing.T) {
+		track := &TrackedObject{
+			TrackID: "track-1",
+			History: []TrackPoint{},
+		}
+		
+		track.ComputeQualityMetrics()
+		
+		// Should have zero metrics
+		if track.TrackLengthMeters != 0 {
+			t.Errorf("expected TrackLengthMeters=0, got %.2f", track.TrackLengthMeters)
+		}
+		if track.TrackDurationSecs != 0 {
+			t.Errorf("expected TrackDurationSecs=0, got %.2f", track.TrackDurationSecs)
+		}
+		if track.OcclusionCount != 0 {
+			t.Errorf("expected OcclusionCount=0, got %d", track.OcclusionCount)
+		}
+	})
+
+	t.Run("single point", func(t *testing.T) {
+		now := time.Now()
+		track := &TrackedObject{
+			TrackID: "track-1",
+			History: []TrackPoint{
+				{Timestamp: now.UnixNano(), X: 10.0, Y: 20.0},
+			},
+		}
+		
+		track.ComputeQualityMetrics()
+		
+		// Single point has zero length and duration
+		if track.TrackLengthMeters != 0 {
+			t.Errorf("expected TrackLengthMeters=0, got %.2f", track.TrackLengthMeters)
+		}
+		if track.TrackDurationSecs != 0 {
+			t.Errorf("expected TrackDurationSecs=0, got %.2f", track.TrackDurationSecs)
+		}
+	})
+
+	t.Run("straight line path", func(t *testing.T) {
+		now := time.Now()
+		track := &TrackedObject{
+			TrackID: "track-1",
+			History: []TrackPoint{
+				{Timestamp: now.UnixNano(), X: 0.0, Y: 0.0},
+				{Timestamp: now.Add(100 * time.Millisecond).UnixNano(), X: 3.0, Y: 0.0},
+				{Timestamp: now.Add(200 * time.Millisecond).UnixNano(), X: 6.0, Y: 0.0},
+				{Timestamp: now.Add(300 * time.Millisecond).UnixNano(), X: 9.0, Y: 0.0},
+			},
+			FirstUnixNanos: now.UnixNano(),
+			LastUnixNanos:  now.Add(300 * time.Millisecond).UnixNano(),
+			ObservationCount: 4,
+		}
+		
+		track.ComputeQualityMetrics()
+		
+		// Length: 3 + 3 + 3 = 9 meters
+		if math.Abs(float64(track.TrackLengthMeters)-9.0) > 0.01 {
+			t.Errorf("expected TrackLengthMeters=9.0, got %.2f", track.TrackLengthMeters)
+		}
+		
+		// Duration: 300ms = 0.3 seconds
+		expectedDuration := 0.3
+		if math.Abs(float64(track.TrackDurationSecs)-expectedDuration) > 0.01 {
+			t.Errorf("expected TrackDurationSecs=%.1f, got %.2f", expectedDuration, track.TrackDurationSecs)
+		}
+		
+		// No occlusions with 100ms gaps
+		if track.OcclusionCount != 0 {
+			t.Errorf("expected OcclusionCount=0, got %d", track.OcclusionCount)
+		}
+	})
+
+	t.Run("path with pythagorean distance", func(t *testing.T) {
+		now := time.Now()
+		track := &TrackedObject{
+			TrackID: "track-1",
+			History: []TrackPoint{
+				{Timestamp: now.UnixNano(), X: 0.0, Y: 0.0},
+				{Timestamp: now.Add(100 * time.Millisecond).UnixNano(), X: 3.0, Y: 4.0}, // Distance: 5.0
+			},
+		}
+		
+		track.ComputeQualityMetrics()
+		
+		// Length: sqrt(3^2 + 4^2) = 5.0 meters
+		expectedLength := 5.0
+		if math.Abs(float64(track.TrackLengthMeters)-expectedLength) > 0.01 {
+			t.Errorf("expected TrackLengthMeters=%.1f, got %.2f", expectedLength, track.TrackLengthMeters)
+		}
+	})
+
+	t.Run("occlusion detection", func(t *testing.T) {
+		now := time.Now()
+		track := &TrackedObject{
+			TrackID: "track-1",
+			History: []TrackPoint{
+				{Timestamp: now.UnixNano(), X: 0.0, Y: 0.0},
+				{Timestamp: now.Add(100 * time.Millisecond).UnixNano(), X: 1.0, Y: 0.0},
+				{Timestamp: now.Add(500 * time.Millisecond).UnixNano(), X: 2.0, Y: 0.0}, // Gap: 400ms > 200ms threshold
+				{Timestamp: now.Add(600 * time.Millisecond).UnixNano(), X: 3.0, Y: 0.0},
+			},
+		}
+		
+		track.ComputeQualityMetrics()
+		
+		// Should detect 1 occlusion (gap of 400ms)
+		if track.OcclusionCount != 1 {
+			t.Errorf("expected OcclusionCount=1, got %d", track.OcclusionCount)
+		}
+		
+		// Max occlusion: 400ms / 100ms per frame = 4 frames
+		expectedMaxFrames := 4
+		if track.MaxOcclusionFrames != expectedMaxFrames {
+			t.Errorf("expected MaxOcclusionFrames=%d, got %d", expectedMaxFrames, track.MaxOcclusionFrames)
+		}
+	})
+
+	t.Run("multiple occlusions", func(t *testing.T) {
+		now := time.Now()
+		track := &TrackedObject{
+			TrackID: "track-1",
+			History: []TrackPoint{
+				{Timestamp: now.UnixNano(), X: 0.0, Y: 0.0},
+				{Timestamp: now.Add(300 * time.Millisecond).UnixNano(), X: 1.0, Y: 0.0},  // Gap: 300ms
+				{Timestamp: now.Add(400 * time.Millisecond).UnixNano(), X: 2.0, Y: 0.0},
+				{Timestamp: now.Add(900 * time.Millisecond).UnixNano(), X: 3.0, Y: 0.0},  // Gap: 500ms (max)
+				{Timestamp: now.Add(1000 * time.Millisecond).UnixNano(), X: 4.0, Y: 0.0},
+			},
+		}
+		
+		track.ComputeQualityMetrics()
+		
+		// Should detect 2 occlusions
+		if track.OcclusionCount != 2 {
+			t.Errorf("expected OcclusionCount=2, got %d", track.OcclusionCount)
+		}
+		
+		// Max occlusion should be 500ms / 100ms = 5 frames
+		expectedMaxFrames := 5
+		if track.MaxOcclusionFrames != expectedMaxFrames {
+			t.Errorf("expected MaxOcclusionFrames=%d, got %d", expectedMaxFrames, track.MaxOcclusionFrames)
+		}
+	})
+
+	t.Run("spatial coverage calculation", func(t *testing.T) {
+		now := time.Now()
+		track := &TrackedObject{
+			TrackID: "track-1",
+			History: []TrackPoint{
+				{Timestamp: now.UnixNano(), X: 0.0, Y: 0.0},
+				{Timestamp: now.Add(100 * time.Millisecond).UnixNano(), X: 1.0, Y: 0.0},
+				{Timestamp: now.Add(200 * time.Millisecond).UnixNano(), X: 2.0, Y: 0.0},
+				{Timestamp: now.Add(300 * time.Millisecond).UnixNano(), X: 3.0, Y: 0.0},
+			},
+		}
+		
+		track.ComputeQualityMetrics()
+		
+		// Spatial coverage: observations per second at 10Hz
+		// Duration: 0.3s, Observations: 4, Expected: 3 frames at 10Hz
+		// Coverage: 4 / 3 = 1.33 (capped at 1.0)
+		if track.SpatialCoverage < 0.0 || track.SpatialCoverage > 1.0 {
+			t.Errorf("expected SpatialCoverage in [0,1], got %.2f", track.SpatialCoverage)
+		}
+	})
+
+	t.Run("long track with good coverage", func(t *testing.T) {
+		now := time.Now()
+		track := &TrackedObject{
+			TrackID: "track-1",
+			History: make([]TrackPoint, 0, 50),
+			FirstUnixNanos: now.UnixNano(),
+			LastUnixNanos:  now.Add(4900 * time.Millisecond).UnixNano(),
+			ObservationCount: 50,
+		}
+		
+		// Create 50 observations over 5 seconds (10Hz)
+		for i := 0; i < 50; i++ {
+			point := TrackPoint{
+				Timestamp: now.Add(time.Duration(i*100) * time.Millisecond).UnixNano(),
+				X:         float32(i),
+				Y:         0.0,
+			}
+			track.History = append(track.History, point)
+		}
+		
+		track.ComputeQualityMetrics()
+		
+		// Length: 49 meters (each step is 1m)
+		expectedLength := 49.0
+		if math.Abs(float64(track.TrackLengthMeters)-expectedLength) > 0.1 {
+			t.Errorf("expected TrackLengthMeters=%.1f, got %.2f", expectedLength, track.TrackLengthMeters)
+		}
+		
+		// Duration: 4.9 seconds
+		expectedDuration := 4.9
+		if math.Abs(float64(track.TrackDurationSecs)-expectedDuration) > 0.1 {
+			t.Errorf("expected TrackDurationSecs=%.1f, got %.2f", expectedDuration, track.TrackDurationSecs)
+		}
+		
+		// Spatial coverage should be high (near 1.0)
+		if track.SpatialCoverage < 0.9 {
+			t.Errorf("expected high SpatialCoverage (>0.9), got %.2f", track.SpatialCoverage)
+		}
+	})
+}
