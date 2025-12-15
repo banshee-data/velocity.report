@@ -390,13 +390,30 @@ func computeClusterMetrics(points []WorldPoint, clusterID int64) WorldCluster {
 	}
 
 	// Aspect ratio: max dimension / min dimension
+	// Handle degenerate cases (zero-length or zero-width) safely to avoid
+	// division-by-zero and NaN results. Behavior:
+	//  - If both length and width are effectively zero (point-like cluster),
+	//    set aspect ratio to 1.0 (treat as symmetric).
+	//  - If exactly one dimension is effectively zero, set aspect ratio to 0.0
+	//    to indicate invalid/degenerate geometry (caller may treat 0.0 specially).
 	var aspectRatio float32
-	if length > 0 && width > 0 {
+	const eps = 1e-6
+	lenZero := float64(length) <= eps
+	widZero := float64(width) <= eps
+
+	if !lenZero && !widZero {
 		if length > width {
 			aspectRatio = length / width
 		} else {
 			aspectRatio = width / length
 		}
+	} else if lenZero && widZero {
+		// Degenerate single-point cluster: treat as square (aspect ratio = 1)
+		aspectRatio = 1.0
+	} else {
+		// One dimension is zero but the other is not: mark as invalid/degenerate
+		// using 0.0 so downstream logic can detect and handle it specially.
+		aspectRatio = 0.0
 	}
 
 	return WorldCluster{
