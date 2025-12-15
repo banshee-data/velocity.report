@@ -101,7 +101,12 @@ func getMigrationsFS() (fs.FS, error) {
 		return os.DirFS("internal/db/migrations"), nil
 	}
 	// Production: use embedded filesystem
-	return fs.Sub(migrationsFS, "migrations")
+	// The embed directive includes "migrations/*.sql", so we need to extract just the migrations subdir
+	subFS, err := fs.Sub(migrationsFS, "migrations")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create sub-filesystem: %w", err)
+	}
+	return subFS, nil
 }
 
 // applyPragmas applies essential SQLite PRAGMAs for performance and concurrency.
