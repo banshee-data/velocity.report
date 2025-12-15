@@ -133,7 +133,8 @@ func EncodePandar40PPacket(points []PointPolar, blockAzimuth float64, config *Se
 			var distance uint16 = 0xFFFF
 			var intensity uint8 = 0
 			for _, p := range bucket {
-				if p.Channel == ch {
+				// Match 1-based Channel (1-40) to 0-based loop index (0-39)
+				if p.Channel == ch+1 {
 					d := p.Distance
 					switch {
 					case d <= 0:
