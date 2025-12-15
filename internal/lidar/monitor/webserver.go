@@ -13,6 +13,7 @@ import (
 	"html"
 	"html/template"
 	"io"
+	"io/fs"
 	"log"
 	"math"
 	"net/http"
@@ -39,9 +40,9 @@ import (
 var StatusHTML embed.FS
 
 //go:embed assets/*
-var echartsAssets embed.FS
+var EchartsAssets embed.FS
 
-const echartsAssetsPrefix = "/debug/assets/"
+const echartsAssetsPrefix = "/assets/"
 
 type DataSource string
 
@@ -584,6 +585,11 @@ func (ws *WebServer) Start(ctx context.Context) error {
 
 // RegisterRoutes registers all Lidar monitor routes on the provided mux
 func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
+	assetsFS, err := fs.Sub(EchartsAssets, "assets")
+	if err != nil {
+		log.Printf("failed to prepare echarts assets: %v", err)
+	}
+
 	mux.HandleFunc("/health", ws.handleHealth)
 	mux.HandleFunc("/api/lidar/monitor", ws.handleStatus)
 	mux.HandleFunc("/api/lidar/status", ws.handleLidarStatus)
@@ -602,7 +608,9 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/grid_reset", ws.handleGridReset)
 	mux.HandleFunc("/api/lidar/grid_heatmap", ws.handleGridHeatmap)
 	mux.HandleFunc("/api/lidar/background/grid", ws.handleBackgroundGrid) // Full background grid
-	mux.Handle(echartsAssetsPrefix, http.StripPrefix(echartsAssetsPrefix, http.FileServer(http.FS(echartsAssets))))
+	if assetsFS != nil {
+		mux.Handle(echartsAssetsPrefix, http.StripPrefix(echartsAssetsPrefix, http.FileServer(http.FS(assetsFS))))
+	}
 	mux.HandleFunc("/debug/lidar", ws.handleLidarDebugDashboard)
 	mux.HandleFunc("/debug/lidar/background/polar", ws.handleBackgroundGridPolar)
 	mux.HandleFunc("/debug/lidar/background/heatmap", ws.handleBackgroundGridHeatmapChart)
