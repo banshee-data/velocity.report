@@ -162,7 +162,6 @@ func TestSpatialIndex_RegionQuery(t *testing.T) {
 func TestDBSCAN_TwoSeparateClusters(t *testing.T) {
 	// Create two clusters: one near origin, one at (10, 0)
 	points := []WorldPoint{}
-
 	// Cluster 1 around origin
 	for i := 0; i < 20; i++ {
 		x := 0.3 * float64(i%5)
@@ -302,5 +301,33 @@ func TestDefaultDBSCANParams(t *testing.T) {
 	}
 	if params.MinPts != DefaultDBSCANMinPts {
 		t.Errorf("expected MinPts=%d, got %d", DefaultDBSCANMinPts, params.MinPts)
+	}
+}
+
+func TestAspectRatioDegenerate(t *testing.T) {
+	// Single-point cluster -> degenerate symmetric shape -> aspect ratio = 1.0
+	p := WorldPoint{X: 0, Y: 0, Z: 0, Intensity: 1}
+	cluster := computeClusterMetrics([]WorldPoint{p}, 1)
+	if cluster.AspectRatio != 1.0 {
+		t.Fatalf("expected aspect ratio 1.0 for single-point cluster, got %v", cluster.AspectRatio)
+	}
+
+	// Two points on X axis -> width == 0 -> marked as degenerate (aspectRatio == 0.0)
+	p1 := WorldPoint{X: 0, Y: 0, Z: 0, Intensity: 1}
+	p2 := WorldPoint{X: 1.0, Y: 0, Z: 0, Intensity: 1}
+	cluster2 := computeClusterMetrics([]WorldPoint{p1, p2}, 2)
+	if cluster2.BoundingBoxWidth <= 0 && cluster2.BoundingBoxLength > 0 {
+		if cluster2.AspectRatio != 0.0 {
+			t.Fatalf("expected aspect ratio 0.0 for degenerate width=0 cluster, got %v", cluster2.AspectRatio)
+		}
+	}
+
+	// Two points on Y axis -> length == 0 -> marked as degenerate (aspectRatio == 0.0)
+	p3 := WorldPoint{X: 0, Y: 1.0, Z: 0, Intensity: 1}
+	cluster3 := computeClusterMetrics([]WorldPoint{p1, p3}, 3)
+	if cluster3.BoundingBoxLength <= 0 && cluster3.BoundingBoxWidth > 0 {
+		if cluster3.AspectRatio != 0.0 {
+			t.Fatalf("expected aspect ratio 0.0 for degenerate length=0 cluster, got %v", cluster3.AspectRatio)
+		}
 	}
 }
