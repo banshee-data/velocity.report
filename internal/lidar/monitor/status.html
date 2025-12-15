@@ -144,6 +144,11 @@
         </a>
       </li>
       <li>
+        <a href="/api/lidar/monitor?sensor_id={{.SensorID}}" target="_blank">
+          LiDAR Monitor (HTML)
+        </a>
+      </li>
+      <li>
         <a href="/api/lidar/data_source?sensor_id={{.SensorID}}"
           target="_blank">
           Data Source Status (live/pcap/pcap_analysis)
@@ -218,6 +223,18 @@
         </a>
       </li>
       <li>
+        <a href="/api/lidar/snapshots/cleanup?sensor_id={{.SensorID}}"
+          target="_blank">
+          Analyze / Cleanup Duplicate Snapshots
+        </a>
+      </li>
+      <li>
+        <a
+          href="/api/lidar/snapshots/cleanup?sensor_id={{.SensorID}}&remove=true"
+          target="_blank">
+          &#x1F6A8; DELETE Duplicate Snapshots &#x1F6A8;
+        </a>
+      </li> <li>
         <a href="/api/lidar/export_snapshot?sensor_id={{.SensorID}}">
           Export Latest Snapshot to ASC
         </a>
@@ -325,7 +342,8 @@
         <form action="/api/lidar/tracks/clear" method="post" target="_blank"
           style="margin: 0;">
           <input type="hidden" name="sensor_id" value="{{.SensorID}}" />
-          <button type="submit">Clear Tracks + Observations (danger)</button>
+          <button type="submit">&#x1F6A8; Clear Tracks + Observations
+            &#x1F6A8;</button>
           <span style="font-size: 0.9em; color: #666;">Deletes all
             tracks/obs/clusters for this sensor.</span>
         </form>

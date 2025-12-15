@@ -1939,13 +1939,21 @@ func (ws *WebServer) handleSnapshotCleanup(w http.ResponseWriter, r *http.Reques
 		totalDuplicates += d.Count - 1 // -1 because we keep one
 	}
 
+	// Count total unique hashes (including singletons)
+	totalUniqueHashes, err := ws.db.CountUniqueBgSnapshotHashes(sensorID)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("count unique hashes: %v", err))
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"action":            "analyze",
-		"sensor_id":         sensorID,
-		"unique_hashes":     len(duplicates),
-		"duplicate_records": totalDuplicates,
-		"duplicates":        duplicates,
+		"action":              "analyze",
+		"sensor_id":           sensorID,
+		"total_unique_hashes": totalUniqueHashes,
+		"duplicate_groups":    len(duplicates),
+		"duplicate_records":   totalDuplicates,
+		"duplicates":          duplicates,
 	})
 }
 
