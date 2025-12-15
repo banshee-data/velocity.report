@@ -392,8 +392,8 @@ func analyzePCAP(config Config) (*AnalysisResult, error) {
 	startTime := time.Now()
 
 	// Initialize parser
-	parserConfig := parse.LoadEmbeddedPandar40PConfig()
-	parser := parse.NewPandar40PParser(parserConfig)
+	parserConfig, _ := parse.LoadEmbeddedPandar40PConfig()
+	parser := parse.NewPandar40PParser(*parserConfig)
 	parser.SetTimestampMode(parse.TimestampModeSystemTime)
 
 	// Result tracking
@@ -407,8 +407,9 @@ func analyzePCAP(config Config) (*AnalysisResult, error) {
 	frameBuilder := newAnalysisFrameBuilder(config, result)
 
 	// Use shared PCAP reading infrastructure from internal/lidar/network
+	// No forwarder needed for offline analysis
 	ctx := context.Background()
-	if err := network.ReadPCAPFile(ctx, config.PCAPFile, config.UDPPort, parser, frameBuilder, stats); err != nil {
+	if err := network.ReadPCAPFile(ctx, config.PCAPFile, config.UDPPort, parser, frameBuilder, stats, nil); err != nil {
 		return nil, fmt.Errorf("failed to read PCAP: %w", err)
 	}
 
