@@ -89,23 +89,23 @@ func TestComputeRunStatistics(t *testing.T) {
 		}
 
 		stats := ComputeRunStatistics(tracks)
-		
+
 		// Average track length: (30 + 50 + 10) / 3 = 30
 		expectedAvg := float32(30.0)
 		if stats.AvgTrackLength != expectedAvg {
 			t.Errorf("expected AvgTrackLength=%.1f, got %.1f", expectedAvg, stats.AvgTrackLength)
 		}
-		
+
 		// Median should be middle value: 30
 		if stats.MedianTrackLength != 30.0 {
 			t.Errorf("expected MedianTrackLength=30.0, got %.1f", stats.MedianTrackLength)
 		}
-		
+
 		// Average occlusions: (1 + 3 + 0) / 3 = 1.33
 		if stats.AvgOcclusionCount < 1.3 || stats.AvgOcclusionCount > 1.4 {
 			t.Errorf("expected AvgOcclusionCount~=1.33, got %.2f", stats.AvgOcclusionCount)
 		}
-		
+
 		// Class distribution
 		if stats.ClassCounts["vehicle"] != 2 {
 			t.Errorf("expected vehicle count=2, got %d", stats.ClassCounts["vehicle"])
@@ -113,7 +113,7 @@ func TestComputeRunStatistics(t *testing.T) {
 		if stats.ClassCounts["pedestrian"] != 1 {
 			t.Errorf("expected pedestrian count=1, got %d", stats.ClassCounts["pedestrian"])
 		}
-		
+
 		// Lifecycle ratios
 		if stats.TentativeRatio != float32(1.0/3.0) {
 			t.Errorf("expected TentativeRatio=0.33, got %.2f", stats.TentativeRatio)
@@ -129,13 +129,13 @@ func TestFilterTracksForTraining(t *testing.T) {
 	t.Run("filter by quality threshold", func(t *testing.T) {
 		tracks := []*TrackedObject{
 			{TrackID: "track-1", State: TrackConfirmed, TrackLengthMeters: 60, TrackDurationSecs: 6.0, OcclusionCount: 1, MaxOcclusionFrames: 5, SpatialCoverage: 0.9, ObservationCount: 60, NoisePointRatio: 0.05},
-			{TrackID: "track-2", State: TrackConfirmed, TrackLengthMeters: 2, TrackDurationSecs: 0.5, OcclusionCount: 10, MaxOcclusionFrames: 50, SpatialCoverage: 0.2, ObservationCount: 5, NoisePointRatio: 0.4}, // Low quality
+			{TrackID: "track-2", State: TrackConfirmed, TrackLengthMeters: 2, TrackDurationSecs: 0.5, OcclusionCount: 10, MaxOcclusionFrames: 50, SpatialCoverage: 0.2, ObservationCount: 5, NoisePointRatio: 0.4},   // Low quality
 			{TrackID: "track-3", State: TrackTentative, TrackLengthMeters: 50, TrackDurationSecs: 5.0, OcclusionCount: 0, MaxOcclusionFrames: 0, SpatialCoverage: 0.95, ObservationCount: 50, NoisePointRatio: 0.05}, // Tentative
 		}
 
 		filter := DefaultTrackTrainingFilter()
 		filtered := FilterTracksForTraining(tracks, filter)
-		
+
 		// Should keep only track-1 (high quality, confirmed, meets all thresholds)
 		if len(filtered) != 1 {
 			t.Errorf("expected 1 filtered track, got %d", len(filtered))
@@ -161,9 +161,9 @@ func TestFilterTracksForTraining(t *testing.T) {
 			RequireClass:      false,
 			AllowedStates:     []TrackState{TrackConfirmed},
 		}
-		
+
 		filtered := FilterTracksForTraining(tracks, filter)
-		
+
 		// Both should pass with relaxed thresholds
 		if len(filtered) != 2 {
 			t.Errorf("expected 2 filtered tracks, got %d", len(filtered))
@@ -180,7 +180,7 @@ func TestSummarizeTrainingDataset(t *testing.T) {
 	}
 
 	summary := SummarizeTrainingDataset(tracks)
-	
+
 	if summary.TotalTracks != 3 {
 		t.Errorf("expected TotalTracks=3, got %d", summary.TotalTracks)
 	}
@@ -190,7 +190,7 @@ func TestSummarizeTrainingDataset(t *testing.T) {
 	if summary.ClassDistribution["pedestrian"] != 1 {
 		t.Errorf("expected pedestrian count=1, got %d", summary.ClassDistribution["pedestrian"])
 	}
-	
+
 	// Average quality should be calculated
 	if summary.AvgQualityScore < 0 || summary.AvgQualityScore > 1 {
 		t.Errorf("expected AvgQualityScore in [0,1], got %.2f", summary.AvgQualityScore)
@@ -207,9 +207,9 @@ func TestComputeTrackQualityMetrics(t *testing.T) {
 			MaxOcclusionFrames: 3,
 			SpatialCoverage:    0.95,
 		}
-		
+
 		metrics := ComputeTrackQualityMetrics(track)
-		
+
 		if metrics.QualityScore < 0.7 {
 			t.Errorf("expected high quality score (>0.7), got %.2f", metrics.QualityScore)
 		}
@@ -227,9 +227,9 @@ func TestComputeTrackQualityMetrics(t *testing.T) {
 			MaxOcclusionFrames: 50,
 			SpatialCoverage:    0.2,
 		}
-		
+
 		metrics := ComputeTrackQualityMetrics(track)
-		
+
 		if metrics.QualityScore > 0.4 {
 			t.Errorf("expected low quality score (<0.4), got %.2f", metrics.QualityScore)
 		}
@@ -245,7 +245,7 @@ func TestNoiseCoverageMetrics(t *testing.T) {
 	}
 
 	metrics := ComputeNoiseCoverageMetrics(tracks)
-	
+
 	if metrics.TracksWithHighNoise != 1 {
 		t.Errorf("expected 1 high-noise track, got %d", metrics.TracksWithHighNoise)
 	}
