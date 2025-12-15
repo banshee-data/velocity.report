@@ -141,16 +141,16 @@ A new approach to address the limitations of background-subtraction:
 
 The implementation intentionally uses a **simpler 2D + velocity model** rather than the full 7DOF model described in `static-pose-alignment-plan.md` and `av-lidar-integration-plan.md`. This is the correct choice for traffic monitoring.
 
-| Original Plan | Simplified Implementation | Rationale |
-|---------------|---------------------------|-----------|
-| 7DOF bounding box | 2D + axis-aligned bbox | Ground-plane assumption valid for roadside |
-| 6-state Kalman [x,y,z,vx,vy,vz] | EMA smoothing (x,y,vx,vy) | Simpler, sufficient for tracking |
-| Heading via PCA | Heading from velocity atan2(vy,vx) | Moving objects already have velocity |
-| Z-axis tracking | Single HeightP95Max stat | Vertical extent, not position tracking |
-| 28-class AV taxonomy | 4 classes (car, pedestrian, bird, other) | Traffic monitoring needs |
-| Oriented bounding boxes | Axis-aligned boxes | Sufficient for counting/speed |
-| Shape completion (occlusion) | Not implemented | AV-specific feature |
-| Parquet/NLZ ingestion | Not implemented | AV dataset feature |
+| Original Plan                   | Simplified Implementation                | Rationale                                  |
+| ------------------------------- | ---------------------------------------- | ------------------------------------------ |
+| 7DOF bounding box               | 2D + axis-aligned bbox                   | Ground-plane assumption valid for roadside |
+| 6-state Kalman [x,y,z,vx,vy,vz] | EMA smoothing (x,y,vx,vy)                | Simpler, sufficient for tracking           |
+| Heading via PCA                 | Heading from velocity atan2(vy,vx)       | Moving objects already have velocity       |
+| Z-axis tracking                 | Single HeightP95Max stat                 | Vertical extent, not position tracking     |
+| 28-class AV taxonomy            | 4 classes (car, pedestrian, bird, other) | Traffic monitoring needs                   |
+| Oriented bounding boxes         | Axis-aligned boxes                       | Sufficient for counting/speed              |
+| Shape completion (occlusion)    | Not implemented                          | AV-specific feature                        |
+| Parquet/NLZ ingestion           | Not implemented                          | AV dataset feature                         |
 
 ### Deferred to "AV Integration" Phase
 
