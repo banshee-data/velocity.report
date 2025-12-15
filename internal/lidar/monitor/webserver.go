@@ -1553,9 +1553,11 @@ func (ws *WebServer) handleExportSnapshotASC(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
+	// Validate and sanitize output path. Make sure sensorID is safe to embed
+	safeSensor := security.SanitizeFilename(sensorID)
 	// Validate and sanitize output path
 	if outPath == "" {
-		outPath = filepath.Join(os.TempDir(), fmt.Sprintf("bg_snapshot_%s_%d.asc", sensorID, snap.TakenUnixNanos))
+		outPath = filepath.Join(os.TempDir(), fmt.Sprintf("bg_snapshot_%s_%d.asc", safeSensor, snap.TakenUnixNanos))
 	} else {
 		// If user provides a path, ensure it's within temp directory or current working directory
 		absOutPath, err := filepath.Abs(outPath)
@@ -1597,8 +1599,9 @@ func (ws *WebServer) handleExportFrameSequenceASC(w http.ResponseWriter, r *http
 	}
 
 	timestamp := time.Now().Unix()
+	safeSensor := security.SanitizeFilename(sensorID)
 	if baseDir == "" {
-		baseDir = filepath.Join(os.TempDir(), fmt.Sprintf("lidar_sequence_%s_%d", sensorID, timestamp))
+		baseDir = filepath.Join(os.TempDir(), fmt.Sprintf("lidar_sequence_%s_%d", safeSensor, timestamp))
 	}
 
 	absDir, err := filepath.Abs(baseDir)
@@ -1615,15 +1618,15 @@ func (ws *WebServer) handleExportFrameSequenceASC(w http.ResponseWriter, r *http
 		return
 	}
 
-	// Prepare paths
-	bgPath := filepath.Join(absDir, fmt.Sprintf("bg_%s_%d.asc", sensorID, timestamp))
+	// Prepare paths (use sanitized sensor id)
+	bgPath := filepath.Join(absDir, fmt.Sprintf("bg_%s_%d.asc", safeSensor, timestamp))
 	framePaths := make([]string, 0, 5)
 	for i := 1; i <= 5; i++ {
-		framePaths = append(framePaths, filepath.Join(absDir, fmt.Sprintf("frame_%s_%d_%02d.asc", sensorID, timestamp, i)))
+		framePaths = append(framePaths, filepath.Join(absDir, fmt.Sprintf("frame_%s_%d_%02d.asc", safeSensor, timestamp, i)))
 	}
 	fgPaths := make([]string, 0, 5)
 	for i := 1; i <= 5; i++ {
-		fgPaths = append(fgPaths, filepath.Join(absDir, fmt.Sprintf("foreground_%s_%d_%02d.asc", sensorID, timestamp, i)))
+		fgPaths = append(fgPaths, filepath.Join(absDir, fmt.Sprintf("foreground_%s_%d_%02d.asc", safeSensor, timestamp, i)))
 	}
 
 	// Validate all output paths
@@ -1728,11 +1731,12 @@ func (ws *WebServer) handleExportForegroundASC(w http.ResponseWriter, r *http.Re
 	}
 
 	if outPath == "" {
+		safeSensor := security.SanitizeFilename(sensorID)
 		ts := snap.Timestamp
 		if ts.IsZero() {
 			ts = time.Now()
 		}
-		outPath = filepath.Join(os.TempDir(), fmt.Sprintf("foreground_%s_%d.asc", sensorID, ts.Unix()))
+		outPath = filepath.Join(os.TempDir(), fmt.Sprintf("foreground_%s_%d.asc", safeSensor, ts.Unix()))
 	} else {
 		absOutPath, err := filepath.Abs(outPath)
 		if err != nil {
