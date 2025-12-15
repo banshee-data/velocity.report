@@ -1390,67 +1390,14 @@ Where:
 
 ---
 
-## Implementation Notes (January 2026)
-
-### Simplifications Applied vs. Original Design
-
-The implementation applies practical simplifications for traffic monitoring use case:
-
-| Design Section | Original Spec | Implementation | Rationale |
-|----------------|---------------|----------------|-----------|
-| **Tracking Model** | 6D (x,y,z,vx,vy,vz) | 2D+velocity (x,y,vx,vy) | Ground-plane assumption valid |
-| **6D DBSCAN** | Full 6D spatial index | Sequential 3D position + velocity filter | Simpler, reuses existing index |
-| **MinPts** | 3 | 3 ✅ | Implemented as designed |
-| **Velocity Estimation** | Frame correspondence + back-projection | Frame correspondence ✅ | Implemented as designed |
-| **Long-Tail Tracking** | Pre-tail + post-tail states | Implemented ✅ | Working as designed |
-| **Fragment Merging** | Full kinematic matching | Basic implementation ✅ | Simplified merge criteria |
-| **Sparse Continuation** | Adaptive tolerances by point count | Implemented ✅ | Working as designed |
-
-### Key Implementation Files
-
-| Phase | Design File | Implementation File |
-|-------|-------------|---------------------|
-| Phase 1 | This document §4 | `velocity_estimation.go` |
-| Phase 2 | This document §5 | `velocity_coherent_clustering.go` |
-| Phase 3 | This document §6 | `velocity_coherent_tracking.go` |
-| Phase 4 | This document §7 | `velocity_coherent_tracking.go` |
-| Phase 5 | This document §8 | `velocity_coherent_merging.go` |
-| Integration | This document §10 | `dual_pipeline.go`, `velocity_coherent_tracker.go` |
-
-### What Was NOT Implemented (Deferred)
-
-These features from the original design are deferred to future AV integration work:
-
-1. **Full 6D Spatial Index** - Using simpler approach of 3D clustering + velocity validation
-2. **Heading Estimation** - Not needed; velocity vector provides implicit heading
-3. **Z-axis Tracking** - Height stored as statistic, not tracked position
-4. **Track Quality Scoring** - Basic quality metrics only
-5. **Batch Mode Processing** - Real-time mode only
-
-### Performance Observations
-
-From testing with PCAP replay:
-- **MinPts=3** successfully captures sparse distant objects
-- **Velocity coherence** significantly reduces false positives from background noise
-- **Fragment merging** recovers ~10-15% of tracks split by occlusion gaps
-- **Post-tail prediction** extends track duration by 1-3 seconds on average
-
-### Recommended Next Steps
-
-1. **Add truck/cyclist classes** - Currently only car/pedestrian/bird/other
-2. **Tune velocity tolerances** - May need per-class velocity limits
-3. **Evaluate sparse track quality** - 3-point tracks may have high position noise
-
----
-
 ## Related Documentation
 
 - **[Foreground Tracking Plan](foreground_tracking_plan.md)** - Existing implementation through Phase 3.7
 - **[ML Pipeline Roadmap](ml_pipeline_roadmap.md)** - Training data and labeling infrastructure
-- **[LIDAR Foreground Tracking Status](lidar-foreground-tracking-status.md)** - Current issues and simplification decisions
+- **[LIDAR Foreground Tracking Status](lidar-foreground-tracking-status.md)** - Current issues and fixes
 
 ---
 
-**Document Status:** Design Complete, Implementation Simplified
-**Implementation Status:** Core phases 1-5 implemented with simplifications
-**Last Updated:** January 2026
+**Document Status:** Design Complete
+**Next Action:** Review with engineering team, prioritize implementation phases
+**Last Updated:** December 15, 2025
