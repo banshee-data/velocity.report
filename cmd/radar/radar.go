@@ -127,12 +127,12 @@ func main() {
 		}
 		if subcommand == "migrate" {
 			// Re-parse flags after "migrate" subcommand to allow:
-			//   velocity-report migrate up --db-path /custom.db
+			//   velocity-report migrate --db-path /custom.db up
 			// or:
 			//   velocity-report --db-path /custom.db migrate up
 			//
-			// flag.Parse() stops at first non-flag arg, so flags after "migrate"
-			// weren't parsed. Create new FlagSet to parse remaining args.
+			// Note: flags must come BEFORE the action (up/down/status) because
+			// Go's flag.Parse() stops at the first non-flag argument.
 			migrateFlags := flag.NewFlagSet("migrate", flag.ExitOnError)
 			migrateDBPath := migrateFlags.String("db-path", *dbPathFlag, "path to sqlite DB file")
 
