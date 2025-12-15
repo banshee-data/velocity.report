@@ -1,8 +1,8 @@
 # LiDAR Sidecar — Technical Implementation Overview
 
-**Status:** Phase 3.7 completed (Analysis Run Infrastructure), UI visualization planned  
-**Scope:** Hesai UDP → parse → frame assembly → background subtraction → foreground mask → clustering → tracking → classification → HTTP API → ML data export → Analysis Runs  
-**Current Phase:** Track Labeling UI (Phase 4.0)
+**Status:** Phase 3.7 completed (Analysis Run Infrastructure), Phase 4.0 in progress (Track Labeling UI)
+**Scope:** Hesai UDP → parse → frame assembly → background subtraction → foreground mask → clustering → tracking → classification → HTTP API → ML data export → Analysis Runs
+**Current Focus:** Foreground Tracking & Export Investigation (See `docs/investigations/lidar-foreground-tracking-status.md`)
 
 ---
 
@@ -138,11 +138,12 @@
 - ✅ **Location**: `cmd/tools/pcap-analyze/main.go`
 
 **Usage:**
+
 ```bash
 # Basic analysis
 pcap-analyze -pcap capture.pcap -output ./results
 
-# With ML training data export  
+# With ML training data export
 pcap-analyze -pcap capture.pcap -training -output ./ml_data
 ```
 
@@ -329,7 +330,7 @@ is_background = (cell_diff <= closeness_threshold) OR (neighbor_confirm >= requi
 - **`Tracker`**: Multi-object tracker with configurable parameters via `TrackerConfig`
 - **`TrackedObject`**: Track state with Kalman filter, lifecycle counters, and aggregated features
 - **Lifecycle States**: `Tentative` → `Confirmed` → `Deleted`
-- **Track Management**: 
+- **Track Management**:
   - Birth from unmatched clusters
   - Promotion after N consecutive hits (default: 3)
   - Deletion after N consecutive misses (default: 3)
@@ -1082,8 +1083,9 @@ The LiDAR sidecar has **completed Phases 1-2 (core infrastructure, background cl
 **Current Focus**: UI visualization for track display. REST API endpoints (Phase 3.5) are complete.
 
 **Architecture**: Modular design with clear separation between:
+
 - UDP ingestion and parsing
-- Frame assembly  
+- Frame assembly
 - Background classification (polar frame)
 - Foreground extraction (polar frame)
 - World transform (polar → world)
