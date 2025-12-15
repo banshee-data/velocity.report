@@ -903,6 +903,90 @@ func (db *DB) Events() ([]Event, error) {
 	return events, nil
 }
 
+// TableStats contains size and row count information for a database table.
+type TableStats struct {
+	Name     string  `json:"name"`
+	RowCount int64   `json:"row_count"`
+	SizeMB   float64 `json:"size_mb"`
+}
+
+// DatabaseStats contains overall database statistics.
+type DatabaseStats struct {
+	TotalSizeMB float64      `json:"total_size_mb"`
+	Tables      []TableStats `json:"tables"`
+}
+
+// GetDatabaseStats returns size and row count information for all tables in the database.
+// Uses SQLite's dbstat virtual table to get accurate size information.
+func (db *DB) GetDatabaseStats() (*DatabaseStats, error) {
+	// Get total database size using page_count * page_size
+	var totalPages, pageSize int64
+	row := db.QueryRow("SELECT page_count, page_size FROM pragma_page_count(), pragma_page_size()")
+	if err := row.Scan(&totalPages, &pageSize); err != nil {
+		// Fallback: try individual pragmas
+		if err := db.QueryRow("PRAGMA page_count").Scan(&totalPages); err != nil {
+			return nil, fmt.Errorf("failed to get page count: %w", err)
+		}
+		if err := db.QueryRow("PRAGMA page_size").Scan(&pageSize); err != nil {
+			return nil, fmt.Errorf("failed to get page size: %w", err)
+		}
+	}
+	totalSizeMB := float64(totalPages*pageSize) / (1024 * 1024)
+
+	// Get list of tables
+	tablesQuery := `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`
+	rows, err := db.Query(tablesQuery)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list tables: %w", err)
+	}
+	defer rows.Close()
+
+	var tableNames []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, fmt.Errorf("failed to scan table name: %w", err)
+		}
+		tableNames = append(tableNames, name)
+	}
+
+	// Get stats for each table
+	var tables []TableStats
+	for _, tableName := range tableNames {
+		var rowCount int64
+		// Use parameterized query for count - table name must be quoted since it can't be parameterized
+		countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %q", tableName)
+		if err := db.QueryRow(countQuery).Scan(&rowCount); err != nil {
+			// Table might be empty or have issues, continue with 0
+			rowCount = 0
+		}
+
+		// Get size using dbstat virtual table (if available)
+		var sizeMB float64
+		sizeQuery := `SELECT COALESCE(SUM(pgsize), 0) / 1048576.0 FROM dbstat WHERE name = ?`
+		if err := db.QueryRow(sizeQuery, tableName).Scan(&sizeMB); err != nil {
+			// dbstat might not be available, estimate from row count
+			sizeMB = 0
+		}
+
+		tables = append(tables, TableStats{
+			Name:     tableName,
+			RowCount: rowCount,
+			SizeMB:   math.Round(sizeMB*100) / 100, // Round to 2 decimal places
+		})
+	}
+
+	// Sort tables by size descending
+	sort.Slice(tables, func(i, j int) bool {
+		return tables[i].SizeMB > tables[j].SizeMB
+	})
+
+	return &DatabaseStats{
+		TotalSizeMB: math.Round(totalSizeMB*100) / 100,
+		Tables:      tables,
+	}, nil
+}
+
 func (db *DB) AttachAdminRoutes(mux *http.ServeMux) {
 	debug := tsweb.Debugger(mux)
 	// create a tailSQL instance and point it to our DB
