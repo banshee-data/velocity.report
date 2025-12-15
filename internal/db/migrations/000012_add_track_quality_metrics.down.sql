@@ -3,8 +3,6 @@
 -- and `lidar_analysis_runs` while preserving existing data.
 PRAGMA foreign_keys = OFF;
 
-BEGIN TRANSACTION;
-
      DROP INDEX IF EXISTS idx_lidar_tracks_quality;
 
    CREATE TABLE IF NOT EXISTS lidar_tracks_new (
@@ -209,5 +207,3 @@ CREATE INDEX IF NOT EXISTS idx_lidar_runs_parent ON lidar_analysis_runs (parent_
 CREATE INDEX IF NOT EXISTS idx_lidar_runs_status ON lidar_analysis_runs (status);
 
 PRAGMA foreign_keys = ON;
-
-COMMIT;
