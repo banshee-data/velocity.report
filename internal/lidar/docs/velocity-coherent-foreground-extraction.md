@@ -17,7 +17,7 @@ This document proposes an alternative algorithm for isolating foreground points 
 - **Sparse continuation**: Maintain track identity with minimal point counts (~3 points)
 - **Track merging**: Connect fragmented observations into unified object tracks
 
-**Problem Statement:** The current background-subtraction approach fails to yield valuable foreground points that correspond to visible objects in frames. Human observers can identify objects with as few as 3 points based on motion continuity.
+**Problem Statement:** The current background-subtraction approach fails to yield valuable foreground points that correspond to visible objects in frames. Human observers can identify objects with as few as 3 points based on motion continuity. One feature we should aim for is the long tail capture of points moving at a velocity closely matched to the object's track. In the LIDAR data a human eye can identify a point's continued motion, position and speed when it's down to just a handful of points (~3). This algorithm includes the long tail ability to track these points before they come into frame (pre-tail) and after they have transited (post-tail), plus a mechanism to merge fragmented tracks.
 
 ---
 
@@ -1108,6 +1108,41 @@ func (h *FrameHistory) Previous(offset int) *PointVelocityFrame {
 
 ## Integration with Existing System
 
+### Dual-Source Architecture (Matching Radar Pattern)
+
+Just as the radar system maintains two independent transit sources:
+- **`radar_objects`**: Hardware classifier from OPS243 sensor
+- **`radar_data_transits`**: Software sessionization algorithm
+
+The LIDAR system will maintain two independent track sources:
+- **`lidar_tracks`**: Existing background-subtraction + DBSCAN clustering (MinPts=12)
+- **`lidar_velocity_coherent_tracks`**: New velocity-coherent extraction (MinPts=3)
+
+Both track sources are:
+1. **Stored independently** in separate database tables
+2. **Queryable via API** with a `source` parameter to select which algorithm
+3. **Comparable in dashboards** for performance evaluation
+4. **Compatible with the same downstream analysis** (speed percentiles, classification, etc.)
+
+```go
+// API endpoint supports source selection (matching radar pattern)
+// GET /api/lidar/tracks?source=background_subtraction
+// GET /api/lidar/tracks?source=velocity_coherent
+// GET /api/lidar/tracks?source=all  // returns both with source label
+
+type TrackSource string
+
+const (
+    TrackSourceBackgroundSubtraction TrackSource = "background_subtraction"
+    TrackSourceVelocityCoherent      TrackSource = "velocity_coherent"
+)
+
+type TrackWithSource struct {
+    Track  TrackedObject `json:"track"`
+    Source TrackSource   `json:"source"`
+}
+```
+
 ### Parallel Processing Path
 
 The velocity-coherent extraction runs **alongside** the existing background-subtraction system, not replacing it:
@@ -1197,6 +1232,50 @@ CREATE TABLE IF NOT EXISTS lidar_velocity_coherent_clusters (
     bounding_box_width REAL,
     bounding_box_height REAL
 );
+
+-- Velocity-coherent tracks (parallel to lidar_tracks, like radar_objects vs radar_data_transits)
+-- This table stores tracks from the velocity-coherent algorithm for comparison with
+-- background-subtraction tracks in lidar_tracks
+CREATE TABLE IF NOT EXISTS lidar_velocity_coherent_tracks (
+    track_id TEXT PRIMARY KEY,
+    sensor_id TEXT NOT NULL,
+    track_state TEXT NOT NULL,           -- 'pre_tail', 'tentative', 'confirmed', 'post_tail', 'deleted'
+    
+    -- Lifecycle
+    start_unix_nanos INTEGER NOT NULL,
+    end_unix_nanos INTEGER,
+    observation_count INTEGER,
+    
+    -- Kinematics (world frame)
+    avg_speed_mps REAL,
+    peak_speed_mps REAL,
+    p50_speed_mps REAL,
+    p85_speed_mps REAL,
+    p95_speed_mps REAL,
+    
+    -- Velocity estimation quality
+    avg_velocity_confidence REAL,
+    velocity_consistency_score REAL,     -- How stable velocity was across observations
+    
+    -- Shape features
+    bounding_box_length_avg REAL,
+    bounding_box_width_avg REAL,
+    bounding_box_height_avg REAL,
+    height_p95_max REAL,
+    
+    -- Sparse tracking metrics
+    min_points_observed INTEGER,         -- Minimum point count in any frame
+    sparse_frame_count INTEGER,          -- Frames with <12 points
+    
+    -- Classification
+    object_class TEXT,
+    object_confidence REAL,
+    classification_model TEXT
+);
+
+CREATE INDEX idx_vc_tracks_sensor ON lidar_velocity_coherent_tracks(sensor_id);
+CREATE INDEX idx_vc_tracks_state ON lidar_velocity_coherent_tracks(track_state);
+CREATE INDEX idx_vc_tracks_time ON lidar_velocity_coherent_tracks(start_unix_nanos, end_unix_nanos);
 
 -- Track merge history
 CREATE TABLE IF NOT EXISTS lidar_track_merges (
