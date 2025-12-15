@@ -17,15 +17,6 @@ import (
 // MigrateUp runs all pending migrations up to the latest version.
 // Returns nil if no migrations were needed (already at latest version).
 func (db *DB) MigrateUp(migrationsFS fs.FS) error {
-	// Debug: list files in migrationsFS
-	entries, _ := fs.ReadDir(migrationsFS, ".")
-	log.Printf("[migrate] Found %d migration files", len(entries))
-	for i, e := range entries {
-		if i < 5 {
-			log.Printf("[migrate]   %s", e.Name())
-		}
-	}
-
 	m, err := db.newMigrate(migrationsFS)
 	if err != nil {
 		return err
@@ -33,10 +24,6 @@ func (db *DB) MigrateUp(migrationsFS fs.FS) error {
 	// Note: We cannot call m.Close() when using WithInstance() because the sqlite driver's
 	// Close() method closes the underlying sql.DB connection, which we manage separately.
 	// The source driver (iofs) doesn't hold resources that need explicit cleanup.
-
-	// Debug: check current version
-	ver, dirty, verErr := m.Version()
-	log.Printf("[migrate] Before Up: version=%d, dirty=%v, err=%v", ver, dirty, verErr)
 
 	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return fmt.Errorf("migration up failed: %w", err)
