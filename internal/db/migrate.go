@@ -25,26 +25,6 @@ func (db *DB) MigrateUp(migrationsFS fs.FS) error {
 	// Close() method closes the underlying sql.DB connection, which we manage separately.
 	// The source driver (iofs) doesn't hold resources that need explicit cleanup.
 
-	// Check if this is a fresh database (no schema_migrations table yet)
-	// If so, we need to force the version to -1 so golang-migrate starts from the beginning
-	var tableExists bool
-	err = db.QueryRow(`
-		SELECT COUNT(*) > 0
-		FROM sqlite_master
-		WHERE type='table' AND name='schema_migrations'
-	`).Scan(&tableExists)
-	if err != nil {
-		return fmt.Errorf("failed to check for schema_migrations table: %w", err)
-	}
-
-	if !tableExists {
-		// Fresh database - force version to -1 to start migrations from version 1
-		log.Printf("[migrate] Fresh database detected, initializing migrations")
-		if err := m.Force(-1); err != nil {
-			return fmt.Errorf("failed to initialize fresh database: %w", err)
-		}
-	}
-
 	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return fmt.Errorf("migration up failed: %w", err)
 	}
@@ -134,7 +114,10 @@ func (db *DB) newMigrate(migrationsFS fs.FS) (*migrate.Migrate, error) {
 	}
 
 	// Create sqlite driver instance
-	driver, err := sqlite.WithInstance(db.DB, &sqlite.Config{})
+	// Set NoTxWrap to avoid wrapping migrations in transactions (SQLite handles this)
+	driver, err := sqlite.WithInstance(db.DB, &sqlite.Config{
+		NoTxWrap: true,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create sqlite driver: %w", err)
 	}
