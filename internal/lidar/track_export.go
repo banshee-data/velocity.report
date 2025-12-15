@@ -86,7 +86,7 @@ func EncodePandar40PPacket(points []PointPolar, blockAzimuth float64, config *Se
 		BLOCK_SIZE          = 124
 		CHANNELS_PER_BLOCK  = 40
 		TAIL_SIZE           = 22
-		MAX_DISTANCE_METERS = 130.0
+		MAX_DISTANCE_METERS = 200.0 // Pandar40P max range
 	)
 
 	packet := make([]byte, PACKET_SIZE)
@@ -141,7 +141,9 @@ func EncodePandar40PPacket(points []PointPolar, blockAzimuth float64, config *Se
 					case d > MAX_DISTANCE_METERS:
 						distance = 0xFFFE
 					default:
-						distance = uint16(d * 500)
+						// Pandar40P distance encoding: 1 unit = 0.5cm = 0.005m
+						// So: distance_units = distance_meters / 0.005 = distance_meters * 200
+						distance = uint16(d * 200)
 					}
 					intensity = p.Intensity
 					break
