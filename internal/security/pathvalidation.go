@@ -104,3 +104,43 @@ func ValidateExportPath(filePath string) error {
 	allowedDirs := []string{tempDir, cwd}
 	return ValidatePathWithinAllowedDirs(filePath, allowedDirs)
 }
+
+// SanitizeFilename makes a safe filename from an arbitrary string. It replaces
+// any characters that are not ASCII letters, digits, dot, underscore or dash
+// with an underscore. It also collapses repeated underscores and trims the
+// result to a reasonable length. This is intended for use when embedding
+// user-provided identifiers into file names.
+func SanitizeFilename(s string) string {
+	if s == "" {
+		return "unknown"
+	}
+	var b strings.Builder
+	// Limit resulting filename length to avoid overly long paths
+	const maxLen = 128
+	lastUnderscore := false
+	for _, r := range s {
+		if len(b.String()) >= maxLen {
+			break
+		}
+		switch {
+		case (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9'):
+			b.WriteRune(r)
+			lastUnderscore = false
+		case r == '.' || r == '_' || r == '-':
+			b.WriteRune(r)
+			lastUnderscore = false
+		default:
+			if !lastUnderscore {
+				b.WriteRune('_')
+				lastUnderscore = true
+			}
+		}
+	}
+	out := b.String()
+	// Trim leading/trailing underscores or dots
+	out = strings.Trim(out, "._")
+	if out == "" {
+		return "unknown"
+	}
+	return out
+}
