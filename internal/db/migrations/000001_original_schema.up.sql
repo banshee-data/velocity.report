@@ -2,20 +2,14 @@
 -- Date: 2024 (reconstructed from commit f5ade674)
 -- Description: The very first database schema with timestamp column (not write_timestamp)
 -- This schema predates the switch to JSON raw_event storage and write_timestamp naming.
-   CREATE TABLE IF NOT EXISTS data (
-          uptime DOUBLE
-        , magnitude DOUBLE
-        , speed DOUBLE
-        , timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          );
-
+-- Note: The data table is created in migration 000000_bootstrap.
    CREATE TABLE IF NOT EXISTS commands (
           command_id BIGINT PRIMARY KEY
         , command TEXT
         , timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
           );
 
-   CREATE TABLE IF NOT EXISTS log(
+   CREATE TABLE IF NOT EXISTS LOG(
           log_id BIGINT PRIMARY KEY
         , command_id BIGINT
         , log_data TEXT
