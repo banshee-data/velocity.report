@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"time"
 )
@@ -520,28 +521,34 @@ func (fb *FrameBuilder) cleanupFrames() {
 	defer fb.mu.Unlock()
 
 	now := time.Now()
-	var frameIDsToFinalize []string
+	var framesToFinalize []*LiDARFrame
 
 	if fb.debug {
 		debugf("[FrameBuilder] cleanupFrames invoked: buffer_size=%d, now=%v", len(fb.frameBuffer), now)
 	}
 
 	// Find frames that are old enough to finalize
-	for frameID, frame := range fb.frameBuffer {
+	for _, frame := range fb.frameBuffer {
 		ageSource := frame.EndWallTime
 		if ageSource.IsZero() {
 			ageSource = frame.EndTimestamp
 		}
 		frameAge := now.Sub(ageSource)
 		if frameAge >= fb.bufferTimeout {
-			frameIDsToFinalize = append(frameIDsToFinalize, frameID)
+			framesToFinalize = append(framesToFinalize, frame)
 		}
 	}
 
-	// Finalize old frames
-	for _, frameID := range frameIDsToFinalize {
-		frame := fb.frameBuffer[frameID]
-		delete(fb.frameBuffer, frameID)
+	// CRITICAL FIX: Sort frames by timestamp to ensure deterministic ordering
+	// Without this, Go map iteration is non-deterministic causing frames to be
+	// exported in random order (e.g., 2,1,3,5,6,4 instead of 1,2,3,4,5,6)
+	sort.Slice(framesToFinalize, func(i, j int) bool {
+		return framesToFinalize[i].StartTimestamp.Before(framesToFinalize[j].StartTimestamp)
+	})
+
+	// Finalize old frames in sorted order
+	for _, frame := range framesToFinalize {
+		delete(fb.frameBuffer, frame.FrameID)
 		fb.finalizeFrame(frame, "buffer_timeout")
 	}
 
