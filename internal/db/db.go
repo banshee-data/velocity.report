@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"embed"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -1002,6 +1003,19 @@ func (db *DB) AttachAdminRoutes(mux *http.ServeMux) {
 
 	// mount the tailSQL server on the debug /tailsql path
 	debug.Handle("tailsql/", "SQL live debugging", tsql.NewMux())
+
+	debug.Handle("db-stats", "Database table sizes and disk usage (JSON)", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		stats, err := db.GetDatabaseStats()
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to get database stats: %v", err), http.StatusInternalServerError)
+			return
+		}
+		if err := json.NewEncoder(w).Encode(stats); err != nil {
+			http.Error(w, fmt.Sprintf("Failed to encode stats: %v", err), http.StatusInternalServerError)
+			return
+		}
+	}))
 
 	debug.Handle("backup", "Create and download a backup of the database now", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		unixTime := time.Now().Unix()
