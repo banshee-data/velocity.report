@@ -403,7 +403,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 
 		var err error
 		if speedMode == "fastest" {
-			err = network.ReadPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats)
+			err = network.ReadPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, ws.packetForwarder)
 		} else {
 			// Apply PCAP-friendly background params and restore afterward.
 			var restoreParams func()
