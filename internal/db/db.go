@@ -2,8 +2,10 @@ package db
 
 import (
 	"compress/gzip"
+	"crypto/sha256"
 	"database/sql"
 	"embed"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"io/fs"
@@ -12,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/tailscale/tailsql/server/tailsql"
@@ -401,6 +404,112 @@ func (db *DB) GetLatestBgSnapshot(sensorID string) (*lidar.BgSnapshot, error) {
 		SnapshotReason:     reason.String,
 	}
 	return snap, nil
+}
+
+// DuplicateSnapshotGroup represents a group of snapshots with the same grid_blob hash.
+type DuplicateSnapshotGroup struct {
+	BlobHash    string  // hex-encoded hash of grid_blob
+	Count       int     // number of snapshots with this hash
+	SnapshotIDs []int64 // list of snapshot IDs with this hash
+	KeepID      int64   // the snapshot ID to keep (oldest)
+	DeleteIDs   []int64 // snapshot IDs that would be deleted
+	BlobBytes   int     // size of the blob in bytes
+	SensorID    string  // sensor ID for this group
+}
+
+// FindDuplicateBgSnapshots finds groups of snapshots with identical grid_blob data.
+// Returns groups where Count > 1 (i.e., duplicates exist).
+func (db *DB) FindDuplicateBgSnapshots(sensorID string) ([]DuplicateSnapshotGroup, error) {
+	// SQLite doesn't have a native hash function, so we'll do this in Go
+	// First, get all snapshots for this sensor
+	q := `SELECT snapshot_id, grid_blob
+		  FROM lidar_bg_snapshot
+		  WHERE sensor_id = ?
+		  ORDER BY snapshot_id ASC`
+
+	rows, err := db.Query(q, sensorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Group by blob hash
+	type snapshotInfo struct {
+		id       int64
+		blobSize int
+	}
+	hashGroups := make(map[string][]snapshotInfo)
+
+	for rows.Next() {
+		var snapID int64
+		var blob []byte
+		if err := rows.Scan(&snapID, &blob); err != nil {
+			return nil, err
+		}
+
+		// Compute hash of the blob
+		h := sha256.Sum256(blob)
+		hashHex := hex.EncodeToString(h[:])
+
+		hashGroups[hashHex] = append(hashGroups[hashHex], snapshotInfo{
+			id:       snapID,
+			blobSize: len(blob),
+		})
+	}
+
+	// Convert to result format, filtering for duplicates only
+	var result []DuplicateSnapshotGroup
+	for hash, infos := range hashGroups {
+		if len(infos) <= 1 {
+			continue // No duplicates
+		}
+
+		ids := make([]int64, len(infos))
+		for i, info := range infos {
+			ids[i] = info.id
+		}
+
+		// Keep the oldest (first) snapshot
+		keepID := ids[0]
+		deleteIDs := ids[1:]
+
+		result = append(result, DuplicateSnapshotGroup{
+			BlobHash:    hash,
+			Count:       len(infos),
+			SnapshotIDs: ids,
+			KeepID:      keepID,
+			DeleteIDs:   deleteIDs,
+			BlobBytes:   infos[0].blobSize,
+			SensorID:    sensorID,
+		})
+	}
+
+	return result, nil
+}
+
+// DeleteBgSnapshots deletes snapshots by their IDs. Returns the number of rows deleted.
+func (db *DB) DeleteBgSnapshots(snapshotIDs []int64) (int64, error) {
+	if len(snapshotIDs) == 0 {
+		return 0, nil
+	}
+
+	// Build placeholders for IN clause
+	placeholders := make([]string, len(snapshotIDs))
+	args := make([]interface{}, len(snapshotIDs))
+	for i, id := range snapshotIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+
+	q := fmt.Sprintf("DELETE FROM lidar_bg_snapshot WHERE snapshot_id IN (%s)",
+		strings.Join(placeholders, ","))
+
+	res, err := db.Exec(q, args...)
+	if err != nil {
+		return 0, err
+	}
+
+	return res.RowsAffected()
 }
 
 type RadarObject struct {
