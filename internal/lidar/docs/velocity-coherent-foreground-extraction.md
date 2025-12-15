@@ -226,7 +226,7 @@ func EstimatePointVelocities(
     
     result := make([]PointVelocity, len(currentFrame))
     
-    // Build spatial index for previous frame
+    // Build 3D spatial index for previous frame (position-only for correspondence search)
     prevIndex := NewSpatialIndex(config.SearchRadius)
     prevIndex.Build(previousFrame)
     
@@ -246,12 +246,8 @@ func EstimatePointVelocities(
             searchY -= medianVY * dtSeconds
         }
         
-        // Find nearest neighbor in previous frame
-        candidates := prevIndex.RegionQuery6D(
-            searchX, searchY, curr.Z,
-            0, 0, 0, // No velocity constraint for initial search
-            config.SearchRadius,
-        )
+        // Find nearest neighbor in previous frame (3D position search)
+        candidates := prevIndex.RegionQuery(previousFrame, i, config.SearchRadius)
         
         if len(candidates) == 0 {
             result[i].VelocityConfidence = 0
@@ -711,7 +707,10 @@ func IsSparseTrackValid(
     }
     
     // Spatial spread must be reasonable
-    maxDim := max(cluster.BoundingBoxLength, cluster.BoundingBoxWidth)
+    maxDim := cluster.BoundingBoxLength
+    if cluster.BoundingBoxWidth > maxDim {
+        maxDim = cluster.BoundingBoxWidth
+    }
     if float64(maxDim) > config.MaxSpatialSpreadForSparse {
         return false, 0
     }
@@ -1130,8 +1129,8 @@ func (p *DualExtractionPipeline) ProcessFrame(
     bgWorld := TransformToWorld(bgForeground, pose, p.SensorID)
     bgClusters := DBSCAN(bgWorld, p.DBSCANParams)
     
-    // Path 2: Velocity-coherent extraction
-    worldPoints := TransformToWorld(polarPointsToPolar(polarPoints), pose, p.SensorID)
+    // Path 2: Velocity-coherent extraction (uses ALL points, not just background-filtered)
+    worldPoints := TransformToWorld(polarPoints, pose, p.SensorID)
     vcPoints := p.VelocityEstimator.EstimateVelocities(worldPoints, timestamp)
     vcClusters := DBSCAN6D(vcPoints, p.Clustering6DConfig)
     
@@ -1175,8 +1174,8 @@ type MergeRequest struct {
 ### Database Schema Extensions
 
 ```sql
--- Velocity-coherent clustering results
-CREATE TABLE IF NOT EXISTS lidar_velocity_clusters (
+-- Velocity-coherent clustering results (6D DBSCAN output)
+CREATE TABLE IF NOT EXISTS lidar_velocity_coherent_clusters (
     cluster_id INTEGER PRIMARY KEY,
     sensor_id TEXT NOT NULL,
     ts_unix_nanos INTEGER NOT NULL,
@@ -1222,7 +1221,7 @@ CREATE TABLE IF NOT EXISTS lidar_track_merges (
     interpolated_points INTEGER
 );
 
-CREATE INDEX idx_velocity_clusters_time ON lidar_velocity_clusters(ts_unix_nanos);
+CREATE INDEX idx_velocity_coherent_clusters_time ON lidar_velocity_coherent_clusters(ts_unix_nanos);
 CREATE INDEX idx_track_merges_result ON lidar_track_merges(result_track_id);
 ```
 
