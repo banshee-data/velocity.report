@@ -44,11 +44,6 @@ export interface RadarStatsResponse {
 	histogram?: Histogram;
 }
 
-export interface Config {
-	units: string;
-	timezone: string;
-}
-
 const API_BASE = '/api';
 
 export async function getEvents(units?: string, timezone?: string): Promise<Event[]> {
