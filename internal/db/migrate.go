@@ -298,6 +298,9 @@ func normalizeSQLForComparison(sql string) string {
 	// Normalize comma spacing - remove spaces before commas
 	sql = strings.ReplaceAll(sql, " ,", ",")
 
+	// Remove spaces immediately before closing parentheses to avoid noisy diffs
+	sql = strings.ReplaceAll(sql, " )", ")")
+
 	// Remove quotes from table names that SQLite adds during ALTER TABLE operations
 	// Pattern matches: "table_name" or 'table_name' and replaces with: table_name
 	quotedTablePattern := regexp.MustCompile(`["']([a-z_][a-z0-9_]*)["']`)
