@@ -74,7 +74,7 @@ func (f *ForegroundForwarder) Start(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
-				log.Printf("Foreground forwarder stopping (sent %d packets)", f.packetCount)
+				lidar.Debugf("Foreground forwarder stopping (sent %d packets)", f.packetCount)
 				return
 			case points := <-f.channel:
 				if len(points) == 0 {
@@ -86,7 +86,7 @@ func (f *ForegroundForwarder) Start(ctx context.Context) {
 				// Encode points as Pandar40P packets
 				packets, err := f.encodePointsAsPackets(points)
 				if err != nil {
-					log.Printf("Error encoding foreground points: %v", err)
+					lidar.Debugf("Error encoding foreground points: %v", err)
 					continue
 				}
 
@@ -94,14 +94,14 @@ func (f *ForegroundForwarder) Start(ctx context.Context) {
 				for _, packet := range packets {
 					_, err := f.conn.Write(packet)
 					if err != nil {
-						log.Printf("Error forwarding foreground packet: %v", err)
+						lidar.Debugf("Error forwarding foreground packet: %v", err)
 					} else {
 						f.packetCount++
 					}
 				}
 
 				if f.frameCount <= 5 || f.frameCount%100 == 0 {
-					log.Printf("[ForegroundForwarder] sent frame=%d packets=%d points=%d total_packets=%d dest=%s",
+					lidar.Debugf("[ForegroundForwarder] sent frame=%d packets=%d points=%d total_packets=%d dest=%s",
 						f.frameCount, len(packets), len(points), f.packetCount, f.address)
 				}
 			}
