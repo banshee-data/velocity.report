@@ -604,6 +604,7 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/persist", ws.handleLidarPersist)
 	mux.HandleFunc("/api/lidar/snapshot", ws.handleLidarSnapshot)
 	mux.HandleFunc("/api/lidar/snapshots", ws.handleLidarSnapshots)
+	mux.HandleFunc("/api/lidar/snapshots/cleanup", ws.handleSnapshotCleanup)
 	mux.HandleFunc("/api/lidar/export_snapshot", ws.handleExportSnapshotASC)
 	mux.HandleFunc("/api/lidar/export_next_frame", ws.handleExportNextFrameASC)
 	mux.HandleFunc("/api/lidar/export_frame_sequence", ws.handleExportFrameSequenceASC)
@@ -1866,6 +1867,82 @@ func (ws *WebServer) handleLidarSnapshots(w http.ResponseWriter, r *http.Request
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(summaries)
+}
+
+// handleSnapshotCleanup identifies or removes duplicate background snapshots
+// Query params:
+//   - sensor_id (required): sensor to check
+//   - remove (optional): if "true", actually delete duplicates
+//   - keep_newest (optional): if "true" (default), keep newest duplicate; if "false", keep oldest
+func (ws *WebServer) handleSnapshotCleanup(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodDelete {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+
+	if ws.db == nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, "no database configured")
+		return
+	}
+
+	remove := r.URL.Query().Get("remove") == "true" || r.Method == http.MethodDelete
+	keepNewest := r.URL.Query().Get("keep_newest") == "true" // default false (keep oldest)
+
+	// Find duplicates first (needed for both modes)
+	duplicates, err := ws.db.FindDuplicateBgSnapshots(sensorID)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("find duplicates: %v", err))
+		return
+	}
+
+	if remove {
+		// Collect all IDs to delete based on keep_newest setting
+		var toDelete []int64
+		for _, d := range duplicates {
+			if keepNewest {
+				// Delete all except the last (newest)
+				toDelete = append(toDelete, d.SnapshotIDs[:len(d.SnapshotIDs)-1]...)
+			} else {
+				// Default: delete all except the first (oldest) = DeleteIDs
+				toDelete = append(toDelete, d.DeleteIDs...)
+			}
+		}
+
+		deleted, err := ws.db.DeleteBgSnapshots(toDelete)
+		if err != nil {
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("delete duplicates: %v", err))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"action":        "delete",
+			"sensor_id":     sensorID,
+			"keep_newest":   keepNewest,
+			"deleted_count": deleted,
+		})
+		return
+	}
+
+	// Analysis mode: return duplicate info
+	totalDuplicates := 0
+	for _, d := range duplicates {
+		totalDuplicates += d.Count - 1 // -1 because we keep one
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"action":            "analyze",
+		"sensor_id":         sensorID,
+		"unique_hashes":     len(duplicates),
+		"duplicate_records": totalDuplicates,
+		"duplicates":        duplicates,
+	})
 }
 
 // handleHealth handles the health check endpoint
