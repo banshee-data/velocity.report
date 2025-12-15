@@ -162,6 +162,8 @@ func (f *ForegroundForwarder) encodePointsAsPackets(points []lidar.PointPolar) (
 
 		azBucketSize := 360.0 / float64(BLOCKS_PER_PACKET)
 		filledBlocks := 0
+		invalidChannelCount := 0
+		const azimuthEpsilon = 0.01 // Small tolerance for boundary comparisons
 
 		// Encode data blocks (10 blocks) using azimuth buckets rather than BlockID.
 		for blockIdx := 0; blockIdx < BLOCKS_PER_PACKET; blockIdx++ {
@@ -173,9 +175,21 @@ func (f *ForegroundForwarder) encodePointsAsPackets(points []lidar.PointPolar) (
 			maxAz := minAz + azBucketSize
 			bucket := make([]lidar.PointPolar, 0)
 			for _, p := range packetPoints {
+				// Normalize azimuth to [0, 360) range
 				az := math.Mod(p.Azimuth+360.0, 360.0)
-				if az >= minAz && az < maxAz {
-					bucket = append(bucket, p)
+				
+				// Handle wrap-around at 0°/360° boundary for last bucket
+				// Last bucket (9) covers [324°, 360°) but should also include [0°, epsilon)
+				if blockIdx == BLOCKS_PER_PACKET-1 {
+					// Special handling for bucket 9: include [324°, 360°) AND [0°, epsilon)
+					if (az >= minAz && az < 360.0) || (az >= 0.0 && az < azimuthEpsilon) {
+						bucket = append(bucket, p)
+					}
+				} else {
+					// Normal bucket: [minAz, maxAz) with small epsilon tolerance on upper bound
+					if az >= minAz && az < maxAz+azimuthEpsilon {
+						bucket = append(bucket, p)
+					}
 				}
 			}
 
@@ -195,15 +209,27 @@ func (f *ForegroundForwarder) encodePointsAsPackets(points []lidar.PointPolar) (
 				var distance uint16 = 0xFFFF
 				var intensity uint8 = 0
 				for _, p := range bucket {
+					// Validate channel range before matching
+					if p.Channel < 0 || p.Channel >= CHANNELS_PER_BLOCK {
+						invalidChannelCount++
+						continue // Skip invalid channels
+					}
+					
 					if p.Channel == ch {
 						d := p.Distance
 						switch {
 						case d <= 0:
 							distance = 0xFFFF
 						case d > MAX_DISTANCE_METERS:
-							distance = 0xFFFE
+							distance = 0xFFFE // Clamp to max representable distance
 						default:
-							distance = uint16(d * 500)
+							// Additional safety: ensure no overflow
+							distScaled := d * 500.0
+							if distScaled > 65534.0 {
+								distance = 0xFFFE
+							} else {
+								distance = uint16(distScaled)
+							}
 						}
 						intensity = p.Intensity
 						blockHasData = true
@@ -222,8 +248,18 @@ func (f *ForegroundForwarder) encodePointsAsPackets(points []lidar.PointPolar) (
 		}
 
 		emptyBlocks := BLOCKS_PER_PACKET - filledBlocks
-		if filledBlocks < 3 || emptyBlocks > BLOCKS_PER_PACKET/2 {
-			lidar.Debugf("[ForegroundForwarder] sparse packet (%d/%d blocks filled)", filledBlocks, BLOCKS_PER_PACKET)
+		
+		// Enhanced packet quality logging
+		if invalidChannelCount > 0 {
+			lidar.Debugf("[ForegroundForwarder] WARNING: %d invalid channel values (< 0 or >= 40) in packet", invalidChannelCount)
+		}
+		
+		if filledBlocks < 3 {
+			lidar.Debugf("[ForegroundForwarder] WARNING: Very sparse packet (%d/%d blocks filled, %d points) - may indicate encoding issue", 
+				filledBlocks, BLOCKS_PER_PACKET, len(packetPoints))
+		} else if emptyBlocks > BLOCKS_PER_PACKET/2 {
+			lidar.Debugf("[ForegroundForwarder] Sparse packet (%d/%d blocks filled, %d empty)", 
+				filledBlocks, BLOCKS_PER_PACKET, emptyBlocks)
 		}
 
 		// Encode tail (22 bytes at offset 1240)
