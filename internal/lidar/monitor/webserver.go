@@ -13,6 +13,7 @@ import (
 	"html"
 	"html/template"
 	"io"
+	"io/fs"
 	"log"
 	"math"
 	"net/http"
@@ -37,6 +38,11 @@ import (
 
 //go:embed status.html
 var StatusHTML embed.FS
+
+//go:embed assets/*
+var EchartsAssets embed.FS
+
+const echartsAssetsPrefix = "/assets/"
 
 type DataSource string
 
@@ -579,6 +585,11 @@ func (ws *WebServer) Start(ctx context.Context) error {
 
 // RegisterRoutes registers all Lidar monitor routes on the provided mux
 func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
+	assetsFS, err := fs.Sub(EchartsAssets, "assets")
+	if err != nil {
+		log.Printf("failed to prepare echarts assets: %v", err)
+	}
+
 	mux.HandleFunc("/health", ws.handleHealth)
 	mux.HandleFunc("/api/lidar/monitor", ws.handleStatus)
 	mux.HandleFunc("/api/lidar/status", ws.handleLidarStatus)
@@ -597,6 +608,9 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/grid_reset", ws.handleGridReset)
 	mux.HandleFunc("/api/lidar/grid_heatmap", ws.handleGridHeatmap)
 	mux.HandleFunc("/api/lidar/background/grid", ws.handleBackgroundGrid) // Full background grid
+	if assetsFS != nil {
+		mux.Handle(echartsAssetsPrefix, http.StripPrefix(echartsAssetsPrefix, http.FileServer(http.FS(assetsFS))))
+	}
 	mux.HandleFunc("/debug/lidar", ws.handleLidarDebugDashboard)
 	mux.HandleFunc("/debug/lidar/background/polar", ws.handleBackgroundGridPolar)
 	mux.HandleFunc("/debug/lidar/background/heatmap", ws.handleBackgroundGridHeatmapChart)
@@ -811,8 +825,7 @@ func (ws *WebServer) handleTrafficStats(w http.ResponseWriter, r *http.Request) 
 
 	snap := ws.stats.GetLatestSnapshot()
 	if snap == nil {
-		ws.writeJSONError(w, http.StatusNotFound, "no traffic snapshot yet")
-		return
+		snap = &StatsSnapshot{Timestamp: time.Now()}
 	}
 
 	uptime := ws.stats.GetUptime().Seconds()
@@ -1012,7 +1025,7 @@ func (ws *WebServer) handleBackgroundGridPolar(w http.ResponseWriter, r *http.Re
 	// Force a square plot by using equal width/height and symmetric axis ranges
 	scatter := charts.NewScatter()
 	scatter.SetGlobalOptions(
-		charts.WithInitializationOpts(opts.Initialization{PageTitle: "LiDAR Background (Polar->XY)", Theme: "dark", Width: "900px", Height: "900px"}),
+		charts.WithInitializationOpts(opts.Initialization{PageTitle: "LiDAR Background (Polar->XY)", Theme: "dark", Width: "900px", Height: "900px", AssetsHost: echartsAssetsPrefix}),
 		charts.WithTitleOpts(opts.Title{Title: "LiDAR Background Grid", Subtitle: fmt.Sprintf("sensor=%s points=%d stride=%d", sensorID, len(data), stride)}),
 		charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true)}),
 		charts.WithXAxisOpts(opts.XAxis{Min: -pad, Max: pad, Name: "X (m)", NameLocation: "middle", NameGap: 25}),
@@ -1055,7 +1068,7 @@ func (ws *WebServer) handleLidarDebugDashboard(w http.ResponseWriter, r *http.Re
 	doc := fmt.Sprintf(`<!DOCTYPE html>
 	<html>
 	<head>
-		<title>LiDAR Debug Dashboard - %s</title>
+		<title>LiDAR Debug Dashboard - %[1]s</title>
 		<style>
 			html, body { height: 100%%; }
 			body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 12px auto; max-width: 1800px; background: #f5f7fb; color: #0f172a; }
@@ -1070,17 +1083,17 @@ func (ws *WebServer) handleLidarDebugDashboard(w http.ResponseWriter, r *http.Re
 	</head>
 	<body>
 		<h1>LiDAR Debug Dashboard</h1>
-		<p>Sensor: %s</p>
+		<p>Sensor: %[1]s</p>
 		<div class="grid">
-			<div class="panel"><h2>Background Polar (XY)</h2><iframe src="/debug/lidar/background/polar%s" title="Background Polar"></iframe></div>
-			<div class="panel"><h2>Background Heatmap</h2><iframe src="/debug/lidar/background/heatmap%s" title="Background Heatmap"></iframe></div>
-			<div class="panel"><h2>Foreground Frame</h2><iframe src="/debug/lidar/foreground%s" title="Foreground Frame"></iframe></div>
-			<div class="panel"><h2>Traffic</h2><iframe src="/debug/lidar/traffic%s" title="Traffic"></iframe></div>
-			<div class="panel"><h2>Clusters</h2><iframe src="/debug/lidar/clusters%s" title="Clusters"></iframe></div>
-			<div class="panel"><h2>Tracks</h2><iframe src="/debug/lidar/tracks%s" title="Tracks"></iframe></div>
+			<div class="panel"><h2><a href="/debug/lidar/background/polar%[2]s" target="_blank" rel="noopener noreferrer">Background Polar (XY)</a></h2><iframe src="/debug/lidar/background/polar%[2]s" title="Background Polar"></iframe></div>
+			<div class="panel"><h2><a href="/debug/lidar/background/heatmap%[2]s" target="_blank" rel="noopener noreferrer">Background Heatmap</a></h2><iframe src="/debug/lidar/background/heatmap%[2]s" title="Background Heatmap"></iframe></div>
+			<div class="panel"><h2><a href="/debug/lidar/foreground%[2]s" target="_blank" rel="noopener noreferrer">Foreground Frame</a></h2><iframe src="/debug/lidar/foreground%[2]s" title="Foreground Frame"></iframe></div>
+			<div class="panel"><h2><a href="/debug/lidar/traffic%[2]s" target="_blank" rel="noopener noreferrer">Traffic</a></h2><iframe src="/debug/lidar/traffic%[2]s" title="Traffic"></iframe></div>
+			<div class="panel"><h2><a href="/debug/lidar/clusters%[2]s" target="_blank" rel="noopener noreferrer">Clusters</a></h2><iframe src="/debug/lidar/clusters%[2]s" title="Clusters"></iframe></div>
+			<div class="panel"><h2><a href="/debug/lidar/tracks%[2]s" target="_blank" rel="noopener noreferrer">Tracks</a></h2><iframe src="/debug/lidar/tracks%[2]s" title="Tracks"></iframe></div>
 		</div>
 	</body>
-	</html>`, safeSensorID, safeSensorID, safeQs, safeQs, safeQs, safeQs, safeQs)
+	</html>`, safeSensorID, safeQs)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(doc))
@@ -1095,8 +1108,7 @@ func (ws *WebServer) handleTrafficChart(w http.ResponseWriter, r *http.Request) 
 
 	snap := ws.stats.GetLatestSnapshot()
 	if snap == nil {
-		ws.writeJSONError(w, http.StatusNotFound, "no traffic snapshot yet")
-		return
+		snap = &StatsSnapshot{Timestamp: time.Now()}
 	}
 
 	x := []string{"Packets/s", "MB/s", "Points/s", "Dropped (recent)"}
@@ -1109,7 +1121,7 @@ func (ws *WebServer) handleTrafficChart(w http.ResponseWriter, r *http.Request) 
 
 	bar := charts.NewBar()
 	bar.SetGlobalOptions(
-		charts.WithInitializationOpts(opts.Initialization{Width: "100%", Height: "720px"}),
+		charts.WithInitializationOpts(opts.Initialization{Width: "100%", Height: "720px", AssetsHost: echartsAssetsPrefix}),
 		charts.WithTitleOpts(opts.Title{Title: "LiDAR Traffic", Subtitle: snap.Timestamp.Format(time.RFC3339)}),
 		charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true)}),
 	)
@@ -1119,6 +1131,7 @@ func (ws *WebServer) handleTrafficChart(w http.ResponseWriter, r *http.Request) 
 		)
 
 	page := components.NewPage()
+	page.SetAssetsHost(echartsAssetsPrefix)
 	page.AddCharts(bar)
 
 	var buf bytes.Buffer
@@ -1222,7 +1235,7 @@ func (ws *WebServer) handleBackgroundGridHeatmapChart(w http.ResponseWriter, r *
 
 	scatter := charts.NewScatter()
 	scatter.SetGlobalOptions(
-		charts.WithInitializationOpts(opts.Initialization{PageTitle: "LiDAR Background Heatmap", Theme: "dark", Width: "900px", Height: "900px"}),
+		charts.WithInitializationOpts(opts.Initialization{PageTitle: "LiDAR Background Heatmap", Theme: "dark", Width: "900px", Height: "900px", AssetsHost: echartsAssetsPrefix}),
 		charts.WithTitleOpts(opts.Title{Title: "LiDAR Background Heatmap", Subtitle: fmt.Sprintf("sensor=%s buckets=%d az=%g", sensorID, len(points), azBucketDeg)}),
 		charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true)}),
 		charts.WithXAxisOpts(opts.XAxis{Min: -pad, Max: pad, Name: "X (m)", NameLocation: "middle", NameGap: 25}),
@@ -1316,7 +1329,7 @@ func (ws *WebServer) handleClustersChart(w http.ResponseWriter, r *http.Request)
 
 	scatter := charts.NewScatter()
 	scatter.SetGlobalOptions(
-		charts.WithInitializationOpts(opts.Initialization{PageTitle: "LiDAR Clusters", Theme: "dark", Width: "900px", Height: "900px"}),
+		charts.WithInitializationOpts(opts.Initialization{PageTitle: "LiDAR Clusters", Theme: "dark", Width: "900px", Height: "900px", AssetsHost: echartsAssetsPrefix}),
 		charts.WithTitleOpts(opts.Title{Title: "Recent Clusters", Subtitle: fmt.Sprintf("sensor=%s count=%d", sensorID, len(pts))}),
 		charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true)}),
 		charts.WithXAxisOpts(opts.XAxis{Min: -pad, Max: pad, Name: "X (m)", NameLocation: "middle", NameGap: 25}),
@@ -1386,7 +1399,7 @@ func (ws *WebServer) handleTracksChart(w http.ResponseWriter, r *http.Request) {
 
 	scatter := charts.NewScatter()
 	scatter.SetGlobalOptions(
-		charts.WithInitializationOpts(opts.Initialization{PageTitle: "LiDAR Tracks", Theme: "dark", Width: "900px", Height: "900px"}),
+		charts.WithInitializationOpts(opts.Initialization{PageTitle: "LiDAR Tracks", Theme: "dark", Width: "900px", Height: "900px", AssetsHost: echartsAssetsPrefix}),
 		charts.WithTitleOpts(opts.Title{Title: "Active Tracks", Subtitle: fmt.Sprintf("sensor=%s count=%d", sensorID, len(pts))}),
 		charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true)}),
 		charts.WithXAxisOpts(opts.XAxis{Min: -pad, Max: pad, Name: "X (m)", NameLocation: "middle", NameGap: 25}),
@@ -1475,7 +1488,7 @@ func (ws *WebServer) handleForegroundFrameChart(w http.ResponseWriter, r *http.R
 
 	scatter := charts.NewScatter()
 	scatter.SetGlobalOptions(
-		charts.WithInitializationOpts(opts.Initialization{PageTitle: "LiDAR Foreground Frame", Theme: "dark", Width: "900px", Height: "900px"}),
+		charts.WithInitializationOpts(opts.Initialization{PageTitle: "LiDAR Foreground Frame", Theme: "dark", Width: "900px", Height: "900px", AssetsHost: echartsAssetsPrefix}),
 		charts.WithTitleOpts(opts.Title{Title: "Foreground vs Background", Subtitle: subtitle}),
 		charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true)}),
 		charts.WithLegendOpts(opts.Legend{Show: opts.Bool(true)}),
