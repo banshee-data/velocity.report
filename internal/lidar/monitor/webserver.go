@@ -401,6 +401,14 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 			}()
 		}
 
+		// Start the packet forwarder for PCAP replay.
+		// The forwarder was stopped when the live UDP listener was stopped,
+		// so we need to restart it with the PCAP context to forward packets.
+		if ws.packetForwarder != nil {
+			ws.packetForwarder.Start(ctx)
+			log.Printf("PacketForwarder started for PCAP replay")
+		}
+
 		var err error
 		if speedMode == "fastest" {
 			err = network.ReadPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, ws.packetForwarder)
