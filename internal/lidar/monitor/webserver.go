@@ -825,8 +825,7 @@ func (ws *WebServer) handleTrafficStats(w http.ResponseWriter, r *http.Request) 
 
 	snap := ws.stats.GetLatestSnapshot()
 	if snap == nil {
-		ws.writeJSONError(w, http.StatusNotFound, "no traffic snapshot yet")
-		return
+		snap = &StatsSnapshot{Timestamp: time.Now()}
 	}
 
 	uptime := ws.stats.GetUptime().Seconds()
@@ -1109,8 +1108,7 @@ func (ws *WebServer) handleTrafficChart(w http.ResponseWriter, r *http.Request) 
 
 	snap := ws.stats.GetLatestSnapshot()
 	if snap == nil {
-		ws.writeJSONError(w, http.StatusNotFound, "no traffic snapshot yet")
-		return
+		snap = &StatsSnapshot{Timestamp: time.Now()}
 	}
 
 	x := []string{"Packets/s", "MB/s", "Points/s", "Dropped (recent)"}
