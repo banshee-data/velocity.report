@@ -1069,7 +1069,7 @@ func (ws *WebServer) handleLidarDebugDashboard(w http.ResponseWriter, r *http.Re
 	doc := fmt.Sprintf(`<!DOCTYPE html>
 	<html>
 	<head>
-		<title>LiDAR Debug Dashboard - %s</title>
+		<title>LiDAR Debug Dashboard - %[1]s</title>
 		<style>
 			html, body { height: 100%%; }
 			body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 12px auto; max-width: 1800px; background: #f5f7fb; color: #0f172a; }
@@ -1084,17 +1084,17 @@ func (ws *WebServer) handleLidarDebugDashboard(w http.ResponseWriter, r *http.Re
 	</head>
 	<body>
 		<h1>LiDAR Debug Dashboard</h1>
-		<p>Sensor: %s</p>
+		<p>Sensor: %[1]s</p>
 		<div class="grid">
-			<div class="panel"><h2>Background Polar (XY)</h2><iframe src="/debug/lidar/background/polar%s" title="Background Polar"></iframe></div>
-			<div class="panel"><h2>Background Heatmap</h2><iframe src="/debug/lidar/background/heatmap%s" title="Background Heatmap"></iframe></div>
-			<div class="panel"><h2>Foreground Frame</h2><iframe src="/debug/lidar/foreground%s" title="Foreground Frame"></iframe></div>
-			<div class="panel"><h2>Traffic</h2><iframe src="/debug/lidar/traffic%s" title="Traffic"></iframe></div>
-			<div class="panel"><h2>Clusters</h2><iframe src="/debug/lidar/clusters%s" title="Clusters"></iframe></div>
-			<div class="panel"><h2>Tracks</h2><iframe src="/debug/lidar/tracks%s" title="Tracks"></iframe></div>
+			<div class="panel"><h2><a href="/debug/lidar/background/polar%[2]s" target="_blank" rel="noopener noreferrer">Background Polar (XY)</a></h2><iframe src="/debug/lidar/background/polar%[2]s" title="Background Polar"></iframe></div>
+			<div class="panel"><h2><a href="/debug/lidar/background/heatmap%[2]s" target="_blank" rel="noopener noreferrer">Background Heatmap</a></h2><iframe src="/debug/lidar/background/heatmap%[2]s" title="Background Heatmap"></iframe></div>
+			<div class="panel"><h2><a href="/debug/lidar/foreground%[2]s" target="_blank" rel="noopener noreferrer">Foreground Frame</a></h2><iframe src="/debug/lidar/foreground%[2]s" title="Foreground Frame"></iframe></div>
+			<div class="panel"><h2><a href="/debug/lidar/traffic%[2]s" target="_blank" rel="noopener noreferrer">Traffic</a></h2><iframe src="/debug/lidar/traffic%[2]s" title="Traffic"></iframe></div>
+			<div class="panel"><h2><a href="/debug/lidar/clusters%[2]s" target="_blank" rel="noopener noreferrer">Clusters</a></h2><iframe src="/debug/lidar/clusters%[2]s" title="Clusters"></iframe></div>
+			<div class="panel"><h2><a href="/debug/lidar/tracks%[2]s" target="_blank" rel="noopener noreferrer">Tracks</a></h2><iframe src="/debug/lidar/tracks%[2]s" title="Tracks"></iframe></div>
 		</div>
 	</body>
-	</html>`, safeSensorID, safeSensorID, safeQs, safeQs, safeQs, safeQs, safeQs)
+	</html>`, safeSensorID, safeQs)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(doc))
