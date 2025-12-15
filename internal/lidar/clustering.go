@@ -382,10 +382,13 @@ func computeClusterMetrics(points []WorldPoint, clusterID int64) WorldCluster {
 	width := float32(maxY - minY)
 	height := float32(maxZ - minZ)
 
-	// Cluster density: points per cubic meter
+	// Cluster density: points per cubic meter (use minimum volume threshold for degenerate clusters)
 	volume := length * width * height
+	const minVolume = 1e-4 // cubic meters, adjust as appropriate
 	var density float32
-	if volume > 0 {
+	if volume < minVolume {
+		density = float32(len(points)) / minVolume
+	} else {
 		density = float32(len(points)) / volume
 	}
 
