@@ -101,6 +101,19 @@ This document serves as the single source of truth for the ongoing investigation
 
 ## 3. Future Enhancements (Roadmap)
 
+### Alternative Algorithm: Velocity-Coherent Foreground Extraction
+
+**Design Document:** [velocity-coherent-foreground-extraction.md](velocity-coherent-foreground-extraction.md)
+
+A new approach to address the limitations of background-subtraction:
+
+- **Velocity-based clustering**: Associate points by kinematic coherence (6D DBSCAN)
+- **Long-tail tracking**: Capture pre-entry and post-exit phases via velocity prediction
+- **Sparse continuation**: Maintain track identity with as few as 3 points
+- **Track merging**: Reconnect fragments split by occlusion or parameter sensitivity
+
+**Key Innovation:** Reduce MinPts from 12 to 3 by using velocity coherence as confirmation signal, matching human visual perception capability.
+
 ### Phase 2: Training Data Preparation
 
 - **Track Quality Metrics:** Add `OcclusionCount`, `SpatialCoverage`, `NoisePointRatio` to `TrackedObject`.
