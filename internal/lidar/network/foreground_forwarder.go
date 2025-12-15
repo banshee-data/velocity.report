@@ -214,13 +214,14 @@ func (f *ForegroundForwarder) encodePointsAsPackets(points []lidar.PointPolar) (
 				var distance uint16 = 0xFFFF
 				var intensity uint8 = 0
 				for _, p := range bucket {
-					// Validate channel range before matching
-					if p.Channel < 0 || p.Channel >= CHANNELS_PER_BLOCK {
+					// Validate channel range: p.Channel is 1-based (1-40)
+					if p.Channel < 1 || p.Channel > CHANNELS_PER_BLOCK {
 						invalidChannelCount++
 						continue // Skip invalid channels
 					}
 
-					if p.Channel == ch {
+					// Match 1-based Channel to 0-based loop index
+					if p.Channel == ch+1 {
 						d := p.Distance
 						switch {
 						case d <= 0:
