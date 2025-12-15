@@ -629,19 +629,15 @@ func (track *TrackedObject) ComputeQualityMetrics() {
 	track.MaxOcclusionFrames = 0
 
 	if len(track.History) > 1 {
-		currentGapFrames := 0
 		for i := 1; i < len(track.History); i++ {
 			gap := track.History[i].Timestamp - track.History[i-1].Timestamp
 			if gap > occlusionThresholdNanos {
 				track.OcclusionCount++
 				// Estimate frames at 10Hz
 				gapFrames := int(gap / 100_000_000) // 100ms per frame
-				currentGapFrames += gapFrames
-				if currentGapFrames > track.MaxOcclusionFrames {
-					track.MaxOcclusionFrames = currentGapFrames
+				if gapFrames > track.MaxOcclusionFrames {
+					track.MaxOcclusionFrames = gapFrames
 				}
-			} else {
-				currentGapFrames = 0
 			}
 		}
 	}
