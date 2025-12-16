@@ -51,15 +51,18 @@ var (
 
 // Lidar options (when enabling lidar via -enable-lidar)
 var (
-	enableLidar  = flag.Bool("enable-lidar", false, "Enable lidar components inside this radar binary")
-	lidarListen  = flag.String("lidar-listen", ":8081", "HTTP listen address for lidar monitor (when enabled)")
-	lidarUDPPort = flag.Int("lidar-udp-port", 2369, "UDP port to listen for lidar packets")
-	lidarNoParse = flag.Bool("lidar-no-parse", false, "Disable lidar packet parsing when lidar is enabled")
-	lidarSensor  = flag.String("lidar-sensor", "hesai-pandar40p", "Sensor name identifier for lidar background manager")
-	lidarForward = flag.Bool("lidar-forward", false, "Forward lidar UDP packets to another port")
-	lidarFwdPort = flag.Int("lidar-forward-port", 2368, "Port to forward lidar UDP packets to")
-	lidarFwdAddr = flag.String("lidar-forward-addr", "localhost", "Address to forward lidar UDP packets to")
-	lidarPCAPDir = flag.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
+	enableLidar    = flag.Bool("enable-lidar", false, "Enable lidar components inside this radar binary")
+	lidarListen    = flag.String("lidar-listen", ":8081", "HTTP listen address for lidar monitor (when enabled)")
+	lidarUDPPort   = flag.Int("lidar-udp-port", 2369, "UDP port to listen for lidar packets")
+	lidarNoParse   = flag.Bool("lidar-no-parse", false, "Disable lidar packet parsing when lidar is enabled")
+	lidarSensor    = flag.String("lidar-sensor", "hesai-pandar40p", "Sensor name identifier for lidar background manager")
+	lidarForward   = flag.Bool("lidar-forward", false, "Forward lidar UDP packets to another port")
+	lidarFwdPort   = flag.Int("lidar-forward-port", 2368, "Port to forward lidar UDP packets to")
+	lidarFwdAddr   = flag.String("lidar-forward-addr", "localhost", "Address to forward lidar UDP packets to")
+	lidarFGForward = flag.Bool("lidar-foreground-forward", false, "Forward foreground-only LiDAR packets to a separate port (e.g., 2370)")
+	lidarFGFwdPort = flag.Int("lidar-foreground-forward-port", 2370, "Port to forward foreground LiDAR packets to")
+	lidarFGFwdAddr = flag.String("lidar-foreground-forward-addr", "localhost", "Address to forward foreground LiDAR packets to")
+	lidarPCAPDir   = flag.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
 	// Background tuning knobs
 	lidarBgFlushInterval = flag.Duration("lidar-bg-flush-interval", 60*time.Second, "Interval to flush background grid to database when reading PCAP")
 	lidarBgNoiseRelative = flag.Float64("lidar-bg-noise-relative", 0.315, "Background NoiseRelativeFraction: fraction of range treated as expected measurement noise (e.g., 0.01 = 1%)")
@@ -127,12 +130,12 @@ func main() {
 		}
 		if subcommand == "migrate" {
 			// Re-parse flags after "migrate" subcommand to allow:
-			//   velocity-report migrate up --db-path /custom.db
+			//   velocity-report migrate --db-path /custom.db up
 			// or:
 			//   velocity-report --db-path /custom.db migrate up
 			//
-			// flag.Parse() stops at first non-flag arg, so flags after "migrate"
-			// weren't parsed. Create new FlagSet to parse remaining args.
+			// Note: flags must come BEFORE the action (up/down/status) because
+			// Go's flag.Parse() stops at the first non-flag argument.
 			migrateFlags := flag.NewFlagSet("migrate", flag.ExitOnError)
 			migrateDBPath := migrateFlags.String("db-path", *dbPathFlag, "path to sqlite DB file")
 
@@ -215,6 +218,7 @@ func main() {
 
 	// Lidar webserver instance (if enabled)
 	var lidarWebServer *monitor.WebServer
+	var fgForwarder *network.ForegroundForwarder
 
 	// Optionally initialize lidar components inside this binary
 	if *enableLidar {
@@ -279,8 +283,6 @@ func main() {
 		// Lidar parser and frame builder (optional)
 		var parser *parse.Pandar40PParser
 		var frameBuilder *lidar.FrameBuilder
-		var tracker *lidar.Tracker
-		var vcTracker *lidar.VelocityCoherentTracker
 		var dualPipeline *lidar.DualExtractionPipeline
 		var classifier *lidar.TrackClassifier
 
@@ -296,11 +298,8 @@ func main() {
 			parser.SetDebug(*debugMode)
 			parse.ConfigureTimestampMode(parser)
 
-			// Initialize tracking components
-			tracker = lidar.NewTracker(lidar.DefaultTrackerConfig())
-			vcTracker = lidar.NewVelocityCoherentTracker(lidar.DefaultVelocityCoherentTrackerConfig())
+			// Initialize classifier for track classification
 			classifier = lidar.NewTrackClassifier()
-			log.Printf("Tracker and classifier initialized for sensor %s", *lidarSensor)
 
 			// Initialize DualExtractionPipeline for algorithm hot-switching
 			selectedAlgorithm := lidar.AlgorithmBackgroundSubtraction
@@ -412,28 +411,60 @@ func main() {
 						return
 					}
 
+					// Forward foreground points on 2370-style stream if configured
+					// Only forward when using background subtraction or dual mode
+					if fgForwarder != nil {
+						shouldForward := true
+						if dualPipeline != nil {
+							alg := dualPipeline.GetActiveAlgorithm()
+							// Only forward BS foreground points when BS is active (BS or Dual mode)
+							shouldForward = (alg == lidar.AlgorithmBackgroundSubtraction || alg == lidar.AlgorithmDual)
+						}
+						if shouldForward {
+							fgForwarder.ForwardForeground(foregroundPoints)
+						}
+					}
+
 					// Always log foreground extraction for tracking debugging
 					lidar.Debugf("[Tracking] Extracted %d foreground points from %d total", len(foregroundPoints), len(polar))
 
 					// Phase 2: Transform to world coordinates
 					worldPoints := lidar.TransformToWorld(foregroundPoints, nil, *lidarSensor)
 
-					// Phase 3: Clustering
-					clusters := lidar.DBSCAN(worldPoints, lidar.DefaultDBSCANParams())
-					if len(clusters) == 0 {
-						return
+					// Phase 3: Clustering (runtime-tunable via background params)
+					dbscanParams := lidar.DefaultDBSCANParams()
+					if backgroundManager != nil {
+						p := backgroundManager.GetParams()
+						if p.ForegroundMinClusterPoints > 0 {
+							dbscanParams.MinPts = p.ForegroundMinClusterPoints
+						}
+						if p.ForegroundDBSCANEps > 0 {
+							dbscanParams.Eps = float64(p.ForegroundDBSCANEps)
+						}
 					}
+					clusters := lidar.DBSCAN(worldPoints, dbscanParams)
 
 					// Always log clustering for tracking debugging
 					lidar.Debugf("[Tracking] Clustered into %d objects", len(clusters))
 
-					// Phase 4: Track update
-					if tracker != nil {
-						tracker.Update(clusters, frame.StartTimestamp)
+					// Phase 4: Track update - use DualPipeline for algorithm-aware processing
+					if dualPipeline != nil {
+						// Process through dual pipeline which handles algorithm selection
+						dualPipeline.ProcessFrame(worldPoints, clusters, frame.StartTimestamp, *lidarSensor)
 
-						// Phase 5: Classify and persist confirmed tracks
-						confirmedTracks := tracker.GetConfirmedTracks()
-						lidar.Debugf("[Tracking] %d confirmed tracks to persist", len(confirmedTracks))
+						// Get confirmed tracks from the appropriate tracker based on algorithm
+						alg := dualPipeline.GetActiveAlgorithm()
+						var confirmedTracks []*lidar.TrackedObject
+
+						if alg == lidar.AlgorithmBackgroundSubtraction || alg == lidar.AlgorithmDual {
+							// Get BS tracks
+							bgTracker := dualPipeline.GetBGTracker()
+							if bgTracker != nil {
+								confirmedTracks = bgTracker.GetConfirmedTracks()
+							}
+						}
+
+						lidar.Debugf("[Tracking] %d confirmed tracks to persist (alg=%s)", len(confirmedTracks), alg)
 
 						for _, track := range confirmedTracks {
 							// Classify if not already classified and has enough observations
@@ -499,6 +530,19 @@ func main() {
 			}
 		}
 
+		// Optional foreground-only forwarder (Pandar40-compatible) for live mode
+		if *lidarFGForward {
+			fg, err := network.NewForegroundForwarder(*lidarFGFwdAddr, *lidarFGFwdPort, nil)
+			if err != nil {
+				log.Printf("failed to create foreground forwarder: %v", err)
+			} else {
+				fgForwarder = fg
+				fgForwarder.Start(ctx)
+				defer fgForwarder.Close()
+				log.Printf("Foreground forwarder enabled to %s:%d", *lidarFGFwdAddr, *lidarFGFwdPort)
+			}
+		}
+
 		// Packet forwarding (optional)
 		var packetForwarder *network.PacketForwarder
 		// Create a PacketStats instance and wire it into the forwarder, listener and webserver
@@ -550,7 +594,9 @@ func main() {
 		// Wire DualExtractionPipeline and VelocityCoherentTracker to AlgorithmAPI for hot-switching
 		if algorithmAPI := lidarWebServer.GetAlgorithmAPI(); algorithmAPI != nil {
 			algorithmAPI.SetPipeline(dualPipeline)
-			algorithmAPI.SetVCTracker(vcTracker)
+			if dualPipeline != nil {
+				algorithmAPI.SetVCTracker(dualPipeline.GetVCTracker())
+			}
 			log.Printf("AlgorithmAPI wired with DualExtractionPipeline for hot-reload")
 		}
 
