@@ -102,6 +102,9 @@ type WebServer struct {
 	// Track API for tracking endpoints
 	trackAPI *TrackAPI
 
+	// Algorithm API for tracking algorithm selection
+	algorithmAPI *AlgorithmAPI
+
 	// latestFgCounts holds counts from the most recent foreground snapshot for status UI.
 	fgCountsMu     sync.RWMutex
 	latestFgCounts map[string]int
@@ -169,6 +172,7 @@ func NewWebServer(config WebServerConfig) *WebServer {
 	// Initialize TrackAPI if database is configured
 	if config.DB != nil {
 		ws.trackAPI = NewTrackAPI(config.DB.DB, config.SensorID)
+		ws.algorithmAPI = NewAlgorithmAPI(config.DB.DB, config.SensorID)
 	}
 
 	ws.server = &http.Server{
@@ -177,6 +181,11 @@ func NewWebServer(config WebServerConfig) *WebServer {
 	}
 
 	return ws
+}
+
+// GetAlgorithmAPI returns the algorithm API for external configuration.
+func (ws *WebServer) GetAlgorithmAPI() *AlgorithmAPI {
+	return ws.algorithmAPI
 }
 
 func (ws *WebServer) setBaseContext(ctx context.Context) {
@@ -635,6 +644,11 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	// Register track API routes if available
 	if ws.trackAPI != nil {
 		ws.trackAPI.RegisterRoutes(mux)
+	}
+
+	// Register algorithm API routes if available
+	if ws.algorithmAPI != nil {
+		ws.algorithmAPI.RegisterRoutes(mux)
 	}
 }
 
@@ -2078,39 +2092,48 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get current tracking algorithm
+	trackingAlgorithm := "background_subtraction"
+	if ws.algorithmAPI != nil && ws.algorithmAPI.pipeline != nil {
+		config := ws.algorithmAPI.pipeline.GetConfig()
+		trackingAlgorithm = string(config.ActiveAlgorithm)
+	}
+
 	// Template data
 	data := struct {
-		UDPPort          int
-		HTTPAddress      string
-		ForwardingStatus string
-		ParsingStatus    string
-		Mode             string
-		PCAPSafeDir      string
-		Uptime           string
-		Stats            *StatsSnapshot
-		SensorID         string
-		BGParams         *lidar.BackgroundParams
-		PCAPFile         string
-		PCAPInProgress   bool
-		PCAPSpeedMode    string
-		PCAPSpeedRatio   float64
-		FgSnapshotCounts map[string]int
+		UDPPort           int
+		HTTPAddress       string
+		ForwardingStatus  string
+		ParsingStatus     string
+		Mode              string
+		PCAPSafeDir       string
+		Uptime            string
+		Stats             *StatsSnapshot
+		SensorID          string
+		BGParams          *lidar.BackgroundParams
+		PCAPFile          string
+		PCAPInProgress    bool
+		PCAPSpeedMode     string
+		PCAPSpeedRatio    float64
+		FgSnapshotCounts  map[string]int
+		TrackingAlgorithm string
 	}{
-		UDPPort:          ws.udpPort,
-		HTTPAddress:      ws.address,
-		ForwardingStatus: forwardingStatus,
-		ParsingStatus:    parsingStatus,
-		Mode:             mode,
-		PCAPSafeDir:      ws.pcapSafeDir,
-		Uptime:           ws.stats.GetUptime().Round(time.Second).String(),
-		Stats:            ws.stats.GetLatestSnapshot(),
-		SensorID:         ws.sensorID,
-		BGParams:         bgParams,
-		PCAPFile:         currentPCAPFile,
-		PCAPInProgress:   pcapInProgress,
-		PCAPSpeedMode:    pcapSpeedMode,
-		PCAPSpeedRatio:   pcapSpeedRatio,
-		FgSnapshotCounts: ws.getLatestFgCounts(),
+		UDPPort:           ws.udpPort,
+		HTTPAddress:       ws.address,
+		ForwardingStatus:  forwardingStatus,
+		ParsingStatus:     parsingStatus,
+		Mode:              mode,
+		PCAPSafeDir:       ws.pcapSafeDir,
+		Uptime:            ws.stats.GetUptime().Round(time.Second).String(),
+		Stats:             ws.stats.GetLatestSnapshot(),
+		SensorID:          ws.sensorID,
+		BGParams:          bgParams,
+		PCAPFile:          currentPCAPFile,
+		PCAPInProgress:    pcapInProgress,
+		PCAPSpeedMode:     pcapSpeedMode,
+		PCAPSpeedRatio:    pcapSpeedRatio,
+		FgSnapshotCounts:  ws.getLatestFgCounts(),
+		TrackingAlgorithm: trackingAlgorithm,
 	}
 
 	if err := tmpl.Execute(w, data); err != nil {
