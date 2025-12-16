@@ -73,6 +73,8 @@ var (
 	// Default: true in this branch to re-enable the dev-friendly behavior; can be
 	// disabled via CLI when running in production if desired.
 	lidarSeedFromFirst = flag.Bool("lidar-seed-from-first", true, "Seed background cells from first observation (dev/pcap helper)")
+	// Tracking algorithm selection
+	lidarTrackingAlgorithm = flag.String("lidar-tracking-algorithm", "background_subtraction", "Tracking algorithm: 'background_subtraction', 'velocity_coherent', or 'dual'")
 )
 
 // Transit worker options (compute radar_data -> radar_data_transits)
@@ -282,6 +284,8 @@ func main() {
 		var parser *parse.Pandar40PParser
 		var frameBuilder *lidar.FrameBuilder
 		var tracker *lidar.Tracker
+		var vcTracker *lidar.VelocityCoherentTracker
+		var dualPipeline *lidar.DualExtractionPipeline
 		var classifier *lidar.TrackClassifier
 
 		if !*lidarNoParse {
@@ -298,8 +302,26 @@ func main() {
 
 			// Initialize tracking components
 			tracker = lidar.NewTracker(lidar.DefaultTrackerConfig())
+			vcTracker = lidar.NewVelocityCoherentTracker(lidar.DefaultVelocityCoherentTrackerConfig())
 			classifier = lidar.NewTrackClassifier()
 			log.Printf("Tracker and classifier initialized for sensor %s", *lidarSensor)
+
+			// Initialize DualExtractionPipeline for algorithm hot-switching
+			selectedAlgorithm := lidar.AlgorithmBackgroundSubtraction
+			switch *lidarTrackingAlgorithm {
+			case "velocity_coherent":
+				selectedAlgorithm = lidar.AlgorithmVelocityCoherent
+			case "dual":
+				selectedAlgorithm = lidar.AlgorithmDual
+			case "background_subtraction":
+				selectedAlgorithm = lidar.AlgorithmBackgroundSubtraction
+			default:
+				log.Printf("Unknown tracking algorithm '%s', defaulting to background_subtraction", *lidarTrackingAlgorithm)
+			}
+			pipelineConfig := lidar.DefaultDualPipelineConfig()
+			pipelineConfig.ActiveAlgorithm = selectedAlgorithm
+			dualPipeline = lidar.NewDualExtractionPipeline(pipelineConfig)
+			log.Printf("DualExtractionPipeline initialized with algorithm: %s", *lidarTrackingAlgorithm)
 
 			// Wire per-ring elevation corrections from parser config into BackgroundManager
 			// This ensures background ASC exports use the same per-channel elevations as frames.
@@ -556,6 +578,14 @@ func main() {
 			PacketForwarder:   packetForwarder,
 			UDPListenerConfig: udpListenerConfig,
 		})
+
+		// Wire DualExtractionPipeline and VelocityCoherentTracker to AlgorithmAPI for hot-switching
+		if algorithmAPI := lidarWebServer.GetAlgorithmAPI(); algorithmAPI != nil {
+			algorithmAPI.SetPipeline(dualPipeline)
+			algorithmAPI.SetVCTracker(vcTracker)
+			log.Printf("AlgorithmAPI wired with DualExtractionPipeline for hot-reload")
+		}
+
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
