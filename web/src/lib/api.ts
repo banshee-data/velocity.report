@@ -463,6 +463,20 @@ export async function getBackgroundGrid(sensorId: string): Promise<BackgroundGri
 	return res.json();
 }
 
+interface VCTrackRaw {
+	track_id: string;
+	sensor_id: string;
+	state: string;
+	x: number;
+	y: number;
+	vx: number;
+	vy: number;
+	speed_mps: number;
+	object_class?: 'pedestrian' | 'car' | 'bird' | 'other';
+	object_confidence?: number;
+	observation_count: number;
+}
+
 /**
  * Get velocity-coherent tracks (6D clustering algorithm)
  * @param sensorId - Sensor identifier
@@ -474,12 +488,12 @@ export async function getVCTracks(sensorId: string): Promise<Track[]> {
 	if (!res.ok) throw new Error(`Failed to fetch VC tracks: ${res.status}`);
 	const data = await res.json();
 	// API returns { tracks: [...], track_count: N }
-	const rawTracks = data.tracks || [];
+	const rawTracks: VCTrackRaw[] = data.tracks || [];
 	// Convert VC track format to standard Track format
-	return rawTracks.map((t: any) => ({
+	return rawTracks.map((t) => ({
 		track_id: t.track_id,
 		sensor_id: t.sensor_id,
-		state: t.state,
+		state: t.state as 'tentative' | 'confirmed' | 'deleted',
 		position: { x: t.x, y: t.y, z: 0 },
 		velocity: { vx: t.vx, vy: t.vy },
 		speed_mps: t.speed_mps,
