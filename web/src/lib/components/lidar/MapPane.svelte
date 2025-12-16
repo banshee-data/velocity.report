@@ -13,6 +13,7 @@
 	const CROSSHAIR_SIZE = 12; // pixels
 
 	export let tracks: Track[] = [];
+	export let vcTracks: Track[] = []; // Velocity-coherent tracks
 	export let selectedTrackId: string | null = null;
 	export let backgroundGrid: BackgroundGrid | null = null;
 	export let onTrackSelect: (trackId: string) => void = () => {};
@@ -29,6 +30,7 @@
 	let showMouseCoords = true;
 	let showQualityOverlay = true; // Phase 1: Show track quality visualization
 	let showOcclusionMarkers = true; // Phase 1: Show occlusion gaps
+	let showVCTracks = true; // Show velocity-coherent tracks
 
 	let canvas: HTMLCanvasElement;
 	let ctx: CanvasRenderingContext2D | null = null;
@@ -83,6 +85,7 @@
 	// Mark as dirty when props change
 	$: if (
 		tracks ||
+		vcTracks ||
 		selectedTrackId ||
 		backgroundGrid ||
 		observations ||
@@ -163,8 +166,15 @@
 		// }
 
 		tracks.forEach((track) => {
-			renderTrack(track, track.track_id === selectedTrackId);
+			renderTrack(track, track.track_id === selectedTrackId, false);
 		});
+
+		// Render VC tracks with different visual style
+		if (showVCTracks && vcTracks.length > 0) {
+			vcTracks.forEach((track) => {
+				renderTrack(track, track.track_id === selectedTrackId, true);
+			});
+		}
 
 		// Foreground observation layer (time-window slice)
 		if (foregroundEnabled && foreground.length > 0) {
@@ -356,14 +366,21 @@
 	}
 
 	// Render a single track
-	function renderTrack(track: Track, isSelected: boolean) {
+	function renderTrack(track: Track, isSelected: boolean, isVC: boolean = false) {
 		if (!ctx) return;
 
 		const [screenX, screenY] = worldToScreen(track.position.x, track.position.y);
 
 		// Get color based on classification or state (Phase 1: optionally override with quality)
 		let color: string = TRACK_COLORS.other;
-		if (track.state === 'tentative') {
+
+		// VC tracks get a distinct purple/magenta tint
+		if (isVC) {
+			color = '#a855f7'; // Purple for VC tracks
+			if (track.state === 'tentative') {
+				color = '#c084fc'; // Lighter purple for tentative VC
+			}
+		} else if (track.state === 'tentative') {
 			color = TRACK_COLORS.tentative;
 		} else if (track.state === 'deleted') {
 			color = TRACK_COLORS.deleted;

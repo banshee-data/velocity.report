@@ -283,8 +283,6 @@ func main() {
 		// Lidar parser and frame builder (optional)
 		var parser *parse.Pandar40PParser
 		var frameBuilder *lidar.FrameBuilder
-		var tracker *lidar.Tracker
-		var vcTracker *lidar.VelocityCoherentTracker
 		var dualPipeline *lidar.DualExtractionPipeline
 		var classifier *lidar.TrackClassifier
 
@@ -300,11 +298,8 @@ func main() {
 			parser.SetDebug(*debugMode)
 			parse.ConfigureTimestampMode(parser)
 
-			// Initialize tracking components
-			tracker = lidar.NewTracker(lidar.DefaultTrackerConfig())
-			vcTracker = lidar.NewVelocityCoherentTracker(lidar.DefaultVelocityCoherentTrackerConfig())
+			// Initialize classifier for track classification
 			classifier = lidar.NewTrackClassifier()
-			log.Printf("Tracker and classifier initialized for sensor %s", *lidarSensor)
 
 			// Initialize DualExtractionPipeline for algorithm hot-switching
 			selectedAlgorithm := lidar.AlgorithmBackgroundSubtraction
@@ -417,8 +412,17 @@ func main() {
 					}
 
 					// Forward foreground points on 2370-style stream if configured
+					// Only forward when using background subtraction or dual mode
 					if fgForwarder != nil {
-						fgForwarder.ForwardForeground(foregroundPoints)
+						shouldForward := true
+						if dualPipeline != nil {
+							alg := dualPipeline.GetActiveAlgorithm()
+							// Only forward BS foreground points when BS is active (BS or Dual mode)
+							shouldForward = (alg == lidar.AlgorithmBackgroundSubtraction || alg == lidar.AlgorithmDual)
+						}
+						if shouldForward {
+							fgForwarder.ForwardForeground(foregroundPoints)
+						}
 					}
 
 					// Always log foreground extraction for tracking debugging
@@ -439,20 +443,28 @@ func main() {
 						}
 					}
 					clusters := lidar.DBSCAN(worldPoints, dbscanParams)
-					if len(clusters) == 0 {
-						return
-					}
 
 					// Always log clustering for tracking debugging
 					lidar.Debugf("[Tracking] Clustered into %d objects", len(clusters))
 
-					// Phase 4: Track update
-					if tracker != nil {
-						tracker.Update(clusters, frame.StartTimestamp)
+					// Phase 4: Track update - use DualPipeline for algorithm-aware processing
+					if dualPipeline != nil {
+						// Process through dual pipeline which handles algorithm selection
+						dualPipeline.ProcessFrame(worldPoints, clusters, frame.StartTimestamp, *lidarSensor)
 
-						// Phase 5: Classify and persist confirmed tracks
-						confirmedTracks := tracker.GetConfirmedTracks()
-						lidar.Debugf("[Tracking] %d confirmed tracks to persist", len(confirmedTracks))
+						// Get confirmed tracks from the appropriate tracker based on algorithm
+						alg := dualPipeline.GetActiveAlgorithm()
+						var confirmedTracks []*lidar.TrackedObject
+
+						if alg == lidar.AlgorithmBackgroundSubtraction || alg == lidar.AlgorithmDual {
+							// Get BS tracks
+							bgTracker := dualPipeline.GetBGTracker()
+							if bgTracker != nil {
+								confirmedTracks = bgTracker.GetConfirmedTracks()
+							}
+						}
+
+						lidar.Debugf("[Tracking] %d confirmed tracks to persist (alg=%s)", len(confirmedTracks), alg)
 
 						for _, track := range confirmedTracks {
 							// Classify if not already classified and has enough observations
@@ -582,7 +594,9 @@ func main() {
 		// Wire DualExtractionPipeline and VelocityCoherentTracker to AlgorithmAPI for hot-switching
 		if algorithmAPI := lidarWebServer.GetAlgorithmAPI(); algorithmAPI != nil {
 			algorithmAPI.SetPipeline(dualPipeline)
-			algorithmAPI.SetVCTracker(vcTracker)
+			if dualPipeline != nil {
+				algorithmAPI.SetVCTracker(dualPipeline.GetVCTracker())
+			}
 			log.Printf("AlgorithmAPI wired with DualExtractionPipeline for hot-reload")
 		}
 

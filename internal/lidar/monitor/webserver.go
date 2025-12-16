@@ -636,6 +636,7 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/debug/lidar/traffic", ws.handleTrafficChart)
 	mux.HandleFunc("/debug/lidar/clusters", ws.handleClustersChart)
 	mux.HandleFunc("/debug/lidar/tracks", ws.handleTracksChart)
+	mux.HandleFunc("/debug/lidar/vc-tracks", ws.handleVCTracksChart)
 	mux.HandleFunc("/api/lidar/data_source", ws.handleDataSource)
 	mux.HandleFunc("/api/lidar/pcap/start", ws.handlePCAPStart)
 	mux.HandleFunc("/api/lidar/pcap/stop", ws.handlePCAPStop)
@@ -1113,7 +1114,8 @@ func (ws *WebServer) handleLidarDebugDashboard(w http.ResponseWriter, r *http.Re
 			<div class="panel"><h2><a href="/debug/lidar/foreground%[2]s" target="_blank" rel="noopener noreferrer">Foreground Frame</a></h2><iframe src="/debug/lidar/foreground%[2]s" title="Foreground Frame"></iframe></div>
 			<div class="panel"><h2><a href="/debug/lidar/traffic%[2]s" target="_blank" rel="noopener noreferrer">Traffic</a></h2><iframe src="/debug/lidar/traffic%[2]s" title="Traffic"></iframe></div>
 			<div class="panel"><h2><a href="/debug/lidar/clusters%[2]s" target="_blank" rel="noopener noreferrer">Clusters</a></h2><iframe src="/debug/lidar/clusters%[2]s" title="Clusters"></iframe></div>
-			<div class="panel"><h2><a href="/debug/lidar/tracks%[2]s" target="_blank" rel="noopener noreferrer">Tracks</a></h2><iframe src="/debug/lidar/tracks%[2]s" title="Tracks"></iframe></div>
+			<div class="panel"><h2><a href="/debug/lidar/tracks%[2]s" target="_blank" rel="noopener noreferrer">Tracks (BS)</a></h2><iframe src="/debug/lidar/tracks%[2]s" title="Tracks"></iframe></div>
+			<div class="panel"><h2><a href="/debug/lidar/vc-tracks%[2]s" target="_blank" rel="noopener noreferrer">Tracks (VC)</a></h2><iframe src="/debug/lidar/vc-tracks%[2]s" title="VC Tracks"></iframe></div>
 		</div>
 	</body>
 	</html>`, safeSensorID, safeQs)
@@ -1440,6 +1442,78 @@ func (ws *WebServer) handleTracksChart(w http.ResponseWriter, r *http.Request) {
 	var buf bytes.Buffer
 	if err := scatter.Render(&buf); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to render tracks chart: %v", err))
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(buf.Bytes())
+}
+
+// handleVCTracksChart renders velocity-coherent tracks as a scatter chart.
+func (ws *WebServer) handleVCTracksChart(w http.ResponseWriter, r *http.Request) {
+	if ws.algorithmAPI == nil || ws.algorithmAPI.pipeline == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "algorithm API not configured")
+		return
+	}
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = ws.sensorID
+	}
+
+	// Get VC tracker from pipeline
+	vcTracker := ws.algorithmAPI.pipeline.GetVCTracker()
+	if vcTracker == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "VC tracker not available")
+		return
+	}
+
+	tracks := vcTracker.GetActiveTracks()
+
+	pts := make([]opts.ScatterData, 0, len(tracks))
+	maxAbs := 0.0
+	maxObs := 0
+	for _, t := range tracks {
+		x := float64(t.X)
+		y := float64(t.Y)
+		if math.Abs(x) > maxAbs {
+			maxAbs = math.Abs(x)
+		}
+		if math.Abs(y) > maxAbs {
+			maxAbs = math.Abs(y)
+		}
+		if t.ObservationCount > maxObs {
+			maxObs = t.ObservationCount
+		}
+		pt := opts.ScatterData{Value: []interface{}{x, y, t.ObservationCount}}
+		pts = append(pts, pt)
+	}
+	pad := maxAbs * 1.05
+	if pad == 0 {
+		pad = 1.0
+	}
+	if maxObs == 0 {
+		maxObs = 1
+	}
+
+	scatter := charts.NewScatter()
+	scatter.SetGlobalOptions(
+		charts.WithInitializationOpts(opts.Initialization{PageTitle: "LiDAR VC Tracks", Theme: "dark", Width: "900px", Height: "900px", AssetsHost: echartsAssetsPrefix}),
+		charts.WithTitleOpts(opts.Title{Title: "Velocity-Coherent Tracks", Subtitle: fmt.Sprintf("sensor=%s count=%d (6D clustering)", sensorID, len(pts))}),
+		charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true)}),
+		charts.WithXAxisOpts(opts.XAxis{Min: -pad, Max: pad, Name: "X (m)", NameLocation: "middle", NameGap: 25}),
+		charts.WithYAxisOpts(opts.YAxis{Min: -pad, Max: pad, Name: "Y (m)", NameLocation: "middle", NameGap: 30}),
+		charts.WithVisualMapOpts(opts.VisualMap{
+			Show:       opts.Bool(true),
+			Calculable: opts.Bool(true),
+			Min:        0,
+			Max:        float32(maxObs),
+			Dimension:  "2",
+			InRange:    &opts.VisualMapInRange{Color: []string{"#440154", "#482777", "#3e4989", "#31688e", "#26828e", "#1f9e89", "#35b779", "#6ece58", "#b5de2b", "#fde725"}},
+		}),
+	)
+	scatter.AddSeries("vc-tracks", pts, charts.WithScatterChartOpts(opts.ScatterChart{SymbolSize: 8}))
+	var buf bytes.Buffer
+	if err := scatter.Render(&buf); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to render VC tracks chart: %v", err))
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
