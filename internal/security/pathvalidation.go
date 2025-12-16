@@ -105,6 +105,15 @@ func ValidateExportPath(filePath string) error {
 	return ValidatePathWithinAllowedDirs(filePath, allowedDirs)
 }
 
+// ValidateOutputPath validates a file path for CLI output operations.
+// It ensures the path is within the current working directory or temp directory,
+// and doesn't attempt path traversal. This is intended for use with CLI tools
+// that accept output file paths as arguments.
+func ValidateOutputPath(filePath string) error {
+	// For CLI tools, allow paths in current working directory or temp directory
+	return ValidateExportPath(filePath)
+}
+
 // SanitizeFilename makes a safe filename from an arbitrary string. It replaces
 // any characters that are not ASCII letters, digits, dot, underscore or dash
 // with an underscore. It also collapses repeated underscores and trims the
