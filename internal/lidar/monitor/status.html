@@ -281,6 +281,34 @@
       </li>
     </ul>
 
+    <h3>Tracking Algorithm</h3>
+    <form action="/api/lidar/tracking/algorithm" method="POST"
+      style="margin: 10px 0;">
+      <fieldset
+        style="border: 1px solid #ccc; padding: 10px; display: inline-block;">
+        <legend><strong>Select Tracking Algorithm:</strong></legend>
+        <label style="display: block; margin: 5px 0;">
+          <input type="radio" name="active" value="background_subtraction" {{if
+            eq .TrackingAlgorithm "background_subtraction"}}checked{{end}} />
+          Background Subtraction (default)
+        </label>
+        <label style="display: block; margin: 5px 0;">
+          <input type="radio" name="active" value="velocity_coherent" {{if eq
+            .TrackingAlgorithm "velocity_coherent"}}checked{{end}} />
+          Velocity Coherent (6D clustering)
+        </label>
+        <label style="display: block; margin: 5px 0;">
+          <input type="radio" name="active" value="dual" {{if eq
+            .TrackingAlgorithm "dual"}}checked{{end}} />
+          Dual Mode (both algorithms)
+        </label>
+        <button type="submit" style="margin-top: 10px;">Switch
+          Algorithm</button>
+        <span style="font-size: 0.9em; color: #666; margin-left: 10px;">Current:
+          <strong>{{.TrackingAlgorithm}}</strong></span>
+      </fieldset>
+    </form>
+
     <h3>Tracking</h3>
     <ul>
       <li>
