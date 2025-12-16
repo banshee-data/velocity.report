@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/security"
 )
 
 // parseCSVFloatSlice parses a comma-separated list of floats
@@ -239,6 +241,11 @@ func main() {
 		filename = fmt.Sprintf("sweep-%s-%s.csv", *sweepMode, time.Now().Format("20060102-150405"))
 	}
 
+	// Validate output path to prevent path traversal attacks
+	if err := security.ValidateOutputPath(filename); err != nil {
+		log.Fatalf("Invalid output path %s: %v", filename, err)
+	}
+
 	f, err := os.Create(filename)
 	if err != nil {
 		log.Fatalf("Could not create output file %s: %v", filename, err)
@@ -248,6 +255,12 @@ func main() {
 	defer w.Flush()
 
 	rawFilename := strings.TrimSuffix(filename, ".csv") + "-raw.csv"
+
+	// Validate raw output path
+	if err := security.ValidateOutputPath(rawFilename); err != nil {
+		log.Fatalf("Invalid raw output path %s: %v", rawFilename, err)
+	}
+
 	fRaw, err := os.Create(rawFilename)
 	if err != nil {
 		log.Fatalf("Could not create raw output file %s: %v", rawFilename, err)

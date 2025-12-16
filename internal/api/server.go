@@ -782,6 +782,14 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to marshal config: %v", err))
 		return
 	}
+
+	// Validate temp file path (should always pass since we control the temp dir)
+	if err := security.ValidateExportPath(configFile); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Invalid config file path: %v", err))
+		return
+	}
+
 	if err := os.WriteFile(configFile, configData, 0644); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to write config file: %v", err))
