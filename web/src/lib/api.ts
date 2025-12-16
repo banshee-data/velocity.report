@@ -462,3 +462,36 @@ export async function getBackgroundGrid(sensorId: string): Promise<BackgroundGri
 	if (!res.ok) throw new Error(`Failed to fetch background grid: ${res.status}`);
 	return res.json();
 }
+
+/**
+ * Get velocity-coherent tracks (6D clustering algorithm)
+ * @param sensorId - Sensor identifier
+ */
+export async function getVCTracks(sensorId: string): Promise<Track[]> {
+	const url = new URL(`${API_BASE}/lidar/tracking/vc/tracks`, window.location.origin);
+	url.searchParams.append('sensor_id', sensorId);
+	const res = await fetch(url);
+	if (!res.ok) throw new Error(`Failed to fetch VC tracks: ${res.status}`);
+	const data = await res.json();
+	// API returns { tracks: [...], track_count: N }
+	const rawTracks = data.tracks || [];
+	// Convert VC track format to standard Track format
+	return rawTracks.map((t: any) => ({
+		track_id: t.track_id,
+		sensor_id: t.sensor_id,
+		state: t.state,
+		position: { x: t.x, y: t.y, z: 0 },
+		velocity: { vx: t.vx, vy: t.vy },
+		speed_mps: t.speed_mps,
+		heading_rad: Math.atan2(t.vy, t.vx),
+		object_class: t.object_class,
+		object_confidence: t.object_confidence,
+		observation_count: t.observation_count,
+		age_seconds: 0, // Not available in VC track response
+		avg_speed_mps: t.speed_mps,
+		peak_speed_mps: t.speed_mps,
+		bounding_box: { length_avg: 0, width_avg: 0, height_avg: 0 },
+		first_seen: '',
+		last_seen: ''
+	}));
+}

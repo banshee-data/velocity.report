@@ -13,7 +13,8 @@
 		getBackgroundGrid,
 		getTrackHistory,
 		getTrackObservations,
-		getTrackObservationsRange
+		getTrackObservationsRange,
+		getVCTracks
 	} from '$lib/api';
 	import MapPane from '$lib/components/lidar/MapPane.svelte';
 	import TimelinePane from '$lib/components/lidar/TimelinePane.svelte';
@@ -35,6 +36,8 @@
 
 	// Data
 	let tracks: Track[] = [];
+	let vcTracks: Track[] = [];
+	let showVCTracks = true;
 	let backgroundGrid: BackgroundGrid | null = null;
 	let selectedTrackId: string | null = null;
 	let observationsByTrack: Record<string, TrackObservation[]> = {};
@@ -82,6 +85,15 @@
 			tracks = history.tracks;
 
 			console.log('[TrackHistory] Loaded', tracks.length, 'tracks');
+
+			// Also fetch VC tracks
+			try {
+				vcTracks = await getVCTracks(sensorId);
+				console.log('[TrackHistory] Loaded', vcTracks.length, 'VC tracks');
+			} catch (err) {
+				console.warn('[TrackHistory] Failed to fetch VC tracks:', err);
+				vcTracks = [];
+			}
 
 			if (tracks.length > 0) {
 				// Sample first track for debugging
@@ -393,6 +405,10 @@
 					{:else if foregroundError}
 						<span class="text-error-500">{foregroundError}</span>
 					{/if}
+					<label class="flex items-center gap-2">
+						<input type="checkbox" bind:checked={showVCTracks} />
+						Show VC Tracks (Purple)
+					</label>
 				</div>
 			</div>
 		</div>
@@ -404,6 +420,7 @@
 		<div class="border-surface-content/20 bg-surface-300 border-b" style="flex: 3">
 			<MapPane
 				tracks={visibleTracks}
+				vcTracks={showVCTracks ? vcTracks : []}
 				{selectedTrackId}
 				{backgroundGrid}
 				observations={selectedTrackObservations}
