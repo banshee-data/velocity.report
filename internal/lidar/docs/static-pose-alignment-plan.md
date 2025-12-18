@@ -854,26 +854,123 @@ sudo systemctl start velocity-report
 
 ---
 
-## Summary
+## Phase 1 Implementation Checklist
 
-This plan ensures the current static LIDAR tracking system is **future-compatible with motion capture** without adding unnecessary complexity today.
+### PR #1: Database Schema + BoundingBox7DOF Type (Week 1)
 
-**Key Principles:**
-1. **Additive only** - No breaking changes
-2. **Backward compatible** - Old data works with new code
-3. **Forward compatible** - New data ready for motion capture
-4. **Production safe** - Zero functional changes for static sensors
+**Files:**
+- `internal/db/migrations/000013_add_7dof_schema.up.sql` (NEW)
+- `internal/lidar/av_types.go` (NEW - BoundingBox7DOF from av-lidar-integration-plan.md)
+- `internal/db/schema.sql` (UPDATE - add 7DOF columns)
 
-**What Changes:**
-- ✅ Add pose_id columns to database (nullable)
-- ✅ Add pose_id fields to Go structs (optional)
-- ✅ Populate pose_id for static sensors (identity transform)
+**Tasks:**
+- [ ] Create BoundingBox7DOF type matching av-lidar-integration-plan.md spec
+- [ ] Add bbox_heading column to lidar_clusters, lidar_tracks, lidar_track_obs
+- [ ] Add centroid_z to lidar_tracks (upgrade from 2D to 3D)
+- [ ] Add velocity_z to lidar_tracks (upgrade velocity to 3D)
+- [ ] Unit tests for BoundingBox7DOF methods (IoU, ContainsPoint, Corners)
 
-**What Doesn't Change:**
-- ✅ Tracking algorithm (same 2D Kalman)
-- ✅ Clustering (same DBSCAN)
-- ✅ Classification (same rules)
-- ✅ Performance (same processing time)
-- ✅ APIs (same endpoints)
+**Exit Criteria:**
+- ✅ Migration runs on test database
+- ✅ All existing tests pass
+- ✅ BoundingBox7DOF type matches av-lidar-integration-plan.md exactly
 
-**Result:** Static tracking continues to work exactly as before, but data structures are now ready for motion capture when needed.
+---
+
+### PR #2: Extend Kalman Tracker to 3D + Heading (Week 2)
+
+**Files:**
+- `internal/lidar/tracking.go` (UPDATE - 4-state → 6-state + heading)
+- `internal/lidar/arena.go` (UPDATE - add Z, Heading to TrackedObject)
+- `internal/lidar/tracking_test.go` (UPDATE - 3D test cases)
+
+**Tasks:**
+- [ ] Extend Kalman filter: [x, y, vx, vy] → [x, y, z, vx, vy, vz]
+- [ ] Add heading estimation from velocity: `heading = atan2(vy, vx)`
+- [ ] Add Z coordinate smoothing (Kalman update for Z)
+- [ ] Add heading to TrackedObject struct
+- [ ] Update covariance matrix from 4x4 to 6x6
+
+**Exit Criteria:**
+- ✅ Tracks include Z coordinate (not just ground plane)
+- ✅ Tracks include heading angle (radians)
+- ✅ Existing 2D tracks still work (backward compatible)
+
+---
+
+### PR #3: Compute Oriented Bounding Boxes (Week 2-3)
+
+**Files:**
+- `internal/lidar/clustering.go` (UPDATE - add ComputeOrientedBBox)
+- `internal/lidar/track_store.go` (UPDATE - store 7DOF format)
+
+**Tasks:**
+- [ ] Implement `ComputeOrientedBBox(points []WorldPoint, heading float32) (length, width, height float32)`
+- [ ] Rotate points to box-aligned frame using heading
+- [ ] Compute min/max along heading (length) and perpendicular (width)
+- [ ] Store bbox_length, bbox_width, bbox_height, bbox_heading in database
+- [ ] Update cluster → track association to use oriented boxes
+
+**Exit Criteria:**
+- ✅ Bounding boxes are oriented (not axis-aligned)
+- ✅ Length measured along heading direction
+- ✅ Width measured perpendicular to heading
+
+---
+
+### PR #4: Svelte UI Visualization (Week 3)
+
+**Files:**
+- `web/src/lib/components/LidarTrackView.svelte` (UPDATE)
+- `web/src/lib/components/Track3DPanel.svelte` (NEW)
+
+**Tasks:**
+- [ ] Render oriented rectangles (rotate by heading angle)
+- [ ] Add heading arrow indicators
+- [ ] Display 7DOF values in track detail panel (center_x/y/z, length, width, height, heading)
+- [ ] Color-code by object class
+- [ ] Add Z-height visualization (color gradient or label)
+
+**Exit Criteria:**
+- ✅ Oriented bounding boxes visible in top-down view
+- ✅ Heading arrows show object orientation
+- ✅ Track panel shows all 7 DOF values
+
+---
+
+## Success Criteria (Phase 1 Complete)
+
+**Functional:**
+- ✅ Hesai PCAP files processed to produce 7DOF tracks
+- ✅ Live Hesai stream produces 7DOF tracks in real-time
+- ✅ Tracks stored in database matching av-lidar-integration-plan.md schema
+- ✅ UI visualizes oriented bounding boxes with heading
+
+**Technical:**
+- ✅ BoundingBox7DOF type matches av-lidar-integration-plan.md exactly
+- ✅ All existing tests pass (backward compatible)
+- ✅ Performance unchanged (no regression)
+
+**Compatibility:**
+- ✅ Ready for Phase 2 (9-frame sequence extraction)
+- ✅ Ready for Phase 3 (ML classifier integration)
+- ✅ Compatible with AV dataset format for future training
+
+---
+
+## Next Steps After Phase 1
+
+**Phase 2:** Extract 9-frame sequences (1-2 weeks)
+- Tool to identify tracks lasting 9+ frames
+- Export sequences in format matching AV dataset
+- Ready for manual labeling or classifier training
+
+**Phase 3:** Build ML Classifier (4-6 weeks)
+- Ingest AV dataset labels (see av-lidar-integration-plan.md)
+- Train classifier on AV + Hesai data
+- Support VEHICLE, PEDESTRIAN, CYCLIST, SIGN classes
+
+**Phase 4:** Integrate Classifier (2-3 weeks)
+- Replace rule-based classification
+- Real-time inference in tracking pipeline
+- Confidence scoring and uncertainty estimation
