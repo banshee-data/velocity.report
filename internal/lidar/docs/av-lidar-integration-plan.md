@@ -57,14 +57,60 @@ Each labeled object is represented by a **7-Degree-of-Freedom (7-DOF) bounding b
 - **Heading**: Angle to rotate vehicle frame +X to align with object's forward axis
 - **Vehicle frame**: Not sensor frame - requires pose transformation
 
-#### Labeled Object Classes
+#### Labeled Object Classes (Waymo Open Dataset Compatible)
 
-| Class        | Description               |
-| ------------ | ------------------------- |
-| `VEHICLE`    | Cars, trucks, motorcycles |
-| `PEDESTRIAN` | Pedestrians, people       |
-| `CYCLIST`    | Cyclists, people on bikes |
-| `SIGN`       | Traffic signs             |
+The velocity.report system aligns with the **Waymo Open Dataset** labeling specifications, supporting the full 28 fine-grained semantic categories. Instance segmentation labels are provided for Vehicle, Pedestrian, and Cyclist classes, consistent across sensors and over time.
+
+**Core Object Classes (Instance Segmented):**
+
+| Class        | Fine-Grained Types                                         | Instance ID |
+| ------------ | ---------------------------------------------------------- | ----------- |
+| `VEHICLE`    | Car, Bus, Truck, Other Large Vehicle, Trailer, Ego Vehicle | Yes         |
+| `PEDESTRIAN` | Pedestrian, Pedestrian Object                              | Yes         |
+| `CYCLIST`    | Cyclist, Motorcyclist, Bicycle, Motorcycle                 | Yes         |
+
+**28 Fine-Grained Semantic Categories:**
+
+| Category ID | Category Name      | Instance Segmentation | Description                                   |
+| ----------- | ------------------ | --------------------- | --------------------------------------------- |
+| 1           | Car                | Yes                   | Passenger cars, SUVs, vans                    |
+| 2           | Bus                | Yes                   | Buses and large passenger vehicles            |
+| 3           | Truck              | Yes                   | Pickup trucks, box trucks, freight            |
+| 4           | Other Large Vehicle| Yes                   | RVs, construction vehicles, farm equipment    |
+| 5           | Trailer            | Yes                   | Attached trailers (separate from tow vehicle) |
+| 6           | Ego Vehicle        | No                    | Self-reference (sensor platform)              |
+| 7           | Motorcycle         | Yes                   | Motorcycles without rider visible             |
+| 8           | Bicycle            | Yes                   | Bicycles without rider visible                |
+| 9           | Pedestrian         | Yes                   | Walking, standing, or using mobility aids     |
+| 10          | Cyclist            | Yes                   | Person actively riding a bicycle              |
+| 11          | Motorcyclist       | Yes                   | Person actively riding a motorcycle           |
+| 12          | Ground Animal      | No                    | Dogs, cats, deer, other ground animals        |
+| 13          | Bird               | No                    | Flying or perched birds                       |
+| 14          | Pole               | No                    | Utility poles, lamp posts, signposts          |
+| 15          | Sign               | No                    | Traffic signs, street signs                   |
+| 16          | Traffic Light      | No                    | Traffic signals                               |
+| 17          | Construction Cone  | No                    | Traffic cones, barrels, barricades            |
+| 18          | Pedestrian Object  | Yes                   | Strollers, wheelchairs, carts pushed by peds  |
+| 19          | Building           | No                    | Structures, houses, commercial buildings      |
+| 20          | Road               | No                    | Driveable road surface                        |
+| 21          | Sidewalk           | No                    | Pedestrian walkways                           |
+| 22          | Road Marker        | No                    | Painted road markings, crosswalks             |
+| 23          | Lane Marker        | No                    | Lane dividers, center lines                   |
+| 24          | Vegetation         | No                    | Trees, bushes, grass                          |
+| 25          | Sky                | No                    | Sky region (camera only)                      |
+| 26          | Ground             | No                    | Unlabeled ground surface                      |
+| 27          | Static             | No                    | Other static objects not in above categories  |
+| 28          | Dynamic            | No                    | Other dynamic objects not in above categories |
+
+**velocity.report Implementation Priority:**
+
+| Priority | Categories                                                    | Rationale                          |
+| -------- | ------------------------------------------------------------- | ---------------------------------- |
+| P0       | Car, Truck, Bus, Pedestrian, Cyclist, Motorcyclist            | Core traffic monitoring            |
+| P1       | Bicycle, Motorcycle, Ground Animal, Bird                      | Safety-relevant moving objects     |
+| P2       | Sign, Pole, Traffic Light, Construction Cone                  | Infrastructure detection           |
+| P3       | Building, Road, Sidewalk, Vegetation                          | Scene understanding                |
+| Deferred | Sky, Ground, Static, Dynamic, Ego Vehicle, Pedestrian Object  | Lower priority for roadside sensor |
 
 #### Tracking and Identity
 
@@ -292,7 +338,7 @@ func (b *BoundingBox7DOF) IoU(other *BoundingBox7DOF) float64
 
 ```go
 // ObjectLabel represents a ground truth label for a detected object.
-// Matches AV standard LiDARBoxComponent structure.
+// Matches Waymo Open Dataset LiDARBoxComponent structure.
 type ObjectLabel struct {
     // Identity
     ObjectID   string `json:"object_id"`   // Globally unique tracking ID
@@ -305,25 +351,123 @@ type ObjectLabel struct {
     // Bounding box (7-DOF)
     Box BoundingBox7DOF `json:"box"`
 
-    // Classification
-    ObjectType      AVObjectClass `json:"object_type"` // VEHICLE, PEDESTRIAN, CYCLIST, SIGN
-    DifficultyLevel int           `json:"difficulty_level"`
+    // Classification (Waymo-compatible 28-class taxonomy)
+    ObjectType      WaymoObjectClass `json:"object_type"`      // Fine-grained class
+    ObjectCategory  WaymoCategory    `json:"object_category"`  // High-level category
+    DifficultyLevel int              `json:"difficulty_level"` // 1=easy, 2=moderate, 3=hard
 
     // LiDAR metadata
     NumLidarPointsInBox int  `json:"num_lidar_points_in_box"`
     InNoLabelZone       bool `json:"in_no_label_zone"`
+    
+    // Occlusion and truncation (for training data quality)
+    OcclusionLevel    OcclusionLevel `json:"occlusion_level"`    // NONE, PARTIAL, HEAVY
+    TruncationLevel   float32        `json:"truncation_level"`   // 0.0-1.0 (portion outside FOV)
+    
+    // Shape completion metadata (see Section 7: Occlusion Handling)
+    IsShapeCompleted  bool    `json:"is_shape_completed"`   // True if box was estimated
+    CompletionMethod  string  `json:"completion_method"`    // "observed", "symmetric", "model"
+    CompletionScore   float32 `json:"completion_score"`     // Confidence in completed shape
 }
 
-// ObjectClass enum matching AV standard types
-type AVObjectClass int
+// WaymoObjectClass enum matching Waymo Open Dataset 28 fine-grained categories
+type WaymoObjectClass int
 
 const (
-    AVTypeUnknown    AVObjectClass = 0
-    AVTypeVehicle    AVObjectClass = 1
-    AVTypePedestrian AVObjectClass = 2
-    AVTypeCyclist    AVObjectClass = 3
-    AVTypeSign       AVObjectClass = 4
+    // Instance-segmented classes (tracked across frames)
+    WaymoTypeCar             WaymoObjectClass = 1
+    WaymoTypeBus             WaymoObjectClass = 2
+    WaymoTypeTruck           WaymoObjectClass = 3
+    WaymoTypeOtherLargeVeh   WaymoObjectClass = 4
+    WaymoTypeTrailer         WaymoObjectClass = 5
+    WaymoTypeEgoVehicle      WaymoObjectClass = 6
+    WaymoTypeMotorcycle      WaymoObjectClass = 7
+    WaymoTypeBicycle         WaymoObjectClass = 8
+    WaymoTypePedestrian      WaymoObjectClass = 9
+    WaymoTypeCyclist         WaymoObjectClass = 10
+    WaymoTypeMotorcyclist    WaymoObjectClass = 11
+    
+    // Non-instance classes (semantic only)
+    WaymoTypeGroundAnimal    WaymoObjectClass = 12
+    WaymoTypeBird            WaymoObjectClass = 13
+    WaymoTypePole            WaymoObjectClass = 14
+    WaymoTypeSign            WaymoObjectClass = 15
+    WaymoTypeTrafficLight    WaymoObjectClass = 16
+    WaymoTypeConstructionCone WaymoObjectClass = 17
+    WaymoTypePedestrianObject WaymoObjectClass = 18
+    WaymoTypeBuilding        WaymoObjectClass = 19
+    WaymoTypeRoad            WaymoObjectClass = 20
+    WaymoTypeSidewalk        WaymoObjectClass = 21
+    WaymoTypeRoadMarker      WaymoObjectClass = 22
+    WaymoTypeLaneMarker      WaymoObjectClass = 23
+    WaymoTypeVegetation      WaymoObjectClass = 24
+    WaymoTypeSky             WaymoObjectClass = 25
+    WaymoTypeGround          WaymoObjectClass = 26
+    WaymoTypeStatic          WaymoObjectClass = 27
+    WaymoTypeDynamic         WaymoObjectClass = 28
+    
+    WaymoTypeUnknown         WaymoObjectClass = 0
 )
+
+// WaymoCategory represents high-level object categories for instance segmentation
+type WaymoCategory int
+
+const (
+    WaymoCategoryUnknown    WaymoCategory = 0
+    WaymoCategoryVehicle    WaymoCategory = 1  // Car, Bus, Truck, etc.
+    WaymoCategoryPedestrian WaymoCategory = 2  // Pedestrian, Pedestrian Object
+    WaymoCategoryCyclist    WaymoCategory = 3  // Cyclist, Motorcyclist
+    WaymoCategorySign       WaymoCategory = 4  // Sign, Traffic Light
+    WaymoCategoryAnimal     WaymoCategory = 5  // Ground Animal, Bird
+    WaymoCategoryStatic     WaymoCategory = 6  // Infrastructure, vegetation
+)
+
+// OcclusionLevel indicates how much of an object is hidden from view
+type OcclusionLevel int
+
+const (
+    OcclusionNone    OcclusionLevel = 0  // Fully visible (>90% of points expected)
+    OcclusionPartial OcclusionLevel = 1  // Partially occluded (50-90% visible)
+    OcclusionHeavy   OcclusionLevel = 2  // Heavily occluded (<50% visible)
+)
+
+// GetCategory returns the high-level category for a fine-grained object class
+func (c WaymoObjectClass) GetCategory() WaymoCategory {
+    switch c {
+    case WaymoTypeCar, WaymoTypeBus, WaymoTypeTruck, WaymoTypeOtherLargeVeh,
+         WaymoTypeTrailer, WaymoTypeEgoVehicle, WaymoTypeMotorcycle, WaymoTypeBicycle:
+        return WaymoCategoryVehicle
+    case WaymoTypePedestrian, WaymoTypePedestrianObject:
+        return WaymoCategoryPedestrian
+    case WaymoTypeCyclist, WaymoTypeMotorcyclist:
+        return WaymoCategoryCyclist
+    case WaymoTypeSign, WaymoTypeTrafficLight:
+        return WaymoCategorySign
+    case WaymoTypeGroundAnimal, WaymoTypeBird:
+        return WaymoCategoryAnimal
+    case WaymoTypePole, WaymoTypeConstructionCone, WaymoTypeBuilding, WaymoTypeRoad,
+         WaymoTypeSidewalk, WaymoTypeRoadMarker, WaymoTypeLaneMarker, WaymoTypeVegetation,
+         WaymoTypeSky, WaymoTypeGround, WaymoTypeStatic:
+        return WaymoCategoryStatic
+    case WaymoTypeDynamic:
+        return WaymoCategoryUnknown
+    default:
+        return WaymoCategoryUnknown
+    }
+}
+
+// IsInstanceSegmented returns true if this class has instance-level tracking
+func (c WaymoObjectClass) IsInstanceSegmented() bool {
+    switch c {
+    case WaymoTypeCar, WaymoTypeBus, WaymoTypeTruck, WaymoTypeOtherLargeVeh,
+         WaymoTypeTrailer, WaymoTypeMotorcycle, WaymoTypeBicycle,
+         WaymoTypePedestrian, WaymoTypeCyclist, WaymoTypeMotorcyclist,
+         WaymoTypePedestrianObject:
+        return true
+    default:
+        return false
+    }
+}
 ```
 
 ### 1.3 LabeledFrame Type
@@ -747,6 +891,587 @@ Create a command-line tool for analyzing LIDAR frames with AV standard-compatibl
 
 ---
 
+## Phase 6: Clustering Algorithms for Consistent Object Detection
+
+### Objective
+
+Implement robust clustering algorithms that identify consistent point clusters representing real-world objects, with handling for partial observations (occlusion) and shape estimation for non-illuminated surfaces.
+
+### 6.1 Multi-Stage Clustering Pipeline
+
+**Pipeline Overview:**
+
+```
+Raw Points → Ground Removal → DBSCAN Clustering → Cluster Merging → 
+Shape Estimation → Temporal Association → 7-DOF Box Fitting
+```
+
+**Stage 1: Ground Removal (Prerequisite)**
+
+Ground points must be filtered before clustering to avoid merging ground with objects.
+
+```go
+// GroundRemoval uses RANSAC plane fitting or grid-based height filtering
+type GroundRemover struct {
+    Method            string  // "ransac", "grid", "hybrid"
+    GridResolution    float64 // meters (for grid method)
+    HeightThreshold   float64 // meters above estimated ground
+    RANSACIterations  int     // iterations for plane fitting
+    RANSACThreshold   float64 // inlier distance threshold
+}
+
+func (gr *GroundRemover) RemoveGround(points []WorldPoint) (nonGround, ground []WorldPoint)
+```
+
+**Stage 2: DBSCAN with Adaptive Parameters**
+
+Standard DBSCAN with distance-adaptive epsilon for better clustering at varying ranges.
+
+```go
+// AdaptiveDBSCAN adjusts epsilon based on distance from sensor
+type AdaptiveDBSCANParams struct {
+    EpsBase     float64 // Base neighborhood radius at 10m (default: 0.5m)
+    EpsPerMeter float64 // Additional radius per meter of range (default: 0.02)
+    MinPts      int     // Minimum points per cluster (default: 10)
+    MaxEps      float64 // Maximum epsilon cap (default: 2.0m)
+}
+
+func AdaptiveDBSCAN(points []WorldPoint, params AdaptiveDBSCANParams) []Cluster {
+    // For each point, compute range-adaptive epsilon
+    // eps(r) = min(EpsBase + EpsPerMeter * r, MaxEps)
+    // where r = sqrt(x² + y² + z²)
+}
+```
+
+**Stage 3: Cluster Merging for Split Objects**
+
+Large vehicles may be split into multiple clusters due to discontinuities. This stage merges clusters that likely belong to the same object.
+
+```go
+// ClusterMerger identifies and merges over-segmented clusters
+type ClusterMerger struct {
+    MaxMergeDistance    float64 // Max centroid distance for merge candidates (default: 3.0m)
+    MinOverlapRatio     float64 // Min bounding box overlap for merge (default: 0.1)
+    VelocityTolerance   float64 // Max velocity difference for merge (default: 2.0 m/s)
+    HeadingTolerance    float64 // Max heading difference for merge (default: 0.3 rad)
+}
+
+// MergeCriteria determines if two clusters should be merged
+type MergeCriteria struct {
+    SpatialProximity    bool    // Centroids within MaxMergeDistance
+    TemporalCoherence   bool    // Similar velocity and heading
+    ShapeCompatibility  bool    // Combined shape is plausible (aspect ratio, size)
+    ConnectedByPoints   bool    // Edge points are within eps distance
+}
+
+func (cm *ClusterMerger) MergeClusters(clusters []Cluster) []Cluster
+```
+
+### 6.2 Euclidean Cluster Extraction Algorithm
+
+**Algorithm: Region Growing with Spatial Index**
+
+More efficient than DBSCAN for structured point clouds with known density patterns.
+
+```go
+// EuclideanClusterExtractor performs region-growing clustering
+type EuclideanClusterExtractor struct {
+    ClusterTolerance float64 // Distance threshold for neighbors (default: 0.5m)
+    MinClusterSize   int     // Minimum points per cluster (default: 10)
+    MaxClusterSize   int     // Maximum points per cluster (default: 25000)
+    
+    // Spatial index for efficient neighbor queries
+    spatialIndex *OctreeIndex
+}
+
+func (ece *EuclideanClusterExtractor) Extract(points []WorldPoint) []Cluster {
+    // 1. Build octree spatial index
+    ece.spatialIndex = BuildOctree(points, ece.ClusterTolerance)
+    
+    // 2. Region growing from unprocessed seed points
+    clusters := []Cluster{}
+    processed := make([]bool, len(points))
+    
+    for i := range points {
+        if processed[i] {
+            continue
+        }
+        
+        // Grow region from seed point
+        cluster := ece.growRegion(points, i, processed)
+        
+        if len(cluster) >= ece.MinClusterSize && len(cluster) <= ece.MaxClusterSize {
+            clusters = append(clusters, cluster)
+        }
+    }
+    
+    return clusters
+}
+
+func (ece *EuclideanClusterExtractor) growRegion(points []WorldPoint, seed int, processed []bool) []int {
+    queue := []int{seed}
+    region := []int{}
+    
+    for len(queue) > 0 {
+        idx := queue[0]
+        queue = queue[1:]
+        
+        if processed[idx] {
+            continue
+        }
+        processed[idx] = true
+        region = append(region, idx)
+        
+        // Find neighbors within tolerance
+        neighbors := ece.spatialIndex.RadiusSearch(points[idx], ece.ClusterTolerance)
+        queue = append(queue, neighbors...)
+    }
+    
+    return region
+}
+```
+
+### 6.3 Octree Spatial Index
+
+**Implementation for efficient 3D neighbor queries:**
+
+```go
+// OctreeNode represents a node in the octree spatial index
+type OctreeNode struct {
+    Center      [3]float64    // Center of this node's bounding box
+    HalfSize    float64       // Half the side length of the bounding box
+    Children    [8]*OctreeNode // Child nodes (nil if leaf)
+    Points      []int         // Point indices (only in leaf nodes)
+    IsLeaf      bool
+}
+
+// OctreeIndex provides O(log n) neighbor queries for 3D point clouds
+type OctreeIndex struct {
+    Root         *OctreeNode
+    Points       []WorldPoint
+    MaxLeafSize  int     // Max points per leaf before subdivision (default: 32)
+    MaxDepth     int     // Max tree depth (default: 10)
+}
+
+func BuildOctree(points []WorldPoint, resolution float64) *OctreeIndex {
+    // 1. Compute bounding box of all points
+    // 2. Create root node covering bounding box
+    // 3. Recursively subdivide until MaxLeafSize or MaxDepth reached
+}
+
+func (oi *OctreeIndex) RadiusSearch(query WorldPoint, radius float64) []int {
+    // 1. Start at root, check if node bounding box intersects query sphere
+    // 2. If leaf, check each point against radius
+    // 3. If internal, recurse into children that intersect query sphere
+    // Time complexity: O(k log n) where k is number of neighbors
+}
+```
+
+---
+
+## Phase 7: Occlusion Handling and Shape Completion
+
+### Objective
+
+Handle partial observations where portions of an object are not "illuminated" by the LIDAR (e.g., the far side of a car) and estimate the complete 3D bounding box.
+
+### 7.1 Occlusion Detection
+
+**Problem:** A LIDAR sensor only observes surfaces facing toward it. For a typical vehicle, only 1-3 sides are visible at any time.
+
+**Occlusion Classification:**
+
+```go
+// OcclusionAnalyzer determines which portions of an object are visible
+type OcclusionAnalyzer struct {
+    SensorPosition [3]float64 // Sensor location in world frame
+}
+
+// OcclusionInfo describes visibility of object surfaces
+type OcclusionInfo struct {
+    // Visible surfaces (relative to object heading)
+    FrontVisible    bool    // Front face illuminated
+    BackVisible     bool    // Back face illuminated (rare)
+    LeftVisible     bool    // Left side illuminated
+    RightVisible    bool    // Right side illuminated
+    TopVisible      bool    // Top surface illuminated
+    
+    // Visibility metrics
+    VisibleFraction float32 // Estimated fraction of surface visible [0, 1]
+    OcclusionAngle  float32 // Angle from sensor to object centroid
+    
+    // Point distribution
+    PointCoverage   [6]int  // Point count per face (front, back, left, right, top, bottom)
+}
+
+func (oa *OcclusionAnalyzer) AnalyzeOcclusion(cluster Cluster, heading float32) OcclusionInfo {
+    // 1. Compute vector from sensor to cluster centroid
+    toObject := cluster.Centroid - oa.SensorPosition
+    
+    // 2. Compute angle relative to object heading
+    relativeAngle := atan2(toObject[1], toObject[0]) - heading
+    
+    // 3. Determine which faces are potentially visible
+    // Front visible if |relativeAngle| < 90°
+    // Left visible if relativeAngle in [0, 180°]
+    // Right visible if relativeAngle in [-180°, 0]
+    
+    // 4. Analyze point distribution to confirm visibility
+}
+```
+
+### 7.2 Shape Completion Algorithms
+
+**Algorithm 1: Symmetry-Based Completion**
+
+Most vehicles and many objects exhibit bilateral symmetry. Use visible points to estimate the hidden half.
+
+```go
+// SymmetricCompletion estimates full bounding box from partial observation
+type SymmetricCompletion struct {
+    MinVisibleFraction  float32 // Minimum visible fraction to attempt completion (default: 0.3)
+    SymmetryAxis        int     // 0=X (along heading), 1=Y (lateral)
+}
+
+func (sc *SymmetricCompletion) CompleteBox(
+    observedPoints []WorldPoint,
+    observedBox BoundingBox7DOF,
+    occlusion OcclusionInfo,
+) (completedBox BoundingBox7DOF, confidence float32) {
+    
+    // Case 1: Only front/back visible (seeing length, need width)
+    if (occlusion.FrontVisible || occlusion.BackVisible) && 
+       !occlusion.LeftVisible && !occlusion.RightVisible {
+        // Width is underestimated; double the observed half-width
+        observedHalfWidth := observedBox.Width / 2
+        completedBox.Width = observedHalfWidth * 2
+        
+        // Shift centroid to estimated true center
+        // (centroid moves perpendicular to heading)
+        confidence = 0.7 // Lower confidence for width estimation
+    }
+    
+    // Case 2: Only side visible (seeing width, need length)
+    if (occlusion.LeftVisible || occlusion.RightVisible) &&
+       !occlusion.FrontVisible && !occlusion.BackVisible {
+        // Length is underestimated; use class priors
+        // (see Model-Based Completion below)
+        confidence = 0.6
+    }
+    
+    // Case 3: Corner view (front + side visible)
+    if (occlusion.FrontVisible || occlusion.BackVisible) &&
+       (occlusion.LeftVisible || occlusion.RightVisible) {
+        // Good observation - use observed dimensions with minor correction
+        completedBox = observedBox
+        confidence = 0.85
+    }
+    
+    return completedBox, confidence
+}
+```
+
+**Algorithm 2: Model-Based Completion (Class Priors)**
+
+Use learned class-specific shape priors to complete boxes when symmetry is insufficient.
+
+```go
+// ModelBasedCompletion uses class priors for shape estimation
+type ModelBasedCompletion struct {
+    ClassPriors map[WaymoObjectClass]ShapePrior
+}
+
+// ShapePrior encodes typical dimensions for an object class
+type ShapePrior struct {
+    // Mean dimensions (meters)
+    MeanLength float32
+    MeanWidth  float32
+    MeanHeight float32
+    
+    // Standard deviations (for confidence estimation)
+    StdLength  float32
+    StdWidth   float32
+    StdHeight  float32
+    
+    // Aspect ratio constraints
+    MinAspectRatio float32 // length/width
+    MaxAspectRatio float32
+}
+
+// DefaultClassPriors returns Waymo-compatible shape priors
+func DefaultClassPriors() map[WaymoObjectClass]ShapePrior {
+    return map[WaymoObjectClass]ShapePrior{
+        WaymoTypeCar: {
+            MeanLength: 4.5, MeanWidth: 1.8, MeanHeight: 1.5,
+            StdLength: 0.5, StdWidth: 0.15, StdHeight: 0.2,
+            MinAspectRatio: 1.8, MaxAspectRatio: 3.0,
+        },
+        WaymoTypeTruck: {
+            MeanLength: 6.5, MeanWidth: 2.2, MeanHeight: 2.5,
+            StdLength: 1.5, StdWidth: 0.3, StdHeight: 0.5,
+            MinAspectRatio: 2.0, MaxAspectRatio: 4.0,
+        },
+        WaymoTypeBus: {
+            MeanLength: 12.0, MeanWidth: 2.5, MeanHeight: 3.2,
+            StdLength: 2.0, StdWidth: 0.2, StdHeight: 0.3,
+            MinAspectRatio: 3.5, MaxAspectRatio: 6.0,
+        },
+        WaymoTypePedestrian: {
+            MeanLength: 0.5, MeanWidth: 0.5, MeanHeight: 1.7,
+            StdLength: 0.2, StdWidth: 0.2, StdHeight: 0.2,
+            MinAspectRatio: 0.6, MaxAspectRatio: 1.5,
+        },
+        WaymoTypeCyclist: {
+            MeanLength: 1.8, MeanWidth: 0.6, MeanHeight: 1.7,
+            StdLength: 0.3, StdWidth: 0.1, StdHeight: 0.2,
+            MinAspectRatio: 2.0, MaxAspectRatio: 4.0,
+        },
+        WaymoTypeBicycle: {
+            MeanLength: 1.7, MeanWidth: 0.5, MeanHeight: 1.0,
+            StdLength: 0.2, StdWidth: 0.1, StdHeight: 0.1,
+            MinAspectRatio: 2.5, MaxAspectRatio: 4.5,
+        },
+        WaymoTypeMotorcycle: {
+            MeanLength: 2.2, MeanWidth: 0.8, MeanHeight: 1.4,
+            StdLength: 0.3, StdWidth: 0.15, StdHeight: 0.2,
+            MinAspectRatio: 2.0, MaxAspectRatio: 3.5,
+        },
+    }
+}
+
+func (mbc *ModelBasedCompletion) CompleteBox(
+    observedBox BoundingBox7DOF,
+    objectClass WaymoObjectClass,
+    occlusion OcclusionInfo,
+) (completedBox BoundingBox7DOF, confidence float32) {
+    
+    prior, exists := mbc.ClassPriors[objectClass]
+    if !exists {
+        return observedBox, 0.3 // Low confidence fallback
+    }
+    
+    completedBox = observedBox
+    
+    // Complete length if underobserved
+    if occlusion.VisibleFraction < 0.5 {
+        // Blend observed and prior based on visibility
+        observedWeight := occlusion.VisibleFraction
+        priorWeight := 1.0 - observedWeight
+        
+        completedBox.Length = float64(observedWeight)*observedBox.Length + 
+                              float64(priorWeight)*float64(prior.MeanLength)
+        completedBox.Width = float64(observedWeight)*observedBox.Width + 
+                             float64(priorWeight)*float64(prior.MeanWidth)
+    }
+    
+    // Enforce aspect ratio constraints
+    aspectRatio := float32(completedBox.Length / completedBox.Width)
+    if aspectRatio < prior.MinAspectRatio {
+        completedBox.Length = completedBox.Width * float64(prior.MinAspectRatio)
+    } else if aspectRatio > prior.MaxAspectRatio {
+        completedBox.Width = completedBox.Length / float64(prior.MaxAspectRatio)
+    }
+    
+    // Confidence based on observation quality and prior match
+    confidence = computeCompletionConfidence(observedBox, completedBox, prior, occlusion)
+    
+    return completedBox, confidence
+}
+```
+
+### 7.3 Temporal Consistency for Shape Refinement
+
+Use multi-frame observations to refine shape estimates as an object moves and reveals different surfaces.
+
+```go
+// TemporalShapeRefiner maintains shape estimates across frames
+type TemporalShapeRefiner struct {
+    // Running estimates per tracked object
+    ShapeEstimates map[string]*ShapeEstimate // trackID -> estimate
+    
+    // Configuration
+    DecayFactor     float32 // Weight decay for old observations (default: 0.9)
+    MinObservations int     // Min frames before confident estimate (default: 3)
+}
+
+// ShapeEstimate tracks accumulated shape evidence
+type ShapeEstimate struct {
+    // Weighted running averages
+    LengthSum, LengthWeight float64
+    WidthSum, WidthWeight   float64
+    HeightSum, HeightWeight float64
+    
+    // Best observation (highest visibility)
+    BestVisibility float32
+    BestBox        BoundingBox7DOF
+    
+    // Observation history
+    ObservationCount int
+    SurfacesCovered  map[string]bool // Which surfaces have been observed
+}
+
+func (tsr *TemporalShapeRefiner) UpdateEstimate(
+    trackID string,
+    observedBox BoundingBox7DOF,
+    occlusion OcclusionInfo,
+    timestamp int64,
+) BoundingBox7DOF {
+    
+    estimate, exists := tsr.ShapeEstimates[trackID]
+    if !exists {
+        estimate = &ShapeEstimate{
+            SurfacesCovered: make(map[string]bool),
+        }
+        tsr.ShapeEstimates[trackID] = estimate
+    }
+    
+    // Weight by visibility fraction
+    weight := float64(occlusion.VisibleFraction)
+    
+    // Update running averages
+    estimate.LengthSum += observedBox.Length * weight
+    estimate.LengthWeight += weight
+    estimate.WidthSum += observedBox.Width * weight
+    estimate.WidthWeight += weight
+    estimate.HeightSum += observedBox.Height * weight
+    estimate.HeightWeight += weight
+    
+    // Track which surfaces have been observed
+    if occlusion.FrontVisible { estimate.SurfacesCovered["front"] = true }
+    if occlusion.BackVisible  { estimate.SurfacesCovered["back"] = true }
+    if occlusion.LeftVisible  { estimate.SurfacesCovered["left"] = true }
+    if occlusion.RightVisible { estimate.SurfacesCovered["right"] = true }
+    
+    estimate.ObservationCount++
+    
+    // Update best observation
+    if occlusion.VisibleFraction > estimate.BestVisibility {
+        estimate.BestVisibility = occlusion.VisibleFraction
+        estimate.BestBox = observedBox
+    }
+    
+    // Return refined estimate
+    return tsr.computeRefinedBox(estimate)
+}
+
+func (tsr *TemporalShapeRefiner) computeRefinedBox(est *ShapeEstimate) BoundingBox7DOF {
+    refined := BoundingBox7DOF{}
+    
+    if est.LengthWeight > 0 {
+        refined.Length = est.LengthSum / est.LengthWeight
+    }
+    if est.WidthWeight > 0 {
+        refined.Width = est.WidthSum / est.WidthWeight
+    }
+    if est.HeightWeight > 0 {
+        refined.Height = est.HeightSum / est.HeightWeight
+    }
+    
+    // Use best observation for center and heading
+    refined.CenterX = est.BestBox.CenterX
+    refined.CenterY = est.BestBox.CenterY
+    refined.CenterZ = est.BestBox.CenterZ
+    refined.Heading = est.BestBox.Heading
+    
+    return refined
+}
+```
+
+### 7.4 L-Shape Fitting for Vehicles
+
+Classic algorithm for estimating vehicle bounding boxes from corner observations.
+
+```go
+// LShapeFitter fits oriented bounding boxes to vehicle-like point patterns
+type LShapeFitter struct {
+    MinPointsPerEdge  int     // Min points to detect an edge (default: 5)
+    AngleTolerance    float64 // Tolerance for perpendicular edges (default: 0.1 rad)
+    EdgeSearchAngles  int     // Number of angles to search (default: 180)
+}
+
+func (lsf *LShapeFitter) FitLShape(points []WorldPoint) (BoundingBox7DOF, float32) {
+    // 1. Search for optimal heading angle
+    bestHeading := 0.0
+    bestScore := 0.0
+    
+    for i := 0; i < lsf.EdgeSearchAngles; i++ {
+        heading := float64(i) * math.Pi / float64(lsf.EdgeSearchAngles)
+        score := lsf.evaluateHeading(points, heading)
+        if score > bestScore {
+            bestScore = score
+            bestHeading = heading
+        }
+    }
+    
+    // 2. Project points onto best heading axes
+    cos_h := math.Cos(bestHeading)
+    sin_h := math.Sin(bestHeading)
+    
+    var minAlong, maxAlong, minPerp, maxPerp float64
+    minAlong, minPerp = math.MaxFloat64, math.MaxFloat64
+    maxAlong, maxPerp = -math.MaxFloat64, -math.MaxFloat64
+    
+    for _, p := range points {
+        along := p.X*cos_h + p.Y*sin_h      // Along heading
+        perp  := -p.X*sin_h + p.Y*cos_h     // Perpendicular
+        
+        minAlong = math.Min(minAlong, along)
+        maxAlong = math.Max(maxAlong, along)
+        minPerp = math.Min(minPerp, perp)
+        maxPerp = math.Max(maxPerp, perp)
+    }
+    
+    // 3. Construct bounding box
+    length := maxAlong - minAlong
+    width := maxPerp - minPerp
+    centerAlong := (minAlong + maxAlong) / 2
+    centerPerp := (minPerp + maxPerp) / 2
+    
+    box := BoundingBox7DOF{
+        CenterX: centerAlong*cos_h - centerPerp*sin_h,
+        CenterY: centerAlong*sin_h + centerPerp*cos_h,
+        CenterZ: computeCentroidZ(points),
+        Length:  length,
+        Width:   width,
+        Height:  computeHeightRange(points),
+        Heading: bestHeading,
+    }
+    
+    confidence := float32(bestScore)
+    return box, confidence
+}
+
+func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) float64 {
+    // Score based on:
+    // 1. Point distribution along edges (variance perpendicular to edges)
+    // 2. L-shape detection (perpendicular edge detected)
+    // 3. Edge point density
+    
+    cos_h := math.Cos(heading)
+    sin_h := math.Sin(heading)
+    
+    // Project points
+    var along, perp []float64
+    for _, p := range points {
+        along = append(along, p.X*cos_h + p.Y*sin_h)
+        perp = append(perp, -p.X*sin_h + p.Y*cos_h)
+    }
+    
+    // Compute variance ratio (good heading = low variance along edges)
+    varAlong := variance(along)
+    varPerp := variance(perp)
+    
+    // Score: higher variance ratio = better edge alignment
+    if varAlong < 0.01 || varPerp < 0.01 {
+        return 0
+    }
+    
+    return math.Max(varAlong/varPerp, varPerp/varAlong)
+}
+```
+
+---
+
 ## Tool Requirements Matrix
 
 ### Required Tools and Libraries
@@ -787,6 +1512,7 @@ Create a command-line tool for analyzing LIDAR frames with AV standard-compatibl
 ### Phase 1: Core Data Structures (Week 1-2)
 
 - [ ] Create `av_types.go` with BoundingBox7DOF, ObjectLabel, LabeledFrame
+- [ ] Implement Waymo-compatible 28-class object taxonomy
 - [ ] Extend WorldCluster with heading angle
 - [ ] Add database migrations for ground truth tables
 - [ ] Unit tests for box math (IoU, containment)
@@ -818,6 +1544,24 @@ Create a command-line tool for analyzing LIDAR frames with AV standard-compatibl
 - [ ] Implement analysis pipeline
 - [ ] Add evaluation mode
 - [ ] Documentation and examples
+
+### Phase 6: Clustering Algorithms (Week 6-7)
+
+- [ ] Implement ground removal (RANSAC/grid-based)
+- [ ] Implement AdaptiveDBSCAN with range-dependent epsilon
+- [ ] Implement cluster merging for over-segmented objects
+- [ ] Build octree spatial index for efficient 3D queries
+- [ ] L-shape fitting for vehicle bounding boxes
+- [ ] Unit tests for clustering algorithms
+
+### Phase 7: Occlusion Handling (Week 7-8)
+
+- [ ] Implement occlusion detection (surface visibility analysis)
+- [ ] Symmetry-based shape completion
+- [ ] Model-based completion with class priors
+- [ ] Temporal shape refinement across frames
+- [ ] Integration with tracker for consistent shape estimates
+- [ ] Validation against Waymo ground truth
 
 ---
 

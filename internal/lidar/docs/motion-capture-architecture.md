@@ -47,12 +47,20 @@ This document specifies the complete architecture for **motion capture scenarios
 - Foreground objects move (vehicles, pedestrians, animals)
 - Sensor coordinate frame = world coordinate frame (identity transform)
 
-**2D Tracking:**
+**2D Tracking (Current) → 7DOF Tracking (Target):**
 
 - Kalman filter tracks ground plane motion: [x, y, vx, vy] (4 states)
-- No height tracking (assumes objects on flat ground)
-- No orientation tracking (only velocity heading)
-- Object classes: car, pedestrian, bird, other
+- **Target:** Extend to 7-DOF: [x, y, z, vx, vy, vz, heading]
+- Current object classes: car, pedestrian, bird, other
+- **Target:** Waymo-compatible 28-class taxonomy (see `av-lidar-integration-plan.md`)
+
+**Waymo Open Dataset Compatibility:**
+
+The tracking system is designed to produce labels compatible with the Waymo Open Dataset specification:
+- 28 fine-grained semantic categories
+- Instance segmentation for Vehicle, Pedestrian, and Cyclist classes
+- Consistent tracking IDs across frames
+- 7-DOF bounding boxes (center_x, center_y, center_z, length, width, height, heading)
 
 **Data Flow (Static):**
 
@@ -61,7 +69,7 @@ UDP Packets → Parse → Frame → Background Grid → Foreground Extraction
     ↓
 Polar → World Transform (identity) → Clustering (DBSCAN) → Tracking (Kalman 2D)
     ↓
-Classification → Database → API
+Classification (28-class Waymo taxonomy) → Database → API
 ```
 
 **Current Assumptions:**
@@ -485,6 +493,60 @@ track.UpdateOrientation(measurement)
 
 ---
 
+## Clustering and Shape Completion
+
+### Consistent Point Cluster Identification
+
+For reliable object tracking, clusters must represent consistent real-world objects across frames.
+
+**Multi-Stage Clustering Pipeline:**
+
+```
+Raw Points → Ground Removal → DBSCAN/Euclidean Clustering → Cluster Merging → 
+Shape Estimation → Temporal Association → 7-DOF Box Fitting
+```
+
+**Detailed algorithms are specified in `av-lidar-integration-plan.md` Phase 6-7:**
+
+- **Phase 6:** Clustering Algorithms (AdaptiveDBSCAN, Octree spatial index, cluster merging)
+- **Phase 7:** Occlusion Handling (symmetry completion, model-based priors, temporal refinement)
+
+### Handling Partial Observations (Occlusion)
+
+**Problem:** LIDAR only observes surfaces facing the sensor. For a typical vehicle, only 1-3 sides are visible.
+
+**Solution Approaches (see `av-lidar-integration-plan.md` for full details):**
+
+1. **Symmetry-Based Completion:**
+   - Use bilateral symmetry to estimate hidden dimensions
+   - Works well when at least half the object is visible
+
+2. **Model-Based Completion (Class Priors):**
+   - Use learned shape priors per object class (Car, Truck, Bus, Pedestrian, etc.)
+   - Blend observed and prior dimensions based on visibility fraction
+
+3. **Temporal Shape Refinement:**
+   - Accumulate observations as object moves and reveals different surfaces
+   - Weight by visibility quality
+   - Track which surfaces have been observed
+
+4. **L-Shape Fitting (Vehicles):**
+   - Detect perpendicular edges to estimate vehicle heading
+   - Robust for corner-view observations
+
+**Shape Priors for Waymo-Compatible Classes:**
+
+| Class          | Mean Length | Mean Width | Mean Height | Aspect Ratio |
+| -------------- | ----------- | ---------- | ----------- | ------------ |
+| Car            | 4.5m        | 1.8m       | 1.5m        | 1.8 - 3.0    |
+| Truck          | 6.5m        | 2.2m       | 2.5m        | 2.0 - 4.0    |
+| Bus            | 12.0m       | 2.5m       | 3.2m        | 3.5 - 6.0    |
+| Pedestrian     | 0.5m        | 0.5m       | 1.7m        | 0.6 - 1.5    |
+| Cyclist        | 1.8m        | 0.6m       | 1.7m        | 2.0 - 4.0    |
+| Motorcyclist   | 2.2m        | 0.8m       | 1.4m        | 2.0 - 3.5    |
+
+---
+
 ## Data Structure Specifications
 
 ### Pose-Aware Cluster (Motion)
@@ -776,6 +838,8 @@ This architecture specification provides a complete roadmap for adding motion ca
 
 **Current Release Focus:** Static pose alignment (see `static-pose-alignment-plan.md`)
 
+**Waymo Compatibility:** Full alignment with Waymo Open Dataset labeling specifications (see `av-lidar-integration-plan.md`)
+
 **Future Work (This Document):**
 
 - 7DOF pose representation
@@ -799,6 +863,8 @@ This architecture specification provides a complete roadmap for adding motion ca
 ## Related Documents
 
 - **Current Release:** `static-pose-alignment-plan.md` (immediate work)
+- **AV Integration:** `av-lidar-integration-plan.md` (Waymo compatibility, clustering algorithms, occlusion handling)
 - **Current Implementation:** `foreground_tracking_plan.md` (existing tracking)
 - **Database Schema:** `schema.sql` (current and future tables)
 - **ML Pipeline:** `ml_pipeline_roadmap.md` (classification with 3D features)
+- **Waymo Open Dataset:** https://github.com/waymo-research/waymo-open-dataset/blob/master/docs/labeling_specifications.md
