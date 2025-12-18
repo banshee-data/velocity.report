@@ -1,71 +1,141 @@
-# Static Pose Alignment Plan - Current Release
+# Hesai LIDAR 7DOF Track Production - Current Release
 
 **Status:** Implementation Plan for Current Release  
 **Date:** December 18, 2025  
-**Scope:** Static LIDAR sensor deployment (roadside, fixed installations)  
-**Goal:** Align with AV LIDAR integration spec (7-variable 3D bounding boxes)  
-**Source of Truth:** See `av-lidar-integration-plan.md` for canonical format
+**Scope:** Read Hesai PCAP/live streams and produce 7DOF tracks for visualization  
+**Goal:** Generate industry-standard 7DOF bounding boxes from Hesai sensor data  
+**Source of Truth:** See `av-lidar-integration-plan.md` for 7DOF schema specification
 
 ---
 
 ## Executive Summary
 
-This document outlines the immediate work needed to align the current **static LIDAR tracking system** with the canonical **7-variable 3D bounding box format** defined in `av-lidar-integration-plan.md`. This format is the AV industry standard (Waymo) and supports both current static sensors and future motion capture.
+This document outlines **Step 1** of the LIDAR ML pipeline: Reading Hesai Pandar40P PCAP files (or live streams) and producing **7-DOF 3D bounding box tracks** that conform to the AV industry standard schema defined in `av-lidar-integration-plan.md`.
 
-**7-Variable Format:** x, y, z (position) + length, width, height (dimensions) + heading (orientation)
+**7-DOF Format (from av-lidar-integration-plan.md):**
+- Position: center_x, center_y, center_z (meters)
+- Dimensions: length, width, height (meters)
+- Orientation: heading (radians, yaw angle around Z-axis)
 
-**Current State:** Production-deployed static roadside LIDAR with 2D tracking  
-**Release Scope:** Implement 7-variable 3D bounding boxes for static sensors  
-**Out of Scope:** Moving sensors, ego-motion compensation, 23-class taxonomy (future)
+**Current State:** Production-deployed Hesai PCAP processing with 2D tracking  
+**Release Scope:** Extend to 7-DOF tracks and visualize in Svelte UI  
+**Next Steps:** Frame sequence extraction, classifier training, integration (future phases)
 
-**Key Insight:** Full 3D oriented bounding boxes CAN be achieved with static sensors - no motion needed!
+**Key Deliverable:** Real-time visualization of 7-DOF bounding boxes from Hesai sensor data
 
 ---
 
-## Current Implementation (Static Only)
+## Phased Implementation Plan
 
-### What Works Today
+This plan aligns with the overall ML pipeline vision while focusing on Step 1.
 
-**Static Sensor Tracking:**
-- ✅ Roadside LIDAR sensors (fixed position)
-- ✅ 2D ground plane tracking (X, Y, VX, VY)
-- ✅ Background grid learning (stationary environment)
-- ✅ Kalman tracking for vehicles and pedestrians
-- ✅ Classification (car, pedestrian, bird, other)
-- ✅ Speed statistics (p50, p85, p98)
+### Phase 1: Read Hesai PCAP/Live → 7DOF Tracks (Current Release)
 
-**Pose Handling:**
-- ✅ Database has `sensor_poses` table (supports time-varying poses)
-- ✅ 4x4 transformation matrix storage
-- ⚠️ **Currently uses identity transform only** (sensor frame = world frame)
-- ⚠️ No pose_id references in clusters/tracks (assumes static sensor)
+**Goal:** Process Hesai Pandar40P data and produce 7-DOF bounding box tracks
 
-### Current Data Structures
+**Deliverables:**
+1. Extend tracking to produce 7-DOF outputs (add heading, Z coordinate)
+2. Visualize 7-DOF tracks in Svelte UI (oriented bounding boxes with heading arrows)
+3. Store 7-DOF tracks in database (conforming to av-lidar-integration-plan.md schema)
 
-**Pose (existing):**
+**Timeline:** 2-3 weeks
+
+### Phase 2: Extract 9-Frame Sequences (Future)
+
+**Goal:** Extract training sequences from Hesai PCAPs that match AV dataset format
+
+**Deliverables:**
+1. Sequence extraction tool (identify tracks lasting 9+ frames)
+2. Match AV dataset sampling rate (9 frames @ ~2Hz)
+3. Export sequences with 7-DOF labels for annotation
+
+**Timeline:** 1-2 weeks (after Phase 1)
+
+### Phase 3: Build Classifier (Future)
+
+**Goal:** Train ML classifier using AV dataset + labeled Hesai sequences
+
+**Deliverables:**
+1. Ingest AV dataset labels (see av-lidar-integration-plan.md Phase 2)
+2. Combine AV dataset + Hesai sequences for training
+3. Train object classifier (Car, Truck, Bus, Pedestrian, Cyclist, Sign classes)
+
+**Timeline:** 4-6 weeks (requires labeled data)
+
+### Phase 4: Enhance Track Pipeline (Future)
+
+**Goal:** Integrate ML classifier into real-time tracking pipeline
+
+**Deliverables:**
+1. Replace rule-based classifier with ML classifier
+2. Update classification confidence scoring
+3. Performance optimization for real-time operation
+
+**Timeline:** 2-3 weeks (after Phase 3)
+
+---
+
+## Phase 1 Details: Hesai → 7DOF Tracks
+
+### Current Implementation Status
+
+**What Works Today:**
+- ✅ Hesai Pandar40P UDP packet parsing
+- ✅ Frame assembly (360° rotations)
+- ✅ Background grid learning (EMA-based)
+- ✅ DBSCAN clustering in 3D world space
+- ✅ 2D Kalman tracking (X, Y, VX, VY)
+- ✅ Rule-based classification (car, pedestrian, bird, other)
+- ✅ PCAP replay and analysis mode
+
+**What's Missing for 7-DOF:**
+- ❌ No heading angle (orientation)
+- ❌ No Z-axis tracking in Kalman filter (assumes ground plane)
+- ❌ No oriented bounding box computation
+- ❌ UI shows axis-aligned boxes, not oriented
+- ❌ Database schema doesn't match av-lidar-integration-plan.md
+
+### Target Schema (from av-lidar-integration-plan.md)
+
+**BoundingBox7DOF (target format):**
 ```go
-type Pose struct {
-    PoseID         int64
-    SensorID       string
-    FromFrame      FrameID      // e.g., "sensor/hesai-01"
-    ToFrame        FrameID      // e.g., "site/main-st-001"
-    T              [16]float64  // 4x4 row-major matrix
-    ValidFromNanos int64
-    ValidToNanos   *int64       // NULL = current
+// From av-lidar-integration-plan.md Section 1.1
+type BoundingBox7DOF struct {
+    // Center position (meters)
+    CenterX float64 `json:"center_x"`
+    CenterY float64 `json:"center_y"`
+    CenterZ float64 `json:"center_z"`
+
+    // Dimensions (meters)
+    Length float64 `json:"length"` // Extent along local X
+    Width  float64 `json:"width"`  // Extent along local Y
+    Height float64 `json:"height"` // Extent along local Z
+
+    // Heading (radians, [-π, π])
+    Heading float64 `json:"heading"`
 }
 ```
+
+**Key Properties:**
+- Zero pitch, zero roll (parallel to ground plane)
+- Heading = yaw angle to rotate +X to object's forward axis
+- Coordinate frame: vehicle/world frame (not sensor frame)
+
+### Current Data Structures (to be extended)
 
 **WorldCluster (existing):**
 ```go
 type WorldCluster struct {
-    ClusterID   int64
-    SensorID    string
-    WorldFrame  FrameID
-    TSUnixNanos int64
-    CentroidX   float32  // World coordinates (baked in)
-    CentroidY   float32
-    CentroidZ   float32
-    // ... other features
+    ClusterID         int64
+    SensorID          string
+    TSUnixNanos       int64
+    CentroidX         float32  // ✅ Have X
+    CentroidY         float32  // ✅ Have Y
+    CentroidZ         float32  // ✅ Have Z
+    BoundingBoxLength float32  // ⚠️ Axis-aligned, not oriented
+    BoundingBoxWidth  float32  // ⚠️ Axis-aligned, not oriented
+    BoundingBoxHeight float32  // ✅ Have height
+    // ❌ Missing: Heading angle
 }
 ```
 
@@ -74,49 +144,50 @@ type WorldCluster struct {
 type TrackedObject struct {
     TrackID  string
     SensorID string
-    X, Y     float32  // 2D position
-    VX, VY   float32  // 2D velocity
-    P        [16]float32  // 4x4 covariance
-    // ... other fields
+    X, Y     float32  // ❌ Missing Z coordinate
+    VX, VY   float32  // ❌ Missing VZ component
+    P        [16]float32  // ⚠️ 4x4 covariance (2D + velocity)
+    
+    BoundingBoxLengthAvg float32  // ⚠️ Averaged, not oriented
+    BoundingBoxWidthAvg  float32  // ⚠️ Averaged, not oriented
+    BoundingBoxHeightAvg float32  // ✅ Have height
+    // ❌ Missing: Heading angle
+    
+    ObjectClass string  // ⚠️ Only 4 classes (car, pedestrian, bird, other)
 }
 ```
 
 ---
 
-## Problem: Missing 3D Bounding Box Format
+## Gap Analysis: Current → 7DOF
 
-### Current vs Target (AV Spec)
+### Required Changes for 7-DOF Compliance
 
-**Current Implementation:**
-- ❌ 2D position only (X, Y) - no Z tracking
-- ❌ No heading/orientation - only velocity direction
-- ❌ Averaged dimensions (length_avg, width_avg) - no oriented box
-- ❌ 4 object classes - not AV-compatible
+| Component | Current State | Required Change | Complexity |
+|-----------|---------------|-----------------|------------|
+| **Heading angle** | None | Add heading estimation | Medium |
+| **Z tracking** | Assumed ground plane | Add Z to Kalman state | Medium |
+| **Oriented box** | Axis-aligned | Compute along heading | Medium |
+| **Database schema** | Old format | Add 7DOF columns | Low |
+| **UI visualization** | Rectangles | Oriented boxes + arrows | Medium |
+| **Object classes** | 4 classes | Support AV class enum | Low |
 
-**Target (av-lidar-integration-plan.md):**
-- ✅ 3D position (X, Y, Z) - full 3D centroid
-- ✅ Heading (yaw angle in radians) - object orientation
-- ✅ Oriented box dimensions (length, width, height) along heading
-- ✅ 23 Waymo object classes (Phase 3, future)
+### Alignment with av-lidar-integration-plan.md
 
-**Additional Issues:**
-
-**Issue 1: No Pose Association**
-- Clusters and tracks don't reference which pose was used
-- Can't re-transform historical data if calibration updated
-- No pose versioning in tracking pipeline
-
-**Issue 2: World Coordinates Baked In**
-- Only world coordinates stored (sensor coordinates discarded)
-- Can't recompute if pose changes
+**Schema Compatibility:**
+- ✅ Our WorldCluster maps to their BoundingBox7DOF
+- ✅ Same coordinate conventions (meters, radians)
+- ✅ Same zero pitch/roll assumption
+- ⚠️ Need to add heading field
+- ⚠️ Need oriented (not axis-aligned) dimensions
 
 ---
 
-## Solution: Implement 7-Variable 3D Bounding Boxes
+## Implementation: Hesai → 7DOF Tracks
 
-### Phase 1: Database Schema Updates
+### Task 1.1: Extend Database Schema for 7-DOF
 
-**Goal:** Add 7-variable format fields to database (x, y, z, length, width, height, heading)
+**Goal:** Add columns to match BoundingBox7DOF from av-lidar-integration-plan.md
 
 **Changes:**
 
