@@ -1106,10 +1106,11 @@ type OcclusionInfo struct {
 
 func (oa *OcclusionAnalyzer) AnalyzeOcclusion(cluster Cluster, heading float32) OcclusionInfo {
     // 1. Compute vector from sensor to cluster centroid
-    toObject := cluster.Centroid - oa.SensorPosition
+    toObjectX := cluster.Centroid[0] - oa.SensorPosition[0]
+    toObjectY := cluster.Centroid[1] - oa.SensorPosition[1]
     
     // 2. Compute angle relative to object heading
-    relativeAngle := atan2(toObject[1], toObject[0]) - heading
+    relativeAngle := float32(math.Atan2(float64(toObjectY), float64(toObjectX))) - heading
     
     // 3. Determine which faces are potentially visible
     // Front visible if |relativeAngle| < 90°

@@ -335,18 +335,28 @@ func (t *Tracker) UpdateWithEgoMotion(measurement Measurement, currPose *Pose7DO
 }
 ```
 
-**Sensor Velocity at Point:**
+**Sensor Velocity at Point (Pseudocode):**
 
 ```go
+// Note: This is mathematical pseudocode showing the algorithm concept.
+// In actual Go implementation, vector operations require explicit element-wise computation.
 func (p *Pose7DOF) VelocityAtPoint(point [3]float64) [3]float64 {
     // v_point = v_sensor + ω × r
     // where ω is angular velocity, r is radius vector from sensor to point
-
-    r := point - p.Position()
+    
+    // r = point - p.Position() (element-wise subtraction)
+    pos := p.Position()
+    r := [3]float64{point[0] - pos[0], point[1] - pos[1], point[2] - pos[2]}
+    
     v_linear := p.LinearVelocity()
-    v_angular := cross(p.AngularVelocity(), r)
-
-    return v_linear + v_angular
+    v_angular := cross(p.AngularVelocity(), r) // cross product helper
+    
+    // return v_linear + v_angular (element-wise addition)
+    return [3]float64{
+        v_linear[0] + v_angular[0],
+        v_linear[1] + v_angular[1],
+        v_linear[2] + v_angular[2],
+    }
 }
 ```
 
