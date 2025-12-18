@@ -114,7 +114,10 @@ func (db *DB) newMigrate(migrationsFS fs.FS) (*migrate.Migrate, error) {
 	}
 
 	// Create sqlite driver instance
-	driver, err := sqlite.WithInstance(db.DB, &sqlite.Config{})
+	// Set NoTxWrap to avoid wrapping migrations in transactions (SQLite handles this)
+	driver, err := sqlite.WithInstance(db.DB, &sqlite.Config{
+		NoTxWrap: true,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create sqlite driver: %w", err)
 	}
@@ -297,6 +300,9 @@ func normalizeSQLForComparison(sql string) string {
 
 	// Normalize comma spacing - remove spaces before commas
 	sql = strings.ReplaceAll(sql, " ,", ",")
+
+	// Remove spaces immediately before closing parentheses to avoid noisy diffs
+	sql = strings.ReplaceAll(sql, " )", ")")
 
 	// Remove quotes from table names that SQLite adds during ALTER TABLE operations
 	// Pattern matches: "table_name" or 'table_name' and replaces with: table_name

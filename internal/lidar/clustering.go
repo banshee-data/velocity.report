@@ -377,6 +377,48 @@ func computeClusterMetrics(points []WorldPoint, clusterID int64) WorldCluster {
 		sensorID = points[0].SensorID
 	}
 
+	// Phase 1: Compute cluster quality metrics
+	length := float32(maxX - minX)
+	width := float32(maxY - minY)
+	height := float32(maxZ - minZ)
+
+	// Cluster density: points per cubic meter (use minimum volume threshold for degenerate clusters)
+	volume := length * width * height
+	const minVolume = 1e-4 // cubic meters, adjust as appropriate
+	var density float32
+	if volume < minVolume {
+		density = float32(len(points)) / minVolume
+	} else {
+		density = float32(len(points)) / volume
+	}
+
+	// Aspect ratio: max dimension / min dimension
+	// Handle degenerate cases (zero-length or zero-width) safely to avoid
+	// division-by-zero and NaN results. Behavior:
+	//  - If both length and width are effectively zero (point-like cluster),
+	//    set aspect ratio to 1.0 (treat as symmetric).
+	//  - If exactly one dimension is effectively zero, set aspect ratio to 0.0
+	//    to indicate invalid/degenerate geometry (caller may treat 0.0 specially).
+	var aspectRatio float32
+	const eps = 1e-6
+	lenZero := float64(length) <= eps
+	widZero := float64(width) <= eps
+
+	if !lenZero && !widZero {
+		if length > width {
+			aspectRatio = length / width
+		} else {
+			aspectRatio = width / length
+		}
+	} else if lenZero && widZero {
+		// Degenerate single-point cluster: treat as square (aspect ratio = 1)
+		aspectRatio = 1.0
+	} else {
+		// One dimension is zero but the other is not: mark as invalid/degenerate
+		// using 0.0 so downstream logic can detect and handle it specially.
+		aspectRatio = 0.0
+	}
+
 	return WorldCluster{
 		ClusterID:         clusterID,
 		SensorID:          sensorID,
@@ -384,11 +426,14 @@ func computeClusterMetrics(points []WorldPoint, clusterID int64) WorldCluster {
 		CentroidX:         centroidX,
 		CentroidY:         centroidY,
 		CentroidZ:         centroidZ,
-		BoundingBoxLength: float32(maxX - minX),
-		BoundingBoxWidth:  float32(maxY - minY),
-		BoundingBoxHeight: float32(maxZ - minZ),
+		BoundingBoxLength: length,
+		BoundingBoxWidth:  width,
+		BoundingBoxHeight: height,
 		PointsCount:       len(points),
 		HeightP95:         float32(heights[p95Idx]),
 		IntensityMean:     float32(sumIntensity / uint64(len(points))),
+		ClusterDensity:    density,
+		AspectRatio:       aspectRatio,
+		NoisePointsCount:  0, // Will be computed if noise points are tracked
 	}
 }

@@ -3,7 +3,6 @@ package db
 import (
 	"database/sql"
 	"os"
-	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -84,41 +83,12 @@ func getSchemaDefinition(t *testing.T, db *sql.DB) map[string]string {
 		if err := rows.Scan(&name, &sql); err != nil {
 			t.Fatalf("Failed to scan schema row: %v", err)
 		}
-		// Normalize whitespace and remove trailing semicolons
-		sql = normalizeSQL(sql)
+		// Normalize for comparison using shared helper
+		sql = normalizeSQLForComparison(sql)
 		schema[name] = sql
 	}
 
 	return schema
-}
-
-// normalizeSQL normalizes SQL statements for comparison
-func normalizeSQL(sql string) string {
-	// Remove extra whitespace
-	sql = strings.TrimSpace(sql)
-
-	// Replace multiple spaces/newlines with single space
-	lines := strings.Fields(sql)
-	sql = strings.Join(lines, " ")
-
-	// Remove trailing semicolon
-	sql = strings.TrimSuffix(sql, ";")
-
-	// Normalize comma spacing - remove spaces before commas
-	sql = strings.ReplaceAll(sql, " ,", ",")
-
-	// Remove quotes from table names that SQLite adds during ALTER TABLE operations
-	// Pattern matches: "table_name" or 'table_name' and replaces with: table_name
-	quotedTablePattern := regexp.MustCompile(`["']([a-z_][a-z0-9_]*)["']`)
-	sql = quotedTablePattern.ReplaceAllString(sql, "$1")
-
-	// SQLite's ALTER TABLE RENAME removes the space after table name in CREATE TABLE
-	// Pattern matches: "table_name(" and replaces with: "table_name ("
-	// This normalizes "CREATE TABLE name(" to "CREATE TABLE name ("
-	tableParenPattern := regexp.MustCompile(`\b([a-z_][a-z0-9_]*)\(`)
-	sql = tableParenPattern.ReplaceAllString(sql, "$1 (")
-
-	return sql
 }
 
 // schemasMatch compares two schema definitions

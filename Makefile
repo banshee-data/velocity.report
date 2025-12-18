@@ -118,7 +118,7 @@ help:
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-VERSION := 0.4.0-pre3
+VERSION := 0.4.0-pre4
 GIT_SHA := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 LDFLAGS := -X 'main.version=$(VERSION)' -X 'main.gitSHA=$(GIT_SHA)'
 
@@ -345,7 +345,7 @@ dev-go:
 	@$(call run_dev_go)
 
 dev-go-lidar:
-	@$(call run_dev_go,--enable-lidar --lidar-bg-flush-interval=60s --lidar-seed-from-first=true --lidar-forward)
+	@$(call run_dev_go,--disable-radar --enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward)
 
 dev-go-kill-server:
 	@$(call run_dev_go_kill_server)

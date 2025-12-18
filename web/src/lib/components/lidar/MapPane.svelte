@@ -13,6 +13,7 @@
 	const CROSSHAIR_SIZE = 12; // pixels
 
 	export let tracks: Track[] = [];
+	export let vcTracks: Track[] = []; // Velocity-coherent tracks
 	export let selectedTrackId: string | null = null;
 	export let backgroundGrid: BackgroundGrid | null = null;
 	export let onTrackSelect: (trackId: string) => void = () => {};
@@ -27,6 +28,9 @@
 	let showObservations = true;
 	let showCrosshair = true;
 	let showMouseCoords = true;
+	let showQualityOverlay = true; // Phase 1: Show track quality visualization
+	let showOcclusionMarkers = true; // Phase 1: Show occlusion gaps
+	let showVCTracks = true; // Show velocity-coherent tracks
 
 	let canvas: HTMLCanvasElement;
 	let ctx: CanvasRenderingContext2D | null = null;
@@ -81,6 +85,7 @@
 	// Mark as dirty when props change
 	$: if (
 		tracks ||
+		vcTracks ||
 		selectedTrackId ||
 		backgroundGrid ||
 		observations ||
@@ -161,8 +166,15 @@
 		// }
 
 		tracks.forEach((track) => {
-			renderTrack(track, track.track_id === selectedTrackId);
+			renderTrack(track, track.track_id === selectedTrackId, false);
 		});
+
+		// Render VC tracks with different visual style
+		if (showVCTracks && vcTracks.length > 0) {
+			vcTracks.forEach((track) => {
+				renderTrack(track, track.track_id === selectedTrackId, true);
+			});
+		}
 
 		// Foreground observation layer (time-window slice)
 		if (foregroundEnabled && foreground.length > 0) {
@@ -354,19 +366,41 @@
 	}
 
 	// Render a single track
-	function renderTrack(track: Track, isSelected: boolean) {
+	function renderTrack(track: Track, isSelected: boolean, isVC: boolean = false) {
 		if (!ctx) return;
 
 		const [screenX, screenY] = worldToScreen(track.position.x, track.position.y);
 
-		// Get color based on classification or state
+		// Get color based on classification or state (Phase 1: optionally override with quality)
 		let color: string = TRACK_COLORS.other;
-		if (track.state === 'tentative') {
+
+		// VC tracks get a distinct purple/magenta tint
+		if (isVC) {
+			color = '#a855f7'; // Purple for VC tracks
+			if (track.state === 'tentative') {
+				color = '#c084fc'; // Lighter purple for tentative VC
+			}
+		} else if (track.state === 'tentative') {
 			color = TRACK_COLORS.tentative;
 		} else if (track.state === 'deleted') {
 			color = TRACK_COLORS.deleted;
 		} else if (track.object_class && track.object_class in TRACK_COLORS) {
 			color = TRACK_COLORS[track.object_class as keyof typeof TRACK_COLORS];
+		}
+
+		// Phase 1: Quality-based color overlay (optional)
+		if (showQualityOverlay && track.quality?.quality_score !== undefined) {
+			const score = track.quality.quality_score;
+			// Interpolate color based on quality score: red (low) → yellow → green (high)
+			if (score < 0.5) {
+				// Red to Yellow (0-0.5)
+				const t = score * 2;
+				color = `rgb(255, ${Math.floor(255 * t)}, 0)`;
+			} else {
+				// Yellow to Green (0.5-1.0)
+				const t = (score - 0.5) * 2;
+				color = `rgb(${Math.floor(255 * (1 - t))}, 255, 0)`;
+			}
 		}
 
 		// Draw history path
@@ -386,6 +420,29 @@
 
 			ctx.stroke();
 			ctx.globalAlpha = 1.0;
+
+			// Phase 1: Mark occlusion gaps if enabled
+			if (
+				showOcclusionMarkers &&
+				track.quality?.occlusion_count &&
+				track.quality.occlusion_count > 0
+			) {
+				ctx.fillStyle = '#FF0000';
+				ctx.globalAlpha = 0.7;
+				// Draw small markers at potential occlusion points (simplified - actual gap detection requires timestamps)
+				// For now, mark every Nth point as a visual indicator
+				const gapInterval = Math.max(
+					2,
+					Math.floor(track.history.length / (track.quality.occlusion_count + 1))
+				);
+				for (let i = gapInterval; i < track.history.length; i += gapInterval) {
+					const [gx, gy] = worldToScreen(track.history[i].x, track.history[i].y);
+					ctx.beginPath();
+					ctx.arc(gx, gy, 3, 0, Math.PI * 2);
+					ctx.fill();
+				}
+				ctx.globalAlpha = 1.0;
+			}
 		}
 
 		ctx.save();
@@ -666,6 +723,18 @@
 			<div class="flex items-center gap-2">
 				<input id="toggle-mouse" type="checkbox" bind:checked={showMouseCoords} />
 				<label for="toggle-mouse">Mouse world coords</label>
+			</div>
+			<!-- Phase 1: Quality visualization toggles -->
+			<div class="mt-2 border-t border-gray-600 pt-2">
+				<div class="mb-1 text-xs font-bold text-gray-400">Phase 1: Quality</div>
+				<div class="flex items-center gap-2">
+					<input id="toggle-quality" type="checkbox" bind:checked={showQualityOverlay} />
+					<label for="toggle-quality">Quality coloring</label>
+				</div>
+				<div class="flex items-center gap-2">
+					<input id="toggle-occlusions" type="checkbox" bind:checked={showOcclusionMarkers} />
+					<label for="toggle-occlusions">Occlusion markers</label>
+				</div>
 			</div>
 			{#if hoverWorld && showMouseCoords}
 				<div class="mt-2 text-blue-200">

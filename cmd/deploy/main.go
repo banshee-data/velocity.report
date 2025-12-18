@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const version = "0.4.0-pre3"
+const version = "0.4.0-pre4"
 
 var DebugMode bool
 

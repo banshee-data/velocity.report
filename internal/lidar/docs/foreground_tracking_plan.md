@@ -1643,5 +1643,7 @@ When pose validation is implemented:
 ## Related Documentation
 
 - **[ML Pipeline Roadmap](ml_pipeline_roadmap.md)** - Complete architectural plan for Phase 4.0-4.4 (analysis runs, labeling UI, ML training, parameter tuning)
+- **[Velocity-Coherent Foreground Extraction](velocity-coherent-foreground-extraction.md)** - Alternative algorithm design for sparse-point tracking with velocity coherence
+- **[LIDAR Foreground Tracking Status](lidar-foreground-tracking-status.md)** - Current issues, fixes, and enhancement roadmap
 - **[LIDAR Sidecar Overview](lidar_sidecar_overview.md)** - Technical implementation overview and module structure
 - **[Development Log](devlog.md)** - Chronological implementation history
