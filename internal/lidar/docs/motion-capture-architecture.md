@@ -47,12 +47,20 @@ This document specifies the complete architecture for **motion capture scenarios
 - Foreground objects move (vehicles, pedestrians, animals)
 - Sensor coordinate frame = world coordinate frame (identity transform)
 
-**2D Tracking:**
+**2D Tracking (Current) → 7DOF Tracking (Target):**
 
 - Kalman filter tracks ground plane motion: [x, y, vx, vy] (4 states)
-- No height tracking (assumes objects on flat ground)
-- No orientation tracking (only velocity heading)
-- Object classes: car, pedestrian, bird, other
+- **Target:** Extend to 7-DOF: [x, y, z, vx, vy, vz, heading]
+- Current object classes: car, pedestrian, bird, other
+- **Target:** AV industry standard 28-class taxonomy (see `av-lidar-integration-plan.md`)
+
+**AV Industry Standard Compatibility:**
+
+The tracking system is designed to produce labels compatible with the AV industry standard specification:
+- 28 fine-grained semantic categories
+- Instance segmentation for Vehicle, Pedestrian, and Cyclist classes
+- Consistent tracking IDs across frames
+- 7-DOF bounding boxes (center_x, center_y, center_z, length, width, height, heading)
 
 **Data Flow (Static):**
 
@@ -61,7 +69,7 @@ UDP Packets → Parse → Frame → Background Grid → Foreground Extraction
     ↓
 Polar → World Transform (identity) → Clustering (DBSCAN) → Tracking (Kalman 2D)
     ↓
-Classification → Database → API
+Classification (28-class AV taxonomy) → Database → API
 ```
 
 **Current Assumptions:**
@@ -71,12 +79,43 @@ Classification → Database → API
 3. All motion is from objects being tracked
 4. Sensor frame = world frame (no transformation needed)
 
-**Current Limitations:**
+**Current Limitations and Remediation Plans:**
 
-- ❌ Cannot handle moving sensor (velocity bias in measurements)
-- ❌ Cannot track 3D objects (birds, drones, thrown objects)
-- ❌ Cannot estimate object orientation (only heading from velocity)
-- ❌ Cannot update calibration without re-collection
+| Limitation | Why It Exists | Remediation Plan |
+| ---------- | ------------- | ---------------- |
+| ❌ Cannot handle moving sensor | Velocity bias in measurements without ego-motion compensation | Phase 2: Implement ego-motion compensation with pose transforms |
+| ❌ Limited 3D object tracking | Current Kalman filter uses 2D (x, y) state only; see details below | Phase 1: Extend to 7-DOF tracking with Z coordinate |
+| ❌ Cannot estimate object orientation | Only heading from velocity direction | Implement PCA-based heading + L-shape fitting |
+| ❌ Cannot update calibration without re-collection | Background grid requires fresh learning | Planned: Incremental background update with pose validation |
+
+**3D Tracking Limitations - Detailed Analysis:**
+
+The current system uses a 2D Kalman filter tracking ground-plane motion (x, y, vx, vy). This creates limitations for:
+
+1. **Elevated Objects (Birds, Drones, Thrown Objects):**
+   - **Current Behavior:** Clusters are still detected and tracked, but height (Z) is not incorporated into the Kalman state. Birds appear as very small clusters with erratic motion patterns.
+   - **Why Limited:** The 2D filter cannot predict or smooth vertical motion, leading to noisy Z estimates.
+   - **Remediation:** Extend to 7-DOF Kalman state: [x, y, z, vx, vy, vz, heading]. This allows prediction and smoothing of vertical motion.
+
+2. **Overhead Structures (Trees, Overpasses, Signs):**
+   - **Current Behavior:** These appear in the LIDAR point cloud but are learned as background during the settling period because they don't move.
+   - **Tree Detection:** Trees exhibit characteristic motion patterns from wind sway (oscillating motion, ~0.1-0.5 Hz frequency, small amplitude). Additionally, trees have distinctive elevation profiles (points from ground level up to canopy height, typically 3-15m).
+   - **Overpass Detection:** Overpasses and elevated structures are detected by their consistent elevation above road level (>4m typical clearance) and their static nature. Points above road level that persist across frames are classified as infrastructure.
+   - **Remediation:**
+     - Use elevation thresholds to segment above-road-level structures
+     - Classify based on height profile: trees have gradual vertical extent, overpasses are flat horizontal planes
+     - Add `AVTypeVegetation` class for trees (detected by oscillating motion + vertical extent)
+     - Add height-based filtering to exclude overhead static infrastructure from ground-level tracking
+
+3. **Elevation-Based Classification Logic:**
+   ```
+   If cluster.HeightP95 > 4.0m AND cluster is static:
+       → Classify as infrastructure (overpass, sign, building)
+   If cluster has oscillating motion AND vertical extent > 2.0m:
+       → Classify as AVTypeVegetation (tree, bush)
+   If cluster.HeightP95 < 0.5m AND erratic 3D motion:
+       → Classify as AVTypeBird
+   ```
 
 ---
 
@@ -327,18 +366,28 @@ func (t *Tracker) UpdateWithEgoMotion(measurement Measurement, currPose *Pose7DO
 }
 ```
 
-**Sensor Velocity at Point:**
+**Sensor Velocity at Point (Pseudocode):**
 
 ```go
+// Note: This is mathematical pseudocode showing the algorithm concept.
+// In actual Go implementation, vector operations require explicit element-wise computation.
 func (p *Pose7DOF) VelocityAtPoint(point [3]float64) [3]float64 {
     // v_point = v_sensor + ω × r
     // where ω is angular velocity, r is radius vector from sensor to point
-
-    r := point - p.Position()
+    
+    // r = point - p.Position() (element-wise subtraction)
+    pos := p.Position()
+    r := [3]float64{point[0] - pos[0], point[1] - pos[1], point[2] - pos[2]}
+    
     v_linear := p.LinearVelocity()
-    v_angular := cross(p.AngularVelocity(), r)
-
-    return v_linear + v_angular
+    v_angular := cross(p.AngularVelocity(), r) // cross product helper
+    
+    // return v_linear + v_angular (element-wise addition)
+    return [3]float64{
+        v_linear[0] + v_angular[0],
+        v_linear[1] + v_angular[1],
+        v_linear[2] + v_angular[2],
+    }
 }
 ```
 
@@ -482,6 +531,60 @@ orientation := QuaternionFromPCA(pca)
 // Integrates velocity heading, PCA, and temporal consistency
 track.UpdateOrientation(measurement)
 ```
+
+---
+
+## Clustering and Shape Completion
+
+### Consistent Point Cluster Identification
+
+For reliable object tracking, clusters must represent consistent real-world objects across frames.
+
+**Multi-Stage Clustering Pipeline:**
+
+```
+Raw Points → Ground Removal → DBSCAN/Euclidean Clustering → Cluster Merging → 
+Shape Estimation → Temporal Association → 7-DOF Box Fitting
+```
+
+**Detailed algorithms are specified in `av-lidar-integration-plan.md` Phase 6-7:**
+
+- **Phase 6:** Clustering Algorithms (AdaptiveDBSCAN, Octree spatial index, cluster merging)
+- **Phase 7:** Occlusion Handling (symmetry completion, model-based priors, temporal refinement)
+
+### Handling Partial Observations (Occlusion)
+
+**Problem:** LIDAR only observes surfaces facing the sensor. For a typical vehicle, only 1-3 sides are visible.
+
+**Solution Approaches (see `av-lidar-integration-plan.md` for full details):**
+
+1. **Symmetry-Based Completion:**
+   - Use bilateral symmetry to estimate hidden dimensions
+   - Works well when at least half the object is visible
+
+2. **Model-Based Completion (Class Priors):**
+   - Use learned shape priors per object class (Car, Truck, Bus, Pedestrian, etc.)
+   - Blend observed and prior dimensions based on visibility fraction
+
+3. **Temporal Shape Refinement:**
+   - Accumulate observations as object moves and reveals different surfaces
+   - Weight by visibility quality
+   - Track which surfaces have been observed
+
+4. **L-Shape Fitting (Vehicles):**
+   - Detect perpendicular edges to estimate vehicle heading
+   - Robust for corner-view observations
+
+**Shape Priors for AV Industry Standard Classes:**
+
+| Class          | Mean Length | Mean Width | Mean Height | Aspect Ratio |
+| -------------- | ----------- | ---------- | ----------- | ------------ |
+| Car            | 4.5m        | 1.8m       | 1.5m        | 1.8 - 3.0    |
+| Truck          | 6.5m        | 2.2m       | 2.5m        | 2.0 - 4.0    |
+| Bus            | 12.0m       | 2.5m       | 3.2m        | 3.5 - 6.0    |
+| Pedestrian     | 0.5m        | 0.5m       | 1.7m        | 0.6 - 1.5    |
+| Cyclist        | 1.8m        | 0.6m       | 1.7m        | 2.0 - 4.0    |
+| Motorcyclist   | 2.2m        | 0.8m       | 1.4m        | 2.0 - 3.5    |
 
 ---
 
@@ -776,6 +879,8 @@ This architecture specification provides a complete roadmap for adding motion ca
 
 **Current Release Focus:** Static pose alignment (see `static-pose-alignment-plan.md`)
 
+**AV Industry Standard Compatibility:** Full alignment with AV industry standard labeling specifications (see `av-lidar-integration-plan.md`)
+
 **Future Work (This Document):**
 
 - 7DOF pose representation
@@ -799,6 +904,7 @@ This architecture specification provides a complete roadmap for adding motion ca
 ## Related Documents
 
 - **Current Release:** `static-pose-alignment-plan.md` (immediate work)
+- **AV Integration:** `av-lidar-integration-plan.md` (AV industry standard compatibility, clustering algorithms, occlusion handling)
 - **Current Implementation:** `foreground_tracking_plan.md` (existing tracking)
 - **Database Schema:** `schema.sql` (current and future tables)
 - **ML Pipeline:** `ml_pipeline_roadmap.md` (classification with 3D features)
