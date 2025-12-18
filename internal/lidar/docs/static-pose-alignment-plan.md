@@ -1,21 +1,24 @@
 # Static Pose Alignment Plan - Current Release
 
 **Status:** Implementation Plan for Current Release  
-**Date:** December 17, 2025  
+**Date:** December 18, 2025  
 **Scope:** Static LIDAR sensor deployment (roadside, fixed installations)  
-**Goal:** Align current static collection with future-compatible data structures
+**Goal:** Align with AV LIDAR integration spec (7-variable 3D bounding boxes)  
+**Source of Truth:** See `av-lidar-integration-plan.md` for canonical format
 
 ---
 
 ## Executive Summary
 
-This document outlines the immediate work needed to make the current **static LIDAR tracking system** compatible with future motion-capture scenarios while maintaining all existing functionality. The focus is on data structure alignment and forward compatibility, not on implementing motion capture itself.
+This document outlines the immediate work needed to align the current **static LIDAR tracking system** with the canonical **7-variable 3D bounding box format** defined in `av-lidar-integration-plan.md`. This format is the AV industry standard (Waymo) and supports both current static sensors and future motion capture.
+
+**7-Variable Format:** x, y, z (position) + length, width, height (dimensions) + heading (orientation)
 
 **Current State:** Production-deployed static roadside LIDAR with 2D tracking  
-**Release Scope:** Make static pose tracking future-compatible  
-**Out of Scope:** Moving sensors, ego-motion compensation, 3D orientation tracking
+**Release Scope:** Implement 7-variable 3D bounding boxes for static sensors  
+**Out of Scope:** Moving sensors, ego-motion compensation, 23-class taxonomy (future)
 
-**Key Principle:** Design data structures today that won't require migration when motion capture is added later.
+**Key Insight:** Full 3D oriented bounding boxes CAN be achieved with static sensors - no motion needed!
 
 ---
 
@@ -80,60 +83,97 @@ type TrackedObject struct {
 
 ---
 
-## Problem: Future Incompatibility
+## Problem: Missing 3D Bounding Box Format
 
-### What Breaks When Adding Motion Capture?
+### Current vs Target (AV Spec)
+
+**Current Implementation:**
+- ❌ 2D position only (X, Y) - no Z tracking
+- ❌ No heading/orientation - only velocity direction
+- ❌ Averaged dimensions (length_avg, width_avg) - no oriented box
+- ❌ 4 object classes - not AV-compatible
+
+**Target (av-lidar-integration-plan.md):**
+- ✅ 3D position (X, Y, Z) - full 3D centroid
+- ✅ Heading (yaw angle in radians) - object orientation
+- ✅ Oriented box dimensions (length, width, height) along heading
+- ✅ 23 Waymo object classes (Phase 3, future)
+
+**Additional Issues:**
 
 **Issue 1: No Pose Association**
 - Clusters and tracks don't reference which pose was used
-- If sensor moves (future), we can't reconstruct sensor position at measurement time
 - Can't re-transform historical data if calibration updated
+- No pose versioning in tracking pipeline
 
 **Issue 2: World Coordinates Baked In**
 - Only world coordinates stored (sensor coordinates discarded)
 - Can't recompute if pose changes
-- Tied to specific calibration forever
-
-**Issue 3: Missing Metadata**
-- No tracking of which pose was "current" during measurement
-- No way to validate consistency across time periods
-- No support for pose versioning in tracking pipeline
 
 ---
 
-## Solution: Add Pose References (Static-Safe)
+## Solution: Implement 7-Variable 3D Bounding Boxes
 
 ### Phase 1: Database Schema Updates
 
-**Goal:** Add optional pose_id to clusters and tracks without breaking existing code.
+**Goal:** Add 7-variable format fields to database (x, y, z, length, width, height, heading)
 
 **Changes:**
 
-1. **Add pose_id column to lidar_clusters:**
+1. **Add 3D position and heading to lidar_tracks:**
 ```sql
-ALTER TABLE lidar_clusters ADD COLUMN pose_id INTEGER;
-ALTER TABLE lidar_clusters ADD FOREIGN KEY (pose_id) 
+-- Add Z coordinate (currently only X, Y tracked)
+ALTER TABLE lidar_tracks ADD COLUMN centroid_z REAL;
+
+-- Add velocity Z component
+ALTER TABLE lidar_tracks ADD COLUMN velocity_z REAL;
+
+-- Add oriented bounding box dimensions
+ALTER TABLE lidar_tracks ADD COLUMN bbox_length REAL;  -- Along heading
+ALTER TABLE lidar_tracks ADD COLUMN bbox_width REAL;   -- Perpendicular
+ALTER TABLE lidar_tracks ADD COLUMN bbox_height REAL;  -- Rename from height_p95_max
+ALTER TABLE lidar_tracks ADD COLUMN bbox_heading REAL; -- Yaw angle (radians)
+
+-- Add pose_id for future motion/calibration updates
+ALTER TABLE lidar_tracks ADD COLUMN pose_id INTEGER;
+ALTER TABLE lidar_tracks ADD FOREIGN KEY (pose_id) 
     REFERENCES sensor_poses (pose_id);
 ```
 
-2. **Add pose_id column to lidar_track_obs:**
+2. **Add 7-variable format to lidar_track_obs:**
 ```sql
+-- Add Z coordinate
+ALTER TABLE lidar_track_obs ADD COLUMN z REAL;
+
+-- Add velocity Z component
+ALTER TABLE lidar_track_obs ADD COLUMN velocity_z REAL;
+
+-- Add oriented bounding box
+ALTER TABLE lidar_track_obs ADD COLUMN bbox_length REAL;
+ALTER TABLE lidar_track_obs ADD COLUMN bbox_width REAL;
+ALTER TABLE lidar_track_obs ADD COLUMN bbox_height REAL;  -- Rename from bounding_box_height
+ALTER TABLE lidar_track_obs ADD COLUMN bbox_heading REAL;
+
+-- Add pose_id
 ALTER TABLE lidar_track_obs ADD COLUMN pose_id INTEGER;
 ALTER TABLE lidar_track_obs ADD FOREIGN KEY (pose_id) 
     REFERENCES sensor_poses (pose_id);
 ```
 
-3. **Add optional sensor-frame storage to lidar_clusters:**
+3. **Add sensor-frame storage to lidar_clusters (for re-transformation):**
 ```sql
 ALTER TABLE lidar_clusters ADD COLUMN sensor_centroid_x REAL;
 ALTER TABLE lidar_clusters ADD COLUMN sensor_centroid_y REAL;
 ALTER TABLE lidar_clusters ADD COLUMN sensor_centroid_z REAL;
+ALTER TABLE lidar_clusters ADD COLUMN pose_id INTEGER;
+ALTER TABLE lidar_clusters ADD FOREIGN KEY (pose_id) 
+    REFERENCES sensor_poses (pose_id);
 ```
 
 **Backward Compatibility:**
 - ✅ All new columns are NULL-able
-- ✅ Existing queries work unchanged (ignore NULL pose_id)
-- ✅ Existing code doesn't need to populate pose_id (can remain NULL for now)
+- ✅ Existing queries work unchanged
+- ✅ Old data remains valid (NULL for new fields)
 
 **Migration Script:**
 ```sql
@@ -173,9 +213,93 @@ DROP INDEX IF EXISTS idx_lidar_clusters_pose;
 
 ### Phase 2: Go Struct Updates
 
-**Goal:** Add pose_id fields to Go structs without changing existing APIs.
+**Goal:** Add 7-variable 3D bounding box fields to Go structs
 
-**WorldCluster (updated):**
+**TrackedObject (updated to match AV spec):**
+```go
+type TrackedObject struct {
+    TrackID  string
+    SensorID string
+    State    TrackState
+    
+    // Lifecycle
+    Hits   int
+    Misses int
+    FirstUnixNanos int64
+    LastUnixNanos  int64
+    
+    // 3D Position (world frame) - EXPANDED from 2D
+    X, Y, Z float32  // Add Z coordinate
+    
+    // 3D Velocity (world frame) - EXPANDED from 2D
+    VX, VY, VZ float32  // Add VZ component
+    
+    // Kalman covariance - EXPANDED from 4x4 to 6x6
+    P [36]float32  // 6x6 for [x, y, z, vx, vy, vz]
+    
+    // Oriented Bounding Box (7-variable AV format) - NEW
+    Length  float32  // Along heading direction
+    Width   float32  // Perpendicular to heading
+    Height  float32  // Vertical dimension
+    Heading float32  // Yaw angle (radians)
+    
+    // Heading tracking - NEW
+    HeadingRate float32  // Angular velocity (rad/s)
+    
+    // Pose reference (for future motion/calibration)
+    PoseID *int64  // NULL for now (static identity pose)
+    
+    // Classification (unchanged, 23-class expansion is Phase 3)
+    ObjectClass      string
+    ObjectConfidence float32
+    ClassificationModel string
+    
+    // Speed statistics (unchanged)
+    AvgSpeedMps  float32
+    PeakSpeedMps float32
+    speedHistory []float32
+    
+    // Quality metrics (unchanged)
+    ObservationCount int
+    TrackLengthMeters float32
+    TrackDurationSecs float32
+    // ... other quality fields
+    
+    // History
+    History []TrackPoint
+}
+```
+
+**TrackObservation (updated to match AV spec):**
+```go
+type TrackObservation struct {
+    TrackID     string
+    TSUnixNanos int64
+    WorldFrame  string
+    
+    // 3D Position - EXPANDED
+    X, Y, Z float32  // Add Z coordinate
+    
+    // 3D Velocity - EXPANDED
+    VelocityX, VelocityY, VelocityZ float32  // Add VZ
+    SpeedMps float32
+    
+    // Oriented Bounding Box (7-variable format) - NEW
+    BBoxLength  float32  // Along heading
+    BBoxWidth   float32  // Perpendicular
+    BBoxHeight  float32  // Vertical
+    BBoxHeading float32  // Yaw angle (radians)
+    
+    // Features (unchanged)
+    HeightP95     float32
+    IntensityMean float32
+    
+    // Pose reference
+    PoseID *int64  // NULL for static sensors
+}
+```
+
+**WorldCluster (updated for sensor-frame storage):**
 ```go
 type WorldCluster struct {
     ClusterID   int64
@@ -183,112 +307,196 @@ type WorldCluster struct {
     WorldFrame  FrameID
     TSUnixNanos int64
     
-    // World coordinates (computed from sensor coords + pose)
+    // World coordinates (unchanged)
     CentroidX   float32
     CentroidY   float32
     CentroidZ   float32
     
-    // NEW: Pose reference (NULL for static sensors with identity transform)
-    PoseID      *int64   // Reference to sensor_poses.pose_id
+    // Bounding box (unchanged)
+    BoundingBoxLength float32
+    BoundingBoxWidth  float32
+    BoundingBoxHeight float32
     
-    // NEW: Sensor-frame coordinates (for re-transformation if pose changes)
+    // NEW: Sensor-frame coordinates (for re-transformation)
     SensorCentroidX *float32
     SensorCentroidY *float32
     SensorCentroidZ *float32
     
-    // ... existing features unchanged
-}
-```
-
-**TrackObservation (updated):**
-```go
-type TrackObservation struct {
-    TrackID     string
-    TSUnixNanos int64
-    WorldFrame  string
-    
-    // Position (world frame)
-    X, Y, Z     float32
-    
     // NEW: Pose reference
-    PoseID      *int64  // Reference to sensor_poses.pose_id used for this obs
+    PoseID *int64
     
-    // ... existing fields unchanged
+    // Features (unchanged)
+    PointsCount   int
+    HeightP95     float32
+    IntensityMean float32
+    // ... other features
 }
 ```
 
 **Backward Compatibility:**
-- ✅ PoseID is `*int64` (nullable pointer)
-- ✅ For static sensors, PoseID remains NULL
-- ✅ Existing code doesn't need to set PoseID
-- ✅ All existing APIs work unchanged
+- ✅ New fields are nullable or have zero defaults
+- ✅ Existing 2D code continues to work (Z=0, VZ=0)
+- ✅ Heading can start at 0 (will be estimated from velocity)
+- ✅ Existing APIs don't need changes
 
-### Phase 3: Populate Pose References (Static Only)
+### Phase 3: Implement 7-Variable Format
 
-**Goal:** Start storing pose_id for new measurements without changing behavior.
+**Goal:** Compute and store x, y, z, length, width, height, heading (See `av-lidar-integration-plan.md`)
 
 **Implementation Strategy:**
 
-1. **Load Current Static Pose at Startup:**
+1. **Add Z Position Tracking (Kalman Filter):**
 ```go
-// In cmd/radar/radar.go at startup
-func loadOrCreateStaticPose(db *sql.DB, sensorID string) (*lidar.Pose, error) {
-    // Look for existing static pose (identity transform)
-    poses, err := lidar.GetCurrentPoses(db, sensorID)
-    if err != nil {
-        return nil, err
-    }
+// Extend Kalman filter from 4-state to 6-state
+// Old: [x, y, vx, vy]
+// New: [x, y, z, vx, vy, vz]
+
+func (t *TrackedObject) Predict(dt float32) {
+    // Position prediction (now 3D)
+    t.X += t.VX * dt
+    t.Y += t.VY * dt
+    t.Z += t.VZ * dt  // NEW: Z prediction
     
-    if len(poses) > 0 {
-        return poses[0], nil  // Use existing
-    }
+    // Velocity prediction (constant velocity)
+    // VX, VY, VZ remain constant
     
-    // Create default identity transform pose for static sensor
-    staticPose := &lidar.Pose{
-        SensorID:       sensorID,
-        FromFrame:      lidar.FrameID(fmt.Sprintf("sensor/%s", sensorID)),
-        ToFrame:        lidar.FrameID("site/default"),
-        T:              lidar.IdentityTransform4x4,
-        ValidFromNanos: time.Now().UnixNano(),
-        ValidToNanos:   nil,  // Current
-        Method:         "static-identity",
-        RootMeanSquareErrorMeters: 0.0,
-    }
-    
-    return lidar.InsertPose(db, staticPose)
+    // Covariance prediction (6x6 matrix)
+    // F = [I3x3  dt*I3x3]
+    //     [03x3  I3x3   ]
+    t.P = F·t.P·Fᵀ + Q  // Updated to 6x6 dimensions
 }
 ```
 
-2. **Store PoseID with Clusters:**
+2. **Estimate Heading from Velocity:**
 ```go
-// In cmd/radar/radar.go when inserting clusters
-cluster.PoseID = &currentStaticPose.PoseID  // Reference static pose
+// In internal/lidar/tracking.go
+func EstimateHeadingFromVelocity(vx, vy float32) float32 {
+    if vx == 0 && vy == 0 {
+        return 0  // Stationary, keep previous heading
+    }
+    return atan2(vy, vx)  // Heading in radians
+}
 
-// Also store sensor-frame coordinates
-cluster.SensorCentroidX = &sensorX
-cluster.SensorCentroidY = &sensorY
-cluster.SensorCentroidZ = &sensorZ
-
-lidar.InsertCluster(db, cluster)
+// Update heading each frame
+func (t *TrackedObject) UpdateHeading() {
+    if t.VX != 0 || t.VY != 0 {
+        newHeading := EstimateHeadingFromVelocity(t.VX, t.VY)
+        // Smooth heading changes
+        t.Heading = smoothAngle(t.Heading, newHeading, 0.3)
+    }
+}
 ```
 
-3. **Store PoseID with Track Observations:**
+3. **Compute Oriented Bounding Box:**
 ```go
-// In cmd/radar/radar.go when inserting observations
-obs := &lidar.TrackObservation{
-    TrackID:     track.TrackID,
-    TSUnixNanos: timestamp,
-    PoseID:      &currentStaticPose.PoseID,  // NEW
-    // ... existing fields
+// In internal/lidar/clustering.go
+func ComputeOrientedBBox(points []WorldPoint, heading float32) (length, width, height float32) {
+    if len(points) == 0 {
+        return 0, 0, 0
+    }
+    
+    // Transform to box-aligned coordinate system
+    cos_h := cos(heading)
+    sin_h := sin(heading)
+    
+    var minAlong, maxAlong, minPerp, maxPerp, minZ, maxZ float32
+    minAlong, minPerp, minZ = math.MaxFloat32, math.MaxFloat32, math.MaxFloat32
+    maxAlong, maxPerp, maxZ = -math.MaxFloat32, -math.MaxFloat32, -math.MaxFloat32
+    
+    for _, p := range points {
+        // Rotate to box-aligned frame
+        along := p.X*cos_h + p.Y*sin_h      // Along heading
+        perp  := -p.X*sin_h + p.Y*cos_h     // Perpendicular
+        
+        minAlong = min(minAlong, along)
+        maxAlong = max(maxAlong, along)
+        minPerp = min(minPerp, perp)
+        maxPerp = max(maxPerp, perp)
+        minZ = min(minZ, p.Z)
+        maxZ = max(maxZ, p.Z)
+    }
+    
+    length = maxAlong - minAlong  // Along heading (forward)
+    width  = maxPerp - minPerp    // Perpendicular (side-to-side)
+    height = maxZ - minZ          // Vertical
+    
+    return length, width, height
 }
-lidar.InsertTrackObservation(db, obs)
+```
+
+4. **Alternative: PCA-Based Heading (for Parked Vehicles):**
+```go
+// Better for stationary objects
+func EstimateHeadingFromPCA(points []WorldPoint) float32 {
+    // Compute covariance matrix of XY positions
+    meanX, meanY := computeMean(points)
+    
+    var cov_xx, cov_xy, cov_yy float32
+    for _, p := range points {
+        dx := p.X - meanX
+        dy := p.Y - meanY
+        cov_xx += dx * dx
+        cov_xy += dx * dy
+        cov_yy += dy * dy
+    }
+    
+    // Principal axis (largest eigenvector)
+    heading := 0.5 * atan2(2*cov_xy, cov_xx - cov_yy)
+    return heading
+}
+```
+
+5. **Store 7-Variable Format:**
+```go
+// In cmd/radar/radar.go when updating tracks
+func updateTrackWith7Variables(
+    track *lidar.TrackedObject,
+    cluster *lidar.WorldCluster,
+    clusterPoints []lidar.WorldPoint,
+) {
+    // Update 3D position
+    track.X = cluster.CentroidX
+    track.Y = cluster.CentroidY
+    track.UpdateZ(cluster.CentroidZ)  // Kalman smoothing
+    
+    // Estimate heading
+    if track.VX != 0 || track.VY != 0 {
+        // Moving: use velocity heading
+        track.Heading = EstimateHeadingFromVelocity(track.VX, track.VY)
+    } else if len(clusterPoints) > 10 {
+        // Stationary: use PCA heading
+        track.Heading = EstimateHeadingFromPCA(clusterPoints)
+    }
+    
+    // Compute oriented bounding box (7-variable format)
+    track.Length, track.Width, track.Height = 
+        ComputeOrientedBBox(clusterPoints, track.Heading)
+    
+    // Store pose reference (static identity for now)
+    track.PoseID = &currentStaticPose.PoseID
+    
+    // Store observation with 7-variable format
+    obs := &lidar.TrackObservation{
+        TrackID:     track.TrackID,
+        TSUnixNanos: timestamp,
+        X: track.X, Y: track.Y, Z: track.Z,
+        VelocityX: track.VX, VelocityY: track.VY, VelocityZ: track.VZ,
+        BBoxLength:  track.Length,
+        BBoxWidth:   track.Width,
+        BBoxHeight:  track.Height,
+        BBoxHeading: track.Heading,
+        PoseID:      &currentStaticPose.PoseID,
+    }
+    lidar.InsertTrackObservation(db, obs)
+}
 ```
 
 **For Static Sensors:**
-- ✅ PoseID always points to same static identity transform
-- ✅ Sensor coordinates = world coordinates (identity)
-- ✅ Behavior identical to before (no functional change)
-- ✅ **Future-compatible:** When motion is added, this field is already populated
+- ✅ Z position from cluster centroids (not just ground plane)
+- ✅ Heading from velocity (moving) or PCA (stationary)
+- ✅ Oriented box: length along heading, width perpendicular
+- ✅ **Same 7-variable format** as AV spec (`av-lidar-integration-plan.md`)
+- ✅ **Ready for motion:** Data structures compatible with future ego-motion
 
 ---
 
