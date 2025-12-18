@@ -52,11 +52,11 @@ This document specifies the complete architecture for **motion capture scenarios
 - Kalman filter tracks ground plane motion: [x, y, vx, vy] (4 states)
 - **Target:** Extend to 7-DOF: [x, y, z, vx, vy, vz, heading]
 - Current object classes: car, pedestrian, bird, other
-- **Target:** Waymo-compatible 28-class taxonomy (see `av-lidar-integration-plan.md`)
+- **Target:** AV industry standard 28-class taxonomy (see `av-lidar-integration-plan.md`)
 
-**Waymo Open Dataset Compatibility:**
+**AV Industry Standard Compatibility:**
 
-The tracking system is designed to produce labels compatible with the Waymo Open Dataset specification:
+The tracking system is designed to produce labels compatible with the AV industry standard specification:
 - 28 fine-grained semantic categories
 - Instance segmentation for Vehicle, Pedestrian, and Cyclist classes
 - Consistent tracking IDs across frames
@@ -69,7 +69,7 @@ UDP Packets → Parse → Frame → Background Grid → Foreground Extraction
     ↓
 Polar → World Transform (identity) → Clustering (DBSCAN) → Tracking (Kalman 2D)
     ↓
-Classification (28-class Waymo taxonomy) → Database → API
+Classification (28-class AV taxonomy) → Database → API
 ```
 
 **Current Assumptions:**
@@ -79,12 +79,43 @@ Classification (28-class Waymo taxonomy) → Database → API
 3. All motion is from objects being tracked
 4. Sensor frame = world frame (no transformation needed)
 
-**Current Limitations:**
+**Current Limitations and Remediation Plans:**
 
-- ❌ Cannot handle moving sensor (velocity bias in measurements)
-- ❌ Cannot track 3D objects (birds, drones, thrown objects)
-- ❌ Cannot estimate object orientation (only heading from velocity)
-- ❌ Cannot update calibration without re-collection
+| Limitation | Why It Exists | Remediation Plan |
+| ---------- | ------------- | ---------------- |
+| ❌ Cannot handle moving sensor | Velocity bias in measurements without ego-motion compensation | Phase 2: Implement ego-motion compensation with pose transforms |
+| ❌ Limited 3D object tracking | Current Kalman filter uses 2D (x, y) state only; see details below | Phase 1: Extend to 7-DOF tracking with Z coordinate |
+| ❌ Cannot estimate object orientation | Only heading from velocity direction | Implement PCA-based heading + L-shape fitting |
+| ❌ Cannot update calibration without re-collection | Background grid requires fresh learning | Planned: Incremental background update with pose validation |
+
+**3D Tracking Limitations - Detailed Analysis:**
+
+The current system uses a 2D Kalman filter tracking ground-plane motion (x, y, vx, vy). This creates limitations for:
+
+1. **Elevated Objects (Birds, Drones, Thrown Objects):**
+   - **Current Behavior:** Clusters are still detected and tracked, but height (Z) is not incorporated into the Kalman state. Birds appear as very small clusters with erratic motion patterns.
+   - **Why Limited:** The 2D filter cannot predict or smooth vertical motion, leading to noisy Z estimates.
+   - **Remediation:** Extend to 7-DOF Kalman state: [x, y, z, vx, vy, vz, heading]. This allows prediction and smoothing of vertical motion.
+
+2. **Overhead Structures (Trees, Overpasses, Signs):**
+   - **Current Behavior:** These appear in the LIDAR point cloud but are learned as background during the settling period because they don't move.
+   - **Tree Detection:** Trees exhibit characteristic motion patterns from wind sway (oscillating motion, ~0.1-0.5 Hz frequency, small amplitude). Additionally, trees have distinctive elevation profiles (points from ground level up to canopy height, typically 3-15m).
+   - **Overpass Detection:** Overpasses and elevated structures are detected by their consistent elevation above road level (>4m typical clearance) and their static nature. Points above road level that persist across frames are classified as infrastructure.
+   - **Remediation:**
+     - Use elevation thresholds to segment above-road-level structures
+     - Classify based on height profile: trees have gradual vertical extent, overpasses are flat horizontal planes
+     - Add `AVTypeVegetation` class for trees (detected by oscillating motion + vertical extent)
+     - Add height-based filtering to exclude overhead static infrastructure from ground-level tracking
+
+3. **Elevation-Based Classification Logic:**
+   ```
+   If cluster.HeightP95 > 4.0m AND cluster is static:
+       → Classify as infrastructure (overpass, sign, building)
+   If cluster has oscillating motion AND vertical extent > 2.0m:
+       → Classify as AVTypeVegetation (tree, bush)
+   If cluster.HeightP95 < 0.5m AND erratic 3D motion:
+       → Classify as AVTypeBird
+   ```
 
 ---
 
@@ -544,7 +575,7 @@ Shape Estimation → Temporal Association → 7-DOF Box Fitting
    - Detect perpendicular edges to estimate vehicle heading
    - Robust for corner-view observations
 
-**Shape Priors for Waymo-Compatible Classes:**
+**Shape Priors for AV Industry Standard Classes:**
 
 | Class          | Mean Length | Mean Width | Mean Height | Aspect Ratio |
 | -------------- | ----------- | ---------- | ----------- | ------------ |
@@ -848,7 +879,7 @@ This architecture specification provides a complete roadmap for adding motion ca
 
 **Current Release Focus:** Static pose alignment (see `static-pose-alignment-plan.md`)
 
-**Waymo Compatibility:** Full alignment with Waymo Open Dataset labeling specifications (see `av-lidar-integration-plan.md`)
+**AV Industry Standard Compatibility:** Full alignment with AV industry standard labeling specifications (see `av-lidar-integration-plan.md`)
 
 **Future Work (This Document):**
 
@@ -873,8 +904,7 @@ This architecture specification provides a complete roadmap for adding motion ca
 ## Related Documents
 
 - **Current Release:** `static-pose-alignment-plan.md` (immediate work)
-- **AV Integration:** `av-lidar-integration-plan.md` (Waymo compatibility, clustering algorithms, occlusion handling)
+- **AV Integration:** `av-lidar-integration-plan.md` (AV industry standard compatibility, clustering algorithms, occlusion handling)
 - **Current Implementation:** `foreground_tracking_plan.md` (existing tracking)
 - **Database Schema:** `schema.sql` (current and future tables)
 - **ML Pipeline:** `ml_pipeline_roadmap.md` (classification with 3D features)
-- **Waymo Open Dataset:** https://github.com/waymo-research/waymo-open-dataset/blob/master/docs/labeling_specifications.md

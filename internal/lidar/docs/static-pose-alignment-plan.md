@@ -5,7 +5,7 @@
 **Scope:** Read Hesai PCAP/live streams and produce 7DOF tracks for visualization
 **Goal:** Generate industry-standard 7DOF bounding boxes from Hesai sensor data
 **Source of Truth:** See `av-lidar-integration-plan.md` for 7DOF schema specification
-**Waymo Compatibility:** Aligned with Waymo Open Dataset labeling specifications
+**AV Compatibility:** Aligned with AV industry standard labeling specifications
 
 ---
 
@@ -19,9 +19,9 @@ This document outlines **Step 1** of the LIDAR ML pipeline: Reading Hesai Pandar
 - Dimensions: length, width, height (meters)
 - Orientation: heading (radians, yaw angle around Z-axis)
 
-**Waymo Open Dataset Compatibility:**
+**AV Industry Standard Compatibility:**
 
-This implementation supports the Waymo Open Dataset labeling specification with:
+This implementation supports the AV industry standard labeling specification with:
 - 28 fine-grained semantic categories (see `av-lidar-integration-plan.md`)
 - Instance segmentation for Vehicle, Pedestrian, and Cyclist classes
 - Consistent tracking IDs across frames
@@ -71,7 +71,7 @@ This plan aligns with the overall ML pipeline vision while focusing on Step 1.
 
 1. Ingest AV dataset labels (see av-lidar-integration-plan.md Phase 2)
 2. Combine AV dataset + Hesai sequences for training
-3. Train object classifier supporting Waymo 28-class taxonomy:
+3. Train object classifier supporting AV industry standard 28-class taxonomy:
    - **Priority 0 (Core):** Car, Truck, Bus, Pedestrian, Cyclist, Motorcyclist
    - **Priority 1 (Safety):** Bicycle, Motorcycle, Ground Animal, Bird
    - **Priority 2 (Infrastructure):** Sign, Pole, Traffic Light, Construction Cone
@@ -1032,9 +1032,9 @@ sudo systemctl start velocity-report
 - ✅ All existing tests pass (backward compatible)
 - ✅ Performance unchanged (no regression)
 
-**Waymo Compatibility:**
+**AV Industry Standard Compatibility:**
 
-- ✅ 7-DOF bounding box format matches Waymo Open Dataset specification
+- ✅ 7-DOF bounding box format matches AV industry standard specification
 - ✅ Object taxonomy supports 28 fine-grained categories
 - ✅ Instance segmentation labels for Vehicle, Pedestrian, Cyclist
 - ✅ Occlusion handling with shape completion (see av-lidar-integration-plan.md Phase 7)
@@ -1044,7 +1044,7 @@ sudo systemctl start velocity-report
 - ✅ Ready for Phase 2 (9-frame sequence extraction)
 - ✅ Ready for Phase 3 (ML classifier integration)
 - ✅ Compatible with AV dataset format for future training
-- ✅ Waymo Parquet data can be imported for training
+- ✅ AV industry standard Parquet data can be imported for training
 
 ---
 
@@ -1060,7 +1060,7 @@ sudo systemctl start velocity-report
 
 - Ingest AV dataset labels (see av-lidar-integration-plan.md)
 - Train classifier on AV + Hesai data
-- Support full Waymo 28-class taxonomy with priority focus:
+- Support full AV industry standard 28-class taxonomy with priority focus:
   - P0: Car, Truck, Bus, Pedestrian, Cyclist, Motorcyclist
   - P1: Bicycle, Motorcycle, Ground Animal, Bird
   - P2: Sign, Pole, Traffic Light, Construction Cone

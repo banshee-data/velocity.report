@@ -57,9 +57,9 @@ Each labeled object is represented by a **7-Degree-of-Freedom (7-DOF) bounding b
 - **Heading**: Angle to rotate vehicle frame +X to align with object's forward axis
 - **Vehicle frame**: Not sensor frame - requires pose transformation
 
-#### Labeled Object Classes (Waymo Open Dataset Compatible)
+#### Labeled Object Classes (AV Industry Standard Compatible)
 
-The velocity.report system aligns with the **Waymo Open Dataset** labeling specifications, supporting the full 28 fine-grained semantic categories. Instance segmentation labels are provided for Vehicle, Pedestrian, and Cyclist classes, consistent across sensors and over time.
+The velocity.report system aligns with **AV industry standard** labeling specifications, supporting the full 28 fine-grained semantic categories. Instance segmentation labels are provided for Vehicle, Pedestrian, and Cyclist classes, consistent across sensors and over time.
 
 **Core Object Classes (Instance Segmented):**
 
@@ -338,7 +338,7 @@ func (b *BoundingBox7DOF) IoU(other *BoundingBox7DOF) float64
 
 ```go
 // ObjectLabel represents a ground truth label for a detected object.
-// Matches Waymo Open Dataset LiDARBoxComponent structure.
+// Matches AV industry standard LiDARBoxComponent structure.
 type ObjectLabel struct {
     // Identity
     ObjectID   string `json:"object_id"`   // Globally unique tracking ID
@@ -351,9 +351,9 @@ type ObjectLabel struct {
     // Bounding box (7-DOF)
     Box BoundingBox7DOF `json:"box"`
 
-    // Classification (Waymo-compatible 28-class taxonomy)
-    ObjectType      WaymoObjectClass `json:"object_type"`      // Fine-grained class
-    ObjectCategory  WaymoCategory    `json:"object_category"`  // High-level category
+    // Classification (AV industry standard 28-class taxonomy)
+    ObjectType      AVObjectClass `json:"object_type"`      // Fine-grained class
+    ObjectCategory  AVCategory    `json:"object_category"`  // High-level category
     DifficultyLevel int              `json:"difficulty_level"` // 1=easy, 2=moderate, 3=hard
 
     // LiDAR metadata
@@ -364,62 +364,62 @@ type ObjectLabel struct {
     OcclusionLevel    OcclusionLevel `json:"occlusion_level"`    // NONE, PARTIAL, HEAVY
     TruncationLevel   float32        `json:"truncation_level"`   // 0.0-1.0 (portion outside FOV)
     
-    // Shape completion metadata (see Section 7: Occlusion Handling)
+    // Shape completion metadata (see Phase 7: Occlusion Handling and Shape Completion)
     IsShapeCompleted  bool    `json:"is_shape_completed"`   // True if box was estimated
     CompletionMethod  string  `json:"completion_method"`    // "observed", "symmetric", "model"
     CompletionScore   float32 `json:"completion_score"`     // Confidence in completed shape
 }
 
-// WaymoObjectClass enum matching Waymo Open Dataset 28 fine-grained categories
-type WaymoObjectClass int
+// AVObjectClass enum matching AV industry standard 28 fine-grained categories
+type AVObjectClass int
 
 const (
     // Instance-segmented classes (tracked across frames)
-    WaymoTypeCar             WaymoObjectClass = 1
-    WaymoTypeBus             WaymoObjectClass = 2
-    WaymoTypeTruck           WaymoObjectClass = 3
-    WaymoTypeOtherLargeVeh   WaymoObjectClass = 4
-    WaymoTypeTrailer         WaymoObjectClass = 5
-    WaymoTypeEgoVehicle      WaymoObjectClass = 6
-    WaymoTypeMotorcycle      WaymoObjectClass = 7
-    WaymoTypeBicycle         WaymoObjectClass = 8
-    WaymoTypePedestrian      WaymoObjectClass = 9
-    WaymoTypeCyclist         WaymoObjectClass = 10
-    WaymoTypeMotorcyclist    WaymoObjectClass = 11
+    AVTypeCar              AVObjectClass = 1
+    AVTypeBus              AVObjectClass = 2
+    AVTypeTruck            AVObjectClass = 3
+    AVTypeOtherLargeVehicle AVObjectClass = 4
+    AVTypeTrailer          AVObjectClass = 5
+    AVTypeEgoVehicle       AVObjectClass = 6
+    AVTypeMotorcycle       AVObjectClass = 7
+    AVTypeBicycle          AVObjectClass = 8
+    AVTypePedestrian       AVObjectClass = 9
+    AVTypeCyclist          AVObjectClass = 10
+    AVTypeMotorcyclist     AVObjectClass = 11
     
     // Non-instance classes (semantic only)
-    WaymoTypeGroundAnimal    WaymoObjectClass = 12
-    WaymoTypeBird            WaymoObjectClass = 13
-    WaymoTypePole            WaymoObjectClass = 14
-    WaymoTypeSign            WaymoObjectClass = 15
-    WaymoTypeTrafficLight    WaymoObjectClass = 16
-    WaymoTypeConstructionCone WaymoObjectClass = 17
-    WaymoTypePedestrianObject WaymoObjectClass = 18
-    WaymoTypeBuilding        WaymoObjectClass = 19
-    WaymoTypeRoad            WaymoObjectClass = 20
-    WaymoTypeSidewalk        WaymoObjectClass = 21
-    WaymoTypeRoadMarker      WaymoObjectClass = 22
-    WaymoTypeLaneMarker      WaymoObjectClass = 23
-    WaymoTypeVegetation      WaymoObjectClass = 24
-    WaymoTypeSky             WaymoObjectClass = 25
-    WaymoTypeGround          WaymoObjectClass = 26
-    WaymoTypeStatic          WaymoObjectClass = 27
-    WaymoTypeDynamic         WaymoObjectClass = 28
+    AVTypeGroundAnimal     AVObjectClass = 12
+    AVTypeBird             AVObjectClass = 13
+    AVTypePole             AVObjectClass = 14
+    AVTypeSign             AVObjectClass = 15
+    AVTypeTrafficLight     AVObjectClass = 16
+    AVTypeConstructionCone AVObjectClass = 17
+    AVTypePedestrianObject AVObjectClass = 18
+    AVTypeBuilding         AVObjectClass = 19
+    AVTypeRoad             AVObjectClass = 20
+    AVTypeSidewalk         AVObjectClass = 21
+    AVTypeRoadMarker       AVObjectClass = 22
+    AVTypeLaneMarker       AVObjectClass = 23
+    AVTypeVegetation       AVObjectClass = 24
+    AVTypeSky              AVObjectClass = 25
+    AVTypeGround           AVObjectClass = 26
+    AVTypeStatic           AVObjectClass = 27
+    AVTypeDynamic          AVObjectClass = 28
     
-    WaymoTypeUnknown         WaymoObjectClass = 0
+    AVTypeUnknown          AVObjectClass = 0
 )
 
-// WaymoCategory represents high-level object categories for instance segmentation
-type WaymoCategory int
+// AVCategory represents high-level object categories for instance segmentation
+type AVCategory int
 
 const (
-    WaymoCategoryUnknown    WaymoCategory = 0
-    WaymoCategoryVehicle    WaymoCategory = 1  // Car, Bus, Truck, etc.
-    WaymoCategoryPedestrian WaymoCategory = 2  // Pedestrian, Pedestrian Object
-    WaymoCategoryCyclist    WaymoCategory = 3  // Cyclist, Motorcyclist
-    WaymoCategorySign       WaymoCategory = 4  // Sign, Traffic Light
-    WaymoCategoryAnimal     WaymoCategory = 5  // Ground Animal, Bird
-    WaymoCategoryStatic     WaymoCategory = 6  // Infrastructure, vegetation
+    AVCategoryUnknown    AVCategory = 0
+    AVCategoryVehicle    AVCategory = 1  // Car, Bus, Truck, etc.
+    AVCategoryPedestrian AVCategory = 2  // Pedestrian, Pedestrian Object
+    AVCategoryCyclist    AVCategory = 3  // Cyclist, Motorcyclist
+    AVCategorySign       AVCategory = 4  // Sign, Traffic Light
+    AVCategoryAnimal     AVCategory = 5  // Ground Animal, Bird
+    AVCategoryStatic     AVCategory = 6  // Infrastructure, vegetation
 )
 
 // OcclusionLevel indicates how much of an object is hidden from view
@@ -432,37 +432,37 @@ const (
 )
 
 // GetCategory returns the high-level category for a fine-grained object class
-func (c WaymoObjectClass) GetCategory() WaymoCategory {
+func (c AVObjectClass) GetCategory() AVCategory {
     switch c {
-    case WaymoTypeCar, WaymoTypeBus, WaymoTypeTruck, WaymoTypeOtherLargeVeh,
-         WaymoTypeTrailer, WaymoTypeEgoVehicle, WaymoTypeMotorcycle, WaymoTypeBicycle:
-        return WaymoCategoryVehicle
-    case WaymoTypePedestrian, WaymoTypePedestrianObject:
-        return WaymoCategoryPedestrian
-    case WaymoTypeCyclist, WaymoTypeMotorcyclist:
-        return WaymoCategoryCyclist
-    case WaymoTypeSign, WaymoTypeTrafficLight:
-        return WaymoCategorySign
-    case WaymoTypeGroundAnimal, WaymoTypeBird:
-        return WaymoCategoryAnimal
-    case WaymoTypePole, WaymoTypeConstructionCone, WaymoTypeBuilding, WaymoTypeRoad,
-         WaymoTypeSidewalk, WaymoTypeRoadMarker, WaymoTypeLaneMarker, WaymoTypeVegetation,
-         WaymoTypeSky, WaymoTypeGround, WaymoTypeStatic:
-        return WaymoCategoryStatic
-    case WaymoTypeDynamic:
-        return WaymoCategoryUnknown
+    case AVTypeCar, AVTypeBus, AVTypeTruck, AVTypeOtherLargeVehicle,
+         AVTypeTrailer, AVTypeEgoVehicle, AVTypeMotorcycle, AVTypeBicycle:
+        return AVCategoryVehicle
+    case AVTypePedestrian, AVTypePedestrianObject:
+        return AVCategoryPedestrian
+    case AVTypeCyclist, AVTypeMotorcyclist:
+        return AVCategoryCyclist
+    case AVTypeSign, AVTypeTrafficLight:
+        return AVCategorySign
+    case AVTypeGroundAnimal, AVTypeBird:
+        return AVCategoryAnimal
+    case AVTypePole, AVTypeConstructionCone, AVTypeBuilding, AVTypeRoad,
+         AVTypeSidewalk, AVTypeRoadMarker, AVTypeLaneMarker, AVTypeVegetation,
+         AVTypeSky, AVTypeGround, AVTypeStatic:
+        return AVCategoryStatic
+    case AVTypeDynamic:
+        return AVCategoryUnknown
     default:
-        return WaymoCategoryUnknown
+        return AVCategoryUnknown
     }
 }
 
 // IsInstanceSegmented returns true if this class has instance-level tracking
-func (c WaymoObjectClass) IsInstanceSegmented() bool {
+func (c AVObjectClass) IsInstanceSegmented() bool {
     switch c {
-    case WaymoTypeCar, WaymoTypeBus, WaymoTypeTruck, WaymoTypeOtherLargeVeh,
-         WaymoTypeTrailer, WaymoTypeMotorcycle, WaymoTypeBicycle,
-         WaymoTypePedestrian, WaymoTypeCyclist, WaymoTypeMotorcyclist,
-         WaymoTypePedestrianObject:
+    case AVTypeCar, AVTypeBus, AVTypeTruck, AVTypeOtherLargeVehicle,
+         AVTypeTrailer, AVTypeMotorcycle, AVTypeBicycle,
+         AVTypePedestrian, AVTypeCyclist, AVTypeMotorcyclist,
+         AVTypePedestrianObject:
         return true
     default:
         return false
@@ -891,6 +891,101 @@ Create a command-line tool for analyzing LIDAR frames with AV standard-compatibl
 
 ---
 
+## Common Types and Helper Functions
+
+This section defines shared types and helper functions used across the clustering and occlusion handling algorithms.
+
+### Cluster Type
+
+```go
+// Cluster represents a logical grouping of LIDAR points into a candidate object.
+// This type is used as input/output for clustering algorithms.
+// NOTE: In production code, Cluster is defined in internal/lidar/clustering.go.
+type Cluster struct {
+    Points   []WorldPoint  // Points belonging to this cluster
+    Centroid [3]float64    // Cluster centroid [x, y, z]
+    ID       int64         // Unique cluster identifier
+}
+```
+
+### Helper Functions
+
+The following helper functions are used by the algorithms in Phases 6 and 7. These are implemented in the clustering and geometry packages.
+
+```go
+// computeCentroidZ computes the mean Z coordinate of a set of points.
+func computeCentroidZ(points []WorldPoint) float64 {
+    if len(points) == 0 {
+        return 0
+    }
+    var sum float64
+    for _, p := range points {
+        sum += p.Z
+    }
+    return sum / float64(len(points))
+}
+
+// computeHeightRange computes the vertical extent (max Z - min Z) of a point set.
+func computeHeightRange(points []WorldPoint) float64 {
+    if len(points) == 0 {
+        return 0
+    }
+    minZ, maxZ := points[0].Z, points[0].Z
+    for _, p := range points {
+        if p.Z < minZ {
+            minZ = p.Z
+        }
+        if p.Z > maxZ {
+            maxZ = p.Z
+        }
+    }
+    return maxZ - minZ
+}
+
+// variance computes the sample variance of a slice of float64 values.
+func variance(values []float64) float64 {
+    if len(values) == 0 {
+        return 0
+    }
+    var sum, sumSq float64
+    n := float64(len(values))
+    for _, v := range values {
+        sum += v
+        sumSq += v * v
+    }
+    mean := sum / n
+    return (sumSq / n) - (mean * mean)
+}
+
+// computeCompletionConfidence estimates confidence in a completed bounding box
+// based on observation quality, prior match, and occlusion level.
+func computeCompletionConfidence(
+    observed, completed BoundingBox7DOF,
+    prior ShapePrior,
+    occlusion OcclusionInfo,
+) float32 {
+    // Base confidence from visibility
+    confidence := occlusion.VisibleFraction
+    
+    // Bonus for close match to prior dimensions
+    lengthDiff := math.Abs(float64(completed.Length) - float64(prior.MeanLength))
+    widthDiff := math.Abs(float64(completed.Width) - float64(prior.MeanWidth))
+    
+    if lengthDiff < float64(prior.StdLength) && widthDiff < float64(prior.StdWidth) {
+        confidence += 0.1 // Good prior match bonus
+    }
+    
+    // Clamp to valid range
+    if confidence > 1.0 {
+        confidence = 1.0
+    }
+    
+    return confidence
+}
+```
+
+---
+
 ## Phase 6: Clustering Algorithms for Consistent Object Detection
 
 ### Objective
@@ -1179,7 +1274,7 @@ Use learned class-specific shape priors to complete boxes when symmetry is insuf
 ```go
 // ModelBasedCompletion uses class priors for shape estimation
 type ModelBasedCompletion struct {
-    ClassPriors map[WaymoObjectClass]ShapePrior
+    ClassPriors map[AVObjectClass]ShapePrior
 }
 
 // ShapePrior encodes typical dimensions for an object class
@@ -1199,40 +1294,40 @@ type ShapePrior struct {
     MaxAspectRatio float32
 }
 
-// DefaultClassPriors returns Waymo-compatible shape priors
-func DefaultClassPriors() map[WaymoObjectClass]ShapePrior {
-    return map[WaymoObjectClass]ShapePrior{
-        WaymoTypeCar: {
+// DefaultClassPriors returns AV industry standard shape priors
+func DefaultClassPriors() map[AVObjectClass]ShapePrior {
+    return map[AVObjectClass]ShapePrior{
+        AVTypeCar: {
             MeanLength: 4.5, MeanWidth: 1.8, MeanHeight: 1.5,
             StdLength: 0.5, StdWidth: 0.15, StdHeight: 0.2,
             MinAspectRatio: 1.8, MaxAspectRatio: 3.0,
         },
-        WaymoTypeTruck: {
+        AVTypeTruck: {
             MeanLength: 6.5, MeanWidth: 2.2, MeanHeight: 2.5,
             StdLength: 1.5, StdWidth: 0.3, StdHeight: 0.5,
             MinAspectRatio: 2.0, MaxAspectRatio: 4.0,
         },
-        WaymoTypeBus: {
+        AVTypeBus: {
             MeanLength: 12.0, MeanWidth: 2.5, MeanHeight: 3.2,
             StdLength: 2.0, StdWidth: 0.2, StdHeight: 0.3,
             MinAspectRatio: 3.5, MaxAspectRatio: 6.0,
         },
-        WaymoTypePedestrian: {
+        AVTypePedestrian: {
             MeanLength: 0.5, MeanWidth: 0.5, MeanHeight: 1.7,
             StdLength: 0.2, StdWidth: 0.2, StdHeight: 0.2,
             MinAspectRatio: 0.6, MaxAspectRatio: 1.5,
         },
-        WaymoTypeCyclist: {
+        AVTypeCyclist: {
             MeanLength: 1.8, MeanWidth: 0.6, MeanHeight: 1.7,
             StdLength: 0.3, StdWidth: 0.1, StdHeight: 0.2,
             MinAspectRatio: 2.0, MaxAspectRatio: 4.0,
         },
-        WaymoTypeBicycle: {
+        AVTypeBicycle: {
             MeanLength: 1.7, MeanWidth: 0.5, MeanHeight: 1.0,
             StdLength: 0.2, StdWidth: 0.1, StdHeight: 0.1,
             MinAspectRatio: 2.5, MaxAspectRatio: 4.5,
         },
-        WaymoTypeMotorcycle: {
+        AVTypeMotorcycle: {
             MeanLength: 2.2, MeanWidth: 0.8, MeanHeight: 1.4,
             StdLength: 0.3, StdWidth: 0.15, StdHeight: 0.2,
             MinAspectRatio: 2.0, MaxAspectRatio: 3.5,
@@ -1242,7 +1337,7 @@ func DefaultClassPriors() map[WaymoObjectClass]ShapePrior {
 
 func (mbc *ModelBasedCompletion) CompleteBox(
     observedBox BoundingBox7DOF,
-    objectClass WaymoObjectClass,
+    objectClass AVObjectClass,
     occlusion OcclusionInfo,
 ) (completedBox BoundingBox7DOF, confidence float32) {
     
@@ -1513,7 +1608,7 @@ func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) f
 ### Phase 1: Core Data Structures (Week 1-2)
 
 - [ ] Create `av_types.go` with BoundingBox7DOF, ObjectLabel, LabeledFrame
-- [ ] Implement Waymo-compatible 28-class object taxonomy
+- [ ] Implement AV industry standard 28-class object taxonomy
 - [ ] Extend WorldCluster with heading angle
 - [ ] Add database migrations for ground truth tables
 - [ ] Unit tests for box math (IoU, containment)
@@ -1562,7 +1657,7 @@ func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) f
 - [ ] Model-based completion with class priors
 - [ ] Temporal shape refinement across frames
 - [ ] Integration with tracker for consistent shape estimates
-- [ ] Validation against Waymo ground truth
+- [ ] Validation against AV industry standard ground truth
 
 ---
 
