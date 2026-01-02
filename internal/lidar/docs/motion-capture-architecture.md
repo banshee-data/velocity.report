@@ -3,7 +3,21 @@
 **Status:** Future Work (Not in Current Release)
 **Date:** December 17, 2025
 **Scope:** Moving LIDAR sensors (vehicle, bike, robot, drone mounted)
-**Purpose:** Long-term architecture specification with current implementation context
+**Purpose:** Long-term architecture specification for motion capture scenarios
+
+---
+
+> **⚠️ SCOPE NOTICE: This Document is for Motion Capture Only**
+>
+> This document describes architecture for **moving LIDAR sensors** (vehicle-mounted, bike-mounted, robot, drone). The 7DOF, 13-state Kalman, and quaternion orientation tracking described here are **only required when the sensor itself moves**.
+>
+> **Current traffic monitoring uses a simpler 3DOF/2D+velocity model:**
+> - State vector: `[x, y, vx, vy]` (4-state Kalman filter)
+> - Object classes: `pedestrian, car, bird, other` (4 classes)
+> - Identity transform (sensor frame = world frame)
+> - Heading derived from velocity direction: `θ = atan2(vy, vx)`
+>
+> See `foreground_tracking_plan.md` for the implemented tracking architecture.
 
 ---
 
@@ -11,7 +25,7 @@
 
 This document specifies the complete architecture for **motion capture scenarios** where the LIDAR sensor itself is moving (vehicle-mounted, bike-mounted, robot, drone). This is **future work** and is not included in the current release, which focuses only on static roadside sensors.
 
-**Current Release:** Static pose alignment (see `static-pose-alignment-plan.md`)
+**Current Release:** 3DOF tracking for static roadside sensors (see `foreground_tracking_plan.md`)
 **Future Release:** Full motion capture support (this document)
 
 **Key Capabilities Enabled:**
@@ -38,7 +52,7 @@ This document specifies the complete architecture for **motion capture scenarios
 
 ## Current State: Static Tracking
 
-### What We Have Today
+### What We Have Today (3DOF/2D+Velocity Model)
 
 **Static Roadside LIDAR:**
 
@@ -47,20 +61,14 @@ This document specifies the complete architecture for **motion capture scenarios
 - Foreground objects move (vehicles, pedestrians, animals)
 - Sensor coordinate frame = world coordinate frame (identity transform)
 
-**2D Tracking (Current) → 7DOF Tracking (Target):**
+**2D Tracking (Current Implementation):**
 
-- Kalman filter tracks ground plane motion: [x, y, vx, vy] (4 states)
-- **Target:** Extend to 7-DOF: [x, y, z, vx, vy, vz, heading]
-- Current object classes: car, pedestrian, bird, other
-- **Target:** AV industry standard 28-class taxonomy (see `av-lidar-integration-plan.md`)
+- Kalman filter tracks ground plane motion: `[x, y, vx, vy]` (4 states)
+- Heading derived from velocity: `θ = atan2(vy, vx)`
+- Current object classes: `pedestrian, car, bird, other` (4 classes)
+- This model is **sufficient for static roadside traffic monitoring**
 
-**AV Industry Standard Compatibility:**
-
-The tracking system is designed to produce labels compatible with the AV industry standard specification:
-- 28 fine-grained semantic categories
-- Instance segmentation for Vehicle, Pedestrian, and Cyclist classes
-- Consistent tracking IDs across frames
-- 7-DOF bounding boxes (center_x, center_y, center_z, length, width, height, heading)
+> **Note:** The 7DOF extension described in this document is only needed for **motion capture scenarios** where the sensor itself moves. Static roadside sensors work well with the current 2D+velocity model.
 
 **Data Flow (Static):**
 
@@ -69,53 +77,29 @@ UDP Packets → Parse → Frame → Background Grid → Foreground Extraction
     ↓
 Polar → World Transform (identity) → Clustering (DBSCAN) → Tracking (Kalman 2D)
     ↓
-Classification (28-class AV taxonomy) → Database → API
+Classification (4-class) → Database → API
 ```
 
-**Current Assumptions:**
+**Current Assumptions (Static Roadside Use Case):**
 
 1. Sensor is stationary (fixed to ground/structure)
 2. Background is stationary (static environment)
 3. All motion is from objects being tracked
 4. Sensor frame = world frame (no transformation needed)
+5. Ground-plane assumption valid (vehicles, pedestrians move on road surface)
 
-**Current Limitations and Remediation Plans:**
+**When Motion Capture Architecture is Needed:**
 
-| Limitation | Why It Exists | Remediation Plan |
-| ---------- | ------------- | ---------------- |
-| ❌ Cannot handle moving sensor | Velocity bias in measurements without ego-motion compensation | Phase 2: Implement ego-motion compensation with pose transforms |
-| ❌ Limited 3D object tracking | Current Kalman filter uses 2D (x, y) state only; see details below | Phase 1: Extend to 7-DOF tracking with Z coordinate |
-| ❌ Cannot estimate object orientation | Only heading from velocity direction | Implement PCA-based heading + L-shape fitting |
-| ❌ Cannot update calibration without re-collection | Background grid requires fresh learning | Planned: Incremental background update with pose validation |
+The advanced 7DOF/13-state tracking described in this document is required when:
 
-**3D Tracking Limitations - Detailed Analysis:**
+| Scenario | Why 7DOF is Needed |
+| -------- | ------------------ |
+| Vehicle-mounted LIDAR | Ego-motion compensation requires pose tracking |
+| Bike-mounted LIDAR | Higher vibration, agile motion requires orientation tracking |
+| Robot-mounted LIDAR | Full 3D navigation requires Z velocity |
+| Drone-mounted LIDAR | Aerial mapping requires full pose estimation |
 
-The current system uses a 2D Kalman filter tracking ground-plane motion (x, y, vx, vy). This creates limitations for:
-
-1. **Elevated Objects (Birds, Drones, Thrown Objects):**
-   - **Current Behavior:** Clusters are still detected and tracked, but height (Z) is not incorporated into the Kalman state. Birds appear as very small clusters with erratic motion patterns.
-   - **Why Limited:** The 2D filter cannot predict or smooth vertical motion, leading to noisy Z estimates.
-   - **Remediation:** Extend to 7-DOF Kalman state: [x, y, z, vx, vy, vz, heading]. This allows prediction and smoothing of vertical motion.
-
-2. **Overhead Structures (Trees, Overpasses, Signs):**
-   - **Current Behavior:** These appear in the LIDAR point cloud but are learned as background during the settling period because they don't move.
-   - **Tree Detection:** Trees exhibit characteristic motion patterns from wind sway (oscillating motion, ~0.1-0.5 Hz frequency, small amplitude). Additionally, trees have distinctive elevation profiles (points from ground level up to canopy height, typically 3-15m).
-   - **Overpass Detection:** Overpasses and elevated structures are detected by their consistent elevation above road level (>4m typical clearance) and their static nature. Points above road level that persist across frames are classified as infrastructure.
-   - **Remediation:**
-     - Use elevation thresholds to segment above-road-level structures
-     - Classify based on height profile: trees have gradual vertical extent, overpasses are flat horizontal planes
-     - Add `AVTypeVegetation` class for trees (detected by oscillating motion + vertical extent)
-     - Add height-based filtering to exclude overhead static infrastructure from ground-level tracking
-
-3. **Elevation-Based Classification Logic:**
-   ```
-   If cluster.HeightP95 > 4.0m AND cluster is static:
-       → Classify as infrastructure (overpass, sign, building)
-   If cluster has oscillating motion AND vertical extent > 2.0m:
-       → Classify as AVTypeVegetation (tree, bush)
-   If cluster.HeightP95 < 0.5m AND erratic 3D motion:
-       → Classify as AVTypeBird
-   ```
+**For static roadside sensors, the current 2D+velocity model is adequate** and avoids unnecessary complexity.
 
 ---
 
@@ -903,8 +887,10 @@ This architecture specification provides a complete roadmap for adding motion ca
 
 ## Related Documents
 
-- **Current Release:** `static-pose-alignment-plan.md` (immediate work)
-- **AV Integration:** `av-lidar-integration-plan.md` (AV industry standard compatibility, clustering algorithms, occlusion handling)
-- **Current Implementation:** `foreground_tracking_plan.md` (existing tracking)
+- **Current Implementation:** `foreground_tracking_plan.md` (3DOF/2D+velocity tracking - what's actually deployed)
+- **Deferred - Static Pose:** `static-pose-alignment-plan.md` (future static sensor calibration)
+- **Deferred - AV Integration:** `av-lidar-integration-plan.md` (AV dataset integration, not current traffic monitoring)
 - **Database Schema:** `schema.sql` (current and future tables)
-- **ML Pipeline:** `ml_pipeline_roadmap.md` (classification with 3D features)
+- **ML Pipeline:** `ml_pipeline_roadmap.md` (classification pipeline)
+
+> **Reminder:** This document describes **future work for motion capture**. For current traffic monitoring implementation, see `foreground_tracking_plan.md`.

@@ -132,7 +132,65 @@ A new approach to address the limitations of background-subtraction:
 
 ---
 
-## 4. Troubleshooting Guide (Port 2370)
+## 4. Simplification Decisions (3DOF/Bicycle Model)
+
+**Date:** January 2026
+**Context:** Review of over-engineered plans vs. practical implementation needs
+
+### What Was Simplified
+
+The implementation intentionally uses a **simpler 2D + velocity model** rather than the full 7DOF model described in `static-pose-alignment-plan.md` and `av-lidar-integration-plan.md`. This is the correct choice for traffic monitoring.
+
+| Original Plan | Simplified Implementation | Rationale |
+|---------------|---------------------------|-----------|
+| 7DOF bounding box | 2D + axis-aligned bbox | Ground-plane assumption valid for roadside |
+| 6-state Kalman [x,y,z,vx,vy,vz] | EMA smoothing (x,y,vx,vy) | Simpler, sufficient for tracking |
+| Heading via PCA | Heading from velocity atan2(vy,vx) | Moving objects already have velocity |
+| Z-axis tracking | Single HeightP95Max stat | Vertical extent, not position tracking |
+| 28-class AV taxonomy | 4 classes (car, pedestrian, bird, other) | Traffic monitoring needs |
+| Oriented bounding boxes | Axis-aligned boxes | Sufficient for counting/speed |
+| Shape completion (occlusion) | Not implemented | AV-specific feature |
+| Parquet/NLZ ingestion | Not implemented | AV dataset feature |
+
+### Deferred to "AV Integration" Phase
+
+The following features from `av-lidar-integration-plan.md` are explicitly **out of scope** for traffic monitoring and should only be implemented if AV dataset integration is required:
+
+- **Phase 6-7**: Clustering algorithms for occlusion, shape completion
+- **28-class taxonomy**: Only needed for AV labeling compatibility
+- **Parquet ingestion**: Only for importing AV training datasets
+- **NLZ (No Label Zone)**: AV annotation concept
+
+### Recommended Object Classes (Traffic Monitoring)
+
+```go
+// 6-class taxonomy (practical minimum)
+const (
+    ClassCar        = "car"        // P0: Core
+    ClassTruck      = "truck"      // P0: Core (can split from car by size)
+    ClassPedestrian = "pedestrian" // P0: Core
+    ClassCyclist    = "cyclist"    // P1: Safety-relevant
+    ClassBird       = "bird"       // P1: Filter false positives
+    ClassOther      = "other"      // Catch-all
+)
+```
+
+### Why Not Full 7DOF?
+
+1. **Ground-plane assumption is valid**: Roadside sensors view objects from fixed position; vehicles travel on road surface
+2. **Heading from velocity is sufficient**: atan2(vy, vx) gives heading for moving objects; stationary objects don't need heading
+3. **Axis-aligned boxes work**: For counting and speed measurement, precise orientation isn't needed
+4. **Complexity cost**: 7DOF requires PCA computation, oriented box fitting, and additional Kalman states
+
+### Related Documents
+
+- `static-pose-alignment-plan.md` - Full 7DOF plan (DEFERRED for AV integration)
+- `av-lidar-integration-plan.md` - AV dataset compatibility (DEFERRED)
+- `velocity-coherent-foreground-extraction.md` - Current implementation design
+
+---
+
+## 5. Troubleshooting Guide (Port 2370)
 
 **Checklist if Port 2370 is silent:**
 

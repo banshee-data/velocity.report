@@ -1,9 +1,32 @@
 # AV Standard LIDAR Integration Plan
 
-**Status:** Planning
-**Date:** December 16, 2025
+**Status:** DEFERRED - AV Integration Only
+**Date:** December 16, 2025 (Updated January 2026)
 **Author:** Agent Ictinus (Product Architecture)
-**Version:** 1.0
+**Version:** 1.1
+
+---
+
+## ⚠️ Scope Notice (January 2026)
+
+**This plan is for AV dataset integration ONLY, not core traffic monitoring.**
+
+The features in this document (28-class taxonomy, Parquet ingestion, NLZ zones, shape completion, occlusion handling) are specifically for:
+1. Importing AV datasets (Waymo, nuScenes) for ML training
+2. Research applications requiring AV-compatible labeling
+
+**For traffic monitoring deployments**, the simpler velocity-coherent approach is sufficient:
+- See `velocity-coherent-foreground-extraction.md` for current implementation
+- See `lidar-foreground-tracking-status.md` §4 for simplification rationale
+
+**Key differences:**
+| This Plan (AV Integration) | Current Implementation (Traffic) |
+|----------------------------|----------------------------------|
+| 28-class taxonomy | 4-6 classes |
+| Parquet ingestion | Direct Hesai stream |
+| Shape completion | Not needed |
+| Occlusion handling | Not needed |
+| NLZ zones | Not applicable |
 
 ---
 
