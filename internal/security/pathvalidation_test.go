@@ -193,3 +193,173 @@ func TestValidateExportPath(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateOutputPath(t *testing.T) {
+	// Save current directory
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+
+	tests := []struct {
+		name      string
+		filePath  string
+		setupWd   string // Change to this working directory before test
+		wantError bool
+	}{
+		{
+			name:      "valid path in temp dir",
+			filePath:  filepath.Join(os.TempDir(), "output.csv"),
+			setupWd:   originalWd,
+			wantError: false,
+		},
+		{
+			name:      "valid path in current dir",
+			filePath:  "output.csv",
+			setupWd:   tmpDir,
+			wantError: false,
+		},
+		{
+			name:      "valid relative path in current dir",
+			filePath:  "subdir/output.csv",
+			setupWd:   tmpDir,
+			wantError: false,
+		},
+		{
+			name:      "invalid absolute path",
+			filePath:  "/etc/passwd",
+			setupWd:   originalWd,
+			wantError: true,
+		},
+		{
+			name:      "invalid path traversal",
+			filePath:  "../../../etc/passwd",
+			setupWd:   tmpDir,
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Change working directory if needed
+			if tt.setupWd != "" && tt.setupWd != originalWd {
+				if err := os.Chdir(tt.setupWd); err != nil {
+					t.Fatalf("Failed to change directory: %v", err)
+				}
+				t.Cleanup(func() {
+					if err := os.Chdir(originalWd); err != nil {
+						t.Errorf("Failed to restore directory: %v", err)
+					}
+				})
+			}
+
+			err := ValidateOutputPath(tt.filePath)
+			if (err != nil) != tt.wantError {
+				t.Errorf("ValidateOutputPath() error = %v, wantError %v", err, tt.wantError)
+			}
+		})
+	}
+}
+
+func TestSanitizeFilename(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "empty string",
+			input:    "",
+			expected: "unknown",
+		},
+		{
+			name:     "simple alphanumeric",
+			input:    "file123",
+			expected: "file123",
+		},
+		{
+			name:     "with allowed special chars",
+			input:    "file-name_v1.0.txt",
+			expected: "file-name_v1.0.txt",
+		},
+		{
+			name:     "with spaces",
+			input:    "my file name",
+			expected: "my_file_name",
+		},
+		{
+			name:     "with path separators",
+			input:    "../../../etc/passwd",
+			expected: "etc_passwd",
+		},
+		{
+			name:     "with special characters",
+			input:    "file@#$%name!",
+			expected: "file_name",
+		},
+		{
+			name:     "with consecutive special chars",
+			input:    "file@@@name",
+			expected: "file_name",
+		},
+		{
+			name:     "leading and trailing underscores",
+			input:    "__file__",
+			expected: "file",
+		},
+		{
+			name:     "leading and trailing dots",
+			input:    "..file..",
+			expected: "file",
+		},
+		{
+			name:     "mixed leading/trailing",
+			input:    "._file_.",
+			expected: "file",
+		},
+		{
+			name:     "only special characters",
+			input:    "@#$%^&*()",
+			expected: "unknown",
+		},
+		{
+			name:     "unicode characters",
+			input:    "file_名前_name",
+			expected: "file___name",
+		},
+		{
+			name:     "very long name",
+			input:    "a" + string(make([]byte, 200)),
+			expected: "a",
+		},
+		{
+			name:     "max length boundary",
+			input:    string(make([]byte, 128)),
+			expected: string(make([]byte, 128)),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := SanitizeFilename(tt.input)
+			// For very long names, just check it was truncated
+			if tt.name == "very long name" {
+				if len(result) > 128 {
+					t.Errorf("SanitizeFilename() result too long: got %d chars, want <= 128", len(result))
+				}
+				if result == "" {
+					t.Error("SanitizeFilename() returned empty string for long input")
+				}
+			} else if tt.name == "max length boundary" {
+				// Max length boundary should be truncated to 128 or less
+				if len(result) > 128 {
+					t.Errorf("SanitizeFilename() result too long: got %d chars, want <= 128", len(result))
+				}
+			} else if result != tt.expected {
+				t.Errorf("SanitizeFilename() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
