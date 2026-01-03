@@ -1289,7 +1289,8 @@ func (ws *WebServer) handleExportSnapshotASC(w http.ResponseWriter, r *http.Requ
 
 	// Validate and sanitize output path
 	if outPath == "" {
-		outPath = filepath.Join(os.TempDir(), fmt.Sprintf("bg_snapshot_%s_%d.asc", sensorID, snap.TakenUnixNanos))
+		safeSensor := security.SanitizeFilename(sensorID)
+		outPath = filepath.Join(os.TempDir(), fmt.Sprintf("bg_snapshot_%s_%d.asc", safeSensor, snap.TakenUnixNanos))
 	} else {
 		// If user provides a path, ensure it's within temp directory or current working directory
 		absOutPath, err := filepath.Abs(outPath)
@@ -1297,8 +1298,6 @@ func (ws *WebServer) handleExportSnapshotASC(w http.ResponseWriter, r *http.Requ
 			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid output path: %v", err))
 			return
 		}
-
-		// Validate path is within allowed directories (temp or cwd)
 		if err := security.ValidateExportPath(absOutPath); err != nil {
 			ws.writeJSONError(w, http.StatusForbidden, err.Error())
 			return
