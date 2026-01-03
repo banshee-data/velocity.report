@@ -1,11 +1,40 @@
-# Hesai LIDAR 7DOF Track Production - Current Release
+# Hesai LIDAR 7DOF Track Production - Future AV Integration
 
-**Status:** Implementation Plan for Current Release
-**Date:** December 18, 2025
+**Status:** DEFERRED - See Simplification Notes Below
+**Date:** December 18, 2025 (Updated January 2026)
 **Scope:** Read Hesai PCAP/live streams and produce 7DOF tracks for visualization
 **Goal:** Generate industry-standard 7DOF bounding boxes from Hesai sensor data
 **Source of Truth:** See `av-lidar-integration-plan.md` for 7DOF schema specification
 **AV Compatibility:** Aligned with AV industry standard labeling specifications
+
+---
+
+## ⚠️ Simplification Notice (January 2026)
+
+**This plan is DEFERRED for traffic monitoring deployments.**
+
+The 7DOF tracking features in this document are **not required** for the core traffic monitoring use case. The current implementation uses a simpler 2D+velocity model which is sufficient for:
+- Vehicle/pedestrian counting
+- Speed measurement
+- Traffic flow analysis
+
+**Implemented instead:** See `velocity-coherent-foreground-extraction.md` for the simplified approach.
+
+**When to implement this plan:**
+- AV dataset integration (importing Waymo/nuScenes data for training)
+- Research applications requiring precise 3D bounding boxes
+- Integration with AV perception pipelines
+
+**Key simplifications applied:**
+| This Plan | Current Implementation |
+|-----------|------------------------|
+| 7DOF (x,y,z,l,w,h,heading) | 2D+velocity (x,y,vx,vy) |
+| Oriented bounding boxes | Axis-aligned boxes |
+| PCA-based heading | Heading from velocity |
+| 6-state Kalman | EMA smoothing |
+| 28-class taxonomy | 4 classes |
+
+See `lidar-foreground-tracking-status.md` §4 for full simplification rationale.
 
 ---
 

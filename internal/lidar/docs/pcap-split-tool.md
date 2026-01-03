@@ -273,14 +273,14 @@ func (a *SettlingAnalyzer) classifyFrame(metrics FrameMetrics) State {
     // 2. High settled cell percentage (> 70%)
     // 3. Low deviation from noise bounds (< 2.0 sigma)
     // 4. Within expected variance bounds
-    
+
     isCurrentlyStable := (
         metrics.ForegroundPoints < metrics.TotalPoints * 0.05 &&
         metrics.PercentSettled > 0.70 &&
         metrics.DeviationFromNoise < 2.0 &&
         metrics.WithinBounds
     )
-    
+
     if isCurrentlyStable {
         a.stableFrameCount++
         a.motionFrameCount = 0
@@ -288,7 +288,7 @@ func (a *SettlingAnalyzer) classifyFrame(metrics FrameMetrics) State {
         a.motionFrameCount++
         a.stableFrameCount = 0
     }
-    
+
     // Compute frame rate from motor speed (RPM to Hz)
     // Motor speed comes from parser.GetLastMotorSpeed() (see internal/lidar/parse/extract.go)
     // Typical values: 600-1200 RPM → 10-20 Hz frame rate
@@ -296,19 +296,19 @@ func (a *SettlingAnalyzer) classifyFrame(metrics FrameMetrics) State {
     if frameRate < 5.0 {
         frameRate = 10.0 // Use default if motor speed unavailable/unrealistic
     }
-    
+
     // Require sustained stability before declaring static
     stableThresholdFrames := int(a.config.SettlingDurationSec * frameRate)
     if a.stableFrameCount >= stableThresholdFrames {
         return StateStatic
     }
-    
+
     // Require sustained motion before declaring motion
     motionThresholdFrames := int(5.0 * frameRate) // 5 seconds
     if a.motionFrameCount >= motionThresholdFrames {
         return StateMotion
     }
-    
+
     // MaxMotionGapSec: Bridge short stable periods (e.g., intersection waits)
     // If stable duration < MaxMotionGapSec AND we were in motion, stay in motion
     if a.currentState == StateMotion && isCurrentlyStable {
@@ -318,7 +318,7 @@ func (a *SettlingAnalyzer) classifyFrame(metrics FrameMetrics) State {
             return StateMotion
         }
     }
-    
+
     // Maintain previous state during ambiguous periods
     return a.currentState
 }
@@ -366,12 +366,12 @@ func (w *SegmentWriter) OnStateChange(newState State, timestamp time.Time) error
             return nil
         }
     }
-    
+
     // Flush current segment
     if err := w.flushCurrentSegment(); err != nil {
         return err
     }
-    
+
     // Start new segment
     w.currentSegment = &Segment{
         Type:      stateToSegmentType(newState),
@@ -390,12 +390,12 @@ func (w *SegmentWriter) flushCurrentSegment() error {
     if len(w.packetBuffer) == 0 {
         return nil
     }
-    
+
     filename := fmt.Sprintf("%s-%s-%d.pcap",
         w.outputPrefix,
         w.currentSegment.Type,
         w.currentSegment.ID)
-    
+
     return writePcapFile(filename, w.packetBuffer)
 }
 ```
@@ -580,12 +580,12 @@ func (bm *BackgroundManager) GetFrameSettlingMetrics(settledThreshold uint32) *F
     g := bm.Grid
     g.mu.RLock()
     defer g.mu.RUnlock()
-    
+
     nonzeroCount := 0
     settledCount := 0
     frozenCount := 0
     nowNanos := time.Now().UnixNano()
-    
+
     for _, cell := range g.Cells {
         if cell.TimesSeenCount > 0 {
             nonzeroCount++
@@ -597,9 +597,9 @@ func (bm *BackgroundManager) GetFrameSettlingMetrics(settledThreshold uint32) *F
             frozenCount++
         }
     }
-    
+
     totalCells := len(g.Cells)
-    
+
     return &FrameSettlingMetrics{
         TotalCells:      totalCells,
         NonzeroCells:    nonzeroCount,
@@ -634,18 +634,18 @@ func (bm *BackgroundManager) GetNoiseBoundsDeviation() float64 {
     g := bm.Grid
     g.mu.RLock()
     defer g.mu.RUnlock()
-    
+
     totalDeviation := 0.0
     count := 0
-    
+
     for _, cell := range g.Cells {
         if cell.TimesSeenCount == 0 {
             continue
         }
-        
+
         expectedNoise := cell.AverageRangeMeters * g.Params.NoiseRelativeFraction
         actualSpread := cell.RangeSpreadMeters
-        
+
         // Deviation in units of expected noise (sigma-like metric)
         if expectedNoise > 0 {
             deviation := (actualSpread - expectedNoise) / expectedNoise
@@ -655,7 +655,7 @@ func (bm *BackgroundManager) GetNoiseBoundsDeviation() float64 {
             }
         }
     }
-    
+
     if count == 0 {
         return 0.0
     }
@@ -683,20 +683,20 @@ type SplitConfig struct {
     PCAPFile       string
     OutputDir      string
     OutputPrefix   string
-    
+
     // Detection Parameters
     SettlingDurationSec  float64  // Default: 60.0
     MinSegmentSec        float64  // Default: 5.0
     MaxMotionGapSec      float64  // Default: 30.0
     SettledCellThreshold uint32   // Default: 50 (TimesSeenCount)
-    
+
     // Background Parameters
     BackgroundParams BackgroundParams
-    
+
     // Sensor Configuration
     SensorID string
     UDPPort  int
-    
+
     // Export Options
     ExportMetrics bool
     ExportJSON    bool
@@ -735,7 +735,7 @@ type StateTransition struct {
    - Parser (parse.NewPandar40PParser)
    - Settling analyzer (implements FrameBuilder)
    - Segment writer
-   
+
 2. Process PCAP streaming:
    for each packet:
        a. Parser extracts points
@@ -747,7 +747,7 @@ type StateTransition struct {
           - Detect state transitions
           - Buffer packet for current segment
           - On transition: flush segment, start new
-          
+
 3. Finalize:
    - Flush final segment
    - Write metadata files
@@ -763,7 +763,7 @@ func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time
     if err != nil {
         return
     }
-    
+
     // 2. Count foreground/background
     foregroundCount := 0
     for _, isFg := range mask {
@@ -771,12 +771,12 @@ func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time
             foregroundCount++
         }
     }
-    
+
     // 3. Get settling metrics
     metrics := a.bgManager.GetFrameSettlingMetrics(a.config.SettledCellThreshold)
     deviation := a.bgManager.GetNoiseBoundsDeviation()
     withinBounds := a.bgManager.IsWithinNoiseBounds(2.0)
-    
+
     // 4. Build frame record
     frameMetrics := FrameMetrics{
         FrameID:            a.frameCount,
@@ -793,10 +793,10 @@ func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time
         WithinBounds:       withinBounds,
         DeviationFromNoise: deviation,
     }
-    
+
     // 5. Classify frame state
     newState := a.classifyFrame(frameMetrics)
-    
+
     // 6. Detect transition
     if newState != a.currentState {
         transition := StateTransition{
@@ -807,11 +807,11 @@ func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time
             PcapOffset:    a.currentOffset,
             TriggerReason: a.formatTransitionReason(frameMetrics),
         }
-        
+
         // Notify writer of state change
         a.writer.OnStateChange(transition)
         a.currentState = newState
-        
+
         // Log transition
         if a.config.Verbose {
             log.Printf("State transition: %s → %s at frame %d (%.1fs)",
@@ -819,13 +819,13 @@ func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time
                 transition.FrameID, timestamp.Sub(a.startTime).Seconds())
         }
     }
-    
+
     // 7. Store metrics for export
     if a.config.ExportMetrics {
         frameMetrics.IsStable = (newState == StateStatic)
         a.frameMetricsList = append(a.frameMetricsList, frameMetrics)
     }
-    
+
     a.frameCount++
 }
 ```
