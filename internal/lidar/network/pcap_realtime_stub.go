@@ -10,9 +10,9 @@ import (
 
 // RealtimeReplayConfig is a stub when pcap is not available.
 type RealtimeReplayConfig struct {
-	SpeedMultiplier         float64
-	PacketForwarder         *PacketForwarder
-	ForegroundForwarder     *ForegroundForwarder
+	SpeedMultiplier     float64
+	PacketForwarder     *PacketForwarder
+	ForegroundForwarder *ForegroundForwarder
 }
 
 // ReadPCAPFileRealtime is a stub that returns an error when pcap support is not compiled in.
