@@ -3,6 +3,7 @@ package security
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -330,35 +331,26 @@ func TestSanitizeFilename(t *testing.T) {
 			expected: "file___name",
 		},
 		{
-			name:     "very long name",
-			input:    "a" + string(make([]byte, 200)),
-			expected: "a",
+			name:     "very long name - 200 characters",
+			input:    strings.Repeat("abcd", 50), // 200 characters
+			expected: strings.Repeat("abcd", 32), // Truncated to 128 characters
 		},
 		{
-			name:     "max length boundary",
-			input:    string(make([]byte, 128)),
-			expected: string(make([]byte, 128)),
+			name:     "max length boundary - 128 characters",
+			input:    strings.Repeat("x", 128), // Exactly 128 characters
+			expected: strings.Repeat("x", 128), // Should remain 128 characters
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := SanitizeFilename(tt.input)
-			// For very long names, just check it was truncated
-			if tt.name == "very long name" {
-				if len(result) > 128 {
-					t.Errorf("SanitizeFilename() result too long: got %d chars, want <= 128", len(result))
-				}
-				if result == "" {
-					t.Error("SanitizeFilename() returned empty string for long input")
-				}
-			} else if tt.name == "max length boundary" {
-				// Max length boundary should be truncated to 128 or less
-				if len(result) > 128 {
-					t.Errorf("SanitizeFilename() result too long: got %d chars, want <= 128", len(result))
-				}
-			} else if result != tt.expected {
+			if result != tt.expected {
 				t.Errorf("SanitizeFilename() = %q, want %q", result, tt.expected)
+			}
+			// Additional validation: result should never exceed 128 characters
+			if len(result) > 128 {
+				t.Errorf("SanitizeFilename() result too long: got %d chars, want <= 128", len(result))
 			}
 		})
 	}

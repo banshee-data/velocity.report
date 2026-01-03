@@ -2,6 +2,7 @@ package db
 
 import (
 	"encoding/json"
+	"math"
 	"testing"
 	"time"
 
@@ -56,7 +57,7 @@ func TestGetDatabaseStats(t *testing.T) {
 
 	// Verify tables are present and sorted by size
 	foundRadarObjects := false
-	var prevSize float64 = 999999
+	var prevSize float64 = math.MaxFloat64 // Start with max value for descending sort check
 	for _, table := range stats.Tables {
 		if table.Name == "radar_objects" {
 			foundRadarObjects = true
@@ -410,8 +411,14 @@ func TestDeleteBgSnapshots_NonexistentIDs(t *testing.T) {
 	db := setupTestDB(t)
 	defer cleanupTestDB(t, db)
 
+	// Use obviously invalid snapshot IDs (very large values that won't exist)
+	const (
+		nonexistentID1 int64 = 9999999999
+		nonexistentID2 int64 = 9999999998
+	)
+
 	// Try to delete non-existent IDs
-	deleted, err := db.DeleteBgSnapshots([]int64{99999, 99998})
+	deleted, err := db.DeleteBgSnapshots([]int64{nonexistentID1, nonexistentID2})
 	if err != nil {
 		t.Fatalf("DeleteBgSnapshots failed: %v", err)
 	}
