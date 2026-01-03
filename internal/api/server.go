@@ -155,6 +155,7 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/api/sites/", s.handleSites)                 // Note trailing slash to match /api/sites and /api/sites/*
 	s.mux.HandleFunc("/api/reports/", s.handleReports)             // Report management endpoints
 	s.mux.HandleFunc("/api/transit_worker", s.handleTransitWorker) // Transit worker control
+	s.mux.HandleFunc("/api/db_stats", s.handleDatabaseStats)       // Database table sizes and disk usage
 	return s.mux
 }
 
@@ -781,6 +782,14 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to marshal config: %v", err))
 		return
 	}
+
+	// Validate temp file path (should always pass since we control the temp dir)
+	if err := security.ValidateExportPath(configFile); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Invalid config file path: %v", err))
+		return
+	}
+
 	if err := os.WriteFile(configFile, configData, 0644); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to write config file: %v", err))
@@ -1163,7 +1172,33 @@ func (s *Server) deleteReport(w http.ResponseWriter, r *http.Request, reportID i
 // Start launches the HTTP server and blocks until the provided context is done
 // or the server returns an error. It installs the same static file and SPA
 // handlers used previously in the cmd/radar binary.
-//
+// handleDatabaseStats returns database table sizes and disk usage statistics.
+// GET: returns { total_size_mb: float, tables: [{name, row_count, size_mb}, ...] }
+func (s *Server) handleDatabaseStats(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != http.MethodGet {
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	if s.db == nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Database not configured")
+		return
+	}
+
+	stats, err := s.db.GetDatabaseStats()
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get database stats: %v", err))
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(stats); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode response")
+		return
+	}
+}
+
 // handleTransitWorker provides API endpoints for controlling the transit worker.
 // GET: returns current state { enabled: bool }
 // POST: with { enabled: bool } to update state, optionally { trigger: true } for manual run

@@ -571,77 +571,93 @@ func (m *Monitor) ScanDiskUsage(ctx context.Context) (string, error) {
 	fmt.Print(output.String())
 	output.Reset()
 
-	// Database file analysis (if database exists)
+	// Database file analysis - try API first, fall back to SSH
 	fmt.Print("🗄️  Analyzing database...")
 	output.WriteString("\n🗄️  Database Statistics:\n")
-	dbPath := "/var/lib/velocity-report/sensor_data.db"
-	dbCheck, err := exec.RunSudo(fmt.Sprintf("test -f %s && echo 'exists' || echo 'missing'", dbPath))
-	if err == nil && strings.TrimSpace(dbCheck) == "exists" {
-		// Get database size in MB
-		sizeCmd := fmt.Sprintf("du -b %s | cut -f1", dbPath)
-		sizeOutput, err := exec.RunSudo(sizeCmd)
-		if err == nil {
-			bytes := strings.TrimSpace(sizeOutput)
-			sizeMBCmd := fmt.Sprintf("echo 'scale=2; %s / 1048576' | bc 2>/dev/null || echo 'N/A'", bytes)
-			sizeMB, err := exec.RunSudo(sizeMBCmd)
-			if err == nil && strings.TrimSpace(sizeMB) != "N/A" {
-				output.WriteString(fmt.Sprintf("  Total Size: %s MB\n", strings.TrimSpace(sizeMB)))
+
+	// Try to get stats from API endpoint first (DRY: reuses internal/db.GetDatabaseStats)
+	apiStatsURL := fmt.Sprintf("http://%s:%d/api/db_stats", m.Target, m.APIPort)
+	if dbStats, err := m.fetchDatabaseStatsFromAPI(ctx, apiStatsURL); err == nil {
+		output.WriteString(fmt.Sprintf("  Total Size: %.2f MB\n", dbStats.TotalSizeMB))
+		output.WriteString("  \n  Size per Table (MB):\n")
+		for _, table := range dbStats.Tables {
+			sizeMB := fmt.Sprintf("%.2f", table.SizeMB)
+			if table.SizeMB < 0.01 {
+				sizeMB = "< 0.01"
 			}
+			output.WriteString(fmt.Sprintf("    • %-20s %10d rows    %8s MB\n", table.Name, table.RowCount, sizeMB))
 		}
-
-		// Get size per table (requires sqlite3)
-		tablesCmd := fmt.Sprintf(`sqlite3 %s "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name" 2>/dev/null`, dbPath)
-		tablesOutput, err := exec.RunSudo(tablesCmd)
-		if err == nil && tablesOutput != "" {
-			tables := strings.Split(strings.TrimSpace(tablesOutput), "\n")
-			output.WriteString("  \n  Size per Table (MB):\n")
-
-			for _, table := range tables {
-				table = strings.TrimSpace(table)
-				if table == "" {
-					continue
+	} else {
+		// Fall back to SSH-based analysis
+		dbPath := "/var/lib/velocity-report/sensor_data.db"
+		dbCheck, err := exec.RunSudo(fmt.Sprintf("test -f %s && echo 'exists' || echo 'missing'", dbPath))
+		if err == nil && strings.TrimSpace(dbCheck) == "exists" {
+			// Get database size in MB
+			sizeCmd := fmt.Sprintf("du -b %s | cut -f1", dbPath)
+			sizeOutput, err := exec.RunSudo(sizeCmd)
+			if err == nil {
+				bytes := strings.TrimSpace(sizeOutput)
+				sizeMBCmd := fmt.Sprintf("echo 'scale=2; %s / 1048576' | bc 2>/dev/null || echo 'N/A'", bytes)
+				sizeMB, err := exec.RunSudo(sizeMBCmd)
+				if err == nil && strings.TrimSpace(sizeMB) != "N/A" {
+					output.WriteString(fmt.Sprintf("  Total Size: %s MB\n", strings.TrimSpace(sizeMB)))
 				}
+			}
 
-				// Get row count
-				countCmd := fmt.Sprintf(`sqlite3 %s "SELECT COUNT(*) FROM %s" 2>/dev/null`, dbPath, table)
-				countOutput, err := exec.RunSudo(countCmd)
-				if err == nil {
-					count := strings.TrimSpace(countOutput)
+			// Get size per table (requires sqlite3)
+			tablesCmd := fmt.Sprintf(`sqlite3 %s "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name" 2>/dev/null`, dbPath)
+			tablesOutput, err := exec.RunSudo(tablesCmd)
+			if err == nil && tablesOutput != "" {
+				tables := strings.Split(strings.TrimSpace(tablesOutput), "\n")
+				output.WriteString("  \n  Size per Table (MB):\n")
 
-					// Estimate size in MB using dbstat
-					sizeEstCmd := fmt.Sprintf(`sqlite3 %s "SELECT ROUND(CAST(SUM(payload) / 1048576.0 AS REAL), 2) FROM dbstat WHERE name='%s'" 2>/dev/null || echo '0.00'`, dbPath, table)
-					sizeEst, err := exec.RunSudo(sizeEstCmd)
+				for _, table := range tables {
+					table = strings.TrimSpace(table)
+					if table == "" {
+						continue
+					}
+
+					// Get row count
+					countCmd := fmt.Sprintf(`sqlite3 %s "SELECT COUNT(*) FROM %s" 2>/dev/null`, dbPath, table)
+					countOutput, err := exec.RunSudo(countCmd)
 					if err == nil {
-						sizeMB := strings.TrimSpace(sizeEst)
-						if sizeMB == "" || sizeMB == "0.00" {
-							sizeMB = "< 0.01"
+						count := strings.TrimSpace(countOutput)
+
+						// Estimate size in MB using dbstat
+						sizeEstCmd := fmt.Sprintf(`sqlite3 %s "SELECT ROUND(CAST(SUM(payload) / 1048576.0 AS REAL), 2) FROM dbstat WHERE name='%s'" 2>/dev/null || echo '0.00'`, dbPath, table)
+						sizeEst, err := exec.RunSudo(sizeEstCmd)
+						if err == nil {
+							sizeMB := strings.TrimSpace(sizeEst)
+							if sizeMB == "" || sizeMB == "0.00" {
+								sizeMB = "< 0.01"
+							}
+							output.WriteString(fmt.Sprintf("    • %-20s %10s rows    %8s MB\n", table, count, sizeMB))
+						} else {
+							output.WriteString(fmt.Sprintf("    • %-20s %10s rows\n", table, count))
 						}
-						output.WriteString(fmt.Sprintf("    • %-20s %10s rows    %8s MB\n", table, count, sizeMB))
-					} else {
-						output.WriteString(fmt.Sprintf("    • %-20s %10s rows\n", table, count))
 					}
 				}
 			}
-		}
 
-		// Count total records in sensor_data (if table exists)
-		countCmd := fmt.Sprintf("sqlite3 %s 'SELECT COUNT(*) FROM sensor_data' 2>/dev/null || echo 'N/A'", dbPath)
-		countOutput, err := exec.RunSudo(countCmd)
-		if err == nil && strings.TrimSpace(countOutput) != "N/A" {
-			output.WriteString(fmt.Sprintf("  \n  Total Records: %s\n", strings.TrimSpace(countOutput)))
-		}
-
-		// Get date range (if sqlite3 is available)
-		rangeCmd := fmt.Sprintf("sqlite3 %s \"SELECT MIN(timestamp), MAX(timestamp) FROM sensor_data\" 2>/dev/null || echo 'N/A'", dbPath)
-		rangeOutput, err := exec.RunSudo(rangeCmd)
-		if err == nil && strings.TrimSpace(rangeOutput) != "N/A" {
-			parts := strings.Split(strings.TrimSpace(rangeOutput), "|")
-			if len(parts) == 2 {
-				output.WriteString(fmt.Sprintf("  Date Range: %s to %s\n", parts[0], parts[1]))
+			// Count total records in sensor_data (if table exists)
+			countCmd := fmt.Sprintf("sqlite3 %s 'SELECT COUNT(*) FROM sensor_data' 2>/dev/null || echo 'N/A'", dbPath)
+			countOutput, err := exec.RunSudo(countCmd)
+			if err == nil && strings.TrimSpace(countOutput) != "N/A" {
+				output.WriteString(fmt.Sprintf("  \n  Total Records: %s\n", strings.TrimSpace(countOutput)))
 			}
+
+			// Get date range (if sqlite3 is available)
+			rangeCmd := fmt.Sprintf("sqlite3 %s \"SELECT MIN(timestamp), MAX(timestamp) FROM sensor_data\" 2>/dev/null || echo 'N/A'", dbPath)
+			rangeOutput, err := exec.RunSudo(rangeCmd)
+			if err == nil && strings.TrimSpace(rangeOutput) != "N/A" {
+				parts := strings.Split(strings.TrimSpace(rangeOutput), "|")
+				if len(parts) == 2 {
+					output.WriteString(fmt.Sprintf("  Date Range: %s to %s\n", parts[0], parts[1]))
+				}
+			}
+		} else {
+			output.WriteString("  ⚠ Database file not found\n")
 		}
-	} else {
-		output.WriteString("  ⚠ Database file not found\n")
 	}
 	fmt.Print("\r\033[K") // Clear line
 	fmt.Print(output.String())
@@ -722,4 +738,43 @@ func (m *Monitor) ScanDiskUsage(ctx context.Context) (string, error) {
 	fmt.Print(output.String())
 
 	return "\n", nil
+}
+
+// DatabaseStatsResponse mirrors db.DatabaseStats for JSON unmarshaling from API
+type DatabaseStatsResponse struct {
+	TotalSizeMB float64              `json:"total_size_mb"`
+	Tables      []TableStatsResponse `json:"tables"`
+}
+
+// TableStatsResponse mirrors db.TableStats for JSON unmarshaling from API
+type TableStatsResponse struct {
+	Name     string  `json:"name"`
+	RowCount int64   `json:"row_count"`
+	SizeMB   float64 `json:"size_mb"`
+}
+
+// fetchDatabaseStatsFromAPI tries to get database stats from the API endpoint
+func (m *Monitor) fetchDatabaseStatsFromAPI(ctx context.Context, url string) (*DatabaseStatsResponse, error) {
+	client := &http.Client{Timeout: apiHealthCheckTimeout}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status %d", resp.StatusCode)
+	}
+
+	var stats DatabaseStatsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
+		return nil, err
+	}
+
+	return &stats, nil
 }

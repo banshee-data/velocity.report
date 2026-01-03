@@ -2,8 +2,11 @@ package db
 
 import (
 	"compress/gzip"
+	"crypto/sha256"
 	"database/sql"
 	"embed"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -12,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/tailscale/tailsql/server/tailsql"
@@ -101,7 +105,12 @@ func getMigrationsFS() (fs.FS, error) {
 		return os.DirFS("internal/db/migrations"), nil
 	}
 	// Production: use embedded filesystem
-	return fs.Sub(migrationsFS, "migrations")
+	// The embed directive includes "migrations/*.sql", so we need to extract just the migrations subdir
+	subFS, err := fs.Sub(migrationsFS, "migrations")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create sub-filesystem for embedded migrations directory %q: %w", "migrations", err)
+	}
+	return subFS, nil
 }
 
 // applyPragmas applies essential SQLite PRAGMAs for performance and concurrency.
@@ -396,6 +405,112 @@ func (db *DB) GetLatestBgSnapshot(sensorID string) (*lidar.BgSnapshot, error) {
 		SnapshotReason:     reason.String,
 	}
 	return snap, nil
+}
+
+// DuplicateSnapshotGroup represents a group of snapshots with the same grid_blob hash.
+type DuplicateSnapshotGroup struct {
+	BlobHash    string  // hex-encoded hash of grid_blob
+	Count       int     // number of snapshots with this hash
+	SnapshotIDs []int64 // list of snapshot IDs with this hash
+	KeepID      int64   // the snapshot ID to keep (oldest)
+	DeleteIDs   []int64 // snapshot IDs that would be deleted
+	BlobBytes   int     // size of the blob in bytes
+	SensorID    string  // sensor ID for this group
+}
+
+// FindDuplicateBgSnapshots finds groups of snapshots with identical grid_blob data.
+// Returns groups where Count > 1 (i.e., duplicates exist).
+func (db *DB) FindDuplicateBgSnapshots(sensorID string) ([]DuplicateSnapshotGroup, error) {
+	// SQLite doesn't have a native hash function, so we'll do this in Go
+	// First, get all snapshots for this sensor
+	q := `SELECT snapshot_id, grid_blob
+		  FROM lidar_bg_snapshot
+		  WHERE sensor_id = ?
+		  ORDER BY snapshot_id ASC`
+
+	rows, err := db.Query(q, sensorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Group by blob hash
+	type snapshotInfo struct {
+		id       int64
+		blobSize int
+	}
+	hashGroups := make(map[string][]snapshotInfo)
+
+	for rows.Next() {
+		var snapID int64
+		var blob []byte
+		if err := rows.Scan(&snapID, &blob); err != nil {
+			return nil, err
+		}
+
+		// Compute hash of the blob
+		h := sha256.Sum256(blob)
+		hashHex := hex.EncodeToString(h[:])
+
+		hashGroups[hashHex] = append(hashGroups[hashHex], snapshotInfo{
+			id:       snapID,
+			blobSize: len(blob),
+		})
+	}
+
+	// Convert to result format, filtering for duplicates only
+	var result []DuplicateSnapshotGroup
+	for hash, infos := range hashGroups {
+		if len(infos) <= 1 {
+			continue // No duplicates
+		}
+
+		ids := make([]int64, len(infos))
+		for i, info := range infos {
+			ids[i] = info.id
+		}
+
+		// Keep the oldest (first) snapshot
+		keepID := ids[0]
+		deleteIDs := ids[1:]
+
+		result = append(result, DuplicateSnapshotGroup{
+			BlobHash:    hash,
+			Count:       len(infos),
+			SnapshotIDs: ids,
+			KeepID:      keepID,
+			DeleteIDs:   deleteIDs,
+			BlobBytes:   infos[0].blobSize,
+			SensorID:    sensorID,
+		})
+	}
+
+	return result, nil
+}
+
+// DeleteBgSnapshots deletes snapshots by their IDs. Returns the number of rows deleted.
+func (db *DB) DeleteBgSnapshots(snapshotIDs []int64) (int64, error) {
+	if len(snapshotIDs) == 0 {
+		return 0, nil
+	}
+
+	// Build placeholders for IN clause
+	placeholders := make([]string, len(snapshotIDs))
+	args := make([]interface{}, len(snapshotIDs))
+	for i, id := range snapshotIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+
+	q := fmt.Sprintf("DELETE FROM lidar_bg_snapshot WHERE snapshot_id IN (%s)",
+		strings.Join(placeholders, ","))
+
+	res, err := db.Exec(q, args...)
+	if err != nil {
+		return 0, err
+	}
+
+	return res.RowsAffected()
 }
 
 type RadarObject struct {
@@ -762,6 +877,94 @@ func (db *DB) Events() ([]Event, error) {
 	return events, nil
 }
 
+// TableStats contains size and row count information for a database table.
+type TableStats struct {
+	Name     string  `json:"name"`
+	RowCount int64   `json:"row_count"`
+	SizeMB   float64 `json:"size_mb"`
+}
+
+// DatabaseStats contains overall database statistics.
+type DatabaseStats struct {
+	TotalSizeMB float64      `json:"total_size_mb"`
+	Tables      []TableStats `json:"tables"`
+}
+
+// GetDatabaseStats returns size and row count information for all tables in the database.
+// Uses SQLite's dbstat virtual table to get accurate size information.
+func (db *DB) GetDatabaseStats() (*DatabaseStats, error) {
+	// Get total database size using page_count * page_size
+	var totalPages, pageSize int64
+	row := db.QueryRow("SELECT page_count, page_size FROM pragma_page_count(), pragma_page_size()")
+	if err := row.Scan(&totalPages, &pageSize); err != nil {
+		// Fallback: try individual pragmas
+		if err := db.QueryRow("PRAGMA page_count").Scan(&totalPages); err != nil {
+			return nil, fmt.Errorf("failed to get page count: %w", err)
+		}
+		if err := db.QueryRow("PRAGMA page_size").Scan(&pageSize); err != nil {
+			return nil, fmt.Errorf("failed to get page size: %w", err)
+		}
+	}
+	totalSizeMB := float64(totalPages*pageSize) / (1024 * 1024)
+
+	// Get list of tables
+	tablesQuery := `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`
+	rows, err := db.Query(tablesQuery)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list tables: %w", err)
+	}
+	defer rows.Close()
+
+	var tableNames []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, fmt.Errorf("failed to scan table name: %w", err)
+		}
+		tableNames = append(tableNames, name)
+	}
+
+	// Get stats for each table
+	var tables []TableStats
+	for _, tableName := range tableNames {
+		var rowCount int64
+		// Build the COUNT(*) query dynamically with a quoted table name.
+		// SQL/SQLite prepared statements only parameterize values, not identifiers,
+		// so table names cannot be bound as parameters. Here tableName comes from
+		// sqlite_master (trusted metadata), and %q applies proper SQLite identifier
+		// quoting, so this is not a SQL injection risk.
+		countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %q", tableName)
+		if err := db.QueryRow(countQuery).Scan(&rowCount); err != nil {
+			// Table might be empty or have issues, continue with 0
+			rowCount = 0
+		}
+
+		// Get size using dbstat virtual table (if available)
+		var sizeMB float64
+		sizeQuery := `SELECT COALESCE(SUM(pgsize), 0) / 1048576.0 FROM dbstat WHERE name = ?`
+		if err := db.QueryRow(sizeQuery, tableName).Scan(&sizeMB); err != nil {
+			// dbstat might not be available, estimate from row count
+			sizeMB = 0
+		}
+
+		tables = append(tables, TableStats{
+			Name:     tableName,
+			RowCount: rowCount,
+			SizeMB:   math.Round(sizeMB*100) / 100, // Round to 2 decimal places
+		})
+	}
+
+	// Sort tables by size descending
+	sort.Slice(tables, func(i, j int) bool {
+		return tables[i].SizeMB > tables[j].SizeMB
+	})
+
+	return &DatabaseStats{
+		TotalSizeMB: math.Round(totalSizeMB*100) / 100,
+		Tables:      tables,
+	}, nil
+}
+
 func (db *DB) AttachAdminRoutes(mux *http.ServeMux) {
 	debug := tsweb.Debugger(mux)
 	// create a tailSQL instance and point it to our DB
@@ -777,6 +980,19 @@ func (db *DB) AttachAdminRoutes(mux *http.ServeMux) {
 
 	// mount the tailSQL server on the debug /tailsql path
 	debug.Handle("tailsql/", "SQL live debugging", tsql.NewMux())
+
+	debug.Handle("db-stats", "Database table sizes and disk usage (JSON)", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		stats, err := db.GetDatabaseStats()
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to get database stats: %v", err), http.StatusInternalServerError)
+			return
+		}
+		if err := json.NewEncoder(w).Encode(stats); err != nil {
+			http.Error(w, fmt.Sprintf("Failed to encode stats: %v", err), http.StatusInternalServerError)
+			return
+		}
+	}))
 
 	debug.Handle("backup", "Create and download a backup of the database now", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		unixTime := time.Now().Unix()
