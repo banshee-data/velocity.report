@@ -128,7 +128,7 @@ func SanitizeFilename(s string) string {
 	const maxLen = 128
 	lastUnderscore := false
 	for _, r := range s {
-		if len(b.String()) >= maxLen {
+		if b.Len() >= maxLen {
 			break
 		}
 		switch {

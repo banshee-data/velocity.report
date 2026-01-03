@@ -108,7 +108,7 @@ func getMigrationsFS() (fs.FS, error) {
 	// The embed directive includes "migrations/*.sql", so we need to extract just the migrations subdir
 	subFS, err := fs.Sub(migrationsFS, "migrations")
 	if err != nil {
-		return nil, fmt.Errorf("failed to create sub-filesystem: %w", err)
+		return nil, fmt.Errorf("failed to create sub-filesystem for embedded migrations directory %q: %w", "migrations", err)
 	}
 	return subFS, nil
 }
@@ -928,7 +928,11 @@ func (db *DB) GetDatabaseStats() (*DatabaseStats, error) {
 	var tables []TableStats
 	for _, tableName := range tableNames {
 		var rowCount int64
-		// Use parameterized query for count - table name must be quoted since it can't be parameterized
+		// Build the COUNT(*) query dynamically with a quoted table name.
+		// SQL/SQLite prepared statements only parameterize values, not identifiers,
+		// so table names cannot be bound as parameters. Here tableName comes from
+		// sqlite_master (trusted metadata), and %q applies proper SQLite identifier
+		// quoting, so this is not a SQL injection risk.
 		countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %q", tableName)
 		if err := db.QueryRow(countQuery).Scan(&rowCount); err != nil {
 			// Table might be empty or have issues, continue with 0

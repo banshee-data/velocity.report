@@ -1172,7 +1172,6 @@ func (s *Server) deleteReport(w http.ResponseWriter, r *http.Request, reportID i
 // Start launches the HTTP server and blocks until the provided context is done
 // or the server returns an error. It installs the same static file and SPA
 // handlers used previously in the cmd/radar binary.
-
 // handleDatabaseStats returns database table sizes and disk usage statistics.
 // GET: returns { total_size_mb: float, tables: [{name, row_count, size_mb}, ...] }
 func (s *Server) handleDatabaseStats(w http.ResponseWriter, r *http.Request) {
