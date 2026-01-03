@@ -1006,3 +1006,105 @@ func TestHandleTransitWorker_MethodNotAllowed(t *testing.T) {
 		}
 	}
 }
+
+// TestHandleDatabaseStats tests the database stats endpoint
+func TestHandleDatabaseStats(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/db_stats", nil)
+	w := httptest.NewRecorder()
+
+	server.handleDatabaseStats(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	// Verify content type
+	contentType := w.Header().Get("Content-Type")
+	if contentType != "application/json" {
+		t.Errorf("Expected Content-Type application/json, got %s", contentType)
+	}
+
+	// Parse response
+	var stats db.DatabaseStats
+	if err := json.NewDecoder(w.Body).Decode(&stats); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	// Verify basic structure
+	if stats.TotalSizeMB <= 0 {
+		t.Error("Expected non-zero total size")
+	}
+
+	if len(stats.Tables) == 0 {
+		t.Error("Expected at least one table in stats")
+	}
+
+	// Verify tables are present in the schema
+	foundRadarObjects := false
+	for _, table := range stats.Tables {
+		if table.Name == "radar_objects" {
+			foundRadarObjects = true
+		}
+		// Verify all tables have non-negative counts
+		if table.RowCount < 0 {
+			t.Errorf("Table %s has negative row count: %d", table.Name, table.RowCount)
+		}
+		if table.SizeMB < 0 {
+			t.Errorf("Table %s has negative size: %.2f", table.Name, table.SizeMB)
+		}
+	}
+
+	if !foundRadarObjects {
+		t.Error("Expected radar_objects table in stats")
+	}
+}
+
+// TestHandleDatabaseStats_MethodNotAllowed tests unsupported HTTP methods
+func TestHandleDatabaseStats_MethodNotAllowed(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	methods := []string{http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch}
+
+	for _, method := range methods {
+		t.Run(method, func(t *testing.T) {
+			req := httptest.NewRequest(method, "/api/db_stats", nil)
+			w := httptest.NewRecorder()
+
+			server.handleDatabaseStats(w, req)
+
+			if w.Code != http.StatusMethodNotAllowed {
+				t.Errorf("Expected status 405 for method %s, got %d", method, w.Code)
+			}
+		})
+	}
+}
+
+// TestHandleDatabaseStats_NoDatabase tests error handling when DB is nil
+func TestHandleDatabaseStats_NoDatabase(t *testing.T) {
+	// Create a server without a database
+	mux := serialmux.NewDisabledSerialMux()
+	server := NewServer(mux, nil, "mph", "UTC")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/db_stats", nil)
+	w := httptest.NewRecorder()
+
+	server.handleDatabaseStats(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("Expected status 500, got %d", w.Code)
+	}
+
+	// Verify error message
+	var errResp map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&errResp); err != nil {
+		t.Fatalf("Failed to decode error response: %v", err)
+	}
+
+	if errMsg, ok := errResp["error"].(string); !ok || errMsg == "" {
+		t.Error("Expected error message in response")
+	}
+}
