@@ -211,7 +211,8 @@ func (f *ForegroundForwarder) encodePointsAsPackets(points []lidar.PointPolar) (
 			channelOffset := blockOffset + 4
 			blockHasData := false
 			for ch := 0; ch < CHANNELS_PER_BLOCK; ch++ {
-				var distance uint16 = 0xFFFF
+				// Default to 0 (no return) instead of 0xFFFF (which parses as ~262m)
+				var distance uint16 = 0
 				var intensity uint8 = 0
 				for _, p := range bucket {
 					// Validate channel range: p.Channel is 1-based (1-40)
@@ -225,14 +226,14 @@ func (f *ForegroundForwarder) encodePointsAsPackets(points []lidar.PointPolar) (
 						d := p.Distance
 						switch {
 						case d <= 0:
-							distance = 0xFFFF
+							distance = 0
 						case d > MAX_DISTANCE_METERS:
-							distance = 0xFFFE // Clamp to max representable distance
+							// Clamp to max representable distance (approx 262m)
+							distance = 0xFFFE
 						default:
-							// Pandar40P distance encoding: 1 unit = 0.5cm = 0.005m
-							// So: distance_units = distance_meters / 0.005 = distance_meters * 200
-							// (Previous code used *500 which was incorrect - that's 0.2cm resolution)
-							distScaled := d * 200.0
+							// Pandar40P distance encoding: 1 unit = 4mm = 0.004m
+							// So: distance_units = distance_meters / 0.004 = distance_meters * 250
+							distScaled := d * 250.0
 							if distScaled > 65534.0 {
 								distance = 0xFFFE
 							} else {
