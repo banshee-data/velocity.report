@@ -39,6 +39,18 @@ type BackgroundParams struct {
 	// replay mode where there is no prior live-warmup data; default: false.
 	SeedFromFirstObservation bool
 
+	// ReacquisitionBoostMultiplier controls how much faster cells re-acquire
+	// background after a foreground event. When a cell that recently saw foreground
+	// receives an observation matching the prior background, the effective alpha
+	// is multiplied by this factor for faster convergence. Default: 5.0.
+	// Set to 1.0 to disable the boost.
+	ReacquisitionBoostMultiplier float32
+
+	// MinConfidenceFloor is the minimum TimesSeenCount to preserve during foreground
+	// observations. This prevents cells from completely "forgetting" their settled
+	// background when a vehicle passes through. Default: 3.
+	MinConfidenceFloor uint32
+
 	// Additional params for persistence matching schema requirements
 	SettlingPeriodNanos        int64 // 5 minutes before first snapshot
 	SnapshotIntervalNanos      int64 // 2 hours between snapshots
@@ -52,6 +64,10 @@ type BackgroundCell struct {
 	TimesSeenCount       uint32
 	LastUpdateUnixNanos  int64
 	FrozenUntilUnixNanos int64
+	// RecentForegroundCount tracks consecutive foreground observations.
+	// Used for fast re-acquisition: when this is >0 and observation matches
+	// background, we apply boosted alpha for faster convergence.
+	RecentForegroundCount uint16
 }
 
 // BackgroundGrid enhanced for schema persistence and 100-track performance

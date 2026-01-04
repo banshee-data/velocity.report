@@ -14,6 +14,10 @@ const (
 	DefaultNeighborConfirmationCount = 3
 	// FreezeThresholdMultiplier is the multiplier applied to closeness threshold to trigger cell freeze
 	FreezeThresholdMultiplier = 3.0
+	// DefaultReacquisitionBoostMultiplier is the default multiplier for fast re-acquisition
+	DefaultReacquisitionBoostMultiplier = 5.0
+	// DefaultMinConfidenceFloor is the minimum TimesSeenCount to preserve during foreground
+	DefaultMinConfidenceFloor = 3
 )
 
 // ProcessFramePolarWithMask classifies each point as foreground/background in polar coordinates.
@@ -83,6 +87,16 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 	}
 	seedFromFirst := g.Params.SeedFromFirstObservation
 
+	// Fast re-acquisition parameters
+	reacqBoost := float64(g.Params.ReacquisitionBoostMultiplier)
+	if reacqBoost <= 0 {
+		reacqBoost = DefaultReacquisitionBoostMultiplier
+	}
+	minConfFloor := g.Params.MinConfidenceFloor
+	if minConfFloor == 0 {
+		minConfFloor = DefaultMinConfidenceFloor
+	}
+
 	// Warmup gating: suppress foreground output until duration and/or frames satisfied.
 	postSettleAlpha := float64(g.Params.PostSettleUpdateFraction)
 	if postSettleAlpha > 0 && postSettleAlpha <= 1 {
@@ -141,10 +155,14 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		cellIdx := g.Idx(ring, azBin)
 		cell := &g.Cells[cellIdx]
 
-		// If frozen, treat as foreground
+		// If frozen, treat as foreground but still track for fast re-acquisition
 		if cell.FrozenUntilUnixNanos > nowNanos {
 			foregroundMask[i] = true
 			foregroundCount++
+			// Track foreground even when frozen (for fast re-acquisition)
+			if cell.RecentForegroundCount < 65535 {
+				cell.RecentForegroundCount++
+			}
 			continue
 		}
 
@@ -201,22 +219,44 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 				cell.RangeSpreadMeters = 0.0 // Single point, no spread yet
 				cell.TimesSeenCount = 1
 				g.nonzeroCellCount++
+				cell.RecentForegroundCount = 0
 			} else {
+				// Fast re-acquisition: if cell recently saw foreground, use boosted alpha
+				// to quickly re-converge to background after object passes
+				updateAlpha := effectiveAlpha
+				if cell.RecentForegroundCount > 0 {
+					updateAlpha = math.Min(effectiveAlpha*reacqBoost, 0.5) // cap at 0.5 to avoid instability
+				}
+
 				oldAvg := float64(cell.AverageRangeMeters)
-				newAvg := (1.0-effectiveAlpha)*oldAvg + effectiveAlpha*p.Distance
+				newAvg := (1.0-updateAlpha)*oldAvg + updateAlpha*p.Distance
 				deviation := math.Abs(p.Distance - oldAvg)
-				newSpread := (1.0-effectiveAlpha)*float64(cell.RangeSpreadMeters) + effectiveAlpha*deviation
+				newSpread := (1.0-updateAlpha)*float64(cell.RangeSpreadMeters) + updateAlpha*deviation
 				cell.AverageRangeMeters = float32(newAvg)
 				cell.RangeSpreadMeters = float32(newSpread)
 				cell.TimesSeenCount++
+
+				// Decay RecentForegroundCount now that we're seeing background again
+				if cell.RecentForegroundCount > 0 {
+					cell.RecentForegroundCount--
+				}
 			}
 			cell.LastUpdateUnixNanos = nowNanos
 		} else {
 			foregroundMask[i] = true
 			foregroundCount++
 
-			// Decrease confidence for divergent observations
-			if cell.TimesSeenCount > 0 {
+			// Track that this cell is seeing foreground (for fast re-acquisition)
+			if cell.RecentForegroundCount < 65535 {
+				cell.RecentForegroundCount++
+			}
+
+			// Decrease confidence for divergent observations, but maintain minimum floor
+			// to prevent cells from "forgetting" their settled background
+			if cell.TimesSeenCount > minConfFloor {
+				cell.TimesSeenCount--
+			} else if cell.TimesSeenCount > 0 && minConfFloor == 0 {
+				// Only allow full drain if MinConfidenceFloor is explicitly 0
 				cell.TimesSeenCount--
 				if cell.TimesSeenCount == 0 && g.nonzeroCellCount > 0 {
 					g.nonzeroCellCount--
