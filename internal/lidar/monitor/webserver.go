@@ -895,6 +895,11 @@ func (ws *WebServer) handleTrafficStats(w http.ResponseWriter, r *http.Request) 
 // and acceptance counters. This is intended only for testing A/B sweeps.
 // Method: POST. Query params: sensor_id (required)
 func (ws *WebServer) handleGridReset(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
@@ -1637,14 +1642,12 @@ func (ws *WebServer) handleExportFrameSequenceASC(w http.ResponseWriter, r *http
 	timestamp := time.Now().Unix()
 	safeSensor := security.SanitizeFilename(sensorID)
 	if baseDir == "" {
-		baseDir = filepath.Join(os.TempDir(), fmt.Sprintf("lidar_sequence_%s_%d", safeSensor, timestamp))
+		baseDir = fmt.Sprintf("lidar_sequence_%s_%d", safeSensor, timestamp)
+	} else {
+		baseDir = security.SanitizeFilename(baseDir)
 	}
 
-	absDir, err := filepath.Abs(baseDir)
-	if err != nil {
-		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid out_dir: %v", err))
-		return
-	}
+	absDir := filepath.Join(os.TempDir(), baseDir)
 	if err := security.ValidateExportPath(absDir); err != nil {
 		ws.writeJSONError(w, http.StatusForbidden, err.Error())
 		return
