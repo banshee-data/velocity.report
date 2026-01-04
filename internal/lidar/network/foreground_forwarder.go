@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
-	"math"
 	"net"
 	"sort"
 	"time"
@@ -131,217 +130,186 @@ func (f *ForegroundForwarder) ForwardForeground(points []lidar.PointPolar) {
 
 // encodePointsAsPackets encodes foreground points into Pandar40P-compatible UDP packets.
 // Multiple packets may be generated if there are more points than fit in one packet.
+// encodePointsAsPackets encodes foreground points into Pandar40P-compatible UDP packets.
+// It reconstructs the original packet structure using UDPSequence and BlockID to ensure
+// azimuths are preserved exactly as they were received.
 func (f *ForegroundForwarder) encodePointsAsPackets(points []lidar.PointPolar) ([][]byte, error) {
-	const (
-		PACKET_SIZE           = 1262
-		BLOCKS_PER_PACKET     = 10
-		BLOCK_SIZE            = 124
-		CHANNELS_PER_BLOCK    = 40
-		TAIL_SIZE             = 22
-		MAX_POINTS_PER_PACKET = BLOCKS_PER_PACKET * CHANNELS_PER_BLOCK // 400 points max
-		MAX_DISTANCE_METERS   = 200.0                                  // Pandar40P max range
-	)
+	if len(points) == 0 {
+		return nil, nil
+	}
 
-	// Calculate number of packets needed
-	numPackets := (len(points) + MAX_POINTS_PER_PACKET - 1) / MAX_POINTS_PER_PACKET
-	packets := make([][]byte, 0, numPackets)
+	// Sort points to ensure we process them in packet order
+	// Primary: UDPSequence (if present), Secondary: Timestamp, Tertiary: BlockID
+	sort.Slice(points, func(i, j int) bool {
+		if points[i].UDPSequence != points[j].UDPSequence {
+			return points[i].UDPSequence < points[j].UDPSequence
+		}
+		if points[i].Timestamp != points[j].Timestamp {
+			return points[i].Timestamp < points[j].Timestamp
+		}
+		return points[i].BlockID < points[j].BlockID
+	})
 
-	for i := 0; i < len(points); i += MAX_POINTS_PER_PACKET {
-		end := i + MAX_POINTS_PER_PACKET
-		if end > len(points) {
-			end = len(points)
+	var packets [][]byte
+
+	// Group points into packets
+	type PacketBatch struct {
+		Points      []lidar.PointPolar
+		HasSequence bool
+		Sequence    uint32
+	}
+
+	var currentBatch *PacketBatch
+	var lastBlockID int = -1
+	var lastTimestamp int64 = -1
+
+	for _, p := range points {
+		isNewPacket := false
+
+		if currentBatch == nil {
+			isNewPacket = true
+		} else {
+			// Detection logic
+			if p.UDPSequence != 0 {
+				// If sequence numbers are used, they are the authority
+				if p.UDPSequence != currentBatch.Sequence {
+					isNewPacket = true
+				}
+			} else {
+				// Heuristic for non-sequenced packets
+				// 1. BlockID reset (e.g. 9 -> 0)
+				if p.BlockID < lastBlockID {
+					isNewPacket = true
+				}
+				// 2. Timestamp gap > 200us (approx packet duration is 166us)
+				if lastTimestamp != -1 && (p.Timestamp-lastTimestamp) > 200000 {
+					isNewPacket = true
+				}
+			}
 		}
 
-		packet := make([]byte, PACKET_SIZE)
-		packetPoints := points[i:end]
-
-		// Sort by azimuth to keep buckets contiguous
-		sort.Slice(packetPoints, func(a, b int) bool {
-			return packetPoints[a].Azimuth < packetPoints[b].Azimuth
-		})
-
-		azBucketSize := 360.0 / float64(BLOCKS_PER_PACKET)
-		filledBlocks := 0
-		invalidChannelCount := 0
-		const azimuthEpsilon = 0.01 // Small tolerance for boundary comparisons
-
-		// Diagnostic metrics for this packet
-		var minDist, maxDist, sumDist float64 = math.MaxFloat64, 0.0, 0.0
-		var minAz, maxAz float64 = 360.0, 0.0
-		distCount := 0
-
-		// Encode data blocks (10 blocks) using azimuth buckets rather than BlockID.
-		for blockIdx := 0; blockIdx < BLOCKS_PER_PACKET; blockIdx++ {
-			blockOffset := blockIdx * BLOCK_SIZE
-			binary.LittleEndian.PutUint16(packet[blockOffset:], 0xFFEE)
-
-			// Collect points in this azimuth bucket
-			minAz := float64(blockIdx) * azBucketSize
-			maxAz := minAz + azBucketSize
-			bucket := make([]lidar.PointPolar, 0)
-			for _, p := range packetPoints {
-				// Normalize azimuth to [0, 360) range
-				az := math.Mod(p.Azimuth+360.0, 360.0)
-
-				// Handle wrap-around at 0°/360° boundary for last bucket
-				// Last bucket (9) covers [324°, 360°) but should also include [0°, epsilon)
-				if blockIdx == BLOCKS_PER_PACKET-1 {
-					// Special handling for bucket 9: include [324°, 360°) AND [0°, epsilon)
-					if (az >= minAz && az < 360.0) || (az >= 0.0 && az < azimuthEpsilon) {
-						bucket = append(bucket, p)
-					}
-				} else {
-					// Normal bucket: [minAz, maxAz) with small epsilon tolerance on upper bound
-					if az >= minAz && az < maxAz+azimuthEpsilon {
-						bucket = append(bucket, p)
-					}
+		if isNewPacket {
+			// Finalize current batch
+			if currentBatch != nil {
+				pkt, err := f.buildPacket(currentBatch.Points, currentBatch.HasSequence, currentBatch.Sequence)
+				if err == nil {
+					packets = append(packets, pkt)
 				}
 			}
 
-			// Choose block azimuth: median of bucket or center of bucket if empty
-			blockAzimuth := minAz + azBucketSize/2
-			if len(bucket) > 0 {
-				mid := len(bucket) / 2
-				blockAzimuth = bucket[mid].Azimuth
+			// Start new batch
+			currentBatch = &PacketBatch{
+				Points:      []lidar.PointPolar{p},
+				HasSequence: p.UDPSequence != 0,
+				Sequence:    p.UDPSequence,
 			}
-			azimuthScaled := uint16(math.Mod(blockAzimuth*100.0+36000.0, 36000.0))
-			binary.LittleEndian.PutUint16(packet[blockOffset+2:], azimuthScaled)
-
-			// Channel data (40 channels × 3 bytes)
-			channelOffset := blockOffset + 4
-			blockHasData := false
-			for ch := 0; ch < CHANNELS_PER_BLOCK; ch++ {
-				// Default to 0 (no return) instead of 0xFFFF (which parses as ~262m)
-				var distance uint16 = 0
-				var intensity uint8 = 0
-				for _, p := range bucket {
-					// Validate channel range: p.Channel is 1-based (1-40)
-					if p.Channel < 1 || p.Channel > CHANNELS_PER_BLOCK {
-						invalidChannelCount++
-						continue // Skip invalid channels
-					}
-
-					// Match 1-based Channel to 0-based loop index
-					if p.Channel == ch+1 {
-						d := p.Distance
-						switch {
-						case d <= 0:
-							distance = 0
-						case d > MAX_DISTANCE_METERS:
-							// Clamp to max representable distance (approx 262m)
-							distance = 0xFFFE
-						default:
-							// Pandar40P distance encoding: 1 unit = 4mm = 0.004m
-							// So: distance_units = distance_meters / 0.004 = distance_meters * 250
-							distScaled := d * 250.0
-							if distScaled > 65534.0 {
-								distance = 0xFFFE
-							} else {
-								distance = uint16(distScaled)
-							}
-
-							// Update diagnostic metrics
-							if d < minDist {
-								minDist = d
-							}
-							if d > maxDist {
-								maxDist = d
-							}
-							sumDist += d
-							distCount++
-						}
-						intensity = p.Intensity
-						blockHasData = true
-
-						// Track azimuth range
-						az := math.Mod(p.Azimuth+360.0, 360.0)
-						if az < minAz {
-							minAz = az
-						}
-						if az > maxAz {
-							maxAz = az
-						}
-
-						break
-					}
-				}
-
-				idx := channelOffset + (ch * 3)
-				binary.LittleEndian.PutUint16(packet[idx:], distance)
-				packet[idx+2] = intensity
-			}
-
-			if blockHasData {
-				filledBlocks++
-			}
+		} else {
+			currentBatch.Points = append(currentBatch.Points, p)
 		}
 
-		emptyBlocks := BLOCKS_PER_PACKET - filledBlocks
+		lastBlockID = p.BlockID
+		lastTimestamp = p.Timestamp
+	}
 
-		// Comprehensive diagnostic logging
-		if invalidChannelCount > 0 {
-			lidar.Debugf("[ForegroundForwarder] WARNING: %d invalid channel values (< 0 or >= 40) in packet", invalidChannelCount)
+	// Finalize last batch
+	if currentBatch != nil {
+		pkt, err := f.buildPacket(currentBatch.Points, currentBatch.HasSequence, currentBatch.Sequence)
+		if err == nil {
+			packets = append(packets, pkt)
 		}
-
-		if filledBlocks < 3 {
-			lidar.Debugf("[ForegroundForwarder] WARNING: Very sparse packet (%d/%d blocks filled, %d points) - may indicate encoding issue",
-				filledBlocks, BLOCKS_PER_PACKET, len(packetPoints))
-		} else if emptyBlocks > BLOCKS_PER_PACKET/2 {
-			lidar.Debugf("[ForegroundForwarder] Sparse packet (%d/%d blocks filled, %d empty)",
-				filledBlocks, BLOCKS_PER_PACKET, emptyBlocks)
-		}
-
-		// Log packet statistics periodically (every 50th packet)
-		if f.packetCount%50 == 0 && distCount > 0 {
-			avgDist := sumDist / float64(distCount)
-			azRange := maxAz - minAz
-			if azRange < 0 {
-				azRange += 360.0 // Handle wrap-around
-			}
-			lidar.Debugf("[ForegroundForwarder] Packet stats: %d/%d blocks filled, %d points | Distance: %.1fm-%.1fm (avg %.1fm) | Azimuth: [%.1f°-%.1f°] range %.1f° | Invalid ch: %d",
-				filledBlocks, BLOCKS_PER_PACKET, len(packetPoints), minDist, maxDist, avgDist, minAz, maxAz, azRange, invalidChannelCount)
-		}
-
-		// Encode tail (22 bytes at offset 1240)
-		tailOffset := BLOCKS_PER_PACKET * BLOCK_SIZE
-
-		// Reserved fields
-		for i := 0; i < 8; i++ {
-			if i != 5 {
-				packet[tailOffset+i] = 0
-			}
-		}
-
-		// HighTempFlag (byte 5)
-		packet[tailOffset+5] = 0
-
-		// MotorSpeed (bytes 8-9) in 0.01 RPM units
-		motorSpeedEncoded := uint16(math.Round(f.sensorConfig.MotorSpeedRPM * 100))
-		binary.LittleEndian.PutUint16(packet[tailOffset+8:], motorSpeedEncoded)
-
-		// Timestamp (bytes 10-13)
-		now := time.Now()
-		timestampMicros := uint32(now.UnixNano() / 1000)
-		binary.LittleEndian.PutUint32(packet[tailOffset+10:], timestampMicros)
-
-		// ReturnMode (byte 14) - 0x37 for strongest return
-		packet[tailOffset+14] = 0x37
-
-		// FactoryInfo (byte 15)
-		packet[tailOffset+15] = 0
-
-		// DateTime (bytes 16-21)
-		packet[tailOffset+16] = uint8(now.Year() - 2000)
-		packet[tailOffset+17] = uint8(now.Month())
-		packet[tailOffset+18] = uint8(now.Day())
-		packet[tailOffset+19] = uint8(now.Hour())
-		packet[tailOffset+20] = uint8(now.Minute())
-		packet[tailOffset+21] = uint8(now.Second())
-
-		packets = append(packets, packet)
 	}
 
 	return packets, nil
+}
+
+func (f *ForegroundForwarder) buildPacket(points []lidar.PointPolar, hasSequence bool, sequence uint32) ([]byte, error) {
+	size := 1262
+	if hasSequence {
+		size = 1266
+	}
+	packet := make([]byte, size)
+
+	// Group points by BlockID
+	blocks := make(map[int][]lidar.PointPolar)
+	for _, p := range points {
+		blocks[p.BlockID] = append(blocks[p.BlockID], p)
+	}
+
+	for blockIdx := 0; blockIdx < 10; blockIdx++ {
+		blockOffset := blockIdx * 124
+
+		// Preamble
+		binary.LittleEndian.PutUint16(packet[blockOffset:], 0xFFEE)
+
+		blockPoints, exists := blocks[blockIdx]
+		if !exists {
+			// Empty block - leave Azimuth as 0, Channels as 0
+			continue
+		}
+
+		// Azimuth from first point (RawBlockAzimuth)
+		// We assume all points in block have same RawBlockAzimuth
+		azimuth := blockPoints[0].RawBlockAzimuth
+		binary.LittleEndian.PutUint16(packet[blockOffset+2:], azimuth)
+
+		// Channels
+		for _, p := range blockPoints {
+			if p.Channel < 1 || p.Channel > 40 {
+				continue
+			}
+
+			// Channel offset: 4 header + (channel-1)*3
+			chOffset := blockOffset + 4 + (p.Channel-1)*3
+
+			// Distance
+			d := p.Distance
+			var distVal uint16
+			if d <= 0 {
+				distVal = 0
+			} else if d > 200.0 {
+				distVal = 0xFFFE
+			} else {
+				distVal = uint16(d * 250.0) // 4mm resolution
+			}
+
+			binary.LittleEndian.PutUint16(packet[chOffset:], distVal)
+			packet[chOffset+2] = p.Intensity
+		}
+	}
+
+	// Reconstruct Tail
+	if len(points) > 0 {
+		firstPt := points[0]
+		ts := time.Unix(0, firstPt.Timestamp)
+
+		// Tail starts at 1240
+		tailOffset := 1240
+
+		// Motor Speed (bytes 8-9)
+		motorSpeed := uint16(f.sensorConfig.MotorSpeedRPM)
+		binary.LittleEndian.PutUint16(packet[tailOffset+8:], motorSpeed)
+
+		// Date (bytes 16-21)
+		packet[tailOffset+16] = uint8(ts.Year() - 2000)
+		packet[tailOffset+17] = uint8(ts.Month())
+		packet[tailOffset+18] = uint8(ts.Day())
+		packet[tailOffset+19] = uint8(ts.Hour())
+		packet[tailOffset+20] = uint8(ts.Minute())
+		packet[tailOffset+21] = uint8(ts.Second())
+
+		// Timestamp (us)
+		us := uint32(ts.Nanosecond() / 1000)
+		binary.LittleEndian.PutUint32(packet[tailOffset+10:], us)
+
+		// ReturnMode (byte 14) - 0x37 for strongest return
+		packet[tailOffset+14] = 0x37
+	}
+
+	if hasSequence {
+		binary.LittleEndian.PutUint32(packet[1262:], sequence)
+	}
+
+	return packet, nil
 }
 
 // Close closes the UDP connection and channel.
