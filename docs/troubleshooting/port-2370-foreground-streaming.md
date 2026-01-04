@@ -1,5 +1,7 @@
 # Port 2370 Foreground Streaming Troubleshooting Guide
 
+> **Note:** For the current investigation status and known issues regarding data quality and corruption, please see [Foreground Corruption Investigation Status](foreground-corruption-investigation-status.md).
+
 ## Overview
 
 Port 2370 should stream foreground-only LIDAR points extracted via background subtraction during real-time PCAP replay. This document outlines what's implemented and what to check if no data appears on port 2370.
@@ -9,22 +11,26 @@ Port 2370 should stream foreground-only LIDAR points extracted via background su
 ### What's Implemented
 
 #### 1. ForegroundForwarder (`internal/lidar/network/foreground_forwarder.go`)
+
 - **Purpose**: Encodes and forwards foreground points as Pandar40P UDP packets
 - **Port**: 2370 (configurable)
 - **Buffer**: 100-frame buffer for non-blocking operation
 - **Encoding**: Pandar40P format (1262 bytes per packet, up to 400 points per packet)
 
 **Key Functions:**
+
 - `NewForegroundForwarder(addr, port, config)`: Creates forwarder instance
 - `Start(ctx)`: Starts forwarding goroutine
 - `ForwardForeground(points)`: Queues foreground points for transmission
 - `encodePointsAsPackets(points)`: Converts polar points to Pandar40P packets
 
 #### 2. Real-Time PCAP Replay with Foreground Extraction (`internal/lidar/network/pcap_realtime.go`)
+
 - **Purpose**: Replays PCAP files with timing, extracts foreground, forwards to port 2370
 - **Integration**: Uses BackgroundManager for foreground/background classification
 
 **Key Components:**
+
 - `RealtimeReplayConfig`:
   - `SpeedMultiplier`: Replay speed control (1.0 = real-time)
   - `PacketForwarder`: Forwards original packets to port 2368
@@ -33,6 +39,7 @@ Port 2370 should stream foreground-only LIDAR points extracted via background su
 - `ReadPCAPFileRealtime()`: Main replay function with integrated foreground extraction
 
 **Foreground Extraction Flow:**
+
 ```go
 // In ReadPCAPFileRealtime(), for each packet:
 1. Parse packet → points (PointPolar[])
@@ -42,6 +49,7 @@ Port 2370 should stream foreground-only LIDAR points extracted via background su
 ```
 
 #### 3. Background Subtraction (`internal/lidar/foreground.go`)
+
 - `ProcessFramePolarWithMask()`: Classifies each point as foreground/background
 - `ExtractForegroundPoints()`: Filters points using mask
 
@@ -52,6 +60,7 @@ Port 2370 should stream foreground-only LIDAR points extracted via background su
 The BackgroundManager is **required** for foreground extraction. Without it, no foreground points will be extracted.
 
 **Check:**
+
 ```go
 // BackgroundManager must be created and passed to RealtimeReplayConfig
 bgManager := lidar.NewBackgroundManager(bgConfig)
@@ -67,20 +76,24 @@ replayConfig := network.RealtimeReplayConfig{
 ```
 
 **Common Issues:**
+
 - BackgroundManager is nil
 - BackgroundManager not passed to config
 - Background model not settled (no background learned yet)
 
 **Debug Logging:**
 In `pcap_realtime.go` around line 172-190, check for:
+
 ```
 "Foreground extraction: X/Y points (Z%)"
 ```
+
 If this log doesn't appear, BackgroundManager integration is not working.
 
 ### 2. **Is ForegroundForwarder Created and Started?**
 
 **Check Creation:**
+
 ```go
 fgForwarder, err := network.NewForegroundForwarder("localhost", 2370, nil)
 if err != nil {
@@ -89,6 +102,7 @@ if err != nil {
 ```
 
 **Check Started:**
+
 ```go
 // Must call Start() before replay begins
 fgForwarder.Start(ctx)
@@ -96,6 +110,7 @@ fgForwarder.Start(ctx)
 
 **Debug Logging:**
 Look for in logs:
+
 ```
 "Foreground forwarding started to localhost:2370 (port 2370)"
 ```
@@ -105,6 +120,7 @@ If this doesn't appear, the forwarder wasn't started.
 ### 3. **Is Foreground Extraction Working?**
 
 **Check Background Model Status:**
+
 ```go
 // Background model must have learned the static environment
 // This requires ~30-60 seconds of data during replay
@@ -115,11 +131,13 @@ if !bgManager.HasSettled {
 
 **Check Extraction Statistics:**
 Look for periodic logging (every 1000 packets):
+
 ```
 "Foreground extraction: 150/400 points (37.5%)"
 ```
 
 **What this tells you:**
+
 - **0/X points (0%)**: Background model classifying everything as background
   - Model may be too aggressive
   - Scene may truly be static (no moving objects)
@@ -131,6 +149,7 @@ Look for periodic logging (every 1000 packets):
 ### 4. **Is Data Being Forwarded?**
 
 **Check Network Connectivity:**
+
 ```bash
 # Listen on port 2370 to verify packets are being sent
 sudo tcpdump -i lo -n udp port 2370 -c 10
@@ -140,6 +159,7 @@ nc -u -l 2370 | xxd | head -50
 ```
 
 **Check Forwarder Statistics:**
+
 ```go
 // In ForegroundForwarder.Start(), check for:
 log.Printf("Foreground forwarder stopping (sent %d packets)", f.packetCount)
@@ -148,6 +168,7 @@ log.Printf("Foreground forwarder stopping (sent %d packets)", f.packetCount)
 If `packetCount` is 0, no packets were sent.
 
 **Common Issues:**
+
 - Buffer full (non-blocking send drops packets)
   - Look for: "Warning: Foreground forwarding buffer full, dropping X points"
 - Network write errors
@@ -156,12 +177,14 @@ If `packetCount` is 0, no packets were sent.
 ### 5. **Is PCAP Replay Actually Running?**
 
 **Check Replay Logs:**
+
 ```
 "PCAP real-time replay: BPF filter set: udp port 2368 (speed: 1.0x)"
 "PCAP real-time replay progress: X packets in Y (Z pkt/s, speed: 1.0x)"
 ```
 
 **Check Parser is Working:**
+
 ```
 "PCAP parsed points: packet=1000, points_this_packet=400, total_parsed_points=400000"
 ```
@@ -173,6 +196,7 @@ If no points are parsed, foreground extraction won't have any input.
 Real-time replay requires the `pcap` build tag:
 
 **Check Build:**
+
 ```bash
 # Must build with pcap tag
 go build -tags pcap -o radar ./cmd/radar
@@ -190,14 +214,14 @@ import (
     "context"
     "log"
     "time"
-    
+
     "github.com/banshee-data/velocity.report/internal/lidar"
     "github.com/banshee-data/velocity.report/internal/lidar/network"
 )
 
 func main() {
     ctx := context.Background()
-    
+
     // 1. Create BackgroundManager (REQUIRED)
     bgConfig := &lidar.BackgroundGridParams{
         Rings:                   40,
@@ -210,7 +234,7 @@ func main() {
     if bgManager == nil {
         log.Fatal("Failed to create BackgroundManager")
     }
-    
+
     // 2. Create ForegroundForwarder
     fgForwarder, err := network.NewForegroundForwarder("localhost", 2370, nil)
     if err != nil {
@@ -218,7 +242,7 @@ func main() {
     }
     fgForwarder.Start(ctx) // MUST CALL Start()
     defer fgForwarder.Close()
-    
+
     // 3. Create PacketForwarder (optional, for original packets on 2368)
     packetForwarder, err := network.NewPacketForwarder("localhost", 2368, stats, time.Minute)
     if err != nil {
@@ -226,16 +250,16 @@ func main() {
     }
     packetForwarder.Start(ctx)
     defer packetForwarder.Close()
-    
+
     // 4. Create Parser
     parser := lidar.NewPandar40PParser()
-    
+
     // 5. Create FrameBuilder
     frameBuilder := lidar.NewFrameBuilder(/* config */)
-    
+
     // 6. Create Stats
     stats := lidar.NewPacketStats()
-    
+
     // 7. Configure Real-Time Replay
     replayConfig := network.RealtimeReplayConfig{
         SpeedMultiplier: 1.0,                     // Real-time
@@ -243,7 +267,7 @@ func main() {
         ForegroundForwarder: fgForwarder,         // Port 2370 (REQUIRED)
         BackgroundManager: bgManager,              // REQUIRED for extraction
     }
-    
+
     // 8. Run Replay
     err = network.ReadPCAPFileRealtime(
         ctx,
@@ -267,6 +291,7 @@ func main() {
 **Cause**: Background model classifying everything as background
 
 **Solutions:**
+
 1. Verify background model parameters are reasonable
 2. Check if scene has any moving objects
 3. Increase `ClosenessSensitivityMultiplier` (default 3.0, try 2.0)
@@ -277,6 +302,7 @@ func main() {
 **Cause**: BackgroundManager not created or not passed to config
 
 **Solution**: Always create and pass BackgroundManager:
+
 ```go
 bgManager := lidar.NewBackgroundManager(config)
 replayConfig.BackgroundManager = bgManager  // MUST SET
@@ -287,6 +313,7 @@ replayConfig.BackgroundManager = bgManager  // MUST SET
 **Cause**: Foreground forwarder can't keep up with incoming data
 
 **Solutions:**
+
 1. Increase buffer size in `NewForegroundForwarder()` (currently 100 frames)
 2. Reduce replay speed multiplier
 3. Check network I/O performance
@@ -304,22 +331,22 @@ replayConfig.BackgroundManager = bgManager  // MUST SET
 ```go
 func TestForegroundForwarder() {
     ctx := context.Background()
-    
+
     // Create forwarder
     fgForwarder, _ := network.NewForegroundForwarder("localhost", 2370, nil)
     fgForwarder.Start(ctx)
     defer fgForwarder.Close()
-    
+
     // Create test points
     points := []lidar.PointPolar{
         {Channel: 0, Azimuth: 0.0, Distance: 10.0, Intensity: 100},
         {Channel: 1, Azimuth: 1.0, Distance: 11.0, Intensity: 110},
         // ... more points
     }
-    
+
     // Forward points
     fgForwarder.ForwardForeground(points)
-    
+
     // Check on port 2370 with tcpdump or netcat
     time.Sleep(2 * time.Second)
 }
@@ -331,21 +358,21 @@ func TestForegroundForwarder() {
 func TestBackgroundExtraction() {
     // Create background manager
     bgManager := lidar.NewBackgroundManager(config)
-    
+
     // Feed static background data
     for i := 0; i < 100; i++ {
         staticPoints := createStaticTestPoints()
         bgManager.ProcessFramePolarWithMask(staticPoints)
     }
-    
+
     // Now add foreground point
     testPoints := append(staticPoints, lidar.PointPolar{
         Channel: 5, Azimuth: 45.0, Distance: 5.0, // Closer than background
     })
-    
+
     mask, _ := bgManager.ProcessFramePolarWithMask(testPoints)
     fgPoints := lidar.ExtractForegroundPoints(testPoints, mask)
-    
+
     log.Printf("Extracted %d foreground points from %d total", len(fgPoints), len(testPoints))
 }
 ```
@@ -391,6 +418,7 @@ echo "test" | nc -u localhost 2370
 ## Success Indicators
 
 When working correctly, you should see:
+
 1. ✅ Log: "Foreground forwarding started to localhost:2370"
 2. ✅ Log: "PCAP real-time replay: BPF filter set: udp port 2368"
 3. ✅ Log: "Foreground extraction: X/Y points (Z%)" every 1000 packets
