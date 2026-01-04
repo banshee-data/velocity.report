@@ -1,105 +1,179 @@
 # LiDAR Foreground Tracking & Export Status
 
-**Last Updated:** December 15, 2025
-**Status:** Active Investigation & Implementation
+**Last Updated:** January 4, 2026
+**Status:** Active Development — Core Pipeline Working
 **Consolidates:** `lidar-tracking-enhancements.md`, `foreground-track-export-investigation-plan.md`, `port-2370-corruption-diagnosis.md`, `port-2370-foreground-streaming.md`
 
 ## Executive Summary
 
-This document serves as the single source of truth for the ongoing investigation into LiDAR foreground tracking, export corruption, and frame ordering issues. It consolidates root cause analysis, fix plans, and future enhancement roadmaps.
+This document serves as the single source of truth for the ongoing LiDAR foreground tracking implementation and debugging efforts.
 
-**Current Critical Issues:**
+**Current Working Features:**
 
-1.  **Packet Corruption (Port 2370):** Foreground stream packets are corrupt due to invalid BlockID/Channel mapping.
-2.  **Frame Export Ordering:** `export_frame_sequence` returns frames out of order due to non-deterministic map iteration.
-3.  **Low Foreground Count:** Background subtraction is too aggressive during PCAP replay due to lack of "warmup" and strict parameters.
+1.  ✅ **Foreground Feed (Port 2370):** Working — foreground points visible in LidarView, distinct from background.
+2.  ✅ **Real-time Parameter Tuning:** Working — params can be edited via JSON textarea in status UI without server restart.
+3.  ✅ **Background Subtraction:** Working — points correctly masked as foreground/background.
+
+**Current Issues Under Investigation:**
+
+1.  🚧 **Performance/Framerate:** Foreground feed on 2370 may have framerate/latency issues; CPU usage on M1 Mac is higher than expected.
+2.  🚧 **Foreground Trails:** Points that should instantly settle back to background after an object passes are lingering as foreground for multiple frames.
 
 **Implementation Status:**
 
 - ✅ **Phase 3.7 (Analysis Run Infrastructure):** Completed.
-- 🚧 **Phase 4.0 (Track Labeling UI):** In Progress.
-- 🛑 **Foreground Export Fixes:** Pending (See Plan below).
+- ✅ **Port 2370 Foreground Streaming:** Working (fixed packet reconstruction with RawBlockAzimuth preservation).
+- 🚧 **Performance Optimization:** Active investigation.
+- 🚧 **Trail Artifact Investigation:** Active investigation (see §2 below).
 
 ---
 
-## 1. Problem Statements & Root Cause Analysis
+## 1. Resolved Issues
 
-### Issue 1: Packet Corruption on Port 2370
+### Issue 1: Packet Corruption on Port 2370 — ✅ FIXED
 
-**Symptom:** LidarView shows sparse rings and patchy arcs; tcpdump shows packets with mostly empty blocks.
-**Root Cause:**
+**Symptom:** LidarView showed sparse rings and patchy arcs.
+**Root Cause:** Forwarder was reconstructing packets with incorrect azimuth values due to binning logic that destroyed original packet timing.
+**Fix Applied:** Rewrote `ForegroundForwarder` to preserve `RawBlockAzimuth` and `UDPSequence` from original packets. Points are now grouped by original packet structure rather than azimuth bins.
+**Status:** Verified working — foreground points display correctly in LidarView on port 2370.
 
-- **BlockID Mismatch:** `ForegroundForwarder` uses `PointPolar.BlockID` from the _original_ packet. When points are filtered, they retain original BlockIDs (e.g., Block 9). The encoder tries to fill blocks sequentially (0-9). If Block 0 has no points, it writes an empty block, even if points exist for Block 9.
-- **Channel Mismatch:** Channel matching assumes BlockID correspondence, leading to further data loss.
-- **Motor Speed Encoding:** Incorrectly encoded as `RPM * 60` instead of `RPM * 100` (0.01 RPM units).
+### Issue 2: Real-time Parameter Tuning — ✅ IMPLEMENTED
 
-### Issue 2: Out-of-Order Frame Export
-
-**Symptom:** `export_frame_sequence` produces files like `frame_02.asc`, `frame_01.asc`, `frame_03.asc`.
-**Root Cause:**
-
-- **Map Iteration:** `FrameBuilder` stores frames in `map[string]*LiDARFrame`. Go map iteration is randomized. The finalization logic iterates this map, causing frames to be processed and exported in random order despite correct timestamps.
-
-### Issue 3: Low Foreground Point Count (PCAP Replay)
-
-**Symptom:** Foreground ratio is ~1.2% (expected 15-40%).
-**Root Cause:**
-
-- **No Warmup:** PCAP replay starts immediately. The background model is empty, so `SeedFromFirstObservation` (if false) or initial convergence takes time.
-- **Aggressive Parameters:** Default `ClosenessSensitivityMultiplier=3.0` and `NeighborConfirmationCount=3` are too strict for the replay data.
-- **Distance Overflow:** Points >130m cause `uint16` overflow in distance encoding.
+**Feature:** JSON textarea in status page allows editing all background params without server restart.
+**Implementation:** POST form submission to `/api/lidar/params` with JSON body. Server applies changes immediately via `SetParams()` and redirects back.
+**Status:** Verified working — changes take effect immediately.
 
 ---
 
-## 2. Implementation Plan (Fixes)
+## 2. Active Investigation: Foreground "Trails"
 
-### Phase 1: Frame Ordering Fix (URGENT)
+### Problem Statement
 
-**Goal:** Ensure deterministic export order.
-**Files:** `internal/lidar/frame_builder.go`
-**Tasks:**
+After an object (e.g., vehicle) passes through the sensor field of view, points in the cells it occupied are **still classified as foreground for several frames** instead of immediately returning to background.
 
-1.  Modify `finalizeOldFrames` (or equivalent cleanup logic).
-2.  Collect frames to finalize into a slice.
-3.  Sort slice by `StartTimestamp`.
-4.  Process sorted frames sequentially.
+**Expected Behavior:** When an object leaves a cell, the next observation should match the settled background average and be classified as background.
 
-### Phase 2: Foreground Encoding & Corruption Fix (HIGH)
+**Observed Behavior:** "Trails" of foreground points linger behind moving objects.
 
-**Goal:** Fix Port 2370 stream and ASC export data integrity.
-**Files:** `internal/lidar/network/foreground_forwarder.go`, `internal/lidar/track_export.go`
-**Tasks:**
+### Root Cause Analysis
 
-1.  **Rewrite Encoder:** Abandon `BlockID` reliance. Sort points by azimuth. Distribute into 10 azimuth buckets (36° each).
-2.  **Fix Motor Speed:** Change encoding to `uint16(math.Round(RPM * 100))`.
-3.  **Distance Clamping:** Clamp distances >130m to `0xFFFE`. Use `0xFFFF` only for no-return.
-4.  **Validation:** Log warning if >50% of blocks are empty.
+The background masking algorithm in `ProcessFramePolarWithMask()` classifies a point as **foreground** when:
 
-### Phase 3: Tuning & Replay Improvements (MEDIUM)
+```go
+cellDiff := math.Abs(float64(cell.AverageRangeMeters) - p.Distance)
+closenessThreshold := closenessMultiplier*(float64(cell.RangeSpreadMeters)+noiseRel*p.Distance+0.01) + safety
+isBackgroundLike := cellDiff <= closenessThreshold || neighborConfirmCount >= neighConfirm
+```
 
-**Goal:** Restore foreground point density.
-**Files:** `cmd/tools/pcap-analyze/main.go`, `internal/lidar/network/pcap_realtime.go`
-**Tasks:**
+**Potential Causes for Trail Artifacts:**
 
-1.  **Enable Seeding:** Set `SeedFromFirstObservation = true` for PCAP replay.
-2.  **Relax Parameters:**
-    - `ClosenessSensitivityMultiplier`: 3.0 → 2.0
-    - `NeighborConfirmationCount`: 3 → 5
-    - `SafetyMarginMeters`: 0.5 → 0.3
-3.  **Warmup:** Process first 50-100 frames _without_ forwarding to seed the background grid.
+1.  **EMA Drift During Object Presence:**
 
-### Phase 4: Track Point Cloud Export (FUTURE)
+    - While object is in cell, the object's distance is _rejected_ as foreground
+    - Each rejection **decrements `TimesSeenCount`** (line 219-223 in foreground.go)
+    - If count hits 0, cell is considered "empty" and `nonzeroCellCount` decrements
+    - When object leaves, the cell may have reduced confidence or corrupted average
 
-**Goal:** Export isolated tracks for ML training.
-**Files:** `internal/lidar/track_point_cache.go`, `internal/lidar/monitor/webserver.go`
-**Tasks:**
+2.  **Cell Freeze Mechanism:**
 
-1.  Implement `TrackPointCache` to store polar points per track.
-2.  Add REST endpoint `/api/lidar/export_track` to dump specific track points to ASC/PCAP.
+    - Large deviations trigger a freeze: `cell.FrozenUntilUnixNanos = nowNanos + freezeDur`
+    - **Frozen cells are always classified as foreground** (line 141-145 in foreground.go)
+    - Default `FreezeDurationNanos` may be too long
+
+3.  **Spread Inflation:**
+
+    - If object was partially classified as background (e.g., via neighbor confirmation), it may have **inflated `RangeSpreadMeters`**
+    - Larger spread → larger closeness threshold → harder for true background to match
+
+4.  **Post-Object Average Shift:**
+    - If EMA was updated during object presence, `AverageRangeMeters` may have shifted toward object distance
+    - True background distance now exceeds threshold
+
+### Debugging Strategy: Region Tracking
+
+To diagnose which mechanism causes trails, we need to **track a specific cell's state over time**.
+
+**Proposed Implementation:**
+
+```go
+// Add to BackgroundManager or as debug flag
+type CellDebugConfig struct {
+    Enabled  bool
+    Ring     int  // Target ring to monitor (e.g., 20)
+    AzBinMin int  // Azimuth bin range start (e.g., 450)
+    AzBinMax int  // Azimuth bin range end (e.g., 460)
+}
+
+// In ProcessFramePolarWithMask, after classification:
+if debugCfg.Enabled && ring >= debugCfg.Ring-1 && ring <= debugCfg.Ring+1 &&
+   azBin >= debugCfg.AzBinMin && azBin <= debugCfg.AzBinMax {
+    log.Printf("[CellDebug] ring=%d azbin=%d obs=%.3f avg=%.3f spread=%.3f seen=%d frozen=%v diff=%.3f thresh=%.3f isFg=%v",
+        ring, azBin, p.Distance, cell.AverageRangeMeters, cell.RangeSpreadMeters,
+        cell.TimesSeenCount, cell.FrozenUntilUnixNanos > nowNanos,
+        cellDiff, closenessThreshold, foregroundMask[i])
+}
+```
+
+**What to Look For:**
+
+| Log Pattern                             | Indicates                         |
+| --------------------------------------- | --------------------------------- |
+| `seen=0` after object passes            | TimesSeenCount drained to zero    |
+| `frozen=true` lingering                 | FreezeDuration too long           |
+| `spread` much larger than before object | EMA spread inflation              |
+| `avg` shifted toward object distance    | Background contaminated by object |
+| `thresh` >> `diff` but still foreground | Neighbor confirmation failing     |
+
+### Recommended Fixes (Ordered by Likelihood)
+
+1.  **Reduce FreezeDuration:** Change from default (e.g., 500ms) to 100ms or disable entirely for this debugging phase.
+
+2.  **Protect Background During Foreground:**
+
+    ```go
+    // Don't decrement TimesSeenCount below a minimum during foreground classification
+    if cell.TimesSeenCount > 3 { // Keep minimum confidence
+        cell.TimesSeenCount--
+    }
+    ```
+
+3.  **Fast Re-acquisition:** When a cell goes from foreground back to matching background, boost its confidence faster than normal EMA.
+
+4.  **Separate Spread Tracking:** Track background spread separately from observations during foreground periods.
 
 ---
 
-## 3. Future Enhancements (Roadmap)
+## 3. Active Investigation: Performance/CPU
+
+### Problem Statement
+
+On macOS M1, the foreground processing pipeline shows higher CPU usage than expected. The foreground feed may have reduced framerate or latency compared to the raw 2368 stream.
+
+### Metrics to Collect
+
+- **CPU %** during foreground processing (Activity Monitor or `top`)
+- **Frame latency**: Time from packet arrival to foreground packet emission
+- **Point throughput**: Points/sec processed vs. points/sec forwarded
+- **GC pressure**: `runtime.ReadMemStats` to check allocation rate
+
+### Potential Causes
+
+1.  **Per-frame allocations**: If `ProcessFramePolarWithMask` allocates large slices per frame, GC pressure increases.
+2.  **Lock contention**: Background grid access may have mutex contention if multiple goroutines access it.
+3.  **Unoptimized neighbor lookup**: Neighbor confirmation iterates neighboring cells; may be slow for dense grids.
+4.  **Packet encoding overhead**: `ForegroundForwarder` may be inefficiently encoding/copying data.
+
+### Profiling Plan
+
+1.  **CPU Profile**: Run with `go tool pprof` during live capture to identify hot functions.
+2.  **Trace Profile**: Use `runtime/trace` to visualize goroutine scheduling and GC pauses.
+3.  **Memory Profile**: Check for per-frame allocations that could be pooled.
+
+**Status:** Not yet investigated. Priority after trails bug is resolved.
+
+---
+
+## 4. Future Enhancements (Roadmap)
 
 ### Alternative Algorithm: Velocity-Coherent Foreground Extraction
 
@@ -141,16 +215,16 @@ A new approach to address the limitations of background-subtraction:
 
 The implementation intentionally uses a **simpler 2D + velocity model** rather than the full 7DOF model described in `static-pose-alignment-plan.md` and `av-lidar-integration-plan.md`. This is the correct choice for traffic monitoring.
 
-| Original Plan | Simplified Implementation | Rationale |
-|---------------|---------------------------|-----------|
-| 7DOF bounding box | 2D + axis-aligned bbox | Ground-plane assumption valid for roadside |
-| 6-state Kalman [x,y,z,vx,vy,vz] | EMA smoothing (x,y,vx,vy) | Simpler, sufficient for tracking |
-| Heading via PCA | Heading from velocity atan2(vy,vx) | Moving objects already have velocity |
-| Z-axis tracking | Single HeightP95Max stat | Vertical extent, not position tracking |
-| 28-class AV taxonomy | 4 classes (car, pedestrian, bird, other) | Traffic monitoring needs |
-| Oriented bounding boxes | Axis-aligned boxes | Sufficient for counting/speed |
-| Shape completion (occlusion) | Not implemented | AV-specific feature |
-| Parquet/NLZ ingestion | Not implemented | AV dataset feature |
+| Original Plan                   | Simplified Implementation                | Rationale                                  |
+| ------------------------------- | ---------------------------------------- | ------------------------------------------ |
+| 7DOF bounding box               | 2D + axis-aligned bbox                   | Ground-plane assumption valid for roadside |
+| 6-state Kalman [x,y,z,vx,vy,vz] | EMA smoothing (x,y,vx,vy)                | Simpler, sufficient for tracking           |
+| Heading via PCA                 | Heading from velocity atan2(vy,vx)       | Moving objects already have velocity       |
+| Z-axis tracking                 | Single HeightP95Max stat                 | Vertical extent, not position tracking     |
+| 28-class AV taxonomy            | 4 classes (car, pedestrian, bird, other) | Traffic monitoring needs                   |
+| Oriented bounding boxes         | Axis-aligned boxes                       | Sufficient for counting/speed              |
+| Shape completion (occlusion)    | Not implemented                          | AV-specific feature                        |
+| Parquet/NLZ ingestion           | Not implemented                          | AV dataset feature                         |
 
 ### Deferred to "AV Integration" Phase
 
