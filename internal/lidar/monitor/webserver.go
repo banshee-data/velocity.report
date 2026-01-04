@@ -1552,8 +1552,6 @@ func (ws *WebServer) handleExportSnapshotASC(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	// Validate and sanitize output path. Make sure sensorID is safe to embed
-	safeSensor := security.SanitizeFilename(sensorID)
 	// Validate and sanitize output path
 	if outPath == "" {
 		safeSensor := security.SanitizeFilename(sensorID)
