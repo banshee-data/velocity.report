@@ -9,10 +9,11 @@ import (
 	"github.com/banshee-data/velocity.report/internal/security"
 )
 
-// ProjectedPoint is a lightweight 2D sensor-frame projection used for debug charts.
+// ProjectedPoint is a lightweight 3D sensor-frame projection used for debug charts.
 type ProjectedPoint struct {
 	X         float64
 	Y         float64
+	Z         float64
 	Intensity uint8
 }
 
@@ -82,7 +83,8 @@ func GetForegroundSnapshot(sensorID string) *ForegroundSnapshot {
 	}
 }
 
-// projectPolars converts polar points into sensor-frame XY projections for charting.
+// projectPolars converts polar points into sensor-frame XYZ projections for charting.
+// Corrects for 90-degree rotation (0° = +Y/North) and includes elevation for 3D.
 func projectPolars(points []PointPolar) []ProjectedPoint {
 	if len(points) == 0 {
 		return nil
@@ -94,15 +96,33 @@ func projectPolars(points []PointPolar) []ProjectedPoint {
 		if az < 0 {
 			az += 360.0
 		}
+
+		// Convert to radians
 		theta := az * math.Pi / 180.0
-		x := p.Distance * math.Cos(theta)
-		y := p.Distance * math.Sin(theta)
-		out[i] = ProjectedPoint{X: x, Y: y, Intensity: p.Intensity}
+		phi := p.Elevation * math.Pi / 180.0
+
+		// Calculate 3D coordinates
+		// Standard Lidar/Navigation frame:
+		// +Y = North (0° azimuth)
+		// +X = East (90° azimuth)
+		// +Z = Up
+
+		// Horizontal distance
+		rXY := p.Distance * math.Cos(phi)
+
+		// X = rXY * sin(theta)
+		// Y = rXY * cos(theta)
+		// Z = dist * sin(phi)
+		x := rXY * math.Sin(theta)
+		y := rXY * math.Cos(theta)
+		z := p.Distance * math.Sin(phi)
+
+		out[i] = ProjectedPoint{X: x, Y: y, Z: z, Intensity: p.Intensity}
 	}
 	return out
 }
 
-// ExportForegroundSnapshotToASC writes only the foreground points to an ASC file (Z=0).
+// ExportForegroundSnapshotToASC writes only the foreground points to an ASC file.
 // This is intended for quick inspection of live/replayed foreground extraction.
 func ExportForegroundSnapshotToASC(snap *ForegroundSnapshot, outPath string) error {
 	if snap == nil {
@@ -115,7 +135,7 @@ func ExportForegroundSnapshotToASC(snap *ForegroundSnapshot, outPath string) err
 
 	points := make([]PointASC, 0, len(snap.ForegroundPoints))
 	for _, p := range snap.ForegroundPoints {
-		points = append(points, PointASC{X: p.X, Y: p.Y, Z: 0, Intensity: int(p.Intensity)})
+		points = append(points, PointASC{X: p.X, Y: p.Y, Z: p.Z, Intensity: int(p.Intensity)})
 	}
 	return ExportPointsToASC(points, outPath, "")
 }

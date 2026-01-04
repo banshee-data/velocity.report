@@ -227,7 +227,7 @@ func main() {
 		backgroundParams := lidar.BackgroundParams{
 			BackgroundUpdateFraction:       0.02,
 			ClosenessSensitivityMultiplier: 2.0,
-			SafetyMarginMeters:             0.5,
+			SafetyMarginMeters:             0.2,
 			FreezeDurationNanos:            int64(5 * time.Second),
 			NeighborConfirmationCount:      5,
 			SettlingPeriodNanos:            int64(5 * time.Minute),

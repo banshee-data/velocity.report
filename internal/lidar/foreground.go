@@ -150,7 +150,18 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 
 		// Same-ring neighbor confirmation
 		neighborConfirmCount := 0
-		for deltaAz := -1; deltaAz <= 1; deltaAz++ {
+		// Search radius should be at least equal to the required confirmation count
+		// to make it possible to satisfy the condition.
+		searchRadius := neighConfirm
+		if searchRadius < 1 {
+			searchRadius = 1
+		}
+		// Cap search radius to avoid excessive checks
+		if searchRadius > 10 {
+			searchRadius = 10
+		}
+
+		for deltaAz := -searchRadius; deltaAz <= searchRadius; deltaAz++ {
 			if deltaAz == 0 {
 				continue
 			}
