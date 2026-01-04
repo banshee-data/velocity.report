@@ -14,9 +14,10 @@ import (
 	"github.com/google/gopacket/pcap"
 )
 
-// ReadPCAPFile reads and processes LiDAR packets from a PCAP file
-// This function is only available when building with the 'pcap' build tag
-func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Parser, frameBuilder FrameBuilder, stats PacketStatsInterface) error {
+// ReadPCAPFile reads and processes LiDAR packets from a PCAP file.
+// If forwarder is not nil, packets are forwarded to the configured destination.
+// This function is only available when building with the 'pcap' build tag.
+func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Parser, frameBuilder FrameBuilder, stats PacketStatsInterface, forwarder *PacketForwarder) error {
 	// Open PCAP file
 	handle, err := pcap.OpenOffline(pcapFile)
 	if err != nil {
@@ -71,6 +72,11 @@ func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Pars
 			// Record packet statistics
 			if stats != nil {
 				stats.AddPacket(len(payload))
+			}
+
+			// Forward packet if forwarder is configured
+			if forwarder != nil {
+				forwarder.ForwardAsync(payload)
 			}
 
 			// Parse and process the packet if parser is provided

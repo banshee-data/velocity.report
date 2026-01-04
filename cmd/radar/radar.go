@@ -51,18 +51,21 @@ var (
 
 // Lidar options (when enabling lidar via -enable-lidar)
 var (
-	enableLidar  = flag.Bool("enable-lidar", false, "Enable lidar components inside this radar binary")
-	lidarListen  = flag.String("lidar-listen", ":8081", "HTTP listen address for lidar monitor (when enabled)")
-	lidarUDPPort = flag.Int("lidar-udp-port", 2369, "UDP port to listen for lidar packets")
-	lidarNoParse = flag.Bool("lidar-no-parse", false, "Disable lidar packet parsing when lidar is enabled")
-	lidarSensor  = flag.String("lidar-sensor", "hesai-pandar40p", "Sensor name identifier for lidar background manager")
-	lidarForward = flag.Bool("lidar-forward", false, "Forward lidar UDP packets to another port")
-	lidarFwdPort = flag.Int("lidar-forward-port", 2368, "Port to forward lidar UDP packets to")
-	lidarFwdAddr = flag.String("lidar-forward-addr", "localhost", "Address to forward lidar UDP packets to")
-	lidarPCAPDir = flag.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
+	enableLidar    = flag.Bool("enable-lidar", false, "Enable lidar components inside this radar binary")
+	lidarListen    = flag.String("lidar-listen", ":8081", "HTTP listen address for lidar monitor (when enabled)")
+	lidarUDPPort   = flag.Int("lidar-udp-port", 2369, "UDP port to listen for lidar packets")
+	lidarNoParse   = flag.Bool("lidar-no-parse", false, "Disable lidar packet parsing when lidar is enabled")
+	lidarSensor    = flag.String("lidar-sensor", "hesai-pandar40p", "Sensor name identifier for lidar background manager")
+	lidarForward   = flag.Bool("lidar-forward", false, "Forward lidar UDP packets to another port")
+	lidarFwdPort   = flag.Int("lidar-forward-port", 2368, "Port to forward lidar UDP packets to")
+	lidarFwdAddr   = flag.String("lidar-forward-addr", "localhost", "Address to forward lidar UDP packets to")
+	lidarFGForward = flag.Bool("lidar-foreground-forward", false, "Forward foreground-only LiDAR packets to a separate port (e.g., 2370)")
+	lidarFGFwdPort = flag.Int("lidar-foreground-forward-port", 2370, "Port to forward foreground LiDAR packets to")
+	lidarFGFwdAddr = flag.String("lidar-foreground-forward-addr", "localhost", "Address to forward foreground LiDAR packets to")
+	lidarPCAPDir   = flag.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
 	// Background tuning knobs
 	lidarBgFlushInterval = flag.Duration("lidar-bg-flush-interval", 60*time.Second, "Interval to flush background grid to database when reading PCAP")
-	lidarBgNoiseRelative = flag.Float64("lidar-bg-noise-relative", 0.315, "Background NoiseRelativeFraction: fraction of range treated as expected measurement noise (e.g., 0.01 = 1%)")
+	lidarBgNoiseRelative = flag.Float64("lidar-bg-noise-relative", 0.01, "Background NoiseRelativeFraction: fraction of range treated as expected measurement noise (e.g., 0.01 = 1%)")
 	// FrameBuilder tuning knobs
 	lidarFrameBufferTimeout = flag.Duration("lidar-frame-buffer-timeout", 500*time.Millisecond, "FrameBuilder buffer timeout: finalize idle frames after this duration")
 	lidarMinFramePoints     = flag.Int("lidar-min-frame-points", 1000, "FrameBuilder MinFramePoints: minimum points required for a valid frame before finalizing")
@@ -213,6 +216,7 @@ func main() {
 
 	// Lidar webserver instance (if enabled)
 	var lidarWebServer *monitor.WebServer
+	var fgForwarder *network.ForegroundForwarder
 
 	// Optionally initialize lidar components inside this binary
 	if *enableLidar {
@@ -222,10 +226,10 @@ func main() {
 		// Create BackgroundManager and register persistence
 		backgroundParams := lidar.BackgroundParams{
 			BackgroundUpdateFraction:       0.02,
-			ClosenessSensitivityMultiplier: 3.0,
-			SafetyMarginMeters:             0.5,
+			ClosenessSensitivityMultiplier: 2.0,
+			SafetyMarginMeters:             0.2,
 			FreezeDurationNanos:            int64(5 * time.Second),
-			NeighborConfirmationCount:      3,
+			NeighborConfirmationCount:      5,
 			SettlingPeriodNanos:            int64(5 * time.Minute),
 			SnapshotIntervalNanos:          int64(2 * time.Hour),
 			ChangeThresholdForSnapshot:     100,
@@ -390,14 +394,29 @@ func main() {
 						return
 					}
 
+					// Forward foreground points on 2370-style stream if configured
+					if fgForwarder != nil {
+						fgForwarder.ForwardForeground(foregroundPoints)
+					}
+
 					// Always log foreground extraction for tracking debugging
 					lidar.Debugf("[Tracking] Extracted %d foreground points from %d total", len(foregroundPoints), len(polar))
 
 					// Phase 2: Transform to world coordinates
 					worldPoints := lidar.TransformToWorld(foregroundPoints, nil, *lidarSensor)
 
-					// Phase 3: Clustering
-					clusters := lidar.DBSCAN(worldPoints, lidar.DefaultDBSCANParams())
+					// Phase 3: Clustering (runtime-tunable via background params)
+					dbscanParams := lidar.DefaultDBSCANParams()
+					if backgroundManager != nil {
+						p := backgroundManager.GetParams()
+						if p.ForegroundMinClusterPoints > 0 {
+							dbscanParams.MinPts = p.ForegroundMinClusterPoints
+						}
+						if p.ForegroundDBSCANEps > 0 {
+							dbscanParams.Eps = float64(p.ForegroundDBSCANEps)
+						}
+					}
+					clusters := lidar.DBSCAN(worldPoints, dbscanParams)
 					if len(clusters) == 0 {
 						return
 					}
@@ -474,6 +493,19 @@ func main() {
 			// PCAP mode no longer forces debug logging so operators can choose verbosity.
 			if frameBuilder != nil {
 				frameBuilder.SetDebug(*debugMode)
+			}
+		}
+
+		// Optional foreground-only forwarder (Pandar40-compatible) for live mode
+		if *lidarFGForward {
+			fg, err := network.NewForegroundForwarder(*lidarFGFwdAddr, *lidarFGFwdPort, nil)
+			if err != nil {
+				log.Printf("failed to create foreground forwarder: %v", err)
+			} else {
+				fgForwarder = fg
+				fgForwarder.Start(ctx)
+				defer fgForwarder.Close()
+				log.Printf("Foreground forwarder enabled to %s:%d", *lidarFGFwdAddr, *lidarFGFwdPort)
 			}
 		}
 
