@@ -13,6 +13,7 @@ We have successfully established a foreground point stream on UDP port 2370 and 
 1.  **Network Transport**: ✅ Working. Packets are flowing to port 2370.
 2.  **Packet Encoding**: ✅ Fixed. `foreground_forwarder.go` now uses azimuth-based bucketing and correct distance encoding (0.5cm resolution), resolving previous packet corruption issues.
 3.  **Foreground Extraction**: ❌ **CRITICAL ISSUE**. The background subtraction model is extremely aggressive, classifying almost all valid foreground points as background. This is due to a configuration error in `cmd/radar/radar.go`.
+4.  **Data Quality**: ❌ **NEW ISSUE**. Foreground points appear 2D (flat) and rotated by 90 degrees in CloudCompare.
 
 ---
 
@@ -43,6 +44,11 @@ lidarBgNoiseRelative = flag.Float64("lidar-bg-noise-relative", 0.315, "...")
 
 **Recommended Value**: `0.01` (1%) or `0.02` (2%).
 
+### 1.3 Data Quality Issues (New)
+
+- **2D Points**: Foreground points appear flat (Z=0) in CloudCompare. This is likely due to `ExportForegroundSnapshotToASC` explicitly setting Z=0.
+- **Rotation**: Points appear rotated by 90 degrees. This suggests a coordinate system mismatch or azimuth offset in the export/forwarding logic.
+
 ---
 
 ## 2. Investigation & Fix Plan
@@ -62,7 +68,20 @@ lidarBgNoiseRelative = flag.Float64("lidar-bg-noise-relative", 0.315, "...")
     - Observe logs for "Foreground extraction: X/Y points".
     - Expectation: Foreground ratio should rise from ~0-1% to ~10-40% for traffic scenes.
 
-### Phase 2: Validation & Tuning
+### Phase 2: Data Quality Fixes
+
+**Goal**: Ensure exported/streamed points have correct 3D coordinates and orientation.
+
+1.  **Fix 2D Export**:
+
+    - Update `ExportForegroundSnapshotToASC` in `internal/lidar/foreground_snapshot.go` to use `p.Elevation` instead of hardcoded `Z: 0`.
+    - Need to convert Polar (Az, El, Dist) to Cartesian (X, Y, Z) correctly.
+
+2.  **Fix Rotation**:
+    - Investigate `projectPolars` and `ExportForegroundSnapshotToASC` for azimuth offsets.
+    - Check if `Azimuth` needs a +90 or -90 degree adjustment to match the sensor frame.
+
+### Phase 3: Validation & Tuning
 
 **Goal**: Fine-tune the parameters for optimal clean output.
 
@@ -77,7 +96,7 @@ lidarBgNoiseRelative = flag.Float64("lidar-bg-noise-relative", 0.315, "...")
     - Load into CloudCompare.
     - Verify point density and alignment.
 
-### Phase 3: Advanced Debugging (If Issues Persist)
+### Phase 4: Advanced Debugging (If Issues Persist)
 
 If parameter tuning does not fully resolve the "glitchy" look:
 
