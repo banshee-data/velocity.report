@@ -676,6 +676,15 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 			"foreground_min_cluster_points": params.ForegroundMinClusterPoints,
 			"foreground_dbscan_eps":         params.ForegroundDBSCANEps,
 		}
+
+		if r.URL.Query().Get("format") == "pretty" {
+			w.Header().Set("Content-Type", "application/json")
+			enc := json.NewEncoder(w)
+			enc.SetIndent("", "  ")
+			enc.Encode(resp)
+			return
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)
 		return
@@ -692,10 +701,27 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 			ForegroundMinClusterPoints *int     `json:"foreground_min_cluster_points"`
 			ForegroundDBSCANEps        *float64 `json:"foreground_dbscan_eps"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			ws.writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
-			return
+
+		// Check if this is a form submission from the status page
+		contentType := r.Header.Get("Content-Type")
+		if r.FormValue("config_json") != "" || contentType == "application/x-www-form-urlencoded" {
+			configJSON := r.FormValue("config_json")
+			if configJSON == "" {
+				ws.writeJSONError(w, http.StatusBadRequest, "missing config_json form value")
+				return
+			}
+			if err := json.Unmarshal([]byte(configJSON), &body); err != nil {
+				ws.writeJSONError(w, http.StatusBadRequest, "invalid JSON in config_json: "+err.Error())
+				return
+			}
+		} else {
+			// Standard JSON body
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				ws.writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
+				return
+			}
 		}
+
 		if body.NoiseRelative != nil {
 			if err := bm.SetNoiseRelativeFraction(float32(*body.NoiseRelative)); err != nil {
 				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
@@ -768,6 +794,12 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 		log.Printf("[API:params] sensor=%s noise_rel=%.6f closeness=%.3f neighbors=%d seed_from_first=%v warmup_ns=%d warmup_frames=%d post_settle_alpha=%.4f fg_min_pts=%d fg_eps=%.3f timestamp=%d",
 			sensorID, cur.NoiseRelativeFraction, cur.ClosenessSensitivityMultiplier,
 			cur.NeighborConfirmationCount, cur.SeedFromFirstObservation, cur.WarmupDurationNanos, cur.WarmupMinFrames, cur.PostSettleUpdateFraction, cur.ForegroundMinClusterPoints, cur.ForegroundDBSCANEps, timestamp)
+
+		// If this was a form submission, redirect back to status page
+		if r.FormValue("config_json") != "" {
+			http.Redirect(w, r, fmt.Sprintf("/lidar/monitor?sensor_id=%s", sensorID), http.StatusSeeOther)
+			return
+		}
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -1975,9 +2007,28 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 
 	// Get background manager to show current params
 	var bgParams *lidar.BackgroundParams
+	var bgParamsJSON string
 	if mgr := lidar.GetBackgroundManager(ws.sensorID); mgr != nil {
 		params := mgr.GetParams()
 		bgParams = &params
+
+		// Create a map for JSON representation matching the API structure
+		paramsMap := map[string]interface{}{
+			"noise_relative":                params.NoiseRelativeFraction,
+			"enable_diagnostics":            mgr.EnableDiagnostics,
+			"closeness_multiplier":          params.ClosenessSensitivityMultiplier,
+			"neighbor_confirmation_count":   params.NeighborConfirmationCount,
+			"seed_from_first":               params.SeedFromFirstObservation,
+			"warmup_duration_nanos":         params.WarmupDurationNanos,
+			"warmup_min_frames":             params.WarmupMinFrames,
+			"post_settle_update_fraction":   params.PostSettleUpdateFraction,
+			"foreground_min_cluster_points": params.ForegroundMinClusterPoints,
+			"foreground_dbscan_eps":         params.ForegroundDBSCANEps,
+		}
+
+		if jsonBytes, err := json.MarshalIndent(paramsMap, "", "  "); err == nil {
+			bgParamsJSON = string(jsonBytes)
+		}
 	}
 
 	// Refresh foreground snapshot counts for status rendering.
@@ -2002,6 +2053,7 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		Stats            *StatsSnapshot
 		SensorID         string
 		BGParams         *lidar.BackgroundParams
+		BGParamsJSON     string
 		PCAPFile         string
 		PCAPInProgress   bool
 		PCAPSpeedMode    string
@@ -2018,6 +2070,7 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		Stats:            ws.stats.GetLatestSnapshot(),
 		SensorID:         ws.sensorID,
 		BGParams:         bgParams,
+		BGParamsJSON:     bgParamsJSON,
 		PCAPFile:         currentPCAPFile,
 		PCAPInProgress:   pcapInProgress,
 		PCAPSpeedMode:    pcapSpeedMode,

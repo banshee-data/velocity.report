@@ -78,6 +78,16 @@
 
     {{if .BGParams}}
     <h2>Background Subtraction Parameters</h2>
+
+    <!-- JSON Editor Form -->
+    <h3>Update Parameters (JSON)</h3>
+    <form action="/api/lidar/params?sensor_id={{.SensorID}}" method="POST">
+      <textarea name="config_json" rows="15"
+        style="width: 26em; font-family: monospace; font-size: 13px; padding: 6px; border: 1px solid #ccc;">{{.BGParamsJSON}}</textarea>
+      <button type="submit">Update
+        Params</button>
+    </form>
+
     <table border="1" cellpadding="5" cellspacing="0">
       <tr>
         <td>
