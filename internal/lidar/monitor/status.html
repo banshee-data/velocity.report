@@ -82,85 +82,27 @@
     <!-- JSON Editor Form -->
     <h3>Update Parameters (JSON)</h3>
     <form action="/api/lidar/params?sensor_id={{.SensorID}}" method="POST">
-      <textarea name="config_json" rows="15"
+      <textarea name="config_json" rows="{{.BGParamsJSONLines}}"
         style="width: 26em; font-family: monospace; font-size: 13px; padding: 6px; border: 1px solid #ccc;">{{.BGParamsJSON}}</textarea>
       <button type="submit">Update
         Params</button>
     </form>
 
     <table border="1" cellpadding="5" cellspacing="0">
+      {{range .BGParamDefs}}
       <tr>
         <td>
-          <strong>Noise Relative Fraction:</strong>
+          <strong>{{.Label}}:</strong>
         </td>
-        <td>{{printf "%.4f"
-          .BGParams.NoiseRelativeFraction}}</td>
-      </tr>
-      <tr>
         <td>
-          <strong>Closeness Sensitivity Multiplier:</strong>
+          {{if .Format}}
+          {{printf .Format .Value}}
+          {{else}}
+          {{.Value}}
+          {{end}}
         </td>
-        <td>{{printf "%.2f"
-          .BGParams.ClosenessSensitivityMultiplier}}</td>
       </tr>
-      <tr>
-        <td>
-          <strong>Neighbor Confirmation Count:</strong>
-        </td>
-        <td>{{.BGParams.NeighborConfirmationCount}}</td>
-      </tr>
-      <tr>
-        <td>
-          <strong>Background Update Fraction:</strong>
-        </td>
-        <td>{{printf
-          "%.4f" .BGParams.BackgroundUpdateFraction}}</td>
-      </tr>
-      <tr>
-        <td>
-          <strong>Post-Settle Update Fraction:</strong>
-        </td>
-        <td>{{printf "%.4f"
-          .BGParams.PostSettleUpdateFraction}}</td>
-      </tr>
-      <tr>
-        <td>
-          <strong>Warmup Duration (ns):</strong>
-        </td>
-        <td>{{.BGParams.WarmupDurationNanos}}</td>
-      </tr>
-      <tr>
-        <td>
-          <strong>Warmup Minimum Frames:</strong>
-        </td>
-        <td>{{.BGParams.WarmupMinFrames}}</td>
-      </tr>
-      <tr>
-        <td>
-          <strong>Safety Margin (meters):</strong>
-        </td>
-        <td>{{printf "%.2f"
-          .BGParams.SafetyMarginMeters}}</td>
-      </tr>
-      <tr>
-        <td>
-          <strong>Seed From First Observation:</strong>
-        </td>
-        <td>{{.BGParams.SeedFromFirstObservation}}</td>
-      </tr>
-      <tr>
-        <td>
-          <strong>Foreground Min Cluster Points:</strong>
-        </td>
-        <td>{{.BGParams.ForegroundMinClusterPoints}}</td>
-      </tr>
-      <tr>
-        <td>
-          <strong>Foreground DBSCAN Eps:</strong>
-        </td>
-        <td>{{printf "%.3f"
-          .BGParams.ForegroundDBSCANEps}}</td>
-      </tr>
+      {{end}}
     </table>
     {{end}}
 

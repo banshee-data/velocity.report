@@ -36,6 +36,14 @@ import (
 	"github.com/go-echarts/go-echarts/v2/opts"
 )
 
+// ParamDef defines a configuration parameter for display and editing
+type ParamDef struct {
+	Key    string      // JSON key
+	Label  string      // Display label
+	Value  interface{} // Current value
+	Format string      // Printf format string (optional)
+}
+
 //go:embed status.html
 var StatusHTML embed.FS
 
@@ -2008,26 +2016,37 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 	// Get background manager to show current params
 	var bgParams *lidar.BackgroundParams
 	var bgParamsJSON string
+	var bgParamDefs []ParamDef
+	var bgParamsJSONLines int
+
 	if mgr := lidar.GetBackgroundManager(ws.sensorID); mgr != nil {
 		params := mgr.GetParams()
 		bgParams = &params
 
+		bgParamDefs = []ParamDef{
+			{"noise_relative", "Noise Relative Fraction", params.NoiseRelativeFraction, "%.4f"},
+			{"closeness_multiplier", "Closeness Sensitivity Multiplier", params.ClosenessSensitivityMultiplier, "%.2f"},
+			{"neighbor_confirmation_count", "Neighbor Confirmation Count", params.NeighborConfirmationCount, ""},
+			{"background_update_fraction", "Background Update Fraction", params.BackgroundUpdateFraction, "%.4f"},
+			{"post_settle_update_fraction", "Post-Settle Update Fraction", params.PostSettleUpdateFraction, "%.4f"},
+			{"warmup_duration_nanos", "Warmup Duration (ns)", params.WarmupDurationNanos, ""},
+			{"warmup_min_frames", "Warmup Minimum Frames", params.WarmupMinFrames, ""},
+			{"safety_margin_meters", "Safety Margin (meters)", params.SafetyMarginMeters, "%.2f"},
+			{"seed_from_first", "Seed From First Observation", params.SeedFromFirstObservation, ""},
+			{"foreground_min_cluster_points", "Foreground Min Cluster Points", params.ForegroundMinClusterPoints, ""},
+			{"foreground_dbscan_eps", "Foreground DBSCAN Eps", params.ForegroundDBSCANEps, "%.3f"},
+			{"enable_diagnostics", "Enable Diagnostics", mgr.EnableDiagnostics, ""},
+		}
+
 		// Create a map for JSON representation matching the API structure
-		paramsMap := map[string]interface{}{
-			"noise_relative":                params.NoiseRelativeFraction,
-			"enable_diagnostics":            mgr.EnableDiagnostics,
-			"closeness_multiplier":          params.ClosenessSensitivityMultiplier,
-			"neighbor_confirmation_count":   params.NeighborConfirmationCount,
-			"seed_from_first":               params.SeedFromFirstObservation,
-			"warmup_duration_nanos":         params.WarmupDurationNanos,
-			"warmup_min_frames":             params.WarmupMinFrames,
-			"post_settle_update_fraction":   params.PostSettleUpdateFraction,
-			"foreground_min_cluster_points": params.ForegroundMinClusterPoints,
-			"foreground_dbscan_eps":         params.ForegroundDBSCANEps,
+		paramsMap := make(map[string]interface{})
+		for _, def := range bgParamDefs {
+			paramsMap[def.Key] = def.Value
 		}
 
 		if jsonBytes, err := json.MarshalIndent(paramsMap, "", "  "); err == nil {
 			bgParamsJSON = string(jsonBytes)
+			bgParamsJSONLines = strings.Count(bgParamsJSON, "\n") + 2
 		}
 	}
 
@@ -2043,39 +2062,43 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 
 	// Template data
 	data := struct {
-		UDPPort          int
-		HTTPAddress      string
-		ForwardingStatus string
-		ParsingStatus    string
-		Mode             string
-		PCAPSafeDir      string
-		Uptime           string
-		Stats            *StatsSnapshot
-		SensorID         string
-		BGParams         *lidar.BackgroundParams
-		BGParamsJSON     string
-		PCAPFile         string
-		PCAPInProgress   bool
-		PCAPSpeedMode    string
-		PCAPSpeedRatio   float64
-		FgSnapshotCounts map[string]int
+		UDPPort           int
+		HTTPAddress       string
+		ForwardingStatus  string
+		ParsingStatus     string
+		Mode              string
+		PCAPSafeDir       string
+		Uptime            string
+		Stats             *StatsSnapshot
+		SensorID          string
+		BGParams          *lidar.BackgroundParams
+		BGParamsJSON      string
+		BGParamDefs       []ParamDef
+		BGParamsJSONLines int
+		PCAPFile          string
+		PCAPInProgress    bool
+		PCAPSpeedMode     string
+		PCAPSpeedRatio    float64
+		FgSnapshotCounts  map[string]int
 	}{
-		UDPPort:          ws.udpPort,
-		HTTPAddress:      ws.address,
-		ForwardingStatus: forwardingStatus,
-		ParsingStatus:    parsingStatus,
-		Mode:             mode,
-		PCAPSafeDir:      ws.pcapSafeDir,
-		Uptime:           ws.stats.GetUptime().Round(time.Second).String(),
-		Stats:            ws.stats.GetLatestSnapshot(),
-		SensorID:         ws.sensorID,
-		BGParams:         bgParams,
-		BGParamsJSON:     bgParamsJSON,
-		PCAPFile:         currentPCAPFile,
-		PCAPInProgress:   pcapInProgress,
-		PCAPSpeedMode:    pcapSpeedMode,
-		PCAPSpeedRatio:   pcapSpeedRatio,
-		FgSnapshotCounts: ws.getLatestFgCounts(),
+		UDPPort:           ws.udpPort,
+		HTTPAddress:       ws.address,
+		ForwardingStatus:  forwardingStatus,
+		ParsingStatus:     parsingStatus,
+		Mode:              mode,
+		PCAPSafeDir:       ws.pcapSafeDir,
+		Uptime:            ws.stats.GetUptime().Round(time.Second).String(),
+		Stats:             ws.stats.GetLatestSnapshot(),
+		SensorID:          ws.sensorID,
+		BGParams:          bgParams,
+		BGParamsJSON:      bgParamsJSON,
+		BGParamDefs:       bgParamDefs,
+		BGParamsJSONLines: bgParamsJSONLines,
+		PCAPFile:          currentPCAPFile,
+		PCAPInProgress:    pcapInProgress,
+		PCAPSpeedMode:     pcapSpeedMode,
+		PCAPSpeedRatio:    pcapSpeedRatio,
+		FgSnapshotCounts:  ws.getLatestFgCounts(),
 	}
 
 	if err := tmpl.Execute(w, data); err != nil {
