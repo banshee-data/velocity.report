@@ -1593,22 +1593,12 @@ func (ws *WebServer) handleExportSnapshotASC(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Validate and sanitize output path
+	safeSensor := security.SanitizeFilename(sensorID)
 	if outPath == "" {
-		safeSensor := security.SanitizeFilename(sensorID)
-		outPath = filepath.Join(os.TempDir(), fmt.Sprintf("bg_snapshot_%s_%d.asc", safeSensor, snap.TakenUnixNanos))
-	} else {
-		// If user provides a path, ensure it's within temp directory or current working directory
-		absOutPath, err := filepath.Abs(outPath)
-		if err != nil {
-			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid output path: %v", err))
-			return
-		}
-		if err := security.ValidateExportPath(absOutPath); err != nil {
-			ws.writeJSONError(w, http.StatusForbidden, err.Error())
-			return
-		}
-		outPath = absOutPath
+		outPath = fmt.Sprintf("bg_snapshot_%s_%d.asc", safeSensor, snap.TakenUnixNanos)
 	}
+	// Force usage of temp dir and sanitize filename to prevent path traversal
+	outPath = filepath.Join(os.TempDir(), filepath.Base(outPath))
 
 	if err := lidar.ExportBgSnapshotToASC(snap, outPath, elevs); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("export error: %v", err))
@@ -1637,18 +1627,12 @@ func (ws *WebServer) handleExportFrameSequenceASC(w http.ResponseWriter, r *http
 	timestamp := time.Now().Unix()
 	safeSensor := security.SanitizeFilename(sensorID)
 	if baseDir == "" {
-		baseDir = filepath.Join(os.TempDir(), fmt.Sprintf("lidar_sequence_%s_%d", safeSensor, timestamp))
+		baseDir = fmt.Sprintf("lidar_sequence_%s_%d", safeSensor, timestamp)
 	}
 
-	absDir, err := filepath.Abs(baseDir)
-	if err != nil {
-		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid out_dir: %v", err))
-		return
-	}
-	if err := security.ValidateExportPath(absDir); err != nil {
-		ws.writeJSONError(w, http.StatusForbidden, err.Error())
-		return
-	}
+	// Force usage of temp dir and sanitize directory name
+	absDir := filepath.Join(os.TempDir(), filepath.Base(baseDir))
+
 	if err := os.MkdirAll(absDir, 0o755); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create out_dir: %v", err))
 		return
@@ -1730,18 +1714,8 @@ func (ws *WebServer) handleExportNextFrameASC(w http.ResponseWriter, r *http.Req
 
 	// Validate and sanitize output path if provided
 	if outPath != "" {
-		absOutPath, err := filepath.Abs(outPath)
-		if err != nil {
-			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid output path: %v", err))
-			return
-		}
-
-		// Validate path is within allowed directories (temp or cwd)
-		if err := security.ValidateExportPath(absOutPath); err != nil {
-			ws.writeJSONError(w, http.StatusForbidden, err.Error())
-			return
-		}
-		outPath = absOutPath
+		// Force usage of temp dir and sanitize filename
+		outPath = filepath.Join(os.TempDir(), filepath.Base(outPath))
 	}
 
 	// Set flag to export next frame
@@ -1772,19 +1746,10 @@ func (ws *WebServer) handleExportForegroundASC(w http.ResponseWriter, r *http.Re
 		if ts.IsZero() {
 			ts = time.Now()
 		}
-		outPath = filepath.Join(os.TempDir(), fmt.Sprintf("foreground_%s_%d.asc", safeSensor, ts.Unix()))
-	} else {
-		absOutPath, err := filepath.Abs(outPath)
-		if err != nil {
-			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid output path: %v", err))
-			return
-		}
-		if err := security.ValidateExportPath(absOutPath); err != nil {
-			ws.writeJSONError(w, http.StatusForbidden, err.Error())
-			return
-		}
-		outPath = absOutPath
+		outPath = fmt.Sprintf("foreground_%s_%d.asc", safeSensor, ts.Unix())
 	}
+	// Force usage of temp dir and sanitize filename
+	outPath = filepath.Join(os.TempDir(), filepath.Base(outPath))
 
 	if err := lidar.ExportForegroundSnapshotToASC(snap, outPath); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("export error: %v", err))
