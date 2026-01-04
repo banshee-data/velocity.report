@@ -85,6 +85,7 @@ help:
 	@echo "  log-go-tail          Tail most recent Go server log"
 	@echo "  log-go-cat           Cat most recent Go server log"
 	@echo "  log-go-tail-all      Tail most recent Go server log plus debug log"
+	@echo "  git-fs               Show the git files that differ from main"
 	@echo ""
 	@echo "DATA VISUALIZATION:"
 	@echo "  plot-noise-sweep     Generate noise sweep line plot (FILE=data.csv)"
@@ -666,7 +667,7 @@ deploy-health:
 # UTILITIES
 # =============================================================================
 
-.PHONY: set-version log-go-tail log-go-cat log-go-tail-all
+.PHONY: set-version log-go-tail log-go-cat log-go-tail-all git-fs
 
 set-version:
 	@if [ -z "$(VER)" ]; then \
@@ -720,6 +721,10 @@ log-go-tail-all:
 	else \
 		echo "No logs found in logs/ (try: make dev-go)"; exit 1; \
 	fi
+
+git-fs:
+	@git fetch origin main >/dev/null 2>&1 || true; \
+	git diff --name-only --diff-filter=ACMRTUXB origin/main...HEAD -- "$(or $(DIR),.)" | sort -u
 
 # =============================================================================
 # DATA VISUALIZATION
