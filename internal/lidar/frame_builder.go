@@ -222,17 +222,18 @@ func (fb *FrameBuilder) AddPointsPolar(polar []PointPolar) {
 	for _, p := range polar {
 		x, y, z := SphericalToCartesian(p.Distance, p.Azimuth, p.Elevation)
 		pts = append(pts, Point{
-			X:           x,
-			Y:           y,
-			Z:           z,
-			Intensity:   p.Intensity,
-			Distance:    p.Distance,
-			Azimuth:     p.Azimuth,
-			Elevation:   p.Elevation,
-			Channel:     p.Channel,
-			Timestamp:   time.Unix(0, p.Timestamp),
-			BlockID:     p.BlockID,
-			UDPSequence: p.UDPSequence,
+			X:               x,
+			Y:               y,
+			Z:               z,
+			Intensity:       p.Intensity,
+			Distance:        p.Distance,
+			Azimuth:         p.Azimuth,
+			Elevation:       p.Elevation,
+			Channel:         p.Channel,
+			Timestamp:       time.Unix(0, p.Timestamp),
+			BlockID:         p.BlockID,
+			UDPSequence:     p.UDPSequence,
+			RawBlockAzimuth: p.RawBlockAzimuth,
 		})
 	}
 

@@ -326,14 +326,15 @@ func main() {
 				polar := make([]lidar.PointPolar, 0, len(frame.Points))
 				for _, p := range frame.Points {
 					polar = append(polar, lidar.PointPolar{
-						Channel:     p.Channel,
-						Azimuth:     p.Azimuth,
-						Elevation:   p.Elevation,
-						Distance:    p.Distance,
-						Intensity:   p.Intensity,
-						Timestamp:   p.Timestamp.UnixNano(),
-						BlockID:     p.BlockID,
-						UDPSequence: p.UDPSequence,
+						Channel:         p.Channel,
+						Azimuth:         p.Azimuth,
+						Elevation:       p.Elevation,
+						Distance:        p.Distance,
+						Intensity:       p.Intensity,
+						Timestamp:       p.Timestamp.UnixNano(),
+						BlockID:         p.BlockID,
+						UDPSequence:     p.UDPSequence,
+						RawBlockAzimuth: p.RawBlockAzimuth,
 					})
 				}
 				if backgroundManager != nil {

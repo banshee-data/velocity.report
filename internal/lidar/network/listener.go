@@ -245,14 +245,15 @@ func (l *UDPListener) handlePacket(packet []byte) error {
 				polarPts := make([]lidar.PointPolar, 0, len(pts))
 				for _, p := range pts {
 					polarPts = append(polarPts, lidar.PointPolar{
-						Channel:     p.Channel,
-						Azimuth:     p.Azimuth,
-						Elevation:   p.Elevation,
-						Distance:    p.Distance,
-						Intensity:   p.Intensity,
-						Timestamp:   p.Timestamp.UnixNano(),
-						BlockID:     p.BlockID,
-						UDPSequence: p.UDPSequence,
+						Channel:         p.Channel,
+						Azimuth:         p.Azimuth,
+						Elevation:       p.Elevation,
+						Distance:        p.Distance,
+						Intensity:       p.Intensity,
+						Timestamp:       p.Timestamp.UnixNano(),
+						BlockID:         p.BlockID,
+						UDPSequence:     p.UDPSequence,
+						RawBlockAzimuth: p.RawBlockAzimuth,
 					})
 				}
 				l.frameBuilder.AddPointsPolar(polarPts)

@@ -32,12 +32,13 @@ func ApplyPose(x, y, z float64, T [16]float64) (wx, wy, wz float64) {
 // PointPolar is a compact representation of a LiDAR return in polar terms.
 // It can be used where sensor-frame operations are preferred (background model).
 type PointPolar struct {
-	Channel     int
-	Azimuth     float64
-	Elevation   float64
-	Distance    float64
-	Intensity   uint8
-	Timestamp   int64 // unix nanos if needed; keep small to avoid heavy time usage
-	BlockID     int
-	UDPSequence uint32
+	Channel         int
+	Azimuth         float64
+	Elevation       float64
+	Distance        float64
+	Intensity       uint8
+	Timestamp       int64 // unix nanos if needed; keep small to avoid heavy time usage
+	BlockID         int
+	UDPSequence     uint32
+	RawBlockAzimuth uint16 // Original block azimuth from packet (0.01 deg units)
 }

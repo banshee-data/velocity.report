@@ -23,7 +23,8 @@ type Point struct {
 	BlockID   int       `json:"block_id"`  // Data block index within packet (0-9)
 
 	// Packet tracking for completeness validation
-	UDPSequence uint32 `json:"udp_sequence"` // UDP sequence number for gap detection
+	UDPSequence     uint32 `json:"udp_sequence"`      // UDP sequence number for gap detection
+	RawBlockAzimuth uint16 `json:"raw_block_azimuth"` // Original block azimuth from packet (0.01 deg units)
 }
 
 // FrameID is a human-readable name like "sensor/hesai-01" or "site/main-st-001".

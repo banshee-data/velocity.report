@@ -590,14 +590,15 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *Pa
 
 		// Create polar point (sensor-frame) - conversion to Cartesian will be done in frame builder
 		point := lidar.PointPolar{
-			Channel:     channelNum,
-			Azimuth:     azimuth,
-			Elevation:   elevation,
-			Distance:    distance,
-			Intensity:   channelData.Reflectivity,
-			Timestamp:   pointTime.UnixNano(),
-			BlockID:     blockIdx,
-			UDPSequence: tail.UDPSequence,
+			Channel:         channelNum,
+			Azimuth:         azimuth,
+			Elevation:       elevation,
+			Distance:        distance,
+			Intensity:       channelData.Reflectivity,
+			Timestamp:       pointTime.UnixNano(),
+			BlockID:         blockIdx,
+			UDPSequence:     tail.UDPSequence,
+			RawBlockAzimuth: block.Azimuth,
 		}
 
 		points = append(points, point)
