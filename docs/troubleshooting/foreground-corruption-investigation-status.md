@@ -47,28 +47,36 @@ lidarBgNoiseRelative = flag.Float64("lidar-bg-noise-relative", 0.315, "...")
 ### 1.3 Data Quality Issues (New)
 
 - **2D Points**: Foreground points appear flat (Z=0) in CloudCompare. This is likely due to `ExportForegroundSnapshotToASC` explicitly setting Z=0.
-- **Rotation**: Points appear rotated by 90 degrees. This suggests a coordinate system mismatch or azimuth offset in the export/forwarding logic.
+
+### 1.3 Data Quality Issues (Fixed)
+
+- **2D Points**: Fixed in `internal/lidar/foreground_snapshot.go`. `ProjectedPoint` now includes `Z` coordinate calculated from elevation.
+- **Rotation**: Fixed in `internal/lidar/foreground_snapshot.go`. Updated projection logic to use North-referenced coordinates (0° = +Y), swapping sin/cos to align with sensor frame.
+
+### 1.4 Tuning Issues (Fixed)
+
+- **Sporadic Noise**: The `NeighborConfirmationCount` logic was flawed. It required 5 neighbors to confirm background but only checked +/- 1 neighbor (max 2). This effectively disabled spatial smoothing, allowing noise to pass through as foreground.
+- **Missing Objects**: `SafetyMarginMeters` was set to 0.5m, which is too large for detecting small objects like an arm near a wall.
 
 ---
 
 ## 2. Investigation & Fix Plan
 
-### Phase 1: Parameter Correction (Immediate)
+### Phase 1: Parameter Correction (Completed)
 
 **Goal**: Fix the background subtraction model to allow foreground points to pass through.
 
 1.  **Update `cmd/radar/radar.go`**:
 
     - Change default `lidar-bg-noise-relative` from `0.315` to `0.01`.
-    - Verify `ClosenessSensitivityMultiplier` (currently 3.0, consider lowering to 2.0).
-    - Verify `NeighborConfirmationCount` (currently 3, consider raising to 5).
+    - Lower `SafetyMarginMeters` to 0.2m (was 0.5m).
+    - Keep `NeighborConfirmationCount` at 5.
 
-2.  **Verify Fix**:
-    - Run `make dev-go` (or `make build-radar-local`).
-    - Observe logs for "Foreground extraction: X/Y points".
-    - Expectation: Foreground ratio should rise from ~0-1% to ~10-40% for traffic scenes.
+2.  **Fix Logic in `internal/lidar/foreground.go`**:
+    - Update neighbor search loop to use dynamic radius (`searchRadius := neighConfirm`).
+    - This ensures that if we require 5 neighbors, we actually check enough neighbors to find them.
 
-### Phase 2: Data Quality Fixes
+### Phase 2: Data Quality Fixes (Completed)
 
 **Goal**: Ensure exported/streamed points have correct 3D coordinates and orientation.
 
