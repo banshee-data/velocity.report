@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"math"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -316,186 +315,17 @@ func main() {
 				}
 			}
 
-			// FrameBuilder callback: feed completed frames into BackgroundManager + Tracking pipeline
-			callback := func(frame *lidar.LiDARFrame) {
-				if frame == nil || len(frame.Points) == 0 {
-					return
-				}
-				// Route frame completion to debug log to keep main log quiet during normal runs.
-				lidar.Debugf("[FrameBuilder] Completed frame: %s, Points: %d, Azimuth: %.1f°-%.1f°", frame.FrameID, len(frame.Points), frame.MinAzimuth, frame.MaxAzimuth)
-				polar := make([]lidar.PointPolar, 0, len(frame.Points))
-				for _, p := range frame.Points {
-					polar = append(polar, lidar.PointPolar{
-						Channel:         p.Channel,
-						Azimuth:         p.Azimuth,
-						Elevation:       p.Elevation,
-						Distance:        p.Distance,
-						Intensity:       p.Intensity,
-						Timestamp:       p.Timestamp.UnixNano(),
-						BlockID:         p.BlockID,
-						UDPSequence:     p.UDPSequence,
-						RawBlockAzimuth: p.RawBlockAzimuth,
-					})
-				}
-				if backgroundManager != nil {
-					if *debugMode {
-						// Provide extra context at the exact handoff so we can trace delivery
-						var firstAz, lastAz float64
-						var firstTS, lastTS int64
-						if len(polar) > 0 {
-							firstAz = polar[0].Azimuth
-							lastAz = polar[len(polar)-1].Azimuth
-							firstTS = polar[0].Timestamp
-							lastTS = polar[len(polar)-1].Timestamp
-						}
-						log.Printf("[FrameBuilder->Pipeline] Delivering frame %s -> %d points (azimuth: %.1f°->%.1f°, ts: %d->%d)", frame.FrameID, len(polar), firstAz, lastAz, firstTS, lastTS)
-					}
-
-					// Phase 1: Foreground extraction
-					mask, err := backgroundManager.ProcessFramePolarWithMask(polar)
-					if err != nil || mask == nil {
-						if *debugMode {
-							log.Printf("[Tracking] Failed to get foreground mask: %v", err)
-						}
-						return
-					}
-
-					foregroundPoints := lidar.ExtractForegroundPoints(polar, mask)
-					totalPoints := len(polar)
-
-					// Build background subset for debug overlay (downsample to keep chart light)
-					backgroundPolar := make([]lidar.PointPolar, 0, totalPoints-len(foregroundPoints))
-					for i, isForeground := range mask {
-						if !isForeground {
-							backgroundPolar = append(backgroundPolar, polar[i])
-						}
-					}
-
-					const maxBackgroundChartPoints = 5000
-					if len(backgroundPolar) > maxBackgroundChartPoints {
-						stride := len(backgroundPolar) / maxBackgroundChartPoints
-						if stride < 1 {
-							stride = 1
-						}
-						downsampled := make([]lidar.PointPolar, 0, maxBackgroundChartPoints)
-						for i := 0; i < len(backgroundPolar); i += stride {
-							downsampled = append(downsampled, backgroundPolar[i])
-							if len(downsampled) >= maxBackgroundChartPoints {
-								break
-							}
-						}
-						backgroundPolar = downsampled
-					}
-
-					// Cache sensor-frame projections for debug visualization (aligns with polar background chart)
-					lidar.StoreForegroundSnapshot(*lidarSensor, frame.StartTimestamp, foregroundPoints, backgroundPolar, totalPoints, len(foregroundPoints))
-
-					if len(foregroundPoints) == 0 {
-						// No foreground detected, skip tracking
-						return
-					}
-
-					// Forward foreground points on 2370-style stream if configured
-					if fgForwarder != nil {
-						pointsToForward := foregroundPoints
-						// If debug range is configured, only forward points within that range
-						// This allows isolating specific regions for debugging without flooding the stream
-						if backgroundManager != nil {
-							params := backgroundManager.GetParams()
-							if params.HasDebugRange() {
-								filtered := make([]lidar.PointPolar, 0, len(foregroundPoints))
-								for _, p := range foregroundPoints {
-									// Channel is 1-based in PointPolar, but 0-based in params/grid
-									if params.IsInDebugRange(p.Channel-1, p.Azimuth) {
-										filtered = append(filtered, p)
-									}
-								}
-								pointsToForward = filtered
-							}
-						}
-						fgForwarder.ForwardForeground(pointsToForward)
-					}
-
-					// Always log foreground extraction for tracking debugging
-					lidar.Debugf("[Tracking] Extracted %d foreground points from %d total", len(foregroundPoints), len(polar))
-
-					// Phase 2: Transform to world coordinates
-					worldPoints := lidar.TransformToWorld(foregroundPoints, nil, *lidarSensor)
-
-					// Phase 3: Clustering (runtime-tunable via background params)
-					dbscanParams := lidar.DefaultDBSCANParams()
-					if backgroundManager != nil {
-						p := backgroundManager.GetParams()
-						if p.ForegroundMinClusterPoints > 0 {
-							dbscanParams.MinPts = p.ForegroundMinClusterPoints
-						}
-						if p.ForegroundDBSCANEps > 0 {
-							dbscanParams.Eps = float64(p.ForegroundDBSCANEps)
-						}
-					}
-					clusters := lidar.DBSCAN(worldPoints, dbscanParams)
-					if len(clusters) == 0 {
-						return
-					}
-
-					// Always log clustering for tracking debugging
-					lidar.Debugf("[Tracking] Clustered into %d objects", len(clusters))
-
-					// Phase 4: Track update
-					if tracker != nil {
-						tracker.Update(clusters, frame.StartTimestamp)
-
-						// Phase 5: Classify and persist confirmed tracks
-						confirmedTracks := tracker.GetConfirmedTracks()
-						lidar.Debugf("[Tracking] %d confirmed tracks to persist", len(confirmedTracks))
-
-						for _, track := range confirmedTracks {
-							// Classify if not already classified and has enough observations
-							if track.ObjectClass == "" && track.ObservationCount >= 5 && classifier != nil {
-								classifier.ClassifyAndUpdate(track)
-							}
-
-							// Persist track to database
-							if lidarDB != nil {
-								worldFrame := fmt.Sprintf("site/%s", *lidarSensor)
-								if err := lidar.InsertTrack(lidarDB.DB, track, worldFrame); err != nil {
-									if *debugMode {
-										log.Printf("[Tracking] Failed to insert track %s: %v", track.TrackID, err)
-									}
-								}
-
-								// Insert observation
-								obs := &lidar.TrackObservation{
-									TrackID:           track.TrackID,
-									TSUnixNanos:       frame.StartTimestamp.UnixNano(),
-									WorldFrame:        worldFrame,
-									X:                 track.X,
-									Y:                 track.Y,
-									Z:                 0, // TrackedObject doesn't have Z
-									VelocityX:         track.VX,
-									VelocityY:         track.VY,
-									SpeedMps:          track.AvgSpeedMps,
-									HeadingRad:        float32(math.Atan2(float64(track.VY), float64(track.VX))),
-									BoundingBoxLength: track.BoundingBoxLengthAvg,
-									BoundingBoxWidth:  track.BoundingBoxWidthAvg,
-									BoundingBoxHeight: track.BoundingBoxHeightAvg,
-									HeightP95:         track.HeightP95Max,
-									IntensityMean:     track.IntensityMeanAvg,
-								}
-								if err := lidar.InsertTrackObservation(lidarDB.DB, obs); err != nil {
-									if *debugMode {
-										log.Printf("[Tracking] Failed to insert observation for track %s: %v", track.TrackID, err)
-									}
-								}
-							}
-						}
-
-						if *debugMode && len(confirmedTracks) > 0 {
-							lidar.Debugf("[Tracking] %d confirmed tracks active", len(confirmedTracks))
-						}
-					}
-				}
+			// Create tracking pipeline callback with all necessary dependencies
+			pipelineConfig := &lidar.TrackingPipelineConfig{
+				BackgroundManager: backgroundManager,
+				FgForwarder:       fgForwarder,
+				Tracker:           tracker,
+				Classifier:        classifier,
+				DB:                lidarDB.DB, // Pass underlying sql.DB to avoid import cycle
+				SensorID:          *lidarSensor,
+				DebugMode:         *debugMode,
 			}
+			callback := pipelineConfig.NewFrameCallback()
 
 			frameBuilder = lidar.NewFrameBuilder(lidar.FrameBuilderConfig{
 				SensorID:      *lidarSensor,
