@@ -198,9 +198,12 @@
         </a>
       </li>
       <li>
-        <a href="/api/lidar/grid_reset?sensor_id={{.SensorID}}" target="_blank">
-          Reset Grid
-        </a>
+        <form action="/api/lidar/grid_reset?sensor_id={{.SensorID}}"
+          method="POST" target="_blank" style="display:inline; margin:0;">
+          <button type="submit"
+            onclick="return confirm('Reset grid for sensor {{.SensorID}}? This will clear the in-memory background grid.');">Reset
+            Grid</button>
+        </form>
       </li>
       <li>
         <a href="/debug/lidar/background/polar?sensor_id={{.SensorID}}"

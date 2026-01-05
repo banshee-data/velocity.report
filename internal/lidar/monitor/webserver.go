@@ -895,6 +895,11 @@ func (ws *WebServer) handleTrafficStats(w http.ResponseWriter, r *http.Request) 
 // and acceptance counters. This is intended only for testing A/B sweeps.
 // Method: POST. Query params: sensor_id (required)
 func (ws *WebServer) handleGridReset(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
