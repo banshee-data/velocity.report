@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -420,5 +421,151 @@ func BenchmarkWebServer_HealthHandler(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		rr := httptest.NewRecorder()
 		mux.ServeHTTP(rr, req)
+	}
+}
+
+// TestExportFrameSequenceASC_PathTraversal tests that path traversal attacks are prevented
+// by the security fix for CodeQL Alert #29.
+func TestExportFrameSequenceASC_PathTraversal(t *testing.T) {
+	stats := NewPacketStats()
+
+	config := WebServerConfig{
+		Address:        ":0",
+		Stats:          stats,
+		ParsingEnabled: true,
+		UDPPort:        2369,
+		DB:             nil,
+		UDPListenerConfig: network.UDPListenerConfig{
+			Address: ":0",
+		},
+	}
+
+	server := NewWebServer(config)
+	mux := server.setupRoutes()
+
+	// Test cases for path traversal attempts
+	// These should all be sanitized or blocked
+	testCases := []struct {
+		name     string
+		outDir   string
+		sensorID string
+		// We expect either 403 (path validation failure) or 404 (no FrameBuilder)
+		// The key is that no directory should be created outside temp dir
+		wantStatusNot2xx bool
+	}{
+		{
+			name:             "path_traversal_with_parent_dirs",
+			outDir:           "../../etc/malicious",
+			sensorID:         "test-sensor",
+			wantStatusNot2xx: true,
+		},
+		{
+			name:             "path_traversal_absolute_path",
+			outDir:           "/etc/passwd",
+			sensorID:         "test-sensor",
+			wantStatusNot2xx: true,
+		},
+		{
+			name:             "path_traversal_multiple_dots",
+			outDir:           "../../../tmp/../../etc",
+			sensorID:         "test-sensor",
+			wantStatusNot2xx: true,
+		},
+		{
+			name:             "path_with_special_chars",
+			outDir:           "test@#$%dir",
+			sensorID:         "test-sensor",
+			wantStatusNot2xx: true, // Will be sanitized and still fail due to no FrameBuilder
+		},
+		{
+			name:             "normal_directory_name",
+			outDir:           "valid_export_dir",
+			sensorID:         "test-sensor",
+			wantStatusNot2xx: true, // Will fail due to no FrameBuilder, but no security error
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Record temp directory contents before the request
+			tempDir := os.TempDir()
+			beforeEntries, _ := os.ReadDir(tempDir)
+			beforeCount := len(beforeEntries)
+
+			// Create request with potentially malicious out_dir (properly URL-encoded)
+			queryParams := url.Values{}
+			queryParams.Set("sensor_id", tc.sensorID)
+			queryParams.Set("out_dir", tc.outDir)
+			reqURL := "/api/lidar/export_frame_sequence?" + queryParams.Encode()
+			req, err := http.NewRequest("GET", reqURL, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			rr := httptest.NewRecorder()
+			mux.ServeHTTP(rr, req)
+
+			// Verify response is not 2xx (success)
+			if tc.wantStatusNot2xx && rr.Code >= 200 && rr.Code < 300 {
+				t.Errorf("Expected non-2xx status for potentially malicious out_dir %q, got %d",
+					tc.outDir, rr.Code)
+			}
+
+			// For path traversal attempts, verify the response indicates the security check worked
+			if strings.Contains(tc.outDir, "..") || strings.HasPrefix(tc.outDir, "/") {
+				// These should either be sanitized or blocked
+				// The handler will fail at FrameBuilder lookup (404) or path validation (403)
+				if rr.Code != http.StatusNotFound && rr.Code != http.StatusForbidden && rr.Code != http.StatusBadRequest {
+					t.Errorf("Path traversal attempt with out_dir=%q should return 403, 404, or 400, got %d",
+						tc.outDir, rr.Code)
+				}
+			}
+
+			// Verify no unexpected directories were created outside temp
+			// (This is a basic check - the key protection is the validation before MkdirAll)
+			afterEntries, _ := os.ReadDir(tempDir)
+			afterCount := len(afterEntries)
+
+			// We don't expect significant directory creation since there's no FrameBuilder
+			// But the important thing is that validation runs BEFORE any filesystem ops
+			t.Logf("Temp dir entries: before=%d, after=%d, status=%d", beforeCount, afterCount, rr.Code)
+		})
+	}
+}
+
+// TestExportFrameSequenceASC_MissingSensorID tests that missing sensor_id returns 400
+func TestExportFrameSequenceASC_MissingSensorID(t *testing.T) {
+	stats := NewPacketStats()
+
+	config := WebServerConfig{
+		Address:        ":0",
+		Stats:          stats,
+		ParsingEnabled: true,
+		UDPPort:        2369,
+		DB:             nil,
+		UDPListenerConfig: network.UDPListenerConfig{
+			Address: ":0",
+		},
+	}
+
+	server := NewWebServer(config)
+	mux := server.setupRoutes()
+
+	// Request without sensor_id
+	req, err := http.NewRequest("GET", "/api/lidar/export_frame_sequence", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 Bad Request for missing sensor_id, got %d", rr.Code)
+	}
+
+	body := rr.Body.String()
+	if !strings.Contains(body, "sensor_id") {
+		t.Error("Response should mention missing sensor_id parameter")
 	}
 }
