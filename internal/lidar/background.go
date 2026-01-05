@@ -51,10 +51,52 @@ type BackgroundParams struct {
 	// background when a vehicle passes through. Default: 3.
 	MinConfidenceFloor uint32
 
+	// Debug logging region (only active if EnableDiagnostics is true)
+	DebugRingMin int     // Min ring index (inclusive)
+	DebugRingMax int     // Max ring index (inclusive)
+	DebugAzMin   float32 // Min azimuth degrees (inclusive)
+	DebugAzMax   float32 // Max azimuth degrees (inclusive)
+
 	// Additional params for persistence matching schema requirements
 	SettlingPeriodNanos        int64 // 5 minutes before first snapshot
 	SnapshotIntervalNanos      int64 // 2 hours between snapshots
 	ChangeThresholdForSnapshot int   // min changed cells to trigger snapshot
+}
+
+// HasDebugRange returns true if any debug range parameters are set.
+func (p BackgroundParams) HasDebugRange() bool {
+	return p.DebugRingMax > 0 || p.DebugRingMin > 0 || p.DebugAzMax > 0 || p.DebugAzMin > 0
+}
+
+// IsInDebugRange returns true if the given ring and azimuth fall within the configured debug range.
+// If no range is configured, it returns false.
+func (p BackgroundParams) IsInDebugRange(ring int, az float64) bool {
+	hasRingLimit := p.DebugRingMax > 0 || p.DebugRingMin > 0
+	hasAzLimit := p.DebugAzMax > 0 || p.DebugAzMin > 0
+
+	if !hasRingLimit && !hasAzLimit {
+		return false
+	}
+
+	if hasRingLimit {
+		if ring < p.DebugRingMin || ring > p.DebugRingMax {
+			return false
+		}
+	}
+
+	if hasAzLimit {
+		// Normalize azimuth into [0,360)
+		normAz := math.Mod(az, 360.0)
+		if normAz < 0 {
+			normAz += 360.0
+		}
+		az32 := float32(normAz)
+		if az32 < p.DebugAzMin || az32 > p.DebugAzMax {
+			return false
+		}
+	}
+
+	return true
 }
 
 // BackgroundCell matches the compressed storage format for schema persistence

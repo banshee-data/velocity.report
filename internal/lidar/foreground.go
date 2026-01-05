@@ -269,6 +269,14 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 			cell.LastUpdateUnixNanos = nowNanos
 		}
 
+		// Debug logging for specific region to investigate trailing foreground
+		if bm.EnableDiagnostics && g.Params.IsInDebugRange(ring, az) {
+			log.Printf("[FG_DEBUG] r=%d az=%.1f dist=%.3f avg=%.3f spread=%.3f diff=%.3f thresh=%.3f seen=%d recFg=%d frozen=%v isBg=%v",
+				ring, az, p.Distance, cell.AverageRangeMeters, cell.RangeSpreadMeters,
+				cellDiff, closenessThreshold, cell.TimesSeenCount, cell.RecentForegroundCount,
+				cell.FrozenUntilUnixNanos > nowNanos, !foregroundMask[i])
+		}
+
 		g.ChangesSinceSnapshot++
 	}
 

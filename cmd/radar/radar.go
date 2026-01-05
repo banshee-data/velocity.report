@@ -397,7 +397,23 @@ func main() {
 
 					// Forward foreground points on 2370-style stream if configured
 					if fgForwarder != nil {
-						fgForwarder.ForwardForeground(foregroundPoints)
+						pointsToForward := foregroundPoints
+						// If debug range is configured, only forward points within that range
+						// This allows isolating specific regions for debugging without flooding the stream
+						if backgroundManager != nil {
+							params := backgroundManager.GetParams()
+							if params.HasDebugRange() {
+								filtered := make([]lidar.PointPolar, 0, len(foregroundPoints))
+								for _, p := range foregroundPoints {
+									// Channel is 1-based in PointPolar, but 0-based in params/grid
+									if params.IsInDebugRange(p.Channel-1, p.Azimuth) {
+										filtered = append(filtered, p)
+									}
+								}
+								pointsToForward = filtered
+							}
+						}
+						fgForwarder.ForwardForeground(pointsToForward)
 					}
 
 					// Always log foreground extraction for tracking debugging
