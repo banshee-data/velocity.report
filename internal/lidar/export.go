@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/banshee-data/velocity.report/internal/security"
 )
@@ -16,7 +17,16 @@ import (
 // defaultExportDir is the base directory for all ASC exports.
 // It is intentionally restricted to a single directory to avoid writing
 // outside controlled locations, even if callers provide arbitrary paths.
-var defaultExportDir = os.TempDir()
+var defaultExportDir = func() string {
+	tmp := os.TempDir()
+	abs, err := filepath.Abs(tmp)
+	if err != nil {
+		// Fall back to tmp as-is but log for visibility.
+		log.Printf("export: could not resolve absolute temp dir from %q: %v", tmp, err)
+		return tmp
+	}
+	return filepath.Clean(abs)
+}()
 
 // safeExportPath constructs a safe absolute path for an export file based on a
 // user-supplied path string. It restricts exports to defaultExportDir and
@@ -33,7 +43,27 @@ func safeExportPath(userPath string) (string, error) {
 	}
 
 	joined := filepath.Join(defaultExportDir, base)
-	cleanPath := filepath.Clean(joined)
+	absPath, err := filepath.Abs(joined)
+	if err != nil {
+		return "", fmt.Errorf("cannot resolve export path: %w", err)
+	}
+	cleanPath := filepath.Clean(absPath)
+
+	// Ensure the cleaned absolute path is still within the defaultExportDir.
+	baseDir := defaultExportDir
+	if baseDir == "" {
+		return "", fmt.Errorf("export base directory not configured")
+	}
+	// Normalize baseDir to an absolute, cleaned form for the prefix check.
+	baseDirAbs, err := filepath.Abs(baseDir)
+	if err != nil {
+		return "", fmt.Errorf("cannot resolve export base directory: %w", err)
+	}
+	baseDirAbs = filepath.Clean(baseDirAbs)
+	if !strings.HasPrefix(cleanPath, baseDirAbs+string(os.PathSeparator)) && cleanPath != baseDirAbs {
+		return "", fmt.Errorf("export path escapes base directory")
+	}
+
 	if err := security.ValidateExportPath(cleanPath); err != nil {
 		log.Printf("Security: rejected export path %s (from %s, cleaned: %s): %v", joined, userPath, cleanPath, err)
 		return "", fmt.Errorf("invalid export path: %w", err)

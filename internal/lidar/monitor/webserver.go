@@ -1598,13 +1598,14 @@ func (ws *WebServer) handleExportSnapshotASC(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	// Validate and sanitize output path
+	// Validate and sanitize output filename; actual path resolution happens in lidar export helpers.
 	safeSensor := security.SanitizeFilename(sensorID)
 	if outPath == "" {
 		outPath = fmt.Sprintf("bg_snapshot_%s_%d.asc", safeSensor, snap.TakenUnixNanos)
+	} else {
+		// Only use the last path component to avoid directory traversal.
+		outPath = filepath.Base(outPath)
 	}
-	// Force usage of temp dir and sanitize filename to prevent path traversal
-	outPath = filepath.Join(os.TempDir(), filepath.Base(outPath))
 
 	if err := lidar.ExportBgSnapshotToASC(snap, outPath, elevs); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("export error: %v", err))
@@ -1724,10 +1725,9 @@ func (ws *WebServer) handleExportNextFrameASC(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Validate and sanitize output path if provided
+	// Validate and sanitize output filename if provided; actual path resolution happens in lidar export helpers.
 	if outPath != "" {
-		// Force usage of temp dir and sanitize filename
-		outPath = filepath.Join(os.TempDir(), filepath.Base(outPath))
+		outPath = filepath.Base(outPath)
 	}
 
 	// Set flag to export next frame
@@ -1754,14 +1754,15 @@ func (ws *WebServer) handleExportForegroundASC(w http.ResponseWriter, r *http.Re
 
 	if outPath == "" {
 		safeSensor := security.SanitizeFilename(sensorID)
+	} else {
+		// Only use the last path component to avoid directory traversal.
+		outPath = filepath.Base(outPath)
 		ts := snap.Timestamp
 		if ts.IsZero() {
 			ts = time.Now()
 		}
 		outPath = fmt.Sprintf("foreground_%s_%d.asc", safeSensor, ts.Unix())
 	}
-	// Force usage of temp dir and sanitize filename
-	outPath = filepath.Join(os.TempDir(), filepath.Base(outPath))
 
 	if err := lidar.ExportForegroundSnapshotToASC(snap, outPath); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("export error: %v", err))
