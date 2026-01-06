@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Assets Not Built - velocity.report</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            padding: 40px;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+            font-size: 28px;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .warning-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        code {
+            background: #f4f4f4;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-family: "Courier New", monospace;
+            font-size: 14px;
+        }
+        .command-box {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+            font-family: "Courier New", monospace;
+            font-size: 14px;
+            overflow-x: auto;
+        }
+        .command-box .prompt {
+            color: #50fa7b;
+        }
+        .info {
+            color: #666;
+            font-size: 14px;
+            margin-top: 20px;
+        }
+        a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚧 Web Assets Not Built</h1>
+        <div class="warning">
+            <div class="warning-icon">⚠️</div>
+            <p><strong>The web frontend has not been built yet.</strong></p>
+            <p>This is a stub file to allow Go compilation to succeed.</p>
+        </div>
+        
+        <h2>How to Build the Web Frontend</h2>
+        <p>Run the following command from the repository root:</p>
+        <div class="command-box">
+<span class="prompt">$</span> make build-web
+        </div>
+        
+        <p>Or manually from the web directory:</p>
+        <div class="command-box">
+<span class="prompt">$</span> cd web && pnpm run build
+        </div>
+        
+        <div class="info">
+            <p>For more information, see the <a href="https://github.com/banshee-data/velocity.report">velocity.report repository</a>.</p>
+        </div>
+    </div>
+</body>
+</html>
