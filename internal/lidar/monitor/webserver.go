@@ -604,6 +604,7 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	assetsFS, err := fs.Sub(EchartsAssets, "assets")
 	if err != nil {
 		log.Printf("failed to prepare echarts assets: %v", err)
+		assetsFS = nil
 	}
 
 	mux.HandleFunc("/health", ws.handleHealth)
