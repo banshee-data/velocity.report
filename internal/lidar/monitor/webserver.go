@@ -1637,7 +1637,7 @@ func (ws *WebServer) handleExportFrameSequenceASC(w http.ResponseWriter, r *http
 	}
 
 	// Force usage of temp dir and sanitize directory name
-	absDir := filepath.Join(os.TempDir(), security.SanitizeFilename(filepath.Base(baseDir)))
+	absDir := filepath.Join(os.TempDir(), security.SanitizeFilename(baseDir))
 
 	// Validate output directory is within allowed directories BEFORE creating it
 	if err := security.ValidateExportPath(absDir); err != nil {
