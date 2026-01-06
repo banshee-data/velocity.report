@@ -122,21 +122,15 @@ func projectPolars(points []PointPolar) []ProjectedPoint {
 
 // ExportForegroundSnapshotToASC writes only the foreground points to an ASC file.
 // This is intended for quick inspection of live/replayed foreground extraction.
-// The outPath parameter is ignored for security - the actual export path is generated
-// internally to prevent path traversal attacks.
-func ExportForegroundSnapshotToASC(snap *ForegroundSnapshot, outPath string) error {
+// Returns the path where the file was written.
+func ExportForegroundSnapshotToASC(snap *ForegroundSnapshot) (string, error) {
 	if snap == nil {
-		return fmt.Errorf("nil foreground snapshot")
+		return "", fmt.Errorf("nil foreground snapshot")
 	}
-
-	// The outPath parameter is intentionally ignored - ExportPointsToASC
-	// generates its own safe path internally.
-	_ = outPath // Explicitly acknowledge unused parameter
 
 	points := make([]PointASC, 0, len(snap.ForegroundPoints))
 	for _, p := range snap.ForegroundPoints {
 		points = append(points, PointASC{X: p.X, Y: p.Y, Z: p.Z, Intensity: int(p.Intensity)})
 	}
-	_, err := ExportPointsToASC(points, "", "")
-	return err
+	return ExportPointsToASC(points, "")
 }

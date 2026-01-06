@@ -61,19 +61,15 @@ type PointASC struct {
 }
 
 // ExportPointsToASC exports a slice of PointASC to a CloudCompare-compatible .asc file.
-// The filePath parameter is ignored for security - the actual export path is generated
-// internally using a timestamp and random suffix to prevent path traversal attacks.
-// Returns the actual path where the file was written and any error encountered.
+// The export path is generated internally using a timestamp and random suffix to prevent
+// path traversal attacks. Returns the actual path where the file was written.
 // extraHeader is a string describing extra columns (optional)
-func ExportPointsToASC(points []PointASC, filePath string, extraHeader string) (string, error) {
+func ExportPointsToASC(points []PointASC, extraHeader string) (string, error) {
 	if len(points) == 0 {
 		return "", fmt.Errorf("no points to export")
 	}
 
 	// Generate a safe export path entirely from trusted internal sources.
-	// The filePath parameter is intentionally ignored to prevent user-controlled
-	// data from flowing into file system operations.
-	_ = filePath // Explicitly acknowledge unused parameter
 	exportPath := buildExportPath(".asc")
 
 	f, err := os.Create(exportPath)
@@ -110,29 +106,22 @@ func ExportPointsToASC(points []PointASC, filePath string, extraHeader string) (
 // BackgroundGrid and BackgroundManager, supplies per-ring elevations (preferring
 // a live BackgroundManager and falling back to embedded parser config), and
 // exports the resulting points to an ASC file.
-// The outPath parameter is ignored for security - the actual export path is generated
-// internally to prevent path traversal attacks.
-func ExportBgSnapshotToASC(snap *BgSnapshot, outPath string, ringElevations []float64) error {
+// Returns the path where the file was written.
+func ExportBgSnapshotToASC(snap *BgSnapshot, ringElevations []float64) (string, error) {
 	if snap == nil {
-		return fmt.Errorf("nil snapshot")
+		return "", fmt.Errorf("nil snapshot")
 	}
-
-	// Generate a safe export path entirely from trusted internal sources.
-	// The outPath parameter is intentionally ignored to prevent user-controlled
-	// data from flowing into file system operations.
-	_ = outPath // Explicitly acknowledge unused parameter
-	exportPath := buildExportPath(".asc")
 
 	// Decode grid blob
 	gz, err := gzip.NewReader(bytes.NewReader(snap.GridBlob))
 	if err != nil {
-		return fmt.Errorf("gunzip error: %v", err)
+		return "", fmt.Errorf("gunzip error: %v", err)
 	}
 	defer gz.Close()
 	var cells []BackgroundCell
 	dec := gob.NewDecoder(gz)
 	if err := dec.Decode(&cells); err != nil {
-		return fmt.Errorf("gob decode error: %v", err)
+		return "", fmt.Errorf("gob decode error: %v", err)
 	}
 
 	grid := &BackgroundGrid{
@@ -149,14 +138,14 @@ func ExportBgSnapshotToASC(snap *BgSnapshot, outPath string, ringElevations []fl
 		if err := json.Unmarshal([]byte(snap.RingElevationsJSON), &elevs); err == nil && len(elevs) == grid.Rings {
 			_ = mgr.SetRingElevations(elevs)
 			log.Printf("Export: used ring elevations embedded in snapshot for sensor %s", snap.SensorID)
-			return mgr.ExportBackgroundGridToASC(exportPath)
+			return mgr.ExportBackgroundGridToASC()
 		}
 	}
 
 	if ringElevations != nil && len(ringElevations) == grid.Rings {
 		if err := mgr.SetRingElevations(ringElevations); err == nil {
 			log.Printf("Export: set ring elevations from caller for sensor %s", snap.SensorID)
-			return mgr.ExportBackgroundGridToASC(exportPath)
+			return mgr.ExportBackgroundGridToASC()
 		}
 	}
 
@@ -167,5 +156,5 @@ func ExportBgSnapshotToASC(snap *BgSnapshot, outPath string, ringElevations []fl
 		log.Printf("Export: copied ring elevations from live BackgroundManager for sensor %s", snap.SensorID)
 	}
 
-	return mgr.ExportBackgroundGridToASC(exportPath)
+	return mgr.ExportBackgroundGridToASC()
 }

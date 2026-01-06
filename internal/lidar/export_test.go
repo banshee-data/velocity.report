@@ -12,9 +12,8 @@ import (
 
 // TestExportBgSnapshotToASC tests that export functions work correctly.
 // Note: Since security fixes now generate export paths internally (not from user input),
-// the test verifies that ExportPointsToASC returns the actual path used and that the
-// exported file can be read. The ExportBgSnapshotToASC call is tested for errors only
-// since it generates its own path internally.
+// the test verifies that ExportPointsToASC and ExportBgSnapshotToASC return the actual
+// path used and that the exported file can be read.
 func TestExportBgSnapshotToASC(t *testing.T) {
 	// Build a small grid: 2 rings x 4 azbins
 	rings := 2
@@ -55,15 +54,16 @@ func TestExportBgSnapshotToASC(t *testing.T) {
 		t.Fatalf("SetRingElevations: %v", err)
 	}
 
-	// ExportBgSnapshotToASC generates its own path internally for security
-	if err := ExportBgSnapshotToASC(snap, "", nil); err != nil {
-		t.Fatalf("export failed: %v", err)
+	// ExportBgSnapshotToASC now returns the path where the file was written
+	bgPath, err := ExportBgSnapshotToASC(snap, nil)
+	if err != nil {
+		t.Fatalf("ExportBgSnapshotToASC failed: %v", err)
 	}
+	defer os.Remove(bgPath)
 
-	// Since export now generates its own path, we test ExportPointsToASC directly
-	// to verify the returned path can be read
+	// Also test ExportPointsToASC directly
 	testPoints := []PointASC{{X: 1.0, Y: 2.0, Z: 3.0, Intensity: 100}}
-	outPath, err := ExportPointsToASC(testPoints, "", "")
+	outPath, err := ExportPointsToASC(testPoints, "")
 	if err != nil {
 		t.Fatalf("ExportPointsToASC failed: %v", err)
 	}

@@ -3,8 +3,6 @@ package lidar
 import (
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
 	"sync"
 	"time"
 )
@@ -76,7 +74,6 @@ type FrameBuilder struct {
 	sensorID            string            // sensor identifier
 	frameCallback       func(*LiDARFrame) // callback when frame is complete
 	exportNextFrameASC  bool              // flag to export next completed frame
-	exportNextFramePath string            // output path for ASC export (ignored for security)
 	exportBatchCount    int               // number of frames to export in batch
 	exportBatchExported int               // number of frames already exported in current batch
 	mu                  sync.Mutex        // protect concurrent access
@@ -615,20 +612,17 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
 	}
 
 	// Export to ASC if requested (single-shot)
-	// Note: exportNextFramePath is ignored for security - path is generated internally
 	if fb.exportNextFrameASC {
 		if !spinComplete {
 			if fb.debug {
 				log.Printf("[FrameBuilder] Skipping export_next_frame: incomplete rotation frame=%s cov=%.1f° points=%d", frame.FrameID, coverage, frame.PointCount)
 			}
 		} else {
-			// Path is generated internally by exportFrameToASCPath for security
-			if err := exportFrameToASCPath(frame, ""); err != nil {
+			if err := exportFrameToASCInternal(frame); err != nil {
 				log.Printf("[FrameBuilder] Failed to export next frame for sensor %s: %v", frame.SensorID, err)
 			} else {
 				debugf("[FrameBuilder] Exported next frame for sensor %s", frame.SensorID)
 				fb.exportNextFrameASC = false
-				fb.exportNextFramePath = ""
 			}
 		}
 	}
@@ -640,8 +634,7 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
 				log.Printf("[FrameBuilder] Skipping batch export (%d/%d) incomplete rotation frame=%s cov=%.1f° points=%d", fb.exportBatchExported+1, fb.exportBatchCount, frame.FrameID, coverage, frame.PointCount)
 			}
 		} else {
-			// Path is generated internally by exportFrameToASCPath for security
-			if err := exportFrameToASCPath(frame, ""); err != nil {
+			if err := exportFrameToASCInternal(frame); err != nil {
 				log.Printf("[FrameBuilder] Failed to export batch frame %d/%d for sensor %s: %v", fb.exportBatchExported+1, fb.exportBatchCount, frame.SensorID, err)
 			} else if fb.debug {
 				debugf("[FrameBuilder] Exported batch frame %d/%d for sensor %s", fb.exportBatchExported+1, fb.exportBatchCount, frame.SensorID)
@@ -665,26 +658,22 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
 	}
 }
 
-// Request export of the next completed frame to ASC format
-// Note: The outPath parameter is ignored for security - the path is generated internally.
-func (fb *FrameBuilder) RequestExportNextFrameASC(outPath string) {
+// RequestExportNextFrameASC schedules export of the next completed frame to ASC format.
+// The export path is generated internally for security.
+func (fb *FrameBuilder) RequestExportNextFrameASC() {
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
 	fb.exportNextFrameASC = true
-	fb.exportNextFramePath = outPath
 }
 
 // RequestExportFrameBatchASC schedules export of the next N completed frames.
-// Note: The paths parameter is ignored for security - paths are generated internally.
-// Use the length of the paths slice to determine how many frames to export.
-func (fb *FrameBuilder) RequestExportFrameBatchASC(paths []string) {
+// Export paths are generated internally for security.
+func (fb *FrameBuilder) RequestExportFrameBatchASC(count int) {
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
 
-	count := len(paths)
-	if count == 0 {
-		// If nil/empty paths provided, export 5 frames by default
-		count = 5
+	if count <= 0 {
+		count = 5 // default to 5 frames
 	}
 
 	fb.exportBatchCount = count
@@ -789,17 +778,11 @@ func NewFrameBuilderWithDebugLoggingAndInterval(sensorID string, debug bool, log
 
 // exportFrameToASC exports a LiDARFrame to CloudCompare .asc ASCII format
 func exportFrameToASC(frame *LiDARFrame) error {
-	if frame == nil || len(frame.Points) == 0 {
-		return fmt.Errorf("empty frame")
-	}
-
-	filename := fmt.Sprintf("lidar_frame_%s_%d.asc", frame.SensorID, frame.StartTimestamp.Unix())
-	filePath := filepath.Join(os.TempDir(), filename)
-	return exportFrameToASCPath(frame, filePath)
+	return exportFrameToASCInternal(frame)
 }
 
-// exportFrameToASCPath writes a LiDARFrame to ASC at the provided path.
-func exportFrameToASCPath(frame *LiDARFrame, filePath string) error {
+// exportFrameToASCInternal writes a LiDARFrame to ASC. The path is generated internally.
+func exportFrameToASCInternal(frame *LiDARFrame) error {
 	if frame == nil || len(frame.Points) == 0 {
 		return fmt.Errorf("empty frame")
 	}
@@ -837,7 +820,7 @@ func exportFrameToASCPath(frame *LiDARFrame, filePath string) error {
 	}
 
 	extraHeader := "" // No extra columns for now
-	actualPath, err := ExportPointsToASC(ascPoints, filePath, extraHeader)
+	actualPath, err := ExportPointsToASC(ascPoints, extraHeader)
 	if err != nil {
 		return fmt.Errorf("failed to export ASC: %w", err)
 	}

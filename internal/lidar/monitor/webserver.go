@@ -30,7 +30,6 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidar/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/parse"
-	"github.com/banshee-data/velocity.report/internal/security"
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/components"
 	"github.com/go-echarts/go-echarts/v2/opts"
@@ -1600,7 +1599,7 @@ func (ws *WebServer) handleExportSnapshotASC(w http.ResponseWriter, r *http.Requ
 
 	// The export path is generated internally by ExportBgSnapshotToASC
 	// to prevent user-controlled data from flowing into file system operations.
-	if err := lidar.ExportBgSnapshotToASC(snap, "", elevs); err != nil {
+	if _, err := lidar.ExportBgSnapshotToASC(snap, elevs); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("export error: %v", err))
 		return
 	}
@@ -1641,13 +1640,13 @@ func (ws *WebServer) handleExportFrameSequenceASC(w http.ResponseWriter, r *http
 		}
 	}
 	// Export paths are generated internally by the export functions for security
-	if err := lidar.ExportBgSnapshotToASC(snap, "", elevs); err != nil {
+	if _, err := lidar.ExportBgSnapshotToASC(snap, elevs); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("background export error: %v", err))
 		return
 	}
 
-	// Queue next 5 frames for export (paths are ignored by export functions, generated internally)
-	fb.RequestExportFrameBatchASC(nil)
+	// Queue next 5 frames for export
+	fb.RequestExportFrameBatchASC(5)
 
 	// Kick off foreground snapshot exports asynchronously (paths are ignored, generated internally)
 	go ws.exportForegroundSequenceInternal(sensorID, 5)
@@ -1676,8 +1675,7 @@ func (ws *WebServer) handleExportNextFrameASC(w http.ResponseWriter, r *http.Req
 	}
 
 	// The export path is generated internally by the export functions
-	// to prevent user-controlled data from flowing into file system operations.
-	fb.RequestExportNextFrameASC("")
+	fb.RequestExportNextFrameASC()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "note": "Will export next completed frame to temp directory"})
 }
@@ -1699,8 +1697,7 @@ func (ws *WebServer) handleExportForegroundASC(w http.ResponseWriter, r *http.Re
 	}
 
 	// The export path is generated internally by ExportForegroundSnapshotToASC
-	// to prevent user-controlled data from flowing into file system operations.
-	if err := lidar.ExportForegroundSnapshotToASC(snap, ""); err != nil {
+	if _, err := lidar.ExportForegroundSnapshotToASC(snap); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("export error: %v", err))
 		return
 	}
@@ -1729,7 +1726,7 @@ func (ws *WebServer) exportForegroundSequenceInternal(sensorID string, count int
 		}
 
 		// Export path is generated internally by ExportForegroundSnapshotToASC
-		if err := lidar.ExportForegroundSnapshotToASC(snap, ""); err != nil {
+		if _, err := lidar.ExportForegroundSnapshotToASC(snap); err != nil {
 			log.Printf("[ExportSequence] foreground export failed (%d/%d) sensor=%s: %v", exported+1, count, sensorID, err)
 		} else {
 			log.Printf("[ExportSequence] exported foreground %d/%d for sensor=%s", exported+1, count, sensorID)
@@ -1742,13 +1739,6 @@ func (ws *WebServer) exportForegroundSequenceInternal(sensorID string, count int
 	if exported < count {
 		log.Printf("[ExportSequence] foreground export ended early: got %d/%d snapshots for sensor=%s before timeout", exported, count, sensorID)
 	}
-}
-
-// exportForegroundSequence captures and exports the next N foreground snapshots for a sensor.
-// Runs asynchronously and logs progress; intended for batch export orchestration.
-// Note: The paths parameter is now ignored - paths are generated internally for security.
-func (ws *WebServer) exportForegroundSequence(sensorID string, paths []string) {
-	ws.exportForegroundSequenceInternal(sensorID, len(paths))
 }
 
 // handleLidarSnapshots returns a JSON array of the last N lidar background snapshots for a sensor_id, with nonzero cell count for each.
