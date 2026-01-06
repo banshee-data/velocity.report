@@ -215,7 +215,7 @@ func main() {
 
 	// Lidar webserver instance (if enabled)
 	var lidarWebServer *monitor.WebServer
-	var fgForwarder *network.ForegroundForwarder
+	var foregroundForwarder *network.ForegroundForwarder
 
 	// Optionally initialize lidar components inside this binary
 	if *enableLidar {
@@ -318,7 +318,7 @@ func main() {
 			// Create tracking pipeline callback with all necessary dependencies
 			pipelineConfig := &lidar.TrackingPipelineConfig{
 				BackgroundManager: backgroundManager,
-				FgForwarder:       fgForwarder,
+				FgForwarder:       foregroundForwarder,
 				Tracker:           tracker,
 				Classifier:        classifier,
 				DB:                lidarDB.DB, // Pass underlying sql.DB to avoid import cycle
@@ -349,9 +349,9 @@ func main() {
 			if err != nil {
 				log.Printf("failed to create foreground forwarder: %v", err)
 			} else {
-				fgForwarder = fg
-				fgForwarder.Start(ctx)
-				defer fgForwarder.Close()
+				foregroundForwarder = fg
+				foregroundForwarder.Start(ctx)
+				defer foregroundForwarder.Close()
 				log.Printf("Foreground forwarder enabled to %s:%d", *lidarFGFwdAddr, *lidarFGFwdPort)
 			}
 		}
