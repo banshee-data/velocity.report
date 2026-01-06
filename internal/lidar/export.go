@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/banshee-data/velocity.report/internal/security"
 )
@@ -28,12 +29,15 @@ func ExportPointsToASC(points []PointASC, filePath string, extraHeader string) e
 	}
 
 	// Validate path to prevent path traversal attacks
-	if err := security.ValidateExportPath(filePath); err != nil {
-		log.Printf("Security: rejected export path %s: %v", filePath, err)
+	// Note: We deliberately clean the path first to ensure the validated path matches
+	// the path we essentially open.
+	cleanPath := filepath.Clean(filePath)
+	if err := security.ValidateExportPath(cleanPath); err != nil {
+		log.Printf("Security: rejected export path %s (cleaned: %s): %v", filePath, cleanPath, err)
 		return fmt.Errorf("invalid export path: %w", err)
 	}
 
-	f, err := os.Create(filePath)
+	f, err := os.Create(cleanPath)
 	if err != nil {
 		return err
 	}
@@ -73,8 +77,11 @@ func ExportBgSnapshotToASC(snap *BgSnapshot, outPath string, ringElevations []fl
 	}
 
 	// Validate path to prevent path traversal attacks
-	if err := security.ValidateExportPath(outPath); err != nil {
-		log.Printf("Security: rejected export path %s: %v", outPath, err)
+	// Note: We deliberately clean the path first to ensure the validated path matches
+	// the path we essentially open.
+	cleanPath := filepath.Clean(outPath)
+	if err := security.ValidateExportPath(cleanPath); err != nil {
+		log.Printf("Security: rejected export path %s (cleaned: %s): %v", outPath, cleanPath, err)
 		return fmt.Errorf("invalid export path: %w", err)
 	}
 	// Decode grid blob
@@ -103,14 +110,14 @@ func ExportBgSnapshotToASC(snap *BgSnapshot, outPath string, ringElevations []fl
 		if err := json.Unmarshal([]byte(snap.RingElevationsJSON), &elevs); err == nil && len(elevs) == grid.Rings {
 			_ = mgr.SetRingElevations(elevs)
 			log.Printf("Export: used ring elevations embedded in snapshot for sensor %s", snap.SensorID)
-			return mgr.ExportBackgroundGridToASC(outPath)
+			return mgr.ExportBackgroundGridToASC(cleanPath)
 		}
 	}
 
 	if ringElevations != nil && len(ringElevations) == grid.Rings {
 		if err := mgr.SetRingElevations(ringElevations); err == nil {
 			log.Printf("Export: set ring elevations from caller for sensor %s", snap.SensorID)
-			return mgr.ExportBackgroundGridToASC(outPath)
+			return mgr.ExportBackgroundGridToASC(cleanPath)
 		}
 	}
 
@@ -121,5 +128,5 @@ func ExportBgSnapshotToASC(snap *BgSnapshot, outPath string, ringElevations []fl
 		log.Printf("Export: copied ring elevations from live BackgroundManager for sensor %s", snap.SensorID)
 	}
 
-	return mgr.ExportBackgroundGridToASC(outPath)
+	return mgr.ExportBackgroundGridToASC(cleanPath)
 }

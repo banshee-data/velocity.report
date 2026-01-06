@@ -166,6 +166,18 @@ func TestValidateExportPath(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name:      "dirty path resolving to valid location",
+			filePath:  filepath.Join(os.TempDir(), "subdir", "..", "export.asc"),
+			setupWd:   originalWd,
+			wantError: false,
+		},
+		{
+			name:      "dirty path attempting traversal to root",
+			filePath:  filepath.Join(tmpDir, "..", "..", "..", "..", "..", "..", "..", "etc", "passwd"),
+			setupWd:   tmpDir,
+			wantError: true,
+		},
+		{
 			name:      "invalid absolute path",
 			filePath:  "/etc/passwd",
 			setupWd:   originalWd,

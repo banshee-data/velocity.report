@@ -3,6 +3,7 @@ package lidar
 import (
 	"fmt"
 	"math"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -129,7 +130,8 @@ func ExportForegroundSnapshotToASC(snap *ForegroundSnapshot, outPath string) err
 		return fmt.Errorf("nil foreground snapshot")
 	}
 
-	if err := security.ValidateExportPath(outPath); err != nil {
+	cleanPath := filepath.Clean(outPath)
+	if err := security.ValidateExportPath(cleanPath); err != nil {
 		return err
 	}
 
@@ -137,5 +139,5 @@ func ExportForegroundSnapshotToASC(snap *ForegroundSnapshot, outPath string) err
 	for _, p := range snap.ForegroundPoints {
 		points = append(points, PointASC{X: p.X, Y: p.Y, Z: p.Z, Intensity: int(p.Intensity)})
 	}
-	return ExportPointsToASC(points, outPath, "")
+	return ExportPointsToASC(points, cleanPath, "")
 }
