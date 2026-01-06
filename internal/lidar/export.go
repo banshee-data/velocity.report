@@ -13,6 +13,34 @@ import (
 	"github.com/banshee-data/velocity.report/internal/security"
 )
 
+// defaultExportDir is the base directory for all ASC exports.
+// It is intentionally restricted to a single directory to avoid writing
+// outside controlled locations, even if callers provide arbitrary paths.
+var defaultExportDir = os.TempDir()
+
+// safeExportPath constructs a safe absolute path for an export file based on a
+// user-supplied path string. It restricts exports to defaultExportDir and
+// validates the final path with the shared security.ValidateExportPath helper.
+func safeExportPath(userPath string) (string, error) {
+	if userPath == "" {
+		return "", fmt.Errorf("empty export path")
+	}
+	// Use only the last path component to avoid any directory traversal and
+	// to ensure we control the export root directory.
+	base := filepath.Base(userPath)
+	if base == "." || base == ".." || base == "" {
+		return "", fmt.Errorf("invalid export filename")
+	}
+
+	joined := filepath.Join(defaultExportDir, base)
+	cleanPath := filepath.Clean(joined)
+	if err := security.ValidateExportPath(cleanPath); err != nil {
+		log.Printf("Security: rejected export path %s (from %s, cleaned: %s): %v", joined, userPath, cleanPath, err)
+		return "", fmt.Errorf("invalid export path: %w", err)
+	}
+	return cleanPath, nil
+}
+
 // PointASC is a cartesian point with optional extra columns for export
 // (X, Y, Z, Intensity, ...extra)
 type PointASC struct {
@@ -28,16 +56,14 @@ func ExportPointsToASC(points []PointASC, filePath string, extraHeader string) e
 		return fmt.Errorf("no points to export")
 	}
 
-	// Validate path to prevent path traversal attacks
-	// Note: We deliberately clean the path first to ensure the validated path matches
-	// the path we essentially open.
-	cleanPath := filepath.Clean(filePath)
-	if err := security.ValidateExportPath(cleanPath); err != nil {
-		log.Printf("Security: rejected export path %s (cleaned: %s): %v", filePath, cleanPath, err)
-		return fmt.Errorf("invalid export path: %w", err)
+	// Build a safe export path anchored under defaultExportDir to prevent path
+	// traversal and unintended file overwrites.
+	safePath, err := safeExportPath(filePath)
+	if err != nil {
+		return err
 	}
 
-	f, err := os.Create(cleanPath)
+	f, err := os.Create(safePath)
 	if err != nil {
 		return err
 	}
@@ -63,7 +89,7 @@ func ExportPointsToASC(points []PointASC, filePath string, extraHeader string) e
 		}
 		fmt.Fprintln(f)
 	}
-	log.Printf("Exported %d points to %s", len(points), filePath)
+	log.Printf("Exported %d points to %s", len(points), safePath)
 	return nil
 }
 
@@ -76,13 +102,12 @@ func ExportBgSnapshotToASC(snap *BgSnapshot, outPath string, ringElevations []fl
 		return fmt.Errorf("nil snapshot")
 	}
 
-	// Validate path to prevent path traversal attacks
-	// Note: We deliberately clean the path first to ensure the validated path matches
-	// the path we essentially open.
-	cleanPath := filepath.Clean(outPath)
-	if err := security.ValidateExportPath(cleanPath); err != nil {
-		log.Printf("Security: rejected export path %s (cleaned: %s): %v", outPath, cleanPath, err)
-		return fmt.Errorf("invalid export path: %w", err)
+	// Build a safe export path anchored under defaultExportDir to prevent path
+	// traversal and unintended file overwrites.
+	safePath, err := safeExportPath(outPath)
+	if err != nil {
+		return err
+
 	}
 	// Decode grid blob
 	gz, err := gzip.NewReader(bytes.NewReader(snap.GridBlob))
@@ -110,14 +135,14 @@ func ExportBgSnapshotToASC(snap *BgSnapshot, outPath string, ringElevations []fl
 		if err := json.Unmarshal([]byte(snap.RingElevationsJSON), &elevs); err == nil && len(elevs) == grid.Rings {
 			_ = mgr.SetRingElevations(elevs)
 			log.Printf("Export: used ring elevations embedded in snapshot for sensor %s", snap.SensorID)
-			return mgr.ExportBackgroundGridToASC(cleanPath)
+			return mgr.ExportBackgroundGridToASC(safePath)
 		}
 	}
 
 	if ringElevations != nil && len(ringElevations) == grid.Rings {
 		if err := mgr.SetRingElevations(ringElevations); err == nil {
 			log.Printf("Export: set ring elevations from caller for sensor %s", snap.SensorID)
-			return mgr.ExportBackgroundGridToASC(cleanPath)
+			return mgr.ExportBackgroundGridToASC(safePath)
 		}
 	}
 
@@ -128,5 +153,5 @@ func ExportBgSnapshotToASC(snap *BgSnapshot, outPath string, ringElevations []fl
 		log.Printf("Export: copied ring elevations from live BackgroundManager for sensor %s", snap.SensorID)
 	}
 
-	return mgr.ExportBackgroundGridToASC(cleanPath)
+	return mgr.ExportBackgroundGridToASC(safePath)
 }
