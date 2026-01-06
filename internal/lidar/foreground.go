@@ -82,7 +82,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		closenessMultiplier = DefaultClosenessSensitivityMultiplier
 	}
 	neighConfirm := g.Params.NeighborConfirmationCount
-	if neighConfirm <= 0 {
+	if neighConfirm < 0 {
 		neighConfirm = DefaultNeighborConfirmationCount
 	}
 	seedFromFirst := g.Params.SeedFromFirstObservation
@@ -168,29 +168,31 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 
 		// Same-ring neighbor confirmation
 		neighborConfirmCount := 0
-		// Search radius should be at least equal to the required confirmation count
-		// to make it possible to satisfy the condition.
-		searchRadius := neighConfirm
-		if searchRadius < 1 {
-			searchRadius = 1
-		}
-		// Cap search radius to avoid excessive checks
-		if searchRadius > 10 {
-			searchRadius = 10
-		}
-
-		for deltaAz := -searchRadius; deltaAz <= searchRadius; deltaAz++ {
-			if deltaAz == 0 {
-				continue
+		if neighConfirm > 0 {
+			// Search radius should be at least equal to the required confirmation count
+			// to make it possible to satisfy the condition.
+			searchRadius := neighConfirm
+			if searchRadius < 1 {
+				searchRadius = 1
 			}
-			neighborAzimuth := (azBin + deltaAz + azBins) % azBins
-			neighborIdx := g.Idx(ring, neighborAzimuth)
-			neighborCell := g.Cells[neighborIdx]
-			if neighborCell.TimesSeenCount > 0 {
-				neighborDiff := math.Abs(float64(neighborCell.AverageRangeMeters) - p.Distance)
-				neighborCloseness := closenessMultiplier * (float64(neighborCell.RangeSpreadMeters) + noiseRel*float64(neighborCell.AverageRangeMeters) + 0.01)
-				if neighborDiff <= neighborCloseness {
-					neighborConfirmCount++
+			// Cap search radius to avoid excessive checks
+			if searchRadius > 10 {
+				searchRadius = 10
+			}
+
+			for deltaAz := -searchRadius; deltaAz <= searchRadius; deltaAz++ {
+				if deltaAz == 0 {
+					continue
+				}
+				neighborAzimuth := (azBin + deltaAz + azBins) % azBins
+				neighborIdx := g.Idx(ring, neighborAzimuth)
+				neighborCell := g.Cells[neighborIdx]
+				if neighborCell.TimesSeenCount > 0 {
+					neighborDiff := math.Abs(float64(neighborCell.AverageRangeMeters) - p.Distance)
+					neighborCloseness := closenessMultiplier * (float64(neighborCell.RangeSpreadMeters) + noiseRel*float64(neighborCell.AverageRangeMeters) + 0.01)
+					if neighborDiff <= neighborCloseness {
+						neighborConfirmCount++
+					}
 				}
 			}
 		}
@@ -200,7 +202,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		cellDiff := math.Abs(float64(cell.AverageRangeMeters) - p.Distance)
 
 		// Classification decision
-		isBackgroundLike := cellDiff <= closenessThreshold || neighborConfirmCount >= neighConfirm
+		isBackgroundLike := cellDiff <= closenessThreshold || (neighConfirm > 0 && neighborConfirmCount >= neighConfirm)
 
 		// Handle empty cells based on seed-from-first setting
 		initIfEmpty := false

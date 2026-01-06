@@ -283,7 +283,7 @@ func TestProcessFramePolarWithMask_FastReacquisition(t *testing.T) {
 	g.Params.MinConfidenceFloor = 3             // Preserve minimum confidence
 	g.Params.BackgroundUpdateFraction = 0.1     // 10% base alpha
 	g.Params.SafetyMarginMeters = 0.1           // Tight safety for this test
-	g.Params.NeighborConfirmationCount = 100    // Very high threshold to disable neighbor confirmation
+	g.Params.NeighborConfirmationCount = 0      // 0 to disable neighbor confirmation
 	g.Params.ClosenessSensitivityMultiplier = 1.0
 	g.Params.NoiseRelativeFraction = 0.01
 	g.Params.FreezeDurationNanos = 0 // Disable freeze for this test
