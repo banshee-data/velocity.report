@@ -835,10 +835,10 @@ func exportFrameToASCPath(frame *LiDARFrame, filePath string) error {
 	}
 
 	extraHeader := "" // No extra columns for now
-	err := ExportPointsToASC(ascPoints, filePath, extraHeader)
+	actualPath, err := ExportPointsToASC(ascPoints, filePath, extraHeader)
 	if err != nil {
 		return fmt.Errorf("failed to export ASC: %w", err)
 	}
-	log.Printf("Exported frame %s to %s (%d points)", frame.FrameID, filePath, frame.PointCount)
+	log.Printf("Exported frame %s to %s (%d points)", frame.FrameID, actualPath, frame.PointCount)
 	return nil
 }

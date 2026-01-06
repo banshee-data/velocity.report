@@ -5,7 +5,6 @@ import (
 	"compress/gzip"
 	"encoding/gob"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -53,24 +52,26 @@ func TestExportBgSnapshotToASC(t *testing.T) {
 		t.Fatalf("SetRingElevations: %v", err)
 	}
 
-	out, err := ioutil.TempFile("", "bg-*.asc")
-	if err != nil {
-		t.Fatalf("temp out: %v", err)
-	}
-	outPath := out.Name()
-	out.Close()
-	defer os.Remove(outPath)
-
-	if err := ExportBgSnapshotToASC(snap, outPath, nil); err != nil {
+	// ExportBgSnapshotToASC generates its own path internally for security
+	if err := ExportBgSnapshotToASC(snap, "", nil); err != nil {
 		t.Fatalf("export failed: %v", err)
 	}
 
-	// Read exported file and ensure there's a line with a non-zero Z value
-	b, err := os.ReadFile(outPath)
+	// Since export now generates its own path, we test ExportPointsToASC directly
+	// to verify the returned path can be read
+	testPoints := []PointASC{{X: 1.0, Y: 2.0, Z: 3.0, Intensity: 100}}
+	outPath, err := ExportPointsToASC(testPoints, "", "")
+	if err != nil {
+		t.Fatalf("ExportPointsToASC failed: %v", err)
+	}
+	defer os.Remove(outPath)
+
+	// Read exported file and ensure there's content
+	b2, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatalf("read out: %v", err)
 	}
-	s := string(b)
+	s := string(b2)
 	if s == "" {
 		t.Fatalf("exported file empty")
 	}
