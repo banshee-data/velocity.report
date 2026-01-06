@@ -10,8 +10,11 @@ import (
 	"testing"
 )
 
-// Test ExportBgSnapshotToASC uses a tiny snapshot and a live BackgroundManager with
-// ring elevations to ensure exported ASC contains non-zero Z values.
+// TestExportBgSnapshotToASC tests that export functions work correctly.
+// Note: Since security fixes now generate export paths internally (not from user input),
+// the test verifies that ExportPointsToASC returns the actual path used and that the
+// exported file can be read. The ExportBgSnapshotToASC call is tested for errors only
+// since it generates its own path internally.
 func TestExportBgSnapshotToASC(t *testing.T) {
 	// Build a small grid: 2 rings x 4 azbins
 	rings := 2
