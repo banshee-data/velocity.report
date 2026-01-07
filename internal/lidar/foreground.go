@@ -203,6 +203,21 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		// Classification decision
 		isBackgroundLike := cellDiff <= closenessThreshold || (neighConfirm > 0 && neighborConfirmCount >= neighConfirm)
 
+		// Deadlock Breaker:
+		// If a cell is persistently classified as foreground (RecentForegroundCount high)
+		// but we have low confidence in our background model (TimesSeenCount at floor),
+		// and the divergence isn't massive enough to trigger a freeze ("Gray Zone"),
+		// we assume our background model is stale/corrupted and force an update.
+		// This fixes "ghost trails" where the model learns a transient edge value
+		// and then rejects the true background because it differs from that edge.
+		if !isBackgroundLike && cell.TimesSeenCount <= minConfFloor && cell.RecentForegroundCount > 4 {
+			// Only force-learn if we wouldn't otherwise freeze this cell (avoid learning dynamic obstacles)
+			freezeThresh := FreezeThresholdMultiplier * closenessThreshold
+			if cellDiff <= freezeThresh {
+				isBackgroundLike = true
+			}
+		}
+
 		// Handle empty cells based on seed-from-first setting
 		initIfEmpty := false
 		if seedFromFirst && cell.TimesSeenCount == 0 {
