@@ -258,7 +258,7 @@ const (
 
 ### Related Documents
 
-- `static-pose-alignment-plan.md` - Full 7DOF plan (DEFERRED for AV integration)
+- `../future/static-pose-alignment-plan.md` - Full 7DOF plan (DEFERRED for AV integration)
 - `../future/av-lidar-integration-plan.md` - AV dataset compatibility (DEFERRED)
 - `../future/velocity-coherent-foreground-extraction.md` - Future algorithm design
 

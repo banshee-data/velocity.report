@@ -14,6 +14,7 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 **Key Architectural Principle:** Background subtraction operates purely in sensor-centric polar coordinates (azimuth/elevation/range). Only after foreground extraction are points transformed to world-frame Cartesian coordinates for clustering, tracking, and persistence.
 
 **Implementation Phases:**
+
 - **Phase 2.9:** ✅ Foreground mask generation (polar frame)
 - **Phase 3.0:** ✅ Polar → World coordinate transformation
 - **Phase 3.1:** ✅ DBSCAN clustering (world frame)
@@ -58,6 +59,7 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 ### ✅ Completed (Phase 1 & 2)
 
 #### Background Grid Infrastructure (Polar Frame)
+
 - **Grid Structure:** 40 rings × 1800 azimuth bins (0.2° resolution) = 72,000 cells
 - **Coordinate System:** **Purely polar** (ring index, azimuth bin, range in meters)
 - **Learning Algorithm:** Exponential Moving Average (EMA) for range/spread tracking
@@ -68,6 +70,7 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 **Critical Constraint:** Background grid **never** stores or uses Cartesian/world coordinates. All EMA updates, neighbor voting, and classification occur in polar space.
 
 #### Current Capabilities
+
 - ✅ UDP packet ingestion (Hesai Pandar40P)
 - ✅ Frame assembly (360° rotations)
 - ✅ Background learning (EMA-based grid)
@@ -78,6 +81,7 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 ### ✅ Completed (Phases 2.9 - 3.2)
 
 #### Phase 2.9: Foreground Mask Generation (Polar Frame)
+
 - **Implementation:** `internal/lidar/foreground.go`
 - ✅ `ProcessFramePolarWithMask()` - per-point foreground/background classification returning mask
 - ✅ `ExtractForegroundPoints()` - helper to filter foreground points from mask
@@ -85,6 +89,7 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 - ✅ Unit tests in `internal/lidar/foreground_test.go`
 
 #### Phase 3.0: Polar → World Transform
+
 - **Implementation:** `internal/lidar/clustering.go`
 - ✅ `WorldPoint` struct for world-frame coordinates
 - ✅ `TransformToWorld()` - converts polar points to world frame
@@ -95,6 +100,7 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 > **Note:** Pose-based transformations are deferred to a future phase. Currently, sensor frame coordinates are used directly as world frame coordinates.
 
 #### Phase 3.1: DBSCAN Clustering (World Frame)
+
 - **Implementation:** `internal/lidar/clustering.go`
 - ✅ `SpatialIndex` struct with grid-based indexing using Szudzik pairing
 - ✅ `DBSCAN()` - density-based clustering with spatial index
@@ -103,6 +109,7 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 - ✅ Unit tests in `internal/lidar/clustering_test.go`
 
 #### Phase 3.2: Kalman Tracking (World Frame)
+
 - **Implementation:** `internal/lidar/tracking.go`
 - ✅ `TrackState` lifecycle: Tentative → Confirmed → Deleted
 - ✅ `TrackedObject` struct with Kalman state and aggregated features
@@ -114,6 +121,7 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 - ✅ Unit tests in `internal/lidar/tracking_test.go`
 
 #### ML Training Data Support
+
 - **Implementation:** `internal/lidar/training_data.go`
 - ✅ `ForegroundFrame` struct for exporting foreground points
 - ✅ `EncodeForegroundBlob()`/`DecodeForegroundBlob()` - compact binary encoding (8 bytes/point)
@@ -127,6 +135,7 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 ### ✅ Completed (Phases 3.3 - 3.5)
 
 #### Phase 3.3: SQL Schema & Database Persistence
+
 - **Implementation:** `internal/db/migrations/000009_create_lidar_tracks.up.sql`, `internal/lidar/track_store.go`
 - ✅ `lidar_clusters` table for DBSCAN cluster persistence
 - ✅ `lidar_tracks` table for track lifecycle and aggregated features
@@ -136,6 +145,7 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 - ✅ Unit tests in `internal/lidar/track_store_test.go`
 
 #### Phase 3.4: Track Classification
+
 - **Implementation:** `internal/lidar/classification.go`
 - ✅ `TrackClassifier` with rule-based classification
 - ✅ Object classes: pedestrian, car, bird, other
@@ -146,6 +156,7 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 - ✅ Unit tests in `internal/lidar/classification_test.go`
 
 #### Phase 3.5: REST API Endpoints
+
 - **Implementation:** `internal/lidar/monitor/track_api.go`
 - ✅ `TrackAPI` struct with HTTP handlers for track/cluster queries
 - ✅ `GET /api/lidar/tracks` - List tracks with optional state filter
@@ -231,21 +242,25 @@ UDP Packets → Frame Builder → ProcessFramePolar → [Foreground Mask]
 ## Phase 2.9: Foreground Mask Generation (Polar)
 
 ### Objective
+
 Generate per-point foreground/background classification mask in polar coordinates without extracting points.
 
 ### Changes to ProcessFramePolar
 
 **Current Contract:**
+
 ```go
 func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) error
 ```
 
 **New Contract:**
+
 ```go
 func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) (foregroundMask []bool, err error)
 ```
 
 **Implementation:**
+
 ```go
 func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) ([]bool, error) {
     if bm == nil || bm.Grid == nil {
@@ -297,6 +312,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) ([]bool, err
 ### Foreground Point Extraction (Outside Lock)
 
 **After releasing background lock:**
+
 ```go
 func extractForegroundPoints(allPoints []PointPolar, mask []bool) []PointPolar {
     foregroundPoints := make([]PointPolar, 0, len(allPoints)/10)
@@ -369,6 +385,7 @@ type FrameMetrics struct {
 ## Phase 3.0: Polar → World Transform
 
 ### Objective
+
 Explicit coordinate transformation stage converting foreground polar points to world-frame Cartesian coordinates.
 
 ### Transform Stage Design
@@ -377,11 +394,13 @@ Explicit coordinate transformation stage converting foreground polar points to w
 **Output:** `[]WorldPoint` (Cartesian coordinates in site frame)
 
 **Responsibilities:**
+
 1. Convert polar (distance, azimuth, elevation) → sensor Cartesian (x, y, z)
 2. Apply pose transform: sensor frame → world frame
 3. Attach metadata (timestamp, sensor_id, intensity)
 
 **Does NOT:**
+
 - Update background grid
 - Perform clustering or tracking
 - Store polar coordinates in output
@@ -439,21 +458,25 @@ func TransformToWorld(polarPoints []PointPolar, pose *Pose) []WorldPoint {
 ## Phase 3.1: DBSCAN Clustering (World Frame)
 
 ### Objective
+
 Spatial clustering of foreground world points to detect distinct objects.
 
 ### Algorithm: DBSCAN with Required Spatial Index
 
 **Parameters:**
+
 - `eps = 0.6` meters (neighborhood radius)
 - `minPts = 12` (minimum points per cluster)
 - **Dimensionality:** 2D (x, y) clustering, with z used only for cluster features
 
 **Rationale for 2D:**
+
 - Ground-plane objects (vehicles, pedestrians) primarily distinguished by lateral position
 - Vertical separation (z) used for height features after clustering
 - Simplifies spatial index and reduces computational cost
 
 **Spatial Index:** **Required** (not optional)
+
 - Implementation: Regular grid with cell size ≈ `eps` (0.6m)
 - Region queries examine only current cell + 8 neighbors (2D) or 26 neighbors (3D)
 - Replaces O(n²) brute-force neighbor search
@@ -685,6 +708,7 @@ func computeClusterMetrics(points []WorldPoint) WorldCluster {
 ## Phase 3.2: Kalman Tracking (World Frame)
 
 ### Objective
+
 Multi-object tracking with explicit lifecycle states and world-frame state estimation.
 
 ### Track Lifecycle States
@@ -694,6 +718,7 @@ Tentative → Confirmed → Deleted
 ```
 
 **State Transitions:**
+
 - **Birth:** New cluster creates Tentative track
 - **Tentative → Confirmed:** After N consecutive associations (N=3)
 - **Confirmed → Deleted:** After MaxMisses frames without association (MaxMisses=3)
@@ -702,6 +727,7 @@ Tentative → Confirmed → Deleted
 ### Track State (World Frame Only)
 
 **State Vector:**
+
 ```
 x = [x, y, vx, vy]^T
 ```
@@ -710,6 +736,7 @@ x = [x, y, vx, vy]^T
 - `vx, vy`: Velocity in world frame (m/s)
 
 **Motion Model (Constant Velocity):**
+
 ```
 x_k+1 = F * x_k + w_k
 
@@ -722,6 +749,7 @@ w_k ~ N(0, Q)
 ```
 
 **Measurement Model:**
+
 ```
 z_k = H * x_k + v_k
 
@@ -868,6 +896,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 **Definition:** Gating uses Mahalanobis distance in world coordinates to reject unlikely associations.
 
 **Formula:**
+
 ```
 d² = (z - Hx)^T * S^-1 * (z - Hx)
 
@@ -878,6 +907,7 @@ where:
 ```
 
 **Threshold:** `GatingDistanceSquared = 25.0` (i.e., 5.0 meters)
+
 - We threshold on **squared distance** to avoid square root computation
 - Threshold tuned empirically for typical vehicle/pedestrian speeds
 
@@ -1016,6 +1046,7 @@ CREATE INDEX idx_track_obs_time ON lidar_track_obs(ts_unix_nanos);
 ### REST API Endpoints
 
 #### Existing Endpoints (Background/Polar)
+
 ```
 GET  /api/lidar/params              - Background parameters
 POST /api/lidar/params              - Update parameters
@@ -1084,22 +1115,26 @@ GET /api/lidar/tracks/active?sensor_id=hesai-01
 ## Phase 3.4: Track Classification
 
 ### Objective
+
 Classify tracks by object type (pedestrian, car, bird, other) using world-frame features.
 
 ### Classification Features (World Frame)
 
 **Spatial Features:**
+
 - Bounding box dimensions (length, width, height) in meters
 - Height p95 (95th percentile Z coordinate)
 - Point density (points per cubic meter)
 
 **Kinematic Features:**
+
 - Average speed (p50_speed_mps)
 - Peak speed (p95_speed_mps)
 - Speed variance
 - Acceleration magnitude
 
 **Temporal Features:**
+
 - Track duration
 - Observation count
 - Consistency score (ratio of observations to expected frames)
@@ -1157,10 +1192,12 @@ func (t *Tracker) classifyTrack(track *Track) {
 ### Locking Boundaries
 
 **Background Lock (RWMutex):**
+
 - **Holds lock:** Only during `ProcessFramePolar()` classification
 - **Releases before:** Foreground point extraction, transform, clustering, tracking
 
 **Clear Separation:**
+
 ```
 [Background Lock Held]
   - Classify points in polar space
@@ -1180,16 +1217,16 @@ func (t *Tracker) classifyTrack(track *Track) {
 
 Target: **<100ms end-to-end** at 10 Hz (10,000-20,000 points per frame)
 
-| Stage | Target Latency | Notes |
-|-------|----------------|-------|
-| Background classification (polar) | <5ms | With background lock |
-| Foreground extraction | <1ms | Simple mask application |
-| Polar → World transform | <3ms | Matrix multiplication |
-| DBSCAN clustering (world) | <30ms | With spatial index |
-| Kalman tracking (world) | <10ms | Association + update |
-| Database persistence | <5ms | Async batch writes |
-| API/UI update | <5ms | Non-blocking |
-| **Total** | **<60ms** | Safety margin for 10 Hz |
+| Stage                             | Target Latency | Notes                   |
+| --------------------------------- | -------------- | ----------------------- |
+| Background classification (polar) | <5ms           | With background lock    |
+| Foreground extraction             | <1ms           | Simple mask application |
+| Polar → World transform           | <3ms           | Matrix multiplication   |
+| DBSCAN clustering (world)         | <30ms          | With spatial index      |
+| Kalman tracking (world)           | <10ms          | Association + update    |
+| Database persistence              | <5ms           | Async batch writes      |
+| API/UI update                     | <5ms           | Non-blocking            |
+| **Total**                         | **<60ms**      | Safety margin for 10 Hz |
 
 ### Profiling Points
 
@@ -1218,6 +1255,7 @@ emitPipelineMetrics(metrics)
 #### 1. Polar Frame Tests (Phase 2.9)
 
 **Test:** Foreground mask accuracy
+
 ```go
 func TestProcessFramePolar_ForegroundMask(t *testing.T) {
     // Setup: Background grid with stable background at 10m
@@ -1239,6 +1277,7 @@ func TestProcessFramePolar_ForegroundMask(t *testing.T) {
 #### 2. Transform Tests (Phase 3.0)
 
 **Test:** Polar → World transform accuracy
+
 ```go
 func TestTransformToWorld_Accuracy(t *testing.T) {
     // Known pose: identity transform
@@ -1266,6 +1305,7 @@ func TestTransformToWorld_Accuracy(t *testing.T) {
 #### 3. Clustering Tests (Phase 3.1)
 
 **Test:** DBSCAN detects distinct clusters
+
 ```go
 func TestDBSCAN_TwoSeparateClusters(t *testing.T) {
     // Create two clusters: one at origin, one at (10, 0)
@@ -1290,6 +1330,7 @@ func TestDBSCAN_TwoSeparateClusters(t *testing.T) {
 #### 4. Tracking Tests (Phase 3.2)
 
 **Test:** Track lifecycle (Tentative → Confirmed → Deleted)
+
 ```go
 func TestTracking_Lifecycle(t *testing.T) {
     tracker := NewTracker()
@@ -1330,6 +1371,7 @@ func TestTracking_Lifecycle(t *testing.T) {
 #### 5. Integration Tests (End-to-End)
 
 **Test:** Full pipeline with PCAP
+
 ```go
 func TestPipeline_PCAPToTracks(t *testing.T) {
     // Load PCAP with known moving objects
@@ -1373,17 +1415,17 @@ func TestPipeline_PCAPToTracks(t *testing.T) {
 
 ### Phase Timeline
 
-| Phase | Description | Duration | Status | Deliverables |
-|-------|-------------|----------|--------|--------------|
-| 2.9 | Foreground Mask (Polar) | 1-2 days | ✅ Complete | `ProcessFramePolarWithMask`, `ExtractForegroundPoints`, `FrameMetrics` |
-| 3.0 | Transform (Polar→World) | 1-2 days | ✅ Complete | `TransformToWorld`, `WorldPoint`, unit tests |
-| 3.1 | DBSCAN Clustering | 3-4 days | ✅ Complete | `SpatialIndex`, `DBSCAN`, `computeClusterMetrics`, `WorldCluster` |
-| 3.2 | Kalman Tracking | 4-5 days | ✅ Complete | `Tracker`, `TrackedObject`, Mahalanobis gating, lifecycle management |
-| 3.3 | SQL Schema & Persistence | 3-4 days | ✅ Complete | `lidar_clusters`, `lidar_tracks`, `lidar_track_obs` tables, persistence functions |
-| 3.4 | Classification | 2-3 days | ✅ Complete | `TrackClassifier`, rule-based classification, object classes |
-| 3.5 | REST API Endpoints | 1-2 days | ✅ Complete | `TrackAPI` HTTP handlers, list/get/update tracks, cluster queries |
-| 3.6 | PCAP Analysis Tool | 1-2 days | ✅ Complete | `pcap-analyze` CLI tool for batch processing, ML data export |
-| Test | Integration Testing | 2-3 days | 📋 Planned | End-to-end tests, performance validation |
+| Phase | Description              | Duration | Status      | Deliverables                                                                      |
+| ----- | ------------------------ | -------- | ----------- | --------------------------------------------------------------------------------- |
+| 2.9   | Foreground Mask (Polar)  | 1-2 days | ✅ Complete | `ProcessFramePolarWithMask`, `ExtractForegroundPoints`, `FrameMetrics`            |
+| 3.0   | Transform (Polar→World)  | 1-2 days | ✅ Complete | `TransformToWorld`, `WorldPoint`, unit tests                                      |
+| 3.1   | DBSCAN Clustering        | 3-4 days | ✅ Complete | `SpatialIndex`, `DBSCAN`, `computeClusterMetrics`, `WorldCluster`                 |
+| 3.2   | Kalman Tracking          | 4-5 days | ✅ Complete | `Tracker`, `TrackedObject`, Mahalanobis gating, lifecycle management              |
+| 3.3   | SQL Schema & Persistence | 3-4 days | ✅ Complete | `lidar_clusters`, `lidar_tracks`, `lidar_track_obs` tables, persistence functions |
+| 3.4   | Classification           | 2-3 days | ✅ Complete | `TrackClassifier`, rule-based classification, object classes                      |
+| 3.5   | REST API Endpoints       | 1-2 days | ✅ Complete | `TrackAPI` HTTP handlers, list/get/update tracks, cluster queries                 |
+| 3.6   | PCAP Analysis Tool       | 1-2 days | ✅ Complete | `pcap-analyze` CLI tool for batch processing, ML data export                      |
+| Test  | Integration Testing      | 2-3 days | 📋 Planned  | End-to-end tests, performance validation                                          |
 
 **Phases 2.9-3.6: Complete**
 **Remaining: Integration Testing + UI Visualization**
@@ -1403,24 +1445,24 @@ func TestPipeline_PCAPToTracks(t *testing.T) {
 
 ### Implementation Files
 
-| Phase | File | Description |
-|-------|------|-------------|
-| 2.9 | `internal/lidar/foreground.go` | Foreground mask generation and extraction |
-| 2.9 | `internal/lidar/foreground_test.go` | Unit tests for foreground extraction |
-| 3.0-3.1 | `internal/lidar/clustering.go` | Transform and DBSCAN clustering |
-| 3.0-3.1 | `internal/lidar/clustering_test.go` | Unit tests for transform and clustering |
-| 3.2 | `internal/lidar/tracking.go` | Kalman tracking with lifecycle management |
-| 3.2 | `internal/lidar/tracking_test.go` | Unit tests for tracking |
-| 3.3 | `internal/db/migrations/000009_create_lidar_tracks.up.sql` | Database schema for clusters/tracks/observations |
-| 3.3 | `internal/lidar/track_store.go` | Database persistence functions |
-| 3.3 | `internal/lidar/track_store_test.go` | Unit tests for track persistence |
-| 3.4 | `internal/lidar/classification.go` | Rule-based track classification |
-| 3.4 | `internal/lidar/classification_test.go` | Unit tests for classification |
-| 3.5 | `internal/lidar/monitor/track_api.go` | HTTP handlers for track/cluster queries |
-| 3.5 | `internal/lidar/monitor/track_api_test.go` | Unit tests for track API |
-| 3.6 | `cmd/tools/pcap-analyze/main.go` | PCAP analysis tool for batch processing |
-| ML | `internal/lidar/training_data.go` | Training data export and encoding |
-| ML | `internal/lidar/training_data_test.go` | Unit tests for training data |
+| Phase   | File                                                       | Description                                      |
+| ------- | ---------------------------------------------------------- | ------------------------------------------------ |
+| 2.9     | `internal/lidar/foreground.go`                             | Foreground mask generation and extraction        |
+| 2.9     | `internal/lidar/foreground_test.go`                        | Unit tests for foreground extraction             |
+| 3.0-3.1 | `internal/lidar/clustering.go`                             | Transform and DBSCAN clustering                  |
+| 3.0-3.1 | `internal/lidar/clustering_test.go`                        | Unit tests for transform and clustering          |
+| 3.2     | `internal/lidar/tracking.go`                               | Kalman tracking with lifecycle management        |
+| 3.2     | `internal/lidar/tracking_test.go`                          | Unit tests for tracking                          |
+| 3.3     | `internal/db/migrations/000009_create_lidar_tracks.up.sql` | Database schema for clusters/tracks/observations |
+| 3.3     | `internal/lidar/track_store.go`                            | Database persistence functions                   |
+| 3.3     | `internal/lidar/track_store_test.go`                       | Unit tests for track persistence                 |
+| 3.4     | `internal/lidar/classification.go`                         | Rule-based track classification                  |
+| 3.4     | `internal/lidar/classification_test.go`                    | Unit tests for classification                    |
+| 3.5     | `internal/lidar/monitor/track_api.go`                      | HTTP handlers for track/cluster queries          |
+| 3.5     | `internal/lidar/monitor/track_api_test.go`                 | Unit tests for track API                         |
+| 3.6     | `cmd/tools/pcap-analyze/main.go`                           | PCAP analysis tool for batch processing          |
+| ML      | `internal/lidar/training_data.go`                          | Training data export and encoding                |
+| ML      | `internal/lidar/training_data_test.go`                     | Unit tests for training data                     |
 
 ---
 
@@ -1429,6 +1471,7 @@ func TestPipeline_PCAPToTracks(t *testing.T) {
 ### A. Data Structures
 
 **PointPolar (Input - Polar Frame):**
+
 ```go
 type PointPolar struct {
     Distance  float64   // Range in meters
@@ -1441,6 +1484,7 @@ type PointPolar struct {
 ```
 
 **WorldPoint (After Transform - World Frame):**
+
 ```go
 type WorldPoint struct {
     X, Y, Z   float64   // Cartesian world coordinates (meters)
@@ -1451,6 +1495,7 @@ type WorldPoint struct {
 ```
 
 **WorldCluster (After Clustering - World Frame):**
+
 ```go
 type WorldCluster struct {
     ClusterID         int64
@@ -1471,6 +1516,7 @@ type WorldCluster struct {
 ```
 
 **Track (After Tracking - World Frame):**
+
 ```go
 type Track struct {
     TrackID              string
@@ -1493,6 +1539,7 @@ type Track struct {
 ### B. Configuration Parameters
 
 **Background (Polar):**
+
 ```go
 BackgroundUpdateFraction       = 0.02
 ClosenessSensitivityMultiplier = 3.0
@@ -1502,6 +1549,7 @@ NoiseRelativeFraction          = 0.315
 ```
 
 **Clustering (World):**
+
 ```go
 Eps      = 0.6    // meters
 MinPts   = 12     // points
@@ -1509,6 +1557,7 @@ CellSize = 0.6    // spatial index cell size (meters)
 ```
 
 **Tracking (World):**
+
 ```go
 MaxTracks             = 100
 MaxMisses             = 3
@@ -1622,12 +1671,12 @@ The current implementation stores all data in polar (sensor) frame, which is pos
 
 When pose validation is implemented:
 
-| RMSE (meters) | Quality | Usage Recommendation |
-|---------------|---------|----------------------|
-| < 0.05 | Excellent | Use for all downstream processing |
-| 0.05 - 0.15 | Good | Use for tracking and training |
-| 0.15 - 0.30 | Fair | Use for tracking; exclude from training |
-| > 0.30 | Poor | Manual recalibration required |
+| RMSE (meters) | Quality   | Usage Recommendation                    |
+| ------------- | --------- | --------------------------------------- |
+| < 0.05        | Excellent | Use for all downstream processing       |
+| 0.05 - 0.15   | Good      | Use for tracking and training           |
+| 0.15 - 0.30   | Fair      | Use for tracking; exclude from training |
+| > 0.30        | Poor      | Manual recalibration required           |
 
 **Current Status:** Training data stored in polar (sensor) frame. World-frame transformations use identity transform (sensor frame = world frame).
 
@@ -1643,7 +1692,7 @@ When pose validation is implemented:
 ## Related Documentation
 
 - **[ML Pipeline Roadmap](../roadmap/ml_pipeline_roadmap.md)** - Complete architectural plan for Phase 4.0-4.4 (analysis runs, labeling UI, ML training, parameter tuning)
-- **[Velocity-Coherent Foreground Extraction](velocity-coherent-foreground-extraction.md)** - Alternative algorithm design for sparse-point tracking with velocity coherence
-- **[LIDAR Foreground Tracking Status](lidar-foreground-tracking-status.md)** - Current issues, fixes, and enhancement roadmap
+- **[Velocity-Coherent Foreground Extraction](../future/velocity-coherent-foreground-extraction.md)** - Alternative algorithm design for sparse-point tracking with velocity coherence
+- **[LIDAR Foreground Tracking Status](../operations/lidar-foreground-tracking-status.md)** - Current issues, fixes, and enhancement roadmap
 - **[LIDAR Sidecar Overview](lidar_sidecar_overview.md)** - Technical implementation overview and module structure
-- **[Development Log](devlog.md)** - Chronological implementation history
+- **[Development Log](../roadmap/devlog.md)** - Chronological implementation history
