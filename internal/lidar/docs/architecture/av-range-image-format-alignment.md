@@ -7,7 +7,7 @@ This design document outlines the changes required to align the velocity.report 
 1. **Dual Return Support**: Capture and store both strongest returns (already supported by Hesai Pandar40P)
 2. **Elongation Measurement**: Add pulse elongation to point data structure
 3. **Range Image Format**: Organize point cloud data as 2D range images
-4. **Channel Structure**: Align with standard AV 4-channel format (range, intensity, elongation, is_in_nlz)
+4. **Channel Structure**: Align with standard AV 4-channel format (range, intensity, elongation, is_in_nlz: No-Label Zone flag)
 
 ## Current State Analysis
 
@@ -15,13 +15,13 @@ This design document outlines the changes required to align the velocity.report 
 
 The Hesai Pandar40P sensor natively supports the core features needed for AV format alignment:
 
-| Feature | Hesai Native Support | Current Implementation | AV Format Requirement |
-|---------|---------------------|----------------------|------------------|
-| Dual Returns | ✅ ReturnMode 0x39 | ⚠️ Only first return parsed | ✅ Two strongest returns |
-| Range | ✅ 4mm resolution | ✅ Fully implemented | ✅ Required |
-| Intensity | ✅ 0-255 reflectivity | ✅ Fully implemented | ✅ Required |
-| Elongation | ❌ Not in protocol | ❌ Not available | ✅ Required |
-| is_in_nlz | N/A (AV-specific) | N/A | ⚠️ Not applicable |
+| Feature      | Hesai Native Support  | Current Implementation      | AV Format Requirement    |
+| ------------ | --------------------- | --------------------------- | ------------------------ |
+| Dual Returns | ✅ ReturnMode 0x39    | ⚠️ Only first return parsed | ✅ Two strongest returns |
+| Range        | ✅ 4mm resolution     | ✅ Fully implemented        | ✅ Required              |
+| Intensity    | ✅ 0-255 reflectivity | ✅ Fully implemented        | ✅ Required              |
+| Elongation   | ❌ Not in protocol    | ❌ Not available            | ✅ Required              |
+| is_in_nlz    | N/A (AV-specific)     | N/A                         | ⚠️ Not applicable        |
 
 ### AV Dataset LiDAR Data Format Reference
 
@@ -31,7 +31,7 @@ From open AV dataset documentation:
 Range Image Structure (per-lidar):
 ├── 4 base channels:
 │   ├── channel 0: range (spherical coordinate distance)
-│   ├── channel 1: lidar intensity  
+│   ├── channel 1: lidar intensity
 │   ├── channel 2: lidar elongation
 │   └── channel 3: is_in_nlz (1 = in, -1 = not in)
 ├── 6 camera projection channels (optional)
@@ -39,6 +39,7 @@ Range Image Structure (per-lidar):
 ```
 
 **Key Characteristics:**
+
 - Range image organizes point cloud in spherical coordinates
 - Rows = inclination (elevation), Columns = azimuth
 - Row 0 = maximum inclination, center column = forward (+X axis)
@@ -47,9 +48,11 @@ Range Image Structure (per-lidar):
 ### Elongation Definition
 
 From AV dataset specification:
+
 > "Lidar elongation refers to the elongation of the pulse beyond its nominal width. Returns with long pulse elongation indicate that the laser reflection is potentially smeared or refracted, such that the return pulse is elongated in time."
 
 **Physical Meaning:**
+
 - Low elongation → clean, sharp reflection surface
 - High elongation → smeared/refracted reflection (edge, transparent, fog)
 
@@ -60,18 +63,21 @@ From AV dataset specification:
 ### 1. Dual Return Parsing (Medium Effort)
 
 **Current State:**
+
 - Parser only extracts single return per channel
 - ReturnMode field (byte 14 of tail) is parsed but not used for dual-return extraction
 - Return modes: 0x37=Strongest, 0x38=Last, 0x39=Last+Strongest
 
 **Gap:**
 When sensor is in dual-return mode (0x39), the Pandar40P sends **two blocks per azimuth position**:
+
 - Block N: Strongest return
 - Block N+1: Last return
 
 Current parser treats all blocks as independent, missing the paired relationship.
 
 **Hesai Dual Return Block Structure:**
+
 ```
 Dual Return Packet (10 blocks = 5 azimuth positions):
 ├── Block 0: Azimuth A, Strongest Return
@@ -86,6 +92,7 @@ Dual Return Packet (10 blocks = 5 azimuth positions):
 **Critical Finding:** The Hesai Pandar40P does not provide elongation data in its packet format.
 
 **Options:**
+
 1. **Compute elongation estimate** from intensity variance across neighboring points
 2. **Use placeholder values** (all zeros) for compatibility
 3. **Upgrade to sensor with elongation** (Hesai QT128, Ouster sensors)
@@ -96,17 +103,20 @@ Dual Return Packet (10 blocks = 5 azimuth positions):
 ### 3. Range Image Format (Medium Effort)
 
 **Current State:**
+
 - Points stored in polar form (`PointPolar`) with azimuth, elevation, distance
 - Frames accumulated as unordered point lists
 - Background grid uses polar organization (rings × azimuth bins)
 
 **Gap:**
 AV format expects 2D image with:
+
 - Fixed number of rows (inclinations/rings)
 - Fixed number of columns (azimuth positions per rotation)
 - Dense grid with null/zero for missing points
 
 **Mapping:**
+
 ```
 AV Range Image                Hesai Pandar40P
 ────────────────             ─────────────────
@@ -121,6 +131,7 @@ channel[3] = is_in_nlz       = always -1 (not applicable)
 ### 4. No-Label Zone (NLZ) (Not Applicable)
 
 The `is_in_nlz` channel marks points that are inside "no-label zones" in AV labeling pipelines. This is annotation metadata, not sensor data. For velocity.report:
+
 - **Default value:** -1 (not in NLZ)
 - **No implementation needed** unless integrating with external annotation systems
 
@@ -135,27 +146,29 @@ The `is_in_nlz` channel marks points that are inside "no-label zones" in AV labe
 **File: `internal/lidar/arena.go`**
 
 Add new field to `Point`:
+
 ```go
 type Point struct {
     // ... existing fields ...
-    
+
     // Dual return support
     ReturnType     uint8   `json:"return_type"`     // 0=strongest, 1=last, 2=second-strongest
-    ReturnIndex    int     `json:"return_index"`    // Which return this is (0 or 1)
-    
+    ReturnIndex    int     `json:"return_index"`    // Which dual return this is (0 or 1)
+
     // Elongation (placeholder for AV format compatibility)
     Elongation     float32 `json:"elongation"`      // Pulse elongation [0.0-1.0], 0=unavailable
-    
-    // NLZ flag (for AV format export compatibility)
-    IsInNLZ        int8    `json:"is_in_nlz"`       // 1=in NLZ, -1=not in NLZ
+
+    // No-Label Zone (NLZ) flag (for AV format export compatibility)
+    IsInNLZ        int8    `json:"is_in_nlz"`       // 1=in NLZ, -1=not in No-Label Zone (NLZ)
 }
 ```
 
 Add to `PointPolar`:
+
 ```go
 type PointPolar struct {
     // ... existing fields ...
-    
+
     ReturnType   uint8   `json:"return_type"`
     ReturnIndex  int     `json:"return_index"`
     Elongation   float32 `json:"elongation"`
@@ -177,17 +190,17 @@ type RangeImage struct {
     SensorID      string    `json:"sensor_id"`
     Timestamp     int64     `json:"timestamp_ns"`
     ReturnIndex   int       `json:"return_index"`    // 0=first return, 1=second return
-    
+
     // Dimensions
     Rows          int       `json:"rows"`            // Number of beams (40 for Pandar40P)
     Cols          int       `json:"cols"`            // Number of azimuth samples per rotation
-    
+
     // Channel data (row-major order: [row * cols + col])
     Range         []float32 `json:"range"`           // Distance in meters (0 = no return)
     Intensity     []uint8   `json:"intensity"`       // Reflectivity [0-255]
     Elongation    []float32 `json:"elongation"`      // Pulse elongation [0-1] (0 = unavailable)
     IsInNLZ       []int8    `json:"is_in_nlz"`       // 1 = in NLZ, -1 = not in NLZ
-    
+
     // Metadata
     BeamInclinations []float64 `json:"beam_inclinations"` // Per-row elevation angles (degrees)
     AzimuthStart     float64   `json:"azimuth_start"`     // Column 0 azimuth (degrees)
@@ -202,10 +215,10 @@ func NewRangeImage(sensorID string, rows, cols int, returnIdx int) *RangeImage {
         ReturnIndex: returnIdx,
         Rows:        rows,
         Cols:        cols,
-        Range:       make([]float32, n),
-        Intensity:   make([]uint8, n),
-        Elongation:  make([]float32, n),
-        IsInNLZ:     make([]int8, n),
+        Range:       make([]float32, totalPixels),
+        Intensity:   make([]uint8, totalPixels),
+        Elongation:  make([]float32, totalPixels),
+        IsInNLZ:     make([]int8, totalPixels),
     }
 }
 
@@ -215,10 +228,10 @@ func (ri *RangeImage) Index(row, col int) int {
 }
 
 // SetPoint populates a single pixel in the range image.
-func (ri *RangeImage) SetPoint(row, col int, rng, intensity float32, elongation float32, isInNLZ int8) {
+func (ri *RangeImage) SetPoint(row, col int, rangeValue, intensity float32, elongation float32, isInNLZ int8) {
     idx := ri.Index(row, col)
     if idx >= 0 && idx < len(ri.Range) {
-        ri.Range[idx] = rng
+        ri.Range[idx] = rangeValue
         ri.Intensity[idx] = uint8(intensity)
         ri.Elongation[idx] = elongation
         ri.IsInNLZ[idx] = isInNLZ
@@ -263,6 +276,7 @@ func GetReturnType(blockIdx int, isDualReturn bool) uint8 {
 ```
 
 Modify `blockToPoints()`:
+
 ```go
 func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *PacketTail) []lidar.PointPolar {
     isDual := tail.IsDualReturn()
@@ -271,9 +285,9 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *Pa
     if isDual && blockIdx%2 == 1 {
         returnIndex = 1
     }
-    
+
     // ... existing code ...
-    
+
     point := lidar.PointPolar{
         // ... existing fields ...
         ReturnType:  returnType,
@@ -297,11 +311,11 @@ func EstimateElongation(points []PointPolar, idx int, neighbors int) float32 {
     if len(points) <= 1 || neighbors <= 0 {
         return 0.0
     }
-    
+
     centerIntensity := float64(points[idx].Intensity)
     variance := 0.0
     count := 0
-    
+
     for i := max(0, idx-neighbors); i <= min(len(points)-1, idx+neighbors); i++ {
         if i != idx {
             diff := float64(points[i].Intensity) - centerIntensity
@@ -309,11 +323,11 @@ func EstimateElongation(points []PointPolar, idx int, neighbors int) float32 {
             count++
         }
     }
-    
+
     if count == 0 {
         return 0.0
     }
-    
+
     // Normalize variance to [0, 1] range
     // Empirical: variance > 2500 (50² intensity difference) = high elongation
     normalizedVar := math.Sqrt(variance / float64(count)) / 50.0
@@ -340,10 +354,10 @@ func (f *LiDARFrame) ToRangeImages(elevations []float64) [2]*RangeImage {
     if rows == 0 {
         rows = 40 // Default for Pandar40P
     }
-    
+
     ri0 := NewRangeImage(f.SensorID, rows, azimuthBins, 0)
     ri1 := NewRangeImage(f.SensorID, rows, azimuthBins, 1)
-    
+
     ri0.Timestamp = f.StartTimestamp.UnixNano()
     ri1.Timestamp = f.StartTimestamp.UnixNano()
     ri0.BeamInclinations = elevations
@@ -352,20 +366,20 @@ func (f *LiDARFrame) ToRangeImages(elevations []float64) [2]*RangeImage {
     ri1.AzimuthStart = -180.0
     ri0.AzimuthStep = 360.0 / float64(azimuthBins)
     ri1.AzimuthStep = 360.0 / float64(azimuthBins)
-    
+
     // Initialize NLZ to -1 (not in NLZ)
     for i := range ri0.IsInNLZ {
         ri0.IsInNLZ[i] = -1
         ri1.IsInNLZ[i] = -1
     }
-    
+
     for _, pt := range f.Points {
         // Map channel to row (subtract 1 for 0-indexed)
         row := pt.Channel - 1
         if row < 0 || row >= rows {
             continue
         }
-        
+
         // Map azimuth to column
         // AV format: column 0 = -X axis (rear), center = +X axis (front)
         // Our azimuth: 0° = front (+X), increasing clockwise
@@ -377,7 +391,7 @@ func (f *LiDARFrame) ToRangeImages(elevations []float64) [2]*RangeImage {
         if col < 0 || col >= azimuthBins {
             continue
         }
-        
+
         // Select target range image based on return index
         var ri *RangeImage
         if pt.ReturnIndex == 0 {
@@ -385,11 +399,11 @@ func (f *LiDARFrame) ToRangeImages(elevations []float64) [2]*RangeImage {
         } else {
             ri = ri1
         }
-        
-        ri.SetPoint(row, col, float32(pt.Distance), float32(pt.Intensity), 
+
+        ri.SetPoint(row, col, float32(pt.Distance), float32(pt.Intensity),
                     pt.Elongation, -1) // NLZ always -1 for street monitoring
     }
-    
+
     return [2]*RangeImage{ri0, ri1}
 }
 ```
@@ -414,11 +428,13 @@ func (ws *WebServer) handleReturnModeConfig(w http.ResponseWriter, r *http.Reque
 ```
 
 Add to route registration:
+
 ```go
 mux.HandleFunc("/api/lidar/return_mode", ws.handleReturnModeConfig)
 ```
 
 **Web UI Changes:**
+
 - Add dropdown in status.html for return mode selection
 - Options: "Strongest (0x37)", "Last (0x38)", "Dual (0x39)"
 - Display current return mode from packet tail
@@ -432,7 +448,7 @@ Add background param for range image settings:
 ```go
 type BackgroundParams struct {
     // ... existing fields ...
-    
+
     // Range image export settings
     RangeImageAzimuthBins int  `json:"range_image_azimuth_bins"` // Default 1800
     EnableRangeImageExport bool `json:"enable_range_image_export"`
@@ -456,7 +472,7 @@ import (
     "os"
 )
 
-// ExportRangeImageToAVFormat exports range images in a format compatible with 
+// ExportRangeImageToAVFormat exports range images in a format compatible with
 // open AV dataset tools.
 func ExportRangeImageToAVFormat(ri *RangeImage, path string) error {
     f, err := os.Create(path)
@@ -464,13 +480,13 @@ func ExportRangeImageToAVFormat(ri *RangeImage, path string) error {
         return err
     }
     defer f.Close()
-    
+
     // Write header
     binary.Write(f, binary.LittleEndian, int32(ri.Rows))
     binary.Write(f, binary.LittleEndian, int32(ri.Cols))
     binary.Write(f, binary.LittleEndian, int32(4)) // 4 channels
     binary.Write(f, binary.LittleEndian, ri.Timestamp)
-    
+
     // Write channel data (interleaved or planar based on AV spec)
     // Channel 0: Range
     for _, v := range ri.Range {
@@ -488,7 +504,7 @@ func ExportRangeImageToAVFormat(ri *RangeImage, path string) error {
     for _, v := range ri.IsInNLZ {
         binary.Write(f, binary.LittleEndian, float32(v))
     }
-    
+
     return nil
 }
 ```
@@ -499,16 +515,16 @@ func ExportRangeImageToAVFormat(ri *RangeImage, path string) error {
 
 ## Implementation Phases Summary
 
-| Phase | Description | Effort | Dependencies |
-|-------|-------------|--------|--------------|
-| 1.1 | Point structure updates | 2h | None |
-| 1.2 | Range image structure | 4h | 1.1 |
-| 2.1 | Dual return parser | 4h | 1.1 |
-| 2.2 | Elongation estimation (optional) | 4h | 1.1 |
-| 3.1 | Range image generation | 6h | 1.2, 2.1 |
-| 4.1 | Web return mode config | 4h | 2.1 |
-| 4.2 | Range image export config | 2h | 1.2 |
-| 5.1 | AV format export | 4h | 3.1 |
+| Phase | Description                      | Effort | Dependencies |
+| ----- | -------------------------------- | ------ | ------------ |
+| 1.1   | Point structure updates          | 2h     | None         |
+| 1.2   | Range image structure            | 4h     | 1.1          |
+| 2.1   | Dual return parser               | 4h     | 1.1          |
+| 2.2   | Elongation estimation (optional) | 4h     | 1.1          |
+| 3.1   | Range image generation           | 6h     | 1.2, 2.1     |
+| 4.1   | Web return mode config           | 4h     | 2.1          |
+| 4.2   | Range image export config        | 2h     | 1.2          |
+| 5.1   | AV format export                 | 4h     | 3.1          |
 
 **Total Estimated Effort:** 26-30 hours (excluding optional elongation estimation)
 
@@ -518,27 +534,28 @@ func ExportRangeImageToAVFormat(ri *RangeImage, path string) error {
 
 ### Required Settings
 
-| Setting | Location | Default | Description |
-|---------|----------|---------|-------------|
-| `return_mode` | `/api/lidar/params` | `0x39` (dual) | Expected return mode for parsing |
-| `range_image_azimuth_bins` | `/api/lidar/params` | 1800 | Azimuth resolution |
-| `enable_range_image_export` | `/api/lidar/params` | false | Enable range image generation |
-| `export_second_return` | `/api/lidar/params` | true | Include second return in exports |
+| Setting                     | Location            | Default       | Description                      |
+| --------------------------- | ------------------- | ------------- | -------------------------------- |
+| `return_mode`               | `/api/lidar/params` | `0x39` (dual) | Expected return mode for parsing |
+| `range_image_azimuth_bins`  | `/api/lidar/params` | 1800          | Azimuth resolution               |
+| `enable_range_image_export` | `/api/lidar/params` | false         | Enable range image generation    |
+| `export_second_return`      | `/api/lidar/params` | true          | Include second return in exports |
 
 ### API Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `GET /api/lidar/return_mode` | GET | Get current return mode |
-| `POST /api/lidar/return_mode` | POST | Set expected return mode |
-| `GET /api/lidar/range_image` | GET | Export current frame as range image |
-| `POST /api/lidar/range_image/config` | POST | Configure range image parameters |
+| Endpoint                             | Method | Description                         |
+| ------------------------------------ | ------ | ----------------------------------- |
+| `GET /api/lidar/return_mode`         | GET    | Get current return mode             |
+| `POST /api/lidar/return_mode`        | POST   | Set expected return mode            |
+| `GET /api/lidar/range_image`         | GET    | Export current frame as range image |
+| `POST /api/lidar/range_image/config` | POST   | Configure range image parameters    |
 
 ---
 
 ## Parser Adaptation Details
 
 ### Current Parser Flow
+
 ```
 UDP Packet (1262/1266 bytes)
     ↓
@@ -552,6 +569,7 @@ FrameBuilder.AddPointsPolar() → Accumulate into LiDARFrame
 ```
 
 ### Modified Parser Flow (with AV format alignment)
+
 ```
 UDP Packet (1262/1266 bytes)
     ↓
@@ -575,15 +593,18 @@ FrameBuilder.AddPointsPolar() → Accumulate into LiDARFrame with return trackin
 ## Limitations and Considerations
 
 ### Hardware Limitations
+
 1. **Elongation not available** from Pandar40P - must use placeholders or estimation
 2. **Fixed beam count** of 40 channels (vs 64-beam in some AV dataset lidars)
 3. **Max range 200m** vs 75m truncation in some datasets (not a problem)
 
 ### Privacy Considerations
+
 - Range image format preserves privacy (no PII, just geometric data)
 - No camera projection channels needed for velocity.report use case
 
 ### Compatibility Notes
+
 - Range image format is compatible with open AV dataset tools but not identical
 - `is_in_nlz` always -1 (no annotation zones in street monitoring)
 - Elongation placeholder (0.0) until sensor upgrade or estimation implemented
@@ -593,17 +614,20 @@ FrameBuilder.AddPointsPolar() → Accumulate into LiDARFrame with return trackin
 ## Testing Strategy
 
 ### Unit Tests
+
 - Test dual return block pairing logic
 - Test range image indexing and population
 - Test azimuth remapping for AV coordinate system
 - Test export file format correctness
 
 ### Integration Tests
+
 - Replay PCAP in dual-return mode, verify both returns captured
 - Export range images, verify dimensions match expected
 - Compare point counts between frame and range image
 
 ### Validation
+
 - Visual inspection of range images in CloudCompare/LidarView
 - Compare against sample AV dataset range images for format alignment
 
@@ -612,6 +636,6 @@ FrameBuilder.AddPointsPolar() → Accumulate into LiDARFrame with return trackin
 ## References
 
 1. Open AV Dataset LiDAR specification (dual returns, elongation, range images)
-2. [Hesai Pandar40P User Manual](https://www.hesaitech.com/uploads/PandarP40P_User_Manual_v2.0.pdf)
+2. [Hesai Pandar40P User Manual](https://www.hesaitech.com/wp-content/uploads/2025/04/Pandar40P_User_Manual_402-en-250410.pdf)
 3. Internal: `internal/lidar/parse/extract.go` - Current parser implementation
 4. Internal: `internal/lidar/docs/reference/packet_analysis_results.md` - Packet structure analysis
