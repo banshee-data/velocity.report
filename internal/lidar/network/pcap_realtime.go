@@ -266,7 +266,25 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 									log.Printf("[ForegroundForwarder] warmup skipping frame: remaining_packets=%d fg_points=%d total_points=%d", warmupRemaining, len(foregroundPoints), len(points))
 								}
 							} else if len(foregroundPoints) > 0 {
-								config.ForegroundForwarder.ForwardForeground(foregroundPoints)
+								// Filter by debug range if configured
+								pointsToForward := foregroundPoints
+								if config.BackgroundManager != nil {
+									params := config.BackgroundManager.GetParams()
+									if params.HasDebugRange() {
+										filtered := make([]lidar.PointPolar, 0, len(foregroundPoints))
+										for _, p := range foregroundPoints {
+											// Channel is 1-based in PointPolar, ring is 0-based in params
+											if params.IsInDebugRange(p.Channel-1, p.Azimuth) {
+												filtered = append(filtered, p)
+											}
+										}
+										pointsToForward = filtered
+									}
+								}
+
+								if len(pointsToForward) > 0 {
+									config.ForegroundForwarder.ForwardForeground(pointsToForward)
+								}
 
 								if packetCount%1000 == 0 {
 									fgRatio := float64(len(foregroundPoints)) / float64(len(points))
