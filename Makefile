@@ -128,18 +128,23 @@ LDFLAGS := -X 'main.version=$(VERSION)' -X 'main.gitSHA=$(GIT_SHA)'
 # =============================================================================
 
 build-radar-linux:
+	@./scripts/ensure-web-stub.sh
 	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o velocity-report-linux-arm64 ./cmd/radar
 
 build-radar-linux-pcap:
+	@./scripts/ensure-web-stub.sh
 	GOOS=linux GOARCH=arm64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-linux-arm64 ./cmd/radar
 
 build-radar-mac:
+	@./scripts/ensure-web-stub.sh
 	GOOS=darwin GOARCH=arm64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-mac-arm64 ./cmd/radar
 
 build-radar-mac-intel:
+	@./scripts/ensure-web-stub.sh
 	GOOS=darwin GOARCH=amd64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-mac-amd64 ./cmd/radar
 
 build-radar-local:
+	@./scripts/ensure-web-stub.sh
 	go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-local ./cmd/radar
 
 build-tools:
