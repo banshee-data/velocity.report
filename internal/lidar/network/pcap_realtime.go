@@ -40,6 +40,12 @@ type RealtimeReplayConfig struct {
 
 	// WarmupPackets skips forwarding for the first N packets to seed background.
 	WarmupPackets int
+
+	// Debug range parameters for focused diagnostics
+	DebugRingMin int     // Min ring index (inclusive, 0 = disabled)
+	DebugRingMax int     // Max ring index (inclusive, 0 = disabled)
+	DebugAzMin   float32 // Min azimuth degrees (inclusive, 0 = disabled)
+	DebugAzMax   float32 // Max azimuth degrees (inclusive, 0 = disabled)
 }
 
 // ReadPCAPFileRealtime reads and replays a PCAP file in real-time, respecting original packet timing.

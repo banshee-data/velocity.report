@@ -331,6 +331,46 @@
               style="font-size: 0.9em; color: #666; margin-left: 4px;">seconds
               (-1 = all)</span>
           </label>
+          <br />
+          <label
+            style="margin-left: 5px; margin-top: 8px; display: inline-block;">
+            <span style="font-weight: 600; margin-right: 6px;">Debug Ring
+              Min:</span>
+            <input type="number" name="debug_ring_min"
+              min="0" max="39" step="1" value="0"
+              style="width: 5em; margin-left: 4px;" />
+            <span style="font-size: 0.9em; color: #666; margin-left: 4px;">(0 =
+              off)</span>
+          </label>
+          <label style="margin-left: 8px;">
+            <span style="font-weight: 600; margin-right: 6px;">Max:</span>
+            <input type="number" name="debug_ring_max"
+              min="0" max="39" step="1" value="0"
+              style="width: 5em; margin-left: 4px;" />
+            <span style="font-size: 0.9em; color: #666; margin-left: 4px;">(0 =
+              off)</span>
+          </label>
+          <br />
+          <label
+            style="margin-left: 5px; margin-top: 8px; display: inline-block;">
+            <span style="font-weight: 600; margin-right: 6px;">Debug Az
+              Min:</span>
+            <input type="number" name="debug_az_min"
+              min="0" max="360" step="0.1" value="0"
+              style="width: 6em; margin-left: 4px;" />
+            <span
+              style="font-size: 0.9em; color: #666; margin-left: 4px;">degrees
+              (0 = off)</span>
+          </label>
+          <label style="margin-left: 8px;">
+            <span style="font-weight: 600; margin-right: 6px;">Max:</span>
+            <input type="number" name="debug_az_max"
+              min="0" max="360" step="0.1" value="0"
+              style="width: 6em; margin-left: 4px;" />
+            <span
+              style="font-size: 0.9em; color: #666; margin-left: 4px;">degrees
+              (0 = off)</span>
+          </label>
           <button type="submit">Run</button>
           {{if .PCAPSafeDir}}
           <span style="font-size: 0.9em; color: #666;">

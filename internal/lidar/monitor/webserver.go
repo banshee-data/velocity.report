@@ -376,7 +376,7 @@ func (ws *WebServer) resolvePCAPPath(candidate string) (string, error) {
 	return canonicalPath, nil
 }
 
-func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRatio float64, startSeconds float64, durationSeconds float64) error {
+func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRatio float64, startSeconds float64, durationSeconds float64, debugRingMin int, debugRingMax int, debugAzMin float32, debugAzMax float32) error {
 	resolvedPath, err := ws.resolvePCAPPath(pcapFile)
 	if err != nil {
 		return err
@@ -453,7 +453,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 
 		var err error
 		if speedMode == "fastest" {
-			err = network.ReadPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, ws.packetForwarder)
+			err = network.ReadPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, ws.packetForwarder, startSeconds, durationSeconds)
 		} else {
 			// Apply PCAP-friendly background params and restore afterward.
 			var restoreParams func()
@@ -493,6 +493,17 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 
 			bgManager := lidar.GetBackgroundManager(ws.sensorID)
 
+			// Apply debug range parameters to background manager if specified
+			if bgManager != nil && (debugRingMin > 0 || debugRingMax > 0 || debugAzMin > 0 || debugAzMax > 0) {
+				params := bgManager.GetParams()
+				params.DebugRingMin = debugRingMin
+				params.DebugRingMax = debugRingMax
+				params.DebugAzMin = debugAzMin
+				params.DebugAzMax = debugAzMax
+				_ = bgManager.SetParams(params)
+				log.Printf("PCAP replay: debug range enabled - rings[%d-%d], azimuth[%.1f-%.1f]", debugRingMin, debugRingMax, debugAzMin, debugAzMax)
+			}
+
 			config := network.RealtimeReplayConfig{
 				SpeedMultiplier:     multiplier,
 				StartSeconds:        startSeconds,
@@ -502,6 +513,10 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 				BackgroundManager:   bgManager,
 				SensorID:            ws.sensorID,
 				WarmupPackets:       500,
+				DebugRingMin:        debugRingMin,
+				DebugRingMax:        debugRingMax,
+				DebugAzMin:          debugAzMin,
+				DebugAzMax:          debugAzMax,
 			}
 
 			err = network.ReadPCAPFileRealtime(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, config)
@@ -2350,6 +2365,8 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	var speedRatio float64 = 1.0
 	var startSeconds float64 = 0
 	var durationSeconds float64 = -1
+	var debugRingMin, debugRingMax int
+	var debugAzMin, debugAzMax float32
 
 	// Accept both JSON and form data
 	contentType := r.Header.Get("Content-Type")
@@ -2362,6 +2379,10 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 			SpeedRatio      float64 `json:"speed_ratio"`
 			StartSeconds    float64 `json:"start_seconds"`
 			DurationSeconds float64 `json:"duration_seconds"`
+			DebugRingMin    int     `json:"debug_ring_min"`
+			DebugRingMax    int     `json:"debug_ring_max"`
+			DebugAzMin      float32 `json:"debug_az_min"`
+			DebugAzMax      float32 `json:"debug_az_max"`
 		}
 		// Set defaults
 		req.DurationSeconds = -1
@@ -2381,6 +2402,10 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		}
 		startSeconds = req.StartSeconds
 		durationSeconds = req.DurationSeconds
+		debugRingMin = req.DebugRingMin
+		debugRingMax = req.DebugRingMax
+		debugAzMin = req.DebugAzMin
+		debugAzMax = req.DebugAzMax
 	} else {
 		// Parse form data (default for HTML forms)
 		if err := r.ParseForm(); err != nil {
@@ -2406,6 +2431,26 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 			}
 		} else {
 			durationSeconds = -1
+		}
+		if v := r.FormValue("debug_ring_min"); v != "" {
+			if i, err := strconv.Atoi(v); err == nil && i >= 0 {
+				debugRingMin = i
+			}
+		}
+		if v := r.FormValue("debug_ring_max"); v != "" {
+			if i, err := strconv.Atoi(v); err == nil && i >= 0 {
+				debugRingMax = i
+			}
+		}
+		if v := r.FormValue("debug_az_min"); v != "" {
+			if f, err := strconv.ParseFloat(v, 32); err == nil && f >= 0 {
+				debugAzMin = float32(f)
+			}
+		}
+		if v := r.FormValue("debug_az_max"); v != "" {
+			if f, err := strconv.ParseFloat(v, 32); err == nil && f >= 0 {
+				debugAzMax = float32(f)
+			}
 		}
 	}
 
@@ -2437,7 +2482,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := ws.startPCAPLocked(pcapFile, speedMode, speedRatio, startSeconds, durationSeconds); err != nil {
+	if err := ws.startPCAPLocked(pcapFile, speedMode, speedRatio, startSeconds, durationSeconds, debugRingMin, debugRingMax, debugAzMin, debugAzMax); err != nil {
 		var sErr *switchError
 		if errors.As(err, &sErr) {
 			ws.writeJSONError(w, sErr.status, sErr.Error())
@@ -2514,12 +2559,19 @@ func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 	ws.pcapDone = nil
 	ws.pcapMu.Unlock()
 
+	// Release dataSourceMu before waiting for goroutine completion to avoid deadlock
+	// (the PCAP goroutine needs dataSourceMu to finish)
+	ws.dataSourceMu.Unlock()
+
 	if cancel != nil {
 		cancel()
 	}
 	if done != nil {
 		<-done
 	}
+
+	// Reacquire dataSourceMu for subsequent operations
+	ws.dataSourceMu.Lock()
 
 	// If in analysis mode, only reset grid if explicitly requested
 	ws.pcapMu.Lock()
