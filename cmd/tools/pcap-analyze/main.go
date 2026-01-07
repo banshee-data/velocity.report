@@ -419,7 +419,8 @@ func analyzePCAP(config Config) (*AnalysisResult, error) {
 	// Use shared PCAP reading infrastructure from internal/lidar/network
 	// No forwarder needed for offline analysis
 	ctx := context.Background()
-	if err := network.ReadPCAPFile(ctx, config.PCAPFile, config.UDPPort, parser, frameBuilder, stats, nil); err != nil {
+	// pcap-analyze always processes full file (startSeconds=0, durationSeconds=-1)
+	if err := network.ReadPCAPFile(ctx, config.PCAPFile, config.UDPPort, parser, frameBuilder, stats, nil, 0, -1); err != nil {
 		return nil, fmt.Errorf("failed to read PCAP: %w", err)
 	}
 

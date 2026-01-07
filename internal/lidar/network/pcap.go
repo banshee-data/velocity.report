@@ -17,7 +17,8 @@ import (
 // ReadPCAPFile reads and processes LiDAR packets from a PCAP file.
 // If forwarder is not nil, packets are forwarded to the configured destination.
 // This function is only available when building with the 'pcap' build tag.
-func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Parser, frameBuilder FrameBuilder, stats PacketStatsInterface, forwarder *PacketForwarder) error {
+// startSeconds and durationSeconds allow subsection replay (startSeconds=0, durationSeconds=-1 means full file).
+func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Parser, frameBuilder FrameBuilder, stats PacketStatsInterface, forwarder *PacketForwarder, startSeconds float64, durationSeconds float64) error {
 	// Open PCAP file
 	handle, err := pcap.OpenOffline(pcapFile)
 	if err != nil {
@@ -37,6 +38,11 @@ func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Pars
 	totalPoints := 0
 	startTime := time.Now()
 
+	var firstPacketTime time.Time
+	var startThreshold time.Time
+	var endThreshold time.Time
+	skippingToStart := startSeconds > 0
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -47,6 +53,37 @@ func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Pars
 				// End of PCAP file
 				elapsed := time.Since(startTime)
 				log.Printf("PCAP file reading complete: %d packets processed in %v", packetCount, elapsed)
+				return nil
+			}
+
+			// Calculate start/end thresholds on first packet
+			captureTime := packet.Metadata().Timestamp
+			if firstPacketTime.IsZero() {
+				firstPacketTime = captureTime
+				if startSeconds > 0 {
+					startThreshold = firstPacketTime.Add(time.Duration(startSeconds * float64(time.Second)))
+				}
+				if durationSeconds > 0 {
+					endThreshold = startThreshold.Add(time.Duration(durationSeconds * float64(time.Second)))
+				} else if startSeconds > 0 {
+					// If start is set but duration is -1, play until end
+					endThreshold = time.Time{}
+				}
+			}
+
+			// Skip packets before start threshold
+			if skippingToStart && !startThreshold.IsZero() && captureTime.Before(startThreshold) {
+				continue
+			}
+			if skippingToStart {
+				skippingToStart = false
+				log.Printf("PCAP replay: started at %.2fs offset", startSeconds)
+			}
+
+			// Stop if we've reached the end threshold
+			if !endThreshold.IsZero() && captureTime.After(endThreshold) {
+				elapsed := time.Since(startTime)
+				log.Printf("PCAP replay complete: reached duration limit of %.2fs (processed %d packets in %v)", durationSeconds, packetCount, elapsed)
 				return nil
 			}
 
