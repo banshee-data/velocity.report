@@ -14,18 +14,28 @@ type ForegroundForwarder interface {
 
 // TrackingPipelineConfig holds dependencies for the tracking pipeline callback.
 type TrackingPipelineConfig struct {
-	BackgroundManager *BackgroundManager
-	FgForwarder       ForegroundForwarder // Use interface to avoid import cycle
-	Tracker           *Tracker
-	Classifier        *TrackClassifier
-	DB                *sql.DB // Use standard sql.DB to avoid import cycle with db package
-	SensorID          string
-	DebugMode         bool
+	BackgroundManager  *BackgroundManager
+	FgForwarder        ForegroundForwarder // Use interface to avoid import cycle
+	Tracker            *Tracker
+	Classifier         *TrackClassifier
+	DB                 *sql.DB // Use standard sql.DB to avoid import cycle with db package
+	SensorID           string
+	DebugMode          bool
+	AnalysisRunManager *AnalysisRunManager // Optional: for recording analysis runs
 }
 
 // NewFrameCallback creates a FrameBuilder callback that processes frames through
 // the full tracking pipeline: foreground extraction, clustering, tracking, and persistence.
 func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
+	// Get AnalysisRunManager from registry if not explicitly set
+	// This allows analysis runs to be started/stopped dynamically via webserver
+	getRunManager := func() *AnalysisRunManager {
+		if cfg.AnalysisRunManager != nil {
+			return cfg.AnalysisRunManager
+		}
+		return GetAnalysisRunManager(cfg.SensorID)
+	}
+
 	return func(frame *LiDARFrame) {
 		if frame == nil || len(frame.Points) == 0 {
 			return
@@ -153,6 +163,12 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 			return
 		}
 
+		// Record clusters for analysis run if active
+		if runManager := getRunManager(); runManager != nil && runManager.IsRunActive() {
+			runManager.RecordFrame()
+			runManager.RecordClusters(len(clusters))
+		}
+
 		// Always log clustering for tracking debugging
 		Debugf("[Tracking] Clustered into %d objects", len(clusters))
 
@@ -171,6 +187,11 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 			// Classify if not already classified and has enough observations
 			if track.ObjectClass == "" && track.ObservationCount >= 5 && cfg.Classifier != nil {
 				cfg.Classifier.ClassifyAndUpdate(track)
+			}
+
+			// Record track for analysis run if active
+			if runManager := getRunManager(); runManager != nil && runManager.IsRunActive() {
+				runManager.RecordTrack(track)
 			}
 
 			// Persist track to database
