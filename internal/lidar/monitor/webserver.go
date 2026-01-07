@@ -406,8 +406,9 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 	ws.pcapSpeedRatio = speedRatio
 	ws.pcapMu.Unlock()
 
-	go func(path string, ctx context.Context, finished chan struct{}) {
+	go func(path string, ctx context.Context, cancel context.CancelFunc, finished chan struct{}) {
 		defer close(finished)
+		defer cancel()
 		log.Printf("Starting PCAP replay from file: %s (sensor: %s, mode: %s, ratio: %.2f)", path, ws.sensorID, speedMode, speedRatio)
 
 		// Check if we should start an analysis run (only in analysis mode)
@@ -579,7 +580,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 			}
 		}
 		ws.dataSourceMu.Unlock()
-	}(resolvedPath, ctx, done)
+	}(resolvedPath, ctx, cancel, done)
 
 	return nil
 }
