@@ -11,7 +11,7 @@ Core system design and implementation specifications.
 - **Technical overview** of the LiDAR sidecar architecture
 - **Foreground tracking pipeline** implementation plan (Phases 2.9–3.7)
 - **Background grid standards** comparison with industry formats
-- **Waymo format alignment** design for dual-return and range image support
+- **AV range image format alignment** design for dual-return and range image support
 
 Start here to understand how the system works.
 
@@ -66,7 +66,7 @@ Historical analysis artifacts from background parameter tuning. Contains sweep r
 | ----------------------- | ------------------------------------------------ |
 | System overview         | `architecture/lidar_sidecar_overview.md`         |
 | Tracking implementation | `architecture/foreground_tracking_plan.md`       |
-| Waymo format alignment  | `architecture/waymo-format-alignment.md`         |
+| AV range image format   | `architecture/av-range-image-format-alignment.md`|
 | Current issues          | `operations/lidar-foreground-tracking-status.md` |
 | ML pipeline             | `roadmap/ml_pipeline_roadmap.md`                 |
 | Packet format           | `reference/packet_analysis_results.md`           |

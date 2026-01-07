@@ -1,21 +1,21 @@
-# Waymo Open Dataset LiDAR Format Alignment
+# AV Range Image Format Alignment
 
 ## Executive Summary
 
-This design document outlines the changes required to align the velocity.report Hesai capture format with the Waymo Open Dataset lidar data specification. The key alignment areas are:
+This design document outlines the changes required to align the velocity.report Hesai capture format with the open AV dataset lidar data specification (dual returns, elongation, range images). The key alignment areas are:
 
 1. **Dual Return Support**: Capture and store both strongest returns (already supported by Hesai Pandar40P)
 2. **Elongation Measurement**: Add pulse elongation to point data structure
 3. **Range Image Format**: Organize point cloud data as 2D range images
-4. **Channel Structure**: Align with Waymo's 4-channel format (range, intensity, elongation, is_in_nlz)
+4. **Channel Structure**: Align with standard AV 4-channel format (range, intensity, elongation, is_in_nlz)
 
 ## Current State Analysis
 
 ### Hesai Pandar40P Capabilities
 
-The Hesai Pandar40P sensor natively supports the core features needed for Waymo alignment:
+The Hesai Pandar40P sensor natively supports the core features needed for AV format alignment:
 
-| Feature | Hesai Native Support | Current Implementation | Waymo Requirement |
+| Feature | Hesai Native Support | Current Implementation | AV Format Requirement |
 |---------|---------------------|----------------------|------------------|
 | Dual Returns | ✅ ReturnMode 0x39 | ⚠️ Only first return parsed | ✅ Two strongest returns |
 | Range | ✅ 4mm resolution | ✅ Fully implemented | ✅ Required |
@@ -23,9 +23,9 @@ The Hesai Pandar40P sensor natively supports the core features needed for Waymo 
 | Elongation | ❌ Not in protocol | ❌ Not available | ✅ Required |
 | is_in_nlz | N/A (AV-specific) | N/A | ⚠️ Not applicable |
 
-### Waymo LiDAR Data Format Reference
+### AV Dataset LiDAR Data Format Reference
 
-From Waymo Open Dataset documentation:
+From open AV dataset documentation:
 
 ```
 Range Image Structure (per-lidar):
@@ -46,7 +46,7 @@ Range Image Structure (per-lidar):
 
 ### Elongation Definition
 
-From Waymo:
+From AV dataset specification:
 > "Lidar elongation refers to the elongation of the pulse beyond its nominal width. Returns with long pulse elongation indicate that the laser reflection is potentially smeared or refracted, such that the return pulse is elongated in time."
 
 **Physical Meaning:**
@@ -101,14 +101,14 @@ Dual Return Packet (10 blocks = 5 azimuth positions):
 - Background grid uses polar organization (rings × azimuth bins)
 
 **Gap:**
-Waymo format expects 2D image with:
+AV format expects 2D image with:
 - Fixed number of rows (inclinations/rings)
 - Fixed number of columns (azimuth positions per rotation)
 - Dense grid with null/zero for missing points
 
 **Mapping:**
 ```
-Waymo Range Image             Hesai Pandar40P
+AV Range Image                Hesai Pandar40P
 ────────────────             ─────────────────
 rows = beam count            rows = 40 channels
 cols = azimuth samples       cols = ~1800 per rotation (at 10Hz)
@@ -120,7 +120,7 @@ channel[3] = is_in_nlz       = always -1 (not applicable)
 
 ### 4. No-Label Zone (NLZ) (Not Applicable)
 
-The `is_in_nlz` channel marks points that are inside "no-label zones" in Waymo's labeling pipeline. This is annotation metadata, not sensor data. For velocity.report:
+The `is_in_nlz` channel marks points that are inside "no-label zones" in AV labeling pipelines. This is annotation metadata, not sensor data. For velocity.report:
 - **Default value:** -1 (not in NLZ)
 - **No implementation needed** unless integrating with external annotation systems
 
@@ -143,10 +143,10 @@ type Point struct {
     ReturnType     uint8   `json:"return_type"`     // 0=strongest, 1=last, 2=second-strongest
     ReturnIndex    int     `json:"return_index"`    // Which return this is (0 or 1)
     
-    // Elongation (placeholder for Waymo compatibility)
+    // Elongation (placeholder for AV format compatibility)
     Elongation     float32 `json:"elongation"`      // Pulse elongation [0.0-1.0], 0=unavailable
     
-    // NLZ flag (for Waymo export compatibility)
+    // NLZ flag (for AV format export compatibility)
     IsInNLZ        int8    `json:"is_in_nlz"`       // 1=in NLZ, -1=not in NLZ
 }
 ```
@@ -172,7 +172,7 @@ type PointPolar struct {
 package lidar
 
 // RangeImage represents a lidar frame as a 2D image in spherical coordinates
-// following the Waymo Open Dataset format specification.
+// following the open AV dataset format specification.
 type RangeImage struct {
     SensorID      string    `json:"sensor_id"`
     Timestamp     int64     `json:"timestamp_ns"`
@@ -332,7 +332,7 @@ func EstimateElongation(points []PointPolar, idx int, neighbors int) float32 {
 Add method to convert LiDARFrame to RangeImage:
 
 ```go
-// ToRangeImages converts a LiDARFrame to Waymo-style range images.
+// ToRangeImages converts a LiDARFrame to AV-style range images.
 // Returns two range images: [0] = first/strongest return, [1] = second/last return
 func (f *LiDARFrame) ToRangeImages(elevations []float64) [2]*RangeImage {
     const azimuthBins = 1800 // 0.2° resolution for 360°
@@ -367,7 +367,7 @@ func (f *LiDARFrame) ToRangeImages(elevations []float64) [2]*RangeImage {
         }
         
         // Map azimuth to column
-        // Waymo: column 0 = -X axis (rear), center = +X axis (front)
+        // AV format: column 0 = -X axis (rear), center = +X axis (front)
         // Our azimuth: 0° = front (+X), increasing clockwise
         azimuthOffset := pt.Azimuth + 180.0
         if azimuthOffset >= 360.0 {
@@ -444,9 +444,9 @@ type BackgroundParams struct {
 
 ### Phase 5: Export Formats
 
-#### 5.1 Waymo-Compatible Export
+#### 5.1 AV-Compatible Export
 
-**File: `internal/lidar/export_waymo.go` (new file)**
+**File: `internal/lidar/export_av_format.go` (new file)**
 
 ```go
 package lidar
@@ -456,9 +456,9 @@ import (
     "os"
 )
 
-// ExportRangeImageToWaymo exports range images in a format compatible with 
-// Waymo Open Dataset tools.
-func ExportRangeImageToWaymo(ri *RangeImage, path string) error {
+// ExportRangeImageToAVFormat exports range images in a format compatible with 
+// open AV dataset tools.
+func ExportRangeImageToAVFormat(ri *RangeImage, path string) error {
     f, err := os.Create(path)
     if err != nil {
         return err
@@ -471,7 +471,7 @@ func ExportRangeImageToWaymo(ri *RangeImage, path string) error {
     binary.Write(f, binary.LittleEndian, int32(4)) // 4 channels
     binary.Write(f, binary.LittleEndian, ri.Timestamp)
     
-    // Write channel data (interleaved or planar based on Waymo spec)
+    // Write channel data (interleaved or planar based on AV spec)
     // Channel 0: Range
     for _, v := range ri.Range {
         binary.Write(f, binary.LittleEndian, v)
@@ -508,7 +508,7 @@ func ExportRangeImageToWaymo(ri *RangeImage, path string) error {
 | 3.1 | Range image generation | 6h | 1.2, 2.1 |
 | 4.1 | Web return mode config | 4h | 2.1 |
 | 4.2 | Range image export config | 2h | 1.2 |
-| 5.1 | Waymo export format | 4h | 3.1 |
+| 5.1 | AV format export | 4h | 3.1 |
 
 **Total Estimated Effort:** 26-30 hours (excluding optional elongation estimation)
 
@@ -551,7 +551,7 @@ blockToPoints() → Apply calibration, generate PointPolar[]
 FrameBuilder.AddPointsPolar() → Accumulate into LiDARFrame
 ```
 
-### Modified Parser Flow (with Waymo alignment)
+### Modified Parser Flow (with AV format alignment)
 ```
 UDP Packet (1262/1266 bytes)
     ↓
@@ -567,7 +567,7 @@ blockToPoints() → Apply calibration, add ReturnType, generate PointPolar[]
     ↓
 FrameBuilder.AddPointsPolar() → Accumulate into LiDARFrame with return tracking
     ↓
-(Optional) ToRangeImages() → Generate Waymo-compatible range images
+(Optional) ToRangeImages() → Generate AV-compatible range images
 ```
 
 ---
@@ -576,15 +576,15 @@ FrameBuilder.AddPointsPolar() → Accumulate into LiDARFrame with return trackin
 
 ### Hardware Limitations
 1. **Elongation not available** from Pandar40P - must use placeholders or estimation
-2. **Fixed beam count** of 40 channels (vs Waymo's 64-beam top lidar)
-3. **Max range 200m** vs Waymo's 75m truncation (not a problem)
+2. **Fixed beam count** of 40 channels (vs 64-beam in some AV dataset lidars)
+3. **Max range 200m** vs 75m truncation in some datasets (not a problem)
 
 ### Privacy Considerations
 - Range image format preserves privacy (no PII, just geometric data)
 - No camera projection channels needed for velocity.report use case
 
 ### Compatibility Notes
-- Range image format is compatible with Waymo tools but not identical
+- Range image format is compatible with open AV dataset tools but not identical
 - `is_in_nlz` always -1 (no annotation zones in street monitoring)
 - Elongation placeholder (0.0) until sensor upgrade or estimation implemented
 
@@ -595,7 +595,7 @@ FrameBuilder.AddPointsPolar() → Accumulate into LiDARFrame with return trackin
 ### Unit Tests
 - Test dual return block pairing logic
 - Test range image indexing and population
-- Test azimuth remapping for Waymo coordinate system
+- Test azimuth remapping for AV coordinate system
 - Test export file format correctness
 
 ### Integration Tests
@@ -605,13 +605,13 @@ FrameBuilder.AddPointsPolar() → Accumulate into LiDARFrame with return trackin
 
 ### Validation
 - Visual inspection of range images in CloudCompare/LidarView
-- Compare against sample Waymo range images for format alignment
+- Compare against sample AV dataset range images for format alignment
 
 ---
 
 ## References
 
-1. [Waymo Open Dataset - LiDAR Data](https://waymo.com/intl/fil/open/data/perception/#lidar-data)
+1. Open AV Dataset LiDAR specification (dual returns, elongation, range images)
 2. [Hesai Pandar40P User Manual](https://www.hesaitech.com/uploads/PandarP40P_User_Manual_v2.0.pdf)
 3. Internal: `internal/lidar/parse/extract.go` - Current parser implementation
 4. Internal: `internal/lidar/docs/reference/packet_analysis_results.md` - Packet structure analysis
