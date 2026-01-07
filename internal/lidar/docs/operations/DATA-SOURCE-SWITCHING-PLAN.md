@@ -221,7 +221,7 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
 
 ### Phase 4: Documentation & Migration Guide
 
-1. Update `lidar_sidecar_overview.md` to remove PCAP mode flag
+1. Update `../architecture/lidar_sidecar_overview.md` to remove PCAP mode flag
 2. Update `cmd/radar/README.md` with new workflow
 3. Add migration guide for users of `--lidar-pcap-mode`
 4. Update API documentation with new endpoint
@@ -267,7 +267,7 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
    - Update `stats-pcap` / API targets to call start/stop helpers
 
 6. **Documentation Updates** (~100 lines changed)
-   - `internal/lidar/docs/lidar_sidecar_overview.md` - remove PCAP mode flag references
+   - `internal/lidar/docs/architecture/lidar_sidecar_overview.md` - remove PCAP mode flag references
    - `cmd/radar/README.md` - update with new API workflow
    - `scripts/api/README.md` - document new endpoint
    - Add migration guide for `--lidar-pcap-mode` users

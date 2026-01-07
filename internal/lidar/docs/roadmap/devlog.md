@@ -113,7 +113,7 @@ pcap-analyze -pcap capture.pcap -db ./analysis.db -output ./results
   - `TrackSummary` struct (PoseID)
 - Updated SQL schemas to remove `pose_id` columns from:
   - `lidar_clusters` table
-  - `lidar_tracks` table  
+  - `lidar_tracks` table
   - `lidar_track_obs` table
 - Updated track_store.go database functions to remove poseID parameters
 - Updated track_api.go to use simplified UpdateTrack signature

@@ -22,6 +22,11 @@ type BackgroundParams struct {
 	SafetyMarginMeters             float32 // e.g., 0.5
 	FreezeDurationNanos            int64   // e.g., 5e9 (5s)
 	NeighborConfirmationCount      int     // e.g., 5 of 8 neighbors
+	WarmupDurationNanos            int64   // optional extra settle time before emitting foreground
+	WarmupMinFrames                int     // optional minimum frames before considering settled
+	PostSettleUpdateFraction       float32 // optional lower alpha after settle for stability
+	ForegroundMinClusterPoints     int     // min points for a cluster to be forwarded/considered
+	ForegroundDBSCANEps            float32 // clustering radius for foreground gating
 	// NoiseRelativeFraction is the fraction of range (distance) to treat as
 	// expected measurement noise. This allows closeness thresholds to grow
 	// with distance so that farther returns (which naturally have larger
@@ -34,10 +39,64 @@ type BackgroundParams struct {
 	// replay mode where there is no prior live-warmup data; default: false.
 	SeedFromFirstObservation bool
 
+	// ReacquisitionBoostMultiplier controls how much faster cells re-acquire
+	// background after a foreground event. When a cell that recently saw foreground
+	// receives an observation matching the prior background, the effective alpha
+	// is multiplied by this factor for faster convergence. Default: 5.0.
+	// Set to 1.0 to disable the boost.
+	ReacquisitionBoostMultiplier float32
+
+	// MinConfidenceFloor is the minimum TimesSeenCount to preserve during foreground
+	// observations. This prevents cells from completely "forgetting" their settled
+	// background when a vehicle passes through. Default: 3.
+	MinConfidenceFloor uint32
+
+	// Debug logging region (only active if EnableDiagnostics is true)
+	DebugRingMin int     // Min ring index (inclusive)
+	DebugRingMax int     // Max ring index (inclusive)
+	DebugAzMin   float32 // Min azimuth degrees (inclusive)
+	DebugAzMax   float32 // Max azimuth degrees (inclusive)
+
 	// Additional params for persistence matching schema requirements
 	SettlingPeriodNanos        int64 // 5 minutes before first snapshot
 	SnapshotIntervalNanos      int64 // 2 hours between snapshots
 	ChangeThresholdForSnapshot int   // min changed cells to trigger snapshot
+}
+
+// HasDebugRange returns true if any debug range parameters are set.
+func (p BackgroundParams) HasDebugRange() bool {
+	return p.DebugRingMax > 0 || p.DebugRingMin > 0 || p.DebugAzMax > 0 || p.DebugAzMin > 0
+}
+
+// IsInDebugRange returns true if the given ring and azimuth fall within the configured debug range.
+// If no range is configured, it returns false.
+func (p BackgroundParams) IsInDebugRange(ring int, az float64) bool {
+	hasRingLimit := p.DebugRingMax > 0 || p.DebugRingMin > 0
+	hasAzLimit := p.DebugAzMax > 0 || p.DebugAzMin > 0
+
+	if !hasRingLimit && !hasAzLimit {
+		return false
+	}
+
+	if hasRingLimit {
+		if ring < p.DebugRingMin || ring > p.DebugRingMax {
+			return false
+		}
+	}
+
+	if hasAzLimit {
+		// Normalize azimuth into [0,360)
+		normAz := math.Mod(az, 360.0)
+		if normAz < 0 {
+			normAz += 360.0
+		}
+		az32 := float32(normAz)
+		if az32 < p.DebugAzMin || az32 > p.DebugAzMax {
+			return false
+		}
+	}
+
+	return true
 }
 
 // BackgroundCell matches the compressed storage format for schema persistence
@@ -47,6 +106,10 @@ type BackgroundCell struct {
 	TimesSeenCount       uint32
 	LastUpdateUnixNanos  int64
 	FrozenUntilUnixNanos int64
+	// RecentForegroundCount tracks consecutive foreground observations.
+	// Used for fast re-acquisition: when this is >0 and observation matches
+	// background, we apply boosted alpha for faster convergence.
+	RecentForegroundCount uint16
 }
 
 // BackgroundGrid enhanced for schema persistence and 100-track performance
@@ -131,6 +194,18 @@ func (bm *BackgroundManager) GetParams() BackgroundParams {
 	return g.Params
 }
 
+// SetParams replaces the manager's BackgroundParams atomically.
+func (bm *BackgroundManager) SetParams(p BackgroundParams) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	g.Params = p
+	g.mu.Unlock()
+	return nil
+}
+
 // SetNoiseRelativeFraction safely updates the NoiseRelativeFraction parameter.
 func (bm *BackgroundManager) SetNoiseRelativeFraction(v float32) error {
 	if bm == nil || bm.Grid == nil {
@@ -175,6 +250,48 @@ func (bm *BackgroundManager) SetSeedFromFirstObservation(v bool) error {
 	g := bm.Grid
 	g.mu.Lock()
 	g.Params.SeedFromFirstObservation = v
+	g.mu.Unlock()
+	return nil
+}
+
+// SetWarmupParams updates settle duration/frame requirements.
+func (bm *BackgroundManager) SetWarmupParams(durationNanos int64, minFrames int) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	g.Params.WarmupDurationNanos = durationNanos
+	g.Params.WarmupMinFrames = minFrames
+	g.mu.Unlock()
+	return nil
+}
+
+// SetPostSettleUpdateFraction updates the post-settle alpha.
+func (bm *BackgroundManager) SetPostSettleUpdateFraction(v float32) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	g.Params.PostSettleUpdateFraction = v
+	g.mu.Unlock()
+	return nil
+}
+
+// SetForegroundClusterParams updates the minimum cluster size and eps used for foreground gating.
+func (bm *BackgroundManager) SetForegroundClusterParams(minPts int, eps float32) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	if minPts > 0 {
+		g.Params.ForegroundMinClusterPoints = minPts
+	}
+	if eps > 0 {
+		g.Params.ForegroundDBSCANEps = eps
+	}
 	g.mu.Unlock()
 	return nil
 }
@@ -638,6 +755,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	if alpha <= 0 || alpha > 1 {
 		alpha = 0.02
 	}
+	effectiveAlpha := alpha
 	// Defer reading runtime-tunable params that may be updated concurrently
 	// (via setters which take g.mu) until we hold the grid lock to avoid
 	// data races and inconsistent thresholds.
@@ -659,6 +777,34 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 
 	// Iterate over observed cells and update grid
 	g.mu.Lock()
+	if bm.StartTime.IsZero() {
+		bm.StartTime = now
+	}
+	if g.WarmupFramesRemaining == 0 && g.Params.WarmupMinFrames > 0 && !g.SettlingComplete {
+		g.WarmupFramesRemaining = g.Params.WarmupMinFrames
+	}
+	postSettleAlpha := float64(g.Params.PostSettleUpdateFraction)
+	if postSettleAlpha > 0 && postSettleAlpha <= 1 && g.SettlingComplete {
+		effectiveAlpha = postSettleAlpha
+	}
+	if !g.SettlingComplete {
+		framesReady := g.Params.WarmupMinFrames <= 0 || g.WarmupFramesRemaining <= 0
+		durReady := g.Params.WarmupDurationNanos <= 0 || (nowNanos-bm.StartTime.UnixNano() >= g.Params.WarmupDurationNanos)
+		if framesReady && durReady {
+			g.SettlingComplete = true
+			if postSettleAlpha > 0 && postSettleAlpha <= 1 {
+				effectiveAlpha = postSettleAlpha
+			}
+		} else {
+			if g.WarmupFramesRemaining > 0 {
+				g.WarmupFramesRemaining--
+			}
+			effectiveAlpha = alpha
+		}
+	}
+	if effectiveAlpha <= 0 || effectiveAlpha > 1 {
+		effectiveAlpha = alpha
+	}
 	// read noiseRel under lock
 	noiseRel := float64(g.Params.NoiseRelativeFraction)
 	if noiseRel <= 0 {
@@ -775,11 +921,11 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 					g.nonzeroCellCount++
 				} else {
 					oldAvg := float64(cell.AverageRangeMeters)
-					newAvg := (1.0-alpha)*oldAvg + alpha*observationMean
+					newAvg := (1.0-effectiveAlpha)*oldAvg + effectiveAlpha*observationMean
 					// update spread as EMA of absolute deviation from the previous mean
 					// using oldAvg avoids scaling the deviation by alpha twice (alpha^2)
 					deviation := math.Abs(observationMean - oldAvg)
-					newSpread := (1.0-alpha)*float64(cell.RangeSpreadMeters) + alpha*deviation
+					newSpread := (1.0-effectiveAlpha)*float64(cell.RangeSpreadMeters) + effectiveAlpha*deviation
 					cell.AverageRangeMeters = float32(newAvg)
 					cell.RangeSpreadMeters = float32(newSpread)
 					cell.TimesSeenCount++
@@ -1027,9 +1173,10 @@ func (bm *BackgroundManager) ToASCPoints() []PointASC {
 }
 
 // ExportBackgroundGridToASC exports the background grid using the shared ASC export utility.
-func (bm *BackgroundManager) ExportBackgroundGridToASC(filePath string) error {
+// Returns the actual path where the file was written.
+func (bm *BackgroundManager) ExportBackgroundGridToASC() (string, error) {
 	points := bm.ToASCPoints()
-	return ExportPointsToASC(points, filePath, " AverageRangeMeters TimesSeenCount")
+	return ExportPointsToASC(points, " AverageRangeMeters TimesSeenCount")
 }
 
 // ExportedCell represents a background cell for API consumption

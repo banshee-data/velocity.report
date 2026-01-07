@@ -418,6 +418,33 @@ type DuplicateSnapshotGroup struct {
 	SensorID    string  // sensor ID for this group
 }
 
+// CountUniqueBgSnapshotHashes counts the total number of unique grid_blob hashes
+// for a sensor, including both duplicates and singletons.
+func (db *DB) CountUniqueBgSnapshotHashes(sensorID string) (int, error) {
+	q := `SELECT grid_blob
+		  FROM lidar_bg_snapshot
+		  WHERE sensor_id = ?`
+
+	rows, err := db.Query(q, sensorID)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	hashSet := make(map[string]struct{})
+	for rows.Next() {
+		var blob []byte
+		if err := rows.Scan(&blob); err != nil {
+			return 0, err
+		}
+		h := sha256.Sum256(blob)
+		hashHex := hex.EncodeToString(h[:])
+		hashSet[hashHex] = struct{}{}
+	}
+
+	return len(hashSet), nil
+}
+
 // FindDuplicateBgSnapshots finds groups of snapshots with identical grid_blob data.
 // Returns groups where Count > 1 (i.e., duplicates exist).
 func (db *DB) FindDuplicateBgSnapshots(sensorID string) ([]DuplicateSnapshotGroup, error) {

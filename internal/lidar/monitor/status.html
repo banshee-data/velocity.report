@@ -21,6 +21,15 @@
         <td>{{.PCAPFile}}</td>
       </tr>
       {{end}}
+      {{if .PCAPInProgress}}
+      <tr>
+        <td>
+          <strong>PCAP Speed Mode:</strong>
+        </td>
+        <td>{{.PCAPSpeedMode}}{{if .PCAPSpeedRatio}} (ratio: {{printf "%.2f"
+          .PCAPSpeedRatio}}){{end}}</td>
+      </tr>
+      {{end}}
       <tr>
         <td>
           <strong>PCAP In Progress:</strong>
@@ -69,47 +78,31 @@
 
     {{if .BGParams}}
     <h2>Background Subtraction Parameters</h2>
+
+    <!-- JSON Editor Form -->
+    <h3>Update Parameters (JSON)</h3>
+    <form action="/api/lidar/params?sensor_id={{.SensorID}}" method="POST">
+      <textarea name="config_json" rows="{{.BGParamsJSONLines}}"
+        style="width: 26em; font-family: monospace; font-size: 13px; padding: 6px; border: 1px solid #ccc;">{{.BGParamsJSON}}</textarea>
+      <button type="submit">Update
+        Params</button>
+    </form>
+
     <table border="1" cellpadding="5" cellspacing="0">
+      {{range .BGParamDefs}}
       <tr>
         <td>
-          <strong>Noise Relative Fraction:</strong>
+          <strong>{{.Label}}:</strong>
         </td>
-        <td>{{printf "%.4f"
-          .BGParams.NoiseRelativeFraction}}</td>
-      </tr>
-      <tr>
         <td>
-          <strong>Closeness Sensitivity Multiplier:</strong>
+          {{if .Format}}
+          {{printf .Format .Value}}
+          {{else}}
+          {{.Value}}
+          {{end}}
         </td>
-        <td>{{printf "%.2f"
-          .BGParams.ClosenessSensitivityMultiplier}}</td>
       </tr>
-      <tr>
-        <td>
-          <strong>Neighbor Confirmation Count:</strong>
-        </td>
-        <td>{{.BGParams.NeighborConfirmationCount}}</td>
-      </tr>
-      <tr>
-        <td>
-          <strong>Background Update Fraction:</strong>
-        </td>
-        <td>{{printf
-          "%.4f" .BGParams.BackgroundUpdateFraction}}</td>
-      </tr>
-      <tr>
-        <td>
-          <strong>Safety Margin (meters):</strong>
-        </td>
-        <td>{{printf "%.2f"
-          .BGParams.SafetyMarginMeters}}</td>
-      </tr>
-      <tr>
-        <td>
-          <strong>Seed From First Observation:</strong>
-        </td>
-        <td>{{.BGParams.SeedFromFirstObservation}}</td>
-      </tr>
+      {{end}}
     </table>
     {{end}}
 
@@ -131,6 +124,24 @@
     <p><em>No statistics available yet...</em></p>
     {{end}}
 
+    {{if .FgSnapshotCounts}}
+    <h2>Latest Foreground Snapshot</h2>
+    <table border="1" cellpadding="5" cellspacing="0">
+      <tr>
+        <td><strong>Total Points:</strong></td>
+        <td>{{index .FgSnapshotCounts "total"}}</td>
+      </tr>
+      <tr>
+        <td><strong>Foreground Points:</strong></td>
+        <td>{{index .FgSnapshotCounts "foreground"}}</td>
+      </tr>
+      <tr>
+        <td><strong>Background Points:</strong></td>
+        <td>{{index .FgSnapshotCounts "background"}}</td>
+      </tr>
+    </table>
+    {{end}}
+
     <h2>API Endpoints</h2>
 
     <h3>System</h3>
@@ -141,6 +152,11 @@
       <li>
         <a href="/api/lidar/status?sensor_id={{.SensorID}}" target="_blank">
           LiDAR Status (JSON)
+        </a>
+      </li>
+      <li>
+        <a href="/api/lidar/monitor?sensor_id={{.SensorID}}" target="_blank">
+          LiDAR Monitor (HTML)
         </a>
       </li>
       <li>
@@ -182,9 +198,12 @@
         </a>
       </li>
       <li>
-        <a href="/api/lidar/grid_reset?sensor_id={{.SensorID}}" target="_blank">
-          Reset Grid
-        </a>
+        <form action="/api/lidar/grid_reset?sensor_id={{.SensorID}}"
+          method="POST" target="_blank" style="display:inline; margin:0;">
+          <button type="submit"
+            onclick="return confirm('Reset grid for sensor {{.SensorID}}? This will clear the in-memory background grid.');">Reset
+            Grid</button>
+        </form>
       </li>
       <li>
         <a href="/debug/lidar/background/polar?sensor_id={{.SensorID}}"
@@ -218,6 +237,18 @@
         </a>
       </li>
       <li>
+        <a href="/api/lidar/snapshots/cleanup?sensor_id={{.SensorID}}"
+          target="_blank">
+          Analyze / Cleanup Duplicate Snapshots
+        </a>
+      </li>
+      <li>
+        <a
+          href="/api/lidar/snapshots/cleanup?sensor_id={{.SensorID}}&remove=true"
+          target="_blank">
+          &#x1F6A8; DELETE Duplicate Snapshots &#x1F6A8;
+        </a>
+      </li> <li>
         <a href="/api/lidar/export_snapshot?sensor_id={{.SensorID}}">
           Export Latest Snapshot to ASC
         </a>
@@ -225,6 +256,11 @@
       <li>
         <a href="/api/lidar/export_next_frame?sensor_id={{.SensorID}}">
           Export Next Completed Frame to ASC
+        </a>
+      </li>
+      <li>
+        <a href="/api/lidar/export_frame_sequence?sensor_id={{.SensorID}}">
+          Export Sequence (1 bg + 5 frames + 5 foreground)
         </a>
       </li>
     </ul>
@@ -260,6 +296,22 @@
             <input type="checkbox" name="analysis_mode" value="true" />
             Analysis Mode (preserve grid)
           </label>
+          <label style="margin-left: 8px;">
+            <span style="font-weight: 600; margin-right: 6px;">Speed:</span>
+            <select name="speed_mode" id="pcap-speed-mode-{{.SensorID}}"
+              style="margin-left: 4px;">
+              <option value="fastest">Fastest</option>
+              <option value="realtime" selected>Realtime (1x)</option>
+              <option value="fixed">Fixed ratio</option>
+            </select>
+          </label>
+          <label style="margin-left: 8px;">
+            <input type="number" name="speed_ratio"
+              id="pcap-speed-ratio-{{.SensorID}}" min="0.01" step="0.1"
+              value="1.0" style="width: 6em; margin-left: 4px;" disabled />
+            <span style="font-size: 0.9em; color: #666; margin-left: 4px;">ratio
+              (when fixed)</span>
+          </label>
           <button type="submit">Run</button>
           {{if .PCAPSafeDir}}
           <span style="font-size: 0.9em; color: #666;">
@@ -267,6 +319,22 @@
           </span>
           {{end}}
         </form>
+        <script>
+          (function() {
+            try {
+              var select = document.getElementById('pcap-speed-mode-{{.SensorID}}');
+              var ratio = document.getElementById('pcap-speed-ratio-{{.SensorID}}');
+              if (!select || !ratio) return;
+              function update() {
+                ratio.disabled = (select.value !== 'fixed');
+              }
+              select.addEventListener('change', update);
+              update();
+            } catch (e) {
+              // no-op: keep template resilient to missing elements
+            }
+          })();
+        </script>
       </li>
       <li>
         <a href="/api/lidar/pcap/stop?sensor_id={{.SensorID}}" target="_blank">
@@ -317,6 +385,12 @@
         </a>
       </li>
       <li>
+        <a href="/api/lidar/export_foreground?sensor_id={{.SensorID}}"
+          target="_blank">
+          Export Latest Foreground to ASC
+        </a>
+      </li>
+      <li>
         <a href="/debug/lidar/tracks?sensor_id={{.SensorID}}" target="_blank">
           Tracks (visual)
         </a>
@@ -325,7 +399,8 @@
         <form action="/api/lidar/tracks/clear" method="post" target="_blank"
           style="margin: 0;">
           <input type="hidden" name="sensor_id" value="{{.SensorID}}" />
-          <button type="submit">Clear Tracks + Observations (danger)</button>
+          <button type="submit">&#x1F6A8; Clear Tracks + Observations
+            &#x1F6A8;</button>
           <span style="font-size: 0.9em; color: #666;">Deletes all
             tracks/obs/clusters for this sensor.</span>
         </form>

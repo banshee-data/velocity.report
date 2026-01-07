@@ -85,6 +85,7 @@ help:
 	@echo "  log-go-tail          Tail most recent Go server log"
 	@echo "  log-go-cat           Cat most recent Go server log"
 	@echo "  log-go-tail-all      Tail most recent Go server log plus debug log"
+	@echo "  git-fs               Show the git files that differ from main"
 	@echo ""
 	@echo "DATA VISUALIZATION:"
 	@echo "  plot-noise-sweep     Generate noise sweep line plot (FILE=data.csv)"
@@ -118,7 +119,7 @@ help:
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-VERSION := 0.4.0-pre3
+VERSION := 0.0.4-pre4
 GIT_SHA := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 LDFLAGS := -X 'main.version=$(VERSION)' -X 'main.gitSHA=$(GIT_SHA)'
 
@@ -345,7 +346,7 @@ dev-go:
 	@$(call run_dev_go)
 
 dev-go-lidar:
-	@$(call run_dev_go,--enable-lidar --lidar-bg-flush-interval=60s --lidar-seed-from-first=true --lidar-forward)
+	@$(call run_dev_go,--disable-radar --enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward)
 
 dev-go-kill-server:
 	@$(call run_dev_go_kill_server)
@@ -666,7 +667,7 @@ deploy-health:
 # UTILITIES
 # =============================================================================
 
-.PHONY: set-version log-go-tail log-go-cat log-go-tail-all
+.PHONY: set-version log-go-tail log-go-cat log-go-tail-all git-fs
 
 set-version:
 	@if [ -z "$(VER)" ]; then \
@@ -720,6 +721,10 @@ log-go-tail-all:
 	else \
 		echo "No logs found in logs/ (try: make dev-go)"; exit 1; \
 	fi
+
+git-fs:
+	@git fetch origin main >/dev/null 2>&1 || true; \
+	git diff --name-only --diff-filter=ACMRTUXB origin/main...HEAD -- "$(or $(DIR),.)" | sort -u
 
 # =============================================================================
 # DATA VISUALIZATION

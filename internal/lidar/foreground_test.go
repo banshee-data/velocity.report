@@ -274,3 +274,156 @@ func TestProcessFramePolarWithMask_FrozenCell(t *testing.T) {
 		t.Errorf("expected frozen cell to be treated as foreground")
 	}
 }
+
+func TestProcessFramePolarWithMask_FastReacquisition(t *testing.T) {
+	// Test that cells recover quickly from foreground events
+	// Use a larger grid to allow neighbor confirmation to work
+	g := makeTestGridStrict(4, 16)
+	g.Params.ReacquisitionBoostMultiplier = 5.0 // 5x faster re-acquisition
+	g.Params.MinConfidenceFloor = 3             // Preserve minimum confidence
+	g.Params.BackgroundUpdateFraction = 0.1     // 10% base alpha
+	g.Params.SafetyMarginMeters = 0.1           // Tight safety for this test
+	g.Params.NeighborConfirmationCount = 0      // 0 to disable neighbor confirmation
+	g.Params.ClosenessSensitivityMultiplier = 1.0
+	g.Params.NoiseRelativeFraction = 0.01
+	g.Params.FreezeDurationNanos = 0 // Disable freeze for this test
+	bm := g.Manager
+
+	// Initialize background at 10m with multiple observations to build confidence
+	for i := 0; i < 10; i++ {
+		_, _ = bm.ProcessFramePolarWithMask([]PointPolar{{Channel: 1, Azimuth: 0.0, Distance: 10.0}})
+	}
+
+	idx := g.Idx(0, 0)
+	initialSeenCount := g.Cells[idx].TimesSeenCount
+	if initialSeenCount < 5 {
+		t.Fatalf("expected high confidence after 10 observations, got TimesSeenCount=%d", initialSeenCount)
+	}
+
+	// Calculate expected threshold
+	spread := g.Cells[idx].RangeSpreadMeters
+	noiseRel := g.Params.NoiseRelativeFraction
+	closenessMultiplier := g.Params.ClosenessSensitivityMultiplier
+	safety := g.Params.SafetyMarginMeters
+	threshold := float64(closenessMultiplier)*(float64(spread)+float64(noiseRel)*10.0+0.01) + float64(safety)
+	t.Logf("After 10 bg observations: avg=%.2f, spread=%.4f, seen=%d, recentFg=%d, threshold=%.4f",
+		g.Cells[idx].AverageRangeMeters, spread, g.Cells[idx].TimesSeenCount,
+		g.Cells[idx].RecentForegroundCount, threshold)
+
+	// Now simulate a vehicle passing through (foreground at 3m - 7m from 10m background)
+	for i := 0; i < 5; i++ {
+		mask, _ := bm.ProcessFramePolarWithMask([]PointPolar{{Channel: 1, Azimuth: 0.0, Distance: 3.0}})
+		diff := 7.0 // |10-3|
+		if !mask[0] {
+			t.Errorf("iteration %d: expected 3m to be foreground (diff=%.2f > threshold=%.4f)", i, diff, threshold)
+		}
+	}
+
+	// Check that RecentForegroundCount increased and confidence was preserved
+	afterFgSeenCount := g.Cells[idx].TimesSeenCount
+	recentFgCount := g.Cells[idx].RecentForegroundCount
+	t.Logf("After 5 fg observations: avg=%.2f, seen=%d, recentFg=%d",
+		g.Cells[idx].AverageRangeMeters, afterFgSeenCount, recentFgCount)
+
+	// All 5 should have been foreground
+	if recentFgCount != 5 {
+		t.Errorf("expected RecentForegroundCount=5 after 5 foreground events, got %d", recentFgCount)
+	}
+
+	// TimesSeenCount should have decremented but not below floor
+	expectedSeen := uint32(10) - 5 // Started at 10, decremented 5 times
+	if expectedSeen < 3 {
+		expectedSeen = 3 // Floor kicks in
+	}
+	if afterFgSeenCount != expectedSeen && afterFgSeenCount < 3 {
+		t.Errorf("expected TimesSeenCount ~= %d (floor=3), got %d", expectedSeen, afterFgSeenCount)
+	}
+
+	// Now vehicle leaves - observation at 10m should match background
+	avgBefore := g.Cells[idx].AverageRangeMeters
+	mask, _ := bm.ProcessFramePolarWithMask([]PointPolar{{Channel: 1, Azimuth: 0.0, Distance: 10.0}})
+
+	if mask[0] {
+		t.Errorf("expected 10m observation to be classified as background after vehicle leaves")
+	}
+
+	avgAfter := g.Cells[idx].AverageRangeMeters
+	t.Logf("Re-acquisition: avg before=%.3f, after=%.3f, delta=%.4f",
+		avgBefore, avgAfter, avgAfter-avgBefore)
+
+	// RecentForegroundCount should have decremented
+	afterReacqFgCount := g.Cells[idx].RecentForegroundCount
+	if afterReacqFgCount >= recentFgCount {
+		t.Errorf("expected RecentForegroundCount to decrease after background observation, was %d now %d",
+			recentFgCount, afterReacqFgCount)
+	}
+}
+
+func TestProcessFramePolarWithMask_MinConfidenceFloor(t *testing.T) {
+	// Test that MinConfidenceFloor prevents complete confidence drain
+	g := makeTestGridStrict(2, 8)
+	g.Params.MinConfidenceFloor = 5 // Higher floor for this test
+	bm := g.Manager
+
+	// Build up significant confidence
+	for i := 0; i < 20; i++ {
+		_, _ = bm.ProcessFramePolarWithMask([]PointPolar{{Channel: 1, Azimuth: 0.0, Distance: 10.0}})
+	}
+
+	idx := g.Idx(0, 0)
+	t.Logf("After 20 observations: TimesSeenCount=%d", g.Cells[idx].TimesSeenCount)
+
+	// Hammer with foreground observations
+	for i := 0; i < 50; i++ {
+		_, _ = bm.ProcessFramePolarWithMask([]PointPolar{{Channel: 1, Azimuth: 0.0, Distance: 3.0}})
+	}
+
+	// TimesSeenCount should not drop below MinConfidenceFloor
+	finalCount := g.Cells[idx].TimesSeenCount
+	t.Logf("After 50 foreground observations: TimesSeenCount=%d", finalCount)
+
+	if finalCount < 5 {
+		t.Errorf("expected TimesSeenCount >= MinConfidenceFloor (5), got %d", finalCount)
+	}
+
+	// Average should be preserved at original value since we didn't update it
+	if g.Cells[idx].AverageRangeMeters < 9.5 || g.Cells[idx].AverageRangeMeters > 10.5 {
+		t.Errorf("expected AverageRangeMeters to be preserved around 10m, got %.2f", g.Cells[idx].AverageRangeMeters)
+	}
+}
+
+func TestProcessFramePolarWithMask_ReacquisitionBoostCapped(t *testing.T) {
+	// Test that boosted alpha is capped at 0.5 to prevent instability
+	g := makeTestGridStrict(2, 8)
+	g.Params.ReacquisitionBoostMultiplier = 100.0 // Extreme boost
+	g.Params.BackgroundUpdateFraction = 0.2       // 20% base
+	g.Params.MinConfidenceFloor = 0               // Allow full drain for this test
+	bm := g.Manager
+
+	// Initialize at 10m
+	_, _ = bm.ProcessFramePolarWithMask([]PointPolar{{Channel: 1, Azimuth: 0.0, Distance: 10.0}})
+	_, _ = bm.ProcessFramePolarWithMask([]PointPolar{{Channel: 1, Azimuth: 0.0, Distance: 10.0}})
+
+	idx := g.Idx(0, 0)
+
+	// Create foreground condition
+	_, _ = bm.ProcessFramePolarWithMask([]PointPolar{{Channel: 1, Azimuth: 0.0, Distance: 3.0}})
+	_, _ = bm.ProcessFramePolarWithMask([]PointPolar{{Channel: 1, Azimuth: 0.0, Distance: 3.0}})
+
+	avgBefore := g.Cells[idx].AverageRangeMeters
+
+	// Return to background - should use capped alpha of 0.5
+	_, _ = bm.ProcessFramePolarWithMask([]PointPolar{{Channel: 1, Azimuth: 0.0, Distance: 20.0}})
+
+	avgAfter := g.Cells[idx].AverageRangeMeters
+	delta := float64(avgAfter - avgBefore)
+
+	// With alpha=0.5 and target=20, delta should be 0.5*(20-10)=5 max
+	// (actual depends on current avg which may have drifted)
+	t.Logf("Capped boost test: avgBefore=%.2f, avgAfter=%.2f, delta=%.2f", avgBefore, avgAfter, delta)
+
+	// The key test is that we didn't jump all the way to 20m (which would be alpha=1.0)
+	if avgAfter >= 20.0 {
+		t.Errorf("expected boosted alpha to be capped, but avg jumped to %.2f", avgAfter)
+	}
+}

@@ -14,6 +14,7 @@
 **This plan is DEFERRED for traffic monitoring deployments.**
 
 The 7DOF tracking features in this document are **not required** for the core traffic monitoring use case. The current implementation uses a simpler 2D+velocity model which is sufficient for:
+
 - Vehicle/pedestrian counting
 - Speed measurement
 - Traffic flow analysis
@@ -21,6 +22,7 @@ The 7DOF tracking features in this document are **not required** for the core tr
 **Implemented instead:** See `velocity-coherent-foreground-extraction.md` for the simplified approach.
 
 **When to implement this plan:**
+
 - AV dataset integration (importing Waymo/nuScenes data for training)
 - Research applications requiring precise 3D bounding boxes
 - Integration with AV perception pipelines
@@ -34,7 +36,7 @@ The 7DOF tracking features in this document are **not required** for the core tr
 | 6-state Kalman | EMA smoothing |
 | 28-class taxonomy | 4 classes |
 
-See `lidar-foreground-tracking-status.md` §4 for full simplification rationale.
+See `../operations/lidar-foreground-tracking-status.md` §4 for full simplification rationale.
 
 ---
 
@@ -51,6 +53,7 @@ This document outlines **Step 1** of the LIDAR ML pipeline: Reading Hesai Pandar
 **AV Industry Standard Compatibility:**
 
 This implementation supports the AV industry standard labeling specification with:
+
 - 28 fine-grained semantic categories (see `av-lidar-integration-plan.md`)
 - Instance segmentation for Vehicle, Pedestrian, and Cyclist classes
 - Consistent tracking IDs across frames
@@ -945,8 +948,8 @@ sudo systemctl start velocity-report
 ## Related Documents
 
 - **Future Architecture:** `motion-capture-architecture.md` (complete future spec)
-- **Current Tracking:** `foreground_tracking_plan.md` (existing implementation)
-- **Schema:** `schema.sql` (database structure)
+- **Current Tracking:** `../architecture/foreground_tracking_plan.md` (existing implementation)
+- **Schema:** `../reference/schema.sql` (database structure)
 
 ---
 

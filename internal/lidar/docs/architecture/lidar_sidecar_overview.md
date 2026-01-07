@@ -1,8 +1,9 @@
 # LiDAR Sidecar — Technical Implementation Overview
 
-**Status:** Phase 3.7 completed (Analysis Run Infrastructure), Phase 4.0 in progress (Track Labeling UI)
+**Status:** Phase 3.7 completed — Foreground streaming (Port 2370) working, live param tuning working
 **Scope:** Hesai UDP → parse → frame assembly → background subtraction → foreground mask → clustering → tracking → classification → HTTP API → ML data export → Analysis Runs
-**Current Focus:** Foreground Tracking & Export Investigation (See `docs/investigations/lidar-foreground-tracking-status.md`)
+**Current Focus:** Performance optimization & foreground trail investigation (See `../operations/lidar-foreground-tracking-status.md`)
+**Active Issues:** (1) Foreground "trails" after objects pass, (2) M1 CPU usage optimization
 
 ---
 
@@ -142,9 +143,6 @@
 ```bash
 # Basic analysis
 pcap-analyze -pcap capture.pcap -output ./results
-
-# With ML training data export
-pcap-analyze -pcap capture.pcap -training -output ./ml_data
 ```
 
 ### ✅ **Phase 3.7: Analysis Run Infrastructure (COMPLETED)**
@@ -178,7 +176,7 @@ pcap-analyze -pcap capture.pcap -training -output ./ml_data
 - **Production Deployment**: Documentation for multi-node edge deployment
 - **UI Visualization**: Track display components in web frontend
 
-> **See also:** [ML Pipeline Roadmap](ml_pipeline_roadmap.md) for detailed Phase 4.0-4.3 architecture (labeling UI, ML training, parameter tuning, production)
+> **See also:** [ML Pipeline Roadmap](../roadmap/ml_pipeline_roadmap.md) for detailed Phase 4.0-4.3 architecture (labeling UI, ML training, parameter tuning, production)
 
 ---
 

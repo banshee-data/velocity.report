@@ -48,6 +48,7 @@ Automated PCAP segmentation tool that:
 ```
 
 **Expected Output**:
+
 ```
 out-motion-0.pcap    # Depart → Stop A (3 min)
 out-static-0.pcap    # Stop A parking (5 min)
@@ -57,6 +58,7 @@ out-motion-2.pcap    # Return journey (variable)
 ```
 
 **Key Requirements**:
+
 - Keep 30-second intersection pauses within motion segments
 - Only split after 60+ seconds of continuous stability (configurable)
 - Precise cut times at exact moment motion stops
@@ -70,6 +72,7 @@ out-motion-2.pcap    # Return journey (variable)
 ```
 
 **Expected Output**:
+
 ```
 out-static-0.pcap    # 4 hours stable
 out-motion-0.pcap    # 30s movement
@@ -87,6 +90,7 @@ done
 ```
 
 Analysts can then:
+
 - Compare settling rates across locations
 - Identify problematic environments (moving trees, vibration)
 - Validate sensor mounting stability
@@ -96,12 +100,14 @@ Analysts can then:
 ### Functional Requirements
 
 **FR1: PCAP Input Processing**
+
 - Read standard PCAP/PCAPNG files
 - Parse Hesai Pandar40P UDP packets (port 2369)
 - Support files from 1GB to 100GB+
 - Handle packet loss gracefully
 
 **FR2: Background Settling Detection**
+
 - Load PCAP through existing `BackgroundManager` pipeline
 - Monitor frame-by-frame settling metrics:
   - Percent nonzero cells in last frame
@@ -111,18 +117,21 @@ Analysts can then:
 - Classify each frame as "stable" or "in-motion"
 
 **FR3: Motion/Static Classification**
+
 - **Stable State**: Background metrics stable for 60+ seconds (configurable)
 - **Motion State**: Background metrics showing change/disruption
 - Hysteresis to prevent chattering at transitions
 - Configurable settling threshold (default: 60s continuous stability)
 
 **FR4: PCAP Segmentation**
+
 - Split input PCAP at detected transition points
 - Output separate files for each motion/static segment
 - Preserve packet integrity (no truncated frames)
 - Sequential numbering: `out-static-0.pcap`, `out-motion-0.pcap`, `out-static-1.pcap`, ...
 
 **FR5: Timestamp Alignment**
+
 - Track timestamps for each segment:
   - Per-frame timestamp (LiDAR sensor time)
   - PCAP file offset
@@ -130,6 +139,7 @@ Analysts can then:
 - Export CSV with segment timing metadata
 
 **FR6: Configurable Parameters**
+
 - Settling duration threshold (default: 60s)
 - Settled cell threshold (default: varies by environment)
 - Minimum segment duration (default: 5s, prevents micro-segments)
@@ -138,22 +148,26 @@ Analysts can then:
 ### Non-Functional Requirements
 
 **NFR1: Performance**
+
 - Process 80K packets (28.7M points) in < 30 seconds
 - Memory usage < 2GB for typical PCAP files
 - Streaming processing (no full PCAP load required)
 
 **NFR2: Reliability**
+
 - Graceful handling of malformed packets
 - Checkpoint/resume for interrupted processing
 - Validation of output PCAP integrity
 
 **NFR3: Usability**
+
 - Single command execution
 - Clear progress reporting
 - Human-readable output summaries
 - JSON metadata for programmatic access
 
 **NFR4: Maintainability**
+
 - Reuse existing `internal/lidar` components
 - Follow repository conventions (Makefile, testing, docs)
 - Comprehensive unit tests (target: 80%+ coverage)
@@ -194,11 +208,13 @@ Analysts can then:
 **Location**: `internal/lidar/network/pcap.go`
 
 **Existing Capabilities**:
+
 - `ReadPCAPFile()` - Reads PCAP, filters UDP, parses packets
 - Integrates with `Parser` and `FrameBuilder` interfaces
 - Reports packet statistics
 
 **Usage in pcap-split**:
+
 ```go
 ctx := context.Background()
 parser := parse.NewPandar40PParser(config)
@@ -213,6 +229,7 @@ err := network.ReadPCAPFile(ctx, inputFile, 2369, parser, analyzer, stats)
 **Location**: `internal/lidar/pcapsplit/analyzer.go` (new package)
 
 **Responsibilities**:
+
 - Implements `network.FrameBuilder` interface (including `SetMotorSpeed()`)
 - Processes frames through `BackgroundManager`
 - Tracks settling metrics per frame
@@ -329,6 +346,7 @@ func (a *SettlingAnalyzer) classifyFrame(metrics FrameMetrics) State {
 **Location**: `internal/lidar/pcapsplit/writer.go` (new package)
 
 **Responsibilities**:
+
 - Buffer packets for current segment
 - Write complete segments to disk on transition
 - Generate sequential filenames
@@ -405,6 +423,7 @@ func (w *SegmentWriter) flushCurrentSegment() error {
 **Location**: `cmd/tools/pcap-split/main.go`
 
 **Responsibilities**:
+
 - Parse CLI flags
 - Initialize components
 - Coordinate processing pipeline
@@ -835,16 +854,19 @@ func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time
 ### Performance Optimization
 
 **1. Streaming Processing**
+
 - Never load entire PCAP into memory
 - Process packet-by-packet with buffering
 - Flush segments to disk immediately on transition
 
 **2. Background Manager Efficiency**
+
 - Reuse existing optimized grid structure (40×1800 = 72K cells)
 - Lock-free metrics reading where possible
 - Batch metric computations per frame
 
 **3. Packet Buffering**
+
 - Buffer packets for current segment only (~100MB typical)
 - Pre-allocate buffer capacity based on estimated segment size
 - Immediate write on state transition to free memory
@@ -852,40 +874,48 @@ func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time
 ### Edge Cases
 
 **1. Very Short Segments**
+
 ```
 [Motion 2s] → [Static 3s] → [Motion 2s]
 ```
 
 **Handling**: Apply `min-segment-sec` threshold (default 5s)
+
 - Segments < threshold are merged with previous segment
 - Prevents micro-segments from intersection bumps
 
 **2. Ambiguous Settling**
+
 ```
 [Motion] → [Settling: oscillating metrics] → [Static?]
 ```
 
 **Handling**: Hysteresis in state machine
+
 - Require sustained stability (60s default) before declaring static
 - Brief disruptions during settling don't restart counter
 - Use frozen cell count as additional signal
 
 **3. Long Intersection Wait**
+
 ```
 [Motion] → [Red light: 45s stopped] → [Motion]
 ```
 
 **Handling**: `max-motion-gap-sec` parameter (default 30s)
+
 - Stops < 30s remain in motion segment
 - Stops > 30s trigger static segment
 - Configurable for different use cases
 
 **4. PCAP Ends During Settling**
+
 ```
 [Motion] → [Settling 30s] → [EOF]
 ```
 
 **Handling**: Finalize partial segment
+
 - Write incomplete segment with metadata flag
 - Note settling was incomplete in metadata
 - Still useful for analysis with caveat
@@ -893,16 +923,19 @@ func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time
 ### Error Handling
 
 **1. Malformed Packets**
+
 - Skip packet, log warning
 - Continue processing
 - Report in summary (X packets skipped)
 
 **2. Disk Full During Write**
+
 - Abort gracefully
 - Clean up incomplete segment file
 - Report error with partial progress
 
 **3. Parser Failure**
+
 - Log detailed error with packet offset
 - Attempt to continue with next packet
 - Include error count in summary
@@ -910,18 +943,21 @@ func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time
 ### Testing Strategy
 
 **Unit Tests**:
+
 - State machine logic (all transitions)
 - Metric computation (edge cases)
 - Segment naming and sequencing
 - Metadata generation
 
 **Integration Tests**:
+
 - Small test PCAPs with known transitions
 - Validate output PCAP integrity
 - Verify split point accuracy
 - Metadata consistency checks
 
 **Performance Tests**:
+
 - Large PCAP processing (1GB+)
 - Memory usage profiling
 - CPU utilization monitoring
@@ -931,17 +967,20 @@ func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time
 ### Phase 1: Core Infrastructure (Week 1)
 
 **1.1 Package Structure**
+
 - Create `internal/lidar/pcapsplit/` package
 - Set up test infrastructure
 - Add to build system (Makefile targets)
 
 **1.2 Background Manager API Extensions**
+
 - Implement `GetFrameSettlingMetrics(settledThreshold uint32)`
 - Implement `GetNoiseBoundsDeviation()`
 - Implement `IsWithinNoiseBounds(threshold float64)`
 - Add unit tests for new methods
 
 **1.3 Basic State Machine**
+
 - Implement state definitions and transitions
 - Basic classification logic (simplified)
 - Unit tests for state machine
@@ -949,18 +988,21 @@ func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time
 ### Phase 2: PCAP Splitting Logic (Week 2)
 
 **2.1 Settling Analyzer**
+
 - Implement `FrameBuilder` interface
 - Integrate with `BackgroundManager`
 - Metric tracking per frame
 - State classification algorithm
 
 **2.2 Segment Writer**
+
 - PCAP file writing (using gopacket)
 - Sequential filename generation
 - Packet buffering and flushing
 - Output validation
 
 **2.3 Integration Tests**
+
 - Create small test PCAP files
 - Known motion/static transitions
 - Validate split accuracy
@@ -968,16 +1010,19 @@ func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time
 ### Phase 3: CLI Tool (Week 3)
 
 **3.1 Command-Line Interface**
+
 - Flag parsing and validation
 - Usage documentation
 - Error handling and reporting
 
 **3.2 Orchestrator**
+
 - Coordinate reader/analyzer/writer
 - Progress reporting
 - Summary generation
 
 **3.3 Metadata Export**
+
 - JSON segment metadata
 - CSV frame metrics
 - Human-readable summary
@@ -985,17 +1030,20 @@ func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time
 ### Phase 4: Polish and Documentation (Week 4)
 
 **4.1 Performance Optimization**
+
 - Profile and optimize hot paths
 - Memory usage optimization
 - Benchmark against target specs
 
 **4.2 Documentation**
+
 - User guide (this document)
 - README for tool
 - Code examples
 - Troubleshooting guide
 
 **4.3 Testing and Validation**
+
 - Real-world PCAP testing
 - Edge case validation
 - Performance verification
@@ -1034,36 +1082,41 @@ func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time
 ### Phase 5+: Advanced Features
 
 **1. Multi-Sensor Support**
+
 - Process multiple sensors simultaneously
 - Cross-sensor motion correlation
 - Fused motion detection
 
 **2. Real-Time Mode**
+
 - Live UDP streaming with on-the-fly splitting
 - Continuous segmentation during collection
 - Automatic archival of completed segments
 
 **3. ML-Based Classification**
+
 - Train model on labeled motion/static data
 - More accurate transition detection
 - Adaptive thresholds per environment
 
 **4. Visualization**
+
 - Web UI for segment review
 - Interactive timeline of motion/static periods
 - Settling metric plots
 
 **5. Cloud Integration**
+
 - S3/blob storage output
 - Distributed processing for large datasets
 - API for programmatic access
 
 ## Related Documentation
 
-- [PCAP Analysis Mode](pcap-analysis-mode.md) - Web UI analysis workflow
-- Background Subtraction (see [`internal/lidar/background.go`](../../internal/lidar/background.go)) - Settling algorithm details
-- [LIDAR Tracking Integration](lidar-tracking-integration.md) - Object detection pipeline
-- [Architecture](../../ARCHITECTURE.md) - System overview
+- [PCAP Analysis Mode](../operations/pcap-analysis-mode.md) - Web UI analysis workflow
+- Background Subtraction (see [`internal/lidar/background.go`](../../background.go)) - Settling algorithm details
+- [LIDAR Tracking Integration](../roadmap/lidar-tracking-integration.md) - Object detection pipeline
+- [Architecture](../../../../ARCHITECTURE.md) - System overview
 
 ## Glossary
 
@@ -1089,6 +1142,6 @@ func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time
 
 ## Revision History
 
-| Version | Date       | Author  | Changes                    |
-|---------|------------|---------|----------------------------|
-| 1.0     | 2025-12-06 | Ictinus | Initial design document    |
+| Version | Date       | Author  | Changes                 |
+| ------- | ---------- | ------- | ----------------------- |
+| 1.0     | 2025-12-06 | Ictinus | Initial design document |

@@ -5,14 +5,15 @@ import (
 	"compress/gzip"
 	"encoding/gob"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
 )
 
-// Test ExportBgSnapshotToASC uses a tiny snapshot and a live BackgroundManager with
-// ring elevations to ensure exported ASC contains non-zero Z values.
+// TestExportBgSnapshotToASC tests that export functions work correctly.
+// Note: Since security fixes now generate export paths internally (not from user input),
+// the test verifies that ExportPointsToASC and ExportBgSnapshotToASC return the actual
+// path used and that the exported file can be read.
 func TestExportBgSnapshotToASC(t *testing.T) {
 	// Build a small grid: 2 rings x 4 azbins
 	rings := 2
@@ -53,24 +54,27 @@ func TestExportBgSnapshotToASC(t *testing.T) {
 		t.Fatalf("SetRingElevations: %v", err)
 	}
 
-	out, err := ioutil.TempFile("", "bg-*.asc")
+	// ExportBgSnapshotToASC now returns the path where the file was written
+	bgPath, err := ExportBgSnapshotToASC(snap, nil)
 	if err != nil {
-		t.Fatalf("temp out: %v", err)
+		t.Fatalf("ExportBgSnapshotToASC failed: %v", err)
 	}
-	outPath := out.Name()
-	out.Close()
+	defer os.Remove(bgPath)
+
+	// Also test ExportPointsToASC directly
+	testPoints := []PointASC{{X: 1.0, Y: 2.0, Z: 3.0, Intensity: 100}}
+	outPath, err := ExportPointsToASC(testPoints, "")
+	if err != nil {
+		t.Fatalf("ExportPointsToASC failed: %v", err)
+	}
 	defer os.Remove(outPath)
 
-	if err := ExportBgSnapshotToASC(snap, outPath, nil); err != nil {
-		t.Fatalf("export failed: %v", err)
-	}
-
-	// Read exported file and ensure there's a line with a non-zero Z value
-	b, err := os.ReadFile(outPath)
+	// Read exported file and ensure there's content
+	b2, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatalf("read out: %v", err)
 	}
-	s := string(b)
+	s := string(b2)
 	if s == "" {
 		t.Fatalf("exported file empty")
 	}

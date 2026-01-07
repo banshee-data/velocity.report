@@ -12,12 +12,13 @@
 > This document describes architecture for **moving LIDAR sensors** (vehicle-mounted, bike-mounted, robot, drone). The 7DOF, 13-state Kalman, and quaternion orientation tracking described here are **only required when the sensor itself moves**.
 >
 > **Current traffic monitoring uses a simpler 3DOF/2D+velocity model:**
+>
 > - State vector: `[x, y, vx, vy]` (4-state Kalman filter)
 > - Object classes: `pedestrian, car, bird, other` (4 classes)
 > - Identity transform (sensor frame = world frame)
 > - Heading derived from velocity direction: `θ = atan2(vy, vx)`
 >
-> See `foreground_tracking_plan.md` for the implemented tracking architecture.
+> See `../architecture/foreground_tracking_plan.md` for the implemented tracking architecture.
 
 ---
 
@@ -25,7 +26,7 @@
 
 This document specifies the complete architecture for **motion capture scenarios** where the LIDAR sensor itself is moving (vehicle-mounted, bike-mounted, robot, drone). This is **future work** and is not included in the current release, which focuses only on static roadside sensors.
 
-**Current Release:** 3DOF tracking for static roadside sensors (see `foreground_tracking_plan.md`)
+**Current Release:** 3DOF tracking for static roadside sensors (see `../architecture/foreground_tracking_plan.md`)
 **Future Release:** Full motion capture support (this document)
 
 **Key Capabilities Enabled:**
@@ -92,12 +93,12 @@ Classification (4-class) → Database → API
 
 The advanced 7DOF/13-state tracking described in this document is required when:
 
-| Scenario | Why 7DOF is Needed |
-| -------- | ------------------ |
-| Vehicle-mounted LIDAR | Ego-motion compensation requires pose tracking |
-| Bike-mounted LIDAR | Higher vibration, agile motion requires orientation tracking |
-| Robot-mounted LIDAR | Full 3D navigation requires Z velocity |
-| Drone-mounted LIDAR | Aerial mapping requires full pose estimation |
+| Scenario              | Why 7DOF is Needed                                           |
+| --------------------- | ------------------------------------------------------------ |
+| Vehicle-mounted LIDAR | Ego-motion compensation requires pose tracking               |
+| Bike-mounted LIDAR    | Higher vibration, agile motion requires orientation tracking |
+| Robot-mounted LIDAR   | Full 3D navigation requires Z velocity                       |
+| Drone-mounted LIDAR   | Aerial mapping requires full pose estimation                 |
 
 **For static roadside sensors, the current 2D+velocity model is adequate** and avoids unnecessary complexity.
 
@@ -543,14 +544,17 @@ Shape Estimation → Temporal Association → 7-DOF Box Fitting
 **Solution Approaches (see `av-lidar-integration-plan.md` for full details):**
 
 1. **Symmetry-Based Completion:**
+
    - Use bilateral symmetry to estimate hidden dimensions
    - Works well when at least half the object is visible
 
 2. **Model-Based Completion (Class Priors):**
+
    - Use learned shape priors per object class (Car, Truck, Bus, Pedestrian, etc.)
    - Blend observed and prior dimensions based on visibility fraction
 
 3. **Temporal Shape Refinement:**
+
    - Accumulate observations as object moves and reveals different surfaces
    - Weight by visibility quality
    - Track which surfaces have been observed
@@ -561,14 +565,14 @@ Shape Estimation → Temporal Association → 7-DOF Box Fitting
 
 **Shape Priors for AV Industry Standard Classes:**
 
-| Class          | Mean Length | Mean Width | Mean Height | Aspect Ratio |
-| -------------- | ----------- | ---------- | ----------- | ------------ |
-| Car            | 4.5m        | 1.8m       | 1.5m        | 1.8 - 3.0    |
-| Truck          | 6.5m        | 2.2m       | 2.5m        | 2.0 - 4.0    |
-| Bus            | 12.0m       | 2.5m       | 3.2m        | 3.5 - 6.0    |
-| Pedestrian     | 0.5m        | 0.5m       | 1.7m        | 0.6 - 1.5    |
-| Cyclist        | 1.8m        | 0.6m       | 1.7m        | 2.0 - 4.0    |
-| Motorcyclist   | 2.2m        | 0.8m       | 1.4m        | 2.0 - 3.5    |
+| Class        | Mean Length | Mean Width | Mean Height | Aspect Ratio |
+| ------------ | ----------- | ---------- | ----------- | ------------ |
+| Car          | 4.5m        | 1.8m       | 1.5m        | 1.8 - 3.0    |
+| Truck        | 6.5m        | 2.2m       | 2.5m        | 2.0 - 4.0    |
+| Bus          | 12.0m       | 2.5m       | 3.2m        | 3.5 - 6.0    |
+| Pedestrian   | 0.5m        | 0.5m       | 1.7m        | 0.6 - 1.5    |
+| Cyclist      | 1.8m        | 0.6m       | 1.7m        | 2.0 - 4.0    |
+| Motorcyclist | 2.2m        | 0.8m       | 1.4m        | 2.0 - 3.5    |
 
 ---
 
@@ -887,10 +891,10 @@ This architecture specification provides a complete roadmap for adding motion ca
 
 ## Related Documents
 
-- **Current Implementation:** `foreground_tracking_plan.md` (3DOF/2D+velocity tracking - what's actually deployed)
+- **Current Implementation:** `../architecture/foreground_tracking_plan.md` (3DOF/2D+velocity tracking - what's actually deployed)
 - **Deferred - Static Pose:** `static-pose-alignment-plan.md` (future static sensor calibration)
 - **Deferred - AV Integration:** `av-lidar-integration-plan.md` (AV dataset integration, not current traffic monitoring)
-- **Database Schema:** `schema.sql` (current and future tables)
-- **ML Pipeline:** `ml_pipeline_roadmap.md` (classification pipeline)
+- **Database Schema:** `../reference/schema.sql` (current and future tables)
+- **ML Pipeline:** `../roadmap/ml_pipeline_roadmap.md` (classification pipeline)
 
-> **Reminder:** This document describes **future work for motion capture**. For current traffic monitoring implementation, see `foreground_tracking_plan.md`.
+> **Reminder:** This document describes **future work for motion capture**. For current traffic monitoring implementation, see `../architecture/foreground_tracking_plan.md`.

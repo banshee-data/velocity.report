@@ -1,8 +1,8 @@
 # LIDAR ML Pipeline Roadmap
 
-**Status:** Phase 3.7 Implemented, Phases 4.0-4.3 Planned  
-**Date:** December 1, 2025  
-**Author:** Copilot (Architectural Analysis)  
+**Status:** Phase 3.7 Implemented, Phases 4.0-4.3 Planned
+**Date:** December 1, 2025
+**Author:** Copilot (Architectural Analysis)
 **Version:** 1.1
 
 ---
@@ -98,22 +98,22 @@ CREATE TABLE IF NOT EXISTS lidar_analysis_runs (
     source_type TEXT NOT NULL,            -- 'pcap' or 'live'
     source_path TEXT,                     -- PCAP file path (if applicable)
     sensor_id TEXT NOT NULL,
-    
+
     -- Full parameter configuration as JSON
     params_json TEXT NOT NULL,            -- All LIDAR params in single JSON blob
-    
+
     -- Run statistics
     duration_secs REAL,
     total_frames INTEGER,
     total_clusters INTEGER,
     total_tracks INTEGER,
     confirmed_tracks INTEGER,
-    
+
     -- Processing metadata
     processing_time_ms INTEGER,
     status TEXT DEFAULT 'running',        -- 'running', 'completed', 'failed'
     error_message TEXT,
-    
+
     -- Comparison metadata
     parent_run_id TEXT,                   -- For parameter tuning comparisons
     notes TEXT                            -- User notes about this run
@@ -127,7 +127,7 @@ CREATE INDEX idx_runs_parent ON lidar_analysis_runs(parent_run_id);
 CREATE TABLE IF NOT EXISTS lidar_run_tracks (
     run_id TEXT NOT NULL,
     track_id TEXT NOT NULL,
-    
+
     -- All track fields from lidar_tracks
     sensor_id TEXT NOT NULL,
     track_state TEXT NOT NULL,
@@ -144,23 +144,23 @@ CREATE TABLE IF NOT EXISTS lidar_run_tracks (
     bounding_box_height_avg REAL,
     height_p95_max REAL,
     intensity_mean_avg REAL,
-    
+
     -- Classification (rule-based or ML)
     object_class TEXT,
     object_confidence REAL,
     classification_model TEXT,
-    
+
     -- User labels (for training)
     user_label TEXT,                      -- Human-assigned label
     label_confidence REAL,                -- Annotator confidence
     labeler_id TEXT,                      -- Who labeled this
     labeled_at INTEGER,                   -- When labeled
-    
+
     -- Track quality flags
     is_split_candidate INTEGER DEFAULT 0,   -- Suspected split
     is_merge_candidate INTEGER DEFAULT 0,   -- Suspected merge
     linked_track_ids TEXT,                  -- JSON array of related track IDs
-    
+
     PRIMARY KEY (run_id, track_id),
     FOREIGN KEY (run_id) REFERENCES lidar_analysis_runs(run_id) ON DELETE CASCADE
 );
@@ -178,7 +178,7 @@ All LIDAR parameters stored in a single JSON blob for complete reproducibility:
 {
   "version": "1.0",
   "timestamp": "2025-12-01T00:00:00Z",
-  
+
   "background": {
     "background_update_fraction": 0.02,
     "closeness_sensitivity_multiplier": 3.0,
@@ -188,13 +188,13 @@ All LIDAR parameters stored in a single JSON blob for complete reproducibility:
     "seed_from_first_observation": true,
     "freeze_duration_nanos": 5000000000
   },
-  
+
   "clustering": {
     "eps": 0.6,
     "min_pts": 12,
     "cell_size": 0.6
   },
-  
+
   "tracking": {
     "max_tracks": 100,
     "max_misses": 3,
@@ -204,7 +204,7 @@ All LIDAR parameters stored in a single JSON blob for complete reproducibility:
     "measurement_noise": [0.2, 0.2],
     "deleted_track_grace_period_nanos": 5000000000
   },
-  
+
   "classification": {
     "model_type": "rule_based",
     "thresholds": {
@@ -359,10 +359,10 @@ web/src/routes/
 <script lang="ts">
   import { Canvas } from 'svelte-ux';
   import type { Track, TrackObservation } from '$lib/types/lidar';
-  
+
   export let track: Track;
   export let observations: TrackObservation[];
-  
+
   // Render track trajectory as path
   // Show velocity vectors
   // Highlight classification features
@@ -371,10 +371,10 @@ web/src/routes/
 <!-- web/src/lib/components/lidar/LabelingPanel.svelte -->
 <script lang="ts">
   import { Select, Button, TextField } from 'svelte-ux';
-  
+
   export let track: Track;
   export let onLabel: (label: string, confidence: number) => void;
-  
+
   const classOptions = [
     { value: 'pedestrian', label: 'Pedestrian' },
     { value: 'car', label: 'Car' },
@@ -456,7 +456,7 @@ Extract features from labeled tracks for ML training:
 
 class TrackFeatures:
     """Feature vector for track classification"""
-    
+
     # Spatial features (shape)
     bounding_box_length_avg: float
     bounding_box_width_avg: float
@@ -464,7 +464,7 @@ class TrackFeatures:
     height_p95_max: float
     aspect_ratio_xy: float  # length/width
     aspect_ratio_xz: float  # length/height
-    
+
     # Kinematic features (motion)
     avg_speed_mps: float
     peak_speed_mps: float
@@ -474,16 +474,16 @@ class TrackFeatures:
     speed_variance: float
     acceleration_max: float
     heading_variance: float
-    
+
     # Temporal features
     duration_secs: float
     observation_count: int
     observations_per_second: float
-    
+
     # Intensity features
     intensity_mean_avg: float
     intensity_variance: float
-    
+
     @classmethod
     def from_track(cls, track: dict) -> 'TrackFeatures':
         """Extract features from track dictionary"""
@@ -492,7 +492,7 @@ class TrackFeatures:
             bounding_box_width_avg=track['bounding_box_width_avg'],
             # ... etc
         )
-    
+
     def to_vector(self) -> np.ndarray:
         """Convert to numpy array for model input"""
         return np.array([
@@ -517,17 +517,17 @@ def load_labeled_tracks(db_path: str, min_confidence: float = 0.7) -> tuple:
     """Load labeled tracks from database"""
     conn = sqlite3.connect(db_path)
     query = """
-        SELECT * FROM lidar_run_tracks 
-        WHERE user_label IS NOT NULL 
+        SELECT * FROM lidar_run_tracks
+        WHERE user_label IS NOT NULL
         AND label_confidence >= ?
     """
     tracks = pd.read_sql(query, conn, params=[min_confidence])
     conn.close()
-    
+
     # Extract features
     X = np.array([TrackFeatures.from_track(t).to_vector() for t in tracks.to_dict('records')])
     y = tracks['user_label'].values
-    
+
     return X, y, tracks
 
 def train_model(X, y, model_type='random_forest'):
@@ -539,14 +539,14 @@ def train_model(X, y, model_type='random_forest'):
             min_samples_split=5,
             class_weight='balanced'
         )
-    
+
     # Cross-validation
     scores = cross_val_score(model, X, y, cv=5, scoring='f1_weighted')
     print(f"Cross-validation F1: {scores.mean():.3f} (+/- {scores.std():.3f})")
-    
+
     # Train final model
     model.fit(X, y)
-    
+
     return model
 
 def export_model(model, output_path: str, version: str):
@@ -557,7 +557,7 @@ def export_model(model, output_path: str, version: str):
         'class_names': model.classes_.tolist(),
         'created_at': datetime.now().isoformat()
     }
-    
+
     joblib.dump({
         'model': model,
         'metadata': metadata
@@ -676,15 +676,15 @@ type QualityMetrics struct {
 // Define objective function for parameter optimization
 func ComputeObjective(metrics *QualityMetrics, comparison *RunComparison) float64 {
     // Goal: Maximize confirmed tracks, minimize splits/merges/noise
-    // 
-    // objective = w1 * confirmed_tracks 
-    //           - w2 * split_count 
-    //           - w3 * merge_count 
+    //
+    // objective = w1 * confirmed_tracks
+    //           - w2 * split_count
+    //           - w3 * merge_count
     //           - w4 * noise_tracks
     //           + w5 * avg_track_duration
-    
+
     w1, w2, w3, w4, w5 := 1.0, 5.0, 5.0, 2.0, 0.1
-    
+
     return w1*float64(metrics.ConfirmedTrackCount) -
            w2*float64(comparison.SplitCount()) -
            w3*float64(comparison.MergeCount()) -
@@ -848,6 +848,6 @@ Deploy the complete ML pipeline for production use.
 
 ---
 
-**Document Status:** Phase 3.7 Implemented  
-**Next Action:** Implement Phase 4.0 (Track Labeling UI)  
+**Document Status:** Phase 3.7 Implemented
+**Next Action:** Implement Phase 4.0 (Track Labeling UI)
 **Last Updated:** December 1, 2025

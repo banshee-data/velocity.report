@@ -3,9 +3,10 @@ package network
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar"
 )
 
 // PacketStats interface for packet statistics tracking
@@ -67,7 +68,7 @@ func (f *PacketForwarder) Start(ctx context.Context) {
 			case <-ticker.C:
 				// Only log if we have dropped packets in this interval
 				if droppedCount > 0 && lastError != nil {
-					log.Printf("\033[93mDropped %d forwarded packets due to errors (latest: %v)\033[0m", droppedCount, lastError)
+					lidar.Debugf("[PacketForwarder] Dropped %d forwarded packets due to errors (latest: %v)", droppedCount, lastError)
 					droppedCount = 0 // Reset counter after logging
 					lastError = nil
 				}
@@ -75,7 +76,7 @@ func (f *PacketForwarder) Start(ctx context.Context) {
 		}
 	}()
 
-	log.Printf("Forwarding packets to %s", f.address)
+	lidar.Debugf("[PacketForwarder] Forwarding packets to %s", f.address)
 }
 
 // ForwardAsync sends a packet to the forwarding channel in a non-blocking manner
