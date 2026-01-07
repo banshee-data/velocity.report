@@ -333,6 +333,34 @@ func (db *DB) GetSchemaAtMigration(migrationsFS fs.FS, targetVersion uint) (map[
 	return tmpWrapper.GetDatabaseSchema()
 }
 
+// normalizeSQL removes insignificant whitespace differences for schema comparison
+func normalizeSQL(s string) string {
+	// Standardize internal whitespace
+	s = strings.TrimSpace(s)
+	s = strings.Join(strings.Fields(s), " ")
+
+	// Remove trailing semicolon
+	s = strings.TrimSuffix(s, ";")
+
+	// Remove spaces around punctuation that might vary between SQLite versions or inputs
+	s = strings.ReplaceAll(s, " ,", ",")
+	s = strings.ReplaceAll(s, " )", ")")
+	s = strings.ReplaceAll(s, "( ", "(")
+
+	// Remove quotes from table names that SQLite adds during ALTER TABLE operations
+	// Pattern matches: "table_name" or 'table_name' and replaces with: table_name
+	quotedTablePattern := regexp.MustCompile(`["']([a-z_][a-z0-9_]*)["']`)
+	s = quotedTablePattern.ReplaceAllString(s, "$1")
+
+	// SQLite's ALTER TABLE RENAME removes the space after table name in CREATE TABLE
+	// Pattern matches: "table_name(" and replaces with: "table_name ("
+	// This normalizes "CREATE TABLE name(" to "CREATE TABLE name ("
+	tableParenPattern := regexp.MustCompile(`\b([a-z_][a-z0-9_]*)\(`)
+	s = tableParenPattern.ReplaceAllString(s, "$1 (")
+
+	return s
+}
+
 // CompareSchemas compares two schemas and returns a similarity score (0-100)
 // and a list of differences.
 func CompareSchemas(schema1, schema2 map[string]string) (score int, differences []string) {
@@ -358,7 +386,7 @@ func CompareSchemas(schema1, schema2 map[string]string) (score int, differences 
 			differences = append(differences, fmt.Sprintf("- Missing in current: %s", key))
 		} else if !exists2 {
 			differences = append(differences, fmt.Sprintf("+ Extra in current: %s", key))
-		} else if sql1 == sql2 {
+		} else if normalizeSQL(sql1) == normalizeSQL(sql2) {
 			matchingObjects++
 		} else {
 			differences = append(differences, fmt.Sprintf("~ Modified: %s", key))
