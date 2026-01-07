@@ -312,6 +312,25 @@
             <span style="font-size: 0.9em; color: #666; margin-left: 4px;">ratio
               (when fixed)</span>
           </label>
+          <br />
+          <label
+            style="margin-left: 5px; margin-top: 8px; display: inline-block;">
+            <span style="font-weight: 600; margin-right: 6px;">Start:</span>
+            <input type="number" name="start_seconds"
+              min="0" step="0.1" value="0"
+              style="width: 6em; margin-left: 4px;" />
+            <span
+              style="font-size: 0.9em; color: #666; margin-left: 4px;">seconds</span>
+          </label>
+          <label style="margin-left: 8px;">
+            <span style="font-weight: 600; margin-right: 6px;">Duration:</span>
+            <input type="number" name="duration_seconds"
+              step="0.1" value="-1"
+              style="width: 6em; margin-left: 4px;" />
+            <span
+              style="font-size: 0.9em; color: #666; margin-left: 4px;">seconds
+              (-1 = all)</span>
+          </label>
           <button type="submit">Run</button>
           {{if .PCAPSafeDir}}
           <span style="font-size: 0.9em; color: #666;">

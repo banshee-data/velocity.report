@@ -376,7 +376,7 @@ func (ws *WebServer) resolvePCAPPath(candidate string) (string, error) {
 	return canonicalPath, nil
 }
 
-func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRatio float64) error {
+func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRatio float64, startSeconds float64, durationSeconds float64) error {
 	resolvedPath, err := ws.resolvePCAPPath(pcapFile)
 	if err != nil {
 		return err
@@ -495,6 +495,8 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 
 			config := network.RealtimeReplayConfig{
 				SpeedMultiplier:     multiplier,
+				StartSeconds:        startSeconds,
+				DurationSeconds:     durationSeconds,
 				PacketForwarder:     ws.packetForwarder,
 				ForegroundForwarder: fgForwarder,
 				BackgroundManager:   bgManager,
@@ -2346,17 +2348,23 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	var analysisMode bool
 	var speedMode string
 	var speedRatio float64 = 1.0
+	var startSeconds float64 = 0
+	var durationSeconds float64 = -1
 
 	// Accept both JSON and form data
 	contentType := r.Header.Get("Content-Type")
 	if contentType == "application/json" || contentType == "application/json; charset=utf-8" {
 		// Parse JSON body
 		var req struct {
-			PCAPFile     string  `json:"pcap_file"`
-			AnalysisMode bool    `json:"analysis_mode"`
-			SpeedMode    string  `json:"speed_mode"`
-			SpeedRatio   float64 `json:"speed_ratio"`
+			PCAPFile        string  `json:"pcap_file"`
+			AnalysisMode    bool    `json:"analysis_mode"`
+			SpeedMode       string  `json:"speed_mode"`
+			SpeedRatio      float64 `json:"speed_ratio"`
+			StartSeconds    float64 `json:"start_seconds"`
+			DurationSeconds float64 `json:"duration_seconds"`
 		}
+		// Set defaults
+		req.DurationSeconds = -1
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			if errors.Is(err, io.EOF) {
 				ws.writeJSONError(w, http.StatusBadRequest, "missing JSON body for PCAP request")
@@ -2371,6 +2379,8 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		if req.SpeedRatio > 0 {
 			speedRatio = req.SpeedRatio
 		}
+		startSeconds = req.StartSeconds
+		durationSeconds = req.DurationSeconds
 	} else {
 		// Parse form data (default for HTML forms)
 		if err := r.ParseForm(); err != nil {
@@ -2384,6 +2394,18 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 			if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
 				speedRatio = f
 			}
+		}
+		if v := r.FormValue("start_seconds"); v != "" {
+			if f, err := strconv.ParseFloat(v, 64); err == nil && f >= 0 {
+				startSeconds = f
+			}
+		}
+		if v := r.FormValue("duration_seconds"); v != "" {
+			if f, err := strconv.ParseFloat(v, 64); err == nil {
+				durationSeconds = f
+			}
+		} else {
+			durationSeconds = -1
 		}
 	}
 
@@ -2415,7 +2437,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := ws.startPCAPLocked(pcapFile, speedMode, speedRatio); err != nil {
+	if err := ws.startPCAPLocked(pcapFile, speedMode, speedRatio, startSeconds, durationSeconds); err != nil {
 		var sErr *switchError
 		if errors.As(err, &sErr) {
 			ws.writeJSONError(w, sErr.status, sErr.Error())

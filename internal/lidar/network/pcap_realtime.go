@@ -20,6 +20,12 @@ type RealtimeReplayConfig struct {
 	// SpeedMultiplier controls replay speed (1.0 = real-time, 2.0 = 2x speed, 0.5 = half speed)
 	SpeedMultiplier float64
 
+	// StartSeconds is the offset in seconds from the beginning of the PCAP file to start playback (default 0)
+	StartSeconds float64
+
+	// DurationSeconds is the duration in seconds to play from StartSeconds (default -1 means play until end)
+	DurationSeconds float64
+
 	// SensorID is used for caching debug foreground snapshots during replay.
 	SensorID string
 
@@ -68,6 +74,9 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 	var firstPacketTime time.Time
 	var lastPacketTime time.Time
 	replayStartTime := time.Now()
+	var startThreshold time.Time
+	var endThreshold time.Time
+	skippingToStart := config.StartSeconds > 0
 
 	for {
 		select {
@@ -90,7 +99,36 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 			if firstPacketTime.IsZero() {
 				firstPacketTime = captureTime
 				lastPacketTime = captureTime
-			} else {
+				// Set start and end thresholds based on config
+				if config.StartSeconds > 0 {
+					startThreshold = firstPacketTime.Add(time.Duration(config.StartSeconds * float64(time.Second)))
+				}
+				if config.DurationSeconds > 0 {
+					endThreshold = startThreshold.Add(time.Duration(config.DurationSeconds * float64(time.Second)))
+				} else if config.StartSeconds > 0 {
+					// If start is set but duration is -1, play until end
+					endThreshold = time.Time{}
+				}
+			}
+
+			// Skip packets before start threshold
+			if skippingToStart && !startThreshold.IsZero() && captureTime.Before(startThreshold) {
+				continue
+			}
+			if skippingToStart {
+				skippingToStart = false
+				log.Printf("PCAP replay: started at %.2fs offset", config.StartSeconds)
+				replayStartTime = time.Now() // Reset start time for accurate speed reporting
+			}
+
+			// Stop if we've reached the end threshold
+			if !endThreshold.IsZero() && captureTime.After(endThreshold) {
+				elapsed := time.Since(startTime)
+				log.Printf("PCAP replay complete: reached duration limit of %.2fs (processed %d packets in %v)", config.DurationSeconds, packetCount, elapsed)
+				return nil
+			}
+
+			if firstPacketTime != captureTime {
 				// Calculate delay since last packet (scaled by speed multiplier)
 				delay := captureTime.Sub(lastPacketTime)
 				scaledDelay := time.Duration(float64(delay) / config.SpeedMultiplier)
@@ -104,9 +142,9 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 						// Continue
 					}
 				}
-
-				lastPacketTime = captureTime
 			}
+
+			lastPacketTime = captureTime
 
 			// Extract UDP layer
 			udpLayer := packet.Layer(layers.LayerTypeUDP)
