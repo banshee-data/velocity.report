@@ -17,6 +17,9 @@ const (
 	DefaultReacquisitionBoostMultiplier = 5.0
 	// DefaultMinConfidenceFloor is the minimum TimesSeenCount to preserve during foreground
 	DefaultMinConfidenceFloor = 3
+	// ThawGracePeriodNanos is the minimum time after freeze expiry before thaw detection triggers.
+	// This prevents false triggers when FreezeDurationNanos=0 causes immediate "expiry".
+	ThawGracePeriodNanos = int64(1_000_000) // 1ms
 )
 
 // ProcessFramePolarWithMask classifies each point as foreground/background in polar coordinates.
@@ -175,8 +178,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		// Note: We only trigger thaw when the freeze was meaningful (expired at least 1ms ago).
 		// This avoids false triggers when FreezeDurationNanos=0 causes immediate "expiry".
 		// Limitation: Thaw is only detected when a point observation hits this cell.
-		const thawGraceNanos = int64(1_000_000) // 1ms grace period
-		if cell.FrozenUntilUnixNanos > 0 && cell.FrozenUntilUnixNanos+thawGraceNanos <= nowNanos {
+		if cell.FrozenUntilUnixNanos > 0 && cell.FrozenUntilUnixNanos+ThawGracePeriodNanos <= nowNanos {
 			if bm.EnableDiagnostics && g.Params.IsInDebugRange(ring, az) {
 				debugf("[FG_THAW] r=%d az=%.1f thawed after freeze, resetting recFg from %d to 0",
 					ring, az, cell.RecentForegroundCount)
