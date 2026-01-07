@@ -260,10 +260,11 @@ func (fb *FrameBuilder) addPointsInternal(points []Point) {
 		fb.checkSequenceGaps(point.UDPSequence)
 
 		// Check if we need to start a new frame based on azimuth wrap and/or time
-		if fb.shouldStartNewFrame(point.Azimuth, point.Timestamp) {
+		shouldStart, reason := fb.shouldStartNewFrame(point.Azimuth, point.Timestamp)
+		if shouldStart {
 			if fb.currentFrame != nil {
-				debugf("[FrameBuilder] Azimuth wrap detected: lastAz=%.2f currAz=%.2f, finalizing frame with %d points",
-					fb.lastAzimuth, point.Azimuth, fb.currentFrame.PointCount)
+				debugf("[FrameBuilder] Frame completion detected (%s): lastAz=%.2f currAz=%.2f, finalizing frame with %d points",
+					reason, fb.lastAzimuth, point.Azimuth, fb.currentFrame.PointCount)
 			}
 			fb.finalizeCurrentFrame()
 			fb.startNewFrame(point.Timestamp, arrivalNow)
@@ -294,13 +295,13 @@ func (fb *FrameBuilder) addPointsInternal(points []Point) {
 }
 
 // shouldStartNewFrame determines if we should start a new frame based on azimuth and/or time
-func (fb *FrameBuilder) shouldStartNewFrame(azimuth float64, timestamp time.Time) bool {
+func (fb *FrameBuilder) shouldStartNewFrame(azimuth float64, timestamp time.Time) (bool, string) {
 	if fb.lastAzimuth < 0 {
-		return false // First point ever
+		return false, "" // First point ever
 	}
 
 	if fb.currentFrame == nil {
-		return true // No current frame
+		return true, "initialize" // No current frame
 	}
 
 	cov := frameAzimuthCoverage(fb.currentFrame)
@@ -313,13 +314,13 @@ func (fb *FrameBuilder) shouldStartNewFrame(azimuth float64, timestamp time.Time
 		// Add a small tolerance (10%) to account for timing variations
 		maxDuration := fb.expectedFrameDuration + (fb.expectedFrameDuration / 10)
 		if frameDuration >= maxDuration && cov >= MinAzimuthCoverage {
-			return true
+			return true, fmt.Sprintf("time_limit_exceeded (dur=%v, cov=%.1f)", frameDuration, cov)
 		}
 
 		// Even with time-based detection, respect azimuth wraps for precise timing
 		// but with relaxed requirements since we're time-bounded
 		if fb.lastAzimuth > 340.0 && azimuth < 20.0 && frameDuration >= (fb.expectedFrameDuration/2) && cov >= MinAzimuthCoverage {
-			return true
+			return true, "azimuth_wrap_time_aligned"
 		}
 	} else {
 		// Traditional azimuth-based detection (original logic)
@@ -329,7 +330,7 @@ func (fb *FrameBuilder) shouldStartNewFrame(azimuth float64, timestamp time.Time
 		// indicate a rotation wrap even if values don't cross the 350°->10° band.
 		if fb.lastAzimuth-azimuth > 180.0 {
 			if fb.currentFrame != nil && fb.currentFrame.PointCount > fb.minFramePoints && cov >= MinAzimuthCoverage {
-				return true
+				return true, "azimuth_wrap_large_jump"
 			}
 		}
 
@@ -341,12 +342,12 @@ func (fb *FrameBuilder) shouldStartNewFrame(azimuth float64, timestamp time.Time
 			if fb.currentFrame != nil &&
 				(fb.currentFrame.MaxAzimuth-fb.currentFrame.MinAzimuth) > MinAzimuthCoverage &&
 				fb.currentFrame.PointCount > MinFramePointsForCompletion {
-				return true
+				return true, "azimuth_wrap_crossing"
 			}
 		}
 	}
 
-	return false
+	return false, ""
 }
 
 // startNewFrame creates a new frame for accumulating points

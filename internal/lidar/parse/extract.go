@@ -322,16 +322,21 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]lidar.PointPolar, error) {
 	// This enables real-time adaptation to variable RPM settings (600-1200+ RPM)
 	p.lastMotorSpeed = tail.MotorSpeed
 
+	// Resolve packet timestamp once for all blocks to ensure consistency
+	// This prevents mixed timestamps (e.g. PCAP time + System time) within a single packet
+	// and fixes the static timestamp detection logic which falsely triggered on block iterations.
+	packetTime := p.resolvePacketTime(tail)
+
 	// Debug packet tail fields if enabled (first few packets only to prevent log spam)
 	if p.debug && p.packetCount <= p.debugPackets {
 		if hasSequence {
 			log.Printf(
-				"Packet %d tail: UDPSeq=%d, MotorSpeed=%d RPM, HighTemp=0x%02x, ReturnMode=0x%02x, Factory=0x%02x, DateTime=%s, Timestamp=%d μs",
-				p.packetCount, tail.UDPSequence, tail.MotorSpeed, tail.HighTempFlag, tail.ReturnMode, tail.FactoryInfo, tail.CombinedTimestamp.Format("2006-01-02 15:04:05"), tail.Timestamp)
+				"Packet %d tail: UDPSeq=%d, MotorSpeed=%d RPM, HighTemp=0x%02x, ReturnMode=0x%02x, Factory=0x%02x, DateTime=%s, Timestamp=%d μs, PacketTime=%s",
+				p.packetCount, tail.UDPSequence, tail.MotorSpeed, tail.HighTempFlag, tail.ReturnMode, tail.FactoryInfo, tail.CombinedTimestamp.Format("2006-01-02 15:04:05"), tail.Timestamp, packetTime.Format(time.RFC3339Nano))
 		} else {
 			log.Printf(
-				"Packet %d tail: MotorSpeed=%d RPM, HighTemp=0x%02x, ReturnMode=0x%02x, Factory=0x%02x, DateTime=%s, Timestamp=%d μs",
-				p.packetCount, tail.MotorSpeed, tail.HighTempFlag, tail.ReturnMode, tail.FactoryInfo, tail.CombinedTimestamp.Format("2006-01-02 15:04:05"), tail.Timestamp)
+				"Packet %d tail: MotorSpeed=%d RPM, HighTemp=0x%02x, ReturnMode=0x%02x, Factory=0x%02x, DateTime=%s, Timestamp=%d μs, PacketTime=%s",
+				p.packetCount, tail.MotorSpeed, tail.HighTempFlag, tail.ReturnMode, tail.FactoryInfo, tail.CombinedTimestamp.Format("2006-01-02 15:04:05"), tail.Timestamp, packetTime.Format(time.RFC3339Nano))
 		}
 	}
 
@@ -367,7 +372,7 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]lidar.PointPolar, error) {
 		blockNonZero = append(blockNonZero, nonZero)
 
 		// Convert raw measurements to calibrated 3D points with accurate timing and motor speed compensation
-		blockPoints := p.blockToPoints(block, blockIdx, tail)
+		blockPoints := p.blockToPoints(block, blockIdx, tail, packetTime)
 		points = append(points, blockPoints...)
 
 		dataOffset += blockSize
@@ -462,19 +467,16 @@ func (p *Pandar40PParser) parseTail(data []byte, udpSequence uint32) (*PacketTai
 	return tail, nil
 }
 
-// blockToPoints converts raw measurements from a data block into calibrated 3D points
-// Applies sensor-specific calibrations, motor speed compensation, and coordinate transformation.
-// Each block can produce up to 40 points (one per channel), excluding invalid measurements.
-// Uses actual motor speed from packet tail for precise firetime-based azimuth corrections.
-func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *PacketTail) []lidar.PointPolar {
-	// Pre-allocate slice with capacity for maximum possible points to avoid reallocations
-	points := make([]lidar.PointPolar, 0, CHANNELS_PER_BLOCK)
-
-	// Parse timestamp based on configured mode - affects frame timing accuracy
+// resolvePacketTime determines the effective packet timestamp based on configured mode
+// This centralizes timestamp logic to ensure consistency across all blocks in a packet
+// and fixes issues with mixed timestamps (PCAP vs System) and static timestamp detection.
+func (p *Pandar40PParser) resolvePacketTime(tail *PacketTail) time.Time {
 	var packetTime time.Time
+
 	switch p.timestampMode {
 	case TimestampModePTP, TimestampModeGPS:
 		// Check if PTP timestamps are static (not incrementing) - indicates synchronization issues
+		// Only check once per packet (not per block) to avoid false positives
 		if p.packetCount > 1 && tail.Timestamp == p.lastTimestamp {
 			p.staticCount++
 		}
@@ -521,6 +523,17 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *Pa
 		packetTime = p.externalTime.UTC()
 		p.externalTimeSet = false
 	}
+
+	return packetTime
+}
+
+// blockToPoints converts raw measurements from a data block into calibrated 3D points
+// Applies sensor-specific calibrations, motor speed compensation, and coordinate transformation.
+// Each block can produce up to 40 points (one per channel), excluding invalid measurements.
+// Uses actual motor speed from packet tail for precise firetime-based azimuth corrections.
+func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *PacketTail, packetTime time.Time) []lidar.PointPolar {
+	// Pre-allocate slice with capacity for maximum possible points to avoid reallocations
+	points := make([]lidar.PointPolar, 0, CHANNELS_PER_BLOCK)
 
 	// Extract base azimuth angle from block data (in 0.01-degree units, range 0-35999)
 	baseAzimuth := float64(block.Azimuth) * AZIMUTH_RESOLUTION
