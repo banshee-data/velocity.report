@@ -138,7 +138,7 @@ if cell.FrozenUntilUnixNanos > nowNanos {
 ### 2. Log Freeze End Transitions
 ```go
 // Add after checking if cell was previously frozen but now expired
-if wasPrevoiuslyFrozen && cell.FrozenUntilUnixNanos <= nowNanos {
+if wasPreviouslyFrozen && cell.FrozenUntilUnixNanos <= nowNanos {
     debugf("[FG_THAW] r=%d az=%.1f thawed, recFg=%d, avg=%.3f, dist=%.3f",
         ring, az, cell.RecentForegroundCount, cell.AverageRangeMeters, p.Distance)
 }
