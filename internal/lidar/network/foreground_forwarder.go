@@ -77,9 +77,8 @@ func (f *ForegroundForwarder) Start(ctx context.Context) {
 				return
 			case points, ok := <-f.channel:
 				if !ok {
-					log.Printf("CRITICAL BUG: ForegroundForwarder is spinning on closed channel! Context Err: %v", ctx.Err())
-					time.Sleep(1 * time.Second)
-					continue
+					// Channel closed, exit worker
+					return
 				}
 				if len(points) == 0 {
 					continue

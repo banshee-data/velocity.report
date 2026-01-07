@@ -61,9 +61,8 @@ func (f *PacketForwarder) Start(ctx context.Context) {
 				return
 			case packet, ok := <-f.channel:
 				if !ok {
-					// Detect spin on closed channel
-					time.Sleep(1 * time.Second) // Prevent full CPU lockup while logging
-					continue
+					// Channel closed, exit worker
+					return
 				}
 				_, err := f.conn.Write(packet)
 				if err != nil {
