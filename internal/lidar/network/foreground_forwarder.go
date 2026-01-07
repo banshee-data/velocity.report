@@ -75,7 +75,12 @@ func (f *ForegroundForwarder) Start(ctx context.Context) {
 			case <-ctx.Done():
 				lidar.Debugf("Foreground forwarder stopping (sent %d packets)", f.packetCount)
 				return
-			case points := <-f.channel:
+			case points, ok := <-f.channel:
+				if !ok {
+					log.Printf("CRITICAL BUG: ForegroundForwarder is spinning on closed channel! Context Err: %v", ctx.Err())
+					time.Sleep(1 * time.Second)
+					continue
+				}
 				if len(points) == 0 {
 					continue
 				}
