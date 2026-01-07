@@ -34,7 +34,7 @@ The 7DOF tracking features in this document are **not required** for the core tr
 | 6-state Kalman | EMA smoothing |
 | 28-class taxonomy | 4 classes |
 
-See `lidar-foreground-tracking-status.md` §4 for full simplification rationale.
+See `../operations/lidar-foreground-tracking-status.md` §4 for full simplification rationale.
 
 ---
 

@@ -17,7 +17,7 @@
 > - Identity transform (sensor frame = world frame)
 > - Heading derived from velocity direction: `θ = atan2(vy, vx)`
 >
-> See `foreground_tracking_plan.md` for the implemented tracking architecture.
+> See `../architecture/foreground_tracking_plan.md` for the implemented tracking architecture.
 
 ---
 
@@ -25,7 +25,7 @@
 
 This document specifies the complete architecture for **motion capture scenarios** where the LIDAR sensor itself is moving (vehicle-mounted, bike-mounted, robot, drone). This is **future work** and is not included in the current release, which focuses only on static roadside sensors.
 
-**Current Release:** 3DOF tracking for static roadside sensors (see `foreground_tracking_plan.md`)
+**Current Release:** 3DOF tracking for static roadside sensors (see `../architecture/foreground_tracking_plan.md`)
 **Future Release:** Full motion capture support (this document)
 
 **Key Capabilities Enabled:**

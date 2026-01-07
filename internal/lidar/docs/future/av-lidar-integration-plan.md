@@ -17,7 +17,7 @@ The features in this document (28-class taxonomy, Parquet ingestion, NLZ zones, 
 
 **For traffic monitoring deployments**, the simpler velocity-coherent approach is sufficient:
 - See `velocity-coherent-foreground-extraction.md` for current implementation
-- See `lidar-foreground-tracking-status.md` §4 for simplification rationale
+- See `../operations/lidar-foreground-tracking-status.md` §4 for simplification rationale
 
 **Key differences:**
 | This Plan (AV Integration) | Current Implementation (Traffic) |

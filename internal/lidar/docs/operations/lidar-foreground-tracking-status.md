@@ -177,7 +177,7 @@ On macOS M1, the foreground processing pipeline shows higher CPU usage than expe
 
 ### Alternative Algorithm: Velocity-Coherent Foreground Extraction
 
-**Design Document:** [velocity-coherent-foreground-extraction.md](velocity-coherent-foreground-extraction.md)
+**Design Document:** [velocity-coherent-foreground-extraction.md](../future/velocity-coherent-foreground-extraction.md)
 
 A new approach to address the limitations of background-subtraction:
 
@@ -213,7 +213,7 @@ A new approach to address the limitations of background-subtraction:
 
 ### What Was Simplified
 
-The implementation intentionally uses a **simpler 2D + velocity model** rather than the full 7DOF model described in `static-pose-alignment-plan.md` and `av-lidar-integration-plan.md`. This is the correct choice for traffic monitoring.
+The implementation intentionally uses a **simpler 2D + velocity model** rather than the full 7DOF model described in `../future/static-pose-alignment-plan.md` and `../future/av-lidar-integration-plan.md`. This is the correct choice for traffic monitoring.
 
 | Original Plan                   | Simplified Implementation                | Rationale                                  |
 | ------------------------------- | ---------------------------------------- | ------------------------------------------ |
@@ -228,7 +228,7 @@ The implementation intentionally uses a **simpler 2D + velocity model** rather t
 
 ### Deferred to "AV Integration" Phase
 
-The following features from `av-lidar-integration-plan.md` are explicitly **out of scope** for traffic monitoring and should only be implemented if AV dataset integration is required:
+The following features from `../future/av-lidar-integration-plan.md` are explicitly **out of scope** for traffic monitoring and should only be implemented if AV dataset integration is required:
 
 - **Phase 6-7**: Clustering algorithms for occlusion, shape completion
 - **28-class taxonomy**: Only needed for AV labeling compatibility
@@ -259,8 +259,8 @@ const (
 ### Related Documents
 
 - `static-pose-alignment-plan.md` - Full 7DOF plan (DEFERRED for AV integration)
-- `av-lidar-integration-plan.md` - AV dataset compatibility (DEFERRED)
-- `velocity-coherent-foreground-extraction.md` - Current implementation design
+- `../future/av-lidar-integration-plan.md` - AV dataset compatibility (DEFERRED)
+- `../future/velocity-coherent-foreground-extraction.md` - Future algorithm design
 
 ---
 

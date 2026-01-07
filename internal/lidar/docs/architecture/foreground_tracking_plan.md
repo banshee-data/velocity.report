@@ -24,7 +24,7 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 - **Phase 3.6:** ✅ PCAP Analysis Tool for ML data extraction
 - **Phase 3.7:** ✅ Analysis Run Infrastructure (params JSON, run comparison)
 
-**Next Phases:** See [ML Pipeline Roadmap](ml_pipeline_roadmap.md) for Phases 4.0-4.3.
+**Next Phases:** See [ML Pipeline Roadmap](../roadmap/ml_pipeline_roadmap.md) for Phases 4.0-4.3.
 
 ---
 
@@ -1521,7 +1521,7 @@ MeasurementNoise      = [0.2, 0.2]
 ### C. Related Documentation
 
 - `ARCHITECTURE.md` - System architecture overview
-- `internal/lidar/docs/lidar_sidecar_overview.md` - LIDAR implementation details
+- `internal/lidar/docs/architecture/lidar_sidecar_overview.md` - LIDAR implementation details
 - `internal/lidar/docs/devlog.md` - Development history
 - `internal/lidar/background.go` - Background grid implementation
 - `internal/lidar/arena.go` - Track data structures
@@ -1634,7 +1634,7 @@ When pose validation is implemented:
 ---
 
 **Document Status:** Implementation Complete through Phase 3.6
-**Next Action:** Implement Phase 4.0 Analysis Run Infrastructure (see `ml_pipeline_roadmap.md`)
+**Next Action:** Implement Phase 4.0 Analysis Run Infrastructure (see `../roadmap/ml_pipeline_roadmap.md`)
 **Last Updated:** December 1, 2025
 **Contact:** Engineering Team
 
@@ -1642,7 +1642,7 @@ When pose validation is implemented:
 
 ## Related Documentation
 
-- **[ML Pipeline Roadmap](ml_pipeline_roadmap.md)** - Complete architectural plan for Phase 4.0-4.4 (analysis runs, labeling UI, ML training, parameter tuning)
+- **[ML Pipeline Roadmap](../roadmap/ml_pipeline_roadmap.md)** - Complete architectural plan for Phase 4.0-4.4 (analysis runs, labeling UI, ML training, parameter tuning)
 - **[Velocity-Coherent Foreground Extraction](velocity-coherent-foreground-extraction.md)** - Alternative algorithm design for sparse-point tracking with velocity coherence
 - **[LIDAR Foreground Tracking Status](lidar-foreground-tracking-status.md)** - Current issues, fixes, and enhancement roadmap
 - **[LIDAR Sidecar Overview](lidar_sidecar_overview.md)** - Technical implementation overview and module structure
