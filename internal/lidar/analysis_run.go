@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -288,6 +289,41 @@ func NewAnalysisRunStore(db *sql.DB) *AnalysisRunStore {
 	return &AnalysisRunStore{db: db}
 }
 
+// isSQLiteBusy checks if an error is a SQLite SQLITE_BUSY error.
+func isSQLiteBusy(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "database is locked") || strings.Contains(errStr, "SQLITE_BUSY")
+}
+
+// retryOnBusy retries a database operation with exponential backoff on SQLITE_BUSY errors.
+// This handles SQLite's single-writer limitation when multiple goroutines try to write.
+func retryOnBusy(operation func() error) error {
+	const maxRetries = 5
+	const baseDelay = 10 * time.Millisecond
+
+	var err error
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		err = operation()
+		if err == nil {
+			return nil
+		}
+
+		if !isSQLiteBusy(err) {
+			return err
+		}
+
+		if attempt < maxRetries-1 {
+			delay := baseDelay * (1 << uint(attempt)) // Exponential backoff: 10ms, 20ms, 40ms, 80ms, 160ms
+			time.Sleep(delay)
+		}
+	}
+
+	return fmt.Errorf("operation failed after %d retries: %w", maxRetries, err)
+}
+
 // InsertRun creates a new analysis run.
 func (s *AnalysisRunStore) InsertRun(run *AnalysisRun) error {
 	query := `
@@ -299,39 +335,43 @@ func (s *AnalysisRunStore) InsertRun(run *AnalysisRun) error {
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
-	_, err := s.db.Exec(query,
-		run.RunID,
-		run.CreatedAt.UnixNano(),
-		run.SourceType,
-		nullString(run.SourcePath),
-		run.SensorID,
-		string(run.ParamsJSON),
-		run.DurationSecs,
-		run.TotalFrames,
-		run.TotalClusters,
-		run.TotalTracks,
-		run.ConfirmedTracks,
-		run.ProcessingTimeMs,
-		run.Status,
-		nullString(run.ErrorMessage),
-		nullString(run.ParentRunID),
-		nullString(run.Notes),
-	)
-	if err != nil {
-		return fmt.Errorf("insert analysis run: %w", err)
-	}
-
-	return nil
+	// Retry on SQLITE_BUSY errors
+	return retryOnBusy(func() error {
+		_, err := s.db.Exec(query,
+			run.RunID,
+			run.CreatedAt.UnixNano(),
+			run.SourceType,
+			nullString(run.SourcePath),
+			run.SensorID,
+			string(run.ParamsJSON),
+			run.DurationSecs,
+			run.TotalFrames,
+			run.TotalClusters,
+			run.TotalTracks,
+			run.ConfirmedTracks,
+			run.ProcessingTimeMs,
+			run.Status,
+			nullString(run.ErrorMessage),
+			nullString(run.ParentRunID),
+			nullString(run.Notes),
+		)
+		if err != nil {
+			return fmt.Errorf("insert analysis run: %w", err)
+		}
+		return nil
+	})
 }
 
 // UpdateRunStatus updates the status of an analysis run.
 func (s *AnalysisRunStore) UpdateRunStatus(runID, status, errorMsg string) error {
 	query := `UPDATE lidar_analysis_runs SET status = ?, error_message = ? WHERE run_id = ?`
-	_, err := s.db.Exec(query, status, nullString(errorMsg), runID)
-	if err != nil {
-		return fmt.Errorf("update run status: %w", err)
-	}
-	return nil
+	return retryOnBusy(func() error {
+		_, err := s.db.Exec(query, status, nullString(errorMsg), runID)
+		if err != nil {
+			return fmt.Errorf("update run status: %w", err)
+		}
+		return nil
+	})
 }
 
 // CompleteRun marks a run as completed with final statistics.
@@ -348,20 +388,22 @@ func (s *AnalysisRunStore) CompleteRun(runID string, stats *AnalysisStats) error
 		WHERE run_id = ?
 	`
 
-	_, err := s.db.Exec(query,
-		stats.DurationSecs,
-		stats.TotalFrames,
-		stats.TotalClusters,
-		stats.TotalTracks,
-		stats.ConfirmedTracks,
-		stats.ProcessingTimeMs,
-		runID,
-	)
-	if err != nil {
-		return fmt.Errorf("complete run: %w", err)
-	}
-
-	return nil
+	// Retry on SQLITE_BUSY errors
+	return retryOnBusy(func() error {
+		_, err := s.db.Exec(query,
+			stats.DurationSecs,
+			stats.TotalFrames,
+			stats.TotalClusters,
+			stats.TotalTracks,
+			stats.ConfirmedTracks,
+			stats.ProcessingTimeMs,
+			runID,
+		)
+		if err != nil {
+			return fmt.Errorf("complete run: %w", err)
+		}
+		return nil
+	})
 }
 
 // GetRun retrieves an analysis run by ID.
@@ -493,6 +535,7 @@ func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
 }
 
 // InsertRunTrack inserts a track for an analysis run.
+// Uses retry logic to handle SQLITE_BUSY errors from concurrent writes.
 func (s *AnalysisRunStore) InsertRunTrack(track *RunTrack) error {
 	linkedJSON := "[]"
 	if len(track.LinkedTrackIDs) > 0 {
@@ -524,40 +567,42 @@ func (s *AnalysisRunStore) InsertRunTrack(track *RunTrack) error {
 		labeledAt = track.LabeledAt
 	}
 
-	_, err := s.db.Exec(query,
-		track.RunID,
-		track.TrackID,
-		track.SensorID,
-		track.TrackState,
-		track.StartUnixNanos,
-		endNanos,
-		track.ObservationCount,
-		track.AvgSpeedMps,
-		track.PeakSpeedMps,
-		track.P50SpeedMps,
-		track.P85SpeedMps,
-		track.P95SpeedMps,
-		track.BoundingBoxLengthAvg,
-		track.BoundingBoxWidthAvg,
-		track.BoundingBoxHeightAvg,
-		track.HeightP95Max,
-		track.IntensityMeanAvg,
-		nullString(track.ObjectClass),
-		nullFloat32(track.ObjectConfidence),
-		nullString(track.ClassificationModel),
-		nullString(track.UserLabel),
-		nullFloat32(track.LabelConfidence),
-		nullString(track.LabelerID),
-		labeledAt,
-		track.IsSplitCandidate,
-		track.IsMergeCandidate,
-		linkedJSON,
-	)
-	if err != nil {
-		return fmt.Errorf("insert run track: %w", err)
-	}
-
-	return nil
+	// Retry on SQLITE_BUSY errors
+	return retryOnBusy(func() error {
+		_, err := s.db.Exec(query,
+			track.RunID,
+			track.TrackID,
+			track.SensorID,
+			track.TrackState,
+			track.StartUnixNanos,
+			endNanos,
+			track.ObservationCount,
+			track.AvgSpeedMps,
+			track.PeakSpeedMps,
+			track.P50SpeedMps,
+			track.P85SpeedMps,
+			track.P95SpeedMps,
+			track.BoundingBoxLengthAvg,
+			track.BoundingBoxWidthAvg,
+			track.BoundingBoxHeightAvg,
+			track.HeightP95Max,
+			track.IntensityMeanAvg,
+			nullString(track.ObjectClass),
+			nullFloat32(track.ObjectConfidence),
+			nullString(track.ClassificationModel),
+			nullString(track.UserLabel),
+			nullFloat32(track.LabelConfidence),
+			nullString(track.LabelerID),
+			labeledAt,
+			track.IsSplitCandidate,
+			track.IsMergeCandidate,
+			linkedJSON,
+		)
+		if err != nil {
+			return fmt.Errorf("insert run track: %w", err)
+		}
+		return nil
+	})
 }
 
 // GetRunTracks retrieves all tracks for an analysis run.
@@ -717,7 +762,7 @@ func (s *AnalysisRunStore) GetLabelingProgress(runID string) (total, labeled int
 
 	// Get total and labeled counts
 	query := `
-		SELECT 
+		SELECT
 			COUNT(*) as total,
 			SUM(CASE WHEN user_label IS NOT NULL AND user_label != '' THEN 1 ELSE 0 END) as labeled
 		FROM lidar_run_tracks
