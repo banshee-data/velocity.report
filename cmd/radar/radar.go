@@ -233,6 +233,9 @@ func main() {
 			SnapshotIntervalNanos:          int64(2 * time.Hour),
 			ChangeThresholdForSnapshot:     100,
 			NoiseRelativeFraction:          float32(*lidarBgNoiseRelative),
+			// Use library default (3) for minimum confidence floor so we don't accidentally
+			// reset background on transient noise or short events.
+			MinConfidenceFloor: lidar.DefaultMinConfidenceFloor,
 			// When running in PCAP mode / dev runs seed the background grid from first observations
 			// so replayed captures can build an initial background without live warmup.
 			SeedFromFirstObservation: *lidarSeedFromFirst,
