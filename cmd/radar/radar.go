@@ -387,7 +387,7 @@ func main() {
 		// Start lidar webserver for monitoring (moved into internal/api)
 		// Provide a PacketStats instance if parsing/forwarding is enabled
 		// Pass the same PacketStats instance to the webserver so it shows live stats
-		lidarWebServer := monitor.NewWebServer(monitor.WebServerConfig{
+		lidarWebServer = monitor.NewWebServer(monitor.WebServerConfig{
 			Address:           *lidarListen,
 			Stats:             packetStats,
 			ForwardingEnabled: *lidarForward,
