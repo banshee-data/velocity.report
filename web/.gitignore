@@ -7,8 +7,6 @@ node_modules
 .wrangler
 /.svelte-kit
 /build
-# Allow stub index.html to be tracked for Go embed
-!/build/index.html
 
 # OS
 .DS_Store

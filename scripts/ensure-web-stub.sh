@@ -1,10 +1,28 @@
+#!/bin/bash
+# ensure-web-stub.sh - Generate stub web/build/index.html if it doesn't exist
+# This allows Go embed to work on fresh clones without tracking generated files
+
+set -e
+
+WEB_BUILD_DIR="web/build"
+STUB_FILE="$WEB_BUILD_DIR/index.html"
+
+# If index.html already exists (from actual build or previous stub), do nothing
+if [ -f "$STUB_FILE" ]; then
+    exit 0
+fi
+
+# Create directory if it doesn't exist
+mkdir -p "$WEB_BUILD_DIR"
+
+# Generate stub file
+cat > "$STUB_FILE" << 'HTMLEOF'
 <!DOCTYPE html>
 <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>🚨 Web Assets Not Built : velocity.report</title>
-        <link rel="icon" href="favicon.ico" />
 
         <style>
         html {
@@ -120,14 +138,14 @@
     <body>
         <div class="container">
             <h1>🚧 Under Construction 🚧</h1>
-            <h2>web frontend not built</h2>
+            <h2>Web Frontend Not Built</h2>
             <div class="warning">
                 <div class="warning-icon">⚠️</div>
                 <p><strong>The web frontend has not been built yet</strong></p>
                 <p>This is a stub file to allow Go compilation to succeed</p>
             </div>
 
-            <h2>HOWTO build the web frontend</h2>
+            <h2>How to Build the Web Frontend</h2>
             <p class="left-align">From the repo root run:</p>
             <div class="command-box">
                 <span class="prompt">$</span> make build-web
@@ -152,7 +170,7 @@
                             tools</a></li>
                     <li><a href="http://localhost:8080/debug/tail">Debug: Serial
                             Log Tail</a></li>
-                    <li><a href="http://localhost:8080/debug/sql">Debug: SQL
+                    <li><a href="http://localhost:8080/debug/tailsql/">Debug: SQL
                             Interface</a></li>
                     <li><a href="http://localhost:8080/api/config">API:
                             Configuration</a></li>
@@ -163,3 +181,6 @@
         </div>
     </body>
 </html>
+HTMLEOF
+
+echo "Generated stub file: $STUB_FILE"
