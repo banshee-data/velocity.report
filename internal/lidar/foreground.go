@@ -263,8 +263,10 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 					g.nonzeroCellCount--
 				}
 			}
-			// Freeze cell if divergence is very large
-			if cellDiff > FreezeThresholdMultiplier*closenessThreshold {
+			// Freeze cell if divergence is very large, but only if we are not confident
+			// (TimesSeenCount < 100). If we have a solid background (e.g. static road),
+			// a passing object should not freeze the background model.
+			if cell.TimesSeenCount < 100 && cellDiff > FreezeThresholdMultiplier*closenessThreshold {
 				cell.FrozenUntilUnixNanos = nowNanos + freezeDur
 			}
 			cell.LastUpdateUnixNanos = nowNanos
