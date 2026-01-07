@@ -501,7 +501,9 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 				params.DebugAzMin = debugAzMin
 				params.DebugAzMax = debugAzMax
 				_ = bgManager.SetParams(params)
-				log.Printf("PCAP replay: debug range enabled - rings[%d-%d], azimuth[%.1f-%.1f]", debugRingMin, debugRingMax, debugAzMin, debugAzMax)
+				// Enable diagnostics to activate forwarder filtering for debug range
+				bgManager.SetEnableDiagnostics(true)
+				log.Printf("PCAP replay: debug range enabled - rings[%d-%d], azimuth[%.1f-%.1f] (diagnostics ON)", debugRingMin, debugRingMax, debugAzMin, debugAzMax)
 			}
 
 			config := network.RealtimeReplayConfig{
