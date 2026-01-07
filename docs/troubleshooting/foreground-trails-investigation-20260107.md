@@ -155,12 +155,12 @@ if cell.RecentForegroundCount > 0 {
 
 ---
 
-## Proposed Fix: Reset recFg After Freeze
+## Applied Fix: Reset recFg After Freeze
 
-If the accumulated recFg during freeze is causing the trails perception, apply this fix:
+The following fix was applied to address the accumulated recFg during freeze:
 
 ```go
-// In foreground.go, modify the freeze handling block (lines 157-166)
+// In foreground.go, modified freeze handling block (lines 157-166)
 if cell.FrozenUntilUnixNanos > nowNanos {
     foregroundMask[i] = true
     foregroundCount++
@@ -170,15 +170,18 @@ if cell.FrozenUntilUnixNanos > nowNanos {
 }
 ```
 
-Or more aggressively, reset recFg when freeze expires:
+Additionally, recFg is reset when freeze expires (with 1ms grace period to avoid false triggers when FreezeDurationNanos=0):
 
 ```go
-// Check if freeze just expired (was frozen last frame, not frozen now)
-if cell.FrozenUntilUnixNanos > 0 && cell.FrozenUntilUnixNanos <= nowNanos {
-    // Freeze just expired - reset recFg to give fast re-acquisition a clean start
+// Check if freeze just expired (with grace period)
+const thawGraceNanos = int64(1_000_000) // 1ms
+if cell.FrozenUntilUnixNanos > 0 && cell.FrozenUntilUnixNanos+thawGraceNanos <= nowNanos {
     cell.RecentForegroundCount = 0
+    cell.FrozenUntilUnixNanos = 0 // Clear the expired freeze timestamp
 }
 ```
+
+**Note:** Thaw detection only runs when a point observation hits the cell. If a cell's azimuth bin doesn't receive a point in the frame where freeze expires, the timestamp cleanup is deferred to the next observation.
 
 ---
 

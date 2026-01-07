@@ -172,7 +172,11 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		// Check if freeze just expired - reset recFg to give fast re-acquisition a clean start
 		// This prevents artificially high recFg values accumulated during freeze from
 		// causing prolonged boosted updates after thaw.
-		if cell.FrozenUntilUnixNanos > 0 && cell.FrozenUntilUnixNanos <= nowNanos {
+		// Note: We only trigger thaw when the freeze was meaningful (expired at least 1ms ago).
+		// This avoids false triggers when FreezeDurationNanos=0 causes immediate "expiry".
+		// Limitation: Thaw is only detected when a point observation hits this cell.
+		const thawGraceNanos = int64(1_000_000) // 1ms grace period
+		if cell.FrozenUntilUnixNanos > 0 && cell.FrozenUntilUnixNanos+thawGraceNanos <= nowNanos {
 			if bm.EnableDiagnostics && g.Params.IsInDebugRange(ring, az) {
 				debugf("[FG_THAW] r=%d az=%.1f thawed after freeze, resetting recFg from %d to 0",
 					ring, az, cell.RecentForegroundCount)
