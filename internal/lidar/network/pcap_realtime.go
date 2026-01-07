@@ -193,7 +193,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 				}
 
 				if len(points) == 0 {
-					log.Printf("PCAP real-time replay: packet %d parsed -> 0 points", packetCount)
+					lidar.Debugf("PCAP real-time replay: packet %d parsed -> 0 points", packetCount)
 				} else {
 					totalPoints += len(points)
 
@@ -203,7 +203,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 						originalDuration := captureTime.Sub(firstPacketTime)
 						compressionRatio := float64(originalDuration) / float64(elapsed)
 
-						log.Printf("PCAP real-time replay: packet=%d, points=%d, total_points=%d, elapsed=%v, original_duration=%v, compression=%.1fx",
+						lidar.Debugf("PCAP real-time replay: packet=%d, points=%d, total_points=%d, elapsed=%v, original_duration=%v, compression=%.1fx",
 							packetCount, len(points), totalPoints, elapsed, originalDuration, compressionRatio)
 					}
 				}
@@ -263,7 +263,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 							if warmupRemaining > 0 {
 								warmupRemaining--
 								if len(foregroundPoints) > 0 && (warmupRemaining%100 == 0 || warmupRemaining < 5) {
-									log.Printf("[ForegroundForwarder] warmup skipping frame: remaining_packets=%d fg_points=%d total_points=%d", warmupRemaining, len(foregroundPoints), len(points))
+									lidar.Debugf("[ForegroundForwarder] warmup skipping frame: remaining_packets=%d fg_points=%d total_points=%d", warmupRemaining, len(foregroundPoints), len(points))
 								}
 							} else if len(foregroundPoints) > 0 {
 								// Filter by debug range if configured
@@ -288,7 +288,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 
 								if packetCount%1000 == 0 {
 									fgRatio := float64(len(foregroundPoints)) / float64(len(points))
-									log.Printf("Foreground extraction: %d/%d points (%.1f%%)",
+									lidar.Debugf("Foreground extraction: %d/%d points (%.1f%%)",
 										len(foregroundPoints), len(points), fgRatio*100)
 								}
 							}
