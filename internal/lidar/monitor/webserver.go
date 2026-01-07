@@ -109,6 +109,9 @@ type WebServer struct {
 	// Track API for tracking endpoints
 	trackAPI *TrackAPI
 
+	// Analysis run manager for PCAP analysis mode
+	analysisRunManager *lidar.AnalysisRunManager
+
 	// latestFgCounts holds counts from the most recent foreground snapshot for status UI.
 	fgCountsMu     sync.RWMutex
 	latestFgCounts map[string]int
@@ -176,6 +179,9 @@ func NewWebServer(config WebServerConfig) *WebServer {
 	// Initialize TrackAPI if database is configured
 	if config.DB != nil {
 		ws.trackAPI = NewTrackAPI(config.DB.DB, config.SensorID)
+		// Initialize AnalysisRunManager for PCAP analysis runs
+		ws.analysisRunManager = lidar.NewAnalysisRunManager(config.DB.DB, config.SensorID)
+		lidar.RegisterAnalysisRunManager(config.SensorID, ws.analysisRunManager)
 	}
 
 	ws.server = &http.Server{
@@ -404,6 +410,28 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 		defer close(finished)
 		log.Printf("Starting PCAP replay from file: %s (sensor: %s, mode: %s, ratio: %.2f)", path, ws.sensorID, speedMode, speedRatio)
 
+		// Check if we should start an analysis run (only in analysis mode)
+		ws.pcapMu.Lock()
+		isAnalysisMode := ws.pcapAnalysisMode
+		ws.pcapMu.Unlock()
+
+		var runID string
+		if isAnalysisMode && ws.analysisRunManager != nil {
+			// Build run parameters from current background manager settings
+			runParams := lidar.DefaultRunParams()
+			if bgManager := lidar.GetBackgroundManager(ws.sensorID); bgManager != nil {
+				runParams.Background = lidar.FromBackgroundParams(bgManager.GetParams())
+			}
+
+			var startErr error
+			runID, startErr = ws.analysisRunManager.StartRun(path, runParams)
+			if startErr != nil {
+				log.Printf("Warning: Failed to start analysis run: %v", startErr)
+			} else {
+				log.Printf("[AnalysisRun] Started run %s for PCAP: %s", runID, path)
+			}
+		}
+
 		// Configure parser to use LiDAR timestamps for PCAP replay
 		// This ensures that replayed data has original timestamps, not current system time
 		if p, ok := ws.parser.(interface{ SetTimestampMode(parse.TimestampMode) }); ok {
@@ -479,8 +507,20 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 
 		if err != nil && !errors.Is(err, context.Canceled) {
 			log.Printf("PCAP replay error: %v", err)
+			// Mark analysis run as failed if active
+			if runID != "" && ws.analysisRunManager != nil {
+				if failErr := ws.analysisRunManager.FailRun(err.Error()); failErr != nil {
+					log.Printf("Warning: Failed to mark analysis run as failed: %v", failErr)
+				}
+			}
 		} else {
 			log.Printf("PCAP replay completed: %s", path)
+			// Complete analysis run if active
+			if runID != "" && ws.analysisRunManager != nil {
+				if completeErr := ws.analysisRunManager.CompleteRun(); completeErr != nil {
+					log.Printf("Warning: Failed to complete analysis run: %v", completeErr)
+				}
+			}
 		}
 
 		ws.pcapMu.Lock()
