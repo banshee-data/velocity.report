@@ -1,7 +1,6 @@
 package lidar
 
 import (
-	"log"
 	"math"
 	"time"
 )
@@ -273,7 +272,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 
 		// Debug logging for specific region to investigate trailing foreground
 		if bm.EnableDiagnostics && g.Params.IsInDebugRange(ring, az) {
-			log.Printf("[FG_DEBUG] r=%d az=%.1f dist=%.3f avg=%.3f spread=%.3f diff=%.3f thresh=%.3f seen=%d recFg=%d frozen=%v isBg=%v",
+			debugf("[FG_DEBUG] r=%d az=%.1f dist=%.3f avg=%.3f spread=%.3f diff=%.3f thresh=%.3f seen=%d recFg=%d frozen=%v isBg=%v",
 				ring, az, p.Distance, cell.AverageRangeMeters, cell.RangeSpreadMeters,
 				cellDiff, closenessThreshold, cell.TimesSeenCount, cell.RecentForegroundCount,
 				cell.FrozenUntilUnixNanos > nowNanos, !foregroundMask[i])
@@ -292,7 +291,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		backgroundCount = int64(len(points))
 
 		if bm != nil && bm.EnableDiagnostics {
-			log.Printf("[Foreground] warmup active: suppressed_fg=%d total_points=%d warmup_frames_remaining=%d warmup_duration_ns=%d elapsed_ms=%d",
+			debugf("[Foreground] warmup active: suppressed_fg=%d total_points=%d warmup_frames_remaining=%d warmup_duration_ns=%d elapsed_ms=%d",
 				suppressedFg, len(points), warmupFramesRemaining, warmupDuration, warmupElapsed.Milliseconds())
 		}
 	}
