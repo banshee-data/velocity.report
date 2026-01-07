@@ -428,8 +428,6 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 			runID, startErr = ws.analysisRunManager.StartRun(path, runParams)
 			if startErr != nil {
 				log.Printf("Warning: Failed to start analysis run: %v", startErr)
-			} else {
-				log.Printf("[AnalysisRun] Started run %s for PCAP: %s", runID, path)
 			}
 		}
 
