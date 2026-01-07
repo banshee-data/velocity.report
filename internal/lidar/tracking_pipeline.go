@@ -5,11 +5,26 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"reflect"
 )
 
 // ForegroundForwarder interface allows forwarding foreground points without importing network package.
 type ForegroundForwarder interface {
 	ForwardForeground(points []PointPolar)
+}
+
+// isNilInterface checks if an interface value is nil or contains a nil pointer.
+// This handles the Go interface nil pitfall where interface{} != nil but the underlying value is nil.
+func isNilInterface(i interface{}) bool {
+	if i == nil {
+		return true
+	}
+	v := reflect.ValueOf(i)
+	switch v.Kind() {
+	case reflect.Ptr, reflect.Map, reflect.Slice, reflect.Chan, reflect.Func, reflect.Interface:
+		return v.IsNil()
+	}
+	return false
 }
 
 // TrackingPipelineConfig holds dependencies for the tracking pipeline callback.
@@ -124,7 +139,8 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 		}
 
 		// Forward foreground points on 2370-style stream if configured
-		if cfg.FgForwarder != nil {
+		// Use isNilInterface to handle Go interface nil pitfall
+		if !isNilInterface(cfg.FgForwarder) {
 			pointsToForward := foregroundPoints
 			// If debug range is configured, only forward points within that range
 			// This allows isolating specific regions for debugging without flooding the stream
