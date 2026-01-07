@@ -59,7 +59,12 @@ func (f *PacketForwarder) Start(ctx context.Context) {
 			select {
 			case <-ctx.Done():
 				return
-			case packet := <-f.channel:
+			case packet, ok := <-f.channel:
+				if !ok {
+					// Detect spin on closed channel
+					time.Sleep(1 * time.Second) // Prevent full CPU lockup while logging
+					continue
+				}
 				_, err := f.conn.Write(packet)
 				if err != nil {
 					droppedCount++
