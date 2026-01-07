@@ -17,6 +17,9 @@ const (
 	DefaultReacquisitionBoostMultiplier = 5.0
 	// DefaultMinConfidenceFloor is the minimum TimesSeenCount to preserve during foreground
 	DefaultMinConfidenceFloor = 3
+	// ThawGracePeriodNanos is the minimum time after freeze expiry before thaw detection triggers.
+	// This prevents false triggers when FreezeDurationNanos=0 causes immediate "expiry".
+	ThawGracePeriodNanos = int64(1_000_000) // 1ms
 )
 
 // ProcessFramePolarWithMask classifies each point as foreground/background in polar coordinates.
@@ -154,15 +157,34 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		cellIdx := g.Idx(ring, azBin)
 		cell := &g.Cells[cellIdx]
 
-		// If frozen, treat as foreground but still track for fast re-acquisition
+		// If frozen, treat as foreground but don't accumulate recFg
+		// The freeze itself is sufficient protection; accumulating recFg during freeze
+		// causes unnecessarily high values (observed 70+) that persist after thaw.
 		if cell.FrozenUntilUnixNanos > nowNanos {
 			foregroundMask[i] = true
 			foregroundCount++
-			// Track foreground even when frozen (for fast re-acquisition)
-			if cell.RecentForegroundCount < 65535 {
-				cell.RecentForegroundCount++
+			// Debug: log frozen cell observations to track freeze behavior
+			if bm.EnableDiagnostics && g.Params.IsInDebugRange(ring, az) {
+				remainingFreeze := float64(cell.FrozenUntilUnixNanos-nowNanos) / 1e9
+				debugf("[FG_FROZEN] r=%d az=%.1f dist=%.3f avg=%.3f remainingFreezeSec=%.2f recFg=%d",
+					ring, az, p.Distance, cell.AverageRangeMeters, remainingFreeze, cell.RecentForegroundCount)
 			}
 			continue
+		}
+
+		// Check if freeze just expired - reset recFg to give fast re-acquisition a clean start
+		// This prevents artificially high recFg values accumulated during freeze from
+		// causing prolonged boosted updates after thaw.
+		// Note: We only trigger thaw when the freeze was meaningful (expired at least 1ms ago).
+		// This avoids false triggers when FreezeDurationNanos=0 causes immediate "expiry".
+		// Limitation: Thaw is only detected when a point observation hits this cell.
+		if cell.FrozenUntilUnixNanos > 0 && cell.FrozenUntilUnixNanos+ThawGracePeriodNanos <= nowNanos {
+			if bm.EnableDiagnostics && g.Params.IsInDebugRange(ring, az) {
+				debugf("[FG_THAW] r=%d az=%.1f thawed after freeze, resetting recFg from %d to 0",
+					ring, az, cell.RecentForegroundCount)
+			}
+			cell.RecentForegroundCount = 0
+			cell.FrozenUntilUnixNanos = 0 // Clear the expired freeze timestamp
 		}
 
 		// Same-ring neighbor confirmation
@@ -282,6 +304,11 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 			// (TimesSeenCount < 100). If we have a solid background (e.g. static road),
 			// a passing object should not freeze the background model.
 			if cell.TimesSeenCount < 100 && cellDiff > FreezeThresholdMultiplier*closenessThreshold {
+				if bm.EnableDiagnostics && g.Params.IsInDebugRange(ring, az) {
+					debugf("[FG_FREEZE] r=%d az=%.1f froze for %.1fs, dist=%.3f avg=%.3f cellDiff=%.3f freezeThresh=%.3f recFg=%d",
+						ring, az, float64(freezeDur)/1e9, p.Distance, cell.AverageRangeMeters,
+						cellDiff, FreezeThresholdMultiplier*closenessThreshold, cell.RecentForegroundCount)
+				}
 				cell.FrozenUntilUnixNanos = nowNanos + freezeDur
 			}
 			cell.LastUpdateUnixNanos = nowNanos
