@@ -7,6 +7,7 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/go-cmp v0.7.0
 	github.com/google/gopacket v1.1.19
+	github.com/google/uuid v1.6.0
 	github.com/tailscale/tailsql v0.0.0-20250804154109-d7a0426330bb
 	go.bug.st/serial v1.6.4
 	gonum.org/v1/gonum v0.16.0
@@ -20,7 +21,6 @@ require (
 	github.com/creack/goselect v0.1.3 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-json-experiment/json v0.0.0-20250813233538-9b1f9ea2e11b // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
