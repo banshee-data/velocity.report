@@ -30,7 +30,6 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidar/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/parse"
-	"github.com/banshee-data/velocity.report/internal/security"
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/components"
 	"github.com/go-echarts/go-echarts/v2/opts"
@@ -1564,10 +1563,10 @@ func (ws *WebServer) handleForegroundFrameChart(w http.ResponseWriter, r *http.R
 }
 
 // handleExportSnapshotASC triggers an export to ASC for a given snapshot_id (or latest if not provided).
-// Query params: sensor_id (required), snapshot_id (optional), out (optional file path)
+// Query params: sensor_id (required), snapshot_id (optional)
+// Note: The out parameter is ignored for security - the file path is generated internally.
 func (ws *WebServer) handleExportSnapshotASC(w http.ResponseWriter, r *http.Request) {
 	sensorID := r.URL.Query().Get("sensor_id")
-	outPath := r.URL.Query().Get("out")
 	if sensorID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
 		return
@@ -1598,28 +1597,21 @@ func (ws *WebServer) handleExportSnapshotASC(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	// Validate and sanitize output filename; actual path resolution happens in lidar export helpers.
-	safeSensor := security.SanitizeFilename(sensorID)
-	if outPath == "" {
-		outPath = fmt.Sprintf("bg_snapshot_%s_%d.asc", safeSensor, snap.TakenUnixNanos)
-	} else {
-		// Only use the last path component to avoid directory traversal.
-		outPath = filepath.Base(outPath)
-	}
-
-	if err := lidar.ExportBgSnapshotToASC(snap, outPath, elevs); err != nil {
+	// The export path is generated internally by ExportBgSnapshotToASC
+	// to prevent user-controlled data from flowing into file system operations.
+	if _, err := lidar.ExportBgSnapshotToASC(snap, elevs); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("export error: %v", err))
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "out": outPath})
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "note": "File exported to temp directory"})
 }
 
 // handleExportFrameSequenceASC exports a background snapshot plus the next 5 frames and 5 foreground snapshots.
-// Query params: sensor_id (required), out_dir (optional base directory)
+// Query params: sensor_id (required)
+// Note: Export paths are generated internally for security - files are written to the temp directory.
 func (ws *WebServer) handleExportFrameSequenceASC(w http.ResponseWriter, r *http.Request) {
 	sensorID := r.URL.Query().Get("sensor_id")
-	baseDir := r.URL.Query().Get("out_dir")
 	if sensorID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
 		return
@@ -1629,46 +1621,6 @@ func (ws *WebServer) handleExportFrameSequenceASC(w http.ResponseWriter, r *http
 	if fb == nil {
 		ws.writeJSONError(w, http.StatusNotFound, "no FrameBuilder for sensor")
 		return
-	}
-
-	timestamp := time.Now().Unix()
-	safeSensor := security.SanitizeFilename(sensorID)
-	if baseDir == "" {
-		baseDir = fmt.Sprintf("lidar_sequence_%s_%d", safeSensor, timestamp)
-	}
-
-	// Force usage of temp dir and sanitize directory name
-	absDir := filepath.Join(os.TempDir(), security.SanitizeFilename(baseDir))
-
-	// Validate output directory is within allowed directories BEFORE creating it
-	if err := security.ValidateExportPath(absDir); err != nil {
-		ws.writeJSONError(w, http.StatusForbidden, fmt.Sprintf("invalid output directory: %v", err))
-		return
-	}
-
-	if err := os.MkdirAll(absDir, 0o755); err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create out_dir: %v", err))
-		return
-	}
-
-	// Prepare paths (use sanitized sensor id)
-	bgPath := filepath.Join(absDir, fmt.Sprintf("bg_%s_%d.asc", safeSensor, timestamp))
-	framePaths := make([]string, 0, 5)
-	for i := 1; i <= 5; i++ {
-		framePaths = append(framePaths, filepath.Join(absDir, fmt.Sprintf("frame_%s_%d_%02d.asc", safeSensor, timestamp, i)))
-	}
-	fgPaths := make([]string, 0, 5)
-	for i := 1; i <= 5; i++ {
-		fgPaths = append(fgPaths, filepath.Join(absDir, fmt.Sprintf("foreground_%s_%d_%02d.asc", safeSensor, timestamp, i)))
-	}
-
-	// Validate all output paths
-	allPaths := append([]string{bgPath}, append(framePaths, fgPaths...)...)
-	for _, p := range allPaths {
-		if err := security.ValidateExportPath(p); err != nil {
-			ws.writeJSONError(w, http.StatusForbidden, fmt.Sprintf("invalid export path %s: %v", p, err))
-			return
-		}
 	}
 
 	// Export latest background snapshot immediately
@@ -1687,33 +1639,30 @@ func (ws *WebServer) handleExportFrameSequenceASC(w http.ResponseWriter, r *http
 			elevs = e
 		}
 	}
-	if err := lidar.ExportBgSnapshotToASC(snap, bgPath, elevs); err != nil {
+	// Export paths are generated internally by the export functions for security
+	if _, err := lidar.ExportBgSnapshotToASC(snap, elevs); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("background export error: %v", err))
 		return
 	}
 
 	// Queue next 5 frames for export
-	fb.RequestExportFrameBatchASC(framePaths)
+	fb.RequestExportFrameBatchASC(5)
 
-	// Kick off foreground snapshot exports asynchronously
-	go ws.exportForegroundSequence(sensorID, fgPaths)
+	// Kick off foreground snapshot exports asynchronously (paths are ignored, generated internally)
+	go ws.exportForegroundSequenceInternal(sensorID, 5)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":           "scheduled",
-		"out_dir":          absDir,
-		"background":       bgPath,
-		"frame_paths":      framePaths,
-		"foreground_paths": fgPaths,
-		"note":             "Background exported immediately; frames export as they complete; foreground exports wait for next 5 snapshots.",
+		"status": "scheduled",
+		"note":   "Background exported immediately to temp directory; frames and foreground exports scheduled. Check temp directory for files with 'export_' prefix.",
 	})
 }
 
 // handleExportNextFrameASC triggers an export to ASC for the next completed LiDARFrame for a sensor.
-// Query params: sensor_id (required), out (optional file path)
+// Query params: sensor_id (required)
+// Note: The out parameter is ignored for security - the file path is generated internally.
 func (ws *WebServer) handleExportNextFrameASC(w http.ResponseWriter, r *http.Request) {
 	sensorID := r.URL.Query().Get("sensor_id")
-	outPath := r.URL.Query().Get("out")
 	if sensorID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
 		return
@@ -1725,22 +1674,17 @@ func (ws *WebServer) handleExportNextFrameASC(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Validate and sanitize output filename if provided; actual path resolution happens in lidar export helpers.
-	if outPath != "" {
-		outPath = filepath.Base(outPath)
-	}
-
-	// Set flag to export next frame
-	fb.RequestExportNextFrameASC(outPath)
+	// The export path is generated internally by the export functions
+	fb.RequestExportNextFrameASC()
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "note": "Will export next completed frame", "out": outPath})
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "note": "Will export next completed frame to temp directory"})
 }
 
 // handleExportForegroundASC exports the latest foreground snapshot to an ASC file for quick inspection.
-// Query params: sensor_id (required), out (optional file path)
+// Query params: sensor_id (required)
+// Note: The out parameter is ignored for security - the file path is generated internally.
 func (ws *WebServer) handleExportForegroundASC(w http.ResponseWriter, r *http.Request) {
 	sensorID := r.URL.Query().Get("sensor_id")
-	outPath := r.URL.Query().Get("out")
 	if sensorID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
 		return
@@ -1752,31 +1696,21 @@ func (ws *WebServer) handleExportForegroundASC(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if outPath == "" {
-		safeSensor := security.SanitizeFilename(sensorID)
-	} else {
-		// Only use the last path component to avoid directory traversal.
-		outPath = filepath.Base(outPath)
-		ts := snap.Timestamp
-		if ts.IsZero() {
-			ts = time.Now()
-		}
-		outPath = fmt.Sprintf("foreground_%s_%d.asc", safeSensor, ts.Unix())
-	}
-
-	if err := lidar.ExportForegroundSnapshotToASC(snap, outPath); err != nil {
+	// The export path is generated internally by ExportForegroundSnapshotToASC
+	if _, err := lidar.ExportForegroundSnapshotToASC(snap); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("export error: %v", err))
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "out": outPath})
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "note": "File exported to temp directory"})
 }
 
-// exportForegroundSequence captures and exports the next N foreground snapshots for a sensor.
+// exportForegroundSequenceInternal captures and exports the next N foreground snapshots for a sensor.
 // Runs asynchronously and logs progress; intended for batch export orchestration.
-func (ws *WebServer) exportForegroundSequence(sensorID string, paths []string) {
-	if len(paths) == 0 {
+// Paths are generated internally by the export functions for security.
+func (ws *WebServer) exportForegroundSequenceInternal(sensorID string, count int) {
+	if count <= 0 {
 		return
 	}
 
@@ -1784,26 +1718,26 @@ func (ws *WebServer) exportForegroundSequence(sensorID string, paths []string) {
 	var last time.Time
 	exported := 0
 
-	for exported < len(paths) && time.Now().Before(deadline) {
+	for exported < count && time.Now().Before(deadline) {
 		snap := lidar.GetForegroundSnapshot(sensorID)
 		if snap == nil || snap.Timestamp.IsZero() || len(snap.ForegroundPoints) == 0 || !snap.Timestamp.After(last) {
 			time.Sleep(200 * time.Millisecond)
 			continue
 		}
 
-		path := paths[exported]
-		if err := lidar.ExportForegroundSnapshotToASC(snap, path); err != nil {
-			log.Printf("[ExportSequence] foreground export failed (%d/%d) sensor=%s: %v", exported+1, len(paths), sensorID, err)
+		// Export path is generated internally by ExportForegroundSnapshotToASC
+		if _, err := lidar.ExportForegroundSnapshotToASC(snap); err != nil {
+			log.Printf("[ExportSequence] foreground export failed (%d/%d) sensor=%s: %v", exported+1, count, sensorID, err)
 		} else {
-			log.Printf("[ExportSequence] exported foreground %d/%d for sensor=%s to %s", exported+1, len(paths), sensorID, path)
+			log.Printf("[ExportSequence] exported foreground %d/%d for sensor=%s", exported+1, count, sensorID)
 		}
 
 		last = snap.Timestamp
 		exported++
 	}
 
-	if exported < len(paths) {
-		log.Printf("[ExportSequence] foreground export ended early: got %d/%d snapshots for sensor=%s before timeout", exported, len(paths), sensorID)
+	if exported < count {
+		log.Printf("[ExportSequence] foreground export ended early: got %d/%d snapshots for sensor=%s before timeout", exported, count, sensorID)
 	}
 }
 

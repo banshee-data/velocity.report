@@ -1173,9 +1173,10 @@ func (bm *BackgroundManager) ToASCPoints() []PointASC {
 }
 
 // ExportBackgroundGridToASC exports the background grid using the shared ASC export utility.
-func (bm *BackgroundManager) ExportBackgroundGridToASC(filePath string) error {
+// Returns the actual path where the file was written.
+func (bm *BackgroundManager) ExportBackgroundGridToASC() (string, error) {
 	points := bm.ToASCPoints()
-	return ExportPointsToASC(points, filePath, " AverageRangeMeters TimesSeenCount")
+	return ExportPointsToASC(points, " AverageRangeMeters TimesSeenCount")
 }
 
 // ExportedCell represents a background cell for API consumption

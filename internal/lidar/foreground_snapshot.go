@@ -3,11 +3,8 @@ package lidar
 import (
 	"fmt"
 	"math"
-	"path/filepath"
 	"sync"
 	"time"
-
-	"github.com/banshee-data/velocity.report/internal/security"
 )
 
 // ProjectedPoint is a lightweight 3D sensor-frame projection used for debug charts.
@@ -125,19 +122,15 @@ func projectPolars(points []PointPolar) []ProjectedPoint {
 
 // ExportForegroundSnapshotToASC writes only the foreground points to an ASC file.
 // This is intended for quick inspection of live/replayed foreground extraction.
-func ExportForegroundSnapshotToASC(snap *ForegroundSnapshot, outPath string) error {
+// Returns the path where the file was written.
+func ExportForegroundSnapshotToASC(snap *ForegroundSnapshot) (string, error) {
 	if snap == nil {
-		return fmt.Errorf("nil foreground snapshot")
-	}
-
-	cleanPath := filepath.Clean(outPath)
-	if err := security.ValidateExportPath(cleanPath); err != nil {
-		return err
+		return "", fmt.Errorf("nil foreground snapshot")
 	}
 
 	points := make([]PointASC, 0, len(snap.ForegroundPoints))
 	for _, p := range snap.ForegroundPoints {
 		points = append(points, PointASC{X: p.X, Y: p.Y, Z: p.Z, Intensity: int(p.Intensity)})
 	}
-	return ExportPointsToASC(points, cleanPath, "")
+	return ExportPointsToASC(points, "")
 }

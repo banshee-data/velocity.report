@@ -3,20 +3,20 @@ package lidar
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/rand"
 	"encoding/gob"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
-
-	"github.com/banshee-data/velocity.report/internal/security"
+	"time"
 )
 
 // defaultExportDir is the base directory for all ASC exports.
 // It is intentionally restricted to a single directory to avoid writing
-// outside controlled locations, even if callers provide arbitrary paths.
+// outside controlled locations.
 var defaultExportDir = func() string {
 	tmp := os.TempDir()
 	abs, err := filepath.Abs(tmp)
@@ -28,47 +28,28 @@ var defaultExportDir = func() string {
 	return filepath.Clean(abs)
 }()
 
-// safeExportPath constructs a safe absolute path for an export file based on a
-// user-supplied path string. It restricts exports to defaultExportDir and
-// validates the final path with the shared security.ValidateExportPath helper.
-func safeExportPath(userPath string) (string, error) {
-	if userPath == "" {
-		return "", fmt.Errorf("empty export path")
+// generateExportFilename creates a unique filename for export operations.
+// The filename is generated entirely from trusted internal sources (timestamp + random bytes)
+// to prevent any user-controlled data from flowing into file paths.
+// The extension parameter allows callers to specify a file extension (default: ".asc").
+func generateExportFilename(extension string) string {
+	if extension == "" {
+		extension = ".asc"
 	}
-	// Use only the last path component to avoid any directory traversal and
-	// to ensure we control the export root directory.
-	base := filepath.Base(userPath)
-	if base == "." || base == ".." || base == "" {
-		return "", fmt.Errorf("invalid export filename")
+	// Generate 8 random bytes for uniqueness
+	randomBytes := make([]byte, 8)
+	if _, err := rand.Read(randomBytes); err != nil {
+		// Fallback to timestamp-only if random fails
+		return fmt.Sprintf("export_%d%s", time.Now().UnixNano(), extension)
 	}
+	return fmt.Sprintf("export_%d_%s%s", time.Now().UnixNano(), hex.EncodeToString(randomBytes), extension)
+}
 
-	joined := filepath.Join(defaultExportDir, base)
-	absPath, err := filepath.Abs(joined)
-	if err != nil {
-		return "", fmt.Errorf("cannot resolve export path: %w", err)
-	}
-	cleanPath := filepath.Clean(absPath)
-
-	// Ensure the cleaned absolute path is still within the defaultExportDir.
-	baseDir := defaultExportDir
-	if baseDir == "" {
-		return "", fmt.Errorf("export base directory not configured")
-	}
-	// Normalize baseDir to an absolute, cleaned form for the prefix check.
-	baseDirAbs, err := filepath.Abs(baseDir)
-	if err != nil {
-		return "", fmt.Errorf("cannot resolve export base directory: %w", err)
-	}
-	baseDirAbs = filepath.Clean(baseDirAbs)
-	if !strings.HasPrefix(cleanPath, baseDirAbs+string(os.PathSeparator)) && cleanPath != baseDirAbs {
-		return "", fmt.Errorf("export path escapes base directory")
-	}
-
-	if err := security.ValidateExportPath(cleanPath); err != nil {
-		log.Printf("Security: rejected export path %s (from %s, cleaned: %s): %v", joined, userPath, cleanPath, err)
-		return "", fmt.Errorf("invalid export path: %w", err)
-	}
-	return cleanPath, nil
+// buildExportPath constructs a safe export path in the defaultExportDir.
+// The filename is generated internally - no user input is used in path construction.
+func buildExportPath(extension string) string {
+	filename := generateExportFilename(extension)
+	return filepath.Join(defaultExportDir, filename)
 }
 
 // PointASC is a cartesian point with optional extra columns for export
@@ -79,23 +60,21 @@ type PointASC struct {
 	Extra     []interface{}
 }
 
-// ExportPointsToASC exports a slice of PointASC to a CloudCompare-compatible .asc file
+// ExportPointsToASC exports a slice of PointASC to a CloudCompare-compatible .asc file.
+// The export path is generated internally using a timestamp and random suffix to prevent
+// path traversal attacks. Returns the actual path where the file was written.
 // extraHeader is a string describing extra columns (optional)
-func ExportPointsToASC(points []PointASC, filePath string, extraHeader string) error {
+func ExportPointsToASC(points []PointASC, extraHeader string) (string, error) {
 	if len(points) == 0 {
-		return fmt.Errorf("no points to export")
+		return "", fmt.Errorf("no points to export")
 	}
 
-	// Build a safe export path anchored under defaultExportDir to prevent path
-	// traversal and unintended file overwrites.
-	safePath, err := safeExportPath(filePath)
-	if err != nil {
-		return err
-	}
+	// Generate a safe export path entirely from trusted internal sources.
+	exportPath := buildExportPath(".asc")
 
-	f, err := os.Create(safePath)
+	f, err := os.Create(exportPath)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer f.Close()
 
@@ -119,36 +98,30 @@ func ExportPointsToASC(points []PointASC, filePath string, extraHeader string) e
 		}
 		fmt.Fprintln(f)
 	}
-	log.Printf("Exported %d points to %s", len(points), safePath)
-	return nil
+	log.Printf("Exported %d points to %s", len(points), exportPath)
+	return exportPath, nil
 }
 
 // ExportBgSnapshotToASC decodes a BgSnapshot's grid blob, constructs a temporary
 // BackgroundGrid and BackgroundManager, supplies per-ring elevations (preferring
 // a live BackgroundManager and falling back to embedded parser config), and
-// exports the resulting points to an ASC file at outPath.
-func ExportBgSnapshotToASC(snap *BgSnapshot, outPath string, ringElevations []float64) error {
+// exports the resulting points to an ASC file.
+// Returns the path where the file was written.
+func ExportBgSnapshotToASC(snap *BgSnapshot, ringElevations []float64) (string, error) {
 	if snap == nil {
-		return fmt.Errorf("nil snapshot")
+		return "", fmt.Errorf("nil snapshot")
 	}
 
-	// Build a safe export path anchored under defaultExportDir to prevent path
-	// traversal and unintended file overwrites.
-	safePath, err := safeExportPath(outPath)
-	if err != nil {
-		return err
-
-	}
 	// Decode grid blob
 	gz, err := gzip.NewReader(bytes.NewReader(snap.GridBlob))
 	if err != nil {
-		return fmt.Errorf("gunzip error: %v", err)
+		return "", fmt.Errorf("gunzip error: %v", err)
 	}
 	defer gz.Close()
 	var cells []BackgroundCell
 	dec := gob.NewDecoder(gz)
 	if err := dec.Decode(&cells); err != nil {
-		return fmt.Errorf("gob decode error: %v", err)
+		return "", fmt.Errorf("gob decode error: %v", err)
 	}
 
 	grid := &BackgroundGrid{
@@ -165,14 +138,14 @@ func ExportBgSnapshotToASC(snap *BgSnapshot, outPath string, ringElevations []fl
 		if err := json.Unmarshal([]byte(snap.RingElevationsJSON), &elevs); err == nil && len(elevs) == grid.Rings {
 			_ = mgr.SetRingElevations(elevs)
 			log.Printf("Export: used ring elevations embedded in snapshot for sensor %s", snap.SensorID)
-			return mgr.ExportBackgroundGridToASC(safePath)
+			return mgr.ExportBackgroundGridToASC()
 		}
 	}
 
 	if ringElevations != nil && len(ringElevations) == grid.Rings {
 		if err := mgr.SetRingElevations(ringElevations); err == nil {
 			log.Printf("Export: set ring elevations from caller for sensor %s", snap.SensorID)
-			return mgr.ExportBackgroundGridToASC(safePath)
+			return mgr.ExportBackgroundGridToASC()
 		}
 	}
 
@@ -183,5 +156,5 @@ func ExportBgSnapshotToASC(snap *BgSnapshot, outPath string, ringElevations []fl
 		log.Printf("Export: copied ring elevations from live BackgroundManager for sensor %s", snap.SensorID)
 	}
 
-	return mgr.ExportBackgroundGridToASC(safePath)
+	return mgr.ExportBackgroundGridToASC()
 }
