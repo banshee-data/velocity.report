@@ -27,12 +27,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/monitor"
 	"github.com/banshee-data/velocity.report/internal/lidar/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/parse"
-)
-
-// Version information (set at build time via ldflags)
-var (
-	version = "dev"
-	gitSHA  = "unknown"
+	"github.com/banshee-data/velocity.report/internal/version"
 )
 
 var (
@@ -113,7 +108,7 @@ func main() {
 
 	// Handle version flags (-v, --version)
 	if *versionFlag || *versionShort {
-		fmt.Printf("velocity-report v%s (git SHA: %s)\n", version, gitSHA)
+		fmt.Printf("velocity-report v%s (git SHA: %s)\n", version.Version, version.GitSHA)
 		os.Exit(0)
 	}
 
@@ -121,8 +116,8 @@ func main() {
 	if flag.NArg() > 0 {
 		subcommand := flag.Arg(0)
 		if subcommand == "version" {
-			fmt.Printf("velocity-report v%s\n", version)
-			fmt.Printf("git SHA: %s\n", gitSHA)
+			fmt.Printf("velocity-report v%s\n", version.Version)
+			fmt.Printf("git SHA: %s\n", version.GitSHA)
 			os.Exit(0)
 		}
 		if subcommand == "migrate" {
@@ -198,7 +193,7 @@ func main() {
 	}
 
 	// Log version and git SHA on startup
-	log.Printf("velocity-report v%s (git SHA: %s)", version, gitSHA)
+	log.Printf("velocity-report v%s (git SHA: %s)", version.Version, version.GitSHA)
 
 	// Use the CLI flag value (defaults to ./sensor_data.db). We intentionally
 	// avoid relying on environment variables for configuration unless needed.
