@@ -82,22 +82,22 @@ func (e *BackgroundSubtractorExtractor) GetParams() map[string]interface{} {
 
 	// Convert to map for JSON serialization
 	result := map[string]interface{}{
-		"background_update_fraction":        params.BackgroundUpdateFraction,
-		"closeness_sensitivity_multiplier":  params.ClosenessSensitivityMultiplier,
-		"safety_margin_meters":              params.SafetyMarginMeters,
-		"freeze_duration_nanos":             params.FreezeDurationNanos,
-		"neighbor_confirmation_count":       params.NeighborConfirmationCount,
-		"warmup_duration_nanos":             params.WarmupDurationNanos,
-		"warmup_min_frames":                 params.WarmupMinFrames,
-		"post_settle_update_fraction":       params.PostSettleUpdateFraction,
-		"foreground_min_cluster_points":     params.ForegroundMinClusterPoints,
-		"foreground_dbscan_eps":             params.ForegroundDBSCANEps,
-		"noise_relative_fraction":           params.NoiseRelativeFraction,
-		"seed_from_first_observation":       params.SeedFromFirstObservation,
-		"reacquisition_boost_multiplier":    params.ReacquisitionBoostMultiplier,
-		"min_confidence_floor":              params.MinConfidenceFloor,
-		"locked_baseline_threshold":         params.LockedBaselineThreshold,
-		"locked_baseline_multiplier":        params.LockedBaselineMultiplier,
+		"background_update_fraction":       params.BackgroundUpdateFraction,
+		"closeness_sensitivity_multiplier": params.ClosenessSensitivityMultiplier,
+		"safety_margin_meters":             params.SafetyMarginMeters,
+		"freeze_duration_nanos":            params.FreezeDurationNanos,
+		"neighbor_confirmation_count":      params.NeighborConfirmationCount,
+		"warmup_duration_nanos":            params.WarmupDurationNanos,
+		"warmup_min_frames":                params.WarmupMinFrames,
+		"post_settle_update_fraction":      params.PostSettleUpdateFraction,
+		"foreground_min_cluster_points":    params.ForegroundMinClusterPoints,
+		"foreground_dbscan_eps":            params.ForegroundDBSCANEps,
+		"noise_relative_fraction":          params.NoiseRelativeFraction,
+		"seed_from_first_observation":      params.SeedFromFirstObservation,
+		"reacquisition_boost_multiplier":   params.ReacquisitionBoostMultiplier,
+		"min_confidence_floor":             params.MinConfidenceFloor,
+		"locked_baseline_threshold":        params.LockedBaselineThreshold,
+		"locked_baseline_multiplier":       params.LockedBaselineMultiplier,
 	}
 
 	return result

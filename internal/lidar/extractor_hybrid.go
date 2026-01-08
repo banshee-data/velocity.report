@@ -138,8 +138,8 @@ func (e *HybridExtractor) ProcessFrame(points []PointPolar, timestamp time.Time)
 	perExtractor := make(map[string]interface{})
 	for _, result := range results {
 		perExtractor[result.AlgorithmName] = map[string]interface{}{
-			"foreground_count":  result.Metrics.ForegroundCount,
-			"background_count":  result.Metrics.BackgroundCount,
+			"foreground_count":   result.Metrics.ForegroundCount,
+			"background_count":   result.Metrics.BackgroundCount,
 			"processing_time_us": result.ProcessingTime.Microseconds(),
 			"error":              result.Error != nil,
 		}
@@ -156,9 +156,9 @@ func (e *HybridExtractor) ProcessFrame(points []PointPolar, timestamp time.Time)
 		BackgroundCount:  bgCount,
 		ProcessingTimeUs: elapsed.Microseconds(),
 		AlgorithmSpecific: map[string]interface{}{
-			"merge_mode":     string(e.Config.MergeMode),
+			"merge_mode":      string(e.Config.MergeMode),
 			"extractor_count": len(e.Extractors),
-			"per_extractor":  perExtractor,
+			"per_extractor":   perExtractor,
 		},
 	}
 

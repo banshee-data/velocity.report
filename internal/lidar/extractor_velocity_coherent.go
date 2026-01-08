@@ -174,11 +174,11 @@ func (e *VelocityCoherentExtractor) ProcessFrame(points []PointPolar, timestamp 
 		BackgroundCount:  len(points) - fgCount,
 		ProcessingTimeUs: elapsed.Microseconds(),
 		AlgorithmSpecific: map[string]interface{}{
-			"clusters_total":         len(clusters),
-			"clusters_filtered":      len(filteredClusters),
-			"points_with_velocity":   pointsWithVelocity,
+			"clusters_total":          len(clusters),
+			"clusters_filtered":       len(filteredClusters),
+			"points_with_velocity":    pointsWithVelocity,
 			"avg_velocity_confidence": avgConfidence,
-			"frame_history_size":     e.FrameHistory.Size(),
+			"frame_history_size":      e.FrameHistory.Size(),
 		},
 	}
 
@@ -249,15 +249,15 @@ func expandClusterLabels(points []WorldPoint, si *SpatialIndex, labels []int,
 // GetParams returns the current configuration as a map.
 func (e *VelocityCoherentExtractor) GetParams() map[string]interface{} {
 	return map[string]interface{}{
-		"search_radius":           e.Config.VelocityEstimation.SearchRadius,
-		"max_velocity_mps":        e.Config.VelocityEstimation.MaxVelocityMps,
-		"velocity_weight":         e.Config.VelocityEstimation.VelocityWeight,
-		"min_confidence":          e.Config.VelocityEstimation.MinConfidence,
-		"dbscan_eps":              e.Config.DBSCANEps,
-		"dbscan_min_pts":          e.Config.DBSCANMinPts,
-		"min_velocity_coherence":  e.Config.MinVelocityCoherence,
-		"min_velocity_points":     e.Config.MinVelocityPoints,
-		"frame_history_capacity":  e.Config.FrameHistoryCapacity,
+		"search_radius":          e.Config.VelocityEstimation.SearchRadius,
+		"max_velocity_mps":       e.Config.VelocityEstimation.MaxVelocityMps,
+		"velocity_weight":        e.Config.VelocityEstimation.VelocityWeight,
+		"min_confidence":         e.Config.VelocityEstimation.MinConfidence,
+		"dbscan_eps":             e.Config.DBSCANEps,
+		"dbscan_min_pts":         e.Config.DBSCANMinPts,
+		"min_velocity_coherence": e.Config.MinVelocityCoherence,
+		"min_velocity_points":    e.Config.MinVelocityPoints,
+		"frame_history_capacity": e.Config.FrameHistoryCapacity,
 	}
 }
 

@@ -47,21 +47,21 @@ type EvaluationHarness struct {
 
 // ExtractorStats holds accumulated statistics for a single extractor.
 type ExtractorStats struct {
-	Name               string
-	FrameCount         int64
-	TotalForeground    int64
-	TotalBackground    int64
-	TotalProcessingUs  int64
-	SumPrecision       float64
-	SumRecall          float64
+	Name                  string
+	FrameCount            int64
+	TotalForeground       int64
+	TotalBackground       int64
+	TotalProcessingUs     int64
+	SumPrecision          float64
+	SumRecall             float64
 	FramesWithGroundTruth int64
 }
 
 // FrameComparison holds comparison results for a single frame.
 type FrameComparison struct {
-	Timestamp    int64                    `json:"timestamp_nanos"`
-	Results      []FrameResultSummary     `json:"results"`
-	AgreementPct float64                  `json:"agreement_pct"`
+	Timestamp    int64                `json:"timestamp_nanos"`
+	Results      []FrameResultSummary `json:"results"`
+	AgreementPct float64              `json:"agreement_pct"`
 }
 
 // FrameResultSummary is a JSON-safe summary of FrameResult.
@@ -210,10 +210,10 @@ func (h *EvaluationHarness) GetSummary() map[string]interface{} {
 	perExtractor := make(map[string]interface{})
 	for name, stats := range h.PerExtractorStats {
 		extSummary := map[string]interface{}{
-			"frame_count":        stats.FrameCount,
-			"total_foreground":   stats.TotalForeground,
-			"total_background":   stats.TotalBackground,
-			"avg_processing_us":  float64(stats.TotalProcessingUs) / float64(max(stats.FrameCount, 1)),
+			"frame_count":       stats.FrameCount,
+			"total_foreground":  stats.TotalForeground,
+			"total_background":  stats.TotalBackground,
+			"avg_processing_us": float64(stats.TotalProcessingUs) / float64(max(stats.FrameCount, 1)),
 		}
 
 		if stats.FramesWithGroundTruth > 0 {
@@ -231,11 +231,11 @@ func (h *EvaluationHarness) GetSummary() map[string]interface{} {
 	}
 
 	return map[string]interface{}{
-		"frame_count":          h.FrameCount,
-		"total_processing_us":  h.TotalProcessingUs,
-		"avg_processing_us":    float64(h.TotalProcessingUs) / float64(max(h.FrameCount, 1)),
-		"extractor_count":      len(h.Extractors),
-		"per_extractor":        perExtractor,
+		"frame_count":         h.FrameCount,
+		"total_processing_us": h.TotalProcessingUs,
+		"avg_processing_us":   float64(h.TotalProcessingUs) / float64(max(h.FrameCount, 1)),
+		"extractor_count":     len(h.Extractors),
+		"per_extractor":       perExtractor,
 	}
 }
 

@@ -52,13 +52,13 @@ const (
 
 // FrameResult contains the output of a single extractor for a frame.
 type FrameResult struct {
-	AlgorithmName  string          `json:"algorithm_name"`
-	ForegroundMask []bool          `json:"-"` // Not serialized (too large)
+	AlgorithmName  string           `json:"algorithm_name"`
+	ForegroundMask []bool           `json:"-"` // Not serialized (too large)
 	Metrics        ExtractorMetrics `json:"metrics"`
-	ProcessingTime time.Duration   `json:"processing_time_ns"`
-	Error          error           `json:"error,omitempty"`
-	Precision      float64         `json:"precision,omitempty"`  // If ground truth available
-	Recall         float64         `json:"recall,omitempty"`     // If ground truth available
+	ProcessingTime time.Duration    `json:"processing_time_ns"`
+	Error          error            `json:"error,omitempty"`
+	Precision      float64          `json:"precision,omitempty"` // If ground truth available
+	Recall         float64          `json:"recall,omitempty"`    // If ground truth available
 }
 
 // MergeForegroundMasks combines multiple foreground masks using the specified mode.
