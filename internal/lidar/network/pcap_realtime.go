@@ -46,6 +46,10 @@ type RealtimeReplayConfig struct {
 	DebugRingMax int     // Max ring index (inclusive, 0 = disabled)
 	DebugAzMin   float32 // Min azimuth degrees (inclusive, 0 = disabled)
 	DebugAzMax   float32 // Max azimuth degrees (inclusive, 0 = disabled)
+
+	// OnFrameCallback is called after each frame is processed with foreground extraction.
+	// This can be used for sampling grid state for plotting.
+	OnFrameCallback func(mgr *lidar.BackgroundManager, points []lidar.PointPolar)
 }
 
 // ReadPCAPFileRealtime reads and replays a PCAP file in real-time, respecting original packet timing.
@@ -292,6 +296,11 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 										len(foregroundPoints), len(points), fgRatio*100)
 								}
 							}
+						}
+
+						// Call frame callback for grid sampling (e.g., for plotting)
+						if config.OnFrameCallback != nil {
+							config.OnFrameCallback(config.BackgroundManager, points)
 						}
 					}
 				}
