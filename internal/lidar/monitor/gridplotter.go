@@ -47,6 +47,10 @@ type GridSample struct {
 	BgAverage float64
 	BgSpread  float64
 	BgSeen    int
+	// Locked baseline values (stable reference)
+	LockedBaseline float64
+	LockedSpread   float64
+	LockedAtCount  int
 	// Most recent observation values (from foreground extraction)
 	ObsDist float64 // Actual observed distance for this frame
 	Diff    float64
@@ -141,13 +145,16 @@ func (gp *GridPlotter) Sample(mgr *lidar.BackgroundManager) {
 
 			// Compute diff from last observed distance if we have one
 			sample := GridSample{
-				FrameIdx:  gp.frameIdx,
-				Timestamp: now,
-				BgAverage: float64(cell.AverageRangeMeters),
-				BgSpread:  float64(cell.RangeSpreadMeters),
-				BgSeen:    int(cell.TimesSeenCount),
-				RecFg:     int(cell.RecentForegroundCount),
-				Frozen:    cell.FrozenUntilUnixNanos > now.UnixNano(),
+				FrameIdx:       gp.frameIdx,
+				Timestamp:      now,
+				BgAverage:      float64(cell.AverageRangeMeters),
+				BgSpread:       float64(cell.RangeSpreadMeters),
+				BgSeen:         int(cell.TimesSeenCount),
+				LockedBaseline: float64(cell.LockedBaseline),
+				LockedSpread:   float64(cell.LockedSpread),
+				LockedAtCount:  int(cell.LockedAtCount),
+				RecFg:          int(cell.RecentForegroundCount),
+				Frozen:         cell.FrozenUntilUnixNanos > now.UnixNano(),
 			}
 
 			gp.samples[key] = append(gp.samples[key], sample)
@@ -283,14 +290,17 @@ func (gp *GridPlotter) SampleWithPoints(mgr *lidar.BackgroundManager, points []l
 			}
 
 			sample := GridSample{
-				FrameIdx:  gp.frameIdx,
-				Timestamp: now,
-				BgAverage: float64(cell.AverageRangeMeters),
-				BgSpread:  float64(cell.RangeSpreadMeters),
-				BgSeen:    int(cell.TimesSeenCount),
-				ObsDist:   obsDist,
-				RecFg:     int(cell.RecentForegroundCount),
-				Frozen:    cell.FrozenUntilUnixNanos > now.UnixNano(),
+				FrameIdx:       gp.frameIdx,
+				Timestamp:      now,
+				BgAverage:      float64(cell.AverageRangeMeters),
+				BgSpread:       float64(cell.RangeSpreadMeters),
+				BgSeen:         int(cell.TimesSeenCount),
+				LockedBaseline: float64(cell.LockedBaseline),
+				LockedSpread:   float64(cell.LockedSpread),
+				LockedAtCount:  int(cell.LockedAtCount),
+				ObsDist:        obsDist,
+				RecFg:          int(cell.RecentForegroundCount),
+				Frozen:         cell.FrozenUntilUnixNanos > now.UnixNano(),
 			}
 
 			gp.samples[key] = append(gp.samples[key], sample)
@@ -335,7 +345,7 @@ func (gp *GridPlotter) GeneratePlots() (int, error) {
 	return plotCount, nil
 }
 
-// generateRingPlot creates plots for a ring: BG average, observation distance, and RecFg count.
+// generateRingPlot creates plots for a ring: BG average, locked baseline, observation distance, and RecFg count.
 func (gp *GridPlotter) generateRingPlot(ring int, azBins map[int][]GridSample) error {
 	if len(azBins) == 0 {
 		return nil
@@ -343,9 +353,15 @@ func (gp *GridPlotter) generateRingPlot(ring int, azBins map[int][]GridSample) e
 
 	// Create plot for background average
 	pBg := plot.New()
-	pBg.Title.Text = fmt.Sprintf("Ring %d - Background Average", ring)
+	pBg.Title.Text = fmt.Sprintf("Ring %d - Background Average (EMA)", ring)
 	pBg.X.Label.Text = "Frame"
 	pBg.Y.Label.Text = "Distance (m)"
+
+	// Create plot for locked baseline
+	pLocked := plot.New()
+	pLocked.Title.Text = fmt.Sprintf("Ring %d - Locked Baseline", ring)
+	pLocked.X.Label.Text = "Frame"
+	pLocked.Y.Label.Text = "Distance (m)"
 
 	// Create plot for observation distance (foreground points)
 	pObs := plot.New()
@@ -389,12 +405,17 @@ func (gp *GridPlotter) generateRingPlot(ring int, azBins map[int][]GridSample) e
 
 		// Create XY data, skipping initial zero values for BG to show more range
 		bgPts := make(plotter.XYs, 0, len(samples))
+		lockedPts := make(plotter.XYs, 0, len(samples))
 		obsPts := make(plotter.XYs, 0, len(samples))
 		fgPts := make(plotter.XYs, 0, len(samples))
 		for _, s := range samples {
 			// Skip initial zeros for BG average (uninitialized cells)
 			if s.BgAverage > 0 {
 				bgPts = append(bgPts, plotter.XY{X: float64(s.FrameIdx), Y: s.BgAverage})
+			}
+			// Only include locked baseline when established (non-zero)
+			if s.LockedBaseline > 0 {
+				lockedPts = append(lockedPts, plotter.XY{X: float64(s.FrameIdx), Y: s.LockedBaseline})
 			}
 			// Only include observation distance when non-zero (point was observed)
 			if s.ObsDist > 0 {
@@ -416,6 +437,18 @@ func (gp *GridPlotter) generateRingPlot(ring int, azBins map[int][]GridSample) e
 			bgLine.Width = vg.Points(1)
 			pBg.Add(bgLine)
 			pBg.Legend.Add(azLabel, bgLine)
+		}
+
+		// Add locked baseline line if we have data
+		if len(lockedPts) > 0 {
+			lockedLine, err := plotter.NewLine(lockedPts)
+			if err != nil {
+				return err
+			}
+			lockedLine.Color = colors[i]
+			lockedLine.Width = vg.Points(1)
+			pLocked.Add(lockedLine)
+			pLocked.Legend.Add(azLabel, lockedLine)
 		}
 
 		// Add observation distance line if we have data
@@ -449,6 +482,11 @@ func (gp *GridPlotter) generateRingPlot(ring int, azBins map[int][]GridSample) e
 	pBg.Legend.XOffs = -10
 	pBg.Legend.YOffs = -10
 
+	pLocked.Legend.Top = true
+	pLocked.Legend.Left = false
+	pLocked.Legend.XOffs = -10
+	pLocked.Legend.YOffs = -10
+
 	pObs.Legend.Top = true
 	pObs.Legend.Left = false
 	pObs.Legend.XOffs = -10
@@ -463,6 +501,11 @@ func (gp *GridPlotter) generateRingPlot(ring int, azBins map[int][]GridSample) e
 	bgFile := filepath.Join(gp.outputDir, fmt.Sprintf("ring_%02d_bg_avg.png", ring))
 	if err := pBg.Save(14*vg.Inch, 6*vg.Inch, bgFile); err != nil {
 		return fmt.Errorf("save bg plot: %w", err)
+	}
+
+	lockedFile := filepath.Join(gp.outputDir, fmt.Sprintf("ring_%02d_locked.png", ring))
+	if err := pLocked.Save(14*vg.Inch, 6*vg.Inch, lockedFile); err != nil {
+		return fmt.Errorf("save locked baseline plot: %w", err)
 	}
 
 	obsFile := filepath.Join(gp.outputDir, fmt.Sprintf("ring_%02d_obs_dist.png", ring))

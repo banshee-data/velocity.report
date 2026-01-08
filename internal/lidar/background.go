@@ -51,6 +51,14 @@ type BackgroundParams struct {
 	// background when a vehicle passes through. Default: 3.
 	MinConfidenceFloor uint32
 
+	// LockedBaselineThreshold is the minimum TimesSeenCount before we lock the
+	// baseline. Once locked, the baseline only updates slowly. Default: 50.
+	LockedBaselineThreshold uint32
+	// LockedBaselineMultiplier controls how many times the LockedSpread defines
+	// the acceptance window. Observations within LockedBaseline ± (LockedSpread *
+	// LockedBaselineMultiplier) are considered background. Default: 4.0.
+	LockedBaselineMultiplier float32
+
 	// Debug logging region (only active if EnableDiagnostics is true)
 	DebugRingMin int     // Min ring index (inclusive)
 	DebugRingMax int     // Max ring index (inclusive)
@@ -110,6 +118,18 @@ type BackgroundCell struct {
 	// Used for fast re-acquisition: when this is >0 and observation matches
 	// background, we apply boosted alpha for faster convergence.
 	RecentForegroundCount uint16
+
+	// LockedBaseline is the stable reference distance that only updates when
+	// we have high confidence (TimesSeenCount > LockedThreshold). This protects
+	// against transit corruption where EMA average drifts during occlusion.
+	LockedBaseline float32
+	// LockedSpread is the acceptable variance around LockedBaseline. Observations
+	// within LockedBaseline ± (LockedSpread * multiplier) are considered background.
+	// This allows per-cell variance (trees, glass have more variance).
+	LockedSpread float32
+	// LockedAtCount is the TimesSeenCount when baseline was last locked.
+	// Used to detect when we should update the locked values.
+	LockedAtCount uint32
 }
 
 // BackgroundGrid enhanced for schema persistence and 100-track performance
