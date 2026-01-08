@@ -30,6 +30,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidar/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/parse"
+	"github.com/banshee-data/velocity.report/internal/version"
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/components"
 	"github.com/go-echarts/go-echarts/v2/opts"
@@ -2036,6 +2037,9 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 
 	// Template data
 	data := struct {
+		Version           string
+		GitSHA            string
+		BuildTime         string
 		UDPPort           int
 		HTTPAddress       string
 		ForwardingStatus  string
@@ -2055,6 +2059,9 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		PCAPSpeedRatio    float64
 		FgSnapshotCounts  map[string]int
 	}{
+		Version:           version.Version,
+		GitSHA:            version.GitSHA,
+		BuildTime:         version.BuildTime,
 		UDPPort:           ws.udpPort,
 		HTTPAddress:       ws.address,
 		ForwardingStatus:  forwardingStatus,
