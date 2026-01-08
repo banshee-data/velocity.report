@@ -20,6 +20,10 @@ const (
 	// ThawGracePeriodNanos is the minimum time after freeze expiry before thaw detection triggers.
 	// This prevents false triggers when FreezeDurationNanos=0 causes immediate "expiry".
 	ThawGracePeriodNanos = int64(1_000_000) // 1ms
+	// DefaultLockedBaselineThreshold is the minimum observations before locking baseline
+	DefaultLockedBaselineThreshold = 50
+	// DefaultLockedBaselineMultiplier defines the acceptance window as LockedSpread * multiplier
+	DefaultLockedBaselineMultiplier = 4.0
 )
 
 // ProcessFramePolarWithMask classifies each point as foreground/background in polar coordinates.
@@ -97,6 +101,16 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 	minConfFloor := g.Params.MinConfidenceFloor
 	if minConfFloor == 0 {
 		minConfFloor = DefaultMinConfidenceFloor
+	}
+
+	// Locked baseline parameters
+	lockedThreshold := g.Params.LockedBaselineThreshold
+	if lockedThreshold == 0 {
+		lockedThreshold = DefaultLockedBaselineThreshold
+	}
+	lockedMultiplier := float64(g.Params.LockedBaselineMultiplier)
+	if lockedMultiplier <= 0 {
+		lockedMultiplier = DefaultLockedBaselineMultiplier
 	}
 
 	// Warmup gating: suppress foreground output until duration and/or frames satisfied.
@@ -222,8 +236,25 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		closenessThreshold := closenessMultiplier*(float64(cell.RangeSpreadMeters)+noiseRel*p.Distance+0.01) + safety
 		cellDiff := math.Abs(float64(cell.AverageRangeMeters) - p.Distance)
 
-		// Classification decision
-		isBackgroundLike := cellDiff <= closenessThreshold || (neighConfirm > 0 && neighborConfirmCount >= neighConfirm)
+		// Locked baseline classification: if cell has a locked baseline, use it for classification
+		// This protects against EMA drift during transits
+		isWithinLockedRange := false
+		lockedThresholdU32 := uint32(lockedThreshold)
+		if cell.LockedBaseline > 0 && cell.LockedAtCount >= lockedThresholdU32 {
+			// Use locked baseline for classification - more stable than EMA average
+			lockedDiff := math.Abs(float64(cell.LockedBaseline) - p.Distance)
+			// Acceptance window: locked spread * multiplier + noise-based margin + safety
+			lockedWindow := lockedMultiplier*float64(cell.LockedSpread) + noiseRel*p.Distance + safety
+			if lockedWindow < 0.1 {
+				lockedWindow = 0.1 // Minimum 10cm window
+			}
+			isWithinLockedRange = lockedDiff <= lockedWindow
+		}
+
+		// Classification decision: prioritize locked baseline if available
+		isBackgroundLike := isWithinLockedRange ||
+			cellDiff <= closenessThreshold ||
+			(neighConfirm > 0 && neighborConfirmCount >= neighConfirm)
 
 		// Deadlock Breaker:
 		// If a cell is persistently classified as foreground (RecentForegroundCount high)
@@ -258,6 +289,10 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 				cell.TimesSeenCount = 1
 				g.nonzeroCellCount++
 				cell.RecentForegroundCount = 0
+				// Initialize locked baseline tracking
+				cell.LockedBaseline = 0
+				cell.LockedSpread = 0
+				cell.LockedAtCount = 0
 			} else {
 				// Fast re-acquisition: if cell recently saw foreground, use boosted alpha
 				// to quickly re-converge to background after object passes
@@ -273,6 +308,22 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 				cell.AverageRangeMeters = float32(newAvg)
 				cell.RangeSpreadMeters = float32(newSpread)
 				cell.TimesSeenCount++
+
+				// Lock the baseline once we've seen enough observations
+				// This provides a stable reference that doesn't drift during transits
+				lockedThresholdU32 := uint32(lockedThreshold)
+				if cell.LockedAtCount < lockedThresholdU32 && cell.TimesSeenCount >= lockedThresholdU32 {
+					cell.LockedBaseline = cell.AverageRangeMeters
+					cell.LockedSpread = cell.RangeSpreadMeters
+					cell.LockedAtCount = cell.TimesSeenCount
+				} else if cell.LockedAtCount >= lockedThresholdU32 && cell.RecentForegroundCount == 0 {
+					// Only update locked baseline during sustained background periods
+					// (no recent foreground detections)
+					lockAlpha := 0.001 // Very slow update rate for locked baseline
+					cell.LockedBaseline = float32((1.0-lockAlpha)*float64(cell.LockedBaseline) + lockAlpha*p.Distance)
+					lockSpreadDev := math.Abs(p.Distance - float64(cell.LockedBaseline))
+					cell.LockedSpread = float32((1.0-lockAlpha)*float64(cell.LockedSpread) + lockAlpha*lockSpreadDev)
+				}
 
 				// Decay RecentForegroundCount now that we're seeing background again
 				if cell.RecentForegroundCount > 0 {
