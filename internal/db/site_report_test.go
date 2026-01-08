@@ -1,7 +1,6 @@
 package db
 
 import (
-	"os"
 	"testing"
 )
 
@@ -397,7 +396,6 @@ func TestGetRecentReportsAllSites_EmptyResult(t *testing.T) {
 		t.Fatalf("failed to create test DB: %v", err)
 	}
 	defer db.Close()
-	defer os.Remove(fname)
 
 	reports, err := db.GetRecentReportsAllSites(10)
 	if err != nil {
