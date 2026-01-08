@@ -400,6 +400,7 @@ func main() {
 			PCAPSafeDir:       *lidarPCAPDir,
 			PacketForwarder:   packetForwarder,
 			UDPListenerConfig: udpListenerConfig,
+			PlotsBaseDir:      filepath.Join(*lidarPCAPDir, "plots"),
 		})
 		wg.Add(1)
 		go func() {

@@ -113,6 +113,11 @@ type WebServer struct {
 	// Analysis run manager for PCAP analysis mode
 	analysisRunManager *lidar.AnalysisRunManager
 
+	// Grid plotter for visualization during PCAP replay
+	gridPlotter  *GridPlotter
+	plotsBaseDir string // Base directory for plot output (e.g., "plots")
+	plotsEnabled bool   // Whether plots are enabled for current run
+
 	// latestFgCounts holds counts from the most recent foreground snapshot for status UI.
 	fgCountsMu     sync.RWMutex
 	latestFgCounts map[string]int
@@ -134,6 +139,7 @@ type WebServerConfig struct {
 	PCAPSafeDir       string // Safe directory for PCAP file access (restricts path traversal)
 	PacketForwarder   *network.PacketForwarder
 	UDPListenerConfig network.UDPListenerConfig
+	PlotsBaseDir      string // Base directory for plot output (e.g., "plots")
 }
 
 // NewWebServer creates a new web server with the provided configuration
@@ -175,6 +181,7 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		udpListenerConfig: listenerConfig,
 		currentSource:     DataSourceLive,
 		latestFgCounts:    make(map[string]int),
+		plotsBaseDir:      config.PlotsBaseDir,
 	}
 
 	// Initialize TrackAPI if database is configured
@@ -377,7 +384,7 @@ func (ws *WebServer) resolvePCAPPath(candidate string) (string, error) {
 	return canonicalPath, nil
 }
 
-func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRatio float64, startSeconds float64, durationSeconds float64, debugRingMin int, debugRingMax int, debugAzMin float32, debugAzMax float32, enableDebug bool) error {
+func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRatio float64, startSeconds float64, durationSeconds float64, debugRingMin int, debugRingMax int, debugAzMin float32, debugAzMax float32, enableDebug bool, enablePlots bool) error {
 	resolvedPath, err := ws.resolvePCAPPath(pcapFile)
 	if err != nil {
 		return err
@@ -398,7 +405,20 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 	ws.pcapInProgress = true
 	ws.pcapCancel = cancel
 	ws.pcapDone = done
+	ws.plotsEnabled = enablePlots
 	ws.pcapMu.Unlock()
+
+	// Initialize grid plotter if enabled
+	if enablePlots && ws.plotsBaseDir != "" {
+		outputDir := MakePlotOutputDir(ws.plotsBaseDir, resolvedPath)
+		ws.gridPlotter = NewGridPlotter(ws.sensorID, debugRingMin, debugRingMax, float64(debugAzMin), float64(debugAzMax))
+		if err := ws.gridPlotter.Start(outputDir); err != nil {
+			log.Printf("Warning: Failed to start grid plotter: %v", err)
+			ws.gridPlotter = nil
+		} else {
+			log.Printf("Grid plotter enabled, output: %s", outputDir)
+		}
+	}
 
 	ws.currentPCAPFile = resolvedPath
 	// Store the requested playback mode for UI visibility
@@ -510,6 +530,15 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 				}
 			}
 
+			// Create frame callback for grid plotting if enabled
+			var onFrameCallback func(*lidar.BackgroundManager, []lidar.PointPolar)
+			if ws.gridPlotter != nil && ws.gridPlotter.IsEnabled() {
+				plotter := ws.gridPlotter // capture for closure
+				onFrameCallback = func(mgr *lidar.BackgroundManager, points []lidar.PointPolar) {
+					plotter.SampleWithPoints(mgr, points)
+				}
+			}
+
 			config := network.RealtimeReplayConfig{
 				SpeedMultiplier:     multiplier,
 				StartSeconds:        startSeconds,
@@ -523,6 +552,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 				DebugRingMax:        debugRingMax,
 				DebugAzMin:          debugAzMin,
 				DebugAzMax:          debugAzMax,
+				OnFrameCallback:     onFrameCallback,
 			}
 
 			err = network.ReadPCAPFileRealtime(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, config)
@@ -546,12 +576,24 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 			}
 		}
 
+		// Generate plots if plotter was enabled
+		if ws.gridPlotter != nil && ws.gridPlotter.IsEnabled() {
+			ws.gridPlotter.Stop()
+			plotCount, plotErr := ws.gridPlotter.GeneratePlots()
+			if plotErr != nil {
+				log.Printf("Warning: Failed to generate plots: %v", plotErr)
+			} else if plotCount > 0 {
+				log.Printf("Generated %d ring plots in %s", plotCount, ws.gridPlotter.GetOutputDir())
+			}
+		}
+
 		ws.pcapMu.Lock()
 		ws.pcapInProgress = false
 		ws.pcapCancel = nil
 		ws.pcapDone = nil
 		ws.pcapSpeedMode = ""
 		ws.pcapSpeedRatio = 0.0
+		ws.plotsEnabled = false
 		ws.pcapMu.Unlock()
 
 		ws.dataSourceMu.Lock()
@@ -2380,6 +2422,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	var debugRingMin, debugRingMax int
 	var debugAzMin, debugAzMax float32
 	var enableDebug bool
+	var enablePlots bool
 
 	// Accept both JSON and form data
 	contentType := r.Header.Get("Content-Type")
@@ -2396,7 +2439,8 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 			DebugRingMax    int     `json:"debug_ring_max"`
 			DebugAzMin      float32 `json:"debug_az_min"`
 			DebugAzMax      float32 `json:"debug_az_max"`
-			enableDebug     bool    `json:"enable_debug"`
+			EnableDebug     bool    `json:"enable_debug"`
+			EnablePlots     bool    `json:"enable_plots"`
 		}
 		// Set defaults
 		req.DurationSeconds = -1
@@ -2420,7 +2464,8 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		debugRingMax = req.DebugRingMax
 		debugAzMin = req.DebugAzMin
 		debugAzMax = req.DebugAzMax
-		enableDebug = req.enableDebug
+		enableDebug = req.EnableDebug
+		enablePlots = req.EnablePlots
 	} else {
 		// Parse form data (default for HTML forms)
 		if err := r.ParseForm(); err != nil {
@@ -2468,6 +2513,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		enableDebug = r.FormValue("enable_debug") == "true" || r.FormValue("enable_debug") == "1"
+		enablePlots = r.FormValue("enable_plots") == "true" || r.FormValue("enable_plots") == "1"
 	}
 
 	if speedMode == "" {
@@ -2498,7 +2544,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := ws.startPCAPLocked(pcapFile, speedMode, speedRatio, startSeconds, durationSeconds, debugRingMin, debugRingMax, debugAzMin, debugAzMax, enableDebug); err != nil {
+	if err := ws.startPCAPLocked(pcapFile, speedMode, speedRatio, startSeconds, durationSeconds, debugRingMin, debugRingMax, debugAzMin, debugAzMax, enableDebug, enablePlots); err != nil {
 		var sErr *switchError
 		if errors.As(err, &sErr) {
 			ws.writeJSONError(w, sErr.status, sErr.Error())
