@@ -51,6 +51,64 @@ func TestConvertTime(t *testing.T) {
 			t.Fatalf("ConvertTime returned %v, want %v", out, utcTime)
 		}
 	})
+
+	t.Run("UTC to America/New_York", func(t *testing.T) {
+		out, err := ConvertTime(utcTime, "America/New_York")
+		if err != nil {
+			t.Fatalf("ConvertTime error: %v", err)
+		}
+		// Sept 13 is during daylight saving time, so EDT (-4 hours)
+		expected := utcTime.Add(-4 * time.Hour)
+		if out.Hour() != expected.Hour() {
+			t.Errorf("ConvertTime hour = %d, want %d", out.Hour(), expected.Hour())
+		}
+	})
+
+	t.Run("UTC to Europe/London", func(t *testing.T) {
+		out, err := ConvertTime(utcTime, "Europe/London")
+		if err != nil {
+			t.Fatalf("ConvertTime error: %v", err)
+		}
+		// Sept 13 is during BST (+1 hour from UTC)
+		if out.Hour() != 13 {
+			t.Errorf("ConvertTime hour = %d, want 13", out.Hour())
+		}
+	})
+
+	t.Run("Invalid timezone", func(t *testing.T) {
+		_, err := ConvertTime(utcTime, "Invalid/Timezone")
+		if err == nil {
+			t.Error("ConvertTime should return error for invalid timezone")
+		}
+	})
+}
+
+func TestIsCommonTimezone(t *testing.T) {
+	tests := []struct {
+		name     string
+		timezone string
+		expected bool
+	}{
+		{"UTC is common", "UTC", true},
+		{"America/New_York is common", "America/New_York", true},
+		{"Europe/Berlin is common", "Europe/Berlin", true},
+		{"Asia/Seoul is common", "Asia/Seoul", true},
+		{"Pacific/Auckland is common", "Pacific/Auckland", true},
+		{"Asia/Singapore is common", "Asia/Singapore", true},
+		{"Invalid timezone not common", "Invalid/Timezone", false},
+		{"Empty not common", "", false},
+		{"Valid but not common", "Africa/Ouagadougou", false}, // Valid IANA but not in common list
+		{"Europe/London not in list", "Europe/London", false}, // Valid but not in curated list
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := IsCommonTimezone(tt.timezone)
+			if result != tt.expected {
+				t.Errorf("IsCommonTimezone(%s) = %v, want %v", tt.timezone, result, tt.expected)
+			}
+		})
+	}
 }
 
 func TestGetTimezoneLabel(t *testing.T) {

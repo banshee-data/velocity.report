@@ -89,3 +89,113 @@ func TestHandleEvent_RadarObjectAndRawData(t *testing.T) {
 	// ensure DB operations persisted quickly
 	time.Sleep(5 * time.Millisecond)
 }
+
+func TestHandleEvent_ConfigEvent(t *testing.T) {
+	tmp := t.TempDir()
+	d, err := db.NewDB(tmp + "/test.db")
+	if err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+	defer d.Close()
+
+	// Reset state
+	CurrentState = nil
+
+	// Config event
+	config := `{"config_key": "config_value", "number": 42}`
+	if err := HandleEvent(d, config); err != nil {
+		t.Fatalf("HandleEvent config failed: %v", err)
+	}
+
+	// Check that config was stored
+	if CurrentState == nil {
+		t.Fatal("CurrentState should be initialized after config event")
+	}
+	if v, ok := CurrentState["config_key"]; !ok || v != "config_value" {
+		t.Errorf("Expected config_key to be 'config_value', got %v", v)
+	}
+}
+
+func TestHandleEvent_UnknownEvent(t *testing.T) {
+	tmp := t.TempDir()
+	d, err := db.NewDB(tmp + "/test.db")
+	if err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+	defer d.Close()
+
+	// Unknown event type should not return error (just log)
+	unknown := "plain text that matches no pattern"
+	if err := HandleEvent(d, unknown); err != nil {
+		t.Fatalf("HandleEvent unknown should not fail: %v", err)
+	}
+}
+
+func TestHandleRadarObject(t *testing.T) {
+	tmp := t.TempDir()
+	d, err := db.NewDB(tmp + "/test.db")
+	if err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+	defer d.Close()
+
+	if err := HandleRadarObject(d, radarFixture); err != nil {
+		t.Fatalf("HandleRadarObject failed: %v", err)
+	}
+
+	objs, err := d.RadarObjects()
+	if err != nil {
+		t.Fatalf("failed to read radar objects: %v", err)
+	}
+	if len(objs) != 1 {
+		t.Fatalf("expected 1 radar object, got %d", len(objs))
+	}
+}
+
+func TestHandleRawData(t *testing.T) {
+	tmp := t.TempDir()
+	d, err := db.NewDB(tmp + "/test.db")
+	if err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+	defer d.Close()
+
+	raw := `{"magnitude": 5.6, "speed": 7.8}`
+	if err := HandleRawData(d, raw); err != nil {
+		t.Fatalf("HandleRawData failed: %v", err)
+	}
+
+	events, err := d.Events()
+	if err != nil {
+		t.Fatalf("failed to read events: %v", err)
+	}
+	if len(events) < 1 {
+		t.Fatalf("expected at least 1 event, got %d", len(events))
+	}
+}
+
+func TestClassifyPayload_EdgeCases(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"radar with end_time", `{"end_time": 123}`, EventTypeRadarObject},
+		{"radar with classifier", `{"classifier": "x"}`, EventTypeRadarObject},
+		{"raw with magnitude only", `{"magnitude": 1.2}`, EventTypeRawData},
+		{"raw with speed only", `{"speed": 3.4}`, EventTypeRawData},
+		{"config JSON object", `{"key": "value"}`, EventTypeConfig},
+		{"empty string", ``, EventTypeUnknown},
+		{"not JSON", `hello world`, EventTypeUnknown},
+		{"array JSON", `[1, 2, 3]`, EventTypeUnknown},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := ClassifyPayload(c.in)
+			if got != c.want {
+				t.Errorf("ClassifyPayload(%q) = %q; want %q", c.in, got, c.want)
+			}
+		})
+	}
+}
