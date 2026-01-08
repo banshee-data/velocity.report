@@ -2,6 +2,7 @@ package lidar
 
 import (
 	"math"
+	"sort"
 )
 
 // VelocityEstimationConfig holds configuration for velocity estimation.
@@ -143,14 +144,7 @@ func findCandidates(x, y float64, frame *VelocityFrame, searchRadius float64) []
 		return nil
 	}
 
-	// Build a temporary WorldPoint slice for the frame
-	worldPoints := make([]WorldPoint, len(frame.Points))
-	for i, p := range frame.Points {
-		worldPoints[i] = WorldPoint{X: p.X, Y: p.Y, Z: p.Z}
-	}
-
 	// Use spatial index to find candidates
-	// We need to query around (x, y) - create a dummy point
 	searchRadius2 := searchRadius * searchRadius
 	candidates := make([]int, 0, 10)
 
@@ -317,14 +311,8 @@ func median(values []float64) float64 {
 	sorted := make([]float64, len(values))
 	copy(sorted, values)
 
-	// Simple selection (for small slices this is fine)
-	for i := 0; i < len(sorted); i++ {
-		for j := i + 1; j < len(sorted); j++ {
-			if sorted[j] < sorted[i] {
-				sorted[i], sorted[j] = sorted[j], sorted[i]
-			}
-		}
-	}
+	// Use efficient O(n log n) sorting
+	sort.Float64s(sorted)
 
 	mid := len(sorted) / 2
 	if len(sorted)%2 == 0 {

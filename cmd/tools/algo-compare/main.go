@@ -1,5 +1,4 @@
 //go:build pcap
-// +build pcap
 
 // Package main provides an algorithm comparison tool for LIDAR foreground extraction.
 // It processes PCAP files through multiple extraction algorithms and compares their results.

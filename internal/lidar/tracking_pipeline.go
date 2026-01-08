@@ -92,6 +92,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 
 		// Require either an extractor or a BackgroundManager
 		if extractor == nil && cfg.BackgroundManager == nil {
+			if cfg.DebugMode {
+				log.Printf("[Tracking] No foreground extractor or BackgroundManager configured, skipping frame")
+			}
 			return
 		}
 
