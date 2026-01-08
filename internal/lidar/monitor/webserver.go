@@ -121,6 +121,9 @@ type WebServer struct {
 	// latestFgCounts holds counts from the most recent foreground snapshot for status UI.
 	fgCountsMu     sync.RWMutex
 	latestFgCounts map[string]int
+
+	// TrackingPipeline allows dynamic algorithm selection
+	trackingPipeline *lidar.TrackingPipeline
 }
 
 // WebServerConfig contains configuration options for the web server
@@ -140,6 +143,7 @@ type WebServerConfig struct {
 	PacketForwarder   *network.PacketForwarder
 	UDPListenerConfig network.UDPListenerConfig
 	PlotsBaseDir      string // Base directory for plot output (e.g., "plots")
+	TrackingPipeline  *lidar.TrackingPipeline
 }
 
 // NewWebServer creates a new web server with the provided configuration
@@ -182,6 +186,7 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		currentSource:     DataSourceLive,
 		latestFgCounts:    make(map[string]int),
 		plotsBaseDir:      config.PlotsBaseDir,
+		trackingPipeline:  config.TrackingPipeline,
 	}
 
 	// Initialize TrackAPI if database is configured
@@ -729,6 +734,7 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/grid_reset", ws.handleGridReset)
 	mux.HandleFunc("/api/lidar/grid_heatmap", ws.handleGridHeatmap)
 	mux.HandleFunc("/api/lidar/background/grid", ws.handleBackgroundGrid) // Full background grid
+	mux.HandleFunc("/api/lidar/algorithm", ws.handleAlgorithmConfig)      // Algorithm selection
 	if assetsFS != nil {
 		mux.Handle(echartsAssetsPrefix, http.StripPrefix(echartsAssetsPrefix, http.FileServer(http.FS(assetsFS))))
 	}
@@ -756,6 +762,65 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/", ws.handleStatus)
 	ws.RegisterRoutes(mux)
 	return mux
+}
+
+// handleAlgorithmConfig handles getting/setting the foreground extraction algorithm.
+// GET: returns { "mode": "background"|"velocity"|"hybrid" }
+// POST: accepts { "mode": "..." }
+func (ws *WebServer) handleAlgorithmConfig(w http.ResponseWriter, r *http.Request) {
+	if ws.trackingPipeline == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "tracking pipeline not available")
+		return
+	}
+
+	if r.Method == http.MethodGet {
+		mode := ws.trackingPipeline.GetExtractorMode()
+		if mode == "" {
+			mode = "background"
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"mode": mode})
+		return
+	}
+
+	if r.Method == http.MethodPost {
+		var mode string
+		isJSON := r.Header.Get("Content-Type") == "application/json"
+
+		if isJSON {
+			var body struct {
+				Mode string `json:"mode"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				ws.writeJSONError(w, http.StatusBadRequest, "invalid json")
+				return
+			}
+			mode = body.Mode
+		} else {
+			if err := r.ParseForm(); err != nil {
+				ws.writeJSONError(w, http.StatusBadRequest, "invalid form data")
+				return
+			}
+			mode = r.FormValue("mode")
+		}
+
+		if mode != "background" && mode != "velocity" && mode != "hybrid" {
+			ws.writeJSONError(w, http.StatusBadRequest, "invalid mode: must be background, velocity, or hybrid")
+			return
+		}
+
+		ws.trackingPipeline.SetExtractorMode(mode)
+
+		if isJSON {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{"mode": mode, "status": "updated"})
+		} else {
+			http.Redirect(w, r, fmt.Sprintf("/api/lidar/monitor?sensor_id=%s", ws.sensorID), http.StatusSeeOther)
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusMethodNotAllowed)
 }
 
 // handleBackgroundParams allows reading and updating simple background parameters
@@ -2077,6 +2142,14 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get current algorithm mode
+	algoMode := "background"
+	if ws.trackingPipeline != nil {
+		if m := ws.trackingPipeline.GetExtractorMode(); m != "" {
+			algoMode = m
+		}
+	}
+
 	// Template data
 	data := struct {
 		Version           string
@@ -2087,6 +2160,7 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		ForwardingStatus  string
 		ParsingStatus     string
 		Mode              string
+		AlgorithmMode     string
 		PCAPSafeDir       string
 		Uptime            string
 		Stats             *StatsSnapshot
@@ -2109,6 +2183,7 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		ForwardingStatus:  forwardingStatus,
 		ParsingStatus:     parsingStatus,
 		Mode:              mode,
+		AlgorithmMode:     algoMode,
 		PCAPSafeDir:       ws.pcapSafeDir,
 		Uptime:            ws.stats.GetUptime().Round(time.Second).String(),
 		Stats:             ws.stats.GetLatestSnapshot(),

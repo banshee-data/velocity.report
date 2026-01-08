@@ -178,7 +178,7 @@ func TestDBSCAN_TwoSeparateClusters(t *testing.T) {
 	}
 
 	params := DBSCANParams{Eps: 0.6, MinPts: 5}
-	clusters := DBSCAN(points, params)
+	clusters, _ := DBSCAN(points, params)
 
 	if len(clusters) != 2 {
 		t.Errorf("expected 2 clusters, got %d", len(clusters))
@@ -207,7 +207,7 @@ func TestDBSCAN_NoisePoints(t *testing.T) {
 	}
 
 	params := DBSCANParams{Eps: 0.6, MinPts: 5}
-	clusters := DBSCAN(points, params)
+	clusters, _ := DBSCAN(points, params)
 
 	if len(clusters) != 0 {
 		t.Errorf("expected 0 clusters for sparse points, got %d", len(clusters))
@@ -216,7 +216,7 @@ func TestDBSCAN_NoisePoints(t *testing.T) {
 
 func TestDBSCAN_EmptyInput(t *testing.T) {
 	params := DBSCANParams{Eps: 0.6, MinPts: 5}
-	clusters := DBSCAN([]WorldPoint{}, params)
+	clusters, _ := DBSCAN([]WorldPoint{}, params)
 
 	if clusters != nil {
 		t.Errorf("expected nil for empty input")
@@ -239,7 +239,7 @@ func TestDBSCAN_SingleDenseCluster(t *testing.T) {
 	}
 
 	params := DBSCANParams{Eps: 0.6, MinPts: 5}
-	clusters := DBSCAN(points, params)
+	clusters, _ := DBSCAN(points, params)
 
 	if len(clusters) != 1 {
 		t.Errorf("expected 1 cluster, got %d", len(clusters))
