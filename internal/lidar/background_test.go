@@ -188,3 +188,298 @@ func TestBackgroundSnapshotPersistence(t *testing.T) {
 		t.Fatalf("expected ChangedCellsCount>0 in captured snapshot")
 	}
 }
+
+// TestBackgroundParams_HasDebugRange tests the HasDebugRange method
+func TestBackgroundParams_HasDebugRange(t *testing.T) {
+	tests := []struct {
+		name     string
+		params   BackgroundParams
+		expected bool
+	}{
+		{"empty params", BackgroundParams{}, false},
+		{"ring min set", BackgroundParams{DebugRingMin: 1}, true},
+		{"ring max set", BackgroundParams{DebugRingMax: 5}, true},
+		{"az min set", BackgroundParams{DebugAzMin: 10.0}, true},
+		{"az max set", BackgroundParams{DebugAzMax: 90.0}, true},
+		{"all set", BackgroundParams{DebugRingMin: 1, DebugRingMax: 5, DebugAzMin: 10.0, DebugAzMax: 90.0}, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.params.HasDebugRange()
+			if result != tt.expected {
+				t.Errorf("HasDebugRange() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestBackgroundParams_IsInDebugRange tests the IsInDebugRange method
+func TestBackgroundParams_IsInDebugRange(t *testing.T) {
+	tests := []struct {
+		name     string
+		params   BackgroundParams
+		ring     int
+		az       float64
+		expected bool
+	}{
+		{"no range set", BackgroundParams{}, 5, 45.0, false},
+		{"ring in range", BackgroundParams{DebugRingMin: 1, DebugRingMax: 10}, 5, 45.0, true},
+		{"ring below min", BackgroundParams{DebugRingMin: 5, DebugRingMax: 10}, 3, 45.0, false},
+		{"ring above max", BackgroundParams{DebugRingMin: 1, DebugRingMax: 5}, 7, 45.0, false},
+		{"az in range", BackgroundParams{DebugAzMin: 30.0, DebugAzMax: 60.0}, 5, 45.0, true},
+		{"az below min", BackgroundParams{DebugAzMin: 50.0, DebugAzMax: 90.0}, 5, 45.0, false},
+		{"az above max", BackgroundParams{DebugAzMin: 10.0, DebugAzMax: 30.0}, 5, 45.0, false},
+		{"negative az normalized", BackgroundParams{DebugAzMin: 350.0, DebugAzMax: 360.0}, 5, -5.0, true},
+		{"az over 360 normalized", BackgroundParams{DebugAzMin: 80.0, DebugAzMax: 100.0}, 5, 450.0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.params.IsInDebugRange(tt.ring, tt.az)
+			if result != tt.expected {
+				t.Errorf("IsInDebugRange(%d, %f) = %v, want %v", tt.ring, tt.az, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestBackgroundManager_GetParams tests GetParams method
+func TestBackgroundManager_GetParams(t *testing.T) {
+	g := makeTestGrid(2, 8)
+	g.Params.BackgroundUpdateFraction = 0.05
+
+	params := g.Manager.GetParams()
+	if params.BackgroundUpdateFraction != 0.05 {
+		t.Errorf("expected BackgroundUpdateFraction 0.05, got %v", params.BackgroundUpdateFraction)
+	}
+
+	// Test with nil manager
+	var nilMgr *BackgroundManager
+	params = nilMgr.GetParams()
+	if params.BackgroundUpdateFraction != 0 {
+		t.Error("expected zero params from nil manager")
+	}
+}
+
+// TestBackgroundManager_SetParams tests SetParams method
+func TestBackgroundManager_SetParams(t *testing.T) {
+	g := makeTestGrid(2, 8)
+
+	newParams := BackgroundParams{
+		BackgroundUpdateFraction:       0.1,
+		ClosenessSensitivityMultiplier: 5.0,
+	}
+
+	err := g.Manager.SetParams(newParams)
+	if err != nil {
+		t.Errorf("SetParams returned error: %v", err)
+	}
+
+	params := g.Manager.GetParams()
+	if params.BackgroundUpdateFraction != 0.1 {
+		t.Errorf("expected BackgroundUpdateFraction 0.1, got %v", params.BackgroundUpdateFraction)
+	}
+
+	// Test with nil manager
+	var nilMgr *BackgroundManager
+	err = nilMgr.SetParams(newParams)
+	if err == nil {
+		t.Error("expected error from nil manager")
+	}
+}
+
+// TestBackgroundManager_SetNoiseRelativeFraction tests SetNoiseRelativeFraction method
+func TestBackgroundManager_SetNoiseRelativeFraction(t *testing.T) {
+	g := makeTestGrid(2, 8)
+
+	err := g.Manager.SetNoiseRelativeFraction(0.02)
+	if err != nil {
+		t.Errorf("SetNoiseRelativeFraction returned error: %v", err)
+	}
+
+	params := g.Manager.GetParams()
+	if params.NoiseRelativeFraction != 0.02 {
+		t.Errorf("expected NoiseRelativeFraction 0.02, got %v", params.NoiseRelativeFraction)
+	}
+
+	// Test with nil manager
+	var nilMgr *BackgroundManager
+	err = nilMgr.SetNoiseRelativeFraction(0.02)
+	if err == nil {
+		t.Error("expected error from nil manager")
+	}
+}
+
+// TestBackgroundManager_SetClosenessSensitivityMultiplier tests SetClosenessSensitivityMultiplier method
+func TestBackgroundManager_SetClosenessSensitivityMultiplier(t *testing.T) {
+	g := makeTestGrid(2, 8)
+
+	err := g.Manager.SetClosenessSensitivityMultiplier(4.0)
+	if err != nil {
+		t.Errorf("SetClosenessSensitivityMultiplier returned error: %v", err)
+	}
+
+	params := g.Manager.GetParams()
+	if params.ClosenessSensitivityMultiplier != 4.0 {
+		t.Errorf("expected ClosenessSensitivityMultiplier 4.0, got %v", params.ClosenessSensitivityMultiplier)
+	}
+
+	// Test with nil manager
+	var nilMgr *BackgroundManager
+	err = nilMgr.SetClosenessSensitivityMultiplier(4.0)
+	if err == nil {
+		t.Error("expected error from nil manager")
+	}
+}
+
+// TestBackgroundManager_SetNeighborConfirmationCount tests SetNeighborConfirmationCount method
+func TestBackgroundManager_SetNeighborConfirmationCount(t *testing.T) {
+	g := makeTestGrid(2, 8)
+
+	err := g.Manager.SetNeighborConfirmationCount(5)
+	if err != nil {
+		t.Errorf("SetNeighborConfirmationCount returned error: %v", err)
+	}
+
+	params := g.Manager.GetParams()
+	if params.NeighborConfirmationCount != 5 {
+		t.Errorf("expected NeighborConfirmationCount 5, got %v", params.NeighborConfirmationCount)
+	}
+
+	// Test with nil manager
+	var nilMgr *BackgroundManager
+	err = nilMgr.SetNeighborConfirmationCount(5)
+	if err == nil {
+		t.Error("expected error from nil manager")
+	}
+}
+
+// TestBackgroundManager_SetSeedFromFirstObservation tests SetSeedFromFirstObservation method
+func TestBackgroundManager_SetSeedFromFirstObservation(t *testing.T) {
+	g := makeTestGrid(2, 8)
+
+	err := g.Manager.SetSeedFromFirstObservation(true)
+	if err != nil {
+		t.Errorf("SetSeedFromFirstObservation returned error: %v", err)
+	}
+
+	params := g.Manager.GetParams()
+	if !params.SeedFromFirstObservation {
+		t.Error("expected SeedFromFirstObservation to be true")
+	}
+
+	// Test with nil manager
+	var nilMgr *BackgroundManager
+	err = nilMgr.SetSeedFromFirstObservation(true)
+	if err == nil {
+		t.Error("expected error from nil manager")
+	}
+}
+
+// TestBackgroundManager_SetWarmupParams tests SetWarmupParams method
+func TestBackgroundManager_SetWarmupParams(t *testing.T) {
+	g := makeTestGrid(2, 8)
+
+	err := g.Manager.SetWarmupParams(1e9, 10)
+	if err != nil {
+		t.Errorf("SetWarmupParams returned error: %v", err)
+	}
+
+	params := g.Manager.GetParams()
+	if params.WarmupDurationNanos != 1e9 {
+		t.Errorf("expected WarmupDurationNanos 1e9, got %v", params.WarmupDurationNanos)
+	}
+	if params.WarmupMinFrames != 10 {
+		t.Errorf("expected WarmupMinFrames 10, got %v", params.WarmupMinFrames)
+	}
+
+	// Test with nil manager
+	var nilMgr *BackgroundManager
+	err = nilMgr.SetWarmupParams(1e9, 10)
+	if err == nil {
+		t.Error("expected error from nil manager")
+	}
+}
+
+// TestBackgroundManager_SetPostSettleUpdateFraction tests SetPostSettleUpdateFraction method
+func TestBackgroundManager_SetPostSettleUpdateFraction(t *testing.T) {
+	g := makeTestGrid(2, 8)
+
+	err := g.Manager.SetPostSettleUpdateFraction(0.01)
+	if err != nil {
+		t.Errorf("SetPostSettleUpdateFraction returned error: %v", err)
+	}
+
+	params := g.Manager.GetParams()
+	if params.PostSettleUpdateFraction != 0.01 {
+		t.Errorf("expected PostSettleUpdateFraction 0.01, got %v", params.PostSettleUpdateFraction)
+	}
+
+	// Test with nil manager
+	var nilMgr *BackgroundManager
+	err = nilMgr.SetPostSettleUpdateFraction(0.01)
+	if err == nil {
+		t.Error("expected error from nil manager")
+	}
+}
+
+// TestBackgroundManager_SetForegroundClusterParams tests SetForegroundClusterParams method
+func TestBackgroundManager_SetForegroundClusterParams(t *testing.T) {
+	g := makeTestGrid(2, 8)
+
+	err := g.Manager.SetForegroundClusterParams(15, 0.8)
+	if err != nil {
+		t.Errorf("SetForegroundClusterParams returned error: %v", err)
+	}
+
+	params := g.Manager.GetParams()
+	if params.ForegroundMinClusterPoints != 15 {
+		t.Errorf("expected ForegroundMinClusterPoints 15, got %v", params.ForegroundMinClusterPoints)
+	}
+	if params.ForegroundDBSCANEps != 0.8 {
+		t.Errorf("expected ForegroundDBSCANEps 0.8, got %v", params.ForegroundDBSCANEps)
+	}
+
+	// Test with nil manager
+	var nilMgr *BackgroundManager
+	err = nilMgr.SetForegroundClusterParams(15, 0.8)
+	if err == nil {
+		t.Error("expected error from nil manager")
+	}
+
+	// Test with zero values (should not update)
+	err = g.Manager.SetForegroundClusterParams(0, 0)
+	if err != nil {
+		t.Errorf("SetForegroundClusterParams returned error: %v", err)
+	}
+	// Values should remain unchanged
+	params = g.Manager.GetParams()
+	if params.ForegroundMinClusterPoints != 15 {
+		t.Errorf("expected ForegroundMinClusterPoints to remain 15, got %v", params.ForegroundMinClusterPoints)
+	}
+}
+
+// TestBackgroundGrid_Idx tests the Idx method
+func TestBackgroundGrid_Idx(t *testing.T) {
+	g := makeTestGrid(4, 8)
+
+	tests := []struct {
+		ring     int
+		azBin    int
+		expected int
+	}{
+		{0, 0, 0},
+		{0, 1, 1},
+		{1, 0, 8},
+		{1, 1, 9},
+		{3, 7, 31},
+	}
+
+	for _, tt := range tests {
+		idx := g.Idx(tt.ring, tt.azBin)
+		if idx != tt.expected {
+			t.Errorf("Idx(%d, %d) = %d, want %d", tt.ring, tt.azBin, idx, tt.expected)
+		}
+	}
+}
