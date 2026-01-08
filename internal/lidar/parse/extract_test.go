@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
 )
@@ -535,4 +536,85 @@ func BenchmarkPcapngExtraction(b *testing.B) {
 			b.Fatal("No packets extracted")
 		}
 	}
+}
+
+func TestParserSetters(t *testing.T) {
+	config := createTestMockConfig()
+	parser := NewPandar40PParser(*config)
+
+	// Test SetTimestampMode
+	parser.SetTimestampMode(TimestampModeSystemTime)
+	parser.SetTimestampMode(TimestampModeGPS)
+	parser.SetTimestampMode(TimestampModeInternal)
+	parser.SetTimestampMode(TimestampModeLiDAR)
+
+	// Test SetDebug
+	parser.SetDebug(true)
+	parser.SetDebug(false)
+
+	// Test SetDebugPackets
+	parser.SetDebugPackets(0)
+	parser.SetDebugPackets(100)
+
+	// Test SetPacketTime
+	parser.SetPacketTime(time.Now())
+
+	// Test GetLastMotorSpeed (should return 0 initially)
+	speed := parser.GetLastMotorSpeed()
+	if speed != 0 {
+		t.Errorf("Expected initial motor speed 0, got %d", speed)
+	}
+}
+
+func TestParsePacket_InvalidSize(t *testing.T) {
+	config := createTestMockConfig()
+	parser := NewPandar40PParser(*config)
+
+	// Test with too-small packet
+	smallPacket := make([]byte, 100)
+	_, err := parser.ParsePacket(smallPacket)
+	if err == nil {
+		t.Error("Expected error for small packet, got nil")
+	}
+
+	// Test with too-large packet
+	largePacket := make([]byte, 2000)
+	_, err = parser.ParsePacket(largePacket)
+	if err == nil {
+		t.Error("Expected error for large packet, got nil")
+	}
+}
+
+func TestParsePacket_SequencePacket(t *testing.T) {
+	// Create a 1266-byte packet (with sequence number at the end, not start)
+	packet := createTestMockPacketWithSequence()
+
+	config := createTestMockConfig()
+	parser := NewPandar40PParser(*config)
+
+	points, err := parser.ParsePacket(packet)
+	if err != nil {
+		t.Fatalf("Failed to parse sequence packet: %v", err)
+	}
+
+	if len(points) == 0 {
+		t.Error("Expected some points from sequence packet")
+	}
+
+	t.Logf("Parsed %d points from sequence packet", len(points))
+}
+
+// createTestMockPacketWithSequence creates a valid 1266-byte sequence packet
+func createTestMockPacketWithSequence() []byte {
+	// Create a packet with sequence number (4 extra bytes at end)
+	packet := make([]byte, testPacketSizeSequence)
+
+	// Copy the data portion from standard packet
+	standardPacket := createTestMockPacket()
+	copy(packet[0:testPacketSizeStandard], standardPacket)
+
+	// Add sequence number at end (4 bytes, little-endian)
+	binary.LittleEndian.PutUint32(packet[testPacketSizeStandard:], 12345)
+
+	return packet
 }

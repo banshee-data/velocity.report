@@ -190,3 +190,82 @@ func BenchmarkPandar40PConfig_Validate(b *testing.B) {
 		}
 	}
 }
+
+func TestElevationsFromConfig(t *testing.T) {
+	// Test nil config
+	result := ElevationsFromConfig(nil)
+	if result != nil {
+		t.Error("ElevationsFromConfig(nil) should return nil")
+	}
+
+	// Test valid config
+	config, err := LoadEmbeddedPandar40PConfig()
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	elevations := ElevationsFromConfig(config)
+	if len(elevations) != CHANNELS_PER_BLOCK {
+		t.Errorf("Expected %d elevations, got %d", CHANNELS_PER_BLOCK, len(elevations))
+	}
+
+	// Verify elevations match config
+	for i, elev := range elevations {
+		if elev != config.AngleCorrections[i].Elevation {
+			t.Errorf("Elevation mismatch at index %d: got %f, want %f",
+				i, elev, config.AngleCorrections[i].Elevation)
+		}
+	}
+}
+
+func TestDefaultPandar40PConfig(t *testing.T) {
+	config := DefaultPandar40PConfig()
+	if config == nil {
+		t.Fatal("DefaultPandar40PConfig should not return nil")
+	}
+
+	// Validate that default config is valid
+	err := config.Validate()
+	if err != nil {
+		t.Errorf("Default config should be valid: %v", err)
+	}
+
+	// Check that we have all channels populated
+	if len(config.AngleCorrections) != CHANNELS_PER_BLOCK {
+		t.Errorf("Expected %d angle corrections, got %d", CHANNELS_PER_BLOCK, len(config.AngleCorrections))
+	}
+}
+
+func TestConfigureTimestampMode(t *testing.T) {
+	config, err := LoadEmbeddedPandar40PConfig()
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	parser := NewPandar40PParser(*config)
+
+	// Test system mode
+	t.Setenv("LIDAR_TIMESTAMP_MODE", "system")
+	ConfigureTimestampMode(parser)
+	// Can't easily verify the mode was set, but we can verify it doesn't panic
+
+	// Test gps mode
+	t.Setenv("LIDAR_TIMESTAMP_MODE", "gps")
+	ConfigureTimestampMode(parser)
+
+	// Test internal mode
+	t.Setenv("LIDAR_TIMESTAMP_MODE", "internal")
+	ConfigureTimestampMode(parser)
+
+	// Test lidar mode
+	t.Setenv("LIDAR_TIMESTAMP_MODE", "lidar")
+	ConfigureTimestampMode(parser)
+
+	// Test default (empty/invalid)
+	t.Setenv("LIDAR_TIMESTAMP_MODE", "")
+	ConfigureTimestampMode(parser)
+
+	// Test unknown value (should default to system)
+	t.Setenv("LIDAR_TIMESTAMP_MODE", "unknown")
+	ConfigureTimestampMode(parser)
+}
