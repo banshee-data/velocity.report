@@ -280,6 +280,7 @@ func main() {
 		var frameBuilder *lidar.FrameBuilder
 		var tracker *lidar.Tracker
 		var classifier *lidar.TrackClassifier
+		var pipeline *lidar.TrackingPipeline
 
 		if !*lidarNoParse {
 			config, err := parse.LoadEmbeddedPandar40PConfig()
@@ -323,7 +324,8 @@ func main() {
 				SensorID:          *lidarSensor,
 				DebugMode:         *debugMode,
 			}
-			callback := pipelineConfig.NewFrameCallback()
+			pipeline = lidar.NewTrackingPipeline(pipelineConfig)
+			callback := pipeline.FrameCallback()
 
 			frameBuilder = lidar.NewFrameBuilder(lidar.FrameBuilderConfig{
 				SensorID:      *lidarSensor,
@@ -401,6 +403,7 @@ func main() {
 			PacketForwarder:   packetForwarder,
 			UDPListenerConfig: udpListenerConfig,
 			PlotsBaseDir:      filepath.Join(*lidarPCAPDir, "plots"),
+			TrackingPipeline:  pipeline,
 		})
 		wg.Add(1)
 		go func() {

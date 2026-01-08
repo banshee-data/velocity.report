@@ -15,6 +15,24 @@
       </tr>
       <tr>
         <td>
+          <strong>Algorithm:</strong>
+        </td>
+        <td>
+          <form action="/api/lidar/algorithm" method="POST" style="margin: 0;">
+            <select name="mode">
+              <option value="background" {{if eq .AlgorithmMode
+                "background"}}selected{{end}}>Background Subtraction</option>
+              <option value="velocity" {{if eq .AlgorithmMode
+                "velocity"}}selected{{end}}>Velocity Coherence</option>
+              <option value="hybrid" {{if eq .AlgorithmMode
+                "hybrid"}}selected{{end}}>Hybrid</option>
+            </select>
+            <button type="submit">Update</button>
+          </form>
+        </td>
+      </tr>
+      <tr>
+        <td>
           <strong>Version:</strong>
         </td>
         <td>{{.Version}}</td>
@@ -494,5 +512,3 @@
         </form>
       </li>
     </ul>
-  </body>
-</html>

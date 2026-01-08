@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"reflect"
+	"sync"
 )
 
 // ForegroundForwarder interface allows forwarding foreground points without importing network package.
@@ -50,9 +51,46 @@ type TrackingPipelineConfig struct {
 	ForegroundExtractor ForegroundExtractor
 }
 
-// NewFrameCallback creates a FrameBuilder callback that processes frames through
-// the full tracking pipeline: foreground extraction, clustering, tracking, and persistence.
-func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
+// TrackingPipeline manages the frame callback and its dynamic configuration.
+type TrackingPipeline struct {
+	config    *TrackingPipelineConfig
+	extractor ForegroundExtractor
+	mu        sync.RWMutex
+}
+
+// NewTrackingPipeline creates a new pipeline manager.
+func NewTrackingPipeline(config *TrackingPipelineConfig) *TrackingPipeline {
+	tp := &TrackingPipeline{
+		config: config,
+	}
+	// Initialize initial extractor
+	tp.extractor = config.initializeExtractor()
+	return tp
+}
+
+// SetExtractorMode updates the pipeline to use a specific extraction strategy.
+func (tp *TrackingPipeline) SetExtractorMode(mode string) {
+	tp.mu.Lock()
+	defer tp.mu.Unlock()
+
+	tp.config.ExtractorMode = mode
+	// Re-initialize extractor
+	tp.extractor = tp.config.initializeExtractor()
+	log.Printf("[TrackingPipeline] Switched extractor mode to: %s", mode)
+}
+
+// GetExtractorMode returns the current mode.
+func (tp *TrackingPipeline) GetExtractorMode() string {
+	tp.mu.RLock()
+	defer tp.mu.RUnlock()
+	return tp.config.ExtractorMode
+}
+
+// FrameCallback creates a FrameBuilder callback that processes frames through
+// the full tracking pipeline. It uses the dynamically configured extractor.
+func (tp *TrackingPipeline) FrameCallback() func(*LiDARFrame) {
+	cfg := tp.config
+
 	// Get AnalysisRunManager from registry if not explicitly set
 	// This allows analysis runs to be started/stopped dynamically via webserver
 	getRunManager := func() *AnalysisRunManager {
@@ -61,9 +99,6 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 		}
 		return GetAnalysisRunManager(cfg.SensorID)
 	}
-
-	// Initialize extractor based on configuration
-	extractor := cfg.initializeExtractor()
 
 	return func(frame *LiDARFrame) {
 		if frame == nil || len(frame.Points) == 0 {
@@ -89,6 +124,11 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 				RawBlockAzimuth: p.RawBlockAzimuth,
 			})
 		}
+
+		// Get current extractor (thread-safe)
+		tp.mu.RLock()
+		extractor := tp.extractor
+		tp.mu.RUnlock()
 
 		// Require either an extractor or a BackgroundManager
 		if extractor == nil && cfg.BackgroundManager == nil {
@@ -203,7 +243,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 			dbscanParams.Eps = float64(params.ForegroundDBSCANEps)
 		}
 
-		clusters := DBSCAN(worldPoints, dbscanParams)
+		clusters, _ := DBSCAN(worldPoints, dbscanParams)
 		if len(clusters) == 0 {
 			return
 		}
@@ -325,12 +365,22 @@ func (cfg *TrackingPipelineConfig) initializeExtractor() ForegroundExtractor {
 		)
 
 	case "background", "":
-		// Default: use background subtraction via the legacy path
-		// Return nil to signal the callback to use the existing BackgroundManager
+		// Use background subtraction adapter
+		if cfg.BackgroundManager != nil {
+			return NewBackgroundSubtractorExtractor(cfg.BackgroundManager, cfg.SensorID)
+		}
+		// Fallback for when BackgroundManager is nil (unlikely in valid config)
 		return nil
 
 	default:
 		// Unknown mode, fall back to default
 		return nil
 	}
+}
+
+// NewFrameCallback creates a FrameBuilder callback.
+// Deprecated: Use NewTrackingPipeline(cfg).FrameCallback() instead.
+func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
+	tp := NewTrackingPipeline(cfg)
+	return tp.FrameCallback()
 }

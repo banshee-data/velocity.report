@@ -124,12 +124,11 @@ func (e *VelocityCoherentExtractor) ProcessFrame(points []PointPolar, timestamp 
 		Eps:    e.Config.DBSCANEps,
 		MinPts: e.Config.DBSCANMinPts,
 	}
-	clusters := DBSCAN(worldPoints, dbscanParams)
+	// Step 5: Cluster using DBSCAN with reduced MinPts
+	// Returns both clusters and per-point labels to avoid re-running logic
+	clusters, clusterLabels := DBSCAN(worldPoints, dbscanParams)
 
-	// Step 6: Build cluster labels for each point
-	clusterLabels := buildClusterLabels(worldPoints, clusters, dbscanParams)
-
-	// Step 7: Filter clusters by velocity coherence
+	// Step 6: Filter clusters by velocity coherence
 	filteredClusters := FilterClustersByVelocityCoherence(
 		clusters,
 		pointsWithVel,
@@ -183,67 +182,6 @@ func (e *VelocityCoherentExtractor) ProcessFrame(points []PointPolar, timestamp 
 	}
 
 	return foregroundMask, metrics, nil
-}
-
-// buildClusterLabels creates a label array matching DBSCAN output.
-// This is a simplified version that re-runs DBSCAN logic to get labels.
-func buildClusterLabels(points []WorldPoint, clusters []WorldCluster, params DBSCANParams) []int {
-	if len(points) == 0 {
-		return nil
-	}
-
-	// Run DBSCAN to get labels
-	n := len(points)
-	labels := make([]int, n)
-	clusterID := 0
-
-	// Build spatial index
-	spatialIndex := NewSpatialIndex(params.Eps)
-	spatialIndex.Build(points)
-
-	for i := 0; i < n; i++ {
-		if labels[i] != 0 {
-			continue
-		}
-
-		neighbors := spatialIndex.RegionQuery(points, i, params.Eps)
-
-		if len(neighbors) < params.MinPts {
-			labels[i] = -1 // Noise
-			continue
-		}
-
-		clusterID++
-		expandClusterLabels(points, spatialIndex, labels, i, neighbors, clusterID, params.Eps, params.MinPts)
-	}
-
-	return labels
-}
-
-// expandClusterLabels is a helper for buildClusterLabels.
-func expandClusterLabels(points []WorldPoint, si *SpatialIndex, labels []int,
-	seedIdx int, neighbors []int, clusterID int, eps float64, minPts int) {
-
-	labels[seedIdx] = clusterID
-
-	for j := 0; j < len(neighbors); j++ {
-		idx := neighbors[j]
-
-		if labels[idx] == -1 {
-			labels[idx] = clusterID
-		}
-
-		if labels[idx] != 0 {
-			continue
-		}
-
-		labels[idx] = clusterID
-		newNeighbors := si.RegionQuery(points, idx, eps)
-
-		if len(newNeighbors) >= minPts {
-			neighbors = append(neighbors, newNeighbors...)
-		}
-	}
 }
 
 // GetParams returns the current configuration as a map.

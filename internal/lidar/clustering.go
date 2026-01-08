@@ -232,10 +232,10 @@ func DefaultDBSCANParams() DBSCANParams {
 
 // DBSCAN performs density-based clustering on world points.
 // Uses 2D (x, y) Euclidean distance. Z is used only for cluster features.
-// Returns a slice of WorldCluster objects representing detected clusters.
-func DBSCAN(points []WorldPoint, params DBSCANParams) []WorldCluster {
+// Returns a slice of WorldCluster objects and the labels array (-1=noise, >0=clusterID).
+func DBSCAN(points []WorldPoint, params DBSCANParams) ([]WorldCluster, []int) {
 	if len(points) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	n := len(points)
@@ -262,7 +262,7 @@ func DBSCAN(points []WorldPoint, params DBSCANParams) []WorldCluster {
 		expandCluster(points, spatialIndex, labels, i, neighbors, clusterID, params.Eps, params.MinPts)
 	}
 
-	return buildClusters(points, labels, clusterID)
+	return buildClusters(points, labels, clusterID), labels
 }
 
 // expandCluster expands a cluster from a core point.
