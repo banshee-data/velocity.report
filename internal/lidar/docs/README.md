@@ -21,6 +21,7 @@ Runtime operations, debugging, and active development.
 
 - **Data source switching** between live UDP and PCAP replay
 - **PCAP analysis mode** for background characterization
+- **Performance regression testing** for LIDAR pipeline benchmarking
 - **Active issues** and debugging investigations (foreground trails, performance)
 
 Consult when troubleshooting or operating the system.
@@ -62,14 +63,15 @@ Historical analysis artifacts from background parameter tuning. Contains sweep r
 
 ## Quick Links
 
-| Topic                   | Document                                         |
-| ----------------------- | ------------------------------------------------ |
-| System overview         | `architecture/lidar_sidecar_overview.md`         |
-| Tracking implementation | `architecture/foreground_tracking_plan.md`       |
-| AV range image format   | `architecture/av-range-image-format-alignment.md`|
-| Current issues          | `operations/lidar-foreground-tracking-status.md` |
-| ML pipeline             | `roadmap/ml_pipeline_roadmap.md`                 |
-| Packet format           | `reference/packet_analysis_results.md`           |
+| Topic                   | Document                                              |
+| ----------------------- | ----------------------------------------------------- |
+| System overview         | `architecture/lidar_sidecar_overview.md`              |
+| Tracking implementation | `architecture/foreground_tracking_plan.md`            |
+| AV range image format   | `architecture/av-range-image-format-alignment.md`     |
+| Current issues          | `operations/lidar-foreground-tracking-status.md`      |
+| Performance testing     | `operations/performance-regression-testing.md`        |
+| ML pipeline             | `roadmap/ml_pipeline_roadmap.md`                      |
+| Packet format           | `reference/packet_analysis_results.md`                |
 
 ## Implementation Status
 
