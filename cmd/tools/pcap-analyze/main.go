@@ -30,6 +30,18 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// Benchmark constants
+const (
+	// commitHashLength is the number of characters to use for abbreviated git commit hashes
+	commitHashLength = 12
+
+	// defaultFrameCapacity is the pre-allocated capacity for frame timing samples
+	defaultFrameCapacity = 10000
+
+	// bytesPerKB is the binary unit for byte size formatting (1 KB = 1024 bytes)
+	bytesPerKB = 1024
+)
+
 // Config holds configuration for the PCAP analysis.
 type Config struct {
 	PCAPFile       string
@@ -388,7 +400,7 @@ func newAnalysisFrameBuilder(config Config, result *AnalysisResult) *analysisFra
 	}
 	if config.Benchmark {
 		// Pre-allocate frame times array (estimate based on typical PCAP duration)
-		fb.frameTimes = make([]float64, 0, 10000)
+		fb.frameTimes = make([]float64, 0, defaultFrameCapacity)
 	}
 	return fb
 }
@@ -1223,8 +1235,8 @@ func getSystemInfo() SystemInfo {
 	if buildInfo, ok := debug.ReadBuildInfo(); ok {
 		for _, setting := range buildInfo.Settings {
 			if setting.Key == "vcs.revision" {
-				if len(setting.Value) > 12 {
-					info.CommitHash = setting.Value[:12]
+				if len(setting.Value) > commitHashLength {
+					info.CommitHash = setting.Value[:commitHashLength]
 				} else {
 					info.CommitHash = setting.Value
 				}
@@ -1410,16 +1422,15 @@ func printBenchmarkSummary(metrics *PerformanceMetrics) {
 	fmt.Println("=========================================")
 }
 
-// formatBytes formats bytes as human-readable string.
+// formatBytes formats bytes as human-readable string using binary units (1 KB = 1024 bytes).
 func formatBytes(b uint64) string {
-	const unit = 1024
-	if b < unit {
+	if b < bytesPerKB {
 		return fmt.Sprintf("%d B", b)
 	}
-	div, exp := uint64(unit), 0
-	for n := b / unit; n >= unit; n /= unit {
-		div *= unit
+	div, exp := uint64(bytesPerKB), 0
+	for n := b / bytesPerKB; n >= bytesPerKB; n /= bytesPerKB {
+		div *= bytesPerKB
 		exp++
 	}
-	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
+	return fmt.Sprintf("%.1f %ciB", float64(b)/float64(div), "KMGTPE"[exp])
 }
