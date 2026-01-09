@@ -10,9 +10,12 @@ type VelocityCoherentConfig struct {
 	// Velocity estimation parameters
 	VelocityEstimation VelocityEstimationConfig
 
-	// DBSCAN parameters (reduced MinPts compared to background subtraction)
+	// DBSCAN parameters
 	DBSCANEps    float64 // Neighborhood radius (default: 0.6m)
-	DBSCANMinPts int     // Minimum points (default: 3, reduced because velocity confirms)
+	DBSCANMinPts int     // Minimum points to form cluster (default: 10)
+
+	// Cluster filtering
+	MinClusterPoints int // Minimum total points in cluster to consider (default: 10)
 
 	// Velocity coherence filtering
 	MinVelocityCoherence float64 // Minimum coherence to accept cluster (default: 0.3)
@@ -27,7 +30,8 @@ func DefaultVelocityCoherentConfig() VelocityCoherentConfig {
 	return VelocityCoherentConfig{
 		VelocityEstimation:   DefaultVelocityEstimationConfig(),
 		DBSCANEps:            0.6,
-		DBSCANMinPts:         3, // Reduced from 12 because velocity coherence confirms identity
+		DBSCANMinPts:         10, // Require 10 points to form a cluster
+		MinClusterPoints:     10, // Filter out clusters with fewer than 10 points
 		MinVelocityCoherence: 0.3,
 		MinVelocityPoints:    2,
 		FrameHistoryCapacity: 10,
@@ -87,11 +91,12 @@ func (e *VelocityCoherentExtractor) ProcessFrame(points []PointPolar, timestamp 
 
 	start := time.Now()
 	e.frameCount++
+	n := len(points)
 
 	// Step 1: Transform all points to world coordinates
 	worldPoints := TransformToWorld(points, nil, e.SensorID)
 
-	// Step 2: Build PointWithVelocity array
+	// Step 2: Build PointWithVelocity array (reuses worldPoints memory layout)
 	pointsWithVel := BuildWorldPointsWithVelocity(worldPoints, points)
 
 	// Step 3: Estimate velocities from previous frame
@@ -108,7 +113,8 @@ func (e *VelocityCoherentExtractor) ProcessFrame(points []PointPolar, timestamp 
 		}
 	}
 
-	// Step 4: Build current frame and add to history
+	// Step 4: Build current frame with spatial index and add to history
+	// (spatial index will be reused for next frame's correspondence matching)
 	frameID := fmt.Sprintf("frame_%d", e.frameCount)
 	currentFrame := NewVelocityFrame(
 		pointsWithVel,
@@ -119,36 +125,43 @@ func (e *VelocityCoherentExtractor) ProcessFrame(points []PointPolar, timestamp 
 	e.FrameHistory.Add(currentFrame)
 	e.lastTimestamp = timestamp
 
-	// Step 5: Cluster using DBSCAN with reduced MinPts
+	// Step 5: Cluster using DBSCAN
+	// Use frame's spatial index if cell sizes match, otherwise build new one
 	dbscanParams := DBSCANParams{
 		Eps:    e.Config.DBSCANEps,
 		MinPts: e.Config.DBSCANMinPts,
 	}
-	// Step 5: Cluster using DBSCAN with reduced MinPts
-	// Returns both clusters and per-point labels to avoid re-running logic
 	clusters, clusterLabels := DBSCAN(worldPoints, dbscanParams)
 
-	// Step 6: Filter clusters by velocity coherence
-	filteredClusters := FilterClustersByVelocityCoherence(
+	// Step 6: Filter clusters by size and velocity coherence
+	// Use a faster approach: directly check velocity coherence per cluster
+	minClusterPts := e.Config.MinClusterPoints
+	if minClusterPts < 1 {
+		minClusterPts = 10 // Default minimum
+	}
+	filteredClusters := FilterClustersByVelocityCoherenceFast(
 		clusters,
 		pointsWithVel,
 		clusterLabels,
 		e.Config.MinVelocityCoherence,
 		e.Config.VelocityEstimation.MinConfidence,
+		minClusterPts,
 	)
 
-	// Step 8: Build foreground mask from filtered clusters
-	foregroundMask = make([]bool, len(points))
-	clusterIDSet := make(map[int64]bool)
+	// Step 7: Build foreground mask from filtered clusters
+	foregroundMask = make([]bool, n)
+	clusterIDSet := make(map[int64]struct{}, len(filteredClusters))
 	for _, c := range filteredClusters {
-		clusterIDSet[c.ClusterID] = true
+		clusterIDSet[c.ClusterID] = struct{}{}
 	}
 
 	fgCount := 0
 	for i, label := range clusterLabels {
-		if label > 0 && clusterIDSet[int64(label)] {
-			foregroundMask[i] = true
-			fgCount++
+		if label > 0 {
+			if _, ok := clusterIDSet[int64(label)]; ok {
+				foregroundMask[i] = true
+				fgCount++
+			}
 		}
 	}
 

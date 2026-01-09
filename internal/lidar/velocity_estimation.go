@@ -89,7 +89,9 @@ func EstimatePointVelocities(
 		}
 	}
 
-	// Second pass: compute local median velocities and assign confidence
+	// Second pass: assign velocities and compute confidence
+	// Use a simplified confidence model based on correspondence quality
+	// (removed O(n²) local median computation for performance)
 	for i := range currentPoints {
 		if !hasCorrespondence[i] {
 			currentPoints[i].VX = 0
@@ -101,33 +103,19 @@ func EstimatePointVelocities(
 		// Use raw velocity
 		vx := rawVelocities[i][0]
 		vy := rawVelocities[i][1]
+		speed := math.Sqrt(vx*vx + vy*vy)
 
-		// Compute local median velocity from neighbors
-		medVX, medVY, neighborCount := computeLocalMedianVelocity(
-			i, currentPoints, rawVelocities, hasCorrespondence, config.SearchRadius,
-		)
-
-		// Compute confidence based on:
-		// 1. How close our velocity is to the local median
-		// 2. How many neighbors we have
-		var confidence float32
-		if neighborCount > 0 {
-			// Velocity deviation from median
-			velDev := math.Sqrt((vx-medVX)*(vx-medVX) + (vy-medVY)*(vy-medVY))
-			speed := math.Sqrt(vx*vx + vy*vy)
-
-			// Relative deviation (clamped to [0, 1])
-			relDev := 0.0
-			if speed > 0.1 { // Avoid division by zero for stationary
-				relDev = math.Min(velDev/speed, 1.0)
-			}
-
-			// Confidence decreases with deviation, increases with neighbors
-			confidence = float32(1.0 - relDev*0.5)
-			confidence *= float32(math.Min(float64(neighborCount)/3.0, 1.0)) // Scale by neighbor count
-		} else {
-			// No neighbors - lower confidence
-			confidence = 0.3
+		// Simple confidence model:
+		// - Base confidence of 0.6 for having a correspondence
+		// - Bonus for reasonable speeds (0.5-30 m/s is typical traffic)
+		// - Penalty for very high or very low speeds
+		var confidence float32 = 0.6
+		if speed >= 0.5 && speed <= 30.0 {
+			confidence = 0.8
+		} else if speed > 30.0 && speed <= config.MaxVelocityMps {
+			confidence = 0.5
+		} else if speed < 0.5 {
+			confidence = 0.4 // Possibly stationary or noise
 		}
 
 		currentPoints[i].VX = vx
@@ -410,6 +398,89 @@ func FilterClustersByVelocityCoherence(
 			cluster.AvgVelocityY = float32(avgVY)
 			cluster.VelocityCoherence = float32(coherence)
 			cluster.VelocityPointCount = validCount
+			filtered = append(filtered, cluster)
+		}
+	}
+
+	return filtered
+}
+
+// FilterClustersByVelocityCoherenceFast is an optimized version that avoids
+// repeated scans of clusterLabels by pre-grouping points by cluster.
+// Also filters by minimum cluster size to reduce noise.
+func FilterClustersByVelocityCoherenceFast(
+	clusters []WorldCluster,
+	allPoints []PointWithVelocity,
+	clusterLabels []int,
+	minCoherence float64,
+	minConfidence float32,
+	minClusterPoints int,
+) []WorldCluster {
+	if len(clusters) == 0 {
+		return nil
+	}
+
+	// Pre-group points by cluster ID (single pass over labels)
+	clusterPointsMap := make(map[int64][]PointWithVelocity, len(clusters))
+	for i, label := range clusterLabels {
+		if label > 0 && i < len(allPoints) {
+			clusterPointsMap[int64(label)] = append(clusterPointsMap[int64(label)], allPoints[i])
+		}
+	}
+
+	filtered := make([]WorldCluster, 0, len(clusters))
+
+	for _, cluster := range clusters {
+		clusterPoints := clusterPointsMap[cluster.ClusterID]
+
+		// Filter by minimum cluster size first (fast rejection)
+		if len(clusterPoints) < minClusterPoints {
+			continue
+		}
+
+		// Inline velocity coherence computation for speed
+		var sumVX, sumVY float64
+		validCount := 0
+		for _, p := range clusterPoints {
+			if p.Confidence >= minConfidence {
+				sumVX += p.VX
+				sumVY += p.VY
+				validCount++
+			}
+		}
+
+		// If we have velocity data, check coherence
+		// If no velocity data yet (first frames), accept based on size alone
+		if validCount >= 2 {
+			avgVX := sumVX / float64(validCount)
+			avgVY := sumVY / float64(validCount)
+
+			// Compute variance
+			var variance float64
+			for _, p := range clusterPoints {
+				if p.Confidence >= minConfidence {
+					dx := p.VX - avgVX
+					dy := p.VY - avgVY
+					variance += dx*dx + dy*dy
+				}
+			}
+			variance /= float64(validCount)
+
+			// Coherence = 1 / (1 + variance)
+			coherence := 1.0 / (1.0 + variance)
+
+			if coherence >= minCoherence {
+				cluster.AvgVelocityX = float32(avgVX)
+				cluster.AvgVelocityY = float32(avgVY)
+				cluster.VelocityCoherence = float32(coherence)
+				cluster.VelocityPointCount = validCount
+				filtered = append(filtered, cluster)
+			}
+		} else {
+			// No velocity data available - accept cluster based on size alone
+			// This handles the first few frames before velocity can be estimated
+			cluster.VelocityCoherence = 0 // Unknown coherence
+			cluster.VelocityPointCount = 0
 			filtered = append(filtered, cluster)
 		}
 	}
