@@ -37,23 +37,23 @@ echo "Exit code: $?"
 
 ### Benchmark Flags
 
-| Flag | Alias | Default | Description |
-|------|-------|---------|-------------|
-| `-benchmark` | `-bench` | `false` | Enable performance measurement mode |
-| `-benchmark-output` | — | `{pcap}_benchmark.json` | Output file for benchmark JSON results |
-| `-quiet` | `-q` | `false` | Suppress output to reduce measurement noise |
-| `-compare-baseline` | — | — | Compare against a baseline benchmark file |
-| `-regression-threshold` | — | `0.10` (10%) | Threshold for flagging regressions |
+| Flag                    | Alias    | Default                 | Description                                 |
+| ----------------------- | -------- | ----------------------- | ------------------------------------------- |
+| `-benchmark`            | `-bench` | `false`                 | Enable performance measurement mode         |
+| `-benchmark-output`     | —        | `{pcap}_benchmark.json` | Output file for benchmark JSON results      |
+| `-quiet`                | `-q`     | `false`                 | Suppress output to reduce measurement noise |
+| `-compare-baseline`     | —        | —                       | Compare against a baseline benchmark file   |
+| `-regression-threshold` | —        | `0.10` (10%)            | Threshold for flagging regressions          |
 
 ### Standard Flags (also available in benchmark mode)
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `-pcap` | (required) | Path to PCAP file |
-| `-output` | `.` | Output directory for results |
-| `-sensor-id` | `hesai-pandar40p` | Sensor ID for configuration |
-| `-port` | `2369` | UDP port for LIDAR data |
-| `-fps` | `10.0` | Expected frame rate in Hz |
+| Flag         | Default           | Description                  |
+| ------------ | ----------------- | ---------------------------- |
+| `-pcap`      | (required)        | Path to PCAP file            |
+| `-output`    | `.`               | Output directory for results |
+| `-sensor-id` | `hesai-pandar40p` | Sensor ID for configuration  |
+| `-port`      | `2369`            | UDP port for LIDAR data      |
+| `-fps`       | `10.0`            | Expected frame rate in Hz    |
 
 ### Example Commands
 
@@ -156,12 +156,12 @@ Choose PCAP files that provide comprehensive pipeline coverage:
 
 ### Recommended Test Files
 
-| File | Duration | Description | Use Case |
-|------|----------|-------------|----------|
-| `gold-standard.pcapng` | 2 min | Mixed traffic, urban intersection | Primary regression testing |
-| `high-density.pcapng` | 1 min | Rush hour, 10+ simultaneous vehicles | Stress testing clustering/tracking |
-| `pedestrian-focus.pcapng` | 1 min | School zone, multiple pedestrians | Classification accuracy |
-| `quiet-baseline.pcapng` | 30 sec | Empty street, background only | Background model validation |
+| File                      | Duration | Description                          | Use Case                           |
+| ------------------------- | -------- | ------------------------------------ | ---------------------------------- |
+| `gold-standard.pcapng`    | 2 min    | Mixed traffic, urban intersection    | Primary regression testing         |
+| `high-density.pcapng`     | 1 min    | Rush hour, 10+ simultaneous vehicles | Stress testing clustering/tracking |
+| `pedestrian-focus.pcapng` | 1 min    | School zone, multiple pedestrians    | Classification accuracy            |
+| `quiet-baseline.pcapng`   | 30 sec   | Empty street, background only        | Background model validation        |
 
 ### Maintenance Guidelines
 
@@ -180,8 +180,8 @@ name: Performance Regression Test
 on:
   pull_request:
     paths:
-      - 'internal/lidar/**'
-      - 'cmd/tools/pcap-analyze/**'
+      - "internal/lidar/**"
+      - "cmd/tools/pcap-analyze/**"
 
 jobs:
   benchmark:
@@ -192,7 +192,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: "1.22"
 
       - name: Install libpcap
         run: sudo apt-get update && sudo apt-get install -y libpcap-dev
@@ -287,22 +287,22 @@ Update baselines when:
 
 ### Metric Descriptions
 
-| Metric | Unit | Description | Regression Indicator |
-|--------|------|-------------|---------------------|
-| `wall_clock_ms` | ms | Total processing time | Higher is worse |
-| `frame_time_stats.avg_ms` | ms | Average per-frame processing time | Higher is worse |
-| `frame_time_stats.p95_ms` | ms | 95th percentile frame time (tail latency) | Higher is worse |
-| `frames_per_second` | FPS | Processing throughput | Lower is worse |
-| `packets_per_second` | pkt/s | Packet parsing rate | Lower is worse |
-| `points_per_second` | pt/s | Point cloud throughput | Lower is worse |
-| `heap_alloc_bytes` | bytes | Current heap memory usage | Higher may indicate leak |
-| `total_alloc_bytes` | bytes | Cumulative allocations | Significant increase indicates concern |
-| `num_gc` | count | Garbage collection cycles | Many GCs may indicate allocation pressure |
-| `gc_pause_ns` | ns | Total GC pause time | Higher causes frame drops |
-| `parse_time_ms` | ms | PCAP parsing + frame assembly | Higher is worse |
-| `cluster_time_ms` | ms | DBSCAN clustering time | Higher is worse |
-| `tracking_time_ms` | ms | Kalman filter tracking time | Higher is worse |
-| `classify_time_ms` | ms | Object classification time | Higher is worse |
+| Metric                    | Unit  | Description                               | Regression Indicator                      |
+| ------------------------- | ----- | ----------------------------------------- | ----------------------------------------- |
+| `wall_clock_ms`           | ms    | Total processing time                     | Higher is worse                           |
+| `frame_time_stats.avg_ms` | ms    | Average per-frame processing time         | Higher is worse                           |
+| `frame_time_stats.p95_ms` | ms    | 95th percentile frame time (tail latency) | Higher is worse                           |
+| `frames_per_second`       | FPS   | Processing throughput                     | Lower is worse                            |
+| `packets_per_second`      | pkt/s | Packet parsing rate                       | Lower is worse                            |
+| `points_per_second`       | pt/s  | Point cloud throughput                    | Lower is worse                            |
+| `heap_alloc_bytes`        | bytes | Current heap memory usage                 | Higher may indicate leak                  |
+| `total_alloc_bytes`       | bytes | Cumulative allocations                    | Significant increase indicates concern    |
+| `num_gc`                  | count | Garbage collection cycles                 | Many GCs may indicate allocation pressure |
+| `gc_pause_ns`             | ns    | Total GC pause time                       | Higher causes frame drops                 |
+| `parse_time_ms`           | ms    | PCAP parsing + frame assembly             | Higher is worse                           |
+| `cluster_time_ms`         | ms    | DBSCAN clustering time                    | Higher is worse                           |
+| `tracking_time_ms`        | ms    | Kalman filter tracking time               | Higher is worse                           |
+| `classify_time_ms`        | ms    | Object classification time                | Higher is worse                           |
 
 ### Pipeline Stage Analysis
 
