@@ -408,6 +408,34 @@ test-web:
 	@echo "Running web (Jest) tests..."
 	@cd $(WEB_DIR) && pnpm run test:ci
 
+# Run performance regression test
+test-perf:
+	@NAME="$${NAME:-kirk0}"; \
+	BASE_NAME="$${NAME%.*}"; \
+	echo "Target: $$BASE_NAME"; \
+	if [ -f "internal/lidar/perf/pcap/$$BASE_NAME.pcapng" ]; then \
+		PCAP_FILE="internal/lidar/perf/pcap/$$BASE_NAME.pcapng"; \
+	elif [ -f "internal/lidar/perf/pcap/$$BASE_NAME.pcap" ]; then \
+		PCAP_FILE="internal/lidar/perf/pcap/$$BASE_NAME.pcap"; \
+	else \
+		echo "Error: PCAP file not found for $$BASE_NAME (.pcap or .pcapng)"; \
+		exit 1; \
+	fi; \
+	BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME.json"; \
+	echo "Building pcap-analyze..."; \
+	go build -tags=pcap -o pcap-analyze ./cmd/tools/pcap-analyze; \
+	EXIT_CODE=0; \
+	if [ ! -f "$$BASELINE_FILE" ]; then \
+		echo "Baseline not found at $$BASELINE_FILE. Creating new baseline..."; \
+		./pcap-analyze -pcap "$$PCAP_FILE" -benchmark -benchmark-output "$$BASELINE_FILE" -quiet; \
+		echo "Created baseline: $$BASELINE_FILE"; \
+	else \
+		echo "Running performance comparison against $$BASELINE_FILE..."; \
+		./pcap-analyze -pcap "$$PCAP_FILE" -benchmark -compare-baseline "$$BASELINE_FILE" -quiet || EXIT_CODE=$$?; \
+	fi; \
+	rm -f pcap-analyze *_analysis.json *_benchmark.json; \
+	exit $$EXIT_CODE
+
 # =============================================================================
 # DATABASE MIGRATIONS
 # =============================================================================
