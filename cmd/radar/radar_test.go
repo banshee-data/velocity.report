@@ -17,7 +17,7 @@ func TestRadarEndToEnd(t *testing.T) {
 	// Print out the testing directory for debugging purposes
 	t.Logf("Testing directory: %s", testingDir)
 
-	// Initialize the database
+	// Initialise the database
 	d, err := db.NewDB(testingDir + "/test_sensor_data.db")
 	if err != nil {
 		t.Fatalf("Failed to connect to test database: %v", err)

@@ -3,7 +3,7 @@
 
 // Package main provides a PCAP analysis tool for LIDAR data.
 // It processes PCAP files through the full tracking pipeline and exports
-// categorized tracks and foreground point clouds for ML training.
+// categorised tracks and foreground point clouds for ML training.
 package main
 
 import (
@@ -13,19 +13,35 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidar/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/parse"
 	_ "modernc.org/sqlite"
+)
+
+// Benchmark constants
+const (
+	// commitHashLength is the number of characters to use for abbreviated git commit hashes
+	commitHashLength = 12
+
+	// defaultFrameCapacity is the pre-allocated capacity for frame timing samples
+	defaultFrameCapacity = 10000
+
+	// bytesPerKB is the binary unit for byte size formatting (1 KB = 1024 bytes)
+	bytesPerKB = 1024
 )
 
 // Config holds configuration for the PCAP analysis.
@@ -40,6 +56,13 @@ type Config struct {
 	ExportTraining bool
 	Verbose        bool
 	FrameRate      float64 // Expected frame rate in Hz
+
+	// Benchmark settings
+	Benchmark           bool
+	BenchmarkOutput     string
+	Quiet               bool
+	CompareBaseline     string
+	RegressionThreshold float64
 }
 
 // AnalysisResult holds the results of PCAP analysis.
@@ -118,6 +141,75 @@ type TrainingFrame struct {
 	ForegroundBlob   []byte    `json:"-"` // Binary blob not included in JSON
 }
 
+// FrameTimeStats holds statistics for per-frame processing times.
+type FrameTimeStats struct {
+	MinMs   float64 `json:"min_ms"`
+	MaxMs   float64 `json:"max_ms"`
+	AvgMs   float64 `json:"avg_ms"`
+	P50Ms   float64 `json:"p50_ms"`
+	P95Ms   float64 `json:"p95_ms"`
+	P99Ms   float64 `json:"p99_ms"`
+	Samples int     `json:"samples"`
+}
+
+// PerformanceMetrics captures comprehensive performance metrics for benchmarking.
+type PerformanceMetrics struct {
+	// Timing
+	WallClockMs    int64          `json:"wall_clock_ms"`
+	FrameTimeStats FrameTimeStats `json:"frame_time_stats"`
+
+	// Throughput
+	FramesPerSecond  float64 `json:"frames_per_second"`
+	PacketsPerSecond float64 `json:"packets_per_second"`
+	PointsPerSecond  float64 `json:"points_per_second"`
+
+	// Memory (from runtime.MemStats)
+	HeapAllocBytes  uint64 `json:"heap_alloc_bytes"`
+	TotalAllocBytes uint64 `json:"total_alloc_bytes"`
+	NumGC           uint32 `json:"num_gc"`
+	GCPauseNs       uint64 `json:"gc_pause_ns"`
+
+	// Pipeline Stage Timing
+	PipelineTimeMs int64 `json:"pipeline_time_ms"` // Total PCAP reading + frame processing time
+	ClusterTimeMs  int64 `json:"cluster_time_ms"`
+	TrackingTimeMs int64 `json:"tracking_time_ms"`
+	ClassifyTimeMs int64 `json:"classify_time_ms"`
+}
+
+// SystemInfo captures system information for benchmark reproducibility.
+type SystemInfo struct {
+	GOOS       string `json:"goos"`
+	GOARCH     string `json:"goarch"`
+	NumCPU     int    `json:"num_cpu"`
+	GoVersion  string `json:"go_version"`
+	CommitHash string `json:"commit_hash,omitempty"`
+}
+
+// BenchmarkResult is the output format for benchmark runs.
+type BenchmarkResult struct {
+	Version    string               `json:"version"`
+	Timestamp  string               `json:"timestamp"`
+	PCAPFile   string               `json:"pcap_file"`
+	SystemInfo SystemInfo           `json:"system_info"`
+	Metrics    PerformanceMetrics   `json:"metrics"`
+	Comparison *BenchmarkComparison `json:"comparison,omitempty"`
+}
+
+// BenchmarkComparison holds comparison results against a baseline.
+type BenchmarkComparison struct {
+	BaselineFile string             `json:"baseline_file"`
+	Regressions  []MetricDifference `json:"regressions,omitempty"`
+	Improvements []MetricDifference `json:"improvements,omitempty"`
+}
+
+// MetricDifference represents a change in a specific metric.
+type MetricDifference struct {
+	Metric        string  `json:"metric"`
+	BaselineValue float64 `json:"baseline_value"`
+	CurrentValue  float64 `json:"current_value"`
+	ChangePercent float64 `json:"change_percent"`
+}
+
 func main() {
 	config := parseFlags()
 
@@ -139,18 +231,40 @@ func main() {
 		}
 	}
 
-	// Run analysis
-	result, err := analyzePCAP(config)
+	// In benchmark mode with quiet flag, suppress verbose output
+	if config.Benchmark && config.Quiet {
+		config.Verbose = false
+		log.SetOutput(io.Discard) // Suppress all logging to avoid measurement interference
+	}
+
+	// Run analysis with benchmark metrics collection
+	var benchMetrics *PerformanceMetrics
+	var result *AnalysisResult
+	var err error
+
+	if config.Benchmark {
+		result, benchMetrics, err = analyzePCAPWithBenchmark(config)
+	} else {
+		result, err = analyzePCAP(config)
+	}
 	if err != nil {
 		log.Fatalf("Analysis failed: %v", err)
 	}
 
-	// Print summary
-	printSummary(result)
+	// Print summary (unless in quiet mode)
+	if !config.Quiet {
+		printSummary(result)
+	}
 
 	// Export results
 	if err := exportResults(config, result); err != nil {
 		log.Fatalf("Export failed: %v", err)
+	}
+
+	// Handle benchmark output and comparison
+	if config.Benchmark && benchMetrics != nil {
+		exitCode := handleBenchmarkOutput(config, result, benchMetrics)
+		os.Exit(exitCode)
 	}
 }
 
@@ -168,6 +282,15 @@ func parseFlags() Config {
 	flag.BoolVar(&config.Verbose, "v", false, "Verbose output")
 	flag.Float64Var(&config.FrameRate, "fps", 10.0, "Expected frame rate in Hz")
 
+	// Benchmark flags (short and long forms bind to same variable for convenience)
+	flag.BoolVar(&config.Benchmark, "benchmark", false, "Enable performance measurement mode")
+	flag.BoolVar(&config.Benchmark, "bench", false, "Enable performance measurement mode (alias for -benchmark)")
+	flag.StringVar(&config.BenchmarkOutput, "benchmark-output", "", "Output file for benchmark JSON (default: {pcap}_benchmark.json)")
+	flag.BoolVar(&config.Quiet, "quiet", false, "Suppress verbose output to prevent logging from affecting measurements")
+	flag.BoolVar(&config.Quiet, "q", false, "Suppress verbose output (alias for -quiet)")
+	flag.StringVar(&config.CompareBaseline, "compare-baseline", "", "Compare against a baseline benchmark file")
+	flag.Float64Var(&config.RegressionThreshold, "regression-threshold", 0.10, "Threshold for flagging regressions (default: 0.10 = 10%)")
+
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "PCAP Analysis Tool for LIDAR Track Categorization and ML Training Data Extraction\n\n")
@@ -179,11 +302,18 @@ func parseFlags() Config {
 		fmt.Fprintf(os.Stderr, "  5. Track clusters using Kalman filter\n")
 		fmt.Fprintf(os.Stderr, "  6. Classify tracks (pedestrian, car, bird, other)\n")
 		fmt.Fprintf(os.Stderr, "  7. Export results for ML training\n\n")
+		fmt.Fprintf(os.Stderr, "Benchmark Mode:\n")
+		fmt.Fprintf(os.Stderr, "  -benchmark              Enable performance measurement\n")
+		fmt.Fprintf(os.Stderr, "  -benchmark-output FILE  Output benchmark JSON to FILE\n")
+		fmt.Fprintf(os.Stderr, "  -quiet                  Suppress output to reduce measurement noise\n")
+		fmt.Fprintf(os.Stderr, "  -compare-baseline FILE  Compare against baseline, exit 1 on regression\n\n")
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\nExamples:\n")
 		fmt.Fprintf(os.Stderr, "  %s -pcap capture.pcap -output ./results\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "  %s -pcap capture.pcap -training -output ./ml_data\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  %s -pcap capture.pcap -benchmark -quiet -benchmark-output perf.json\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  %s -pcap capture.pcap -benchmark -compare-baseline baseline.json\n", os.Args[0])
 	}
 
 	flag.Parse()
@@ -251,17 +381,30 @@ type analysisFrameBuilder struct {
 	// Results
 	result         *AnalysisResult
 	trainingFrames []*TrainingFrame
+
+	// Benchmark metrics (only populated in benchmark mode)
+	benchmarkMode  bool
+	frameTimes     []float64 // Per-frame processing times in milliseconds
+	clusterTimeNs  int64     // Cumulative clustering time
+	trackTimeNs    int64     // Cumulative tracking time
+	classifyTimeNs int64     // Cumulative classification time
 }
 
 func newAnalysisFrameBuilder(config Config, result *AnalysisResult) *analysisFrameBuilder {
-	return &analysisFrameBuilder{
-		points:     make([]lidar.PointPolar, 0, 50000),
-		bgManager:  createBackgroundManager(config.SensorID),
-		tracker:    lidar.NewTracker(lidar.DefaultTrackerConfig()),
-		classifier: lidar.NewTrackClassifier(),
-		config:     config,
-		result:     result,
+	fb := &analysisFrameBuilder{
+		points:        make([]lidar.PointPolar, 0, 50000),
+		bgManager:     createBackgroundManager(config.SensorID),
+		tracker:       lidar.NewTracker(lidar.DefaultTrackerConfig()),
+		classifier:    lidar.NewTrackClassifier(),
+		config:        config,
+		result:        result,
+		benchmarkMode: config.Benchmark,
 	}
+	if config.Benchmark {
+		// Pre-allocate frame times array (estimate based on typical PCAP duration)
+		fb.frameTimes = make([]float64, 0, defaultFrameCapacity)
+	}
+	return fb
 }
 
 func (fb *analysisFrameBuilder) AddPointsPolar(points []lidar.PointPolar) {
@@ -304,10 +447,20 @@ func (fb *analysisFrameBuilder) SetMotorSpeed(rpm uint16) {
 	fb.motorSpeed = rpm
 }
 
+// processCurrentFrame processes the accumulated points as a complete frame.
+// MUST be called while holding fb.mu lock (caller is responsible for locking).
 func (fb *analysisFrameBuilder) processCurrentFrame() {
+	var frameStart time.Time
+	if fb.benchmarkMode {
+		frameStart = time.Now()
+	}
+
 	// Step 1: Foreground extraction
 	mask, err := fb.bgManager.ProcessFramePolarWithMask(fb.points)
 	if err != nil || mask == nil {
+		if fb.benchmarkMode {
+			fb.frameTimes = append(fb.frameTimes, float64(time.Since(frameStart).Nanoseconds())/1e6)
+		}
 		return
 	}
 
@@ -320,6 +473,9 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 	fb.result.BackgroundPoints += len(fb.points) - foregroundCount
 
 	if foregroundCount == 0 {
+		if fb.benchmarkMode {
+			fb.frameTimes = append(fb.frameTimes, float64(time.Since(frameStart).Nanoseconds())/1e6)
+		}
 		return
 	}
 
@@ -327,6 +483,10 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 	worldPoints := lidar.TransformToWorld(foregroundPoints, nil, fb.config.SensorID)
 
 	// Step 3: Cluster (respect runtime foreground clustering params)
+	var clusterStart time.Time
+	if fb.benchmarkMode {
+		clusterStart = time.Now()
+	}
 	dbscanParams := lidar.DefaultDBSCANParams()
 	if fb.bgManager != nil {
 		p := fb.bgManager.GetParams()
@@ -338,20 +498,40 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 		}
 	}
 	clusters := lidar.DBSCAN(worldPoints, dbscanParams)
+	if fb.benchmarkMode {
+		atomic.AddInt64(&fb.clusterTimeNs, time.Since(clusterStart).Nanoseconds())
+	}
 	fb.result.TotalClusters += len(clusters)
 
 	if len(clusters) == 0 {
+		if fb.benchmarkMode {
+			fb.frameTimes = append(fb.frameTimes, float64(time.Since(frameStart).Nanoseconds())/1e6)
+		}
 		return
 	}
 
 	// Step 4: Track
+	var trackStart time.Time
+	if fb.benchmarkMode {
+		trackStart = time.Now()
+	}
 	fb.tracker.Update(clusters, fb.frameStartTime)
+	if fb.benchmarkMode {
+		atomic.AddInt64(&fb.trackTimeNs, time.Since(trackStart).Nanoseconds())
+	}
 
 	// Step 5: Classify confirmed tracks
+	var classifyStart time.Time
+	if fb.benchmarkMode {
+		classifyStart = time.Now()
+	}
 	for _, track := range fb.tracker.GetConfirmedTracks() {
 		if track.ObjectClass == "" && track.ObservationCount >= 5 {
 			fb.classifier.ClassifyAndUpdate(track)
 		}
+	}
+	if fb.benchmarkMode {
+		atomic.AddInt64(&fb.classifyTimeNs, time.Since(classifyStart).Nanoseconds())
 	}
 
 	// Collect training data if requested
@@ -374,9 +554,14 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 			fb.frameCount, len(fb.points), foregroundCount,
 			len(clusters), len(fb.tracker.GetActiveTracks()))
 	}
+
+	// Record total frame processing time
+	if fb.benchmarkMode {
+		fb.frameTimes = append(fb.frameTimes, float64(time.Since(frameStart).Nanoseconds())/1e6)
+	}
 }
 
-func (fb *analysisFrameBuilder) finalize() {
+func (fb *analysisFrameBuilder) finalise() {
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
 
@@ -398,42 +583,18 @@ func (fb *analysisFrameBuilder) getTrainingFrames() []*TrainingFrame {
 	return fb.trainingFrames
 }
 
-func analyzePCAP(config Config) (*AnalysisResult, error) {
-	startTime := time.Now()
+// getBenchmarkData returns the collected benchmark timing data.
+// NOTE: This method must be called after processing is complete (after finalise()),
+// when the frame builder is no longer being modified concurrently.
+func (fb *analysisFrameBuilder) getBenchmarkData() (frameTimes []float64, clusterNs, trackNs, classifyNs int64) {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+	return fb.frameTimes, atomic.LoadInt64(&fb.clusterTimeNs), atomic.LoadInt64(&fb.trackTimeNs), atomic.LoadInt64(&fb.classifyTimeNs)
+}
 
-	// Initialize parser
-	parserConfig, _ := parse.LoadEmbeddedPandar40PConfig()
-	parser := parse.NewPandar40PParser(*parserConfig)
-	parser.SetTimestampMode(parse.TimestampModeSystemTime)
-
-	// Result tracking
-	result := &AnalysisResult{
-		PCAPFile:      config.PCAPFile,
-		TracksByClass: make(map[string]int),
-	}
-
-	// Create analysis-specific frame builder that processes tracking pipeline
-	stats := &analysisStats{}
-	frameBuilder := newAnalysisFrameBuilder(config, result)
-
-	// Use shared PCAP reading infrastructure from internal/lidar/network
-	// No forwarder needed for offline analysis
-	ctx := context.Background()
-	if err := network.ReadPCAPFile(ctx, config.PCAPFile, config.UDPPort, parser, frameBuilder, stats, nil); err != nil {
-		return nil, fmt.Errorf("failed to read PCAP: %w", err)
-	}
-
-	// Finalize any remaining frame data
-	frameBuilder.finalize()
-
-	// Get statistics from the shared reader
-	packets, points, duration := stats.getStats()
-	result.TotalPackets = packets
-	result.TotalPoints = points
-	result.Duration = duration
-	result.DurationSecs = duration.Seconds()
-
-	// Collect track results
+// collectTrackResults processes tracks from the frame builder and populates the result.
+// Returns the list of all tracks for optional persistence.
+func collectTrackResults(frameBuilder *analysisFrameBuilder, result *AnalysisResult) []*lidar.TrackedObject {
 	tracker := frameBuilder.getTracker()
 	classifier := frameBuilder.getClassifier()
 	allTracks := tracker.GetAllTracks()
@@ -479,7 +640,7 @@ func analyzePCAP(config Config) (*AnalysisResult, error) {
 			AvgLength:    track.BoundingBoxLengthAvg,
 			AvgWidth:     track.BoundingBoxWidthAvg,
 			HeightP95Max: track.HeightP95Max,
-			StartX:       track.X, // Current position
+			StartX:       track.X,
 			StartY:       track.Y,
 		}
 		result.Tracks = append(result.Tracks, trackExport)
@@ -489,11 +650,50 @@ func analyzePCAP(config Config) (*AnalysisResult, error) {
 		}
 	}
 
-	// Compute classification distribution
+	// Compute classification distribution and speed statistics
 	result.ClassificationDist = computeClassStats(result.Tracks)
-
-	// Compute speed statistics
 	result.SpeedStats = computeSpeedStats(speedSamples)
+
+	return allTracks
+}
+
+func analyzePCAP(config Config) (*AnalysisResult, error) {
+	startTime := time.Now()
+
+	// Initialise parser
+	parserConfig, _ := parse.LoadEmbeddedPandar40PConfig()
+	parser := parse.NewPandar40PParser(*parserConfig)
+	parser.SetTimestampMode(parse.TimestampModeSystemTime)
+
+	// Result tracking
+	result := &AnalysisResult{
+		PCAPFile:      config.PCAPFile,
+		TracksByClass: make(map[string]int),
+	}
+
+	// Create analysis-specific frame builder that processes tracking pipeline
+	stats := &analysisStats{}
+	frameBuilder := newAnalysisFrameBuilder(config, result)
+
+	// Use shared PCAP reading infrastructure from internal/lidar/network
+	// No forwarder needed for offline analysis
+	ctx := context.Background()
+	if err := network.ReadPCAPFile(ctx, config.PCAPFile, config.UDPPort, parser, frameBuilder, stats, nil); err != nil {
+		return nil, fmt.Errorf("failed to read PCAP: %w", err)
+	}
+
+	// Finalise any remaining frame data
+	frameBuilder.finalise()
+
+	// Get statistics from the shared reader
+	packets, points, duration := stats.getStats()
+	result.TotalPackets = packets
+	result.TotalPoints = points
+	result.Duration = duration
+	result.DurationSecs = duration.Seconds()
+
+	// Collect track results using shared helper
+	allTracks := collectTrackResults(frameBuilder, result)
 
 	// Processing time
 	result.ProcessingTimeMs = time.Since(startTime).Milliseconds()
@@ -517,6 +717,110 @@ func analyzePCAP(config Config) (*AnalysisResult, error) {
 	}
 
 	return result, nil
+}
+
+// analyzePCAPWithBenchmark runs PCAP analysis with performance metrics collection.
+func analyzePCAPWithBenchmark(config Config) (*AnalysisResult, *PerformanceMetrics, error) {
+	// Force GC before starting to get clean memory baseline
+	runtime.GC()
+	var memBefore runtime.MemStats
+	runtime.ReadMemStats(&memBefore)
+
+	startTime := time.Now()
+
+	// Initialise parser
+	parserConfig, _ := parse.LoadEmbeddedPandar40PConfig()
+	parser := parse.NewPandar40PParser(*parserConfig)
+	parser.SetTimestampMode(parse.TimestampModeSystemTime)
+
+	parseStart := time.Now()
+
+	// Result tracking
+	result := &AnalysisResult{
+		PCAPFile:      config.PCAPFile,
+		TracksByClass: make(map[string]int),
+	}
+
+	// Create analysis-specific frame builder that processes tracking pipeline
+	stats := &analysisStats{}
+	frameBuilder := newAnalysisFrameBuilder(config, result)
+
+	// Use shared PCAP reading infrastructure from internal/lidar/network
+	ctx := context.Background()
+	if err := network.ReadPCAPFile(ctx, config.PCAPFile, config.UDPPort, parser, frameBuilder, stats, nil); err != nil {
+		return nil, nil, fmt.Errorf("failed to read PCAP: %w", err)
+	}
+
+	// Finalise any remaining frame data
+	frameBuilder.finalise()
+
+	pipelineTimeMs := time.Since(parseStart).Milliseconds()
+
+	// Get statistics from the shared reader
+	packets, points, duration := stats.getStats()
+	result.TotalPackets = packets
+	result.TotalPoints = points
+	result.Duration = duration
+	result.DurationSecs = duration.Seconds()
+
+	// Collect track results using shared helper
+	allTracks := collectTrackResults(frameBuilder, result)
+
+	wallClockMs := time.Since(startTime).Milliseconds()
+	result.ProcessingTimeMs = wallClockMs
+
+	trainingFrames := frameBuilder.getTrainingFrames()
+	result.TrainingFrames = len(trainingFrames)
+
+	// Collect memory stats BEFORE persistence/export operations
+	// to get accurate LIDAR pipeline memory footprint
+	var memAfter runtime.MemStats
+	runtime.ReadMemStats(&memAfter)
+
+	// Get benchmark data from frame builder
+	frameTimes, clusterNs, trackNs, classifyNs := frameBuilder.getBenchmarkData()
+
+	// Compute frame time statistics
+	frameStats := computeFrameTimeStats(frameTimes)
+
+	// Build performance metrics
+	metrics := &PerformanceMetrics{
+		WallClockMs:    wallClockMs,
+		FrameTimeStats: frameStats,
+
+		// Throughput (based on wall clock time)
+		FramesPerSecond:  float64(result.TotalFrames) / (float64(wallClockMs) / 1000.0),
+		PacketsPerSecond: float64(result.TotalPackets) / (float64(wallClockMs) / 1000.0),
+		PointsPerSecond:  float64(result.TotalPoints) / (float64(wallClockMs) / 1000.0),
+
+		// Memory
+		HeapAllocBytes:  memAfter.HeapAlloc,
+		TotalAllocBytes: memAfter.TotalAlloc - memBefore.TotalAlloc,
+		NumGC:           memAfter.NumGC - memBefore.NumGC,
+		GCPauseNs:       memAfter.PauseTotalNs - memBefore.PauseTotalNs,
+
+		// Pipeline stage timing
+		PipelineTimeMs: pipelineTimeMs,
+		ClusterTimeMs:  clusterNs / 1e6,
+		TrackingTimeMs: trackNs / 1e6,
+		ClassifyTimeMs: classifyNs / 1e6,
+	}
+
+	// Persist to DB if requested (after memory stats collection)
+	if config.DBPath != "" {
+		if err := persistToDatabase(config.DBPath, result, allTracks); err != nil {
+			log.Printf("Warning: database persistence failed: %v", err)
+		}
+	}
+
+	// Export training data (after memory stats collection)
+	if config.ExportTraining && len(trainingFrames) > 0 {
+		if err := exportTrainingData(config.OutputDir, trainingFrames); err != nil {
+			log.Printf("Warning: training data export failed: %v", err)
+		}
+	}
+
+	return result, metrics, nil
 }
 
 func createBackgroundManager(sensorID string) *lidar.BackgroundManager {
@@ -826,4 +1130,268 @@ func persistToDatabase(dbPath string, result *AnalysisResult, tracks []*lidar.Tr
 	}
 
 	return nil
+}
+
+// computeFrameTimeStats computes statistics for frame processing times.
+// Uses floor-based indexing for percentiles, matching ComputeSpeedPercentiles
+// in the lidar package. For small sample sizes (n<3), percentiles may be similar.
+func computeFrameTimeStats(frameTimes []float64) FrameTimeStats {
+	if len(frameTimes) == 0 {
+		return FrameTimeStats{}
+	}
+
+	// Make a copy and sort for percentiles
+	sorted := make([]float64, len(frameTimes))
+	copy(sorted, frameTimes)
+	sort.Float64s(sorted)
+
+	// Compute basic stats
+	var sum float64
+	minVal := sorted[0]
+	maxVal := sorted[len(sorted)-1]
+
+	for _, v := range sorted {
+		sum += v
+	}
+	avg := sum / float64(len(sorted))
+
+	// Compute percentiles using floor-based indexing (consistent with lidar.ComputeSpeedPercentiles)
+	n := len(sorted)
+	p50Idx := int(float64(n) * 0.50)
+	p95Idx := int(float64(n) * 0.95)
+	p99Idx := int(float64(n) * 0.99)
+
+	// Clamp indices
+	if p50Idx >= n {
+		p50Idx = n - 1
+	}
+	if p95Idx >= n {
+		p95Idx = n - 1
+	}
+	if p99Idx >= n {
+		p99Idx = n - 1
+	}
+
+	return FrameTimeStats{
+		MinMs:   minVal,
+		MaxMs:   maxVal,
+		AvgMs:   avg,
+		P50Ms:   sorted[p50Idx],
+		P95Ms:   sorted[p95Idx],
+		P99Ms:   sorted[p99Idx],
+		Samples: len(frameTimes),
+	}
+}
+
+// getSystemInfo collects system information for benchmark reproducibility.
+func getSystemInfo() SystemInfo {
+	info := SystemInfo{
+		GOOS:      runtime.GOOS,
+		GOARCH:    runtime.GOARCH,
+		NumCPU:    runtime.NumCPU(),
+		GoVersion: runtime.Version(),
+	}
+
+	// Try to get commit hash from build info
+	if buildInfo, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range buildInfo.Settings {
+			if setting.Key == "vcs.revision" {
+				if len(setting.Value) > commitHashLength {
+					info.CommitHash = setting.Value[:commitHashLength]
+				} else {
+					info.CommitHash = setting.Value
+				}
+				break
+			}
+		}
+	}
+
+	return info
+}
+
+// handleBenchmarkOutput writes benchmark results and handles comparison.
+// Returns exit code (0 for success, 1 for regression detected).
+func handleBenchmarkOutput(config Config, result *AnalysisResult, metrics *PerformanceMetrics) int {
+	// Build benchmark result
+	benchResult := BenchmarkResult{
+		Version:    "1.0",
+		Timestamp:  time.Now().UTC().Format(time.RFC3339),
+		PCAPFile:   filepath.Base(config.PCAPFile),
+		SystemInfo: getSystemInfo(),
+		Metrics:    *metrics,
+	}
+
+	exitCode := 0
+
+	// Compare with baseline if provided
+	if config.CompareBaseline != "" {
+		comparison, hasRegression := compareWithBaseline(config.CompareBaseline, metrics, config.RegressionThreshold)
+		benchResult.Comparison = comparison
+
+		if hasRegression {
+			exitCode = 1
+			printComparisonSummary(comparison, config.RegressionThreshold)
+		} else if comparison != nil {
+			printComparisonSummary(comparison, config.RegressionThreshold)
+		}
+	}
+
+	// Determine output path
+	outputPath := config.BenchmarkOutput
+	if outputPath == "" {
+		baseName := strings.TrimSuffix(filepath.Base(config.PCAPFile), filepath.Ext(config.PCAPFile))
+		outputPath = filepath.Join(config.OutputDir, baseName+"_benchmark.json")
+	}
+
+	// Write benchmark JSON
+	data, err := json.MarshalIndent(benchResult, "", "  ")
+	if err != nil {
+		log.Printf("Error marshaling benchmark result: %v", err)
+		return 1
+	}
+
+	if err := os.WriteFile(outputPath, data, 0644); err != nil {
+		log.Printf("Error writing benchmark file: %v", err)
+		return 1
+	}
+
+	if !config.Quiet {
+		fmt.Printf("\nBenchmark results: %s\n", outputPath)
+		printBenchmarkSummary(metrics)
+	}
+
+	return exitCode
+}
+
+// compareWithBaseline compares current metrics against a baseline file.
+func compareWithBaseline(baselinePath string, current *PerformanceMetrics, threshold float64) (*BenchmarkComparison, bool) {
+	data, err := os.ReadFile(baselinePath)
+	if err != nil {
+		log.Printf("Warning: failed to read baseline file: %v", err)
+		return nil, false
+	}
+
+	var baseline BenchmarkResult
+	if err := json.Unmarshal(data, &baseline); err != nil {
+		log.Printf("Warning: failed to parse baseline file: %v", err)
+		return nil, false
+	}
+
+	comparison := &BenchmarkComparison{
+		BaselineFile: filepath.Base(baselinePath),
+	}
+
+	hasRegression := false
+
+	// Compare key metrics (higher is worse for time metrics)
+	metricsToCompare := []struct {
+		name        string
+		baseline    float64
+		current     float64
+		higherIsBad bool
+	}{
+		{"wall_clock_ms", float64(baseline.Metrics.WallClockMs), float64(current.WallClockMs), true},
+		{"frame_time_avg_ms", baseline.Metrics.FrameTimeStats.AvgMs, current.FrameTimeStats.AvgMs, true},
+		{"frame_time_p95_ms", baseline.Metrics.FrameTimeStats.P95Ms, current.FrameTimeStats.P95Ms, true},
+		{"frames_per_second", baseline.Metrics.FramesPerSecond, current.FramesPerSecond, false},
+		{"heap_alloc_bytes", float64(baseline.Metrics.HeapAllocBytes), float64(current.HeapAllocBytes), true},
+		{"cluster_time_ms", float64(baseline.Metrics.ClusterTimeMs), float64(current.ClusterTimeMs), true},
+		{"tracking_time_ms", float64(baseline.Metrics.TrackingTimeMs), float64(current.TrackingTimeMs), true},
+	}
+
+	for _, m := range metricsToCompare {
+		if m.baseline == 0 {
+			continue // Skip if baseline is zero to avoid division by zero
+		}
+
+		changePercent := (m.current - m.baseline) / m.baseline
+
+		diff := MetricDifference{
+			Metric:        m.name,
+			BaselineValue: m.baseline,
+			CurrentValue:  m.current,
+			ChangePercent: changePercent * 100, // Convert to percentage
+		}
+
+		if m.higherIsBad {
+			if changePercent > threshold {
+				comparison.Regressions = append(comparison.Regressions, diff)
+				hasRegression = true
+			} else if changePercent < -threshold {
+				comparison.Improvements = append(comparison.Improvements, diff)
+			}
+		} else {
+			// For metrics where higher is better (e.g., frames_per_second)
+			if changePercent < -threshold {
+				comparison.Regressions = append(comparison.Regressions, diff)
+				hasRegression = true
+			} else if changePercent > threshold {
+				comparison.Improvements = append(comparison.Improvements, diff)
+			}
+		}
+	}
+
+	return comparison, hasRegression
+}
+
+// printComparisonSummary prints a human-readable comparison summary.
+func printComparisonSummary(comparison *BenchmarkComparison, threshold float64) {
+	fmt.Printf("\n========== Benchmark Comparison ==========\n")
+	fmt.Printf("Baseline: %s\n", comparison.BaselineFile)
+	fmt.Printf("Regression threshold: %.0f%%\n\n", threshold*100)
+
+	if len(comparison.Regressions) > 0 {
+		fmt.Printf("⚠️  REGRESSIONS DETECTED:\n")
+		for _, r := range comparison.Regressions {
+			fmt.Printf("  - %s: %.2f → %.2f (%+.1f%%)\n",
+				r.Metric, r.BaselineValue, r.CurrentValue, r.ChangePercent)
+		}
+		fmt.Println()
+	}
+
+	if len(comparison.Improvements) > 0 {
+		fmt.Printf("✓ Improvements:\n")
+		for _, i := range comparison.Improvements {
+			fmt.Printf("  - %s: %.2f → %.2f (%+.1f%%)\n",
+				i.Metric, i.BaselineValue, i.CurrentValue, i.ChangePercent)
+		}
+		fmt.Println()
+	}
+
+	if len(comparison.Regressions) == 0 && len(comparison.Improvements) == 0 {
+		fmt.Printf("✓ No significant changes detected.\n")
+	}
+
+	fmt.Println("===========================================")
+}
+
+// printBenchmarkSummary prints a human-readable benchmark summary.
+func printBenchmarkSummary(metrics *PerformanceMetrics) {
+	fmt.Printf("\n========== Benchmark Summary ==========\n")
+	fmt.Printf("Wall clock time: %d ms\n", metrics.WallClockMs)
+	fmt.Printf("Throughput: %.1f frames/sec, %.1f packets/sec\n",
+		metrics.FramesPerSecond, metrics.PacketsPerSecond)
+	fmt.Printf("Frame time: avg=%.2fms p50=%.2fms p95=%.2fms p99=%.2fms (n=%d)\n",
+		metrics.FrameTimeStats.AvgMs, metrics.FrameTimeStats.P50Ms,
+		metrics.FrameTimeStats.P95Ms, metrics.FrameTimeStats.P99Ms,
+		metrics.FrameTimeStats.Samples)
+	fmt.Printf("Pipeline: total=%dms cluster=%dms track=%dms classify=%dms\n",
+		metrics.PipelineTimeMs, metrics.ClusterTimeMs, metrics.TrackingTimeMs, metrics.ClassifyTimeMs)
+	fmt.Printf("Memory: heap=%s alloc=%s GC=%d (pause=%dµs)\n",
+		formatBytes(metrics.HeapAllocBytes), formatBytes(metrics.TotalAllocBytes),
+		metrics.NumGC, metrics.GCPauseNs/1000)
+	fmt.Println("=========================================")
+}
+
+// formatBytes formats bytes as human-readable string using binary units (1 KB = 1024 bytes).
+func formatBytes(b uint64) string {
+	if b < bytesPerKB {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := uint64(bytesPerKB), 0
+	for n := b / bytesPerKB; n >= bytesPerKB; n /= bytesPerKB {
+		div *= bytesPerKB
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(b)/float64(div), "KMGTPE"[exp])
 }

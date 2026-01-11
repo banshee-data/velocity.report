@@ -44,7 +44,7 @@ The neighbor confirmation count is the **most important parameter** for converge
 **Neighbor=1 (Require 1 neighbor confirmation):**
 
 - ✅ Perfect balance - filters noise while accepting real patterns
-- ✅ Fast convergence (stabilizes within 10-15 iterations = 30-45 seconds)
+- ✅ Fast convergence (stabilises within 10-15 iterations = 30-45 seconds)
 - ✅ Consistently high acceptance (>99.9%)
 - ✅ Minimal variation throughout test period
 - Initial acceptance: 98.4% → converges rapidly to 99.99%
@@ -225,7 +225,7 @@ From 800+ samples across 16 configurations:
 **Total test duration:** 39 minutes 25 seconds
 **Total samples collected:** 800 (50 per configuration)
 **Total parameter combinations:** 16
-**Distance buckets analyzed:** 11 (1m, 2m, 4m, 8m, 10m, 12m, 16m, 20m, 50m, 100m, 200m)
+**Distance buckets analysed:** 11 (1m, 2m, 4m, 8m, 10m, 12m, 16m, 20m, 50m, 100m, 200m)
 
 **Best configuration metrics:**
 

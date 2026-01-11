@@ -57,7 +57,7 @@ async def load_config(
 
 
 async def init_database(db_file: str = "align.db") -> sqlite3.Connection:
-    """Initialize SQLite database with Telraam table"""
+    """Initialise SQLite database with Telraam table"""
     conn = sqlite3.connect(db_file)
     cursor = conn.cursor()
 
@@ -554,7 +554,7 @@ async def main():
     try:
         config = await load_config()
 
-        # Initialize database and get connection
+        # Initialise database and get connection
         db_connection = await init_database()
 
         try:

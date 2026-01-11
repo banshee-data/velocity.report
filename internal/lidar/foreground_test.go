@@ -34,7 +34,7 @@ func TestProcessFramePolarWithMask_BasicClassification(t *testing.T) {
 	g := makeTestGridStrict(2, 8)
 	bm := g.Manager
 
-	// Initialize background at 10m for ring 0, azBin 0 using ProcessFramePolarWithMask
+	// Initialise background at 10m for ring 0, azBin 0 using ProcessFramePolarWithMask
 	// This will seed the cell due to SeedFromFirstObservation=true
 	_, _ = bm.ProcessFramePolarWithMask([]PointPolar{{Channel: 1, Azimuth: 0.0, Distance: 10.0}})
 	_, _ = bm.ProcessFramePolarWithMask([]PointPolar{{Channel: 1, Azimuth: 0.0, Distance: 10.0}})
@@ -232,7 +232,7 @@ func TestProcessFramePolarWithMask_NeighborConfirmation(t *testing.T) {
 	g := makeTestGrid(3, 3)
 	bm := g.Manager
 
-	// Initialize center and neighbors with 10m
+	// Initialise center and neighbors with 10m
 	azStep := 360.0 / float64(g.AzimuthBins)
 	for da := -1; da <= 1; da++ {
 		a := 1 + da
@@ -289,7 +289,7 @@ func TestProcessFramePolarWithMask_FastReacquisition(t *testing.T) {
 	g.Params.FreezeDurationNanos = 0 // Disable freeze for this test
 	bm := g.Manager
 
-	// Initialize background at 10m with multiple observations to build confidence
+	// Initialise background at 10m with multiple observations to build confidence
 	for i := 0; i < 10; i++ {
 		_, _ = bm.ProcessFramePolarWithMask([]PointPolar{{Channel: 1, Azimuth: 0.0, Distance: 10.0}})
 	}
@@ -400,7 +400,7 @@ func TestProcessFramePolarWithMask_ReacquisitionBoostCapped(t *testing.T) {
 	g.Params.MinConfidenceFloor = 0               // Allow full drain for this test
 	bm := g.Manager
 
-	// Initialize at 10m
+	// Initialise at 10m
 	_, _ = bm.ProcessFramePolarWithMask([]PointPolar{{Channel: 1, Azimuth: 0.0, Distance: 10.0}})
 	_, _ = bm.ProcessFramePolarWithMask([]PointPolar{{Channel: 1, Azimuth: 0.0, Distance: 10.0}})
 

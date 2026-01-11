@@ -7,7 +7,7 @@ charts. Grid columns are noise_relative values, grid rows are closeness_multipli
 Each subplot shows acceptance rates over iterations for all buckets (one line per bucket).
 
 Usage:
-  python3 tools/plot_multisweep.py --file bg-multisweep-...-raw.csv --neighbor 3 --out plot.png
+  python3 tools/plot_multisweep.py --file bg-multisweep-...-raw.csv --neighbour 3 --out plot.png
 
 Dependencies:
   pip install pandas matplotlib numpy
@@ -44,11 +44,11 @@ def parse_args():
         "--file", "-f", required=True, help="Raw CSV file (expanded per-bucket columns)"
     )
     p.add_argument(
-        "--neighbor",
+        "--neighbour",
         "-n",
         type=int,
         default=None,
-        help="Filter by neighbor_confirmation_count (optional)",
+        help="Filter by neighbour_confirmation_count (optional)",
     )
     p.add_argument(
         "--out", "-o", default="multisweep-plot.png", help="Output PNG filename"
@@ -87,17 +87,17 @@ def main():
     for col in [
         "noise_relative",
         "closeness_multiplier",
-        "neighbor_confirmation_count",
+        "neighbour_confirmation_count",
         "iter",
     ]:
         if col not in df.columns:
             print(f"missing required column: {col}")
             sys.exit(2)
 
-    if args.neighbor is not None:
-        df = df[df["neighbor_confirmation_count"] == args.neighbor]
+    if args.neighbour is not None:
+        df = df[df["neighbour_confirmation_count"] == args.neighbour]
         if df.empty:
-            print(f"no rows for neighbor_confirmation_count={args.neighbor}")
+            print(f"no rows for neighbour_confirmation_count={args.neighbour}")
             sys.exit(0)
 
     # detect acceptance_rates columns and corresponding buckets
@@ -186,7 +186,7 @@ def main():
                 )
 
     fig.suptitle(
-        f'Multisweep: neighbor={args.neighbor if args.neighbor is not None else "all"} — lines=acceptance_rates per bucket'
+        f'Multisweep: neighbour={args.neighbour if args.neighbour is not None else "all"} — lines=acceptance_rates per bucket'
     )
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.savefig(args.out, dpi=args.dpi)

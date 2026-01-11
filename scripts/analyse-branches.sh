@@ -1,14 +1,14 @@
 #!/bin/bash
 ##############################################################################
-# analyze-branches.sh
+# analyse-branches.sh
 #
-# Analyzes local git branches and extracts [tag] prefixes from commit logs.
+# Analyses local git branches and extracts [tag] prefixes from commit logs.
 # Generates a report of branch prefixes and their frequencies.
 #
 # Optional: Fetch deleted branches from remote PRs (GitHub API).
 #
 # Usage:
-#   ./scripts/analyze-branches.sh [--include-remote-prs]
+#   ./scripts/analyse-branches.sh [--include-remote-prs]
 #
 # Output:
 #   - branch-analysis-$(date).log       Full branch log with extracted prefixes
@@ -53,7 +53,7 @@ fi
   echo "Total local branches: $total_branches"
   echo ""
 
-  # Analyze each branch
+  # Analyse each branch
   while IFS= read -r branch; do
     [ -z "$branch" ] && continue
 
@@ -98,7 +98,7 @@ fi
   done <<< "$branches"
 } > "$ANALYSIS_LOG"
 
-echo "Analyzed $total_branches branches → $ANALYSIS_LOG"
+echo "Analysed $total_branches branches → $ANALYSIS_LOG"
 
 echo ""
 echo "=========================================="
@@ -140,7 +140,7 @@ echo ""
       echo "Unique tag types: $(sort -u "$TEMP_PREFIXES" | wc -l)"
       echo "Commits with tags: $tagged_commits"
       echo "Commits without tags: $untagged_commits"
-      echo "Total commits analyzed: $total_commits"
+      echo "Total commits analysed: $total_commits"
       echo "Distribution: $tagged_pct% with tag / $untagged_pct% without tag"
     fi
   fi

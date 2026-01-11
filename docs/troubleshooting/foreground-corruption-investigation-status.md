@@ -55,7 +55,7 @@ lidarBgNoiseRelative = flag.Float64("lidar-bg-noise-relative", 0.315, "...")
 
 ### 1.4 Tuning Issues (Fixed)
 
-- **Sporadic Noise**: The `NeighborConfirmationCount` logic was flawed. It required 5 neighbors to confirm background but only checked +/- 1 neighbor (max 2). This effectively disabled spatial smoothing, allowing noise to pass through as foreground.
+- **Sporadic Noise**: The `NeighborConfirmationCount` logic was flawed. It required 5 neighbours to confirm background but only checked +/- 1 neighbour (max 2). This effectively disabled spatial smoothing, allowing noise to pass through as foreground.
 - **Missing Objects**: `SafetyMarginMeters` was set to 0.5m, which is too large for detecting small objects like an arm near a wall.
 
 ---
@@ -73,8 +73,8 @@ lidarBgNoiseRelative = flag.Float64("lidar-bg-noise-relative", 0.315, "...")
     - Keep `NeighborConfirmationCount` at 5.
 
 2.  **Fix Logic in `internal/lidar/foreground.go`**:
-    - Update neighbor search loop to use dynamic radius (`searchRadius := neighConfirm`).
-    - This ensures that if we require 5 neighbors, we actually check enough neighbors to find them.
+    - Update neighbour search loop to use dynamic radius (`searchRadius := neighConfirm`).
+    - This ensures that if we require 5 neighbors, we actually check enough neighbours to find them.
 
 ### Phase 2: Data Quality Fixes (Completed)
 

@@ -286,16 +286,16 @@ func ProcessRadarData(raw []byte) (*RadarEvent, error) {
 def generate_speed_chart(data: pd.DataFrame, config: dict) -> plt.Figure:
     """
     ✅ Good: Clear purpose, parameters, returns, and usage example
-    
+
     Generate a speed distribution chart from vehicle transit data.
-    
+
     Args:
         data: DataFrame with 'speed_mph' column containing vehicle speeds
         config: Chart configuration with 'title', 'bins', 'color' keys
-    
+
     Returns:
         matplotlib Figure object ready for saving or display
-    
+
     Example:
         >>> fig = generate_speed_chart(df, {'title': 'Main St', 'bins': 20})
         >>> fig.savefig('speed_chart.png')
@@ -308,15 +308,15 @@ def generate_speed_chart(data: pd.DataFrame, config: dict) -> plt.Figure:
 ```typescript
 /**
  * ✅ Good: Describes component props and usage
- * 
+ *
  * SpeedChart displays real-time vehicle speed data in a line chart.
- * 
+ *
  * @component
  * @example
- * <SpeedChart 
- *   data={speedData} 
- *   maxPoints={100} 
- *   showP85={true} 
+ * <SpeedChart
+ *   data={speedData}
+ *   maxPoints={100}
+ *   showP85={true}
  * />
  */
 export function SpeedChart({ data, maxPoints, showP85 }: Props) {
@@ -387,14 +387,14 @@ Common issues and solutions.
 <button>OK</button>
 
 // ✅ Good error message (specific + actionable)
-"No sensor detected. Check that the radar is connected to /dev/ttyUSB0 
+"No sensor detected. Check that the radar is connected to /dev/ttyUSB0
 and try again."
 
 // ❌ Bad error message (vague, unhelpful)
 "Error occurred. Please try again."
 
 // ✅ Good empty state
-"No vehicles detected yet. Make sure your sensor is powered on and 
+"No vehicles detected yet. Make sure your sensor is powered on and
 pointed at the street."
 
 // ❌ Bad empty state
@@ -427,8 +427,8 @@ pointed at the street."
 
 ```
 ✅ Contextual and helpful:
-"The p85 speed is used by traffic engineers to set speed limits and 
-evaluate road safety. If 85% of drivers travel at or below 35 mph, 
+"The p85 speed is used by traffic engineers to set speed limits and
+evaluate road safety. If 85% of drivers travel at or below 35 mph,
 that's your p85 speed."
 
 ❌ Assumes knowledge:
@@ -471,8 +471,8 @@ that's your p85 speed."
 ```markdown
 ## Why velocity.report?
 
-Traditional traffic studies cost thousands of dollars and often involve 
-privacy-invasive cameras. velocity.report puts professional-grade traffic 
+Traditional traffic studies cost thousands of dollars and often involve
+privacy-invasive cameras. velocity.report puts professional-grade traffic
 monitoring in the hands of community advocates:
 
 - **Privacy-Respecting:** No cameras, no license plates, no PII
@@ -481,7 +481,7 @@ monitoring in the hands of community advocates:
 - **Open Source:** Full transparency, community-driven development
 - **Easy to Deploy:** DIY build guide included
 
-Perfect for neighborhood associations, community advocates, and citizen 
+Perfect for neighborhood associations, community advocates, and citizen
 scientists working to make streets safer.
 ```
 
@@ -492,8 +492,8 @@ scientists working to make streets safer.
 ```markdown
 # Contributing to velocity.report
 
-Thank you for your interest in making streets safer! We welcome 
-contributions from developers, traffic engineers, community advocates, 
+Thank you for your interest in making streets safer! We welcome
+contributions from developers, traffic engineers, community advocates,
 and anyone passionate about livable neighborhoods.
 
 ## Ways to Contribute
@@ -519,7 +519,7 @@ and anyone passionate about livable neighborhoods.
 
 ## Code of Conduct
 
-We are committed to providing a welcoming and inclusive environment. 
+We are committed to providing a welcoming and inclusive environment.
 See CODE_OF_CONDUCT.md for details.
 ```
 
@@ -856,10 +856,10 @@ See TROUBLESHOOTING.md for more help.
 
 ```markdown
 ❌ Before:
-The system utilizes a SQL-based persistence layer for temporal data storage.
+The system utilises a SQL-based persistence layer for temporal data storage.
 
 ✅ After:
-Vehicle speed data is stored in a SQLite database for later analysis 
+Vehicle speed data is stored in a SQLite database for later analysis
 and report generation.
 ```
 
@@ -870,10 +870,10 @@ and report generation.
 This is a tool for traffic monitoring.
 
 ✅ After:
-velocity.report empowers neighborhood advocates to measure vehicle speeds 
+velocity.report empowers neighborhood advocates to measure vehicle speeds
 and advocate for safer streets—without cameras or invasive surveillance.
 
-Built for community change-makers who want professional-grade data without 
+Built for community change-makers who want professional-grade data without
 the professional price tag.
 ```
 

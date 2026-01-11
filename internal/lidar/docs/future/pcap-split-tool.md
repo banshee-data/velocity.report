@@ -35,7 +35,7 @@ Automated PCAP segmentation tool that:
 2. Monitors background settling metrics in real-time
 3. Detects motion/static transitions based on configurable thresholds
 4. Splits PCAP into labeled segments with precise cut times
-5. Outputs ready-to-analyze static and motion segments
+5. Outputs ready-to-analyse static and motion segments
 
 ## Use Cases
 
@@ -187,13 +187,13 @@ Analysts can then:
 │                    Split Orchestrator                       │
 │  • Manages state machine (motion/static detection)         │
 │  • Tracks segment boundaries                               │
-│  • Coordinates reader/analyzer/writer                      │
+│  • Coordinates reader/analyser/writer                      │
 └─────────────────────────────────────────────────────────────┘
            │                    │                    │
            ▼                    ▼                    ▼
 ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
 │  PCAP Reader     │  │  Settling        │  │  PCAP Writer     │
-│  (network/)      │  │  Analyzer        │  │  (pcapsplit/)    │
+│  (network/)      │  │  Analyser        │  │  (pcapsplit/)    │
 │                  │  │  (BackgroundMgr) │  │                  │
 │ • Parse packets  │  │                  │  │ • Buffer packets │
 │ • Extract points │  │ • Track metrics  │  │ • Write segments │
@@ -218,15 +218,15 @@ Analysts can then:
 ```go
 ctx := context.Background()
 parser := parse.NewPandar40PParser(config)
-analyzer := NewSettlingAnalyzer(config)
+analyser := NewSettlingAnalyser(config)
 stats := &PacketStats{}
 
-err := network.ReadPCAPFile(ctx, inputFile, 2369, parser, analyzer, stats)
+err := network.ReadPCAPFile(ctx, inputFile, 2369, parser, analyser, stats)
 ```
 
-#### 2. Settling Analyzer (New Component)
+#### 2. Settling Analyser (New Component)
 
-**Location**: `internal/lidar/pcapsplit/analyzer.go` (new package)
+**Location**: `internal/lidar/pcapsplit/analyser.go` (new package)
 
 **Responsibilities**:
 
@@ -284,7 +284,7 @@ Notes:
 **State Transition Logic**:
 
 ```go
-func (a *SettlingAnalyzer) classifyFrame(metrics FrameMetrics) State {
+func (a *SettlingAnalyser) classifyFrame(metrics FrameMetrics) State {
     // Stability criteria (all must be true):
     // 1. Low foreground activity (< 5% of points)
     // 2. High settled cell percentage (> 70%)
@@ -425,7 +425,7 @@ func (w *SegmentWriter) flushCurrentSegment() error {
 **Responsibilities**:
 
 - Parse CLI flags
-- Initialize components
+- Initialise components
 - Coordinate processing pipeline
 - Generate summary report
 - Export metadata JSON/CSV
@@ -749,16 +749,16 @@ type StateTransition struct {
 **High-Level Flow**:
 
 ```
-1. Initialize components:
+1. Initialise components:
    - PCAP reader (network.ReadPCAPFile)
    - Parser (parse.NewPandar40PParser)
-   - Settling analyzer (implements FrameBuilder)
+   - Settling analyser (implements FrameBuilder)
    - Segment writer
 
 2. Process PCAP streaming:
    for each packet:
        a. Parser extracts points
-       b. Analyzer accumulates frame
+       b. Analyser accumulates frame
        c. On frame completion:
           - Process through BackgroundManager
           - Compute settling metrics
@@ -773,10 +773,10 @@ type StateTransition struct {
    - Generate summary report
 ```
 
-**Detailed Analyzer Logic**:
+**Detailed Analyser Logic**:
 
 ```go
-func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time) {
+func (a *SettlingAnalyser) processFrame(points []PointPolar, timestamp time.Time) {
     // 1. Process through background manager
     mask, err := a.bgManager.ProcessFramePolarWithMask(points)
     if err != nil {
@@ -861,7 +861,7 @@ func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time
 
 **2. Background Manager Efficiency**
 
-- Reuse existing optimized grid structure (40×1800 = 72K cells)
+- Reuse existing optimised grid structure (40×1800 = 72K cells)
 - Lock-free metrics reading where possible
 - Batch metric computations per frame
 
@@ -960,7 +960,7 @@ func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time
 
 - Large PCAP processing (1GB+)
 - Memory usage profiling
-- CPU utilization monitoring
+- CPU utilisation monitoring
 
 ## Implementation Plan
 
@@ -987,7 +987,7 @@ func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time
 
 ### Phase 2: PCAP Splitting Logic (Week 2)
 
-**2.1 Settling Analyzer**
+**2.1 Settling Analyser**
 
 - Implement `FrameBuilder` interface
 - Integrate with `BackgroundManager`
@@ -1017,7 +1017,7 @@ func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time
 
 **3.2 Orchestrator**
 
-- Coordinate reader/analyzer/writer
+- Coordinate reader/analyser/writer
 - Progress reporting
 - Summary generation
 
@@ -1031,8 +1031,8 @@ func (a *SettlingAnalyzer) processFrame(points []PointPolar, timestamp time.Time
 
 **4.1 Performance Optimization**
 
-- Profile and optimize hot paths
-- Memory usage optimization
+- Profile and optimise hot paths
+- Memory usage optimisation
 - Benchmark against target specs
 
 **4.2 Documentation**

@@ -55,7 +55,7 @@ type SerialMuxInterface interface {
 	// Close closes all subscribed channels and closes the serial port.
 	Close() error
 
-	Initialize() error
+	Initialise() error
 
 	// AttachAdminRoutes attaches admin debugging endpoints to the given HTTP
 	// mux served at /debug/. These routes are accessible only over
@@ -100,9 +100,9 @@ func (s *SerialMux[T]) Unsubscribe(id string) {
 	}
 }
 
-// Initialize syncs the clock and TZ offset to the device and sets some default
+// Initialise syncs the clock and TZ offset to the device and sets some default
 // output modes to ensure that we can parse the results.
-func (s *SerialMux[T]) Initialize() error {
+func (s *SerialMux[T]) Initialise() error {
 	// sync the clock to the current UNIX time
 	command := fmt.Sprintf("C=%d", time.Now().Unix())
 	if err := s.SendCommand(command); err != nil {

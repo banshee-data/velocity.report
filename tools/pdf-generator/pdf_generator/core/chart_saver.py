@@ -38,7 +38,7 @@ class ChartSaver:
         min_width_in: Optional[float] = None,
         max_width_in: Optional[float] = None,
     ):
-        """Initialize chart saver with size constraints.
+        """Initialise chart saver with size constraints.
 
         Args:
             min_width_in: Minimum PDF width in inches (prevents tiny charts)

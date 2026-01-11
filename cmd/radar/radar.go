@@ -191,7 +191,7 @@ func main() {
 	}
 	defer radarSerial.Close()
 
-	if err := radarSerial.Initialize(); err != nil {
+	if err := radarSerial.Initialise(); err != nil {
 		log.Fatalf("failed to initialise device: %v", err)
 	} else {
 		log.Printf("initialised device %s", radarSerial)
@@ -295,7 +295,7 @@ func main() {
 			parser.SetDebug(*debugMode)
 			parse.ConfigureTimestampMode(parser)
 
-			// Initialize tracking components
+			// Initialise tracking components
 			tracker = lidar.NewTracker(lidar.DefaultTrackerConfig())
 			classifier = lidar.NewTrackClassifier()
 			log.Printf("Tracker and classifier initialized for sensor %s", *lidarSensor)

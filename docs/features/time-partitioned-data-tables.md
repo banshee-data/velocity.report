@@ -1,8 +1,8 @@
 # Design Specification: Time-Partitioned Raw Data Tables
 
-**Status:** Draft  
-**Created:** 2025-12-01  
-**Author:** Ictinus (Product-Conscious Software Architect)  
+**Status:** Draft
+**Created:** 2025-12-01
+**Author:** Ictinus (Product-Conscious Software Architect)
 **Target Release:** TBD
 
 ## Table of Contents
@@ -444,7 +444,7 @@ CREATE VIEW radar_data_all AS
 **Query Optimization:**
 ```sql
 -- SQLite query planner uses WHERE clauses to skip irrelevant partitions
-SELECT * FROM radar_data_all 
+SELECT * FROM radar_data_all
 WHERE write_timestamp BETWEEN 1704067200.0 AND 1706745600.0;
 -- Only queries partitions containing Jan 2024 data
 ```
@@ -460,32 +460,32 @@ func RotatePartitions(db *DB, rotationTime time.Time) error {
         return fmt.Errorf("cannot acquire rotation lock: %w", err)
     }
     defer lock.Release()
-    
+
     // 1. Determine partition name (e.g., "2025-01_data.db")
     partitionName := rotationTime.AddDate(0, -1, 0).Format("2006-01") + "_data.db"
     partitionPath := filepath.Join(archivesDir, partitionName)
-    
+
     // Check if partition already exists (idempotency)
     if _, err := os.Stat(partitionPath); err == nil {
         log.Warnf("Partition %s already exists, skipping rotation", partitionName)
         return nil
     }
-    
+
     // 2. Create partition database with schema
     partitionDB, err := CreatePartitionDB(partitionPath)
     if err != nil {
         return err
     }
-    
+
     // 3. Wait for active queries to complete (prevents corruption)
     if err := WaitForQueriesWithTimeout(db, 30*time.Second); err != nil {
         return fmt.Errorf("timeout waiting for queries: %w", err)
     }
-    
+
     // 4. Copy previous month's data to partition
     startTime := rotationTime.AddDate(0, -1, 0).Truncate(24*time.Hour)
     endTime := rotationTime.Truncate(24*time.Hour)
-    
+
     err = CopyDataToPartition(db, partitionDB, startTime, endTime, []string{
         "radar_data",
         "radar_objects",
@@ -498,39 +498,39 @@ func RotatePartitions(db *DB, rotationTime time.Time) error {
         os.Remove(partitionPath)
         return err
     }
-    
+
     // 5. Verify data integrity
     if err := VerifyPartition(partitionDB, startTime, endTime); err != nil {
         os.Remove(partitionPath)
         return err
     }
-    
+
     // 6. Delete copied data from main database (within transaction)
     tx, err := db.Begin()
     if err != nil {
         return err
     }
     defer tx.Rollback()
-    
+
     err = DeleteRotatedData(tx, startTime, endTime)
     if err != nil {
         return err
     }
-    
+
     if err := tx.Commit(); err != nil {
         return err
     }
-    
+
     // 7. Make partition read-only
     if err := os.Chmod(partitionPath, 0444); err != nil {
         return err
     }
-    
+
     // 8. Update union views to include new partition
     if err := UpdateUnionViews(db); err != nil {
         return err
     }
-    
+
     return nil
 }
 
@@ -548,7 +548,7 @@ func AcquireRotationLock(db *DB, timeout time.Duration) (*RotationLock, error) {
     if err != nil {
         return nil, err
     }
-    
+
     deadline := time.Now().Add(timeout)
     for time.Now().Before(deadline) {
         // Try to acquire lock (expires after 5 minutes)
@@ -556,22 +556,22 @@ func AcquireRotationLock(db *DB, timeout time.Duration) (*RotationLock, error) {
             INSERT OR REPLACE INTO rotation_lock (lock_id, acquired_at, expires_at)
             SELECT 1, UNIXEPOCH('subsec'), UNIXEPOCH('subsec') + 300
             WHERE NOT EXISTS (
-                SELECT 1 FROM rotation_lock 
+                SELECT 1 FROM rotation_lock
                 WHERE lock_id = 1 AND expires_at > UNIXEPOCH('subsec')
             )
         `)
         if err != nil {
             return nil, err
         }
-        
+
         rows, _ := result.RowsAffected()
         if rows > 0 {
             return &RotationLock{db: db}, nil
         }
-        
+
         time.Sleep(100 * time.Millisecond)
     }
-    
+
     return nil, fmt.Errorf("timeout acquiring rotation lock")
 }
 
@@ -612,7 +612,7 @@ func AttachPartitions(db *DB) error {
     if err != nil {
         return err
     }
-    
+
     // Attach each partition with unique alias
     for i, partition := range partitions {
         // SECURITY FIX (CVE-2025-VR-002): Validate partition path
@@ -620,25 +620,25 @@ func AttachPartitions(db *DB) error {
             log.Warnf("Skipping invalid partition %s: %v", partition, err)
             continue
         }
-        
+
         alias := fmt.Sprintf("m%02d", i+1) // m01, m02, m03, ...
-        
+
         // SECURITY FIX (CVE-2025-VR-003): Sanitize inputs for SQL injection prevention
         if err := ValidateAlias(alias); err != nil {
             return fmt.Errorf("invalid alias: %w", err)
         }
-        
+
         // Use read-only mode and properly escaped identifiers
         quotedPath := QuoteSQLiteString(partition)
         quotedAlias := QuoteSQLiteIdentifier(alias)
         sql := fmt.Sprintf("ATTACH DATABASE 'file:%s?mode=ro' AS %s", partition, quotedAlias)
-        
+
         _, err := db.Exec(sql)
         if err != nil {
             return err
         }
     }
-    
+
     return nil
 }
 
@@ -648,18 +648,18 @@ func ValidatePartitionPath(path string) error {
     if strings.Contains(path, "..") {
         return fmt.Errorf("directory traversal not allowed")
     }
-    
+
     // Resolve symlinks and get absolute path
     absPath, err := filepath.EvalSymlinks(path)
     if err != nil {
         return fmt.Errorf("cannot resolve path: %w", err)
     }
-    
+
     // Ensure path is under allowed directory
     if !strings.HasPrefix(absPath, allowedPartitionDir) {
         return fmt.Errorf("path outside allowed directory")
     }
-    
+
     // Verify it's a regular file
     info, err := os.Lstat(absPath)
     if err != nil {
@@ -668,14 +668,14 @@ func ValidatePartitionPath(path string) error {
     if !info.Mode().IsRegular() {
         return fmt.Errorf("not a regular file")
     }
-    
+
     // Verify filename matches partition pattern
     filename := filepath.Base(absPath)
     matched, _ := regexp.MatchString(`^[0-9]{4}-(0[1-9]|1[0-2]|Q[1-4])_data\.db$`, filename)
     if !matched {
         return fmt.Errorf("filename does not match partition pattern")
     }
-    
+
     return nil
 }
 
@@ -686,7 +686,7 @@ func ValidateAlias(alias string) error {
     if !matched {
         return fmt.Errorf("alias must start with letter and contain only alphanumeric and underscore")
     }
-    
+
     // Reject SQL keywords
     sqlKeywords := []string{"DROP", "DELETE", "INSERT", "UPDATE", "CREATE", "ALTER", "EXEC"}
     upperAlias := strings.ToUpper(alias)
@@ -695,7 +695,7 @@ func ValidateAlias(alias string) error {
             return fmt.Errorf("alias contains SQL keyword")
         }
     }
-    
+
     return nil
 }
 
@@ -966,7 +966,7 @@ To support operational flexibility and future UI development, the system provide
 
 **Endpoint:** `POST /api/partitions/consolidate`
 
-**Purpose:** Combine multiple monthly/quarterly partitions into a yearly archive (cold storage optimization).
+**Purpose:** Combine multiple monthly/quarterly partitions into a yearly archive (cold storage optimisation).
 
 **Request Body:**
 ```json
@@ -1074,35 +1074,35 @@ To support operational flexibility and future UI development, the system provide
 func ConsolidatePartitions(sources []string, output string) error {
     // 1. Create output database with standard schema
     outputDB := CreatePartitionDB(output)
-    
+
     // 2. For each source partition:
     for _, source := range sources {
         // 2a. Attach source temporarily
         AttachDatabase(source, "temp_source")
-        
+
         // 2b. Copy all tables to output
-        for _, table := range []string{"radar_data", "radar_objects", "lidar_bg_snapshot", 
+        for _, table := range []string{"radar_data", "radar_objects", "lidar_bg_snapshot",
                                         "radar_data_transits", "radar_transit_links"} {
             CopyTable("temp_source."+table, "main."+table)
         }
-        
+
         // 2c. Detach source
         DetachDatabase("temp_source")
     }
-    
+
     // 3. Verify record counts and time ranges
     if !VerifyConsolidation(sources, outputDB) {
         return errors.New("consolidation verification failed")
     }
-    
+
     // 4. Make output read-only
     os.Chmod(output, 0444)
-    
+
     // 5. Compress or delete sources (if requested)
     if deleteOrCompress {
         CompressOrDeleteSources(sources)
     }
-    
+
     return nil
 }
 ```
@@ -1574,35 +1574,35 @@ func MountUSBStorage(partitionPath, mountPoint string) error {
     if err := VerifyUSBDevice(partitionPath); err != nil {
         return fmt.Errorf("device verification failed: %w", err)
     }
-    
+
     // Detect and validate filesystem
     fstype, err := DetectFilesystem(partitionPath)
     if err != nil {
         return err
     }
-    
+
     // Whitelist only ext4 and ext3
     allowedFS := map[string]bool{"ext4": true, "ext3": true}
     if !allowedFS[fstype] {
         return fmt.Errorf("filesystem type not allowed: %s (only ext4, ext3 supported)", fstype)
     }
-    
+
     // Validate mount point (no path traversal)
     if strings.Contains(mountPoint, "..") {
         return fmt.Errorf("path traversal not allowed in mount point")
     }
-    
+
     // Create mount point if needed
     if err := os.MkdirAll(mountPoint, 0755); err != nil {
         return err
     }
-    
+
     // Mount with secure options (read-only by default)
     secureOptions := "nosuid,nodev,noexec,noatime,ro"
     err = syscall.Mount(partitionPath, mountPoint, fstype,
         syscall.MS_NOSUID|syscall.MS_NODEV|syscall.MS_NOEXEC|syscall.MS_RDONLY,
         secureOptions)
-    
+
     return err
 }
 
@@ -1611,7 +1611,7 @@ func VerifyUSBDevice(device string) error {
     if strings.HasPrefix(device, "/dev/sda") || strings.HasPrefix(device, "/dev/mmcblk0") {
         return fmt.Errorf("cannot mount system disk")
     }
-    
+
     // Verify device is USB by checking sysfs
     deviceName := filepath.Base(device)
     sysPath := "/sys/block/" + strings.TrimSuffix(deviceName, "1") // Remove partition number
@@ -1619,11 +1619,11 @@ func VerifyUSBDevice(device string) error {
     if err != nil {
         return fmt.Errorf("device not found in sysfs: %w", err)
     }
-    
+
     if !strings.Contains(realPath, "/usb") {
         return fmt.Errorf("device is not a USB device")
     }
-    
+
     return nil
 }
 
@@ -1633,7 +1633,7 @@ func DetectFilesystem(device string) (string, error) {
     if err != nil {
         return "", fmt.Errorf("cannot detect filesystem: %w", err)
     }
-    
+
     return strings.TrimSpace(string(output)), nil
 }
 ```
@@ -1725,24 +1725,24 @@ func DetectFilesystem(device string) (string, error) {
 func SafeUnmountUSB(mountPoint string, opts UnmountOptions) error {
     // 1. Find all partitions on this mount
     partitions := FindPartitionsOnMount(mountPoint)
-    
+
     // 2. Check for active queries
     for _, partition := range partitions {
         if HasActiveQueries(partition) && !opts.Force {
             return ErrDeviceBusy{partition, GetActiveQueries(partition)}
         }
     }
-    
+
     // 3. Detach all partitions if requested
     if opts.DetachPartitions {
         for _, partition := range partitions {
             DetachPartition(partition.Alias)
         }
     }
-    
+
     // 4. Sync filesystem
     exec.Command("sync").Run()
-    
+
     // 5. Unmount
     if err := syscall.Unmount(mountPoint, 0); err != nil {
         if opts.Force {
@@ -1751,12 +1751,12 @@ func SafeUnmountUSB(mountPoint string, opts UnmountOptions) error {
             return err
         }
     }
-    
+
     // 6. Disable systemd unit if requested
     if opts.DisableSystemdUnit {
         DisableSystemdMountUnit(mountPoint)
     }
-    
+
     return nil
 }
 ```
@@ -1768,7 +1768,7 @@ func SafeUnmountUSB(mountPoint string, opts UnmountOptions) error {
 **Purpose:** Project storage growth rate and predict disk full dates based on historical data collection patterns.
 
 **Query Parameters:**
-- `lookback_days` (optional): Days of historical data to analyze. Default: `30`
+- `lookback_days` (optional): Days of historical data to analyse. Default: `30`
 - `projection_months` (optional): Months to project forward. Default: `12`
 
 **Response:**
@@ -1862,7 +1862,7 @@ func SafeUnmountUSB(mountPoint string, opts UnmountOptions) error {
     },
     {
       "priority": "low",
-      "category": "optimization",
+      "category": "optimisation",
       "message": "Consider enabling compression for partitions older than 6 months to free ~2.1 GB",
       "action": "enable_compression",
       "estimated_savings_bytes": 2252341760,
@@ -1904,13 +1904,13 @@ When storage reaches threshold, alerts are included:
 func CalculateGrowthRate(lookbackDays int) GrowthRate {
     // 1. Query data volume over time
     dataPoints := QueryDailyDataVolume(lookbackDays)
-    
+
     // 2. Linear regression for trend
     slope, intercept, r2 := LinearRegression(dataPoints)
-    
+
     // 3. Calculate daily growth rate
     dailyBytes := slope
-    
+
     // 4. Project monthly/yearly
     return GrowthRate{
         DailyBytes:   dailyBytes,
@@ -1924,7 +1924,7 @@ func CalculateGrowthRate(lookbackDays int) GrowthRate {
 func ProjectDiskFull(tier StorageTier, growthRate GrowthRate) time.Time {
     freeBytes := tier.FreeBytes
     dailyGrowth := growthRate.DailyBytes
-    
+
     // Account for tiered storage policy
     // SD card only holds active + recent (3 months max)
     if tier.Type == "sd_card" {
@@ -1934,7 +1934,7 @@ func ProjectDiskFull(tier StorageTier, growthRate GrowthRate) time.Time {
             freeBytes = maxBytes
         }
     }
-    
+
     daysUntilFull := freeBytes / dailyGrowth
     return time.Now().AddDate(0, 0, int(daysUntilFull))
 }
@@ -2116,17 +2116,17 @@ Rotation process now includes storage capacity pre-flight:
 func PreRotationChecks() error {
     // Check buffer safety (existing)
     bufferSafe := CheckBufferSafety()
-    
+
     // NEW: Check storage capacity
     growth := GetGrowthProjection(30)
     sdCard := growth.StorageTiers["sd_card"]
-    
+
     if sdCard.UsagePercent > 85 {
         return ErrInsufficientStorage{
             Message: "SD card at 85%. Move partitions to cold storage before rotation.",
         }
     }
-    
+
     return nil
 }
 ```
@@ -2217,7 +2217,7 @@ To manage the scope of this architecture, the implementation is divided into **5
 - Optional gzip compression (80% reduction)
 - Automatic tier migration (recent → cold)
 - Retention policy enforcement
-- Storage optimization recommendations
+- Storage optimisation recommendations
 
 **Document:** `docs/features/phase-4-consolidation-cold-storage.md`
 
@@ -2306,7 +2306,7 @@ To manage the scope of this architecture, the implementation is divided into **5
 **❌ Query Performance (Cross-Partition)**
 - Queries spanning multiple months touch multiple files
 - More disk I/O than single-file approach
-- Union view overhead (though SQLite optimizes this)
+- Union view overhead (though SQLite optimises this)
 
 **❌ ATTACH DATABASE Limits**
 - Default 10 attached databases (can increase to 125)
@@ -2545,7 +2545,7 @@ Total: 64GB
 | 12    | 3GB       | 9GB         | 27GB       | 22GB (34%)    |
 | 24    | 3GB       | 9GB         | 60GB       | 22GB (34%)    |
 
-**Conclusion:** SD card usage stabilizes at ~22GB with tiered storage.
+**Conclusion:** SD card usage stabilises at ~22GB with tiered storage.
 
 ### Mount Point Configuration
 
@@ -2572,11 +2572,11 @@ WantedBy=multi-user.target
 // Check if archive mount is available, fall back to local if not
 func GetArchiveDir() string {
     archiveMount := "/var/lib/velocity-report/archives"
-    
+
     if isMountPoint(archiveMount) {
         return archiveMount
     }
-    
+
     // Fallback to local storage
     log.Warn("Archive mount not available, using local storage")
     return "/var/lib/velocity-report/archives-local"
@@ -2611,7 +2611,7 @@ func QueryCompressedPartition(partitionPath string) (*sql.DB, error) {
         defer os.Remove(tempPath) // Clean up after query
         partitionPath = tempPath
     }
-    
+
     return sql.Open("sqlite", partitionPath)
 }
 ```
@@ -2643,7 +2643,7 @@ func QueryCompressedPartition(partitionPath string) (*sql.DB, error) {
 **Steps:**
 1. Add configuration flag: `--enable-partitioning`
 2. On first run with flag:
-   - Analyze existing data for natural partition boundaries
+   - Analyse existing data for natural partition boundaries
    - Offer to backfill historical partitions OR start fresh
 3. Run rotation process on next scheduled trigger
 
@@ -2668,12 +2668,12 @@ velocity-report --db-path /var/lib/velocity-report/sensor_data.db \
 **Approach:**
 ```go
 func BackfillPartitions(db *DB, strategy PartitionStrategy) error {
-    // 1. Analyze data time range
+    // 1. Analyse data time range
     minTime, maxTime := GetDataTimeRange(db)
-    
+
     // 2. Calculate partition boundaries
     partitions := CalculatePartitions(minTime, maxTime, strategy)
-    
+
     // 3. For each partition:
     for _, partition := range partitions {
         // Create partition file
@@ -2681,7 +2681,7 @@ func BackfillPartitions(db *DB, strategy PartitionStrategy) error {
         // Verify integrity
         // Delete from main DB
     }
-    
+
     // 4. Update union views
     return UpdateUnionViews(db)
 }
@@ -2719,14 +2719,14 @@ velocity-report --db-path /var/lib/velocity-report/sensor_data.db \
 // Emergency consolidation: merge partitions back into main DB
 func ConsolidatePartitions(db *DB) error {
     partitions := FindPartitions(archivesDir)
-    
+
     for _, partition := range partitions {
         // Copy data from partition to main DB
         if err := CopyPartitionToMain(partition, db); err != nil {
             return err
         }
     }
-    
+
     return nil
 }
 ```
@@ -2763,31 +2763,31 @@ func ConsolidatePartitions(db *DB) error {
 **Scenario 1: Single-Month Query (Most Common)**
 ```sql
 -- Query current month's data
-SELECT * FROM radar_data_all 
+SELECT * FROM radar_data_all
 WHERE write_timestamp BETWEEN <current_month_start> AND <now>;
 ```
 
-**Current:** Query touches entire database (slower)  
+**Current:** Query touches entire database (slower)
 **Partitioned:** ✅ Query touches only active partition (faster)
 
 **Scenario 2: Multi-Month Query**
 ```sql
 -- Query last 3 months
-SELECT * FROM radar_data_all 
+SELECT * FROM radar_data_all
 WHERE write_timestamp BETWEEN <3_months_ago> AND <now>;
 ```
 
-**Current:** Single database (faster)  
+**Current:** Single database (faster)
 **Partitioned:** ⚠️ Queries 3 partitions (slower due to UNION)
 
 **Scenario 3: Historical Query (6+ months)**
 ```sql
 -- Query last year
-SELECT * FROM radar_data_all 
+SELECT * FROM radar_data_all
 WHERE write_timestamp BETWEEN <1_year_ago> AND <now>;
 ```
 
-**Current:** ⚠️ Slow due to large database size  
+**Current:** ⚠️ Slow due to large database size
 **Partitioned:** ⚠️ Slower due to 12 partitions, but predictable
 
 **Query Optimization Strategies:**
@@ -2946,12 +2946,12 @@ func PreflightChecks() error {
     if freeSpace < 10*GB {
         return fmt.Errorf("insufficient disk space: %dGB free (need 10GB)", freeSpace/GB)
     }
-    
+
     // Check archives mount
     if !isMountPoint("/var/lib/velocity-report/archives") {
         log.Warn("Archives mount not found, using local storage")
     }
-    
+
     return nil
 }
 ```
@@ -3000,7 +3000,7 @@ func PreflightChecks() error {
 - [ ] Implement dynamic view generation
 - [ ] ATTACH DATABASE management
 - [ ] Update views after rotation
-- [ ] Query planner optimization tests
+- [ ] Query planner optimisation tests
 - [ ] Performance benchmarks
 
 ### Phase 3: Scheduling and Automation (Week 4)
@@ -3186,14 +3186,14 @@ func PreflightChecks() error {
 ### Query Current Month Data
 ```sql
 -- Fast: Only touches active partition
-SELECT * FROM radar_data_all 
+SELECT * FROM radar_data_all
 WHERE write_timestamp BETWEEN UNIXEPOCH('now', 'start of month') AND UNIXEPOCH('now');
 ```
 
 ### Query Last 3 Months
 ```sql
 -- Moderate: Touches 3 partitions
-SELECT * FROM radar_data_all 
+SELECT * FROM radar_data_all
 WHERE write_timestamp BETWEEN UNIXEPOCH('now', '-3 months') AND UNIXEPOCH('now')
 ORDER BY write_timestamp DESC;
 ```
@@ -3201,7 +3201,7 @@ ORDER BY write_timestamp DESC;
 ### Query Specific Month (Historical)
 ```sql
 -- Fast: Only touches one archived partition
-SELECT * FROM radar_data_all 
+SELECT * FROM radar_data_all
 WHERE write_timestamp BETWEEN 1704067200.0 AND 1706745600.0  -- Jan 2024
 ORDER BY write_timestamp;
 ```
@@ -3209,7 +3209,7 @@ ORDER BY write_timestamp;
 ### Aggregation Across All Time
 ```sql
 -- Slower: Touches all partitions, but still reasonable
-SELECT 
+SELECT
     DATE(write_timestamp, 'unixepoch') AS date,
     COUNT(*) AS reading_count,
     AVG(speed) AS avg_speed,
@@ -3296,7 +3296,7 @@ journalctl -u velocity-report.service | grep "rotation failed"
 PRAGMA database_list;
 
 -- Explain query plan
-EXPLAIN QUERY PLAN 
+EXPLAIN QUERY PLAN
 SELECT * FROM radar_data_all WHERE write_timestamp > ?;
 ```
 

@@ -23,7 +23,7 @@ class RadarStatsClient:
     """Client for querying radar statistics from the API."""
 
     def __init__(self, base_url: str = "http://localhost:8080"):
-        """Initialize the client.
+        """Initialise the client.
 
         Args:
             base_url: Base URL of the radar stats API

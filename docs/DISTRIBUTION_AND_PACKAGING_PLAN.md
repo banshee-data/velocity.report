@@ -1,7 +1,7 @@
 # velocity.report Distribution and Packaging Plan
 
-**Document Version:** 1.0  
-**Date:** 2025-11-20  
+**Document Version:** 1.0
+**Date:** 2025-11-20
 **Status:** Proposed Architecture
 
 ---
@@ -10,8 +10,8 @@
 
 ### 30-Second Pitch
 
-**Problem:** Multiple scattered tools, no release process, complex Python setup  
-**Solution:** Single `velocity-report` binary with subcommands + optional power-user tools  
+**Problem:** Multiple scattered tools, no release process, complex Python setup
+**Solution:** Single `velocity-report` binary with subcommands + optional power-user tools
 **Result:** Professional distribution with one-line install and GitHub releases
 
 ### Recommended Architecture (Hybrid Model)
@@ -335,7 +335,7 @@ backfill-ring-elevations        # Utility script (developer tool)
 
 **Cons:**
 - ⚠️ Slightly more complex distribution
-- ⚠️ Need to decide categorization for each tool
+- ⚠️ Need to decide categorisation for each tool
 
 **Verdict:** ✅ **RECOMMENDED** - Balances simplicity for end users with power for advanced users.
 
@@ -472,14 +472,14 @@ Rename `cmd/sweep/` → `cmd/velocity-report-sweep/`:
 func runPDF() {
     // Find Python interpreter
     pythonPath := findPython()
-    
+
     // Find pdf_generator module
     modulePath := findPDFGenerator()
-    
+
     // Set environment
     env := os.Environ()
     env = append(env, "PYTHONPATH="+modulePath)
-    
+
     // Execute Python CLI
     cmd := exec.Command(pythonPath, "-m", "pdf_generator.cli.main", os.Args[2:]...)
     cmd.Env = env
@@ -525,13 +525,13 @@ func runPDF() {
    ```makefile
    build-radar-linux:
        GOOS=linux GOARCH=arm64 go build -o velocity-report-linux-arm64 ./cmd/velocity-report
-   
+
    build-sweep:
        GOOS=linux GOARCH=arm64 go build -o velocity-report-sweep-linux-arm64 ./cmd/velocity-report-sweep
-   
+
    build-backfill-rings:
        GOOS=linux GOARCH=arm64 go build -o velocity-report-backfill-rings-linux-arm64 ./cmd/velocity-report-backfill-rings
-   
+
    build-all:
        $(MAKE) build-radar-linux
        $(MAKE) build-sweep
@@ -590,13 +590,13 @@ func runPDF() {
    #!/bin/bash
    INSTALL_DIR=${1:-/usr/local/share/velocity-report/python}
    VENV_DIR=$INSTALL_DIR/.venv
-   
+
    # Create venv
    python3 -m venv $VENV_DIR
-   
+
    # Install dependencies
    $VENV_DIR/bin/pip install -r requirements.txt
-   
+
    # Copy Python packages
    cp -r tools/pdf-generator/pdf_generator $INSTALL_DIR/
    cp -r tools/grid-heatmap $INSTALL_DIR/
@@ -606,7 +606,7 @@ func runPDF() {
    ```makefile
    install-python-system:
        sudo ./scripts/install-python-tools.sh
-   
+
    pdf-report:
        # Option 1: Use installed tools
        velocity-report pdf $(CONFIG)
@@ -634,16 +634,16 @@ func runPDF() {
 **Tasks:**
 
 1. **Create GitHub Actions release workflow**
-   
+
    File: `.github/workflows/release.yml`
    ```yaml
    name: Release
-   
+
    on:
      push:
        tags:
          - 'v*'
-   
+
    jobs:
      build-binaries:
        runs-on: ubuntu-latest
@@ -659,39 +659,39 @@ func runPDF() {
              - goos: darwin
                goarch: amd64
                output: velocity-report-mac-amd64
-       
+
        steps:
          - uses: actions/checkout@v4
-         
+
          - name: Set up Go
            uses: actions/setup-go@v5
            with:
              go-version: '1.25'
-         
+
          - name: Set up Node.js
            uses: actions/setup-node@v4
            with:
              node-version: '20'
-         
+
          - name: Build web frontend
            run: |
              cd web
              npm install
              npm run build
-         
+
          - name: Build Go binary
            env:
              GOOS: ${{ matrix.goos }}
              GOARCH: ${{ matrix.goarch }}
            run: |
              go build -tags=pcap -o ${{ matrix.output }} ./cmd/velocity-report
-         
+
          - name: Upload artifact
            uses: actions/upload-artifact@v4
            with:
              name: ${{ matrix.output }}
              path: ${{ matrix.output }}
-     
+
      build-sweep:
        runs-on: ubuntu-latest
        strategy:
@@ -700,66 +700,66 @@ func runPDF() {
              - goos: linux
                goarch: arm64
                output: velocity-report-sweep-linux-arm64
-       
+
        steps:
          - uses: actions/checkout@v4
-         
+
          - name: Set up Go
            uses: actions/setup-go@v5
            with:
              go-version: '1.25'
-         
+
          - name: Build sweep binary
            env:
              GOOS: ${{ matrix.goos }}
              GOARCH: ${{ matrix.goarch }}
            run: |
              go build -o ${{ matrix.output }} ./cmd/velocity-report-sweep
-         
+
          - name: Upload artifact
            uses: actions/upload-artifact@v4
            with:
              name: ${{ matrix.output }}
              path: ${{ matrix.output }}
-     
+
      package-python:
        runs-on: ubuntu-latest
        steps:
          - uses: actions/checkout@v4
-         
+
          - name: Set up Python
            uses: actions/setup-python@v5
            with:
              python-version: '3.12'
-         
+
          - name: Package Python tools
            run: |
              tar czf velocity-report-python-tools.tar.gz \
                tools/pdf-generator/pdf_generator \
                tools/grid-heatmap \
                requirements.txt
-         
+
          - name: Upload artifact
            uses: actions/upload-artifact@v4
            with:
              name: velocity-report-python-tools.tar.gz
              path: velocity-report-python-tools.tar.gz
-     
+
      create-release:
        needs: [build-binaries, build-sweep, package-python]
        runs-on: ubuntu-latest
        steps:
          - uses: actions/checkout@v4
-         
+
          - name: Download all artifacts
            uses: actions/download-artifact@v4
-         
+
          - name: Create checksums
            run: |
              for file in velocity-report-* *.tar.gz; do
                sha256sum "$file" >> SHA256SUMS.txt
              done
-         
+
          - name: Create GitHub Release
            uses: softprops/action-gh-release@v2
            with:
@@ -769,45 +769,45 @@ func runPDF() {
                SHA256SUMS.txt
              body: |
                ## Installation
-               
+
                ### Linux (Raspberry Pi ARM64)
                ```bash
                curl -LO https://github.com/banshee-data/velocity.report/releases/download/${{ github.ref_name }}/velocity-report-linux-arm64
                chmod +x velocity-report-linux-arm64
                sudo mv velocity-report-linux-arm64 /usr/local/bin/velocity-report
                ```
-               
+
                ### macOS (Apple Silicon)
                ```bash
                curl -LO https://github.com/banshee-data/velocity.report/releases/download/${{ github.ref_name }}/velocity-report-mac-arm64
                chmod +x velocity-report-mac-arm64
                sudo mv velocity-report-mac-arm64 /usr/local/bin/velocity-report
                ```
-               
+
                ### Python Tools
                ```bash
                curl -LO https://github.com/banshee-data/velocity.report/releases/download/${{ github.ref_name }}/velocity-report-python-tools.tar.gz
                sudo tar xzf velocity-report-python-tools.tar.gz -C /usr/local/share/velocity-report/
                ```
-               
+
                ## What's Changed
                See [CHANGELOG.md](https://github.com/banshee-data/velocity.report/blob/main/CHANGELOG.md)
    ```
 
 2. **Create version management**
-   
+
    File: `internal/version/version.go`
    ```go
    package version
-   
+
    import "runtime/debug"
-   
+
    var (
        Version   = "dev"
        GitCommit = "unknown"
        BuildTime = "unknown"
    )
-   
+
    func init() {
        if info, ok := debug.ReadBuildInfo(); ok {
            for _, setting := range info.Settings {
@@ -820,12 +820,12 @@ func runPDF() {
            }
        }
    }
-   
+
    func Full() string {
        return Version + " (" + GitCommit + ", " + BuildTime + ")"
    }
    ```
-   
+
    Use in `velocity-report version`:
    ```go
    func runVersion() {
@@ -837,10 +837,10 @@ func runPDF() {
    ```makefile
    VERSION ?= $(shell git describe --tags --always --dirty)
    LDFLAGS = -X github.com/banshee-data/velocity.report/internal/version.Version=$(VERSION)
-   
+
    build-radar-linux:
        GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o velocity-report-linux-arm64 ./cmd/velocity-report
-   
+
    release-tag:
        @echo "Creating release tag $(VERSION)"
        git tag -a $(VERSION) -m "Release $(VERSION)"
@@ -866,21 +866,21 @@ func runPDF() {
 **Tasks:**
 
 1. **Create unified installation script**
-   
+
    File: `scripts/install.sh`
    ```bash
    #!/bin/bash
    # Install script for velocity.report
    # Usage: curl -sSL https://velocity.report/install.sh | sudo bash
-   
+
    set -euo pipefail
-   
+
    # Configuration
    INSTALL_DIR="/usr/local"
    DATA_DIR="/var/lib/velocity-report"
    SHARE_DIR="$INSTALL_DIR/share/velocity-report"
    VERSION="${VERSION:-latest}"
-   
+
    # Detect architecture
    ARCH=$(uname -m)
    case "$ARCH" in
@@ -888,61 +888,61 @@ func runPDF() {
        x86_64|amd64) GOARCH="amd64" ;;
        *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
    esac
-   
+
    # Detect OS
    OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-   
+
    BINARY="velocity-report-${OS}-${GOARCH}"
-   
+
    echo "Installing velocity.report ${VERSION} for ${OS}/${GOARCH}"
-   
+
    # Download binary
    if [ "$VERSION" = "latest" ]; then
        DOWNLOAD_URL="https://github.com/banshee-data/velocity.report/releases/latest/download/${BINARY}"
    else
        DOWNLOAD_URL="https://github.com/banshee-data/velocity.report/releases/download/${VERSION}/${BINARY}"
    fi
-   
+
    echo "Downloading from ${DOWNLOAD_URL}..."
    curl -fsSL "$DOWNLOAD_URL" -o /tmp/velocity-report
    chmod +x /tmp/velocity-report
-   
+
    # Install binary
    echo "Installing binary to ${INSTALL_DIR}/bin/velocity-report..."
    mv /tmp/velocity-report "${INSTALL_DIR}/bin/velocity-report"
-   
+
    # Download Python tools (optional)
    read -p "Install Python tools (PDF generator)? [Y/n] " -n 1 -r
    echo
    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
        echo "Installing Python tools..."
        mkdir -p "$SHARE_DIR"
-       
+
        PYTHON_URL="https://github.com/banshee-data/velocity.report/releases/download/${VERSION}/velocity-report-python-tools.tar.gz"
        curl -fsSL "$PYTHON_URL" | tar xz -C "$SHARE_DIR"
-       
+
        # Set up Python venv
        python3 -m venv "${SHARE_DIR}/python/.venv"
        "${SHARE_DIR}/python/.venv/bin/pip" install -r "${SHARE_DIR}/requirements.txt"
-       
+
        echo "Python tools installed."
    fi
-   
+
    # Create service user and data directory
    if ! id velocity &>/dev/null; then
        useradd --system --no-create-home --shell /usr/sbin/nologin velocity
    fi
-   
+
    mkdir -p "$DATA_DIR"
    chown velocity:velocity "$DATA_DIR"
-   
+
    # Install systemd service (Linux only)
    if [ "$OS" = "linux" ] && command -v systemctl &>/dev/null; then
        cat > /etc/systemd/system/velocity-report.service <<EOF
    [Unit]
    Description=Velocity.report radar monitor service
    After=network.target
-   
+
    [Service]
    User=velocity
    Group=velocity
@@ -954,17 +954,17 @@ func runPDF() {
    StandardOutput=journal
    StandardError=journal
    SyslogIdentifier=velocity-report
-   
+
    [Install]
    WantedBy=multi-user.target
    EOF
-       
+
        systemctl daemon-reload
        systemctl enable velocity-report.service
-       
+
        echo "Systemd service installed. Start with: sudo systemctl start velocity-report"
    fi
-   
+
    echo "Installation complete!"
    echo "Run 'velocity-report --help' to get started."
    ```
@@ -975,7 +975,7 @@ func runPDF() {
    - Add version selection
 
 3. **Create comprehensive installation guide**
-   
+
    File: `docs/INSTALLATION.md`
    - One-line install (recommended)
    - Manual installation steps
@@ -1088,7 +1088,7 @@ func runPDF() {
    ```bash
    # Test migrate command
    ./velocity-report-linux-arm64 migrate status --db-path /var/lib/velocity-report/sensor_data.db
-   
+
    # Test serve (don't background yet)
    ./velocity-report-linux-arm64 serve --db-path /var/lib/velocity-report/sensor_data.db --disable-radar
    # Ctrl+C to stop
@@ -1101,7 +1101,7 @@ func runPDF() {
    #   ExecStart=/usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sensor_data.db
    # To:
    #   ExecStart=/usr/local/bin/velocity-report serve --db-path /var/lib/velocity-report/sensor_data.db
-   
+
    sudo systemctl daemon-reload
    ```
 
@@ -1122,10 +1122,10 @@ func runPDF() {
    ```bash
    # Check logs
    sudo journalctl -u velocity-report -f
-   
+
    # Test web UI
    curl http://localhost:8080/
-   
+
    # Test migrate command
    velocity-report migrate status --db-path /var/lib/velocity-report/sensor_data.db
    ```
@@ -1251,13 +1251,13 @@ velocity-report pdf /path/to/config.json
        // Verify HTTP endpoints respond
        // Stop server
    }
-   
+
    func TestMigrateSubcommand(t *testing.T) {
        // Run migrate up
        // Verify schema version
        // Run migrate down
    }
-   
+
    func TestPDFSubcommand(t *testing.T) {
        // Create test config
        // Run velocity-report pdf
@@ -1401,7 +1401,7 @@ velocity-report serve --enable-config-ui
 ```bash
 velocity-report plugin install lidar-advanced-analytics
 velocity-report plugin list
-velocity-report lidar-advanced-analytics analyze --input data.csv
+velocity-report lidar-advanced-analytics analyse --input data.csv
 ```
 
 ---

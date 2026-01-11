@@ -36,7 +36,7 @@ This document outlines the evolution of the LIDAR tracking system from rule-base
 2. [Phase 3.7: Analysis Run Infrastructure](#phase-37-analysis-run-infrastructure) ✅
 3. [Phase 4.0: Track Labeling UI](#phase-40-track-labeling-ui)
 4. [Phase 4.1: ML Classifier Training](#phase-41-ml-classifier-training)
-5. [Phase 4.2: Parameter Tuning & Optimization](#phase-42-parameter-tuning--optimization)
+5. [Phase 4.2: Parameter Tuning & Optimization](#phase-42-parameter-tuning--optimisation)
 6. [Phase 4.3: Production Deployment](#phase-43-production-deployment)
 7. [Data Flow Summary](#data-flow-summary)
 
@@ -615,7 +615,7 @@ func (f *ClassifierFactory) Classify(track *TrackedObject) (string, float32) {
 
 ### Objective
 
-Systematically explore parameter space to optimize track quality metrics.
+Systematically explore parameter space to optimise track quality metrics.
 
 ### 4.2.1: Tuning Workflow
 
@@ -673,7 +673,7 @@ type QualityMetrics struct {
 ### 4.2.3: Optimization Objective
 
 ```go
-// Define objective function for parameter optimization
+// Define objective function for parameter optimisation
 func ComputeObjective(metrics *QualityMetrics, comparison *RunComparison) float64 {
     // Goal: Maximize confirmed tracks, minimize splits/merges/noise
     //

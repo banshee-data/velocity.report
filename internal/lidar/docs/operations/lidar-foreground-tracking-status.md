@@ -160,7 +160,7 @@ On macOS M1, the foreground processing pipeline shows higher CPU usage than expe
 
 1.  **Per-frame allocations**: If `ProcessFramePolarWithMask` allocates large slices per frame, GC pressure increases.
 2.  **Lock contention**: Background grid access may have mutex contention if multiple goroutines access it.
-3.  **Unoptimized neighbor lookup**: Neighbor confirmation iterates neighboring cells; may be slow for dense grids.
+3.  **Unoptimised neighbor lookup**: Neighbor confirmation iterates neighboring cells; may be slow for dense grids.
 4.  **Packet encoding overhead**: `ForegroundForwarder` may be inefficiently encoding/copying data.
 
 ### Profiling Plan
@@ -197,7 +197,7 @@ A new approach to address the limitations of background-subtraction:
 ### Phase 3: Advanced Introspection
 
 - **Dashboard:** Real-time charts for track quality and parameter sensitivity.
-- **Sensitivity Analysis:** Automated parameter sweeps (varying `Eps`, `MinPts`) to optimize tracking.
+- **Sensitivity Analysis:** Automated parameter sweeps (varying `Eps`, `MinPts`) to optimise tracking.
 
 ### Phase 4: Split/Merge Correction
 

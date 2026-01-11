@@ -42,11 +42,11 @@ def parse_args():
         help="Output directory for PNG files (default: noise-plots/)",
     )
     p.add_argument(
-        "--neighbor",
+        "--neighbour",
         "-n",
         type=int,
         default=None,
-        help="Filter by neighbor_confirmation_count (optional)",
+        help="Filter by neighbour_confirmation_count (optional)",
     )
     p.add_argument(
         "--closeness",
@@ -77,7 +77,7 @@ def main():
     for col in [
         "noise_relative",
         "closeness_multiplier",
-        "neighbor_confirmation_count",
+        "neighbour_confirmation_count",
         "iter",
     ]:
         if col not in df.columns:
@@ -85,10 +85,10 @@ def main():
             sys.exit(2)
 
     # Apply filters if specified
-    if args.neighbor is not None:
-        df = df[df["neighbor_confirmation_count"] == args.neighbor]
+    if args.neighbour is not None:
+        df = df[df["neighbour_confirmation_count"] == args.neighbour]
         if df.empty:
-            print(f"no rows for neighbor_confirmation_count={args.neighbor}")
+            print(f"no rows for neighbour_confirmation_count={args.neighbour}")
             sys.exit(0)
 
     if args.closeness is not None:
@@ -117,10 +117,10 @@ def main():
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Get closeness and neighbor for titles
+    # Get closeness and neighbour for titles
     closeness_val = df["closeness_multiplier"].iloc[0] if len(df) > 0 else "unknown"
-    neighbor_val = (
-        df["neighbor_confirmation_count"].iloc[0] if len(df) > 0 else "unknown"
+    neighbour_val = (
+        df["neighbour_confirmation_count"].iloc[0] if len(df) > 0 else "unknown"
     )
 
     # Create individual plots for each noise value
@@ -148,7 +148,7 @@ def main():
         ax.set_ylabel("Acceptance Rate", fontsize=12)
         ax.set_title(
             f"Acceptance Rate by Distance Bucket\n"
-            f"noise={noise:.4f}, closeness={closeness_val}, neighbor={neighbor_val}",
+            f"noise={noise:.4f}, closeness={closeness_val}, neighbour={neighbour_val}",
             fontsize=13,
             fontweight="bold",
         )
@@ -218,7 +218,7 @@ def main():
 
         fig.suptitle(
             f"Acceptance Rates Across All Noise Values\n"
-            f"closeness={closeness_val}, neighbor={neighbor_val}",
+            f"closeness={closeness_val}, neighbour={neighbour_val}",
             fontsize=14,
             fontweight="bold",
         )

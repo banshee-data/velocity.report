@@ -132,7 +132,7 @@ make plot-grid-heatmap COMBINED=true
 
 - **Definition**: Fraction of filled cells that are settled (TimesSeenCount ≥ threshold)
 - **Color**: Yellow (low) → Green (high)
-- **Use**: Find regions taking longer to stabilize
+- **Use**: Find regions taking longer to stabilise
 
 ### `unsettled_ratio` (0.0 to 1.0)
 

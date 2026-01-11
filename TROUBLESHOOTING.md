@@ -598,7 +598,7 @@ sqlite3 sensor_data.db "CREATE INDEX IF NOT EXISTS idx_radar_data_timestamp ON r
 # Vacuum database to reclaim space and rebuild indexes
 sqlite3 sensor_data.db "VACUUM;"
 
-# Analyze tables for query optimization
+# Analyse tables for query optimisation
 sqlite3 sensor_data.db "ANALYZE;"
 
 # Check database size

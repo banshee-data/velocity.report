@@ -30,7 +30,7 @@ Currently, velocity.report sites can only specify a single static speed limit, m
 
 - **Accurate Violation Tracking:** Know which vehicles were speeding based on the speed limit in effect at that specific time
 - **School Zone Compliance:** Monitor whether drivers are respecting reduced school zone hours
-- **Temporal Analysis:** Compare speed behavior during different speed limit periods (e.g., do drivers slow down when the school zone is active?)
+- **Temporal Analysis:** Compare speed behaviour during different speed limit periods (e.g., do drivers slow down when the school zone is active?)
 - **Flexible Reporting:** Generate reports that show compliance with time-appropriate speed limits
 - **Multiple Time Blocks:** Support complex schedules with different limits for morning/afternoon, weekdays/weekends, etc.
 
@@ -76,7 +76,7 @@ Currently, velocity.report sites can only specify a single static speed limit, m
 
 - School traffic safety committees
 - Neighborhood associations monitoring residential streets
-- Municipal traffic engineers analyzing variable speed zones
+- Municipal traffic engineers analysing variable speed zones
 - Community advocates collecting data for traffic calming proposals
 
 **User Personas:**
@@ -105,11 +105,11 @@ CREATE TABLE IF NOT EXISTS speed_limit_schedule (
     FOREIGN KEY (site_id) REFERENCES site (id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_speed_limit_schedule_site 
+CREATE INDEX IF NOT EXISTS idx_speed_limit_schedule_site
     ON speed_limit_schedule (site_id);
 
-CREATE TRIGGER IF NOT EXISTS update_speed_limit_schedule_timestamp 
-AFTER UPDATE ON speed_limit_schedule 
+CREATE TRIGGER IF NOT EXISTS update_speed_limit_schedule_timestamp
+AFTER UPDATE ON speed_limit_schedule
 BEGIN
     UPDATE speed_limit_schedule
     SET updated_at = STRFTIME('%s', 'now')
@@ -371,13 +371,13 @@ The schedule editor is embedded in the site editor page:
 ```svelte
 <script lang="ts">
   import SpeedLimitScheduleEditor from '../../../lib/components/SpeedLimitScheduleEditor.svelte';
-  
+
   let speedLimitSchedules: SpeedLimitSchedule[] = [];
-  
+
   async function loadSchedules() {
     speedLimitSchedules = await getSpeedLimitSchedulesForSite(parseInt(siteId));
   }
-  
+
   function handleSchedulesChange(schedules: SpeedLimitSchedule[]) {
     speedLimitSchedules = schedules;
   }
@@ -466,7 +466,7 @@ func TestSpeedLimitSchedule(t *testing.T) {
         err := db.CreateSpeedLimitSchedule(schedule)
         // ... assertions
     })
-    
+
     // ... more test cases
 }
 ```
@@ -941,14 +941,14 @@ CREATE TABLE IF NOT EXISTS speed_limit_schedule (
 
 **Indexes:**
 ```sql
-CREATE INDEX IF NOT EXISTS idx_speed_limit_schedule_site 
+CREATE INDEX IF NOT EXISTS idx_speed_limit_schedule_site
     ON speed_limit_schedule (site_id);
 ```
 
 **Triggers:**
 ```sql
-CREATE TRIGGER IF NOT EXISTS update_speed_limit_schedule_timestamp 
-AFTER UPDATE ON speed_limit_schedule 
+CREATE TRIGGER IF NOT EXISTS update_speed_limit_schedule_timestamp
+AFTER UPDATE ON speed_limit_schedule
 BEGIN
     UPDATE speed_limit_schedule
     SET updated_at = STRFTIME('%s', 'now')
@@ -1063,7 +1063,7 @@ function generateTimeOptions(): string[]                    // Generate time dro
 | 6 | Saturday | 6 | Weekend residential limits |
 | 7 | Sunday | 7 | Weekend residential limits |
 
-**Note:**  ISO 8601 (which uses 1=Monday, 7=Sunday). This conforms with using unix seconds and UTC as date standards. 
+**Note:**  ISO 8601 (which uses 1=Monday, 7=Sunday). This conforms with using unix seconds and UTC as date standards.
 
 ### Appendix F: Related Tables
 

@@ -367,7 +367,7 @@ func (f *LiDARFrame) ToRangeImages(elevations []float64) [2]*RangeImage {
     ri0.AzimuthStep = 360.0 / float64(azimuthBins)
     ri1.AzimuthStep = 360.0 / float64(azimuthBins)
 
-    // Initialize NLZ to -1 (not in NLZ)
+    // Initialise NLZ to -1 (not in NLZ)
     for i := range ri0.IsInNLZ {
         ri0.IsInNLZ[i] = -1
         ri1.IsInNLZ[i] = -1

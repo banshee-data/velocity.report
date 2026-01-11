@@ -408,6 +408,38 @@ test-web:
 	@echo "Running web (Jest) tests..."
 	@cd $(WEB_DIR) && pnpm run test:ci
 
+# Run performance regression test
+test-perf:
+	@NAME="$${NAME:-kirk0}"; \
+	BASE_NAME="$${NAME%.*}"; \
+	echo "Target: $$BASE_NAME"; \
+	if [ -f "internal/lidar/perf/pcap/$$BASE_NAME.pcapng" ]; then \
+		PCAP_FILE="internal/lidar/perf/pcap/$$BASE_NAME.pcapng"; \
+	elif [ -f "internal/lidar/perf/pcap/$$BASE_NAME.pcap" ]; then \
+		PCAP_FILE="internal/lidar/perf/pcap/$$BASE_NAME.pcap"; \
+	else \
+		echo "Error: PCAP file not found for $$BASE_NAME (.pcap or .pcapng)"; \
+		exit 1; \
+	fi; \
+	if [ "$$CI" = "true" ]; then \
+		BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME-ci.json"; \
+	else \
+		BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME.json"; \
+	fi; \
+	echo "Building pcap-analyse..."; \
+	go build -tags=pcap -o pcap-analyse ./cmd/tools/pcap-analyse; \
+	EXIT_CODE=0; \
+	if [ ! -f "$$BASELINE_FILE" ]; then \
+		echo "Baseline not found at $$BASELINE_FILE. Creating new baseline..."; \
+		./pcap-analyse -pcap "$$PCAP_FILE" -benchmark -benchmark-output "$$BASELINE_FILE"; \
+		echo "Created baseline: $$BASELINE_FILE"; \
+	else \
+		echo "Running performance comparison against $$BASELINE_FILE..."; \
+		./pcap-analyse -pcap "$$PCAP_FILE" -benchmark -compare-baseline "$$BASELINE_FILE" -quiet || EXIT_CODE=$$?; \
+	fi; \
+	rm -f pcap-analyse *_analysis.json *_benchmark.json; \
+	exit $$EXIT_CODE
+
 # =============================================================================
 # DATABASE MIGRATIONS
 # =============================================================================
@@ -737,26 +769,26 @@ git-fs:
 
 .PHONY: plot-noise-sweep plot-multisweep plot-noise-buckets stats-live stats-pcap
 
-# Noise sweep line plot (neighbor=1, closeness=2.5 by default)
+# Noise sweep line plot (neighbour=1, closeness=2.5 by default)
 plot-noise-sweep:
 	@[ -z "$(FILE)" ] && echo "Usage: make plot-noise-sweep FILE=data.csv [OUT=plot.png]" && exit 1 || true
 	@[ ! -f "$(FILE)" ] && echo "File not found: $(FILE)" && exit 1 || true
 	$(VENV_PYTHON) data/multisweep-graph/plot_noise_sweep.py --file "$(FILE)" \
-		--out "$${OUT:-noise-sweep.png}" --neighbor $${NEIGHBOR:-1} --closeness $${CLOSENESS:-2.5}
+		--out "$${OUT:-noise-sweep.png}" --neighbour $${NEIGHBOUR:-1} --closeness $${CLOSENESS:-2.5}
 
-# Multi-sweep grid (neighbor=1 by default)
+# Multi-sweep grid (neighbour=1 by default)
 plot-multisweep:
 	@[ -z "$(FILE)" ] && echo "Usage: make plot-multisweep FILE=data.csv [OUT=plot.png]" && exit 1 || true
 	@[ ! -f "$(FILE)" ] && echo "File not found: $(FILE)" && exit 1 || true
 	$(VENV_PYTHON) data/multisweep-graph/plot_multisweep.py --file "$(FILE)" \
-		--out "$${OUT:-multisweep.png}" --neighbor $${NEIGHBOR:-1}
+		--out "$${OUT:-multisweep.png}" --neighbour $${NEIGHBOUR:-1}
 
-# Per-noise bar charts (neighbor=1, closeness=2.5 by default)
+# Per-noise bar charts (neighbour=1, closeness=2.5 by default)
 plot-noise-buckets:
 	@[ -z "$(FILE)" ] && echo "Usage: make plot-noise-buckets FILE=data.csv [OUT_DIR=plots/]" && exit 1 || true
 	@[ ! -f "$(FILE)" ] && echo "File not found: $(FILE)" && exit 1 || true
 	$(VENV_PYTHON) data/multisweep-graph/plot_noise_buckets.py --file "$(FILE)" \
-		--out-dir "$${OUT_DIR:-noise-plots}" --neighbor $${NEIGHBOR:-1} --closeness $${CLOSENESS:-2.5}
+		--out-dir "$${OUT_DIR:-noise-plots}" --neighbour $${NEIGHBOUR:-1} --closeness $${CLOSENESS:-2.5}
 
 # Live grid stats - periodic snapshots from running lidar system
 # Usage: make stats-live [INTERVAL=10] [DURATION=60]

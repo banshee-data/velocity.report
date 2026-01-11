@@ -1,0 +1,2 @@
+internal/lidar/perf/pcap/** filter=lfs diff=lfs merge=lfs -text
+internal/lidar/perf/pcap/kirk0.pcapng filter=lfs diff=lfs merge=lfs -text

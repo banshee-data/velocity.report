@@ -185,7 +185,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 		}
 	}
 
-	// Step 5: Initialize new tracks from unassociated clusters
+	// Step 5: Initialise new tracks from unassociated clusters
 	for clusterIdx, trackID := range associations {
 		if trackID == "" && len(t.Tracks) < t.Config.MaxTracks {
 			t.initTrack(clusters[clusterIdx], nowNanos)
@@ -452,14 +452,14 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 		FirstUnixNanos: nowNanos,
 		LastUnixNanos:  nowNanos,
 
-		// Initialize position from cluster centroid
+		// Initialise position from cluster centroid
 		X: cluster.CentroidX,
 		Y: cluster.CentroidY,
-		// Initialize velocity to zero
+		// Initialise velocity to zero
 		VX: 0,
 		VY: 0,
 
-		// Initialize covariance with high uncertainty
+		// Initialise covariance with high uncertainty
 		P: [16]float32{
 			10, 0, 0, 0, // High position uncertainty
 			0, 10, 0, 0,
@@ -467,7 +467,7 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 			0, 0, 0, 1,
 		},
 
-		// Initialize features
+		// Initialise features
 		ObservationCount:     1,
 		BoundingBoxLengthAvg: cluster.BoundingBoxLength,
 		BoundingBoxWidthAvg:  cluster.BoundingBoxWidth,
