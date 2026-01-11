@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
@@ -498,7 +499,7 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 	}
 	clusters := lidar.DBSCAN(worldPoints, dbscanParams)
 	if fb.benchmarkMode {
-		fb.clusterTimeNs += time.Since(clusterStart).Nanoseconds()
+		atomic.AddInt64(&fb.clusterTimeNs, time.Since(clusterStart).Nanoseconds())
 	}
 	fb.result.TotalClusters += len(clusters)
 
@@ -516,7 +517,7 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 	}
 	fb.tracker.Update(clusters, fb.frameStartTime)
 	if fb.benchmarkMode {
-		fb.trackTimeNs += time.Since(trackStart).Nanoseconds()
+		atomic.AddInt64(&fb.trackTimeNs, time.Since(trackStart).Nanoseconds())
 	}
 
 	// Step 5: Classify confirmed tracks
@@ -530,7 +531,7 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 		}
 	}
 	if fb.benchmarkMode {
-		fb.classifyTimeNs += time.Since(classifyStart).Nanoseconds()
+		atomic.AddInt64(&fb.classifyTimeNs, time.Since(classifyStart).Nanoseconds())
 	}
 
 	// Collect training data if requested
@@ -588,7 +589,7 @@ func (fb *analysisFrameBuilder) getTrainingFrames() []*TrainingFrame {
 func (fb *analysisFrameBuilder) getBenchmarkData() (frameTimes []float64, clusterNs, trackNs, classifyNs int64) {
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
-	return fb.frameTimes, fb.clusterTimeNs, fb.trackTimeNs, fb.classifyTimeNs
+	return fb.frameTimes, atomic.LoadInt64(&fb.clusterTimeNs), atomic.LoadInt64(&fb.trackTimeNs), atomic.LoadInt64(&fb.classifyTimeNs)
 }
 
 // collectTrackResults processes tracks from the frame builder and populates the result.
