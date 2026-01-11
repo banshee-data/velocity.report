@@ -1,0 +1,38 @@
+name: Performance Regression Test
+
+on:
+  pull_request:
+    paths:
+      - "internal/lidar/**"
+      - "cmd/tools/pcap-analyze/**"
+      - "internal/lidar/perf/**"
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Install libpcap
+        run: sudo apt-get update && sudo apt-get install -y libpcap-dev
+
+      - name: Build pcap-analyze
+        run: go build -tags=pcap -o pcap-analyze ./cmd/tools/pcap-analyze
+
+      - name: Run performance benchmark
+        run: make test-perf
+        continue-on-error: false
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: "*_benchmark.json"
