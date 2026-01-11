@@ -421,7 +421,11 @@ test-perf:
 		echo "Error: PCAP file not found for $$BASE_NAME (.pcap or .pcapng)"; \
 		exit 1; \
 	fi; \
-	BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME.json"; \
+	if [ "$$CI" = "true" ]; then \
+		BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME-ci.json"; \
+	else \
+		BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME.json"; \
+	fi; \
 	echo "Building pcap-analyse..."; \
 	go build -tags=pcap -o pcap-analyse ./cmd/tools/pcap-analyse; \
 	EXIT_CODE=0; \

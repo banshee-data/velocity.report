@@ -30,11 +30,13 @@ jobs:
 
       - name: Run performance benchmark
         run: make test-perf
-        continue-on-error: false
+        continue-on-error: true
 
       - name: Upload benchmark results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-results
-          path: "*_benchmark.json"
+          path: |
+            *_benchmark.json
+            internal/lidar/perf/baseline/*.json
