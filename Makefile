@@ -431,7 +431,7 @@ test-perf:
 		echo "Created baseline: $$BASELINE_FILE"; \
 	else \
 		echo "Running performance comparison against $$BASELINE_FILE..."; \
-		./pcap-analyze -pcap "$$PCAP_FILE" -benchmark -compare-baseline "$$BASELINE_FILE" || EXIT_CODE=$$?; \
+		./pcap-analyze -pcap "$$PCAP_FILE" -benchmark -compare-baseline "$$BASELINE_FILE" -quiet || EXIT_CODE=$$?; \
 	fi; \
 	rm -f pcap-analyze *_analysis.json *_benchmark.json; \
 	exit $$EXIT_CODE
