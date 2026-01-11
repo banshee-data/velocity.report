@@ -27,7 +27,7 @@
     "total_alloc_bytes": 16889203848,
     "num_gc": 842,
     "gc_pause_ns": 69443811,
-    "parse_time_ms": 4716,
+    "pipeline_time_ms": 4716,
     "cluster_time_ms": 4,
     "tracking_time_ms": 0,
     "classify_time_ms": 0

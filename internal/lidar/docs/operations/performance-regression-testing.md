@@ -272,7 +272,7 @@ Update baselines when:
     "total_alloc_bytes": 104857600,
     "num_gc": 12,
     "gc_pause_ns": 450000,
-    "parse_time_ms": 234,
+    "pipeline_time_ms": 234,
     "cluster_time_ms": 456,
     "tracking_time_ms": 321,
     "classify_time_ms": 45
@@ -299,7 +299,7 @@ Update baselines when:
 | `total_alloc_bytes`       | bytes | Cumulative allocations                    | Significant increase indicates concern    |
 | `num_gc`                  | count | Garbage collection cycles                 | Many GCs may indicate allocation pressure |
 | `gc_pause_ns`             | ns    | Total GC pause time                       | Higher causes frame drops                 |
-| `parse_time_ms`           | ms    | PCAP parsing + frame assembly             | Higher is worse                           |
+| `pipeline_time_ms`        | ms    | Total PCAP reading + frame processing     | Higher is worse                           |
 | `cluster_time_ms`         | ms    | DBSCAN clustering time                    | Higher is worse                           |
 | `tracking_time_ms`        | ms    | Kalman filter tracking time               | Higher is worse                           |
 | `classify_time_ms`        | ms    | Object classification time                | Higher is worse                           |
@@ -310,7 +310,7 @@ The pipeline stage timing helps identify where regressions occur:
 
 ```
 Total Processing Time
-├── parse_time_ms      — PCAP reading, packet parsing, frame assembly
+├── pipeline_time_ms   — PCAP reading, packet parsing, frame processing
 ├── cluster_time_ms    — DBSCAN clustering of foreground points
 ├── tracking_time_ms   — Kalman filter update and track management
 └── classify_time_ms   — Object classification (vehicle, pedestrian, etc.)
