@@ -427,11 +427,11 @@ test-perf:
 	EXIT_CODE=0; \
 	if [ ! -f "$$BASELINE_FILE" ]; then \
 		echo "Baseline not found at $$BASELINE_FILE. Creating new baseline..."; \
-		./pcap-analyze -pcap "$$PCAP_FILE" -benchmark -benchmark-output "$$BASELINE_FILE" -quiet; \
+		./pcap-analyze -pcap "$$PCAP_FILE" -benchmark -benchmark-output "$$BASELINE_FILE"; \
 		echo "Created baseline: $$BASELINE_FILE"; \
 	else \
 		echo "Running performance comparison against $$BASELINE_FILE..."; \
-		./pcap-analyze -pcap "$$PCAP_FILE" -benchmark -compare-baseline "$$BASELINE_FILE" -quiet || EXIT_CODE=$$?; \
+		./pcap-analyze -pcap "$$PCAP_FILE" -benchmark -compare-baseline "$$BASELINE_FILE" || EXIT_CODE=$$?; \
 	fi; \
 	rm -f pcap-analyze *_analysis.json *_benchmark.json; \
 	exit $$EXIT_CODE
