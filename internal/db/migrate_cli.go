@@ -278,7 +278,7 @@ func PrintMigrateHelp() {
 	fmt.Println("  help            Show this help message")
 	fmt.Println()
 	fmt.Println("Schema Detection:")
-	fmt.Println("  The 'detect' command analyzes databases without schema_migrations table:")
+	fmt.Println("  The 'detect' command analyses databases without schema_migrations table:")
 	fmt.Println("  - Compares current schema against all known migration points")
 	fmt.Println("  - Calculates similarity score and identifies differences")
 	fmt.Println("  - Suggests baseline version for legacy database upgrades")

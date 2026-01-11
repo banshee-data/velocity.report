@@ -69,7 +69,7 @@ func (d *DisabledSerialMux) Close() error {
 	return nil
 }
 
-func (d *DisabledSerialMux) Initialize() error { return nil }
+func (d *DisabledSerialMux) Initialise() error { return nil }
 
 func (d *DisabledSerialMux) AttachAdminRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/debug/serial-disabled", func(w http.ResponseWriter, r *http.Request) {

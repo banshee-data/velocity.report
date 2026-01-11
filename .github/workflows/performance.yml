@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - "internal/lidar/**"
-      - "cmd/tools/pcap-analyze/**"
+      - "cmd/tools/pcap-analyse/**"
       - "internal/lidar/perf/**"
 
 jobs:
@@ -25,8 +25,8 @@ jobs:
       - name: Install libpcap
         run: sudo apt-get update && sudo apt-get install -y libpcap-dev
 
-      - name: Build pcap-analyze
-        run: go build -tags=pcap -o pcap-analyze ./cmd/tools/pcap-analyze
+      - name: Build pcap-analyse
+        run: go build -tags=pcap -o pcap-analyse ./cmd/tools/pcap-analyse
 
       - name: Run performance benchmark
         run: make test-perf

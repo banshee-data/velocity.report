@@ -118,7 +118,7 @@ This plan aligns with the overall ML pipeline vision while focusing on Step 1.
 
 1. Replace rule-based classifier with ML classifier
 2. Update classification confidence scoring
-3. Performance optimization for real-time operation
+3. Performance optimisation for real-time operation
 
 **Timeline:** 2-3 weeks (after Phase 3)
 
@@ -767,7 +767,7 @@ sqlite3 sensor_data.db "SELECT COUNT(*) FROM lidar_track_obs WHERE pose_id IS NO
 
 ```bash
 # Process test PCAP with known tracks
-./pcap-analyze --pcap test-data/static-capture.pcap --output results/
+./pcap-analyse --pcap test-data/static-capture.pcap --output results/
 
 # Compare track statistics with baseline
 # - Track count should match

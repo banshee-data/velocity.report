@@ -47,7 +47,7 @@ class MetricsNormalizer:
     """
 
     def __init__(self, aliases: Optional[Dict[str, List[str]]] = None):
-        """Initialize the normalizer with field aliases.
+        """Initialise the normalizer with field aliases.
 
         Args:
             aliases: Optional custom alias mapping. If None, uses FIELD_ALIASES.

@@ -275,7 +275,7 @@ class ReportConfig:
     version: str = "1.0"
 
     def __post_init__(self):
-        """Initialize timestamp if not provided."""
+        """Initialise timestamp if not provided."""
         if self.created_at is None:
             self.created_at = datetime.now(ZoneInfo("UTC")).isoformat()
 

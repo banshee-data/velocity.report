@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Analyze noise vs distance convergence patterns from sweep results.
+Analyse noise vs distance convergence patterns from sweep results.
 Shows how lower noise values lead to faster convergence in farther distance buckets.
 """
 
@@ -8,7 +8,7 @@ import pandas as pd
 import sys
 
 
-def analyze_convergence(summary_file, raw_file):
+def analyse_convergence(summary_file, raw_file):
     # Load summary data
     df_summary = pd.read_csv(summary_file)
 
@@ -93,7 +93,7 @@ def analyze_convergence(summary_file, raw_file):
     )
     print()
 
-    # Analyze convergence trend
+    # Analyse convergence trend
     print("Convergence trends:")
     for i, bucket in enumerate(buckets[:5]):
         mean_col = f"bucket_{bucket}_mean"
@@ -178,4 +178,4 @@ def analyze_convergence(summary_file, raw_file):
 if __name__ == "__main__":
     summary = sys.argv[1] if len(sys.argv) > 1 else "noise-distance-convergence.csv"
     raw = sys.argv[2] if len(sys.argv) > 2 else "noise-distance-convergence-raw.csv"
-    analyze_convergence(summary, raw)
+    analyse_convergence(summary, raw)

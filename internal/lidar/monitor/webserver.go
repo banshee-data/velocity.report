@@ -173,7 +173,7 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		latestFgCounts:    make(map[string]int),
 	}
 
-	// Initialize TrackAPI if database is configured
+	// Initialise TrackAPI if database is configured
 	if config.DB != nil {
 		ws.trackAPI = NewTrackAPI(config.DB.DB, config.SensorID)
 	}
@@ -453,7 +453,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 				multiplier = 1.0
 			}
 
-			// Initialize foreground forwarder
+			// Initialise foreground forwarder
 			var fgForwarder *network.ForegroundForwarder
 			fgForwarder, err = network.NewForegroundForwarder("localhost", 2370, nil)
 			if err != nil {

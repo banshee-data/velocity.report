@@ -435,7 +435,7 @@ func (bm *BackgroundManager) GetGridHeatmap(azimuthBucketDeg float64, settledThr
 	numAzBuckets := int(360.0 / azimuthBucketDeg)
 	cellsPerAzBucket := int(azimuthBucketDeg / azBinResDeg)
 
-	// Initialize buckets
+	// Initialise buckets
 	buckets := make([]CoarseBucket, 0, g.Rings*numAzBuckets)
 	nowNanos := time.Now().UnixNano()
 

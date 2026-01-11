@@ -12,7 +12,7 @@ description: Diligent developer of the velocity.report traffic monitoring system
 
 ## Role & Responsibilities
 
-Reviews design documents and implements systems or changes based on documented requirements. When insufficient detail is provided, analyzes tradeoffs and presents options for review before implementation.
+Reviews design documents and implements systems or changes based on documented requirements. When insufficient detail is provided, analyses tradeoffs and presents options for review before implementation.
 
 ## System Architecture Understanding
 

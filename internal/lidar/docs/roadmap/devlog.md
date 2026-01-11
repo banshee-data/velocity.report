@@ -50,7 +50,7 @@ Implemented complete analysis run infrastructure for versioned parameter configu
 - **Phase 4.2 Parameter Tuning & Optimization**:
   - Grid search over background, clustering, and tracking parameters
   - Quality metrics: track count, splits, merges, noise tracks
-  - Objective function for parameter optimization
+  - Objective function for parameter optimisation
 
 ### Implementation Priority
 Recommended order: ✅3.7 → 4.0 → 4.2 (parallel) → 4.1 → 4.3
@@ -63,7 +63,7 @@ Recommended order: ✅3.7 → 4.0 → 4.2 (parallel) → 4.1 → 4.3
 - Implemented `cmd/tools/pcap-analyze/main.go`:
   - CLI tool for batch processing PCAP files through the full tracking pipeline
   - Processes 20+ minute PCAP files with frame building, background subtraction, clustering, tracking, and classification
-  - Exports categorized track data for ML ingestion
+  - Exports categorised track data for ML ingestion
 
 ### Features
 - **Full Pipeline Processing:**
@@ -251,8 +251,8 @@ Training data is stored in polar (sensor) frame, which is pose-independent. This
 - Implemented path traversal protection with `--lidar-pcap-dir` flag (default: `../sensor-data/lidar`) using `filepath.Join()` + `filepath.Abs()` + prefix checking to prevent `../../` attacks.
 - File validation: regular files only, `.pcap`/`.pcapng` extensions required, returns 403 Forbidden for path escape attempts.
 - Systemd integration: service auto-creates PCAP directory on startup via `ExecStartPre` directive.
-- Enhanced 4K-optimized dashboard (25.6×14.4" @ 150 DPI): 3 polar/spatial charts (top 50%) + 4 stacked metric panels (bottom 50%).
-- Chart layout improvements: settle rate left, selected metric middle, optimized spacing (hspace=0.15), title repositioned to top right.
+- Enhanced 4K-optimised dashboard (25.6×14.4" @ 150 DPI): 3 polar/spatial charts (top 50%) + 4 stacked metric panels (bottom 50%).
+- Chart layout improvements: settle rate left, selected metric middle, optimised spacing (hspace=0.15), title repositioned to top right.
 - PCAP snapshot mode: periodic captures with configurable interval/duration, auto-numbered output directories, metadata tracking (JSON).
 - Live snapshot mode for continuous monitoring of grid state during operation.
 - API helper scripts: grid reset, PCAP replay, background status fetching with sensor_id support.
@@ -279,7 +279,7 @@ Training data is stored in polar (sensor) frame, which is pose-independent. This
 - FrameBuilder diagnostics: eviction logging, frame callback (debug mode only), enhanced azimuth wrap detection for large negative jumps (>180°).
 - BackgroundManager diagnostics: acceptance decision logging, nonzero cell tracking in snapshots, per-frame acceptance summary with active parameters.
 - Re-enabled `SeedFromFirstObservation` with `--lidar-seed-from-first` flag for PCAP mode.
-- Added settle time flag for grid stabilization after parameter changes.
+- Added settle time flag for grid stabilisation after parameter changes.
 - Configurable background flush interval and frame buffer timeout.
 - Sweep tools: fetch live nonzero counts from grid_status API (avoids DB timing races), multisweep tracking.
 - Makefile improvements: dev-go, log-go-tail, log-go-cat targets with process management.
@@ -395,14 +395,14 @@ Training data is stored in polar (sensor) frame, which is pose-independent. This
 - **Enhanced maintainability**: Tests now self-contained and independent of implementation changes
 - **Fixed boundary conditions**: Corrected loop bounds in PCAP extraction to include valid edge cases
 - **Removed redundant checks**: Eliminated unnecessary bounds checking in packet extraction logic
-- **Performance optimization**: Streamlined extractUDPPayloads function by removing redundant conditional checks
+- **Performance optimisation**: Streamlined extractUDPPayloads function by removing redundant conditional checks
 
 ### Technical Changes
 
 - **Local test constants**: Added testChannelsPerBlock, testPacketSizeStandard, etc. for test isolation
 - **Boundary fix**: Changed `i < len(data)-testPacketSizeStandard` to `i <= len(data)-testPacketSizeStandard`
-- **Logic optimization**: Removed redundant `if i+testPacketSizeStandard <= len(data)` check
-- **Code clarity**: Added explanatory comments for optimization decisions
+- **Logic optimisation**: Removed redundant `if i+testPacketSizeStandard <= len(data)` check
+- **Code clarity**: Added explanatory comments for optimisation decisions
 
 ## September 12, 2025 - Frame Builder Test Suite Fixes & Validation
 
@@ -448,7 +448,7 @@ Training data is stored in polar (sensor) frame, which is pose-independent. This
 - **Packet structure details**: Complete 22-byte tail parsing documentation with all fields
 - **Timestamp mode documentation**: Added detailed explanations for all 5 supported modes
 - **Calibration explanations**: Enhanced comments for coordinate transformations and corrections
-- **Performance optimization notes**: Documented trigonometric optimizations and memory allocations
+- **Performance optimisation notes**: Documented trigonometric optimisations and memory allocations
 
 ### Technical Improvements
 

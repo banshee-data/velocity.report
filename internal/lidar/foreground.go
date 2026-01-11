@@ -64,7 +64,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	// Initialize warmup counters on first frame
+	// Initialise warmup counters on first frame
 	if bm.StartTime.IsZero() {
 		bm.StartTime = now
 	}

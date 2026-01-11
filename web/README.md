@@ -31,7 +31,7 @@ App runs at [http://localhost:5173](http://localhost:5173) (or next available po
 
 ### Production Build
 
-Create an optimized build:
+Create an optimised build:
 
 ```sh
 pnpm run build

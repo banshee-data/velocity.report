@@ -55,7 +55,7 @@ Port 2370 should stream foreground-only LIDAR points extracted via background su
 
 ## What to Check
 
-### 1. **Is BackgroundManager Initialized?**
+### 1. **Is BackgroundManager Initialised?**
 
 The BackgroundManager is **required** for foreground extraction. Without it, no foreground points will be extracted.
 
@@ -205,7 +205,7 @@ go build -tags pcap -o radar ./cmd/radar
 # "PCAP real-time replay support not compiled in (requires pcap build tag)"
 ```
 
-## Complete Initialization Example
+## Complete Initialisation Example
 
 ```go
 package main
@@ -402,7 +402,7 @@ echo "test" | nc -u localhost 2370
 ## Next Steps for VSCode Agent
 
 1. **Verify Build**: Ensure binary compiled with `-tags pcap`
-2. **Check Initialization**: Confirm BackgroundManager and ForegroundForwarder both created and started
+2. **Check Initialisation**: Confirm BackgroundManager and ForegroundForwarder both created and started
 3. **Add Debug Logging**: Insert additional log statements in extraction path
 4. **Monitor Network**: Use tcpdump to verify packets are actually being sent
 5. **Test Components**: Run isolated tests for ForegroundForwarder and BackgroundManager

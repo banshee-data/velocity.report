@@ -141,7 +141,7 @@ velocity-report migrate detect
 
 This command:
 
-- Analyzes databases without migration tracking
+- Analyses databases without migration tracking
 - Compares current schema against all known migration points
 - Calculates similarity score (0-100%)
 - Suggests baseline version

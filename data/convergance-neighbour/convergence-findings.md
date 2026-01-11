@@ -55,7 +55,7 @@ Higher noise provides:
 
 **Noise = 0.010 (Medium):**
 - Cell count variation: 231 (early) → 420 (late) - **MODERATE convergence**
-- Some stabilization but not fully converged
+- Some stabilisation but not fully converged
 
 **Noise = 0.025 (High):**
 - Cell count variation: 170 (early) → 169 (late) - **FAST convergence**

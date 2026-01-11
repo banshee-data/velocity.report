@@ -31,7 +31,7 @@ This runs Eleventy in watch mode with Tailwind CSS compilation. The site will be
 pnpm run build
 ```
 
-Outputs optimized files to the `_site/` directory.
+Outputs optimised files to the `_site/` directory.
 
 ## Deployment
 
@@ -60,7 +60,7 @@ This gives you:
 - ✅ **Easy content authoring** with Markdown
 - ✅ **Flexible styling** with Tailwind CSS + Nunjucks templates
 - ✅ **Syntax highlighting** for code blocks
-- ✅ **Typography optimized** for readability
+- ✅ **Typography optimised** for readability
 - ✅ **Component reusability** with layouts and includes
 
 ### Content Flow

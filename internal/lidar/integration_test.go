@@ -45,7 +45,7 @@ func TestHesaiLiDAR_PCAPIntegration(t *testing.T) {
 
 	t.Logf("Successfully extracted %d LiDAR points from PCAP using gopacket", len(allPoints))
 
-	// Step 3: Analyze extracted data for frame building validation
+	// Step 3: Analyse extracted data for frame building validation
 	minAzimuth, maxAzimuth := 360.0, 0.0
 	startTime, endTime := allPoints[0].Timestamp, allPoints[0].Timestamp
 

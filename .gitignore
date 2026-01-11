@@ -37,4 +37,4 @@ velocity-report-*
 mock_serial_port*
 coverage*
 velocity-deploy*
-pcap-analyze
+pcap-analyse

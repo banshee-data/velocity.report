@@ -40,7 +40,7 @@ class VelocityOverviewSection:
     """
 
     def __init__(self):
-        """Initialize velocity overview section builder."""
+        """Initialise velocity overview section builder."""
         if not HAVE_PYLATEX:
             raise ImportError(
                 "PyLaTeX is required for section generation. "
@@ -116,7 +116,7 @@ class SiteInformationSection:
     """
 
     def __init__(self):
-        """Initialize site information section builder."""
+        """Initialise site information section builder."""
         if not HAVE_PYLATEX:
             raise ImportError(
                 "PyLaTeX is required for section generation. "
@@ -159,7 +159,7 @@ class ScienceMethodologySection:
     """
 
     def __init__(self):
-        """Initialize science section builder."""
+        """Initialise science section builder."""
         if not HAVE_PYLATEX:
             raise ImportError(
                 "PyLaTeX is required for section generation. "
@@ -281,7 +281,7 @@ class SurveyParametersSection:
     """
 
     def __init__(self):
-        """Initialize survey parameters section builder."""
+        """Initialise survey parameters section builder."""
         if not HAVE_PYLATEX:
             raise ImportError(
                 "PyLaTeX is required for section generation. "

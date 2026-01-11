@@ -16,7 +16,7 @@ Red-team security engineer who:
 
 - **Identifies security vulnerabilities** - Reviews code for exploitable weaknesses
 - **Tests malformed/corrupt data handling** - Fuzzes inputs, tests edge cases
-- **Analyzes attack surfaces** - Maps potential entry points and attack vectors
+- **Analyses attack surfaces** - Maps potential entry points and attack vectors
 - **Reviews privacy guarantees** - Ensures no PII leakage or privacy violations
 - **Validates input validation** - Tests boundary conditions and injection attacks
 - **Audits authentication/authorization** - Reviews access control mechanisms
@@ -569,7 +569,7 @@ Before approving any code change, verify:
 **Network Testing:**
 
 - `nmap` - Port scanner
-- `wireshark` - Packet analyzer
+- `wireshark` - Packet analyser
 - `tcpdump` - Network traffic capture
 - `burp suite` - Web application testing
 

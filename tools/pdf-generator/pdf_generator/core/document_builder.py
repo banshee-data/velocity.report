@@ -65,7 +65,7 @@ class DocumentBuilder:
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
-        """Initialize with optional config override.
+        """Initialise with optional config override.
 
         Args:
             config: Optional dict to override default PDF configuration

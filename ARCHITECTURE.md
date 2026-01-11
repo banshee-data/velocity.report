@@ -484,7 +484,7 @@ Three Transit Sources:
 - INSERT `radar_objects` (classified detections)
 - Background sessionization: query `radar_data` → insert/update `radar_data_transits`
 - LIDAR background modeling: update `lidar_bg_snapshot`
-- SELECT for API queries (read optimized with generated columns)
+- SELECT for API queries (read optimised with generated columns)
 
 **Performance Considerations**:
 
@@ -738,7 +738,7 @@ Web Development:
 
    - iOS/Android apps
    - Push notifications for events
-   - Mobile-optimized dashboards
+   - Mobile-optimised dashboards
 
 5. **Export Formats** (Python)
 

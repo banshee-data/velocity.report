@@ -54,11 +54,11 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 - **Current Configuration:** Hardcoded at startup via `--port` CLI flag (default: `/dev/ttySC1`)
 - **Baud Rate:** Currently hardcoded in serial port initialization (19200 for OPS243A)
 
-**Initialization Flow (cmd/radar/radar.go:105-118):**
+**Initialisation Flow (cmd/radar/radar.go:105-118):**
 
 ```go
 radarSerial, err := serialmux.NewRealSerialMux(*port)
-if err := radarSerial.Initialize(); err != nil {
+if err := radarSerial.Initialise(); err != nil {
     log.Fatalf("failed to initialise device: %v", err)
 }
 ```
@@ -613,7 +613,7 @@ port = flag.String("port", "/dev/ttySC1", "Serial port to use")
 
 1. **Startup Sequence:**
 
-   - Initialize database connection
+   - Initialise database connection
    - Load enabled serial configurations from `radar_serial_config`
    - If no configs found, use CLI flag value (backward compatibility)
    - Create SerialMux instances for each enabled configuration
@@ -1038,7 +1038,7 @@ sudo systemctl restart velocity-report
 
 1. **Q: Should we allow configuration of serial timeout values?**
 
-   - Current: Hardcoded in Initialize() sequence
+   - Current: Hardcoded in Initialise() sequence
    - Trade-off: Flexibility vs. complexity
    - Recommendation: Start with sensible defaults, add if users request
 

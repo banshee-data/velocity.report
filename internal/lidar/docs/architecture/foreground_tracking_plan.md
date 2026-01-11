@@ -879,7 +879,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
         }
     }
 
-    // Initialize new tracks from unassociated clusters
+    // Initialise new tracks from unassociated clusters
     for clusterIdx, trackID := range associations {
         if trackID == "" && len(t.Tracks) < t.MaxTracks {
             t.initTrack(clusters[clusterIdx])
@@ -1440,7 +1440,7 @@ func TestPipeline_PCAPToTracks(t *testing.T) {
 6. ✅ **SQL Schema Ready** - Database persistence with `lidar_clusters`, `lidar_tracks`, `lidar_track_obs` tables
 7. ✅ **Classification Active** - Rule-based classifier for pedestrian, car, bird, other
 8. ✅ **REST Endpoints** - HTTP handlers for track/cluster API access
-9. ✅ **PCAP Analysis Tool** - CLI tool for batch track categorization and ML data export
+9. ✅ **PCAP Analysis Tool** - CLI tool for batch track categorisation and ML data export
 10. 📋 **Production Ready** - All tests passing, documented, deployed
 
 ### Implementation Files

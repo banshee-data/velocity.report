@@ -3,7 +3,7 @@
 
 // Package main provides a PCAP analysis tool for LIDAR data.
 // It processes PCAP files through the full tracking pipeline and exports
-// categorized tracks and foreground point clouds for ML training.
+// categorised tracks and foreground point clouds for ML training.
 package main
 
 import (
@@ -560,7 +560,7 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 	}
 }
 
-func (fb *analysisFrameBuilder) finalize() {
+func (fb *analysisFrameBuilder) finalise() {
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
 
@@ -583,7 +583,7 @@ func (fb *analysisFrameBuilder) getTrainingFrames() []*TrainingFrame {
 }
 
 // getBenchmarkData returns the collected benchmark timing data.
-// NOTE: This method must be called after processing is complete (after finalize()),
+// NOTE: This method must be called after processing is complete (after finalise()),
 // when the frame builder is no longer being modified concurrently.
 func (fb *analysisFrameBuilder) getBenchmarkData() (frameTimes []float64, clusterNs, trackNs, classifyNs int64) {
 	fb.mu.Lock()
@@ -659,7 +659,7 @@ func collectTrackResults(frameBuilder *analysisFrameBuilder, result *AnalysisRes
 func analyzePCAP(config Config) (*AnalysisResult, error) {
 	startTime := time.Now()
 
-	// Initialize parser
+	// Initialise parser
 	parserConfig, _ := parse.LoadEmbeddedPandar40PConfig()
 	parser := parse.NewPandar40PParser(*parserConfig)
 	parser.SetTimestampMode(parse.TimestampModeSystemTime)
@@ -681,8 +681,8 @@ func analyzePCAP(config Config) (*AnalysisResult, error) {
 		return nil, fmt.Errorf("failed to read PCAP: %w", err)
 	}
 
-	// Finalize any remaining frame data
-	frameBuilder.finalize()
+	// Finalise any remaining frame data
+	frameBuilder.finalise()
 
 	// Get statistics from the shared reader
 	packets, points, duration := stats.getStats()
@@ -727,7 +727,7 @@ func analyzePCAPWithBenchmark(config Config) (*AnalysisResult, *PerformanceMetri
 
 	startTime := time.Now()
 
-	// Initialize parser
+	// Initialise parser
 	parserConfig, _ := parse.LoadEmbeddedPandar40PConfig()
 	parser := parse.NewPandar40PParser(*parserConfig)
 	parser.SetTimestampMode(parse.TimestampModeSystemTime)
@@ -750,8 +750,8 @@ func analyzePCAPWithBenchmark(config Config) (*AnalysisResult, *PerformanceMetri
 		return nil, nil, fmt.Errorf("failed to read PCAP: %w", err)
 	}
 
-	// Finalize any remaining frame data
-	frameBuilder.finalize()
+	// Finalise any remaining frame data
+	frameBuilder.finalise()
 
 	pipelineTimeMs := time.Since(parseStart).Milliseconds()
 

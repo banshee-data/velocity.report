@@ -146,7 +146,7 @@ The advanced 7DOF/13-state tracking described in this document is required when:
 
 - Sensor frame moves relative to world frame
 - Need consistent world frame definition
-- Need pose graph optimization for loop closure
+- Need pose graph optimisation for loop closure
 
 ---
 
@@ -165,7 +165,7 @@ The advanced 7DOF/13-state tracking described in this document is required when:
 - ✅ Avoids gimbal lock (quaternions don't have singularities)
 - ✅ Efficient interpolation (SLERP for smooth motion)
 - ✅ Standard in robotics (ROS, autonomous vehicle systems)
-- ✅ Better for optimization (fewer parameters)
+- ✅ Better for optimisation (fewer parameters)
 
 **Current Implementation (4x4 Matrix):**
 

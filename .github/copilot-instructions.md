@@ -23,6 +23,13 @@
 - Local-only data storage (no cloud transmission)
 - User data ownership
 
+**British English (MANDATORY):**
+
+- Use British English spelling and terminology throughout the repository
+- Symbols, filenames, comments, and commit messages
+- Examples: `analyse` not `analyze`, `colour` not `color`, `centre` not `center`, `neighbour` not `neighbor`
+- Exception: External dependencies or rigid standards that require American spelling
+
 **DRY (Don't Repeat Yourself):**
 
 - Avoid duplication across documentation and configuration files
@@ -85,7 +92,7 @@ Optional detailed explanation if needed.
 [go] enhance SerialPortManager for thread-safety and closed state handling
 [js] fix download bug in report generation
 [docs] improve formatting and clarity in setup guide
-[sh] add analyze-branches.sh script for branch analysis
+[sh] add analyse-branches.sh script for branch analysis
 [sql] add migration for site configuration schema
 [sed] update deprecated function names across codebase
 ```

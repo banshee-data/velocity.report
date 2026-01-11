@@ -91,7 +91,7 @@ Historical analysis artifacts from background parameter tuning. Contains sweep r
 **Active Development:**
 
 - 🚧 Foreground "trail" artifacts after objects pass
-- 🚧 M1 Mac CPU usage optimization
+- 🚧 M1 Mac CPU usage optimisation
 - 🚧 Port 2370 foreground streaming performance
 
 **Planned (Phase 4.0+):**

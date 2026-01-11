@@ -67,7 +67,7 @@ class TimeSeriesChartBuilder:
         layout: Optional[Dict[str, Any]] = None,
         debug: Optional[Dict[str, bool]] = None,
     ):
-        """Initialize chart builder with styling configuration.
+        """Initialise chart builder with styling configuration.
 
         Args:
             colors: Color palette dict (defaults to DEFAULT_COLORS)
@@ -694,7 +694,7 @@ class HistogramChartBuilder:
         fonts: Optional[Dict[str, int]] = None,
         layout: Optional[Dict[str, Any]] = None,
     ):
-        """Initialize histogram builder with styling configuration.
+        """Initialise histogram builder with styling configuration.
 
         Args:
             colors: Color palette dict (defaults to DEFAULT_COLOR_CONFIG)

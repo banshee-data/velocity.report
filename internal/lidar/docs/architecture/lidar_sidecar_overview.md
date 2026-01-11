@@ -2,8 +2,8 @@
 
 **Status:** Phase 3.7 completed — Foreground streaming (Port 2370) working, live param tuning working
 **Scope:** Hesai UDP → parse → frame assembly → background subtraction → foreground mask → clustering → tracking → classification → HTTP API → ML data export → Analysis Runs
-**Current Focus:** Performance optimization & foreground trail investigation (See `../operations/lidar-foreground-tracking-status.md`)
-**Active Issues:** (1) Foreground "trails" after objects pass, (2) M1 CPU usage optimization
+**Current Focus:** Performance optimisation & foreground trail investigation (See `../operations/lidar-foreground-tracking-status.md`)
+**Active Issues:** (1) Foreground "trails" after objects pass, (2) M1 CPU usage optimisation
 
 ---
 
@@ -129,7 +129,7 @@
 
 ### ✅ **Phase 3.6: PCAP Analysis Tool (COMPLETED)**
 
-- ✅ **`pcap-analyze` CLI Tool**: Batch PCAP processing for track categorization
+- ✅ **`pcap-analyze` CLI Tool**: Batch PCAP processing for track categorisation
 - ✅ **Full Pipeline Processing**: Parse → Frame → Background → Cluster → Track → Classify
 - ✅ **Track Categorization**: Classify tracks as pedestrian, car, bird, other
 - ✅ **Speed Statistics**: P50/P85/P95 percentile computation per track
@@ -485,7 +485,7 @@ python3 tools/grid-heatmap/plot_grid_heatmap.py \
   --metric fill_rate
 ```
 
-**Full Dashboard**: Comprehensive 4K-optimized visualization with multiple views
+**Full Dashboard**: Comprehensive 4K-optimised visualization with multiple views
 
 ```bash
 # Single snapshot
@@ -511,7 +511,7 @@ python3 tools/grid-heatmap/plot_grid_heatmap.py \
 
 - Top 50%: Polar settle rate + Polar metric + Spatial XY distance
 - Bottom 50%: 4 stacked metric panels (fill rate, settle rate, unsettled ratio, mean times seen)
-- Layout optimizations: hspace=0.15, title repositioned to top right, settle rate chart on left
+- Layout optimisations: hspace=0.15, title repositioned to top right, settle rate chart on left
 
 **Available Metrics**:
 
@@ -661,7 +661,7 @@ curl -X POST 'http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p' 
 # Enable seeding from first observation (PCAP mode)
 --lidar-seed-from-first
 
-# Settle time for grid stabilization after parameter changes
+# Settle time for grid stabilisation after parameter changes
 --lidar-settle-time 5s
 ```
 
@@ -1047,7 +1047,7 @@ The LiDAR sidecar has **completed Phases 1-2 (core infrastructure, background cl
 - ✅ **Persistence**: Background grid snapshots with versioning
 - ✅ **Parameter Tuning**: Runtime-adjustable parameters via HTTP API
 - ✅ **Monitoring**: Acceptance metrics and grid statistics for tuning
-- ✅ **Sweep Tools**: Automated parameter sweep utilities for optimization
+- ✅ **Sweep Tools**: Automated parameter sweep utilities for optimisation
 - ✅ **Foreground Mask Generation** (Phase 2.9): `ProcessFramePolarWithMask()`, `ExtractForegroundPoints()`
 - ✅ **World Transform** (Phase 3.0): `TransformToWorld()` with identity transform
 - ✅ **DBSCAN Clustering** (Phase 3.1): `SpatialIndex`, `DBSCAN()`, `WorldCluster`
@@ -1076,7 +1076,7 @@ The LiDAR sidecar has **completed Phases 1-2 (core infrastructure, background cl
 - 📋 **Multi-Sensor (Phase 4)**: Support multiple sensors per machine with local databases
 - 📋 **Database Unification**: Consolidate data from distributed edge nodes
 - 📋 **Cross-Sensor Tracking**: Track objects across multiple sensor coverage areas
-- 📋 **Scale**: Memory optimization for 100+ tracks across multiple sensors
+- 📋 **Scale**: Memory optimisation for 100+ tracks across multiple sensors
 
 **Current Focus**: UI visualization for track display. REST API endpoints (Phase 3.5) are complete.
 

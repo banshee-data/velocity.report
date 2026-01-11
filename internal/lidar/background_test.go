@@ -94,7 +94,7 @@ func TestProcessFramePolar_NeighborConfirmation(t *testing.T) {
 	g := makeTestGrid(3, 3)
 	bm := g.Manager
 
-	// Initialize neighbors around center (ring1, az1) with 10m
+	// Initialise neighbors around center (ring1, az1) with 10m
 	// compute azimuths that map to the intended az bins (use bin centers)
 	azStep := 360.0 / float64(g.AzimuthBins)
 	for dr := -1; dr <= 1; dr++ {

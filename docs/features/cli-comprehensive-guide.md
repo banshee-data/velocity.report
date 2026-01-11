@@ -1,6 +1,6 @@
 # CLI Comprehensive Guide & Implementation Plan
 
-**Date:** 2025-12-02  
+**Date:** 2025-12-02
 **Purpose:** Complete reference and restructuring plan for velocity.report CLI interfaces
 
 ---
@@ -180,7 +180,7 @@ sweep --pcap recording.pcap --pcap-settle 20s
 **Parameter Ranges for Multi-Sweep:**
 - `--noise <values>` - Comma-separated noise values or range `start:end:step`
 - `--closeness <values>` - Comma-separated closeness values or range
-- `--neighbors <values>` - Comma-separated neighbor values
+- `--neighbors <values>` - Comma-separated neighbour values
 
 **Single-Variable Sweep Ranges:**
 - `--noise-start`, `--noise-end`, `--noise-step` - Noise sweep parameters
@@ -466,7 +466,7 @@ sweep \
   --iterations 30 \
   --output sweep-results.csv
 
-# Analyze results
+# Analyse results
 make plot-multisweep INPUT=sweep-results.csv
 ```
 
@@ -675,7 +675,7 @@ velocity-tools backfill-transits --start 2024-01-01T00:00:00Z --end 2024-01-31T2
 
 ## Long-Term Stable Architecture
 
-This section outlines the **ideal future state** for velocity.report CLI and API design, optimized for long-term stability, consistency, and ease of use. This goes beyond incremental improvements to define a cohesive architecture.
+This section outlines the **ideal future state** for velocity.report CLI and API design, optimised for long-term stability, consistency, and ease of use. This goes beyond incremental improvements to define a cohesive architecture.
 
 ### Design Philosophy
 
@@ -1023,7 +1023,7 @@ velocity-report db vacuum
 
 **Subcommands:**
 
-**`config init`** - Initialize config
+**`config init`** - Initialise config
 ```bash
 # Create default config
 velocity-report config init --output /etc/velocity-report.toml
@@ -1360,8 +1360,8 @@ token = "vrt_abc123..."
 
 ## Implementation Plan
 
-**Goal:** Document current state and design future structure  
-**Duration:** Completed  
+**Goal:** Document current state and design future structure
+**Duration:** Completed
 **Risk:** None
 
 **Tasks:**
@@ -1377,8 +1377,8 @@ token = "vrt_abc123..."
 
 ### Phase 2: Non-Breaking Improvements (4-6 weeks)
 
-**Goal:** Add new patterns alongside existing ones  
-**Duration:** 4-6 weeks  
+**Goal:** Add new patterns alongside existing ones
+**Duration:** 4-6 weeks
 **Risk:** Low (additive only, no removals)
 
 #### Step 1: Add Subcommand Structure (Week 1-2)
@@ -1538,8 +1538,8 @@ velocity-report --config bad.toml serve  # Should show clear error
 
 ### Phase 3: Consolidation (6-8 weeks)
 
-**Goal:** Create unified `velocity-tools` binary for all utilities  
-**Duration:** 6-8 weeks  
+**Goal:** Create unified `velocity-tools` binary for all utilities
+**Duration:** 6-8 weeks
 **Risk:** Medium (new binary, but old ones still work)
 
 **Tasks:**
@@ -1585,8 +1585,8 @@ velocity-report --config bad.toml serve  # Should show clear error
 
 ### Phase 4: Breaking Changes (Major Version)
 
-**Goal:** Remove deprecated patterns, finalize new structure  
-**Duration:** 8-12 weeks (after 2-3 release cycles)  
+**Goal:** Remove deprecated patterns, finalize new structure
+**Duration:** 8-12 weeks (after 2-3 release cycles)
 **Risk:** Medium (breaking changes, requires user migration)
 
 **Tasks:**

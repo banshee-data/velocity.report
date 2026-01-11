@@ -237,7 +237,7 @@ func NewPandar40PParser(config Pandar40PConfig) *Pandar40PParser {
 	return &Pandar40PParser{
 		config:        config,
 		timestampMode: TimestampModeSystemTime, // Default to system time for reliability
-		bootTime:      time.Now(),              // Initialize boot time reference for internal mode
+		bootTime:      time.Now(),              // Initialise boot time reference for internal mode
 		debugPackets:  10,                      // Default to 10 initial packets for debug logging
 	}
 }

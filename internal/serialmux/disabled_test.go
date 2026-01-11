@@ -137,12 +137,12 @@ func TestDisabledSerialMux_Monitor(t *testing.T) {
 	}
 }
 
-func TestDisabledSerialMux_Initialize(t *testing.T) {
+func TestDisabledSerialMux_Initialise(t *testing.T) {
 	d := NewDisabledSerialMux()
 
-	// Initialize should be a no-op that returns nil
-	if err := d.Initialize(); err != nil {
-		t.Errorf("Initialize returned error: %v", err)
+	// Initialise should be a no-op that returns nil
+	if err := d.Initialise(); err != nil {
+		t.Errorf("Initialise returned error: %v", err)
 	}
 }
 

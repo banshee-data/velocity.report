@@ -73,7 +73,7 @@ class RadarMarker:
         gps_lat: Optional[float] = None,
         gps_lon: Optional[float] = None,
     ):
-        """Initialize radar marker.
+        """Initialise radar marker.
 
         Args:
             cx_frac: X-position as fraction of viewBox width (0-1)
@@ -128,7 +128,7 @@ class SVGMarkerInjector:
         circle_stroke: Optional[str] = None,
         circle_stroke_width: float = 2.0,
     ):
-        """Initialize SVG marker injector.
+        """Initialise SVG marker injector.
 
         Args:
             circle_radius: Radius of position marker circle
@@ -397,7 +397,7 @@ class MapProcessor:
         base_dir: Optional[str] = None,
         marker_config: Optional[Dict[str, Any]] = None,
     ):
-        """Initialize map processor.
+        """Initialise map processor.
 
         Args:
             base_dir: Base directory for map files (defaults to module directory)
@@ -405,7 +405,7 @@ class MapProcessor:
         """
         self.base_dir = base_dir or os.path.dirname(__file__)
 
-        # Initialize marker injector with config (use DEFAULT_MAP_CONFIG for fallbacks)
+        # Initialise marker injector with config (use DEFAULT_MAP_CONFIG for fallbacks)
         marker_config = marker_config or {}
         self.injector = SVGMarkerInjector(
             circle_radius=marker_config.get(

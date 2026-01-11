@@ -218,14 +218,14 @@ func TestSerialMux_SendCommand_WriteError(t *testing.T) {
 	}
 }
 
-// TestSerialMux_Initialize tests the Initialize method
-func TestSerialMux_Initialize(t *testing.T) {
+// TestSerialMux_Initialise tests the Initialise method
+func TestSerialMux_Initialise(t *testing.T) {
 	port := NewTestSerialPort("")
 	mux := NewSerialMux(port)
 
-	err := mux.Initialize()
+	err := mux.Initialise()
 	if err != nil {
-		t.Errorf("Initialize returned error: %v", err)
+		t.Errorf("Initialise returned error: %v", err)
 	}
 
 	// Verify commands were sent
@@ -238,14 +238,14 @@ func TestSerialMux_Initialize(t *testing.T) {
 	}
 }
 
-// TestSerialMux_Initialize_WriteError tests Initialize with write failure
-func TestSerialMux_Initialize_WriteError(t *testing.T) {
+// TestSerialMux_Initialise_WriteError tests Initialise with write failure
+func TestSerialMux_Initialise_WriteError(t *testing.T) {
 	port := NewTestSerialPort("")
 	mux := NewSerialMux(port)
 
 	port.SetWriteError(errors.New("write failed"))
 
-	err := mux.Initialize()
+	err := mux.Initialise()
 	if err == nil {
 		t.Error("Expected error when write fails during initialization")
 	}

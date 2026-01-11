@@ -8,7 +8,7 @@ The `pcap-analyze` tool includes a performance benchmarking mode to detect regre
 
 - Real-time processing requires consistent throughput (≥10 FPS for Pandar40P)
 - Memory usage affects edge deployment on resource-constrained devices
-- Pipeline stage timing helps identify bottlenecks during optimization
+- Pipeline stage timing helps identify bottlenecks during optimisation
 - Regression detection prevents performance issues from reaching production
 
 ## Quick Start

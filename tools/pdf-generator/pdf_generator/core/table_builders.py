@@ -58,7 +58,7 @@ class StatsTableBuilder:
     """
 
     def __init__(self):
-        """Initialize stats table builder."""
+        """Initialise stats table builder."""
         if not HAVE_PYLATEX:
             raise ImportError(
                 "PyLaTeX is required for table generation. "
@@ -279,7 +279,7 @@ class ParameterTableBuilder:
     """
 
     def __init__(self):
-        """Initialize parameter table builder."""
+        """Initialise parameter table builder."""
         if not HAVE_PYLATEX:
             raise ImportError(
                 "PyLaTeX is required for table generation. "
@@ -322,7 +322,7 @@ class HistogramTableBuilder:
     """
 
     def __init__(self):
-        """Initialize histogram table builder."""
+        """Initialise histogram table builder."""
         if not HAVE_PYLATEX:
             raise ImportError(
                 "PyLaTeX is required for table generation. "

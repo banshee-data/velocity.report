@@ -6,7 +6,7 @@ Reads a sweep raw CSV (expanded per-bucket columns) and creates a line chart sho
 acceptance rates over noise values for each distance bucket.
 
 This script is designed for single-parameter sweeps (e.g., varying noise with fixed
-closeness and neighbor values). Each line represents a distance bucket, showing how
+closeness and neighbour values). Each line represents a distance bucket, showing how
 its acceptance rate changes across noise levels.
 
 Usage:
@@ -42,11 +42,11 @@ def parse_args():
         "--out", "-o", default="noise-sweep-plot.png", help="Output PNG filename"
     )
     p.add_argument(
-        "--neighbor",
+        "--neighbour",
         "-n",
         type=int,
         default=None,
-        help="Filter by neighbor_confirmation_count (optional)",
+        help="Filter by neighbour_confirmation_count (optional)",
     )
     p.add_argument(
         "--closeness",
@@ -83,7 +83,7 @@ def main():
     for col in [
         "noise_relative",
         "closeness_multiplier",
-        "neighbor_confirmation_count",
+        "neighbour_confirmation_count",
         "iter",
     ]:
         if col not in df.columns:
@@ -91,10 +91,10 @@ def main():
             sys.exit(2)
 
     # Apply filters if specified
-    if args.neighbor is not None:
-        df = df[df["neighbor_confirmation_count"] == args.neighbor]
+    if args.neighbour is not None:
+        df = df[df["neighbour_confirmation_count"] == args.neighbour]
         if df.empty:
-            print(f"no rows for neighbor_confirmation_count={args.neighbor}")
+            print(f"no rows for neighbour_confirmation_count={args.neighbour}")
             sys.exit(0)
 
     if args.closeness is not None:
@@ -171,10 +171,10 @@ def main():
     else:
         # Auto-generate title based on parameters
         closeness_val = df["closeness_multiplier"].iloc[0] if len(df) > 0 else "unknown"
-        neighbor_val = (
-            df["neighbor_confirmation_count"].iloc[0] if len(df) > 0 else "unknown"
+        neighbour_val = (
+            df["neighbour_confirmation_count"].iloc[0] if len(df) > 0 else "unknown"
         )
-        title = f"Acceptance Rate vs Noise (closeness={closeness_val}, neighbor={neighbor_val})"
+        title = f"Acceptance Rate vs Noise (closeness={closeness_val}, neighbour={neighbour_val})"
 
     ax.set_title(title, fontsize=14, fontweight="bold")
 
