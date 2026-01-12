@@ -717,6 +717,7 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/persist", ws.handleLidarPersist)
 	mux.HandleFunc("/api/lidar/snapshot", ws.handleLidarSnapshot)
 	mux.HandleFunc("/api/lidar/snapshots", ws.handleLidarSnapshots)
+	mux.HandleFunc("/api/lidar/snapshots/cleanup", ws.handleLidarSnapshotsCleanup)
 	mux.HandleFunc("/api/lidar/export_snapshot", ws.handleExportSnapshotASC)
 	mux.HandleFunc("/api/lidar/export_next_frame", ws.handleExportNextFrameASC)
 	mux.HandleFunc("/api/lidar/export_frame_sequence", ws.handleExportFrameSequenceASC)
@@ -1926,6 +1927,45 @@ func (ws *WebServer) handleLidarSnapshots(w http.ResponseWriter, r *http.Request
 	json.NewEncoder(w).Encode(summaries)
 }
 
+func (ws *WebServer) handleLidarSnapshotsCleanup(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+	// Parse form to get sensor_id if needed, or query param
+	if err := r.ParseForm(); err != nil {
+		ws.writeJSONError(w, http.StatusBadRequest, "invalid form data")
+		return
+	}
+	sensorID := r.FormValue("sensor_id")
+	if sensorID == "" {
+		sensorID = r.URL.Query().Get("sensor_id")
+	}
+	if sensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+
+	if ws.db == nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, "no database configured")
+		return
+	}
+
+	count, err := ws.db.DeleteDuplicateBgSnapshots(sensorID)
+	if err != nil {
+		log.Printf("Failed to cleanup snapshots for %s: %v", sensorID, err)
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("cleanup failed: %v", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":    "ok",
+		"sensor_id": sensorID,
+		"deleted":   count,
+	})
+}
+
 // handleHealth handles the health check endpoint
 func (ws *WebServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -2133,12 +2173,16 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 // handleLidarPersist triggers manual persistence of a BackgroundGrid snapshot.
 // Expects POST with form value or query param `sensor_id`.
 func (ws *WebServer) handleLidarPersist(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use POST")
 		return
 	}
 
+	// Support both query params and form data for sensor_id
 	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = r.FormValue("sensor_id")
+	}
 
 	if sensorID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
@@ -2371,13 +2415,16 @@ func (ws *WebServer) handleAcceptanceMetrics(w http.ResponseWriter, r *http.Requ
 }
 
 // handleAcceptanceReset zeros the accept/reject counters for a given sensor_id.
-// Method: POST (or GET for convenience). Query param: sensor_id (required)
+// Method: POST. Query param: sensor_id (required)
 func (ws *WebServer) handleAcceptanceReset(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost && r.Method != http.MethodGet {
+	if r.Method != http.MethodPost {
 		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use POST")
 		return
 	}
 	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = r.FormValue("sensor_id")
+	}
 	if sensorID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
 		return
@@ -2581,14 +2628,17 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 }
 
 // handlePCAPStop cancels any active PCAP replay and returns to live UDP.
-// Method: GET. Query param: sensor_id (required to match configured sensor).
+// Method: POST. Query param: sensor_id (required to match configured sensor).
 func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use GET")
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use POST")
 		return
 	}
 
 	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = r.FormValue("sensor_id")
+	}
 	if sensorID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
 		return
@@ -2671,14 +2721,17 @@ func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 
 // handlePCAPResumeLive switches from PCAP analysis mode back to Live while preserving the background grid.
 // This allows overlaying live data on top of PCAP-analyzed background.
-// Method: GET. Query param: sensor_id (required to match configured sensor).
+// Method: POST. Query param: sensor_id (required to match configured sensor).
 func (ws *WebServer) handlePCAPResumeLive(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use GET")
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use POST")
 		return
 	}
 
 	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = r.FormValue("sensor_id")
+	}
 	if sensorID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
 		return

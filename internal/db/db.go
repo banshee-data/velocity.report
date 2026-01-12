@@ -74,6 +74,25 @@ func (db *DB) ListRecentBgSnapshots(sensorID string, limit int) ([]*lidar.BgSnap
 	return snapshots, nil
 }
 
+// DeleteDuplicateBgSnapshots removes duplicate snapshots for a given sensor_id.
+// Duplicates are defined as sharing the same taken_unix_nanos timestamp.
+// Keep the one with the largest snapshot_id.
+func (db *DB) DeleteDuplicateBgSnapshots(sensorID string) (int64, error) {
+	// SQLite specific query to keep only the max rowid (snapshot_id) for each group
+	q := `DELETE FROM lidar_bg_snapshot
+          WHERE sensor_id = ? AND snapshot_id NOT IN (
+             SELECT MAX(snapshot_id)
+             FROM lidar_bg_snapshot
+             WHERE sensor_id = ?
+             GROUP BY taken_unix_nanos
+          )`
+	res, err := db.Exec(q, sensorID, sensorID)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
 // schema.sql contains the SQL statements for creating the database schema.
 // It defines tables such as radar_data, radar_objects, radar_commands, and radar_command_log which store radar event and command information.
 // The schema is embedded directly into the binary and executed when a new database is created
