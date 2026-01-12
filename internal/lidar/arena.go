@@ -181,6 +181,12 @@ type WorldCluster struct {
 
 	// Optional in-memory only fields (not persisted to schema)
 	SamplePoints [][3]float32 // for debugging/thumbnails
+
+	// Velocity-coherent extraction fields (in-memory only, from velocity estimation)
+	AvgVelocityX       float32 // Average X velocity of cluster points (m/s)
+	AvgVelocityY       float32 // Average Y velocity of cluster points (m/s)
+	VelocityCoherence  float32 // Velocity coherence score [0, 1]
+	VelocityPointCount int     // Number of points with valid velocity estimates
 }
 
 // TrackSummary for HTTP API responses - streamlined view of track state
