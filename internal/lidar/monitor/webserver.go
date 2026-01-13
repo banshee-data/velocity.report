@@ -2673,6 +2673,8 @@ func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 
 	// Release dataSourceMu before waiting for goroutine completion to avoid deadlock
 	// (the PCAP goroutine needs dataSourceMu to finish)
+	// NOTE: We must unlock manually here because we need to wait for done.
+	// Since handlePCAPStop defers the release of dataSourceMu, we must re-lock before returning.
 	ws.dataSourceMu.Unlock()
 
 	if cancel != nil {
@@ -2683,6 +2685,7 @@ func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Reacquire dataSourceMu for subsequent operations
+	// This lock will be released by the deferred Unlock when function returns
 	ws.dataSourceMu.Lock()
 
 	// If in analysis mode, only reset grid if explicitly requested
