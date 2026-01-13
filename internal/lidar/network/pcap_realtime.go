@@ -119,6 +119,8 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 					// If start is set but duration is -1, play until end
 					endThreshold = time.Time{}
 				}
+				log.Printf("PCAP start: first_packet=%v, start_threshold=%v, end_threshold=%v, skipping_to_start=%v",
+					firstPacketTime, startThreshold, endThreshold, skippingToStart)
 			}
 
 			// Skip packets before start threshold
@@ -134,7 +136,8 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 			// Stop if we've reached the end threshold
 			if !endThreshold.IsZero() && captureTime.After(endThreshold) {
 				elapsed := time.Since(startTime)
-				log.Printf("PCAP replay complete: reached duration limit of %.2fs (processed %d packets in %v)", config.DurationSeconds, packetCount, elapsed)
+				log.Printf("PCAP replay complete: reached duration limit of %.2fs (packet_ts=%v, end_threshold=%v, packets=%d)",
+					config.DurationSeconds, captureTime, endThreshold, packetCount)
 				return nil
 			}
 
