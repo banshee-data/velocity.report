@@ -75,16 +75,17 @@ func (db *DB) ListRecentBgSnapshots(sensorID string, limit int) ([]*lidar.BgSnap
 }
 
 // DeleteDuplicateBgSnapshots removes duplicate snapshots for a given sensor_id.
-// Duplicates are defined as sharing the same taken_unix_nanos timestamp.
-// Keep the one with the largest snapshot_id.
+// Duplicates are defined as sharing the same grid_blob content, regardless of timestamp.
+// This deduplicates history, keeping only the most recent snapshot (highest ID) for each unique grid configuration.
 func (db *DB) DeleteDuplicateBgSnapshots(sensorID string) (int64, error) {
-	// SQLite specific query to keep only the max rowid (snapshot_id) for each group
+	// SQLite specific query to keep only the max rowid (snapshot_id) for each unique grid_blob.
+	// We group only by grid_blob to collapse identical historical snapshots.
 	q := `DELETE FROM lidar_bg_snapshot
           WHERE sensor_id = ? AND snapshot_id NOT IN (
              SELECT MAX(snapshot_id)
              FROM lidar_bg_snapshot
              WHERE sensor_id = ?
-             GROUP BY taken_unix_nanos
+             GROUP BY grid_blob
           )`
 	res, err := db.Exec(q, sensorID, sensorID)
 	if err != nil {
