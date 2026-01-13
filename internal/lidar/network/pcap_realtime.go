@@ -112,12 +112,13 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 				// Set start and end thresholds based on config
 				if config.StartSeconds > 0 {
 					startThreshold = firstPacketTime.Add(time.Duration(config.StartSeconds * float64(time.Second)))
+				} else {
+					// When no start offset, use first packet time as the baseline
+					startThreshold = firstPacketTime
 				}
 				if config.DurationSeconds > 0 {
+					// Duration is always relative to the effective start threshold
 					endThreshold = startThreshold.Add(time.Duration(config.DurationSeconds * float64(time.Second)))
-				} else if config.StartSeconds > 0 {
-					// If start is set but duration is -1, play until end
-					endThreshold = time.Time{}
 				}
 				log.Printf("PCAP start: first_packet=%v, start_threshold=%v, end_threshold=%v, skipping_to_start=%v",
 					firstPacketTime, startThreshold, endThreshold, skippingToStart)
@@ -135,10 +136,16 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 
 			// Stop if we've reached the end threshold
 			if !endThreshold.IsZero() && captureTime.After(endThreshold) {
-				elapsed := time.Since(startTime)
-				log.Printf("PCAP replay complete: reached duration limit of %.2fs (packet_ts=%v, end_threshold=%v, packets=%d)",
-					config.DurationSeconds, captureTime, endThreshold, packetCount)
+				log.Printf("PCAP replay complete: reached duration limit of %.2fs (packet_ts=%v, end_threshold=%v, packets=%d, delta=%.3fs)",
+					config.DurationSeconds, captureTime, endThreshold, packetCount,
+					captureTime.Sub(endThreshold).Seconds())
 				return nil
+			}
+
+			// Log first few packets for debugging timestamp issues
+			if packetCount <= 3 {
+				log.Printf("PCAP packet #%d: capture_time=%v, first_packet=%v, delta_from_first=%.3fs",
+					packetCount, captureTime, firstPacketTime, captureTime.Sub(firstPacketTime).Seconds())
 			}
 
 			if firstPacketTime != captureTime {

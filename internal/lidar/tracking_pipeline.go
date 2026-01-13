@@ -155,7 +155,11 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 				}
 				pointsToForward = filtered
 			}
-			cfg.FgForwarder.ForwardForeground(pointsToForward)
+			if len(pointsToForward) > 0 {
+				cfg.FgForwarder.ForwardForeground(pointsToForward)
+			}
+		} else if cfg.DebugMode {
+			Debugf("[Tracking] FgForwarder is nil, skipping foreground forwarding")
 		}
 
 		// Always log foreground extraction for tracking debugging
