@@ -281,6 +281,19 @@ func main() {
 		var tracker *lidar.Tracker
 		var classifier *lidar.TrackClassifier
 
+		// Optional foreground-only forwarder (Pandar40-compatible) for live mode
+		if *lidarFGForward {
+			fg, err := network.NewForegroundForwarder(*lidarFGFwdAddr, *lidarFGFwdPort, nil)
+			if err != nil {
+				log.Printf("failed to create foreground forwarder: %v", err)
+			} else {
+				foregroundForwarder = fg
+				foregroundForwarder.Start(ctx)
+				defer foregroundForwarder.Close()
+				log.Printf("Foreground forwarder enabled to %s:%d", *lidarFGFwdAddr, *lidarFGFwdPort)
+			}
+		}
+
 		if !*lidarNoParse {
 			config, err := parse.LoadEmbeddedPandar40PConfig()
 			if err != nil {
@@ -338,19 +351,6 @@ func main() {
 			// PCAP mode no longer forces debug logging so operators can choose verbosity.
 			if frameBuilder != nil {
 				frameBuilder.SetDebug(*debugMode)
-			}
-		}
-
-		// Optional foreground-only forwarder (Pandar40-compatible) for live mode
-		if *lidarFGForward {
-			fg, err := network.NewForegroundForwarder(*lidarFGFwdAddr, *lidarFGFwdPort, nil)
-			if err != nil {
-				log.Printf("failed to create foreground forwarder: %v", err)
-			} else {
-				foregroundForwarder = fg
-				foregroundForwarder.Start(ctx)
-				defer foregroundForwarder.Close()
-				log.Printf("Foreground forwarder enabled to %s:%d", *lidarFGFwdAddr, *lidarFGFwdPort)
 			}
 		}
 
