@@ -6,7 +6,6 @@ set -euo pipefail
 
 VERSION=""
 UPDATE_MAKEFILE=0
-UPDATE_DEPLOY=0
 UPDATE_WEB=0
 UPDATE_DOCS=0
 
@@ -29,7 +28,6 @@ Arguments:
 Targets (default: --all):
   --all         Update all version references
   --makefile    Update Makefile VERSION variable (affects Go binaries)
-  --deploy      Update cmd/deploy/main.go version constant
   --web         Update web/package.json version
   --docs        Update docs/package.json version
 
@@ -37,8 +35,8 @@ Examples:
   # Update all version references
   $0 0.4.0-pre2 --all
 
-  # Update only Go-related versions (Makefile and deploy tool)
-  $0 0.4.0-pre2 --makefile --deploy
+  # Update only Go-related versions (Makefile)
+  $0 0.4.0-pre2 --makefile
 
   # Update only web frontend
   $0 0.5.0 --web
@@ -95,33 +93,6 @@ update_makefile() {
     else
         # Linux sed
         sed -i "s/^VERSION := .*/VERSION := $VERSION/" "$file"
-    fi
-
-    log_info "Updated $file: $old_version → $VERSION"
-}
-
-# Update cmd/deploy/main.go
-update_deploy() {
-    local file="cmd/deploy/main.go"
-    local old_version
-
-    if [[ ! -f "$file" ]]; then
-        log_error "$file not found"
-        return 1
-    fi
-
-    old_version=$(grep -E '^const version = ' "$file" | sed 's/const version = "\(.*\)"/\1/')
-
-    if [[ -z "$old_version" ]]; then
-        log_error "Could not find version constant in $file"
-        return 1
-    fi
-
-    # Use sed to replace the version
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        sed -i '' "s/^const version = \".*\"/const version = \"$VERSION\"/" "$file"
-    else
-        sed -i "s/^const version = \".*\"/const version = \"$VERSION\"/" "$file"
     fi
 
     log_info "Updated $file: $old_version → $VERSION"
@@ -202,15 +173,11 @@ for arg in "$@"; do
     case "$arg" in
         --all)
             UPDATE_MAKEFILE=1
-            UPDATE_DEPLOY=1
             UPDATE_WEB=1
             UPDATE_DOCS=1
             ;;
         --makefile)
             UPDATE_MAKEFILE=1
-            ;;
-        --deploy)
-            UPDATE_DEPLOY=1
             ;;
         --web)
             UPDATE_WEB=1
@@ -226,7 +193,7 @@ for arg in "$@"; do
 done
 
 # Check if at least one target is selected
-if [[ $UPDATE_MAKEFILE -eq 0 && $UPDATE_DEPLOY -eq 0 && $UPDATE_WEB -eq 0 && $UPDATE_DOCS -eq 0 ]]; then
+if [[ $UPDATE_MAKEFILE -eq 0 && $UPDATE_WEB -eq 0 && $UPDATE_DOCS -eq 0 ]]; then
     log_error "No targets specified"
     usage
 fi
@@ -235,11 +202,13 @@ fi
 echo "Updating version to: $VERSION"
 echo ""
 
-[[ $UPDATE_MAKEFILE -eq 1 ]] && update_makefile
-[[ $UPDATE_DEPLOY -eq 1 ]] && update_deploy
-[[ $UPDATE_WEB -eq 1 ]] && update_web
-[[ $UPDATE_DOCS -eq 1 ]] && update_docs
+EXIT_CODE=0
+[[ $UPDATE_MAKEFILE -eq 1 ]] && update_makefile || EXIT_CODE=$?
+[[ $UPDATE_WEB -eq 1 ]] && update_web || EXIT_CODE=$?
+[[ $UPDATE_DOCS -eq 1 ]] && update_docs || EXIT_CODE=$?
 
 echo ""
 log_info "Version update complete!"
 log_warn "Remember to commit these changes and tag the release if appropriate"
+
+exit $EXIT_CODE
