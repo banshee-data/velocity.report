@@ -13,13 +13,15 @@ The user reports experiencing "trails" in the foreground data feed (port 2370) w
 ## Methodology
 
 The debug log contains detailed per-cell foreground extraction telemetry with the format:
+
 ```
-[FG_DEBUG] r=<ring> az=<azimuth> dist=<observed_distance> avg=<background_avg> spread=<variance> 
-           diff=<abs_difference> thresh=<closeness_threshold> seen=<confidence_count> 
+[FG_DEBUG] r=<ring> az=<azimuth> dist=<observed_distance> avg=<background_avg> spread=<variance>
+           diff=<abs_difference> thresh=<closeness_threshold> seen=<confidence_count>
            recFg=<recent_foreground_count> frozen=<is_frozen> isBg=<is_background>
 ```
 
 Key metrics analyzed:
+
 - **dist**: Current LIDAR distance measurement
 - **avg**: Background model's exponential moving average (EMA)
 - **diff**: Absolute difference between dist and avg
@@ -33,14 +35,14 @@ Key metrics analyzed:
 
 **Observation:** Tracing cell r=35 az=324.4 through the vehicle pass event:
 
-| Time | Event | dist | avg | diff | seen | recFg | Classification |
-|------|-------|------|-----|------|------|-------|----------------|
-| 11:58:06.509 | Pre-vehicle | 10.152 | 10.159 | 0.007 | 26 | 0 | Background ✓ |
-| 11:58:06.644 | Vehicle enters | **8.776** | 10.159 | 1.383 | 25 | 1 | **Foreground** |
-| 11:58:06.706 | Vehicle exits | 10.124 | **10.155** | 0.035 | 26 | 0 | Background ✓ |
-| 11:58:06.790 | Vehicle re-enters | **8.224** | 10.155 | 1.931 | 25 | 1 | **Foreground** |
+| Time                                 | Event             | dist      | avg        | diff  | seen | recFg | Classification |
+| ------------------------------------ | ----------------- | --------- | ---------- | ----- | ---- | ----- | -------------- |
+| 11:58:06.509                         | Pre-vehicle       | 10.152    | 10.159     | 0.007 | 26   | 0     | Background ✓   |
+| 11:58:06.644                         | Vehicle enters    | **8.776** | 10.159     | 1.383 | 25   | 1     | **Foreground** |
+| 11:58:06.706                         | Vehicle exits     | 10.124    | **10.155** | 0.035 | 26   | 0     | Background ✓   |
+| 11:58:06.790                         | Vehicle re-enters | **8.224** | 10.155     | 1.931 | 25   | 1     | **Foreground** |
 | ... (oscillates with moving vehicle) |
-| 11:58:08.659 | Stable | 10.136 | 10.152 | 0.018 | 26 | 0 | Background ✓ |
+| 11:58:08.659                         | Stable            | 10.136    | 10.152     | 0.018 | 26   | 0     | Background ✓   |
 
 **Conclusion:** The background average (avg) only moved from 10.159m to 10.152m (0.07m / 0.7%) during the entire event. **The fast re-acquisition mechanism is working correctly** for this cell.
 
@@ -50,11 +52,11 @@ Key metrics analyzed:
 
 **Observation:** Cell r=35 az=323.4 exhibits a different pattern:
 
-| Time | Event | recFg | frozen | Classification |
-|------|-------|-------|--------|----------------|
-| 11:58:07.460 | Multiple foreground | 4 | false | Foreground |
-| 11:58:07.532 | **Freeze triggered** | 5 | **true** | Foreground |
-| 11:58:12.572 | After 5s freeze | **70** | false | Background |
+| Time         | Event                | recFg  | frozen   | Classification |
+| ------------ | -------------------- | ------ | -------- | -------------- |
+| 11:58:07.460 | Multiple foreground  | 4      | false    | Foreground     |
+| 11:58:07.532 | **Freeze triggered** | 5      | **true** | Foreground     |
+| 11:58:12.572 | After 5s freeze      | **70** | false    | Background     |
 
 **Root Cause:** During the 5-second freeze period, the cell continues incrementing `RecentForegroundCount` on each observation (see `foreground.go` lines 158-166):
 
@@ -84,6 +86,7 @@ if cell.FrozenUntilUnixNanos > nowNanos {
 - Time with no foreground issues: **~11.5 seconds**
 
 Every foreground classification in the debug window has:
+
 - `dist=8.2-8.8m` (vehicle distance)
 - `avg=10.1-10.2m` (true background distance)
 - `diff=1.4-2.0m` (correctly exceeds threshold)
@@ -95,6 +98,7 @@ Every foreground classification in the debug window has:
 ## Finding 4: No Evidence of Background Corruption in Analyzed Cells
 
 The background average values remain stable throughout:
+
 - Ring 35 cells: avg ≈ 10.1-10.2m (wall/fence at ~10m)
 - Ring 30 cells: avg ≈ 17.4-17.8m (distant background)
 
@@ -107,17 +111,22 @@ No cells show evidence of the avg drifting toward vehicle distances (8-9m).
 If the user is seeing visual trails, possible causes outside the background model:
 
 ### Hypothesis A: Visualization Latency
+
 The web frontend or LidarView may have rendering delays that show old foreground points.
 
 ### Hypothesis B: Track Persistence
+
 The tracking pipeline (`tracking.go`) may keep tracks alive for several frames after object disappears:
+
 - `tentative → confirmed → deleted` lifecycle
 - Kalman filter prediction continues position estimation
 
 ### Hypothesis C: Different Azimuth Sector Issue
+
 The debug log only covers azimuth 323°-340°. The "trails" may appear in a different sector not captured.
 
 ### Hypothesis D: Frozen Cell Visual Artifact
+
 Frozen cells (5-second duration) are unconditionally classified as foreground. If many cells freeze simultaneously, this creates a "frozen foreground region" even after the vehicle leaves.
 
 ---
@@ -127,6 +136,7 @@ Frozen cells (5-second duration) are unconditionally classified as foreground. I
 To further investigate, add the following diagnostics:
 
 ### 1. Log Freeze Events
+
 ```go
 // In foreground.go, after line 285 (freeze trigger)
 if cell.FrozenUntilUnixNanos > nowNanos {
@@ -136,6 +146,7 @@ if cell.FrozenUntilUnixNanos > nowNanos {
 ```
 
 ### 2. Log Freeze End Transitions
+
 ```go
 // Add after checking if cell was previously frozen but now expired
 if wasPreviouslyFrozen && cell.FrozenUntilUnixNanos <= nowNanos {
@@ -145,6 +156,7 @@ if wasPreviouslyFrozen && cell.FrozenUntilUnixNanos <= nowNanos {
 ```
 
 ### 3. Log Fast Re-acquisition Boosts
+
 ```go
 // In foreground.go around line 245
 if cell.RecentForegroundCount > 0 {
