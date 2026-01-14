@@ -71,6 +71,36 @@ type BackgroundParams struct {
 	ChangeThresholdForSnapshot int   // min changed cells to trigger snapshot
 }
 
+// RegionParams defines parameters that can vary per region
+type RegionParams struct {
+	NoiseRelativeFraction     float32 // noise threshold for this region
+	NeighborConfirmationCount int     // neighbor confirmation for this region
+	SettleUpdateFraction      float32 // alpha during settling for this region
+}
+
+// Region represents a contiguous spatial region with distinct parameters
+type Region struct {
+	ID       int          // unique region identifier
+	CellMask []bool       // len = Rings * AzimuthBins; true if cell belongs to this region
+	Params   RegionParams // parameters for this region
+	CellList []int        // list of cell indices in this region (for efficient iteration)
+	// Statistics for region characterization
+	MeanVariance float64 // mean variance of cells in this region during settling
+	CellCount    int     // number of cells in this region
+}
+
+// RegionManager handles dynamic region identification and management
+type RegionManager struct {
+	Regions         []*Region // list of identified regions
+	CellToRegionID  []int     // maps cell index to region ID (-1 if unassigned)
+	SettlingMetrics struct {
+		VariancePerCell []float64 // variance observed per cell during settling
+		FramesSampled   int       // frames sampled for variance calculation
+	}
+	IdentificationComplete bool      // true once regions are identified
+	IdentificationTime     time.Time // when regions were identified
+}
+
 // HasDebugRange returns true if any debug range parameters are set.
 func (p BackgroundParams) HasDebugRange() bool {
 	return p.DebugRingMax > 0 || p.DebugRingMin > 0 || p.DebugAzMax > 0 || p.DebugAzMin > 0
@@ -179,10 +209,371 @@ type BackgroundGrid struct {
 	// LastObservedNoiseRel tracks the last noise_relative value observed by
 	// ProcessFramePolar so we can log when the runtime value changes.
 	LastObservedNoiseRel float32
+
+	// RegionMgr handles adaptive parameter regions for different settling characteristics
+	RegionMgr *RegionManager
 }
 
 // Helper to index Cells: idx = ring*AzimuthBins + azBin
 func (g *BackgroundGrid) Idx(ring, azBin int) int { return ring*g.AzimuthBins + azBin }
+
+// NewRegionManager creates a RegionManager for the grid
+func NewRegionManager(rings, azBins int) *RegionManager {
+	totalCells := rings * azBins
+	return &RegionManager{
+		Regions:        make([]*Region, 0),
+		CellToRegionID: make([]int, totalCells),
+		SettlingMetrics: struct {
+			VariancePerCell []float64
+			FramesSampled   int
+		}{
+			VariancePerCell: make([]float64, totalCells),
+			FramesSampled:   0,
+		},
+		IdentificationComplete: false,
+	}
+}
+
+// UpdateVarianceMetrics accumulates variance data during settling
+func (rm *RegionManager) UpdateVarianceMetrics(cells []BackgroundCell) {
+	if rm.IdentificationComplete {
+		return
+	}
+	n := float64(rm.SettlingMetrics.FramesSampled)
+	for i, cell := range cells {
+		if cell.TimesSeenCount > 0 {
+			// Incremental variance calculation using Welford's method
+			variance := float64(cell.RangeSpreadMeters)
+			if n == 0 {
+				rm.SettlingMetrics.VariancePerCell[i] = variance
+			} else {
+				// Update running mean of variance
+				oldMean := rm.SettlingMetrics.VariancePerCell[i]
+				rm.SettlingMetrics.VariancePerCell[i] = oldMean + (variance-oldMean)/(n+1)
+			}
+		}
+	}
+	rm.SettlingMetrics.FramesSampled++
+}
+
+// IdentifyRegions performs clustering based on variance characteristics
+// and creates contiguous regions with distinct parameters
+func (rm *RegionManager) IdentifyRegions(grid *BackgroundGrid, maxRegions int) error {
+	if rm.IdentificationComplete {
+		return fmt.Errorf("regions already identified")
+	}
+
+	totalCells := len(grid.Cells)
+	if len(rm.SettlingMetrics.VariancePerCell) != totalCells {
+		return fmt.Errorf("variance metrics size mismatch")
+	}
+
+	// Initialize all cells to unassigned
+	for i := range rm.CellToRegionID {
+		rm.CellToRegionID[i] = -1
+	}
+
+	// Step 1: Classify cells by variance into categories
+	// Calculate variance percentiles for classification
+	variances := make([]float64, 0, totalCells)
+	for i, v := range rm.SettlingMetrics.VariancePerCell {
+		if grid.Cells[i].TimesSeenCount > 0 {
+			variances = append(variances, v)
+		}
+	}
+
+	if len(variances) == 0 {
+		// No data collected, create single default region
+		return rm.createDefaultRegion(grid)
+	}
+
+	// Sort variances to find thresholds
+	sortedVars := make([]float64, len(variances))
+	copy(sortedVars, variances)
+	for i := 0; i < len(sortedVars); i++ {
+		for j := i + 1; j < len(sortedVars); j++ {
+			if sortedVars[j] < sortedVars[i] {
+				sortedVars[i], sortedVars[j] = sortedVars[j], sortedVars[i]
+			}
+		}
+	}
+
+	// Define thresholds: 33rd and 66th percentiles
+	lowThreshold := sortedVars[len(sortedVars)/3]
+	highThreshold := sortedVars[2*len(sortedVars)/3]
+
+	// Step 2: Assign variance category to each cell
+	cellCategory := make([]int, totalCells) // 0=stable, 1=variable, 2=volatile, -1=empty
+	for i := range cellCategory {
+		cellCategory[i] = -1
+		if grid.Cells[i].TimesSeenCount > 0 {
+			v := rm.SettlingMetrics.VariancePerCell[i]
+			if v < lowThreshold {
+				cellCategory[i] = 0 // stable
+			} else if v < highThreshold {
+				cellCategory[i] = 1 // variable
+			} else {
+				cellCategory[i] = 2 // volatile (trees, glass)
+			}
+		}
+	}
+
+	// Step 3: Use connected components to find contiguous regions
+	visited := make([]bool, totalCells)
+	regionID := 0
+	tempRegions := make([]*Region, 0)
+
+	for cellIdx := 0; cellIdx < totalCells; cellIdx++ {
+		if visited[cellIdx] || cellCategory[cellIdx] == -1 {
+			continue
+		}
+
+		// BFS to find connected component
+		category := cellCategory[cellIdx]
+		queue := []int{cellIdx}
+		visited[cellIdx] = true
+		regionCells := []int{cellIdx}
+
+		for len(queue) > 0 {
+			current := queue[0]
+			queue = queue[1:]
+
+			// Get neighbors (same ring ± 1 az, same az ± 1 ring)
+			ring := current / grid.AzimuthBins
+			azBin := current % grid.AzimuthBins
+
+			neighbors := []struct{ r, az int }{
+				{ring, (azBin + 1) % grid.AzimuthBins},
+				{ring, (azBin - 1 + grid.AzimuthBins) % grid.AzimuthBins},
+			}
+			if ring > 0 {
+				neighbors = append(neighbors, struct{ r, az int }{ring - 1, azBin})
+			}
+			if ring < grid.Rings-1 {
+				neighbors = append(neighbors, struct{ r, az int }{ring + 1, azBin})
+			}
+
+			for _, n := range neighbors {
+				nIdx := grid.Idx(n.r, n.az)
+				if !visited[nIdx] && cellCategory[nIdx] == category {
+					visited[nIdx] = true
+					queue = append(queue, nIdx)
+					regionCells = append(regionCells, nIdx)
+				}
+			}
+		}
+
+		// Create region for this connected component
+		if len(regionCells) > 0 {
+			region := &Region{
+				ID:       regionID,
+				CellMask: make([]bool, totalCells),
+				CellList: regionCells,
+				CellCount: len(regionCells),
+			}
+
+			// Calculate mean variance for this region
+			sumVariance := 0.0
+			for _, cIdx := range regionCells {
+				region.CellMask[cIdx] = true
+				rm.CellToRegionID[cIdx] = regionID
+				sumVariance += rm.SettlingMetrics.VariancePerCell[cIdx]
+			}
+			region.MeanVariance = sumVariance / float64(len(regionCells))
+
+			// Assign parameters based on category
+			region.Params = rm.assignRegionParams(category, grid.Params)
+
+			tempRegions = append(tempRegions, region)
+			regionID++
+		}
+	}
+
+	// Step 4: Merge regions if we exceed maxRegions
+	if len(tempRegions) > maxRegions {
+		tempRegions = rm.mergeSmallestRegions(tempRegions, grid, maxRegions)
+	}
+
+	rm.Regions = tempRegions
+	rm.IdentificationComplete = true
+	rm.IdentificationTime = time.Now()
+
+	log.Printf("[RegionManager] Identified %d regions from %d cells (target: max %d regions, variance samples: %d)",
+		len(rm.Regions), totalCells, maxRegions, rm.SettlingMetrics.FramesSampled)
+
+	return nil
+}
+
+// assignRegionParams determines parameters for a region based on its variance category
+func (rm *RegionManager) assignRegionParams(category int, baseParams BackgroundParams) RegionParams {
+	// Base parameters from grid defaults
+	baseNoise := baseParams.NoiseRelativeFraction
+	if baseNoise <= 0 {
+		baseNoise = 0.01
+	}
+	baseNeighbor := baseParams.NeighborConfirmationCount
+	if baseNeighbor <= 0 {
+		baseNeighbor = 3
+	}
+	baseAlpha := baseParams.BackgroundUpdateFraction
+	if baseAlpha <= 0 {
+		baseAlpha = 0.02
+	}
+
+	switch category {
+	case 0: // stable (low variance) - tighter thresholds, faster settling
+		return RegionParams{
+			NoiseRelativeFraction:     baseNoise * 0.8,         // tighter noise tolerance
+			NeighborConfirmationCount: baseNeighbor,            // standard neighbor check
+			SettleUpdateFraction:      baseAlpha * 1.5,         // faster settling
+		}
+	case 1: // variable (medium variance) - standard parameters
+		return RegionParams{
+			NoiseRelativeFraction:     baseNoise,
+			NeighborConfirmationCount: baseNeighbor,
+			SettleUpdateFraction:      baseAlpha,
+		}
+	case 2: // volatile (high variance - trees, glass) - looser thresholds, slower settling
+		return RegionParams{
+			NoiseRelativeFraction:     baseNoise * 2.0,         // much looser noise tolerance
+			NeighborConfirmationCount: baseNeighbor + 2,        // require more neighbors
+			SettleUpdateFraction:      baseAlpha * 0.5,         // slower settling to handle variance
+		}
+	default:
+		return RegionParams{
+			NoiseRelativeFraction:     baseNoise,
+			NeighborConfirmationCount: baseNeighbor,
+			SettleUpdateFraction:      baseAlpha,
+		}
+	}
+}
+
+// mergeSmallestRegions reduces the number of regions by merging smallest adjacent regions
+func (rm *RegionManager) mergeSmallestRegions(regions []*Region, grid *BackgroundGrid, targetMax int) []*Region {
+	// Sort regions by size (smallest first)
+	for i := 0; i < len(regions); i++ {
+		for j := i + 1; j < len(regions); j++ {
+			if regions[j].CellCount < regions[i].CellCount {
+				regions[i], regions[j] = regions[j], regions[i]
+			}
+		}
+	}
+
+	// Merge smallest regions into nearest neighbors until we reach target
+	for len(regions) > targetMax {
+		// Take the smallest region
+		smallest := regions[0]
+		regions = regions[1:]
+
+		// Find the nearest region (by checking neighbors of cells in smallest)
+		nearestRegionID := -1
+		for _, cellIdx := range smallest.CellList {
+			ring := cellIdx / grid.AzimuthBins
+			azBin := cellIdx % grid.AzimuthBins
+
+			// Check all neighbors
+			neighbors := []int{
+				grid.Idx(ring, (azBin+1)%grid.AzimuthBins),
+				grid.Idx(ring, (azBin-1+grid.AzimuthBins)%grid.AzimuthBins),
+			}
+			if ring > 0 {
+				neighbors = append(neighbors, grid.Idx(ring-1, azBin))
+			}
+			if ring < grid.Rings-1 {
+				neighbors = append(neighbors, grid.Idx(ring+1, azBin))
+			}
+
+			for _, nIdx := range neighbors {
+				nRegionID := rm.CellToRegionID[nIdx]
+				if nRegionID >= 0 && nRegionID != smallest.ID {
+					nearestRegionID = nRegionID
+					break
+				}
+			}
+			if nearestRegionID >= 0 {
+				break
+			}
+		}
+
+		// Merge into nearest region (or first region if no neighbor found)
+		if nearestRegionID < 0 && len(regions) > 0 {
+			nearestRegionID = regions[0].ID
+		}
+
+		// Find the target region and merge
+		for _, r := range regions {
+			if r.ID == nearestRegionID {
+				// Merge smallest into this region
+				for _, cellIdx := range smallest.CellList {
+					r.CellMask[cellIdx] = true
+					r.CellList = append(r.CellList, cellIdx)
+					rm.CellToRegionID[cellIdx] = r.ID
+				}
+				r.CellCount += smallest.CellCount
+				// Update mean variance
+				r.MeanVariance = (r.MeanVariance*float64(r.CellCount-smallest.CellCount) +
+					smallest.MeanVariance*float64(smallest.CellCount)) / float64(r.CellCount)
+				break
+			}
+		}
+	}
+
+	// Reassign IDs sequentially
+	for i, r := range regions {
+		oldID := r.ID
+		r.ID = i
+		// Update mapping
+		for _, cellIdx := range r.CellList {
+			if rm.CellToRegionID[cellIdx] == oldID {
+				rm.CellToRegionID[cellIdx] = i
+			}
+		}
+	}
+
+	return regions
+}
+
+// createDefaultRegion creates a single default region covering all cells
+func (rm *RegionManager) createDefaultRegion(grid *BackgroundGrid) error {
+	totalCells := len(grid.Cells)
+	region := &Region{
+		ID:        0,
+		CellMask:  make([]bool, totalCells),
+		CellList:  make([]int, 0, totalCells),
+		CellCount: totalCells,
+		Params: RegionParams{
+			NoiseRelativeFraction:     grid.Params.NoiseRelativeFraction,
+			NeighborConfirmationCount: grid.Params.NeighborConfirmationCount,
+			SettleUpdateFraction:      grid.Params.BackgroundUpdateFraction,
+		},
+	}
+	for i := 0; i < totalCells; i++ {
+		region.CellMask[i] = true
+		region.CellList = append(region.CellList, i)
+		rm.CellToRegionID[i] = 0
+	}
+	rm.Regions = []*Region{region}
+	rm.IdentificationComplete = true
+	rm.IdentificationTime = time.Now()
+	log.Printf("[RegionManager] Created single default region covering %d cells", totalCells)
+	return nil
+}
+
+// GetRegionForCell returns the region ID for a given cell index
+func (rm *RegionManager) GetRegionForCell(cellIdx int) int {
+	if !rm.IdentificationComplete || cellIdx < 0 || cellIdx >= len(rm.CellToRegionID) {
+		return -1
+	}
+	return rm.CellToRegionID[cellIdx]
+}
+
+// GetRegionParams returns the parameters for a given region ID
+func (rm *RegionManager) GetRegionParams(regionID int) *RegionParams {
+	if !rm.IdentificationComplete || regionID < 0 || regionID >= len(rm.Regions) {
+		return nil
+	}
+	return &rm.Regions[regionID].Params
+}
 
 // BackgroundManager handles automatic persistence following schema lidar_bg_snapshot pattern
 type BackgroundManager struct {
@@ -649,6 +1040,7 @@ func NewBackgroundManager(sensorID string, rings, azBins int, params BackgroundP
 		AzimuthBins: azBins,
 		Cells:       cells,
 		Params:      params,
+		RegionMgr:   NewRegionManager(rings, azBins), // Initialize region manager
 	}
 	mgr := &BackgroundManager{Grid: grid}
 	grid.Manager = mgr
@@ -820,11 +1212,22 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 			if postSettleAlpha > 0 && postSettleAlpha <= 1 {
 				effectiveAlpha = postSettleAlpha
 			}
+			// Trigger region identification when settling completes
+			if g.RegionMgr != nil && !g.RegionMgr.IdentificationComplete {
+				err := g.RegionMgr.IdentifyRegions(g, 50) // max 50 regions
+				if err != nil {
+					log.Printf("[BackgroundManager] Failed to identify regions: %v", err)
+				}
+			}
 		} else {
 			if g.WarmupFramesRemaining > 0 {
 				g.WarmupFramesRemaining--
 			}
 			effectiveAlpha = alpha
+			// Collect variance metrics during settling
+			if g.RegionMgr != nil && !g.RegionMgr.IdentificationComplete {
+				g.RegionMgr.UpdateVarianceMetrics(g.Cells)
+			}
 		}
 	}
 	if effectiveAlpha <= 0 || effectiveAlpha > 1 {
@@ -862,6 +1265,28 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 				continue
 			}
 
+			// Get region-specific parameters if regions are identified
+			cellNoiseRel := noiseRel
+			cellNeighborConfirm := neighConfirm
+			cellAlpha := effectiveAlpha
+			if g.RegionMgr != nil && g.RegionMgr.IdentificationComplete {
+				regionID := g.RegionMgr.GetRegionForCell(cellIdx)
+				if regionParams := g.RegionMgr.GetRegionParams(regionID); regionParams != nil {
+					cellNoiseRel = float64(regionParams.NoiseRelativeFraction)
+					if cellNoiseRel <= 0 {
+						cellNoiseRel = noiseRel // fallback to default
+					}
+					cellNeighborConfirm = regionParams.NeighborConfirmationCount
+					if cellNeighborConfirm <= 0 {
+						cellNeighborConfirm = neighConfirm // fallback to default
+					}
+					cellAlpha = float64(regionParams.SettleUpdateFraction)
+					if cellAlpha <= 0 || cellAlpha > 1 {
+						cellAlpha = effectiveAlpha // fallback to default
+					}
+				}
+			}
+
 			observationMean := sums[cellIdx] / float64(counts[cellIdx])
 			// Small protection when minDistances == +Inf (shouldn't happen if counts>0)
 			if math.IsInf(minDistances[cellIdx], 1) {
@@ -892,7 +1317,8 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 				if neighborCell.TimesSeenCount > 0 {
 					neighborDiff := math.Abs(float64(neighborCell.AverageRangeMeters) - observationMean)
 					// include a distance-proportional noise term based on the neighbor's mean
-					neighborCloseness := closenessMultiplier * (float64(neighborCell.RangeSpreadMeters) + noiseRel*float64(neighborCell.AverageRangeMeters) + 0.01)
+					// Use cell-specific noise threshold
+					neighborCloseness := closenessMultiplier * (float64(neighborCell.RangeSpreadMeters) + cellNoiseRel*float64(neighborCell.AverageRangeMeters) + 0.01)
 					if neighborDiff <= neighborCloseness {
 						neighborConfirmCount++
 					}
@@ -901,13 +1327,14 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 
 			// closeness threshold based on existing spread and safety margin
 			// closeness threshold scales with the cell's spread plus a fraction of
-			// the measured distance (noiseRel*observationMean). This avoids biasing
+			// the measured distance (cellNoiseRel*observationMean). This avoids biasing
 			// toward small absolute deviations at long range where noise grows.
-			closenessThreshold := closenessMultiplier*(float64(cell.RangeSpreadMeters)+noiseRel*observationMean+0.01) + safety
+			closenessThreshold := closenessMultiplier*(float64(cell.RangeSpreadMeters)+cellNoiseRel*observationMean+0.01) + safety
 			cellDiff := math.Abs(float64(cell.AverageRangeMeters) - observationMean)
 
 			// Decide if this observation is background-like or foreground-like
-			isBackgroundLike := cellDiff <= closenessThreshold || neighborConfirmCount >= neighConfirm
+			// Use cell-specific neighbor confirmation threshold
+			isBackgroundLike := cellDiff <= closenessThreshold || neighborConfirmCount >= cellNeighborConfirm
 
 			// Optionally seed empty cells from the first observation when configured.
 			// This helps PCAP replay populate a background grid when no prior history exists.
@@ -946,11 +1373,12 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 					g.nonzeroCellCount++
 				} else {
 					oldAvg := float64(cell.AverageRangeMeters)
-					newAvg := (1.0-effectiveAlpha)*oldAvg + effectiveAlpha*observationMean
+					// Use region-specific alpha for EMA update
+					newAvg := (1.0-cellAlpha)*oldAvg + cellAlpha*observationMean
 					// update spread as EMA of absolute deviation from the previous mean
 					// using oldAvg avoids scaling the deviation by alpha twice (alpha^2)
 					deviation := math.Abs(observationMean - oldAvg)
-					newSpread := (1.0-effectiveAlpha)*float64(cell.RangeSpreadMeters) + effectiveAlpha*deviation
+					newSpread := (1.0-cellAlpha)*float64(cell.RangeSpreadMeters) + cellAlpha*deviation
 					cell.AverageRangeMeters = float32(newAvg)
 					cell.RangeSpreadMeters = float32(newSpread)
 					cell.TimesSeenCount++
@@ -1246,4 +1674,96 @@ func (bm *BackgroundManager) GetGridCells() []ExportedCell {
 		}
 	}
 	return cells
+}
+
+// RegionInfo represents a region for API export
+type RegionInfo struct {
+	ID           int          `json:"id"`
+	CellCount    int          `json:"cell_count"`
+	MeanVariance float64      `json:"mean_variance"`
+	Params       RegionParams `json:"params"`
+	Cells        []struct {
+		Ring       int     `json:"ring"`
+		AzimuthDeg float32 `json:"azimuth_deg"`
+	} `json:"cells,omitempty"` // Optional: can be large, include only on request
+}
+
+// RegionDebugInfo contains full region visualization data
+type RegionDebugInfo struct {
+	SensorID               string       `json:"sensor_id"`
+	Timestamp              time.Time    `json:"timestamp"`
+	IdentificationComplete bool         `json:"identification_complete"`
+	IdentificationTime     time.Time    `json:"identification_time,omitempty"`
+	FramesSampled          int          `json:"frames_sampled"`
+	RegionCount            int          `json:"region_count"`
+	Regions                []RegionInfo `json:"regions"`
+	// Grid mapping: for each cell, which region it belongs to
+	GridMapping []int `json:"grid_mapping"` // maps cell index to region ID
+}
+
+// GetRegionDebugInfo returns comprehensive region information for debugging
+func (bm *BackgroundManager) GetRegionDebugInfo(includeCells bool) *RegionDebugInfo {
+	if bm == nil || bm.Grid == nil || bm.Grid.RegionMgr == nil {
+		return nil
+	}
+
+	g := bm.Grid
+	rm := g.RegionMgr
+
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	info := &RegionDebugInfo{
+		SensorID:               g.SensorID,
+		Timestamp:              time.Now(),
+		IdentificationComplete: rm.IdentificationComplete,
+		FramesSampled:          rm.SettlingMetrics.FramesSampled,
+		RegionCount:            len(rm.Regions),
+		Regions:                make([]RegionInfo, 0, len(rm.Regions)),
+		GridMapping:            make([]int, len(rm.CellToRegionID)),
+	}
+
+	if rm.IdentificationComplete {
+		info.IdentificationTime = rm.IdentificationTime
+	}
+
+	// Copy grid mapping
+	copy(info.GridMapping, rm.CellToRegionID)
+
+	// Export region information
+	azBinResDeg := 360.0 / float32(g.AzimuthBins)
+	for _, region := range rm.Regions {
+		regionInfo := RegionInfo{
+			ID:           region.ID,
+			CellCount:    region.CellCount,
+			MeanVariance: region.MeanVariance,
+			Params:       region.Params,
+		}
+
+		// Optionally include cell list (can be large)
+		if includeCells {
+			regionInfo.Cells = make([]struct {
+				Ring       int     `json:"ring"`
+				AzimuthDeg float32 `json:"azimuth_deg"`
+			}, 0, len(region.CellList))
+
+			for _, cellIdx := range region.CellList {
+				ring := cellIdx / g.AzimuthBins
+				azBin := cellIdx % g.AzimuthBins
+				azimuthDeg := float32(azBin) * azBinResDeg
+
+				regionInfo.Cells = append(regionInfo.Cells, struct {
+					Ring       int     `json:"ring"`
+					AzimuthDeg float32 `json:"azimuth_deg"`
+				}{
+					Ring:       ring,
+					AzimuthDeg: azimuthDeg,
+				})
+			}
+		}
+
+		info.Regions = append(info.Regions, regionInfo)
+	}
+
+	return info
 }

@@ -755,6 +755,7 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/grid_reset", ws.handleGridReset)
 	mux.HandleFunc("/api/lidar/grid_heatmap", ws.handleGridHeatmap)
 	mux.HandleFunc("/api/lidar/background/grid", ws.handleBackgroundGrid) // Full background grid
+	mux.HandleFunc("/debug/lidar/background/regions", ws.handleBackgroundRegions) // Region debug info
 	if assetsFS != nil {
 		mux.Handle(echartsAssetsPrefix, http.StripPrefix(echartsAssetsPrefix, http.FileServer(http.FS(assetsFS))))
 	}
@@ -2930,3 +2931,30 @@ func (ws *WebServer) handleBackgroundGrid(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
+
+// handleBackgroundRegions returns region debug information for the background grid
+func (ws *WebServer) handleBackgroundRegions(w http.ResponseWriter, r *http.Request) {
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = ws.sensorID
+	}
+
+	bm := lidar.GetBackgroundManager(sensorID)
+	if bm == nil || bm.Grid == nil {
+		ws.writeJSONError(w, http.StatusNotFound, "no background manager for sensor")
+		return
+	}
+
+	// Check if "include_cells" query parameter is set
+	includeCells := r.URL.Query().Get("include_cells") == "true"
+
+	info := bm.GetRegionDebugInfo(includeCells)
+	if info == nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, "failed to get region debug info")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(info)
+}
+
