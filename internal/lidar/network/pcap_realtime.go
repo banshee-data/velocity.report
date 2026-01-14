@@ -254,7 +254,12 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 				}
 
 				// Foreground extraction & snapshot caching if background manager is available
-				if config.BackgroundManager != nil {
+				// IMPORTANT: Skip if frameBuilder is set, because the FrameBuilder callback
+				// (from TrackingPipelineConfig) already handles background processing,
+				// foreground extraction, snapshot caching, and forwarding. Processing here
+				// would cause double-processing of points through the grid, corrupting
+				// the running averages and causing false positives (trails).
+				if config.BackgroundManager != nil && frameBuilder == nil {
 					foregroundMask, err := config.BackgroundManager.ProcessFramePolarWithMask(points)
 					if err != nil {
 						log.Printf("Error extracting foreground points: %v", err)
