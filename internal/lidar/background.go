@@ -154,6 +154,7 @@ type BackgroundGrid struct {
 	// Performance tracking for system_events table integration
 	LastProcessingTimeUs  int64
 	WarmupFramesRemaining int
+	WarmupInitialized     bool
 	SettlingComplete      bool
 
 	// Telemetry for monitoring (feeds into system_events)
@@ -640,6 +641,9 @@ func (bm *BackgroundManager) ResetGrid() error {
 	g.ForegroundCount = 0
 	g.BackgroundCount = 0
 	g.nonzeroCellCount = 0
+	g.WarmupFramesRemaining = 0
+	g.WarmupInitialized = false
+	g.SettlingComplete = false
 	g.RegionIndex = nil
 	g.Regions = nil
 	g.RegionsReady = false
@@ -1261,8 +1265,9 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 
 	// Iterate over observed cells and update grid
 	g.mu.Lock()
-	if bm.StartTime.IsZero() {
-		bm.StartTime = now
+	if !g.WarmupInitialized && g.Params.WarmupMinFrames > 0 && !g.SettlingComplete {
+		g.WarmupFramesRemaining = g.Params.WarmupMinFrames
+		g.WarmupInitialized = true
 	}
 	if g.WarmupFramesRemaining == 0 && g.Params.WarmupMinFrames > 0 && !g.SettlingComplete {
 		g.WarmupFramesRemaining = g.Params.WarmupMinFrames
