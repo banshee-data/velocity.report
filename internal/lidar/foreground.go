@@ -233,7 +233,17 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		}
 
 		// Closeness threshold: scales with cell spread and distance
-		closenessThreshold := closenessMultiplier*(float64(cell.RangeSpreadMeters)+noiseRel*p.Distance+0.01) + safety
+		// Warmup sensitivity scaling:
+		// When a cell is new (low confidence), we haven't learned its true variance yet.
+		// We should be more tolerant (higher threshold) to avoid classifying noise as foreground,
+		// which prevents "initialization trails" where wall points are flagged as FG before spread converges.
+		warmupMultiplier := 1.0
+		if cell.TimesSeenCount < 100 {
+			// Linear decay from 4.0x at count=0 to 1.0x at count=100
+			warmupMultiplier = 1.0 + 3.0*float64(100-cell.TimesSeenCount)/100.0
+		}
+
+		closenessThreshold := closenessMultiplier*(float64(cell.RangeSpreadMeters)+noiseRel*p.Distance+0.01)*warmupMultiplier + safety
 		cellDiff := math.Abs(float64(cell.AverageRangeMeters) - p.Distance)
 
 		// Locked baseline classification: if cell has a locked baseline, use it for classification
