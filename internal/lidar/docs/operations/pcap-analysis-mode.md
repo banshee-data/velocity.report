@@ -77,7 +77,7 @@ Data source values:
 ### Resume Live Data (Preserve Grid)
 
 ```bash
-GET /api/lidar/pcap/resume_live?sensor_id=hesai-pandar40p
+POST /api/lidar/pcap/resume_live?sensor_id=hesai-pandar40p
 ```
 
 Switches from PCAP analysis mode back to live UDP data **without resetting the grid**. This allows you to overlay live traffic on top of the PCAP-analyzed background.
@@ -96,7 +96,7 @@ Switches from PCAP analysis mode back to live UDP data **without resetting the g
 ### Stop PCAP Replay (Reset Grid)
 
 ```bash
-GET /api/lidar/pcap/stop?sensor_id=hesai-pandar40p
+POST /api/lidar/pcap/stop?sensor_id=hesai-pandar40p
 ```
 
 Stops PCAP replay and **resets the grid** before returning to live data.

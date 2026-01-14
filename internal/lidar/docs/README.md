@@ -8,70 +8,65 @@ Documentation for the velocity.report LiDAR subsystem (Hesai Pandar40P integrati
 
 Core system design and implementation specifications.
 
-- **Technical overview** of the LiDAR sidecar architecture
-- **Foreground tracking pipeline** implementation plan (Phases 2.9–3.7)
+- **Technical overview** of the LiDAR processing pipeline
+- **Foreground tracking pipeline** implementation (Phases 2.9–3.7)
 - **Background grid standards** comparison with industry formats
-- **AV range image format alignment** design for dual-return and range image support
-
-Start here to understand how the system works.
+- **AV range image format** design for dual-return support (future)
 
 ### `operations/`
 
-Runtime operations, debugging, and active development.
+Runtime operations and debugging.
 
 - **Data source switching** between live UDP and PCAP replay
-- **PCAP analysis mode** for background characterization
-- **Performance regression testing** for LIDAR pipeline benchmarking
-- **Active issues** and debugging investigations (foreground trails, performance)
-
-Consult when troubleshooting or operating the system.
+- **PCAP analysis mode** for background characterisation
+- **Performance regression testing** for pipeline benchmarking
+- **Tracking status** and known issues
 
 ### `reference/`
 
 Protocol specifications and data formats.
 
-- **Packet structure** analysis for Hesai Pandar40P UDP format
-- **Database schema** for LiDAR tables (SQL and ERD)
-
-Use for protocol-level debugging or schema reference.
+- **Packet structure** for Hesai Pandar40P UDP format
+- **Database schema** for LiDAR tables
 
 ### `roadmap/`
 
 Development progress and future planning.
 
 - **ML pipeline roadmap** (Phases 4.0–4.3: labeling UI, training, tuning)
-- **Integration status** of tracking components
-- **Development log** with chronological implementation notes
-
-Check for implementation history and upcoming features.
+- **Development log** with implementation notes
 
 ### `future/`
 
-Deferred features not needed for current traffic monitoring deployments.
+Deferred features for specialised use cases.
 
 - **AV integration plan** (28-class taxonomy, Parquet ingestion)
-- **7DOF pose alignment** for AV dataset compatibility
-- **Motion capture architecture** for moving sensors (vehicle/drone-mounted)
-- **Velocity-coherent extraction** algorithm design
+- **Motion capture architecture** (moving sensors)
+- **Velocity-coherent extraction** (alternative algorithm)
 - **PCAP split tool** for motion/static segmentation
+- **Static pose alignment** (7DOF tracking)
 
-These are **not required** for static roadside sensor deployments. Implement when pursuing AV research or mobile sensor platforms.
+These are **not required** for static roadside deployments.
+
+### `troubleshooting/`
+
+Resolved investigation notes for reference.
+
+- **Warmup trails fix** (January 2026)
 
 ### `noise_investigation/`
 
-Historical analysis artifacts from background parameter tuning. Contains sweep results, acceptance rate plots, and CSV data from noise characterization experiments.
+Historical analysis artifacts from background parameter tuning.
 
 ## Quick Links
 
-| Topic                   | Document                                              |
-| ----------------------- | ----------------------------------------------------- |
-| System overview         | `architecture/lidar_sidecar_overview.md`              |
-| Tracking implementation | `architecture/foreground_tracking_plan.md`            |
-| AV range image format   | `architecture/av-range-image-format-alignment.md`     |
-| Current issues          | `operations/lidar-foreground-tracking-status.md`      |
-| Performance testing     | `operations/performance-regression-testing.md`        |
-| ML pipeline             | `roadmap/ml_pipeline_roadmap.md`                      |
-| Packet format           | `reference/packet_analysis_results.md`                |
+| Topic                   | Document                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------ |
+| System overview         | [architecture/lidar_sidecar_overview.md](architecture/lidar_sidecar_overview.md)                 |
+| Tracking implementation | [architecture/foreground_tracking_plan.md](architecture/foreground_tracking_plan.md)             |
+| Current status          | [operations/lidar-foreground-tracking-status.md](operations/lidar-foreground-tracking-status.md) |
+| ML pipeline             | [roadmap/ml_pipeline_roadmap.md](roadmap/ml_pipeline_roadmap.md)                                 |
+| Packet format           | [reference/packet_analysis_results.md](reference/packet_analysis_results.md)                     |
 
 ## Implementation Status
 
@@ -80,24 +75,26 @@ Historical analysis artifacts from background parameter tuning. Contains sweep r
 - ✅ UDP packet ingestion (Hesai Pandar40P)
 - ✅ Frame assembly (360° rotations)
 - ✅ Background learning (EMA-based polar grid)
-- ✅ Foreground/background classification
+- ✅ Foreground/background classification with warmup scaling
 - ✅ DBSCAN clustering (world frame)
 - ✅ Kalman tracking (constant velocity model)
 - ✅ Rule-based classification (pedestrian, car, bird, other)
 - ✅ REST API endpoints for tracks/clusters
 - ✅ PCAP analysis tool for batch processing
 - ✅ Analysis run infrastructure (params JSON, run comparison)
+- ✅ Port 2370 foreground streaming
 
-**Active Development:**
+**Resolved Issues (January 2026):**
 
-- 🚧 Foreground "trail" artifacts after objects pass
-- 🚧 M1 Mac CPU usage optimisation
-- 🚧 Port 2370 foreground streaming performance
+- ✅ Warmup trails (sensitivity scaling fix)
+- ✅ Port 2370 packet corruption (RawBlockAzimuth preservation)
+- ✅ recFg accumulation during freeze (reset on thaw)
 
 **Planned (Phase 4.0+):**
 
 - Track labeling UI (SvelteKit)
 - ML classifier training pipeline
+- Parameter optimisation with grid search
 - Parameter tuning with split/merge metrics
 - Production edge deployment
 

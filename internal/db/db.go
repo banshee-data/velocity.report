@@ -74,6 +74,26 @@ func (db *DB) ListRecentBgSnapshots(sensorID string, limit int) ([]*lidar.BgSnap
 	return snapshots, nil
 }
 
+// DeleteDuplicateBgSnapshots removes duplicate snapshots for a given sensor_id.
+// Duplicates are defined as sharing the same grid_blob content, regardless of timestamp.
+// This deduplicates history, keeping only the most recent snapshot (highest ID) for each unique grid configuration.
+func (db *DB) DeleteDuplicateBgSnapshots(sensorID string) (int64, error) {
+	// SQLite specific query to keep only the max rowid (snapshot_id) for each unique grid_blob.
+	// We group only by grid_blob to collapse identical historical snapshots.
+	q := `DELETE FROM lidar_bg_snapshot
+          WHERE sensor_id = ? AND snapshot_id NOT IN (
+             SELECT MAX(snapshot_id)
+             FROM lidar_bg_snapshot
+             WHERE sensor_id = ?
+             GROUP BY grid_blob
+          )`
+	res, err := db.Exec(q, sensorID, sensorID)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
 // schema.sql contains the SQL statements for creating the database schema.
 // It defines tables such as radar_data, radar_objects, radar_commands, and radar_command_log which store radar event and command information.
 // The schema is embedded directly into the binary and executed when a new database is created

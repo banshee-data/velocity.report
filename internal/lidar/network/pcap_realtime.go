@@ -20,6 +20,12 @@ type RealtimeReplayConfig struct {
 	// SpeedMultiplier controls replay speed (1.0 = real-time, 2.0 = 2x speed, 0.5 = half speed)
 	SpeedMultiplier float64
 
+	// StartSeconds is the offset in seconds from the beginning of the PCAP file to start playback (default 0)
+	StartSeconds float64
+
+	// DurationSeconds is the duration in seconds to play from StartSeconds (default -1 means play until end)
+	DurationSeconds float64
+
 	// SensorID is used for caching debug foreground snapshots during replay.
 	SensorID string
 
@@ -34,7 +40,24 @@ type RealtimeReplayConfig struct {
 
 	// WarmupPackets skips forwarding for the first N packets to seed background.
 	WarmupPackets int
+
+	// Debug range parameters for focused diagnostics
+	DebugRingMin int     // Min ring index (inclusive, 0 = disabled)
+	DebugRingMax int     // Max ring index (inclusive, 0 = disabled)
+	DebugAzMin   float32 // Min azimuth degrees (inclusive, 0 = disabled)
+	DebugAzMax   float32 // Max azimuth degrees (inclusive, 0 = disabled)
+
+	// OnFrameCallback is called after each frame is processed with foreground extraction.
+	// This can be used for sampling grid state for plotting.
+	OnFrameCallback func(mgr *lidar.BackgroundManager, points []lidar.PointPolar)
 }
+
+const (
+	// Max points to buffer before forcing a flush to foreground forwarder
+	maxForegroundBufferPoints = 1200 // Approx 10 blocks (1 full packet)
+	// Max distinct source packets to buffer before flushing (to avoid latency)
+	maxForegroundBufferPackets = 20
+)
 
 // ReadPCAPFileRealtime reads and replays a PCAP file in real-time, respecting original packet timing.
 // This allows live network forwarding of PCAP data for real-time analysis.
@@ -66,12 +89,22 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 	warmupRemaining := config.WarmupPackets
 
 	var firstPacketTime time.Time
-	var lastPacketTime time.Time
 	replayStartTime := time.Now()
+	var startThreshold time.Time
+	var endThreshold time.Time
+	skippingToStart := config.StartSeconds > 0
+
+	// Buffer for aggregating foreground points to reduce packet overhead
+	var foregroundBuffer []lidar.PointPolar
+	var bufferedPackets int
 
 	for {
 		select {
 		case <-ctx.Done():
+			// Flush remaining foreground buffer on exit
+			if config.ForegroundForwarder != nil && len(foregroundBuffer) > 0 {
+				config.ForegroundForwarder.ForwardForeground(foregroundBuffer)
+			}
 			log.Printf("PCAP real-time replay stopping due to context cancellation (processed %d packets)", packetCount)
 			return ctx.Err()
 		case packet := <-packetSource.Packets():
@@ -89,23 +122,67 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 
 			if firstPacketTime.IsZero() {
 				firstPacketTime = captureTime
-				lastPacketTime = captureTime
-			} else {
-				// Calculate delay since last packet (scaled by speed multiplier)
-				delay := captureTime.Sub(lastPacketTime)
-				scaledDelay := time.Duration(float64(delay) / config.SpeedMultiplier)
+				// Set start and end thresholds based on config
+				if config.StartSeconds > 0 {
+					startThreshold = firstPacketTime.Add(time.Duration(config.StartSeconds * float64(time.Second)))
+				} else {
+					// When no start offset, use first packet time as the baseline
+					startThreshold = firstPacketTime
+					// Reset replay start time for accurate pacing when not skipping
+					replayStartTime = time.Now()
+				}
+				if config.DurationSeconds > 0 {
+					// Duration is always relative to the effective start threshold
+					endThreshold = startThreshold.Add(time.Duration(config.DurationSeconds * float64(time.Second)))
+				}
+				log.Printf("PCAP start: first_packet=%v, start_threshold=%v, end_threshold=%v, skipping_to_start=%v",
+					firstPacketTime, startThreshold, endThreshold, skippingToStart)
+			}
 
-				// Wait for scaled delay to maintain timing
-				if scaledDelay > 0 {
+			// Skip packets before start threshold
+			if skippingToStart && !startThreshold.IsZero() && captureTime.Before(startThreshold) {
+				continue
+			}
+			if skippingToStart {
+				skippingToStart = false
+				log.Printf("PCAP replay: started at %.2fs offset", config.StartSeconds)
+				replayStartTime = time.Now() // Reset start time for accurate speed reporting
+			}
+
+			// Stop if we've reached the end threshold
+			if !endThreshold.IsZero() && captureTime.After(endThreshold) {
+				log.Printf("PCAP replay complete: reached duration limit of %.2fs (packet_ts=%v, end_threshold=%v, packets=%d, delta=%.3fs)",
+					config.DurationSeconds, captureTime, endThreshold, packetCount,
+					captureTime.Sub(endThreshold).Seconds())
+				return nil
+			}
+
+			// Log first few packets for debugging timestamp issues
+			if packetCount <= 3 {
+				log.Printf("PCAP packet #%d: capture_time=%v, first_packet=%v, delta_from_first=%.3fs",
+					packetCount, captureTime, firstPacketTime, captureTime.Sub(firstPacketTime).Seconds())
+			}
+
+			// Real-time pacing: compare wall clock elapsed with PCAP time elapsed
+			// This accounts for processing time and avoids cumulative lag
+			if firstPacketTime != captureTime {
+				// How much PCAP time has elapsed since the effective start?
+				pcapElapsed := captureTime.Sub(startThreshold)
+				// How much wall clock time should have elapsed at this speed?
+				targetWallElapsed := time.Duration(float64(pcapElapsed) / config.SpeedMultiplier)
+				// How much wall clock time has actually elapsed?
+				actualWallElapsed := time.Since(replayStartTime)
+				// Wait for the difference (if we're ahead of schedule)
+				waitTime := targetWallElapsed - actualWallElapsed
+
+				if waitTime > 0 {
 					select {
 					case <-ctx.Done():
 						return ctx.Err()
-					case <-time.After(scaledDelay):
+					case <-time.After(waitTime):
 						// Continue
 					}
 				}
-
-				lastPacketTime = captureTime
 			}
 
 			// Extract UDP layer
@@ -149,7 +226,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 				}
 
 				if len(points) == 0 {
-					log.Printf("PCAP real-time replay: packet %d parsed -> 0 points", packetCount)
+					lidar.Debugf("PCAP real-time replay: packet %d parsed -> 0 points", packetCount)
 				} else {
 					totalPoints += len(points)
 
@@ -159,7 +236,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 						originalDuration := captureTime.Sub(firstPacketTime)
 						compressionRatio := float64(originalDuration) / float64(elapsed)
 
-						log.Printf("PCAP real-time replay: packet=%d, points=%d, total_points=%d, elapsed=%v, original_duration=%v, compression=%.1fx",
+						lidar.Debugf("PCAP real-time replay: packet=%d, points=%d, total_points=%d, elapsed=%v, original_duration=%v, compression=%.1fx",
 							packetCount, len(points), totalPoints, elapsed, originalDuration, compressionRatio)
 					}
 				}
@@ -177,7 +254,12 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 				}
 
 				// Foreground extraction & snapshot caching if background manager is available
-				if config.BackgroundManager != nil {
+				// IMPORTANT: Skip if frameBuilder is set, because the FrameBuilder callback
+				// (from TrackingPipelineConfig) already handles background processing,
+				// foreground extraction, snapshot caching, and forwarding. Processing here
+				// would cause double-processing of points through the grid, corrupting
+				// the running averages and causing false positives (trails).
+				if config.BackgroundManager != nil && frameBuilder == nil {
 					foregroundMask, err := config.BackgroundManager.ProcessFramePolarWithMask(points)
 					if err != nil {
 						log.Printf("Error extracting foreground points: %v", err)
@@ -219,17 +301,60 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 							if warmupRemaining > 0 {
 								warmupRemaining--
 								if len(foregroundPoints) > 0 && (warmupRemaining%100 == 0 || warmupRemaining < 5) {
-									log.Printf("[ForegroundForwarder] warmup skipping frame: remaining_packets=%d fg_points=%d total_points=%d", warmupRemaining, len(foregroundPoints), len(points))
+									lidar.Debugf("[ForegroundForwarder] warmup skipping frame: remaining_packets=%d fg_points=%d total_points=%d", warmupRemaining, len(foregroundPoints), len(points))
 								}
 							} else if len(foregroundPoints) > 0 {
-								config.ForegroundForwarder.ForwardForeground(foregroundPoints)
+								// Filter by debug range if configured
+								pointsToForward := foregroundPoints
+								if config.BackgroundManager != nil {
+									params := config.BackgroundManager.GetParams()
+									if params.HasDebugRange() {
+										filtered := make([]lidar.PointPolar, 0, len(foregroundPoints))
+										for _, p := range foregroundPoints {
+											// Channel is 1-based in PointPolar, ring is 0-based in params
+											if params.IsInDebugRange(p.Channel-1, p.Azimuth) {
+												filtered = append(filtered, p)
+											}
+										}
+										pointsToForward = filtered
+									}
+								}
+
+								if len(pointsToForward) > 0 {
+									// Accumulate points in buffer
+									// Stripping UDPSequence to allow better packing is done implicitly
+									// if the Forwarder chooses to ignore it, but we can help by
+									// aggregating multiple source packets into one Forward call.
+									// However, we must ensure we don't hold them too long.
+
+									// Clear UDPSequence to aid packing in Forwarder
+									for i := range pointsToForward {
+										pointsToForward[i].UDPSequence = 0
+									}
+
+									foregroundBuffer = append(foregroundBuffer, pointsToForward...)
+									bufferedPackets++
+
+									// Flush if buffer is full or enough distinct packets collected
+									if len(foregroundBuffer) >= maxForegroundBufferPoints || bufferedPackets >= maxForegroundBufferPackets {
+										config.ForegroundForwarder.ForwardForeground(foregroundBuffer)
+										foregroundBuffer = nil // Reallocate or clear? nil lets GC handle old slice
+										foregroundBuffer = make([]lidar.PointPolar, 0, maxForegroundBufferPoints)
+										bufferedPackets = 0
+									}
+								}
 
 								if packetCount%1000 == 0 {
 									fgRatio := float64(len(foregroundPoints)) / float64(len(points))
-									log.Printf("Foreground extraction: %d/%d points (%.1f%%)",
+									lidar.Debugf("Foreground extraction: %d/%d points (%.1f%%)",
 										len(foregroundPoints), len(points), fgRatio*100)
 								}
 							}
+						}
+
+						// Call frame callback for grid sampling (e.g., for plotting)
+						if config.OnFrameCallback != nil {
+							config.OnFrameCallback(config.BackgroundManager, points)
 						}
 					}
 				}

@@ -75,7 +75,11 @@ func (f *ForegroundForwarder) Start(ctx context.Context) {
 			case <-ctx.Done():
 				lidar.Debugf("Foreground forwarder stopping (sent %d packets)", f.packetCount)
 				return
-			case points := <-f.channel:
+			case points, ok := <-f.channel:
+				if !ok {
+					// Channel closed, exit worker
+					return
+				}
 				if len(points) == 0 {
 					continue
 				}
@@ -121,7 +125,10 @@ func (f *ForegroundForwarder) ForwardForeground(points []lidar.PointPolar) {
 	// Non-blocking send
 	select {
 	case f.channel <- pointsCopy:
-		// Successfully queued
+		// Successfully queued - log first few for debugging
+		if f.frameCount < 5 {
+			lidar.Debugf("[ForegroundForwarder] queued %d points (frame ~%d)", len(points), f.frameCount+1)
+		}
 	default:
 		// Drop if buffer full (prevents blocking)
 		log.Printf("Warning: Foreground forwarding buffer full, dropping %d points", len(points))

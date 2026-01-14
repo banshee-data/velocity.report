@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"reflect"
 )
 
 // ForegroundForwarder interface allows forwarding foreground points without importing network package.
@@ -12,20 +13,44 @@ type ForegroundForwarder interface {
 	ForwardForeground(points []PointPolar)
 }
 
+// isNilInterface checks if an interface value is nil or contains a nil pointer.
+// This handles the Go interface nil pitfall where interface{} != nil but the underlying value is nil.
+func isNilInterface(i interface{}) bool {
+	if i == nil {
+		return true
+	}
+	v := reflect.ValueOf(i)
+	switch v.Kind() {
+	case reflect.Ptr, reflect.Map, reflect.Slice, reflect.Chan, reflect.Func, reflect.Interface:
+		return v.IsNil()
+	}
+	return false
+}
+
 // TrackingPipelineConfig holds dependencies for the tracking pipeline callback.
 type TrackingPipelineConfig struct {
-	BackgroundManager *BackgroundManager
-	FgForwarder       ForegroundForwarder // Use interface to avoid import cycle
-	Tracker           *Tracker
-	Classifier        *TrackClassifier
-	DB                *sql.DB // Use standard sql.DB to avoid import cycle with db package
-	SensorID          string
-	DebugMode         bool
+	BackgroundManager  *BackgroundManager
+	FgForwarder        ForegroundForwarder // Use interface to avoid import cycle
+	Tracker            *Tracker
+	Classifier         *TrackClassifier
+	DB                 *sql.DB // Use standard sql.DB to avoid import cycle with db package
+	SensorID           string
+	DebugMode          bool
+	AnalysisRunManager *AnalysisRunManager // Optional: for recording analysis runs
 }
 
 // NewFrameCallback creates a FrameBuilder callback that processes frames through
 // the full tracking pipeline: foreground extraction, clustering, tracking, and persistence.
 func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
+	// Get AnalysisRunManager from registry if not explicitly set
+	// This allows analysis runs to be started/stopped dynamically via webserver
+	getRunManager := func() *AnalysisRunManager {
+		if cfg.AnalysisRunManager != nil {
+			return cfg.AnalysisRunManager
+		}
+		return GetAnalysisRunManager(cfg.SensorID)
+	}
+
 	return func(frame *LiDARFrame) {
 		if frame == nil || len(frame.Points) == 0 {
 			return
@@ -114,7 +139,8 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 		}
 
 		// Forward foreground points on 2370-style stream if configured
-		if cfg.FgForwarder != nil {
+		// Use isNilInterface to handle Go interface nil pitfall
+		if !isNilInterface(cfg.FgForwarder) {
 			pointsToForward := foregroundPoints
 			// If debug range is configured, only forward points within that range
 			// This allows isolating specific regions for debugging without flooding the stream
@@ -129,7 +155,11 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 				}
 				pointsToForward = filtered
 			}
-			cfg.FgForwarder.ForwardForeground(pointsToForward)
+			if len(pointsToForward) > 0 {
+				cfg.FgForwarder.ForwardForeground(pointsToForward)
+			}
+		} else if cfg.DebugMode {
+			Debugf("[Tracking] FgForwarder is nil, skipping foreground forwarding")
 		}
 
 		// Always log foreground extraction for tracking debugging
@@ -153,6 +183,12 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 			return
 		}
 
+		// Record clusters for analysis run if active
+		if runManager := getRunManager(); runManager != nil && runManager.IsRunActive() {
+			runManager.RecordFrame()
+			runManager.RecordClusters(len(clusters))
+		}
+
 		// Always log clustering for tracking debugging
 		Debugf("[Tracking] Clustered into %d objects", len(clusters))
 
@@ -171,6 +207,11 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 			// Classify if not already classified and has enough observations
 			if track.ObjectClass == "" && track.ObservationCount >= 5 && cfg.Classifier != nil {
 				cfg.Classifier.ClassifyAndUpdate(track)
+			}
+
+			// Record track for analysis run if active
+			if runManager := getRunManager(); runManager != nil && runManager.IsRunActive() {
+				runManager.RecordTrack(track)
 			}
 
 			// Persist track to database

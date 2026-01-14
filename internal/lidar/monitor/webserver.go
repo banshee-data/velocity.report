@@ -30,6 +30,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidar/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/parse"
+	"github.com/banshee-data/velocity.report/internal/version"
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/components"
 	"github.com/go-echarts/go-echarts/v2/opts"
@@ -109,6 +110,14 @@ type WebServer struct {
 	// Track API for tracking endpoints
 	trackAPI *TrackAPI
 
+	// Analysis run manager for PCAP analysis mode
+	analysisRunManager *lidar.AnalysisRunManager
+
+	// Grid plotter for visualization during PCAP replay
+	gridPlotter  *GridPlotter
+	plotsBaseDir string // Base directory for plot output (e.g., "plots")
+	plotsEnabled bool   // Whether plots are enabled for current run
+
 	// latestFgCounts holds counts from the most recent foreground snapshot for status UI.
 	fgCountsMu     sync.RWMutex
 	latestFgCounts map[string]int
@@ -130,6 +139,7 @@ type WebServerConfig struct {
 	PCAPSafeDir       string // Safe directory for PCAP file access (restricts path traversal)
 	PacketForwarder   *network.PacketForwarder
 	UDPListenerConfig network.UDPListenerConfig
+	PlotsBaseDir      string // Base directory for plot output (e.g., "plots")
 }
 
 // NewWebServer creates a new web server with the provided configuration
@@ -171,11 +181,15 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		udpListenerConfig: listenerConfig,
 		currentSource:     DataSourceLive,
 		latestFgCounts:    make(map[string]int),
+		plotsBaseDir:      config.PlotsBaseDir,
 	}
 
 	// Initialise TrackAPI if database is configured
 	if config.DB != nil {
 		ws.trackAPI = NewTrackAPI(config.DB.DB, config.SensorID)
+		// Initialize AnalysisRunManager for PCAP analysis runs
+		ws.analysisRunManager = lidar.NewAnalysisRunManager(config.DB.DB, config.SensorID)
+		lidar.RegisterAnalysisRunManager(config.SensorID, ws.analysisRunManager)
 	}
 
 	ws.server = &http.Server{
@@ -370,7 +384,7 @@ func (ws *WebServer) resolvePCAPPath(candidate string) (string, error) {
 	return canonicalPath, nil
 }
 
-func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRatio float64) error {
+func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRatio float64, startSeconds float64, durationSeconds float64, debugRingMin int, debugRingMax int, debugAzMin float32, debugAzMax float32, enableDebug bool, enablePlots bool) error {
 	resolvedPath, err := ws.resolvePCAPPath(pcapFile)
 	if err != nil {
 		return err
@@ -391,7 +405,20 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 	ws.pcapInProgress = true
 	ws.pcapCancel = cancel
 	ws.pcapDone = done
+	ws.plotsEnabled = enablePlots
 	ws.pcapMu.Unlock()
+
+	// Initialize grid plotter if enabled
+	if enablePlots && ws.plotsBaseDir != "" {
+		outputDir := MakePlotOutputDir(ws.plotsBaseDir, resolvedPath)
+		ws.gridPlotter = NewGridPlotter(ws.sensorID, debugRingMin, debugRingMax, float64(debugAzMin), float64(debugAzMax))
+		if err := ws.gridPlotter.Start(outputDir); err != nil {
+			log.Printf("Warning: Failed to start grid plotter: %v", err)
+			ws.gridPlotter = nil
+		} else {
+			log.Printf("Grid plotter enabled, output: %s", outputDir)
+		}
+	}
 
 	ws.currentPCAPFile = resolvedPath
 	// Store the requested playback mode for UI visibility
@@ -400,9 +427,30 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 	ws.pcapSpeedRatio = speedRatio
 	ws.pcapMu.Unlock()
 
-	go func(path string, ctx context.Context, finished chan struct{}) {
+	go func(path string, ctx context.Context, cancel context.CancelFunc, finished chan struct{}) {
 		defer close(finished)
+		defer cancel()
 		log.Printf("Starting PCAP replay from file: %s (sensor: %s, mode: %s, ratio: %.2f)", path, ws.sensorID, speedMode, speedRatio)
+
+		// Check if we should start an analysis run (only in analysis mode)
+		ws.pcapMu.Lock()
+		isAnalysisMode := ws.pcapAnalysisMode
+		ws.pcapMu.Unlock()
+
+		var runID string
+		if isAnalysisMode && ws.analysisRunManager != nil {
+			// Build run parameters from current background manager settings
+			runParams := lidar.DefaultRunParams()
+			if bgManager := lidar.GetBackgroundManager(ws.sensorID); bgManager != nil {
+				runParams.Background = lidar.FromBackgroundParams(bgManager.GetParams())
+			}
+
+			var startErr error
+			runID, startErr = ws.analysisRunManager.StartRun(path, runParams)
+			if startErr != nil {
+				log.Printf("Warning: Failed to start analysis run: %v", startErr)
+			}
+		}
 
 		// Configure parser to use LiDAR timestamps for PCAP replay
 		// This ensures that replayed data has original timestamps, not current system time
@@ -425,7 +473,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 
 		var err error
 		if speedMode == "fastest" {
-			err = network.ReadPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, ws.packetForwarder)
+			err = network.ReadPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, ws.packetForwarder, startSeconds, durationSeconds)
 		} else {
 			// Apply PCAP-friendly background params and restore afterward.
 			var restoreParams func()
@@ -465,13 +513,47 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 
 			bgManager := lidar.GetBackgroundManager(ws.sensorID)
 
+			// Apply debug range parameters to background manager if specified
+			if bgManager != nil && (debugRingMin > 0 || debugRingMax > 0 || debugAzMin > 0 || debugAzMax > 0) {
+				params := bgManager.GetParams()
+				params.DebugRingMin = debugRingMin
+				params.DebugRingMax = debugRingMax
+				params.DebugAzMin = debugAzMin
+				params.DebugAzMax = debugAzMax
+				_ = bgManager.SetParams(params)
+				// Enable diagnostics only if enableDebug is true
+				if enableDebug {
+					bgManager.SetEnableDiagnostics(true)
+					log.Printf("PCAP replay: FG_DEBUG enabled for rings[%d-%d], azimuth[%.1f-%.1f]", debugRingMin, debugRingMax, debugAzMin, debugAzMax)
+				} else {
+					log.Printf("PCAP replay: debug range configured rings[%d-%d], azimuth[%.1f-%.1f] but FG_DEBUG is OFF", debugRingMin, debugRingMax, debugAzMin, debugAzMax)
+				}
+			}
+
+			// Create frame callback for grid plotting if enabled
+			var onFrameCallback func(*lidar.BackgroundManager, []lidar.PointPolar)
+			if ws.gridPlotter != nil && ws.gridPlotter.IsEnabled() {
+				plotter := ws.gridPlotter // capture for closure
+				onFrameCallback = func(mgr *lidar.BackgroundManager, points []lidar.PointPolar) {
+					plotter.SampleWithPoints(mgr, points)
+				}
+			}
+
 			config := network.RealtimeReplayConfig{
 				SpeedMultiplier:     multiplier,
+				StartSeconds:        startSeconds,
+				DurationSeconds:     durationSeconds,
 				PacketForwarder:     ws.packetForwarder,
 				ForegroundForwarder: fgForwarder,
 				BackgroundManager:   bgManager,
 				SensorID:            ws.sensorID,
-				WarmupPackets:       500,
+				// Increase warmup to ~4000 packets (approx 20 frames / 2 seconds) to allow background grid to stabilize
+				WarmupPackets:   4000,
+				DebugRingMin:    debugRingMin,
+				DebugRingMax:    debugRingMax,
+				DebugAzMin:      debugAzMin,
+				DebugAzMax:      debugAzMax,
+				OnFrameCallback: onFrameCallback,
 			}
 
 			err = network.ReadPCAPFileRealtime(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, config)
@@ -479,8 +561,31 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 
 		if err != nil && !errors.Is(err, context.Canceled) {
 			log.Printf("PCAP replay error: %v", err)
+			// Mark analysis run as failed if active
+			if runID != "" && ws.analysisRunManager != nil {
+				if failErr := ws.analysisRunManager.FailRun(err.Error()); failErr != nil {
+					log.Printf("Warning: Failed to mark analysis run as failed: %v", failErr)
+				}
+			}
 		} else {
 			log.Printf("PCAP replay completed: %s", path)
+			// Complete analysis run if active
+			if runID != "" && ws.analysisRunManager != nil {
+				if completeErr := ws.analysisRunManager.CompleteRun(); completeErr != nil {
+					log.Printf("Warning: Failed to complete analysis run: %v", completeErr)
+				}
+			}
+		}
+
+		// Generate plots if plotter was enabled
+		if ws.gridPlotter != nil && ws.gridPlotter.IsEnabled() {
+			ws.gridPlotter.Stop()
+			plotCount, plotErr := ws.gridPlotter.GeneratePlots()
+			if plotErr != nil {
+				log.Printf("Warning: Failed to generate plots: %v", plotErr)
+			} else if plotCount > 0 {
+				log.Printf("Generated %d ring plots in %s", plotCount, ws.gridPlotter.GetOutputDir())
+			}
 		}
 
 		ws.pcapMu.Lock()
@@ -489,6 +594,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 		ws.pcapDone = nil
 		ws.pcapSpeedMode = ""
 		ws.pcapSpeedRatio = 0.0
+		ws.plotsEnabled = false
 		ws.pcapMu.Unlock()
 
 		ws.dataSourceMu.Lock()
@@ -502,9 +608,9 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 				ws.currentSource = DataSourcePCAPAnalysis
 				log.Printf("[DataSource] PCAP analysis complete for sensor=%s, grid preserved for inspection", ws.sensorID)
 			} else {
-				// Normal mode: reset grid and return to live
-				if err := ws.resetBackgroundGrid(); err != nil {
-					log.Printf("Failed to reset background grid after PCAP: %v", err)
+				// Normal mode: reset all state and return to live
+				if err := ws.resetAllState(); err != nil {
+					log.Printf("Failed to reset state after PCAP: %v", err)
 				}
 				if err := ws.startLiveListenerLocked(); err != nil {
 					log.Printf("Failed to restart live listener after PCAP: %v", err)
@@ -516,7 +622,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 			}
 		}
 		ws.dataSourceMu.Unlock()
-	}(resolvedPath, ctx, done)
+	}(resolvedPath, ctx, cancel, done)
 
 	return nil
 }
@@ -529,6 +635,30 @@ func (ws *WebServer) resetBackgroundGrid() error {
 	if err := mgr.ResetGrid(); err != nil {
 		return err
 	}
+	return nil
+}
+
+// resetFrameBuilder clears all buffered frame state to prevent stale data
+// from contaminating a new data source.
+func (ws *WebServer) resetFrameBuilder() {
+	fb := lidar.GetFrameBuilder(ws.sensorID)
+	if fb != nil {
+		fb.Reset()
+	}
+}
+
+// resetAllState performs a comprehensive reset of all processing state
+// when switching data sources. This includes the background grid, frame
+// builder, and any other stateful components.
+func (ws *WebServer) resetAllState() error {
+	// Reset frame builder first to discard any in-flight frames
+	ws.resetFrameBuilder()
+
+	// Reset background grid
+	if err := ws.resetBackgroundGrid(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -612,6 +742,7 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/persist", ws.handleLidarPersist)
 	mux.HandleFunc("/api/lidar/snapshot", ws.handleLidarSnapshot)
 	mux.HandleFunc("/api/lidar/snapshots", ws.handleLidarSnapshots)
+	mux.HandleFunc("/api/lidar/snapshots/cleanup", ws.handleLidarSnapshotsCleanup)
 	mux.HandleFunc("/api/lidar/export_snapshot", ws.handleExportSnapshotASC)
 	mux.HandleFunc("/api/lidar/export_next_frame", ws.handleExportNextFrameASC)
 	mux.HandleFunc("/api/lidar/export_frame_sequence", ws.handleExportFrameSequenceASC)
@@ -913,6 +1044,12 @@ func (ws *WebServer) handleGridReset(w http.ResponseWriter, r *http.Request) {
 
 	// Log C: API call timing for grid_reset
 	beforeNanos := time.Now().UnixNano()
+
+	// Reset frame builder to clear any buffered frames
+	fb := lidar.GetFrameBuilder(sensorID)
+	if fb != nil {
+		fb.Reset()
+	}
 
 	if err := mgr.ResetGrid(); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("reset error: %v", err))
@@ -1821,6 +1958,45 @@ func (ws *WebServer) handleLidarSnapshots(w http.ResponseWriter, r *http.Request
 	json.NewEncoder(w).Encode(summaries)
 }
 
+func (ws *WebServer) handleLidarSnapshotsCleanup(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+	// Parse form to get sensor_id if needed, or query param
+	if err := r.ParseForm(); err != nil {
+		ws.writeJSONError(w, http.StatusBadRequest, "invalid form data")
+		return
+	}
+	sensorID := r.FormValue("sensor_id")
+	if sensorID == "" {
+		sensorID = r.URL.Query().Get("sensor_id")
+	}
+	if sensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+
+	if ws.db == nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, "no database configured")
+		return
+	}
+
+	count, err := ws.db.DeleteDuplicateBgSnapshots(sensorID)
+	if err != nil {
+		log.Printf("Failed to cleanup snapshots for %s: %v", sensorID, err)
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("cleanup failed: %v", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":    "ok",
+		"sensor_id": sensorID,
+		"deleted":   count,
+	})
+}
+
 // handleHealth handles the health check endpoint
 func (ws *WebServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -1974,6 +2150,9 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 
 	// Template data
 	data := struct {
+		Version           string
+		GitSHA            string
+		BuildTime         string
 		UDPPort           int
 		HTTPAddress       string
 		ForwardingStatus  string
@@ -1993,6 +2172,9 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		PCAPSpeedRatio    float64
 		FgSnapshotCounts  map[string]int
 	}{
+		Version:           version.Version,
+		GitSHA:            version.GitSHA,
+		BuildTime:         version.BuildTime,
 		UDPPort:           ws.udpPort,
 		HTTPAddress:       ws.address,
 		ForwardingStatus:  forwardingStatus,
@@ -2022,12 +2204,16 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 // handleLidarPersist triggers manual persistence of a BackgroundGrid snapshot.
 // Expects POST with form value or query param `sensor_id`.
 func (ws *WebServer) handleLidarPersist(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use POST")
 		return
 	}
 
+	// Support both query params and form data for sensor_id
 	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = r.FormValue("sensor_id")
+	}
 
 	if sensorID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
@@ -2260,13 +2446,16 @@ func (ws *WebServer) handleAcceptanceMetrics(w http.ResponseWriter, r *http.Requ
 }
 
 // handleAcceptanceReset zeros the accept/reject counters for a given sensor_id.
-// Method: POST (or GET for convenience). Query param: sensor_id (required)
+// Method: POST. Query param: sensor_id (required)
 func (ws *WebServer) handleAcceptanceReset(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost && r.Method != http.MethodGet {
+	if r.Method != http.MethodPost {
 		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use POST")
 		return
 	}
 	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = r.FormValue("sensor_id")
+	}
 	if sensorID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
 		return
@@ -2306,17 +2495,33 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	var analysisMode bool
 	var speedMode string
 	var speedRatio float64 = 1.0
+	var startSeconds float64 = 0
+	var durationSeconds float64 = -1
+	var debugRingMin, debugRingMax int
+	var debugAzMin, debugAzMax float32
+	var enableDebug bool
+	var enablePlots bool
 
 	// Accept both JSON and form data
 	contentType := r.Header.Get("Content-Type")
 	if contentType == "application/json" || contentType == "application/json; charset=utf-8" {
 		// Parse JSON body
 		var req struct {
-			PCAPFile     string  `json:"pcap_file"`
-			AnalysisMode bool    `json:"analysis_mode"`
-			SpeedMode    string  `json:"speed_mode"`
-			SpeedRatio   float64 `json:"speed_ratio"`
+			PCAPFile        string  `json:"pcap_file"`
+			AnalysisMode    bool    `json:"analysis_mode"`
+			SpeedMode       string  `json:"speed_mode"`
+			SpeedRatio      float64 `json:"speed_ratio"`
+			StartSeconds    float64 `json:"start_seconds"`
+			DurationSeconds float64 `json:"duration_seconds"`
+			DebugRingMin    int     `json:"debug_ring_min"`
+			DebugRingMax    int     `json:"debug_ring_max"`
+			DebugAzMin      float32 `json:"debug_az_min"`
+			DebugAzMax      float32 `json:"debug_az_max"`
+			EnableDebug     bool    `json:"enable_debug"`
+			EnablePlots     bool    `json:"enable_plots"`
 		}
+		// Set defaults
+		req.DurationSeconds = -1
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			if errors.Is(err, io.EOF) {
 				ws.writeJSONError(w, http.StatusBadRequest, "missing JSON body for PCAP request")
@@ -2331,6 +2536,14 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		if req.SpeedRatio > 0 {
 			speedRatio = req.SpeedRatio
 		}
+		startSeconds = req.StartSeconds
+		durationSeconds = req.DurationSeconds
+		debugRingMin = req.DebugRingMin
+		debugRingMax = req.DebugRingMax
+		debugAzMin = req.DebugAzMin
+		debugAzMax = req.DebugAzMax
+		enableDebug = req.EnableDebug
+		enablePlots = req.EnablePlots
 	} else {
 		// Parse form data (default for HTML forms)
 		if err := r.ParseForm(); err != nil {
@@ -2345,6 +2558,40 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 				speedRatio = f
 			}
 		}
+		if v := r.FormValue("start_seconds"); v != "" {
+			if f, err := strconv.ParseFloat(v, 64); err == nil && f >= 0 {
+				startSeconds = f
+			}
+		}
+		if v := r.FormValue("duration_seconds"); v != "" {
+			if f, err := strconv.ParseFloat(v, 64); err == nil {
+				durationSeconds = f
+			}
+		} else {
+			durationSeconds = -1
+		}
+		if v := r.FormValue("debug_ring_min"); v != "" {
+			if i, err := strconv.Atoi(v); err == nil && i >= 0 {
+				debugRingMin = i
+			}
+		}
+		if v := r.FormValue("debug_ring_max"); v != "" {
+			if i, err := strconv.Atoi(v); err == nil && i >= 0 {
+				debugRingMax = i
+			}
+		}
+		if v := r.FormValue("debug_az_min"); v != "" {
+			if f, err := strconv.ParseFloat(v, 32); err == nil && f >= 0 {
+				debugAzMin = float32(f)
+			}
+		}
+		if v := r.FormValue("debug_az_max"); v != "" {
+			if f, err := strconv.ParseFloat(v, 32); err == nil && f >= 0 {
+				debugAzMax = float32(f)
+			}
+		}
+		enableDebug = r.FormValue("enable_debug") == "true" || r.FormValue("enable_debug") == "1"
+		enablePlots = r.FormValue("enable_plots") == "true" || r.FormValue("enable_plots") == "1"
 	}
 
 	if speedMode == "" {
@@ -2366,7 +2613,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 
 	ws.stopLiveListenerLocked()
 
-	if err := ws.resetBackgroundGrid(); err != nil {
+	if err := ws.resetAllState(); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to reset background grid: %v", err))
 		if restartErr := ws.startLiveListenerLocked(); restartErr != nil {
 			log.Printf("Failed to restart live listener after reset error: %v", restartErr)
@@ -2375,7 +2622,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := ws.startPCAPLocked(pcapFile, speedMode, speedRatio); err != nil {
+	if err := ws.startPCAPLocked(pcapFile, speedMode, speedRatio, startSeconds, durationSeconds, debugRingMin, debugRingMax, debugAzMin, debugAzMax, enableDebug, enablePlots); err != nil {
 		var sErr *switchError
 		if errors.As(err, &sErr) {
 			ws.writeJSONError(w, sErr.status, sErr.Error())
@@ -2412,14 +2659,17 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 }
 
 // handlePCAPStop cancels any active PCAP replay and returns to live UDP.
-// Method: GET. Query param: sensor_id (required to match configured sensor).
+// Method: POST. Query param: sensor_id (required to match configured sensor).
 func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use GET")
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use POST")
 		return
 	}
 
 	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = r.FormValue("sensor_id")
+	}
 	if sensorID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
 		return
@@ -2452,12 +2702,22 @@ func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 	ws.pcapDone = nil
 	ws.pcapMu.Unlock()
 
+	// Release dataSourceMu before waiting for goroutine completion to avoid deadlock
+	// (the PCAP goroutine needs dataSourceMu to finish)
+	// NOTE: We must unlock manually here because we need to wait for done.
+	// Since handlePCAPStop defers the release of dataSourceMu, we must re-lock before returning.
+	ws.dataSourceMu.Unlock()
+
 	if cancel != nil {
 		cancel()
 	}
 	if done != nil {
 		<-done
 	}
+
+	// Reacquire dataSourceMu for subsequent operations
+	// This lock will be released by the deferred Unlock when function returns
+	ws.dataSourceMu.Lock()
 
 	// If in analysis mode, only reset grid if explicitly requested
 	ws.pcapMu.Lock()
@@ -2466,12 +2726,14 @@ func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 	ws.pcapMu.Unlock()
 
 	if !analysisMode {
-		// Normal mode: always reset grid when stopping
-		if err := ws.resetBackgroundGrid(); err != nil {
-			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to reset background grid: %v", err))
+		// Normal mode: always reset all state when stopping
+		if err := ws.resetAllState(); err != nil {
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to reset state: %v", err))
 			return
 		}
 	} else {
+		// Analysis mode: still reset frame builder to clear stale frames
+		ws.resetFrameBuilder()
 		log.Printf("[DataSource] preserving grid from PCAP analysis for sensor=%s", sensorID)
 	}
 
@@ -2495,14 +2757,17 @@ func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 
 // handlePCAPResumeLive switches from PCAP analysis mode back to Live while preserving the background grid.
 // This allows overlaying live data on top of PCAP-analyzed background.
-// Method: GET. Query param: sensor_id (required to match configured sensor).
+// Method: POST. Query param: sensor_id (required to match configured sensor).
 func (ws *WebServer) handlePCAPResumeLive(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use GET")
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use POST")
 		return
 	}
 
 	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = r.FormValue("sensor_id")
+	}
 	if sensorID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
 		return

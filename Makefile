@@ -119,9 +119,10 @@ help:
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-VERSION := 0.0.4-pre4
+VERSION := 0.0.4-pre5
 GIT_SHA := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-LDFLAGS := -X 'main.version=$(VERSION)' -X 'main.gitSHA=$(GIT_SHA)'
+BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+LDFLAGS := -X 'github.com/banshee-data/velocity.report/internal/version.Version=$(VERSION)' -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=$(GIT_SHA)' -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=$(BUILD_TIME)'
 
 # =============================================================================
 # BUILD TARGETS (Go cross-compilation)
@@ -152,15 +153,15 @@ build-tools:
 
 # Build velocity-deploy deployment manager
 build-deploy:
-	go build -o velocity-deploy ./cmd/deploy
+	go build -ldflags "$(LDFLAGS)" -o velocity-deploy ./cmd/deploy
 
 build-deploy-linux:
-	GOOS=linux GOARCH=arm64 go build -o velocity-deploy-linux-arm64 ./cmd/deploy
+	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o velocity-deploy-linux-arm64 ./cmd/deploy
 
 .PHONY: build-web
 build-web:
 	@echo "Building web frontend..."
-	@cd web && if command -v pnpm >/dev/null 2>&1; then \
+	@cd web && export PUBLIC_GIT_SHA="$(GIT_SHA)" && export PUBLIC_BUILD_TIME="$(BUILD_TIME)" && if command -v pnpm >/dev/null 2>&1; then \
 		pnpm run build; \
 	elif command -v npm >/dev/null 2>&1; then \
 		npm run build; \
@@ -317,7 +318,7 @@ define run_dev_go
 	DB_PATH=$${DB_PATH:-./sensor_data.db}; \
 	$(call run_dev_go_kill_server); \
 	echo "Building velocity-report-local..."; \
-	go build -tags=pcap -o velocity-report-local ./cmd/radar; \
+	go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-local ./cmd/radar; \
 	mkdir -p "$$piddir"; \
 	echo "Starting velocity-report-local (background) with DB=$$DB_PATH -> $$logfile (debug -> $$debuglog)"; \
 	VELOCITY_DEBUG_LOG="$$debuglog" nohup ./velocity-report-local --disable-radar $(1) --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
@@ -351,7 +352,7 @@ dev-go:
 	@$(call run_dev_go)
 
 dev-go-lidar:
-	@$(call run_dev_go,--disable-radar --enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward)
+	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward)
 
 dev-go-kill-server:
 	@$(call run_dev_go_kill_server)

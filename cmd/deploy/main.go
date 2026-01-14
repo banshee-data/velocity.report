@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"os"
 	"time"
-)
 
-const version = "0.0.4-pre4"
+	"github.com/banshee-data/velocity.report/internal/version"
+)
 
 var DebugMode bool
 
@@ -42,7 +42,7 @@ func main() {
 	case "config":
 		handleConfig(args)
 	case "version":
-		fmt.Printf("velocity-deploy version %s\n", version)
+		fmt.Printf("velocity-deploy version %s (git SHA: %s)\n", version.Version, version.GitSHA)
 	case "help":
 		printUsage()
 	default:

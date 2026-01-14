@@ -59,7 +59,11 @@ func (f *PacketForwarder) Start(ctx context.Context) {
 			select {
 			case <-ctx.Done():
 				return
-			case packet := <-f.channel:
+			case packet, ok := <-f.channel:
+				if !ok {
+					// Channel closed, exit worker
+					return
+				}
 				_, err := f.conn.Write(packet)
 				if err != nil {
 					droppedCount++

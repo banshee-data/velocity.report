@@ -2,15 +2,21 @@
 import { execSync, spawn } from 'child_process';
 
 // Get git SHA (short form)
-let gitSha = 'unknown';
-try {
-	gitSha = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
-} catch (error) {
-	console.warn('Warning: Could not get git SHA:', error.message);
+let gitSha = process.env.PUBLIC_GIT_SHA;
+if (!gitSha) {
+	try {
+		gitSha = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+	} catch (error) {
+		console.warn('Warning: Could not get git SHA:', error.message);
+		gitSha = 'unknown';
+	}
 }
 
 // Get build time (ISO format) or 'DEV_MODE' for dev server
-const buildTime = process.argv[2] === 'dev' ? 'DEV_MODE' : new Date().toISOString();
+let buildTime = process.env.PUBLIC_BUILD_TIME;
+if (!buildTime) {
+	buildTime = process.argv[2] === 'dev' ? 'DEV_MODE' : new Date().toISOString();
+}
 
 // Set environment variables
 process.env.PUBLIC_GIT_SHA = gitSha;

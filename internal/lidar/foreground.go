@@ -1,7 +1,6 @@
 package lidar
 
 import (
-	"log"
 	"math"
 	"time"
 )
@@ -18,6 +17,13 @@ const (
 	DefaultReacquisitionBoostMultiplier = 5.0
 	// DefaultMinConfidenceFloor is the minimum TimesSeenCount to preserve during foreground
 	DefaultMinConfidenceFloor = 3
+	// ThawGracePeriodNanos is the minimum time after freeze expiry before thaw detection triggers.
+	// This prevents false triggers when FreezeDurationNanos=0 causes immediate "expiry".
+	ThawGracePeriodNanos = int64(1_000_000) // 1ms
+	// DefaultLockedBaselineThreshold is the minimum observations before locking baseline
+	DefaultLockedBaselineThreshold = 50
+	// DefaultLockedBaselineMultiplier defines the acceptance window as LockedSpread * multiplier
+	DefaultLockedBaselineMultiplier = 4.0
 )
 
 // ProcessFramePolarWithMask classifies each point as foreground/background in polar coordinates.
@@ -97,6 +103,16 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		minConfFloor = DefaultMinConfidenceFloor
 	}
 
+	// Locked baseline parameters
+	lockedThreshold := g.Params.LockedBaselineThreshold
+	if lockedThreshold == 0 {
+		lockedThreshold = DefaultLockedBaselineThreshold
+	}
+	lockedMultiplier := float64(g.Params.LockedBaselineMultiplier)
+	if lockedMultiplier <= 0 {
+		lockedMultiplier = DefaultLockedBaselineMultiplier
+	}
+
 	// Warmup gating: suppress foreground output until duration and/or frames satisfied.
 	postSettleAlpha := float64(g.Params.PostSettleUpdateFraction)
 	if postSettleAlpha > 0 && postSettleAlpha <= 1 {
@@ -155,15 +171,34 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		cellIdx := g.Idx(ring, azBin)
 		cell := &g.Cells[cellIdx]
 
-		// If frozen, treat as foreground but still track for fast re-acquisition
+		// If frozen, treat as foreground but don't accumulate recFg
+		// The freeze itself is sufficient protection; accumulating recFg during freeze
+		// causes unnecessarily high values (observed 70+) that persist after thaw.
 		if cell.FrozenUntilUnixNanos > nowNanos {
 			foregroundMask[i] = true
 			foregroundCount++
-			// Track foreground even when frozen (for fast re-acquisition)
-			if cell.RecentForegroundCount < 65535 {
-				cell.RecentForegroundCount++
+			// Debug: log frozen cell observations to track freeze behavior
+			if bm.EnableDiagnostics && g.Params.IsInDebugRange(ring, az) {
+				remainingFreeze := float64(cell.FrozenUntilUnixNanos-nowNanos) / 1e9
+				debugf("[FG_FROZEN] r=%d az=%.1f dist=%.3f avg=%.3f remainingFreezeSec=%.2f recFg=%d",
+					ring, az, p.Distance, cell.AverageRangeMeters, remainingFreeze, cell.RecentForegroundCount)
 			}
 			continue
+		}
+
+		// Check if freeze just expired - reset recFg to give fast re-acquisition a clean start
+		// This prevents artificially high recFg values accumulated during freeze from
+		// causing prolonged boosted updates after thaw.
+		// Note: We only trigger thaw when the freeze was meaningful (expired at least 1ms ago).
+		// This avoids false triggers when FreezeDurationNanos=0 causes immediate "expiry".
+		// Limitation: Thaw is only detected when a point observation hits this cell.
+		if cell.FrozenUntilUnixNanos > 0 && cell.FrozenUntilUnixNanos+ThawGracePeriodNanos <= nowNanos {
+			if bm.EnableDiagnostics && g.Params.IsInDebugRange(ring, az) {
+				debugf("[FG_THAW] r=%d az=%.1f thawed after freeze, resetting recFg from %d to 0",
+					ring, az, cell.RecentForegroundCount)
+			}
+			cell.RecentForegroundCount = 0
+			cell.FrozenUntilUnixNanos = 0 // Clear the expired freeze timestamp
 		}
 
 		// Same-ring neighbor confirmation
@@ -198,11 +233,53 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		}
 
 		// Closeness threshold: scales with cell spread and distance
-		closenessThreshold := closenessMultiplier*(float64(cell.RangeSpreadMeters)+noiseRel*p.Distance+0.01) + safety
+		// Warmup sensitivity scaling:
+		// When a cell is new (low confidence), we haven't learned its true variance yet.
+		// We should be more tolerant (higher threshold) to avoid classifying noise as foreground,
+		// which prevents "initialization trails" where wall points are flagged as FG before spread converges.
+		warmupMultiplier := 1.0
+		if cell.TimesSeenCount < 100 {
+			// Linear decay from 4.0x at count=0 to 1.0x at count=100
+			warmupMultiplier = 1.0 + 3.0*float64(100-cell.TimesSeenCount)/100.0
+		}
+
+		closenessThreshold := closenessMultiplier*(float64(cell.RangeSpreadMeters)+noiseRel*p.Distance+0.01)*warmupMultiplier + safety
 		cellDiff := math.Abs(float64(cell.AverageRangeMeters) - p.Distance)
 
-		// Classification decision
-		isBackgroundLike := cellDiff <= closenessThreshold || (neighConfirm > 0 && neighborConfirmCount >= neighConfirm)
+		// Locked baseline classification: if cell has a locked baseline, use it for classification
+		// This protects against EMA drift during transits
+		isWithinLockedRange := false
+		lockedThresholdU32 := uint32(lockedThreshold)
+		if cell.LockedBaseline > 0 && cell.LockedAtCount >= lockedThresholdU32 {
+			// Use locked baseline for classification - more stable than EMA average
+			lockedDiff := math.Abs(float64(cell.LockedBaseline) - p.Distance)
+			// Acceptance window: locked spread * multiplier + noise-based margin + safety
+			lockedWindow := lockedMultiplier*float64(cell.LockedSpread) + noiseRel*p.Distance + safety
+			if lockedWindow < 0.1 {
+				lockedWindow = 0.1 // Minimum 10cm window
+			}
+			isWithinLockedRange = lockedDiff <= lockedWindow
+		}
+
+		// Classification decision: prioritize locked baseline if available
+		isBackgroundLike := isWithinLockedRange ||
+			cellDiff <= closenessThreshold ||
+			(neighConfirm > 0 && neighborConfirmCount >= neighConfirm)
+
+		// Deadlock Breaker:
+		// If a cell is persistently classified as foreground (RecentForegroundCount high)
+		// but we have low confidence in our background model (TimesSeenCount at floor),
+		// and the divergence isn't massive enough to trigger a freeze ("Gray Zone"),
+		// we assume our background model is stale/corrupted and force an update.
+		// This fixes "ghost trails" where the model learns a transient edge value
+		// and then rejects the true background because it differs from that edge.
+		if !isBackgroundLike && cell.TimesSeenCount <= minConfFloor && cell.RecentForegroundCount > 4 {
+			// Only force-learn if we wouldn't otherwise freeze this cell (avoid learning dynamic obstacles)
+			freezeThresh := FreezeThresholdMultiplier * closenessThreshold
+			if cellDiff <= freezeThresh {
+				isBackgroundLike = true
+			}
+		}
 
 		// Handle empty cells based on seed-from-first setting
 		initIfEmpty := false
@@ -222,6 +299,10 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 				cell.TimesSeenCount = 1
 				g.nonzeroCellCount++
 				cell.RecentForegroundCount = 0
+				// Initialize locked baseline tracking
+				cell.LockedBaseline = 0
+				cell.LockedSpread = 0
+				cell.LockedAtCount = 0
 			} else {
 				// Fast re-acquisition: if cell recently saw foreground, use boosted alpha
 				// to quickly re-converge to background after object passes
@@ -237,6 +318,22 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 				cell.AverageRangeMeters = float32(newAvg)
 				cell.RangeSpreadMeters = float32(newSpread)
 				cell.TimesSeenCount++
+
+				// Lock the baseline once we've seen enough observations
+				// This provides a stable reference that doesn't drift during transits
+				lockedThresholdU32 := uint32(lockedThreshold)
+				if cell.LockedAtCount < lockedThresholdU32 && cell.TimesSeenCount >= lockedThresholdU32 {
+					cell.LockedBaseline = cell.AverageRangeMeters
+					cell.LockedSpread = cell.RangeSpreadMeters
+					cell.LockedAtCount = cell.TimesSeenCount
+				} else if cell.LockedAtCount >= lockedThresholdU32 && cell.RecentForegroundCount == 0 {
+					// Only update locked baseline during sustained background periods
+					// (no recent foreground detections)
+					lockAlpha := 0.001 // Very slow update rate for locked baseline
+					cell.LockedBaseline = float32((1.0-lockAlpha)*float64(cell.LockedBaseline) + lockAlpha*p.Distance)
+					lockSpreadDev := math.Abs(p.Distance - float64(cell.LockedBaseline))
+					cell.LockedSpread = float32((1.0-lockAlpha)*float64(cell.LockedSpread) + lockAlpha*lockSpreadDev)
+				}
 
 				// Decay RecentForegroundCount now that we're seeing background again
 				if cell.RecentForegroundCount > 0 {
@@ -264,8 +361,15 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 					g.nonzeroCellCount--
 				}
 			}
-			// Freeze cell if divergence is very large
-			if cellDiff > FreezeThresholdMultiplier*closenessThreshold {
+			// Freeze cell if divergence is very large, but only if we are not confident
+			// (TimesSeenCount < 100). If we have a solid background (e.g. static road),
+			// a passing object should not freeze the background model.
+			if cell.TimesSeenCount < 100 && cellDiff > FreezeThresholdMultiplier*closenessThreshold {
+				if bm.EnableDiagnostics && g.Params.IsInDebugRange(ring, az) {
+					debugf("[FG_FREEZE] r=%d az=%.1f froze for %.1fs, dist=%.3f avg=%.3f cellDiff=%.3f freezeThresh=%.3f recFg=%d",
+						ring, az, float64(freezeDur)/1e9, p.Distance, cell.AverageRangeMeters,
+						cellDiff, FreezeThresholdMultiplier*closenessThreshold, cell.RecentForegroundCount)
+				}
 				cell.FrozenUntilUnixNanos = nowNanos + freezeDur
 			}
 			cell.LastUpdateUnixNanos = nowNanos
@@ -273,7 +377,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 
 		// Debug logging for specific region to investigate trailing foreground
 		if bm.EnableDiagnostics && g.Params.IsInDebugRange(ring, az) {
-			log.Printf("[FG_DEBUG] r=%d az=%.1f dist=%.3f avg=%.3f spread=%.3f diff=%.3f thresh=%.3f seen=%d recFg=%d frozen=%v isBg=%v",
+			debugf("[FG_DEBUG] r=%d az=%.1f dist=%.3f avg=%.3f spread=%.3f diff=%.3f thresh=%.3f seen=%d recFg=%d frozen=%v isBg=%v",
 				ring, az, p.Distance, cell.AverageRangeMeters, cell.RangeSpreadMeters,
 				cellDiff, closenessThreshold, cell.TimesSeenCount, cell.RecentForegroundCount,
 				cell.FrozenUntilUnixNanos > nowNanos, !foregroundMask[i])
@@ -292,7 +396,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		backgroundCount = int64(len(points))
 
 		if bm != nil && bm.EnableDiagnostics {
-			log.Printf("[Foreground] warmup active: suppressed_fg=%d total_points=%d warmup_frames_remaining=%d warmup_duration_ns=%d elapsed_ms=%d",
+			debugf("[Foreground] warmup active: suppressed_fg=%d total_points=%d warmup_frames_remaining=%d warmup_duration_ns=%d elapsed_ms=%d",
 				suppressedFg, len(points), warmupFramesRemaining, warmupDuration, warmupElapsed.Milliseconds())
 		}
 	}

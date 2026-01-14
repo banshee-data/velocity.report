@@ -181,6 +181,34 @@ func NewFrameBuilder(config FrameBuilderConfig) *FrameBuilder {
 	return fb
 }
 
+// Reset clears all buffered frame state. This should be called when switching
+// data sources (e.g., live to PCAP) to prevent stale frames from contaminating
+// the new data stream.
+func (fb *FrameBuilder) Reset() {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+
+	// Discard current frame in progress
+	fb.currentFrame = nil
+	fb.lastAzimuth = 0
+
+	// Clear frame buffer
+	for k := range fb.frameBuffer {
+		delete(fb.frameBuffer, k)
+	}
+
+	// Reset sequence tracking
+	fb.lastSequence = 0
+	for k := range fb.sequenceGaps {
+		delete(fb.sequenceGaps, k)
+	}
+	for k := range fb.pendingPackets {
+		delete(fb.pendingPackets, k)
+	}
+
+	Debugf("[FrameBuilder] Reset: cleared all buffered frames and state for sensor=%s", fb.sensorID)
+}
+
 // SetMotorSpeed updates the expected frame duration based on motor speed (RPM)
 // This enables time-based frame detection for accurate motor speed handling
 func (fb *FrameBuilder) SetMotorSpeed(rpm uint16) {
@@ -260,10 +288,11 @@ func (fb *FrameBuilder) addPointsInternal(points []Point) {
 		fb.checkSequenceGaps(point.UDPSequence)
 
 		// Check if we need to start a new frame based on azimuth wrap and/or time
-		if fb.shouldStartNewFrame(point.Azimuth, point.Timestamp) {
+		shouldStart, reason := fb.shouldStartNewFrame(point.Azimuth, point.Timestamp)
+		if shouldStart {
 			if fb.currentFrame != nil {
-				debugf("[FrameBuilder] Azimuth wrap detected: lastAz=%.2f currAz=%.2f, finalizing frame with %d points",
-					fb.lastAzimuth, point.Azimuth, fb.currentFrame.PointCount)
+				debugf("[FrameBuilder] Frame completion detected (%s): lastAz=%.2f currAz=%.2f, finalizing frame with %d points",
+					reason, fb.lastAzimuth, point.Azimuth, fb.currentFrame.PointCount)
 			}
 			fb.finalizeCurrentFrame()
 			fb.startNewFrame(point.Timestamp, arrivalNow)
@@ -294,13 +323,13 @@ func (fb *FrameBuilder) addPointsInternal(points []Point) {
 }
 
 // shouldStartNewFrame determines if we should start a new frame based on azimuth and/or time
-func (fb *FrameBuilder) shouldStartNewFrame(azimuth float64, timestamp time.Time) bool {
+func (fb *FrameBuilder) shouldStartNewFrame(azimuth float64, timestamp time.Time) (bool, string) {
 	if fb.lastAzimuth < 0 {
-		return false // First point ever
+		return false, "" // First point ever
 	}
 
 	if fb.currentFrame == nil {
-		return true // No current frame
+		return true, "initialize" // No current frame
 	}
 
 	cov := frameAzimuthCoverage(fb.currentFrame)
@@ -313,13 +342,13 @@ func (fb *FrameBuilder) shouldStartNewFrame(azimuth float64, timestamp time.Time
 		// Add a small tolerance (10%) to account for timing variations
 		maxDuration := fb.expectedFrameDuration + (fb.expectedFrameDuration / 10)
 		if frameDuration >= maxDuration && cov >= MinAzimuthCoverage {
-			return true
+			return true, fmt.Sprintf("time_limit_exceeded (dur=%v, cov=%.1f)", frameDuration, cov)
 		}
 
 		// Even with time-based detection, respect azimuth wraps for precise timing
 		// but with relaxed requirements since we're time-bounded
 		if fb.lastAzimuth > 340.0 && azimuth < 20.0 && frameDuration >= (fb.expectedFrameDuration/2) && cov >= MinAzimuthCoverage {
-			return true
+			return true, "azimuth_wrap_time_aligned"
 		}
 	} else {
 		// Traditional azimuth-based detection (original logic)
@@ -329,7 +358,7 @@ func (fb *FrameBuilder) shouldStartNewFrame(azimuth float64, timestamp time.Time
 		// indicate a rotation wrap even if values don't cross the 350°->10° band.
 		if fb.lastAzimuth-azimuth > 180.0 {
 			if fb.currentFrame != nil && fb.currentFrame.PointCount > fb.minFramePoints && cov >= MinAzimuthCoverage {
-				return true
+				return true, "azimuth_wrap_large_jump"
 			}
 		}
 
@@ -341,12 +370,12 @@ func (fb *FrameBuilder) shouldStartNewFrame(azimuth float64, timestamp time.Time
 			if fb.currentFrame != nil &&
 				(fb.currentFrame.MaxAzimuth-fb.currentFrame.MinAzimuth) > MinAzimuthCoverage &&
 				fb.currentFrame.PointCount > MinFramePointsForCompletion {
-				return true
+				return true, "azimuth_wrap_crossing"
 			}
 		}
 	}
 
-	return false
+	return false, ""
 }
 
 // startNewFrame creates a new frame for accumulating points

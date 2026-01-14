@@ -1,9 +1,8 @@
 # LIDAR Foreground Extraction and Tracking Implementation Plan
 
 **Status:** Implementation Complete through Phase 3.7
-**Date:** December 1, 2025
-**Author:** Ictinus (Product Architecture Agent)
-**Version:** 7.0 - Analysis Run Infrastructure Complete
+**Date:** January 2026
+**Version:** 7.1 - Warmup sensitivity scaling added
 
 ---
 
@@ -84,9 +83,10 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 
 - **Implementation:** `internal/lidar/foreground.go`
 - ✅ `ProcessFramePolarWithMask()` - per-point foreground/background classification returning mask
+- ✅ **Warmup Sensitivity Scaling** - dynamic threshold multiplier during cell initialisation (4x→1x over 100 observations)
 - ✅ `ExtractForegroundPoints()` - helper to filter foreground points from mask
 - ✅ `ComputeFrameMetrics()` - frame-level statistics (total, foreground, background counts)
-- ✅ Unit tests in `internal/lidar/foreground_test.go`
+- ✅ Unit tests in `internal/lidar/foreground_test.go` and `internal/lidar/foreground_warmup_test.go`
 
 #### Phase 3.0: Polar → World Transform
 

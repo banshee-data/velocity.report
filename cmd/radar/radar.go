@@ -27,12 +27,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/monitor"
 	"github.com/banshee-data/velocity.report/internal/lidar/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/parse"
-)
-
-// Version information (set at build time via ldflags)
-var (
-	version = "dev"
-	gitSHA  = "unknown"
+	"github.com/banshee-data/velocity.report/internal/version"
 )
 
 var (
@@ -113,7 +108,7 @@ func main() {
 
 	// Handle version flags (-v, --version)
 	if *versionFlag || *versionShort {
-		fmt.Printf("velocity-report v%s (git SHA: %s)\n", version, gitSHA)
+		fmt.Printf("velocity-report v%s (git SHA: %s)\n", version.Version, version.GitSHA)
 		os.Exit(0)
 	}
 
@@ -121,8 +116,8 @@ func main() {
 	if flag.NArg() > 0 {
 		subcommand := flag.Arg(0)
 		if subcommand == "version" {
-			fmt.Printf("velocity-report v%s\n", version)
-			fmt.Printf("git SHA: %s\n", gitSHA)
+			fmt.Printf("velocity-report v%s\n", version.Version)
+			fmt.Printf("git SHA: %s\n", version.GitSHA)
 			os.Exit(0)
 		}
 		if subcommand == "migrate" {
@@ -198,7 +193,7 @@ func main() {
 	}
 
 	// Log version and git SHA on startup
-	log.Printf("velocity-report v%s (git SHA: %s)", version, gitSHA)
+	log.Printf("velocity-report v%s (git SHA: %s)", version.Version, version.GitSHA)
 
 	// Use the CLI flag value (defaults to ./sensor_data.db). We intentionally
 	// avoid relying on environment variables for configuration unless needed.
@@ -233,6 +228,9 @@ func main() {
 			SnapshotIntervalNanos:          int64(2 * time.Hour),
 			ChangeThresholdForSnapshot:     100,
 			NoiseRelativeFraction:          float32(*lidarBgNoiseRelative),
+			// Use library default (3) for minimum confidence floor so we don't accidentally
+			// reset background on transient noise or short events.
+			MinConfidenceFloor: lidar.DefaultMinConfidenceFloor,
 			// When running in PCAP mode / dev runs seed the background grid from first observations
 			// so replayed captures can build an initial background without live warmup.
 			SeedFromFirstObservation: *lidarSeedFromFirst,
@@ -282,6 +280,19 @@ func main() {
 		var frameBuilder *lidar.FrameBuilder
 		var tracker *lidar.Tracker
 		var classifier *lidar.TrackClassifier
+
+		// Optional foreground-only forwarder (Pandar40-compatible) for live mode
+		if *lidarFGForward {
+			fg, err := network.NewForegroundForwarder(*lidarFGFwdAddr, *lidarFGFwdPort, nil)
+			if err != nil {
+				log.Printf("failed to create foreground forwarder: %v", err)
+			} else {
+				foregroundForwarder = fg
+				foregroundForwarder.Start(ctx)
+				defer foregroundForwarder.Close()
+				log.Printf("Foreground forwarder enabled to %s:%d", *lidarFGFwdAddr, *lidarFGFwdPort)
+			}
+		}
 
 		if !*lidarNoParse {
 			config, err := parse.LoadEmbeddedPandar40PConfig()
@@ -343,19 +354,6 @@ func main() {
 			}
 		}
 
-		// Optional foreground-only forwarder (Pandar40-compatible) for live mode
-		if *lidarFGForward {
-			fg, err := network.NewForegroundForwarder(*lidarFGFwdAddr, *lidarFGFwdPort, nil)
-			if err != nil {
-				log.Printf("failed to create foreground forwarder: %v", err)
-			} else {
-				foregroundForwarder = fg
-				foregroundForwarder.Start(ctx)
-				defer foregroundForwarder.Close()
-				log.Printf("Foreground forwarder enabled to %s:%d", *lidarFGFwdAddr, *lidarFGFwdPort)
-			}
-		}
-
 		// Packet forwarding (optional)
 		var packetForwarder *network.PacketForwarder
 		// Create a PacketStats instance and wire it into the forwarder, listener and webserver
@@ -387,7 +385,7 @@ func main() {
 		// Start lidar webserver for monitoring (moved into internal/api)
 		// Provide a PacketStats instance if parsing/forwarding is enabled
 		// Pass the same PacketStats instance to the webserver so it shows live stats
-		lidarWebServer := monitor.NewWebServer(monitor.WebServerConfig{
+		lidarWebServer = monitor.NewWebServer(monitor.WebServerConfig{
 			Address:           *lidarListen,
 			Stats:             packetStats,
 			ForwardingEnabled: *lidarForward,
@@ -402,6 +400,7 @@ func main() {
 			PCAPSafeDir:       *lidarPCAPDir,
 			PacketForwarder:   packetForwarder,
 			UDPListenerConfig: udpListenerConfig,
+			PlotsBaseDir:      filepath.Join(*lidarPCAPDir, "plots"),
 		})
 		wg.Add(1)
 		go func() {
