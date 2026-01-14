@@ -1194,11 +1194,12 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 
 	// Iterate over observed cells and update grid
 	g.mu.Lock()
-	if bm.StartTime.IsZero() {
+	startTimeWasZero := bm.StartTime.IsZero()
+	if startTimeWasZero {
 		bm.StartTime = now
 	}
 	// Initialize WarmupFramesRemaining on first call if configured
-	if g.WarmupFramesRemaining == 0 && g.Params.WarmupMinFrames > 0 && !g.SettlingComplete && bm.StartTime.IsZero() {
+	if startTimeWasZero && g.WarmupFramesRemaining == 0 && g.Params.WarmupMinFrames > 0 && !g.SettlingComplete {
 		g.WarmupFramesRemaining = g.Params.WarmupMinFrames
 	}
 	postSettleAlpha := float64(g.Params.PostSettleUpdateFraction)
