@@ -44,7 +44,7 @@ if [ "$SOURCE" = "pcap" ]; then
     -d '{"pcap_file":"'$PCAP_NAME'"}' | jq . || true
 else
   echo "Stopping PCAP replay for sensor=$SENSOR_ID via $BASE_URL"
-  curl -s "$BASE_URL/api/lidar/pcap/stop?sensor_id=$SENSOR_ID" | jq . || true
+  curl -s -X POST "$BASE_URL/api/lidar/pcap/stop?sensor_id=$SENSOR_ID" | jq . || true
 fi
 
 echo
