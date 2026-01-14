@@ -58,7 +58,7 @@ Returns the current data source, active PCAP file (if any), and whether a replay
   - Body: `{ "pcap_file": "capture.pcap" }`
   - Starts PCAP replay (stops UDP listener, resets background, launches replay)
   - 409 when a replay is already active
-- `GET /api/lidar/pcap/stop?sensor_id=<id>`
+- `POST /api/lidar/pcap/stop?sensor_id=<id>`
   - Cancels an in-progress replay, resets the grid, and resumes live UDP ingestion
   - 409 when no replay is active
 
@@ -69,6 +69,7 @@ These endpoints preserve the existing `/api/lidar/pcap/*` contract while adding 
 **Handler Flow**
 
 - `handlePCAPStart`
+
   1. Validate `sensor_id` and JSON body (`pcap_file` required)
   2. Acquire `dataSourceMu`, stop live listener, reset background grid
   3. Validate PCAP path (safe directory enforcement)
@@ -76,6 +77,7 @@ These endpoints preserve the existing `/api/lidar/pcap/*` contract while adding 
   5. Return canonical file path in response
 
 - `handlePCAPStop`
+
   1. Validate `sensor_id`
   2. Cancel the running replay (if active) and wait for completion
   3. Reset background grid and restart live UDP listener
@@ -114,7 +116,7 @@ curl -X POST "http://localhost:8081/api/lidar/pcap/start?sensor_id=hesai-pandar4
    -d '{"pcap_file": "file.pcap"}'
 
 # Return to live data when finished
-curl "http://localhost:8081/api/lidar/pcap/stop?sensor_id=hesai-pandar40p"
+curl -X POST "http://localhost:8081/api/lidar/pcap/stop?sensor_id=hesai-pandar40p"
 ```
 
 ### 5. WebServer Configuration Updates

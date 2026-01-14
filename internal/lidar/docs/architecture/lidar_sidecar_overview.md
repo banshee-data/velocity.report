@@ -394,7 +394,7 @@ curl -X POST "http://localhost:8081/api/lidar/pcap/start?sensor_id=hesai-pandar4
 curl http://localhost:8081/api/lidar/status | jq .
 
 # Switch back to live UDP data when finished
-curl "http://localhost:8081/api/lidar/pcap/stop?sensor_id=hesai-pandar40p"
+curl -X POST "http://localhost:8081/api/lidar/pcap/stop?sensor_id=hesai-pandar40p"
 
 # Sweep tools continue to point at the API
 ./bg-sweep -pcap-file=/path/to/cars.pcap -start=0.01 -end=0.3 -step=0.01
@@ -831,9 +831,9 @@ ChangeThresholdForSnapshot     int      // Min changed cells to trigger snapshot
 - `GET /api/lidar/grid/export_asc?sensor_id=<id>` - Export background grid as ASC point cloud
 - `POST /api/lidar/pcap/start?sensor_id=<id>` - Start PCAP replay (resets grid, stops UDP listener)
   - JSON body: `{"pcap_file": "filename.pcap"}` or `{"pcap_file": "subfolder/file.pcap"}`
-- `GET /api/lidar/pcap/stop?sensor_id=<id>` - Stop replay and return to live UDP packets
+- `POST /api/lidar/pcap/stop?sensor_id=<id>` - Stop replay and return to live UDP packets
 - `GET /api/lidar/data_source` - Current data source, PCAP file, and replay status
-- `POST /api/lidar/snapshot/persist?sensor_id=<id>` - Force immediate background snapshot to database
+- `POST /api/lidar/persist?sensor_id=<id>` - Force immediate background snapshot to database
 - `GET /api/lidar/snapshot?sensor_id=<id>` - Retrieve latest background snapshot from database
 
 ### ✅ Track API Endpoints (Phase 3.5 - Complete)

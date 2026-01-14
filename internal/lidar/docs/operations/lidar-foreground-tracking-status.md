@@ -97,7 +97,7 @@ warmupMultiplier = 1.0 + 3.0 * (100 - count) / 100
 | `/api/lidar/grid_status` | GET      | Background grid statistics        |
 | `/api/lidar/grid_reset`  | GET      | Reset background grid             |
 | `/api/lidar/pcap/start`  | POST     | Start PCAP replay                 |
-| `/api/lidar/pcap/stop`   | GET      | Stop PCAP replay                  |
+| `/api/lidar/pcap/stop`   | POST     | Stop PCAP replay                  |
 | `/api/lidar/data_source` | GET      | Current data source (live/pcap)   |
 
 ## Future Enhancements
