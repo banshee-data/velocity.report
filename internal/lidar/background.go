@@ -581,6 +581,11 @@ func (bm *BackgroundManager) ResetGrid() error {
 		g.Cells[i].TimesSeenCount = 0
 		g.Cells[i].LastUpdateUnixNanos = 0
 		g.Cells[i].FrozenUntilUnixNanos = 0
+		// Also reset foreground tracking and locked baseline fields
+		g.Cells[i].RecentForegroundCount = 0
+		g.Cells[i].LockedBaseline = 0
+		g.Cells[i].LockedSpread = 0
+		g.Cells[i].LockedAtCount = 0
 	}
 	for i := range g.AcceptByRangeBuckets {
 		g.AcceptByRangeBuckets[i] = 0

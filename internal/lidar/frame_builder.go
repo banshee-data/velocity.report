@@ -181,6 +181,34 @@ func NewFrameBuilder(config FrameBuilderConfig) *FrameBuilder {
 	return fb
 }
 
+// Reset clears all buffered frame state. This should be called when switching
+// data sources (e.g., live to PCAP) to prevent stale frames from contaminating
+// the new data stream.
+func (fb *FrameBuilder) Reset() {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+
+	// Discard current frame in progress
+	fb.currentFrame = nil
+	fb.lastAzimuth = 0
+
+	// Clear frame buffer
+	for k := range fb.frameBuffer {
+		delete(fb.frameBuffer, k)
+	}
+
+	// Reset sequence tracking
+	fb.lastSequence = 0
+	for k := range fb.sequenceGaps {
+		delete(fb.sequenceGaps, k)
+	}
+	for k := range fb.pendingPackets {
+		delete(fb.pendingPackets, k)
+	}
+
+	Debugf("[FrameBuilder] Reset: cleared all buffered frames and state for sensor=%s", fb.sensorID)
+}
+
 // SetMotorSpeed updates the expected frame duration based on motor speed (RPM)
 // This enables time-based frame detection for accurate motor speed handling
 func (fb *FrameBuilder) SetMotorSpeed(rpm uint16) {

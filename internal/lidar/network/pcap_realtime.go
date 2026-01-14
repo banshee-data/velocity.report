@@ -52,6 +52,13 @@ type RealtimeReplayConfig struct {
 	OnFrameCallback func(mgr *lidar.BackgroundManager, points []lidar.PointPolar)
 }
 
+const (
+	// Max points to buffer before forcing a flush to foreground forwarder
+	maxForegroundBufferPoints = 1200 // Approx 10 blocks (1 full packet)
+	// Max distinct source packets to buffer before flushing (to avoid latency)
+	maxForegroundBufferPackets = 20
+)
+
 // ReadPCAPFileRealtime reads and replays a PCAP file in real-time, respecting original packet timing.
 // This allows live network forwarding of PCAP data for real-time analysis.
 // Packets are forwarded via PacketForwarder if configured.
@@ -82,15 +89,22 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 	warmupRemaining := config.WarmupPackets
 
 	var firstPacketTime time.Time
-	var lastPacketTime time.Time
 	replayStartTime := time.Now()
 	var startThreshold time.Time
 	var endThreshold time.Time
 	skippingToStart := config.StartSeconds > 0
 
+	// Buffer for aggregating foreground points to reduce packet overhead
+	var foregroundBuffer []lidar.PointPolar
+	var bufferedPackets int
+
 	for {
 		select {
 		case <-ctx.Done():
+			// Flush remaining foreground buffer on exit
+			if config.ForegroundForwarder != nil && len(foregroundBuffer) > 0 {
+				config.ForegroundForwarder.ForwardForeground(foregroundBuffer)
+			}
 			log.Printf("PCAP real-time replay stopping due to context cancellation (processed %d packets)", packetCount)
 			return ctx.Err()
 		case packet := <-packetSource.Packets():
@@ -108,13 +122,14 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 
 			if firstPacketTime.IsZero() {
 				firstPacketTime = captureTime
-				lastPacketTime = captureTime
 				// Set start and end thresholds based on config
 				if config.StartSeconds > 0 {
 					startThreshold = firstPacketTime.Add(time.Duration(config.StartSeconds * float64(time.Second)))
 				} else {
 					// When no start offset, use first packet time as the baseline
 					startThreshold = firstPacketTime
+					// Reset replay start time for accurate pacing when not skipping
+					replayStartTime = time.Now()
 				}
 				if config.DurationSeconds > 0 {
 					// Duration is always relative to the effective start threshold
@@ -148,23 +163,27 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 					packetCount, captureTime, firstPacketTime, captureTime.Sub(firstPacketTime).Seconds())
 			}
 
+			// Real-time pacing: compare wall clock elapsed with PCAP time elapsed
+			// This accounts for processing time and avoids cumulative lag
 			if firstPacketTime != captureTime {
-				// Calculate delay since last packet (scaled by speed multiplier)
-				delay := captureTime.Sub(lastPacketTime)
-				scaledDelay := time.Duration(float64(delay) / config.SpeedMultiplier)
+				// How much PCAP time has elapsed since the effective start?
+				pcapElapsed := captureTime.Sub(startThreshold)
+				// How much wall clock time should have elapsed at this speed?
+				targetWallElapsed := time.Duration(float64(pcapElapsed) / config.SpeedMultiplier)
+				// How much wall clock time has actually elapsed?
+				actualWallElapsed := time.Since(replayStartTime)
+				// Wait for the difference (if we're ahead of schedule)
+				waitTime := targetWallElapsed - actualWallElapsed
 
-				// Wait for scaled delay to maintain timing
-				if scaledDelay > 0 {
+				if waitTime > 0 {
 					select {
 					case <-ctx.Done():
 						return ctx.Err()
-					case <-time.After(scaledDelay):
+					case <-time.After(waitTime):
 						// Continue
 					}
 				}
 			}
-
-			lastPacketTime = captureTime
 
 			// Extract UDP layer
 			udpLayer := packet.Layer(layers.LayerTypeUDP)
@@ -297,7 +316,27 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 								}
 
 								if len(pointsToForward) > 0 {
-									config.ForegroundForwarder.ForwardForeground(pointsToForward)
+									// Accumulate points in buffer
+									// Stripping UDPSequence to allow better packing is done implicitly
+									// if the Forwarder chooses to ignore it, but we can help by
+									// aggregating multiple source packets into one Forward call.
+									// However, we must ensure we don't hold them too long.
+
+									// Clear UDPSequence to aid packing in Forwarder
+									for i := range pointsToForward {
+										pointsToForward[i].UDPSequence = 0
+									}
+
+									foregroundBuffer = append(foregroundBuffer, pointsToForward...)
+									bufferedPackets++
+
+									// Flush if buffer is full or enough distinct packets collected
+									if len(foregroundBuffer) >= maxForegroundBufferPoints || bufferedPackets >= maxForegroundBufferPackets {
+										config.ForegroundForwarder.ForwardForeground(foregroundBuffer)
+										foregroundBuffer = nil // Reallocate or clear? nil lets GC handle old slice
+										foregroundBuffer = make([]lidar.PointPolar, 0, maxForegroundBufferPoints)
+										bufferedPackets = 0
+									}
 								}
 
 								if packetCount%1000 == 0 {

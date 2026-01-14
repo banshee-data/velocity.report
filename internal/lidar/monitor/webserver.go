@@ -547,12 +547,13 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 				ForegroundForwarder: fgForwarder,
 				BackgroundManager:   bgManager,
 				SensorID:            ws.sensorID,
-				WarmupPackets:       500,
-				DebugRingMin:        debugRingMin,
-				DebugRingMax:        debugRingMax,
-				DebugAzMin:          debugAzMin,
-				DebugAzMax:          debugAzMax,
-				OnFrameCallback:     onFrameCallback,
+				// Increase warmup to ~4000 packets (approx 20 frames / 2 seconds) to allow background grid to stabilize
+				WarmupPackets:   4000,
+				DebugRingMin:    debugRingMin,
+				DebugRingMax:    debugRingMax,
+				DebugAzMin:      debugAzMin,
+				DebugAzMax:      debugAzMax,
+				OnFrameCallback: onFrameCallback,
 			}
 
 			err = network.ReadPCAPFileRealtime(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, config)
@@ -607,9 +608,9 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 				ws.currentSource = DataSourcePCAPAnalysis
 				log.Printf("[DataSource] PCAP analysis complete for sensor=%s, grid preserved for inspection", ws.sensorID)
 			} else {
-				// Normal mode: reset grid and return to live
-				if err := ws.resetBackgroundGrid(); err != nil {
-					log.Printf("Failed to reset background grid after PCAP: %v", err)
+				// Normal mode: reset all state and return to live
+				if err := ws.resetAllState(); err != nil {
+					log.Printf("Failed to reset state after PCAP: %v", err)
 				}
 				if err := ws.startLiveListenerLocked(); err != nil {
 					log.Printf("Failed to restart live listener after PCAP: %v", err)
@@ -634,6 +635,30 @@ func (ws *WebServer) resetBackgroundGrid() error {
 	if err := mgr.ResetGrid(); err != nil {
 		return err
 	}
+	return nil
+}
+
+// resetFrameBuilder clears all buffered frame state to prevent stale data
+// from contaminating a new data source.
+func (ws *WebServer) resetFrameBuilder() {
+	fb := lidar.GetFrameBuilder(ws.sensorID)
+	if fb != nil {
+		fb.Reset()
+	}
+}
+
+// resetAllState performs a comprehensive reset of all processing state
+// when switching data sources. This includes the background grid, frame
+// builder, and any other stateful components.
+func (ws *WebServer) resetAllState() error {
+	// Reset frame builder first to discard any in-flight frames
+	ws.resetFrameBuilder()
+
+	// Reset background grid
+	if err := ws.resetBackgroundGrid(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -1019,6 +1044,12 @@ func (ws *WebServer) handleGridReset(w http.ResponseWriter, r *http.Request) {
 
 	// Log C: API call timing for grid_reset
 	beforeNanos := time.Now().UnixNano()
+
+	// Reset frame builder to clear any buffered frames
+	fb := lidar.GetFrameBuilder(sensorID)
+	if fb != nil {
+		fb.Reset()
+	}
 
 	if err := mgr.ResetGrid(); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("reset error: %v", err))
@@ -2582,7 +2613,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 
 	ws.stopLiveListenerLocked()
 
-	if err := ws.resetBackgroundGrid(); err != nil {
+	if err := ws.resetAllState(); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to reset background grid: %v", err))
 		if restartErr := ws.startLiveListenerLocked(); restartErr != nil {
 			log.Printf("Failed to restart live listener after reset error: %v", restartErr)
@@ -2695,12 +2726,14 @@ func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 	ws.pcapMu.Unlock()
 
 	if !analysisMode {
-		// Normal mode: always reset grid when stopping
-		if err := ws.resetBackgroundGrid(); err != nil {
-			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to reset background grid: %v", err))
+		// Normal mode: always reset all state when stopping
+		if err := ws.resetAllState(); err != nil {
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to reset state: %v", err))
 			return
 		}
 	} else {
+		// Analysis mode: still reset frame builder to clear stale frames
+		ws.resetFrameBuilder()
 		log.Printf("[DataSource] preserving grid from PCAP analysis for sensor=%s", sensorID)
 	}
 
