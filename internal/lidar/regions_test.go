@@ -1,6 +1,7 @@
 package lidar
 
 import (
+	"math"
 	"testing"
 )
 
@@ -54,7 +55,8 @@ func TestUpdateVarianceMetrics(t *testing.T) {
 	// Verify that variance values are reasonable
 	for i, v := range rm.SettlingMetrics.VariancePerCell {
 		expectedVariance := float64(cells[i].RangeSpreadMeters)
-		if v != expectedVariance {
+		// Use approximate equality for floating point comparison
+		if math.Abs(v-expectedVariance) > 0.0001 {
 			t.Errorf("Cell %d: expected variance %.3f, got %.3f", i, expectedVariance, v)
 		}
 	}

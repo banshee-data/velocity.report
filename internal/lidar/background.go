@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -235,6 +236,7 @@ func NewRegionManager(rings, azBins int) *RegionManager {
 }
 
 // UpdateVarianceMetrics accumulates variance data during settling
+// Computes running mean of RangeSpreadMeters values per cell
 func (rm *RegionManager) UpdateVarianceMetrics(cells []BackgroundCell) {
 	if rm.IdentificationComplete {
 		return
@@ -242,12 +244,12 @@ func (rm *RegionManager) UpdateVarianceMetrics(cells []BackgroundCell) {
 	n := float64(rm.SettlingMetrics.FramesSampled)
 	for i, cell := range cells {
 		if cell.TimesSeenCount > 0 {
-			// Incremental variance calculation using Welford's method
+			// Incremental mean calculation: mean_new = mean_old + (x - mean_old) / (n + 1)
 			variance := float64(cell.RangeSpreadMeters)
 			if n == 0 {
 				rm.SettlingMetrics.VariancePerCell[i] = variance
 			} else {
-				// Update running mean of variance
+				// Update running mean of spread values
 				oldMean := rm.SettlingMetrics.VariancePerCell[i]
 				rm.SettlingMetrics.VariancePerCell[i] = oldMean + (variance-oldMean)/(n+1)
 			}
@@ -290,13 +292,7 @@ func (rm *RegionManager) IdentifyRegions(grid *BackgroundGrid, maxRegions int) e
 	// Sort variances to find thresholds
 	sortedVars := make([]float64, len(variances))
 	copy(sortedVars, variances)
-	for i := 0; i < len(sortedVars); i++ {
-		for j := i + 1; j < len(sortedVars); j++ {
-			if sortedVars[j] < sortedVars[i] {
-				sortedVars[i], sortedVars[j] = sortedVars[j], sortedVars[i]
-			}
-		}
-	}
+	sort.Float64s(sortedVars)
 
 	// Define thresholds: 33rd and 66th percentiles
 	lowThreshold := sortedVars[len(sortedVars)/3]
@@ -450,14 +446,10 @@ func (rm *RegionManager) assignRegionParams(category int, baseParams BackgroundP
 
 // mergeSmallestRegions reduces the number of regions by merging smallest adjacent regions
 func (rm *RegionManager) mergeSmallestRegions(regions []*Region, grid *BackgroundGrid, targetMax int) []*Region {
-	// Sort regions by size (smallest first)
-	for i := 0; i < len(regions); i++ {
-		for j := i + 1; j < len(regions); j++ {
-			if regions[j].CellCount < regions[i].CellCount {
-				regions[i], regions[j] = regions[j], regions[i]
-			}
-		}
-	}
+	// Sort regions by size (smallest first) using sort.Slice
+	sort.Slice(regions, func(i, j int) bool {
+		return regions[i].CellCount < regions[j].CellCount
+	})
 
 	// Merge smallest regions into nearest neighbors until we reach target
 	for len(regions) > targetMax {
