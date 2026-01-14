@@ -1197,7 +1197,8 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	if bm.StartTime.IsZero() {
 		bm.StartTime = now
 	}
-	if g.WarmupFramesRemaining == 0 && g.Params.WarmupMinFrames > 0 && !g.SettlingComplete {
+	// Initialize WarmupFramesRemaining on first call if configured
+	if g.WarmupFramesRemaining == 0 && g.Params.WarmupMinFrames > 0 && !g.SettlingComplete && bm.StartTime.IsZero() {
 		g.WarmupFramesRemaining = g.Params.WarmupMinFrames
 	}
 	postSettleAlpha := float64(g.Params.PostSettleUpdateFraction)
