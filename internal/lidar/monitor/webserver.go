@@ -34,6 +34,7 @@ import (
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/components"
 	"github.com/go-echarts/go-echarts/v2/opts"
+	"github.com/go-echarts/go-echarts/v2/types"
 )
 
 // ParamDef defines a configuration parameter for display and editing
@@ -1518,7 +1519,7 @@ func (ws *WebServer) handleBackgroundRegionsChart(w http.ResponseWriter, r *http
 			Title:    "LiDAR Background Regions",
 			Subtitle: fmt.Sprintf("sensor=%s regions=%d points=%d stride=%d (params in tooltip)", sensorID, len(debugData.Regions), len(debugData.Points), stride),
 		}),
-		charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true), Formatter: formatter}),
+		charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true), Formatter: types.FuncStr(formatter)}),
 		charts.WithXAxisOpts(opts.XAxis{Min: -pad, Max: pad, Name: "X (m)", NameLocation: "middle", NameGap: 25}),
 		charts.WithYAxisOpts(opts.YAxis{Min: -pad, Max: pad, Name: "Y (m)", NameLocation: "middle", NameGap: 30}),
 		charts.WithVisualMapOpts(opts.VisualMap{
