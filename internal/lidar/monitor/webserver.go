@@ -761,6 +761,7 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/debug/lidar", ws.handleLidarDebugDashboard)
 	mux.HandleFunc("/debug/lidar/background/polar", ws.handleBackgroundGridPolar)
 	mux.HandleFunc("/debug/lidar/background/heatmap", ws.handleBackgroundGridHeatmapChart)
+	mux.HandleFunc("/debug/lidar/background/regions", ws.handleBackgroundRegionsChart)
 	mux.HandleFunc("/debug/lidar/foreground", ws.handleForegroundFrameChart)
 	mux.HandleFunc("/debug/lidar/traffic", ws.handleTrafficChart)
 	mux.HandleFunc("/debug/lidar/clusters", ws.handleClustersChart)
@@ -1277,6 +1278,7 @@ func (ws *WebServer) handleLidarDebugDashboard(w http.ResponseWriter, r *http.Re
 		<div class="grid">
 			<div class="panel"><h2><a href="/debug/lidar/background/polar%[2]s" target="_blank" rel="noopener noreferrer">Background Polar (XY)</a></h2><iframe src="/debug/lidar/background/polar%[2]s" title="Background Polar"></iframe></div>
 			<div class="panel"><h2><a href="/debug/lidar/background/heatmap%[2]s" target="_blank" rel="noopener noreferrer">Background Heatmap</a></h2><iframe src="/debug/lidar/background/heatmap%[2]s" title="Background Heatmap"></iframe></div>
+			<div class="panel"><h2><a href="/debug/lidar/background/regions%[2]s" target="_blank" rel="noopener noreferrer">Background Regions</a></h2><iframe src="/debug/lidar/background/regions%[2]s" title="Background Regions"></iframe></div>
 			<div class="panel"><h2><a href="/debug/lidar/foreground%[2]s" target="_blank" rel="noopener noreferrer">Foreground Frame</a></h2><iframe src="/debug/lidar/foreground%[2]s" title="Foreground Frame"></iframe></div>
 			<div class="panel"><h2><a href="/debug/lidar/traffic%[2]s" target="_blank" rel="noopener noreferrer">Traffic</a></h2><iframe src="/debug/lidar/traffic%[2]s" title="Traffic"></iframe></div>
 			<div class="panel"><h2><a href="/debug/lidar/clusters%[2]s" target="_blank" rel="noopener noreferrer">Clusters</a></h2><iframe src="/debug/lidar/clusters%[2]s" title="Clusters"></iframe></div>
@@ -1446,6 +1448,97 @@ func (ws *WebServer) handleBackgroundGridHeatmapChart(w http.ResponseWriter, r *
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to render heatmap chart: %v", err))
 		return
 	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(buf.Bytes())
+}
+
+// handleBackgroundRegionsChart renders a scatter plot colored by region ID with per-region params in tooltips.
+func (ws *WebServer) handleBackgroundRegionsChart(w http.ResponseWriter, r *http.Request) {
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = ws.sensorID
+	}
+
+	bm := lidar.GetBackgroundManager(sensorID)
+	if bm == nil || bm.Grid == nil {
+		ws.writeJSONError(w, http.StatusNotFound, "no background manager for sensor")
+		return
+	}
+
+	stride := 3
+	if v := r.URL.Query().Get("stride"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			stride = parsed
+		}
+	}
+
+	debugData := bm.GetRegionDebugData(stride)
+	if debugData == nil || len(debugData.Points) == 0 {
+		ws.writeJSONError(w, http.StatusNotFound, "no region data available (regions may not be settled yet)")
+		return
+	}
+
+	points := make([]opts.ScatterData, 0, len(debugData.Points))
+	maxRegion := 0
+	for _, p := range debugData.Points {
+		if p.RegionID > maxRegion {
+			maxRegion = p.RegionID
+		}
+		points = append(points, opts.ScatterData{
+			Value: []interface{}{p.X, p.Y, p.RegionID, p.NoiseRelativeFraction, p.NeighborConfirmationCount, p.PostSettleUpdateFraction},
+		})
+	}
+
+	maxAbs := 0.0
+	for _, p := range debugData.Points {
+		if math.Abs(p.X) > maxAbs {
+			maxAbs = math.Abs(p.X)
+		}
+		if math.Abs(p.Y) > maxAbs {
+			maxAbs = math.Abs(p.Y)
+		}
+	}
+	pad := maxAbs * 1.05
+	if pad == 0 {
+		pad = 1.0
+	}
+
+	formatter := `function (params) {
+		var v = params.value;
+		return 'Region ' + v[2] + '<br/>' +
+			'NoiseRel: ' + v[3].toFixed(4) + '<br/>' +
+			'NeighborConfirm: ' + v[4] + '<br/>' +
+			'PostSettleAlpha: ' + v[5].toFixed(4);
+	}`
+
+	scatter := charts.NewScatter()
+	scatter.SetGlobalOptions(
+		charts.WithInitializationOpts(opts.Initialization{PageTitle: "LiDAR Background Regions", Theme: "dark", Width: "900px", Height: "900px", AssetsHost: echartsAssetsPrefix}),
+		charts.WithTitleOpts(opts.Title{
+			Title:    "LiDAR Background Regions",
+			Subtitle: fmt.Sprintf("sensor=%s regions=%d points=%d stride=%d (params in tooltip)", sensorID, len(debugData.Regions), len(debugData.Points), stride),
+		}),
+		charts.WithTooltipOpts(opts.Tooltip{Show: opts.Bool(true), Formatter: formatter}),
+		charts.WithXAxisOpts(opts.XAxis{Min: -pad, Max: pad, Name: "X (m)", NameLocation: "middle", NameGap: 25}),
+		charts.WithYAxisOpts(opts.YAxis{Min: -pad, Max: pad, Name: "Y (m)", NameLocation: "middle", NameGap: 30}),
+		charts.WithVisualMapOpts(opts.VisualMap{
+			Show:       opts.Bool(true),
+			Calculable: opts.Bool(true),
+			Min:        0,
+			Max:        float32(maxRegion),
+			Dimension:  "2",
+			InRange:    &opts.VisualMapInRange{Color: []string{"#003f5c", "#2f4b7c", "#665191", "#a05195", "#d45087", "#f95d6a", "#ff7c43", "#ffa600", "#62d2a2", "#4f9da6", "#a7c5eb", "#f0a6ca"}},
+		}),
+	)
+
+	scatter.AddSeries("regions", points, charts.WithScatterChartOpts(opts.ScatterChart{SymbolSize: 3}))
+
+	var buf bytes.Buffer
+	if err := scatter.Render(&buf); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to render chart: %v", err))
+		return
+	}
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write(buf.Bytes())
 }

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -160,6 +161,13 @@ type BackgroundGrid struct {
 	BackgroundCount int64
 	// nonzeroCellCount tracks cells with TimesSeenCount > 0; guarded by mu.
 	nonzeroCellCount int
+	// RegionIndex maps each cell to a region ID when region segmentation is enabled.
+	// Region IDs are contiguous from 0..len(Regions)-1 once finalized.
+	RegionIndex []int
+	// Regions stores the derived per-region parameters and statistics.
+	Regions []BackgroundRegion
+	// RegionsReady indicates regions have been derived and are frozen.
+	RegionsReady bool
 
 	// Simple range-bucketed acceptance metrics to help tune NoiseRelativeFraction.
 	// Buckets are upper bounds in meters; counts are number of accepted/rejected
@@ -179,6 +187,43 @@ type BackgroundGrid struct {
 	// LastObservedNoiseRel tracks the last noise_relative value observed by
 	// ProcessFramePolar so we can log when the runtime value changes.
 	LastObservedNoiseRel float32
+}
+
+// BackgroundRegionParams defines per-region overrides applied during background updates.
+type BackgroundRegionParams struct {
+	NoiseRelativeFraction     float32
+	NeighborConfirmationCount int
+	PostSettleUpdateFraction  float32
+}
+
+// BackgroundRegion describes a contiguous region of cells with derived parameters.
+type BackgroundRegion struct {
+	ID             int
+	CellCount      int
+	MeanRange      float32
+	MeanSpread     float32
+	MeanTimesSeen  float32
+	MeanNormSpread float32
+	Params         BackgroundRegionParams
+}
+
+// RegionDebugPoint represents a plotted region point for debug visualization.
+type RegionDebugPoint struct {
+	X                         float64
+	Y                         float64
+	RegionID                  int
+	NoiseRelativeFraction     float32
+	NeighborConfirmationCount int
+	PostSettleUpdateFraction  float32
+}
+
+// RegionDebugData is returned for debug visualization of regions and parameters.
+type RegionDebugData struct {
+	SensorID    string
+	Rings       int
+	AzimuthBins int
+	Points      []RegionDebugPoint
+	Regions     []BackgroundRegion
 }
 
 // Helper to index Cells: idx = ring*AzimuthBins + azBin
@@ -595,6 +640,9 @@ func (bm *BackgroundManager) ResetGrid() error {
 	g.ForegroundCount = 0
 	g.BackgroundCount = 0
 	g.nonzeroCellCount = 0
+	g.RegionIndex = nil
+	g.Regions = nil
+	g.RegionsReady = false
 
 	// Count nonzero cells AFTER reset (should be 0)
 	nonzeroAfter := 0
@@ -609,6 +657,360 @@ func (bm *BackgroundManager) ResetGrid() error {
 		g.SensorID, nonzeroBefore, nonzeroAfter, len(g.Cells), time.Now().UnixNano())
 
 	return nil
+}
+
+const (
+	maxRegionCount     = 50
+	minRegionCellFloor = 20
+)
+
+type regionInfo struct {
+	ID        int
+	CellCount int
+	CellIdx   []int
+	SumRange  float64
+	SumSpread float64
+	SumTimes  float64
+	SumNorm   float64
+}
+
+func clampFloat32(v, min, max float32) float32 {
+	if v < min {
+		return min
+	}
+	if v > max {
+		return max
+	}
+	return v
+}
+
+func computeQuantile(values []float64, q float64) float64 {
+	if len(values) == 0 {
+		return 0
+	}
+	if q <= 0 {
+		q = 0
+	}
+	if q >= 1 {
+		q = 1
+	}
+	sort.Float64s(values)
+	pos := q * float64(len(values)-1)
+	lower := int(math.Floor(pos))
+	upper := int(math.Ceil(pos))
+	if lower == upper {
+		return values[lower]
+	}
+	weight := pos - float64(lower)
+	return values[lower]*(1-weight) + values[upper]*weight
+}
+
+func buildRegionInfo(regionIndex []int, cells []BackgroundCell) map[int]*regionInfo {
+	info := make(map[int]*regionInfo)
+	for idx, regionID := range regionIndex {
+		if regionID < 0 {
+			continue
+		}
+		cell := cells[idx]
+		ri := info[regionID]
+		if ri == nil {
+			ri = &regionInfo{ID: regionID}
+			info[regionID] = ri
+		}
+		ri.CellCount++
+		ri.CellIdx = append(ri.CellIdx, idx)
+		meanRange := float64(cell.AverageRangeMeters)
+		if meanRange <= 0 {
+			meanRange = 1
+		}
+		ri.SumRange += meanRange
+		ri.SumSpread += float64(cell.RangeSpreadMeters)
+		ri.SumTimes += float64(cell.TimesSeenCount)
+		ri.SumNorm += float64(cell.RangeSpreadMeters) / meanRange
+	}
+	return info
+}
+
+func deriveRegionParams(base BackgroundParams, meanNormSpread float64) BackgroundRegionParams {
+	baseNoise := base.NoiseRelativeFraction
+	if baseNoise <= 0 {
+		baseNoise = 0.01
+	}
+	noiseRel := clampFloat32(float32(baseNoise*0.6)+float32(meanNormSpread*1.4), 0.005, 0.06)
+
+	baseNeighbor := base.NeighborConfirmationCount
+	if baseNeighbor <= 0 {
+		baseNeighbor = 3
+	}
+	neighbor := baseNeighbor
+	switch {
+	case meanNormSpread >= 0.03:
+		neighbor = baseNeighbor - 1
+	case meanNormSpread >= 0.015:
+		neighbor = baseNeighbor
+	case meanNormSpread >= 0.008:
+		neighbor = baseNeighbor + 1
+	default:
+		neighbor = baseNeighbor + 2
+	}
+	if neighbor < 1 {
+		neighbor = 1
+	}
+	if neighbor > 8 {
+		neighbor = 8
+	}
+
+	baseAlpha := base.PostSettleUpdateFraction
+	if baseAlpha <= 0 {
+		baseAlpha = base.BackgroundUpdateFraction
+	}
+	if baseAlpha <= 0 {
+		baseAlpha = 0.02
+	}
+	postSettle := float32(baseAlpha)
+	switch {
+	case meanNormSpread >= 0.03:
+		postSettle = clampFloat32(float32(baseAlpha*2.0), 0.01, 0.1)
+	case meanNormSpread >= 0.015:
+		postSettle = clampFloat32(float32(baseAlpha*1.5), 0.008, 0.08)
+	case meanNormSpread >= 0.008:
+		postSettle = clampFloat32(float32(baseAlpha*1.1), 0.006, 0.06)
+	default:
+		postSettle = clampFloat32(float32(baseAlpha*0.7), 0.004, 0.05)
+	}
+
+	return BackgroundRegionParams{
+		NoiseRelativeFraction:     noiseRel,
+		NeighborConfirmationCount: neighbor,
+		PostSettleUpdateFraction:  postSettle,
+	}
+}
+
+func buildRegionsLocked(g *BackgroundGrid) {
+	if g == nil || g.RegionsReady || len(g.Cells) == 0 {
+		return
+	}
+
+	filled := 0
+	normSpreads := make([]float64, 0, len(g.Cells))
+	timesSeen := make([]float64, 0, len(g.Cells))
+	for _, cell := range g.Cells {
+		if cell.TimesSeenCount == 0 {
+			continue
+		}
+		filled++
+		meanRange := float64(cell.AverageRangeMeters)
+		if meanRange <= 0 {
+			meanRange = 1
+		}
+		normSpreads = append(normSpreads, float64(cell.RangeSpreadMeters)/meanRange)
+		timesSeen = append(timesSeen, float64(cell.TimesSeenCount))
+	}
+	if filled == 0 {
+		return
+	}
+
+	spreadLow := computeQuantile(append([]float64(nil), normSpreads...), 0.33)
+	spreadHigh := computeQuantile(append([]float64(nil), normSpreads...), 0.66)
+	timeMid := computeQuantile(append([]float64(nil), timesSeen...), 0.5)
+
+	classes := make([]int, len(g.Cells))
+	for i := range classes {
+		classes[i] = -1
+	}
+	for idx, cell := range g.Cells {
+		if cell.TimesSeenCount == 0 {
+			continue
+		}
+		meanRange := float64(cell.AverageRangeMeters)
+		if meanRange <= 0 {
+			meanRange = 1
+		}
+		norm := float64(cell.RangeSpreadMeters) / meanRange
+		spreadBucket := 0
+		if norm >= spreadHigh {
+			spreadBucket = 2
+		} else if norm >= spreadLow {
+			spreadBucket = 1
+		}
+		timeBucket := 0
+		if float64(cell.TimesSeenCount) >= timeMid {
+			timeBucket = 1
+		}
+		classes[idx] = spreadBucket + 3*timeBucket
+	}
+
+	regionIndex := make([]int, len(g.Cells))
+	for i := range regionIndex {
+		regionIndex[i] = -1
+	}
+	regionCells := make([][]int, 0)
+	for idx := range g.Cells {
+		if classes[idx] < 0 || regionIndex[idx] != -1 {
+			continue
+		}
+		targetClass := classes[idx]
+		queue := []int{idx}
+		regionIndex[idx] = len(regionCells)
+		component := []int{idx}
+		for q := 0; q < len(queue); q++ {
+			cellIdx := queue[q]
+			ring := cellIdx / g.AzimuthBins
+			az := cellIdx % g.AzimuthBins
+			neighbors := [4]int{
+				g.Idx(ring, (az-1+g.AzimuthBins)%g.AzimuthBins),
+				g.Idx(ring, (az+1)%g.AzimuthBins),
+				-1,
+				-1,
+			}
+			if ring > 0 {
+				neighbors[2] = g.Idx(ring-1, az)
+			}
+			if ring < g.Rings-1 {
+				neighbors[3] = g.Idx(ring+1, az)
+			}
+			for _, nIdx := range neighbors {
+				if nIdx < 0 || nIdx >= len(g.Cells) {
+					continue
+				}
+				if classes[nIdx] != targetClass || regionIndex[nIdx] != -1 {
+					continue
+				}
+				regionIndex[nIdx] = len(regionCells)
+				queue = append(queue, nIdx)
+				component = append(component, nIdx)
+			}
+		}
+		regionCells = append(regionCells, component)
+	}
+
+	minCells := int(math.Ceil(float64(filled) / float64(maxRegionCount)))
+	if minCells < minRegionCellFloor {
+		minCells = minRegionCellFloor
+	}
+	if minCells > filled {
+		minCells = filled
+	}
+
+	mergeIterations := 0
+	for {
+		mergeIterations++
+		regionInfoMap := buildRegionInfo(regionIndex, g.Cells)
+		if len(regionInfoMap) == 0 {
+			return
+		}
+
+		var candidate *regionInfo
+		if len(regionInfoMap) > maxRegionCount {
+			for _, ri := range regionInfoMap {
+				if candidate == nil || ri.CellCount < candidate.CellCount {
+					candidate = ri
+				}
+			}
+		} else {
+			for _, ri := range regionInfoMap {
+				if ri.CellCount < minCells {
+					if candidate == nil || ri.CellCount < candidate.CellCount {
+						candidate = ri
+					}
+				}
+			}
+		}
+
+		if candidate == nil {
+			break
+		}
+
+		neighborCounts := make(map[int]int)
+		for _, cellIdx := range candidate.CellIdx {
+			ring := cellIdx / g.AzimuthBins
+			az := cellIdx % g.AzimuthBins
+			neighbors := [4]int{
+				g.Idx(ring, (az-1+g.AzimuthBins)%g.AzimuthBins),
+				g.Idx(ring, (az+1)%g.AzimuthBins),
+				-1,
+				-1,
+			}
+			if ring > 0 {
+				neighbors[2] = g.Idx(ring-1, az)
+			}
+			if ring < g.Rings-1 {
+				neighbors[3] = g.Idx(ring+1, az)
+			}
+			for _, nIdx := range neighbors {
+				if nIdx < 0 || nIdx >= len(regionIndex) {
+					continue
+				}
+				neighborID := regionIndex[nIdx]
+				if neighborID >= 0 && neighborID != candidate.ID {
+					neighborCounts[neighborID]++
+				}
+			}
+		}
+
+		if len(neighborCounts) == 0 {
+			break
+		}
+
+		bestNeighbor := -1
+		bestCount := -1
+		bestSize := -1
+		for neighborID, count := range neighborCounts {
+			size := regionInfoMap[neighborID].CellCount
+			if count > bestCount || (count == bestCount && size > bestSize) {
+				bestNeighbor = neighborID
+				bestCount = count
+				bestSize = size
+			}
+		}
+		if bestNeighbor == -1 {
+			break
+		}
+		for _, idx := range candidate.CellIdx {
+			regionIndex[idx] = bestNeighbor
+		}
+
+		if mergeIterations > 10000 {
+			break
+		}
+	}
+
+	finalRegions := buildRegionInfo(regionIndex, g.Cells)
+	if len(finalRegions) == 0 {
+		return
+	}
+
+	idMap := make(map[int]int, len(finalRegions))
+	regions := make([]BackgroundRegion, 0, len(finalRegions))
+	for _, ri := range finalRegions {
+		newID := len(regions)
+		idMap[ri.ID] = newID
+		meanRange := ri.SumRange / float64(ri.CellCount)
+		meanSpread := ri.SumSpread / float64(ri.CellCount)
+		meanTimes := ri.SumTimes / float64(ri.CellCount)
+		meanNorm := ri.SumNorm / float64(ri.CellCount)
+		params := deriveRegionParams(g.Params, meanNorm)
+		regions = append(regions, BackgroundRegion{
+			ID:             newID,
+			CellCount:      ri.CellCount,
+			MeanRange:      float32(meanRange),
+			MeanSpread:     float32(meanSpread),
+			MeanTimesSeen:  float32(meanTimes),
+			MeanNormSpread: float32(meanNorm),
+			Params:         params,
+		})
+	}
+
+	for idx, regionID := range regionIndex {
+		if regionID < 0 {
+			continue
+		}
+		regionIndex[idx] = idMap[regionID]
+	}
+
+	g.RegionIndex = regionIndex
+	g.Regions = regions
+	g.RegionsReady = true
 }
 
 // Simple registry for BackgroundManager instances keyed by SensorID.
@@ -675,6 +1077,61 @@ func NewBackgroundManager(sensorID string, rings, azBins int, params BackgroundP
 
 	RegisterBackgroundManager(sensorID, mgr)
 	return mgr
+}
+
+// GetRegionDebugData returns region segmentation data for debug visualization.
+func (bm *BackgroundManager) GetRegionDebugData(stride int) *RegionDebugData {
+	if bm == nil || bm.Grid == nil {
+		return nil
+	}
+	g := bm.Grid
+	if stride < 1 {
+		stride = 1
+	}
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	if !g.RegionsReady || len(g.RegionIndex) != len(g.Cells) || len(g.Regions) == 0 {
+		return nil
+	}
+
+	points := make([]RegionDebugPoint, 0, len(g.Cells)/stride)
+	for ring := 0; ring < g.Rings; ring++ {
+		for azBin := 0; azBin < g.AzimuthBins; azBin += stride {
+			idx := g.Idx(ring, azBin)
+			cell := g.Cells[idx]
+			if cell.TimesSeenCount == 0 || cell.AverageRangeMeters == 0 {
+				continue
+			}
+			regionID := g.RegionIndex[idx]
+			if regionID < 0 || regionID >= len(g.Regions) {
+				continue
+			}
+			region := g.Regions[regionID]
+			azMid := (float64(azBin) + 0.5) / float64(g.AzimuthBins) * 360.0
+			theta := azMid * math.Pi / 180.0
+			rRange := float64(cell.AverageRangeMeters)
+			points = append(points, RegionDebugPoint{
+				X:                         rRange * math.Cos(theta),
+				Y:                         rRange * math.Sin(theta),
+				RegionID:                  regionID,
+				NoiseRelativeFraction:     region.Params.NoiseRelativeFraction,
+				NeighborConfirmationCount: region.Params.NeighborConfirmationCount,
+				PostSettleUpdateFraction:  region.Params.PostSettleUpdateFraction,
+			})
+		}
+	}
+
+	regions := make([]BackgroundRegion, len(g.Regions))
+	copy(regions, g.Regions)
+
+	return &RegionDebugData{
+		SensorID:    g.SensorID,
+		Rings:       g.Rings,
+		AzimuthBins: g.AzimuthBins,
+		Points:      points,
+		Regions:     regions,
+	}
 }
 
 // SetRingElevations sets per-ring elevation angles (degrees) on the BackgroundGrid.
@@ -789,6 +1246,8 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	var seedFromFirst bool
 	safety := float64(g.Params.SafetyMarginMeters)
 	freezeDur := g.Params.FreezeDurationNanos
+	var regionIndex []int
+	var regions []BackgroundRegion
 
 	// We'll read Params under lock so updates via SetNoiseRelativeFraction
 	// and other setters are visible immediately and we can detect changes.
@@ -846,6 +1305,10 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	}
 	// read seed-from-first flag
 	seedFromFirst = g.Params.SeedFromFirstObservation
+	if g.RegionsReady && len(g.RegionIndex) == len(g.Cells) && len(g.Regions) > 0 {
+		regionIndex = g.RegionIndex
+		regions = g.Regions
+	}
 	// if the manager requested diagnostics, and the observed noise changed,
 	// emit a monitoring log so operators see the applied value at runtime.
 	if bm != nil && bm.EnableDiagnostics {
@@ -876,6 +1339,26 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 				continue
 			}
 
+			// Per-region overrides (if available) for this cell.
+			cellNoiseRel := noiseRel
+			cellNeighConfirm := neighConfirm
+			cellAlpha := effectiveAlpha
+			if g.SettlingComplete && regionIndex != nil {
+				regionID := regionIndex[cellIdx]
+				if regionID >= 0 && regionID < len(regions) {
+					regionParams := regions[regionID].Params
+					if regionParams.NoiseRelativeFraction > 0 {
+						cellNoiseRel = float64(regionParams.NoiseRelativeFraction)
+					}
+					if regionParams.NeighborConfirmationCount > 0 {
+						cellNeighConfirm = regionParams.NeighborConfirmationCount
+					}
+					if regionParams.PostSettleUpdateFraction > 0 {
+						cellAlpha = float64(regionParams.PostSettleUpdateFraction)
+					}
+				}
+			}
+
 			// Neighbor confirmation: count neighbors that have similar average.
 			// Restrict to same-ring neighbors to avoid cross-ring elevation geometry
 			// from influencing horizontal azimuth confirmation (reduces bias).
@@ -892,7 +1375,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 				if neighborCell.TimesSeenCount > 0 {
 					neighborDiff := math.Abs(float64(neighborCell.AverageRangeMeters) - observationMean)
 					// include a distance-proportional noise term based on the neighbor's mean
-					neighborCloseness := closenessMultiplier * (float64(neighborCell.RangeSpreadMeters) + noiseRel*float64(neighborCell.AverageRangeMeters) + 0.01)
+					neighborCloseness := closenessMultiplier * (float64(neighborCell.RangeSpreadMeters) + cellNoiseRel*float64(neighborCell.AverageRangeMeters) + 0.01)
 					if neighborDiff <= neighborCloseness {
 						neighborConfirmCount++
 					}
@@ -903,11 +1386,11 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 			// closeness threshold scales with the cell's spread plus a fraction of
 			// the measured distance (noiseRel*observationMean). This avoids biasing
 			// toward small absolute deviations at long range where noise grows.
-			closenessThreshold := closenessMultiplier*(float64(cell.RangeSpreadMeters)+noiseRel*observationMean+0.01) + safety
+			closenessThreshold := closenessMultiplier*(float64(cell.RangeSpreadMeters)+cellNoiseRel*observationMean+0.01) + safety
 			cellDiff := math.Abs(float64(cell.AverageRangeMeters) - observationMean)
 
 			// Decide if this observation is background-like or foreground-like
-			isBackgroundLike := cellDiff <= closenessThreshold || neighborConfirmCount >= neighConfirm
+			isBackgroundLike := cellDiff <= closenessThreshold || neighborConfirmCount >= cellNeighConfirm
 
 			// Optionally seed empty cells from the first observation when configured.
 			// This helps PCAP replay populate a background grid when no prior history exists.
@@ -946,11 +1429,11 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 					g.nonzeroCellCount++
 				} else {
 					oldAvg := float64(cell.AverageRangeMeters)
-					newAvg := (1.0-effectiveAlpha)*oldAvg + effectiveAlpha*observationMean
+					newAvg := (1.0-cellAlpha)*oldAvg + cellAlpha*observationMean
 					// update spread as EMA of absolute deviation from the previous mean
 					// using oldAvg avoids scaling the deviation by alpha twice (alpha^2)
 					deviation := math.Abs(observationMean - oldAvg)
-					newSpread := (1.0-effectiveAlpha)*float64(cell.RangeSpreadMeters) + effectiveAlpha*deviation
+					newSpread := (1.0-cellAlpha)*float64(cell.RangeSpreadMeters) + cellAlpha*deviation
 					cell.AverageRangeMeters = float32(newAvg)
 					cell.RangeSpreadMeters = float32(newSpread)
 					cell.TimesSeenCount++
@@ -1015,6 +1498,10 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 		bm.StartTime = now
 	}
 	bm.LastPersistTime = now
+
+	if g.SettlingComplete && !g.RegionsReady && g.nonzeroCellCount > 0 {
+		buildRegionsLocked(g)
+	}
 
 	// Log F: Per-frame acceptance summary (gated by EnableDiagnostics)
 	if bm != nil && bm.EnableDiagnostics && (foregroundCount > 0 || backgroundCount > 0) {
