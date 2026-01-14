@@ -1,9 +1,7 @@
 # LiDAR Sidecar — Technical Implementation Overview
 
-**Status:** Phase 3.7 completed — Foreground streaming (Port 2370) working, live param tuning working
+**Status:** Phase 3.7 completed — All core features operational
 **Scope:** Hesai UDP → parse → frame assembly → background subtraction → foreground mask → clustering → tracking → classification → HTTP API → ML data export → Analysis Runs
-**Current Focus:** Performance optimisation & foreground trail investigation (See `../operations/lidar-foreground-tracking-status.md`)
-**Active Issues:** (1) Foreground "trails" after objects pass, (2) M1 CPU usage optimisation
 
 ---
 
@@ -21,12 +19,12 @@
 ### ✅ **Phase 2: Background & Clustering (COMPLETED)**
 
 - ✅ Background grid infrastructure with EMA learning (implemented)
-- ✅ Foreground/background classification with neighbor voting (implemented)
+- ✅ Foreground/background classification with neighbour voting (implemented)
 - ✅ Background model persistence to database (implemented)
 - ✅ Enhanced HTTP endpoints for tuning and monitoring (implemented)
 - ✅ Acceptance metrics for parameter tuning (implemented)
 - ✅ PCAP file reading for parameter identification (implemented)
-- ✅ Grid heatmap visualization API for spatial analysis (implemented)
+- ✅ Grid heatmap visualisation API for spatial analysis (implemented)
 - ✅ Comprehensive debug logging for diagnostics (implemented)
 
 ### ✅ **Phase 2.5: PCAP-Based Parameter Tuning (COMPLETED)**
@@ -39,11 +37,12 @@
 - ✅ **Sweep Tool Integration**: bg-sweep and bg-multisweep use PCAP API
 - ✅ **No Server Restart**: Change PCAP files via API without restarting radar binary
 - ✅ **Frame Builder Fix**: Fixed eviction bug that prevented frame callback delivery
-- ✅ **Grid Visualization**: Spatial heatmap API for analyzing filled vs settled cells
+- ✅ **Grid Visualisation**: Spatial heatmap API for analysing filled vs settled cells
 
 ### ✅ **Phase 2.9: Foreground Mask Generation (COMPLETED)**
 
 - ✅ **`ProcessFramePolarWithMask()`**: Per-point foreground/background classification in polar coordinates
+- ✅ **Warmup Sensitivity Scaling**: Dynamic threshold multiplier during cell initialisation (January 2026)
 - ✅ **`ExtractForegroundPoints()`**: Helper to filter foreground points from mask
 - ✅ **`ComputeFrameMetrics()`**: Frame-level statistics (total, foreground, background counts)
 - ✅ **Unit Tests**: Comprehensive test coverage in `internal/lidar/foreground_test.go`
