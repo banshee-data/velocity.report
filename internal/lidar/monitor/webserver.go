@@ -1279,6 +1279,7 @@ func (ws *WebServer) handleLidarDebugDashboard(w http.ResponseWriter, r *http.Re
 		<div class="grid">
 			<div class="panel"><h2><a href="/debug/lidar/background/polar%[2]s" target="_blank" rel="noopener noreferrer">Background Polar (XY)</a></h2><iframe src="/debug/lidar/background/polar%[2]s" title="Background Polar"></iframe></div>
 			<div class="panel"><h2><a href="/debug/lidar/background/heatmap%[2]s" target="_blank" rel="noopener noreferrer">Background Heatmap</a></h2><iframe src="/debug/lidar/background/heatmap%[2]s" title="Background Heatmap"></iframe></div>
+			<div class="panel"><h2><a href="/debug/lidar/background/regions/dashboard%[2]s" target="_blank" rel="noopener noreferrer">Background Regions</a></h2><iframe src="/debug/lidar/background/regions/dashboard%[2]s" title="Background Regions"></iframe></div>
 			<div class="panel"><h2><a href="/debug/lidar/foreground%[2]s" target="_blank" rel="noopener noreferrer">Foreground Frame</a></h2><iframe src="/debug/lidar/foreground%[2]s" title="Foreground Frame"></iframe></div>
 			<div class="panel"><h2><a href="/debug/lidar/traffic%[2]s" target="_blank" rel="noopener noreferrer">Traffic</a></h2><iframe src="/debug/lidar/traffic%[2]s" title="Traffic"></iframe></div>
 			<div class="panel"><h2><a href="/debug/lidar/clusters%[2]s" target="_blank" rel="noopener noreferrer">Clusters</a></h2><iframe src="/debug/lidar/clusters%[2]s" title="Clusters"></iframe></div>

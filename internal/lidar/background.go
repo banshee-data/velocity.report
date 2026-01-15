@@ -950,6 +950,10 @@ func (bm *BackgroundManager) ResetGrid() error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
+	// Reset BackgroundManager timing state
+	bm.StartTime = time.Time{} // Reset to zero value
+	bm.HasSettled = false
+
 	// Count nonzero cells BEFORE reset (Log A: grid reset diagnostics)
 	nonzeroBefore := 0
 	for i := range g.Cells {
@@ -978,6 +982,15 @@ func (bm *BackgroundManager) ResetGrid() error {
 	g.ForegroundCount = 0
 	g.BackgroundCount = 0
 	g.nonzeroCellCount = 0
+
+	// Reset settling state for region identification
+	g.SettlingComplete = false
+	g.WarmupFramesRemaining = 0
+	
+	// Reset region manager to allow re-identification
+	if g.RegionMgr != nil {
+		g.RegionMgr = NewRegionManager(g.Rings, g.AzimuthBins)
+	}
 
 	// Count nonzero cells AFTER reset (should be 0)
 	nonzeroAfter := 0
