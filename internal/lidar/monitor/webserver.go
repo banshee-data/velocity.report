@@ -3232,9 +3232,10 @@ func (ws *WebServer) handleBackgroundRegionsDashboard(w http.ResponseWriter, r *
 
                 if (regionId >= 0 && regionData.regions[regionId]) {
                     const region = regionData.regions[regionId];
+                    const azDegrees = (azBin * 360.0 / azimuthBins).toFixed(1);
                     tooltip.innerHTML = 
                         '<strong>Region ' + regionId + '</strong><br>' +
-                        'Ring: ' + ring + ', Azimuth: ' + (azBin * 0.2).toFixed(1) + '°<br>' +
+                        'Ring: ' + ring + ', Azimuth: ' + azDegrees + '°<br>' +
                         'Variance: ' + region.mean_variance.toFixed(3) + '<br>' +
                         'Noise Rel: ' + region.params.noise_relative_fraction.toFixed(3) + '<br>' +
                         'Neighbors: ' + region.params.neighbor_confirmation_count + '<br>' +
