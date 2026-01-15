@@ -754,7 +754,7 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/grid_status", ws.handleGridStatus)
 	mux.HandleFunc("/api/lidar/grid_reset", ws.handleGridReset)
 	mux.HandleFunc("/api/lidar/grid_heatmap", ws.handleGridHeatmap)
-	mux.HandleFunc("/api/lidar/background/grid", ws.handleBackgroundGrid) // Full background grid
+	mux.HandleFunc("/api/lidar/background/grid", ws.handleBackgroundGrid)         // Full background grid
 	mux.HandleFunc("/debug/lidar/background/regions", ws.handleBackgroundRegions) // Region debug info
 	if assetsFS != nil {
 		mux.Handle(echartsAssetsPrefix, http.StripPrefix(echartsAssetsPrefix, http.FileServer(http.FS(assetsFS))))
@@ -2957,4 +2957,3 @@ func (ws *WebServer) handleBackgroundRegions(w http.ResponseWriter, r *http.Requ
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(info)
 }
-

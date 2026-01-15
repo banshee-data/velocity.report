@@ -325,7 +325,7 @@ func TestGetRegionDebugInfo(t *testing.T) {
 func TestRegionIdentificationDuringSettling(t *testing.T) {
 	rings := 3
 	azBins := 6
-	
+
 	// Use NewBackgroundManager to properly initialize all fields
 	bm := NewBackgroundManager("test-sensor", rings, azBins, BackgroundParams{
 		BackgroundUpdateFraction:       0.5,
@@ -337,7 +337,7 @@ func TestRegionIdentificationDuringSettling(t *testing.T) {
 		WarmupMinFrames:                5,
 		WarmupDurationNanos:            0, // disable duration check
 	}, nil)
-	
+
 	grid := bm.Grid
 
 	// Process frames to trigger settling

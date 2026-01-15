@@ -362,9 +362,9 @@ func (rm *RegionManager) IdentifyRegions(grid *BackgroundGrid, maxRegions int) e
 		// Create region for this connected component
 		if len(regionCells) > 0 {
 			region := &Region{
-				ID:       regionID,
-				CellMask: make([]bool, totalCells),
-				CellList: regionCells,
+				ID:        regionID,
+				CellMask:  make([]bool, totalCells),
+				CellList:  regionCells,
 				CellCount: len(regionCells),
 			}
 
@@ -419,9 +419,9 @@ func (rm *RegionManager) assignRegionParams(category int, baseParams BackgroundP
 	switch category {
 	case 0: // stable (low variance) - tighter thresholds, faster settling
 		return RegionParams{
-			NoiseRelativeFraction:     baseNoise * 0.8,         // tighter noise tolerance
-			NeighborConfirmationCount: baseNeighbor,            // standard neighbor check
-			SettleUpdateFraction:      baseAlpha * 1.5,         // faster settling
+			NoiseRelativeFraction:     baseNoise * 0.8, // tighter noise tolerance
+			NeighborConfirmationCount: baseNeighbor,    // standard neighbor check
+			SettleUpdateFraction:      baseAlpha * 1.5, // faster settling
 		}
 	case 1: // variable (medium variance) - standard parameters
 		return RegionParams{
@@ -431,9 +431,9 @@ func (rm *RegionManager) assignRegionParams(category int, baseParams BackgroundP
 		}
 	case 2: // volatile (high variance - trees, glass) - looser thresholds, slower settling
 		return RegionParams{
-			NoiseRelativeFraction:     baseNoise * 2.0,         // much looser noise tolerance
-			NeighborConfirmationCount: baseNeighbor + 2,        // require more neighbors
-			SettleUpdateFraction:      baseAlpha * 0.5,         // slower settling to handle variance
+			NoiseRelativeFraction:     baseNoise * 2.0,  // much looser noise tolerance
+			NeighborConfirmationCount: baseNeighbor + 2, // require more neighbors
+			SettleUpdateFraction:      baseAlpha * 0.5,  // slower settling to handle variance
 		}
 	default:
 		return RegionParams{
