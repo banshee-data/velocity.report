@@ -417,9 +417,9 @@ func (rm *RegionManager) assignRegionParams(category int, baseParams BackgroundP
 	}
 
 	switch category {
-	case 0: // stable (low variance) - tighter thresholds, faster settling
+	case 0: // stable (low variance) - HIGHER noise tolerance to reduce false positives, faster settling
 		return RegionParams{
-			NoiseRelativeFraction:     baseNoise * 0.8, // tighter noise tolerance
+			NoiseRelativeFraction:     baseNoise * 1.5, // HIGHER noise tolerance to avoid false FG from measurement noise
 			NeighborConfirmationCount: baseNeighbor,    // standard neighbor check
 			SettleUpdateFraction:      baseAlpha * 1.5, // faster settling
 		}
@@ -429,9 +429,9 @@ func (rm *RegionManager) assignRegionParams(category int, baseParams BackgroundP
 			NeighborConfirmationCount: baseNeighbor,
 			SettleUpdateFraction:      baseAlpha,
 		}
-	case 2: // volatile (high variance - trees, glass) - looser thresholds, slower settling
+	case 2: // volatile (high variance - trees, glass) - much higher tolerance, slower settling
 		return RegionParams{
-			NoiseRelativeFraction:     baseNoise * 2.0,  // much looser noise tolerance
+			NoiseRelativeFraction:     baseNoise * 3.0,  // very high noise tolerance for moving surfaces
 			NeighborConfirmationCount: baseNeighbor + 2, // require more neighbors
 			SettleUpdateFraction:      baseAlpha * 0.5,  // slower settling to handle variance
 		}
