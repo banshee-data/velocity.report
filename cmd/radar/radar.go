@@ -59,7 +59,7 @@ var (
 	lidarPCAPDir   = flag.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
 	// Background tuning knobs
 	lidarBgFlushInterval = flag.Duration("lidar-bg-flush-interval", 60*time.Second, "Interval to flush background grid to database when reading PCAP")
-	lidarBgNoiseRelative = flag.Float64("lidar-bg-noise-relative", 0.025, "Background NoiseRelativeFraction: fraction of range treated as expected measurement noise (e.g., 0.025 = 2.5%)")
+	lidarBgNoiseRelative = flag.Float64("lidar-bg-noise-relative", 0.04, "Background NoiseRelativeFraction: fraction of range treated as expected measurement noise (e.g., 0.04 = 4%)")
 	// FrameBuilder tuning knobs
 	lidarFrameBufferTimeout = flag.Duration("lidar-frame-buffer-timeout", 500*time.Millisecond, "FrameBuilder buffer timeout: finalize idle frames after this duration")
 	lidarMinFramePoints     = flag.Int("lidar-min-frame-points", 1000, "FrameBuilder MinFramePoints: minimum points required for a valid frame before finalizing")
@@ -220,10 +220,10 @@ func main() {
 		// Create BackgroundManager and register persistence
 		backgroundParams := lidar.BackgroundParams{
 			BackgroundUpdateFraction:       0.02,
-			ClosenessSensitivityMultiplier: 5.0, // Increased from 3.0 to aggressively reduce false positives
-			SafetyMarginMeters:             0.3, // Increased from 0.2 for more tolerance
+			ClosenessSensitivityMultiplier: 8.0, // Further increased from 5.0 to achieve <30 false positives
+			SafetyMarginMeters:             0.4, // Increased from 0.3 for even more tolerance
 			FreezeDurationNanos:            int64(5 * time.Second),
-			NeighborConfirmationCount:      6, // Increased from 5 to require more neighbor agreement
+			NeighborConfirmationCount:      7, // Increased from 6 to require even more neighbor agreement
 			SettlingPeriodNanos:            int64(5 * time.Minute),
 			SnapshotIntervalNanos:          int64(2 * time.Hour),
 			ChangeThresholdForSnapshot:     100,
