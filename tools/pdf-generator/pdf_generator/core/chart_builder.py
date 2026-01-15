@@ -785,6 +785,112 @@ class HistogramChartBuilder:
 
         return fig
 
+    def build_comparison(
+        self,
+        histogram: Dict[str, int],
+        compare_histogram: Dict[str, int],
+        title: str,
+        units: str,
+        primary_label: str,
+        compare_label: str,
+        debug: bool = False,
+    ) -> object:
+        """Build comparison histogram chart from two bucket data sets."""
+        fig, ax = plt.subplots(figsize=self.layout["histogram_figsize"])
+
+        if not histogram and not compare_histogram:
+            ax.text(0.5, 0.5, "No histogram data", ha="center", va="center")
+            ax.set_title(title)
+            return fig
+
+        def normalise_hist(hist: Dict[str, int]) -> Dict[float, int]:
+            buckets: Dict[float, int] = {}
+            for key, value in hist.items():
+                try:
+                    fk = float(key)
+                    buckets[fk] = buckets.get(fk, 0) + int(value)
+                except Exception:
+                    continue
+            return buckets
+
+        primary_buckets = normalise_hist(histogram)
+        compare_buckets = normalise_hist(compare_histogram)
+
+        if primary_buckets or compare_buckets:
+            all_keys = sorted(set(primary_buckets.keys()) | set(compare_buckets.keys()))
+            labels = [str(key) for key in all_keys]
+            primary_counts = [primary_buckets.get(key, 0) for key in all_keys]
+            compare_counts = [compare_buckets.get(key, 0) for key in all_keys]
+        else:
+            all_keys = sorted(set(histogram.keys()) | set(compare_histogram.keys()))
+            labels = [str(key) for key in all_keys]
+            primary_counts = [
+                int(histogram.get(key, 0) or 0) for key in all_keys
+            ]
+            compare_counts = [
+                int(compare_histogram.get(key, 0) or 0) for key in all_keys
+            ]
+
+        if debug:
+            print(
+                "DEBUG: comparison histogram bins={} primary_total={} compare_total={}".format(
+                    len(labels), sum(primary_counts), sum(compare_counts)
+                )
+            )
+
+        x = list(range(len(labels)))
+        bar_width = 0.4
+        primary_positions = [pos - bar_width / 2 for pos in x]
+        compare_positions = [pos + bar_width / 2 for pos in x]
+
+        primary_colour = self.colors.get("p50", "steelblue")
+        compare_colour = self.colors.get("p98", "#f59e0b")
+
+        ax.bar(
+            primary_positions,
+            primary_counts,
+            width=bar_width,
+            alpha=0.75,
+            color=primary_colour,
+            edgecolor="black",
+            linewidth=0.5,
+            label=primary_label,
+        )
+        ax.bar(
+            compare_positions,
+            compare_counts,
+            width=bar_width,
+            alpha=0.75,
+            color=compare_colour,
+            edgecolor="black",
+            linewidth=0.5,
+            label=compare_label,
+        )
+
+        ax.set_xlabel(f"Velocity ({units})", fontsize=self.fonts["histogram_label"])
+        ax.set_ylabel("Count", fontsize=self.fonts["histogram_label"])
+        ax.set_title(title, fontsize=self.fonts["histogram_title"])
+
+        formatted_labels = self._format_labels(labels)
+        self._set_tick_labels(ax, x, formatted_labels)
+
+        ax.tick_params(
+            axis="both", which="major", labelsize=self.fonts["histogram_tick"]
+        )
+        ax.legend(fontsize=self.fonts["histogram_tick"])
+
+        try:
+            fig.tight_layout(pad=0)
+        except Exception:
+            pass
+
+        try:
+            fig.subplots_adjust(left=0.02, right=0.985, top=0.96, bottom=0.08)
+        except Exception:
+            pass
+
+        return fig
+
     def _format_labels(self, labels: List[str]) -> List[str]:
         """Format histogram labels to match table format (e.g., '5-10', '50+').
 

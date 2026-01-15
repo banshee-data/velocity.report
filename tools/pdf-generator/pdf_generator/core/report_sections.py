@@ -27,7 +27,13 @@ except Exception:  # pragma: no cover
         return s
 
 
-from pdf_generator.core.table_builders import create_param_table
+import math
+from typing import Optional
+
+from pdf_generator.core.table_builders import (
+    create_param_table,
+    create_comparison_summary_table,
+)
 
 
 class VelocityOverviewSection:
@@ -59,6 +65,14 @@ class VelocityOverviewSection:
         p85: float,
         p98: float,
         max_speed: float,
+        units: str = "mph",
+        compare_start_date: Optional[str] = None,
+        compare_end_date: Optional[str] = None,
+        compare_total_vehicles: Optional[int] = None,
+        compare_p50: Optional[float] = None,
+        compare_p85: Optional[float] = None,
+        compare_p98: Optional[float] = None,
+        compare_max_speed: Optional[float] = None,
     ) -> None:
         """Add velocity overview section to document.
 
@@ -84,25 +98,105 @@ class VelocityOverviewSection:
             total_disp = str(total_vehicles)
 
         # Overview paragraph
-        doc.append(
-            NoEscape(
-                f"Between \\textbf{{{start_date}}} and \\textbf{{{end_date}}}, "
-                f"velocity for \\textbf{{{escape_latex(total_disp)}}} vehicles was recorded on \\textbf{{{escape_latex(location)}}}."
+        if compare_start_date and compare_end_date:
+            doc.append(
+                NoEscape(
+                    f"Primary period: \\textbf{{{start_date}}} to \\textbf{{{end_date}}} "
+                    f"(\\textbf{{{escape_latex(total_disp)}}} vehicles) at \\textbf{{{escape_latex(location)}}}. "
+                    f"Comparison period: \\textbf{{{compare_start_date}}} to \\textbf{{{compare_end_date}}}."
+                )
             )
-        )
+        else:
+            doc.append(
+                NoEscape(
+                    f"Between \\textbf{{{start_date}}} and \\textbf{{{end_date}}}, "
+                    f"velocity for \\textbf{{{escape_latex(total_disp)}}} vehicles was recorded on \\textbf{{{escape_latex(location)}}}."
+                )
+            )
 
         # Key metrics subsection
         doc.append(NoEscape("\\subsection*{Key Metrics}"))
 
         # Use parameter table for consistent formatting
-        key_metric_entries = [
-            {"key": "Maximum Velocity", "value": f"{max_speed:.2f} mph"},
-            {"key": "98th Percentile Velocity (p98)", "value": f"{p98:.2f} mph"},
-            {"key": "85th Percentile Velocity (p85)", "value": f"{p85:.2f} mph"},
-            {"key": "Median Velocity (p50)", "value": f"{p50:.2f} mph"},
-        ]
+        def format_speed(value: Optional[float]) -> str:
+            if value is None:
+                return "--"
+            try:
+                if math.isnan(float(value)):
+                    return "--"
+            except Exception:
+                return "--"
+            return f"{value:.2f} {units}"
 
-        doc.append(create_param_table(key_metric_entries))
+        def format_count(value: Optional[int]) -> str:
+            if value is None:
+                return "--"
+            try:
+                return f"{int(value):,}"
+            except Exception:
+                return "--"
+
+        def format_change(primary_value: Optional[float], compare_value: Optional[float]) -> str:
+            if primary_value in (None, 0) or compare_value is None:
+                return "--"
+            try:
+                change_pct = (compare_value - primary_value) / primary_value * 100.0
+                return f"{change_pct:+.1f}%"
+            except Exception:
+                return "--"
+
+        if compare_start_date and compare_end_date:
+            primary_label = f"{start_date} to {end_date}"
+            compare_label = f"{compare_start_date} to {compare_end_date}"
+            summary_entries = [
+                {
+                    "label": "Maximum Velocity",
+                    "primary": format_speed(max_speed),
+                    "compare": format_speed(compare_max_speed),
+                    "change": format_change(max_speed, compare_max_speed),
+                },
+                {
+                    "label": "98th Percentile Velocity (p98)",
+                    "primary": format_speed(p98),
+                    "compare": format_speed(compare_p98),
+                    "change": format_change(p98, compare_p98),
+                },
+                {
+                    "label": "85th Percentile Velocity (p85)",
+                    "primary": format_speed(p85),
+                    "compare": format_speed(compare_p85),
+                    "change": format_change(p85, compare_p85),
+                },
+                {
+                    "label": "Median Velocity (p50)",
+                    "primary": format_speed(p50),
+                    "compare": format_speed(compare_p50),
+                    "change": format_change(p50, compare_p50),
+                },
+                {
+                    "label": "Total Vehicles",
+                    "primary": format_count(total_vehicles),
+                    "compare": format_count(compare_total_vehicles),
+                    "change": format_change(
+                        float(total_vehicles),
+                        float(compare_total_vehicles)
+                        if compare_total_vehicles is not None
+                        else None,
+                    ),
+                },
+            ]
+            doc.append(
+                create_comparison_summary_table(summary_entries, primary_label, compare_label)
+            )
+        else:
+            key_metric_entries = [
+                {"key": "Maximum Velocity", "value": format_speed(max_speed)},
+                {"key": "98th Percentile Velocity (p98)", "value": format_speed(p98)},
+                {"key": "85th Percentile Velocity (p85)", "value": format_speed(p85)},
+                {"key": "Median Velocity (p50)", "value": format_speed(p50)},
+            ]
+
+            doc.append(create_param_table(key_metric_entries))
         doc.append(NoEscape("\\par"))
 
 
@@ -350,6 +444,14 @@ def add_metric_data_intro(
     p85: float,
     p98: float,
     max_speed: float,
+    units: str = "mph",
+    compare_start_date: Optional[str] = None,
+    compare_end_date: Optional[str] = None,
+    compare_total_vehicles: Optional[int] = None,
+    compare_p50: Optional[float] = None,
+    compare_p85: Optional[float] = None,
+    compare_p98: Optional[float] = None,
+    compare_max_speed: Optional[float] = None,
 ) -> None:
     """Add velocity overview section (convenience wrapper)."""
     builder = VelocityOverviewSection()
@@ -364,6 +466,14 @@ def add_metric_data_intro(
         p85,
         p98,
         max_speed,
+        units,
+        compare_start_date,
+        compare_end_date,
+        compare_total_vehicles,
+        compare_p50,
+        compare_p85,
+        compare_p98,
+        compare_max_speed,
     )
 
 

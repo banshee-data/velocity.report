@@ -193,7 +193,13 @@ class DocumentBuilder:
             doc.preamble.append(NoEscape(r"\newcommand{\AtkinsonMono}{\ttfamily}"))
 
     def setup_header(
-        self, doc: Document, start_iso: str, end_iso: str, location: str
+        self,
+        doc: Document,
+        start_iso: str,
+        end_iso: str,
+        location: str,
+        compare_start_iso: Optional[str] = None,
+        compare_end_iso: Optional[str] = None,
     ) -> None:
         """Configure page header with fancyhdr.
 
@@ -216,9 +222,14 @@ class DocumentBuilder:
         doc.append(NoEscape(f"\\fancyhead[R]{{ \\textit{{{escaped_location}}}}}"))
         doc.append(NoEscape("\\renewcommand{\\headrulewidth}{0.8pt}"))
         # Add footer with date range on left and page number on right
-        doc.append(
-            NoEscape(f"\\fancyfoot[L]{{\\small {start_iso[:10]} to {end_iso[:10]}}}")
-        )
+        if compare_start_iso and compare_end_iso:
+            footer_range = (
+                f"{start_iso[:10]} to {end_iso[:10]} vs "
+                f"{compare_start_iso[:10]} to {compare_end_iso[:10]}"
+            )
+        else:
+            footer_range = f"{start_iso[:10]} to {end_iso[:10]}"
+        doc.append(NoEscape(f"\\fancyfoot[L]{{\\small {footer_range}}}"))
         doc.append(NoEscape("\\fancyfoot[R]{\\small Page \\thepage}"))
         doc.append(NoEscape("\\renewcommand{\\footrulewidth}{0.8pt}"))
 
@@ -258,6 +269,8 @@ class DocumentBuilder:
         location: str,
         surveyor: Optional[str] = None,
         contact: Optional[str] = None,
+        compare_start_iso: Optional[str] = None,
+        compare_end_iso: Optional[str] = None,
     ) -> Document:
         """Build complete configured document (convenience method).
 
@@ -294,7 +307,9 @@ class DocumentBuilder:
         self.setup_fonts(doc, fonts_path)
 
         # Setup header
-        self.setup_header(doc, start_iso, end_iso, location)
+        self.setup_header(
+            doc, start_iso, end_iso, location, compare_start_iso, compare_end_iso
+        )
 
         # Begin two-column layout
         self.begin_twocolumn_layout(doc, location, surveyor, contact)

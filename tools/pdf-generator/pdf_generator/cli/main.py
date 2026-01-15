@@ -31,7 +31,7 @@ from pdf_generator.core.date_parser import (
 )
 from pdf_generator.core.pdf_generator import generate_pdf_report
 from pdf_generator.core.zip_utils import create_sources_zip
-from pdf_generator.core.stats_utils import plot_histogram
+from pdf_generator.core.stats_utils import plot_histogram, plot_comparison_histogram
 from pdf_generator.core.data_transformers import (
     MetricsNormalizer,
     extract_count_from_row,
@@ -417,6 +417,9 @@ def generate_histogram_chart(
     units: str,
     metrics_all: List,
     config: ReportConfig,
+    compare_histogram: Optional[dict] = None,
+    primary_label: Optional[str] = None,
+    compare_label: Optional[str] = None,
 ) -> bool:
     """Generate histogram chart PDF.
 
@@ -451,12 +454,25 @@ def generate_histogram_chart(
             except Exception:
                 sample_label = f" (n={sample_n})"
 
-        fig_hist = plot_histogram(
-            histogram,
-            f"Velocity Distribution: {sample_label}",
-            units,
-            debug=config.output.debug,
-        )
+        if compare_histogram:
+            primary_desc = primary_label or "Primary period"
+            compare_desc = compare_label or "Comparison period"
+            fig_hist = plot_comparison_histogram(
+                histogram,
+                compare_histogram,
+                "Velocity Distribution Comparison",
+                units,
+                primary_desc,
+                compare_desc,
+                debug=config.output.debug,
+            )
+        else:
+            fig_hist = plot_histogram(
+                histogram,
+                f"Velocity Distribution: {sample_label}",
+                units,
+                debug=config.output.debug,
+            )
         hist_pdf = f"{prefix}_histogram.pdf"
         save_chart_as_pdf = _import_chart_saver()
         if save_chart_as_pdf(fig_hist, hist_pdf):
@@ -537,6 +553,10 @@ def assemble_pdf_report(
     granular_metrics: List,
     histogram: Optional[dict],
     config: ReportConfig,
+    compare_start_iso: Optional[str] = None,
+    compare_end_iso: Optional[str] = None,
+    compare_overall_metrics: Optional[List] = None,
+    compare_histogram: Optional[dict] = None,
 ) -> bool:
     """Assemble complete PDF report.
 
@@ -586,15 +606,19 @@ def assemble_pdf_report(
             output_path=pdf_path,
             start_iso=start_iso,
             end_iso=end_iso,
+            compare_start_iso=compare_start_iso,
+            compare_end_iso=compare_end_iso,
             group=config.query.group,
             units=config.query.units,
             timezone_display=tz_display,
             min_speed_str=min_speed_str,
             location=config.site.location,
             overall_metrics=overall_metrics,
+            compare_overall_metrics=compare_overall_metrics,
             daily_metrics=daily_metrics,
             granular_metrics=granular_metrics,
             histogram=histogram,
+            compare_histogram=compare_histogram,
             tz_name=(config.query.timezone or None),
             charts_prefix=prefix,
             speed_limit=config.site.speed_limit,
@@ -717,6 +741,9 @@ def generate_all_charts(
     overall_metrics: List,
     config: ReportConfig,
     resp: Optional[object],
+    compare_histogram: Optional[dict] = None,
+    primary_label: Optional[str] = None,
+    compare_label: Optional[str] = None,
 ) -> None:
     """Generate all charts (stats, daily, histogram) if data available.
 
@@ -762,7 +789,14 @@ def generate_all_charts(
     # Generate histogram if available
     if histogram:
         generate_histogram_chart(
-            histogram, prefix, config.query.units, overall_metrics, config
+            histogram,
+            prefix,
+            config.query.units,
+            overall_metrics,
+            config,
+            compare_histogram=compare_histogram,
+            primary_label=primary_label,
+            compare_label=compare_label,
         )
 
 
@@ -795,6 +829,28 @@ def process_date_range(
     )
     if start_ts is None or end_ts is None:
         return  # Error already printed
+
+    compare_start_date = config.query.compare_start_date
+    compare_end_date = config.query.compare_end_date
+    compare_start_ts = None
+    compare_end_ts = None
+    compare_metrics = None
+    compare_histogram = None
+    compare_overall = None
+    compare_start_iso = None
+    compare_end_iso = None
+    compare_label = None
+    primary_label = f"{start_date} to {end_date}"
+
+    if compare_start_date and compare_end_date:
+        _print_info(
+            f"Comparing against {compare_start_date} -> {compare_end_date} (same group and source)."
+        )
+        compare_start_ts, compare_end_ts = parse_date_range(
+            compare_start_date, compare_end_date, config.query.timezone or None
+        )
+        if compare_start_ts is None or compare_end_ts is None:
+            return
 
     # Determine model version and file prefix
     model_version = get_model_version(config)
@@ -870,12 +926,41 @@ def process_date_range(
     if config.query.histogram and histogram is None:
         _print_error("Warning: histogram data unavailable; histogram chart skipped.")
 
+    if compare_start_ts is not None and compare_end_ts is not None:
+        compare_metrics, compare_histogram, _compare_resp = fetch_granular_metrics(
+            client, compare_start_ts, compare_end_ts, config, model_version
+        )
+        if not compare_metrics and not compare_histogram:
+            _print_error(
+                f"Warning: no comparison data returned for {compare_start_date} - {compare_end_date}."
+            )
+        compare_overall = fetch_overall_summary(
+            client, compare_start_ts, compare_end_ts, config, model_version
+        )
+        if not compare_overall:
+            _print_error(
+                "Warning: comparison overall metrics empty; summary comparison may be limited."
+            )
+        compare_start_iso, compare_end_iso = compute_iso_timestamps(
+            compare_start_ts, compare_end_ts, config.query.timezone
+        )
+        compare_label = f"{compare_start_iso[:10]} to {compare_end_iso[:10]}"
+
     # Compute ISO timestamps for report
     start_iso, end_iso = compute_iso_timestamps(start_ts, end_ts, config.query.timezone)
 
     # Generate all charts
     generate_all_charts(
-        prefix, metrics, daily_metrics, histogram, overall_metrics, config, resp
+        prefix,
+        metrics,
+        daily_metrics,
+        histogram,
+        overall_metrics,
+        config,
+        resp,
+        compare_histogram=compare_histogram,
+        primary_label=primary_label,
+        compare_label=compare_label,
     )
 
     # Assemble final PDF report
@@ -888,6 +973,10 @@ def process_date_range(
         metrics,
         histogram,
         config,
+        compare_start_iso=compare_start_iso,
+        compare_end_iso=compare_end_iso,
+        compare_overall_metrics=compare_overall,
+        compare_histogram=compare_histogram,
     )
 
     if report_generated:

@@ -11,6 +11,7 @@ from pdf_generator.core.table_builders import (
     HistogramTableBuilder,
     create_stats_table,
     create_param_table,
+    create_comparison_summary_table,
     create_histogram_table,
     create_twocolumn_stats_table,
 )
@@ -207,6 +208,32 @@ class TestParameterTableBuilder(unittest.TestCase):
             self.assertIn("textbf", str(row[0]))
             # Value should be monospace
             self.assertIn("AtkinsonMono", str(row[1]))
+
+
+class TestComparisonSummaryTableBuilder(unittest.TestCase):
+    """Tests for comparison summary table builder."""
+
+    @patch("pdf_generator.core.table_builders.Tabular")
+    def test_create_comparison_summary_table(self, mock_tabular):
+        """Test comparison summary table creation."""
+        mock_table = MagicMock()
+        mock_tabular.return_value = mock_table
+
+        entries = [
+            {
+                "label": "Maximum Velocity",
+                "primary": "30.00 mph",
+                "compare": "35.00 mph",
+                "change": "+16.7%",
+            }
+        ]
+
+        _ = create_comparison_summary_table(
+            entries, "2025-06-01 to 2025-06-07", "2025-05-01 to 2025-05-07"
+        )
+
+        mock_tabular.assert_called_once()
+        self.assertGreaterEqual(mock_table.add_row.call_count, 2)
 
 
 class TestHistogramTableBuilder(unittest.TestCase):

@@ -80,6 +80,8 @@ class QueryConfig:
     # Date range (REQUIRED)
     start_date: str = ""  # YYYY-MM-DD or unix timestamp
     end_date: str = ""  # YYYY-MM-DD or unix timestamp
+    compare_start_date: Optional[str] = ""  # Optional: comparison start date
+    compare_end_date: Optional[str] = ""  # Optional: comparison end date
     timezone: str = ""  # Timezone for display (REQUIRED, e.g., US/Pacific, UTC)
 
     # API parameters
@@ -372,6 +374,10 @@ class ReportConfig:
         if not self.query.timezone:
             errors.append(
                 "query.timezone is required (example: US/Pacific, UTC, Europe/Berlin)."
+            )
+        if bool(self.query.compare_start_date) != bool(self.query.compare_end_date):
+            errors.append(
+                "query.compare_start_date and query.compare_end_date must be set together."
             )
 
         if self.query.histogram and not self.query.hist_bucket_size:

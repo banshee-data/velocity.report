@@ -1,5 +1,12 @@
 <script lang="ts">
-	import { mdiCog, mdiGithub, mdiHome, mdiMapMarker, mdiMapMarkerPath } from '@mdi/js';
+	import {
+		mdiCog,
+		mdiFileDocument,
+		mdiGithub,
+		mdiHome,
+		mdiMapMarker,
+		mdiMapMarkerPath
+	} from '@mdi/js';
 	import {
 		AppBar,
 		AppLayout,
@@ -67,6 +74,7 @@
 	<nav slot="nav">
 		<NavItem text="Dashboard" icon={mdiHome} path="/app/" currentUrl={page.url} />
 		<NavItem text="Sites" icon={mdiMapMarker} path="/app/site" currentUrl={page.url} />
+		<NavItem text="Reports" icon={mdiFileDocument} path="/app/reports" currentUrl={page.url} />
 		<NavItem
 			text="Lidar Tracks"
 			icon={mdiMapMarkerPath}

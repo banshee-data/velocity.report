@@ -80,6 +80,7 @@ from pdf_generator.core.document_builder import DocumentBuilder
 from pdf_generator.core.table_builders import (
     create_param_table,
     create_histogram_table,
+    create_histogram_comparison_table,
     create_twocolumn_stats_table,
 )
 from pdf_generator.core.report_sections import (
@@ -208,15 +209,19 @@ def generate_pdf_report(
     output_path: str,
     start_iso: str,
     end_iso: str,
+    compare_start_iso: Optional[str] = None,
+    compare_end_iso: Optional[str] = None,
     group: str,
     units: str,
     timezone_display: str,
     min_speed_str: str,
     location: str,
     overall_metrics: List[Dict[str, Any]],
+    compare_overall_metrics: Optional[List[Dict[str, Any]]] = None,
     daily_metrics: Optional[List[Dict[str, Any]]],
     granular_metrics: List[Dict[str, Any]],
     histogram: Optional[Dict[str, int]],
+    compare_histogram: Optional[Dict[str, int]] = None,
     tz_name: Optional[str],
     charts_prefix: str = "out",
     speed_limit: int = 25,
@@ -264,7 +269,9 @@ def generate_pdf_report(
 
     # Build document with all configuration
     builder = DocumentBuilder()
-    doc = builder.build(start_iso, end_iso, location, surveyor, contact)
+    doc = builder.build(
+        start_iso, end_iso, location, surveyor, contact, compare_start_iso, compare_end_iso
+    )
 
     # Add science section content using helper function
     if overall_metrics:
@@ -277,6 +284,23 @@ def generate_pdf_report(
         p98 = normalizer.get_numeric(overall, "p98", 0)
         max_speed = normalizer.get_numeric(overall, "max_speed", 0)
         total_vehicles = extract_count_from_row(overall, normalizer)
+
+        compare_total = None
+        compare_p50 = None
+        compare_p85 = None
+        compare_p98 = None
+        compare_max = None
+        compare_start_date = None
+        compare_end_date = None
+        if compare_overall_metrics and compare_start_iso and compare_end_iso:
+            compare_overall = compare_overall_metrics[0]
+            compare_p50 = normalizer.get_numeric(compare_overall, "p50", 0)
+            compare_p85 = normalizer.get_numeric(compare_overall, "p85", 0)
+            compare_p98 = normalizer.get_numeric(compare_overall, "p98", 0)
+            compare_max = normalizer.get_numeric(compare_overall, "max_speed", 0)
+            compare_total = extract_count_from_row(compare_overall, normalizer)
+            compare_start_date = compare_start_iso[:10]
+            compare_end_date = compare_end_iso[:10]
 
         # Extract dates for display
         start_date = start_iso[:10]
@@ -294,6 +318,14 @@ def generate_pdf_report(
             p85,
             p98,
             max_speed,
+            units,
+            compare_start_date,
+            compare_end_date,
+            compare_total,
+            compare_p50,
+            compare_p85,
+            compare_p98,
+            compare_max,
         )
 
     # Add histogram chart if available
@@ -321,23 +353,40 @@ def generate_pdf_report(
     doc.append(NoEscape("\\subsection*{Survey Parameters}"))
 
     # Generation parameters as a two-column table (simplified)
-    param_entries = [
-        {"key": "Start time", "value": start_iso},
-        {"key": "End time", "value": end_iso},
-        {"key": "Timezone", "value": timezone_display},
-        {"key": "Roll-up Period", "value": group},
-        {"key": "Units", "value": units},
-        {"key": "Minimum speed (cutoff)", "value": min_speed_str},
-        {"key": "Radar Sensor", "value": sensor_model},
-        {"key": "Radar Firmware version", "value": firmware_version},
-        {"key": "Radar Transmit Frequency", "value": transmit_frequency},
-        {"key": "Radar Sample Rate", "value": sample_rate},
-        {"key": "Radar Velocity Resolution", "value": velocity_resolution},
-        {"key": "Azimuth Field of View", "value": azimuth_fov},
-        {"key": "Elevation Field of View", "value": elevation_fov},
-        {"key": "Cosine Error Angle", "value": f"{cosine_error_angle}°"},
-        {"key": "Cosine Error Factor", "value": f"{cosine_error_factor:.4f}"},
-    ]
+    param_entries = []
+    if compare_start_iso and compare_end_iso:
+        param_entries.extend(
+            [
+                {"key": "Primary period start", "value": start_iso},
+                {"key": "Primary period end", "value": end_iso},
+                {"key": "Comparison period start", "value": compare_start_iso},
+                {"key": "Comparison period end", "value": compare_end_iso},
+            ]
+        )
+    else:
+        param_entries.extend(
+            [
+                {"key": "Start time", "value": start_iso},
+                {"key": "End time", "value": end_iso},
+            ]
+        )
+    param_entries.extend(
+        [
+            {"key": "Timezone", "value": timezone_display},
+            {"key": "Roll-up Period", "value": group},
+            {"key": "Units", "value": units},
+            {"key": "Minimum speed (cutoff)", "value": min_speed_str},
+            {"key": "Radar Sensor", "value": sensor_model},
+            {"key": "Radar Firmware version", "value": firmware_version},
+            {"key": "Radar Transmit Frequency", "value": transmit_frequency},
+            {"key": "Radar Sample Rate", "value": sample_rate},
+            {"key": "Radar Velocity Resolution", "value": velocity_resolution},
+            {"key": "Azimuth Field of View", "value": azimuth_fov},
+            {"key": "Elevation Field of View", "value": elevation_fov},
+            {"key": "Cosine Error Angle", "value": f"{cosine_error_angle}°"},
+            {"key": "Cosine Error Factor", "value": f"{cosine_error_factor:.4f}"},
+        ]
+    )
     doc.append(create_param_table(param_entries))
 
     doc.append(NoEscape("\\par"))
@@ -355,7 +404,20 @@ def generate_pdf_report(
     #     )
 
     # Add histogram table if available
-    if histogram:
+    if histogram and compare_histogram and compare_start_iso and compare_end_iso:
+        primary_label = f"{start_iso[:10]} to {end_iso[:10]}"
+        compare_label = f"{compare_start_iso[:10]} to {compare_end_iso[:10]}"
+        doc.append(
+            create_histogram_comparison_table(
+                histogram,
+                compare_histogram,
+                units,
+                primary_label,
+                compare_label,
+                max_bucket=hist_max,
+            )
+        )
+    elif histogram:
         doc.append(create_histogram_table(histogram, units, max_bucket=hist_max))
 
     if daily_metrics:

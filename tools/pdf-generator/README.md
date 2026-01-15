@@ -45,6 +45,8 @@ Every configuration file **must** include these 7 fields:
 | `site.contact`             | string | Contact email or phone                | "traffic@springfield.gov"  |
 | `query.start_date`         | string | Start date (YYYY-MM-DD)               | "2025-06-01"               |
 | `query.end_date`           | string | End date (YYYY-MM-DD)                 | "2025-06-07"               |
+| `query.compare_start_date` | string | Comparison start date (YYYY-MM-DD)    | ""                         |
+| `query.compare_end_date`   | string | Comparison end date (YYYY-MM-DD)      | ""                         |
 | `query.timezone`           | string | Display timezone                      | "US/Pacific"               |
 | `radar.cosine_error_angle` | number | Radar mounting angle in degrees       | 21.0                       |
 
@@ -60,6 +62,8 @@ Every configuration file **must** include these 7 fields:
   "query": {
     "start_date": "2025-06-01",
     "end_date": "2025-06-07",
+    "compare_start_date": "",
+    "compare_end_date": "",
     "timezone": "US/Pacific"
   },
   "radar": {
@@ -162,6 +166,8 @@ This minimal config will:
 | ------------------ | -------- | --------------------- | ------------------------------------------------- |
 | `start_date`       | **Yes**  | -                     | Start date (YYYY-MM-DD)                           |
 | `end_date`         | **Yes**  | -                     | End date (YYYY-MM-DD)                             |
+| `compare_start_date` | No     | ""                    | Comparison start date (YYYY-MM-DD)                |
+| `compare_end_date` | No       | ""                    | Comparison end date (YYYY-MM-DD)                  |
 | `timezone`         | **Yes**  | -                     | Display timezone (e.g., "US/Pacific", "UTC")      |
 | `group`            | No       | "1h"                  | Time aggregation (15m, 30m, 1h, 2h, 6h, 12h, 24h) |
 | `units`            | No       | "mph"                 | Speed units ("mph", "kph", "mps")                 |

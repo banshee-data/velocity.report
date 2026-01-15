@@ -624,6 +624,8 @@ type ReportRequest struct {
 	SiteID         *int    `json:"site_id"`          // Optional: use site configuration
 	StartDate      string  `json:"start_date"`       // YYYY-MM-DD format
 	EndDate        string  `json:"end_date"`         // YYYY-MM-DD format
+	CompareStart   string  `json:"compare_start_date"` // Optional: comparison start date (YYYY-MM-DD)
+	CompareEnd     string  `json:"compare_end_date"`   // Optional: comparison end date (YYYY-MM-DD)
 	Timezone       string  `json:"timezone"`         // e.g., "US/Pacific"
 	Units          string  `json:"units"`            // "mph" or "kph"
 	Group          string  `json:"group"`            // e.g., "1h", "4h"
@@ -661,6 +663,15 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	if req.StartDate == "" || req.EndDate == "" {
 		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusBadRequest, "start_date and end_date are required")
+		return
+	}
+	if (req.CompareStart == "") != (req.CompareEnd == "") {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(
+			w,
+			http.StatusBadRequest,
+			"compare_start_date and compare_end_date are required together",
+		)
 		return
 	}
 
@@ -743,8 +754,7 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 
 	// Create a config JSON for the PDF generator
 	// Note: Not setting file_prefix - let Python auto-generate from source + date range
-	config := map[string]interface{}{
-		"query": map[string]interface{}{
+	queryConfig := map[string]interface{}{
 			"start_date":       req.StartDate,
 			"end_date":         req.EndDate,
 			"timezone":         req.Timezone,
@@ -755,7 +765,14 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 			"histogram":        req.Histogram,
 			"hist_bucket_size": req.HistBucketSize,
 			"hist_max":         req.HistMax,
-		},
+	}
+	if req.CompareStart != "" && req.CompareEnd != "" {
+		queryConfig["compare_start_date"] = req.CompareStart
+		queryConfig["compare_end_date"] = req.CompareEnd
+	}
+
+	config := map[string]interface{}{
+		"query": queryConfig,
 		"site": map[string]interface{}{
 			"location":         location,
 			"surveyor":         surveyor,
