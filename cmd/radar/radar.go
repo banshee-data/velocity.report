@@ -234,6 +234,10 @@ func main() {
 			// When running in PCAP mode / dev runs seed the background grid from first observations
 			// so replayed captures can build an initial background without live warmup.
 			SeedFromFirstObservation: *lidarSeedFromFirst,
+			// Enable region identification by setting warmup parameters
+			// Collect variance for ~5 seconds (100 frames at 20Hz) before identifying regions
+			WarmupMinFrames:     100,
+			WarmupDurationNanos: int64(30 * time.Second),
 		}
 
 		backgroundManager := lidar.NewBackgroundManager(*lidarSensor, 40, 1800, backgroundParams, lidarDB)

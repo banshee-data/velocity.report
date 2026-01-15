@@ -837,7 +837,11 @@ func createBackgroundManager(sensorID string) *lidar.BackgroundManager {
 			NoiseRelativeFraction:          0.315,
 			SeedFromFirstObservation:       true, // Important for PCAP replay
 			FreezeDurationNanos:            int64(5 * time.Second),
+			// Enable region identification for PCAP analysis
+			WarmupMinFrames:     100,
+			WarmupDurationNanos: int64(30 * time.Second),
 		},
+		RegionMgr: lidar.NewRegionManager(40, 1800),
 	}
 
 	return &lidar.BackgroundManager{
