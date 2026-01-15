@@ -74,9 +74,9 @@ type BackgroundParams struct {
 
 // RegionParams defines parameters that can vary per region
 type RegionParams struct {
-	NoiseRelativeFraction     float32 // noise threshold for this region
-	NeighborConfirmationCount int     // neighbor confirmation for this region
-	SettleUpdateFraction      float32 // alpha during settling for this region
+	NoiseRelativeFraction     float32 `json:"noise_relative_fraction"`     // noise threshold for this region
+	NeighborConfirmationCount int     `json:"neighbor_confirmation_count"` // neighbor confirmation for this region
+	SettleUpdateFraction      float32 `json:"settle_update_fraction"`      // alpha during settling for this region
 }
 
 // Region represents a contiguous spatial region with distinct parameters

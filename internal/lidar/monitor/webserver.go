@@ -3206,9 +3206,10 @@ func (ws *WebServer) handleBackgroundRegionsDashboard(w http.ResponseWriter, r *
                 colorBox.style.backgroundColor = regionColors[idx % regionColors.length];
                 
                 const label = document.createElement('span');
-                const variance = region.mean_variance.toFixed(3);
-                const noise = region.params.noise_relative_fraction.toFixed(3);
-                label.textContent = 'Region ' + idx + ' (var=' + variance + ', noise=' + noise + ', ' + region.cell_count + ' cells)';
+                const variance = (region.mean_variance || 0).toFixed(3);
+                const noise = (region.params?.noise_relative_fraction || 0).toFixed(3);
+                const cellCount = region.cell_count || 0;
+                label.textContent = 'Region ' + idx + ' (var=' + variance + ', noise=' + noise + ', ' + cellCount + ' cells)';
                 
                 item.appendChild(colorBox);
                 item.appendChild(label);
@@ -3234,13 +3235,18 @@ func (ws *WebServer) handleBackgroundRegionsDashboard(w http.ResponseWriter, r *
                 if (regionId >= 0 && regionData.regions[regionId]) {
                     const region = regionData.regions[regionId];
                     const azDegrees = (azBin * 360.0 / azimuthBins).toFixed(1);
+                    const variance = (region.mean_variance || 0).toFixed(3);
+                    const noiseRel = (region.params?.noise_relative_fraction || 0).toFixed(3);
+                    const neighbors = region.params?.neighbor_confirmation_count || 0;
+                    const alpha = (region.params?.settle_update_fraction || 0).toFixed(3);
+                    
                     tooltip.innerHTML = 
                         '<strong>Region ' + regionId + '</strong><br>' +
                         'Ring: ' + ring + ', Azimuth: ' + azDegrees + '°<br>' +
-                        'Variance: ' + region.mean_variance.toFixed(3) + '<br>' +
-                        'Noise Rel: ' + region.params.noise_relative_fraction.toFixed(3) + '<br>' +
-                        'Neighbors: ' + region.params.neighbor_confirmation_count + '<br>' +
-                        'Alpha: ' + region.params.settle_update_fraction.toFixed(3);
+                        'Variance: ' + variance + '<br>' +
+                        'Noise Rel: ' + noiseRel + '<br>' +
+                        'Neighbors: ' + neighbors + '<br>' +
+                        'Alpha: ' + alpha;
                     
                     tooltip.style.display = 'block';
                     tooltip.style.left = (e.clientX + 10) + 'px';
