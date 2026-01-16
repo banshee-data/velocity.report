@@ -2967,10 +2967,12 @@ func (ws *WebServer) handleBackgroundRegionsDashboard(w http.ResponseWriter, r *
 		sensorID = ws.sensorID
 	}
 
+	escapedSensorID := html.EscapeString(sensorID)
+
 	html := `<!DOCTYPE html>
 <html>
 <head>
-    <title>LiDAR Background Regions - ` + sensorID + `</title>
+    <title>LiDAR Background Regions - ` + escapedSensorID + `</title>
     <style>
         body { 
             margin: 0; 
