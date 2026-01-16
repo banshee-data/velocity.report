@@ -1,509 +1,605 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Lidar Monitor - {{.SensorID}}</title>
-    <style>
-      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; background-color: #f0f2f5; color: #333; }
-      h1 { margin-top: 0; margin-bottom: 0; color: #1a1a1a; grid-column: 1 / -1; }
-      h2, h3 { margin-top: 0; color: #444; }
-      .grid-container { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; margin: 0 auto; max-width: 500px; width: 100%; }
-      @media (min-width: 1060px) { .grid-container { grid-template-columns: repeat(2, 1fr); max-width: 1000px; } }
-      @media (min-width: 1560px) { .grid-container { grid-template-columns: repeat(3, 1fr); max-width: 1500px; } }
-      .card { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow-x: auto; }
-      table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-      th, td { padding: 8px; border: 1px solid #ddd; text-align: left; }
-      th { background-color: #f8f9fa; }
-      ul { padding-left: 20px; margin-bottom: 0; }
-      li { margin-bottom: 8px; }
-      form { margin-bottom: 15px; }
-      input[type="text"], input[type="number"], textarea, select { padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px; max-width: 100%; box-sizing: border-box; }
-      textarea { width: 100% !important; }
-      .form-row { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px; align-items: flex-end; }
-      .form-group { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 140px; }
-      .form-group label { font-weight: 600; font-size: 0.9em; color: #555; }
-      .form-inline { display: flex; align-items: center; gap: 8px; flex-direction: row; }
-      .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
-      button { cursor: pointer; padding: 5px 10px; background-color: #0066cc; color: white; border: none; border-radius: 4px; }
-      button:hover { background-color: #0052a3; }
-    </style>
-  </head>
-  <body>
-    <div class="grid-container">
-      <h1>LiDAR Monitor - {{.SensorID}}</h1>
-      <div class="card">
-        <h2>Configuration</h2>
-        <table border="1" cellpadding="5" cellspacing="0">
-          <tr>
-            <td>
-              <strong>Mode:</strong>
-            </td>
-            <td>
-              <strong>{{.Mode}}</strong></td>
-          </tr>
-          <tr>
-            <td>
-              <strong>Version:</strong>
-            </td>
-            <td>{{.Version}}</td>
-          </tr>
-          <tr>
-            <td>
-              <strong>Git SHA:</strong>
-            </td>
-            <td>{{.GitSHA}}</td>
-          </tr>
-          <tr>
-            <td>
-              <strong>Build Time:</strong>
-            </td>
-            <td>{{.BuildTime}}</td>
-          </tr>
-          {{if .PCAPFile}}
-          <tr>
-            <td>
-              <strong>PCAP File:</strong>
-            </td>
-            <td>{{.PCAPFile}}</td>
-          </tr>
-          {{end}}
-          {{if .PCAPInProgress}}
-          <tr>
-            <td>
-              <strong>PCAP Speed Mode:</strong>
-            </td>
-            <td>{{.PCAPSpeedMode}}{{if .PCAPSpeedRatio}} (ratio: {{printf "%.2f"
-              .PCAPSpeedRatio}}){{end}}</td>
-          </tr>
-          {{end}}
-          <tr>
-            <td>
-              <strong>PCAP In Progress:</strong>
-            </td>
-            <td>{{.PCAPInProgress}}</td>
-          </tr>
-          <tr>
-            <td>
-              <strong>UDP Port:</strong>
-            </td>
-            <td>{{.UDPPort}}</td>
-          </tr>
-          <tr>
-            <td>
-              <strong>HTTP Address:</strong>
-            </td>
-            <td>{{.HTTPAddress}}</td>
-          </tr>
-          <tr>
-            <td>
-              <strong>Packet Forwarding:</strong>
-            </td>
-            <td>{{.ForwardingStatus}}</td>
-          </tr>
-          <tr>
-            <td>
-              <strong>Packet Parsing:</strong>
-            </td>
-            <td>{{.ParsingStatus}}</td>
-          </tr>
-          {{if .PCAPSafeDir}}
-          <tr>
-            <td>
-              <strong>PCAP Safe Directory:</strong>
-            </td>
-            <td>{{.PCAPSafeDir}}</td>
-          </tr>
-          {{end}}
-          <tr>
-            <td>
-              <strong>Uptime:</strong>
-            </td>
-            <td>{{.Uptime}}</td>
-          </tr>
-        </table>
-      </div>
 
-      {{if .BGParams}}
-      <div class="card">
-        <h2>Background Subtraction Parameters</h2>
+<head>
+  <title>Lidar Monitor - {{.SensorID}}</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f0f2f5;
+      color: #333;
+    }
 
-        <!-- JSON Editor Form -->
-        <h3>Update Parameters (JSON)</h3>
-        <form action="/api/lidar/params?sensor_id={{.SensorID}}" method="POST">
-          <textarea name="config_json" rows="{{.BGParamsJSONLines}}"
-            style="width: 26em; font-family: monospace; font-size: 13px; padding: 6px; border: 1px solid #ccc;">{{.BGParamsJSON}}</textarea>
-          <button type="submit">Update
-            Params</button>
-        </form>
-      </div>
-      {{end}}
+    h1 {
+      margin-top: 0;
+      margin-bottom: 0;
+      color: #1a1a1a;
+      grid-column: 1 / -1;
+    }
 
-      <div class="card">
-        {{if .Stats}}
-        <h2>Latest Statistics</h2>
-        <p><strong>Data Rate:</strong> {{printf "%.2f" .Stats.MBPerSec}}
-          MB/sec</p>
-        <p><strong>Packet Rate:</strong> {{printf "%.1f" .Stats.PacketsPerSec}}
-          packets/sec</p>
-        {{if .Stats.ParseEnabled}}
-        <p><strong>Point Rate:</strong> {{printf "%.0f" .Stats.PointsPerSec}}
-          points/sec</p>
+    h2,
+    h3 {
+      margin-top: 0;
+      color: #444;
+    }
+
+    .grid-container {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+      align-items: start;
+      margin: 0 auto;
+      max-width: 500px;
+      width: 100%;
+    }
+
+    @media (min-width: 1060px) {
+      .grid-container {
+        grid-template-columns: repeat(2, 1fr);
+        max-width: 1000px;
+      }
+    }
+
+    @media (min-width: 1560px) {
+      .grid-container {
+        grid-template-columns: repeat(3, 1fr);
+        max-width: 1500px;
+      }
+    }
+
+    .card {
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 10px;
+    }
+
+    th,
+    td {
+      padding: 8px;
+      border: 1px solid #ddd;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f8f9fa;
+    }
+
+    ul {
+      padding-left: 20px;
+      margin-bottom: 0;
+    }
+
+    li {
+      margin-bottom: 8px;
+    }
+
+    form {
+      margin-bottom: 15px;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    textarea,
+    select {
+      padding: 4px 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    textarea {
+      width: 100% !important;
+    }
+
+    .form-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-bottom: 15px;
+      align-items: flex-end;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+      min-width: 140px;
+    }
+
+    .form-group label {
+      font-weight: 600;
+      font-size: 0.9em;
+      color: #555;
+    }
+
+    .form-inline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-direction: row;
+    }
+
+    .form-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    button {
+      cursor: pointer;
+      padding: 5px 10px;
+      background-color: #0066cc;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+
+    button:hover {
+      background-color: #0052a3;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="grid-container">
+    <h1>LiDAR Monitor - {{.SensorID}}</h1>
+    <div class="card">
+      <h2>Configuration</h2>
+      <table border="1" cellpadding="5" cellspacing="0">
+        <tr>
+          <td>
+            <strong>Mode:</strong>
+          </td>
+          <td>
+            <strong>{{.Mode}}</strong>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>Version:</strong>
+          </td>
+          <td>{{.Version}}</td>
+        </tr>
+        <tr>
+          <td>
+            <strong>Git SHA:</strong>
+          </td>
+          <td>{{.GitSHA}}</td>
+        </tr>
+        <tr>
+          <td>
+            <strong>Build Time:</strong>
+          </td>
+          <td>{{.BuildTime}}</td>
+        </tr>
+        {{if .PCAPFile}}
+        <tr>
+          <td>
+            <strong>PCAP File:</strong>
+          </td>
+          <td>{{.PCAPFile}}</td>
+        </tr>
         {{end}}
-        {{if gt .Stats.DroppedCount 0}}
-        <p><strong>Dropped Packets:</strong> {{.Stats.DroppedCount}} (forwarding
-          backpressure)</p>
+        {{if .PCAPInProgress}}
+        <tr>
+          <td>
+            <strong>PCAP Speed Mode:</strong>
+          </td>
+          <td>{{.PCAPSpeedMode}}{{if .PCAPSpeedRatio}} (ratio: {{printf "%.2f"
+            .PCAPSpeedRatio}}){{end}}</td>
+        </tr>
         {{end}}
-        <p><strong>Last Updated:</strong> {{.Stats.Timestamp.Format
-          "15:04:05"}}</p>
-        {{else}}
-        <p><em>No statistics available yet...</em></p>
+        <tr>
+          <td>
+            <strong>PCAP In Progress:</strong>
+          </td>
+          <td>{{.PCAPInProgress}}</td>
+        </tr>
+        <tr>
+          <td>
+            <strong>UDP Port:</strong>
+          </td>
+          <td>{{.UDPPort}}</td>
+        </tr>
+        <tr>
+          <td>
+            <strong>HTTP Address:</strong>
+          </td>
+          <td>{{.HTTPAddress}}</td>
+        </tr>
+        <tr>
+          <td>
+            <strong>Packet Forwarding:</strong>
+          </td>
+          <td>{{.ForwardingStatus}}</td>
+        </tr>
+        <tr>
+          <td>
+            <strong>Packet Parsing:</strong>
+          </td>
+          <td>{{.ParsingStatus}}</td>
+        </tr>
+        {{if .PCAPSafeDir}}
+        <tr>
+          <td>
+            <strong>PCAP Safe Directory:</strong>
+          </td>
+          <td>{{.PCAPSafeDir}}</td>
+        </tr>
         {{end}}
-      </div>
-
-      {{if .FgSnapshotCounts}}
-      <div class="card">
-        <h2>Latest Foreground Snapshot</h2>
-        <table border="1" cellpadding="5" cellspacing="0">
-          <tr>
-            <td><strong>Total Points:</strong></td>
-            <td>{{index .FgSnapshotCounts "total"}}</td>
-          </tr>
-          <tr>
-            <td><strong>Foreground Points:</strong></td>
-            <td>{{index .FgSnapshotCounts "foreground"}}</td>
-          </tr>
-          <tr>
-            <td><strong>Background Points:</strong></td>
-            <td>{{index .FgSnapshotCounts "background"}}</td>
-          </tr>
-        </table>
-      </div>
-      {{end}}
-
-      <!-- API Endpoints -->
-      <div class="card">
-        <h3>System</h3>
-        <ul>
-          <li>
-            <a href="/health">Health Check</a>
-          </li>
-          <li>
-            <a href="/api/lidar/status?sensor_id={{.SensorID}}" target="_blank">
-              LiDAR Status (JSON)
-            </a>
-          </li>
-          <li>
-            <a href="/api/lidar/monitor?sensor_id={{.SensorID}}"
-              target="_blank">
-              LiDAR Monitor (HTML)
-            </a>
-          </li>
-          <li>
-            <a href="/api/lidar/data_source?sensor_id={{.SensorID}}"
-              target="_blank">
-              Data Source Status (live/pcap/pcap_analysis)
-            </a>
-          </li>
-          <li>
-            <a href="/debug/lidar?sensor_id={{.SensorID}}" target="_blank">
-              LiDAR Debug Dashboard (iframes)
-            </a>
-          </li>
-        </ul>
-      </div>
-      <div class="card">
-        <h3>Background Grid</h3>
-        <ul>
-          <li>
-            <a href="/api/lidar/params?sensor_id={{.SensorID}}" target="_blank">
-              Get/Update Background Parameters
-            </a>
-          </li>
-          <li>
-            <a href="/api/lidar/background/grid?sensor_id={{.SensorID}}"
-              target="_blank">
-              Full Background Grid (JSON)
-            </a>
-          </li>
-          <li>
-            <a href="/api/lidar/grid_status?sensor_id={{.SensorID}}"
-              target="_blank">
-              Grid Status
-            </a>
-          </li>
-          <li>
-            <a href="/api/lidar/grid_heatmap?sensor_id={{.SensorID}}"
-              target="_blank">
-              Grid Heatmap
-            </a>
-          </li>
-          <li>
-            <form action="/api/lidar/grid_reset?sensor_id={{.SensorID}}"
-              method="POST" target="_blank" style="display:inline; margin:0;">
-              <button type="submit">&#x1F6A8; Reset Grid &#x1F6A8;</button>
-            </form>
-          </li>
-          <li>
-            <a href="/debug/lidar/background/polar?sensor_id={{.SensorID}}"
-              target="_blank">
-              Debug Polar Plot (visual)
-            </a>
-          </li>
-          <li>
-            <a href="/debug/lidar/background/heatmap?sensor_id={{.SensorID}}"
-              target="_blank">
-              Background Heatmap (visual)
-            </a>
-          </li>
-          <li>
-            <a href="/api/lidar/acceptance?sensor_id={{.SensorID}}"
-              target="_blank">
-              Background Acceptance Metrics
-            </a>
-          </li>
-          <li>
-            <form action="/api/lidar/acceptance/reset?sensor_id={{.SensorID}}"
-              method="POST" target="_blank" style="display:inline; margin:0;">
-              <button type="submit">&#x1F6A8; Reset Acceptance Metrics
-                &#x1F6A8;</button>
-            </form>
-          </li>
-        </ul>
-      </div>
-      <div class="card">
-        <h3>Background Snapshots</h3>
-        <ul>
-          <li>
-            <form action="/api/lidar/persist?sensor_id={{.SensorID}}"
-              method="POST" target="_blank" style="display:inline; margin:0;">
-              <button type="submit">Save Background Snapshot</button>
-            </form>
-          </li>
-          <li>
-            <a href="/api/lidar/snapshot?sensor_id={{.SensorID}}"
-              target="_blank">
-              Get Latest Snapshot
-            </a>
-          </li>
-          <li>
-            <a href="/api/lidar/snapshots?sensor_id={{.SensorID}}"
-              target="_blank">
-              List Recent Snapshots
-            </a>
-          </li>
-          <li>
-            <form action="/api/lidar/snapshots/cleanup?sensor_id={{.SensorID}}"
-              method="POST" target="_blank" style="display:inline; margin:0;">
-              <button type="submit">&#x1F6A8; Delete Duplicate Snapshots
-                &#x1F6A8;</button>
-            </form>
-          </li>
-          <li>
-            <a href="/api/lidar/export_snapshot?sensor_id={{.SensorID}}">
-              Export Latest Snapshot to ASC
-            </a>
-          </li>
-          <li>
-            <a href="/api/lidar/export_next_frame?sensor_id={{.SensorID}}">
-              Export Next Completed Frame to ASC
-            </a>
-          </li>
-          <li>
-            <a href="/api/lidar/export_frame_sequence?sensor_id={{.SensorID}}">
-              Export Sequence (1 bg + 5 frames + 5 foreground)
-            </a>
-          </li>
-        </ul>
-      </div>
-      <div class="card">
-        <h3>PCAP Replay</h3>
-        <ul>
-          <li>
-            <form action="/api/lidar/pcap/start?sensor_id={{.SensorID}}"
-              method="POST"
-              target="_blank">
-
-              <div class="form-row">
-                <div class="form-group" style="flex: 2;">
-                  <label>Replay File
-                    {{if .PCAPSafeDir}}(from {{.PCAPSafeDir}}){{end}}:
-                  </label>
-                  <input type="text" name="pcap_file"
-                    placeholder="filename.pcap" required />
-                </div>
-                <div class="form-group">
-                  <label>FG Debug:</label>
-                  <select name="enable_debug">
-                    <option value="false" selected>Off</option>
-                    <option value="true">On</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="form-row">
-                <div class="form-group form-inline">
-                  <input type="checkbox" name="analysis_mode" value="true"
-                    id="chk_analysis" />
-                  <label for="chk_analysis"
-                    style="font-weight: normal; margin: 0;">Preserve
-                    grid</label>
-                </div>
-                <div class="form-group form-inline">
-                  <input type="checkbox" name="enable_plots" value="true"
-                    id="chk_plots" />
-                  <label for="chk_plots"
-                    style="font-weight: normal; margin: 0;">Generate
-                    Plots</label>
-                </div>
-              </div>
-
-              <div class="form-grid-2">
-                <div class="form-group">
-                  <label>Speed Mode:</label>
-                  <select name="speed_mode" id="pcap-speed-mode-{{.SensorID}}">
-                    <option value="fastest">Fastest</option>
-                    <option value="realtime" selected>Realtime (1x)</option>
-                    <option value="fixed">Fixed ratio</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label>Speed Ratio:</label>
-                  <input type="number" name="speed_ratio"
-                    id="pcap-speed-ratio-{{.SensorID}}" min="0.01" step="0.1"
-                    value="1.0" disabled />
-                </div>
-              </div>
-
-              <div class="form-grid-2">
-                <div class="form-group">
-                  <label>Start (seconds):</label>
-                  <input type="number" name="start_seconds" min="0" step="0.1"
-                    value="0" />
-                </div>
-                <div class="form-group">
-                  <label>Duration (seconds, -1=all):</label>
-                  <input type="number" name="duration_seconds" step="0.1"
-                    value="-1" />
-                </div>
-
-                <div class="form-group">
-                  <label>Debug Ring Min:</label>
-                  <input type="number" name="debug_ring_min" min="0" max="39"
-                    step="1" value="0" />
-                </div>
-                <div class="form-group">
-                  <label>Debug Ring Max:</label>
-                  <input type="number" name="debug_ring_max" min="0" max="39"
-                    step="1" value="0" />
-                </div>
-
-                <div class="form-group">
-                  <label>Debug Az Min (deg):</label>
-                  <input type="number" name="debug_az_min" min="0" max="360"
-                    step="0.1" value="0" />
-                </div>
-                <div class="form-group">
-                  <label>Debug Az Max (deg):</label>
-                  <input type="number" name="debug_az_max" min="0" max="360"
-                    step="0.1" value="0" />
-                </div>
-              </div>
-
-              <div class="form-row">
-                <button type="submit">Run PCAP</button>
-              </div>
-            </form>
-            <script>
-          (function() {
-            try {
-              var select = document.getElementById('pcap-speed-mode-{{.SensorID}}');
-              var ratio = document.getElementById('pcap-speed-ratio-{{.SensorID}}');
-              if (!select || !ratio) return;
-              function update() {
-                ratio.disabled = (select.value !== 'fixed');
-              }
-              select.addEventListener('change', update);
-              update();
-            } catch (e) {
-              // no-op: keep template resilient to missing elements
-            }
-          })();
-        </script>
-          </li>
-          <li>
-            <form action="/api/lidar/pcap/stop?sensor_id={{.SensorID}}"
-              method="POST" target="_blank" style="display:inline; margin:0;">
-              <button type="submit">Stop PCAP Replay (resets grid)</button>
-            </form>
-          </li>
-          <li>
-            <form action="/api/lidar/pcap/resume_live?sensor_id={{.SensorID}}"
-              method="POST" target="_blank" style="display:inline; margin:0;">
-              <button type="submit">Resume Live from PCAP Analysis (preserves
-                grid)</button>
-            </form>
-          </li>
-        </ul>
-      </div>
-      <div class="card">
-        <h3>Tracking</h3>
-        <ul>
-          <li>
-            <a href="/api/lidar/tracks?sensor_id={{.SensorID}}" target="_blank">
-              List All Tracks
-            </a>
-          </li>
-          <li>
-            <a href="/api/lidar/tracks/active?sensor_id={{.SensorID}}"
-              target="_blank">
-              Active Tracks
-            </a>
-          </li>
-          <li>
-            <a href="/api/lidar/tracks/summary?sensor_id={{.SensorID}}"
-              target="_blank">
-              Track Summary Statistics
-            </a>
-          </li>
-          <li>
-            <a href="/api/lidar/clusters?sensor_id={{.SensorID}}"
-              target="_blank">
-              List Clusters
-            </a>
-          </li>
-          <li>
-            <a href="/debug/lidar/clusters?sensor_id={{.SensorID}}"
-              target="_blank">
-              Clusters (visual)
-            </a>
-          </li>
-          <li>
-            <a href="/debug/lidar/foreground?sensor_id={{.SensorID}}"
-              target="_blank">
-              Foreground Frame (visual)
-            </a>
-          </li>
-          <li>
-            <a href="/api/lidar/export_foreground?sensor_id={{.SensorID}}"
-              target="_blank">
-              Export Latest Foreground to ASC
-            </a>
-          </li>
-          <li>
-            <a href="/debug/lidar/tracks?sensor_id={{.SensorID}}"
-              target="_blank">
-              Tracks (visual)
-            </a>
-          </li>
-          <li>
-            <form action="/api/lidar/tracks/clear" method="post" target="_blank"
-              style="margin: 0;">
-              <input type="hidden" name="sensor_id" value="{{.SensorID}}" />
-              <button type="submit">&#x1F6A8; Clear Tracks + Observations
-                &#x1F6A8;</button>
-            </form>
-          </li>
-        </ul>
-      </div>
+        <tr>
+          <td>
+            <strong>Uptime:</strong>
+          </td>
+          <td>{{.Uptime}}</td>
+        </tr>
+      </table>
     </div>
-  </body>
+
+    {{if .BGParams}}
+    <div class="card">
+      <h2>Background Subtraction Parameters</h2>
+
+      <!-- JSON Editor Form -->
+      <h3>Update Parameters (JSON)</h3>
+      <form action="/api/lidar/params?sensor_id={{.SensorID}}" method="POST">
+        <textarea name="config_json" rows="{{.BGParamsJSONLines}}"
+          style="width: 26em; font-family: monospace; font-size: 13px; padding: 6px; border: 1px solid #ccc;">{{.BGParamsJSON}}</textarea>
+        <button type="submit">Update
+          Params</button>
+      </form>
+    </div>
+    {{end}}
+
+    <div class="card">
+      {{if .Stats}}
+      <h2>Latest Statistics</h2>
+      <p><strong>Data Rate:</strong> {{printf "%.2f" .Stats.MBPerSec}}
+        MB/sec</p>
+      <p><strong>Packet Rate:</strong> {{printf "%.1f" .Stats.PacketsPerSec}}
+        packets/sec</p>
+      {{if .Stats.ParseEnabled}}
+      <p><strong>Point Rate:</strong> {{printf "%.0f" .Stats.PointsPerSec}}
+        points/sec</p>
+      {{end}}
+      {{if gt .Stats.DroppedCount 0}}
+      <p><strong>Dropped Packets:</strong> {{.Stats.DroppedCount}} (forwarding
+        backpressure)</p>
+      {{end}}
+      <p><strong>Last Updated:</strong> {{.Stats.Timestamp.Format
+        "15:04:05"}}</p>
+      {{else}}
+      <p><em>No statistics available yet...</em></p>
+      {{end}}
+    </div>
+
+    {{if .FgSnapshotCounts}}
+    <div class="card">
+      <h2>Latest Foreground Snapshot</h2>
+      <table border="1" cellpadding="5" cellspacing="0">
+        <tr>
+          <td><strong>Total Points:</strong></td>
+          <td>{{index .FgSnapshotCounts "total"}}</td>
+        </tr>
+        <tr>
+          <td><strong>Foreground Points:</strong></td>
+          <td>{{index .FgSnapshotCounts "foreground"}}</td>
+        </tr>
+        <tr>
+          <td><strong>Background Points:</strong></td>
+          <td>{{index .FgSnapshotCounts "background"}}</td>
+        </tr>
+      </table>
+    </div>
+    {{end}}
+
+    <!-- API Endpoints -->
+    <div class="card">
+      <h3>System</h3>
+      <ul>
+        <li>
+          <a href="/health">Health Check</a>
+        </li>
+        <li>
+          <a href="/api/lidar/status?sensor_id={{.SensorID}}" target="_blank">
+            LiDAR Status (JSON)
+          </a>
+        </li>
+        <li>
+          <a href="/api/lidar/monitor?sensor_id={{.SensorID}}" target="_blank">
+            LiDAR Monitor (HTML)
+          </a>
+        </li>
+        <li>
+          <a href="/api/lidar/data_source?sensor_id={{.SensorID}}" target="_blank">
+            Data Source Status (live/pcap/pcap_analysis)
+          </a>
+        </li>
+        <li>
+          <a href="/debug/lidar?sensor_id={{.SensorID}}" target="_blank">
+            LiDAR Debug Dashboard (iframes)
+          </a>
+        </li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Background Grid</h3>
+      <ul>
+        <li>
+          <a href="/api/lidar/params?sensor_id={{.SensorID}}" target="_blank">
+            Get/Update Background Parameters
+          </a>
+        </li>
+        <li>
+          <a href="/api/lidar/background/grid?sensor_id={{.SensorID}}" target="_blank">
+            Full Background Grid (JSON)
+          </a>
+        </li>
+        <li>
+          <a href="/api/lidar/grid_status?sensor_id={{.SensorID}}" target="_blank">
+            Grid Status
+          </a>
+        </li>
+        <li>
+          <a href="/api/lidar/grid_heatmap?sensor_id={{.SensorID}}" target="_blank">
+            Grid Heatmap
+          </a>
+        </li>
+        <li>
+          <form action="/api/lidar/grid_reset?sensor_id={{.SensorID}}" method="POST" target="_blank"
+            style="display:inline; margin:0;">
+            <button type="submit">&#x1F6A8; Reset Grid &#x1F6A8;</button>
+          </form>
+        </li>
+        <li>
+          <a href="/debug/lidar/background/polar?sensor_id={{.SensorID}}" target="_blank">
+            Debug Polar Plot (visual)
+          </a>
+        </li>
+        <li>
+          <a href="/debug/lidar/background/heatmap?sensor_id={{.SensorID}}" target="_blank">
+            Background Heatmap (visual)
+          </a>
+        </li>
+        <li>
+          <a href="/api/lidar/acceptance?sensor_id={{.SensorID}}" target="_blank">
+            Background Acceptance Metrics
+          </a>
+        </li>
+        <li>
+          <form action="/api/lidar/acceptance/reset?sensor_id={{.SensorID}}" method="POST" target="_blank"
+            style="display:inline; margin:0;">
+            <button type="submit">&#x1F6A8; Reset Acceptance Metrics
+              &#x1F6A8;</button>
+          </form>
+        </li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Background Snapshots</h3>
+      <ul>
+        <li>
+          <form action="/api/lidar/persist?sensor_id={{.SensorID}}" method="POST" target="_blank"
+            style="display:inline; margin:0;">
+            <button type="submit">Save Background Snapshot</button>
+          </form>
+        </li>
+        <li>
+          <a href="/api/lidar/snapshot?sensor_id={{.SensorID}}" target="_blank">
+            Get Latest Snapshot
+          </a>
+        </li>
+        <li>
+          <a href="/api/lidar/snapshots?sensor_id={{.SensorID}}" target="_blank">
+            List Recent Snapshots
+          </a>
+        </li>
+        <li>
+          <form action="/api/lidar/snapshots/cleanup?sensor_id={{.SensorID}}" method="POST" target="_blank"
+            style="display:inline; margin:0;">
+            <button type="submit">&#x1F6A8; Delete Duplicate Snapshots
+              &#x1F6A8;</button>
+          </form>
+        </li>
+        <li>
+          <a href="/api/lidar/export_snapshot?sensor_id={{.SensorID}}">
+            Export Latest Snapshot to ASC
+          </a>
+        </li>
+        <li>
+          <a href="/api/lidar/export_next_frame?sensor_id={{.SensorID}}">
+            Export Next Completed Frame to ASC
+          </a>
+        </li>
+        <li>
+          <a href="/api/lidar/export_frame_sequence?sensor_id={{.SensorID}}">
+            Export Sequence (1 bg + 5 frames + 5 foreground)
+          </a>
+        </li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>PCAP Replay</h3>
+      <ul>
+        <li>
+          <form action="/api/lidar/pcap/start?sensor_id={{.SensorID}}" method="POST" target="_blank">
+
+            <div class="form-row">
+              <div class="form-group" style="flex: 2;">
+                <label>Replay File
+                  {{if .PCAPSafeDir}}(from {{.PCAPSafeDir}}){{end}}:
+                </label>
+                <input type="text" name="pcap_file" placeholder="filename.pcap" required />
+              </div>
+              <div class="form-group">
+                <label>FG Debug:</label>
+                <select name="enable_debug">
+                  <option value="false" selected>Off</option>
+                  <option value="true">On</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group form-inline">
+                <input type="checkbox" name="analysis_mode" value="true" id="chk_analysis" />
+                <label for="chk_analysis" style="font-weight: normal; margin: 0;">Preserve
+                  grid</label>
+              </div>
+              <div class="form-group form-inline">
+                <input type="checkbox" name="enable_plots" value="true" id="chk_plots" />
+                <label for="chk_plots" style="font-weight: normal; margin: 0;">Generate
+                  Plots</label>
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label>Speed Mode:</label>
+                <select name="speed_mode" id="pcap-speed-mode-{{.SensorID}}">
+                  <option value="fastest">Fastest</option>
+                  <option value="realtime" selected>Realtime (1x)</option>
+                  <option value="fixed">Fixed ratio</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Speed Ratio:</label>
+                <input type="number" name="speed_ratio" id="pcap-speed-ratio-{{.SensorID}}" min="0.01" step="0.1"
+                  value="1.0" disabled />
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label>Start (seconds):</label>
+                <input type="number" name="start_seconds" min="0" step="0.1" value="0" />
+              </div>
+              <div class="form-group">
+                <label>Duration (seconds, -1=all):</label>
+                <input type="number" name="duration_seconds" step="0.1" value="-1" />
+              </div>
+
+              <div class="form-group">
+                <label>Debug Ring Min:</label>
+                <input type="number" name="debug_ring_min" min="0" max="39" step="1" value="0" />
+              </div>
+              <div class="form-group">
+                <label>Debug Ring Max:</label>
+                <input type="number" name="debug_ring_max" min="0" max="39" step="1" value="0" />
+              </div>
+
+              <div class="form-group">
+                <label>Debug Az Min (deg):</label>
+                <input type="number" name="debug_az_min" min="0" max="360" step="0.1" value="0" />
+              </div>
+              <div class="form-group">
+                <label>Debug Az Max (deg):</label>
+                <input type="number" name="debug_az_max" min="0" max="360" step="0.1" value="0" />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <button type="submit">Run PCAP</button>
+            </div>
+          </form>
+          <script>
+            (function () {
+              try {
+                var select = document.getElementById('pcap-speed-mode-{{.SensorID}}');
+                var ratio = document.getElementById('pcap-speed-ratio-{{.SensorID}}');
+                if (!select || !ratio) return;
+                function update() {
+                  ratio.disabled = (select.value !== 'fixed');
+                }
+                select.addEventListener('change', update);
+                update();
+              } catch (e) {
+                // no-op: keep template resilient to missing elements
+              }
+            })();
+          </script>
+        </li>
+        <li>
+          <form action="/api/lidar/pcap/stop?sensor_id={{.SensorID}}" method="POST" target="_blank"
+            style="display:inline; margin:0;">
+            <button type="submit">Stop PCAP Replay (resets grid)</button>
+          </form>
+        </li>
+        <li>
+          <form action="/api/lidar/pcap/resume_live?sensor_id={{.SensorID}}" method="POST" target="_blank"
+            style="display:inline; margin:0;">
+            <button type="submit">Resume Live from PCAP Analysis (preserves
+              grid)</button>
+          </form>
+        </li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Tracking</h3>
+      <ul>
+        <li>
+          <a href="/api/lidar/tracks?sensor_id={{.SensorID}}" target="_blank">
+            List All Tracks
+          </a>
+        </li>
+        <li>
+          <a href="/api/lidar/tracks/active?sensor_id={{.SensorID}}" target="_blank">
+            Active Tracks
+          </a>
+        </li>
+        <li>
+          <a href="/api/lidar/tracks/summary?sensor_id={{.SensorID}}" target="_blank">
+            Track Summary Statistics
+          </a>
+        </li>
+        <li>
+          <a href="/api/lidar/clusters?sensor_id={{.SensorID}}" target="_blank">
+            List Clusters
+          </a>
+        </li>
+        <li>
+          <a href="/debug/lidar/clusters?sensor_id={{.SensorID}}" target="_blank">
+            Clusters (visual)
+          </a>
+        </li>
+        <li>
+          <a href="/debug/lidar/foreground?sensor_id={{.SensorID}}" target="_blank">
+            Foreground Frame (visual)
+          </a>
+        </li>
+        <li>
+          <a href="/api/lidar/export_foreground?sensor_id={{.SensorID}}" target="_blank">
+            Export Latest Foreground to ASC
+          </a>
+        </li>
+        <li>
+          <a href="/debug/lidar/tracks?sensor_id={{.SensorID}}" target="_blank">
+            Tracks (visual)
+          </a>
+        </li>
+        <li>
+          <form action="/api/lidar/tracks/clear" method="post" target="_blank" style="margin: 0;">
+            <input type="hidden" name="sensor_id" value="{{.SensorID}}" />
+            <button type="submit">&#x1F6A8; Clear Tracks + Observations
+              &#x1F6A8;</button>
+          </form>
+        </li>
+      </ul>
+    </div>
+  </div>
+</body>
+
 </html>
