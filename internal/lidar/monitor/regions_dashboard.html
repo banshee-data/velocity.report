@@ -1,310 +1,373 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>LiDAR Background Regions - %[1]s</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 20px;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f0f2f5;
-        }
-        h1 { margin-top: 0; color: #1a1a1a; }
-        .container { max-width: 1400px; margin: 0 auto; }
-        .info-panel {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-        .info-item { display: flex; flex-direction: column; }
-        .info-label { font-size: 0.85em; color: #666; margin-bottom: 4px; }
-        .info-value { font-size: 1.1em; font-weight: 600; color: #1a1a1a; }
-        .canvas-container {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        #regionCanvas {
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            max-width: 100%%;
-            cursor: crosshair;
-        }
-        .legend {
-            margin-top: 15px;
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 4px;
-        }
-        .legend-title { font-weight: 600; margin-bottom: 8px; }
-        .legend-items { display: flex; flex-wrap: wrap; gap: 15px; }
-        .legend-item { display: flex; align-items: center; gap: 8px; }
-        .legend-color { width: 20px; height: 20px; border-radius: 3px; border: 1px solid #ddd; }
-        .region-tooltip {
-            position: absolute;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-size: 12px;
-            pointer-events: none;
-            display: none;
-            z-index: 1000;
-        }
-        .status {
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 0.9em;
-            font-weight: 600;
-        }
-        .status-complete { background: #d4edda; color: #155724; }
-        .status-pending { background: #fff3cd; color: #856404; }
-        .refresh-btn {
-            padding: 8px 16px;
-            background: #0066cc;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        .refresh-btn:hover { background: #0052a3; }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <h1>LiDAR Background Regions</h1>
 
-      <div class="info-panel">
-        <div class="info-grid">
-          <div class="info-item">
-            <div class="info-label">Sensor ID</div>
-            <div class="info-value" id="sensorId">-</div>
+<head>
+  <title>LiDAR Background Regions - %[1]s</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f0f2f5;
+    }
+
+    h1 {
+      margin-top: 0;
+      color: #1a1a1a;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .info-panel {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+    }
+
+    .info-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .info-label {
+      font-size: 0.85em;
+      color: #666;
+      margin-bottom: 4px;
+    }
+
+    .info-value {
+      font-size: 1.1em;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+
+    .canvas-container {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    #regionCanvas {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      max-width: 100%;
+      cursor: crosshair;
+    }
+
+    .legend {
+      margin-top: 15px;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 4px;
+    }
+
+    .legend-title {
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .legend-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .legend-color {
+      width: 20px;
+      height: 20px;
+      border-radius: 3px;
+      border: 1px solid #ddd;
+    }
+
+    .region-tooltip {
+      position: absolute;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      pointer-events: none;
+      display: none;
+      z-index: 1000;
+    }
+
+    .status {
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.9em;
+      font-weight: 600;
+    }
+
+    .status-complete {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .status-pending {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .refresh-btn {
+      padding: 8px 16px;
+      background: #0066cc;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .refresh-btn:hover {
+      background: #0052a3;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>LiDAR Background Regions</h1>
+
+    <div class="info-panel">
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-label">Sensor ID</div>
+          <div class="info-value" id="sensorId">-</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Region Count</div>
+          <div class="info-value" id="regionCount">-</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Frames Sampled</div>
+          <div class="info-value" id="framesSampled">-</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Status</div>
+          <div class="info-value">
+            <span id="status" class="status">-</span>
           </div>
-          <div class="info-item">
-            <div class="info-label">Region Count</div>
-            <div class="info-value" id="regionCount">-</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Frames Sampled</div>
-            <div class="info-value" id="framesSampled">-</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Status</div>
-            <div class="info-value">
-              <span id="status" class="status">-</span>
-            </div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Actions</div>
-            <div class="info-value">
-              <button class="refresh-btn"
-                onclick="loadRegions()">Refresh</button>
-            </div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Actions</div>
+          <div class="info-value">
+            <button class="refresh-btn" onclick="loadRegions()">Refresh</button>
           </div>
         </div>
       </div>
-
-      <div class="canvas-container">
-        <canvas id="regionCanvas" width="1200" height="600"></canvas>
-        <div class="legend">
-          <div class="legend-title">Region Types</div>
-          <div class="legend-items" id="legendItems"></div>
-        </div>
-      </div>
-
-      <div class="region-tooltip" id="tooltip"></div>
     </div>
 
-    <script>
-        const canvas = document.getElementById('regionCanvas');
-        const ctx = canvas.getContext('2d');
-        const tooltip = document.getElementById('tooltip');
-        let regionData = null;
-        let rings = 40;
-        let azimuthBins = 1800;
+    <div class="canvas-container">
+      <canvas id="regionCanvas" width="1200" height="600"></canvas>
+      <div class="legend">
+        <div class="legend-title">Region Types</div>
+        <div class="legend-items" id="legendItems"></div>
+      </div>
+    </div>
 
-        // Color palette for regions
-        const regionColors = [
-            '#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6',
-            '#1abc9c', '#e67e22', '#34495e', '#16a085', '#c0392b',
-            '#8e44ad', '#2980b9', '#27ae60', '#f1c40f', '#d35400',
-            '#7f8c8d', '#95a5a6', '#bdc3c7', '#ecf0f1', '#e8daef'
-        ];
+    <div class="region-tooltip" id="tooltip"></div>
+  </div>
 
-        function loadRegions() {
-            fetch('/debug/lidar/background/regions?sensor_id=' + encodeURIComponent('%[2]s'))
-                .then(response => response.json())
-                .then(data => {
-                    regionData = data;
-                    updateInfoPanel(data);
-                    drawRegions(data);
-                })
-                .catch(error => {
-                    console.error('Error loading regions:', error);
-                    document.getElementById('status').textContent = 'Error loading';
-                    document.getElementById('status').className = 'status status-pending';
-                });
-        }
+  <script>
+    const canvas = document.getElementById('regionCanvas');
+    const ctx = canvas.getContext('2d');
+    const tooltip = document.getElementById('tooltip');
+    let regionData = null;
+    let rings = 40;
+    let azimuthBins = 1800;
 
-        function updateInfoPanel(data) {
-            document.getElementById('sensorId').textContent = data.sensor_id;
-            document.getElementById('regionCount').textContent = data.region_count;
-            document.getElementById('framesSampled').textContent = data.frames_sampled;
+    // Color palette for regions
+    const regionColors = [
+      '#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6',
+      '#1abc9c', '#e67e22', '#34495e', '#16a085', '#c0392b',
+      '#8e44ad', '#2980b9', '#27ae60', '#f1c40f', '#d35400',
+      '#7f8c8d', '#95a5a6', '#bdc3c7', '#ecf0f1', '#e8daef'
+    ];
 
-            const statusEl = document.getElementById('status');
-            if (data.identification_complete) {
-                statusEl.textContent = 'Complete';
-                statusEl.className = 'status status-complete';
-            } else {
-                statusEl.textContent = 'Collecting...';
-                statusEl.className = 'status status-pending';
-            }
-        }
-
-        function drawRegions(data) {
-            if (!data.grid_mapping || data.grid_mapping.length === 0) {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = '#666';
-                ctx.font = '16px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText('No region data available', canvas.width / 2, canvas.height / 2);
-                return;
-            }
-
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Calculate cell size
-            const cellWidth = canvas.width / azimuthBins;
-            const cellHeight = canvas.height / rings;
-
-            // Draw grid with regions
-            for (let ring = 0; ring < rings; ring++) {
-                for (let azBin = 0; azBin < azimuthBins; azBin++) {
-                    const cellIdx = ring * azimuthBins + azBin;
-                    const regionId = data.grid_mapping[cellIdx];
-
-                    if (regionId >= 0) {
-                        const x = azBin * cellWidth;
-                        const y = ring * cellHeight;
-
-                        ctx.fillStyle = regionColors[regionId %% regionColors.length];
-                        ctx.fillRect(x, y, cellWidth, cellHeight);
-                    }
-                }
-            }
-
-            // Draw grid lines (sparse for performance)
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.05)';
-            ctx.lineWidth = 0.5;
-
-            // Draw horizontal lines (every 5 rings)
-            for (let ring = 0; ring <= rings; ring += 5) {
-                const y = ring * cellHeight;
-                ctx.beginPath();
-                ctx.moveTo(0, y);
-                ctx.lineTo(canvas.width, y);
-                ctx.stroke();
-            }
-
-            // Update legend
-            updateLegend(data);
-        }
-
-        function updateLegend(data) {
-            const legendItems = document.getElementById('legendItems');
-            legendItems.innerHTML = '';
-
-            if (!data.regions || data.regions.length === 0) {
-                legendItems.innerHTML = '<div>No regions identified yet</div>';
-                return;
-            }
-
-            data.regions.forEach((region, idx) => {
-                const item = document.createElement('div');
-                item.className = 'legend-item';
-
-                const colorBox = document.createElement('div');
-                colorBox.className = 'legend-color';
-                colorBox.style.backgroundColor = regionColors[idx %% regionColors.length];
-
-                const label = document.createElement('span');
-                const variance = (region.mean_variance || 0).toFixed(3);
-                const noise = (region.params?.noise_relative_fraction || 0).toFixed(3);
-                const cellCount = region.cell_count || 0;
-                label.textContent = 'Region ' + idx + ' (var=' + variance + ', noise=' + noise + ', ' + cellCount + ' cells)';
-
-                item.appendChild(colorBox);
-                item.appendChild(label);
-                legendItems.appendChild(item);
-            });
-        }
-
-        // Mouse hover to show region details
-        canvas.addEventListener('mousemove', (e) => {
-            if (!regionData || !regionData.grid_mapping) return;
-
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-
-            const azBin = Math.floor(x / (canvas.width / azimuthBins));
-            const ring = Math.floor(y / (canvas.height / rings));
-
-            if (azBin >= 0 && azBin < azimuthBins && ring >= 0 && ring < rings) {
-                const cellIdx = ring * azimuthBins + azBin;
-                const regionId = regionData.grid_mapping[cellIdx];
-
-                if (regionId >= 0 && regionData.regions[regionId]) {
-                    const region = regionData.regions[regionId];
-                    const azDegrees = (azBin * 360.0 / azimuthBins).toFixed(1);
-                    const variance = (region.mean_variance || 0).toFixed(3);
-                    const noiseRel = (region.params?.noise_relative_fraction || 0).toFixed(3);
-                    const neighbors = region.params?.neighbor_confirmation_count || 0;
-                    const alpha = (region.params?.settle_update_fraction || 0).toFixed(3);
-
-                    tooltip.innerHTML =
-                        '<strong>Region ' + regionId + '</strong><br>' +
-                        'Ring: ' + ring + ', Azimuth: ' + azDegrees + '°<br>' +
-                        'Variance: ' + variance + '<br>' +
-                        'Noise Rel: ' + noiseRel + '<br>' +
-                        'Neighbors: ' + neighbors + '<br>' +
-                        'Alpha: ' + alpha;
-
-                    tooltip.style.display = 'block';
-                    tooltip.style.left = (e.clientX + 10) + 'px';
-                    tooltip.style.top = (e.clientY + 10) + 'px';
-                } else {
-                    tooltip.style.display = 'none';
-                }
-            }
+    function loadRegions() {
+      fetch('/debug/lidar/background/regions?sensor_id=' + encodeURIComponent('%[2]s'))
+        .then(response => response.json())
+        .then(data => {
+          regionData = data;
+          updateInfoPanel(data);
+          drawRegions(data);
+        })
+        .catch(error => {
+          console.error('Error loading regions:', error);
+          document.getElementById('status').textContent = 'Error loading';
+          document.getElementById('status').className = 'status status-pending';
         });
+    }
 
-        canvas.addEventListener('mouseleave', () => {
-            tooltip.style.display = 'none';
-        });
+    function updateInfoPanel(data) {
+      document.getElementById('sensorId').textContent = data.sensor_id;
+      document.getElementById('regionCount').textContent = data.region_count;
+      document.getElementById('framesSampled').textContent = data.frames_sampled;
 
-        // Auto-refresh every 5 seconds when not complete
-        function autoRefresh() {
-            loadRegions();
-            if (!regionData || !regionData.identification_complete) {
-                setTimeout(autoRefresh, 5000);
-            } else {
-                setTimeout(autoRefresh, 30000); // Slower refresh when complete
-            }
+      const statusEl = document.getElementById('status');
+      if (data.identification_complete) {
+        statusEl.textContent = 'Complete';
+        statusEl.className = 'status status-complete';
+      } else {
+        statusEl.textContent = 'Collecting...';
+        statusEl.className = 'status status-pending';
+      }
+    }
+
+    function drawRegions(data) {
+      if (!data.grid_mapping || data.grid_mapping.length === 0) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#666';
+        ctx.font = '16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('No region data available', canvas.width / 2, canvas.height / 2);
+        return;
+      }
+
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Calculate cell size
+      const cellWidth = canvas.width / azimuthBins;
+      const cellHeight = canvas.height / rings;
+
+      // Draw grid with regions
+      for (let ring = 0; ring < rings; ring++) {
+        for (let azBin = 0; azBin < azimuthBins; azBin++) {
+          const cellIdx = ring * azimuthBins + azBin;
+          const regionId = data.grid_mapping[cellIdx];
+
+          if (regionId >= 0) {
+            const x = azBin * cellWidth;
+            const y = ring * cellHeight;
+
+            ctx.fillStyle = regionColors[regionId % regionColors.length];
+            ctx.fillRect(x, y, cellWidth, cellHeight);
+          }
         }
+      }
 
-        // Initial load
-        autoRefresh();
-    </script>
-  </body>
+      // Draw grid lines (sparse for performance)
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.05)';
+      ctx.lineWidth = 0.5;
+
+      // Draw horizontal lines (every 5 rings)
+      for (let ring = 0; ring <= rings; ring += 5) {
+        const y = ring * cellHeight;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+
+      // Update legend
+      updateLegend(data);
+    }
+
+    function updateLegend(data) {
+      const legendItems = document.getElementById('legendItems');
+      legendItems.innerHTML = '';
+
+      if (!data.regions || data.regions.length === 0) {
+        legendItems.innerHTML = '<div>No regions identified yet</div>';
+        return;
+      }
+
+      data.regions.forEach((region, idx) => {
+        const item = document.createElement('div');
+        item.className = 'legend-item';
+
+        const colorBox = document.createElement('div');
+        colorBox.className = 'legend-color';
+        colorBox.style.backgroundColor = regionColors[idx % regionColors.length];
+
+        const label = document.createElement('span');
+        const variance = (region.mean_variance || 0).toFixed(3);
+        const noise = (region.params?.noise_relative_fraction || 0).toFixed(3);
+        const cellCount = region.cell_count || 0;
+        label.textContent = 'Region ' + idx + ' (var=' + variance + ', noise=' + noise + ', ' + cellCount + ' cells)';
+
+        item.appendChild(colorBox);
+        item.appendChild(label);
+        legendItems.appendChild(item);
+      });
+    }
+
+    // Mouse hover to show region details
+    canvas.addEventListener('mousemove', (e) => {
+      if (!regionData || !regionData.grid_mapping) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const azBin = Math.floor(x / (canvas.width / azimuthBins));
+      const ring = Math.floor(y / (canvas.height / rings));
+
+      if (azBin >= 0 && azBin < azimuthBins && ring >= 0 && ring < rings) {
+        const cellIdx = ring * azimuthBins + azBin;
+        const regionId = regionData.grid_mapping[cellIdx];
+
+        if (regionId >= 0 && regionData.regions[regionId]) {
+          const region = regionData.regions[regionId];
+          const azDegrees = (azBin * 360.0 / azimuthBins).toFixed(1);
+          const variance = (region.mean_variance || 0).toFixed(3);
+          const noiseRel = (region.params?.noise_relative_fraction || 0).toFixed(3);
+          const neighbors = region.params?.neighbor_confirmation_count || 0;
+          const alpha = (region.params?.settle_update_fraction || 0).toFixed(3);
+
+          tooltip.innerHTML =
+            '<strong>Region ' + regionId + '</strong><br>' +
+            'Ring: ' + ring + ', Azimuth: ' + azDegrees + '°<br>' +
+            'Variance: ' + variance + '<br>' +
+            'Noise Rel: ' + noiseRel + '<br>' +
+            'Neighbors: ' + neighbors + '<br>' +
+            'Alpha: ' + alpha;
+
+          tooltip.style.display = 'block';
+          tooltip.style.left = (e.clientX + 10) + 'px';
+          tooltip.style.top = (e.clientY + 10) + 'px';
+        } else {
+          tooltip.style.display = 'none';
+        }
+      }
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      tooltip.style.display = 'none';
+    });
+
+    // Auto-refresh every 5 seconds when not complete
+    function autoRefresh() {
+      loadRegions();
+      if (!regionData || !regionData.identification_complete) {
+        setTimeout(autoRefresh, 5000);
+      } else {
+        setTimeout(autoRefresh, 30000); // Slower refresh when complete
+      }
+    }
+
+    // Initial load
+    autoRefresh();
+  </script>
+</body>
+
 </html>
