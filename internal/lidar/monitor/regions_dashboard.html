@@ -62,7 +62,7 @@
     #regionCanvas {
       border: 1px solid #ddd;
       border-radius: 4px;
-      max-width: 100%;
+      max-width: 100%%;
       cursor: crosshair;
     }
 
@@ -259,7 +259,7 @@
             const x = azBin * cellWidth;
             const y = ring * cellHeight;
 
-            ctx.fillStyle = regionColors[regionId % regionColors.length];
+            ctx.fillStyle = regionColors[regionId %% regionColors.length];
             ctx.fillRect(x, y, cellWidth, cellHeight);
           }
         }
@@ -297,7 +297,7 @@
 
         const colorBox = document.createElement('div');
         colorBox.className = 'legend-color';
-        colorBox.style.backgroundColor = regionColors[idx % regionColors.length];
+        colorBox.style.backgroundColor = regionColors[idx %% regionColors.length];
 
         const label = document.createElement('span');
         const variance = (region.mean_variance || 0).toFixed(3);
