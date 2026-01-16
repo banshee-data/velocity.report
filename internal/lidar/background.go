@@ -987,7 +987,7 @@ func (bm *BackgroundManager) ResetGrid() error {
 	g.SettlingComplete = false
 	// Reset WarmupFramesRemaining to 0 so ProcessFramePolar reinitializes it on next call
 	g.WarmupFramesRemaining = 0
-	
+
 	// Reset region manager to allow re-identification
 	if g.RegionMgr != nil {
 		g.RegionMgr = NewRegionManager(g.Rings, g.AzimuthBins)
