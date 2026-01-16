@@ -44,16 +44,16 @@ type ParamDef struct {
 	Format string      // Printf format string (optional)
 }
 
-//go:embed status.html
-var StatusHTML embed.FS
-
 //go:embed assets/*
 var EchartsAssets embed.FS
 
-//go:embed dashboard.html
+//go:embed html/status.html
+var StatusHTML embed.FS
+
+//go:embed html/dashboard.html
 var dashboardHTML string
 
-//go:embed regions_dashboard.html
+//go:embed html/regions_dashboard.html
 var regionsDashboardHTML string
 
 const echartsAssetsPrefix = "/assets/"
@@ -2122,7 +2122,7 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 	ws.updateLatestFgCounts(ws.sensorID)
 
 	// Load and parse the HTML template from embedded filesystem
-	tmpl, err := template.ParseFS(StatusHTML, "status.html")
+	tmpl, err := template.ParseFS(StatusHTML, "html/status.html")
 	if err != nil {
 		http.Error(w, "Error loading template: "+err.Error(), http.StatusInternalServerError)
 		return
