@@ -1,5 +1,29 @@
 # Development Log
 
+## January 17, 2026 - Track Visualisation UI Fixes
+
+### Track Selection & Rendering
+
+- Fixed click detection to check track history, not just head position
+- Filtered (0,0) noise points from rendering (backend and frontend)
+- Added timestamp sorting for coherent track history lines
+- Progressive track reveal during playback (point-by-point as timeline advances)
+
+### Track List Improvements
+
+- Added pagination (50 tracks/page) with navigation controls
+- Added "Min Observations" filter (1+/5+/10+/20+/50+) to filter noise tracks
+- Fixed timeline sync with pagination (TimelinePane shows paginated subset)
+- Fixed label truncation (removed `.slice(-6)`, increased sidebar width to 500px)
+
+### Backend Tuning
+
+- Increased `HitsToConfirm` from 3 to 5 (tracks require 5 consecutive observations)
+- Added physical plausibility checks: `MaxReasonableSpeedMps=30.0`, `MaxPositionJumpMeters=5.0`
+- Increased API limit from 100 to 1000 tracks (`getTrackHistory` default=500)
+
+---
+
 ## January 13, 2026 - Warmup Trails Fix
 
 ### Background
