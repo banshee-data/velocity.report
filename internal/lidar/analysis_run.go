@@ -104,7 +104,7 @@ func DefaultRunParams() RunParams {
 		Tracking: TrackingParamsExport{
 			MaxTracks:               100,
 			MaxMisses:               3,
-			HitsToConfirm:           3,
+			HitsToConfirm:           5, // Require 5 consecutive hits for confirmation (matches DefaultTrackerConfig)
 			GatingDistanceSquared:   25.0,
 			ProcessNoisePos:         0.1,
 			ProcessNoiseVel:         0.5,

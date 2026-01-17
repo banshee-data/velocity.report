@@ -26,6 +26,12 @@ const (
 	MaxSpeedHistoryLength = 100
 	// DefaultDeletedTrackGracePeriod is how long to keep deleted tracks before cleanup
 	DefaultDeletedTrackGracePeriod = 5 * time.Second
+	// MaxReasonableSpeedMps is the maximum reasonable speed for any tracked object (m/s)
+	// Used to reject spurious associations that would imply impossible velocities
+	MaxReasonableSpeedMps = 30.0 // ~108 km/h, ~67 mph
+	// MaxPositionJumpMeters is the maximum allowed position jump between consecutive observations
+	// Observations beyond this distance are rejected as likely false associations
+	MaxPositionJumpMeters = 5.0
 )
 
 // TrackerConfig holds configuration parameters for the tracker.
@@ -45,7 +51,7 @@ func DefaultTrackerConfig() TrackerConfig {
 	return TrackerConfig{
 		MaxTracks:               100,
 		MaxMisses:               3,
-		HitsToConfirm:           3,
+		HitsToConfirm:           5,    // Require 5 consecutive hits for confirmation (was 3)
 		GatingDistanceSquared:   25.0, // 5.0 meters squared
 		ProcessNoisePos:         0.1,
 		ProcessNoiseVel:         0.5,
@@ -161,7 +167,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	}
 
 	// Step 2: Associate clusters to tracks using gating
-	associations := t.associate(clusters)
+	associations := t.associate(clusters, dt)
 
 	// Step 3: Update matched tracks
 	matchedTracks := make(map[string]bool)
@@ -185,6 +191,17 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 		if !matchedTracks[trackID] && track.State != TrackDeleted {
 			track.Misses++
 			track.Hits = 0
+
+			// Append predicted position to history to keep lines coherent
+			// Only if the predicted position is not at the origin
+			distFromOrigin := track.X*track.X + track.Y*track.Y
+			if distFromOrigin > 0.01 { // > 0.1m squared
+				track.History = append(track.History, TrackPoint{
+					X:         track.X,
+					Y:         track.Y,
+					Timestamp: nowNanos,
+				})
+			}
 
 			if track.Misses >= t.Config.MaxMisses {
 				track.State = TrackDeleted
@@ -255,7 +272,7 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 
 // associate performs cluster-to-track association using gating and nearest neighbor.
 // Returns a map from cluster index to track ID (empty string for unassociated).
-func (t *Tracker) associate(clusters []WorldCluster) []string {
+func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 	associations := make([]string, len(clusters))
 
 	// Build list of active track IDs
@@ -279,7 +296,7 @@ func (t *Tracker) associate(clusters []WorldCluster) []string {
 			}
 
 			track := t.Tracks[trackID]
-			dist2 := t.mahalanobisDistanceSquared(track, cluster)
+			dist2 := t.mahalanobisDistanceSquared(track, cluster, dt)
 
 			if dist2 < bestDist2 {
 				bestDist2 = dist2
@@ -298,10 +315,25 @@ func (t *Tracker) associate(clusters []WorldCluster) []string {
 
 // mahalanobisDistanceSquared computes the squared Mahalanobis distance for gating.
 // Uses only position (x, y) for distance computation.
-func (t *Tracker) mahalanobisDistanceSquared(track *TrackedObject, cluster WorldCluster) float32 {
+// Also performs physical plausibility checks to reject spurious associations.
+func (t *Tracker) mahalanobisDistanceSquared(track *TrackedObject, cluster WorldCluster, dt float32) float32 {
 	// Innovation: difference between measurement and prediction
 	dx := cluster.CentroidX - track.X
 	dy := cluster.CentroidY - track.Y
+
+	// Physical plausibility check: reject if position jump is too large
+	euclideanDist := float32(math.Sqrt(float64(dx*dx + dy*dy)))
+	if euclideanDist > MaxPositionJumpMeters {
+		return SingularDistanceRejection
+	}
+
+	// Check if implied velocity would be unreasonable
+	if dt > 0 {
+		impliedSpeed := euclideanDist / dt
+		if impliedSpeed > MaxReasonableSpeedMps {
+			return SingularDistanceRejection
+		}
+	}
 
 	// Innovation covariance S = H * P * H^T + R
 	// H = [1 0 0 0; 0 1 0 0] (measurement extracts position only)
@@ -432,11 +464,15 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	}
 
 	// Append to history
-	track.History = append(track.History, TrackPoint{
-		X:         track.X,
-		Y:         track.Y,
-		Timestamp: nowNanos,
-	})
+	// Skip points too close to origin (noise/self-reflection)
+	distFromOrigin := track.X*track.X + track.Y*track.Y
+	if distFromOrigin > 0.01 { // > 0.1m squared
+		track.History = append(track.History, TrackPoint{
+			X:         track.X,
+			Y:         track.Y,
+			Timestamp: nowNanos,
+		})
+	}
 
 	// Store speed history for percentile computation
 	track.speedHistory = append(track.speedHistory, speed)
