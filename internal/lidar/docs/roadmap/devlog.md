@@ -532,3 +532,195 @@ Training data is stored in polar (sensor) frame, which is pose-independent. This
 - Individual UDP packets contain only 2-3 points with small azimuth ranges
 - Azimuth wrap detection must account for accumulated vs instantaneous coverage
 - Point-level frame detection requires stricter criteria than packet-level detection
+
+---
+
+## September 8, 2025 - LiDAR Parser Initialisation
+
+### LiDAR UDP Listener & Parser
+
+- **Initial LiDAR binary**: Created `cmd/lidar/` with UDP listener for Hesai Pandar40P sensor
+- **Packet parsing**: Implemented complete Pandar40P packet parser with data block extraction
+- **Sensor configuration**: Embedded CSV files for angle correction and firetime correction
+- **Packet forwarding**: Added UDP forwarding capability for external processing tools
+- **Statistics tracking**: Added packet count, dropped packet count, and point count tracking
+- **Web status page**: Created embedded HTML template for real-time packet statistics
+- **Comprehensive tests**: Added tests for configuration, forwarding, stats, and webserver
+
+### Code Organisation
+
+- Created `internal/lidar/` package structure
+- Added `internal/lidardb/` placeholder for database storage
+- Embedded Pandar40P configuration files from official Hesai documentation
+
+---
+
+## September 2-5, 2025 - Python Data Integration Tools
+
+### UniFi Protect Data Logger (Sep 2)
+
+- **CCTV integration**: Created Python tool to fetch motion detection events from UniFi Protect
+- **Date range pagination**: Weekly paginated event fetching from April 2024 onwards
+- **Database schema**: Added migration for radar_objects timestamp column to Unix milliseconds
+- **Project structure**: Initialised `data/align/` Python package with pyproject.toml
+
+### Telraam Data Logger (Sep 5)
+
+- **Telraam API integration**: Created Python tool to fetch traffic counting data
+- **Database storage**: Added traffic data fetching and insertion methods
+- **Renamed cctv.py**: Refactored to `get_unifi.py` for clarity
+
+---
+
+## August 25-27, 2025 - Svelte Web Frontend
+
+### Dashboard Implementation (Aug 25)
+
+- **SvelteKit scaffold**: Created new web frontend using `npx sv create`
+- **Component library**: Integrated svelte-ux 2.0.0 and layerchart for visualisation
+- **Dashboard layout**: Built AppLayout with NavMenu and Card/Grid components
+- **API integration**: Connected frontend to Go backend `/api/radar_stats` endpoint
+- **Build tooling**: Migrated to pnpm, configured adapter-static for deployment
+- **Tailwind CSS**: Set up Tailwind 4 with layerstack plugin
+
+### Theme & Styling Fixes (Aug 25)
+
+- **svelte-ux settings**: Fixed theme initialisation with settings() function
+- **CSS variables**: Defined root colours and default button sizing
+- **Header component**: Added Header with improved layout structure
+
+### Backend Integration (Aug 26)
+
+- **Embedded frontend**: Configured Go server to serve Svelte build from `/app` path
+- **Routing fixes**: Handle trailing slashes, serve index.html for SPA routes
+- **LoggingResponseWriter**: Added Flush method for streaming response support
+- **Schema migration**: Moved DB schema from Go code to `.sql` file
+- **VS Code config**: Added workspace extensions and settings files
+
+### Production Build (Aug 27)
+
+- **Asset bundling**: Configured Go binary to embed web/build directory for production
+- **Database migrations**: Added migration for table/column renaming
+
+---
+
+## August 20-21, 2025 - API & Server Enhancements
+
+### Radar Stats API (Aug 20)
+
+- **`/api/radar_stats` route**: Added API endpoint for radar statistics
+- **Makefile targets**: Added initial build targets
+- **README updates**: Documented new API capabilities
+
+### Logging Middleware (Aug 21)
+
+- **HTTP logging**: Added LoggingMiddleware with colour-coded status codes
+- **Favicon routing**: Added favicon.ico serving
+- **404 handling**: Return proper 404 for non-root unmatched routes
+
+---
+
+## June 3-27, 2025 - Radar Object Parsing
+
+### RadarObjects Table (Jun 3)
+
+- **Database schema**: Created `radar_objects` table for parsed radar detections
+- **DB functions**: Added InsertRadarObject, GetRadarObjects functions
+
+### Major Refactoring (Jun 27)
+
+- **Codebase restructure**: Moved code into `cmd/radar/`, `internal/api/`, `internal/db/`, `internal/serialmux/`
+- **Project rename**: Renamed from go-sensor to velocity.report
+- **Apache 2.0 license**: Added LICENSE file
+- **JSON parsing**: Implemented classifier payload parsing for radar events
+- **Unit tests**: Added radar_test.go with fixture-based testing
+- **Timestamp handling**: Ensured all time objects use UTC timezone
+- **Service configuration**: Updated systemd service for new directory and executable name
+- **Raw data logging**: Added flag for storing raw data lines in database
+
+---
+
+## May 22-30, 2025 - Serial Multiplexer
+
+### SerialMux Abstraction (May 22)
+
+- **Multiple subscribers**: Created serialmux package for multiple serial port subscribers
+- **Live command interaction**: Added debug endpoints for live command sending and serial tailing
+- **Graceful shutdown**: Fixed CTRL-C handling for all main goroutines
+- **VS Code launch config**: Added debug configuration
+
+### Serial Port Fixes (May 26-30)
+
+- **Port configuration**: Updated serial port settings for production hardware
+- **Event list SQL**: Updated query for event listing
+- **Live tail fix**: Fixed live tail and command sending functionality
+- **Mock serial port**: Added event generation to mock port for testing
+
+---
+
+## May 12-16, 2025 - SQLite Migration & Web Server
+
+### Database Migration (May 12)
+
+- **DuckDB → SQLite**: Replaced DuckDB driver with modernc.org/sqlite
+- **Serial reader tests**: Added unit tests with fixtures.txt test data
+- **Type definitions**: Created types.go for sensor data structures
+- **Bufio buffering**: Improved serial data buffering with bufio package
+
+### Web Server & Systemd (May 16)
+
+- **Dev server refactor**: Major refactoring into commands.go, db.go, serial.go, server.go
+- **Web skeleton**: Added static/index.html and web/package.json
+- **Systemd unit**: Created go-sensor.service for deployment
+- **API routing**: Fixed nested /api/ route handling with separate mux
+- **Debug routes**: Added `/debug/tailsql` (web SQL interface) and `/debug/backup` (database download)
+
+---
+
+## April 11, 2025 - Command Logging Improvements
+
+### Serial Port Handler
+
+- **Command logging**: Added database logging for all sent commands
+- **Handler refactor**: Extracted serialPortHandler into separate function
+
+---
+
+## March 21, 2025 - Sensor Data Pipeline
+
+### Data Parsing & Validation
+
+- **Uptime parsing**: Added uptime field parsing and validation
+- **Readline counter**: Added line counter for debugging
+- **Serial reader**: Improved serial reader robustness
+- **Backup scheduling**: Updated backup filenames and intervals
+- **Command execution**: Renamed execute endpoint, set commandID from database
+- **JSON logging**: Added JSON response logging to database
+- **Timestamp casting**: Fixed SQL timestamp casting
+- **API commands**: Added comprehensive API verb for command sending (207 lines)
+
+---
+
+## March 20, 2025 - Initial Sensor Integration
+
+### Serial Port Configuration
+
+- **Baud rate**: Set serial port to 19.2k baud
+- **Schema v0.0.2**: Added uptime field to data schema
+- **POST /execute**: Added endpoint for executing sensor commands
+
+---
+
+## March 17, 2025 - Project Initialisation
+
+### Repository Setup
+
+- **go.mod init**: Created Go module `github.com/banshee-data/velocity.report`
+- **Go 1.24**: Updated toolchain to Go 1.24
+- **Initial main.go**: 321-line server with:
+  - DuckDB database initialisation
+  - Schema versioning with migration support
+  - Serial port reader for sensor data
+  - Gin HTTP server with API endpoints
+  - Database backup scheduling with gocron
+  - Data parsing and storage pipeline
