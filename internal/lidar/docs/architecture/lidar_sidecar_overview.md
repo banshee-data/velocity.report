@@ -173,7 +173,7 @@ pcap-analyze -pcap capture.pcap -output ./results
 - **Performance Profiling**: Optimize for multi-sensor concurrent processing
 - **Memory Optimization**: Efficient handling of 100+ tracks across multiple sensors
 - **Production Deployment**: Documentation for multi-node edge deployment
-- **UI Visualization**: Track display components in web frontend
+- ✅ **Track Visualisation UI**: SvelteKit components for track history playback (implemented)
 
 > **See also:** [ML Pipeline Roadmap](../roadmap/ml_pipeline_roadmap.md) for detailed Phase 4.0-4.3 architecture (labeling UI, ML training, parameter tuning, production)
 
@@ -208,6 +208,9 @@ internal/db/db.go                  ✅ # Database schema and BgSnapshot persiste
 internal/db/migrations/000009_*    ✅ # SQL migrations for lidar_clusters, lidar_tracks, lidar_track_obs
 internal/db/migrations/000010_*    ✅ # SQL migrations for lidar_analysis_runs, lidar_run_tracks (Phase 3.7)
 tools/grid-heatmap/                ✅ # Grid visualization and analysis tools
+web/src/lib/api.ts                 ✅ # LiDAR REST API client (getTrackHistory, etc.)
+web/src/lib/components/lidar/      ✅ # Track visualisation components (MapPane, TrackList, TimelinePane)
+web/src/routes/lidar/tracks/       ✅ # Track history playback page with pagination
 ```
 
 **Data Flow:**
