@@ -1,41 +1,12 @@
 # Development Log
 
-## January 13, 2026 - Warmup Trails Fix & Regression Tests
+## January 13, 2026 - Warmup Trails Fix
 
-### Warmup Sensitivity Scaling
+### Background
 
-Fixed false positive foreground classifications ("trails") during background grid initialisation.
-
-**Problem:** New cells with `TimesSeenCount=0` had `RangeSpreadMeters=0`, causing normal surface noise to exceed the classification threshold during the ~100-frame learning period.
-
-**Solution:** Dynamic threshold multiplier based on cell confidence:
-
-```go
-warmupMultiplier := 1.0
-if cell.TimesSeenCount < 100 {
-    warmupMultiplier = 1.0 + 3.0*float64(100-cell.TimesSeenCount)/100.0
-}
-```
-
-### recFg Accumulation Fix
-
-Fixed `RecentForegroundCount` accumulating to 70+ during cell freeze periods.
-
-**Changes:**
-
-- Frozen cells no longer increment recFg
-- recFg reset to 0 on thaw (with 1ms grace period)
-
-### Regression Tests
-
-Added comprehensive unit tests:
-
-- `internal/lidar/foreground_warmup_test.go` — Warmup sensitivity scaling
-- `internal/lidar/frame_builder_reset_test.go` — FrameBuilder reset logic
-
-### Documentation Cleanup
-
-Consolidated troubleshooting docs; removed obsolete investigation files.
+- Fixed false positive foreground classifications during grid warmup (~100 frames)
+- Dynamic threshold multiplier: 4x at count=0, tapering to 1x at count=100
+- Fixed `recFg` accumulation during cell freeze (reset to 0 on thaw)
 
 ---
 
