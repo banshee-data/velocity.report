@@ -5,6 +5,8 @@
 	export let tracks: Track[] = [];
 	export let selectedTrackId: string | null = null;
 	export let onTrackSelect: (trackId: string) => void = () => {};
+	// Callback to notify parent when paginated tracks change
+	export let onPaginatedTracksChange: ((tracks: Track[]) => void) | null = null;
 
 	// Filter and sort options
 	let classFilter: string = 'all';
@@ -40,6 +42,11 @@
 	// Pagination computed values
 	$: totalPages = Math.ceil(filteredTracks.length / PAGE_SIZE);
 	$: paginatedTracks = filteredTracks.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+
+	// Notify parent when paginated tracks change
+	$: if (onPaginatedTracksChange) {
+		onPaginatedTracksChange(paginatedTracks);
+	}
 
 	// Reset to first page when filters change
 	$: if (classFilter || stateFilter || sortBy || minObservations) {

@@ -35,6 +35,7 @@
 
 	// Data
 	let tracks: Track[] = [];
+	let paginatedTracks: Track[] = []; // Tracks currently visible in the paginated list
 	let backgroundGrid: BackgroundGrid | null = null;
 	let selectedTrackId: string | null = null;
 	let observationsByTrack: Record<string, TrackObservation[]> = {};
@@ -77,7 +78,7 @@
 			);
 
 			console.log('[TrackHistory] Calling API...');
-			const history = await getTrackHistory(sensorId, startTime, endTime);
+			const history = await getTrackHistory(sensorId, startTime, endTime, 1000);
 			console.log('[TrackHistory] API response:', history);
 			tracks = history.tracks;
 
@@ -420,7 +421,7 @@
 			<!-- Timeline -->
 			<div class="bg-surface-100 flex-1">
 				<TimelinePane
-					{tracks}
+					tracks={paginatedTracks.length > 0 ? paginatedTracks : tracks}
 					currentTime={selectedTime}
 					{timeRange}
 					{isPlaying}
@@ -435,7 +436,12 @@
 
 			<!-- Track List Sidebar -->
 			<div class="border-surface-content/20 bg-surface-100 w-[500px] overflow-hidden border-l">
-				<TrackList {tracks} {selectedTrackId} onTrackSelect={handleTrackSelect} />
+				<TrackList
+					{tracks}
+					{selectedTrackId}
+					onTrackSelect={handleTrackSelect}
+					onPaginatedTracksChange={(newTracks) => (paginatedTracks = newTracks)}
+				/>
 			</div>
 		</div>
 	</div>
