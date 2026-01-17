@@ -130,19 +130,6 @@ Recommended order: ✅3.7 → 4.0 → 4.2 (parallel) → 4.1 → 4.3
   - Speed statistics (min, max, avg, P85)
   - Classification distribution
 
-### Usage
-
-```bash
-# Basic analysis
-pcap-analyze -pcap capture.pcap -output ./results
-
-# With training data export
-pcap-analyze -pcap capture.pcap -training -output ./ml_data
-
-# With database persistence
-pcap-analyze -pcap capture.pcap -db ./analysis.db -output ./results
-```
-
 ### Additional Changes
 
 - Added `SpeedHistory()` getter to `TrackedObject` for percentile computation from external packages
