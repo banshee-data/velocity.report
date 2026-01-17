@@ -16,6 +16,8 @@
 	export let selectedTrackId: string | null = null;
 	export let backgroundGrid: BackgroundGrid | null = null;
 	export let onTrackSelect: (trackId: string) => void = () => {};
+	// Current playback time (ms) - for progressive track reveal
+	export let currentTime: number | null = null;
 	// Observations for the selected track (optional, used for overlay of raw points)
 	export let observations: TrackObservation[] = [];
 	// Foreground observations overlay (time-window slice for debugging)
@@ -357,7 +359,32 @@
 	function renderTrack(track: Track, isSelected: boolean) {
 		if (!ctx) return;
 
-		const [screenX, screenY] = worldToScreen(track.position.x, track.position.y);
+		// Skip if essential data is missing
+		if (!track.position) return;
+
+		// Use current position by default
+		let pos = track.position;
+		let useCurrentPos = true;
+
+		// If current position is invalid (0,0), try to find last valid history point
+		if (Math.abs(pos.x) < 0.01 && Math.abs(pos.y) < 0.01) {
+			useCurrentPos = false;
+			if (track.history && track.history.length > 0) {
+				// Search backwards for a valid point
+				for (let i = track.history.length - 1; i >= 0; i--) {
+					const pt = track.history[i];
+					if (Math.abs(pt.x) >= 0.01 || Math.abs(pt.y) >= 0.01) {
+						pos = pt;
+						break;
+					}
+				}
+			}
+		}
+
+		// If we still have an invalid position after searching history, skip rendering
+		if (Math.abs(pos.x) < 0.01 && Math.abs(pos.y) < 0.01) return;
+
+		const [screenX, screenY] = worldToScreen(pos.x, pos.y);
 
 		// Get color based on classification or state
 		let color: string = TRACK_COLORS.other;
@@ -376,71 +403,118 @@
 			ctx.lineWidth = isSelected ? 2 : 1;
 			ctx.globalAlpha = 0.5;
 
-			const [startX, startY] = worldToScreen(track.history[0].x, track.history[0].y);
-			ctx.moveTo(startX, startY);
+			// Sort history by timestamp to ensure coherent lines
+			const sortedHistory = [...track.history].sort((a, b) => {
+				// Handle missing timestamps gracefully (though they should exist based on type)
+				const tA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+				const tB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+				return tA - tB;
+			});
 
-			for (let i = 1; i < track.history.length; i++) {
-				const [x, y] = worldToScreen(track.history[i].x, track.history[i].y);
-				ctx.lineTo(x, y);
+			// Filter history for progressive reveal during playback
+			// Only show points up to and including the current playback time
+			const visibleHistory = currentTime
+				? sortedHistory.filter((pt) => {
+						if (!pt.timestamp) return true; // Show points without timestamps
+						const ptTime = new Date(pt.timestamp).getTime();
+						return ptTime <= currentTime;
+					})
+				: sortedHistory;
+
+			let firstPointDrawn = false;
+
+			// Helper to check if point is valid
+			const isValid = (pt: { x: number; y: number }) =>
+				Math.abs(pt.x) >= 0.01 || Math.abs(pt.y) >= 0.01;
+
+			for (let i = 0; i < visibleHistory.length; i++) {
+				const pt = visibleHistory[i];
+
+				// Skip invalid points entirely - connect line between valid neighbors
+				if (!isValid(pt)) continue;
+
+				const [x, y] = worldToScreen(pt.x, pt.y);
+
+				if (!firstPointDrawn) {
+					ctx.moveTo(x, y);
+					firstPointDrawn = true;
+				} else {
+					ctx.lineTo(x, y);
+				}
 			}
 
-			ctx.stroke();
+			// If we drew path, stroke it
+			if (firstPointDrawn) {
+				ctx.stroke();
+			}
 			ctx.globalAlpha = 1.0;
 		}
 
 		ctx.save();
 
-		// Draw bounding box
-		const bbox = track.bounding_box;
-		const length = bbox.length_avg * scale;
-		const width = bbox.width_avg * scale;
+		// Only render bounding box / heading if we are using the current valid position
+		if (useCurrentPos) {
+			// Draw bounding box
+			const bbox = track.bounding_box;
+			const length = bbox.length_avg * scale;
+			const width = bbox.width_avg * scale;
 
-		ctx.translate(screenX, screenY);
-		ctx.rotate(-track.heading_rad); // Negative because Y is flipped
+			ctx.translate(screenX, screenY);
+			ctx.rotate(-track.heading_rad); // Negative because Y is flipped
 
-		// Fill bounding box
-		ctx.fillStyle = `${color}33`; // 20% opacity
-		ctx.fillRect(-length / 2, -width / 2, length, width);
+			// Fill bounding box
+			ctx.fillStyle = `${color}33`; // 20% opacity
+			ctx.fillRect(-length / 2, -width / 2, length, width);
 
-		// Stroke bounding box
-		ctx.strokeStyle = color;
-		ctx.lineWidth = isSelected ? 3 : 2;
-		if (track.state === 'tentative') {
-			ctx.setLineDash([5, 5]);
-		}
-		ctx.strokeRect(-length / 2, -width / 2, length, width);
-		ctx.setLineDash([]);
-
-		ctx.restore();
-
-		// Draw velocity vector
-		const velLength = Math.sqrt(track.velocity.vx ** 2 + track.velocity.vy ** 2);
-		if (velLength > MIN_VELOCITY_FOR_ARROW) {
-			// Only draw if moving significantly
+			// Stroke bounding box
 			ctx.strokeStyle = color;
-			ctx.lineWidth = 2;
-			ctx.beginPath();
-			ctx.moveTo(screenX, screenY);
-			const endX = screenX + track.velocity.vx * scale * 0.5;
-			const endY = screenY - track.velocity.vy * scale * 0.5; // Flip Y
-			ctx.lineTo(endX, endY);
-			ctx.stroke();
+			ctx.lineWidth = isSelected ? 3 : 2;
+			if (track.state === 'tentative') {
+				ctx.setLineDash([5, 5]);
+			}
+			ctx.strokeRect(-length / 2, -width / 2, length, width);
+			ctx.setLineDash([]);
 
-			// Arrow head
-			const angle = Math.atan2(-(endY - screenY), endX - screenX);
-			ctx.beginPath();
-			ctx.moveTo(endX, endY);
-			ctx.lineTo(
-				endX - 10 * Math.cos(angle - Math.PI / 6),
-				endY - 10 * Math.sin(angle - Math.PI / 6)
-			);
-			ctx.lineTo(
-				endX - 10 * Math.cos(angle + Math.PI / 6),
-				endY - 10 * Math.sin(angle + Math.PI / 6)
-			);
-			ctx.closePath();
+			ctx.restore();
+
+			// Draw velocity vector
+			const velLength = Math.sqrt(track.velocity.vx ** 2 + track.velocity.vy ** 2);
+			if (velLength > MIN_VELOCITY_FOR_ARROW) {
+				// Only draw if moving significantly
+				ctx.strokeStyle = color;
+				ctx.lineWidth = 2;
+				ctx.beginPath();
+				ctx.moveTo(screenX, screenY);
+				const endX = screenX + track.velocity.vx * scale * 0.5;
+				const endY = screenY - track.velocity.vy * scale * 0.5; // Flip Y
+				ctx.lineTo(endX, endY);
+				ctx.stroke();
+
+				// Arrow head
+				const angle = Math.atan2(-(endY - screenY), endX - screenX);
+				ctx.beginPath();
+				ctx.moveTo(endX, endY);
+				ctx.lineTo(
+					endX - 10 * Math.cos(angle - Math.PI / 6),
+					endY - 10 * Math.sin(angle - Math.PI / 6)
+				);
+				ctx.lineTo(
+					endX - 10 * Math.cos(angle + Math.PI / 6),
+					endY - 10 * Math.sin(angle + Math.PI / 6)
+				);
+				ctx.closePath();
+				ctx.fillStyle = color;
+				ctx.fill();
+			}
+		} else {
+			// If we are showing a historical "last known" point, just draw a small marker
+			ctx.restore(); // Restore from save() before bb check
 			ctx.fillStyle = color;
+			ctx.globalAlpha = 0.5;
+			ctx.beginPath();
+			ctx.arc(screenX, screenY, 3, 0, Math.PI * 2);
 			ctx.fill();
+			ctx.globalAlpha = 1.0;
 		}
 
 		// Draw track ID label
@@ -521,14 +595,21 @@
 			let closestDist = Infinity;
 
 			for (const track of tracks) {
-				const dx = track.position.x - worldX;
-				const dy = track.position.y - worldY;
-				const dist = Math.sqrt(dx * dx + dy * dy);
+				// Check distance to current position
+				let minDist = Math.hypot(track.position.x - worldX, track.position.y - worldY);
 
-				if (dist < TRACK_SELECTION_RADIUS && dist < closestDist) {
+				// Check distance to historical points (to allow clicking on trail)
+				if (track.history) {
+					for (const pt of track.history) {
+						const dist = Math.hypot(pt.x - worldX, pt.y - worldY);
+						if (dist < minDist) minDist = dist;
+					}
+				}
+
+				if (minDist < TRACK_SELECTION_RADIUS && minDist < closestDist) {
 					// Within selection radius
 					closestTrack = track;
-					closestDist = dist;
+					closestDist = minDist;
 				}
 			}
 

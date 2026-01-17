@@ -10,10 +10,17 @@
 	let classFilter: string = 'all';
 	let stateFilter: string = 'all';
 	let sortBy: 'time' | 'speed' | 'duration' = 'time';
+	let minObservations: number = 5; // Filter out tracks with fewer observations
+
+	// Pagination
+	const PAGE_SIZE = 50;
+	let currentPage = 0;
 
 	// Filtered and sorted tracks
 	$: filteredTracks = tracks
 		.filter((track) => {
+			// Filter by minimum observations (reduces noise from single-point tracks)
+			if (track.observation_count < minObservations) return false;
 			if (classFilter !== 'all' && track.object_class !== classFilter) return false;
 			if (stateFilter !== 'all' && track.state !== stateFilter) return false;
 			return true;
@@ -29,6 +36,19 @@
 					return new Date(a.first_seen).getTime() - new Date(b.first_seen).getTime();
 			}
 		});
+
+	// Pagination computed values
+	$: totalPages = Math.ceil(filteredTracks.length / PAGE_SIZE);
+	$: paginatedTracks = filteredTracks.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+
+	// Reset to first page when filters change
+	$: if (classFilter || stateFilter || sortBy || minObservations) {
+		currentPage = 0;
+	}
+
+	function goToPage(page: number) {
+		currentPage = Math.max(0, Math.min(page, totalPages - 1));
+	}
 
 	// Get class icon
 	function getClassIcon(track: Track): string {
@@ -96,6 +116,24 @@
 			</select>
 		</div>
 
+		<!-- Minimum Observations Filter -->
+		<div>
+			<label for="min-obs" class="text-surface-content/70 mb-1 block text-xs font-medium"
+				>Min Observations</label
+			>
+			<select
+				id="min-obs"
+				bind:value={minObservations}
+				class="border-surface-content/20 bg-surface-100 text-surface-content focus:border-primary focus:ring-primary w-full rounded-md text-sm shadow-sm"
+			>
+				<option value={1}>1+ (all)</option>
+				<option value={5}>5+ (default)</option>
+				<option value={10}>10+</option>
+				<option value={20}>20+</option>
+				<option value={50}>50+</option>
+			</select>
+		</div>
+
 		<!-- Sort By -->
 		<div>
 			<label for="sort-by" class="text-surface-content/70 mb-1 block text-xs font-medium"
@@ -115,7 +153,7 @@
 
 	<!-- Track List -->
 	<div class="min-h-0 flex-1 overflow-y-auto">
-		{#each filteredTracks as track (track.track_id)}
+		{#each paginatedTracks as track (track.track_id)}
 			{@const isSelected = track.track_id === selectedTrackId}
 			{@const color =
 				track.object_class && track.object_class in TRACK_COLORS
@@ -186,10 +224,54 @@
 			</button>
 		{/each}
 
-		{#if filteredTracks.length === 0}
+		{#if paginatedTracks.length === 0}
 			<div class="text-surface-content/50 px-4 py-8 text-center text-sm">No tracks found</div>
 		{/if}
 	</div>
+
+	<!-- Pagination Controls -->
+	{#if totalPages > 1}
+		<div class="border-surface-content/10 flex items-center justify-between border-t px-4 py-2">
+			<span class="text-surface-content/60 text-xs">
+				Page {currentPage + 1} of {totalPages}
+				<span class="text-surface-content/40">({filteredTracks.length} tracks)</span>
+			</span>
+			<div class="flex gap-1">
+				<button
+					on:click={() => goToPage(0)}
+					disabled={currentPage === 0}
+					class="hover:bg-surface-200 rounded px-2 py-1 text-xs disabled:opacity-30 disabled:hover:bg-transparent"
+					title="First page"
+				>
+					⏮
+				</button>
+				<button
+					on:click={() => goToPage(currentPage - 1)}
+					disabled={currentPage === 0}
+					class="hover:bg-surface-200 rounded px-2 py-1 text-xs disabled:opacity-30 disabled:hover:bg-transparent"
+					title="Previous page"
+				>
+					◀
+				</button>
+				<button
+					on:click={() => goToPage(currentPage + 1)}
+					disabled={currentPage >= totalPages - 1}
+					class="hover:bg-surface-200 rounded px-2 py-1 text-xs disabled:opacity-30 disabled:hover:bg-transparent"
+					title="Next page"
+				>
+					▶
+				</button>
+				<button
+					on:click={() => goToPage(totalPages - 1)}
+					disabled={currentPage >= totalPages - 1}
+					class="hover:bg-surface-200 rounded px-2 py-1 text-xs disabled:opacity-30 disabled:hover:bg-transparent"
+					title="Last page"
+				>
+					⏭
+				</button>
+			</div>
+		</div>
+	{/if}
 </div>
 
 <style>

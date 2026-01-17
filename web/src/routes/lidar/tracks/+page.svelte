@@ -335,7 +335,7 @@
 	});
 </script>
 
-<main id="main-content" class="bg-surface-200 flex h-full flex-col">
+<main id="main-content" class="bg-surface-200 flex h-[calc(100vh-64px)] flex-col overflow-hidden">
 	<!-- Header -->
 	<div class="border-surface-content/10 bg-surface-100 h-20 flex-none border-b px-6 py-4">
 		<div class="flex h-full items-center justify-between overflow-hidden">
@@ -406,6 +406,7 @@
 				tracks={visibleTracks}
 				{selectedTrackId}
 				{backgroundGrid}
+				currentTime={selectedTime}
 				observations={selectedTrackObservations}
 				foreground={foregroundObservations}
 				foregroundEnabled={showForeground}
@@ -433,7 +434,7 @@
 			</div>
 
 			<!-- Track List Sidebar -->
-			<div class="border-surface-content/20 bg-surface-100 w-80 overflow-hidden border-l">
+			<div class="border-surface-content/20 bg-surface-100 w-[500px] overflow-hidden border-l">
 				<TrackList {tracks} {selectedTrackId} onTrackSelect={handleTrackSelect} />
 			</div>
 		</div>
