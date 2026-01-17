@@ -193,6 +193,7 @@
     let regionData = null;
     let rings = 40;
     let azimuthBins = 1800;
+    let selectedRegionId = null;
 
     // Color palette for regions
     const regionColors = [
@@ -280,6 +281,11 @@
 
       // Update legend
       updateLegend(data);
+
+      // Draw selected region outline if any
+      if (selectedRegionId !== null) {
+        drawRegionOutline(selectedRegionId);
+      }
     }
 
     function updateLegend(data) {
@@ -294,6 +300,8 @@
       data.regions.forEach((region, idx) => {
         const item = document.createElement('div');
         item.className = 'legend-item';
+        item.style.cursor = 'pointer';
+        item.onclick = () => selectRegion(idx);
 
         const colorBox = document.createElement('div');
         colorBox.className = 'legend-color';
@@ -311,6 +319,32 @@
       });
     }
 
+    function selectRegion(regionId) {
+      selectedRegionId = selectedRegionId === regionId ? null : regionId;
+      drawRegions(regionData);
+    }
+
+    function drawRegionOutline(regionId) {
+      if (!regionData || !regionData.grid_mapping) return;
+
+      ctx.strokeStyle = '#FFD700';
+      ctx.lineWidth = 3;
+
+      const cellWidth = canvas.width / azimuthBins;
+      const cellHeight = canvas.height / rings;
+
+      for (let ring = 0; ring < rings; ring++) {
+        for (let azBin = 0; azBin < azimuthBins; azBin++) {
+          const cellIdx = ring * azimuthBins + azBin;
+          if (regionData.grid_mapping[cellIdx] === regionId) {
+            const x = azBin * cellWidth;
+            const y = ring * cellHeight;
+            ctx.strokeRect(x, y, cellWidth, cellHeight);
+          }
+        }
+      }
+    }
+
     // Mouse hover to show region details
     canvas.addEventListener('mousemove', (e) => {
       if (!regionData || !regionData.grid_mapping) return;
@@ -319,8 +353,14 @@
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
 
-      const azBin = Math.floor(x / (canvas.width / azimuthBins));
-      const ring = Math.floor(y / (canvas.height / rings));
+      // Use actual rendered dimensions for calculations
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const canvasX = x * scaleX;
+      const canvasY = y * scaleY;
+
+      const azBin = Math.floor(canvasX / (canvas.width / azimuthBins));
+      const ring = Math.floor(canvasY / (canvas.height / rings));
 
       if (azBin >= 0 && azBin < azimuthBins && ring >= 0 && ring < rings) {
         const cellIdx = ring * azimuthBins + azBin;
@@ -333,9 +373,13 @@
           const noiseRel = (region.params?.noise_relative_fraction || 0).toFixed(3);
           const neighbors = region.params?.neighbor_confirmation_count || 0;
           const alpha = (region.params?.settle_update_fraction || 0).toFixed(3);
+          const color = regionColors[regionId %% regionColors.length];
 
           tooltip.innerHTML =
-            '<strong>Region ' + regionId + '</strong><br>' +
+            '<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">' +
+            '<div style="width: 16px; height: 16px; background: ' + color +
+            '; border: 1px solid #fff; border-radius: 2px;"></div>' +
+            '<strong>Region ' + regionId + '</strong></div>' +
             'Ring: ' + ring + ', Azimuth: ' + azDegrees + '°<br>' +
             'Variance: ' + variance + '<br>' +
             'Noise Rel: ' + noiseRel + '<br>' +
