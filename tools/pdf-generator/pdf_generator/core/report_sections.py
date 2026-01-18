@@ -35,6 +35,8 @@ from pdf_generator.core.table_builders import (
     create_comparison_summary_table,
 )
 
+ZERO_TOLERANCE = 1e-9
+
 
 class VelocityOverviewSection:
     """Builds the velocity overview section with key metrics.
@@ -142,7 +144,7 @@ class VelocityOverviewSection:
             if (
                 primary_value is None
                 or compare_value is None
-                or abs(primary_value) < 1e-9
+                or abs(primary_value) < ZERO_TOLERANCE
             ):
                 return "--"
             try:
