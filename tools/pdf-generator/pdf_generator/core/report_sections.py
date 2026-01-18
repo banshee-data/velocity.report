@@ -35,7 +35,7 @@ from pdf_generator.core.table_builders import (
     create_comparison_summary_table,
 )
 
-ZERO_TOLERANCE = 1e-9
+ZERO_TOLERANCE = 1e-9  # Avoid divide-by-zero when comparing near-zero metrics.
 
 
 class VelocityOverviewSection:

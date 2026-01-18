@@ -213,6 +213,7 @@
 							<ToggleOption value="radar_data_transits">Transits</ToggleOption>
 						</ToggleGroup>
 					</div>
+					<!-- Keep the site selector wide enough for typical site names. -->
 					<div class="w-44">
 						<SelectField
 							bind:value={selectedSiteId}
