@@ -218,10 +218,6 @@ def generate_pdf_report(
     daily_metrics: Optional[List[Dict[str, Any]]],
     granular_metrics: List[Dict[str, Any]],
     histogram: Optional[Dict[str, int]],
-    compare_start_iso: Optional[str] = None,
-    compare_end_iso: Optional[str] = None,
-    compare_overall_metrics: Optional[List[Dict[str, Any]]] = None,
-    compare_histogram: Optional[Dict[str, int]] = None,
     tz_name: Optional[str] = None,
     charts_prefix: str = "out",
     speed_limit: int = 25,
@@ -239,6 +235,10 @@ def generate_pdf_report(
     velocity_resolution: str = "0.272 mph",
     azimuth_fov: str = "20°",
     elevation_fov: str = "24°",
+    compare_start_iso: Optional[str] = None,
+    compare_end_iso: Optional[str] = None,
+    compare_overall_metrics: Optional[List[Dict[str, Any]]] = None,
+    compare_histogram: Optional[Dict[str, int]] = None,
 ) -> None:
     """Generate a complete PDF report using PyLaTeX.
 
