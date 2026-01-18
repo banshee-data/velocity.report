@@ -69,7 +69,7 @@ func TestIdentifyRegionsWithUniformVariance(t *testing.T) {
 	grid := makeTestGrid(rings, azBins)
 	rm := grid.RegionMgr
 
-	// Initialize all cells with same variance
+	// Initialise all cells with same variance
 	for i := range grid.Cells {
 		grid.Cells[i].AverageRangeMeters = 10.0
 		grid.Cells[i].RangeSpreadMeters = 0.5
@@ -88,7 +88,7 @@ func TestIdentifyRegionsWithUniformVariance(t *testing.T) {
 		t.Error("Expected IdentificationComplete to be true after identification")
 	}
 
-	// With uniform variance, we expect a single region or a few regions
+	// With uniform variance, we expect at least one region
 	if len(rm.Regions) == 0 {
 		t.Error("Expected at least one region")
 	}
@@ -150,9 +150,9 @@ func TestIdentifyRegionsWithVariedVariance(t *testing.T) {
 	for _, region := range rm.Regions {
 		if region.MeanVariance < 0.3 {
 			lowVarianceRegions++
-			// Low variance should have tighter noise tolerance
-			if region.Params.NoiseRelativeFraction >= grid.Params.NoiseRelativeFraction {
-				t.Errorf("Low variance region should have tighter noise tolerance, got %.4f vs base %.4f",
+			// Low variance regions are configured with high tolerance to avoid false positives on stable surfaces
+			if region.Params.NoiseRelativeFraction <= grid.Params.NoiseRelativeFraction {
+				t.Errorf("Low variance region should have increased noise tolerance, got %.4f vs base %.4f",
 					region.Params.NoiseRelativeFraction, grid.Params.NoiseRelativeFraction)
 			}
 		} else if region.MeanVariance > 1.0 {
@@ -375,5 +375,192 @@ func TestRegionIdentificationDuringSettling(t *testing.T) {
 
 	if len(grid.RegionMgr.Regions) == 0 {
 		t.Error("Expected at least one region to be identified")
+	}
+}
+
+// TestIdentifyRegionsEmptyGrid verifies behaviour when no data has been collected
+func TestIdentifyRegionsEmptyGrid(t *testing.T) {
+	rings := 3
+	azBins := 3
+	grid := makeTestGrid(rings, azBins)
+	rm := grid.RegionMgr
+
+	// Set FramesSampled to simulate valid settling state
+	rm.SettlingMetrics.FramesSampled = 20
+
+	// Identify regions with no observations
+	err := rm.IdentifyRegions(grid, 10)
+	if err != nil {
+		t.Fatalf("IdentifyRegions should handle empty grids: %v", err)
+	}
+
+	if len(rm.Regions) != 1 {
+		t.Errorf("Expected 1 region for empty grid (default region), got %d", len(rm.Regions))
+	}
+}
+
+// TestIdentifyRegionsSparseData ensures distant cells are grouped correctly
+func TestIdentifyRegionsSparseData(t *testing.T) {
+	rings := 5
+	azBins := 5
+	grid := makeTestGrid(rings, azBins)
+	rm := grid.RegionMgr
+
+	// Initialise two distant cells
+	idx1 := grid.Idx(0, 0)
+	idx2 := grid.Idx(4, 4)
+
+	for _, idx := range []int{idx1, idx2} {
+		grid.Cells[idx].TimesSeenCount = 10
+		grid.Cells[idx].AverageRangeMeters = 10.0
+		rm.SettlingMetrics.VariancePerCell[idx] = 0.2
+	}
+	rm.SettlingMetrics.FramesSampled = 20
+
+	err := rm.IdentifyRegions(grid, 10)
+	if err != nil {
+		t.Fatalf("IdentifyRegions failed: %v", err)
+	}
+
+	// Should result in two separate regions as they are not neighbours
+	if len(rm.Regions) != 2 {
+		t.Errorf("Expected 2 regions for sparse distant cells, got %d", len(rm.Regions))
+	}
+
+	if rm.GetRegionForCell(idx1) == rm.GetRegionForCell(idx2) {
+		t.Error("Distant sparse cells should belong to different regions")
+	}
+}
+
+// TestGetRegionParamsInvalid verifies safety when requesting non-existent regions
+func TestGetRegionParamsInvalid(t *testing.T) {
+	rm := NewRegionManager(2, 2)
+	params := rm.GetRegionParams(999)
+	if params != nil {
+		t.Error("Expected nil parameters for invalid region ID")
+	}
+
+	paramsNeg := rm.GetRegionParams(-1)
+	if paramsNeg != nil {
+		t.Error("Expected nil parameters for negative region ID")
+	}
+}
+
+// TestIdentifyRegionsAdjacency verifies that adjacent cells with similar variance are grouped
+func TestIdentifyRegionsAdjacency(t *testing.T) {
+	rings := 3
+	azBins := 6
+	grid := makeTestGrid(rings, azBins)
+	rm := grid.RegionMgr
+
+	// Initialise two adjacent cells in the same ring
+	idx1 := grid.Idx(1, 1)
+	idx2 := grid.Idx(1, 2)
+
+	for _, idx := range []int{idx1, idx2} {
+		grid.Cells[idx].TimesSeenCount = 10
+		grid.Cells[idx].AverageRangeMeters = 10.0
+		rm.SettlingMetrics.VariancePerCell[idx] = 0.2
+	}
+	rm.SettlingMetrics.FramesSampled = 20
+
+	err := rm.IdentifyRegions(grid, 10)
+	if err != nil {
+		t.Fatalf("IdentifyRegions failed: %v", err)
+	}
+
+	if len(rm.Regions) != 1 {
+		t.Errorf("Expected 1 region for adjacent cells, got %d", len(rm.Regions))
+	}
+
+	if rm.GetRegionForCell(idx1) != rm.GetRegionForCell(idx2) {
+		t.Error("Adjacent cells in same ring should belong to the same region")
+	}
+}
+
+// TestIdentifyRegionsRadialAdjacency verifies that adjacent cells in different rings are grouped
+func TestIdentifyRegionsRadialAdjacency(t *testing.T) {
+	rings := 3
+	azBins := 6
+	grid := makeTestGrid(rings, azBins)
+	rm := grid.RegionMgr
+
+	// Initialise two adjacent cells in different rings
+	idx1 := grid.Idx(1, 1)
+	idx2 := grid.Idx(2, 1)
+
+	for _, idx := range []int{idx1, idx2} {
+		grid.Cells[idx].TimesSeenCount = 10
+		grid.Cells[idx].AverageRangeMeters = 10.0
+		rm.SettlingMetrics.VariancePerCell[idx] = 0.2
+	}
+	rm.SettlingMetrics.FramesSampled = 20
+
+	err := rm.IdentifyRegions(grid, 10)
+	if err != nil {
+		t.Fatalf("IdentifyRegions failed: %v", err)
+	}
+
+	if len(rm.Regions) != 1 {
+		t.Errorf("Expected 1 region for radially adjacent cells, got %d", len(rm.Regions))
+	}
+}
+
+// TestIdentifyRegionsWrapAround verifies that azimuth wrap-around is handled correctly
+func TestIdentifyRegionsWrapAround(t *testing.T) {
+	rings := 3
+	azBins := 10
+	grid := makeTestGrid(rings, azBins)
+	rm := grid.RegionMgr
+
+	// Initialise cells at the azimuth boundary (0 and N-1)
+	idxStart := grid.Idx(1, 0)
+	idxEnd := grid.Idx(1, azBins-1)
+
+	for _, idx := range []int{idxStart, idxEnd} {
+		grid.Cells[idx].TimesSeenCount = 10
+		grid.Cells[idx].AverageRangeMeters = 10.0
+		rm.SettlingMetrics.VariancePerCell[idx] = 0.2
+	}
+	rm.SettlingMetrics.FramesSampled = 20
+
+	err := rm.IdentifyRegions(grid, 10)
+	if err != nil {
+		t.Fatalf("IdentifyRegions failed: %v", err)
+	}
+
+	if len(rm.Regions) != 1 {
+		t.Errorf("Expected 1 region for wrap-around azimuth neighbours, got %d", len(rm.Regions))
+	}
+
+	if rm.GetRegionForCell(idxStart) != rm.GetRegionForCell(idxEnd) {
+		t.Error("Azimuth wrap-around cells should belong to the same region")
+	}
+}
+
+// TestIdentifyRegionsMaxRegionsStrict verifies the max regions constraint
+func TestIdentifyRegionsMaxRegionsStrict(t *testing.T) {
+	rings := 2
+	azBins := 10
+	grid := makeTestGrid(rings, azBins)
+	rm := grid.RegionMgr
+
+	// Create 10 isolated cells (5 in each ring, spaced out)
+	for i := 0; i < 10; i++ {
+		idx := grid.Idx(i%2, (i/2)*2)
+		grid.Cells[idx].TimesSeenCount = 10
+		grid.Cells[idx].AverageRangeMeters = 10.0
+		rm.SettlingMetrics.VariancePerCell[idx] = 0.1 * float64(i+1)
+	}
+	rm.SettlingMetrics.FramesSampled = 20
+
+	maxRegions := 3
+	err := rm.IdentifyRegions(grid, maxRegions)
+	if err != nil {
+		t.Fatalf("IdentifyRegions failed: %v", err)
+	}
+
+	if len(rm.Regions) > maxRegions {
+		t.Errorf("Expected at most %d regions, got %d", maxRegions, len(rm.Regions))
 	}
 }
