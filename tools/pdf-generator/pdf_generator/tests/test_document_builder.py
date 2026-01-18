@@ -297,7 +297,9 @@ class TestDocumentBuilder(unittest.TestCase):
         mock_packages.assert_called_once_with(mock_doc)
         mock_preamble.assert_called_once_with(mock_doc)
         mock_fonts.assert_called_once()
-        mock_header.assert_called_once_with(mock_doc, start_iso, end_iso, location)
+        mock_header.assert_called_once_with(
+            mock_doc, start_iso, end_iso, location, None, None
+        )
         mock_twocolumn.assert_called_once_with(mock_doc, location, surveyor, contact)
 
         # Should return the document

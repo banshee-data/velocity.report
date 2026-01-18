@@ -139,7 +139,11 @@ class VelocityOverviewSection:
         def format_change(
             primary_value: Optional[float], compare_value: Optional[float]
         ) -> str:
-            if primary_value in (None, 0) or compare_value is None:
+            if (
+                primary_value is None
+                or compare_value is None
+                or abs(primary_value) < 1e-9
+            ):
                 return "--"
             try:
                 change_pct = (compare_value - primary_value) / primary_value * 100.0

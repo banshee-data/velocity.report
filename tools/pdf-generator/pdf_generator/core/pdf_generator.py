@@ -209,20 +209,20 @@ def generate_pdf_report(
     output_path: str,
     start_iso: str,
     end_iso: str,
-    compare_start_iso: Optional[str] = None,
-    compare_end_iso: Optional[str] = None,
     group: str,
     units: str,
     timezone_display: str,
     min_speed_str: str,
     location: str,
     overall_metrics: List[Dict[str, Any]],
-    compare_overall_metrics: Optional[List[Dict[str, Any]]] = None,
     daily_metrics: Optional[List[Dict[str, Any]]],
     granular_metrics: List[Dict[str, Any]],
     histogram: Optional[Dict[str, int]],
-    compare_histogram: Optional[Dict[str, int]] = None,
     tz_name: Optional[str],
+    compare_start_iso: Optional[str] = None,
+    compare_end_iso: Optional[str] = None,
+    compare_overall_metrics: Optional[List[Dict[str, Any]]] = None,
+    compare_histogram: Optional[Dict[str, int]] = None,
     charts_prefix: str = "out",
     speed_limit: int = 25,
     hist_max: Optional[float] = None,
@@ -270,7 +270,13 @@ def generate_pdf_report(
     # Build document with all configuration
     builder = DocumentBuilder()
     doc = builder.build(
-        start_iso, end_iso, location, surveyor, contact, compare_start_iso, compare_end_iso
+        start_iso,
+        end_iso,
+        location,
+        surveyor,
+        contact,
+        compare_start_iso,
+        compare_end_iso,
     )
 
     # Add science section content using helper function

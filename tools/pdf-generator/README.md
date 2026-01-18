@@ -45,10 +45,34 @@ Every configuration file **must** include these 7 fields:
 | `site.contact`             | string | Contact email or phone                | "traffic@springfield.gov"  |
 | `query.start_date`         | string | Start date (YYYY-MM-DD)               | "2025-06-01"               |
 | `query.end_date`           | string | End date (YYYY-MM-DD)                 | "2025-06-07"               |
-| `query.compare_start_date` | string | Comparison start date (YYYY-MM-DD)    | ""                         |
-| `query.compare_end_date`   | string | Comparison end date (YYYY-MM-DD)      | ""                         |
 | `query.timezone`           | string | Display timezone                      | "US/Pacific"               |
 | `radar.cosine_error_angle` | number | Radar mounting angle in degrees       | 21.0                       |
+
+### Optional Query Fields
+
+| Field                      | Type   | Description                                     | Example      |
+| -------------------------- | ------ | ----------------------------------------------- | ------------ |
+| `query.compare_start_date` | string | Comparison start date (YYYY-MM-DD)              | ""           |
+| `query.compare_end_date`   | string | Comparison end date (YYYY-MM-DD)                | ""           |
+| `query.group`              | string | Roll-up bucket size                             | "1h"         |
+| `query.units`              | string | Display units                                   | "mph"        |
+| `query.source`             | string | Data source                                     | "radar_data_transits" |
+
+### Comparison Reports
+
+When both `query.compare_start_date` and `query.compare_end_date` are set, the report includes side-by-side metrics with percentage changes, a dual-period histogram with a legend, and a comparison distribution table.
+
+```json
+{
+  "query": {
+    "start_date": "2025-06-01",
+    "end_date": "2025-06-07",
+    "compare_start_date": "2025-12-05",
+    "compare_end_date": "2025-12-07",
+    "timezone": "US/Pacific"
+  }
+}
+```
 
 ### Minimal Configuration Example
 

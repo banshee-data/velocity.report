@@ -776,11 +776,15 @@ class HistogramChartBuilder:
         try:
             fig.tight_layout(pad=0)
         except Exception:
+            # Best-effort layout; ignore non-critical tight_layout issues that can
+            # occur with some matplotlib backends or very small figures.
             pass
 
         try:
             fig.subplots_adjust(left=0.02, right=0.985, top=0.96, bottom=0.08)
         except Exception:
+            # Best-effort subplot adjustment; ignore minor layout problems rather
+            # than failing the entire report generation step.
             pass
 
         return fig

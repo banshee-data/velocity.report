@@ -41,9 +41,9 @@
 	fromDefault.setDate(today.getDate() - 13); // last 14 days inclusive
 	let dateRange = { from: fromDefault, to: today, periodType: PeriodType.Day };
 
-	const compareToDefault = new Date(fromDefault);
+	const compareToDefault = new Date(fromDefault); // eslint-disable-line svelte/prefer-svelte-reactivity
 	compareToDefault.setDate(fromDefault.getDate() - 1);
-	const compareFromDefault = new Date(compareToDefault);
+	const compareFromDefault = new Date(compareToDefault); // eslint-disable-line svelte/prefer-svelte-reactivity
 	compareFromDefault.setDate(compareToDefault.getDate() - 13);
 	let compareRange = { from: compareFromDefault, to: compareToDefault, periodType: PeriodType.Day };
 	let compareEnabled = false;
@@ -213,7 +213,7 @@
 							<ToggleOption value="radar_data_transits">Transits</ToggleOption>
 						</ToggleGroup>
 					</div>
-					<div class="w-42">
+					<div class="w-44">
 						<SelectField
 							bind:value={selectedSiteId}
 							label="Site"
