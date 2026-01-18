@@ -824,6 +824,9 @@ func analyzePCAPWithBenchmark(config Config) (*AnalysisResult, *PerformanceMetri
 }
 
 func createBackgroundManager(sensorID string) *lidar.BackgroundManager {
+	// Note: This function manually creates a BackgroundManager without using NewBackgroundManager
+	// because it doesn't have a database connection (PCAP analysis mode). Therefore, we need
+	// to manually initialize RegionMgr here.
 	grid := &lidar.BackgroundGrid{
 		SensorID:    sensorID,
 		Rings:       40,
@@ -837,7 +840,11 @@ func createBackgroundManager(sensorID string) *lidar.BackgroundManager {
 			NoiseRelativeFraction:          0.315,
 			SeedFromFirstObservation:       true, // Important for PCAP replay
 			FreezeDurationNanos:            int64(5 * time.Second),
+			// Enable region identification for PCAP analysis
+			WarmupMinFrames:     100,
+			WarmupDurationNanos: int64(30 * time.Second),
 		},
+		RegionMgr: lidar.NewRegionManager(40, 1800),
 	}
 
 	return &lidar.BackgroundManager{

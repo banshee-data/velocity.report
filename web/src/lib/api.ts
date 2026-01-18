@@ -401,16 +401,19 @@ export async function getTrackObservations(trackId: string): Promise<TrackObserv
  * @param sensorId - Sensor identifier
  * @param startTime - Start time in Unix nanoseconds
  * @param endTime - End time in Unix nanoseconds
+ * @param limit - Maximum number of tracks to return (default 500, max 1000)
  */
 export async function getTrackHistory(
 	sensorId: string,
 	startTime: number,
-	endTime: number
+	endTime: number,
+	limit = 500
 ): Promise<TrackHistoryResponse> {
 	const url = new URL(`${API_BASE}/lidar/tracks/history`, window.location.origin);
 	url.searchParams.append('sensor_id', sensorId);
 	url.searchParams.append('start_time', startTime.toString());
 	url.searchParams.append('end_time', endTime.toString());
+	url.searchParams.append('limit', limit.toString());
 	const res = await fetch(url);
 	if (!res.ok) throw new Error(`Failed to fetch track history: ${res.status}`);
 	return res.json();

@@ -256,7 +256,7 @@
 							alignment-baseline="middle"
 							class="fill-gray-700 font-mono text-xs"
 						>
-							{track.track_id.slice(-6)}
+							{track.track_id}
 						</text>
 
 						<!-- Track bar -->
@@ -275,7 +275,7 @@
 						<text
 							x={startX + barWidth / 2}
 							y={y + TRACK_HEIGHT / 2}
-							text-anchor="middle"
+							text-anchor="left"
 							alignment-baseline="middle"
 							class="fill-white text-xs font-medium"
 						>

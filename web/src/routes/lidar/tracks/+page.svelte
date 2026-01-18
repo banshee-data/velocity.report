@@ -35,6 +35,7 @@
 
 	// Data
 	let tracks: Track[] = [];
+	let paginatedTracks: Track[] = []; // Tracks currently visible in the paginated list
 	let backgroundGrid: BackgroundGrid | null = null;
 	let selectedTrackId: string | null = null;
 	let observationsByTrack: Record<string, TrackObservation[]> = {};
@@ -77,7 +78,7 @@
 			);
 
 			console.log('[TrackHistory] Calling API...');
-			const history = await getTrackHistory(sensorId, startTime, endTime);
+			const history = await getTrackHistory(sensorId, startTime, endTime, 1000);
 			console.log('[TrackHistory] API response:', history);
 			tracks = history.tracks;
 
@@ -335,7 +336,7 @@
 	});
 </script>
 
-<main id="main-content" class="bg-surface-200 flex h-full flex-col">
+<main id="main-content" class="bg-surface-200 flex h-[calc(100vh-64px)] flex-col overflow-hidden">
 	<!-- Header -->
 	<div class="border-surface-content/10 bg-surface-100 h-20 flex-none border-b px-6 py-4">
 		<div class="flex h-full items-center justify-between overflow-hidden">
@@ -406,6 +407,7 @@
 				tracks={visibleTracks}
 				{selectedTrackId}
 				{backgroundGrid}
+				currentTime={selectedTime}
 				observations={selectedTrackObservations}
 				foreground={foregroundObservations}
 				foregroundEnabled={showForeground}
@@ -419,7 +421,7 @@
 			<!-- Timeline -->
 			<div class="bg-surface-100 flex-1">
 				<TimelinePane
-					{tracks}
+					tracks={paginatedTracks.length > 0 ? paginatedTracks : tracks}
 					currentTime={selectedTime}
 					{timeRange}
 					{isPlaying}
@@ -433,8 +435,13 @@
 			</div>
 
 			<!-- Track List Sidebar -->
-			<div class="border-surface-content/20 bg-surface-100 w-80 overflow-hidden border-l">
-				<TrackList {tracks} {selectedTrackId} onTrackSelect={handleTrackSelect} />
+			<div class="border-surface-content/20 bg-surface-100 w-[500px] overflow-hidden border-l">
+				<TrackList
+					{tracks}
+					{selectedTrackId}
+					onTrackSelect={handleTrackSelect}
+					onPaginatedTracksChange={(newTracks) => (paginatedTracks = newTracks)}
+				/>
 			</div>
 		</div>
 	</div>

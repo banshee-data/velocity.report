@@ -59,7 +59,7 @@ var (
 	lidarPCAPDir   = flag.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
 	// Background tuning knobs
 	lidarBgFlushInterval = flag.Duration("lidar-bg-flush-interval", 60*time.Second, "Interval to flush background grid to database when reading PCAP")
-	lidarBgNoiseRelative = flag.Float64("lidar-bg-noise-relative", 0.01, "Background NoiseRelativeFraction: fraction of range treated as expected measurement noise (e.g., 0.01 = 1%)")
+	lidarBgNoiseRelative = flag.Float64("lidar-bg-noise-relative", 0.04, "Background NoiseRelativeFraction: fraction of range treated as expected measurement noise (e.g., 0.04 = 4%)")
 	// FrameBuilder tuning knobs
 	lidarFrameBufferTimeout = flag.Duration("lidar-frame-buffer-timeout", 500*time.Millisecond, "FrameBuilder buffer timeout: finalize idle frames after this duration")
 	lidarMinFramePoints     = flag.Int("lidar-min-frame-points", 1000, "FrameBuilder MinFramePoints: minimum points required for a valid frame before finalizing")
@@ -220,10 +220,10 @@ func main() {
 		// Create BackgroundManager and register persistence
 		backgroundParams := lidar.BackgroundParams{
 			BackgroundUpdateFraction:       0.02,
-			ClosenessSensitivityMultiplier: 2.0,
-			SafetyMarginMeters:             0.2,
+			ClosenessSensitivityMultiplier: 8.0, // Further increased from 5.0 to achieve <30 false positives
+			SafetyMarginMeters:             0.4, // Increased from 0.3 for even more tolerance
 			FreezeDurationNanos:            int64(5 * time.Second),
-			NeighborConfirmationCount:      5,
+			NeighborConfirmationCount:      7, // Increased from 6 to require even more neighbor agreement
 			SettlingPeriodNanos:            int64(5 * time.Minute),
 			SnapshotIntervalNanos:          int64(2 * time.Hour),
 			ChangeThresholdForSnapshot:     100,
@@ -234,6 +234,10 @@ func main() {
 			// When running in PCAP mode / dev runs seed the background grid from first observations
 			// so replayed captures can build an initial background without live warmup.
 			SeedFromFirstObservation: *lidarSeedFromFirst,
+			// Enable region identification by setting warmup parameters
+			// Collect variance for ~5 seconds (100 frames at 20Hz) before identifying regions
+			WarmupMinFrames:     100,
+			WarmupDurationNanos: int64(30 * time.Second),
 		}
 
 		backgroundManager := lidar.NewBackgroundManager(*lidarSensor, 40, 1800, backgroundParams, lidarDB)

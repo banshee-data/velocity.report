@@ -44,11 +44,17 @@ type ParamDef struct {
 	Format string      // Printf format string (optional)
 }
 
-//go:embed status.html
-var StatusHTML embed.FS
-
 //go:embed assets/*
 var EchartsAssets embed.FS
+
+//go:embed html/status.html
+var StatusHTML embed.FS
+
+//go:embed html/dashboard.html
+var dashboardHTML string
+
+//go:embed html/regions_dashboard.html
+var regionsDashboardHTML string
 
 const echartsAssetsPrefix = "/assets/"
 
@@ -754,7 +760,9 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/grid_status", ws.handleGridStatus)
 	mux.HandleFunc("/api/lidar/grid_reset", ws.handleGridReset)
 	mux.HandleFunc("/api/lidar/grid_heatmap", ws.handleGridHeatmap)
-	mux.HandleFunc("/api/lidar/background/grid", ws.handleBackgroundGrid) // Full background grid
+	mux.HandleFunc("/api/lidar/background/grid", ws.handleBackgroundGrid)                            // Full background grid
+	mux.HandleFunc("/debug/lidar/background/regions", ws.handleBackgroundRegions)                    // Region debug info
+	mux.HandleFunc("/debug/lidar/background/regions/dashboard", ws.handleBackgroundRegionsDashboard) // Region visualization
 	if assetsFS != nil {
 		mux.Handle(echartsAssetsPrefix, http.StripPrefix(echartsAssetsPrefix, http.FileServer(http.FS(assetsFS))))
 	}
@@ -1255,35 +1263,7 @@ func (ws *WebServer) handleLidarDebugDashboard(w http.ResponseWriter, r *http.Re
 	}
 	safeQs := html.EscapeString(qs)
 
-	doc := fmt.Sprintf(`<!DOCTYPE html>
-	<html>
-	<head>
-		<title>LiDAR Debug Dashboard - %[1]s</title>
-		<style>
-			html, body { height: 100%%; }
-			body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 12px auto; max-width: 1800px; background: #f5f7fb; color: #0f172a; }
-			h1 { margin: 0 0 6px 0; }
-			p { margin: 0 0 16px 0; color: #475569; }
-			.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(600px, 1fr)); gap: 14px; align-items: stretch; }
-			.panel { display: flex; flex-direction: column; border: 1px solid #e2e8f0; border-radius: 8px; background: #ffffff; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08); overflow: hidden; min-height: 700px; }
-			.panel h2 { font-size: 15px; font-weight: 600; margin: 0; padding: 12px 14px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
-			iframe { width: 100%%; border: 0; flex: 1; min-height: 700px; height: 100%%; background: #111827; }
-			@media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } }
-		</style>
-	</head>
-	<body>
-		<h1>LiDAR Debug Dashboard</h1>
-		<p>Sensor: %[1]s</p>
-		<div class="grid">
-			<div class="panel"><h2><a href="/debug/lidar/background/polar%[2]s" target="_blank" rel="noopener noreferrer">Background Polar (XY)</a></h2><iframe src="/debug/lidar/background/polar%[2]s" title="Background Polar"></iframe></div>
-			<div class="panel"><h2><a href="/debug/lidar/background/heatmap%[2]s" target="_blank" rel="noopener noreferrer">Background Heatmap</a></h2><iframe src="/debug/lidar/background/heatmap%[2]s" title="Background Heatmap"></iframe></div>
-			<div class="panel"><h2><a href="/debug/lidar/foreground%[2]s" target="_blank" rel="noopener noreferrer">Foreground Frame</a></h2><iframe src="/debug/lidar/foreground%[2]s" title="Foreground Frame"></iframe></div>
-			<div class="panel"><h2><a href="/debug/lidar/traffic%[2]s" target="_blank" rel="noopener noreferrer">Traffic</a></h2><iframe src="/debug/lidar/traffic%[2]s" title="Traffic"></iframe></div>
-			<div class="panel"><h2><a href="/debug/lidar/clusters%[2]s" target="_blank" rel="noopener noreferrer">Clusters</a></h2><iframe src="/debug/lidar/clusters%[2]s" title="Clusters"></iframe></div>
-			<div class="panel"><h2><a href="/debug/lidar/tracks%[2]s" target="_blank" rel="noopener noreferrer">Tracks</a></h2><iframe src="/debug/lidar/tracks%[2]s" title="Tracks"></iframe></div>
-		</div>
-	</body>
-	</html>`, safeSensorID, safeQs)
+	doc := fmt.Sprintf(dashboardHTML, safeSensorID, safeQs)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(doc))
@@ -2142,7 +2122,7 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 	ws.updateLatestFgCounts(ws.sensorID)
 
 	// Load and parse the HTML template from embedded filesystem
-	tmpl, err := template.ParseFS(StatusHTML, "status.html")
+	tmpl, err := template.ParseFS(StatusHTML, "html/status.html")
 	if err != nil {
 		http.Error(w, "Error loading template: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -2929,4 +2909,47 @@ func (ws *WebServer) handleBackgroundGrid(w http.ResponseWriter, r *http.Request
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+// handleBackgroundRegions returns region debug information for the background grid
+func (ws *WebServer) handleBackgroundRegions(w http.ResponseWriter, r *http.Request) {
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = ws.sensorID
+	}
+
+	bm := lidar.GetBackgroundManager(sensorID)
+	if bm == nil || bm.Grid == nil {
+		ws.writeJSONError(w, http.StatusNotFound, "no background manager for sensor")
+		return
+	}
+
+	// Check if "include_cells" query parameter is set
+	includeCells := r.URL.Query().Get("include_cells") == "true"
+
+	info := bm.GetRegionDebugInfo(includeCells)
+	if info == nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, "failed to get region debug info")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(info)
+}
+
+// handleBackgroundRegionsDashboard renders an HTML visualization of the background regions
+func (ws *WebServer) handleBackgroundRegionsDashboard(w http.ResponseWriter, r *http.Request) {
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = ws.sensorID
+	}
+
+	escapedSensorID := html.EscapeString(sensorID)
+
+	// Use escapedSensorID for both instances (title and meta tag)
+	// The template has been updated to use %[1]s in both places and handle decoding via DOM
+	doc := fmt.Sprintf(regionsDashboardHTML, escapedSensorID)
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(doc))
 }

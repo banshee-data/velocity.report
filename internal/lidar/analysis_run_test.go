@@ -254,8 +254,8 @@ func TestDefaultRunParams_HasCorrectValues(t *testing.T) {
 	if params.Tracking.MaxMisses != 3 {
 		t.Errorf("MaxMisses should be 3")
 	}
-	if params.Tracking.HitsToConfirm != 3 {
-		t.Errorf("HitsToConfirm should be 3")
+	if params.Tracking.HitsToConfirm != 5 {
+		t.Errorf("HitsToConfirm should be 5")
 	}
 
 	// Check classification defaults

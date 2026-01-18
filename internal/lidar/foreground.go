@@ -1,6 +1,7 @@
 package lidar
 
 import (
+	"log"
 	"math"
 	"time"
 )
@@ -71,10 +72,11 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 	defer g.mu.Unlock()
 
 	// Initialise warmup counters on first frame
-	if bm.StartTime.IsZero() {
+	startTimeWasZero := bm.StartTime.IsZero()
+	if startTimeWasZero {
 		bm.StartTime = now
 	}
-	if g.WarmupFramesRemaining == 0 && g.Params.WarmupMinFrames > 0 && !g.SettlingComplete {
+	if startTimeWasZero && g.WarmupFramesRemaining == 0 && g.Params.WarmupMinFrames > 0 && !g.SettlingComplete {
 		g.WarmupFramesRemaining = g.Params.WarmupMinFrames
 	}
 
@@ -126,6 +128,13 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 			if postSettleAlpha > 0 && postSettleAlpha <= 1 {
 				effectiveAlpha = postSettleAlpha
 			}
+			// Trigger region identification when settling completes
+			if g.RegionMgr != nil && !g.RegionMgr.IdentificationComplete {
+				err := g.RegionMgr.IdentifyRegions(g, 50) // max 50 regions
+				if err != nil {
+					log.Printf("[BackgroundManager] Failed to identify regions: %v", err)
+				}
+			}
 		} else {
 			warmupActive = true
 			if g.WarmupFramesRemaining > 0 {
@@ -133,6 +142,10 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 			}
 			// During warmup use pre-set alpha to seed background faster.
 			effectiveAlpha = alpha
+			// Collect variance metrics during settling
+			if g.RegionMgr != nil && !g.RegionMgr.IdentificationComplete {
+				g.RegionMgr.UpdateVarianceMetrics(g.Cells)
+			}
 		}
 	}
 	warmupFramesRemaining = g.WarmupFramesRemaining

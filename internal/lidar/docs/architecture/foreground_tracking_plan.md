@@ -167,10 +167,11 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 - ✅ `GET /api/lidar/tracks/summary` - Aggregated statistics by class/state
 - ✅ `GET /api/lidar/clusters` - Recent clusters by time range
 - ✅ Unit tests in `internal/lidar/monitor/track_api_test.go`
+- ✅ **UI visualisation** - Track history playback with MapPane, TrackList, TimelinePane components
 
 ### 📋 Remaining Components
 
-1. **UI visualization** - Track display components in web frontend (planned for Phase 4)
+1. **Track Labeling UI** - Manual annotation interface for ML training (Phase 4.0)
 
 ---
 
@@ -182,12 +183,12 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 ┌─────────────────────────────────────────────────────────────────┐
 │                    POLAR FRAME (Sensor-Centric)                 │
 │                                                                 │
-│  • Background Grid (40 rings × 1800 azimuth bins)              │
-│  • EMA Learning (range, spread per cell)                       │
-│  • Foreground/Background Classification                        │
-│  • Neighbor Voting (same-ring only)                            │
+│  • Background Grid (40 rings × 1800 azimuth bins)               │
+│  • EMA Learning (range, spread per cell)                        │
+│  • Foreground/Background Classification                         │
+│  • Neighbor Voting (same-ring only)                             │
 │                                                                 │
-│  Coordinates: (ring, azimuth_deg, range_m)                     │
+│  Coordinates: (ring, azimuth_deg, range_m)                      │
 │                                                                 │
 └────────────────────────┬────────────────────────────────────────┘
                          │
@@ -198,14 +199,14 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 ┌─────────────────────────────────────────────────────────────────┐
 │                   WORLD FRAME (Site-Centric)                    │
 │                                                                 │
-│  • DBSCAN Clustering (Euclidean distance)                      │
-│  • Kalman Tracking (position & velocity)                       │
-│  • Track Classification (object type)                          │
-│  • Database Persistence (clusters, tracks, observations)       │
-│  • REST APIs (JSON responses)                                  │
-│  • Web UI (visualization)                                      │
+│  • DBSCAN Clustering (Euclidean distance)                       │
+│  • Kalman Tracking (position & velocity)                        │
+│  • Track Classification (object type)                           │
+│  • Database Persistence (clusters, tracks, observations)        │
+│  • REST APIs (JSON responses)                                   │
+│  • Web UI (visualization)                                       │
 │                                                                 │
-│  Coordinates: (x, y, z) meters in site frame                   │
+│  Coordinates: (x, y, z) meters in site frame                    │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -1425,10 +1426,11 @@ func TestPipeline_PCAPToTracks(t *testing.T) {
 | 3.4   | Classification           | 2-3 days | ✅ Complete | `TrackClassifier`, rule-based classification, object classes                      |
 | 3.5   | REST API Endpoints       | 1-2 days | ✅ Complete | `TrackAPI` HTTP handlers, list/get/update tracks, cluster queries                 |
 | 3.6   | PCAP Analysis Tool       | 1-2 days | ✅ Complete | `pcap-analyze` CLI tool for batch processing, ML data export                      |
+| 3.8   | Track Visualisation UI   | 2-3 days | ✅ Complete | MapPane, TrackList, TimelinePane components, pagination, playback                 |
 | Test  | Integration Testing      | 2-3 days | 📋 Planned  | End-to-end tests, performance validation                                          |
 
-**Phases 2.9-3.6: Complete**
-**Remaining: Integration Testing + UI Visualization**
+**Phases 2.9-3.8: Complete**
+**Remaining: Integration Testing**
 
 ### Milestones
 
@@ -1441,7 +1443,8 @@ func TestPipeline_PCAPToTracks(t *testing.T) {
 7. ✅ **Classification Active** - Rule-based classifier for pedestrian, car, bird, other
 8. ✅ **REST Endpoints** - HTTP handlers for track/cluster API access
 9. ✅ **PCAP Analysis Tool** - CLI tool for batch track categorisation and ML data export
-10. 📋 **Production Ready** - All tests passing, documented, deployed
+10. ✅ **Track Visualisation UI** - SvelteKit components for track history playback
+11. 📋 **Production Ready** - All tests passing, documented, deployed
 
 ### Implementation Files
 
@@ -1461,6 +1464,10 @@ func TestPipeline_PCAPToTracks(t *testing.T) {
 | 3.5     | `internal/lidar/monitor/track_api.go`                      | HTTP handlers for track/cluster queries          |
 | 3.5     | `internal/lidar/monitor/track_api_test.go`                 | Unit tests for track API                         |
 | 3.6     | `cmd/tools/pcap-analyze/main.go`                           | PCAP analysis tool for batch processing          |
+| 3.8     | `web/src/lib/components/lidar/MapPane.svelte`              | Canvas-based track visualisation                 |
+| 3.8     | `web/src/lib/components/lidar/TrackList.svelte`            | Track list with filters and pagination           |
+| 3.8     | `web/src/lib/components/lidar/TimelinePane.svelte`         | Timeline with playback controls                  |
+| 3.8     | `web/src/routes/lidar/tracks/+page.svelte`                 | Track history playback page                      |
 | ML      | `internal/lidar/training_data.go`                          | Training data export and encoding                |
 | ML      | `internal/lidar/training_data_test.go`                     | Unit tests for training data                     |
 

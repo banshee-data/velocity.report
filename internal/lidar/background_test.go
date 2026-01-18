@@ -24,6 +24,7 @@ func makeTestGrid(rings, azBins int) *BackgroundGrid {
 		AzimuthBins: azBins,
 		Cells:       cells,
 		Params:      params,
+		RegionMgr:   NewRegionManager(rings, azBins), // Initialize RegionManager for tests
 	}
 	g.Manager = &BackgroundManager{Grid: g}
 	return g
