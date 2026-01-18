@@ -824,9 +824,7 @@ class HistogramChartBuilder:
         else:
             all_keys = sorted(set(histogram.keys()) | set(compare_histogram.keys()))
             labels = [str(key) for key in all_keys]
-            primary_counts = [
-                int(histogram.get(key, 0) or 0) for key in all_keys
-            ]
+            primary_counts = [int(histogram.get(key, 0) or 0) for key in all_keys]
             compare_counts = [
                 int(compare_histogram.get(key, 0) or 0) for key in all_keys
             ]

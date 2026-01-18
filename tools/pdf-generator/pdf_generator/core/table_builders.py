@@ -781,9 +781,7 @@ def create_histogram_comparison_table(
                     NoEscape(escape_latex(f"{primary_pct:.1f}%")),
                     NoEscape(escape_latex(str(int(compare_count)))),
                     NoEscape(escape_latex(f"{compare_pct:.1f}%")),
-                    NoEscape(
-                        escape_latex(format_change(primary_count, compare_count))
-                    ),
+                    NoEscape(escape_latex(format_change(primary_count, compare_count))),
                 ]
             )
 

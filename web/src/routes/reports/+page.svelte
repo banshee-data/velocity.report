@@ -2,7 +2,15 @@
 	import { browser } from '$app/environment';
 	import { PeriodType } from '@layerstack/utils';
 	import { onMount } from 'svelte';
-	import { Button, Card, DateRangeField, Header, SelectField, ToggleGroup, ToggleOption } from 'svelte-ux';
+	import {
+		Button,
+		Card,
+		DateRangeField,
+		Header,
+		SelectField,
+		ToggleGroup,
+		ToggleOption
+	} from 'svelte-ux';
 	import {
 		generateReport,
 		getConfig,
@@ -193,7 +201,7 @@
 			<div class="space-y-4 p-6">
 				<div class="flex flex-wrap items-end gap-4">
 					<div class="space-y-2">
-						<p class="text-sm font-medium text-surface-content/80">Primary period</p>
+						<p class="text-surface-content/80 text-sm font-medium">Primary period</p>
 						<DateRangeField bind:value={dateRange} periodTypes={[PeriodType.Day]} stepper />
 					</div>
 					<div class="w-24">
@@ -215,14 +223,14 @@
 					</div>
 				</div>
 
-				<label class="flex items-center gap-2 text-sm font-medium text-surface-content/80">
+				<label class="text-surface-content/80 flex items-center gap-2 text-sm font-medium">
 					<input type="checkbox" bind:checked={compareEnabled} class="h-4 w-4" />
 					Compare against another period
 				</label>
 
 				{#if compareEnabled}
 					<div class="space-y-2">
-						<p class="text-sm font-medium text-surface-content/80">Comparison period</p>
+						<p class="text-surface-content/80 text-sm font-medium">Comparison period</p>
 						<DateRangeField bind:value={compareRange} periodTypes={[PeriodType.Day]} stepper />
 					</div>
 				{/if}
@@ -237,7 +245,7 @@
 					>
 						{generatingReport ? 'Generating…' : 'Generate Report'}
 					</Button>
-					<p class="text-xs text-surface-content/60">
+					<p class="text-surface-content/60 text-xs">
 						Reports use {$displayUnits} units and {$displayTimezone} timezone settings.
 					</p>
 				</div>
@@ -248,38 +256,38 @@
 			<div class="space-y-3 p-6">
 				<h3 class="text-base font-semibold">Site Details</h3>
 				{#if selectedSite}
-					<dl class="grid gap-3 text-sm text-surface-content/80 md:grid-cols-2">
+					<dl class="text-surface-content/80 grid gap-3 text-sm md:grid-cols-2">
 						<div>
-							<dt class="font-semibold text-surface-content">Location</dt>
+							<dt class="text-surface-content font-semibold">Location</dt>
 							<dd>{selectedSite.location}</dd>
 						</div>
 						<div>
-							<dt class="font-semibold text-surface-content">Speed Limit</dt>
+							<dt class="text-surface-content font-semibold">Speed Limit</dt>
 							<dd>{selectedSite.speed_limit} {$displayUnits}</dd>
 						</div>
 						<div>
-							<dt class="font-semibold text-surface-content">Surveyor</dt>
+							<dt class="text-surface-content font-semibold">Surveyor</dt>
 							<dd>{selectedSite.surveyor}</dd>
 						</div>
 						<div>
-							<dt class="font-semibold text-surface-content">Contact</dt>
+							<dt class="text-surface-content font-semibold">Contact</dt>
 							<dd>{selectedSite.contact}</dd>
 						</div>
 						{#if selectedSite.site_description}
 							<div class="md:col-span-2">
-								<dt class="font-semibold text-surface-content">Site Description</dt>
+								<dt class="text-surface-content font-semibold">Site Description</dt>
 								<dd>{selectedSite.site_description}</dd>
 							</div>
 						{/if}
 						{#if selectedSite.speed_limit_note}
 							<div class="md:col-span-2">
-								<dt class="font-semibold text-surface-content">Speed Limit Notes</dt>
+								<dt class="text-surface-content font-semibold">Speed Limit Notes</dt>
 								<dd>{selectedSite.speed_limit_note}</dd>
 							</div>
 						{/if}
 					</dl>
 				{:else}
-					<p class="text-sm text-surface-content/60">Select a site to view report details.</p>
+					<p class="text-surface-content/60 text-sm">Select a site to view report details.</p>
 				{/if}
 			</div>
 		</Card>

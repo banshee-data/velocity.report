@@ -136,7 +136,9 @@ class VelocityOverviewSection:
             except Exception:
                 return "--"
 
-        def format_change(primary_value: Optional[float], compare_value: Optional[float]) -> str:
+        def format_change(
+            primary_value: Optional[float], compare_value: Optional[float]
+        ) -> str:
             if primary_value in (None, 0) or compare_value is None:
                 return "--"
             try:
@@ -179,14 +181,18 @@ class VelocityOverviewSection:
                     "compare": format_count(compare_total_vehicles),
                     "change": format_change(
                         float(total_vehicles),
-                        float(compare_total_vehicles)
-                        if compare_total_vehicles is not None
-                        else None,
+                        (
+                            float(compare_total_vehicles)
+                            if compare_total_vehicles is not None
+                            else None
+                        ),
                     ),
                 },
             ]
             doc.append(
-                create_comparison_summary_table(summary_entries, primary_label, compare_label)
+                create_comparison_summary_table(
+                    summary_entries, primary_label, compare_label
+                )
             )
         else:
             key_metric_entries = [

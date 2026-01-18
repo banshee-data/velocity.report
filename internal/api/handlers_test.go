@@ -453,16 +453,16 @@ func TestGenerateReport_CompareDatesRequiredTogether(t *testing.T) {
 		{
 			name: "missing compare end date",
 			body: map[string]interface{}{
-				"start_date":        "2024-01-01",
-				"end_date":          "2024-01-07",
+				"start_date":         "2024-01-01",
+				"end_date":           "2024-01-07",
 				"compare_start_date": "2023-12-01",
 			},
 		},
 		{
 			name: "missing compare start date",
 			body: map[string]interface{}{
-				"start_date":      "2024-01-01",
-				"end_date":        "2024-01-07",
+				"start_date":       "2024-01-01",
+				"end_date":         "2024-01-07",
 				"compare_end_date": "2023-12-07",
 			},
 		},

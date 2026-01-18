@@ -621,19 +621,19 @@ func (s *Server) deleteSite(w http.ResponseWriter, r *http.Request, id int) {
 
 // ReportRequest represents the JSON payload for report generation
 type ReportRequest struct {
-	SiteID         *int    `json:"site_id"`          // Optional: use site configuration
-	StartDate      string  `json:"start_date"`       // YYYY-MM-DD format
-	EndDate        string  `json:"end_date"`         // YYYY-MM-DD format
+	SiteID         *int    `json:"site_id"`            // Optional: use site configuration
+	StartDate      string  `json:"start_date"`         // YYYY-MM-DD format
+	EndDate        string  `json:"end_date"`           // YYYY-MM-DD format
 	CompareStart   string  `json:"compare_start_date"` // Optional: comparison start date (YYYY-MM-DD)
 	CompareEnd     string  `json:"compare_end_date"`   // Optional: comparison end date (YYYY-MM-DD)
-	Timezone       string  `json:"timezone"`         // e.g., "US/Pacific"
-	Units          string  `json:"units"`            // "mph" or "kph"
-	Group          string  `json:"group"`            // e.g., "1h", "4h"
-	Source         string  `json:"source"`           // "radar_objects" or "radar_data_transits"
-	MinSpeed       float64 `json:"min_speed"`        // minimum speed filter
-	Histogram      bool    `json:"histogram"`        // whether to generate histogram
-	HistBucketSize float64 `json:"hist_bucket_size"` // histogram bucket size
-	HistMax        float64 `json:"hist_max"`         // histogram max value
+	Timezone       string  `json:"timezone"`           // e.g., "US/Pacific"
+	Units          string  `json:"units"`              // "mph" or "kph"
+	Group          string  `json:"group"`              // e.g., "1h", "4h"
+	Source         string  `json:"source"`             // "radar_objects" or "radar_data_transits"
+	MinSpeed       float64 `json:"min_speed"`          // minimum speed filter
+	Histogram      bool    `json:"histogram"`          // whether to generate histogram
+	HistBucketSize float64 `json:"hist_bucket_size"`   // histogram bucket size
+	HistMax        float64 `json:"hist_max"`           // histogram max value
 
 	// These can be overridden if site_id is not provided
 	Location         string  `json:"location"`           // site location
@@ -755,16 +755,16 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	// Create a config JSON for the PDF generator
 	// Note: Not setting file_prefix - let Python auto-generate from source + date range
 	queryConfig := map[string]interface{}{
-			"start_date":       req.StartDate,
-			"end_date":         req.EndDate,
-			"timezone":         req.Timezone,
-			"group":            req.Group,
-			"units":            req.Units,
-			"source":           req.Source,
-			"min_speed":        req.MinSpeed,
-			"histogram":        req.Histogram,
-			"hist_bucket_size": req.HistBucketSize,
-			"hist_max":         req.HistMax,
+		"start_date":       req.StartDate,
+		"end_date":         req.EndDate,
+		"timezone":         req.Timezone,
+		"group":            req.Group,
+		"units":            req.Units,
+		"source":           req.Source,
+		"min_speed":        req.MinSpeed,
+		"histogram":        req.Histogram,
+		"hist_bucket_size": req.HistBucketSize,
+		"hist_max":         req.HistMax,
 	}
 	if req.CompareStart != "" && req.CompareEnd != "" {
 		queryConfig["compare_start_date"] = req.CompareStart
