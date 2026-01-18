@@ -3,6 +3,7 @@
 
 <head>
   <title>LiDAR Background Regions - %[1]s</title>
+  <meta name="sensor-id" content="%[1]s">
   <style>
     body {
       margin: 0;
@@ -203,8 +204,11 @@
       '#7f8c8d', '#95a5a6', '#bdc3c7', '#ecf0f1', '#e8daef'
     ];
 
+    // Retrieve sensor ID from safely injected meta tag which handles HTML entity decoding
+    const sensorId = document.querySelector('meta[name="sensor-id"]').content;
+
     function loadRegions() {
-      fetch('/debug/lidar/background/regions?sensor_id=' + encodeURIComponent('%[2]s'))
+      fetch('/debug/lidar/background/regions?sensor_id=' + encodeURIComponent(sensorId))
         .then(response => response.json())
         .then(data => {
           regionData = data;

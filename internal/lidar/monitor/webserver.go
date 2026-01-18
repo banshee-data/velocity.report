@@ -2946,7 +2946,9 @@ func (ws *WebServer) handleBackgroundRegionsDashboard(w http.ResponseWriter, r *
 
 	escapedSensorID := html.EscapeString(sensorID)
 
-	doc := fmt.Sprintf(regionsDashboardHTML, escapedSensorID, sensorID)
+	// Use escapedSensorID for both instances (title and meta tag)
+	// The template has been updated to use %[1]s in both places and handle decoding via DOM
+	doc := fmt.Sprintf(regionsDashboardHTML, escapedSensorID)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(doc))
