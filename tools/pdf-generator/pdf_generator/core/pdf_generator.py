@@ -218,7 +218,7 @@ def generate_pdf_report(
     daily_metrics: Optional[List[Dict[str, Any]]],
     granular_metrics: List[Dict[str, Any]],
     histogram: Optional[Dict[str, int]],
-    tz_name: Optional[str] = None,
+    tz_name: Optional[str],
     charts_prefix: str = "out",
     speed_limit: int = 25,
     hist_max: Optional[float] = None,
