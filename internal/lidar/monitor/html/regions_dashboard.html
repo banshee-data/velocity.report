@@ -140,6 +140,53 @@
     .refresh-btn:hover {
       background: #0052a3;
     }
+
+    @media (prefers-color-scheme: dark) {
+      body {
+        background-color: #121212;
+        color: #e0e0e0;
+      }
+
+      h1 {
+        color: #e0e0e0;
+      }
+
+      .info-panel,
+      .canvas-container {
+        background: #1e1e1e;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+      }
+
+      .info-label {
+        color: #a0a0a0;
+      }
+
+      .info-value {
+        color: #ffffff;
+      }
+
+      #regionCanvas {
+        border-color: #444;
+      }
+
+      .legend {
+        background: #2d2d2d;
+      }
+
+      .legend-color {
+        border-color: #444;
+      }
+
+      .status-complete {
+        background: #1e4620;
+        color: #d4edda;
+      }
+
+      .status-pending {
+        background: #4d3e04;
+        color: #fff3cd;
+      }
+    }
   </style>
 </head>
 
