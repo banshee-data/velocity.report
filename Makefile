@@ -712,7 +712,7 @@ set-version:
 		echo "Usage: make set-version VER=<version> TARGETS='<targets>'"; \
 		echo ""; \
 		echo "Example: make set-version VER=0.4.0-pre2 TARGETS='--all'"; \
-		echo "         make set-version VER=0.5.0 TARGETS='--makefile --deploy'"; \
+		echo "         make set-version VER=0.5.0 TARGETS='--makefile --deploy --pdf'"; \
 		echo ""; \
 		./scripts/set-version.sh; \
 		exit 1; \
