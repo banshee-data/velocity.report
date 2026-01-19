@@ -128,18 +128,21 @@ class TimeSeriesChartBuilder:
         p98_f = np.array(p98_a.filled(np.nan), dtype=float)
         mx_f = np.array(mx_a.filled(np.nan), dtype=float)
 
-        # Debug output if enabled
-        self._debug_output(times, counts, p50_f)
+        # Use simple integer indices for x-axis to eliminate gaps
+        x_indices = list(range(len(times)))
 
-        # Plot percentile lines with broken line handling
-        self._plot_percentile_lines(ax, times, p50_f, p85_f, p98_f, mx_f)
+        # Debug output if enabled
+        self._debug_output(x_indices, counts, p50_f)
+
+        # Plot percentile lines
+        self._plot_percentile_lines(ax, x_indices, p50_f, p85_f, p98_f, mx_f)
 
         # Configure left axis (speed)
         self._configure_speed_axis(ax, units)
 
         # Create right axis for counts and plot bars
         ax2 = ax.twinx()
-        legend_data = self._plot_count_bars(ax2, times, counts)
+        legend_data = self._plot_count_bars(ax2, x_indices, counts)
 
         # Configure right axis (counts)
         self._configure_count_axis(ax2)
@@ -148,7 +151,7 @@ class TimeSeriesChartBuilder:
         self._create_legend(fig, ax, ax2, legend_data)
 
         # Format time axis
-        self._format_time_axis(fig, ax, tz_name)
+        self._format_time_axis(fig, ax, times, tz_name)
 
         # Apply final styling
         self._apply_final_styling(fig, ax, ax2)
@@ -254,14 +257,14 @@ class TimeSeriesChartBuilder:
         return p50_a, p85_a, p98_a, mx_a
 
     def _debug_output(
-        self, times: List[datetime], counts: List[int], p50_f: np.ndarray
+        self, x_indices: List[int], counts: List[int], p50_f: np.ndarray
     ) -> None:
         """Print debug information if enabled."""
         try:
             if self.debug["plot_debug"]:
                 import sys
 
-                print(f"DEBUG_PLOT: times(len)={len(times)}", file=sys.stderr)
+                print(f"DEBUG_PLOT: points(len)={len(x_indices)}", file=sys.stderr)
                 print(f"DEBUG_PLOT: counts={counts!r}", file=sys.stderr)
                 print(f"DEBUG_PLOT: p50_f={p50_f.tolist()!r}", file=sys.stderr)
         except Exception:
@@ -270,19 +273,16 @@ class TimeSeriesChartBuilder:
     def _plot_percentile_lines(
         self,
         ax,
-        times: List[datetime],
+        x_indices: List[int],
         p50_f: np.ndarray,
         p85_f: np.ndarray,
         p98_f: np.ndarray,
         mx_f: np.ndarray,
     ) -> None:
-        """Plot percentile lines with broken line handling."""
-        plot_broken = self._create_broken_line_plotter(times)
-
+        """Plot percentile lines."""
         # Plot each percentile line
-        plot_broken(
-            ax,
-            times,
+        ax.plot(
+            x_indices,
             p50_f,
             label="p50",
             marker="^",
@@ -291,9 +291,8 @@ class TimeSeriesChartBuilder:
             markersize=self.layout["marker_size"],
             markeredgewidth=self.layout["marker_edge_width"],
         )
-        plot_broken(
-            ax,
-            times,
+        ax.plot(
+            x_indices,
             p85_f,
             label="p85",
             marker="s",
@@ -302,9 +301,8 @@ class TimeSeriesChartBuilder:
             markersize=self.layout["marker_size"],
             markeredgewidth=self.layout["marker_edge_width"],
         )
-        plot_broken(
-            ax,
-            times,
+        ax.plot(
+            x_indices,
             p98_f,
             label="p98",
             marker="o",
@@ -313,9 +311,8 @@ class TimeSeriesChartBuilder:
             markersize=self.layout["marker_size"],
             markeredgewidth=self.layout["marker_edge_width"],
         )
-        plot_broken(
-            ax,
-            times,
+        ax.plot(
+            x_indices,
             mx_f,
             label="Max",
             marker="x",
@@ -325,110 +322,6 @@ class TimeSeriesChartBuilder:
             markersize=self.layout["marker_size"],
             markeredgewidth=self.layout["marker_edge_width"],
         )
-
-    def _create_broken_line_plotter(self, times: List[datetime]):
-        """Create a function to plot lines broken at gaps/NaN values."""
-
-        def _plot_broken(ax, x, y_filled, label=None, **kwargs):
-            """Plot series breaking line at masked/NaN values."""
-            x_arr = np.array(x, dtype=object)
-            valid_mask = np.isfinite(y_filled)
-
-            if not np.any(valid_mask):
-                return
-
-            # Compute gap threshold
-            gap_threshold = self._compute_gap_threshold(x_arr)
-
-            # Build runs of contiguous valid points
-            runs = self._build_runs(x_arr, valid_mask, gap_threshold)
-
-            # Plot each run separately
-            plotted_any = False
-            for s, e in runs:
-                x_seg = x_arr[s : e + 1]
-                y_seg = y_filled[s : e + 1]
-                seg_label = label if not plotted_any else None
-                ax.plot(x_seg, y_seg, label=seg_label, **kwargs)
-                plotted_any = True
-
-        return _plot_broken
-
-    def _compute_gap_threshold(self, x_arr: np.ndarray) -> Optional[float]:
-        """Compute time gap threshold for breaking lines."""
-        try:
-            deltas = []
-            for a, b in zip(x_arr[:-1], x_arr[1:]):
-                if a is None or b is None:
-                    continue
-                try:
-                    delta_s = (b - a).total_seconds()
-                except Exception:
-                    delta_s = float(
-                        (np.datetime64(b) - np.datetime64(a)) / np.timedelta64(1, "s")
-                    )
-                if delta_s > 0:
-                    deltas.append(delta_s)
-
-            if deltas:
-                base_delta = float(np.min(deltas))
-                gap_threshold = base_delta * 2
-
-                # Debug output
-                if self.debug["plot_debug"]:
-                    import sys
-
-                    print(
-                        f"DEBUG_PLOT: base_delta={base_delta} gap_threshold={gap_threshold}",
-                        file=sys.stderr,
-                    )
-                return gap_threshold
-        except Exception:
-            pass
-
-        return None
-
-    def _build_runs(
-        self,
-        x_arr: np.ndarray,
-        valid_mask: np.ndarray,
-        gap_threshold: Optional[float],
-    ) -> List[Tuple[int, int]]:
-        """Build list of (start, end) index tuples for contiguous valid runs."""
-        idx = np.where(valid_mask)[0]
-        if len(idx) == 0:
-            return []
-
-        runs = []
-        start = idx[0]
-        prev = start
-
-        for i in idx[1:]:
-            split_on_gap = False
-
-            # Check for large time gap
-            if gap_threshold is not None and i > 0 and prev < len(x_arr):
-                try:
-                    try:
-                        gap_s = (x_arr[i] - x_arr[prev]).total_seconds()
-                    except Exception:
-                        gap_s = float(
-                            (np.datetime64(x_arr[i]) - np.datetime64(x_arr[prev]))
-                            / np.timedelta64(1, "s")
-                        )
-                    if gap_s > gap_threshold:
-                        split_on_gap = True
-                except Exception:
-                    pass
-
-            # Start new run if non-contiguous or large gap
-            if i != prev + 1 or split_on_gap:
-                runs.append((start, prev))
-                start = i
-            prev = i
-
-        runs.append((start, prev))
-        return runs
 
     def _configure_speed_axis(self, ax, units: str) -> None:
         """Configure left Y-axis (speed)."""
@@ -450,7 +343,7 @@ class TimeSeriesChartBuilder:
     def _plot_count_bars(
         self,
         ax2,
-        times: List[datetime],
+        x_indices: List[int],
         counts: List[int],
     ) -> Optional[Tuple[str, str, float]]:
         """Plot count bars with low-sample highlighting.
@@ -479,7 +372,7 @@ class TimeSeriesChartBuilder:
             top = max_count if max_count > 0 else 1
 
         # Compute bar widths
-        bar_width_bg, bar_width = self._compute_bar_widths(times)
+        bar_width_bg, bar_width = self._compute_bar_widths()
 
         # Plot orange background bars for low-sample periods
         legend_data = None
@@ -487,7 +380,7 @@ class TimeSeriesChartBuilder:
 
         if any(orange_heights) and top > 0:
             ax2.bar(
-                times,
+                x_indices,
                 orange_heights,
                 width=bar_width_bg,
                 alpha=0.25,
@@ -502,7 +395,7 @@ class TimeSeriesChartBuilder:
 
         # Plot primary count bars
         ax2.bar(
-            times,
+            x_indices,
             counts,
             width=bar_width,
             alpha=0.25,
@@ -523,39 +416,9 @@ class TimeSeriesChartBuilder:
 
         return legend_data
 
-    def _compute_bar_widths(self, times: List[datetime]) -> Tuple[float, float]:
-        """Compute responsive bar widths based on time bucket spacing."""
-        try:
-            if mdates is not None and len(times) > 1:
-                x_nums = mdates.date2num(times)
-                deltas = np.diff(x_nums)
-                pos = deltas[deltas > 0]
-                base = (
-                    float(np.min(pos))
-                    if pos.size > 0
-                    else float(np.min(deltas) if deltas.size > 0 else 1.0)
-                )
-            else:
-                # Fallback: compute from seconds
-                x_arr = np.array(times, dtype=object)
-                deltas_s = []
-                for a, b in zip(x_arr[:-1], x_arr[1:]):
-                    try:
-                        ds = (b - a).total_seconds()
-                    except Exception:
-                        try:
-                            ds = float(
-                                (np.datetime64(b) - np.datetime64(a))
-                                / np.timedelta64(1, "s")
-                            )
-                        except Exception:
-                            ds = 86400.0
-                    if ds > 0:
-                        deltas_s.append(ds)
-                base = (float(np.min(deltas_s)) / 86400.0) if deltas_s else 1.0
-        except Exception:
-            base = 1.0
-
+    def _compute_bar_widths(self) -> Tuple[float, float]:
+        """Compute responsive bar widths based on integer index spacing."""
+        base = 1.0  # Spacing is always 1 with index-based plotting
         bar_width_bg = base * self.layout["bar_width_bg_fraction"]
         bar_width = base * self.layout["bar_width_fraction"]
 
@@ -629,39 +492,56 @@ class TimeSeriesChartBuilder:
             except Exception:
                 pass
 
-    def _format_time_axis(self, fig, ax, tz_name: Optional[str]) -> None:
-        """Format X-axis with date/time labels."""
+    def _format_time_axis(
+        self, fig, ax, times: List[datetime], tz_name: Optional[str]
+    ) -> None:
+        """Format X-axis using integer indices mapped to time labels."""
+        if not times:
+            return
+
         try:
-            if mdates is None:
-                return
+            import matplotlib.ticker as ticker
 
-            locator = mdates.AutoDateLocator()
+            # Determine date/time format based on range
+            def format_concise_date(x, pos=None):
+                idx = int(round(x))
+                if 0 <= idx < len(times):
+                    dt = times[idx]
+                    # Check if date should be shown
+                    show_date = False
+                    if idx == 0:
+                        show_date = True
+                    elif idx > 0:
+                        prev = times[idx - 1]
+                        if dt.date() != prev.date():
+                            show_date = True
 
-            # Get timezone object if specified
-            try:
-                tzobj = ZoneInfo(tz_name) if tz_name else None
-            except Exception:
-                tzobj = None
+                    # Also show date if gap > 4 hours to help orient
+                    if idx > 0 and not show_date:
+                        prev = times[idx - 1]
+                        delta = (dt - prev).total_seconds()
+                        if delta > 4 * 3600:
+                            show_date = True
 
-            # Create formatter with timezone
-            try:
-                formatter = mdates.ConciseDateFormatter(locator, tz=tzobj)
-            except TypeError:
-                # Older matplotlib may not accept tz kwarg
-                formatter = mdates.ConciseDateFormatter(locator)
+                    if show_date:
+                        return dt.strftime("%b %d\n%H:%M")
+                    else:
+                        return dt.strftime("%H:%M")
+                return ""
 
-            ax.xaxis.set_major_locator(locator)
-            ax.xaxis.set_major_formatter(formatter)
-            fig.autofmt_xdate()
+            # Set locator to pick nice integer skips
+            # nbins=8 is a reasonable default for standard width charts
+            ax.xaxis.set_major_locator(
+                ticker.MaxNLocator(nbins=10, integer=True, steps=[1, 2, 5, 10])
+            )
+            ax.xaxis.set_major_formatter(ticker.FuncFormatter(format_concise_date))
 
-            # Hide offset text
+            # Hide offset text (exponent)
             try:
                 ax.xaxis.get_offset_text().set_visible(False)
             except Exception:
-                try:
-                    ax.xaxis.set_offset_position("none")
-                except Exception:
-                    pass
+                pass
+
         except Exception:
             pass
 

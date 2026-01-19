@@ -175,59 +175,18 @@ class TestTimeSeriesChartBuilder(unittest.TestCase):
 
     def test_compute_bar_widths(self):
         """Test _compute_bar_widths() computes reasonable widths."""
-        times = [
-            datetime(2025, 6, 2, 10, 0, 0),
-            datetime(2025, 6, 2, 11, 0, 0),
-            datetime(2025, 6, 2, 12, 0, 0),
-        ]
+        bg_width, bar_width = self.builder._compute_bar_widths()
 
-        bg_width, bar_width = self.builder._compute_bar_widths(times)
-
-        self.assertGreater(bg_width, 0)
-        self.assertGreater(bar_width, 0)
-        # Bar width should be smaller than background width
-        self.assertLess(bar_width, bg_width)
+        self.assertEqual(bg_width, 0.95)
+        self.assertEqual(bar_width, 0.7)
 
     def test_compute_bar_widths_single_point(self):
         """Test _compute_bar_widths() handles single data point."""
-        times = [datetime(2025, 6, 2, 10, 0, 0)]
-
-        bg_width, bar_width = self.builder._compute_bar_widths(times)
+        bg_width, bar_width = self.builder._compute_bar_widths()
 
         # Should return default widths
-        self.assertGreater(bg_width, 0)
-        self.assertGreater(bar_width, 0)
-
-    def test_compute_gap_threshold(self):
-        """Test _compute_gap_threshold() computes reasonable threshold."""
-        x_arr = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-        threshold = self.builder._compute_gap_threshold(x_arr)
-
-        if threshold is not None:
-            self.assertGreater(threshold, 0)
-
-    def test_compute_gap_threshold_insufficient_data(self):
-        """Test _compute_gap_threshold() returns None for insufficient data."""
-        x_arr = np.array([1.0, 2.0])
-        threshold = self.builder._compute_gap_threshold(x_arr)
-
-        self.assertIsNone(threshold)
-
-    def test_build_runs(self):
-        """Test _build_runs() splits data into continuous runs."""
-        x_arr = np.array([1.0, 2.0, 5.0, 6.0, 10.0])
-        valid_mask = np.array([True, True, True, True, True])
-        gap_threshold = 2.5
-
-        runs = self.builder._build_runs(x_arr, valid_mask, gap_threshold)
-
-        # Should return list of (start, end) tuples
-        self.assertIsInstance(runs, list)
-        self.assertGreater(len(runs), 0)
-        # Each run should be a tuple of (start_idx, end_idx)
-        for run in runs:
-            self.assertIsInstance(run, tuple)
-            self.assertEqual(len(run), 2)
+        self.assertEqual(bg_width, 0.95)
+        self.assertEqual(bar_width, 0.7)
 
     def test_debug_output_when_enabled(self):
         """Test _debug_output() prints when debug enabled."""
@@ -733,21 +692,12 @@ class TestTimeSeriesWithGaps(unittest.TestCase):
         self.assertIsNotNone(fig)
 
     def test_compute_bar_widths_with_gaps(self):
-        """Test bar width computation with irregular spacing."""
-        times = [
-            datetime(2025, 6, 2, 10, 0, 0),
-            datetime(2025, 6, 2, 11, 0, 0),
-            datetime(2025, 6, 2, 14, 0, 0),  # 3 hour gap
-        ]
+        """Test bar width computation fallback."""
+        # Now returns fixed width, so we verify that behavior
+        bar_width_bg, bar_width = self.builder._compute_bar_widths()
 
-        bar_width_bg, bar_width = self.builder._compute_bar_widths(times)
-
-        # Should return two float values (background and foreground widths)
-        self.assertIsInstance(bar_width_bg, float)
-        self.assertIsInstance(bar_width, float)
-        # Widths should be positive
-        self.assertGreater(bar_width_bg, 0)
-        self.assertGreater(bar_width, 0)
+        self.assertEqual(bar_width_bg, 0.95)
+        self.assertEqual(bar_width, 0.7)
 
 
 class TestChartAnnotations(unittest.TestCase):
@@ -798,70 +748,6 @@ class TestChartAnnotations(unittest.TestCase):
         # Should have labels
         self.assertIsNotNone(ax.get_xlabel())
         self.assertIsNotNone(ax.get_ylabel())
-
-
-class TestBuildRunsEdgeCases(unittest.TestCase):
-    """Test _build_runs method edge cases."""
-
-    def setUp(self):
-        """Set up test fixtures."""
-        self.builder = TimeSeriesChartBuilder()
-
-    def tearDown(self):
-        """Clean up matplotlib figures."""
-        plt.close("all")
-
-    def test_build_runs_with_gaps(self):
-        """Test building runs with time gaps.
-
-        Ensures time gaps are detected and handled correctly during run building.
-        """
-        times = np.array(
-            [
-                datetime(2025, 6, 2, 10, 0, 0),
-                datetime(2025, 6, 2, 11, 0, 0),
-                datetime(2025, 6, 2, 14, 0, 0),  # Large gap
-                datetime(2025, 6, 2, 15, 0, 0),
-            ]
-        )
-        valid_mask = np.array([True, True, True, True])
-        gap_threshold = 7200  # 2 hours in seconds
-
-        runs = self.builder._build_runs(times, valid_mask, gap_threshold)
-
-        # Should split into runs due to gap
-        self.assertIsNotNone(runs)
-        self.assertGreater(len(runs), 0)
-
-    def test_build_runs_exception_handler(self):
-        """Test exception handler in _build_runs.
-
-        Verifies exceptions in the run-building logic are handled.
-        """
-        # Create array with objects that might cause exceptions
-        times = np.array(
-            [
-                datetime(2025, 6, 2, 10, 0, 0),
-                None,  # Will cause exception
-                datetime(2025, 6, 2, 12, 0, 0),
-            ]
-        )
-        valid_mask = np.array([True, False, True])
-        gap_threshold = 3600
-
-        # Should handle gracefully
-        runs = self.builder._build_runs(times, valid_mask, gap_threshold)
-        self.assertIsNotNone(runs)
-
-    def test_build_runs_with_empty_mask(self):
-        """Test _build_runs with no valid points."""
-        times = np.array([datetime(2025, 6, 2, 10, 0, 0)])
-        valid_mask = np.array([False])
-
-        runs = self.builder._build_runs(times, valid_mask, None)
-
-        # Should return empty list
-        self.assertEqual(runs, [])
 
 
 class TestAxisConfigurationEdgeCases(unittest.TestCase):
@@ -1359,80 +1245,6 @@ class TestLegendCreationExceptions(unittest.TestCase):
         self.assertIsNotNone(fig)
 
 
-class TestComputeGapThresholdExceptions(unittest.TestCase):
-    """Test _compute_gap_threshold exception handlers."""
-
-    def setUp(self):
-        """Set up test fixtures."""
-        self.builder = TimeSeriesChartBuilder()
-
-    def tearDown(self):
-        """Clean up matplotlib figures."""
-        plt.close("all")
-
-    def test_compute_gap_threshold_with_exceptions(self):
-        """Test gap threshold with problematic data.
-
-        Ensures the gap threshold computation is resilient to problematic input.
-        """
-        # Create array with mixed types that might cause exceptions
-        times = np.array(
-            [
-                datetime(2025, 6, 2, 10, 0, 0),
-                datetime(2025, 6, 2, 11, 0, 0),
-            ]
-        )
-
-        threshold = self.builder._compute_gap_threshold(times)
-
-        # Should return a value or None
-        self.assertTrue(threshold is None or isinstance(threshold, (int, float)))
-
-
-class TestBarWidthComputationFallbacks(unittest.TestCase):
-    """Test bar width computation fallback paths."""
-
-    def setUp(self):
-        """Set up test fixtures."""
-        self.builder = TimeSeriesChartBuilder()
-
-    def tearDown(self):
-        """Clean up matplotlib figures."""
-        plt.close("all")
-
-    def test_bar_width_with_mdates_unavailable(self):
-        """Test bar width computation when mdates path fails.
-
-        Verifies fallback behavior when matplotlib.dates (mdates) is unavailable.
-        """
-        times = [
-            datetime(2025, 6, 2, 10, 0, 0),
-            datetime(2025, 6, 2, 11, 0, 0),
-        ]
-
-        # Should handle and compute widths
-        bar_width_bg, bar_width = self.builder._compute_bar_widths(times)
-
-        self.assertGreater(bar_width_bg, 0)
-        self.assertGreater(bar_width, 0)
-
-    def test_bar_width_fallback_exception(self):
-        """Test bar width fallback exception handler.
-
-        Confirms the builder recovers from exceptions during bar-width computation.
-        """
-        times = [
-            datetime(2025, 6, 2, 10, 0, 0),
-            datetime(2025, 6, 2, 11, 0, 0),
-        ]
-
-        bar_width_bg, bar_width = self.builder._compute_bar_widths(times)
-
-        # Should always return positive values
-        self.assertGreater(bar_width_bg, 0)
-        self.assertGreater(bar_width, 0)
-
-
 class TestPercentileLinePlotting(unittest.TestCase):
     """Test percentile line plotting code paths."""
 
@@ -1854,32 +1666,9 @@ class TestDebugPlotOutput(unittest.TestCase):
             stderr_output = sys.stderr.getvalue()
             # Debug output should include times and counts info
             self.assertIn("DEBUG_PLOT:", stderr_output)
-            self.assertIn("times(len)=", stderr_output)
+            self.assertIn("points(len)=", stderr_output)
             self.assertIn("counts=", stderr_output)
             self.assertIn("p50_f=", stderr_output)
-        finally:
-            sys.stderr = old_stderr
-
-    def test_compute_gap_threshold_debug_output(self):
-        """Test debug output in _compute_gap_threshold when plot_debug is enabled."""
-        builder = TimeSeriesChartBuilder(debug={"plot_debug": True})
-
-        times = [datetime(2025, 1, 1, i) for i in range(5)]
-
-        import io
-        import sys
-
-        old_stderr = sys.stderr
-        sys.stderr = io.StringIO()
-
-        try:
-            _ = builder._compute_gap_threshold(times)
-
-            stderr_output = sys.stderr.getvalue()
-            # Debug output should include base_delta and gap_threshold
-            self.assertIn("DEBUG_PLOT:", stderr_output)
-            self.assertIn("base_delta=", stderr_output)
-            self.assertIn("gap_threshold=", stderr_output)
         finally:
             sys.stderr = old_stderr
 
