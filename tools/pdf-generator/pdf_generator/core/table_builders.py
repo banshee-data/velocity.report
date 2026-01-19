@@ -344,14 +344,14 @@ class ComparisonSummaryTableBuilder:
         header_cells = [
             NoEscape(r"\multicolumn{1}{l}{\sffamily\bfseries Metric}"),
             NoEscape(
-                r"\multicolumn{1}{r}{\sffamily\bfseries "
-                + escape_latex(primary_label)
-                + r"}"
+                r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{"
+                + escape_latex(primary_label).replace(" to ", r" to \\ ")
+                + r"}}"
             ),
             NoEscape(
-                r"\multicolumn{1}{r}{\sffamily\bfseries "
-                + escape_latex(compare_label)
-                + r"}"
+                r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{"
+                + escape_latex(compare_label).replace(" to ", r" to \\ ")
+                + r"}}"
             ),
             NoEscape(r"\multicolumn{1}{r}{\sffamily\bfseries Change}"),
         ]
@@ -670,6 +670,7 @@ def create_histogram_comparison_table(
     cutoff: float = 5.0,
     bucket_size: float = 5.0,
     max_bucket: Optional[float] = None,
+    caption: str = "Velocity Distribution Comparison",
 ) -> Center:
     """Create histogram comparison table."""
     if not HAVE_PYLATEX:
@@ -705,24 +706,24 @@ def create_histogram_comparison_table(
     header_cells = [
         NoEscape(r"\multicolumn{1}{l}{\sffamily\bfseries Bucket}"),
         NoEscape(
-            r"\multicolumn{1}{r}{\sffamily\bfseries "
-            + escape_latex(primary_label)
-            + r" Count}"
+            r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{"
+            + escape_latex(primary_label).replace(" to ", r" to \\ ")
+            + r" \\ Count}}"
         ),
         NoEscape(
-            r"\multicolumn{1}{r}{\sffamily\bfseries "
-            + escape_latex(primary_label)
-            + r" Percent}"
+            r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{"
+            + escape_latex(primary_label).replace(" to ", r" to \\ ")
+            + r" \\ Percent}}"
         ),
         NoEscape(
-            r"\multicolumn{1}{r}{\sffamily\bfseries "
-            + escape_latex(compare_label)
-            + r" Count}"
+            r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{"
+            + escape_latex(compare_label).replace(" to ", r" to \\ ")
+            + r" \\ Count}}"
         ),
         NoEscape(
-            r"\multicolumn{1}{r}{\sffamily\bfseries "
-            + escape_latex(compare_label)
-            + r" Percent}"
+            r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{"
+            + escape_latex(compare_label).replace(" to ", r" to \\ ")
+            + r" \\ Percent}}"
         ),
         NoEscape(r"\multicolumn{1}{r}{\sffamily\bfseries Change}"),
     ]
@@ -790,9 +791,7 @@ def create_histogram_comparison_table(
     centered.append(NoEscape("\\par\\vspace{2pt}"))
     centered.append(
         NoEscape(
-            "\\noindent\\makebox[\\linewidth]{\\textbf{\\small Table 1: Velocity Distribution Comparison ("
-            + escape_latex(units)
-            + ")}}"
+            f"\\noindent\\makebox[\\linewidth]{{\\textbf{{\\small {caption} ({escape_latex(units)})}}}}"
         )
     )
     return centered

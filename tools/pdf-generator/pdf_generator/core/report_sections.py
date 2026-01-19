@@ -105,9 +105,9 @@ class VelocityOverviewSection:
         if compare_start_date and compare_end_date:
             doc.append(
                 NoEscape(
-                    f"Primary period: \\textbf{{{start_date}}} to \\textbf{{{end_date}}} "
+                    f"Primary period (\\textbf{{t1}}): \\textbf{{{start_date}}} to \\textbf{{{end_date}}} "
                     f"(\\textbf{{{escape_latex(total_disp)}}} vehicles) at \\textbf{{{escape_latex(location)}}}. "
-                    f"Comparison period: \\textbf{{{compare_start_date}}} to \\textbf{{{compare_end_date}}}."
+                    f"Comparison period (\\textbf{{t2}}): \\textbf{{{compare_start_date}}} to \\textbf{{{compare_end_date}}}."
                 )
             )
         else:
@@ -156,29 +156,29 @@ class VelocityOverviewSection:
                 return "--"
 
         if compare_start_date and compare_end_date:
-            primary_label = f"{start_date} to {end_date}"
-            compare_label = f"{compare_start_date} to {compare_end_date}"
+            primary_label = "t1"
+            compare_label = "t2"
             summary_entries = [
                 {
-                    "label": "Maximum Velocity",
+                    "label": "Max Velocity",
                     "primary": format_speed(max_speed),
                     "compare": format_speed(compare_max_speed),
                     "change": format_change(max_speed, compare_max_speed),
                 },
                 {
-                    "label": "98th Percentile Velocity (p98)",
+                    "label": "p98 Velocity",
                     "primary": format_speed(p98),
                     "compare": format_speed(compare_p98),
                     "change": format_change(p98, compare_p98),
                 },
                 {
-                    "label": "85th Percentile Velocity (p85)",
+                    "label": "p85 Velocity",
                     "primary": format_speed(p85),
                     "compare": format_speed(compare_p85),
                     "change": format_change(p85, compare_p85),
                 },
                 {
-                    "label": "Median Velocity (p50)",
+                    "label": "p50 Velocity",
                     "primary": format_speed(p50),
                     "compare": format_speed(compare_p50),
                     "change": format_change(p50, compare_p50),
@@ -202,12 +202,18 @@ class VelocityOverviewSection:
                     summary_entries, primary_label, compare_label
                 )
             )
+            doc.append(NoEscape("\\par\\vspace{2pt}"))
+            doc.append(
+                NoEscape(
+                    r"\noindent\makebox[\linewidth]{\textbf{\small Table 1: Key Metrics}}"
+                )
+            )
         else:
             key_metric_entries = [
-                {"key": "Maximum Velocity", "value": format_speed(max_speed)},
-                {"key": "98th Percentile Velocity (p98)", "value": format_speed(p98)},
-                {"key": "85th Percentile Velocity (p85)", "value": format_speed(p85)},
-                {"key": "Median Velocity (p50)", "value": format_speed(p50)},
+                {"key": "Max Velocity", "value": format_speed(max_speed)},
+                {"key": "p98 Velocity", "value": format_speed(p98)},
+                {"key": "p85 Velocity", "value": format_speed(p85)},
+                {"key": "p50 Velocity", "value": format_speed(p50)},
             ]
 
             doc.append(create_param_table(key_metric_entries))

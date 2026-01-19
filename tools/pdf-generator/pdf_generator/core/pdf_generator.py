@@ -89,6 +89,9 @@ from pdf_generator.core.report_sections import (
     add_science,
 )
 from pdf_generator.core.config_manager import DEFAULT_MAP_CONFIG, _map_to_dict
+from pdf_generator.core.data_transformers import (
+    extract_start_time_from_row,
+)
 
 
 # Removed MultiCol class - using \twocolumn instead of multicols package
@@ -239,6 +242,8 @@ def generate_pdf_report(
     compare_end_iso: Optional[str] = None,
     compare_overall_metrics: Optional[List[Dict[str, Any]]] = None,
     compare_histogram: Optional[Dict[str, int]] = None,
+    compare_granular_metrics: Optional[List[Dict[str, Any]]] = None,
+    compare_daily_metrics: Optional[List[Dict[str, Any]]] = None,
 ) -> None:
     """Generate a complete PDF report using PyLaTeX.
 
@@ -363,10 +368,10 @@ def generate_pdf_report(
     if compare_start_iso and compare_end_iso:
         param_entries.extend(
             [
-                {"key": "Primary period start", "value": start_iso},
-                {"key": "Primary period end", "value": end_iso},
-                {"key": "Comparison period start", "value": compare_start_iso},
-                {"key": "Comparison period end", "value": compare_end_iso},
+                {"key": "t1 start", "value": start_iso},
+                {"key": "t1 end", "value": end_iso},
+                {"key": "t2 start", "value": compare_start_iso},
+                {"key": "t2 end", "value": compare_end_iso},
             ]
         )
     else:
@@ -411,8 +416,8 @@ def generate_pdf_report(
 
     # Add histogram table if available
     if histogram and compare_histogram and compare_start_iso and compare_end_iso:
-        primary_label = f"{start_iso[:10]} to {end_iso[:10]}"
-        compare_label = f"{compare_start_iso[:10]} to {compare_end_iso[:10]}"
+        primary_label = "t1"
+        compare_label = "t2"
         doc.append(
             create_histogram_comparison_table(
                 histogram,
@@ -421,29 +426,60 @@ def generate_pdf_report(
                 primary_label,
                 compare_label,
                 max_bucket=hist_max,
+                caption="Table 2: Velocity Distribution",
             )
         )
     elif histogram:
         doc.append(create_histogram_table(histogram, units, max_bucket=hist_max))
 
+    normalizer = MetricsNormalizer()
+
+    # Daily Metrics (merged if comparison exists)
+    combined_daily = []
     if daily_metrics:
+        combined_daily.extend(daily_metrics)
+    if compare_daily_metrics:
+        combined_daily.extend(compare_daily_metrics)
+
+    # Sort chronologically
+    combined_daily.sort(key=lambda x: extract_start_time_from_row(x, normalizer))
+
+    if combined_daily:
+        table_title = "Table 3: Daily Percentile Summary"
+        if compare_daily_metrics:
+            table_title = "Table 3: Daily Percentile Summary (Comparison)"
+
         # Use supertabular for all daily tables (works with \twocolumn)
         create_twocolumn_stats_table(
             doc,
-            daily_metrics,
+            combined_daily,
             tz_name,
             units,
-            "Table 2: Daily Percentile Summary",
+            table_title,
         )
 
+    # Granular Metrics (merged if comparison exists)
+    combined_granular = []
     if granular_metrics:
+        combined_granular.extend(granular_metrics)
+    if compare_granular_metrics:
+        combined_granular.extend(compare_granular_metrics)
+
+    # Sort chronologically
+    combined_granular.sort(key=lambda x: extract_start_time_from_row(x, normalizer))
+
+    if combined_granular:
+        table_title = "Table 4: Granular Percentile Breakdown"
+        if compare_granular_metrics:
+            table_title = "Table 4: Granular Percentile Breakdown (Comparison)"
+
         # Use supertabular for granular tables (works with \twocolumn)
         create_twocolumn_stats_table(
             doc,
-            granular_metrics,
+            combined_granular,
             tz_name,
             units,
-            "Table 3: Granular Percentile Breakdown",
+            table_title,
         )
 
     # Switch back to single column for full-width charts
@@ -452,11 +488,29 @@ def generate_pdf_report(
     if chart_exists(charts_prefix, "stats"):
         # Use basename only to avoid path escaping issues in LaTeX
         stats_path = os.path.basename(f"{charts_prefix}_stats.pdf")
+        chart_caption = f"Velocity over time ({start_iso[:10]} to {end_iso[:10]})"
+        if compare_start_iso and compare_end_iso:
+            chart_caption = (
+                f"Velocity over time (t1: {start_iso[:10]} to {end_iso[:10]})"
+            )
+
         with doc.create(Center()) as chart_center:
             with chart_center.create(Figure(position="H")) as fig:
                 # use full available text width for charts
                 fig.add_image(stats_path, width=NoEscape(r"\linewidth"))
-                fig.add_caption("Velocity over time")
+                fig.add_caption(chart_caption)
+
+    if (
+        compare_start_iso
+        and compare_end_iso
+        and chart_exists(charts_prefix, "compare_stats")
+    ):
+        stats_path = os.path.basename(f"{charts_prefix}_compare_stats.pdf")
+        chart_caption = f"Velocity over time (t2: {compare_start_iso[:10]} to {compare_end_iso[:10]})"
+        with doc.create(Center()) as chart_center:
+            with chart_center.create(Figure(position="H")) as fig:
+                fig.add_image(stats_path, width=NoEscape(r"\linewidth"))
+                fig.add_caption(chart_caption)
 
     # Add main stats chart if available
     # If a map.svg exists next to this module, include it before the stats chart.

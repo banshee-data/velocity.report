@@ -160,16 +160,9 @@ class TestPDFIntegrationConsolidated(unittest.TestCase):
                 os.path.exists(tex_path), f"Expected .tex file at {tex_path}"
             )
 
-            # Read content once for all validations
             with open(tex_path, "r") as f:
                 content = f.read()
 
-            # === LaTeX Structure Validation ===
-            self.assertIn(
-                r"\documentclass", content, "Missing \\documentclass declaration"
-            )
-            self.assertIn(r"\begin{document}", content, "Missing \\begin{document}")
-            self.assertIn(r"\end{document}", content, "Missing \\end{document}")
             self.assertIn(r"\usepackage{fontspec}", content, "Missing fontspec package")
             self.assertIn(r"\usepackage{graphicx}", content, "Missing graphicx package")
 

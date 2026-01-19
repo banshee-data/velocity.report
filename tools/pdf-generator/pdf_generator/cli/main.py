@@ -557,6 +557,8 @@ def assemble_pdf_report(
     compare_end_iso: Optional[str] = None,
     compare_overall_metrics: Optional[List] = None,
     compare_histogram: Optional[dict] = None,
+    compare_granular_metrics: Optional[List] = None,
+    compare_daily_metrics: Optional[List] = None,
 ) -> bool:
     """Assemble complete PDF report.
 
@@ -616,7 +618,9 @@ def assemble_pdf_report(
             overall_metrics=overall_metrics,
             compare_overall_metrics=compare_overall_metrics,
             daily_metrics=daily_metrics,
+            compare_daily_metrics=compare_daily_metrics,
             granular_metrics=granular_metrics,
+            compare_granular_metrics=compare_granular_metrics,
             histogram=histogram,
             compare_histogram=compare_histogram,
             tz_name=(config.query.timezone or None),
@@ -741,6 +745,7 @@ def generate_all_charts(
     overall_metrics: List,
     config: ReportConfig,
     resp: Optional[object],
+    compare_metrics: Optional[List] = None,
     compare_histogram: Optional[dict] = None,
     primary_label: Optional[str] = None,
     compare_label: Optional[str] = None,
@@ -774,6 +779,17 @@ def generate_all_charts(
         config.query.timezone or None,
         config,
     )
+
+    # Generate comparison granular stats chart if available
+    if compare_metrics:
+        generate_timeseries_chart(
+            compare_metrics,
+            f"{prefix}_compare_stats",
+            f"{prefix} - compare stats",
+            config.query.units,
+            config.query.timezone or None,
+            config,
+        )
 
     # Generate daily chart if available
     if daily_metrics:
@@ -837,6 +853,7 @@ def process_date_range(
     compare_metrics = None
     compare_histogram = None
     compare_overall = None
+    compare_daily_metrics = None
     compare_start_iso = None
     compare_end_iso = None
     compare_label = None
@@ -941,13 +958,22 @@ def process_date_range(
             _print_error(
                 "Warning: comparison overall metrics empty; summary comparison may be limited."
             )
+
+        if should_daily:
+            compare_daily_metrics = fetch_daily_summary(
+                client, compare_start_ts, compare_end_ts, config, model_version
+            )
+
         compare_start_iso, compare_end_iso = compute_iso_timestamps(
             compare_start_ts, compare_end_ts, config.query.timezone
         )
-        compare_label = f"{compare_start_iso[:10]} to {compare_end_iso[:10]}"
+        compare_label = f"t2: {compare_start_iso[:10]} to {compare_end_iso[:10]}"
 
     # Compute ISO timestamps for report
     start_iso, end_iso = compute_iso_timestamps(start_ts, end_ts, config.query.timezone)
+
+    if compare_start_ts and compare_end_ts:
+        primary_label = f"t1: {start_iso[:10]} to {end_iso[:10]}"
 
     # Generate all charts
     generate_all_charts(
@@ -958,6 +984,7 @@ def process_date_range(
         overall_metrics,
         config,
         resp,
+        compare_metrics=compare_metrics,
         compare_histogram=compare_histogram,
         primary_label=primary_label,
         compare_label=compare_label,
@@ -977,6 +1004,8 @@ def process_date_range(
         compare_end_iso=compare_end_iso,
         compare_overall_metrics=compare_overall,
         compare_histogram=compare_histogram,
+        compare_granular_metrics=compare_metrics,
+        compare_daily_metrics=compare_daily_metrics,
     )
 
     if report_generated:
