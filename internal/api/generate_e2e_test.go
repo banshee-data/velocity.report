@@ -64,9 +64,11 @@ func TestGenerateReport_E2E(t *testing.T) {
 
 	// Build report request pointing to our site
 	reqBody := map[string]interface{}{
-		"site_id":    site.ID,
-		"start_date": "2025-10-01",
-		"end_date":   "2025-10-02",
+		"site_id":            site.ID,
+		"start_date":         "2025-10-01",
+		"end_date":           "2025-10-02",
+		"compare_start_date": "2024-10-01",
+		"compare_end_date":   "2024-10-02",
 	}
 	bodyBytes, _ := json.Marshal(reqBody)
 	req := httptest.NewRequest(http.MethodPost, "/api/generate_report", bytes.NewReader(bodyBytes))
@@ -125,5 +127,20 @@ func TestGenerateReport_E2E(t *testing.T) {
 	val, _ := siteObj["speed_limit_note"].(string)
 	if val != note {
 		t.Fatalf("expected speed_limit_note %q, got %q (cfgPath=%s)", note, val, cfgPath)
+	}
+
+	queryObj, ok := cfg["query"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("config missing query object")
+	}
+	compareStart, _ := queryObj["compare_start_date"].(string)
+	compareEnd, _ := queryObj["compare_end_date"].(string)
+	if compareStart != "2024-10-01" || compareEnd != "2024-10-02" {
+		t.Fatalf(
+			"expected compare dates to be written, got %q/%q (cfgPath=%s)",
+			compareStart,
+			compareEnd,
+			cfgPath,
+		)
 	}
 }

@@ -84,6 +84,42 @@ class TestVelocityOverviewSection(unittest.TestCase):
             found_formatted, "Should format vehicle count with thousands separator"
         )
 
+    @patch("pdf_generator.core.report_sections.create_comparison_summary_table")
+    @patch("pdf_generator.core.report_sections.NoEscape")
+    def test_build_with_comparison(self, mock_noescape, mock_create_table):
+        """Test building velocity overview with comparison metrics."""
+        mock_noescape.side_effect = lambda x: x
+        mock_create_table.return_value = "comparison_table"
+
+        self.builder.build(
+            self.mock_doc,
+            start_date="2025-01-01",
+            end_date="2025-01-07",
+            location="Main Street",
+            speed_limit=25,
+            total_vehicles=100,
+            p50=20.0,
+            p85=30.0,
+            p98=40.0,
+            max_speed=0.0,
+            compare_start_date="2024-12-01",
+            compare_end_date="2024-12-07",
+            compare_total_vehicles=110,
+            compare_p50=25.0,
+            compare_p85=27.0,
+            compare_p98=44.0,
+            compare_max_speed=10.0,
+        )
+
+        mock_create_table.assert_called_once()
+        entries, primary_label, compare_label = mock_create_table.call_args[0]
+        self.assertEqual(primary_label, "2025-01-01 to 2025-01-07")
+        self.assertEqual(compare_label, "2024-12-01 to 2024-12-07")
+
+        entry_map = {entry["label"]: entry for entry in entries}
+        self.assertEqual(entry_map["Maximum Velocity"]["change"], "--")
+        self.assertEqual(entry_map["Total Vehicles"]["change"], "+10.0%")
+
 
 class TestSiteInformationSection(unittest.TestCase):
     """Tests for SiteInformationSection class."""

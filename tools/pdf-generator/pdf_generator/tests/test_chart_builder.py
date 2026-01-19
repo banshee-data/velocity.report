@@ -334,6 +334,56 @@ class TestHistogramChartBuilder(unittest.TestCase):
         # If we got a figure without error, bars were plotted
         self.assertIsNotNone(fig)
 
+    def test_build_comparison_with_numeric_buckets(self):
+        """Test comparison histogram with numeric buckets."""
+        fig = self.builder.build_comparison(
+            {"5": 10, "10": 20},
+            {"5": 5, "10": 15},
+            title="Comparison Histogram",
+            units="mph",
+            primary_label="Primary",
+            compare_label="Compare",
+        )
+
+        self.assertIsNotNone(fig)
+        ax = fig.axes[0]
+        self.assertEqual(len(ax.containers), 2)
+        legend_texts = [text.get_text() for text in ax.get_legend().get_texts()]
+        self.assertIn("Primary", legend_texts)
+        self.assertIn("Compare", legend_texts)
+
+    def test_build_comparison_with_empty_histograms(self):
+        """Test comparison histogram with no data."""
+        fig = self.builder.build_comparison(
+            {},
+            {},
+            title="Empty Comparison",
+            units="mph",
+            primary_label="Primary",
+            compare_label="Compare",
+        )
+
+        self.assertIsNotNone(fig)
+        ax = fig.axes[0]
+        self.assertEqual(ax.get_title(), "Empty Comparison")
+        self.assertTrue(any("No histogram data" in t.get_text() for t in ax.texts))
+
+    def test_build_comparison_with_string_keys_debug(self):
+        """Test comparison histogram with string buckets and debug output."""
+        with patch("builtins.print") as mock_print:
+            fig = self.builder.build_comparison(
+                {"low": 3},
+                {"high": 5},
+                title="Debug Comparison",
+                units="mph",
+                primary_label="Primary",
+                compare_label="Compare",
+                debug=True,
+            )
+
+        self.assertIsNotNone(fig)
+        mock_print.assert_called()
+
 
 class TestChartBuilderEdgeCases(unittest.TestCase):
     """Tests for edge cases and error handling."""
