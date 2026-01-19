@@ -643,6 +643,8 @@ type ReportRequest struct {
 	SiteID         *int    `json:"site_id"`          // Optional: use site configuration
 	StartDate      string  `json:"start_date"`       // YYYY-MM-DD format
 	EndDate        string  `json:"end_date"`         // YYYY-MM-DD format
+	CompareStart   string  `json:"compare_start_date"` // Optional: comparison start date (YYYY-MM-DD)
+	CompareEnd     string  `json:"compare_end_date"`   // Optional: comparison end date (YYYY-MM-DD)
 	Timezone       string  `json:"timezone"`         // e.g., "US/Pacific"
 	Units          string  `json:"units"`            // "mph" or "kph"
 	Group          string  `json:"group"`            // e.g., "1h", "4h"
@@ -680,6 +682,11 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	if req.StartDate == "" || req.EndDate == "" {
 		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusBadRequest, "start_date and end_date are required")
+		return
+	}
+	if (req.CompareStart == "") != (req.CompareEnd == "") {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusBadRequest, "compare_start_date and compare_end_date are required together")
 		return
 	}
 
@@ -783,8 +790,32 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	// Add 24 hours to end date to include the entire day
 	endTime = endTime.Add(24 * time.Hour)
 
+	rangeStart := startTime
+	rangeEnd := endTime
+	if req.CompareStart != "" && req.CompareEnd != "" {
+		compareStartTime, err := time.Parse("2006-01-02", req.CompareStart)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid compare_start_date format: %v", err))
+			return
+		}
+		compareEndTime, err := time.Parse("2006-01-02", req.CompareEnd)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid compare_end_date format: %v", err))
+			return
+		}
+		compareEndTime = compareEndTime.Add(24 * time.Hour)
+		if compareStartTime.Before(rangeStart) {
+			rangeStart = compareStartTime
+		}
+		if compareEndTime.After(rangeEnd) {
+			rangeEnd = compareEndTime
+		}
+	}
+
 	// Get all site config periods that overlap with the report time range
-	siteConfigPeriods, err := s.db.GetSiteConfigPeriodsForTimeRange(float64(startTime.Unix()), float64(endTime.Unix()))
+	siteConfigPeriods, err := s.db.GetSiteConfigPeriodsForTimeRange(float64(rangeStart.Unix()), float64(rangeEnd.Unix()))
 	if err != nil {
 		log.Printf("Warning: failed to get site config periods for report: %v", err)
 		// Don't fail the report, just log the error
@@ -799,19 +830,25 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 
 	// Create a config JSON for the PDF generator
 	// Note: Not setting file_prefix - let Python auto-generate from source + date range
+	queryConfig := map[string]interface{}{
+		"start_date":       req.StartDate,
+		"end_date":         req.EndDate,
+		"timezone":         req.Timezone,
+		"group":            req.Group,
+		"units":            req.Units,
+		"source":           req.Source,
+		"min_speed":        req.MinSpeed,
+		"histogram":        req.Histogram,
+		"hist_bucket_size": req.HistBucketSize,
+		"hist_max":         req.HistMax,
+	}
+	if req.CompareStart != "" && req.CompareEnd != "" {
+		queryConfig["compare_start_date"] = req.CompareStart
+		queryConfig["compare_end_date"] = req.CompareEnd
+	}
+
 	config := map[string]interface{}{
-		"query": map[string]interface{}{
-			"start_date":       req.StartDate,
-			"end_date":         req.EndDate,
-			"timezone":         req.Timezone,
-			"group":            req.Group,
-			"units":            req.Units,
-			"source":           req.Source,
-			"min_speed":        req.MinSpeed,
-			"histogram":        req.Histogram,
-			"hist_bucket_size": req.HistBucketSize,
-			"hist_max":         req.HistMax,
-		},
+		"query": queryConfig,
 		"site": map[string]interface{}{
 			"location":         location,
 			"surveyor":         surveyor,
@@ -837,6 +874,11 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to marshal config: %v", err))
+		return
+	}
+	if err := security.ValidateExportPath(configFile); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Invalid config file path: %v", err))
 		return
 	}
 	if err := os.WriteFile(configFile, configData, 0644); err != nil {

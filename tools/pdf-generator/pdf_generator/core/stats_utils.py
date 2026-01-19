@@ -136,6 +136,25 @@ def plot_histogram(
     return builder.build(histogram, title, units, debug)
 
 
+def plot_comparison_histogram(
+    histogram: Dict[str, int],
+    compare_histogram: Dict[str, int],
+    title: str,
+    units: str,
+    primary_label: str,
+    compare_label: str,
+    debug: bool = False,
+) -> Optional[object]:
+    """Plot comparison histogram data using matplotlib."""
+    if not HAVE_CHARTS or HistogramChartBuilder is None:
+        return None
+
+    builder = HistogramChartBuilder()
+    return builder.build_comparison(
+        histogram, compare_histogram, title, units, primary_label, compare_label, debug
+    )
+
+
 def chart_exists(charts_prefix: str, chart_type: str) -> bool:
     """Check if a chart file exists for the given prefix and type."""
     return os.path.exists(f"{charts_prefix}_{chart_type}.pdf")

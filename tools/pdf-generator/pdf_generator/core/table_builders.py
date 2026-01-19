@@ -310,6 +310,71 @@ class ParameterTableBuilder:
         return table
 
 
+class ComparisonSummaryTableBuilder:
+    """Builds comparison summary tables for key metrics."""
+
+    def __init__(self):
+        """Initialize comparison summary table builder."""
+        if not HAVE_PYLATEX:
+            raise ImportError(
+                "PyLaTeX is required for table generation. "
+                "Install it with: pip install pylatex"
+            )
+
+    def build(
+        self,
+        entries: List[Dict[str, str]],
+        primary_label: str,
+        compare_label: str,
+    ) -> Tabular:
+        """Build comparison table for summary metrics.
+
+        Args:
+            entries: List of dicts with keys: label, primary, compare, change
+            primary_label: Label for primary period column
+            compare_label: Label for comparison period column
+
+        Returns:
+            PyLaTeX Tabular object
+        """
+        table = Tabular(
+            ">{\\AtkinsonMono}l>{\\AtkinsonMono}r>{\\AtkinsonMono}r>{\\AtkinsonMono}r"
+        )
+
+        header_cells = [
+            NoEscape(r"\multicolumn{1}{l}{\sffamily\bfseries Metric}"),
+            NoEscape(
+                r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{"
+                + escape_latex(primary_label).replace(" to ", r" to \\ ")
+                + r"}}"
+            ),
+            NoEscape(
+                r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{"
+                + escape_latex(compare_label).replace(" to ", r" to \\ ")
+                + r"}}"
+            ),
+            NoEscape(r"\multicolumn{1}{r}{\sffamily\bfseries Change}"),
+        ]
+        table.add_row(header_cells)
+        table.add_hline()
+
+        for entry in entries:
+            label = entry.get("label", "")
+            primary = entry.get("primary", "--")
+            compare = entry.get("compare", "--")
+            change = entry.get("change", "--")
+            table.add_row(
+                [
+                    NoEscape(escape_latex(label)),
+                    NoEscape(escape_latex(str(primary))),
+                    NoEscape(escape_latex(str(compare))),
+                    NoEscape(escape_latex(str(change))),
+                ]
+            )
+
+        return table
+
+
 class HistogramTableBuilder:
     """Builds histogram distribution tables.
 
@@ -576,6 +641,14 @@ def create_param_table(entries: List[Dict[str, str]]) -> Tabular:
     return builder.build(entries)
 
 
+def create_comparison_summary_table(
+    entries: List[Dict[str, str]], primary_label: str, compare_label: str
+) -> Tabular:
+    """Create comparison summary table (convenience wrapper)."""
+    builder = ComparisonSummaryTableBuilder()
+    return builder.build(entries, primary_label, compare_label)
+
+
 def create_histogram_table(
     histogram: Dict[str, int],
     units: str,
@@ -586,6 +659,142 @@ def create_histogram_table(
     """Create histogram table (convenience wrapper)."""
     builder = HistogramTableBuilder()
     return builder.build(histogram, units, cutoff, bucket_size, max_bucket)
+
+
+def create_histogram_comparison_table(
+    histogram: Dict[str, int],
+    compare_histogram: Dict[str, int],
+    units: str,
+    primary_label: str,
+    compare_label: str,
+    cutoff: float = 5.0,
+    bucket_size: float = 5.0,
+    max_bucket: Optional[float] = None,
+    caption: str = "Velocity Distribution Comparison",
+) -> Center:
+    """Create histogram comparison table."""
+    if not HAVE_PYLATEX:
+        raise ImportError(
+            "PyLaTeX is required for table generation. "
+            "Install it with: pip install pylatex"
+        )
+
+    _proc_max = max_bucket if max_bucket is not None else 50.0
+    primary_buckets, primary_total, primary_ranges = process_histogram(
+        histogram, cutoff, bucket_size, _proc_max
+    )
+    compare_buckets, compare_total, compare_ranges = process_histogram(
+        compare_histogram, cutoff, bucket_size, _proc_max
+    )
+
+    combined_buckets = primary_buckets.copy()
+    for key, value in compare_buckets.items():
+        combined_buckets[key] = combined_buckets.get(key, 0) + value
+
+    ranges = HistogramTableBuilder()._compute_ranges(
+        combined_buckets,
+        bucket_size,
+        max_bucket,
+        primary_ranges or compare_ranges,
+    )
+
+    centered = Center()
+    body_table = Tabular(
+        ">{\\AtkinsonMono}l>{\\AtkinsonMono}r>{\\AtkinsonMono}r>{\\AtkinsonMono}r>{\\AtkinsonMono}r>{\\AtkinsonMono}r"
+    )
+
+    header_cells = [
+        NoEscape(r"\multicolumn{1}{l}{\sffamily\bfseries Bucket}"),
+        NoEscape(
+            r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{"
+            + escape_latex(primary_label).replace(" to ", r" to \\ ")
+            + r" \\ Count}}"
+        ),
+        NoEscape(
+            r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{"
+            + escape_latex(primary_label).replace(" to ", r" to \\ ")
+            + r" \\ Percent}}"
+        ),
+        NoEscape(
+            r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{"
+            + escape_latex(compare_label).replace(" to ", r" to \\ ")
+            + r" \\ Count}}"
+        ),
+        NoEscape(
+            r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{"
+            + escape_latex(compare_label).replace(" to ", r" to \\ ")
+            + r" \\ Percent}}"
+        ),
+        NoEscape(r"\multicolumn{1}{r}{\sffamily\bfseries Change}"),
+    ]
+    body_table.add_row(header_cells)
+    body_table.add_hline()
+
+    def format_change(primary_value: int, compare_value: int) -> str:
+        if primary_value == 0:
+            return "--"
+        change_pct = (compare_value - primary_value) / primary_value * 100.0
+        return f"{change_pct:+.1f}%"
+
+    if ranges:
+        first_start = ranges[0][0]
+        primary_below = sum(v for k, v in primary_buckets.items() if k < first_start)
+        compare_below = sum(v for k, v in compare_buckets.items() if k < first_start)
+        if primary_below > 0 or compare_below > 0:
+            primary_pct = (
+                primary_below / primary_total * 100.0 if primary_total > 0 else 0.0
+            )
+            compare_pct = (
+                compare_below / compare_total * 100.0 if compare_total > 0 else 0.0
+            )
+            body_table.add_row(
+                [
+                    NoEscape(escape_latex(f"<{int(first_start)}")),
+                    NoEscape(escape_latex(str(int(primary_below)))),
+                    NoEscape(escape_latex(f"{primary_pct:.1f}%")),
+                    NoEscape(escape_latex(str(int(compare_below)))),
+                    NoEscape(escape_latex(f"{compare_pct:.1f}%")),
+                    NoEscape(escape_latex(format_change(primary_below, compare_below))),
+                ]
+            )
+
+        for idx, (a, b) in enumerate(ranges):
+            is_last = idx == len(ranges) - 1
+            if is_last:
+                label = f"{int(a)}+"
+                primary_count = count_histogram_ge(primary_buckets, a)
+                compare_count = count_histogram_ge(compare_buckets, a)
+            else:
+                label = f"{int(a)}-{int(b)}"
+                primary_count = count_in_histogram_range(primary_buckets, a, b)
+                compare_count = count_in_histogram_range(compare_buckets, a, b)
+
+            primary_pct = (
+                primary_count / primary_total * 100.0 if primary_total > 0 else 0.0
+            )
+            compare_pct = (
+                compare_count / compare_total * 100.0 if compare_total > 0 else 0.0
+            )
+            body_table.add_row(
+                [
+                    NoEscape(escape_latex(label)),
+                    NoEscape(escape_latex(str(int(primary_count)))),
+                    NoEscape(escape_latex(f"{primary_pct:.1f}%")),
+                    NoEscape(escape_latex(str(int(compare_count)))),
+                    NoEscape(escape_latex(f"{compare_pct:.1f}%")),
+                    NoEscape(escape_latex(format_change(primary_count, compare_count))),
+                ]
+            )
+
+    body_table.add_hline()
+    centered.append(body_table)
+    centered.append(NoEscape("\\par\\vspace{2pt}"))
+    centered.append(
+        NoEscape(
+            f"\\noindent\\makebox[\\linewidth]{{\\textbf{{\\small {caption} ({escape_latex(units)})}}}}"
+        )
+    )
+    return centered
 
 
 def create_twocolumn_stats_table(

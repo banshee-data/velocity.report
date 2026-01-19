@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
 )
@@ -36,6 +37,21 @@ func TestGenerateReport_E2E(t *testing.T) {
 	}
 	if err := dbInst.CreateSite(site); err != nil {
 		t.Fatalf("failed to create site: %v", err)
+	}
+	varConfig := &db.SiteVariableConfig{CosineErrorAngle: 5.0}
+	if err := dbInst.CreateSiteVariableConfig(varConfig); err != nil {
+		t.Fatalf("failed to create variable config: %v", err)
+	}
+	periodStart := time.Date(2025, 9, 1, 0, 0, 0, 0, time.UTC).Unix()
+	configPeriod := &db.SiteConfigPeriod{
+		SiteID:               site.ID,
+		SiteVariableConfigID: &varConfig.ID,
+		EffectiveStartUnix:   float64(periodStart),
+		EffectiveEndUnix:     nil,
+		IsActive:             true,
+	}
+	if err := dbInst.CreateSiteConfigPeriod(configPeriod); err != nil {
+		t.Fatalf("failed to create site config period: %v", err)
 	}
 
 	// Set PDF_GENERATOR_PYTHON to a no-op to avoid invoking the real generator
@@ -66,7 +82,8 @@ func TestGenerateReport_E2E(t *testing.T) {
 		"site_id":            site.ID,
 		"start_date":         "2025-10-01",
 		"end_date":           "2025-10-02",
-		"cosine_error_angle": 5.0, // Provide angle since site doesn't have active config period
+		"compare_start_date": "2024-10-01",
+		"compare_end_date":   "2024-10-02",
 	}
 	bodyBytes, _ := json.Marshal(reqBody)
 	req := httptest.NewRequest(http.MethodPost, "/api/generate_report", bytes.NewReader(bodyBytes))
@@ -125,5 +142,32 @@ func TestGenerateReport_E2E(t *testing.T) {
 	val, _ := siteObj["speed_limit_note"].(string)
 	if val != note {
 		t.Fatalf("expected speed_limit_note %q, got %q (cfgPath=%s)", note, val, cfgPath)
+	}
+	radarObj, ok := cfg["radar"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("config missing radar object")
+	}
+	cosineAngle, _ := radarObj["cosine_error_angle"].(float64)
+	if cosineAngle != varConfig.CosineErrorAngle {
+		t.Fatalf("expected cosine_error_angle %v, got %v (cfgPath=%s)", varConfig.CosineErrorAngle, cosineAngle, cfgPath)
+	}
+
+	queryObj, ok := cfg["query"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("config missing query object")
+	}
+	compareStart, _ := queryObj["compare_start_date"].(string)
+	compareEnd, _ := queryObj["compare_end_date"].(string)
+	if compareStart != "2024-10-01" || compareEnd != "2024-10-02" {
+		t.Fatalf(
+			"expected compare dates to be written, got %q/%q (cfgPath=%s)",
+			compareStart,
+			compareEnd,
+			cfgPath,
+		)
+	}
+	periods, ok := cfg["site_config_periods"].([]interface{})
+	if !ok || len(periods) == 0 {
+		t.Fatalf("expected site_config_periods in config (cfgPath=%s)", cfgPath)
 	}
 }

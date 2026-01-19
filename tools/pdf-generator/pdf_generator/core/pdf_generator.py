@@ -80,12 +80,16 @@ from pdf_generator.core.document_builder import DocumentBuilder
 from pdf_generator.core.table_builders import (
     create_param_table,
     create_histogram_table,
+    create_histogram_comparison_table,
     create_twocolumn_stats_table,
 )
 from pdf_generator.core.report_sections import (
     add_metric_data_intro,
     add_site_specifics,
     add_science,
+)
+from pdf_generator.core.data_transformers import (
+    extract_start_time_from_row,
 )
 from pdf_generator.core.config_manager import DEFAULT_MAP_CONFIG, _map_to_dict
 
@@ -234,6 +238,12 @@ def generate_pdf_report(
     velocity_resolution: str = "0.272 mph",
     azimuth_fov: str = "20°",
     elevation_fov: str = "24°",
+    compare_start_iso: Optional[str] = None,
+    compare_end_iso: Optional[str] = None,
+    compare_overall_metrics: Optional[List[Dict[str, Any]]] = None,
+    compare_histogram: Optional[Dict[str, int]] = None,
+    compare_granular_metrics: Optional[List[Dict[str, Any]]] = None,
+    compare_daily_metrics: Optional[List[Dict[str, Any]]] = None,
     site_config_periods: Optional[List[Dict[str, Any]]] = None,
 ) -> None:
     """Generate a complete PDF report using PyLaTeX.
@@ -265,7 +275,9 @@ def generate_pdf_report(
 
     # Build document with all configuration
     builder = DocumentBuilder()
-    doc = builder.build(start_iso, end_iso, location, surveyor, contact)
+    doc = builder.build(
+        start_iso, end_iso, location, surveyor, contact, compare_start_iso, compare_end_iso
+    )
 
     # Add science section content using helper function
     if overall_metrics:
@@ -278,6 +290,23 @@ def generate_pdf_report(
         p98 = normalizer.get_numeric(overall, "p98", 0)
         max_speed = normalizer.get_numeric(overall, "max_speed", 0)
         total_vehicles = extract_count_from_row(overall, normalizer)
+
+        compare_total = None
+        compare_p50 = None
+        compare_p85 = None
+        compare_p98 = None
+        compare_max = None
+        compare_start_date = None
+        compare_end_date = None
+        if compare_overall_metrics and compare_start_iso and compare_end_iso:
+            compare_overall = compare_overall_metrics[0]
+            compare_p50 = normalizer.get_numeric(compare_overall, "p50", 0)
+            compare_p85 = normalizer.get_numeric(compare_overall, "p85", 0)
+            compare_p98 = normalizer.get_numeric(compare_overall, "p98", 0)
+            compare_max = normalizer.get_numeric(compare_overall, "max_speed", 0)
+            compare_total = extract_count_from_row(compare_overall, normalizer)
+            compare_start_date = compare_start_iso[:10]
+            compare_end_date = compare_end_iso[:10]
 
         # Extract dates for display
         start_date = start_iso[:10]
@@ -295,6 +324,14 @@ def generate_pdf_report(
             p85,
             p98,
             max_speed,
+            units,
+            compare_start_date,
+            compare_end_date,
+            compare_total,
+            compare_p50,
+            compare_p85,
+            compare_p98,
+            compare_max,
         )
 
     # Add histogram chart if available
@@ -388,27 +425,71 @@ def generate_pdf_report(
     #     )
 
     # Add histogram table if available
-    if histogram:
+    if histogram and compare_histogram and compare_start_iso and compare_end_iso:
+        primary_label = "t1"
+        compare_label = "t2"
+        doc.append(
+            create_histogram_comparison_table(
+                histogram,
+                compare_histogram,
+                units,
+                primary_label,
+                compare_label,
+                max_bucket=hist_max,
+                caption="Table 2: Velocity Distribution",
+            )
+        )
+    elif histogram:
         doc.append(create_histogram_table(histogram, units, max_bucket=hist_max))
 
+    normalizer = MetricsNormalizer()
+
+    # Daily Metrics (merged if comparison exists)
+    combined_daily = []
     if daily_metrics:
+        combined_daily.extend(daily_metrics)
+    if compare_daily_metrics:
+        combined_daily.extend(compare_daily_metrics)
+
+    # Sort chronologically
+    combined_daily.sort(key=lambda x: extract_start_time_from_row(x, normalizer))
+
+    if combined_daily:
+        table_title = "Table 3: Daily Percentile Summary"
+        if compare_daily_metrics:
+            table_title = "Table 3: Daily Percentile Summary (Comparison)"
+
         # Use supertabular for all daily tables (works with \twocolumn)
         create_twocolumn_stats_table(
             doc,
-            daily_metrics,
+            combined_daily,
             tz_name,
             units,
-            "Table 2: Daily Percentile Summary",
+            table_title,
         )
 
+    # Granular Metrics (merged if comparison exists)
+    combined_granular = []
     if granular_metrics:
+        combined_granular.extend(granular_metrics)
+    if compare_granular_metrics:
+        combined_granular.extend(compare_granular_metrics)
+
+    # Sort chronologically
+    combined_granular.sort(key=lambda x: extract_start_time_from_row(x, normalizer))
+
+    if combined_granular:
+        table_title = "Table 4: Granular Percentile Breakdown"
+        if compare_granular_metrics:
+            table_title = "Table 4: Granular Percentile Breakdown (Comparison)"
+
         # Use supertabular for granular tables (works with \twocolumn)
         create_twocolumn_stats_table(
             doc,
-            granular_metrics,
+            combined_granular,
             tz_name,
             units,
-            "Table 3: Granular Percentile Breakdown",
+            table_title,
         )
 
     # Switch back to single column for full-width charts
@@ -417,11 +498,28 @@ def generate_pdf_report(
     if chart_exists(charts_prefix, "stats"):
         # Use basename only to avoid path escaping issues in LaTeX
         stats_path = os.path.basename(f"{charts_prefix}_stats.pdf")
+        chart_caption = f"Velocity over time ({start_iso[:10]} to {end_iso[:10]})"
+        if compare_start_iso and compare_end_iso:
+            chart_caption = (
+                f"Velocity over time (t1: {start_iso[:10]} to {end_iso[:10]})"
+            )
         with doc.create(Center()) as chart_center:
             with chart_center.create(Figure(position="H")) as fig:
                 # use full available text width for charts
                 fig.add_image(stats_path, width=NoEscape(r"\linewidth"))
-                fig.add_caption("Velocity over time")
+                fig.add_caption(chart_caption)
+
+    if (
+        compare_start_iso
+        and compare_end_iso
+        and chart_exists(charts_prefix, "compare_stats")
+    ):
+        stats_path = os.path.basename(f"{charts_prefix}_compare_stats.pdf")
+        chart_caption = f"Velocity over time (t2: {compare_start_iso[:10]} to {compare_end_iso[:10]})"
+        with doc.create(Center()) as chart_center:
+            with chart_center.create(Figure(position="H")) as fig:
+                fig.add_image(stats_path, width=NoEscape(r"\linewidth"))
+                fig.add_caption(chart_caption)
 
     # Add main stats chart if available
     # If a map.svg exists next to this module, include it before the stats chart.
