@@ -113,11 +113,11 @@ class TestVelocityOverviewSection(unittest.TestCase):
 
         mock_create_table.assert_called_once()
         entries, primary_label, compare_label = mock_create_table.call_args[0]
-        self.assertEqual(primary_label, "2025-01-01 to 2025-01-07")
-        self.assertEqual(compare_label, "2024-12-01 to 2024-12-07")
+        self.assertEqual(primary_label, "t1")
+        self.assertEqual(compare_label, "t2")
 
         entry_map = {entry["label"]: entry for entry in entries}
-        self.assertEqual(entry_map["Maximum Velocity"]["change"], "--")
+        self.assertEqual(entry_map["Max Velocity"]["change"], "--")
         self.assertEqual(entry_map["Total Vehicles"]["change"], "+10.0%")
 
 
