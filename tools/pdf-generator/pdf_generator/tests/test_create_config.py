@@ -84,6 +84,8 @@ class TestCreateExampleConfig:
         query = data["query"]
         assert "start_date" in query
         assert "end_date" in query
+        assert "compare_start_date" in query
+        assert "compare_end_date" in query
         assert "group" in query
         assert "units" in query
         assert "timezone" in query
@@ -144,6 +146,8 @@ class TestCreateExampleConfig:
         field_notes = data["query"]["_field_notes"]
         assert "start_date" in field_notes
         assert "REQUIRED" in field_notes["start_date"]
+        assert "compare_start_date" in field_notes
+        assert "compare_end_date" in field_notes
 
     def test_json_formatting(self, tmp_path):
         """Test that JSON is nicely formatted with indentation."""

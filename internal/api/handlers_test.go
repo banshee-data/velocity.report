@@ -442,6 +442,48 @@ func TestGenerateReport_MissingDates(t *testing.T) {
 	}
 }
 
+func TestGenerateReport_CompareDatesRequiredTogether(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	tests := []struct {
+		name string
+		body map[string]interface{}
+	}{
+		{
+			name: "missing compare end date",
+			body: map[string]interface{}{
+				"start_date":         "2024-01-01",
+				"end_date":           "2024-01-07",
+				"compare_start_date": "2023-12-01",
+			},
+		},
+		{
+			name: "missing compare start date",
+			body: map[string]interface{}{
+				"start_date":       "2024-01-01",
+				"end_date":         "2024-01-07",
+				"compare_end_date": "2023-12-07",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bodyBytes, _ := json.Marshal(tt.body)
+			req := httptest.NewRequest(http.MethodPost, "/api/generate_report", bytes.NewReader(bodyBytes))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			server.generateReport(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Errorf("Expected status 400, got %d", w.Code)
+			}
+		})
+	}
+}
+
 // TestGenerateReport_MethodNotAllowed tests report generation with wrong method
 func TestGenerateReport_MethodNotAllowed(t *testing.T) {
 	server, dbInst := setupTestServer(t)

@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "velocity-report-pdf-generator"
-version = "0.2.0"
+version = "0.0.4-pre7"
 description = "PDF report generator for velocity.report Go application"
 readme = "README.md"
 requires-python = ">=3.11"
-authors = [{ name = "Banshee Data", email = "info@banshee.data" }]
+authors = [{ name = "Banshee, Inc.", email = "info@banshee-data.com" }]
 dependencies = [
   "matplotlib>=3.10.6",
   "numpy>=2.3.3",

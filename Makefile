@@ -119,7 +119,7 @@ help:
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-VERSION := 0.0.4-pre6
+VERSION := 0.0.4-pre7
 GIT_SHA := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -X 'github.com/banshee-data/velocity.report/internal/version.Version=$(VERSION)' -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=$(GIT_SHA)' -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=$(BUILD_TIME)'
@@ -712,7 +712,7 @@ set-version:
 		echo "Usage: make set-version VER=<version> TARGETS='<targets>'"; \
 		echo ""; \
 		echo "Example: make set-version VER=0.4.0-pre2 TARGETS='--all'"; \
-		echo "         make set-version VER=0.5.0 TARGETS='--makefile --deploy'"; \
+		echo "         make set-version VER=0.5.0 TARGETS='--makefile --deploy --pdf'"; \
 		echo ""; \
 		./scripts/set-version.sh; \
 		exit 1; \

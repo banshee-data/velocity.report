@@ -111,6 +111,21 @@ def test_validation_missing_dates():
     assert any("query.end_date is required" in e for e in errors)
 
 
+def test_validation_compare_dates_pair_required():
+    """Test validation requires comparison dates as a pair."""
+    config = ReportConfig(
+        query=QueryConfig(
+            start_date="2025-06-01",
+            end_date="2025-06-07",
+            compare_start_date="2025-05-01",
+            timezone="UTC",
+        )
+    )
+    is_valid, errors = config.validate()
+    assert is_valid is False
+    assert any("compare_start_date" in e for e in errors)
+
+
 def test_validation_invalid_source():
     """Test validation fails for invalid source."""
     config = ReportConfig(

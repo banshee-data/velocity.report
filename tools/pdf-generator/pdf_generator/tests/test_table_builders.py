@@ -11,7 +11,9 @@ from pdf_generator.core.table_builders import (
     HistogramTableBuilder,
     create_stats_table,
     create_param_table,
+    create_comparison_summary_table,
     create_histogram_table,
+    create_histogram_comparison_table,
     create_twocolumn_stats_table,
 )
 
@@ -209,6 +211,32 @@ class TestParameterTableBuilder(unittest.TestCase):
             self.assertIn("AtkinsonMono", str(row[1]))
 
 
+class TestComparisonSummaryTableBuilder(unittest.TestCase):
+    """Tests for comparison summary table builder."""
+
+    @patch("pdf_generator.core.table_builders.Tabular")
+    def test_create_comparison_summary_table(self, mock_tabular):
+        """Test comparison summary table creation."""
+        mock_table = MagicMock()
+        mock_tabular.return_value = mock_table
+
+        entries = [
+            {
+                "label": "Maximum Velocity",
+                "primary": "30.00 mph",
+                "compare": "35.00 mph",
+                "change": "+16.7%",
+            }
+        ]
+
+        _ = create_comparison_summary_table(
+            entries, "2025-06-01 to 2025-06-07", "2025-05-01 to 2025-05-07"
+        )
+
+        mock_tabular.assert_called_once()
+        self.assertGreaterEqual(mock_table.add_row.call_count, 2)
+
+
 class TestHistogramTableBuilder(unittest.TestCase):
     """Tests for HistogramTableBuilder class."""
 
@@ -386,6 +414,59 @@ class TestHistogramTableBuilder(unittest.TestCase):
         self.assertFalse(
             has_below_cutoff, "Table should not contain <5 bucket when count is 0"
         )
+
+
+class TestHistogramComparisonTableBuilder(unittest.TestCase):
+    """Tests for histogram comparison table generation."""
+
+    @patch("pdf_generator.core.table_builders.escape_latex")
+    @patch("pdf_generator.core.table_builders.NoEscape")
+    @patch("pdf_generator.core.table_builders.Center")
+    @patch("pdf_generator.core.table_builders.Tabular")
+    @patch("pdf_generator.core.table_builders.process_histogram")
+    def test_create_histogram_comparison_table(
+        self,
+        mock_process,
+        mock_tabular,
+        mock_center_class,
+        mock_noescape,
+        mock_escape,
+    ):
+        """Test comparison histogram table creation with mixed buckets."""
+        mock_escape.side_effect = lambda x: x
+        mock_noescape.side_effect = lambda x: x
+
+        primary_buckets = {0.0: 2, 5.0: 10}
+        compare_buckets = {0.0: 1, 5.0: 5, 10.0: 10}
+        ranges = [(5.0, 10.0), (10.0, 15.0)]
+        mock_process.side_effect = [
+            (primary_buckets, 12, ranges),
+            (compare_buckets, 16, ranges),
+        ]
+
+        mock_table = MagicMock()
+        mock_tabular.return_value = mock_table
+        mock_center = MagicMock()
+        mock_center_class.return_value = mock_center
+
+        result = create_histogram_comparison_table(
+            {"0": 2, "5": 10},
+            {"0": 1, "5": 5, "10": 10},
+            units="mph",
+            primary_label="Primary",
+            compare_label="Compare",
+            cutoff=5.0,
+            bucket_size=5.0,
+            max_bucket=15.0,
+        )
+
+        self.assertEqual(result, mock_center)
+
+        added_rows = [call.args[0] for call in mock_table.add_row.call_args_list]
+        row_cells = [str(cell) for row in added_rows for cell in row]
+        self.assertTrue(any("0-5" in cell for cell in row_cells))
+        self.assertTrue(any("10+" in cell for cell in row_cells))
+        self.assertTrue(any("--" in cell for cell in row_cells))
 
 
 class TestConvenienceFunctions(unittest.TestCase):

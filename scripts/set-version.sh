@@ -8,6 +8,7 @@ VERSION=""
 UPDATE_MAKEFILE=0
 UPDATE_WEB=0
 UPDATE_DOCS=0
+UPDATE_PDF=0
 
 # Color codes for output
 RED='\033[0;31m'
@@ -30,6 +31,7 @@ Targets (default: --all):
   --makefile    Update Makefile VERSION variable (affects Go binaries)
   --web         Update web/package.json version
   --docs        Update docs/package.json version
+  --pdf         Update tools/pdf-generator/pyproject.toml version
 
 Examples:
   # Update all version references
@@ -40,6 +42,9 @@ Examples:
 
   # Update only web frontend
   $0 0.5.0 --web
+
+  # Update only PDF generator
+  $0 0.5.0 --pdf
 
 EOF
     exit 1
@@ -152,6 +157,34 @@ update_docs() {
     log_info "Updated $file: $old_version → $VERSION"
 }
 
+# Update tools/pdf-generator/pyproject.toml
+update_pdf() {
+    local file="tools/pdf-generator/pyproject.toml"
+    local old_version
+
+    if [[ ! -f "$file" ]]; then
+        log_warn "$file not found, skipping"
+        return 0
+    fi
+
+    # pyproject.toml format: version = "0.2.0"
+    old_version=$(grep -E '^version = ' "$file" | sed 's/version = "\(.*\)"/\1/')
+
+    if [[ -z "$old_version" ]]; then
+        log_error "Could not find version in $file"
+        return 1
+    fi
+
+    # Use sed to replace the version
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' "s/^version = \".*\"/version = \"$VERSION\"/" "$file"
+    else
+        sed -i "s/^version = \".*\"/version = \"$VERSION\"/" "$file"
+    fi
+
+    log_info "Updated $file: $old_version → $VERSION"
+}
+
 # Parse arguments
 if [[ $# -lt 1 ]]; then
     usage
@@ -175,6 +208,7 @@ for arg in "$@"; do
             UPDATE_MAKEFILE=1
             UPDATE_WEB=1
             UPDATE_DOCS=1
+            UPDATE_PDF=1
             ;;
         --makefile)
             UPDATE_MAKEFILE=1
@@ -185,6 +219,9 @@ for arg in "$@"; do
         --docs)
             UPDATE_DOCS=1
             ;;
+        --pdf)
+            UPDATE_PDF=1
+            ;;
         *)
             log_error "Unknown target: $arg"
             usage
@@ -193,7 +230,7 @@ for arg in "$@"; do
 done
 
 # Check if at least one target is selected
-if [[ $UPDATE_MAKEFILE -eq 0 && $UPDATE_WEB -eq 0 && $UPDATE_DOCS -eq 0 ]]; then
+if [[ $UPDATE_MAKEFILE -eq 0 && $UPDATE_WEB -eq 0 && $UPDATE_DOCS -eq 0 && $UPDATE_PDF -eq 0 ]]; then
     log_error "No targets specified"
     usage
 fi
@@ -206,6 +243,7 @@ EXIT_CODE=0
 [[ $UPDATE_MAKEFILE -eq 1 ]] && update_makefile || EXIT_CODE=$?
 [[ $UPDATE_WEB -eq 1 ]] && update_web || EXIT_CODE=$?
 [[ $UPDATE_DOCS -eq 1 ]] && update_docs || EXIT_CODE=$?
+[[ $UPDATE_PDF -eq 1 ]] && update_pdf || EXIT_CODE=$?
 
 echo ""
 log_info "Version update complete!"

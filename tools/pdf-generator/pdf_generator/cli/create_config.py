@@ -138,6 +138,8 @@ def create_example_config(output_path: str = "config.example.json") -> None:
             "_description": "Data query parameters",
             "start_date": "2025-06-01",
             "end_date": "2025-06-07",
+            "compare_start_date": "",
+            "compare_end_date": "",
             "group": "1h",
             "units": "mph",
             "source": "radar_data_transits",
@@ -150,6 +152,8 @@ def create_example_config(output_path: str = "config.example.json") -> None:
             "_field_notes": {
                 "start_date": "REQUIRED: Start date (YYYY-MM-DD format or unix timestamp)",
                 "end_date": "REQUIRED: End date (YYYY-MM-DD format or unix timestamp)",
+                "compare_start_date": "Optional: Comparison start date (YYYY-MM-DD format) - set with compare_end_date",
+                "compare_end_date": "Optional: Comparison end date (YYYY-MM-DD format) - set with compare_start_date",
                 "timezone": "REQUIRED: Display timezone (e.g., US/Pacific, UTC, US/Eastern)",
                 "group": "Optional: Time bucket size (15m, 30m, 1h, 2h, 4h, 8h, 12h, 24h, 2d, 7d, 14d, 28d, all)",
                 "units": "Optional: Display units (mph, kph, mps) - default: mph",

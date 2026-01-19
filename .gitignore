@@ -30,6 +30,7 @@ tools/grid-heatmap/__pycache__/*
 *.db-shm
 *.db-wal
 *.log
+sensor_data.*
 
 app
 app-*

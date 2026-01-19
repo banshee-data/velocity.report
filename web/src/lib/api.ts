@@ -110,6 +110,8 @@ export interface ReportRequest {
 	site_id?: number; // Optional: use site configuration
 	start_date: string; // YYYY-MM-DD format
 	end_date: string; // YYYY-MM-DD format
+	compare_start_date?: string; // YYYY-MM-DD format
+	compare_end_date?: string; // YYYY-MM-DD format
 	timezone: string; // e.g., "US/Pacific"
 	units: string; // "mph" or "kph"
 	group?: string; // e.g., "1h", "4h"
