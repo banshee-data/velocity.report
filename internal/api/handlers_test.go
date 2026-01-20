@@ -98,9 +98,8 @@ func TestHandleReports_ListSiteReports(t *testing.T) {
 
 	// Create a site
 	site := &db.Site{
-		Name:             "Test Site",
-		Location:         "Test Location",
-		CosineErrorAngle: 21.0,
+		Name:     "Test Site",
+		Location: "Test Location",
 	}
 	if err := dbInst.CreateSite(site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)

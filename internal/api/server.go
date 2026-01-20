@@ -577,10 +577,6 @@ func (s *Server) createSite(w http.ResponseWriter, r *http.Request) {
 		s.writeJSONError(w, http.StatusBadRequest, "location is required")
 		return
 	}
-	if site.CosineErrorAngle == 0 {
-		s.writeJSONError(w, http.StatusBadRequest, "cosine_error_angle is required")
-		return
-	}
 
 	if err := s.db.CreateSite(&site); err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to create site: %v", err))
@@ -610,10 +606,6 @@ func (s *Server) updateSite(w http.ResponseWriter, r *http.Request, id int) {
 	}
 	if site.Location == "" {
 		s.writeJSONError(w, http.StatusBadRequest, "location is required")
-		return
-	}
-	if site.CosineErrorAngle == 0 {
-		s.writeJSONError(w, http.StatusBadRequest, "cosine_error_angle is required")
 		return
 	}
 
@@ -845,12 +837,11 @@ type ReportRequest struct {
 	HistMax        float64 `json:"hist_max"`           // histogram max value
 
 	// These can be overridden if site_id is not provided
-	Location         string  `json:"location"`           // site location
-	Surveyor         string  `json:"surveyor"`           // surveyor name
-	Contact          string  `json:"contact"`            // contact info
-	SpeedLimit       int     `json:"speed_limit"`        // posted speed limit
-	SiteDescription  string  `json:"site_description"`   // site description
-	CosineErrorAngle float64 `json:"cosine_error_angle"` // radar mounting angle
+	Location        string `json:"location"`         // site location
+	Surveyor        string `json:"surveyor"`         // surveyor name
+	Contact         string `json:"contact"`          // contact info
+	SpeedLimit      int    `json:"speed_limit"`      // posted speed limit
+	SiteDescription string `json:"site_description"` // site description
 }
 
 func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
@@ -886,6 +877,7 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 
 	// Load site data if site_id is provided
 	var site *db.Site
+	var cosineErrorAngle float64
 	if req.SiteID != nil {
 		var err error
 		site, err = s.db.GetSite(*req.SiteID)
@@ -894,6 +886,19 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Failed to load site: %v", err))
 			return
 		}
+
+		// Get the active SCD period to retrieve cosine_error_angle
+		activePeriod, err := s.db.GetActiveSiteConfigPeriod(*req.SiteID)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Failed to load site config period: %v. Please ensure site has an active configuration period.", err))
+			return
+		}
+		cosineErrorAngle = activePeriod.CosineErrorAngle
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusBadRequest, "site_id is required for report generation")
+		return
 	}
 
 	// Set defaults from site or fallback values
@@ -920,20 +925,14 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	speedLimit := req.SpeedLimit
 	siteDescription := req.SiteDescription
 	speedLimitNote := ""
-	cosineErrorAngle := req.CosineErrorAngle
 
 	if site != nil {
 		location = site.Location
 		surveyor = site.Surveyor
 		contact = site.Contact
-		speedLimit = site.SpeedLimit
 		if site.SiteDescription != nil {
 			siteDescription = *site.SiteDescription
 		}
-		if site.SpeedLimitNote != nil {
-			speedLimitNote = *site.SpeedLimitNote
-		}
-		cosineErrorAngle = site.CosineErrorAngle
 	}
 
 	// Apply final defaults if still empty
@@ -948,11 +947,6 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	}
 	if speedLimit == 0 {
 		speedLimit = 25
-	}
-	if cosineErrorAngle == 0 {
-		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusBadRequest, "cosine_error_angle is required (either from site or in request)")
-		return
 	}
 
 	// Create unique run ID for organized output folders

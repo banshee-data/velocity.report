@@ -13,11 +13,10 @@ func TestSiteConfigPeriodOverlap(t *testing.T) {
 	defer cleanupTestDB(t, db)
 
 	site := &Site{
-		Name:             "Overlap Site",
-		Location:         "Test Location",
-		CosineErrorAngle: 10.0,
-		Surveyor:         "Surveyor",
-		Contact:          "contact@example.com",
+		Name:     "Overlap Site",
+		Location: "Test Location",
+		Surveyor: "Surveyor",
+		Contact:  "contact@example.com",
 	}
 	if err := db.CreateSite(site); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
@@ -61,11 +60,10 @@ func TestRadarObjectRollupRangeCosineCorrection(t *testing.T) {
 	defer cleanupTestDB(t, db)
 
 	site := &Site{
-		Name:             "Correction Site",
-		Location:         "Test Location",
-		CosineErrorAngle: 60.0,
-		Surveyor:         "Surveyor",
-		Contact:          "contact@example.com",
+		Name:     "Correction Site",
+		Location: "Test Location",
+		Surveyor: "Surveyor",
+		Contact:  "contact@example.com",
 	}
 	if err := db.CreateSite(site); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
@@ -122,11 +120,10 @@ func TestRadarDataRollupRangeCosineCorrection(t *testing.T) {
 	defer cleanupTestDB(t, db)
 
 	site := &Site{
-		Name:             "Correction Site",
-		Location:         "Test Location",
-		CosineErrorAngle: 60.0,
-		Surveyor:         "Surveyor",
-		Contact:          "contact@example.com",
+		Name:     "Correction Site",
+		Location: "Test Location",
+		Surveyor: "Surveyor",
+		Contact:  "contact@example.com",
 	}
 	if err := db.CreateSite(site); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)

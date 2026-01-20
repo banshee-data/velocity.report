@@ -16,11 +16,10 @@ func TestHandleSiteConfigPeriods_CreateAndList(t *testing.T) {
 	defer cleanupTestServer(t, dbInst)
 
 	site := &db.Site{
-		Name:             "Period Site",
-		Location:         "Test Location",
-		CosineErrorAngle: 10.0,
-		Surveyor:         "Surveyor",
-		Contact:          "contact@example.com",
+		Name:     "Period Site",
+		Location: "Test Location",
+		Surveyor: "Surveyor",
+		Contact:  "contact@example.com",
 	}
 	if err := dbInst.CreateSite(site); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
@@ -76,11 +75,10 @@ func TestHandleSiteConfigPeriods_Overlap(t *testing.T) {
 	defer cleanupTestServer(t, dbInst)
 
 	site := &db.Site{
-		Name:             "Overlap Site",
-		Location:         "Test Location",
-		CosineErrorAngle: 10.0,
-		Surveyor:         "Surveyor",
-		Contact:          "contact@example.com",
+		Name:     "Overlap Site",
+		Location: "Test Location",
+		Surveyor: "Surveyor",
+		Contact:  "contact@example.com",
 	}
 	if err := dbInst.CreateSite(site); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
@@ -135,11 +133,10 @@ func TestHandleTimeline(t *testing.T) {
 	defer cleanupTestServer(t, dbInst)
 
 	site := &db.Site{
-		Name:             "Timeline Site",
-		Location:         "Test Location",
-		CosineErrorAngle: 10.0,
-		Surveyor:         "Surveyor",
-		Contact:          "contact@example.com",
+		Name:     "Timeline Site",
+		Location: "Test Location",
+		Surveyor: "Surveyor",
+		Contact:  "contact@example.com",
 	}
 	if err := dbInst.CreateSite(site); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)

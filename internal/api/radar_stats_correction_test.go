@@ -17,11 +17,10 @@ func TestShowRadarObjectStats_CosineCorrection(t *testing.T) {
 	defer cleanupTestServer(t, dbInst)
 
 	site := &db.Site{
-		Name:             "Cosine Site",
-		Location:         "Test Location",
-		CosineErrorAngle: 60.0,
-		Surveyor:         "Surveyor",
-		Contact:          "contact@example.com",
+		Name:     "Cosine Site",
+		Location: "Test Location",
+		Surveyor: "Surveyor",
+		Contact:  "contact@example.com",
 	}
 	if err := dbInst.CreateSite(site); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
