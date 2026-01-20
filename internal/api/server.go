@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -29,6 +30,7 @@ const colorReset = "\033[0m"
 const colorYellow = "\033[33m"
 const colorBoldGreen = "\033[1;32m"
 const colorBoldRed = "\033[1;31m"
+const maxUnixTime = 32503680000.0
 
 // convertEventAPISpeed applies unit conversion to the Speed field of an EventAPI
 func convertEventAPISpeed(event db.EventAPI, targetUnits string) db.EventAPI {
@@ -153,6 +155,8 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/api/generate_report", s.generateReport)
 	s.mux.HandleFunc("/api/sites", s.handleSites)
 	s.mux.HandleFunc("/api/sites/", s.handleSites)                 // Note trailing slash to match /api/sites and /api/sites/*
+	s.mux.HandleFunc("/api/site_config_periods", s.handleSiteConfigPeriods)
+	s.mux.HandleFunc("/api/timeline", s.handleTimeline)
 	s.mux.HandleFunc("/api/reports/", s.handleReports)             // Report management endpoints
 	s.mux.HandleFunc("/api/transit_worker", s.handleTransitWorker) // Transit worker control
 	s.mux.HandleFunc("/api/db_stats", s.handleDatabaseStats)       // Database table sizes and disk usage
@@ -330,7 +334,17 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 		maxMPS = units.ConvertToMPS(histMax, displayUnits)
 	}
 
-	result, dbErr := s.db.RadarObjectRollupRange(startUnix, endUnix, groupSeconds, minSpeedMPS, dataSource, modelVersion, bucketSizeMPS, maxMPS)
+	siteID := 0
+	if siteIDStr := r.URL.Query().Get("site_id"); siteIDStr != "" {
+		parsedSiteID, err := strconv.Atoi(siteIDStr)
+		if err != nil || parsedSiteID <= 0 {
+			s.writeJSONError(w, http.StatusBadRequest, "Invalid 'site_id' parameter; must be a positive integer")
+			return
+		}
+		siteID = parsedSiteID
+	}
+
+	result, dbErr := s.db.RadarObjectRollupRange(startUnix, endUnix, groupSeconds, minSpeedMPS, dataSource, modelVersion, bucketSizeMPS, maxMPS, siteID)
 	if dbErr != nil {
 		s.writeJSONError(w, http.StatusInternalServerError,
 			fmt.Sprintf("Failed to retrieve radar stats: %v", dbErr))
@@ -371,6 +385,18 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 			histOut[key] += v
 		}
 		respObj["histogram"] = histOut
+	}
+
+	if siteID > 0 {
+		if periods, err := s.db.ListSiteConfigPeriods(&siteID); err == nil {
+			angles := uniqueAnglesForRange(periods, float64(startUnix), float64(endUnix))
+			if len(angles) > 0 {
+				respObj["cosine_correction"] = map[string]interface{}{
+					"angles":  angles,
+					"applied": true,
+				}
+			}
+		}
 	}
 
 	if err := json.NewEncoder(w).Encode(respObj); err != nil {
@@ -619,6 +645,188 @@ func (s *Server) deleteSite(w http.ResponseWriter, r *http.Request, id int) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (s *Server) handleSiteConfigPeriods(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	switch r.Method {
+	case http.MethodGet:
+		s.listSiteConfigPeriods(w, r)
+	case http.MethodPost:
+		s.upsertSiteConfigPeriod(w, r)
+	default:
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+	}
+}
+
+func (s *Server) listSiteConfigPeriods(w http.ResponseWriter, r *http.Request) {
+	var siteID *int
+	if siteIDStr := r.URL.Query().Get("site_id"); siteIDStr != "" {
+		parsedSiteID, err := strconv.Atoi(siteIDStr)
+		if err != nil || parsedSiteID <= 0 {
+			s.writeJSONError(w, http.StatusBadRequest, "Invalid 'site_id' parameter; must be a positive integer")
+			return
+		}
+		siteID = &parsedSiteID
+	}
+
+	periods, err := s.db.ListSiteConfigPeriods(siteID)
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve site config periods: %v", err))
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(periods); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode site config periods")
+		return
+	}
+}
+
+func (s *Server) upsertSiteConfigPeriod(w http.ResponseWriter, r *http.Request) {
+	var period db.SiteConfigPeriod
+	if err := json.NewDecoder(r.Body).Decode(&period); err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
+		return
+	}
+
+	if period.SiteID == 0 {
+		s.writeJSONError(w, http.StatusBadRequest, "site_id is required")
+		return
+	}
+
+	if period.ID > 0 {
+		if err := s.db.UpdateSiteConfigPeriod(&period); err != nil {
+			status := http.StatusInternalServerError
+			if err.Error() == "site config period not found" || err.Error() == "site config period overlaps an existing period" {
+				status = http.StatusBadRequest
+			}
+			s.writeJSONError(w, status, fmt.Sprintf("Failed to update site config period: %v", err))
+			return
+		}
+		if err := json.NewEncoder(w).Encode(period); err != nil {
+			s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode site config period")
+		}
+		return
+	}
+
+	if err := s.db.CreateSiteConfigPeriod(&period); err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Failed to create site config period: %v", err))
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(period); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode site config period")
+	}
+}
+
+func (s *Server) handleTimeline(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodGet {
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	siteIDStr := r.URL.Query().Get("site_id")
+	if siteIDStr == "" {
+		s.writeJSONError(w, http.StatusBadRequest, "site_id is required")
+		return
+	}
+	siteID, err := strconv.Atoi(siteIDStr)
+	if err != nil || siteID <= 0 {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid 'site_id' parameter; must be a positive integer")
+		return
+	}
+
+	dataRange, err := s.db.RadarDataRange()
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve data range: %v", err))
+		return
+	}
+
+	periods, err := s.db.ListSiteConfigPeriods(&siteID)
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve site config periods: %v", err))
+		return
+	}
+
+	unconfigured := computeUnconfiguredGaps(dataRange, periods)
+	resp := map[string]interface{}{
+		"site_id":              siteID,
+		"data_range":           dataRange,
+		"config_periods":       periods,
+		"unconfigured_periods": unconfigured,
+	}
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode timeline response")
+	}
+}
+
+func uniqueAnglesForRange(periods []db.SiteConfigPeriod, startUnix, endUnix float64) []float64 {
+	angleMap := make(map[float64]struct{})
+	for _, period := range periods {
+		periodEnd := maxUnixTime
+		if period.EffectiveEndUnix != nil {
+			periodEnd = *period.EffectiveEndUnix
+		}
+		if period.EffectiveStartUnix < endUnix && periodEnd > startUnix {
+			angleMap[period.CosineErrorAngle] = struct{}{}
+		}
+	}
+	angles := make([]float64, 0, len(angleMap))
+	for angle := range angleMap {
+		angles = append(angles, angle)
+	}
+	sort.Float64s(angles)
+	return angles
+}
+
+func computeUnconfiguredGaps(dataRange *db.DataRange, periods []db.SiteConfigPeriod) []map[string]float64 {
+	if dataRange == nil || dataRange.StartUnix == 0 || dataRange.EndUnix == 0 {
+		return []map[string]float64{}
+	}
+	startUnix := dataRange.StartUnix
+	endUnix := dataRange.EndUnix
+	if endUnix <= startUnix {
+		return []map[string]float64{}
+	}
+
+	sort.Slice(periods, func(i, j int) bool {
+		return periods[i].EffectiveStartUnix < periods[j].EffectiveStartUnix
+	})
+
+	current := startUnix
+	gaps := []map[string]float64{}
+	for _, period := range periods {
+		periodEnd := maxUnixTime
+		if period.EffectiveEndUnix != nil {
+			periodEnd = *period.EffectiveEndUnix
+		}
+		if periodEnd <= startUnix || period.EffectiveStartUnix >= endUnix {
+			continue
+		}
+		if period.EffectiveStartUnix > current {
+			gaps = append(gaps, map[string]float64{
+				"start_unix": current,
+				"end_unix":   math.Min(period.EffectiveStartUnix, endUnix),
+			})
+		}
+		if periodEnd > current {
+			current = math.Min(periodEnd, endUnix)
+		}
+		if current >= endUnix {
+			break
+		}
+	}
+
+	if current < endUnix {
+		gaps = append(gaps, map[string]float64{
+			"start_unix": current,
+			"end_unix":   endUnix,
+		})
+	}
+
+	return gaps
+}
+
 // ReportRequest represents the JSON payload for report generation
 type ReportRequest struct {
 	SiteID         *int    `json:"site_id"`            // Optional: use site configuration
@@ -765,6 +973,9 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		"histogram":        req.Histogram,
 		"hist_bucket_size": req.HistBucketSize,
 		"hist_max":         req.HistMax,
+	}
+	if req.SiteID != nil {
+		queryConfig["site_id"] = *req.SiteID
 	}
 	if req.CompareStart != "" && req.CompareEnd != "" {
 		queryConfig["compare_start_date"] = req.CompareStart

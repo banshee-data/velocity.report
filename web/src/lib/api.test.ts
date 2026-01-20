@@ -137,7 +137,15 @@ describe('api', () => {
 				json: async () => ({ metrics: [] })
 			});
 
-			await getRadarStats(1704067200, 1704153600, '1h', 'mph', 'America/New_York', 'radar_data');
+			await getRadarStats(
+				1704067200,
+				1704153600,
+				'1h',
+				'mph',
+				'America/New_York',
+				'radar_data',
+				42
+			);
 
 			const callUrl = (global.fetch as jest.Mock).mock.calls[0][0].toString();
 			expect(callUrl).toContain('start=1704067200');
@@ -146,6 +154,7 @@ describe('api', () => {
 			expect(callUrl).toContain('units=mph');
 			expect(callUrl).toContain('timezone=America%2FNew_York');
 			expect(callUrl).toContain('source=radar_data');
+			expect(callUrl).toContain('site_id=42');
 		});
 
 		it('should handle missing histogram in response', async () => {

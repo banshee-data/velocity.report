@@ -678,7 +678,7 @@ type RadarStatsResult struct {
 // dataSource may be either "radar_objects" (default) or "radar_data_transits".
 // If histBucketSize > 0, a histogram is computed; histMax (if > 0) clips histogram values above that threshold.
 // Both histBucketSize and histMax are in meters-per-second (mps).
-func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, minSpeed float64, dataSource string, modelVersion string, histBucketSize, histMax float64) (*RadarStatsResult, error) {
+func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, minSpeed float64, dataSource string, modelVersion string, histBucketSize, histMax float64, siteID int) (*RadarStatsResult, error) {
 	if endUnix <= startUnix {
 		return nil, fmt.Errorf("end must be greater than start")
 	}
@@ -699,15 +699,58 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 
 	var rows *sql.Rows
 	var err error
+	useConfigPeriods := siteID > 0
+	const radiansPerDegree = 0.01745329252
 	switch dataSource {
 	case "radar_objects":
-		rows, err = db.Query(`SELECT write_timestamp, max_speed FROM radar_objects WHERE max_speed > ? AND write_timestamp BETWEEN ? AND ?`, minSpeed, startUnix, endUnix)
+		if useConfigPeriods {
+			speedExpr := fmt.Sprintf(
+				"ro.max_speed / COALESCE(NULLIF(COS(scp.cosine_error_angle * %.10f), 0), 1)",
+				radiansPerDegree,
+			)
+			query := fmt.Sprintf(
+				`SELECT ro.write_timestamp, %s
+				 FROM radar_objects ro
+				 LEFT JOIN site_config_periods scp
+				   ON scp.site_id = ?
+				  AND ro.write_timestamp >= scp.effective_start_unix
+				  AND (scp.effective_end_unix IS NULL OR ro.write_timestamp < scp.effective_end_unix)
+				 WHERE %s > ?
+				   AND ro.write_timestamp BETWEEN ? AND ?`,
+				speedExpr,
+				speedExpr,
+			)
+			rows, err = db.Query(query, siteID, minSpeed, startUnix, endUnix)
+		} else {
+			rows, err = db.Query(`SELECT write_timestamp, max_speed FROM radar_objects WHERE max_speed > ? AND write_timestamp BETWEEN ? AND ?`, minSpeed, startUnix, endUnix)
+		}
 	case "radar_data_transits":
 		// radar_data_transits stores transit_start_unix and transit_max_speed
 		if modelVersion == "" {
 			modelVersion = "rebuild-full"
 		}
-		rows, err = db.Query(`SELECT transit_start_unix, transit_max_speed FROM radar_data_transits WHERE model_version = ? AND transit_max_speed > ? AND transit_start_unix BETWEEN ? AND ?`, modelVersion, minSpeed, startUnix, endUnix)
+		if useConfigPeriods {
+			speedExpr := fmt.Sprintf(
+				"rt.transit_max_speed / COALESCE(NULLIF(COS(scp.cosine_error_angle * %.10f), 0), 1)",
+				radiansPerDegree,
+			)
+			query := fmt.Sprintf(
+				`SELECT rt.transit_start_unix, %s
+				 FROM radar_data_transits rt
+				 LEFT JOIN site_config_periods scp
+				   ON scp.site_id = ?
+				  AND rt.transit_start_unix >= scp.effective_start_unix
+				  AND (scp.effective_end_unix IS NULL OR rt.transit_start_unix < scp.effective_end_unix)
+				 WHERE rt.model_version = ?
+				   AND %s > ?
+				   AND rt.transit_start_unix BETWEEN ? AND ?`,
+				speedExpr,
+				speedExpr,
+			)
+			rows, err = db.Query(query, siteID, modelVersion, minSpeed, startUnix, endUnix)
+		} else {
+			rows, err = db.Query(`SELECT transit_start_unix, transit_max_speed FROM radar_data_transits WHERE model_version = ? AND transit_max_speed > ? AND transit_start_unix BETWEEN ? AND ?`, modelVersion, minSpeed, startUnix, endUnix)
+		}
 	default:
 		return nil, fmt.Errorf("unsupported dataSource: %s", dataSource)
 	}
@@ -922,6 +965,28 @@ func (db *DB) Events() ([]Event, error) {
 	}
 
 	return events, nil
+}
+
+// DataRange represents a data coverage window in unix seconds.
+type DataRange struct {
+	StartUnix float64 `json:"start_unix"`
+	EndUnix   float64 `json:"end_unix"`
+}
+
+// RadarDataRange returns the earliest and latest radar object timestamps.
+func (db *DB) RadarDataRange() (*DataRange, error) {
+	var start sql.NullFloat64
+	var end sql.NullFloat64
+	if err := db.DB.QueryRow("SELECT MIN(write_timestamp), MAX(write_timestamp) FROM radar_objects").Scan(&start, &end); err != nil {
+		return nil, err
+	}
+	if !start.Valid || !end.Valid {
+		return &DataRange{}, nil
+	}
+	return &DataRange{
+		StartUnix: start.Float64,
+		EndUnix:   end.Float64,
+	}, nil
 }
 
 // TableStats contains size and row count information for a database table.

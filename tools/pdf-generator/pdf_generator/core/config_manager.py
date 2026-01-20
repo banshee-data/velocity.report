@@ -90,6 +90,7 @@ class QueryConfig:
     source: str = "radar_data_transits"  # radar_objects or radar_data_transits
     model_version: str = "rebuild-full"  # Transit model version
     min_speed: Optional[float] = 5.0  # Minimum speed filter (default: 5.0)
+    site_id: Optional[int] = None  # Optional: site identifier for config-aware queries
 
     # Histogram configuration
     histogram: bool = True  # Generate histogram (default: true)

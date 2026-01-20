@@ -44,6 +44,7 @@ class RadarStatsClient:
         compute_histogram: bool = False,
         hist_bucket_size: Optional[float] = None,
         hist_max: Optional[float] = None,
+        site_id: Optional[int] = None,
     ) -> Tuple[List[Dict[str, Any]], Dict[str, int], requests.Response]:
         """Query radar statistics from the API.
 
@@ -59,6 +60,7 @@ class RadarStatsClient:
             compute_histogram: Whether to request histogram data
             hist_bucket_size: Histogram bucket size in display units
             hist_max: Maximum speed for histogram
+            site_id: Optional site ID to apply configuration periods
 
         Returns:
             Tuple of (metrics list, histogram dict, response object)
@@ -85,6 +87,8 @@ class RadarStatsClient:
                 params["hist_bucket_size"] = hist_bucket_size
             if hist_max is not None:
                 params["hist_max"] = hist_max
+        if site_id is not None:
+            params["site_id"] = site_id
 
         resp = requests.get(self.api_url, params=params)
         resp.raise_for_status()
@@ -95,3 +99,20 @@ class RadarStatsClient:
         histogram = payload.get("histogram", {}) if isinstance(payload, dict) else {}
 
         return metrics, histogram, resp
+
+    def get_site_config_periods(
+        self, site_id: int
+    ) -> Tuple[List[Dict[str, Any]], requests.Response]:
+        """Fetch site configuration periods for a site.
+
+        Args:
+            site_id: Site identifier
+
+        Returns:
+            Tuple of (period list, response object)
+        """
+        url = f"{self.base_url}/api/site_config_periods"
+        resp = requests.get(url, params={"site_id": site_id})
+        resp.raise_for_status()
+        payload = resp.json()
+        return payload if isinstance(payload, list) else [], resp
