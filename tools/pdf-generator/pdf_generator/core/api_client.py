@@ -53,7 +53,7 @@ class RadarStatsClient:
             end_ts: End timestamp (unix seconds)
             group: Aggregation period (15m, 30m, 1h, etc.)
             units: Speed units (mph, kph, etc.)
-            source: Data source (radar_objects or radar_data_transits)
+            source: Data source (radar_objects, radar_data, or radar_data_transits)
             model_version: Transit model version to request (for radar_data_transits)
             timezone: Timezone for StartTime conversion
             min_speed: Minimum speed filter

@@ -116,3 +116,55 @@ func TestRadarObjectRollupRangeCosineCorrection(t *testing.T) {
 		t.Errorf("Expected corrected speed %.2f, got %.2f", expected, result.Metrics[0].MaxSpeed)
 	}
 }
+
+func TestRadarDataRollupRangeCosineCorrection(t *testing.T) {
+	db := setupTestDB(t)
+	defer cleanupTestDB(t, db)
+
+	site := &Site{
+		Name:             "Correction Site",
+		Location:         "Test Location",
+		CosineErrorAngle: 60.0,
+		Surveyor:         "Surveyor",
+		Contact:          "contact@example.com",
+	}
+	if err := db.CreateSite(site); err != nil {
+		t.Fatalf("CreateSite failed: %v", err)
+	}
+
+	active, err := db.GetActiveSiteConfigPeriod(site.ID)
+	if err != nil {
+		t.Fatalf("GetActiveSiteConfigPeriod failed: %v", err)
+	}
+	active.CosineErrorAngle = 60.0
+	if err := db.UpdateSiteConfigPeriod(active); err != nil {
+		t.Fatalf("UpdateSiteConfigPeriod failed: %v", err)
+	}
+
+	now := time.Now().Unix()
+	event := map[string]interface{}{
+		"speed":     10.0,
+		"uptime":    1.0,
+		"magnitude": 5.0,
+	}
+	eventJSON, err := json.Marshal(event)
+	if err != nil {
+		t.Fatalf("Failed to marshal event: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO radar_data (raw_event) VALUES (?)`, string(eventJSON)); err != nil {
+		t.Fatalf("Failed to insert radar data: %v", err)
+	}
+
+	result, err := db.RadarObjectRollupRange(now-60, now+60, 0, 0, "radar_data", "", 0, 0, site.ID)
+	if err != nil {
+		t.Fatalf("RadarObjectRollupRange failed: %v", err)
+	}
+	if len(result.Metrics) == 0 {
+		t.Fatalf("Expected metrics data, got none")
+	}
+
+	expected := 10.0 / math.Cos(60.0*math.Pi/180.0)
+	if math.Abs(result.Metrics[0].MaxSpeed-expected) > 0.01 {
+		t.Errorf("Expected corrected speed %.2f, got %.2f", expected, result.Metrics[0].MaxSpeed)
+	}
+}

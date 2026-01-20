@@ -56,7 +56,7 @@ Every configuration file **must** include these 7 fields:
 | `query.compare_end_date`   | string | Comparison end date (YYYY-MM-DD)                | ""           |
 | `query.group`              | string | Roll-up bucket size                             | "1h"         |
 | `query.units`              | string | Display units                                   | "mph"        |
-| `query.source`             | string | Data source                                     | "radar_data_transits" |
+| `query.source`             | string | Data source (radar_objects, radar_data, or radar_data_transits) | "radar_data_transits" |
 
 ### Comparison Reports
 
@@ -195,7 +195,7 @@ This minimal config will:
 | `timezone`         | **Yes**  | -                     | Display timezone (e.g., "US/Pacific", "UTC")      |
 | `group`            | No       | "1h"                  | Time aggregation (15m, 30m, 1h, 2h, 6h, 12h, 24h) |
 | `units`            | No       | "mph"                 | Speed units ("mph", "kph", "mps")                 |
-| `source`           | No       | "radar_data_transits" | Data source                                       |
+| `source`           | No       | "radar_data_transits" | Data source (radar_objects, radar_data, or radar_data_transits) |
 | `model_version`    | No       | "rebuild-full"        | Transit model version                             |
 | `min_speed`        | No       | 5.0                   | Minimum speed filter                              |
 | `histogram`        | No       | true                  | Generate histogram chart                          |

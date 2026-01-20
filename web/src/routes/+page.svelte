@@ -385,6 +385,7 @@
 			<div class="w-24">
 				<ToggleGroup bind:value={selectedSource} vertical inset>
 					<ToggleOption value="radar_objects">Objects</ToggleOption>
+					<ToggleOption value="radar_data">Raw data</ToggleOption>
 					<ToggleOption value="radar_data_transits">Transits</ToggleOption>
 				</ToggleGroup>
 			</div>

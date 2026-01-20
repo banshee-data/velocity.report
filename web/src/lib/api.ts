@@ -123,7 +123,7 @@ export interface ReportRequest {
 	timezone: string; // e.g., "US/Pacific"
 	units: string; // "mph" or "kph"
 	group?: string; // e.g., "1h", "4h"
-	source?: string; // "radar_objects" or "radar_data_transits"
+	source?: string; // "radar_objects", "radar_data", or "radar_data_transits"
 	min_speed?: number; // minimum speed filter
 	histogram?: boolean; // whether to generate histogram
 	hist_bucket_size?: number; // histogram bucket size

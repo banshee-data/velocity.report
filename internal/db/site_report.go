@@ -19,7 +19,7 @@ type SiteReport struct {
 	RunID       string    `json:"run_id"`       // Timestamp-based run ID
 	Timezone    string    `json:"timezone"`     // Report timezone
 	Units       string    `json:"units"`        // mph or kph
-	Source      string    `json:"source"`       // radar_objects or radar_data_transits
+	Source      string    `json:"source"`       // radar_objects, radar_data, or radar_data_transits
 	CreatedAt   time.Time `json:"created_at"`
 }
 

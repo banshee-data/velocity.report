@@ -674,8 +674,8 @@ type RadarStatsResult struct {
 	Histogram map[float64]int64 // bucket start (mps) -> count; nil if histogram not requested
 }
 
-// RadarObjectRollupRange aggregates all radar_objects into time buckets and optionally computes a histogram.
-// dataSource may be either "radar_objects" (default) or "radar_data_transits".
+// RadarObjectRollupRange aggregates radar speed sources into time buckets and optionally computes a histogram.
+// dataSource may be either "radar_objects" (default), "radar_data", or "radar_data_transits".
 // If histBucketSize > 0, a histogram is computed; histMax (if > 0) clips histogram values above that threshold.
 // Both histBucketSize and histMax are in meters-per-second (mps).
 func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, minSpeed float64, dataSource string, modelVersion string, histBucketSize, histMax float64, siteID int) (*RadarStatsResult, error) {
@@ -723,6 +723,28 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 			rows, err = db.Query(query, siteID, minSpeed, startUnix, endUnix)
 		} else {
 			rows, err = db.Query(`SELECT write_timestamp, max_speed FROM radar_objects WHERE max_speed > ? AND write_timestamp BETWEEN ? AND ?`, minSpeed, startUnix, endUnix)
+		}
+	case "radar_data":
+		if useConfigPeriods {
+			speedExpr := fmt.Sprintf(
+				"rd.speed / COALESCE(NULLIF(COS(scp.cosine_error_angle * %.10f), 0), 1)",
+				radiansPerDegree,
+			)
+			query := fmt.Sprintf(
+				`SELECT rd.write_timestamp, %s
+				 FROM radar_data rd
+				 LEFT JOIN site_config_periods scp
+				   ON scp.site_id = ?
+				  AND rd.write_timestamp >= scp.effective_start_unix
+				  AND (scp.effective_end_unix IS NULL OR rd.write_timestamp < scp.effective_end_unix)
+				 WHERE %s > ?
+				   AND rd.write_timestamp BETWEEN ? AND ?`,
+				speedExpr,
+				speedExpr,
+			)
+			rows, err = db.Query(query, siteID, minSpeed, startUnix, endUnix)
+		} else {
+			rows, err = db.Query(`SELECT write_timestamp, speed FROM radar_data WHERE speed > ? AND write_timestamp BETWEEN ? AND ?`, minSpeed, startUnix, endUnix)
 		}
 	case "radar_data_transits":
 		// radar_data_transits stores transit_start_unix and transit_max_speed

@@ -22,7 +22,7 @@ from zoneinfo import ZoneInfo
 from dataclasses import dataclass, field, asdict
 
 
-VALID_SOURCES = {"radar_objects", "radar_data_transits"}
+VALID_SOURCES = {"radar_objects", "radar_data", "radar_data_transits"}
 VALID_UNITS = {"mph", "kph", "mps"}
 
 
@@ -87,7 +87,9 @@ class QueryConfig:
     # API parameters
     group: str = "1h"  # Time grouping (15m, 30m, 1h, 2h, 6h, 12h, 24h, all)
     units: str = "mph"  # Display units (mph, kph)
-    source: str = "radar_data_transits"  # radar_objects or radar_data_transits
+    source: str = (
+        "radar_data_transits"  # radar_objects, radar_data, or radar_data_transits
+    )
     model_version: str = "rebuild-full"  # Transit model version
     min_speed: Optional[float] = 5.0  # Minimum speed filter (default: 5.0)
     site_id: Optional[int] = None  # Optional: site identifier for config-aware queries
