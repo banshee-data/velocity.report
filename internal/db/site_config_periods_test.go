@@ -151,7 +151,7 @@ func TestRadarDataRollupRangeCosineCorrection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to marshal event: %v", err)
 	}
-	if _, err := db.Exec(`INSERT INTO radar_data (raw_event) VALUES (?)`, string(eventJSON)); err != nil {
+	if err := db.RecordRawData(string(eventJSON)); err != nil {
 		t.Fatalf("Failed to insert radar data: %v", err)
 	}
 
