@@ -29,15 +29,12 @@
 		name: '',
 		location: '',
 		description: '',
-		cosine_error_angle: 21.0,
-		speed_limit: 25,
 		surveyor: '',
 		contact: '',
 		address: '',
 		latitude: null as number | null,
 		longitude: null as number | null,
-		site_description: '',
-		speed_limit_note: ''
+		site_description: ''
 	};
 
 	let formErrors: Record<string, string> = {};
@@ -78,15 +75,12 @@
 				name: site.name,
 				location: site.location,
 				description: site.description || '',
-				cosine_error_angle: site.cosine_error_angle,
-				speed_limit: site.speed_limit,
 				surveyor: site.surveyor,
 				contact: site.contact,
 				address: site.address || '',
 				latitude: site.latitude || null,
 				longitude: site.longitude || null,
-				site_description: site.site_description || '',
-				speed_limit_note: site.speed_limit_note || ''
+				site_description: site.site_description || ''
 			};
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load site';
@@ -227,9 +221,6 @@
 		if (!formData.contact.trim()) {
 			formErrors.contact = 'Contact is required';
 		}
-		if (formData.cosine_error_angle === null || formData.cosine_error_angle === undefined) {
-			formErrors.cosine_error_angle = 'Cosine error angle is required';
-		}
 
 		return Object.keys(formErrors).length === 0;
 	}
@@ -246,16 +237,13 @@
 				name: formData.name,
 				location: formData.location,
 				description: formData.description || null,
-				cosine_error_angle: formData.cosine_error_angle,
-				speed_limit: formData.speed_limit,
 				surveyor: formData.surveyor,
 				contact: formData.contact,
 				address: formData.address || null,
 				latitude: formData.latitude,
 				longitude: formData.longitude,
 				include_map: false, // Hardcoded to false
-				site_description: formData.site_description || null,
-				speed_limit_note: formData.speed_limit_note || null
+				site_description: formData.site_description || null
 			};
 
 			if (isNewSite) {
@@ -336,28 +324,6 @@
 					/>
 
 					<TextField bind:value={formData.description} label="Description" />
-				</div>
-			</Card>
-
-			<!-- Radar Configuration -->
-			<Card>
-				<div class="space-y-4 p-6">
-					<h3 class="text-lg font-semibold">Radar Configuration</h3>
-
-					<TextField
-						bind:value={formData.cosine_error_angle}
-						label="Cosine Error Angle (degrees)"
-						type="decimal"
-						required
-						error={formErrors.cosine_error_angle}
-					/>
-
-					<TextField
-						bind:value={formData.speed_limit}
-						label="Speed Limit"
-						type="integer"
-						required
-					/>
 				</div>
 			</Card>
 

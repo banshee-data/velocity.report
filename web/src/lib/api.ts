@@ -294,8 +294,6 @@ export interface Site {
 	name: string;
 	location: string;
 	description?: string | null;
-	cosine_error_angle: number;
-	speed_limit: number;
 	surveyor: string;
 	contact: string;
 	address?: string | null;
@@ -304,7 +302,6 @@ export interface Site {
 	map_angle?: number | null;
 	include_map: boolean;
 	site_description?: string | null;
-	speed_limit_note?: string | null;
 	created_at: string;
 	updated_at: string;
 }
