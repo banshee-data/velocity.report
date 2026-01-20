@@ -1,7 +1,7 @@
 # Feature Specification: Site Configuration with Time-Based Cosine Error Correction
 
-**Status:** Partially Implemented (Backend Complete, Frontend/Reports Pending)  
-**Date:** 2025-11-07  
+**Status:** Partially Implemented (Backend Complete, Frontend/Reports Pending)
+**Date:** 2025-11-07
 **Author:** Ictinus (Product Architecture Agent)
 
 ## Problem Statement
@@ -17,6 +17,7 @@ Users need the ability to:
 ## User Value Proposition
 
 **For community advocates and traffic engineers:**
+
 - Accurate speed measurements despite imperfect sensor positioning
 - Clear audit trail of sensor configuration changes
 - Ability to correct measurement errors discovered after the fact
@@ -28,18 +29,21 @@ Users need the ability to:
 ### Existing Infrastructure
 
 **Database:**
+
 - `site` table already exists with `cosine_error_angle` field (from migration `20251014_create_site_table.sql`)
 - SQLite database with subsecond timestamp precision
 - `radar_data` and `radar_objects` tables store raw measurements
 
 **API:**
+
 - `/api/sites` endpoints for site CRUD operations
 - `/api/radar_stats` for querying speed statistics
 - Unit conversion and timezone handling already implemented
 
 **Reports:**
+
 - PDF generator via Python/LaTeX
-- Statistical summaries (p50, p85, p98)
+- Statistical summaries (P50, P85, P98)
 - Site information included in reports
 
 ### Gaps Identified
@@ -56,12 +60,14 @@ Users need the ability to:
 **Pattern Selected:** Type 6 SCD (Hybrid Temporal Tracking)
 
 **Rationale:**
+
 - Preserves complete history of configuration changes
 - Enables point-in-time queries (join on timestamp)
 - Supports retroactive corrections (compute at read time, not write time)
 - Standard data warehousing pattern with well-understood semantics
 
 **Alternatives Considered:**
+
 - ❌ Type 1 SCD (Overwrite) - Loses history, can't track changes
 - ❌ Type 2 SCD (New Row) - Would require duplicating site data
 - ❌ Separate config history table - More complex joins, less standard pattern
@@ -83,6 +89,7 @@ CREATE TABLE site_config_periods (
 ```
 
 **Key Design Choices:**
+
 - **DOUBLE timestamps** - Subsecond precision matches existing `radar_data.write_timestamp`
 - **Nullable end time** - Open-ended periods support ongoing data collection
 - **is_active flag** - Marks which period applies to new incoming data (only one can be active)
@@ -95,6 +102,7 @@ corrected_speed = measured_speed / cos(angle_in_radians)
 ```
 
 Where:
+
 - `angle_in_radians = cosine_error_angle × (π / 180)`
 - Applied via SQL: `measured_speed / COS(angle * 0.0174533)`
 
@@ -106,17 +114,22 @@ Where:
 
 ### 1. Database Schema (✅ Complete)
 
-**Migration:** `data/migrations/20251107_create_site_config_periods.sql`
+**Migration:** `data/migrations/000009_refactor_site_config.up.sql`
 
-- Created `site_config_periods` table
+- Created `site_variable_config` table for reusable configuration values
+- Created `site_config_periods` table (many-to-one with site_variable_config)
 - Indexes on `(effective_start_unix, effective_end_unix)` for range queries
 - Index on `is_active` for finding current active period
 - Triggers to enforce single active period constraint
-- Default period created for backward compatibility (site_id=1, start=epoch, end=NULL)
+- Migration properly pairs sites with configs using ROW_NUMBER() to avoid ID mismatch
+- Only one period set as active (minimum site ID) to avoid trigger conflicts
+
+**Schema Maintenance:** The `schema.sql` file includes PRAGMA statements for database performance (WAL, synchronous=NORMAL, temp_store=MEMORY, busy_timeout) and uses IF NOT EXISTS clauses for idempotent table/index creation.
 
 **Code:** `internal/db/site_config_period.go`
 
 Functions implemented:
+
 - `CreateSiteConfigPeriod` - Create new period
 - `GetSiteConfigPeriod` - Get by ID
 - `GetActiveSiteConfigPeriod` - Get currently active period (with site details)
@@ -131,6 +144,7 @@ Functions implemented:
 **Tests:** `internal/db/site_config_period_test.go`
 
 Coverage:
+
 - Period CRUD operations
 - Active period enforcement (trigger validation)
 - Multi-period scenarios
@@ -157,6 +171,7 @@ Coverage:
    - Applies correction to `max_speed` and `min_speed`
 
 **Correction Behavior:**
+
 - If no site config period matches timestamp → returns uncorrected speed
 - If site config period matches → applies cosine correction from that period's site
 - Correction computed on-the-fly in SQL (no stored corrected values)
@@ -164,6 +179,7 @@ Coverage:
 **Tests:** `internal/db/cosine_correction_test.go`
 
 Validated:
+
 - 5° angle produces 1.00382x correction factor (25.0 m/s → 25.0955 m/s)
 - Floating point precision within 0.001 m/s tolerance
 - Default period (0.5° from migration) applies to current data
@@ -175,19 +191,20 @@ Validated:
 
 **Endpoints Added:**
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/api/site_config_periods` | List all periods |
-| POST | `/api/site_config_periods` | Create new period |
-| GET | `/api/site_config_periods/{id}` | Get specific period |
-| PUT | `/api/site_config_periods/{id}` | Update period |
-| DELETE | `/api/site_config_periods/{id}` | Delete period |
-| GET | `/api/site_config_periods/active` | Get active period |
-| POST | `/api/site_config_periods/{id}/activate` | Set period as active |
-| POST | `/api/site_config_periods/{id}/close` | Close open period |
-| GET | `/api/timeline?start=X&end=Y` | Get timeline view |
+| Method | Path                                     | Purpose              |
+| ------ | ---------------------------------------- | -------------------- |
+| GET    | `/api/site_config_periods`               | List all periods     |
+| POST   | `/api/site_config_periods`               | Create new period    |
+| GET    | `/api/site_config_periods/{id}`          | Get specific period  |
+| PUT    | `/api/site_config_periods/{id}`          | Update period        |
+| DELETE | `/api/site_config_periods/{id}`          | Delete period        |
+| GET    | `/api/site_config_periods/active`        | Get active period    |
+| POST   | `/api/site_config_periods/{id}/activate` | Set period as active |
+| POST   | `/api/site_config_periods/{id}/close`    | Close open period    |
+| GET    | `/api/timeline?start=X&end=Y`            | Get timeline view    |
 
 **Timeline Endpoint Details:**
+
 - Query parameters: `start` and `end` (unix timestamps)
 - Returns array of time segments with:
   - Time range (`start_unix`, `end_unix`)
@@ -196,6 +213,7 @@ Validated:
   - `unconfigured_period` flag (true if data exists but no config)
 
 **Error Handling:**
+
 - 400 Bad Request for invalid parameters
 - 404 Not Found for missing resources
 - 405 Method Not Allowed for wrong HTTP methods
@@ -207,6 +225,7 @@ Validated:
 **File:** `docs/SITE_CONFIG_COSINE_CORRECTION.md`
 
 Comprehensive guide covering:
+
 - Cosine error explanation and formula
 - Type 6 SCD pattern overview
 - API endpoint examples with curl commands
@@ -216,6 +235,7 @@ Comprehensive guide covering:
 - Migration from legacy systems
 
 **Updated File:** `internal/db/schema.sql`
+
 - Includes site_config_periods table definition
 - Documents the Type 6 SCD pattern in comments
 
@@ -249,11 +269,13 @@ Comprehensive guide covering:
 ### High Priority
 
 #### 1. PDF Report Integration
-**Status:** Not Started  
-**Effort:** Medium (4-6 hours)  
+
+**Status:** Not Started
+**Effort:** Medium (4-6 hours)
 **Risk:** Low
 
 **Requirements:**
+
 - Query `site_config_periods` for the report's time range
 - Display site configuration mapping table in PDF:
   - Time period | Site Name | Cosine Angle | Data Points
@@ -261,38 +283,45 @@ Comprehensive guide covering:
 - Show unconfigured periods as warnings
 
 **Files to Modify:**
+
 - `tools/pdf-generator/pdf_generator/core/api_client.py` - Add endpoint to fetch periods for date range
 - `tools/pdf-generator/pdf_generator/core/table_builders.py` - New table builder for config mapping
 - `tools/pdf-generator/pdf_generator/core/document_builder.py` - Include config table in report
 
 **Acceptance Criteria:**
+
 - PDF includes "Site Configuration Periods" section
 - Table shows all periods overlapping with report date range
 - Multi-configuration reports clearly indicate angle changes
 - Warning shown if unconfigured periods detected
 
 #### 2. Sensor Initialization Validation
-**Status:** Not Started  
-**Effort:** Small (2-3 hours)  
+
+**Status:** Not Started
+**Effort:** Small (2-3 hours)
 **Risk:** Low
 
 **Requirements:**
+
 - Add validation in radar sensor initialization code
 - Verify inbound direction angle = 0°
 - Verify outbound direction angle = 0°
 - Log warnings if angles are non-zero (indicates misconfiguration)
 
 **Files to Modify:**
+
 - `internal/radar/` - Sensor initialization code (need to locate exact file)
 - Add configuration query/parse logic
 - Log validation results
 
 **Acceptance Criteria:**
+
 - Sensor startup logs show angle validation
 - Warnings logged if angles are non-zero
 - Does not prevent sensor operation (warning only)
 
 **Open Questions:**
+
 - Which radar sensor initialization file handles this?
 - What's the command to query sensor angles?
 - Should this be error (prevent startup) or warning?
@@ -300,11 +329,13 @@ Comprehensive guide covering:
 ### Medium Priority
 
 #### 3. Dashboard UI Updates
-**Status:** Not Started  
-**Effort:** Medium-Large (6-8 hours)  
+
+**Status:** Not Started
+**Effort:** Medium-Large (6-8 hours)
 **Risk:** Medium (requires frontend expertise)
 
 **Requirements:**
+
 - Display corrected speeds (already served by API, just need UI update)
 - Show active site configuration in header/status bar
 - Timeline visualization component showing:
@@ -318,12 +349,14 @@ Comprehensive guide covering:
   - Visual feedback for active period
 
 **Files to Modify:**
+
 - `web/src/` - Svelte components (need to identify specific files)
 - New component: `SiteConfigTimeline.svelte`
 - New component: `SiteConfigManager.svelte`
 - Update: Speed display components to show "corrected" label
 
 **Acceptance Criteria:**
+
 - Dashboard shows "(corrected)" next to speed values
 - Active site config visible in UI
 - Timeline view accessible from navigation
@@ -331,6 +364,7 @@ Comprehensive guide covering:
 - Users can manage periods without command line
 
 **Open Questions:**
+
 - Which Svelte components currently display speeds?
 - Where should timeline view be placed in navigation?
 - Should we auto-refresh timeline when new data arrives?
@@ -338,12 +372,14 @@ Comprehensive guide covering:
 ### Low Priority (Future Enhancements)
 
 #### 4. Automated Period Creation
-**Status:** Not Planned  
+
+**Status:** Not Planned
 **Effort:** Large (8-10 hours)
 
 **Idea:** Automatically detect when sensor is adjusted (significant change in data patterns) and prompt user to create a new period.
 
 **Challenges:**
+
 - How to detect sensor adjustment vs. normal traffic variance?
 - Risk of false positives creating unwanted periods
 - May require machine learning or complex heuristics
@@ -351,12 +387,14 @@ Comprehensive guide covering:
 **Recommendation:** Defer until user feedback shows this is needed.
 
 #### 5. Multi-Device Coordination
-**Status:** Not Planned  
+
+**Status:** Not Planned
 **Effort:** Very Large (20+ hours)
 
 **Idea:** Support multiple sensors at one location with different angles, or coordinated measurements across sensors.
 
 **Challenges:**
+
 - Current schema assumes one active period at a time
 - Would need device_id or sensor_id in periods table
 - Increased complexity in queries and UI
@@ -365,17 +403,20 @@ Comprehensive guide covering:
 **Recommendation:** Wait for user request with specific use case.
 
 #### 6. Angle Recommendation System
-**Status:** Not Planned  
+
+**Status:** Not Planned
 **Effort:** Medium (6-8 hours)
 
 **Idea:** Analyze data patterns to suggest optimal cosine angle if user isn't sure of actual angle.
 
 **Approach:**
+
 - Compare speeds at different assumed angles
 - Look for consistency with posted speed limits
 - Use statistics to infer likely angle
 
 **Challenges:**
+
 - May not be accurate without ground truth
 - Requires sophisticated statistical analysis
 - Could mislead users if algorithm is wrong
@@ -385,11 +426,13 @@ Comprehensive guide covering:
 ## Dependencies and Integration Points
 
 ### Upstream Dependencies
+
 - SQLite 3.x with COS() function support ✅ (available in all modern versions)
 - Go 1.21+ ✅ (already required)
 - Existing `site` table ✅ (created in migration 20251014)
 
 ### Downstream Impacts
+
 - **API Clients:** New endpoints available, backward compatible (existing endpoints unchanged)
 - **PDF Generator:** Will need updates to consume new endpoints (not breaking)
 - **Dashboard:** Will need updates to display corrected values (not breaking)
@@ -398,22 +441,26 @@ Comprehensive guide covering:
 ## Testing Strategy
 
 ### Unit Tests (✅ Complete)
+
 - Database operations: `site_config_period_test.go`
 - Cosine correction: `cosine_correction_test.go`
 - All existing tests pass (regression suite)
 
 ### Integration Tests (⚠️ Partial)
+
 - API endpoints compile and build ✅
 - End-to-end API tests not yet written
 - PDF generation with config periods not tested
 
 ### Manual Testing (❌ Not Started)
+
 - Deploy to test Raspberry Pi
 - Collect data with multiple config periods
 - Generate PDF report spanning multiple periods
 - Verify timeline view in dashboard
 
 ### Performance Testing (❌ Not Started)
+
 - Query performance with large datasets (millions of records)
 - Impact of LEFT JOIN on radar stats queries
 - Index effectiveness for time-range queries
@@ -421,21 +468,25 @@ Comprehensive guide covering:
 ## Migration and Deployment
 
 ### Database Migration
+
 **File:** `data/migrations/20251107_create_site_config_periods.sql`
 
 **Applied:** Automatically on startup (Go server runs migrations)
 
 **Backward Compatibility:**
+
 - Default period created (site_id=1, effective_start=0, is_active=1)
 - Ensures all existing data gets corrected with default site's angle (0.5°)
 - Users can adjust default period or create new ones as needed
 
 ### API Deployment
+
 **Impact:** Additive only (new endpoints, existing endpoints unchanged)
 
 **Rollback:** Safe to revert commits, old API continues working
 
 ### User Migration Path
+
 1. System deploys with default period covering all historical data
 2. User measures actual sensor angle
 3. User creates appropriate site config period(s)
@@ -444,12 +495,14 @@ Comprehensive guide covering:
 ## Security and Privacy
 
 ### Security Considerations
+
 - **Input Validation:** All API endpoints validate timestamps, IDs, required fields ✅
 - **SQL Injection:** Using parameterized queries throughout ✅
 - **Access Control:** No authentication (relies on network security, same as existing API)
 - **Path Traversal:** Not applicable (no file operations in these endpoints)
 
 ### Privacy Considerations
+
 - **No New PII:** Site config contains location names but no vehicle/person data ✅
 - **Audit Trail:** Configuration changes are logged but not attributed to users
 - **Data Exposure:** Timeline endpoint reveals when data was collected (already exposed via radar_stats)
@@ -457,18 +510,21 @@ Comprehensive guide covering:
 ## Success Metrics
 
 ### Quantitative Metrics
+
 - [ ] Time to create new site config period < 30 seconds (manual API call)
 - [ ] Query performance degradation < 5% (due to LEFT JOIN)
 - [ ] Test coverage > 80% for new code ✅ (achieved)
 - [ ] Zero data loss during migration ✅ (backward compatible)
 
 ### Qualitative Metrics
+
 - [ ] Users can explain Type 6 SCD pattern after reading docs
 - [ ] Users can identify unconfigured periods in timeline view
 - [ ] Users trust corrected speeds more than raw speeds
 - [ ] Support requests about "wrong speeds" decrease
 
 ### Adoption Metrics
+
 - [ ] % of deployments with >1 site config period
 - [ ] Average number of periods per deployment
 - [ ] % of reports spanning multiple config periods
@@ -476,6 +532,7 @@ Comprehensive guide covering:
 ## Open Questions and Decisions Needed
 
 ### Technical Questions
+
 1. **Should sensor initialization fail or warn on non-zero angles?**
    - Recommendation: Warn only (allow operation to continue)
    - Rationale: Sensor may have legitimate directional configuration
@@ -489,6 +546,7 @@ Comprehensive guide covering:
    - Rationale: Premature optimization, not a hot path
 
 ### Product Questions
+
 1. **Should dashboard auto-highlight unconfigured periods on startup?**
    - Need UX input: Modal popup? Notification banner?
    - Consider: Could be annoying if intentional gaps exist
@@ -503,18 +561,19 @@ Comprehensive guide covering:
 
 ## Risks and Mitigations
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| Users measure angle incorrectly | High | Medium | Provide measurement guide in docs ✅ |
-| Queries slow down with many periods | Low | Medium | Monitor performance, add indexes if needed |
-| Users confused by Type 6 SCD pattern | Medium | Low | Comprehensive documentation ✅ |
-| Unconfigured periods go unnoticed | Medium | High | Timeline view highlights gaps ✅ |
-| Multiple active periods due to race condition | Low | Medium | Database triggers enforce constraint ✅ |
-| PDF reports fail with multiple periods | Medium | Medium | Test thoroughly before release |
+| Risk                                          | Likelihood | Impact | Mitigation                                 |
+| --------------------------------------------- | ---------- | ------ | ------------------------------------------ |
+| Users measure angle incorrectly               | High       | Medium | Provide measurement guide in docs ✅       |
+| Queries slow down with many periods           | Low        | Medium | Monitor performance, add indexes if needed |
+| Users confused by Type 6 SCD pattern          | Medium     | Low    | Comprehensive documentation ✅             |
+| Unconfigured periods go unnoticed             | Medium     | High   | Timeline view highlights gaps ✅           |
+| Multiple active periods due to race condition | Low        | Medium | Database triggers enforce constraint ✅    |
+| PDF reports fail with multiple periods        | Medium     | Medium | Test thoroughly before release             |
 
 ## Next Steps
 
 ### Immediate (This PR)
+
 1. ✅ Complete backend implementation
 2. ✅ Write comprehensive documentation
 3. ✅ Add unit tests
@@ -522,18 +581,21 @@ Comprehensive guide covering:
 5. ⏳ **Get feedback on assumptions**
 
 ### Short Term (Next PR)
+
 1. Implement PDF report integration
 2. Add sensor initialization validation
 3. Write integration tests for API endpoints
 4. Manual testing on Raspberry Pi
 
 ### Medium Term (Following PRs)
+
 1. Dashboard UI updates
 2. Timeline visualization component
 3. Site config management UI
 4. Performance testing with large datasets
 
 ### Long Term (Future Consideration)
+
 1. Automated period creation (if requested)
 2. Multi-device support (if needed)
 3. Angle recommendation system (if validated)
@@ -547,6 +609,6 @@ Comprehensive guide covering:
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** 2025-11-07  
+**Document Version:** 1.0
+**Last Updated:** 2025-11-07
 **Next Review:** After user feedback on implementation approach
