@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"database/sql"
 	"fmt"
+	"log"
 	"math"
 	"time"
 )
@@ -64,6 +65,24 @@ func (w *TransitWorker) RunOnce(ctx context.Context) error {
 
 	return w.RunRange(ctx, start, end)
 
+}
+
+// RunFullHistory scans the full available radar_data range and upserts transits.
+func (w *TransitWorker) RunFullHistory(ctx context.Context) error {
+	var start sql.NullFloat64
+	var end sql.NullFloat64
+	if err := w.DB.QueryRowContext(ctx, `SELECT MIN(write_timestamp), MAX(write_timestamp) FROM radar_data`).Scan(&start, &end); err != nil {
+		return err
+	}
+	if !start.Valid || !end.Valid {
+		log.Printf("Transit worker full-history run skipped (no radar data)")
+		return nil
+	}
+	if start.Float64 >= end.Float64 {
+		log.Printf("Transit worker full-history run skipped (invalid range): start=%v end=%v", start.Float64, end.Float64)
+		return nil
+	}
+	return w.RunRange(ctx, start.Float64, end.Float64)
 }
 
 // RunRange scans the provided [start,end] (unix seconds as float64) and upserts transits.
