@@ -52,6 +52,10 @@
       "source.organizeImports": "always"
     }
   },
+  // JavaScript tests (Jest)
+  "jest.rootPath": ".",
+  "jest.jestCommandLine": "pnpm --filter ./web test",
+  "jest.runMode": "on-demand",
   // JavaScript/TypeScript settings
   "[javascript]": {
     "editor.formatOnSave": true,
