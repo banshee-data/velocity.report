@@ -302,10 +302,10 @@ velocity-report --migrate-transits-from hourly-cron --migrate-transits-to rebuil
 ## Implementation Priority
 
 1. ✅ **COMPLETED**: Fix model_version default to "hourly-cron" (already done)
-2. 🔴 **HIGH**: Implement delete-before-insert in `RunRange()` (Phase 1)
-3. 🟡 **MEDIUM**: Add CLI command for manual cleanup (Phase 3)
-4. 🟢 **LOW**: Add model version migration support (Phase 2)
-5. 🟢 **LOW**: Add overlap analysis function (Phase 4)
+2. ✅ **COMPLETED**: Implement delete-before-insert in `RunRange()` (Phase 1)
+3. ✅ **COMPLETED**: Add CLI command for manual cleanup (Phase 3)
+4. ✅ **COMPLETED**: Add model version migration support (Phase 2)
+5. ✅ **COMPLETED**: Add overlap analysis function (Phase 4)
 
 ## Summary
 
