@@ -705,7 +705,7 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 	case "radar_data_transits":
 		// radar_data_transits stores transit_start_unix and transit_max_speed
 		if modelVersion == "" {
-			modelVersion = "rebuild-full"
+			modelVersion = "hourly-cron"
 		}
 		rows, err = db.Query(`SELECT transit_start_unix, transit_max_speed FROM radar_data_transits WHERE model_version = ? AND transit_max_speed > ? AND transit_start_unix BETWEEN ? AND ?`, modelVersion, minSpeed, startUnix, endUnix)
 	default:

@@ -293,7 +293,7 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 	if dataSource == "radar_data_transits" {
 		modelVersion = r.URL.Query().Get("model_version")
 		if modelVersion == "" {
-			modelVersion = "rebuild-full"
+			modelVersion = "hourly-cron"
 		}
 	}
 
