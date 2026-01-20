@@ -364,7 +364,9 @@ def generate_pdf_report(
     if config_periods is not None:
         doc.append(NoEscape("\\subsection*{Site Configuration}"))
         if config_periods:
-            doc.append(create_param_table(_format_site_config_periods(config_periods, tz_name)))
+            doc.append(
+                create_param_table(_format_site_config_periods(config_periods, tz_name))
+            )
             if cosine_correction_note:
                 doc.append(NoEscape("\\par"))
                 doc.append(NoEscape(escape_latex(cosine_correction_note)))
@@ -502,7 +504,6 @@ def generate_pdf_report(
             units,
             table_title,
         )
-
 
     # Switch back to single column for full-width charts
     doc.append(NoEscape("\\onecolumn"))

@@ -216,9 +216,7 @@ export async function listSiteConfigPeriods(siteId: number): Promise<SiteConfigP
 	return res.json();
 }
 
-export async function upsertSiteConfigPeriod(
-	period: SiteConfigPeriod
-): Promise<SiteConfigPeriod> {
+export async function upsertSiteConfigPeriod(period: SiteConfigPeriod): Promise<SiteConfigPeriod> {
 	const res = await fetch(`${API_BASE}/site_config_periods`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },

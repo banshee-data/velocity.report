@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
 )
@@ -35,10 +36,11 @@ func TestShowRadarObjectStats_CosineCorrection(t *testing.T) {
 		t.Fatalf("UpdateSiteConfigPeriod failed: %v", err)
 	}
 
+	now := time.Now().Unix()
 	event := map[string]interface{}{
 		"classifier":      "all",
-		"start_time":      float64(active.EffectiveStartUnix + 1),
-		"end_time":        float64(active.EffectiveStartUnix + 2),
+		"start_time":      float64(now),
+		"end_time":        float64(now + 1),
 		"delta_time_msec": 100,
 		"max_speed_mps":   10.0,
 		"min_speed_mps":   10.0,
@@ -54,8 +56,8 @@ func TestShowRadarObjectStats_CosineCorrection(t *testing.T) {
 		t.Fatalf("RecordRadarObject failed: %v", err)
 	}
 
-	startValue := int64(active.EffectiveStartUnix + 1)
-	endValue := int64(active.EffectiveStartUnix + 10)
+	startValue := now - 5
+	endValue := now + 5
 	start := strconv.FormatInt(startValue, 10)
 	end := strconv.FormatInt(endValue, 10)
 	req := httptest.NewRequest(
@@ -82,7 +84,7 @@ func TestShowRadarObjectStats_CosineCorrection(t *testing.T) {
 	}
 	metric := metrics[0].(map[string]interface{})
 	corrected := metric["MaxSpeed"].(float64)
-	expected := 10.0 / math.Cos(math.Radians(60.0))
+	expected := 10.0 / math.Cos(60.0*math.Pi/180.0)
 	if math.Abs(corrected-expected) > 0.01 {
 		t.Fatalf("Expected corrected max speed %.2f, got %.2f", expected, corrected)
 	}

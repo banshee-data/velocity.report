@@ -159,6 +159,9 @@
 		if (!startUnix) {
 			periodFormErrors.start = 'Start time is required';
 		}
+		if (startUnix === 0 && !periodForm.id) {
+			periodFormErrors.start = 'Start time must be after the initial configuration';
+		}
 		if (periodForm.end && !endUnix) {
 			periodFormErrors.end = 'End time must be a valid date';
 		}
@@ -184,6 +187,9 @@
 			const angleValue = Number(periodForm.angle);
 			if (!startUnix) {
 				throw new Error('Start time is required');
+			}
+			if (startUnix === 0 && !periodForm.id) {
+				throw new Error('Start time must be after the initial configuration');
 			}
 			if (Number.isNaN(angleValue)) {
 				throw new Error('Cosine error angle must be a number');
@@ -424,7 +430,8 @@
 							<TextField
 								bind:value={periodForm.angle}
 								label="Cosine Error Angle (degrees)"
-								type="decimal"
+								type="number"
+								step="0.1"
 								required
 								error={periodFormErrors.angle}
 							/>

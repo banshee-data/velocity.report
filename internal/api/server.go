@@ -154,7 +154,7 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/api/config", s.showConfig)
 	s.mux.HandleFunc("/api/generate_report", s.generateReport)
 	s.mux.HandleFunc("/api/sites", s.handleSites)
-	s.mux.HandleFunc("/api/sites/", s.handleSites)                 // Note trailing slash to match /api/sites and /api/sites/*
+	s.mux.HandleFunc("/api/sites/", s.handleSites) // Note trailing slash to match /api/sites and /api/sites/*
 	s.mux.HandleFunc("/api/site_config_periods", s.handleSiteConfigPeriods)
 	s.mux.HandleFunc("/api/timeline", s.handleTimeline)
 	s.mux.HandleFunc("/api/reports/", s.handleReports)             // Report management endpoints

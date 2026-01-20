@@ -14,16 +14,20 @@ import {
 	getReportsForSite,
 	getSite,
 	getSites,
+	getTimeline,
 	getTrackById,
 	getTrackHistory,
 	getTrackObservations,
 	getTrackSummary,
 	getTransitWorkerState,
+	listSiteConfigPeriods,
 	updateSite,
 	updateTransitWorker,
+	upsertSiteConfigPeriod,
 	type Config,
 	type Event,
 	type Site,
+	type SiteConfigPeriod,
 	type SiteReport,
 	type TransitWorkerState,
 	type TransitWorkerUpdateResponse
@@ -292,6 +296,85 @@ describe('api', () => {
 			});
 
 			await expect(getSites()).rejects.toThrow('Failed to fetch sites: 500');
+		});
+	});
+
+	describe('site config periods', () => {
+		it('should list site config periods', async () => {
+			const mockPeriods: SiteConfigPeriod[] = [
+				{
+					id: 1,
+					site_id: 42,
+					effective_start_unix: 0,
+					effective_end_unix: null,
+					is_active: true,
+					notes: 'Initial',
+					cosine_error_angle: 10
+				}
+			];
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockPeriods
+			});
+
+			const result = await listSiteConfigPeriods(42);
+
+			expect(global.fetch).toHaveBeenCalled();
+			const callUrl = (global.fetch as jest.Mock).mock.calls[0][0].toString();
+			expect(callUrl).toContain('/api/site_config_periods');
+			expect(callUrl).toContain('site_id=42');
+			expect(result).toEqual(mockPeriods);
+		});
+
+		it('should create or update site config period', async () => {
+			const mockPeriod: SiteConfigPeriod = {
+				site_id: 7,
+				effective_start_unix: 1000,
+				effective_end_unix: null,
+				is_active: true,
+				notes: null,
+				cosine_error_angle: 12
+			};
+			const response = { ...mockPeriod, id: 99 };
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => response
+			});
+
+			const result = await upsertSiteConfigPeriod(mockPeriod);
+
+			expect(global.fetch).toHaveBeenCalledWith(
+				'/api/site_config_periods',
+				expect.objectContaining({
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(mockPeriod)
+				})
+			);
+			expect(result).toEqual(response);
+		});
+
+		it('should fetch timeline', async () => {
+			const mockTimeline = {
+				site_id: 5,
+				data_range: { start_unix: 100, end_unix: 200 },
+				config_periods: [],
+				unconfigured_periods: []
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockTimeline
+			});
+
+			const result = await getTimeline(5);
+
+			const callUrl = (global.fetch as jest.Mock).mock.calls[0][0].toString();
+			expect(callUrl).toContain('/api/timeline');
+			expect(callUrl).toContain('site_id=5');
+			expect(result).toEqual(mockTimeline);
 		});
 	});
 

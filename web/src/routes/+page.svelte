@@ -102,7 +102,7 @@
 
 	$: cosineCorrectionLabel =
 		cosineCorrectionAngles.length > 0
-			? `${cosineCorrectionAngles.join('°, ')}°`
+			? cosineCorrectionAngles.map((angle) => `${angle}°`).join(', ')
 			: '';
 
 	$: if (initialized && browser && dateRange.from && dateRange.to) {

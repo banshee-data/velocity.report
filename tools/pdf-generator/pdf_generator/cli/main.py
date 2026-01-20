@@ -380,12 +380,19 @@ def fetch_site_config_periods(
         periods, _ = client.get_site_config_periods(site_id)
     except Exception as exc:
         message = _format_api_error(
-            "Fetching site configuration periods", f"{client.base_url}/api/site_config_periods", exc
+            "Fetching site configuration periods",
+            f"{client.base_url}/api/site_config_periods",
+            exc,
         )
         _print_error(message)
         return []
 
-    def overlaps(period_start: float, period_end: Optional[float], range_start: int, range_end: int) -> bool:
+    def overlaps(
+        period_start: float,
+        period_end: Optional[float],
+        range_start: int,
+        range_end: int,
+    ) -> bool:
         end_value = period_end if period_end is not None else float("inf")
         return period_start < range_end and end_value > range_start
 

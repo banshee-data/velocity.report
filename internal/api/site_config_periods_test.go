@@ -183,7 +183,3 @@ func TestHandleTimeline(t *testing.T) {
 		t.Fatalf("Expected config_periods in response")
 	}
 }
-
-func floatPtr(value float64) *float64 {
-	return &value
-}

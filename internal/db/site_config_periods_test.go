@@ -82,18 +82,18 @@ func TestRadarObjectRollupRangeCosineCorrection(t *testing.T) {
 
 	now := time.Now().Unix()
 	event := map[string]interface{}{
-		"classifier":       "all",
-		"start_time":       float64(now),
-		"end_time":         float64(now + 1),
-		"delta_time_msec":  100,
-		"max_speed_mps":    10.0,
-		"min_speed_mps":    10.0,
-		"speed_change":     0.0,
-		"max_magnitude":    10,
-		"avg_magnitude":    10,
-		"total_frames":     1,
-		"frames_per_mps":   1.0,
-		"length_m":         1.0,
+		"classifier":      "all",
+		"start_time":      float64(now),
+		"end_time":        float64(now + 1),
+		"delta_time_msec": 100,
+		"max_speed_mps":   10.0,
+		"min_speed_mps":   10.0,
+		"speed_change":    0.0,
+		"max_magnitude":   10,
+		"avg_magnitude":   10,
+		"total_frames":    1,
+		"frames_per_mps":  1.0,
+		"length_m":        1.0,
 	}
 	eventJSON, err := json.Marshal(event)
 	if err != nil {
@@ -111,7 +111,7 @@ func TestRadarObjectRollupRangeCosineCorrection(t *testing.T) {
 		t.Fatalf("Expected metrics data, got none")
 	}
 
-	expected := 10.0 / math.Cos(math.Radians(60.0))
+	expected := 10.0 / math.Cos(60.0*math.Pi/180.0)
 	if math.Abs(result.Metrics[0].MaxSpeed-expected) > 0.01 {
 		t.Errorf("Expected corrected speed %.2f, got %.2f", expected, result.Metrics[0].MaxSpeed)
 	}
