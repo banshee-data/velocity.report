@@ -87,13 +87,11 @@ CREATE INDEX idx_transit_links_transit ON radar_transit_links (transit_id);
 
 CREATE INDEX idx_transit_links_data ON radar_transit_links (data_rowid);
 
-   CREATE TABLE site (
+   CREATE TABLE IF NOT EXISTS "site" (
           id INTEGER PRIMARY KEY AUTOINCREMENT
         , name TEXT NOT NULL UNIQUE
         , location TEXT NOT NULL
         , description TEXT
-        , cosine_error_angle REAL NOT NULL
-        , speed_limit INTEGER DEFAULT 25
         , surveyor TEXT NOT NULL
         , contact TEXT NOT NULL
         , address TEXT
@@ -102,7 +100,6 @@ CREATE INDEX idx_transit_links_data ON radar_transit_links (data_rowid);
         , map_angle REAL
         , include_map INTEGER DEFAULT 0
         , site_description TEXT
-        , speed_limit_note TEXT
         , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
         , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
           );
@@ -131,28 +128,28 @@ END;
           );
 
 CREATE INDEX idx_site_config_periods_site_id ON site_config_periods (site_id);
-CREATE INDEX idx_site_config_periods_effective ON site_config_periods (site_id, effective_start_unix, effective_end_unix);
-CREATE INDEX idx_site_config_periods_active ON site_config_periods (site_id, is_active) WHERE is_active = 1;
 
-CREATE TRIGGER ensure_single_active_period_insert
-BEFORE INSERT ON site_config_periods
-WHEN NEW.is_active = 1
-BEGIN
-UPDATE site_config_periods
-   SET is_active = 0
- WHERE site_id = NEW.site_id
-   AND is_active = 1;
+CREATE INDEX idx_site_config_periods_effective ON site_config_periods (site_id, effective_start_unix, effective_end_unix);
+
+CREATE INDEX idx_site_config_periods_active ON site_config_periods (site_id, is_active)
+    WHERE is_active = 1;
+
+CREATE TRIGGER ensure_single_active_period_insert BEFORE INSERT ON site_config_periods WHEN NEW.is_active = 1 BEGIN
+   UPDATE site_config_periods
+      SET is_active = 0
+    WHERE site_id = NEW.site_id
+      AND is_active = 1;
+
 END;
 
-CREATE TRIGGER ensure_single_active_period_update
-BEFORE UPDATE OF is_active ON site_config_periods
-WHEN NEW.is_active = 1
-BEGIN
-UPDATE site_config_periods
-   SET is_active = 0
- WHERE site_id = NEW.site_id
-   AND is_active = 1
-   AND id != NEW.id;
+CREATE TRIGGER ensure_single_active_period_update BEFORE
+   UPDATE OF is_active ON site_config_periods WHEN NEW.is_active = 1 BEGIN
+   UPDATE site_config_periods
+      SET is_active = 0
+    WHERE site_id = NEW.site_id
+      AND is_active = 1
+      AND id != NEW.id;
+
 END;
 
 CREATE TRIGGER update_site_config_periods_timestamp AFTER
