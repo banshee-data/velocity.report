@@ -59,6 +59,7 @@ type TransitController interface {
 	IsEnabled() bool
 	SetEnabled(enabled bool)
 	TriggerManualRun()
+	TriggerFullHistoryRun()
 	GetStatus() db.TransitStatus
 }
 
@@ -292,7 +293,7 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 	if dataSource == "radar_data_transits" {
 		modelVersion = r.URL.Query().Get("model_version")
 		if modelVersion == "" {
-			modelVersion = "rebuild-full"
+			modelVersion = "hourly-cron"
 		}
 	}
 
@@ -1218,8 +1219,9 @@ func (s *Server) handleDatabaseStats(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleTransitWorker provides API endpoints for controlling the transit worker.
-// GET: returns current state { enabled: bool }
+// GET: returns current state, including current and last run details.
 // POST: with { enabled: bool } to update state, optionally { trigger: true } for manual run
+// and { trigger_full_history: true } for a full-history run.
 func (s *Server) handleTransitWorker(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -1240,8 +1242,9 @@ func (s *Server) handleTransitWorker(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost:
 		// Update state or trigger manual run
 		var req struct {
-			Enabled *bool `json:"enabled"`
-			Trigger bool  `json:"trigger"`
+			Enabled            *bool `json:"enabled"`
+			Trigger            bool  `json:"trigger"`
+			TriggerFullHistory bool  `json:"trigger_full_history"`
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -1263,6 +1266,12 @@ func (s *Server) handleTransitWorker(w http.ResponseWriter, r *http.Request) {
 		if req.Trigger {
 			s.transitController.TriggerManualRun()
 			log.Printf("Transit worker manual run triggered via API")
+		}
+
+		// Trigger full-history run if requested
+		if req.TriggerFullHistory {
+			s.transitController.TriggerFullHistoryRun()
+			log.Printf("Transit worker full-history run triggered via API")
 		}
 
 		// Return updated status

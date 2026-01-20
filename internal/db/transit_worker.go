@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"database/sql"
 	"fmt"
+	"log"
 	"math"
 	"time"
 )
@@ -66,6 +67,24 @@ func (w *TransitWorker) RunOnce(ctx context.Context) error {
 
 }
 
+// RunFullHistory scans the full available radar_data range and upserts transits.
+func (w *TransitWorker) RunFullHistory(ctx context.Context) error {
+	var start sql.NullFloat64
+	var end sql.NullFloat64
+	if err := w.DB.QueryRowContext(ctx, `SELECT MIN(write_timestamp), MAX(write_timestamp) FROM radar_data`).Scan(&start, &end); err != nil {
+		return err
+	}
+	if !start.Valid || !end.Valid {
+		log.Printf("Transit worker full-history run skipped (no radar data)")
+		return nil
+	}
+	if start.Float64 >= end.Float64 {
+		log.Printf("Transit worker full-history run skipped (invalid range): start=%v end=%v", start.Float64, end.Float64)
+		return nil
+	}
+	return w.RunRange(ctx, start.Float64, end.Float64)
+}
+
 // RunRange scans the provided [start,end] (unix seconds as float64) and upserts transits.
 func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error {
 	// We'll perform individual-record clustering in Go to allow
@@ -75,6 +94,37 @@ func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error 
 		return err
 	}
 	defer tx.Rollback()
+
+	// Delete overlapping transits with the same model_version before inserting.
+	// This handles hourly re-runs and window overlaps, preventing duplicates.
+	// We delete transits that:
+	// 1. Start within the processing range, OR
+	// 2. End within the processing range, OR
+	// 3. Span the entire processing range
+	deleteQuery := `
+		DELETE FROM radar_data_transits
+		WHERE model_version = ?
+		  AND (
+			  (transit_start_unix BETWEEN ? AND ?)
+			  OR (transit_end_unix BETWEEN ? AND ?)
+			  OR (transit_start_unix <= ? AND transit_end_unix >= ?)
+		  )
+	`
+	result, err := tx.ExecContext(ctx, deleteQuery,
+		w.ModelVersion,
+		start, end, // transit starts in range
+		start, end, // transit ends in range
+		start, end, // transit spans entire range
+	)
+	if err != nil {
+		return fmt.Errorf("failed to delete overlapping transits: %w", err)
+	}
+
+	deleted, _ := result.RowsAffected()
+	if deleted > 0 {
+		log.Printf("Transit worker: deleted %d overlapping %s transits in range [%v, %v]",
+			deleted, w.ModelVersion, start, end)
+	}
 
 	// Query individual radar_data rows in the window (no per-second rollup)
 	q := `
@@ -324,4 +374,125 @@ func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error 
 	}
 
 	return nil
+}
+
+// MigrateModelVersion replaces all transits from oldVersion with the worker's
+// current ModelVersion by deleting old transits and re-running over full history.
+func (w *TransitWorker) MigrateModelVersion(ctx context.Context, oldVersion string) error {
+	if oldVersion == w.ModelVersion {
+		return fmt.Errorf("old and new model versions must differ (both are %q)", oldVersion)
+	}
+
+	log.Printf("Transit worker: migrating from %s to %s", oldVersion, w.ModelVersion)
+
+	// Delete all old version transits
+	result, err := w.DB.ExecContext(ctx,
+		`DELETE FROM radar_data_transits WHERE model_version = ?`,
+		oldVersion,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to delete old version transits: %w", err)
+	}
+
+	deleted, _ := result.RowsAffected()
+	log.Printf("Transit worker: deleted %d %s transits", deleted, oldVersion)
+
+	// Re-run over full history with new version
+	return w.RunFullHistory(ctx)
+}
+
+// DeleteAllTransits removes all transits for a given model version.
+func (w *TransitWorker) DeleteAllTransits(ctx context.Context, modelVersion string) (int64, error) {
+	result, err := w.DB.ExecContext(ctx,
+		`DELETE FROM radar_data_transits WHERE model_version = ?`,
+		modelVersion,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete transits: %w", err)
+	}
+	return result.RowsAffected()
+}
+
+// TransitOverlapStats contains statistics about overlapping transits.
+type TransitOverlapStats struct {
+	TotalTransits      int64
+	ModelVersionCounts map[string]int64
+	Overlaps           []TransitOverlap
+}
+
+// TransitOverlap represents a pair of overlapping transits with different model versions.
+type TransitOverlap struct {
+	ModelVersion1 string
+	ModelVersion2 string
+	OverlapCount  int64
+}
+
+// AnalyseTransitOverlaps returns statistics about overlapping transits across model versions.
+func (db *DB) AnalyseTransitOverlaps(ctx context.Context) (*TransitOverlapStats, error) {
+	stats := &TransitOverlapStats{
+		ModelVersionCounts: make(map[string]int64),
+	}
+
+	// Get total count
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM radar_data_transits`).Scan(&stats.TotalTransits); err != nil {
+		return nil, fmt.Errorf("failed to count transits: %w", err)
+	}
+
+	// Get counts per model version
+	rows, err := db.QueryContext(ctx, `SELECT model_version, COUNT(*) FROM radar_data_transits GROUP BY model_version`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count by model version: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var mv sql.NullString
+		var count int64
+		if err := rows.Scan(&mv, &count); err != nil {
+			return nil, err
+		}
+		key := "(null)"
+		if mv.Valid {
+			key = mv.String
+		}
+		stats.ModelVersionCounts[key] = count
+	}
+
+	// Find overlapping transits between different model versions
+	overlapQuery := `
+		WITH overlaps AS (
+			SELECT
+				t1.model_version as mv1,
+				t2.model_version as mv2
+			FROM radar_data_transits t1
+			JOIN radar_data_transits t2
+				ON t1.transit_id < t2.transit_id
+				AND COALESCE(t1.model_version, '') != COALESCE(t2.model_version, '')
+				AND (
+					(t1.transit_start_unix BETWEEN t2.transit_start_unix AND t2.transit_end_unix)
+					OR (t1.transit_end_unix BETWEEN t2.transit_start_unix AND t2.transit_end_unix)
+					OR (t1.transit_start_unix <= t2.transit_start_unix
+						AND t1.transit_end_unix >= t2.transit_end_unix)
+				)
+		)
+		SELECT COALESCE(mv1, '(null)'), COALESCE(mv2, '(null)'), COUNT(*)
+		FROM overlaps
+		GROUP BY mv1, mv2
+	`
+
+	overlapRows, err := db.QueryContext(ctx, overlapQuery)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find overlaps: %w", err)
+	}
+	defer overlapRows.Close()
+
+	for overlapRows.Next() {
+		var o TransitOverlap
+		if err := overlapRows.Scan(&o.ModelVersion1, &o.ModelVersion2, &o.OverlapCount); err != nil {
+			return nil, err
+		}
+		stats.Overlaps = append(stats.Overlaps, o)
+	}
+
+	return stats, nil
 }

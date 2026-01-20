@@ -303,17 +303,28 @@ export async function deleteSite(id: number): Promise<void> {
 }
 
 // Transit Worker API
+export interface TransitRunInfo {
+	trigger?: string;
+	started_at: string;
+	finished_at?: string;
+	duration_ms?: number;
+	error?: string;
+}
+
 export interface TransitWorkerState {
 	enabled: boolean;
 	last_run_at: string;
 	last_run_error?: string;
 	run_count: number;
 	is_healthy: boolean;
+	current_run?: TransitRunInfo | null;
+	last_run?: TransitRunInfo | null;
 }
 
 export interface TransitWorkerUpdateRequest {
 	enabled?: boolean;
 	trigger?: boolean;
+	trigger_full_history?: boolean;
 }
 
 export interface TransitWorkerUpdateResponse {
@@ -322,6 +333,8 @@ export interface TransitWorkerUpdateResponse {
 	last_run_error?: string;
 	run_count: number;
 	is_healthy: boolean;
+	current_run?: TransitRunInfo | null;
+	last_run?: TransitRunInfo | null;
 }
 
 export async function getTransitWorkerState(): Promise<TransitWorkerState> {

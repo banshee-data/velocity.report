@@ -751,12 +751,13 @@ func floatPtr(f float64) *float64 {
 
 // Mock TransitController for testing
 type mockTransitController struct {
-	enabled       bool
-	lastRunAt     string
-	lastRunError  string
-	runCount      int64
-	isHealthy     bool
-	triggerCalled bool
+	enabled           bool
+	lastRunAt         string
+	lastRunError      string
+	runCount          int64
+	isHealthy         bool
+	triggerCalled     bool
+	fullHistoryCalled bool
 }
 
 func (m *mockTransitController) IsEnabled() bool {
@@ -769,6 +770,10 @@ func (m *mockTransitController) SetEnabled(enabled bool) {
 
 func (m *mockTransitController) TriggerManualRun() {
 	m.triggerCalled = true
+}
+
+func (m *mockTransitController) TriggerFullHistoryRun() {
+	m.fullHistoryCalled = true
 }
 
 func (m *mockTransitController) GetStatus() db.TransitStatus {
@@ -930,6 +935,37 @@ func TestHandleTransitWorker_Post_Trigger(t *testing.T) {
 
 	if !mockTC.triggerCalled {
 		t.Errorf("Expected TriggerManualRun to be called")
+	}
+}
+
+// TestHandleTransitWorker_Post_FullHistoryTrigger tests POST with trigger_full_history=true
+func TestHandleTransitWorker_Post_FullHistoryTrigger(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	mockTC := &mockTransitController{
+		enabled:           true,
+		runCount:          5,
+		isHealthy:         true,
+		fullHistoryCalled: false,
+		triggerCalled:     false,
+	}
+	server.SetTransitController(mockTC)
+
+	reqBody := map[string]interface{}{"trigger_full_history": true}
+	bodyBytes, _ := json.Marshal(reqBody)
+	req := httptest.NewRequest(http.MethodPost, "/api/transit_worker", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	server.handleTransitWorker(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	if !mockTC.fullHistoryCalled {
+		t.Errorf("Expected TriggerFullHistoryRun to be called")
 	}
 }
 

@@ -841,6 +841,16 @@ describe('api', () => {
 			const mockState: TransitWorkerState = {
 				enabled: true,
 				last_run_at: '2024-01-01T12:00:00Z',
+				current_run: {
+					started_at: '2024-01-01T12:30:00Z',
+					trigger: 'manual'
+				},
+				last_run: {
+					started_at: '2024-01-01T12:00:00Z',
+					finished_at: '2024-01-01T12:01:00Z',
+					duration_ms: 60000,
+					trigger: 'periodic'
+				},
 				run_count: 5,
 				is_healthy: true
 			};
@@ -1017,6 +1027,33 @@ describe('api', () => {
 				expect(callUrl).toContain('/api/lidar/tracks/active');
 				expect(callUrl).toContain('sensor_id=hesai-pandar40p');
 				expect(callUrl).not.toContain('state=');
+				expect(result).toEqual(mockResponse);
+			});
+
+			it('should update transit worker with full history trigger', async () => {
+				const mockResponse: TransitWorkerUpdateResponse = {
+					enabled: true,
+					last_run_at: '2024-01-01T12:10:00Z',
+					run_count: 9,
+					is_healthy: true,
+					current_run: {
+						started_at: '2024-01-01T12:10:00Z',
+						trigger: 'full-history'
+					}
+				};
+
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => mockResponse
+				});
+
+				const result = await updateTransitWorker({ trigger_full_history: true });
+
+				expect(global.fetch).toHaveBeenCalledWith('/api/transit_worker', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ trigger_full_history: true })
+				});
 				expect(result).toEqual(mockResponse);
 			});
 

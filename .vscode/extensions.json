@@ -1,5 +1,3 @@
 {
-  "recommendations": [
-    "inferrinizzard.prettier-sql-vscode"
-  ]
+  "recommendations": ["inferrinizzard.prettier-sql-vscode", "orta.vscode-jest"]
 }
