@@ -124,6 +124,38 @@ func TestTransitController_GetStatus(t *testing.T) {
 	}
 }
 
+func TestTransitController_GetStatus_CurrentAndLastRun(t *testing.T) {
+	db := setupTestDB(t)
+	defer cleanupTestDB(t, db)
+
+	worker := NewTransitWorker(db, 1, "test-model")
+	tc := NewTransitController(worker)
+
+	tc.startRun("manual")
+	status := tc.GetStatus()
+	if status.CurrentRun == nil {
+		t.Error("Expected current run to be set")
+	}
+	if status.CurrentRun != nil && status.CurrentRun.Trigger != "manual" {
+		t.Errorf("Expected current run trigger to be manual, got %s", status.CurrentRun.Trigger)
+	}
+	if status.LastRun != nil {
+		t.Error("Expected last run to be nil before completion")
+	}
+
+	tc.finishRun(nil)
+	status = tc.GetStatus()
+	if status.CurrentRun != nil {
+		t.Error("Expected current run to be nil after completion")
+	}
+	if status.LastRun == nil {
+		t.Error("Expected last run to be set after completion")
+	}
+	if status.LastRun != nil && status.LastRun.FinishedAt.IsZero() {
+		t.Error("Expected last run finish time to be set")
+	}
+}
+
 func TestTransitController_GetStatus_WithError(t *testing.T) {
 	db := setupTestDB(t)
 	defer cleanupTestDB(t, db)
