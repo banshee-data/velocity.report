@@ -109,7 +109,8 @@
 	}
 
 	function formatUnixSeconds(value: number | null | undefined): string {
-		if (!value) return '—';
+		if (value === null || value === undefined) return '—';
+		if (value === 0) return 'Initial';
 		const date = new Date(value * 1000);
 		if (Number.isNaN(date.getTime())) return '—';
 		return date.toLocaleString();

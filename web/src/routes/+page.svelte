@@ -97,6 +97,7 @@
 	// Cache the last raw stats response
 	let lastStatsRaw: RadarStatsResponse | null = null;
 	let cosineCorrectionAngles: number[] = [];
+	let cosineCorrectionLabel = '';
 	let lastStatsRequestKey = '';
 
 	$: cosineCorrectionLabel =
@@ -189,6 +190,7 @@
 				stats = [];
 				totalCount = 0;
 				p98Speed = 0;
+				cosineCorrectionAngles = [];
 				return;
 			}
 			const startUnix = Math.floor(dateRange.from.getTime() / 1000);

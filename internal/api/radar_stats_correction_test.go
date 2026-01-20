@@ -60,7 +60,7 @@ func TestShowRadarObjectStats_CosineCorrection(t *testing.T) {
 	end := strconv.FormatInt(endValue, 10)
 	req := httptest.NewRequest(
 		http.MethodGet,
-		"/api/radar_stats?start="+start+"&end="+end+"&group=all&site_id="+strconv.Itoa(site.ID),
+		"/api/radar_stats?start="+start+"&end="+end+"&group=all&units=mps&site_id="+strconv.Itoa(site.ID),
 		nil,
 	)
 	w := httptest.NewRecorder()
