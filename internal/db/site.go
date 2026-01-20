@@ -69,6 +69,17 @@ func (db *DB) CreateSite(site *Site) error {
 	}
 
 	site.ID = int(id)
+	initialNotes := "Initial site configuration"
+	if err := db.CreateSiteConfigPeriod(&SiteConfigPeriod{
+		SiteID:             site.ID,
+		EffectiveStartUnix: 0,
+		EffectiveEndUnix:   nil,
+		IsActive:           true,
+		Notes:              &initialNotes,
+		CosineErrorAngle:   site.CosineErrorAngle,
+	}); err != nil {
+		return fmt.Errorf("failed to create site config period: %w", err)
+	}
 	return nil
 }
 
@@ -238,6 +249,30 @@ func (db *DB) UpdateSite(site *Site) error {
 
 	if rowsAffected == 0 {
 		return fmt.Errorf("site not found")
+	}
+
+	activePeriod, err := db.GetActiveSiteConfigPeriod(site.ID)
+	if err == nil && activePeriod != nil {
+		if activePeriod.CosineErrorAngle != site.CosineErrorAngle {
+			activePeriod.CosineErrorAngle = site.CosineErrorAngle
+			if err := db.UpdateSiteConfigPeriod(activePeriod); err != nil {
+				return fmt.Errorf("failed to update active site config period: %w", err)
+			}
+		}
+	} else if err != nil && err.Error() == "site config period not found" {
+		notes := "Active period from site update"
+		if err := db.CreateSiteConfigPeriod(&SiteConfigPeriod{
+			SiteID:             site.ID,
+			EffectiveStartUnix: float64(time.Now().Unix()),
+			EffectiveEndUnix:   nil,
+			IsActive:           true,
+			Notes:              &notes,
+			CosineErrorAngle:   site.CosineErrorAngle,
+		}); err != nil {
+			return fmt.Errorf("failed to create active site config period: %w", err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("failed to retrieve active site config period: %w", err)
 	}
 
 	return nil

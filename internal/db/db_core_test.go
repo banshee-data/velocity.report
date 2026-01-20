@@ -352,6 +352,7 @@ func TestRadarObjectRollupRange_WithFilters(t *testing.T) {
 				"radar_objects",
 				"",
 				0, 0,
+				0,
 			)
 			if err != nil {
 				t.Fatalf("RadarObjectRollupRange failed: %v", err)

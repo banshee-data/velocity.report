@@ -92,10 +92,18 @@
 	let lastUnits: Unit | undefined = undefined;
 	let lastGroup = '';
 	let lastSource = '';
+	let lastSiteId: number | null = null;
 	let initialized = false;
 	// Cache the last raw stats response
 	let lastStatsRaw: RadarStatsResponse | null = null;
+	let cosineCorrectionAngles: number[] = [];
+	let cosineCorrectionLabel = '';
 	let lastStatsRequestKey = '';
+
+	$: cosineCorrectionLabel =
+		cosineCorrectionAngles.length > 0
+			? cosineCorrectionAngles.map((angle) => `${angle}°`).join(', ')
+			: '';
 
 	$: if (initialized && browser && dateRange.from && dateRange.to) {
 		const from = dateRange.from.getTime();
@@ -105,14 +113,16 @@
 		const unitsChanged = $displayUnits !== lastUnits;
 		const groupChanged = group !== lastGroup;
 		const sourceChanged = selectedSource !== lastSource;
+		const siteChanged = selectedSiteId !== lastSiteId;
 
 		// Full reload when date range, display units, or source changes
-		if (dateChanged || unitsChanged || sourceChanged) {
+		if (dateChanged || unitsChanged || sourceChanged || siteChanged) {
 			lastFrom = from;
 			lastTo = to;
 			lastUnits = $displayUnits;
 			lastGroup = group;
 			lastSource = selectedSource;
+			lastSiteId = selectedSiteId;
 
 			loading = true;
 			// run loadStats first so it can populate the cache, then run loadChart which will reuse it
@@ -180,6 +190,7 @@
 				stats = [];
 				totalCount = 0;
 				p98Speed = 0;
+				cosineCorrectionAngles = [];
 				return;
 			}
 			const startUnix = Math.floor(dateRange.from.getTime() / 1000);
@@ -190,13 +201,15 @@
 				group,
 				units,
 				$displayTimezone,
-				selectedSource
+				selectedSource,
+				selectedSiteId
 			);
 			// cache raw response so loadChart can reuse it instead of making a second request
 			lastStatsRaw = statsResp;
-			lastStatsRequestKey = `${startUnix}|${endUnix}|${group}|${units}|${$displayTimezone}|${selectedSource}`;
+			lastStatsRequestKey = `${startUnix}|${endUnix}|${group}|${units}|${$displayTimezone}|${selectedSource}|${selectedSiteId ?? 'all'}`;
 			if (browser) console.debug('[dashboard] fetch stats timezone ->', $displayTimezone);
 			stats = statsResp.metrics;
+			cosineCorrectionAngles = statsResp.cosineCorrection?.angles ?? [];
 			totalCount = stats.reduce((sum, s) => sum + (s.count || 0), 0);
 			// Show P98 speed (aggregate percentile) in the summary card
 			p98Speed = stats.length > 0 ? Math.max(...stats.map((s) => s.p98 || 0)) : 0;
@@ -214,7 +227,7 @@
 		const startUnix = Math.floor(dateRange.from.getTime() / 1000);
 		const endUnix = Math.floor(dateRange.to.getTime() / 1000);
 		const units = $displayUnits;
-		const requestKey = `${startUnix}|${endUnix}|${group}|${units}|${$displayTimezone}|${selectedSource}`;
+		const requestKey = `${startUnix}|${endUnix}|${group}|${units}|${$displayTimezone}|${selectedSource}|${selectedSiteId ?? 'all'}`;
 
 		let arr: RadarStats[];
 		if (lastStatsRaw && requestKey === lastStatsRequestKey) {
@@ -232,7 +245,8 @@
 				group,
 				units,
 				$displayTimezone,
-				selectedSource
+				selectedSource,
+				selectedSiteId
 			);
 			arr = resp.metrics;
 			// cache the response for potential reuse
@@ -371,6 +385,7 @@
 			<div class="w-24">
 				<ToggleGroup bind:value={selectedSource} vertical inset>
 					<ToggleOption value="radar_objects">Objects</ToggleOption>
+					<ToggleOption value="radar_data">Raw data</ToggleOption>
 					<ToggleOption value="radar_data_transits">Transits</ToggleOption>
 				</ToggleGroup>
 			</div>
@@ -463,6 +478,13 @@
 				</div>
 			</Card>
 		</Grid>
+
+		{#if cosineCorrectionLabel}
+			<p class="text-surface-600-300-token text-xs">
+				Corrected for cosine error angle{cosineCorrectionAngles.length > 1 ? 's' : ''}:
+				{cosineCorrectionLabel}
+			</p>
+		{/if}
 
 		{#if chartData.length > 0}
 			<!-- @TODO the chart needs:

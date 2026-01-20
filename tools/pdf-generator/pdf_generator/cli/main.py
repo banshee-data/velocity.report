@@ -17,7 +17,7 @@ import re
 import sys
 import textwrap
 import traceback
-from typing import List, Tuple, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime, timezone as dt_timezone
 from zoneinfo import ZoneInfo
 
@@ -315,6 +315,7 @@ def fetch_granular_metrics(
             compute_histogram=config.query.histogram,
             hist_bucket_size=config.query.hist_bucket_size,
             hist_max=config.query.hist_max,
+            site_id=config.query.site_id,
         )
         return metrics, histogram, resp
     except Exception as exc:
@@ -355,6 +356,7 @@ def fetch_overall_summary(
             timezone=config.query.timezone or None,
             min_speed=config.query.min_speed,
             compute_histogram=False,
+            site_id=config.query.site_id,
         )
         return metrics_all
     except Exception as exc:
@@ -363,6 +365,52 @@ def fetch_overall_summary(
         _print_error(message)
         _maybe_print_debug(exc, config.output.debug)
         return []
+
+
+def fetch_site_config_periods(
+    client: RadarStatsClient,
+    site_id: int,
+    start_ts: int,
+    end_ts: int,
+    compare_start_ts: Optional[int] = None,
+    compare_end_ts: Optional[int] = None,
+) -> List[Dict[str, Any]]:
+    """Fetch and filter site configuration periods for report ranges."""
+    try:
+        periods, _ = client.get_site_config_periods(site_id)
+    except Exception as exc:
+        message = _format_api_error(
+            "Fetching site configuration periods",
+            f"{client.base_url}/api/site_config_periods",
+            exc,
+        )
+        _print_error(message)
+        return []
+
+    def overlaps(
+        period_start: float,
+        period_end: Optional[float],
+        range_start: int,
+        range_end: int,
+    ) -> bool:
+        end_value = period_end if period_end is not None else float("inf")
+        return period_start < range_end and end_value > range_start
+
+    filtered: List[Dict[str, Any]] = []
+    for period in periods:
+        period_start = float(period.get("effective_start_unix", 0))
+        period_end_raw = period.get("effective_end_unix")
+        period_end = float(period_end_raw) if period_end_raw is not None else None
+
+        if overlaps(period_start, period_end, start_ts, end_ts):
+            filtered.append(period)
+            continue
+        if compare_start_ts is not None and compare_end_ts is not None:
+            if overlaps(period_start, period_end, compare_start_ts, compare_end_ts):
+                filtered.append(period)
+
+    filtered.sort(key=lambda p: float(p.get("effective_start_unix", 0)))
+    return filtered
 
 
 def fetch_daily_summary(
@@ -559,6 +607,8 @@ def assemble_pdf_report(
     compare_histogram: Optional[dict] = None,
     compare_granular_metrics: Optional[List] = None,
     compare_daily_metrics: Optional[List] = None,
+    config_periods: Optional[List[Dict[str, Any]]] = None,
+    cosine_correction_note: Optional[str] = None,
 ) -> bool:
     """Assemble complete PDF report.
 
@@ -640,6 +690,8 @@ def assemble_pdf_report(
             velocity_resolution=config.radar.velocity_resolution,
             azimuth_fov=config.radar.azimuth_fov,
             elevation_fov=config.radar.elevation_fov,
+            config_periods=config_periods,
+            cosine_correction_note=cosine_correction_note,
         )
         print(f"Generated PDF report: {pdf_path}")
         return True
@@ -857,6 +909,8 @@ def process_date_range(
     compare_start_iso = None
     compare_end_iso = None
     compare_label = None
+    config_periods: Optional[List[Dict[str, Any]]] = None
+    cosine_correction_note: Optional[str] = None
     primary_label = f"{start_date} to {end_date}"
 
     if compare_start_date and compare_end_date:
@@ -969,6 +1023,26 @@ def process_date_range(
         )
         compare_label = f"t2: {compare_start_iso[:10]} to {compare_end_iso[:10]}"
 
+    if config.query.site_id is not None:
+        config_periods = fetch_site_config_periods(
+            client,
+            config.query.site_id,
+            start_ts,
+            end_ts,
+            compare_start_ts,
+            compare_end_ts,
+        )
+        if config_periods:
+            angles = {
+                float(period.get("cosine_error_angle", 0))
+                for period in config_periods
+                if period.get("cosine_error_angle") is not None
+            }
+            if len(angles) > 1:
+                cosine_correction_note = (
+                    "Speeds have been corrected for sensor angle changes."
+                )
+
     # Compute ISO timestamps for report
     start_iso, end_iso = compute_iso_timestamps(start_ts, end_ts, config.query.timezone)
 
@@ -1006,6 +1080,8 @@ def process_date_range(
         compare_histogram=compare_histogram,
         compare_granular_metrics=compare_metrics,
         compare_daily_metrics=compare_daily_metrics,
+        config_periods=config_periods,
+        cosine_correction_note=cosine_correction_note,
     )
 
     if report_generated:

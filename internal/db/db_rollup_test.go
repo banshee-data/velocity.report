@@ -46,7 +46,7 @@ func TestRadarObjectRollupRange_MinSpeed(t *testing.T) {
 	// Query rollup with minSpeed = 2.0 m/s (should include 3.0 and 6.0)
 	start := now - 10
 	end := now + 1000
-	result, err := dbinst.RadarObjectRollupRange(start, end, 300, 2.0, "radar_objects", "", 0, 0)
+	result, err := dbinst.RadarObjectRollupRange(start, end, 300, 2.0, "radar_objects", "", 0, 0, 0)
 	if err != nil {
 		t.Fatalf("RadarObjectRollupRange failed: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestRadarObjectRollupRange_EmptyDB(t *testing.T) {
 	defer dbinst.Close()
 
 	now := time.Now().Unix()
-	result, err := dbinst.RadarObjectRollupRange(now-1000, now, 300, 0, "radar_objects", "", 0, 0)
+	result, err := dbinst.RadarObjectRollupRange(now-1000, now, 300, 0, "radar_objects", "", 0, 0, 0)
 	if err != nil {
 		t.Fatalf("RadarObjectRollupRange failed: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestRadarObjectRollupRange_WithHistogram(t *testing.T) {
 	end := now + 1000
 	bucketSize := 5.0
 	histMax := 100.0
-	result, err := dbinst.RadarObjectRollupRange(start, end, 300, 0, "radar_objects", "", bucketSize, histMax)
+	result, err := dbinst.RadarObjectRollupRange(start, end, 300, 0, "radar_objects", "", bucketSize, histMax, 0)
 	if err != nil {
 		t.Fatalf("RadarObjectRollupRange failed: %v", err)
 	}
@@ -163,7 +163,7 @@ func TestRadarObjectRollupRange_TransitsSource(t *testing.T) {
 	start := now - 10
 	end := now + 1000
 	// Use "rebuild-full" model version which is what was inserted
-	result, err := dbinst.RadarObjectRollupRange(start, end, 300, 0, "radar_data_transits", "rebuild-full", 0, 0)
+	result, err := dbinst.RadarObjectRollupRange(start, end, 300, 0, "radar_data_transits", "rebuild-full", 0, 0, 0)
 	if err != nil {
 		t.Fatalf("RadarObjectRollupRange failed: %v", err)
 	}
@@ -210,7 +210,7 @@ func TestRadarObjectRollupRange_DifferentGroupSizes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			start := now - 10
 			end := now + 10000
-			result, err := dbinst.RadarObjectRollupRange(start, end, tc.groupByNSec, 0, "radar_objects", "", 0, 0)
+			result, err := dbinst.RadarObjectRollupRange(start, end, tc.groupByNSec, 0, "radar_objects", "", 0, 0, 0)
 			if err != nil {
 				t.Fatalf("RadarObjectRollupRange failed: %v", err)
 			}
@@ -236,7 +236,7 @@ func TestRadarObjectRollupRange_InvalidSource(t *testing.T) {
 	defer dbinst.Close()
 
 	now := time.Now().Unix()
-	_, err = dbinst.RadarObjectRollupRange(now-1000, now, 300, 0, "invalid_table", "", 0, 0)
+	_, err = dbinst.RadarObjectRollupRange(now-1000, now, 300, 0, "invalid_table", "", 0, 0, 0)
 	if err == nil {
 		t.Error("expected error for invalid source, got nil")
 	}
@@ -270,7 +270,7 @@ func TestRadarObjectRollupRange_ClassifierFilter(t *testing.T) {
 	// Filter by rebuild-full model only (default)
 	start := now - 10
 	end := now + 1000
-	result, err := dbinst.RadarObjectRollupRange(start, end, 300, 0, "radar_data_transits", "rebuild-full", 0, 0)
+	result, err := dbinst.RadarObjectRollupRange(start, end, 300, 0, "radar_data_transits", "rebuild-full", 0, 0, 0)
 	if err != nil {
 		t.Fatalf("RadarObjectRollupRange failed: %v", err)
 	}
@@ -284,7 +284,7 @@ func TestRadarObjectRollupRange_ClassifierFilter(t *testing.T) {
 	}
 
 	// Filter by v2 model
-	result2, err := dbinst.RadarObjectRollupRange(start, end, 300, 0, "radar_data_transits", "v2", 0, 0)
+	result2, err := dbinst.RadarObjectRollupRange(start, end, 300, 0, "radar_data_transits", "v2", 0, 0, 0)
 	if err != nil {
 		t.Fatalf("RadarObjectRollupRange failed: %v", err)
 	}

@@ -112,6 +112,7 @@ class TestRadarStatsClient:
             compute_histogram=True,
             hist_bucket_size=10.0,
             hist_max=100.0,
+            site_id=12,
         )
 
         # Verify request was made with correct parameters
@@ -128,6 +129,7 @@ class TestRadarStatsClient:
         assert "compute_histogram=true" in request.url
         assert "hist_bucket_size=10.0" in request.url
         assert "hist_max=100.0" in request.url
+        assert "site_id=12" in request.url
 
     @responses.activate
     def test_get_stats_http_error(self):
@@ -167,6 +169,31 @@ class TestRadarStatsClient:
         assert len(metrics) == 1
         assert metrics[0]["Count"] == 50
         assert histogram == {}
+
+    @responses.activate
+    def test_get_site_config_periods(self):
+        """Test fetching site configuration periods."""
+        responses.add(
+            responses.GET,
+            "http://localhost:8080/api/site_config_periods",
+            json=[
+                {
+                    "id": 1,
+                    "site_id": 2,
+                    "effective_start_unix": 0,
+                    "effective_end_unix": None,
+                    "cosine_error_angle": 12.0,
+                }
+            ],
+            status=200,
+        )
+
+        client = RadarStatsClient()
+        periods, resp = client.get_site_config_periods(site_id=2)
+
+        assert resp.status_code == 200
+        assert len(periods) == 1
+        assert periods[0]["site_id"] == 2
 
 
 class TestSupportedGroups:

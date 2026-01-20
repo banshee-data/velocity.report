@@ -117,6 +117,52 @@ CREATE TRIGGER update_site_timestamp AFTER
 
 END;
 
+   CREATE TABLE site_config_periods (
+          id INTEGER PRIMARY KEY AUTOINCREMENT
+        , site_id INTEGER NOT NULL
+        , effective_start_unix DOUBLE NOT NULL
+        , effective_end_unix DOUBLE
+        , is_active INTEGER NOT NULL DEFAULT 0
+        , notes TEXT
+        , cosine_error_angle DOUBLE NOT NULL DEFAULT 0
+        , created_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
+        , updated_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
+        , FOREIGN KEY (site_id) REFERENCES site (id) ON DELETE CASCADE
+          );
+
+CREATE INDEX idx_site_config_periods_site_id ON site_config_periods (site_id);
+CREATE INDEX idx_site_config_periods_effective ON site_config_periods (site_id, effective_start_unix, effective_end_unix);
+CREATE INDEX idx_site_config_periods_active ON site_config_periods (site_id, is_active) WHERE is_active = 1;
+
+CREATE TRIGGER ensure_single_active_period_insert
+BEFORE INSERT ON site_config_periods
+WHEN NEW.is_active = 1
+BEGIN
+UPDATE site_config_periods
+   SET is_active = 0
+ WHERE site_id = NEW.site_id
+   AND is_active = 1;
+END;
+
+CREATE TRIGGER ensure_single_active_period_update
+BEFORE UPDATE OF is_active ON site_config_periods
+WHEN NEW.is_active = 1
+BEGIN
+UPDATE site_config_periods
+   SET is_active = 0
+ WHERE site_id = NEW.site_id
+   AND is_active = 1
+   AND id != NEW.id;
+END;
+
+CREATE TRIGGER update_site_config_periods_timestamp AFTER
+   UPDATE ON site_config_periods BEGIN
+   UPDATE site_config_periods
+      SET updated_at = UNIXEPOCH('subsec')
+    WHERE id = NEW.id;
+
+END;
+
    CREATE TABLE site_reports (
           id INTEGER PRIMARY KEY AUTOINCREMENT
         , site_id INTEGER NOT NULL DEFAULT 0

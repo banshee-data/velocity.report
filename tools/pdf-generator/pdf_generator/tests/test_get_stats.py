@@ -18,6 +18,7 @@ from pdf_generator.cli.main import (
     fetch_granular_metrics,
     fetch_overall_summary,
     fetch_daily_summary,
+    fetch_site_config_periods,
     generate_histogram_chart,
     generate_timeseries_chart,
     assemble_pdf_report,
@@ -294,6 +295,62 @@ class TestFetchOverallSummary(unittest.TestCase):
         )
 
         self.assertEqual(result, [])
+
+
+class TestFetchSiteConfigPeriods(unittest.TestCase):
+    """Tests for fetch_site_config_periods function."""
+
+    def test_filters_periods_by_range(self):
+        """Test filtering periods that overlap report ranges."""
+        mock_client = Mock()
+        mock_client.get_site_config_periods.return_value = (
+            [
+                {
+                    "effective_start_unix": 0,
+                    "effective_end_unix": 900,
+                    "cosine_error_angle": 5,
+                },
+                {
+                    "effective_start_unix": 800,
+                    "effective_end_unix": 1500,
+                    "cosine_error_angle": 10,
+                },
+                {
+                    "effective_start_unix": 2500,
+                    "effective_end_unix": 2700,
+                    "cosine_error_angle": 12,
+                },
+                {
+                    "effective_start_unix": 3000,
+                    "effective_end_unix": None,
+                    "cosine_error_angle": 15,
+                },
+            ],
+            Mock(),
+        )
+
+        periods = fetch_site_config_periods(
+            mock_client,
+            1,
+            start_ts=1000,
+            end_ts=2000,
+            compare_start_ts=2600,
+            compare_end_ts=3200,
+        )
+
+        self.assertEqual(len(periods), 3)
+        self.assertEqual(periods[0]["cosine_error_angle"], 10)
+        self.assertEqual(periods[1]["cosine_error_angle"], 12)
+        self.assertEqual(periods[2]["cosine_error_angle"], 15)
+
+    def test_error_returns_empty_list(self):
+        """Test that errors return empty list."""
+        mock_client = Mock()
+        mock_client.get_site_config_periods.side_effect = Exception("API Error")
+
+        periods = fetch_site_config_periods(mock_client, 1, start_ts=1000, end_ts=2000)
+
+        self.assertEqual(periods, [])
 
 
 class TestFetchDailySummary(unittest.TestCase):

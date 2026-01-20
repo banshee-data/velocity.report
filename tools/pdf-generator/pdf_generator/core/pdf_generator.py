@@ -8,6 +8,8 @@ complete PDF reports including statistics tables, charts, and science sections.
 
 import os
 import math
+from datetime import datetime, timezone as dt_timezone
+from zoneinfo import ZoneInfo
 
 from pathlib import Path
 
@@ -244,6 +246,8 @@ def generate_pdf_report(
     compare_histogram: Optional[Dict[str, int]] = None,
     compare_granular_metrics: Optional[List[Dict[str, Any]]] = None,
     compare_daily_metrics: Optional[List[Dict[str, Any]]] = None,
+    config_periods: Optional[List[Dict[str, Any]]] = None,
+    cosine_correction_note: Optional[str] = None,
 ) -> None:
     """Generate a complete PDF report using PyLaTeX.
 
@@ -261,6 +265,8 @@ def generate_pdf_report(
         velocity_resolution: Radar velocity resolution
         azimuth_fov: Radar azimuth field of view
         elevation_fov: Radar elevation field of view
+        config_periods: Optional list of site configuration periods for the report window
+        cosine_correction_note: Optional note about angle changes applied to speeds
     """
 
     # Convert map config dataclass to dict for use in this function
@@ -354,6 +360,23 @@ def generate_pdf_report(
     add_site_specifics(doc, site_description, speed_limit_note)
 
     doc.append(NoEscape("\\par"))
+
+    if config_periods is not None:
+        doc.append(NoEscape("\\subsection*{Site Configuration}"))
+        if config_periods:
+            doc.append(
+                create_param_table(_format_site_config_periods(config_periods, tz_name))
+            )
+            if cosine_correction_note:
+                doc.append(NoEscape("\\par"))
+                doc.append(NoEscape(escape_latex(cosine_correction_note)))
+        else:
+            doc.append(
+                NoEscape(
+                    "No site configuration periods were available for the report window."
+                )
+            )
+        doc.append(NoEscape("\\par"))
 
     add_science(doc)
 
@@ -607,3 +630,26 @@ def generate_pdf_report(
             print(f"Failed to generate TEX for debugging: {tex_e}")
         if last_exc:
             raise RuntimeError(last_failure_message or str(last_exc)) from last_exc
+
+
+def _format_site_config_periods(
+    periods: List[Dict[str, Any]], tz_name: Optional[str]
+) -> List[Dict[str, str]]:
+    tzobj = ZoneInfo(tz_name) if tz_name else dt_timezone.utc
+    entries: List[Dict[str, str]] = []
+    for idx, period in enumerate(periods, start=1):
+        start_unix = float(period.get("effective_start_unix", 0))
+        end_raw = period.get("effective_end_unix")
+        end_unix = float(end_raw) if end_raw is not None else None
+        start_label = datetime.fromtimestamp(start_unix, tz=tzobj).strftime("%Y-%m-%d")
+        if end_unix is None:
+            end_label = "Present"
+        else:
+            end_label = datetime.fromtimestamp(end_unix, tz=tzobj).strftime("%Y-%m-%d")
+        angle = period.get("cosine_error_angle", 0)
+        notes = period.get("notes") or ""
+        value = f"{start_label} to {end_label} • {angle}°"
+        if notes:
+            value = f"{value} ({notes})"
+        entries.append({"key": f"Period {idx}", "value": value})
+    return entries
