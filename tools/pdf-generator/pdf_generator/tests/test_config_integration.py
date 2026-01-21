@@ -102,7 +102,7 @@ class TestConfigIntegration(unittest.TestCase):
         output_path = os.path.join(self.temp_dir, "test_report.pdf")
 
         with patch(
-            "pdf_generator.core.pdf_generator.create_param_table"
+            "pdf_generator.core.report_sections.create_param_table"
         ) as mock_param_table:
             mock_param_table.return_value = MagicMock()
 
@@ -151,10 +151,8 @@ class TestConfigIntegration(unittest.TestCase):
             self.assertEqual(params_dict["Radar Velocity Resolution"], "9.999 mph")
             self.assertEqual(params_dict["Azimuth Field of View"], "99°")
             self.assertEqual(params_dict["Elevation Field of View"], "88°")
-            self.assertEqual(params_dict["Cosine Error Angle"], "15.0°")
-            # Cosine error factor is calculated: 1/cos(15°) ≈ 1.0353
-            self.assertIn("Cosine Error Factor", params_dict)
-            self.assertTrue(params_dict["Cosine Error Factor"].startswith("1.03"))
+            # Cosine angle and factor are now only added when config_periods are provided
+            # (they come from SCD periods, not radar config)
 
     @patch("pdf_generator.core.pdf_generator.DocumentBuilder")
     @patch("pdf_generator.core.pdf_generator.chart_exists")

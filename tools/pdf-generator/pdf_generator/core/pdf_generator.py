@@ -7,7 +7,6 @@ complete PDF reports including statistics tables, charts, and science sections.
 """
 
 import os
-import math
 from datetime import datetime, timezone as dt_timezone
 from zoneinfo import ZoneInfo
 
@@ -80,7 +79,6 @@ from pdf_generator.core.data_transformers import (
 from pdf_generator.core.map_utils import MapProcessor, create_marker_from_config
 from pdf_generator.core.document_builder import DocumentBuilder
 from pdf_generator.core.table_builders import (
-    create_param_table,
     create_histogram_table,
     create_histogram_comparison_table,
     create_twocolumn_stats_table,
@@ -89,6 +87,7 @@ from pdf_generator.core.report_sections import (
     add_metric_data_intro,
     add_site_specifics,
     add_science,
+    add_survey_parameters,
 )
 from pdf_generator.core.config_manager import DEFAULT_MAP_CONFIG, _map_to_dict
 from pdf_generator.core.data_transformers import (
@@ -272,12 +271,6 @@ def generate_pdf_report(
     # Convert map config dataclass to dict for use in this function
     map_config_dict = _map_to_dict(DEFAULT_MAP_CONFIG)
 
-    # Calculate cosine error factor from angle
-    cosine_error_factor = 1.0
-    if cosine_error_angle != 0:
-        angle_rad = math.radians(cosine_error_angle)
-        cosine_error_factor = 1.0 / math.cos(angle_rad)
-
     # Build document with all configuration
     builder = DocumentBuilder()
     doc = builder.build(
@@ -361,67 +354,58 @@ def generate_pdf_report(
 
     doc.append(NoEscape("\\par"))
 
-    if config_periods is not None:
-        doc.append(NoEscape("\\subsection*{Site Configuration}"))
-        if config_periods:
-            doc.append(
-                create_param_table(_format_site_config_periods(config_periods, tz_name))
-            )
-            if cosine_correction_note:
-                doc.append(NoEscape("\\par"))
-                doc.append(NoEscape(escape_latex(cosine_correction_note)))
-        else:
-            doc.append(
-                NoEscape(
-                    "No site configuration periods were available for the report window."
-                )
-            )
-        doc.append(NoEscape("\\par"))
+    # Extract cosine angles from config periods for survey parameters
+    cosine_angle_t1 = None
+    cosine_angle_t2 = None
+
+    if config_periods:
+        # Get angle for primary period (t1)
+        for period in config_periods:
+            angle = period.get("cosine_error_angle")
+            if angle is not None:
+                cosine_angle_t1 = float(angle)
+                break  # Use first found angle for t1
+
+        # If we have a comparison period, look for a different angle
+        if compare_start_iso and compare_end_iso and len(config_periods) > 1:
+            # Use second period's angle for t2 if available
+            for period in config_periods[1:]:
+                angle = period.get("cosine_error_angle")
+                if angle is not None:
+                    cosine_angle_t2 = float(angle)
+                    break
 
     add_science(doc)
 
     # Small separation after the science section
     doc.append(NoEscape("\\par"))
 
-    # Statistics section
-    doc.append(NoEscape("\\subsection*{Survey Parameters}"))
-
-    # Generation parameters as a two-column table (simplified)
-    param_entries = []
-    if compare_start_iso and compare_end_iso:
-        param_entries.extend(
-            [
-                {"key": "t1 start", "value": start_iso},
-                {"key": "t1 end", "value": end_iso},
-                {"key": "t2 start", "value": compare_start_iso},
-                {"key": "t2 end", "value": compare_end_iso},
-            ]
-        )
-    else:
-        param_entries.extend(
-            [
-                {"key": "Start time", "value": start_iso},
-                {"key": "End time", "value": end_iso},
-            ]
-        )
-    param_entries.extend(
-        [
-            {"key": "Timezone", "value": timezone_display},
-            {"key": "Roll-up Period", "value": group},
-            {"key": "Units", "value": units},
-            {"key": "Minimum speed (cutoff)", "value": min_speed_str},
-            {"key": "Radar Sensor", "value": sensor_model},
-            {"key": "Radar Firmware version", "value": firmware_version},
-            {"key": "Radar Transmit Frequency", "value": transmit_frequency},
-            {"key": "Radar Sample Rate", "value": sample_rate},
-            {"key": "Radar Velocity Resolution", "value": velocity_resolution},
-            {"key": "Azimuth Field of View", "value": azimuth_fov},
-            {"key": "Elevation Field of View", "value": elevation_fov},
-            {"key": "Cosine Error Angle", "value": f"{cosine_error_angle}°"},
-            {"key": "Cosine Error Factor", "value": f"{cosine_error_factor:.4f}"},
-        ]
+    # Survey parameters section with integrated cosine angles
+    add_survey_parameters(
+        doc,
+        start_iso,
+        end_iso,
+        timezone_display,
+        group,
+        units,
+        min_speed_str,
+        cosine_angle_t1,
+        compare_start_iso,
+        compare_end_iso,
+        cosine_angle_t2,
+        sensor_model,
+        firmware_version,
+        transmit_frequency,
+        sample_rate,
+        velocity_resolution,
+        azimuth_fov,
+        elevation_fov,
     )
-    doc.append(create_param_table(param_entries))
+
+    # Add cosine correction note if multiple angles were used
+    if cosine_correction_note:
+        doc.append(NoEscape("\\par"))
+        doc.append(NoEscape(escape_latex(cosine_correction_note)))
 
     doc.append(NoEscape("\\par"))
 

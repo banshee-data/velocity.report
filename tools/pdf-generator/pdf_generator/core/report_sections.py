@@ -103,11 +103,37 @@ class VelocityOverviewSection:
 
         # Overview paragraph
         if compare_start_date and compare_end_date:
+            # Format comparison vehicle count
+            try:
+                compare_total_disp = (
+                    f"{int(compare_total_vehicles):,}"
+                    if compare_total_vehicles is not None
+                    else "--"
+                )
+            except Exception:
+                compare_total_disp = (
+                    str(compare_total_vehicles)
+                    if compare_total_vehicles is not None
+                    else "--"
+                )
+
+            # Calculate combined total
+            try:
+                if compare_total_vehicles is not None:
+                    combined_total = total_vehicles + compare_total_vehicles
+                    combined_total_disp = f"{int(combined_total):,}"
+                else:
+                    combined_total_disp = total_disp
+            except Exception:
+                combined_total_disp = total_disp
+
             doc.append(
                 NoEscape(
                     f"Primary period (\\textbf{{t1}}): \\textbf{{{start_date}}} to \\textbf{{{end_date}}} "
                     f"(\\textbf{{{escape_latex(total_disp)}}} vehicles) at \\textbf{{{escape_latex(location)}}}. "
-                    f"Comparison period (\\textbf{{t2}}): \\textbf{{{compare_start_date}}} to \\textbf{{{compare_end_date}}}."
+                    f"Comparison period (\\textbf{{t2}}): \\textbf{{{compare_start_date}}} to \\textbf{{{compare_end_date}}} "
+                    f"(\\textbf{{{escape_latex(compare_total_disp)}}} vehicles). "
+                    f"Combined total: \\textbf{{{escape_latex(combined_total_disp)}}} vehicles."
                 )
             )
         else:
@@ -160,16 +186,10 @@ class VelocityOverviewSection:
             compare_label = "t2"
             summary_entries = [
                 {
-                    "label": "Max Velocity",
-                    "primary": format_speed(max_speed),
-                    "compare": format_speed(compare_max_speed),
-                    "change": format_change(max_speed, compare_max_speed),
-                },
-                {
-                    "label": "p98 Velocity",
-                    "primary": format_speed(p98),
-                    "compare": format_speed(compare_p98),
-                    "change": format_change(p98, compare_p98),
+                    "label": "p50 Velocity",
+                    "primary": format_speed(p50),
+                    "compare": format_speed(compare_p50),
+                    "change": format_change(p50, compare_p50),
                 },
                 {
                     "label": "p85 Velocity",
@@ -178,23 +198,16 @@ class VelocityOverviewSection:
                     "change": format_change(p85, compare_p85),
                 },
                 {
-                    "label": "p50 Velocity",
-                    "primary": format_speed(p50),
-                    "compare": format_speed(compare_p50),
-                    "change": format_change(p50, compare_p50),
+                    "label": "p98 Velocity",
+                    "primary": format_speed(p98),
+                    "compare": format_speed(compare_p98),
+                    "change": format_change(p98, compare_p98),
                 },
                 {
-                    "label": "Total Vehicles",
-                    "primary": format_count(total_vehicles),
-                    "compare": format_count(compare_total_vehicles),
-                    "change": format_change(
-                        float(total_vehicles),
-                        (
-                            float(compare_total_vehicles)
-                            if compare_total_vehicles is not None
-                            else None
-                        ),
-                    ),
+                    "label": "Max Velocity",
+                    "primary": format_speed(max_speed),
+                    "compare": format_speed(compare_max_speed),
+                    "change": format_change(max_speed, compare_max_speed),
                 },
             ]
             doc.append(
@@ -210,10 +223,10 @@ class VelocityOverviewSection:
             )
         else:
             key_metric_entries = [
-                {"key": "Max Velocity", "value": format_speed(max_speed)},
-                {"key": "p98 Velocity", "value": format_speed(p98)},
-                {"key": "p85 Velocity", "value": format_speed(p85)},
                 {"key": "p50 Velocity", "value": format_speed(p50)},
+                {"key": "p85 Velocity", "value": format_speed(p85)},
+                {"key": "p98 Velocity", "value": format_speed(p98)},
+                {"key": "Max Velocity", "value": format_speed(max_speed)},
             ]
 
             doc.append(create_param_table(key_metric_entries))
@@ -411,6 +424,17 @@ class SurveyParametersSection:
         group: str,
         units: str,
         min_speed_str: str,
+        cosine_angle_t1: Optional[float] = None,
+        compare_start_iso: Optional[str] = None,
+        compare_end_iso: Optional[str] = None,
+        cosine_angle_t2: Optional[float] = None,
+        sensor_model: str = "OmniPreSense OPS243-A",
+        firmware_version: str = "v1.2.3",
+        transmit_frequency: str = "24.125 GHz",
+        sample_rate: str = "20 kSPS",
+        velocity_resolution: str = "0.272 mph",
+        azimuth_fov: str = "20°",
+        elevation_fov: str = "24°",
     ) -> None:
         """Add survey parameters section to document.
 
@@ -422,27 +446,72 @@ class SurveyParametersSection:
             group: Roll-up period (e.g., "1h", "15m")
             units: Speed units (e.g., "mph", "kph")
             min_speed_str: Minimum speed cutoff description
+            cosine_angle_t1: Cosine error angle for primary period (optional)
+            compare_start_iso: Comparison start time in ISO format (optional)
+            compare_end_iso: Comparison end time in ISO format (optional)
+            cosine_angle_t2: Cosine error angle for comparison period (optional)
+            sensor_model: Radar sensor model name
+            firmware_version: Radar firmware version
+            transmit_frequency: Radar transmit frequency
+            sample_rate: Radar sample rate
+            velocity_resolution: Radar velocity resolution
+            azimuth_fov: Azimuth field of view
+            elevation_fov: Elevation field of view
         """
         doc.append(NoEscape("\\subsection*{Survey Parameters}"))
 
-        # Generation parameters as a two-column table
+        # Build parameter entries
         param_entries = [
-            {"key": "Start time", "value": start_iso},
-            {"key": "End time", "value": end_iso},
-            {"key": "Timezone", "value": timezone_display},
-            {"key": "Roll-up Period", "value": group},
-            {"key": "Units", "value": units},
-            {"key": "Minimum speed (cutoff)", "value": min_speed_str},
-            {"key": "Radar Sensor", "value": "OmniPreSense OPS243-A"},
-            {"key": "Radar Firmware version", "value": "v1.2.3"},
-            {"key": "Radar Transmit Frequency", "value": "24.125 GHz"},
-            {"key": "Radar Sample Rate", "value": "20 kSPS"},
-            {"key": "Radar Velocity Resolution", "value": "0.272 mph"},
-            {"key": "Azimuth Field of View", "value": "20°"},
-            {"key": "Elevation Field of View", "value": "24°"},
-            {"key": "Cosine Error Angle", "value": "21°"},
-            {"key": "Cosine Error Factor", "value": "1.0711"},
+            {"key": "Start time (t1)", "value": start_iso},
+            {"key": "End time (t1)", "value": end_iso},
         ]
+
+        # Add comparison period times if present
+        if compare_start_iso and compare_end_iso:
+            param_entries.extend(
+                [
+                    {"key": "Start time (t2)", "value": compare_start_iso},
+                    {"key": "End time (t2)", "value": compare_end_iso},
+                ]
+            )
+
+        # Add remaining parameters
+        param_entries.extend(
+            [
+                {"key": "Timezone", "value": timezone_display},
+                {"key": "Roll-up Period", "value": group},
+                {"key": "Units", "value": units},
+                {"key": "Minimum speed (cutoff)", "value": min_speed_str},
+                {"key": "Radar Sensor", "value": sensor_model},
+                {"key": "Radar Firmware version", "value": firmware_version},
+                {"key": "Radar Transmit Frequency", "value": transmit_frequency},
+                {"key": "Radar Sample Rate", "value": sample_rate},
+                {"key": "Radar Velocity Resolution", "value": velocity_resolution},
+                {"key": "Azimuth Field of View", "value": azimuth_fov},
+                {"key": "Elevation Field of View", "value": elevation_fov},
+            ]
+        )
+
+        # Add cosine angles if provided
+        if cosine_angle_t1 is not None:
+            import math
+
+            angle_str = f"{cosine_angle_t1:.1f}°"
+            factor_str = f"{1.0 / math.cos(math.radians(cosine_angle_t1)):.6f}"
+            param_entries.append({"key": "Cosine Error Angle (t1)", "value": angle_str})
+            param_entries.append(
+                {"key": "Cosine Error Factor (t1)", "value": factor_str}
+            )
+
+        if cosine_angle_t2 is not None:
+            import math
+
+            angle_str = f"{cosine_angle_t2:.1f}°"
+            factor_str = f"{1.0 / math.cos(math.radians(cosine_angle_t2)):.6f}"
+            param_entries.append({"key": "Cosine Error Angle (t2)", "value": angle_str})
+            param_entries.append(
+                {"key": "Cosine Error Factor (t2)", "value": factor_str}
+            )
 
         doc.append(create_param_table(param_entries))
         doc.append(NoEscape("\\par"))
@@ -525,9 +594,37 @@ def add_survey_parameters(
     group: str,
     units: str,
     min_speed_str: str,
+    cosine_angle_t1: Optional[float] = None,
+    compare_start_iso: Optional[str] = None,
+    compare_end_iso: Optional[str] = None,
+    cosine_angle_t2: Optional[float] = None,
+    sensor_model: str = "OmniPreSense OPS243-A",
+    firmware_version: str = "v1.2.3",
+    transmit_frequency: str = "24.125 GHz",
+    sample_rate: str = "20 kSPS",
+    velocity_resolution: str = "0.272 mph",
+    azimuth_fov: str = "20°",
+    elevation_fov: str = "24°",
 ) -> None:
     """Add survey parameters section (convenience wrapper)."""
     builder = SurveyParametersSection()
     builder.build(
-        doc, start_iso, end_iso, timezone_display, group, units, min_speed_str
+        doc,
+        start_iso,
+        end_iso,
+        timezone_display,
+        group,
+        units,
+        min_speed_str,
+        cosine_angle_t1,
+        compare_start_iso,
+        compare_end_iso,
+        cosine_angle_t2,
+        sensor_model,
+        firmware_version,
+        transmit_frequency,
+        sample_rate,
+        velocity_resolution,
+        azimuth_fov,
+        elevation_fov,
     )

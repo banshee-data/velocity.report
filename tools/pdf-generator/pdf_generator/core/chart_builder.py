@@ -713,10 +713,28 @@ class HistogramChartBuilder:
                 int(compare_histogram.get(key, 0) or 0) for key in all_keys
             ]
 
+        # Convert counts to percentages
+        primary_total = sum(primary_counts)
+        compare_total = sum(compare_counts)
+
+        if primary_total > 0:
+            primary_percentages = [
+                (count / primary_total) * 100.0 for count in primary_counts
+            ]
+        else:
+            primary_percentages = [0.0] * len(primary_counts)
+
+        if compare_total > 0:
+            compare_percentages = [
+                (count / compare_total) * 100.0 for count in compare_counts
+            ]
+        else:
+            compare_percentages = [0.0] * len(compare_counts)
+
         if debug:
             print(
                 "DEBUG: comparison histogram bins={} primary_total={} compare_total={}".format(
-                    len(labels), sum(primary_counts), sum(compare_counts)
+                    len(labels), primary_total, compare_total
                 )
             )
 
@@ -730,7 +748,7 @@ class HistogramChartBuilder:
 
         ax.bar(
             primary_positions,
-            primary_counts,
+            primary_percentages,
             width=bar_width,
             alpha=0.75,
             color=primary_colour,
@@ -740,7 +758,7 @@ class HistogramChartBuilder:
         )
         ax.bar(
             compare_positions,
-            compare_counts,
+            compare_percentages,
             width=bar_width,
             alpha=0.75,
             color=compare_colour,
@@ -750,7 +768,7 @@ class HistogramChartBuilder:
         )
 
         ax.set_xlabel(f"Velocity ({units})", fontsize=self.fonts["histogram_label"])
-        ax.set_ylabel("Count", fontsize=self.fonts["histogram_label"])
+        ax.set_ylabel("Percentage (%)", fontsize=self.fonts["histogram_label"])
         ax.set_title(title, fontsize=self.fonts["histogram_title"])
 
         formatted_labels = self._format_labels(labels)

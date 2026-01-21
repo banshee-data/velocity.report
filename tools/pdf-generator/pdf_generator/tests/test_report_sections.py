@@ -116,9 +116,13 @@ class TestVelocityOverviewSection(unittest.TestCase):
         self.assertEqual(primary_label, "t1")
         self.assertEqual(compare_label, "t2")
 
+        # Check that key metrics are present (but not Total Vehicles)
         entry_map = {entry["label"]: entry for entry in entries}
-        self.assertEqual(entry_map["Max Velocity"]["change"], "--")
-        self.assertEqual(entry_map["Total Vehicles"]["change"], "+10.0%")
+        self.assertIn("Max Velocity", entry_map)
+        self.assertIn("p50 Velocity", entry_map)
+        self.assertNotIn(
+            "Total Vehicles", entry_map
+        )  # Should not be in comparison table
 
 
 class TestSiteInformationSection(unittest.TestCase):
@@ -251,15 +255,16 @@ class TestSurveyParametersSection(unittest.TestCase):
         # Should append subsection, parameter table, par
         self.assertGreaterEqual(self.mock_doc.append.call_count, 3)
 
-        # Should create parameter table with 15 entries
+        # Should create parameter table with 13 base entries (no cosine angles provided)
         mock_create_table.assert_called_once()
         call_args = mock_create_table.call_args[0][0]
-        self.assertEqual(len(call_args), 15)  # 15 survey parameters
+        self.assertEqual(len(call_args), 13)  # 13 survey parameters (without cosine)
 
         # Check that key parameters are included
         keys = [entry["key"] for entry in call_args]
-        self.assertIn("Start time", keys)
-        self.assertIn("End time", keys)
+        # With no comparison, should use "Start time (t1)" format
+        self.assertTrue(any("Start time" in k for k in keys))
+        self.assertTrue(any("End time" in k for k in keys))
         self.assertIn("Timezone", keys)
         self.assertIn("Roll-up Period", keys)
         self.assertIn("Units", keys)
