@@ -124,6 +124,7 @@ export interface ReportRequest {
 	units: string; // "mph" or "kph"
 	group?: string; // e.g., "1h", "4h"
 	source?: string; // "radar_objects", "radar_data", or "radar_data_transits"
+	compare_source?: string; // Optional: source for comparison period (defaults to source)
 	min_speed?: number; // minimum speed filter
 	histogram?: boolean; // whether to generate histogram
 	hist_bucket_size?: number; // histogram bucket size

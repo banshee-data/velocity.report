@@ -1,16 +1,5 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { PeriodType } from '@layerstack/utils';
-	import { onMount } from 'svelte';
-	import {
-		Button,
-		Card,
-		DateRangeField,
-		Header,
-		SelectField,
-		ToggleGroup,
-		ToggleOption
-	} from 'svelte-ux';
 	import {
 		generateReport,
 		getConfig,
@@ -22,6 +11,17 @@
 	} from '$lib/api';
 	import { displayTimezone, initializeTimezone } from '$lib/stores/timezone';
 	import { displayUnits, initializeUnits } from '$lib/stores/units';
+	import { PeriodType } from '@layerstack/utils';
+	import { onMount } from 'svelte';
+	import {
+		Button,
+		Card,
+		DateRangeField,
+		Header,
+		SelectField,
+		ToggleGroup,
+		ToggleOption
+	} from 'svelte-ux';
 
 	let config: Config = { units: 'mph', timezone: 'UTC' };
 	let loading = true;
@@ -47,6 +47,7 @@
 	compareFromDefault.setDate(compareToDefault.getDate() - 13);
 	let compareRange = { from: compareFromDefault, to: compareToDefault, periodType: PeriodType.Day };
 	let compareEnabled = false;
+	let compareSource: string = 'radar_objects';
 
 	let group: string = '4h';
 	let selectedSource: string = 'radar_objects';
@@ -162,7 +163,8 @@
 			if (compareEnabled) {
 				Object.assign(request, {
 					compare_start_date: isoDate(compareRange.from),
-					compare_end_date: isoDate(compareRange.to)
+					compare_end_date: isoDate(compareRange.to),
+					compare_source: compareSource
 				});
 			}
 
@@ -231,9 +233,18 @@
 				</label>
 
 				{#if compareEnabled}
-					<div class="space-y-2">
-						<p class="text-surface-content/80 text-sm font-medium">Comparison period</p>
-						<DateRangeField bind:value={compareRange} periodTypes={[PeriodType.Day]} stepper />
+					<div class="flex flex-wrap items-end gap-4">
+						<div class="space-y-2">
+							<p class="text-surface-content/80 text-sm font-medium">Comparison period</p>
+							<DateRangeField bind:value={compareRange} periodTypes={[PeriodType.Day]} stepper />
+						</div>
+						<div class="w-24">
+							<ToggleGroup bind:value={compareSource} vertical inset>
+								<ToggleOption value="radar_objects">Objects</ToggleOption>
+								<ToggleOption value="radar_data">Raw data</ToggleOption>
+								<ToggleOption value="radar_data_transits">Transits</ToggleOption>
+							</ToggleGroup>
+						</div>
 					</div>
 				{/if}
 
