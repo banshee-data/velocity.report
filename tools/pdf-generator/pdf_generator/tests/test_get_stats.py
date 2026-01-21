@@ -38,7 +38,7 @@ def create_test_config(
     histogram: bool = True,
     hist_bucket_size: float = 5.0,
     hist_max: float = None,
-    model_version: str = "rebuild-full",
+    model_version: str = "hourly-cron",
     debug: bool = False,
     **kwargs
 ) -> ReportConfig:
@@ -1132,7 +1132,7 @@ class TestGetModelVersion(unittest.TestCase):
         config = create_test_config(source="radar_data_transits", model_version=None)
 
         result = get_model_version(config)
-        self.assertEqual(result, "rebuild-full")
+        self.assertEqual(result, "hourly-cron")
 
     def test_returns_none_for_radar_objects(self):
         """Test that None is returned for non-transit source."""

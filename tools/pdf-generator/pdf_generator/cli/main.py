@@ -289,6 +289,7 @@ def fetch_granular_metrics(
     end_ts: int,
     config: ReportConfig,
     model_version: Optional[str],
+    source_override: Optional[str] = None,
 ) -> Tuple[List, Optional[dict], Optional[object]]:
     """Fetch main granular metrics and optional histogram.
 
@@ -298,17 +299,19 @@ def fetch_granular_metrics(
         end_ts: End timestamp
         config: Report configuration
         model_version: Model version for transit data
+        source_override: Optional source to use instead of config.query.source
 
     Returns:
         Tuple of (metrics, histogram, response_metadata)
     """
+    source = source_override or config.query.source
     try:
         metrics, histogram, resp = client.get_stats(
             start_ts=start_ts,
             end_ts=end_ts,
             group=config.query.group,
             units=config.query.units,
-            source=config.query.source,
+            source=source,
             model_version=model_version,
             timezone=config.query.timezone or None,
             min_speed=config.query.min_speed,
@@ -332,6 +335,7 @@ def fetch_overall_summary(
     end_ts: int,
     config: ReportConfig,
     model_version: Optional[str],
+    source_override: Optional[str] = None,
 ) -> List:
     """Fetch overall 'all' group summary.
 
@@ -341,17 +345,19 @@ def fetch_overall_summary(
         end_ts: End timestamp
         config: Report configuration
         model_version: Model version for transit data
+        source_override: Optional source to use instead of config.query.source
 
     Returns:
         List of overall metrics (empty list on failure)
     """
+    source = source_override or config.query.source
     try:
         metrics_all, _, _ = client.get_stats(
             start_ts=start_ts,
             end_ts=end_ts,
             group="all",
             units=config.query.units,
-            source=config.query.source,
+            source=source,
             model_version=model_version,
             timezone=config.query.timezone or None,
             min_speed=config.query.min_speed,
@@ -419,6 +425,7 @@ def fetch_daily_summary(
     end_ts: int,
     config: ReportConfig,
     model_version: Optional[str],
+    source_override: Optional[str] = None,
 ) -> Optional[List]:
     """Fetch daily (24h) summary if appropriate for group size.
 
@@ -428,6 +435,7 @@ def fetch_daily_summary(
         end_ts: End timestamp
         config: Report configuration
         model_version: Model version for transit data
+        source_override: Optional source to use instead of config.query.source
 
     Returns:
         List of daily metrics or None if not needed/failed
@@ -435,13 +443,14 @@ def fetch_daily_summary(
     if not should_produce_daily(config.query.group):
         return None
 
+    source = source_override or config.query.source
     try:
         daily_metrics, _, _ = client.get_stats(
             start_ts=start_ts,
             end_ts=end_ts,
             group="24h",
             units=config.query.units,
-            source=config.query.source,
+            source=source,
             model_version=model_version,
             timezone=config.query.timezone or None,
             min_speed=config.query.min_speed,
@@ -747,7 +756,7 @@ def get_model_version(config: ReportConfig) -> Optional[str]:
         Model version string or None
     """
     if config.query.source == "radar_data_transits":
-        return config.query.model_version or "rebuild-full"
+        return config.query.model_version or "hourly-cron"
     return None
 
 
@@ -998,15 +1007,29 @@ def process_date_range(
         _print_error("Warning: histogram data unavailable; histogram chart skipped.")
 
     if compare_start_ts is not None and compare_end_ts is not None:
+        # Use compare_source if specified, otherwise fall back to primary source
+        compare_source = config.query.compare_source or config.query.source
+        if compare_source != config.query.source:
+            _print_info(f"Using different source for comparison: {compare_source}")
         compare_metrics, compare_histogram, _compare_resp = fetch_granular_metrics(
-            client, compare_start_ts, compare_end_ts, config, model_version
+            client,
+            compare_start_ts,
+            compare_end_ts,
+            config,
+            model_version,
+            source_override=compare_source,
         )
         if not compare_metrics and not compare_histogram:
             _print_error(
                 f"Warning: no comparison data returned for {compare_start_date} - {compare_end_date}."
             )
         compare_overall = fetch_overall_summary(
-            client, compare_start_ts, compare_end_ts, config, model_version
+            client,
+            compare_start_ts,
+            compare_end_ts,
+            config,
+            model_version,
+            source_override=compare_source,
         )
         if not compare_overall:
             _print_error(
@@ -1015,7 +1038,12 @@ def process_date_range(
 
         if should_daily:
             compare_daily_metrics = fetch_daily_summary(
-                client, compare_start_ts, compare_end_ts, config, model_version
+                client,
+                compare_start_ts,
+                compare_end_ts,
+                config,
+                model_version,
+                source_override=compare_source,
             )
 
         compare_start_iso, compare_end_iso = compute_iso_timestamps(

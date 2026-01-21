@@ -82,6 +82,7 @@ class QueryConfig:
     end_date: str = ""  # YYYY-MM-DD or unix timestamp
     compare_start_date: Optional[str] = ""  # Optional: comparison start date
     compare_end_date: Optional[str] = ""  # Optional: comparison end date
+    compare_source: Optional[str] = None  # Optional: source for comparison period
     timezone: str = ""  # Timezone for display (REQUIRED, e.g., US/Pacific, UTC)
 
     # API parameters
@@ -90,7 +91,7 @@ class QueryConfig:
     source: str = (
         "radar_data_transits"  # radar_objects, radar_data, or radar_data_transits
     )
-    model_version: str = "rebuild-full"  # Transit model version
+    model_version: str = "hourly-cron"  # Transit model version
     min_speed: Optional[float] = 5.0  # Minimum speed filter (default: 5.0)
     site_id: Optional[int] = None  # Optional: site identifier for config-aware queries
 
