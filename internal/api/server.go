@@ -831,6 +831,7 @@ type ReportRequest struct {
 	Units          string  `json:"units"`              // "mph" or "kph"
 	Group          string  `json:"group"`              // e.g., "1h", "4h"
 	Source         string  `json:"source"`             // "radar_objects", "radar_data", or "radar_data_transits"
+	CompareSource  string  `json:"compare_source"`     // Optional: source for comparison period (defaults to Source)
 	MinSpeed       float64 `json:"min_speed"`          // minimum speed filter
 	Histogram      bool    `json:"histogram"`          // whether to generate histogram
 	HistBucketSize float64 `json:"hist_bucket_size"`   // histogram bucket size
@@ -975,6 +976,12 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	if req.CompareStart != "" && req.CompareEnd != "" {
 		queryConfig["compare_start_date"] = req.CompareStart
 		queryConfig["compare_end_date"] = req.CompareEnd
+		// Use compare_source if specified, otherwise default to the primary source
+		compareSource := req.CompareSource
+		if compareSource == "" {
+			compareSource = req.Source
+		}
+		queryConfig["compare_source"] = compareSource
 	}
 
 	config := map[string]interface{}{
@@ -1078,6 +1085,11 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Log Python output for debugging
+	if len(output) > 0 {
+		log.Printf("PDF generator output:\n%s", string(output))
+	}
+
 	// Python auto-generates filename as: velocity.report_{source}_{start_date}_to_{end_date}_report.pdf
 	pdfFilename := fmt.Sprintf("velocity.report_%s_%s_to_%s_report.pdf", req.Source, req.StartDate, req.EndDate)
 
@@ -1087,6 +1099,16 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	// Store relative paths from pdf-generator directory
 	relativePdfPath := filepath.Join(outputDir, pdfFilename)
 	relativeZipPath := filepath.Join(outputDir, zipFilename)
+
+	// Verify PDF was actually created
+	fullPdfPath := filepath.Join(pdfDir, relativePdfPath)
+	if _, err := os.Stat(fullPdfPath); os.IsNotExist(err) {
+		log.Printf("PDF generation completed but file not found at: %s", fullPdfPath)
+		log.Printf("This usually means no data was available for the specified date range.")
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusBadRequest, "PDF generation failed: No data available for the specified date range. Please check your dates and ensure data exists.")
+		return
+	}
 
 	// Create report record in database
 	siteID := 0
