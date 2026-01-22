@@ -24,8 +24,7 @@ func TestGenerateReport_E2E(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	// Create a site to reference in the report with a speed_limit_note
-	note := "Posted limit is 25 mph when children are present."
+	// Create a site to reference in the report
 	site := &db.Site{
 		Name:     "E2E Site",
 		Location: "Test Location",
@@ -36,11 +35,57 @@ func TestGenerateReport_E2E(t *testing.T) {
 		t.Fatalf("failed to create site: %v", err)
 	}
 
-	// Set PDF_GENERATOR_PYTHON to a no-op to avoid invoking the real generator
-	// but keep the server behavior that writes the config file. We preserved
-	// the config file for tests earlier in server.go when this env var is set.
+	// Create initial site config period
+	initialNotes := "Initial site configuration"
+	initialConfig := &db.SiteConfigPeriod{
+		SiteID:             site.ID,
+		EffectiveStartUnix: 0,
+		EffectiveEndUnix:   nil,
+		IsActive:           true,
+		Notes:              &initialNotes,
+		CosineErrorAngle:   0.0,
+	}
+	if err := dbInst.CreateSiteConfigPeriod(initialConfig); err != nil {
+		t.Fatalf("failed to create site config period: %v", err)
+	}
+
+	// Insert test radar data for the report date range (2025-10-01)
+	testTimestamp := 1727740800 // 2025-10-01 00:00:00 UTC
+	testEvent := map[string]interface{}{
+		"site_id":         site.ID,
+		"classifier":      "all",
+		"start_time":      float64(testTimestamp),
+		"end_time":        float64(testTimestamp + 1),
+		"delta_time_msec": 100,
+		"max_speed_mps":   10.0,
+		"min_speed_mps":   10.0,
+		"speed_change":    0.0,
+		"max_magnitude":   10,
+		"avg_magnitude":   10,
+		"total_frames":    1,
+		"frames_per_mps":  1.0,
+		"length_m":        1.0,
+	}
+	eventJSON, _ := json.Marshal(testEvent)
+	if err := dbInst.RecordRadarObject(string(eventJSON)); err != nil {
+		t.Fatalf("failed to insert test radar data: %v", err)
+	}
+
+	// Set PDF_GENERATOR_PYTHON to the mock script that creates expected output files
+	// This allows us to test the config file writing without invoking the real generator
 	old := os.Getenv("PDF_GENERATOR_PYTHON")
-	if err := os.Setenv("PDF_GENERATOR_PYTHON", "true"); err != nil {
+
+	// Get path to the mock script in testdata
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	mockScript := filepath.Join(cwd, "testdata", "mock_pdf_generator.sh")
+	if _, err := os.Stat(mockScript); err != nil {
+		t.Fatalf("mock script not found at %s: %v", mockScript, err)
+	}
+
+	if err := os.Setenv("PDF_GENERATOR_PYTHON", mockScript); err != nil {
 		t.Fatalf("failed to set env: %v", err)
 	}
 	defer func() { _ = os.Setenv("PDF_GENERATOR_PYTHON", old) }()
@@ -49,10 +94,6 @@ func TestGenerateReport_E2E(t *testing.T) {
 	// points to the actual repository. When 'go test' runs this package the
 	// current working dir is the package dir (internal/api), so we step up to
 	// repo root.
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get cwd: %v", err)
-	}
 	repoRoot := filepath.Clean(filepath.Join(cwd, "..", ".."))
 	if err := os.Chdir(repoRoot); err != nil {
 		t.Fatalf("failed to chdir to repo root: %v", err)
@@ -108,7 +149,7 @@ func TestGenerateReport_E2E(t *testing.T) {
 		t.Fatalf("could not find preserved report config in %s", tmp)
 	}
 
-	// Read and assert the site.speed_limit_note value
+	// Read and assert the site.location value matches what we set
 	data, err := os.ReadFile(cfgPath)
 	if err != nil {
 		t.Fatalf("failed to read config %s: %v", cfgPath, err)
@@ -121,9 +162,9 @@ func TestGenerateReport_E2E(t *testing.T) {
 	if !ok {
 		t.Fatalf("config missing site object")
 	}
-	val, _ := siteObj["speed_limit_note"].(string)
-	if val != note {
-		t.Fatalf("expected speed_limit_note %q, got %q (cfgPath=%s)", note, val, cfgPath)
+	location, _ := siteObj["location"].(string)
+	if location != site.Location {
+		t.Fatalf("expected location %q, got %q (cfgPath=%s)", site.Location, location, cfgPath)
 	}
 
 	queryObj, ok := cfg["query"].(map[string]interface{})

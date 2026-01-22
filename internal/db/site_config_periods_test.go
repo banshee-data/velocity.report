@@ -22,6 +22,20 @@ func TestSiteConfigPeriodOverlap(t *testing.T) {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 
+	// Create initial site config period
+	initialNotes := "Initial site configuration"
+	initialConfig := &SiteConfigPeriod{
+		SiteID:             site.ID,
+		EffectiveStartUnix: 0,
+		EffectiveEndUnix:   nil,
+		IsActive:           true,
+		Notes:              &initialNotes,
+		CosineErrorAngle:   0.0,
+	}
+	if err := db.CreateSiteConfigPeriod(initialConfig); err != nil {
+		t.Fatalf("CreateSiteConfigPeriod failed: %v", err)
+	}
+
 	active, err := db.GetActiveSiteConfigPeriod(site.ID)
 	if err != nil {
 		t.Fatalf("GetActiveSiteConfigPeriod failed: %v", err)
@@ -69,17 +83,24 @@ func TestRadarObjectRollupRangeCosineCorrection(t *testing.T) {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 
-	active, err := db.GetActiveSiteConfigPeriod(site.ID)
-	if err != nil {
-		t.Fatalf("GetActiveSiteConfigPeriod failed: %v", err)
+	// Create initial site config period with 60 degree cosine error angle
+	initialNotes := "Initial site configuration"
+	initialConfig := &SiteConfigPeriod{
+		SiteID:             site.ID,
+		EffectiveStartUnix: 0,
+		EffectiveEndUnix:   nil,
+		IsActive:           true,
+		Notes:              &initialNotes,
+		CosineErrorAngle:   60.0,
 	}
-	active.CosineErrorAngle = 60.0
-	if err := db.UpdateSiteConfigPeriod(active); err != nil {
-		t.Fatalf("UpdateSiteConfigPeriod failed: %v", err)
+	if err := db.CreateSiteConfigPeriod(initialConfig); err != nil {
+		t.Fatalf("CreateSiteConfigPeriod failed: %v", err)
 	}
 
+	// Capture timestamp once for consistency
 	now := time.Now().Unix()
 	event := map[string]interface{}{
+		"site_id":         site.ID,
 		"classifier":      "all",
 		"start_time":      float64(now),
 		"end_time":        float64(now + 1),
@@ -129,19 +150,26 @@ func TestRadarDataRollupRangeCosineCorrection(t *testing.T) {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 
-	active, err := db.GetActiveSiteConfigPeriod(site.ID)
-	if err != nil {
-		t.Fatalf("GetActiveSiteConfigPeriod failed: %v", err)
+	// Create initial site config period with 60 degree cosine error angle
+	initialNotes := "Initial site configuration"
+	initialConfig := &SiteConfigPeriod{
+		SiteID:             site.ID,
+		EffectiveStartUnix: 0,
+		EffectiveEndUnix:   nil,
+		IsActive:           true,
+		Notes:              &initialNotes,
+		CosineErrorAngle:   60.0,
 	}
-	active.CosineErrorAngle = 60.0
-	if err := db.UpdateSiteConfigPeriod(active); err != nil {
-		t.Fatalf("UpdateSiteConfigPeriod failed: %v", err)
+	if err := db.CreateSiteConfigPeriod(initialConfig); err != nil {
+		t.Fatalf("CreateSiteConfigPeriod failed: %v", err)
 	}
 
+	// Capture timestamp once for consistency
 	now := time.Now().Unix()
 	event := map[string]interface{}{
+		"site_id":   site.ID,
 		"speed":     10.0,
-		"uptime":    1.0,
+		"uptime":    float64(now),
 		"magnitude": 5.0,
 	}
 	eventJSON, err := json.Marshal(event)

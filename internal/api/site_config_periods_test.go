@@ -25,6 +25,20 @@ func TestHandleSiteConfigPeriods_CreateAndList(t *testing.T) {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 
+	// Create initial site config period
+	initialNotes := "Initial site configuration"
+	initialConfig := &db.SiteConfigPeriod{
+		SiteID:             site.ID,
+		EffectiveStartUnix: 0,
+		EffectiveEndUnix:   nil,
+		IsActive:           true,
+		Notes:              &initialNotes,
+		CosineErrorAngle:   0.0,
+	}
+	if err := dbInst.CreateSiteConfigPeriod(initialConfig); err != nil {
+		t.Fatalf("CreateSiteConfigPeriod failed: %v", err)
+	}
+
 	active, err := dbInst.GetActiveSiteConfigPeriod(site.ID)
 	if err != nil {
 		t.Fatalf("GetActiveSiteConfigPeriod failed: %v", err)
@@ -82,6 +96,20 @@ func TestHandleSiteConfigPeriods_Overlap(t *testing.T) {
 	}
 	if err := dbInst.CreateSite(site); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
+	}
+
+	// Create initial site config period
+	initialNotes := "Initial site configuration"
+	initialConfig := &db.SiteConfigPeriod{
+		SiteID:             site.ID,
+		EffectiveStartUnix: 0,
+		EffectiveEndUnix:   nil,
+		IsActive:           true,
+		Notes:              &initialNotes,
+		CosineErrorAngle:   0.0,
+	}
+	if err := dbInst.CreateSiteConfigPeriod(initialConfig); err != nil {
+		t.Fatalf("CreateSiteConfigPeriod failed: %v", err)
 	}
 
 	active, err := dbInst.GetActiveSiteConfigPeriod(site.ID)

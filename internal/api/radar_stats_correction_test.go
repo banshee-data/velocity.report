@@ -26,17 +26,24 @@ func TestShowRadarObjectStats_CosineCorrection(t *testing.T) {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 
-	active, err := dbInst.GetActiveSiteConfigPeriod(site.ID)
-	if err != nil {
-		t.Fatalf("GetActiveSiteConfigPeriod failed: %v", err)
+	// Create initial site config period with 60 degree cosine error angle
+	initialNotes := "Initial site configuration"
+	initialConfig := &db.SiteConfigPeriod{
+		SiteID:             site.ID,
+		EffectiveStartUnix: 0,
+		EffectiveEndUnix:   nil,
+		IsActive:           true,
+		Notes:              &initialNotes,
+		CosineErrorAngle:   60.0,
 	}
-	active.CosineErrorAngle = 60.0
-	if err := dbInst.UpdateSiteConfigPeriod(active); err != nil {
-		t.Fatalf("UpdateSiteConfigPeriod failed: %v", err)
+	if err := dbInst.CreateSiteConfigPeriod(initialConfig); err != nil {
+		t.Fatalf("CreateSiteConfigPeriod failed: %v", err)
 	}
 
+	// Capture timestamp once for consistency
 	now := time.Now().Unix()
 	event := map[string]interface{}{
+		"site_id":         site.ID,
 		"classifier":      "all",
 		"start_time":      float64(now),
 		"end_time":        float64(now + 1),
