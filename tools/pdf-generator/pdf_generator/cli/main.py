@@ -302,11 +302,11 @@ def fetch_granular_metrics(
         source_override: Optional source to use instead of config.query.source
 
     Returns:
-        Tuple of (metrics, histogram, response_metadata)
+        Tuple of (metrics, histogram, min_speed_used, response_metadata)
     """
     source = source_override or config.query.source
     try:
-        metrics, histogram, resp = client.get_stats(
+        metrics, histogram, min_speed_used, resp = client.get_stats(
             start_ts=start_ts,
             end_ts=end_ts,
             group=config.query.group,
@@ -320,13 +320,13 @@ def fetch_granular_metrics(
             hist_max=config.query.hist_max,
             site_id=config.query.site_id,
         )
-        return metrics, histogram, resp
+        return metrics, histogram, min_speed_used, resp
     except Exception as exc:
         message = _format_api_error("Fetching granular metrics", client.api_url, exc)
         message = _append_debug_hint(message, config.output.debug)
         _print_error(message)
         _maybe_print_debug(exc, config.output.debug)
-        return [], None, None
+        return [], None, None, None
 
 
 def fetch_overall_summary(
@@ -352,7 +352,7 @@ def fetch_overall_summary(
     """
     source = source_override or config.query.source
     try:
-        metrics_all, _, _ = client.get_stats(
+        metrics_all, _, _, _ = client.get_stats(
             start_ts=start_ts,
             end_ts=end_ts,
             group="all",
@@ -445,7 +445,7 @@ def fetch_daily_summary(
 
     source = source_override or config.query.source
     try:
-        daily_metrics, _, _ = client.get_stats(
+        daily_metrics, _, _, _ = client.get_stats(
             start_ts=start_ts,
             end_ts=end_ts,
             group="24h",
@@ -610,6 +610,7 @@ def assemble_pdf_report(
     granular_metrics: List,
     histogram: Optional[dict],
     config: ReportConfig,
+    min_speed_used: Optional[float] = None,
     compare_start_iso: Optional[str] = None,
     compare_end_iso: Optional[str] = None,
     compare_overall_metrics: Optional[List] = None,
@@ -634,11 +635,14 @@ def assemble_pdf_report(
     Returns:
         True if PDF was generated successfully
     """
-    min_speed_str = (
-        f"{config.query.min_speed} {config.query.units}"
-        if config.query.min_speed is not None
-        else "none"
-    )
+    # Use the actual min_speed_used from the API if available, otherwise fall back to config
+    if min_speed_used is not None:
+        min_speed_str = f"{min_speed_used:.1f} {config.query.units}"
+    elif config.query.min_speed is not None:
+        min_speed_str = f"{config.query.min_speed} {config.query.units}"
+    else:
+        min_speed_str = "none"
+
     tz_display = config.query.timezone or "UTC"
     pdf_path = f"{prefix}_report.pdf"
 
@@ -978,7 +982,7 @@ def process_date_range(
             print(f"DEBUG: failed to write config files: {e}")
 
     # Fetch all data from API
-    metrics, histogram, resp = fetch_granular_metrics(
+    metrics, histogram, min_speed_used, resp = fetch_granular_metrics(
         client, start_ts, end_ts, config, model_version
     )
     if not metrics and not histogram:
@@ -1011,13 +1015,15 @@ def process_date_range(
         compare_source = config.query.compare_source or config.query.source
         if compare_source != config.query.source:
             _print_info(f"Using different source for comparison: {compare_source}")
-        compare_metrics, compare_histogram, _compare_resp = fetch_granular_metrics(
-            client,
-            compare_start_ts,
-            compare_end_ts,
-            config,
-            model_version,
-            source_override=compare_source,
+        compare_metrics, compare_histogram, _compare_min_speed, _compare_resp = (
+            fetch_granular_metrics(
+                client,
+                compare_start_ts,
+                compare_end_ts,
+                config,
+                model_version,
+                source_override=compare_source,
+            )
         )
         if not compare_metrics and not compare_histogram:
             _print_error(
@@ -1102,6 +1108,7 @@ def process_date_range(
         metrics,
         histogram,
         config,
+        min_speed_used=min_speed_used,
         compare_start_iso=compare_start_iso,
         compare_end_iso=compare_end_iso,
         compare_overall_metrics=compare_overall,

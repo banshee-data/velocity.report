@@ -502,39 +502,63 @@ class TimeSeriesChartBuilder:
         try:
             import matplotlib.ticker as ticker
 
+            # Find indices where dates change (first period of each day)
+            day_boundaries = [0]  # Always include first index
+            for idx in range(1, len(times)):
+                if times[idx].date() != times[idx - 1].date():
+                    day_boundaries.append(idx)
+
+            # Build custom tick locations: first of each day + every 2-3 periods within each day
+            custom_ticks = []
+            for day_idx, boundary_start in enumerate(day_boundaries):
+                # Add the first period of the day
+                custom_ticks.append(boundary_start)
+
+                # Find the next day boundary (or end of data)
+                if day_idx + 1 < len(day_boundaries):
+                    boundary_end = day_boundaries[day_idx + 1]
+                else:
+                    boundary_end = len(times)
+
+                # Add ticks every 2-3 periods after the first
+                # Use step of 3 for more spacing
+                step = 3
+                tick = boundary_start + step
+                while tick < boundary_end:
+                    custom_ticks.append(tick)
+                    tick += step
+
+            # Remove duplicates and sort
+            custom_ticks = sorted(set(custom_ticks))
+
             # Determine date/time format based on range
             def format_concise_date(x, pos=None):
                 idx = int(round(x))
                 if 0 <= idx < len(times):
                     dt = times[idx]
-                    # Check if date should be shown
-                    show_date = False
-                    if idx == 0:
-                        show_date = True
-                    elif idx > 0:
-                        prev = times[idx - 1]
-                        if dt.date() != prev.date():
-                            show_date = True
+                    # Check if this is the first period of a day
+                    is_day_start = idx in day_boundaries
 
-                    # Also show date if gap > 4 hours to help orient
-                    if idx > 0 and not show_date:
-                        prev = times[idx - 1]
-                        delta = (dt - prev).total_seconds()
-                        if delta > 4 * 3600:
-                            show_date = True
-
-                    if show_date:
+                    if is_day_start:
                         return dt.strftime("%b %d\n%H:%M")
                     else:
                         return dt.strftime("%H:%M")
                 return ""
 
-            # Set locator to pick nice integer skips
-            # nbins=8 is a reasonable default for standard width charts
-            ax.xaxis.set_major_locator(
-                ticker.MaxNLocator(nbins=10, integer=True, steps=[1, 2, 5, 10])
-            )
+            ax.xaxis.set_major_locator(ticker.FixedLocator(custom_ticks))
             ax.xaxis.set_major_formatter(ticker.FuncFormatter(format_concise_date))
+
+            # Add vertical lines at day boundaries to visually separate days
+            for boundary_idx in day_boundaries[1:]:
+                if boundary_idx < len(times):
+                    ax.axvline(
+                        x=boundary_idx,
+                        color="gray",
+                        linestyle="--",
+                        linewidth=0.5,
+                        alpha=0.3,
+                        zorder=1,
+                    )
 
             # Hide offset text (exponent)
             try:

@@ -63,7 +63,7 @@ class RadarStatsClient:
             site_id: Optional site ID to apply configuration periods
 
         Returns:
-            Tuple of (metrics list, histogram dict, response object)
+            Tuple of (metrics list, histogram dict, min_speed_used float, response object)
 
         Raises:
             requests.HTTPError: If the API request fails
@@ -94,11 +94,14 @@ class RadarStatsClient:
         resp.raise_for_status()
         payload = resp.json()
 
-        # Extract metrics and histogram from payload
+        # Extract metrics, histogram, and min_speed_used from payload
         metrics = payload.get("metrics", []) if isinstance(payload, dict) else payload
         histogram = payload.get("histogram", {}) if isinstance(payload, dict) else {}
+        min_speed_used = (
+            payload.get("min_speed_used") if isinstance(payload, dict) else None
+        )
 
-        return metrics, histogram, resp
+        return metrics, histogram, min_speed_used, resp
 
     def get_site_config_periods(
         self, site_id: int

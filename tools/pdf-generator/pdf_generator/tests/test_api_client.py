@@ -49,7 +49,7 @@ class TestRadarStatsClient:
         )
 
         client = RadarStatsClient()
-        metrics, histogram, resp = client.get_stats(
+        metrics, histogram, min_speed_used, resp = client.get_stats(
             start_ts=1717545600, end_ts=1717632000, group="1h", units="mph"
         )
 
@@ -78,7 +78,7 @@ class TestRadarStatsClient:
         )
 
         client = RadarStatsClient()
-        metrics, histogram, resp = client.get_stats(
+        metrics, histogram, min_speed_used, resp = client.get_stats(
             start_ts=1717545600,
             end_ts=1717632000,
             compute_histogram=True,
@@ -162,7 +162,7 @@ class TestRadarStatsClient:
         )
 
         client = RadarStatsClient()
-        metrics, histogram, resp = client.get_stats(
+        metrics, histogram, min_speed_used, resp = client.get_stats(
             start_ts=1717545600, end_ts=1717632000
         )
 

@@ -215,7 +215,12 @@ class TestFetchGranularMetrics(unittest.TestCase):
         mock_metrics = [{"p50": 25.0}]
         mock_histogram = {"10": 5, "20": 10}
         mock_resp = Mock()
-        mock_client.get_stats.return_value = (mock_metrics, mock_histogram, mock_resp)
+        mock_client.get_stats.return_value = (
+            mock_metrics,
+            mock_histogram,
+            5.0,
+            mock_resp,
+        )
 
         config = create_test_config(
             group="1h",
@@ -228,12 +233,13 @@ class TestFetchGranularMetrics(unittest.TestCase):
             hist_max=50.0,
         )
 
-        metrics, histogram, resp = fetch_granular_metrics(
+        metrics, histogram, min_speed_used, resp = fetch_granular_metrics(
             mock_client, 1704067200, 1704153600, config, "rebuild-full"
         )
 
         self.assertEqual(metrics, mock_metrics)
         self.assertEqual(histogram, mock_histogram)
+        self.assertEqual(min_speed_used, 5.0)
         self.assertEqual(resp, mock_resp)
         mock_client.get_stats.assert_called_once()
 
@@ -253,12 +259,13 @@ class TestFetchGranularMetrics(unittest.TestCase):
             hist_max=None,
         )
 
-        metrics, histogram, resp = fetch_granular_metrics(
+        metrics, histogram, min_speed_used, resp = fetch_granular_metrics(
             mock_client, 1704067200, 1704153600, config, None
         )
 
         self.assertEqual(metrics, [])
         self.assertIsNone(histogram)
+        self.assertIsNone(min_speed_used)
         self.assertIsNone(resp)
 
 
@@ -269,7 +276,7 @@ class TestFetchOverallSummary(unittest.TestCase):
         """Test successful overall summary fetch."""
         mock_client = Mock()
         mock_metrics = [{"p50": 25.0, "count": 1000}]
-        mock_client.get_stats.return_value = (mock_metrics, None, Mock())
+        mock_client.get_stats.return_value = (mock_metrics, None, None, Mock())
 
         config = create_test_config(
             units="mph", source="radar_data_transits", timezone="UTC", min_speed=None
@@ -360,7 +367,7 @@ class TestFetchDailySummary(unittest.TestCase):
         """Test daily fetch when group is less than 24h."""
         mock_client = Mock()
         mock_metrics = [{"p50": 24.0}]
-        mock_client.get_stats.return_value = (mock_metrics, None, Mock())
+        mock_client.get_stats.return_value = (mock_metrics, None, None, Mock())
 
         config = create_test_config(
             group="1h",
@@ -564,7 +571,7 @@ class TestProcessDateRange(unittest.TestCase):
     ):
         """Test successful date range processing."""
         mock_parse.side_effect = [1704067200, 1704153600]
-        mock_fetch_granular.return_value = ([{"p50": 25.0}], None, Mock())
+        mock_fetch_granular.return_value = ([{"p50": 25.0}], None, None, Mock())
         mock_fetch_overall.return_value = [{"p50": 25.0}]
         mock_fetch_daily.return_value = None
         mock_assemble.return_value = True
@@ -607,7 +614,7 @@ class TestProcessDateRange(unittest.TestCase):
     def test_no_data_returns_early(self, mock_parse, mock_fetch):
         """Test that no data returns early."""
         mock_parse.side_effect = [1704067200, 1704153600]
-        mock_fetch.return_value = ([], None, None)
+        mock_fetch.return_value = ([], None, None, None)
 
         mock_client = Mock()
         config = create_test_config(
@@ -1219,7 +1226,7 @@ class TestProcessDateRangeEdgeCases(unittest.TestCase):
         mock_parse_range.return_value = (1704067200, 1704153600)
         mock_get_version.return_value = None
         mock_resolve.return_value = "test"
-        mock_fetch_granular.return_value = ([], None, None)
+        mock_fetch_granular.return_value = ([], None, None, None)
 
         mock_client = Mock()
         config = create_test_config(
@@ -1259,7 +1266,7 @@ class TestProcessDateRangeEdgeCases(unittest.TestCase):
         mock_parse_range.return_value = (1704067200, 1704153600)
         mock_get_version.return_value = None
         mock_resolve.return_value = "test"
-        mock_fetch_granular.return_value = ([], {"10": 5}, Mock())
+        mock_fetch_granular.return_value = ([], {"10": 5}, None, Mock())
         mock_fetch_overall.return_value = [{"Count": 100}]
         mock_fetch_daily.return_value = None
         mock_compute_iso.return_value = ("2024-01-01T00:00:00", "2024-01-02T00:00:00")
