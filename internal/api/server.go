@@ -375,6 +375,12 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 	respObj := map[string]interface{}{
 		"metrics": result.Metrics,
 	}
+
+	// Include the actual min_speed used (converted to display units)
+	if result.MinSpeedUsed > 0 {
+		respObj["min_speed_used"] = units.ConvertSpeed(result.MinSpeedUsed, displayUnits)
+	}
+
 	if len(result.Histogram) > 0 {
 		// convert histogram keys to strings for JSON stability
 		histOut := make(map[string]int64, len(result.Histogram))

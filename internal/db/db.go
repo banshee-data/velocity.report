@@ -670,8 +670,9 @@ func (e *RadarObjectsRollupRow) String() string {
 
 // RadarStatsResult combines time-aggregated metrics with an optional histogram.
 type RadarStatsResult struct {
-	Metrics   []RadarObjectsRollupRow
-	Histogram map[float64]int64 // bucket start (mps) -> count; nil if histogram not requested
+	Metrics      []RadarObjectsRollupRow
+	Histogram    map[float64]int64 // bucket start (mps) -> count; nil if histogram not requested
+	MinSpeedUsed float64           // actual minimum speed filter applied (mps)
 }
 
 // RadarObjectRollupRange aggregates radar speed sources into time buckets and optionally computes a histogram.
@@ -696,6 +697,9 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 	if dataSource == "" {
 		dataSource = "radar_objects"
 	}
+
+	// Store the actual min_speed being used for return in result
+	actualMinSpeed := minSpeed
 
 	var rows *sql.Rows
 	var err error
@@ -910,8 +914,9 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 	}
 
 	return &RadarStatsResult{
-		Metrics:   aggregated,
-		Histogram: histogram,
+		Metrics:      aggregated,
+		Histogram:    histogram,
+		MinSpeedUsed: actualMinSpeed,
 	}, nil
 }
 
