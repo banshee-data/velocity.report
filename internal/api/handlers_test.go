@@ -674,7 +674,7 @@ func TestShowRadarObjectStats_ValidSources(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	sources := []string{"radar_objects", "radar_data", "radar_data_transits"}
+	sources := []string{"radar_objects", "radar_data_transits"}
 	start := "1697318400"
 	end := "1697404800"
 

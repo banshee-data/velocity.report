@@ -283,13 +283,13 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// parse optional data source parameter (radar_objects, radar_data, or radar_data_transits)
+	// parse optional data source parameter (radar_objects or radar_data_transits)
 	// default to radar_objects when empty
 	dataSource := r.URL.Query().Get("source")
 	if dataSource == "" {
 		dataSource = "radar_objects"
-	} else if dataSource != "radar_objects" && dataSource != "radar_data" && dataSource != "radar_data_transits" {
-		s.writeJSONError(w, http.StatusBadRequest, "Invalid 'source' parameter; must be 'radar_objects', 'radar_data', or 'radar_data_transits'")
+	} else if dataSource != "radar_objects" && dataSource != "radar_data_transits" {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid 'source' parameter; must be 'radar_objects' or 'radar_data_transits'")
 		return
 	}
 
@@ -830,7 +830,7 @@ type ReportRequest struct {
 	Timezone       string  `json:"timezone"`           // e.g., "US/Pacific"
 	Units          string  `json:"units"`              // "mph" or "kph"
 	Group          string  `json:"group"`              // e.g., "1h", "4h"
-	Source         string  `json:"source"`             // "radar_objects", "radar_data", or "radar_data_transits"
+	Source         string  `json:"source"`             // "radar_objects" or "radar_data_transits"
 	CompareSource  string  `json:"compare_source"`     // Optional: source for comparison period (defaults to Source)
 	MinSpeed       float64 `json:"min_speed"`          // minimum speed filter
 	Histogram      bool    `json:"histogram"`          // whether to generate histogram
