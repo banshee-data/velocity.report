@@ -9,19 +9,12 @@
 		type Site,
 		type SiteReport
 	} from '$lib/api';
+	import DataSourceSelector from '$lib/components/DataSourceSelector.svelte';
 	import { displayTimezone, initializeTimezone } from '$lib/stores/timezone';
 	import { displayUnits, initializeUnits } from '$lib/stores/units';
 	import { PeriodType } from '@layerstack/utils';
 	import { onMount } from 'svelte';
-	import {
-		Button,
-		Card,
-		DateRangeField,
-		Header,
-		SelectField,
-		ToggleGroup,
-		ToggleOption
-	} from 'svelte-ux';
+	import { Button, Card, DateRangeField, Header, SelectField } from 'svelte-ux';
 
 	let config: Config = { units: 'mph', timezone: 'UTC' };
 	let loading = true;
@@ -210,11 +203,7 @@
 						<SelectField bind:value={group} label="Group" {options} clearable={false} />
 					</div>
 					<div class="w-24">
-						<ToggleGroup bind:value={selectedSource} vertical inset>
-							<ToggleOption value="radar_objects">Objects</ToggleOption>
-							<ToggleOption value="radar_data">Raw data</ToggleOption>
-							<ToggleOption value="radar_data_transits">Transits</ToggleOption>
-						</ToggleGroup>
+						<DataSourceSelector bind:value={selectedSource} />
 					</div>
 					<!-- Keep the site selector wide enough for typical site names. -->
 					<div class="w-44">
@@ -239,11 +228,7 @@
 							<DateRangeField bind:value={compareRange} periodTypes={[PeriodType.Day]} stepper />
 						</div>
 						<div class="w-24">
-							<ToggleGroup bind:value={compareSource} vertical inset>
-								<ToggleOption value="radar_objects">Objects</ToggleOption>
-								<ToggleOption value="radar_data">Raw data</ToggleOption>
-								<ToggleOption value="radar_data_transits">Transits</ToggleOption>
-							</ToggleGroup>
+							<DataSourceSelector bind:value={compareSource} />
 						</div>
 					</div>
 				{/if}

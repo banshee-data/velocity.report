@@ -5,16 +5,7 @@
 	import { format } from 'date-fns';
 	import { Axis, Chart, Highlight, Spline, Svg, Text } from 'layerchart';
 	import { onMount } from 'svelte';
-	import {
-		Button,
-		Card,
-		DateRangeField,
-		Grid,
-		Header,
-		SelectField,
-		ToggleGroup,
-		ToggleOption
-	} from 'svelte-ux';
+	import { Button, Card, DateRangeField, Grid, Header, SelectField } from 'svelte-ux';
 	import {
 		generateReport,
 		getConfig,
@@ -27,6 +18,7 @@
 		type Site,
 		type SiteReport
 	} from '../lib/api';
+	import DataSourceSelector from '../lib/components/DataSourceSelector.svelte';
 	import { displayTimezone, initializeTimezone } from '../lib/stores/timezone';
 	import { displayUnits, initializeUnits } from '../lib/stores/units';
 	import { getUnitLabel, type Unit } from '../lib/units';
@@ -383,11 +375,7 @@
 				<SelectField bind:value={group} label="Group" {options} clearable={false} />
 			</div>
 			<div class="w-24">
-				<ToggleGroup bind:value={selectedSource} vertical inset>
-					<ToggleOption value="radar_objects">Objects</ToggleOption>
-					<ToggleOption value="radar_data">Raw data</ToggleOption>
-					<ToggleOption value="radar_data_transits">Transits</ToggleOption>
-				</ToggleGroup>
+				<DataSourceSelector bind:value={selectedSource} />
 			</div>
 			<div class="w-42">
 				<SelectField
