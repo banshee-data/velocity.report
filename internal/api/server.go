@@ -345,7 +345,19 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 		siteID = parsedSiteID
 	}
 
-	result, dbErr := s.db.RadarObjectRollupRange(startUnix, endUnix, groupSeconds, minSpeedMPS, dataSource, modelVersion, bucketSizeMPS, maxMPS, siteID)
+	// Optional boundary hour filtering threshold
+	// If set, filters out first/last hours of each day with fewer than this many data points
+	boundaryThreshold := 0
+	if btStr := r.URL.Query().Get("boundary_threshold"); btStr != "" {
+		parsedBT, err := strconv.Atoi(btStr)
+		if err != nil || parsedBT < 0 {
+			s.writeJSONError(w, http.StatusBadRequest, "Invalid 'boundary_threshold' parameter; must be a non-negative integer")
+			return
+		}
+		boundaryThreshold = parsedBT
+	}
+
+	result, dbErr := s.db.RadarObjectRollupRange(startUnix, endUnix, groupSeconds, minSpeedMPS, dataSource, modelVersion, bucketSizeMPS, maxMPS, siteID, boundaryThreshold)
 	if dbErr != nil {
 		s.writeJSONError(w, http.StatusInternalServerError,
 			fmt.Sprintf("Failed to retrieve radar stats: %v", dbErr))

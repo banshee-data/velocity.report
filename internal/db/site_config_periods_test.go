@@ -122,7 +122,7 @@ func TestRadarObjectRollupRangeCosineCorrection(t *testing.T) {
 		t.Fatalf("Failed to insert radar object: %v", err)
 	}
 
-	result, err := db.RadarObjectRollupRange(now-60, now+60, 0, 0, "radar_objects", "", 0, 0, site.ID)
+	result, err := db.RadarObjectRollupRange(now-60, now+60, 0, 0, "radar_objects", "", 0, 0, site.ID, 0)
 	if err != nil {
 		t.Fatalf("RadarObjectRollupRange failed: %v", err)
 	}
@@ -180,7 +180,7 @@ func TestRadarDataRollupRangeCosineCorrection(t *testing.T) {
 		t.Fatalf("Failed to insert radar data: %v", err)
 	}
 
-	result, err := db.RadarObjectRollupRange(now-60, now+60, 0, 0, "radar_data", "", 0, 0, site.ID)
+	result, err := db.RadarObjectRollupRange(now-60, now+60, 0, 0, "radar_data", "", 0, 0, site.ID, 0)
 	if err != nil {
 		t.Fatalf("RadarObjectRollupRange failed: %v", err)
 	}

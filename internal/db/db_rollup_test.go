@@ -46,7 +46,7 @@ func TestRadarObjectRollupRange_MinSpeed(t *testing.T) {
 	// Query rollup with minSpeed = 2.0 m/s (should include 3.0 and 6.0)
 	start := now - 10
 	end := now + 1000
-	result, err := dbinst.RadarObjectRollupRange(start, end, 300, 2.0, "radar_objects", "", 0, 0, 0)
+	result, err := dbinst.RadarObjectRollupRange(start, end, 300, 2.0, "radar_objects", "", 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("RadarObjectRollupRange failed: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestRadarObjectRollupRange_EmptyDB(t *testing.T) {
 	defer dbinst.Close()
 
 	now := time.Now().Unix()
-	result, err := dbinst.RadarObjectRollupRange(now-1000, now, 300, 0, "radar_objects", "", 0, 0, 0)
+	result, err := dbinst.RadarObjectRollupRange(now-1000, now, 300, 0, "radar_objects", "", 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("RadarObjectRollupRange failed: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestRadarObjectRollupRange_WithHistogram(t *testing.T) {
 	end := now + 1000
 	bucketSize := 5.0
 	histMax := 100.0
-	result, err := dbinst.RadarObjectRollupRange(start, end, 300, 0, "radar_objects", "", bucketSize, histMax, 0)
+	result, err := dbinst.RadarObjectRollupRange(start, end, 300, 0, "radar_objects", "", bucketSize, histMax, 0, 0)
 	if err != nil {
 		t.Fatalf("RadarObjectRollupRange failed: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestRadarObjectRollupRange_TransitsSource(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		ts := float64(now + int64(i*10))
 		_, err := dbinst.Exec(`INSERT INTO radar_data_transits (
-			transit_key, threshold_ms, transit_start_unix, transit_end_unix, 
+			transit_key, threshold_ms, transit_start_unix, transit_end_unix,
 			transit_max_speed, transit_min_speed, point_count, model_version
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 			fmt.Sprintf("transit_%d", i), 100, ts, ts+1, 10.0+float64(i), 5.0, 10, "rebuild-full")
@@ -163,7 +163,7 @@ func TestRadarObjectRollupRange_TransitsSource(t *testing.T) {
 	start := now - 10
 	end := now + 1000
 	// Use "rebuild-full" model version which is what was inserted
-	result, err := dbinst.RadarObjectRollupRange(start, end, 300, 0, "radar_data_transits", "rebuild-full", 0, 0, 0)
+	result, err := dbinst.RadarObjectRollupRange(start, end, 300, 0, "radar_data_transits", "rebuild-full", 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("RadarObjectRollupRange failed: %v", err)
 	}
@@ -210,7 +210,7 @@ func TestRadarObjectRollupRange_DifferentGroupSizes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			start := now - 10
 			end := now + 10000
-			result, err := dbinst.RadarObjectRollupRange(start, end, tc.groupByNSec, 0, "radar_objects", "", 0, 0, 0)
+			result, err := dbinst.RadarObjectRollupRange(start, end, tc.groupByNSec, 0, "radar_objects", "", 0, 0, 0, 0)
 			if err != nil {
 				t.Fatalf("RadarObjectRollupRange failed: %v", err)
 			}
@@ -236,7 +236,7 @@ func TestRadarObjectRollupRange_InvalidSource(t *testing.T) {
 	defer dbinst.Close()
 
 	now := time.Now().Unix()
-	_, err = dbinst.RadarObjectRollupRange(now-1000, now, 300, 0, "invalid_table", "", 0, 0, 0)
+	_, err = dbinst.RadarObjectRollupRange(now-1000, now, 300, 0, "invalid_table", "", 0, 0, 0, 0)
 	if err == nil {
 		t.Error("expected error for invalid source, got nil")
 	}
@@ -258,7 +258,7 @@ func TestRadarObjectRollupRange_ClassifierFilter(t *testing.T) {
 	for i, model := range models {
 		ts := float64(now + int64(i*10))
 		_, err := dbinst.Exec(`INSERT INTO radar_data_transits (
-			transit_key, threshold_ms, transit_start_unix, transit_end_unix, 
+			transit_key, threshold_ms, transit_start_unix, transit_end_unix,
 			transit_max_speed, transit_min_speed, point_count, model_version
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 			fmt.Sprintf("transit_%d", i), 100, ts, ts+1, 10.0, 5.0, 10, model)
@@ -270,7 +270,7 @@ func TestRadarObjectRollupRange_ClassifierFilter(t *testing.T) {
 	// Filter by rebuild-full model only (default)
 	start := now - 10
 	end := now + 1000
-	result, err := dbinst.RadarObjectRollupRange(start, end, 300, 0, "radar_data_transits", "rebuild-full", 0, 0, 0)
+	result, err := dbinst.RadarObjectRollupRange(start, end, 300, 0, "radar_data_transits", "rebuild-full", 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("RadarObjectRollupRange failed: %v", err)
 	}
@@ -284,7 +284,7 @@ func TestRadarObjectRollupRange_ClassifierFilter(t *testing.T) {
 	}
 
 	// Filter by v2 model
-	result2, err := dbinst.RadarObjectRollupRange(start, end, 300, 0, "radar_data_transits", "v2", 0, 0, 0)
+	result2, err := dbinst.RadarObjectRollupRange(start, end, 300, 0, "radar_data_transits", "v2", 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("RadarObjectRollupRange failed: %v", err)
 	}
@@ -295,5 +295,163 @@ func TestRadarObjectRollupRange_ClassifierFilter(t *testing.T) {
 	}
 	if total2 != 1 {
 		t.Errorf("expected 1 v2 model transit, got %d", total2)
+	}
+}
+
+// TestRadarObjectRollupRange_BoundaryThreshold tests the boundary hour filtering feature
+func TestRadarObjectRollupRange_BoundaryThreshold(t *testing.T) {
+	fname := t.TempDir() + "/boundary_rollup.db"
+	dbinst, err := NewDB(fname)
+	if err != nil {
+		t.Fatalf("failed to create DB: %v", err)
+	}
+	defer dbinst.Close()
+
+	// Create data across 3 days with varying counts per boundary hour:
+	// Day 1: first hour has 2 events (below threshold of 5), last hour has 10 events
+	// Day 2: first hour has 10 events, last hour has 10 events
+	// Day 3: first hour has 10 events, last hour has 3 events (below threshold of 5)
+
+	baseTime := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
+
+	testData := []struct {
+		dayOffset   int
+		hourOffset  int
+		eventCount  int
+		description string
+	}{
+		// Day 1: Jun 1
+		{0, 8, 2, "Day1 first hour - below threshold"},  // 08:00 - boundary, low count
+		{0, 12, 15, "Day1 midday - not boundary"},       // 12:00 - not boundary
+		{0, 17, 10, "Day1 last hour - above threshold"}, // 17:00 - boundary, high count
+		// Day 2: Jun 2
+		{1, 7, 10, "Day2 first hour - above threshold"}, // 07:00 - boundary, high count
+		{1, 12, 20, "Day2 midday - not boundary"},       // 12:00 - not boundary
+		{1, 18, 10, "Day2 last hour - above threshold"}, // 18:00 - boundary, high count
+		// Day 3: Jun 3
+		{2, 9, 10, "Day3 first hour - above threshold"}, // 09:00 - boundary, high count
+		{2, 14, 25, "Day3 midday - not boundary"},       // 14:00 - not boundary
+		{2, 16, 3, "Day3 last hour - below threshold"},  // 16:00 - boundary, low count
+	}
+
+	for _, td := range testData {
+		hourTime := baseTime.AddDate(0, 0, td.dayOffset).Add(time.Duration(td.hourOffset) * time.Hour)
+		for i := 0; i < td.eventCount; i++ {
+			ts := hourTime.Add(time.Duration(i) * time.Minute).Unix()
+			raw := fmt.Sprintf(`{"start_time": %d, "end_time": %d, "delta_time_msec": 100, "max_speed_mps": 10.0, "min_speed_mps": 5, "speed_change": 0, "max_magnitude": 50, "avg_magnitude": 40, "total_frames": 10, "frames_per_mps": 1, "length_m": 5, "classifier": "all"}`, ts, ts+1)
+			if _, err := dbinst.Exec(`INSERT INTO radar_objects (raw_event, write_timestamp) VALUES (?, ?)`, raw, float64(ts)); err != nil {
+				t.Fatalf("insert failed for %s: %v", td.description, err)
+			}
+		}
+	}
+
+	startUnix := baseTime.Unix()
+	endUnix := baseTime.AddDate(0, 0, 3).Unix()
+
+	t.Run("without boundary filtering", func(t *testing.T) {
+		// With boundaryThreshold=0, no filtering should occur
+		result, err := dbinst.RadarObjectRollupRange(startUnix, endUnix, 3600, 0, "radar_objects", "", 0, 0, 0, 0)
+		if err != nil {
+			t.Fatalf("RadarObjectRollupRange failed: %v", err)
+		}
+
+		// Should include all hours: 2 + 15 + 10 + 10 + 20 + 10 + 10 + 25 + 3 = 105
+		totalCount := int64(0)
+		for _, m := range result.Metrics {
+			totalCount += m.Count
+		}
+		if totalCount != 105 {
+			t.Errorf("expected 105 total events without filtering, got %d", totalCount)
+		}
+	})
+
+	t.Run("with boundary filtering threshold=5", func(t *testing.T) {
+		// With boundaryThreshold=5, filter out first/last hours with < 5 events
+		result, err := dbinst.RadarObjectRollupRange(startUnix, endUnix, 3600, 0, "radar_objects", "", 0, 0, 0, 5)
+		if err != nil {
+			t.Fatalf("RadarObjectRollupRange failed: %v", err)
+		}
+
+		// Should exclude: Day1 08:00 (2 events), Day3 16:00 (3 events)
+		// Expected: 15 + 10 + 10 + 20 + 10 + 10 + 25 = 100
+		totalCount := int64(0)
+		for _, m := range result.Metrics {
+			totalCount += m.Count
+		}
+		if totalCount != 100 {
+			t.Errorf("expected 100 total events with threshold=5, got %d", totalCount)
+		}
+	})
+
+	t.Run("with higher boundary filtering threshold=15", func(t *testing.T) {
+		// With boundaryThreshold=15, filter out boundary hours with < 15 events
+		result, err := dbinst.RadarObjectRollupRange(startUnix, endUnix, 3600, 0, "radar_objects", "", 0, 0, 0, 15)
+		if err != nil {
+			t.Fatalf("RadarObjectRollupRange failed: %v", err)
+		}
+
+		// Should exclude: Day1 08:00 (2), Day1 17:00 (10), Day2 07:00 (10), Day2 18:00 (10), Day3 09:00 (10), Day3 16:00 (3)
+		// Expected: 15 + 20 + 25 = 60
+		totalCount := int64(0)
+		for _, m := range result.Metrics {
+			totalCount += m.Count
+		}
+		if totalCount != 60 {
+			t.Errorf("expected 60 total events with threshold=15, got %d", totalCount)
+		}
+	})
+}
+
+// TestRadarObjectRollupRange_BoundaryThreshold_SingleDay tests that boundary filtering
+// does not apply to single-day data
+func TestRadarObjectRollupRange_BoundaryThreshold_SingleDay(t *testing.T) {
+	fname := t.TempDir() + "/boundary_single_day.db"
+	dbinst, err := NewDB(fname)
+	if err != nil {
+		t.Fatalf("failed to create DB: %v", err)
+	}
+	defer dbinst.Close()
+
+	// Create data for a single day with low count boundary hours
+	baseTime := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
+
+	// First hour: 2 events (would be filtered if multi-day)
+	// Last hour: 3 events (would be filtered if multi-day)
+	testData := []struct {
+		hourOffset int
+		eventCount int
+	}{
+		{8, 2},   // First hour - low count
+		{12, 15}, // Midday
+		{17, 3},  // Last hour - low count
+	}
+
+	for _, td := range testData {
+		hourTime := baseTime.Add(time.Duration(td.hourOffset) * time.Hour)
+		for i := 0; i < td.eventCount; i++ {
+			ts := hourTime.Add(time.Duration(i) * time.Minute).Unix()
+			raw := fmt.Sprintf(`{"start_time": %d, "end_time": %d, "delta_time_msec": 100, "max_speed_mps": 10.0, "min_speed_mps": 5, "speed_change": 0, "max_magnitude": 50, "avg_magnitude": 40, "total_frames": 10, "frames_per_mps": 1, "length_m": 5, "classifier": "all"}`, ts, ts+1)
+			if _, err := dbinst.Exec(`INSERT INTO radar_objects (raw_event, write_timestamp) VALUES (?, ?)`, raw, float64(ts)); err != nil {
+				t.Fatalf("insert failed: %v", err)
+			}
+		}
+	}
+
+	startUnix := baseTime.Unix()
+	endUnix := baseTime.Add(24 * time.Hour).Unix()
+
+	// Even with threshold=5, single-day data should NOT be filtered
+	result, err := dbinst.RadarObjectRollupRange(startUnix, endUnix, 3600, 0, "radar_objects", "", 0, 0, 0, 5)
+	if err != nil {
+		t.Fatalf("RadarObjectRollupRange failed: %v", err)
+	}
+
+	// All events should be included: 2 + 15 + 3 = 20
+	totalCount := int64(0)
+	for _, m := range result.Metrics {
+		totalCount += m.Count
+	}
+	if totalCount != 20 {
+		t.Errorf("expected 20 total events (no filtering for single day), got %d", totalCount)
 	}
 }

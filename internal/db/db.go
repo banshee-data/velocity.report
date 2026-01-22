@@ -679,7 +679,11 @@ type RadarStatsResult struct {
 // dataSource may be either "radar_objects" (default), "radar_data", or "radar_data_transits".
 // If histBucketSize > 0, a histogram is computed; histMax (if > 0) clips histogram values above that threshold.
 // Both histBucketSize and histMax are in meters-per-second (mps).
-func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, minSpeed float64, dataSource string, modelVersion string, histBucketSize, histMax float64, siteID int) (*RadarStatsResult, error) {
+// boundaryThreshold: if > 0, filters out boundary hours (first/last hour of each day) with fewer than this many data points.
+// This helps exclude incomplete survey periods. Set to 0 to disable boundary filtering.
+// NOTE: Boundary filtering is always applied at 1-hour granularity, regardless of the requested groupSeconds.
+// This ensures consistent filtering whether requesting hourly, daily (24h), or overall (all) aggregation.
+func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, minSpeed float64, dataSource string, modelVersion string, histBucketSize, histMax float64, siteID int, boundaryThreshold int) (*RadarStatsResult, error) {
 	if endUnix <= startUnix {
 		return nil, fmt.Errorf("end must be greater than start")
 	}
@@ -785,37 +789,101 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 	}
 	defer rows.Close()
 
-	// map: bucketStart -> []speeds
-	buckets := make(map[int64][]float64)
-	// track max speed per bucket
-	bucketMax := make(map[int64]float64)
-	// collect all speeds for histogram (if requested)
-	var allSpeedsForHist []float64
-	if histBucketSize > 0 {
-		allSpeedsForHist = make([]float64, 0)
+	// Read all raw data points first
+	type dataPoint struct {
+		ts  int64
+		spd float64
+	}
+	var rawData []dataPoint
+	for rows.Next() {
+		var tsFloat float64
+		var spd float64
+		if err := rows.Scan(&tsFloat, &spd); err != nil {
+			return nil, err
+		}
+		ts := int64(math.Round(tsFloat))
+		rawData = append(rawData, dataPoint{ts: ts, spd: spd})
 	}
 
-	// Special-case: groupSeconds == 0 means 'all' -- aggregate all rows into a single bucket.
+	// Apply boundary hour filtering at 1-hour granularity if enabled
+	// This creates a set of excluded timestamps, regardless of the requested groupSeconds
+	excludedHours := make(map[int64]bool) // map of hour bucket starts to exclude
+	if boundaryThreshold > 0 && len(rawData) > 0 {
+		// First pass: bucket at 1-hour granularity to count samples per hour
+		hourBuckets := make(map[int64]int) // hourStart -> count
+		for _, dp := range rawData {
+			hourStart := (dp.ts / 3600) * 3600 // truncate to hour
+			hourBuckets[hourStart]++
+		}
+
+		// Group hours by day
+		dayHours := make(map[string][]int64) // YYYY-MM-DD -> []hourStarts
+		for hourStart := range hourBuckets {
+			t := time.Unix(hourStart, 0).UTC()
+			dayKey := t.Format("2006-01-02")
+			dayHours[dayKey] = append(dayHours[dayKey], hourStart)
+		}
+
+		// Only apply boundary filtering if we have multiple days
+		if len(dayHours) > 1 {
+			for _, hours := range dayHours {
+				if len(hours) == 0 {
+					continue
+				}
+				// Sort hours for this day
+				sort.Slice(hours, func(i, j int) bool { return hours[i] < hours[j] })
+
+				firstHour := hours[0]
+				lastHour := hours[len(hours)-1]
+
+				// Check if first hour has too few samples
+				if hourBuckets[firstHour] < boundaryThreshold {
+					excludedHours[firstHour] = true
+				}
+				// Check if last hour has too few samples (and is different from first)
+				if lastHour != firstHour && hourBuckets[lastHour] < boundaryThreshold {
+					excludedHours[lastHour] = true
+				}
+			}
+		}
+	}
+
+	// Filter raw data to exclude points in excluded boundary hours
+	var filteredData []dataPoint
+	if len(excludedHours) > 0 {
+		for _, dp := range rawData {
+			hourStart := (dp.ts / 3600) * 3600
+			if !excludedHours[hourStart] {
+				filteredData = append(filteredData, dp)
+			}
+		}
+	} else {
+		filteredData = rawData
+	}
+
+	// Now bucket the filtered data according to the requested groupSeconds
+	buckets := make(map[int64][]float64)
+	bucketMax := make(map[int64]float64)
+	var allSpeedsForHist []float64
+	if histBucketSize > 0 {
+		allSpeedsForHist = make([]float64, 0, len(filteredData))
+	}
+
+	// Special-case: groupSeconds == 0 means 'all' -- aggregate all rows into a single bucket
 	if groupSeconds == 0 {
 		var allSpeeds []float64
 		var allMax float64
 		var minTs int64 = 0
-		for rows.Next() {
-			var tsFloat float64
-			var spd float64
-			if err := rows.Scan(&tsFloat, &spd); err != nil {
-				return nil, err
-			}
-			ts := int64(math.Round(tsFloat))
-			allSpeeds = append(allSpeeds, spd)
+		for _, dp := range filteredData {
+			allSpeeds = append(allSpeeds, dp.spd)
 			if histBucketSize > 0 {
-				allSpeedsForHist = append(allSpeedsForHist, spd)
+				allSpeedsForHist = append(allSpeedsForHist, dp.spd)
 			}
-			if allMax == 0 || spd > allMax {
-				allMax = spd
+			if allMax == 0 || dp.spd > allMax {
+				allMax = dp.spd
 			}
-			if minTs == 0 || ts < minTs {
-				minTs = ts
+			if minTs == 0 || dp.ts < minTs {
+				minTs = dp.ts
 			}
 		}
 
@@ -832,28 +900,21 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 			bucketMax[bucketStart] = allMax
 		}
 	} else {
-		for rows.Next() {
-			var tsFloat float64
-			var spd float64
-			if err := rows.Scan(&tsFloat, &spd); err != nil {
-				return nil, err
-			}
-			ts := int64(math.Round(tsFloat))
-
+		for _, dp := range filteredData {
 			// compute bucket start aligned to startUnix
-			offset := ts - startUnix
+			offset := dp.ts - startUnix
 			if offset < 0 {
 				offset = 0
 			}
 			bucketOffset := (offset / groupSeconds) * groupSeconds
 			bucketStart := startUnix + bucketOffset
 
-			buckets[bucketStart] = append(buckets[bucketStart], spd)
+			buckets[bucketStart] = append(buckets[bucketStart], dp.spd)
 			if histBucketSize > 0 {
-				allSpeedsForHist = append(allSpeedsForHist, spd)
+				allSpeedsForHist = append(allSpeedsForHist, dp.spd)
 			}
-			if curr, ok := bucketMax[bucketStart]; !ok || spd > curr {
-				bucketMax[bucketStart] = spd
+			if curr, ok := bucketMax[bucketStart]; !ok || dp.spd > curr {
+				bucketMax[bucketStart] = dp.spd
 			}
 		}
 	}
@@ -867,69 +928,11 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 	}
 	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
 
-	// Filter out incomplete boundary hours (first/last hour of each day)
-	// Threshold: minimum number of data points required for a boundary hour
-	const boundaryHourThreshold = 5
+	// Note: Boundary hour filtering has already been applied at 1-hour granularity
+	// above (see excludedHours), so we just use the filtered data directly here.
 
-	// Build a set of boundary hours to check
-	boundaryHours := make(map[int64]bool)
-	if groupSeconds > 0 && groupSeconds <= 3600 { // Only filter if grouping is hourly or finer
-		// Group buckets by day and identify first/last hours
-		dayBuckets := make(map[string][]int64) // map[YYYY-MM-DD][]bucketStart
-		for _, bucketStart := range keys {
-			t := time.Unix(bucketStart, 0).UTC()
-			dayKey := t.Format("2006-01-02")
-			dayBuckets[dayKey] = append(dayBuckets[dayKey], bucketStart)
-		}
-
-		// Only apply filtering if we have multiple days of data
-		if len(dayBuckets) > 1 {
-			// For each day, mark the first and last hour buckets as boundary hours
-			for _, dayKeys := range dayBuckets {
-				if len(dayKeys) == 0 {
-					continue
-				}
-				// Already sorted by virtue of keys being sorted
-				firstBucket := dayKeys[0]
-				lastBucket := dayKeys[len(dayKeys)-1]
-
-				// Mark all buckets in the first hour
-				firstHourEnd := firstBucket + 3600
-				for _, b := range dayKeys {
-					if b >= firstBucket && b < firstHourEnd {
-						boundaryHours[b] = true
-					}
-				}
-
-				// Mark all buckets in the last hour
-				lastHourStart := time.Unix(lastBucket, 0).UTC().Truncate(time.Hour).Unix()
-				for _, b := range dayKeys {
-					if b >= lastHourStart && b <= lastBucket {
-						boundaryHours[b] = true
-					}
-				}
-			}
-		}
-	}
-
-	// Filter buckets and track which speeds to exclude from histogram
-	excludedSpeeds := make(map[int64]bool) // map of bucket starts to exclude
-	filteredKeys := make([]int64, 0, len(keys))
+	// Build aggregated results from all buckets
 	for _, bucketStart := range keys {
-		speeds := buckets[bucketStart]
-		isBoundary := boundaryHours[bucketStart]
-
-		// If this is a boundary hour and count is below threshold, exclude it
-		if isBoundary && len(speeds) < boundaryHourThreshold {
-			excludedSpeeds[bucketStart] = true
-			continue
-		}
-
-		filteredKeys = append(filteredKeys, bucketStart)
-	}
-
-	// Build aggregated results from filtered keys
-	for _, bucketStart := range filteredKeys {
 		speeds := buckets[bucketStart]
 
 		agg := RadarObjectsRollupRow{
@@ -959,17 +962,8 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 		aggregated = append(aggregated, agg)
 	}
 
-	// Rebuild histogram excluding speeds from filtered-out buckets
-	if histBucketSize > 0 && len(excludedSpeeds) > 0 && len(allSpeedsForHist) > 0 {
-		// Re-build allSpeedsForHist excluding filtered buckets
-		var filteredSpeedsForHist []float64
-		for _, bucketStart := range filteredKeys {
-			if speeds, ok := buckets[bucketStart]; ok {
-				filteredSpeedsForHist = append(filteredSpeedsForHist, speeds...)
-			}
-		}
-		allSpeedsForHist = filteredSpeedsForHist
-	}
+	// Note: Histogram data comes from allSpeedsForHist which was built from
+	// filteredData, so it already excludes boundary hours. No rebuild needed.
 
 	// Compute histogram if requested
 	var histogram map[float64]int64
