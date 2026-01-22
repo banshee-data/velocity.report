@@ -126,6 +126,7 @@ export interface ReportRequest {
 	source?: string; // "radar_objects", "radar_data", or "radar_data_transits"
 	compare_source?: string; // Optional: source for comparison period (defaults to source)
 	min_speed?: number; // minimum speed filter
+	boundary_threshold?: number; // filter boundary hours with < N samples (default: 5)
 	histogram?: boolean; // whether to generate histogram
 	hist_bucket_size?: number; // histogram bucket size
 	hist_max?: number; // histogram max value
