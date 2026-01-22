@@ -132,6 +132,72 @@ class TestRadarStatsClient:
         assert "site_id=12" in request.url
 
     @responses.activate
+    def test_get_stats_with_boundary_threshold(self):
+        """Test stats query with boundary_threshold parameter."""
+        responses.add(
+            responses.GET,
+            "http://localhost:8080/api/radar_stats",
+            json={"metrics": [], "histogram": {}},
+            status=200,
+        )
+
+        client = RadarStatsClient()
+        client.get_stats(
+            start_ts=1717545600,
+            end_ts=1717632000,
+            boundary_threshold=5,
+        )
+
+        # Verify boundary_threshold was included in request
+        assert len(responses.calls) == 1
+        request = responses.calls[0].request
+        assert "boundary_threshold=5" in request.url
+
+    @responses.activate
+    def test_get_stats_without_boundary_threshold(self):
+        """Test stats query without boundary_threshold parameter."""
+        responses.add(
+            responses.GET,
+            "http://localhost:8080/api/radar_stats",
+            json={"metrics": [], "histogram": {}},
+            status=200,
+        )
+
+        client = RadarStatsClient()
+        client.get_stats(
+            start_ts=1717545600,
+            end_ts=1717632000,
+            boundary_threshold=None,
+        )
+
+        # Verify boundary_threshold was NOT included in request
+        assert len(responses.calls) == 1
+        request = responses.calls[0].request
+        assert "boundary_threshold" not in request.url
+
+    @responses.activate
+    def test_get_stats_boundary_threshold_zero_not_sent(self):
+        """Test that boundary_threshold=0 is not sent."""
+        responses.add(
+            responses.GET,
+            "http://localhost:8080/api/radar_stats",
+            json={"metrics": [], "histogram": {}},
+            status=200,
+        )
+
+        client = RadarStatsClient()
+        client.get_stats(
+            start_ts=1717545600,
+            end_ts=1717632000,
+            boundary_threshold=0,
+        )
+
+        # Verify boundary_threshold=0 was NOT included (disabled)
+        assert len(responses.calls) == 1
+        request = responses.calls[0].request
+        assert "boundary_threshold" not in request.url
+
+    @responses.activate
     def test_get_stats_http_error(self):
         """Test that HTTP errors are raised."""
         responses.add(

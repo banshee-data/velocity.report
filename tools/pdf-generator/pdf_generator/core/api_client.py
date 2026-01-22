@@ -45,6 +45,7 @@ class RadarStatsClient:
         hist_bucket_size: Optional[float] = None,
         hist_max: Optional[float] = None,
         site_id: Optional[int] = None,
+        boundary_threshold: Optional[int] = None,
     ) -> Tuple[List[Dict[str, Any]], Dict[str, int], requests.Response]:
         """Query radar statistics from the API.
 
@@ -61,6 +62,9 @@ class RadarStatsClient:
             hist_bucket_size: Histogram bucket size in display units
             hist_max: Maximum speed for histogram
             site_id: Optional site ID to apply configuration periods
+            boundary_threshold: Optional threshold for boundary hour filtering.
+                If set, filters out first/last hours of each day with fewer
+                than this many data points. Set to 0 or None to disable.
 
         Returns:
             Tuple of (metrics list, histogram dict, min_speed_used float, response object)
@@ -89,6 +93,8 @@ class RadarStatsClient:
                 params["hist_max"] = hist_max
         if site_id is not None:
             params["site_id"] = site_id
+        if boundary_threshold is not None and boundary_threshold > 0:
+            params["boundary_threshold"] = boundary_threshold
 
         resp = requests.get(self.api_url, params=params)
         resp.raise_for_status()

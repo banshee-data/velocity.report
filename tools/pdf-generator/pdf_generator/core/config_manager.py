@@ -102,6 +102,9 @@ class QueryConfig:
     )
     hist_max: Optional[float] = None  # Maximum bucket value
 
+    # Boundary hour filtering
+    boundary_threshold: Optional[int] = 5  # Filter boundary hours with < N samples
+
 
 @dataclass
 class OutputConfig:

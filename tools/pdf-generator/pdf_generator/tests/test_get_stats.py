@@ -23,6 +23,8 @@ from pdf_generator.cli.main import (
     generate_timeseries_chart,
     assemble_pdf_report,
     process_date_range,
+    derive_overall_from_granular,
+    derive_daily_from_granular,
 )
 
 
@@ -1175,8 +1177,6 @@ class TestProcessDateRangeEdgeCases(unittest.TestCase):
 
     @patch("pdf_generator.cli.main.assemble_pdf_report")
     @patch("pdf_generator.cli.main.generate_all_charts")
-    @patch("pdf_generator.cli.main.fetch_daily_summary")
-    @patch("pdf_generator.cli.main.fetch_overall_summary")
     @patch("pdf_generator.cli.main.fetch_granular_metrics")
     @patch("pdf_generator.cli.main.resolve_file_prefix")
     @patch("pdf_generator.cli.main.get_model_version")
@@ -1187,8 +1187,6 @@ class TestProcessDateRangeEdgeCases(unittest.TestCase):
         mock_get_version,
         mock_resolve,
         mock_fetch_granular,
-        mock_fetch_overall,
-        mock_fetch_daily,
         mock_gen_charts,
         mock_assemble,
     ):
@@ -1343,6 +1341,207 @@ class TestComputeIsoTimestampsEdgeCases(unittest.TestCase):
         # Should fallback to string representation
         self.assertEqual(start_iso, str(start_ts))
         self.assertEqual(end_iso, str(end_ts))
+
+
+class TestDeriveOverallFromGranular(unittest.TestCase):
+    """Tests for derive_overall_from_granular function."""
+
+    def test_empty_input(self):
+        """Test that empty input returns empty list."""
+        result = derive_overall_from_granular([])
+        self.assertEqual(result, [])
+
+    def test_basic_aggregation(self):
+        """Test basic aggregation from granular metrics."""
+        granular = [
+            {
+                "StartTime": "2025-01-01T08:00:00Z",
+                "Count": 100,
+                "P50Speed": 25.0,
+                "P85Speed": 32.0,
+                "P98Speed": 40.0,
+                "MaxSpeed": 45.0,
+            },
+            {
+                "StartTime": "2025-01-01T09:00:00Z",
+                "Count": 150,
+                "P50Speed": 27.0,
+                "P85Speed": 34.0,
+                "P98Speed": 42.0,
+                "MaxSpeed": 50.0,
+            },
+        ]
+
+        result = derive_overall_from_granular(granular)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["count"], 250)  # 100 + 150
+        self.assertEqual(result[0]["max_speed"], 50.0)  # Maximum of all
+        # Median of weighted p50s: 100x25.0, 150x27.0 -> median ~ 26.x
+        self.assertIsNotNone(result[0]["p50_speed"])
+        self.assertIsNotNone(result[0]["p85_speed"])
+        self.assertIsNotNone(result[0]["p98_speed"])
+
+    def test_handles_nan_values(self):
+        """Test that NaN values are handled correctly."""
+        granular = [
+            {
+                "StartTime": "2025-01-01T08:00:00Z",
+                "Count": 100,
+                "P50Speed": float("nan"),
+                "P85Speed": 32.0,
+                "P98Speed": 40.0,
+                "MaxSpeed": 45.0,
+            },
+        ]
+
+        result = derive_overall_from_granular(granular)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["count"], 100)
+        # p50 should be 0 since no valid values
+        self.assertEqual(result[0]["p50_speed"], 0)
+
+    def test_filters_zero_count_rows(self):
+        """Test that rows with zero count are filtered."""
+        granular = [
+            {
+                "StartTime": "2025-01-01T08:00:00Z",
+                "Count": 0,  # Should be ignored
+                "P50Speed": 99.0,
+                "MaxSpeed": 99.0,
+            },
+            {
+                "StartTime": "2025-01-01T09:00:00Z",
+                "Count": 50,
+                "P50Speed": 25.0,
+                "MaxSpeed": 30.0,
+            },
+        ]
+
+        result = derive_overall_from_granular(granular)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["count"], 50)
+        self.assertEqual(result[0]["max_speed"], 30.0)
+
+
+class TestDeriveDailyFromGranular(unittest.TestCase):
+    """Tests for derive_daily_from_granular function."""
+
+    def test_empty_input(self):
+        """Test that empty input returns empty list."""
+        result = derive_daily_from_granular([])
+        self.assertEqual(result, [])
+
+    def test_groups_by_day(self):
+        """Test that metrics are grouped by day correctly."""
+        granular = [
+            {
+                "StartTime": "2025-01-01T08:00:00Z",
+                "Count": 100,
+                "P50Speed": 25.0,
+                "P85Speed": 32.0,
+                "P98Speed": 40.0,
+                "MaxSpeed": 45.0,
+            },
+            {
+                "StartTime": "2025-01-01T14:00:00Z",
+                "Count": 150,
+                "P50Speed": 27.0,
+                "P85Speed": 34.0,
+                "P98Speed": 42.0,
+                "MaxSpeed": 50.0,
+            },
+            {
+                "StartTime": "2025-01-02T10:00:00Z",
+                "Count": 80,
+                "P50Speed": 24.0,
+                "P85Speed": 31.0,
+                "P98Speed": 39.0,
+                "MaxSpeed": 43.0,
+            },
+        ]
+
+        result = derive_daily_from_granular(granular, "UTC")
+
+        self.assertEqual(len(result), 2)  # Two distinct days
+
+        # Day 1: 100 + 150 = 250
+        self.assertEqual(result[0]["count"], 250)
+        self.assertEqual(result[0]["max_speed"], 50.0)
+
+        # Day 2: 80
+        self.assertEqual(result[1]["count"], 80)
+        self.assertEqual(result[1]["max_speed"], 43.0)
+
+    def test_timezone_handling(self):
+        """Test that timezone affects day grouping."""
+        # These two events are same day in UTC but different days in US/Pacific
+        # 2025-01-01 23:00 UTC = 2025-01-01 15:00 Pacific
+        # 2025-01-02 02:00 UTC = 2025-01-01 18:00 Pacific
+        granular = [
+            {
+                "StartTime": "2025-01-01T23:00:00Z",
+                "Count": 50,
+                "P50Speed": 25.0,
+                "MaxSpeed": 30.0,
+            },
+            {
+                "StartTime": "2025-01-02T02:00:00Z",
+                "Count": 50,
+                "P50Speed": 25.0,
+                "MaxSpeed": 30.0,
+            },
+        ]
+
+        # In UTC, these are different days
+        result_utc = derive_daily_from_granular(granular, "UTC")
+        self.assertEqual(len(result_utc), 2)
+
+        # In US/Pacific, these are the same day (Jan 1st)
+        result_pacific = derive_daily_from_granular(granular, "America/Los_Angeles")
+        self.assertEqual(len(result_pacific), 1)
+        self.assertEqual(result_pacific[0]["count"], 100)
+
+    def test_handles_nan_count(self):
+        """Test that NaN count values are handled."""
+        granular = [
+            {
+                "StartTime": "2025-01-01T08:00:00Z",
+                "Count": float("nan"),  # NaN count
+                "P50Speed": 25.0,
+                "MaxSpeed": 30.0,
+            },
+            {
+                "StartTime": "2025-01-01T09:00:00Z",
+                "Count": 50,
+                "P50Speed": 27.0,
+                "MaxSpeed": 35.0,
+            },
+        ]
+
+        result = derive_daily_from_granular(granular, "UTC")
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["count"], 50)  # Only the valid count
+
+    def test_handles_invalid_timezone(self):
+        """Test that invalid timezone falls back gracefully."""
+        granular = [
+            {
+                "StartTime": "2025-01-01T08:00:00Z",
+                "Count": 50,
+                "P50Speed": 25.0,
+                "MaxSpeed": 30.0,
+            },
+        ]
+
+        # Invalid timezone should fall back to UTC
+        result = derive_daily_from_granular(granular, "Invalid/Timezone")
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["count"], 50)
 
 
 if __name__ == "__main__":

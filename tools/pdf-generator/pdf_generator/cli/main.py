@@ -210,6 +210,214 @@ def _next_sequenced_prefix(base: str, search_dir: str = ".") -> str:
     return f"{base}-{next_n}-{timestamp}"
 
 
+def derive_overall_from_granular(
+    granular_metrics: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Derive overall summary metrics from granular data.
+
+    This computes aggregated statistics from granular time-bucketed data,
+    ensuring consistency with boundary hour filtering applied at the DB level.
+
+    Args:
+        granular_metrics: List of granular metric dictionaries
+
+    Returns:
+        List containing a single overall summary metric (or empty list)
+    """
+    import math
+
+    if not granular_metrics:
+        return []
+
+    # Collect all speeds weighted by count for percentile calculation
+    total_count = 0
+    max_speed = 0.0
+    all_p50s = []
+    all_p85s = []
+    all_p98s = []
+
+    normalizer = MetricsNormalizer()
+
+    for row in granular_metrics:
+        count = normalizer.get_numeric(row, "count") or 0
+        if count is None or (isinstance(count, float) and math.isnan(count)):
+            count = 0
+        if count <= 0:
+            continue
+
+        total_count += int(count)
+
+        p50 = normalizer.get_numeric(row, "p50")
+        p85 = normalizer.get_numeric(row, "p85")
+        p98 = normalizer.get_numeric(row, "p98")
+        max_spd = normalizer.get_numeric(row, "max_speed")
+
+        if p50 is not None and not math.isnan(p50):
+            all_p50s.extend([p50] * int(count))
+        if p85 is not None and not math.isnan(p85):
+            all_p85s.extend([p85] * int(count))
+        if p98 is not None and not math.isnan(p98):
+            all_p98s.extend([p98] * int(count))
+        if max_spd is not None and not math.isnan(max_spd) and max_spd > max_speed:
+            max_speed = max_spd
+
+    if total_count == 0:
+        return []
+
+    # Compute weighted median for each percentile
+    def median(values: List[float]) -> float:
+        if not values:
+            return 0.0
+        sorted_vals = sorted(values)
+        n = len(sorted_vals)
+        mid = n // 2
+        if n % 2 == 0:
+            return (sorted_vals[mid - 1] + sorted_vals[mid]) / 2
+        return sorted_vals[mid]
+
+    # Get start time from first row
+    start_time = None
+    if granular_metrics:
+        start_time = normalizer.get_value(granular_metrics[0], "start_time")
+
+    return [
+        {
+            "start_time": start_time,
+            "count": total_count,
+            "p50_speed": median(all_p50s) if all_p50s else 0,
+            "p85_speed": median(all_p85s) if all_p85s else 0,
+            "p98_speed": median(all_p98s) if all_p98s else 0,
+            "max_speed": max_speed,
+            "classifier": "all",
+        }
+    ]
+
+
+def derive_daily_from_granular(
+    granular_metrics: List[Dict[str, Any]],
+    timezone: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Derive daily summary metrics from granular data.
+
+    Groups granular metrics by day and computes daily aggregates,
+    ensuring consistency with boundary hour filtering.
+
+    Args:
+        granular_metrics: List of granular metric dictionaries
+        timezone: Timezone for day boundary calculation
+
+    Returns:
+        List of daily summary metrics
+    """
+    if not granular_metrics:
+        return []
+
+    import math
+    from collections import defaultdict
+
+    try:
+        tzobj = ZoneInfo(timezone) if timezone else dt_timezone.utc
+    except Exception:
+        tzobj = dt_timezone.utc
+
+    normalizer = MetricsNormalizer()
+
+    # Group by day
+    day_data: Dict[str, Dict[str, Any]] = defaultdict(
+        lambda: {
+            "count": 0,
+            "max_speed": 0.0,
+            "p50s": [],
+            "p85s": [],
+            "p98s": [],
+            "start_time": None,
+        }
+    )
+
+    for row in granular_metrics:
+        # Parse start time
+        start_time_raw = normalizer.get_value(row, "start_time")
+        if start_time_raw is None:
+            continue
+
+        # Convert to datetime
+        try:
+            if isinstance(start_time_raw, str):
+                dt = datetime.fromisoformat(start_time_raw.replace("Z", "+00:00"))
+            elif isinstance(start_time_raw, (int, float)):
+                dt = datetime.fromtimestamp(start_time_raw, tz=dt_timezone.utc)
+            else:
+                continue
+            # Convert to target timezone for day grouping
+            dt = dt.astimezone(tzobj)
+            day_key = dt.strftime("%Y-%m-%d")
+        except Exception:
+            continue
+
+        count = normalizer.get_numeric(row, "count") or 0
+        if count is None or (isinstance(count, float) and math.isnan(count)):
+            count = 0
+        if count <= 0:
+            continue
+
+        day = day_data[day_key]
+        day["count"] += int(count)
+
+        p50 = normalizer.get_numeric(row, "p50")
+        p85 = normalizer.get_numeric(row, "p85")
+        p98 = normalizer.get_numeric(row, "p98")
+        max_spd = normalizer.get_numeric(row, "max_speed")
+
+        if p50 is not None and not math.isnan(p50):
+            day["p50s"].extend([p50] * int(count))
+        if p85 is not None and not math.isnan(p85):
+            day["p85s"].extend([p85] * int(count))
+        if p98 is not None and not math.isnan(p98):
+            day["p98s"].extend([p98] * int(count))
+        if (
+            max_spd is not None
+            and not math.isnan(max_spd)
+            and max_spd > day["max_speed"]
+        ):
+            day["max_speed"] = max_spd
+
+        # Track earliest time in this day
+        if day["start_time"] is None:
+            day["start_time"] = dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Convert to list of metrics
+    def median(values: List[float]) -> float:
+        if not values:
+            return 0.0
+        sorted_vals = sorted(values)
+        n = len(sorted_vals)
+        mid = n // 2
+        if n % 2 == 0:
+            return (sorted_vals[mid - 1] + sorted_vals[mid]) / 2
+        return sorted_vals[mid]
+
+    result = []
+    for day_key in sorted(day_data.keys()):
+        day = day_data[day_key]
+        if day["count"] == 0:
+            continue
+        result.append(
+            {
+                "start_time": (
+                    day["start_time"].isoformat() if day["start_time"] else day_key
+                ),
+                "count": day["count"],
+                "p50_speed": median(day["p50s"]),
+                "p85_speed": median(day["p85s"]),
+                "p98_speed": median(day["p98s"]),
+                "max_speed": day["max_speed"],
+                "classifier": "all",
+            }
+        )
+
+    return result
+
+
 def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = None):
     """Create a compact time-series plot (P50/P85/P98/Max + counts bars).
 
@@ -319,6 +527,7 @@ def fetch_granular_metrics(
             hist_bucket_size=config.query.hist_bucket_size,
             hist_max=config.query.hist_max,
             site_id=config.query.site_id,
+            boundary_threshold=config.query.boundary_threshold,
         )
         return metrics, histogram, min_speed_used, resp
     except Exception as exc:
@@ -363,6 +572,7 @@ def fetch_overall_summary(
             min_speed=config.query.min_speed,
             compute_histogram=False,
             site_id=config.query.site_id,
+            boundary_threshold=config.query.boundary_threshold,
         )
         return metrics_all
     except Exception as exc:
@@ -455,6 +665,8 @@ def fetch_daily_summary(
             timezone=config.query.timezone or None,
             min_speed=config.query.min_speed,
             compute_histogram=False,
+            site_id=config.query.site_id,
+            boundary_threshold=config.query.boundary_threshold,
         )
         return daily_metrics
     except Exception as exc:
@@ -992,6 +1204,7 @@ def process_date_range(
         )
         return
 
+    # Fetch overall summary from API (proper percentile calculation from raw data)
     overall_metrics = fetch_overall_summary(
         client, start_ts, end_ts, config, model_version
     )
@@ -1002,7 +1215,7 @@ def process_date_range(
 
     should_daily = should_produce_daily(config.query.group)
     daily_metrics = fetch_daily_summary(client, start_ts, end_ts, config, model_version)
-    if should_daily and daily_metrics is None:
+    if should_daily and not daily_metrics:
         _print_error("Warning: daily metrics unavailable; daily chart will be skipped.")
     elif not should_daily:
         _print_info("Daily summary skipped for high-level grouping.")
@@ -1029,6 +1242,8 @@ def process_date_range(
             _print_error(
                 f"Warning: no comparison data returned for {compare_start_date} - {compare_end_date}."
             )
+
+        # Fetch comparison overall and daily summaries from API
         compare_overall = fetch_overall_summary(
             client,
             compare_start_ts,
