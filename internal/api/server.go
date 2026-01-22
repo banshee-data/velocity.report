@@ -1102,6 +1102,15 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 
 	// Verify PDF was actually created
 	fullPdfPath := filepath.Join(pdfDir, relativePdfPath)
+
+	// Security: Validate path is within pdf-generator directory to prevent path traversal
+	if err := security.ValidatePathWithinDirectory(fullPdfPath, pdfDir); err != nil {
+		log.Printf("Security: rejected PDF path %s: %v", fullPdfPath, err)
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusForbidden, "Invalid file path")
+		return
+	}
+
 	if _, err := os.Stat(fullPdfPath); os.IsNotExist(err) {
 		log.Printf("PDF generation completed but file not found at: %s", fullPdfPath)
 		log.Printf("This usually means no data was available for the specified date range.")
