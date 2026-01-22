@@ -441,6 +441,148 @@ describe('api', () => {
 				})
 			).rejects.toThrow('HTTP 500');
 		});
+
+		it('should include min_speed parameter when provided', async () => {
+			const mockResponse = { success: true, report_id: 456, message: 'Report generated' };
+			const request = {
+				start_date: '2025-01-01',
+				end_date: '2025-01-31',
+				timezone: 'UTC',
+				units: 'mph',
+				min_speed: 5.0
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockResponse
+			});
+
+			const result = await generateReport(request);
+
+			expect(global.fetch).toHaveBeenCalledWith(
+				expect.stringContaining('/api/generate_report'),
+				expect.objectContaining({
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(request)
+				})
+			);
+			expect(result).toEqual(mockResponse);
+		});
+
+		it('should include boundary_threshold parameter when provided', async () => {
+			const mockResponse = { success: true, report_id: 789, message: 'Report generated' };
+			const request = {
+				start_date: '2025-01-01',
+				end_date: '2025-01-31',
+				timezone: 'UTC',
+				units: 'mph',
+				boundary_threshold: 5
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockResponse
+			});
+
+			const result = await generateReport(request);
+
+			expect(global.fetch).toHaveBeenCalledWith(
+				expect.stringContaining('/api/generate_report'),
+				expect.objectContaining({
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(request)
+				})
+			);
+			expect(result).toEqual(mockResponse);
+		});
+
+		it('should include both min_speed and boundary_threshold when provided', async () => {
+			const mockResponse = { success: true, report_id: 999, message: 'Report generated' };
+			const request = {
+				start_date: '2025-01-01',
+				end_date: '2025-01-31',
+				timezone: 'UTC',
+				units: 'mph',
+				min_speed: 5.0,
+				boundary_threshold: 5,
+				site_id: 1,
+				histogram: true,
+				hist_bucket_size: 5.0
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockResponse
+			});
+
+			const result = await generateReport(request);
+
+			expect(global.fetch).toHaveBeenCalledWith(
+				expect.stringContaining('/api/generate_report'),
+				expect.objectContaining({
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(request)
+				})
+			);
+			expect(result).toEqual(mockResponse);
+		});
+
+		it('should handle zero values for min_speed', async () => {
+			const mockResponse = { success: true, report_id: 111, message: 'Report generated' };
+			const request = {
+				start_date: '2025-01-01',
+				end_date: '2025-01-31',
+				timezone: 'UTC',
+				units: 'mph',
+				min_speed: 0
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockResponse
+			});
+
+			const result = await generateReport(request);
+
+			expect(global.fetch).toHaveBeenCalledWith(
+				expect.stringContaining('/api/generate_report'),
+				expect.objectContaining({
+					method: 'POST',
+					body: expect.stringContaining('"min_speed":0')
+				})
+			);
+			expect(result).toEqual(mockResponse);
+		});
+
+		it('should handle zero values for boundary_threshold', async () => {
+			const mockResponse = { success: true, report_id: 222, message: 'Report generated' };
+			const request = {
+				start_date: '2025-01-01',
+				end_date: '2025-01-31',
+				timezone: 'UTC',
+				units: 'mph',
+				boundary_threshold: 0
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockResponse
+			});
+
+			const result = await generateReport(request);
+
+			expect(global.fetch).toHaveBeenCalledWith(
+				expect.stringContaining('/api/generate_report'),
+				expect.objectContaining({
+					method: 'POST',
+					body: expect.stringContaining('"boundary_threshold":0')
+				})
+			);
+			expect(result).toEqual(mockResponse);
+		});
 	});
 
 	describe('getReport', () => {
