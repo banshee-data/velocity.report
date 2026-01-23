@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Test histogram labels with below-cutoff bucket."""
 
+import os
 from pdf_generator.core.chart_builder import HistogramChartBuilder
 import matplotlib.pyplot as plt
 
@@ -68,8 +69,15 @@ def test_with_below_cutoff_bucket():
 
     print("=" * 60 + "\n")
 
-    plt.savefig("histogram_below_cutoff_test.png", dpi=150, bbox_inches="tight")
-    print("Saved figure to: histogram_below_cutoff_test.png\n")
+    filename = "histogram_below_cutoff_test.png"
+    plt.savefig(filename, dpi=150, bbox_inches="tight")
+    print(f"Saved figure to: {filename}\n")
+
+    # Clean up the generated file
+    plt.close(fig)
+    if os.path.exists(filename):
+        os.remove(filename)
+        print(f"Cleaned up: {filename}\n")
 
 
 if __name__ == "__main__":
