@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { deleteSite, getSites, type Site } from '$lib/api';
 	import { mdiDelete, mdiPencil, mdiPlus } from '@mdi/js';
 	import { onMount } from 'svelte';
 	import { Button, Card, Dialog, Header, Table } from 'svelte-ux';
-	import { deleteSite, getSites, type Site } from '../../lib/api';
 
 	let sites: Site[] = [];
 	let loading = true;
@@ -63,7 +63,7 @@
 	<meta name="description" content="Manage radar survey site configurations and settings" />
 </svelte:head>
 
-<main id="main-content" class="space-y-6 p-4">
+<div id="main-content" class="space-y-6 p-4">
 	<div class="flex items-center justify-between">
 		<Header title="Site Management" subheading="Manage radar survey site configurations" />
 		<Button on:click={handleCreate} icon={mdiPlus} variant="fill" color="primary">New Site</Button>
@@ -100,7 +100,6 @@
 						<tr>
 							<th scope="col" class="py-3">Name</th>
 							<th scope="col" class="py-3">Location</th>
-							<th scope="col" class="py-3">Cosine Angle</th>
 							<th scope="col" class="py-3 text-right">Actions</th>
 						</tr>
 					</thead>
@@ -109,7 +108,6 @@
 							<tr class="border-surface-content/10 border-t">
 								<th scope="row" class="py-4 font-medium">{site.name}</th>
 								<td class="py-4">{site.location}</td>
-								<td class="py-4">{site.cosine_error_angle}°</td>
 								<td class="py-4 text-right">
 									<div class="flex justify-end gap-2">
 										<Button
@@ -140,7 +138,7 @@
 			</div>
 		</Card>
 	{/if}
-</main>
+</div>
 
 <!-- Delete Confirmation Dialog -->
 <Dialog bind:open={showDeleteDialog} aria-modal="true" role="alertdialog">

@@ -1,9 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { mdiArrowLeft, mdiContentSave } from '@mdi/js';
-	import { onMount } from 'svelte';
-	import { Button, Card, Header, TextField } from 'svelte-ux';
 	import {
 		createSite,
 		getSite,
@@ -12,7 +9,10 @@
 		updateSite,
 		upsertSiteConfigPeriod,
 		type SiteConfigPeriod
-	} from '../../../lib/api';
+	} from '$lib/api';
+	import { mdiArrowLeft, mdiContentSave } from '@mdi/js';
+	import { onMount } from 'svelte';
+	import { Button, Card, Header, TextField } from 'svelte-ux';
 
 	let siteId: string | null = null;
 	let isNewSite = false;
@@ -28,7 +28,6 @@
 	let formData = {
 		name: '',
 		location: '',
-		description: '',
 		surveyor: '',
 		contact: '',
 		address: '',
@@ -74,7 +73,6 @@
 			formData = {
 				name: site.name,
 				location: site.location,
-				description: site.description || '',
 				surveyor: site.surveyor,
 				contact: site.contact,
 				address: site.address || '',
@@ -236,7 +234,6 @@
 			const siteData = {
 				name: formData.name,
 				location: formData.location,
-				description: formData.description || null,
 				surveyor: formData.surveyor,
 				contact: formData.contact,
 				address: formData.address || null,
@@ -273,7 +270,7 @@
 	/>
 </svelte:head>
 
-<main id="main-content" class="space-y-6 p-4">
+<div id="main-content" class="space-y-6 p-4">
 	<div class="flex items-center justify-between">
 		<Header
 			title={isNewSite ? 'Create New Site' : 'Edit Site'}
@@ -322,8 +319,6 @@
 						required
 						error={formErrors.location}
 					/>
-
-					<TextField bind:value={formData.description} label="Description" />
 				</div>
 			</Card>
 
@@ -357,10 +352,8 @@
 						bind:value={formData.site_description}
 						label="Site Description (for report)"
 						multiline
-						rows={3}
+						classes={{ input: 'h-40' }}
 					/>
-
-					<TextField bind:value={formData.speed_limit_note} label="Speed Limit Note" />
 				</div>
 			</Card>
 
@@ -423,10 +416,10 @@
 								<table class="w-full text-sm">
 									<thead>
 										<tr class="border-b">
-											<th class="px-2 py-2 text-left">Start</th>
-											<th class="px-2 py-2 text-left">End</th>
+											<th class="px-2 py-2 text-left whitespace-nowrap">Start</th>
+											<th class="px-2 py-2 text-left whitespace-nowrap">End</th>
 											<th class="px-2 py-2 text-right">Angle</th>
-											<th class="px-2 py-2 text-left">Notes</th>
+											<th class="w-24 px-2 py-2 text-left">Notes</th>
 											<th class="px-2 py-2 text-left">Active</th>
 											<th class="px-2 py-2 text-left">Actions</th>
 										</tr>
@@ -480,4 +473,4 @@
 			</div>
 		</div>
 	{/if}
-</main>
+</div>

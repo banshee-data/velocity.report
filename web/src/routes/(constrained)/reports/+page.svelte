@@ -252,7 +252,7 @@
 	<meta name="description" content="Generate traffic reports and compare survey periods" />
 </svelte:head>
 
-<main id="main-content" class="mx-auto max-w-[780px] space-y-6 p-4">
+<div id="main-content" class="space-y-6 p-4">
 	<Header title="Report Generator" subheading="Generate PDF reports and compare survey periods" />
 
 	{#if loading}
@@ -452,4 +452,4 @@
 			</div>
 		{/if}
 	{/if}
-</main>
+</div>
