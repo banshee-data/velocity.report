@@ -455,3 +455,84 @@ func TestRadarObjectRollupRange_BoundaryThreshold_SingleDay(t *testing.T) {
 		t.Errorf("expected 20 total events (no filtering for single day), got %d", totalCount)
 	}
 }
+
+// TestRadarObjectRollupRange_HistogramWithMaxBucket tests that when histMax is set,
+// all speeds >= histMax are aggregated into a single bucket at histMax
+func TestRadarObjectRollupRange_HistogramWithMaxBucket(t *testing.T) {
+	fname := t.TempDir() + "/hist_max_bucket.db"
+	dbinst, err := NewDB(fname)
+	if err != nil {
+		t.Fatalf("failed to create DB: %v", err)
+	}
+	defer dbinst.Close()
+
+	now := time.Now().Unix()
+	// Insert speeds: 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 mph
+	// With bucket size 5 mph and max 75 mph, we expect:
+	// - Regular buckets up to 70
+	// - All speeds >= 75 aggregated into bucket 75
+	speeds := []float64{10, 20, 30, 40, 50, 60, 70, 80, 90, 100}
+	for i, spd := range speeds {
+		ts := now + int64(i*10)
+		raw := fmt.Sprintf(`{"start_time": %d, "end_time": %d, "delta_time_msec": 100, "max_speed_mps": %f, "min_speed_mps": 5, "speed_change": 0, "max_magnitude": 50, "avg_magnitude": 40, "total_frames": 10, "frames_per_mps": 1, "length_m": 5, "classifier": "all"}`, ts, ts+1, spd)
+		if _, err := dbinst.Exec(`INSERT INTO radar_objects (raw_event, write_timestamp) VALUES (?, ?)`, raw, float64(ts)); err != nil {
+			t.Fatalf("insert failed: %v", err)
+		}
+	}
+
+	start := now - 10
+	end := now + 1000
+	bucketSize := 5.0
+	histMax := 75.0
+
+	result, err := dbinst.RadarObjectRollupRange(start, end, 300, 0, "radar_objects", "", bucketSize, histMax, 0, 0)
+	if err != nil {
+		t.Fatalf("RadarObjectRollupRange failed: %v", err)
+	}
+
+	// Verify histogram contains expected buckets
+	if result.Histogram == nil {
+		t.Fatal("expected histogram to be non-nil")
+	}
+
+	// Check that bucket 75 exists and contains all speeds >= 75 (80, 90, 100 = 3 values)
+	bucket75Count, ok := result.Histogram[75.0]
+	if !ok {
+		t.Error("expected histogram to contain bucket 75")
+	}
+	if bucket75Count != 3 {
+		t.Errorf("expected bucket 75 to have count 3 (speeds 80, 90, 100), got %d", bucket75Count)
+	}
+
+	// Verify regular buckets below 75 exist
+	expectedBuckets := map[float64]int64{
+		10.0: 1,
+		20.0: 1,
+		30.0: 1,
+		40.0: 1,
+		50.0: 1,
+		60.0: 1,
+		70.0: 1,
+		75.0: 3, // 80, 90, 100 aggregated here
+	}
+
+	for bucket, expectedCount := range expectedBuckets {
+		count, ok := result.Histogram[bucket]
+		if !ok {
+			t.Errorf("expected histogram to contain bucket %v", bucket)
+			continue
+		}
+		if count != expectedCount {
+			t.Errorf("bucket %v: expected count %d, got %d", bucket, expectedCount, count)
+		}
+	}
+
+	// Verify total count in histogram equals total events
+	totalHistCount := int64(0)
+	for _, count := range result.Histogram {
+		totalHistCount += count
+	}
+	if totalHistCount != 10 {
+		t.Errorf("expected total histogram count 10, got %d", totalHistCount)
+	}
+}

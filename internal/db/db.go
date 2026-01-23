@@ -970,13 +970,15 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 	if histBucketSize > 0 && len(allSpeedsForHist) > 0 {
 		histogram = make(map[float64]int64)
 		for _, spd := range allSpeedsForHist {
-			// skip values above histMax if a max was provided
-			if histMax > 0 && spd > histMax {
-				continue
+			var binStart float64
+			if histMax > 0 && spd >= histMax {
+				// aggregate all values >= histMax into a single bucket at histMax
+				binStart = histMax
+			} else {
+				// compute bin start aligned to histBucketSize
+				binIdx := math.Floor(spd / histBucketSize)
+				binStart = binIdx * histBucketSize
 			}
-			// compute bin start aligned to histBucketSize
-			binIdx := math.Floor(spd / histBucketSize)
-			binStart := binIdx * histBucketSize
 			histogram[binStart] = histogram[binStart] + 1
 		}
 	}
