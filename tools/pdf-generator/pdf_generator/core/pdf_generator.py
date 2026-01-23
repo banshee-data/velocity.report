@@ -423,6 +423,9 @@ def generate_pdf_report(
     #         )
     #     )
 
+    # Add detailed data tables heading
+    doc.append(NoEscape("\\subsection*{Detailed Data Tables}"))
+
     # Add histogram table if available
     if histogram and compare_histogram and compare_start_iso and compare_end_iso:
         primary_label = "t1"

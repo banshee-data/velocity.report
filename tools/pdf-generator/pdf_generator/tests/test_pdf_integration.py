@@ -505,16 +505,18 @@ class TestPDFIntegrationConsolidated(unittest.TestCase):
                 f"Footer should NOT show '{wrong_end_date}' (+1 day error)",
             )
 
-            # Verify correct dates in overview section
+            # Verify correct dates in overview section (now in bullet points)
+            # Should show as: \item \textbf{Period:} 2025-06-02 to 2025-06-04
             self.assertIn(
-                f"\\textbf{{{start_date}}}",
+                f"{start_date} to {end_date}",
                 content,
-                "Overview should show correct start date",
+                "Overview should show correct date range",
             )
-            self.assertIn(
-                f"\\textbf{{{end_date}}}",
+            # Verify NO occurrence of wrong date
+            self.assertNotIn(
+                wrong_end_date,
                 content,
-                "Overview should show correct end date",
+                f"Should NOT show {wrong_end_date} anywhere in document",
             )
 
     @patch("pdf_generator.core.pdf_generator.MapProcessor")

@@ -101,48 +101,33 @@ class VelocityOverviewSection:
         except Exception:
             total_disp = str(total_vehicles)
 
-        # Overview paragraph
+        # Overview as bullet points with reduced spacing
+        doc.append(NoEscape("\\begin{itemize}"))
+        doc.append(NoEscape("\\setlength{\\itemsep}{-1pt}"))
+        doc.append(NoEscape("\\setlength{\\parsep}{0pt}"))
+        doc.append(NoEscape("\\setlength{\\leftmargini}{10pt}"))
+        doc.append(NoEscape(f"\\item \\textbf{{Site:}} {escape_latex(location)}"))
+
         if compare_start_date and compare_end_date:
-            # Format comparison vehicle count
-            try:
-                compare_total_disp = (
-                    f"{int(compare_total_vehicles):,}"
-                    if compare_total_vehicles is not None
-                    else "--"
-                )
-            except Exception:
-                compare_total_disp = (
-                    str(compare_total_vehicles)
-                    if compare_total_vehicles is not None
-                    else "--"
-                )
-
-            # Calculate combined total
-            try:
-                if compare_total_vehicles is not None:
-                    combined_total = total_vehicles + compare_total_vehicles
-                    combined_total_disp = f"{int(combined_total):,}"
-                else:
-                    combined_total_disp = total_disp
-            except Exception:
-                combined_total_disp = total_disp
-
             doc.append(
                 NoEscape(
-                    f"Primary period (\\textbf{{t1}}): \\textbf{{{start_date}}} to \\textbf{{{end_date}}} "
-                    f"(\\textbf{{{escape_latex(total_disp)}}} vehicles) at \\textbf{{{escape_latex(location)}}}. "
-                    f"Comparison period (\\textbf{{t2}}): \\textbf{{{compare_start_date}}} to \\textbf{{{compare_end_date}}} "
-                    f"(\\textbf{{{escape_latex(compare_total_disp)}}} vehicles). "
-                    f"Combined total: \\textbf{{{escape_latex(combined_total_disp)}}} vehicles."
+                    f"\\item \\textbf{{Primary period (t1):}} {start_date} to {end_date}"
+                )
+            )
+            doc.append(
+                NoEscape(
+                    f"\\item \\textbf{{Comparison period (t2):}} {compare_start_date} to {compare_end_date}"
                 )
             )
         else:
             doc.append(
                 NoEscape(
-                    f"Between \\textbf{{{start_date}}} and \\textbf{{{end_date}}}, "
-                    f"velocity for \\textbf{{{escape_latex(total_disp)}}} vehicles was recorded on \\textbf{{{escape_latex(location)}}}."
+                    f"\\item \\textbf{{Period:}} {start_date} to {end_date} "
+                    f"({escape_latex(total_disp)} vehicles)"
                 )
             )
+
+        doc.append(NoEscape("\\end{itemize}"))
 
         # Key metrics subsection
         doc.append(NoEscape("\\subsection*{Key Metrics}"))
@@ -185,6 +170,12 @@ class VelocityOverviewSection:
             primary_label = "t1"
             compare_label = "t2"
             summary_entries = [
+                {
+                    "label": "Vehicle Count",
+                    "primary": format_count(total_vehicles),
+                    "compare": format_count(compare_total_vehicles),
+                    "change": "",
+                },
                 {
                     "label": "p50 Velocity",
                     "primary": format_speed(p50),
@@ -316,7 +307,8 @@ class ScienceMethodologySection:
         doc.append(NoEscape("\\par"))
         doc.append(NoEscape("\\par"))
 
-        # Kinetic energy formula
+        # Kinetic energy formula - wrap in minipage to prevent column breaks
+        doc.append(NoEscape("\\begin{minipage}{\\linewidth}"))
         doc.append(NoEscape(r"\[ K_E = \tfrac{1}{2} m v^2 \]"))
         doc.append(NoEscape("\\par"))
 
@@ -324,6 +316,7 @@ class ScienceMethodologySection:
             centered.append(
                 NoEscape("where \\(m\\) is the mass and \\(v\\) is the velocity.")
             )
+        doc.append(NoEscape("\\end{minipage}"))
         doc.append(NoEscape("\\par"))
 
         # Safety implications
@@ -458,6 +451,23 @@ class SurveyParametersSection:
             azimuth_fov: Azimuth field of view
             elevation_fov: Elevation field of view
         """
+        # Hardware Configuration section
+        doc.append(NoEscape("\\subsection*{Hardware Configuration}"))
+
+        hardware_entries = [
+            {"key": "Radar Sensor", "value": sensor_model},
+            {"key": "Firmware version", "value": firmware_version},
+            {"key": "Transmit Frequency", "value": transmit_frequency},
+            {"key": "Sample Rate", "value": sample_rate},
+            {"key": "Velocity Resolution", "value": velocity_resolution},
+            {"key": "Azimuth Field of View", "value": azimuth_fov},
+            {"key": "Elevation Field of View", "value": elevation_fov},
+        ]
+
+        doc.append(create_param_table(hardware_entries))
+        doc.append(NoEscape("\\par"))
+
+        # Survey Parameters section
         doc.append(NoEscape("\\subsection*{Survey Parameters}"))
 
         # Build parameter entries
@@ -475,20 +485,13 @@ class SurveyParametersSection:
                 ]
             )
 
-        # Add remaining parameters
+        # Add remaining survey parameters
         param_entries.extend(
             [
                 {"key": "Timezone", "value": timezone_display},
                 {"key": "Roll-up Period", "value": group},
                 {"key": "Units", "value": units},
                 {"key": "Minimum speed (cutoff)", "value": min_speed_str},
-                {"key": "Radar Sensor", "value": sensor_model},
-                {"key": "Radar Firmware version", "value": firmware_version},
-                {"key": "Radar Transmit Frequency", "value": transmit_frequency},
-                {"key": "Radar Sample Rate", "value": sample_rate},
-                {"key": "Radar Velocity Resolution", "value": velocity_resolution},
-                {"key": "Azimuth Field of View", "value": azimuth_fov},
-                {"key": "Elevation Field of View", "value": elevation_fov},
             ]
         )
 

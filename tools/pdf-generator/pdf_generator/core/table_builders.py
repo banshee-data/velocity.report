@@ -344,12 +344,12 @@ class ComparisonSummaryTableBuilder:
         header_cells = [
             NoEscape(r"\multicolumn{1}{l}{\sffamily\bfseries Metric}"),
             NoEscape(
-                r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{"
+                r"\multicolumn{1}{l}{\sffamily\bfseries \shortstack[l]{"
                 + escape_latex(primary_label).replace(" to ", r" to \\ ")
                 + r"}}"
             ),
             NoEscape(
-                r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{"
+                r"\multicolumn{1}{l}{\sffamily\bfseries \shortstack[l]{"
                 + escape_latex(compare_label).replace(" to ", r" to \\ ")
                 + r"}}"
             ),
