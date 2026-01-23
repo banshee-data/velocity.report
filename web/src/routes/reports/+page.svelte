@@ -107,12 +107,79 @@
 		localStorage.setItem('selectedSiteId', selectedSiteId.toString());
 	}
 
+	function saveReportSettings() {
+		if (!browser) return;
+		try {
+			const settings = {
+				dateRange: {
+					from: dateRange.from?.toISOString(),
+					to: dateRange.to?.toISOString(),
+					periodType: dateRange.periodType
+				},
+				compareRange: {
+					from: compareRange.from?.toISOString(),
+					to: compareRange.to?.toISOString(),
+					periodType: compareRange.periodType
+				},
+				compareEnabled,
+				compareSource,
+				group,
+				selectedSource,
+				minSpeed,
+				maxSpeedCutoff,
+				boundaryThreshold
+			};
+			localStorage.setItem('reportSettings', JSON.stringify(settings));
+		} catch (e) {
+			console.warn('Failed to save report settings:', e);
+		}
+	}
+
+	function loadReportSettings() {
+		if (!browser) return;
+		try {
+			const saved = localStorage.getItem('reportSettings');
+			if (!saved) return;
+
+			const settings = JSON.parse(saved);
+
+			// Restore date ranges
+			if (settings.dateRange?.from && settings.dateRange?.to) {
+				dateRange = {
+					from: new Date(settings.dateRange.from),
+					to: new Date(settings.dateRange.to),
+					periodType: settings.dateRange.periodType ?? PeriodType.Day
+				};
+			}
+
+			if (settings.compareRange?.from && settings.compareRange?.to) {
+				compareRange = {
+					from: new Date(settings.compareRange.from),
+					to: new Date(settings.compareRange.to),
+					periodType: settings.compareRange.periodType ?? PeriodType.Day
+				};
+			}
+
+			// Restore other settings
+			if (settings.compareEnabled !== undefined) compareEnabled = settings.compareEnabled;
+			if (settings.compareSource) compareSource = settings.compareSource;
+			if (settings.group) group = settings.group;
+			if (settings.selectedSource) selectedSource = settings.selectedSource;
+			if (settings.minSpeed !== undefined) minSpeed = settings.minSpeed;
+			if (settings.maxSpeedCutoff !== undefined) maxSpeedCutoff = settings.maxSpeedCutoff;
+			if (settings.boundaryThreshold !== undefined) boundaryThreshold = settings.boundaryThreshold;
+		} catch (e) {
+			console.warn('Failed to load report settings:', e);
+		}
+	}
+
 	async function loadData() {
 		loading = true;
 		error = '';
 		try {
 			await loadConfig();
 			await loadSites();
+			loadReportSettings();
 		} finally {
 			loading = false;
 		}
@@ -169,6 +236,9 @@
 			lastGeneratedReportId = response.report_id;
 			reportMetadata = await getReport(response.report_id);
 			reportMessage = 'Report generated successfully! Use the links below to download.';
+
+			// Save settings for next time
+			saveReportSettings();
 		} catch (e) {
 			reportMessage = e instanceof Error ? e.message : 'Failed to generate report';
 		} finally {
