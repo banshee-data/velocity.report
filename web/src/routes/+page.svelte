@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import { isoDate } from '$lib/dateUtils';
 	import { PeriodType } from '@layerstack/utils';
 	import { scaleOrdinal, scaleTime } from 'd3-scale';
 	import { format } from 'date-fns';
@@ -36,9 +37,6 @@
 	let siteOptions: Array<{ value: number; label: string }> = [];
 
 	// default DateRangeField to the last 14 days (inclusive)
-	function isoDate(d: Date) {
-		return d.toISOString().slice(0, 10);
-	}
 	const today = new Date();
 	const fromDefault = new Date(today); // eslint-disable-line svelte/prefer-svelte-reactivity
 	fromDefault.setDate(today.getDate() - 13); // last 14 days inclusive

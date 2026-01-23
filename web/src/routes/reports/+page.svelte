@@ -10,6 +10,7 @@
 		type SiteReport
 	} from '$lib/api';
 	import DataSourceSelector from '$lib/components/DataSourceSelector.svelte';
+	import { isoDate } from '$lib/dateUtils';
 	import { displayTimezone, initializeTimezone } from '$lib/stores/timezone';
 	import { displayUnits, initializeUnits } from '$lib/stores/units';
 	import { PeriodType } from '@layerstack/utils';
@@ -26,9 +27,6 @@
 	let selectedSite: Site | null = null;
 
 	// default DateRangeField to the last 14 days (inclusive)
-	function isoDate(d: Date) {
-		return d.toISOString().slice(0, 10);
-	}
 	const today = new Date();
 	const fromDefault = new Date(today); // eslint-disable-line svelte/prefer-svelte-reactivity
 	fromDefault.setDate(today.getDate() - 13); // last 14 days inclusive
