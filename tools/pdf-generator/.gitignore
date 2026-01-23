@@ -34,3 +34,4 @@ output/*.png
 # OS
 .DS_Store
 Thumbs.db
+velocity_report_pdf_generator.egg-info/

@@ -42,7 +42,7 @@ Users need the ability to:
 - `/api/radar_stats` for querying speed statistics.
 - Unit conversion and timezone handling implemented.
 
-**iReports & Visualization:**
+**iReports & Visualisation:**
 
 - PDF generator via Python/LaTeX.
 - Statistical summaries (P50, P85, P98).
@@ -52,7 +52,7 @@ Users need the ability to:
 
 1. **No time-based configuration tracking** - Current `site.cosine_error_angle` is a single value; changing it affects all historical data.
 2. **No correction application** - Queries return raw measured speeds, not corrected speeds.
-3. **No configuration timeline view** - Can't visualize which config was active when.
+3. **No configuration timeline view** - Can't visualise which config was active when.
 4. **No active site concept** - No way to mark which site config applies to incoming data.
 5. **Comparison Validity:** Currently, if a sensor is moved/adjusted, comparing data before and after the move is invalid because the cosine error changes.
 
@@ -177,7 +177,7 @@ A comparison report involves two distinct time ranges (e.g., Range A: Jan 1-7, R
 
 #### 4. Frontend Timeline Component
 
-- Visualize when the sensor was moved vs when data was recorded.
+- Visualise when the sensor was moved vs when data was recorded.
 - Highlight "Unconfigured" gaps (if any).
 
 ## Testing Strategy
