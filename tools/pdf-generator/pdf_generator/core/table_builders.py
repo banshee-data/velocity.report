@@ -67,11 +67,14 @@ class StatsTableBuilder:
 
         self.normalizer = MetricsNormalizer()
 
-    def build_header(self, include_start_time: bool = True) -> List[str]:
+    def build_header(
+        self, include_start_time: bool = True, units: str = "mph"
+    ) -> List[str]:
         """Build table header cells with proper formatting.
 
         Args:
             include_start_time: Whether to include start time column
+            units: Units string for velocity measurements
 
         Returns:
             List of NoEscape formatted header cells
@@ -83,20 +86,29 @@ class StatsTableBuilder:
                 NoEscape(r"\multicolumn{1}{l}{\sffamily\bfseries Start Time}")
             )
 
+        units_escaped = escape_latex(units)
         header_cells.extend(
             [
                 NoEscape(r"\multicolumn{1}{r}{\sffamily\bfseries Count}"),
                 NoEscape(
-                    r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack{p50 \\ (mph)}}"
+                    r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack{p50 \\ ("
+                    + units_escaped
+                    + r")}}"
                 ),
                 NoEscape(
-                    r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack{p85 \\ (mph)}}"
+                    r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack{p85 \\ ("
+                    + units_escaped
+                    + r")}}"
                 ),
                 NoEscape(
-                    r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack{p98 \\ (mph)}}"
+                    r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack{p98 \\ ("
+                    + units_escaped
+                    + r")}}"
                 ),
                 NoEscape(
-                    r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack{Max \\ (mph)}}"
+                    r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack{Max \\ ("
+                    + units_escaped
+                    + r")}}"
                 ),
             ]
         )
@@ -182,7 +194,7 @@ class StatsTableBuilder:
         table = Tabular(body_spec)
 
         # Add header row
-        header_cells = self.build_header(include_start_time)
+        header_cells = self.build_header(include_start_time, units)
         table.add_row(header_cells)
         table.add_hline()
 
@@ -235,7 +247,7 @@ class StatsTableBuilder:
         all_data_rows = self.build_rows(stats, include_start_time=True, tz_name=tz_name)
 
         # Build header cells
-        header_cells = self.build_header(include_start_time=True)
+        header_cells = self.build_header(include_start_time=True, units=units)
 
         # Column spec
         body_spec = ">{\\AtkinsonMono}l" + (">{\\AtkinsonMono}r" * 5)
@@ -338,7 +350,7 @@ class ComparisonSummaryTableBuilder:
             PyLaTeX Tabular object
         """
         table = Tabular(
-            ">{\\AtkinsonMono}l>{\\AtkinsonMono}r>{\\AtkinsonMono}r>{\\AtkinsonMono}r"
+            r">{\AtkinsonMono}l>{\AtkinsonMono}r>{\AtkinsonMono}r>{\AtkinsonMono}r"
         )
 
         header_cells = [
@@ -364,29 +376,14 @@ class ComparisonSummaryTableBuilder:
             compare = entry.get("compare", "--")
             change = entry.get("change", "--")
 
-            # Left-align vehicle count row
-            if label == "Vehicle Count":
-                table.add_row(
-                    [
-                        NoEscape(escape_latex(label)),
-                        NoEscape(
-                            r"\multicolumn{1}{l}{" + escape_latex(str(primary)) + r"}"
-                        ),
-                        NoEscape(
-                            r"\multicolumn{1}{l}{" + escape_latex(str(compare)) + r"}"
-                        ),
-                        NoEscape(escape_latex(str(change))),
-                    ]
-                )
-            else:
-                table.add_row(
-                    [
-                        NoEscape(escape_latex(label)),
-                        NoEscape(escape_latex(str(primary))),
-                        NoEscape(escape_latex(str(compare))),
-                        NoEscape(escape_latex(str(change))),
-                    ]
-                )
+            table.add_row(
+                [
+                    NoEscape(escape_latex(label)),
+                    NoEscape(escape_latex(str(primary))),
+                    NoEscape(escape_latex(str(compare))),
+                    NoEscape(escape_latex(str(change))),
+                ]
+            )
 
         return table
 
@@ -719,8 +716,13 @@ def create_histogram_comparison_table(
         ">{\\AtkinsonMono}l>{\\AtkinsonMono}r>{\\AtkinsonMono}r>{\\AtkinsonMono}r>{\\AtkinsonMono}r>{\\AtkinsonMono}r"
     )
 
+    units_escaped = escape_latex(units)
     header_cells = [
-        NoEscape(r"\multicolumn{1}{l}{\sffamily\bfseries Bucket}"),
+        NoEscape(
+            r"\multicolumn{1}{l}{\sffamily\bfseries \shortstack[l]{Bucket \\ ("
+            + units_escaped
+            + r")}}"
+        ),
         NoEscape(
             r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{"
             + escape_latex(primary_label).replace(" to ", r" to \\ ")
@@ -741,16 +743,20 @@ def create_histogram_comparison_table(
             + escape_latex(compare_label).replace(" to ", r" to \\ ")
             + r" \\ Percent}}"
         ),
-        NoEscape(r"\multicolumn{1}{r}{\sffamily\bfseries Change}"),
+        NoEscape(r"\multicolumn{1}{r}{\sffamily\bfseries Delta}"),
     ]
     body_table.add_row(header_cells)
     body_table.add_hline()
 
-    def format_change(primary_value: int, compare_value: int) -> str:
-        if primary_value == 0:
+    def format_change(
+        primary_value: int, compare_value: int, primary_total: int, compare_total: int
+    ) -> str:
+        if primary_total == 0 or compare_total == 0:
             return "--"
-        change_pct = (compare_value - primary_value) / primary_value * 100.0
-        return f"{change_pct:+.1f}%"
+        primary_pct = primary_value / primary_total * 100.0
+        compare_pct = compare_value / compare_total * 100.0
+        delta = compare_pct - primary_pct
+        return f"{delta:+.1f}%"
 
     if ranges:
         first_start = ranges[0][0]
@@ -770,7 +776,16 @@ def create_histogram_comparison_table(
                     NoEscape(escape_latex(f"{primary_pct:.1f}%")),
                     NoEscape(escape_latex(str(int(compare_below)))),
                     NoEscape(escape_latex(f"{compare_pct:.1f}%")),
-                    NoEscape(escape_latex(format_change(primary_below, compare_below))),
+                    NoEscape(
+                        escape_latex(
+                            format_change(
+                                primary_below,
+                                compare_below,
+                                primary_total,
+                                compare_total,
+                            )
+                        )
+                    ),
                 ]
             )
 
@@ -798,7 +813,16 @@ def create_histogram_comparison_table(
                     NoEscape(escape_latex(f"{primary_pct:.1f}%")),
                     NoEscape(escape_latex(str(int(compare_count)))),
                     NoEscape(escape_latex(f"{compare_pct:.1f}%")),
-                    NoEscape(escape_latex(format_change(primary_count, compare_count))),
+                    NoEscape(
+                        escape_latex(
+                            format_change(
+                                primary_count,
+                                compare_count,
+                                primary_total,
+                                compare_total,
+                            )
+                        )
+                    ),
                 ]
             )
 

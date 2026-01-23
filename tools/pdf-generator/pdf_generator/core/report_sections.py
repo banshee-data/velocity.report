@@ -131,7 +131,7 @@ class VelocityOverviewSection:
 
             doc.append(
                 NoEscape(
-                    f"\\item \\textbf{{Total vehicles:}} {escape_latex(combined_total_disp)}"
+                    f"\\item \\textbf{{Total vehicle count:}} {escape_latex(combined_total_disp)}"
                 )
             )
         else:
@@ -186,12 +186,6 @@ class VelocityOverviewSection:
             compare_label = "t2"
             summary_entries = [
                 {
-                    "label": "Vehicle Count",
-                    "primary": format_count(total_vehicles),
-                    "compare": format_count(compare_total_vehicles),
-                    "change": "",
-                },
-                {
                     "label": "p50 Velocity",
                     "primary": format_speed(p50),
                     "compare": format_speed(compare_p50),
@@ -214,6 +208,12 @@ class VelocityOverviewSection:
                     "primary": format_speed(max_speed),
                     "compare": format_speed(compare_max_speed),
                     "change": format_change(max_speed, compare_max_speed),
+                },
+                {
+                    "label": "Vehicle Count",
+                    "primary": format_count(total_vehicles),
+                    "compare": format_count(compare_total_vehicles),
+                    "change": "",
                 },
             ]
             doc.append(

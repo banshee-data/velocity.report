@@ -23,7 +23,7 @@ from dataclasses import dataclass, field, asdict
 
 
 VALID_SOURCES = {"radar_objects", "radar_data", "radar_data_transits"}
-VALID_UNITS = {"mph", "kph", "mps"}
+VALID_UNITS = {"mph", "kph", "kmph", "mps"}
 
 
 @dataclass
