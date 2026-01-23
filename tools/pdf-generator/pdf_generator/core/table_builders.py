@@ -344,12 +344,12 @@ class ComparisonSummaryTableBuilder:
         header_cells = [
             NoEscape(r"\multicolumn{1}{l}{\sffamily\bfseries Metric}"),
             NoEscape(
-                r"\multicolumn{1}{l}{\sffamily\bfseries \shortstack[l]{"
+                r"\multicolumn{1}{l}{\sffamily\bfseries \shortstack[l]{Period "
                 + escape_latex(primary_label).replace(" to ", r" to \\ ")
                 + r"}}"
             ),
             NoEscape(
-                r"\multicolumn{1}{l}{\sffamily\bfseries \shortstack[l]{"
+                r"\multicolumn{1}{l}{\sffamily\bfseries \shortstack[l]{Period "
                 + escape_latex(compare_label).replace(" to ", r" to \\ ")
                 + r"}}"
             ),
@@ -363,14 +363,30 @@ class ComparisonSummaryTableBuilder:
             primary = entry.get("primary", "--")
             compare = entry.get("compare", "--")
             change = entry.get("change", "--")
-            table.add_row(
-                [
-                    NoEscape(escape_latex(label)),
-                    NoEscape(escape_latex(str(primary))),
-                    NoEscape(escape_latex(str(compare))),
-                    NoEscape(escape_latex(str(change))),
-                ]
-            )
+
+            # Left-align vehicle count row
+            if label == "Vehicle Count":
+                table.add_row(
+                    [
+                        NoEscape(escape_latex(label)),
+                        NoEscape(
+                            r"\multicolumn{1}{l}{" + escape_latex(str(primary)) + r"}"
+                        ),
+                        NoEscape(
+                            r"\multicolumn{1}{l}{" + escape_latex(str(compare)) + r"}"
+                        ),
+                        NoEscape(escape_latex(str(change))),
+                    ]
+                )
+            else:
+                table.add_row(
+                    [
+                        NoEscape(escape_latex(label)),
+                        NoEscape(escape_latex(str(primary))),
+                        NoEscape(escape_latex(str(compare))),
+                        NoEscape(escape_latex(str(change))),
+                    ]
+                )
 
         return table
 

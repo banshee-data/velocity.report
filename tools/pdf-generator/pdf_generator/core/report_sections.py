@@ -119,6 +119,21 @@ class VelocityOverviewSection:
                     f"\\item \\textbf{{Comparison period (t2):}} {compare_start_date} to {compare_end_date}"
                 )
             )
+            # Calculate combined total
+            try:
+                if compare_total_vehicles is not None:
+                    combined_total = total_vehicles + compare_total_vehicles
+                    combined_total_disp = f"{int(combined_total):,}"
+                else:
+                    combined_total_disp = total_disp
+            except Exception:
+                combined_total_disp = total_disp
+
+            doc.append(
+                NoEscape(
+                    f"\\item \\textbf{{Total vehicles:}} {escape_latex(combined_total_disp)}"
+                )
+            )
         else:
             doc.append(
                 NoEscape(
@@ -318,6 +333,7 @@ class ScienceMethodologySection:
             )
         doc.append(NoEscape("\\end{minipage}"))
         doc.append(NoEscape("\\par"))
+        doc.append(NoEscape("\\vspace{4pt}"))
 
         # Safety implications
         doc.append(
@@ -518,6 +534,7 @@ class SurveyParametersSection:
 
         doc.append(create_param_table(param_entries))
         doc.append(NoEscape("\\par"))
+        doc.append(NoEscape("\\vspace{4pt}"))
 
 
 # =============================================================================
