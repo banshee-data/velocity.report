@@ -38,3 +38,9 @@ velocity-report-*
 mock_serial_port*
 coverage*
 velocity-deploy*
+
+# Test artifacts
+velocity.report_*.pdf
+velocity.report_*.zip
+velocity.report_*.tex
+histogram_*.png
