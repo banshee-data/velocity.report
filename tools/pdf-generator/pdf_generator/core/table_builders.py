@@ -37,6 +37,7 @@ from pdf_generator.core.stats_utils import (
     process_histogram,
     count_in_histogram_range,
     count_histogram_ge,
+    compute_histogram_ranges,
 )
 from pdf_generator.core.data_transformers import (
     MetricsNormalizer,
@@ -490,53 +491,11 @@ class HistogramTableBuilder:
     ) -> List[tuple]:
         """Compute bucket ranges from actual data.
 
-        If max_bucket is set, ranges will be built up to max_bucket, and the last
-        range will end at max_bucket (not be open-ended). The open-ended bucket
-        will be created separately in _add_histogram_rows.
-
-        If max_bucket is not set, ranges are built to the highest data point.
+        Delegates to the shared compute_histogram_ranges function to ensure
+        consistency between chart and table bucket boundaries.
         """
-        ranges = []
-        inferred_bucket = float(bucket_size)
-
-        if not numeric_buckets:
-            return fallback_ranges
-
-        try:
-            sorted_keys = sorted(numeric_buckets.keys())
-
-            # Infer bucket size from data
-            if len(sorted_keys) > 1:
-                diffs = [j - i for i, j in zip(sorted_keys[:-1], sorted_keys[1:])]
-                positive_diffs = [d for d in diffs if d > 0]
-                if positive_diffs:
-                    inferred_bucket = float(min(positive_diffs))
-
-            min_k = float(sorted_keys[0])
-            max_k = float(sorted_keys[-1])
-
-            # Guard against pathological zero bucket
-            if inferred_bucket <= 0:
-                inferred_bucket = float(bucket_size) or 5.0
-
-            # Determine the upper limit for ranges
-            if max_bucket is not None and max_bucket > min_k:
-                # Use max_bucket as the cutoff point
-                upper_limit = max_bucket
-            else:
-                # Use the highest data point
-                upper_limit = max_k
-
-            # Build ranges from min_k up to upper_limit
-            s = min_k
-            while s < upper_limit:
-                ranges.append((s, s + inferred_bucket))
-                s += inferred_bucket
-
-        except Exception:
-            return fallback_ranges
-
-        return ranges
+        ranges = compute_histogram_ranges(numeric_buckets, bucket_size, max_bucket)
+        return ranges if ranges else fallback_ranges
 
     def _add_histogram_rows(
         self,
@@ -808,16 +767,11 @@ def create_histogram_comparison_table(
                 ]
             )
 
-        for idx, (a, b) in enumerate(ranges):
-            is_last = idx == len(ranges) - 1
-            if is_last:
-                label = f"{int(a)}+"
-                primary_count = count_histogram_ge(primary_buckets, a)
-                compare_count = count_histogram_ge(compare_buckets, a)
-            else:
-                label = f"{int(a)}-{int(b)}"
-                primary_count = count_in_histogram_range(primary_buckets, a, b)
-                compare_count = count_in_histogram_range(compare_buckets, a, b)
+        # Render all ranges as "A-B" buckets
+        for a, b in ranges:
+            label = f"{int(a)}-{int(b)}"
+            primary_count = count_in_histogram_range(primary_buckets, a, b)
+            compare_count = count_in_histogram_range(compare_buckets, a, b)
 
             primary_pct = (
                 primary_count / primary_total * 100.0 if primary_total > 0 else 0.0
@@ -837,6 +791,41 @@ def create_histogram_comparison_table(
                             format_change(
                                 primary_count,
                                 compare_count,
+                                primary_total,
+                                compare_total,
+                            )
+                        )
+                    ),
+                ]
+            )
+
+        # Add final open-ended bucket (max_bucket+)
+        if max_bucket is not None and max_bucket > 0:
+            final_cutoff = max_bucket
+        else:
+            final_cutoff = ranges[-1][1] if ranges else _proc_max
+
+        primary_ge = count_histogram_ge(primary_buckets, final_cutoff)
+        compare_ge = count_histogram_ge(compare_buckets, final_cutoff)
+        if primary_ge > 0 or compare_ge > 0:
+            primary_pct = (
+                primary_ge / primary_total * 100.0 if primary_total > 0 else 0.0
+            )
+            compare_pct = (
+                compare_ge / compare_total * 100.0 if compare_total > 0 else 0.0
+            )
+            body_table.add_row(
+                [
+                    NoEscape(escape_latex(f"{int(final_cutoff)}+")),
+                    NoEscape(escape_latex(str(int(primary_ge)))),
+                    NoEscape(escape_latex(f"{primary_pct:.1f}%")),
+                    NoEscape(escape_latex(str(int(compare_ge)))),
+                    NoEscape(escape_latex(f"{compare_pct:.1f}%")),
+                    NoEscape(
+                        escape_latex(
+                            format_change(
+                                primary_ge,
+                                compare_ge,
                                 primary_total,
                                 compare_total,
                             )

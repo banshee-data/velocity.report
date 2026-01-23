@@ -245,5 +245,125 @@ class TestMaxBucketIntegration(unittest.TestCase):
         self.assertNotIn("70+", [label for label in formatted if label != "70-75"])
 
 
+class TestSharedHistogramFunctions(unittest.TestCase):
+    """Tests for shared histogram formatting functions (DRY principle)."""
+
+    def test_format_histogram_labels_standalone(self):
+        """Test that the shared format_histogram_labels function works correctly."""
+        from pdf_generator.core.stats_utils import format_histogram_labels
+
+        labels = ["10", "20", "30", "40", "50", "60", "70", "75"]
+        formatted = format_histogram_labels(labels, max_bucket=75.0)
+
+        # Should cap the 70 bucket at 75 and show 75+
+        self.assertEqual(formatted[-2], "70-75")
+        self.assertEqual(formatted[-1], "75+")
+
+    def test_compute_histogram_ranges_with_max_bucket(self):
+        """Test that compute_histogram_ranges caps the last range at max_bucket."""
+        from pdf_generator.core.stats_utils import compute_histogram_ranges
+
+        # Bucket size inferred as 5 from the data
+        numeric_buckets = {5: 1, 10: 1, 15: 1, 20: 1, 70: 1, 75: 3}
+        ranges = compute_histogram_ranges(
+            numeric_buckets, bucket_size=5.0, max_bucket=75.0
+        )
+
+        # The last range should end at 75, not 80
+        last_range = ranges[-1]
+        self.assertEqual(last_range[1], 75.0)
+        # The range should be (70, 75) not (70, 80)
+        self.assertEqual(last_range, (70.0, 75.0))
+
+    def test_chart_and_table_use_same_logic(self):
+        """Test that chart's _format_labels delegates to shared function."""
+        from pdf_generator.core.stats_utils import format_histogram_labels
+
+        chart_builder = HistogramChartBuilder()
+
+        labels = ["10", "20", "30", "70", "75"]
+
+        # Chart method should produce same result as shared function
+        chart_result = chart_builder._format_labels(labels, max_bucket=75.0)
+        shared_result = format_histogram_labels(labels, max_bucket=75.0)
+
+        self.assertEqual(chart_result, shared_result)
+
+
+class TestComparisonTableMaxBucket(unittest.TestCase):
+    """Tests for max_bucket in comparison histogram table."""
+
+    def test_comparison_table_shows_correct_buckets_with_max_bucket(self):
+        """Test that comparison table shows N-M and M+ buckets, not N+."""
+        from unittest.mock import MagicMock, patch
+
+        from pdf_generator.core.table_builders import create_histogram_comparison_table
+
+        with (
+            patch("pdf_generator.core.table_builders.Tabular") as mock_tabular,
+            patch("pdf_generator.core.table_builders.Center") as mock_center,
+            patch("pdf_generator.core.table_builders.NoEscape") as mock_noescape,
+            patch("pdf_generator.core.table_builders.escape_latex") as mock_escape,
+        ):
+            mock_escape.side_effect = lambda x: x
+            mock_noescape.side_effect = lambda x: x
+
+            mock_table = MagicMock()
+            mock_tabular.return_value = mock_table
+            mock_centered = MagicMock()
+            mock_center.return_value = mock_centered
+
+            # Create histograms with data up to 80
+            primary = {str(i): 10 for i in range(5, 85, 5)}
+            compare = {str(i): 10 for i in range(5, 85, 5)}
+
+            # Generate table with max_bucket=75
+            create_histogram_comparison_table(
+                histogram=primary,
+                compare_histogram=compare,
+                units="mph",
+                primary_label="t1",
+                compare_label="t2",
+                cutoff=5.0,
+                bucket_size=5.0,
+                max_bucket=75.0,
+            )
+
+            # Get all the row calls
+            row_calls = [call[0][0] for call in mock_table.add_row.call_args_list]
+
+            # Extract bucket labels (first column of each row)
+            bucket_labels = []
+            for row in row_calls:
+                if len(row) > 0:
+                    label = str(row[0])
+                    # Skip header rows
+                    if "Bucket" not in label and "sffamily" not in label:
+                        bucket_labels.append(label)
+
+            # Should have 70-75 bucket (not 70+)
+            has_70_75 = any("70-75" in label for label in bucket_labels)
+            # Should have 75+ bucket
+            has_75_plus = any("75+" in label for label in bucket_labels)
+            # Should NOT have 70+ (standalone)
+            has_70_plus_only = any(
+                label == "70+" or (label.endswith("70+") and "70-75" not in label)
+                for label in bucket_labels
+            )
+
+            self.assertTrue(
+                has_70_75,
+                f"Should have 70-75 bucket in comparison table. Got: {bucket_labels}",
+            )
+            self.assertTrue(
+                has_75_plus,
+                f"Should have 75+ bucket in comparison table. Got: {bucket_labels}",
+            )
+            self.assertFalse(
+                has_70_plus_only,
+                f"Should NOT have standalone 70+ bucket. Got: {bucket_labels}",
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

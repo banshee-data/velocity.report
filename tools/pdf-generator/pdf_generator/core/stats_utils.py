@@ -118,6 +118,149 @@ def count_histogram_ge(numeric_buckets: Dict[float, int], a: float) -> int:
     return sum(v for k, v in numeric_buckets.items() if k >= a)
 
 
+def format_histogram_labels(
+    labels: List[Any], max_bucket: Optional[float] = None
+) -> List[str]:
+    """Format histogram bucket labels to range format (e.g., '5-10', '50+').
+
+    This is the canonical function for formatting histogram labels, used by
+    both chart and table builders to ensure consistent display.
+
+    Converts bucket start values to range labels:
+    - Single values like '5', '10' → '5-10', '10-15', etc.
+    - Detects bucket size from consecutive labels
+    - Last bucket formatted as 'N+' (open-ended)
+    - If max_bucket is set, the bucket before max_bucket is capped to end at
+      max_bucket (e.g., '70-75' not '70-80'), and max_bucket itself shows as 'N+'
+    - Non-numeric labels passed through unchanged
+
+    Args:
+        labels: List of bucket label values (strings or numbers)
+        max_bucket: Optional maximum bucket value for cutoff
+
+    Returns:
+        List of formatted label strings
+    """
+    formatted = []
+
+    # Try to parse labels as floats to detect ranges
+    numeric_labels = []
+    for lbl in labels:
+        try:
+            numeric_labels.append(float(lbl))
+        except Exception:
+            # Non-numeric label - pass through as-is
+            formatted.append(str(lbl))
+            continue
+
+    # If we have numeric labels, convert to ranges
+    if numeric_labels:
+        # Detect bucket size from first two consecutive labels
+        bucket_size = None
+        if len(numeric_labels) >= 2:
+            bucket_size = numeric_labels[1] - numeric_labels[0]
+
+        for i, val in enumerate(numeric_labels):
+            is_last = i == len(numeric_labels) - 1
+
+            # Check if this bucket should be shown as N+ or as a range
+            # If max_bucket is set and this value equals max_bucket, show as N+
+            # Otherwise, if it's the last bucket, show as N+
+            # Otherwise, show as a range A-B
+            if max_bucket is not None and val == max_bucket:
+                # This is the max_bucket cutoff - show as "N+"
+                formatted.append(f"{int(val)}+")
+            elif is_last and (max_bucket is None or val > max_bucket):
+                # Last bucket and no max_bucket, or beyond max_bucket: format as "N+"
+                formatted.append(f"{int(val)}+")
+            elif bucket_size:
+                # Regular bucket: format as "A-B"
+                # If max_bucket is set, we're below max_bucket, and next bucket
+                # would reach or exceed it, cap the range at max_bucket
+                # (e.g., "70-75" instead of "70-80")
+                next_val = val + bucket_size
+                if (
+                    max_bucket is not None
+                    and val < max_bucket
+                    and next_val > max_bucket
+                    and not is_last
+                ):
+                    # Cap at max_bucket
+                    formatted.append(f"{int(val)}-{int(max_bucket)}")
+                else:
+                    formatted.append(f"{int(val)}-{int(next_val)}")
+            else:
+                # Fallback: just show the value
+                formatted.append(f"{int(val)}")
+
+    return formatted
+
+
+def compute_histogram_ranges(
+    numeric_buckets: Dict[float, int],
+    bucket_size: float,
+    max_bucket: Optional[float] = None,
+) -> List[Tuple[float, float]]:
+    """Compute bucket ranges from histogram data for table display.
+
+    This is the canonical function for computing histogram ranges, used by
+    table builders to ensure consistent bucket boundaries.
+
+    Args:
+        numeric_buckets: Dictionary mapping bucket start values to counts
+        bucket_size: Width of each bucket
+        max_bucket: Optional maximum bucket value for cutoff
+
+    Returns:
+        List of (start, end) tuples for display ranges. The last range before
+        max_bucket will be capped to end at max_bucket if needed.
+    """
+    if not numeric_buckets:
+        return []
+
+    ranges: List[Tuple[float, float]] = []
+    inferred_bucket = float(bucket_size)
+
+    try:
+        sorted_keys = sorted(numeric_buckets.keys())
+
+        # Infer bucket size from data if possible
+        if len(sorted_keys) > 1:
+            diffs = [j - i for i, j in zip(sorted_keys[:-1], sorted_keys[1:])]
+            positive_diffs = [d for d in diffs if d > 0]
+            if positive_diffs:
+                inferred_bucket = float(min(positive_diffs))
+
+        min_k = float(sorted_keys[0])
+        max_k = float(sorted_keys[-1])
+
+        # Guard against pathological zero bucket
+        if inferred_bucket <= 0:
+            inferred_bucket = float(bucket_size) or 5.0
+
+        # Determine the upper limit for ranges
+        if max_bucket is not None and max_bucket > min_k:
+            upper_limit = max_bucket
+        else:
+            upper_limit = max_k
+
+        # Build ranges from min_k up to upper_limit
+        s = min_k
+        while s < upper_limit:
+            next_val = s + inferred_bucket
+            # If max_bucket is set and next_val would exceed it, cap at max_bucket
+            if max_bucket is not None and s < max_bucket and next_val > max_bucket:
+                ranges.append((s, max_bucket))
+            else:
+                ranges.append((s, next_val))
+            s += inferred_bucket
+
+    except Exception:
+        pass
+
+    return ranges
+
+
 def plot_histogram(
     histogram: Dict[str, int],
     title: str,

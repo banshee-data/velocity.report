@@ -896,13 +896,8 @@ class HistogramChartBuilder:
     ) -> List[str]:
         """Format histogram labels to match table format (e.g., '5-10', '50+').
 
-        Converts bucket start values to range labels:
-        - Single values like '5', '10' → '5-10', '10-15', etc.
-        - Detects bucket size from consecutive labels
-        - Last bucket formatted as 'N+' (open-ended)
-        - If max_bucket is set, buckets up to max_bucket are shown as ranges,
-          then max_bucket value itself is shown as 'max_bucket+'
-        - Non-numeric labels passed through unchanged
+        Delegates to the shared format_histogram_labels function to ensure
+        consistency between chart and table label formatting.
 
         Args:
             labels: List of bucket label strings
@@ -911,58 +906,10 @@ class HistogramChartBuilder:
         Returns:
             List of formatted label strings
         """
-        formatted = []
+        # Import here to avoid circular imports
+        from pdf_generator.core.stats_utils import format_histogram_labels
 
-        # Try to parse labels as floats to detect ranges
-        numeric_labels = []
-        for lbl in labels:
-            try:
-                numeric_labels.append(float(lbl))
-            except Exception:
-                # Non-numeric label - pass through as-is
-                formatted.append(str(lbl))
-                continue
-
-        # If we have numeric labels, convert to ranges
-        if numeric_labels:
-            # Detect bucket size from first two consecutive labels
-            bucket_size = None
-            if len(numeric_labels) >= 2:
-                bucket_size = numeric_labels[1] - numeric_labels[0]
-
-            for i, val in enumerate(numeric_labels):
-                is_last = i == len(numeric_labels) - 1
-
-                # Check if this bucket should be shown as N+ or as a range
-                # If max_bucket is set and this value equals max_bucket, show as N+
-                # Otherwise, if it's the last bucket, show as N+
-                # Otherwise, show as a range A-B
-                if max_bucket is not None and val == max_bucket:
-                    # This is the max_bucket cutoff - show as "N+"
-                    formatted.append(f"{int(val)}+")
-                elif is_last and (max_bucket is None or val > max_bucket):
-                    # Last bucket and no max_bucket, or beyond max_bucket: format as "N+"
-                    formatted.append(f"{int(val)}+")
-                elif bucket_size:
-                    # Regular bucket: format as "A-B"
-                    # If max_bucket is set, we're below max_bucket, and next bucket would reach or exceed it,
-                    # cap the range at max_bucket (e.g., "70-75" instead of "70-80")
-                    next_val = val + bucket_size
-                    if (
-                        max_bucket is not None
-                        and val < max_bucket
-                        and next_val > max_bucket
-                        and not is_last
-                    ):
-                        # Cap at max_bucket
-                        formatted.append(f"{int(val)}-{int(max_bucket)}")
-                    else:
-                        formatted.append(f"{int(val)}-{int(next_val)}")
-                else:
-                    # Fallback: just show the value
-                    formatted.append(f"{int(val)}")
-
-        return formatted
+        return format_histogram_labels(labels, max_bucket)
 
     def _set_tick_labels(self, ax, x: List[int], formatted_labels: List[str]) -> None:
         """Set X-axis tick labels with responsive thinning."""
