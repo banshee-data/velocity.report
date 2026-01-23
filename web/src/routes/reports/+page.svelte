@@ -43,6 +43,7 @@
 	let group: string = '4h';
 	let selectedSource: string = 'radar_objects';
 	let minSpeed: number = 5;
+	let maxSpeedCutoff: number | null = null;
 	let boundaryThreshold: number = 5;
 
 	let generatingReport = false;
@@ -149,6 +150,7 @@
 				group: group,
 				source: selectedSource,
 				min_speed: minSpeed,
+				hist_max: maxSpeedCutoff,
 				boundary_threshold: boundaryThreshold,
 				histogram: true,
 				hist_bucket_size: 5.0,
@@ -214,7 +216,20 @@
 								type="number"
 								bind:value={minSpeed}
 								min="0"
-								step="0.5"
+								step="1"
+								class="border-surface-content/20 bg-surface-100 mt-1 block w-full rounded-md border px-3 py-2 text-sm"
+							/>
+						</label>
+					</div>
+					<div class="w-32">
+						<label class="text-surface-content/80 block text-sm font-medium">
+							Max Speed Cutoff ({$displayUnits})
+							<input
+								type="number"
+								bind:value={maxSpeedCutoff}
+								min="0"
+								step="5"
+								placeholder="None"
 								class="border-surface-content/20 bg-surface-100 mt-1 block w-full rounded-md border px-3 py-2 text-sm"
 							/>
 						</label>
