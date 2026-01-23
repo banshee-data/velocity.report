@@ -945,8 +945,19 @@ class HistogramChartBuilder:
                     formatted.append(f"{int(val)}+")
                 elif bucket_size:
                     # Regular bucket: format as "A-B"
+                    # If max_bucket is set, we're below max_bucket, and next bucket would reach or exceed it,
+                    # cap the range at max_bucket (e.g., "70-75" instead of "70-80")
                     next_val = val + bucket_size
-                    formatted.append(f"{int(val)}-{int(next_val)}")
+                    if (
+                        max_bucket is not None
+                        and val < max_bucket
+                        and next_val > max_bucket
+                        and not is_last
+                    ):
+                        # Cap at max_bucket
+                        formatted.append(f"{int(val)}-{int(max_bucket)}")
+                    else:
+                        formatted.append(f"{int(val)}-{int(next_val)}")
                 else:
                     # Fallback: just show the value
                     formatted.append(f"{int(val)}")
