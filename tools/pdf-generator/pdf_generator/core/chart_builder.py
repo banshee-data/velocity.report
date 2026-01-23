@@ -549,10 +549,11 @@ class TimeSeriesChartBuilder:
             ax.xaxis.set_major_formatter(ticker.FuncFormatter(format_concise_date))
 
             # Add vertical lines at day boundaries to visually separate days
+            # Position the line between the last bar of previous day and first bar of new day
             for boundary_idx in day_boundaries[1:]:
                 if boundary_idx < len(times):
                     ax.axvline(
-                        x=boundary_idx,
+                        x=boundary_idx - 0.5,
                         color="gray",
                         linestyle="--",
                         linewidth=0.5,
