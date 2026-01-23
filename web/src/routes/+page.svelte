@@ -366,7 +366,7 @@
 		</div>
 	{:else}
 		<div class="flex flex-wrap items-end gap-2">
-			<div class="w-74">
+			<div class="w-70">
 				<DateRangeField bind:value={dateRange} periodTypes={[PeriodType.Day]} stepper />
 			</div>
 			<div class="w-24">
@@ -375,7 +375,7 @@
 			<div class="w-24">
 				<DataSourceSelector bind:value={selectedSource} />
 			</div>
-			<div class="w-42">
+			<div class="w-38">
 				<SelectField
 					bind:value={selectedSiteId}
 					label="Site"
@@ -383,7 +383,7 @@
 					clearable={false}
 				/>
 			</div>
-			<div class="w-24">
+			<div class="w-18">
 				<Button
 					on:click={handleGenerateReport}
 					disabled={generatingReport || selectedSiteId == null}

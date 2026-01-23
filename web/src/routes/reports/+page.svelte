@@ -252,7 +252,7 @@
 	<meta name="description" content="Generate traffic reports and compare survey periods" />
 </svelte:head>
 
-<main id="main-content" class="space-y-6 p-4">
+<main id="main-content" class="mx-auto max-w-[780px] space-y-6 p-4">
 	<Header title="Report Generator" subheading="Generate PDF reports and compare survey periods" />
 
 	{#if loading}
@@ -269,17 +269,28 @@
 		<Card>
 			<div class="space-y-4 p-6">
 				<div class="flex flex-wrap items-end gap-4">
-					<div class="space-y-2">
+					<div class="w-70 space-y-2">
 						<p class="text-surface-content/80 text-sm font-medium">Primary period</p>
 						<DateRangeField bind:value={dateRange} periodTypes={[PeriodType.Day]} stepper />
 					</div>
 					<div class="w-24">
-						<SelectField bind:value={group} label="Group" {options} clearable={false} />
-					</div>
-					<div class="w-24">
 						<DataSourceSelector bind:value={selectedSource} />
 					</div>
-					<div class="w-32">
+					<div class="w-24">
+						<SelectField bind:value={group} label="Group" {options} clearable={false} />
+					</div>
+					<!-- Keep the site selector wide enough for typical site names. -->
+					<div class="w-38">
+						<SelectField
+							bind:value={selectedSiteId}
+							label="Site"
+							options={siteOptions}
+							clearable={false}
+						/>
+					</div>
+				</div>
+				<div class="flex flex-wrap items-end gap-4">
+					<div class="w-42">
 						<label class="text-surface-content/80 block text-sm font-medium">
 							Min Speed ({$displayUnits})
 							<input
@@ -291,7 +302,7 @@
 							/>
 						</label>
 					</div>
-					<div class="w-32">
+					<div class="w-42">
 						<label class="text-surface-content/80 block text-sm font-medium">
 							Max Speed Cutoff ({$displayUnits})
 							<input
@@ -304,7 +315,7 @@
 							/>
 						</label>
 					</div>
-					<div class="w-32">
+					<div class="w-42">
 						<label class="text-surface-content/80 block text-sm font-medium">
 							Min Period Count
 							<input
@@ -316,15 +327,6 @@
 							/>
 						</label>
 					</div>
-					<!-- Keep the site selector wide enough for typical site names. -->
-					<div class="w-44">
-						<SelectField
-							bind:value={selectedSiteId}
-							label="Site"
-							options={siteOptions}
-							clearable={false}
-						/>
-					</div>
 				</div>
 
 				<label class="text-surface-content/80 flex items-center gap-2 text-sm font-medium">
@@ -334,7 +336,7 @@
 
 				{#if compareEnabled}
 					<div class="flex flex-wrap items-end gap-4">
-						<div class="space-y-2">
+						<div class="w-70 space-y-2">
 							<p class="text-surface-content/80 text-sm font-medium">Comparison period</p>
 							<DateRangeField bind:value={compareRange} periodTypes={[PeriodType.Day]} stepper />
 						</div>
