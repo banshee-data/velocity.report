@@ -695,6 +695,7 @@ class HistogramChartBuilder:
         title: str,
         units: str,
         debug: bool = False,
+        max_bucket: Optional[float] = None,
     ) -> object:
         """Build histogram chart from bucket data.
 
@@ -703,6 +704,7 @@ class HistogramChartBuilder:
             title: Chart title
             units: Units string for X-axis label (e.g., "mph")
             debug: Enable debug output
+            max_bucket: Maximum bucket value for cutoff (affects label formatting)
 
         Returns:
             matplotlib Figure object
@@ -742,7 +744,7 @@ class HistogramChartBuilder:
         ax.set_title(title, fontsize=self.fonts["histogram_title"])
 
         # Format X-axis labels
-        formatted_labels = self._format_labels(labels)
+        formatted_labels = self._format_labels(labels, max_bucket)
         self._set_tick_labels(ax, x, formatted_labels)
 
         # Apply styling
@@ -889,14 +891,25 @@ class HistogramChartBuilder:
 
         return fig
 
-    def _format_labels(self, labels: List[str]) -> List[str]:
+    def _format_labels(
+        self, labels: List[str], max_bucket: Optional[float] = None
+    ) -> List[str]:
         """Format histogram labels to match table format (e.g., '5-10', '50+').
 
         Converts bucket start values to range labels:
         - Single values like '5', '10' → '5-10', '10-15', etc.
         - Detects bucket size from consecutive labels
         - Last bucket formatted as 'N+' (open-ended)
+        - If max_bucket is set, buckets up to max_bucket are shown as ranges,
+          then max_bucket value itself is shown as 'max_bucket+'
         - Non-numeric labels passed through unchanged
+
+        Args:
+            labels: List of bucket label strings
+            max_bucket: Optional maximum bucket value for cutoff
+
+        Returns:
+            List of formatted label strings
         """
         formatted = []
 
@@ -920,8 +933,15 @@ class HistogramChartBuilder:
             for i, val in enumerate(numeric_labels):
                 is_last = i == len(numeric_labels) - 1
 
-                if is_last:
-                    # Last bucket: format as "N+" (open-ended)
+                # Check if this bucket should be shown as N+ or as a range
+                # If max_bucket is set and this value equals max_bucket, show as N+
+                # Otherwise, if it's the last bucket, show as N+
+                # Otherwise, show as a range A-B
+                if max_bucket is not None and val == max_bucket:
+                    # This is the max_bucket cutoff - show as "N+"
+                    formatted.append(f"{int(val)}+")
+                elif is_last and (max_bucket is None or val > max_bucket):
+                    # Last bucket and no max_bucket, or beyond max_bucket: format as "N+"
                     formatted.append(f"{int(val)}+")
                 elif bucket_size:
                     # Regular bucket: format as "A-B"

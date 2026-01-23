@@ -123,8 +123,16 @@ def plot_histogram(
     title: str,
     units: str,
     debug: bool = False,
+    max_bucket: Optional[float] = None,
 ) -> Optional[object]:
     """Plot histogram data using matplotlib.
+
+    Args:
+        histogram: Dict mapping bucket labels to counts
+        title: Chart title
+        units: Units string for axis labels
+        debug: Enable debug output
+        max_bucket: Maximum bucket value for cutoff (affects label formatting)
 
     Returns:
         matplotlib figure object or None if matplotlib not available
@@ -133,7 +141,7 @@ def plot_histogram(
         return None
 
     builder = HistogramChartBuilder()
-    return builder.build(histogram, title, units, debug)
+    return builder.build(histogram, title, units, debug, max_bucket)
 
 
 def plot_comparison_histogram(

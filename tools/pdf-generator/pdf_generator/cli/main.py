@@ -719,6 +719,11 @@ def generate_histogram_chart(
             except Exception:
                 sample_label = f" (n={sample_n})"
 
+        # Extract max_bucket from query config if available
+        max_bucket = (
+            config.query.hist_max if hasattr(config.query, "hist_max") else None
+        )
+
         if compare_histogram:
             primary_desc = primary_label or "Primary period"
             compare_desc = compare_label or "Comparison period"
@@ -737,6 +742,7 @@ def generate_histogram_chart(
                 f"Velocity Distribution: {sample_label}",
                 units,
                 debug=config.output.debug,
+                max_bucket=max_bucket,
             )
         hist_pdf = f"{prefix}_histogram.pdf"
         save_chart_as_pdf = _import_chart_saver()

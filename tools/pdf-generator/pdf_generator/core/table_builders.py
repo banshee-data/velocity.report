@@ -490,8 +490,11 @@ class HistogramTableBuilder:
     ) -> List[tuple]:
         """Compute bucket ranges from actual data.
 
-        The last bucket will always be shown as N+ where N is the start of the
-        highest bucket with actual data, not max_bucket. This matches the chart behavior.
+        If max_bucket is set, ranges will be built up to max_bucket, and the last
+        range will end at max_bucket (not be open-ended). The open-ended bucket
+        will be created separately in _add_histogram_rows.
+
+        If max_bucket is not set, ranges are built to the highest data point.
         """
         ranges = []
         inferred_bucket = float(bucket_size)
@@ -516,10 +519,17 @@ class HistogramTableBuilder:
             if inferred_bucket <= 0:
                 inferred_bucket = float(bucket_size) or 5.0
 
-            # Build ranges from min_k up to max_k (highest bucket with data)
-            # Ignore max_bucket parameter - we only show buckets with actual data
+            # Determine the upper limit for ranges
+            if max_bucket is not None and max_bucket > min_k:
+                # Use max_bucket as the cutoff point
+                upper_limit = max_bucket
+            else:
+                # Use the highest data point
+                upper_limit = max_k
+
+            # Build ranges from min_k up to upper_limit
             s = min_k
-            while s <= max_k:
+            while s < upper_limit:
                 ranges.append((s, s + inferred_bucket))
                 s += inferred_bucket
 
@@ -540,8 +550,8 @@ class HistogramTableBuilder:
     ) -> None:
         """Add histogram data rows to table.
 
-        The last bucket is always shown as N+ where N is the start of the highest
-        bucket with actual data, matching the chart behavior.
+        If max_bucket is set, creates buckets up to max_bucket with a final "max_bucket+"
+        bucket. If not set, the last range becomes an open-ended "N+" bucket.
         """
         first_start = ranges[0][0]
 
@@ -558,26 +568,35 @@ class HistogramTableBuilder:
             )
 
         # Bucket rows
-        for idx, (a, b) in enumerate(ranges):
-            is_last = idx == len(ranges) - 1
-
-            if is_last:
-                # Last bucket: render as "N+" where N is the start of this bucket
-                # This matches the chart behavior (highest bucket with data as N+)
-                label = f"{int(a)}+"
-                cnt = count_histogram_ge(numeric_buckets, a)
-                pct = (cnt / total * 100.0) if total > 0 else 0.0
-            else:
-                # Regular bucket: render as "A-B"
-                cnt = count_in_histogram_range(numeric_buckets, a, b)
-                pct = (cnt / total * 100.0) if total > 0 else 0.0
-                label = f"{int(a)}-{int(b)}"
+        for a, b in ranges:
+            # Regular bucket: render as "A-B"
+            cnt = count_in_histogram_range(numeric_buckets, a, b)
+            pct = (cnt / total * 100.0) if total > 0 else 0.0
+            label = f"{int(a)}-{int(b)}"
 
             table.add_row(
                 [
                     NoEscape(escape_latex(label)),
                     NoEscape(escape_latex(str(int(cnt)))),
                     NoEscape(escape_latex(f"{pct:.1f}%")),
+                ]
+            )
+
+        # Final open-ended bucket
+        # If max_bucket is set, use it; otherwise use the end of the last range
+        if max_bucket is not None and max_bucket > 0:
+            final_cutoff = max_bucket
+        else:
+            final_cutoff = ranges[-1][1] if ranges else proc_max
+
+        cnt_ge = count_histogram_ge(numeric_buckets, final_cutoff)
+        if cnt_ge > 0:
+            pct_ge = (cnt_ge / total * 100.0) if total > 0 else 0.0
+            table.add_row(
+                [
+                    NoEscape(escape_latex(f"{int(final_cutoff)}+")),
+                    NoEscape(escape_latex(str(int(cnt_ge)))),
+                    NoEscape(escape_latex(f"{pct_ge:.1f}%")),
                 ]
             )
 
