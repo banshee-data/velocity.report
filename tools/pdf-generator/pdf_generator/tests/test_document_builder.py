@@ -216,8 +216,18 @@ class TestDocumentBuilder(unittest.TestCase):
         start_iso = "2025-01-13T00:00:00Z"
         end_iso = "2025-01-19T23:59:59Z"
         location = "Test Location"
+        # Original date strings from datepicker (required - no fallbacks)
+        start_date = "2025-01-13"
+        end_date = "2025-01-19"
 
-        self.builder.setup_header(mock_doc, start_iso, end_iso, location)
+        self.builder.setup_header(
+            mock_doc,
+            start_iso,
+            end_iso,
+            location,
+            start_date=start_date,
+            end_date=end_date,
+        )
 
         noescape_calls = [
             str(call_args[0][0]) for call_args in mock_noescape.call_args_list
@@ -226,7 +236,7 @@ class TestDocumentBuilder(unittest.TestCase):
         # Check for fancyhdr setup
         self.assertTrue(any("pagestyle{fancy}" in call for call in noescape_calls))
 
-        # Check for header with dates
+        # Check for header with dates (should use original date strings)
         self.assertTrue(
             any(
                 "2025-01-13" in call and "2025-01-19" in call for call in noescape_calls
@@ -298,7 +308,7 @@ class TestDocumentBuilder(unittest.TestCase):
         mock_preamble.assert_called_once_with(mock_doc)
         mock_fonts.assert_called_once()
         mock_header.assert_called_once_with(
-            mock_doc, start_iso, end_iso, location, None, None
+            mock_doc, start_iso, end_iso, location, None, None, None, None, None, None
         )
         mock_twocolumn.assert_called_once_with(mock_doc, location, surveyor, contact)
 

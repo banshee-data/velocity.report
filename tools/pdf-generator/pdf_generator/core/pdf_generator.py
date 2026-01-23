@@ -247,6 +247,10 @@ def generate_pdf_report(
     compare_daily_metrics: Optional[List[Dict[str, Any]]] = None,
     config_periods: Optional[List[Dict[str, Any]]] = None,
     cosine_correction_note: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    compare_start_date: Optional[str] = None,
+    compare_end_date: Optional[str] = None,
 ) -> None:
     """Generate a complete PDF report using PyLaTeX.
 
@@ -281,6 +285,10 @@ def generate_pdf_report(
         contact,
         compare_start_iso,
         compare_end_iso,
+        start_date,
+        end_date,
+        compare_start_date,
+        compare_end_date,
     )
 
     # Add science section content using helper function
@@ -300,21 +308,15 @@ def generate_pdf_report(
         compare_p85 = None
         compare_p98 = None
         compare_max = None
-        compare_start_date = None
-        compare_end_date = None
-        if compare_overall_metrics and compare_start_iso and compare_end_iso:
+        if compare_overall_metrics and compare_start_date and compare_end_date:
             compare_overall = compare_overall_metrics[0]
             compare_p50 = normalizer.get_numeric(compare_overall, "p50", 0)
             compare_p85 = normalizer.get_numeric(compare_overall, "p85", 0)
             compare_p98 = normalizer.get_numeric(compare_overall, "p98", 0)
             compare_max = normalizer.get_numeric(compare_overall, "max_speed", 0)
             compare_total = extract_count_from_row(compare_overall, normalizer)
-            compare_start_date = compare_start_iso[:10]
-            compare_end_date = compare_end_iso[:10]
 
-        # Extract dates for display
-        start_date = start_iso[:10]
-        end_date = end_iso[:10]
+        # Use original date strings (single source of truth from datepicker - no fallbacks)
 
         # Use the DRY helper function for science content
         add_metric_data_intro(

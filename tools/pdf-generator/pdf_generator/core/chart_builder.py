@@ -298,7 +298,7 @@ class TimeSeriesChartBuilder:
     ) -> None:
         """Plot percentile lines with breaks at day boundaries."""
         # If no day boundaries or only one day, plot normally
-        if len(day_boundaries) <= 1:
+        if not day_boundaries or len(day_boundaries) <= 1:
             self._plot_line_segment(
                 ax, x_indices, p50_f, "p50", "^", self.colors["p50"]
             )
@@ -330,8 +330,6 @@ class TimeSeriesChartBuilder:
             mx_segment = mx_f[start_idx:end_idx]
 
             # Only add label on first segment
-            label_suffix = "" if day_idx > 0 else None
-
             self._plot_line_segment(
                 ax,
                 x_segment,

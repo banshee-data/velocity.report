@@ -182,7 +182,11 @@ class TestResolveFilePrefix(unittest.TestCase):
     def test_auto_generated_prefix_utc(self):
         """Test auto-generated prefix with UTC."""
         config = create_test_config(
-            file_prefix="", timezone="UTC", source="radar_data_transits"
+            file_prefix="",
+            start_date="2024-01-01",
+            end_date="2024-01-02",
+            timezone="UTC",
+            source="radar_data_transits",
         )
         start_ts = 1704067200  # 2024-01-01 00:00:00 UTC
         end_ts = 1704153600  # 2024-01-02 00:00:00 UTC
@@ -196,7 +200,11 @@ class TestResolveFilePrefix(unittest.TestCase):
     def test_auto_generated_prefix_with_timezone(self):
         """Test auto-generated prefix with specific timezone."""
         config = create_test_config(
-            file_prefix="", timezone="US/Pacific", source="radar_objects"
+            file_prefix="",
+            start_date="2023-12-31",
+            end_date="2024-01-01",
+            timezone="US/Pacific",
+            source="radar_objects",
         )
         start_ts = 1704067200  # 2024-01-01 00:00:00 UTC = 2023-12-31 16:00:00 PST
         end_ts = 1704153600  # 2024-01-02 00:00:00 UTC = 2024-01-01 16:00:00 PST

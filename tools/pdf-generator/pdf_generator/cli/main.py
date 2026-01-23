@@ -477,14 +477,10 @@ def resolve_file_prefix(
         base_prefix = _next_sequenced_prefix(config.output.file_prefix, output_dir)
         return f"velocity.report_{base_prefix}"
     else:
-        # Auto-generate from date range
-        tzobj = (
-            ZoneInfo(config.query.timezone)
-            if config.query.timezone
-            else dt_timezone.utc
-        )
-        start_label = datetime.fromtimestamp(start_ts, tz=tzobj).date().isoformat()
-        end_label = datetime.fromtimestamp(end_ts, tz=tzobj).date().isoformat()
+        # Auto-generate from date range using original date strings (single source of truth)
+        # These come directly from the datepicker in the UI via config.query
+        start_label = config.query.start_date[:10]
+        end_label = config.query.end_date[:10]
         return f"velocity.report_{config.query.source}_{start_label}_to_{end_label}"
 
 
@@ -917,6 +913,10 @@ def assemble_pdf_report(
             elevation_fov=config.radar.elevation_fov,
             config_periods=config_periods,
             cosine_correction_note=cosine_correction_note,
+            start_date=config.query.start_date,
+            end_date=config.query.end_date,
+            compare_start_date=config.query.compare_start_date,
+            compare_end_date=config.query.compare_end_date,
         )
         print(f"Generated PDF report: {pdf_path}")
         return True
@@ -1270,7 +1270,10 @@ def process_date_range(
         compare_start_iso, compare_end_iso = compute_iso_timestamps(
             compare_start_ts, compare_end_ts, config.query.timezone
         )
-        compare_label = f"t2: {compare_start_iso[:10]} to {compare_end_iso[:10]}"
+        # Use original date strings from config (single source of truth from datepicker)
+        compare_label = (
+            f"t2: {config.query.compare_start_date} to {config.query.compare_end_date}"
+        )
 
     if config.query.site_id is not None:
         config_periods = fetch_site_config_periods(
@@ -1296,7 +1299,8 @@ def process_date_range(
     start_iso, end_iso = compute_iso_timestamps(start_ts, end_ts, config.query.timezone)
 
     if compare_start_ts and compare_end_ts:
-        primary_label = f"t1: {start_iso[:10]} to {end_iso[:10]}"
+        # Use original date strings from config (single source of truth from datepicker)
+        primary_label = f"t1: {config.query.start_date} to {config.query.end_date}"
 
     # Generate all charts
     generate_all_charts(
