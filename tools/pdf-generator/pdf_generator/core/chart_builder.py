@@ -131,11 +131,16 @@ class TimeSeriesChartBuilder:
         # Use simple integer indices for x-axis to eliminate gaps
         x_indices = list(range(len(times)))
 
+        # Calculate day boundaries for line breaks
+        day_boundaries = self._calculate_day_boundaries(times)
+
         # Debug output if enabled
         self._debug_output(x_indices, counts, p50_f)
 
-        # Plot percentile lines
-        self._plot_percentile_lines(ax, x_indices, p50_f, p85_f, p98_f, mx_f)
+        # Plot percentile lines with breaks at day boundaries
+        self._plot_percentile_lines(
+            ax, x_indices, p50_f, p85_f, p98_f, mx_f, day_boundaries
+        )
 
         # Configure left axis (speed)
         self._configure_speed_axis(ax, units)
@@ -270,6 +275,17 @@ class TimeSeriesChartBuilder:
         except Exception:
             pass
 
+    def _calculate_day_boundaries(self, times: List[datetime]) -> List[int]:
+        """Calculate indices where day boundaries occur."""
+        if not times:
+            return []
+
+        day_boundaries = [0]  # Always include first index
+        for idx in range(1, len(times)):
+            if times[idx].date() != times[idx - 1].date():
+                day_boundaries.append(idx)
+        return day_boundaries
+
     def _plot_percentile_lines(
         self,
         ax,
@@ -278,50 +294,112 @@ class TimeSeriesChartBuilder:
         p85_f: np.ndarray,
         p98_f: np.ndarray,
         mx_f: np.ndarray,
+        day_boundaries: List[int],
     ) -> None:
-        """Plot percentile lines."""
-        # Plot each percentile line
-        ax.plot(
-            x_indices,
-            p50_f,
-            label="p50",
-            marker="^",
-            color=self.colors["p50"],
-            linewidth=self.layout["line_width"],
-            markersize=self.layout["marker_size"],
-            markeredgewidth=self.layout["marker_edge_width"],
-        )
-        ax.plot(
-            x_indices,
-            p85_f,
-            label="p85",
-            marker="s",
-            color=self.colors["p85"],
-            linewidth=self.layout["line_width"],
-            markersize=self.layout["marker_size"],
-            markeredgewidth=self.layout["marker_edge_width"],
-        )
-        ax.plot(
-            x_indices,
-            p98_f,
-            label="p98",
-            marker="o",
-            color=self.colors["p98"],
-            linewidth=self.layout["line_width"],
-            markersize=self.layout["marker_size"],
-            markeredgewidth=self.layout["marker_edge_width"],
-        )
-        ax.plot(
-            x_indices,
-            mx_f,
-            label="Max",
-            marker="x",
-            linestyle="--",
-            color=self.colors["max"],
-            linewidth=self.layout["line_width"],
-            markersize=self.layout["marker_size"],
-            markeredgewidth=self.layout["marker_edge_width"],
-        )
+        """Plot percentile lines with breaks at day boundaries."""
+        # If no day boundaries or only one day, plot normally
+        if len(day_boundaries) <= 1:
+            self._plot_line_segment(
+                ax, x_indices, p50_f, "p50", "^", self.colors["p50"]
+            )
+            self._plot_line_segment(
+                ax, x_indices, p85_f, "p85", "s", self.colors["p85"]
+            )
+            self._plot_line_segment(
+                ax, x_indices, p98_f, "p98", "o", self.colors["p98"]
+            )
+            self._plot_line_segment(
+                ax, x_indices, mx_f, "Max", "x", self.colors["max"], linestyle="--"
+            )
+            return
+
+        # Plot each day as a separate segment to avoid connecting across days
+        for day_idx in range(len(day_boundaries)):
+            start_idx = day_boundaries[day_idx]
+            end_idx = (
+                day_boundaries[day_idx + 1]
+                if day_idx + 1 < len(day_boundaries)
+                else len(x_indices)
+            )
+
+            # Extract segment data
+            x_segment = x_indices[start_idx:end_idx]
+            p50_segment = p50_f[start_idx:end_idx]
+            p85_segment = p85_f[start_idx:end_idx]
+            p98_segment = p98_f[start_idx:end_idx]
+            mx_segment = mx_f[start_idx:end_idx]
+
+            # Only add label on first segment
+            label_suffix = "" if day_idx > 0 else None
+
+            self._plot_line_segment(
+                ax,
+                x_segment,
+                p50_segment,
+                "p50" if day_idx == 0 else "",
+                "^",
+                self.colors["p50"],
+            )
+            self._plot_line_segment(
+                ax,
+                x_segment,
+                p85_segment,
+                "p85" if day_idx == 0 else "",
+                "s",
+                self.colors["p85"],
+            )
+            self._plot_line_segment(
+                ax,
+                x_segment,
+                p98_segment,
+                "p98" if day_idx == 0 else "",
+                "o",
+                self.colors["p98"],
+            )
+            self._plot_line_segment(
+                ax,
+                x_segment,
+                mx_segment,
+                "Max" if day_idx == 0 else "",
+                "x",
+                self.colors["max"],
+                linestyle="--",
+            )
+
+    def _plot_line_segment(
+        self,
+        ax,
+        x_data: List[int],
+        y_data: np.ndarray,
+        label: str,
+        marker: str,
+        color: str,
+        linestyle: str = "-",
+    ) -> None:
+        """Plot a single line segment."""
+        if not label:  # Empty string means no label (for subsequent segments)
+            ax.plot(
+                x_data,
+                y_data,
+                marker=marker,
+                color=color,
+                linewidth=self.layout["line_width"],
+                markersize=self.layout["marker_size"],
+                markeredgewidth=self.layout["marker_edge_width"],
+                linestyle=linestyle,
+            )
+        else:
+            ax.plot(
+                x_data,
+                y_data,
+                label=label,
+                marker=marker,
+                color=color,
+                linewidth=self.layout["line_width"],
+                markersize=self.layout["marker_size"],
+                markeredgewidth=self.layout["marker_edge_width"],
+                linestyle=linestyle,
+            )
 
     def _configure_speed_axis(self, ax, units: str) -> None:
         """Configure left Y-axis (speed)."""
@@ -502,11 +580,8 @@ class TimeSeriesChartBuilder:
         try:
             import matplotlib.ticker as ticker
 
-            # Find indices where dates change (first period of each day)
-            day_boundaries = [0]  # Always include first index
-            for idx in range(1, len(times)):
-                if times[idx].date() != times[idx - 1].date():
-                    day_boundaries.append(idx)
+            # Calculate day boundaries
+            day_boundaries = self._calculate_day_boundaries(times)
 
             # Build custom tick locations: first of each day + every 2-3 periods within each day
             custom_ticks = []
