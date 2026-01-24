@@ -270,8 +270,8 @@ func validateSiteConfigPeriod(period *SiteConfigPeriod) error {
 	if math.IsNaN(period.CosineErrorAngle) {
 		return fmt.Errorf("cosine error angle must be a valid number")
 	}
-	if period.CosineErrorAngle < -90.0 || period.CosineErrorAngle > 90.0 {
-		return fmt.Errorf("cosine error angle must be between -90 and 90 degrees")
+	if period.CosineErrorAngle < 0.0 || period.CosineErrorAngle > 80.0 {
+		return fmt.Errorf("cosine error angle must be between 0 and 80 degrees")
 	}
 	return nil
 }

@@ -781,10 +781,7 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 			modelVersion = "hourly-cron"
 		}
 		if useConfigPeriods {
-			speedExpr := fmt.Sprintf(
-				"rt.transit_max_speed / COALESCE(NULLIF(COS(scp.cosine_error_angle * %.10f), 0), 1)",
-				radiansPerDegree,
-			)
+			speedExpr := buildCosineSpeedExpr("rt.transit_max_speed")
 			query := fmt.Sprintf(
 				`SELECT rt.transit_start_unix, %s
 				 FROM radar_data_transits rt

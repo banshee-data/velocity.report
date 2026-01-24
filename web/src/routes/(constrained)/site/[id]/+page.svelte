@@ -162,8 +162,8 @@
 		}
 		if (Number.isNaN(angleValue)) {
 			periodFormErrors.angle = 'Cosine error angle must be a valid number';
-		} else if (angleValue < -90.0 || angleValue > 90.0) {
-			periodFormErrors.angle = 'Cosine error angle must be between -90 and 90 degrees';
+		} else if (angleValue < 0.0 || angleValue > 80.0) {
+			periodFormErrors.angle = 'Cosine error angle must be between 0 and 80 degrees';
 		}
 
 		return Object.keys(periodFormErrors).length === 0;
