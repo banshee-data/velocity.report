@@ -560,6 +560,8 @@ _Estimated time: 15-30 minutes_
 - **Height**: Window height is typically fine; avoid ground-level clutter
 - **Clear view**: No curtains, screens, or obstructions between sensor and street
 
+**Note the mounting angle**: Record your sensor's angle off-axis (e.g., 30°). You'll enter this as the **cosine angle** in site configuration to correct measured speeds.
+
 **[PLACEHOLDER: Diagram showing proper radar sensor mounting angle (20-45° off-axis from traffic flow) with top-down view of street and sensor position]**
 
 **Success criteria**: Sensor is stable, angled properly, with clear view to street
@@ -600,6 +602,7 @@ _Estimated time: 15-30 minutes_
 - **Angle**: 20-45° off-axis from traffic flow
 - **Orientation**: Face oncoming OR receding traffic (not perpendicular)
 - Tighten clamps securely but avoid over-tightening (can crack enclosure)
+- **Record your mounting angle**: Measure and note the angle off-axis for cosine correction in site configuration
 
 **[PLACEHOLDER: Photo showing weatherproof enclosure mounted on utility pole with proper angle and positioning, including close-up of hose clamp mounting]**
 
@@ -632,8 +635,13 @@ After collecting data for a few days or weeks, generate professional reports.
 **Via Web Dashboard**:
 
 1. Navigate to the **Sites** tab
-2. Configure your site details
+2. Configure your site details:
+   - **Location**: Street name and description
+   - **Cosine angle**: Correction factor for sensor mounting angle (see below)
+   - **Configuration periods**: Date ranges with specific speed limits or notes
 3. Click **Generate Report**
+
+**Cosine angle correction**: If your sensor isn't mounted parallel to traffic flow, measured speeds will be lower than actual speeds. The cosine angle setting compensates for this. For a sensor mounted at 30° off-axis, set cosine angle to 30°—the system applies the correction factor automatically. Leave at 0° if mounted parallel to traffic.
 
 **Via Command Line**:
 
@@ -657,6 +665,8 @@ See the [PDF Generator README](../../tools/pdf-generator/README.md) for customiz
 - **p85 (traffic engineering standard)**: Speed at which 85% of traffic travels at or below
 - **p98 (top 2%)**: Threshold where the fastest regular drivers operate
 - Histograms, time-of-day charts, and crash physics analysis
+
+**Period comparison reports**: Compare two time periods (e.g., before/after a speed hump installation) to measure intervention effectiveness.
 
 **[PLACEHOLDER: Sample page from PDF report showing speed distribution histogram, p50/p85/p98 statistics, and time-of-day traffic patterns]**
 
