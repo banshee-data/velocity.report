@@ -630,7 +630,10 @@ def _format_site_config_periods(
         start_unix = float(period.get("effective_start_unix", 0))
         end_raw = period.get("effective_end_unix")
         end_unix = float(end_raw) if end_raw is not None else None
-        start_label = datetime.fromtimestamp(start_unix, tz=tzobj).strftime("%Y-%m-%d")
+        if start_unix == 0:
+            start_label = "Initial"
+        else:
+            start_label = datetime.fromtimestamp(start_unix, tz=tzobj).strftime("%Y-%m-%d")
         if end_unix is None:
             end_label = "Present"
         else:

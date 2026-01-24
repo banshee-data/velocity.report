@@ -18,7 +18,7 @@ def test_format_site_config_periods_with_notes():
     assert result == [
         {
             "key": "Period 1",
-            "value": "1970-01-01 to Present • 12.5° (Initial configuration)",
+            "value": "Initial to Present • 12.5° (Initial configuration)",
         }
     ]
 

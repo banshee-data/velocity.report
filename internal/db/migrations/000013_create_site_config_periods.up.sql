@@ -49,6 +49,9 @@ UPDATE site_config_periods
 END;
 
 -- Backfill existing site cosine_error_angle into an open-ended active period
+-- Note: This backfill must occur BEFORE the field is removed from the site table
+-- in migration 000014. The backfill references site.cosine_error_angle which exists
+-- on main but will be removed after this migration completes.
 INSERT INTO site_config_periods (
        site_id
      , effective_start_unix

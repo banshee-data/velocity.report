@@ -29,6 +29,16 @@ import (
 // compile-time assertion: ensure DB implements lidar.BgStore (InsertBgSnapshot)
 var _ lidar.BgStore = (*DB)(nil)
 
+const (
+	// nearPerpendicularThreshold is the minimum absolute cosine value for a valid sensor angle.
+	// Angles near 90° (perpendicular to traffic) produce cosines near 0, leading to infinite speeds.
+	// Readings with angles this close to perpendicular are filtered out as invalid.
+	nearPerpendicularThreshold = 0.001
+
+	// radiansPerDegree converts degrees to radians
+	radiansPerDegree = math.Pi / 180.0
+)
+
 type DB struct {
 	*sql.DB
 }
@@ -675,6 +685,24 @@ type RadarStatsResult struct {
 	MinSpeedUsed float64           // actual minimum speed filter applied (mps)
 }
 
+// buildCosineSpeedExpr generates the SQL expression for applying cosine error correction.
+// The expression checks for invalid sensor angles (near 90° = perpendicular to traffic) and
+// returns NULL for such readings instead of producing infinite speeds.
+// speedColumn is the column name containing the raw speed (e.g., "ro.max_speed" or "rd.speed").
+func buildCosineSpeedExpr(speedColumn string) string {
+	return fmt.Sprintf(
+		"CASE "+
+			"WHEN ABS(COS(COALESCE(scp.cosine_error_angle, 0) * %.10f)) < %.10f "+
+			"THEN NULL "+
+			"ELSE %s / COS(COALESCE(scp.cosine_error_angle, 0) * %.10f) "+
+			"END",
+		radiansPerDegree,
+		nearPerpendicularThreshold,
+		speedColumn,
+		radiansPerDegree,
+	)
+}
+
 // RadarObjectRollupRange aggregates radar speed sources into time buckets and optionally computes a histogram.
 // dataSource may be either "radar_objects" (default), "radar_data", or "radar_data_transits".
 // If histBucketSize > 0, a histogram is computed; histMax (if > 0) clips histogram values above that threshold.
@@ -708,14 +736,10 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 	var rows *sql.Rows
 	var err error
 	useConfigPeriods := siteID > 0
-	const radiansPerDegree = 0.01745329252
 	switch dataSource {
 	case "radar_objects":
 		if useConfigPeriods {
-			speedExpr := fmt.Sprintf(
-				"ro.max_speed / COALESCE(NULLIF(COS(scp.cosine_error_angle * %.10f), 0), 1)",
-				radiansPerDegree,
-			)
+			speedExpr := buildCosineSpeedExpr("ro.max_speed")
 			query := fmt.Sprintf(
 				`SELECT ro.write_timestamp, %s
 				 FROM radar_objects ro
@@ -734,10 +758,7 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 		}
 	case "radar_data":
 		if useConfigPeriods {
-			speedExpr := fmt.Sprintf(
-				"rd.speed / COALESCE(NULLIF(COS(scp.cosine_error_angle * %.10f), 0), 1)",
-				radiansPerDegree,
-			)
+			speedExpr := buildCosineSpeedExpr("rd.speed")
 			query := fmt.Sprintf(
 				`SELECT rd.write_timestamp, %s
 				 FROM radar_data rd
@@ -760,10 +781,7 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 			modelVersion = "hourly-cron"
 		}
 		if useConfigPeriods {
-			speedExpr := fmt.Sprintf(
-				"rt.transit_max_speed / COALESCE(NULLIF(COS(scp.cosine_error_angle * %.10f), 0), 1)",
-				radiansPerDegree,
-			)
+			speedExpr := buildCosineSpeedExpr("rt.transit_max_speed")
 			query := fmt.Sprintf(
 				`SELECT rt.transit_start_unix, %s
 				 FROM radar_data_transits rt

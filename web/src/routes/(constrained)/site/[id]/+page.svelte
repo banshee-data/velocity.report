@@ -161,7 +161,9 @@
 			periodFormErrors.end = 'End time must be after the start time';
 		}
 		if (Number.isNaN(angleValue)) {
-			periodFormErrors.angle = 'Cosine error angle is required';
+			periodFormErrors.angle = 'Cosine error angle must be a valid number';
+		} else if (angleValue < 0.0 || angleValue > 80.0) {
+			periodFormErrors.angle = 'Cosine error angle must be between 0 and 80 degrees';
 		}
 
 		return Object.keys(periodFormErrors).length === 0;
@@ -177,15 +179,6 @@
 			const startUnix = toUnixSeconds(periodForm.start);
 			const endUnix = toUnixSeconds(periodForm.end);
 			const angleValue = Number(periodForm.angle);
-			if (!startUnix) {
-				throw new Error('Start time is required');
-			}
-			if (startUnix === 0 && !periodForm.id) {
-				throw new Error('Start time must be after the initial configuration');
-			}
-			if (Number.isNaN(angleValue)) {
-				throw new Error('Cosine error angle must be a number');
-			}
 			await upsertSiteConfigPeriod({
 				id: periodForm.id ?? undefined,
 				site_id: parseInt(siteId),
