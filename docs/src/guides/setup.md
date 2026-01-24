@@ -351,25 +351,27 @@ The OmniPreSense OPS243 sensor ships with CSV output by default, but this softwa
 1. **Connect via serial terminal**:
 
    ```bash
-   # Set serial port parameters (baud rate 19200, 8 data bits, no parity, 1 stop bit)
+   # Set serial port parameters
    stty -F /dev/ttyUSB0 19200 cs8 -parenb -cstopb
 
    # Connect to sensor (press Ctrl+A then K to exit)
    screen /dev/ttyUSB0 19200
    ```
 
-   **Platform note**: On macOS, use `stty -f` instead of `stty -F`. If `screen` is not installed: `sudo apt install screen`
+   **Note**: On macOS, use `stty -f` instead of `stty -F`
 
-2. **Configure sensor** (type these two-character commands quickly):
+2. **Configure sensor** (type these commands in the terminal):
 
    ```
    OJ    # Enable JSON output mode
-   UM    # Set units to Meters per second (software default)
+   UM    # Set units to Meters per second
    OM    # Enable magnitude reporting
-   A!    # Save configuration to memory
+   A!    # Save settings permanently
    ```
 
-3. **Verify** you see JSON output:
+   Press Enter after each command. The sensor should respond with `O`.
+
+3. **Verify** you see JSON output (lines with curly braces `{}`):
 
    ```json
    { "magnitude": 1.2, "speed": 3.4 }
@@ -379,18 +381,13 @@ The OmniPreSense OPS243 sensor ships with CSV output by default, but this softwa
 
 **Success criteria**: You see JSON output (not CSV) when vehicles pass
 
-**Troubleshooting**:
+**If it's not working**:
 
-- **Still seeing CSV?** → Type `OJ` command again and verify with `??`
-- **No response?** → Check baud rate is 19200
-- **Garbled output?** → Verify serial port settings (8N1: 8 data bits, no parity, 1 stop bit)
+- **Still seeing CSV?** → Type `OJ` again
+- **No response?** → Verify baud rate is 19200
+- **Garbled output?** → Check serial port settings
 
-**Common commands**:
-
-- `??` - Module information
-- `?V` - Firmware version
-- `Om` - Disable magnitude (if too noisy)
-- `AX` - Reset to factory defaults
+**Need more sensor info?** Type `??` to see module information or `?V` for firmware version.
 
 **Full documentation**: [OmniPreSense Support](https://www.omnipresense.com/support)
 
@@ -404,45 +401,23 @@ Confirm the sensor is streaming data correctly:
 
 ```bash
 # View raw sensor output
-cat /dev/ttyUSB0
-# or use screen for interactive viewing
 screen /dev/ttyUSB0 19200
 ```
 
-**Success looks like**:
-
-For ambient noise/small movements:
+**Success looks like**: You see JSON output with vehicle detections:
 
 ```json
 { "magnitude": 1.2, "speed": 3.4 }
 ```
 
-For detected vehicles, expect detailed transit data:
+When vehicles pass, you'll see more detailed information. The key is that you see JSON-formatted output (curly braces `{}`), not comma-separated values.
 
-```json
-{
-  "classifier": "object_outbound",
-  "end_time": "1750719826.467",
-  "start_time": "1750719826.031",
-  "delta_time_msec": 736,
-  "max_speed_mps": 13.39,
-  "min_speed_mps": 11.33,
-  "max_magnitude": 55,
-  "avg_magnitude": 36,
-  "total_frames": 7,
-  "frames_per_mps": 0.5228,
-  "length_m": 9.86,
-  "speed_change": 2.799
-}
-```
-
-**Troubleshooting**:
+**If it's not working**:
 
 - **No output at all?** → Check baud rate (19200) and port (`/dev/ttyUSB0` or `/dev/serial0`)
-- **Garbled text?** → Verify sensor is in JSON mode (type `OJ` command)
-- **CSV format?** → Reconfigure sensor with `OJ` command
-- **Permission denied?** → Add your user to dialout group: `sudo usermod -a -G dialout $USER` then log out/in
-- **For RS232**: Verify TX/RX crossover wiring (sensor TX → HAT RX, sensor RX → HAT TX)
+- **Garbled text?** → Verify sensor is in JSON mode (type `OJ` command from Step 2)
+- **CSV format?** → Reconfigure sensor with `OJ` command from Step 2
+- **Permission denied?** → Add your user to dialout group: `sudo usermod -a -G $USER` then log out/in
 
 ---
 
@@ -457,20 +432,20 @@ On your Raspberry Pi:
 git clone https://github.com/banshee-data/velocity.report.git
 cd velocity.report
 
-# Build the Go server binary for Linux ARM64
+# Build the deployment tool and server binary
+make build-deploy
 make build-radar-linux
 
-# Install as system service (creates user, database directory, systemd service)
-sudo ./scripts/setup-radar-host.sh
+# Install as system service
+./velocity-deploy install --binary ./velocity-report-linux-arm64
 ```
 
-The setup script will:
+The installer will:
 
 1. Install the binary to `/usr/local/bin/velocity-report`
 2. Create a dedicated `velocity` service user
 3. Create the data directory at `/var/lib/velocity-report/`
 4. Install and start the systemd service
-5. Optionally migrate an existing database
 
 **Success criteria**:
 
@@ -486,19 +461,7 @@ sudo systemctl status velocity-report
 - **PDF Reports**: Generated at `tools/pdf-generator/output/` when requested
 - **Application logs**: View with `sudo journalctl -u velocity-report.service -f`
 
-**Useful commands**:
-
-```bash
-sudo systemctl status velocity-report    # Check service status
-sudo systemctl restart velocity-report   # Restart service
-sudo journalctl -u velocity-report -f    # View live logs (Ctrl+C to exit)
-```
-
-**Troubleshooting**:
-
-- **Service won't start?** → Check logs: `sudo journalctl -u velocity-report -n 50`
-- **Binary not found?** → Verify: `ls -l /usr/local/bin/velocity-report`
-- **Permission denied?** → Check: `ls -l /var/lib/velocity-report/`
+**If something goes wrong**: Check logs with `sudo journalctl -u velocity-report -f` (press Ctrl+C to exit)
 
 ---
 
@@ -525,14 +488,13 @@ http://raspberrypi.local:8080
 
 **Success criteria**: Dashboard loads and shows "No data yet" or live vehicle detections
 
-**Troubleshooting**:
+**If dashboard won't load**:
 
-- **Cannot connect?** → Check service is running: `sudo systemctl status velocity-report`
-- **Still cannot connect?** → Find Pi's IP address: `hostname -I`
-- **Connection refused?** → Verify port 8080 is listening: `sudo netstat -tlnp | grep 8080`
-- **Firewall blocking?** → Check firewall: `sudo ufw status` (if using ufw)
-- **Works on Pi but not other devices?** → Try from Pi itself: `curl http://localhost:8080/`
-- **View detailed logs**: `sudo journalctl -u velocity-report -f`
+1. Check service is running: `sudo systemctl status velocity-report`
+2. Find your Pi's IP address: `hostname -I`
+3. Try connecting from the Pi itself: `curl http://localhost:8080/`
+
+If all else fails, check the logs: `sudo journalctl -u velocity-report -f`
 
 ---
 
@@ -643,21 +605,21 @@ After collecting data for a few days or weeks, generate professional reports.
 
 **Cosine angle correction**: If your sensor isn't mounted parallel to traffic flow, measured speeds will be lower than actual speeds. The cosine angle setting compensates for this. For a sensor mounted at 30° off-axis, set cosine angle to 30°—the system applies the correction factor automatically. Leave at 0° if mounted parallel to traffic.
 
-**Via Command Line**:
+**Via Command Line** (Advanced):
 
 ```bash
-# One-time: install Python dependencies
+# Install Python dependencies (one-time)
 make install-python
 
-# Create configuration template
+# Create and edit configuration file
 make pdf-config
+# Edit config.json with your settings
 
-# Edit config.json with your date range and location
-# Then generate report
+# Generate report
 make pdf-report CONFIG=config.json
 ```
 
-See the [PDF Generator README](../../tools/pdf-generator/README.md) for customization options.
+For more options, see the [PDF Generator README](../../tools/pdf-generator/README.md).
 
 **What's in the report**:
 
@@ -673,12 +635,6 @@ See the [PDF Generator README](../../tools/pdf-generator/README.md) for customiz
 **Success criteria**: PDF file generated in `tools/pdf-generator/output/` directory
 
 **Making your case**: Print the report and bring it to city council. Instead of "cars go too fast," say "85% of drivers exceed the posted 25 mph limit, with p85 at 38 mph."
-
-**Troubleshooting**:
-
-- **Python command not found?** → Verify Python environment: `which python` (should be in `.venv`)
-- **LaTeX errors?** → Check LaTeX installed: `xelatex --version`
-- **PDF generation fails?** → Check error logs in `tools/pdf-generator/output/`
 
 ---
 
@@ -802,42 +758,19 @@ If you need remote access, please use [Tailscale](#remote-access-with-tailscale-
 
 ## Troubleshooting
 
-### Common Issues
+**Most issues happen because of**:
 
-**Most failures happen because**:
+1. Wrong baud rate (must be 19200)
+2. Sensor still in CSV mode (run `OJ` command to switch to JSON)
+3. Wrong device port (check `ls /dev/tty*` before and after plugging in sensor)
+4. Insufficient power (use quality 2.5A+ power supply)
 
-1. Wrong baud rate (must be 19200, not 9600 or 115200)
-2. Wrong USB device (use `ls /dev/tty*` to find correct port)
-3. Insufficient power (use quality 2.5A+ power supply)
-4. Sensor still in CSV mode (must configure to JSON with `OJ` command)
+**Quick fixes**:
 
-**Pro tip**: When stuck, check these four things before searching forums.
-
-### No Data from Sensor
-
-- Check baud rate: 19200
-- Verify port: `ls /dev/tty*` before/after plugging in
-- Check power: 12V stable for RS232 models
-- View USB logs: `dmesg | tail`
-
-### Service Won't Start
-
-- Check binary exists: `ls -l /usr/local/bin/velocity-report`
-- Check permissions: `ls -l /var/lib/velocity-report/`
-- View detailed logs: `sudo journalctl -u velocity-report -n 50`
-
-### Web Dashboard Not Accessible
-
-- Check service: `sudo systemctl status velocity-report`
-- Check port: `sudo netstat -tlnp | grep 8080`
-- Try locally: `curl http://localhost:8080/`
-- Check firewall: `sudo ufw status` (if using ufw)
-
-### PDF Generation Fails
-
-- Check Python: `which python` (should be in venv)
-- Check LaTeX: `xelatex --version`
-- Check logs in: `tools/pdf-generator/output/`
+- **No sensor data?** → Check the device exists: `ls /dev/ttyUSB0`
+- **Service won't start?** → Check logs: `sudo journalctl -u velocity-report -f`
+- **Dashboard won't load?** → Verify service running: `sudo systemctl status velocity-report`
+- **Need more help?** → See [TROUBLESHOOTING.md](../../TROUBLESHOOTING.md) or ask on [Discord](https://discord.gg/XXh6jXVFkt)
 
 ---
 
