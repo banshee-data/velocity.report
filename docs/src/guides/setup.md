@@ -1,18 +1,16 @@
 ---
 layout: doc.njk
-title: Set Up Your Privacy-First Speed Radar
-description: Build a DIY traffic radar with Raspberry Pi and open-source software—no cameras, no cloud, just local speed data
+title: Setup your Radar
+description: Build a DIY traffic radar with Raspberry Pi and open-source software - no cameras, no cloud, just local speed data
 section: guides
 difficulty: intermediate
 time: 2-4 hours
 cost: $150-200
-date: 2025-11-05
+date: 2026-01-25
 tags: [hardware, raspberry-pi, diy, traffic-safety]
 ---
 
-# Build Your Own Privacy-First Speed Radar
-
-**A DIY traffic logger that keeps data local, requires no cameras, and helps your neighborhood advocate for safer streets.**
+**A DIY traffic logger that keeps data local, requires no cameras, and helps you advocate for safer streets.**
 
 **Difficulty**: Intermediate • **Time**: 2-4 hours • **Cost**: ~$150-200
 
@@ -252,13 +250,11 @@ _Estimated time: 10-15 minutes_
 The OmniPreSense OPS243-A-CW-RP sensor (USB interface, designated RP in product codes) uses USB connection:
 
 1. **Flash Raspberry Pi OS** to your microSD card:
-
    - Use [Raspberry Pi Imager](https://www.raspberrypi.com/software/)
    - Choose "Raspberry Pi OS Lite" (64-bit recommended for Pi Zero 2 W)
    - Configure WiFi and SSH in advanced settings before writing
 
 2. **Connect sensor**:
-
    - Plug sensor's USB connector directly into Pi Zero's USB port
    - Use USB OTG adapter if needed
    - Sensor will appear as `/dev/ttyUSB0` or `/dev/ttyACM0`
@@ -285,7 +281,6 @@ ls /dev/tty* | grep -E 'ttyUSB|ttyACM'
 The OPS7243-A-CW-R2 sensor (RS232 interface, designated R2) requires a serial HAT:
 
 1. **Install serial HAT on Raspberry Pi 4**:
-
    - Power off Pi completely
    - Attach Waveshare RS232/485 HAT to 40-pin GPIO header
    - Ensure all pins are aligned and fully seated
