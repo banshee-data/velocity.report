@@ -417,7 +417,7 @@ When vehicles pass, you'll see more detailed information. The key is that you se
 - **No output at all?** → Check baud rate (19200) and port (`/dev/ttyUSB0` or `/dev/serial0`)
 - **Garbled text?** → Verify sensor is in JSON mode (type `OJ` command from Step 2)
 - **CSV format?** → Reconfigure sensor with `OJ` command from Step 2
-- **Permission denied?** → Add your user to dialout group: `sudo usermod -a -G $USER` then log out/in
+- **Permission denied?** → Add your user to dialout group: `sudo usermod -a -G dialout $USER` then log out/in
 
 ---
 
