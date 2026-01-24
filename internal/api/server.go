@@ -1110,11 +1110,16 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		log.Printf("PDF generator output:\n%s", string(output))
 	}
 
+	// Sanitize user-provided values to prevent path traversal attacks
+	safeSource := security.SanitizeFilename(req.Source)
+	safeStartDate := security.SanitizeFilename(req.StartDate)
+	safeEndDate := security.SanitizeFilename(req.EndDate)
+
 	// Python auto-generates filename as: velocity.report_{source}_{start_date}_to_{end_date}_report.pdf
-	pdfFilename := fmt.Sprintf("velocity.report_%s_%s_to_%s_report.pdf", req.Source, req.StartDate, req.EndDate)
+	pdfFilename := fmt.Sprintf("velocity.report_%s_%s_to_%s_report.pdf", safeSource, safeStartDate, safeEndDate)
 
 	// Python also generates a ZIP with sources: velocity.report_{source}_{start_date}_to_{end_date}_sources.zip
-	zipFilename := fmt.Sprintf("velocity.report_%s_%s_to_%s_sources.zip", req.Source, req.StartDate, req.EndDate)
+	zipFilename := fmt.Sprintf("velocity.report_%s_%s_to_%s_sources.zip", safeSource, safeStartDate, safeEndDate)
 
 	// Store relative paths from pdf-generator directory
 	relativePdfPath := filepath.Join(outputDir, pdfFilename)
