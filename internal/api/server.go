@@ -1115,11 +1115,12 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	safeLocation := security.SanitizeFilename(location)
 
 	// Generate filename as: {endDate}_velocity.report_{location}.pdf
-	// Example: 2026-01-19_velocity.report_Clarendon-Avenue-San-Francisco.pdf
-	pdfFilename := fmt.Sprintf("%s_velocity.report_%s.pdf", safeEndDate, safeLocation)
+	// Python PDF generator adds _report suffix, so final name is:
+	// {endDate}_velocity.report_{location}_report.pdf
+	pdfFilename := fmt.Sprintf("%s_velocity.report_%s_report.pdf", safeEndDate, safeLocation)
 
-	// Generate ZIP filename with same format
-	zipFilename := fmt.Sprintf("%s_velocity.report_%s.zip", safeEndDate, safeLocation)
+	// Generate ZIP filename with same format (no _report suffix for ZIP)
+	zipFilename := fmt.Sprintf("%s_velocity.report_%s_sources.zip", safeEndDate, safeLocation)
 
 	// Store relative paths from pdf-generator directory
 	relativePdfPath := filepath.Join(outputDir, pdfFilename)
@@ -1171,12 +1172,14 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return report ID instead of streaming file
+	// Return report ID and file paths
 	w.Header().Set("Content-Type", "application/json")
 	response := map[string]interface{}{
 		"success":   true,
 		"report_id": report.ID,
 		"message":   "Report generated successfully",
+		"pdf_path":  relativePdfPath,
+		"zip_path":  relativeZipPath,
 	}
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {

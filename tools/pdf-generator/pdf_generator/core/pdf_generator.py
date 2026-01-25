@@ -633,7 +633,9 @@ def _format_site_config_periods(
         if start_unix == 0:
             start_label = "Initial"
         else:
-            start_label = datetime.fromtimestamp(start_unix, tz=tzobj).strftime("%Y-%m-%d")
+            start_label = datetime.fromtimestamp(start_unix, tz=tzobj).strftime(
+                "%Y-%m-%d"
+            )
         if end_unix is None:
             end_label = "Present"
         else:

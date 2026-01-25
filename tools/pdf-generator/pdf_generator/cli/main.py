@@ -457,11 +457,14 @@ def compute_iso_timestamps(
 def resolve_file_prefix(
     config: ReportConfig, start_ts: int, end_ts: int, output_dir: str = "."
 ) -> str:
-    """Determine output file prefix (sequenced or date-based).
+    """Determine output file prefix.
 
-    All files are prefixed with 'velocity.report_' followed by either:
-    - User-provided prefix (sequenced)
-    - Auto-generated: {source}_{start_date}_to_{end_date}
+    Generates filename format: {end_date}_velocity.report_{location}
+    Example: 2026-01-19_velocity.report_Clarendon_Avenue_San_Francisco
+
+    Sanitization matches Go's security.SanitizeFilename behavior:
+    - Replaces spaces and non-alphanumeric chars (except dash/underscore) with underscores
+    - Preserves existing dashes and underscores
 
     Args:
         config: Report configuration
@@ -470,18 +473,18 @@ def resolve_file_prefix(
         output_dir: Directory where files will be created (for sequence checking)
 
     Returns:
-        File prefix string with 'velocity.report_' prefix
+        File prefix string
     """
-    if config.output.file_prefix:
-        # User provided a prefix - create numbered sequence
-        base_prefix = _next_sequenced_prefix(config.output.file_prefix, output_dir)
-        return f"velocity.report_{base_prefix}"
-    else:
-        # Auto-generate from date range using original date strings (single source of truth)
-        # These come directly from the datepicker in the UI via config.query
-        start_label = config.query.start_date[:10]
-        end_label = config.query.end_date[:10]
-        return f"velocity.report_{config.query.source}_{start_label}_to_{end_label}"
+    # Use end date from config (single source of truth)
+    end_date = config.query.end_date[:10]
+
+    # Sanitize location to match Go's security.SanitizeFilename behavior
+    location = config.site.location
+    safe_location = "".join(
+        c if c.isalnum() or c in ("-", "_") else "_" for c in location
+    )
+
+    return f"{end_date}_velocity.report_{safe_location}"
 
 
 # === API Data Fetching ===
