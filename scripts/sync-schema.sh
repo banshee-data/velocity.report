@@ -38,7 +38,7 @@ TEMP_SCHEMA="$PROJECT_ROOT/.tmp_schema.sql"
 
 # Cleanup function
 cleanup() {
-    rm -f "$TEMP_DB" "$TEMP_DB-shm" "$TEMP_DB-wal" "$TEMP_SCHEMA"
+    rm -f "$TEMP_DB" "$TEMP_DB-shm" "$TEMP_DB-wal" "$TEMP_SCHEMA" "$PROJECT_ROOT/.tmp_ordered_schema.sql"
 }
 
 # Register cleanup on exit
@@ -90,6 +90,17 @@ if grep -q "CREATE TABLE sqlite_sequence" "$TEMP_SCHEMA"; then
 fi
 
 echo -e "${GREEN}✓ Schema exported successfully${NC}"
+echo ""
+
+# Step 2.5: Reorder tables by foreign key dependencies
+echo "2.5. Reordering tables by foreign key dependencies..."
+TEMP_ORDERED="$PROJECT_ROOT/.tmp_ordered_schema.sql"
+if ! python3 "$SCRIPT_DIR/order-schema-tables.py" "$TEMP_SCHEMA" > "$TEMP_ORDERED"; then
+    echo -e "${RED}Error: Failed to reorder schema tables${NC}"
+    exit 1
+fi
+mv "$TEMP_ORDERED" "$TEMP_SCHEMA"
+echo -e "${GREEN}✓ Tables reordered successfully${NC}"
 echo ""
 
 # Step 3: Update schema.sql
