@@ -17,7 +17,8 @@ internal/db/schema.sql.bak
 .venv/
 venv/
 
-__pycache__/*
+__pycache__/
+**/__pycache__/
 matplotlib/__pycache__/*
 tools/__pycache__/*
 tools/grid-heatmap/__pycache__/*
