@@ -40,7 +40,7 @@ coverage*
 velocity-deploy*
 
 # Test artifacts
-velocity.report_*.pdf
-velocity.report_*.zip
-velocity.report_*.tex
+*_velocity.report_*.pdf
+*_velocity.report_*.zip
+*_velocity.report_*.tex
 histogram_*.png

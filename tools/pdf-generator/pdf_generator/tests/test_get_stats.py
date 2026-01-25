@@ -165,19 +165,16 @@ class TestComputeIsoTimestamps(unittest.TestCase):
 class TestResolveFilePrefix(unittest.TestCase):
     """Tests for resolve_file_prefix function."""
 
-    @patch("pdf_generator.cli.main._next_sequenced_prefix")
-    def test_with_user_provided_prefix(self, mock_next_seq):
-        """Test prefix resolution with user-provided prefix."""
-        mock_next_seq.return_value = "my-prefix-1"
-
-        config = create_test_config(file_prefix="my-prefix")
+    def test_with_user_provided_prefix(self):
+        """Test prefix resolution uses end_date and location."""
+        config = create_test_config(file_prefix="my-prefix", end_date="2024-01-02")
         start_ts = 1704067200
         end_ts = 1704153600
 
         result = resolve_file_prefix(config, start_ts, end_ts)
 
-        self.assertEqual(result, "velocity.report_my-prefix-1")
-        mock_next_seq.assert_called_once_with("my-prefix", ".")
+        # Format is now: {end_date}_velocity.report_{safe_location}
+        self.assertEqual(result, "2024-01-02_velocity.report_Test_Site")
 
     def test_auto_generated_prefix_utc(self):
         """Test auto-generated prefix with UTC."""
@@ -193,9 +190,8 @@ class TestResolveFilePrefix(unittest.TestCase):
 
         result = resolve_file_prefix(config, start_ts, end_ts)
 
-        self.assertEqual(
-            result, "velocity.report_radar_data_transits_2024-01-01_to_2024-01-02"
-        )
+        # Format is now: {end_date}_velocity.report_{safe_location}
+        self.assertEqual(result, "2024-01-02_velocity.report_Test_Site")
 
     def test_auto_generated_prefix_with_timezone(self):
         """Test auto-generated prefix with specific timezone."""
@@ -211,9 +207,8 @@ class TestResolveFilePrefix(unittest.TestCase):
 
         result = resolve_file_prefix(config, start_ts, end_ts)
 
-        self.assertEqual(
-            result, "velocity.report_radar_objects_2023-12-31_to_2024-01-01"
-        )
+        # Format is now: {end_date}_velocity.report_{safe_location}
+        self.assertEqual(result, "2024-01-01_velocity.report_Test_Site")
 
 
 class TestFetchGranularMetrics(unittest.TestCase):
@@ -778,7 +773,7 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         mock_save.return_value = False
 
         config = create_test_config(debug=False)
-        result = generate_histogram_chart({"10": 5}, "test", {}, "mph", config)
+        result = generate_histogram_chart({"10": 5}, "test", "mph", {}, config)
 
         self.assertFalse(result)
         mock_save.assert_called_once()
@@ -789,7 +784,7 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         mock_plot.side_effect = ImportError("No matplotlib")
 
         config = create_test_config(debug=False)
-        result = generate_histogram_chart({"10": 5}, "test", {}, "mph", config)
+        result = generate_histogram_chart({"10": 5}, "test", "mph", {}, config)
 
         self.assertFalse(result)
 
@@ -799,7 +794,7 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         mock_plot.side_effect = ImportError("No matplotlib")
 
         config = create_test_config(debug=True)
-        result = generate_histogram_chart({"10": 5}, "test", {}, "mph", config)
+        result = generate_histogram_chart({"10": 5}, "test", "mph", {}, config)
 
         self.assertFalse(result)
 
@@ -811,7 +806,7 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         mock_save.side_effect = Exception("Save error")
 
         config = create_test_config(debug=False)
-        result = generate_histogram_chart({"10": 5}, "test", {}, "mph", config)
+        result = generate_histogram_chart({"10": 5}, "test", "mph", {}, config)
 
         self.assertFalse(result)
 
@@ -823,7 +818,7 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         mock_save.side_effect = Exception("Save error")
 
         config = create_test_config(debug=True)
-        result = generate_histogram_chart({"10": 5}, "test", {}, "mph", config)
+        result = generate_histogram_chart({"10": 5}, "test", "mph", {}, config)
 
         self.assertFalse(result)
 
@@ -837,7 +832,7 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         config = create_test_config(debug=False)
         metrics = {"Count": 100}
 
-        result = generate_histogram_chart({"10": 5}, "test", metrics, "mph", config)
+        result = generate_histogram_chart({"10": 5}, "test", "mph", metrics, config)
 
         self.assertTrue(result)
         # Verify plot_histogram was called (sample label will be in title)
@@ -853,7 +848,7 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         config = create_test_config(debug=False)
         metrics = [{"Count": 100}]
 
-        result = generate_histogram_chart({"10": 5}, "test", metrics, "mph", config)
+        result = generate_histogram_chart({"10": 5}, "test", "mph", metrics, config)
 
         self.assertTrue(result)
 
@@ -867,7 +862,7 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         config = create_test_config(debug=False)
         metrics = "invalid"  # Not a dict or list
 
-        result = generate_histogram_chart({"10": 5}, "test", metrics, "mph", config)
+        result = generate_histogram_chart({"10": 5}, "test", "mph", metrics, config)
 
         self.assertTrue(result)
 
