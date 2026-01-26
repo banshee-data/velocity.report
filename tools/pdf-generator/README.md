@@ -41,7 +41,7 @@ Every configuration file **must** include these 7 fields:
 | Field                      | Type   | Description                           | Example                    |
 | -------------------------- | ------ | ------------------------------------- | -------------------------- |
 | `site.location`            | string | Physical survey location              | "Main Street, Springfield" |
-| `site.surveyor`            | string | Person/organization conducting survey | "City Traffic Department"  |
+| `site.surveyor`            | string | Person/organisation conducting survey | "City Traffic Department"  |
 | `site.contact`             | string | Contact email or phone                | "traffic@springfield.gov"  |
 | `query.start_date`         | string | Start date (YYYY-MM-DD)               | "2025-06-01"               |
 | `query.end_date`           | string | End date (YYYY-MM-DD)                 | "2025-06-07"               |
@@ -160,7 +160,7 @@ This minimal config will:
 | Field              | Required | Default | Description                   |
 | ------------------ | -------- | ------- | ----------------------------- |
 | `location`         | **Yes**  | -       | Street or location name       |
-| `surveyor`         | **Yes**  | -       | Name of person/organization   |
+| `surveyor`         | **Yes**  | -       | Name of person/organisation   |
 | `contact`          | **Yes**  | -       | Contact email or phone        |
 | `speed_limit`      | No       | 25      | Posted speed limit in mph     |
 | `site_description` | No       | ""      | Detailed location description |
