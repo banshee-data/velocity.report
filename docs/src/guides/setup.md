@@ -22,7 +22,7 @@ _Weatherproof infrastructure deployment: 4-6 hours, ~$350-450_
 
 ## Introduction
 
-Measuring vehicle speeds on residential streets is the first step toward safer neighborhoods. Without data, convincing city officials to address speeding is nearly impossible.
+Measuring vehicle speeds on residential streets is the first step toward safer neighbourhoods. Without data, convincing city officials to address speeding is nearly impossible.
 
 Build your own privacy-first traffic radar using off-the-shelf Doppler technology (the same sensors police use) and open-source software. No cameras, no license plates—just local speed data that produces professional traffic reports.
 
@@ -171,7 +171,7 @@ This guide covers two deployment options:
 
 **Alternative sensor with distance measurement**: OPS243-C-FC-RP (~$130-160) - adds range capability via FMCW
 
-**3D printing files**: Available at [project repository](https://github.com/banshee-data/velocity.report/tree/main/hardware/enclosures)
+**3D printing files**: Will be published in a future release
 
 **[PLACEHOLDER: Photo of 3D printed case showing sensor mounted inside with 1/4-20 threaded insert for tripod mounting]**
 
@@ -191,7 +191,8 @@ This guide covers two deployment options:
 | Cable Glands         | PG11 cable glands (2-pack)  | ~$8-12         | Weatherproof cable entry                                                |
 | Pole Mount           | Stainless steel hose clamps | ~$10-15        | 2-4" diameter range                                                     |
 | Mounting Plate       | Aluminum or HDPE plate      | ~$10-20        | Custom cut to fit enclosure                                             |
-| **TOTAL**            |                             | **~$341-459**  |                                                                         |
+| Weatherproof Enclosure | IP65/IP67 rated junction box | ~$30-60     | Protects electronics from weather                                        |
+| **TOTAL**            |                             | **~$371-519**  |                                                                         |
 
 **Alternative sensors**:
 
@@ -287,14 +288,14 @@ The OPS7243-A-CW-R2 sensor (RS232 interface, designated R2) requires a serial HA
 
 2. **Wire sensor to HAT**:
 
-**[PLACEHOLDER: Diagram showing RS232 wiring connections between OPS7243 sensor and Waveshare HAT, with color-coded wires and pin labels]**
+**[PLACEHOLDER: Diagram showing RS232 wiring connections between OPS7243 sensor and Waveshare HAT, with colour-coded wires and pin labels]**
 
-| Sensor Pin (RS232) | HAT Terminal           | Wire Color (typical) |
-| ------------------ | ---------------------- | -------------------- |
-| VCC (5V)           | +5V or separate supply | Red                  |
-| GND                | GND                    | Black                |
-| TX                 | RX (receive)           | Green/Yellow         |
-| RX                 | TX (transmit)          | Blue/White           |
+| Sensor Pin (RS232) | HAT Terminal           | Wire Colour (typical) |
+| ------------------ | ---------------------- | --------------------- |
+| VCC (5V)           | +5V or separate supply | Red                   |
+| GND                | GND                    | Black                 |
+| TX                 | RX (receive)           | Green/Yellow          |
+| RX                 | TX (transmit)          | Blue/White            |
 
 **Critical**: RS232 uses RX↔TX crossover. Sensor TX connects to HAT RX, and vice versa.
 
@@ -334,7 +335,7 @@ ls -l /dev/serial0
 
 **Power considerations**:
 
-- RS232 sensor draws ~150mA at 5V
+- RS232 sensor typical draw: 300–440mA at 5V (~2.2W)
 - Power from dedicated supply (not Pi's 5V pin) for stability
 - Use low-voltage disconnect if running on battery/solar
 
@@ -461,7 +462,7 @@ sudo systemctl status velocity-report
 - **PDF Reports**: Generated at `tools/pdf-generator/output/` when requested
 - **Application logs**: View with `sudo journalctl -u velocity-report.service -f`
 
-**If something goes wrong**: Check logs with `sudo journalctl -u velocity-report -f` (press Ctrl+C to exit)
+**If something goes wrong**: The installation steps use the deployment tool commands shown later in this guide. Check logs with `sudo journalctl -u velocity-report -f` (press Ctrl+C to exit)
 
 ---
 
@@ -628,13 +629,86 @@ For more options, see the [PDF Generator README](../../tools/pdf-generator/READM
 - **p98 (top 2%)**: Threshold where the fastest regular drivers operate
 - Histograms, time-of-day charts, and crash physics analysis
 
-**Period comparison reports**: Compare two time periods (e.g., before/after a speed hump installation) to measure intervention effectiveness.
+#### Comparison Reports: Measuring Intervention Effectiveness
+
+Comparison reports let you analyse the impact of traffic calming measures by comparing two time periods side-by-side. This is invaluable for advocacy—showing city officials that a speed hump reduced p85 speeds by 12 mph is far more compelling than anecdotal observations.
+
+**When to use comparison reports:**
+
+- **Before/after interventions**: Measure the effect of speed humps, signage, or enforcement campaigns
+- **Seasonal comparisons**: Compare summer vs winter traffic patterns
+- **Week-over-week analysis**: Track whether speeding issues are consistent or sporadic
+
+**To generate a comparison report** via command line:
+
+```bash
+# Create a config with comparison dates
+cat > comparison-report.json << 'EOF'
+{
+  "site": {
+    "location": "Main Street",
+    "surveyor": "Community Watch",
+    "contact": "traffic@community.org"
+  },
+  "radar": {
+    "cosine_error_angle": 21.0
+  },
+  "query": {
+    "start_date": "2025-12-01",
+    "end_date": "2025-12-07",
+    "compare_start_date": "2025-11-01",
+    "compare_end_date": "2025-11-07",
+    "timezone": "US/Pacific"
+  }
+}
+EOF
+
+make pdf-report CONFIG=comparison-report.json
+```
+
+The report includes:
+
+- **Side-by-side metrics**: p50, p85, p98 for both periods with percentage changes
+- **Dual-period histogram**: Overlaid speed distributions with clear legend
+- **Comparison distribution table**: Detailed breakdown of speed buckets across periods
 
 **[PLACEHOLDER: Sample page from PDF report showing speed distribution histogram, p50/p85/p98 statistics, and time-of-day traffic patterns]**
 
 **Success criteria**: PDF file generated in `tools/pdf-generator/output/` directory
 
-**Making your case**: Print the report and bring it to city council. Instead of "cars go too fast," say "85% of drivers exceed the posted 25 mph limit, with p85 at 38 mph."
+**Making your case**: Print the report and bring it to city council. Instead of "cars go too fast," say "85% of drivers exceed the posted 25 mph limit, with p85 at 38 mph." With comparison reports, you can add: "After the speed hump installation, p85 dropped from 42 mph to 31 mph—a 26% reduction."
+
+---
+
+#### Site Configuration Periods: Time-Based Sensor Settings
+
+When you reposition your sensor or adjust its mounting angle, historical data needs to be corrected using the angle that was in effect at the time of collection. The site configuration periods feature (based on a Type 6 Slowly Changing Dimension pattern) tracks these changes automatically.
+
+**Why configuration periods matter:**
+
+- **Accurate historical data**: If you moved the sensor from 15° to 30° on 1st December, data before that date uses the 15° correction, and data after uses 30°
+- **Retroactive corrections**: Realised your angle measurement was wrong? Update the configuration period and all reports automatically apply the correct correction
+- **Comparison report accuracy**: When comparing two time periods, each period uses the appropriate cosine correction for that date range
+
+**Managing configuration periods via Web Dashboard:**
+
+1. Navigate to **Sites** → select your site
+2. Click **Configuration Periods**
+3. Add a new period with:
+   - **Start date**: When this configuration became active
+   - **End date**: When this configuration ended (leave blank for current)
+   - **Cosine error angle**: The sensor mounting angle for this period
+   - **Notes**: Optional description (e.g., "Moved sensor to east side of pole")
+
+**Example scenario:**
+
+| Period                     | Cosine Angle | Notes                              |
+| -------------------------- | ------------ | ---------------------------------- |
+| 1 Jan 2025 → 15 Mar 2025   | 21°          | Initial installation               |
+| 15 Mar 2025 → 1 Jun 2025   | 35°          | Repositioned after storm damage    |
+| 1 Jun 2025 → (current)     | 21°          | Restored to original position      |
+
+When generating a report for April 2025, the system automatically applies the 35° correction. A comparison report spanning February (21°) vs April (35°) applies each correction independently.
 
 ---
 
@@ -662,6 +736,7 @@ http://192.168.1.XXX:8080
 - Use strong WiFi password (WPA3 if supported)
 - Change default Pi password immediately
 - Keep Pi OS updated: `sudo apt update && sudo apt upgrade`
+- Consider network segmentation for additional security
 
 ---
 
@@ -739,8 +814,8 @@ If you need remote access, please use [Tailscale](#remote-access-with-tailscale-
 
 ### Building Community Support
 
-1. **Share with neighbors** - Show them the data
-2. **Partner with local groups** - PTA, neighborhood associations
+1. **Share with neighbours** - Show them the data
+2. **Partner with local groups** - PTA, neighbourhood associations
 3. **File public records requests** - Compare to city traffic studies
 4. **Document over time** - Show patterns, not one-off incidents
 
@@ -802,7 +877,7 @@ You've successfully built a working traffic radar from scratch.
 
 **What you've accomplished**:
 
-- Built hardware for neighborhood traffic monitoring
+- Built hardware for neighbourhood traffic monitoring
 - Configured a Doppler radar sensor (USB or RS232)
 - Deployed a complete web-based monitoring system
 - Set up local data storage with no cloud dependencies
@@ -817,9 +892,9 @@ You've successfully built a working traffic radar from scratch.
 
 **Make it count**:
 
-Traffic safety advocacy shouldn't require a six-figure budget or an engineering degree. With $150-450 in parts and a weekend of work, you've built something that produces the same metrics cities pay consultants thousands for.
+Traffic safety advocacy shouldn't require a six-figure budget or an engineering degree. With $150-450 in parts and a weekend of work, you've built something that produces the same metrics cities pay consultants thousands for. Verify correct, stable power supply for your RS232 model (see Power Requirements).
 
-Show your neighbors. File public records requests to compare your data to official counts. Bring your PDF report to city council meetings. Advocate for traffic calming with evidence nobody can dismiss.
+Show your neighbours. File public records requests to compare your data to official counts. Bring your PDF report to city council meetings. Advocate for traffic calming with evidence nobody can dismiss.
 
 ---
 
@@ -835,8 +910,8 @@ Show your neighbors. File public records requests to compare your data to offici
 
 - **Troubleshooting**: See [TROUBLESHOOTING.md](../../TROUBLESHOOTING.md) for common issues
 - **System Design**: Read [ARCHITECTURE.md](../../ARCHITECTURE.md) for technical details
-- **Report Customization**: Check [PDF Generator README](../../tools/pdf-generator/README.md)
-- **Contributing**: Join us at [CONTRIBUTING.md](../../CONTRIBUTING.md)
+- **Report Customisation**: Check [PDF Generator README](../../tools/pdf-generator/README.md)
+- **Contributing**: Join us on GitHub – contributing guide coming soon
 
 **Traffic Safety Resources**:
 
@@ -869,7 +944,7 @@ OmniPreSense offers radar sensors in multiple configurations. The product code f
 **Examples**:
 
 - `203-OPS243-A-CW-RP` = Sensor PCB, speed-only, continuous wave, USB interface
-- `203-OPS7243-C-FC-R2` = Sensor in IP67 housing, speed+distance, FMCW, RS232 interface
+- `203-OPS7243-C-FC-R2` = Sensor in IP67 housing, speed+distance, FMCW, RS232 interface for neighbourhood installations
 
 ### Available Models Comparison
 
