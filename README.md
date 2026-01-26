@@ -45,9 +45,9 @@ Measure vehicle speeds, make streets safer.
 
 - **Go Server** - High-performance data collection and API server
 - **Python PDF Generator** - Professional PDF report generation with LaTeX
-- **Web Frontend** - Real-time data visualization (Svelte)
+- **Web Frontend** - Real-time data visualisation (Svelte)
 
-The system collects vehicle speed data from radar/LIDAR sensors, stores it in SQLite, and provides multiple ways to visualize and report on the data—all while maintaining complete privacy (no license plate recognition, no video recording).
+The system collects vehicle speed data from radar/LIDAR sensors, stores it in SQLite, and provides multiple ways to visualise and report on the data—all while maintaining complete privacy (no license plate recognition, no video recording).
 
 ## Quick Start
 
@@ -145,14 +145,14 @@ velocity.report/
 **2. Python PDF Generator** (`/tools/pdf-generator/`)
 
 - Generates professional PDF reports using LaTeX
-- Creates charts and visualizations with matplotlib
+- Creates charts and visualisations with matplotlib
 - Processes statistical summaries
 - Highly configurable via JSON
 - Comprehensive test suite
 
 **3. Web Frontend** (`/web/`)
 
-- Real-time data visualization
+- Real-time data visualisation
 - Interactive charts and graphs
 - Built with Svelte and TypeScript
 - Responsive design
@@ -205,7 +205,7 @@ GOOS=linux GOARCH=arm64 go build -o velocity-report-linux-arm64 ./cmd/radar
 
 ### Python PDF Generator Development
 
-The repository uses a **single shared Python virtual environment** for all Python tools (PDF generator, data visualization, analysis scripts).
+The repository uses a **single shared Python virtual environment** for all Python tools (PDF generator, data visualisation, analysis scripts).
 
 **Setup:**
 
@@ -223,7 +223,7 @@ source .venv/bin/activate
 
 - PDF generation: PyLaTeX, reportlab
 - Data analysis: pandas, numpy, scipy
-- Visualization: matplotlib, seaborn
+- Visualisation: matplotlib, seaborn
 - Testing: pytest, pytest-cov
 - Formatting: black, ruff
 
@@ -430,7 +430,7 @@ The project uses a consistent naming scheme for all make targets: `<action>-<sub
 - `log-go-tail` - Tail most recent Go server log
 - `log-go-cat` - Cat most recent Go server log
 
-### Data Visualization Targets
+### Data Visualisation Targets
 
 - `plot-noise-sweep` - Generate noise sweep line plot
 - `plot-multisweep` - Generate multi-parameter grid plot

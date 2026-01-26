@@ -63,7 +63,7 @@ This weekend project gives community advocates, parents, and civic-minded makers
 
 ### Is This Legal?
 
-**In most jurisdictions, yes.** You're measuring public behavior on public streets, similar to what traffic engineers and academic researchers do.
+**In most jurisdictions, yes.** You're measuring public behaviour on public streets, similar to what traffic engineers and academic researchers do.
 
 **Generally allowed**:
 
@@ -106,7 +106,7 @@ For anyone outside the vehicle (pedestrians, cyclists, kids) this exponential re
 
 Streets designed for 25 mph but driven at 40? That's not just a little faster: it's 2.56× the destructive force on impact.
 
-**Your radar measures what matters**: actual speeds, not posted limits. You'll capture the real behavior, quantify the risk, and have data that speaks louder than feelings.
+**Your radar measures what matters**: actual speeds, not posted limits. You'll capture the real behaviour, quantify the risk, and have data that speaks louder than feelings.
 
 ---
 

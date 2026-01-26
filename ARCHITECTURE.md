@@ -19,7 +19,7 @@ This document describes the system architecture, component relationships, data f
 
 1. **Go Server** - Real-time data collection and HTTP API
 2. **Python PDF Generator** - Professional report generation with LaTeX
-3. **Web Frontend** - Real-time visualization (Svelte/TypeScript)
+3. **Web Frontend** - Real-time visualisation (Svelte/TypeScript)
 
 All components share a common SQLite database as the single source of truth.
 
@@ -287,7 +287,7 @@ All components share a common SQLite database as the single source of truth.
 
 **Location**: `/web/`
 
-**Purpose**: Real-time data visualization and interactive dashboards
+**Purpose**: Real-time data visualisation and interactive dashboards
 
 **Key Technologies**:
 
@@ -440,7 +440,7 @@ Three Transit Sources:
 9. XeLaTeX → Compile → PDF output
 ```
 
-### Web Visualization
+### Web Visualisation
 
 ```
 1. User → Open browser → Vite dev server (or static build)
@@ -468,7 +468,7 @@ Three Transit Sources:
 | Component      | Technology | Version | Purpose             |
 | -------------- | ---------- | ------- | ------------------- |
 | Language       | Python     | 3.9+    | Report generation   |
-| Charts         | matplotlib | 3.9+    | Data visualization  |
+| Charts         | matplotlib | 3.9+    | Data visualisation  |
 | LaTeX          | PyLaTeX    | 1.4+    | Document generation |
 | HTTP           | requests   | 2.32+   | API client          |
 | Testing        | pytest     | 8.4+    | Test framework      |
