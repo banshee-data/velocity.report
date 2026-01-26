@@ -87,6 +87,7 @@ jobs:
       - name: Run go test
         env:
           PDF_GENERATOR_DIR: ${{ github.workspace }}/tools/pdf-generator
+          PDF_GENERATOR_PYTHON: ${{ github.workspace }}/.venv/bin/python
         run: |
           go test ./... -v
 
