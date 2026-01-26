@@ -68,6 +68,17 @@ jobs:
             echo "no web/package.json found; skipping web build"
           fi
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          make install-python
+
       - name: Run go test
         run: |
           go test ./... -v
