@@ -348,6 +348,8 @@ When a sensor reading arrives, the Go server stores the entire event as JSON in 
 - `lidar_bg_snapshot` - LIDAR background grid for motion detection (40×1800 range-image)
 - `lidar_objects` - Track-extracted transits from LIDAR processing [PLANNED]
 - `radar_commands` / `radar_command_log` - Command history and execution logs
+- `site` - Site metadata (location, speed limits)
+- `site_config_periods` - Time-based sensor configuration (cosine error angle history)
 
 **Transit Sources** (3 independent object detection pipelines):
 
@@ -367,6 +369,17 @@ These three sources will be compared for initial reporting, with eventual goal o
 - LIDAR background modeling for change detection (grid stored as BLOB)
 - WAL mode enabled for concurrent readers/writers
 - Indexes on timestamp columns for fast time-range queries
+- Time-based site configuration via `site_config_periods` (Type 6 Slowly Changing Dimension)
+
+**Site Configuration Periods**:
+
+The `site_config_periods` table implements a Type 6 SCD pattern for tracking sensor configuration changes over time. Key aspects:
+
+- **Cosine error correction**: Radar mounted at an angle measures lower speeds than actual. Each period stores the mounting angle for automatic correction.
+- **Non-overlapping periods**: Database triggers enforce that periods for the same site cannot overlap.
+- **Active period tracking**: One period per site is marked `is_active = 1` for new data collection.
+- **Retroactive corrections**: Changing a period's angle automatically affects all reports querying that time range.
+- **Comparison report accuracy**: When comparing periods with different configurations, each period's data is corrected independently.
 
 **Migrations**: Located in `/internal/db/migrations/`, managed by Go server
 
