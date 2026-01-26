@@ -55,12 +55,12 @@ func TestGenerateReport_E2E(t *testing.T) {
 		t.Fatalf("failed to create site config period: %v", err)
 	}
 
-	// Insert test radar data for the report date range (2025-10-01 to 2025-10-02)
+	// Insert test radar data for the report date range (2025-12-03 to 2025-12-04)
 	// Seed multiple events with varying speeds to generate realistic report data
-	primaryTimestamp := int64(1727740800) // 2025-10-01 00:00:00 UTC
-	compareTimestamp := int64(1696118400) // 2024-10-01 00:00:00 UTC
+	primaryTimestamp := int64(1764720000) // 2025-12-03 00:00:00 UTC
+	compareTimestamp := int64(1762300800) // 2025-11-05 00:00:00 UTC
 
-	// Generate events for primary date range (2025-10-01 to 2025-10-02)
+	// Generate events for primary date range (2025-12-03 to 2025-12-04)
 	speeds := []float64{8.0, 10.0, 12.0, 15.0, 18.0, 20.0, 22.0, 25.0, 28.0, 30.0}
 	for i := 0; i < 50; i++ {
 		speed := speeds[i%len(speeds)]
@@ -85,7 +85,7 @@ func TestGenerateReport_E2E(t *testing.T) {
 		}
 	}
 
-	// Generate events for comparison date range (2024-10-01 to 2024-10-02)
+	// Generate events for comparison date range (2025-11-05 to 2025-11-06)
 	for i := 0; i < 50; i++ {
 		speed := speeds[i%len(speeds)] - 2.0 // Slightly lower speeds for comparison
 		testEvent := map[string]interface{}{
@@ -109,7 +109,7 @@ func TestGenerateReport_E2E(t *testing.T) {
 		}
 	}
 
-	t.Logf("Seeded %d events for primary range (2025-10-01 to 2025-10-02) and %d events for comparison range (2024-10-01 to 2024-10-02)", 50, 50)
+	t.Logf("Seeded %d events for primary range (2025-12-03 to 2025-12-04) and %d events for comparison range (2025-11-05 to 2025-11-06)", 50, 50)
 
 	// Ensure PDF_GENERATOR_DIR is set for the test environment
 	pdfGenDir := os.Getenv("PDF_GENERATOR_DIR")
@@ -146,10 +146,11 @@ func TestGenerateReport_E2E(t *testing.T) {
 	// Build report request pointing to our site (with histogram enabled)
 	reqBody := map[string]interface{}{
 		"site_id":            site.ID,
-		"start_date":         "2025-10-01",
-		"end_date":           "2025-10-02",
-		"compare_start_date": "2024-10-01",
-		"compare_end_date":   "2024-10-02",
+		"start_date":         "2025-12-03",
+		"end_date":           "2025-12-04",
+		"compare_start_date": "2025-11-05",
+		"compare_end_date":   "2025-11-06",
+		"source":             "radar_objects", // Use radar_objects table where test data is seeded
 		"histogram":          true,
 		"hist_bucket_size":   5.0,
 	}
@@ -191,8 +192,8 @@ func TestGenerateReport_E2E(t *testing.T) {
 
 	// Verify filename format: {endDate}_velocity.report_{location}_report.pdf
 	// (Python adds _report suffix for PDF, _sources suffix for ZIP)
-	expectedPdfName := "2025-10-02_velocity.report_Test_Location_report.pdf"
-	expectedZipName := "2025-10-02_velocity.report_Test_Location_sources.zip"
+	expectedPdfName := "2025-12-04_velocity.report_Test_Location_report.pdf"
+	expectedZipName := "2025-12-04_velocity.report_Test_Location_sources.zip"
 
 	if !strings.Contains(pdfPath, expectedPdfName) {
 		t.Fatalf("expected PDF filename to contain %q, got %q", expectedPdfName, pdfPath)
@@ -257,9 +258,9 @@ func TestGenerateReport_E2E(t *testing.T) {
 	compareStart, _ := queryObj["compare_start_date"].(string)
 	compareEnd, _ := queryObj["compare_end_date"].(string)
 	if compareStart != "" || compareEnd != "" {
-		if compareStart != "2024-10-01" || compareEnd != "2024-10-02" {
+		if compareStart != "2025-11-05" || compareEnd != "2025-11-06" {
 			t.Fatalf(
-				"expected compare dates 2024-10-01/2024-10-02, got %q/%q (cfgPath=%s)",
+				"expected compare dates 2025-11-05/2025-11-05, got %q/%q (cfgPath=%s)",
 				compareStart,
 				compareEnd,
 				cfgPath,
