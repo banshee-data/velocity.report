@@ -55,38 +55,84 @@ func TestGenerateReport_E2E(t *testing.T) {
 		t.Fatalf("failed to create site config period: %v", err)
 	}
 
-	// Insert test radar data for the report date range (2025-10-01)
-	testTimestamp := 1727740800 // 2025-10-01 00:00:00 UTC
-	testEvent := map[string]interface{}{
-		"site_id":         site.ID,
-		"classifier":      "all",
-		"start_time":      float64(testTimestamp),
-		"end_time":        float64(testTimestamp + 1),
-		"delta_time_msec": 100,
-		"max_speed_mps":   10.0,
-		"min_speed_mps":   10.0,
-		"speed_change":    0.0,
-		"max_magnitude":   10,
-		"avg_magnitude":   10,
-		"total_frames":    1,
-		"frames_per_mps":  1.0,
-		"length_m":        1.0,
-	}
-	eventJSON, _ := json.Marshal(testEvent)
-	if err := dbInst.RecordRadarObject(string(eventJSON)); err != nil {
-		t.Fatalf("failed to insert test radar data: %v", err)
+	// Insert test radar data for the report date range (2025-10-01 to 2025-10-02)
+	// Seed multiple events with varying speeds to generate realistic report data
+	primaryTimestamp := int64(1727740800) // 2025-10-01 00:00:00 UTC
+	compareTimestamp := int64(1696118400) // 2024-10-01 00:00:00 UTC
+
+	// Generate events for primary date range (2025-10-01 to 2025-10-02)
+	speeds := []float64{8.0, 10.0, 12.0, 15.0, 18.0, 20.0, 22.0, 25.0, 28.0, 30.0}
+	for i := 0; i < 50; i++ {
+		speed := speeds[i%len(speeds)]
+		testEvent := map[string]interface{}{
+			"site_id":         site.ID,
+			"classifier":      "all",
+			"start_time":      float64(primaryTimestamp + int64(i*1800)), // Every 30 minutes
+			"end_time":        float64(primaryTimestamp + int64(i*1800) + 2),
+			"delta_time_msec": 100,
+			"max_speed_mps":   speed,
+			"min_speed_mps":   speed - 1.0,
+			"speed_change":    1.0,
+			"max_magnitude":   10,
+			"avg_magnitude":   10,
+			"total_frames":    1,
+			"frames_per_mps":  1.0,
+			"length_m":        3.5,
+		}
+		eventJSON, _ := json.Marshal(testEvent)
+		if err := dbInst.RecordRadarObject(string(eventJSON)); err != nil {
+			t.Fatalf("failed to insert primary test radar data %d: %v", i, err)
+		}
 	}
 
-	// Change working directory to repo root so the server can find the PDF generator
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get cwd: %v", err)
+	// Generate events for comparison date range (2024-10-01 to 2024-10-02)
+	for i := 0; i < 50; i++ {
+		speed := speeds[i%len(speeds)] - 2.0 // Slightly lower speeds for comparison
+		testEvent := map[string]interface{}{
+			"site_id":         site.ID,
+			"classifier":      "all",
+			"start_time":      float64(compareTimestamp + int64(i*1800)),
+			"end_time":        float64(compareTimestamp + int64(i*1800) + 2),
+			"delta_time_msec": 100,
+			"max_speed_mps":   speed,
+			"min_speed_mps":   speed - 1.0,
+			"speed_change":    1.0,
+			"max_magnitude":   10,
+			"avg_magnitude":   10,
+			"total_frames":    1,
+			"frames_per_mps":  1.0,
+			"length_m":        3.5,
+		}
+		eventJSON, _ := json.Marshal(testEvent)
+		if err := dbInst.RecordRadarObject(string(eventJSON)); err != nil {
+			t.Fatalf("failed to insert comparison test radar data %d: %v", i, err)
+		}
 	}
-	repoRoot := filepath.Clean(filepath.Join(cwd, "..", ".."))
-	if err := os.Chdir(repoRoot); err != nil {
-		t.Fatalf("failed to chdir to repo root: %v", err)
+
+	t.Logf("Seeded %d events for primary range (2025-10-01 to 2025-10-02) and %d events for comparison range (2024-10-01 to 2024-10-02)", 50, 50)
+
+	// Ensure PDF_GENERATOR_DIR is set for the test environment
+	pdfGenDir := os.Getenv("PDF_GENERATOR_DIR")
+	if pdfGenDir == "" {
+		// Default to tools/pdf-generator relative to the repo root
+		cwd, err := os.Getwd()
+		if err != nil {
+			t.Fatalf("failed to get cwd: %v", err)
+		}
+		repoRoot := filepath.Clean(filepath.Join(cwd, "..", ".."))
+		pdfGenDir = filepath.Join(repoRoot, "tools", "pdf-generator")
+		os.Setenv("PDF_GENERATOR_DIR", pdfGenDir)
+		t.Logf("Set PDF_GENERATOR_DIR=%s", pdfGenDir)
+
+		// Also set PDF_GENERATOR_PYTHON to use the repo venv
+		venvPython := filepath.Join(repoRoot, ".venv", "bin", "python")
+		if _, err := os.Stat(venvPython); err == nil {
+			os.Setenv("PDF_GENERATOR_PYTHON", venvPython)
+			t.Logf("Set PDF_GENERATOR_PYTHON=%s", venvPython)
+		}
+	} else {
+		t.Logf("Using PDF_GENERATOR_DIR=%s", pdfGenDir)
 	}
-	defer func() { _ = os.Chdir(cwd) }()
 
 	// Build report request pointing to our site (with histogram enabled)
 	reqBody := map[string]interface{}{
@@ -124,7 +170,6 @@ func TestGenerateReport_E2E(t *testing.T) {
 	}
 
 	// Verify files exist in the pdf-generator directory
-	pdfGenDir := filepath.Join(repoRoot, "tools", "pdf-generator")
 	fullPdfPath := filepath.Join(pdfGenDir, pdfPath)
 	fullZipPath := filepath.Join(pdfGenDir, zipPath)
 
