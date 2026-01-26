@@ -335,7 +335,7 @@ ls -l /dev/serial0
 
 **Power considerations**:
 
-- RS232 sensor typical draw: 300–440mA at 5V (~2.2W)
+- RS232 sensor typical draw: 300-440mA at 5V (~2.2W)
 - Power from dedicated supply (not Pi's 5V pin) for stability
 - Use low-voltage disconnect if running on battery/solar
 
@@ -857,7 +857,7 @@ You've successfully built a working traffic radar from scratch.
 
 **Make it count**:
 
-Traffic safety advocacy shouldn't require a six-figure budget or an engineering degree. With $150-450 in parts and a weekend of work, you've built something that produces the same metrics cities pay consultants thousands for. Verify correct, stable power supply for your RS232 model (see Power Requirements).
+Traffic safety advocacy shouldn't require a six-figure budget or an engineering degree. With $150-450 in parts and a weekend of work, you've built something that produces the same metrics cities pay consultants thousands for.
 
 Show your neighbours. File public records requests to compare your data to official counts. Bring your PDF report to city council meetings. Advocate for traffic calming with evidence nobody can dismiss.
 
@@ -909,7 +909,7 @@ OmniPreSense offers radar sensors in multiple configurations. The product code f
 **Examples**:
 
 - `203-OPS243-A-CW-RP` = Sensor PCB, speed-only, continuous wave, USB interface
-- `203-OPS7243-C-FC-R2` = Sensor in IP67 housing, speed+distance, FMCW, RS232 interface for neighbourhood installations
+- `203-OPS7243-C-FC-R2` = Sensor in IP67 housing, speed+distance, FMCW, RS232 interface
 
 ### Available Models Comparison
 
