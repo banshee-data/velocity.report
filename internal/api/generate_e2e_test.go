@@ -123,15 +123,24 @@ func TestGenerateReport_E2E(t *testing.T) {
 		pdfGenDir = filepath.Join(repoRoot, "tools", "pdf-generator")
 		os.Setenv("PDF_GENERATOR_DIR", pdfGenDir)
 		t.Logf("Set PDF_GENERATOR_DIR=%s", pdfGenDir)
+	} else {
+		t.Logf("Using PDF_GENERATOR_DIR=%s", pdfGenDir)
+	}
 
-		// Also set PDF_GENERATOR_PYTHON to use the repo venv
+	// Ensure PDF_GENERATOR_PYTHON is set for the test environment
+	pdfGenPython := os.Getenv("PDF_GENERATOR_PYTHON")
+	if pdfGenPython == "" {
+		// Derive repo root from PDF_GENERATOR_DIR
+		repoRoot := filepath.Clean(filepath.Join(pdfGenDir, "..", ".."))
 		venvPython := filepath.Join(repoRoot, ".venv", "bin", "python")
 		if _, err := os.Stat(venvPython); err == nil {
 			os.Setenv("PDF_GENERATOR_PYTHON", venvPython)
 			t.Logf("Set PDF_GENERATOR_PYTHON=%s", venvPython)
+		} else {
+			t.Logf("Warning: venv python not found at %s", venvPython)
 		}
 	} else {
-		t.Logf("Using PDF_GENERATOR_DIR=%s", pdfGenDir)
+		t.Logf("Using PDF_GENERATOR_PYTHON=%s", pdfGenPython)
 	}
 
 	// Build report request pointing to our site (with histogram enabled)
