@@ -31,9 +31,11 @@ var _ lidar.BgStore = (*DB)(nil)
 
 const (
 	// nearPerpendicularThreshold is the minimum absolute cosine value for a valid sensor angle.
-	// Angles near 90° (perpendicular to traffic) produce cosines near 0, leading to infinite speeds.
-	// Readings with angles this close to perpendicular are filtered out as invalid.
-	nearPerpendicularThreshold = 0.001
+	// Angles near 90° (perpendicular to traffic) produce cosines near 0, leading to extremely large
+	// corrected speeds. To keep corrections within a physically meaningful range and to reflect
+	// practical mounting constraints, we require |cos(angle)| >= 0.1, which corresponds to angles
+	// no closer than ~84.3° to perpendicular (i.e. we avoid speed corrections larger than ~10x).
+	nearPerpendicularThreshold = 0.1
 
 	// radiansPerDegree converts degrees to radians
 	radiansPerDegree = math.Pi / 180.0
