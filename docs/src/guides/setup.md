@@ -595,32 +595,17 @@ _Estimated time: Varies — requires data collection period_
 
 After collecting data for a few days or weeks, generate professional reports.
 
-**Via Web Dashboard**:
+**Via Web Dashboard:**
 
-1. Navigate to the **Sites** tab
-2. Configure your site details:
-   - **Location**: Street name and description
+1. Navigate to the **Reports** tab
+2. Select your site from the dropdown
+3. Configure report settings:
+   - **Date range**: Select start and end dates for the report period
    - **Cosine angle**: Correction factor for sensor mounting angle (see below)
-   - **Configuration periods**: Date ranges with specific speed limits or notes
-3. Click **Generate Report**
+4. Click **Generate Report**
+5. Download the PDF when ready
 
 **Cosine angle correction**: If your sensor isn't mounted parallel to traffic flow, measured speeds will be lower than actual speeds. The cosine angle setting compensates for this. For a sensor mounted at 30° off-axis, set cosine angle to 30°—the system applies the correction factor automatically. Leave at 0° if mounted parallel to traffic.
-
-**Via Command Line** (Advanced):
-
-```bash
-# Install Python dependencies (one-time)
-make install-python
-
-# Create and edit configuration file
-make pdf-config
-# Edit config.json with your settings
-
-# Generate report
-make pdf-report CONFIG=config.json
-```
-
-For more options, see the [PDF Generator README](../../tools/pdf-generator/README.md).
 
 **What's in the report**:
 
@@ -639,32 +624,14 @@ Comparison reports let you analyse the impact of traffic calming measures by com
 - **Seasonal comparisons**: Compare summer vs winter traffic patterns
 - **Week-over-week analysis**: Track whether speeding issues are consistent or sporadic
 
-**To generate a comparison report** via command line:
+**To generate a comparison report via Web Dashboard:**
 
-```bash
-# Create a config with comparison dates
-cat > comparison-report.json << 'EOF'
-{
-  "site": {
-    "location": "Main Street",
-    "surveyor": "Community Watch",
-    "contact": "traffic@community.org"
-  },
-  "radar": {
-    "cosine_error_angle": 21.0
-  },
-  "query": {
-    "start_date": "2025-12-01",
-    "end_date": "2025-12-07",
-    "compare_start_date": "2025-11-01",
-    "compare_end_date": "2025-11-07",
-    "timezone": "US/Pacific"
-  }
-}
-EOF
-
-make pdf-report CONFIG=comparison-report.json
-```
+1. Navigate to the **Reports** tab
+2. Select your site from the dropdown
+3. Set the **Primary period** dates (e.g., after intervention: 1-7 December 2025)
+4. Enable **Compare with previous period**
+5. Set the **Comparison period** dates (e.g., before intervention: 1-7 November 2025)
+6. Click **Generate Report**
 
 The report includes:
 
@@ -673,8 +640,6 @@ The report includes:
 - **Comparison distribution table**: Detailed breakdown of speed buckets across periods
 
 **[PLACEHOLDER: Sample page from PDF report showing speed distribution histogram, p50/p85/p98 statistics, and time-of-day traffic patterns]**
-
-**Success criteria**: PDF file generated in `tools/pdf-generator/output/` directory
 
 **Making your case**: Print the report and bring it to city council. Instead of "cars go too fast," say "85% of drivers exceed the posted 25 mph limit, with p85 at 38 mph." With comparison reports, you can add: "After the speed hump installation, p85 dropped from 42 mph to 31 mph—a 26% reduction."
 
