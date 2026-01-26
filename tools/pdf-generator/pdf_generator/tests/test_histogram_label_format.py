@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Visual test to verify histogram labels match table format."""
 
+import os
 from pdf_generator.core.chart_builder import HistogramChartBuilder
 import matplotlib.pyplot as plt
 
@@ -74,8 +75,15 @@ def test_histogram_labels():
         print("⚠️  Some labels may be hidden due to tick thinning (normal for display)")
 
     print("\nSaving figure to: histogram_label_test.png")
-    plt.savefig("histogram_label_test.png", dpi=150, bbox_inches="tight")
+    filename = "histogram_label_test.png"
+    plt.savefig(filename, dpi=150, bbox_inches="tight")
     print("=" * 60 + "\n")
+
+    # Clean up the generated file
+    plt.close(fig)
+    if os.path.exists(filename):
+        os.remove(filename)
+        print(f"Cleaned up: {filename}\n")
 
 
 if __name__ == "__main__":

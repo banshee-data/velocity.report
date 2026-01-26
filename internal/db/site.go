@@ -8,33 +8,30 @@ import (
 
 // Site represents a survey site configuration
 type Site struct {
-	ID               int       `json:"id"`
-	Name             string    `json:"name"`
-	Location         string    `json:"location"`
-	Description      *string   `json:"description"`
-	CosineErrorAngle float64   `json:"cosine_error_angle"`
-	SpeedLimit       int       `json:"speed_limit"`
-	Surveyor         string    `json:"surveyor"`
-	Contact          string    `json:"contact"`
-	Address          *string   `json:"address"`
-	Latitude         *float64  `json:"latitude"`
-	Longitude        *float64  `json:"longitude"`
-	MapAngle         *float64  `json:"map_angle"`
-	IncludeMap       bool      `json:"include_map"`
-	SiteDescription  *string   `json:"site_description"`
-	SpeedLimitNote   *string   `json:"speed_limit_note"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	ID              int       `json:"id"`
+	Name            string    `json:"name"`
+	Location        string    `json:"location"`
+	Description     *string   `json:"description"`
+	Surveyor        string    `json:"surveyor"`
+	Contact         string    `json:"contact"`
+	Address         *string   `json:"address"`
+	Latitude        *float64  `json:"latitude"`
+	Longitude       *float64  `json:"longitude"`
+	MapAngle        *float64  `json:"map_angle"`
+	IncludeMap      bool      `json:"include_map"`
+	SiteDescription *string   `json:"site_description"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 // CreateSite creates a new site in the database
 func (db *DB) CreateSite(site *Site) error {
 	query := `
 		INSERT INTO site (
-			name, location, description, cosine_error_angle, speed_limit,
+			name, location, description,
 			surveyor, contact, address, latitude, longitude, map_angle,
-			include_map, site_description, speed_limit_note
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			include_map, site_description
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	includeMapInt := 0
@@ -47,8 +44,6 @@ func (db *DB) CreateSite(site *Site) error {
 		site.Name,
 		site.Location,
 		site.Description,
-		site.CosineErrorAngle,
-		site.SpeedLimit,
 		site.Surveyor,
 		site.Contact,
 		site.Address,
@@ -57,7 +52,6 @@ func (db *DB) CreateSite(site *Site) error {
 		site.MapAngle,
 		includeMapInt,
 		site.SiteDescription,
-		site.SpeedLimitNote,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create site: %w", err)
@@ -76,9 +70,9 @@ func (db *DB) CreateSite(site *Site) error {
 func (db *DB) GetSite(id int) (*Site, error) {
 	query := `
 		SELECT
-			id, name, location, description, cosine_error_angle, speed_limit,
+			id, name, location, description,
 			surveyor, contact, address, latitude, longitude, map_angle,
-			include_map, site_description, speed_limit_note,
+			include_map, site_description,
 			created_at, updated_at
 		FROM site
 		WHERE id = ?
@@ -93,8 +87,6 @@ func (db *DB) GetSite(id int) (*Site, error) {
 		&site.Name,
 		&site.Location,
 		&site.Description,
-		&site.CosineErrorAngle,
-		&site.SpeedLimit,
 		&site.Surveyor,
 		&site.Contact,
 		&site.Address,
@@ -103,7 +95,6 @@ func (db *DB) GetSite(id int) (*Site, error) {
 		&site.MapAngle,
 		&includeMapInt,
 		&site.SiteDescription,
-		&site.SpeedLimitNote,
 		&createdAtUnix,
 		&updatedAtUnix,
 	)
@@ -126,9 +117,9 @@ func (db *DB) GetSite(id int) (*Site, error) {
 func (db *DB) GetAllSites() ([]Site, error) {
 	query := `
 		SELECT
-			id, name, location, description, cosine_error_angle, speed_limit,
+			id, name, location, description,
 			surveyor, contact, address, latitude, longitude, map_angle,
-			include_map, site_description, speed_limit_note,
+			include_map, site_description,
 			created_at, updated_at
 		FROM site
 		ORDER BY name ASC
@@ -151,8 +142,6 @@ func (db *DB) GetAllSites() ([]Site, error) {
 			&site.Name,
 			&site.Location,
 			&site.Description,
-			&site.CosineErrorAngle,
-			&site.SpeedLimit,
 			&site.Surveyor,
 			&site.Contact,
 			&site.Address,
@@ -161,7 +150,6 @@ func (db *DB) GetAllSites() ([]Site, error) {
 			&site.MapAngle,
 			&includeMapInt,
 			&site.SiteDescription,
-			&site.SpeedLimitNote,
 			&createdAtUnix,
 			&updatedAtUnix,
 		)
@@ -190,8 +178,6 @@ func (db *DB) UpdateSite(site *Site) error {
 			name = ?,
 			location = ?,
 			description = ?,
-			cosine_error_angle = ?,
-			speed_limit = ?,
 			surveyor = ?,
 			contact = ?,
 			address = ?,
@@ -199,8 +185,7 @@ func (db *DB) UpdateSite(site *Site) error {
 			longitude = ?,
 			map_angle = ?,
 			include_map = ?,
-			site_description = ?,
-			speed_limit_note = ?
+			site_description = ?
 		WHERE id = ?
 	`
 
@@ -214,8 +199,6 @@ func (db *DB) UpdateSite(site *Site) error {
 		site.Name,
 		site.Location,
 		site.Description,
-		site.CosineErrorAngle,
-		site.SpeedLimit,
 		site.Surveyor,
 		site.Contact,
 		site.Address,
@@ -224,7 +207,6 @@ func (db *DB) UpdateSite(site *Site) error {
 		site.MapAngle,
 		includeMapInt,
 		site.SiteDescription,
-		site.SpeedLimitNote,
 		site.ID,
 	)
 	if err != nil {
@@ -239,6 +221,9 @@ func (db *DB) UpdateSite(site *Site) error {
 	if rowsAffected == 0 {
 		return fmt.Errorf("site not found")
 	}
+
+	// No longer auto-update SCD periods from site updates
+	// SCD periods should be managed explicitly via SiteConfigPeriod API
 
 	return nil
 }

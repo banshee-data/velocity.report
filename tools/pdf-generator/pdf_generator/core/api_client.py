@@ -1,5 +1,7 @@
 """HTTP client for querying the radar stats API."""
 
+import os
+
 import requests
 from typing import Dict, List, Tuple, Optional, Any
 
@@ -18,16 +20,23 @@ SUPPORTED_GROUPS = {
     "24h": 24 * 60 * 60,
 }
 
+# Default API base URL, can be overridden by API_BASE_URL environment variable
+DEFAULT_API_BASE_URL = "http://localhost:8080"
+
 
 class RadarStatsClient:
     """Client for querying radar statistics from the API."""
 
-    def __init__(self, base_url: str = "http://localhost:8080"):
+    def __init__(self, base_url: Optional[str] = None):
         """Initialise the client.
 
         Args:
-            base_url: Base URL of the radar stats API
+            base_url: Base URL of the radar stats API. If not provided,
+                      uses API_BASE_URL environment variable or defaults
+                      to http://localhost:8080.
         """
+        if base_url is None:
+            base_url = os.environ.get("API_BASE_URL", DEFAULT_API_BASE_URL)
         self.base_url = base_url.rstrip("/")
         self.api_url = f"{self.base_url}/api/radar_stats"
 
@@ -44,6 +53,8 @@ class RadarStatsClient:
         compute_histogram: bool = False,
         hist_bucket_size: Optional[float] = None,
         hist_max: Optional[float] = None,
+        site_id: Optional[int] = None,
+        boundary_threshold: Optional[int] = None,
     ) -> Tuple[List[Dict[str, Any]], Dict[str, int], requests.Response]:
         """Query radar statistics from the API.
 
@@ -52,16 +63,20 @@ class RadarStatsClient:
             end_ts: End timestamp (unix seconds)
             group: Aggregation period (15m, 30m, 1h, etc.)
             units: Speed units (mph, kph, etc.)
-            source: Data source (radar_objects or radar_data_transits)
+            source: Data source (radar_objects, radar_data, or radar_data_transits)
             model_version: Transit model version to request (for radar_data_transits)
             timezone: Timezone for StartTime conversion
             min_speed: Minimum speed filter
             compute_histogram: Whether to request histogram data
             hist_bucket_size: Histogram bucket size in display units
             hist_max: Maximum speed for histogram
+            site_id: Optional site ID to apply configuration periods
+            boundary_threshold: Optional threshold for boundary hour filtering.
+                If set, filters out first/last hours of each day with fewer
+                than this many data points. Set to 0 or None to disable.
 
         Returns:
-            Tuple of (metrics list, histogram dict, response object)
+            Tuple of (metrics list, histogram dict, min_speed_used float, response object)
 
         Raises:
             requests.HTTPError: If the API request fails
@@ -85,13 +100,37 @@ class RadarStatsClient:
                 params["hist_bucket_size"] = hist_bucket_size
             if hist_max is not None:
                 params["hist_max"] = hist_max
+        if site_id is not None:
+            params["site_id"] = site_id
+        if boundary_threshold is not None and boundary_threshold > 0:
+            params["boundary_threshold"] = boundary_threshold
 
         resp = requests.get(self.api_url, params=params)
         resp.raise_for_status()
         payload = resp.json()
 
-        # Extract metrics and histogram from payload
+        # Extract metrics, histogram, and min_speed_used from payload
         metrics = payload.get("metrics", []) if isinstance(payload, dict) else payload
         histogram = payload.get("histogram", {}) if isinstance(payload, dict) else {}
+        min_speed_used = (
+            payload.get("min_speed_used") if isinstance(payload, dict) else None
+        )
 
-        return metrics, histogram, resp
+        return metrics, histogram, min_speed_used, resp
+
+    def get_site_config_periods(
+        self, site_id: int
+    ) -> Tuple[List[Dict[str, Any]], requests.Response]:
+        """Fetch site configuration periods for a site.
+
+        Args:
+            site_id: Site identifier
+
+        Returns:
+            Tuple of (period list, response object)
+        """
+        url = f"{self.base_url}/api/site_config_periods"
+        resp = requests.get(url, params={"site_id": site_id})
+        resp.raise_for_status()
+        payload = resp.json()
+        return payload if isinstance(payload, list) else [], resp

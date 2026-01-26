@@ -25,22 +25,23 @@ func TestDownloadReport_FilenameFormat(t *testing.T) {
 		t.Fatalf("failed to create output dir: %v", err)
 	}
 
-	// Save original working directory
-	origWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get cwd: %v", err)
-	}
-	defer func() { _ = os.Chdir(origWd) }()
-
-	// Change to a temporary directory that will act as our repo root
+	// Create a temporary directory that will act as our repo root
 	testRepoRoot := t.TempDir()
 	pdfDir := filepath.Join(testRepoRoot, "tools", "pdf-generator")
 	if err := os.MkdirAll(filepath.Join(pdfDir, "output", runID), 0755); err != nil {
 		t.Fatalf("failed to create pdf dir structure: %v", err)
 	}
-	if err := os.Chdir(testRepoRoot); err != nil {
-		t.Fatalf("failed to chdir: %v", err)
-	}
+
+	// Override PDF_GENERATOR_DIR for this test (save and restore original)
+	origPdfGenDir := os.Getenv("PDF_GENERATOR_DIR")
+	os.Setenv("PDF_GENERATOR_DIR", pdfDir)
+	defer func() {
+		if origPdfGenDir != "" {
+			os.Setenv("PDF_GENERATOR_DIR", origPdfGenDir)
+		} else {
+			os.Unsetenv("PDF_GENERATOR_DIR")
+		}
+	}()
 
 	tests := []struct {
 		name          string

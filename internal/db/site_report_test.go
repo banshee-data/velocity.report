@@ -21,11 +21,10 @@ func TestCreateSiteReport(t *testing.T) {
 
 	// First create a site to reference
 	site := &Site{
-		Name:             "Test Site",
-		Location:         "Test Location",
-		CosineErrorAngle: 21.0,
-		Surveyor:         "Tester",
-		Contact:          "test@example.com",
+		Name:     "Test Site",
+		Location: "Test Location",
+		Surveyor: "Tester",
+		Contact:  "test@example.com",
 	}
 	if err := db.CreateSite(site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
@@ -163,9 +162,8 @@ func TestGetRecentReportsForSite(t *testing.T) {
 
 	// Create a site
 	site := &Site{
-		Name:             "Test Site",
-		Location:         "Test Location",
-		CosineErrorAngle: 21.0,
+		Name:     "Test Site",
+		Location: "Test Location",
 	}
 	if err := db.CreateSite(site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)

@@ -18,10 +18,13 @@ from pdf_generator.cli.main import (
     fetch_granular_metrics,
     fetch_overall_summary,
     fetch_daily_summary,
+    fetch_site_config_periods,
     generate_histogram_chart,
     generate_timeseries_chart,
     assemble_pdf_report,
     process_date_range,
+    derive_overall_from_granular,
+    derive_daily_from_granular,
 )
 
 
@@ -37,7 +40,7 @@ def create_test_config(
     histogram: bool = True,
     hist_bucket_size: float = 5.0,
     hist_max: float = None,
-    model_version: str = "rebuild-full",
+    model_version: str = "hourly-cron",
     debug: bool = False,
     **kwargs
 ) -> ReportConfig:
@@ -162,47 +165,50 @@ class TestComputeIsoTimestamps(unittest.TestCase):
 class TestResolveFilePrefix(unittest.TestCase):
     """Tests for resolve_file_prefix function."""
 
-    @patch("pdf_generator.cli.main._next_sequenced_prefix")
-    def test_with_user_provided_prefix(self, mock_next_seq):
-        """Test prefix resolution with user-provided prefix."""
-        mock_next_seq.return_value = "my-prefix-1"
-
-        config = create_test_config(file_prefix="my-prefix")
+    def test_with_user_provided_prefix(self):
+        """Test prefix resolution uses end_date and location."""
+        config = create_test_config(file_prefix="my-prefix", end_date="2024-01-02")
         start_ts = 1704067200
         end_ts = 1704153600
 
         result = resolve_file_prefix(config, start_ts, end_ts)
 
-        self.assertEqual(result, "velocity.report_my-prefix-1")
-        mock_next_seq.assert_called_once_with("my-prefix", ".")
+        # Format is now: {end_date}_velocity.report_{safe_location}
+        self.assertEqual(result, "2024-01-02_velocity.report_Test_Site")
 
     def test_auto_generated_prefix_utc(self):
         """Test auto-generated prefix with UTC."""
         config = create_test_config(
-            file_prefix="", timezone="UTC", source="radar_data_transits"
+            file_prefix="",
+            start_date="2024-01-01",
+            end_date="2024-01-02",
+            timezone="UTC",
+            source="radar_data_transits",
         )
         start_ts = 1704067200  # 2024-01-01 00:00:00 UTC
         end_ts = 1704153600  # 2024-01-02 00:00:00 UTC
 
         result = resolve_file_prefix(config, start_ts, end_ts)
 
-        self.assertEqual(
-            result, "velocity.report_radar_data_transits_2024-01-01_to_2024-01-02"
-        )
+        # Format is now: {end_date}_velocity.report_{safe_location}
+        self.assertEqual(result, "2024-01-02_velocity.report_Test_Site")
 
     def test_auto_generated_prefix_with_timezone(self):
         """Test auto-generated prefix with specific timezone."""
         config = create_test_config(
-            file_prefix="", timezone="US/Pacific", source="radar_objects"
+            file_prefix="",
+            start_date="2023-12-31",
+            end_date="2024-01-01",
+            timezone="US/Pacific",
+            source="radar_objects",
         )
         start_ts = 1704067200  # 2024-01-01 00:00:00 UTC = 2023-12-31 16:00:00 PST
         end_ts = 1704153600  # 2024-01-02 00:00:00 UTC = 2024-01-01 16:00:00 PST
 
         result = resolve_file_prefix(config, start_ts, end_ts)
 
-        self.assertEqual(
-            result, "velocity.report_radar_objects_2023-12-31_to_2024-01-01"
-        )
+        # Format is now: {end_date}_velocity.report_{safe_location}
+        self.assertEqual(result, "2024-01-01_velocity.report_Test_Site")
 
 
 class TestFetchGranularMetrics(unittest.TestCase):
@@ -214,7 +220,12 @@ class TestFetchGranularMetrics(unittest.TestCase):
         mock_metrics = [{"p50": 25.0}]
         mock_histogram = {"10": 5, "20": 10}
         mock_resp = Mock()
-        mock_client.get_stats.return_value = (mock_metrics, mock_histogram, mock_resp)
+        mock_client.get_stats.return_value = (
+            mock_metrics,
+            mock_histogram,
+            5.0,
+            mock_resp,
+        )
 
         config = create_test_config(
             group="1h",
@@ -227,12 +238,13 @@ class TestFetchGranularMetrics(unittest.TestCase):
             hist_max=50.0,
         )
 
-        metrics, histogram, resp = fetch_granular_metrics(
+        metrics, histogram, min_speed_used, resp = fetch_granular_metrics(
             mock_client, 1704067200, 1704153600, config, "rebuild-full"
         )
 
         self.assertEqual(metrics, mock_metrics)
         self.assertEqual(histogram, mock_histogram)
+        self.assertEqual(min_speed_used, 5.0)
         self.assertEqual(resp, mock_resp)
         mock_client.get_stats.assert_called_once()
 
@@ -252,12 +264,13 @@ class TestFetchGranularMetrics(unittest.TestCase):
             hist_max=None,
         )
 
-        metrics, histogram, resp = fetch_granular_metrics(
+        metrics, histogram, min_speed_used, resp = fetch_granular_metrics(
             mock_client, 1704067200, 1704153600, config, None
         )
 
         self.assertEqual(metrics, [])
         self.assertIsNone(histogram)
+        self.assertIsNone(min_speed_used)
         self.assertIsNone(resp)
 
 
@@ -268,7 +281,7 @@ class TestFetchOverallSummary(unittest.TestCase):
         """Test successful overall summary fetch."""
         mock_client = Mock()
         mock_metrics = [{"p50": 25.0, "count": 1000}]
-        mock_client.get_stats.return_value = (mock_metrics, None, Mock())
+        mock_client.get_stats.return_value = (mock_metrics, None, None, Mock())
 
         config = create_test_config(
             units="mph", source="radar_data_transits", timezone="UTC", min_speed=None
@@ -296,6 +309,62 @@ class TestFetchOverallSummary(unittest.TestCase):
         self.assertEqual(result, [])
 
 
+class TestFetchSiteConfigPeriods(unittest.TestCase):
+    """Tests for fetch_site_config_periods function."""
+
+    def test_filters_periods_by_range(self):
+        """Test filtering periods that overlap report ranges."""
+        mock_client = Mock()
+        mock_client.get_site_config_periods.return_value = (
+            [
+                {
+                    "effective_start_unix": 0,
+                    "effective_end_unix": 900,
+                    "cosine_error_angle": 5,
+                },
+                {
+                    "effective_start_unix": 800,
+                    "effective_end_unix": 1500,
+                    "cosine_error_angle": 10,
+                },
+                {
+                    "effective_start_unix": 2500,
+                    "effective_end_unix": 2700,
+                    "cosine_error_angle": 12,
+                },
+                {
+                    "effective_start_unix": 3000,
+                    "effective_end_unix": None,
+                    "cosine_error_angle": 15,
+                },
+            ],
+            Mock(),
+        )
+
+        periods = fetch_site_config_periods(
+            mock_client,
+            1,
+            start_ts=1000,
+            end_ts=2000,
+            compare_start_ts=2600,
+            compare_end_ts=3200,
+        )
+
+        self.assertEqual(len(periods), 3)
+        self.assertEqual(periods[0]["cosine_error_angle"], 10)
+        self.assertEqual(periods[1]["cosine_error_angle"], 12)
+        self.assertEqual(periods[2]["cosine_error_angle"], 15)
+
+    def test_error_returns_empty_list(self):
+        """Test that errors return empty list."""
+        mock_client = Mock()
+        mock_client.get_site_config_periods.side_effect = Exception("API Error")
+
+        periods = fetch_site_config_periods(mock_client, 1, start_ts=1000, end_ts=2000)
+
+        self.assertEqual(periods, [])
+
+
 class TestFetchDailySummary(unittest.TestCase):
     """Tests for fetch_daily_summary function."""
 
@@ -303,7 +372,7 @@ class TestFetchDailySummary(unittest.TestCase):
         """Test daily fetch when group is less than 24h."""
         mock_client = Mock()
         mock_metrics = [{"p50": 24.0}]
-        mock_client.get_stats.return_value = (mock_metrics, None, Mock())
+        mock_client.get_stats.return_value = (mock_metrics, None, None, Mock())
 
         config = create_test_config(
             group="1h",
@@ -507,7 +576,7 @@ class TestProcessDateRange(unittest.TestCase):
     ):
         """Test successful date range processing."""
         mock_parse.side_effect = [1704067200, 1704153600]
-        mock_fetch_granular.return_value = ([{"p50": 25.0}], None, Mock())
+        mock_fetch_granular.return_value = ([{"p50": 25.0}], None, None, Mock())
         mock_fetch_overall.return_value = [{"p50": 25.0}]
         mock_fetch_daily.return_value = None
         mock_assemble.return_value = True
@@ -550,7 +619,7 @@ class TestProcessDateRange(unittest.TestCase):
     def test_no_data_returns_early(self, mock_parse, mock_fetch):
         """Test that no data returns early."""
         mock_parse.side_effect = [1704067200, 1704153600]
-        mock_fetch.return_value = ([], None, None)
+        mock_fetch.return_value = ([], None, None, None)
 
         mock_client = Mock()
         config = create_test_config(
@@ -704,7 +773,7 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         mock_save.return_value = False
 
         config = create_test_config(debug=False)
-        result = generate_histogram_chart({"10": 5}, "test", {}, "mph", config)
+        result = generate_histogram_chart({"10": 5}, "test", "mph", {}, config)
 
         self.assertFalse(result)
         mock_save.assert_called_once()
@@ -715,7 +784,7 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         mock_plot.side_effect = ImportError("No matplotlib")
 
         config = create_test_config(debug=False)
-        result = generate_histogram_chart({"10": 5}, "test", {}, "mph", config)
+        result = generate_histogram_chart({"10": 5}, "test", "mph", {}, config)
 
         self.assertFalse(result)
 
@@ -725,7 +794,7 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         mock_plot.side_effect = ImportError("No matplotlib")
 
         config = create_test_config(debug=True)
-        result = generate_histogram_chart({"10": 5}, "test", {}, "mph", config)
+        result = generate_histogram_chart({"10": 5}, "test", "mph", {}, config)
 
         self.assertFalse(result)
 
@@ -737,7 +806,7 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         mock_save.side_effect = Exception("Save error")
 
         config = create_test_config(debug=False)
-        result = generate_histogram_chart({"10": 5}, "test", {}, "mph", config)
+        result = generate_histogram_chart({"10": 5}, "test", "mph", {}, config)
 
         self.assertFalse(result)
 
@@ -749,7 +818,7 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         mock_save.side_effect = Exception("Save error")
 
         config = create_test_config(debug=True)
-        result = generate_histogram_chart({"10": 5}, "test", {}, "mph", config)
+        result = generate_histogram_chart({"10": 5}, "test", "mph", {}, config)
 
         self.assertFalse(result)
 
@@ -763,7 +832,7 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         config = create_test_config(debug=False)
         metrics = {"Count": 100}
 
-        result = generate_histogram_chart({"10": 5}, "test", metrics, "mph", config)
+        result = generate_histogram_chart({"10": 5}, "test", "mph", metrics, config)
 
         self.assertTrue(result)
         # Verify plot_histogram was called (sample label will be in title)
@@ -779,7 +848,7 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         config = create_test_config(debug=False)
         metrics = [{"Count": 100}]
 
-        result = generate_histogram_chart({"10": 5}, "test", metrics, "mph", config)
+        result = generate_histogram_chart({"10": 5}, "test", "mph", metrics, config)
 
         self.assertTrue(result)
 
@@ -793,7 +862,7 @@ class TestGenerateHistogramChartEdgeCases(unittest.TestCase):
         config = create_test_config(debug=False)
         metrics = "invalid"  # Not a dict or list
 
-        result = generate_histogram_chart({"10": 5}, "test", metrics, "mph", config)
+        result = generate_histogram_chart({"10": 5}, "test", "mph", metrics, config)
 
         self.assertTrue(result)
 
@@ -1075,7 +1144,7 @@ class TestGetModelVersion(unittest.TestCase):
         config = create_test_config(source="radar_data_transits", model_version=None)
 
         result = get_model_version(config)
-        self.assertEqual(result, "rebuild-full")
+        self.assertEqual(result, "hourly-cron")
 
     def test_returns_none_for_radar_objects(self):
         """Test that None is returned for non-transit source."""
@@ -1111,8 +1180,6 @@ class TestProcessDateRangeEdgeCases(unittest.TestCase):
 
     @patch("pdf_generator.cli.main.assemble_pdf_report")
     @patch("pdf_generator.cli.main.generate_all_charts")
-    @patch("pdf_generator.cli.main.fetch_daily_summary")
-    @patch("pdf_generator.cli.main.fetch_overall_summary")
     @patch("pdf_generator.cli.main.fetch_granular_metrics")
     @patch("pdf_generator.cli.main.resolve_file_prefix")
     @patch("pdf_generator.cli.main.get_model_version")
@@ -1123,8 +1190,6 @@ class TestProcessDateRangeEdgeCases(unittest.TestCase):
         mock_get_version,
         mock_resolve,
         mock_fetch_granular,
-        mock_fetch_overall,
-        mock_fetch_daily,
         mock_gen_charts,
         mock_assemble,
     ):
@@ -1162,7 +1227,7 @@ class TestProcessDateRangeEdgeCases(unittest.TestCase):
         mock_parse_range.return_value = (1704067200, 1704153600)
         mock_get_version.return_value = None
         mock_resolve.return_value = "test"
-        mock_fetch_granular.return_value = ([], None, None)
+        mock_fetch_granular.return_value = ([], None, None, None)
 
         mock_client = Mock()
         config = create_test_config(
@@ -1202,7 +1267,7 @@ class TestProcessDateRangeEdgeCases(unittest.TestCase):
         mock_parse_range.return_value = (1704067200, 1704153600)
         mock_get_version.return_value = None
         mock_resolve.return_value = "test"
-        mock_fetch_granular.return_value = ([], {"10": 5}, Mock())
+        mock_fetch_granular.return_value = ([], {"10": 5}, None, Mock())
         mock_fetch_overall.return_value = [{"Count": 100}]
         mock_fetch_daily.return_value = None
         mock_compute_iso.return_value = ("2024-01-01T00:00:00", "2024-01-02T00:00:00")
@@ -1279,6 +1344,207 @@ class TestComputeIsoTimestampsEdgeCases(unittest.TestCase):
         # Should fallback to string representation
         self.assertEqual(start_iso, str(start_ts))
         self.assertEqual(end_iso, str(end_ts))
+
+
+class TestDeriveOverallFromGranular(unittest.TestCase):
+    """Tests for derive_overall_from_granular function."""
+
+    def test_empty_input(self):
+        """Test that empty input returns empty list."""
+        result = derive_overall_from_granular([])
+        self.assertEqual(result, [])
+
+    def test_basic_aggregation(self):
+        """Test basic aggregation from granular metrics."""
+        granular = [
+            {
+                "StartTime": "2025-01-01T08:00:00Z",
+                "Count": 100,
+                "P50Speed": 25.0,
+                "P85Speed": 32.0,
+                "P98Speed": 40.0,
+                "MaxSpeed": 45.0,
+            },
+            {
+                "StartTime": "2025-01-01T09:00:00Z",
+                "Count": 150,
+                "P50Speed": 27.0,
+                "P85Speed": 34.0,
+                "P98Speed": 42.0,
+                "MaxSpeed": 50.0,
+            },
+        ]
+
+        result = derive_overall_from_granular(granular)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["count"], 250)  # 100 + 150
+        self.assertEqual(result[0]["max_speed"], 50.0)  # Maximum of all
+        # Median of weighted p50s: 100x25.0, 150x27.0 -> median ~ 26.x
+        self.assertIsNotNone(result[0]["p50_speed"])
+        self.assertIsNotNone(result[0]["p85_speed"])
+        self.assertIsNotNone(result[0]["p98_speed"])
+
+    def test_handles_nan_values(self):
+        """Test that NaN values are handled correctly."""
+        granular = [
+            {
+                "StartTime": "2025-01-01T08:00:00Z",
+                "Count": 100,
+                "P50Speed": float("nan"),
+                "P85Speed": 32.0,
+                "P98Speed": 40.0,
+                "MaxSpeed": 45.0,
+            },
+        ]
+
+        result = derive_overall_from_granular(granular)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["count"], 100)
+        # p50 should be 0 since no valid values
+        self.assertEqual(result[0]["p50_speed"], 0)
+
+    def test_filters_zero_count_rows(self):
+        """Test that rows with zero count are filtered."""
+        granular = [
+            {
+                "StartTime": "2025-01-01T08:00:00Z",
+                "Count": 0,  # Should be ignored
+                "P50Speed": 99.0,
+                "MaxSpeed": 99.0,
+            },
+            {
+                "StartTime": "2025-01-01T09:00:00Z",
+                "Count": 50,
+                "P50Speed": 25.0,
+                "MaxSpeed": 30.0,
+            },
+        ]
+
+        result = derive_overall_from_granular(granular)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["count"], 50)
+        self.assertEqual(result[0]["max_speed"], 30.0)
+
+
+class TestDeriveDailyFromGranular(unittest.TestCase):
+    """Tests for derive_daily_from_granular function."""
+
+    def test_empty_input(self):
+        """Test that empty input returns empty list."""
+        result = derive_daily_from_granular([])
+        self.assertEqual(result, [])
+
+    def test_groups_by_day(self):
+        """Test that metrics are grouped by day correctly."""
+        granular = [
+            {
+                "StartTime": "2025-01-01T08:00:00Z",
+                "Count": 100,
+                "P50Speed": 25.0,
+                "P85Speed": 32.0,
+                "P98Speed": 40.0,
+                "MaxSpeed": 45.0,
+            },
+            {
+                "StartTime": "2025-01-01T14:00:00Z",
+                "Count": 150,
+                "P50Speed": 27.0,
+                "P85Speed": 34.0,
+                "P98Speed": 42.0,
+                "MaxSpeed": 50.0,
+            },
+            {
+                "StartTime": "2025-01-02T10:00:00Z",
+                "Count": 80,
+                "P50Speed": 24.0,
+                "P85Speed": 31.0,
+                "P98Speed": 39.0,
+                "MaxSpeed": 43.0,
+            },
+        ]
+
+        result = derive_daily_from_granular(granular, "UTC")
+
+        self.assertEqual(len(result), 2)  # Two distinct days
+
+        # Day 1: 100 + 150 = 250
+        self.assertEqual(result[0]["count"], 250)
+        self.assertEqual(result[0]["max_speed"], 50.0)
+
+        # Day 2: 80
+        self.assertEqual(result[1]["count"], 80)
+        self.assertEqual(result[1]["max_speed"], 43.0)
+
+    def test_timezone_handling(self):
+        """Test that timezone affects day grouping."""
+        # These two events are same day in UTC but different days in US/Pacific
+        # 2025-01-01 23:00 UTC = 2025-01-01 15:00 Pacific
+        # 2025-01-02 02:00 UTC = 2025-01-01 18:00 Pacific
+        granular = [
+            {
+                "StartTime": "2025-01-01T23:00:00Z",
+                "Count": 50,
+                "P50Speed": 25.0,
+                "MaxSpeed": 30.0,
+            },
+            {
+                "StartTime": "2025-01-02T02:00:00Z",
+                "Count": 50,
+                "P50Speed": 25.0,
+                "MaxSpeed": 30.0,
+            },
+        ]
+
+        # In UTC, these are different days
+        result_utc = derive_daily_from_granular(granular, "UTC")
+        self.assertEqual(len(result_utc), 2)
+
+        # In US/Pacific, these are the same day (Jan 1st)
+        result_pacific = derive_daily_from_granular(granular, "America/Los_Angeles")
+        self.assertEqual(len(result_pacific), 1)
+        self.assertEqual(result_pacific[0]["count"], 100)
+
+    def test_handles_nan_count(self):
+        """Test that NaN count values are handled."""
+        granular = [
+            {
+                "StartTime": "2025-01-01T08:00:00Z",
+                "Count": float("nan"),  # NaN count
+                "P50Speed": 25.0,
+                "MaxSpeed": 30.0,
+            },
+            {
+                "StartTime": "2025-01-01T09:00:00Z",
+                "Count": 50,
+                "P50Speed": 27.0,
+                "MaxSpeed": 35.0,
+            },
+        ]
+
+        result = derive_daily_from_granular(granular, "UTC")
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["count"], 50)  # Only the valid count
+
+    def test_handles_invalid_timezone(self):
+        """Test that invalid timezone falls back gracefully."""
+        granular = [
+            {
+                "StartTime": "2025-01-01T08:00:00Z",
+                "Count": 50,
+                "P50Speed": 25.0,
+                "MaxSpeed": 30.0,
+            },
+        ]
+
+        # Invalid timezone should fall back to UTC
+        result = derive_daily_from_granular(granular, "Invalid/Timezone")
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["count"], 50)
 
 
 if __name__ == "__main__":

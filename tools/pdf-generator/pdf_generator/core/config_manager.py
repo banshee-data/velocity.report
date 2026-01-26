@@ -22,8 +22,8 @@ from zoneinfo import ZoneInfo
 from dataclasses import dataclass, field, asdict
 
 
-VALID_SOURCES = {"radar_objects", "radar_data_transits"}
-VALID_UNITS = {"mph", "kph", "mps"}
+VALID_SOURCES = {"radar_objects", "radar_data", "radar_data_transits"}
+VALID_UNITS = {"mph", "kph", "kmph", "mps"}
 
 
 @dataclass
@@ -82,14 +82,18 @@ class QueryConfig:
     end_date: str = ""  # YYYY-MM-DD or unix timestamp
     compare_start_date: Optional[str] = ""  # Optional: comparison start date
     compare_end_date: Optional[str] = ""  # Optional: comparison end date
+    compare_source: Optional[str] = None  # Optional: source for comparison period
     timezone: str = ""  # Timezone for display (REQUIRED, e.g., US/Pacific, UTC)
 
     # API parameters
     group: str = "1h"  # Time grouping (15m, 30m, 1h, 2h, 6h, 12h, 24h, all)
     units: str = "mph"  # Display units (mph, kph)
-    source: str = "radar_data_transits"  # radar_objects or radar_data_transits
-    model_version: str = "rebuild-full"  # Transit model version
+    source: str = (
+        "radar_data_transits"  # radar_objects, radar_data, or radar_data_transits
+    )
+    model_version: str = "hourly-cron"  # Transit model version
     min_speed: Optional[float] = 5.0  # Minimum speed filter (default: 5.0)
+    site_id: Optional[int] = None  # Optional: site identifier for config-aware queries
 
     # Histogram configuration
     histogram: bool = True  # Generate histogram (default: true)
@@ -97,6 +101,9 @@ class QueryConfig:
         5.0  # Bucket size in display units (default: 5.0)
     )
     hist_max: Optional[float] = None  # Maximum bucket value
+
+    # Boundary hour filtering
+    boundary_threshold: Optional[int] = 5  # Filter boundary hours with < N samples
 
 
 @dataclass

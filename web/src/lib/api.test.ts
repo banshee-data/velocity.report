@@ -14,16 +14,20 @@ import {
 	getReportsForSite,
 	getSite,
 	getSites,
+	getTimeline,
 	getTrackById,
 	getTrackHistory,
 	getTrackObservations,
 	getTrackSummary,
 	getTransitWorkerState,
+	listSiteConfigPeriods,
 	updateSite,
 	updateTransitWorker,
+	upsertSiteConfigPeriod,
 	type Config,
 	type Event,
 	type Site,
+	type SiteConfigPeriod,
 	type SiteReport,
 	type TransitWorkerState,
 	type TransitWorkerUpdateResponse
@@ -137,7 +141,15 @@ describe('api', () => {
 				json: async () => ({ metrics: [] })
 			});
 
-			await getRadarStats(1704067200, 1704153600, '1h', 'mph', 'America/New_York', 'radar_data');
+			await getRadarStats(
+				1704067200,
+				1704153600,
+				'1h',
+				'mph',
+				'America/New_York',
+				'radar_data',
+				42
+			);
 
 			const callUrl = (global.fetch as jest.Mock).mock.calls[0][0].toString();
 			expect(callUrl).toContain('start=1704067200');
@@ -146,6 +158,7 @@ describe('api', () => {
 			expect(callUrl).toContain('units=mph');
 			expect(callUrl).toContain('timezone=America%2FNew_York');
 			expect(callUrl).toContain('source=radar_data');
+			expect(callUrl).toContain('site_id=42');
 		});
 
 		it('should handle missing histogram in response', async () => {
@@ -286,6 +299,85 @@ describe('api', () => {
 		});
 	});
 
+	describe('site config periods', () => {
+		it('should list site config periods', async () => {
+			const mockPeriods: SiteConfigPeriod[] = [
+				{
+					id: 1,
+					site_id: 42,
+					effective_start_unix: 0,
+					effective_end_unix: null,
+					is_active: true,
+					notes: 'Initial',
+					cosine_error_angle: 10
+				}
+			];
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockPeriods
+			});
+
+			const result = await listSiteConfigPeriods(42);
+
+			expect(global.fetch).toHaveBeenCalled();
+			const callUrl = (global.fetch as jest.Mock).mock.calls[0][0].toString();
+			expect(callUrl).toContain('/api/site_config_periods');
+			expect(callUrl).toContain('site_id=42');
+			expect(result).toEqual(mockPeriods);
+		});
+
+		it('should create or update site config period', async () => {
+			const mockPeriod: SiteConfigPeriod = {
+				site_id: 7,
+				effective_start_unix: 1000,
+				effective_end_unix: null,
+				is_active: true,
+				notes: null,
+				cosine_error_angle: 12
+			};
+			const response = { ...mockPeriod, id: 99 };
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => response
+			});
+
+			const result = await upsertSiteConfigPeriod(mockPeriod);
+
+			expect(global.fetch).toHaveBeenCalledWith(
+				'/api/site_config_periods',
+				expect.objectContaining({
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(mockPeriod)
+				})
+			);
+			expect(result).toEqual(response);
+		});
+
+		it('should fetch timeline', async () => {
+			const mockTimeline = {
+				site_id: 5,
+				data_range: { start_unix: 100, end_unix: 200 },
+				config_periods: [],
+				unconfigured_periods: []
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockTimeline
+			});
+
+			const result = await getTimeline(5);
+
+			const callUrl = (global.fetch as jest.Mock).mock.calls[0][0].toString();
+			expect(callUrl).toContain('/api/timeline');
+			expect(callUrl).toContain('site_id=5');
+			expect(result).toEqual(mockTimeline);
+		});
+	});
+
 	describe('generateReport', () => {
 		it('should POST to generate report endpoint with all parameters', async () => {
 			const mockResponse = { success: true, report_id: 123, message: 'Report generated' };
@@ -348,6 +440,148 @@ describe('api', () => {
 					units: 'mph'
 				})
 			).rejects.toThrow('HTTP 500');
+		});
+
+		it('should include min_speed parameter when provided', async () => {
+			const mockResponse = { success: true, report_id: 456, message: 'Report generated' };
+			const request = {
+				start_date: '2025-01-01',
+				end_date: '2025-01-31',
+				timezone: 'UTC',
+				units: 'mph',
+				min_speed: 5.0
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockResponse
+			});
+
+			const result = await generateReport(request);
+
+			expect(global.fetch).toHaveBeenCalledWith(
+				expect.stringContaining('/api/generate_report'),
+				expect.objectContaining({
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(request)
+				})
+			);
+			expect(result).toEqual(mockResponse);
+		});
+
+		it('should include boundary_threshold parameter when provided', async () => {
+			const mockResponse = { success: true, report_id: 789, message: 'Report generated' };
+			const request = {
+				start_date: '2025-01-01',
+				end_date: '2025-01-31',
+				timezone: 'UTC',
+				units: 'mph',
+				boundary_threshold: 5
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockResponse
+			});
+
+			const result = await generateReport(request);
+
+			expect(global.fetch).toHaveBeenCalledWith(
+				expect.stringContaining('/api/generate_report'),
+				expect.objectContaining({
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(request)
+				})
+			);
+			expect(result).toEqual(mockResponse);
+		});
+
+		it('should include both min_speed and boundary_threshold when provided', async () => {
+			const mockResponse = { success: true, report_id: 999, message: 'Report generated' };
+			const request = {
+				start_date: '2025-01-01',
+				end_date: '2025-01-31',
+				timezone: 'UTC',
+				units: 'mph',
+				min_speed: 5.0,
+				boundary_threshold: 5,
+				site_id: 1,
+				histogram: true,
+				hist_bucket_size: 5.0
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockResponse
+			});
+
+			const result = await generateReport(request);
+
+			expect(global.fetch).toHaveBeenCalledWith(
+				expect.stringContaining('/api/generate_report'),
+				expect.objectContaining({
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(request)
+				})
+			);
+			expect(result).toEqual(mockResponse);
+		});
+
+		it('should handle zero values for min_speed', async () => {
+			const mockResponse = { success: true, report_id: 111, message: 'Report generated' };
+			const request = {
+				start_date: '2025-01-01',
+				end_date: '2025-01-31',
+				timezone: 'UTC',
+				units: 'mph',
+				min_speed: 0
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockResponse
+			});
+
+			const result = await generateReport(request);
+
+			expect(global.fetch).toHaveBeenCalledWith(
+				expect.stringContaining('/api/generate_report'),
+				expect.objectContaining({
+					method: 'POST',
+					body: expect.stringContaining('"min_speed":0')
+				})
+			);
+			expect(result).toEqual(mockResponse);
+		});
+
+		it('should handle zero values for boundary_threshold', async () => {
+			const mockResponse = { success: true, report_id: 222, message: 'Report generated' };
+			const request = {
+				start_date: '2025-01-01',
+				end_date: '2025-01-31',
+				timezone: 'UTC',
+				units: 'mph',
+				boundary_threshold: 0
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockResponse
+			});
+
+			const result = await generateReport(request);
+
+			expect(global.fetch).toHaveBeenCalledWith(
+				expect.stringContaining('/api/generate_report'),
+				expect.objectContaining({
+					method: 'POST',
+					body: expect.stringContaining('"boundary_threshold":0')
+				})
+			);
+			expect(result).toEqual(mockResponse);
 		});
 	});
 

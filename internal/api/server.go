@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -29,6 +30,7 @@ const colorReset = "\033[0m"
 const colorYellow = "\033[33m"
 const colorBoldGreen = "\033[1;32m"
 const colorBoldRed = "\033[1;31m"
+const maxUnixTime = 32503680000.0
 
 // convertEventAPISpeed applies unit conversion to the Speed field of an EventAPI
 func convertEventAPISpeed(event db.EventAPI, targetUnits string) db.EventAPI {
@@ -153,7 +155,9 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/api/config", s.showConfig)
 	s.mux.HandleFunc("/api/generate_report", s.generateReport)
 	s.mux.HandleFunc("/api/sites", s.handleSites)
-	s.mux.HandleFunc("/api/sites/", s.handleSites)                 // Note trailing slash to match /api/sites and /api/sites/*
+	s.mux.HandleFunc("/api/sites/", s.handleSites) // Note trailing slash to match /api/sites and /api/sites/*
+	s.mux.HandleFunc("/api/site_config_periods", s.handleSiteConfigPeriods)
+	s.mux.HandleFunc("/api/timeline", s.handleTimeline)
 	s.mux.HandleFunc("/api/reports/", s.handleReports)             // Report management endpoints
 	s.mux.HandleFunc("/api/transit_worker", s.handleTransitWorker) // Transit worker control
 	s.mux.HandleFunc("/api/db_stats", s.handleDatabaseStats)       // Database table sizes and disk usage
@@ -331,7 +335,29 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 		maxMPS = units.ConvertToMPS(histMax, displayUnits)
 	}
 
-	result, dbErr := s.db.RadarObjectRollupRange(startUnix, endUnix, groupSeconds, minSpeedMPS, dataSource, modelVersion, bucketSizeMPS, maxMPS)
+	siteID := 0
+	if siteIDStr := r.URL.Query().Get("site_id"); siteIDStr != "" {
+		parsedSiteID, err := strconv.Atoi(siteIDStr)
+		if err != nil || parsedSiteID <= 0 {
+			s.writeJSONError(w, http.StatusBadRequest, "Invalid 'site_id' parameter; must be a positive integer")
+			return
+		}
+		siteID = parsedSiteID
+	}
+
+	// Optional boundary hour filtering threshold
+	// If set, filters out first/last hours of each day with fewer than this many data points
+	boundaryThreshold := 0
+	if btStr := r.URL.Query().Get("boundary_threshold"); btStr != "" {
+		parsedBT, err := strconv.Atoi(btStr)
+		if err != nil || parsedBT < 0 {
+			s.writeJSONError(w, http.StatusBadRequest, "Invalid 'boundary_threshold' parameter; must be a non-negative integer")
+			return
+		}
+		boundaryThreshold = parsedBT
+	}
+
+	result, dbErr := s.db.RadarObjectRollupRange(startUnix, endUnix, groupSeconds, minSpeedMPS, dataSource, modelVersion, bucketSizeMPS, maxMPS, siteID, boundaryThreshold)
 	if dbErr != nil {
 		s.writeJSONError(w, http.StatusInternalServerError,
 			fmt.Sprintf("Failed to retrieve radar stats: %v", dbErr))
@@ -361,6 +387,12 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 	respObj := map[string]interface{}{
 		"metrics": result.Metrics,
 	}
+
+	// Include the actual min_speed used (converted to display units)
+	if result.MinSpeedUsed > 0 {
+		respObj["min_speed_used"] = units.ConvertSpeed(result.MinSpeedUsed, displayUnits)
+	}
+
 	if len(result.Histogram) > 0 {
 		// convert histogram keys to strings for JSON stability
 		histOut := make(map[string]int64, len(result.Histogram))
@@ -372,6 +404,18 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 			histOut[key] += v
 		}
 		respObj["histogram"] = histOut
+	}
+
+	if siteID > 0 {
+		if periods, err := s.db.ListSiteConfigPeriods(&siteID); err == nil {
+			angles := uniqueAnglesForRange(periods, float64(startUnix), float64(endUnix))
+			if len(angles) > 0 {
+				respObj["cosine_correction"] = map[string]interface{}{
+					"angles":  angles,
+					"applied": true,
+				}
+			}
+		}
 	}
 
 	if err := json.NewEncoder(w).Encode(respObj); err != nil {
@@ -551,10 +595,6 @@ func (s *Server) createSite(w http.ResponseWriter, r *http.Request) {
 		s.writeJSONError(w, http.StatusBadRequest, "location is required")
 		return
 	}
-	if site.CosineErrorAngle == 0 {
-		s.writeJSONError(w, http.StatusBadRequest, "cosine_error_angle is required")
-		return
-	}
 
 	if err := s.db.CreateSite(&site); err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to create site: %v", err))
@@ -584,10 +624,6 @@ func (s *Server) updateSite(w http.ResponseWriter, r *http.Request, id int) {
 	}
 	if site.Location == "" {
 		s.writeJSONError(w, http.StatusBadRequest, "location is required")
-		return
-	}
-	if site.CosineErrorAngle == 0 {
-		s.writeJSONError(w, http.StatusBadRequest, "cosine_error_angle is required")
 		return
 	}
 
@@ -620,29 +656,212 @@ func (s *Server) deleteSite(w http.ResponseWriter, r *http.Request, id int) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (s *Server) handleSiteConfigPeriods(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	switch r.Method {
+	case http.MethodGet:
+		s.listSiteConfigPeriods(w, r)
+	case http.MethodPost:
+		s.upsertSiteConfigPeriod(w, r)
+	default:
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+	}
+}
+
+func (s *Server) listSiteConfigPeriods(w http.ResponseWriter, r *http.Request) {
+	var siteID *int
+	if siteIDStr := r.URL.Query().Get("site_id"); siteIDStr != "" {
+		parsedSiteID, err := strconv.Atoi(siteIDStr)
+		if err != nil || parsedSiteID <= 0 {
+			s.writeJSONError(w, http.StatusBadRequest, "Invalid 'site_id' parameter; must be a positive integer")
+			return
+		}
+		siteID = &parsedSiteID
+	}
+
+	periods, err := s.db.ListSiteConfigPeriods(siteID)
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve site config periods: %v", err))
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(periods); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode site config periods")
+		return
+	}
+}
+
+func (s *Server) upsertSiteConfigPeriod(w http.ResponseWriter, r *http.Request) {
+	var period db.SiteConfigPeriod
+	if err := json.NewDecoder(r.Body).Decode(&period); err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
+		return
+	}
+
+	if period.SiteID == 0 {
+		s.writeJSONError(w, http.StatusBadRequest, "site_id is required")
+		return
+	}
+
+	if period.ID > 0 {
+		if err := s.db.UpdateSiteConfigPeriod(&period); err != nil {
+			status := http.StatusInternalServerError
+			if err.Error() == "site config period not found" || err.Error() == "site config period overlaps an existing period" {
+				status = http.StatusBadRequest
+			}
+			s.writeJSONError(w, status, fmt.Sprintf("Failed to update site config period: %v", err))
+			return
+		}
+		if err := json.NewEncoder(w).Encode(period); err != nil {
+			s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode site config period")
+		}
+		return
+	}
+
+	if err := s.db.CreateSiteConfigPeriod(&period); err != nil {
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Failed to create site config period: %v", err))
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(period); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode site config period")
+	}
+}
+
+func (s *Server) handleTimeline(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodGet {
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	siteIDStr := r.URL.Query().Get("site_id")
+	if siteIDStr == "" {
+		s.writeJSONError(w, http.StatusBadRequest, "site_id is required")
+		return
+	}
+	siteID, err := strconv.Atoi(siteIDStr)
+	if err != nil || siteID <= 0 {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid 'site_id' parameter; must be a positive integer")
+		return
+	}
+
+	dataRange, err := s.db.RadarDataRange()
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve data range: %v", err))
+		return
+	}
+
+	periods, err := s.db.ListSiteConfigPeriods(&siteID)
+	if err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve site config periods: %v", err))
+		return
+	}
+
+	unconfigured := computeUnconfiguredGaps(dataRange, periods)
+	resp := map[string]interface{}{
+		"site_id":              siteID,
+		"data_range":           dataRange,
+		"config_periods":       periods,
+		"unconfigured_periods": unconfigured,
+	}
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode timeline response")
+	}
+}
+
+func uniqueAnglesForRange(periods []db.SiteConfigPeriod, startUnix, endUnix float64) []float64 {
+	angleMap := make(map[float64]struct{})
+	for _, period := range periods {
+		periodEnd := maxUnixTime
+		if period.EffectiveEndUnix != nil {
+			periodEnd = *period.EffectiveEndUnix
+		}
+		if period.EffectiveStartUnix < endUnix && periodEnd > startUnix {
+			angleMap[period.CosineErrorAngle] = struct{}{}
+		}
+	}
+	angles := make([]float64, 0, len(angleMap))
+	for angle := range angleMap {
+		angles = append(angles, angle)
+	}
+	sort.Float64s(angles)
+	return angles
+}
+
+func computeUnconfiguredGaps(dataRange *db.DataRange, periods []db.SiteConfigPeriod) []map[string]float64 {
+	if dataRange == nil || dataRange.StartUnix == 0 || dataRange.EndUnix == 0 {
+		return []map[string]float64{}
+	}
+	startUnix := dataRange.StartUnix
+	endUnix := dataRange.EndUnix
+	if endUnix <= startUnix {
+		return []map[string]float64{}
+	}
+
+	sort.Slice(periods, func(i, j int) bool {
+		return periods[i].EffectiveStartUnix < periods[j].EffectiveStartUnix
+	})
+
+	current := startUnix
+	gaps := []map[string]float64{}
+	for _, period := range periods {
+		periodEnd := maxUnixTime
+		if period.EffectiveEndUnix != nil {
+			periodEnd = *period.EffectiveEndUnix
+		}
+		if periodEnd <= startUnix || period.EffectiveStartUnix >= endUnix {
+			continue
+		}
+		if period.EffectiveStartUnix > current {
+			gaps = append(gaps, map[string]float64{
+				"start_unix": current,
+				"end_unix":   math.Min(period.EffectiveStartUnix, endUnix),
+			})
+		}
+		if periodEnd > current {
+			current = math.Min(periodEnd, endUnix)
+		}
+		if current >= endUnix {
+			break
+		}
+	}
+
+	if current < endUnix {
+		gaps = append(gaps, map[string]float64{
+			"start_unix": current,
+			"end_unix":   endUnix,
+		})
+	}
+
+	return gaps
+}
+
 // ReportRequest represents the JSON payload for report generation
 type ReportRequest struct {
-	SiteID         *int    `json:"site_id"`            // Optional: use site configuration
-	StartDate      string  `json:"start_date"`         // YYYY-MM-DD format
-	EndDate        string  `json:"end_date"`           // YYYY-MM-DD format
-	CompareStart   string  `json:"compare_start_date"` // Optional: comparison start date (YYYY-MM-DD)
-	CompareEnd     string  `json:"compare_end_date"`   // Optional: comparison end date (YYYY-MM-DD)
-	Timezone       string  `json:"timezone"`           // e.g., "US/Pacific"
-	Units          string  `json:"units"`              // "mph" or "kph"
-	Group          string  `json:"group"`              // e.g., "1h", "4h"
-	Source         string  `json:"source"`             // "radar_objects" or "radar_data_transits"
-	MinSpeed       float64 `json:"min_speed"`          // minimum speed filter
-	Histogram      bool    `json:"histogram"`          // whether to generate histogram
-	HistBucketSize float64 `json:"hist_bucket_size"`   // histogram bucket size
-	HistMax        float64 `json:"hist_max"`           // histogram max value
+	SiteID            *int    `json:"site_id"`            // Optional: use site configuration
+	StartDate         string  `json:"start_date"`         // YYYY-MM-DD format
+	EndDate           string  `json:"end_date"`           // YYYY-MM-DD format
+	CompareStart      string  `json:"compare_start_date"` // Optional: comparison start date (YYYY-MM-DD)
+	CompareEnd        string  `json:"compare_end_date"`   // Optional: comparison end date (YYYY-MM-DD)
+	Timezone          string  `json:"timezone"`           // e.g., "US/Pacific"
+	Units             string  `json:"units"`              // "mph" or "kph"
+	Group             string  `json:"group"`              // e.g., "1h", "4h"
+	Source            string  `json:"source"`             // "radar_objects" or "radar_data_transits"
+	CompareSource     string  `json:"compare_source"`     // Optional: source for comparison period (defaults to Source)
+	MinSpeed          float64 `json:"min_speed"`          // minimum speed filter
+	BoundaryThreshold int     `json:"boundary_threshold"` // filter boundary hours with < N samples (default: 5)
+	Histogram         bool    `json:"histogram"`          // whether to generate histogram
+	HistBucketSize    float64 `json:"hist_bucket_size"`   // histogram bucket size
+	HistMax           float64 `json:"hist_max"`           // histogram max value
 
 	// These can be overridden if site_id is not provided
-	Location         string  `json:"location"`           // site location
-	Surveyor         string  `json:"surveyor"`           // surveyor name
-	Contact          string  `json:"contact"`            // contact info
-	SpeedLimit       int     `json:"speed_limit"`        // posted speed limit
-	SiteDescription  string  `json:"site_description"`   // site description
-	CosineErrorAngle float64 `json:"cosine_error_angle"` // radar mounting angle
+	Location        string `json:"location"`         // site location
+	Surveyor        string `json:"surveyor"`         // surveyor name
+	Contact         string `json:"contact"`          // contact info
+	SpeedLimit      int    `json:"speed_limit"`      // posted speed limit
+	SiteDescription string `json:"site_description"` // site description
 }
 
 func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
@@ -678,6 +897,7 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 
 	// Load site data if site_id is provided
 	var site *db.Site
+	var cosineErrorAngle float64
 	if req.SiteID != nil {
 		var err error
 		site, err = s.db.GetSite(*req.SiteID)
@@ -686,6 +906,19 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Failed to load site: %v", err))
 			return
 		}
+
+		// Get the active SCD period to retrieve cosine_error_angle
+		activePeriod, err := s.db.GetActiveSiteConfigPeriod(*req.SiteID)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Failed to load site config period: %v. Please ensure site has an active configuration period.", err))
+			return
+		}
+		cosineErrorAngle = activePeriod.CosineErrorAngle
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusBadRequest, "site_id is required for report generation")
+		return
 	}
 
 	// Set defaults from site or fallback values
@@ -712,20 +945,14 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	speedLimit := req.SpeedLimit
 	siteDescription := req.SiteDescription
 	speedLimitNote := ""
-	cosineErrorAngle := req.CosineErrorAngle
 
 	if site != nil {
 		location = site.Location
 		surveyor = site.Surveyor
 		contact = site.Contact
-		speedLimit = site.SpeedLimit
 		if site.SiteDescription != nil {
 			siteDescription = *site.SiteDescription
 		}
-		if site.SpeedLimitNote != nil {
-			speedLimitNote = *site.SpeedLimitNote
-		}
-		cosineErrorAngle = site.CosineErrorAngle
 	}
 
 	// Apply final defaults if still empty
@@ -741,11 +968,6 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	if speedLimit == 0 {
 		speedLimit = 25
 	}
-	if cosineErrorAngle == 0 {
-		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusBadRequest, "cosine_error_angle is required (either from site or in request)")
-		return
-	}
 
 	// Create unique run ID for organized output folders
 	// Include nanoseconds to ensure uniqueness under concurrent load
@@ -756,20 +978,30 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	// Create a config JSON for the PDF generator
 	// Note: Not setting file_prefix - let Python auto-generate from source + date range
 	queryConfig := map[string]interface{}{
-		"start_date":       req.StartDate,
-		"end_date":         req.EndDate,
-		"timezone":         req.Timezone,
-		"group":            req.Group,
-		"units":            req.Units,
-		"source":           req.Source,
-		"min_speed":        req.MinSpeed,
-		"histogram":        req.Histogram,
-		"hist_bucket_size": req.HistBucketSize,
-		"hist_max":         req.HistMax,
+		"start_date":         req.StartDate,
+		"end_date":           req.EndDate,
+		"timezone":           req.Timezone,
+		"group":              req.Group,
+		"units":              req.Units,
+		"source":             req.Source,
+		"min_speed":          req.MinSpeed,
+		"boundary_threshold": req.BoundaryThreshold,
+		"histogram":          req.Histogram,
+		"hist_bucket_size":   req.HistBucketSize,
+		"hist_max":           req.HistMax,
+	}
+	if req.SiteID != nil {
+		queryConfig["site_id"] = *req.SiteID
 	}
 	if req.CompareStart != "" && req.CompareEnd != "" {
 		queryConfig["compare_start_date"] = req.CompareStart
 		queryConfig["compare_end_date"] = req.CompareEnd
+		// Use compare_source if specified, otherwise default to the primary source
+		compareSource := req.CompareSource
+		if compareSource == "" {
+			compareSource = req.Source
+		}
+		queryConfig["compare_source"] = compareSource
 	}
 
 	config := map[string]interface{}{
@@ -873,15 +1105,45 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Python auto-generates filename as: velocity.report_{source}_{start_date}_to_{end_date}_report.pdf
-	pdfFilename := fmt.Sprintf("velocity.report_%s_%s_to_%s_report.pdf", req.Source, req.StartDate, req.EndDate)
+	// Log Python output for debugging
+	if len(output) > 0 {
+		log.Printf("PDF generator output:\n%s", string(output))
+	}
 
-	// Python also generates a ZIP with sources: velocity.report_{source}_{start_date}_to_{end_date}_sources.zip
-	zipFilename := fmt.Sprintf("velocity.report_%s_%s_to_%s_sources.zip", req.Source, req.StartDate, req.EndDate)
+	// Sanitize user-provided values to prevent path traversal attacks
+	safeEndDate := security.SanitizeFilename(req.EndDate)
+	safeLocation := security.SanitizeFilename(location)
+
+	// Generate filename as: {endDate}_velocity.report_{location}.pdf
+	// Python PDF generator adds _report suffix, so final name is:
+	// {endDate}_velocity.report_{location}_report.pdf
+	pdfFilename := fmt.Sprintf("%s_velocity.report_%s_report.pdf", safeEndDate, safeLocation)
+
+	// Generate ZIP filename with same format (no _report suffix for ZIP)
+	zipFilename := fmt.Sprintf("%s_velocity.report_%s_sources.zip", safeEndDate, safeLocation)
 
 	// Store relative paths from pdf-generator directory
 	relativePdfPath := filepath.Join(outputDir, pdfFilename)
 	relativeZipPath := filepath.Join(outputDir, zipFilename)
+
+	// Verify PDF was actually created
+	fullPdfPath := filepath.Join(pdfDir, relativePdfPath)
+
+	// Security: Validate path is within pdf-generator directory to prevent path traversal
+	if err := security.ValidatePathWithinDirectory(fullPdfPath, pdfDir); err != nil {
+		log.Printf("Security: rejected PDF path %s: %v", fullPdfPath, err)
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusForbidden, "Invalid file path")
+		return
+	}
+
+	if _, err := os.Stat(fullPdfPath); os.IsNotExist(err) {
+		log.Printf("PDF generation completed but file not found at: %s", fullPdfPath)
+		log.Printf("This usually means no data was available for the specified date range.")
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusBadRequest, "PDF generation failed: No data available for the specified date range. Please check your dates and ensure data exists.")
+		return
+	}
 
 	// Create report record in database
 	siteID := 0
@@ -910,12 +1172,14 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return report ID instead of streaming file
+	// Return report ID and file paths
 	w.Header().Set("Content-Type", "application/json")
 	response := map[string]interface{}{
 		"success":   true,
 		"report_id": report.ID,
 		"message":   "Report generated successfully",
+		"pdf_path":  relativePdfPath,
+		"zip_path":  relativeZipPath,
 	}
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {

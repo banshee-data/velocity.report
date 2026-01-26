@@ -17,7 +17,7 @@ import re
 import sys
 import textwrap
 import traceback
-from typing import List, Tuple, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime, timezone as dt_timezone
 from zoneinfo import ZoneInfo
 
@@ -210,6 +210,214 @@ def _next_sequenced_prefix(base: str, search_dir: str = ".") -> str:
     return f"{base}-{next_n}-{timestamp}"
 
 
+def derive_overall_from_granular(
+    granular_metrics: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Derive overall summary metrics from granular data.
+
+    This computes aggregated statistics from granular time-bucketed data,
+    ensuring consistency with boundary hour filtering applied at the DB level.
+
+    Args:
+        granular_metrics: List of granular metric dictionaries
+
+    Returns:
+        List containing a single overall summary metric (or empty list)
+    """
+    import math
+
+    if not granular_metrics:
+        return []
+
+    # Collect all speeds weighted by count for percentile calculation
+    total_count = 0
+    max_speed = 0.0
+    all_p50s = []
+    all_p85s = []
+    all_p98s = []
+
+    normalizer = MetricsNormalizer()
+
+    for row in granular_metrics:
+        count = normalizer.get_numeric(row, "count") or 0
+        if count is None or (isinstance(count, float) and math.isnan(count)):
+            count = 0
+        if count <= 0:
+            continue
+
+        total_count += int(count)
+
+        p50 = normalizer.get_numeric(row, "p50")
+        p85 = normalizer.get_numeric(row, "p85")
+        p98 = normalizer.get_numeric(row, "p98")
+        max_spd = normalizer.get_numeric(row, "max_speed")
+
+        if p50 is not None and not math.isnan(p50):
+            all_p50s.extend([p50] * int(count))
+        if p85 is not None and not math.isnan(p85):
+            all_p85s.extend([p85] * int(count))
+        if p98 is not None and not math.isnan(p98):
+            all_p98s.extend([p98] * int(count))
+        if max_spd is not None and not math.isnan(max_spd) and max_spd > max_speed:
+            max_speed = max_spd
+
+    if total_count == 0:
+        return []
+
+    # Compute weighted median for each percentile
+    def median(values: List[float]) -> float:
+        if not values:
+            return 0.0
+        sorted_vals = sorted(values)
+        n = len(sorted_vals)
+        mid = n // 2
+        if n % 2 == 0:
+            return (sorted_vals[mid - 1] + sorted_vals[mid]) / 2
+        return sorted_vals[mid]
+
+    # Get start time from first row
+    start_time = None
+    if granular_metrics:
+        start_time = normalizer.get_value(granular_metrics[0], "start_time")
+
+    return [
+        {
+            "start_time": start_time,
+            "count": total_count,
+            "p50_speed": median(all_p50s) if all_p50s else 0,
+            "p85_speed": median(all_p85s) if all_p85s else 0,
+            "p98_speed": median(all_p98s) if all_p98s else 0,
+            "max_speed": max_speed,
+            "classifier": "all",
+        }
+    ]
+
+
+def derive_daily_from_granular(
+    granular_metrics: List[Dict[str, Any]],
+    timezone: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Derive daily summary metrics from granular data.
+
+    Groups granular metrics by day and computes daily aggregates,
+    ensuring consistency with boundary hour filtering.
+
+    Args:
+        granular_metrics: List of granular metric dictionaries
+        timezone: Timezone for day boundary calculation
+
+    Returns:
+        List of daily summary metrics
+    """
+    if not granular_metrics:
+        return []
+
+    import math
+    from collections import defaultdict
+
+    try:
+        tzobj = ZoneInfo(timezone) if timezone else dt_timezone.utc
+    except Exception:
+        tzobj = dt_timezone.utc
+
+    normalizer = MetricsNormalizer()
+
+    # Group by day
+    day_data: Dict[str, Dict[str, Any]] = defaultdict(
+        lambda: {
+            "count": 0,
+            "max_speed": 0.0,
+            "p50s": [],
+            "p85s": [],
+            "p98s": [],
+            "start_time": None,
+        }
+    )
+
+    for row in granular_metrics:
+        # Parse start time
+        start_time_raw = normalizer.get_value(row, "start_time")
+        if start_time_raw is None:
+            continue
+
+        # Convert to datetime
+        try:
+            if isinstance(start_time_raw, str):
+                dt = datetime.fromisoformat(start_time_raw.replace("Z", "+00:00"))
+            elif isinstance(start_time_raw, (int, float)):
+                dt = datetime.fromtimestamp(start_time_raw, tz=dt_timezone.utc)
+            else:
+                continue
+            # Convert to target timezone for day grouping
+            dt = dt.astimezone(tzobj)
+            day_key = dt.strftime("%Y-%m-%d")
+        except Exception:
+            continue
+
+        count = normalizer.get_numeric(row, "count") or 0
+        if count is None or (isinstance(count, float) and math.isnan(count)):
+            count = 0
+        if count <= 0:
+            continue
+
+        day = day_data[day_key]
+        day["count"] += int(count)
+
+        p50 = normalizer.get_numeric(row, "p50")
+        p85 = normalizer.get_numeric(row, "p85")
+        p98 = normalizer.get_numeric(row, "p98")
+        max_spd = normalizer.get_numeric(row, "max_speed")
+
+        if p50 is not None and not math.isnan(p50):
+            day["p50s"].extend([p50] * int(count))
+        if p85 is not None and not math.isnan(p85):
+            day["p85s"].extend([p85] * int(count))
+        if p98 is not None and not math.isnan(p98):
+            day["p98s"].extend([p98] * int(count))
+        if (
+            max_spd is not None
+            and not math.isnan(max_spd)
+            and max_spd > day["max_speed"]
+        ):
+            day["max_speed"] = max_spd
+
+        # Track earliest time in this day
+        if day["start_time"] is None:
+            day["start_time"] = dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Convert to list of metrics
+    def median(values: List[float]) -> float:
+        if not values:
+            return 0.0
+        sorted_vals = sorted(values)
+        n = len(sorted_vals)
+        mid = n // 2
+        if n % 2 == 0:
+            return (sorted_vals[mid - 1] + sorted_vals[mid]) / 2
+        return sorted_vals[mid]
+
+    result = []
+    for day_key in sorted(day_data.keys()):
+        day = day_data[day_key]
+        if day["count"] == 0:
+            continue
+        result.append(
+            {
+                "start_time": (
+                    day["start_time"].isoformat() if day["start_time"] else day_key
+                ),
+                "count": day["count"],
+                "p50_speed": median(day["p50s"]),
+                "p85_speed": median(day["p85s"]),
+                "p98_speed": median(day["p98s"]),
+                "max_speed": day["max_speed"],
+                "classifier": "all",
+            }
+        )
+
+    return result
+
+
 def _plot_stats_page(stats, title: str, units: str, tz_name: Optional[str] = None):
     """Create a compact time-series plot (P50/P85/P98/Max + counts bars).
 
@@ -249,11 +457,14 @@ def compute_iso_timestamps(
 def resolve_file_prefix(
     config: ReportConfig, start_ts: int, end_ts: int, output_dir: str = "."
 ) -> str:
-    """Determine output file prefix (sequenced or date-based).
+    """Determine output file prefix.
 
-    All files are prefixed with 'velocity.report_' followed by either:
-    - User-provided prefix (sequenced)
-    - Auto-generated: {source}_{start_date}_to_{end_date}
+    Generates filename format: {end_date}_velocity.report_{location}
+    Example: 2026-01-19_velocity.report_Clarendon_Avenue_San_Francisco
+
+    Sanitization matches Go's security.SanitizeFilename behavior:
+    - Replaces spaces and non-alphanumeric chars (except dash/underscore) with underscores
+    - Preserves existing dashes and underscores
 
     Args:
         config: Report configuration
@@ -262,22 +473,18 @@ def resolve_file_prefix(
         output_dir: Directory where files will be created (for sequence checking)
 
     Returns:
-        File prefix string with 'velocity.report_' prefix
+        File prefix string
     """
-    if config.output.file_prefix:
-        # User provided a prefix - create numbered sequence
-        base_prefix = _next_sequenced_prefix(config.output.file_prefix, output_dir)
-        return f"velocity.report_{base_prefix}"
-    else:
-        # Auto-generate from date range
-        tzobj = (
-            ZoneInfo(config.query.timezone)
-            if config.query.timezone
-            else dt_timezone.utc
-        )
-        start_label = datetime.fromtimestamp(start_ts, tz=tzobj).date().isoformat()
-        end_label = datetime.fromtimestamp(end_ts, tz=tzobj).date().isoformat()
-        return f"velocity.report_{config.query.source}_{start_label}_to_{end_label}"
+    # Use end date from config (single source of truth)
+    end_date = config.query.end_date[:10]
+
+    # Sanitize location to match Go's security.SanitizeFilename behavior
+    location = config.site.location
+    safe_location = "".join(
+        c if c.isalnum() or c in ("-", "_") else "_" for c in location
+    )
+
+    return f"{end_date}_velocity.report_{safe_location}"
 
 
 # === API Data Fetching ===
@@ -289,6 +496,7 @@ def fetch_granular_metrics(
     end_ts: int,
     config: ReportConfig,
     model_version: Optional[str],
+    source_override: Optional[str] = None,
 ) -> Tuple[List, Optional[dict], Optional[object]]:
     """Fetch main granular metrics and optional histogram.
 
@@ -298,31 +506,35 @@ def fetch_granular_metrics(
         end_ts: End timestamp
         config: Report configuration
         model_version: Model version for transit data
+        source_override: Optional source to use instead of config.query.source
 
     Returns:
-        Tuple of (metrics, histogram, response_metadata)
+        Tuple of (metrics, histogram, min_speed_used, response_metadata)
     """
+    source = source_override or config.query.source
     try:
-        metrics, histogram, resp = client.get_stats(
+        metrics, histogram, min_speed_used, resp = client.get_stats(
             start_ts=start_ts,
             end_ts=end_ts,
             group=config.query.group,
             units=config.query.units,
-            source=config.query.source,
+            source=source,
             model_version=model_version,
             timezone=config.query.timezone or None,
             min_speed=config.query.min_speed,
             compute_histogram=config.query.histogram,
             hist_bucket_size=config.query.hist_bucket_size,
             hist_max=config.query.hist_max,
+            site_id=config.query.site_id,
+            boundary_threshold=config.query.boundary_threshold,
         )
-        return metrics, histogram, resp
+        return metrics, histogram, min_speed_used, resp
     except Exception as exc:
         message = _format_api_error("Fetching granular metrics", client.api_url, exc)
         message = _append_debug_hint(message, config.output.debug)
         _print_error(message)
         _maybe_print_debug(exc, config.output.debug)
-        return [], None, None
+        return [], None, None, None
 
 
 def fetch_overall_summary(
@@ -331,6 +543,7 @@ def fetch_overall_summary(
     end_ts: int,
     config: ReportConfig,
     model_version: Optional[str],
+    source_override: Optional[str] = None,
 ) -> List:
     """Fetch overall 'all' group summary.
 
@@ -340,21 +553,25 @@ def fetch_overall_summary(
         end_ts: End timestamp
         config: Report configuration
         model_version: Model version for transit data
+        source_override: Optional source to use instead of config.query.source
 
     Returns:
         List of overall metrics (empty list on failure)
     """
+    source = source_override or config.query.source
     try:
-        metrics_all, _, _ = client.get_stats(
+        metrics_all, _, _, _ = client.get_stats(
             start_ts=start_ts,
             end_ts=end_ts,
             group="all",
             units=config.query.units,
-            source=config.query.source,
+            source=source,
             model_version=model_version,
             timezone=config.query.timezone or None,
             min_speed=config.query.min_speed,
             compute_histogram=False,
+            site_id=config.query.site_id,
+            boundary_threshold=config.query.boundary_threshold,
         )
         return metrics_all
     except Exception as exc:
@@ -365,12 +582,59 @@ def fetch_overall_summary(
         return []
 
 
+def fetch_site_config_periods(
+    client: RadarStatsClient,
+    site_id: int,
+    start_ts: int,
+    end_ts: int,
+    compare_start_ts: Optional[int] = None,
+    compare_end_ts: Optional[int] = None,
+) -> List[Dict[str, Any]]:
+    """Fetch and filter site configuration periods for report ranges."""
+    try:
+        periods, _ = client.get_site_config_periods(site_id)
+    except Exception as exc:
+        message = _format_api_error(
+            "Fetching site configuration periods",
+            f"{client.base_url}/api/site_config_periods",
+            exc,
+        )
+        _print_error(message)
+        return []
+
+    def overlaps(
+        period_start: float,
+        period_end: Optional[float],
+        range_start: int,
+        range_end: int,
+    ) -> bool:
+        end_value = period_end if period_end is not None else float("inf")
+        return period_start < range_end and end_value > range_start
+
+    filtered: List[Dict[str, Any]] = []
+    for period in periods:
+        period_start = float(period.get("effective_start_unix", 0))
+        period_end_raw = period.get("effective_end_unix")
+        period_end = float(period_end_raw) if period_end_raw is not None else None
+
+        if overlaps(period_start, period_end, start_ts, end_ts):
+            filtered.append(period)
+            continue
+        if compare_start_ts is not None and compare_end_ts is not None:
+            if overlaps(period_start, period_end, compare_start_ts, compare_end_ts):
+                filtered.append(period)
+
+    filtered.sort(key=lambda p: float(p.get("effective_start_unix", 0)))
+    return filtered
+
+
 def fetch_daily_summary(
     client: RadarStatsClient,
     start_ts: int,
     end_ts: int,
     config: ReportConfig,
     model_version: Optional[str],
+    source_override: Optional[str] = None,
 ) -> Optional[List]:
     """Fetch daily (24h) summary if appropriate for group size.
 
@@ -380,6 +644,7 @@ def fetch_daily_summary(
         end_ts: End timestamp
         config: Report configuration
         model_version: Model version for transit data
+        source_override: Optional source to use instead of config.query.source
 
     Returns:
         List of daily metrics or None if not needed/failed
@@ -387,17 +652,20 @@ def fetch_daily_summary(
     if not should_produce_daily(config.query.group):
         return None
 
+    source = source_override or config.query.source
     try:
-        daily_metrics, _, _ = client.get_stats(
+        daily_metrics, _, _, _ = client.get_stats(
             start_ts=start_ts,
             end_ts=end_ts,
             group="24h",
             units=config.query.units,
-            source=config.query.source,
+            source=source,
             model_version=model_version,
             timezone=config.query.timezone or None,
             min_speed=config.query.min_speed,
             compute_histogram=False,
+            site_id=config.query.site_id,
+            boundary_threshold=config.query.boundary_threshold,
         )
         return daily_metrics
     except Exception as exc:
@@ -454,6 +722,11 @@ def generate_histogram_chart(
             except Exception:
                 sample_label = f" (n={sample_n})"
 
+        # Extract max_bucket from query config if available
+        max_bucket = (
+            config.query.hist_max if hasattr(config.query, "hist_max") else None
+        )
+
         if compare_histogram:
             primary_desc = primary_label or "Primary period"
             compare_desc = compare_label or "Comparison period"
@@ -472,6 +745,7 @@ def generate_histogram_chart(
                 f"Velocity Distribution: {sample_label}",
                 units,
                 debug=config.output.debug,
+                max_bucket=max_bucket,
             )
         hist_pdf = f"{prefix}_histogram.pdf"
         save_chart_as_pdf = _import_chart_saver()
@@ -553,12 +827,15 @@ def assemble_pdf_report(
     granular_metrics: List,
     histogram: Optional[dict],
     config: ReportConfig,
+    min_speed_used: Optional[float] = None,
     compare_start_iso: Optional[str] = None,
     compare_end_iso: Optional[str] = None,
     compare_overall_metrics: Optional[List] = None,
     compare_histogram: Optional[dict] = None,
     compare_granular_metrics: Optional[List] = None,
     compare_daily_metrics: Optional[List] = None,
+    config_periods: Optional[List[Dict[str, Any]]] = None,
+    cosine_correction_note: Optional[str] = None,
 ) -> bool:
     """Assemble complete PDF report.
 
@@ -575,11 +852,14 @@ def assemble_pdf_report(
     Returns:
         True if PDF was generated successfully
     """
-    min_speed_str = (
-        f"{config.query.min_speed} {config.query.units}"
-        if config.query.min_speed is not None
-        else "none"
-    )
+    # Use the actual min_speed_used from the API if available, otherwise fall back to config
+    if min_speed_used is not None:
+        min_speed_str = f"{min_speed_used:.1f} {config.query.units}"
+    elif config.query.min_speed is not None:
+        min_speed_str = f"{config.query.min_speed} {config.query.units}"
+    else:
+        min_speed_str = "none"
+
     tz_display = config.query.timezone or "UTC"
     pdf_path = f"{prefix}_report.pdf"
 
@@ -640,6 +920,12 @@ def assemble_pdf_report(
             velocity_resolution=config.radar.velocity_resolution,
             azimuth_fov=config.radar.azimuth_fov,
             elevation_fov=config.radar.elevation_fov,
+            config_periods=config_periods,
+            cosine_correction_note=cosine_correction_note,
+            start_date=config.query.start_date,
+            end_date=config.query.end_date,
+            compare_start_date=config.query.compare_start_date,
+            compare_end_date=config.query.compare_end_date,
         )
         print(f"Generated PDF report: {pdf_path}")
         return True
@@ -695,7 +981,7 @@ def get_model_version(config: ReportConfig) -> Optional[str]:
         Model version string or None
     """
     if config.query.source == "radar_data_transits":
-        return config.query.model_version or "rebuild-full"
+        return config.query.model_version or "hourly-cron"
     return None
 
 
@@ -857,6 +1143,8 @@ def process_date_range(
     compare_start_iso = None
     compare_end_iso = None
     compare_label = None
+    config_periods: Optional[List[Dict[str, Any]]] = None
+    cosine_correction_note: Optional[str] = None
     primary_label = f"{start_date} to {end_date}"
 
     if compare_start_date and compare_end_date:
@@ -915,7 +1203,7 @@ def process_date_range(
             print(f"DEBUG: failed to write config files: {e}")
 
     # Fetch all data from API
-    metrics, histogram, resp = fetch_granular_metrics(
+    metrics, histogram, min_speed_used, resp = fetch_granular_metrics(
         client, start_ts, end_ts, config, model_version
     )
     if not metrics and not histogram:
@@ -925,6 +1213,7 @@ def process_date_range(
         )
         return
 
+    # Fetch overall summary from API (proper percentile calculation from raw data)
     overall_metrics = fetch_overall_summary(
         client, start_ts, end_ts, config, model_version
     )
@@ -935,7 +1224,7 @@ def process_date_range(
 
     should_daily = should_produce_daily(config.query.group)
     daily_metrics = fetch_daily_summary(client, start_ts, end_ts, config, model_version)
-    if should_daily and daily_metrics is None:
+    if should_daily and not daily_metrics:
         _print_error("Warning: daily metrics unavailable; daily chart will be skipped.")
     elif not should_daily:
         _print_info("Daily summary skipped for high-level grouping.")
@@ -944,15 +1233,33 @@ def process_date_range(
         _print_error("Warning: histogram data unavailable; histogram chart skipped.")
 
     if compare_start_ts is not None and compare_end_ts is not None:
-        compare_metrics, compare_histogram, _compare_resp = fetch_granular_metrics(
-            client, compare_start_ts, compare_end_ts, config, model_version
+        # Use compare_source if specified, otherwise fall back to primary source
+        compare_source = config.query.compare_source or config.query.source
+        if compare_source != config.query.source:
+            _print_info(f"Using different source for comparison: {compare_source}")
+        compare_metrics, compare_histogram, _compare_min_speed, _compare_resp = (
+            fetch_granular_metrics(
+                client,
+                compare_start_ts,
+                compare_end_ts,
+                config,
+                model_version,
+                source_override=compare_source,
+            )
         )
         if not compare_metrics and not compare_histogram:
             _print_error(
                 f"Warning: no comparison data returned for {compare_start_date} - {compare_end_date}."
             )
+
+        # Fetch comparison overall and daily summaries from API
         compare_overall = fetch_overall_summary(
-            client, compare_start_ts, compare_end_ts, config, model_version
+            client,
+            compare_start_ts,
+            compare_end_ts,
+            config,
+            model_version,
+            source_override=compare_source,
         )
         if not compare_overall:
             _print_error(
@@ -961,19 +1268,48 @@ def process_date_range(
 
         if should_daily:
             compare_daily_metrics = fetch_daily_summary(
-                client, compare_start_ts, compare_end_ts, config, model_version
+                client,
+                compare_start_ts,
+                compare_end_ts,
+                config,
+                model_version,
+                source_override=compare_source,
             )
 
         compare_start_iso, compare_end_iso = compute_iso_timestamps(
             compare_start_ts, compare_end_ts, config.query.timezone
         )
-        compare_label = f"t2: {compare_start_iso[:10]} to {compare_end_iso[:10]}"
+        # Use original date strings from config (single source of truth from datepicker)
+        compare_label = (
+            f"t2: {config.query.compare_start_date} to {config.query.compare_end_date}"
+        )
+
+    if config.query.site_id is not None:
+        config_periods = fetch_site_config_periods(
+            client,
+            config.query.site_id,
+            start_ts,
+            end_ts,
+            compare_start_ts,
+            compare_end_ts,
+        )
+        if config_periods:
+            angles = {
+                float(period.get("cosine_error_angle", 0))
+                for period in config_periods
+                if period.get("cosine_error_angle") is not None
+            }
+            if len(angles) > 1:
+                cosine_correction_note = (
+                    "Speeds have been corrected for sensor angle changes."
+                )
 
     # Compute ISO timestamps for report
     start_iso, end_iso = compute_iso_timestamps(start_ts, end_ts, config.query.timezone)
 
     if compare_start_ts and compare_end_ts:
-        primary_label = f"t1: {start_iso[:10]} to {end_iso[:10]}"
+        # Use original date strings from config (single source of truth from datepicker)
+        primary_label = f"t1: {config.query.start_date} to {config.query.end_date}"
 
     # Generate all charts
     generate_all_charts(
@@ -1000,12 +1336,15 @@ def process_date_range(
         metrics,
         histogram,
         config,
+        min_speed_used=min_speed_used,
         compare_start_iso=compare_start_iso,
         compare_end_iso=compare_end_iso,
         compare_overall_metrics=compare_overall,
         compare_histogram=compare_histogram,
         compare_granular_metrics=compare_metrics,
         compare_daily_metrics=compare_daily_metrics,
+        config_periods=config_periods,
+        cosine_correction_note=cosine_correction_note,
     )
 
     if report_generated:

@@ -38,7 +38,7 @@ TEMP_SCHEMA="$PROJECT_ROOT/.tmp_schema.sql"
 
 # Cleanup function
 cleanup() {
-    rm -f "$TEMP_DB" "$TEMP_DB-shm" "$TEMP_DB-wal" "$TEMP_SCHEMA"
+    rm -f "$TEMP_DB" "$TEMP_DB-shm" "$TEMP_DB-wal" "$TEMP_SCHEMA" "$PROJECT_ROOT/.tmp_ordered_schema.sql"
 }
 
 # Register cleanup on exit
@@ -92,6 +92,17 @@ fi
 echo -e "${GREEN}✓ Schema exported successfully${NC}"
 echo ""
 
+# Step 2.5: Reorder tables by foreign key dependencies
+echo "2.5. Reordering tables by foreign key dependencies..."
+TEMP_ORDERED="$PROJECT_ROOT/.tmp_ordered_schema.sql"
+if ! python3 "$SCRIPT_DIR/order-schema-tables.py" "$TEMP_SCHEMA" > "$TEMP_ORDERED"; then
+    echo -e "${RED}Error: Failed to reorder schema tables${NC}"
+    exit 1
+fi
+mv "$TEMP_ORDERED" "$TEMP_SCHEMA"
+echo -e "${GREEN}✓ Tables reordered successfully${NC}"
+echo ""
+
 # Step 3: Update schema.sql
 echo "3. Updating internal/db/schema.sql..."
 
@@ -133,13 +144,29 @@ fi
 
 # Step 6: Verify consistency
 echo "6. Verifying schema consistency..."
-if go test -v ./internal/db -run TestSchemaConsistency 2>&1 | grep -q "PASS"; then
-    echo -e "${GREEN}✓ Schema consistency test passed${NC}"
+TEST_OUTPUT=$(mktemp)
+if go test ./internal/db -run TestSchemaConsistency > "$TEST_OUTPUT" 2>&1; then
+    # Test passed (exit code 0) - verify it's the expected output format
+    if grep -qE "^ok[[:space:]]" "$TEST_OUTPUT" && grep -q "github.com/banshee-data/velocity.report/internal/db" "$TEST_OUTPUT"; then
+        echo -e "${GREEN}✓ Schema consistency test passed${NC}"
+    else
+        # Unexpected output format
+        echo -e "${YELLOW}⚠ Test completed but output format unexpected${NC}"
+        echo "   Output: $(cat "$TEST_OUTPUT")"
+        echo "   Run 'make test-go' to verify all tests pass."
+    fi
 else
-    echo -e "${YELLOW}⚠ Schema consistency test did not pass${NC}"
-    echo "   This may be expected if you just added a new migration."
-    echo "   Run 'make test-go' to verify all tests pass."
+    # Test failed (exit code non-zero)
+    echo -e "${RED}✗ Schema consistency test failed${NC}"
+    echo "   The migrated schema does not match schema.sql"
+    echo "   This indicates migrations are out of sync with schema.sql"
+    echo ""
+    echo "   Test output:"
+    cat "$TEST_OUTPUT" | tail -20
+    echo ""
+    echo "   Run 'make test-go' for full details."
 fi
+rm -f "$TEST_OUTPUT"
 
 echo ""
 echo -e "${GREEN}Schema sync complete!${NC}"

@@ -1,16 +1,5 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { PeriodType } from '@layerstack/utils';
-	import { onMount } from 'svelte';
-	import {
-		Button,
-		Card,
-		DateRangeField,
-		Header,
-		SelectField,
-		ToggleGroup,
-		ToggleOption
-	} from 'svelte-ux';
 	import {
 		generateReport,
 		getConfig,
@@ -20,8 +9,13 @@
 		type Site,
 		type SiteReport
 	} from '$lib/api';
+	import DataSourceSelector from '$lib/components/DataSourceSelector.svelte';
+	import { isoDate } from '$lib/dateUtils';
 	import { displayTimezone, initializeTimezone } from '$lib/stores/timezone';
 	import { displayUnits, initializeUnits } from '$lib/stores/units';
+	import { PeriodType } from '@layerstack/utils';
+	import { onMount } from 'svelte';
+	import { Button, Card, DateRangeField, Header, SelectField } from 'svelte-ux';
 
 	let config: Config = { units: 'mph', timezone: 'UTC' };
 	let loading = true;
@@ -33,9 +27,6 @@
 	let selectedSite: Site | null = null;
 
 	// default DateRangeField to the last 14 days (inclusive)
-	function isoDate(d: Date) {
-		return d.toISOString().slice(0, 10);
-	}
 	const today = new Date();
 	const fromDefault = new Date(today); // eslint-disable-line svelte/prefer-svelte-reactivity
 	fromDefault.setDate(today.getDate() - 13); // last 14 days inclusive
@@ -47,9 +38,13 @@
 	compareFromDefault.setDate(compareToDefault.getDate() - 13);
 	let compareRange = { from: compareFromDefault, to: compareToDefault, periodType: PeriodType.Day };
 	let compareEnabled = false;
+	let compareSource: string = 'radar_objects';
 
 	let group: string = '4h';
 	let selectedSource: string = 'radar_objects';
+	let minSpeed: number = 5;
+	let maxSpeedCutoff: number | null = null;
+	let boundaryThreshold: number = 5;
 
 	let generatingReport = false;
 	let reportMessage = '';
@@ -112,12 +107,79 @@
 		localStorage.setItem('selectedSiteId', selectedSiteId.toString());
 	}
 
+	function saveReportSettings() {
+		if (!browser) return;
+		try {
+			const settings = {
+				dateRange: {
+					from: dateRange.from?.toISOString(),
+					to: dateRange.to?.toISOString(),
+					periodType: dateRange.periodType
+				},
+				compareRange: {
+					from: compareRange.from?.toISOString(),
+					to: compareRange.to?.toISOString(),
+					periodType: compareRange.periodType
+				},
+				compareEnabled,
+				compareSource,
+				group,
+				selectedSource,
+				minSpeed,
+				maxSpeedCutoff,
+				boundaryThreshold
+			};
+			localStorage.setItem('reportSettings', JSON.stringify(settings));
+		} catch (e) {
+			console.warn('Failed to save report settings:', e);
+		}
+	}
+
+	function loadReportSettings() {
+		if (!browser) return;
+		try {
+			const saved = localStorage.getItem('reportSettings');
+			if (!saved) return;
+
+			const settings = JSON.parse(saved);
+
+			// Restore date ranges
+			if (settings.dateRange?.from && settings.dateRange?.to) {
+				dateRange = {
+					from: new Date(settings.dateRange.from),
+					to: new Date(settings.dateRange.to),
+					periodType: settings.dateRange.periodType ?? PeriodType.Day
+				};
+			}
+
+			if (settings.compareRange?.from && settings.compareRange?.to) {
+				compareRange = {
+					from: new Date(settings.compareRange.from),
+					to: new Date(settings.compareRange.to),
+					periodType: settings.compareRange.periodType ?? PeriodType.Day
+				};
+			}
+
+			// Restore other settings
+			if (settings.compareEnabled !== undefined) compareEnabled = settings.compareEnabled;
+			if (settings.compareSource) compareSource = settings.compareSource;
+			if (settings.group) group = settings.group;
+			if (settings.selectedSource) selectedSource = settings.selectedSource;
+			if (settings.minSpeed !== undefined) minSpeed = settings.minSpeed;
+			if (settings.maxSpeedCutoff !== undefined) maxSpeedCutoff = settings.maxSpeedCutoff;
+			if (settings.boundaryThreshold !== undefined) boundaryThreshold = settings.boundaryThreshold;
+		} catch (e) {
+			console.warn('Failed to load report settings:', e);
+		}
+	}
+
 	async function loadData() {
 		loading = true;
 		error = '';
 		try {
 			await loadConfig();
 			await loadSites();
+			loadReportSettings();
 		} finally {
 			loading = false;
 		}
@@ -154,6 +216,9 @@
 				units: $displayUnits,
 				group: group,
 				source: selectedSource,
+				min_speed: minSpeed,
+				hist_max: maxSpeedCutoff,
+				boundary_threshold: boundaryThreshold,
 				histogram: true,
 				hist_bucket_size: 5.0,
 				site_id: selectedSiteId
@@ -162,7 +227,8 @@
 			if (compareEnabled) {
 				Object.assign(request, {
 					compare_start_date: isoDate(compareRange.from),
-					compare_end_date: isoDate(compareRange.to)
+					compare_end_date: isoDate(compareRange.to),
+					compare_source: compareSource
 				});
 			}
 
@@ -170,6 +236,9 @@
 			lastGeneratedReportId = response.report_id;
 			reportMetadata = await getReport(response.report_id);
 			reportMessage = 'Report generated successfully! Use the links below to download.';
+
+			// Save settings for next time
+			saveReportSettings();
 		} catch (e) {
 			reportMessage = e instanceof Error ? e.message : 'Failed to generate report';
 		} finally {
@@ -183,7 +252,7 @@
 	<meta name="description" content="Generate traffic reports and compare survey periods" />
 </svelte:head>
 
-<main id="main-content" class="space-y-6 p-4">
+<div id="main-content" class="space-y-6 p-4">
 	<Header title="Report Generator" subheading="Generate PDF reports and compare survey periods" />
 
 	{#if loading}
@@ -200,27 +269,63 @@
 		<Card>
 			<div class="space-y-4 p-6">
 				<div class="flex flex-wrap items-end gap-4">
-					<div class="space-y-2">
+					<div class="w-70 space-y-2">
 						<p class="text-surface-content/80 text-sm font-medium">Primary period</p>
 						<DateRangeField bind:value={dateRange} periodTypes={[PeriodType.Day]} stepper />
 					</div>
 					<div class="w-24">
-						<SelectField bind:value={group} label="Group" {options} clearable={false} />
+						<DataSourceSelector bind:value={selectedSource} />
 					</div>
 					<div class="w-24">
-						<ToggleGroup bind:value={selectedSource} vertical inset>
-							<ToggleOption value="radar_objects">Objects</ToggleOption>
-							<ToggleOption value="radar_data_transits">Transits</ToggleOption>
-						</ToggleGroup>
+						<SelectField bind:value={group} label="Group" {options} clearable={false} />
 					</div>
 					<!-- Keep the site selector wide enough for typical site names. -->
-					<div class="w-44">
+					<div class="w-38">
 						<SelectField
 							bind:value={selectedSiteId}
 							label="Site"
 							options={siteOptions}
 							clearable={false}
 						/>
+					</div>
+				</div>
+				<div class="flex flex-wrap items-end gap-4">
+					<div class="w-42">
+						<label class="text-surface-content/80 block text-sm font-medium">
+							Min Speed ({$displayUnits})
+							<input
+								type="number"
+								bind:value={minSpeed}
+								min="0"
+								step="1"
+								class="border-surface-content/20 bg-surface-100 mt-1 block w-full rounded-md border px-3 py-2 text-sm"
+							/>
+						</label>
+					</div>
+					<div class="w-42">
+						<label class="text-surface-content/80 block text-sm font-medium">
+							Max Speed Cutoff ({$displayUnits})
+							<input
+								type="number"
+								bind:value={maxSpeedCutoff}
+								min="0"
+								step="5"
+								placeholder="None"
+								class="border-surface-content/20 bg-surface-100 mt-1 block w-full rounded-md border px-3 py-2 text-sm"
+							/>
+						</label>
+					</div>
+					<div class="w-42">
+						<label class="text-surface-content/80 block text-sm font-medium">
+							Min Period Count
+							<input
+								type="number"
+								bind:value={boundaryThreshold}
+								min="0"
+								step="1"
+								class="border-surface-content/20 bg-surface-100 mt-1 block w-full rounded-md border px-3 py-2 text-sm"
+							/>
+						</label>
 					</div>
 				</div>
 
@@ -230,9 +335,14 @@
 				</label>
 
 				{#if compareEnabled}
-					<div class="space-y-2">
-						<p class="text-surface-content/80 text-sm font-medium">Comparison period</p>
-						<DateRangeField bind:value={compareRange} periodTypes={[PeriodType.Day]} stepper />
+					<div class="flex flex-wrap items-end gap-4">
+						<div class="w-70 space-y-2">
+							<p class="text-surface-content/80 text-sm font-medium">Comparison period</p>
+							<DateRangeField bind:value={compareRange} periodTypes={[PeriodType.Day]} stepper />
+						</div>
+						<div class="w-24">
+							<DataSourceSelector bind:value={compareSource} />
+						</div>
 					</div>
 				{/if}
 
@@ -342,4 +452,4 @@
 			</div>
 		{/if}
 	{/if}
-</main>
+</div>

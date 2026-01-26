@@ -116,9 +116,13 @@ class TestVelocityOverviewSection(unittest.TestCase):
         self.assertEqual(primary_label, "t1")
         self.assertEqual(compare_label, "t2")
 
+        # Check that key metrics are present (but not Total Vehicles)
         entry_map = {entry["label"]: entry for entry in entries}
-        self.assertEqual(entry_map["Max Velocity"]["change"], "--")
-        self.assertEqual(entry_map["Total Vehicles"]["change"], "+10.0%")
+        self.assertIn("Max Velocity", entry_map)
+        self.assertIn("p50 Velocity", entry_map)
+        self.assertNotIn(
+            "Total Vehicles", entry_map
+        )  # Should not be in comparison table
 
 
 class TestSiteInformationSection(unittest.TestCase):
@@ -248,22 +252,35 @@ class TestSurveyParametersSection(unittest.TestCase):
             min_speed_str="5 mph cutoff",
         )
 
-        # Should append subsection, parameter table, par
-        self.assertGreaterEqual(self.mock_doc.append.call_count, 3)
+        # Should append subsections (hardware and survey), parameter tables, pars
+        self.assertGreaterEqual(self.mock_doc.append.call_count, 6)
 
-        # Should create parameter table with 15 entries
-        mock_create_table.assert_called_once()
-        call_args = mock_create_table.call_args[0][0]
-        self.assertEqual(len(call_args), 15)  # 15 survey parameters
+        # Should create TWO parameter tables now (hardware config + survey params)
+        self.assertEqual(mock_create_table.call_count, 2)
 
-        # Check that key parameters are included
-        keys = [entry["key"] for entry in call_args]
-        self.assertIn("Start time", keys)
-        self.assertIn("End time", keys)
-        self.assertIn("Timezone", keys)
-        self.assertIn("Roll-up Period", keys)
-        self.assertIn("Units", keys)
-        self.assertIn("Radar Sensor", keys)
+        # First call: Hardware configuration (7 entries)
+        hardware_call_args = mock_create_table.call_args_list[0][0][0]
+        self.assertEqual(len(hardware_call_args), 7)  # 7 hardware parameters
+
+        # Second call: Survey parameters (6 entries without comparison)
+        survey_call_args = mock_create_table.call_args_list[1][0][0]
+        self.assertEqual(
+            len(survey_call_args), 6
+        )  # 6 survey parameters (without cosine)
+
+        # Check that key hardware parameters are included
+        hardware_keys = [entry["key"] for entry in hardware_call_args]
+        self.assertIn("Radar Sensor", hardware_keys)
+        self.assertIn("Firmware version", hardware_keys)
+        self.assertIn("Transmit Frequency", hardware_keys)
+
+        # Check that key survey parameters are included
+        survey_keys = [entry["key"] for entry in survey_call_args]
+        self.assertTrue(any("Start time" in k for k in survey_keys))
+        self.assertTrue(any("End time" in k for k in survey_keys))
+        self.assertIn("Timezone", survey_keys)
+        self.assertIn("Roll-up Period", survey_keys)
+        self.assertIn("Units", survey_keys)
 
 
 class TestConvenienceFunctions(unittest.TestCase):

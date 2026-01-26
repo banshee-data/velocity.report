@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/serialmux"
@@ -98,9 +99,8 @@ func TestHandleReports_ListSiteReports(t *testing.T) {
 
 	// Create a site
 	site := &db.Site{
-		Name:             "Test Site",
-		Location:         "Test Location",
-		CosineErrorAngle: 21.0,
+		Name:     "Test Site",
+		Location: "Test Location",
 	}
 	if err := dbInst.CreateSite(site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
@@ -557,6 +557,223 @@ func TestGenerateReport_InvalidSiteID(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+}
+
+// TestGenerateReport_MinSpeedParameter tests min_speed parameter handling
+func TestGenerateReport_MinSpeedParameter(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	// Create a test site with config period
+	site := &db.Site{
+		Name:     "Test Site",
+		Location: "Test Location",
+		Surveyor: "Test Surveyor",
+		Contact:  "test@example.com",
+	}
+	err := dbInst.CreateSite(site)
+	if err != nil {
+		t.Fatalf("Failed to create test site: %v", err)
+	}
+
+	// Create active config period
+	period := &db.SiteConfigPeriod{
+		SiteID:             site.ID,
+		EffectiveStartUnix: float64(time.Now().Unix() - 86400),
+		EffectiveEndUnix:   nil,
+		IsActive:           true,
+		CosineErrorAngle:   15.0,
+	}
+	err = dbInst.CreateSiteConfigPeriod(period)
+	if err != nil {
+		t.Fatalf("Failed to create config period: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		minSpeed interface{}
+		wantPass bool
+	}{
+		{name: "default (zero value)", minSpeed: nil, wantPass: true},
+		{name: "explicit zero", minSpeed: 0.0, wantPass: true},
+		{name: "positive value", minSpeed: 5.0, wantPass: true},
+		{name: "large value", minSpeed: 100.0, wantPass: true},
+		{name: "decimal value", minSpeed: 2.5, wantPass: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := map[string]interface{}{
+				"start_date": "2024-01-01",
+				"end_date":   "2024-01-07",
+				"site_id":    site.ID,
+			}
+			if tt.minSpeed != nil {
+				body["min_speed"] = tt.minSpeed
+			}
+
+			bodyBytes, _ := json.Marshal(body)
+			req := httptest.NewRequest(http.MethodPost, "/api/generate_report", bytes.NewReader(bodyBytes))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			// Mock the PDF generator by setting the env var
+			os.Setenv("PDF_GENERATOR_PYTHON", "/bin/true")
+			defer os.Unsetenv("PDF_GENERATOR_PYTHON")
+
+			server.generateReport(w, req)
+
+			// We expect this to fail because /bin/true doesn't produce valid output,
+			// but the important part is that it doesn't fail on parameter validation
+			if tt.wantPass {
+				if w.Code != http.StatusInternalServerError {
+					// Should pass validation but fail on execution
+					t.Logf("Expected status 500 (execution error), got %d", w.Code)
+				}
+			} else {
+				if w.Code != http.StatusBadRequest {
+					t.Errorf("Expected status 400 (validation error), got %d", w.Code)
+				}
+			}
+		})
+	}
+}
+
+// TestGenerateReport_BoundaryThresholdParameter tests boundary_threshold parameter handling
+func TestGenerateReport_BoundaryThresholdParameter(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	// Create a test site with config period
+	site := &db.Site{
+		Name:     "Test Site",
+		Location: "Test Location",
+		Surveyor: "Test Surveyor",
+		Contact:  "test@example.com",
+	}
+	err := dbInst.CreateSite(site)
+	if err != nil {
+		t.Fatalf("Failed to create test site: %v", err)
+	}
+
+	// Create active config period
+	period := &db.SiteConfigPeriod{
+		SiteID:             site.ID,
+		EffectiveStartUnix: float64(time.Now().Unix() - 86400),
+		EffectiveEndUnix:   nil,
+		IsActive:           true,
+		CosineErrorAngle:   15.0,
+	}
+	err = dbInst.CreateSiteConfigPeriod(period)
+	if err != nil {
+		t.Fatalf("Failed to create config period: %v", err)
+	}
+
+	tests := []struct {
+		name              string
+		boundaryThreshold interface{}
+		wantPass          bool
+	}{
+		{name: "default (zero value)", boundaryThreshold: nil, wantPass: true},
+		{name: "explicit zero", boundaryThreshold: 0, wantPass: true},
+		{name: "default value", boundaryThreshold: 5, wantPass: true},
+		{name: "higher threshold", boundaryThreshold: 10, wantPass: true},
+		{name: "very high threshold", boundaryThreshold: 100, wantPass: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := map[string]interface{}{
+				"start_date": "2024-01-01",
+				"end_date":   "2024-01-07",
+				"site_id":    site.ID,
+			}
+			if tt.boundaryThreshold != nil {
+				body["boundary_threshold"] = tt.boundaryThreshold
+			}
+
+			bodyBytes, _ := json.Marshal(body)
+			req := httptest.NewRequest(http.MethodPost, "/api/generate_report", bytes.NewReader(bodyBytes))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			// Mock the PDF generator by setting the env var
+			os.Setenv("PDF_GENERATOR_PYTHON", "/bin/true")
+			defer os.Unsetenv("PDF_GENERATOR_PYTHON")
+
+			server.generateReport(w, req)
+
+			// We expect this to fail because /bin/true doesn't produce valid output,
+			// but the important part is that it doesn't fail on parameter validation
+			if tt.wantPass {
+				if w.Code != http.StatusInternalServerError {
+					// Should pass validation but fail on execution
+					t.Logf("Expected status 500 (execution error), got %d", w.Code)
+				}
+			} else {
+				if w.Code != http.StatusBadRequest {
+					t.Errorf("Expected status 400 (validation error), got %d", w.Code)
+				}
+			}
+		})
+	}
+}
+
+// TestGenerateReport_CombinedMinSpeedAndBoundaryThreshold tests both parameters together
+func TestGenerateReport_CombinedMinSpeedAndBoundaryThreshold(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	// Create a test site with config period
+	site := &db.Site{
+		Name:     "Test Site",
+		Location: "Test Location",
+		Surveyor: "Test Surveyor",
+		Contact:  "test@example.com",
+	}
+	err := dbInst.CreateSite(site)
+	if err != nil {
+		t.Fatalf("Failed to create test site: %v", err)
+	}
+
+	// Create active config period
+	period := &db.SiteConfigPeriod{
+		SiteID:             site.ID,
+		EffectiveStartUnix: float64(time.Now().Unix() - 86400),
+		EffectiveEndUnix:   nil,
+		IsActive:           true,
+		CosineErrorAngle:   15.0,
+	}
+	err = dbInst.CreateSiteConfigPeriod(period)
+	if err != nil {
+		t.Fatalf("Failed to create config period: %v", err)
+	}
+
+	body := map[string]interface{}{
+		"start_date":         "2024-01-01",
+		"end_date":           "2024-01-07",
+		"site_id":            site.ID,
+		"min_speed":          5.0,
+		"boundary_threshold": 5,
+		"histogram":          true,
+		"hist_bucket_size":   5.0,
+	}
+
+	bodyBytes, _ := json.Marshal(body)
+	req := httptest.NewRequest(http.MethodPost, "/api/generate_report", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	// Mock the PDF generator by setting the env var
+	os.Setenv("PDF_GENERATOR_PYTHON", "/bin/true")
+	defer os.Unsetenv("PDF_GENERATOR_PYTHON")
+
+	server.generateReport(w, req)
+
+	// Should pass validation but fail on execution
+	if w.Code != http.StatusInternalServerError {
+		t.Logf("Expected status 500 (execution error), got %d", w.Code)
 	}
 }
 

@@ -17,7 +17,8 @@ internal/db/schema.sql.bak
 .venv/
 venv/
 
-__pycache__/*
+__pycache__/
+**/__pycache__/
 matplotlib/__pycache__/*
 tools/__pycache__/*
 tools/grid-heatmap/__pycache__/*
@@ -38,3 +39,9 @@ velocity-report-*
 mock_serial_port*
 coverage*
 velocity-deploy*
+
+# Test artifacts
+*_velocity.report_*.pdf
+*_velocity.report_*.zip
+*_velocity.report_*.tex
+histogram_*.png

@@ -465,8 +465,10 @@ class TestHistogramComparisonTableBuilder(unittest.TestCase):
         added_rows = [call.args[0] for call in mock_table.add_row.call_args_list]
         row_cells = [str(cell) for row in added_rows for cell in row]
         self.assertTrue(any("0-5" in cell for cell in row_cells))
-        self.assertTrue(any("10+" in cell for cell in row_cells))
-        self.assertTrue(any("--" in cell for cell in row_cells))
+        # With max_bucket=15, ranges are (5-10), (10-15), then "15+"
+        self.assertTrue(any("10-15" in cell for cell in row_cells))
+        # Delta column now shows percentage point differences, not "--" for zero counts
+        self.assertTrue(any("+" in cell or "-" in cell for cell in row_cells))
 
 
 class TestConvenienceFunctions(unittest.TestCase):

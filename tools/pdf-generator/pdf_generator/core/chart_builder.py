@@ -131,11 +131,16 @@ class TimeSeriesChartBuilder:
         # Use simple integer indices for x-axis to eliminate gaps
         x_indices = list(range(len(times)))
 
+        # Calculate day boundaries for line breaks
+        day_boundaries = self._calculate_day_boundaries(times)
+
         # Debug output if enabled
         self._debug_output(x_indices, counts, p50_f)
 
-        # Plot percentile lines
-        self._plot_percentile_lines(ax, x_indices, p50_f, p85_f, p98_f, mx_f)
+        # Plot percentile lines with breaks at day boundaries
+        self._plot_percentile_lines(
+            ax, x_indices, p50_f, p85_f, p98_f, mx_f, day_boundaries
+        )
 
         # Configure left axis (speed)
         self._configure_speed_axis(ax, units)
@@ -270,6 +275,17 @@ class TimeSeriesChartBuilder:
         except Exception:
             pass
 
+    def _calculate_day_boundaries(self, times: List[datetime]) -> List[int]:
+        """Calculate indices where day boundaries occur."""
+        if not times:
+            return []
+
+        day_boundaries = [0]  # Always include first index
+        for idx in range(1, len(times)):
+            if times[idx].date() != times[idx - 1].date():
+                day_boundaries.append(idx)
+        return day_boundaries
+
     def _plot_percentile_lines(
         self,
         ax,
@@ -278,50 +294,110 @@ class TimeSeriesChartBuilder:
         p85_f: np.ndarray,
         p98_f: np.ndarray,
         mx_f: np.ndarray,
+        day_boundaries: List[int],
     ) -> None:
-        """Plot percentile lines."""
-        # Plot each percentile line
-        ax.plot(
-            x_indices,
-            p50_f,
-            label="p50",
-            marker="^",
-            color=self.colors["p50"],
-            linewidth=self.layout["line_width"],
-            markersize=self.layout["marker_size"],
-            markeredgewidth=self.layout["marker_edge_width"],
-        )
-        ax.plot(
-            x_indices,
-            p85_f,
-            label="p85",
-            marker="s",
-            color=self.colors["p85"],
-            linewidth=self.layout["line_width"],
-            markersize=self.layout["marker_size"],
-            markeredgewidth=self.layout["marker_edge_width"],
-        )
-        ax.plot(
-            x_indices,
-            p98_f,
-            label="p98",
-            marker="o",
-            color=self.colors["p98"],
-            linewidth=self.layout["line_width"],
-            markersize=self.layout["marker_size"],
-            markeredgewidth=self.layout["marker_edge_width"],
-        )
-        ax.plot(
-            x_indices,
-            mx_f,
-            label="Max",
-            marker="x",
-            linestyle="--",
-            color=self.colors["max"],
-            linewidth=self.layout["line_width"],
-            markersize=self.layout["marker_size"],
-            markeredgewidth=self.layout["marker_edge_width"],
-        )
+        """Plot percentile lines with breaks at day boundaries."""
+        # If no day boundaries or only one day, plot normally
+        if not day_boundaries or len(day_boundaries) <= 1:
+            self._plot_line_segment(
+                ax, x_indices, p50_f, "p50", "^", self.colors["p50"]
+            )
+            self._plot_line_segment(
+                ax, x_indices, p85_f, "p85", "s", self.colors["p85"]
+            )
+            self._plot_line_segment(
+                ax, x_indices, p98_f, "p98", "o", self.colors["p98"]
+            )
+            self._plot_line_segment(
+                ax, x_indices, mx_f, "Max", "x", self.colors["max"], linestyle="--"
+            )
+            return
+
+        # Plot each day as a separate segment to avoid connecting across days
+        for day_idx in range(len(day_boundaries)):
+            start_idx = day_boundaries[day_idx]
+            end_idx = (
+                day_boundaries[day_idx + 1]
+                if day_idx + 1 < len(day_boundaries)
+                else len(x_indices)
+            )
+
+            # Extract segment data
+            x_segment = x_indices[start_idx:end_idx]
+            p50_segment = p50_f[start_idx:end_idx]
+            p85_segment = p85_f[start_idx:end_idx]
+            p98_segment = p98_f[start_idx:end_idx]
+            mx_segment = mx_f[start_idx:end_idx]
+
+            # Only add label on first segment
+            self._plot_line_segment(
+                ax,
+                x_segment,
+                p50_segment,
+                "p50" if day_idx == 0 else "",
+                "^",
+                self.colors["p50"],
+            )
+            self._plot_line_segment(
+                ax,
+                x_segment,
+                p85_segment,
+                "p85" if day_idx == 0 else "",
+                "s",
+                self.colors["p85"],
+            )
+            self._plot_line_segment(
+                ax,
+                x_segment,
+                p98_segment,
+                "p98" if day_idx == 0 else "",
+                "o",
+                self.colors["p98"],
+            )
+            self._plot_line_segment(
+                ax,
+                x_segment,
+                mx_segment,
+                "Max" if day_idx == 0 else "",
+                "x",
+                self.colors["max"],
+                linestyle="--",
+            )
+
+    def _plot_line_segment(
+        self,
+        ax,
+        x_data: List[int],
+        y_data: np.ndarray,
+        label: str,
+        marker: str,
+        color: str,
+        linestyle: str = "-",
+    ) -> None:
+        """Plot a single line segment."""
+        if not label:  # Empty string means no label (for subsequent segments)
+            ax.plot(
+                x_data,
+                y_data,
+                marker=marker,
+                color=color,
+                linewidth=self.layout["line_width"],
+                markersize=self.layout["marker_size"],
+                markeredgewidth=self.layout["marker_edge_width"],
+                linestyle=linestyle,
+            )
+        else:
+            ax.plot(
+                x_data,
+                y_data,
+                label=label,
+                marker=marker,
+                color=color,
+                linewidth=self.layout["line_width"],
+                markersize=self.layout["marker_size"],
+                markeredgewidth=self.layout["marker_edge_width"],
+                linestyle=linestyle,
+            )
 
     def _configure_speed_axis(self, ax, units: str) -> None:
         """Configure left Y-axis (speed)."""
@@ -502,39 +578,61 @@ class TimeSeriesChartBuilder:
         try:
             import matplotlib.ticker as ticker
 
+            # Calculate day boundaries
+            day_boundaries = self._calculate_day_boundaries(times)
+
+            # Build custom tick locations: first of each day + every 2-3 periods within each day
+            custom_ticks = []
+            for day_idx, boundary_start in enumerate(day_boundaries):
+                # Add the first period of the day
+                custom_ticks.append(boundary_start)
+
+                # Find the next day boundary (or end of data)
+                if day_idx + 1 < len(day_boundaries):
+                    boundary_end = day_boundaries[day_idx + 1]
+                else:
+                    boundary_end = len(times)
+
+                # Add ticks every 2-3 periods after the first
+                # Use step of 3 for more spacing
+                step = 3
+                tick = boundary_start + step
+                while tick < boundary_end:
+                    custom_ticks.append(tick)
+                    tick += step
+
+            # Remove duplicates and sort
+            custom_ticks = sorted(set(custom_ticks))
+
             # Determine date/time format based on range
             def format_concise_date(x, pos=None):
                 idx = int(round(x))
                 if 0 <= idx < len(times):
                     dt = times[idx]
-                    # Check if date should be shown
-                    show_date = False
-                    if idx == 0:
-                        show_date = True
-                    elif idx > 0:
-                        prev = times[idx - 1]
-                        if dt.date() != prev.date():
-                            show_date = True
+                    # Check if this is the first period of a day
+                    is_day_start = idx in day_boundaries
 
-                    # Also show date if gap > 4 hours to help orient
-                    if idx > 0 and not show_date:
-                        prev = times[idx - 1]
-                        delta = (dt - prev).total_seconds()
-                        if delta > 4 * 3600:
-                            show_date = True
-
-                    if show_date:
+                    if is_day_start:
                         return dt.strftime("%b %d\n%H:%M")
                     else:
                         return dt.strftime("%H:%M")
                 return ""
 
-            # Set locator to pick nice integer skips
-            # nbins=8 is a reasonable default for standard width charts
-            ax.xaxis.set_major_locator(
-                ticker.MaxNLocator(nbins=10, integer=True, steps=[1, 2, 5, 10])
-            )
+            ax.xaxis.set_major_locator(ticker.FixedLocator(custom_ticks))
             ax.xaxis.set_major_formatter(ticker.FuncFormatter(format_concise_date))
+
+            # Add vertical lines at day boundaries to visually separate days
+            # Position the line between the last bar of previous day and first bar of new day
+            for boundary_idx in day_boundaries[1:]:
+                if boundary_idx < len(times):
+                    ax.axvline(
+                        x=boundary_idx - 0.5,
+                        color="gray",
+                        linestyle="--",
+                        linewidth=0.5,
+                        alpha=0.3,
+                        zorder=1,
+                    )
 
             # Hide offset text (exponent)
             try:
@@ -597,6 +695,7 @@ class HistogramChartBuilder:
         title: str,
         units: str,
         debug: bool = False,
+        max_bucket: Optional[float] = None,
     ) -> object:
         """Build histogram chart from bucket data.
 
@@ -605,6 +704,7 @@ class HistogramChartBuilder:
             title: Chart title
             units: Units string for X-axis label (e.g., "mph")
             debug: Enable debug output
+            max_bucket: Maximum bucket value for cutoff (affects label formatting)
 
         Returns:
             matplotlib Figure object
@@ -644,7 +744,7 @@ class HistogramChartBuilder:
         ax.set_title(title, fontsize=self.fonts["histogram_title"])
 
         # Format X-axis labels
-        formatted_labels = self._format_labels(labels)
+        formatted_labels = self._format_labels(labels, max_bucket)
         self._set_tick_labels(ax, x, formatted_labels)
 
         # Apply styling
@@ -713,10 +813,28 @@ class HistogramChartBuilder:
                 int(compare_histogram.get(key, 0) or 0) for key in all_keys
             ]
 
+        # Convert counts to percentages
+        primary_total = sum(primary_counts)
+        compare_total = sum(compare_counts)
+
+        if primary_total > 0:
+            primary_percentages = [
+                (count / primary_total) * 100.0 for count in primary_counts
+            ]
+        else:
+            primary_percentages = [0.0] * len(primary_counts)
+
+        if compare_total > 0:
+            compare_percentages = [
+                (count / compare_total) * 100.0 for count in compare_counts
+            ]
+        else:
+            compare_percentages = [0.0] * len(compare_counts)
+
         if debug:
             print(
                 "DEBUG: comparison histogram bins={} primary_total={} compare_total={}".format(
-                    len(labels), sum(primary_counts), sum(compare_counts)
+                    len(labels), primary_total, compare_total
                 )
             )
 
@@ -730,7 +848,7 @@ class HistogramChartBuilder:
 
         ax.bar(
             primary_positions,
-            primary_counts,
+            primary_percentages,
             width=bar_width,
             alpha=0.75,
             color=primary_colour,
@@ -740,7 +858,7 @@ class HistogramChartBuilder:
         )
         ax.bar(
             compare_positions,
-            compare_counts,
+            compare_percentages,
             width=bar_width,
             alpha=0.75,
             color=compare_colour,
@@ -750,7 +868,7 @@ class HistogramChartBuilder:
         )
 
         ax.set_xlabel(f"Velocity ({units})", fontsize=self.fonts["histogram_label"])
-        ax.set_ylabel("Count", fontsize=self.fonts["histogram_label"])
+        ax.set_ylabel("Percentage (%)", fontsize=self.fonts["histogram_label"])
         ax.set_title(title, fontsize=self.fonts["histogram_title"])
 
         formatted_labels = self._format_labels(labels)
@@ -773,49 +891,25 @@ class HistogramChartBuilder:
 
         return fig
 
-    def _format_labels(self, labels: List[str]) -> List[str]:
+    def _format_labels(
+        self, labels: List[str], max_bucket: Optional[float] = None
+    ) -> List[str]:
         """Format histogram labels to match table format (e.g., '5-10', '50+').
 
-        Converts bucket start values to range labels:
-        - Single values like '5', '10' → '5-10', '10-15', etc.
-        - Detects bucket size from consecutive labels
-        - Last bucket formatted as 'N+' (open-ended)
-        - Non-numeric labels passed through unchanged
+        Delegates to the shared format_histogram_labels function to ensure
+        consistency between chart and table label formatting.
+
+        Args:
+            labels: List of bucket label strings
+            max_bucket: Optional maximum bucket value for cutoff
+
+        Returns:
+            List of formatted label strings
         """
-        formatted = []
+        # Import here to avoid circular imports
+        from pdf_generator.core.stats_utils import format_histogram_labels
 
-        # Try to parse labels as floats to detect ranges
-        numeric_labels = []
-        for lbl in labels:
-            try:
-                numeric_labels.append(float(lbl))
-            except Exception:
-                # Non-numeric label - pass through as-is
-                formatted.append(str(lbl))
-                continue
-
-        # If we have numeric labels, convert to ranges
-        if numeric_labels:
-            # Detect bucket size from first two consecutive labels
-            bucket_size = None
-            if len(numeric_labels) >= 2:
-                bucket_size = numeric_labels[1] - numeric_labels[0]
-
-            for i, val in enumerate(numeric_labels):
-                is_last = i == len(numeric_labels) - 1
-
-                if is_last:
-                    # Last bucket: format as "N+" (open-ended)
-                    formatted.append(f"{int(val)}+")
-                elif bucket_size:
-                    # Regular bucket: format as "A-B"
-                    next_val = val + bucket_size
-                    formatted.append(f"{int(val)}-{int(next_val)}")
-                else:
-                    # Fallback: just show the value
-                    formatted.append(f"{int(val)}")
-
-        return formatted
+        return format_histogram_labels(labels, max_bucket)
 
     def _set_tick_labels(self, ax, x: List[int], formatted_labels: List[str]) -> None:
         """Set X-axis tick labels with responsive thinning."""

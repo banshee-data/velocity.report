@@ -32,7 +32,7 @@ matplotlib==3.10.8
     #   seaborn
 mypy-extensions==1.1.0
     # via black
-numpy==2.4.0
+numpy==2.3.3
     # via
     #   -r requirements.in
     #   contourpy
@@ -47,7 +47,7 @@ packaging==25.0
     #   black
     #   matplotlib
     #   pytest
-pandas==2.3.3
+pandas==2.2.3
     # via
     #   -r requirements.in
     #   seaborn

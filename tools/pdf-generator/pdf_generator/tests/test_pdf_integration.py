@@ -149,6 +149,9 @@ class TestPDFIntegrationConsolidated(unittest.TestCase):
                     tz_name="US/Pacific",
                     charts_prefix="test",
                     speed_limit=25,
+                    # Original date strings from datepicker (required)
+                    start_date="2025-06-02",
+                    end_date="2025-06-04",
                 )
             except Exception:
                 # Expected to fail without LaTeX compiler
@@ -282,6 +285,9 @@ class TestPDFIntegrationConsolidated(unittest.TestCase):
                     tz_name="UTC",
                     charts_prefix="edge",
                     speed_limit=25,
+                    # Original date strings from datepicker (required)
+                    start_date="2025-06-02",
+                    end_date="2025-06-04",
                 )
             except Exception:
                 # Expected to fail without a LaTeX compiler available in CI
@@ -402,6 +408,9 @@ class TestPDFIntegrationConsolidated(unittest.TestCase):
                         tz_name="UTC",
                         charts_prefix="font",
                         speed_limit=25,
+                        # Original date strings from datepicker (required)
+                        start_date="2025-06-02",
+                        end_date="2025-06-04",
                     )
                 except Exception:
                     # May fail due to missing LaTeX, but we're testing font fallback
@@ -411,6 +420,192 @@ class TestPDFIntegrationConsolidated(unittest.TestCase):
                 self.assertTrue(
                     mock_exists.called, "Font fallback check should be triggered"
                 )
+
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
+    def test_date_consistency_no_plus_one_day(
+        self, mock_chart_exists, mock_map_processor
+    ):
+        """Verify dates are consistent throughout the document.
+
+        This test catches the bug where end_of_day timestamps (23:59:59)
+        were being extracted and displayed as the next day (+1 day error).
+
+        The test uses dates where timestamp-based extraction could show wrong dates:
+        - User selects June 2-4 in datepicker
+        - ISO timestamps are 2025-06-02T00:00:00 to 2025-06-04T23:59:59
+        - The document should show June 2-4, NOT June 2-5
+
+        Validates:
+        - Footer shows correct dates (not +1 day)
+        - Overview shows correct dates
+        - No occurrence of the wrong end date anywhere
+        """
+        mock_chart_exists.return_value = False
+        mock_processor = MagicMock()
+        mock_processor.process_map.return_value = (False, None)
+        mock_map_processor.return_value = mock_processor
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "date_test.pdf")
+
+            # User selected June 2-4 in datepicker
+            start_date = "2025-06-02"
+            end_date = "2025-06-04"
+
+            # ISO timestamps include 23:59:59 on end date to include full day
+            # This is where the bug occurred - extracting [:10] from end_iso could
+            # show 2025-06-05 if timezone conversion went wrong
+            start_iso = "2025-06-02T00:00:00-07:00"
+            end_iso = "2025-06-04T23:59:59-07:00"
+
+            try:
+                generate_pdf_report(
+                    output_path=output_path,
+                    start_iso=start_iso,
+                    end_iso=end_iso,
+                    group="1h",
+                    units="mph",
+                    timezone_display="US/Pacific",
+                    min_speed_str="5.0 mph",
+                    location="Test Location",
+                    overall_metrics=self.overall_metrics,
+                    daily_metrics=None,
+                    granular_metrics=[],
+                    histogram={},
+                    tz_name="US/Pacific",
+                    charts_prefix="date_test",
+                    speed_limit=25,
+                    # These are the original date strings from the datepicker
+                    # They should be used as-is throughout the document
+                    start_date=start_date,
+                    end_date=end_date,
+                )
+            except Exception:
+                pass
+
+            tex_path = output_path.replace(".pdf", ".tex")
+            self.assertTrue(os.path.exists(tex_path))
+
+            with open(tex_path, "r") as f:
+                content = f.read()
+
+            # The correct end date should appear in footer
+            self.assertIn(
+                f"{start_date} to {end_date}",
+                content,
+                f"Footer should show '{start_date} to {end_date}' (original dates)",
+            )
+
+            # The WRONG end date should NOT appear in the footer
+            wrong_end_date = "2025-06-05"
+            self.assertNotIn(
+                f"to {wrong_end_date}",
+                content,
+                f"Footer should NOT show '{wrong_end_date}' (+1 day error)",
+            )
+
+            # Verify correct dates in overview section (now in bullet points)
+            # Should show as: \item \textbf{Period:} 2025-06-02 to 2025-06-04
+            self.assertIn(
+                f"{start_date} to {end_date}",
+                content,
+                "Overview should show correct date range",
+            )
+            # Verify NO occurrence of wrong date
+            self.assertNotIn(
+                wrong_end_date,
+                content,
+                f"Should NOT show {wrong_end_date} anywhere in document",
+            )
+
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
+    def test_comparison_date_consistency(self, mock_chart_exists, mock_map_processor):
+        """Verify comparison period dates are consistent throughout.
+
+        Similar to test_date_consistency_no_plus_one_day but for comparison periods.
+        """
+        mock_chart_exists.return_value = False
+        mock_processor = MagicMock()
+        mock_processor.process_map.return_value = (False, None)
+        mock_map_processor.return_value = mock_processor
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "compare_date_test.pdf")
+
+            # Primary period: June 2-4
+            start_date = "2025-06-02"
+            end_date = "2025-06-04"
+            start_iso = "2025-06-02T00:00:00-07:00"
+            end_iso = "2025-06-04T23:59:59-07:00"
+
+            # Comparison period: January 15-19
+            compare_start_date = "2026-01-15"
+            compare_end_date = "2026-01-19"
+            compare_start_iso = "2026-01-15T00:00:00-08:00"
+            compare_end_iso = "2026-01-19T23:59:59-08:00"
+
+            try:
+                generate_pdf_report(
+                    output_path=output_path,
+                    start_iso=start_iso,
+                    end_iso=end_iso,
+                    compare_start_iso=compare_start_iso,
+                    compare_end_iso=compare_end_iso,
+                    group="1h",
+                    units="mph",
+                    timezone_display="US/Pacific",
+                    min_speed_str="5.0 mph",
+                    location="Test Location",
+                    overall_metrics=self.overall_metrics,
+                    compare_overall_metrics=self.overall_metrics,
+                    daily_metrics=None,
+                    compare_daily_metrics=None,
+                    granular_metrics=[],
+                    compare_granular_metrics=[],
+                    histogram={},
+                    compare_histogram={},
+                    tz_name="US/Pacific",
+                    charts_prefix="compare_date_test",
+                    speed_limit=25,
+                    # Original date strings from datepicker
+                    start_date=start_date,
+                    end_date=end_date,
+                    compare_start_date=compare_start_date,
+                    compare_end_date=compare_end_date,
+                )
+            except Exception:
+                pass
+
+            tex_path = output_path.replace(".pdf", ".tex")
+            self.assertTrue(os.path.exists(tex_path))
+
+            with open(tex_path, "r") as f:
+                content = f.read()
+
+            # Footer should show both periods with correct dates
+            expected_footer = (
+                f"{start_date} to {end_date} vs "
+                f"{compare_start_date} to {compare_end_date}"
+            )
+            self.assertIn(
+                expected_footer,
+                content,
+                f"Footer should show '{expected_footer}'",
+            )
+
+            # Wrong dates should NOT appear
+            self.assertNotIn(
+                "2025-06-05",
+                content,
+                "Should NOT show June 5 (+1 day error on primary)",
+            )
+            self.assertNotIn(
+                "2026-01-20",
+                content,
+                "Should NOT show Jan 20 (+1 day error on comparison)",
+            )
 
 
 if __name__ == "__main__":

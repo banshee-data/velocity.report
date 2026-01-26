@@ -200,6 +200,10 @@ class DocumentBuilder:
         location: str,
         compare_start_iso: Optional[str] = None,
         compare_end_iso: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        compare_start_date: Optional[str] = None,
+        compare_end_date: Optional[str] = None,
     ) -> None:
         """Configure page header with fancyhdr.
 
@@ -208,6 +212,12 @@ class DocumentBuilder:
             start_iso: Start date in ISO format
             end_iso: End date in ISO format
             location: Location name for header
+            compare_start_iso: Optional comparison start date in ISO format
+            compare_end_iso: Optional comparison end date in ISO format
+            start_date: Original start date string for display (if None, uses start_iso[:10])
+            end_date: Original end date string for display (if None, uses end_iso[:10])
+            compare_start_date: Original comparison start date for display
+            compare_end_date: Original comparison end date for display
         """
         doc.append(NoEscape("\\pagestyle{fancy}"))
         doc.append(NoEscape("\\fancyhf{}"))
@@ -222,13 +232,14 @@ class DocumentBuilder:
         doc.append(NoEscape(f"\\fancyhead[R]{{ \\textit{{{escaped_location}}}}}"))
         doc.append(NoEscape("\\renewcommand{\\headrulewidth}{0.8pt}"))
         # Add footer with date range on left and page number on right
-        if compare_start_iso and compare_end_iso:
+        # Use original date strings (single source of truth from datepicker - no fallbacks)
+        if compare_start_date and compare_end_date:
             footer_range = (
-                f"{start_iso[:10]} to {end_iso[:10]} vs "
-                f"{compare_start_iso[:10]} to {compare_end_iso[:10]}"
+                f"{start_date} to {end_date} vs "
+                f"{compare_start_date} to {compare_end_date}"
             )
         else:
-            footer_range = f"{start_iso[:10]} to {end_iso[:10]}"
+            footer_range = f"{start_date} to {end_date}"
         doc.append(NoEscape(f"\\fancyfoot[L]{{\\small {footer_range}}}"))
         doc.append(NoEscape("\\fancyfoot[R]{\\small Page \\thepage}"))
         doc.append(NoEscape("\\renewcommand{\\footrulewidth}{0.8pt}"))
@@ -271,6 +282,10 @@ class DocumentBuilder:
         contact: Optional[str] = None,
         compare_start_iso: Optional[str] = None,
         compare_end_iso: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        compare_start_date: Optional[str] = None,
+        compare_end_date: Optional[str] = None,
     ) -> Document:
         """Build complete configured document (convenience method).
 
@@ -282,6 +297,10 @@ class DocumentBuilder:
             location: Location name
             surveyor: Surveyor name (uses default if not provided)
             contact: Contact email (uses default if not provided)
+            start_date: Original start date string for display (if None, uses start_iso[:10])
+            end_date: Original end date string for display (if None, uses end_iso[:10])
+            compare_start_date: Original comparison start date string for display
+            compare_end_date: Original comparison end date string for display
 
         Returns:
             Fully configured Document ready for content addition
@@ -308,7 +327,16 @@ class DocumentBuilder:
 
         # Setup header
         self.setup_header(
-            doc, start_iso, end_iso, location, compare_start_iso, compare_end_iso
+            doc,
+            start_iso,
+            end_iso,
+            location,
+            compare_start_iso,
+            compare_end_iso,
+            start_date,
+            end_date,
+            compare_start_date,
+            compare_end_date,
         )
 
         # Begin two-column layout

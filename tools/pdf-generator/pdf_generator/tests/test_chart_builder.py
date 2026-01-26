@@ -594,8 +594,8 @@ class TestPlotPercentileLines(unittest.TestCase):
         p98 = np.array([43.0, 44.1, 42.3])
         mx = np.array([53.5, 54.2, 52.1])
 
-        # Should not raise
-        self.builder._plot_percentile_lines(self.ax, times, p50, p85, p98, mx)
+        # Should not raise - pass None for day_boundaries (single day)
+        self.builder._plot_percentile_lines(self.ax, times, p50, p85, p98, mx, None)
 
         # Verify lines were added
         lines = self.ax.get_lines()

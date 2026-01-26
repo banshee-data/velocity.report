@@ -29,13 +29,14 @@
 		components: {
 			AppLayout: {
 				classes: {
-					aside: 'border-r border-surface-300/80',
-					nav: 'bg-surface-300/30'
+					aside:
+						'border-r border-surface-300/80 top-[var(--headerHeight)] h-[calc(100%-var(--headerHeight))] md:top-0',
+					nav: 'bg-surface-100'
 				}
 			},
 			AppBar: {
 				classes:
-					'bg-primary text-primary-content shadow-md \
+					'bg-primary text-primary-content shadow-md z-[60] \
 					[text-shadow:1px_1px_2px_var(--color-primary-400)]'
 			},
 			NavItem: {

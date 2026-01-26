@@ -37,6 +37,7 @@ from pdf_generator.core.stats_utils import (
     process_histogram,
     count_in_histogram_range,
     count_histogram_ge,
+    compute_histogram_ranges,
 )
 from pdf_generator.core.data_transformers import (
     MetricsNormalizer,
@@ -67,11 +68,14 @@ class StatsTableBuilder:
 
         self.normalizer = MetricsNormalizer()
 
-    def build_header(self, include_start_time: bool = True) -> List[str]:
+    def build_header(
+        self, include_start_time: bool = True, units: str = "mph"
+    ) -> List[str]:
         """Build table header cells with proper formatting.
 
         Args:
             include_start_time: Whether to include start time column
+            units: Units string for velocity measurements
 
         Returns:
             List of NoEscape formatted header cells
@@ -83,20 +87,29 @@ class StatsTableBuilder:
                 NoEscape(r"\multicolumn{1}{l}{\sffamily\bfseries Start Time}")
             )
 
+        units_escaped = escape_latex(units)
         header_cells.extend(
             [
                 NoEscape(r"\multicolumn{1}{r}{\sffamily\bfseries Count}"),
                 NoEscape(
-                    r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack{p50 \\ (mph)}}"
+                    r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack{p50 \\ ("
+                    + units_escaped
+                    + r")}}"
                 ),
                 NoEscape(
-                    r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack{p85 \\ (mph)}}"
+                    r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack{p85 \\ ("
+                    + units_escaped
+                    + r")}}"
                 ),
                 NoEscape(
-                    r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack{p98 \\ (mph)}}"
+                    r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack{p98 \\ ("
+                    + units_escaped
+                    + r")}}"
                 ),
                 NoEscape(
-                    r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack{Max \\ (mph)}}"
+                    r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack{Max \\ ("
+                    + units_escaped
+                    + r")}}"
                 ),
             ]
         )
@@ -182,7 +195,7 @@ class StatsTableBuilder:
         table = Tabular(body_spec)
 
         # Add header row
-        header_cells = self.build_header(include_start_time)
+        header_cells = self.build_header(include_start_time, units)
         table.add_row(header_cells)
         table.add_hline()
 
@@ -235,7 +248,7 @@ class StatsTableBuilder:
         all_data_rows = self.build_rows(stats, include_start_time=True, tz_name=tz_name)
 
         # Build header cells
-        header_cells = self.build_header(include_start_time=True)
+        header_cells = self.build_header(include_start_time=True, units=units)
 
         # Column spec
         body_spec = ">{\\AtkinsonMono}l" + (">{\\AtkinsonMono}r" * 5)
@@ -338,18 +351,18 @@ class ComparisonSummaryTableBuilder:
             PyLaTeX Tabular object
         """
         table = Tabular(
-            ">{\\AtkinsonMono}l>{\\AtkinsonMono}r>{\\AtkinsonMono}r>{\\AtkinsonMono}r"
+            r">{\AtkinsonMono}l>{\AtkinsonMono}r>{\AtkinsonMono}r>{\AtkinsonMono}r"
         )
 
         header_cells = [
             NoEscape(r"\multicolumn{1}{l}{\sffamily\bfseries Metric}"),
             NoEscape(
-                r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{"
+                r"\multicolumn{1}{l}{\sffamily\bfseries \shortstack[l]{Period "
                 + escape_latex(primary_label).replace(" to ", r" to \\ ")
                 + r"}}"
             ),
             NoEscape(
-                r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{"
+                r"\multicolumn{1}{l}{\sffamily\bfseries \shortstack[l]{Period "
                 + escape_latex(compare_label).replace(" to ", r" to \\ ")
                 + r"}}"
             ),
@@ -363,6 +376,7 @@ class ComparisonSummaryTableBuilder:
             primary = entry.get("primary", "--")
             compare = entry.get("compare", "--")
             change = entry.get("change", "--")
+
             table.add_row(
                 [
                     NoEscape(escape_latex(label)),
@@ -477,43 +491,11 @@ class HistogramTableBuilder:
     ) -> List[tuple]:
         """Compute bucket ranges from actual data.
 
-        The last bucket will always be shown as N+ where N is the start of the
-        highest bucket with actual data, not max_bucket. This matches the chart behavior.
+        Delegates to the shared compute_histogram_ranges function to ensure
+        consistency between chart and table bucket boundaries.
         """
-        ranges = []
-        inferred_bucket = float(bucket_size)
-
-        if not numeric_buckets:
-            return fallback_ranges
-
-        try:
-            sorted_keys = sorted(numeric_buckets.keys())
-
-            # Infer bucket size from data
-            if len(sorted_keys) > 1:
-                diffs = [j - i for i, j in zip(sorted_keys[:-1], sorted_keys[1:])]
-                positive_diffs = [d for d in diffs if d > 0]
-                if positive_diffs:
-                    inferred_bucket = float(min(positive_diffs))
-
-            min_k = float(sorted_keys[0])
-            max_k = float(sorted_keys[-1])
-
-            # Guard against pathological zero bucket
-            if inferred_bucket <= 0:
-                inferred_bucket = float(bucket_size) or 5.0
-
-            # Build ranges from min_k up to max_k (highest bucket with data)
-            # Ignore max_bucket parameter - we only show buckets with actual data
-            s = min_k
-            while s <= max_k:
-                ranges.append((s, s + inferred_bucket))
-                s += inferred_bucket
-
-        except Exception:
-            return fallback_ranges
-
-        return ranges
+        ranges = compute_histogram_ranges(numeric_buckets, bucket_size, max_bucket)
+        return ranges if ranges else fallback_ranges
 
     def _add_histogram_rows(
         self,
@@ -527,8 +509,8 @@ class HistogramTableBuilder:
     ) -> None:
         """Add histogram data rows to table.
 
-        The last bucket is always shown as N+ where N is the start of the highest
-        bucket with actual data, matching the chart behavior.
+        If max_bucket is set, creates buckets up to max_bucket with a final "max_bucket+"
+        bucket. If not set, the last range becomes an open-ended "N+" bucket.
         """
         first_start = ranges[0][0]
 
@@ -545,26 +527,35 @@ class HistogramTableBuilder:
             )
 
         # Bucket rows
-        for idx, (a, b) in enumerate(ranges):
-            is_last = idx == len(ranges) - 1
-
-            if is_last:
-                # Last bucket: render as "N+" where N is the start of this bucket
-                # This matches the chart behavior (highest bucket with data as N+)
-                label = f"{int(a)}+"
-                cnt = count_histogram_ge(numeric_buckets, a)
-                pct = (cnt / total * 100.0) if total > 0 else 0.0
-            else:
-                # Regular bucket: render as "A-B"
-                cnt = count_in_histogram_range(numeric_buckets, a, b)
-                pct = (cnt / total * 100.0) if total > 0 else 0.0
-                label = f"{int(a)}-{int(b)}"
+        for a, b in ranges:
+            # Regular bucket: render as "A-B"
+            cnt = count_in_histogram_range(numeric_buckets, a, b)
+            pct = (cnt / total * 100.0) if total > 0 else 0.0
+            label = f"{int(a)}-{int(b)}"
 
             table.add_row(
                 [
                     NoEscape(escape_latex(label)),
                     NoEscape(escape_latex(str(int(cnt)))),
                     NoEscape(escape_latex(f"{pct:.1f}%")),
+                ]
+            )
+
+        # Final open-ended bucket
+        # If max_bucket is set, use it; otherwise use the end of the last range
+        if max_bucket is not None and max_bucket > 0:
+            final_cutoff = max_bucket
+        else:
+            final_cutoff = ranges[-1][1] if ranges else proc_max
+
+        cnt_ge = count_histogram_ge(numeric_buckets, final_cutoff)
+        if cnt_ge > 0:
+            pct_ge = (cnt_ge / total * 100.0) if total > 0 else 0.0
+            table.add_row(
+                [
+                    NoEscape(escape_latex(f"{int(final_cutoff)}+")),
+                    NoEscape(escape_latex(str(int(cnt_ge)))),
+                    NoEscape(escape_latex(f"{pct_ge:.1f}%")),
                 ]
             )
 
@@ -703,8 +694,13 @@ def create_histogram_comparison_table(
         ">{\\AtkinsonMono}l>{\\AtkinsonMono}r>{\\AtkinsonMono}r>{\\AtkinsonMono}r>{\\AtkinsonMono}r>{\\AtkinsonMono}r"
     )
 
+    units_escaped = escape_latex(units)
     header_cells = [
-        NoEscape(r"\multicolumn{1}{l}{\sffamily\bfseries Bucket}"),
+        NoEscape(
+            r"\multicolumn{1}{l}{\sffamily\bfseries \shortstack[l]{Bucket \\ ("
+            + units_escaped
+            + r")}}"
+        ),
         NoEscape(
             r"\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{"
             + escape_latex(primary_label).replace(" to ", r" to \\ ")
@@ -725,16 +721,20 @@ def create_histogram_comparison_table(
             + escape_latex(compare_label).replace(" to ", r" to \\ ")
             + r" \\ Percent}}"
         ),
-        NoEscape(r"\multicolumn{1}{r}{\sffamily\bfseries Change}"),
+        NoEscape(r"\multicolumn{1}{r}{\sffamily\bfseries Delta}"),
     ]
     body_table.add_row(header_cells)
     body_table.add_hline()
 
-    def format_change(primary_value: int, compare_value: int) -> str:
-        if primary_value == 0:
+    def format_change(
+        primary_value: int, compare_value: int, primary_total: int, compare_total: int
+    ) -> str:
+        if primary_total == 0 or compare_total == 0:
             return "--"
-        change_pct = (compare_value - primary_value) / primary_value * 100.0
-        return f"{change_pct:+.1f}%"
+        primary_pct = primary_value / primary_total * 100.0
+        compare_pct = compare_value / compare_total * 100.0
+        delta = compare_pct - primary_pct
+        return f"{delta:+.1f}%"
 
     if ranges:
         first_start = ranges[0][0]
@@ -754,20 +754,24 @@ def create_histogram_comparison_table(
                     NoEscape(escape_latex(f"{primary_pct:.1f}%")),
                     NoEscape(escape_latex(str(int(compare_below)))),
                     NoEscape(escape_latex(f"{compare_pct:.1f}%")),
-                    NoEscape(escape_latex(format_change(primary_below, compare_below))),
+                    NoEscape(
+                        escape_latex(
+                            format_change(
+                                primary_below,
+                                compare_below,
+                                primary_total,
+                                compare_total,
+                            )
+                        )
+                    ),
                 ]
             )
 
-        for idx, (a, b) in enumerate(ranges):
-            is_last = idx == len(ranges) - 1
-            if is_last:
-                label = f"{int(a)}+"
-                primary_count = count_histogram_ge(primary_buckets, a)
-                compare_count = count_histogram_ge(compare_buckets, a)
-            else:
-                label = f"{int(a)}-{int(b)}"
-                primary_count = count_in_histogram_range(primary_buckets, a, b)
-                compare_count = count_in_histogram_range(compare_buckets, a, b)
+        # Render all ranges as "A-B" buckets
+        for a, b in ranges:
+            label = f"{int(a)}-{int(b)}"
+            primary_count = count_in_histogram_range(primary_buckets, a, b)
+            compare_count = count_in_histogram_range(compare_buckets, a, b)
 
             primary_pct = (
                 primary_count / primary_total * 100.0 if primary_total > 0 else 0.0
@@ -782,7 +786,51 @@ def create_histogram_comparison_table(
                     NoEscape(escape_latex(f"{primary_pct:.1f}%")),
                     NoEscape(escape_latex(str(int(compare_count)))),
                     NoEscape(escape_latex(f"{compare_pct:.1f}%")),
-                    NoEscape(escape_latex(format_change(primary_count, compare_count))),
+                    NoEscape(
+                        escape_latex(
+                            format_change(
+                                primary_count,
+                                compare_count,
+                                primary_total,
+                                compare_total,
+                            )
+                        )
+                    ),
+                ]
+            )
+
+        # Add final open-ended bucket (max_bucket+)
+        if max_bucket is not None and max_bucket > 0:
+            final_cutoff = max_bucket
+        else:
+            final_cutoff = ranges[-1][1] if ranges else _proc_max
+
+        primary_ge = count_histogram_ge(primary_buckets, final_cutoff)
+        compare_ge = count_histogram_ge(compare_buckets, final_cutoff)
+        if primary_ge > 0 or compare_ge > 0:
+            primary_pct = (
+                primary_ge / primary_total * 100.0 if primary_total > 0 else 0.0
+            )
+            compare_pct = (
+                compare_ge / compare_total * 100.0 if compare_total > 0 else 0.0
+            )
+            body_table.add_row(
+                [
+                    NoEscape(escape_latex(f"{int(final_cutoff)}+")),
+                    NoEscape(escape_latex(str(int(primary_ge)))),
+                    NoEscape(escape_latex(f"{primary_pct:.1f}%")),
+                    NoEscape(escape_latex(str(int(compare_ge)))),
+                    NoEscape(escape_latex(f"{compare_pct:.1f}%")),
+                    NoEscape(
+                        escape_latex(
+                            format_change(
+                                primary_ge,
+                                compare_ge,
+                                primary_total,
+                                compare_total,
+                            )
+                        )
+                    ),
                 ]
             )
 

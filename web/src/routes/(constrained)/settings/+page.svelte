@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { Button, Card, Header, SelectField, Switch, Table } from 'svelte-ux';
 	import {
 		getConfig,
 		getTransitWorkerState,
@@ -8,11 +6,13 @@
 		type Config,
 		type TransitRunInfo,
 		type TransitWorkerState
-	} from '../../lib/api';
-	import { displayTimezone, initializeTimezone, updateTimezone } from '../../lib/stores/timezone';
-	import { displayUnits, initializeUnits, updateUnits } from '../../lib/stores/units';
-	import { AVAILABLE_TIMEZONES, getTimezoneLabel, type Timezone } from '../../lib/timezone';
-	import { AVAILABLE_UNITS, getUnitLabel, type Unit } from '../../lib/units';
+	} from '$lib/api';
+	import { displayTimezone, initializeTimezone, updateTimezone } from '$lib/stores/timezone';
+	import { displayUnits, initializeUnits, updateUnits } from '$lib/stores/units';
+	import { AVAILABLE_TIMEZONES, getTimezoneLabel, type Timezone } from '$lib/timezone';
+	import { AVAILABLE_UNITS, getUnitLabel, type Unit } from '$lib/units';
+	import { onMount } from 'svelte';
+	import { Button, Card, Header, SelectField, Switch, Table } from 'svelte-ux';
 
 	let config: Config = { units: 'mph', timezone: 'UTC' };
 	let selectedUnits: Unit = 'mph';
@@ -266,7 +266,7 @@
 	<meta name="description" content="Manage your display preferences for units and timezone" />
 </svelte:head>
 
-<main id="main-content" class="space-y-6 p-4">
+<div id="main-content" class="space-y-6 p-4">
 	<Header title="Settings" subheading="Manage your application settings and preferences." />
 
 	{#if loading}
@@ -430,4 +430,4 @@
 			</div>
 		</Card>
 	{/if}
-</main>
+</div>

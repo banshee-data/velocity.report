@@ -42,6 +42,10 @@ export type Histogram = Record<string, number>;
 export interface RadarStatsResponse {
 	metrics: RadarStats[];
 	histogram?: Histogram;
+	cosineCorrection?: {
+		angles: number[];
+		applied: boolean;
+	};
 }
 
 export interface Config {
@@ -71,7 +75,8 @@ export async function getRadarStats(
 	group?: string,
 	units?: string,
 	timezone?: string,
-	source?: string
+	source?: string,
+	siteId?: number | null
 ): Promise<RadarStatsResponse> {
 	const url = new URL(`${API_BASE}/radar_stats`, window.location.origin);
 	url.searchParams.append('start', start.toString());
@@ -80,6 +85,7 @@ export async function getRadarStats(
 	if (units) url.searchParams.append('units', units);
 	if (timezone) url.searchParams.append('timezone', timezone);
 	if (source) url.searchParams.append('source', source);
+	if (siteId != null) url.searchParams.append('site_id', siteId.toString());
 	const res = await fetch(url);
 	if (!res.ok) throw new Error(`Failed to fetch radar stats: ${res.status}`);
 	// Expect the server to return the new root object: { metrics: [...], histogram: {...} }
@@ -97,7 +103,9 @@ export async function getRadarStats(
 	})) as RadarStats[];
 
 	const histogram = payload && payload.histogram ? (payload.histogram as Histogram) : undefined;
-	return { metrics, histogram };
+	const cosineCorrection =
+		payload && payload.cosine_correction ? payload.cosine_correction : undefined;
+	return { metrics, histogram, cosineCorrection };
 }
 
 export async function getConfig(): Promise<Config> {
@@ -115,8 +123,10 @@ export interface ReportRequest {
 	timezone: string; // e.g., "US/Pacific"
 	units: string; // "mph" or "kph"
 	group?: string; // e.g., "1h", "4h"
-	source?: string; // "radar_objects" or "radar_data_transits"
+	source?: string; // "radar_objects", "radar_data", or "radar_data_transits"
+	compare_source?: string; // Optional: source for comparison period (defaults to source)
 	min_speed?: number; // minimum speed filter
+	boundary_threshold?: number; // filter boundary hours with < N samples (default: 5)
 	histogram?: boolean; // whether to generate histogram
 	hist_bucket_size?: number; // histogram bucket size
 	hist_max?: number; // histogram max value
@@ -178,6 +188,57 @@ export interface DownloadResult {
 	filename: string;
 }
 
+export interface SiteConfigPeriod {
+	id?: number;
+	site_id: number;
+	effective_start_unix: number;
+	effective_end_unix?: number | null;
+	is_active: boolean;
+	notes?: string | null;
+	cosine_error_angle: number;
+	created_at?: string;
+	updated_at?: string;
+}
+
+export interface TimelineResponse {
+	site_id: number;
+	data_range: {
+		start_unix: number;
+		end_unix: number;
+	};
+	config_periods: SiteConfigPeriod[];
+	unconfigured_periods: Array<{ start_unix: number; end_unix: number }>;
+}
+
+export async function listSiteConfigPeriods(siteId: number): Promise<SiteConfigPeriod[]> {
+	const url = new URL(`${API_BASE}/site_config_periods`, window.location.origin);
+	url.searchParams.append('site_id', siteId.toString());
+	const res = await fetch(url);
+	if (!res.ok) throw new Error(`Failed to fetch site config periods: ${res.status}`);
+	return res.json();
+}
+
+export async function upsertSiteConfigPeriod(period: SiteConfigPeriod): Promise<SiteConfigPeriod> {
+	const res = await fetch(`${API_BASE}/site_config_periods`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(period)
+	});
+	if (!res.ok) {
+		const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+		throw new Error(errorData.error || `Failed to save site config period: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function getTimeline(siteId: number): Promise<TimelineResponse> {
+	const url = new URL(`${API_BASE}/timeline`, window.location.origin);
+	url.searchParams.append('site_id', siteId.toString());
+	const res = await fetch(url);
+	if (!res.ok) throw new Error(`Failed to fetch timeline: ${res.status}`);
+	return res.json();
+}
+
 export async function downloadReport(
 	reportId: number,
 	fileType: 'pdf' | 'zip' = 'pdf'
@@ -235,8 +296,6 @@ export interface Site {
 	name: string;
 	location: string;
 	description?: string | null;
-	cosine_error_angle: number;
-	speed_limit: number;
 	surveyor: string;
 	contact: string;
 	address?: string | null;
@@ -245,7 +304,6 @@ export interface Site {
 	map_angle?: number | null;
 	include_map: boolean;
 	site_description?: string | null;
-	speed_limit_note?: string | null;
 	created_at: string;
 	updated_at: string;
 }

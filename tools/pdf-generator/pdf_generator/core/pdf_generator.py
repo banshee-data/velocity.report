@@ -7,7 +7,8 @@ complete PDF reports including statistics tables, charts, and science sections.
 """
 
 import os
-import math
+from datetime import datetime, timezone as dt_timezone
+from zoneinfo import ZoneInfo
 
 from pathlib import Path
 
@@ -78,7 +79,6 @@ from pdf_generator.core.data_transformers import (
 from pdf_generator.core.map_utils import MapProcessor, create_marker_from_config
 from pdf_generator.core.document_builder import DocumentBuilder
 from pdf_generator.core.table_builders import (
-    create_param_table,
     create_histogram_table,
     create_histogram_comparison_table,
     create_twocolumn_stats_table,
@@ -87,6 +87,7 @@ from pdf_generator.core.report_sections import (
     add_metric_data_intro,
     add_site_specifics,
     add_science,
+    add_survey_parameters,
 )
 from pdf_generator.core.config_manager import DEFAULT_MAP_CONFIG, _map_to_dict
 from pdf_generator.core.data_transformers import (
@@ -244,6 +245,12 @@ def generate_pdf_report(
     compare_histogram: Optional[Dict[str, int]] = None,
     compare_granular_metrics: Optional[List[Dict[str, Any]]] = None,
     compare_daily_metrics: Optional[List[Dict[str, Any]]] = None,
+    config_periods: Optional[List[Dict[str, Any]]] = None,
+    cosine_correction_note: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    compare_start_date: Optional[str] = None,
+    compare_end_date: Optional[str] = None,
 ) -> None:
     """Generate a complete PDF report using PyLaTeX.
 
@@ -261,16 +268,12 @@ def generate_pdf_report(
         velocity_resolution: Radar velocity resolution
         azimuth_fov: Radar azimuth field of view
         elevation_fov: Radar elevation field of view
+        config_periods: Optional list of site configuration periods for the report window
+        cosine_correction_note: Optional note about angle changes applied to speeds
     """
 
     # Convert map config dataclass to dict for use in this function
     map_config_dict = _map_to_dict(DEFAULT_MAP_CONFIG)
-
-    # Calculate cosine error factor from angle
-    cosine_error_factor = 1.0
-    if cosine_error_angle != 0:
-        angle_rad = math.radians(cosine_error_angle)
-        cosine_error_factor = 1.0 / math.cos(angle_rad)
 
     # Build document with all configuration
     builder = DocumentBuilder()
@@ -282,6 +285,10 @@ def generate_pdf_report(
         contact,
         compare_start_iso,
         compare_end_iso,
+        start_date,
+        end_date,
+        compare_start_date,
+        compare_end_date,
     )
 
     # Add science section content using helper function
@@ -301,21 +308,15 @@ def generate_pdf_report(
         compare_p85 = None
         compare_p98 = None
         compare_max = None
-        compare_start_date = None
-        compare_end_date = None
-        if compare_overall_metrics and compare_start_iso and compare_end_iso:
+        if compare_overall_metrics and compare_start_date and compare_end_date:
             compare_overall = compare_overall_metrics[0]
             compare_p50 = normalizer.get_numeric(compare_overall, "p50", 0)
             compare_p85 = normalizer.get_numeric(compare_overall, "p85", 0)
             compare_p98 = normalizer.get_numeric(compare_overall, "p98", 0)
             compare_max = normalizer.get_numeric(compare_overall, "max_speed", 0)
             compare_total = extract_count_from_row(compare_overall, normalizer)
-            compare_start_date = compare_start_iso[:10]
-            compare_end_date = compare_end_iso[:10]
 
-        # Extract dates for display
-        start_date = start_iso[:10]
-        end_date = end_iso[:10]
+        # Use original date strings (single source of truth from datepicker - no fallbacks)
 
         # Use the DRY helper function for science content
         add_metric_data_intro(
@@ -355,50 +356,58 @@ def generate_pdf_report(
 
     doc.append(NoEscape("\\par"))
 
+    # Extract cosine angles from config periods for survey parameters
+    cosine_angle_t1 = None
+    cosine_angle_t2 = None
+
+    if config_periods:
+        # Get angle for primary period (t1)
+        for period in config_periods:
+            angle = period.get("cosine_error_angle")
+            if angle is not None:
+                cosine_angle_t1 = float(angle)
+                break  # Use first found angle for t1
+
+        # If we have a comparison period, look for a different angle
+        if compare_start_iso and compare_end_iso and len(config_periods) > 1:
+            # Use second period's angle for t2 if available
+            for period in config_periods[1:]:
+                angle = period.get("cosine_error_angle")
+                if angle is not None:
+                    cosine_angle_t2 = float(angle)
+                    break
+
     add_science(doc)
 
     # Small separation after the science section
     doc.append(NoEscape("\\par"))
 
-    # Statistics section
-    doc.append(NoEscape("\\subsection*{Survey Parameters}"))
-
-    # Generation parameters as a two-column table (simplified)
-    param_entries = []
-    if compare_start_iso and compare_end_iso:
-        param_entries.extend(
-            [
-                {"key": "t1 start", "value": start_iso},
-                {"key": "t1 end", "value": end_iso},
-                {"key": "t2 start", "value": compare_start_iso},
-                {"key": "t2 end", "value": compare_end_iso},
-            ]
-        )
-    else:
-        param_entries.extend(
-            [
-                {"key": "Start time", "value": start_iso},
-                {"key": "End time", "value": end_iso},
-            ]
-        )
-    param_entries.extend(
-        [
-            {"key": "Timezone", "value": timezone_display},
-            {"key": "Roll-up Period", "value": group},
-            {"key": "Units", "value": units},
-            {"key": "Minimum speed (cutoff)", "value": min_speed_str},
-            {"key": "Radar Sensor", "value": sensor_model},
-            {"key": "Radar Firmware version", "value": firmware_version},
-            {"key": "Radar Transmit Frequency", "value": transmit_frequency},
-            {"key": "Radar Sample Rate", "value": sample_rate},
-            {"key": "Radar Velocity Resolution", "value": velocity_resolution},
-            {"key": "Azimuth Field of View", "value": azimuth_fov},
-            {"key": "Elevation Field of View", "value": elevation_fov},
-            {"key": "Cosine Error Angle", "value": f"{cosine_error_angle}°"},
-            {"key": "Cosine Error Factor", "value": f"{cosine_error_factor:.4f}"},
-        ]
+    # Survey parameters section with integrated cosine angles
+    add_survey_parameters(
+        doc,
+        start_iso,
+        end_iso,
+        timezone_display,
+        group,
+        units,
+        min_speed_str,
+        cosine_angle_t1,
+        compare_start_iso,
+        compare_end_iso,
+        cosine_angle_t2,
+        sensor_model,
+        firmware_version,
+        transmit_frequency,
+        sample_rate,
+        velocity_resolution,
+        azimuth_fov,
+        elevation_fov,
     )
-    doc.append(create_param_table(param_entries))
+
+    # Add cosine correction note if multiple angles were used
+    if cosine_correction_note:
+        doc.append(NoEscape("\\par"))
+        doc.append(NoEscape(escape_latex(cosine_correction_note)))
 
     doc.append(NoEscape("\\par"))
 
@@ -413,6 +422,9 @@ def generate_pdf_report(
     #             include_start_time=False,
     #         )
     #     )
+
+    # Add detailed data tables heading
+    doc.append(NoEscape("\\subsection*{Detailed Data Tables}"))
 
     # Add histogram table if available
     if histogram and compare_histogram and compare_start_iso and compare_end_iso:
@@ -607,3 +619,31 @@ def generate_pdf_report(
             print(f"Failed to generate TEX for debugging: {tex_e}")
         if last_exc:
             raise RuntimeError(last_failure_message or str(last_exc)) from last_exc
+
+
+def _format_site_config_periods(
+    periods: List[Dict[str, Any]], tz_name: Optional[str]
+) -> List[Dict[str, str]]:
+    tzobj = ZoneInfo(tz_name) if tz_name else dt_timezone.utc
+    entries: List[Dict[str, str]] = []
+    for idx, period in enumerate(periods, start=1):
+        start_unix = float(period.get("effective_start_unix", 0))
+        end_raw = period.get("effective_end_unix")
+        end_unix = float(end_raw) if end_raw is not None else None
+        if start_unix == 0:
+            start_label = "Initial"
+        else:
+            start_label = datetime.fromtimestamp(start_unix, tz=tzobj).strftime(
+                "%Y-%m-%d"
+            )
+        if end_unix is None:
+            end_label = "Present"
+        else:
+            end_label = datetime.fromtimestamp(end_unix, tz=tzobj).strftime("%Y-%m-%d")
+        angle = period.get("cosine_error_angle", 0)
+        notes = period.get("notes") or ""
+        value = f"{start_label} to {end_label} • {angle}°"
+        if notes:
+            value = f"{value} ({notes})"
+        entries.append({"key": f"Period {idx}", "value": value})
+    return entries

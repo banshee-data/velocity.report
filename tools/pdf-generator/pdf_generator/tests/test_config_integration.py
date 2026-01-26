@@ -102,7 +102,7 @@ class TestConfigIntegration(unittest.TestCase):
         output_path = os.path.join(self.temp_dir, "test_report.pdf")
 
         with patch(
-            "pdf_generator.core.pdf_generator.create_param_table"
+            "pdf_generator.core.report_sections.create_param_table"
         ) as mock_param_table:
             mock_param_table.return_value = MagicMock()
 
@@ -133,28 +133,31 @@ class TestConfigIntegration(unittest.TestCase):
                 include_map=False,
             )
 
-            # Verify create_param_table was called
+            # Verify create_param_table was called (now called twice: hardware + survey)
             self.assertTrue(mock_param_table.called)
+            self.assertEqual(mock_param_table.call_count, 2)
 
-            # Get the param_entries that were passed to create_param_table
-            call_args = mock_param_table.call_args
-            param_entries = call_args[0][0]
+            # Get the hardware param_entries (first call)
+            hardware_call_args = mock_param_table.call_args_list[0]
+            hardware_param_entries = hardware_call_args[0][0]
 
             # Convert to dict for easier assertion
-            params_dict = {entry["key"]: entry["value"] for entry in param_entries}
+            hardware_params_dict = {
+                entry["key"]: entry["value"] for entry in hardware_param_entries
+            }
 
-            # Verify all radar config values appear
-            self.assertEqual(params_dict["Radar Sensor"], "Test Sensor Model Epsilon")
-            self.assertEqual(params_dict["Radar Firmware version"], "v9.8.7")
-            self.assertEqual(params_dict["Radar Transmit Frequency"], "99.999 GHz")
-            self.assertEqual(params_dict["Radar Sample Rate"], "99 kSPS")
-            self.assertEqual(params_dict["Radar Velocity Resolution"], "9.999 mph")
-            self.assertEqual(params_dict["Azimuth Field of View"], "99°")
-            self.assertEqual(params_dict["Elevation Field of View"], "88°")
-            self.assertEqual(params_dict["Cosine Error Angle"], "15.0°")
-            # Cosine error factor is calculated: 1/cos(15°) ≈ 1.0353
-            self.assertIn("Cosine Error Factor", params_dict)
-            self.assertTrue(params_dict["Cosine Error Factor"].startswith("1.03"))
+            # Verify all radar config values appear in hardware section
+            self.assertEqual(
+                hardware_params_dict["Radar Sensor"], "Test Sensor Model Epsilon"
+            )
+            self.assertEqual(hardware_params_dict["Firmware version"], "v9.8.7")
+            self.assertEqual(hardware_params_dict["Transmit Frequency"], "99.999 GHz")
+            self.assertEqual(hardware_params_dict["Sample Rate"], "99 kSPS")
+            self.assertEqual(hardware_params_dict["Velocity Resolution"], "9.999 mph")
+            self.assertEqual(hardware_params_dict["Azimuth Field of View"], "99°")
+            self.assertEqual(hardware_params_dict["Elevation Field of View"], "88°")
+            # Cosine angle and factor are now only added when config_periods are provided
+            # (they come from SCD periods, not radar config)
 
     @patch("pdf_generator.core.pdf_generator.DocumentBuilder")
     @patch("pdf_generator.core.pdf_generator.chart_exists")
