@@ -151,7 +151,7 @@ class DependencyChecker:
                     version = getattr(module, "__version__", "unknown")
 
                 details = f"{description} (v{version})"
-            except Exception:
+            except Exception:  # Version check or import failed
                 details = description
         else:
             install_name = "Pillow" if package_name == "PIL" else package_name
@@ -176,7 +176,7 @@ class DependencyChecker:
                 details = f"Found at {xelatex_path}"
                 if version_line:
                     details = f"{version_line}"
-            except Exception:
+            except Exception:  # Version check failed or timeout
                 details = f"Found at {xelatex_path}"
 
             self.results.append(

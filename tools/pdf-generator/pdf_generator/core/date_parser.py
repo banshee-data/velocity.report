@@ -66,7 +66,7 @@ def parse_date_to_unix(
             else:
                 dt = dt.replace(tzinfo=timezone.utc)
         return int(dt.timestamp())
-    except Exception:
+    except Exception:  # ISO datetime parsing failed
         raise ValueError(
             f"Invalid date format, expected YYYY-MM-DD, ISO datetime, or unix seconds: {d}"
         )
@@ -106,5 +106,5 @@ def is_date_only(s: str) -> bool:
     """
     try:
         return bool(re.match(r"^\d{4}-\d{2}-\d{2}$", str(s).strip()))
-    except Exception:
+    except Exception:  # Regex matching failed or invalid input
         return False

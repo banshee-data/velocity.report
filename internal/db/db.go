@@ -33,7 +33,7 @@ const (
 	// nearPerpendicularThreshold is the minimum absolute cosine value for a valid sensor angle.
 	// Angles near 90° (perpendicular to traffic) produce cosines near 0, leading to infinite speeds.
 	// Readings with angles this close to perpendicular are filtered out as invalid.
-	nearPerpendicularThreshold = 0.001
+	nearPerpendicularThreshold = 0.01
 
 	// radiansPerDegree converts degrees to radians
 	radiansPerDegree = math.Pi / 180.0

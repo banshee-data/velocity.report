@@ -40,11 +40,11 @@ def format_time(tval: Any, tz_name: Optional[str]) -> str:
         if tz_name:
             try:
                 tzobj = ZoneInfo(tz_name)
-            except Exception:
+            except Exception:  # Invalid timezone, fall back to UTC
                 tzobj = timezone.utc
             dt = dt.astimezone(tzobj)
         return dt.strftime("%-m/%-d %H:%M")
-    except Exception:
+    except Exception:  # Time parsing or formatting failed
         return str(tval)
 
 
@@ -57,7 +57,7 @@ def format_number(v: Any) -> str:
         if np.isnan(f):
             return "--"
         return f"{f:.2f}"
-    except Exception:
+    except Exception:  # Non-numeric or invalid value
         return "--"
 
 
@@ -90,10 +90,10 @@ def process_histogram(
             fk = float(k)
             numeric_buckets[fk] = numeric_buckets.get(fk, 0) + int(v)
             total += int(v)
-        except Exception:
+        except Exception:  # Non-numeric key, try to count the value anyway
             try:
                 total += int(v)
-            except Exception:
+            except Exception:  # Value also non-numeric, skip entirely
                 pass
 
     # Display ranges
@@ -255,7 +255,7 @@ def compute_histogram_ranges(
                 ranges.append((s, next_val))
             s += inferred_bucket
 
-    except Exception:
+    except Exception:  # Range calculation failed, return empty list
         pass
 
     return ranges

@@ -278,24 +278,24 @@ Place all .ttf files in this directory, then compile with:
     # Clean up temporary files
     try:
         os.remove(readme_file)
-    except Exception:
+    except Exception:  # Non-critical if cleanup fails
         pass
 
     try:
         os.remove(fonts_instruction_file)
-    except Exception:
+    except Exception:  # Non-critical if cleanup fails
         pass
 
     if portable_tex and os.path.isfile(portable_tex):
         try:
             os.remove(portable_tex)
-        except Exception:
-            pass  # Non-critical if cleanup fails
+        except Exception:  # Non-critical if cleanup fails
+            pass
 
     if fonts_tex and os.path.isfile(fonts_tex):
         try:
             os.remove(fonts_tex)
-        except Exception:
-            pass  # Non-critical if cleanup fails
+        except Exception:  # Non-critical if cleanup fails
+            pass
 
     return output_zip_path

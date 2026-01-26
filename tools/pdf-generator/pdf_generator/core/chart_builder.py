@@ -183,8 +183,8 @@ class TimeSeriesChartBuilder:
             st = extract_start_time_from_row(row, self.normalizer)
             try:
                 t = parse_server_time(st)
-            except Exception:
-                continue  # Skip rows with bad time
+            except Exception:  # Skip rows with unparseable timestamps
+                continue
 
             # Convert timezone if requested
             if tz_name:
@@ -205,7 +205,7 @@ class TimeSeriesChartBuilder:
         """Convert datetime to specified timezone."""
         try:
             tzobj = ZoneInfo(tz_name)
-        except Exception:
+        except Exception:  # Invalid timezone name, return unconverted
             return t
 
         try:
@@ -216,7 +216,7 @@ class TimeSeriesChartBuilder:
                 from datetime import timezone as _dt_timezone
 
                 return t.replace(tzinfo=_dt_timezone.utc).astimezone(tzobj)
-        except Exception:
+        except Exception:  # Timezone conversion failed, return unconverted
             return t
 
     def _create_masked_arrays(
@@ -256,7 +256,7 @@ class TimeSeriesChartBuilder:
                     f"DEBUG_PLOT: zero_mask_count={int(zero_mask.sum())}",
                     file=sys.stderr,
                 )
-        except Exception:
+        except Exception:  # Debug output is non-critical
             pass
 
         return p50_a, p85_a, p98_a, mx_a
@@ -272,7 +272,7 @@ class TimeSeriesChartBuilder:
                 print(f"DEBUG_PLOT: points(len)={len(x_indices)}", file=sys.stderr)
                 print(f"DEBUG_PLOT: counts={counts!r}", file=sys.stderr)
                 print(f"DEBUG_PLOT: p50_f={p50_f.tolist()!r}", file=sys.stderr)
-        except Exception:
+        except Exception:  # Debug output is non-critical
             pass
 
     def _calculate_day_boundaries(self, times: List[datetime]) -> List[int]:
@@ -409,11 +409,11 @@ class TimeSeriesChartBuilder:
         # Ensure axis starts at zero
         try:
             ax.set_ylim(bottom=0)
-        except Exception:
+        except Exception:  # Fallback: manually set ylim if direct bottom= fails
             try:
                 ymin, ymax = ax.get_ylim()
                 ax.set_ylim(0, ymax)
-            except Exception:
+            except Exception:  # Both approaches failed, leave axis unchanged
                 pass
 
     def _plot_count_bars(
@@ -430,7 +430,7 @@ class TimeSeriesChartBuilder:
         # Compute max count and low-sample mask
         try:
             max_count = max(int(c) for c in counts) if counts else 0
-        except Exception:
+        except Exception:  # Invalid count data, default to 0
             max_count = 0
 
         try:
@@ -438,13 +438,13 @@ class TimeSeriesChartBuilder:
                 (c is not None and int(c) < self.layout["low_sample_threshold"])
                 for c in counts
             ]
-        except Exception:
+        except Exception:  # Invalid count data, assume no low samples
             low_mask = [False for _ in counts]
 
         # Compute top height for orange bars
         try:
             top = max(1, int(max_count * self.layout["count_axis_scale"]))
-        except Exception:
+        except Exception:  # Fallback to max_count if scaling fails
             top = max_count if max_count > 0 else 1
 
         # Compute bar widths
@@ -483,11 +483,11 @@ class TimeSeriesChartBuilder:
         # Set Y-axis limits
         try:
             ax2.set_ylim(0, top)
-        except Exception:
+        except Exception:  # Fallback: manually calculate ylim if direct set fails
             try:
                 ymin, ymax = ax2.get_ylim()
                 ax2.set_ylim(0, ymax * 1.4 if ymax > 0 else 1)
-            except Exception:
+            except Exception:  # Both approaches failed, leave axis unchanged
                 pass
 
         return legend_data
@@ -507,7 +507,7 @@ class TimeSeriesChartBuilder:
             ax2.tick_params(
                 axis="both", which="major", labelsize=self.fonts["chart_axis_tick"]
             )
-        except Exception:
+        except Exception:  # Non-critical styling, continue without adjustment
             pass
 
     def _create_legend(
@@ -534,7 +534,7 @@ class TimeSeriesChartBuilder:
                 patch = Patch(facecolor=col, alpha=alp, edgecolor="none")
                 handles.append(patch)
                 labels.append(lbl)
-            except Exception:
+            except Exception:  # Skip legend items that fail to render
                 pass
 
         try:
@@ -559,13 +559,13 @@ class TimeSeriesChartBuilder:
                 fr.set_linewidth(1)
                 leg.set_zorder(10)
                 fr.set_zorder(11)
-            except Exception:
+            except Exception:  # Z-order adjustment failed, legend still usable
                 pass
-        except Exception:
+        except Exception:  # Legend creation failed, try fallback
             # Fallback legend
             try:
                 ax.legend(handles, labels, loc="lower right")
-            except Exception:
+            except Exception:  # Fallback also failed, chart proceeds without legend
                 pass
 
     def _format_time_axis(
@@ -637,10 +637,10 @@ class TimeSeriesChartBuilder:
             # Hide offset text (exponent)
             try:
                 ax.xaxis.get_offset_text().set_visible(False)
-            except Exception:
+            except Exception:  # Offset text adjustment failed, non-critical
                 pass
 
-        except Exception:
+        except Exception:  # Time formatting failed, leave default formatting
             pass
 
     def _apply_final_styling(self, fig, ax, ax2) -> None:
@@ -648,7 +648,7 @@ class TimeSeriesChartBuilder:
         # Tight layout with legend space
         try:
             fig.tight_layout(pad=0)
-        except Exception:
+        except Exception:  # Tight layout failed, proceed with default spacing
             pass
 
         # Adjust subplot margins
@@ -659,7 +659,7 @@ class TimeSeriesChartBuilder:
                 top=self.layout["chart_top"],
                 bottom=self.layout["chart_bottom"],
             )
-        except Exception:
+        except Exception:  # Margin adjustment failed, use default margins
             pass
 
 
@@ -721,7 +721,7 @@ class HistogramChartBuilder:
         # Sort and extract data
         try:
             sorted_items = sorted(histogram.items(), key=lambda x: float(x[0]))
-        except Exception:
+        except Exception:  # Non-numeric keys, fall back to string sorting
             sorted_items = sorted(histogram.items(), key=lambda x: str(x[0]))
 
         labels = [item[0] for item in sorted_items]
@@ -793,7 +793,7 @@ class HistogramChartBuilder:
                 try:
                     fk = float(key)
                     buckets[fk] = buckets.get(fk, 0) + int(value)
-                except Exception:
+                except Exception:  # Skip non-numeric keys or values
                     continue
             return buckets
 
@@ -881,12 +881,12 @@ class HistogramChartBuilder:
 
         try:
             fig.tight_layout(pad=0)
-        except Exception:
+        except Exception:  # Non-critical layout adjustment failed
             pass
 
         try:
             fig.subplots_adjust(left=0.02, right=0.985, top=0.96, bottom=0.08)
-        except Exception:
+        except Exception:  # Non-critical margin adjustment failed
             pass
 
         return fig

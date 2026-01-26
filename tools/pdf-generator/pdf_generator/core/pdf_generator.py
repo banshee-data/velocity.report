@@ -109,7 +109,7 @@ def _read_latex_log_excerpt(base_path: Path) -> list[str]:
 
     try:
         raw_lines = log_path.read_text(errors="ignore").splitlines()
-    except Exception:
+    except Exception:  # Log file read failed
         return []
 
     excerpt: list[str] = []

@@ -98,7 +98,7 @@ class VelocityOverviewSection:
         # Format total vehicles with thousands separator for readability
         try:
             total_disp = f"{int(total_vehicles):,}"
-        except Exception:
+        except Exception:  # Non-integer total, use string representation
             total_disp = str(total_vehicles)
 
         # Overview as bullet points with reduced spacing
@@ -126,7 +126,7 @@ class VelocityOverviewSection:
                     combined_total_disp = f"{int(combined_total):,}"
                 else:
                     combined_total_disp = total_disp
-            except Exception:
+            except Exception:  # Formatting failed, fall back to primary total
                 combined_total_disp = total_disp
 
             doc.append(
@@ -154,7 +154,7 @@ class VelocityOverviewSection:
             try:
                 if math.isnan(float(value)):
                     return "--"
-            except Exception:
+            except Exception:  # Value not convertible to float or NaN check failed
                 return "--"
             return f"{value:.2f} {units}"
 
@@ -163,7 +163,7 @@ class VelocityOverviewSection:
                 return "--"
             try:
                 return f"{int(value):,}"
-            except Exception:
+            except Exception:  # Non-integer value, return placeholder
                 return "--"
 
         def format_change(
@@ -178,7 +178,7 @@ class VelocityOverviewSection:
             try:
                 change_pct = (compare_value - primary_value) / primary_value * 100.0
                 return f"{change_pct:+.1f}%"
-            except Exception:
+            except Exception:  # Division by zero or calculation failed
                 return "--"
 
         if compare_start_date and compare_end_date:

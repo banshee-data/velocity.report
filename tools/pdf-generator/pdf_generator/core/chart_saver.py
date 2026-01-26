@@ -75,11 +75,11 @@ class ChartSaver:
 
             # Save with tight bbox and no padding
             fig.savefig(output_path, bbox_inches="tight", pad_inches=0.0)
-        except Exception:
+        except Exception:  # Tight bbox save failed, try fallback
             # Fallback: simple save without tight bounds
             try:
                 fig.savefig(output_path)
-            except Exception:
+            except Exception:  # Both approaches failed
                 return False
 
         # Clean up figure if requested
@@ -97,7 +97,7 @@ class ChartSaver:
 
             try:
                 tight_bbox = fig.get_tightbbox(renderer)
-            except Exception:
+            except Exception:  # Tight bbox calculation failed
                 tight_bbox = None
 
             if tight_bbox is None:
@@ -117,7 +117,7 @@ class ChartSaver:
 
             # Update figure size
             fig.set_size_inches(width_in, height_in)
-        except Exception:
+        except Exception:  # Size calculation or adjustment failed, keep original
             # If anything fails, keep original figure size
             pass
 
@@ -180,5 +180,5 @@ def save_chart_as_pdf(
     try:
         saver = ChartSaver()
         return saver.save_as_pdf(fig, output_path, close_fig)
-    except Exception:
+    except Exception:  # Chart saving failed
         return False

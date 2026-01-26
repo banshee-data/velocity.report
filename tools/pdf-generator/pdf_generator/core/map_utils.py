@@ -318,7 +318,7 @@ class SVGToPDFConverter:
                 with open(pdf_path, "wb") as out_f:
                     svg2pdf(url=svg_path, write_to=out_f)
                 return True
-        except Exception:
+        except Exception:  # cairosvg not available or conversion failed
             pass
         return False
 
@@ -348,7 +348,7 @@ class SVGToPDFConverter:
                 stderr=subprocess.DEVNULL,
             )
             return True
-        except Exception:
+        except Exception:  # inkscape not available or conversion failed
             pass
         return False
 
@@ -373,7 +373,7 @@ class SVGToPDFConverter:
                     stderr=subprocess.DEVNULL,
                 )
             return True
-        except Exception:
+        except Exception:  # rsvg-convert not available or conversion failed
             pass
         return False
 
@@ -454,7 +454,7 @@ class MapProcessor:
         if not need_convert:
             try:
                 need_convert = os.path.getmtime(map_svg) > os.path.getmtime(map_pdf)
-            except Exception:
+            except Exception:  # File timestamp check failed, force conversion
                 need_convert = True
 
         print(
