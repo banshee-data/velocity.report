@@ -1,5 +1,7 @@
 """HTTP client for querying the radar stats API."""
 
+import os
+
 import requests
 from typing import Dict, List, Tuple, Optional, Any
 
@@ -18,16 +20,23 @@ SUPPORTED_GROUPS = {
     "24h": 24 * 60 * 60,
 }
 
+# Default API base URL, can be overridden by API_BASE_URL environment variable
+DEFAULT_API_BASE_URL = "http://localhost:8080"
+
 
 class RadarStatsClient:
     """Client for querying radar statistics from the API."""
 
-    def __init__(self, base_url: str = "http://localhost:8080"):
+    def __init__(self, base_url: Optional[str] = None):
         """Initialise the client.
 
         Args:
-            base_url: Base URL of the radar stats API
+            base_url: Base URL of the radar stats API. If not provided,
+                      uses API_BASE_URL environment variable or defaults
+                      to http://localhost:8080.
         """
+        if base_url is None:
+            base_url = os.environ.get("API_BASE_URL", DEFAULT_API_BASE_URL)
         self.base_url = base_url.rstrip("/")
         self.api_url = f"{self.base_url}/api/radar_stats"
 

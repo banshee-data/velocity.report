@@ -28,6 +28,24 @@ func TestGenerateReport_E2E(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
+	// Start an actual HTTP server for the PDF generator to connect to
+	// The Python PDF generator needs a real HTTP endpoint to fetch data from
+	// Use server.ServeMux() to ensure the mux is initialised with all handlers
+	ts := httptest.NewServer(server.ServeMux())
+	defer ts.Close()
+
+	// Set API_BASE_URL environment variable so Python PDF generator connects to our test server
+	oldAPIBaseURL := os.Getenv("API_BASE_URL")
+	os.Setenv("API_BASE_URL", ts.URL)
+	defer func() {
+		if oldAPIBaseURL == "" {
+			os.Unsetenv("API_BASE_URL")
+		} else {
+			os.Setenv("API_BASE_URL", oldAPIBaseURL)
+		}
+	}()
+	t.Logf("Started test server at %s, set API_BASE_URL", ts.URL)
+
 	// Create a site to reference in the report with specific description for testing
 	siteDescription := "Surveys were conducted from the northbound bike lane outside 123 Test Street, directly adjacent to a local park. The observed travel lane experiences consistent traffic throughout the day."
 	site := &db.Site{
@@ -55,46 +73,112 @@ func TestGenerateReport_E2E(t *testing.T) {
 		t.Fatalf("failed to create site config period: %v", err)
 	}
 
-	// Insert test radar data for the report date range (2025-10-01)
-	testTimestamp := 1727740800 // 2025-10-01 00:00:00 UTC
-	testEvent := map[string]interface{}{
-		"site_id":         site.ID,
-		"classifier":      "all",
-		"start_time":      float64(testTimestamp),
-		"end_time":        float64(testTimestamp + 1),
-		"delta_time_msec": 100,
-		"max_speed_mps":   10.0,
-		"min_speed_mps":   10.0,
-		"speed_change":    0.0,
-		"max_magnitude":   10,
-		"avg_magnitude":   10,
-		"total_frames":    1,
-		"frames_per_mps":  1.0,
-		"length_m":        1.0,
-	}
-	eventJSON, _ := json.Marshal(testEvent)
-	if err := dbInst.RecordRadarObject(string(eventJSON)); err != nil {
-		t.Fatalf("failed to insert test radar data: %v", err)
+	// Insert test radar data for the report date range (2025-12-03 to 2025-12-04)
+	// Seed multiple events with varying speeds to generate realistic report data
+	// Note: We must set write_timestamp explicitly because the API queries by write_timestamp,
+	// not start_time. The schema default uses UNIXEPOCH('subsec') which would be "now".
+	primaryTimestamp := int64(1764720000) // 2025-12-03 00:00:00 UTC
+	compareTimestamp := int64(1762300800) // 2025-11-05 00:00:00 UTC
+
+	// Generate events for primary date range (2025-12-03 to 2025-12-04)
+	speeds := []float64{8.0, 10.0, 12.0, 15.0, 18.0, 20.0, 22.0, 25.0, 28.0, 30.0}
+	for i := 0; i < 50; i++ {
+		speed := speeds[i%len(speeds)]
+		eventTimestamp := primaryTimestamp + int64(i*1800) // Every 30 minutes
+		testEvent := map[string]interface{}{
+			"site_id":         site.ID,
+			"classifier":      "all",
+			"start_time":      float64(eventTimestamp),
+			"end_time":        float64(eventTimestamp + 2),
+			"delta_time_msec": 100,
+			"max_speed_mps":   speed,
+			"min_speed_mps":   speed - 1.0,
+			"speed_change":    1.0,
+			"max_magnitude":   10,
+			"avg_magnitude":   10,
+			"total_frames":    1,
+			"frames_per_mps":  1.0,
+			"length_m":        3.5,
+		}
+		eventJSON, _ := json.Marshal(testEvent)
+		// Use direct INSERT to set write_timestamp explicitly (API queries by write_timestamp)
+		_, err := dbInst.Exec(`INSERT INTO radar_objects (raw_event, write_timestamp) VALUES (?, ?)`,
+			string(eventJSON), float64(eventTimestamp))
+		if err != nil {
+			t.Fatalf("failed to insert primary test radar data %d: %v", i, err)
+		}
 	}
 
-	// Change working directory to repo root so the server can find the PDF generator
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get cwd: %v", err)
+	// Generate events for comparison date range (2025-11-05 to 2025-11-06)
+	for i := 0; i < 50; i++ {
+		speed := speeds[i%len(speeds)] - 2.0 // Slightly lower speeds for comparison
+		eventTimestamp := compareTimestamp + int64(i*1800)
+		testEvent := map[string]interface{}{
+			"site_id":         site.ID,
+			"classifier":      "all",
+			"start_time":      float64(eventTimestamp),
+			"end_time":        float64(eventTimestamp + 2),
+			"delta_time_msec": 100,
+			"max_speed_mps":   speed,
+			"min_speed_mps":   speed - 1.0,
+			"speed_change":    1.0,
+			"max_magnitude":   10,
+			"avg_magnitude":   10,
+			"total_frames":    1,
+			"frames_per_mps":  1.0,
+			"length_m":        3.5,
+		}
+		eventJSON, _ := json.Marshal(testEvent)
+		// Use direct INSERT to set write_timestamp explicitly
+		_, err := dbInst.Exec(`INSERT INTO radar_objects (raw_event, write_timestamp) VALUES (?, ?)`,
+			string(eventJSON), float64(eventTimestamp))
+		if err != nil {
+			t.Fatalf("failed to insert comparison test radar data %d: %v", i, err)
+		}
 	}
-	repoRoot := filepath.Clean(filepath.Join(cwd, "..", ".."))
-	if err := os.Chdir(repoRoot); err != nil {
-		t.Fatalf("failed to chdir to repo root: %v", err)
+
+	t.Logf("Seeded %d events for primary range (2025-12-03 to 2025-12-04) and %d events for comparison range (2025-11-05 to 2025-11-06)", 50, 50)
+
+	// Ensure PDF_GENERATOR_DIR is set for the test environment
+	pdfGenDir := os.Getenv("PDF_GENERATOR_DIR")
+	if pdfGenDir == "" {
+		// Default to tools/pdf-generator relative to the repo root
+		cwd, err := os.Getwd()
+		if err != nil {
+			t.Fatalf("failed to get cwd: %v", err)
+		}
+		repoRoot := filepath.Clean(filepath.Join(cwd, "..", ".."))
+		pdfGenDir = filepath.Join(repoRoot, "tools", "pdf-generator")
+		os.Setenv("PDF_GENERATOR_DIR", pdfGenDir)
+		t.Logf("Set PDF_GENERATOR_DIR=%s", pdfGenDir)
+	} else {
+		t.Logf("Using PDF_GENERATOR_DIR=%s", pdfGenDir)
 	}
-	defer func() { _ = os.Chdir(cwd) }()
+
+	// Ensure PDF_GENERATOR_PYTHON is set for the test environment
+	pdfGenPython := os.Getenv("PDF_GENERATOR_PYTHON")
+	if pdfGenPython == "" {
+		// Derive repo root from PDF_GENERATOR_DIR
+		repoRoot := filepath.Clean(filepath.Join(pdfGenDir, "..", ".."))
+		venvPython := filepath.Join(repoRoot, ".venv", "bin", "python")
+		if _, err := os.Stat(venvPython); err == nil {
+			os.Setenv("PDF_GENERATOR_PYTHON", venvPython)
+			t.Logf("Set PDF_GENERATOR_PYTHON=%s", venvPython)
+		} else {
+			t.Logf("Warning: venv python not found at %s", venvPython)
+		}
+	} else {
+		t.Logf("Using PDF_GENERATOR_PYTHON=%s", pdfGenPython)
+	}
 
 	// Build report request pointing to our site (with histogram enabled)
 	reqBody := map[string]interface{}{
 		"site_id":            site.ID,
-		"start_date":         "2025-10-01",
-		"end_date":           "2025-10-02",
-		"compare_start_date": "2024-10-01",
-		"compare_end_date":   "2024-10-02",
+		"start_date":         "2025-12-03",
+		"end_date":           "2025-12-04",
+		"compare_start_date": "2025-11-05",
+		"compare_end_date":   "2025-11-06",
+		"source":             "radar_objects", // Use radar_objects table where test data is seeded
 		"histogram":          true,
 		"hist_bucket_size":   5.0,
 	}
@@ -124,7 +208,6 @@ func TestGenerateReport_E2E(t *testing.T) {
 	}
 
 	// Verify files exist in the pdf-generator directory
-	pdfGenDir := filepath.Join(repoRoot, "tools", "pdf-generator")
 	fullPdfPath := filepath.Join(pdfGenDir, pdfPath)
 	fullZipPath := filepath.Join(pdfGenDir, zipPath)
 
@@ -137,8 +220,8 @@ func TestGenerateReport_E2E(t *testing.T) {
 
 	// Verify filename format: {endDate}_velocity.report_{location}_report.pdf
 	// (Python adds _report suffix for PDF, _sources suffix for ZIP)
-	expectedPdfName := "2025-10-02_velocity.report_Test_Location_report.pdf"
-	expectedZipName := "2025-10-02_velocity.report_Test_Location_sources.zip"
+	expectedPdfName := "2025-12-04_velocity.report_Test_Location_report.pdf"
+	expectedZipName := "2025-12-04_velocity.report_Test_Location_sources.zip"
 
 	if !strings.Contains(pdfPath, expectedPdfName) {
 		t.Fatalf("expected PDF filename to contain %q, got %q", expectedPdfName, pdfPath)
@@ -203,9 +286,9 @@ func TestGenerateReport_E2E(t *testing.T) {
 	compareStart, _ := queryObj["compare_start_date"].(string)
 	compareEnd, _ := queryObj["compare_end_date"].(string)
 	if compareStart != "" || compareEnd != "" {
-		if compareStart != "2024-10-01" || compareEnd != "2024-10-02" {
+		if compareStart != "2025-11-05" || compareEnd != "2025-11-06" {
 			t.Fatalf(
-				"expected compare dates 2024-10-01/2024-10-02, got %q/%q (cfgPath=%s)",
+				"expected compare dates 2025-11-05/2025-11-05, got %q/%q (cfgPath=%s)",
 				compareStart,
 				compareEnd,
 				cfgPath,
