@@ -28,6 +28,24 @@ func TestGenerateReport_E2E(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
+	// Start an actual HTTP server for the PDF generator to connect to
+	// The Python PDF generator needs a real HTTP endpoint to fetch data from
+	// Use server.ServeMux() to ensure the mux is initialised with all handlers
+	ts := httptest.NewServer(server.ServeMux())
+	defer ts.Close()
+
+	// Set API_BASE_URL environment variable so Python PDF generator connects to our test server
+	oldAPIBaseURL := os.Getenv("API_BASE_URL")
+	os.Setenv("API_BASE_URL", ts.URL)
+	defer func() {
+		if oldAPIBaseURL == "" {
+			os.Unsetenv("API_BASE_URL")
+		} else {
+			os.Setenv("API_BASE_URL", oldAPIBaseURL)
+		}
+	}()
+	t.Logf("Started test server at %s, set API_BASE_URL", ts.URL)
+
 	// Create a site to reference in the report with specific description for testing
 	siteDescription := "Surveys were conducted from the northbound bike lane outside 123 Test Street, directly adjacent to a local park. The observed travel lane experiences consistent traffic throughout the day."
 	site := &db.Site{
@@ -57,6 +75,8 @@ func TestGenerateReport_E2E(t *testing.T) {
 
 	// Insert test radar data for the report date range (2025-12-03 to 2025-12-04)
 	// Seed multiple events with varying speeds to generate realistic report data
+	// Note: We must set write_timestamp explicitly because the API queries by write_timestamp,
+	// not start_time. The schema default uses UNIXEPOCH('subsec') which would be "now".
 	primaryTimestamp := int64(1764720000) // 2025-12-03 00:00:00 UTC
 	compareTimestamp := int64(1762300800) // 2025-11-05 00:00:00 UTC
 
@@ -64,11 +84,12 @@ func TestGenerateReport_E2E(t *testing.T) {
 	speeds := []float64{8.0, 10.0, 12.0, 15.0, 18.0, 20.0, 22.0, 25.0, 28.0, 30.0}
 	for i := 0; i < 50; i++ {
 		speed := speeds[i%len(speeds)]
+		eventTimestamp := primaryTimestamp + int64(i*1800) // Every 30 minutes
 		testEvent := map[string]interface{}{
 			"site_id":         site.ID,
 			"classifier":      "all",
-			"start_time":      float64(primaryTimestamp + int64(i*1800)), // Every 30 minutes
-			"end_time":        float64(primaryTimestamp + int64(i*1800) + 2),
+			"start_time":      float64(eventTimestamp),
+			"end_time":        float64(eventTimestamp + 2),
 			"delta_time_msec": 100,
 			"max_speed_mps":   speed,
 			"min_speed_mps":   speed - 1.0,
@@ -80,7 +101,10 @@ func TestGenerateReport_E2E(t *testing.T) {
 			"length_m":        3.5,
 		}
 		eventJSON, _ := json.Marshal(testEvent)
-		if err := dbInst.RecordRadarObject(string(eventJSON)); err != nil {
+		// Use direct INSERT to set write_timestamp explicitly (API queries by write_timestamp)
+		_, err := dbInst.Exec(`INSERT INTO radar_objects (raw_event, write_timestamp) VALUES (?, ?)`,
+			string(eventJSON), float64(eventTimestamp))
+		if err != nil {
 			t.Fatalf("failed to insert primary test radar data %d: %v", i, err)
 		}
 	}
@@ -88,11 +112,12 @@ func TestGenerateReport_E2E(t *testing.T) {
 	// Generate events for comparison date range (2025-11-05 to 2025-11-06)
 	for i := 0; i < 50; i++ {
 		speed := speeds[i%len(speeds)] - 2.0 // Slightly lower speeds for comparison
+		eventTimestamp := compareTimestamp + int64(i*1800)
 		testEvent := map[string]interface{}{
 			"site_id":         site.ID,
 			"classifier":      "all",
-			"start_time":      float64(compareTimestamp + int64(i*1800)),
-			"end_time":        float64(compareTimestamp + int64(i*1800) + 2),
+			"start_time":      float64(eventTimestamp),
+			"end_time":        float64(eventTimestamp + 2),
 			"delta_time_msec": 100,
 			"max_speed_mps":   speed,
 			"min_speed_mps":   speed - 1.0,
@@ -104,7 +129,10 @@ func TestGenerateReport_E2E(t *testing.T) {
 			"length_m":        3.5,
 		}
 		eventJSON, _ := json.Marshal(testEvent)
-		if err := dbInst.RecordRadarObject(string(eventJSON)); err != nil {
+		// Use direct INSERT to set write_timestamp explicitly
+		_, err := dbInst.Exec(`INSERT INTO radar_objects (raw_event, write_timestamp) VALUES (?, ?)`,
+			string(eventJSON), float64(eventTimestamp))
+		if err != nil {
 			t.Fatalf("failed to insert comparison test radar data %d: %v", i, err)
 		}
 	}

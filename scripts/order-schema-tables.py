@@ -21,7 +21,7 @@ Exit codes:
 
 import re
 import sys
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Tuple
 
 
 def extract_table_name(create_statement: str) -> str:
@@ -60,7 +60,7 @@ def parse_schema(schema_content: str) -> Tuple[Dict[str, str], Dict[str, List[st
     # Split on CREATE TABLE to get individual statements
     # Keep everything from CREATE TABLE until the next CREATE (TABLE, INDEX, TRIGGER) or end
     parts = re.split(
-        r'(?=CREATE\s+(?:TABLE|INDEX|TRIGGER|UNIQUE\s+INDEX))',
+        r"(?=CREATE\s+(?:TABLE|INDEX|TRIGGER|UNIQUE\s+INDEX))",
         schema_content,
         flags=re.IGNORECASE,
     )
@@ -71,7 +71,7 @@ def parse_schema(schema_content: str) -> Tuple[Dict[str, str], Dict[str, List[st
             continue
 
         # Only process CREATE TABLE statements
-        if not re.match(r'CREATE\s+TABLE', part, re.IGNORECASE):
+        if not re.match(r"CREATE\s+TABLE", part, re.IGNORECASE):
             continue
 
         table_name = extract_table_name(part)
@@ -81,7 +81,7 @@ def parse_schema(schema_content: str) -> Tuple[Dict[str, str], Dict[str, List[st
         # Store the full statement (up to and including the closing semicolon)
         # Find the end of the CREATE TABLE statement (before any CREATE INDEX/TRIGGER)
         match = re.search(
-            r'(CREATE\s+TABLE.*?;\s*)',
+            r"(CREATE\s+TABLE.*?;\s*)",
             part,
             re.IGNORECASE | re.DOTALL,
         )
@@ -157,7 +157,7 @@ def reorder_schema(schema_content: str) -> str:
     # Extract non-table statements (indexes, triggers, etc.)
     non_table_parts = []
     parts = re.split(
-        r'(?=CREATE\s+(?:TABLE|INDEX|TRIGGER|UNIQUE\s+INDEX))',
+        r"(?=CREATE\s+(?:TABLE|INDEX|TRIGGER|UNIQUE\s+INDEX))",
         schema_content,
         flags=re.IGNORECASE,
     )
@@ -168,7 +168,7 @@ def reorder_schema(schema_content: str) -> str:
             continue
 
         # Skip CREATE TABLE statements (we'll add them in order)
-        if re.match(r'CREATE\s+TABLE', part, re.IGNORECASE):
+        if re.match(r"CREATE\s+TABLE", part, re.IGNORECASE):
             continue
 
         non_table_parts.append(part)
@@ -183,7 +183,7 @@ def reorder_schema(schema_content: str) -> str:
     # Add indexes and triggers
     output_parts.extend(non_table_parts)
 
-    return '\n'.join(output_parts)
+    return "\n".join(output_parts)
 
 
 def main():
@@ -194,7 +194,7 @@ def main():
     schema_file = sys.argv[1]
 
     try:
-        with open(schema_file, 'r') as f:
+        with open(schema_file, "r") as f:
             schema_content = f.read()
     except FileNotFoundError:
         print(f"Error: File not found: {schema_file}", file=sys.stderr)
@@ -211,5 +211,5 @@ def main():
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
