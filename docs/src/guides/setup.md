@@ -12,7 +12,7 @@ tags: [hardware, raspberry-pi, infrastructure, traffic-safety]
 
 **A professional traffic logger with weatherproof infrastructure deployment that keeps data local, requires no cameras, and helps you advocate for safer streets.**
 
-**Difficulty**: Intermediate • **Time**: 4-6 hours • **Cost**: ~$350-450
+**Difficulty**: Intermediate • **Time**: 4-6 hours • **Cost**: $563-596
 
 **In this guide**: [Parts List](#parts-and-tools-list) • [Build Steps](#step-by-step-build-guide) • [Generate Reports](#step-7-generate-pdf-reports) • [Troubleshooting](#troubleshooting)
 
@@ -33,7 +33,7 @@ This weatherproof infrastructure deployment gives community advocates, parents, 
 **Data enthusiasts**: Build useful civic tech with open hardware
 **Local officials**: Validate commercial traffic studies with independent data
 
-**Not sure?** This project takes 4-6 hours and costs ~$350-450. If you care about street safety and need a permanent monitoring solution, you'll find it worthwhile.
+**Not sure?** This project takes 4-6 hours and costs $563-596. If you care about street safety and need a permanent monitoring solution, you'll find it worthwhile.
 
 ## Before You Begin
 
@@ -128,31 +128,19 @@ This guide walks you through building a professional, weatherproof traffic monit
 
 > **New to radar sensors?** The **OmniPreSense OPS7243-A-CW-R2** is recommended for infrastructure deployment. It's weatherproof (IP67), has 100m range, and handles outdoor conditions reliably.
 
-### Bill of Materials (~$350-450)
+### Bill of Materials
 
-| Part                   | Recommended Model            | Price (approx) | Notes                                                                   |
-| ---------------------- | ---------------------------- | -------------- | ----------------------------------------------------------------------- |
-| Doppler Radar Sensor   | OPS7243-A-CW-R2              | ~$415          | Speed-only, RS232 interface (designated R2), 100m range, IP67 enclosure |
-| Microcontroller        | Raspberry Pi 4 (4GB)         | ~$55-75        | More reliable for 24/7 operation                                        |
-| Serial HAT             | Waveshare RS232/485 HAT      | ~$25-35        | Required for R2 (RS232) interface                                       |
-| Power Supply           | 5V 4A industrial adapter     | ~$20-30        | Stable power for continuous operation                                   |
-| SD Card                | SanDisk High Endurance 64GB  | ~$15-20        | Designed for continuous recording                                       |
-| Cable Glands           | PG11 cable glands (2-pack)   | ~$8-12         | Weatherproof cable entry                                                |
-| Pole Mount             | Stainless steel hose clamps  | ~$10-15        | 2-4" diameter range                                                     |
-| Mounting Plate         | Aluminum or HDPE plate       | ~$10-20        | Custom cut to fit enclosure                                             |
-| Weatherproof Enclosure | IP65/IP67 rated junction box | ~$30-60        | Protects electronics from weather                                       |
-| **TOTAL**              |                              | **~$371-519**  |                                                                         |
-
-**Alternative sensors**:
-
-- **With distance measurement**: OPS7243-C-FC-R2 (~$435) - 60m range vs 100m
-
-**Power options** for locations without AC power:
-
-- Solar panel + battery (add ~$80-150)
-- PoE HAT + PoE injector (add ~$40-60, requires Ethernet run)
-
-**Note**: The A-type sensor (OPS7243-A-CW-R2) provides 100m range vs 60m for C-type sensors. For outdoor traffic monitoring, longer range is more important than distance measurement capability.
+| Part                 | Recommended Model                                                                                     | Price (approx) | Notes                                                                   |
+| -------------------- | ----------------------------------------------------------------------------------------------------- | -------------- | ----------------------------------------------------------------------- |
+| Doppler Radar Sensor | [OPS7243-A-CW-R2](https://omnipresense.com/product/31099/)                                            | $420           | Speed-only, RS232 interface (designated R2), 100m range, IP67 enclosure |
+| Mounting Plate       | [OPS100-BK](https://omnipresense.com/product/mounting-bracket-all-weather-enclosures/)                | $50            | Metal mounting bracket for OPS7243 enclosure                            |
+| M12 cable            | [OPS700-CBL-M1-PT-1.8](https://omnipresense.com/product/rs-232-cable-with-m12-connector-for-ops7243/) | $17            | Connects sensor to board                                                |
+| Microcontroller      | Raspberry Pi 4 (4GB)                                                                                  | $45            | More reliable for 24/7 operation                                        |
+| SD Card              | SanDisk High Endurance 32GB                                                                           | $10-20         | Designed for continuous recording                                       |
+| Serial HAT           | Waveshare RS232/485 HAT                                                                               | $18-28         | Required for R2 (RS232) interface                                       |
+| RS-232 connector     | adafruit-DE-9                                                                                         | $3-8           | Connect sensor to board                                                 |
+| Power Supply         | Unifi U-PoE (15W)                                                                                     | $8             | Stable power for continuous operation                                   |
+| **TOTAL**            |                                                                                                       | **$563-596**   |                                                                         |
 
 ---
 
@@ -160,16 +148,8 @@ This guide walks you through building a professional, weatherproof traffic monit
 
 - Basic screwdrivers, drill, adhesive
 - Computer for flashing SD card and SSH access
+- 5/16" nut driver (for steel bands)
 - Optional: Multimeter for testing connections
-
----
-
-### Sensor Selection
-
-**Maximum range for outdoor deployment**: OPS7243-A-CW-R2 (~$415) - 100m range, weatherproof, RS232
-**Want distance data**: OPS7243-C-FC-R2 (~$435) - 60m range with FMCW
-
-**Want to understand product codes?** See [Appendix: Sensor Selection Guide](#appendix-sensor-selection-guide) for detailed breakdown.
 
 ---
 
@@ -674,10 +654,10 @@ If you need remote access, please use [Tailscale](#remote-access-with-tailscale-
 ### Example Talking Points
 
 ❌ "Cars go way too fast on our street!"
-✅ "85% of drivers exceed the 25 mph limit, with p85 at 38 mph—well above the engineering standard for residential safety."
+✅ "85% of drivers exceed the 25 mph limit, with p85 at 39 mph, well above the engineering standard for residential safety."
 
 ❌ "Someone's going to get hurt!"
-✅ "At 38 mph, crash energy is 2.3× higher than at the posted 25 mph limit. Our data shows consistent speeding during school hours."
+✅ "At 39 mph, crash energy is 2.3× higher than at the posted 25 mph limit. Our data shows consistent speeding during school hours."
 
 **[PLACEHOLDER: Photo of community member presenting PDF report at city council meeting with speed data displayed on screen]**
 
@@ -759,7 +739,6 @@ Show your neighbours. File public records requests to compare your data to offic
 - **GitHub Repository**: [github.com/banshee-data/velocity.report](https://github.com/banshee-data/velocity.report)
 - **OmniPreSense Support**: [omnipresense.com/support](https://www.omnipresense.com/support)
 - **Community Discord**: [discord.gg/XXh6jXVFkt](https://discord.gg/XXh6jXVFkt)
-- **Project Website**: [velocity.report](https://velocity.report)
 
 **Related Documentation**:
 
@@ -835,4 +814,4 @@ All models operate on **5V DC**:
 
 ---
 
-Let's build safer streets, one Pi at a time.
+Let's build safer streets together. If the speeds don't drop, the work can't stop.
