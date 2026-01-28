@@ -20,9 +20,9 @@ tags: [hardware, raspberry-pi, infrastructure, traffic-safety]
 
 ## Introduction
 
-Measuring vehicle speeds on residential streets is the first step toward safer neighbourhoods. Without data, convincing city officials to address speeding is nearly impossible.
+Measuring vehicle speeds is the first step toward safer streets. Without data, convincing city officials to address speeding can be challenging.
 
-Build your own privacy-first traffic radar using off-the-shelf Doppler technology (the same sensors police use) and open-source software. No cameras, no license plates—just local speed data that produces professional traffic reports.
+This guid will show you how to build your own privacy-first traffic radar using open-source software and off-the-shelf Doppler technology (the same sensors municipalaties use). No cameras, no license plates, just local speed data that produces professional traffic reports.
 
 This weatherproof infrastructure deployment gives community advocates, parents, and civic-minded makers the evidence they need to drive change, with professional-grade hardware designed for permanent outdoor installations.
 
@@ -130,18 +130,18 @@ This guide walks you through building a professional, weatherproof traffic monit
 
 ### Bill of Materials (~$350-450)
 
-| Part                 | Recommended Model           | Price (approx) | Notes                                                                   |
-| -------------------- | --------------------------- | -------------- | ----------------------------------------------------------------------- |
-| Doppler Radar Sensor | OPS7243-A-CW-R2             | ~$415          | Speed-only, RS232 interface (designated R2), 100m range, IP67 enclosure |
-| Microcontroller      | Raspberry Pi 4 (4GB)        | ~$55-75        | More reliable for 24/7 operation                                        |
-| Serial HAT           | Waveshare RS232/485 HAT     | ~$25-35        | Required for R2 (RS232) interface                                       |
-| Power Supply         | 5V 4A industrial adapter    | ~$20-30        | Stable power for continuous operation                                   |
-| SD Card              | SanDisk High Endurance 64GB | ~$15-20        | Designed for continuous recording                                       |
-| Cable Glands         | PG11 cable glands (2-pack)  | ~$8-12         | Weatherproof cable entry                                                |
-| Pole Mount           | Stainless steel hose clamps | ~$10-15        | 2-4" diameter range                                                     |
-| Mounting Plate       | Aluminum or HDPE plate      | ~$10-20        | Custom cut to fit enclosure                                             |
-| Weatherproof Enclosure | IP65/IP67 rated junction box | ~$30-60     | Protects electronics from weather                                        |
-| **TOTAL**            |                             | **~$371-519**  |                                                                         |
+| Part                   | Recommended Model            | Price (approx) | Notes                                                                   |
+| ---------------------- | ---------------------------- | -------------- | ----------------------------------------------------------------------- |
+| Doppler Radar Sensor   | OPS7243-A-CW-R2              | ~$415          | Speed-only, RS232 interface (designated R2), 100m range, IP67 enclosure |
+| Microcontroller        | Raspberry Pi 4 (4GB)         | ~$55-75        | More reliable for 24/7 operation                                        |
+| Serial HAT             | Waveshare RS232/485 HAT      | ~$25-35        | Required for R2 (RS232) interface                                       |
+| Power Supply           | 5V 4A industrial adapter     | ~$20-30        | Stable power for continuous operation                                   |
+| SD Card                | SanDisk High Endurance 64GB  | ~$15-20        | Designed for continuous recording                                       |
+| Cable Glands           | PG11 cable glands (2-pack)   | ~$8-12         | Weatherproof cable entry                                                |
+| Pole Mount             | Stainless steel hose clamps  | ~$10-15        | 2-4" diameter range                                                     |
+| Mounting Plate         | Aluminum or HDPE plate       | ~$10-20        | Custom cut to fit enclosure                                             |
+| Weatherproof Enclosure | IP65/IP67 rated junction box | ~$30-60        | Protects electronics from weather                                       |
+| **TOTAL**              |                              | **~$371-519**  |                                                                         |
 
 **Alternative sensors**:
 
@@ -554,11 +554,11 @@ When you reposition your sensor or adjust its mounting angle, historical data ne
 
 **Example scenario:**
 
-| Period                     | Cosine Angle | Notes                              |
-| -------------------------- | ------------ | ---------------------------------- |
-| 1 Jan 2025 → 15 Mar 2025   | 21°          | Initial installation               |
-| 15 Mar 2025 → 1 Jun 2025   | 35°          | Repositioned after storm damage    |
-| 1 Jun 2025 → (current)     | 21°          | Restored to original position      |
+| Period                   | Cosine Angle | Notes                           |
+| ------------------------ | ------------ | ------------------------------- |
+| 1 Jan 2025 → 15 Mar 2025 | 21°          | Initial installation            |
+| 15 Mar 2025 → 1 Jun 2025 | 35°          | Repositioned after storm damage |
+| 1 Jun 2025 → (current)   | 21°          | Restored to original position   |
 
 When generating a report for April 2025, the system automatically applies the 35° correction. A comparison report spanning February (21°) vs April (35°) applies each correction independently.
 
@@ -803,10 +803,10 @@ OmniPreSense offers radar sensors in multiple configurations. The product code f
 
 ### Available Models Comparison
 
-| Model               | Modulation | Speed | Distance | Interface  | IP67 | Range | Price     |
-| ------------------- | ---------- | ----- | -------- | ---------- | ---- | ----- | --------- |
-| 203-OPS7243-A-CW-R2 | Doppler    | Yes   | No       | RS232 (R2) | Yes  | 100m  | ~$415     |
-| 203-OPS7243-C-FC-R2 | FMCW       | Yes   | Yes      | RS232 (R2) | Yes  | 60m   | ~$435     |
+| Model               | Modulation | Speed | Distance | Interface  | IP67 | Range | Price |
+| ------------------- | ---------- | ----- | -------- | ---------- | ---- | ----- | ----- |
+| 203-OPS7243-A-CW-R2 | Doppler    | Yes   | No       | RS232 (R2) | Yes  | 100m  | ~$415 |
+| 203-OPS7243-C-FC-R2 | FMCW       | Yes   | Yes      | RS232 (R2) | Yes  | 60m   | ~$435 |
 
 **Key specifications**:
 
