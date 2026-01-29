@@ -55,9 +55,9 @@ This weatherproof infrastructure deployment gives community advocates, parents, 
 
 ### What This System Measures
 
-✅ **Collected**: Vehicle speed, direction, timestamp
-❌ **Not collected**: License plates, vehicle photos, driver identity
-❌ **Not transmitted**: All data stays on your device
+- ✅ **Collected**: Vehicle speed, direction, timestamp
+- ❌ **Not collected**: License plates, vehicle photos, driver identity
+- ❌ **Not transmitted**: All data stays on your device
 
 ### Is This Legal?
 
@@ -126,7 +126,7 @@ This guide walks you through building a professional, weatherproof traffic monit
 
 ## Parts and Tools List
 
-> **New to radar sensors?** The **OmniPreSense OPS7243-A-CW-R2** is recommended for infrastructure deployment. It's weatherproof (IP67), has 100m range, and handles outdoor conditions reliably.
+**New to radar sensors?** The **OmniPreSense OPS7243-A-CW-R2** is recommended for infrastructure deployment. It's weatherproof (IP67), has 100m range, and handles outdoor conditions reliably.
 
 ### Bill of Materials
 
@@ -810,7 +810,7 @@ All models operate on **5V DC**:
 
 ---
 
-[Back to top](#build-your-own-privacy-first-speed-radar)
+[Back to top](#)
 
 ---
 
