@@ -1,3 +1,4 @@
+@reference "tailwindcss/utilities";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
