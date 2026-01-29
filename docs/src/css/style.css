@@ -1,4 +1,3 @@
-@reference "tailwindcss/utilities";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -14,9 +13,7 @@ html {
 }
 
 /* Syntax highlighting theme - matches GitHub style */
-@layer base {
-  /* Code blocks */
-  pre[class*="language-"] {
+pre[class*="language-"] {
     @apply rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800;
   }
 
@@ -51,14 +48,12 @@ html {
 
   /* Prose h1 should match */
   .prose h1 {
-    @apply text-4xl;
-  }
+/* Prose h1 should match */
+.prose h1 {
+  @apply text-4xl;
 }
 
-@layer components {
-  /* Custom button styles */
-  .btn-primary {
-    @apply bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors;
+  @apply bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors;
   }
 
   .btn-secondary {
@@ -142,7 +137,6 @@ html {
   }
   @media (prefers-color-scheme: dark) {
     .card-description {
-      @apply text-gray-400;
-    }
+    @apply text-gray-400;
   }
 }
