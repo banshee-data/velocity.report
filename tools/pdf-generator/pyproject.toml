@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "velocity-report-pdf-generator"
-version = "0.4.0-pre9"
+version = "0.4.0"
 description = "PDF report generator for velocity.report Go application"
 readme = "README.md"
 requires-python = ">=3.11"
