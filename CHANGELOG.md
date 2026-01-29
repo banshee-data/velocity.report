@@ -43,7 +43,157 @@ Each component (Radar, PDF Generator, Deploy Tool, Web Frontend) maintains indep
 
 See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
-## [Unreleased]
+## [0.4.0] - 2026-01-29
+
+### Radar Server
+
+#### Added
+
+- Comparison report generation (T1/T2 period analysis)
+  - Before/after speed distribution comparison
+  - Percentage change calculations and tolerance thresholds
+  - Dual-period chart overlays
+- Site configuration with Slowly Changing Dimension (Type 6 SCD) pattern
+  - Cosine correction periods for radar mounting angle compensation
+  - Historical site configuration tracking with effective timestamps
+  - Full precision angle calculations using math.Pi/180
+- Transit worker inspector with full-history rebuild capability
+  - Manual trigger for full transit reprocessing
+  - Deduplication detection and cleanup tools
+  - Enhanced status tracking and run management
+- Database stats API endpoint with path validation
+- Hourly transit worker job with UI toggle for enabling/disabling
+- Security validation for PDF path to prevent path traversal attacks
+- Boundary hour filtering to RadarObjectRollupRange for improved data accuracy
+- Min speed filtering support in report generation
+
+#### Changed
+
+- Model version default changed from "rebuild-full" to "hourly-cron" for radar transits
+- Enhanced histogram aggregation with max bucket support
+
+#### Fixed
+
+- Build failure with stub generation
+
+### LiDAR Server
+
+#### Added
+
+- Foreground tracking API with real-time object detection and classification
+  - Foreground mask extraction, coordinate transformation, and DBSCAN clustering
+  - Track management with confirmation thresholds and plausibility checks
+  - REST API endpoints for track and cluster queries
+  - ML training data storage for future classification improvements
+- Track visualisation UI with interactive map, timeline, and track list
+  - Real-time and historical playback modes
+  - Track history paths and observation toggle
+  - Background grid overlay for debugging
+- Adaptive region segmentation for background grid
+  - Automatic threshold adjustment based on environment characteristics
+  - Region identification with warmup frame handling
+  - Debug dashboard for region parameter visualisation
+- PCAP analysis tool for batch track categorisation and ML data export
+- Foreground forwarding and debugging capabilities
+
+#### Changed
+
+- Track confirmation now requires 5 hits with position jump and speed plausibility checks
+- Background grid thresholds tuned to achieve <30 false positives
+
+#### Fixed
+
+- WarmupFramesRemaining initialisation and reset logic in background grid
+- JSON serialisation for region parameters
+- Reflected cross-site scripting vulnerability in dashboard (security fix)
+- XSS prevention with escaped query strings in debug dashboards
+
+### PDF Generator
+
+#### Added
+
+- Comparison report generation with dual-period analysis
+  - Side-by-side T1/T2 period statistics
+  - Percentage change calculations with configurable thresholds
+  - Combined vehicle total calculations
+- Enhanced chart builder with integer indices and simplified bar width computation
+- Table builders for detailed data output with improved formatting
+- Boundary hour filtering and summary metric derivation functions
+- Day boundary calculations with percentile line plotting in time-series charts
+- Max bucket parameter for histogram generation with improved label formatting
+- Velocity unit support (mph, km/h, m/s) in reports
+
+#### Changed
+
+- Report sections enhanced with combined vehicle totals and improved table formatting
+- Histogram label formatting centralised for consistency
+- Chart builder refactored for comparison overlays
+
+### Deploy Tool
+
+#### Added
+
+- Transit command for analysis, deletion, migration, and rebuilding
+- Full-history run capability for transit worker
+
+### Web Frontend
+
+#### Added
+
+- LiDAR tracks page with map pane, timeline, and track list components
+  - Real-time track visualisation with history paths
+  - Pagination support for track lists
+  - Observation filters and toggle options
+- Reports page with comparison period selection
+  - Date range pickers for T1 and T2 periods
+  - Boundary threshold and min speed configuration
+  - Max speed cutoff filtering
+  - Settings persistence to local storage
+- Transit worker management UI in settings
+  - Enable/disable toggle with manual run trigger
+  - Full history rebuild option
+  - Run status and history display
+- Site configuration management with cosine correction periods
+- Data source selector component for report generation
+- Dark mode styles for LiDAR dashboards
+
+#### Changed
+
+- Layout enhanced with LiDAR tracks navigation
+- Report generation form refactored for improved responsiveness
+
+### Documentation
+
+#### Added
+
+- Comprehensive setup guide for Citizen Radar deployment
+  - Bill of materials with cost estimates
+  - Step-by-step installation instructions
+  - Sensor mounting guidance with cosine correction explanation
+- CLI architecture long-term vision and implementation plan
+- LiDAR alignment planning and dual return format documentation
+- Adaptive region parameters documentation
+- Transit deduplication plan
+- Security review of data partitioning plan with CVE mitigations
+- Time-based speed limit schedules feature specification
+- PCAP split design specification
+- LiDAR background grid standards and export options
+- ML pipeline roadmap with analysis runs and labeling UI architecture
+
+#### Changed
+
+- Documentation site migrated to pnpm with Tailwind CSS v4
+- Enhanced dark mode support throughout documentation
+- Improved card-based layouts for guides and community pages
+
+### Build System
+
+#### Added
+
+- `make set-version` utility to update version across entire codebase
+- `make schema-sync` target to regenerate schema.sql from migrations
+- `make format-sql` target for SQL formatting
+- SQL formatter configuration and formatting script
 
 ## [0.3.0] - 2025-12-01
 
@@ -180,15 +330,6 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 - Statistics dashboard
 - API integration with Go backend
 - Responsive design
-
----
-
-## Version History
-
-| Release Date | Radar | PDF Generator | Deploy Tool | Web Frontend | Schema Version |
-| ------------ | ----- | ------------- | ----------- | ------------ | -------------- |
-| 2025-12-01   | 0.2.0 | 0.2.0         | 0.2.0       | 0.2.0        | 8              |
-| 2025-11-30   | 0.1.0 | 1.0.0         | 0.1.0       | 0.0.1        | 8              |
 
 ---
 
