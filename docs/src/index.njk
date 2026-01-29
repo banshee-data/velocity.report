@@ -3,39 +3,49 @@ layout: page.njk
 title: velocity.report - Open Source Traffic Detection
 ---
 
-<div class="prose lg:prose-xl mx-auto">
-    <h1 class="text-4xl font-bold text-gray-900 mb-4">velocity.report</h1>
-
-    <p class="text-lg text-gray-700 mb-6">
-        Open-source citizen radar for neighborhood traffic monitoring. Putting data in the hands of communities when they advocate for safer streets.
-    </p>
-
-    <div class="grid md:grid-cols-2 gap-6 mt-8">
-        <div class="bg-white p-6 rounded-lg shadow">
-            <h2 class="text-2xl font-semibold mb-2">Open Source</h2>
-            <p class="text-gray-600">
-                Built using open-source software and commercially available components. All code is available on <a href="https://github.com/banshee-data/velocity.report" class="text-blue-600 hover:underline">GitHub</a>.
+<div class="max-w-7xl mx-auto">
+    <!-- Hero Section -->
+    <div class="hero-section mb-16">
+        <div>
+            <h1 class="text-5xl font-bold text-gray-900 dark:text-gray-100 mb-6">velocity.report</h1>
+            <p class="text-xl text-gray-700 dark:text-gray-300 mb-6">
+                Open-source citizen radar for neighbourhood traffic monitoring. Putting data in the hands of communities when they advocate for safer streets.
             </p>
+            <div class="space-y-4 text-lg">
+                <div class="flex items-start">
+                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400 mt-1 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    <span class="text-gray-700 dark:text-gray-300">
+                        <strong class="text-gray-900 dark:text-gray-100">Open Source:</strong> Built using open-source software and commercially available components. All code is available on <a href="https://github.com/banshee-data/velocity.report" class="text-blue-600 dark:text-blue-400 hover:underline">GitHub</a>.
+                    </span>
+                </div>
+                <div class="flex items-start">
+                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400 mt-1 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                    </svg>
+                    <span class="text-gray-700 dark:text-gray-300">
+                        <strong class="text-gray-900 dark:text-gray-100">Privacy Preserving:</strong> No cameras, no personally identifiable information (PII), no licence plates. Radar-based detection ensures privacy while providing accurate traffic data in all weather conditions.
+                    </span>
+                </div>
+            </div>
         </div>
-
-        <div class="bg-white p-6 rounded-lg shadow">
-            <h2 class="text-2xl font-semibold mb-2">Privacy Preserving</h2>
-            <p class="text-gray-600">
-                No cameras, no personally identifiable information (PII), no license plates. Radar-based detection ensures privacy while providing accurate traffic data in all weather conditions.
-            </p>
+        <div>
+            <img src="/img/stack.png" alt="velocity.report PDF report" class="hero-image" />
         </div>
     </div>
 
-    <div class="mt-16">
-        <h2 class="text-3xl font-bold text-gray-900 mb-4">How-To Guides</h2>
-        <p class="text-gray-700 mb-8">Step-by-step tutorials to help you get the most out of velocity.report</p>
+    <!-- How-To Guides Section -->
+    <div>
+        <h2 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">How-To Guides</h2>
+        <p class="text-gray-700 dark:text-gray-300 mb-8">Step-by-step tutorials to help you get the most out of velocity.report</p>
 
-        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="card-grid guides">
         {% for guide in collections.guides %}
-        <a href="{{ guide.url }}" class="block p-6 bg-white rounded-lg shadow hover:shadow-lg transition-shadow border border-gray-200">
-            <h3 class="text-xl font-semibold text-gray-900 mb-2">{{ guide.data.title }}</h3>
+        <a href="{{ guide.url }}" class="block card hover:shadow-xl transition-shadow\">
+            <h3 class="card-title mb-2">{{ guide.data.title }}</h3>
             {% if guide.data.description %}
-            <p class="text-gray-600 text-sm">{{ guide.data.description }}</p>
+            <p class="card-description text-sm">{{ guide.data.description }}</p>
             {% endif %}
         </a>
         {% endfor %}
