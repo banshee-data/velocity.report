@@ -11,7 +11,7 @@ module.exports = function (eleventyConfig) {
     html: true,
     breaks: false,
     linkify: true,
-    typographer: true
+    typographer: true,
   }).use(markdownItAnchor, {
     permalink: markdownItAnchor.permalink.ariaHidden({
       placement: "after",
@@ -20,7 +20,7 @@ module.exports = function (eleventyConfig) {
       ariaHidden: false,
     }),
     level: [1, 2, 3, 4],
-    slugify: eleventyConfig.getFilter("slugify")
+    slugify: eleventyConfig.getFilter("slugify"),
   });
 
   eleventyConfig.setLibrary("md", markdownLibrary);
@@ -30,23 +30,23 @@ module.exports = function (eleventyConfig) {
   eleventyConfig.addPassthroughCopy("src/js");
 
   // Copy images with img alias for backwards compatibility
-  eleventyConfig.addPassthroughCopy({"src/images": "img"});
+  eleventyConfig.addPassthroughCopy({ "src/images": "img" });
 
   // Watch CSS files for changes
   eleventyConfig.addWatchTarget("./src/css/");
 
   // Add collection for guides
-  eleventyConfig.addCollection("guides", function(collectionApi) {
+  eleventyConfig.addCollection("guides", function (collectionApi) {
     return collectionApi.getFilteredByGlob("src/guides/**/*.md");
   });
 
   // Add collection for getting started pages
-  eleventyConfig.addCollection("gettingStarted", function(collectionApi) {
+  eleventyConfig.addCollection("gettingStarted", function (collectionApi) {
     return collectionApi.getFilteredByGlob("src/getting-started/**/*.md");
   });
 
   // Add collection for reference docs
-  eleventyConfig.addCollection("reference", function(collectionApi) {
+  eleventyConfig.addCollection("reference", function (collectionApi) {
     return collectionApi.getFilteredByGlob("src/reference/**/*.md");
   });
 
@@ -60,10 +60,10 @@ module.exports = function (eleventyConfig) {
 
   // Add a date filter for formatting dates
   eleventyConfig.addFilter("dateDisplay", (dateObj) => {
-    return new Date(dateObj).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    return new Date(dateObj).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   });
 
@@ -73,10 +73,10 @@ module.exports = function (eleventyConfig) {
       output: "_site",
       includes: "_includes",
       layouts: "_layouts",
-      data: "_data"
+      data: "_data",
     },
     templateFormats: ["html", "md", "njk"],
     htmlTemplateEngine: "njk",
-    markdownTemplateEngine: "njk"
+    markdownTemplateEngine: "njk",
   };
 };

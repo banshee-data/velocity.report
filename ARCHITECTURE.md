@@ -19,7 +19,7 @@ This document describes the system architecture, component relationships, data f
 
 1. **Go Server** - Real-time data collection and HTTP API
 2. **Python PDF Generator** - Professional report generation with LaTeX
-3. **Web Frontend** - Real-time visualization (Svelte/TypeScript)
+3. **Web Frontend** - Real-time visualisation (Svelte/TypeScript)
 
 All components share a common SQLite database as the single source of truth.
 
@@ -287,7 +287,7 @@ All components share a common SQLite database as the single source of truth.
 
 **Location**: `/web/`
 
-**Purpose**: Real-time data visualization and interactive dashboards
+**Purpose**: Real-time data visualisation and interactive dashboards
 
 **Key Technologies**:
 
@@ -348,6 +348,8 @@ When a sensor reading arrives, the Go server stores the entire event as JSON in 
 - `lidar_bg_snapshot` - LIDAR background grid for motion detection (40×1800 range-image)
 - `lidar_objects` - Track-extracted transits from LIDAR processing [PLANNED]
 - `radar_commands` / `radar_command_log` - Command history and execution logs
+- `site` - Site metadata (location, speed limits)
+- `site_config_periods` - Time-based sensor configuration (cosine error angle history)
 
 **Transit Sources** (3 independent object detection pipelines):
 
@@ -367,6 +369,17 @@ These three sources will be compared for initial reporting, with eventual goal o
 - LIDAR background modeling for change detection (grid stored as BLOB)
 - WAL mode enabled for concurrent readers/writers
 - Indexes on timestamp columns for fast time-range queries
+- Time-based site configuration via `site_config_periods` (Type 6 Slowly Changing Dimension)
+
+**Site Configuration Periods**:
+
+The `site_config_periods` table implements a Type 6 SCD pattern for tracking sensor configuration changes over time. Key aspects:
+
+- **Cosine error correction**: Radar mounted at an angle measures lower speeds than actual. Each period stores the mounting angle for automatic correction.
+- **Non-overlapping periods**: Database triggers enforce that periods for the same site cannot overlap.
+- **Active period tracking**: One period per site is marked `is_active = 1` for new data collection.
+- **Retroactive corrections**: Changing a period's angle automatically affects all reports querying that time range.
+- **Comparison report accuracy**: When comparing periods with different configurations, each period's data is corrected independently.
 
 **Migrations**: Located in `/internal/db/migrations/`, managed by Go server
 
@@ -427,7 +440,7 @@ Three Transit Sources:
 9. XeLaTeX → Compile → PDF output
 ```
 
-### Web Visualization
+### Web Visualisation
 
 ```
 1. User → Open browser → Vite dev server (or static build)
@@ -455,7 +468,7 @@ Three Transit Sources:
 | Component      | Technology | Version | Purpose             |
 | -------------- | ---------- | ------- | ------------------- |
 | Language       | Python     | 3.9+    | Report generation   |
-| Charts         | matplotlib | 3.9+    | Data visualization  |
+| Charts         | matplotlib | 3.9+    | Data visualisation  |
 | LaTeX          | PyLaTeX    | 1.4+    | Document generation |
 | HTTP           | requests   | 2.32+   | API client          |
 | Testing        | pytest     | 8.4+    | Test framework      |
