@@ -30,13 +30,13 @@ jobs:
         with:
           node-version: "20"
           cache: "yarn"
-          cache-dependency-path: "docs/yarn.lock"
+          cache-dependency-path: "docs/pnpm-lock.yaml"
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Build site
-        run: yarn build
+        run: pnpm build
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
