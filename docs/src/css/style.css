@@ -1,7 +1,5 @@
-@reference "tailwindcss/utilities";
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 /* Dark mode support */
 :root {
@@ -10,11 +8,13 @@
 
 /* Scroll padding to account for fixed header */
 html {
-  scroll-padding-top: 5rem; /* Matches fixed header height */
+  scroll-padding-top: 5rem;
 }
 
 /* Syntax highlighting theme - matches GitHub style */
-pre[class*="language-"] {
+@layer base {
+  /* Code blocks */
+  pre[class*="language-"] {
     @apply rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800;
   }
 
@@ -49,12 +49,14 @@ pre[class*="language-"] {
 
   /* Prose h1 should match */
   .prose h1 {
-/* Prose h1 should match */
-.prose h1 {
-  @apply text-4xl;
+    @apply text-4xl;
+  }
 }
 
-  @apply bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors;
+@layer components {
+  /* Custom button styles */
+  .btn-primary {
+    @apply bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors;
   }
 
   .btn-secondary {
@@ -88,6 +90,7 @@ pre[class*="language-"] {
   .page-bg {
     @apply bg-white;
   }
+
   @media (prefers-color-scheme: dark) {
     .page-bg {
       background-color: rgb(18, 18, 18);
@@ -96,9 +99,9 @@ pre[class*="language-"] {
 
   /* Card styles - matches Svelte app */
   .card {
-    @apply rounded-lg shadow-lg p-8;
-    @apply bg-white border border-black;
+    @apply rounded-lg shadow-lg p-8 bg-white border border-black;
   }
+
   @media (prefers-color-scheme: dark) {
     .card {
       background-color: rgb(38, 38, 42);
@@ -110,11 +113,13 @@ pre[class*="language-"] {
   .card-grid {
     @apply grid gap-8 mt-8;
   }
+
   @media (min-width: 768px) {
     .card-grid {
       @apply grid-cols-2;
     }
   }
+
   @media (min-width: 1024px) {
     .card-grid.guides {
       @apply grid-cols-3;
@@ -123,9 +128,9 @@ pre[class*="language-"] {
 
   /* Card title */
   .card-title {
-    @apply text-2xl font-bold;
-    @apply text-gray-900;
+    @apply text-2xl font-bold text-gray-900;
   }
+
   @media (prefers-color-scheme: dark) {
     .card-title {
       @apply text-gray-100;
@@ -136,8 +141,10 @@ pre[class*="language-"] {
   .card-description {
     @apply text-gray-600;
   }
+
   @media (prefers-color-scheme: dark) {
     .card-description {
-    @apply text-gray-400;
+      @apply text-gray-400;
+    }
   }
 }
