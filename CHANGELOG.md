@@ -43,8 +43,6 @@ Each component (Radar, PDF Generator, Deploy Tool, Web Frontend) maintains indep
 
 See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
-## [Unreleased]
-
 ## [0.3.0] - 2025-12-01
 
 ### Radar Server
@@ -180,15 +178,6 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 - Statistics dashboard
 - API integration with Go backend
 - Responsive design
-
----
-
-## Version History
-
-| Release Date | Radar | PDF Generator | Deploy Tool | Web Frontend | Schema Version |
-| ------------ | ----- | ------------- | ----------- | ------------ | -------------- |
-| 2025-12-01   | 0.2.0 | 0.2.0         | 0.2.0       | 0.2.0        | 8              |
-| 2025-11-30   | 0.1.0 | 1.0.0         | 0.1.0       | 0.0.1        | 8              |
 
 ---
 
