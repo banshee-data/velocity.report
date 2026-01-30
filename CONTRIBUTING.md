@@ -110,16 +110,23 @@ Prefix commit messages with the primary language or purpose:
 
 **Allowed prefixes:**
 
-| Prefix   | Use Case                                |
-| -------- | --------------------------------------- |
-| `[go]`   | Go code, server, APIs                   |
-| `[py]`   | Python code (PDF generator, tools)      |
-| `[js]`   | JavaScript/TypeScript (SvelteKit, Vite) |
-| `[docs]` | Documentation (Markdown, READMEs)       |
-| `[sql]`  | Database schema or migrations           |
-| `[ci]`   | CI/CD configuration                     |
-| `[make]` | Makefile changes                        |
-| `[cfg]`  | Configuration files                     |
+| Prefix   | Use Case                                       |
+| -------- | ---------------------------------------------- |
+| `[go]`   | Go code, server, APIs                          |
+| `[py]`   | Python code (PDF generator, tools)             |
+| `[js]`   | JavaScript/TypeScript (SvelteKit, Vite)        |
+| `[docs]` | Documentation (Markdown, READMEs)              |
+| `[sh]`   | Shell scripts (Makefile, bash utilities)       |
+| `[sql]`  | Database schema or migrations                  |
+| `[fs]`   | Filesystem operations (moving files, etc.)     |
+| `[tex]`  | LaTeX/template changes                         |
+| `[ci]`   | CI/CD configuration (GitHub Actions, etc.)     |
+| `[make]` | Makefile changes                               |
+| `[git]`  | Git configuration or hooks                     |
+| `[sed]`  | Find-and-replace across multiple files         |
+| `[cfg]`  | Configuration files                            |
+| `[exe]`  | Command execution (e.g., npm install)          |
+| `[ai]`   | AI-authored edits (use with language prefixes) |
 
 **Examples:**
 
@@ -159,14 +166,14 @@ make test
 # By component
 make test-go       # Go unit tests
 make test-python   # Python tests
-make test-web      # Web tests (Vitest)
+make test-web      # Web tests (Jest)
 ```
 
 ### Writing Tests
 
 - Go: Place tests in `*_test.go` files alongside the code
 - Python: Tests live in `tools/pdf-generator/pdf_generator/tests/`
-- Web: Tests use Vitest in `web/src/**/*.test.ts`
+- Web: Tests use Jest with test files matching `**/__tests__/**/*.[jt]s` or `**/?(*.)+(spec|test).[jt]s`
 
 ## Project Structure
 
