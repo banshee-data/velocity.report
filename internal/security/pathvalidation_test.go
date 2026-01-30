@@ -80,6 +80,24 @@ func TestValidatePathWithinDirectory(t *testing.T) {
 			safeDir:   safeDir,
 			wantError: true,
 		},
+		{
+			name:      "non-existent file in valid directory",
+			filePath:  filepath.Join(safeDir, "newfile.txt"),
+			safeDir:   safeDir,
+			wantError: false,
+		},
+		{
+			name:      "non-existent nested path in valid directory",
+			filePath:  filepath.Join(safeDir, "newdir", "newfile.txt"),
+			safeDir:   safeDir,
+			wantError: false,
+		},
+		{
+			name:      "non-existent file via symlink directory",
+			filePath:  filepath.Join(symlinkPath, "newfile.txt"),
+			safeDir:   safeDir,
+			wantError: true,
+		},
 	}
 
 	for _, tt := range tests {
