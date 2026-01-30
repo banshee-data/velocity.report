@@ -106,16 +106,21 @@ See **[web/README.md](web/README.md)** for detailed instructions.
 ```
 velocity.report/
 ├── cmd/                      # Go CLI applications
-│   ├── radar/                # Radar sensor integration
-│   ├── bg-sweep/             # Background sweep utilities
-│   └── tools/                # Go utility tools
+│   ├── radar/                # Radar/LiDAR sensor integration
+│   ├── deploy/               # Deployment management tool
+│   ├── sweep/                # Parameter sweep utilities
+│   ├── tools/                # Go utility tools (pcap-analyse, etc.)
+│   └── transit-backfill/     # Transit data backfill tool
 ├── internal/                 # Go server internals (private packages)
 │   ├── api/                  # HTTP API endpoints
-│   ├── db/                   # SQLite database layer
+│   ├── db/                   # SQLite database layer + migrations
 │   ├── radar/                # Radar sensor logic
-│   ├── lidar/                # LIDAR sensor logic
+│   ├── lidar/                # LiDAR sensor logic + tracking
 │   ├── monitoring/           # System monitoring
-│   └── units/                # Unit conversion utilities
+│   ├── security/             # Path validation and security
+│   ├── serialmux/            # Serial port multiplexing
+│   ├── units/                # Unit conversion utilities
+│   └── version/              # Version information
 ├── web/                      # Svelte web frontend
 │   ├── src/                  # Frontend source code
 │   └── static/               # Static assets
@@ -126,10 +131,8 @@ velocity.report/
 │       │   ├── core/         # Core modules
 │       │   └── tests/        # Test suite
 │       └── output/           # Generated PDFs
-├── data/                     # Data directory
-│   ├── migrations/           # Database migrations
-│   └── align/                # Data alignment utilities
-├── docs/                     # Documentation Site
+├── data/                     # Sample data and alignment utilities
+├── docs/                     # Documentation site (Eleventy)
 ├── scripts/                  # Development shell scripts
 └── static/                   # Static server assets
 ```
@@ -187,12 +190,12 @@ See **[ARCHITECTURE.md](ARCHITECTURE.md)** for detailed architecture documentati
 
 **For Go Development:**
 
-- Go 1.21+ ([installation guide](https://go.dev/doc/install))
+- Go 1.25+ ([installation guide](https://go.dev/doc/install))
 - SQLite3
 
 **For Python PDF Generation:**
 
-- Python 3.9+
+- Python 3.11+
 - LaTeX distribution (XeLaTeX)
 - See [tools/pdf-generator/README.md](tools/pdf-generator/README.md)
 
@@ -243,8 +246,8 @@ source .venv/bin/activate
 
 **What's installed:**
 
-- PDF generation: PyLaTeX, reportlab
-- Data analysis: pandas, numpy, scipy
+- PDF generation: PyLaTeX
+- Data analysis: pandas, numpy
 - Visualisation: matplotlib, seaborn
 - Testing: pytest, pytest-cov
 - Formatting: black, ruff
@@ -356,7 +359,7 @@ sudo journalctl -u velocity-report.service -f
 
 **See also:**
 
-- **[docs/deployment-guide.md](docs/deployment-guide.md)** - Complete deployment guide
+- **[docs/src/guides/setup.md](docs/src/guides/setup.md)** - Complete setup and deployment guide
 - **[cmd/deploy/README.md](cmd/deploy/README.md)** - velocity-deploy CLI reference
 
 **Legacy deployment:**
