@@ -60,8 +60,8 @@ func TestTransformPointsToWorld_WithTranslation(t *testing.T) {
 		T: [16]float64{
 			1, 0, 0, 10, // Row 0: no rotation, +10 in X
 			0, 1, 0, 20, // Row 1: no rotation, +20 in Y
-			0, 0, 1, 5,  // Row 2: no rotation, +5 in Z
-			0, 0, 0, 1,  // Row 3: homogeneous coordinate
+			0, 0, 1, 5, // Row 2: no rotation, +5 in Z
+			0, 0, 0, 1, // Row 3: homogeneous coordinate
 		},
 	}
 
@@ -104,9 +104,9 @@ func TestTransformPointsToWorld_WithRotation(t *testing.T) {
 		SensorID: "sensor-rotated",
 		T: [16]float64{
 			0, -1, 0, 0, // Row 0
-			1, 0, 0, 0,  // Row 1
-			0, 0, 1, 0,  // Row 2
-			0, 0, 0, 1,  // Row 3
+			1, 0, 0, 0, // Row 1
+			0, 0, 1, 0, // Row 2
+			0, 0, 0, 1, // Row 3
 		},
 	}
 
@@ -147,10 +147,10 @@ func TestTransformPointsToWorld_ComplexTransform(t *testing.T) {
 		PoseID:   3,
 		SensorID: "sensor-complex",
 		T: [16]float64{
-			cos45, -sin45, 0, 5,  // Row 0
-			sin45, cos45, 0, 10,  // Row 1
-			0, 0, 1, 2,           // Row 2
-			0, 0, 0, 1,           // Row 3
+			cos45, -sin45, 0, 5, // Row 0
+			sin45, cos45, 0, 10, // Row 1
+			0, 0, 1, 2, // Row 2
+			0, 0, 0, 1, // Row 3
 		},
 	}
 

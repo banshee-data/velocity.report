@@ -42,9 +42,9 @@ func TestGetAcceptanceMetrics(t *testing.T) {
 
 	// Create a BackgroundManager with a grid
 	grid := &BackgroundGrid{
-		SensorID:    "test-sensor",
-		Rings:       16,
-		AzimuthBins: 360,
+		SensorID:                "test-sensor",
+		Rings:                   16,
+		AzimuthBins:             360,
 		AcceptanceBucketsMeters: []float64{5.0, 10.0, 20.0, 40.0},
 		AcceptByRangeBuckets:    []int64{100, 200, 300, 400},
 		RejectByRangeBuckets:    []int64{10, 20, 30, 40},
@@ -203,9 +203,9 @@ func TestGridStatus(t *testing.T) {
 
 	// Create a BackgroundManager with some cells
 	grid := &BackgroundGrid{
-		Rings:        4,
-		AzimuthBins:  8,
-		nonzeroCellCount: 20,
+		Rings:                   4,
+		AzimuthBins:             8,
+		nonzeroCellCount:        20,
 		AcceptanceBucketsMeters: []float64{10.0, 20.0},
 		AcceptByRangeBuckets:    []int64{50, 100},
 		RejectByRangeBuckets:    []int64{5, 10},
@@ -272,8 +272,8 @@ func TestResetGrid(t *testing.T) {
 
 	// Create a BackgroundManager with populated grid
 	grid := &BackgroundGrid{
-		Rings:       4,
-		AzimuthBins: 8,
+		Rings:                   4,
+		AzimuthBins:             8,
 		AcceptanceBucketsMeters: []float64{10.0},
 		AcceptByRangeBuckets:    []int64{100},
 		RejectByRangeBuckets:    []int64{50},
@@ -483,7 +483,7 @@ func TestBackgroundManager_NilSafety(t *testing.T) {
 
 	// These should not panic
 	nilBM.SetEnableDiagnostics(true)
-	
+
 	metrics := nilBM.GetAcceptanceMetrics()
 	if metrics == nil {
 		t.Error("GetAcceptanceMetrics should return empty metrics, not nil")

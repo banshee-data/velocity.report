@@ -18,7 +18,7 @@ const (
 		`"start_time":"999.0","delta_time_msec":1000,"max_speed_mps":10.0,` +
 		`"min_speed_mps":5.0,"max_magnitude":50,"avg_magnitude":30,` +
 		`"total_frames":10,"frames_per_mps":1.0,"length_m":10.0,"speed_change":5.0}`
-	
+
 	testRadarObjectJSON2 = `{"classifier":"object_inbound","end_time":"2000.0",` +
 		`"start_time":"1999.0","delta_time_msec":1000,"max_speed_mps":15.0,` +
 		`"min_speed_mps":10.0,"max_magnitude":60,"avg_magnitude":40,` +
@@ -37,11 +37,11 @@ func TestDeleteDuplicateBgSnapshots(t *testing.T) {
 	defer db.Close()
 
 	sensorID := "test-sensor-1"
-	
+
 	// Insert some background snapshots with duplicate grid_blobs
 	gridBlob1 := []byte("grid_data_1")
 	gridBlob2 := []byte("grid_data_2")
-	
+
 	// Insert 3 snapshots: 2 with same grid_blob, 1 unique
 	snap1 := &lidar.BgSnapshot{
 		SensorID:           sensorID,
@@ -57,7 +57,7 @@ func TestDeleteDuplicateBgSnapshots(t *testing.T) {
 	if _, err := db.InsertBgSnapshot(snap1); err != nil {
 		t.Fatalf("Failed to insert first snapshot: %v", err)
 	}
-	
+
 	snap2 := &lidar.BgSnapshot{
 		SensorID:           sensorID,
 		TakenUnixNanos:     time.Now().Add(time.Second).UnixNano(),
@@ -72,7 +72,7 @@ func TestDeleteDuplicateBgSnapshots(t *testing.T) {
 	if _, err := db.InsertBgSnapshot(snap2); err != nil {
 		t.Fatalf("Failed to insert duplicate snapshot: %v", err)
 	}
-	
+
 	snap3 := &lidar.BgSnapshot{
 		SensorID:           sensorID,
 		TakenUnixNanos:     time.Now().Add(2 * time.Second).UnixNano(),
@@ -166,7 +166,7 @@ func TestRadarDataRange(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to get radar data range: %v", err)
 		}
-		
+
 		// Empty database should return empty range
 		if dataRange.StartUnix != 0 || dataRange.EndUnix != 0 {
 			t.Errorf("Expected empty range, got start=%f, end=%f", dataRange.StartUnix, dataRange.EndUnix)

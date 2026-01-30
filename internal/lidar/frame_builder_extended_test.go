@@ -226,9 +226,9 @@ func TestNewFrameBuilderWithLogging(t *testing.T) {
 // TestNewFrameBuilderWithDebugLogging tests creating a frame builder with debug logging
 func TestNewFrameBuilderWithDebugLogging(t *testing.T) {
 	tests := []struct {
-		name               string
-		debug              bool
-		expectCallback     bool
+		name           string
+		debug          bool
+		expectCallback bool
 	}{
 		{"with debug enabled", true, true},
 		{"with debug disabled", false, false},
@@ -244,7 +244,7 @@ func TestNewFrameBuilderWithDebugLogging(t *testing.T) {
 			if fb.sensorID != "test-sensor-debug" {
 				t.Errorf("sensorID = %s, want 'test-sensor-debug'", fb.sensorID)
 			}
-			
+
 			// Callback is only set when debug is enabled
 			if tt.expectCallback && fb.frameCallback == nil {
 				t.Error("frameCallback should not be nil when debug is enabled")
@@ -317,7 +317,7 @@ func TestFrameBuilder_StatsTracking(t *testing.T) {
 
 	// Add frames with different timestamps
 	times := []time.Duration{-30 * time.Second, -20 * time.Second, -10 * time.Second, -5 * time.Second}
-	
+
 	fb.mu.Lock()
 	fb.frameBuffer = make(map[string]*LiDARFrame)
 	for i, offset := range times {
@@ -409,7 +409,7 @@ func TestFrameBuilder_ExportPaths(t *testing.T) {
 	if _, err := os.Stat(testPath); os.IsNotExist(err) {
 		t.Error("Test export file was not created")
 	}
-	
+
 	// Verify frame builder exists
 	if fb == nil {
 		t.Error("FrameBuilder should not be nil")

@@ -105,4 +105,3 @@ func TestMigrateHelpers_Existence(t *testing.T) {
 	// Test baseline with version 0 (shouldn't do much)
 	_ = db.BaselineAtVersion(0)
 }
-

@@ -186,14 +186,14 @@ func TestSidecarState_ConcurrentOperations(t *testing.T) {
 
 	expectedTotal := int64(numGoroutines * tracksPerGoroutine)
 	if state.GetActiveTrackCount() != expectedTotal {
-		t.Errorf("After concurrent adds: ActiveTracks = %d, want %d", 
+		t.Errorf("After concurrent adds: ActiveTracks = %d, want %d",
 			state.GetActiveTrackCount(), expectedTotal)
 	}
 
 	// Concurrent reads and removes
 	for g := 0; g < numGoroutines; g++ {
 		wg.Add(2)
-		
+
 		// Reader goroutine
 		go func(goroutineID int) {
 			defer wg.Done()
@@ -218,7 +218,7 @@ func TestSidecarState_ConcurrentOperations(t *testing.T) {
 
 	// All tracks should be removed
 	if state.GetActiveTrackCount() != 0 {
-		t.Errorf("After concurrent removes: ActiveTracks = %d, want 0", 
+		t.Errorf("After concurrent removes: ActiveTracks = %d, want 0",
 			state.GetActiveTrackCount())
 	}
 }

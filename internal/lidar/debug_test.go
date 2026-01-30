@@ -55,12 +55,12 @@ func TestDebugf(t *testing.T) {
 	}()
 
 	tests := []struct {
-		name          string
-		setupLogger   bool
-		format        string
-		args          []interface{}
-		wantContains  string
-		wantEmpty     bool
+		name         string
+		setupLogger  bool
+		format       string
+		args         []interface{}
+		wantContains string
+		wantEmpty    bool
 	}{
 		{
 			name:         "with logger enabled",
@@ -70,11 +70,11 @@ func TestDebugf(t *testing.T) {
 			wantContains: "processing frame 123 with 45678 points",
 		},
 		{
-			name:         "with logger disabled",
-			setupLogger:  false,
-			format:       "this should not appear",
-			args:         []interface{}{},
-			wantEmpty:    true,
+			name:        "with logger disabled",
+			setupLogger: false,
+			format:      "this should not appear",
+			args:        []interface{}{},
+			wantEmpty:   true,
 		},
 		{
 			name:         "with special characters",
