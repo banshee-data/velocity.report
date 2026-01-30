@@ -3,7 +3,7 @@ package lidar
 import (
 	"database/sql"
 	"encoding/json"
-	"os"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -14,15 +14,11 @@ import (
 func setupAnalysisRunDB(t *testing.T) (*sql.DB, func()) {
 	t.Helper()
 
-	tmpDir, err := os.MkdirTemp("", "analysis-run-test")
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
+	tmpDir := t.TempDir()
 
 	dbPath := filepath.Join(tmpDir, "test.db")
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
-		os.RemoveAll(tmpDir)
 		t.Fatalf("Failed to open database: %v", err)
 	}
 
@@ -81,13 +77,11 @@ notes TEXT
 
 	if _, err := db.Exec(createSQL); err != nil {
 		db.Close()
-		os.RemoveAll(tmpDir)
 		t.Fatalf("Failed to create tables: %v", err)
 	}
 
 	cleanup := func() {
 		db.Close()
-		os.RemoveAll(tmpDir)
 	}
 
 	return db, cleanup
@@ -334,7 +328,7 @@ func TestCompleteRun(t *testing.T) {
 	// Record a few tracks
 	for i := 0; i < 5; i++ {
 		track := &TrackedObject{
-			TrackID:           "track-" + string(rune('A'+i)),
+			TrackID:           fmt.Sprintf("track-%d", i),
 			SensorID:          "test-sensor",
 			State:             TrackConfirmed,
 			FirstUnixNanos:    time.Now().UnixNano(),

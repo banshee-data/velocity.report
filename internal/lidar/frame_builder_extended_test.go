@@ -1,6 +1,7 @@
 package lidar
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -321,7 +322,7 @@ func TestFrameBuilder_StatsTracking(t *testing.T) {
 	fb.mu.Lock()
 	fb.frameBuffer = make(map[string]*LiDARFrame)
 	for i, offset := range times {
-		frameID := "frame-" + string(rune('A'+i))
+		frameID := fmt.Sprintf("frame-%d", i)
 		fb.frameBuffer[frameID] = &LiDARFrame{
 			FrameID:        frameID,
 			StartTimestamp: time.Now().Add(offset),
