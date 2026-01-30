@@ -37,7 +37,12 @@ app
 app-*
 velocity-report-*
 mock_serial_port*
-coverage*
+coverage.out
+coverage.html
+web/coverage/
+tools/pdf-generator/htmlcov/
+tools/pdf-generator/coverage.xml
+tools/pdf-generator/.coverage
 velocity-deploy*
 
 # Test artifacts
