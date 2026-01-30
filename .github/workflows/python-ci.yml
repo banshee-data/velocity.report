@@ -71,6 +71,14 @@ jobs:
           rm -f .coverage* coverage.xml htmlcov/*
           python -m pytest --cov=pdf_generator --cov-report=term-missing --cov-report=xml --cov-report=html -v
 
+      - name: Upload Python coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./tools/pdf-generator/coverage.xml
+          flags: python
+          name: python-coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
+
       - name: Coverage comment
         id: coverage_comment
         uses: py-cov-action/python-coverage-comment-action@v3

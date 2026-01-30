@@ -1,0 +1,42 @@
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+    patch:
+      default:
+        target: auto
+        threshold: 1%
+
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: false
+
+# Define coverage flags for each component
+flag_management:
+  default_rules:
+    carryforward: true
+    statuses:
+      - type: project
+        target: auto
+        threshold: 1%
+      - type: patch
+        target: auto
+        threshold: 1%
+
+flags:
+  go:
+    paths:
+      - cmd/
+      - internal/
+    carryforward: true
+  python:
+    paths:
+      - tools/pdf-generator/
+    carryforward: true
+  web:
+    paths:
+      - web/src/
+    carryforward: true

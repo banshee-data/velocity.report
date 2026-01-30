@@ -104,6 +104,14 @@ jobs:
       - name: Run Jest tests with coverage
         run: pnpm run test:ci
 
+      - name: Upload Web coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./web/coverage/lcov.info
+          flags: web
+          name: web-coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
+
       - name: Coverage comment
         uses: romeovs/lcov-reporter-action@v0.3.1
         if: github.event_name == 'pull_request'
