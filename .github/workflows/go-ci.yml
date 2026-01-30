@@ -1,9 +1,20 @@
 name: 🧭 Go CI
 
 on:
-  # Run only on PRs when Go files change
+  # Run on PRs when Go files change
   pull_request:
     types: [opened, synchronize, reopened]
+    paths:
+      - "**/*.go"
+      - "cmd/**"
+      - "internal/**"
+      - ".github/workflows/go-ci.yml"
+      - "go.mod"
+      - "go.sum"
+  # Run on push to main to update coverage badges
+  push:
+    branches:
+      - main
     paths:
       - "**/*.go"
       - "cmd/**"

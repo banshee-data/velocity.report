@@ -7,9 +7,18 @@ permissions:
   issues: write
 
 on:
-  # Run only on PRs that change web files
+  # Run on PRs that change web files
   pull_request:
     types: [opened, reopened, synchronize]
+    paths:
+      - "web/**"
+      - ".github/workflows/web-ci.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+  # Run on push to main to update coverage badges
+  push:
+    branches:
+      - main
     paths:
       - "web/**"
       - ".github/workflows/web-ci.yml"

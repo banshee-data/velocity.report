@@ -8,9 +8,20 @@ permissions:
   issues: write # Needed for PR comments
 
 on:
-  # Run only on PRs that touch the tools/ or data/ areas
+  # Run on PRs that touch the tools/ or data/ areas
   pull_request:
     types: [opened, synchronize, reopened]
+    paths:
+      - "tools/**"
+      - "data/**"
+      - ".github/workflows/python-ci.yml"
+      - "requirements.txt"
+      - "requirements.in"
+      - "tox.ini"
+  # Run on push to main to update coverage badges
+  push:
+    branches:
+      - main
     paths:
       - "tools/**"
       - "data/**"

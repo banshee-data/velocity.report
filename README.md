@@ -362,6 +362,7 @@ No installation required - use PYTHONPATH method as documented in [tools/pdf-gen
 ## Documentation
 
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture and component relationships
+- **[docs/coverage.md](docs/coverage.md)** - Code coverage setup and usage guide
 - **[internal/db/migrations/README.md](internal/db/migrations/README.md)** - Database migration guide and reference
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history and release notes
 - **[web/README.md](web/README.md)** - Web frontend documentation
