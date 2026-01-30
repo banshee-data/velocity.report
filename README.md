@@ -5,7 +5,7 @@
 [![Discord](https://img.shields.io/discord/1387513267496419359)](https://discord.gg/XXh6jXVFkt)
 
 [![Go Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=go&label=Go%20Coverage&logo=go)](https://codecov.io/gh/banshee-data/velocity.report?flag=go)
-[![Web Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=web&label=Web%20Coverage&logo=javascript)](https://codecov.io/gh/banshee-data/velocity.report?flag=web)
+[![Web Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=web&label=Web%20Coverage&logo=svelte)](https://codecov.io/gh/banshee-data/velocity.report?flag=web)
 [![Python Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=python&label=Python%20Coverage&logo=python)](https://codecov.io/gh/banshee-data/velocity.report?flag=python)
 
 [![🧭 Go CI](https://github.com/banshee-data/velocity.report/actions/workflows/go-ci.yml/badge.svg?branch=main)](https://github.com/banshee-data/velocity.report/actions/workflows/go-ci.yml)
