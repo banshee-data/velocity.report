@@ -1,16 +1,20 @@
 # velocity.report
 
+<div align="center">
+
+[![Discord](https://img.shields.io/discord/XXh6jXVFkt)](https://discord.gg/XXh6jXVFkt)
+[![🧭 Go CI](https://github.com/banshee-data/velocity.report/actions/workflows/go-ci.yml/badge.svg?branch=main)](https://github.com/banshee-data/velocity.report/actions/workflows/go-ci.yml)
+[![🌐 Web CI](https://github.com/banshee-data/velocity.report/actions/workflows/web-ci.yml/badge.svg?branch=main)](https://github.com/banshee-data/velocity.report/actions/workflows/web-ci.yml)
+[![🐍 Python CI](https://github.com/banshee-data/velocity.report/actions/workflows/python-ci.yml/badge.svg?branch=main)](https://github.com/banshee-data/velocity.report/actions/workflows/python-ci.yml)
+[![Go Coverage](https://codecov.io/gh/banshee-data/velocity.report/branch/main/graph/badge.svg?flag=go)](https://codecov.io/gh/banshee-data/velocity.report?flag=go)
+[![Web Coverage](https://codecov.io/gh/banshee-data/velocity.report/branch/main/graph/badge.svg?flag=web)](https://codecov.io/gh/banshee-data/velocity.report?flag=web)
+[![Python Coverage](https://codecov.io/gh/banshee-data/velocity.report/branch/main/graph/badge.svg?flag=python)](https://codecov.io/gh/banshee-data/velocity.report?flag=python)
+
+</div>
+
 A privacy-focused traffic logging tool for neighborhood change-makers.
 
 Measure vehicle speeds, make streets safer.
-
-[![join-us-on-discord](https://github.com/user-attachments/assets/fa329256-aee7-4751-b3c4-d35bdf9287f5)](https://discord.gg/XXh6jXVFkt)
-
-## Code Coverage
-
-[![Go Coverage](https://codecov.io/gh/banshee-data/velocity.report/branch/main/graph/badge.svg?flag=go)](https://codecov.io/gh/banshee-data/velocity.report?flag=go)
-[![Python Coverage](https://codecov.io/gh/banshee-data/velocity.report/branch/main/graph/badge.svg?flag=python)](https://codecov.io/gh/banshee-data/velocity.report?flag=python)
-[![Web Coverage](https://codecov.io/gh/banshee-data/velocity.report/branch/main/graph/badge.svg?flag=web)](https://codecov.io/gh/banshee-data/velocity.report?flag=web)
 
 ```
                                                 ░░░░
