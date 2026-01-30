@@ -6,9 +6,9 @@
 [![🧭 Go CI](https://github.com/banshee-data/velocity.report/actions/workflows/go-ci.yml/badge.svg?branch=main)](https://github.com/banshee-data/velocity.report/actions/workflows/go-ci.yml)
 [![🌐 Web CI](https://github.com/banshee-data/velocity.report/actions/workflows/web-ci.yml/badge.svg?branch=main)](https://github.com/banshee-data/velocity.report/actions/workflows/web-ci.yml)
 [![🐍 Python CI](https://github.com/banshee-data/velocity.report/actions/workflows/python-ci.yml/badge.svg?branch=main)](https://github.com/banshee-data/velocity.report/actions/workflows/python-ci.yml)
-[![Go Coverage](https://codecov.io/gh/banshee-data/velocity.report/branch/main/graph/badge.svg?flag=go)](https://codecov.io/gh/banshee-data/velocity.report?flag=go)
-[![Web Coverage](https://codecov.io/gh/banshee-data/velocity.report/branch/main/graph/badge.svg?flag=web)](https://codecov.io/gh/banshee-data/velocity.report?flag=web)
-[![Python Coverage](https://codecov.io/gh/banshee-data/velocity.report/branch/main/graph/badge.svg?flag=python)](https://codecov.io/gh/banshee-data/velocity.report?flag=python)
+[![Go Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=go&label=Go%20Coverage)](https://codecov.io/gh/banshee-data/velocity.report?flag=go)
+[![Web Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=web&label=Web%20Coverage)](https://codecov.io/gh/banshee-data/velocity.report?flag=web)
+[![Python Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=python&label=Python%20Coverage)](https://codecov.io/gh/banshee-data/velocity.report?flag=python)
 
 </div>
 
