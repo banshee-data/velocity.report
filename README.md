@@ -6,6 +6,12 @@ Measure vehicle speeds, make streets safer.
 
 [![join-us-on-discord](https://github.com/user-attachments/assets/fa329256-aee7-4751-b3c4-d35bdf9287f5)](https://discord.gg/XXh6jXVFkt)
 
+## Code Coverage
+
+[![Go Coverage](https://codecov.io/gh/banshee-data/velocity.report/branch/main/graph/badge.svg?flag=go)](https://codecov.io/gh/banshee-data/velocity.report?flag=go)
+[![Python Coverage](https://codecov.io/gh/banshee-data/velocity.report/branch/main/graph/badge.svg?flag=python)](https://codecov.io/gh/banshee-data/velocity.report?flag=python)
+[![Web Coverage](https://codecov.io/gh/banshee-data/velocity.report/branch/main/graph/badge.svg?flag=web)](https://codecov.io/gh/banshee-data/velocity.report?flag=web)
+
 ```
                                                 ░░░░
                                                ▒▓███▓▓▓▓▒
@@ -356,6 +362,7 @@ No installation required - use PYTHONPATH method as documented in [tools/pdf-gen
 ## Documentation
 
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture and component relationships
+- **[docs/coverage.md](docs/coverage.md)** - Code coverage setup and usage guide
 - **[internal/db/migrations/README.md](internal/db/migrations/README.md)** - Database migration guide and reference
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history and release notes
 - **[web/README.md](web/README.md)** - Web frontend documentation

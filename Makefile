@@ -38,9 +38,12 @@ help:
 	@echo "TESTING:"
 	@echo "  test                 Run all tests (Go + Python + Web)"
 	@echo "  test-go              Run Go unit tests"
+	@echo "  test-go-cov          Run Go tests with coverage"
 	@echo "  test-python          Run Python PDF generator tests"
 	@echo "  test-python-cov      Run Python tests with coverage"
 	@echo "  test-web             Run web tests (Jest)"
+	@echo "  test-web-cov         Run web tests with coverage"
+	@echo "  coverage             Generate coverage reports for all components"
 	@echo ""
 	@echo "DATABASE MIGRATIONS:"
 	@echo "  migrate-up           Apply all pending migrations"
@@ -381,7 +384,7 @@ dev-docs:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-python test-python-cov test-web
+.PHONY: test test-go test-go-cov test-python test-python-cov test-web test-web-cov coverage
 
 WEB_DIR = web
 
@@ -393,6 +396,13 @@ test-go:
 	@echo "Running Go unit tests..."
 	@go test ./...
 
+# Run Go unit tests with coverage
+test-go-cov:
+	@echo "Running Go unit tests with coverage..."
+	@go test ./... -coverprofile=coverage.out -covermode=atomic
+	@go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report: coverage.html"
+
 # Run Python tests for the PDF generator. Ensures venv is setup first.
 test-python:
 	@echo "Running Python (PDF generator) tests..."
@@ -401,13 +411,27 @@ test-python:
 
 test-python-cov:
 	@echo "Running PDF generator tests with coverage..."
-	cd $(PDF_DIR) && PYTHONPATH=. ../../$(VENV_PYTEST) --cov=pdf_generator --cov-report=html pdf_generator/tests/
+	cd $(PDF_DIR) && PYTHONPATH=. ../../$(VENV_PYTEST) --cov=pdf_generator --cov-report=html --cov-report=xml pdf_generator/tests/
 	@echo "Coverage report: $(PDF_DIR)/htmlcov/index.html"
 
 # Run web test suite (Jest) using pnpm inside the web directory
 test-web:
 	@echo "Running web (Jest) tests..."
 	@cd $(WEB_DIR) && pnpm run test:ci
+
+# Run web tests with coverage
+test-web-cov:
+	@echo "Running web (Jest) tests with coverage..."
+	@cd $(WEB_DIR) && pnpm run test:coverage
+	@echo "Coverage report: $(WEB_DIR)/coverage/lcov-report/index.html"
+
+# Generate coverage reports for all components
+coverage: test-go-cov test-python-cov test-web-cov
+	@echo ""
+	@echo "✓ All coverage reports generated:"
+	@echo "  - Go:     coverage.html"
+	@echo "  - Python: $(PDF_DIR)/htmlcov/index.html"
+	@echo "  - Web:    $(WEB_DIR)/coverage/lcov-report/index.html"
 
 # Run performance regression test
 test-perf:

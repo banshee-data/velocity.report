@@ -1,9 +1,20 @@
 name: 🧭 Go CI
 
 on:
-  # Run only on PRs when Go files change
+  # Run on PRs when Go files change
   pull_request:
     types: [opened, synchronize, reopened]
+    paths:
+      - "**/*.go"
+      - "cmd/**"
+      - "internal/**"
+      - ".github/workflows/go-ci.yml"
+      - "go.mod"
+      - "go.sum"
+  # Run on push to main to update coverage badges
+  push:
+    branches:
+      - main
     paths:
       - "**/*.go"
       - "cmd/**"
@@ -89,12 +100,20 @@ jobs:
             echo "No requirements.txt found; skipping Python installation"
           fi
 
-      - name: Run go test
+      - name: Run go test with coverage
         env:
           PDF_GENERATOR_DIR: ${{ github.workspace }}/tools/pdf-generator
           PDF_GENERATOR_PYTHON: ${{ github.workspace }}/.venv/bin/python
         run: |
-          go test ./... -v
+          go test ./... -v -coverprofile=coverage.out -covermode=atomic
+
+      - name: Upload Go coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.out
+          flags: go
+          name: go-coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   format:
     name: Format (advisory)

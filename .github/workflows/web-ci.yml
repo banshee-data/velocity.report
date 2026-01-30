@@ -7,9 +7,18 @@ permissions:
   issues: write
 
 on:
-  # Run only on PRs that change web files
+  # Run on PRs that change web files
   pull_request:
     types: [opened, reopened, synchronize]
+    paths:
+      - "web/**"
+      - ".github/workflows/web-ci.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+  # Run on push to main to update coverage badges
+  push:
+    branches:
+      - main
     paths:
       - "web/**"
       - ".github/workflows/web-ci.yml"
@@ -103,6 +112,14 @@ jobs:
 
       - name: Run Jest tests with coverage
         run: pnpm run test:ci
+
+      - name: Upload Web coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./web/coverage/lcov.info
+          flags: web
+          name: web-coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Coverage comment
         uses: romeovs/lcov-reporter-action@v0.3.1
