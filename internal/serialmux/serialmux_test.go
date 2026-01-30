@@ -362,6 +362,92 @@ loop:
 	}
 }
 
+// TestSerialMux_Monitor_ScanError tests Monitor with scanner error
+func TestSerialMux_Monitor_ScanError(t *testing.T) {
+	port := &ErrorReadPort{errAfter: 2}
+	mux := NewSerialMux(port)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	err := mux.Monitor(ctx)
+	// Should get either the read error or context timeout
+	if err != nil {
+		t.Logf("Monitor returned error (expected): %v", err)
+	}
+}
+
+// TestSerialMux_Monitor_CloseDuringRead tests closing while Monitor is reading
+func TestSerialMux_Monitor_CloseDuringRead(t *testing.T) {
+	port := NewTestSerialPort("line1\nline2\nline3\nline4\n")
+	mux := NewSerialMux(port)
+
+	_, ch := mux.Subscribe()
+
+	ctx := context.Background()
+
+	// Start monitoring in background
+	done := make(chan error, 1)
+	go func() {
+		done <- mux.Monitor(ctx)
+	}()
+
+	// Read a line to ensure monitor is running
+	select {
+	case <-ch:
+		// Got a line
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("Timeout waiting for first line")
+	}
+
+	// Now close the mux
+	if err := mux.Close(); err != nil {
+		t.Fatalf("Close returned error: %v", err)
+	}
+
+	// Monitor should exit
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Logf("Monitor returned: %v", err)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Error("Monitor did not exit after Close")
+	}
+}
+
+// ErrorReadPort simulates a port that returns an error after N reads
+type ErrorReadPort struct {
+	readCount int
+	errAfter  int
+	closed    bool
+}
+
+func (p *ErrorReadPort) Read(buf []byte) (int, error) {
+	if p.closed {
+		return 0, io.EOF
+	}
+	p.readCount++
+	if p.readCount > p.errAfter {
+		return 0, errors.New("simulated read error")
+	}
+	// Return a newline to simulate a line
+	if len(buf) > 0 {
+		buf[0] = '\n'
+		return 1, nil
+	}
+	return 0, nil
+}
+
+func (p *ErrorReadPort) Write(data []byte) (int, error) {
+	return len(data), nil
+}
+
+func (p *ErrorReadPort) Close() error {
+	p.closed = true
+	return nil
+}
+
 // TestSerialMux_AttachAdminRoutes tests the admin routes attachment
 func TestSerialMux_AttachAdminRoutes(t *testing.T) {
 	port := NewTestSerialPort("")

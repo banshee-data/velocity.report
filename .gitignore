@@ -38,6 +38,7 @@ app-*
 velocity-report-*
 mock_serial_port*
 coverage.out
+coverage*.out
 coverage.html
 web/coverage/
 tools/pdf-generator/htmlcov/

@@ -32,6 +32,13 @@ func TestValidatePathWithinDirectory(t *testing.T) {
 		t.Fatalf("Failed to create symlink: %v", err)
 	}
 
+	// Create nested directory structure with symlinks for testing deep parent resolution
+	deepDir := filepath.Join(tmpDir, "deep")
+	deepSafeDir := filepath.Join(deepDir, "safe")
+	if err := os.MkdirAll(deepSafeDir, 0755); err != nil {
+		t.Fatalf("Failed to create deep safe directory: %v", err)
+	}
+
 	tests := []struct {
 		name      string
 		filePath  string
@@ -78,6 +85,36 @@ func TestValidatePathWithinDirectory(t *testing.T) {
 			name:      "symlink escape attack - accessing symlink directly",
 			filePath:  symlinkPath,
 			safeDir:   safeDir,
+			wantError: true,
+		},
+		{
+			name:      "non-existent file in valid directory",
+			filePath:  filepath.Join(safeDir, "newfile.txt"),
+			safeDir:   safeDir,
+			wantError: false,
+		},
+		{
+			name:      "non-existent nested path in valid directory",
+			filePath:  filepath.Join(safeDir, "newdir", "newfile.txt"),
+			safeDir:   safeDir,
+			wantError: false,
+		},
+		{
+			name:      "non-existent file via symlink directory",
+			filePath:  filepath.Join(symlinkPath, "newfile.txt"),
+			safeDir:   safeDir,
+			wantError: true,
+		},
+		{
+			name:      "deeply nested non-existent path for parent resolution",
+			filePath:  filepath.Join(deepSafeDir, "newdir", "subdir", "file.txt"),
+			safeDir:   deepSafeDir,
+			wantError: false,
+		},
+		{
+			name:      "root-level path for parent resolution loop",
+			filePath:  "/nonexistent/path/file.txt",
+			safeDir:   "/tmp",
 			wantError: true,
 		},
 	}
