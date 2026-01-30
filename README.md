@@ -18,6 +18,8 @@ A privacy-focused traffic logging tool for neighborhood change-makers.
 
 Measure vehicle speeds, make streets safer.
 
+<div align="center">
+
 ```
                                                 ░░░░
                                                ▒▓███▓▓▓▓▒
@@ -50,6 +52,8 @@ Measure vehicle speeds, make streets safer.
    ░░░ ░░░░░░   ░░░░ ░░░░░░░░░░░░ ░░░░░   ░░░░░░   ░░░░░░ ░░░░░░░░░░░ ░░░░
      ░░░    ░░░░   ░░░░ ░░░░    ░░░    ░░░░    ░░░░░   ░░░░░   ░░░░░
 ```
+
+</div>
 
 ## Overview
 
