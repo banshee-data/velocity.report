@@ -125,8 +125,8 @@ Prefix commit messages with the primary language or purpose:
 | `[git]`  | Git configuration or hooks                                                     |
 | `[sed]`  | Find-and-replace across multiple files                                         |
 | `[cfg]`  | Configuration files (tsconfig, package.json, .env, Makefile, etc.)             |
-| `[exe]`  | Command execution which generates machine edits (e.g., npm install)            |
-| `[ai]`   | AI-authored edits (Copilot/Codex only) — Required with language/purpose tags  |
+| `[exe]`  | Command execution which generates machine edits (e.g. npm install)             |
+| `[ai]`   | AI-authored edits (Copilot/Codex only) — Required in addition to language/purpose tags |
 
 **Examples:**
 
