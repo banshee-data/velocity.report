@@ -46,7 +46,7 @@ Connect with other velocity.report users and contributors
 
 ## Contributing
 
-We welcome contributions from the community! Here's how you can help:
+We welcome contributions from the community! For full details on conventions, code style, and the pull request process, see our **[Contributing Guide](https://github.com/banshee-data/velocity.report/blob/main/CONTRIBUTING.md)**.
 
 ### Code Contributions
 
