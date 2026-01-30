@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Discord](https://img.shields.io/discord/XXh6jXVFkt)](https://discord.gg/XXh6jXVFkt)
+[![Discord](https://img.shields.io/discord/1387513267496419359)](https://discord.gg/XXh6jXVFkt)
 [![🧭 Go CI](https://github.com/banshee-data/velocity.report/actions/workflows/go-ci.yml/badge.svg?branch=main)](https://github.com/banshee-data/velocity.report/actions/workflows/go-ci.yml)
 [![🌐 Web CI](https://github.com/banshee-data/velocity.report/actions/workflows/web-ci.yml/badge.svg?branch=main)](https://github.com/banshee-data/velocity.report/actions/workflows/web-ci.yml)
 [![🐍 Python CI](https://github.com/banshee-data/velocity.report/actions/workflows/python-ci.yml/badge.svg?branch=main)](https://github.com/banshee-data/velocity.report/actions/workflows/python-ci.yml)
