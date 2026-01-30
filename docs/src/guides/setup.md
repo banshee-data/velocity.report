@@ -28,10 +28,10 @@ This weatherproof infrastructure deployment gives community advocates, parents, 
 
 ## Who This Guide Is For
 
-**Community advocates**: Get professional data for traffic calming proposals
-**Parents**: Prove speeding near schools with evidence, not emotion
-**Data enthusiasts**: Build useful civic tech with open hardware
-**Local officials**: Validate commercial traffic studies with independent data
+- **Community advocates**: Get professional data for traffic calming proposals
+- **Parents**: Prove speeding near schools with evidence, not emotion
+- **Data enthusiasts**: Build useful civic tech with open hardware
+- **Local officials**: Validate commercial traffic studies with independent data
 
 **Not sure?** This project takes 4-6 hours and costs $563-596. If you care about street safety and need a permanent monitoring solution, you'll find it worthwhile.
 
@@ -653,11 +653,11 @@ If you need remote access, please use [Tailscale](#remote-access-with-tailscale-
 
 ### Example Talking Points
 
-❌ "Cars go way too fast on our street!"
-✅ "85% of drivers exceed the 25 mph limit, with p85 at 39 mph, well above the engineering standard for residential safety."
+- ❌ "Cars go way too fast on our street!"
+- ✅ "85% of drivers exceed the 25 mph limit, with p85 at 39 mph, well above the engineering standard for residential safety."
 
-❌ "Someone's going to get hurt!"
-✅ "At 39 mph, crash energy is 2.3× higher than at the posted 25 mph limit. Our data shows consistent speeding during school hours."
+- ❌ "Someone's going to get hurt!"
+- ✅ "At 39 mph, crash energy is 143% higher than at the posted 25 mph limit. Our data shows consistent speeding during school hours."
 
 **[PLACEHOLDER: Photo of community member presenting PDF report at city council meeting with speed data displayed on screen]**
 
@@ -677,7 +677,7 @@ If you need remote access, please use [Tailscale](#remote-access-with-tailscale-
 - **No sensor data?** → Check the device exists: `ls /dev/ttyUSB0`
 - **Service won't start?** → Check logs: `sudo journalctl -u velocity-report -f`
 - **Dashboard won't load?** → Verify service running: `sudo systemctl status velocity-report`
-- **Need more help?** → See [TROUBLESHOOTING.md](../../TROUBLESHOOTING.md) or ask on [Discord](https://discord.gg/XXh6jXVFkt)
+- **Need more help?** → See [TROUBLESHOOTING.md](../../../TROUBLESHOOTING.md) or ask on [Discord](https://discord.gg/XXh6jXVFkt)
 
 ---
 
@@ -735,17 +735,17 @@ Show your neighbours. File public records requests to compare your data to offic
 
 ## Resources & Links
 
-- **Project Overview**: See the [main README](../../README.md) for project background and philosophy
+- **Project Overview**: See the [main README](../../../README.md) for project background and philosophy
 - **GitHub Repository**: [github.com/banshee-data/velocity.report](https://github.com/banshee-data/velocity.report)
 - **OmniPreSense Support**: [omnipresense.com/support](https://www.omnipresense.com/support)
 - **Community Discord**: [discord.gg/XXh6jXVFkt](https://discord.gg/XXh6jXVFkt)
 
 **Related Documentation**:
 
-- **Troubleshooting**: See [TROUBLESHOOTING.md](../../TROUBLESHOOTING.md) for common issues
-- **System Design**: Read [ARCHITECTURE.md](../../ARCHITECTURE.md) for technical details
-- **Report Customisation**: Check [PDF Generator README](../../tools/pdf-generator/README.md)
-- **Contributing**: Join us on GitHub – contributing guide coming soon
+- **Troubleshooting**: See [TROUBLESHOOTING.md](../../../TROUBLESHOOTING.md) for common issues
+- **System Design**: Read [ARCHITECTURE.md](../../../ARCHITECTURE.md) for technical details
+- **Report Customisation**: Check [PDF Generator README](../../../tools/pdf-generator/README.md)
+- **Contributing**: See [CONTRIBUTING.md](../../../CONTRIBUTING.md) for conventions and workflow
 
 **Traffic Safety Resources**:
 
