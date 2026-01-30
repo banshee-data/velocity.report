@@ -110,23 +110,23 @@ Prefix commit messages with the primary language or purpose:
 
 **Allowed prefixes:**
 
-| Prefix   | Use Case                                       |
-| -------- | ---------------------------------------------- |
-| `[go]`   | Go code, server, APIs                          |
-| `[py]`   | Python code (PDF generator, tools)             |
-| `[js]`   | JavaScript/TypeScript (SvelteKit, Vite)        |
-| `[docs]` | Documentation (Markdown, READMEs)              |
-| `[sh]`   | Shell scripts (Makefile, bash utilities)       |
-| `[sql]`  | Database schema or migrations                  |
-| `[fs]`   | Filesystem operations (moving files, etc.)     |
-| `[tex]`  | LaTeX/template changes                         |
-| `[ci]`   | CI/CD configuration (GitHub Actions, etc.)     |
-| `[make]` | Makefile changes                               |
-| `[git]`  | Git configuration or hooks                     |
-| `[sed]`  | Find-and-replace across multiple files         |
-| `[cfg]`  | Configuration files                            |
-| `[exe]`  | Command execution (e.g., npm install)          |
-| `[ai]`   | AI-authored edits (use with language prefixes) |
+| Prefix   | Use Case                                                                       |
+| -------- | ------------------------------------------------------------------------------ |
+| `[go]`   | Go code, server, APIs                                                          |
+| `[py]`   | Python code (PDF generator, tools)                                             |
+| `[js]`   | JavaScript/TypeScript (SvelteKit frontend, Vite)                               |
+| `[docs]` | Documentation (Markdown guides, READMEs)                                       |
+| `[sh]`   | Shell scripts (Makefile, bash utilities)                                       |
+| `[sql]`  | Database schema or SQL migrations                                              |
+| `[fs]`   | Filesystem operations (moving files, directory structure)                      |
+| `[tex]`  | LaTeX/template changes                                                         |
+| `[ci]`   | CI/CD configuration (GitHub Actions, etc.)                                     |
+| `[make]` | Makefile changes                                                               |
+| `[git]`  | Git configuration or hooks                                                     |
+| `[sed]`  | Find-and-replace across multiple files                                         |
+| `[cfg]`  | Configuration files (tsconfig, package.json, .env, Makefile, etc.)             |
+| `[exe]`  | Command execution which generates machine edits (e.g., npm install)            |
+| `[ai]`   | AI-authored edits (Copilot/Codex only) — Required with language/purpose tags  |
 
 **Examples:**
 
