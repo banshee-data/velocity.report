@@ -2,7 +2,7 @@ name: 🐍 Python CI
 
 # Limit the token permissions for security best practices
 permissions:
-  contents: read
+  contents: write # Needed for python-coverage-comment-action to push branch
   pull-requests: write
   checks: write # Needed for coverage annotations
   issues: write # Needed for PR comments

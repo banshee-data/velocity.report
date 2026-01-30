@@ -1,16 +1,22 @@
 # velocity.report
 
+<div align="center">
+
+[![Discord](https://img.shields.io/discord/1387513267496419359)](https://discord.gg/XXh6jXVFkt)
+
+[![Go Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=go&label=Go%20Coverage&logo=go)](https://codecov.io/gh/banshee-data/velocity.report?flag=go)
+[![Web Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=web&label=Web%20Coverage&logo=svelte)](https://codecov.io/gh/banshee-data/velocity.report?flag=web)
+[![Python Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=python&label=Python%20Coverage&logo=python)](https://codecov.io/gh/banshee-data/velocity.report?flag=python)
+
+[![🧭 Go CI](https://github.com/banshee-data/velocity.report/actions/workflows/go-ci.yml/badge.svg?branch=main)](https://github.com/banshee-data/velocity.report/actions/workflows/go-ci.yml)
+[![🌐 Web CI](https://github.com/banshee-data/velocity.report/actions/workflows/web-ci.yml/badge.svg?branch=main)](https://github.com/banshee-data/velocity.report/actions/workflows/web-ci.yml)
+[![🐍 Python CI](https://github.com/banshee-data/velocity.report/actions/workflows/python-ci.yml/badge.svg?branch=main)](https://github.com/banshee-data/velocity.report/actions/workflows/python-ci.yml)
+
+</div>
+
 A privacy-focused traffic logging tool for neighborhood change-makers.
 
 Measure vehicle speeds, make streets safer.
-
-[![join-us-on-discord](https://github.com/user-attachments/assets/fa329256-aee7-4751-b3c4-d35bdf9287f5)](https://discord.gg/XXh6jXVFkt)
-
-## Code Coverage
-
-[![Go Coverage](https://codecov.io/gh/banshee-data/velocity.report/branch/main/graph/badge.svg?flag=go)](https://codecov.io/gh/banshee-data/velocity.report?flag=go)
-[![Python Coverage](https://codecov.io/gh/banshee-data/velocity.report/branch/main/graph/badge.svg?flag=python)](https://codecov.io/gh/banshee-data/velocity.report?flag=python)
-[![Web Coverage](https://codecov.io/gh/banshee-data/velocity.report/branch/main/graph/badge.svg?flag=web)](https://codecov.io/gh/banshee-data/velocity.report?flag=web)
 
 ```
                                                 ░░░░
@@ -55,6 +61,16 @@ Measure vehicle speeds, make streets safer.
 
 The system collects vehicle speed data from radar/LIDAR sensors, stores it in SQLite, and provides multiple ways to visualise and report on the data—all while maintaining complete privacy (no license plate recognition, no video recording).
 
+## Privacy & Ethics
+
+This project is designed with privacy as a core principle:
+
+- ✅ No license plate recognition
+- ✅ No video recording
+- ✅ No personally identifiable information
+
+The goal is to empower communities to make data-driven decisions about street safety without compromising individual privacy.
+
 ## Quick Start
 
 ### For Go Server Development
@@ -90,16 +106,21 @@ See **[web/README.md](web/README.md)** for detailed instructions.
 ```
 velocity.report/
 ├── cmd/                      # Go CLI applications
-│   ├── radar/                # Radar sensor integration
-│   ├── bg-sweep/             # Background sweep utilities
-│   └── tools/                # Go utility tools
+│   ├── radar/                # Radar/LiDAR sensor integration
+│   ├── deploy/               # Deployment management tool
+│   ├── sweep/                # Parameter sweep utilities
+│   ├── tools/                # Go utility tools (pcap-analyse, etc.)
+│   └── transit-backfill/     # Transit data backfill tool
 ├── internal/                 # Go server internals (private packages)
 │   ├── api/                  # HTTP API endpoints
-│   ├── db/                   # SQLite database layer
+│   ├── db/                   # SQLite database layer + migrations
 │   ├── radar/                # Radar sensor logic
-│   ├── lidar/                # LIDAR sensor logic
+│   ├── lidar/                # LiDAR sensor logic + tracking
 │   ├── monitoring/           # System monitoring
-│   └── units/                # Unit conversion utilities
+│   ├── security/             # Path validation and security
+│   ├── serialmux/            # Serial port multiplexing
+│   ├── units/                # Unit conversion utilities
+│   └── version/              # Version information
 ├── web/                      # Svelte web frontend
 │   ├── src/                  # Frontend source code
 │   └── static/               # Static assets
@@ -110,10 +131,8 @@ velocity.report/
 │       │   ├── core/         # Core modules
 │       │   └── tests/        # Test suite
 │       └── output/           # Generated PDFs
-├── data/                     # Data directory
-│   ├── migrations/           # Database migrations
-│   └── align/                # Data alignment utilities
-├── docs/                     # Documentation Site
+├── data/                     # Sample data and alignment utilities
+├── docs/                     # Documentation site (Eleventy)
 ├── scripts/                  # Development shell scripts
 └── static/                   # Static server assets
 ```
@@ -171,12 +190,12 @@ See **[ARCHITECTURE.md](ARCHITECTURE.md)** for detailed architecture documentati
 
 **For Go Development:**
 
-- Go 1.21+ ([installation guide](https://go.dev/doc/install))
+- Go 1.25+ ([installation guide](https://go.dev/doc/install))
 - SQLite3
 
 **For Python PDF Generation:**
 
-- Python 3.9+
+- Python 3.11+
 - LaTeX distribution (XeLaTeX)
 - See [tools/pdf-generator/README.md](tools/pdf-generator/README.md)
 
@@ -227,8 +246,8 @@ source .venv/bin/activate
 
 **What's installed:**
 
-- PDF generation: PyLaTeX, reportlab
-- Data analysis: pandas, numpy, scipy
+- PDF generation: PyLaTeX
+- Data analysis: pandas, numpy
 - Visualisation: matplotlib, seaborn
 - Testing: pytest, pytest-cov
 - Formatting: black, ruff
@@ -340,7 +359,7 @@ sudo journalctl -u velocity-report.service -f
 
 **See also:**
 
-- **[docs/deployment-guide.md](docs/deployment-guide.md)** - Complete deployment guide
+- **[docs/src/guides/setup.md](docs/src/guides/setup.md)** - Complete setup and deployment guide
 - **[cmd/deploy/README.md](cmd/deploy/README.md)** - velocity-deploy CLI reference
 
 **Legacy deployment:**
@@ -474,13 +493,3 @@ Apache License 2.0 - See [LICENSE](LICENSE) for details.
 [![join-us-on-discord](https://github.com/user-attachments/assets/fa329256-aee7-4751-b3c4-d35bdf9287f5)](https://discord.gg/XXh6jXVFkt)
 
 Join our Discord community to discuss the project, get help, and contribute to making streets safer.
-
-## Privacy & Ethics
-
-This project is designed with privacy as a core principle:
-
-- ✅ No license plate recognition
-- ✅ No video recording
-- ✅ No personally identifiable information
-
-The goal is to empower communities to make data-driven decisions about street safety without compromising individual privacy.
