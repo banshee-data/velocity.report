@@ -15,7 +15,7 @@ func TestNewRealSerialMux(t *testing.T) {
 			mux.Close()
 		}
 	}
-	
+
 	// Verify we get a nil mux when there's an error
 	if err != nil && mux != nil {
 		t.Error("Expected nil mux when error is returned")

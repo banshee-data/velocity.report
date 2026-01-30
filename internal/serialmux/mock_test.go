@@ -16,9 +16,9 @@ func (t *testWriteCloser) Close() error {
 
 func TestMockSerialPort_SyncClock(t *testing.T) {
 	port := &MockSerialPort{}
-	
+
 	err := port.SyncClock()
-	
+
 	if err != nil {
 		t.Errorf("SyncClock returned unexpected error: %v", err)
 	}
@@ -27,22 +27,22 @@ func TestMockSerialPort_SyncClock(t *testing.T) {
 func TestMockSerialPort_Write(t *testing.T) {
 	// Create a buffer to capture writes
 	buf := &testWriteCloser{Buffer: &bytes.Buffer{}}
-	
+
 	port := &MockSerialPort{
 		WriteCloser: buf,
 	}
-	
+
 	testData := []byte("test data")
 	n, err := port.Write(testData)
-	
+
 	if err != nil {
 		t.Errorf("Write returned unexpected error: %v", err)
 	}
-	
+
 	if n != len(testData) {
 		t.Errorf("Write returned %d bytes, expected %d", n, len(testData))
 	}
-	
+
 	// Verify data was written
 	if buf.String() != string(testData) {
 		t.Errorf("Written data = %q, expected %q", buf.String(), string(testData))
@@ -53,7 +53,7 @@ func TestNewMockSerialMux(t *testing.T) {
 	// Test creating a mock serial mux with test data
 	testData := []byte("test line\n")
 	mux := NewMockSerialMux(testData)
-	
+
 	if mux == nil {
 		t.Fatal("NewMockSerialMux returned nil")
 	}
