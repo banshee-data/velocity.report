@@ -97,6 +97,42 @@ func TestTransitController_TriggerManualRun_BufferSaturation(t *testing.T) {
 	}
 }
 
+func TestTransitController_TriggerFullHistoryRun(t *testing.T) {
+	db := setupTestDB(t)
+	defer cleanupTestDB(t, db)
+
+	worker := NewTransitWorker(db, 1, "test-model")
+	tc := NewTransitController(worker)
+
+	// Should not block or panic
+	tc.TriggerFullHistoryRun()
+	tc.TriggerFullHistoryRun() // Should coalesce
+}
+
+func TestTransitController_TriggerFullHistoryRun_BufferSaturation(t *testing.T) {
+	db := setupTestDB(t)
+	defer cleanupTestDB(t, db)
+
+	worker := NewTransitWorker(db, 1, "test-model")
+	tc := NewTransitController(worker)
+
+	// Send multiple full history triggers rapidly - should not block
+	done := make(chan bool)
+	go func() {
+		for i := 0; i < 10; i++ {
+			tc.TriggerFullHistoryRun()
+		}
+		done <- true
+	}()
+
+	select {
+	case <-done:
+		// Success - no blocking
+	case <-time.After(100 * time.Millisecond):
+		t.Error("TriggerFullHistoryRun blocked unexpectedly")
+	}
+}
+
 func TestTransitController_GetStatus(t *testing.T) {
 	db := setupTestDB(t)
 	defer cleanupTestDB(t, db)
