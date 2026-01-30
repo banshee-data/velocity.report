@@ -18,8 +18,6 @@ A privacy-focused traffic logging tool for neighborhood change-makers.
 
 Measure vehicle speeds, make streets safer.
 
-<div align="center">
-
 ```
                                                 ░░░░
                                                ▒▓███▓▓▓▓▒
@@ -53,8 +51,6 @@ Measure vehicle speeds, make streets safer.
      ░░░    ░░░░   ░░░░ ░░░░    ░░░    ░░░░    ░░░░░   ░░░░░   ░░░░░
 ```
 
-</div>
-
 ## Overview
 
 **velocity.report** is a complete citizen radar system for neighborhood traffic monitoring. The system consists of three main components:
@@ -64,6 +60,16 @@ Measure vehicle speeds, make streets safer.
 - **Web Frontend** - Real-time data visualisation (Svelte)
 
 The system collects vehicle speed data from radar/LIDAR sensors, stores it in SQLite, and provides multiple ways to visualise and report on the data—all while maintaining complete privacy (no license plate recognition, no video recording).
+
+## Privacy & Ethics
+
+This project is designed with privacy as a core principle:
+
+- ✅ No license plate recognition
+- ✅ No video recording
+- ✅ No personally identifiable information
+
+The goal is to empower communities to make data-driven decisions about street safety without compromising individual privacy.
 
 ## Quick Start
 
@@ -484,13 +490,3 @@ Apache License 2.0 - See [LICENSE](LICENSE) for details.
 [![join-us-on-discord](https://github.com/user-attachments/assets/fa329256-aee7-4751-b3c4-d35bdf9287f5)](https://discord.gg/XXh6jXVFkt)
 
 Join our Discord community to discuss the project, get help, and contribute to making streets safer.
-
-## Privacy & Ethics
-
-This project is designed with privacy as a core principle:
-
-- ✅ No license plate recognition
-- ✅ No video recording
-- ✅ No personally identifiable information
-
-The goal is to empower communities to make data-driven decisions about street safety without compromising individual privacy.
