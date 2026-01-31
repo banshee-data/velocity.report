@@ -215,70 +215,36 @@ func main() {
 	// Lidar webserver instance (if enabled)
 	var lidarWebServer *monitor.WebServer
 	var foregroundForwarder *network.ForegroundForwarder
+	var bgFlusher *lidar.BackgroundFlusher
 
 	// Optionally initialize lidar components inside this binary
 	if *enableLidar {
 		// Use the main DB instance for lidar data (no separate lidar DB file)
 		lidarDB := database
 
-		// Create BackgroundManager and register persistence
-		backgroundParams := lidar.BackgroundParams{
-			BackgroundUpdateFraction:       0.02,
-			ClosenessSensitivityMultiplier: 8.0, // Further increased from 5.0 to achieve <30 false positives
-			SafetyMarginMeters:             0.4, // Increased from 0.3 for even more tolerance
-			FreezeDurationNanos:            int64(5 * time.Second),
-			NeighborConfirmationCount:      7, // Increased from 6 to require even more neighbor agreement
-			SettlingPeriodNanos:            int64(5 * time.Minute),
-			SnapshotIntervalNanos:          int64(2 * time.Hour),
-			ChangeThresholdForSnapshot:     100,
-			NoiseRelativeFraction:          float32(*lidarBgNoiseRelative),
-			// Use library default (3) for minimum confidence floor so we don't accidentally
-			// reset background on transient noise or short events.
-			MinConfidenceFloor: lidar.DefaultMinConfidenceFloor,
-			// When running in PCAP mode / dev runs seed the background grid from first observations
-			// so replayed captures can build an initial background without live warmup.
-			SeedFromFirstObservation: *lidarSeedFromFirst,
-			// Enable region identification by setting warmup parameters
-			// Collect variance for ~5 seconds (100 frames at 20Hz) before identifying regions
-			WarmupMinFrames:     100,
-			WarmupDurationNanos: int64(30 * time.Second),
-		}
+		// Create BackgroundManager using BackgroundConfig for cleaner configuration
+		bgConfig := lidar.DefaultBackgroundConfig().
+			WithNoiseRelativeFraction(float32(*lidarBgNoiseRelative)).
+			WithSeedFromFirstObservation(*lidarSeedFromFirst)
 
-		backgroundManager := lidar.NewBackgroundManager(*lidarSensor, 40, 1800, backgroundParams, lidarDB)
+		backgroundManager := lidar.NewBackgroundManager(*lidarSensor, 40, 1800, bgConfig.ToBackgroundParams(), lidarDB)
 		if backgroundManager != nil {
 			log.Printf("BackgroundManager created and registered for sensor %s", *lidarSensor)
 		}
 
-		// Start periodic background grid flushing when a positive flush interval is configured.
-		// Previously this only ran in PCAP mode; enable it in dev runs too so periodic
-		// persisted snapshot logs appear when developers set the flag.
+		// Start periodic background grid flushing using BackgroundFlusher
 		if backgroundManager != nil && *lidarBgFlushInterval > 0 {
+			bgFlusher = lidar.NewBackgroundFlusher(lidar.BackgroundFlusherConfig{
+				Manager:  backgroundManager,
+				Store:    lidarDB,
+				Interval: *lidarBgFlushInterval,
+				Reason:   "periodic_flush",
+			})
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				ticker := time.NewTicker(*lidarBgFlushInterval)
-				defer ticker.Stop()
-
-				log.Printf("Background grid flush timer started: interval=%v", *lidarBgFlushInterval)
-
-				for {
-					select {
-					case <-ctx.Done():
-						log.Printf("Background flush timer terminated")
-						// Final flush before exit
-						if err := backgroundManager.Persist(lidarDB, "final_flush"); err != nil {
-							log.Printf("Error during final background flush: %v", err)
-						} else {
-							log.Printf("Final background grid flushed to database")
-						}
-						return
-					case <-ticker.C:
-						if err := backgroundManager.Persist(lidarDB, "periodic_flush"); err != nil {
-							log.Printf("Error flushing background grid: %v", err)
-						} else {
-							log.Printf("Background grid flushed to database")
-						}
-					}
+				if err := bgFlusher.Run(ctx); err != nil {
+					log.Printf("Background flusher error: %v", err)
 				}
 			}()
 		}
@@ -519,20 +485,6 @@ func runTransitsCommand(args []string) {
 		log.Fatalf("Failed to parse transits flags: %v", err)
 	}
 
-	if transitFlags.NArg() < 1 {
-		fmt.Println("Usage: velocity-report transits <command> [options]")
-		fmt.Println("")
-		fmt.Println("Commands:")
-		fmt.Println("  analyse                      Show transit statistics and check for overlaps")
-		fmt.Println("  delete <model-version>       Delete all transits for a model version")
-		fmt.Println("  migrate <from> <to>          Migrate transits from one model version to another")
-		fmt.Println("  rebuild                      Delete current model version and rebuild from full history")
-		fmt.Println("")
-		fmt.Println("Options:")
-		transitFlags.PrintDefaults()
-		os.Exit(1)
-	}
-
 	// Open database without migration check for CLI commands
 	database, err := db.OpenDB(*transitDBPath)
 	if err != nil {
@@ -540,34 +492,23 @@ func runTransitsCommand(args []string) {
 	}
 	defer database.Close()
 
+	// Create CLI handler
+	cli := db.NewTransitCLI(database, *transitModel, *transitThreshold, os.Stdout)
+
+	if transitFlags.NArg() < 1 {
+		cli.PrintUsage()
+		fmt.Println("Options:")
+		transitFlags.PrintDefaults()
+		os.Exit(1)
+	}
+
 	ctx := context.Background()
 	subCmd := transitFlags.Arg(0)
 
 	switch subCmd {
 	case "analyse", "analyze":
-		stats, err := database.AnalyseTransitOverlaps(ctx)
-		if err != nil {
+		if _, err := cli.Analyse(ctx); err != nil {
 			log.Fatalf("Failed to analyse transits: %v", err)
-		}
-
-		fmt.Printf("Transit Statistics\n")
-		fmt.Printf("==================\n")
-		fmt.Printf("Total transits: %d\n\n", stats.TotalTransits)
-
-		fmt.Printf("By model version:\n")
-		for mv, count := range stats.ModelVersionCounts {
-			fmt.Printf("  %-20s %d\n", mv, count)
-		}
-
-		if len(stats.Overlaps) > 0 {
-			fmt.Printf("\n⚠️  Overlapping transits detected:\n")
-			for _, o := range stats.Overlaps {
-				fmt.Printf("  %s ↔ %s: %d overlaps\n", o.ModelVersion1, o.ModelVersion2, o.OverlapCount)
-			}
-			fmt.Printf("\nTo fix overlaps, delete one model version:\n")
-			fmt.Printf("  velocity-report transits delete <model-version>\n")
-		} else {
-			fmt.Printf("\n✅ No overlapping transits found\n")
 		}
 
 	case "delete":
@@ -586,12 +527,9 @@ func runTransitsCommand(args []string) {
 			os.Exit(0)
 		}
 
-		worker := db.NewTransitWorker(database, *transitThreshold, *transitModel)
-		deleted, err := worker.DeleteAllTransits(ctx, modelVersion)
-		if err != nil {
+		if _, err := cli.Delete(ctx, modelVersion); err != nil {
 			log.Fatalf("Failed to delete transits: %v", err)
 		}
-		fmt.Printf("Deleted %d transits with model_version = %q\n", deleted, modelVersion)
 
 	case "migrate":
 		if transitFlags.NArg() < 3 {
@@ -600,7 +538,6 @@ func runTransitsCommand(args []string) {
 		fromVersion := transitFlags.Arg(1)
 		toVersion := transitFlags.Arg(2)
 
-		fmt.Printf("Migrating transits from %q to %q\n", fromVersion, toVersion)
 		fmt.Printf("This will:\n")
 		fmt.Printf("  1. Delete all transits with model_version = %q\n", fromVersion)
 		fmt.Printf("  2. Re-process full radar_data history with model_version = %q\n", toVersion)
@@ -612,14 +549,11 @@ func runTransitsCommand(args []string) {
 			os.Exit(0)
 		}
 
-		worker := db.NewTransitWorker(database, *transitThreshold, toVersion)
-		if err := worker.MigrateModelVersion(ctx, fromVersion); err != nil {
+		if err := cli.Migrate(ctx, fromVersion, toVersion); err != nil {
 			log.Fatalf("Failed to migrate transits: %v", err)
 		}
-		fmt.Println("Migration complete")
 
 	case "rebuild":
-		fmt.Printf("Rebuilding transits with model_version = %q\n", *transitModel)
 		fmt.Printf("This will:\n")
 		fmt.Printf("  1. Delete all existing transits with model_version = %q\n", *transitModel)
 		fmt.Printf("  2. Re-process full radar_data history\n")
@@ -631,20 +565,9 @@ func runTransitsCommand(args []string) {
 			os.Exit(0)
 		}
 
-		worker := db.NewTransitWorker(database, *transitThreshold, *transitModel)
-
-		// Delete existing transits for this model version
-		deleted, err := worker.DeleteAllTransits(ctx, *transitModel)
-		if err != nil {
-			log.Fatalf("Failed to delete existing transits: %v", err)
-		}
-		fmt.Printf("Deleted %d existing transits\n", deleted)
-
-		// Run full history rebuild
-		if err := worker.RunFullHistory(ctx); err != nil {
+		if err := cli.Rebuild(ctx); err != nil {
 			log.Fatalf("Failed to rebuild transits: %v", err)
 		}
-		fmt.Println("Rebuild complete")
 
 	default:
 		log.Fatalf("Unknown transits subcommand: %s", subCmd)
