@@ -381,12 +381,13 @@ No installation required - use PYTHONPATH method as documented in [tools/pdf-gen
 ## Documentation
 
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture and component relationships
-- **[docs/coverage.md](docs/coverage.md)** - Code coverage setup and usage guide
+- **[docs/coverage/coverage.md](docs/coverage/coverage.md)** - Code coverage setup and usage guide
 - **[internal/db/migrations/README.md](internal/db/migrations/README.md)** - Database migration guide and reference
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history and release notes
 - **[web/README.md](web/README.md)** - Web frontend documentation
 - **[tools/pdf-generator/README.md](tools/pdf-generator/README.md)** - PDF generator documentation
-- **[docs/README.md](docs/README.md)** - Documentation site
+- **[docs/README.md](docs/README.md)** - Internal project documentation
+- **[public_html/README.md](public_html/README.md)** - Public documentation site
 
 ## Testing
 

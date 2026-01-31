@@ -7,21 +7,21 @@ permissions:
   issues: write
 
 on:
-  # Run only on PRs that change docs files
+  # Run only on PRs that change public_html files
   pull_request:
     types: [opened, reopened, synchronize]
     paths:
-      - "docs/**"
+      - "public_html/**"
       - ".github/workflows/docs-ci.yml"
 
 jobs:
   lint:
     name: Lint & Format Check (advisory)
     runs-on: ubuntu-latest
-    continue-on-error: true  # Advisory - allows PR to merge even if linting fails
+    continue-on-error: true # Advisory - allows PR to merge even if linting fails
     defaults:
       run:
-        working-directory: docs
+        working-directory: public_html
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -44,7 +44,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.get-pnpm-store.outputs.store_path }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('docs/pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('public_html/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
@@ -97,7 +97,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.get-pnpm-store.outputs.store_path }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('docs/pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('public_html/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 

@@ -1,29 +1,32 @@
-# Internal Project Documentation
+# velocity.report/public_html
 
-This directory contains internal project documentation for development and planning purposes.
+Public-facing documentation site for the velocity.report citizen radar system, built with Eleventy and Tailwind CSS.
 
-## Contents
+**Location**: `public_html/`
+**Framework**: Eleventy (11ty)
+**Styling**: Tailwind CSS
+**Package Manager**: pnpm
 
-### Coverage Analysis
+> **Note**: Internal project documentation (coverage analysis, feature specs, planning docs) is located in [`docs/`](../docs/).
 
-- [`coverage/`](coverage/) - Test coverage improvement documentation
-  - [Coverage Improvement Analysis](coverage/coverage-improvement-analysis.md)
-  - [Coverage Improvement Checklist](coverage/coverage-improvement-checklist.md)
-  - [Coverage Improvement Summary](coverage/coverage-improvement-summary.md)
-  - [Coverage Documentation](coverage/coverage.md)
+## Prerequisites
 
-### Planning Documents
+- [Node.js](https://nodejs.org/) (v16 or higher)
+- [pnpm](https://pnpm.io/) package manager
 
-- [`plans/`](plans/) - Migration and refactoring plans
-  - [Python venv Consolidation Plan](plans/python-venv-consolidation-plan.md)
-  - [Transit Deduplication Plan](plans/transit-deduplication-plan.md)
-  - [Distribution and Packaging Plan](plans/DISTRIBUTION_AND_PACKAGING_PLAN.md)
+## Quick Start
 
-### Feature Specifications
+```bash
+# Install dependencies
+pnpm install
 
-- [`features/`](features/) - Feature specifications and requirements
+# Start development server with hot reload
+pnpm run dev
+```
 
-## Public Documentation Site
+This runs Eleventy in watch mode with Tailwind CSS compilation. The site will be available at `http://localhost:8090`.
+
+## Build
 
 ```bash
 # Build for production
@@ -34,7 +37,7 @@ Outputs optimised files to the `_site/` directory.
 
 ## Deployment
 
-The site automatically deploys to GitHub Pages when changes to the `docs/` directory or the associated GitHub Actions workflow file are pushed to the `main` branch.
+The site automatically deploys to GitHub Pages when changes are pushed to the `gh-pages` branch.
 
 ## Project Structure
 

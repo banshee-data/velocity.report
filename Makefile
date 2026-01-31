@@ -177,14 +177,14 @@ build-web:
 .PHONY: build-docs
 build-docs:
 	@echo "Building documentation site..."
-	@cd docs && if command -v pnpm >/dev/null 2>&1; then \
+	@cd public_html && if command -v pnpm >/dev/null 2>&1; then \
 		pnpm run build; \
 	elif command -v npm >/dev/null 2>&1; then \
 		npm run build; \
 	else \
 		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
 	fi
-	@echo "✓ Docs build complete: docs/_site/"
+	@echo "✓ Docs build complete: public_html/_site/"
 
 # =============================================================================
 # INSTALLATION
@@ -288,7 +288,7 @@ install-web:
 
 install-docs:
 	@echo "Installing docs dependencies..."
-	@cd docs && if command -v pnpm >/dev/null 2>&1; then \
+	@cd public_html && if command -v pnpm >/dev/null 2>&1; then \
 		pnpm install --frozen-lockfile; \
 		elif command -v npm >/dev/null 2>&1; then \
 			npm install; \
@@ -373,7 +373,7 @@ dev-web:
 
 dev-docs:
 	@echo "Starting docs dev server..."
-	@cd docs && if command -v pnpm >/dev/null 2>&1; then \
+	@cd public_html && if command -v pnpm >/dev/null 2>&1; then \
 		pnpm run dev; \
 		elif command -v npm >/dev/null 2>&1; then \
 		npm run dev; \
