@@ -128,11 +128,33 @@ func TestGenerateExportFilename_Uniqueness(t *testing.T) {
 	}
 }
 
-func TestGenerateExportFilename_RandomFailure(t *testing.T) {
-	// Note: We cannot easily mock rand.Read to test the fallback path,
-	// but the fallback is simple and uses time.Now().UnixNano() which is
-	// covered by the uniqueness test. This test documents the intended behavior.
-	t.Skip("Cannot mock rand.Read failure; fallback path uses timestamp which is covered by uniqueness test")
+func TestGenerateExportFilename_ProducesValidFilenames(t *testing.T) {
+	// Verify that generateExportFilename consistently produces valid filenames
+	// regardless of whether the random generation succeeds or falls back to timestamp.
+	// We can't mock rand.Read failure, but we can verify the output format is always valid.
+	for i := 0; i < 10; i++ {
+		filename := generateExportFilename(".asc")
+
+		// Must start with "export_"
+		if !strings.HasPrefix(filename, "export_") {
+			t.Errorf("expected filename to start with 'export_', got: %s", filename)
+		}
+
+		// Must end with ".asc"
+		if !strings.HasSuffix(filename, ".asc") {
+			t.Errorf("expected filename to end with '.asc', got: %s", filename)
+		}
+
+		// Must not contain path separators (should be just a filename)
+		if strings.ContainsAny(filename, "/\\") {
+			t.Errorf("filename should not contain path separators: %s", filename)
+		}
+
+		// Must be a reasonable length
+		if len(filename) < 15 || len(filename) > 100 {
+			t.Errorf("filename length seems invalid: %d for %s", len(filename), filename)
+		}
+	}
 }
 
 func TestBuildExportPath(t *testing.T) {

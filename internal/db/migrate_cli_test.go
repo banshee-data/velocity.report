@@ -416,18 +416,30 @@ func TestHandleMigrateDetect_LegacyDatabase(t *testing.T) {
 	}
 }
 
-func TestHandleMigrateForce_WithConfirmation(t *testing.T) {
-	// handleMigrateForce requires interactive stdin input (Scanln)
-	// Testing it would require mocking os.Stdin which is complex
-	// The function itself is thin wrapper around database.MigrateForce which is tested elsewhere
-	t.Skip("handleMigrateForce requires interactive stdin input; underlying MigrateForce is tested in DB tests")
+func TestHandleMigrateForce_RequiresInteractiveInput(t *testing.T) {
+	// handleMigrateForce requires interactive stdin input via fmt.Scanln for confirmation.
+	// Testing this would require:
+	// 1. Mocking os.Stdin (complex in Go, requires pipe setup)
+	// 2. The function calls log.Fatalf on errors which exits the process
+	//
+	// The underlying database.MigrateForce is tested in migrate_extended_test.go
+	// to ensure the core functionality works correctly.
+	//
+	// Note: To make this function testable, it would need to be refactored to:
+	// - Accept an io.Reader for confirmation input
+	// - Return an error instead of calling log.Fatalf
+	t.Skip("handleMigrateForce requires interactive stdin input; underlying MigrateForce is tested in migrate_extended_test.go")
 }
 
 func TestHandleMigrateVersion_InvalidVersion(t *testing.T) {
-	// handleMigrateVersion calls log.Fatalf on errors which calls os.Exit
-	// This would terminate the test process, so we skip testing error paths
-	// The underlying database.MigrateTo is tested elsewhere
-	t.Skip("handleMigrateVersion calls log.Fatalf on error which exits the process")
+	// handleMigrateVersion calls log.Fatalf on errors which calls os.Exit.
+	// This would terminate the test process, so we skip testing error paths.
+	//
+	// The underlying database.MigrateTo is tested in migrate_extended_test.go.
+	//
+	// Note: To make error paths testable, the function would need to be refactored
+	// to return an error instead of calling log.Fatalf.
+	t.Skip("handleMigrateVersion calls log.Fatalf on error which exits the process; MigrateTo is tested elsewhere")
 }
 
 func TestHandleMigrateBaseline_MultipleVersions(t *testing.T) {
