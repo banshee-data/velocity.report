@@ -125,6 +125,144 @@ func TestPacketForwarder_InvalidAddress(t *testing.T) {
 	}
 }
 
+// TestPacketForwarder_Close tests the Close function
+func TestPacketForwarder_Close(t *testing.T) {
+	stats := &MockPacketStats{}
+	forwarder, err := NewPacketForwarder("localhost", 12346, stats, 1*time.Second)
+	if err != nil {
+		t.Fatalf("Failed to create forwarder: %v", err)
+	}
+
+	err = forwarder.Close()
+	if err != nil {
+		t.Errorf("Close returned error: %v", err)
+	}
+
+	// Verify channel is closed
+	_, ok := <-forwarder.channel
+	if ok {
+		t.Error("Expected channel to be closed")
+	}
+}
+
+// TestPacketForwarder_Close_MultiplePackets tests sending multiple packets before close
+func TestPacketForwarder_Close_MultiplePackets(t *testing.T) {
+	// Start a test UDP server
+	serverAddr, err := net.ResolveUDPAddr("udp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Failed to resolve server address: %v", err)
+	}
+
+	server, err := net.ListenUDP("udp", serverAddr)
+	if err != nil {
+		t.Fatalf("Failed to start test server: %v", err)
+	}
+	defer server.Close()
+
+	serverPort := server.LocalAddr().(*net.UDPAddr).Port
+
+	stats := &MockPacketStats{}
+	forwarder, err := NewPacketForwarder("localhost", serverPort, stats, 1*time.Second)
+	if err != nil {
+		t.Fatalf("Failed to create forwarder: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	forwarder.Start(ctx)
+
+	// Send multiple packets
+	for i := 0; i < 10; i++ {
+		forwarder.ForwardAsync([]byte("test packet"))
+	}
+
+	// Give time for packets to be processed
+	time.Sleep(50 * time.Millisecond)
+
+	// Close forwarder
+	err = forwarder.Close()
+	if err != nil {
+		t.Errorf("Close returned error: %v", err)
+	}
+}
+
+// TestPacketForwarder_StartWithDroppedPackets tests logging of dropped packets
+func TestPacketForwarder_StartWithDroppedPackets(t *testing.T) {
+	// Create a forwarder that points to a closed port (will cause write errors)
+	stats := &MockPacketStats{}
+	forwarder, err := NewPacketForwarder("localhost", 1, stats, 50*time.Millisecond)
+	if err != nil {
+		t.Fatalf("Failed to create forwarder: %v", err)
+	}
+	defer forwarder.conn.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	forwarder.Start(ctx)
+
+	// Queue packets - some may fail to send
+	for i := 0; i < 10; i++ {
+		forwarder.ForwardAsync([]byte("test"))
+	}
+
+	// Wait for the log interval to pass
+	time.Sleep(100 * time.Millisecond)
+
+	cancel()
+}
+
+// TestPacketForwarder_ForwardAsync_PacketCopy tests that packets are copied
+func TestPacketForwarder_ForwardAsync_PacketCopy(t *testing.T) {
+	stats := &MockPacketStats{}
+	forwarder, err := NewPacketForwarder("localhost", 12347, stats, 1*time.Second)
+	if err != nil {
+		t.Fatalf("Failed to create forwarder: %v", err)
+	}
+	defer forwarder.conn.Close()
+
+	originalPacket := []byte("original data")
+	forwarder.ForwardAsync(originalPacket)
+
+	// Modify original packet
+	originalPacket[0] = 'X'
+
+	// Check that the queued packet is unchanged
+	select {
+	case queuedPacket := <-forwarder.channel:
+		if queuedPacket[0] == 'X' {
+			t.Error("Queued packet should be a copy, but was affected by original modification")
+		}
+		if string(queuedPacket) != "original data" {
+			t.Errorf("Expected 'original data', got '%s'", string(queuedPacket))
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Error("Packet was not queued")
+	}
+}
+
+// TestPacketForwarder_ChannelClosedDuringStart tests channel closure while running
+func TestPacketForwarder_ChannelClosedDuringStart(t *testing.T) {
+	stats := &MockPacketStats{}
+	forwarder, err := NewPacketForwarder("localhost", 12348, stats, 1*time.Second)
+	if err != nil {
+		t.Fatalf("Failed to create forwarder: %v", err)
+	}
+
+	ctx := context.Background()
+	forwarder.Start(ctx)
+
+	// Give it time to start
+	time.Sleep(10 * time.Millisecond)
+
+	// Close the forwarder (closes channel and connection)
+	forwarder.Close()
+
+	// Goroutine should exit cleanly
+	time.Sleep(20 * time.Millisecond)
+}
+
 func BenchmarkPacketForwarder_ForwardAsync(b *testing.B) {
 	stats := &MockPacketStats{}
 	forwarder, err := NewPacketForwarder("localhost", 12345, stats, 1*time.Second)
