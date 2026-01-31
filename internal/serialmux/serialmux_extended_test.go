@@ -156,12 +156,8 @@ func (p *BlockingReadPort) Read(buf []byte) (int, error) {
 	unblock := p.unblock
 	p.mu.Unlock()
 
-	select {
-	case <-unblock:
-		return 0, io.EOF
-	case <-time.After(10 * time.Millisecond):
-		return 0, nil // Return nothing, allow retry
-	}
+	<-unblock
+	return 0, io.EOF
 }
 
 func (p *BlockingReadPort) Write(data []byte) (int, error) {
@@ -238,12 +234,14 @@ type LineByLineReadPort struct {
 	lines  []string
 	index  int
 	closed bool
+	delay  time.Duration
 	mu     sync.Mutex
 }
 
 func NewLineByLineReadPort(lines []string) *LineByLineReadPort {
 	return &LineByLineReadPort{
 		lines: lines,
+		delay: 5 * time.Millisecond,
 	}
 }
 
@@ -256,8 +254,12 @@ func (p *LineByLineReadPort) Read(buf []byte) (int, error) {
 	}
 
 	if p.index >= len(p.lines) {
-		// Return EOF when all lines are read
-		return 0, io.EOF
+		// Block when EOF reached instead of returning immediately
+		// This simulates a port that stays open but has no data
+		p.mu.Unlock()
+		time.Sleep(p.delay)
+		p.mu.Lock()
+		return 0, nil
 	}
 
 	line := p.lines[p.index] + "\n"
@@ -290,26 +292,28 @@ func TestMonitor_BroadcastsToMultipleSubscribers(t *testing.T) {
 	defer mux.Unsubscribe(id1)
 	defer mux.Unsubscribe(id2)
 
-	ctx := context.Background()
-
-	// Collect lines from both subscribers concurrently
-	// Must start reading BEFORE Monitor runs because sends are non-blocking
+	// Protect slices with mutex to avoid race conditions
+	var mu sync.Mutex
 	received1 := make([]string, 0)
 	received2 := make([]string, 0)
-	var wg sync.WaitGroup
-	wg.Add(2)
+
+	// Use done channels instead of WaitGroup for clearer synchronisation
+	done1 := make(chan struct{})
+	done2 := make(chan struct{})
 
 	// Start readers before Monitor
 	go func() {
-		defer wg.Done()
-		timeout := time.After(500 * time.Millisecond)
+		defer close(done1)
+		timeout := time.After(150 * time.Millisecond)
 		for {
 			select {
 			case line, ok := <-ch1:
 				if !ok {
 					return
 				}
+				mu.Lock()
 				received1 = append(received1, line)
+				mu.Unlock()
 			case <-timeout:
 				return
 			}
@@ -317,15 +321,17 @@ func TestMonitor_BroadcastsToMultipleSubscribers(t *testing.T) {
 	}()
 
 	go func() {
-		defer wg.Done()
-		timeout := time.After(500 * time.Millisecond)
+		defer close(done2)
+		timeout := time.After(150 * time.Millisecond)
 		for {
 			select {
 			case line, ok := <-ch2:
 				if !ok {
 					return
 				}
+				mu.Lock()
 				received2 = append(received2, line)
+				mu.Unlock()
 			case <-timeout:
 				return
 			}
@@ -335,18 +341,24 @@ func TestMonitor_BroadcastsToMultipleSubscribers(t *testing.T) {
 	// Small delay to ensure readers are blocked on channels before Monitor starts
 	time.Sleep(10 * time.Millisecond)
 
-	// Run Monitor - it will exit when port returns EOF
+	// Run Monitor with timeout context
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
 	err := mux.Monitor(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, context.DeadlineExceeded) {
 		t.Logf("Monitor returned: %v", err)
 	}
 
-	// Wait for readers to finish (they'll hit timeout)
-	wg.Wait()
+	// Wait for readers to finish
+	<-done1
+	<-done2
 
 	// The key assertion is that BOTH subscribers receive at least some lines
 	// (verifying broadcast, not unicast). Due to timing, they may not receive
 	// the exact same count.
+	mu.Lock()
+	defer mu.Unlock()
 	if len(received1) == 0 && len(received2) == 0 {
 		t.Error("Neither subscriber received any lines")
 	}
@@ -369,28 +381,36 @@ func TestMonitor_SkipsBlockedSubscriber(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Run Monitor - it will exit when port returns EOF
+	// Monitor in goroutine
 	done := make(chan error, 1)
 	go func() {
 		done <- mux.Monitor(ctx)
 	}()
 
-	// Collect lines from subscriber 2
-	received := make([]string, 0)
-	timeout := time.After(500 * time.Millisecond)
+	// Read from subscriber 2 with timeout
+	var received []string
+	timeout := time.After(150 * time.Millisecond)
 loop:
 	for {
 		select {
-		case line, ok := <-ch2:
-			if !ok {
+		case line := <-ch2:
+			received = append(received, line)
+			if len(received) >= len(lines) {
 				break loop
 			}
-			received = append(received, line)
-		case <-done:
-			break loop
 		case <-timeout:
 			break loop
 		}
+	}
+
+	// Close port to stop Monitor
+	port.Close()
+
+	// Wait for Monitor to finish
+	select {
+	case <-done:
+	case <-time.After(100 * time.Millisecond):
+		t.Error("Monitor did not exit after port close")
 	}
 
 	// Subscriber 2 should have received lines despite subscriber 1 being blocked
@@ -521,14 +541,19 @@ func TestMonitor_ScannerEOF(t *testing.T) {
 	mux := NewSerialMux(port)
 
 	id, ch := mux.Subscribe()
+	defer mux.Unsubscribe(id)
 
 	ctx := context.Background()
 
-	// Monitor will exit when port returns EOF after reading all lines
+	// Monitor will run until port is closed
 	done := make(chan error, 1)
 	go func() {
 		done <- mux.Monitor(ctx)
 	}()
+
+	// Close port after brief delay to trigger EOF
+	time.Sleep(50 * time.Millisecond)
+	port.Close()
 
 	// Wait for monitor to complete with timeout
 	select {
@@ -537,15 +562,21 @@ func TestMonitor_ScannerEOF(t *testing.T) {
 		if err != nil && !errors.Is(err, io.EOF) {
 			t.Logf("Monitor returned: %v", err)
 		}
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(200 * time.Millisecond):
 		t.Error("Monitor did not exit after EOF")
-		mux.Close()
 	}
 
-	// Clean up
-	mux.Unsubscribe(id)
-
-	// Drain any remaining items from channel
-	for range ch {
+	// Drain any remaining items from channel with timeout
+	drainTimeout := time.After(50 * time.Millisecond)
+drainLoop:
+	for {
+		select {
+		case _, ok := <-ch:
+			if !ok {
+				break drainLoop
+			}
+		case <-drainTimeout:
+			break drainLoop
+		}
 	}
 }

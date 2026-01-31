@@ -211,9 +211,8 @@ func TestHandleEvent_RadarObjectError(t *testing.T) {
 	}
 	defer d.Close()
 
-	// Empty JSON that looks like a radar object (has end_time) but will fail
-	// because RecordRadarObject rejects empty strings
-	invalidRadar := `{"end_time": "", "classifier": ""}`
+	// JSON with numeric fields as non-numeric strings
+	invalidRadar := `{"end_time": "not-a-number", "classifier": "not-a-number"}`
 	err = HandleEvent(d, invalidRadar)
 	// Note: The current implementation accepts this as valid JSON,
 	// so we verify it at least doesn't panic
@@ -225,8 +224,8 @@ func TestHandleEvent_RadarObjectError(t *testing.T) {
 	}
 }
 
-// TestHandleEvent_RawDataError tests error handling when raw data
-// processing fails.
+// TestHandleEvent_RawDataError tests that raw data with invalid values
+// is stored successfully (invalid values become NULL).
 func TestHandleEvent_RawDataError(t *testing.T) {
 	tmp := t.TempDir()
 	d, err := db.NewDB(tmp + "/test.db")
@@ -235,16 +234,12 @@ func TestHandleEvent_RawDataError(t *testing.T) {
 	}
 	defer d.Close()
 
-	// Raw data with magnitude marker
-	rawData := `{"magnitude": 1.5, "speed": 2.0}`
+	// Raw data with magnitude marker and invalid numeric values
+	rawData := `{"magnitude": "invalid", "speed": "invalid"}`
 	err = HandleEvent(d, rawData)
-	// Note: The current implementation accepts this as valid JSON,
-	// so we verify it at least doesn't panic
+	// The schema allows NULL for invalid values, so this should succeed
 	if err != nil {
-		// If it does error, verify the message mentions raw data
-		if !strings.Contains(err.Error(), "raw data") {
-			t.Errorf("Expected error message to mention raw data, got: %v", err)
-		}
+		t.Errorf("Expected no error for invalid values (should store as NULL), got: %v", err)
 	}
 }
 
