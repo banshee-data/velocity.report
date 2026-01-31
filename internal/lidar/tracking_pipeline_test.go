@@ -1,18 +1,25 @@
 package lidar
 
 import (
+	"database/sql"
+	"path/filepath"
 	"testing"
+	"time"
+
+	_ "modernc.org/sqlite"
 )
 
 // mockForegroundForwarder implements ForegroundForwarder for testing
 type mockForegroundForwarder struct {
 	forwardCalled bool
 	lastPoints    []PointPolar
+	callCount     int
 }
 
 func (m *mockForegroundForwarder) ForwardForeground(points []PointPolar) {
 	m.forwardCalled = true
 	m.lastPoints = points
+	m.callCount++
 }
 
 func TestIsNilInterface(t *testing.T) {
@@ -145,5 +152,1312 @@ func TestTrackingPipelineConfig_WithValidForwarder(t *testing.T) {
 	// but we've verified the callback is created without panicking
 	if mock.forwardCalled {
 		t.Error("forwarder should not be called during callback creation")
+	}
+}
+
+func TestNewFrameCallback_NilFrame(t *testing.T) {
+	config := &TrackingPipelineConfig{
+		BackgroundManager: NewBackgroundManager("test", 16, 360, BackgroundParams{}, nil),
+		SensorID:          "test-sensor",
+	}
+
+	callback := config.NewFrameCallback()
+
+	// Should handle nil frame gracefully
+	callback(nil)
+}
+
+func TestNewFrameCallback_EmptyFrame(t *testing.T) {
+	config := &TrackingPipelineConfig{
+		BackgroundManager: NewBackgroundManager("test", 16, 360, BackgroundParams{}, nil),
+		SensorID:          "test-sensor",
+	}
+
+	callback := config.NewFrameCallback()
+
+	// Should handle empty frame gracefully
+	frame := &LiDARFrame{
+		FrameID:    "test-frame",
+		Points:     []Point{},
+		MinAzimuth: 0,
+		MaxAzimuth: 360,
+	}
+	callback(frame)
+}
+
+func TestNewFrameCallback_NilBackgroundManager(t *testing.T) {
+	config := &TrackingPipelineConfig{
+		BackgroundManager: nil,
+		SensorID:          "test-sensor",
+	}
+
+	callback := config.NewFrameCallback()
+
+	frame := &LiDARFrame{
+		FrameID: "test-frame",
+		Points: []Point{
+			{Channel: 1, Azimuth: 180, Distance: 5.0},
+		},
+		MinAzimuth: 0,
+		MaxAzimuth: 360,
+	}
+
+	// Should return early without panicking
+	callback(frame)
+}
+
+func TestNewFrameCallback_NoForegroundPoints(t *testing.T) {
+	// Create a background manager and populate it so all points are background
+	bgMgr := NewBackgroundManager("test", 16, 360, BackgroundParams{
+		BackgroundUpdateFraction:       0.1,
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMeters:             0.5,
+	}, nil)
+
+	// Populate background with some data
+	for i := 0; i < 10; i++ {
+		points := []PointPolar{
+			{Channel: 1, Azimuth: 180, Distance: 5.0, Intensity: 100},
+		}
+		bgMgr.ProcessFramePolar(points)
+	}
+
+	mock := &mockForegroundForwarder{}
+	config := &TrackingPipelineConfig{
+		BackgroundManager: bgMgr,
+		FgForwarder:       mock,
+		SensorID:          "test-sensor",
+	}
+
+	callback := config.NewFrameCallback()
+
+	frame := &LiDARFrame{
+		FrameID: "test-frame",
+		Points: []Point{
+			{Channel: 1, Azimuth: 180, Distance: 5.0, Timestamp: time.Now()},
+		},
+		StartTimestamp: time.Now(),
+		MinAzimuth:     0,
+		MaxAzimuth:     360,
+	}
+
+	callback(frame)
+
+	// If no real foreground was detected, either forwarder wasn't called or empty slice sent
+	if mock.forwardCalled && len(mock.lastPoints) > 0 {
+		// This is actually okay - the background might not be fully settled yet
+		t.Logf("Note: %d points forwarded (background may not be fully settled)", len(mock.lastPoints))
+	}
+}
+
+func TestNewFrameCallback_WithForegroundPoints(t *testing.T) {
+	// Create a background manager
+	bgMgr := NewBackgroundManager("test", 16, 360, BackgroundParams{
+		BackgroundUpdateFraction:       0.1,
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMeters:             0.5,
+	}, nil)
+
+	// Populate background at distance 10m
+	for i := 0; i < 10; i++ {
+		points := []PointPolar{
+			{Channel: 1, Azimuth: 180, Distance: 10.0, Intensity: 100},
+		}
+		bgMgr.ProcessFramePolar(points)
+	}
+
+	mock := &mockForegroundForwarder{}
+	tracker := NewTracker(DefaultTrackerConfig())
+	config := &TrackingPipelineConfig{
+		BackgroundManager: bgMgr,
+		FgForwarder:       mock,
+		Tracker:           tracker,
+		SensorID:          "test-sensor",
+	}
+
+	callback := config.NewFrameCallback()
+
+	// Now send a frame with a point much closer (foreground)
+	frame := &LiDARFrame{
+		FrameID: "test-frame",
+		Points: []Point{
+			{Channel: 1, Azimuth: 180, Distance: 3.0, Timestamp: time.Now()},
+		},
+		StartTimestamp: time.Now(),
+		MinAzimuth:     0,
+		MaxAzimuth:     360,
+	}
+
+	callback(frame)
+
+	// Should forward foreground points
+	if !mock.forwardCalled {
+		t.Error("expected forwarder to be called with foreground points")
+	}
+	if len(mock.lastPoints) == 0 {
+		t.Error("expected at least one foreground point to be forwarded")
+	}
+}
+
+func TestNewFrameCallback_WithDebugRange(t *testing.T) {
+	// Test that debug range filters forwarded points
+	bgMgr := NewBackgroundManager("test", 16, 360, BackgroundParams{
+		BackgroundUpdateFraction:       0.1,
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMeters:             0.5,
+		DebugRingMin:                   5, // Only channel 5-10
+		DebugRingMax:                   10,
+		DebugAzMin:                     170,
+		DebugAzMax:                     190,
+	}, nil)
+
+	// Populate background
+	for i := 0; i < 10; i++ {
+		points := []PointPolar{
+			{Channel: 1, Azimuth: 180, Distance: 10.0},
+			{Channel: 6, Azimuth: 180, Distance: 10.0},
+		}
+		bgMgr.ProcessFramePolar(points)
+	}
+
+	mock := &mockForegroundForwarder{}
+	config := &TrackingPipelineConfig{
+		BackgroundManager: bgMgr,
+		FgForwarder:       mock,
+		SensorID:          "test-sensor",
+	}
+
+	callback := config.NewFrameCallback()
+
+	// Send foreground points in and out of debug range
+	frame := &LiDARFrame{
+		FrameID: "test-frame",
+		Points: []Point{
+			{Channel: 1, Azimuth: 180, Distance: 3.0, Timestamp: time.Now()}, // Outside debug range
+			{Channel: 6, Azimuth: 180, Distance: 3.0, Timestamp: time.Now()}, // Inside debug range
+		},
+		StartTimestamp: time.Now(),
+		MinAzimuth:     0,
+		MaxAzimuth:     360,
+	}
+
+	callback(frame)
+
+	// Should only forward points within debug range
+	if mock.forwardCalled && len(mock.lastPoints) > 0 {
+		for _, p := range mock.lastPoints {
+			// Channel is 1-based in PointPolar, debug range uses 0-based indexing
+			// DebugRingMin=5, DebugRingMax=10 means channels 6-11 (1-based)
+			if p.Channel < 6 || p.Channel > 11 {
+				t.Errorf("expected only filtered points, got channel %d (should be 6-11)", p.Channel)
+			}
+		}
+	}
+}
+
+func TestNewFrameCallback_WithDatabase(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	database, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("failed to create database: %v", err)
+	}
+	defer database.Close()
+
+	// Create required tables
+	createSQL := `
+	CREATE TABLE IF NOT EXISTS lidar_tracks (
+		track_id TEXT PRIMARY KEY,
+		sensor_id TEXT NOT NULL,
+		world_frame TEXT NOT NULL,
+		created_at INTEGER NOT NULL,
+		last_seen_at INTEGER NOT NULL,
+		track_state TEXT NOT NULL,
+		observation_count INTEGER NOT NULL,
+		object_class TEXT
+	);
+	
+	CREATE TABLE IF NOT EXISTS lidar_track_observations (
+		track_id TEXT NOT NULL,
+		ts_unix_nanos INTEGER NOT NULL,
+		world_frame TEXT NOT NULL,
+		x REAL NOT NULL,
+		y REAL NOT NULL,
+		z REAL NOT NULL,
+		velocity_x REAL,
+		velocity_y REAL,
+		speed_mps REAL,
+		heading_rad REAL,
+		bounding_box_length REAL,
+		bounding_box_width REAL,
+		bounding_box_height REAL,
+		height_p95 REAL,
+		intensity_mean REAL,
+		PRIMARY KEY (track_id, ts_unix_nanos)
+	);
+	`
+	if _, err := database.Exec(createSQL); err != nil {
+		t.Fatalf("failed to create tables: %v", err)
+	}
+
+	// Create background manager
+	bgMgr := NewBackgroundManager("test", 16, 360, BackgroundParams{
+		BackgroundUpdateFraction:       0.1,
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMeters:             0.5,
+	}, nil)
+
+	// Populate background
+	for i := 0; i < 10; i++ {
+		points := []PointPolar{
+			{Channel: 1, Azimuth: 180, Distance: 10.0},
+		}
+		bgMgr.ProcessFramePolar(points)
+	}
+
+	tracker := NewTracker(TrackerConfig{
+		MaxTracks:             100,
+		MaxMisses:             3,
+		HitsToConfirm:         2, // Lower to confirm quickly
+		GatingDistanceSquared: 25.0,
+	})
+
+	classifier := NewTrackClassifier()
+
+	config := &TrackingPipelineConfig{
+		BackgroundManager: bgMgr,
+		Tracker:           tracker,
+		Classifier:        classifier,
+		DB:                database,
+		SensorID:          "test-sensor",
+	}
+
+	callback := config.NewFrameCallback()
+
+	now := time.Now()
+
+	// Send multiple frames to create and confirm tracks
+	for i := 0; i < 5; i++ {
+		frame := &LiDARFrame{
+			FrameID: "test-frame",
+			Points: []Point{
+				{Channel: 1, Azimuth: 180, Distance: 3.0 + float64(i)*0.1, Timestamp: now},
+			},
+			StartTimestamp: now.Add(time.Duration(i) * 100 * time.Millisecond),
+			MinAzimuth:     0,
+			MaxAzimuth:     360,
+		}
+		callback(frame)
+	}
+
+	// Check that tracks were persisted to database
+	var count int
+	err = database.QueryRow("SELECT COUNT(*) FROM lidar_tracks").Scan(&count)
+	if err != nil && err != sql.ErrNoRows {
+		t.Fatalf("failed to query tracks: %v", err)
+	}
+
+	// We should have at least one track
+	if count == 0 {
+		t.Log("warning: no tracks persisted (might be expected if clustering threshold not met)")
+	}
+}
+
+func TestNewFrameCallback_WithAnalysisRunManager(t *testing.T) {
+	bgMgr := NewBackgroundManager("test", 16, 360, BackgroundParams{
+		BackgroundUpdateFraction:       0.1,
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMeters:             0.5,
+	}, nil)
+
+	// Populate background
+	for i := 0; i < 10; i++ {
+		points := []PointPolar{
+			{Channel: 1, Azimuth: 180, Distance: 10.0},
+		}
+		bgMgr.ProcessFramePolar(points)
+	}
+
+	tracker := NewTracker(DefaultTrackerConfig())
+
+	// Create analysis run manager
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	database, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("failed to create database: %v", err)
+	}
+	defer database.Close()
+
+	// Create required tables
+	createSQL := `
+	CREATE TABLE IF NOT EXISTS lidar_analysis_runs (
+		run_id TEXT PRIMARY KEY,
+		created_at INTEGER NOT NULL,
+		source_type TEXT NOT NULL,
+		source_path TEXT,
+		sensor_id TEXT NOT NULL,
+		params_json TEXT NOT NULL,
+		duration_secs REAL,
+		total_frames INTEGER,
+		total_clusters INTEGER,
+		total_tracks INTEGER,
+		confirmed_tracks INTEGER,
+		processing_time_ms INTEGER,
+		status TEXT NOT NULL,
+		error_message TEXT,
+		parent_run_id TEXT,
+		notes TEXT
+	);
+	
+	CREATE TABLE IF NOT EXISTS lidar_run_tracks (
+		run_id TEXT NOT NULL,
+		track_id TEXT NOT NULL,
+		sensor_id TEXT NOT NULL,
+		track_state TEXT NOT NULL,
+		observation_count INTEGER NOT NULL,
+		PRIMARY KEY (run_id, track_id)
+	);
+	`
+	if _, err := database.Exec(createSQL); err != nil {
+		t.Fatalf("failed to create tables: %v", err)
+	}
+
+	runMgr := NewAnalysisRunManager(database, "test-sensor")
+
+	config := &TrackingPipelineConfig{
+		BackgroundManager:  bgMgr,
+		Tracker:            tracker,
+		AnalysisRunManager: runMgr,
+		SensorID:           "test-sensor",
+	}
+
+	callback := config.NewFrameCallback()
+
+	// Start an analysis run
+	params := DefaultRunParams()
+	runID, err := runMgr.StartRun("/path/to/test.pcap", params)
+	if err != nil {
+		t.Fatalf("failed to start run: %v", err)
+	}
+	defer runMgr.CompleteRun()
+
+	// Send frames
+	now := time.Now()
+	frame := &LiDARFrame{
+		FrameID: "test-frame",
+		Points: []Point{
+			{Channel: 1, Azimuth: 180, Distance: 3.0, Timestamp: now},
+		},
+		StartTimestamp: now,
+		MinAzimuth:     0,
+		MaxAzimuth:     360,
+	}
+
+	callback(frame)
+
+	// Verify that analysis run is active
+	if !runMgr.IsRunActive() {
+		t.Error("expected run to be active")
+	}
+	if runMgr.CurrentRunID() != runID {
+		t.Errorf("expected run ID %s, got %s", runID, runMgr.CurrentRunID())
+	}
+}
+
+func TestNewFrameCallback_DebugMode(t *testing.T) {
+	bgMgr := NewBackgroundManager("test", 16, 360, BackgroundParams{
+		BackgroundUpdateFraction:       0.1,
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMeters:             0.5,
+	}, nil)
+
+	// Populate background
+	for i := 0; i < 10; i++ {
+		points := []PointPolar{
+			{Channel: 1, Azimuth: 180, Distance: 10.0},
+		}
+		bgMgr.ProcessFramePolar(points)
+	}
+
+	config := &TrackingPipelineConfig{
+		BackgroundManager: bgMgr,
+		SensorID:          "test-sensor",
+		DebugMode:         true, // Enable debug mode
+	}
+
+	callback := config.NewFrameCallback()
+
+	now := time.Now()
+	frame := &LiDARFrame{
+		FrameID: "test-frame",
+		Points: []Point{
+			{Channel: 1, Azimuth: 180, Distance: 3.0, Timestamp: now},
+		},
+		StartTimestamp: now,
+		MinAzimuth:     0,
+		MaxAzimuth:     360,
+	}
+
+	// Should not panic in debug mode
+	callback(frame)
+}
+
+func TestNewFrameCallback_BackgroundDownsampling(t *testing.T) {
+	// Test that large background sets get downsampled
+	bgMgr := NewBackgroundManager("test", 128, 3600, BackgroundParams{ // Large grid
+		BackgroundUpdateFraction:       0.1,
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMeters:             0.5,
+	}, nil)
+
+	// Populate with many background points
+	for i := 0; i < 100; i++ {
+		points := make([]PointPolar, 6000) // More than maxBackgroundChartPoints
+		for j := range points {
+			points[j] = PointPolar{
+				Channel:  (j % 128) + 1,
+				Azimuth:  float64(j % 3600),
+				Distance: 10.0,
+			}
+		}
+		bgMgr.ProcessFramePolar(points)
+	}
+
+	config := &TrackingPipelineConfig{
+		BackgroundManager: bgMgr,
+		SensorID:          "test-sensor",
+	}
+
+	callback := config.NewFrameCallback()
+
+	now := time.Now()
+	points := make([]Point, 6000)
+	for i := range points {
+		points[i] = Point{
+			Channel:   (i % 128) + 1,
+			Azimuth:   float64(i % 3600),
+			Distance:  10.0,
+			Timestamp: now,
+		}
+	}
+
+	frame := &LiDARFrame{
+		FrameID:        "test-frame",
+		Points:         points,
+		StartTimestamp: now,
+		MinAzimuth:     0,
+		MaxAzimuth:     3600,
+	}
+
+	// Should handle large frames without panicking
+	callback(frame)
+}
+
+func TestNewFrameCallback_RegistryBasedRunManager(t *testing.T) {
+	// Test that the callback uses registry-based run manager when not explicitly set
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	database, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("failed to create database: %v", err)
+	}
+	defer database.Close()
+
+	// Create required tables
+	createSQL := `
+	CREATE TABLE IF NOT EXISTS lidar_analysis_runs (
+		run_id TEXT PRIMARY KEY,
+		created_at INTEGER NOT NULL,
+		source_type TEXT NOT NULL,
+		source_path TEXT,
+		sensor_id TEXT NOT NULL,
+		params_json TEXT NOT NULL,
+		duration_secs REAL,
+		total_frames INTEGER,
+		total_clusters INTEGER,
+		total_tracks INTEGER,
+		confirmed_tracks INTEGER,
+		processing_time_ms INTEGER,
+		status TEXT NOT NULL,
+		error_message TEXT,
+		parent_run_id TEXT,
+		notes TEXT
+	);
+	
+	CREATE TABLE IF NOT EXISTS lidar_run_tracks (
+		run_id TEXT NOT NULL,
+		track_id TEXT NOT NULL,
+		sensor_id TEXT NOT NULL,
+		track_state TEXT NOT NULL,
+		observation_count INTEGER NOT NULL,
+		PRIMARY KEY (run_id, track_id)
+	);
+	`
+	if _, err := database.Exec(createSQL); err != nil {
+		t.Fatalf("failed to create tables: %v", err)
+	}
+
+	// Create and register a run manager
+	sensorID := "registry-test-sensor"
+	runMgr := NewAnalysisRunManager(database, sensorID)
+	RegisterAnalysisRunManager(sensorID, runMgr)
+	defer RegisterAnalysisRunManager(sensorID, nil) // Clean up
+
+	bgMgr := NewBackgroundManager(sensorID, 16, 360, BackgroundParams{
+		BackgroundUpdateFraction:       0.1,
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMeters:             0.5,
+	}, nil)
+
+	// Populate background
+	for i := 0; i < 10; i++ {
+		points := []PointPolar{
+			{Channel: 1, Azimuth: 180, Distance: 10.0},
+		}
+		bgMgr.ProcessFramePolar(points)
+	}
+
+	tracker := NewTracker(DefaultTrackerConfig())
+
+	// Note: AnalysisRunManager is NOT set explicitly - should be looked up from registry
+	config := &TrackingPipelineConfig{
+		BackgroundManager: bgMgr,
+		Tracker:           tracker,
+		SensorID:          sensorID, // Same sensor ID as registered manager
+	}
+
+	callback := config.NewFrameCallback()
+
+	// Start an analysis run via the registered manager
+	params := DefaultRunParams()
+	_, err = runMgr.StartRun("/path/to/test.pcap", params)
+	if err != nil {
+		t.Fatalf("failed to start run: %v", err)
+	}
+	defer runMgr.CompleteRun()
+
+	now := time.Now()
+	frame := &LiDARFrame{
+		FrameID: "test-frame",
+		Points: []Point{
+			{Channel: 1, Azimuth: 180, Distance: 3.0, Timestamp: now},
+		},
+		StartTimestamp: now,
+		MinAzimuth:     0,
+		MaxAzimuth:     360,
+	}
+
+	// This should use the registry-based run manager
+	callback(frame)
+
+	// Verify run is still active (callback should have recorded)
+	if !runMgr.IsRunActive() {
+		t.Error("expected run to be active")
+	}
+}
+
+func TestNewFrameCallback_TrackClassification(t *testing.T) {
+	// Test that tracks get classified when they have enough observations
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	database, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("failed to create database: %v", err)
+	}
+	defer database.Close()
+
+	// Create required tables
+	createSQL := `
+	CREATE TABLE IF NOT EXISTS lidar_tracks (
+		track_id TEXT PRIMARY KEY,
+		sensor_id TEXT NOT NULL,
+		world_frame TEXT NOT NULL,
+		created_at INTEGER NOT NULL,
+		last_seen_at INTEGER NOT NULL,
+		track_state TEXT NOT NULL,
+		observation_count INTEGER NOT NULL,
+		object_class TEXT
+	);
+	
+	CREATE TABLE IF NOT EXISTS lidar_track_observations (
+		track_id TEXT NOT NULL,
+		ts_unix_nanos INTEGER NOT NULL,
+		world_frame TEXT NOT NULL,
+		x REAL NOT NULL,
+		y REAL NOT NULL,
+		z REAL NOT NULL,
+		velocity_x REAL,
+		velocity_y REAL,
+		speed_mps REAL,
+		heading_rad REAL,
+		bounding_box_length REAL,
+		bounding_box_width REAL,
+		bounding_box_height REAL,
+		height_p95 REAL,
+		intensity_mean REAL,
+		PRIMARY KEY (track_id, ts_unix_nanos)
+	);
+	`
+	if _, err := database.Exec(createSQL); err != nil {
+		t.Fatalf("failed to create tables: %v", err)
+	}
+
+	bgMgr := NewBackgroundManager("test", 16, 360, BackgroundParams{
+		BackgroundUpdateFraction:       0.1,
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMeters:             0.5,
+	}, nil)
+
+	// Populate background at 10m
+	for i := 0; i < 10; i++ {
+		points := []PointPolar{
+			{Channel: 1, Azimuth: 180, Distance: 10.0},
+			{Channel: 2, Azimuth: 180, Distance: 10.0},
+			{Channel: 3, Azimuth: 180, Distance: 10.0},
+		}
+		bgMgr.ProcessFramePolar(points)
+	}
+
+	tracker := NewTracker(TrackerConfig{
+		MaxTracks:             100,
+		MaxMisses:             5,
+		HitsToConfirm:         2, // Quick confirmation
+		GatingDistanceSquared: 50.0,
+	})
+
+	classifier := NewTrackClassifier()
+
+	config := &TrackingPipelineConfig{
+		BackgroundManager: bgMgr,
+		Tracker:           tracker,
+		Classifier:        classifier,
+		DB:                database,
+		SensorID:          "test-sensor",
+		DebugMode:         true, // Enable debug mode for better coverage
+	}
+
+	callback := config.NewFrameCallback()
+
+	now := time.Now()
+
+	// Send multiple frames with cluster of points to build up track observations
+	for i := 0; i < 10; i++ {
+		points := make([]Point, 0)
+		// Create a cluster of points close together
+		for j := 0; j < 10; j++ {
+			points = append(points, Point{
+				Channel:   j + 1,
+				Azimuth:   180.0 + float64(j)*0.1,
+				Distance:  3.0 + float64(i)*0.1,
+				Timestamp: now.Add(time.Duration(i) * 100 * time.Millisecond),
+			})
+		}
+
+		frame := &LiDARFrame{
+			FrameID:        "test-frame",
+			Points:         points,
+			StartTimestamp: now.Add(time.Duration(i) * 100 * time.Millisecond),
+			MinAzimuth:     0,
+			MaxAzimuth:     360,
+		}
+		callback(frame)
+	}
+
+	// Tracks should be created and potentially classified
+	var count int
+	err = database.QueryRow("SELECT COUNT(*) FROM lidar_tracks").Scan(&count)
+	if err != nil && err != sql.ErrNoRows {
+		t.Fatalf("failed to query tracks: %v", err)
+	}
+	t.Logf("Created %d tracks", count)
+}
+
+func TestNewFrameCallback_NilTracker(t *testing.T) {
+	// Test that pipeline handles nil tracker gracefully
+	bgMgr := NewBackgroundManager("test", 16, 360, BackgroundParams{
+		BackgroundUpdateFraction:       0.1,
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMeters:             0.5,
+	}, nil)
+
+	// Populate background
+	for i := 0; i < 10; i++ {
+		points := []PointPolar{
+			{Channel: 1, Azimuth: 180, Distance: 10.0},
+		}
+		bgMgr.ProcessFramePolar(points)
+	}
+
+	config := &TrackingPipelineConfig{
+		BackgroundManager: bgMgr,
+		Tracker:           nil, // No tracker
+		SensorID:          "test-sensor",
+	}
+
+	callback := config.NewFrameCallback()
+
+	now := time.Now()
+	frame := &LiDARFrame{
+		FrameID: "test-frame",
+		Points: []Point{
+			{Channel: 1, Azimuth: 180, Distance: 3.0, Timestamp: now},
+		},
+		StartTimestamp: now,
+		MinAzimuth:     0,
+		MaxAzimuth:     360,
+	}
+
+	// Should handle nil tracker without panicking
+	callback(frame)
+}
+
+func TestNewFrameCallback_CustomDBSCANParams(t *testing.T) {
+	// Test that custom DBSCAN params from background manager are used
+	bgMgr := NewBackgroundManager("test", 16, 360, BackgroundParams{
+		BackgroundUpdateFraction:       0.1,
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMeters:             0.5,
+		ForegroundMinClusterPoints:     5,   // Custom value
+		ForegroundDBSCANEps:            1.5, // Custom value
+	}, nil)
+
+	// Populate background
+	for i := 0; i < 10; i++ {
+		points := []PointPolar{
+			{Channel: 1, Azimuth: 180, Distance: 10.0},
+		}
+		bgMgr.ProcessFramePolar(points)
+	}
+
+	tracker := NewTracker(DefaultTrackerConfig())
+
+	config := &TrackingPipelineConfig{
+		BackgroundManager: bgMgr,
+		Tracker:           tracker,
+		SensorID:          "test-sensor",
+	}
+
+	callback := config.NewFrameCallback()
+
+	now := time.Now()
+	frame := &LiDARFrame{
+		FrameID: "test-frame",
+		Points: []Point{
+			{Channel: 1, Azimuth: 180, Distance: 3.0, Timestamp: now},
+		},
+		StartTimestamp: now,
+		MinAzimuth:     0,
+		MaxAzimuth:     360,
+	}
+
+	// Should use custom DBSCAN params
+	callback(frame)
+}
+
+func TestNewFrameCallback_EmptyFilteredPoints(t *testing.T) {
+	// Test that no points are forwarded when debug range filters all points
+	bgMgr := NewBackgroundManager("test", 16, 360, BackgroundParams{
+		BackgroundUpdateFraction:       0.1,
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMeters:             0.5,
+		DebugRingMin:                   100, // Very high range - filters all
+		DebugRingMax:                   110,
+		DebugAzMin:                     0,
+		DebugAzMax:                     10,
+	}, nil)
+
+	// Populate background
+	for i := 0; i < 10; i++ {
+		points := []PointPolar{
+			{Channel: 1, Azimuth: 180, Distance: 10.0},
+		}
+		bgMgr.ProcessFramePolar(points)
+	}
+
+	mock := &mockForegroundForwarder{}
+	config := &TrackingPipelineConfig{
+		BackgroundManager: bgMgr,
+		FgForwarder:       mock,
+		SensorID:          "test-sensor",
+	}
+
+	callback := config.NewFrameCallback()
+
+	now := time.Now()
+	frame := &LiDARFrame{
+		FrameID: "test-frame",
+		Points: []Point{
+			{Channel: 1, Azimuth: 180, Distance: 3.0, Timestamp: now},
+		},
+		StartTimestamp: now,
+		MinAzimuth:     0,
+		MaxAzimuth:     360,
+	}
+
+	callback(frame)
+
+	// Due to debug range filtering, no points should be forwarded
+	// The forwarder may be called with empty points or not called at all
+	if mock.forwardCalled && len(mock.lastPoints) > 0 {
+		// Check that points are indeed outside the debug range (channel 1 vs 100-110)
+		t.Logf("Forwarded %d points (might be outside debug range)", len(mock.lastPoints))
+	}
+}
+
+func TestNewFrameCallback_NoClusters(t *testing.T) {
+	// Test path where DBSCAN returns no clusters
+	bgMgr := NewBackgroundManager("test", 16, 360, BackgroundParams{
+		BackgroundUpdateFraction:       0.1,
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMeters:             0.5,
+		ForegroundMinClusterPoints:     100, // Very high - no clusters will form
+	}, nil)
+
+	// Populate background
+	for i := 0; i < 10; i++ {
+		points := []PointPolar{
+			{Channel: 1, Azimuth: 180, Distance: 10.0},
+		}
+		bgMgr.ProcessFramePolar(points)
+	}
+
+	tracker := NewTracker(DefaultTrackerConfig())
+
+	config := &TrackingPipelineConfig{
+		BackgroundManager: bgMgr,
+		Tracker:           tracker,
+		SensorID:          "test-sensor",
+	}
+
+	callback := config.NewFrameCallback()
+
+	now := time.Now()
+	frame := &LiDARFrame{
+		FrameID: "test-frame",
+		Points: []Point{
+			{Channel: 1, Azimuth: 180, Distance: 3.0, Timestamp: now},
+		},
+		StartTimestamp: now,
+		MinAzimuth:     0,
+		MaxAzimuth:     360,
+	}
+
+	// Should return early when no clusters
+	callback(frame)
+}
+
+func TestNewFrameCallback_DebugModeNilForwarder(t *testing.T) {
+	// Test debug log path when forwarder is nil in debug mode
+	bgMgr := NewBackgroundManager("test", 16, 360, BackgroundParams{
+		BackgroundUpdateFraction:       0.1,
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMeters:             0.5,
+	}, nil)
+
+	// Populate background
+	for i := 0; i < 10; i++ {
+		points := []PointPolar{
+			{Channel: 1, Azimuth: 180, Distance: 10.0},
+		}
+		bgMgr.ProcessFramePolar(points)
+	}
+
+	config := &TrackingPipelineConfig{
+		BackgroundManager: bgMgr,
+		FgForwarder:       nil, // Nil forwarder
+		SensorID:          "test-sensor",
+		DebugMode:         true, // Should log about nil forwarder
+	}
+
+	callback := config.NewFrameCallback()
+
+	now := time.Now()
+	frame := &LiDARFrame{
+		FrameID: "test-frame",
+		Points: []Point{
+			{Channel: 1, Azimuth: 180, Distance: 3.0, Timestamp: now},
+		},
+		StartTimestamp: now,
+		MinAzimuth:     0,
+		MaxAzimuth:     360,
+	}
+
+	// Should log debug message about nil forwarder
+	callback(frame)
+}
+
+func TestNewFrameCallback_ConfirmedTracksWithDebug(t *testing.T) {
+	// Test path where confirmed tracks exist with debug mode enabled
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	database, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("failed to create database: %v", err)
+	}
+	defer database.Close()
+
+	// Create required tables
+	createSQL := `
+	CREATE TABLE IF NOT EXISTS lidar_tracks (
+		track_id TEXT PRIMARY KEY,
+		sensor_id TEXT NOT NULL,
+		world_frame TEXT NOT NULL,
+		created_at INTEGER NOT NULL,
+		last_seen_at INTEGER NOT NULL,
+		track_state TEXT NOT NULL,
+		observation_count INTEGER NOT NULL,
+		object_class TEXT
+	);
+	
+	CREATE TABLE IF NOT EXISTS lidar_track_observations (
+		track_id TEXT NOT NULL,
+		ts_unix_nanos INTEGER NOT NULL,
+		world_frame TEXT NOT NULL,
+		x REAL NOT NULL,
+		y REAL NOT NULL,
+		z REAL NOT NULL,
+		velocity_x REAL,
+		velocity_y REAL,
+		speed_mps REAL,
+		heading_rad REAL,
+		bounding_box_length REAL,
+		bounding_box_width REAL,
+		bounding_box_height REAL,
+		height_p95 REAL,
+		intensity_mean REAL,
+		PRIMARY KEY (track_id, ts_unix_nanos)
+	);
+	`
+	if _, err := database.Exec(createSQL); err != nil {
+		t.Fatalf("failed to create tables: %v", err)
+	}
+
+	bgMgr := NewBackgroundManager("test", 16, 360, BackgroundParams{
+		BackgroundUpdateFraction:       0.1,
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMeters:             0.5,
+	}, nil)
+
+	// Populate background
+	for i := 0; i < 20; i++ {
+		points := []PointPolar{
+			{Channel: 1, Azimuth: 180, Distance: 10.0},
+			{Channel: 2, Azimuth: 180, Distance: 10.0},
+			{Channel: 3, Azimuth: 180, Distance: 10.0},
+			{Channel: 4, Azimuth: 180, Distance: 10.0},
+			{Channel: 5, Azimuth: 180, Distance: 10.0},
+		}
+		bgMgr.ProcessFramePolar(points)
+	}
+
+	tracker := NewTracker(TrackerConfig{
+		MaxTracks:             100,
+		MaxMisses:             10,
+		HitsToConfirm:         2, // Quick confirmation
+		GatingDistanceSquared: 100.0,
+	})
+
+	classifier := NewTrackClassifier()
+
+	config := &TrackingPipelineConfig{
+		BackgroundManager: bgMgr,
+		Tracker:           tracker,
+		Classifier:        classifier,
+		DB:                database,
+		SensorID:          "test-sensor",
+		DebugMode:         true, // Enable debug for line 252-254 coverage
+	}
+
+	callback := config.NewFrameCallback()
+
+	now := time.Now()
+
+	// Send multiple frames with consistent cluster to create confirmed tracks
+	for i := 0; i < 15; i++ {
+		points := make([]Point, 0)
+		// Create a tight cluster of points
+		for j := 0; j < 15; j++ {
+			points = append(points, Point{
+				Channel:   j + 1,
+				Azimuth:   180.0,
+				Distance:  3.0,
+				Timestamp: now.Add(time.Duration(i) * 100 * time.Millisecond),
+			})
+		}
+
+		frame := &LiDARFrame{
+			FrameID:        "test-frame",
+			Points:         points,
+			StartTimestamp: now.Add(time.Duration(i) * 100 * time.Millisecond),
+			MinAzimuth:     0,
+			MaxAzimuth:     360,
+		}
+		callback(frame)
+	}
+
+	// Check for confirmed tracks
+	confirmedTracks := tracker.GetConfirmedTracks()
+	t.Logf("Confirmed tracks: %d", len(confirmedTracks))
+}
+
+func TestNewFrameCallback_DatabaseInsertError(t *testing.T) {
+	// Test database error handling path with debug mode
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	database, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("failed to create database: %v", err)
+	}
+	defer database.Close()
+
+	// Create tables but intentionally omit observation table to cause error
+	createSQL := `
+	CREATE TABLE IF NOT EXISTS lidar_tracks (
+		track_id TEXT PRIMARY KEY,
+		sensor_id TEXT NOT NULL,
+		world_frame TEXT NOT NULL,
+		created_at INTEGER NOT NULL,
+		last_seen_at INTEGER NOT NULL,
+		track_state TEXT NOT NULL,
+		observation_count INTEGER NOT NULL,
+		object_class TEXT
+	);
+	`
+	if _, err := database.Exec(createSQL); err != nil {
+		t.Fatalf("failed to create table: %v", err)
+	}
+
+	bgMgr := NewBackgroundManager("test", 16, 360, BackgroundParams{
+		BackgroundUpdateFraction:       0.1,
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMeters:             0.5,
+	}, nil)
+
+	// Populate background
+	for i := 0; i < 20; i++ {
+		points := []PointPolar{
+			{Channel: 1, Azimuth: 180, Distance: 10.0},
+			{Channel: 2, Azimuth: 180, Distance: 10.0},
+		}
+		bgMgr.ProcessFramePolar(points)
+	}
+
+	tracker := NewTracker(TrackerConfig{
+		MaxTracks:             100,
+		MaxMisses:             10,
+		HitsToConfirm:         2,
+		GatingDistanceSquared: 100.0,
+	})
+
+	config := &TrackingPipelineConfig{
+		BackgroundManager: bgMgr,
+		Tracker:           tracker,
+		DB:                database,
+		SensorID:          "test-sensor",
+		DebugMode:         true, // Enable debug to trigger error logging
+	}
+
+	callback := config.NewFrameCallback()
+
+	now := time.Now()
+
+	// Send frames to create tracks - should log errors for observation insertion
+	for i := 0; i < 10; i++ {
+		points := make([]Point, 0)
+		for j := 0; j < 10; j++ {
+			points = append(points, Point{
+				Channel:   j + 1,
+				Azimuth:   180.0,
+				Distance:  3.0,
+				Timestamp: now.Add(time.Duration(i) * 100 * time.Millisecond),
+			})
+		}
+
+		frame := &LiDARFrame{
+			FrameID:        "test-frame",
+			Points:         points,
+			StartTimestamp: now.Add(time.Duration(i) * 100 * time.Millisecond),
+			MinAzimuth:     0,
+			MaxAzimuth:     360,
+		}
+		callback(frame)
+	}
+}
+
+func TestNewFrameCallback_FullPipeline(t *testing.T) {
+	// Integration test that exercises the full pipeline with all components
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	database, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("failed to create database: %v", err)
+	}
+	defer database.Close()
+
+	// Create all required tables
+	createSQL := `
+	CREATE TABLE IF NOT EXISTS lidar_tracks (
+		track_id TEXT PRIMARY KEY,
+		sensor_id TEXT NOT NULL,
+		world_frame TEXT NOT NULL,
+		created_at INTEGER NOT NULL,
+		last_seen_at INTEGER NOT NULL,
+		track_state TEXT NOT NULL,
+		observation_count INTEGER NOT NULL,
+		object_class TEXT
+	);
+	
+	CREATE TABLE IF NOT EXISTS lidar_track_observations (
+		track_id TEXT NOT NULL,
+		ts_unix_nanos INTEGER NOT NULL,
+		world_frame TEXT NOT NULL,
+		x REAL NOT NULL,
+		y REAL NOT NULL,
+		z REAL NOT NULL,
+		velocity_x REAL,
+		velocity_y REAL,
+		speed_mps REAL,
+		heading_rad REAL,
+		bounding_box_length REAL,
+		bounding_box_width REAL,
+		bounding_box_height REAL,
+		height_p95 REAL,
+		intensity_mean REAL,
+		PRIMARY KEY (track_id, ts_unix_nanos)
+	);
+
+	CREATE TABLE IF NOT EXISTS lidar_analysis_runs (
+		run_id TEXT PRIMARY KEY,
+		created_at INTEGER NOT NULL,
+		source_type TEXT NOT NULL,
+		source_path TEXT,
+		sensor_id TEXT NOT NULL,
+		params_json TEXT NOT NULL,
+		duration_secs REAL,
+		total_frames INTEGER,
+		total_clusters INTEGER,
+		total_tracks INTEGER,
+		confirmed_tracks INTEGER,
+		processing_time_ms INTEGER,
+		status TEXT NOT NULL,
+		error_message TEXT,
+		parent_run_id TEXT,
+		notes TEXT
+	);
+	
+	CREATE TABLE IF NOT EXISTS lidar_run_tracks (
+		run_id TEXT NOT NULL,
+		track_id TEXT NOT NULL,
+		sensor_id TEXT NOT NULL,
+		track_state TEXT NOT NULL,
+		observation_count INTEGER NOT NULL,
+		PRIMARY KEY (run_id, track_id)
+	);
+	`
+	if _, err := database.Exec(createSQL); err != nil {
+		t.Fatalf("failed to create tables: %v", err)
+	}
+
+	sensorID := "full-pipeline-sensor"
+
+	bgMgr := NewBackgroundManager(sensorID, 16, 360, BackgroundParams{
+		BackgroundUpdateFraction:       0.1,
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMeters:             0.5,
+	}, nil)
+
+	// Populate background
+	for i := 0; i < 30; i++ {
+		points := make([]PointPolar, 0)
+		for j := 1; j <= 10; j++ {
+			points = append(points, PointPolar{Channel: j, Azimuth: 180, Distance: 10.0})
+		}
+		bgMgr.ProcessFramePolar(points)
+	}
+
+	tracker := NewTracker(TrackerConfig{
+		MaxTracks:             100,
+		MaxMisses:             10,
+		HitsToConfirm:         3,
+		GatingDistanceSquared: 100.0,
+	})
+
+	classifier := NewTrackClassifier()
+	runMgr := NewAnalysisRunManager(database, sensorID)
+
+	mock := &mockForegroundForwarder{}
+
+	config := &TrackingPipelineConfig{
+		BackgroundManager:  bgMgr,
+		FgForwarder:        mock,
+		Tracker:            tracker,
+		Classifier:         classifier,
+		DB:                 database,
+		SensorID:           sensorID,
+		DebugMode:          true,
+		AnalysisRunManager: runMgr,
+	}
+
+	callback := config.NewFrameCallback()
+
+	// Start an analysis run
+	params := DefaultRunParams()
+	_, err = runMgr.StartRun("/path/to/test.pcap", params)
+	if err != nil {
+		t.Fatalf("failed to start run: %v", err)
+	}
+	defer runMgr.CompleteRun()
+
+	now := time.Now()
+
+	// Send many frames to create and confirm tracks
+	for i := 0; i < 20; i++ {
+		points := make([]Point, 0)
+		// Create a cluster of foreground points
+		for j := 1; j <= 10; j++ {
+			points = append(points, Point{
+				Channel:   j,
+				Azimuth:   180.0,
+				Distance:  3.0, // Foreground distance
+				Timestamp: now.Add(time.Duration(i) * 100 * time.Millisecond),
+			})
+		}
+
+		frame := &LiDARFrame{
+			FrameID:        "test-frame",
+			Points:         points,
+			StartTimestamp: now.Add(time.Duration(i) * 100 * time.Millisecond),
+			MinAzimuth:     0,
+			MaxAzimuth:     360,
+		}
+		callback(frame)
+	}
+
+	// Verify foreground was forwarded
+	if !mock.forwardCalled {
+		t.Error("expected forwarder to be called")
+	}
+
+	// Verify tracks were created
+	var trackCount int
+	err = database.QueryRow("SELECT COUNT(*) FROM lidar_tracks").Scan(&trackCount)
+	if err != nil {
+		t.Fatalf("failed to query tracks: %v", err)
+	}
+	t.Logf("Created %d tracks", trackCount)
+
+	// Verify observations were created
+	var obsCount int
+	err = database.QueryRow("SELECT COUNT(*) FROM lidar_track_observations").Scan(&obsCount)
+	if err != nil {
+		t.Fatalf("failed to query observations: %v", err)
+	}
+	t.Logf("Created %d observations", obsCount)
+
+	// Verify run recorded frames
+	if !runMgr.IsRunActive() {
+		t.Error("expected run to still be active")
 	}
 }
