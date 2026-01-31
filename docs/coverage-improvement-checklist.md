@@ -7,10 +7,10 @@
 
 ---
 
-## Phase 1: Quick Wins (Target: 76% → 85% coverage)
+## Phase 1: Add Edge Case Tests (Target: 76% → 85% coverage)
 
 **Timeline:** 1-2 weeks
-**Goal:** Low-effort, high-impact improvements
+**Goal:** Add comprehensive tests to existing code without any refactoring
 
 ### Pre-Work: Fix Build Issues
 
@@ -68,32 +68,6 @@
 - [ ] **Coverage goal:** 86.3% → 91%
 - **Estimated:** 1-2 days
 
-### Task 1.4: Move cmd/deploy/executor.go to internal/
-
-- [ ] **Create internal/deploy/executor.go**
-  - [ ] Copy Executor struct and methods
-  - [ ] Update import paths in cmd/deploy
-  - [ ] Add comprehensive tests
-    - [ ] Test local execution
-    - [ ] Test remote execution
-    - [ ] Test sudo handling
-    - [ ] Test error scenarios
-- [ ] **Target coverage:** 90%+
-- **Estimated:** 1 day
-
-### Task 1.5: Move cmd/deploy/sshconfig.go to internal/
-
-- [ ] **Create internal/deploy/sshconfig.go**
-  - [ ] Copy SSHConfig struct and ParseSSHConfig function
-  - [ ] Update import paths in cmd/deploy
-  - [ ] Add comprehensive tests
-    - [ ] Test valid SSH configs
-    - [ ] Test malformed configs
-    - [ ] Test missing files
-    - [ ] Test hostname resolution
-- [ ] **Target coverage:** 90%+
-- **Estimated:** 1 day
-
 ### Phase 1 Verification
 
 - [ ] Run `make test-go` and verify all tests pass
@@ -103,18 +77,18 @@
 
 **Phase 1 Complete:** ☐ YES ☐ NO
 **Achieved Coverage:** **\_\_**%
-**Date Completed:** ****\_\_\_\_****
+**Date Completed:** \***\*\_\_\_\_\*\***
 
 ---
 
-## Phase 2: Major Refactoring (Target: 85% → 92% coverage)
+## Phase 2: Extract cmd/ Logic to internal/ (Target: 85% → 92% coverage)
 
-**Timeline:** 3-4 weeks
-**Goal:** Extract business logic from cmd/ to internal/
+**Timeline:** 4-6 weeks
+**Goal:** Move all business logic from cmd/ packages to internal/ for better testing and reuse
 
-### Task 2.1: Extract cmd/sweep/main.go → internal/lidar/sweep/
+### Task 2.3: Extract cmd/sweep/main.go → internal/lidar/sweep/
 
-#### 2.1.1: Create internal/lidar/sweep/math.go
+#### 2.3.1: Create internal/lidar/sweep/math.go
 
 - [ ] **Move utility functions**
   - [ ] ParseCSVFloat64s (from parseCSVFloatSlice)
@@ -130,7 +104,7 @@
 - [ ] **Target coverage:** 90%+
 - **Estimated:** 1-2 days
 
-#### 2.1.2: Create internal/lidar/sweep/ranges.go
+#### 2.3.2: Create internal/lidar/sweep/ranges.go
 
 - [ ] **Create RangeSpec and IntRangeSpec types**
   - [ ] Move generateRange logic
@@ -144,7 +118,7 @@
 - [ ] **Target coverage:** 90%+
 - **Estimated:** 1 day
 
-#### 2.1.3: Create internal/lidar/monitor/client.go
+#### 2.3.3: Create internal/lidar/monitor/client.go
 
 - [ ] **Create Client struct**
   - [ ] Move startPCAPReplay → StartPCAPReplay
@@ -161,7 +135,7 @@
 - [ ] **Target coverage:** 85%+
 - **Estimated:** 2-3 days
 
-#### 2.1.4: Create internal/lidar/sweep/sampler.go
+#### 2.3.4: Create internal/lidar/sweep/sampler.go
 
 - [ ] **Create Sampler struct**
   - [ ] Move SampleResult type
@@ -174,7 +148,7 @@
 - [ ] **Target coverage:** 85%+
 - **Estimated:** 2 days
 
-#### 2.1.5: Create internal/lidar/sweep/output.go
+#### 2.3.5: Create internal/lidar/sweep/output.go
 
 - [ ] **Create CSVWriter struct**
   - [ ] Move writeHeaders → WriteHeaders
@@ -187,7 +161,7 @@
 - [ ] **Target coverage:** 85%+
 - **Estimated:** 1-2 days
 
-#### 2.1.6: Refactor cmd/sweep/main.go
+#### 2.3.6: Refactor cmd/sweep/main.go
 
 - [ ] **Update to use new internal packages**
   - [ ] Replace inline functions with library calls
@@ -198,9 +172,9 @@
   - [ ] Verify output files generated correctly
 - **Estimated:** 1 day
 
-### Task 2.2: Extract cmd/radar/radar.go Logic
+### Task 2.4: Extract cmd/radar/radar.go Logic
 
-#### 2.2.1: Create internal/db/transits_cli.go
+#### 2.4.1: Create internal/db/transits_cli.go
 
 - [ ] **Create TransitCLI struct**
   - [ ] Move runTransitsCommand logic
@@ -215,7 +189,7 @@
 - [ ] **Target coverage:** 90%+
 - **Estimated:** 2-3 days
 
-#### 2.2.2: Create internal/lidar/config.go
+#### 2.4.2: Create internal/lidar/config.go
 
 - [ ] **Create BackgroundConfig struct**
   - [ ] Move BackgroundParams initialization
@@ -228,7 +202,7 @@
 - [ ] **Target coverage:** 85%+
 - **Estimated:** 1-2 days
 
-#### 2.2.3: Create internal/lidar/background_flusher.go
+#### 2.4.3: Create internal/lidar/background_flusher.go
 
 - [ ] **Create BackgroundFlusher struct**
   - [ ] Move flush timer loop from main
@@ -240,7 +214,7 @@
 - [ ] **Target coverage:** 90%+
 - **Estimated:** 1 day
 
-#### 2.2.4: Refactor cmd/radar/radar.go
+#### 2.4.4: Refactor cmd/radar/radar.go
 
 - [ ] **Update to use new internal packages**
   - [ ] Use TransitCLI for subcommands
@@ -253,9 +227,9 @@
   - [ ] Test service startup
 - **Estimated:** 1 day
 
-### Task 2.3: Extract cmd/deploy/ Logic to internal/deploy/
+### Task 2.5: Extract cmd/deploy/ Logic to internal/deploy/
 
-#### 2.3.1: Create internal/deploy/binary.go
+#### 2.5.1: Create internal/deploy/binary.go
 
 - [ ] **Create BinaryInstaller struct**
   - [ ] Move validateBinary → Validate
@@ -267,7 +241,7 @@
 - [ ] **Target coverage:** 90%+
 - **Estimated:** 1 day
 
-#### 2.3.2: Create internal/deploy/system.go
+#### 2.5.2: Create internal/deploy/system.go
 
 - [ ] **Create SystemSetup struct**
   - [ ] Move createServiceUser → CreateServiceUser
@@ -279,7 +253,7 @@
 - [ ] **Target coverage:** 90%+
 - **Estimated:** 1 day
 
-#### 2.3.3: Create internal/deploy/service.go
+#### 2.5.3: Create internal/deploy/service.go
 
 - [ ] **Create ServiceInstaller struct**
   - [ ] Move installService → Install
@@ -292,7 +266,7 @@
 - [ ] **Target coverage:** 90%+
 - **Estimated:** 1 day
 
-#### 2.3.4: Create internal/deploy/database.go
+#### 2.5.4: Create internal/deploy/database.go
 
 - [ ] **Create DatabaseMigrator struct**
   - [ ] Move migrateDatabase → Migrate
@@ -302,7 +276,7 @@
 - [ ] **Target coverage:** 90%+
 - **Estimated:** 1 day
 
-#### 2.3.5: Create internal/deploy/upgrade.go, version.go, backup.go
+#### 2.5.5: Create internal/deploy/upgrade.go, version.go, backup.go
 
 - [ ] **Extract upgrader.go logic**
   - [ ] Create UpgradeManager
@@ -312,7 +286,7 @@
 - [ ] **Target coverage:** 90%+
 - **Estimated:** 2-3 days
 
-#### 2.3.6: Create internal/deploy/status.go, rollback.go
+#### 2.5.6: Create internal/deploy/status.go, rollback.go
 
 - [ ] **Extract monitor.go logic** → StatusCollector
 - [ ] **Extract rollback.go logic** → RollbackManager
@@ -320,7 +294,7 @@
 - [ ] **Target coverage:** 90%+
 - **Estimated:** 2 days
 
-#### 2.3.7: Create internal/deploy/config_validator.go
+#### 2.5.7: Create internal/deploy/config_validator.go
 
 - [ ] **Extract config.go validation logic**
   - [ ] Move character validation
@@ -329,7 +303,7 @@
 - [ ] **Target coverage:** 90%+
 - **Estimated:** 1 day
 
-#### 2.3.8: Refactor cmd/deploy/\*.go files
+#### 2.5.8: Refactor cmd/deploy/\*.go files
 
 - [ ] **Update all cmd/deploy handlers**
   - [ ] Use new internal/deploy modules
@@ -342,7 +316,7 @@
   - [ ] Test rollback command (dry-run)
 - **Estimated:** 2 days
 
-### Task 2.4: Extract cmd/tools/scan_transits.go
+### Task 2.6: Extract cmd/tools/scan_transits.go
 
 - [ ] **Create internal/db/transit_gaps.go**
   - [ ] Move TransitGap struct (export)
@@ -363,12 +337,16 @@
 - [ ] Run `make test-go` and verify all tests pass
 - [ ] Check coverage: `go test -cover ./internal/...`
 - [ ] Verify internal/ coverage ≥ 92%
-- [ ] Manual test all affected CLI commands
+- [ ] Manual test all affected CLI commands:
+  - [ ] Test sweep command with various parameters
+  - [ ] Test radar transit commands (analyse, delete, migrate, rebuild)
+  - [ ] Test deploy commands (install, upgrade, status, rollback)
+  - [ ] Test scan_transits tool
 - [ ] Update this checklist with actual coverage achieved
 
 **Phase 2 Complete:** ☐ YES ☐ NO
 **Achieved Coverage:** **\_\_**%
-**Date Completed:** ****\_\_\_\_****
+**Date Completed:** \***\*\_\_\_\_\*\***
 
 ---
 
@@ -493,7 +471,7 @@
 
 **Phase 3 Complete:** ☐ YES ☐ NO
 **Achieved Coverage:** **\_\_**%
-**Date Completed:** ****\_\_\_\_****
+**Date Completed:** \***\*\_\_\_\_\*\***
 
 ---
 
@@ -543,7 +521,7 @@
 - [ ] No coverage regressions merged without justification
 
 **Phase 4 Active:** ☐ YES ☐ NO
-**Last Review Date:** ****\_\_\_\_****
+**Last Review Date:** \***\*\_\_\_\_\*\***
 
 ---
 
@@ -559,12 +537,12 @@
 
 ### Completion Status
 
-| Phase   | Target Date  | Actual Date  | Coverage Goal | Actual Coverage |
-| ------- | ------------ | ------------ | ------------- | --------------- |
-| Phase 1 | ****\_\_**** | ****\_\_**** | 85%           | **\_\_**%       |
-| Phase 2 | ****\_\_**** | ****\_\_**** | 92%           | **\_\_**%       |
-| Phase 3 | ****\_\_**** | ****\_\_**** | 94%           | **\_\_**%       |
-| Phase 4 | Ongoing      | -            | 90%+          | **\_\_**%       |
+| Phase   | Target Date      | Actual Date      | Coverage Goal | Actual Coverage |
+| ------- | ---------------- | ---------------- | ------------- | --------------- |
+| Phase 1 | \***\*\_\_\*\*** | \***\*\_\_\*\*** | 85%           | **\_\_**%       |
+| Phase 2 | \***\*\_\_\*\*** | \***\*\_\_\*\*** | 92%           | **\_\_**%       |
+| Phase 3 | \***\*\_\_\*\*** | \***\*\_\_\*\*** | 94%           | **\_\_**%       |
+| Phase 4 | Ongoing          | -                | 90%+          | **\_\_**%       |
 
 ---
 
@@ -586,4 +564,4 @@ _Record any improvements beyond the original plan..._
 
 **Document Version:** 1.0
 **Last Updated:** 2026-01-31
-**Next Review:** ****\_\_\_\_****
+**Next Review:** \***\*\_\_\_\_\*\***

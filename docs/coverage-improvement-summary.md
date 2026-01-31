@@ -64,19 +64,22 @@ cmd/ packages:      <10% average coverage (Most have no tests)
 
 ## Implementation Phases
 
-### Phase 1: Quick Wins (1-2 weeks) → 76% to 85%
+### Phase 1: Add Edge Case Tests (1-2 weeks) → 76% to 85%
 
 - [ ] Fix build issues (api, lidar/monitor packages)
-- [ ] Add 100 edge case tests to existing code
-- [ ] Move cmd/deploy/executor.go and sshconfig.go to internal/
+- [ ] Add ~100 edge case tests to internal/db (error paths, edge cases)
+- [ ] Add ~50 edge case tests to internal/lidar/parse (malformed packets, validation)
+- [ ] Add ~25 edge case tests to internal/serialmux (device errors, timeouts)
 
-### Phase 2: Major Refactoring (3-4 weeks) → 85% to 92%
+### Phase 2: Extract cmd/ Logic to internal/ (4-6 weeks) → 85% to 92%
 
+- [ ] Move cmd/deploy/executor.go and sshconfig.go to internal/deploy/
 - [ ] Extract cmd/sweep → internal/lidar/sweep
 - [ ] Extract cmd/radar logic → internal/db, internal/lidar
-- [ ] Refactor cmd/deploy → internal/deploy
+- [ ] Refactor cmd/deploy → internal/deploy (all remaining files)
+- [ ] Extract cmd/tools/scan_transits → internal/db
 
-### Phase 3: Testability (2-3 weeks) → 92% to 94%
+### Phase 3: Improve Testability (2-3 weeks) → 92% to 94%
 
 - [ ] Decouple eCharts rendering
 - [ ] Abstract embedded HTML
@@ -171,11 +174,11 @@ cmd/ packages:      <10% average coverage (Most have no tests)
 | ------- | --------- | ------------- | ------------------- |
 | Start   | -         | -             | 76%                 |
 | Phase 1 | 1-2 weeks | +9-11%        | 85-87%              |
-| Phase 2 | 3-4 weeks | +5-7%         | 92-94%              |
+| Phase 2 | 4-6 weeks | +5-7%         | 92-94%              |
 | Phase 3 | 2-3 weeks | +0-2%         | 92-96%              |
 | Phase 4 | Ongoing   | Maintain      | 90%+ stable         |
 
-**Total Time to 90%+:** 6-8 weeks
+**Total Time to 90%+:** 7-11 weeks
 **Final Target:** 90-92% sustained coverage
 
 ---
