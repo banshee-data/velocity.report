@@ -222,8 +222,8 @@ func TestHandleEvent_RadarObjectError(t *testing.T) {
 	}
 }
 
-// TestHandleEvent_RawDataError tests error handling when raw data
-// processing fails.
+// TestHandleEvent_RawDataError tests that raw data with invalid JSON values
+// can still be stored (the schema allows NULL for extracted columns).
 func TestHandleEvent_RawDataError(t *testing.T) {
 	tmp := t.TempDir()
 	d, err := db.NewDB(tmp + "/test.db")
@@ -232,14 +232,13 @@ func TestHandleEvent_RawDataError(t *testing.T) {
 	}
 	defer d.Close()
 
-	// Invalid raw data that will fail parsing (has magnitude but malformed JSON values)
+	// Raw data with string values instead of numbers - should succeed
+	// because the radar_data table allows NULL for extracted columns
 	invalidRaw := `{"magnitude": "not-a-number", "speed": "also-not-a-number"}`
 	err = HandleEvent(d, invalidRaw)
-	if err == nil {
-		t.Error("Expected error for invalid raw data payload")
-	}
-	if err != nil && !strings.Contains(err.Error(), "raw data") {
-		t.Errorf("Expected error message to mention raw data, got: %v", err)
+	// Should NOT error - invalid values result in NULL but are still stored
+	if err != nil {
+		t.Errorf("Unexpected error for raw data with invalid values: %v", err)
 	}
 }
 

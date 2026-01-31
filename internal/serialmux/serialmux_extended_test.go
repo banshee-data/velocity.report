@@ -290,33 +290,63 @@ func TestMonitor_BroadcastsToMultipleSubscribers(t *testing.T) {
 	defer mux.Unsubscribe(id1)
 	defer mux.Unsubscribe(id2)
 
+	// Collect lines from both subscribers in separate goroutines
+	// to ensure both are always ready to receive (non-blocking sends require this)
+	received1 := make([]string, 0)
+	received2 := make([]string, 0)
+	mu := sync.Mutex{} // protect the slices
+	done1 := make(chan struct{})
+	done2 := make(chan struct{})
+
+	go func() {
+		defer close(done1)
+		timeout := time.After(150 * time.Millisecond)
+		for {
+			select {
+			case line, ok := <-ch1:
+				if ok {
+					mu.Lock()
+					received1 = append(received1, line)
+					mu.Unlock()
+				}
+			case <-timeout:
+				return
+			}
+		}
+	}()
+
+	go func() {
+		defer close(done2)
+		timeout := time.After(150 * time.Millisecond)
+		for {
+			select {
+			case line, ok := <-ch2:
+				if ok {
+					mu.Lock()
+					received2 = append(received2, line)
+					mu.Unlock()
+				}
+			case <-timeout:
+				return
+			}
+		}
+	}()
+
+	// Give goroutines time to start and block on channel reads
+	time.Sleep(10 * time.Millisecond)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 
 	go mux.Monitor(ctx)
 
-	// Collect lines from both subscribers
-	received1 := make([]string, 0)
-	received2 := make([]string, 0)
-
-	timeout := time.After(150 * time.Millisecond)
-loop:
-	for {
-		select {
-		case line, ok := <-ch1:
-			if ok {
-				received1 = append(received1, line)
-			}
-		case line, ok := <-ch2:
-			if ok {
-				received2 = append(received2, line)
-			}
-		case <-timeout:
-			break loop
-		}
-	}
+	// Wait for both goroutines to finish
+	<-done1
+	<-done2
 
 	// Both should have received lines
+	mu.Lock()
+	defer mu.Unlock()
 	if len(received1) == 0 {
 		t.Error("Subscriber 1 received no lines")
 	}
