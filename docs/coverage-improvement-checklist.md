@@ -112,33 +112,51 @@
 
 #### 2.3.1: Create internal/lidar/sweep/math.go
 
-- [ ] **Move utility functions**
-  - [ ] ParseCSVFloat64s (from parseCSVFloatSlice)
-  - [ ] ParseCSVInts (from parseCSVIntSlice)
-  - [ ] ToFloat64Slice
-  - [ ] ToInt64Slice
-  - [ ] MeanStddev (from meanStddev)
-- [ ] **Add tests**
-  - [ ] Test parsing valid inputs
-  - [ ] Test parsing empty/invalid inputs
-  - [ ] Test type conversions
-  - [ ] Test statistical calculations
-- [ ] **Target coverage:** 90%+
-- **Estimated:** 1-2 days
+- [x] **Move utility functions**
+  - [x] ParseCSVFloat64s (from parseCSVFloatSlice)
+  - [x] ParseCSVInts (from parseCSVIntSlice)
+  - [x] ToFloat64Slice
+  - [x] ToInt64Slice
+  - [x] MeanStddev (from meanStddev)
+- [x] **Add tests**
+  - [x] Test parsing valid inputs
+  - [x] Test parsing empty/invalid inputs
+  - [x] Test type conversions
+  - [x] Test statistical calculations
+- [x] **Achieved coverage:** 100%
+- **Completed:** 2026-01-31
 
 #### 2.3.2: Create internal/lidar/sweep/ranges.go
 
-- [ ] **Create RangeSpec and IntRangeSpec types**
-  - [ ] Move generateRange logic
-  - [ ] Move generateIntRange logic
-  - [ ] Move parseParamList logic
-  - [ ] Move parseIntParamList logic
-- [ ] **Add tests**
-  - [ ] Test range generation
-  - [ ] Test edge cases (zero step, negative)
-  - [ ] Test floating-point precision
-- [ ] **Target coverage:** 90%+
-- **Estimated:** 1 day
+- [x] **Create RangeSpec and IntRangeSpec types**
+  - [x] Move generateRange logic
+  - [x] Move generateIntRange logic
+  - [x] Move parseParamList logic
+  - [x] Move parseIntParamList logic
+  - [x] Add ExpandRanges for cartesian product
+- [x] **Add tests**
+  - [x] Test range generation
+  - [x] Test edge cases (zero step, negative)
+  - [x] Test floating-point precision
+- [x] **Achieved coverage:** 100%
+- **Completed:** 2026-01-31
+
+#### 2.3.5: Create internal/lidar/sweep/output.go
+
+- [x] **Create CSVWriter struct**
+  - [x] Move writeHeaders → WriteHeaders
+  - [x] Move writeRawRow → WriteRawRow
+  - [x] Move writeSummary → WriteSummary
+  - [x] Add SampleResult type
+  - [x] Add SweepParams type
+  - [x] Add FormatSummaryHeaders/FormatRawHeaders helpers
+- [x] **Add tests**
+  - [x] Test CSV formatting
+  - [x] Test header/data alignment
+  - [x] Test statistical summaries
+  - [x] Test round-trip parsing
+- [x] **Achieved coverage:** 100%
+- **Completed:** 2026-01-31
 
 #### 2.3.3: Create internal/lidar/monitor/client.go
 
@@ -160,8 +178,8 @@
 #### 2.3.4: Create internal/lidar/sweep/sampler.go
 
 - [ ] **Create Sampler struct**
-  - [ ] Move SampleResult type
   - [ ] Move sampleMetrics logic → Sample method
+  - [ ] Add metrics collection
 - [ ] **Add tests**
   - [ ] Mock HTTP client
   - [ ] Test sampling timing
@@ -169,19 +187,6 @@
   - [ ] Test metric aggregation
 - [ ] **Target coverage:** 85%+
 - **Estimated:** 2 days
-
-#### 2.3.5: Create internal/lidar/sweep/output.go
-
-- [ ] **Create CSVWriter struct**
-  - [ ] Move writeHeaders → WriteHeaders
-  - [ ] Move writeRawRow → WriteRawSample
-  - [ ] Move writeSummary → WriteSummary
-- [ ] **Add tests**
-  - [ ] Test CSV formatting
-  - [ ] Test header/data alignment
-  - [ ] Test statistical summaries
-- [ ] **Target coverage:** 85%+
-- **Estimated:** 1-2 days
 
 #### 2.3.6: Refactor cmd/sweep/main.go
 
@@ -572,15 +577,20 @@
 
 **Blockers Encountered:**
 
-_Record any blockers here..._
+_None so far._
 
 **Lessons Learned:**
 
-_Record lessons learned during implementation..._
+- **Phase 1:** Use `OpenDB` instead of `NewDB` for tests requiring migration control - this avoids automatic migration and allows testing of migration error paths.
+- **Phase 1:** The internal/lidar/parse package had the most coverage improvement potential (+12.4%) due to untested edge cases in packet parsing.
+- **Phase 2:** Use British English spelling in field names (e.g., `NeighbourConfirmationCount` not `NeighborConfirmationCount`).
+- **Phase 2:** When extracting functions, use `math.Round()` for floating-point rounding instead of `int(v*1000+0.5)/1000` to handle negative values correctly.
 
 **Additional Improvements Made:**
 
-_Record any improvements beyond the original plan..._
+- Created new `internal/lidar/sweep/` package with 100% test coverage (Phase 2)
+- Added `ExpandRanges` function for cartesian product of parameter ranges
+- Added `FormatSummaryHeaders` and `FormatRawHeaders` helper functions for CSV generation
 
 ---
 
