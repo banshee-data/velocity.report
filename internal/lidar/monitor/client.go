@@ -1,0 +1,246 @@
+// Package monitor provides HTTP client operations for LiDAR monitoring endpoints.
+package monitor
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"math"
+	"net/http"
+	"path/filepath"
+	"time"
+)
+
+// Client provides HTTP operations for LiDAR monitoring endpoints.
+type Client struct {
+	HTTPClient *http.Client
+	BaseURL    string
+	SensorID   string
+}
+
+// NewClient creates a new monitoring client.
+func NewClient(httpClient *http.Client, baseURL, sensorID string) *Client {
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 30 * time.Second}
+	}
+	return &Client{
+		HTTPClient: httpClient,
+		BaseURL:    baseURL,
+		SensorID:   sensorID,
+	}
+}
+
+// StartPCAPReplay requests a PCAP replay for the sensor.
+// It retries on 409 (conflict) responses for up to maxRetries times.
+func (c *Client) StartPCAPReplay(pcapFile string, maxRetries int) error {
+	url := fmt.Sprintf("%s/api/lidar/pcap/start?sensor_id=%s", c.BaseURL, c.SensorID)
+	payload := map[string]string{"pcap_file": filepath.Base(pcapFile)}
+	data, _ := json.Marshal(payload)
+
+	log.Printf("Requesting PCAP replay for sensor %s: %s", c.SensorID, payload["pcap_file"])
+
+	if maxRetries <= 0 {
+		maxRetries = 60
+	}
+
+	for retry := 0; retry < maxRetries; retry++ {
+		req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(data))
+		if err != nil {
+			return fmt.Errorf("creating request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := c.HTTPClient.Do(req)
+		if err != nil {
+			return err
+		}
+
+		if resp.StatusCode == http.StatusOK {
+			resp.Body.Close()
+			return nil
+		}
+
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		if resp.StatusCode == http.StatusConflict {
+			if retry == 0 {
+				log.Printf("PCAP replay in progress, waiting...")
+			}
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		return fmt.Errorf("status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return fmt.Errorf("timeout waiting for PCAP replay slot")
+}
+
+// DefaultBuckets returns the default bucket configuration.
+func DefaultBuckets() []string {
+	return []string{"1", "2", "4", "8", "10", "12", "16", "20", "50", "100", "200"}
+}
+
+// FetchBuckets retrieves the bucket configuration from the server.
+// Returns default buckets on error.
+func (c *Client) FetchBuckets() []string {
+	resp, err := c.HTTPClient.Get(fmt.Sprintf("%s/api/lidar/acceptance?sensor_id=%s", c.BaseURL, c.SensorID))
+	if err != nil {
+		log.Printf("WARNING: Could not fetch buckets: %v (using defaults)", err)
+		return DefaultBuckets()
+	}
+	defer resp.Body.Close()
+
+	var m map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&m); err != nil {
+		return DefaultBuckets()
+	}
+
+	bm, ok := m["BucketsMeters"].([]interface{})
+	if !ok || len(bm) == 0 {
+		return DefaultBuckets()
+	}
+
+	buckets := make([]string, 0, len(bm))
+	for _, bi := range bm {
+		switch v := bi.(type) {
+		case float64:
+			if v == math.Trunc(v) {
+				buckets = append(buckets, fmt.Sprintf("%.0f", v))
+			} else {
+				buckets = append(buckets, fmt.Sprintf("%.6f", v))
+			}
+		default:
+			buckets = append(buckets, fmt.Sprintf("%v", v))
+		}
+	}
+	return buckets
+}
+
+// ResetGrid resets the background grid for the sensor.
+func (c *Client) ResetGrid() error {
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/lidar/grid_reset?sensor_id=%s", c.BaseURL, c.SensorID), nil)
+	if err != nil {
+		return fmt.Errorf("creating request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("status %d: %s", resp.StatusCode, string(body))
+	}
+	return nil
+}
+
+// BackgroundParams holds the parameters for the background model.
+type BackgroundParams struct {
+	NoiseRelative              float64 `json:"noise_relative"`
+	ClosenessMultiplier        float64 `json:"closeness_multiplier"`
+	NeighbourConfirmationCount int     `json:"neighbor_confirmation_count"`
+	SeedFromFirstFrame         bool    `json:"seed_from_first_frame"`
+}
+
+// SetParams sets the background model parameters.
+func (c *Client) SetParams(params BackgroundParams) error {
+	data, _ := json.Marshal(params)
+
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/lidar/params?sensor_id=%s", c.BaseURL, c.SensorID), bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("creating request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("status %d: %s", resp.StatusCode, string(body))
+	}
+
+	log.Printf("Applied: noise=%.4f, closeness=%.2f, neighbour=%d, seed=%v",
+		params.NoiseRelative, params.ClosenessMultiplier,
+		params.NeighbourConfirmationCount, params.SeedFromFirstFrame)
+	return nil
+}
+
+// ResetAcceptance resets the acceptance counters.
+func (c *Client) ResetAcceptance() error {
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/lidar/acceptance/reset?sensor_id=%s", c.BaseURL, c.SensorID), nil)
+	if err != nil {
+		return fmt.Errorf("creating request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
+}
+
+// WaitForGridSettle waits for the grid to have at least one non-zero cell.
+func (c *Client) WaitForGridSettle(timeout time.Duration) {
+	if timeout <= 0 {
+		return
+	}
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		resp, err := c.HTTPClient.Get(fmt.Sprintf("%s/api/lidar/grid_status?sensor_id=%s", c.BaseURL, c.SensorID))
+		if err == nil {
+			var gs map[string]interface{}
+			if json.NewDecoder(resp.Body).Decode(&gs) == nil {
+				if bc, ok := gs["background_count"]; ok {
+					if n, ok := bc.(float64); ok && n > 0 {
+						resp.Body.Close()
+						return
+					}
+				}
+			}
+			resp.Body.Close()
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+}
+
+// FetchAcceptanceMetrics fetches acceptance metrics from the server.
+func (c *Client) FetchAcceptanceMetrics() (map[string]interface{}, error) {
+	resp, err := c.HTTPClient.Get(fmt.Sprintf("%s/api/lidar/acceptance?sensor_id=%s", c.BaseURL, c.SensorID))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var m map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// FetchGridStatus fetches the grid status from the server.
+func (c *Client) FetchGridStatus() (map[string]interface{}, error) {
+	resp, err := c.HTTPClient.Get(fmt.Sprintf("%s/api/lidar/grid_status?sensor_id=%s", c.BaseURL, c.SensorID))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var gs map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&gs); err != nil {
+		return nil, err
+	}
+	return gs, nil
+}
