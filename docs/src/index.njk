@@ -1,54 +1,63 @@
 ---
 layout: page.njk
-title: velocity.report - Open Source Traffic Detection
+title: velocity.report - Measure Speeds, Make Streets Safer
 ---
 
-<div class="max-w-7xl mx-auto">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <!-- Hero Section -->
-    <div class="hero-section mb-16">
-        <div>
-            <h1 class="text-5xl font-bold text-gray-900 dark:text-gray-100 mb-6">velocity.report</h1>
-            <p class="text-xl text-gray-700 dark:text-gray-300 mb-6">
-                Open-source citizen radar for neighbourhood traffic monitoring. Putting data in the hands of communities when they advocate for safer streets.
+    <div class="flex flex-col md:flex-row items-center gap-12 mb-20 py-12">
+        <div class="flex-1">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-900 dark:text-gray-100 mb-6 leading-tight">
+                If speeds don't drop, <br class="hidden lg:block">the work can't stop.
+            </h1>
+            <p class="text-xl text-gray-700 dark:text-gray-300 mb-8 leading-relaxed">
+                Empower your community with <strong>velocity.report</strong>. A privacy-first, open-source citizen radar to measure traffic speeds and advocate for safer streets with professional data.
             </p>
-            <div class="space-y-4 text-lg">
-                <div class="flex items-start">
-                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400 mt-1 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    <span class="text-gray-700 dark:text-gray-300">
-                        <strong class="text-gray-900 dark:text-gray-100">Open Source:</strong> Built using open-source software and commercially available components. All code is available on <a href="https://github.com/banshee-data/velocity.report" class="text-blue-600 dark:text-blue-400 hover:underline">GitHub</a>.
-                    </span>
+            
+            <div class="flex flex-wrap gap-4 mb-10">
+                <a href="/guides/setup/" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-md flex items-center">
+                    Build Yours Today
+                    <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                </a>
+                <a href="https://github.com/banshee-data/velocity.report" class="bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100 font-semibold py-3 px-6 rounded-lg transition-colors">
+                    View on GitHub
+                </a>
+            </div>
+
+            <div class="space-y-4">
+                <div class="flex items-start text-gray-700 dark:text-gray-300">
+                    <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                    <span><strong>Data-Driven Advocacy:</strong> Validate street changes with before/after proof.</span>
                 </div>
-                <div class="flex items-start">
-                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400 mt-1 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                    </svg>
-                    <span class="text-gray-700 dark:text-gray-300">
-                        <strong class="text-gray-900 dark:text-gray-100">Privacy Preserving:</strong> No cameras, no personally identifiable information (PII), no licence plates. Radar-based detection ensures privacy while providing accurate traffic data in all weather conditions.
-                    </span>
+                <div class="flex items-start text-gray-700 dark:text-gray-300">
+                    <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span><strong>Privacy Preserving:</strong> No cameras, no faces, no license plates.</span>
+                </div>
+                <div class="flex items-start text-gray-700 dark:text-gray-300">
+                     <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                    <span><strong>Open Source:</strong> Audit the code, own your data.</span>
                 </div>
             </div>
         </div>
-        <div>
-            <img src="/img/stack.png" alt="velocity.report PDF report" class="hero-image" />
+        <div class="flex-1 w-full max-w-lg">
+            <img src="/img/stack.png" alt="velocity.report PDF report stack" class="w-full h-auto drop-shadow-2xl transform hover:scale-105 transition-transform duration-500" />
         </div>
     </div>
 
-    <!-- How-To Guides Section -->
-    <div>
-        <h2 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">How-To Guides</h2>
-        <p class="text-gray-700 dark:text-gray-300 mb-8">Step-by-step tutorials to help you get the most out of velocity.report</p>
-
-        <div class="card-grid guides">
-        {% for guide in collections.guides %}
-        <a href="{{ guide.url }}" class="block card hover:shadow-xl transition-shadow\">
-            <h3 class="card-title mb-2">{{ guide.data.title }}</h3>
-            {% if guide.data.description %}
-            <p class="card-description text-sm">{{ guide.data.description }}</p>
-            {% endif %}
-        </a>
-        {% endfor %}
+    <!-- Video Section -->
+    <div class="mb-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-6 md:p-12">
+        <div class="max-w-4xl mx-auto text-center">
+            <h2 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8">Data-Driven Advocacy in Action</h2>
+            <div class="relative pb-[56.25%] h-0 overflow-hidden rounded-xl shadow-lg mb-8 bg-black">
+                <iframe class="absolute top-0 left-0 w-full h-full" src="https://www.youtube.com/embed/ZTJOI5gYZM4" title="SFMTA Board Meeting Address" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+            </div>
+            <figure>
+                <blockquote class="text-xl text-gray-700 dark:text-gray-300 italic mb-4 font-serif leading-relaxed">
+                    "The goal is fewer crashes, fewer injuries, and zero fatalities. <br class="hidden md:block">If the speeds don't drop, the work can't stop."
+                </blockquote>
+                <figcaption class="text-sm text-gray-500 font-semibold uppercase tracking-wide">— David Dolphin, SFMTA Board Meeting, Jan 2026</figcaption>
+            </figure>
         </div>
     </div>
+
 </div>
