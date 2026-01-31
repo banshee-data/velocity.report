@@ -439,3 +439,247 @@ func TestExecutor_buildSSHCommand_Sudo(t *testing.T) {
 		t.Errorf("Expected command in args: %v", args)
 	}
 }
+
+func TestExecutor_SetCommandBuilder(t *testing.T) {
+	e := NewExecutor("localhost", "", "", "", false)
+	mockBuilder := NewMockCommandBuilder()
+
+	// Set custom command builder
+	e.SetCommandBuilder(mockBuilder)
+
+	// Verify the mock builder is used
+	mockBuilder.SetNextExecutor(&MockCommandExecutor{
+		Output: []byte("mock output"),
+	})
+	output, err := e.Run("echo test")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if output != "mock output" {
+		t.Errorf("Expected 'mock output', got: %s", output)
+	}
+
+	// Verify command was recorded
+	lastCmd := mockBuilder.LastCommand()
+	if lastCmd == nil {
+		t.Fatal("Expected command to be recorded")
+	}
+	if !lastCmd.IsShell {
+		t.Error("Expected shell command")
+	}
+}
+
+func TestExecutor_SetCommandBuilder_Nil(t *testing.T) {
+	e := NewExecutor("localhost", "", "", "", false)
+	origBuilder := e.CommandBuilder
+
+	// Setting nil should not change the builder
+	e.SetCommandBuilder(nil)
+
+	if e.CommandBuilder != origBuilder {
+		t.Error("Expected builder to remain unchanged when setting nil")
+	}
+}
+
+func TestExecutor_Run_Remote_WithMockBuilder(t *testing.T) {
+	mockBuilder := NewMockCommandBuilder()
+	mockBuilder.SetNextExecutor(&MockCommandExecutor{
+		Output: []byte("remote output"),
+	})
+
+	e := NewExecutor("remote.example.com", "user", "/path/to/key", "", false)
+	e.SetCommandBuilder(mockBuilder)
+
+	output, err := e.Run("uptime")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if output != "remote output" {
+		t.Errorf("Expected 'remote output', got: %s", output)
+	}
+
+	// Verify SSH command was built correctly
+	lastCmd := mockBuilder.LastCommand()
+	if lastCmd == nil {
+		t.Fatal("Expected command to be recorded")
+	}
+	if lastCmd.Name != "ssh" {
+		t.Errorf("Expected ssh, got: %s", lastCmd.Name)
+	}
+
+	// Check for key argument
+	hasKey := false
+	for i, arg := range lastCmd.Args {
+		if arg == "-i" && i+1 < len(lastCmd.Args) && lastCmd.Args[i+1] == "/path/to/key" {
+			hasKey = true
+			break
+		}
+	}
+	if !hasKey {
+		t.Errorf("Expected -i /path/to/key in args: %v", lastCmd.Args)
+	}
+}
+
+func TestExecutor_RunSudo_Remote_WithMockBuilder(t *testing.T) {
+	mockBuilder := NewMockCommandBuilder()
+	mockBuilder.SetNextExecutor(&MockCommandExecutor{
+		Output: []byte("sudo output"),
+	})
+
+	e := NewExecutor("remote.example.com", "user", "", "", false)
+	e.SetCommandBuilder(mockBuilder)
+
+	output, err := e.RunSudo("systemctl restart service")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if output != "sudo output" {
+		t.Errorf("Expected 'sudo output', got: %s", output)
+	}
+
+	// Verify sudo was prepended
+	lastCmd := mockBuilder.LastCommand()
+	if lastCmd == nil {
+		t.Fatal("Expected command to be recorded")
+	}
+
+	// Last argument should contain "sudo"
+	lastArg := lastCmd.Args[len(lastCmd.Args)-1]
+	if !strings.HasPrefix(lastArg, "sudo") {
+		t.Errorf("Expected command to start with 'sudo', got: %s", lastArg)
+	}
+}
+
+func TestExecutor_buildSSHArgs(t *testing.T) {
+	tests := []struct {
+		name           string
+		target         string
+		user           string
+		key            string
+		agent          string
+		command        string
+		expectTarget   string
+		expectHasKey   bool
+		expectHasAgent bool
+	}{
+		{
+			name:         "basic remote",
+			target:       "server.example.com",
+			user:         "admin",
+			key:          "",
+			agent:        "",
+			command:      "ls -la",
+			expectTarget: "admin@server.example.com",
+		},
+		{
+			name:         "with ssh key",
+			target:       "server.example.com",
+			user:         "admin",
+			key:          "/home/user/.ssh/id_rsa",
+			agent:        "",
+			command:      "echo hello",
+			expectTarget: "admin@server.example.com",
+			expectHasKey: true,
+		},
+		{
+			name:           "with identity agent",
+			target:         "server.example.com",
+			user:           "admin",
+			key:            "",
+			agent:          "/tmp/agent.sock",
+			command:        "date",
+			expectTarget:   "admin@server.example.com",
+			expectHasAgent: true,
+		},
+		{
+			name:         "target with @ sign",
+			target:       "existinguser@server.example.com",
+			user:         "ignored",
+			key:          "",
+			agent:        "",
+			command:      "whoami",
+			expectTarget: "existinguser@server.example.com",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			e := NewExecutor(tc.target, tc.user, tc.key, tc.agent, false)
+			args := e.buildSSHArgs(tc.command)
+
+			// Check target is in args
+			found := false
+			for _, arg := range args {
+				if arg == tc.expectTarget {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("Expected target %s in args: %v", tc.expectTarget, args)
+			}
+
+			// Check for key if expected
+			if tc.expectHasKey {
+				hasKey := false
+				for i, arg := range args {
+					if arg == "-i" && i+1 < len(args) && args[i+1] == tc.key {
+						hasKey = true
+						break
+					}
+				}
+				if !hasKey {
+					t.Errorf("Expected -i %s in args: %v", tc.key, args)
+				}
+			}
+
+			// Check for agent if expected
+			if tc.expectHasAgent {
+				hasAgent := false
+				for _, arg := range args {
+					if strings.Contains(arg, "IdentityAgent="+tc.agent) {
+						hasAgent = true
+						break
+					}
+				}
+				if !hasAgent {
+					t.Errorf("Expected IdentityAgent=%s in args: %v", tc.agent, args)
+				}
+			}
+
+			// Command should be last arg
+			lastArg := args[len(args)-1]
+			if lastArg != tc.command {
+				t.Errorf("Expected command %s as last arg, got: %s", tc.command, lastArg)
+			}
+		})
+	}
+}
+
+func TestExecutor_buildSCPArgs(t *testing.T) {
+	e := NewExecutor("remote.example.com", "user", "/path/to/key", "", false)
+	args := e.buildSCPArgs("/local/file.txt", "/remote/file.txt")
+
+	// Check for key
+	hasKey := false
+	for i, arg := range args {
+		if arg == "-i" && i+1 < len(args) && args[i+1] == "/path/to/key" {
+			hasKey = true
+			break
+		}
+	}
+	if !hasKey {
+		t.Errorf("Expected -i /path/to/key in args: %v", args)
+	}
+
+	// Check source file
+	if args[len(args)-2] != "/local/file.txt" {
+		t.Errorf("Expected source file in args: %v", args)
+	}
+
+	// Check destination contains target
+	lastArg := args[len(args)-1]
+	if !strings.HasPrefix(lastArg, "user@remote.example.com:") {
+		t.Errorf("Expected destination to start with target, got: %s", lastArg)
+	}
+}

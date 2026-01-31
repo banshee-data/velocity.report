@@ -23,23 +23,33 @@ func (n nopLogger) Debugf(format string, args ...interface{}) {}
 
 // Executor handles command execution on local or remote targets.
 type Executor struct {
-	Target        string
-	SSHUser       string
-	SSHKey        string
-	IdentityAgent string
-	DryRun        bool
-	Logger        Logger
+	Target         string
+	SSHUser        string
+	SSHKey         string
+	IdentityAgent  string
+	DryRun         bool
+	Logger         Logger
+	CommandBuilder CommandBuilder // Injectable command builder for testability
 }
 
 // NewExecutor creates a new command executor.
 func NewExecutor(target, sshUser, sshKey, identityAgent string, dryRun bool) *Executor {
 	return &Executor{
-		Target:        target,
-		SSHUser:       sshUser,
-		SSHKey:        sshKey,
-		IdentityAgent: identityAgent,
-		DryRun:        dryRun,
-		Logger:        nopLogger{},
+		Target:         target,
+		SSHUser:        sshUser,
+		SSHKey:         sshKey,
+		IdentityAgent:  identityAgent,
+		DryRun:         dryRun,
+		Logger:         nopLogger{},
+		CommandBuilder: NewRealCommandBuilder(),
+	}
+}
+
+// SetCommandBuilder sets a custom command builder for dependency injection.
+// This enables unit testing without real shell execution.
+func (e *Executor) SetCommandBuilder(builder CommandBuilder) {
+	if builder != nil {
+		e.CommandBuilder = builder
 	}
 }
 
@@ -147,18 +157,25 @@ func (e *Executor) WriteFile(path, content string) error {
 }
 
 func (e *Executor) runLocal(command string) (string, error) {
-	cmd := exec.Command("sh", "-c", command)
-	output, err := cmd.CombinedOutput()
+	cmd := e.CommandBuilder.BuildShellCommand(command)
+	output, err := cmd.Run()
 	return string(output), err
 }
 
 func (e *Executor) runSSH(command string, useSudo bool) (string, error) {
-	cmd := e.buildSSHCommand(command, useSudo)
-	output, err := cmd.CombinedOutput()
+	cmd := e.buildSSHCommandExecutor(command)
+	output, err := cmd.Run()
 	return string(output), err
 }
 
-func (e *Executor) buildSSHCommand(command string, useSudo bool) *exec.Cmd {
+// buildSSHCommandExecutor builds an SSH command using the command builder interface.
+func (e *Executor) buildSSHCommandExecutor(command string) CommandExecutor {
+	args := e.buildSSHArgs(command)
+	return e.CommandBuilder.BuildCommand("ssh", args...)
+}
+
+// buildSSHArgs constructs the arguments for an SSH command.
+func (e *Executor) buildSSHArgs(command string) []string {
 	args := []string{}
 
 	if e.SSHKey != "" {
@@ -184,6 +201,13 @@ func (e *Executor) buildSSHCommand(command string, useSudo bool) *exec.Cmd {
 
 	args = append(args, target, command)
 
+	return args
+}
+
+// buildSSHCommand returns an exec.Cmd for SSH commands that need stdin access.
+// This method is kept for backward compatibility with WriteFile.
+func (e *Executor) buildSSHCommand(command string, useSudo bool) *exec.Cmd {
+	args := e.buildSSHArgs(command)
 	return exec.Command("ssh", args...)
 }
 
@@ -195,8 +219,9 @@ func (e *Executor) copyLocal(src, dst string) error {
 		(strings.HasPrefix(dst, "/var") && !strings.HasPrefix(dst, "/var/folders")))
 
 	if needsSudo {
-		cmd := exec.Command("sudo", "cp", src, dst)
-		return cmd.Run()
+		cmd := e.CommandBuilder.BuildCommand("sudo", "cp", src, dst)
+		_, err := cmd.Run()
+		return err
 	}
 
 	// Regular copy for non-privileged paths
@@ -218,6 +243,34 @@ func (e *Executor) copyLocal(src, dst string) error {
 
 func (e *Executor) copySSH(src, dst string) error {
 	// Use scp for remote copy
+	args := e.buildSCPArgs(src, dst)
+
+	e.Logger.Debugf("SCP command: scp %v", args)
+	cmd := e.CommandBuilder.BuildCommand("scp", args...)
+	if _, err := cmd.Run(); err != nil {
+		return fmt.Errorf("scp failed: %w", err)
+	}
+
+	// Get the temp path for the file move
+	tempPath := e.getTempPath()
+
+	// Then move to final destination with sudo if needed
+	if tempPath != dst {
+		if strings.HasPrefix(dst, "/usr") || strings.HasPrefix(dst, "/etc") || strings.HasPrefix(dst, "/var") {
+			_, err := e.RunSudo(fmt.Sprintf("mv %s %s", tempPath, dst))
+			return err
+		}
+
+		// Move to user directory without sudo
+		_, err := e.Run(fmt.Sprintf("mv %s %s", tempPath, dst))
+		return err
+	}
+
+	return nil
+}
+
+// buildSCPArgs constructs the arguments for an SCP command.
+func (e *Executor) buildSCPArgs(src, dst string) []string {
 	args := []string{}
 
 	if e.SSHKey != "" {
@@ -233,26 +286,14 @@ func (e *Executor) copySSH(src, dst string) error {
 	}
 
 	// First copy to temp directory
-	tempPath := fmt.Sprintf("/tmp/velocity-report-copy-%d", time.Now().Unix())
+	tempPath := e.getTempPath()
 	args = append(args, src, fmt.Sprintf("%s:%s", target, tempPath))
 
-	e.Logger.Debugf("SCP command: scp %v", args)
-	cmd := exec.Command("scp", args...)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("scp failed: %w", err)
-	}
+	return args
+}
 
-	// Then move to final destination with sudo if needed
-	if tempPath != dst {
-		if strings.HasPrefix(dst, "/usr") || strings.HasPrefix(dst, "/etc") || strings.HasPrefix(dst, "/var") {
-			_, err := e.RunSudo(fmt.Sprintf("mv %s %s", tempPath, dst))
-			return err
-		}
-
-		// Move to user directory without sudo
-		_, err := e.Run(fmt.Sprintf("mv %s %s", tempPath, dst))
-		return err
-	}
-
-	return nil
+// getTempPath returns a temporary path for SCP operations.
+// This method can be overridden for testing.
+func (e *Executor) getTempPath() string {
+	return fmt.Sprintf("/tmp/velocity-report-copy-%d", time.Now().Unix())
 }
