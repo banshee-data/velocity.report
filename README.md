@@ -413,22 +413,23 @@ The project uses a consistent naming scheme for all make targets: `<action>-<sub
 
 ### Core Subsystem Targets
 
-| Action             | Go                                     | Python            | Web           | Docs           |
-| ------------------ | -------------------------------------- | ----------------- | ------------- | -------------- |
-| **install**        | -                                      | `install-python`  | `install-web` | `install-docs` |
-| **dev**            | `dev-go`                               | -                 | `dev-web`     | `dev-docs`     |
-| **dev (variant)**  | `dev-go-lidar`<br>`dev-go-kill-server` | -                 | -             | -              |
-| **test**           | `test-go`                              | `test-python`     | `test-web`    | -              |
-| **test (variant)** | -                                      | `test-python-cov` | -             | -              |
-| **format**         | `format-go`                            | `format-python`   | `format-web`  | -              |
-| **lint**           | `lint-go`                              | `lint-python`     | `lint-web`    | -              |
-| **clean**          | -                                      | `clean-python`    | -             | -              |
+| Action             | Go                                          | Python            | Web            | Docs           |
+| ------------------ | ------------------------------------------- | ----------------- | -------------- | -------------- |
+| **install**        | -                                           | `install-python`  | `install-web`  | `install-docs` |
+| **dev**            | `dev-go`                                    | -                 | `dev-web`      | `dev-docs`     |
+| **dev (variant)**  | `dev-go-lidar`<br>`dev-go-kill-server`      | -                 | -              | -              |
+| **test**           | `test-go`                                   | `test-python`     | `test-web`     | -              |
+| **test (variant)** | `test-go-cov`<br>`test-go-coverage-summary` | `test-python-cov` | `test-web-cov` | -              |
+| **format**         | `format-go`                                 | `format-python`   | `format-web`   | -              |
+| **lint**           | `lint-go`                                   | `lint-python`     | `lint-web`     | -              |
+| **clean**          | -                                           | `clean-python`    | -              | -              |
 
 ### Aggregate Targets
 
 - `test` - Run all tests (Go + Python + Web)
-- `format` - Format all code (Go + Python + Web)
+- `format` - Format all code (Go + Python + Web + SQL)
 - `lint` - Lint all code (Go + Python + Web), fails if formatting needed
+- `coverage` - Generate coverage reports for all components
 
 ### Build Targets (Go cross-compilation)
 
@@ -438,12 +439,31 @@ The project uses a consistent naming scheme for all make targets: `<action>-<sub
 - `build-radar-mac-intel` - Build for macOS AMD64 with pcap
 - `build-radar-local` - Build for local development with pcap
 - `build-tools` - Build sweep tool
+- `build-deploy` - Build velocity-deploy deployment manager
+- `build-deploy-linux` - Build velocity-deploy for Linux ARM64
 - `build-web` - Build web frontend (SvelteKit)
 - `build-docs` - Build documentation site (Eleventy)
 
 ### Deployment Targets
 
-- `setup-radar` - Install server on this host (requires sudo)
+- `setup-radar` - Install server on this host (requires sudo, legacy)
+- `deploy-install` - Install using velocity-deploy (local)
+- `deploy-upgrade` - Upgrade using velocity-deploy (local)
+- `deploy-status` - Check service status using velocity-deploy
+- `deploy-health` - Run health check using velocity-deploy
+- `deploy-install-latex` - Install LaTeX on remote target (for PDF generation)
+- `deploy-update-deps` - Update source, LaTeX, and Python deps on remote target
+
+### Database Migration Targets
+
+- `migrate-up` - Apply all pending migrations
+- `migrate-down` - Rollback one migration
+- `migrate-status` - Show current migration status
+- `migrate-detect` - Detect schema version (for legacy databases)
+- `migrate-version` - Migrate to specific version (VERSION=N)
+- `migrate-force` - Force version (recovery, VERSION=N)
+- `migrate-baseline` - Set baseline version (VERSION=N)
+- `schema-sync` - Regenerate schema.sql from latest migrations
 
 ### PDF Generator Targets
 
@@ -455,8 +475,11 @@ The project uses a consistent naming scheme for all make targets: `<action>-<sub
 
 ### Utility Targets
 
+- `set-version` - Update version across codebase (VER=0.4.0 TARGETS='--all')
 - `log-go-tail` - Tail most recent Go server log
 - `log-go-cat` - Cat most recent Go server log
+- `log-go-tail-all` - Tail most recent Go server log plus debug log
+- `git-fs` - Show the git files that differ from main
 
 ### Data Visualisation Targets
 
