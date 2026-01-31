@@ -516,12 +516,240 @@
 
 ---
 
-## Phase 4: Maintenance & Polish (Ongoing)
+## Phase 4: Infrastructure Dependency Injection (Target: 90%+ coverage on infrastructure code)
+
+**Timeline:** 3-4 weeks
+**Goal:** Abstract external dependencies (SSH, PCAP, UDP, serial) behind interfaces to enable unit testing without real hardware or network connections
+
+### Background
+
+Several packages have low coverage (60-70%) due to direct dependencies on external systems:
+
+| Package                | Current Coverage | Blocker                   |
+| ---------------------- | ---------------- | ------------------------- |
+| internal/deploy        | 70.4%            | SSH/SCP command execution |
+| internal/lidar/monitor | 60.7%            | UDP listener, PCAP reader |
+| internal/lidar/network | 89.9%            | UDP socket, PCAP file I/O |
+| internal/serialmux     | 87.3%            | Serial port hardware      |
+
+### Task 4.1: Abstract SSH Command Execution
+
+#### 4.1.1: Create CommandExecutor Interface
+
+- [ ] **Create internal/deploy/command.go** (~120 lines)
+  - [ ] Define CommandExecutor interface
+    ```go
+    type CommandExecutor interface {
+        Run(command string) (string, error)
+        CombinedOutput(command string) ([]byte, error)
+    }
+    ```
+  - [ ] Define CommandBuilder interface
+    ```go
+    type CommandBuilder interface {
+        BuildSSHCommand(target, command string, options SSHOptions) CommandExecutor
+        BuildSCPCommand(src, dst string, options SSHOptions) CommandExecutor
+    }
+    ```
+  - [ ] Implement RealCommandExecutor (wraps exec.Command)
+  - [ ] Implement MockCommandExecutor (records calls, returns configured responses)
+- [ ] **Add tests** (command_test.go)
+  - [ ] Test RealCommandExecutor with simple commands
+  - [ ] Test MockCommandExecutor response configuration
+  - [ ] Test error simulation
+- [ ] **Target coverage:** 95%+
+
+#### 4.1.2: Refactor Executor to Use Interfaces
+
+- [ ] **Update internal/deploy/executor.go**
+  - [ ] Add CommandBuilder field to Executor struct
+  - [ ] Replace direct exec.Command calls with interface
+  - [ ] Inject dependency via constructor option
+  - [ ] Default to RealCommandExecutor for production
+- [ ] **Update tests** (executor_test.go)
+  - [ ] Use MockCommandExecutor for SSH tests
+  - [ ] Test SSH command construction
+  - [ ] Test SCP operations
+  - [ ] Test error handling paths
+- [ ] **Target coverage:** 90%+ (up from 70.4%)
+
+### Task 4.2: Abstract PCAP File Reading
+
+#### 4.2.1: Create PCAPReader Interface
+
+- [ ] **Create internal/lidar/network/pcap_interface.go** (~100 lines)
+  - [ ] Define PCAPReader interface
+    ```go
+    type PCAPReader interface {
+        Open(filename string) error
+        SetBPFFilter(filter string) error
+        NextPacket() ([]byte, time.Time, error)
+        Close()
+    }
+    ```
+  - [ ] Define PCAPReaderFactory interface
+    ```go
+    type PCAPReaderFactory interface {
+        NewReader() PCAPReader
+    }
+    ```
+  - [ ] Implement GopacketPCAPReader (wraps gopacket/pcap)
+  - [ ] Implement MockPCAPReader (replays configured packets)
+- [ ] **Add tests** (pcap_interface_test.go)
+  - [ ] Test MockPCAPReader packet sequencing
+  - [ ] Test filter configuration
+  - [ ] Test end-of-file handling
+- [ ] **Target coverage:** 95%+
+
+#### 4.2.2: Refactor ReadPCAPFile Functions
+
+- [ ] **Update internal/lidar/network/pcap.go**
+  - [ ] Accept PCAPReader as parameter (with default)
+  - [ ] Use interface methods instead of direct gopacket calls
+- [ ] **Update internal/lidar/network/pcap_realtime.go**
+  - [ ] Same interface injection pattern
+  - [ ] Test timing-based replay with mock
+- [ ] **Add tests**
+  - [ ] Test packet processing without real PCAP files
+  - [ ] Test BPF filter application
+  - [ ] Test context cancellation
+  - [ ] Test subsection replay (startSeconds, durationSeconds)
+- [ ] **Target coverage:** 95%+ (currently uses build tags)
+
+### Task 4.3: Abstract UDP Socket Operations
+
+#### 4.3.1: Create UDPSocket Interface
+
+- [ ] **Create internal/lidar/network/udp_interface.go** (~80 lines)
+  - [ ] Define UDPSocket interface
+    ```go
+    type UDPSocket interface {
+        ReadFromUDP(b []byte) (n int, addr *net.UDPAddr, err error)
+        SetReadBuffer(bytes int) error
+        SetReadDeadline(t time.Time) error
+        Close() error
+        LocalAddr() net.Addr
+    }
+    ```
+  - [ ] Define UDPSocketFactory interface
+    ```go
+    type UDPSocketFactory interface {
+        ListenUDP(network string, laddr *net.UDPAddr) (UDPSocket, error)
+    }
+    ```
+  - [ ] Implement RealUDPSocket (wraps \*net.UDPConn)
+  - [ ] Implement MockUDPSocket (returns configured packets)
+- [ ] **Add tests** (udp_interface_test.go)
+  - [ ] Test MockUDPSocket packet delivery
+  - [ ] Test read deadline handling
+  - [ ] Test buffer configuration
+- [ ] **Target coverage:** 95%+
+
+#### 4.3.2: Refactor UDPListener to Use Interface
+
+- [ ] **Update internal/lidar/network/listener.go**
+  - [ ] Add UDPSocketFactory field to UDPListenerConfig
+  - [ ] Replace net.ListenUDP with factory method
+  - [ ] Default to real implementation
+- [ ] **Update tests** (listener_test.go)
+  - [ ] Inject MockUDPSocket
+  - [ ] Test packet processing without network
+  - [ ] Test read timeout handling
+  - [ ] Test buffer overflow scenarios
+- [ ] **Target coverage:** 95%+ (up from 89.9%)
+
+### Task 4.4: Enhance Serial Port Abstraction
+
+#### 4.4.1: Review Existing SerialPorter Interface
+
+- [ ] **Audit internal/serialmux/port.go**
+  - [ ] Verify SerialPorter interface is complete
+  - [ ] Add missing methods if needed (ReadTimeout, etc.)
+  - [ ] Document interface contract
+- [ ] **Audit internal/serialmux/factory.go**
+  - [ ] Create SerialPortFactory interface
+    ```go
+    type SerialPortFactory interface {
+        Open(path string, mode *serial.Mode) (SerialPorter, error)
+    }
+    ```
+  - [ ] Implement RealSerialPortFactory
+  - [ ] Implement MockSerialPortFactory
+- [ ] **Target coverage:** Maintain 87%+
+
+#### 4.4.2: Improve MockSerialPort
+
+- [ ] **Update internal/serialmux/mock.go**
+  - [ ] Add configurable latency simulation
+  - [ ] Add error injection capabilities
+  - [ ] Add read buffer with timeout support
+  - [ ] Add call recording for verification
+- [ ] **Add tests**
+  - [ ] Test timeout scenarios
+  - [ ] Test partial reads/writes
+  - [ ] Test device disconnect simulation
+- [ ] **Target coverage:** 95%+ (up from 87.3%)
+
+### Task 4.5: Abstract WebServer External Dependencies
+
+#### 4.5.1: Create DataSourceManager Interface
+
+- [ ] **Create internal/lidar/monitor/datasource.go** (~150 lines)
+  - [ ] Define DataSourceManager interface
+    ```go
+    type DataSourceManager interface {
+        StartLiveListener(ctx context.Context) error
+        StopLiveListener() error
+        StartPCAPReplay(ctx context.Context, file string, config ReplayConfig) error
+        StopPCAPReplay() error
+        CurrentSource() DataSource
+    }
+    ```
+  - [ ] Implement RealDataSourceManager (wraps UDPListener, PCAPReader)
+  - [ ] Implement MockDataSourceManager (for testing)
+- [ ] **Add tests** (datasource_test.go)
+  - [ ] Test source switching
+  - [ ] Test concurrent access
+  - [ ] Test error handling
+- [ ] **Target coverage:** 95%+
+
+#### 4.5.2: Refactor WebServer to Use Interface
+
+- [ ] **Update internal/lidar/monitor/webserver.go**
+  - [ ] Add DataSourceManager field
+  - [ ] Replace direct UDPListener/PCAP calls with interface
+  - [ ] Inject via WebServerConfig
+- [ ] **Update tests** (webserver_test.go)
+  - [ ] Use MockDataSourceManager
+  - [ ] Test PCAP start/stop handlers
+  - [ ] Test live listener management
+  - [ ] Test source switching API
+- [ ] **Target coverage:** 75%+ (up from 60.7%)
+
+### Phase 4 Verification
+
+- [ ] Run `make test-go` and verify all tests pass
+- [ ] Check coverage: `go test -cover ./internal/...`
+- [ ] Verify infrastructure packages ≥ 90%:
+  - [ ] internal/deploy ≥ 90%
+  - [ ] internal/lidar/network ≥ 95%
+  - [ ] internal/serialmux ≥ 95%
+  - [ ] internal/lidar/monitor ≥ 75%
+- [ ] Verify no tests require network/hardware access
+- [ ] Update this checklist with actual coverage achieved
+
+**Phase 4 Complete:** ☐ YES ☐ NO
+**Achieved Coverage:** **\_\_%**
+**Date Completed:** **\_\_\_\_\_\_\_\_\_\_**
+
+---
+
+## Phase 5: Maintenance & Polish (Ongoing)
 
 **Timeline:** Ongoing
 **Goal:** Maintain 90%+ coverage as codebase evolves
 
-### Task 4.1: Set Up Coverage Enforcement
+### Task 5.1: Set Up Coverage Enforcement
 
 - [ ] **Update CI configuration**
   - [ ] Add coverage check to GitHub Actions
@@ -532,7 +760,7 @@
   - [ ] Set patch coverage target
 - **Estimated:** 2-4 hours
 
-### Task 4.2: Document Testing Practices
+### Task 5.2: Document Testing Practices
 
 - [ ] **Create testing guide** (docs/testing-guide.md)
   - [ ] Document table-driven test pattern
@@ -544,7 +772,7 @@
   - [ ] Link to testing guide
 - **Estimated:** 1 day
 
-### Task 4.3: Review and Improve
+### Task 5.3: Review and Improve
 
 - [ ] **Monthly coverage review**
   - [ ] Identify newly uncovered code
@@ -555,13 +783,13 @@
   - [ ] Identify new testability issues
   - [ ] Plan refactoring sprints
 
-### Phase 4 Verification
+### Phase 5 Verification
 
 - [ ] Coverage remains ≥ 90% for 3 months
 - [ ] All new PRs include tests
 - [ ] No coverage regressions merged without justification
 
-**Phase 4 Active:** ☐ YES ☐ NO
+**Phase 5 Active:** ☐ YES ☐ NO
 **Last Review Date:** \***\*\_\_\_\_\*\***
 
 ---
@@ -574,16 +802,18 @@
 - [x] **Milestone 1:** 85% (internal/) - Phase 1 complete ✓
 - [x] **Milestone 2:** 78.1% overall, 99.4% sweep - Phase 2 complete ✓
 - [ ] **Milestone 3:** 94%+ (internal/) - Phase 3 complete
-- [ ] **Sustained:** 90%+ for 6 months - Phase 4 success
+- [ ] **Milestone 4:** 90%+ infrastructure packages - Phase 4 complete
+- [ ] **Sustained:** 90%+ for 6 months - Phase 5 success
 
 ### Completion Status
 
-| Phase   | Target Date      | Actual Date      | Coverage Goal | Actual Coverage         |
-| ------- | ---------------- | ---------------- | ------------- | ----------------------- |
-| Phase 1 | 2026-02-14       | **2026-01-31**   | 85%           | **85.9%** ✓             |
-| Phase 2 | 2026-03-15       | **2026-01-31**   | 92%           | **78.1%** (99.4% sweep) |
-| Phase 3 | \***\*\_\_\*\*** | \***\*\_\_\*\*** | 94%           | **\_\_**%               |
-| Phase 4 | Ongoing          | -                | 90%+          | **\_\_**%               |
+| Phase   | Target Date      | Actual Date      | Coverage Goal  | Actual Coverage         |
+| ------- | ---------------- | ---------------- | -------------- | ----------------------- |
+| Phase 1 | 2026-02-14       | **2026-01-31**   | 85%            | **85.9%** ✓             |
+| Phase 2 | 2026-03-15       | **2026-01-31**   | 92%            | **78.1%** (99.4% sweep) |
+| Phase 3 | \***\*\_\_\*\*** | \***\*\_\_\*\*** | 94%            | **\_\_**%               |
+| Phase 4 | \***\*\_\_\*\*** | -                | 90%+ infra     | **\_\_**%               |
+| Phase 5 | Ongoing          | -                | 90%+ sustained | **\_\_**%               |
 
 ---
 
@@ -614,6 +844,6 @@ _None so far._
 
 ---
 
-**Document Version:** 1.0
+**Document Version:** 1.1
 **Last Updated:** 2026-01-31
 **Next Review:** \***\*\_\_\_\_\*\***
