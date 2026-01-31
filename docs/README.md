@@ -35,7 +35,7 @@ Outputs optimised files to the `_site/` directory.
 
 ## Deployment
 
-The site automatically deploys to GitHub Pages when changes are pushed to the `gh-pages` branch.
+The site automatically deploys to GitHub Pages when changes to the `docs/` directory are pushed to the `main` branch.
 
 ## Project Structure
 
