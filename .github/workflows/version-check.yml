@@ -96,7 +96,7 @@ jobs:
         id: pdf_version
         run: |
           echo "Checking PDF generator changes..."
-          if git diff ${{ steps.base.outputs.ref }}...HEAD --name-only | grep -q 'tools/pdf-generator/'; then
+          if git diff ${{ steps.base.outputs.ref }}...HEAD --name-only | grep 'tools/pdf-generator/' | grep -v -E '(test_.*\.py$|.*_test\.py$|conftest\.py$|tests/)' | grep -q .; then
             echo "pdf_changed=true" >> $GITHUB_OUTPUT
 
             OLD_VERSION=$(git show ${{ steps.base.outputs.ref }}:tools/pdf-generator/pyproject.toml 2>/dev/null | grep '^version =' | cut -d'"' -f2 || echo "unknown")
@@ -119,7 +119,7 @@ jobs:
         id: deploy_version
         run: |
           echo "Checking deploy tool changes..."
-          if git diff ${{ steps.base.outputs.ref }}...HEAD --name-only | grep -q 'cmd/deploy/'; then
+          if git diff ${{ steps.base.outputs.ref }}...HEAD --name-only | grep 'cmd/deploy/' | grep -v -E '_test\.go$' | grep -q .; then
             echo "deploy_changed=true" >> $GITHUB_OUTPUT
 
             OLD_VERSION=$(git show ${{ steps.base.outputs.ref }}:cmd/deploy/main.go 2>/dev/null | grep 'const version =' | cut -d'"' -f2 || echo "unknown")
@@ -142,7 +142,7 @@ jobs:
         id: web_version
         run: |
           echo "Checking web frontend changes..."
-          if git diff ${{ steps.base.outputs.ref }}...HEAD --name-only | grep -q 'web/'; then
+          if git diff ${{ steps.base.outputs.ref }}...HEAD --name-only | grep 'web/' | grep -v -E '(.*\.test\.(ts|js|tsx|jsx)$|.*\.spec\.(ts|js|tsx|jsx)$|__tests__/)' | grep -q .; then
             echo "web_changed=true" >> $GITHUB_OUTPUT
 
             OLD_VERSION=$(git show ${{ steps.base.outputs.ref }}:web/package.json 2>/dev/null | grep '"version"' | cut -d'"' -f4 || echo "unknown")
@@ -266,7 +266,7 @@ jobs:
           # Footer
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📖 See [Changelog](./CHANGELOG.md) for detailed guidelines." >> $GITHUB_STEP_SUMMARY
+          echo "📖 See [Changelog](../../CHANGELOG.md) for detailed guidelines." >> $GITHUB_STEP_SUMMARY
 
       - name: Comment on PR
         uses: actions/github-script@v7
@@ -384,7 +384,7 @@ jobs:
             }
 
             body += '---\n\n';
-            body += '📖 See [CHANGELOG.md](./CHANGELOG.md) for detailed guidelines.\n\n';
+            body += '📖 See [CHANGELOG.md](../../CHANGELOG.md) for detailed guidelines.\n\n';
             body += '_This is an automated advisory. Review the detected changes and update versions accordingly._';
 
             if (botComment) {
