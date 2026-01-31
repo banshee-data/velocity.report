@@ -1,6 +1,7 @@
 # Code Coverage Improvement - Implementation Checklist
 
 **Related Documents:**
+
 - [Executive Summary](./coverage-improvement-summary.md)
 - [Full Analysis](./coverage-improvement-analysis.md)
 
@@ -8,7 +9,7 @@
 
 ## Phase 1: Quick Wins (Target: 76% → 85% coverage)
 
-**Timeline:** 1-2 weeks  
+**Timeline:** 1-2 weeks
 **Goal:** Low-effort, high-impact improvements
 
 ### Pre-Work: Fix Build Issues
@@ -100,15 +101,15 @@
 - [ ] Verify internal/ coverage ≥ 85%
 - [ ] Update this checklist with actual coverage achieved
 
-**Phase 1 Complete:** ☐ YES ☐ NO  
-**Achieved Coverage:** ______%  
-**Date Completed:** ____________
+**Phase 1 Complete:** ☐ YES ☐ NO
+**Achieved Coverage:** **\_\_**%
+**Date Completed:** ****\_\_\_\_****
 
 ---
 
 ## Phase 2: Major Refactoring (Target: 85% → 92% coverage)
 
-**Timeline:** 3-4 weeks  
+**Timeline:** 3-4 weeks
 **Goal:** Extract business logic from cmd/ to internal/
 
 ### Task 2.1: Extract cmd/sweep/main.go → internal/lidar/sweep/
@@ -328,7 +329,7 @@
 - [ ] **Target coverage:** 90%+
 - **Estimated:** 1 day
 
-#### 2.3.8: Refactor cmd/deploy/*.go files
+#### 2.3.8: Refactor cmd/deploy/\*.go files
 
 - [ ] **Update all cmd/deploy handlers**
   - [ ] Use new internal/deploy modules
@@ -365,15 +366,15 @@
 - [ ] Manual test all affected CLI commands
 - [ ] Update this checklist with actual coverage achieved
 
-**Phase 2 Complete:** ☐ YES ☐ NO  
-**Achieved Coverage:** ______%  
-**Date Completed:** ____________
+**Phase 2 Complete:** ☐ YES ☐ NO
+**Achieved Coverage:** **\_\_**%
+**Date Completed:** ****\_\_\_\_****
 
 ---
 
 ## Phase 3: Testability Improvements (Target: 92% → 94%+ coverage)
 
-**Timeline:** 2-3 weeks  
+**Timeline:** 2-3 weeks
 **Goal:** Improve architecture for better testing
 
 ### Task 3.1: Decouple eCharts Rendering
@@ -490,15 +491,15 @@
 - [ ] Verify tests run faster (less I/O, no network)
 - [ ] Update this checklist with actual coverage achieved
 
-**Phase 3 Complete:** ☐ YES ☐ NO  
-**Achieved Coverage:** ______%  
-**Date Completed:** ____________
+**Phase 3 Complete:** ☐ YES ☐ NO
+**Achieved Coverage:** **\_\_**%
+**Date Completed:** ****\_\_\_\_****
 
 ---
 
 ## Phase 4: Maintenance & Polish (Ongoing)
 
-**Timeline:** Ongoing  
+**Timeline:** Ongoing
 **Goal:** Maintain 90%+ coverage as codebase evolves
 
 ### Task 4.1: Set Up Coverage Enforcement
@@ -541,8 +542,8 @@
 - [ ] All new PRs include tests
 - [ ] No coverage regressions merged without justification
 
-**Phase 4 Active:** ☐ YES ☐ NO  
-**Last Review Date:** ____________
+**Phase 4 Active:** ☐ YES ☐ NO
+**Last Review Date:** ****\_\_\_\_****
 
 ---
 
@@ -558,12 +559,12 @@
 
 ### Completion Status
 
-| Phase | Target Date | Actual Date | Coverage Goal | Actual Coverage |
-|-------|------------|-------------|---------------|-----------------|
-| Phase 1 | __________ | __________ | 85% | ______% |
-| Phase 2 | __________ | __________ | 92% | ______% |
-| Phase 3 | __________ | __________ | 94% | ______% |
-| Phase 4 | Ongoing | - | 90%+ | ______% |
+| Phase   | Target Date  | Actual Date  | Coverage Goal | Actual Coverage |
+| ------- | ------------ | ------------ | ------------- | --------------- |
+| Phase 1 | ****\_\_**** | ****\_\_**** | 85%           | **\_\_**%       |
+| Phase 2 | ****\_\_**** | ****\_\_**** | 92%           | **\_\_**%       |
+| Phase 3 | ****\_\_**** | ****\_\_**** | 94%           | **\_\_**%       |
+| Phase 4 | Ongoing      | -            | 90%+          | **\_\_**%       |
 
 ---
 
@@ -583,6 +584,6 @@ _Record any improvements beyond the original plan..._
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** 2026-01-31  
-**Next Review:** ____________
+**Document Version:** 1.0
+**Last Updated:** 2026-01-31
+**Next Review:** ****\_\_\_\_****

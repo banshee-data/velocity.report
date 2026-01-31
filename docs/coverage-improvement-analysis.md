@@ -1,8 +1,8 @@
 # Code Coverage Improvement Analysis
 
-**Document Version:** 1.0  
-**Date:** 2026-01-31  
-**Status:** Analysis Complete - Awaiting Implementation  
+**Document Version:** 1.0
+**Date:** 2026-01-31
+**Status:** Analysis Complete - Awaiting Implementation
 **Goal:** Achieve 90%+ code coverage for `internal/` folder
 
 ## Executive Summary
@@ -57,6 +57,7 @@ Overall internal/ weighted average: ~76% (excluding failures)
 ### Overview
 
 The `cmd/` directory should contain **only** CLI-specific code:
+
 - Flag definitions and parsing
 - User interaction (prompts, confirmations)
 - Help text and usage information
@@ -107,6 +108,7 @@ func (tc *TransitCLI) Rebuild(ctx context.Context) error
 ```
 
 **Testing Benefits:**
+
 - Can test transit operations without running full CLI
 - Mock database interactions
 - Verify business logic in isolation
@@ -142,6 +144,7 @@ func (bf *BackgroundFlusher) Run(ctx context.Context) error
 ```
 
 **Testing Benefits:**
+
 - Unit test flush timing logic
 - Mock database writes
 - Verify context cancellation handling
@@ -186,6 +189,7 @@ func (bc BackgroundConfig) ToBackgroundParams() BackgroundParams
 ```
 
 **Testing Benefits:**
+
 - Validate configuration combinations
 - Test default value logic
 - Ensure parameter constraints
@@ -227,6 +231,7 @@ func MeanStddev(xs []float64) (float64, float64)
 ```
 
 **Testing Benefits:**
+
 - Unit test edge cases (empty strings, invalid formats)
 - Test statistical calculations
 - Verify type conversion safety
@@ -272,6 +277,7 @@ func (irs IntRangeSpec) Generate() []int
 ```
 
 **Testing Benefits:**
+
 - Test range edge cases (zero step, negative ranges)
 - Verify floating-point precision handling
 - Test mixed input formats (CSV vs range specs)
@@ -317,6 +323,7 @@ func (c *Client) WaitForGridSettle(ctx context.Context, timeout time.Duration) e
 ```
 
 **Testing Benefits:**
+
 - Mock HTTP responses for testing
 - Test retry logic and error handling
 - Verify timeout behavior
@@ -353,6 +360,7 @@ func (s *Sampler) Sample(ctx context.Context, iterations int, params BackgroundP
 ```
 
 **Testing Benefits:**
+
 - Mock HTTP client for deterministic testing
 - Test sampling timing and cancellation
 - Verify metric aggregation logic
@@ -393,6 +401,7 @@ func (cw *CSVWriter) Close() error
 ```
 
 **Testing Benefits:**
+
 - Test CSV formatting correctness
 - Verify header/data alignment
 - Test statistical calculations in summary
@@ -402,6 +411,7 @@ func (cw *CSVWriter) Close() error
 ---
 
 **Total for cmd/sweep/main.go:**
+
 - Move ~600 lines to internal/
 - Create 5 new testable modules
 - Estimated coverage impact: **+510 lines at 90%+ coverage**
@@ -441,6 +451,7 @@ func (db *DB) FindTransitGapsInRange(ctx context.Context, start, end time.Time) 
 ```
 
 **Testing Benefits:**
+
 - Unit test SQL query logic
 - Mock database responses
 - Test edge cases (empty DB, no gaps, all gaps)
@@ -449,7 +460,7 @@ func (db *DB) FindTransitGapsInRange(ctx context.Context, start, end time.Time) 
 
 ---
 
-### 1.4 cmd/deploy/*.go (Multiple Files)
+### 1.4 cmd/deploy/\*.go (Multiple Files)
 
 **Status:** 7.2% coverage, ~60-85% of code should move to internal/
 
@@ -468,11 +479,13 @@ func ParseSSHConfig() (*SSHConfig, error)
 **Proposed:** Move entire file to `internal/deploy/sshconfig.go`
 
 **Rationale:**
+
 - Pure library code, zero CLI dependencies
 - Complex parsing logic needs comprehensive testing
 - Reusable across different CLI tools
 
 **Testing Benefits:**
+
 - Test SSH config parsing edge cases
 - Verify hostname resolution logic
 - Test with mock config files
@@ -495,11 +508,13 @@ func (e *Executor) RunSudo(ctx context.Context, command string) (string, error)
 **Proposed:** Move entire file to `internal/deploy/executor.go`
 
 **Rationale:**
+
 - SSH/command execution abstraction
 - No CLI-specific logic
 - Core infrastructure for deployment operations
 
 **Testing Benefits:**
+
 - Mock SSH connections
 - Test local vs remote execution
 - Verify sudo handling
@@ -555,6 +570,7 @@ func (dm *DatabaseMigrator) Migrate(dbPath string) error
 ```
 
 **Testing Benefits:**
+
 - Isolate each installation step for testing
 - Mock executor to avoid actual system changes
 - Test failure recovery paths
@@ -574,6 +590,7 @@ func (dm *DatabaseMigrator) Migrate(dbPath string) error
 **config.go** (~192 lines): Extract validation to `internal/deploy/config_validator.go`
 
 **Total for cmd/deploy/:**
+
 - Move ~900 lines to internal/
 - Create 12+ new testable modules
 - Estimated coverage impact: **+800 lines at 90%+ coverage**
@@ -582,15 +599,16 @@ func (dm *DatabaseMigrator) Migrate(dbPath string) error
 
 ### 1.5 Summary: cmd/ Refactoring Impact
 
-| Source File | Lines to Move | New internal/ Modules | Estimated Coverage |
-|-------------|---------------|----------------------|-------------------|
-| radar.go | 280 | 3 | +250 @ 90% |
-| sweep/main.go | 600 | 5 | +510 @ 85% |
-| scan_transits.go | 70 | 1 | +70 @ 90% |
-| deploy/*.go | 900 | 12 | +800 @ 90% |
-| **TOTAL** | **~1,850** | **21 modules** | **+1,630 testable lines** |
+| Source File      | Lines to Move | New internal/ Modules | Estimated Coverage        |
+| ---------------- | ------------- | --------------------- | ------------------------- |
+| radar.go         | 280           | 3                     | +250 @ 90%                |
+| sweep/main.go    | 600           | 5                     | +510 @ 85%                |
+| scan_transits.go | 70            | 1                     | +70 @ 90%                 |
+| deploy/\*.go     | 900           | 12                    | +800 @ 90%                |
+| **TOTAL**        | **~1,850**    | **21 modules**        | **+1,630 testable lines** |
 
 **Impact on internal/ coverage:**
+
 - Current internal/ LOC: ~8,500 (estimated from coverage reports)
 - Add testable code: +1,630 lines
 - With 90% coverage on new code: +1,467 covered lines
@@ -703,13 +721,13 @@ func TestMockSerial_ConcurrentReads(t *testing.T) {
 
 ### 2.2 Coverage Improvement Summary
 
-| Package | Current | Target | Gap | Estimated Tests Needed | Impact |
-|---------|---------|--------|-----|----------------------|--------|
-| internal/db | 78.7% | 90% | 11.3% | 50-80 | +8-10% |
-| internal/lidar/parse | 77.4% | 90% | 12.6% | 30-40 | +10-12% |
-| internal/serialmux | 86.3% | 90% | 3.7% | 20-25 | +3-5% |
-| internal/api | FAIL | 90% | n/a | Fix build first | TBD |
-| internal/lidar/monitor | FAIL | 90% | n/a | Fix build first | TBD |
+| Package                | Current | Target | Gap   | Estimated Tests Needed | Impact  |
+| ---------------------- | ------- | ------ | ----- | ---------------------- | ------- |
+| internal/db            | 78.7%   | 90%    | 11.3% | 50-80                  | +8-10%  |
+| internal/lidar/parse   | 77.4%   | 90%    | 12.6% | 30-40                  | +10-12% |
+| internal/serialmux     | 86.3%   | 90%    | 3.7%  | 20-25                  | +3-5%   |
+| internal/api           | FAIL    | 90%    | n/a   | Fix build first        | TBD     |
+| internal/lidar/monitor | FAIL    | 90%    | n/a   | Fix build first        | TBD     |
 
 **Total estimated impact from edge case testing: +8-12% coverage**
 
@@ -726,6 +744,7 @@ func TestMockSerial_ConcurrentReads(t *testing.T) {
 **Issue:** Multiple packages define similar parameter structs without sharing
 
 **Example:**
+
 ```go
 // internal/lidar/background.go
 type BackgroundParams struct { ... }
@@ -752,6 +771,7 @@ func DefaultBackgroundConfig() BackgroundConfig
 ```
 
 **Testability Impact:**
+
 - Centralize validation logic → test once
 - Consistent defaults → predictable behavior
 - **Coverage gain: +50 testable lines**
@@ -763,6 +783,7 @@ func DefaultBackgroundConfig() BackgroundConfig
 **Issue:** Multiple places implement similar HTTP request patterns
 
 **Example:**
+
 - cmd/sweep/main.go: HTTP calls to monitor API
 - internal/api/handlers_test.go: Test HTTP helpers
 - Potential future cmd/ tools needing same API access
@@ -779,6 +800,7 @@ func (c *Client) makeRequest(ctx, method, path string, body interface{}) error
 ```
 
 **Testability Impact:**
+
 - Single HTTP client to test and mock
 - Consistent error handling across all API calls
 - **Coverage gain: +100 testable lines** (vs testing duplicates separately)
@@ -790,6 +812,7 @@ func (c *Client) makeRequest(ctx, method, path string, body interface{}) error
 **Issue:** Similar formatting logic appears in multiple tools
 
 **Example:**
+
 - cmd/sweep/main.go: CSV output (lines 629-741)
 - cmd/tools/backfill_ring_elevations: Likely has output formatting
 - Future analysis tools will need similar formatting
@@ -809,6 +832,7 @@ type JSONFormatter struct { ... }
 ```
 
 **Testability Impact:**
+
 - Test formatters once with various input types
 - Easily add new formats (JSON, Parquet)
 - **Coverage gain: +80 testable lines**
@@ -822,6 +846,7 @@ type JSONFormatter struct { ... }
 **Location:** `internal/lidar/monitor/webserver.go`
 
 **Usage Pattern:**
+
 ```go
 import (
     "github.com/go-echarts/go-echarts/v2/charts"
@@ -860,6 +885,7 @@ func (ws *WebServer) handleBackgroundGridPolar(w http.ResponseWriter, r *http.Re
 ##### A. Separate Data Preparation from Rendering
 
 **Current (Lines 850-950 approx):**
+
 ```go
 func (ws *WebServer) handleBackgroundGridPolar(w http.ResponseWriter, r *http.Request) {
     // 1. Fetch data from background manager
@@ -870,6 +896,7 @@ func (ws *WebServer) handleBackgroundGridPolar(w http.ResponseWriter, r *http.Re
 ```
 
 **Refactored:**
+
 ```go
 // NEW: internal/lidar/monitor/chart_data.go
 package monitor
@@ -883,7 +910,7 @@ type PolarChartData struct {
 func (ws *WebServer) preparePolarChartData(sensorID string) (*PolarChartData, error) {
     // Pure data transformation, no HTTP or rendering
     grid := ws.backgroundManagers[sensorID].ExportGrid()
-    
+
     // Transform grid to chart-ready format
     data := &PolarChartData{
         AngleName: make([]string, numAngles),
@@ -901,22 +928,24 @@ func TestPreparePolarChartData(t *testing.T) {
 ```
 
 **HTTP Handler (Thin):**
+
 ```go
 func (ws *WebServer) handleBackgroundGridPolar(w http.ResponseWriter, r *http.Request) {
     sensorID := r.URL.Query().Get("sensor_id")
-    
+
     data, err := ws.preparePolarChartData(sensorID)
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
-    
+
     // Rendering becomes a one-liner
     renderPolarChart(w, data)
 }
 ```
 
 **Testing Benefits:**
+
 - **Unit test data preparation** without HTTP or eCharts
 - **Test chart rendering** with fixed data fixtures
 - **Mock background manager** to test error paths
@@ -938,11 +967,11 @@ func TestRenderPolarChart_ContainsExpectedData(t *testing.T) {
         AngleName: []string{"0°", "90°", "180°"},
         Data:      []opts.PolarData{{Value: []interface{}{0, 10}}},
     }
-    
+
     var buf bytes.Buffer
     err := renderPolarChart(&buf, data)
     require.NoError(t, err)
-    
+
     html := buf.String()
     assert.Contains(t, html, "0°")
     assert.Contains(t, html, "90°")
@@ -956,13 +985,13 @@ func TestRenderPolarChart_ContainsExpectedData(t *testing.T) {
 // NEW: Expose chart data as JSON instead of HTML
 func (ws *WebServer) handleBackgroundGridPolarJSON(w http.ResponseWriter, r *http.Request) {
     sensorID := r.URL.Query().Get("sensor_id")
-    
+
     data, err := ws.preparePolarChartData(sensorID)
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
-    
+
     json.NewEncoder(w).Encode(data)
 }
 
@@ -971,6 +1000,7 @@ func (ws *WebServer) handleBackgroundGridPolarJSON(w http.ResponseWriter, r *htt
 ```
 
 **Benefits:**
+
 - **Easier to test:** JSON is simple to parse and assert on
 - **Frontend flexibility:** Can switch charting libraries without Go changes
 - **Separation of concerns:** Go for data, JavaScript for visualization
@@ -1000,13 +1030,13 @@ func (m *MockBackgroundManager) ExportGrid() *BackgroundGrid {
 func TestPreparePolarChartData_EmptyGrid(t *testing.T) {
     mockBg := new(MockBackgroundManager)
     mockBg.On("ExportGrid").Return(&BackgroundGrid{Cells: nil})
-    
+
     ws := &WebServer{
         backgroundManagers: map[string]*BackgroundManager{
             "test": mockBg,
         },
     }
-    
+
     data, err := ws.preparePolarChartData("test")
     assert.NoError(t, err)
     assert.Empty(t, data.Data)
@@ -1022,6 +1052,7 @@ func TestPreparePolarChartData_EmptyGrid(t *testing.T) {
 #### Current State:
 
 **Embedded Files:**
+
 ```go
 //go:embed html/*.html
 var htmlFS embed.FS
@@ -1043,6 +1074,7 @@ var assetsFS embed.FS
 ##### A. Filesystem Abstraction for Testing
 
 **Current:**
+
 ```go
 func (ws *WebServer) handleDashboard(w http.ResponseWriter, r *http.Request) {
     tmpl, err := template.ParseFS(htmlFS, "html/dashboard.html")
@@ -1051,6 +1083,7 @@ func (ws *WebServer) handleDashboard(w http.ResponseWriter, r *http.Request) {
 ```
 
 **Refactored:**
+
 ```go
 // NEW: internal/lidar/monitor/templates.go
 type TemplateProvider interface {
@@ -1075,6 +1108,7 @@ func (mtp *MockTemplateProvider) Get(name string) (*template.Template, error) {
 ```
 
 **WebServer with Injection:**
+
 ```go
 type WebServer struct {
     templates TemplateProvider
@@ -1085,6 +1119,7 @@ func NewWebServer(templates TemplateProvider, assets http.FileSystem) *WebServer
 ```
 
 **Testing:**
+
 ```go
 func TestHandleDashboard_RendersTemplate(t *testing.T) {
     mockTemplates := &MockTemplateProvider{
@@ -1092,20 +1127,21 @@ func TestHandleDashboard_RendersTemplate(t *testing.T) {
             "dashboard.html": template.Must(template.New("test").Parse("<html>{{.}}</html>")),
         },
     }
-    
+
     ws := NewWebServer(mockTemplates, nil)
-    
+
     req := httptest.NewRequest("GET", "/dashboard", nil)
     w := httptest.NewRecorder()
-    
+
     ws.handleDashboard(w, req)
-    
+
     assert.Equal(t, 200, w.Code)
     assert.Contains(t, w.Body.String(), "<html>")
 }
 ```
 
 **Benefits:**
+
 - Tests don't depend on embedded files
 - Can test with minimal template fixtures
 - Easier to mock template rendering errors
@@ -1142,17 +1178,20 @@ func TestHandleDashboard_RendersTemplate(t *testing.T) {
 3. **Frontend JavaScript fetches data** and renders with eCharts client-side
 
 **Testing Benefits:**
+
 - Go tests don't need asset files
 - Frontend tests use real eCharts library
 - Can test backend logic in isolation
 
 **Migration Path:**
+
 1. Add JSON endpoints alongside HTML endpoints (Lines 950+)
 2. Create static HTML page that calls JSON endpoints
 3. Deprecate HTML-rendering endpoints
 4. Remove embedded HTML once frontend migrated
 
 **Coverage Impact:**
+
 - Removes ~200 lines of untestable HTML rendering code
 - Replaces with ~150 lines of testable JSON serialization
 - **Net: +100 testable lines**
@@ -1170,7 +1209,7 @@ type Server struct {
     serial  serialmux.SerialMuxInterface  // ✓ Already injected (good!)
     db      *db.DB                         // ✓ Already injected (good!)
     units   string                         // ✓ Config (good!)
-    
+
     // Hidden dependencies:
     // - File system (for static assets)
     // - System clock (for timestamps)
@@ -1186,7 +1225,7 @@ type Server struct {
     db        *db.DB
     units     string
     timezone  string
-    
+
     // Injected dependencies for testing:
     fs        http.FileSystem    // Can mock embedded assets
     clock     Clock               // Can mock time for testing
@@ -1209,7 +1248,7 @@ func (mc mockClock) Now() time.Time { return mc.t }
 ```go
 func TestServer_ReportGeneration_Midnight(t *testing.T) {
     mockClock := mockClock{t: time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)}
-    
+
     server := NewServer(
         mockSerial,
         mockDB,
@@ -1217,7 +1256,7 @@ func TestServer_ReportGeneration_Midnight(t *testing.T) {
         "UTC",
         mockClock,  // ← Injected
     )
-    
+
     // Can now test time-sensitive logic deterministically
 }
 ```
@@ -1228,13 +1267,13 @@ func TestServer_ReportGeneration_Midnight(t *testing.T) {
 
 ### 3.5 Summary: Testability Improvements
 
-| Issue | Solution | Testable Lines Gained | Effort |
-|-------|----------|----------------------|--------|
-| DRY violations | Centralize config/formatting | +230 | Medium |
-| eCharts coupling | Separate data prep from rendering | +150 | Medium |
-| Embedded HTML | Filesystem abstraction | +150 | Low |
-| Hard-to-mock deps | Dependency injection | +100 | Low |
-| **TOTAL** | | **+630** | |
+| Issue             | Solution                          | Testable Lines Gained | Effort |
+| ----------------- | --------------------------------- | --------------------- | ------ |
+| DRY violations    | Centralize config/formatting      | +230                  | Medium |
+| eCharts coupling  | Separate data prep from rendering | +150                  | Medium |
+| Embedded HTML     | Filesystem abstraction            | +150                  | Low    |
+| Hard-to-mock deps | Dependency injection              | +100                  | Low    |
+| **TOTAL**         |                                   | **+630**              |        |
 
 **Impact: +630 testable lines → Estimated +4-6% coverage** (after refactoring)
 
@@ -1424,7 +1463,7 @@ func TestFunctionName(t *testing.T) {
         },
         // ... more test cases
     }
-    
+
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
             got, err := FunctionName(tt.input)
@@ -1562,9 +1601,9 @@ func debugOnlyFunction() {
 
 ## Document Revision History
 
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | 2026-01-31 | Ictinus (AI Agent) | Initial comprehensive analysis |
+| Version | Date       | Author             | Changes                        |
+| ------- | ---------- | ------------------ | ------------------------------ |
+| 1.0     | 2026-01-31 | Ictinus (AI Agent) | Initial comprehensive analysis |
 
 ---
 

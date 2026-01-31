@@ -15,12 +15,12 @@ cmd/ packages:      <10% average coverage (Most have no tests)
 
 **What to Move:**
 
-| File | Lines to Move | New Location | Priority |
-|------|---------------|--------------|----------|
-| cmd/sweep/main.go | 600 lines (80%) | internal/lidar/sweep/ | 🔴 HIGH |
-| cmd/deploy/*.go | 900 lines (85%) | internal/deploy/ | 🔴 HIGH |
-| cmd/radar/radar.go | 280 lines (40%) | internal/db/, internal/lidar/ | 🟡 MEDIUM |
-| cmd/tools/scan_transits.go | 70 lines (50%) | internal/db/ | 🟢 LOW |
+| File                       | Lines to Move   | New Location                  | Priority  |
+| -------------------------- | --------------- | ----------------------------- | --------- |
+| cmd/sweep/main.go          | 600 lines (80%) | internal/lidar/sweep/         | 🔴 HIGH   |
+| cmd/deploy/\*.go           | 900 lines (85%) | internal/deploy/              | 🔴 HIGH   |
+| cmd/radar/radar.go         | 280 lines (40%) | internal/db/, internal/lidar/ | 🟡 MEDIUM |
+| cmd/tools/scan_transits.go | 70 lines (50%)  | internal/db/                  | 🟢 LOW    |
 
 **Impact:** +1,630 testable lines @ 90% coverage → **+5-8% internal/ coverage**
 
@@ -167,15 +167,15 @@ cmd/ packages:      <10% average coverage (Most have no tests)
 
 ## Expected Outcomes
 
-| Phase | Time | Coverage Gain | Cumulative Coverage |
-|-------|------|---------------|-------------------|
-| Start | - | - | 76% |
-| Phase 1 | 1-2 weeks | +9-11% | 85-87% |
-| Phase 2 | 3-4 weeks | +5-7% | 92-94% |
-| Phase 3 | 2-3 weeks | +0-2% | 92-96% |
-| Phase 4 | Ongoing | Maintain | 90%+ stable |
+| Phase   | Time      | Coverage Gain | Cumulative Coverage |
+| ------- | --------- | ------------- | ------------------- |
+| Start   | -         | -             | 76%                 |
+| Phase 1 | 1-2 weeks | +9-11%        | 85-87%              |
+| Phase 2 | 3-4 weeks | +5-7%         | 92-94%              |
+| Phase 3 | 2-3 weeks | +0-2%         | 92-96%              |
+| Phase 4 | Ongoing   | Maintain      | 90%+ stable         |
 
-**Total Time to 90%+:** 6-8 weeks  
+**Total Time to 90%+:** 6-8 weeks
 **Final Target:** 90-92% sustained coverage
 
 ---
