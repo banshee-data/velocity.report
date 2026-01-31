@@ -8,6 +8,7 @@ archive/
 backup/
 logs/
 node_modules/
+package-lock.json
 static/
 tools/*/output/*
 web/.svelte-kit/*
