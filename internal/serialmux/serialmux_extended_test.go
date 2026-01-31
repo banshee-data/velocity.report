@@ -294,13 +294,17 @@ func TestMonitor_BroadcastsToMultipleSubscribers(t *testing.T) {
 	// to ensure both are always ready to receive (non-blocking sends require this)
 	received1 := make([]string, 0)
 	received2 := make([]string, 0)
-	mu := sync.Mutex{} // protect the slices
+	var mu sync.Mutex // protect the slices
 	done1 := make(chan struct{})
 	done2 := make(chan struct{})
+	ready1 := make(chan struct{})
+	ready2 := make(chan struct{})
 
 	go func() {
 		defer close(done1)
 		timeout := time.After(150 * time.Millisecond)
+		// Signal ready just before blocking on select
+		close(ready1)
 		for {
 			select {
 			case line, ok := <-ch1:
@@ -318,6 +322,8 @@ func TestMonitor_BroadcastsToMultipleSubscribers(t *testing.T) {
 	go func() {
 		defer close(done2)
 		timeout := time.After(150 * time.Millisecond)
+		// Signal ready just before blocking on select
+		close(ready2)
 		for {
 			select {
 			case line, ok := <-ch2:
@@ -332,8 +338,9 @@ func TestMonitor_BroadcastsToMultipleSubscribers(t *testing.T) {
 		}
 	}()
 
-	// Give goroutines time to start and block on channel reads
-	time.Sleep(10 * time.Millisecond)
+	// Wait for both goroutines to be ready
+	<-ready1
+	<-ready2
 
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
