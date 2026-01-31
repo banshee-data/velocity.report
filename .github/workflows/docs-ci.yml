@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: docs
+        working-directory: public_html
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
