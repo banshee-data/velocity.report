@@ -2,9 +2,192 @@ package monitor
 
 import (
 	"bytes"
+	"embed"
 	"io/fs"
 	"testing"
 )
+
+//go:embed testdata/templates/*
+var testTemplateFS embed.FS
+
+//go:embed testdata/assets/*
+var testAssetFS embed.FS
+
+func TestEmbeddedTemplateProvider_GetTemplate(t *testing.T) {
+	provider := NewEmbeddedTemplateProvider(testTemplateFS, "testdata/templates")
+
+	tmpl, err := provider.GetTemplate("hello.html")
+	if err != nil {
+		t.Fatalf("GetTemplate failed: %v", err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, map[string]string{"Name": "World"}); err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	expected := "<h1>Hello, World!</h1>"
+	if buf.String() != expected {
+		t.Errorf("got %q, want %q", buf.String(), expected)
+	}
+}
+
+func TestEmbeddedTemplateProvider_GetTemplate_Cached(t *testing.T) {
+	provider := NewEmbeddedTemplateProvider(testTemplateFS, "testdata/templates")
+
+	// Get template twice
+	tmpl1, err := provider.GetTemplate("hello.html")
+	if err != nil {
+		t.Fatalf("first GetTemplate failed: %v", err)
+	}
+
+	tmpl2, err := provider.GetTemplate("hello.html")
+	if err != nil {
+		t.Fatalf("second GetTemplate failed: %v", err)
+	}
+
+	// Should be the same cached template
+	if tmpl1 != tmpl2 {
+		t.Error("expected cached template to be returned")
+	}
+}
+
+func TestEmbeddedTemplateProvider_GetTemplate_NotFound(t *testing.T) {
+	provider := NewEmbeddedTemplateProvider(testTemplateFS, "testdata/templates")
+
+	_, err := provider.GetTemplate("nonexistent.html")
+	if err == nil {
+		t.Error("expected error for nonexistent template")
+	}
+}
+
+func TestEmbeddedTemplateProvider_GetTemplate_NoBaseDir(t *testing.T) {
+	provider := NewEmbeddedTemplateProvider(testTemplateFS, "")
+
+	tmpl, err := provider.GetTemplate("testdata/templates/hello.html")
+	if err != nil {
+		t.Fatalf("GetTemplate failed: %v", err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, map[string]string{"Name": "Test"}); err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	expected := "<h1>Hello, Test!</h1>"
+	if buf.String() != expected {
+		t.Errorf("got %q, want %q", buf.String(), expected)
+	}
+}
+
+func TestEmbeddedTemplateProvider_ExecuteTemplate(t *testing.T) {
+	provider := NewEmbeddedTemplateProvider(testTemplateFS, "testdata/templates")
+
+	var buf bytes.Buffer
+	err := provider.ExecuteTemplate(&buf, "hello.html", map[string]string{"Name": "Execute"})
+	if err != nil {
+		t.Fatalf("ExecuteTemplate failed: %v", err)
+	}
+
+	expected := "<h1>Hello, Execute!</h1>"
+	if buf.String() != expected {
+		t.Errorf("got %q, want %q", buf.String(), expected)
+	}
+}
+
+func TestEmbeddedTemplateProvider_ExecuteTemplate_Error(t *testing.T) {
+	provider := NewEmbeddedTemplateProvider(testTemplateFS, "testdata/templates")
+
+	var buf bytes.Buffer
+	err := provider.ExecuteTemplate(&buf, "nonexistent.html", nil)
+	if err == nil {
+		t.Error("expected error for nonexistent template")
+	}
+}
+
+func TestEmbeddedAssetProvider_ReadFile(t *testing.T) {
+	provider := NewEmbeddedAssetProvider(testAssetFS, "testdata/assets")
+
+	content, err := provider.ReadFile("style.css")
+	if err != nil {
+		t.Fatalf("ReadFile failed: %v", err)
+	}
+
+	expected := "body { color: blue; }\n"
+	if string(content) != expected {
+		t.Errorf("got %q, want %q", string(content), expected)
+	}
+}
+
+func TestEmbeddedAssetProvider_ReadFile_NotFound(t *testing.T) {
+	provider := NewEmbeddedAssetProvider(testAssetFS, "testdata/assets")
+
+	_, err := provider.ReadFile("nonexistent.css")
+	if err == nil {
+		t.Error("expected error for nonexistent file")
+	}
+}
+
+func TestEmbeddedAssetProvider_ReadFile_NoBaseDir(t *testing.T) {
+	provider := NewEmbeddedAssetProvider(testAssetFS, "")
+
+	content, err := provider.ReadFile("testdata/assets/style.css")
+	if err != nil {
+		t.Fatalf("ReadFile failed: %v", err)
+	}
+
+	expected := "body { color: blue; }\n"
+	if string(content) != expected {
+		t.Errorf("got %q, want %q", string(content), expected)
+	}
+}
+
+func TestEmbeddedAssetProvider_Open(t *testing.T) {
+	provider := NewEmbeddedAssetProvider(testAssetFS, "testdata/assets")
+
+	file, err := provider.Open("style.css")
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	defer file.Close()
+
+	info, err := file.Stat()
+	if err != nil {
+		t.Fatalf("Stat failed: %v", err)
+	}
+
+	if info.Name() != "style.css" {
+		t.Errorf("got name %q, want 'style.css'", info.Name())
+	}
+}
+
+func TestEmbeddedAssetProvider_Open_NotFound(t *testing.T) {
+	provider := NewEmbeddedAssetProvider(testAssetFS, "testdata/assets")
+
+	_, err := provider.Open("nonexistent.js")
+	if err == nil {
+		t.Error("expected error for nonexistent file")
+	}
+}
+
+func TestEmbeddedAssetProvider_Open_NoBaseDir(t *testing.T) {
+	provider := NewEmbeddedAssetProvider(testAssetFS, "")
+
+	file, err := provider.Open("testdata/assets/style.css")
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	defer file.Close()
+
+	info, err := file.Stat()
+	if err != nil {
+		t.Fatalf("Stat failed: %v", err)
+	}
+
+	if info.Name() != "style.css" {
+		t.Errorf("got name %q, want 'style.css'", info.Name())
+	}
+}
 
 func TestMockTemplateProvider_GetTemplate(t *testing.T) {
 	provider := NewMockTemplateProvider(map[string]string{

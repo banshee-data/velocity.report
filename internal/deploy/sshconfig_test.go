@@ -399,3 +399,152 @@ func TestResolveSSHTarget_CommandLineOverrides(t *testing.T) {
 		t.Errorf("Expected key '/cli/key', got: %s", key)
 	}
 }
+
+func TestParseSSHConfigFrom_ExplicitPathWithHomeUnset(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "custom_config")
+	configContent := `Host myserver
+	HostName custom.example.com
+	User customuser
+	IdentityFile ~/.ssh/mykey
+`
+	os.WriteFile(configPath, []byte(configContent), 0600)
+
+	// Temporarily unset HOME to test the os.UserHomeDir fallback
+	originalHome := os.Getenv("HOME")
+	os.Unsetenv("HOME")
+	defer os.Setenv("HOME", originalHome)
+
+	config, err := ParseSSHConfigFrom("myserver", configPath)
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if config == nil {
+		t.Fatal("Expected config, got nil")
+	}
+	if config.HostName != "custom.example.com" {
+		t.Errorf("Expected HostName 'custom.example.com', got: %s", config.HostName)
+	}
+	// Note: IdentityFile may not be expanded properly without HOME, but should not error
+}
+
+func TestParseSSHConfigFrom_UnreadableFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "unreadable_config")
+
+	// Create a file
+	if err := os.WriteFile(configPath, []byte("Host test"), 0600); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// Make it unreadable (only works on Unix-like systems)
+	if err := os.Chmod(configPath, 0000); err != nil {
+		t.Skip("Cannot set file permissions on this platform")
+	}
+	defer os.Chmod(configPath, 0600) // Restore permissions for cleanup
+
+	_, err := ParseSSHConfigFrom("test", configPath)
+
+	// Should return an error for unreadable file
+	if err == nil {
+		t.Error("Expected error for unreadable file")
+	}
+}
+
+func TestParseSSHConfig_MalformedLine(t *testing.T) {
+	tmpDir := t.TempDir()
+	sshDir := filepath.Join(tmpDir, ".ssh")
+	os.MkdirAll(sshDir, 0700)
+
+	configPath := filepath.Join(sshDir, "config")
+	// Config with a line that has only one field (malformed)
+	configContent := `Host myserver
+	HostName myserver.example.com
+	OnlyOneField
+	User myuser
+`
+	os.WriteFile(configPath, []byte(configContent), 0600)
+
+	originalHome := os.Getenv("HOME")
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", originalHome)
+
+	config, err := ParseSSHConfig("myserver")
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if config == nil {
+		t.Fatal("Expected config, got nil")
+	}
+	// Should still parse the valid lines
+	if config.HostName != "myserver.example.com" {
+		t.Errorf("Expected HostName 'myserver.example.com', got: %s", config.HostName)
+	}
+	if config.User != "myuser" {
+		t.Errorf("Expected User 'myuser', got: %s", config.User)
+	}
+}
+
+func TestParseSSHConfig_IdentityFileAbsolutePath(t *testing.T) {
+	tmpDir := t.TempDir()
+	sshDir := filepath.Join(tmpDir, ".ssh")
+	os.MkdirAll(sshDir, 0700)
+
+	configPath := filepath.Join(sshDir, "config")
+	// Use absolute path for IdentityFile (not starting with ~)
+	configContent := `Host myserver
+	HostName myserver.example.com
+	IdentityFile /etc/ssh/keys/mykey
+`
+	os.WriteFile(configPath, []byte(configContent), 0600)
+
+	originalHome := os.Getenv("HOME")
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", originalHome)
+
+	config, err := ParseSSHConfig("myserver")
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if config == nil {
+		t.Fatal("Expected config, got nil")
+	}
+	// Absolute path should be preserved as-is
+	if config.IdentityFile != "/etc/ssh/keys/mykey" {
+		t.Errorf("Expected IdentityFile '/etc/ssh/keys/mykey', got: %s", config.IdentityFile)
+	}
+}
+
+func TestParseSSHConfig_IdentityAgentAbsolutePath(t *testing.T) {
+	tmpDir := t.TempDir()
+	sshDir := filepath.Join(tmpDir, ".ssh")
+	os.MkdirAll(sshDir, 0700)
+
+	configPath := filepath.Join(sshDir, "config")
+	// Use absolute path for IdentityAgent (not starting with ~)
+	configContent := `Host myserver
+	HostName myserver.example.com
+	IdentityAgent /var/run/agent.sock
+`
+	os.WriteFile(configPath, []byte(configContent), 0600)
+
+	originalHome := os.Getenv("HOME")
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", originalHome)
+
+	config, err := ParseSSHConfig("myserver")
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if config == nil {
+		t.Fatal("Expected config, got nil")
+	}
+	// Absolute path should be preserved as-is
+	if config.IdentityAgent != "/var/run/agent.sock" {
+		t.Errorf("Expected IdentityAgent '/var/run/agent.sock', got: %s", config.IdentityAgent)
+	}
+}

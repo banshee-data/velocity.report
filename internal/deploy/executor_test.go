@@ -300,3 +300,142 @@ func TestLogger_NopLogger(t *testing.T) {
 	logger := nopLogger{}
 	logger.Debugf("test %s", "message")
 }
+
+func TestExecutor_Run_WithLogger(t *testing.T) {
+	e := NewExecutor("localhost", "", "", "", false)
+	logger := &testLogger{}
+	e.SetLogger(logger)
+
+	// Run a command that will succeed
+	_, err := e.Run("echo test")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	// Verify logger was called
+	if len(logger.logs) == 0 {
+		t.Error("Expected logger to be called")
+	}
+}
+
+func TestExecutor_Run_LocalError_WithLogger(t *testing.T) {
+	e := NewExecutor("localhost", "", "", "", false)
+	logger := &testLogger{}
+	e.SetLogger(logger)
+
+	// Run a command that will fail
+	_, err := e.Run("exit 1")
+	if err == nil {
+		t.Error("Expected error for failing command")
+	}
+
+	// Verify logger was called for the error
+	if len(logger.logs) < 2 {
+		t.Error("Expected logger to be called for error")
+	}
+}
+
+func TestExecutor_RunSudo_LocalWithLogger(t *testing.T) {
+	e := NewExecutor("localhost", "", "", "", true) // Use DryRun to avoid actual sudo
+	logger := &testLogger{}
+	e.SetLogger(logger)
+
+	// Run a sudo command in dry-run mode
+	output, err := e.RunSudo("echo test")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if !strings.Contains(output, "[DRY-RUN]") {
+		t.Errorf("Expected dry-run output, got: %s", output)
+	}
+}
+
+func TestExecutor_CopyFile_LocalWithLogger(t *testing.T) {
+	tmpDir := t.TempDir()
+	srcPath := filepath.Join(tmpDir, "source.txt")
+	dstPath := filepath.Join(tmpDir, "dest.txt")
+
+	if err := os.WriteFile(srcPath, []byte("test content"), 0644); err != nil {
+		t.Fatalf("Failed to create source file: %v", err)
+	}
+
+	e := NewExecutor("localhost", "", "", "", false)
+	logger := &testLogger{}
+	e.SetLogger(logger)
+
+	err := e.CopyFile(srcPath, dstPath)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	// Verify logger was called
+	if len(logger.logs) == 0 {
+		t.Error("Expected logger to be called")
+	}
+}
+
+func TestExecutor_CopyFile_LocalErrorWithLogger(t *testing.T) {
+	tmpDir := t.TempDir()
+	e := NewExecutor("localhost", "", "", "", false)
+	logger := &testLogger{}
+	e.SetLogger(logger)
+
+	err := e.CopyFile(filepath.Join(tmpDir, "nonexistent.txt"), filepath.Join(tmpDir, "dest.txt"))
+	if err == nil {
+		t.Error("Expected error for missing source file")
+	}
+
+	// Verify logger was called for the error
+	if len(logger.logs) < 2 {
+		t.Error("Expected logger to be called for error")
+	}
+}
+
+func TestExecutor_CopyFile_LocalToUnwritableDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	srcPath := filepath.Join(tmpDir, "source.txt")
+
+	if err := os.WriteFile(srcPath, []byte("test content"), 0644); err != nil {
+		t.Fatalf("Failed to create source file: %v", err)
+	}
+
+	e := NewExecutor("localhost", "", "", "", false)
+
+	// Try to copy to a path where we can't create the file
+	err := e.CopyFile(srcPath, "/nonexistent_dir_12345/dest.txt")
+	if err == nil {
+		t.Error("Expected error for unwritable destination")
+	}
+}
+
+func TestExecutor_WriteFile_LocalError(t *testing.T) {
+	e := NewExecutor("localhost", "", "", "", false)
+
+	// Try to write to a path where we can't create the file
+	err := e.WriteFile("/nonexistent_dir_12345/test.txt", "content")
+	if err == nil {
+		t.Error("Expected error for unwritable path")
+	}
+}
+
+func TestExecutor_buildSSHCommand_Sudo(t *testing.T) {
+	e := NewExecutor("remote.example.com", "testuser", "/path/to/key", "", false)
+	cmd := e.buildSSHCommand("systemctl restart service", true)
+
+	args := cmd.Args
+	if args[0] != "ssh" {
+		t.Errorf("Expected ssh command, got: %s", args[0])
+	}
+
+	// Check that the command is included in the args
+	found := false
+	for _, arg := range args {
+		if arg == "systemctl restart service" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("Expected command in args: %v", args)
+	}
+}

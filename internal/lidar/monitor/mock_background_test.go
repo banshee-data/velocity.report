@@ -108,6 +108,22 @@ func TestMockBackgroundManager_SetNoiseRelativeFraction(t *testing.T) {
 	}
 }
 
+func TestMockBackgroundManager_SetNoiseRelativeFractionError(t *testing.T) {
+	mock := &MockBackgroundManager{
+		SetNoiseErr: errMockError,
+	}
+
+	err := mock.SetNoiseRelativeFraction(0.5)
+	if err == nil {
+		t.Error("expected error, got nil")
+	}
+
+	// Should still record the call
+	if len(mock.SetNoiseCalls) != 1 {
+		t.Errorf("got %d calls, want 1", len(mock.SetNoiseCalls))
+	}
+}
+
 func TestMockBackgroundManager_Diagnostics(t *testing.T) {
 	mock := &MockBackgroundManager{Diagnostics: false}
 
@@ -118,6 +134,21 @@ func TestMockBackgroundManager_Diagnostics(t *testing.T) {
 	mock.SetDiagnosticsEnabled(true)
 	if !mock.IsDiagnosticsEnabled() {
 		t.Error("expected diagnostics to be enabled")
+	}
+}
+
+func TestMockBackgroundManager_GetGrid(t *testing.T) {
+	// Test with nil grid
+	mock := &MockBackgroundManager{Grid: nil}
+	if mock.GetGrid() != nil {
+		t.Error("expected nil grid")
+	}
+
+	// Test with non-nil grid
+	grid := &lidar.BackgroundGrid{}
+	mock.Grid = grid
+	if mock.GetGrid() != grid {
+		t.Error("expected same grid instance")
 	}
 }
 
@@ -170,5 +201,78 @@ func TestDefaultBackgroundManagerProvider_NilManager(t *testing.T) {
 	result := provider.GetBackgroundManager("non-existent-sensor-xyz")
 	if result != nil {
 		t.Error("expected nil for non-existent sensor")
+	}
+}
+
+func TestBackgroundManagerWrapper_AllMethods(t *testing.T) {
+	// Create a real BackgroundManager for testing the wrapper
+	sensorID := "test-wrapper-sensor-12345"
+
+	// Register a real background manager
+	bm := lidar.NewBackgroundManager(sensorID, 16, 360, lidar.BackgroundParams{}, nil)
+	if bm == nil {
+		t.Fatal("failed to create BackgroundManager")
+	}
+	defer lidar.RegisterBackgroundManager(sensorID, nil) // Clean up
+
+	// Get the wrapper through the provider
+	provider := &DefaultBackgroundManagerProvider{}
+	wrapper := provider.GetBackgroundManager(sensorID)
+	if wrapper == nil {
+		t.Fatal("expected non-nil wrapper")
+	}
+
+	// Test GetGridCells - should return empty slice initially
+	cells := wrapper.GetGridCells()
+	if cells == nil {
+		t.Error("GetGridCells returned nil, expected empty slice")
+	}
+
+	// Test GetGridHeatmap - may return nil without data
+	_ = wrapper.GetGridHeatmap(3.0, 5)
+
+	// Test GetParams
+	params := wrapper.GetParams()
+	// Just verify it doesn't panic
+	_ = params
+
+	// Test SetParams
+	newParams := lidar.BackgroundParams{
+		NoiseRelativeFraction: 0.5,
+	}
+	err := wrapper.SetParams(newParams)
+	if err != nil {
+		t.Errorf("SetParams returned error: %v", err)
+	}
+
+	// Verify params were set
+	updatedParams := wrapper.GetParams()
+	if updatedParams.NoiseRelativeFraction != 0.5 {
+		t.Errorf("params not updated, got %v", updatedParams.NoiseRelativeFraction)
+	}
+
+	// Test SetNoiseRelativeFraction
+	err = wrapper.SetNoiseRelativeFraction(0.3)
+	if err != nil {
+		t.Errorf("SetNoiseRelativeFraction returned error: %v", err)
+	}
+
+	// Test GetGrid
+	grid := wrapper.GetGrid()
+	if grid == nil {
+		t.Error("GetGrid returned nil, expected non-nil grid")
+	}
+
+	// Test IsDiagnosticsEnabled
+	_ = wrapper.IsDiagnosticsEnabled()
+
+	// Test SetDiagnosticsEnabled
+	wrapper.SetDiagnosticsEnabled(true)
+	if !wrapper.IsDiagnosticsEnabled() {
+		t.Error("expected diagnostics to be enabled after SetDiagnosticsEnabled(true)")
+	}
+	wrapper.SetDiagnosticsEnabled(false)
+	if wrapper.IsDiagnosticsEnabled() {
+		t.Error("expected diagnostics to be disabled after SetDiagnosticsEnabled(false)")
 	}
 }

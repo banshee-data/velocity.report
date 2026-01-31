@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -204,6 +205,124 @@ func TestMockHTTPClient_DefaultResponse(t *testing.T) {
 	resp, err := mock.Get("http://example.com/api")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("got status %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+}
+
+func TestStandardClient_Do(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			t.Errorf("expected PUT, got %s", r.Method)
+		}
+		w.WriteHeader(http.StatusAccepted)
+		w.Write([]byte("accepted"))
+	}))
+	defer server.Close()
+
+	client := NewStandardClient(nil)
+	req, err := http.NewRequest(http.MethodPut, server.URL+"/resource", strings.NewReader("data"))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("Do failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusAccepted {
+		t.Errorf("got status %d, want %d", resp.StatusCode, http.StatusAccepted)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	if string(body) != "accepted" {
+		t.Errorf("got body %q, want 'accepted'", string(body))
+	}
+}
+
+func TestStandardClient_Get(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/data" {
+			t.Errorf("expected path /api/data, got %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status": "ok"}`))
+	}))
+	defer server.Close()
+
+	client := NewStandardClient(nil)
+	resp, err := client.Get(server.URL + "/api/data")
+	if err != nil {
+		t.Fatalf("Get failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("got status %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	if string(body) != `{"status": "ok"}` {
+		t.Errorf("got body %q", string(body))
+	}
+}
+
+func TestStandardClient_Post(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("expected Content-Type application/json, got %s", r.Header.Get("Content-Type"))
+		}
+		body, _ := io.ReadAll(r.Body)
+		if string(body) != `{"name": "test"}` {
+			t.Errorf("expected body '{\"name\": \"test\"}', got %s", string(body))
+		}
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(`{"id": 123}`))
+	}))
+	defer server.Close()
+
+	client := NewStandardClient(nil)
+	resp, err := client.Post(server.URL+"/api/create", "application/json", strings.NewReader(`{"name": "test"}`))
+	if err != nil {
+		t.Fatalf("Post failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		t.Errorf("got status %d, want %d", resp.StatusCode, http.StatusCreated)
+	}
+
+	respBody, _ := io.ReadAll(resp.Body)
+	if string(respBody) != `{"id": 123}` {
+		t.Errorf("got body %q", string(respBody))
+	}
+}
+
+func TestStandardClient_WithCustomClient(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	// Test with a custom http.Client
+	customClient := &http.Client{}
+	client := NewStandardClient(customClient)
+
+	resp, err := client.Get(server.URL)
+	if err != nil {
+		t.Fatalf("Get failed: %v", err)
 	}
 	defer resp.Body.Close()
 
