@@ -266,7 +266,7 @@ jobs:
           # Footer
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📖 See [Changelog](CHANGELOG.md) for detailed guidelines." >> $GITHUB_STEP_SUMMARY
+          echo "📖 See [Changelog](../blob/main/CHANGELOG.md) for detailed guidelines." >> $GITHUB_STEP_SUMMARY
 
       - name: Comment on PR
         uses: actions/github-script@v7
@@ -384,7 +384,7 @@ jobs:
             }
 
             body += '---\n\n';
-            body += '📖 See [CHANGELOG.md](CHANGELOG.md) for detailed guidelines.\n\n';
+            body += '📖 See [CHANGELOG.md](../blob/main/CHANGELOG.md) for detailed guidelines.\n\n';
             body += '_This is an automated advisory. Review the detected changes and update versions accordingly._';
 
             if (botComment) {
