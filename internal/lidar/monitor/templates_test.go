@@ -26,7 +26,7 @@ func TestEmbeddedTemplateProvider_GetTemplate(t *testing.T) {
 		t.Fatalf("Execute failed: %v", err)
 	}
 
-	expected := "<h1>Hello, World!</h1>"
+	expected := "<h1>Hello, World!</h1>\n"
 	if buf.String() != expected {
 		t.Errorf("got %q, want %q", buf.String(), expected)
 	}
@@ -74,7 +74,7 @@ func TestEmbeddedTemplateProvider_GetTemplate_NoBaseDir(t *testing.T) {
 		t.Fatalf("Execute failed: %v", err)
 	}
 
-	expected := "<h1>Hello, Test!</h1>"
+	expected := "<h1>Hello, Test!</h1>\n"
 	if buf.String() != expected {
 		t.Errorf("got %q, want %q", buf.String(), expected)
 	}
@@ -89,7 +89,7 @@ func TestEmbeddedTemplateProvider_ExecuteTemplate(t *testing.T) {
 		t.Fatalf("ExecuteTemplate failed: %v", err)
 	}
 
-	expected := "<h1>Hello, Execute!</h1>"
+	expected := "<h1>Hello, Execute!</h1>\n"
 	if buf.String() != expected {
 		t.Errorf("got %q, want %q", buf.String(), expected)
 	}
