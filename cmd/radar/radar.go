@@ -48,7 +48,7 @@ var (
 	enableLidar    = flag.Bool("enable-lidar", false, "Enable lidar components inside this radar binary")
 	lidarListen    = flag.String("lidar-listen", ":8081", "HTTP listen address for lidar monitor (when enabled)")
 	lidarUDPPort   = flag.Int("lidar-udp-port", 2369, "UDP port to listen for lidar packets")
-	lidarNoParse   = flag.Bool("lidar-no-parse", false, "Disable lidar packet parsing when lidar is enabled")
+	lidarNoParse   = flag.Bool("lidar-not-parse", false, "Disable lidar packet parsing when lidar is enabled")
 	lidarSensor    = flag.String("lidar-sensor", "hesai-pandar40p", "Sensor name identifier for lidar background manager")
 	lidarForward   = flag.Bool("lidar-forward", false, "Forward lidar UDP packets to another port")
 	lidarFwdPort   = flag.Int("lidar-forward-port", 2368, "Port to forward lidar UDP packets to")
