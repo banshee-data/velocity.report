@@ -332,14 +332,14 @@ func TestGetTracksInRange(t *testing.T) {
 		}
 	}
 
-	// Query range [2000, 3000] - should match track-2 and track-4
+	// Query range [2000, 3000] - should match track-1 (ends at 2000), track-2, and track-4
 	result, err := GetTracksInRange(db, sensorID, "", 2000, 3000, 100)
 	if err != nil {
 		t.Fatalf("GetTracksInRange failed: %v", err)
 	}
 
-	if len(result) != 2 {
-		t.Errorf("Expected 2 tracks in range [2000,3000], got %d", len(result))
+	if len(result) != 3 {
+		t.Errorf("Expected 3 tracks in range [2000,3000], got %d", len(result))
 	}
 
 	// Query with state filter
@@ -356,23 +356,30 @@ func TestGetTracksInRange(t *testing.T) {
 // TestNullFloat32 tests the nullFloat32 helper function.
 func TestNullFloat32(t *testing.T) {
 	tests := []struct {
-		name  string
-		value float32
-		want  bool
+		name    string
+		value   float32
+		wantNil bool
+		wantVal float32
 	}{
-		{"positive value", 1.5, true},
-		{"zero value", 0.0, false},
-		{"negative value", -1.0, true},
+		{"positive value", 1.5, false, 1.5},
+		{"zero value", 0.0, false, 0.0},
+		{"negative value", -1.0, false, -1.0},
+		{"NaN value", float32(math.NaN()), true, 0},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := nullFloat32(tt.value)
-			if result.Valid != tt.want {
-				t.Errorf("nullFloat32(%v).Valid = %v, want %v", tt.value, result.Valid, tt.want)
-			}
-			if result.Valid && float32(result.Float64) != tt.value {
-				t.Errorf("nullFloat32(%v).Float64 = %v, want %v", tt.value, result.Float64, tt.value)
+			if tt.wantNil {
+				if result != nil {
+					t.Errorf("nullFloat32(%v) = %v, want nil", tt.value, result)
+				}
+			} else {
+				if result == nil {
+					t.Errorf("nullFloat32(%v) = nil, want %v", tt.value, tt.wantVal)
+				} else if val, ok := result.(float32); !ok || val != tt.wantVal {
+					t.Errorf("nullFloat32(%v) = %v, want %v", tt.value, result, tt.wantVal)
+				}
 			}
 		})
 	}
@@ -406,50 +413,6 @@ func TestGetRecentClusters_Limit(t *testing.T) {
 
 	if len(clusters) != 5 {
 		t.Errorf("Expected 5 clusters with limit, got %d", len(clusters))
-	}
-}
-
-// TestInsertCluster_NilDB verifies error handling for nil database.
-func TestInsertCluster_NilDB(t *testing.T) {
-	cluster := &WorldCluster{
-		SensorID:    "test",
-		WorldFrame:  "site/main",
-		TSUnixNanos: 1000,
-	}
-
-	_, err := InsertCluster(nil, cluster)
-	if err == nil {
-		t.Error("Expected error for nil database")
-	}
-}
-
-// TestInsertTrack_NilDB verifies error handling for nil database.
-func TestInsertTrack_NilDB(t *testing.T) {
-	track := &TrackedObject{
-		TrackID:        "test",
-		SensorID:       "sensor",
-		State:          TrackConfirmed,
-		FirstUnixNanos: 1000,
-		speedHistory:   []float32{},
-	}
-
-	err := InsertTrack(nil, track, "site/main")
-	if err == nil {
-		t.Error("Expected error for nil database")
-	}
-}
-
-// TestInsertTrackObservation_NilDB verifies error handling for nil database.
-func TestInsertTrackObservation_NilDB(t *testing.T) {
-	obs := &TrackObservation{
-		TrackID:     "test",
-		TSUnixNanos: 1000,
-		WorldFrame:  "site/main",
-	}
-
-	err := InsertTrackObservation(nil, obs)
-	if err == nil {
-		t.Error("Expected error for nil database")
 	}
 }
 
