@@ -16,6 +16,14 @@ import (
 	"github.com/banshee-data/velocity.report/internal/serialmux"
 )
 
+// truePath returns the path to the 'true' binary (macOS uses /usr/bin/true, Linux uses /bin/true)
+func truePath() string {
+	if _, err := os.Stat("/usr/bin/true"); err == nil {
+		return "/usr/bin/true"
+	}
+	return "/bin/true"
+}
+
 // TestSendCommandHandler tests the /command endpoint
 func TestSendCommandHandler(t *testing.T) {
 	server, dbInst := setupTestServer(t)
@@ -619,12 +627,12 @@ func TestGenerateReport_MinSpeedParameter(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			// Mock the PDF generator by setting the env var
-			os.Setenv("PDF_GENERATOR_PYTHON", "/bin/true")
+			os.Setenv("PDF_GENERATOR_PYTHON", truePath())
 			defer os.Unsetenv("PDF_GENERATOR_PYTHON")
 
 			server.generateReport(w, req)
 
-			// We expect this to fail because /bin/true doesn't produce valid output,
+			// We expect this to fail because 'true' doesn't produce valid output,
 			// but the important part is that it doesn't fail on parameter validation
 			if tt.wantPass {
 				if w.Code != http.StatusInternalServerError {
@@ -699,12 +707,12 @@ func TestGenerateReport_BoundaryThresholdParameter(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			// Mock the PDF generator by setting the env var
-			os.Setenv("PDF_GENERATOR_PYTHON", "/bin/true")
+			os.Setenv("PDF_GENERATOR_PYTHON", truePath())
 			defer os.Unsetenv("PDF_GENERATOR_PYTHON")
 
 			server.generateReport(w, req)
 
-			// We expect this to fail because /bin/true doesn't produce valid output,
+			// We expect this to fail because 'true' doesn't produce valid output,
 			// but the important part is that it doesn't fail on parameter validation
 			if tt.wantPass {
 				if w.Code != http.StatusInternalServerError {
@@ -766,7 +774,7 @@ func TestGenerateReport_CombinedMinSpeedAndBoundaryThreshold(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	// Mock the PDF generator by setting the env var
-	os.Setenv("PDF_GENERATOR_PYTHON", "/bin/true")
+	os.Setenv("PDF_GENERATOR_PYTHON", truePath())
 	defer os.Unsetenv("PDF_GENERATOR_PYTHON")
 
 	server.generateReport(w, req)

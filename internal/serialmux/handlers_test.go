@@ -1,6 +1,7 @@
 package serialmux
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -197,5 +198,133 @@ func TestClassifyPayload_EdgeCases(t *testing.T) {
 				t.Errorf("ClassifyPayload(%q) = %q; want %q", c.in, got, c.want)
 			}
 		})
+	}
+}
+
+// TestHandleEvent_RadarObjectError tests error handling when radar object
+// processing fails.
+func TestHandleEvent_RadarObjectError(t *testing.T) {
+	tmp := t.TempDir()
+	d, err := db.NewDB(tmp + "/test.db")
+	if err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+	defer d.Close()
+
+	// Invalid JSON that looks like a radar object (has end_time) but will fail parsing
+	invalidRadar := `{"end_time": "not-a-number", "classifier": "object_outbound"}`
+	err = HandleEvent(d, invalidRadar)
+	if err == nil {
+		t.Error("Expected error for invalid radar object payload")
+	}
+	if err != nil && !strings.Contains(err.Error(), "RadarObject") {
+		t.Errorf("Expected error message to mention RadarObject, got: %v", err)
+	}
+}
+
+// TestHandleEvent_RawDataError tests error handling when raw data
+// processing fails.
+func TestHandleEvent_RawDataError(t *testing.T) {
+	tmp := t.TempDir()
+	d, err := db.NewDB(tmp + "/test.db")
+	if err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+	defer d.Close()
+
+	// Invalid raw data that will fail parsing (has magnitude but malformed JSON values)
+	invalidRaw := `{"magnitude": "not-a-number", "speed": "also-not-a-number"}`
+	err = HandleEvent(d, invalidRaw)
+	if err == nil {
+		t.Error("Expected error for invalid raw data payload")
+	}
+	if err != nil && !strings.Contains(err.Error(), "raw data") {
+		t.Errorf("Expected error message to mention raw data, got: %v", err)
+	}
+}
+
+// TestHandleEvent_ConfigError tests error handling when config response
+// processing fails.
+func TestHandleEvent_ConfigError(t *testing.T) {
+	tmp := t.TempDir()
+	d, err := db.NewDB(tmp + "/test.db")
+	if err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+	defer d.Close()
+
+	// Malformed JSON that starts with { (so it's classified as config) but is invalid
+	invalidConfig := `{invalid json here`
+	err = HandleEvent(d, invalidConfig)
+	if err == nil {
+		t.Error("Expected error for invalid config payload")
+	}
+	if err != nil && !strings.Contains(err.Error(), "config response") {
+		t.Errorf("Expected error message to mention config response, got: %v", err)
+	}
+}
+
+// TestHandleRadarObject_InvalidJSON tests error handling for invalid radar JSON.
+func TestHandleRadarObject_InvalidJSON(t *testing.T) {
+	tmp := t.TempDir()
+	d, err := db.NewDB(tmp + "/test.db")
+	if err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+	defer d.Close()
+
+	// Completely invalid JSON
+	err = HandleRadarObject(d, "not json at all")
+	if err == nil {
+		t.Error("Expected error for invalid JSON")
+	}
+}
+
+// TestHandleRawData_InvalidJSON tests error handling for invalid raw data JSON.
+func TestHandleRawData_InvalidJSON(t *testing.T) {
+	tmp := t.TempDir()
+	d, err := db.NewDB(tmp + "/test.db")
+	if err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+	defer d.Close()
+
+	// Completely invalid JSON
+	err = HandleRawData(d, "not json at all")
+	if err == nil {
+		t.Error("Expected error for invalid JSON")
+	}
+}
+
+// TestHandleConfigResponse_UpdatesExistingState tests that config responses
+// update existing state rather than replacing it.
+func TestHandleConfigResponse_UpdatesExistingState(t *testing.T) {
+	// Reset state
+	CurrentState = nil
+
+	// Set initial state
+	if err := HandleConfigResponse(`{"key1": "value1"}`); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Update with new key
+	if err := HandleConfigResponse(`{"key2": "value2"}`); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Both keys should be present
+	if CurrentState["key1"] != "value1" {
+		t.Errorf("Expected key1 to be preserved, got %v", CurrentState["key1"])
+	}
+	if CurrentState["key2"] != "value2" {
+		t.Errorf("Expected key2 to be added, got %v", CurrentState["key2"])
+	}
+
+	// Update existing key
+	if err := HandleConfigResponse(`{"key1": "updated"}`); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if CurrentState["key1"] != "updated" {
+		t.Errorf("Expected key1 to be updated, got %v", CurrentState["key1"])
 	}
 }
