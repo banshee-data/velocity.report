@@ -5,8 +5,8 @@ on:
     branches:
       - main
     paths:
-      - 'docs/**'
-      - '.github/workflows/deploy-gh-pages.yml'
+      - "public_html/**"
+      - ".github/workflows/deploy-gh-pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./docs
+        working-directory: ./public_html
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,7 +36,7 @@ jobs:
         with:
           node-version: "20"
           cache: "pnpm"
-          cache-dependency-path: "docs/pnpm-lock.yaml"
+          cache-dependency-path: "public_html/pnpm-lock.yaml"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -50,7 +50,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: "docs/_site"
+          path: "public_html/_site"
 
   deploy:
     environment:
