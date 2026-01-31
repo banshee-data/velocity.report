@@ -1,0 +1,221 @@
+// Package sweep provides utilities for parameter sweeping and sampling in LiDAR background detection tuning.
+package sweep
+
+import (
+	"encoding/csv"
+	"fmt"
+	"log"
+	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/monitor"
+)
+
+// Sampler collects acceptance metrics over multiple iterations for parameter sweep analysis.
+type Sampler struct {
+	Client   *monitor.Client
+	Buckets  []string
+	Interval time.Duration
+}
+
+// NewSampler creates a new Sampler with the given client, buckets, and sampling interval.
+func NewSampler(client *monitor.Client, buckets []string, interval time.Duration) *Sampler {
+	return &Sampler{
+		Client:   client,
+		Buckets:  buckets,
+		Interval: interval,
+	}
+}
+
+// SampleConfig holds configuration for a single sampling run.
+type SampleConfig struct {
+	Noise      float64
+	Closeness  float64
+	Neighbour  int
+	Iterations int
+	RawWriter  *csv.Writer
+}
+
+// Sample collects acceptance metrics over the configured number of iterations.
+// Returns a slice of SampleResult, one per iteration.
+func (s *Sampler) Sample(cfg SampleConfig) []SampleResult {
+	results := make([]SampleResult, 0, cfg.Iterations)
+
+	for i := 0; i < cfg.Iterations; i++ {
+		metrics, err := s.Client.FetchAcceptanceMetrics()
+		if err != nil {
+			log.Printf("WARNING: Sample %d failed: %v", i+1, err)
+			time.Sleep(s.Interval)
+			continue
+		}
+
+		acceptCounts := ToInt64Slice(metrics["AcceptCounts"], len(s.Buckets))
+		rejectCounts := ToInt64Slice(metrics["RejectCounts"], len(s.Buckets))
+		totals := ToInt64Slice(metrics["Totals"], len(s.Buckets))
+		rates := ToFloat64Slice(metrics["AcceptanceRates"], len(s.Buckets))
+
+		// Calculate overall acceptance
+		var sumAccept, sumTotal int64
+		for j := range acceptCounts {
+			sumAccept += acceptCounts[j]
+			sumTotal += totals[j]
+		}
+		var overallPct float64
+		if sumTotal > 0 {
+			overallPct = float64(sumAccept) / float64(sumTotal)
+		}
+
+		// Fetch grid status for nonzero cells
+		var nonzero float64
+		if status, err := s.Client.FetchGridStatus(); err == nil {
+			if bc, ok := status["background_count"]; ok {
+				switch v := bc.(type) {
+				case float64:
+					nonzero = v
+				case int:
+					nonzero = float64(v)
+				case int64:
+					nonzero = float64(v)
+				}
+			}
+		}
+
+		result := SampleResult{
+			AcceptCounts:     acceptCounts,
+			RejectCounts:     rejectCounts,
+			Totals:           totals,
+			AcceptanceRates:  rates,
+			NonzeroCells:     nonzero,
+			OverallAcceptPct: overallPct,
+			Timestamp:        time.Now(),
+		}
+		results = append(results, result)
+
+		// Write raw data if writer is provided
+		if cfg.RawWriter != nil {
+			WriteRawRow(cfg.RawWriter, cfg.Noise, cfg.Closeness, cfg.Neighbour, i, result, s.Buckets)
+		}
+
+		if i < cfg.Iterations-1 {
+			time.Sleep(s.Interval)
+		}
+	}
+
+	return results
+}
+
+// WriteRawRow writes a single sample result row to the raw CSV writer.
+func WriteRawRow(w *csv.Writer, noise, closeness float64, neighbour, iter int, result SampleResult, buckets []string) {
+	row := []string{
+		fmt.Sprintf("%.6f", noise),
+		fmt.Sprintf("%.6f", closeness),
+		fmt.Sprintf("%d", neighbour),
+		fmt.Sprintf("%d", iter),
+		result.Timestamp.Format(time.RFC3339Nano),
+	}
+
+	for _, v := range result.AcceptCounts {
+		row = append(row, fmt.Sprintf("%d", v))
+	}
+	for _, v := range result.RejectCounts {
+		row = append(row, fmt.Sprintf("%d", v))
+	}
+	for _, v := range result.Totals {
+		row = append(row, fmt.Sprintf("%d", v))
+	}
+	for _, v := range result.AcceptanceRates {
+		row = append(row, fmt.Sprintf("%.6f", v))
+	}
+	row = append(row, fmt.Sprintf("%.0f", result.NonzeroCells))
+	row = append(row, fmt.Sprintf("%.6f", result.OverallAcceptPct))
+
+	w.Write(row)
+	w.Flush()
+}
+
+// WriteRawHeaders writes the header row for raw sample data.
+func WriteRawHeaders(w *csv.Writer, buckets []string) {
+	header := []string{"noise_relative", "closeness_multiplier", "neighbour_confirmation_count", "iter", "timestamp"}
+	for _, b := range buckets {
+		header = append(header, "accept_counts_"+b)
+	}
+	for _, b := range buckets {
+		header = append(header, "reject_counts_"+b)
+	}
+	for _, b := range buckets {
+		header = append(header, "totals_"+b)
+	}
+	for _, b := range buckets {
+		header = append(header, "acceptance_rates_"+b)
+	}
+	header = append(header, "nonzero_cells", "overall_accept_percent")
+	w.Write(header)
+}
+
+// WriteSummaryHeaders writes the header row for summary data.
+func WriteSummaryHeaders(w *csv.Writer, buckets []string) {
+	header := []string{"noise_relative", "closeness_multiplier", "neighbour_confirmation_count"}
+	for _, b := range buckets {
+		header = append(header, "bucket_"+b+"_mean")
+	}
+	for _, b := range buckets {
+		header = append(header, "bucket_"+b+"_stddev")
+	}
+	header = append(header, "nonzero_cells_mean", "nonzero_cells_stddev", "overall_accept_mean", "overall_accept_stddev")
+	w.Write(header)
+}
+
+// WriteSummary writes a summary row aggregating multiple sample results.
+func WriteSummary(w *csv.Writer, noise, closeness float64, neighbour int, results []SampleResult, buckets []string) {
+	if len(results) == 0 {
+		log.Printf("WARNING: No results to summarise")
+		return
+	}
+
+	// Compute per-bucket means and stddevs
+	means := make([]float64, len(buckets))
+	stds := make([]float64, len(buckets))
+
+	for bi := range buckets {
+		vals := make([]float64, len(results))
+		for ri, r := range results {
+			if bi < len(r.AcceptanceRates) {
+				vals[ri] = r.AcceptanceRates[bi]
+			}
+		}
+		means[bi], stds[bi] = MeanStddev(vals)
+	}
+
+	// Compute nonzero cells mean/stddev
+	nonzeroVals := make([]float64, len(results))
+	for ri, r := range results {
+		nonzeroVals[ri] = r.NonzeroCells
+	}
+	nonzeroMean, nonzeroStd := MeanStddev(nonzeroVals)
+
+	// Compute overall accept mean/stddev
+	overallVals := make([]float64, len(results))
+	for ri, r := range results {
+		overallVals[ri] = r.OverallAcceptPct
+	}
+	overallMean, overallStd := MeanStddev(overallVals)
+
+	// Build row
+	row := []string{
+		fmt.Sprintf("%.6f", noise),
+		fmt.Sprintf("%.6f", closeness),
+		fmt.Sprintf("%d", neighbour),
+	}
+	for _, m := range means {
+		row = append(row, fmt.Sprintf("%.6f", m))
+	}
+	for _, s := range stds {
+		row = append(row, fmt.Sprintf("%.6f", s))
+	}
+	row = append(row, fmt.Sprintf("%.6f", nonzeroMean))
+	row = append(row, fmt.Sprintf("%.6f", nonzeroStd))
+	row = append(row, fmt.Sprintf("%.6f", overallMean))
+	row = append(row, fmt.Sprintf("%.6f", overallStd))
+
+	w.Write(row)
+	w.Flush()
+}

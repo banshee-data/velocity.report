@@ -789,6 +789,7 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", ws.handleStatus)
 	ws.RegisterRoutes(mux)
+	ws.RegisterChartAPIRoutes(mux)
 	return mux
 }
 
