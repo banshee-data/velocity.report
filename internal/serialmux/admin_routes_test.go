@@ -1,15 +1,21 @@
 package serialmux
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
-	"time"
 )
+
+// localHostRequest creates an httptest request that appears to come from localhost.
+// This bypasses tsweb.AllowDebugAccess which checks for loopback IPs.
+func localHostRequest(method, path string, body io.Reader) *http.Request {
+	req := httptest.NewRequest(method, path, body)
+	req.RemoteAddr = "127.0.0.1:12345"
+	return req
+}
 
 // TestAttachAdminRoutes_SendCommandAPI tests the send-command-api endpoint
 func TestAttachAdminRoutes_SendCommandAPI(t *testing.T) {
@@ -97,7 +103,7 @@ func TestAttachAdminRoutes_SendCommandAPI(t *testing.T) {
 				body = strings.NewReader(tt.formData.Encode())
 			}
 
-			req := httptest.NewRequest(tt.method, "/debug/send-command-api", body)
+			req := localHostRequest(tt.method, "/debug/send-command-api", body)
 			if tt.formData != nil {
 				req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			}
@@ -105,9 +111,8 @@ func TestAttachAdminRoutes_SendCommandAPI(t *testing.T) {
 			w := httptest.NewRecorder()
 			httpMux.ServeHTTP(w, req)
 
-			if w.Code != tt.expectedStatus && w.Code != http.StatusForbidden {
-				// Allow 403 due to tailscale auth, or the expected status
-				t.Errorf("Expected status %d, got %d", tt.expectedStatus, w.Code)
+			if w.Code != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d. Body: %s", tt.expectedStatus, w.Code, w.Body.String())
 			}
 
 			if w.Code == tt.expectedStatus && tt.checkBody != nil {
@@ -129,74 +134,34 @@ func TestAttachAdminRoutes_SendCommandAPI_WriteError(t *testing.T) {
 	port.SetWriteError(io.ErrShortWrite)
 
 	formData := url.Values{"command": {"OJ"}}
-	req := httptest.NewRequest(http.MethodPost, "/debug/send-command-api", strings.NewReader(formData.Encode()))
+	req := localHostRequest(http.MethodPost, "/debug/send-command-api", strings.NewReader(formData.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	w := httptest.NewRecorder()
 	httpMux.ServeHTTP(w, req)
 
-	if w.Code != http.StatusInternalServerError && w.Code != http.StatusForbidden {
-		// Allow 403 due to tailscale auth, or 500 for the write error
-		t.Errorf("Expected status 500 or 403, got %d", w.Code)
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("Expected status 500, got %d. Body: %s", w.Code, w.Body.String())
 	}
 }
 
-// TestAttachAdminRoutes_Tail tests the tail endpoint
+// TestAttachAdminRoutes_Tail tests the tail endpoint registration and method handling.
+// Note: SSE data streaming is tested in admin_routes_integration_test.go to avoid race conditions.
 func TestAttachAdminRoutes_Tail(t *testing.T) {
-	port := NewTestSerialPort("line1\nline2\n")
+	port := NewTestSerialPort("")
 	mux := NewSerialMux(port)
 
 	httpMux := http.NewServeMux()
 	mux.AttachAdminRoutes(httpMux)
 
-	t.Run("GET request", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/debug/tail", nil)
-		w := httptest.NewRecorder()
-
-		// Start monitoring in background
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		go mux.Monitor(ctx)
-
-		// Give monitor time to start
-		time.Sleep(20 * time.Millisecond)
-
-		// Create a done channel for the HTTP request
-		done := make(chan struct{})
-		go func() {
-			httpMux.ServeHTTP(w, req)
-			close(done)
-		}()
-
-		// Wait a bit for SSE headers to be set
-		time.Sleep(50 * time.Millisecond)
-
-		// Cancel and wait for completion
-		cancel()
-		select {
-		case <-done:
-			// Success - request completed
-		case <-time.After(500 * time.Millisecond):
-			// Timeout - that's okay, SSE endpoints can hang
-			t.Log("Tail endpoint timed out (expected for SSE)")
-		}
-
-		// Check headers if we got a response
-		if w.Code != 0 && w.Code != http.StatusForbidden && w.Code != http.StatusNotFound {
-			if contentType := w.Header().Get("Content-Type"); contentType != "" && !strings.Contains(contentType, "text/event-stream") {
-				t.Logf("Expected Content-Type 'text/event-stream', got: %s", contentType)
-			}
-		}
-	})
-
 	t.Run("POST method not allowed", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodPost, "/debug/tail", nil)
+		req := localHostRequest(http.MethodPost, "/debug/tail", nil)
 		w := httptest.NewRecorder()
 
 		httpMux.ServeHTTP(w, req)
 
-		if w.Code != http.StatusMethodNotAllowed && w.Code != http.StatusForbidden {
-			t.Errorf("Expected status 405 or 403, got %d", w.Code)
+		if w.Code != http.StatusMethodNotAllowed {
+			t.Errorf("Expected status 405, got %d", w.Code)
 		}
 	})
 }
@@ -209,21 +174,21 @@ func TestAttachAdminRoutes_SendCommand(t *testing.T) {
 	httpMux := http.NewServeMux()
 	mux.AttachAdminRoutes(httpMux)
 
-	req := httptest.NewRequest(http.MethodGet, "/debug/send-command", nil)
+	req := localHostRequest(http.MethodGet, "/debug/send-command", nil)
 	w := httptest.NewRecorder()
 
 	httpMux.ServeHTTP(w, req)
 
-	// Should be registered (might return 403 due to auth or 200 if auth passes)
-	if w.Code == http.StatusNotFound {
-		t.Error("Route /debug/send-command should be registered, got 404")
+	// Should return 200 for valid GET request
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d. Body: %s", w.Code, w.Body.String())
 	}
 
-	// If we get 200, check that the response looks like HTML
+	// Check that the response looks like HTML
 	if w.Code == http.StatusOK {
 		body := w.Body.String()
-		if !strings.Contains(body, "html") && !strings.Contains(body, "HTML") {
-			t.Log("Response doesn't appear to be HTML")
+		if !strings.Contains(body, "html") && !strings.Contains(body, "HTML") && !strings.Contains(body, "<") {
+			t.Error("Response doesn't appear to be HTML")
 		}
 	}
 }
@@ -236,22 +201,21 @@ func TestAttachAdminRoutes_TailJS(t *testing.T) {
 	httpMux := http.NewServeMux()
 	mux.AttachAdminRoutes(httpMux)
 
-	req := httptest.NewRequest(http.MethodGet, "/debug/tail.js", nil)
+	req := localHostRequest(http.MethodGet, "/debug/tail.js", nil)
 	w := httptest.NewRecorder()
 
 	httpMux.ServeHTTP(w, req)
 
-	// Should be registered (might return 403 due to auth or 200 if auth passes)
-	if w.Code == http.StatusNotFound {
-		t.Error("Route /debug/tail.js should be registered, got 404")
+	// Should return 200 for valid GET request
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d. Body: %s", w.Code, w.Body.String())
 	}
 
-	// If we get 200, check that the response looks like JavaScript
+	// Check that the response looks like JavaScript
 	if w.Code == http.StatusOK {
 		contentType := w.Header().Get("Content-Type")
-		body := w.Body.String()
-		if !strings.Contains(contentType, "javascript") && !strings.Contains(body, "function") {
-			t.Log("Response doesn't appear to be JavaScript")
+		if !strings.Contains(contentType, "javascript") {
+			t.Errorf("Expected Content-Type to contain 'javascript', got: %s", contentType)
 		}
 	}
 }

@@ -29,8 +29,11 @@ flag_management:
 flags:
   go:
     paths:
-      - cmd/
       - internal/
+    carryforward: true
+  go-cli:
+    paths:
+      - cmd/
     carryforward: true
   python:
     paths:
