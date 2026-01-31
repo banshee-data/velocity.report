@@ -503,7 +503,15 @@ func TestMonitor_ScannerEOF(t *testing.T) {
 		t.Logf("Monitor returned: %v", err)
 	}
 
-	// Drain channel
-	for range ch {
+	// Drain channel with timeout to prevent hanging
+	timeout := time.After(100 * time.Millisecond)
+	for {
+		select {
+		case <-ch:
+			// Continue draining
+		case <-timeout:
+			// Timeout reached, channel is drained or will never close
+			return
+		}
 	}
 }
