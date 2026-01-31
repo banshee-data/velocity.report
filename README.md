@@ -132,7 +132,8 @@ velocity.report/
 │       │   └── tests/        # Test suite
 │       └── output/           # Generated PDFs
 ├── data/                     # Sample data and alignment utilities
-├── docs/                     # Documentation site (Eleventy)
+├── docs/                     # Internal project documentation
+├── public_html/              # Public documentation site (Eleventy)
 ├── scripts/                  # Development shell scripts
 └── static/                   # Static server assets
 ```
@@ -359,7 +360,7 @@ sudo journalctl -u velocity-report.service -f
 
 **See also:**
 
-- **[docs/src/guides/setup.md](docs/src/guides/setup.md)** - Complete setup and deployment guide
+- **[public_html/src/guides/setup.md](public_html/src/guides/setup.md)** - Complete setup and deployment guide
 - **[cmd/deploy/README.md](cmd/deploy/README.md)** - velocity-deploy CLI reference
 
 **Legacy deployment:**

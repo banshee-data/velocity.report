@@ -42,7 +42,7 @@ The site automatically deploys to GitHub Pages when changes are pushed to the `g
 ## Project Structure
 
 ```
-docs/
+public_html/
 ├── _site/              # Build output (generated)
 ├── src/                # Source files
 │   ├── _layouts/       # Nunjucks templates
@@ -334,7 +334,7 @@ Use in Markdown:
 ### 1. Start Dev Server
 
 ```bash
-cd docs
+cd public_html
 pnpm start
 ```
 
