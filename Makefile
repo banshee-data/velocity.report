@@ -39,6 +39,7 @@ help:
 	@echo "  test                 Run all tests (Go + Python + Web)"
 	@echo "  test-go              Run Go unit tests"
 	@echo "  test-go-cov          Run Go tests with coverage"
+	@echo "  test-go-coverage-summary Show coverage summary for cmd/ and internal/"
 	@echo "  test-python          Run Python PDF generator tests"
 	@echo "  test-python-cov      Run Python tests with coverage"
 	@echo "  test-web             Run web tests (Jest)"
@@ -384,7 +385,7 @@ dev-docs:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-go-cov test-python test-python-cov test-web test-web-cov coverage
+.PHONY: test test-go test-go-cov test-go-coverage-summary test-python test-python-cov test-web test-web-cov coverage
 
 WEB_DIR = web
 
@@ -402,6 +403,12 @@ test-go-cov:
 	@go test ./... -coverprofile=coverage.out -covermode=atomic
 	@go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
+
+# Show coverage summary for cmd/ and internal/ packages
+test-go-coverage-summary:
+	@echo "Computing Go coverage by directory..."
+	@go test -cover ./cmd/... 2>/dev/null | awk '/^ok.*coverage:/ {gsub(/%/, "", $$5); sum+=$$5; count++} END {if (count>0) printf "cmd/      coverage: %.1f%%\n", sum/count; else print "cmd/      coverage: 0.0%"}'
+	@go test -cover ./internal/... 2>/dev/null | awk '/^ok.*coverage:/ {gsub(/%/, "", $$5); sum+=$$5; count++} END {if (count>0) printf "internal/ coverage: %.1f%%\n", sum/count; else print "internal/ coverage: 0.0%"}'
 
 # Run Python tests for the PDF generator. Ensures venv is setup first.
 test-python:
