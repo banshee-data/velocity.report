@@ -23,6 +23,7 @@ make coverage
 ```
 
 This will create HTML reports at:
+
 - Go: `coverage.html`
 - Python: `tools/pdf-generator/htmlcov/index.html`
 - Web: `web/coverage/lcov-report/index.html`
@@ -30,6 +31,7 @@ This will create HTML reports at:
 ### Individual Components
 
 **Go:**
+
 ```bash
 make test-go-cov
 open coverage.html  # macOS
@@ -37,6 +39,7 @@ xdg-open coverage.html  # Linux
 ```
 
 **Python:**
+
 ```bash
 make test-python-cov
 open tools/pdf-generator/htmlcov/index.html  # macOS
@@ -44,6 +47,7 @@ xdg-open tools/pdf-generator/htmlcov/index.html  # Linux
 ```
 
 **Web:**
+
 ```bash
 make test-web-cov
 open web/coverage/lcov-report/index.html  # macOS
