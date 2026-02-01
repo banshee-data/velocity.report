@@ -2609,11 +2609,10 @@ func TestWebServer_StartLiveListenerInternal(t *testing.T) {
 
 	// StartLiveListenerInternal should succeed with proper context and address :0
 	err := server.StartLiveListenerInternal(ctx)
+	// Always defer stop - it's safe to call even if start failed
+	defer server.StopLiveListenerInternal()
 	if err != nil {
 		t.Errorf("StartLiveListenerInternal failed: %v", err)
-	} else {
-		// Only stop if it started successfully
-		defer server.StopLiveListenerInternal()
 	}
 }
 

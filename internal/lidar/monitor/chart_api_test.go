@@ -381,10 +381,12 @@ func TestHandleChartPolarJSON_WithBackgroundManager(t *testing.T) {
 	// Verify background manager is registered
 	bm := lidar.GetBackgroundManager(sensorID)
 	if bm == nil {
-		t.Fatal("Expected non-nil background manager")
+		t.Error("Expected non-nil background manager")
+		return
 	}
 	if bm.Grid == nil {
-		t.Fatal("Expected non-nil grid in background manager")
+		t.Error("Expected non-nil grid in background manager")
+		return
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/polar", nil)
