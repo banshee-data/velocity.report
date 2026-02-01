@@ -20,9 +20,17 @@ const (
 type ReplayConfig struct {
 	StartSeconds    float64 // Start offset in seconds
 	DurationSeconds float64 // Duration to replay (-1 for entire file)
-	SpeedMode       string  // "realtime", "fast", or custom speed
+	SpeedMode       string  // "realtime", "fast", "fastest" or custom speed
 	SpeedRatio      float64 // Speed multiplier (e.g., 2.0 = 2x speed)
 	AnalysisMode    bool    // When true, preserve grid after completion
+
+	// Debug parameters
+	DebugRingMin int
+	DebugRingMax int
+	DebugAzMin   float32
+	DebugAzMax   float32
+	EnableDebug  bool
+	EnablePlots  bool
 }
 
 // DataSourceManager defines an interface for managing data sources.
@@ -235,3 +243,153 @@ var ErrSourceAlreadyActive = errors.New("data source already active")
 
 // ErrNoSourceActive is returned when trying to stop a source that's not active.
 var ErrNoSourceActive = errors.New("no data source active")
+
+// WebServerDataSourceOperations defines the interface for WebServer operations
+// that the RealDataSourceManager needs to delegate to.
+// This allows the DataSourceManager to call back into WebServer without circular dependencies.
+type WebServerDataSourceOperations interface {
+	// StartLiveListenerInternal starts the UDP listener.
+	StartLiveListenerInternal(ctx context.Context) error
+	// StopLiveListenerInternal stops the UDP listener.
+	StopLiveListenerInternal()
+	// StartPCAPInternal starts PCAP replay with the given configuration.
+	StartPCAPInternal(pcapFile string, config ReplayConfig) error
+	// StopPCAPInternal stops the current PCAP replay.
+	StopPCAPInternal()
+	// BaseContext returns the base context for operations.
+	BaseContext() context.Context
+}
+
+// RealDataSourceManager implements DataSourceManager using WebServer operations.
+type RealDataSourceManager struct {
+	mu sync.RWMutex
+
+	// WebServer operations delegate
+	ops WebServerDataSourceOperations
+
+	// Current state
+	source      DataSource
+	pcapFile    string
+	pcapConfig  ReplayConfig
+	liveStarted bool
+	pcapStarted bool
+}
+
+// NewRealDataSourceManager creates a new RealDataSourceManager.
+func NewRealDataSourceManager(ops WebServerDataSourceOperations) *RealDataSourceManager {
+	return &RealDataSourceManager{
+		ops:    ops,
+		source: DataSourceLive,
+	}
+}
+
+// StartLiveListener starts the live UDP listener.
+func (r *RealDataSourceManager) StartLiveListener(ctx context.Context) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.liveStarted {
+		return nil // Already started
+	}
+
+	if err := r.ops.StartLiveListenerInternal(ctx); err != nil {
+		return err
+	}
+
+	r.liveStarted = true
+	r.source = DataSourceLive
+	return nil
+}
+
+// StopLiveListener stops the live UDP listener.
+func (r *RealDataSourceManager) StopLiveListener() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if !r.liveStarted {
+		return nil // Already stopped
+	}
+
+	r.ops.StopLiveListenerInternal()
+	r.liveStarted = false
+	return nil
+}
+
+// StartPCAPReplay starts replaying packets from a PCAP file.
+func (r *RealDataSourceManager) StartPCAPReplay(ctx context.Context, file string, config ReplayConfig) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.pcapStarted {
+		return ErrSourceAlreadyActive
+	}
+
+	if err := r.ops.StartPCAPInternal(file, config); err != nil {
+		return err
+	}
+
+	r.pcapFile = file
+	r.pcapConfig = config
+	r.pcapStarted = true
+	if config.AnalysisMode {
+		r.source = DataSourcePCAPAnalysis
+	} else {
+		r.source = DataSourcePCAP
+	}
+	return nil
+}
+
+// StopPCAPReplay stops the current PCAP replay.
+func (r *RealDataSourceManager) StopPCAPReplay() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if !r.pcapStarted {
+		return nil // Already stopped
+	}
+
+	r.ops.StopPCAPInternal()
+	r.pcapStarted = false
+	r.pcapFile = ""
+	r.source = DataSourceLive
+	return nil
+}
+
+// CurrentSource returns the currently active data source.
+func (r *RealDataSourceManager) CurrentSource() DataSource {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.source
+}
+
+// CurrentPCAPFile returns the currently replaying PCAP file.
+func (r *RealDataSourceManager) CurrentPCAPFile() string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.pcapFile
+}
+
+// IsPCAPInProgress returns true if PCAP replay is currently active.
+func (r *RealDataSourceManager) IsPCAPInProgress() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.pcapStarted
+}
+
+// SetSource sets the current source (used internally by WebServer).
+func (r *RealDataSourceManager) SetSource(source DataSource) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.source = source
+}
+
+// SetPCAPState sets the PCAP state (used internally by WebServer).
+func (r *RealDataSourceManager) SetPCAPState(inProgress bool, file string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.pcapStarted = inProgress
+	r.pcapFile = file
+}
+
+// Ensure RealDataSourceManager implements DataSourceManager.
+var _ DataSourceManager = (*RealDataSourceManager)(nil)

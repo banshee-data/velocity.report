@@ -288,3 +288,221 @@ func TestErrorVariables(t *testing.T) {
 func TestMockDataSourceManager_InterfaceCompliance(t *testing.T) {
 	var _ DataSourceManager = (*MockDataSourceManager)(nil)
 }
+
+// --- RealDataSourceManager Tests ---
+
+// MockWebServerOps implements WebServerDataSourceOperations for testing.
+type MockWebServerOps struct {
+	StartLiveErr   error
+	StartPCAPErr   error
+	StartLiveCalls int
+	StopLiveCalls  int
+	StartPCAPCalls int
+	StopPCAPCalls  int
+	LastPCAPFile   string
+	LastPCAPConfig ReplayConfig
+}
+
+func (m *MockWebServerOps) StartLiveListenerInternal(ctx context.Context) error {
+	m.StartLiveCalls++
+	return m.StartLiveErr
+}
+
+func (m *MockWebServerOps) StopLiveListenerInternal() {
+	m.StopLiveCalls++
+}
+
+func (m *MockWebServerOps) StartPCAPInternal(file string, config ReplayConfig) error {
+	m.StartPCAPCalls++
+	m.LastPCAPFile = file
+	m.LastPCAPConfig = config
+	return m.StartPCAPErr
+}
+
+func (m *MockWebServerOps) StopPCAPInternal() {
+	m.StopPCAPCalls++
+}
+
+func (m *MockWebServerOps) BaseContext() context.Context {
+	return context.Background()
+}
+
+func TestRealDataSourceManager_StartLiveListener(t *testing.T) {
+	ops := &MockWebServerOps{}
+	mgr := NewRealDataSourceManager(ops)
+
+	err := mgr.StartLiveListener(context.Background())
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if ops.StartLiveCalls != 1 {
+		t.Errorf("Expected 1 StartLiveCalls, got %d", ops.StartLiveCalls)
+	}
+	if mgr.CurrentSource() != DataSourceLive {
+		t.Errorf("Expected source DataSourceLive, got %s", mgr.CurrentSource())
+	}
+
+	// Starting again should be a no-op
+	err = mgr.StartLiveListener(context.Background())
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if ops.StartLiveCalls != 1 {
+		t.Errorf("Expected still 1 StartLiveCalls, got %d", ops.StartLiveCalls)
+	}
+}
+
+func TestRealDataSourceManager_StartLiveListener_Error(t *testing.T) {
+	ops := &MockWebServerOps{StartLiveErr: errors.New("bind failed")}
+	mgr := NewRealDataSourceManager(ops)
+
+	err := mgr.StartLiveListener(context.Background())
+	if err == nil {
+		t.Error("Expected error")
+	}
+	if err.Error() != "bind failed" {
+		t.Errorf("Expected 'bind failed', got: %v", err)
+	}
+}
+
+func TestRealDataSourceManager_StopLiveListener(t *testing.T) {
+	ops := &MockWebServerOps{}
+	mgr := NewRealDataSourceManager(ops)
+
+	// Start first
+	mgr.StartLiveListener(context.Background())
+
+	// Stop
+	err := mgr.StopLiveListener()
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if ops.StopLiveCalls != 1 {
+		t.Errorf("Expected 1 StopLiveCalls, got %d", ops.StopLiveCalls)
+	}
+
+	// Stopping again should be a no-op
+	err = mgr.StopLiveListener()
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if ops.StopLiveCalls != 1 {
+		t.Errorf("Expected still 1 StopLiveCalls, got %d", ops.StopLiveCalls)
+	}
+}
+
+func TestRealDataSourceManager_StartPCAPReplay(t *testing.T) {
+	ops := &MockWebServerOps{}
+	mgr := NewRealDataSourceManager(ops)
+
+	config := ReplayConfig{
+		SpeedMode:       "realtime",
+		SpeedRatio:      1.0,
+		StartSeconds:    10.0,
+		DurationSeconds: 60.0,
+	}
+
+	err := mgr.StartPCAPReplay(context.Background(), "/path/to/test.pcap", config)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if ops.StartPCAPCalls != 1 {
+		t.Errorf("Expected 1 StartPCAPCalls, got %d", ops.StartPCAPCalls)
+	}
+	if ops.LastPCAPFile != "/path/to/test.pcap" {
+		t.Errorf("Expected PCAP file '/path/to/test.pcap', got '%s'", ops.LastPCAPFile)
+	}
+	if mgr.CurrentSource() != DataSourcePCAP {
+		t.Errorf("Expected source DataSourcePCAP, got %s", mgr.CurrentSource())
+	}
+	if !mgr.IsPCAPInProgress() {
+		t.Error("Expected PCAP in progress")
+	}
+	if mgr.CurrentPCAPFile() != "/path/to/test.pcap" {
+		t.Errorf("Expected CurrentPCAPFile '/path/to/test.pcap', got '%s'", mgr.CurrentPCAPFile())
+	}
+}
+
+func TestRealDataSourceManager_StartPCAPReplay_AnalysisMode(t *testing.T) {
+	ops := &MockWebServerOps{}
+	mgr := NewRealDataSourceManager(ops)
+
+	config := ReplayConfig{
+		AnalysisMode: true,
+	}
+
+	err := mgr.StartPCAPReplay(context.Background(), "test.pcap", config)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if mgr.CurrentSource() != DataSourcePCAPAnalysis {
+		t.Errorf("Expected source DataSourcePCAPAnalysis, got %s", mgr.CurrentSource())
+	}
+}
+
+func TestRealDataSourceManager_StartPCAPReplay_AlreadyActive(t *testing.T) {
+	ops := &MockWebServerOps{}
+	mgr := NewRealDataSourceManager(ops)
+
+	// Start first PCAP
+	mgr.StartPCAPReplay(context.Background(), "first.pcap", ReplayConfig{})
+
+	// Try starting second - should fail
+	err := mgr.StartPCAPReplay(context.Background(), "second.pcap", ReplayConfig{})
+	if err != ErrSourceAlreadyActive {
+		t.Errorf("Expected ErrSourceAlreadyActive, got: %v", err)
+	}
+}
+
+func TestRealDataSourceManager_StopPCAPReplay(t *testing.T) {
+	ops := &MockWebServerOps{}
+	mgr := NewRealDataSourceManager(ops)
+
+	// Start PCAP
+	mgr.StartPCAPReplay(context.Background(), "test.pcap", ReplayConfig{})
+
+	// Stop
+	err := mgr.StopPCAPReplay()
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if ops.StopPCAPCalls != 1 {
+		t.Errorf("Expected 1 StopPCAPCalls, got %d", ops.StopPCAPCalls)
+	}
+	if mgr.IsPCAPInProgress() {
+		t.Error("Expected PCAP not in progress")
+	}
+	if mgr.CurrentPCAPFile() != "" {
+		t.Errorf("Expected empty CurrentPCAPFile, got '%s'", mgr.CurrentPCAPFile())
+	}
+	if mgr.CurrentSource() != DataSourceLive {
+		t.Errorf("Expected source DataSourceLive, got %s", mgr.CurrentSource())
+	}
+}
+
+func TestRealDataSourceManager_SetSource(t *testing.T) {
+	ops := &MockWebServerOps{}
+	mgr := NewRealDataSourceManager(ops)
+
+	mgr.SetSource(DataSourcePCAPAnalysis)
+	if mgr.CurrentSource() != DataSourcePCAPAnalysis {
+		t.Errorf("Expected source DataSourcePCAPAnalysis, got %s", mgr.CurrentSource())
+	}
+}
+
+func TestRealDataSourceManager_SetPCAPState(t *testing.T) {
+	ops := &MockWebServerOps{}
+	mgr := NewRealDataSourceManager(ops)
+
+	mgr.SetPCAPState(true, "manual.pcap")
+	if !mgr.IsPCAPInProgress() {
+		t.Error("Expected PCAP in progress")
+	}
+	if mgr.CurrentPCAPFile() != "manual.pcap" {
+		t.Errorf("Expected CurrentPCAPFile 'manual.pcap', got '%s'", mgr.CurrentPCAPFile())
+	}
+}
+
+func TestRealDataSourceManager_InterfaceCompliance(t *testing.T) {
+	var _ DataSourceManager = (*RealDataSourceManager)(nil)
+}

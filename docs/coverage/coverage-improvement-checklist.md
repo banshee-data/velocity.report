@@ -706,18 +706,23 @@ Several packages have low coverage (60-70%) due to direct dependencies on extern
   - [x] Test reset functionality
 - [x] **Target coverage:** 95%+ ✅ Achieved
 
-#### 4.5.2: Refactor WebServer to Use Interface (Deferred)
+#### 4.5.2: Refactor WebServer to Use Interface ✅ COMPLETE
 
-- [ ] **Update internal/lidar/monitor/webserver.go**
-  - [ ] Add DataSourceManager field
-  - [ ] Replace direct UDPListener/PCAP calls with interface
-  - [ ] Inject via WebServerConfig
-- [ ] **Update tests** (webserver_test.go)
-  - [ ] Use MockDataSourceManager
-  - [ ] Test PCAP start/stop handlers
-  - [ ] Test live listener management
-  - [ ] Test source switching API
-- **Note:** Full WebServer refactoring deferred to avoid breaking changes in the complex webserver implementation.
+- [x] **Update internal/lidar/monitor/webserver.go**
+  - [x] Add DataSourceManager field (always initialized, not optional)
+  - [x] Create RealDataSourceManager that implements DataSourceManager
+  - [x] Implement WebServerDataSourceOperations interface on WebServer
+  - [x] WebServer delegates all data source operations to DataSourceManager
+  - [x] Inject via WebServerConfig (uses RealDataSourceManager if none provided)
+- [x] **Update tests** (webserver_test.go)
+  - [x] Use MockDataSourceManager for testing
+  - [x] Test error injection via mock
+  - [x] Test RealDataSourceManager creation
+- [x] **Add RealDataSourceManager tests** (datasource_test.go)
+  - [x] Test live listener start/stop
+  - [x] Test PCAP replay start/stop
+  - [x] Test source state management
+  - [x] Test error handling
 
 ### Phase 4 Verification
 
@@ -727,13 +732,13 @@ Several packages have low coverage (60-70%) due to direct dependencies on extern
   - [x] internal/deploy: CommandBuilder injection enables testing SSH paths
   - [x] internal/lidar/network: SocketFactory and PCAPReader enable testing packet processing
   - [x] internal/serialmux: SerialPortFactory enables testing serial communication
-  - [x] internal/lidar/monitor: DataSourceManager enables testing data source switching
+  - [x] internal/lidar/monitor: DataSourceManager enables testing data source switching (full integration)
 - [x] Verify no new tests require network/hardware access
 - [x] Update this checklist with actual coverage achieved
 
 **Phase 4 Complete:** ☒ YES ☐ NO
 **Date Completed:** **2026-02-01**
-**Notes:** All Phase 4 interfaces and mock implementations are complete. Full integration refactoring (Tasks 4.2.2 and 4.5.2) deferred to avoid breaking changes. The infrastructure is now in place for future test improvements.
+**Notes:** All Phase 4 tasks are now complete including full integration refactoring. WebServer now uses DataSourceManager for all data source operations, enabling comprehensive unit testing.
 
 ---
 
