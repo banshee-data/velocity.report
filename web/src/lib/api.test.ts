@@ -18,6 +18,7 @@ import {
 	getTrackById,
 	getTrackHistory,
 	getTrackObservations,
+	getTrackObservationsRange,
 	getTrackSummary,
 	getTransitWorkerState,
 	listSiteConfigPeriods,
@@ -356,6 +357,48 @@ describe('api', () => {
 			expect(result).toEqual(response);
 		});
 
+		it('should handle upsertSiteConfigPeriod error with JSON error message', async () => {
+			const mockPeriod: SiteConfigPeriod = {
+				site_id: 7,
+				effective_start_unix: 1000,
+				effective_end_unix: null,
+				is_active: true,
+				notes: null,
+				cosine_error_angle: 12
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 400,
+				json: async () => ({ error: 'Invalid period configuration' })
+			});
+
+			await expect(upsertSiteConfigPeriod(mockPeriod)).rejects.toThrow(
+				'Invalid period configuration'
+			);
+		});
+
+		it('should handle upsertSiteConfigPeriod error when JSON parsing fails', async () => {
+			const mockPeriod: SiteConfigPeriod = {
+				site_id: 7,
+				effective_start_unix: 1000,
+				effective_end_unix: null,
+				is_active: true,
+				notes: null,
+				cosine_error_angle: 12
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 500,
+				json: async () => {
+					throw new Error('Invalid JSON');
+				}
+			});
+
+			await expect(upsertSiteConfigPeriod(mockPeriod)).rejects.toThrow('HTTP 500');
+		});
+
 		it('should fetch timeline', async () => {
 			const mockTimeline = {
 				site_id: 5,
@@ -375,6 +418,15 @@ describe('api', () => {
 			expect(callUrl).toContain('/api/timeline');
 			expect(callUrl).toContain('site_id=5');
 			expect(result).toEqual(mockTimeline);
+		});
+
+		it('should handle errors when fetching timeline', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 404
+			});
+
+			await expect(getTimeline(999)).rejects.toThrow('Failed to fetch timeline: 404');
 		});
 	});
 
@@ -1421,6 +1473,68 @@ describe('api', () => {
 				await expect(getTrackObservations('nonexistent')).rejects.toThrow(
 					'Failed to fetch track observations: 404'
 				);
+			});
+		});
+
+		describe('getTrackObservationsRange', () => {
+			it('should fetch observations for a sensor within time range', async () => {
+				const mockResponse = {
+					observations: [
+						{
+							track_id: 'track-789',
+							timestamp: '2025-12-09T10:00:00Z',
+							position: { x: 5.0, y: 3.0, z: 0.5 },
+							velocity: { vx: 0.8, vy: 0.3 },
+							speed_mps: 0.85,
+							heading_rad: 0.36,
+							bounding_box: { length: 0.5, width: 0.3, height: 1.7 }
+						}
+					],
+					count: 1,
+					timestamp: '2025-12-09T10:00:00Z'
+				};
+
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => mockResponse
+				});
+
+				const result = await getTrackObservationsRange('hesai-pandar40p', 1000000, 2000000);
+
+				expect(global.fetch).toHaveBeenCalled();
+				const callUrl = (global.fetch as jest.Mock).mock.calls[0][0].toString();
+				expect(callUrl).toContain('/api/lidar/observations');
+				expect(callUrl).toContain('sensor_id=hesai-pandar40p');
+				expect(callUrl).toContain('start_time=1000000');
+				expect(callUrl).toContain('end_time=2000000');
+				expect(callUrl).toContain('limit=2000');
+				expect(result).toEqual(mockResponse);
+			});
+
+			it('should include optional track_id parameter when provided', async () => {
+				const mockResponse = { observations: [], count: 0, timestamp: '2025-12-09T10:00:00Z' };
+
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => mockResponse
+				});
+
+				await getTrackObservationsRange('hesai-pandar40p', 1000000, 2000000, 500, 'track-123');
+
+				const callUrl = (global.fetch as jest.Mock).mock.calls[0][0].toString();
+				expect(callUrl).toContain('track_id=track-123');
+				expect(callUrl).toContain('limit=500');
+			});
+
+			it('should handle errors when fetching track observations range', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: false,
+					status: 500
+				});
+
+				await expect(
+					getTrackObservationsRange('hesai-pandar40p', 1000000, 2000000)
+				).rejects.toThrow('Failed to fetch track observations range: 500');
 			});
 		});
 
