@@ -2,6 +2,16 @@
     <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
             <div class="flex items-center space-x-8">
+                {# Hamburger menu button - visible on mobile #}
+                <button id="mobile-menu-button"
+                        class="md:hidden text-white hover:text-emerald-100 transition-colors p-2 -ml-2"
+                        aria-label="Toggle menu"
+                        aria-expanded="false">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+
                 <a href="/" class="text-xl font-bold text-white hover:text-emerald-100">
                     velocity.report
                 </a>
@@ -29,5 +39,61 @@
                 </a>
             </div>
         </div>
+
+        {# Mobile menu dropdown #}
+        <div id="mobile-menu"
+             class="hidden md:hidden border-t border-emerald-800 py-4"
+             aria-label="Mobile navigation">
+            <div class="flex flex-col space-y-3">
+                <a href="/guides/" class="text-white hover:text-emerald-100 transition-colors px-2 py-1">
+                    Guides
+                </a>
+                <a href="/community/" class="text-white hover:text-emerald-100 transition-colors px-2 py-1">
+                    Community
+                </a>
+            </div>
+        </div>
     </nav>
 </header>
+
+<script>
+(function() {
+    const menuButton = document.getElementById('mobile-menu-button');
+    const mobileMenu = document.getElementById('mobile-menu');
+
+    if (menuButton && mobileMenu) {
+        menuButton.addEventListener('click', function() {
+            const isExpanded = menuButton.getAttribute('aria-expanded') === 'true';
+
+            // Toggle menu visibility
+            if (isExpanded) {
+                mobileMenu.classList.add('hidden');
+                menuButton.setAttribute('aria-expanded', 'false');
+            } else {
+                mobileMenu.classList.remove('hidden');
+                menuButton.setAttribute('aria-expanded', 'true');
+            }
+        });
+
+        // Close menu when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!menuButton.contains(event.target) && !mobileMenu.contains(event.target)) {
+                mobileMenu.classList.add('hidden');
+                menuButton.setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        // Close menu when window is resized to desktop view
+        let resizeTimer;
+        window.addEventListener('resize', function() {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(function() {
+                if (window.innerWidth >= 768) { // md breakpoint
+                    mobileMenu.classList.add('hidden');
+                    menuButton.setAttribute('aria-expanded', 'false');
+                }
+            }, 250);
+        });
+    }
+})();
+</script>
