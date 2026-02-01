@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,7 +13,9 @@ import (
 )
 
 // MockFullPacketStats implements PacketStatsInterface for testing
+// All fields are protected by mutex for thread-safe access during concurrent tests.
 type MockFullPacketStats struct {
+	mu          sync.Mutex
 	packetCount int
 	droppedCnt  int
 	pointCount  int
@@ -20,19 +23,55 @@ type MockFullPacketStats struct {
 }
 
 func (m *MockFullPacketStats) AddPacket(bytes int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.packetCount++
 }
 
 func (m *MockFullPacketStats) AddDropped() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.droppedCnt++
 }
 
 func (m *MockFullPacketStats) AddPoints(count int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.pointCount += count
 }
 
 func (m *MockFullPacketStats) LogStats(parsePackets bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.logCalls++
+}
+
+// GetPacketCount returns the current packet count (thread-safe).
+func (m *MockFullPacketStats) GetPacketCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.packetCount
+}
+
+// GetDroppedCount returns the current dropped count (thread-safe).
+func (m *MockFullPacketStats) GetDroppedCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.droppedCnt
+}
+
+// GetPointCount returns the current point count (thread-safe).
+func (m *MockFullPacketStats) GetPointCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.pointCount
+}
+
+// GetLogCalls returns the current log calls count (thread-safe).
+func (m *MockFullPacketStats) GetLogCalls() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.logCalls
 }
 
 // MockParser implements Parser interface for testing
@@ -307,8 +346,8 @@ func TestUDPListener_HandlePacket(t *testing.T) {
 		t.Errorf("handlePacket returned error: %v", err)
 	}
 
-	if stats.packetCount != 1 {
-		t.Errorf("Expected packetCount 1, got %d", stats.packetCount)
+	if stats.GetPacketCount() != 1 {
+		t.Errorf("Expected packetCount 1, got %d", stats.GetPacketCount())
 	}
 }
 
@@ -341,8 +380,8 @@ func TestUDPListener_HandlePacket_WithParser(t *testing.T) {
 	if parser.parseCalled != 1 {
 		t.Errorf("Expected parser to be called once, got %d", parser.parseCalled)
 	}
-	if stats.pointCount != 2 {
-		t.Errorf("Expected pointCount 2, got %d", stats.pointCount)
+	if stats.GetPointCount() != 2 {
+		t.Errorf("Expected pointCount 2, got %d", stats.GetPointCount())
 	}
 	if frameBuilder.addCalled != 1 {
 		t.Errorf("Expected AddPointsPolar to be called once, got %d", frameBuilder.addCalled)
@@ -381,8 +420,8 @@ func TestUDPListener_HandlePacket_ParsingDisabled(t *testing.T) {
 		t.Errorf("Expected parser not to be called, got %d calls", parser.parseCalled)
 	}
 	// But packet stats should still be tracked
-	if stats.packetCount != 1 {
-		t.Errorf("Expected packetCount 1, got %d", stats.packetCount)
+	if stats.GetPacketCount() != 1 {
+		t.Errorf("Expected packetCount 1, got %d", stats.GetPacketCount())
 	}
 }
 
@@ -503,8 +542,8 @@ func TestUDPListener_StartStatsLogging(t *testing.T) {
 	// This is a long wait, so we'll just verify the mechanism works
 	time.Sleep(2100 * time.Millisecond)
 
-	if stats.logCalls < 1 {
-		t.Errorf("Expected at least 1 log call, got %d", stats.logCalls)
+	if stats.GetLogCalls() < 1 {
+		t.Errorf("Expected at least 1 log call, got %d", stats.GetLogCalls())
 	}
 
 	cancel()
@@ -534,8 +573,8 @@ func TestUDPListener_StartStatsLogging_ContextCancelBeforeInitial(t *testing.T) 
 	time.Sleep(50 * time.Millisecond)
 
 	// Should have exited without logging
-	if stats.logCalls != 0 {
-		t.Errorf("Expected 0 log calls after early cancel, got %d", stats.logCalls)
+	if stats.GetLogCalls() != 0 {
+		t.Errorf("Expected 0 log calls after early cancel, got %d", stats.GetLogCalls())
 	}
 }
 
@@ -610,24 +649,32 @@ func TestUDPListener_Start_ReceivePacket(t *testing.T) {
 		errChan <- listener.Start(ctx)
 	}()
 
-	// Wait for listener to start
-	time.Sleep(50 * time.Millisecond)
+	// Wait for listener to start with polling for connection
+	var conn UDPSocket
+	deadline := time.Now().Add(1 * time.Second)
+	for time.Now().Before(deadline) {
+		conn = listener.GetConn()
+		if conn != nil {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 
 	// Get the actual port from the connection
-	if listener.conn == nil {
+	if conn == nil {
 		t.Fatal("Listener connection is nil")
 	}
-	port := listener.conn.LocalAddr().(*net.UDPAddr).Port
+	port := conn.LocalAddr().(*net.UDPAddr).Port
 
 	// Send a test packet
-	conn, err := net.Dial("udp", fmt.Sprintf("127.0.0.1:%d", port))
+	dialConn, err := net.Dial("udp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {
 		t.Fatalf("Failed to dial UDP: %v", err)
 	}
-	defer conn.Close()
+	defer dialConn.Close()
 
 	testPacket := make([]byte, 100)
-	_, err = conn.Write(testPacket)
+	_, err = dialConn.Write(testPacket)
 	if err != nil {
 		t.Fatalf("Failed to send packet: %v", err)
 	}
@@ -635,8 +682,8 @@ func TestUDPListener_Start_ReceivePacket(t *testing.T) {
 	// Wait for packet to be processed
 	time.Sleep(100 * time.Millisecond)
 
-	if stats.packetCount != 1 {
-		t.Errorf("Expected 1 packet received, got %d", stats.packetCount)
+	if stats.GetPacketCount() != 1 {
+		t.Errorf("Expected 1 packet received, got %d", stats.GetPacketCount())
 	}
 
 	cancel()
@@ -658,7 +705,14 @@ func TestUDPListener_Close(t *testing.T) {
 		listener.Start(ctx)
 	}()
 
-	time.Sleep(50 * time.Millisecond)
+	// Wait for listener to start with polling
+	deadline := time.Now().Add(1 * time.Second)
+	for time.Now().Before(deadline) {
+		if listener.GetConn() != nil {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 
 	err := listener.Close()
 	if err != nil {
@@ -857,13 +911,13 @@ func TestUDPListener_Start_WithMockSocket(t *testing.T) {
 	// Poll until packets are processed (instead of fixed sleep)
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
-		if stats.packetCount >= 2 {
+		if stats.GetPacketCount() >= 2 {
 			break // Packets processed
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	if stats.packetCount < 2 {
-		t.Fatalf("Timeout waiting for packets to be processed, got %d", stats.packetCount)
+	if stats.GetPacketCount() < 2 {
+		t.Fatalf("Timeout waiting for packets to be processed, got %d", stats.GetPacketCount())
 	}
 
 	// Cancel to stop
@@ -885,8 +939,8 @@ func TestUDPListener_Start_WithMockSocket(t *testing.T) {
 	}
 
 	// Verify packets were processed
-	if stats.packetCount < 2 {
-		t.Errorf("Expected at least 2 packets processed, got %d", stats.packetCount)
+	if stats.GetPacketCount() < 2 {
+		t.Errorf("Expected at least 2 packets processed, got %d", stats.GetPacketCount())
 	}
 
 	// Verify buffer was set

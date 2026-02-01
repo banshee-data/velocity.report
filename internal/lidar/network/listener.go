@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
@@ -37,6 +38,7 @@ type UDPListener struct {
 	address        string
 	rcvBuf         int
 	logInterval    time.Duration
+	connMu         sync.RWMutex // Protects conn field
 	conn           UDPSocket
 	stats          PacketStatsInterface
 	forwarder      *PacketForwarder
@@ -122,7 +124,7 @@ func (l *UDPListener) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to listen on UDP address: %w", err)
 	}
-	l.conn = conn
+	l.setConn(conn)
 	defer conn.Close()
 
 	// Set receive buffer size
@@ -273,10 +275,27 @@ func (l *UDPListener) handlePacket(packet []byte) error {
 	return nil
 }
 
+// setConn sets the connection with mutex protection
+func (l *UDPListener) setConn(conn UDPSocket) {
+	l.connMu.Lock()
+	defer l.connMu.Unlock()
+	l.conn = conn
+}
+
+// GetConn returns the connection with mutex protection (for testing)
+func (l *UDPListener) GetConn() UDPSocket {
+	l.connMu.RLock()
+	defer l.connMu.RUnlock()
+	return l.conn
+}
+
 // Close closes the UDP listener and releases resources
 func (l *UDPListener) Close() error {
-	if l.conn != nil {
-		return l.conn.Close()
+	l.connMu.RLock()
+	conn := l.conn
+	l.connMu.RUnlock()
+	if conn != nil {
+		return conn.Close()
 	}
 	return nil
 }

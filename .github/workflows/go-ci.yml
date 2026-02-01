@@ -116,18 +116,16 @@ jobs:
         run: ./scripts/ensure-web-stub.sh
 
       - name: Run core tests
-        env:
-          SKIP_PDF_TESTS: "1"
         run: |
           go test -v -race -coverprofile=coverage-core.out -covermode=atomic \
             ./internal/db/... \
-            ./internal/api/... \
             ./internal/radar/... \
             ./internal/serialmux/... \
             ./internal/security/... \
             ./internal/units/... \
             ./internal/timeutil/... \
             ./internal/httputil/... \
+            ./internal/testutil/... \
             ./internal/fsutil/... \
             ./internal/monitoring/... \
             ./internal/deploy/... \
@@ -226,6 +224,11 @@ jobs:
 
       - name: Install Python dependencies
         run: make install-python
+
+      - name: Run API tests (includes E2E with Python PDF generator)
+        run: |
+          go test -v -race -coverprofile=coverage-api.out -covermode=atomic \
+            ./internal/api/...
 
       - name: Download coverage artifacts
         uses: actions/download-artifact@v4
