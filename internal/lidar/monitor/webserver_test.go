@@ -2611,10 +2611,10 @@ func TestWebServer_StartLiveListenerInternal(t *testing.T) {
 	err := server.StartLiveListenerInternal(ctx)
 	if err != nil {
 		t.Errorf("StartLiveListenerInternal failed: %v", err)
+	} else {
+		// Only stop if it started successfully
+		defer server.StopLiveListenerInternal()
 	}
-
-	// StopLiveListenerInternal
-	defer server.StopLiveListenerInternal()
 }
 
 func TestWebServer_ResolvePCAPPath(t *testing.T) {
@@ -2740,7 +2740,9 @@ func TestWebServer_HandleLidarPersist(t *testing.T) {
 
 	server := NewWebServer(config)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/persist?sensor_id="+sensorID, nil)
+	params := url.Values{}
+	params.Set("sensor_id", sensorID)
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/persist?"+params.Encode(), nil)
 	rec := httptest.NewRecorder()
 
 	server.handleLidarPersist(rec, req)
@@ -2765,7 +2767,9 @@ func TestWebServer_HandlePCAPStart_NoPCAPDir(t *testing.T) {
 	server := NewWebServer(config)
 
 	body := `{"pcap_file": "test.pcap"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?sensor_id="+sensorID, strings.NewReader(body))
+	params := url.Values{}
+	params.Set("sensor_id", sensorID)
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?"+params.Encode(), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
