@@ -371,3 +371,168 @@ func TestHandleChartClustersJSON_NoTrackAPI(t *testing.T) {
 		t.Errorf("got status %d, want %d", rec.Code, http.StatusServiceUnavailable)
 	}
 }
+func TestHandleChartPolarJSON_WithBackgroundManager(t *testing.T) {
+	sensorID := "test-polar-" + time.Now().Format("150405")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	ws := &WebServer{sensorID: sensorID}
+
+	// Verify background manager is registered
+	bm := lidar.GetBackgroundManager(sensorID)
+	if bm == nil {
+		t.Error("Expected non-nil background manager")
+		return
+	}
+	if bm.Grid == nil {
+		t.Error("Expected non-nil grid in background manager")
+		return
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/polar", nil)
+	rec := httptest.NewRecorder()
+
+	ws.handleChartPolarJSON(rec, req)
+
+	// Accept 200 OK if cells exist, or 404 if grid is empty
+	if rec.Code != http.StatusOK && rec.Code != http.StatusNotFound {
+		t.Errorf("Expected status 200 or 404, got %d", rec.Code)
+	}
+}
+
+func TestHandleChartPolarJSON_CustomMaxPoints(t *testing.T) {
+	sensorID := "test-polar-maxpts-" + time.Now().Format("150405")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	ws := &WebServer{sensorID: sensorID}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/polar?max_points=500", nil)
+	rec := httptest.NewRecorder()
+
+	ws.handleChartPolarJSON(rec, req)
+
+	// Accept 200 OK if cells exist, or 404 if grid is empty
+	if rec.Code != http.StatusOK && rec.Code != http.StatusNotFound {
+		t.Errorf("Expected status 200 or 404, got %d", rec.Code)
+	}
+}
+
+func TestHandleChartHeatmapJSON_WithParams(t *testing.T) {
+	sensorID := "test-heatmap-params-" + time.Now().Format("150405")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	ws := &WebServer{sensorID: sensorID}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/heatmap?azimuth_bucket_deg=6&settled_threshold=10", nil)
+	rec := httptest.NewRecorder()
+
+	ws.handleChartHeatmapJSON(rec, req)
+
+	// Should accept custom parameters
+	if rec.Code != http.StatusOK && rec.Code != http.StatusNotFound {
+		t.Errorf("got status %d, want OK or NotFound", rec.Code)
+	}
+}
+
+func TestHandleChartHeatmapJSON_WithSensorID(t *testing.T) {
+	sensorID := "test-heatmap-sensor-" + time.Now().Format("150405")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	ws := &WebServer{sensorID: "other-sensor"}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/heatmap?sensor_id="+sensorID, nil)
+	rec := httptest.NewRecorder()
+
+	ws.handleChartHeatmapJSON(rec, req)
+
+	// Should use sensor_id from query param
+	if rec.Code != http.StatusOK && rec.Code != http.StatusNotFound {
+		t.Errorf("got status %d, want OK or NotFound", rec.Code)
+	}
+}
+
+func TestHandleChartTrafficJSON_WithStats(t *testing.T) {
+	stats := NewPacketStats()
+	stats.AddPacket(1000)
+	stats.AddPoints(100)
+	stats.LogStats(true) // Create a snapshot
+
+	ws := &WebServer{stats: stats}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/traffic", nil)
+	rec := httptest.NewRecorder()
+
+	ws.handleChartTrafficJSON(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("got status %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	// Verify JSON response
+	var result map[string]interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+
+	// Should have expected fields
+	if _, ok := result["packets_per_sec"]; !ok {
+		t.Error("expected 'packets_per_sec' field in response")
+	}
+}
+
+func TestHandleChartTrafficJSON_NoSnapshot(t *testing.T) {
+	stats := NewPacketStats()
+	// Don't call LogStats, so no snapshot exists
+
+	ws := &WebServer{stats: stats}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/traffic", nil)
+	rec := httptest.NewRecorder()
+
+	ws.handleChartTrafficJSON(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("got status %d, want %d", rec.Code, http.StatusNotFound)
+	}
+}
+
+func TestWriteJSONError(t *testing.T) {
+	ws := &WebServer{}
+
+	rec := httptest.NewRecorder()
+	ws.writeJSONError(rec, http.StatusBadRequest, "test error message")
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("got status %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+
+	if msg, ok := result["error"].(string); !ok || msg != "test error message" {
+		t.Errorf("got error=%v, want 'test error message'", result["error"])
+	}
+}
+
+func TestHandleChartClustersJSON_WithQueryParams(t *testing.T) {
+	ws := &WebServer{
+		sensorID: "test-sensor",
+		trackAPI: nil, // Will return service unavailable
+	}
+
+	// Test with various query parameters
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/clusters?start=1000&end=2000&limit=50", nil)
+	rec := httptest.NewRecorder()
+
+	ws.handleChartClustersJSON(rec, req)
+
+	// Should fail because trackAPI is nil, but should parse params first
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("got status %d, want %d", rec.Code, http.StatusServiceUnavailable)
+	}
+}

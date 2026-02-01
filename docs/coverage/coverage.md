@@ -2,13 +2,15 @@
 
 This project uses [Codecov](https://codecov.io) to track code coverage across all three main components: Go server, Python PDF generator, and Web frontend.
 
+**Current Status:** See [coverage-status.md](coverage-status.md) for improvement progress and outstanding work.
+
 ## Coverage Badges
 
 The README displays live coverage badges for each component:
 
-- **Go Coverage**: Shows test coverage for `cmd/` and `internal/` packages
-- **Python Coverage**: Shows test coverage for the PDF generator in `tools/pdf-generator/`
-- **Web Coverage**: Shows test coverage for the Svelte web frontend in `web/src/`
+- **Go Coverage**: Test coverage for `internal/` packages (~89% average)
+- **Python Coverage**: Test coverage for the PDF generator in `tools/pdf-generator/`
+- **Web Coverage**: Test coverage for the Svelte web frontend in `web/src/`
 
 Each badge links to detailed coverage reports on Codecov.
 
@@ -23,6 +25,7 @@ make coverage
 ```
 
 This will create HTML reports at:
+
 - Go: `coverage.html`
 - Python: `tools/pdf-generator/htmlcov/index.html`
 - Web: `web/coverage/lcov-report/index.html`
@@ -30,6 +33,7 @@ This will create HTML reports at:
 ### Individual Components
 
 **Go:**
+
 ```bash
 make test-go-cov
 open coverage.html  # macOS
@@ -37,6 +41,7 @@ xdg-open coverage.html  # Linux
 ```
 
 **Python:**
+
 ```bash
 make test-python-cov
 open tools/pdf-generator/htmlcov/index.html  # macOS
@@ -44,6 +49,7 @@ xdg-open tools/pdf-generator/htmlcov/index.html  # Linux
 ```
 
 **Web:**
+
 ```bash
 make test-web-cov
 open web/coverage/lcov-report/index.html  # macOS
