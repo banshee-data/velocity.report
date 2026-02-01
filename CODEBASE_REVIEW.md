@@ -305,21 +305,21 @@ Currently duplicated across:
 
 ## Implementation Roadmap
 
-### Priority 1: Quick Wins (< 1 day)
+### Priority 1: Quick Wins (< 1 day) ✅
 
-- [ ] Add `t.Parallel()` to independent tests
-- [ ] Create shared pnpm setup action
-- [ ] Fix Go CI cache key consistency
-- [ ] Add job name emojis for CI clarity
+- [x] Add `t.Parallel()` to independent tests (units, timeutil packages)
+- [x] Create shared pnpm setup action (`.github/actions/setup-node-pnpm/action.yml`)
+- [x] Fix Go CI cache key consistency
+- [x] Add job name emojis for CI clarity
 
 **Total: 4 hours**
 
-### Priority 2: CI Optimisation (1-2 days)
+### Priority 2: CI Optimisation (1-2 days) ✅
 
-- [ ] Split Go CI into parallel jobs
-- [ ] Move PDF E2E tests to separate job
-- [ ] Add Python venv caching
-- [ ] Create composite actions for common setup
+- [x] Split Go CI into parallel jobs (`lint`, `build`, `test-core`, `test-lidar`, `test-integration`)
+- [x] Move PDF E2E tests to separate job (`test-integration`)
+- [x] Add Python venv caching
+- [x] Create composite actions for common setup
 
 **Total: 10 hours**
 
