@@ -605,3 +605,45 @@ def compute_viewbox_from_gps(
         "GPS-to-viewBox conversion not yet implemented. "
         "Use fractional coordinates (0-1) for now."
     )
+
+
+def extract_svg_from_site_data(
+    site_data: Dict[str, Any],
+    output_path: str,
+) -> bool:
+    """Extract and save SVG map data from site database record.
+
+    Args:
+        site_data: Site dictionary from API (must contain map_svg_data field)
+        output_path: Path where SVG file should be saved
+
+    Returns:
+        True if SVG was successfully extracted and saved, False otherwise
+    """
+    import base64
+
+    # Check if site has map SVG data
+    map_svg_data = site_data.get("map_svg_data")
+    if not map_svg_data:
+        return False
+
+    try:
+        # Decode base64 SVG data
+        svg_bytes = base64.b64decode(map_svg_data)
+        svg_text = svg_bytes.decode("utf-8")
+
+        # Verify it's valid SVG
+        if "<svg" not in svg_text.lower():
+            print(f"  [extract_svg] Warning: decoded data doesn't appear to be valid SVG")
+            return False
+
+        # Write to file
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(svg_text)
+
+        print(f"  [extract_svg] ✓ Successfully extracted SVG to: {output_path}")
+        return True
+
+    except Exception as e:
+        print(f"  [extract_svg] ✗ Failed to extract SVG data: {e}")
+        return False

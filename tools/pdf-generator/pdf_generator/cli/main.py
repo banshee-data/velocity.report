@@ -926,6 +926,7 @@ def assemble_pdf_report(
             end_date=config.query.end_date,
             compare_start_date=config.query.compare_start_date,
             compare_end_date=config.query.compare_end_date,
+            site_id=config.query.site_id,
         )
         print(f"Generated PDF report: {pdf_path}")
         return True

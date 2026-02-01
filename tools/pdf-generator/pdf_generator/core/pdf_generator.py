@@ -76,7 +76,12 @@ from pdf_generator.core.data_transformers import (
     MetricsNormalizer,
     extract_count_from_row,
 )
-from pdf_generator.core.map_utils import MapProcessor, create_marker_from_config
+from pdf_generator.core.map_utils import (
+    MapProcessor,
+    create_marker_from_config,
+    extract_svg_from_site_data,
+)
+from pdf_generator.core.api_client import RadarStatsClient
 from pdf_generator.core.document_builder import DocumentBuilder
 from pdf_generator.core.table_builders import (
     create_histogram_table,
@@ -251,6 +256,7 @@ def generate_pdf_report(
     end_date: Optional[str] = None,
     compare_start_date: Optional[str] = None,
     compare_end_date: Optional[str] = None,
+    site_id: Optional[int] = None,
 ) -> None:
     """Generate a complete PDF report using PyLaTeX.
 
@@ -270,6 +276,7 @@ def generate_pdf_report(
         elevation_fov: Radar elevation field of view
         config_periods: Optional list of site configuration periods for the report window
         cosine_correction_note: Optional note about angle changes applied to speeds
+        site_id: Optional site ID to fetch map SVG data from database
     """
 
     # Convert map config dataclass to dict for use in this function
@@ -526,11 +533,13 @@ def generate_pdf_report(
 
     # Add main stats chart if available
     # If a map.svg exists next to this module, include it before the stats chart.
+    # Prioritize map from database (if site_id provided), fallback to static map.svg
     # Use map_utils module for marker injection and PDF conversion.
     # Skip map if include_map=False (e.g., when --no-map flag is used)
 
     print("\n=== MAP GENERATION DEBUG ===")
     print(f"include_map parameter: {include_map}")
+    print(f"site_id parameter: {site_id}")
 
     if include_map:
         print("Map generation ENABLED")
@@ -545,8 +554,33 @@ def generate_pdf_report(
         print(f"  - triangle_color: {map_config_dict['triangle_color']}")
         print(f"  - triangle_opacity: {map_config_dict['triangle_opacity']}")
 
+        # Try to extract map SVG from database if site_id is provided
+        db_svg_extracted = False
+        map_base_dir = os.path.dirname(__file__)
+        
+        if site_id is not None:
+            print(f"  [MAP] Attempting to fetch site data for site_id={site_id}")
+            try:
+                client = RadarStatsClient()
+                site_data, _ = client.get_site(site_id)
+                print(f"  [MAP] Site data fetched successfully")
+                
+                # Try to extract SVG from site data
+                map_svg_path = os.path.join(map_base_dir, "map.svg")
+                if extract_svg_from_site_data(site_data, map_svg_path):
+                    db_svg_extracted = True
+                    print(f"  [MAP] ✓ Using map from database (site_id={site_id})")
+                else:
+                    print(f"  [MAP] No map_svg_data in site record, falling back to static map.svg")
+            except Exception as e:
+                print(f"  [MAP] Warning: Failed to fetch site data: {e}")
+                print(f"  [MAP] Falling back to static map.svg")
+
+        if not db_svg_extracted:
+            print(f"  [MAP] Using static map.svg if available")
+
         map_processor = MapProcessor(
-            base_dir=os.path.dirname(__file__),
+            base_dir=map_base_dir,
             marker_config={
                 "circle_radius": map_config_dict["circle_radius"],
                 "circle_fill": map_config_dict["circle_fill"],
@@ -579,8 +613,9 @@ def generate_pdf_report(
             with doc.create(Center()) as map_center:
                 with map_center.create(Figure(position="H")) as mf:
                     mf.add_image(map_pdf_path, width=NoEscape(r"\linewidth"))
+                    map_source = "database" if db_svg_extracted else "static file"
                     mf.add_caption(
-                        "Site map with radar location (circle) and coverage area (red triangle)"
+                        f"Site map with radar location (circle) and coverage area (red triangle) [source: {map_source}]"
                     )
         else:
             print(
