@@ -563,48 +563,32 @@ Several packages have low coverage (60-70%) due to direct dependencies on extern
   - [x] Test error handling paths
 - [x] **Target coverage:** 90%+ ✅ Achieved
 
-### Task 4.2: Abstract PCAP File Reading (Lower Priority - Uses Build Tags)
+### Task 4.2: PCAP Replay Testing ✅ PARTIAL
 
-#### 4.2.1: Create PCAPReader Interface
+#### 4.2.1: Add PCAP Tests Using Real Test Data
 
-- [ ] **Create internal/lidar/network/pcap_interface.go** (~100 lines)
+- [x] **Use existing PCAP file:** `internal/lidar/perf/pcap/kirk0.pcapng`
+- [x] **Add webserver PCAP tests** (webserver_test.go)
+  - [x] TestWebServer_ResolvePCAPPath_WithRealFile
+  - [x] TestWebServer_ResolvePCAPPath_EmptyFile
+  - [x] TestWebServer_ResolvePCAPPath_TraversalAttempt
+  - [x] TestWebServer_ResolvePCAPPath_NonExistentFile
+  - [x] TestWebServer_HandlePCAPStart_WithRealFile
+- [x] **Coverage improvements:**
+  - resolvePCAPPath: 43.3% → **70.0%**
+  - startPCAPLocked: 0% → **40.8%**
+  - handlePCAPStart: 38.5% → **53.2%**
+  - StopPCAPInternal: 75% → **100%**
+
+#### 4.2.2: PCAPReader Interface (Deferred)
+
+> Note: Full PCAP playback requires `-tags=pcap` build flag.
+> The abstraction layer is optional since tests now use real PCAP file.
+
+- [ ] **Optional:** Create internal/lidar/network/pcap_interface.go (~100 lines)
   - [ ] Define PCAPReader interface
-    ```go
-    type PCAPReader interface {
-        Open(filename string) error
-        SetBPFFilter(filter string) error
-        NextPacket() ([]byte, time.Time, error)
-        Close()
-    }
-    ```
-  - [ ] Define PCAPReaderFactory interface
-    ```go
-    type PCAPReaderFactory interface {
-        NewReader() PCAPReader
-    }
-    ```
-  - [ ] Implement GopacketPCAPReader (wraps gopacket/pcap)
   - [ ] Implement MockPCAPReader (replays configured packets)
-- [ ] **Add tests** (pcap_interface_test.go)
-  - [ ] Test MockPCAPReader packet sequencing
-  - [ ] Test filter configuration
-  - [ ] Test end-of-file handling
-- [ ] **Target coverage:** 95%+
-
-#### 4.2.2: Refactor ReadPCAPFile Functions
-
-- [ ] **Update internal/lidar/network/pcap.go**
-  - [ ] Accept PCAPReader as parameter (with default)
-  - [ ] Use interface methods instead of direct gopacket calls
-- [ ] **Update internal/lidar/network/pcap_realtime.go**
-  - [ ] Same interface injection pattern
-  - [ ] Test timing-based replay with mock
-- [ ] **Add tests**
-  - [ ] Test packet processing without real PCAP files
-  - [ ] Test BPF filter application
-  - [ ] Test context cancellation
-  - [ ] Test subsection replay (startSeconds, durationSeconds)
-- [ ] **Target coverage:** 95%+ (currently uses build tags)
+- [ ] **Target coverage:** 95%+ (currently at 40.8% without full playback)
 
 ### Task 4.3: Abstract UDP Socket Operations ✅ COMPLETE
 
