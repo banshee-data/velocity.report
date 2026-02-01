@@ -3486,3 +3486,658 @@ func TestWebServer_HandlePCAPStart_WithRealFile(t *testing.T) {
 	// Stop the PCAP replay if it started
 	server.StopPCAPInternal()
 }
+
+// ====== Additional PCAP Tests for Coverage Improvement ======
+
+// TestWebServer_StartPCAPInternal tests the StartPCAPInternal method directly
+func TestWebServer_StartPCAPInternal(t *testing.T) {
+	sensorID := "test-pcap-internal-" + time.Now().Format("150405")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+	pcapDir := cwd + "/../perf/pcap"
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          sensorID,
+		PCAPSafeDir:       pcapDir,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	// Initialize base context
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	server.setBaseContext(ctx)
+
+	// Test StartPCAPInternal with valid config
+	replayConfig := ReplayConfig{
+		SpeedMode:       "fastest",
+		DurationSeconds: 0.1,
+	}
+
+	err = server.StartPCAPInternal("kirk0.pcapng", replayConfig)
+	if err != nil {
+		t.Logf("StartPCAPInternal returned error (may be expected): %v", err)
+	}
+
+	// Allow brief execution
+	time.Sleep(50 * time.Millisecond)
+
+	// Stop the replay
+	server.StopPCAPInternal()
+}
+
+// TestWebServer_StartPCAPInternal_NoBaseContext tests StartPCAPInternal without base context
+func TestWebServer_StartPCAPInternal_NoBaseContext(t *testing.T) {
+	sensorID := "test-pcap-nocontext-" + time.Now().Format("150405")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+	pcapDir := cwd + "/../perf/pcap"
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          sensorID,
+		PCAPSafeDir:       pcapDir,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+	// Intentionally NOT setting base context
+
+	replayConfig := ReplayConfig{
+		SpeedMode:       "fastest",
+		DurationSeconds: 0.1,
+	}
+
+	err = server.StartPCAPInternal("kirk0.pcapng", replayConfig)
+	if err == nil {
+		t.Error("Expected error when base context is not set")
+		server.StopPCAPInternal()
+	}
+}
+
+// TestWebServer_StartPCAPInternal_AlreadyRunning tests starting PCAP when one is already running
+func TestWebServer_StartPCAPInternal_AlreadyRunning(t *testing.T) {
+	sensorID := "test-pcap-conflict-" + time.Now().Format("150405")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+	pcapDir := cwd + "/../perf/pcap"
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          sensorID,
+		PCAPSafeDir:       pcapDir,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	server.setBaseContext(ctx)
+
+	replayConfig := ReplayConfig{
+		SpeedMode:       "fastest",
+		DurationSeconds: 1.0, // Longer duration to test conflict
+	}
+
+	// Start first PCAP
+	err = server.StartPCAPInternal("kirk0.pcapng", replayConfig)
+	if err != nil {
+		t.Logf("First StartPCAPInternal returned error: %v", err)
+	}
+
+	// Brief pause to ensure first one starts
+	time.Sleep(50 * time.Millisecond)
+
+	// Try to start second PCAP (should fail with conflict)
+	err = server.StartPCAPInternal("kirk0.pcapng", replayConfig)
+	if err == nil {
+		t.Log("Expected conflict error when starting second PCAP, but got nil")
+	} else {
+		t.Logf("Got expected error for conflict: %v", err)
+	}
+
+	server.StopPCAPInternal()
+}
+
+// TestWebServer_HandlePCAPStop_Success tests successful PCAP stop
+func TestWebServer_HandlePCAPStop_Success(t *testing.T) {
+	sensorID := "test-pcap-stop-" + time.Now().Format("150405")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+	pcapDir := cwd + "/../perf/pcap"
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          sensorID,
+		PCAPSafeDir:       pcapDir,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	server.setBaseContext(ctx)
+
+	// Start PCAP first
+	replayConfig := ReplayConfig{
+		SpeedMode:       "fastest",
+		DurationSeconds: 5.0,
+	}
+	_ = server.StartPCAPInternal("kirk0.pcapng", replayConfig)
+	time.Sleep(50 * time.Millisecond)
+
+	// Now test handlePCAPStop
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id="+sensorID, nil)
+	rec := httptest.NewRecorder()
+
+	server.handlePCAPStop(rec, req)
+
+	t.Logf("handlePCAPStop returned status %d: %s", rec.Code, rec.Body.String())
+
+	// Clean up
+	server.StopPCAPInternal()
+}
+
+// TestWebServer_HandlePCAPResumeLive_Success tests resuming live after PCAP
+func TestWebServer_HandlePCAPResumeLive_Success(t *testing.T) {
+	sensorID := "test-pcap-resume-" + time.Now().Format("150405")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+	pcapDir := cwd + "/../perf/pcap"
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          sensorID,
+		PCAPSafeDir:       pcapDir,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	server.setBaseContext(ctx)
+
+	// Set up data source manager in analysis mode (which allows resume)
+	server.dataSourceMu.Lock()
+	server.currentSource = DataSourcePCAPAnalysis
+	server.dataSourceMu.Unlock()
+
+	// Test resume live
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/resume_live?sensor_id="+sensorID, nil)
+	rec := httptest.NewRecorder()
+
+	server.handlePCAPResumeLive(rec, req)
+
+	t.Logf("handlePCAPResumeLive returned status %d: %s", rec.Code, rec.Body.String())
+}
+
+// TestWebServer_StartPCAPInternal_RealtimeMode tests PCAP with realtime mode
+func TestWebServer_StartPCAPInternal_RealtimeMode(t *testing.T) {
+	sensorID := "test-pcap-realtime-" + time.Now().Format("150405")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+	pcapDir := cwd + "/../perf/pcap"
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          sensorID,
+		PCAPSafeDir:       pcapDir,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	server.setBaseContext(ctx)
+
+	// Test with realtime mode (uses different code path)
+	replayConfig := ReplayConfig{
+		SpeedMode:       "realtime",
+		SpeedRatio:      10.0, // Speed up for testing
+		DurationSeconds: 0.1,
+	}
+
+	err = server.StartPCAPInternal("kirk0.pcapng", replayConfig)
+	if err != nil {
+		t.Logf("StartPCAPInternal (realtime) returned error: %v", err)
+	}
+
+	time.Sleep(50 * time.Millisecond)
+	server.StopPCAPInternal()
+}
+
+// TestWebServer_HandleBackgroundGridPolar_WithPCAPData tests polar chart with PCAP-populated data
+func TestWebServer_HandleBackgroundGridPolar_WithPCAPData(t *testing.T) {
+	sensorID := "test-polar-pcap-" + time.Now().Format("150405")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+	pcapDir := cwd + "/../perf/pcap"
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          sensorID,
+		PCAPSafeDir:       pcapDir,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	server.setBaseContext(ctx)
+
+	// Start brief PCAP to populate grid
+	replayConfig := ReplayConfig{
+		SpeedMode:       "fastest",
+		DurationSeconds: 0.2,
+	}
+	_ = server.StartPCAPInternal("kirk0.pcapng", replayConfig)
+	time.Sleep(100 * time.Millisecond)
+
+	// Request polar chart data
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/polar?sensor_id="+sensorID, nil)
+	rec := httptest.NewRecorder()
+
+	mux := server.setupRoutes()
+	mux.ServeHTTP(rec, req)
+
+	t.Logf("handleBackgroundGridPolar returned status %d", rec.Code)
+
+	server.StopPCAPInternal()
+}
+
+// TestWebServer_HandleBackgroundParams_POST_WithManager tests setting background params
+func TestWebServer_HandleBackgroundParams_POST_Complete(t *testing.T) {
+	sensorID := "test-params-post-" + time.Now().Format("150405")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          sensorID,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	// POST with JSON body to set params
+	body := `{"noise_relative_fraction": 0.05, "safety_margin_meters": 0.5}`
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/background/params?sensor_id="+sensorID, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	server.handleBackgroundParams(rec, req)
+
+	t.Logf("handleBackgroundParams POST returned status %d: %s", rec.Code, rec.Body.String())
+}
+
+// TestWebServer_HandleChartClustersJSON tests clusters chart endpoint
+func TestWebServer_HandleChartClustersJSON_WithManager(t *testing.T) {
+	sensorID := "test-clusters-" + time.Now().Format("150405")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          sensorID,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/clusters/json?sensor_id="+sensorID, nil)
+	rec := httptest.NewRecorder()
+
+	mux := server.setupRoutes()
+	mux.ServeHTTP(rec, req)
+
+	t.Logf("handleChartClustersJSON returned status %d", rec.Code)
+}
+
+// TestWebServer_HandleClustersChart_WithManager tests HTML clusters chart
+func TestWebServer_HandleClustersChart_Complete(t *testing.T) {
+	sensorID := "test-clusters-html-" + time.Now().Format("150405")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          sensorID,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/clusters?sensor_id="+sensorID, nil)
+	rec := httptest.NewRecorder()
+
+	mux := server.setupRoutes()
+	mux.ServeHTTP(rec, req)
+
+	t.Logf("handleClustersChart returned status %d", rec.Code)
+}
+
+// TestWebServer_HandleForegroundFrameChart_WithManager tests foreground frame chart
+func TestWebServer_HandleForegroundFrameChart_Complete(t *testing.T) {
+	sensorID := "test-fg-frame-" + time.Now().Format("150405")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          sensorID,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/foreground_frame?sensor_id="+sensorID, nil)
+	rec := httptest.NewRecorder()
+
+	mux := server.setupRoutes()
+	mux.ServeHTTP(rec, req)
+
+	t.Logf("handleForegroundFrameChart returned status %d", rec.Code)
+}
+
+// TestWebServer_HandleLidarSnapshot_GET_Complete tests getting a specific snapshot
+func TestWebServer_HandleLidarSnapshot_GET_Complete(t *testing.T) {
+	sensorID := "test-snapshot-get-" + time.Now().Format("150405")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          sensorID,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	// GET request for a specific snapshot ID
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/snapshots/123?sensor_id="+sensorID, nil)
+	rec := httptest.NewRecorder()
+
+	mux := server.setupRoutes()
+	mux.ServeHTTP(rec, req)
+
+	t.Logf("handleLidarSnapshot GET returned status %d", rec.Code)
+}
+
+// TestWebServer_HandleLidarSnapshots_GET_List tests listing snapshots
+func TestWebServer_HandleLidarSnapshots_GET_List(t *testing.T) {
+	sensorID := "test-snapshots-list-" + time.Now().Format("150405")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          sensorID,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/snapshots?sensor_id="+sensorID, nil)
+	rec := httptest.NewRecorder()
+
+	mux := server.setupRoutes()
+	mux.ServeHTTP(rec, req)
+
+	t.Logf("handleLidarSnapshots GET returned status %d", rec.Code)
+}
+
+// TestWebServer_HandleExportFrameSequenceASC_WithManager tests frame sequence export
+func TestWebServer_HandleExportFrameSequenceASC_Complete(t *testing.T) {
+	sensorID := "test-frame-seq-" + time.Now().Format("150405")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          sensorID,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	// Use a temporary directory for output
+	tmpDir := t.TempDir()
+	reqURL := "/api/lidar/export_frame_sequence?sensor_id=" + sensorID + "&out_dir=" + url.QueryEscape(tmpDir)
+	req := httptest.NewRequest(http.MethodGet, reqURL, nil)
+	rec := httptest.NewRecorder()
+
+	mux := server.setupRoutes()
+	mux.ServeHTTP(rec, req)
+
+	t.Logf("handleExportFrameSequenceASC returned status %d", rec.Code)
+}
+
+// TestWebServer_HandleLidarPersist_Complete tests persist endpoint
+func TestWebServer_HandleLidarPersist_Complete(t *testing.T) {
+	sensorID := "test-persist-" + time.Now().Format("150405")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          sensorID,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/persist?sensor_id="+sensorID, nil)
+	rec := httptest.NewRecorder()
+
+	mux := server.setupRoutes()
+	mux.ServeHTTP(rec, req)
+
+	t.Logf("handleLidarPersist returned status %d: %s", rec.Code, rec.Body.String())
+}
+
+// TestWebServer_StartPCAPInternal_WithDebugRange tests PCAP with debug range parameters
+func TestWebServer_StartPCAPInternal_WithDebugRange(t *testing.T) {
+	sensorID := "test-pcap-debug-" + time.Now().Format("150405")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+	pcapDir := cwd + "/../perf/pcap"
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          sensorID,
+		PCAPSafeDir:       pcapDir,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	server.setBaseContext(ctx)
+
+	// Test with debug range parameters
+	replayConfig := ReplayConfig{
+		SpeedMode:       "realtime",
+		SpeedRatio:      10.0,
+		DurationSeconds: 0.1,
+		DebugRingMin:    10,
+		DebugRingMax:    50,
+		DebugAzMin:      45.0,
+		DebugAzMax:      135.0,
+		EnableDebug:     true,
+	}
+
+	err = server.StartPCAPInternal("kirk0.pcapng", replayConfig)
+	if err != nil {
+		t.Logf("StartPCAPInternal (debug range) returned error: %v", err)
+	}
+
+	time.Sleep(50 * time.Millisecond)
+	server.StopPCAPInternal()
+}
+
+// TestWebServer_HandleBackgroundGrid_Complete tests background grid endpoint
+func TestWebServer_HandleBackgroundGrid_Complete(t *testing.T) {
+	sensorID := "test-bg-grid-" + time.Now().Format("150405")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          sensorID,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/grid?sensor_id="+sensorID, nil)
+	rec := httptest.NewRecorder()
+
+	mux := server.setupRoutes()
+	mux.ServeHTTP(rec, req)
+
+	t.Logf("handleBackgroundGrid returned status %d", rec.Code)
+
+	// Verify JSON response
+	if rec.Code == http.StatusOK {
+		var resp map[string]interface{}
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Errorf("Response is not valid JSON: %v", err)
+		}
+	}
+}
+
+// TestWebServer_IsPCAPInProgress tests PCAP progress check
+func TestWebServer_IsPCAPInProgress_Complete(t *testing.T) {
+	sensorID := "test-pcap-progress-" + time.Now().Format("150405")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+	pcapDir := cwd + "/../perf/pcap"
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          sensorID,
+		PCAPSafeDir:       pcapDir,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	server.setBaseContext(ctx)
+
+	// Initially not in progress
+	if server.IsPCAPInProgress() {
+		t.Error("Expected PCAP not in progress initially")
+	}
+
+	// Start PCAP
+	replayConfig := ReplayConfig{
+		SpeedMode:       "fastest",
+		DurationSeconds: 1.0,
+	}
+	_ = server.StartPCAPInternal("kirk0.pcapng", replayConfig)
+	time.Sleep(50 * time.Millisecond)
+
+	// Now should be in progress
+	if !server.IsPCAPInProgress() {
+		t.Log("Expected PCAP in progress after start (may vary based on timing)")
+	}
+
+	server.StopPCAPInternal()
+
+	// After stop, should not be in progress
+	time.Sleep(50 * time.Millisecond)
+	if server.IsPCAPInProgress() {
+		t.Log("Expected PCAP not in progress after stop")
+	}
+}

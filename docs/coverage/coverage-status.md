@@ -23,7 +23,7 @@
 | internal/deploy        | 83.8%    | 90%    | ❌ -6.2%  |
 | internal/db            | 79.5%    | 90%    | ❌ -10.5% |
 | internal/api           | 76.6%    | 90%    | ❌ -13.4% |
-| internal/lidar/monitor | 69.0%    | 90%    | ❌ -21.0% |
+| internal/lidar/monitor | 70.8%    | 90%    | ❌ -19.2% |
 
 **Summary:** 8/15 packages at target, 11/15 packages ≥ 85%
 
@@ -81,16 +81,16 @@ These packages are within 0.2% of target and need 2-5 tests each:
 - [ ] internal/serialmux: +0.1% (2-3 tests for disconnect scenarios)
 - [ ] internal/lidar/parse: +0.2% (2-3 tests for malformed packet handling)
 
-### Significant Gaps (Lower Priority)
+### Significant Gaps
 
-These packages require more effort or have legitimate reasons for lower coverage:
+These packages have lower coverage due to architectural constraints:
 
-| Package                | Gap    | Blocker                                         | Recommendation                            |
-| ---------------------- | ------ | ----------------------------------------------- | ----------------------------------------- |
-| internal/lidar/monitor | -21%   | Requires real LiDAR mocks, embedded HTML assets | Accept current level; infrastructure code |
-| internal/api           | -13.4% | E2E test needs Python dependencies              | Fix Python deps in CI                     |
-| internal/db            | -10.5% | CLI functions use os.Exit(), need refactoring   | Extract testable logic incrementally      |
-| internal/deploy        | -6.2%  | Real SSH/SCP operations                         | Add integration tests or accept           |
+| Package                | Gap    | Blocker                                                                              | Recommendation                                                                 |
+| ---------------------- | ------ | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| internal/lidar/monitor | -19.2% | HTML template handlers, `Start()` server lifecycle, PCAP requires `-tags=pcap` build | Covered by PCAP tests with kirk0.pcapng; remaining gaps are template rendering |
+| internal/api           | -13.4% | E2E test needs Python dependencies                                                   | Fix Python deps in CI                                                          |
+| internal/db            | -10.5% | CLI functions use os.Exit(), need refactoring                                        | Extract testable logic incrementally                                           |
+| internal/deploy        | -6.2%  | Real SSH/SCP operations                                                              | Add integration tests or accept                                                |
 
 ### Phase 5: Maintenance (Ongoing)
 
@@ -105,12 +105,20 @@ These packages require more effort or have legitimate reasons for lower coverage
 
 **PCAP replay tests:** All tests requiring PCAP replay use `internal/lidar/perf/pcap/kirk0.pcapng`
 
+Tests cover:
+
+- `StartPCAPInternal` (100% coverage)
+- `StopPCAPInternal` (100% coverage)
+- `resolvePCAPPath` (70% coverage)
+- `startPCAPLocked` (40.8% coverage - requires `-tags=pcap` for full execution)
+
 ---
 
 ## Changelog
 
-| Date       | Change                                                |
-| ---------- | ----------------------------------------------------- |
-| 2026-01-31 | Phase 4 complete, consolidated coverage documentation |
-| 2026-02-01 | Assessment updated with 89.7% overall coverage        |
-| 2026-01-31 | Phases 1-3 complete                                   |
+| Date       | Change                                                           |
+| ---------- | ---------------------------------------------------------------- |
+| 2026-01-31 | Added PCAP tests using kirk0.pcapng, lidar/monitor 69.0% → 70.8% |
+| 2026-01-31 | Phase 4 complete, consolidated coverage documentation            |
+| 2026-02-01 | Assessment updated with 89.7% overall coverage                   |
+| 2026-01-31 | Phases 1-3 complete                                              |
