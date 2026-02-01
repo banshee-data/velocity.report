@@ -2459,3 +2459,104 @@ func TestSwitchError(t *testing.T) {
 		t.Errorf("expected Unwrap() to return underlying error")
 	}
 }
+
+func TestWebServer_DataSourceManager_Integration(t *testing.T) {
+	mockDSM := NewMockDataSourceManager()
+	stats := NewPacketStats()
+
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		DataSourceManager: mockDSM,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	// Test that methods delegate to mock
+	ctx := context.Background()
+
+	// Start live listener
+	err := server.StartLiveListener(ctx)
+	if err != nil {
+		t.Errorf("StartLiveListener failed: %v", err)
+	}
+	if mockDSM.StartLiveCalls != 1 {
+		t.Errorf("Expected 1 StartLiveCalls, got %d", mockDSM.StartLiveCalls)
+	}
+
+	// Check current source
+	if server.GetCurrentSource() != DataSourceLive {
+		t.Errorf("Expected source DataSourceLive, got %s", server.GetCurrentSource())
+	}
+
+	// Stop live listener
+	err = server.StopLiveListener()
+	if err != nil {
+		t.Errorf("StopLiveListener failed: %v", err)
+	}
+	if mockDSM.StopLiveCalls != 1 {
+		t.Errorf("Expected 1 StopLiveCalls, got %d", mockDSM.StopLiveCalls)
+	}
+
+	// Check PCAP not in progress
+	if server.IsPCAPInProgress() {
+		t.Error("Expected PCAP not in progress")
+	}
+
+	// Test PCAP file returns empty when not set
+	if server.GetCurrentPCAPFile() != "" {
+		t.Errorf("Expected empty PCAP file, got '%s'", server.GetCurrentPCAPFile())
+	}
+}
+
+func TestWebServer_DataSourceManager_ErrorInjection(t *testing.T) {
+	mockDSM := NewMockDataSourceManager()
+	mockDSM.StartLiveError = ErrSourceAlreadyActive
+	stats := NewPacketStats()
+
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		DataSourceManager: mockDSM,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	// Test error injection
+	err := server.StartLiveListener(context.Background())
+	if err != ErrSourceAlreadyActive {
+		t.Errorf("Expected ErrSourceAlreadyActive, got %v", err)
+	}
+}
+
+func TestWebServer_RealDataSourceManager(t *testing.T) {
+	// Test that WebServer creates RealDataSourceManager when none provided
+	stats := NewPacketStats()
+
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+		// No DataSourceManager - will create RealDataSourceManager
+	}
+
+	server := NewWebServer(config)
+
+	// These should use RealDataSourceManager
+	source := server.GetCurrentSource()
+	if source != DataSourceLive {
+		t.Errorf("Expected DataSourceLive, got %s", source)
+	}
+
+	pcapFile := server.GetCurrentPCAPFile()
+	if pcapFile != "" {
+		t.Errorf("Expected empty PCAP file, got '%s'", pcapFile)
+	}
+
+	inProgress := server.IsPCAPInProgress()
+	if inProgress {
+		t.Error("Expected PCAP not in progress")
+	}
+}

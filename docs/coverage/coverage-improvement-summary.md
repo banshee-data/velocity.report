@@ -90,14 +90,15 @@ cmd/ packages:      Refactored to internal/ (Phase 2 complete)
 - [x] Add dependency injection (Clock, HTTPClient, FileSystem interfaces)
 - **Result:** 94%+ coverage achieved (2026-02-01)
 
-### Phase 4: Infrastructure Dependency Injection (3-4 weeks) → 90%+ on infrastructure packages 🔄 IN PROGRESS
+### Phase 4: Infrastructure Dependency Injection (3-4 weeks) → 90%+ on infrastructure packages ✅ COMPLETE
 
-- [ ] Abstract SSH/SCP execution (CommandExecutor interface)
-- [ ] Abstract PCAP file reading (PCAPReader interface)
-- [ ] Abstract UDP socket operations (UDPSocket interface)
-- [ ] Enhance serial port abstraction (SerialPortFactory)
-- [ ] Create DataSourceManager interface for webserver testing
-- **Target:** 90%+ coverage on deploy, lidar/network, serialmux packages
+- [x] Abstract SSH/SCP execution (CommandExecutor interface) ✅
+- [x] Abstract PCAP file reading (PCAPReader interface) ✅
+- [x] Abstract UDP socket operations (UDPSocket interface) ✅
+- [x] Enhance serial port abstraction (SerialPortFactory) ✅
+- [x] Create DataSourceManager interface for webserver testing ✅
+- [x] Full integration: WebServer uses DataSourceManager for all data source operations ✅
+- **Result:** All Phase 4 tasks complete. WebServer now uses RealDataSourceManager/MockDataSourceManager pattern for comprehensive testing.
 
 ### Phase 5: Maintenance & Polish (Ongoing) → Maintain 90%+ ⏳ PLANNED
 

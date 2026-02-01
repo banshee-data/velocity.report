@@ -58,13 +58,8 @@ var regionsDashboardHTML string
 
 const echartsAssetsPrefix = "/assets/"
 
-type DataSource string
-
-const (
-	DataSourceLive         DataSource = "live"
-	DataSourcePCAP         DataSource = "pcap"
-	DataSourcePCAPAnalysis DataSource = "pcap_analysis"
-)
+// DataSource, DataSourceLive, DataSourcePCAP, DataSourcePCAPAnalysis
+// are now defined in datasource.go
 
 type switchError struct {
 	status int
@@ -127,6 +122,10 @@ type WebServer struct {
 	// latestFgCounts holds counts from the most recent foreground snapshot for status UI.
 	fgCountsMu     sync.RWMutex
 	latestFgCounts map[string]int
+
+	// dataSourceManager manages data source lifecycle (live UDP, PCAP replay).
+	// This is always initialized - either from config or created internally.
+	dataSourceManager DataSourceManager
 }
 
 // WebServerConfig contains configuration options for the web server
@@ -146,6 +145,11 @@ type WebServerConfig struct {
 	PacketForwarder   *network.PacketForwarder
 	UDPListenerConfig network.UDPListenerConfig
 	PlotsBaseDir      string // Base directory for plot output (e.g., "plots")
+
+	// DataSourceManager allows injecting a custom data source manager.
+	// If nil, a RealDataSourceManager is created automatically.
+	// Inject a MockDataSourceManager for testing.
+	DataSourceManager DataSourceManager
 }
 
 // NewWebServer creates a new web server with the provided configuration
@@ -188,6 +192,13 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		currentSource:     DataSourceLive,
 		latestFgCounts:    make(map[string]int),
 		plotsBaseDir:      config.PlotsBaseDir,
+	}
+
+	// Initialize DataSourceManager - use provided one or create RealDataSourceManager
+	if config.DataSourceManager != nil {
+		ws.dataSourceManager = config.DataSourceManager
+	} else {
+		ws.dataSourceManager = NewRealDataSourceManager(ws)
 	}
 
 	// Initialise TrackAPI if database is configured
@@ -256,6 +267,87 @@ func (ws *WebServer) getLatestFgCounts() map[string]int {
 	}
 	return copyMap
 }
+
+// StartLiveListener starts the live UDP listener via DataSourceManager.
+func (ws *WebServer) StartLiveListener(ctx context.Context) error {
+	return ws.dataSourceManager.StartLiveListener(ctx)
+}
+
+// StopLiveListener stops the live UDP listener via DataSourceManager.
+func (ws *WebServer) StopLiveListener() error {
+	return ws.dataSourceManager.StopLiveListener()
+}
+
+// GetCurrentSource returns the currently active data source.
+func (ws *WebServer) GetCurrentSource() DataSource {
+	return ws.dataSourceManager.CurrentSource()
+}
+
+// GetCurrentPCAPFile returns the current PCAP file being replayed.
+func (ws *WebServer) GetCurrentPCAPFile() string {
+	return ws.dataSourceManager.CurrentPCAPFile()
+}
+
+// IsPCAPInProgress returns true if PCAP replay is currently active.
+func (ws *WebServer) IsPCAPInProgress() bool {
+	return ws.dataSourceManager.IsPCAPInProgress()
+}
+
+// --- WebServerDataSourceOperations implementation ---
+
+// StartLiveListenerInternal starts the UDP listener (called by RealDataSourceManager).
+func (ws *WebServer) StartLiveListenerInternal(ctx context.Context) error {
+	ws.dataSourceMu.Lock()
+	defer ws.dataSourceMu.Unlock()
+	return ws.startLiveListenerLocked()
+}
+
+// StopLiveListenerInternal stops the UDP listener (called by RealDataSourceManager).
+func (ws *WebServer) StopLiveListenerInternal() {
+	ws.dataSourceMu.Lock()
+	defer ws.dataSourceMu.Unlock()
+	ws.stopLiveListenerLocked()
+}
+
+// StartPCAPInternal starts PCAP replay (called by RealDataSourceManager).
+func (ws *WebServer) StartPCAPInternal(pcapFile string, config ReplayConfig) error {
+	return ws.startPCAPLocked(
+		pcapFile,
+		config.SpeedMode,
+		config.SpeedRatio,
+		config.StartSeconds,
+		config.DurationSeconds,
+		config.DebugRingMin,
+		config.DebugRingMax,
+		config.DebugAzMin,
+		config.DebugAzMax,
+		config.EnableDebug,
+		config.EnablePlots,
+	)
+}
+
+// StopPCAPInternal stops the current PCAP replay (called by RealDataSourceManager).
+func (ws *WebServer) StopPCAPInternal() {
+	ws.pcapMu.Lock()
+	cancel := ws.pcapCancel
+	done := ws.pcapDone
+	ws.pcapMu.Unlock()
+
+	if cancel != nil {
+		cancel()
+	}
+	if done != nil {
+		<-done
+	}
+}
+
+// BaseContext returns the base context for operations.
+func (ws *WebServer) BaseContext() context.Context {
+	return ws.baseContext()
+}
+
+// Ensure WebServer implements WebServerDataSourceOperations.
+var _ WebServerDataSourceOperations = (*WebServer)(nil)
 
 func (ws *WebServer) startLiveListenerLocked() error {
 	if ws.udpListener != nil {

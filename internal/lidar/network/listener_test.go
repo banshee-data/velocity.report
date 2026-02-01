@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -802,5 +803,116 @@ func TestUDPListener_NoopStatsWithParser(t *testing.T) {
 	// Verify parser was called even with noopStats
 	if parser.parseCalled != 1 {
 		t.Errorf("Expected parser to be called once, got %d", parser.parseCalled)
+	}
+}
+
+// TestNewUDPListener_WithSocketFactory tests dependency injection of socket factory
+func TestNewUDPListener_WithSocketFactory(t *testing.T) {
+	mockSocket := NewMockUDPSocket(nil)
+	mockFactory := NewMockUDPSocketFactory(mockSocket)
+
+	config := UDPListenerConfig{
+		Address:       ":2368",
+		RcvBuf:        1024 * 1024,
+		SocketFactory: mockFactory,
+	}
+
+	listener := NewUDPListener(config)
+
+	if listener.socketFactory != mockFactory {
+		t.Error("Expected custom socket factory to be used")
+	}
+}
+
+// TestUDPListener_Start_WithMockSocket tests listener start with mock socket
+func TestUDPListener_Start_WithMockSocket(t *testing.T) {
+	// Create mock socket with test packets
+	packets := []MockUDPPacket{
+		{Data: []byte("packet1"), Addr: &net.UDPAddr{IP: net.ParseIP("192.168.1.1"), Port: 2368}},
+		{Data: []byte("packet2"), Addr: &net.UDPAddr{IP: net.ParseIP("192.168.1.1"), Port: 2368}},
+	}
+	mockSocket := NewMockUDPSocket(packets)
+	mockFactory := NewMockUDPSocketFactory(mockSocket)
+
+	stats := &MockFullPacketStats{}
+
+	config := UDPListenerConfig{
+		Address:       "127.0.0.1:2368",
+		RcvBuf:        65536,
+		SocketFactory: mockFactory,
+		Stats:         stats,
+		LogInterval:   time.Hour, // Long interval to avoid log noise
+	}
+
+	listener := NewUDPListener(config)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Start listener in goroutine
+	done := make(chan error)
+	go func() {
+		done <- listener.Start(ctx)
+	}()
+
+	// Poll until packets are processed (instead of fixed sleep)
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if stats.packetCount >= 2 {
+			break // Packets processed
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if stats.packetCount < 2 {
+		t.Fatalf("Timeout waiting for packets to be processed, got %d", stats.packetCount)
+	}
+
+	// Cancel to stop
+	cancel()
+
+	// Wait for listener to exit
+	select {
+	case err := <-done:
+		if err != context.Canceled {
+			t.Errorf("Expected context.Canceled, got: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Error("Listener did not exit after context cancellation")
+	}
+
+	// Verify factory was called correctly
+	if len(mockFactory.ListenCalls) != 1 {
+		t.Errorf("Expected 1 ListenUDP call, got %d", len(mockFactory.ListenCalls))
+	}
+
+	// Verify packets were processed
+	if stats.packetCount < 2 {
+		t.Errorf("Expected at least 2 packets processed, got %d", stats.packetCount)
+	}
+
+	// Verify buffer was set
+	if mockSocket.ReadBufferSize != 65536 {
+		t.Errorf("Expected read buffer 65536, got %d", mockSocket.ReadBufferSize)
+	}
+}
+
+// TestUDPListener_Start_SocketFactoryError tests error handling when socket creation fails
+func TestUDPListener_Start_SocketFactoryError(t *testing.T) {
+	mockFactory := NewMockUDPSocketFactory(nil)
+	mockFactory.Error = fmt.Errorf("mock listen error")
+
+	config := UDPListenerConfig{
+		Address:       "127.0.0.1:2368",
+		RcvBuf:        65536,
+		SocketFactory: mockFactory,
+	}
+
+	listener := NewUDPListener(config)
+
+	err := listener.Start(context.Background())
+	if err == nil {
+		t.Error("Expected error from socket factory")
+	}
+	if !strings.Contains(err.Error(), "failed to listen") {
+		t.Errorf("Expected 'failed to listen' error, got: %v", err)
 	}
 }

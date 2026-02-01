@@ -37,7 +37,7 @@ type UDPListener struct {
 	address        string
 	rcvBuf         int
 	logInterval    time.Duration
-	conn           *net.UDPConn
+	conn           UDPSocket
 	stats          PacketStatsInterface
 	forwarder      *PacketForwarder
 	parser         Parser
@@ -45,6 +45,7 @@ type UDPListener struct {
 	db             *db.DB
 	disableParsing bool
 	udpPort        int
+	socketFactory  UDPSocketFactory
 }
 
 // UDPListenerConfig contains configuration options for the UDP listener
@@ -58,7 +59,8 @@ type UDPListenerConfig struct {
 	FrameBuilder   FrameBuilder
 	DB             *db.DB
 	DisableParsing bool
-	UDPPort        int // UDP port for normal operation (also used for PCAP filtering)
+	UDPPort        int              // UDP port for normal operation (also used for PCAP filtering)
+	SocketFactory  UDPSocketFactory // Optional: factory for creating UDP sockets (for testing)
 }
 
 // NewUDPListener creates a new UDP listener with the provided configuration
@@ -78,6 +80,12 @@ func NewUDPListener(config UDPListenerConfig) *UDPListener {
 		logInterval = time.Minute
 	}
 
+	// Default to real socket factory if not provided
+	socketFactory := config.SocketFactory
+	if socketFactory == nil {
+		socketFactory = NewRealUDPSocketFactory()
+	}
+
 	return &UDPListener{
 		address:        config.Address,
 		rcvBuf:         config.RcvBuf,
@@ -89,6 +97,7 @@ func NewUDPListener(config UDPListenerConfig) *UDPListener {
 		db:             config.DB,
 		disableParsing: config.DisableParsing,
 		udpPort:        config.UDPPort,
+		socketFactory:  socketFactory,
 	}
 }
 
@@ -109,7 +118,7 @@ func (l *UDPListener) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to resolve UDP address: %w", err)
 	}
 
-	conn, err := net.ListenUDP("udp", addr)
+	conn, err := l.socketFactory.ListenUDP("udp", addr)
 	if err != nil {
 		return fmt.Errorf("failed to listen on UDP address: %w", err)
 	}
