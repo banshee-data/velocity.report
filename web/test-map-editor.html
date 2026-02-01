@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Map Editor Test Page</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        .section {
+            margin-bottom: 24px;
+        }
+        .section h3 {
+            color: #555;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .icon {
+            width: 20px;
+            height: 20px;
+            color: #3b82f6;
+        }
+        .field-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .field {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        input {
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        button {
+            padding: 8px 16px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        button.secondary {
+            background: #6b7280;
+        }
+        button.secondary:hover {
+            background: #4b5563;
+        }
+        .preview {
+            margin-top: 16px;
+            padding: 16px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+        }
+        .preview img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+        }
+        .success {
+            padding: 12px;
+            background: #d1fae5;
+            border: 1px solid #6ee7b7;
+            border-radius: 4px;
+            color: #065f46;
+            margin-bottom: 16px;
+        }
+        .note {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📍 Site Map Configuration</h1>
+        <p style="color: #666; margin-bottom: 24px;">Configure the map area and radar position for inclusion in PDF reports.</p>
+
+        <div class="section">
+            <h3>
+                <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                </svg>
+                Radar Location
+            </h3>
+            <div class="field-group">
+                <div class="field">
+                    <label for="latitude">Latitude</label>
+                    <input type="number" id="latitude" value="51.5074" step="0.000001" placeholder="51.5074">
+                </div>
+                <div class="field">
+                    <label for="longitude">Longitude</label>
+                    <input type="number" id="longitude" value="-0.1278" step="0.000001" placeholder="-0.1278">
+                </div>
+                <div class="field">
+                    <label for="radar-angle">Radar Angle (degrees)</label>
+                    <input type="number" id="radar-angle" value="45" step="1" placeholder="0">
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Map Bounding Box</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <span style="color: #666; font-size: 14px;">Define the map area corners</span>
+                <button class="secondary" onclick="setDefaultBBox()">Set Default (~500m)</button>
+            </div>
+            <div class="field-group">
+                <div class="field">
+                    <label for="bbox-ne-lat">NE Latitude</label>
+                    <input type="number" id="bbox-ne-lat" value="51.5124" step="0.000001">
+                </div>
+                <div class="field">
+                    <label for="bbox-ne-lng">NE Longitude</label>
+                    <input type="number" id="bbox-ne-lng" value="-0.1228" step="0.000001">
+                </div>
+                <div class="field">
+                    <label for="bbox-sw-lat">SW Latitude</label>
+                    <input type="number" id="bbox-sw-lat" value="51.5024" step="0.000001">
+                </div>
+                <div class="field">
+                    <label for="bbox-sw-lng">SW Longitude</label>
+                    <input type="number" id="bbox-sw-lng" value="-0.1328" step="0.000001">
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>
+                <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z"/>
+                </svg>
+                Map Rotation
+            </h3>
+            <div class="field-group">
+                <div class="field">
+                    <label for="map-rotation">Rotation (degrees)</label>
+                    <input type="number" id="map-rotation" value="0" step="1" placeholder="0">
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Map Preview & Download</h3>
+            <button onclick="downloadMap()">📥 Download Map SVG</button>
+            <div id="status-message"></div>
+            <div class="preview">
+                <p style="color: #666; font-size: 14px; margin-bottom: 8px;">Preview (PNG approximation):</p>
+                <img id="preview-img" src="https://render.openstreetmap.org/cgi-bin/export?bbox=-0.1328,51.5024,-0.1228,51.5124&scale=10000&format=png" alt="Map preview">
+                <p class="note">Note: Actual SVG may differ. Click "Download Map SVG" to fetch the vector version.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function setDefaultBBox() {
+            const lat = parseFloat(document.getElementById('latitude').value) || 0;
+            const lng = parseFloat(document.getElementById('longitude').value) || 0;
+            const delta = 0.005; // ~500m
+            
+            document.getElementById('bbox-ne-lat').value = (lat + delta).toFixed(6);
+            document.getElementById('bbox-ne-lng').value = (lng + delta).toFixed(6);
+            document.getElementById('bbox-sw-lat').value = (lat - delta).toFixed(6);
+            document.getElementById('bbox-sw-lng').value = (lng - delta).toFixed(6);
+            
+            updatePreview();
+        }
+
+        function updatePreview() {
+            const neLat = document.getElementById('bbox-ne-lat').value;
+            const neLng = document.getElementById('bbox-ne-lng').value;
+            const swLat = document.getElementById('bbox-sw-lat').value;
+            const swLng = document.getElementById('bbox-sw-lng').value;
+            
+            if (neLat && neLng && swLat && swLng) {
+                const bbox = `${swLng},${swLat},${neLng},${neLat}`;
+                document.getElementById('preview-img').src = 
+                    `https://render.openstreetmap.org/cgi-bin/export?bbox=${bbox}&scale=10000&format=png`;
+            }
+        }
+
+        async function downloadMap() {
+            const neLat = document.getElementById('bbox-ne-lat').value;
+            const neLng = document.getElementById('bbox-ne-lng').value;
+            const swLat = document.getElementById('bbox-sw-lat').value;
+            const swLng = document.getElementById('bbox-sw-lng').value;
+            
+            const statusEl = document.getElementById('status-message');
+            statusEl.innerHTML = '<p style="color: #2563eb; margin-top: 12px;">⏳ Downloading map from OpenStreetMap...</p>';
+            
+            try {
+                const bbox = `${swLng},${swLat},${neLng},${neLat}`;
+                const url = `https://render.openstreetmap.org/cgi-bin/export?bbox=${bbox}&scale=10000&format=svg`;
+                
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const svgText = await response.text();
+                if (!svgText.includes('<svg')) {
+                    throw new Error('Invalid SVG response from OpenStreetMap');
+                }
+                
+                statusEl.innerHTML = '<div class="success">✅ Success! Map SVG downloaded and ready to save.</div>';
+                
+                // In actual implementation, this would be stored as base64
+                console.log('SVG downloaded:', svgText.substring(0, 100) + '...');
+            } catch (error) {
+                statusEl.innerHTML = `<p style="color: #dc2626; margin-top: 12px;">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        // Update preview when inputs change
+        document.querySelectorAll('input[id^="bbox-"]').forEach(input => {
+            input.addEventListener('change', updatePreview);
+        });
+    </script>
+</body>
+</html>
