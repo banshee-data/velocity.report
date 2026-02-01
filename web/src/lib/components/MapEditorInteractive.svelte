@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { mdiCrosshairsGps, mdiDownload, mdiMagnify } from '@mdi/js';
+	import type { LatLngBounds, Map as LeafletMap, Marker, Rectangle } from 'leaflet';
+	import { onDestroy, onMount } from 'svelte';
 	import { Button, Card, TextField } from 'svelte-ux';
-	import { mdiMapMarker, mdiMagnify, mdiDownload, mdiCrosshairsGps } from '@mdi/js';
-	import type { Map as LeafletMap, Marker, Rectangle, LatLngBounds } from 'leaflet';
 
 	// Props
 	export let latitude: number | null = null;
@@ -298,7 +298,7 @@
 
 			{#if searchResults.length > 0}
 				<div class="mt-2 rounded border border-gray-300 bg-white">
-					{#each searchResults as result}
+					{#each searchResults as result (result.place_id)}
 						<button
 							class="block w-full px-4 py-2 text-left hover:bg-gray-100"
 							on:click={() => selectLocation(result)}

@@ -1,5 +1,6 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import '@testing-library/jest-dom';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import MapEditor from './MapEditor.svelte';
 
 describe('MapEditor', () => {
@@ -31,7 +32,7 @@ describe('MapEditor', () => {
 	});
 
 	it('should validate latitude range', () => {
-		const { component } = render(MapEditor, {
+		render(MapEditor, {
 			props: {
 				latitude: 95, // Invalid - out of range
 				longitude: 0,
@@ -51,7 +52,7 @@ describe('MapEditor', () => {
 	});
 
 	it('should validate longitude range', () => {
-		const { component } = render(MapEditor, {
+		render(MapEditor, {
 			props: {
 				latitude: 0,
 				longitude: 185, // Invalid - out of range
@@ -70,7 +71,7 @@ describe('MapEditor', () => {
 	});
 
 	it('should set default bounding box when button is clicked', async () => {
-		const { component } = render(MapEditor, {
+		render(MapEditor, {
 			props: {
 				latitude: 51.5074,
 				longitude: -0.1278,
@@ -125,7 +126,7 @@ describe('MapEditor', () => {
 	});
 
 	it('should validate bounding box coordinates', () => {
-		const { component } = render(MapEditor, {
+		render(MapEditor, {
 			props: {
 				latitude: 51.5074,
 				longitude: -0.1278,
