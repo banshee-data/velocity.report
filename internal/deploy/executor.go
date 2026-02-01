@@ -242,17 +242,17 @@ func (e *Executor) copyLocal(src, dst string) error {
 }
 
 func (e *Executor) copySSH(src, dst string) error {
+	// Get the temp path for this operation upfront to ensure consistency
+	tempPath := e.getTempPath()
+
 	// Use scp for remote copy
-	args := e.buildSCPArgs(src, dst)
+	args := e.buildSCPArgsWithTempPath(src, tempPath)
 
 	e.Logger.Debugf("SCP command: scp %v", args)
 	cmd := e.CommandBuilder.BuildCommand("scp", args...)
 	if _, err := cmd.Run(); err != nil {
 		return fmt.Errorf("scp failed: %w", err)
 	}
-
-	// Get the temp path for the file move
-	tempPath := e.getTempPath()
 
 	// Then move to final destination with sudo if needed
 	if tempPath != dst {
@@ -270,7 +270,13 @@ func (e *Executor) copySSH(src, dst string) error {
 }
 
 // buildSCPArgs constructs the arguments for an SCP command.
+// Note: This function exists for backward compatibility in tests.
 func (e *Executor) buildSCPArgs(src, dst string) []string {
+	return e.buildSCPArgsWithTempPath(src, e.getTempPath())
+}
+
+// buildSCPArgsWithTempPath constructs SCP arguments with a specific temp path.
+func (e *Executor) buildSCPArgsWithTempPath(src, tempPath string) []string {
 	args := []string{}
 
 	if e.SSHKey != "" {
@@ -285,15 +291,14 @@ func (e *Executor) buildSCPArgs(src, dst string) []string {
 		target = fmt.Sprintf("%s@%s", e.SSHUser, target)
 	}
 
-	// First copy to temp directory
-	tempPath := e.getTempPath()
+	// Copy to the specified temp path
 	args = append(args, src, fmt.Sprintf("%s:%s", target, tempPath))
 
 	return args
 }
 
 // getTempPath returns a temporary path for SCP operations.
-// This method can be overridden for testing.
+// Uses UnixNano for better uniqueness in concurrent scenarios.
 func (e *Executor) getTempPath() string {
-	return fmt.Sprintf("/tmp/velocity-report-copy-%d", time.Now().Unix())
+	return fmt.Sprintf("/tmp/velocity-report-copy-%d", time.Now().UnixNano())
 }

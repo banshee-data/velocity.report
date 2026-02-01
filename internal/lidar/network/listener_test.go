@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -902,21 +903,7 @@ func TestUDPListener_Start_SocketFactoryError(t *testing.T) {
 	if err == nil {
 		t.Error("Expected error from socket factory")
 	}
-	if !containsString(err.Error(), "failed to listen") {
+	if !strings.Contains(err.Error(), "failed to listen") {
 		t.Errorf("Expected 'failed to listen' error, got: %v", err)
 	}
-}
-
-// containsString is a helper to check if a string contains a substring
-func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsStringHelper(s, substr))
-}
-
-func containsStringHelper(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
