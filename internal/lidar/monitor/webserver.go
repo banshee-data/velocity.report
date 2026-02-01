@@ -58,13 +58,8 @@ var regionsDashboardHTML string
 
 const echartsAssetsPrefix = "/assets/"
 
-type DataSource string
-
-const (
-	DataSourceLive         DataSource = "live"
-	DataSourcePCAP         DataSource = "pcap"
-	DataSourcePCAPAnalysis DataSource = "pcap_analysis"
-)
+// DataSource, DataSourceLive, DataSourcePCAP, DataSourcePCAPAnalysis
+// are now defined in datasource.go
 
 type switchError struct {
 	status int
