@@ -547,3 +547,250 @@ func BenchmarkGetGridCells(b *testing.B) {
 		_ = bm.GetGridCells()
 	}
 }
+
+// TestNewBackgroundManager_EdgeCases tests edge cases for NewBackgroundManager
+func TestNewBackgroundManager_EdgeCases(t *testing.T) {
+	// Empty sensorID should return nil
+	mgr := NewBackgroundManager("", 10, 360, BackgroundParams{}, nil)
+	if mgr != nil {
+		t.Error("Expected nil for empty sensorID")
+	}
+
+	// Zero rings should return nil
+	mgr = NewBackgroundManager("test-zero-rings", 0, 360, BackgroundParams{}, nil)
+	if mgr != nil {
+		t.Error("Expected nil for zero rings")
+	}
+
+	// Zero azBins should return nil
+	mgr = NewBackgroundManager("test-zero-az", 10, 0, BackgroundParams{}, nil)
+	if mgr != nil {
+		t.Error("Expected nil for zero azBins")
+	}
+
+	// Valid parameters should return non-nil
+	mgr = NewBackgroundManager("test-valid-"+time.Now().Format("150405"), 10, 360, BackgroundParams{}, nil)
+	if mgr == nil {
+		t.Error("Expected non-nil for valid parameters")
+	}
+}
+
+// TestSetRingElevations_EdgeCases tests edge cases for SetRingElevations
+func TestSetRingElevations_EdgeCases(t *testing.T) {
+	// Test with nil BackgroundManager
+	var nilBM *BackgroundManager
+	err := nilBM.SetRingElevations([]float64{1.0, 2.0})
+	if err == nil {
+		t.Error("Expected error for nil BackgroundManager")
+	}
+
+	// Test with nil grid
+	bm := &BackgroundManager{Grid: nil}
+	err = bm.SetRingElevations([]float64{1.0, 2.0})
+	if err == nil {
+		t.Error("Expected error for nil Grid")
+	}
+
+	// Test with nil elevations (should clear)
+	grid := &BackgroundGrid{Rings: 3, AzimuthBins: 10}
+	grid.RingElevations = []float64{1.0, 2.0, 3.0}
+	bm = &BackgroundManager{Grid: grid}
+	err = bm.SetRingElevations(nil)
+	if err != nil {
+		t.Errorf("Unexpected error for nil elevations: %v", err)
+	}
+	if bm.Grid.RingElevations != nil {
+		t.Error("Expected RingElevations to be nil after setting nil")
+	}
+
+	// Test with wrong length
+	err = bm.SetRingElevations([]float64{1.0, 2.0})
+	if err == nil {
+		t.Error("Expected error for wrong length elevations")
+	}
+
+	// Test with correct length
+	err = bm.SetRingElevations([]float64{1.0, 2.0, 3.0})
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+// TestGetRegionForCell_ViaRegionManager tests GetRegionForCell through RegionManager
+func TestGetRegionForCell_ViaRegionManager(t *testing.T) {
+	rm := NewRegionManager(4, 8)
+
+	// Test with cell index out of range
+	region := rm.GetRegionForCell(-1)
+	if region != -1 {
+		t.Error("Expected -1 for negative index")
+	}
+
+	region = rm.GetRegionForCell(100)
+	if region != -1 {
+		t.Error("Expected -1 for out-of-range index")
+	}
+
+	// Test with valid index
+	region = rm.GetRegionForCell(0)
+	t.Logf("GetRegionForCell(0) returned: %v", region)
+}
+
+// TestClassificationFeatures_EdgeCases tests classification with proper features
+func TestClassificationFeatures_EdgeCases(t *testing.T) {
+	// Create a TrackedObject with minimal data
+	track := &TrackedObject{
+		TrackID:              "test-track-1",
+		SensorID:             "test-sensor",
+		State:                TrackConfirmed,
+		ObservationCount:     5,
+		BoundingBoxHeightAvg: 1.5,
+		AvgSpeedMps:          3.0,
+	}
+
+	classifier := &TrackClassifier{ModelVersion: "rules-v1"}
+	classification := classifier.Classify(track)
+	t.Logf("Classification result: %+v", classification)
+}
+
+// testBgStore implements BgStore for testing
+type testBgStore struct {
+	snapshotCount int
+}
+
+func (m *testBgStore) InsertBgSnapshot(s *BgSnapshot) (int64, error) {
+	m.snapshotCount++
+	return int64(m.snapshotCount), nil
+}
+
+// TestNewBackgroundManager_WithStore tests NewBackgroundManager with a BgStore
+func TestNewBackgroundManager_WithStore(t *testing.T) {
+	store := &testBgStore{}
+	sensorID := "test-with-store-" + time.Now().Format("150405.000")
+	mgr := NewBackgroundManager(sensorID, 10, 360, BackgroundParams{}, store)
+	if mgr == nil {
+		t.Fatal("Expected non-nil manager with store")
+	}
+
+	// Verify PersistCallback is set
+	if mgr.PersistCallback == nil {
+		t.Error("Expected PersistCallback to be set when store is provided")
+	}
+}
+
+// TestProcessFramePolar_NilAndEmpty tests ProcessFramePolar with nil manager and empty inputs
+func TestProcessFramePolar_NilAndEmpty(t *testing.T) {
+	// Test with nil manager
+	var nilMgr *BackgroundManager
+	nilMgr.ProcessFramePolar([]PointPolar{{Channel: 0, Azimuth: 0.5, Distance: 5.0}})
+	// Should not panic
+
+	// Test with nil grid
+	mgrNilGrid := &BackgroundManager{Grid: nil}
+	mgrNilGrid.ProcessFramePolar([]PointPolar{{Channel: 0, Azimuth: 0.5, Distance: 5.0}})
+	// Should not panic
+
+	// Test with empty points
+	sensorID := "test-empty-points-" + time.Now().Format("150405.000")
+	mgr := NewBackgroundManager(sensorID, 10, 360, BackgroundParams{}, nil)
+	if mgr == nil {
+		t.Fatal("Expected non-nil manager")
+	}
+	mgr.ProcessFramePolar([]PointPolar{})
+	// Should return early without processing
+}
+
+// TestForegroundFrame_SetSequenceID tests the SetSequenceID method
+func TestForegroundFrame_SetSequenceID(t *testing.T) {
+	frame := &ForegroundFrame{
+		SensorID:    "test-sensor",
+		TSUnixNanos: time.Now().UnixNano(),
+	}
+
+	// Initially should be empty
+	if frame.SequenceID != "" {
+		t.Errorf("Expected empty SequenceID, got %q", frame.SequenceID)
+	}
+
+	// Set the sequence ID
+	frame.SetSequenceID("seq-001")
+	if frame.SequenceID != "seq-001" {
+		t.Errorf("Expected SequenceID 'seq-001', got %q", frame.SequenceID)
+	}
+
+	// Update the sequence ID
+	frame.SetSequenceID("seq-002")
+	if frame.SequenceID != "seq-002" {
+		t.Errorf("Expected SequenceID 'seq-002', got %q", frame.SequenceID)
+	}
+}
+
+// TestClassification_BirdEdgeCases tests bird classification edge cases
+func TestClassification_BirdEdgeCases(t *testing.T) {
+	classifier := &TrackClassifier{ModelVersion: "rules-v1"}
+
+	// Case 1: Very small bird (height < 0.3) - should increase confidence
+	smallBird := &TrackedObject{
+		TrackID:              "bird-small",
+		BoundingBoxHeightAvg: 0.2,
+		BoundingBoxLengthAvg: 0.3,
+		BoundingBoxWidthAvg:  0.3,
+		AvgSpeedMps:          2.0,
+		ObservationCount:     5,
+	}
+	result := classifier.Classify(smallBird)
+	t.Logf("Small bird classification: %+v", result)
+
+	// Case 2: Bird with very low speed (< 0.1) - should decrease confidence
+	slowBird := &TrackedObject{
+		TrackID:              "bird-slow",
+		BoundingBoxHeightAvg: 0.5,
+		BoundingBoxLengthAvg: 0.3,
+		BoundingBoxWidthAvg:  0.3,
+		AvgSpeedMps:          0.05,
+		ObservationCount:     5,
+	}
+	result = classifier.Classify(slowBird)
+	t.Logf("Slow bird classification: %+v", result)
+}
+
+// TestClassification_VehicleEdgeCases tests vehicle classification edge cases
+func TestClassification_VehicleEdgeCases(t *testing.T) {
+	classifier := &TrackClassifier{ModelVersion: "rules-v1"}
+
+	// Large, fast vehicle
+	car := &TrackedObject{
+		TrackID:              "vehicle-car",
+		BoundingBoxHeightAvg: 1.5,
+		BoundingBoxLengthAvg: 5.0,
+		BoundingBoxWidthAvg:  2.5,
+		AvgSpeedMps:          15.0,
+		PeakSpeedMps:         20.0,
+		ObservationCount:     10,
+	}
+	result := classifier.Classify(car)
+	t.Logf("Car classification: %+v", result)
+	if result.Class != "car" {
+		t.Errorf("Expected 'car' class, got %q", result.Class)
+	}
+}
+
+// TestClassification_PedestrianEdgeCases tests pedestrian classification edge cases
+func TestClassification_PedestrianEdgeCases(t *testing.T) {
+	classifier := &TrackClassifier{ModelVersion: "rules-v1"}
+
+	// Typical pedestrian
+	ped := &TrackedObject{
+		TrackID:              "ped-walking",
+		BoundingBoxHeightAvg: 1.7,
+		BoundingBoxLengthAvg: 0.5,
+		BoundingBoxWidthAvg:  0.5,
+		AvgSpeedMps:          1.5,
+		ObservationCount:     20,
+	}
+	result := classifier.Classify(ped)
+	t.Logf("Pedestrian classification: %+v", result)
+	if result.Class != "pedestrian" {
+		t.Errorf("Expected 'pedestrian' class, got %q", result.Class)
+	}
+}
