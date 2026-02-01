@@ -10,7 +10,7 @@
 		upsertSiteConfigPeriod,
 		type SiteConfigPeriod
 	} from '$lib/api';
-	import MapEditor from '$lib/components/MapEditor.svelte';
+	import MapEditorInteractive from '$lib/components/MapEditorInteractive.svelte';
 	import { mdiArrowLeft, mdiContentSave } from '@mdi/js';
 	import { onMount } from 'svelte';
 	import { Button, Card, Header, TextField } from 'svelte-ux';
@@ -373,7 +373,7 @@
 			</Card>
 
 			<!-- Map Configuration -->
-			<MapEditor
+			<MapEditorInteractive
 				bind:latitude={formData.latitude}
 				bind:longitude={formData.longitude}
 				bind:radarAngle={formData.map_angle}
