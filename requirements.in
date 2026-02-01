@@ -5,7 +5,7 @@
 # Core data analysis / plotting
 pandas
 matplotlib
-numpy<2.4.0  # Pin to avoid yanked 2.4.0
+numpy<2.5.0  # Pin to avoid yanked 2.4.0
 seaborn
 scipy
 
