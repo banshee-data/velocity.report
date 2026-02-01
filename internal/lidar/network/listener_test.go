@@ -854,8 +854,17 @@ func TestUDPListener_Start_WithMockSocket(t *testing.T) {
 		done <- listener.Start(ctx)
 	}()
 
-	// Wait for packets to be processed (they'll be read then timeout)
-	time.Sleep(400 * time.Millisecond)
+	// Poll until packets are processed (instead of fixed sleep)
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if stats.packetCount >= 2 {
+			break // Packets processed
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if stats.packetCount < 2 {
+		t.Fatalf("Timeout waiting for packets to be processed, got %d", stats.packetCount)
+	}
 
 	// Cancel to stop
 	cancel()

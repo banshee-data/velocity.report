@@ -80,7 +80,7 @@ func (e *Executor) Run(command string) (string, error) {
 		}
 		return output, err
 	}
-	output, err := e.runSSH(command, false)
+	output, err := e.runSSH(command)
 	if err != nil {
 		e.Logger.Debugf("SSH command failed: %v, output: %s", err, output)
 	}
@@ -103,7 +103,7 @@ func (e *Executor) RunSudo(command string) (string, error) {
 		}
 		return output, err
 	}
-	output, err := e.runSSH(sudoCmd, true)
+	output, err := e.runSSH(sudoCmd)
 	if err != nil {
 		e.Logger.Debugf("SSH sudo command failed: %v, output: %s", err, output)
 	}
@@ -162,7 +162,7 @@ func (e *Executor) runLocal(command string) (string, error) {
 	return string(output), err
 }
 
-func (e *Executor) runSSH(command string, useSudo bool) (string, error) {
+func (e *Executor) runSSH(command string) (string, error) {
 	cmd := e.buildSSHCommandExecutor(command)
 	output, err := cmd.Run()
 	return string(output), err
@@ -206,7 +206,11 @@ func (e *Executor) buildSSHArgs(command string) []string {
 
 // buildSSHCommand returns an exec.Cmd for SSH commands that need stdin access.
 // This method is kept for backward compatibility with WriteFile.
+// When useSudo is true, the remote command is prefixed with "sudo".
 func (e *Executor) buildSSHCommand(command string, useSudo bool) *exec.Cmd {
+	if useSudo {
+		command = "sudo " + command
+	}
 	args := e.buildSSHArgs(command)
 	return exec.Command("ssh", args...)
 }

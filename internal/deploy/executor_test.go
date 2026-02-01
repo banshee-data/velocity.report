@@ -427,16 +427,16 @@ func TestExecutor_buildSSHCommand_Sudo(t *testing.T) {
 		t.Errorf("Expected ssh command, got: %s", args[0])
 	}
 
-	// Check that the command is included in the args
+	// Check that the command is prefixed with sudo
 	found := false
 	for _, arg := range args {
-		if arg == "systemctl restart service" {
+		if arg == "sudo systemctl restart service" {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Errorf("Expected command in args: %v", args)
+		t.Errorf("Expected 'sudo systemctl restart service' in args: %v", args)
 	}
 }
 

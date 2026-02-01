@@ -22,7 +22,7 @@ type PCAPReader interface {
 	SetBPFFilter(filter string) error
 
 	// NextPacket returns the next packet from the PCAP file.
-	// Returns nil, time.Time{}, io.EOF when no more packets are available.
+	// When no more packets are available, it returns (nil, nil).
 	NextPacket() (*PCAPPacket, error)
 
 	// Close closes the PCAP reader and releases resources.
