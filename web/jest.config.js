@@ -2,10 +2,13 @@
 export default {
 	preset: 'ts-jest',
 	testEnvironment: 'jsdom',
+	extensionsToTreatAsEsm: ['.ts', '.svelte'],
 	moduleNameMapper: {
 		'^\\$lib(.*)$': '<rootDir>/src/lib$1',
 		'^\\$app(.*)$': '<rootDir>/src/mocks/$app$1',
-		'^svelte/store$': '<rootDir>/src/__mocks__/svelte/store.ts'
+		'^svelte/store$': '<rootDir>/src/__mocks__/svelte/store.ts',
+		'^@testing-library/svelte$': '<rootDir>/src/__mocks__/@testing-library/svelte.ts',
+		'^(.+)\\.svelte$': '<rootDir>/src/__mocks__/svelte-component.ts'
 	},
 	transform: {
 		'^.+\\.ts$': [
@@ -22,18 +25,22 @@ export default {
 					isolatedModules: true,
 					skipLibCheck: true,
 					strict: true
-				}
+				},
+				useESM: true
 			}
 		],
 		'^.+\\.svelte$': [
 			'svelte-jester',
 			{
-				preprocess: true
+				preprocess: true,
+				compilerOptions: {
+					dev: true
+				}
 			}
 		]
 	},
 	moduleFileExtensions: ['js', 'ts', 'svelte'],
-	transformIgnorePatterns: ['node_modules/(?!svelte)'],
+	transformIgnorePatterns: ['node_modules/(?!(svelte|@testing-library))'],
 	collectCoverageFrom: [
 		'src/lib/**/*.{ts,js}',
 		'!src/lib/**/*.d.ts',
