@@ -18,6 +18,8 @@
 	let map: LeafletMap | null = null;
 	let radarMarker: Marker | null = null;
 	let bboxRect: Rectangle | null = null;
+	let fovPolygon: L.Polygon | null = null;
+	let fovTipMarker: Marker | null = null;
 	let mapContainer: HTMLElement;
 	let searchQuery = '';
 	let searchResults: Array<{ display_name: string; lat: string; lon: string }> = [];
@@ -25,10 +27,11 @@
 	let downloading = false;
 	let error = '';
 	let L: typeof import('leaflet') | null = null;
+	let isDraggingFovTip = false; // Flag to prevent reactive updates during drag
 
-	// Default location (London, UK)
-	const defaultLat = 51.5074;
-	const defaultLng = -0.1278;
+	// Default location (San Francisco, USA)
+	const defaultLat = 37.7749;
+	const defaultLng = -122.4194;
 
 	onMount(async () => {
 		// Dynamically import Leaflet to avoid SSR issues
@@ -89,6 +92,11 @@
 			draggable: true
 		}).addTo(map);
 
+		// Initialize coordinates if not set
+		if (latitude === null) latitude = centerLat;
+		if (longitude === null) longitude = centerLng;
+		if (radarAngle === null) radarAngle = 0; // Default to north
+
 		radarMarker.on('dragend', () => {
 			if (!radarMarker) return;
 			const pos = radarMarker.getLatLng();
@@ -104,6 +112,139 @@
 			// Create default bounding box around radar
 			updateBBoxAroundRadar();
 		}
+
+		// Initialize FOV triangle if angle is set
+		updateFOVTriangle();
+	}
+
+	function updateFOVTriangle() {
+		if (!L || !map || latitude === null || longitude === null) return;
+
+		// Remove existing FOV polygon and marker
+		if (fovPolygon) {
+			map.removeLayer(fovPolygon);
+			fovPolygon = null;
+		}
+		if (fovTipMarker) {
+			map.removeLayer(fovTipMarker);
+			fovTipMarker = null;
+		}
+
+		// Only draw if angle is set
+		if (radarAngle === null) return;
+
+		// FOV parameters
+		const fovWidthDegrees = 20; // Field of view width in degrees
+		const fovDistanceMeters = 100; // Distance in meters
+
+		// Convert 100m to degrees (approximate: 1 degree lat ≈ 111km)
+		const metersPerDegreeLat = 111320;
+		const metersPerDegreeLng = 111320 * Math.cos((latitude * Math.PI) / 180);
+		const fovDistanceLat = fovDistanceMeters / metersPerDegreeLat;
+		const fovDistanceLng = fovDistanceMeters / metersPerDegreeLng;
+
+		// Radar angle: 0 = North, 90 = East, 180 = South, 270 = West
+		// Map bearing is the same convention
+		const bearingDegrees = radarAngle;
+		const bearingRad = (bearingDegrees * Math.PI) / 180;
+		const leftBearingRad = ((bearingDegrees - fovWidthDegrees / 2) * Math.PI) / 180;
+		const rightBearingRad = ((bearingDegrees + fovWidthDegrees / 2) * Math.PI) / 180;
+
+		// Calculate center tip point
+		const tipLat = latitude + Math.cos(bearingRad) * fovDistanceLat;
+		const tipLng = longitude + Math.sin(bearingRad) * fovDistanceLng;
+
+		// Calculate left and right edge points at 100m distance
+		const leftLat = latitude + Math.cos(leftBearingRad) * fovDistanceLat;
+		const leftLng = longitude + Math.sin(leftBearingRad) * fovDistanceLng;
+		const rightLat = latitude + Math.cos(rightBearingRad) * fovDistanceLat;
+		const rightLng = longitude + Math.sin(rightBearingRad) * fovDistanceLng;
+
+		// Validate all coordinates
+		if (
+			isNaN(leftLat) ||
+			isNaN(leftLng) ||
+			isNaN(rightLat) ||
+			isNaN(rightLng) ||
+			isNaN(tipLat) ||
+			isNaN(tipLng)
+		) {
+			console.error('Invalid FOV coordinates calculated');
+			return;
+		}
+
+		// Create triangle: radar origin -> left edge -> right edge -> back to origin
+		fovPolygon = L.polygon(
+			[
+				[latitude, longitude], // Radar position (origin)
+				[leftLat, leftLng], // Left edge at 100m
+				[rightLat, rightLng] // Right edge at 100m
+			],
+			{
+				color: '#ef4444',
+				fillColor: '#ef4444',
+				fillOpacity: 0.3,
+				weight: 2
+			}
+		).addTo(map);
+
+		// Add draggable marker at the tip
+		const tipIcon = L.divIcon({
+			html: '<div style="width: 12px; height: 12px; background: #ef4444; border: 2px solid white; border-radius: 50%; cursor: move;"></div>',
+			iconSize: [12, 12],
+			iconAnchor: [6, 6],
+			className: ''
+		});
+
+		fovTipMarker = L.marker([tipLat, tipLng], {
+			icon: tipIcon,
+			draggable: true,
+			zIndexOffset: 1000
+		}).addTo(map);
+
+		// Set flag when drag starts to prevent reactive updates from recreating marker
+		fovTipMarker.on('dragstart', () => {
+			isDraggingFovTip = true;
+		});
+
+		// Update angle and polygon during drag (without recreating marker)
+		fovTipMarker.on('drag', () => {
+			if (!fovTipMarker || !fovPolygon || latitude === null || longitude === null) return;
+			const tipPos = fovTipMarker.getLatLng();
+
+			// Calculate angle from radar to tip
+			const dLat = tipPos.lat - latitude;
+			const dLng = tipPos.lng - longitude;
+
+			// atan2(dLng, dLat) gives angle where 0 = North
+			let angle = Math.atan2(dLng, dLat) * (180 / Math.PI);
+
+			// Normalize to 0-360
+			if (angle < 0) angle += 360;
+
+			radarAngle = Math.round(angle);
+
+			// Update just the polygon shape without recreating marker
+			const newLeftBearingRad = ((radarAngle - fovWidthDegrees / 2) * Math.PI) / 180;
+			const newRightBearingRad = ((radarAngle + fovWidthDegrees / 2) * Math.PI) / 180;
+
+			const newLeftLat = latitude + Math.cos(newLeftBearingRad) * fovDistanceLat;
+			const newLeftLng = longitude + Math.sin(newLeftBearingRad) * fovDistanceLng;
+			const newRightLat = latitude + Math.cos(newRightBearingRad) * fovDistanceLat;
+			const newRightLng = longitude + Math.sin(newRightBearingRad) * fovDistanceLng;
+
+			// Update polygon coordinates
+			fovPolygon.setLatLngs([
+				[latitude, longitude],
+				[newLeftLat, newLeftLng],
+				[newRightLat, newRightLng]
+			]);
+		});
+
+		// Clear flag when drag ends
+		fovTipMarker.on('dragend', () => {
+			isDraggingFovTip = false;
+		});
 	}
 
 	function addBoundingBox(bounds: LatLngBounds) {
@@ -149,8 +290,15 @@
 			widthDelta = (bboxNELng - bboxSWLng) / 2;
 		} else {
 			// Create new bbox with 3:2 landscape ratio (width:height)
-			heightDelta = 0.003; // ~300m height
-			widthDelta = heightDelta * 1.5; // 450m width for 3:2 ratio
+			// Account for longitude compression at given latitude
+			const metersPerDegreeLat = 111320;
+			const metersPerDegreeLng = 111320 * Math.cos((latitude * Math.PI) / 180);
+
+			const heightMeters = 300; // 300m height
+			const widthMeters = 450; // 450m width (3:2 ratio)
+
+			heightDelta = heightMeters / metersPerDegreeLat / 2;
+			widthDelta = widthMeters / metersPerDegreeLng / 2;
 		}
 
 		const bounds = L.latLngBounds(
@@ -163,6 +311,11 @@
 	function centerOnRadar() {
 		if (!map || !latitude || !longitude) return;
 		map.setView([latitude, longitude], 15);
+	}
+
+	// Update FOV triangle when radar position changes (not during drag)
+	$: if (map && latitude !== null && longitude !== null && !isDraggingFovTip) {
+		updateFOVTriangle();
 	}
 
 	async function searchAddress() {
@@ -350,8 +503,8 @@
 			></div>
 
 			<p class="text-surface-600-300-token text-xs">
-				Drag the blue marker to set radar position. The orange rectangle shows the map area for
-				reports.
+				Drag the blue marker to set radar position. Drag the red dot at the triangle tip to adjust
+				radar angle. The orange rectangle shows the map area for reports.
 			</p>
 		</div>
 
