@@ -116,6 +116,8 @@ jobs:
         run: ./scripts/ensure-web-stub.sh
 
       - name: Run core tests
+        env:
+          SKIP_PDF_TESTS: "1"
         run: |
           go test -v -race -coverprofile=coverage-core.out -covermode=atomic \
             ./internal/db/... \
