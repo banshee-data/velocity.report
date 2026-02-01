@@ -6,6 +6,7 @@ import (
 )
 
 func TestIsValid(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		unit     string
@@ -31,6 +32,7 @@ func TestIsValid(t *testing.T) {
 }
 
 func TestGetValidUnitsString(t *testing.T) {
+	t.Parallel()
 	result := GetValidUnitsString()
 	expected := "mps, mph, kmph, kph"
 	if result != expected {
@@ -39,6 +41,7 @@ func TestGetValidUnitsString(t *testing.T) {
 }
 
 func TestConvertSpeed(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		speedMPS float64
@@ -76,6 +79,7 @@ func TestConvertSpeed(t *testing.T) {
 }
 
 func TestConvertToMPS(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		speed    float64
@@ -115,6 +119,7 @@ func TestConvertToMPS(t *testing.T) {
 
 // Test round-trip conversions
 func TestRoundTripConversions(t *testing.T) {
+	t.Parallel()
 	originalMPS := 15.5
 
 	// Test MPH round-trip
