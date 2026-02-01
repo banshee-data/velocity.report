@@ -448,6 +448,166 @@ func TestSite_BooleanFields(t *testing.T) {
 	}
 }
 
+// TestSite_MapFields tests all map-related fields (bbox, rotation, SVG data)
+func TestSite_MapFields(t *testing.T) {
+	db := setupTestDB(t)
+	defer cleanupTestDB(t, db)
+
+	// Test data for map fields
+	testSVGData := []byte("<svg xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"50\" cy=\"50\" r=\"40\"/></svg>")
+
+	site := &Site{
+		Name:        "Map Test Site",
+		Location:    "Test Location",
+		Surveyor:    "Test Surveyor",
+		Contact:     "test@example.com",
+		Latitude:    floatPtr(51.5074),
+		Longitude:   floatPtr(-0.1278),
+		MapAngle:    floatPtr(45.0),
+		BBoxNELat:   floatPtr(51.5124),
+		BBoxNELng:   floatPtr(-0.1228),
+		BBoxSWLat:   floatPtr(51.5024),
+		BBoxSWLng:   floatPtr(-0.1328),
+		MapRotation: floatPtr(15.0),
+		MapSVGData:  &testSVGData,
+	}
+
+	// Create site with map fields
+	err := db.CreateSite(site)
+	if err != nil {
+		t.Fatalf("CreateSite with map fields failed: %v", err)
+	}
+
+	if site.ID == 0 {
+		t.Error("Expected site ID to be set after creation")
+	}
+
+	// Retrieve and verify all map fields
+	retrieved, err := db.GetSite(site.ID)
+	if err != nil {
+		t.Fatalf("GetSite failed: %v", err)
+	}
+
+	// Verify bounding box coordinates
+	if retrieved.BBoxNELat == nil || *retrieved.BBoxNELat != 51.5124 {
+		t.Errorf("BBoxNELat mismatch: got %v, want 51.5124", retrieved.BBoxNELat)
+	}
+	if retrieved.BBoxNELng == nil || *retrieved.BBoxNELng != -0.1228 {
+		t.Errorf("BBoxNELng mismatch: got %v, want -0.1228", retrieved.BBoxNELng)
+	}
+	if retrieved.BBoxSWLat == nil || *retrieved.BBoxSWLat != 51.5024 {
+		t.Errorf("BBoxSWLat mismatch: got %v, want 51.5024", retrieved.BBoxSWLat)
+	}
+	if retrieved.BBoxSWLng == nil || *retrieved.BBoxSWLng != -0.1328 {
+		t.Errorf("BBoxSWLng mismatch: got %v, want -0.1328", retrieved.BBoxSWLng)
+	}
+
+	// Verify map rotation
+	if retrieved.MapRotation == nil || *retrieved.MapRotation != 15.0 {
+		t.Errorf("MapRotation mismatch: got %v, want 15.0", retrieved.MapRotation)
+	}
+
+	// Verify SVG data
+	if retrieved.MapSVGData == nil {
+		t.Error("Expected MapSVGData to be set")
+	} else if string(*retrieved.MapSVGData) != string(testSVGData) {
+		t.Errorf("MapSVGData mismatch: got %s, want %s", string(*retrieved.MapSVGData), string(testSVGData))
+	}
+}
+
+// TestSite_UpdateMapFields tests updating map fields
+func TestSite_UpdateMapFields(t *testing.T) {
+	db := setupTestDB(t)
+	defer cleanupTestDB(t, db)
+
+	// Create a site without map fields
+	site := &Site{
+		Name:     "Update Map Test",
+		Location: "Test Location",
+		Surveyor: "Test Surveyor",
+		Contact:  "test@example.com",
+	}
+
+	err := db.CreateSite(site)
+	if err != nil {
+		t.Fatalf("CreateSite failed: %v", err)
+	}
+
+	// Update with map fields
+	updatedSVGData := []byte("<svg><rect width=\"100\" height=\"100\"/></svg>")
+	site.BBoxNELat = floatPtr(52.0)
+	site.BBoxNELng = floatPtr(-1.0)
+	site.BBoxSWLat = floatPtr(51.0)
+	site.BBoxSWLng = floatPtr(-2.0)
+	site.MapRotation = floatPtr(30.0)
+	site.MapSVGData = &updatedSVGData
+
+	err = db.UpdateSite(site)
+	if err != nil {
+		t.Fatalf("UpdateSite failed: %v", err)
+	}
+
+	// Verify updates
+	retrieved, err := db.GetSite(site.ID)
+	if err != nil {
+		t.Fatalf("GetSite failed: %v", err)
+	}
+
+	if retrieved.BBoxNELat == nil || *retrieved.BBoxNELat != 52.0 {
+		t.Errorf("Updated BBoxNELat mismatch: got %v, want 52.0", retrieved.BBoxNELat)
+	}
+	if retrieved.MapRotation == nil || *retrieved.MapRotation != 30.0 {
+		t.Errorf("Updated MapRotation mismatch: got %v, want 30.0", retrieved.MapRotation)
+	}
+	if retrieved.MapSVGData == nil || string(*retrieved.MapSVGData) != string(updatedSVGData) {
+		t.Error("Updated MapSVGData does not match expected value")
+	}
+}
+
+// TestSite_MapFieldsNullable tests that map fields can be null
+func TestSite_MapFieldsNullable(t *testing.T) {
+	db := setupTestDB(t)
+	defer cleanupTestDB(t, db)
+
+	// Create site without any map fields
+	site := &Site{
+		Name:     "Null Map Fields Test",
+		Location: "Test Location",
+		Surveyor: "Test Surveyor",
+		Contact:  "test@example.com",
+	}
+
+	err := db.CreateSite(site)
+	if err != nil {
+		t.Fatalf("CreateSite failed: %v", err)
+	}
+
+	// Verify all map fields are null
+	retrieved, err := db.GetSite(site.ID)
+	if err != nil {
+		t.Fatalf("GetSite failed: %v", err)
+	}
+
+	if retrieved.BBoxNELat != nil {
+		t.Error("Expected BBoxNELat to be nil")
+	}
+	if retrieved.BBoxNELng != nil {
+		t.Error("Expected BBoxNELng to be nil")
+	}
+	if retrieved.BBoxSWLat != nil {
+		t.Error("Expected BBoxSWLat to be nil")
+	}
+	if retrieved.BBoxSWLng != nil {
+		t.Error("Expected BBoxSWLng to be nil")
+	}
+	if retrieved.MapRotation != nil {
+		t.Error("Expected MapRotation to be nil")
+	}
+	if retrieved.MapSVGData != nil {
+		t.Error("Expected MapSVGData to be nil")
+	}
+}
+
 // Helper functions
 
 func setupTestDB(t *testing.T) *DB {
