@@ -210,14 +210,14 @@ CREATE TABLE lidar_analysis_runs (
         , map_angle REAL
         , include_map INTEGER DEFAULT 0
         , site_description TEXT
+        , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+        , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
         , bbox_ne_lat REAL
         , bbox_ne_lng REAL
         , bbox_sw_lat REAL
         , bbox_sw_lng REAL
         , map_rotation REAL DEFAULT 0
         , map_svg_data BLOB
-        , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
-        , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
           );
 
    CREATE TABLE site_config_periods (
