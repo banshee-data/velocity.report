@@ -13,10 +13,11 @@ on:
     paths:
       - "public_html/**"
       - ".github/workflows/docs-ci.yml"
+      - ".github/actions/setup-node-pnpm/**"
 
 jobs:
   lint:
-    name: Lint & Format Check (advisory)
+    name: "🔍 Lint (advisory)"
     runs-on: ubuntu-latest
     continue-on-error: true # Advisory - allows PR to merge even if linting fails
     defaults:
@@ -26,30 +27,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js with pnpm
+        uses: ./.github/actions/setup-node-pnpm
         with:
-          node-version: "20"
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Get pnpm store directory
-        id: get-pnpm-store
-        shell: bash
-        run: |
-          echo "store_path=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
-
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.get-pnpm-store.outputs.store_path }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('public_html/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+          working-directory: public_html
 
       - name: Check for Prettier configuration
         id: prettier-check
@@ -62,15 +43,10 @@ jobs:
 
       - name: Run Prettier check
         if: steps.prettier-check.outputs.has_prettier == 'true'
-        run: |
-          if command -v pnpm >/dev/null 2>&1; then
-            pnpm exec prettier --check .
-          else
-            npx prettier --check .
-          fi
+        run: pnpm exec prettier --check .
 
   build:
-    name: Build
+    name: "🔨 Build"
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -79,30 +55,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js with pnpm
+        uses: ./.github/actions/setup-node-pnpm
         with:
-          node-version: "20"
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Get pnpm store directory
-        id: get-pnpm-store
-        shell: bash
-        run: |
-          echo "store_path=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
-
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.get-pnpm-store.outputs.store_path }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('public_html/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+          working-directory: public_html
 
       - name: Build documentation site
         run: pnpm run build
@@ -119,7 +75,7 @@ jobs:
 
       - name: Build summary
         run: |
-          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔨 Build Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- Output directory: \`_site/\`" >> $GITHUB_STEP_SUMMARY
           echo "- Total size: $(du -sh _site | cut -f1)" >> $GITHUB_STEP_SUMMARY

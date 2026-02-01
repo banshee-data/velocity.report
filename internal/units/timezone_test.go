@@ -6,6 +6,7 @@ import (
 )
 
 func TestIsTimezoneValid(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		timezone string
@@ -28,6 +29,7 @@ func TestIsTimezoneValid(t *testing.T) {
 }
 
 func TestGetValidTimezonesString(t *testing.T) {
+	t.Parallel()
 	res := GetValidTimezonesString()
 	if res == "" {
 		t.Fatal("GetValidTimezonesString returned empty string")
@@ -41,6 +43,7 @@ func TestGetValidTimezonesString(t *testing.T) {
 }
 
 func TestConvertTime(t *testing.T) {
+	t.Parallel()
 	utcTime := time.Date(2025, 9, 13, 12, 0, 0, 0, time.UTC)
 	t.Run("UTC to UTC", func(t *testing.T) {
 		out, err := ConvertTime(utcTime, "UTC")
@@ -84,6 +87,7 @@ func TestConvertTime(t *testing.T) {
 }
 
 func TestIsCommonTimezone(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		timezone string
@@ -112,6 +116,7 @@ func TestIsCommonTimezone(t *testing.T) {
 }
 
 func TestGetTimezoneLabel(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		tz       string
 		expected string

@@ -63,6 +63,7 @@ func TestRealClock_NewTicker(t *testing.T) {
 }
 
 func TestMockClock_Now(t *testing.T) {
+	t.Parallel()
 	fixedTime := time.Date(2026, 1, 15, 10, 30, 0, 0, time.UTC)
 	clock := NewMockClock(fixedTime)
 	now := clock.Now()
@@ -73,6 +74,7 @@ func TestMockClock_Now(t *testing.T) {
 }
 
 func TestMockClock_Set(t *testing.T) {
+	t.Parallel()
 	clock := NewMockClock(time.Time{})
 	newTime := time.Date(2026, 6, 15, 12, 0, 0, 0, time.UTC)
 	clock.Set(newTime)
@@ -83,6 +85,7 @@ func TestMockClock_Set(t *testing.T) {
 }
 
 func TestMockClock_Advance(t *testing.T) {
+	t.Parallel()
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	clock := NewMockClock(start)
 	clock.Advance(time.Hour)
@@ -94,6 +97,7 @@ func TestMockClock_Advance(t *testing.T) {
 }
 
 func TestMockClock_Since(t *testing.T) {
+	t.Parallel()
 	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	clock := NewMockClock(now)
 	past := now.Add(-5 * time.Minute)
@@ -105,6 +109,7 @@ func TestMockClock_Since(t *testing.T) {
 }
 
 func TestMockClock_Until(t *testing.T) {
+	t.Parallel()
 	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	clock := NewMockClock(now)
 	future := now.Add(10 * time.Minute)
@@ -116,6 +121,7 @@ func TestMockClock_Until(t *testing.T) {
 }
 
 func TestMockClock_Sleep(t *testing.T) {
+	t.Parallel()
 	clock := NewMockClock(time.Now())
 	clock.Sleep(time.Second)
 	clock.Sleep(2 * time.Second)
@@ -135,6 +141,7 @@ func TestMockClock_Sleep(t *testing.T) {
 }
 
 func TestMockClock_Timer(t *testing.T) {
+	t.Parallel()
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	clock := NewMockClock(start)
 	timer := clock.NewTimer(5 * time.Minute)
@@ -160,6 +167,7 @@ func TestMockClock_Timer(t *testing.T) {
 }
 
 func TestMockClock_Timer_Stop(t *testing.T) {
+	t.Parallel()
 	clock := NewMockClock(time.Now())
 	timer := clock.NewTimer(time.Minute)
 	wasActive := timer.Stop()
@@ -180,6 +188,7 @@ func TestMockClock_Timer_Stop(t *testing.T) {
 }
 
 func TestMockClock_Ticker(t *testing.T) {
+	t.Parallel()
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	clock := NewMockClock(start)
 	ticker := clock.NewTicker(time.Minute)
@@ -203,6 +212,7 @@ func TestMockClock_Ticker(t *testing.T) {
 }
 
 func TestMockClock_Ticker_Stop(t *testing.T) {
+	t.Parallel()
 	clock := NewMockClock(time.Now())
 	ticker := clock.NewTicker(time.Second)
 	ticker.Stop()
@@ -217,6 +227,7 @@ func TestMockClock_Ticker_Stop(t *testing.T) {
 }
 
 func TestMockClock_After(t *testing.T) {
+	t.Parallel()
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	clock := NewMockClock(start)
 	ch := clock.After(time.Hour)
@@ -240,6 +251,7 @@ func TestMockClock_After(t *testing.T) {
 }
 
 func TestMockTimer_Reset(t *testing.T) {
+	t.Parallel()
 	clock := NewMockClock(time.Now())
 	timer := clock.NewTimer(time.Minute)
 
@@ -256,6 +268,7 @@ func TestMockTimer_Reset(t *testing.T) {
 }
 
 func TestMockTicker_Trigger(t *testing.T) {
+	t.Parallel()
 	clock := NewMockClock(time.Now())
 	ticker := clock.NewTicker(time.Hour).(*MockTicker)
 	now := clock.Now()
@@ -272,6 +285,7 @@ func TestMockTicker_Trigger(t *testing.T) {
 }
 
 func TestMockTicker_Reset(t *testing.T) {
+	t.Parallel()
 	clock := NewMockClock(time.Now())
 	ticker := clock.NewTicker(time.Second).(*MockTicker)
 	ticker.Stop()
