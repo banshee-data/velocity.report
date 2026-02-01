@@ -12,7 +12,6 @@
 	export let bboxNELng: number | null = null;
 	export let bboxSWLat: number | null = null;
 	export let bboxSWLng: number | null = null;
-	export let mapRotation: number | null = null;
 	export let mapSvgData: string | null = null;
 
 	// Local state
@@ -95,7 +94,7 @@
 			const pos = radarMarker.getLatLng();
 			latitude = pos.lat;
 			longitude = pos.lng;
-			updateBBoxAroundRadar();
+			updateBBoxAroundRadar(true); // true = maintain size
 		});
 
 		// Add bounding box if it exists
@@ -138,13 +137,25 @@
 		bboxNELng = ne.lng;
 	}
 
-	function updateBBoxAroundRadar() {
+	function updateBBoxAroundRadar(maintainSize: boolean = false) {
 		if (!L || !latitude || !longitude) return;
 
-		const delta = 0.005; // ~500m
+		let heightDelta: number;
+		let widthDelta: number;
+
+		if (maintainSize && bboxNELat && bboxSWLat && bboxNELng && bboxSWLng) {
+			// Maintain current size
+			heightDelta = (bboxNELat - bboxSWLat) / 2;
+			widthDelta = (bboxNELng - bboxSWLng) / 2;
+		} else {
+			// Create new bbox with 3:2 landscape ratio (width:height)
+			heightDelta = 0.003; // ~300m height
+			widthDelta = heightDelta * 1.5; // 450m width for 3:2 ratio
+		}
+
 		const bounds = L.latLngBounds(
-			[latitude - delta, longitude - delta],
-			[latitude + delta, longitude + delta]
+			[latitude - heightDelta, longitude - widthDelta],
+			[latitude + heightDelta, longitude + widthDelta]
 		);
 		addBoundingBox(bounds);
 	}
@@ -199,7 +210,12 @@
 		if (map && radarMarker && L) {
 			radarMarker.setLatLng([lat, lng]);
 			map.setView([lat, lng], 15);
-			updateBBoxAroundRadar();
+			// Only update bbox if it doesn't exist yet
+			if (!bboxNELat || !bboxNELng || !bboxSWLat || !bboxSWLng) {
+				updateBBoxAroundRadar(false);
+			} else {
+				updateBBoxAroundRadar(true); // Maintain size when moving to searched location
+			}
 		}
 
 		searchResults = [];
@@ -209,12 +225,13 @@
 	function adjustBBoxSize(increase: boolean) {
 		if (!L || !latitude || !longitude) return;
 
-		const currentDelta = bboxNELat && latitude ? Math.abs(bboxNELat - latitude) : 0.005;
-		const newDelta = increase ? currentDelta * 1.5 : currentDelta / 1.5;
+		const currentHeightDelta = bboxNELat && latitude ? Math.abs(bboxNELat - latitude) : 0.003;
+		const newHeightDelta = increase ? currentHeightDelta * 1.5 : currentHeightDelta / 1.5;
+		const newWidthDelta = newHeightDelta * 1.5; // Maintain 3:2 ratio
 
 		const bounds = L.latLngBounds(
-			[latitude - newDelta, longitude - newDelta],
-			[latitude + newDelta, longitude + newDelta]
+			[latitude - newHeightDelta, longitude - newWidthDelta],
+			[latitude + newHeightDelta, longitude + newWidthDelta]
 		);
 		addBoundingBox(bounds);
 	}
@@ -361,23 +378,14 @@
 			</div>
 		</div>
 
-		<!-- Radar Angle & Map Rotation -->
-		<div class="grid gap-4 md:grid-cols-2">
-			<TextField
-				bind:value={radarAngle}
-				label="Radar Angle (degrees)"
-				type="number"
-				step="1"
-				placeholder="0"
-			/>
-			<TextField
-				bind:value={mapRotation}
-				label="Map Rotation (degrees)"
-				type="number"
-				step="1"
-				placeholder="0"
-			/>
-		</div>
+		<!-- Radar Angle -->
+		<TextField
+			bind:value={radarAngle}
+			label="Radar Angle (degrees)"
+			type="number"
+			step="1"
+			placeholder="0"
+		/>
 
 		<!-- Download SVG -->
 		<div class="space-y-2">

@@ -381,7 +381,6 @@
 				bind:bboxNELng={formData.bbox_ne_lng}
 				bind:bboxSWLat={formData.bbox_sw_lat}
 				bind:bboxSWLng={formData.bbox_sw_lng}
-				bind:mapRotation={formData.map_rotation}
 				bind:mapSvgData={formData.map_svg_data}
 			/>
 
