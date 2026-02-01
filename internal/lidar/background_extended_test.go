@@ -569,10 +569,13 @@ func TestNewBackgroundManager_EdgeCases(t *testing.T) {
 	}
 
 	// Valid parameters should return non-nil
-	mgr = NewBackgroundManager("test-valid-"+time.Now().Format("150405"), 10, 360, BackgroundParams{}, nil)
+	sensorID := "test-valid-" + time.Now().Format("150405")
+	mgr = NewBackgroundManager(sensorID, 10, 360, BackgroundParams{}, nil)
 	if mgr == nil {
 		t.Error("Expected non-nil for valid parameters")
 	}
+	// Cleanup: deregister the manager to avoid leaking global state
+	defer RegisterBackgroundManager(sensorID, nil)
 }
 
 // TestSetRingElevations_EdgeCases tests edge cases for SetRingElevations
@@ -671,6 +674,8 @@ func TestNewBackgroundManager_WithStore(t *testing.T) {
 	if mgr == nil {
 		t.Fatal("Expected non-nil manager with store")
 	}
+	// Cleanup: deregister the manager to avoid leaking global state
+	defer RegisterBackgroundManager(sensorID, nil)
 
 	// Verify PersistCallback is set
 	if mgr.PersistCallback == nil {
@@ -735,11 +740,15 @@ func TestClassification_BirdEdgeCases(t *testing.T) {
 		BoundingBoxHeightAvg: 0.2,
 		BoundingBoxLengthAvg: 0.3,
 		BoundingBoxWidthAvg:  0.3,
-		AvgSpeedMps:          2.0,
+		AvgSpeedMps:          0.5, // Within bird speed threshold (< 1.0)
 		ObservationCount:     5,
 	}
 	result := classifier.Classify(smallBird)
 	t.Logf("Small bird classification: %+v", result)
+	// Assert that the result is classified as a bird
+	if result.Class != ClassBird {
+		t.Errorf("Expected ClassBird for small bird, got %s", result.Class)
+	}
 
 	// Case 2: Bird with very low speed (< 0.1) - should decrease confidence
 	slowBird := &TrackedObject{

@@ -378,22 +378,23 @@ func TestHandleChartPolarJSON_WithBackgroundManager(t *testing.T) {
 
 	ws := &WebServer{sensorID: sensorID}
 
-	// Add some grid cells to the background manager
+	// Verify background manager is registered
 	bm := lidar.GetBackgroundManager(sensorID)
-	if bm != nil && bm.Grid != nil {
-		// The grid should have been initialized
-		cells := bm.GetGridCells()
-		if len(cells) > 0 {
-			req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/polar", nil)
-			rec := httptest.NewRecorder()
+	if bm == nil {
+		t.Fatal("Expected non-nil background manager")
+	}
+	if bm.Grid == nil {
+		t.Fatal("Expected non-nil grid in background manager")
+	}
 
-			ws.handleChartPolarJSON(rec, req)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/polar", nil)
+	rec := httptest.NewRecorder()
 
-			// Should return OK if cells exist
-			if rec.Code != http.StatusOK && rec.Code != http.StatusNotFound {
-				t.Errorf("got status %d, want OK or NotFound", rec.Code)
-			}
-		}
+	ws.handleChartPolarJSON(rec, req)
+
+	// With BackgroundManager registered, expect 200 OK
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected status %d, got %d", http.StatusOK, rec.Code)
 	}
 }
 
@@ -409,9 +410,9 @@ func TestHandleChartPolarJSON_CustomMaxPoints(t *testing.T) {
 
 	ws.handleChartPolarJSON(rec, req)
 
-	// Should accept custom max_points parameter
-	if rec.Code != http.StatusOK && rec.Code != http.StatusNotFound {
-		t.Errorf("got status %d, want OK or NotFound", rec.Code)
+	// With BackgroundManager registered, expect 200 OK
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected status %d, got %d", http.StatusOK, rec.Code)
 	}
 }
 

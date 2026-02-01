@@ -2573,8 +2573,8 @@ func TestWebServer_InternalMethods(t *testing.T) {
 
 	// Test BaseContext before setting it
 	ctx := server.BaseContext()
-	if ctx == nil {
-		// Expected - baseContext not set yet
+	if ctx != nil {
+		t.Error("Expected nil context before setBaseContext")
 	}
 
 	// Set base context
@@ -2585,6 +2585,9 @@ func TestWebServer_InternalMethods(t *testing.T) {
 	ctx = server.BaseContext()
 	if ctx == nil {
 		t.Error("Expected non-nil context after setBaseContext")
+	}
+	if ctx != baseCtx {
+		t.Error("Expected BaseContext to return the same context that was set")
 	}
 }
 
@@ -2604,16 +2607,14 @@ func TestWebServer_StartLiveListenerInternal(t *testing.T) {
 	defer cancel()
 	server.setBaseContext(ctx)
 
-	// StartLiveListenerInternal requires proper setup
+	// StartLiveListenerInternal should succeed with proper context and address :0
 	err := server.StartLiveListenerInternal(ctx)
-	// May fail due to listener setup, but exercises the code path
 	if err != nil {
-		// Expected in some cases - listener might fail to start without proper setup
-		t.Logf("StartLiveListenerInternal returned error (expected): %v", err)
+		t.Errorf("StartLiveListenerInternal failed: %v", err)
 	}
 
 	// StopLiveListenerInternal
-	server.StopLiveListenerInternal()
+	defer server.StopLiveListenerInternal()
 }
 
 func TestWebServer_ResolvePCAPPath(t *testing.T) {
@@ -2739,7 +2740,7 @@ func TestWebServer_HandleLidarPersist(t *testing.T) {
 
 	server := NewWebServer(config)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/persist", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/persist?sensor_id="+sensorID, nil)
 	rec := httptest.NewRecorder()
 
 	server.handleLidarPersist(rec, req)
@@ -2753,25 +2754,26 @@ func TestWebServer_HandleLidarPersist(t *testing.T) {
 
 func TestWebServer_HandlePCAPStart_NoPCAPDir(t *testing.T) {
 	stats := NewPacketStats()
+	sensorID := "test-sensor"
 	config := WebServerConfig{
 		Address:           ":0",
 		Stats:             stats,
-		SensorID:          "test-sensor",
+		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
 
 	server := NewWebServer(config)
 
 	body := `{"pcap_file": "test.pcap"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?sensor_id="+sensorID, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
 	server.handlePCAPStart(rec, req)
 
-	// Should fail because pcapSafeDir not configured
+	// Should fail because pcapSafeDir not configured - expect 500 Internal Server Error
 	if rec.Code != http.StatusInternalServerError {
-		t.Logf("handlePCAPStart returned status %d", rec.Code)
+		t.Errorf("Expected status %d, got %d", http.StatusInternalServerError, rec.Code)
 	}
 }
 
@@ -3143,9 +3145,9 @@ func TestWebServer_HandleClustersChart_NoTrackDB(t *testing.T) {
 
 	server.handleClustersChart(rec, req)
 
-	// Should return error for missing track DB
+	// Should return 503 Service Unavailable for missing track DB
 	if rec.Code != http.StatusServiceUnavailable {
-		t.Logf("handleClustersChart returned status %d (expected 503)", rec.Code)
+		t.Errorf("Expected status %d, got %d; body: %s", http.StatusServiceUnavailable, rec.Code, rec.Body.String())
 	}
 }
 
@@ -3169,9 +3171,9 @@ func TestWebServer_HandleTracksChart_NoTrackDB(t *testing.T) {
 
 	server.handleTracksChart(rec, req)
 
-	// Should return error for missing track DB
+	// Should return 503 Service Unavailable for missing track DB
 	if rec.Code != http.StatusServiceUnavailable {
-		t.Logf("handleTracksChart returned status %d (expected 503)", rec.Code)
+		t.Errorf("Expected status %d, got %d; body: %s", http.StatusServiceUnavailable, rec.Code, rec.Body.String())
 	}
 }
 
