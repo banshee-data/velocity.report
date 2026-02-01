@@ -942,14 +942,18 @@ journalctl -u velocity-report --since "2025-01-01" --until "2025-01-02" > debug.
 
 **Cause**: PDF generation E2E tests require Python dependencies
 
-**Solution**: This is expected locally. The CI workflow installs Python dependencies in the `test-integration` job. For local development:
+**Solution**: This is expected locally and in the CI test-core job. The CI workflow sets `SKIP_PDF_TESTS=1` in test-core to skip E2E tests, and the test-integration job installs Python dependencies before running E2E tests. For local development:
 
 ```bash
-# Option 1: Skip E2E tests
+# Option 1: Skip E2E tests using environment variable
+SKIP_PDF_TESTS=1 go test ./internal/api/...
+
+# Option 2: Skip E2E tests using test filter
 go test ./internal/api/... -run 'Test[^E]'
 
-# Option 2: Install Python dependencies
+# Option 3: Install Python dependencies and run all tests
 make install-python
+go test ./internal/api/...
 ```
 
 ---
