@@ -3336,3 +3336,153 @@ func TestWebServer_HandleBackgroundGrid_WithSensorID(t *testing.T) {
 	// May return ok or not found
 	t.Logf("handleBackgroundGrid returned status %d", rec.Code)
 }
+
+// TestWebServer_ResolvePCAPPath_WithRealFile tests PCAP path resolution with real file
+func TestWebServer_ResolvePCAPPath_WithRealFile(t *testing.T) {
+	// Get absolute path to the PCAP directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+	pcapDir := cwd + "/../perf/pcap"
+	pcapFile := "kirk0.pcapng"
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "test-pcap-resolve",
+		PCAPSafeDir:       pcapDir,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	// Test resolution of existing file
+	resolved, err := server.resolvePCAPPath(pcapFile)
+	if err != nil {
+		t.Fatalf("Failed to resolve PCAP path: %v", err)
+	}
+	if resolved == "" {
+		t.Error("Expected non-empty resolved path")
+	}
+	t.Logf("Resolved PCAP path: %s", resolved)
+}
+
+// TestWebServer_ResolvePCAPPath_EmptyFile tests PCAP path with empty filename
+func TestWebServer_ResolvePCAPPath_EmptyFile(t *testing.T) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+	pcapDir := cwd + "/../perf/pcap"
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "test-pcap-empty",
+		PCAPSafeDir:       pcapDir,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	_, resolveErr := server.resolvePCAPPath("")
+	if resolveErr == nil {
+		t.Error("Expected error for empty filename")
+	}
+}
+
+// TestWebServer_ResolvePCAPPath_TraversalAttempt tests directory traversal protection
+func TestWebServer_ResolvePCAPPath_TraversalAttempt(t *testing.T) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+	pcapDir := cwd + "/../perf/pcap"
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "test-pcap-traversal",
+		PCAPSafeDir:       pcapDir,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	// Attempt to access file outside safe directory
+	_, resolveErr := server.resolvePCAPPath("../../../go.mod")
+	if resolveErr == nil {
+		t.Error("Expected error for directory traversal attempt")
+	}
+}
+
+// TestWebServer_ResolvePCAPPath_NonExistentFile tests PCAP path with non-existent file
+func TestWebServer_ResolvePCAPPath_NonExistentFile(t *testing.T) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+	pcapDir := cwd + "/../perf/pcap"
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "test-pcap-nonexistent",
+		PCAPSafeDir:       pcapDir,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	_, resolveErr := server.resolvePCAPPath("nonexistent.pcap")
+	if resolveErr == nil {
+		t.Error("Expected error for non-existent file")
+	}
+}
+
+// TestWebServer_HandlePCAPStart_WithRealFile tests PCAP start handler with real file
+func TestWebServer_HandlePCAPStart_WithRealFile(t *testing.T) {
+	sensorID := "test-pcap-start-" + time.Now().Format("150405")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+	pcapDir := cwd + "/../perf/pcap"
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          sensorID,
+		PCAPSafeDir:       pcapDir,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	// Initialize base context using the exported setter method
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	server.setBaseContext(ctx)
+
+	// Request to start PCAP replay
+	body := `{"pcap_file": "kirk0.pcapng", "speed_mode": "fastest", "duration_seconds": 0.1}`
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?sensor_id="+sensorID, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	server.handlePCAPStart(rec, req)
+
+	t.Logf("handlePCAPStart returned status %d: %s", rec.Code, rec.Body.String())
+
+	// Stop the PCAP replay if it started
+	server.StopPCAPInternal()
+}
