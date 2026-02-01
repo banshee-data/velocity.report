@@ -12,6 +12,7 @@ This guide covers common issues, error messages, and solutions for the velocity.
 - [Sensor Hardware Issues](#sensor-hardware-issues)
 - [Network and Connectivity Issues](#network-and-connectivity-issues)
 - [Performance Issues](#performance-issues)
+- [CI/CD Issues](#cicd-issues)
 - [Getting Help](#getting-help)
 
 ---
@@ -933,6 +934,63 @@ journalctl -u velocity-report --since "2025-01-01" --until "2025-01-02" > debug.
 
 ---
 
-**Last Updated**: 2025-01-12
-**Version**: 1.0
+## CI/CD Issues
+
+### Go CI Tests Fail with E2E Error
+
+**Error**: `ModuleNotFoundError: No module named 'numpy'` during Go tests
+
+**Cause**: PDF generation E2E tests require Python dependencies
+
+**Solution**: This is expected locally. The CI workflow installs Python dependencies in the `test-integration` job. For local development:
+
+```bash
+# Option 1: Skip E2E tests
+go test ./internal/api/... -run 'Test[^E]'
+
+# Option 2: Install Python dependencies
+make install-python
+```
+
+---
+
+### Web CI Lint Failures
+
+**Error**: Prettier or ESLint failures in web-ci workflow
+
+**Cause**: Code formatting inconsistency
+
+**Solution**:
+
+```bash
+# Auto-fix formatting
+cd web
+pnpm run format
+
+# Or from repository root
+make format-web
+```
+
+---
+
+### GitHub Actions Cache Issues
+
+**Error**: CI runs slower than expected or cache misses
+
+**Cause**: Cache key mismatch or cache eviction
+
+**Solution**:
+
+```bash
+# Clear and rebuild caches by pushing a commit that changes lock files
+# Or wait for weekly cache eviction (7 days)
+
+# Check cache usage in GitHub Actions UI:
+# Repository → Actions → Caches
+```
+
+---
+
+**Last Updated**: 2026-02-01
+**Version**: 1.1
 **Maintainer**: david@banshee-data.com
