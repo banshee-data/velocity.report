@@ -1080,7 +1080,8 @@ describe('api', () => {
 
 	describe('site map fields', () => {
 		it('should create site with map fields', async () => {
-			const testSVGData = 'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjQwIi8+PC9zdmc+'; // base64 SVG
+			const testSVGData =
+				'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjQwIi8+PC9zdmc+'; // base64 SVG
 			const newSite = {
 				name: 'Map Site',
 				location: 'Location with Map',
@@ -1128,7 +1129,8 @@ describe('api', () => {
 		});
 
 		it('should update site with map fields', async () => {
-			const testSVGData = 'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIi8+PC9zdmc+';
+			const testSVGData =
+				'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIi8+PC9zdmc+';
 			const updates = {
 				bbox_ne_lat: 52.0,
 				bbox_ne_lng: -1.0,

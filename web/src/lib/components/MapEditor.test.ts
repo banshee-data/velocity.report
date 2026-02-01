@@ -92,8 +92,9 @@ describe('MapEditor', () => {
 	});
 
 	it('should download SVG map from OpenStreetMap', async () => {
-		const mockSVG = '<svg xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="40"/></svg>';
-		
+		const mockSVG =
+			'<svg xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="40"/></svg>';
+
 		(global.fetch as jest.Mock).mockResolvedValueOnce({
 			ok: true,
 			text: async () => mockSVG
