@@ -262,7 +262,8 @@
 						alt="Map preview"
 						class="max-h-96 w-full rounded border border-gray-200 object-contain"
 						on:error={() => {
-							error = 'Failed to load map preview. Check bounding box coordinates.';
+							error =
+								'Failed to load map preview. Verify that coordinates form a valid bounding box and are within valid ranges.';
 						}}
 					/>
 					<p class="text-surface-600-300-token mt-2 text-xs">

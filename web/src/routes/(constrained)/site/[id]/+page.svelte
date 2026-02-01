@@ -35,7 +35,7 @@
 		latitude: null as number | null,
 		longitude: null as number | null,
 		site_description: '',
-		radar_angle: null as number | null,
+		map_angle: null as number | null,
 		bbox_ne_lat: null as number | null,
 		bbox_ne_lng: null as number | null,
 		bbox_sw_lat: null as number | null,
@@ -87,7 +87,7 @@
 				latitude: site.latitude || null,
 				longitude: site.longitude || null,
 				site_description: site.site_description || '',
-				radar_angle: site.map_angle || null,
+				map_angle: site.map_angle || null,
 				bbox_ne_lat: site.bbox_ne_lat || null,
 				bbox_ne_lng: site.bbox_ne_lng || null,
 				bbox_sw_lat: site.bbox_sw_lat || null,
@@ -247,7 +247,7 @@
 				address: formData.address || null,
 				latitude: formData.latitude,
 				longitude: formData.longitude,
-				map_angle: formData.radar_angle,
+				map_angle: formData.map_angle,
 				include_map: false, // Hardcoded to false
 				site_description: formData.site_description || null,
 				bbox_ne_lat: formData.bbox_ne_lat,
@@ -376,7 +376,7 @@
 			<MapEditor
 				bind:latitude={formData.latitude}
 				bind:longitude={formData.longitude}
-				bind:radarAngle={formData.radar_angle}
+				bind:radarAngle={formData.map_angle}
 				bind:bboxNELat={formData.bbox_ne_lat}
 				bind:bboxNELng={formData.bbox_ne_lng}
 				bind:bboxSWLat={formData.bbox_sw_lat}
