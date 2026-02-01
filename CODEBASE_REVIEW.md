@@ -327,17 +327,17 @@ Currently duplicated across:
 
 - [ ] Split `internal/api/server.go` into route files
 - [ ] Split `internal/lidar/monitor/webserver.go`
-- [ ] Create `internal/testutil` package
-- [ ] Extract HTTP response helpers
+- [x] Create `internal/testutil` package (shared test utilities)
+- [x] Extract HTTP response helpers (`internal/httputil/response.go`)
 
 **Total: 20 hours**
 
 ### Priority 4: Documentation (1 day)
 
-- [ ] Consolidate setup instructions
+- [x] Consolidate setup instructions (reference README from CONTRIBUTING)
 - [ ] Add API documentation
-- [ ] Improve Makefile help output
-- [ ] Update TROUBLESHOOTING.md
+- [x] Improve Makefile help output (already well-categorised)
+- [x] Update TROUBLESHOOTING.md (comprehensive guide exists)
 
 **Total: 6 hours**
 
