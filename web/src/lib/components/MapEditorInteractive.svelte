@@ -638,9 +638,9 @@
 			{/if}
 
 			{#if mapSvgData}
-				<div class="rounded border border-green-300 bg-green-50 p-3 text-sm text-green-800">
-					<strong>Success:</strong>
-					Map SVG downloaded and ready to save.
+				<div class="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+					<strong>Map Ready:</strong>
+					SVG downloaded. Click <strong>"Save Changes"</strong> below to persist to the database.
 				</div>
 			{/if}
 		</div>
