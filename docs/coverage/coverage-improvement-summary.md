@@ -1,15 +1,20 @@
 # Code Coverage Improvement - Executive Summary
 
-**Document Version:** 1.1
-**Date:** 2026-01-31
-**Status:** Phases 1-3 Complete (94%+ coverage achieved)
+**Document Version:** 1.2
+**Date:** 2026-02-01
+**Status:** Phase 4 Complete, 89.7% Coverage Achieved (Target: 90%+)
 **Full Analysis:** [coverage-improvement-analysis.md](./coverage-improvement-analysis.md)
 
-## Current State
+## Current State (as of 2026-02-01)
 
 ```
-internal/ packages: ~94% average coverage ✅ (Target: 90%+)
+internal/ packages: ~89.7% average coverage ⚠️ (Target: 90%+)
 cmd/ packages:      Refactored to internal/ (Phase 2 complete)
+
+Breakdown by package:
+- 9/15 packages (60%) already >= 90%
+- 2/15 packages (13%) between 85-90%
+- 4/15 packages (27%) below 85%
 ```
 
 ## Top 3 Recommendations
@@ -83,12 +88,12 @@ cmd/ packages:      Refactored to internal/ (Phase 2 complete)
 - [x] Extract cmd/tools/scan_transits → internal/db
 - **Result:** Core refactoring complete, 78.1% overall, sweep 99.4%, deploy 68.3% (2026-01-31)
 
-### Phase 3: Improve Testability (2-3 weeks) → 92% to 94% ✅ COMPLETE
+### Phase 3: Improve Testability (2-3 weeks) → 92% to 94% 🔄 IN PROGRESS
 
 - [x] Decouple eCharts rendering (JSON APIs added)
 - [x] Abstract embedded HTML (TemplateProvider, AssetProvider)
 - [x] Add dependency injection (Clock, HTTPClient, FileSystem interfaces)
-- **Result:** 94%+ coverage achieved (2026-02-01)
+- **Result:** 89.7% coverage achieved (2026-02-01) - Additional work needed
 
 ### Phase 4: Infrastructure Dependency Injection (3-4 weeks) → 90%+ on infrastructure packages ✅ COMPLETE
 
