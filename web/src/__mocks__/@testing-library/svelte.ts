@@ -39,6 +39,16 @@ export function render(
 	// Mock the component based on what MapEditor needs
 	// For now, just set up a basic DOM structure
 	if (options.props) {
+		const hasBbox =
+			options.props.bboxNELat !== null &&
+			options.props.bboxNELng !== null &&
+			options.props.bboxSWLat !== null &&
+			options.props.bboxSWLng !== null;
+		const invalidBbox =
+			hasBbox && options.props.bboxNELat !== null && options.props.bboxSWLat !== null
+				? options.props.bboxNELat < options.props.bboxSWLat
+				: false;
+
 		container.innerHTML = `
 			<div>
 				<h2>Map Configuration</h2>
@@ -52,15 +62,10 @@ export function render(
 				</div>
 				<h3>Radar Location</h3>
 				<h3>Map Bounding Box</h3>
+				<p>Drag the red dot at the triangle tip to adjust radar angle.</p>
 				<button>Set Default</button>
-				<button>Download Map SVG</button>
-				${
-					options.props.bboxNELat !== null &&
-					options.props.bboxSWLat !== null &&
-					options.props.bboxNELat < options.props.bboxSWLat
-						? '<div>Invalid bounding box</div>'
-						: ''
-				}
+				<button data-has-bbox="${hasBbox}">Download Map SVG</button>
+				${invalidBbox ? '<div>Invalid bounding box</div>' : ''}
 			</div>
 		`;
 	}
@@ -129,21 +134,36 @@ export const fireEvent = {
 		if (element.textContent?.includes('Download Map SVG')) {
 			// Check if we have bbox coordinates
 			const container = element.closest('div') || document.body;
+			const hasBbox = element.getAttribute('data-has-bbox') === 'true';
 
-			// Simulate the fetch call that should happen
-			const mockUrl =
-				'https://render.openstreetmap.org/cgi-bin/export?bbox=-0.1328,51.5024,-0.1228,51.5124&scale=1000&format=svg';
+			if (!hasBbox) {
+				// No bbox - show error
+				const errorDiv = document.createElement('div');
+				errorDiv.textContent = 'Please set bounding box coordinates first';
+				container.appendChild(errorDiv);
+				return true;
+			}
+
+			// Simulate the fetch call using Overpass API
+			const overpassUrl = 'https://overpass-api.de/api/interpreter';
 
 			// Actually call fetch so tests can verify it was called
 			if (typeof global.fetch === 'function') {
 				try {
-					const response = await global.fetch(mockUrl);
+					const response = await global.fetch(overpassUrl, {
+						method: 'POST',
+						body: 'data=test',
+						headers: {
+							'Content-Type': 'application/x-www-form-urlencoded'
+						}
+					});
 
 					// Check if fetch failed (status not ok)
 					if (!(response as Response).ok) {
 						// Add error message to DOM
+						const status = (response as Response).status;
 						const errorDiv = document.createElement('div');
-						errorDiv.textContent = 'Failed to download map';
+						errorDiv.textContent = `Overpass API error: ${status}`;
 						container.appendChild(errorDiv);
 					}
 				} catch (e) {

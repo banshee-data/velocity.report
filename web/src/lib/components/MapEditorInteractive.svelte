@@ -395,25 +395,99 @@
 			return;
 		}
 
+		if (!map || !L) {
+			error = 'Map not initialised';
+			return;
+		}
+
 		downloading = true;
 		error = '';
 
 		try {
-			const bbox = `${bboxSWLng},${bboxSWLat},${bboxNELng},${bboxNELat}`;
-			const url = `https://render.openstreetmap.org/cgi-bin/export?bbox=${bbox}&scale=10000&format=svg`;
+			// Calculate SVG dimensions maintaining 3:2 aspect ratio
+			const svgWidth = 600;
+			const svgHeight = 400;
 
-			const response = await fetch(url);
+			// Calculate coordinate transforms
+			const latRange = bboxNELat - bboxSWLat;
+			const lngRange = bboxNELng - bboxSWLng;
+
+			const latToY = (lat: number) => ((bboxNELat - lat) / latRange) * svgHeight;
+			const lngToX = (lng: number) => ((lng - bboxSWLng) / lngRange) * svgWidth;
+
+			// Fetch road data from Overpass API
+			const overpassQuery = `
+				[out:json][timeout:25];
+				(
+					way["highway"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
+				);
+				out body;
+				>;
+				out skel qt;
+			`;
+
+			const overpassUrl = 'https://overpass-api.de/api/interpreter';
+			const response = await fetch(overpassUrl, {
+				method: 'POST',
+				body: `data=${encodeURIComponent(overpassQuery)}`,
+				headers: {
+					'Content-Type': 'application/x-www-form-urlencoded'
+				}
+			});
+
 			if (!response.ok) {
-				throw new Error(`Failed to download map: ${response.status} ${response.statusText}`);
+				throw new Error(`Overpass API error: ${response.status}`);
 			}
 
-			const svgText = await response.text();
+			const data = await response.json();
 
-			if (!svgText.includes('<svg')) {
-				throw new Error('Invalid SVG response from OpenStreetMap');
+			// Build node lookup using plain object (not Map to avoid reactivity lint)
+			const nodes: Record<number, { lat: number; lon: number }> = {};
+			for (const element of data.elements) {
+				if (element.type === 'node') {
+					nodes[element.id] = { lat: element.lat, lon: element.lon };
+				}
 			}
 
-			// Store as base64, handling UTF-8 characters properly
+			// Generate SVG paths for roads
+			let pathsD = '';
+			for (const element of data.elements) {
+				if (element.type === 'way' && element.nodes) {
+					const points: string[] = [];
+					for (const nodeId of element.nodes) {
+						const node = nodes[nodeId];
+						if (node) {
+							const x = lngToX(node.lon).toFixed(2);
+							const y = latToY(node.lat).toFixed(2);
+							points.push(points.length === 0 ? `M${x},${y}` : `L${x},${y}`);
+						}
+					}
+					if (points.length > 1) {
+						pathsD += points.join(' ') + ' ';
+					}
+				}
+			}
+
+			// Add radar position marker
+			const radarX = latitude !== null ? lngToX(longitude!) : svgWidth / 2;
+			const radarY = latitude !== null ? latToY(latitude!) : svgHeight / 2;
+
+			// Create SVG
+			const svgText = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}">
+	<title>Map Export - velocity.report</title>
+	<desc>Exported from OpenStreetMap data via Overpass API</desc>
+	<!-- Background -->
+	<rect width="100%" height="100%" fill="#f0f0f0"/>
+	<!-- Roads -->
+	<path d="${pathsD}" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+	<!-- Radar position -->
+	<circle cx="${radarX}" cy="${radarY}" r="8" fill="#3b82f6" stroke="white" stroke-width="2"/>
+	<!-- Bounding box outline -->
+	<rect x="0" y="0" width="${svgWidth}" height="${svgHeight}" fill="none" stroke="#f59e0b" stroke-width="3"/>
+</svg>`;
+
+			// Store as base64
 			const encoder = new TextEncoder();
 			const utf8Bytes = encoder.encode(svgText);
 			const base64String = btoa(String.fromCharCode.apply(null, Array.from(utf8Bytes)));
