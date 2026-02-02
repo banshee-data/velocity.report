@@ -479,10 +479,11 @@ def resolve_file_prefix(
     end_date = config.query.end_date[:10]
 
     # Sanitize location to match Go's security.SanitizeFilename behavior
+    # Go collapses consecutive non-alphanumeric chars into single underscore
     location = config.site.location
-    safe_location = "".join(
-        c if c.isalnum() or c in ("-", "_") else "_" for c in location
-    )
+    sanitized = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in location)
+    # Collapse consecutive underscores to match Go behavior
+    safe_location = re.sub(r"_+", "_", sanitized)
 
     return f"{end_date}_velocity.report_{safe_location}"
 
@@ -926,6 +927,15 @@ def assemble_pdf_report(
             end_date=config.query.end_date,
             compare_start_date=config.query.compare_start_date,
             compare_end_date=config.query.compare_end_date,
+            site_id=config.query.site_id,
+            # Map positioning parameters
+            map_latitude=config.site.latitude,
+            map_longitude=config.site.longitude,
+            map_angle=config.site.map_angle,
+            bbox_ne_lat=config.site.bbox_ne_lat,
+            bbox_ne_lng=config.site.bbox_ne_lng,
+            bbox_sw_lat=config.site.bbox_sw_lat,
+            bbox_sw_lng=config.site.bbox_sw_lng,
         )
         print(f"Generated PDF report: {pdf_path}")
         return True

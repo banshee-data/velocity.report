@@ -76,7 +76,12 @@ from pdf_generator.core.data_transformers import (
     MetricsNormalizer,
     extract_count_from_row,
 )
-from pdf_generator.core.map_utils import MapProcessor, create_marker_from_config
+from pdf_generator.core.map_utils import (
+    MapProcessor,
+    create_marker_from_config,
+    extract_svg_from_site_data,
+)
+from pdf_generator.core.api_client import RadarStatsClient
 from pdf_generator.core.document_builder import DocumentBuilder
 from pdf_generator.core.table_builders import (
     create_histogram_table,
@@ -251,6 +256,15 @@ def generate_pdf_report(
     end_date: Optional[str] = None,
     compare_start_date: Optional[str] = None,
     compare_end_date: Optional[str] = None,
+    site_id: Optional[int] = None,
+    # Map positioning parameters
+    map_latitude: Optional[float] = None,
+    map_longitude: Optional[float] = None,
+    map_angle: Optional[float] = None,
+    bbox_ne_lat: Optional[float] = None,
+    bbox_ne_lng: Optional[float] = None,
+    bbox_sw_lat: Optional[float] = None,
+    bbox_sw_lng: Optional[float] = None,
 ) -> None:
     """Generate a complete PDF report using PyLaTeX.
 
@@ -270,6 +284,7 @@ def generate_pdf_report(
         elevation_fov: Radar elevation field of view
         config_periods: Optional list of site configuration periods for the report window
         cosine_correction_note: Optional note about angle changes applied to speeds
+        site_id: Optional site ID to fetch map SVG data from database
     """
 
     # Convert map config dataclass to dict for use in this function
@@ -526,11 +541,62 @@ def generate_pdf_report(
 
     # Add main stats chart if available
     # If a map.svg exists next to this module, include it before the stats chart.
+    # Prioritize map from database (if site_id provided), fallback to static map.svg
     # Use map_utils module for marker injection and PDF conversion.
     # Skip map if include_map=False (e.g., when --no-map flag is used)
 
     print("\n=== MAP GENERATION DEBUG ===")
     print(f"include_map parameter: {include_map}")
+    print(f"site_id parameter: {site_id}")
+    # Do not log exact GPS coordinates to avoid exposing sensitive location data.
+    print(
+        "map coordinates provided: "
+        f"{map_latitude is not None and map_longitude is not None}"
+    )
+    print(f"map_angle: {map_angle}")
+    # Do not log exact bounding box coordinates to avoid exposing sensitive location data
+    print(
+        f"bbox provided: {bbox_ne_lat is not None and bbox_ne_lng is not None and bbox_sw_lat is not None and bbox_sw_lng is not None}"
+    )
+
+    # Calculate marker position from lat/lng and bounding box if available
+    if (
+        map_latitude is not None
+        and map_longitude is not None
+        and bbox_ne_lat is not None
+        and bbox_ne_lng is not None
+        and bbox_sw_lat is not None
+        and bbox_sw_lng is not None
+    ):
+        # Calculate fractional position within bounding box
+        lat_range = bbox_ne_lat - bbox_sw_lat
+        lng_range = bbox_ne_lng - bbox_sw_lng
+        if lat_range > 0 and lng_range > 0:
+            # cx_frac: 0 = left (SW lng), 1 = right (NE lng)
+            calculated_cx = (map_longitude - bbox_sw_lng) / lng_range
+            # cy_frac: 0 = top (NE lat), 1 = bottom (SW lat) - SVG coords are inverted
+            calculated_cy = (bbox_ne_lat - map_latitude) / lat_range
+            map_config_dict["triangle_cx"] = calculated_cx
+            map_config_dict["triangle_cy"] = calculated_cy
+            print(
+                f"  [MAP] Calculated marker position from GPS: cx={calculated_cx:.4f}, cy={calculated_cy:.4f}"
+            )
+        else:
+            print("  [MAP] Warning: Invalid bounding box range, using defaults")
+    else:
+        print("  [MAP] Using default marker position (no GPS/bbox data provided)")
+
+    # Use map_angle for bearing if provided
+    if map_angle is not None:
+        map_config_dict["triangle_angle"] = map_angle
+        print(f"  [MAP] Using map_angle for bearing: {map_angle}°")
+    else:
+        print(
+            f"  [MAP] Using default bearing angle: {map_config_dict['triangle_angle']}°"
+        )
+
+    # Initialise map_temp_dir for cleanup after LaTeX compilation
+    map_temp_dir = None
 
     if include_map:
         print("Map generation ENABLED")
@@ -545,8 +611,36 @@ def generate_pdf_report(
         print(f"  - triangle_color: {map_config_dict['triangle_color']}")
         print(f"  - triangle_opacity: {map_config_dict['triangle_opacity']}")
 
+        # Try to extract map SVG from database if site_id is provided
+        db_svg_extracted = False
+        # Use temp directory for map files instead of polluting the core module directory
+        import tempfile
+
+        map_temp_dir = tempfile.mkdtemp(prefix="velocity_map_")
+        print(f"  [MAP] Using temp directory: {map_temp_dir}")
+
+        if site_id is not None:
+            print(f"  [MAP] Attempting to fetch site data for site_id={site_id}")
+            try:
+                client = RadarStatsClient()
+                site_data, _ = client.get_site(site_id)
+                print("  [MAP] Site data fetched successfully")
+
+                # Try to extract SVG from site data
+                map_svg_path = os.path.join(map_temp_dir, "map.svg")
+                if extract_svg_from_site_data(site_data, map_svg_path):
+                    db_svg_extracted = True
+                    print(f"  [MAP] ✓ Using map from database (site_id={site_id})")
+                else:
+                    print("  [MAP] No map_svg_data in site record, map will be skipped")
+            except Exception as e:
+                print(f"  [MAP] Warning: Failed to fetch site data: {e}")
+
+        if not db_svg_extracted:
+            print("  [MAP] No map data available, skipping map generation")
+
         map_processor = MapProcessor(
-            base_dir=os.path.dirname(__file__),
+            base_dir=map_temp_dir,
             marker_config={
                 "circle_radius": map_config_dict["circle_radius"],
                 "circle_fill": map_config_dict["circle_fill"],
@@ -586,6 +680,9 @@ def generate_pdf_report(
             print(
                 f"✗ Map NOT included (success={success}, path exists={map_pdf_path is not None})"
             )
+
+        # NOTE: Do NOT clean up temp directory here - LaTeX needs the map.pdf file
+        # Cleanup will happen after LaTeX compilation
     else:
         print("Map generation DISABLED (include_map=False)")
     print("=== END MAP DEBUG ===\n")
@@ -608,6 +705,16 @@ def generate_pdf_report(
             print(failure_details)
             last_exc = e
             last_failure_message = failure_details
+
+    # Clean up map temp directory AFTER LaTeX compilation
+    if map_temp_dir:
+        import shutil
+
+        try:
+            shutil.rmtree(map_temp_dir)
+            print(f"  [MAP] Cleaned up temp directory: {map_temp_dir}")
+        except Exception as cleanup_err:
+            print(f"  [MAP] Warning: Failed to clean up temp dir: {cleanup_err}")
 
     if not generated:
         try:

@@ -30,7 +30,7 @@ Targets (default: --all):
   --all         Update all version references
   --makefile    Update Makefile VERSION variable (affects Go binaries)
   --web         Update web/package.json version
-  --docs        Update docs/package.json version
+  --docs        Update public_html/package.json version
   --pdf         Update tools/pdf-generator/pyproject.toml version
 
 Examples:
@@ -132,7 +132,7 @@ update_web() {
 
 # Update docs/package.json
 update_docs() {
-    local file="docs/package.json"
+    local file="public_html/package.json"
     local old_version
 
     if [[ ! -f "$file" ]]; then

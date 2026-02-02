@@ -1078,6 +1078,135 @@ describe('api', () => {
 		});
 	});
 
+	describe('site map fields', () => {
+		it('should create site with map fields', async () => {
+			const testSVGData =
+				'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjQwIi8+PC9zdmc+'; // base64 SVG
+			const newSite = {
+				name: 'Map Site',
+				location: 'Location with Map',
+				surveyor: 'Test Surveyor',
+				contact: 'test@example.com',
+				latitude: 51.5074,
+				longitude: -0.1278,
+				map_angle: 45,
+				bbox_ne_lat: 51.5124,
+				bbox_ne_lng: -0.1228,
+				bbox_sw_lat: 51.5024,
+				bbox_sw_lng: -0.1328,
+				map_svg_data: testSVGData,
+				include_map: false
+			};
+			const mockCreatedSite: Site = {
+				id: 1,
+				...newSite,
+				description: null,
+				address: null,
+				site_description: null,
+				created_at: '2025-01-01T00:00:00Z',
+				updated_at: '2025-01-01T00:00:00Z'
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockCreatedSite
+			});
+
+			const result = await createSite(newSite);
+
+			expect(global.fetch).toHaveBeenCalledWith('/api/sites', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(newSite)
+			});
+			expect(result.bbox_ne_lat).toBe(51.5124);
+			expect(result.bbox_ne_lng).toBe(-0.1228);
+			expect(result.bbox_sw_lat).toBe(51.5024);
+			expect(result.bbox_sw_lng).toBe(-0.1328);
+			expect(result.map_svg_data).toBe(testSVGData);
+		});
+
+		it('should update site with map fields', async () => {
+			const testSVGData =
+				'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIi8+PC9zdmc+';
+			const updates = {
+				bbox_ne_lat: 52.0,
+				bbox_ne_lng: -1.0,
+				bbox_sw_lat: 51.0,
+				bbox_sw_lng: -2.0,
+				map_svg_data: testSVGData
+			};
+			const mockUpdatedSite: Site = {
+				id: 1,
+				name: 'Site Name',
+				location: 'Location',
+				description: null,
+				surveyor: 'John Doe',
+				contact: 'john@example.com',
+				address: null,
+				latitude: 51.5,
+				longitude: -0.1,
+				map_angle: 45,
+				include_map: true,
+				site_description: null,
+				bbox_ne_lat: 52.0,
+				bbox_ne_lng: -1.0,
+				bbox_sw_lat: 51.0,
+				bbox_sw_lng: -2.0,
+				map_svg_data: testSVGData,
+				created_at: '2025-01-01T00:00:00Z',
+				updated_at: '2025-01-02T00:00:00Z'
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockUpdatedSite
+			});
+
+			const result = await updateSite(1, updates);
+
+			expect(result.bbox_ne_lat).toBe(52.0);
+			expect(result.map_svg_data).toBe(testSVGData);
+		});
+
+		it('should retrieve site with null map fields', async () => {
+			const mockSite: Site = {
+				id: 1,
+				name: 'Site Without Map',
+				location: 'Test Location',
+				description: null,
+				surveyor: 'John Doe',
+				contact: 'john@example.com',
+				address: null,
+				latitude: null,
+				longitude: null,
+				map_angle: null,
+				include_map: false,
+				site_description: null,
+				bbox_ne_lat: null,
+				bbox_ne_lng: null,
+				bbox_sw_lat: null,
+				bbox_sw_lng: null,
+				map_svg_data: null,
+				created_at: '2025-01-01T00:00:00Z',
+				updated_at: '2025-01-01T00:00:00Z'
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockSite
+			});
+
+			const result = await getSite(1);
+
+			expect(result.bbox_ne_lat).toBeNull();
+			expect(result.bbox_ne_lng).toBeNull();
+			expect(result.bbox_sw_lat).toBeNull();
+			expect(result.bbox_sw_lng).toBeNull();
+			expect(result.map_svg_data).toBeNull();
+		});
+	});
+
 	describe('deleteSite', () => {
 		it('should delete a site', async () => {
 			(global.fetch as jest.Mock).mockResolvedValueOnce({

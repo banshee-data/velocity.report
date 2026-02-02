@@ -178,10 +178,12 @@ class TestSVGMarkerInjector(unittest.TestCase):
 
         result = self.injector.inject_marker(svg, marker)
 
-        # Verify marker was injected
+        # Verify marker was injected (triangle only, no circle)
         self.assertIn("radar-marker", result)
         self.assertIn("polygon", result)
-        self.assertIn("circle", result)
+        self.assertNotIn(
+            "circle", result
+        )  # Circle is in the source SVG, not added here
         self.assertIn("points=", result)
 
         # Verify original content preserved
@@ -208,10 +210,8 @@ class TestSVGMarkerInjector(unittest.TestCase):
 
         result = injector.inject_marker(svg, marker)
 
-        # Verify custom colors appear in output
-        self.assertIn("#00ff00", result)  # Marker color
-        self.assertIn("#ff0000", result)  # Circle fill
-        self.assertIn("#0000ff", result)  # Circle stroke
+        # Verify custom colors appear in output (triangle only, no circle)
+        self.assertIn("#00ff00", result)  # Marker color for triangle
         self.assertIn("0.7", result)  # Opacity
 
     def test_inject_marker_preserves_content(self):
@@ -925,6 +925,240 @@ class TestMapUtilsErrorHandling(unittest.TestCase):
             compute_viewbox_from_gps(37.7749, -122.4194, 500.0)
 
         self.assertIn("not yet implemented", str(context.exception))
+
+
+class TestExtractSvgFromSiteData(unittest.TestCase):
+    """Test extract_svg_from_site_data function."""
+
+    def test_extract_svg_success(self):
+        """Test successful SVG extraction from site data."""
+        from pdf_generator.core.map_utils import extract_svg_from_site_data
+        import base64
+
+        # Create a valid SVG and encode it
+        svg_content = '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>'
+        encoded = base64.b64encode(svg_content.encode()).decode()
+
+        site_data = {"map_svg_data": encoded}
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "map.svg")
+            result = extract_svg_from_site_data(site_data, output_path)
+
+            self.assertTrue(result)
+            self.assertTrue(os.path.exists(output_path))
+
+            with open(output_path) as f:
+                content = f.read()
+            self.assertIn("<svg", content)
+
+    def test_extract_svg_no_data(self):
+        """Test extraction when site has no map_svg_data."""
+        from pdf_generator.core.map_utils import extract_svg_from_site_data
+
+        site_data = {}  # No map_svg_data field
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "map.svg")
+            result = extract_svg_from_site_data(site_data, output_path)
+
+            self.assertFalse(result)
+            self.assertFalse(os.path.exists(output_path))
+
+    def test_extract_svg_empty_data(self):
+        """Test extraction when map_svg_data is empty."""
+        from pdf_generator.core.map_utils import extract_svg_from_site_data
+
+        site_data = {"map_svg_data": ""}
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "map.svg")
+            result = extract_svg_from_site_data(site_data, output_path)
+
+            self.assertFalse(result)
+
+    def test_extract_svg_invalid_base64(self):
+        """Test extraction with invalid base64 data."""
+        from pdf_generator.core.map_utils import extract_svg_from_site_data
+
+        site_data = {"map_svg_data": "not-valid-base64!!!"}
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "map.svg")
+            result = extract_svg_from_site_data(site_data, output_path)
+
+            self.assertFalse(result)
+
+    def test_extract_svg_not_svg_content(self):
+        """Test extraction when decoded content is not SVG."""
+        from pdf_generator.core.map_utils import extract_svg_from_site_data
+        import base64
+
+        # Encode non-SVG content
+        text = "This is not SVG content"
+        encoded = base64.b64encode(text.encode()).decode()
+
+        site_data = {"map_svg_data": encoded}
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "map.svg")
+            result = extract_svg_from_site_data(site_data, output_path)
+
+            self.assertFalse(result)
+
+
+class TestSVGConverterFallbacks(unittest.TestCase):
+    """Test SVG converter fallback methods."""
+
+    def test_inkscape_method_not_available(self):
+        """Test _try_inkscape when inkscape is not installed."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            svg_path = os.path.join(tmpdir, "test.svg")
+            pdf_path = os.path.join(tmpdir, "test.pdf")
+
+            # Create minimal SVG file
+            with open(svg_path, "w") as f:
+                f.write('<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>')
+
+            # Mock subprocess to simulate inkscape not found
+            with patch("subprocess.check_call") as mock_call:
+                mock_call.side_effect = FileNotFoundError("inkscape not found")
+                result = SVGToPDFConverter._try_inkscape(svg_path, pdf_path)
+                self.assertFalse(result)
+
+    def test_rsvg_convert_method_not_available(self):
+        """Test _try_rsvg_convert when rsvg-convert is not installed."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            svg_path = os.path.join(tmpdir, "test.svg")
+            pdf_path = os.path.join(tmpdir, "test.pdf")
+
+            # Create minimal SVG file
+            with open(svg_path, "w") as f:
+                f.write('<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>')
+
+            # Mock subprocess to simulate rsvg-convert not found
+            with patch("subprocess.check_call") as mock_call:
+                mock_call.side_effect = FileNotFoundError("rsvg-convert not found")
+                result = SVGToPDFConverter._try_rsvg_convert(svg_path, pdf_path)
+                self.assertFalse(result)
+
+    def test_inkscape_method_conversion_error(self):
+        """Test _try_inkscape when conversion fails."""
+        import subprocess
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            svg_path = os.path.join(tmpdir, "test.svg")
+            pdf_path = os.path.join(tmpdir, "test.pdf")
+
+            with open(svg_path, "w") as f:
+                f.write('<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>')
+
+            # Mock inkscape to succeed on version check but fail on conversion
+            call_count = [0]
+
+            def side_effect(*args, **kwargs):
+                call_count[0] += 1
+                if call_count[0] == 1:  # Version check
+                    return 0
+                raise subprocess.CalledProcessError(1, "inkscape")
+
+            with patch("subprocess.check_call", side_effect=side_effect):
+                result = SVGToPDFConverter._try_inkscape(svg_path, pdf_path)
+                self.assertFalse(result)
+
+
+class TestMapProcessorErrorPaths(unittest.TestCase):
+    """Test MapProcessor error handling paths."""
+
+    def test_process_map_marker_zero_coverage(self):
+        """Test process_map with marker having zero coverage length."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create a valid map.svg
+            svg_path = os.path.join(tmpdir, "map.svg")
+            with open(svg_path, "w") as f:
+                f.write(
+                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+                    "<rect/></svg>"
+                )
+
+            # Create map.pdf so conversion isn't needed
+            pdf_path = os.path.join(tmpdir, "map.pdf")
+            with open(pdf_path, "wb") as f:
+                f.write(b"%PDF-1.4 fake pdf")
+
+            processor = MapProcessor(base_dir=tmpdir)
+
+            # Create marker with zero coverage length
+            marker = RadarMarker(
+                cx_frac=0.5,
+                cy_frac=0.5,
+                bearing_deg=45,
+                coverage_length=0,  # Zero coverage
+            )
+
+            success, path = processor.process_map(marker=marker)
+
+            # Should succeed but skip overlay due to zero coverage
+            self.assertTrue(success)
+            self.assertIsNotNone(path)
+
+    def test_process_map_svg_conversion_failure(self):
+        """Test process_map when SVG to PDF conversion fails."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create a valid map.svg but no PDF
+            svg_path = os.path.join(tmpdir, "map.svg")
+            with open(svg_path, "w") as f:
+                f.write(
+                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+                    "<rect/></svg>"
+                )
+
+            processor = MapProcessor(base_dir=tmpdir)
+
+            # Mock SVGToPDFConverter.convert to fail
+            with patch.object(SVGToPDFConverter, "convert", return_value=False):
+                success, path = processor.process_map()
+
+                self.assertFalse(success)
+                self.assertIsNone(path)
+
+    def test_process_map_marker_injection_exception(self):
+        """Test process_map when marker injection fails."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create a valid map.svg
+            svg_path = os.path.join(tmpdir, "map.svg")
+            with open(svg_path, "w") as f:
+                f.write(
+                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+                    "<rect/></svg>"
+                )
+
+            # Create map.pdf so conversion isn't needed for fallback
+            pdf_path = os.path.join(tmpdir, "map.pdf")
+            with open(pdf_path, "wb") as f:
+                f.write(b"%PDF-1.4 fake pdf")
+
+            processor = MapProcessor(base_dir=tmpdir)
+
+            # Create a valid marker
+            marker = RadarMarker(
+                cx_frac=0.5,
+                cy_frac=0.5,
+                bearing_deg=45,
+                coverage_length=0.5,
+            )
+
+            # Mock SVGMarkerInjector.inject_marker to raise an exception
+            with patch.object(
+                SVGMarkerInjector,
+                "inject_marker",
+                side_effect=Exception("Injection failed"),
+            ):
+                success, path = processor.process_map(marker=marker)
+
+                # Should still succeed using original map.svg (fallback)
+                self.assertTrue(success)
+                self.assertIsNotNone(path)
 
 
 if __name__ == "__main__":

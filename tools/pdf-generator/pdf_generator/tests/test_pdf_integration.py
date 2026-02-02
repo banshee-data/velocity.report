@@ -610,3 +610,582 @@ class TestPDFIntegrationConsolidated(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestLatexErrorHandling(unittest.TestCase):
+    """Tests for LaTeX error handling functions."""
+
+    def test_read_latex_log_excerpt_no_file(self):
+        """Test log reading when log file doesn't exist."""
+        from pdf_generator.core.pdf_generator import _read_latex_log_excerpt
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # No log file exists
+            base_path = Path(os.path.join(tmpdir, "missing"))
+            result = _read_latex_log_excerpt(base_path)
+            self.assertEqual(result, [])
+
+    def test_read_latex_log_excerpt_with_errors(self):
+        """Test log reading with actual error content."""
+        from pdf_generator.core.pdf_generator import _read_latex_log_excerpt
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create log file with error content
+            log_path = Path(os.path.join(tmpdir, "test.log"))
+            log_path.write_text(
+                "Some normal output\n"
+                "! Undefined control sequence.\n"
+                "l.42 \\badcommand\n"
+                "See the LaTeX manual for more info.\n"
+            )
+
+            base_path = Path(os.path.join(tmpdir, "test"))
+            result = _read_latex_log_excerpt(base_path)
+            self.assertGreater(len(result), 0)
+            self.assertTrue(
+                any("Undefined control sequence" in line for line in result)
+            )
+
+    def test_read_latex_log_excerpt_read_error(self):
+        """Test log reading when file can't be read."""
+        from pdf_generator.core.pdf_generator import _read_latex_log_excerpt
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_path = Path(os.path.join(tmpdir, "test"))
+            log_path = base_path.with_suffix(".log")
+
+            # Create directory with same name as log file to cause read error
+            os.makedirs(str(log_path))
+
+            result = _read_latex_log_excerpt(base_path)
+            self.assertEqual(result, [])
+
+    def test_suggest_latex_fixes_fontspec(self):
+        """Test fix suggestions for fontspec errors."""
+        from pdf_generator.core.pdf_generator import _suggest_latex_fixes
+
+        hints = _suggest_latex_fixes(
+            engine="xelatex",
+            message="package fontspec not found",
+            excerpt=["! fontspec error: cannot find font"],
+        )
+        self.assertTrue(any("fontspec" in hint.lower() for hint in hints))
+
+    def test_suggest_latex_fixes_atkinson(self):
+        """Test fix suggestions for Atkinson font errors."""
+        from pdf_generator.core.pdf_generator import _suggest_latex_fixes
+
+        hints = _suggest_latex_fixes(
+            engine="xelatex",
+            message="font not found",
+            excerpt=['The font "AtkinsonHyperlegible" cannot be found'],
+        )
+        self.assertTrue(any("atkinson" in hint.lower() for hint in hints))
+
+    def test_suggest_latex_fixes_ttf_file(self):
+        """Test fix suggestions for missing TTF files."""
+        from pdf_generator.core.pdf_generator import _suggest_latex_fixes
+
+        hints = _suggest_latex_fixes(
+            engine="xelatex",
+            message="font file missing",
+            excerpt=["file '/path/to/font.ttf' not found"],
+        )
+        self.assertTrue(any("font" in hint.lower() for hint in hints))
+
+    def test_suggest_latex_fixes_undefined_sequence(self):
+        """Test fix suggestions for undefined control sequence."""
+        from pdf_generator.core.pdf_generator import _suggest_latex_fixes
+
+        hints = _suggest_latex_fixes(
+            engine="xelatex",
+            message="compilation error",
+            excerpt=["undefined control sequence \\badcommand"],
+        )
+        self.assertTrue(any("undefined" in hint.lower() for hint in hints))
+
+    def test_suggest_latex_fixes_no_specific_error(self):
+        """Test fallback suggestion when no specific error found."""
+        from pdf_generator.core.pdf_generator import _suggest_latex_fixes
+
+        hints = _suggest_latex_fixes(
+            engine="xelatex",
+            message="unknown error",
+            excerpt=["some generic error"],
+        )
+        # Should have default fallback hint
+        self.assertGreater(len(hints), 0)
+        self.assertTrue(any("inspect" in hint.lower() for hint in hints))
+
+    def test_suggest_latex_fixes_engine_not_found(self):
+        """Test fix suggestions when engine is not found."""
+        from pdf_generator.core.pdf_generator import _suggest_latex_fixes
+
+        hints = _suggest_latex_fixes(
+            engine="xelatex",
+            message="xelatex not found",
+            excerpt=[],
+        )
+        self.assertTrue(any("xelatex" in hint.lower() for hint in hints))
+
+    def test_explain_latex_failure(self):
+        """Test the explain_latex_failure function."""
+        from pdf_generator.core.pdf_generator import _explain_latex_failure
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_path = Path(os.path.join(tmpdir, "test"))
+
+            explanation = _explain_latex_failure(
+                engine="xelatex",
+                base_path=base_path,
+                exc=Exception("LaTeX compilation failed"),
+            )
+
+            self.assertIsInstance(explanation, str)
+            self.assertGreater(len(explanation), 0)
+
+
+class TestPDFWithComparisonData(unittest.TestCase):
+    """Tests for PDF generation with comparison period data."""
+
+    def setUp(self):
+        """Set up test fixtures with comparison data."""
+        self.overall_metrics = [
+            {
+                "Count": 1000,
+                "P50Speed": 25.0,
+                "P85Speed": 30.0,
+                "P98Speed": 35.0,
+                "MaxSpeed": 40.0,
+            }
+        ]
+        self.daily_metrics = [
+            {
+                "StartTime": "2025-06-02T00:00:00-07:00",
+                "Count": 500,
+                "P50Speed": 25.0,
+                "P85Speed": 30.0,
+                "P98Speed": 35.0,
+                "MaxSpeed": 40.0,
+            },
+        ]
+        self.granular_metrics = [
+            {
+                "StartTime": "2025-06-02T08:00:00-07:00",
+                "Count": 100,
+                "P50Speed": 25.0,
+                "P85Speed": 30.0,
+                "P98Speed": 35.0,
+                "MaxSpeed": 40.0,
+            },
+        ]
+        self.histogram = {"10": 50, "15": 100, "20": 150, "25": 100, "30": 50}
+
+        # Comparison data
+        self.compare_overall = [
+            {
+                "Count": 800,
+                "P50Speed": 24.0,
+                "P85Speed": 29.0,
+                "P98Speed": 34.0,
+                "MaxSpeed": 39.0,
+            }
+        ]
+        self.compare_daily = [
+            {
+                "StartTime": "2025-01-15T00:00:00-08:00",
+                "Count": 400,
+                "P50Speed": 24.0,
+                "P85Speed": 29.0,
+                "P98Speed": 34.0,
+                "MaxSpeed": 39.0,
+            },
+        ]
+        self.compare_granular = [
+            {
+                "StartTime": "2025-01-15T08:00:00-08:00",
+                "Count": 80,
+                "P50Speed": 24.0,
+                "P85Speed": 29.0,
+                "P98Speed": 34.0,
+                "MaxSpeed": 39.0,
+            },
+        ]
+        self.compare_histogram = {"10": 40, "15": 80, "20": 120, "25": 80, "30": 40}
+
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
+    def test_pdf_with_comparison_histograms(
+        self, mock_chart_exists, mock_map_processor
+    ):
+        """Test PDF generation with comparison histograms."""
+        mock_chart_exists.return_value = False
+        mock_processor = MagicMock()
+        mock_processor.process_map.return_value = (False, None)
+        mock_map_processor.return_value = mock_processor
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "compare_hist.pdf")
+
+            try:
+                generate_pdf_report(
+                    output_path=output_path,
+                    start_iso="2025-06-02T00:00:00-07:00",
+                    end_iso="2025-06-04T23:59:59-07:00",
+                    group="1h",
+                    units="mph",
+                    timezone_display="US/Pacific",
+                    min_speed_str="5.0 mph",
+                    location="Test Location",
+                    overall_metrics=self.overall_metrics,
+                    daily_metrics=self.daily_metrics,
+                    granular_metrics=self.granular_metrics,
+                    histogram=self.histogram,
+                    tz_name="US/Pacific",
+                    charts_prefix="compare_hist",
+                    speed_limit=25,
+                    start_date="2025-06-02",
+                    end_date="2025-06-04",
+                    # Comparison data
+                    compare_start_iso="2025-01-15T00:00:00-08:00",
+                    compare_end_iso="2025-01-19T23:59:59-08:00",
+                    compare_overall_metrics=self.compare_overall,
+                    compare_daily_metrics=self.compare_daily,
+                    compare_granular_metrics=self.compare_granular,
+                    compare_histogram=self.compare_histogram,
+                    compare_start_date="2025-01-15",
+                    compare_end_date="2025-01-19",
+                )
+            except Exception:
+                pass  # May fail without LaTeX
+
+            tex_path = output_path.replace(".pdf", ".tex")
+            self.assertTrue(os.path.exists(tex_path))
+
+            with open(tex_path, "r") as f:
+                content = f.read()
+
+            # Verify comparison dates appear
+            self.assertIn("2025-01-15", content)
+
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
+    def test_pdf_with_config_periods_and_cosine_angles(
+        self, mock_chart_exists, mock_map_processor
+    ):
+        """Test PDF generation with config periods containing cosine angles."""
+        mock_chart_exists.return_value = False
+        mock_processor = MagicMock()
+        mock_processor.process_map.return_value = (False, None)
+        mock_map_processor.return_value = mock_processor
+
+        config_periods = [
+            {"cosine_error_angle": 15.0, "site_id": 1},
+            {"cosine_error_angle": 20.0, "site_id": 1},
+        ]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "cosine_test.pdf")
+
+            try:
+                generate_pdf_report(
+                    output_path=output_path,
+                    start_iso="2025-06-02T00:00:00-07:00",
+                    end_iso="2025-06-04T23:59:59-07:00",
+                    group="1h",
+                    units="mph",
+                    timezone_display="US/Pacific",
+                    min_speed_str="5.0 mph",
+                    location="Test Location",
+                    overall_metrics=self.overall_metrics,
+                    daily_metrics=self.daily_metrics,
+                    granular_metrics=self.granular_metrics,
+                    histogram=self.histogram,
+                    tz_name="US/Pacific",
+                    charts_prefix="cosine_test",
+                    speed_limit=25,
+                    start_date="2025-06-02",
+                    end_date="2025-06-04",
+                    config_periods=config_periods,
+                    # Comparison data with different cosine angle
+                    compare_start_iso="2025-01-15T00:00:00-08:00",
+                    compare_end_iso="2025-01-19T23:59:59-08:00",
+                    compare_start_date="2025-01-15",
+                    compare_end_date="2025-01-19",
+                )
+            except Exception:
+                pass
+
+            tex_path = output_path.replace(".pdf", ".tex")
+            self.assertTrue(os.path.exists(tex_path))
+
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
+    def test_pdf_with_histogram_chart(self, mock_chart_exists, mock_map_processor):
+        """Test PDF generation when histogram chart exists."""
+        # Return True only for histogram chart
+        mock_chart_exists.side_effect = (
+            lambda prefix, chart_type: chart_type == "histogram"
+        )
+        mock_processor = MagicMock()
+        mock_processor.process_map.return_value = (False, None)
+        mock_map_processor.return_value = mock_processor
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "hist_chart.pdf")
+            charts_prefix = os.path.join(tmpdir, "test_charts")
+
+            # Create a fake histogram chart PDF
+            hist_pdf = f"{charts_prefix}_histogram.pdf"
+            with open(hist_pdf, "wb") as f:
+                f.write(b"%PDF-1.4 fake pdf")
+
+            try:
+                generate_pdf_report(
+                    output_path=output_path,
+                    start_iso="2025-06-02T00:00:00-07:00",
+                    end_iso="2025-06-04T23:59:59-07:00",
+                    group="1h",
+                    units="mph",
+                    timezone_display="US/Pacific",
+                    min_speed_str="5.0 mph",
+                    location="Test Location",
+                    overall_metrics=self.overall_metrics,
+                    daily_metrics=self.daily_metrics,
+                    granular_metrics=self.granular_metrics,
+                    histogram=self.histogram,
+                    tz_name="US/Pacific",
+                    charts_prefix=charts_prefix,
+                    speed_limit=25,
+                    start_date="2025-06-02",
+                    end_date="2025-06-04",
+                )
+            except Exception:
+                pass
+
+            tex_path = output_path.replace(".pdf", ".tex")
+            self.assertTrue(os.path.exists(tex_path))
+
+            with open(tex_path, "r") as f:
+                content = f.read()
+
+            # Verify histogram chart reference
+            self.assertIn("histogram.pdf", content)
+
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
+    def test_pdf_with_map_enabled(self, mock_chart_exists, mock_map_processor):
+        """Test PDF generation when map is included."""
+        mock_chart_exists.return_value = False
+        mock_processor = MagicMock()
+        # Return True for map processing with a fake path
+        mock_processor.process_map.return_value = (True, "/tmp/fake_map.pdf")
+        mock_map_processor.return_value = mock_processor
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "with_map.pdf")
+
+            # Create a fake map PDF
+            map_pdf = os.path.join(tmpdir, "fake_map.pdf")
+            with open(map_pdf, "wb") as f:
+                f.write(b"%PDF-1.4 fake pdf")
+
+            mock_processor.process_map.return_value = (True, map_pdf)
+
+            try:
+                generate_pdf_report(
+                    output_path=output_path,
+                    start_iso="2025-06-02T00:00:00-07:00",
+                    end_iso="2025-06-04T23:59:59-07:00",
+                    group="1h",
+                    units="mph",
+                    timezone_display="US/Pacific",
+                    min_speed_str="5.0 mph",
+                    location="Test Location",
+                    overall_metrics=self.overall_metrics,
+                    daily_metrics=self.daily_metrics,
+                    granular_metrics=self.granular_metrics,
+                    histogram=self.histogram,
+                    tz_name="US/Pacific",
+                    charts_prefix="map_test",
+                    speed_limit=25,
+                    start_date="2025-06-02",
+                    end_date="2025-06-04",
+                    include_map=True,
+                )
+            except Exception:
+                pass
+
+            tex_path = output_path.replace(".pdf", ".tex")
+            self.assertTrue(os.path.exists(tex_path))
+
+    @patch("pdf_generator.core.pdf_generator.RadarStatsClient")
+    @patch("pdf_generator.core.pdf_generator.extract_svg_from_site_data")
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
+    def test_pdf_with_site_id_and_gps_coords(
+        self, mock_chart_exists, mock_map_processor, mock_extract_svg, mock_client_class
+    ):
+        """Test PDF generation with site_id and GPS coordinates for map marker."""
+        mock_chart_exists.return_value = False
+
+        mock_client = MagicMock()
+        mock_client.get_site.return_value = (
+            {"id": 1, "name": "Test Site"},
+            MagicMock(),
+        )
+        mock_client_class.return_value = mock_client
+
+        mock_extract_svg.return_value = False  # No db map
+
+        mock_processor = MagicMock()
+        mock_processor.process_map.return_value = (False, None)
+        mock_map_processor.return_value = mock_processor
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "site_gps.pdf")
+
+            try:
+                generate_pdf_report(
+                    output_path=output_path,
+                    start_iso="2025-06-02T00:00:00-07:00",
+                    end_iso="2025-06-04T23:59:59-07:00",
+                    group="1h",
+                    units="mph",
+                    timezone_display="US/Pacific",
+                    min_speed_str="5.0 mph",
+                    location="Test Location",
+                    overall_metrics=self.overall_metrics,
+                    daily_metrics=self.daily_metrics,
+                    granular_metrics=self.granular_metrics,
+                    histogram=self.histogram,
+                    tz_name="US/Pacific",
+                    charts_prefix="site_gps",
+                    speed_limit=25,
+                    start_date="2025-06-02",
+                    end_date="2025-06-04",
+                    include_map=True,
+                    site_id=1,
+                    map_latitude=37.7749,
+                    map_longitude=-122.4194,
+                    bbox_ne_lat=37.78,
+                    bbox_ne_lng=-122.41,
+                    bbox_sw_lat=37.77,
+                    bbox_sw_lng=-122.43,
+                    map_angle=45.0,
+                )
+            except Exception:
+                pass
+
+            tex_path = output_path.replace(".pdf", ".tex")
+            self.assertTrue(os.path.exists(tex_path))
+
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
+    def test_pdf_with_stats_charts(self, mock_chart_exists, mock_map_processor):
+        """Test PDF generation with stats charts."""
+
+        def chart_exists_side_effect(prefix, chart_type):
+            return chart_type in ["stats", "compare_stats"]
+
+        mock_chart_exists.side_effect = chart_exists_side_effect
+        mock_processor = MagicMock()
+        mock_processor.process_map.return_value = (False, None)
+        mock_map_processor.return_value = mock_processor
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "stats_chart.pdf")
+            charts_prefix = os.path.join(tmpdir, "charts")
+
+            with open(f"{charts_prefix}_stats.pdf", "wb") as f:
+                f.write(b"%PDF-1.4 fake pdf")
+            with open(f"{charts_prefix}_compare_stats.pdf", "wb") as f:
+                f.write(b"%PDF-1.4 fake pdf")
+
+            try:
+                generate_pdf_report(
+                    output_path=output_path,
+                    start_iso="2025-06-02T00:00:00-07:00",
+                    end_iso="2025-06-04T23:59:59-07:00",
+                    group="1h",
+                    units="mph",
+                    timezone_display="US/Pacific",
+                    min_speed_str="5.0 mph",
+                    location="Test Location",
+                    overall_metrics=self.overall_metrics,
+                    daily_metrics=self.daily_metrics,
+                    granular_metrics=self.granular_metrics,
+                    histogram=self.histogram,
+                    tz_name="US/Pacific",
+                    charts_prefix=charts_prefix,
+                    speed_limit=25,
+                    start_date="2025-06-02",
+                    end_date="2025-06-04",
+                    compare_start_iso="2025-01-15T00:00:00-08:00",
+                    compare_end_iso="2025-01-19T23:59:59-08:00",
+                    compare_start_date="2025-01-15",
+                    compare_end_date="2025-01-19",
+                )
+            except Exception:
+                pass
+
+            tex_path = output_path.replace(".pdf", ".tex")
+            self.assertTrue(os.path.exists(tex_path))
+
+    @patch("pdf_generator.core.pdf_generator.RadarStatsClient")
+    @patch("pdf_generator.core.pdf_generator.extract_svg_from_site_data")
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
+    def test_pdf_with_site_map_extraction_success(
+        self, mock_chart_exists, mock_map_processor, mock_extract_svg, mock_client_class
+    ):
+        """Test PDF generation when site map extraction succeeds."""
+        mock_chart_exists.return_value = False
+
+        mock_client = MagicMock()
+        mock_client.get_site.return_value = (
+            {"id": 1, "name": "Test Site", "map_svg_data": "..."},
+            MagicMock(),
+        )
+        mock_client_class.return_value = mock_client
+
+        mock_extract_svg.return_value = True
+
+        mock_processor = MagicMock()
+        mock_processor.process_map.return_value = (True, "/tmp/fake_map.pdf")
+        mock_map_processor.return_value = mock_processor
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "db_map.pdf")
+
+            try:
+                generate_pdf_report(
+                    output_path=output_path,
+                    start_iso="2025-06-02T00:00:00-07:00",
+                    end_iso="2025-06-04T23:59:59-07:00",
+                    group="1h",
+                    units="mph",
+                    timezone_display="US/Pacific",
+                    min_speed_str="5.0 mph",
+                    location="Test Location",
+                    overall_metrics=self.overall_metrics,
+                    daily_metrics=self.daily_metrics,
+                    granular_metrics=self.granular_metrics,
+                    histogram=self.histogram,
+                    tz_name="US/Pacific",
+                    charts_prefix="db_map",
+                    speed_limit=25,
+                    start_date="2025-06-02",
+                    end_date="2025-06-04",
+                    include_map=True,
+                    site_id=1,
+                )
+            except Exception:
+                pass
+
+            tex_path = output_path.replace(".pdf", ".tex")
+            self.assertTrue(os.path.exists(tex_path))

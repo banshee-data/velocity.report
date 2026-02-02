@@ -20,6 +20,11 @@ type Site struct {
 	MapAngle        *float64  `json:"map_angle"`
 	IncludeMap      bool      `json:"include_map"`
 	SiteDescription *string   `json:"site_description"`
+	BBoxNELat       *float64  `json:"bbox_ne_lat"`
+	BBoxNELng       *float64  `json:"bbox_ne_lng"`
+	BBoxSWLat       *float64  `json:"bbox_sw_lat"`
+	BBoxSWLng       *float64  `json:"bbox_sw_lng"`
+	MapSVGData      *[]byte   `json:"map_svg_data,omitempty"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
 }
@@ -30,13 +35,20 @@ func (db *DB) CreateSite(site *Site) error {
 		INSERT INTO site (
 			name, location, description,
 			surveyor, contact, address, latitude, longitude, map_angle,
-			include_map, site_description
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			include_map, site_description,
+			bbox_ne_lat, bbox_ne_lng, bbox_sw_lat, bbox_sw_lng,
+			map_svg_data
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	includeMapInt := 0
 	if site.IncludeMap {
 		includeMapInt = 1
+	}
+
+	var mapSVGData []byte
+	if site.MapSVGData != nil {
+		mapSVGData = *site.MapSVGData
 	}
 
 	result, err := db.DB.Exec(
@@ -52,6 +64,11 @@ func (db *DB) CreateSite(site *Site) error {
 		site.MapAngle,
 		includeMapInt,
 		site.SiteDescription,
+		site.BBoxNELat,
+		site.BBoxNELng,
+		site.BBoxSWLat,
+		site.BBoxSWLng,
+		mapSVGData,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create site: %w", err)
@@ -73,6 +90,8 @@ func (db *DB) GetSite(id int) (*Site, error) {
 			id, name, location, description,
 			surveyor, contact, address, latitude, longitude, map_angle,
 			include_map, site_description,
+			bbox_ne_lat, bbox_ne_lng, bbox_sw_lat, bbox_sw_lng,
+			map_svg_data,
 			created_at, updated_at
 		FROM site
 		WHERE id = ?
@@ -81,6 +100,7 @@ func (db *DB) GetSite(id int) (*Site, error) {
 	var site Site
 	var includeMapInt int
 	var createdAtUnix, updatedAtUnix int64
+	var mapSVGData []byte
 
 	err := db.DB.QueryRow(query, id).Scan(
 		&site.ID,
@@ -95,6 +115,11 @@ func (db *DB) GetSite(id int) (*Site, error) {
 		&site.MapAngle,
 		&includeMapInt,
 		&site.SiteDescription,
+		&site.BBoxNELat,
+		&site.BBoxNELng,
+		&site.BBoxSWLat,
+		&site.BBoxSWLng,
+		&mapSVGData,
 		&createdAtUnix,
 		&updatedAtUnix,
 	)
@@ -107,6 +132,9 @@ func (db *DB) GetSite(id int) (*Site, error) {
 	}
 
 	site.IncludeMap = includeMapInt == 1
+	if len(mapSVGData) > 0 {
+		site.MapSVGData = &mapSVGData
+	}
 	site.CreatedAt = time.Unix(createdAtUnix, 0)
 	site.UpdatedAt = time.Unix(updatedAtUnix, 0)
 
@@ -120,6 +148,8 @@ func (db *DB) GetAllSites() ([]Site, error) {
 			id, name, location, description,
 			surveyor, contact, address, latitude, longitude, map_angle,
 			include_map, site_description,
+			bbox_ne_lat, bbox_ne_lng, bbox_sw_lat, bbox_sw_lng,
+			map_svg_data,
 			created_at, updated_at
 		FROM site
 		ORDER BY name ASC
@@ -136,6 +166,7 @@ func (db *DB) GetAllSites() ([]Site, error) {
 		var site Site
 		var includeMapInt int
 		var createdAtUnix, updatedAtUnix int64
+		var mapSVGData []byte
 
 		err := rows.Scan(
 			&site.ID,
@@ -150,6 +181,11 @@ func (db *DB) GetAllSites() ([]Site, error) {
 			&site.MapAngle,
 			&includeMapInt,
 			&site.SiteDescription,
+			&site.BBoxNELat,
+			&site.BBoxNELng,
+			&site.BBoxSWLat,
+			&site.BBoxSWLng,
+			&mapSVGData,
 			&createdAtUnix,
 			&updatedAtUnix,
 		)
@@ -158,6 +194,9 @@ func (db *DB) GetAllSites() ([]Site, error) {
 		}
 
 		site.IncludeMap = includeMapInt == 1
+		if len(mapSVGData) > 0 {
+			site.MapSVGData = &mapSVGData
+		}
 		site.CreatedAt = time.Unix(createdAtUnix, 0)
 		site.UpdatedAt = time.Unix(updatedAtUnix, 0)
 
@@ -185,13 +224,23 @@ func (db *DB) UpdateSite(site *Site) error {
 			longitude = ?,
 			map_angle = ?,
 			include_map = ?,
-			site_description = ?
+			site_description = ?,
+			bbox_ne_lat = ?,
+			bbox_ne_lng = ?,
+			bbox_sw_lat = ?,
+			bbox_sw_lng = ?,
+			map_svg_data = ?
 		WHERE id = ?
 	`
 
 	includeMapInt := 0
 	if site.IncludeMap {
 		includeMapInt = 1
+	}
+
+	var mapSVGData []byte
+	if site.MapSVGData != nil {
+		mapSVGData = *site.MapSVGData
 	}
 
 	result, err := db.DB.Exec(
@@ -207,6 +256,11 @@ func (db *DB) UpdateSite(site *Site) error {
 		site.MapAngle,
 		includeMapInt,
 		site.SiteDescription,
+		site.BBoxNELat,
+		site.BBoxNELng,
+		site.BBoxSWLat,
+		site.BBoxSWLng,
+		mapSVGData,
 		site.ID,
 	)
 	if err != nil {

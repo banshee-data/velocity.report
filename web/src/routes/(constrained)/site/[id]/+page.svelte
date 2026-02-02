@@ -10,6 +10,7 @@
 		upsertSiteConfigPeriod,
 		type SiteConfigPeriod
 	} from '$lib/api';
+	import MapEditorInteractive from '$lib/components/MapEditorInteractive.svelte';
 	import { mdiArrowLeft, mdiContentSave } from '@mdi/js';
 	import { onMount } from 'svelte';
 	import { Button, Card, Header, TextField } from 'svelte-ux';
@@ -33,7 +34,14 @@
 		address: '',
 		latitude: null as number | null,
 		longitude: null as number | null,
-		site_description: ''
+		site_description: '',
+		map_angle: null as number | null,
+		include_map: false,
+		bbox_ne_lat: null as number | null,
+		bbox_ne_lng: null as number | null,
+		bbox_sw_lat: null as number | null,
+		bbox_sw_lng: null as number | null,
+		map_svg_data: null as string | null
 	};
 
 	let formErrors: Record<string, string> = {};
@@ -78,7 +86,14 @@
 				address: site.address || '',
 				latitude: site.latitude || null,
 				longitude: site.longitude || null,
-				site_description: site.site_description || ''
+				site_description: site.site_description || '',
+				map_angle: site.map_angle || null,
+				include_map: site.include_map || false,
+				bbox_ne_lat: site.bbox_ne_lat || null,
+				bbox_ne_lng: site.bbox_ne_lng || null,
+				bbox_sw_lat: site.bbox_sw_lat || null,
+				bbox_sw_lng: site.bbox_sw_lng || null,
+				map_svg_data: site.map_svg_data || null
 			};
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load site';
@@ -232,8 +247,14 @@
 				address: formData.address || null,
 				latitude: formData.latitude,
 				longitude: formData.longitude,
-				include_map: false, // Hardcoded to false
-				site_description: formData.site_description || null
+				map_angle: formData.map_angle,
+				include_map: formData.include_map,
+				site_description: formData.site_description || null,
+				bbox_ne_lat: formData.bbox_ne_lat,
+				bbox_ne_lng: formData.bbox_ne_lng,
+				bbox_sw_lat: formData.bbox_sw_lat,
+				bbox_sw_lng: formData.bbox_sw_lng,
+				map_svg_data: formData.map_svg_data
 			};
 
 			if (isNewSite) {
@@ -346,6 +367,24 @@
 						label="Site Description (for report)"
 						multiline
 						classes={{ input: 'h-40' }}
+					/>
+				</div>
+			</Card>
+
+			<!-- Map Configuration -->
+			<Card>
+				<div class="space-y-4 p-6">
+					<h3 class="text-lg font-semibold">Map Configuration</h3>
+					<MapEditorInteractive
+						bind:latitude={formData.latitude}
+						bind:longitude={formData.longitude}
+						bind:radarAngle={formData.map_angle}
+						bind:bboxNELat={formData.bbox_ne_lat}
+						bind:bboxNELng={formData.bbox_ne_lng}
+						bind:bboxSWLat={formData.bbox_sw_lat}
+						bind:bboxSWLng={formData.bbox_sw_lng}
+						bind:mapSvgData={formData.map_svg_data}
+						bind:includeMap={formData.include_map}
 					/>
 				</div>
 			</Card>

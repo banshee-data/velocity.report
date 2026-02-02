@@ -304,6 +304,15 @@ export interface Site {
 	map_angle?: number | null;
 	include_map: boolean;
 	site_description?: string | null;
+	bbox_ne_lat?: number | null;
+	bbox_ne_lng?: number | null;
+	bbox_sw_lat?: number | null;
+	bbox_sw_lng?: number | null;
+	/**
+	 * Base64-encoded SVG image data as a string.
+	 * This must be a base64 string (matching the Go BLOB field), not raw SVG XML/text.
+	 */
+	map_svg_data?: string | null;
 	created_at: string;
 	updated_at: string;
 }

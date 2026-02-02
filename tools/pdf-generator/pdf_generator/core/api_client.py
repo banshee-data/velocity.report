@@ -134,3 +134,20 @@ class RadarStatsClient:
         resp.raise_for_status()
         payload = resp.json()
         return payload if isinstance(payload, list) else [], resp
+
+    def get_site(self, site_id: int) -> Tuple[Dict[str, Any], requests.Response]:
+        """Fetch site details by ID.
+
+        Args:
+            site_id: Site identifier
+
+        Returns:
+            Tuple of (site dict, response object)
+
+        Raises:
+            requests.HTTPError: If the API request fails
+        """
+        url = f"{self.base_url}/api/sites/{site_id}"
+        resp = requests.get(url)
+        resp.raise_for_status()
+        return resp.json(), resp
