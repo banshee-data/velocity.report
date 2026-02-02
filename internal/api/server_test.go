@@ -1123,3 +1123,356 @@ func TestHandleDatabaseStats_NoDatabase(t *testing.T) {
 		t.Error("Expected error message in response")
 	}
 }
+
+// TestSendCommandHandler_MethodNotAllowed tests the send command endpoint with wrong method
+func TestSendCommandHandler_MethodNotAllowed(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	req := httptest.NewRequest(http.MethodGet, "/send_command", nil)
+	w := httptest.NewRecorder()
+
+	server.sendCommandHandler(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("Expected status 405, got %d", w.Code)
+	}
+}
+
+// TestSendCommandHandler_ValidCommand tests sending a valid command
+func TestSendCommandHandler_ValidCommand(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	body := bytes.NewReader([]byte("test command"))
+	req := httptest.NewRequest(http.MethodPost, "/send_command", body)
+	w := httptest.NewRecorder()
+
+	server.sendCommandHandler(w, req)
+
+	// Should succeed - command is sent to serial mux
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+}
+
+// TestListSitesSuccess tests listing sites when database has sites
+func TestListSitesSuccess(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	// Create a test site
+	site := &db.Site{Name: "List Sites Test", Location: "Test Location"}
+	if err := dbInst.CreateSite(site); err != nil {
+		t.Fatalf("Failed to create site: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/sites/", nil)
+	w := httptest.NewRecorder()
+
+	server.listSites(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	var sites []db.Site
+	if err := json.NewDecoder(w.Body).Decode(&sites); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	// Should have at least one site
+	if len(sites) < 1 {
+		t.Error("Expected at least one site")
+	}
+}
+
+// TestGetSiteSuccess tests getting an existing site
+func TestGetSiteSuccess(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	// Create a test site
+	site := &db.Site{Name: "Get Site Test", Location: "Test Location"}
+	if err := dbInst.CreateSite(site); err != nil {
+		t.Fatalf("Failed to create site: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/sites/%d", site.ID), nil)
+	w := httptest.NewRecorder()
+
+	server.getSite(w, req, site.ID)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	var gotSite db.Site
+	if err := json.NewDecoder(w.Body).Decode(&gotSite); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	if gotSite.Name != "Get Site Test" {
+		t.Errorf("Expected site name 'Get Site Test', got '%s'", gotSite.Name)
+	}
+}
+
+// TestGetSiteNotFound tests getting a non-existent site
+func TestGetSiteNotFound(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/sites/99999", nil)
+	w := httptest.NewRecorder()
+
+	server.getSite(w, req, 99999)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("Expected status 404, got %d", w.Code)
+	}
+}
+
+// TestListAllReportsSuccess tests listing all reports across sites
+func TestListAllReportsSuccess(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/reports", nil)
+	w := httptest.NewRecorder()
+
+	server.listAllReports(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	var reports []db.SiteReport
+	if err := json.NewDecoder(w.Body).Decode(&reports); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+}
+
+// TestListSiteReportsSuccess tests listing reports for a specific site
+func TestListSiteReportsSuccess(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	// Create a test site first
+	site := &db.Site{Name: "Report Test Site", Location: "Test"}
+	if err := dbInst.CreateSite(site); err != nil {
+		t.Fatalf("Failed to create site: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/sites/%d/reports", site.ID), nil)
+	w := httptest.NewRecorder()
+
+	server.listSiteReports(w, req, site.ID)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	var reports []db.SiteReport
+	if err := json.NewDecoder(w.Body).Decode(&reports); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+}
+
+// TestGetReportNotFound tests getting a non-existent report
+func TestGetReportNotFoundServer(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/reports/99999", nil)
+	w := httptest.NewRecorder()
+
+	server.getReport(w, req, 99999)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("Expected status 404, got %d", w.Code)
+	}
+}
+
+// TestListEventsMissingStart tests events endpoint successfully without start (returns all)
+func TestListEventsMissingStart(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	// Events endpoint without start/end returns all events
+	req := httptest.NewRequest(http.MethodGet, "/api/events?end=9999999999", nil)
+	w := httptest.NewRecorder()
+
+	server.listEvents(w, req)
+
+	// Should succeed even without start param
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+}
+
+// TestListEventsMissingEnd tests events endpoint successfully without end (returns all)
+func TestListEventsMissingEnd(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	// Events endpoint without start/end returns all events
+	req := httptest.NewRequest(http.MethodGet, "/api/events?start=0", nil)
+	w := httptest.NewRecorder()
+
+	server.listEvents(w, req)
+
+	// Should succeed even without end param
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+}
+
+// TestListSiteConfigPeriodsSuccess tests listing config periods for a site
+func TestListSiteConfigPeriodsSuccess(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	// Create a test site first
+	site := &db.Site{Name: "Config Period Test", Location: "Test"}
+	if err := dbInst.CreateSite(site); err != nil {
+		t.Fatalf("Failed to create site: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/site_config_periods?site_id=%d", site.ID), nil)
+	w := httptest.NewRecorder()
+
+	server.listSiteConfigPeriods(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+}
+
+// TestListSiteConfigPeriodsMissingSiteID tests config periods without site_id (returns all)
+func TestListSiteConfigPeriodsMissingSiteID(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	// Without site_id, returns all periods (empty is valid)
+	req := httptest.NewRequest(http.MethodGet, "/api/site_config_periods", nil)
+	w := httptest.NewRecorder()
+
+	server.listSiteConfigPeriods(w, req)
+
+	// Should succeed even without site_id param - returns all periods
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+}
+
+// TestHandleTimelineSuccess tests the timeline endpoint with valid parameters
+func TestHandleTimelineSuccess(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	// Create a test site first
+	site := &db.Site{Name: "Timeline Test", Location: "Test"}
+	if err := dbInst.CreateSite(site); err != nil {
+		t.Fatalf("Failed to create site: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/timeline?site_id=%d", site.ID), nil)
+	w := httptest.NewRecorder()
+
+	server.handleTimeline(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+}
+
+// TestHandleTimelineMissingSiteID tests timeline without site_id
+func TestHandleTimelineMissingSiteID(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/timeline", nil)
+	w := httptest.NewRecorder()
+
+	server.handleTimeline(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+}
+
+// TestDeleteReportNotFoundServer tests deleting a non-existent report
+func TestDeleteReportNotFoundServer(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/reports/99999", nil)
+	w := httptest.NewRecorder()
+
+	server.deleteReport(w, req, 99999)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("Expected status 404, got %d", w.Code)
+	}
+}
+
+// TestDownloadReportInvalidType tests downloading a report with invalid file type
+func TestDownloadReportInvalidType(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	// Invalid file type should return 400
+	req := httptest.NewRequest(http.MethodGet, "/api/reports/1/download/invalid", nil)
+	w := httptest.NewRecorder()
+
+	server.downloadReport(w, req, 1, "invalid")
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+}
+
+// TestHandleSites_POST tests creating a new site
+func TestHandleSites_POST(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	newSite := db.Site{Name: "New POST Site", Location: "Test Location"}
+	body, _ := json.Marshal(newSite)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sites/", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	server.handleSites(w, req)
+
+	if w.Code != http.StatusCreated && w.Code != http.StatusOK {
+		t.Errorf("Expected status 201 or 200, got %d", w.Code)
+	}
+}
+
+// TestHandleSites_PUT tests updating a site
+func TestHandleSites_PUT(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	// Create site first
+	site := &db.Site{Name: "PUT Test Site", Location: "Old Location"}
+	if err := dbInst.CreateSite(site); err != nil {
+		t.Fatalf("Failed to create site: %v", err)
+	}
+
+	// Update site
+	site.Location = "New Location"
+	body, _ := json.Marshal(site)
+
+	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/sites/%d", site.ID), bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	server.handleSites(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+}

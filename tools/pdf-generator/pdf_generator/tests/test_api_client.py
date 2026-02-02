@@ -261,6 +261,30 @@ class TestRadarStatsClient:
         assert len(periods) == 1
         assert periods[0]["site_id"] == 2
 
+    @responses.activate
+    def test_get_site_success(self):
+        """Test getting a site by ID."""
+        responses.add(
+            responses.GET,
+            "http://localhost:8080/api/sites/1",
+            json={
+                "id": 1,
+                "name": "Test Site",
+                "location": "Test Location",
+                "latitude": 51.5074,
+                "longitude": -0.1278,
+            },
+            status=200,
+        )
+
+        client = RadarStatsClient()
+        site, resp = client.get_site(site_id=1)
+
+        assert resp.status_code == 200
+        assert site["id"] == 1
+        assert site["name"] == "Test Site"
+        assert site["latitude"] == 51.5074
+
 
 class TestSupportedGroups:
     """Tests for SUPPORTED_GROUPS constant."""
