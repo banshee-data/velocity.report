@@ -117,7 +117,7 @@ jobs:
 
       - name: Run core tests
         run: |
-          go test -v -race -coverprofile=coverage-core.out -covermode=atomic \
+          go test -v -race -tags=pcap -coverprofile=coverage-core.out -covermode=atomic \
             ./internal/db/... \
             ./internal/radar/... \
             ./internal/serialmux/... \
@@ -168,7 +168,7 @@ jobs:
 
       - name: Run LiDAR tests
         run: |
-          go test -v -race -coverprofile=coverage-lidar.out -covermode=atomic \
+          go test -v -race -tags=pcap -coverprofile=coverage-lidar.out -covermode=atomic \
             ./internal/lidar/...
 
       - name: Upload LiDAR coverage
@@ -227,7 +227,7 @@ jobs:
 
       - name: Run API tests (includes E2E with Python PDF generator)
         run: |
-          go test -v -race -coverprofile=coverage-api.out -covermode=atomic \
+          go test -v -race -tags=pcap -coverprofile=coverage-api.out -covermode=atomic \
             ./internal/api/...
 
       - name: Download coverage artifacts
