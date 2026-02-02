@@ -1094,7 +1094,6 @@ describe('api', () => {
 				bbox_ne_lng: -0.1228,
 				bbox_sw_lat: 51.5024,
 				bbox_sw_lng: -0.1328,
-				map_rotation: 15,
 				map_svg_data: testSVGData,
 				include_map: false
 			};
@@ -1124,7 +1123,6 @@ describe('api', () => {
 			expect(result.bbox_ne_lng).toBe(-0.1228);
 			expect(result.bbox_sw_lat).toBe(51.5024);
 			expect(result.bbox_sw_lng).toBe(-0.1328);
-			expect(result.map_rotation).toBe(15);
 			expect(result.map_svg_data).toBe(testSVGData);
 		});
 
@@ -1136,7 +1134,6 @@ describe('api', () => {
 				bbox_ne_lng: -1.0,
 				bbox_sw_lat: 51.0,
 				bbox_sw_lng: -2.0,
-				map_rotation: 30,
 				map_svg_data: testSVGData
 			};
 			const mockUpdatedSite: Site = {
@@ -1156,7 +1153,6 @@ describe('api', () => {
 				bbox_ne_lng: -1.0,
 				bbox_sw_lat: 51.0,
 				bbox_sw_lng: -2.0,
-				map_rotation: 30,
 				map_svg_data: testSVGData,
 				created_at: '2025-01-01T00:00:00Z',
 				updated_at: '2025-01-02T00:00:00Z'
@@ -1170,7 +1166,6 @@ describe('api', () => {
 			const result = await updateSite(1, updates);
 
 			expect(result.bbox_ne_lat).toBe(52.0);
-			expect(result.map_rotation).toBe(30);
 			expect(result.map_svg_data).toBe(testSVGData);
 		});
 
@@ -1192,7 +1187,6 @@ describe('api', () => {
 				bbox_ne_lng: null,
 				bbox_sw_lat: null,
 				bbox_sw_lng: null,
-				map_rotation: null,
 				map_svg_data: null,
 				created_at: '2025-01-01T00:00:00Z',
 				updated_at: '2025-01-01T00:00:00Z'
@@ -1209,7 +1203,6 @@ describe('api', () => {
 			expect(result.bbox_ne_lng).toBeNull();
 			expect(result.bbox_sw_lat).toBeNull();
 			expect(result.bbox_sw_lng).toBeNull();
-			expect(result.map_rotation).toBeNull();
 			expect(result.map_svg_data).toBeNull();
 		});
 	});

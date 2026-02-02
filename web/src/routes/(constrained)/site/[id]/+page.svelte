@@ -40,7 +40,6 @@
 		bbox_ne_lng: null as number | null,
 		bbox_sw_lat: null as number | null,
 		bbox_sw_lng: null as number | null,
-		map_rotation: null as number | null,
 		map_svg_data: null as string | null
 	};
 
@@ -92,7 +91,6 @@
 				bbox_ne_lng: site.bbox_ne_lng || null,
 				bbox_sw_lat: site.bbox_sw_lat || null,
 				bbox_sw_lng: site.bbox_sw_lng || null,
-				map_rotation: site.map_rotation || null,
 				map_svg_data: site.map_svg_data || null
 			};
 		} catch (e) {
@@ -254,7 +252,6 @@
 				bbox_ne_lng: formData.bbox_ne_lng,
 				bbox_sw_lat: formData.bbox_sw_lat,
 				bbox_sw_lng: formData.bbox_sw_lng,
-				map_rotation: formData.map_rotation,
 				map_svg_data: formData.map_svg_data
 			};
 

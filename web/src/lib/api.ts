@@ -308,7 +308,6 @@ export interface Site {
 	bbox_ne_lng?: number | null;
 	bbox_sw_lat?: number | null;
 	bbox_sw_lng?: number | null;
-	map_rotation?: number | null;
 	map_svg_data?: string | null; // Base64 encoded SVG data
 	created_at: string;
 	updated_at: string;

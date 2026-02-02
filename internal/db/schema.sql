@@ -216,7 +216,6 @@ CREATE TABLE lidar_analysis_runs (
         , bbox_ne_lng REAL
         , bbox_sw_lat REAL
         , bbox_sw_lng REAL
-        , map_rotation REAL DEFAULT 0
         , map_svg_data BLOB
           );
 

@@ -24,7 +24,6 @@ type Site struct {
 	BBoxNELng       *float64  `json:"bbox_ne_lng"`
 	BBoxSWLat       *float64  `json:"bbox_sw_lat"`
 	BBoxSWLng       *float64  `json:"bbox_sw_lng"`
-	MapRotation     *float64  `json:"map_rotation"`
 	MapSVGData      *[]byte   `json:"map_svg_data,omitempty"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
@@ -38,8 +37,8 @@ func (db *DB) CreateSite(site *Site) error {
 			surveyor, contact, address, latitude, longitude, map_angle,
 			include_map, site_description,
 			bbox_ne_lat, bbox_ne_lng, bbox_sw_lat, bbox_sw_lng,
-			map_rotation, map_svg_data
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			map_svg_data
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	includeMapInt := 0
@@ -69,7 +68,6 @@ func (db *DB) CreateSite(site *Site) error {
 		site.BBoxNELng,
 		site.BBoxSWLat,
 		site.BBoxSWLng,
-		site.MapRotation,
 		mapSVGData,
 	)
 	if err != nil {
@@ -93,7 +91,7 @@ func (db *DB) GetSite(id int) (*Site, error) {
 			surveyor, contact, address, latitude, longitude, map_angle,
 			include_map, site_description,
 			bbox_ne_lat, bbox_ne_lng, bbox_sw_lat, bbox_sw_lng,
-			map_rotation, map_svg_data,
+			map_svg_data,
 			created_at, updated_at
 		FROM site
 		WHERE id = ?
@@ -121,7 +119,6 @@ func (db *DB) GetSite(id int) (*Site, error) {
 		&site.BBoxNELng,
 		&site.BBoxSWLat,
 		&site.BBoxSWLng,
-		&site.MapRotation,
 		&mapSVGData,
 		&createdAtUnix,
 		&updatedAtUnix,
@@ -152,7 +149,7 @@ func (db *DB) GetAllSites() ([]Site, error) {
 			surveyor, contact, address, latitude, longitude, map_angle,
 			include_map, site_description,
 			bbox_ne_lat, bbox_ne_lng, bbox_sw_lat, bbox_sw_lng,
-			map_rotation, map_svg_data,
+			map_svg_data,
 			created_at, updated_at
 		FROM site
 		ORDER BY name ASC
@@ -188,7 +185,6 @@ func (db *DB) GetAllSites() ([]Site, error) {
 			&site.BBoxNELng,
 			&site.BBoxSWLat,
 			&site.BBoxSWLng,
-			&site.MapRotation,
 			&mapSVGData,
 			&createdAtUnix,
 			&updatedAtUnix,
@@ -233,7 +229,6 @@ func (db *DB) UpdateSite(site *Site) error {
 			bbox_ne_lng = ?,
 			bbox_sw_lat = ?,
 			bbox_sw_lng = ?,
-			map_rotation = ?,
 			map_svg_data = ?
 		WHERE id = ?
 	`
@@ -265,7 +260,6 @@ func (db *DB) UpdateSite(site *Site) error {
 		site.BBoxNELng,
 		site.BBoxSWLat,
 		site.BBoxSWLng,
-		site.MapRotation,
 		mapSVGData,
 		site.ID,
 	)

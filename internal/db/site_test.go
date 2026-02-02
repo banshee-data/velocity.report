@@ -448,7 +448,7 @@ func TestSite_BooleanFields(t *testing.T) {
 	}
 }
 
-// TestSite_MapFields tests all map-related fields (bbox, rotation, SVG data)
+// TestSite_MapFields tests all map-related fields (bbox and SVG data)
 func TestSite_MapFields(t *testing.T) {
 	db := setupTestDB(t)
 	defer cleanupTestDB(t, db)
@@ -457,19 +457,18 @@ func TestSite_MapFields(t *testing.T) {
 	testSVGData := []byte("<svg xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"50\" cy=\"50\" r=\"40\"/></svg>")
 
 	site := &Site{
-		Name:        "Map Test Site",
-		Location:    "Test Location",
-		Surveyor:    "Test Surveyor",
-		Contact:     "test@example.com",
-		Latitude:    floatPtr(51.5074),
-		Longitude:   floatPtr(-0.1278),
-		MapAngle:    floatPtr(45.0),
-		BBoxNELat:   floatPtr(51.5124),
-		BBoxNELng:   floatPtr(-0.1228),
-		BBoxSWLat:   floatPtr(51.5024),
-		BBoxSWLng:   floatPtr(-0.1328),
-		MapRotation: floatPtr(15.0),
-		MapSVGData:  &testSVGData,
+		Name:       "Map Test Site",
+		Location:   "Test Location",
+		Surveyor:   "Test Surveyor",
+		Contact:    "test@example.com",
+		Latitude:   floatPtr(51.5074),
+		Longitude:  floatPtr(-0.1278),
+		MapAngle:   floatPtr(45.0),
+		BBoxNELat:  floatPtr(51.5124),
+		BBoxNELng:  floatPtr(-0.1228),
+		BBoxSWLat:  floatPtr(51.5024),
+		BBoxSWLng:  floatPtr(-0.1328),
+		MapSVGData: &testSVGData,
 	}
 
 	// Create site with map fields
@@ -500,11 +499,6 @@ func TestSite_MapFields(t *testing.T) {
 	}
 	if retrieved.BBoxSWLng == nil || *retrieved.BBoxSWLng != -0.1328 {
 		t.Errorf("BBoxSWLng mismatch: got %v, want -0.1328", retrieved.BBoxSWLng)
-	}
-
-	// Verify map rotation
-	if retrieved.MapRotation == nil || *retrieved.MapRotation != 15.0 {
-		t.Errorf("MapRotation mismatch: got %v, want 15.0", retrieved.MapRotation)
 	}
 
 	// Verify SVG data
@@ -539,7 +533,6 @@ func TestSite_UpdateMapFields(t *testing.T) {
 	site.BBoxNELng = floatPtr(-1.0)
 	site.BBoxSWLat = floatPtr(51.0)
 	site.BBoxSWLng = floatPtr(-2.0)
-	site.MapRotation = floatPtr(30.0)
 	site.MapSVGData = &updatedSVGData
 
 	err = db.UpdateSite(site)
@@ -555,9 +548,6 @@ func TestSite_UpdateMapFields(t *testing.T) {
 
 	if retrieved.BBoxNELat == nil || *retrieved.BBoxNELat != 52.0 {
 		t.Errorf("Updated BBoxNELat mismatch: got %v, want 52.0", retrieved.BBoxNELat)
-	}
-	if retrieved.MapRotation == nil || *retrieved.MapRotation != 30.0 {
-		t.Errorf("Updated MapRotation mismatch: got %v, want 30.0", retrieved.MapRotation)
 	}
 	if retrieved.MapSVGData == nil || string(*retrieved.MapSVGData) != string(updatedSVGData) {
 		t.Error("Updated MapSVGData does not match expected value")
@@ -599,9 +589,6 @@ func TestSite_MapFieldsNullable(t *testing.T) {
 	}
 	if retrieved.BBoxSWLng != nil {
 		t.Error("Expected BBoxSWLng to be nil")
-	}
-	if retrieved.MapRotation != nil {
-		t.Error("Expected MapRotation to be nil")
 	}
 	if retrieved.MapSVGData != nil {
 		t.Error("Expected MapSVGData to be nil")
