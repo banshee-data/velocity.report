@@ -479,10 +479,13 @@ def resolve_file_prefix(
     end_date = config.query.end_date[:10]
 
     # Sanitize location to match Go's security.SanitizeFilename behavior
+    # Go collapses consecutive non-alphanumeric chars into single underscore
     location = config.site.location
-    safe_location = "".join(
-        c if c.isalnum() or c in ("-", "_") else "_" for c in location
-    )
+    sanitized = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in location)
+    # Collapse consecutive underscores to match Go behavior
+    import re
+
+    safe_location = re.sub(r"_+", "_", sanitized)
 
     return f"{end_date}_velocity.report_{safe_location}"
 

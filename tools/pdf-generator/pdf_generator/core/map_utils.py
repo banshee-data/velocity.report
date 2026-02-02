@@ -634,7 +634,9 @@ def extract_svg_from_site_data(
 
         # Verify it's valid SVG
         if "<svg" not in svg_text.lower():
-            print(f"  [extract_svg] Warning: decoded data doesn't appear to be valid SVG")
+            print(
+                "  [extract_svg] Warning: decoded data doesn't appear to be valid SVG"
+            )
             return False
 
         # Write to file

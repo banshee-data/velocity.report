@@ -557,27 +557,29 @@ def generate_pdf_report(
         # Try to extract map SVG from database if site_id is provided
         db_svg_extracted = False
         map_base_dir = os.path.dirname(__file__)
-        
+
         if site_id is not None:
             print(f"  [MAP] Attempting to fetch site data for site_id={site_id}")
             try:
                 client = RadarStatsClient()
                 site_data, _ = client.get_site(site_id)
-                print(f"  [MAP] Site data fetched successfully")
-                
+                print("  [MAP] Site data fetched successfully")
+
                 # Try to extract SVG from site data
                 map_svg_path = os.path.join(map_base_dir, "map.svg")
                 if extract_svg_from_site_data(site_data, map_svg_path):
                     db_svg_extracted = True
                     print(f"  [MAP] ✓ Using map from database (site_id={site_id})")
                 else:
-                    print(f"  [MAP] No map_svg_data in site record, falling back to static map.svg")
+                    print(
+                        "  [MAP] No map_svg_data in site record, falling back to static map.svg"
+                    )
             except Exception as e:
                 print(f"  [MAP] Warning: Failed to fetch site data: {e}")
-                print(f"  [MAP] Falling back to static map.svg")
+                print("  [MAP] Falling back to static map.svg")
 
         if not db_svg_extracted:
-            print(f"  [MAP] Using static map.svg if available")
+            print("  [MAP] Using static map.svg if available")
 
         map_processor = MapProcessor(
             base_dir=map_base_dir,
