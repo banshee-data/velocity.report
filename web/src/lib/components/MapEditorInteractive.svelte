@@ -487,18 +487,33 @@
 		error = '';
 
 		try {
-			// Fetch road data from Overpass API
+			// Fetch map data from Overpass API - roads, buildings, landuse, water
 			const overpassQuery = `
-				[out:json][timeout:25];
+				[out:json][timeout:30];
 				(
-					way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|residential|unclassified|living_street|service|pedestrian)$"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
+					// Landuse areas (parks, forests, grass, etc.)
+					way["landuse"~"^(grass|forest|meadow|recreation_ground|village_green|orchard|vineyard|farmland|farmyard|allotments|cemetery)$"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
+					relation["landuse"~"^(grass|forest|meadow|recreation_ground|village_green|orchard|vineyard|farmland|farmyard|allotments|cemetery)$"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
+					// Leisure areas (parks, gardens, pitches)
+					way["leisure"~"^(park|garden|playground|pitch|golf_course|nature_reserve|common)$"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
+					relation["leisure"~"^(park|garden|playground|pitch|golf_course|nature_reserve|common)$"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
+					// Natural areas
+					way["natural"~"^(wood|scrub|heath|grassland|wetland|water)$"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
+					relation["natural"~"^(wood|scrub|heath|grassland|wetland|water)$"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
+					// Water bodies
+					way["water"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
+					way["waterway"~"^(river|stream|canal|drain|ditch)$"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
+					// Buildings
+					way["building"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
+					// Roads
+					way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|residential|unclassified|living_street|service|pedestrian|footway|path)$"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
 				);
 				out body;
 				>;
 				out skel qt;
 			`;
 
-			console.log('Fetching roads from Overpass API...');
+			console.log('Fetching map data from Overpass API...');
 			const response = await fetch('https://overpass-api.de/api/interpreter', {
 				method: 'POST',
 				body: `data=${encodeURIComponent(overpassQuery)}`
@@ -518,28 +533,54 @@
 				}
 			}
 
-			// Extract ways with their nodes and names
-			const ways: Array<{
+			// Categorise ways
+			const buildings: Array<{ nodes: Array<{ lat: number; lon: number }> }> = [];
+			const landuse: Array<{
+				type: string;
+				nodes: Array<{ lat: number; lon: number }>;
+			}> = [];
+			const water: Array<{
+				isLine: boolean;
+				nodes: Array<{ lat: number; lon: number }>;
+			}> = [];
+			const roads: Array<{
 				highway: string;
 				name?: string;
 				nodes: Array<{ lat: number; lon: number }>;
 			}> = [];
+
 			for (const element of data.elements) {
-				if (element.type === 'way' && element.tags?.highway) {
-					const wayNodes = element.nodes
-						.map((id: number) => nodes[id])
-						.filter((n: { lat: number; lon: number } | undefined) => n);
-					if (wayNodes.length >= 2) {
-						ways.push({
-							highway: element.tags.highway,
-							name: element.tags.name,
-							nodes: wayNodes
-						});
-					}
+				if (element.type !== 'way') continue;
+
+				const wayNodes = element.nodes
+					?.map((id: number) => nodes[id])
+					.filter((n: { lat: number; lon: number } | undefined) => n);
+
+				if (!wayNodes || wayNodes.length < 2) continue;
+
+				const tags = element.tags || {};
+
+				if (tags.building) {
+					buildings.push({ nodes: wayNodes });
+				} else if (tags.natural === 'water' || tags.water) {
+					water.push({ isLine: false, nodes: wayNodes });
+				} else if (tags.waterway) {
+					water.push({ isLine: true, nodes: wayNodes });
+				} else if (tags.landuse || tags.leisure || tags.natural) {
+					const type = tags.landuse || tags.leisure || tags.natural;
+					landuse.push({ type, nodes: wayNodes });
+				} else if (tags.highway) {
+					roads.push({
+						highway: tags.highway,
+						name: tags.name,
+						nodes: wayNodes
+					});
 				}
 			}
 
-			console.log(`Found ${ways.length} roads`);
+			console.log(
+				`Found: ${roads.length} roads, ${buildings.length} buildings, ${landuse.length} landuse, ${water.length} water`
+			);
 
 			// SVG dimensions (3:2 aspect ratio)
 			const svgWidth = 600;
@@ -551,8 +592,95 @@
 			const latToY = (lat: number) => ((bboxNELat - lat) / latRange) * svgHeight;
 			const lngToX = (lng: number) => ((lng - bboxSWLng) / lngRange) * svgWidth;
 
-			// Sort ways by importance (draw minor roads first, major roads on top)
+			// Calculate map scale (metres per pixel) for scaling elements
+			const metersPerDegreeLat = 111320;
+			const centerLat = (bboxNELat + bboxSWLat) / 2;
+			const metersPerDegreeLng = 111320 * Math.cos((centerLat * Math.PI) / 180);
+			const mapWidthMeters = lngRange * metersPerDegreeLng;
+			const metersPerPixel = mapWidthMeters / svgWidth;
+
+			// Helper to create polygon path
+			const toPolygonPath = (nodeList: Array<{ lat: number; lon: number }>) => {
+				return (
+					nodeList
+						.map(
+							(n, i) =>
+								`${i === 0 ? 'M' : 'L'} ${lngToX(n.lon).toFixed(1)} ${latToY(n.lat).toFixed(1)}`
+						)
+						.join(' ') + ' Z'
+				);
+			};
+
+			// Helper to create line path
+			const toLinePath = (nodeList: Array<{ lat: number; lon: number }>) => {
+				return nodeList
+					.map(
+						(n, i) =>
+							`${i === 0 ? 'M' : 'L'} ${lngToX(n.lon).toFixed(1)} ${latToY(n.lat).toFixed(1)}`
+					)
+					.join(' ');
+			};
+
+			// Landuse colours (OSM-style)
+			const getLanduseColor = (type: string): string => {
+				const colors: Record<string, string> = {
+					// Green areas
+					grass: '#cdebb0',
+					forest: '#add19e',
+					wood: '#add19e',
+					park: '#c8facc',
+					garden: '#cdebb0',
+					meadow: '#cdebb0',
+					recreation_ground: '#c8facc',
+					village_green: '#c8facc',
+					playground: '#c8facc',
+					pitch: '#aae0cb',
+					golf_course: '#b5e3b5',
+					nature_reserve: '#c8facc',
+					common: '#c8facc',
+					scrub: '#c8d7ab',
+					heath: '#d6d99f',
+					grassland: '#cdebb0',
+					// Brown/tan areas
+					farmland: '#eef0d5',
+					farmyard: '#f5dcba',
+					orchard: '#aedfa3',
+					vineyard: '#b3e2a8',
+					allotments: '#c9e1bf',
+					cemetery: '#aacbaf',
+					// Wetland
+					wetland: '#b5d0d0'
+				};
+				return colors[type] || '#e0e0e0';
+			};
+
+			// Generate landuse polygons
+			let landusePaths = '';
+			for (const area of landuse) {
+				const color = getLanduseColor(area.type);
+				landusePaths += `<path d="${toPolygonPath(area.nodes)}" fill="${color}" stroke="none"/>`;
+			}
+
+			// Generate water
+			let waterPaths = '';
+			for (const w of water) {
+				if (w.isLine) {
+					waterPaths += `<path d="${toLinePath(w.nodes)}" stroke="#aad3df" stroke-width="2" fill="none"/>`;
+				} else {
+					waterPaths += `<path d="${toPolygonPath(w.nodes)}" fill="#aad3df" stroke="#6699cc" stroke-width="0.5"/>`;
+				}
+			}
+
+			// Generate buildings
+			let buildingPaths = '';
+			for (const bldg of buildings) {
+				buildingPaths += `<path d="${toPolygonPath(bldg.nodes)}" fill="#d9d0c9" stroke="#bbb5b0" stroke-width="0.3"/>`;
+			}
+
+			// Sort roads by importance (draw minor roads first, major roads on top)
 			const roadOrder = [
+				'footway',
+				'path',
 				'service',
 				'pedestrian',
 				'living_street',
@@ -569,18 +697,13 @@
 				'motorway_link',
 				'motorway'
 			];
-			ways.sort((a, b) => roadOrder.indexOf(a.highway) - roadOrder.indexOf(b.highway));
+			roads.sort((a, b) => roadOrder.indexOf(a.highway) - roadOrder.indexOf(b.highway));
 
 			// Generate road paths
 			let roadPaths = '';
-			for (const way of ways) {
+			for (const way of roads) {
 				const style = getRoadStyle(way.highway);
-				const pathData = way.nodes
-					.map(
-						(n, i) =>
-							`${i === 0 ? 'M' : 'L'} ${lngToX(n.lon).toFixed(1)} ${latToY(n.lat).toFixed(1)}`
-					)
-					.join(' ');
+				const pathData = toLinePath(way.nodes);
 
 				// Draw road outline (casing) then fill
 				roadPaths += `<path d="${pathData}" stroke="#666666" stroke-width="${style.width + 1}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
@@ -591,7 +714,7 @@
 			const labelledNames = new Set<string>();
 			let labels = '';
 
-			for (const way of ways) {
+			for (const way of roads) {
 				if (!way.name || labelledNames.has(way.name)) continue;
 
 				// Only label significant roads
@@ -626,9 +749,31 @@
 				labels += `<text x="${midpoint.x.toFixed(1)}" y="${midpoint.y.toFixed(1)}" font-family="Arial, sans-serif" font-size="${fontSize}" fill="#333333" text-anchor="middle" dominant-baseline="middle" transform="rotate(${midpoint.angle.toFixed(1)}, ${midpoint.x.toFixed(1)}, ${midpoint.y.toFixed(1)})" stroke="white" stroke-width="2" paint-order="stroke">${escapeXml(way.name)}</text>`;
 			}
 
-			// Radar position marker
+			// Radar position and FOV triangle - scale based on map size
 			const radarX = latitude !== null ? lngToX(longitude!) : svgWidth / 2;
 			const radarY = latitude !== null ? latToY(latitude!) : svgHeight / 2;
+
+			// Triangle size: 100 metres in real world, scaled to pixels
+			const triangleLengthMeters = 100;
+			const triangleLengthPixels = triangleLengthMeters / metersPerPixel;
+
+			// FOV triangle (20 degree width)
+			const angle = radarAngle || 0;
+			const fovWidthDegrees = 20;
+			const angleRad = (angle * Math.PI) / 180;
+			const leftAngleRad = ((angle - fovWidthDegrees / 2) * Math.PI) / 180;
+			const rightAngleRad = ((angle + fovWidthDegrees / 2) * Math.PI) / 180;
+
+			// Triangle points (note: SVG y increases downward, so we flip sin)
+			const tipX = radarX + Math.sin(angleRad) * triangleLengthPixels;
+			const tipY = radarY - Math.cos(angleRad) * triangleLengthPixels;
+			const leftX = radarX + Math.sin(leftAngleRad) * triangleLengthPixels;
+			const leftY = radarY - Math.cos(leftAngleRad) * triangleLengthPixels;
+			const rightX = radarX + Math.sin(rightAngleRad) * triangleLengthPixels;
+			const rightY = radarY - Math.cos(rightAngleRad) * triangleLengthPixels;
+
+			// Marker size also scales with map
+			const markerRadius = Math.max(4, Math.min(10, 20 / metersPerPixel));
 
 			// Create complete SVG
 			const svgText = `<?xml version="1.0" encoding="UTF-8"?>
@@ -637,12 +782,20 @@
 	<desc>Data © OpenStreetMap contributors</desc>
 	<!-- Background -->
 	<rect x="0" y="0" width="${svgWidth}" height="${svgHeight}" fill="#f2efe9"/>
+	<!-- Landuse (parks, forests, etc.) -->
+	${landusePaths}
+	<!-- Water -->
+	${waterPaths}
+	<!-- Buildings -->
+	${buildingPaths}
 	<!-- Roads -->
 	${roadPaths}
 	<!-- Street names -->
 	${labels}
+	<!-- Radar FOV triangle -->
+	<polygon points="${radarX.toFixed(1)},${radarY.toFixed(1)} ${leftX.toFixed(1)},${leftY.toFixed(1)} ${rightX.toFixed(1)},${rightY.toFixed(1)}" fill="#ef4444" fill-opacity="0.4" stroke="#ef4444" stroke-width="1"/>
 	<!-- Radar position marker -->
-	<circle cx="${radarX.toFixed(1)}" cy="${radarY.toFixed(1)}" r="8" fill="#3b82f6" stroke="white" stroke-width="2"/>
+	<circle cx="${radarX.toFixed(1)}" cy="${radarY.toFixed(1)}" r="${markerRadius.toFixed(1)}" fill="#3b82f6" stroke="white" stroke-width="2"/>
 </svg>`;
 
 			// Store as base64
