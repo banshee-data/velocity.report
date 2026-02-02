@@ -29,6 +29,7 @@
 	let error = '';
 	let L: typeof import('leaflet') | null = null;
 	let isDraggingFovTip = false; // Flag to prevent reactive updates during drag
+	let lastSearchTime = 0; // Track last API call for rate limiting
 
 	// Default location (San Francisco, USA)
 	const defaultLat = 37.7749;
@@ -327,6 +328,15 @@
 		searchResults = [];
 
 		try {
+			// Nominatim Usage Policy: max 1 request per second
+			const now = Date.now();
+			const timeSinceLastSearch = now - lastSearchTime;
+			if (timeSinceLastSearch < 1000) {
+				// Wait to comply with rate limit
+				await new Promise((resolve) => setTimeout(resolve, 1000 - timeSinceLastSearch));
+			}
+			lastSearchTime = Date.now();
+
 			// Use Nominatim (OpenStreetMap geocoding service)
 			const response = await fetch(
 				`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5`,
@@ -795,8 +805,10 @@
 	<circle cx="${radarX.toFixed(1)}" cy="${radarY.toFixed(1)}" r="${markerRadius.toFixed(1)}" fill="#3b82f6" stroke="white" stroke-width="2"/>
 </svg>`;
 
-			// Store as base64
-			mapSvgData = btoa(unescape(encodeURIComponent(svgText)));
+			// Store as base64 (UTF-8 safe)
+			const encoder = new TextEncoder();
+			const bytes = encoder.encode(svgText);
+			mapSvgData = btoa(String.fromCharCode(...bytes));
 			error = '';
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to download map';

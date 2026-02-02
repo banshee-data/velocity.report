@@ -554,7 +554,10 @@ def generate_pdf_report(
         f"{map_latitude is not None and map_longitude is not None}"
     )
     print(f"map_angle: {map_angle}")
-    print(f"bbox: NE({bbox_ne_lat}, {bbox_ne_lng}), SW({bbox_sw_lat}, {bbox_sw_lng})")
+    # Do not log exact bounding box coordinates to avoid exposing sensitive location data
+    print(
+        f"bbox provided: {bbox_ne_lat is not None and bbox_ne_lng is not None and bbox_sw_lat is not None and bbox_sw_lng is not None}"
+    )
 
     # Calculate marker position from lat/lng and bounding box if available
     if (
