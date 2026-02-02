@@ -1020,6 +1020,7 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		"output": map[string]interface{}{
 			"output_dir": outputDir,
 			"debug":      s.debugMode,
+			"map":        site != nil && site.IncludeMap,
 		},
 	}
 
