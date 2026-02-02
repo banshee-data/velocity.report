@@ -15,7 +15,8 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// setupTestDB creates a temporary SQLite database for testing
+// setupTestDB creates a temporary SQLite database for testing using schema.sql.
+// This avoids hardcoded CREATE TABLE statements that can get out of sync with migrations.
 func setupTestDB(t *testing.T) (*sql.DB, func()) {
 	t.Helper()
 
@@ -31,76 +32,44 @@ func setupTestDB(t *testing.T) (*sql.DB, func()) {
 		t.Fatalf("Failed to open database: %v", err)
 	}
 
-	// Create necessary tables
-	createSQL := `
-		CREATE TABLE IF NOT EXISTS lidar_tracks (
-			track_id TEXT PRIMARY KEY,
-			sensor_id TEXT NOT NULL,
-			world_frame TEXT NOT NULL DEFAULT 'sensor',
-			track_state TEXT NOT NULL,
-			start_unix_nanos INTEGER NOT NULL,
-			end_unix_nanos INTEGER,
-			observation_count INTEGER DEFAULT 0,
-			avg_speed_mps REAL DEFAULT 0,
-			peak_speed_mps REAL DEFAULT 0,
-			p50_speed_mps REAL DEFAULT 0,
-			p85_speed_mps REAL DEFAULT 0,
-			p95_speed_mps REAL DEFAULT 0,
-			bounding_box_length_avg REAL DEFAULT 0,
-			bounding_box_width_avg REAL DEFAULT 0,
-			bounding_box_height_avg REAL DEFAULT 0,
-			height_p95_max REAL DEFAULT 0,
-			intensity_mean_avg REAL DEFAULT 0,
-			object_class TEXT DEFAULT '',
-			object_confidence REAL DEFAULT 0,
-			classification_model TEXT DEFAULT ''
-		);
+	// Apply essential PRAGMAs
+	pragmas := []string{
+		"PRAGMA journal_mode=WAL",
+		"PRAGMA busy_timeout=5000",
+		"PRAGMA synchronous=NORMAL",
+		"PRAGMA temp_store=MEMORY",
+		"PRAGMA foreign_keys=ON",
+	}
+	for _, pragma := range pragmas {
+		if _, err := db.Exec(pragma); err != nil {
+			db.Close()
+			os.RemoveAll(tmpDir)
+			t.Fatalf("Failed to execute %q: %v", pragma, err)
+		}
+	}
 
-		CREATE TABLE IF NOT EXISTS lidar_track_obs (
-			track_id TEXT NOT NULL,
-			ts_unix_nanos INTEGER NOT NULL,
-			world_frame TEXT NOT NULL DEFAULT 'sensor',
-			x REAL DEFAULT 0,
-			y REAL DEFAULT 0,
-			z REAL DEFAULT 0,
-			velocity_x REAL DEFAULT 0,
-			velocity_y REAL DEFAULT 0,
-			speed_mps REAL DEFAULT 0,
-			heading_rad REAL DEFAULT 0,
-			bounding_box_length REAL DEFAULT 0,
-			bounding_box_width REAL DEFAULT 0,
-			bounding_box_height REAL DEFAULT 0,
-			height_p95 REAL DEFAULT 0,
-			intensity_mean REAL DEFAULT 0,
-			PRIMARY KEY (track_id, ts_unix_nanos)
-		);
-
-		CREATE TABLE IF NOT EXISTS lidar_clusters (
-			lidar_cluster_id INTEGER PRIMARY KEY,
-			sensor_id TEXT NOT NULL,
-			world_frame TEXT NOT NULL DEFAULT 'sensor',
-			ts_unix_nanos INTEGER NOT NULL,
-			centroid_x REAL,
-			centroid_y REAL,
-			centroid_z REAL,
-			bounding_box_length REAL,
-			bounding_box_width REAL,
-			bounding_box_height REAL,
-			points_count INTEGER,
-			height_p95 REAL,
-			intensity_mean REAL
-		);
-
-		CREATE INDEX IF NOT EXISTS idx_tracks_sensor ON lidar_tracks(sensor_id);
-		CREATE INDEX IF NOT EXISTS idx_tracks_state ON lidar_tracks(track_state);
-		CREATE INDEX IF NOT EXISTS idx_obs_track ON lidar_track_obs(track_id);
-		CREATE INDEX IF NOT EXISTS idx_clusters_sensor ON lidar_clusters(sensor_id);
-	`
-
-	if _, err := db.Exec(createSQL); err != nil {
+	// Read and execute schema.sql from the db package (relative path from monitor/)
+	schemaPath := filepath.Join("..", "..", "db", "schema.sql")
+	schemaSQL, err := os.ReadFile(schemaPath)
+	if err != nil {
 		db.Close()
 		os.RemoveAll(tmpDir)
-		t.Fatalf("Failed to create tables: %v", err)
+		t.Fatalf("Failed to read schema.sql: %v", err)
+	}
+
+	if _, err := db.Exec(string(schemaSQL)); err != nil {
+		db.Close()
+		os.RemoveAll(tmpDir)
+		t.Fatalf("Failed to execute schema.sql: %v", err)
+	}
+
+	// Baseline at latest migration version
+	// NOTE: Update this when new migrations are added to internal/db/migrations/
+	latestMigrationVersion := 15
+	if _, err := db.Exec(`INSERT INTO schema_migrations (version, dirty) VALUES (?, false)`, latestMigrationVersion); err != nil {
+		db.Close()
+		os.RemoveAll(tmpDir)
+		t.Fatalf("Failed to baseline migrations: %v", err)
 	}
 
 	cleanup := func() {
@@ -111,24 +80,40 @@ func setupTestDB(t *testing.T) (*sql.DB, func()) {
 	return db, cleanup
 }
 
-// insertTestTrack inserts a test track into the database
+// insertTestTrack inserts a test track into the database with all required fields.
 func insertTestTrack(t *testing.T, db *sql.DB, trackID, sensorID, state string, startNanos, endNanos int64) {
 	t.Helper()
 	_, err := db.Exec(`
-		INSERT INTO lidar_tracks (track_id, sensor_id, track_state, start_unix_nanos, end_unix_nanos, observation_count, avg_speed_mps, peak_speed_mps, object_class)
-		VALUES (?, ?, ?, ?, ?, 5, 2.5, 3.0, 'car')
+		INSERT INTO lidar_tracks (
+			track_id, sensor_id, world_frame, track_state, start_unix_nanos, end_unix_nanos,
+			observation_count, avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
+			height_p95_max, intensity_mean_avg, object_class, object_confidence, classification_model
+		)
+		VALUES (?, ?, 'sensor', ?, ?, ?,
+			5, 2.5, 3.0, 2.3, 2.7, 2.9,
+			4.5, 2.0, 1.5,
+			1.4, 100.0, 'car', 0.9, 'default')
 	`, trackID, sensorID, state, startNanos, endNanos)
 	if err != nil {
 		t.Fatalf("Failed to insert test track: %v", err)
 	}
 }
 
-// insertTestObservation inserts a test observation into the database
+// insertTestObservation inserts a test observation into the database with all required fields.
 func insertTestObservation(t *testing.T, db *sql.DB, trackID string, tsNanos int64, x, y float64) {
 	t.Helper()
 	_, err := db.Exec(`
-		INSERT INTO lidar_track_obs (track_id, ts_unix_nanos, x, y, speed_mps)
-		VALUES (?, ?, ?, ?, 2.5)
+		INSERT INTO lidar_track_obs (
+			track_id, ts_unix_nanos, world_frame, x, y, z,
+			velocity_x, velocity_y, speed_mps, heading_rad,
+			bounding_box_length, bounding_box_width, bounding_box_height,
+			height_p95, intensity_mean
+		)
+		VALUES (?, ?, 'sensor', ?, ?, 0.5,
+			1.0, 0.5, 2.5, 0.0,
+			4.5, 2.0, 1.5,
+			1.4, 100.0)
 	`, trackID, tsNanos, x, y)
 	if err != nil {
 		t.Fatalf("Failed to insert test observation: %v", err)

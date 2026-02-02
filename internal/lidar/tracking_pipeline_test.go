@@ -2,12 +2,68 @@ package lidar
 
 import (
 	"database/sql"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	_ "modernc.org/sqlite"
 )
+
+// setupTrackingPipelineTestDB creates a test database with proper schema from schema.sql.
+// This avoids hardcoded CREATE TABLE statements that can get out of sync with migrations.
+func setupTrackingPipelineTestDB(t *testing.T) (*sql.DB, func()) {
+	t.Helper()
+
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("Failed to open database: %v", err)
+	}
+
+	// Apply essential PRAGMAs
+	pragmas := []string{
+		"PRAGMA journal_mode=WAL",
+		"PRAGMA busy_timeout=5000",
+		"PRAGMA synchronous=NORMAL",
+		"PRAGMA temp_store=MEMORY",
+		"PRAGMA foreign_keys=ON",
+	}
+	for _, pragma := range pragmas {
+		if _, err := db.Exec(pragma); err != nil {
+			db.Close()
+			t.Fatalf("Failed to execute %q: %v", pragma, err)
+		}
+	}
+
+	// Read and execute schema.sql from the db package
+	schemaPath := filepath.Join("..", "db", "schema.sql")
+	schemaSQL, err := os.ReadFile(schemaPath)
+	if err != nil {
+		db.Close()
+		t.Fatalf("Failed to read schema.sql: %v", err)
+	}
+
+	if _, err := db.Exec(string(schemaSQL)); err != nil {
+		db.Close()
+		t.Fatalf("Failed to execute schema.sql: %v", err)
+	}
+
+	// Baseline at latest migration version
+	// NOTE: Update this when new migrations are added to internal/db/migrations/
+	latestMigrationVersion := 15
+	if _, err := db.Exec(`INSERT INTO schema_migrations (version, dirty) VALUES (?, false)`, latestMigrationVersion); err != nil {
+		db.Close()
+		t.Fatalf("Failed to baseline migrations: %v", err)
+	}
+
+	cleanup := func() {
+		db.Close()
+	}
+
+	return db, cleanup
+}
 
 // mockForegroundForwarder implements ForegroundForwarder for testing
 type mockForegroundForwarder struct {
@@ -356,50 +412,8 @@ func TestNewFrameCallback_WithDebugRange(t *testing.T) {
 }
 
 func TestNewFrameCallback_WithDatabase(t *testing.T) {
-	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
-
-	database, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("failed to create database: %v", err)
-	}
-	defer database.Close()
-
-	// Create required tables
-	createSQL := `
-	CREATE TABLE IF NOT EXISTS lidar_tracks (
-		track_id TEXT PRIMARY KEY,
-		sensor_id TEXT NOT NULL,
-		world_frame TEXT NOT NULL,
-		created_at INTEGER NOT NULL,
-		last_seen_at INTEGER NOT NULL,
-		track_state TEXT NOT NULL,
-		observation_count INTEGER NOT NULL,
-		object_class TEXT
-	);
-	
-	CREATE TABLE IF NOT EXISTS lidar_track_observations (
-		track_id TEXT NOT NULL,
-		ts_unix_nanos INTEGER NOT NULL,
-		world_frame TEXT NOT NULL,
-		x REAL NOT NULL,
-		y REAL NOT NULL,
-		z REAL NOT NULL,
-		velocity_x REAL,
-		velocity_y REAL,
-		speed_mps REAL,
-		heading_rad REAL,
-		bounding_box_length REAL,
-		bounding_box_width REAL,
-		bounding_box_height REAL,
-		height_p95 REAL,
-		intensity_mean REAL,
-		PRIMARY KEY (track_id, ts_unix_nanos)
-	);
-	`
-	if _, err := database.Exec(createSQL); err != nil {
-		t.Fatalf("failed to create tables: %v", err)
-	}
+	database, cleanup := setupTrackingPipelineTestDB(t)
+	defer cleanup()
 
 	// Create background manager
 	bgMgr := NewBackgroundManager("test", 16, 360, BackgroundParams{
@@ -453,9 +467,9 @@ func TestNewFrameCallback_WithDatabase(t *testing.T) {
 
 	// Check that tracks were persisted to database
 	var count int
-	err = database.QueryRow("SELECT COUNT(*) FROM lidar_tracks").Scan(&count)
-	if err != nil && err != sql.ErrNoRows {
-		t.Fatalf("failed to query tracks: %v", err)
+	queryErr := database.QueryRow("SELECT COUNT(*) FROM lidar_tracks").Scan(&count)
+	if queryErr != nil && queryErr != sql.ErrNoRows {
+		t.Fatalf("failed to query tracks: %v", queryErr)
 	}
 
 	// We should have at least one track
@@ -481,48 +495,9 @@ func TestNewFrameCallback_WithAnalysisRunManager(t *testing.T) {
 
 	tracker := NewTracker(DefaultTrackerConfig())
 
-	// Create analysis run manager
-	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
-	database, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("failed to create database: %v", err)
-	}
-	defer database.Close()
-
-	// Create required tables
-	createSQL := `
-	CREATE TABLE IF NOT EXISTS lidar_analysis_runs (
-		run_id TEXT PRIMARY KEY,
-		created_at INTEGER NOT NULL,
-		source_type TEXT NOT NULL,
-		source_path TEXT,
-		sensor_id TEXT NOT NULL,
-		params_json TEXT NOT NULL,
-		duration_secs REAL,
-		total_frames INTEGER,
-		total_clusters INTEGER,
-		total_tracks INTEGER,
-		confirmed_tracks INTEGER,
-		processing_time_ms INTEGER,
-		status TEXT NOT NULL,
-		error_message TEXT,
-		parent_run_id TEXT,
-		notes TEXT
-	);
-	
-	CREATE TABLE IF NOT EXISTS lidar_run_tracks (
-		run_id TEXT NOT NULL,
-		track_id TEXT NOT NULL,
-		sensor_id TEXT NOT NULL,
-		track_state TEXT NOT NULL,
-		observation_count INTEGER NOT NULL,
-		PRIMARY KEY (run_id, track_id)
-	);
-	`
-	if _, err := database.Exec(createSQL); err != nil {
-		t.Fatalf("failed to create tables: %v", err)
-	}
+	// Create analysis run manager with proper schema
+	database, cleanup := setupTrackingPipelineTestDB(t)
+	defer cleanup()
 
 	runMgr := NewAnalysisRunManager(database, "test-sensor")
 
@@ -657,47 +632,8 @@ func TestNewFrameCallback_BackgroundDownsampling(t *testing.T) {
 
 func TestNewFrameCallback_RegistryBasedRunManager(t *testing.T) {
 	// Test that the callback uses registry-based run manager when not explicitly set
-	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
-	database, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("failed to create database: %v", err)
-	}
-	defer database.Close()
-
-	// Create required tables
-	createSQL := `
-	CREATE TABLE IF NOT EXISTS lidar_analysis_runs (
-		run_id TEXT PRIMARY KEY,
-		created_at INTEGER NOT NULL,
-		source_type TEXT NOT NULL,
-		source_path TEXT,
-		sensor_id TEXT NOT NULL,
-		params_json TEXT NOT NULL,
-		duration_secs REAL,
-		total_frames INTEGER,
-		total_clusters INTEGER,
-		total_tracks INTEGER,
-		confirmed_tracks INTEGER,
-		processing_time_ms INTEGER,
-		status TEXT NOT NULL,
-		error_message TEXT,
-		parent_run_id TEXT,
-		notes TEXT
-	);
-	
-	CREATE TABLE IF NOT EXISTS lidar_run_tracks (
-		run_id TEXT NOT NULL,
-		track_id TEXT NOT NULL,
-		sensor_id TEXT NOT NULL,
-		track_state TEXT NOT NULL,
-		observation_count INTEGER NOT NULL,
-		PRIMARY KEY (run_id, track_id)
-	);
-	`
-	if _, err := database.Exec(createSQL); err != nil {
-		t.Fatalf("failed to create tables: %v", err)
-	}
+	database, cleanup := setupTrackingPipelineTestDB(t)
+	defer cleanup()
 
 	// Create and register a run manager
 	sensorID := "registry-test-sensor"
@@ -732,9 +668,9 @@ func TestNewFrameCallback_RegistryBasedRunManager(t *testing.T) {
 
 	// Start an analysis run via the registered manager
 	params := DefaultRunParams()
-	_, err = runMgr.StartRun("/path/to/test.pcap", params)
-	if err != nil {
-		t.Fatalf("failed to start run: %v", err)
+	_, startErr := runMgr.StartRun("/path/to/test.pcap", params)
+	if startErr != nil {
+		t.Fatalf("failed to start run: %v", startErr)
 	}
 	defer runMgr.CompleteRun()
 
@@ -760,49 +696,8 @@ func TestNewFrameCallback_RegistryBasedRunManager(t *testing.T) {
 
 func TestNewFrameCallback_TrackClassification(t *testing.T) {
 	// Test that tracks get classified when they have enough observations
-	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
-	database, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("failed to create database: %v", err)
-	}
-	defer database.Close()
-
-	// Create required tables
-	createSQL := `
-	CREATE TABLE IF NOT EXISTS lidar_tracks (
-		track_id TEXT PRIMARY KEY,
-		sensor_id TEXT NOT NULL,
-		world_frame TEXT NOT NULL,
-		created_at INTEGER NOT NULL,
-		last_seen_at INTEGER NOT NULL,
-		track_state TEXT NOT NULL,
-		observation_count INTEGER NOT NULL,
-		object_class TEXT
-	);
-	
-	CREATE TABLE IF NOT EXISTS lidar_track_observations (
-		track_id TEXT NOT NULL,
-		ts_unix_nanos INTEGER NOT NULL,
-		world_frame TEXT NOT NULL,
-		x REAL NOT NULL,
-		y REAL NOT NULL,
-		z REAL NOT NULL,
-		velocity_x REAL,
-		velocity_y REAL,
-		speed_mps REAL,
-		heading_rad REAL,
-		bounding_box_length REAL,
-		bounding_box_width REAL,
-		bounding_box_height REAL,
-		height_p95 REAL,
-		intensity_mean REAL,
-		PRIMARY KEY (track_id, ts_unix_nanos)
-	);
-	`
-	if _, err := database.Exec(createSQL); err != nil {
-		t.Fatalf("failed to create tables: %v", err)
-	}
+	database, cleanup := setupTrackingPipelineTestDB(t)
+	defer cleanup()
 
 	bgMgr := NewBackgroundManager("test", 16, 360, BackgroundParams{
 		BackgroundUpdateFraction:       0.1,
@@ -867,9 +762,9 @@ func TestNewFrameCallback_TrackClassification(t *testing.T) {
 
 	// Tracks should be created and potentially classified
 	var count int
-	err = database.QueryRow("SELECT COUNT(*) FROM lidar_tracks").Scan(&count)
-	if err != nil && err != sql.ErrNoRows {
-		t.Fatalf("failed to query tracks: %v", err)
+	queryErr := database.QueryRow("SELECT COUNT(*) FROM lidar_tracks").Scan(&count)
+	if queryErr != nil && queryErr != sql.ErrNoRows {
+		t.Fatalf("failed to query tracks: %v", queryErr)
 	}
 	t.Logf("Created %d tracks", count)
 }
@@ -1090,49 +985,8 @@ func TestNewFrameCallback_DebugModeNilForwarder(t *testing.T) {
 
 func TestNewFrameCallback_ConfirmedTracksWithDebug(t *testing.T) {
 	// Test path where confirmed tracks exist with debug mode enabled
-	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
-	database, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("failed to create database: %v", err)
-	}
-	defer database.Close()
-
-	// Create required tables
-	createSQL := `
-	CREATE TABLE IF NOT EXISTS lidar_tracks (
-		track_id TEXT PRIMARY KEY,
-		sensor_id TEXT NOT NULL,
-		world_frame TEXT NOT NULL,
-		created_at INTEGER NOT NULL,
-		last_seen_at INTEGER NOT NULL,
-		track_state TEXT NOT NULL,
-		observation_count INTEGER NOT NULL,
-		object_class TEXT
-	);
-	
-	CREATE TABLE IF NOT EXISTS lidar_track_observations (
-		track_id TEXT NOT NULL,
-		ts_unix_nanos INTEGER NOT NULL,
-		world_frame TEXT NOT NULL,
-		x REAL NOT NULL,
-		y REAL NOT NULL,
-		z REAL NOT NULL,
-		velocity_x REAL,
-		velocity_y REAL,
-		speed_mps REAL,
-		heading_rad REAL,
-		bounding_box_length REAL,
-		bounding_box_width REAL,
-		bounding_box_height REAL,
-		height_p95 REAL,
-		intensity_mean REAL,
-		PRIMARY KEY (track_id, ts_unix_nanos)
-	);
-	`
-	if _, err := database.Exec(createSQL); err != nil {
-		t.Fatalf("failed to create tables: %v", err)
-	}
+	database, cleanup := setupTrackingPipelineTestDB(t)
+	defer cleanup()
 
 	bgMgr := NewBackgroundManager("test", 16, 360, BackgroundParams{
 		BackgroundUpdateFraction:       0.1,
@@ -1288,77 +1142,8 @@ func TestNewFrameCallback_DatabaseInsertError(t *testing.T) {
 
 func TestNewFrameCallback_FullPipeline(t *testing.T) {
 	// Integration test that exercises the full pipeline with all components
-	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
-	database, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("failed to create database: %v", err)
-	}
-	defer database.Close()
-
-	// Create all required tables
-	createSQL := `
-	CREATE TABLE IF NOT EXISTS lidar_tracks (
-		track_id TEXT PRIMARY KEY,
-		sensor_id TEXT NOT NULL,
-		world_frame TEXT NOT NULL,
-		created_at INTEGER NOT NULL,
-		last_seen_at INTEGER NOT NULL,
-		track_state TEXT NOT NULL,
-		observation_count INTEGER NOT NULL,
-		object_class TEXT
-	);
-	
-	CREATE TABLE IF NOT EXISTS lidar_track_observations (
-		track_id TEXT NOT NULL,
-		ts_unix_nanos INTEGER NOT NULL,
-		world_frame TEXT NOT NULL,
-		x REAL NOT NULL,
-		y REAL NOT NULL,
-		z REAL NOT NULL,
-		velocity_x REAL,
-		velocity_y REAL,
-		speed_mps REAL,
-		heading_rad REAL,
-		bounding_box_length REAL,
-		bounding_box_width REAL,
-		bounding_box_height REAL,
-		height_p95 REAL,
-		intensity_mean REAL,
-		PRIMARY KEY (track_id, ts_unix_nanos)
-	);
-
-	CREATE TABLE IF NOT EXISTS lidar_analysis_runs (
-		run_id TEXT PRIMARY KEY,
-		created_at INTEGER NOT NULL,
-		source_type TEXT NOT NULL,
-		source_path TEXT,
-		sensor_id TEXT NOT NULL,
-		params_json TEXT NOT NULL,
-		duration_secs REAL,
-		total_frames INTEGER,
-		total_clusters INTEGER,
-		total_tracks INTEGER,
-		confirmed_tracks INTEGER,
-		processing_time_ms INTEGER,
-		status TEXT NOT NULL,
-		error_message TEXT,
-		parent_run_id TEXT,
-		notes TEXT
-	);
-	
-	CREATE TABLE IF NOT EXISTS lidar_run_tracks (
-		run_id TEXT NOT NULL,
-		track_id TEXT NOT NULL,
-		sensor_id TEXT NOT NULL,
-		track_state TEXT NOT NULL,
-		observation_count INTEGER NOT NULL,
-		PRIMARY KEY (run_id, track_id)
-	);
-	`
-	if _, err := database.Exec(createSQL); err != nil {
-		t.Fatalf("failed to create tables: %v", err)
-	}
+	database, cleanup := setupTrackingPipelineTestDB(t)
+	defer cleanup()
 
 	sensorID := "full-pipeline-sensor"
 
@@ -1404,9 +1189,9 @@ func TestNewFrameCallback_FullPipeline(t *testing.T) {
 
 	// Start an analysis run
 	params := DefaultRunParams()
-	_, err = runMgr.StartRun("/path/to/test.pcap", params)
-	if err != nil {
-		t.Fatalf("failed to start run: %v", err)
+	_, runErr := runMgr.StartRun("/path/to/test.pcap", params)
+	if runErr != nil {
+		t.Fatalf("failed to start run: %v", runErr)
 	}
 	defer runMgr.CompleteRun()
 
@@ -1442,17 +1227,17 @@ func TestNewFrameCallback_FullPipeline(t *testing.T) {
 
 	// Verify tracks were created
 	var trackCount int
-	err = database.QueryRow("SELECT COUNT(*) FROM lidar_tracks").Scan(&trackCount)
-	if err != nil {
-		t.Fatalf("failed to query tracks: %v", err)
+	trackErr := database.QueryRow("SELECT COUNT(*) FROM lidar_tracks").Scan(&trackCount)
+	if trackErr != nil {
+		t.Fatalf("failed to query tracks: %v", trackErr)
 	}
 	t.Logf("Created %d tracks", trackCount)
 
 	// Verify observations were created
 	var obsCount int
-	err = database.QueryRow("SELECT COUNT(*) FROM lidar_track_observations").Scan(&obsCount)
-	if err != nil {
-		t.Fatalf("failed to query observations: %v", err)
+	obsErr := database.QueryRow("SELECT COUNT(*) FROM lidar_track_obs").Scan(&obsCount)
+	if obsErr != nil {
+		t.Fatalf("failed to query observations: %v", obsErr)
 	}
 	t.Logf("Created %d observations", obsCount)
 

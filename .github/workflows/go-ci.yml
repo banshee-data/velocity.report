@@ -27,9 +27,12 @@ permissions:
   contents: read
   pull-requests: write
 
+env:
+  GO_VERSION: "1.25"
+
 jobs:
-  test:
-    name: Test
+  lint:
+    name: "🔍 Lint"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -38,51 +41,134 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: "1.25"
-          # Note: `actions/setup-go@v4` does not accept a non-boolean `cache` input
-          # Use actions/cache if module caching is desired. Leaving this blank to satisfy YAML schema.
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
 
-      - name: Setup Go environment variables
-        run: |
-          echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
-          echo "GOCACHE=$(go env GOCACHE)" >> $GITHUB_ENV
+      - name: Run make lint-go
+        run: make lint-go
 
-      - name: Clean Go module cache (prevent permission errors)
-        run: |
-          go clean -modcache || true
-          rm -rf ~/go/pkg/mod || true
+  build:
+    name: "🔨 Build"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Cache Go modules and build cache
-        uses: actions/cache@v4
+      - name: Setup Go
+        uses: actions/setup-go@v4
         with:
-          path: |
-            $GOPATH/pkg/mod
-            $GOCACHE
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
 
       - name: Install system dependencies (libpcap)
-        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libpcap-dev
+
+      - name: Build web stub for embed
+        run: ./scripts/ensure-web-stub.sh
+
+      - name: Build binaries
         run: |
-          sudo apt-get update && sudo apt-get install -y libpcap-dev
+          go build -tags=pcap -o velocity-report-local ./cmd/radar
+          go build -o velocity-deploy ./cmd/deploy
+
+  test-core:
+    name: "🧪 Test Core"
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Build web stub for embed
+        run: ./scripts/ensure-web-stub.sh
+
+      - name: Run core tests
+        run: |
+          go test -v -race -tags=pcap -coverprofile=coverage-core.out -covermode=atomic \
+            ./internal/db/... \
+            ./internal/radar/... \
+            ./internal/serialmux/... \
+            ./internal/security/... \
+            ./internal/units/... \
+            ./internal/timeutil/... \
+            ./internal/httputil/... \
+            ./internal/testutil/... \
+            ./internal/fsutil/... \
+            ./internal/monitoring/... \
+            ./internal/deploy/... \
+            ./cmd/deploy/...
+
+      - name: Upload core coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-core
+          path: coverage-core.out
+
+  test-lidar:
+    name: "🧪 Test LiDAR"
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install system dependencies (libpcap)
+        run: sudo apt-get update && sudo apt-get install -y libpcap-dev
+
+      - name: Build web stub for embed
+        run: ./scripts/ensure-web-stub.sh
+
+      - name: Run LiDAR tests
+        run: |
+          go test -v -race -tags=pcap -coverprofile=coverage-lidar.out -covermode=atomic \
+            ./internal/lidar/...
+
+      - name: Upload LiDAR coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lidar
+          path: coverage-lidar.out
+
+  test-integration:
+    name: "🧪 Integration Tests"
+    runs-on: ubuntu-latest
+    needs: [test-core, test-lidar]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install system dependencies (libpcap)
+        run: sudo apt-get update && sudo apt-get install -y libpcap-dev
 
       - name: Install TeX Live for PDF generation tests
-        if: runner.os == 'Linux'
         run: |
           sudo apt-get install -y texlive-xetex texlive-fonts-recommended texlive-fonts-extra latexmk
 
-      - name: Build web assets if present
+      - name: Setup pnpm and build web
         run: |
-          if [ -f web/package.json ]; then
-            corepack enable
-            corepack prepare pnpm@latest --activate
-            cd web
-            pnpm install
-            pnpm run build
-          else
-            echo "no web/package.json found; skipping web build"
-          fi
+          corepack enable
+          corepack prepare pnpm@latest --activate
+          cd web
+          pnpm install
+          pnpm run build
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -92,20 +178,38 @@ jobs:
           cache-dependency-path: "requirements.txt"
 
       - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then
-            make install-python
-          else
-            echo "No requirements.txt found; skipping Python installation"
-          fi
+        run: make install-python
 
-      - name: Run go test with coverage
-        env:
-          PDF_GENERATOR_DIR: ${{ github.workspace }}/tools/pdf-generator
-          PDF_GENERATOR_PYTHON: ${{ github.workspace }}/.venv/bin/python
+      - name: Run API tests (includes E2E with Python PDF generator)
         run: |
-          go test ./... -v -coverprofile=coverage.out -covermode=atomic
+          go test -v -race -tags=pcap -coverprofile=coverage-api.out -covermode=atomic \
+            ./internal/api/...
+
+      - name: Download coverage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          path: coverage-artifacts
+          merge-multiple: true
+
+      - name: Merge coverage profiles
+        run: |
+          # Combine coverage files from artifacts directory
+          echo "mode: atomic" > coverage.out
+          find coverage-artifacts -name "*.out" -type f | while read f; do
+            if [ -f "$f" ]; then
+              echo "Merging $f"
+              tail -n +2 "$f" >> coverage.out
+            fi
+          done
+          # Also check current directory for any direct files
+          for f in coverage-*.out; do
+            if [ -f "$f" ]; then
+              echo "Merging $f"
+              tail -n +2 "$f" >> coverage.out
+            fi
+          done
+          echo "Combined coverage has $(wc -l < coverage.out) lines"
 
       - name: Upload Go coverage to Codecov
         uses: codecov/codecov-action@v5
@@ -114,40 +218,3 @@ jobs:
           flags: go
           name: go-coverage
           token: ${{ secrets.CODECOV_TOKEN }}
-
-  format:
-    name: Format (advisory)
-    runs-on: ubuntu-latest
-    needs: test
-    continue-on-error: true # Advisory - allows PR to merge even if formatting fails
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "1.25"
-
-      - name: Setup Go environment variables
-        run: |
-          echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
-          echo "GOCACHE=$(go env GOCACHE)" >> $GITHUB_ENV
-
-      - name: Clean Go module cache (prevent permission errors)
-        run: |
-          go clean -modcache || true
-          rm -rf ~/go/pkg/mod || true
-
-      - name: Cache Go modules and build cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            $GOPATH/pkg/mod
-            $GOCACHE
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - name: Run make lint-go (fail if Go formatting required)
-        run: make lint-go

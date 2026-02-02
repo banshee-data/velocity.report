@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"sort"
+	"sync/atomic"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
@@ -20,8 +21,8 @@ type ForegroundForwarder struct {
 	address      string
 	port         int
 	sensorConfig *SensorConfig
-	packetCount  uint64
-	frameCount   uint64
+	packetCount  atomic.Uint64 // Thread-safe packet counter
+	frameCount   atomic.Uint64 // Thread-safe frame counter
 }
 
 // SensorConfig holds sensor configuration for packet encoding.
@@ -61,7 +62,7 @@ func NewForegroundForwarder(addr string, port int, config *SensorConfig) (*Foreg
 		address:      forwardAddress,
 		port:         port,
 		sensorConfig: config,
-		packetCount:  0,
+		// packetCount and frameCount are atomic.Uint64 with zero value default
 	}, nil
 }
 
@@ -73,7 +74,7 @@ func (f *ForegroundForwarder) Start(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
-				lidar.Debugf("Foreground forwarder stopping (sent %d packets)", f.packetCount)
+				lidar.Debugf("Foreground forwarder stopping (sent %d packets)", f.packetCount.Load())
 				return
 			case points, ok := <-f.channel:
 				if !ok {
@@ -84,7 +85,7 @@ func (f *ForegroundForwarder) Start(ctx context.Context) {
 					continue
 				}
 
-				f.frameCount++
+				frameNum := f.frameCount.Add(1)
 
 				// Encode points as Pandar40P packets
 				packets, err := f.encodePointsAsPackets(points)
@@ -99,13 +100,13 @@ func (f *ForegroundForwarder) Start(ctx context.Context) {
 					if err != nil {
 						lidar.Debugf("Error forwarding foreground packet: %v", err)
 					} else {
-						f.packetCount++
+						f.packetCount.Add(1)
 					}
 				}
 
-				if f.frameCount <= 5 || f.frameCount%100 == 0 {
+				if frameNum <= 5 || frameNum%100 == 0 {
 					lidar.Debugf("[ForegroundForwarder] sent frame=%d packets=%d points=%d total_packets=%d dest=%s",
-						f.frameCount, len(packets), len(points), f.packetCount, f.address)
+						frameNum, len(packets), len(points), f.packetCount.Load(), f.address)
 				}
 			}
 		}
@@ -126,8 +127,10 @@ func (f *ForegroundForwarder) ForwardForeground(points []lidar.PointPolar) {
 	select {
 	case f.channel <- pointsCopy:
 		// Successfully queued - log first few for debugging
-		if f.frameCount < 5 {
-			lidar.Debugf("[ForegroundForwarder] queued %d points (frame ~%d)", len(points), f.frameCount+1)
+		// Note: frameCount is approximate since the worker increments it asynchronously
+		frameNum := f.frameCount.Load()
+		if frameNum < 5 {
+			lidar.Debugf("[ForegroundForwarder] queued %d points (approx frame %d)", len(points), frameNum+1)
 		}
 	default:
 		// Drop if buffer full (prevents blocking)

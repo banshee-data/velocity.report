@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -22,66 +23,49 @@ func setupAnalysisRunDB(t *testing.T) (*sql.DB, func()) {
 		t.Fatalf("Failed to open database: %v", err)
 	}
 
-	// Create required tables for analysis runs
-	createSQL := `
-CREATE TABLE IF NOT EXISTS lidar_analysis_runs (
-run_id TEXT PRIMARY KEY,
-created_at INTEGER NOT NULL,
-source_type TEXT NOT NULL,
-source_path TEXT,
-sensor_id TEXT NOT NULL,
-params_json TEXT NOT NULL,
-duration_secs REAL,
-total_frames INTEGER,
-total_clusters INTEGER,
-total_tracks INTEGER,
-confirmed_tracks INTEGER,
-processing_time_ms INTEGER,
-status TEXT NOT NULL,
-error_message TEXT,
-parent_run_id TEXT,
-notes TEXT
-);
+	// Apply essential PRAGMAs
+	pragmas := []string{
+		"PRAGMA journal_mode=WAL",
+		"PRAGMA busy_timeout=5000",
+		"PRAGMA synchronous=NORMAL",
+		"PRAGMA temp_store=MEMORY",
+		"PRAGMA foreign_keys=ON",
+	}
+	for _, pragma := range pragmas {
+		if _, err := db.Exec(pragma); err != nil {
+			db.Close()
+			t.Fatalf("Failed to execute %q: %v", pragma, err)
+		}
+	}
 
-		CREATE TABLE IF NOT EXISTS lidar_run_tracks (
-		run_id TEXT NOT NULL,
-		track_id TEXT NOT NULL,
-		sensor_id TEXT NOT NULL,
-		track_state TEXT NOT NULL,
-		start_unix_nanos INTEGER NOT NULL,
-		end_unix_nanos INTEGER,
-		observation_count INTEGER NOT NULL,
-		avg_speed_mps REAL,
-		peak_speed_mps REAL,
-		p50_speed_mps REAL,
-		p85_speed_mps REAL,
-		p95_speed_mps REAL,
-		bounding_box_length_avg REAL,
-		bounding_box_width_avg REAL,
-		bounding_box_height_avg REAL,
-		height_p95_max REAL,
-		intensity_mean_avg REAL,
-		object_class TEXT,
-		object_confidence REAL,
-		classification_model TEXT,
-		user_label TEXT,
-		label_confidence REAL,
-		labeler_id TEXT,
-		labeled_at INTEGER,
-		is_split_candidate INTEGER,
-		is_merge_candidate INTEGER,
-		linked_track_ids TEXT,
-		PRIMARY KEY (run_id, track_id)
-		);
-`
-
-	if _, err := db.Exec(createSQL); err != nil {
+	// Read and execute schema.sql from the db package
+	schemaPath := filepath.Join("..", "db", "schema.sql")
+	schemaSQL, err := os.ReadFile(schemaPath)
+	if err != nil {
 		db.Close()
-		t.Fatalf("Failed to create tables: %v", err)
+		t.Fatalf("Failed to read schema.sql: %v", err)
+	}
+
+	if _, err := db.Exec(string(schemaSQL)); err != nil {
+		db.Close()
+		t.Fatalf("Failed to execute schema.sql: %v", err)
+	}
+
+	// Baseline at latest migration version
+	// NOTE: This version number must be updated when new migrations are added to internal/db/migrations/
+	// Current latest: 000015_add_site_map_fields (as of 2026-02-02)
+	// To find latest version: ls -1 internal/db/migrations/*.up.sql | sort | tail -1
+	latestMigrationVersion := 15
+	if _, err := db.Exec(`INSERT INTO schema_migrations (version, dirty) VALUES (?, false)`, latestMigrationVersion); err != nil {
+		db.Close()
+		t.Fatalf("Failed to baseline migrations: %v", err)
 	}
 
 	cleanup := func() {
 		db.Close()
+		os.Remove(dbPath)
+		os.Remove(dbPath + "-shm")
+		os.Remove(dbPath + "-wal")
 	}
 
 	return db, cleanup
@@ -364,7 +348,7 @@ func TestCompleteRun(t *testing.T) {
 	var durationSecs float64
 
 	err = db.QueryRow(`
-SELECT status, total_frames, total_clusters, total_tracks, duration_secs 
+SELECT status, total_frames, total_clusters, total_tracks, duration_secs
 FROM lidar_analysis_runs WHERE run_id = ?`, runID).Scan(
 		&status, &totalFrames, &totalClusters, &totalTracks, &durationSecs)
 	if err != nil {

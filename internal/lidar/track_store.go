@@ -86,6 +86,8 @@ func InsertTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 	// Compute speed percentiles
 	p50, p85, p95 := ComputeSpeedPercentiles(track.speedHistory)
 
+	// Use ON CONFLICT DO UPDATE to avoid cascade deleting observations
+	// (INSERT OR REPLACE would delete the row first, triggering cascade delete on lidar_track_obs)
 	query := `
 		INSERT INTO lidar_tracks (
 			track_id, sensor_id, world_frame, track_state,
@@ -95,6 +97,26 @@ func InsertTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 			height_p95_max, intensity_mean_avg,
 			object_class, object_confidence, classification_model
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(track_id) DO UPDATE SET
+			sensor_id = excluded.sensor_id,
+			world_frame = excluded.world_frame,
+			track_state = excluded.track_state,
+			start_unix_nanos = excluded.start_unix_nanos,
+			end_unix_nanos = excluded.end_unix_nanos,
+			observation_count = excluded.observation_count,
+			avg_speed_mps = excluded.avg_speed_mps,
+			peak_speed_mps = excluded.peak_speed_mps,
+			p50_speed_mps = excluded.p50_speed_mps,
+			p85_speed_mps = excluded.p85_speed_mps,
+			p95_speed_mps = excluded.p95_speed_mps,
+			bounding_box_length_avg = excluded.bounding_box_length_avg,
+			bounding_box_width_avg = excluded.bounding_box_width_avg,
+			bounding_box_height_avg = excluded.bounding_box_height_avg,
+			height_p95_max = excluded.height_p95_max,
+			intensity_mean_avg = excluded.intensity_mean_avg,
+			object_class = excluded.object_class,
+			object_confidence = excluded.object_confidence,
+			classification_model = excluded.classification_model
 	`
 
 	// Always set end_unix_nanos to LastUnixNanos for all track states
@@ -185,7 +207,7 @@ func UpdateTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 // InsertTrackObservation inserts a track observation into the database.
 func InsertTrackObservation(db *sql.DB, obs *TrackObservation) error {
 	query := `
-		INSERT INTO lidar_track_obs (
+		INSERT OR REPLACE INTO lidar_track_obs (
 			track_id, ts_unix_nanos, world_frame,
 			x, y, z,
 			velocity_x, velocity_y, speed_mps, heading_rad,
