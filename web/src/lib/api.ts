@@ -308,7 +308,11 @@ export interface Site {
 	bbox_ne_lng?: number | null;
 	bbox_sw_lat?: number | null;
 	bbox_sw_lng?: number | null;
-	map_svg_data?: string | null; // Base64 encoded SVG data
+	/**
+	 * Base64-encoded SVG image data as a string.
+	 * This must be a base64 string (matching the Go BLOB field), not raw SVG XML/text.
+	 */
+	map_svg_data?: string | null;
 	created_at: string;
 	updated_at: string;
 }
