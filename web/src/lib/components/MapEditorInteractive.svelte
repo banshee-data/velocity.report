@@ -30,6 +30,7 @@
 	let L: typeof import('leaflet') | null = null;
 	let isDraggingFovTip = false; // Flag to prevent reactive updates during drag
 	let lastSearchTime = 0; // Track last API call for rate limiting
+	let mapJustDownloaded = false; // Track if map was just downloaded (not loaded from DB)
 
 	// Default location (San Francisco, USA)
 	const defaultLat = 37.7749;
@@ -818,6 +819,7 @@
 				binaryString += String.fromCharCode(...chunk);
 			}
 			mapSvgData = btoa(binaryString);
+			mapJustDownloaded = true;
 			error = '';
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to download map';
@@ -975,7 +977,7 @@
 			</div>
 		{/if}
 
-		{#if mapSvgData}
+		{#if mapJustDownloaded}
 			<div class="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
 				<strong>Map Ready:</strong>
 				SVG downloaded. Click <strong>"Save Changes"</strong> below to persist to the database.
