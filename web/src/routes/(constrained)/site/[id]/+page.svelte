@@ -13,7 +13,7 @@
 	import MapEditorInteractive from '$lib/components/MapEditorInteractive.svelte';
 	import { mdiArrowLeft, mdiContentSave } from '@mdi/js';
 	import { onMount } from 'svelte';
-	import { Button, Card, Header, TextField } from 'svelte-ux';
+	import { Button, Card, Header, Switch, TextField } from 'svelte-ux';
 
 	let siteId: string | null = null;
 	let isNewSite = false;
@@ -36,6 +36,7 @@
 		longitude: null as number | null,
 		site_description: '',
 		map_angle: null as number | null,
+		include_map: false,
 		bbox_ne_lat: null as number | null,
 		bbox_ne_lng: null as number | null,
 		bbox_sw_lat: null as number | null,
@@ -87,6 +88,7 @@
 				longitude: site.longitude || null,
 				site_description: site.site_description || '',
 				map_angle: site.map_angle || null,
+				include_map: site.include_map || false,
 				bbox_ne_lat: site.bbox_ne_lat || null,
 				bbox_ne_lng: site.bbox_ne_lng || null,
 				bbox_sw_lat: site.bbox_sw_lat || null,
@@ -246,7 +248,7 @@
 				latitude: formData.latitude,
 				longitude: formData.longitude,
 				map_angle: formData.map_angle,
-				include_map: false, // Hardcoded to false
+				include_map: formData.include_map,
 				site_description: formData.site_description || null,
 				bbox_ne_lat: formData.bbox_ne_lat,
 				bbox_ne_lng: formData.bbox_ne_lng,
@@ -370,16 +372,32 @@
 			</Card>
 
 			<!-- Map Configuration -->
-			<MapEditorInteractive
-				bind:latitude={formData.latitude}
-				bind:longitude={formData.longitude}
-				bind:radarAngle={formData.map_angle}
-				bind:bboxNELat={formData.bbox_ne_lat}
-				bind:bboxNELng={formData.bbox_ne_lng}
-				bind:bboxSWLat={formData.bbox_sw_lat}
-				bind:bboxSWLng={formData.bbox_sw_lng}
-				bind:mapSvgData={formData.map_svg_data}
-			/>
+			<Card>
+				<div class="space-y-4 p-6">
+					<div class="flex items-center justify-between">
+						<div>
+							<h3 class="text-lg font-semibold">Map Configuration</h3>
+							<p class="text-surface-600-300-token text-sm">
+								Configure radar location, angle, and map boundaries for PDF reports
+							</p>
+						</div>
+						<div class="flex items-center gap-3">
+							<span class="text-sm font-medium">Include map in reports</span>
+							<Switch bind:checked={formData.include_map} />
+						</div>
+					</div>
+					<MapEditorInteractive
+						bind:latitude={formData.latitude}
+						bind:longitude={formData.longitude}
+						bind:radarAngle={formData.map_angle}
+						bind:bboxNELat={formData.bbox_ne_lat}
+						bind:bboxNELng={formData.bbox_ne_lng}
+						bind:bboxSWLat={formData.bbox_sw_lat}
+						bind:bboxSWLng={formData.bbox_sw_lng}
+						bind:mapSvgData={formData.map_svg_data}
+					/>
+				</div>
+			</Card>
 
 			{#if !isNewSite}
 				<Card>
