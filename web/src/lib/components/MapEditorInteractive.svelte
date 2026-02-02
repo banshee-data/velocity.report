@@ -593,7 +593,6 @@
 			const lngToX = (lng: number) => ((lng - bboxSWLng) / lngRange) * svgWidth;
 
 			// Calculate map scale (metres per pixel) for scaling elements
-			const metersPerDegreeLat = 111320;
 			const centerLat = (bboxNELat + bboxSWLat) / 2;
 			const metersPerDegreeLng = 111320 * Math.cos((centerLat * Math.PI) / 180);
 			const mapWidthMeters = lngRange * metersPerDegreeLng;
@@ -711,6 +710,7 @@
 			}
 
 			// Generate street name labels (deduplicated)
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity
 			const labelledNames = new Set<string>();
 			let labels = '';
 
@@ -760,13 +760,10 @@
 			// FOV triangle (20 degree width)
 			const angle = radarAngle || 0;
 			const fovWidthDegrees = 20;
-			const angleRad = (angle * Math.PI) / 180;
 			const leftAngleRad = ((angle - fovWidthDegrees / 2) * Math.PI) / 180;
 			const rightAngleRad = ((angle + fovWidthDegrees / 2) * Math.PI) / 180;
 
 			// Triangle points (note: SVG y increases downward, so we flip sin)
-			const tipX = radarX + Math.sin(angleRad) * triangleLengthPixels;
-			const tipY = radarY - Math.cos(angleRad) * triangleLengthPixels;
 			const leftX = radarX + Math.sin(leftAngleRad) * triangleLengthPixels;
 			const leftY = radarY - Math.cos(leftAngleRad) * triangleLengthPixels;
 			const rightX = radarX + Math.sin(rightAngleRad) * triangleLengthPixels;
