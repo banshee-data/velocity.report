@@ -87,7 +87,7 @@ func InsertTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 	p50, p85, p95 := ComputeSpeedPercentiles(track.speedHistory)
 
 	query := `
-		INSERT INTO lidar_tracks (
+		INSERT OR REPLACE INTO lidar_tracks (
 			track_id, sensor_id, world_frame, track_state,
 			start_unix_nanos, end_unix_nanos, observation_count,
 			avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
@@ -185,7 +185,7 @@ func UpdateTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 // InsertTrackObservation inserts a track observation into the database.
 func InsertTrackObservation(db *sql.DB, obs *TrackObservation) error {
 	query := `
-		INSERT INTO lidar_track_obs (
+		INSERT OR REPLACE INTO lidar_track_obs (
 			track_id, ts_unix_nanos, world_frame,
 			x, y, z,
 			velocity_x, velocity_y, speed_mps, heading_rad,
