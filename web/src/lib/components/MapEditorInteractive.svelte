@@ -806,9 +806,18 @@
 </svg>`;
 
 			// Store as base64 (UTF-8 safe)
+			// Convert to base64 in chunks to avoid stack overflow on large SVGs
 			const encoder = new TextEncoder();
 			const bytes = encoder.encode(svgText);
-			mapSvgData = btoa(String.fromCharCode(...bytes));
+
+			// Process in chunks to avoid "Maximum call stack size exceeded"
+			const chunkSize = 8192;
+			let binaryString = '';
+			for (let i = 0; i < bytes.length; i += chunkSize) {
+				const chunk = bytes.slice(i, i + chunkSize);
+				binaryString += String.fromCharCode(...chunk);
+			}
+			mapSvgData = btoa(binaryString);
 			error = '';
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to download map';
