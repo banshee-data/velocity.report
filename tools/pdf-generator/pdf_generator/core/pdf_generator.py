@@ -548,7 +548,11 @@ def generate_pdf_report(
     print("\n=== MAP GENERATION DEBUG ===")
     print(f"include_map parameter: {include_map}")
     print(f"site_id parameter: {site_id}")
-    print(f"map_latitude: {map_latitude}, map_longitude: {map_longitude}")
+    # Do not log exact GPS coordinates to avoid exposing sensitive location data.
+    print(
+        "map coordinates provided: "
+        f"{map_latitude is not None and map_longitude is not None}"
+    )
     print(f"map_angle: {map_angle}")
     print(f"bbox: NE({bbox_ne_lat}, {bbox_ne_lng}), SW({bbox_sw_lat}, {bbox_sw_lng})")
 
