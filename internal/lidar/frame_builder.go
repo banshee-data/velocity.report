@@ -172,8 +172,10 @@ func NewFrameBuilder(config FrameBuilderConfig) *FrameBuilder {
 		enableTimeBased:       config.EnableTimeBased,
 	}
 
-	// Start cleanup timer
+	// Start cleanup timer (protect with mutex to avoid race with timer callback)
+	fb.mu.Lock()
 	fb.cleanupTimer = time.AfterFunc(fb.cleanupInterval, fb.cleanupFrames)
+	fb.mu.Unlock()
 
 	// Register FrameBuilder instance
 	RegisterFrameBuilder(config.SensorID, fb)
