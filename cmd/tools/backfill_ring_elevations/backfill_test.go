@@ -54,7 +54,7 @@ func TestRunBackfill(t *testing.T) {
 
 	// Baseline at latest migration version
 	// NOTE: Update this when new migrations are added to internal/db/migrations/
-	latestMigrationVersion := 14
+	latestMigrationVersion := 15
 	if _, err := db.Exec(`INSERT INTO schema_migrations (version, dirty) VALUES (?, false)`, latestMigrationVersion); err != nil {
 		t.Fatalf("Failed to baseline migrations: %v", err)
 	}

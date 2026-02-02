@@ -52,9 +52,9 @@ func setupTestDBWithSchema(t *testing.T) (*sql.DB, func()) {
 
 	// Baseline at latest migration version
 	// NOTE: This version number must be updated when new migrations are added to internal/db/migrations/
-	// Current latest: 000014_remove_site_config_fields (as of 2026-01-20)
+	// Current latest: 000015_add_site_map_fields (as of 2026-02-02)
 	// To find latest version: ls -1 internal/db/migrations/*.up.sql | sort | tail -1
-	latestMigrationVersion := 14
+	latestMigrationVersion := 15
 	if _, err := db.Exec(`INSERT INTO schema_migrations (version, dirty) VALUES (?, false)`, latestMigrationVersion); err != nil {
 		db.Close()
 		t.Fatalf("Failed to baseline migrations: %v", err)

@@ -1077,7 +1077,7 @@ func persistToDatabase(dbPath string, result *AnalysisResult, tracks []*lidar.Tr
 		 duration_secs, total_frames, total_tracks, confirmed_tracks, status)
 		VALUES (?, ?, 'pcap', ?, 'hesai-pandar40p', '{}', ?, ?, ?, ?, 'completed')`,
 		runID,
-		time.Now().Unix(),
+		time.Now().UnixNano(),
 		result.PCAPFile,
 		result.DurationSecs,
 		result.TotalFrames,
