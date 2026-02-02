@@ -254,7 +254,7 @@
 				bbox_ne_lng: formData.bbox_ne_lng,
 				bbox_sw_lat: formData.bbox_sw_lat,
 				bbox_sw_lng: formData.bbox_sw_lng,
-				map_svg_data: null
+				map_svg_data: formData.map_svg_data
 			};
 
 			if (isNewSite) {
