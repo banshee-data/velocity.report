@@ -3,6 +3,7 @@ package lidar
 import (
 	"database/sql"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -10,7 +11,8 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// setupAnalysisRunTestDB creates a test database with full schema for analysis run tests.
+// setupAnalysisRunTestDB creates a test database with proper schema from schema.sql.
+// This avoids hardcoded CREATE TABLE statements that can get out of sync with migrations.
 func setupAnalysisRunTestDB(t *testing.T) (*sql.DB, func()) {
 	t.Helper()
 
@@ -21,62 +23,40 @@ func setupAnalysisRunTestDB(t *testing.T) (*sql.DB, func()) {
 		t.Fatalf("Failed to open database: %v", err)
 	}
 
-	// Create analysis runs tables
-	createSQL := `
-		CREATE TABLE IF NOT EXISTS lidar_analysis_runs (
-			run_id TEXT PRIMARY KEY,
-			created_at INTEGER NOT NULL,
-			source_type TEXT NOT NULL,
-			source_path TEXT,
-			sensor_id TEXT NOT NULL,
-			params_json TEXT NOT NULL,
-			duration_secs REAL,
-			total_frames INTEGER,
-			total_clusters INTEGER,
-			total_tracks INTEGER,
-			confirmed_tracks INTEGER,
-			processing_time_ms INTEGER,
-			status TEXT NOT NULL,
-			error_message TEXT,
-			parent_run_id TEXT,
-			notes TEXT
-		);
+	// Apply essential PRAGMAs
+	pragmas := []string{
+		"PRAGMA journal_mode=WAL",
+		"PRAGMA busy_timeout=5000",
+		"PRAGMA synchronous=NORMAL",
+		"PRAGMA temp_store=MEMORY",
+		"PRAGMA foreign_keys=ON",
+	}
+	for _, pragma := range pragmas {
+		if _, err := db.Exec(pragma); err != nil {
+			db.Close()
+			t.Fatalf("Failed to execute %q: %v", pragma, err)
+		}
+	}
 
-		CREATE TABLE IF NOT EXISTS lidar_run_tracks (
-			run_id TEXT NOT NULL,
-			track_id TEXT NOT NULL,
-			sensor_id TEXT NOT NULL,
-			track_state TEXT NOT NULL,
-			start_unix_nanos INTEGER NOT NULL,
-			end_unix_nanos INTEGER,
-			observation_count INTEGER,
-			avg_speed_mps REAL,
-			peak_speed_mps REAL,
-			p50_speed_mps REAL,
-			p85_speed_mps REAL,
-			p95_speed_mps REAL,
-			bounding_box_length_avg REAL,
-			bounding_box_width_avg REAL,
-			bounding_box_height_avg REAL,
-			height_p95_max REAL,
-			intensity_mean_avg REAL,
-			object_class TEXT,
-			object_confidence REAL,
-			classification_model TEXT,
-			user_label TEXT,
-			label_confidence REAL,
-			labeler_id TEXT,
-			labeled_at INTEGER,
-			is_split_candidate INTEGER,
-			is_merge_candidate INTEGER,
-			linked_track_ids TEXT,
-			PRIMARY KEY (run_id, track_id)
-		);
-	`
-
-	if _, err := db.Exec(createSQL); err != nil {
+	// Read and execute schema.sql from the db package
+	schemaPath := filepath.Join("..", "db", "schema.sql")
+	schemaSQL, err := os.ReadFile(schemaPath)
+	if err != nil {
 		db.Close()
-		t.Fatalf("Failed to create tables: %v", err)
+		t.Fatalf("Failed to read schema.sql: %v", err)
+	}
+
+	if _, err := db.Exec(string(schemaSQL)); err != nil {
+		db.Close()
+		t.Fatalf("Failed to execute schema.sql: %v", err)
+	}
+
+	// Baseline at latest migration version
+	// NOTE: Update this when new migrations are added to internal/db/migrations/
+	latestMigrationVersion := 14
+	if _, err := db.Exec(`INSERT INTO schema_migrations (version, dirty) VALUES (?, false)`, latestMigrationVersion); err != nil {
+		db.Close()
+		t.Fatalf("Failed to baseline migrations: %v", err)
 	}
 
 	cleanup := func() {
@@ -84,6 +64,19 @@ func setupAnalysisRunTestDB(t *testing.T) (*sql.DB, func()) {
 	}
 
 	return db, cleanup
+}
+
+// insertTestAnalysisRun inserts a parent analysis run for foreign key compliance.
+func insertTestAnalysisRun(t *testing.T, db *sql.DB, runID, sensorID string) {
+	t.Helper()
+	_, err := db.Exec(`
+		INSERT INTO lidar_analysis_runs (
+			run_id, created_at, source_type, source_path, sensor_id, params_json, status
+		) VALUES (?, ?, 'pcap', '/test.pcap', ?, '{}', 'completed')
+	`, runID, time.Now().UnixNano(), sensorID)
+	if err != nil {
+		t.Fatalf("Failed to insert test analysis run: %v", err)
+	}
 }
 
 // TestGetRun tests retrieving an analysis run by ID.
@@ -220,6 +213,9 @@ func TestInsertAndGetRunTracks(t *testing.T) {
 
 	store := NewAnalysisRunStore(db)
 
+	// Insert parent run to satisfy foreign key constraint
+	insertTestAnalysisRun(t, db, "run-1", "sensor-1")
+
 	// Insert tracks
 	tracks := []*RunTrack{
 		{
@@ -302,6 +298,9 @@ func TestUpdateTrackLabel(t *testing.T) {
 
 	store := NewAnalysisRunStore(db)
 
+	// Insert parent run to satisfy foreign key constraint
+	insertTestAnalysisRun(t, db, "run-label", "sensor-1")
+
 	// Insert a track
 	track := &RunTrack{
 		RunID:          "run-label",
@@ -350,6 +349,9 @@ func TestUpdateTrackQualityFlags(t *testing.T) {
 
 	store := NewAnalysisRunStore(db)
 
+	// Insert parent run to satisfy foreign key constraint
+	insertTestAnalysisRun(t, db, "run-flags", "sensor-1")
+
 	// Insert a track
 	track := &RunTrack{
 		RunID:          "run-flags",
@@ -396,6 +398,9 @@ func TestGetLabelingProgress(t *testing.T) {
 
 	store := NewAnalysisRunStore(db)
 
+	// Insert parent run to satisfy foreign key constraint
+	insertTestAnalysisRun(t, db, "run-progress", "s1")
+
 	// Insert tracks with various label states
 	tracks := []*RunTrack{
 		{RunID: "run-progress", TrackID: "track-1", SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 1000},
@@ -439,6 +444,9 @@ func TestGetUnlabeledTracks(t *testing.T) {
 	defer cleanup()
 
 	store := NewAnalysisRunStore(db)
+
+	// Insert parent run to satisfy foreign key constraint
+	insertTestAnalysisRun(t, db, "run-unlabeled", "s1")
 
 	// Insert tracks with various label states
 	tracks := []*RunTrack{
@@ -707,6 +715,9 @@ func TestInsertRunTrack_EmptyLinkedIDs(t *testing.T) {
 
 	store := NewAnalysisRunStore(db)
 
+	// Insert parent run to satisfy foreign key constraint
+	insertTestAnalysisRun(t, db, "run-empty-linked", "sensor-1")
+
 	track := &RunTrack{
 		RunID:          "run-empty-linked",
 		TrackID:        "track-1",
@@ -743,6 +754,9 @@ func TestGetRunTracks_WithNullableFields(t *testing.T) {
 	defer cleanup()
 
 	store := NewAnalysisRunStore(db)
+
+	// Insert parent run to satisfy foreign key constraint
+	insertTestAnalysisRun(t, db, "run-nullable", "sensor-1")
 
 	// Insert track with minimal fields (many will be null/default)
 	track := &RunTrack{

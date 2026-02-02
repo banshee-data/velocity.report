@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"testing"
 
 	_ "modernc.org/sqlite"
@@ -25,19 +26,37 @@ func TestRunBackfill(t *testing.T) {
 	}
 	defer db.Close()
 
-	// create minimal schema for lidar_bg_snapshot including ring_elevations_json
-	_, err = db.Exec(`CREATE TABLE lidar_bg_snapshot (
-	 snapshot_id INTEGER PRIMARY KEY,
-	 sensor_id TEXT NOT NULL,
-	 taken_unix_nanos INTEGER NOT NULL,
-	 rings INTEGER NOT NULL,
-	 azimuth_bins INTEGER NOT NULL,
-	 params_json TEXT NOT NULL,
-	 ring_elevations_json TEXT,
-	 grid_blob BLOB NOT NULL
-	)`)
+	// Apply essential PRAGMAs
+	pragmas := []string{
+		"PRAGMA journal_mode=WAL",
+		"PRAGMA busy_timeout=5000",
+		"PRAGMA synchronous=NORMAL",
+		"PRAGMA temp_store=MEMORY",
+		"PRAGMA foreign_keys=ON",
+	}
+	for _, pragma := range pragmas {
+		if _, err := db.Exec(pragma); err != nil {
+			t.Fatalf("Failed to execute %q: %v", pragma, err)
+		}
+	}
+
+	// Read and execute schema.sql from the db package
+	// Path is relative from cmd/tools/backfill_ring_elevations/
+	schemaPath := filepath.Join("..", "..", "..", "internal", "db", "schema.sql")
+	schemaSQL, err := os.ReadFile(schemaPath)
 	if err != nil {
-		t.Fatalf("create table: %v", err)
+		t.Fatalf("Failed to read schema.sql: %v", err)
+	}
+
+	if _, err := db.Exec(string(schemaSQL)); err != nil {
+		t.Fatalf("Failed to execute schema.sql: %v", err)
+	}
+
+	// Baseline at latest migration version
+	// NOTE: Update this when new migrations are added to internal/db/migrations/
+	latestMigrationVersion := 14
+	if _, err := db.Exec(`INSERT INTO schema_migrations (version, dirty) VALUES (?, false)`, latestMigrationVersion); err != nil {
+		t.Fatalf("Failed to baseline migrations: %v", err)
 	}
 
 	// Insert three rows: two with rings matching embedded (e.g., 40), one with different rings

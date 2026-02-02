@@ -8,7 +8,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"encoding/csv"
 	"encoding/json"
 	"flag"
@@ -26,6 +25,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidar/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/parse"
@@ -1062,55 +1062,24 @@ func exportTrainingData(outputDir string, frames []*TrainingFrame) error {
 }
 
 func persistToDatabase(dbPath string, result *AnalysisResult, tracks []*lidar.TrackedObject) error {
-	db, err := sql.Open("sqlite", dbPath)
+	// Use db.NewDB() to properly initialize the database with all migrations
+	database, err := db.NewDB(dbPath)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
-	defer db.Close()
+	defer database.Close()
 
-	// Create tables if they don't exist
-	schema := `
-		CREATE TABLE IF NOT EXISTS analysis_runs (
-			run_id INTEGER PRIMARY KEY,
-			pcap_file TEXT NOT NULL,
-			analysis_time TEXT NOT NULL,
-			duration_secs REAL,
-			total_packets INTEGER,
-			total_frames INTEGER,
-			total_tracks INTEGER,
-			confirmed_tracks INTEGER
-		);
-
-		CREATE TABLE IF NOT EXISTS analyzed_tracks (
-			track_id TEXT PRIMARY KEY,
-			run_id INTEGER,
-			class TEXT,
-			confidence REAL,
-			duration_secs REAL,
-			observations INTEGER,
-			avg_speed_mps REAL,
-			peak_speed_mps REAL,
-			p50_speed_mps REAL,
-			p85_speed_mps REAL,
-			p95_speed_mps REAL,
-			avg_height REAL,
-			avg_length REAL,
-			avg_width REAL,
-			FOREIGN KEY (run_id) REFERENCES analysis_runs(run_id)
-		);
-	`
-	if _, err := db.Exec(schema); err != nil {
-		return fmt.Errorf("create schema: %w", err)
-	}
-
-	// Insert run
-	res, err := db.Exec(`
-		INSERT INTO analysis_runs (pcap_file, analysis_time, duration_secs, total_packets, total_frames, total_tracks, confirmed_tracks)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`,
+	// Insert analysis run using existing lidar_analysis_runs table
+	runID := fmt.Sprintf("pcap-%d", time.Now().UnixNano())
+	_, err = database.Exec(`
+		INSERT INTO lidar_analysis_runs
+		(run_id, created_at, source_type, source_path, sensor_id, params_json,
+		 duration_secs, total_frames, total_tracks, confirmed_tracks, status)
+		VALUES (?, ?, 'pcap', ?, 'hesai-pandar40p', '{}', ?, ?, ?, ?, 'completed')`,
+		runID,
+		time.Now().Unix(),
 		result.PCAPFile,
-		time.Now().Format(time.RFC3339),
 		result.DurationSecs,
-		result.TotalPackets,
 		result.TotalFrames,
 		result.TotalTracks,
 		result.ConfirmedTracks,
@@ -1119,17 +1088,19 @@ func persistToDatabase(dbPath string, result *AnalysisResult, tracks []*lidar.Tr
 		return fmt.Errorf("insert run: %w", err)
 	}
 
-	runID, _ := res.LastInsertId()
-
-	// Insert tracks
+	// Insert tracks using existing lidar_run_tracks table
 	for _, t := range result.Tracks {
-		_, err := db.Exec(`
-			INSERT OR REPLACE INTO analyzed_tracks
-			(track_id, run_id, class, confidence, duration_secs, observations, avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps, avg_height, avg_length, avg_width)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			t.TrackID, runID, t.Class, t.Confidence, t.DurationSecs, t.Observations,
+		_, err := database.Exec(`
+			INSERT OR REPLACE INTO lidar_run_tracks
+			(run_id, track_id, sensor_id, track_state, start_unix_nanos, end_unix_nanos,
+			 observation_count, avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+			 bounding_box_height_avg, bounding_box_length_avg, bounding_box_width_avg,
+			 object_class, object_confidence)
+			VALUES (?, ?, 'hesai-pandar40p', 'confirmed', 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			runID, t.TrackID, t.Observations,
 			t.AvgSpeedMps, t.PeakSpeedMps, t.P50SpeedMps, t.P85SpeedMps, t.P95SpeedMps,
 			t.AvgHeight, t.AvgLength, t.AvgWidth,
+			t.Class, t.Confidence,
 		)
 		if err != nil {
 			log.Printf("Warning: failed to insert track %s: %v", t.TrackID, err)

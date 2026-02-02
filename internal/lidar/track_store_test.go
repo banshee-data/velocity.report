@@ -10,6 +10,8 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// setupTestDB creates a test database with proper schema from schema.sql.
+// This avoids hardcoded CREATE TABLE statements that can get out of sync with migrations.
 func setupTestDB(t *testing.T) (*sql.DB, func()) {
 	t.Helper()
 
@@ -26,71 +28,44 @@ func setupTestDB(t *testing.T) (*sql.DB, func()) {
 		t.Fatalf("Failed to open database: %v", err)
 	}
 
-	// Create tables
-	createSQL := `
-		CREATE TABLE IF NOT EXISTS lidar_clusters (
-			lidar_cluster_id INTEGER PRIMARY KEY,
-			sensor_id TEXT NOT NULL,
-			world_frame TEXT NOT NULL,
-			ts_unix_nanos INTEGER NOT NULL,
-			centroid_x REAL,
-			centroid_y REAL,
-			centroid_z REAL,
-			bounding_box_length REAL,
-			bounding_box_width REAL,
-			bounding_box_height REAL,
-			points_count INTEGER,
-			height_p95 REAL,
-			intensity_mean REAL
-		);
+	// Apply essential PRAGMAs
+	pragmas := []string{
+		"PRAGMA journal_mode=WAL",
+		"PRAGMA busy_timeout=5000",
+		"PRAGMA synchronous=NORMAL",
+		"PRAGMA temp_store=MEMORY",
+		"PRAGMA foreign_keys=ON",
+	}
+	for _, pragma := range pragmas {
+		if _, err := db.Exec(pragma); err != nil {
+			db.Close()
+			os.RemoveAll(tmpDir)
+			t.Fatalf("Failed to execute %q: %v", pragma, err)
+		}
+	}
 
-		CREATE TABLE IF NOT EXISTS lidar_tracks (
-			track_id TEXT PRIMARY KEY,
-			sensor_id TEXT NOT NULL,
-			world_frame TEXT NOT NULL,
-			track_state TEXT NOT NULL,
-			start_unix_nanos INTEGER NOT NULL,
-			end_unix_nanos INTEGER,
-			observation_count INTEGER,
-			avg_speed_mps REAL,
-			peak_speed_mps REAL,
-			p50_speed_mps REAL,
-			p85_speed_mps REAL,
-			p95_speed_mps REAL,
-			bounding_box_length_avg REAL,
-			bounding_box_width_avg REAL,
-			bounding_box_height_avg REAL,
-			height_p95_max REAL,
-			intensity_mean_avg REAL,
-			object_class TEXT,
-			object_confidence REAL,
-			classification_model TEXT
-		);
-
-		CREATE TABLE IF NOT EXISTS lidar_track_obs (
-			track_id TEXT NOT NULL,
-			ts_unix_nanos INTEGER NOT NULL,
-			world_frame TEXT NOT NULL,
-			x REAL,
-			y REAL,
-			z REAL,
-			velocity_x REAL,
-			velocity_y REAL,
-			speed_mps REAL,
-			heading_rad REAL,
-			bounding_box_length REAL,
-			bounding_box_width REAL,
-			bounding_box_height REAL,
-			height_p95 REAL,
-			intensity_mean REAL,
-			PRIMARY KEY (track_id, ts_unix_nanos)
-		);
-	`
-
-	if _, err := db.Exec(createSQL); err != nil {
+	// Read and execute schema.sql from the db package
+	schemaPath := filepath.Join("..", "db", "schema.sql")
+	schemaSQL, err := os.ReadFile(schemaPath)
+	if err != nil {
 		db.Close()
 		os.RemoveAll(tmpDir)
-		t.Fatalf("Failed to create tables: %v", err)
+		t.Fatalf("Failed to read schema.sql: %v", err)
+	}
+
+	if _, err := db.Exec(string(schemaSQL)); err != nil {
+		db.Close()
+		os.RemoveAll(tmpDir)
+		t.Fatalf("Failed to execute schema.sql: %v", err)
+	}
+
+	// Baseline at latest migration version
+	// NOTE: Update this when new migrations are added to internal/db/migrations/
+	latestMigrationVersion := 14
+	if _, err := db.Exec(`INSERT INTO schema_migrations (version, dirty) VALUES (?, false)`, latestMigrationVersion); err != nil {
+		db.Close()
+		os.RemoveAll(tmpDir)
+		t.Fatalf("Failed to baseline migrations: %v", err)
 	}
 
 	cleanup := func() {
