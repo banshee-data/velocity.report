@@ -45,6 +45,12 @@ class SiteConfig:
     longitude: Optional[float] = None
     map_angle: Optional[float] = None
 
+    # Bounding box for map (optional)
+    bbox_ne_lat: Optional[float] = None
+    bbox_ne_lng: Optional[float] = None
+    bbox_sw_lat: Optional[float] = None
+    bbox_sw_lng: Optional[float] = None
+
 
 @dataclass
 class RadarConfig:

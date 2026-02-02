@@ -244,21 +244,12 @@ class SVGMarkerInjector:
         # Compute triangle points
         points = self._compute_triangle_points(marker, viewbox)
 
-        # Get position for circle marker
-        cx, cy = marker.to_svg_coords(viewbox)
-
-        # Use marker color for circle stroke if not explicitly set
-        circle_stroke = self.circle_stroke or marker.color
-
-        # Build SVG snippet for marker overlay
+        # Build SVG snippet for marker overlay (triangle only, circle already in SVG)
         insert_snippet = (
             f"\n  <!-- radar marker inserted by map_utils.py -->\n"
             f'  <g id="radar-marker" fill="{marker.color}" fill-opacity="{marker.opacity}" '
             f'stroke="#ffffff" stroke-width="1">\n'
             f'    <polygon points="{points}" />\n'
-            f'    <circle cx="{cx:.2f}" cy="{cy:.2f}" r="{self.circle_radius}" '
-            f'fill="{self.circle_fill}" stroke="{circle_stroke}" '
-            f'stroke-width="{self.circle_stroke_width}" />\n'
             f"  </g>\n"
         )
 

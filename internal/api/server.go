@@ -1004,16 +1004,43 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		queryConfig["compare_source"] = compareSource
 	}
 
+	// Build site config with map positioning data if available
+	siteConfig := map[string]interface{}{
+		"location":         location,
+		"surveyor":         surveyor,
+		"contact":          contact,
+		"speed_limit":      speedLimit,
+		"site_description": siteDescription,
+		"speed_limit_note": speedLimitNote,
+	}
+	// Add map positioning fields if site has them
+	if site != nil {
+		if site.Latitude != nil {
+			siteConfig["latitude"] = *site.Latitude
+		}
+		if site.Longitude != nil {
+			siteConfig["longitude"] = *site.Longitude
+		}
+		if site.MapAngle != nil {
+			siteConfig["map_angle"] = *site.MapAngle
+		}
+		if site.BBoxNELat != nil {
+			siteConfig["bbox_ne_lat"] = *site.BBoxNELat
+		}
+		if site.BBoxNELng != nil {
+			siteConfig["bbox_ne_lng"] = *site.BBoxNELng
+		}
+		if site.BBoxSWLat != nil {
+			siteConfig["bbox_sw_lat"] = *site.BBoxSWLat
+		}
+		if site.BBoxSWLng != nil {
+			siteConfig["bbox_sw_lng"] = *site.BBoxSWLng
+		}
+	}
+
 	config := map[string]interface{}{
 		"query": queryConfig,
-		"site": map[string]interface{}{
-			"location":         location,
-			"surveyor":         surveyor,
-			"contact":          contact,
-			"speed_limit":      speedLimit,
-			"site_description": siteDescription,
-			"speed_limit_note": speedLimitNote,
-		},
+		"site":  siteConfig,
 		"radar": map[string]interface{}{
 			"cosine_error_angle": cosineErrorAngle,
 		},

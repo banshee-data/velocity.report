@@ -2,7 +2,7 @@
 	import { mdiCrosshairsGps, mdiDownload, mdiMagnify } from '@mdi/js';
 	import type { LatLngBounds, Map as LeafletMap, Marker, Rectangle } from 'leaflet';
 	import { onDestroy, onMount } from 'svelte';
-	import { Button, Card, TextField } from 'svelte-ux';
+	import { Button, Switch, TextField } from 'svelte-ux';
 
 	// Props
 	export let latitude: number | null = null;
@@ -13,6 +13,7 @@
 	export let bboxSWLat: number | null = null;
 	export let bboxSWLng: number | null = null;
 	export let mapSvgData: string | null = null;
+	export let includeMap: boolean = true;
 
 	// Local state
 	let map: LeafletMap | null = null;
@@ -389,14 +390,96 @@
 		addBoundingBox(bounds);
 	}
 
+	// Road styling by type - width and colour
+	function getRoadStyle(highway: string): { width: number; color: string } {
+		const styles: Record<string, { width: number; color: string }> = {
+			motorway: { width: 4, color: '#e892a2' },
+			motorway_link: { width: 3, color: '#e892a2' },
+			trunk: { width: 3.5, color: '#f9b29c' },
+			trunk_link: { width: 2.5, color: '#f9b29c' },
+			primary: { width: 3, color: '#fcd6a4' },
+			primary_link: { width: 2, color: '#fcd6a4' },
+			secondary: { width: 2.5, color: '#f7fabf' },
+			secondary_link: { width: 2, color: '#f7fabf' },
+			tertiary: { width: 2, color: '#ffffff' },
+			tertiary_link: { width: 1.5, color: '#ffffff' },
+			residential: { width: 1.5, color: '#ffffff' },
+			unclassified: { width: 1.5, color: '#ffffff' },
+			living_street: { width: 1.5, color: '#ededed' },
+			service: { width: 1, color: '#ffffff' },
+			pedestrian: { width: 1.5, color: '#dddde8' },
+			footway: { width: 0.5, color: '#fa8072' },
+			cycleway: { width: 0.5, color: '#0000ff' },
+			path: { width: 0.5, color: '#fa8072' },
+			track: { width: 1, color: '#996600' }
+		};
+		return styles[highway] || { width: 1, color: '#cccccc' };
+	}
+
+	// Font size for labels based on road type
+	function getLabelFontSize(highway: string): number {
+		const sizes: Record<string, number> = {
+			motorway: 10,
+			motorway_link: 8,
+			trunk: 10,
+			trunk_link: 8,
+			primary: 9,
+			primary_link: 7,
+			secondary: 8,
+			secondary_link: 7,
+			tertiary: 7,
+			residential: 6,
+			unclassified: 6
+		};
+		return sizes[highway] || 5;
+	}
+
+	// Calculate midpoint and angle of a path for label placement
+	function getPathMidpoint(
+		nodes: Array<{ lat: number; lon: number }>,
+		latToY: (lat: number) => number,
+		lngToX: (lng: number) => number
+	): { x: number; y: number; angle: number } | null {
+		if (nodes.length < 2) return null;
+
+		// Find total length and midpoint
+		let totalLength = 0;
+		const segments: Array<{ x1: number; y1: number; x2: number; y2: number; length: number }> = [];
+
+		for (let i = 0; i < nodes.length - 1; i++) {
+			const x1 = lngToX(nodes[i].lon);
+			const y1 = latToY(nodes[i].lat);
+			const x2 = lngToX(nodes[i + 1].lon);
+			const y2 = latToY(nodes[i + 1].lat);
+			const length = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+			segments.push({ x1, y1, x2, y2, length });
+			totalLength += length;
+		}
+
+		// Find the segment containing the midpoint
+		let runningLength = 0;
+		const midLength = totalLength / 2;
+
+		for (const seg of segments) {
+			if (runningLength + seg.length >= midLength) {
+				const t = (midLength - runningLength) / seg.length;
+				const x = seg.x1 + t * (seg.x2 - seg.x1);
+				const y = seg.y1 + t * (seg.y2 - seg.y1);
+				let angle = (Math.atan2(seg.y2 - seg.y1, seg.x2 - seg.x1) * 180) / Math.PI;
+				// Flip text if it would be upside down
+				if (angle > 90) angle -= 180;
+				if (angle < -90) angle += 180;
+				return { x, y, angle };
+			}
+			runningLength += seg.length;
+		}
+
+		return null;
+	}
+
 	async function downloadMapSVG() {
 		if (!bboxNELat || !bboxNELng || !bboxSWLat || !bboxSWLng) {
 			error = 'Please set bounding box coordinates first';
-			return;
-		}
-
-		if (!map || !L) {
-			error = 'Map not initialised';
 			return;
 		}
 
@@ -404,35 +487,21 @@
 		error = '';
 
 		try {
-			// Calculate SVG dimensions maintaining 3:2 aspect ratio
-			const svgWidth = 600;
-			const svgHeight = 400;
-
-			// Calculate coordinate transforms
-			const latRange = bboxNELat - bboxSWLat;
-			const lngRange = bboxNELng - bboxSWLng;
-
-			const latToY = (lat: number) => ((bboxNELat - lat) / latRange) * svgHeight;
-			const lngToX = (lng: number) => ((lng - bboxSWLng) / lngRange) * svgWidth;
-
 			// Fetch road data from Overpass API
 			const overpassQuery = `
 				[out:json][timeout:25];
 				(
-					way["highway"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
+					way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|residential|unclassified|living_street|service|pedestrian)$"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
 				);
 				out body;
 				>;
 				out skel qt;
 			`;
 
-			const overpassUrl = 'https://overpass-api.de/api/interpreter';
-			const response = await fetch(overpassUrl, {
+			console.log('Fetching roads from Overpass API...');
+			const response = await fetch('https://overpass-api.de/api/interpreter', {
 				method: 'POST',
-				body: `data=${encodeURIComponent(overpassQuery)}`,
-				headers: {
-					'Content-Type': 'application/x-www-form-urlencoded'
-				}
+				body: `data=${encodeURIComponent(overpassQuery)}`
 			});
 
 			if (!response.ok) {
@@ -441,7 +510,7 @@
 
 			const data = await response.json();
 
-			// Build node lookup using plain object (not Map to avoid reactivity lint)
+			// Build node lookup
 			const nodes: Record<number, { lat: number; lon: number }> = {};
 			for (const element of data.elements) {
 				if (element.type === 'node') {
@@ -449,49 +518,135 @@
 				}
 			}
 
-			// Generate SVG paths for roads
-			let pathsD = '';
+			// Extract ways with their nodes and names
+			const ways: Array<{
+				highway: string;
+				name?: string;
+				nodes: Array<{ lat: number; lon: number }>;
+			}> = [];
 			for (const element of data.elements) {
-				if (element.type === 'way' && element.nodes) {
-					const points: string[] = [];
-					for (const nodeId of element.nodes) {
-						const node = nodes[nodeId];
-						if (node) {
-							const x = lngToX(node.lon).toFixed(2);
-							const y = latToY(node.lat).toFixed(2);
-							points.push(points.length === 0 ? `M${x},${y}` : `L${x},${y}`);
-						}
-					}
-					if (points.length > 1) {
-						pathsD += points.join(' ') + ' ';
+				if (element.type === 'way' && element.tags?.highway) {
+					const wayNodes = element.nodes
+						.map((id: number) => nodes[id])
+						.filter((n: { lat: number; lon: number } | undefined) => n);
+					if (wayNodes.length >= 2) {
+						ways.push({
+							highway: element.tags.highway,
+							name: element.tags.name,
+							nodes: wayNodes
+						});
 					}
 				}
 			}
 
-			// Add radar position marker
+			console.log(`Found ${ways.length} roads`);
+
+			// SVG dimensions (3:2 aspect ratio)
+			const svgWidth = 600;
+			const svgHeight = 400;
+
+			// Coordinate conversion functions
+			const latRange = bboxNELat - bboxSWLat;
+			const lngRange = bboxNELng - bboxSWLng;
+			const latToY = (lat: number) => ((bboxNELat - lat) / latRange) * svgHeight;
+			const lngToX = (lng: number) => ((lng - bboxSWLng) / lngRange) * svgWidth;
+
+			// Sort ways by importance (draw minor roads first, major roads on top)
+			const roadOrder = [
+				'service',
+				'pedestrian',
+				'living_street',
+				'unclassified',
+				'residential',
+				'tertiary_link',
+				'tertiary',
+				'secondary_link',
+				'secondary',
+				'primary_link',
+				'primary',
+				'trunk_link',
+				'trunk',
+				'motorway_link',
+				'motorway'
+			];
+			ways.sort((a, b) => roadOrder.indexOf(a.highway) - roadOrder.indexOf(b.highway));
+
+			// Generate road paths
+			let roadPaths = '';
+			for (const way of ways) {
+				const style = getRoadStyle(way.highway);
+				const pathData = way.nodes
+					.map(
+						(n, i) =>
+							`${i === 0 ? 'M' : 'L'} ${lngToX(n.lon).toFixed(1)} ${latToY(n.lat).toFixed(1)}`
+					)
+					.join(' ');
+
+				// Draw road outline (casing) then fill
+				roadPaths += `<path d="${pathData}" stroke="#666666" stroke-width="${style.width + 1}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+				roadPaths += `<path d="${pathData}" stroke="${style.color}" stroke-width="${style.width}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+			}
+
+			// Generate street name labels (deduplicated)
+			const labelledNames = new Set<string>();
+			let labels = '';
+
+			for (const way of ways) {
+				if (!way.name || labelledNames.has(way.name)) continue;
+
+				// Only label significant roads
+				const labelRoads = [
+					'motorway',
+					'trunk',
+					'primary',
+					'secondary',
+					'tertiary',
+					'residential',
+					'unclassified'
+				];
+				if (!labelRoads.includes(way.highway)) continue;
+
+				const midpoint = getPathMidpoint(way.nodes, latToY, lngToX);
+				if (!midpoint) continue;
+
+				// Skip if midpoint is outside the visible area (with padding)
+				if (
+					midpoint.x < 10 ||
+					midpoint.x > svgWidth - 10 ||
+					midpoint.y < 10 ||
+					midpoint.y > svgHeight - 10
+				) {
+					continue;
+				}
+
+				const fontSize = getLabelFontSize(way.highway);
+				labelledNames.add(way.name);
+
+				// Text with white halo for readability
+				labels += `<text x="${midpoint.x.toFixed(1)}" y="${midpoint.y.toFixed(1)}" font-family="Arial, sans-serif" font-size="${fontSize}" fill="#333333" text-anchor="middle" dominant-baseline="middle" transform="rotate(${midpoint.angle.toFixed(1)}, ${midpoint.x.toFixed(1)}, ${midpoint.y.toFixed(1)})" stroke="white" stroke-width="2" paint-order="stroke">${escapeXml(way.name)}</text>`;
+			}
+
+			// Radar position marker
 			const radarX = latitude !== null ? lngToX(longitude!) : svgWidth / 2;
 			const radarY = latitude !== null ? latToY(latitude!) : svgHeight / 2;
 
-			// Create SVG
+			// Create complete SVG
 			const svgText = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}">
 	<title>Map Export - velocity.report</title>
-	<desc>Exported from OpenStreetMap data via Overpass API</desc>
+	<desc>Data © OpenStreetMap contributors</desc>
 	<!-- Background -->
-	<rect width="100%" height="100%" fill="#f0f0f0"/>
+	<rect x="0" y="0" width="${svgWidth}" height="${svgHeight}" fill="#f2efe9"/>
 	<!-- Roads -->
-	<path d="${pathsD}" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-	<!-- Radar position -->
-	<circle cx="${radarX}" cy="${radarY}" r="8" fill="#3b82f6" stroke="white" stroke-width="2"/>
-	<!-- Bounding box outline -->
-	<rect x="0" y="0" width="${svgWidth}" height="${svgHeight}" fill="none" stroke="#f59e0b" stroke-width="3"/>
+	${roadPaths}
+	<!-- Street names -->
+	${labels}
+	<!-- Radar position marker -->
+	<circle cx="${radarX.toFixed(1)}" cy="${radarY.toFixed(1)}" r="8" fill="#3b82f6" stroke="white" stroke-width="2"/>
 </svg>`;
 
 			// Store as base64
-			const encoder = new TextEncoder();
-			const utf8Bytes = encoder.encode(svgText);
-			const base64String = btoa(String.fromCharCode.apply(null, Array.from(utf8Bytes)));
-			mapSvgData = base64String;
+			mapSvgData = btoa(unescape(encodeURIComponent(svgText)));
 			error = '';
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to download map';
@@ -501,6 +656,16 @@
 		}
 	}
 
+	// Escape special XML characters
+	function escapeXml(str: string): string {
+		return str
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;')
+			.replace(/'/g, '&#39;');
+	}
+
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key === 'Enter') {
 			searchAddress();
@@ -508,144 +673,145 @@
 	}
 </script>
 
-<Card>
-	<div class="space-y-6 p-6">
-		<div>
-			<h3 class="mb-2 text-lg font-semibold">Map Configuration</h3>
-			<p class="text-surface-600-300-token text-sm">
-				Search for an address, then adjust the radar position and map area visually.
-			</p>
-		</div>
-
-		<!-- Address Search -->
-		<div class="space-y-2">
-			<h4 class="flex items-center gap-2 font-medium">
-				<span class="text-primary-500">
-					<svg class="h-5 w-5" viewBox="0 0 24 24">
-						<path fill="currentColor" d={mdiMagnify} />
-					</svg>
-				</span>
-				Address Search
-			</h4>
-			<div class="flex gap-2">
-				<div class="flex-1">
-					<TextField
-						bind:value={searchQuery}
-						placeholder="Enter address or location..."
-						on:keydown={handleKeydown}
-					/>
-				</div>
-				<Button on:click={searchAddress} disabled={searching || !searchQuery.trim()}>
-					{searching ? 'Searching...' : 'Search'}
-				</Button>
-			</div>
-
-			{#if searchResults.length > 0}
-				<div class="mt-2 rounded border border-gray-300 bg-white">
-					{#each searchResults as result (result.place_id)}
-						<button
-							class="block w-full px-4 py-2 text-left hover:bg-gray-100"
-							on:click={() => selectLocation(result)}
-						>
-							{result.display_name}
-						</button>
-					{/each}
-				</div>
-			{/if}
-		</div>
-
-		<!-- Interactive Map -->
-		<div class="space-y-2">
-			<div class="flex items-center justify-between">
-				<h4 class="font-medium">Interactive Map</h4>
-				<div class="flex gap-2">
-					<Button size="sm" variant="outline" on:click={centerOnRadar} disabled={!latitude}>
-						<svg class="h-4 w-4" viewBox="0 0 24 24">
-							<path fill="currentColor" d={mdiCrosshairsGps} />
-						</svg>
-						Center
-					</Button>
-					<Button size="sm" variant="outline" on:click={() => adjustBBoxSize(false)}>- Area</Button>
-					<Button size="sm" variant="outline" on:click={() => adjustBBoxSize(true)}>+ Area</Button>
-				</div>
-			</div>
-
-			<div
-				bind:this={mapContainer}
-				class="h-96 w-full rounded border border-gray-300"
-				style="min-height: 400px;"
-			></div>
-
-			<p class="text-surface-600-300-token text-xs">
-				Drag the blue marker to set radar position. Drag the red dot at the triangle tip to adjust
-				radar angle. The orange rectangle shows the map area for reports.
-			</p>
-		</div>
-
-		<!-- Coordinate Display (Read-only) -->
-		<div class="space-y-4">
-			<h4 class="font-medium">Current Coordinates</h4>
-			<div class="grid gap-4 md:grid-cols-2">
-				<div>
-					<p class="text-surface-600-300-token mb-1 text-sm">Radar Position</p>
-					<div class="grid grid-cols-2 gap-2">
-						<TextField label="Latitude" value={latitude?.toFixed(6) || ''} disabled size="sm" />
-						<TextField label="Longitude" value={longitude?.toFixed(6) || ''} disabled size="sm" />
-					</div>
-				</div>
-				<div>
-					<p class="text-surface-600-300-token mb-1 text-sm">Bounding Box</p>
-					<div class="grid grid-cols-2 gap-2">
-						<TextField label="NE Lat" value={bboxNELat?.toFixed(6) || ''} disabled size="sm" />
-						<TextField label="NE Lng" value={bboxNELng?.toFixed(6) || ''} disabled size="sm" />
-						<TextField label="SW Lat" value={bboxSWLat?.toFixed(6) || ''} disabled size="sm" />
-						<TextField label="SW Lng" value={bboxSWLng?.toFixed(6) || ''} disabled size="sm" />
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<!-- Radar Angle -->
-		<TextField
-			bind:value={radarAngle}
-			label="Radar Angle (degrees)"
-			type="number"
-			step="1"
-			placeholder="0"
-		/>
-
-		<!-- Download SVG -->
-		<div class="space-y-2">
-			<div class="flex items-center justify-between">
-				<h4 class="font-medium">Download Map for Reports</h4>
-				<Button
-					on:click={downloadMapSVG}
-					disabled={!bboxNELat || !bboxNELng || !bboxSWLat || !bboxSWLng || downloading}
-					icon={mdiDownload}
-					variant="fill"
-					color="primary"
-					size="sm"
-				>
-					{downloading ? 'Downloading...' : 'Download Map SVG'}
-				</Button>
-			</div>
-
-			{#if error}
-				<div role="alert" class="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">
-					<strong>Error:</strong>
-					{error}
-				</div>
-			{/if}
-
-			{#if mapSvgData}
-				<div class="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-					<strong>Map Ready:</strong>
-					SVG downloaded. Click <strong>"Save Changes"</strong> below to persist to the database.
-				</div>
-			{/if}
+<div class="space-y-6">
+	<div class="flex items-center justify-between">
+		<p class="text-surface-600-300-token text-sm">
+			Search for an address, then adjust the radar position and map area visually.
+		</p>
+		<div class="flex items-center gap-3">
+			<span class="text-sm font-medium">Include map in reports</span>
+			<Switch bind:checked={includeMap} />
 		</div>
 	</div>
-</Card>
+
+	<!-- Address Search -->
+	<div class="space-y-2">
+		<h4 class="flex items-center gap-2 font-medium">
+			<span class="text-primary-500">
+				<svg class="h-5 w-5" viewBox="0 0 24 24">
+					<path fill="currentColor" d={mdiMagnify} />
+				</svg>
+			</span>
+			Address Search
+		</h4>
+		<div class="flex gap-2">
+			<div class="flex-1">
+				<TextField
+					bind:value={searchQuery}
+					placeholder="Enter address or location..."
+					on:keydown={handleKeydown}
+				/>
+			</div>
+			<Button on:click={searchAddress} disabled={searching || !searchQuery.trim()}>
+				{searching ? 'Searching...' : 'Search'}
+			</Button>
+		</div>
+
+		{#if searchResults.length > 0}
+			<div class="mt-2 rounded border border-gray-300 bg-white">
+				{#each searchResults as result (result.place_id)}
+					<button
+						class="block w-full px-4 py-2 text-left hover:bg-gray-100"
+						on:click={() => selectLocation(result)}
+					>
+						{result.display_name}
+					</button>
+				{/each}
+			</div>
+		{/if}
+	</div>
+
+	<!-- Interactive Map -->
+	<div class="space-y-2">
+		<div class="flex items-center justify-between">
+			<h4 class="font-medium">Interactive Map</h4>
+			<div class="flex gap-2">
+				<Button size="sm" variant="outline" on:click={centerOnRadar} disabled={!latitude}>
+					<svg class="h-4 w-4" viewBox="0 0 24 24">
+						<path fill="currentColor" d={mdiCrosshairsGps} />
+					</svg>
+					Center
+				</Button>
+				<Button size="sm" variant="outline" on:click={() => adjustBBoxSize(false)}>- Area</Button>
+				<Button size="sm" variant="outline" on:click={() => adjustBBoxSize(true)}>+ Area</Button>
+			</div>
+		</div>
+
+		<div
+			bind:this={mapContainer}
+			class="h-96 w-full rounded border border-gray-300"
+			style="min-height: 400px;"
+		></div>
+
+		<p class="text-surface-600-300-token text-xs">
+			Drag the blue marker to set radar position. Drag the red dot at the triangle tip to adjust
+			radar angle. The orange rectangle shows the map area for reports.
+		</p>
+	</div>
+
+	<!-- Coordinate Display (Read-only) -->
+	<div class="space-y-4">
+		<h4 class="font-medium">Current Coordinates</h4>
+		<div class="grid gap-4 md:grid-cols-2">
+			<div>
+				<p class="text-surface-600-300-token mb-1 text-sm">Radar Position</p>
+				<div class="grid grid-cols-2 gap-2">
+					<TextField label="Latitude" value={latitude?.toFixed(6) || ''} disabled size="sm" />
+					<TextField label="Longitude" value={longitude?.toFixed(6) || ''} disabled size="sm" />
+				</div>
+			</div>
+			<div>
+				<p class="text-surface-600-300-token mb-1 text-sm">Bounding Box</p>
+				<div class="grid grid-cols-2 gap-2">
+					<TextField label="NE Lat" value={bboxNELat?.toFixed(6) || ''} disabled size="sm" />
+					<TextField label="NE Lng" value={bboxNELng?.toFixed(6) || ''} disabled size="sm" />
+					<TextField label="SW Lat" value={bboxSWLat?.toFixed(6) || ''} disabled size="sm" />
+					<TextField label="SW Lng" value={bboxSWLng?.toFixed(6) || ''} disabled size="sm" />
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Radar Angle -->
+	<TextField
+		bind:value={radarAngle}
+		label="Radar Angle (degrees)"
+		type="number"
+		step="1"
+		placeholder="0"
+	/>
+
+	<!-- Download SVG -->
+	<div class="space-y-2">
+		<div class="flex items-center justify-between">
+			<h4 class="font-medium">Download Map for Reports</h4>
+			<Button
+				on:click={downloadMapSVG}
+				disabled={!bboxNELat || !bboxNELng || !bboxSWLat || !bboxSWLng || downloading}
+				icon={mdiDownload}
+				variant="fill"
+				color="primary"
+				size="sm"
+			>
+				{downloading ? 'Downloading...' : 'Download Map SVG'}
+			</Button>
+		</div>
+
+		{#if error}
+			<div role="alert" class="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+				<strong>Error:</strong>
+				{error}
+			</div>
+		{/if}
+
+		{#if mapSvgData}
+			<div class="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+				<strong>Map Ready:</strong>
+				SVG downloaded. Click <strong>"Save Changes"</strong> below to persist to the database.
+			</div>
+		{/if}
+	</div>
+</div>
 
 <style>
 	:global(.leaflet-container) {

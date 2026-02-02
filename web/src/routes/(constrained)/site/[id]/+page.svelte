@@ -13,7 +13,7 @@
 	import MapEditorInteractive from '$lib/components/MapEditorInteractive.svelte';
 	import { mdiArrowLeft, mdiContentSave } from '@mdi/js';
 	import { onMount } from 'svelte';
-	import { Button, Card, Header, Switch, TextField } from 'svelte-ux';
+	import { Button, Card, Header, TextField } from 'svelte-ux';
 
 	let siteId: string | null = null;
 	let isNewSite = false;
@@ -374,18 +374,7 @@
 			<!-- Map Configuration -->
 			<Card>
 				<div class="space-y-4 p-6">
-					<div class="flex items-center justify-between">
-						<div>
-							<h3 class="text-lg font-semibold">Map Configuration</h3>
-							<p class="text-surface-600-300-token text-sm">
-								Configure radar location, angle, and map boundaries for PDF reports
-							</p>
-						</div>
-						<div class="flex items-center gap-3">
-							<span class="text-sm font-medium">Include map in reports</span>
-							<Switch bind:checked={formData.include_map} />
-						</div>
-					</div>
+					<h3 class="text-lg font-semibold">Map Configuration</h3>
 					<MapEditorInteractive
 						bind:latitude={formData.latitude}
 						bind:longitude={formData.longitude}
@@ -395,6 +384,7 @@
 						bind:bboxSWLat={formData.bbox_sw_lat}
 						bind:bboxSWLng={formData.bbox_sw_lng}
 						bind:mapSvgData={formData.map_svg_data}
+						bind:includeMap={formData.include_map}
 					/>
 				</div>
 			</Card>

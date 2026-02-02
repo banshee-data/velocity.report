@@ -178,10 +178,12 @@ class TestSVGMarkerInjector(unittest.TestCase):
 
         result = self.injector.inject_marker(svg, marker)
 
-        # Verify marker was injected
+        # Verify marker was injected (triangle only, no circle)
         self.assertIn("radar-marker", result)
         self.assertIn("polygon", result)
-        self.assertIn("circle", result)
+        self.assertNotIn(
+            "circle", result
+        )  # Circle is in the source SVG, not added here
         self.assertIn("points=", result)
 
         # Verify original content preserved
@@ -208,10 +210,8 @@ class TestSVGMarkerInjector(unittest.TestCase):
 
         result = injector.inject_marker(svg, marker)
 
-        # Verify custom colors appear in output
-        self.assertIn("#00ff00", result)  # Marker color
-        self.assertIn("#ff0000", result)  # Circle fill
-        self.assertIn("#0000ff", result)  # Circle stroke
+        # Verify custom colors appear in output (triangle only, no circle)
+        self.assertIn("#00ff00", result)  # Marker color for triangle
         self.assertIn("0.7", result)  # Opacity
 
     def test_inject_marker_preserves_content(self):
