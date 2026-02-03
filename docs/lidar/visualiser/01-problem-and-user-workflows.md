@@ -99,14 +99,15 @@ A **dedicated 3D visualisation tool** that:
 4. Press `L` or use label panel to assign class:
    - "pedestrian", "car", "cyclist", "bird", "other"
 5. Optionally mark track segment boundaries (start/end frames)
-6. Labels stored in local database (SQLite) alongside track ID + timestamps
-7. Export labels as JSON for training pipeline:
+6. Labels stored in Go backend SQLite database via REST API (`POST /api/lidar/labels`)
+   - Shared with web UI for cross-platform access
+7. Export labels as JSON for training pipeline (via `GET /api/lidar/labels/export`):
    ```json
    {
      "track_id": "track_42",
-     "class": "pedestrian",
-     "start_frame": 1001,
-     "end_frame": 1045
+     "class_label": "pedestrian",
+     "start_timestamp_ns": 1234567890000000,
+     "end_timestamp_ns": 1234567891000000
    }
    ```
 8. Re-run classifier with new training data

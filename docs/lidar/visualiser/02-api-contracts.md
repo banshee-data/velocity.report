@@ -302,25 +302,54 @@ message StatePrediction {
 
 ### 1.6 Labels (User Annotations)
 
-Labels are created by the user in the visualiser and exported for training.
+Labels are created by the user in the visualiser and stored in the Go backend SQLite database via REST API.
 
-```protobuf
-message LabelEvent {
-  string label_id = 1;           // UUID
-  string track_id = 2;           // associated track
-  string class_label = 3;        // assigned class
-  int64 start_frame_id = 4;      // segment start (optional)
-  int64 end_frame_id = 5;        // segment end (optional)
-  int64 created_ns = 6;          // when label was created
-  string annotator = 7;          // optional: who created the label
-  string notes = 8;              // optional: free-form notes
-}
+**REST API Endpoints:**
 
-message LabelSet {
-  string session_id = 1;         // replay session identifier
-  string source_file = 2;        // log file being annotated
-  repeated LabelEvent labels = 3;
+```
+POST   /api/lidar/labels              Create new label
+GET    /api/lidar/labels              List all labels (with filters)
+GET    /api/lidar/labels/:id          Get specific label
+PUT    /api/lidar/labels/:id          Update label
+DELETE /api/lidar/labels/:id          Delete label
+GET    /api/lidar/labels/export       Export labels as JSON
+```
+
+**Label JSON Schema:**
+
+```json
+{
+  "label_id": "uuid-string",
+  "track_id": "track_42",
+  "class_label": "pedestrian",
+  "start_timestamp_ns": 1234567890000000,
+  "end_timestamp_ns": 1234567891000000,
+  "confidence": 0.95,
+  "created_by": "username",
+  "created_at_ns": 1234567890000000,
+  "notes": "optional notes"
 }
+```
+
+**Database Schema (SQLite):**
+
+```sql
+CREATE TABLE lidar_labels (
+    label_id TEXT PRIMARY KEY,
+    track_id TEXT NOT NULL,
+    class_label TEXT NOT NULL,
+    start_timestamp_ns INTEGER NOT NULL,
+    end_timestamp_ns INTEGER,
+    confidence REAL,
+    created_by TEXT,
+    created_at_ns INTEGER NOT NULL,
+    updated_at_ns INTEGER,
+    notes TEXT,
+    FOREIGN KEY (track_id) REFERENCES lidar_tracks(track_id)
+);
+
+CREATE INDEX idx_lidar_labels_track ON lidar_labels(track_id);
+CREATE INDEX idx_lidar_labels_time ON lidar_labels(start_timestamp_ns, end_timestamp_ns);
 ```
 
 ---

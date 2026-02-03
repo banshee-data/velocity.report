@@ -225,13 +225,22 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 - [ ] Track selection (click to select)
 - [ ] Track detail panel
 - [ ] Label assignment UI
-- [ ] Local label storage (SQLite)
-- [ ] Label export to JSON
+- [ ] REST API client for label CRUD operations
+- [ ] Label export to JSON (via API)
+
+**Track B (Pipeline)**:
+
+- [ ] `lidar_labels` table schema migration
+- [ ] Label API endpoints (POST/GET/PUT/DELETE)
+- [ ] Label filtering by track_id, time range, class
+- [ ] JSON export endpoint for ML pipeline
+- [ ] Integration with existing `/api/lidar/tracks` endpoint
 
 **Acceptance Criteria**:
 
 - [ ] All debug overlays render correctly
-- [ ] Labels persist across app restarts
+- [ ] Labels persist in SQLite database
+- [ ] Labels accessible from both visualiser and web UI
 - [ ] Export produces valid JSON for ML pipeline
 - [ ] Labelling workflow < 3 seconds per track
 

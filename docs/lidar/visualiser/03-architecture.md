@@ -45,6 +45,7 @@ The Go server-side changes to emit a stable API for the visualiser.
 - Recorder/replayer for logs
 - Debug artifact emission
 - Adapter layer for LidarView (preserve existing behaviour)
+- Label REST API endpoints (`/api/lidar/labels`) with SQLite persistence
 
 **Linked by**: The protobuf schema (`visualizer.proto`) is the **only coupling** between tracks.
 
@@ -66,15 +67,11 @@ The Go server-side changes to emit a stable API for the visualiser.
 │  │  │ - Overlay toggles     - Label panel                 │    │    │
 │  │  │ - Detail inspector    - Export menu                 │    │    │
 │  │  └─────────────────────────────────────────────────────┘    │    │
-│  │       ↓                                                     │    │
-│  │  ┌─────────────────────────────────────────────────────┐    │    │
-│  │  │ Labelling Store (SQLite / JSON)                     │    │    │
-│  │  └─────────────────────────────────────────────────────┘    │    │
 │  └─────────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────┘
                               ▲
-                              │ gRPC (localhost:50051)
-                              │ Protocol: visualizer.proto
+                              │ gRPC (localhost:50051) - Point cloud streaming
+                              │ REST (localhost:8080)  - Labels, metadata
                               ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                          TRACK B                                    │
@@ -143,8 +140,8 @@ tools/visualizer-macos/
 │   │   └── LabelPanel.swift                # Labelling UI
 │   │
 │   ├── Labelling/
-│   │   ├── LabelStore.swift                # Local SQLite storage
-│   │   ├── LabelExporter.swift             # JSON export
+│   │   ├── LabelAPIClient.swift            # REST API client for labels
+│   │   ├── LabelExporter.swift             # JSON export (via API)
 │   │   └── LabelEvent.swift                # Data model
 │   │
 │   └── Models/
@@ -170,6 +167,11 @@ internal/
 │   │   ├── adapter.go                      # Pipeline → FrameBundle
 │   │   └── config.go                       # Feature flags
 │   │
+│   ├── labels/                              # NEW: Label persistence
+│   │   ├── store.go                        # Label CRUD operations (SQLite)
+│   │   ├── models.go                       # Label data models
+│   │   └── api.go                          # REST API handlers (/api/lidar/labels)
+│   │
 │   ├── recorder/                            # NEW: Log recording
 │   │   ├── recorder.go                     # Write .vrlog files
 │   │   ├── replayer.go                     # Read + stream logs
@@ -191,13 +193,23 @@ proto/
 
 ## 3. Transport Choice
 
-### 3.1 Why gRPC over localhost
+### 3.1 Why gRPC for Point Cloud Streaming
 
 | Requirement               | gRPC Advantage                       |
 | ------------------------- | ------------------------------------ |
 | **Structured data**       | Native protobuf support              |
 | **Streaming**             | Built-in server-streaming RPC        |
 | **Type safety**           | Generated Swift + Go stubs           |
+
+### 3.2 Why REST for Labeling and Metadata
+
+| Requirement               | REST Advantage                       |
+| ------------------------- | ------------------------------------ |
+| **Shared with web UI**    | Same API for macOS app and browser  |
+| **Persistent storage**    | Direct SQLite access from Go backend |
+| **CRUD operations**       | Standard HTTP verbs (GET/POST/PUT/DELETE) |
+| **Simple caching**        | HTTP caching semantics               |
+| **Debugging**             | Easy to inspect with curl/Postman    |
 | **Bidirectional control** | Control RPCs for playback            |
 | **Performance**           | HTTP/2 multiplexing, binary encoding |
 | **Future-proof**          | Easy to extend to remote access      |
