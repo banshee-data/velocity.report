@@ -96,6 +96,10 @@ func (r *Recorder) Record(frame *visualiser.FrameBundle) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	if frame == nil {
+		return fmt.Errorf("cannot record nil frame")
+	}
+
 	if r.closed {
 		return fmt.Errorf("recorder is closed")
 	}
