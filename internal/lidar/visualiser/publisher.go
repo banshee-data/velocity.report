@@ -96,8 +96,8 @@ func (p *Publisher) Start() error {
 	p.listener = lis
 
 	p.server = grpc.NewServer()
-	// TODO: Register VisualizerService when proto is generated
-	// pb.RegisterVisualizerServiceServer(p.server, p)
+	// TODO: Register VisualiserService when proto is generated
+	// pb.RegisterVisualiserServiceServer(p.server, p)
 
 	p.running.Store(true)
 
@@ -234,7 +234,7 @@ type StreamRequest struct {
 	DecimationRatio float32
 }
 
-// StreamFrames implements the VisualizerService.StreamFrames RPC.
+// StreamFrames implements the VisualiserService.StreamFrames RPC.
 // TODO: Implement when proto is generated
 func (p *Publisher) StreamFrames(ctx context.Context, req *StreamRequest) error {
 	clientID := fmt.Sprintf("client-%d", time.Now().UnixNano())

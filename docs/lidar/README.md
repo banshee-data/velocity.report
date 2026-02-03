@@ -58,7 +58,7 @@ Resolved investigation notes for reference.
 
 Historical analysis artifacts from background parameter tuning.
 
-### `visualizer_macos/`
+### `visualiser/`
 
 Design documentation for the macOS-native 3D visualiser.
 
@@ -82,8 +82,8 @@ Tracking pipeline refactor and upgrade proposals.
 | Current status          | [operations/lidar-foreground-tracking-status.md](operations/lidar-foreground-tracking-status.md)       |
 | ML pipeline             | [roadmap/ml_pipeline_roadmap.md](roadmap/ml_pipeline_roadmap.md)                                       |
 | Packet format           | [reference/packet_analysis_results.md](reference/packet_analysis_results.md)                           |
-| **macOS Visualiser**    | [visualizer_macos/01-problem-and-user-workflows.md](visualizer_macos/01-problem-and-user-workflows.md) |
-| **API Contracts**       | [visualizer_macos/02-api-contracts.md](visualizer_macos/02-api-contracts.md)                           |
+| **macOS Visualiser**    | [visualiser/01-problem-and-user-workflows.md](visualiser/01-problem-and-user-workflows.md) |
+| **API Contracts**       | [visualiser/02-api-contracts.md](visualiser/02-api-contracts.md)                           |
 | **Tracking Upgrades**   | [refactor/01-tracking-upgrades.md](refactor/01-tracking-upgrades.md)                                   |
 
 ## Implementation Status

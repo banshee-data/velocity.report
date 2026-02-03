@@ -360,19 +360,19 @@ CREATE INDEX idx_lidar_labels_time ON lidar_labels(start_timestamp_ns, end_times
 
 ```
 proto/
-└── velocity_visualizer/
+└── velocity_visualiser/
     └── v1/
-        └── visualizer.proto
+        └── visualiser.proto
 ```
 
 ### 2.2 Full Schema
 
-See [visualizer.proto](../../../proto/velocity_visualizer/v1/visualizer.proto) for the complete protobuf definition.
+See [visualiser.proto](../../../proto/velocity_visualiser/v1/visualiser.proto) for the complete protobuf definition.
 
 ### 2.3 Versioning Policy
 
 - Schema version: `v1`
-- Package: `velocity.visualizer.v1`
+- Package: `velocity.visualiser.v1`
 - **Backward compatibility**: New fields are optional; old clients ignore unknown fields
 - **Forward compatibility**: Old servers respond with subset of fields
 - **Breaking changes**: Bump to `v2` with new package name
@@ -397,7 +397,7 @@ See [visualizer.proto](../../../proto/velocity_visualizer/v1/visualizer.proto) f
 ### 3.1 Service Definition
 
 ```protobuf
-service VisualizerService {
+service VisualiserService {
   // Live streaming of frame bundles (server-streaming)
   rpc StreamFrames(StreamRequest) returns (stream FrameBundle);
 

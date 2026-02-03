@@ -214,7 +214,7 @@ build-mac:
 		echo "The macOS visualiser project hasn't been created yet."; \
 		echo "This is a planned feature currently in the design phase."; \
 		echo ""; \
-		echo "Documentation: docs/lidar/visualizer_macos/"; \
+		echo "Documentation: docs/lidar/visualiser/"; \
 		exit 1; \
 	fi
 	@if ! command -v xcodebuild >/dev/null 2>&1; then \
@@ -253,7 +253,7 @@ clean-mac:
 # PROTOBUF CODE GENERATION
 # =============================================================================
 
-PROTO_DIR = proto/velocity_visualizer/v1
+PROTO_DIR = proto/velocity_visualiser/v1
 PROTO_GO_OUT = internal/lidar/visualiser/pb
 PROTO_SWIFT_OUT = tools/visualiser-macos/VelocityVisualiser/gRPC/Generated
 
@@ -284,7 +284,7 @@ proto-gen-go:
 	fi
 	@protoc --go_out=$(PROTO_GO_OUT) --go_opt=paths=source_relative \
 	       --go-grpc_out=$(PROTO_GO_OUT) --go-grpc_opt=paths=source_relative \
-	       -I $(PROTO_DIR) $(PROTO_DIR)/visualizer.proto
+	       -I $(PROTO_DIR) $(PROTO_DIR)/visualiser.proto
 	@echo "✓ Go stubs generated in $(PROTO_GO_OUT)"
 
 # Generate Swift protobuf stubs (for macOS visualiser)
@@ -308,7 +308,7 @@ proto-gen-swift:
 	fi
 	@protoc --swift_out=$(PROTO_SWIFT_OUT) \
 	       --grpc-swift_out=$(PROTO_SWIFT_OUT) \
-	       -I $(PROTO_DIR) $(PROTO_DIR)/visualizer.proto
+	       -I $(PROTO_DIR) $(PROTO_DIR)/visualiser.proto
 	@echo "✓ Swift stubs generated in $(PROTO_SWIFT_OUT)"
 
 # =============================================================================

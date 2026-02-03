@@ -38,7 +38,7 @@ This document defines an incremental, API-first implementation plan with explici
 
 **Track B (Pipeline)**:
 
-- [ ] `proto/velocity_visualizer/v1/visualizer.proto` schema
+- [ ] `proto/velocity_visualiser/v1/visualiser.proto` schema
 - [ ] `buf.gen.yaml` for Go + Swift codegen
 - [ ] `Makefile` target: `make proto-gen`
 - [ ] Synthetic data generator (rotating points, moving boxes)
@@ -126,7 +126,7 @@ This document defines an incremental, API-first implementation plan with explici
 
 **Track B (Pipeline)**:
 
-- [ ] Define `internal/lidar/visualizer/model.go` with Go structs
+- [ ] Define `internal/lidar/visualiser/model.go` with Go structs
 - [ ] `Adapter` converts tracking output → `FrameBundle`
 - [ ] `LidarViewAdapter` consumes `FrameBundle` → Pandar40P packets
 - [ ] `GRPCPublisher` consumes `FrameBundle` → proto stream

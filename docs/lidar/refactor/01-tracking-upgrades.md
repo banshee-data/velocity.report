@@ -478,6 +478,6 @@ Each upgrade includes unit tests for the new function.
 
 ## 6. Related Documents
 
-- [../visualizer_macos/01-problem-and-user-workflows.md](../visualizer_macos/01-problem-and-user-workflows.md) – User workflows
-- [../visualizer_macos/02-api-contracts.md](../visualizer_macos/02-api-contracts.md) – API contract
-- [../visualizer_macos/04-implementation-plan.md](../visualizer_macos/04-implementation-plan.md) – Milestones
+- [../visualiser/01-problem-and-user-workflows.md](../visualiser/01-problem-and-user-workflows.md) – User workflows
+- [../visualiser/02-api-contracts.md](../visualiser/02-api-contracts.md) – API contract
+- [../visualiser/04-implementation-plan.md](../visualiser/04-implementation-plan.md) – Milestones

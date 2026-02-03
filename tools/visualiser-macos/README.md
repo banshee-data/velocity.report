@@ -159,7 +159,7 @@ When the protobuf schema changes:
 # From repository root
 protoc --swift_out=tools/visualiser-macos/VelocityVisualiser/gRPC/Generated \
        --grpc-swift_out=tools/visualiser-macos/VelocityVisualiser/gRPC/Generated \
-       proto/velocity_visualizer/v1/visualizer.proto
+       proto/velocity_visualiser/v1/visualiser.proto
 ```
 
 ## Related Documentation

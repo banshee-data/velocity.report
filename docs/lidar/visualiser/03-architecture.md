@@ -14,7 +14,7 @@ This architecture aligns with industry-standard LiDAR perception formats:
 | **Coordinate Frame Convention** | ENU (East-North-Up) world frame          | [static-pose-alignment-plan.md](../future/static-pose-alignment-plan.md)                 |
 | **Background Grid**             | Polar range image with VTK export option | [lidar-background-grid-standards.md](../architecture/lidar-background-grid-standards.md) |
 
-The `OrientedBoundingBox` message in `visualizer.proto` uses the same field layout as `BoundingBox7DOF` from the AV integration spec, enabling direct conversion for AV dataset import/export.
+The `OrientedBoundingBox` message in `visualiser.proto` uses the same field layout as `BoundingBox7DOF` from the AV integration spec, enabling direct conversion for AV dataset import/export.
 
 ---
 
@@ -47,7 +47,7 @@ The Go server-side changes to emit a stable API for the visualiser.
 - Adapter layer for LidarView (preserve existing behaviour)
 - Label REST API endpoints (`/api/lidar/labels`) with SQLite persistence
 
-**Linked by**: The protobuf schema (`visualizer.proto`) is the **only coupling** between tracks.
+**Linked by**: The protobuf schema (`visualiser.proto`) is the **only coupling** between tracks.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -108,14 +108,14 @@ The Go server-side changes to emit a stable API for the visualiser.
 ### 2.1 Visualiser Modules (Track A)
 
 ```
-tools/visualizer-macos/
-├── VelocityVisualizer/
+tools/visualiser-macos/
+├── VelocityVisualiser/
 │   ├── App/
-│   │   ├── VelocityVisualizerApp.swift     # Entry point
+│   │   ├── VelocityVisualiserApp.swift     # Entry point
 │   │   └── AppState.swift                   # Global state
 │   │
 │   ├── gRPC/
-│   │   ├── VisualizerClient.swift          # gRPC client wrapper
+│   │   ├── VisualiserClient.swift          # gRPC client wrapper
 │   │   ├── FrameDecoder.swift              # Proto → Swift models
 │   │   └── Generated/                       # grpc-swift codegen
 │   │
@@ -150,7 +150,7 @@ tools/visualizer-macos/
 │       ├── Cluster.swift
 │       └── PointCloud.swift
 │
-├── VelocityVisualizer.xcodeproj/
+├── VelocityVisualiser.xcodeproj/
 └── README.md
 ```
 
@@ -161,7 +161,7 @@ internal/
 ├── lidar/
 │   ├── ... (existing files unchanged)
 │   │
-│   ├── visualizer/                          # NEW: gRPC publisher
+│   ├── visualiser/                          # NEW: gRPC publisher
 │   │   ├── publisher.go                    # gRPC streaming server
 │   │   ├── model.go                        # Canonical FrameBundle
 │   │   ├── adapter.go                      # Pipeline → FrameBundle
@@ -183,9 +183,9 @@ internal/
 │       └── collector.go                    # Per-frame collection
 │
 proto/
-└── velocity_visualizer/
+└── velocity_visualiser/
     └── v1/
-        ├── visualizer.proto                 # Schema definition
+        ├── visualiser.proto                 # Schema definition
         └── buf.gen.yaml                     # Codegen config
 ```
 
