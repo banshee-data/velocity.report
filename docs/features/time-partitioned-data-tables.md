@@ -33,6 +33,7 @@
 This specification proposes a time-based partitioning strategy for raw sensor data tables in velocity.report to enable sustainable long-term data growth. The system will automatically rotate raw data tables (`radar_data`, `radar_objects`, `lidar_bg_snapshot`) to monthly or quarterly read-only database files on the 2nd of each month at 00:00:00 UTC. Configuration tables remain in the main database, and union views provide transparent access to historical data across partition boundaries.
 
 **Key Benefits:**
+
 - **Manageable Growth:** Prevents single-file database from growing unbounded
 - **Performance:** Smaller active database improves write performance and vacuum operations
 - **Archival:** Easy to backup, compress, or move old partitions to slower/cheaper storage
@@ -40,12 +41,14 @@ This specification proposes a time-based partitioning strategy for raw sensor da
 - **Recovery:** Corruption isolated to single partition instead of entire dataset
 
 **Trade-offs:**
+
 - Increased complexity in query planning and database management
 - Additional disk I/O for queries spanning multiple partitions
 - Need for partition-aware backup and monitoring strategies
 
 **Security Enhancements:**
 This design incorporates security fixes for critical vulnerabilities identified during security review:
+
 - **Path Traversal Prevention (CVE-2025-VR-002):** All file paths validated, symlinks resolved, directory traversal rejected
 - **SQL Injection Prevention (CVE-2025-VR-003):** All SQL inputs sanitized, identifiers properly escaped, read-only mode enforced
 - **Race Condition Prevention (CVE-2025-VR-005):** Distributed locks for rotation, query completion waits, idempotent operations
@@ -66,6 +69,7 @@ This design implements defense-in-depth security measures to protect against com
 **Vulnerability:** User-controlled file paths in attach/consolidate operations could access arbitrary files via directory traversal (`../../../etc/shadow`) or symlink attacks.
 
 **Mitigations Implemented:**
+
 1. **Path Validation:** All file paths validated against allowed directories before use
 2. **Symlink Resolution:** `filepath.EvalSymlinks()` resolves all symlinks to absolute paths
 3. **Directory Traversal Rejection:** Paths containing `..` are rejected
@@ -79,6 +83,7 @@ This design implements defense-in-depth security measures to protect against com
 **Vulnerability:** Unsanitized aliases and paths in `ATTACH DATABASE` commands could execute arbitrary SQL (`"m01; DROP TABLE radar_data; --"`).
 
 **Mitigations Implemented:**
+
 1. **Alias Validation:** Only alphanumeric and underscore allowed, must start with letter
 2. **SQL Keyword Filtering:** Aliases containing SQL keywords (DROP, DELETE, etc.) rejected
 3. **Proper SQL Escaping:** Single quotes doubled in paths, double quotes doubled in identifiers
@@ -92,6 +97,7 @@ This design implements defense-in-depth security measures to protect against com
 **Vulnerability:** Concurrent rotation operations or rotation during active queries could cause data corruption and loss.
 
 **Mitigations Implemented:**
+
 1. **Distributed Locking:** SQLite-based rotation lock prevents concurrent rotations
 2. **Lock Expiration:** Locks automatically expire after 5 minutes to prevent deadlocks
 3. **Query Completion Wait:** Rotation waits for active queries to complete (30 second timeout)
@@ -106,6 +112,7 @@ This design implements defense-in-depth security measures to protect against com
 **Vulnerability:** Mounting arbitrary USB devices could enable filesystem exploits, SUID binary execution, or persistent backdoors via systemd units.
 
 **Mitigations Implemented:**
+
 1. **Filesystem Whitelist:** Only ext4 and ext3 allowed (no NTFS, FAT32, exfat)
 2. **Secure Mount Options:** Always mount with `nosuid,nodev,noexec,noatime,ro`
 3. **USB Device Verification:** Verify device is in USB subsystem via sysfs paths
@@ -143,16 +150,19 @@ Before deployment, the following security tests MUST pass:
 ### Future Security Enhancements
 
 **Authentication and Authorization (High Priority):**
+
 - API endpoints currently lack authentication (addressed in separate implementation)
 - Implement API key authentication with bcrypt hashing
 - Add role-based access control for partition management
 
 **Audit Logging:**
+
 - Log all partition attach/detach operations
 - Log all USB mount/unmount operations
 - Log all rotation operations with success/failure status
 
 **Rate Limiting:**
+
 - Limit API requests per IP address
 - Limit concurrent consolidation operations
 - Prevent DoS via resource exhaustion
@@ -180,16 +190,19 @@ velocity.report deployments on Raspberry Pi 4 devices continuously collect senso
 ### User Impact
 
 **Deployment Failures:**
+
 - Long-running deployments (6+ months) risk disk exhaustion
 - No automatic cleanup or archival mechanisms
 - Manual intervention required to prevent failures
 
 **Operational Burden:**
+
 - Monitoring disk space becomes critical
 - No built-in tools for data lifecycle management
 - Complex manual processes to archive/delete old data
 
 **Privacy Concerns:**
+
 - Difficult to implement data retention policies required by some jurisdictions
 - No mechanism to automatically delete data older than X months
 
@@ -202,15 +215,18 @@ velocity.report deployments on Raspberry Pi 4 devices continuously collect senso
 **Main Database:** `/var/lib/velocity-report/sensor_data.db`
 
 **Raw Data Tables (High Volume):**
+
 - `radar_data` - Raw radar speed readings (JSON + generated columns)
 - `radar_objects` - Radar hardware classifier detections
 - `lidar_bg_snapshot` - LIDAR background grid snapshots (BLOB storage)
 
 **Derived/Session Tables (Medium Volume):**
+
 - `radar_data_transits` - Sessionized vehicle transits from `radar_data`
 - `radar_transit_links` - Many-to-many links between transits and raw data
 
 **Configuration Tables (Low Volume, Stable):**
+
 - `site` - Location configuration
 - `site_reports` - Generated report metadata
 - `radar_commands` / `radar_command_log` - Command history
@@ -218,12 +234,14 @@ velocity.report deployments on Raspberry Pi 4 devices continuously collect senso
 ### Data Characteristics
 
 **High-Volume Raw Data:**
+
 - Continuous append-only writes
 - Rarely updated or deleted
 - Time-ordered by nature
 - Queries often filtered by time range
 
 **Configuration Data:**
+
 - Infrequent writes
 - Small total size (<1MB)
 - Frequently joined with raw data queries
@@ -232,6 +250,7 @@ velocity.report deployments on Raspberry Pi 4 devices continuously collect senso
 ### Storage Patterns
 
 **Current Architecture:**
+
 ```
 /var/lib/velocity-report/
 └── sensor_data.db          (single SQLite file, grows unbounded)
@@ -244,6 +263,7 @@ velocity.report deployments on Raspberry Pi 4 devices continuously collect senso
 ```
 
 **Growth Estimates (Busy Deployment):**
+
 - Year 1: 31GB
 - Year 2: 62GB
 - Year 3: 93GB (exceeds typical 64GB SD card)
@@ -257,10 +277,12 @@ velocity.report deployments on Raspberry Pi 4 devices continuously collect senso
 **Partition Scheme:** Monthly or quarterly time-based partitions for raw data tables.
 
 **Rotation Schedule:**
+
 - **Trigger Date:** 2nd of each month at 00:00:00 UTC
 - **Reason for 2nd:** Allows first day of month to complete fully before rotation (timezone safety margin)
 
 **Partition Naming Convention:**
+
 ```
 /var/lib/velocity-report/
 ├── sensor_data.db                    # Main DB (current period + config)
@@ -339,6 +361,7 @@ Storage Layout:
 **1. Separate Config from Data**
 
 Config tables (`site`, `site_reports`, etc.) remain in main database:
+
 - **Reason:** Config is cross-cutting and needed for all queries
 - **Size:** Negligible (<1MB)
 - **Access:** Frequently joined with raw data queries
@@ -346,16 +369,19 @@ Config tables (`site`, `site_reports`, etc.) remain in main database:
 **2. Monthly vs Quarterly Partitions**
 
 **Recommended: Monthly**
+
 - **Pros:** Smaller partition size (~2.6GB), finer granularity for retention policies
 - **Cons:** More partitions to manage
 
 **Alternative: Quarterly**
+
 - **Pros:** Fewer partitions (~8GB each), simpler management
 - **Cons:** Larger files harder to backup/move, coarser retention granularity
 
 **3. Immutable Partitions**
 
 Once rotated, partitions become read-only:
+
 - **Implementation:** `chmod 444` on archived database files
 - **Benefit:** Prevents accidental writes, enables aggressive caching
 - **Exception:** Derived tables (`radar_data_transits`) may need updates for late-arriving sessionization
@@ -363,6 +389,7 @@ Once rotated, partitions become read-only:
 **4. Derived Tables Included in Partitions**
 
 `radar_data_transits` and `radar_transit_links` included in partitions:
+
 - **Reason:** Transit data derived from raw data in same time period
 - **Trade-off:** Requires sessionization worker to run before rotation OR accept late updates
 
@@ -373,6 +400,7 @@ Once rotated, partitions become read-only:
 ### Partition Lifecycle
 
 **Phase 1: Active Partition (Main Database)**
+
 ```sql
 -- Current month's data written to main database
 INSERT INTO radar_data (raw_event) VALUES (?);
@@ -380,6 +408,7 @@ INSERT INTO radar_objects (raw_event) VALUES (?);
 ```
 
 **Phase 2: Rotation Trigger (2nd of Month 00:00:00 UTC)**
+
 ```sql
 -- Automated rotation process:
 1. Create new partition database file
@@ -390,6 +419,7 @@ INSERT INTO radar_objects (raw_event) VALUES (?);
 ```
 
 **Phase 3: Archived Partition (Read-Only)**
+
 ```sql
 -- Queries automatically use union views
 SELECT * FROM radar_data_all WHERE write_timestamp BETWEEN ? AND ?;
@@ -399,6 +429,7 @@ SELECT * FROM radar_data_all WHERE write_timestamp BETWEEN ? AND ?;
 ### Schema Consistency
 
 **Each Partition Database Contains:**
+
 ```sql
 -- Same schema as main database for raw data tables
 CREATE TABLE radar_data (...);
@@ -412,6 +443,7 @@ CREATE INDEX idx_radar_data_time ON radar_data(write_timestamp);
 ```
 
 **Main Database Retains:**
+
 ```sql
 -- Current period raw data (current month)
 CREATE TABLE radar_data (...);
@@ -424,6 +456,7 @@ CREATE TABLE site_reports (...);
 ### Union Views for Queries
 
 **Automatically Generated Views:**
+
 ```sql
 -- radar_data_all: Union of all radar_data partitions
 CREATE VIEW radar_data_all AS
@@ -442,6 +475,7 @@ CREATE VIEW radar_data_all AS
 ```
 
 **Query Optimization:**
+
 ```sql
 -- SQLite query planner uses WHERE clauses to skip irrelevant partitions
 SELECT * FROM radar_data_all
@@ -452,6 +486,7 @@ WHERE write_timestamp BETWEEN 1704067200.0 AND 1706745600.0;
 ### Rotation Process Details
 
 **Rotation Algorithm:**
+
 ```go
 func RotatePartitions(db *DB, rotationTime time.Time) error {
     // SECURITY FIX (CVE-2025-VR-005): Acquire distributed lock to prevent race conditions
@@ -586,6 +621,7 @@ func (l *RotationLock) Release() error {
 ```
 
 **Transaction Safety:**
+
 ```go
 // Rotation must be atomic:
 // - Either all data copied and deleted, or nothing changes
@@ -594,6 +630,7 @@ func (l *RotationLock) Release() error {
 ```
 
 **Failure Handling:**
+
 ```go
 // If rotation fails:
 // 1. Keep data in main database (no data loss)
@@ -605,6 +642,7 @@ func (l *RotationLock) Release() error {
 ### ATTACH DATABASE Management
 
 **Dynamic Partition Mounting:**
+
 ```go
 func AttachPartitions(db *DB) error {
     // Scan archives directory for partition files
@@ -711,6 +749,7 @@ func QuoteSQLiteIdentifier(s string) string {
 ```
 
 **Limits:**
+
 - SQLite allows up to **10 attached databases by default** (compile-time limit)
 - Can be increased to **125** with `SQLITE_MAX_ATTACHED` compile flag
 - Monthly partitions: 10 partitions = 10 months, 125 = 10.4 years
@@ -732,6 +771,7 @@ To support operational flexibility and future UI development, the system provide
 4. Monitor partition status and buffer safety
 
 **Safety Guarantees:**
+
 - **Write partition protection:** Main database (write partition) can never be detached
 - **Buffer protection:** Prevents detaching partitions with uncommitted data or active queries
 - **Atomic operations:** Attach/detach operations are transactional
@@ -746,6 +786,7 @@ To support operational flexibility and future UI development, the system provide
 **Purpose:** List all currently attached database partitions and their status.
 
 **Response:**
+
 ```json
 {
   "main": {
@@ -817,6 +858,7 @@ To support operational flexibility and future UI development, the system provide
 ```
 
 **Status Codes:**
+
 - `200 OK` - Success
 - `500 Internal Server Error` - Database error
 
@@ -827,6 +869,7 @@ To support operational flexibility and future UI development, the system provide
 **Purpose:** Attach a historical partition to enable queries against it.
 
 **Request Body:**
+
 ```json
 {
   "path": "/var/lib/velocity-report/archives/2024-12_data.db",
@@ -836,11 +879,13 @@ To support operational flexibility and future UI development, the system provide
 ```
 
 **Parameters:**
+
 - `path` (required): Full path to partition database file
 - `alias` (optional): Custom alias for partition. If omitted, auto-generated based on filename
 - `priority` (optional): `high` | `normal` | `low`. If connection limit reached, may detach low-priority partition
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -859,6 +904,7 @@ To support operational flexibility and future UI development, the system provide
 ```
 
 **Error Response (Connection Limit Reached):**
+
 ```json
 {
   "success": false,
@@ -881,6 +927,7 @@ To support operational flexibility and future UI development, the system provide
 ```
 
 **Status Codes:**
+
 - `200 OK` - Partition attached successfully
 - `400 Bad Request` - Invalid path or alias
 - `409 Conflict` - Connection limit reached, no low-priority partitions to detach
@@ -888,6 +935,7 @@ To support operational flexibility and future UI development, the system provide
 - `500 Internal Server Error` - Database error
 
 **Safety Checks:**
+
 1. **Path validation (CVE-2025-VR-002):** Verify file exists, resolve symlinks, ensure path is under allowed directory, reject directory traversal
 2. **Filename validation:** Verify filename matches partition pattern (YYYY-MM_data.db or YYYY-QN_data.db)
 3. **Alias validation (CVE-2025-VR-003):** Verify alias is alphanumeric with underscore only, no SQL keywords
@@ -902,6 +950,7 @@ To support operational flexibility and future UI development, the system provide
 **Purpose:** Detach a historical partition to free connection slots.
 
 **Request Body:**
+
 ```json
 {
   "alias": "m12_2024",
@@ -910,10 +959,12 @@ To support operational flexibility and future UI development, the system provide
 ```
 
 **Parameters:**
+
 - `alias` (required): Alias of partition to detach
 - `force` (optional): If `true`, waits for active queries to complete before detaching. Default: `false`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -927,6 +978,7 @@ To support operational flexibility and future UI development, the system provide
 ```
 
 **Error Response (Active Queries):**
+
 ```json
 {
   "success": false,
@@ -949,6 +1001,7 @@ To support operational flexibility and future UI development, the system provide
 ```
 
 **Status Codes:**
+
 - `200 OK` - Partition detached successfully
 - `400 Bad Request` - Invalid alias or attempt to detach main database
 - `409 Conflict` - Partition has active queries (force=false)
@@ -956,6 +1009,7 @@ To support operational flexibility and future UI development, the system provide
 - `500 Internal Server Error` - Database error
 
 **Safety Checks:**
+
 1. Prevent detaching main database (write partition)
 2. Check for active queries (unless force=true)
 3. Check for uncommitted transactions
@@ -969,6 +1023,7 @@ To support operational flexibility and future UI development, the system provide
 **Purpose:** Combine multiple monthly/quarterly partitions into a yearly archive (cold storage optimisation).
 
 **Request Body:**
+
 ```json
 {
   "source_partitions": [
@@ -993,6 +1048,7 @@ To support operational flexibility and future UI development, the system provide
 ```
 
 **Parameters:**
+
 - `source_partitions` (required): Array of partition paths to consolidate
 - `output_path` (required): Path for consolidated archive
 - `delete_sources` (optional): Delete source partitions after successful consolidation. Default: `false`
@@ -1000,6 +1056,7 @@ To support operational flexibility and future UI development, the system provide
 - `strategy` (optional): `yearly` | `biennial` | `custom`. Validates source partitions match strategy. Default: `custom`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1055,6 +1112,7 @@ To support operational flexibility and future UI development, the system provide
 ```
 
 **Status Codes:**
+
 - `202 Accepted` - Consolidation job started (async operation)
 - `400 Bad Request` - Invalid source partitions or output path
 - `409 Conflict` - Source partitions currently attached or in use
@@ -1062,6 +1120,7 @@ To support operational flexibility and future UI development, the system provide
 - `500 Internal Server Error` - Database error
 
 **Safety Checks:**
+
 1. Verify all source partitions exist and are readable
 2. Ensure source partitions are detached (no active queries)
 3. Validate schema compatibility across all sources
@@ -1070,6 +1129,7 @@ To support operational flexibility and future UI development, the system provide
 6. Rollback on failure: delete output, restore sources
 
 **Consolidation Algorithm:**
+
 ```go
 func ConsolidatePartitions(sources []string, output string) error {
     // 1. Create output database with standard schema
@@ -1114,6 +1174,7 @@ func ConsolidatePartitions(sources []string, output string) error {
 **Purpose:** Get detailed metadata about a specific partition (attached or detached).
 
 **Response:**
+
 ```json
 {
   "alias": "m01",
@@ -1151,10 +1212,7 @@ func ConsolidatePartitions(sources []string, output string) error {
       "size_bytes": 11565445
     }
   },
-  "indexes": [
-    "idx_radar_data_time",
-    "idx_transits_time"
-  ],
+  "indexes": ["idx_radar_data_time", "idx_transits_time"],
   "compression": {
     "compressed": false,
     "compression_available": true,
@@ -1169,6 +1227,7 @@ func ConsolidatePartitions(sources []string, output string) error {
 ```
 
 **Status Codes:**
+
 - `200 OK` - Metadata retrieved
 - `404 Not Found` - Partition not found
 - `500 Internal Server Error` - Database error
@@ -1180,6 +1239,7 @@ func ConsolidatePartitions(sources []string, output string) error {
 **Purpose:** Check write buffer status and rotation safety (critical before rotation operations).
 
 **Response:**
+
 ```json
 {
   "safe_to_rotate": true,
@@ -1208,10 +1268,12 @@ func ConsolidatePartitions(sources []string, output string) error {
 ```
 
 **Status Codes:**
+
 - `200 OK` - Buffer status retrieved
 - `500 Internal Server Error` - Database error
 
 **Use Case:** Called before rotation to ensure no data loss:
+
 ```bash
 # Pre-rotation safety check
 curl http://localhost:8080/api/partitions/buffers | jq '.safe_to_rotate'
@@ -1344,6 +1406,7 @@ VALUES ('partition_attached', json_object(
 These API endpoints are designed for future web UI development:
 
 **Partition Manager Dashboard:**
+
 - Visual timeline of partitions (attached vs available)
 - Drag-and-drop attach/detach interface
 - Progress bars for consolidation jobs
@@ -1351,12 +1414,14 @@ These API endpoints are designed for future web UI development:
 - Query performance metrics per partition
 
 **Consolidation Wizard:**
+
 - Auto-suggest yearly consolidation when 12 monthly partitions exist
 - Preview storage savings (compression estimates)
 - Schedule consolidation during low-traffic periods
 - Rollback capability if issues detected
 
 **Example UI Mockup (Future State):**
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ Partition Manager                                   [Refresh]│
@@ -1387,6 +1452,7 @@ These API endpoints are designed for future web UI development:
 To support tiered storage with USB drives and provide proactive capacity planning, the system includes endpoints for USB storage detection, mounting, safe ejection, and growth rate projection.
 
 **Key Capabilities:**
+
 1. Detect and list available USB storage devices
 2. Mount USB drives for cold storage archives
 3. Safe eject with pre-flight checks (no active queries on partitions)
@@ -1402,6 +1468,7 @@ To support tiered storage with USB drives and provide proactive capacity plannin
 **Purpose:** Detect and list available USB storage devices for cold archive storage.
 
 **Response:**
+
 ```json
 {
   "devices": [
@@ -1463,10 +1530,12 @@ To support tiered storage with USB drives and provide proactive capacity plannin
 ```
 
 **Status Codes:**
+
 - `200 OK` - USB devices detected
 - `500 Internal Server Error` - System error
 
 **Detection Method:**
+
 ```bash
 # Uses lsblk, udevadm, and /proc/mounts
 lsblk -J -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE,LABEL,VENDOR,MODEL,SERIAL
@@ -1479,6 +1548,7 @@ lsblk -J -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE,LABEL,VENDOR,MODEL,SERIAL
 **Purpose:** Mount a USB partition for cold archive storage.
 
 **Request Body:**
+
 ```json
 {
   "partition_path": "/dev/sda1",
@@ -1491,6 +1561,7 @@ lsblk -J -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE,LABEL,VENDOR,MODEL,SERIAL
 ```
 
 **Parameters:**
+
 - `partition_path` (required): Device partition path (e.g., `/dev/sda1`)
 - `mount_point` (optional): Mount point path. Default: `/var/lib/velocity-report/archives/cold`
 - `filesystem` (optional): Filesystem type. Auto-detected if omitted.
@@ -1499,6 +1570,7 @@ lsblk -J -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE,LABEL,VENDOR,MODEL,SERIAL
 - `set_as_cold_storage` (optional): Configure as default cold storage location. Default: `true`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1520,6 +1592,7 @@ lsblk -J -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE,LABEL,VENDOR,MODEL,SERIAL
 ```
 
 **Error Response (Already Mounted):**
+
 ```json
 {
   "success": false,
@@ -1533,6 +1606,7 @@ lsblk -J -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE,LABEL,VENDOR,MODEL,SERIAL
 ```
 
 **Status Codes:**
+
 - `200 OK` - Mount successful
 - `400 Bad Request` - Invalid partition path or mount point
 - `409 Conflict` - Already mounted
@@ -1540,6 +1614,7 @@ lsblk -J -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE,LABEL,VENDOR,MODEL,SERIAL
 - `500 Internal Server Error` - System error
 
 **Safety Checks (CVE-2025-VR-006 - USB Security):**
+
 1. **Device verification:** Verify partition exists and is actually a USB device (not system disk)
 2. **Filesystem whitelist:** Only allow ext4 and ext3 (reject NTFS, FAT32, exfat due to security concerns)
 3. **Filesystem detection:** Auto-detect and validate filesystem type using `blkid`
@@ -1550,6 +1625,7 @@ lsblk -J -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE,LABEL,VENDOR,MODEL,SERIAL
 8. **Marker file creation:** Create `.velocity-report-archives` marker file after successful mount
 
 **Systemd Mount Unit (Secure Configuration):**
+
 ```ini
 # /etc/systemd/system/mnt-usb\x2darchives.mount
 [Unit]
@@ -1568,6 +1644,7 @@ WantedBy=multi-user.target
 ```
 
 **USB Mount Implementation (Secure):**
+
 ```go
 func MountUSBStorage(partitionPath, mountPoint string) error {
     // SECURITY FIX (CVE-2025-VR-006): Verify device is USB
@@ -1645,6 +1722,7 @@ func DetectFilesystem(device string) (string, error) {
 **Purpose:** Safely unmount and eject USB storage (safe removal).
 
 **Request Body:**
+
 ```json
 {
   "mount_point": "/mnt/usb-archives",
@@ -1655,12 +1733,14 @@ func DetectFilesystem(device string) (string, error) {
 ```
 
 **Parameters:**
+
 - `mount_point` (required): Mount point path to unmount
 - `force` (optional): Force unmount even if busy. Default: `false`
 - `detach_partitions` (optional): Detach all SQLite partitions on this mount before unmounting. Default: `true`
 - `disable_systemd_unit` (optional): Disable systemd auto-mount unit. Default: `false`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1668,11 +1748,7 @@ func DetectFilesystem(device string) (string, error) {
     "mount_point": "/mnt/usb-archives",
     "partition_path": "/dev/sda1",
     "unmounted_at": "2025-03-15T16:45:30Z",
-    "partitions_detached": [
-      "m01_2024",
-      "m02_2024",
-      "m03_2024"
-    ],
+    "partitions_detached": ["m01_2024", "m02_2024", "m03_2024"],
     "systemd_unit_disabled": false
   },
   "safe_to_remove": true,
@@ -1681,6 +1757,7 @@ func DetectFilesystem(device string) (string, error) {
 ```
 
 **Error Response (Busy - Active Queries):**
+
 ```json
 {
   "success": false,
@@ -1706,12 +1783,14 @@ func DetectFilesystem(device string) (string, error) {
 ```
 
 **Status Codes:**
+
 - `200 OK` - Unmount successful
 - `400 Bad Request` - Invalid mount point
 - `409 Conflict` - Device busy (active queries/files open)
 - `500 Internal Server Error` - System error
 
 **Safety Checks:**
+
 1. List all SQLite partitions on this mount point
 2. Check for active queries on each partition
 3. If `detach_partitions=true`, detach all partitions
@@ -1721,6 +1800,7 @@ func DetectFilesystem(device string) (string, error) {
 7. Return "safe to remove" confirmation
 
 **Unmount Algorithm:**
+
 ```go
 func SafeUnmountUSB(mountPoint string, opts UnmountOptions) error {
     // 1. Find all partitions on this mount
@@ -1768,10 +1848,12 @@ func SafeUnmountUSB(mountPoint string, opts UnmountOptions) error {
 **Purpose:** Project storage growth rate and predict disk full dates based on historical data collection patterns.
 
 **Query Parameters:**
+
 - `lookback_days` (optional): Days of historical data to analyse. Default: `30`
 - `projection_months` (optional): Months to project forward. Default: `12`
 
 **Response:**
+
 ```json
 {
   "analysis_period": {
@@ -1850,7 +1932,7 @@ func SafeUnmountUSB(mountPoint string, opts UnmountOptions) error {
       "total_storage_human": "13.0 GB",
       "sd_card_usage_percent": 25.0,
       "usb_usage_percent": 29.3
-    },
+    }
     // ... monthly projections for next 12 months
   ],
   "recommendations": [
@@ -1876,6 +1958,7 @@ func SafeUnmountUSB(mountPoint string, opts UnmountOptions) error {
 **Alert Scenarios:**
 
 When storage reaches threshold, alerts are included:
+
 ```json
 {
   "alerts": [
@@ -1896,10 +1979,12 @@ When storage reaches threshold, alerts are included:
 ```
 
 **Status Codes:**
+
 - `200 OK` - Growth analysis retrieved
 - `500 Internal Server Error` - Analysis error
 
 **Growth Rate Calculation:**
+
 ```go
 func CalculateGrowthRate(lookbackDays int) GrowthRate {
     // 1. Query data volume over time
@@ -1947,6 +2032,7 @@ func ProjectDiskFull(tier StorageTier, growthRate GrowthRate) time.Time {
 **Purpose:** Configure automated storage capacity alerts.
 
 **Request Body:**
+
 ```json
 {
   "enabled": true,
@@ -1982,6 +2068,7 @@ func ProjectDiskFull(tier StorageTier, growthRate GrowthRate) time.Time {
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1999,6 +2086,7 @@ func ProjectDiskFull(tier StorageTier, growthRate GrowthRate) time.Time {
 ```
 
 **Status Codes:**
+
 - `200 OK` - Configuration updated
 - `400 Bad Request` - Invalid configuration
 - `500 Internal Server Error` - System error
@@ -2095,6 +2183,7 @@ curl -X POST http://localhost:8080/api/storage/alerts/configure \
 **Enhanced Partition Listing:**
 
 `GET /api/partitions` now includes storage tier information:
+
 ```json
 {
   "attached": [
@@ -2112,6 +2201,7 @@ curl -X POST http://localhost:8080/api/storage/alerts/configure \
 **Safe Rotation with Storage Checks:**
 
 Rotation process now includes storage capacity pre-flight:
+
 ```go
 func PreRotationChecks() error {
     // Check buffer safety (existing)
@@ -2138,9 +2228,11 @@ func PreRotationChecks() error {
 To manage the scope of this architecture, the implementation is divided into **5 distinct phases**, each deliverable independently:
 
 ### Phase 1: Core Partitioning Foundation (Weeks 1-3)
+
 **Scope:** Basic time-based partitioning without advanced features.
 
 **Deliverables:**
+
 - Partition rotation algorithm (2nd of month UTC)
 - Create partition database with schema
 - Copy data from main to partition
@@ -2153,6 +2245,7 @@ To manage the scope of this architecture, the implementation is divided into **5
 **Document:** `docs/features/phase-1-core-partitioning.md`
 
 **Success Criteria:**
+
 - Automatic monthly rotation working
 - Union views allow seamless historical queries
 - Zero data loss during rotation
@@ -2161,9 +2254,11 @@ To manage the scope of this architecture, the implementation is divided into **5
 ---
 
 ### Phase 2: API Management and Operational Control (Weeks 4-6)
+
 **Scope:** HTTP API for partition management.
 
 **Deliverables:**
+
 - `GET /api/partitions` - List attached/available partitions
 - `POST /api/partitions/attach` - Attach historical partitions
 - `POST /api/partitions/detach` - Safely detach partitions
@@ -2176,6 +2271,7 @@ To manage the scope of this architecture, the implementation is divided into **5
 **Document:** `docs/features/phase-2-api-management.md`
 
 **Success Criteria:**
+
 - All API endpoints functional
 - Safety checks prevent write partition detach
 - Buffer protection prevents data loss
@@ -2184,9 +2280,11 @@ To manage the scope of this architecture, the implementation is divided into **5
 ---
 
 ### Phase 3: USB Storage and Growth Projection (Weeks 7-9)
+
 **Scope:** Tiered storage with USB drives and capacity planning.
 
 **Deliverables:**
+
 - `GET /api/storage/usb/devices` - Detect USB storage
 - `POST /api/storage/usb/mount` - Mount USB for cold storage
 - `POST /api/storage/usb/unmount` - Safe USB eject
@@ -2200,6 +2298,7 @@ To manage the scope of this architecture, the implementation is divided into **5
 **Document:** `docs/features/phase-3-usb-storage-growth.md`
 
 **Success Criteria:**
+
 - USB detection and mounting working
 - Safe eject prevents data loss
 - Growth projections accurate within 10%
@@ -2208,9 +2307,11 @@ To manage the scope of this architecture, the implementation is divided into **5
 ---
 
 ### Phase 4: Consolidation and Cold Storage (Weeks 10-12)
+
 **Scope:** Partition consolidation and compression for long-term archival.
 
 **Deliverables:**
+
 - `POST /api/partitions/consolidate` - Combine partitions into yearly archives
 - Async job execution with progress tracking
 - Verification and rollback on failure
@@ -2222,6 +2323,7 @@ To manage the scope of this architecture, the implementation is divided into **5
 **Document:** `docs/features/phase-4-consolidation-cold-storage.md`
 
 **Success Criteria:**
+
 - 12 monthly partitions consolidate into 1 yearly archive
 - Compression achieves 70-80% size reduction
 - Consolidation job completes in <15 minutes
@@ -2231,9 +2333,11 @@ To manage the scope of this architecture, the implementation is divided into **5
 ---
 
 ### Phase 5: Migration, Testing, and Production Rollout (Weeks 13-15)
+
 **Scope:** Migration tools, testing, and production deployment.
 
 **Deliverables:**
+
 - Configuration flags (`--enable-partitioning`)
 - Historical backfill tool
 - Partition consolidation CLI wrapper
@@ -2248,6 +2352,7 @@ To manage the scope of this architecture, the implementation is divided into **5
 **Document:** `docs/features/phase-5-migration-production.md`
 
 **Success Criteria:**
+
 - Existing deployments can migrate with zero downtime
 - Rollback procedure tested and documented
 - Performance meets or exceeds targets
@@ -2267,31 +2372,37 @@ To manage the scope of this architecture, the implementation is divided into **5
 ### Advantages
 
 **✅ Bounded Active Database Size**
+
 - Main database stays small (~2-3GB max)
 - Faster writes, faster VACUUM operations
 - Predictable performance characteristics
 
 **✅ Simple Archival and Backup**
+
 - Individual partition files easy to backup
 - Old partitions can be compressed (gzip: ~80% reduction on JSON data)
 - Move to slower/cheaper storage (USB HDD) without affecting active queries
 
 **✅ Retention Policy Implementation**
+
 - Delete partitions older than X months (single file deletion)
 - Privacy compliance: automatic data expiration
 - No complex WHERE clauses or DELETE operations
 
 **✅ Corruption Isolation**
+
 - Corruption limited to single partition
 - Other time periods remain accessible
 - Easier recovery with smaller files
 
 **✅ Query Performance**
+
 - SQLite query planner can skip irrelevant partitions
 - Queries filtered by time range only touch relevant files
 - Smaller indexes per partition
 
 **✅ Storage Flexibility**
+
 - Active data on fast SSD/SD card
 - Archives on slower USB HDD or network storage
 - Tiered storage strategy possible
@@ -2299,26 +2410,31 @@ To manage the scope of this architecture, the implementation is divided into **5
 ### Disadvantages
 
 **❌ Increased Complexity**
+
 - More files to manage
 - Union views need dynamic maintenance
 - Partition rotation logic required
 
 **❌ Query Performance (Cross-Partition)**
+
 - Queries spanning multiple months touch multiple files
 - More disk I/O than single-file approach
 - Union view overhead (though SQLite optimises this)
 
 **❌ ATTACH DATABASE Limits**
+
 - Default 10 attached databases (can increase to 125)
 - Requires recompilation for limits >125
 - Long-running deployments may need partition consolidation
 
 **❌ Operational Overhead**
+
 - Monitoring partition count and disk usage
 - Backup strategy needs partition awareness
 - Debugging spans multiple files
 
 **❌ Derived Table Challenges**
+
 - `radar_data_transits` sessionization may span partition boundaries
 - Late-arriving sessionization updates need handling
 - Trade-off: include derived tables in partition vs keep centralized
@@ -2338,11 +2454,13 @@ VACUUM;  -- Reclaim space
 ```
 
 **Pros:**
+
 - Simplest implementation
 - No schema changes
 - Single database file
 
 **Cons:**
+
 - Data permanently lost (no archival)
 - VACUUM on large database is slow and blocks writes
 - No way to recover deleted data
@@ -2365,11 +2483,13 @@ CREATE TABLE radar_data_2025_01 PARTITION OF radar_data
 ```
 
 **Pros:**
+
 - Native partition management
 - Automatic partition pruning
 - Enterprise-grade features
 
 **Cons:**
+
 - **Major architectural change:** Requires PostgreSQL server
 - Increased deployment complexity (Raspberry Pi resource constraints)
 - Network dependency for remote queries
@@ -2383,11 +2503,13 @@ CREATE TABLE radar_data_2025_01 PARTITION OF radar_data
 **Approach:** Use purpose-built time-series database.
 
 **Pros:**
+
 - Optimized for time-series data
 - Built-in downsampling and retention policies
 - Compression and aggregation features
 
 **Cons:**
+
 - **Major architectural change:** New database technology
 - Increased complexity (separate server process)
 - JSON flexibility lost (fixed schema)
@@ -2401,11 +2523,13 @@ CREATE TABLE radar_data_2025_01 PARTITION OF radar_data
 **Approach:** Store raw data in files (CSV, Parquet), keep metadata in SQLite.
 
 **Pros:**
+
 - Unlimited storage growth
 - Easy to archive/compress
 - Interoperable formats
 
 **Cons:**
+
 - Loss of SQL query capabilities
 - Complex query implementation
 - No transaction guarantees
@@ -2419,10 +2543,12 @@ CREATE TABLE radar_data_2025_01 PARTITION OF radar_data
 **Approach:** Keep recent data in main DB, move old data to SQLite partitions (proposed design) OR compress to read-only formats.
 
 **Pros:**
+
 - Combines benefits of partitioning with flexibility
 - Could use different formats for very old data (CSV for >1 year)
 
 **Cons:**
+
 - Most complex approach
 - Multiple query paths based on data age
 - Difficult to reason about
@@ -2431,14 +2557,14 @@ CREATE TABLE radar_data_2025_01 PARTITION OF radar_data
 
 ### Comparison Matrix
 
-| Approach | Complexity | Data Retention | Query Performance | Storage Efficiency | Recommendation |
-|----------|-----------|----------------|-------------------|-------------------|----------------|
-| **Proposed (SQLite Partitions)** | Medium | ✅ Full archival | ✅ Good (with time filters) | ✅ Good (compression) | ✅ **Recommended** |
-| Data Deletion | Low | ❌ No archival | ✅ Good (small DB) | ⚠️ No archival | ❌ No |
-| PostgreSQL | High | ✅ Full archival | ✅ Excellent | ✅ Good | ❌ Too complex |
-| Time-Series DB | High | ✅ Full archival | ✅ Excellent | ✅ Excellent | ❌ Overkill |
-| External Files | Medium | ✅ Full archival | ❌ Poor | ✅ Good | ❌ No |
-| Hybrid | Very High | ✅ Full archival | ⚠️ Variable | ✅ Excellent | ⚠️ Future |
+| Approach                         | Complexity | Data Retention   | Query Performance           | Storage Efficiency    | Recommendation     |
+| -------------------------------- | ---------- | ---------------- | --------------------------- | --------------------- | ------------------ |
+| **Proposed (SQLite Partitions)** | Medium     | ✅ Full archival | ✅ Good (with time filters) | ✅ Good (compression) | ✅ **Recommended** |
+| Data Deletion                    | Low        | ❌ No archival   | ✅ Good (small DB)          | ⚠️ No archival        | ❌ No              |
+| PostgreSQL                       | High       | ✅ Full archival | ✅ Excellent                | ✅ Good               | ❌ Too complex     |
+| Time-Series DB                   | High       | ✅ Full archival | ✅ Excellent                | ✅ Excellent          | ❌ Overkill        |
+| External Files                   | Medium     | ✅ Full archival | ❌ Poor                     | ✅ Good               | ❌ No              |
+| Hybrid                           | Very High  | ✅ Full archival | ⚠️ Variable                 | ✅ Excellent          | ⚠️ Future          |
 
 ---
 
@@ -2465,15 +2591,18 @@ CREATE TABLE radar_data_2025_01 PARTITION OF radar_data
 **Tiered Storage Strategy:**
 
 **Tier 1: Active (SD Card/SSD)**
+
 - `sensor_data.db` (current month)
 - Fastest access for writes
 
 **Tier 2: Recent Archives (SD Card/SSD)**
+
 - Last 3 months of partitions
 - Frequently queried historical data
 - Report generation typically uses recent data
 
 **Tier 3: Cold Archives (USB HDD/NFS)**
+
 - Partitions older than 3 months
 - Infrequently accessed
 - Can be slower/cheaper storage
@@ -2539,7 +2668,7 @@ Total: 64GB
 **Storage Growth Over Time:**
 
 | Month | Active DB | Recent (SD) | Cold (USB) | SD Card Usage |
-|-------|-----------|-------------|------------|---------------|
+| ----- | --------- | ----------- | ---------- | ------------- |
 | 1     | 3GB       | 0GB         | 0GB        | 13GB (20%)    |
 | 6     | 3GB       | 9GB         | 9GB        | 22GB (34%)    |
 | 12    | 3GB       | 9GB         | 27GB       | 22GB (34%)    |
@@ -2568,6 +2697,7 @@ WantedBy=multi-user.target
 ```
 
 **Fallback to Local Storage:**
+
 ```go
 // Check if archive mount is available, fall back to local if not
 func GetArchiveDir() string {
@@ -2586,6 +2716,7 @@ func GetArchiveDir() string {
 ### Compression Strategy
 
 **Compress Old Partitions:**
+
 ```bash
 # Compress partitions older than 6 months
 gzip /var/lib/velocity-report/archives/2024-*_data.db
@@ -2595,10 +2726,12 @@ gzip /var/lib/velocity-report/archives/2024-*_data.db
 ```
 
 **Trade-off:**
+
 - **Pros:** ~80% storage savings, easy to archive
 - **Cons:** Must decompress for queries, slower access
 
 **Implementation:**
+
 ```go
 // Lazy decompression for queries
 func QueryCompressedPartition(partitionPath string) (*sql.DB, error) {
@@ -2625,6 +2758,7 @@ func QueryCompressedPartition(partitionPath string) (*sql.DB, error) {
 **Goal:** Validate partitioning approach with test data.
 
 **Steps:**
+
 1. Implement partition rotation logic in Go
 2. Test with synthetic data (simulated months of readings)
 3. Benchmark query performance (single-file vs partitioned)
@@ -2632,6 +2766,7 @@ func QueryCompressedPartition(partitionPath string) (*sql.DB, error) {
 5. Test failure scenarios (rotation failure, corruption)
 
 **Deliverables:**
+
 - Working partition rotation code
 - Performance benchmarks
 - Test suite for partitioning logic
@@ -2641,6 +2776,7 @@ func QueryCompressedPartition(partitionPath string) (*sql.DB, error) {
 **Goal:** Allow existing deployments to enable partitioning.
 
 **Steps:**
+
 1. Add configuration flag: `--enable-partitioning`
 2. On first run with flag:
    - Analyse existing data for natural partition boundaries
@@ -2648,11 +2784,13 @@ func QueryCompressedPartition(partitionPath string) (*sql.DB, error) {
 3. Run rotation process on next scheduled trigger
 
 **Backward Compatibility:**
+
 - Default: disabled (single-file behavior)
 - Flag-enabled: partitioning active
 - Rollback: disable flag, union views continue to work
 
 **Example:**
+
 ```bash
 # Enable partitioning on existing deployment
 velocity-report --db-path /var/lib/velocity-report/sensor_data.db \
@@ -2666,6 +2804,7 @@ velocity-report --db-path /var/lib/velocity-report/sensor_data.db \
 **Goal:** Partition existing historical data in main database.
 
 **Approach:**
+
 ```go
 func BackfillPartitions(db *DB, strategy PartitionStrategy) error {
     // 1. Analyse data time range
@@ -2688,6 +2827,7 @@ func BackfillPartitions(db *DB, strategy PartitionStrategy) error {
 ```
 
 **User Decision:**
+
 - **Option A:** Backfill historical data into partitions (takes time, enables full partitioning)
 - **Option B:** Start fresh, keep historical data in main DB (faster, mixed mode)
 
@@ -2696,6 +2836,7 @@ func BackfillPartitions(db *DB, strategy PartitionStrategy) error {
 **Goal:** Partitioning enabled by default for new installations.
 
 **Changes:**
+
 - `--enable-partitioning` becomes default
 - Initial schema creates empty archives directory
 - First rotation occurs on 2nd of second month
@@ -2703,6 +2844,7 @@ func BackfillPartitions(db *DB, strategy PartitionStrategy) error {
 ### Rollback Strategy
 
 **Disable Partitioning:**
+
 ```bash
 # Stop partitioning, revert to single-file
 velocity-report --db-path /var/lib/velocity-report/sensor_data.db \
@@ -2710,11 +2852,13 @@ velocity-report --db-path /var/lib/velocity-report/sensor_data.db \
 ```
 
 **Effect:**
+
 - Union views remain functional (read-only access to partitions)
 - New writes go to main database only
 - Partitions not deleted (preserved as archives)
 
 **Consolidate Partitions:**
+
 ```go
 // Emergency consolidation: merge partitions back into main DB
 func ConsolidatePartitions(db *DB) error {
@@ -2740,11 +2884,13 @@ func ConsolidatePartitions(db *DB) error {
 ### Write Performance
 
 **Single-File (Current):**
+
 - Write performance degrades as database grows
 - VACUUM becomes slow (hours for 30GB+ database)
 - Lock contention increases with size
 
 **Partitioned (Proposed):**
+
 - ✅ Write performance consistent (small active database)
 - ✅ VACUUM fast (~seconds for 3GB active database)
 - ⚠️ Rotation process adds overhead (once per month)
@@ -2752,15 +2898,16 @@ func ConsolidatePartitions(db *DB) error {
 **Benchmark (Raspberry Pi 4):**
 | Database Size | INSERT/sec (Current) | INSERT/sec (Partitioned) |
 |---------------|---------------------|-------------------------|
-| 1GB           | 1000                | 1000                    |
-| 10GB          | 800                 | 1000                    |
-| 30GB          | 500                 | 1000                    |
+| 1GB | 1000 | 1000 |
+| 10GB | 800 | 1000 |
+| 30GB | 500 | 1000 |
 
 **Conclusion:** Partitioning maintains consistent write performance.
 
 ### Query Performance
 
 **Scenario 1: Single-Month Query (Most Common)**
+
 ```sql
 -- Query current month's data
 SELECT * FROM radar_data_all
@@ -2771,6 +2918,7 @@ WHERE write_timestamp BETWEEN <current_month_start> AND <now>;
 **Partitioned:** ✅ Query touches only active partition (faster)
 
 **Scenario 2: Multi-Month Query**
+
 ```sql
 -- Query last 3 months
 SELECT * FROM radar_data_all
@@ -2781,6 +2929,7 @@ WHERE write_timestamp BETWEEN <3_months_ago> AND <now>;
 **Partitioned:** ⚠️ Queries 3 partitions (slower due to UNION)
 
 **Scenario 3: Historical Query (6+ months)**
+
 ```sql
 -- Query last year
 SELECT * FROM radar_data_all
@@ -2802,24 +2951,29 @@ WHERE write_timestamp BETWEEN <1_year_ago> AND <now>;
 ### Storage I/O
 
 **Read Operations:**
+
 - **Current:** Single file seek (faster)
 - **Partitioned:** Multiple file seeks (slower)
 
 **Write Operations:**
+
 - **Current:** Single file write + large index update (slower)
 - **Partitioned:** Single file write + small index update (faster)
 
 **Disk Cache:**
+
 - **Current:** Large working set, frequent cache misses
 - **Partitioned:** Small active working set, better cache hit rate
 
 ### Rotation Overhead
 
 **Rotation Process Duration:**
+
 - ~30-60 seconds for 2.6GB partition (Raspberry Pi 4)
 - Runs once per month at low-traffic time (00:00 UTC)
 
 **Impact:**
+
 - Brief write pause during DELETE phase (~5-10 seconds)
 - Read queries continue normally (WAL mode)
 - Acceptable monthly maintenance window
@@ -2852,6 +3006,7 @@ WHERE write_timestamp BETWEEN <1_year_ago> AND <now>;
    - Alert if latency increases significantly
 
 **Example Monitoring Dashboard:**
+
 ```
 Velocity Report Storage Health
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2891,11 +3046,13 @@ find "$BACKUP_DIR/archives/cold" -name "*.db" -mtime +30 -exec gzip {} \;
 ```
 
 **Backup Frequency:**
+
 - **Active database:** Daily
 - **Recent partitions:** Weekly
 - **Cold partitions:** Monthly (or after creation)
 
 **Recovery:**
+
 ```bash
 # Restore main database
 cp /mnt/backup/sensor_data.db /var/lib/velocity-report/
@@ -2984,11 +3141,13 @@ func PreflightChecks() error {
 ## Implementation Phases
 
 ### Phase 0: Design and Review (Current)
+
 - ✅ Design specification document
 - 🔄 Community feedback and review
 - 🔄 Finalize design decisions
 
 ### Phase 1: Core Partitioning Logic (Weeks 1-2)
+
 - [ ] Implement partition rotation algorithm
 - [ ] Create partition database with schema
 - [ ] Copy data from main to partition
@@ -2997,6 +3156,7 @@ func PreflightChecks() error {
 - [ ] Unit tests for rotation logic
 
 ### Phase 2: Union Views (Week 3)
+
 - [ ] Implement dynamic view generation
 - [ ] ATTACH DATABASE management
 - [ ] Update views after rotation
@@ -3004,6 +3164,7 @@ func PreflightChecks() error {
 - [ ] Performance benchmarks
 
 ### Phase 3: Scheduling and Automation (Week 4)
+
 - [ ] Rotation scheduler (2nd of month 00:00 UTC)
 - [ ] Pre-flight checks (disk space, etc.)
 - [ ] Failure handling and retry logic
@@ -3011,6 +3172,7 @@ func PreflightChecks() error {
 - [ ] Integration tests
 
 ### Phase 4: Storage Management (Week 5)
+
 - [ ] Tiered storage support (recent/cold)
 - [ ] Compression for old partitions
 - [ ] Retention policy enforcement
@@ -3018,6 +3180,7 @@ func PreflightChecks() error {
 - [ ] Storage allocation tools
 
 ### Phase 5: API Management Endpoints (Week 6)
+
 - [ ] Implement `GET /api/partitions` (list attached/available)
 - [ ] Implement `POST /api/partitions/attach` (attach with safety checks)
 - [ ] Implement `POST /api/partitions/detach` (detach with query checks)
@@ -3029,12 +3192,14 @@ func PreflightChecks() error {
 - [ ] Unit and integration tests for API endpoints
 
 ### Phase 6: Migration Tools (Week 7)
+
 - [ ] Configuration flags (`--enable-partitioning`)
 - [ ] Historical backfill tool
 - [ ] Partition consolidation CLI wrapper
 - [ ] Migration documentation
 
 ### Phase 7: Testing and Validation (Week 8)
+
 - [ ] End-to-end testing on Raspberry Pi
 - [ ] Performance benchmarks (write/query)
 - [ ] Long-running stability tests
@@ -3042,6 +3207,7 @@ func PreflightChecks() error {
 - [ ] API endpoint testing (attach/detach/consolidate)
 
 ### Phase 8: Documentation and Release (Week 9)
+
 - [ ] User setup guide
 - [ ] Operations guide
 - [ ] API documentation updates
@@ -3050,6 +3216,7 @@ func PreflightChecks() error {
 - [ ] Release notes
 
 ### Phase 9: Rollout (Week 10+)
+
 - [ ] Alpha release (opt-in, developer testing)
 - [ ] Beta release (community testing)
 - [ ] Stable release (default for new deployments)
@@ -3062,16 +3229,19 @@ func PreflightChecks() error {
 ### Technical Metrics
 
 **Performance:**
+
 - ✅ Write throughput ≥1000 inserts/second on Raspberry Pi 4
 - ✅ p95 query latency ≤200ms for single-month queries
 - ✅ Rotation completes in ≤60 seconds
 
 **Reliability:**
+
 - ✅ 99.9% rotation success rate
 - ✅ Zero data loss during rotation
 - ✅ Recovery from rotation failure ≤5 minutes
 
 **Storage:**
+
 - ✅ Active database size ≤5GB
 - ✅ SD card usage ≤35% for 12-month deployment
 - ✅ Compression ratio ≥70% for archived partitions
@@ -3079,11 +3249,13 @@ func PreflightChecks() error {
 ### Operational Metrics
 
 **Usability:**
+
 - ✅ Setup time ≤10 minutes for new deployment
 - ✅ Migration time ≤1 hour for existing deployment
 - ✅ Zero manual intervention for rotation (automated)
 
 **Maintainability:**
+
 - ✅ Clear error messages for rotation failures
 - ✅ Automated monitoring alerts
 - ✅ Documented rollback procedure
@@ -3091,6 +3263,7 @@ func PreflightChecks() error {
 ### User Satisfaction
 
 **Feedback Targets:**
+
 - ✅ Positive feedback from beta testers (3+ deployments)
 - ✅ No reported data loss incidents
 - ✅ <5% request for rollback to single-file mode
@@ -3153,21 +3326,25 @@ func PreflightChecks() error {
 ## References
 
 ### SQLite Documentation
+
 - [ATTACH DATABASE](https://www.sqlite.org/lang_attach.html)
 - [Limits: Maximum Number of Attached Databases](https://www.sqlite.org/limits.html#max_attached)
 - [Write-Ahead Logging (WAL)](https://www.sqlite.org/wal.html)
 - [Query Planning and Optimization](https://www.sqlite.org/queryplanner.html)
 
 ### Partitioning Patterns
-- [Time-Series Partitioning Best Practices](https://en.wikipedia.org/wiki/Partition_(database))
+
+- [Time-Series Partitioning Best Practices](<https://en.wikipedia.org/wiki/Partition_(database)>)
 - [SQLite Performance Tuning](https://www.sqlite.org/speed.html)
 
 ### Related velocity.report Documentation
+
 - [ARCHITECTURE.md](/ARCHITECTURE.md) - System architecture overview
 - [README.md](/README.md) - Project overview
 - [internal/db/schema.sql](/internal/db/schema.sql) - Current database schema
 
 ### Future Reading
+
 - [Multi-Device Support Design](docs/features/multi-device-support.md) (planned)
 - [Data Retention Policies](docs/features/data-retention.md) (planned)
 
@@ -3175,15 +3352,16 @@ func PreflightChecks() error {
 
 ## Revision History
 
-| Version | Date       | Author   | Changes                          |
-|---------|------------|----------|----------------------------------|
-| 1.0     | 2025-12-01 | Ictinus  | Initial design specification     |
+| Version | Date       | Author  | Changes                      |
+| ------- | ---------- | ------- | ---------------------------- |
+| 1.0     | 2025-12-01 | Ictinus | Initial design specification |
 
 ---
 
 ## Appendix A: Example Queries
 
 ### Query Current Month Data
+
 ```sql
 -- Fast: Only touches active partition
 SELECT * FROM radar_data_all
@@ -3191,6 +3369,7 @@ WHERE write_timestamp BETWEEN UNIXEPOCH('now', 'start of month') AND UNIXEPOCH('
 ```
 
 ### Query Last 3 Months
+
 ```sql
 -- Moderate: Touches 3 partitions
 SELECT * FROM radar_data_all
@@ -3199,6 +3378,7 @@ ORDER BY write_timestamp DESC;
 ```
 
 ### Query Specific Month (Historical)
+
 ```sql
 -- Fast: Only touches one archived partition
 SELECT * FROM radar_data_all
@@ -3207,6 +3387,7 @@ ORDER BY write_timestamp;
 ```
 
 ### Aggregation Across All Time
+
 ```sql
 -- Slower: Touches all partitions, but still reasonable
 SELECT
@@ -3225,6 +3406,7 @@ ORDER BY date;
 ## Appendix B: Configuration Examples
 
 ### Enable Partitioning (New Deployment)
+
 ```bash
 velocity-report \
     --db-path=/var/lib/velocity-report/sensor_data.db \
@@ -3235,6 +3417,7 @@ velocity-report \
 ```
 
 ### Migrate Existing Deployment
+
 ```bash
 # Step 1: Enable partitioning
 velocity-report \
@@ -3254,6 +3437,7 @@ sqlite3 /var/lib/velocity-report/sensor_data.db \
 ```
 
 ### Configure Retention Policy
+
 ```bash
 velocity-report \
     --enable-partitioning \
@@ -3269,28 +3453,34 @@ velocity-report \
 ## Appendix C: Troubleshooting
 
 ### Rotation Failed
+
 **Symptom:** Log shows rotation error, data still in main database.
 
 **Diagnosis:**
+
 ```bash
 journalctl -u velocity-report.service | grep "rotation failed"
 ```
 
 **Causes:**
+
 1. Insufficient disk space
 2. Permission errors on archives directory
 3. Database locked during rotation
 
 **Resolution:**
+
 1. Check disk space: `df -h /var/lib/velocity-report`
 2. Check permissions: `ls -ld /var/lib/velocity-report/archives`
 3. Verify no manual queries locking database
 4. Retry rotation: `systemctl restart velocity-report`
 
 ### Query Performance Degraded
+
 **Symptom:** Queries taking longer than expected.
 
 **Diagnosis:**
+
 ```sql
 -- Check number of attached partitions
 PRAGMA database_list;
@@ -3301,19 +3491,23 @@ SELECT * FROM radar_data_all WHERE write_timestamp > ?;
 ```
 
 **Causes:**
+
 1. Too many attached partitions
 2. Missing indexes on partitions
 3. Query not using time filters (full scan)
 
 **Resolution:**
+
 1. Implement retention policy to limit partition count
 2. Verify indexes: `sqlite3 partition.db ".indexes"`
 3. Optimize query with time range filters
 
 ### Disk Space Exhausted
+
 **Symptom:** Service fails with "disk full" error.
 
 **Diagnosis:**
+
 ```bash
 df -h /var/lib/velocity-report
 du -sh /var/lib/velocity-report/sensor_data.db
@@ -3321,6 +3515,7 @@ du -sh /var/lib/velocity-report/archives/
 ```
 
 **Resolution:**
+
 1. Move cold partitions to USB HDD
 2. Compress old partitions: `gzip archives/*.db`
 3. Delete partitions older than retention policy
@@ -3328,4 +3523,4 @@ du -sh /var/lib/velocity-report/archives/
 
 ---
 
-*End of Design Specification*
+_End of Design Specification_

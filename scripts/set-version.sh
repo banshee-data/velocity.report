@@ -9,6 +9,7 @@ UPDATE_MAKEFILE=0
 UPDATE_WEB=0
 UPDATE_DOCS=0
 UPDATE_PDF=0
+UPDATE_MAC=0
 
 # Color codes for output
 RED='\033[0;31m'
@@ -32,6 +33,7 @@ Targets (default: --all):
   --web         Update web/package.json version
   --docs        Update public_html/package.json version
   --pdf         Update tools/pdf-generator/pyproject.toml version
+  --mac         Update tools/visualiser-macos Xcode project version
 
 Examples:
   # Update all version references
@@ -45,6 +47,9 @@ Examples:
 
   # Update only PDF generator
   $0 0.5.0 --pdf
+
+  # Update only macOS visualiser
+  $0 0.5.0 --mac
 
 EOF
     exit 1
@@ -185,6 +190,34 @@ update_pdf() {
     log_info "Updated $file: $old_version → $VERSION"
 }
 
+# Update tools/visualiser-macos Xcode project
+update_mac() {
+    local project_file="tools/visualiser-macos/VelocityVisualiser.xcodeproj/project.pbxproj"
+    local old_version
+
+    if [[ ! -f "$project_file" ]]; then
+        log_warn "$project_file not found, skipping"
+        return 0
+    fi
+
+    # Extract current MARKETING_VERSION from project.pbxproj
+    old_version=$(grep -E 'MARKETING_VERSION = ' "$project_file" | head -1 | sed 's/.*MARKETING_VERSION = \(.*\);/\1/')
+
+    if [[ -z "$old_version" ]]; then
+        log_error "Could not find MARKETING_VERSION in $project_file"
+        return 1
+    fi
+
+    # Use sed to replace all occurrences of MARKETING_VERSION
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' "s/MARKETING_VERSION = .*/MARKETING_VERSION = $VERSION;/" "$project_file"
+    else
+        sed -i "s/MARKETING_VERSION = .*/MARKETING_VERSION = $VERSION;/" "$project_file"
+    fi
+
+    log_info "Updated $project_file: $old_version → $VERSION"
+}
+
 # Parse arguments
 if [[ $# -lt 1 ]]; then
     usage
@@ -209,6 +242,7 @@ for arg in "$@"; do
             UPDATE_WEB=1
             UPDATE_DOCS=1
             UPDATE_PDF=1
+            UPDATE_MAC=1
             ;;
         --makefile)
             UPDATE_MAKEFILE=1
@@ -222,6 +256,9 @@ for arg in "$@"; do
         --pdf)
             UPDATE_PDF=1
             ;;
+        --mac)
+            UPDATE_MAC=1
+            ;;
         *)
             log_error "Unknown target: $arg"
             usage
@@ -230,7 +267,7 @@ for arg in "$@"; do
 done
 
 # Check if at least one target is selected
-if [[ $UPDATE_MAKEFILE -eq 0 && $UPDATE_WEB -eq 0 && $UPDATE_DOCS -eq 0 && $UPDATE_PDF -eq 0 ]]; then
+if [[ $UPDATE_MAKEFILE -eq 0 && $UPDATE_WEB -eq 0 && $UPDATE_DOCS -eq 0 && $UPDATE_PDF -eq 0 && $UPDATE_MAC -eq 0 ]]; then
     log_error "No targets specified"
     usage
 fi
@@ -244,6 +281,7 @@ EXIT_CODE=0
 [[ $UPDATE_WEB -eq 1 ]] && update_web || EXIT_CODE=$?
 [[ $UPDATE_DOCS -eq 1 ]] && update_docs || EXIT_CODE=$?
 [[ $UPDATE_PDF -eq 1 ]] && update_pdf || EXIT_CODE=$?
+[[ $UPDATE_MAC -eq 1 ]] && update_mac || EXIT_CODE=$?
 
 echo ""
 log_info "Version update complete!"

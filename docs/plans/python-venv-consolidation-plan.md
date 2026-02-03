@@ -9,7 +9,6 @@
 The repository currently has **two conflicting Python virtual environment approaches**:
 
 1. **Root-level venv** (`.venv/`) - Intended for shared use by all Python tools
-
    - Referenced by: Makefile data visualization targets, `scripts/venv-init.sh`, `scripts/install-data-deps.sh`
    - Used by: `data/multisweep-graph/`, plotting scripts
    - **Issue**: Not created by main setup workflows
@@ -517,18 +516,15 @@ git checkout -b consolidate-python-venv
 ## Open Questions
 
 1. **Should we support per-tool additional requirements?**
-
    - If a tool needs packages others don't, where should they be defined?
    - **Recommendation**: Add to root `requirements.in` - keep it simple
 
 2. **How to handle version conflicts?**
-
    - What if PDF generator needs pandas==2.0 but plotting needs pandas==2.1?
    - **Current state**: Both use same versions, so likely not an issue
    - **Recommendation**: Use compatible version ranges in requirements.in
 
 3. **Should scripts/install-data-deps.sh be kept?**
-
    - **Recommendation**: Remove it, use `make install-python` instead
 
 4. **Keep tools/pdf-generator/requirements.txt as documentation?**

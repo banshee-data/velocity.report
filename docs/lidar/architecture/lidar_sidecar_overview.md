@@ -581,18 +581,15 @@ curl -X POST 'http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p' 
 **Key Log Patterns**:
 
 1. **Grid Reset Timing**:
-
    - `[ResetGrid]`: Shows before/after nonzero cell counts
    - `[API:grid_reset]`: API call timing and duration
    - `[API:params]`: Parameter change timing
 
 2. **Grid Population**:
-
    - `[ProcessFramePolar]`: Frame-by-frame grid growth
    - Rate-limited logging every 100 frames or at significant thresholds
 
 3. **Acceptance Decisions**:
-
    - `[ProcessFramePolar:decision]`: Per-cell acceptance/rejection details
    - `[ProcessFramePolar:summary]`: Frame-level acceptance rates
    - Includes: cell state, closeness threshold, neighbor confirmation
@@ -932,21 +929,18 @@ Key test coverage:
 **Goal**: Use existing PCAP captures (cars, pedestrians) to identify optimal background subtraction parameters before implementing clustering.
 
 1. **PCAP Reader Implementation**:
-
    - Add PCAP file reading capability to UDP listener
    - Support both live UDP and PCAP file modes
    - Implement frame replay with configurable speed
    - Add loop mode for continuous parameter testing
 
 2. **Parameter Sweep Integration**:
-
    - Use `bg-sweep` tool for single-parameter sweeps (noise_relative)
    - Use `bg-multisweep` tool for multi-parameter sweeps (noise, closeness, neighbors)
    - Analyze acceptance metrics to identify optimal thresholds
    - Document settling behavior with real-world data
 
 3. **Threshold Identification**:
-
    - Analyze cars PCAP for vehicle detection thresholds
    - Analyze pedestrians PCAP for human detection thresholds
    - Identify optimal NoiseRelativeFraction values
@@ -973,7 +967,6 @@ Key test coverage:
 **Background Parameter Sweep Tools:**
 
 - `cmd/bg-sweep/main.go` - Single-parameter sweeps with acceptance metrics
-
   - Supports noise_relative sweeps
   - Multiple modes: standard, settle, incremental
   - Outputs CSV with acceptance rates by distance bucket

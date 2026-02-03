@@ -5,17 +5,20 @@ This directory contains Python tools for aligning and processing velocity report
 ## Setup
 
 1. Create a virtual environment:
+
 ```bash
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
 2. Install the project (modern approach):
+
 ```bash
 pip install -e .
 ```
 
 3. Or install development dependencies:
+
 ```bash
 pip install -e ".[dev]"
 ```

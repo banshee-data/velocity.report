@@ -20,6 +20,13 @@ help:
 	@echo "  build-deploy-linux   Build velocity-deploy for Linux ARM64"
 	@echo "  build-web            Build web frontend (SvelteKit)"
 	@echo "  build-docs           Build documentation site (Eleventy)"
+	@echo "  build-mac            Build macOS LiDAR visualiser (Xcode)"
+	@echo "  clean-mac            Clean macOS visualiser build artifacts"
+	@echo ""
+	@echo "PROTOBUF CODE GENERATION:"
+	@echo "  proto-gen            Generate protobuf stubs for all languages"
+	@echo "  proto-gen-go         Generate Go protobuf stubs"
+	@echo "  proto-gen-swift      Generate Swift protobuf stubs (macOS visualiser)"
 	@echo ""
 	@echo "INSTALLATION:"
 	@echo "  install-python       Set up Python PDF generator (venv + deps)"
@@ -36,7 +43,7 @@ help:
 	@echo "  dev-docs             Start docs dev server"
 	@echo ""
 	@echo "TESTING:"
-	@echo "  test                 Run all tests (Go + Python + Web)"
+	@echo "  test                 Run all tests (Go + Python + Web + macOS)"
 	@echo "  test-go              Run Go unit tests"
 	@echo "  test-go-cov          Run Go tests with coverage"
 	@echo "  test-go-coverage-summary Show coverage summary for cmd/ and internal/"
@@ -44,6 +51,7 @@ help:
 	@echo "  test-python-cov      Run Python tests with coverage"
 	@echo "  test-web             Run web tests (Jest)"
 	@echo "  test-web-cov         Run web tests with coverage"
+	@echo "  test-mac             Run macOS visualiser tests (XCTest)"
 	@echo "  coverage             Generate coverage reports for all components"
 	@echo ""
 	@echo "DATABASE MIGRATIONS:"
@@ -57,10 +65,12 @@ help:
 	@echo "  schema-sync          Regenerate schema.sql from latest migrations"
 	@echo ""
 	@echo "FORMATTING (mutating):"
-	@echo "  format               Format all code (Go + Python + Web + SQL)"
+	@echo "  format               Format all code (Go + Python + Web + macOS + SQL + Markdown)"
 	@echo "  format-go            Format Go code (gofmt)"
 	@echo "  format-python        Format Python code (black + ruff)"
 	@echo "  format-web           Format web code (prettier)"
+	@echo "  format-mac           Format macOS Swift code (swift-format)"
+	@echo "  format-markdown      Format Markdown files (prettier)"
 	@echo "  format-sql           Format SQL files (sql-formatter)"
 	@echo ""
 	@echo "LINTING (non-mutating, CI-friendly):"
@@ -185,6 +195,121 @@ build-docs:
 		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
 	fi
 	@echo "✓ Docs build complete: public_html/_site/"
+
+# Build macOS LiDAR visualiser (requires macOS and Xcode)
+VISUALISER_DIR = tools/visualiser-macos
+VISUALISER_BUILD_DIR = $(VISUALISER_DIR)/build
+
+.PHONY: build-mac clean-mac
+
+build-mac:
+	@echo "Building macOS LiDAR visualiser..."
+	@if [ "$$(uname)" != "Darwin" ]; then \
+		echo "Error: macOS required for building the visualiser"; \
+		exit 1; \
+	fi
+	@if [ ! -d "$(VISUALISER_DIR)" ]; then \
+		echo "Error: Visualiser directory not found: $(VISUALISER_DIR)"; \
+		echo ""; \
+		echo "The macOS visualiser project hasn't been created yet."; \
+		echo "This is a planned feature currently in the design phase."; \
+		echo ""; \
+		echo "Documentation: docs/lidar/visualiser/"; \
+		exit 1; \
+	fi
+	@if ! command -v xcodebuild >/dev/null 2>&1; then \
+		echo "Error: xcodebuild not found. Install Xcode from the App Store."; \
+		exit 1; \
+	fi
+	@dev_dir=$$(xcode-select -p 2>/dev/null); \
+	if echo "$$dev_dir" | grep -q "CommandLineTools"; then \
+		echo "Error: xcodebuild requires Xcode, but Command Line Tools are active."; \
+		echo ""; \
+		echo "Solutions:"; \
+		echo "  1. Install Xcode from the App Store, then run:"; \
+		echo "     sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer"; \
+		echo ""; \
+		echo "  2. Or if Xcode is already installed but not active:"; \
+		echo "     sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer"; \
+		echo "     sudo xcodebuild -runFirstLaunch"; \
+		echo ""; \
+		echo "Current developer directory: $$dev_dir"; \
+		exit 1; \
+	fi
+	@cd $(VISUALISER_DIR) && xcodebuild \
+		-project VelocityVisualiser.xcodeproj \
+		-scheme VelocityVisualiser \
+		-configuration Release \
+		-derivedDataPath build \
+		build
+	@echo "✓ Visualiser build complete: $(VISUALISER_BUILD_DIR)/Build/Products/Release/"
+
+clean-mac:
+	@echo "Cleaning macOS visualiser build artifacts..."
+	@rm -rf $(VISUALISER_BUILD_DIR)
+	@echo "✓ Clean complete"
+
+# =============================================================================
+# PROTOBUF CODE GENERATION
+# =============================================================================
+
+PROTO_DIR = proto/velocity_visualiser/v1
+PROTO_GO_OUT = internal/lidar/visualiser/pb
+PROTO_SWIFT_OUT = tools/visualiser-macos/VelocityVisualiser/gRPC/Generated
+
+.PHONY: proto-gen proto-gen-go proto-gen-swift
+
+# Generate protobuf stubs for all languages
+proto-gen: proto-gen-go proto-gen-swift
+	@echo "✓ Protobuf generation complete"
+
+# Generate Go protobuf stubs
+proto-gen-go:
+	@echo "Generating Go protobuf stubs..."
+	@mkdir -p $(PROTO_GO_OUT)
+	@if ! command -v protoc >/dev/null 2>&1; then \
+		echo "ERROR: protoc not found; install Protocol Buffers compiler"; \
+		echo "  macOS: brew install protobuf"; \
+		exit 1; \
+	fi
+	@if ! command -v protoc-gen-go >/dev/null 2>&1; then \
+		echo "ERROR: protoc-gen-go not found; install Go protobuf plugin"; \
+		echo "  go install google.golang.org/protobuf/cmd/protoc-gen-go@latest"; \
+		exit 1; \
+	fi
+	@if ! command -v protoc-gen-go-grpc >/dev/null 2>&1; then \
+		echo "ERROR: protoc-gen-go-grpc not found; install Go gRPC plugin"; \
+		echo "  go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest"; \
+		exit 1; \
+	fi
+	@protoc --go_out=$(PROTO_GO_OUT) --go_opt=paths=source_relative \
+	       --go-grpc_out=$(PROTO_GO_OUT) --go-grpc_opt=paths=source_relative \
+	       -I $(PROTO_DIR) $(PROTO_DIR)/visualiser.proto
+	@echo "✓ Go stubs generated in $(PROTO_GO_OUT)"
+
+# Generate Swift protobuf stubs (for macOS visualiser)
+proto-gen-swift:
+	@echo "Generating Swift protobuf stubs..."
+	@mkdir -p $(PROTO_SWIFT_OUT)
+	@if ! command -v protoc >/dev/null 2>&1; then \
+		echo "ERROR: protoc not found; install Protocol Buffers compiler"; \
+		echo "  macOS: brew install protobuf"; \
+		exit 1; \
+	fi
+	@if ! command -v protoc-gen-swift >/dev/null 2>&1; then \
+		echo "ERROR: protoc-gen-swift not found; install Swift protobuf plugin"; \
+		echo "  macOS: brew install swift-protobuf"; \
+		exit 1; \
+	fi
+	@if ! command -v protoc-gen-grpc-swift >/dev/null 2>&1; then \
+		echo "ERROR: protoc-gen-grpc-swift not found; install Swift gRPC plugin"; \
+		echo "  macOS: brew install grpc-swift"; \
+		exit 1; \
+	fi
+	@protoc --swift_out=$(PROTO_SWIFT_OUT) \
+	       --grpc-swift_out=$(PROTO_SWIFT_OUT) \
+	       -I $(PROTO_DIR) $(PROTO_DIR)/visualiser.proto
+	@echo "✓ Swift stubs generated in $(PROTO_SWIFT_OUT)"
 
 # =============================================================================
 # INSTALLATION
@@ -385,12 +510,13 @@ dev-docs:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-go-cov test-go-coverage-summary test-python test-python-cov test-web test-web-cov coverage
+.PHONY: test test-go test-go-cov test-go-coverage-summary test-python test-python-cov test-web test-web-cov test-mac coverage
 
 WEB_DIR = web
+MAC_DIR = tools/visualiser-macos
 
-# Aggregate test target: runs Go, web, and Python tests in sequence
-test: test-go test-web test-python
+# Aggregate test target: runs Go, web, Python, and macOS tests in sequence
+test: test-go test-web test-python test-mac
 
 # Run Go unit tests for the whole repository
 test-go:
@@ -431,6 +557,26 @@ test-web-cov:
 	@echo "Running web (Jest) tests with coverage..."
 	@cd $(WEB_DIR) && pnpm run test:coverage
 	@echo "Coverage report: $(WEB_DIR)/coverage/lcov-report/index.html"
+
+# Run macOS visualiser tests (XCTest)
+test-mac:
+	@echo "Running macOS visualiser tests..."
+	@if [ "$$(uname)" != "Darwin" ]; then \
+		echo "Skipping macOS tests (not on macOS)"; \
+		exit 0; \
+	fi
+	@if [ ! -d "$(MAC_DIR)" ]; then \
+		echo "Skipping macOS tests (project not found)"; \
+		exit 0; \
+	fi
+	@if ! command -v xcodebuild >/dev/null 2>&1; then \
+		echo "Skipping macOS tests (xcodebuild not found)"; \
+		exit 0; \
+	fi
+	@cd $(MAC_DIR) && xcodebuild test \
+		-project VelocityVisualiser.xcodeproj \
+		-scheme VelocityVisualiser \
+		-destination 'platform=macOS'
 
 # Generate coverage reports for all components
 coverage: test-go-cov test-python-cov test-web-cov
@@ -536,9 +682,9 @@ schema-sync:
 # FORMATTING (mutating)
 # =============================================================================
 
-.PHONY: format format-go format-python format-web format-sql
+.PHONY: format format-go format-python format-web format-mac format-markdown format-sql
 
-format: format-go format-python format-web format-sql
+format: format-go format-python format-web format-mac format-markdown format-sql
 	@echo "\nAll formatting targets complete."
 
 format-go:
@@ -562,6 +708,38 @@ format-web:
 		fi; \
 	else \
 		echo "$(WEB_DIR) does not exist; skipping web formatting"; \
+	fi
+
+format-mac:
+	@echo "Formatting macOS Swift code (swift-format)..."
+	@if [ "$$(uname)" != "Darwin" ]; then \
+		echo "Skipping macOS formatting (not on macOS)"; \
+		exit 0; \
+	fi
+	@if [ ! -d "$(MAC_DIR)" ]; then \
+		echo "Skipping macOS formatting (project not found)"; \
+		exit 0; \
+	fi
+	@if command -v swift-format >/dev/null 2>&1; then \
+		cd $(MAC_DIR) && find VelocityVisualiser -name '*.swift' -exec swift-format -i {} \; ; \
+		echo "✓ Swift formatting complete"; \
+	else \
+		echo "swift-format not found; install via: brew install swift-format"; \
+		echo "Skipping macOS formatting"; \
+	fi
+
+format-markdown:
+	@echo "Formatting Markdown files with prettier..."
+	@if [ -d "$(WEB_DIR)" ]; then \
+		if command -v pnpm >/dev/null 2>&1; then \
+			cd $(WEB_DIR) && pnpm exec prettier --write "../**/*.md" || echo "prettier failed"; \
+		elif command -v npx >/dev/null 2>&1; then \
+			cd $(WEB_DIR) && npx prettier --write "../**/*.md" || echo "prettier failed"; \
+		else \
+			echo "pnpm/npx not found; skipping Markdown formatting"; \
+		fi; \
+	else \
+		echo "$(WEB_DIR) does not exist; skipping Markdown formatting"; \
 	fi
 
 format-sql:

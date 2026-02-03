@@ -114,7 +114,6 @@ Stops PCAP replay and **resets the grid** before returning to live data.
    ```
 
 2. **Wait for completion and inspect results:**
-
    - Check grid status: `/api/lidar/grid_status?sensor_id=hesai-pandar40p`
    - View heatmap: `/api/lidar/grid_heatmap?sensor_id=hesai-pandar40p`
    - Export snapshot: `/api/lidar/export_snapshot?sensor_id=hesai-pandar40p`

@@ -35,7 +35,6 @@
 **Root Cause:** Two separate issues identified and fixed:
 
 1. **Warmup Variance:** New cells underestimated true variance, causing false positives during initialisation.
-
    - **Fix:** Warmup sensitivity scaling in `ProcessFramePolarWithMask()` — threshold multiplied by decaying factor (4x → 1x over 100 observations).
 
 2. **recFg Accumulation During Freeze:** Frozen cells incremented `RecentForegroundCount` on every observation, reaching 70+ by freeze end.

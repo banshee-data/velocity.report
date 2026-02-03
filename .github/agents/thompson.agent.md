@@ -146,7 +146,7 @@ Content organized under clear headings.
 Use subsections for related details.
 
 **Bold** for emphasis and UI elements
-*Italic* for terms being defined
+_Italic_ for terms being defined
 `Code` for commands, code, file paths
 ```
 
@@ -165,9 +165,11 @@ make build-local
 
 ```markdown
 # Prefer relative links within the repo
+
 See [Setup Guide](docs/src/guides/setup.md)
 
 # Use descriptive link text, not "click here"
+
 ❌ To learn more, click [here](link)
 ✅ Learn more in the [Architecture documentation](ARCHITECTURE.md)
 ```
@@ -176,16 +178,19 @@ See [Setup Guide](docs/src/guides/setup.md)
 
 ```markdown
 # Use bullet points for unordered information
+
 - Privacy-first design
 - Community-driven
 - Open source
 
 # Use numbered lists for sequential steps
+
 1. Clone the repository
 2. Build the project
 3. Run the server
 
 # Use checkboxes for checklists
+
 - [x] Write documentation
 - [ ] Review changes
 - [ ] Merge PR
@@ -320,7 +325,7 @@ def generate_speed_chart(data: pd.DataFrame, config: dict) -> plt.Figure:
  * />
  */
 export function SpeedChart({ data, maxPoints, showP85 }: Props) {
-    // ...
+  // ...
 }
 ```
 
@@ -340,6 +345,7 @@ What this component does and why it exists.
 ## Quick Start
 
 # Minimal steps to get started
+
 npm install
 npm run dev
 
@@ -460,6 +466,7 @@ that's your p85 speed."
 
 ```markdown
 ✅ Current approach is good - maintain:
+
 - Clear value proposition
 - Visual ASCII art (brand identity)
 - Privacy-first messaging front and center
@@ -527,27 +534,29 @@ See CODE_OF_CONDUCT.md for details.
 
 **GitHub Issue Templates:**
 
-````markdown
+```markdown
 # Bug Report
 
 **Description:**
 A clear, concise description of the bug.
 
 **Steps to Reproduce:**
+
 1. [First step]
 2. [Second step]
 3. [Expected vs actual behavior]
 
 **Environment:**
+
 - Hardware: [Raspberry Pi 4, radar model, etc.]
 - OS: [Ubuntu 22.04, Raspberry Pi OS, etc.]
 - Version: [commit hash or release tag]
 
 **Additional Context:**
 [Logs, screenshots, or other helpful information]
-````
+```
 
-````markdown
+```markdown
 # Feature Request
 
 **Problem Statement:**
@@ -561,7 +570,7 @@ What other approaches might work?
 
 **Privacy Impact:**
 Does this maintain our privacy-first principles?
-````
+```
 
 **Discussion Templates:**
 
@@ -823,21 +832,26 @@ Subsequent: "radar sensor" or "sensor"
 
 **Example 1: Installation Instructions**
 
-```markdown
+````markdown
 ❌ Before:
 Run the command to build the thing.
 
 ✅ After:
 Build the Go server:
+
 ```bash
 make build-local
 ```
+````
+
 This creates `./app-local` in your current directory.
+
 ```
 
 **Example 2: Error Message**
 
 ```
+
 ❌ Before:
 Error: DB connection failed
 
@@ -845,12 +859,14 @@ Error: DB connection failed
 Cannot connect to database at /var/lib/velocity-report/sensor_data.db
 
 Check that:
+
 - The file exists and is readable
 - The velocity-report service has correct permissions
 - The disk is not full
 
 See TROUBLESHOOTING.md for more help.
-```
+
+````
 
 **Example 3: Feature Description**
 
@@ -861,7 +877,7 @@ The system utilises a SQL-based persistence layer for temporal data storage.
 ✅ After:
 Vehicle speed data is stored in a SQLite database for later analysis
 and report generation.
-```
+````
 
 **Example 4: README Introduction**
 

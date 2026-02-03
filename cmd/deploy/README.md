@@ -444,12 +444,14 @@ By default, `velocity-deploy` disables SSH strict host key checking (`StrictHost
 **Security Warning:** This makes connections vulnerable to man-in-the-middle (MITM) attacks. For production deployments:
 
 1. **Configure known_hosts properly:**
+
    ```bash
    # Add the host key to known_hosts on first connection
    ssh-keyscan -H 192.168.1.100 >> ~/.ssh/known_hosts
    ```
 
 2. **Use SSH config for trusted hosts:**
+
    ```ssh-config
    Host production
        HostName velocity.example.com

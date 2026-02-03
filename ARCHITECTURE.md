@@ -194,27 +194,23 @@ All components share a common SQLite database as the single source of truth.
 **Key Modules**:
 
 - **`cmd/radar/`** - Main server entry point
-
   - Sensor data collection (radar/LIDAR)
   - HTTP API server
   - Background task scheduler
   - Systemd service integration
 
 - **`internal/api/`** - HTTP API endpoints
-
   - `/api/radar_stats` - Statistical summaries and rollups
   - `/api/config` - Configuration retrieval
   - `/command` - Send radar commands
   - RESTful design with JSON responses
 
 - **`internal/radar/`** - Radar sensor integration
-
   - Serial port communication
   - Data parsing and validation
   - Error handling and retry logic
 
 - **`internal/lidar/`** - LIDAR sensor integration
-
   - UDP packet listener and decoder (Hesai Pandar40P)
   - `FrameBuilder` accumulates complete 360° rotations with sequence checks
   - `BackgroundManager` maintains EMA grid (40 rings × 1800 azimuth bins)
@@ -222,7 +218,6 @@ All components share a common SQLite database as the single source of truth.
   - Tooling for ASC export, pose transforms, and background tuning APIs
 
 - **`internal/monitoring/`** - System monitoring
-
   - Health checks
   - Performance metrics
   - Error logging
@@ -252,12 +247,10 @@ All components share a common SQLite database as the single source of truth.
 **Key Modules**:
 
 - **`pdf_generator/cli/`** - Command-line tools
-
   - `create_config.py` - Interactive config generator
   - `demo.py` - Interactive demo/test tool
 
 - **`pdf_generator/core/`** - Core functionality
-
   - `api_client.py` - HTTP API client
   - `chart_builder.py` - Matplotlib chart generation
   - `table_builders.py` - LaTeX table generation
@@ -732,29 +725,24 @@ Web Development:
 ### Planned Enhancements
 
 1. **Real-time WebSocket Updates** (Web Frontend)
-
    - Push new readings to browser
    - Live chart updates without polling
 
 2. **Multi-Location Support** (All Components)
-
    - Support multiple sensor deployments
    - Aggregate across locations
 
 3. **Advanced Analytics** (Python + Go)
-
    - Traffic pattern detection
    - Anomaly detection (speeding clusters)
    - Predictive modeling
 
 4. **Mobile App** (New Component)
-
    - iOS/Android apps
    - Push notifications for events
    - Mobile-optimised dashboards
 
 5. **Export Formats** (Python)
-
    - CSV exports
    - Excel reports
    - JSON data dumps

@@ -58,6 +58,7 @@ Allowed prefixes (in order of preference):
 - `[go]` - Go code, server, APIs
 - `[py]` - Python code (PDF generator, tools)
 - `[js]` - JavaScript/TypeScript (SvelteKit frontend, Vite)
+- `[mac]`- macOS files (Swift, xcode) |
 - `[docs]` - Documentation (Markdown guides, READMEs)
 - `[sh]` - Shell scripts (Makefile, bash utilities)
 - `[sql]` - Database schema or SQL migrations

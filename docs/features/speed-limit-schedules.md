@@ -38,37 +38,40 @@ Currently, velocity.report sites can only specify a single static speed limit, m
 
 **Use Case 1: School Zone Monitoring**
 
-*Context:* Elementary school with 15 mph limit during school hours, 25 mph otherwise
+_Context:_ Elementary school with 15 mph limit during school hours, 25 mph otherwise
 
-*Schedule Configuration:*
+_Schedule Configuration:_
+
 - Monday-Friday, 06:00-07:05: 15 mph (morning drop-off)
 - Monday-Friday, 14:00-15:00: 15 mph (afternoon pickup)
 - All other times: 25 mph (default site speed limit)
 
-*Value:* Parents and school administrators can see compliance data specifically during the times when children are present, supporting safety advocacy.
+_Value:_ Parents and school administrators can see compliance data specifically during the times when children are present, supporting safety advocacy.
 
 **Use Case 2: Variable Weekend/Weekday Limits**
 
-*Context:* Residential street with 25 mph weekday, 20 mph weekend
+_Context:_ Residential street with 25 mph weekday, 20 mph weekend
 
-*Schedule Configuration:*
+_Schedule Configuration:_
+
 - Saturday-Sunday, 00:00-23:59: 20 mph
 - Monday-Friday: 25 mph (default site speed limit)
 
-*Value:* Neighborhood association can demonstrate that weekend traffic patterns justify the reduced speed limit.
+_Value:_ Neighborhood association can demonstrate that weekend traffic patterns justify the reduced speed limit.
 
 **Use Case 3: Multi-Period School Zone**
 
-*Context:* School with staggered start times and multiple speed zones
+_Context:_ School with staggered start times and multiple speed zones
 
-*Schedule Configuration:*
+_Schedule Configuration:_
+
 - Monday-Friday, 06:00-07:30: 15 mph (elementary drop-off)
 - Monday-Friday, 07:30-08:00: 20 mph (middle school arrival)
 - Monday-Friday, 14:30-15:30: 15 mph (elementary pickup)
 - Monday-Friday, 15:30-16:00: 20 mph (after-school activities)
 - All other times: 30 mph (default)
 
-*Value:* Detailed analysis of compliance during different school-related time periods.
+_Value:_ Detailed analysis of compliance during different school-related time periods.
 
 ## Target Users
 
@@ -195,6 +198,7 @@ DELETE /api/speed_limit_schedules/site/{siteID}  - Delete all schedules for site
 **GET /api/speed_limit_schedules/site/1 - List schedules for site**
 
 Response (200 OK):
+
 ```json
 [
   {
@@ -223,6 +227,7 @@ Response (200 OK):
 **POST /api/speed_limit_schedules - Create schedule**
 
 Request:
+
 ```json
 {
   "site_id": 1,
@@ -234,6 +239,7 @@ Request:
 ```
 
 Response (201 Created):
+
 ```json
 {
   "id": 3,
@@ -250,6 +256,7 @@ Response (201 Created):
 **PUT /api/speed_limit_schedules/3 - Update schedule**
 
 Request:
+
 ```json
 {
   "site_id": 1,
@@ -261,6 +268,7 @@ Request:
 ```
 
 Response (200 OK):
+
 ```json
 {
   "id": 3,
@@ -348,7 +356,7 @@ function generateTimeOptions(): string[] {
   const options: string[] = [];
   for (let hour = 0; hour < 24; hour++) {
     for (let minute = 0; minute < 60; minute += 5) {
-      const timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+      const timeStr = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
       options.push(timeStr);
     }
   }
@@ -416,12 +424,23 @@ export interface SpeedLimitSchedule {
   updated_at: string;
 }
 
-export async function getSpeedLimitSchedulesForSite(siteId: number): Promise<SpeedLimitSchedule[]>
-export async function getSpeedLimitSchedule(id: number): Promise<SpeedLimitSchedule>
-export async function createSpeedLimitSchedule(schedule: Partial<SpeedLimitSchedule>): Promise<SpeedLimitSchedule>
-export async function updateSpeedLimitSchedule(id: number, schedule: Partial<SpeedLimitSchedule>): Promise<SpeedLimitSchedule>
-export async function deleteSpeedLimitSchedule(id: number): Promise<void>
-export async function deleteAllSpeedLimitSchedulesForSite(siteId: number): Promise<void>
+export async function getSpeedLimitSchedulesForSite(
+  siteId: number,
+): Promise<SpeedLimitSchedule[]>;
+export async function getSpeedLimitSchedule(
+  id: number,
+): Promise<SpeedLimitSchedule>;
+export async function createSpeedLimitSchedule(
+  schedule: Partial<SpeedLimitSchedule>,
+): Promise<SpeedLimitSchedule>;
+export async function updateSpeedLimitSchedule(
+  id: number,
+  schedule: Partial<SpeedLimitSchedule>,
+): Promise<SpeedLimitSchedule>;
+export async function deleteSpeedLimitSchedule(id: number): Promise<void>;
+export async function deleteAllSpeedLimitSchedulesForSite(
+  siteId: number,
+): Promise<void>;
 ```
 
 ### Testing
@@ -592,9 +611,10 @@ User sees all configured schedules
 
 **1. Schedule Resolution Logic**
 
-*Current State:* Schedules are stored but not yet used in report generation or violation detection.
+_Current State:_ Schedules are stored but not yet used in report generation or violation detection.
 
-*Future Enhancement:* Implement a time-based speed limit resolver that:
+_Future Enhancement:_ Implement a time-based speed limit resolver that:
+
 - Takes a timestamp and returns the active speed limit
 - Handles overlapping schedules (precedence rules)
 - Falls back to default site speed limit if no schedule matches
@@ -602,9 +622,10 @@ User sees all configured schedules
 
 **2. Schedule Templates**
 
-*Problem:* Creating the same schedule for all 5 weekdays is repetitive.
+_Problem:_ Creating the same schedule for all 5 weekdays is repetitive.
 
-*Enhancement:* Add schedule templates:
+_Enhancement:_ Add schedule templates:
+
 - "School Zone (Standard)" - 06:00-07:05 and 14:00-15:00, Mon-Fri
 - "Weekend Residential" - All day Saturday and Sunday
 - "Work Zone (9-5)" - 08:00-17:00, Mon-Fri
@@ -612,9 +633,10 @@ User sees all configured schedules
 
 **3. Schedule Visualization**
 
-*Problem:* Grid of schedules is hard to understand at a glance.
+_Problem:_ Grid of schedules is hard to understand at a glance.
 
-*Enhancement:* Visual weekly calendar view:
+_Enhancement:_ Visual weekly calendar view:
+
 - 7 columns (days of week)
 - 24 rows (hours of day)
 - Color-coded speed limit blocks
@@ -623,18 +645,20 @@ User sees all configured schedules
 
 **4. Schedule Validation**
 
-*Current State:* No validation for overlapping or conflicting schedules.
+_Current State:_ No validation for overlapping or conflicting schedules.
 
-*Enhancement:* Pre-save validation:
+_Enhancement:_ Pre-save validation:
+
 - Warn about overlapping time blocks on same day
 - Flag end times before start times
 - Suggest combining adjacent blocks with same limit
 
 **5. Bulk Schedule Operations**
 
-*Problem:* Copying Mon schedule to Tue-Fri requires manual work.
+_Problem:_ Copying Mon schedule to Tue-Fri requires manual work.
 
-*Enhancement:* Bulk operations:
+_Enhancement:_ Bulk operations:
+
 - "Copy to weekdays" button
 - "Copy to all days" button
 - Multi-select schedules for batch delete
@@ -642,9 +666,10 @@ User sees all configured schedules
 
 **6. Schedule Import/Export**
 
-*Problem:* Setting up complex schedules in UI is tedious.
+_Problem:_ Setting up complex schedules in UI is tedious.
 
-*Enhancement:* JSON import/export:
+_Enhancement:_ JSON import/export:
+
 - Export current schedules as JSON file
 - Import schedules from JSON (merge or replace)
 - Share schedule configurations between sites
@@ -652,9 +677,10 @@ User sees all configured schedules
 
 **7. Report Integration**
 
-*Current State:* Reports don't use time-based limits yet.
+_Current State:_ Reports don't use time-based limits yet.
 
-*Enhancement:* Schedule-aware reporting:
+_Enhancement:_ Schedule-aware reporting:
+
 - Split statistics by active speed limit period
 - Show compliance % during school zone hours vs regular hours
 - Highlight violations specific to reduced-limit periods
@@ -662,9 +688,10 @@ User sees all configured schedules
 
 **8. Historical Schedule Tracking**
 
-*Problem:* When schedules change, historical data interpretation is unclear.
+_Problem:_ When schedules change, historical data interpretation is unclear.
 
-*Enhancement:* Schedule versioning:
+_Enhancement:_ Schedule versioning:
+
 - Track effective date ranges for schedule sets
 - Query "what was the speed limit at this timestamp?"
 - Generate reports using schedule active at measurement time
@@ -672,9 +699,10 @@ User sees all configured schedules
 
 **9. Recurring Weekly Patterns**
 
-*Problem:* Schedules repeat weekly but can't handle special dates.
+_Problem:_ Schedules repeat weekly but can't handle special dates.
 
-*Enhancement:* Exception dates:
+_Enhancement:_ Exception dates:
+
 - Mark specific dates as "no school" (use default limit)
 - Summer schedule variants (different months)
 - Holiday overrides
@@ -682,9 +710,10 @@ User sees all configured schedules
 
 **10. Speed Limit Zones (Geographic)**
 
-*Problem:* Single site may have multiple sensors in different speed zones.
+_Problem:_ Single site may have multiple sensors in different speed zones.
 
-*Enhancement:* Multi-zone support:
+_Enhancement:_ Multi-zone support:
+
 - Define zones within a site
 - Assign schedules to specific zones
 - Tag radar sensors with zone ID
@@ -697,6 +726,7 @@ User sees all configured schedules
 **Decision:** Store day of week (0-6) instead of specific dates
 
 **Rationale:**
+
 - School zones repeat weekly, not on specific dates
 - Simpler UI - no calendar picker needed
 - More compact storage - 10 records instead of hundreds
@@ -710,6 +740,7 @@ User sees all configured schedules
 **Decision:** Store times as "06:00" strings instead of absolute timestamps
 
 **Rationale:**
+
 - Times recur daily - "6am" not "6am on Sept 15, 2025"
 - Simpler to edit and validate
 - Human-readable in database queries
@@ -723,6 +754,7 @@ User sees all configured schedules
 **Decision:** Allow overlapping schedules without blocking saves
 
 **Rationale:**
+
 - Overlap rules are ambiguous - should we take first, last, min, max?
 - Users may want to test different configurations
 - Easier to edit if not blocked by temporary overlaps during editing
@@ -735,6 +767,7 @@ User sees all configured schedules
 **Decision:** Use `DEFAULT (STRFTIME('%s', 'now'))` instead of client-provided times
 
 **Rationale:**
+
 - Server is source of truth for timing
 - Avoids client clock skew issues
 - Consistent across all records
@@ -745,6 +778,7 @@ User sees all configured schedules
 **Decision:** `ON DELETE CASCADE` for site_id foreign key
 
 **Rationale:**
+
 - Schedules are meaningless without parent site
 - Prevents orphaned schedule records
 - Simpler site deletion workflow
@@ -755,6 +789,7 @@ User sees all configured schedules
 **Decision:** Time selectors use 00:00, 00:05, 00:10, ..., 23:55
 
 **Rationale:**
+
 - Precision sufficient for school zones (no "6:02am" zones)
 - Reasonable dropdown length (288 options)
 - Matches common scheduling patterns
@@ -768,6 +803,7 @@ User sees all configured schedules
 **Decision:** `/api/speed_limit_schedules` instead of `/api/sites/123/schedules`
 
 **Rationale:**
+
 - Schedules can be CRUD independently from site updates
 - Simpler API client code (fewer nested operations)
 - Better RESTful resource modeling
@@ -779,11 +815,13 @@ User sees all configured schedules
 ### Privacy Considerations
 
 **No PII Collection:**
+
 - Schedules contain only times and speed limits
 - No personal information stored
 - No vehicle identification (consistent with velocity.report principles)
 
 **Local Storage:**
+
 - All schedule data in local SQLite database
 - No transmission to external services
 - User maintains full data control
@@ -791,17 +829,20 @@ User sees all configured schedules
 ### Security Considerations
 
 **Input Validation:**
+
 - Day of week constrained to 0-6
 - Speed limit must be positive integer
 - Time format validated by database
 - Site ID must reference existing site (foreign key constraint)
 
 **SQL Injection Protection:**
+
 - All queries use parameterized statements (`?` placeholders)
 - No string concatenation for SQL construction
 - Foreign key constraints prevent invalid references
 
 **Authorization:**
+
 - Currently no authentication (local-only deployment model)
 - Future: Role-based access if multi-user support added
 
@@ -810,11 +851,13 @@ User sees all configured schedules
 ### Query Optimization
 
 **Index Strategy:**
+
 - `idx_speed_limit_schedule_site` on `site_id` for fast retrieval
 - Most common query: "get all schedules for site X"
 - No index on day_of_week/time (low cardinality, infrequent filtering)
 
 **Typical Query Performance:**
+
 - Single site schedule retrieval: <1ms (indexed)
 - Schedule creation: <1ms
 - Bulk site deletion with cascade: <10ms for 100 schedules
@@ -822,12 +865,14 @@ User sees all configured schedules
 ### UI Performance
 
 **Component Efficiency:**
+
 - Schedules rendered as flat list (not virtualized, max ~50 schedules expected)
 - Time options generated once, cached in component
 - Reactive updates only re-render changed schedule row
 - No debouncing on inputs (instant feedback)
 
 **Network Efficiency:**
+
 - Single GET request on page load
 - Batch save (not per-schedule)
 - No polling (schedules rarely change)
@@ -836,6 +881,7 @@ User sees all configured schedules
 ### Scalability
 
 **Current Limits:**
+
 - No artificial limit on schedules per site
 - Expected usage: 10-20 schedules per site (school zone pattern)
 - Tested with: 100 schedules per site (no performance issues)
@@ -848,6 +894,7 @@ User sees all configured schedules
 **Migration Status:** Schema already in `internal/db/schema.sql`
 
 **Migration Safety:**
+
 - New table, no existing data impact
 - Foreign key to site table (must exist first)
 - No down migration needed (table drop is trivial)
@@ -860,6 +907,7 @@ User sees all configured schedules
 4. Users can immediately start creating schedules
 
 **Backward Compatibility:**
+
 - Existing sites without schedules work unchanged
 - Default site speed limit still primary value
 - Schedules are optional enhancement
@@ -879,17 +927,20 @@ If issues arise after deployment:
 ### Files That Should Reference This Feature
 
 **User-Facing Documentation:**
+
 - [ ] Main README.md - Add to features list
 - [ ] docs/src/guides/setup.md - Add section on configuring schedules
 - [ ] docs/src/guides/reports.md - Explain schedule impact on reporting (future)
 
 **Developer Documentation:**
+
 - [x] ARCHITECTURE.md - Reference schedule subsystem
 - [x] internal/db/README.md - Document speed_limit_schedule table
 - [x] internal/api/README.md - Document schedule endpoints
 - [x] web/README.md - Document SpeedLimitScheduleEditor component
 
 **API Documentation:**
+
 - [ ] API reference doc - Document all schedule endpoints
 - [ ] OpenAPI/Swagger spec - Add schedule endpoints (if created)
 
@@ -934,18 +985,21 @@ CREATE TABLE IF NOT EXISTS speed_limit_schedule (
 ```
 
 **Constraints:**
+
 - `id`: Automatically incremented, unique identifier
 - `site_id`: Must reference existing site, deletes cascade
 - `day_of_week`, `start_time`, `end_time`, `speed_limit`: No NULL values
 - `created_at`, `updated_at`: Default to current Unix timestamp
 
 **Indexes:**
+
 ```sql
 CREATE INDEX IF NOT EXISTS idx_speed_limit_schedule_site
     ON speed_limit_schedule (site_id);
 ```
 
 **Triggers:**
+
 ```sql
 CREATE TRIGGER IF NOT EXISTS update_speed_limit_schedule_timestamp
 AFTER UPDATE ON speed_limit_schedule
@@ -1018,34 +1072,42 @@ curl -X DELETE http://localhost:8080/api/speed_limit_schedules/site/1
 
 ```typescript
 // Props
-export let siteId: number;           // Required: Site ID for new schedules
-export let schedules: SpeedLimitSchedule[] = [];  // Current schedules list
-export let onSchedulesChange: (schedules: SpeedLimitSchedule[]) => void;  // Callback
+export let siteId: number; // Required: Site ID for new schedules
+export let schedules: SpeedLimitSchedule[] = []; // Current schedules list
+export let onSchedulesChange: (schedules: SpeedLimitSchedule[]) => void; // Callback
 
 // Local State
-let daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-let timeOptions: string[];  // Generated 00:00 to 23:55 in 5-min increments
+let daysOfWeek = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+let timeOptions: string[]; // Generated 00:00 to 23:55 in 5-min increments
 
 // Methods
-function addSchedule()                                      // Add new default schedule
-function removeSchedule(index: number)                      // Remove schedule from list
-function updateSchedule(index: number, field: string, value: any)  // Update field
-function generateTimeOptions(): string[]                    // Generate time dropdown options
+function addSchedule(); // Add new default schedule
+function removeSchedule(index: number); // Remove schedule from list
+function updateSchedule(index: number, field: string, value: any); // Update field
+function generateTimeOptions(): string[]; // Generate time dropdown options
 ```
 
 ### Appendix D: Test Case Summary
 
 **Database Layer Tests (speed_limit_schedule_test.go):**
 
-| Test Case | Purpose | Key Assertions |
-|-----------|---------|----------------|
-| CreateSpeedLimitSchedule | Verify schedule creation | ID is set after creation |
-| GetSpeedLimitSchedule | Verify single retrieval | All fields match created schedule |
-| GetSpeedLimitSchedulesForSite | Verify list retrieval | Returns all schedules, sorted correctly |
-| UpdateSpeedLimitSchedule | Verify updates work | Updated fields persist to database |
-| DeleteSpeedLimitSchedule | Verify deletion | Schedule no longer retrievable after delete |
-| DeleteAllSpeedLimitSchedulesForSite | Verify bulk delete | All site schedules removed |
-| GetNonExistentSchedule | Verify error handling | Returns appropriate error |
+| Test Case                           | Purpose                  | Key Assertions                              |
+| ----------------------------------- | ------------------------ | ------------------------------------------- |
+| CreateSpeedLimitSchedule            | Verify schedule creation | ID is set after creation                    |
+| GetSpeedLimitSchedule               | Verify single retrieval  | All fields match created schedule           |
+| GetSpeedLimitSchedulesForSite       | Verify list retrieval    | Returns all schedules, sorted correctly     |
+| UpdateSpeedLimitSchedule            | Verify updates work      | Updated fields persist to database          |
+| DeleteSpeedLimitSchedule            | Verify deletion          | Schedule no longer retrievable after delete |
+| DeleteAllSpeedLimitSchedulesForSite | Verify bulk delete       | All site schedules removed                  |
+| GetNonExistentSchedule              | Verify error handling    | Returns appropriate error                   |
 
 **Coverage:** 100% of database layer functions
 
@@ -1053,17 +1115,17 @@ function generateTimeOptions(): string[]                    // Generate time dro
 
 **Day Numbering Convention:**
 
-| Number | Day | ISO 8601 | Typical Use Case |
-|--------|-----|----------|------------------|
-| 1 | Monday | 1 | School zone active |
-| 2 | Tuesday | 2 | School zone active |
-| 3 | Wednesday | 3 | School zone active |
-| 4 | Thursday | 4 | School zone active |
-| 5 | Friday | 5 | School zone active |
-| 6 | Saturday | 6 | Weekend residential limits |
-| 7 | Sunday | 7 | Weekend residential limits |
+| Number | Day       | ISO 8601 | Typical Use Case           |
+| ------ | --------- | -------- | -------------------------- |
+| 1      | Monday    | 1        | School zone active         |
+| 2      | Tuesday   | 2        | School zone active         |
+| 3      | Wednesday | 3        | School zone active         |
+| 4      | Thursday  | 4        | School zone active         |
+| 5      | Friday    | 5        | School zone active         |
+| 6      | Saturday  | 6        | Weekend residential limits |
+| 7      | Sunday    | 7        | Weekend residential limits |
 
-**Note:**  ISO 8601 (which uses 1=Monday, 7=Sunday). This conforms with using unix seconds and UTC as date standards.
+**Note:** ISO 8601 (which uses 1=Monday, 7=Sunday). This conforms with using unix seconds and UTC as date standards.
 
 ### Appendix F: Related Tables
 
@@ -1083,11 +1145,13 @@ CREATE TABLE IF NOT EXISTS site (
 ```
 
 **Relationship:**
+
 - `site.speed_limit` is the baseline/default speed limit
 - `speed_limit_schedule.speed_limit` overrides default during specified times
 - `site.speed_limit_note` can document the schedule in human-readable form
 
 **Design Pattern:** Default + Exceptions
+
 - Sites have a default speed limit (site.speed_limit)
 - Schedules define exceptions to that default
 - If no schedule matches current time, use default
