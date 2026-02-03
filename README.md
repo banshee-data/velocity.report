@@ -398,6 +398,14 @@ No installation required - use PYTHONPATH method as documented in [tools/pdf-gen
 make test
 ```
 
+**Performance regression testing:**
+
+```sh
+make test-perf NAME=kirk0  # Run performance test against baseline
+```
+
+This compares current performance against saved baselines. If no baseline exists, it creates one.
+
 ### Python Tests (PDF Generator)
 
 ```sh
@@ -413,21 +421,26 @@ The project uses a consistent naming scheme for all make targets: `<action>-<sub
 
 ### Core Subsystem Targets
 
-| Action             | Go                                          | Python            | Web            | Docs           |
-| ------------------ | ------------------------------------------- | ----------------- | -------------- | -------------- |
-| **install**        | -                                           | `install-python`  | `install-web`  | `install-docs` |
-| **dev**            | `dev-go`                                    | -                 | `dev-web`      | `dev-docs`     |
-| **dev (variant)**  | `dev-go-lidar`<br>`dev-go-kill-server`      | -                 | -              | -              |
-| **test**           | `test-go`                                   | `test-python`     | `test-web`     | -              |
-| **test (variant)** | `test-go-cov`<br>`test-go-coverage-summary` | `test-python-cov` | `test-web-cov` | -              |
-| **format**         | `format-go`                                 | `format-python`   | `format-web`   | -              |
-| **lint**           | `lint-go`                                   | `lint-python`     | `lint-web`     | -              |
-| **clean**          | -                                           | `clean-python`    | -              | -              |
+| Action             | Go                                          | Python            | Web            | Docs             | macOS                                   |
+| ------------------ | ------------------------------------------- | ----------------- | -------------- | ---------------- | --------------------------------------- |
+| **install**        | -                                           | `install-python`  | `install-web`  | `install-docs`   | -                                       |
+| **build**          | `build-radar-*`                             | -                 | `build-web`    | `build-docs`     | `build-mac`                             |
+| **dev**            | `dev-go`                                    | -                 | `dev-web`      | `dev-docs`       | `dev-mac`                               |
+| **dev (variant)**  | `dev-go-lidar`<br>`dev-go-kill-server`      | -                 | -              | -                | -                                       |
+| **run**            | -                                           | -                 | -              | -                | `run-mac`                               |
+| **test**           | `test-go`                                   | `test-python`     | `test-web`     | -                | `test-mac`                              |
+| **test (variant)** | `test-go-cov`<br>`test-go-coverage-summary` | `test-python-cov` | `test-web-cov` | -                | -                                       |
+| **format**         | `format-go`                                 | `format-python`   | `format-web`   | `format-markdown`| `format-mac`                            |
+| **lint**           | `lint-go`                                   | `lint-python`     | `lint-web`     | -                | -                                       |
+| **clean**          | -                                           | `clean-python`    | -              | -                | `clean-mac`                             |
+
+**Cross-cutting formatting targets:**
+- `format-sql` - Format SQL files (migrations and schema)
 
 ### Aggregate Targets
 
-- `test` - Run all tests (Go + Python + Web)
-- `format` - Format all code (Go + Python + Web + SQL)
+- `test` - Run all tests (Go + Python + Web + macOS)
+- `format` - Format all code (Go + Python + Web + macOS + SQL + Markdown)
 - `lint` - Lint all code (Go + Python + Web), fails if formatting needed
 - `coverage` - Generate coverage reports for all components
 
@@ -444,6 +457,35 @@ The project uses a consistent naming scheme for all make targets: `<action>-<sub
 - `build-web` - Build web frontend (SvelteKit)
 - `build-docs` - Build documentation site (Eleventy)
 
+### Testing Targets
+
+- `test` - Run all tests (Go + Python + Web + macOS)
+- `test-go` - Run Go unit tests
+- `test-go-cov` - Run Go tests with coverage
+- `test-go-coverage-summary` - Show coverage summary for cmd/ and internal/
+- `test-python` - Run Python PDF generator tests
+- `test-python-cov` - Run Python tests with coverage
+- `test-web` - Run web tests (Jest)
+- `test-web-cov` - Run web tests with coverage
+- `test-mac` - Run macOS visualiser tests (XCTest)
+- `test-perf` - Run performance regression tests (NAME=kirk0)
+- `coverage` - Generate coverage reports for all components
+
+### macOS Visualiser Targets
+
+- `build-mac` - Build macOS LiDAR visualiser (Xcode)
+- `clean-mac` - Clean macOS visualiser build artifacts
+- `run-mac` - Run macOS visualiser (requires build-mac)
+- `dev-mac` - Kill, build, and run macOS visualiser
+- `test-mac` - Run macOS visualiser tests (XCTest)
+- `format-mac` - Format macOS Swift code (swift-format)
+
+### Protobuf Code Generation
+
+- `proto-gen` - Generate protobuf stubs for all languages
+- `proto-gen-go` - Generate Go protobuf stubs
+- `proto-gen-swift` - Generate Swift protobuf stubs (macOS visualiser)
+
 ### Deployment Targets
 
 - `setup-radar` - Install server on this host (requires sudo, legacy)
@@ -453,6 +495,23 @@ The project uses a consistent naming scheme for all make targets: `<action>-<sub
 - `deploy-health` - Run health check using velocity-deploy
 - `deploy-install-latex` - Install LaTeX on remote target (for PDF generation)
 - `deploy-update-deps` - Update source, LaTeX, and Python deps on remote target
+
+### Formatting Targets
+
+- `format` - Format all code (Go + Python + Web + macOS + SQL + Markdown)
+- `format-go` - Format Go code (gofmt)
+- `format-python` - Format Python code (black + ruff)
+- `format-web` - Format web code (prettier)
+- `format-mac` - Format macOS Swift code (swift-format)
+- `format-markdown` - Format Markdown files (prettier)
+- `format-sql` - Format SQL files (sql-formatter)
+
+### Linting Targets
+
+- `lint` - Lint all code (Go + Python + Web), fails if formatting needed
+- `lint-go` - Check Go formatting
+- `lint-python` - Check Python formatting
+- `lint-web` - Check web formatting
 
 ### Database Migration Targets
 
@@ -483,20 +542,41 @@ The project uses a consistent naming scheme for all make targets: `<action>-<sub
 
 ### Data Visualisation Targets
 
-- `plot-noise-sweep` - Generate noise sweep line plot
-- `plot-multisweep` - Generate multi-parameter grid plot
-- `plot-noise-buckets` - Generate per-noise bar charts
-- `stats-live` - Capture live LiDAR grid snapshots
-- `stats-pcap` - Capture snapshots during PCAP replay
+- `plot-noise-sweep` - Generate noise sweep line plot (FILE=data.csv)
+- `plot-multisweep` - Generate multi-parameter grid (FILE=data.csv)
+- `plot-noise-buckets` - Generate per-noise bar charts (FILE=data.csv)
+- `stats-live` - Capture live LiDAR snapshots (INTERVAL=10 DURATION=60)
+- `stats-pcap` - Capture PCAP replay snapshots (PCAP=file.pcap INTERVAL=5)
 
 ### API Shortcut Targets (LiDAR HTTP API)
 
-Grid operations: `api-grid-status`, `api-grid-reset`, `api-grid-heatmap`
-Snapshots: `api-snapshot`, `api-snapshots`
-Acceptance metrics: `api-acceptance`, `api-acceptance-reset`
-Parameters: `api-params`, `api-params-set`
-Export: `api-persist`, `api-export-snapshot`, `api-export-next-frame`
-Status & PCAP: `api-status`, `api-start-pcap`, `api-stop-pcap`, `api-switch-data-source`
+**Grid endpoints:**
+- `api-grid-status` - Get grid status
+- `api-grid-reset` - Reset background grid
+- `api-grid-heatmap` - Get grid heatmap
+
+**Snapshot endpoints:**
+- `api-snapshot` - Get current snapshot
+- `api-snapshots` - List all snapshots
+
+**Acceptance endpoints:**
+- `api-acceptance` - Get acceptance metrics
+- `api-acceptance-reset` - Reset acceptance counters
+
+**Parameter endpoints:**
+- `api-params` - Get algorithm parameters
+- `api-params-set` - Set parameters (PARAMS='{}')
+
+**Persistence and export endpoints:**
+- `api-persist` - Trigger snapshot persistence
+- `api-export-snapshot` - Export specific snapshot
+- `api-export-next-frame` - Export next LiDAR frame
+
+**Status & data source endpoints:**
+- `api-status` - Get server status
+- `api-start-pcap` - Start PCAP replay (PCAP=file.pcap)
+- `api-stop-pcap` - Stop PCAP replay
+- `api-switch-data-source` - Switch live/pcap (SOURCE=live|pcap)
 
 Run `make help` or `make` to see all available targets with descriptions.
 
