@@ -87,10 +87,12 @@ func (p *Publisher) Start() error {
 		return fmt.Errorf("publisher already running")
 	}
 
+	log.Printf("[Visualiser] Attempting to bind to %s...", p.config.ListenAddr)
 	lis, err := net.Listen("tcp", p.config.ListenAddr)
 	if err != nil {
 		return fmt.Errorf("failed to listen: %w", err)
 	}
+	log.Printf("[Visualiser] Successfully bound to %s", p.config.ListenAddr)
 	p.listener = lis
 
 	p.server = grpc.NewServer()
@@ -107,6 +109,7 @@ func (p *Publisher) Start() error {
 	go func() {
 		defer p.wg.Done()
 		log.Printf("[Visualiser] gRPC server listening on %s", p.config.ListenAddr)
+		log.Printf("[Visualiser] Waiting for client connections...")
 		if err := p.server.Serve(lis); err != nil && p.running.Load() {
 			log.Printf("[Visualiser] gRPC server error: %v", err)
 		}

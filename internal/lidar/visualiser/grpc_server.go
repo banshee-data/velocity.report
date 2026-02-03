@@ -52,6 +52,7 @@ func (s *Server) SyntheticGenerator() *SyntheticGenerator {
 
 // StreamFrames implements the streaming RPC for frame data.
 func (s *Server) StreamFrames(req *pb.StreamRequest, stream pb.VisualiserService_StreamFramesServer) error {
+	log.Printf("[gRPC] *** NEW CLIENT CONNECTED ***")
 	log.Printf("[gRPC] StreamFrames started: sensor=%s points=%v clusters=%v tracks=%v",
 		req.SensorId, req.IncludePoints, req.IncludeClusters, req.IncludeTracks)
 
