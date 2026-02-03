@@ -355,7 +355,7 @@ vertex BoxOutput boxVertex(
 
 ### 5.2 Backpressure Strategy
 
-- Frame queue bounded to **10 frames** (~1 second at 10 Hz)
+- Frame queue bounded to **10 frames** (~0.5-1 second at 10-20 Hz)
 - If queue is full, **drop oldest frame**
 - UI shows "frame drop" indicator
 - Client can request reduced decimation to lower bandwidth

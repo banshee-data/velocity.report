@@ -43,7 +43,7 @@ This document defines an incremental, API-first implementation plan with explici
 - [ ] `Makefile` target: `make proto-gen`
 - [ ] Synthetic data generator (rotating points, moving boxes)
 - [ ] gRPC server stub with `StreamFrames` RPC
-- [ ] Serves synthetic `FrameBundle` at 10 Hz
+- [ ] Serves synthetic `FrameBundle` at 10-20 Hz (configurable)
 
 **Acceptance Criteria**:
 
@@ -299,7 +299,7 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 
 ### 4.2 Performance Bottlenecks
 
-**Risk**: 70k points × 10 Hz overwhelms bandwidth or GPU.
+**Risk**: 70k points × 10-20 Hz overwhelms bandwidth or GPU.
 
 **Mitigation**:
 

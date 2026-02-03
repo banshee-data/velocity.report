@@ -25,8 +25,10 @@ UDP packets (port 2368)
 
 ### Key Observations
 
-- Hesai Pandar40P packets are 1262 bytes
-- Motor speed drives frame duration (10 Hz at 600 RPM)
+- Hesai Pandar40P packets are 1262 bytes (see [packet_analysis_results.md](../reference/packet_analysis_results.md) for protocol details)
+- Motor speed drives frame duration: 10-20 Hz (600-1200 RPM)
+  - Sensor supports two speed modes with variable packet rates during transitions
+  - Frame completion time: ~50-100ms depending on motor speed
 - Points stored in polar coordinates initially (`PointPolar`)
 - Converted to Cartesian via `SphericalToCartesian()` in `transform.go`
 

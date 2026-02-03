@@ -59,7 +59,7 @@ A **dedicated 3D visualisation tool** that:
 
 **Performance targets**:
 
-- **Frame rate**: ≥10 Hz (match sensor rotation rate)
+- **Frame rate**: 10-20 Hz (match sensor rotation rate, variable based on motor speed)
 - **Latency**: <100ms end-to-end (sensor → pipeline → viewer)
 - **Point count**: up to 70,000 points/frame (full Pandar40P rotation)
 
@@ -125,7 +125,7 @@ A **dedicated 3D visualisation tool** that:
 
 ### Must-Have (MVP)
 
-- [ ] Live point cloud streaming at 10 Hz
+- [ ] Live point cloud streaming at 10-20 Hz (variable motor speed)
 - [ ] Cluster bounding boxes (AABB)
 - [ ] Track IDs and lifecycle states (colours)
 - [ ] Velocity vectors (arrows)

@@ -25,7 +25,7 @@ This API is designed to align with the **7-DOF industry standard** for 3D boundi
 
 ## 1. Canonical Conceptual Model
 
-The visualiser consumes a **frame-oriented data stream** from the pipeline. Each frame represents one complete LiDAR rotation (~100ms at 10 Hz) and contains:
+The visualiser consumes a **frame-oriented data stream** from the pipeline. Each frame represents one complete LiDAR rotation (~50-100ms at 10-20 Hz, depending on motor speed) and contains:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -602,20 +602,20 @@ All data at full fidelity:
 - Points: 70,000 per frame × 16 bytes = ~1.1 MB/frame
 - Clusters: ~50 × 100 bytes = ~5 KB/frame
 - Tracks: ~20 × 200 bytes = ~4 KB/frame
-- **Total**: ~1.1 MB/frame × 10 Hz = ~11 MB/s
+- **Total**: ~1.1 MB/frame × 10-20 Hz = ~11-22 MB/s
 
 ### 6.2 Foreground-Only Mode
 
 Only foreground points (typically 5-10% of total):
 
 - Points: 7,000 per frame × 16 bytes = ~112 KB/frame
-- **Total**: ~120 KB/frame × 10 Hz = ~1.2 MB/s
+- **Total**: ~120 KB/frame × 10-20 Hz = ~1.2-2.4 MB/s
 
 ### 6.3 Tracks-Only Mode
 
 No point cloud, clusters/tracks only:
 
-- **Total**: ~10 KB/frame × 10 Hz = ~100 KB/s
+- **Total**: ~10 KB/frame × 10-20 Hz = ~100-200 KB/s
 
 ### 6.4 Overlay Toggles
 
