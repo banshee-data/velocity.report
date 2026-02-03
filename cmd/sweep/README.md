@@ -121,7 +121,6 @@ Run sweeps using PCAP file replay instead of live data:
 The tool generates two CSV files:
 
 1. **Summary file** (`sweep-<mode>-<timestamp>.csv`):
-
    - One row per parameter combination
    - Mean and stddev for each acceptance bucket
    - Mean and stddev for nonzero cells

@@ -28,6 +28,7 @@ To compile with the original custom fonts (Atkinson Hyperlegible):
 Visit: https://brailleinstitute.org/freefont
 
 Download the font family and extract these files:
+
 - AtkinsonHyperlegible-Regular.ttf
 - AtkinsonHyperlegible-Italic.ttf
 - AtkinsonHyperlegible-Bold.ttf
@@ -53,6 +54,7 @@ The `*_report_fonts.tex` file expects fonts in `./fonts/` relative to the TEX fi
 ## Editing Charts
 
 The chart PDFs are included so you can:
+
 1. Edit the TEX file to adjust layout, text, or tables
 2. Replace chart PDFs with your own custom versions
 3. Recompile to generate a modified report

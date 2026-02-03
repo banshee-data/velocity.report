@@ -8,14 +8,15 @@ This is the **most critical document** for the visualiser project. It defines th
 
 This API is designed to align with the **7-DOF industry standard** for 3D bounding boxes used in autonomous vehicle (AV) perception systems:
 
-| Standard Element | Implementation | Reference |
-|-----------------|----------------|-----------|
-| **7-DOF Bounding Box** | `OrientedBoundingBox` message | [av-lidar-integration-plan.md](../future/av-lidar-integration-plan.md) |
-| **Coordinate Convention** | ENU: +X East, +Y North, +Z Up (world frame) | [static-pose-alignment-plan.md](../future/static-pose-alignment-plan.md) |
-| **Heading Convention** | Radians, [-π, π], rotation around Z-axis | AV industry standard |
-| **Units** | Metres for positions/dimensions, radians for angles | SI units |
+| Standard Element          | Implementation                                      | Reference                                                                |
+| ------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------ |
+| **7-DOF Bounding Box**    | `OrientedBoundingBox` message                       | [av-lidar-integration-plan.md](../future/av-lidar-integration-plan.md)   |
+| **Coordinate Convention** | ENU: +X East, +Y North, +Z Up (world frame)         | [static-pose-alignment-plan.md](../future/static-pose-alignment-plan.md) |
+| **Heading Convention**    | Radians, [-π, π], rotation around Z-axis            | AV industry standard                                                     |
+| **Units**                 | Metres for positions/dimensions, radians for angles | SI units                                                                 |
 
 **Key alignment points:**
+
 - `OrientedBoundingBox` matches `BoundingBox7DOF` from `av-lidar-integration-plan.md`
 - Future AV dataset import can use the same data structures
 - Compatible with the 28-class AV taxonomy (via extensible `class_label` field)

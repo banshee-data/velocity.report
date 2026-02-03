@@ -12,6 +12,7 @@
 This document proposes an alternative algorithm for isolating foreground points from LIDAR data that addresses the limitations of the current background-subtraction approach. The key innovation is **velocity-coherent point association**, which tracks clusters of points moving at consistent velocities through 3D space, even when reduced to as few as ~3 points.
 
 **Key Features:**
+
 - **Velocity-based clustering**: Associate points by kinematic coherence, not just spatial proximity
 - **Long-tail tracking**: Capture the complete trajectory including pre-entry and post-exit phases
 - **Sparse continuation**: Maintain track identity with minimal point counts (~3 points)
@@ -74,6 +75,7 @@ isBackground := cellDiff <= closenessThreshold
 ### Human Vision Baseline
 
 Human observers can identify moving objects in LIDAR point clouds with as few as **3 points** by leveraging:
+
 - **Motion continuity**: Points move together at consistent velocity
 - **Spatial coherence**: Points form a connected cluster in 3D
 - **Temporal persistence**: Pattern repeats across frames
@@ -95,14 +97,14 @@ Instead of classifying points as foreground/background in isolation, we:
 
 ### Key Innovations
 
-| Feature | Current System | Proposed System |
-|---------|----------------|-----------------|
-| Point classification | Per-point, polar, static | Velocity-coherent, temporal |
-| Minimum cluster size | 12 points (DBSCAN MinPts) | 3 points (velocity-confirmed) |
-| Track lifecycle | Hits/misses counter | Velocity prediction window |
-| Pre-entry handling | Missed (warmup suppression) | Predicted from velocity |
-| Post-exit handling | Deleted after MaxMisses | Continued via prediction |
-| Fragmentation | Multiple tracks | Merged via kinematic matching |
+| Feature              | Current System              | Proposed System               |
+| -------------------- | --------------------------- | ----------------------------- |
+| Point classification | Per-point, polar, static    | Velocity-coherent, temporal   |
+| Minimum cluster size | 12 points (DBSCAN MinPts)   | 3 points (velocity-confirmed) |
+| Track lifecycle      | Hits/misses counter         | Velocity prediction window    |
+| Pre-entry handling   | Missed (warmup suppression) | Predicted from velocity       |
+| Post-exit handling   | Deleted after MaxMisses     | Continued via prediction      |
+| Fragmentation        | Multiple tracks             | Merged via kinematic matching |
 
 ---
 
@@ -441,6 +443,7 @@ func Distance6D(
 **Critical change**: Reduce `MinPts` from 12 to **3** for velocity-coherent clustering.
 
 Justification:
+
 - Velocity coherence provides strong confirmation (points moving together)
 - Human eye can identify objects with 3 consistent points
 - Distant/sparse objects produce fewer returns but still have coherent motion
@@ -470,6 +473,7 @@ type Clustering6DConfig struct {
 ### Objective
 
 Extend track lifetimes to capture:
+
 - **Pre-tail**: Objects entering the sensor field (before full clustering)
 - **Post-tail**: Objects exiting the sensor field (after point density drops)
 
@@ -732,12 +736,12 @@ func IsSparseTrackValid(
 
 As point count decreases, we progressively tighten velocity constraints:
 
-| Point Count | Velocity Tolerance | Spatial Tolerance | Notes |
-|-------------|-------------------|-------------------|-------|
-| ≥12 | ±2.0 m/s | ±1.0 m | Standard DBSCAN clustering |
-| 6-11 | ±1.5 m/s | ±0.8 m | Reduced tolerance |
-| 3-5 | ±0.5 m/s | ±0.5 m | Strict velocity match required |
-| <3 | N/A | N/A | Rely on prediction only |
+| Point Count | Velocity Tolerance | Spatial Tolerance | Notes                          |
+| ----------- | ------------------ | ----------------- | ------------------------------ |
+| ≥12         | ±2.0 m/s           | ±1.0 m            | Standard DBSCAN clustering     |
+| 6-11        | ±1.5 m/s           | ±0.8 m            | Reduced tolerance              |
+| 3-5         | ±0.5 m/s           | ±0.5 m            | Strict velocity match required |
+| <3          | N/A                | N/A               | Rely on prediction only        |
 
 ```go
 func (t *VelocityCoherentTracker) adaptiveTolerances(pointCount int) (velTol, spatialTol float64) {
@@ -761,6 +765,7 @@ func (t *VelocityCoherentTracker) adaptiveTolerances(pointCount int) (velTol, sp
 ### Objective
 
 Reconnect track fragments that were split due to:
+
 - Occlusion gaps exceeding MaxMisses
 - Sensor noise causing temporary point loss
 - Objects passing through blind spots
@@ -1111,14 +1116,17 @@ func (h *FrameHistory) Previous(offset int) *PointVelocityFrame {
 ### Dual-Source Architecture (Matching Radar Pattern)
 
 Just as the radar system maintains two independent transit sources:
+
 - **`radar_objects`**: Hardware classifier from OPS243 sensor
 - **`radar_data_transits`**: Software sessionization algorithm
 
 The LIDAR system will maintain two independent track sources:
+
 - **`lidar_tracks`**: Existing background-subtraction + DBSCAN clustering (MinPts=12)
 - **`lidar_velocity_coherent_tracks`**: New velocity-coherent extraction (MinPts=3)
 
 Both track sources are:
+
 1. **Stored independently** in separate database tables
 2. **Queryable via API** with a `source` parameter to select which algorithm
 3. **Comparable in dashboards** for performance evaluation
@@ -1310,30 +1318,30 @@ CREATE INDEX idx_track_merges_result ON lidar_track_merges(result_track_id);
 
 ### Phase Timeline
 
-| Phase | Description | Duration | Priority | Dependencies |
-|-------|-------------|----------|----------|--------------|
-| 1 | Point-Level Velocity Estimation | 1-2 weeks | P0 | None |
-| 2 | 6D DBSCAN Clustering | 1 week | P0 | Phase 1 |
-| 3 | Long-Tail Track Management | 1-2 weeks | P1 | Phase 2 |
-| 4 | Sparse Continuation Logic | 1 week | P1 | Phase 2 |
-| 5 | Track Fragment Merging | 1-2 weeks | P2 | Phases 3, 4 |
-| Integration | Dual Pipeline + API | 1 week | P1 | All phases |
+| Phase       | Description                     | Duration  | Priority | Dependencies |
+| ----------- | ------------------------------- | --------- | -------- | ------------ |
+| 1           | Point-Level Velocity Estimation | 1-2 weeks | P0       | None         |
+| 2           | 6D DBSCAN Clustering            | 1 week    | P0       | Phase 1      |
+| 3           | Long-Tail Track Management      | 1-2 weeks | P1       | Phase 2      |
+| 4           | Sparse Continuation Logic       | 1 week    | P1       | Phase 2      |
+| 5           | Track Fragment Merging          | 1-2 weeks | P2       | Phases 3, 4  |
+| Integration | Dual Pipeline + API             | 1 week    | P1       | All phases   |
 
 ### Implementation Files (Proposed)
 
-| Phase | File | Description |
-|-------|------|-------------|
-| 1 | `internal/lidar/velocity_estimation.go` | Per-point velocity computation |
-| 1 | `internal/lidar/velocity_estimation_test.go` | Unit tests |
-| 2 | `internal/lidar/clustering_6d.go` | 6D DBSCAN implementation |
-| 2 | `internal/lidar/clustering_6d_test.go` | Unit tests |
-| 3 | `internal/lidar/long_tail.go` | Pre-tail and post-tail logic |
-| 3 | `internal/lidar/long_tail_test.go` | Unit tests |
-| 4 | `internal/lidar/sparse_continuation.go` | Sparse track validation |
-| 5 | `internal/lidar/track_merge.go` | Fragment detection and merging |
-| 5 | `internal/lidar/track_merge_test.go` | Unit tests |
-| Integration | `internal/lidar/velocity_coherent_tracker.go` | Combined pipeline |
-| Integration | `internal/lidar/monitor/velocity_api.go` | REST endpoints |
+| Phase       | File                                          | Description                    |
+| ----------- | --------------------------------------------- | ------------------------------ |
+| 1           | `internal/lidar/velocity_estimation.go`       | Per-point velocity computation |
+| 1           | `internal/lidar/velocity_estimation_test.go`  | Unit tests                     |
+| 2           | `internal/lidar/clustering_6d.go`             | 6D DBSCAN implementation       |
+| 2           | `internal/lidar/clustering_6d_test.go`        | Unit tests                     |
+| 3           | `internal/lidar/long_tail.go`                 | Pre-tail and post-tail logic   |
+| 3           | `internal/lidar/long_tail_test.go`            | Unit tests                     |
+| 4           | `internal/lidar/sparse_continuation.go`       | Sparse track validation        |
+| 5           | `internal/lidar/track_merge.go`               | Fragment detection and merging |
+| 5           | `internal/lidar/track_merge_test.go`          | Unit tests                     |
+| Integration | `internal/lidar/velocity_coherent_tracker.go` | Combined pipeline              |
+| Integration | `internal/lidar/monitor/velocity_api.go`      | REST endpoints                 |
 
 ### Milestones
 
@@ -1350,13 +1358,14 @@ CREATE INDEX idx_track_merges_result ON lidar_track_merges(result_track_id);
 
 ### A. Point Correspondence Optimization
 
-Given frames F_{n-1} and F_n, find optimal point correspondences C: F_{n-1} → F_n that minimize:
+Given frames F*{n-1} and F_n, find optimal point correspondences C: F*{n-1} → F_n that minimize:
 
 ```
 L(C) = Σ_{i∈F_n} [ w_pos * d_pos(i, C(i)) + w_vel * d_vel(i, C(i)) ]
 ```
 
 Where:
+
 - `d_pos(i, j)` = Euclidean distance between points i and j
 - `d_vel(i, j)` = Velocity consistency with local neighborhood
 - `w_pos`, `w_vel` = Weighting factors
@@ -1370,6 +1379,7 @@ D_6D(p, q) = √[ α(Δx² + Δy² + Δz²) + β(Δvx² + Δvy² + Δvz²) ]
 ```
 
 Where:
+
 - α = position weight (default 1.0)
 - β = velocity weight (default 2.0)
 - Higher β emphasizes velocity coherence
@@ -1383,6 +1393,7 @@ S_trajectory = cos(θ_exit, θ_entry) * exp(-|v_exit - v_entry| / σ_v)
 ```
 
 Where:
+
 - θ_exit = heading angle at A's exit
 - θ_entry = heading angle at B's entry
 - v_exit, v_entry = speed magnitudes
@@ -1396,25 +1407,25 @@ Where:
 
 The implementation applies practical simplifications for traffic monitoring use case:
 
-| Design Section | Original Spec | Implementation | Rationale |
-|----------------|---------------|----------------|-----------|
-| **Tracking Model** | 6D (x,y,z,vx,vy,vz) | 2D+velocity (x,y,vx,vy) | Ground-plane assumption valid |
-| **6D DBSCAN** | Full 6D spatial index | Sequential 3D position + velocity filter | Simpler, reuses existing index |
-| **MinPts** | 3 | 3 ✅ | Implemented as designed |
-| **Velocity Estimation** | Frame correspondence + back-projection | Frame correspondence ✅ | Implemented as designed |
-| **Long-Tail Tracking** | Pre-tail + post-tail states | Implemented ✅ | Working as designed |
-| **Fragment Merging** | Full kinematic matching | Basic implementation ✅ | Simplified merge criteria |
-| **Sparse Continuation** | Adaptive tolerances by point count | Implemented ✅ | Working as designed |
+| Design Section          | Original Spec                          | Implementation                           | Rationale                      |
+| ----------------------- | -------------------------------------- | ---------------------------------------- | ------------------------------ |
+| **Tracking Model**      | 6D (x,y,z,vx,vy,vz)                    | 2D+velocity (x,y,vx,vy)                  | Ground-plane assumption valid  |
+| **6D DBSCAN**           | Full 6D spatial index                  | Sequential 3D position + velocity filter | Simpler, reuses existing index |
+| **MinPts**              | 3                                      | 3 ✅                                     | Implemented as designed        |
+| **Velocity Estimation** | Frame correspondence + back-projection | Frame correspondence ✅                  | Implemented as designed        |
+| **Long-Tail Tracking**  | Pre-tail + post-tail states            | Implemented ✅                           | Working as designed            |
+| **Fragment Merging**    | Full kinematic matching                | Basic implementation ✅                  | Simplified merge criteria      |
+| **Sparse Continuation** | Adaptive tolerances by point count     | Implemented ✅                           | Working as designed            |
 
 ### Key Implementation Files
 
-| Phase | Design File | Implementation File |
-|-------|-------------|---------------------|
-| Phase 1 | This document §4 | `velocity_estimation.go` |
-| Phase 2 | This document §5 | `velocity_coherent_clustering.go` |
-| Phase 3 | This document §6 | `velocity_coherent_tracking.go` |
-| Phase 4 | This document §7 | `velocity_coherent_tracking.go` |
-| Phase 5 | This document §8 | `velocity_coherent_merging.go` |
+| Phase       | Design File       | Implementation File                                |
+| ----------- | ----------------- | -------------------------------------------------- |
+| Phase 1     | This document §4  | `velocity_estimation.go`                           |
+| Phase 2     | This document §5  | `velocity_coherent_clustering.go`                  |
+| Phase 3     | This document §6  | `velocity_coherent_tracking.go`                    |
+| Phase 4     | This document §7  | `velocity_coherent_tracking.go`                    |
+| Phase 5     | This document §8  | `velocity_coherent_merging.go`                     |
 | Integration | This document §10 | `dual_pipeline.go`, `velocity_coherent_tracker.go` |
 
 ### What Was NOT Implemented (Deferred)
@@ -1430,6 +1441,7 @@ These features from the original design are deferred to future AV integration wo
 ### Performance Observations
 
 From testing with PCAP replay:
+
 - **MinPts=3** successfully captures sparse distant objects
 - **Velocity coherence** significantly reduces false positives from background noise
 - **Fragment merging** recovers ~10-15% of tracks split by occlusion gaps

@@ -20,6 +20,7 @@
 ## Executive Summary
 
 velocity.report currently consists of multiple CLI applications with overlapping concerns:
+
 - **1 main application** (radar) - production service with optional lidar integration
 - **4 utility applications** - deployment, sweep testing, backfill, and tools
 - **59 Makefile targets** - build, test, deploy, and development tasks
@@ -55,6 +56,7 @@ velocity-report --enable-lidar --lidar-listen :8081
 #### CLI Flags
 
 **Core Service Flags (5):**
+
 - `--listen :8080` - HTTP listen address for API server
 - `--db-path sensor_data.db` - Path to SQLite database file
 - `--debug` - Run in debug mode (mock serial mux, extra logging)
@@ -62,12 +64,14 @@ velocity-report --enable-lidar --lidar-listen :8081
 - `--version`, `-v` - Print version information and exit
 
 **Radar Hardware Flags (4):**
+
 - `--port /dev/ttySC1` - Serial device path for radar sensor
 - `--disable-radar` - Disable radar serial I/O (serve DB/HTTP only)
 - `--units mph` - Display units (`mps`, `mph`, `kmph`)
 - `--timezone UTC` - Timezone for display
 
 **LiDAR Integration Flags (9):**
+
 - `--enable-lidar` - Enable in-process lidar components
 - `--lidar-listen :8081` - HTTP listen address for lidar monitor
 - `--lidar-udp-port 2369` - UDP port for lidar packets
@@ -79,6 +83,7 @@ velocity-report --enable-lidar --lidar-listen :8081
 - `--lidar-pcap-dir ../sensor_data/lidar` - Safe directory for PCAP files
 
 **LiDAR Background Tuning Flags (5):**
+
 - `--lidar-bg-flush-interval 60s` - Background grid flush interval
 - `--lidar-bg-noise-relative 0.315` - Background noise relative fraction
 - `--lidar-frame-buffer-timeout 500ms` - Frame buffer timeout
@@ -97,6 +102,7 @@ velocity-report --enable-lidar --lidar-listen :8081
 #### HTTP Endpoints Served
 
 **Radar API (`:8080` by default):**
+
 - `GET /events` - List radar detection events
 - `POST /command` - Send command to serial port
 - `GET /api/radar_stats` - Get radar statistics with grouping
@@ -113,6 +119,7 @@ velocity-report --enable-lidar --lidar-listen :8081
 - `GET /` - Redirect to `/app/`
 
 **Admin Routes (`:8080/debug/`):**
+
 - `/debug/tailsql/` - SQL debugging interface (tsweb)
 - `/debug/backup` - Create and download database backup
 - `/debug/send-command` - Send command to serial port (HTML UI)
@@ -121,6 +128,7 @@ velocity-report --enable-lidar --lidar-listen :8081
 - `/debug/serial-disabled` - Status page when radar disabled
 
 **LiDAR Monitor (`:8081` when `--enable-lidar`):**
+
 - `GET /health` - Health check
 - `GET /` - Status page (HTML dashboard)
 - `GET /api/lidar/status` - LiDAR system status
@@ -166,38 +174,46 @@ sweep --pcap recording.pcap --pcap-settle 20s
 #### CLI Flags
 
 **Core Configuration:**
+
 - `--monitor http://localhost:8081` - Base URL for lidar monitor API
 - `--sensor hesai-pandar40p` - Sensor ID
 - `--output <file>` - Output CSV filename (defaults to `sweep-<mode>-<timestamp>.csv`)
 
 **PCAP Support:**
+
 - `--pcap <file>` - PCAP file to replay (enables PCAP mode)
 - `--pcap-settle 20s` - Wait time after PCAP replay before sampling
 
 **Sweep Mode Selection:**
+
 - `--mode multi` - Sweep mode: `multi`, `noise`, `closeness`, `neighbor`
 
 **Parameter Ranges for Multi-Sweep:**
+
 - `--noise <values>` - Comma-separated noise values or range `start:end:step`
 - `--closeness <values>` - Comma-separated closeness values or range
 - `--neighbors <values>` - Comma-separated neighbour values
 
 **Single-Variable Sweep Ranges:**
+
 - `--noise-start`, `--noise-end`, `--noise-step` - Noise sweep parameters
 - `--closeness-start`, `--closeness-end`, `--closeness-step` - Closeness sweep
 - `--neighbor-start`, `--neighbor-end`, `--neighbor-step` - Neighbor sweep
 
 **Fixed Values (for single-variable sweeps):**
+
 - `--fixed-noise 0.01`
 - `--fixed-closeness 2.0`
 - `--fixed-neighbor 1`
 
 **Sampling Configuration:**
+
 - `--iterations 30` - Samples per parameter combination
 - `--interval 2s` - Interval between samples
 - `--settle-time 5s` - Time to wait for grid to settle after applying params
 
 **Seed Control:**
+
 - `--seed true` - Seed behavior: `true`, `false`, or `toggle`
 
 **Total:** 20+ flags
@@ -236,36 +252,44 @@ deploy upgrade --target mypi --binary ./new-binary
 #### Subcommands
 
 **`install`** - Install velocity.report service
+
 - `--binary` (required) - Path to velocity-report binary
 - `--db-path` - Path to existing database to migrate
 - `--dry-run`
 
 **`upgrade`** - Upgrade to newer version
+
 - `--binary` (required) - Path to new binary
 - `--no-backup` - Skip backup before upgrade
 - `--dry-run`
 
 **`fix`** - Diagnose and repair broken installation
+
 - `--binary` - Path to binary (optional, for fixing missing binary)
 - `--repo-url` - Git repo URL
 - `--build-from-source` - Build binary from source on server (requires Go)
 - `--dry-run`
 
 **`status`** - Check service status
+
 - `--api-port 8080` - API server port
 - `--timeout 30` - Timeout in seconds
 - `--scan` - Perform detailed disk scan
 
 **`health`** - Perform health check
+
 - `--api-port 8080` - API server port
 
 **`rollback`** - Rollback to previous version
+
 - `--dry-run`
 
 **`backup`** - Backup database and configuration
+
 - `--output .` - Output directory for backup
 
 **`config`** - Manage deployment configuration
+
 - `--show` - Show current configuration
 - `--edit` - Edit configuration
 
@@ -274,6 +298,7 @@ deploy upgrade --target mypi --binary ./new-binary
 **`help`** - Show help message
 
 **SSH Config Support:**
+
 - Reads `~/.ssh/config` automatically
 - Uses HostName, User, IdentityFile from config
 - Command-line flags override SSH config values
@@ -335,6 +360,7 @@ backfill_ring_elevations --db sensor_data.db
 ### Makefile Targets (59 total)
 
 **Build Targets (15):**
+
 - `build-radar-linux` - Cross-compile for ARM64 Linux (Raspberry Pi)
 - `build-radar-linux-pcap` - Linux build with libpcap support
 - `build-radar-mac` - Build for macOS ARM64
@@ -347,6 +373,7 @@ backfill_ring_elevations --db sensor_data.db
 - `build-docs` - Build documentation site
 
 **Development Targets (7):**
+
 - `dev-go` - Run Go server (radar disabled)
 - `dev-go-lidar` - Run Go server with lidar enabled
 - `dev-go-kill-server` - Kill running dev server
@@ -354,6 +381,7 @@ backfill_ring_elevations --db sensor_data.db
 - `dev-docs` - Run docs dev server
 
 **Testing Targets (5):**
+
 - `test` - Run all tests (Go + Python + Web)
 - `test-go` - Go unit tests only
 - `test-python` - Python tests
@@ -361,6 +389,7 @@ backfill_ring_elevations --db sensor_data.db
 - `test-web` - Web tests
 
 **Code Quality Targets (8):**
+
 - `format` - Format all code (Go + Python + Web)
 - `format-go` - Format Go code
 - `format-python` - Format Python code
@@ -371,6 +400,7 @@ backfill_ring_elevations --db sensor_data.db
 - `lint-web` - Lint web code
 
 **Database Migration Targets (7):**
+
 - `migrate-up` - Run pending migrations
 - `migrate-down` - Rollback last migration
 - `migrate-status` - Show migration status
@@ -380,6 +410,7 @@ backfill_ring_elevations --db sensor_data.db
 - `migrate-baseline` - Set baseline for existing DB
 
 **Deployment Targets (5):**
+
 - `deploy-install` - Install on remote host
 - `deploy-upgrade` - Upgrade remote installation
 - `deploy-status` - Check remote status
@@ -387,6 +418,7 @@ backfill_ring_elevations --db sensor_data.db
 - `setup-radar` - Setup radar hardware
 
 **PDF/Report Targets (5):**
+
 - `pdf-report` - Generate PDF report
 - `pdf-config` - Create PDF config template
 - `pdf-test` - Test PDF generation
@@ -394,15 +426,18 @@ backfill_ring_elevations --db sensor_data.db
 - `pdf` - Alias for pdf-report
 
 **Installation Targets (4):**
+
 - `install-python` - Install Python dependencies
 - `install-web` - Install web dependencies
 - `install-docs` - Install docs dependencies
 - `ensure-python-tools` - Ensure Python formatting tools
 
 **Cleanup Targets (1):**
+
 - `clean-python` - Clean Python artifacts
 
 **Monitoring/Logging Targets (2):**
+
 - `log-go-tail` - Tail Go server logs
 - `log-go-cat` - Cat Go server logs
 
@@ -413,6 +448,7 @@ backfill_ring_elevations --db sensor_data.db
 ### Common Workflows
 
 #### Development Setup
+
 ```bash
 # Clone and build
 git clone git@github.com:banshee-data/velocity.report.git
@@ -427,6 +463,7 @@ open http://localhost:8080/app/
 ```
 
 #### Remote Deployment
+
 ```bash
 # Build for Raspberry Pi
 make build-radar-linux
@@ -439,6 +476,7 @@ deploy status --target mypi
 ```
 
 #### PDF Report Generation
+
 ```bash
 # Via HTTP API
 curl -X POST http://localhost:8080/api/generate_report \
@@ -456,6 +494,7 @@ make pdf-report CONFIG=my-config.json
 ```
 
 #### Parameter Sweep Testing
+
 ```bash
 # Multi-parameter sweep
 sweep \
@@ -473,33 +512,39 @@ make plot-multisweep INPUT=sweep-results.csv
 ### Environment Variables
 
 **PDF Generator:**
+
 - `PDF_GENERATOR_DIR` - PDF generator directory (default: auto-detect)
 - `PDF_GENERATOR_PYTHON` - Python binary path (default: auto-detect)
 
 **Development:**
+
 - `GOARCH` - Target architecture (e.g., `arm64`)
 - `GOOS` - Target OS (e.g., `linux`)
 
 ### Tips & Best Practices
 
 **Database Management:**
+
 - **Production:** Use `--db-path /var/lib/velocity-report/sensor_data.db`
 - **Development:** Default `./sensor_data.db` is fine
 - **Backup:** Use `/admin/db/backup` endpoint or `deploy backup` command
 - **Migrations:** Always run `migrate status` before upgrading
 
 **Port Usage:**
+
 - **8080** - Main HTTP API and web UI
 - **8081** - LiDAR monitor (when enabled)
 - **2369** - LiDAR UDP packets (incoming)
 - **2368** - LiDAR forwarding (to LidarView)
 
 **SSH Deployment:**
+
 - Store host config in `~/.ssh/config` for convenience
 - Use SSH key authentication (not passwords)
 - Test connection: `ssh mypi 'systemctl status velocity-report'`
 
 **Performance Tuning:**
+
 - **LiDAR frame buffer:** Adjust `--lidar-frame-buffer-timeout` for capture rate
 - **Background flush:** Set `--lidar-bg-flush-interval` based on disk I/O capacity
 - **Noise threshold:** Tune `--lidar-bg-noise-relative` for environment conditions
@@ -511,6 +556,7 @@ make plot-multisweep INPUT=sweep-results.csv
 ### Current Architecture Observations
 
 **Strengths:**
+
 1. **Single Executable Model** - `radar` binary handles both radar and lidar, reducing deployment complexity
 2. **Clear Separation** - Different binaries for different concerns (production service vs utilities)
 3. **HTTP API Design** - RESTful patterns, clear resource paths
@@ -647,6 +693,7 @@ db-backup                 # Backup database
 ### Before & After Examples
 
 **Current (Before):**
+
 ```bash
 # Too many flags, unclear structure
 velocity-report --listen :8080 --db-path /var/lib/velocity-report/sensor_data.db --units mph --timezone US/Pacific --enable-lidar --lidar-listen :8081 --lidar-udp-port 2369
@@ -658,6 +705,7 @@ transit-backfill --db sensor_data.db --start 2024-01-01T00:00:00Z --end 2024-01-
 ```
 
 **Proposed (After):**
+
 ```bash
 # With config file (cleaner)
 velocity-report --config /etc/velocity-report.toml serve
@@ -680,6 +728,7 @@ This section outlines the **ideal future state** for velocity.report CLI and API
 ### Design Philosophy
 
 **Core Tenets:**
+
 1. **Command-Data Separation** - Commands expressed as verbs, data as structured objects
 2. **CLI-HTTP Alignment** - CLI commands mirror HTTP API structure
 3. **JSON for Complex Parameters** - Use JSON objects for multi-field configurations
@@ -694,6 +743,7 @@ velocity-report <command> [subcommand] [options]
 ```
 
 **Global Options (available for all commands):**
+
 - `--config <file>` - Configuration file (TOML/JSON/YAML)
 - `--db <path>` - Database path
 - `--log-level <level>` - Logging verbosity (error/warn/info/debug)
@@ -722,9 +772,11 @@ velocity-report serve --params '{"radar":{"enabled":true},"lidar":{"enabled":tru
 ```
 
 **Subcommands:**
+
 - None (single-purpose command)
 
 **Configuration Structure:**
+
 ```toml
 [server]
 listen = ":8080"
@@ -761,6 +813,7 @@ port = 2368
 **Subcommands:**
 
 **`sensor radar`** - Radar sensor operations
+
 ```bash
 # Get current radar status
 velocity-report sensor radar status
@@ -776,6 +829,7 @@ velocity-report sensor radar test --port /dev/ttySC1
 ```
 
 **`sensor lidar`** - LiDAR sensor operations
+
 ```bash
 # Get lidar status
 velocity-report sensor lidar status
@@ -801,6 +855,7 @@ velocity-report sensor lidar source --mode pcap --file recording.pcap
 ```
 
 **Why JSON for LiDAR config?**
+
 - **Consistency:** Matches HTTP API `POST /api/lidar/params` which accepts JSON
 - **Structure:** Complex nested parameters (background, forwarding, frame) map naturally to JSON
 - **Validation:** Schema validation easier with structured data
@@ -816,6 +871,7 @@ velocity-report sensor lidar source --mode pcap --file recording.pcap
 **Subcommands:**
 
 **`data query`** - Query sensor data
+
 ```bash
 # Query radar events
 velocity-report data query events \
@@ -836,6 +892,7 @@ velocity-report data query snapshots \
 ```
 
 **`data export`** - Export data
+
 ```bash
 # Export to CSV
 velocity-report data export --format csv \
@@ -849,6 +906,7 @@ velocity-report data export --format json \
 ```
 
 **`data backfill`** - Backfill operations
+
 ```bash
 # Backfill transits
 velocity-report data backfill transits \
@@ -862,6 +920,7 @@ velocity-report data backfill elevations \
 ```
 
 **`data stats`** - Statistics
+
 ```bash
 # Get statistics for date range
 velocity-report data stats \
@@ -882,11 +941,13 @@ velocity-report data stats --live --interval 5s
 **Subcommands:**
 
 **`site list`** - List all sites
+
 ```bash
 velocity-report site list --format json
 ```
 
 **`site create`** - Create new site
+
 ```bash
 # Interactive
 velocity-report site create --interactive
@@ -901,11 +962,13 @@ velocity-report site create --params '{
 ```
 
 **`site get`** - Get site details
+
 ```bash
 velocity-report site get <site-id> --format json
 ```
 
 **`site update`** - Update site
+
 ```bash
 velocity-report site update <site-id> --params '{
   "speed_limit": 30,
@@ -914,6 +977,7 @@ velocity-report site update <site-id> --params '{
 ```
 
 **`site delete`** - Delete site
+
 ```bash
 velocity-report site delete <site-id> --confirm
 ```
@@ -927,6 +991,7 @@ velocity-report site delete <site-id> --confirm
 **Subcommands:**
 
 **`report generate`** - Generate new report
+
 ```bash
 # From config file
 velocity-report report generate --config report-config.json
@@ -945,21 +1010,25 @@ velocity-report report generate --template monthly --site abc123 --month 2024-01
 ```
 
 **`report list`** - List reports
+
 ```bash
 velocity-report report list --site abc123 --format json
 ```
 
 **`report get`** - Get report metadata
+
 ```bash
 velocity-report report get <report-id> --format json
 ```
 
 **`report download`** - Download report
+
 ```bash
 velocity-report report download <report-id> --output /tmp/report.pdf
 ```
 
 **`report delete`** - Delete report
+
 ```bash
 velocity-report report delete <report-id> --confirm
 ```
@@ -973,6 +1042,7 @@ velocity-report report delete <report-id> --confirm
 **Subcommands:**
 
 **`db migrate`** - Run migrations
+
 ```bash
 # Check status
 velocity-report db migrate status
@@ -988,6 +1058,7 @@ velocity-report db migrate force --version 20240101
 ```
 
 **`db backup`** - Backup database
+
 ```bash
 # Create backup
 velocity-report db backup --output /tmp/backup.db
@@ -997,11 +1068,13 @@ velocity-report db backup --output /backups/db-$(date +%Y%m%d).db
 ```
 
 **`db restore`** - Restore from backup
+
 ```bash
 velocity-report db restore --input /tmp/backup.db --confirm
 ```
 
 **`db stats`** - Database statistics
+
 ```bash
 # Show size, record counts
 velocity-report db stats --format json
@@ -1011,6 +1084,7 @@ velocity-report db stats --detailed
 ```
 
 **`db vacuum`** - Optimize database
+
 ```bash
 velocity-report db vacuum
 ```
@@ -1024,6 +1098,7 @@ velocity-report db vacuum
 **Subcommands:**
 
 **`config init`** - Initialise config
+
 ```bash
 # Create default config
 velocity-report config init --output /etc/velocity-report.toml
@@ -1036,11 +1111,13 @@ velocity-report config init --template production --output config.toml
 ```
 
 **`config validate`** - Validate config
+
 ```bash
 velocity-report config validate --file /etc/velocity-report.toml
 ```
 
 **`config show`** - Show current config
+
 ```bash
 # Show effective configuration
 velocity-report config show --format json
@@ -1053,12 +1130,14 @@ velocity-report config show --section lidar
 ```
 
 **`config set`** - Update config value
+
 ```bash
 velocity-report config set server.listen :9090 --file config.toml
 velocity-report config set lidar.enabled true --file config.toml
 ```
 
 **`config get`** - Get config value
+
 ```bash
 velocity-report config get server.listen --file config.toml
 ```
@@ -1072,6 +1151,7 @@ velocity-report config get server.listen --file config.toml
 **Subcommands:**
 
 **`deploy install`** - Install on remote host
+
 ```bash
 velocity-report deploy install \
   --target mypi \
@@ -1080,6 +1160,7 @@ velocity-report deploy install \
 ```
 
 **`deploy upgrade`** - Upgrade remote installation
+
 ```bash
 velocity-report deploy upgrade \
   --target mypi \
@@ -1088,16 +1169,19 @@ velocity-report deploy upgrade \
 ```
 
 **`deploy status`** - Check deployment status
+
 ```bash
 velocity-report deploy status --target mypi --format json
 ```
 
 **`deploy rollback`** - Rollback deployment
+
 ```bash
 velocity-report deploy rollback --target mypi --confirm
 ```
 
 **`deploy config`** - Manage remote config
+
 ```bash
 # Push config
 velocity-report deploy config push --target mypi --file config.toml
@@ -1118,21 +1202,25 @@ velocity-report deploy config edit --target mypi
 **Subcommands:**
 
 **`test radar`** - Test radar sensor
+
 ```bash
 velocity-report test radar --port /dev/ttySC1 --duration 10s
 ```
 
 **`test lidar`** - Test lidar sensor
+
 ```bash
 velocity-report test lidar --port :2369 --duration 30s
 ```
 
 **`test api`** - Test HTTP API
+
 ```bash
 velocity-report test api --url http://localhost:8080 --full
 ```
 
 **`test sweep`** - Run parameter sweep
+
 ```bash
 # Parameter sweep with JSON config
 velocity-report test sweep --params '{
@@ -1148,6 +1236,7 @@ velocity-report test sweep --pcap recording.pcap --params sweep-config.json
 ```
 
 **`test health`** - Health check
+
 ```bash
 velocity-report test health --comprehensive
 ```
@@ -1161,6 +1250,7 @@ velocity-report test health --comprehensive
 **Subcommands:**
 
 **`admin logs`** - View logs
+
 ```bash
 # Tail logs
 velocity-report admin logs --tail --lines 100
@@ -1173,6 +1263,7 @@ velocity-report admin logs --since 24h --output /tmp/logs.txt
 ```
 
 **`admin users`** - Manage users (future auth)
+
 ```bash
 velocity-report admin users list
 velocity-report admin users create --username admin --role admin
@@ -1180,12 +1271,14 @@ velocity-report admin users delete <user-id>
 ```
 
 **`admin tokens`** - Manage API tokens (future auth)
+
 ```bash
 velocity-report admin tokens create --name "monitoring" --scopes read:events,read:sites
 velocity-report admin tokens revoke <token-id>
 ```
 
 **`admin maintenance`** - Maintenance mode
+
 ```bash
 # Enable maintenance mode
 velocity-report admin maintenance enable --message "System upgrade in progress"
@@ -1203,11 +1296,13 @@ velocity-report admin maintenance disable
 **Examples:**
 
 **Simple parameters (flags):**
+
 ```bash
 velocity-report serve --listen :8080 --debug
 ```
 
 **Complex parameters (JSON):**
+
 ```bash
 velocity-report sensor lidar configure --params '{
   "background": {
@@ -1224,11 +1319,13 @@ velocity-report sensor lidar configure --params '{
 ```
 
 **From file (for reusability):**
+
 ```bash
 velocity-report sensor lidar configure --params @lidar-config.json
 ```
 
 **Advantages:**
+
 1. **Consistency:** Matches HTTP API patterns exactly
 2. **Validation:** JSON schema validation
 3. **Documentation:** Self-documenting with field names
@@ -1241,18 +1338,19 @@ velocity-report sensor lidar configure --params @lidar-config.json
 
 **Principle:** CLI commands should map directly to HTTP endpoints.
 
-| CLI Command | HTTP Endpoint | Method |
-|-------------|---------------|--------|
-| `site list` | `GET /api/v1/sites` | GET |
-| `site create --params '{...}'` | `POST /api/v1/sites` | POST |
-| `site get <id>` | `GET /api/v1/sites/{id}` | GET |
-| `site update <id> --params '{...}'` | `PUT /api/v1/sites/{id}` | PUT |
-| `site delete <id>` | `DELETE /api/v1/sites/{id}` | DELETE |
-| `sensor lidar configure --params '{...}'` | `POST /api/v1/lidar/params` | POST |
-| `sensor lidar status` | `GET /api/v1/lidar/status` | GET |
-| `data query events --start X --end Y` | `GET /api/v1/events?start=X&end=Y` | GET |
+| CLI Command                               | HTTP Endpoint                      | Method |
+| ----------------------------------------- | ---------------------------------- | ------ |
+| `site list`                               | `GET /api/v1/sites`                | GET    |
+| `site create --params '{...}'`            | `POST /api/v1/sites`               | POST   |
+| `site get <id>`                           | `GET /api/v1/sites/{id}`           | GET    |
+| `site update <id> --params '{...}'`       | `PUT /api/v1/sites/{id}`           | PUT    |
+| `site delete <id>`                        | `DELETE /api/v1/sites/{id}`        | DELETE |
+| `sensor lidar configure --params '{...}'` | `POST /api/v1/lidar/params`        | POST   |
+| `sensor lidar status`                     | `GET /api/v1/lidar/status`         | GET    |
+| `data query events --start X --end Y`     | `GET /api/v1/events?start=X&end=Y` | GET    |
 
 **Benefits:**
+
 - Users familiar with API can predict CLI commands
 - Documentation reusable across CLI and API
 - Testing simplified (same operations, different interface)
@@ -1270,6 +1368,7 @@ velocity-report sensor lidar configure --params @lidar-config.json
 4. **Default values** - Hard-coded in application
 
 **Example:**
+
 ```bash
 # Config file has: listen = ":8080"
 # Command overrides: --listen :9090
@@ -1285,6 +1384,7 @@ velocity-report serve --config config.toml --listen :9090
 **Support multiple output formats for machine and human consumption:**
 
 **Text (default):**
+
 ```bash
 velocity-report site list
 # Main Street    | 123 Main St | 25 mph
@@ -1292,12 +1392,14 @@ velocity-report site list
 ```
 
 **JSON (for programmatic use):**
+
 ```bash
 velocity-report site list --format json
 # [{"id":"abc","name":"Main Street","speed_limit":25}, ...]
 ```
 
 **YAML (for readability):**
+
 ```bash
 velocity-report site list --format yaml
 # - id: abc
@@ -1306,6 +1408,7 @@ velocity-report site list --format yaml
 ```
 
 **CSV (for export):**
+
 ```bash
 velocity-report site list --format csv --output sites.csv
 ```
@@ -1322,6 +1425,7 @@ velocity-report site list --format csv --output sites.csv
 4. **Audit Logging** - Track all administrative operations
 
 **CLI Token Usage:**
+
 ```bash
 # Set token in environment
 export VELOCITY_REPORT_TOKEN="vrt_abc123..."
@@ -1335,6 +1439,7 @@ token = "vrt_abc123..."
 ```
 
 **Sensitive Endpoints (require auth):**
+
 - All POST/PUT/DELETE operations
 - LiDAR configuration changes
 - Database backups/restores
@@ -1347,14 +1452,14 @@ token = "vrt_abc123..."
 
 **Current → Long-Term:**
 
-| Current | Long-Term | Benefit |
-|---------|-----------|---------|
-| 30+ flat flags | Subcommands + JSON params | Organization, discoverability |
-| `--lidar-bg-noise-relative 0.01` | `sensor lidar configure --params '{...}'` | Consistency with HTTP |
-| 4 separate binaries | Single binary with commands | Unified interface |
-| Multiple HTTP patterns | Versioned API with consistent structure | Predictability |
-| No config validation | `config validate` command | Catch errors early |
-| No testing commands | `test` subcommands | Built-in diagnostics |
+| Current                          | Long-Term                                 | Benefit                       |
+| -------------------------------- | ----------------------------------------- | ----------------------------- |
+| 30+ flat flags                   | Subcommands + JSON params                 | Organization, discoverability |
+| `--lidar-bg-noise-relative 0.01` | `sensor lidar configure --params '{...}'` | Consistency with HTTP         |
+| 4 separate binaries              | Single binary with commands               | Unified interface             |
+| Multiple HTTP patterns           | Versioned API with consistent structure   | Predictability                |
+| No config validation             | `config validate` command                 | Catch errors early            |
+| No testing commands              | `test` subcommands                        | Built-in diagnostics          |
 
 ---
 
@@ -1365,12 +1470,14 @@ token = "vrt_abc123..."
 **Risk:** None
 
 **Tasks:**
+
 - ✅ Inventory all CLI flags, subcommands, HTTP endpoints
 - ✅ Categorize and document current patterns
 - ✅ Design target structure with backward compatibility
 - ✅ Create comprehensive guide and implementation plan
 
 **Deliverables:**
+
 - ✅ This comprehensive guide document
 
 ---
@@ -1384,6 +1491,7 @@ token = "vrt_abc123..."
 #### Step 1: Add Subcommand Structure (Week 1-2)
 
 **Tasks:**
+
 1. Add `serve` subcommand to radar binary
    - Make `serve` the default action when no subcommand provided
    - Keep all existing flags working with and without `serve` prefix
@@ -1401,12 +1509,14 @@ token = "vrt_abc123..."
    - Test help output for clarity
 
 **Acceptance Criteria:**
+
 - [ ] `velocity-report` works identically to `velocity-report serve`
 - [ ] All existing flags work with `serve` subcommand
 - [ ] Help text clearly shows command structure
 - [ ] No breaking changes to existing scripts/deployments
 
 **Testing:**
+
 ```bash
 # All of these should work identically
 velocity-report --disable-radar
@@ -1421,6 +1531,7 @@ velocity-report help
 #### Step 2: Version HTTP APIs (Week 2-3)
 
 **Tasks:**
+
 1. Add `/api/v1/` endpoints (keeping legacy)
    - Implement v1 versions of: events, sites, reports, config
    - Route both old and new paths to same handlers initially
@@ -1437,12 +1548,14 @@ velocity-report help
    - Document recommended migration path
 
 **Acceptance Criteria:**
+
 - [ ] New `/api/v1/` endpoints work identically to legacy
 - [ ] Legacy endpoints continue to work without errors
 - [ ] Deprecation warnings logged (but not user-visible errors)
 - [ ] API documentation shows both versions
 
 **Testing:**
+
 ```bash
 # Both should work
 curl http://localhost:8080/api/sites
@@ -1455,6 +1568,7 @@ curl -I http://localhost:8080/api/v1/sites | grep X-API-Version
 #### Step 3: Reorganize Makefile (Week 3-4)
 
 **Tasks:**
+
 1. Add new target names following pattern
    - Create new targets: `build-server`, `dev-server`, `db-migrate-up`
    - Keep old targets as aliases: `build-radar-local` → `build-server`
@@ -1471,12 +1585,14 @@ curl -I http://localhost:8080/api/v1/sites | grep X-API-Version
    - Indicate deprecation status
 
 **Acceptance Criteria:**
+
 - [ ] All old targets still work via aliases
 - [ ] New targets work identically to old ones
 - [ ] `make help` shows organized, clear output
 - [ ] Documentation updated with migration path
 
 **Testing:**
+
 ```bash
 # Both should work
 make build-radar-local
@@ -1489,6 +1605,7 @@ make help | grep "Build Targets"
 #### Step 4: Configuration File Support (Week 4-6)
 
 **Tasks:**
+
 1. Implement TOML config parsing
    - Add dependency: `github.com/BurntSushi/toml`
    - Create config struct matching flag structure
@@ -1510,12 +1627,14 @@ make help | grep "Build Targets"
    - Provide migration examples
 
 **Acceptance Criteria:**
+
 - [ ] Config file loaded when `--config` provided
 - [ ] CLI flags override config values
 - [ ] Invalid config files show helpful errors
 - [ ] Example configs provided and documented
 
 **Testing:**
+
 ```bash
 # Config file usage
 velocity-report --config /etc/velocity-report.toml serve
@@ -1528,6 +1647,7 @@ velocity-report --config bad.toml serve  # Should show clear error
 ```
 
 **Phase 2 Deliverables:**
+
 - [ ] Enhanced radar binary with subcommands (backward compatible)
 - [ ] Versioned HTTP API (`/api/v1/`) alongside legacy
 - [ ] Reorganized Makefile with consistent naming (aliases preserved)
@@ -1543,6 +1663,7 @@ velocity-report --config bad.toml serve  # Should show clear error
 **Risk:** Medium (new binary, but old ones still work)
 
 **Tasks:**
+
 1. Create new binary structure
    - New directory: `cmd/velocity-tools/`
    - Implement subcommand router
@@ -1570,12 +1691,14 @@ velocity-report --config bad.toml serve  # Should show clear error
    - Log migration path
 
 **Acceptance Criteria:**
+
 - [ ] `velocity-tools` binary with all utility functionality
 - [ ] Old binaries still work with deprecation notices
 - [ ] All commands work identically to old binaries
 - [ ] Updated build system and documentation
 
 **Phase 3 Deliverables:**
+
 - [ ] velocity-tools binary with all utility functionality
 - [ ] Old binaries still work with deprecation notices
 - [ ] Updated build system and documentation
@@ -1590,6 +1713,7 @@ velocity-report --config bad.toml serve  # Should show clear error
 **Risk:** Medium (breaking changes, requires user migration)
 
 **Tasks:**
+
 1. **Grace Period** (First 2-3 releases)
    - Monitor deprecation warnings
    - Track usage of deprecated endpoints
@@ -1607,7 +1731,7 @@ velocity-report --config bad.toml serve  # Should show clear error
 
 4. **Remove Makefile Aliases**
    - Keep only new naming pattern
-   - Remove build-radar-* aliases
+   - Remove build-radar-\* aliases
    - Clean up help text
 
 5. **Final Documentation**
@@ -1617,6 +1741,7 @@ velocity-report --config bad.toml serve  # Should show clear error
    - Publish v2.0 release
 
 **Phase 4 Deliverables:**
+
 - [ ] Clean codebase with only new patterns
 - [ ] Single velocity-report and velocity-tools binaries
 - [ ] Versioned API only
@@ -1712,4 +1837,4 @@ The proposed changes balance immediate improvements with long-term maintainabili
 
 ---
 
-*Last updated: 2025-12-02*
+_Last updated: 2025-12-02_

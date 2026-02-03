@@ -184,11 +184,9 @@ The neighbor confirmation parameter acts as a **noise filter with minimal false 
 ### Mathematical Intuition
 
 - **Neighbor=0:** Accept any point (no spatial validation)
-
   - Problem: Random noise gets accepted → unstable background
 
 - **Neighbor=1:** Accept if point has ≥1 nearby point confirming the measurement
-
   - Sweet spot: Real surfaces naturally have neighboring points
   - Filters: Isolated noise/outliers that don't repeat
   - Minimal cost: Real surfaces rarely have isolated single points

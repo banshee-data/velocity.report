@@ -23,6 +23,7 @@ This is a SwiftUI application that connects to the Go LiDAR pipeline via gRPC an
 ### Prerequisites
 
 1. Install Swift protobuf and gRPC plugins:
+
    ```bash
    brew install swift-protobuf grpc-swift
    ```
@@ -51,6 +52,7 @@ xcodebuild -project VelocityVisualizer.xcodeproj -scheme VelocityVisualizer -con
 ### Connecting to Live Pipeline
 
 1. Start the Go pipeline with gRPC enabled:
+
    ```bash
    velocity-report --grpc-enabled --grpc-addr localhost:50051
    ```
@@ -73,22 +75,22 @@ xcodebuild -project VelocityVisualizer.xcodeproj -scheme VelocityVisualizer -con
 
 ## Keyboard Shortcuts
 
-| Action | Shortcut |
-|--------|----------|
-| Connect/Disconnect | ⌘⇧C |
-| Pause/Play | Space |
-| Step Forward | . |
-| Step Backward | , |
-| Increase Rate | ] |
-| Decrease Rate | [ |
-| Toggle Points | P |
-| Toggle Boxes | B |
-| Toggle Trails | T |
-| Toggle Velocity | V |
-| Toggle Debug | D |
-| Reset Camera | R |
-| Label Track | L |
-| Export Labels | ⌘E |
+| Action             | Shortcut |
+| ------------------ | -------- |
+| Connect/Disconnect | ⌘⇧C      |
+| Pause/Play         | Space    |
+| Step Forward       | .        |
+| Step Backward      | ,        |
+| Increase Rate      | ]        |
+| Decrease Rate      | [        |
+| Toggle Points      | P        |
+| Toggle Boxes       | B        |
+| Toggle Trails      | T        |
+| Toggle Velocity    | V        |
+| Toggle Debug       | D        |
+| Reset Camera       | R        |
+| Label Track        | L        |
+| Export Labels      | ⌘E       |
 
 ## Architecture
 

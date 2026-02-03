@@ -12,10 +12,12 @@
 **This plan is for AV dataset integration ONLY, not core traffic monitoring.**
 
 The features in this document (28-class taxonomy, Parquet ingestion, NLZ zones, shape completion, occlusion handling) are specifically for:
+
 1. Importing AV datasets (Waymo, nuScenes) for ML training
 2. Research applications requiring AV-compatible labeling
 
 **For traffic monitoring deployments**, the simpler velocity-coherent approach is sufficient:
+
 - See `velocity-coherent-foreground-extraction.md` for current implementation
 - See `../operations/lidar-foreground-tracking-status.md` §4 for simplification rationale
 
@@ -94,46 +96,46 @@ The velocity.report system aligns with **AV industry standard** labeling specifi
 
 **28 Fine-Grained Semantic Categories:**
 
-| Category ID | Category Name      | Instance Segmentation | Description                                   |
-| ----------- | ------------------ | --------------------- | --------------------------------------------- |
-| 1           | Car                | Yes                   | Passenger cars, SUVs, vans                    |
-| 2           | Bus                | Yes                   | Buses and large passenger vehicles            |
-| 3           | Truck              | Yes                   | Pickup trucks, box trucks, freight            |
-| 4           | Other Large Vehicle| Yes                   | RVs, construction vehicles, farm equipment    |
-| 5           | Trailer            | Yes                   | Attached trailers (separate from tow vehicle) |
-| 6           | Ego Vehicle        | No                    | Self-reference (sensor platform)              |
-| 7           | Motorcycle         | Yes                   | Motorcycles without rider visible             |
-| 8           | Bicycle            | Yes                   | Bicycles without rider visible                |
-| 9           | Pedestrian         | Yes                   | Walking, standing, or using mobility aids     |
-| 10          | Cyclist            | Yes                   | Person actively riding a bicycle              |
-| 11          | Motorcyclist       | Yes                   | Person actively riding a motorcycle           |
-| 12          | Ground Animal      | No                    | Dogs, cats, deer, other ground animals        |
-| 13          | Bird               | No                    | Flying or perched birds                       |
-| 14          | Pole               | No                    | Utility poles, lamp posts, signposts          |
-| 15          | Sign               | No                    | Traffic signs, street signs                   |
-| 16          | Traffic Light      | No                    | Traffic signals                               |
-| 17          | Construction Cone  | No                    | Traffic cones, barrels, barricades            |
-| 18          | Pedestrian Object  | Yes                   | Strollers, wheelchairs, carts pushed by peds  |
-| 19          | Building           | No                    | Structures, houses, commercial buildings      |
-| 20          | Road               | No                    | Driveable road surface                        |
-| 21          | Sidewalk           | No                    | Pedestrian walkways                           |
-| 22          | Road Marker        | No                    | Painted road markings, crosswalks             |
-| 23          | Lane Marker        | No                    | Lane dividers, center lines                   |
-| 24          | Vegetation         | No                    | Trees, bushes, grass                          |
-| 25          | Sky                | No                    | Sky region (camera only)                      |
-| 26          | Ground             | No                    | Unlabeled ground surface                      |
-| 27          | Static             | No                    | Other static objects not in above categories  |
-| 28          | Dynamic            | No                    | Other dynamic objects not in above categories |
+| Category ID | Category Name       | Instance Segmentation | Description                                   |
+| ----------- | ------------------- | --------------------- | --------------------------------------------- |
+| 1           | Car                 | Yes                   | Passenger cars, SUVs, vans                    |
+| 2           | Bus                 | Yes                   | Buses and large passenger vehicles            |
+| 3           | Truck               | Yes                   | Pickup trucks, box trucks, freight            |
+| 4           | Other Large Vehicle | Yes                   | RVs, construction vehicles, farm equipment    |
+| 5           | Trailer             | Yes                   | Attached trailers (separate from tow vehicle) |
+| 6           | Ego Vehicle         | No                    | Self-reference (sensor platform)              |
+| 7           | Motorcycle          | Yes                   | Motorcycles without rider visible             |
+| 8           | Bicycle             | Yes                   | Bicycles without rider visible                |
+| 9           | Pedestrian          | Yes                   | Walking, standing, or using mobility aids     |
+| 10          | Cyclist             | Yes                   | Person actively riding a bicycle              |
+| 11          | Motorcyclist        | Yes                   | Person actively riding a motorcycle           |
+| 12          | Ground Animal       | No                    | Dogs, cats, deer, other ground animals        |
+| 13          | Bird                | No                    | Flying or perched birds                       |
+| 14          | Pole                | No                    | Utility poles, lamp posts, signposts          |
+| 15          | Sign                | No                    | Traffic signs, street signs                   |
+| 16          | Traffic Light       | No                    | Traffic signals                               |
+| 17          | Construction Cone   | No                    | Traffic cones, barrels, barricades            |
+| 18          | Pedestrian Object   | Yes                   | Strollers, wheelchairs, carts pushed by peds  |
+| 19          | Building            | No                    | Structures, houses, commercial buildings      |
+| 20          | Road                | No                    | Driveable road surface                        |
+| 21          | Sidewalk            | No                    | Pedestrian walkways                           |
+| 22          | Road Marker         | No                    | Painted road markings, crosswalks             |
+| 23          | Lane Marker         | No                    | Lane dividers, center lines                   |
+| 24          | Vegetation          | No                    | Trees, bushes, grass                          |
+| 25          | Sky                 | No                    | Sky region (camera only)                      |
+| 26          | Ground              | No                    | Unlabeled ground surface                      |
+| 27          | Static              | No                    | Other static objects not in above categories  |
+| 28          | Dynamic             | No                    | Other dynamic objects not in above categories |
 
 **velocity.report Implementation Priority:**
 
-| Priority | Categories                                                    | Rationale                          |
-| -------- | ------------------------------------------------------------- | ---------------------------------- |
-| P0       | Car, Truck, Bus, Pedestrian, Cyclist, Motorcyclist            | Core traffic monitoring            |
-| P1       | Bicycle, Motorcycle, Ground Animal, Bird                      | Safety-relevant moving objects     |
-| P2       | Sign, Pole, Traffic Light, Construction Cone                  | Infrastructure detection           |
-| P3       | Building, Road, Sidewalk, Vegetation                          | Scene understanding                |
-| Deferred | Sky, Ground, Static, Dynamic, Ego Vehicle, Pedestrian Object  | Lower priority for roadside sensor |
+| Priority | Categories                                                   | Rationale                          |
+| -------- | ------------------------------------------------------------ | ---------------------------------- |
+| P0       | Car, Truck, Bus, Pedestrian, Cyclist, Motorcyclist           | Core traffic monitoring            |
+| P1       | Bicycle, Motorcycle, Ground Animal, Bird                     | Safety-relevant moving objects     |
+| P2       | Sign, Pole, Traffic Light, Construction Cone                 | Infrastructure detection           |
+| P3       | Building, Road, Sidewalk, Vegetation                         | Scene understanding                |
+| Deferred | Sky, Ground, Static, Dynamic, Ego Vehicle, Pedestrian Object | Lower priority for roadside sensor |
 
 #### Tracking and Identity
 

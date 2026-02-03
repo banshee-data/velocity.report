@@ -69,7 +69,6 @@ These endpoints preserve the existing `/api/lidar/pcap/*` contract while adding 
 **Handler Flow**
 
 - `handlePCAPStart`
-
   1. Validate `sensor_id` and JSON body (`pcap_file` required)
   2. Acquire `dataSourceMu`, stop live listener, reset background grid
   3. Validate PCAP path (safe directory enforcement)
@@ -77,7 +76,6 @@ These endpoints preserve the existing `/api/lidar/pcap/*` contract while adding 
   5. Return canonical file path in response
 
 - `handlePCAPStop`
-
   1. Validate `sensor_id`
   2. Cancel the running replay (if active) and wait for completion
   3. Reset background grid and restart live UDP listener
@@ -237,7 +235,6 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
 ### Modified Files
 
 1. **`internal/lidar/monitor/webserver.go`** (~200 lines added)
-
    - Add data source state fields (including currentPCAPFile)
    - Add PCAP start/stop handlers and status endpoint
    - Add UDP listener lifecycle management
@@ -246,7 +243,6 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
    - Update status endpoint to include data_source, pcap_file, pcap_in_progress
 
 2. **`cmd/radar/radar.go`** (~40 lines changed)
-
    - **REMOVE** `lidarPCAPMode` flag declaration
    - Remove conditional UDP listener startup logic
    - Always pass UDP listener config to WebServer
@@ -254,17 +250,14 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
    - WebServer now manages UDP listener lifecycle
 
 3. **`tools/grid-heatmap/plot_grid_heatmap.py`** (~20 lines changed)
-
    - Call `/api/lidar/pcap/start` and `/api/lidar/pcap/stop` with retry logic
    - Automatically restore live mode after snapshot capture
 
 4. **`scripts/api/lidar/*.sh`** (~60 lines changed)
-
    - Update helper scripts to use the dedicated PCAP start/stop endpoints
    - Add status helper for `/api/lidar/data_source`
 
 5. **`Makefile`** (~15 lines changed)
-
    - Remove `dev-go-pcap` target (no longer needed)
    - Update `stats-pcap` / API targets to call start/stop helpers
 
@@ -319,24 +312,20 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
 ## Decisions Made
 
 1. **`--lidar-pcap-mode` flag: REMOVE** ✅
-
    - Server always starts in live mode by default
    - Use API to switch to PCAP mode as needed
    - Breaking change, but cleaner architecture
 
 2. **Switching to PCAP automatically starts replay** ✅
-
    - Yes, if `pcap_file` provided in request body
    - Matches current behavior, intuitive UX
 
 3. **Block switching during PCAP replay** ✅
-
    - Return 409 Conflict if PCAP currently running
    - Client should wait and retry
    - Prevents incomplete PCAP data issues
 
 4. **Expose current source in `/api/lidar/status`** ✅
-
    - Add `data_source` field to status response
    - Include `pcap_file` if currently running PCAP
    - Enables clients to query current state
@@ -366,20 +355,17 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
 ## Timeline Estimate
 
 - **Phase 1** (Core Implementation): 5-7 hours
-
   - Data source state + status endpoint: 1.5 hours
   - API endpoint with 409 blocking: 2 hours
   - UDP lifecycle management: 2.5 hours
   - Testing: 1 hour
 
 - **Phase 2** (Remove CLI Flag): 2-3 hours
-
   - Remove flag from cmd/radar: 1 hour
   - Update conditionals: 1 hour
   - Testing: 1 hour
 
 - **Phase 3** (Tool Integration): 2-3 hours
-
   - Update tools: 1 hour
   - Update scripts: 1 hour
   - Makefile changes: 1 hour

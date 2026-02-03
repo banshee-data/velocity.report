@@ -30,14 +30,14 @@ velocity-report-backfill-rings         # Developer tool
 
 ### Key Changes Summary
 
-| What | Before | After |
-|------|--------|-------|
-| **Main binary** | `cmd/radar/` | `cmd/velocity-report/` |
-| **Start server** | `velocity-report` | `velocity-report serve` (or just `velocity-report`) |
-| **PDF generation** | `PYTHONPATH=... python -m ...` | `velocity-report pdf config.json` |
-| **Sweep tool** | `./app-sweep` | `velocity-report-sweep` |
-| **Installation** | Manual build + scp + script | `curl install.sh \| sudo bash` |
-| **Releases** | None | GitHub Releases with CI/CD |
+| What               | Before                         | After                                               |
+| ------------------ | ------------------------------ | --------------------------------------------------- |
+| **Main binary**    | `cmd/radar/`                   | `cmd/velocity-report/`                              |
+| **Start server**   | `velocity-report`              | `velocity-report serve` (or just `velocity-report`) |
+| **PDF generation** | `PYTHONPATH=... python -m ...` | `velocity-report pdf config.json`                   |
+| **Sweep tool**     | `./app-sweep`                  | `velocity-report-sweep`                             |
+| **Installation**   | Manual build + scp + script    | `curl install.sh \| sudo bash`                      |
+| **Releases**       | None                           | GitHub Releases with CI/CD                          |
 
 ### Timeline Overview
 
@@ -82,20 +82,21 @@ The plan evaluates multiple distribution approaches and recommends a **hybrid mo
 
 ### 1.1 Components Inventory
 
-| Component | Type | Location | Build Output | Current Distribution |
-|-----------|------|----------|-------------|---------------------|
-| **Main Server** | Go | `cmd/radar/` | `velocity-report-*` | Manual build + setup script |
-| **Migrate CLI** | Go subcommand | `internal/db/migrate_cli.go` | Embedded in main | Part of main binary |
-| **Sweep Tool** | Go | `cmd/sweep/` | `app-sweep` | Manual build (`make build-tools`) |
-| **PDF Generator** | Python | `tools/pdf-generator/` | Python module | PYTHONPATH + Makefile |
-| **Transit Backfill** | Go | `cmd/transit-backfill/` | Not built by default | Manual `go build` |
-| **Ring Elevations Backfill** | Go | `cmd/tools/backfill_ring_elevations/` | Not built by default | Manual `go build` |
-| **Grid Heatmap** | Python | `tools/grid-heatmap/` | Python scripts | Manual invocation |
-| **Web Frontend** | Svelte | `web/` | Embedded in Go binary | `//go:embed` in assets.go |
+| Component                    | Type          | Location                              | Build Output          | Current Distribution              |
+| ---------------------------- | ------------- | ------------------------------------- | --------------------- | --------------------------------- |
+| **Main Server**              | Go            | `cmd/radar/`                          | `velocity-report-*`   | Manual build + setup script       |
+| **Migrate CLI**              | Go subcommand | `internal/db/migrate_cli.go`          | Embedded in main      | Part of main binary               |
+| **Sweep Tool**               | Go            | `cmd/sweep/`                          | `app-sweep`           | Manual build (`make build-tools`) |
+| **PDF Generator**            | Python        | `tools/pdf-generator/`                | Python module         | PYTHONPATH + Makefile             |
+| **Transit Backfill**         | Go            | `cmd/transit-backfill/`               | Not built by default  | Manual `go build`                 |
+| **Ring Elevations Backfill** | Go            | `cmd/tools/backfill_ring_elevations/` | Not built by default  | Manual `go build`                 |
+| **Grid Heatmap**             | Python        | `tools/grid-heatmap/`                 | Python scripts        | Manual invocation                 |
+| **Web Frontend**             | Svelte        | `web/`                                | Embedded in Go binary | `//go:embed` in assets.go         |
 
 ### 1.2 Current Build Process
 
 **For Production (Raspberry Pi ARM64):**
+
 ```bash
 # On development machine
 make build-radar-linux         # Creates velocity-report-linux-arm64
@@ -107,6 +108,7 @@ ssh pi "cd /path/to/repo && sudo make setup-radar"
 ```
 
 **Current Issues:**
+
 - ❌ No single "release" command to build all user-facing tools
 - ❌ Python tools require manual PYTHONPATH setup
 - ❌ Utility tools (transit-backfill, backfill_ring_elevations) not easily discoverable
@@ -120,6 +122,7 @@ ssh pi "cd /path/to/repo && sudo make setup-radar"
 **Target Environment:** Raspberry Pi 4 (ARM64 Linux)
 
 **Current Setup:**
+
 ```
 /usr/local/bin/velocity-report          # Main server binary
 /var/lib/velocity-report/               # Data directory
@@ -137,11 +140,13 @@ ssh pi "cd /path/to/repo && sudo make setup-radar"
 ### 2.1 End User (Neighborhood Monitor)
 
 **Profile:**
+
 - Non-technical community advocate
 - Uses pre-built Raspberry Pi image or simple install script
 - Needs: Radar monitoring + occasional PDF reports
 
 **Expected Workflow:**
+
 ```bash
 # One-time setup
 curl -sSL https://velocity.report/install.sh | sudo bash
@@ -153,6 +158,7 @@ pdf-generate --config report.json  # if separate command
 ```
 
 **Needs from Distribution:**
+
 - ✅ Single binary for radar server
 - ✅ Simple command to generate PDF reports
 - ✅ Web UI accessible at http://localhost:8080
@@ -162,11 +168,13 @@ pdf-generate --config report.json  # if separate command
 ### 2.2 Power User (Traffic Engineer)
 
 **Profile:**
+
 - Technical user with traffic engineering background
 - Runs parameter sweeps on LIDAR data
 - Creates custom reports and analyses
 
 **Expected Workflow:**
+
 ```bash
 # Run parameter sweep
 velocity-report sweep --mode multi --iterations 50 --output results.csv
@@ -182,6 +190,7 @@ velocity-report transit-backfill --start 2024-01-01 --end 2024-12-31
 ```
 
 **Needs from Distribution:**
+
 - ✅ Access to all tools (sweep, grid-heatmap, backfill utilities)
 - ✅ Python tools available as commands
 - ✅ Documentation for each tool
@@ -190,10 +199,12 @@ velocity-report transit-backfill --start 2024-01-01 --end 2024-12-31
 ### 2.3 Developer (Contributor)
 
 **Profile:**
+
 - Go/Python developer contributing to project
 - Needs full source access and build tooling
 
 **Expected Workflow:**
+
 ```bash
 # Clone and build
 git clone https://github.com/banshee-data/velocity.report.git
@@ -209,6 +220,7 @@ make lint
 ```
 
 **Needs from Distribution:**
+
 - ✅ Source repository with Makefile
 - ✅ Development convenience targets
 - ✅ All build targets (local, linux, mac, pcap/no-pcap)
@@ -223,11 +235,13 @@ make lint
 **Description:** Embed Python interpreter and PDF generator into Go binary using tools like `go-python` or by bundling Python as subprocess.
 
 **Pros:**
+
 - ✅ Single binary distribution
 - ✅ Simple installation (`cp binary /usr/local/bin/`)
 - ✅ No Python dependency management for users
 
 **Cons:**
+
 - ❌ **MAJOR:** Go-Python interop is complex and brittle
 - ❌ Cross-compilation nightmare (Python C extensions)
 - ❌ Large binary size (50+ MB with Python runtime)
@@ -244,6 +258,7 @@ make lint
 **Description:** Build multiple Go binaries and install Python scripts alongside them. All tools available in `$PATH`.
 
 **Structure:**
+
 ```
 /usr/local/bin/
   ├── velocity-report           # Main server (with migrate subcommand)
@@ -259,6 +274,7 @@ make lint
 ```
 
 **Pros:**
+
 - ✅ All tools discoverable via `velocity-report-*` naming
 - ✅ Each tool independently updatable
 - ✅ Clear separation of concerns
@@ -266,6 +282,7 @@ make lint
 - ✅ Python tools via wrapper scripts (handles PYTHONPATH)
 
 **Cons:**
+
 - ⚠️ Multiple files to install/uninstall
 - ⚠️ Python venv still required (but manageable)
 - ⚠️ Name collision risk (minor: use prefix)
@@ -279,6 +296,7 @@ make lint
 **Description:** Single `velocity-report` binary with subcommands for all functionality.
 
 **Structure:**
+
 ```bash
 velocity-report serve          # Start radar server
 velocity-report migrate up     # Database migrations (already exists)
@@ -289,6 +307,7 @@ velocity-report grid-heatmap   # Heatmap visualization
 ```
 
 **Pros:**
+
 - ✅ Single binary for all Go functionality
 - ✅ Familiar CLI pattern (git, kubectl, docker)
 - ✅ Consistent help/version output
@@ -296,6 +315,7 @@ velocity-report grid-heatmap   # Heatmap visualization
 - ✅ Python tools invoked as subprocess (keeps separation)
 
 **Cons:**
+
 - ⚠️ Python tools still separate (but callable via subcommand)
 - ⚠️ Larger binary (includes all Go code)
 - ⚠️ Some functionality overlap with `make` commands
@@ -309,6 +329,7 @@ velocity-report grid-heatmap   # Heatmap visualization
 **Description:** Core functionality in main binary, specialized tools as separate binaries or scripts.
 
 **Structure:**
+
 ```
 velocity-report                 # Main binary with subcommands
   ├── serve                     # Radar server (default)
@@ -322,11 +343,13 @@ backfill-ring-elevations        # Utility script (developer tool)
 ```
 
 **Categorization:**
+
 - **Core Tools** (in main binary): serve, migrate, pdf, basic backfill
 - **Power User Tools** (separate): sweep, grid-heatmap
 - **Developer Tools** (not installed): ring elevations backfill, dev scripts
 
 **Pros:**
+
 - ✅ Best of both worlds (simple + powerful)
 - ✅ Core tools always available
 - ✅ Advanced tools opt-in (install separately or use from repo)
@@ -334,6 +357,7 @@ backfill-ring-elevations        # Utility script (developer tool)
 - ✅ Smaller main binary
 
 **Cons:**
+
 - ⚠️ Slightly more complex distribution
 - ⚠️ Need to decide categorisation for each tool
 
@@ -350,6 +374,7 @@ We recommend **Approach D (Hybrid Model)** with the following structure:
 #### Primary Binary: `velocity-report`
 
 **Subcommands:**
+
 ```
 velocity-report serve          # Start radar/LIDAR server (default)
 velocity-report migrate        # Database migrations (EXISTING)
@@ -360,10 +385,12 @@ velocity-report help           # Show help
 ```
 
 #### Secondary Binaries (Power Users):
+
 - `velocity-report-sweep` - LIDAR parameter sweep tool
 - `velocity-report-backfill-rings` - Ring elevation backfill (rare use)
 
 #### Python Scripts (Installed):
+
 - `pdf-generator/pdf_generator/` - Python package
 - `grid-heatmap/` scripts - Visualization tools
 
@@ -411,6 +438,7 @@ velocity-report help           # Show help
 ```
 
 **Python wrapper scripts:**
+
 ```bash
 #!/bin/bash
 # /usr/local/bin/velocity-report (pdf subcommand)
@@ -420,6 +448,7 @@ exec $VENV/bin/python3 -m pdf_generator.cli.main "$@"
 ```
 
 **Alternative for end users:** System Python with pip packages:
+
 ```bash
 pip3 install velocity-report-pdf-generator
 ```
@@ -429,6 +458,7 @@ pip3 install velocity-report-pdf-generator
 #### Main Binary: `velocity-report`
 
 **cmd/radar/radar.go** becomes **cmd/velocity-report/main.go**:
+
 ```go
 func main() {
     if len(os.Args) > 1 {
@@ -460,6 +490,7 @@ func main() {
 #### Sweep Binary: `velocity-report-sweep`
 
 Rename `cmd/sweep/` → `cmd/velocity-report-sweep/`:
+
 - Binary name: `velocity-report-sweep`
 - Purpose: LIDAR parameter tuning (advanced users)
 - Distribution: Included in releases, optional install
@@ -467,6 +498,7 @@ Rename `cmd/sweep/` → `cmd/velocity-report-sweep/`:
 #### Python PDF Subcommand: `velocity-report pdf`
 
 **Implementation:**
+
 ```go
 // cmd/velocity-report/pdf.go
 func runPDF() {
@@ -490,6 +522,7 @@ func runPDF() {
 ```
 
 **Fallback chain:**
+
 1. Check `/usr/local/share/velocity-report/python/.venv/bin/python3`
 2. Check `$VELOCITY_REPORT_PYTHON` environment variable
 3. Check system `python3`
@@ -522,6 +555,7 @@ func runPDF() {
    - `velocity-report help` - Unified help system
 
 4. **Update build targets in Makefile**
+
    ```makefile
    build-radar-linux:
        GOOS=linux GOARCH=arm64 go build -o velocity-report-linux-arm64 ./cmd/velocity-report
@@ -539,6 +573,7 @@ func runPDF() {
    ```
 
 5. **Update systemd service file**
+
    ```ini
    [Service]
    # Change from:
@@ -558,6 +593,7 @@ func runPDF() {
    - Add integration tests for new subcommands
 
 **Migration for existing deployments:**
+
 - Old binary still works (starts server by default)
 - New binary backward compatible (no args = serve)
 - Document migration: `velocity-report` → `velocity-report serve`
@@ -585,6 +621,7 @@ func runPDF() {
    - Test: `pip install -e tools/pdf-generator/`
 
 3. **Create installation script for Python tools**
+
    ```bash
    # scripts/install-python-tools.sh
    #!/bin/bash
@@ -603,6 +640,7 @@ func runPDF() {
    ```
 
 4. **Update Makefile targets**
+
    ```makefile
    install-python-system:
        sudo ./scripts/install-python-tools.sh
@@ -636,13 +674,14 @@ func runPDF() {
 1. **Create GitHub Actions release workflow**
 
    File: `.github/workflows/release.yml`
-   ```yaml
+
+   ````yaml
    name: Release
 
    on:
      push:
        tags:
-         - 'v*'
+         - "v*"
 
    jobs:
      build-binaries:
@@ -666,12 +705,12 @@ func runPDF() {
          - name: Set up Go
            uses: actions/setup-go@v5
            with:
-             go-version: '1.25'
+             go-version: "1.25"
 
          - name: Set up Node.js
            uses: actions/setup-node@v4
            with:
-             node-version: '20'
+             node-version: "20"
 
          - name: Build web frontend
            run: |
@@ -707,7 +746,7 @@ func runPDF() {
          - name: Set up Go
            uses: actions/setup-go@v5
            with:
-             go-version: '1.25'
+             go-version: "1.25"
 
          - name: Build sweep binary
            env:
@@ -730,7 +769,7 @@ func runPDF() {
          - name: Set up Python
            uses: actions/setup-python@v5
            with:
-             python-version: '3.12'
+             python-version: "3.12"
 
          - name: Package Python tools
            run: |
@@ -792,11 +831,12 @@ func runPDF() {
 
                ## What's Changed
                See [CHANGELOG.md](https://github.com/banshee-data/velocity.report/blob/main/CHANGELOG.md)
-   ```
+   ````
 
 2. **Create version management**
 
    File: `internal/version/version.go`
+
    ```go
    package version
 
@@ -827,6 +867,7 @@ func runPDF() {
    ```
 
    Use in `velocity-report version`:
+
    ```go
    func runVersion() {
        fmt.Printf("velocity.report %s\n", version.Full())
@@ -834,6 +875,7 @@ func runPDF() {
    ```
 
 3. **Update Makefile for release builds**
+
    ```makefile
    VERSION ?= $(shell git describe --tags --always --dirty)
    LDFLAGS = -X github.com/banshee-data/velocity.report/internal/version.Version=$(VERSION)
@@ -868,6 +910,7 @@ func runPDF() {
 1. **Create unified installation script**
 
    File: `scripts/install.sh`
+
    ```bash
    #!/bin/bash
    # Install script for velocity.report
@@ -1064,6 +1107,7 @@ func runPDF() {
 ### 6.1 For Existing Deployments
 
 **Current Setup:**
+
 ```
 /usr/local/bin/velocity-report    # Old binary (cmd/radar)
 /var/lib/velocity-report/sensor_data.db
@@ -1072,12 +1116,14 @@ func runPDF() {
 **Migration Steps:**
 
 1. **Backup database**
+
    ```bash
    sudo systemctl stop velocity-report
    sudo cp /var/lib/velocity-report/sensor_data.db /var/lib/velocity-report/sensor_data.db.backup
    ```
 
 2. **Download new binary**
+
    ```bash
    VERSION=v1.0.0
    curl -LO https://github.com/banshee-data/velocity.report/releases/download/${VERSION}/velocity-report-linux-arm64
@@ -1085,6 +1131,7 @@ func runPDF() {
    ```
 
 3. **Test new binary**
+
    ```bash
    # Test migrate command
    ./velocity-report-linux-arm64 migrate status --db-path /var/lib/velocity-report/sensor_data.db
@@ -1095,6 +1142,7 @@ func runPDF() {
    ```
 
 4. **Update systemd service**
+
    ```bash
    sudo vi /etc/systemd/system/velocity-report.service
    # Change:
@@ -1106,6 +1154,7 @@ func runPDF() {
    ```
 
 5. **Install new binary**
+
    ```bash
    sudo mv velocity-report-linux-arm64 /usr/local/bin/velocity-report
    sudo chown root:root /usr/local/bin/velocity-report
@@ -1113,12 +1162,14 @@ func runPDF() {
    ```
 
 6. **Restart service**
+
    ```bash
    sudo systemctl start velocity-report
    sudo systemctl status velocity-report
    ```
 
 7. **Verify operation**
+
    ```bash
    # Check logs
    sudo journalctl -u velocity-report -f
@@ -1131,6 +1182,7 @@ func runPDF() {
    ```
 
 **Rollback Plan:**
+
 ```bash
 # If issues occur, restore old binary
 sudo systemctl stop velocity-report
@@ -1143,12 +1195,14 @@ sudo systemctl start velocity-report
 ### 6.2 For Developers
 
 **Current Workflow:**
+
 ```bash
 make build-radar-local
 ./velocity-report-local --disable-radar
 ```
 
 **New Workflow:**
+
 ```bash
 make build-radar-local
 ./velocity-report-local serve --disable-radar
@@ -1157,12 +1211,14 @@ make build-radar-local
 ```
 
 **Makefile Changes:**
+
 - `build-radar-*` targets now build from `cmd/velocity-report/`
 - `dev-go` target updated to use `serve` subcommand
 - New `build-all` target builds all binaries
 - New `install-system` target for local testing of installed layout
 
 **Testing Changes:**
+
 - Update integration tests to use subcommand syntax
 - Add tests for new subcommands
 - Verify backward compatibility (no args = serve)
@@ -1170,12 +1226,14 @@ make build-radar-local
 ### 6.3 For Python Tools
 
 **Current Workflow:**
+
 ```bash
 cd tools/pdf-generator
 PYTHONPATH=. ../../.venv/bin/python -m pdf_generator.cli.main config.json
 ```
 
 **New Workflow (Development):**
+
 ```bash
 # Option 1: Via Go wrapper
 velocity-report pdf config.json
@@ -1189,12 +1247,14 @@ make pdf-report CONFIG=config.json
 ```
 
 **New Workflow (Production):**
+
 ```bash
 # After installation via install.sh
 velocity-report pdf /path/to/config.json
 ```
 
 **No Breaking Changes:**
+
 - Existing Makefile commands still work
 - PYTHONPATH-based invocation still works
 - Development workflow unchanged
@@ -1208,6 +1268,7 @@ velocity-report pdf /path/to/config.json
 **New tests to add:**
 
 1. **Subcommand Dispatcher** (`cmd/velocity-report/main_test.go`)
+
    ```go
    func TestSubcommandDispatch(t *testing.T) {
        tests := []struct {
@@ -1224,6 +1285,7 @@ velocity-report pdf /path/to/config.json
    ```
 
 2. **Python Discovery** (`cmd/velocity-report/pdf_test.go`)
+
    ```go
    func TestFindPython(t *testing.T) {
        // Test venv discovery
@@ -1245,6 +1307,7 @@ velocity-report pdf /path/to/config.json
 **Add to existing test suite:**
 
 1. **Subcommand Integration** (`integration_test.go`)
+
    ```go
    func TestServeSubcommand(t *testing.T) {
        // Start server via "serve" subcommand
@@ -1314,11 +1377,13 @@ velocity-report pdf /path/to/config.json
 ### 8.1 Docker Distribution
 
 **Benefits:**
+
 - Simplified deployment
 - Consistent environment
 - Easy updates
 
 **Architecture:**
+
 ```dockerfile
 FROM debian:bookworm-slim
 
@@ -1339,6 +1404,7 @@ CMD ["velocity-report", "serve", "--db-path", "/var/lib/velocity-report/sensor_d
 ```
 
 **Usage:**
+
 ```bash
 docker run -d \
   --name velocity-report \
@@ -1351,12 +1417,14 @@ docker run -d \
 ### 8.2 Raspberry Pi Image
 
 **Pre-built SD card image with:**
+
 - Raspbian OS
 - velocity.report pre-installed
 - Systemd service enabled
 - Web UI accessible on boot
 
 **Distribution:**
+
 - Download from GitHub releases
 - Flash with Raspberry Pi Imager
 - Boot and configure via web UI
@@ -1364,17 +1432,20 @@ docker run -d \
 ### 8.3 Package Managers
 
 **APT/DEB Package:**
+
 ```bash
 sudo apt-get install velocity-report
 ```
 
 **Homebrew (macOS):**
+
 ```bash
 brew tap banshee-data/tap
 brew install velocity-report
 ```
 
 **Implementation:**
+
 - Create `.deb` package in GitHub Actions
 - Host on GitHub Releases or packagecloud.io
 - Create Homebrew formula
@@ -1384,12 +1455,14 @@ brew install velocity-report
 **Goal:** Replace JSON config files with web UI.
 
 **Features:**
+
 - Upload database via browser
 - Configure report parameters
 - Generate and download PDF
 - No CLI required for basic use
 
 **Architecture:**
+
 ```
 velocity-report serve --enable-config-ui
 # Access at http://localhost:8080/config
@@ -1398,6 +1471,7 @@ velocity-report serve --enable-config-ui
 ### 8.5 Plugin System
 
 **Allow third-party extensions:**
+
 ```bash
 velocity-report plugin install lidar-advanced-analytics
 velocity-report plugin list
@@ -1409,6 +1483,7 @@ velocity-report lidar-advanced-analytics analyse --input data.csv
 ## Appendix A: File Layout Comparison
 
 ### Current Structure
+
 ```
 velocity.report/
 ├── cmd/
@@ -1431,6 +1506,7 @@ Binary outputs (after build):
 ```
 
 ### Proposed Structure
+
 ```
 velocity.report/
 ├── cmd/
@@ -1458,6 +1534,7 @@ Binary outputs (after build):
 ```
 
 ### Installed System Layout
+
 ```
 /usr/local/bin/
 ├── velocity-report                    # Main binary
@@ -1486,12 +1563,14 @@ Binary outputs (after build):
 ### Current Commands (Before Migration)
 
 **Main server:**
+
 ```bash
 velocity-report --db-path /path/to/db          # Start server
 velocity-report migrate up --db-path /path     # Database migration
 ```
 
 **PDF generator:**
+
 ```bash
 cd tools/pdf-generator
 PYTHONPATH=. ../../.venv/bin/python -m pdf_generator.cli.main config.json
@@ -1500,11 +1579,13 @@ make pdf-report CONFIG=config.json
 ```
 
 **Sweep tool:**
+
 ```bash
 ./app-sweep --mode multi --iterations 30
 ```
 
 **Utilities:**
+
 ```bash
 go run cmd/transit-backfill/main.go --db sensor_data.db --start 2024-01-01 --end 2024-12-31
 go run cmd/tools/backfill_ring_elevations/main.go --db sensor_data.db
@@ -1513,6 +1594,7 @@ go run cmd/tools/backfill_ring_elevations/main.go --db sensor_data.db
 ### Proposed Commands (After Migration)
 
 **Main binary:**
+
 ```bash
 velocity-report                                 # Start server (default)
 velocity-report serve                           # Start server (explicit)
@@ -1524,12 +1606,14 @@ velocity-report help                            # Show help
 ```
 
 **Additional binaries:**
+
 ```bash
 velocity-report-sweep --mode multi --iterations 30           # Parameter sweep
 velocity-report-backfill-rings --db sensor_data.db          # Ring elevations
 ```
 
 **Python tools (if installed separately):**
+
 ```bash
 pdf-generator config.json                       # Direct Python command
 grid-heatmap --input data.csv --output plot.png # Heatmap visualization
@@ -1540,6 +1624,7 @@ grid-heatmap --input data.csv --output plot.png # Heatmap visualization
 ## Appendix C: Release Checklist
 
 **Pre-release:**
+
 - [ ] All tests pass (`make test`)
 - [ ] Linting clean (`make lint`)
 - [ ] Documentation updated
@@ -1548,6 +1633,7 @@ grid-heatmap --input data.csv --output plot.png # Heatmap visualization
 - [ ] Migration guide tested
 
 **Release process:**
+
 1. Create release branch: `git checkout -b release-v1.0.0`
 2. Update version: `sed -i 's/Version = "dev"/Version = "1.0.0"/' internal/version/version.go`
 3. Commit: `git commit -am "Release v1.0.0"`
@@ -1558,6 +1644,7 @@ grid-heatmap --input data.csv --output plot.png # Heatmap visualization
 8. Announce on Discord/website
 
 **Post-release:**
+
 - [ ] Verify GitHub Release created
 - [ ] Download and test binaries
 - [ ] Update website documentation
@@ -1571,11 +1658,13 @@ grid-heatmap --input data.csv --output plot.png # Heatmap visualization
 ### For End Users
 
 **✅ No Breaking Changes**
+
 - Existing installations continue to work
 - `velocity-report` (no args) still starts server
 - All existing flags preserved
 
 **✨ New Features**
+
 - Subcommands for clarity: `velocity-report serve`
 - Built-in PDF generation: `velocity-report pdf`
 - Version command: `velocity-report version`
@@ -1583,11 +1672,13 @@ grid-heatmap --input data.csv --output plot.png # Heatmap visualization
 ### For Developers
 
 **⚠️ Minor Breaking Changes**
+
 - `cmd/radar/` moved to `cmd/velocity-report/`
 - Binary name unchanged: `velocity-report-linux-arm64`
 - Import paths unchanged (only cmd/ structure changed)
 
 **✅ Backward Compatible**
+
 - All Makefile targets work
 - All tests pass
 - Development workflow unchanged
@@ -1595,11 +1686,13 @@ grid-heatmap --input data.csv --output plot.png # Heatmap visualization
 ### For Advanced Users
 
 **✨ Improvements**
+
 - `app-sweep` renamed to `velocity-report-sweep`
 - Better tool discoverability
 - Consistent naming convention
 
 **✅ No Functionality Lost**
+
 - All tools still available
 - All features preserved
 - All flags compatible
@@ -1611,6 +1704,7 @@ grid-heatmap --input data.csv --output plot.png # Heatmap visualization
 This distribution and packaging plan provides a clear path to transform velocity.report from a developer-focused build system to a user-friendly, installable suite of tools. The hybrid model (Approach D) balances simplicity for end users with power for advanced users, while maintaining full compatibility with the existing development workflow.
 
 **Key Benefits:**
+
 - ✅ Single binary for core functionality
 - ✅ Subcommand architecture for clarity
 - ✅ Python tools integrated but separate
@@ -1620,12 +1714,14 @@ This distribution and packaging plan provides a clear path to transform velocity
 - ✅ Follows Go and Python best practices
 
 **Next Steps:**
+
 1. Review and approve this plan
 2. Begin Phase 1: Restructure Go binaries
 3. Iterate based on community feedback
 4. Release alpha version for testing
 
 **Timeline Estimate:**
+
 - Phase 1: 1-2 weeks (Go restructure)
 - Phase 2: 1 week (Python integration)
 - Phase 3: 3-5 days (GitHub Actions)

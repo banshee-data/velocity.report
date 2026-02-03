@@ -58,11 +58,11 @@ if regionParams := g.RegionMgr.GetRegionParams(regionID); regionParams != nil {
 
 ## Parameter Scaling by Region Type
 
-| Region Type | NoiseRelativeFraction | NeighborConfirmationCount | SettleUpdateFraction | Rationale |
-|-------------|----------------------|---------------------------|----------------------|-----------|
-| **Stable** (low variance) | 0.8× base | base | 1.5× base | Tighter threshold for better foreground detection; faster settling |
-| **Variable** (medium) | 1.0× base | base | 1.0× base | Standard parameters |
-| **Volatile** (high variance) | 2.0× base | base + 2 | 0.5× base | Looser threshold to avoid false positives; more neighbor confirmation; slower settling to handle variance |
+| Region Type                  | NoiseRelativeFraction | NeighborConfirmationCount | SettleUpdateFraction | Rationale                                                                                                 |
+| ---------------------------- | --------------------- | ------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------- |
+| **Stable** (low variance)    | 0.8× base             | base                      | 1.5× base            | Tighter threshold for better foreground detection; faster settling                                        |
+| **Variable** (medium)        | 1.0× base             | base                      | 1.0× base            | Standard parameters                                                                                       |
+| **Volatile** (high variance) | 2.0× base             | base + 2                  | 0.5× base            | Looser threshold to avoid false positives; more neighbor confirmation; slower settling to handle variance |
 
 Example with base parameters (`NoiseRelativeFraction=0.01`, `NeighborConfirmationCount=3`, `BackgroundUpdateFraction=0.02`):
 
@@ -171,6 +171,7 @@ plt.show()
 ### Regions Not Identified
 
 Check that:
+
 1. Warmup parameters are configured (`WarmupMinFrames > 0` or `WarmupDurationNanos > 0`)
 2. Sensor has received enough frames
 3. Check logs for `[RegionManager] Identified N regions` message

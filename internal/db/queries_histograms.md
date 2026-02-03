@@ -1,16 +1,18 @@
 # Histogram & Percentile queries — radar_data_transits vs radar_objects
 
 Purpose
+
 - Document the SQL queries used to generate histograms and nearest-rank percentiles for comparison between `radar_data_transits` (sessionized) and `radar_objects` (raw objects).
 - Record the most recent results (computed Sept 30, 2025) and provide runnable sqlite3 commands you can reuse.
 
 Notes
+
 - Data lives in `sensor_data.db`.
 - `radar_data_transits` uses `model_version` tags; the commands below use `model_version = 'rebuild-full'` (change as needed).
 - We filter out very-low-speed rows to compare meaningful moving events. The filter used here is >= 2.2352 m/s (≈5 mpg) as requested.
 - Avoid multi-statement CTE batches in sqlite3 (they caused "no such table/column" prepare errors). Run the single-statement queries sequentially or wrap logic in your application code.
 
-1) Compute numeric overlap bounds (transit start vs object write_timestamp)
+1. Compute numeric overlap bounds (transit start vs object write_timestamp)
 
 ```sql
 -- returns overlap_start, overlap_end as unix seconds
@@ -25,7 +27,7 @@ SELECT
     ELSE (SELECT MAX(write_timestamp) FROM radar_objects) END) AS overlap_end;
 ```
 
-2) Counts inside overlap with speed filter (>= 2.2352 m/s)
+2. Counts inside overlap with speed filter (>= 2.2352 m/s)
 
 ```sql
 -- transits count
@@ -44,7 +46,7 @@ WHERE write_timestamp BETWEEN <overlap_start> AND <overlap_end>
 
 Replace `<overlap_start>` / `<overlap_end>` with the numeric values returned by the bounds query.
 
-3) Histogram (bucket speeds into integer m/s bins)
+3. Histogram (bucket speeds into integer m/s bins)
 
 ```sql
 -- Transits histogram (example: bucket by floor(transit_max_speed))
@@ -70,8 +72,9 @@ ORDER BY bucket;
 
 If desired, you can normalize counts to percentages by adding `CAST(100.0 * COUNT(*) / (SELECT COUNT(*) FROM ... ) AS DOUBLE)`.
 
-4) Nearest-rank percentile queries (p50/p85/p98) — run sequentially
-- Steps: 1) get `n` = count of filtered rows; 2) compute offset = floor(n * p) - 1; 3) select ordered value LIMIT 1 OFFSET offset.
+4. Nearest-rank percentile queries (p50/p85/p98) — run sequentially
+
+- Steps: 1) get `n` = count of filtered rows; 2) compute offset = floor(n \* p) - 1; 3) select ordered value LIMIT 1 OFFSET offset.
 
 Example for transits (using computed n):
 
@@ -121,7 +124,7 @@ WHERE write_timestamp BETWEEN <overlap_start> AND <overlap_end>
   AND CAST(COALESCE(json_extract(raw_event, '$.max_speed_mps'), json_extract(raw_event, '$.max_speed')) AS DOUBLE) >= 2.2352;
 ```
 
-5) sqlite3 quick-run examples (run these sequentially in a shell)
+5. sqlite3 quick-run examples (run these sequentially in a shell)
 
 ```bash
 # get overlap bounds
@@ -138,6 +141,7 @@ sqlite3 ./sensor_data.db "<p50/p85/p98/max object queries from section (4)>":
 ```
 
 Recent results (computed sequentially Sept 30, 2025)
+
 - Overlap bounds: 1751007797.0 → 1757781705.0
 
 - Counts (speed >= 2.2352 m/s)
@@ -148,23 +152,25 @@ Recent results (computed sequentially Sept 30, 2025)
   - p50 = 7.65 m/s
   - p85 = 9.47 m/s
   - p98 = 11.23 m/s
-  - max  = 19.79 m/s
+  - max = 19.79 m/s
 
 - radar_objects (filtered)
   - p50 = 7.71 m/s
   - p85 = 9.59 m/s
   - p98 = 11.47 m/s
-  - max  = 21.79 m/s
+  - max = 21.79 m/s
 
 Notes & recommendations
+
 - The two sets of percentiles align closely once low-speed rows are filtered; objects are slightly higher at the extreme end (max and p98).
 - To automate: add a small Go tool or a SQL script that runs these queries and writes CSV/JSON for dashboard ingestion.
 - If you want pairwise per-transit vs nearest-object comparisons, I can add example JOIN queries or a small Go program that performs matching using `radar_transit_links` and `radar_objects` timestamps.
 
 If you'd like, I can also:
+
 - Commit this file and add a tiny shell script under `internal/db/` to run and output CSV.
 - Add a periodic check to monitoring that computes and stores these percentiles for trend analysis.
 
-
 ---
+
 Document created on 2025-09-30

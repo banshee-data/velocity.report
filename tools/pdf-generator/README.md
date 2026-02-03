@@ -50,12 +50,12 @@ Every configuration file **must** include these 7 fields:
 
 ### Optional Query Fields
 
-| Field                      | Type   | Description                                     | Example      |
-| -------------------------- | ------ | ----------------------------------------------- | ------------ |
-| `query.compare_start_date` | string | Comparison start date (YYYY-MM-DD)              | ""           |
-| `query.compare_end_date`   | string | Comparison end date (YYYY-MM-DD)                | ""           |
-| `query.group`              | string | Roll-up bucket size                             | "1h"         |
-| `query.units`              | string | Display units                                   | "mph"        |
+| Field                      | Type   | Description                                                     | Example               |
+| -------------------------- | ------ | --------------------------------------------------------------- | --------------------- |
+| `query.compare_start_date` | string | Comparison start date (YYYY-MM-DD)                              | ""                    |
+| `query.compare_end_date`   | string | Comparison end date (YYYY-MM-DD)                                | ""                    |
+| `query.group`              | string | Roll-up bucket size                                             | "1h"                  |
+| `query.units`              | string | Display units                                                   | "mph"                 |
 | `query.source`             | string | Data source (radar_objects, radar_data, or radar_data_transits) | "radar_data_transits" |
 
 ### Comparison Reports
@@ -186,21 +186,21 @@ This minimal config will:
 
 #### Query Parameters
 
-| Field              | Required | Default               | Description                                       |
-| ------------------ | -------- | --------------------- | ------------------------------------------------- |
-| `start_date`       | **Yes**  | -                     | Start date (YYYY-MM-DD)                           |
-| `end_date`         | **Yes**  | -                     | End date (YYYY-MM-DD)                             |
-| `compare_start_date` | No     | ""                    | Comparison start date (YYYY-MM-DD)                |
-| `compare_end_date` | No       | ""                    | Comparison end date (YYYY-MM-DD)                  |
-| `timezone`         | **Yes**  | -                     | Display timezone (e.g., "US/Pacific", "UTC")      |
-| `group`            | No       | "1h"                  | Time aggregation (15m, 30m, 1h, 2h, 6h, 12h, 24h) |
-| `units`            | No       | "mph"                 | Speed units ("mph", "kph", "mps")                 |
-| `source`           | No       | "radar_data_transits" | Data source (radar_objects, radar_data, or radar_data_transits) |
-| `model_version`    | No       | "rebuild-full"        | Transit model version                             |
-| `min_speed`        | No       | 5.0                   | Minimum speed filter                              |
-| `histogram`        | No       | true                  | Generate histogram chart                          |
-| `hist_bucket_size` | No       | 5.0                   | Histogram bucket size                             |
-| `hist_max`         | No       | null                  | Maximum histogram bucket                          |
+| Field                | Required | Default               | Description                                                     |
+| -------------------- | -------- | --------------------- | --------------------------------------------------------------- |
+| `start_date`         | **Yes**  | -                     | Start date (YYYY-MM-DD)                                         |
+| `end_date`           | **Yes**  | -                     | End date (YYYY-MM-DD)                                           |
+| `compare_start_date` | No       | ""                    | Comparison start date (YYYY-MM-DD)                              |
+| `compare_end_date`   | No       | ""                    | Comparison end date (YYYY-MM-DD)                                |
+| `timezone`           | **Yes**  | -                     | Display timezone (e.g., "US/Pacific", "UTC")                    |
+| `group`              | No       | "1h"                  | Time aggregation (15m, 30m, 1h, 2h, 6h, 12h, 24h)               |
+| `units`              | No       | "mph"                 | Speed units ("mph", "kph", "mps")                               |
+| `source`             | No       | "radar_data_transits" | Data source (radar_objects, radar_data, or radar_data_transits) |
+| `model_version`      | No       | "rebuild-full"        | Transit model version                                           |
+| `min_speed`          | No       | 5.0                   | Minimum speed filter                                            |
+| `histogram`          | No       | true                  | Generate histogram chart                                        |
+| `hist_bucket_size`   | No       | 5.0                   | Histogram bucket size                                           |
+| `hist_max`           | No       | null                  | Maximum histogram bucket                                        |
 
 #### Output Configuration
 

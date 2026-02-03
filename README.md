@@ -147,15 +147,15 @@ velocity.report/
    │     Sensors       │────►│     Go Server     │◄───►│  SQLite Database  │
    │ (Radar / LIDAR)   │     │ (API/Processing)  │     │ (Time-series)     │
    └───────────────────┘     └───────────────────┘     └───────────────────┘
-                                     │
-                                     │
-                   ┌─────────────────┼─────────────────┐
-                   │                                   │
-                   ▼                                   ▼
-   ┌─────────────────────────────┐     ┌─────────────────────────────┐
-   │        Web Frontend         │     │    Python PDF Generator     │
-   │   (Real-time via Svelte)    │     │ (Offline Reports via LaTeX) │
-   └─────────────────────────────┘     └─────────────────────────────┘
+                                       │
+                                       │
+                     ┌─────────────────┴──────────────────┐
+                     │                                    │
+                     ▼                                    ▼
+     ┌─────────────────────────────┐       ┌─────────────────────────────┐
+     │        Web Frontend         │       │    Python PDF Generator     │
+     │   (Real-time via Svelte)    │       │ (Offline Reports via LaTeX) │
+     └─────────────────────────────┘       └─────────────────────────────┘
 ```
 
 ### Components

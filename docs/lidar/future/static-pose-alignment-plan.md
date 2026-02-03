@@ -782,13 +782,11 @@ sqlite3 sensor_data.db "SELECT COUNT(*) FROM lidar_track_obs WHERE pose_id IS NO
 ### Immediate Benefits (Static Sensors)
 
 1. **Pose Versioning Support**
-
    - Can update calibration without breaking historical data
    - Pose changes tracked with timestamps (valid_from_ns, valid_to_ns)
    - Re-transformation possible if calibration improves
 
 2. **Better Metadata**
-
    - Know exactly which pose was used for each measurement
    - Can validate consistency across time periods
    - Audit trail for calibration changes

@@ -226,7 +226,6 @@ var SupportedSensorModels = map[string]SensorModel{
 **Endpoints:**
 
 1. **List Serial Configurations**
-
    - **Method:** `GET`
    - **Path:** `/api/serial/configs`
    - **Response:**
@@ -250,13 +249,11 @@ var SupportedSensorModels = map[string]SensorModel{
      ```
 
 2. **Get Single Serial Configuration**
-
    - **Method:** `GET`
    - **Path:** `/api/serial/configs/:id`
    - **Response:** Single config object (same structure as list item)
 
 3. **Create Serial Configuration**
-
    - **Method:** `POST`
    - **Path:** `/api/serial/configs`
    - **Body:**
@@ -272,20 +269,17 @@ var SupportedSensorModels = map[string]SensorModel{
    - **Response:** Created config object with assigned ID
 
 4. **Update Serial Configuration**
-
    - **Method:** `PUT`
    - **Path:** `/api/serial/configs/:id`
    - **Body:** Same as create (partial updates supported)
    - **Response:** Updated config object
 
 5. **Delete Serial Configuration**
-
    - **Method:** `DELETE`
    - **Path:** `/api/serial/configs/:id`
    - **Response:** `204 No Content` on success
 
 6. **List Available Serial Devices**
-
    - **Method:** `GET`
    - **Path:** `/api/serial/devices`
    - **Response:** (Only includes device paths that are not already assigned to a saved configuration)
@@ -459,7 +453,6 @@ var SupportedSensorModels = map[string]SensorModel{
 **Endpoints:**
 
 1. **Auto-Detect Connected Device**
-
    - **Method:** `POST`
    - **Path:** `/api/serial/auto-detect`
    - **Body:**
@@ -544,13 +537,11 @@ var SupportedSensorModels = map[string]SensorModel{
 **Page Components:**
 
 1. **Configuration List**
-
    - Table showing all configured serial ports
    - Columns: Name, Port, Baud Rate, Status (Enabled/Disabled), Actions
    - Actions: Edit, Test, Enable/Disable, Delete
 
 2. **Configuration Editor (Modal/Drawer)**
-
    - Form fields:
      - Name (text, required, unique)
      - Port Path (select + manual override, required)
@@ -569,7 +560,6 @@ var SupportedSensorModels = map[string]SensorModel{
      - "Cancel" - Discards changes
 
 3. **Test Results Display**
-
    - Show test results inline with color-coded success/failure
    - Display diagnostic messages and suggestions
    - Show sample data received from device
@@ -612,14 +602,12 @@ port = flag.String("port", "/dev/ttySC1", "Serial port to use")
 **New Behavior:**
 
 1. **Startup Sequence:**
-
    - Initialise database connection
    - Load enabled serial configurations from `radar_serial_config`
    - If no configs found, use CLI flag value (backward compatibility)
    - Create SerialMux instances for each enabled configuration
 
 2. **Configuration Priority:**
-
    - Database configurations take precedence over CLI flags
    - CLI flag `--port` becomes fallback for legacy deployments
    - New flag: `--ignore-db-serial` to force CLI flag usage
@@ -1037,13 +1025,11 @@ sudo systemctl restart velocity-report
 ### Open Questions
 
 1. **Q: Should we allow configuration of serial timeout values?**
-
    - Current: Hardcoded in Initialise() sequence
    - Trade-off: Flexibility vs. complexity
    - Recommendation: Start with sensible defaults, add if users request
 
 2. **Q: Should we support hot-swapping serial configurations without restart?**
-
    - Current: Changes require server restart
    - Trade-off: Complexity vs. user convenience
    - Recommendation: Phase 2 feature (after basic CRUD)
@@ -1056,24 +1042,20 @@ sudo systemctl restart velocity-report
 ### Future Enhancements
 
 1. **Serial Port Health Monitoring:**
-
    - Track connection uptime
    - Alert on serial disconnections
    - Automatic reconnection attempts
 
 2. **Configuration Templates:**
-
    - Pre-configured profiles for common hardware (HAT, USB adapters)
    - One-click setup for known-good configurations
 
 3. **Firmware Update via UI:**
-
    - Upload new firmware to OPS243A via serial
    - Guided firmware update process
    - Rollback on failure
 
 4. **Advanced Diagnostics:**
-
    - Serial port signal strength/quality metrics
    - Packet loss tracking
    - Performance graphs over time

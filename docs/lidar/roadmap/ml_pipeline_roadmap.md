@@ -12,6 +12,7 @@
 This document outlines the evolution of the LIDAR tracking system from rule-based classification to a full ML-driven classification pipeline with labeling UI, parameter tuning, and comparative analysis.
 
 **Current State (Completed through Phase 3.7):**
+
 - ✅ Background subtraction and foreground extraction
 - ✅ DBSCAN clustering with spatial indexing
 - ✅ Kalman tracking with lifecycle management
@@ -22,6 +23,7 @@ This document outlines the evolution of the LIDAR tracking system from rule-base
 - ✅ **Analysis Run Infrastructure** (params JSON, run comparison, split/merge detection)
 
 **Roadmap Phases:**
+
 - **Phase 3.7:** ✅ Analysis Run Infrastructure (IMPLEMENTED)
 - **Phase 4.0:** Track Labeling UI (web-based annotation)
 - **Phase 4.1:** ML Classifier Training Pipeline
@@ -56,20 +58,20 @@ PCAP/Live UDP → Parse → Frame → Background → Foreground → Cluster → 
 
 ### Existing Components
 
-| Component | Location | Status |
-|-----------|----------|--------|
-| PCAP Reader | `internal/lidar/network/pcap.go` | ✅ Complete |
-| Frame Builder | `internal/lidar/frame_builder.go` | ✅ Complete |
-| Background Manager | `internal/lidar/background.go` | ✅ Complete |
-| Foreground Extraction | `internal/lidar/foreground.go` | ✅ Complete |
-| DBSCAN Clustering | `internal/lidar/clustering.go` | ✅ Complete |
-| Kalman Tracking | `internal/lidar/tracking.go` | ✅ Complete |
-| Rule-Based Classifier | `internal/lidar/classification.go` | ✅ Complete |
-| Track Store | `internal/lidar/track_store.go` | ✅ Complete |
-| REST API | `internal/lidar/monitor/track_api.go` | ✅ Complete |
-| PCAP Analyze Tool | `cmd/tools/pcap-analyze/main.go` | ✅ Complete |
-| Training Data Export | `internal/lidar/training_data.go` | ✅ Complete |
-| **Analysis Run Store** | `internal/lidar/analysis_run.go` | ✅ Complete |
+| Component              | Location                              | Status      |
+| ---------------------- | ------------------------------------- | ----------- |
+| PCAP Reader            | `internal/lidar/network/pcap.go`      | ✅ Complete |
+| Frame Builder          | `internal/lidar/frame_builder.go`     | ✅ Complete |
+| Background Manager     | `internal/lidar/background.go`        | ✅ Complete |
+| Foreground Extraction  | `internal/lidar/foreground.go`        | ✅ Complete |
+| DBSCAN Clustering      | `internal/lidar/clustering.go`        | ✅ Complete |
+| Kalman Tracking        | `internal/lidar/tracking.go`          | ✅ Complete |
+| Rule-Based Classifier  | `internal/lidar/classification.go`    | ✅ Complete |
+| Track Store            | `internal/lidar/track_store.go`       | ✅ Complete |
+| REST API               | `internal/lidar/monitor/track_api.go` | ✅ Complete |
+| PCAP Analyze Tool      | `cmd/tools/pcap-analyze/main.go`      | ✅ Complete |
+| Training Data Export   | `internal/lidar/training_data.go`     | ✅ Complete |
+| **Analysis Run Store** | `internal/lidar/analysis_run.go`      | ✅ Complete |
 
 ---
 
@@ -81,12 +83,12 @@ Enable reproducible analysis runs with versioned parameter configurations, allow
 
 ### Implementation Files
 
-| File | Description |
-|------|-------------|
-| `internal/lidar/analysis_run.go` | Core types and database operations |
-| `internal/lidar/analysis_run_test.go` | Unit tests |
-| `internal/db/migrations/000010_create_lidar_analysis_runs.up.sql` | Database migration |
-| `internal/db/schema.sql` | Updated with analysis run tables |
+| File                                                              | Description                        |
+| ----------------------------------------------------------------- | ---------------------------------- |
+| `internal/lidar/analysis_run.go`                                  | Core types and database operations |
+| `internal/lidar/analysis_run_test.go`                             | Unit tests                         |
+| `internal/db/migrations/000010_create_lidar_analysis_runs.up.sql` | Database migration                 |
+| `internal/db/schema.sql`                                          | Updated with analysis run tables   |
 
 ### 3.7.1: Analysis Run Schema
 
@@ -209,15 +211,18 @@ All LIDAR parameters stored in a single JSON blob for complete reproducibility:
     "model_type": "rule_based",
     "thresholds": {
       "pedestrian": {
-        "height_min": 1.0, "height_max": 2.0,
+        "height_min": 1.0,
+        "height_max": 2.0,
         "speed_max": 3.0
       },
       "car": {
-        "height_min": 1.2, "length_min": 3.0,
+        "height_min": 1.2,
+        "length_min": 3.0,
         "speed_min": 5.0
       },
       "bird": {
-        "height_max": 0.5, "speed_max": 1.0
+        "height_max": 0.5,
+        "speed_max": 1.0
       }
     }
   }
@@ -323,6 +328,7 @@ Provide a web-based interface for human annotators to label tracks, review class
 ### 4.0.1: UI Requirements
 
 **Core Features:**
+
 1. **Track Browser:** List and filter tracks by run, class, time range
 2. **Track Viewer:** Visualize track trajectory on 2D map
 3. **Labeling Interface:** Assign class labels with confidence
@@ -831,15 +837,16 @@ Deploy the complete ML pipeline for production use.
 
 ## Implementation Priority
 
-| Phase | Priority | Effort | Dependencies |
-|-------|----------|--------|--------------|
-| 3.7 Analysis Run Infrastructure | ✅ Complete | - | None |
-| 4.0 Track Labeling UI | P0 - Critical | 2 weeks | Phase 3.7 |
-| 4.1 ML Classifier Training | P1 - High | 1 week | Phase 4.0 (needs labels) |
-| 4.2 Parameter Tuning | P1 - High | 1 week | Phase 3.7 |
-| 4.3 Production Deployment | P2 - Medium | 1 week | Phases 4.1, 4.2 |
+| Phase                           | Priority      | Effort  | Dependencies             |
+| ------------------------------- | ------------- | ------- | ------------------------ |
+| 3.7 Analysis Run Infrastructure | ✅ Complete   | -       | None                     |
+| 4.0 Track Labeling UI           | P0 - Critical | 2 weeks | Phase 3.7                |
+| 4.1 ML Classifier Training      | P1 - High     | 1 week  | Phase 4.0 (needs labels) |
+| 4.2 Parameter Tuning            | P1 - High     | 1 week  | Phase 3.7                |
+| 4.3 Production Deployment       | P2 - Medium   | 1 week  | Phases 4.1, 4.2          |
 
 **Recommended Order:**
+
 1. ✅ Phase 3.7 (COMPLETED - infrastructure for all other phases)
 2. Phase 4.0 (critical for getting labels)
 3. Phase 4.2 (can be done in parallel with labeling)

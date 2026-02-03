@@ -8,10 +8,10 @@ This document proposes concrete improvements to the LiDAR tracking pipeline for 
 
 The tracking upgrades in this document are designed to align with the **7-DOF industry standard** for 3D bounding boxes:
 
-| Specification | Document |
-|--------------|----------|
-| **7-DOF Bounding Box Format** | [av-lidar-integration-plan.md](../future/av-lidar-integration-plan.md) |
-| **Pose Representation** | [static-pose-alignment-plan.md](../future/static-pose-alignment-plan.md) |
+| Specification                 | Document                                                                                 |
+| ----------------------------- | ---------------------------------------------------------------------------------------- |
+| **7-DOF Bounding Box Format** | [av-lidar-integration-plan.md](../future/av-lidar-integration-plan.md)                   |
+| **Pose Representation**       | [static-pose-alignment-plan.md](../future/static-pose-alignment-plan.md)                 |
 | **Background Grid Standards** | [lidar-background-grid-standards.md](../architecture/lidar-background-grid-standards.md) |
 
 The `OrientedBoundingBox` output from OBB estimation (§2.6) conforms to `BoundingBox7DOF` from the AV spec.
@@ -22,14 +22,14 @@ The `OrientedBoundingBox` output from OBB estimation (§2.6) conforms to `Boundi
 
 ### 1.1 Existing Implementation
 
-| Component | File | Key Functions/Types |
-|-----------|------|---------------------|
-| **Background Model** | `internal/lidar/background.go` | `BackgroundManager`, `BackgroundGrid`, `BackgroundCell` |
-| **Foreground Extraction** | `internal/lidar/foreground.go` | `ProcessFramePolarWithMask()`, `ExtractForegroundPoints()` |
-| **Clustering** | `internal/lidar/clustering.go` | `DBSCAN()`, `WorldCluster`, `SpatialIndex` |
-| **Tracking** | `internal/lidar/tracking.go` | `Tracker`, `TrackedObject`, `TrackState` |
-| **Pipeline** | `internal/lidar/tracking_pipeline.go` | `TrackingPipelineConfig`, `NewFrameCallback()` |
-| **Transform** | `internal/lidar/transform.go` | `SphericalToCartesian()`, `TransformToWorld()` |
+| Component                 | File                                  | Key Functions/Types                                        |
+| ------------------------- | ------------------------------------- | ---------------------------------------------------------- |
+| **Background Model**      | `internal/lidar/background.go`        | `BackgroundManager`, `BackgroundGrid`, `BackgroundCell`    |
+| **Foreground Extraction** | `internal/lidar/foreground.go`        | `ProcessFramePolarWithMask()`, `ExtractForegroundPoints()` |
+| **Clustering**            | `internal/lidar/clustering.go`        | `DBSCAN()`, `WorldCluster`, `SpatialIndex`                 |
+| **Tracking**              | `internal/lidar/tracking.go`          | `Tracker`, `TrackedObject`, `TrackState`                   |
+| **Pipeline**              | `internal/lidar/tracking_pipeline.go` | `TrackingPipelineConfig`, `NewFrameCallback()`             |
+| **Transform**             | `internal/lidar/transform.go`         | `SphericalToCartesian()`, `TransformToWorld()`             |
 
 ### 1.2 Current Algorithm
 
@@ -60,13 +60,13 @@ Lifecycle Management (tentative → confirmed → deleted)
 
 ### 1.3 Known Limitations
 
-| Issue | Impact | Cause |
-|-------|--------|-------|
-| Ground points leak into foreground | False clusters near sensor | Height-based filtering missing |
-| Clusters split on large vehicles | Track fragmentation | DBSCAN eps too small |
-| Tracks merge when objects cross | ID swaps | Greedy association |
-| Heading estimation noisy | OBB rotation jitter | No temporal smoothing |
-| No occlusion handling | Tracks deleted during occlusion | Fixed miss threshold |
+| Issue                              | Impact                          | Cause                          |
+| ---------------------------------- | ------------------------------- | ------------------------------ |
+| Ground points leak into foreground | False clusters near sensor      | Height-based filtering missing |
+| Clusters split on large vehicles   | Track fragmentation             | DBSCAN eps too small           |
+| Tracks merge when objects cross    | ID swaps                        | Greedy association             |
+| Heading estimation noisy           | OBB rotation jitter             | No temporal smoothing          |
+| No occlusion handling              | Tracks deleted during occlusion | Fixed miss threshold           |
 
 ---
 
@@ -80,11 +80,11 @@ Lifecycle Management (tentative → confirmed → deleted)
 
 **Options**:
 
-| Method | Pros | Cons | Recommendation |
-|--------|------|------|----------------|
-| Height threshold | Simple, fast | Assumes flat ground | Use as baseline |
-| RANSAC plane fit | Handles slope | More compute | Use for accuracy |
-| Ring-based gradient | Uses sensor geometry | Complex | Deferred |
+| Method              | Pros                 | Cons                | Recommendation   |
+| ------------------- | -------------------- | ------------------- | ---------------- |
+| Height threshold    | Simple, fast         | Assumes flat ground | Use as baseline  |
+| RANSAC plane fit    | Handles slope        | More compute        | Use for accuracy |
+| Ring-based gradient | Uses sensor geometry | Complex             | Deferred         |
 
 **Implementation**:
 
@@ -253,7 +253,7 @@ type TrackerConfig struct {
 
 type TrackedObject struct {
     // ... existing fields ...
-    
+
     // NEW: Quality metrics
     Confidence      float32  // 0.0 - 1.0, based on observation history
     OcclusionState  OcclusionState
@@ -411,12 +411,12 @@ func (c *DebugCollector) Emit() *DebugFrame
 
 #### 2.8.2 Integration Points
 
-| Location | What to Record |
-|----------|----------------|
-| `tracking.go:associate()` | Association candidates, accepted/rejected |
-| `tracking.go:mahalanobisDistanceSquared()` | Gating ellipse parameters |
-| `tracking.go:update()` | Innovation residuals |
-| `tracking.go:predict()` | State predictions |
+| Location                                   | What to Record                            |
+| ------------------------------------------ | ----------------------------------------- |
+| `tracking.go:associate()`                  | Association candidates, accepted/rejected |
+| `tracking.go:mahalanobisDistanceSquared()` | Gating ellipse parameters                 |
+| `tracking.go:update()`                     | Innovation residuals                      |
+| `tracking.go:predict()`                    | State predictions                         |
 
 **API Output**: `DebugOverlaySet` in `FrameBundle` proto.
 
@@ -424,31 +424,31 @@ func (c *DebugCollector) Emit() *DebugFrame
 
 ## 3. Mapping to API Outputs
 
-| Upgrade | New Proto Fields | Debug Overlays |
-|---------|------------------|----------------|
-| Ground removal | `PointCloudFrame.classification` | N/A |
-| Voxel grid | `ClusterSet.clustering_method` | N/A |
-| Hungarian | N/A | `AssociationCandidate` |
-| CA model | `Track.motion_model` | `StatePrediction` |
-| Occlusion | `Track.occlusion_state`, `Track.confidence` | N/A |
-| OBB | `Cluster.obb`, `Track.bbox_heading_rad` | OBB visualisation |
-| Features | `Track.features` (optional) | N/A |
+| Upgrade        | New Proto Fields                            | Debug Overlays         |
+| -------------- | ------------------------------------------- | ---------------------- |
+| Ground removal | `PointCloudFrame.classification`            | N/A                    |
+| Voxel grid     | `ClusterSet.clustering_method`              | N/A                    |
+| Hungarian      | N/A                                         | `AssociationCandidate` |
+| CA model       | `Track.motion_model`                        | `StatePrediction`      |
+| Occlusion      | `Track.occlusion_state`, `Track.confidence` | N/A                    |
+| OBB            | `Cluster.obb`, `Track.bbox_heading_rad`     | OBB visualisation      |
+| Features       | `Track.features` (optional)                 | N/A                    |
 
 ---
 
 ## 4. Implementation Priority
 
-| Priority | Upgrade | Effort | Impact |
-|----------|---------|--------|--------|
-| **P0** | Ground removal (height threshold) | Low | High - reduces false clusters |
-| **P0** | OBB estimation | Medium | High - heading visualisation |
-| **P1** | Debug artifacts | Medium | High - debugging workflow |
-| **P1** | OBB temporal smoothing | Low | Medium - visual quality |
-| **P2** | Hungarian association | Medium | Medium - fewer ID swaps |
-| **P2** | Occlusion detection | Medium | Medium - track continuity |
-| **P3** | Voxel grid preprocessing | Low | Low - performance |
-| **P3** | CA motion model | Medium | Low - marginal accuracy |
-| **P3** | Feature extraction | Low | Low - ML prep |
+| Priority | Upgrade                           | Effort | Impact                        |
+| -------- | --------------------------------- | ------ | ----------------------------- |
+| **P0**   | Ground removal (height threshold) | Low    | High - reduces false clusters |
+| **P0**   | OBB estimation                    | Medium | High - heading visualisation  |
+| **P1**   | Debug artifacts                   | Medium | High - debugging workflow     |
+| **P1**   | OBB temporal smoothing            | Low    | Medium - visual quality       |
+| **P2**   | Hungarian association             | Medium | Medium - fewer ID swaps       |
+| **P2**   | Occlusion detection               | Medium | Medium - track continuity     |
+| **P3**   | Voxel grid preprocessing          | Low    | Low - performance             |
+| **P3**   | CA motion model                   | Medium | Low - marginal accuracy       |
+| **P3**   | Feature extraction                | Low    | Low - ML prep                 |
 
 ---
 

@@ -111,7 +111,6 @@ The advanced 7DOF/13-state tracking described in this document is required when:
 **Moving Sensor Scenarios:**
 
 1. **Bike-Mounted LIDAR**
-
    - Similar to vehicle but higher vibration, more agile motion
    - Need robust pose estimation (bumpy roads, curbs)
    - Use case: Mobile traffic monitoring, bike lane analysis
@@ -544,17 +543,14 @@ Shape Estimation → Temporal Association → 7-DOF Box Fitting
 **Solution Approaches (see `av-lidar-integration-plan.md` for full details):**
 
 1. **Symmetry-Based Completion:**
-
    - Use bilateral symmetry to estimate hidden dimensions
    - Works well when at least half the object is visible
 
 2. **Model-Based Completion (Class Priors):**
-
    - Use learned shape priors per object class (Car, Truck, Bus, Pedestrian, etc.)
    - Blend observed and prior dimensions based on visibility fraction
 
 3. **Temporal Shape Refinement:**
-
    - Accumulate observations as object moves and reveals different surfaces
    - Weight by visibility quality
    - Track which surfaces have been observed
@@ -821,19 +817,16 @@ type TrackObservation3D struct {
 **Pose Estimation Sources:**
 
 1. **GPS + IMU (Most Common)**
-
    - GPS provides position (x, y, z with altitude)
    - IMU provides orientation (roll, pitch, yaw)
    - Combined at 10-100 Hz
 
 2. **Visual Odometry**
-
    - Camera-based pose estimation
    - Works indoors (no GPS)
    - 30-60 Hz typical
 
 3. **Wheel Odometry + IMU**
-
    - For ground vehicles
    - Dead reckoning with IMU correction
    - 100+ Hz possible
