@@ -65,14 +65,26 @@ message PointCloudFrame {
 // Clusters (Foreground Objects)
 // =============================================================================
 
+// OrientedBoundingBox represents a 7-DOF (7 Degrees of Freedom) 3D bounding box.
+// This format conforms to the AV industry standard specification.
+// See: docs/lidar/future/av-lidar-integration-plan.md for BoundingBox7DOF spec.
+//
+// 7-DOF parameters:
+//   1. center_x: Centre X position (metres, world frame)
+//   2. center_y: Centre Y position (metres, world frame)
+//   3. center_z: Centre Z position (metres, world frame)
+//   4. length:   Box extent along heading direction (metres)
+//   5. width:    Box extent perpendicular to heading (metres)
+//   6. height:   Box extent along Z-axis (metres)
+//   7. heading:  Yaw angle around Z-axis (radians, [-π, π])
 message OrientedBoundingBox {
-  float center_x = 1;
-  float center_y = 2;
-  float center_z = 3;
-  float length = 4;              // along heading direction
-  float width = 5;               // perpendicular to heading
-  float height = 6;              // Z extent
-  float heading_rad = 7;         // rotation around Z-axis
+  float center_x = 1;              // metres, world frame
+  float center_y = 2;              // metres, world frame
+  float center_z = 3;              // metres, world frame
+  float length = 4;                // metres, along heading direction
+  float width = 5;                 // metres, perpendicular to heading
+  float height = 6;                // metres, Z extent
+  float heading_rad = 7;           // radians, rotation around Z-axis, [-π, π]
 }
 
 message Cluster {

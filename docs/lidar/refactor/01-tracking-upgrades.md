@@ -4,6 +4,20 @@ This document proposes concrete improvements to the LiDAR tracking pipeline for 
 
 ---
 
+## Industry Standards Reference
+
+The tracking upgrades in this document are designed to align with the **7-DOF industry standard** for 3D bounding boxes:
+
+| Specification | Document |
+|--------------|----------|
+| **7-DOF Bounding Box Format** | [av-lidar-integration-plan.md](../future/av-lidar-integration-plan.md) |
+| **Pose Representation** | [static-pose-alignment-plan.md](../future/static-pose-alignment-plan.md) |
+| **Background Grid Standards** | [lidar-background-grid-standards.md](../architecture/lidar-background-grid-standards.md) |
+
+The `OrientedBoundingBox` output from OBB estimation (§2.6) conforms to `BoundingBox7DOF` from the AV spec.
+
+---
+
 ## 1. Current State
 
 ### 1.1 Existing Implementation

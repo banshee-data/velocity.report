@@ -57,14 +57,24 @@ struct PointCloudFrame {
 
 // MARK: - Clusters
 
+/// OrientedBoundingBox represents a 7-DOF (7 Degrees of Freedom) 3D bounding box.
+/// This format conforms to the AV industry standard specification.
+/// See: docs/lidar/future/av-lidar-integration-plan.md for BoundingBox7DOF spec.
+///
+/// 7-DOF parameters:
+/// - centerX/Y/Z: Centre position (metres, world frame)
+/// - length: Box extent along heading direction (metres)
+/// - width: Box extent perpendicular to heading (metres)
+/// - height: Box extent along Z-axis (metres)
+/// - headingRad: Yaw angle around Z-axis (radians, [-π, π])
 struct OrientedBoundingBox {
-    var centerX: Float = 0
-    var centerY: Float = 0
-    var centerZ: Float = 0
-    var length: Float = 0
-    var width: Float = 0
-    var height: Float = 0
-    var headingRad: Float = 0
+    var centerX: Float = 0      // metres, world frame
+    var centerY: Float = 0      // metres, world frame
+    var centerZ: Float = 0      // metres, world frame
+    var length: Float = 0       // metres, along heading direction
+    var width: Float = 0        // metres, perpendicular to heading
+    var height: Float = 0       // metres, Z extent
+    var headingRad: Float = 0   // radians, rotation around Z-axis, [-π, π]
 }
 
 struct Cluster {

@@ -4,6 +4,20 @@ This document describes the system architecture for the macOS LiDAR visualiser a
 
 ---
 
+## Industry Standards Alignment
+
+This architecture aligns with industry-standard LiDAR perception formats:
+
+| Standard | Implementation | Reference |
+|----------|---------------|-----------|
+| **7-DOF Bounding Box** | `OrientedBoundingBox` in protobuf schema | [av-lidar-integration-plan.md](../future/av-lidar-integration-plan.md) |
+| **Coordinate Frame Convention** | ENU (East-North-Up) world frame | [static-pose-alignment-plan.md](../future/static-pose-alignment-plan.md) |
+| **Background Grid** | Polar range image with VTK export option | [lidar-background-grid-standards.md](../architecture/lidar-background-grid-standards.md) |
+
+The `OrientedBoundingBox` message in `visualizer.proto` is designed to be forward-compatible with the `BoundingBox7DOF` type from the AV integration spec, enabling future AV dataset import/export.
+
+---
+
 ## 1. Split Plan: Two Parallel Tracks
 
 ### Track A: Visualiser (Primary)

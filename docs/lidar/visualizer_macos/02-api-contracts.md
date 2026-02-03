@@ -4,6 +4,24 @@ This is the **most critical document** for the visualiser project. It defines th
 
 ---
 
+## Industry Standards Alignment
+
+This API is designed to align with the **7-DOF industry standard** for 3D bounding boxes used in autonomous vehicle (AV) perception systems:
+
+| Standard Element | Implementation | Reference |
+|-----------------|----------------|-----------|
+| **7-DOF Bounding Box** | `OrientedBoundingBox` message | [av-lidar-integration-plan.md](../future/av-lidar-integration-plan.md) |
+| **Coordinate Convention** | +X right, +Y forward, +Z up (world frame) | [static-pose-alignment-plan.md](../future/static-pose-alignment-plan.md) |
+| **Heading Convention** | Radians, [-π, π], rotation around Z-axis | AV industry standard |
+| **Units** | Metres for positions/dimensions, radians for angles | SI units |
+
+**Key alignment points:**
+- `OrientedBoundingBox` matches `BoundingBox7DOF` from `av-lidar-integration-plan.md`
+- Future AV dataset import can use the same data structures
+- Compatible with the 28-class AV taxonomy (via extensible `class_label` field)
+
+---
+
 ## 1. Canonical Conceptual Model
 
 The visualiser consumes a **frame-oriented data stream** from the pipeline. Each frame represents one complete LiDAR rotation (~100ms at 10 Hz) and contains:
@@ -119,14 +137,20 @@ message Cluster {
   repeated float sample_points = 14 [packed = true];  // xyz interleaved
 }
 
+// OrientedBoundingBox conforms to the industry-standard 7-DOF format.
+// See: docs/lidar/future/av-lidar-integration-plan.md for full specification.
+// This matches BoundingBox7DOF from the AV integration spec:
+//   - center_x/y/z: Centre position in metres (world frame)
+//   - length/width/height: Box extents in metres
+//   - heading_rad: Yaw angle around Z-axis in radians [-π, π]
 message OrientedBoundingBox {
   float center_x = 1;
   float center_y = 2;
   float center_z = 3;
-  float length = 4;              // along heading direction
-  float width = 5;               // perpendicular to heading
-  float height = 6;              // Z extent
-  float heading_rad = 7;         // rotation around Z-axis
+  float length = 4;              // along heading direction (metres)
+  float width = 5;               // perpendicular to heading (metres)
+  float height = 6;              // Z extent (metres)
+  float heading_rad = 7;         // rotation around Z-axis (radians, [-π, π])
 }
 
 message ClusterSet {

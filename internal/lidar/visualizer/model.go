@@ -112,15 +112,24 @@ type Cluster struct {
 	SamplePoints []float32 // xyz interleaved
 }
 
-// OrientedBoundingBox represents a 3D oriented box.
+// OrientedBoundingBox represents a 7-DOF (7 Degrees of Freedom) 3D bounding box.
+// This format conforms to the AV industry standard specification.
+// See: docs/lidar/future/av-lidar-integration-plan.md for BoundingBox7DOF spec.
+//
+// 7-DOF parameters:
+//   - CenterX/Y/Z: Centre position (metres, world frame)
+//   - Length: Box extent along heading direction (metres)
+//   - Width: Box extent perpendicular to heading (metres)
+//   - Height: Box extent along Z-axis (metres)
+//   - HeadingRad: Yaw angle around Z-axis (radians, [-π, π])
 type OrientedBoundingBox struct {
-	CenterX    float32
-	CenterY    float32
-	CenterZ    float32
-	Length     float32 // along heading direction
-	Width      float32 // perpendicular to heading
-	Height     float32 // Z extent
-	HeadingRad float32 // rotation around Z-axis
+	CenterX    float32 // metres, world frame
+	CenterY    float32 // metres, world frame
+	CenterZ    float32 // metres, world frame
+	Length     float32 // metres, along heading direction
+	Width      float32 // metres, perpendicular to heading
+	Height     float32 // metres, Z extent
+	HeadingRad float32 // radians, rotation around Z-axis, [-π, π]
 }
 
 // TrackSet contains all tracks for a frame.
