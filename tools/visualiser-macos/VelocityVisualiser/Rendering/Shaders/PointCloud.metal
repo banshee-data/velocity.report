@@ -39,21 +39,21 @@ vertex PointVertexOut pointVertex(
     float4 point = points[vid];
     float3 pos = point.xyz;
     float intensity = point.w;
-    
+
     float4 viewPos = uniforms.modelView * float4(pos, 1.0);
     float4 clipPos = uniforms.modelViewProjection * float4(pos, 1.0);
-    
+
     PointVertexOut out;
     out.position = clipPos;
-    
+
     // Size attenuation based on distance
     float dist = length(viewPos.xyz);
     out.pointSize = uniforms.pointSize * 10.0 / max(dist, 1.0);
     out.pointSize = clamp(out.pointSize, 1.0, 20.0);
-    
+
     out.intensity = intensity;
     out.depth = viewPos.z;
-    
+
     return out;
 }
 
@@ -67,16 +67,16 @@ fragment float4 pointFragment(
     if (dist > 0.5) {
         discard_fragment();
     }
-    
+
     // Soft edge
     float alpha = 1.0 - smoothstep(0.3, 0.5, dist);
-    
+
     // Colour based on intensity
     // Low intensity: blue, high intensity: white/yellow
     float3 lowColour = float3(0.2, 0.4, 0.8);  // blue
     float3 highColour = float3(1.0, 0.9, 0.6); // yellow-white
     float3 colour = mix(lowColour, highColour, in.intensity);
-    
+
     return float4(colour, alpha);
 }
 
@@ -102,15 +102,15 @@ vertex BoxVertexOut boxVertex(
 ) {
     BoxInstance inst = instances[iid];
     float3 localPos = boxVerts[vid];
-    
+
     // Transform to world space
     float4 worldPos = inst.transform * float4(localPos, 1.0);
-    
+
     BoxVertexOut out;
     out.position = uniforms.modelViewProjection * worldPos;
     out.colour = inst.colour;
     out.normal = float3(0, 0, 1); // simplified normal
-    
+
     return out;
 }
 
@@ -118,7 +118,7 @@ fragment float4 boxFragment(BoxVertexOut in [[stage_in]]) {
     // Simple shading
     float3 colour = in.colour.rgb;
     float alpha = in.colour.a * 0.5; // semi-transparent boxes
-    
+
     return float4(colour, alpha);
 }
 
@@ -134,14 +134,14 @@ vertex TrailVertexOut trailVertex(
     constant float4 *vertices [[buffer(0)]],
     constant Uniforms &uniforms [[buffer(1)]]
 ) {
-    float4 vertex = vertices[vid];
-    float3 pos = vertex.xyz;
-    float alpha = vertex.w;
-    
+    float4 vert = vertices[vid];
+    float3 pos = vert.xyz;
+    float alpha = vert.w;
+
     TrailVertexOut out;
     out.position = uniforms.modelViewProjection * float4(pos, 1.0);
     out.alpha = alpha;
-    
+
     return out;
 }
 

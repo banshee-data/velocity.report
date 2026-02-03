@@ -29,10 +29,27 @@ This is a SwiftUI application that connects to the Go LiDAR pipeline via gRPC an
    ```
 
 2. Generate Swift protobuf stubs:
+
    ```bash
    # From repository root
    make proto-gen-swift
    ```
+
+3. **Create the Xcode project** (first-time setup):
+
+   The source directory exists but the Xcode project needs to be created:
+
+   a. Open Xcode
+   b. File → New → Project
+   c. Choose **macOS** → **App**
+   d. Set:
+   - Product Name: `VelocityVisualiser`
+   - Interface: **SwiftUI**
+   - Language: **Swift**
+     e. Save location: `tools/visualiser-macos/` (choose this directory)
+     f. In Xcode, delete the auto-generated source files
+     g. Right-click project → Add Files to "VelocityVisualiser"
+     h. Add the existing `VelocityVisualiser/` directory (with folders)
 
 ### Build with Xcode
 
@@ -46,6 +63,8 @@ This is a SwiftUI application that connects to the Go LiDAR pipeline via gRPC an
 cd tools/visualiser-macos
 xcodebuild -project VelocityVisualiser.xcodeproj -scheme VelocityVisualiser -configuration Release
 ```
+
+**Note:** The command-line build requires the Xcode project to be created first (see Prerequisites above).
 
 ## Usage
 

@@ -206,6 +206,15 @@ build-visualiser-macos:
 		echo "Error: macOS required for building the visualiser"; \
 		exit 1; \
 	fi
+	@if [ ! -d "$(VISUALISER_DIR)" ]; then \
+		echo "Error: Visualiser directory not found: $(VISUALISER_DIR)"; \
+		echo ""; \
+		echo "The macOS visualiser project hasn't been created yet."; \
+		echo "This is a planned feature currently in the design phase."; \
+		echo ""; \
+		echo "Documentation: docs/lidar/visualizer_macos/"; \
+		exit 1; \
+	fi
 	@if ! command -v xcodebuild >/dev/null 2>&1; then \
 		echo "Error: xcodebuild not found. Install Xcode from the App Store."; \
 		exit 1; \
