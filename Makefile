@@ -22,6 +22,8 @@ help:
 	@echo "  build-docs           Build documentation site (Eleventy)"
 	@echo "  build-mac            Build macOS LiDAR visualiser (Xcode)"
 	@echo "  clean-mac            Clean macOS visualiser build artifacts"
+	@echo "  run-mac              Run macOS visualiser (requires build-mac)"
+	@echo "  dev-mac              Kill, build, and run macOS visualiser"
 	@echo ""
 	@echo "PROTOBUF CODE GENERATION:"
 	@echo "  proto-gen            Generate protobuf stubs for all languages"
@@ -199,8 +201,10 @@ build-docs:
 # Build macOS LiDAR visualiser (requires macOS and Xcode)
 VISUALISER_DIR = tools/visualiser-macos
 VISUALISER_BUILD_DIR = $(VISUALISER_DIR)/build
+VISUALISER_APP = $(VISUALISER_BUILD_DIR)/Build/Products/Release/VelocityVisualiser.app
+VISUALISER_BIN = $(VISUALISER_APP)/Contents/MacOS/VelocityVisualiser
 
-.PHONY: build-mac clean-mac
+.PHONY: build-mac clean-mac run-mac dev-mac
 
 build-mac:
 	@echo "Building macOS LiDAR visualiser..."
@@ -248,6 +252,22 @@ clean-mac:
 	@echo "Cleaning macOS visualiser build artifacts..."
 	@rm -rf $(VISUALISER_BUILD_DIR)
 	@echo "✓ Clean complete"
+
+run-mac:
+	@if [ ! -f "$(VISUALISER_BIN)" ]; then \
+		echo "Error: Visualiser binary not found. Run 'make build-mac' first."; \
+		exit 1; \
+	fi
+	@echo "Running macOS visualiser..."
+	@$(VISUALISER_BIN)
+
+dev-mac:
+	@echo "Stopping any running visualiser instances..."
+	@pkill -f "VelocityVisualiser" || true
+	@sleep 0.5
+	@$(MAKE) build-mac
+	@echo "Starting visualiser..."
+	@$(VISUALISER_BIN)
 
 # =============================================================================
 # PROTOBUF CODE GENERATION
