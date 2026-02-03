@@ -551,8 +551,8 @@ The existing LidarView forwarding path is **preserved unchanged**.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Tracking Pipeline                            │
-│  (ingest → foreground → cluster → track → canonical model)       │
+│                     Tracking Pipeline                           │
+│  (ingest → foreground → cluster → track → canonical model)      │
 └───────────────────────────┬─────────────────────────────────────┘
                             │
                             ▼
