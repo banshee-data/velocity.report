@@ -267,29 +267,49 @@ proto-gen: proto-gen-go proto-gen-swift
 proto-gen-go:
 	@echo "Generating Go protobuf stubs..."
 	@mkdir -p $(PROTO_GO_OUT)
-	@if command -v protoc >/dev/null 2>&1; then \
-		protoc --go_out=$(PROTO_GO_OUT) --go_opt=paths=source_relative \
-		       --go-grpc_out=$(PROTO_GO_OUT) --go-grpc_opt=paths=source_relative \
-		       -I $(PROTO_DIR) $(PROTO_DIR)/visualizer.proto; \
-		echo "✓ Go stubs generated in $(PROTO_GO_OUT)"; \
-	else \
-		echo "protoc not found; install Protocol Buffers compiler and retry"; exit 1; \
+	@if ! command -v protoc >/dev/null 2>&1; then \
+		echo "ERROR: protoc not found; install Protocol Buffers compiler"; \
+		echo "  macOS: brew install protobuf"; \
+		exit 1; \
 	fi
+	@if ! command -v protoc-gen-go >/dev/null 2>&1; then \
+		echo "ERROR: protoc-gen-go not found; install Go protobuf plugin"; \
+		echo "  go install google.golang.org/protobuf/cmd/protoc-gen-go@latest"; \
+		exit 1; \
+	fi
+	@if ! command -v protoc-gen-go-grpc >/dev/null 2>&1; then \
+		echo "ERROR: protoc-gen-go-grpc not found; install Go gRPC plugin"; \
+		echo "  go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest"; \
+		exit 1; \
+	fi
+	@protoc --go_out=$(PROTO_GO_OUT) --go_opt=paths=source_relative \
+	       --go-grpc_out=$(PROTO_GO_OUT) --go-grpc_opt=paths=source_relative \
+	       -I $(PROTO_DIR) $(PROTO_DIR)/visualizer.proto
+	@echo "✓ Go stubs generated in $(PROTO_GO_OUT)"
 
 # Generate Swift protobuf stubs (for macOS visualiser)
 proto-gen-swift:
 	@echo "Generating Swift protobuf stubs..."
 	@mkdir -p $(PROTO_SWIFT_OUT)
-	@if command -v protoc >/dev/null 2>&1 && command -v protoc-gen-swift >/dev/null 2>&1; then \
-		protoc --swift_out=$(PROTO_SWIFT_OUT) \
-		       --grpc-swift_out=$(PROTO_SWIFT_OUT) \
-		       -I $(PROTO_DIR) $(PROTO_DIR)/visualizer.proto; \
-		echo "✓ Swift stubs generated in $(PROTO_SWIFT_OUT)"; \
-	else \
-		echo "protoc or protoc-gen-swift not found; install grpc-swift and retry"; \
-		echo "  brew install swift-protobuf grpc-swift"; \
+	@if ! command -v protoc >/dev/null 2>&1; then \
+		echo "ERROR: protoc not found; install Protocol Buffers compiler"; \
+		echo "  macOS: brew install protobuf"; \
 		exit 1; \
 	fi
+	@if ! command -v protoc-gen-swift >/dev/null 2>&1; then \
+		echo "ERROR: protoc-gen-swift not found; install Swift protobuf plugin"; \
+		echo "  macOS: brew install swift-protobuf"; \
+		exit 1; \
+	fi
+	@if ! command -v protoc-gen-grpc-swift >/dev/null 2>&1; then \
+		echo "ERROR: protoc-gen-grpc-swift not found; install Swift gRPC plugin"; \
+		echo "  macOS: brew install grpc-swift"; \
+		exit 1; \
+	fi
+	@protoc --swift_out=$(PROTO_SWIFT_OUT) \
+	       --grpc-swift_out=$(PROTO_SWIFT_OUT) \
+	       -I $(PROTO_DIR) $(PROTO_DIR)/visualizer.proto
+	@echo "✓ Swift stubs generated in $(PROTO_SWIFT_OUT)"
 
 # =============================================================================
 # INSTALLATION
