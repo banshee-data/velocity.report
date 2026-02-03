@@ -62,10 +62,11 @@ help:
 	@echo "  schema-sync          Regenerate schema.sql from latest migrations"
 	@echo ""
 	@echo "FORMATTING (mutating):"
-	@echo "  format               Format all code (Go + Python + Web + SQL)"
+	@echo "  format               Format all code (Go + Python + Web + SQL + Markdown)"
 	@echo "  format-go            Format Go code (gofmt)"
 	@echo "  format-python        Format Python code (black + ruff)"
 	@echo "  format-web           Format web code (prettier)"
+	@echo "  format-markdown      Format Markdown files (prettier)"
 	@echo "  format-sql           Format SQL files (sql-formatter)"
 	@echo ""
 	@echo "LINTING (non-mutating, CI-friendly):"
@@ -583,9 +584,9 @@ schema-sync:
 # FORMATTING (mutating)
 # =============================================================================
 
-.PHONY: format format-go format-python format-web format-sql
+.PHONY: format format-go format-python format-web format-markdown format-sql
 
-format: format-go format-python format-web format-sql
+format: format-go format-python format-web format-markdown format-sql
 	@echo "\nAll formatting targets complete."
 
 format-go:
@@ -609,6 +610,20 @@ format-web:
 		fi; \
 	else \
 		echo "$(WEB_DIR) does not exist; skipping web formatting"; \
+	fi
+
+format-markdown:
+	@echo "Formatting Markdown files with prettier..."
+	@if [ -d "$(WEB_DIR)" ]; then \
+		if command -v pnpm >/dev/null 2>&1; then \
+			cd $(WEB_DIR) && pnpm exec prettier --write "../**/*.md" || echo "prettier failed"; \
+		elif command -v npx >/dev/null 2>&1; then \
+			cd $(WEB_DIR) && npx prettier --write "../**/*.md" || echo "prettier failed"; \
+		else \
+			echo "pnpm/npx not found; skipping Markdown formatting"; \
+		fi; \
+	else \
+		echo "$(WEB_DIR) does not exist; skipping Markdown formatting"; \
 	fi
 
 format-sql:
