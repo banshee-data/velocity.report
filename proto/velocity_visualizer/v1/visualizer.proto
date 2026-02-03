@@ -1,0 +1,401 @@
+// velocity.report LiDAR Visualiser Protocol
+// Version: v1
+// Package: velocity.visualizer.v1
+//
+// This protobuf schema defines the API contract between the Go LiDAR pipeline
+// and the macOS visualiser application. It supports:
+// - Live streaming of point clouds, clusters, and tracks
+// - Playback control for recorded logs
+// - Debug overlays for algorithm tuning
+// - Labelling workflow for classifier training
+
+syntax = "proto3";
+
+package velocity.visualizer.v1;
+
+option go_package = "github.com/banshee-data/velocity.report/internal/lidar/visualizer/pb";
+
+// =============================================================================
+// Coordinate Frame Information
+// =============================================================================
+
+message CoordinateFrameInfo {
+  string frame_id = 1;           // e.g., "site/hesai-01"
+  string reference_frame = 2;    // e.g., "ENU" or "sensor"
+  double origin_lat = 3;         // optional, for georeferencing
+  double origin_lon = 4;
+  double origin_alt = 5;
+  float rotation_deg = 6;        // rotation of X-axis from East (ENU)
+}
+
+// =============================================================================
+// Point Cloud
+// =============================================================================
+
+enum DecimationMode {
+  DECIMATION_NONE = 0;
+  DECIMATION_UNIFORM = 1;
+  DECIMATION_VOXEL = 2;
+  DECIMATION_FOREGROUND_ONLY = 3;  // only foreground points, no background
+}
+
+message PointCloudFrame {
+  uint64 frame_id = 1;
+  int64 timestamp_ns = 2;
+  string sensor_id = 3;
+  
+  // Compact encoding: arrays of equal length
+  repeated float x = 4 [packed = true];      // world frame X (metres)
+  repeated float y = 5 [packed = true];      // world frame Y (metres)
+  repeated float z = 6 [packed = true];      // world frame Z (metres)
+  repeated uint32 intensity = 7 [packed = true];  // 0-255
+  
+  // Optional: per-point classification (background=0, foreground=1, ground=2)
+  repeated uint32 classification = 8 [packed = true];
+  
+  // Decimation info
+  DecimationMode decimation_mode = 9;
+  float decimation_ratio = 10;   // e.g., 0.5 = half the points
+  
+  // Point count (convenience field)
+  int32 point_count = 11;
+}
+
+// =============================================================================
+// Clusters (Foreground Objects)
+// =============================================================================
+
+message OrientedBoundingBox {
+  float center_x = 1;
+  float center_y = 2;
+  float center_z = 3;
+  float length = 4;              // along heading direction
+  float width = 5;               // perpendicular to heading
+  float height = 6;              // Z extent
+  float heading_rad = 7;         // rotation around Z-axis
+}
+
+message Cluster {
+  int64 cluster_id = 1;          // unique within frame
+  string sensor_id = 2;
+  int64 timestamp_ns = 3;
+  
+  // Centroid in world frame
+  float centroid_x = 4;
+  float centroid_y = 5;
+  float centroid_z = 6;
+  
+  // Axis-aligned bounding box
+  float aabb_length = 7;         // X extent (metres)
+  float aabb_width = 8;          // Y extent (metres)
+  float aabb_height = 9;         // Z extent (metres)
+  
+  // Oriented bounding box (if computed)
+  OrientedBoundingBox obb = 10;
+  
+  // Features
+  int32 points_count = 11;
+  float height_p95 = 12;
+  float intensity_mean = 13;
+  
+  // Optional: sample points for debug rendering (xyz interleaved)
+  repeated float sample_points = 14 [packed = true];
+}
+
+enum ClusteringMethod {
+  CLUSTERING_DBSCAN = 0;
+  CLUSTERING_CONNECTED_COMPONENTS = 1;
+}
+
+message ClusterSet {
+  uint64 frame_id = 1;
+  int64 timestamp_ns = 2;
+  repeated Cluster clusters = 3;
+  ClusteringMethod method = 4;
+}
+
+// =============================================================================
+// Tracks (State, Velocity, Lifecycle)
+// =============================================================================
+
+enum TrackState {
+  TRACK_STATE_UNKNOWN = 0;
+  TRACK_STATE_TENTATIVE = 1;     // new track, needs confirmation
+  TRACK_STATE_CONFIRMED = 2;     // stable track
+  TRACK_STATE_DELETED = 3;       // track marked for removal
+}
+
+enum OcclusionState {
+  OCCLUSION_NONE = 0;
+  OCCLUSION_PARTIAL = 1;
+  OCCLUSION_FULL = 2;
+}
+
+enum MotionModel {
+  MOTION_MODEL_CV = 0;           // constant velocity
+  MOTION_MODEL_CA = 1;           // constant acceleration
+}
+
+message Track {
+  string track_id = 1;           // e.g., "track_42"
+  string sensor_id = 2;
+  
+  // Lifecycle
+  TrackState state = 3;
+  int32 hits = 4;                // consecutive successful associations
+  int32 misses = 5;              // consecutive missed associations
+  int32 observation_count = 6;   // total observations
+  
+  // Timestamps
+  int64 first_seen_ns = 7;
+  int64 last_seen_ns = 8;
+  
+  // Current position (world frame)
+  float x = 9;
+  float y = 10;
+  float z = 11;
+  
+  // Current velocity (world frame)
+  float vx = 12;
+  float vy = 13;
+  float vz = 14;                 // typically 0 for ground-plane tracking
+  
+  // Derived kinematics
+  float speed_mps = 15;
+  float heading_rad = 16;
+  
+  // Uncertainty (optional, row-major 4x4)
+  repeated float covariance_4x4 = 17 [packed = true];
+  
+  // Bounding box (running average)
+  float bbox_length_avg = 18;
+  float bbox_width_avg = 19;
+  float bbox_height_avg = 20;
+  
+  // OBB heading (smoothed)
+  float bbox_heading_rad = 21;
+  
+  // Features
+  float height_p95_max = 22;
+  float intensity_mean_avg = 23;
+  float avg_speed_mps = 24;
+  float peak_speed_mps = 25;
+  
+  // Classification
+  string class_label = 26;       // "pedestrian", "car", "cyclist", "bird", "other"
+  float class_confidence = 27;   // 0.0 - 1.0
+  
+  // Quality metrics
+  float track_length_metres = 28;
+  float track_duration_secs = 29;
+  int32 occlusion_count = 30;
+  float confidence = 31;
+  OcclusionState occlusion_state = 32;
+  MotionModel motion_model = 33;
+}
+
+message TrackPoint {
+  float x = 1;
+  float y = 2;
+  int64 timestamp_ns = 3;
+}
+
+message TrackTrail {
+  string track_id = 1;
+  repeated TrackPoint points = 2;
+}
+
+message TrackSet {
+  uint64 frame_id = 1;
+  int64 timestamp_ns = 2;
+  repeated Track tracks = 3;
+  repeated TrackTrail trails = 4;  // historical positions for rendering
+}
+
+// =============================================================================
+// Debug Overlays
+// =============================================================================
+
+message AssociationCandidate {
+  int64 cluster_id = 1;
+  string track_id = 2;
+  float distance = 3;            // Mahalanobis distance
+  bool accepted = 4;             // whether association was accepted
+}
+
+message GatingEllipse {
+  string track_id = 1;
+  float center_x = 2;
+  float center_y = 3;
+  float semi_major = 4;          // metres
+  float semi_minor = 5;          // metres
+  float rotation_rad = 6;        // ellipse rotation
+}
+
+message InnovationResidual {
+  string track_id = 1;
+  float predicted_x = 2;
+  float predicted_y = 3;
+  float measured_x = 4;
+  float measured_y = 5;
+  float residual_magnitude = 6;
+}
+
+message StatePrediction {
+  string track_id = 1;
+  float x = 2;
+  float y = 3;
+  float vx = 4;
+  float vy = 5;
+}
+
+message DebugOverlaySet {
+  uint64 frame_id = 1;
+  int64 timestamp_ns = 2;
+  
+  repeated AssociationCandidate association_candidates = 3;
+  repeated GatingEllipse gating_ellipses = 4;
+  repeated InnovationResidual residuals = 5;
+  repeated StatePrediction predictions = 6;
+}
+
+// =============================================================================
+// Labels (User Annotations)
+// =============================================================================
+
+message LabelEvent {
+  string label_id = 1;           // UUID
+  string track_id = 2;           // associated track
+  string class_label = 3;        // assigned class
+  uint64 start_frame_id = 4;     // segment start (optional)
+  uint64 end_frame_id = 5;       // segment end (optional)
+  int64 created_ns = 6;          // when label was created
+  string annotator = 7;          // optional: who created the label
+  string notes = 8;              // optional: free-form notes
+}
+
+message LabelSet {
+  string session_id = 1;         // replay session identifier
+  string source_file = 2;        // log file being annotated
+  repeated LabelEvent labels = 3;
+}
+
+// =============================================================================
+// Frame Bundle (Main Streaming Message)
+// =============================================================================
+
+message PlaybackInfo {
+  bool is_live = 1;              // true if live, false if replay
+  int64 log_start_ns = 2;        // first frame timestamp in log
+  int64 log_end_ns = 3;          // last frame timestamp in log
+  float playback_rate = 4;       // 1.0 = real-time
+  bool paused = 5;
+}
+
+message FrameBundle {
+  uint64 frame_id = 1;
+  int64 timestamp_ns = 2;
+  string sensor_id = 3;
+  CoordinateFrameInfo coordinate_frame = 4;
+  
+  PointCloudFrame point_cloud = 5;
+  ClusterSet clusters = 6;
+  TrackSet tracks = 7;
+  DebugOverlaySet debug = 8;
+  
+  // Playback metadata (replay mode only)
+  PlaybackInfo playback_info = 9;
+}
+
+// =============================================================================
+// gRPC Service
+// =============================================================================
+
+message StreamRequest {
+  string sensor_id = 1;          // which sensor to stream (or "all")
+  bool include_points = 2;       // include full point cloud
+  bool include_clusters = 3;     // include cluster set
+  bool include_tracks = 4;       // include track set
+  bool include_debug = 5;        // include debug overlays
+  DecimationMode point_decimation = 6;
+  float decimation_ratio = 7;    // 0.0-1.0
+}
+
+message PlaybackStatus {
+  bool paused = 1;
+  float rate = 2;
+  int64 current_timestamp_ns = 3;
+  uint64 current_frame_id = 4;
+}
+
+message PauseRequest {}
+message PlayRequest {}
+
+message SeekRequest {
+  oneof target {
+    int64 timestamp_ns = 1;      // seek to timestamp
+    uint64 frame_id = 2;         // seek to frame
+  }
+}
+
+message SetRateRequest {
+  float rate = 1;                // e.g., 0.5, 1.0, 2.0
+}
+
+message OverlayModeRequest {
+  bool show_points = 1;
+  bool show_clusters = 2;
+  bool show_tracks = 3;
+  bool show_trails = 4;
+  bool show_velocity = 5;
+  bool show_gating = 6;
+  bool show_association = 7;
+  bool show_residuals = 8;
+}
+
+message OverlayModeResponse {
+  bool success = 1;
+}
+
+message CapabilitiesRequest {}
+
+message CapabilitiesResponse {
+  bool supports_points = 1;
+  bool supports_clusters = 2;
+  bool supports_tracks = 3;
+  bool supports_debug = 4;
+  bool supports_replay = 5;
+  bool supports_recording = 6;
+  repeated string available_sensors = 7;
+}
+
+message RecordingRequest {
+  string output_path = 1;        // optional, server may generate
+}
+
+message RecordingStatus {
+  bool recording = 1;
+  string output_path = 2;
+  uint64 frames_recorded = 3;
+}
+
+service VisualizerService {
+  // Live streaming of frame bundles (server-streaming)
+  rpc StreamFrames(StreamRequest) returns (stream FrameBundle);
+  
+  // Control RPCs for playback (replay mode)
+  rpc Pause(PauseRequest) returns (PlaybackStatus);
+  rpc Play(PlayRequest) returns (PlaybackStatus);
+  rpc Seek(SeekRequest) returns (PlaybackStatus);
+  rpc SetRate(SetRateRequest) returns (PlaybackStatus);
+  
+  // Request specific overlay modes
+  rpc SetOverlayModes(OverlayModeRequest) returns (OverlayModeResponse);
+  
+  // Server capabilities query
+  rpc GetCapabilities(CapabilitiesRequest) returns (CapabilitiesResponse);
+  
+  // Recording control (live mode)
+  rpc StartRecording(RecordingRequest) returns (RecordingStatus);
+  rpc StopRecording(RecordingRequest) returns (RecordingStatus);
+}

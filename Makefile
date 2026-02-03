@@ -21,6 +21,11 @@ help:
 	@echo "  build-web            Build web frontend (SvelteKit)"
 	@echo "  build-docs           Build documentation site (Eleventy)"
 	@echo ""
+	@echo "PROTOBUF CODE GENERATION:"
+	@echo "  proto-gen            Generate protobuf stubs for all languages"
+	@echo "  proto-gen-go         Generate Go protobuf stubs"
+	@echo "  proto-gen-swift      Generate Swift protobuf stubs (macOS visualiser)"
+	@echo ""
 	@echo "INSTALLATION:"
 	@echo "  install-python       Set up Python PDF generator (venv + deps)"
 	@echo "  deploy-install-latex Install LaTeX on remote target (for PDF generation)"
@@ -185,6 +190,48 @@ build-docs:
 		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
 	fi
 	@echo "✓ Docs build complete: public_html/_site/"
+
+# =============================================================================
+# PROTOBUF CODE GENERATION
+# =============================================================================
+
+PROTO_DIR = proto/velocity_visualizer/v1
+PROTO_GO_OUT = internal/lidar/visualizer/pb
+PROTO_SWIFT_OUT = tools/visualizer-macos/VelocityVisualizer/gRPC/Generated
+
+.PHONY: proto-gen proto-gen-go proto-gen-swift
+
+# Generate protobuf stubs for all languages
+proto-gen: proto-gen-go proto-gen-swift
+	@echo "✓ Protobuf generation complete"
+
+# Generate Go protobuf stubs
+proto-gen-go:
+	@echo "Generating Go protobuf stubs..."
+	@mkdir -p $(PROTO_GO_OUT)
+	@if command -v protoc >/dev/null 2>&1; then \
+		protoc --go_out=$(PROTO_GO_OUT) --go_opt=paths=source_relative \
+		       --go-grpc_out=$(PROTO_GO_OUT) --go-grpc_opt=paths=source_relative \
+		       -I $(PROTO_DIR) $(PROTO_DIR)/visualizer.proto; \
+		echo "✓ Go stubs generated in $(PROTO_GO_OUT)"; \
+	else \
+		echo "protoc not found; install Protocol Buffers compiler and retry"; exit 1; \
+	fi
+
+# Generate Swift protobuf stubs (for macOS visualiser)
+proto-gen-swift:
+	@echo "Generating Swift protobuf stubs..."
+	@mkdir -p $(PROTO_SWIFT_OUT)
+	@if command -v protoc >/dev/null 2>&1 && command -v protoc-gen-swift >/dev/null 2>&1; then \
+		protoc --swift_out=$(PROTO_SWIFT_OUT) \
+		       --grpc-swift_out=$(PROTO_SWIFT_OUT) \
+		       -I $(PROTO_DIR) $(PROTO_DIR)/visualizer.proto; \
+		echo "✓ Swift stubs generated in $(PROTO_SWIFT_OUT)"; \
+	else \
+		echo "protoc or protoc-gen-swift not found; install grpc-swift and retry"; \
+		echo "  brew install swift-protobuf grpc-swift"; \
+		exit 1; \
+	fi
 
 # =============================================================================
 # INSTALLATION

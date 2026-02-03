@@ -58,6 +58,21 @@ Resolved investigation notes for reference.
 
 Historical analysis artifacts from background parameter tuning.
 
+### `visualizer_macos/`
+
+Design documentation for the macOS-native 3D visualiser.
+
+- **Problem statement** and user workflows
+- **API contracts** (protobuf schema, gRPC service)
+- **Architecture** (Track A visualiser, Track B pipeline refactor)
+- **Implementation plan** (incremental milestones)
+
+### `refactor/`
+
+Tracking pipeline refactor and upgrade proposals.
+
+- **Tracking upgrades** (ground removal, OBB, association, debug overlays)
+
 ## Quick Links
 
 | Topic                   | Document                                                                                         |
@@ -67,6 +82,9 @@ Historical analysis artifacts from background parameter tuning.
 | Current status          | [operations/lidar-foreground-tracking-status.md](operations/lidar-foreground-tracking-status.md) |
 | ML pipeline             | [roadmap/ml_pipeline_roadmap.md](roadmap/ml_pipeline_roadmap.md)                                 |
 | Packet format           | [reference/packet_analysis_results.md](reference/packet_analysis_results.md)                     |
+| **macOS Visualiser**    | [visualizer_macos/01-problem-and-user-workflows.md](visualizer_macos/01-problem-and-user-workflows.md) |
+| **API Contracts**       | [visualizer_macos/02-api-contracts.md](visualizer_macos/02-api-contracts.md)                     |
+| **Tracking Upgrades**   | [refactor/01-tracking-upgrades.md](refactor/01-tracking-upgrades.md)                             |
 
 ## Implementation Status
 
