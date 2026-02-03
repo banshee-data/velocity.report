@@ -26,6 +26,7 @@ This document defines an incremental, API-first implementation plan with explici
 **Goal**: Visualiser renders synthetic point clouds, boxes, and trails. Validates end-to-end pipeline without real tracking.
 
 **Track A (Visualiser)**:
+
 - [ ] SwiftUI app shell with window management
 - [ ] `MTKView` integration for Metal rendering
 - [ ] Point cloud renderer (point sprites)
@@ -36,6 +37,7 @@ This document defines an incremental, API-first implementation plan with explici
 - [ ] Basic UI: connect/disconnect, overlay toggles
 
 **Track B (Pipeline)**:
+
 - [ ] `proto/velocity_visualizer/v1/visualizer.proto` schema
 - [ ] `buf.gen.yaml` for Go + Swift codegen
 - [ ] `Makefile` target: `make proto-gen`
@@ -44,6 +46,7 @@ This document defines an incremental, API-first implementation plan with explici
 - [ ] Serves synthetic `FrameBundle` at 10 Hz
 
 **Acceptance Criteria**:
+
 - [ ] Visualiser connects to Go server
 - [ ] Renders 10,000+ synthetic points at 30fps
 - [ ] Shows 10 synthetic boxes moving in circles
@@ -59,6 +62,7 @@ This document defines an incremental, API-first implementation plan with explici
 **Goal**: Record synthetic frames to `.vrlog`, replay with identical output.
 
 **Track A (Visualiser)**:
+
 - [ ] Playback controls: pause/play/seek/rate
 - [ ] Timeline scrubber with frame timestamps
 - [ ] Frame stepping (previous/next)
@@ -66,6 +70,7 @@ This document defines an incremental, API-first implementation plan with explici
 - [ ] Display playback position in UI
 
 **Track B (Pipeline)**:
+
 - [ ] `.vrlog` file format (header + index + chunks)
 - [ ] `Recorder` writes streamed frames to disk
 - [ ] `Replayer` reads log and streams via gRPC
@@ -74,6 +79,7 @@ This document defines an incremental, API-first implementation plan with explici
 - [ ] Control RPCs: `Pause`, `Play`, `Seek`, `SetRate`
 
 **Acceptance Criteria**:
+
 - [ ] Record 60 seconds of synthetic data
 - [ ] Replay produces identical frames (byte-for-byte)
 - [ ] Seek to arbitrary timestamp < 500ms
@@ -89,6 +95,7 @@ This document defines an incremental, API-first implementation plan with explici
 **Goal**: Pipeline emits actual LiDAR point clouds via gRPC. Visualiser renders real data.
 
 **Track B (Pipeline)**:
+
 - [ ] Wire `FrameBuilder` output to gRPC publisher
 - [ ] Convert `LiDARFrame` → `PointCloudFrame` proto
 - [ ] Foreground mask classification in point data
@@ -96,12 +103,14 @@ This document defines an incremental, API-first implementation plan with explici
 - [ ] Feature flag: `--grpc-enabled`
 
 **Track A (Visualiser)**:
+
 - [ ] Handle 70,000+ points per frame
 - [ ] Colour by classification (foreground/background)
 - [ ] Colour by intensity
 - [ ] Point size adjustment
 
 **Acceptance Criteria**:
+
 - [ ] Visualiser shows live point cloud from sensor
 - [ ] Foreground points highlighted in different colour
 - [ ] Frame rate ≥ 30 fps with full point cloud
@@ -116,6 +125,7 @@ This document defines an incremental, API-first implementation plan with explici
 **Goal**: Introduce canonical `FrameBundle` as single source of truth. Both LidarView and gRPC consume from same model.
 
 **Track B (Pipeline)**:
+
 - [ ] Define `internal/lidar/visualizer/model.go` with Go structs
 - [ ] `Adapter` converts tracking output → `FrameBundle`
 - [ ] `LidarViewAdapter` consumes `FrameBundle` → Pandar40P packets
@@ -124,6 +134,7 @@ This document defines an incremental, API-first implementation plan with explici
 - [ ] Preserve existing LidarView behaviour unchanged
 
 **Acceptance Criteria**:
+
 - [ ] `--forward-mode=lidarview` produces identical output to current
 - [ ] `--forward-mode=grpc` works for visualiser
 - [ ] `--forward-mode=both` runs simultaneously
@@ -138,6 +149,7 @@ This document defines an incremental, API-first implementation plan with explici
 **Goal**: Wrap current tracking in interfaces without changing algorithms. Enable golden replay tests.
 
 **Track B (Pipeline)**:
+
 - [ ] Define `Tracker` interface abstracting current implementation
 - [ ] Define `Clusterer` interface for DBSCAN
 - [ ] Inject interfaces via dependency injection
@@ -146,11 +158,13 @@ This document defines an incremental, API-first implementation plan with explici
 - [ ] Determinism: seed any RNG, sort clusters by centroid
 
 **Track A (Visualiser)**:
+
 - [ ] Render `ClusterSet` as boxes
 - [ ] Render `TrackSet` with IDs and colours
 - [ ] Track trails from `TrackTrail` data
 
 **Acceptance Criteria**:
+
 - [ ] Golden replay test passes (identical tracks each run)
 - [ ] Visualiser shows clusters + tracks correctly
 - [ ] Track IDs stable across replay
@@ -165,6 +179,7 @@ This document defines an incremental, API-first implementation plan with explici
 **Goal**: Improve tracking quality with refined algorithms.
 
 **Track B (Pipeline)**:
+
 - [ ] Improved ground removal (RANSAC or height threshold)
 - [ ] Voxel grid downsampling option
 - [ ] OBB estimation from cluster PCA
@@ -176,10 +191,12 @@ This document defines an incremental, API-first implementation plan with explici
 See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) for detailed proposals.
 
 **Track A (Visualiser)**:
+
 - [ ] Render OBB (oriented boxes)
 - [ ] Show OBB heading arrows
 
 **Acceptance Criteria**:
+
 - [ ] OBB headings align with vehicle direction
 - [ ] Track continuity improved (fewer splits/merges)
 - [ ] Performance metrics maintained or improved
@@ -193,6 +210,7 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 **Goal**: Full debug visualisation and labelling workflow.
 
 **Track B (Pipeline)**:
+
 - [ ] Emit `DebugOverlaySet` with association candidates
 - [ ] Emit gating ellipses from Mahalanobis distance
 - [ ] Emit innovation residuals
@@ -200,6 +218,7 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 - [ ] Toggle debug output via `SetOverlayModes` RPC
 
 **Track A (Visualiser)**:
+
 - [ ] Render association lines (dashed, colour-coded)
 - [ ] Render gating ellipses
 - [ ] Render residual vectors
@@ -210,6 +229,7 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 - [ ] Label export to JSON
 
 **Acceptance Criteria**:
+
 - [ ] All debug overlays render correctly
 - [ ] Labels persist across app restarts
 - [ ] Export produces valid JSON for ML pipeline
@@ -224,6 +244,7 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 **Goal**: Production-ready performance and stability.
 
 **Track A (Visualiser)**:
+
 - [ ] GPU buffer pooling (avoid allocations per frame)
 - [ ] Triple buffering for smooth rendering
 - [ ] Memory usage < 500 MB
@@ -231,12 +252,14 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 - [ ] GPU profiling (Metal System Trace)
 
 **Track B (Pipeline)**:
+
 - [ ] gRPC streaming optimisation
 - [ ] Protobuf arena allocators
 - [ ] Decimation auto-adjustment based on bandwidth
 - [ ] Memory profiling for 100+ track scale
 
 **Acceptance Criteria**:
+
 - [ ] 70,000 points at 30 fps sustained
 - [ ] 200 tracks render without frame drops
 - [ ] Memory stable over 1 hour session
@@ -248,17 +271,17 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 
 ## 3. Task Breakdown Summary
 
-| Milestone | Track A (Days) | Track B (Days) | Total (Days) |
-|-----------|----------------|----------------|--------------|
-| M0: Schema + Synthetic | 5 | 5 | 10 |
-| M1: Recorder/Replayer | 4 | 4 | 8 |
-| M2: Real Points | 2 | 4 | 6 |
-| M3: Canonical Model | 0 | 5 | 5 |
-| M4: Tracking Refactor | 2 | 6 | 8 |
-| M5: Algorithm Upgrades | 2 | 10 | 12 |
-| M6: Debug + Labelling | 8 | 4 | 12 |
-| M7: Performance | 4 | 4 | 8 |
-| **Total** | **27** | **42** | **69** |
+| Milestone              | Track A (Days) | Track B (Days) | Total (Days) |
+| ---------------------- | -------------- | -------------- | ------------ |
+| M0: Schema + Synthetic | 5              | 5              | 10           |
+| M1: Recorder/Replayer  | 4              | 4              | 8            |
+| M2: Real Points        | 2              | 4              | 6            |
+| M3: Canonical Model    | 0              | 5              | 5            |
+| M4: Tracking Refactor  | 2              | 6              | 8            |
+| M5: Algorithm Upgrades | 2              | 10             | 12           |
+| M6: Debug + Labelling  | 8              | 4              | 12           |
+| M7: Performance        | 4              | 4              | 8            |
+| **Total**              | **27**         | **42**         | **69**       |
 
 ---
 
@@ -269,6 +292,7 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 **Risk**: Schema changes during development break client/server compatibility.
 
 **Mitigation**:
+
 - Freeze schema at M0 completion
 - Use optional fields for new additions
 - Version bump only for breaking changes
@@ -278,6 +302,7 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 **Risk**: 70k points × 10 Hz overwhelms bandwidth or GPU.
 
 **Mitigation**:
+
 - Implement decimation modes early (M0)
 - Profile incrementally at each milestone
 - Foreground-only mode as fallback
@@ -287,6 +312,7 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 **Risk**: Replay produces different tracks due to floating-point or timing issues.
 
 **Mitigation**:
+
 - Seed all RNG with deterministic value
 - Sort clusters by (x, y) before processing
 - Use integer timestamps, not floating-point deltas
@@ -297,6 +323,7 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 **Risk**: Misaligned coordinates between pipeline and visualiser.
 
 **Mitigation**:
+
 - Document coordinate conventions clearly
 - Include test frame with known geometry (axis marker)
 - Validate with LidarView comparison
@@ -306,6 +333,7 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 **Risk**: Track IDs change on replay due to association order.
 
 **Mitigation**:
+
 - Deterministic cluster sorting
 - Deterministic track ID generation (hash of first cluster + timestamp)
 - Golden replay tests validate ID stability
@@ -316,16 +344,16 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 
 Each milestone has a **stop point** where functionality is complete and stable:
 
-| Milestone | Stop Point |
-|-----------|------------|
-| M0 | Synthetic visualisation works end-to-end |
-| M1 | Replay with seek/pause works |
-| M2 | Real point clouds render |
-| M3 | Both outputs work from same model |
-| M4 | Golden replay tests pass |
-| M5 | Improved tracking quality validated |
-| M6 | Labelling workflow complete |
-| M7 | Performance targets met |
+| Milestone | Stop Point                               |
+| --------- | ---------------------------------------- |
+| M0        | Synthetic visualisation works end-to-end |
+| M1        | Replay with seek/pause works             |
+| M2        | Real point clouds render                 |
+| M3        | Both outputs work from same model        |
+| M4        | Golden replay tests pass                 |
+| M5        | Improved tracking quality validated      |
+| M6        | Labelling workflow complete              |
+| M7        | Performance targets met                  |
 
 **MVP = M0 + M1 + M2**: Visualiser shows real data with basic playback.
 

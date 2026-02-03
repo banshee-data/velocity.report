@@ -10,34 +10,36 @@ The visualiser consumes a **frame-oriented data stream** from the pipeline. Each
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         FrameBundle                              │
+│                         FrameBundle                             │
 ├─────────────────────────────────────────────────────────────────┤
-│  Metadata:                                                       │
+│  Metadata:                                                      │
 │    - frame_id (uint64, monotonic)                               │
 │    - timestamp_ns (int64, capture time)                         │
-│    - sensor_id (string)                                          │
+│    - sensor_id (string)                                         │
 │    - coordinate_frame (CoordinateFrameInfo)                     │
 ├─────────────────────────────────────────────────────────────────┤
-│  Point Cloud:                                                    │
-│    - PointCloudFrame (optional, may be downsampled)              │
+│  Point Cloud:                                                   │
+│    - PointCloudFrame (optional, may be downsampled)             │
 ├─────────────────────────────────────────────────────────────────┤
-│  Perception:                                                     │
-│    - ClusterSet (foreground objects)                             │
-│    - TrackSet (tracked objects with state)                       │
+│  Perception:                                                    │
+│    - ClusterSet (foreground objects)                            │
+│    - TrackSet (tracked objects with state)                      │
 ├─────────────────────────────────────────────────────────────────┤
-│  Debug:                                                          │
-│    - DebugOverlaySet (optional, toggleable)                      │
+│  Debug:                                                         │
+│    - DebugOverlaySet (optional, toggleable)                     │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ### 1.1 Frame Timebase and Coordinate Frames
 
 **Timebase**:
+
 - All timestamps are **Unix nanoseconds** (int64)
 - Frame timestamp is the **capture time of the first point** in the rotation
 - Monotonically increasing frame IDs (uint64)
 
 **Coordinate Frames**:
+
 - **Sensor frame**: Origin at sensor, X=right, Y=forward, Z=up (matches `transform.go`)
 - **World frame**: Site-level coordinates, typically `site/<sensor_id>`
 - The pipeline emits data in **world frame** after applying sensor pose
@@ -62,16 +64,16 @@ message PointCloudFrame {
   uint64 frame_id = 1;
   int64 timestamp_ns = 2;
   string sensor_id = 3;
-  
+
   // Compact encoding: arrays of equal length
   repeated float x = 4 [packed = true];      // world frame X (metres)
   repeated float y = 5 [packed = true];      // world frame Y (metres)
   repeated float z = 6 [packed = true];      // world frame Z (metres)
   repeated uint32 intensity = 7 [packed = true];  // 0-255
-  
+
   // Optional: per-point classification (background=0, foreground=1)
   repeated uint32 classification = 8 [packed = true];
-  
+
   // Decimation info
   DecimationMode decimation_mode = 9;
   float decimation_ratio = 10;   // e.g., 0.5 = half the points
@@ -94,25 +96,25 @@ message Cluster {
   int64 cluster_id = 1;          // unique within frame
   string sensor_id = 2;
   int64 timestamp_ns = 3;
-  
+
   // Centroid in world frame
   float centroid_x = 4;
   float centroid_y = 5;
   float centroid_z = 6;
-  
+
   // Axis-aligned bounding box
   float aabb_length = 7;         // X extent (metres)
   float aabb_width = 8;          // Y extent (metres)
   float aabb_height = 9;         // Z extent (metres)
-  
+
   // Oriented bounding box (if computed)
   OrientedBoundingBox obb = 10;
-  
+
   // Features
   int32 points_count = 11;
   float height_p95 = 12;
   float intensity_mean = 13;
-  
+
   // Optional: sample points for debug rendering
   repeated float sample_points = 14 [packed = true];  // xyz interleaved
 }
@@ -142,49 +144,49 @@ Tracks are persistent object identities across frames.
 message Track {
   string track_id = 1;           // e.g., "track_42"
   string sensor_id = 2;
-  
+
   // Lifecycle
   TrackState state = 3;
   int32 hits = 4;                // consecutive successful associations
   int32 misses = 5;              // consecutive missed associations
   int32 observation_count = 6;   // total observations
-  
+
   // Timestamps
   int64 first_seen_ns = 7;
   int64 last_seen_ns = 8;
-  
+
   // Current position (world frame)
   float x = 9;
   float y = 10;
   float z = 11;
-  
+
   // Current velocity (world frame)
   float vx = 12;
   float vy = 13;
   float vz = 14;                 // typically 0 for ground-plane tracking
-  
+
   // Derived kinematics
   float speed_mps = 15;
   float heading_rad = 16;
-  
+
   // Uncertainty (optional)
   repeated float covariance_4x4 = 17 [packed = true];  // row-major
-  
+
   // Bounding box (running average)
   float bbox_length_avg = 18;
   float bbox_width_avg = 19;
   float bbox_height_avg = 20;
-  
+
   // Features
   float height_p95_max = 21;
   float intensity_mean_avg = 22;
   float avg_speed_mps = 23;
   float peak_speed_mps = 24;
-  
+
   // Classification
   string class_label = 25;       // "pedestrian", "car", "cyclist", "bird", "other"
   float class_confidence = 26;   // 0.0 - 1.0
-  
+
   // Quality metrics
   float track_length_metres = 28;
   float track_duration_secs = 28;
@@ -225,16 +227,16 @@ Optional debug artifacts for algorithm tuning.
 message DebugOverlaySet {
   uint64 frame_id = 1;
   int64 timestamp_ns = 2;
-  
+
   // Association candidates
   repeated AssociationCandidate association_candidates = 3;
-  
+
   // Gating ellipses (Mahalanobis distance thresholds)
   repeated GatingEllipse gating_ellipses = 4;
-  
+
   // Innovation residuals (Kalman filter)
   repeated InnovationResidual residuals = 5;
-  
+
   // Filtered state predictions
   repeated StatePrediction predictions = 6;
 }
@@ -323,16 +325,16 @@ See [visualizer.proto](../../../proto/velocity_visualizer/v1/visualizer.proto) f
 
 ### 2.4 Field Semantics
 
-| Field | Type | Units | Convention |
-|-------|------|-------|------------|
-| `*_ns` | int64 | nanoseconds | Unix epoch |
-| `*_mps` | float | m/s | speed magnitude |
-| `*_rad` | float | radians | angle, CCW from +X |
-| `x, y, z` | float | metres | world frame |
-| `vx, vy, vz` | float | m/s | world frame |
-| `*_length` | float | metres | along heading |
-| `*_width` | float | metres | perpendicular to heading |
-| `*_height` | float | metres | Z extent |
+| Field        | Type  | Units       | Convention               |
+| ------------ | ----- | ----------- | ------------------------ |
+| `*_ns`       | int64 | nanoseconds | Unix epoch               |
+| `*_mps`      | float | m/s         | speed magnitude          |
+| `*_rad`      | float | radians     | angle, CCW from +X       |
+| `x, y, z`    | float | metres      | world frame              |
+| `vx, vy, vz` | float | m/s         | world frame              |
+| `*_length`   | float | metres      | along heading            |
+| `*_width`    | float | metres      | perpendicular to heading |
+| `*_height`   | float | metres      | Z extent                 |
 
 ---
 
@@ -344,19 +346,19 @@ See [visualizer.proto](../../../proto/velocity_visualizer/v1/visualizer.proto) f
 service VisualizerService {
   // Live streaming of frame bundles (server-streaming)
   rpc StreamFrames(StreamRequest) returns (stream FrameBundle);
-  
+
   // Control RPCs for playback (replay mode)
   rpc Pause(PauseRequest) returns (PlaybackStatus);
   rpc Play(PlayRequest) returns (PlaybackStatus);
   rpc Seek(SeekRequest) returns (PlaybackStatus);
   rpc SetRate(SetRateRequest) returns (PlaybackStatus);
-  
+
   // Request specific overlay modes
   rpc SetOverlayModes(OverlayModeRequest) returns (OverlayModeResponse);
-  
+
   // Server capabilities query
   rpc GetCapabilities(CapabilitiesRequest) returns (CapabilitiesResponse);
-  
+
   // Recording control (live mode)
   rpc StartRecording(RecordingRequest) returns (RecordingStatus);
   rpc StopRecording(RecordingRequest) returns (RecordingStatus);
@@ -381,12 +383,12 @@ message FrameBundle {
   int64 timestamp_ns = 2;
   string sensor_id = 3;
   CoordinateFrameInfo coordinate_frame = 4;
-  
+
   PointCloudFrame point_cloud = 5;
   ClusterSet clusters = 6;
   TrackSet tracks = 7;
   DebugOverlaySet debug = 8;
-  
+
   // Playback metadata (replay mode only)
   PlaybackInfo playback_info = 9;
 }
@@ -477,6 +479,7 @@ Logs are stored as **chunked protobuf streams** with an index for efficient seek
 ```
 
 **Header (JSON)**:
+
 ```json
 {
   "version": "1.0",
@@ -493,12 +496,14 @@ Logs are stored as **chunked protobuf streams** with an index for efficient seek
 ```
 
 **Index (binary)**:
+
 ```
 [frame_id: uint64][timestamp_ns: int64][chunk_id: uint32][offset: uint32]
 ... repeated for each frame
 ```
 
 **Chunks (protobuf)**:
+
 - Each chunk contains up to 1000 `FrameBundle` messages
 - Length-prefixed format: `[4-byte length][FrameBundle proto bytes]`
 
@@ -544,6 +549,7 @@ The existing LidarView forwarding path is **preserved unchanged**.
 ### 5.2 Adapter Implementation
 
 The LidarView adapter (`internal/lidar/network/foreground_forwarder.go`) continues to:
+
 1. Receive foreground `PointPolar` from pipeline
 2. Encode as Pandar40P packets
 3. Forward to port 2370
@@ -553,6 +559,7 @@ The LidarView adapter (`internal/lidar/network/foreground_forwarder.go`) continu
 ### 5.3 Comparison Workflow
 
 For regression testing:
+
 1. Run replay from `.vrlog` file
 2. Pipeline emits to both LidarView adapter and gRPC publisher
 3. LidarView shows packet-level view
@@ -566,6 +573,7 @@ For regression testing:
 ### 6.1 Full Mode
 
 All data at full fidelity:
+
 - Points: 70,000 per frame × 16 bytes = ~1.1 MB/frame
 - Clusters: ~50 × 100 bytes = ~5 KB/frame
 - Tracks: ~20 × 200 bytes = ~4 KB/frame
@@ -574,17 +582,20 @@ All data at full fidelity:
 ### 6.2 Foreground-Only Mode
 
 Only foreground points (typically 5-10% of total):
+
 - Points: 7,000 per frame × 16 bytes = ~112 KB/frame
 - **Total**: ~120 KB/frame × 10 Hz = ~1.2 MB/s
 
 ### 6.3 Tracks-Only Mode
 
 No point cloud, clusters/tracks only:
+
 - **Total**: ~10 KB/frame × 10 Hz = ~100 KB/s
 
 ### 6.4 Overlay Toggles
 
 Client can request specific overlays to reduce payload:
+
 ```protobuf
 OverlayModeRequest {
   show_points = false;

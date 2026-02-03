@@ -11,6 +11,7 @@ This document describes the system architecture for the macOS LiDAR visualiser a
 The macOS application that renders point clouds, tracks, and debug overlays.
 
 **Scope**:
+
 - SwiftUI application shell
 - gRPC client (grpc-swift)
 - Metal renderer for point clouds and geometry
@@ -24,6 +25,7 @@ The macOS application that renders point clouds, tracks, and debug overlays.
 The Go server-side changes to emit a stable API for the visualiser.
 
 **Scope**:
+
 - Define canonical internal model
 - gRPC/protobuf publisher
 - Recorder/replayer for logs
@@ -177,23 +179,23 @@ proto/
 
 ### 3.1 Why gRPC over localhost
 
-| Requirement | gRPC Advantage |
-|-------------|----------------|
-| **Structured data** | Native protobuf support |
-| **Streaming** | Built-in server-streaming RPC |
-| **Type safety** | Generated Swift + Go stubs |
-| **Bidirectional control** | Control RPCs for playback |
-| **Performance** | HTTP/2 multiplexing, binary encoding |
-| **Future-proof** | Easy to extend to remote access |
+| Requirement               | gRPC Advantage                       |
+| ------------------------- | ------------------------------------ |
+| **Structured data**       | Native protobuf support              |
+| **Streaming**             | Built-in server-streaming RPC        |
+| **Type safety**           | Generated Swift + Go stubs           |
+| **Bidirectional control** | Control RPCs for playback            |
+| **Performance**           | HTTP/2 multiplexing, binary encoding |
+| **Future-proof**          | Easy to extend to remote access      |
 
 ### 3.2 Alternatives Considered
 
-| Option | Rejected Because |
-|--------|------------------|
-| Raw UDP | No reliability, no structure, no control |
-| WebSocket | Requires JSON or custom binary, web-centric |
-| REST polling | High latency, inefficient for streaming |
-| Unix socket | Less portable, harder tooling |
+| Option       | Rejected Because                            |
+| ------------ | ------------------------------------------- |
+| Raw UDP      | No reliability, no structure, no control    |
+| WebSocket    | Requires JSON or custom binary, web-centric |
+| REST polling | High latency, inefficient for streaming     |
+| Unix socket  | Less portable, harder tooling               |
 
 ### 3.3 Future Remote Access
 
@@ -207,11 +209,11 @@ Future option: Enable TLS + authentication for remote access from field laptops.
 
 ### 4.1 Framework Evaluation
 
-| Framework | Point Count | Instancing | Custom Shaders | Verdict |
-|-----------|-------------|------------|----------------|---------|
-| **SceneKit** | ~50k | Limited | Possible | Too slow for full clouds |
-| **RealityKit** | ~100k | Good | Limited | AR-focused, not ideal |
-| **Metal** | 500k+ | Excellent | Full control | **Selected** |
+| Framework      | Point Count | Instancing | Custom Shaders | Verdict                  |
+| -------------- | ----------- | ---------- | -------------- | ------------------------ |
+| **SceneKit**   | ~50k        | Limited    | Possible       | Too slow for full clouds |
+| **RealityKit** | ~100k       | Good       | Limited        | AR-focused, not ideal    |
+| **Metal**      | 500k+       | Excellent  | Full control   | **Selected**             |
 
 ### 4.2 Metal Implementation Strategy
 
@@ -225,12 +227,12 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     var pointCloudPipeline: MTLRenderPipelineState
     var boxPipeline: MTLRenderPipelineState
     var trailPipeline: MTLRenderPipelineState
-    
+
     // Per-frame data
     var pointBuffer: MTLBuffer?      // Interleaved xyz + intensity
     var boxInstances: MTLBuffer?     // Transform matrices
     var trailVertices: MTLBuffer?    // Polyline vertices
-    
+
     func draw(in view: MTKView) {
         // 1. Update buffers from latest frame
         // 2. Encode point cloud draw call
@@ -245,6 +247,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 ### 4.3 Rendering Techniques
 
 **Point Sprites / Point Shading**:
+
 ```metal
 vertex PointOutput pointVertex(
     uint vid [[vertex_id]],
@@ -261,6 +264,7 @@ vertex PointOutput pointVertex(
 ```
 
 **Instanced Boxes**:
+
 ```metal
 vertex BoxOutput boxVertex(
     uint vid [[vertex_id]],
@@ -279,10 +283,12 @@ vertex BoxOutput boxVertex(
 ```
 
 **Trail Rendering**:
+
 - Polylines as triangle strips with varying alpha
 - Fade based on age: `alpha = 1.0 - (age / max_trail_age)`
 
 **Text/Labels**:
+
 - 2D overlay using Core Graphics
 - Billboards in 3D: position in world, render as sprite
 
@@ -360,12 +366,12 @@ velocity-report --lidar-forward-enabled --grpc-enabled
 
 Since LidarView shows raw points and the visualiser shows semantic data, direct visual comparison isn't possible. Instead, compare:
 
-| Metric | LidarView | Visualiser | Comparison |
-|--------|-----------|------------|------------|
-| Point count/frame | Packet analysis | `PointCloudFrame.x.len()` | Should match (if no decimation) |
-| Foreground count | N/A (all points same color) | Foreground classification | N/A |
-| Track count | N/A | `TrackSet.tracks.len()` | Compare with DB |
-| Cluster count | N/A | `ClusterSet.clusters.len()` | Compare with DB |
+| Metric            | LidarView                   | Visualiser                  | Comparison                      |
+| ----------------- | --------------------------- | --------------------------- | ------------------------------- |
+| Point count/frame | Packet analysis             | `PointCloudFrame.x.len()`   | Should match (if no decimation) |
+| Foreground count  | N/A (all points same color) | Foreground classification   | N/A                             |
+| Track count       | N/A                         | `TrackSet.tracks.len()`     | Compare with DB                 |
+| Cluster count     | N/A                         | `ClusterSet.clusters.len()` | Compare with DB                 |
 
 ### 6.3 Regression Testing
 
@@ -383,40 +389,40 @@ Since LidarView shows raw points and the visualiser shows semantic data, direct 
 
 ### 7.1 LiDAR Ingestion
 
-| File | Purpose |
-|------|---------|
-| `internal/lidar/network/listener.go` | UDP packet reception |
-| `internal/lidar/parse/extract.go` | Pandar40P packet parsing |
-| `internal/lidar/frame_builder.go` | Rotation accumulation |
+| File                                 | Purpose                  |
+| ------------------------------------ | ------------------------ |
+| `internal/lidar/network/listener.go` | UDP packet reception     |
+| `internal/lidar/parse/extract.go`    | Pandar40P packet parsing |
+| `internal/lidar/frame_builder.go`    | Rotation accumulation    |
 
 ### 7.2 Foreground Extraction
 
-| File | Purpose |
-|------|---------|
-| `internal/lidar/background.go` | Background model (polar grid) |
+| File                           | Purpose                              |
+| ------------------------------ | ------------------------------------ |
+| `internal/lidar/background.go` | Background model (polar grid)        |
 | `internal/lidar/foreground.go` | Foreground/background classification |
 
 ### 7.3 Clustering and Tracking
 
-| File | Purpose |
-|------|---------|
-| `internal/lidar/clustering.go` | DBSCAN clustering |
-| `internal/lidar/tracking.go` | Kalman tracker (Tracker, TrackedObject) |
-| `internal/lidar/tracking_pipeline.go` | Pipeline orchestration |
+| File                                  | Purpose                                 |
+| ------------------------------------- | --------------------------------------- |
+| `internal/lidar/clustering.go`        | DBSCAN clustering                       |
+| `internal/lidar/tracking.go`          | Kalman tracker (Tracker, TrackedObject) |
+| `internal/lidar/tracking_pipeline.go` | Pipeline orchestration                  |
 
 ### 7.4 LidarView Forwarding
 
-| File | Purpose |
-|------|---------|
+| File                                             | Purpose                       |
+| ------------------------------------------------ | ----------------------------- |
 | `internal/lidar/network/foreground_forwarder.go` | Encode + forward to port 2370 |
-| `internal/lidar/network/forwarder.go` | Raw packet forwarding |
+| `internal/lidar/network/forwarder.go`            | Raw packet forwarding         |
 
 ### 7.5 Transform and Types
 
-| File | Purpose |
-|------|---------|
-| `internal/lidar/transform.go` | Spherical ↔ Cartesian, pose transforms |
-| `internal/lidar/arena.go` | Core data types (Point, Cluster, Track) |
+| File                          | Purpose                                 |
+| ----------------------------- | --------------------------------------- |
+| `internal/lidar/transform.go` | Spherical ↔ Cartesian, pose transforms  |
+| `internal/lidar/arena.go`     | Core data types (Point, Cluster, Track) |
 
 ---
 

@@ -6,16 +6,16 @@
 
 The current LiDAR pipeline forwards foreground points to **LidarView** (Hesai's visualisation tool) on port 2370 via `internal/lidar/network/foreground_forwarder.go`. While useful for basic point cloud inspection, LidarView has significant limitations for **tracking development and debugging**:
 
-| Limitation | Impact |
-|------------|--------|
-| **No object overlays** | Cannot render bounding boxes, cluster hulls, or track IDs |
-| **No velocity visualisation** | Cannot display speed vectors, heading arrows, or motion trails |
-| **No track lifecycle display** | Cannot distinguish tentative/confirmed/deleted tracks |
-| **No debug artifacts** | Cannot visualise association candidates, gating ellipses, or Kalman residuals |
-| **No labelling workflow** | Cannot annotate tracks for classifier training |
-| **No replay controls** | Cannot seek, pause, or single-step through recorded data |
-| **No deterministic replay** | Cannot reproduce exact frame/track sequences for regression tests |
-| **Packet-level encoding** | Loses semantic information (tracks, clusters) in Pandar40P packet format |
+| Limitation                     | Impact                                                                        |
+| ------------------------------ | ----------------------------------------------------------------------------- |
+| **No object overlays**         | Cannot render bounding boxes, cluster hulls, or track IDs                     |
+| **No velocity visualisation**  | Cannot display speed vectors, heading arrows, or motion trails                |
+| **No track lifecycle display** | Cannot distinguish tentative/confirmed/deleted tracks                         |
+| **No debug artifacts**         | Cannot visualise association candidates, gating ellipses, or Kalman residuals |
+| **No labelling workflow**      | Cannot annotate tracks for classifier training                                |
+| **No replay controls**         | Cannot seek, pause, or single-step through recorded data                      |
+| **No deterministic replay**    | Cannot reproduce exact frame/track sequences for regression tests             |
+| **Packet-level encoding**      | Loses semantic information (tracks, clusters) in Pandar40P packet format      |
 
 ### Why a macOS-Native Visualiser
 
@@ -44,6 +44,7 @@ A **dedicated 3D visualisation tool** that:
 **Scenario**: Developer is tuning association gating thresholds and wants to see why tracks are being missed or merged.
 
 **Steps**:
+
 1. Start the Go radar service with gRPC streaming enabled
 2. Launch macOS visualiser, connect to `localhost:50051`
 3. Enable debug overlays: "Show Gating Ellipses", "Show Association Lines", "Show Residuals"
@@ -57,6 +58,7 @@ A **dedicated 3D visualisation tool** that:
 6. Observe immediate effect in visualiser
 
 **Performance targets**:
+
 - **Frame rate**: ≥10 Hz (match sensor rotation rate)
 - **Latency**: <100ms end-to-end (sensor → pipeline → viewer)
 - **Point count**: up to 70,000 points/frame (full Pandar40P rotation)
@@ -68,6 +70,7 @@ A **dedicated 3D visualisation tool** that:
 **Scenario**: A track split was reported in the field. Developer wants to reproduce the exact sequence for debugging.
 
 **Steps**:
+
 1. Obtain recorded log file (protobuf-encoded frames + tracks)
 2. Launch visualiser in replay mode, open log file
 3. Timeline scrubber shows frame timestamps
@@ -77,6 +80,7 @@ A **dedicated 3D visualisation tool** that:
 7. Compare with LidarView output (run both in parallel from same log)
 
 **Determinism requirements**:
+
 - **Same input → same output**: Identical tracks/IDs every replay
 - **No runtime randomness** in pipeline (seeded RNG if needed)
 - **Timestamp-based ordering**: Frames sorted by capture time, not arrival time
@@ -88,6 +92,7 @@ A **dedicated 3D visualisation tool** that:
 **Scenario**: Training a classifier to distinguish pedestrians from vehicles. Need labelled track segments.
 
 **Steps**:
+
 1. Open recorded log in visualiser
 2. Play through scene, pause when object of interest appears
 3. Click on track to select it (highlights trail, shows track ID)
@@ -97,12 +102,18 @@ A **dedicated 3D visualisation tool** that:
 6. Labels stored in local database (SQLite) alongside track ID + timestamps
 7. Export labels as JSON for training pipeline:
    ```json
-   {"track_id": "track_42", "class": "pedestrian", "start_frame": 1001, "end_frame": 1045}
+   {
+     "track_id": "track_42",
+     "class": "pedestrian",
+     "start_frame": 1001,
+     "end_frame": 1045
+   }
    ```
 8. Re-run classifier with new training data
 9. Visualise classification results overlaid on point cloud
 
 **UX targets**:
+
 - **Quick labelling**: <3 seconds per track annotation
 - **Keyboard shortcuts**: `1-9` for common classes
 - **Undo support**: `Cmd+Z` to revert last label
@@ -147,15 +158,15 @@ A **dedicated 3D visualisation tool** that:
 
 **DO NOT**:
 
-| Avoided Scope | Rationale |
-|---------------|-----------|
-| Full SLAM / global mapping / loop closure | Out of scope for static sensor deployment |
-| Cloud services, auth, accounts, telemetry | Privacy-first design; local-only |
-| End-to-end pipeline rewrite | Incremental refactor behind interfaces |
-| Complex ML training UI | External ML pipeline; visualiser is for labelling |
-| Proprietary SDKs or paid dependencies | Open-source first |
-| Remote networking beyond localhost | Security and simplicity; future extension only |
-| Web-based visualiser | Performance and integration constraints |
+| Avoided Scope                             | Rationale                                         |
+| ----------------------------------------- | ------------------------------------------------- |
+| Full SLAM / global mapping / loop closure | Out of scope for static sensor deployment         |
+| Cloud services, auth, accounts, telemetry | Privacy-first design; local-only                  |
+| End-to-end pipeline rewrite               | Incremental refactor behind interfaces            |
+| Complex ML training UI                    | External ML pipeline; visualiser is for labelling |
+| Proprietary SDKs or paid dependencies     | Open-source first                                 |
+| Remote networking beyond localhost        | Security and simplicity; future extension only    |
+| Web-based visualiser                      | Performance and integration constraints           |
 
 **PRESERVE**:
 
@@ -168,16 +179,16 @@ A **dedicated 3D visualisation tool** that:
 
 ## 5. Performance Targets
 
-| Metric | Target | Rationale |
-|--------|--------|-----------|
-| **Render FPS** | ≥30 fps | Smooth animation for debugging |
-| **Pipeline latency** | <100ms | Near-real-time feedback |
-| **Max points/frame** | 100,000 | Full rotation + margin |
-| **Max tracks** | 200 | Street scene with many objects |
-| **Memory usage** | <500 MB | Reasonable for laptop |
-| **GPU VRAM** | <1 GB | Integrated GPU support |
-| **Startup time** | <2 seconds | Fast iteration |
-| **Replay seek** | <500ms | Interactive timeline scrubbing |
+| Metric               | Target     | Rationale                      |
+| -------------------- | ---------- | ------------------------------ |
+| **Render FPS**       | ≥30 fps    | Smooth animation for debugging |
+| **Pipeline latency** | <100ms     | Near-real-time feedback        |
+| **Max points/frame** | 100,000    | Full rotation + margin         |
+| **Max tracks**       | 200        | Street scene with many objects |
+| **Memory usage**     | <500 MB    | Reasonable for laptop          |
+| **GPU VRAM**         | <1 GB      | Integrated GPU support         |
+| **Startup time**     | <2 seconds | Fast iteration                 |
+| **Replay seek**      | <500ms     | Interactive timeline scrubbing |
 
 ---
 
@@ -185,32 +196,32 @@ A **dedicated 3D visualisation tool** that:
 
 ### Must-Have Controls
 
-| Control | Interaction | Shortcut |
-|---------|-------------|----------|
-| Connect/Disconnect | Button | `Cmd+Shift+C` |
-| Pause/Play | Button + Space | `Space` |
-| Seek | Timeline slider + drag | Arrow keys |
-| Playback rate | Stepper (0.25x – 2x) | `[` / `]` |
-| Frame step | Buttons | `,` / `.` |
-| Toggle: Points | Checkbox | `P` |
-| Toggle: Boxes | Checkbox | `B` |
-| Toggle: Trails | Checkbox | `T` |
-| Toggle: Velocity | Checkbox | `V` |
-| Toggle: Debug overlays | Checkbox | `D` |
-| Reset camera | Button | `R` |
-| Zoom | Scroll/pinch | Mouse wheel |
-| Pan | Drag | Two-finger drag |
-| Rotate | Option+drag | Option+drag |
+| Control                | Interaction            | Shortcut        |
+| ---------------------- | ---------------------- | --------------- |
+| Connect/Disconnect     | Button                 | `Cmd+Shift+C`   |
+| Pause/Play             | Button + Space         | `Space`         |
+| Seek                   | Timeline slider + drag | Arrow keys      |
+| Playback rate          | Stepper (0.25x – 2x)   | `[` / `]`       |
+| Frame step             | Buttons                | `,` / `.`       |
+| Toggle: Points         | Checkbox               | `P`             |
+| Toggle: Boxes          | Checkbox               | `B`             |
+| Toggle: Trails         | Checkbox               | `T`             |
+| Toggle: Velocity       | Checkbox               | `V`             |
+| Toggle: Debug overlays | Checkbox               | `D`             |
+| Reset camera           | Button                 | `R`             |
+| Zoom                   | Scroll/pinch           | Mouse wheel     |
+| Pan                    | Drag                   | Two-finger drag |
+| Rotate                 | Option+drag            | Option+drag     |
 
 ### Minimal Labelling UX
 
-| Action | Interaction | Shortcut |
-|--------|-------------|----------|
-| Select track | Click on track | Click |
-| Assign class | Dropdown / keyboard | `1-5` |
-| Clear label | Context menu | `Backspace` |
-| Undo | Menu / keyboard | `Cmd+Z` |
-| Export labels | Menu | `Cmd+E` |
+| Action        | Interaction         | Shortcut    |
+| ------------- | ------------------- | ----------- |
+| Select track  | Click on track      | Click       |
+| Assign class  | Dropdown / keyboard | `1-5`       |
+| Clear label   | Context menu        | `Backspace` |
+| Undo          | Menu / keyboard     | `Cmd+Z`     |
+| Export labels | Menu                | `Cmd+E`     |
 
 ---
 

@@ -6,18 +6,18 @@ This document summarises the existing LiDAR pipeline architecture identified dur
 
 ### Files and Functions
 
-| File | Key Components |
-|------|----------------|
-| `internal/lidar/network/listener.go` | `UDPListener`, `Start()`, `handlePacket()` |
-| `internal/lidar/parse/extract.go` | `Pandar40PParser`, `ParsePacket()` |
-| `internal/lidar/frame_builder.go` | `FrameBuilder`, `AddPointsPolar()`, `GetFrame()` |
+| File                                 | Key Components                                   |
+| ------------------------------------ | ------------------------------------------------ |
+| `internal/lidar/network/listener.go` | `UDPListener`, `Start()`, `handlePacket()`       |
+| `internal/lidar/parse/extract.go`    | `Pandar40PParser`, `ParsePacket()`               |
+| `internal/lidar/frame_builder.go`    | `FrameBuilder`, `AddPointsPolar()`, `GetFrame()` |
 
 ### Data Flow
 
 ```
-UDP packets (port 2368) 
-    → UDPListener.Start() 
-    → handlePacket() 
+UDP packets (port 2368)
+    → UDPListener.Start()
+    → handlePacket()
     → parser.ParsePacket() → []PointPolar
     → frameBuilder.AddPointsPolar()
     → LiDARFrame (360° rotation)
@@ -36,9 +36,9 @@ UDP packets (port 2368)
 
 ### Files and Functions
 
-| File | Key Components |
-|------|----------------|
-| `internal/lidar/background.go` | `BackgroundManager`, `BackgroundGrid`, `BackgroundCell` |
+| File                           | Key Components                                             |
+| ------------------------------ | ---------------------------------------------------------- |
+| `internal/lidar/background.go` | `BackgroundManager`, `BackgroundGrid`, `BackgroundCell`    |
 | `internal/lidar/foreground.go` | `ProcessFramePolarWithMask()`, `ExtractForegroundPoints()` |
 
 ### Data Flow
@@ -66,8 +66,8 @@ LiDARFrame (polar)
 
 ### Files and Functions
 
-| File | Key Components |
-|------|----------------|
+| File                           | Key Components                             |
+| ------------------------------ | ------------------------------------------ |
 | `internal/lidar/clustering.go` | `DBSCAN()`, `WorldCluster`, `SpatialIndex` |
 
 ### Data Flow
@@ -91,9 +91,9 @@ LiDARFrame (polar)
 
 ### Files and Functions
 
-| File | Key Components |
-|------|----------------|
-| `internal/lidar/tracking.go` | `Tracker`, `TrackedObject`, `TrackState` |
+| File                                  | Key Components                                   |
+| ------------------------------------- | ------------------------------------------------ |
+| `internal/lidar/tracking.go`          | `Tracker`, `TrackedObject`, `TrackState`         |
 | `internal/lidar/tracking_pipeline.go` | `TrackingPipelineConfig`, callback orchestration |
 
 ### Data Flow
@@ -122,10 +122,10 @@ LiDARFrame (polar)
 
 ### Files and Functions
 
-| File | Key Components |
-|------|----------------|
+| File                                             | Key Components                               |
+| ------------------------------------------------ | -------------------------------------------- |
 | `internal/lidar/network/foreground_forwarder.go` | `ForegroundForwarder`, `ForwardForeground()` |
-| `internal/lidar/network/forwarder.go` | `PacketForwarder`, `ForwardAsync()` |
+| `internal/lidar/network/forwarder.go`            | `PacketForwarder`, `ForwardAsync()`          |
 
 ### Data Flow
 
@@ -150,10 +150,10 @@ Foreground []PointPolar
 
 ### Files and Functions
 
-| File | Key Components |
-|------|----------------|
+| File                          | Key Components                          |
+| ----------------------------- | --------------------------------------- |
 | `internal/lidar/transform.go` | `SphericalToCartesian()`, `ApplyPose()` |
-| `internal/lidar/arena.go` | `Pose`, `PoseCache`, `FrameID` |
+| `internal/lidar/arena.go`     | `Pose`, `PoseCache`, `FrameID`          |
 
 ### Coordinate Convention
 
@@ -171,26 +171,26 @@ Foreground []PointPolar
 
 ## 7. Database Schema (Relevant Tables)
 
-| Table | Purpose |
-|-------|---------|
-| `lidar_clusters` | Persisted cluster detections |
-| `lidar_tracks` | Track summaries (start/end, classification) |
-| `lidar_track_obs` | Per-frame track observations |
-| `lidar_bg_snapshot` | Background grid snapshots |
-| `sensor_poses` | Sensor-to-world transforms |
+| Table               | Purpose                                     |
+| ------------------- | ------------------------------------------- |
+| `lidar_clusters`    | Persisted cluster detections                |
+| `lidar_tracks`      | Track summaries (start/end, classification) |
+| `lidar_track_obs`   | Per-frame track observations                |
+| `lidar_bg_snapshot` | Background grid snapshots                   |
+| `sensor_poses`      | Sensor-to-world transforms                  |
 
 ---
 
 ## 8. API Endpoints (Existing)
 
-| Endpoint | Purpose |
-|----------|---------|
-| `GET /api/lidar/tracks` | List tracks |
-| `GET /api/lidar/tracks/active` | Active tracks |
-| `GET /api/lidar/clusters` | List clusters |
-| `GET /api/lidar/observations` | Track observations |
-| `GET /api/lidar/background/params` | Background parameters |
-| `POST /api/lidar/background/params` | Set parameters |
+| Endpoint                            | Purpose               |
+| ----------------------------------- | --------------------- |
+| `GET /api/lidar/tracks`             | List tracks           |
+| `GET /api/lidar/tracks/active`      | Active tracks         |
+| `GET /api/lidar/clusters`           | List clusters         |
+| `GET /api/lidar/observations`       | Track observations    |
+| `GET /api/lidar/background/params`  | Background parameters |
+| `POST /api/lidar/background/params` | Set parameters        |
 
 ---
 
