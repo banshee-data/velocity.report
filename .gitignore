@@ -1,43 +1,87 @@
+# =============================================================================
+# OS & Editor
+# =============================================================================
+.DS_Store
+Thumbs.db
+.env
+*.swp
+*.swo
+*~
+
+# =============================================================================
+# Build Outputs & Caches
+# =============================================================================
 _site/
 .build/
 .cache/
 .gocache/
 .gomodcache/
 .tox/
+static/
+node_modules/
+package-lock.json
+
+# =============================================================================
+# Local/Archived Data
+# =============================================================================
 archive/
 backup/
 logs/
-node_modules/
-package-lock.json
-static/
-tools/*/output/*
-web/.svelte-kit/*
-internal/db/schema.sql.bak
 
-# Python virtual environments
-.venv/
-venv/
-
-__pycache__/
-**/__pycache__/
-matplotlib/__pycache__/*
-tools/__pycache__/*
-tools/grid-heatmap/__pycache__/*
-
-.DS_Store
-.env
-
-*.csv
-*.db
-*.db-shm
-*.db-wal
-*.log
-sensor_data.*
-
+# =============================================================================
+# Go Binaries & Build Artifacts
+# =============================================================================
 app
 app-*
 velocity-report-*
+velocity-deploy*
 mock_serial_port*
+
+# =============================================================================
+# Database Files
+# =============================================================================
+*.db
+*.db-shm
+*.db-wal
+sensor_data.*
+internal/db/schema.sql.bak
+
+# =============================================================================
+# Log & Data Files
+# =============================================================================
+*.csv
+*.log
+
+# =============================================================================
+# Python
+# =============================================================================
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Byte-compiled / cached
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Package metadata (egg-info directories)
+*.egg-info/
+*.egg
+.eggs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# =============================================================================
+# Coverage Reports
+# =============================================================================
 coverage.out
 coverage*.out
 coverage.html
@@ -45,11 +89,48 @@ web/coverage/
 tools/pdf-generator/htmlcov/
 tools/pdf-generator/coverage.xml
 tools/pdf-generator/.coverage
-velocity-deploy*
 
-# Test artifacts
+# =============================================================================
+# Test Artifacts
+# =============================================================================
 *_velocity.report_*.pdf
 *_velocity.report_*.zip
 *_velocity.report_*.tex
 histogram_*.png
-tools/visualiser-macos/build
+
+# =============================================================================
+# Web Frontend (SvelteKit)
+# =============================================================================
+web/.svelte-kit/
+
+# =============================================================================
+# PDF Generator
+# =============================================================================
+tools/*/output/*
+
+# =============================================================================
+# macOS Visualiser (Xcode/Swift)
+# =============================================================================
+# Build artifacts
+tools/visualiser-macos/build/
+tools/visualiser-macos/DerivedData/
+tools/visualiser-macos/.build/
+
+# User-specific Xcode data
+tools/visualiser-macos/**/xcuserdata/
+
+# Swift Package Manager
+tools/visualiser-macos/Packages/
+tools/visualiser-macos/.swiftpm/
+
+# Generated protobuf files (regenerate with: make proto-gen-swift)
+tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/*.swift
+tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/*.swift.disabled
+
+# =============================================================================
+# Data Directories
+# =============================================================================
+data/**/*.db
+data/**/*.sqlite
+data/**/*.csv
+data/**/*.json
