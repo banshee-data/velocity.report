@@ -16,9 +16,16 @@ struct ContentView: View {
                 // Toolbar
                 ToolbarView()
 
-                // Metal view
-                MetalViewRepresentable()
-                    .frame(minWidth: 400, minHeight: 300)
+                // Metal view - frames are delivered directly to renderer via AppState
+                MetalViewRepresentable(
+                    showPoints: appState.showPoints,
+                    showBoxes: appState.showBoxes,
+                    showTrails: appState.showTrails,
+                    onRendererCreated: { renderer in
+                        appState.registerRenderer(renderer)
+                    }
+                )
+                .frame(minWidth: 400, minHeight: 300)
 
                 // Playback controls
                 PlaybackControlsView()
@@ -360,6 +367,13 @@ struct LabelPanelView: View {
 // MARK: - Metal View
 
 struct MetalViewRepresentable: NSViewRepresentable {
+    // Only pass stable properties - frame updates will come directly to the renderer
+    var showPoints: Bool
+    var showBoxes: Bool
+    var showTrails: Bool
+
+    // Closure to register the renderer with AppState
+    var onRendererCreated: ((MetalRenderer) -> Void)?
 
     func makeNSView(context: Context) -> MTKView {
         let metalView = MTKView()
@@ -370,13 +384,22 @@ struct MetalViewRepresentable: NSViewRepresentable {
         // Create renderer
         if let renderer = MetalRenderer(metalView: metalView) {
             context.coordinator.renderer = renderer
+            // Register the renderer so it can receive frame updates directly
+            onRendererCreated?(renderer)
         }
 
         return metalView
     }
 
     func updateNSView(_ nsView: MTKView, context: Context) {
-        // Update renderer settings from app state
+        guard let renderer = context.coordinator.renderer else {
+            return
+        }
+
+        // Only update overlay settings - frames come directly to renderer
+        renderer.showPoints = showPoints
+        renderer.showBoxes = showBoxes
+        renderer.showTrails = showTrails
     }
 
     func makeCoordinator() -> Coordinator {

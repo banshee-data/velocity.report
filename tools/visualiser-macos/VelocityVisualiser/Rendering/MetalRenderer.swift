@@ -73,14 +73,14 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
     init?(metalView: MTKView) {
         guard let device = MTLCreateSystemDefaultDevice() else {
-            print("Metal is not supported on this device")
+            NSLog("[MetalRenderer] Metal is not supported on this device")
             return nil
         }
 
         self.device = device
 
         guard let commandQueue = device.makeCommandQueue() else {
-            print("Failed to create command queue")
+            NSLog("[MetalRenderer] Failed to create command queue")
             return nil
         }
         self.commandQueue = commandQueue
@@ -210,6 +210,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
     /// Update the renderer with a new frame of data.
     func updateFrame(_ frame: FrameBundle) {
+        frameUpdateCount += 1
+
         // Update point cloud buffer
         if let pointCloud = frame.pointCloud, pointCloud.pointCount > 0 {
             updatePointBuffer(pointCloud)
@@ -225,6 +227,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             updateTrailBuffer(tracks)
         }
     }
+
+    private var frameUpdateCount: Int = 0
 
     private func updatePointBuffer(_ pointCloud: PointCloudFrame) {
         let count = pointCloud.pointCount

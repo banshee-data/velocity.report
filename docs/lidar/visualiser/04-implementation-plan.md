@@ -27,27 +27,27 @@ This document defines an incremental, API-first implementation plan with explici
 
 **Track A (Visualiser)**:
 
-- [ ] SwiftUI app shell with window management
-- [ ] `MTKView` integration for Metal rendering
-- [ ] Point cloud renderer (point sprites)
+- [x] SwiftUI app shell with window management
+- [x] `MTKView` integration for Metal rendering
+- [x] Point cloud renderer (point sprites)
 - [ ] Instanced box renderer (AABB)
 - [ ] Trail renderer (fading polylines)
-- [ ] gRPC client connects to localhost:50051
-- [ ] Decode `FrameBundle` from stream
-- [ ] Basic UI: connect/disconnect, overlay toggles
+- [x] gRPC client connects to localhost:50051
+- [x] Decode `FrameBundle` from stream
+- [x] Basic UI: connect/disconnect, overlay toggles
 
 **Track B (Pipeline)**:
 
-- [ ] `proto/velocity_visualiser/v1/visualiser.proto` schema
+- [x] `proto/velocity_visualiser/v1/visualiser.proto` schema
 - [ ] `buf.gen.yaml` for Go + Swift codegen
-- [ ] `Makefile` target: `make proto-gen`
-- [ ] Synthetic data generator (rotating points, moving boxes)
-- [ ] gRPC server stub with `StreamFrames` RPC
-- [ ] Serves synthetic `FrameBundle` at 10-20 Hz (configurable)
+- [x] `Makefile` target: `make proto-gen`
+- [x] Synthetic data generator (rotating points, moving boxes)
+- [x] gRPC server stub with `StreamFrames` RPC
+- [x] Serves synthetic `FrameBundle` at 10-20 Hz (configurable)
 
 **Acceptance Criteria**:
 
-- [ ] Visualiser connects to Go server
+- [x] Visualiser connects to Go server
 - [ ] Renders 10,000+ synthetic points at 30fps
 - [ ] Shows 10 synthetic boxes moving in circles
 - [ ] Trails fade over 2 seconds

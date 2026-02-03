@@ -53,7 +53,9 @@ class AppState: ObservableObject {
 
     // MARK: - Frame Data
 
-    @Published var currentFrame: FrameBundle?
+    // Note: currentFrame is NOT @Published to avoid SwiftUI update cycles
+    // Frames are delivered directly to the renderer via registerRenderer()
+    var currentFrame: FrameBundle?
     @Published var frameCount: UInt64 = 0
     @Published var fps: Double = 0.0
 
@@ -62,6 +64,17 @@ class AppState: ObservableObject {
     @Published var pointCount: Int = 0
     @Published var clusterCount: Int = 0
     @Published var trackCount: Int = 0
+
+    // MARK: - Renderer
+
+    /// Weak reference to the Metal renderer for direct frame delivery
+    private weak var renderer: MetalRenderer?
+
+    /// Register the renderer to receive frame updates directly
+    func registerRenderer(_ renderer: MetalRenderer) {
+        self.renderer = renderer
+        logger.info("Renderer registered")
+    }
 
     // MARK: - Internal
 
@@ -215,11 +228,11 @@ class AppState: ObservableObject {
         clusterCount = frame.clusters?.clusters.count ?? 0
         trackCount = frame.tracks?.tracks.count ?? 0
 
+        // Forward frame directly to renderer (bypasses SwiftUI)
+        renderer?.updateFrame(frame)
+
         // Log every 100 frames to show activity
         if frameCount % 100 == 1 {
-            print(
-                "[AppState] 📊 Frame \(frameCount): \(pointCount) points, \(trackCount) tracks, FPS: \(String(format: "%.1f", fps))"
-            )
             logger.info(
                 "Frame \(self.frameCount): \(self.pointCount) points, \(self.trackCount) tracks, FPS: \(String(format: "%.1f", self.fps))"
             )
