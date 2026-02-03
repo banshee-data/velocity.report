@@ -64,9 +64,9 @@ message PointCloudFrame {
   string sensor_id = 3;
   
   // Compact encoding: arrays of equal length
-  repeated float x = 4 [packed = true];      // world frame X (meters)
-  repeated float y = 5 [packed = true];      // world frame Y (meters)
-  repeated float z = 6 [packed = true];      // world frame Z (meters)
+  repeated float x = 4 [packed = true];      // world frame X (metres)
+  repeated float y = 5 [packed = true];      // world frame Y (metres)
+  repeated float z = 6 [packed = true];      // world frame Z (metres)
   repeated uint32 intensity = 7 [packed = true];  // 0-255
   
   // Optional: per-point classification (background=0, foreground=1)
@@ -101,9 +101,9 @@ message Cluster {
   float centroid_z = 6;
   
   // Axis-aligned bounding box
-  float aabb_length = 7;         // X extent (meters)
-  float aabb_width = 8;          // Y extent (meters)
-  float aabb_height = 9;         // Z extent (meters)
+  float aabb_length = 7;         // X extent (metres)
+  float aabb_width = 8;          // Y extent (metres)
+  float aabb_height = 9;         // Z extent (metres)
   
   // Oriented bounding box (if computed)
   OrientedBoundingBox obb = 10;
@@ -186,7 +186,7 @@ message Track {
   float class_confidence = 26;   // 0.0 - 1.0
   
   // Quality metrics
-  float track_length_meters = 27;
+  float track_length_metres = 28;
   float track_duration_secs = 28;
   int32 occlusion_count = 29;
 }
@@ -250,8 +250,8 @@ message GatingEllipse {
   string track_id = 1;
   float center_x = 2;
   float center_y = 3;
-  float semi_major = 4;          // meters
-  float semi_minor = 5;          // meters
+  float semi_major = 4;          // metres
+  float semi_minor = 5;          // metres
   float rotation_rad = 6;        // ellipse rotation
 }
 
@@ -328,11 +328,11 @@ See [visualizer.proto](../../../proto/velocity_visualizer/v1/visualizer.proto) f
 | `*_ns` | int64 | nanoseconds | Unix epoch |
 | `*_mps` | float | m/s | speed magnitude |
 | `*_rad` | float | radians | angle, CCW from +X |
-| `x, y, z` | float | meters | world frame |
+| `x, y, z` | float | metres | world frame |
 | `vx, vy, vz` | float | m/s | world frame |
-| `*_length` | float | meters | along heading |
-| `*_width` | float | meters | perpendicular to heading |
-| `*_height` | float | meters | Z extent |
+| `*_length` | float | metres | along heading |
+| `*_width` | float | metres | perpendicular to heading |
+| `*_height` | float | metres | Z extent |
 
 ---
 
