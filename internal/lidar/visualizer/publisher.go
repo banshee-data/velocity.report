@@ -37,8 +37,8 @@ type Config struct {
 // DefaultConfig returns a default configuration.
 func DefaultConfig() Config {
 	return Config{
-		ListenAddr: "localhost:50051",
-		SensorID:   "hesai-01",
+		ListenAddr:  "localhost:50051",
+		SensorID:    "hesai-01",
 		EnableDebug: false,
 		MaxClients:  5,
 	}
@@ -46,31 +46,31 @@ func DefaultConfig() Config {
 
 // Publisher manages the gRPC server and frame streaming.
 type Publisher struct {
-	config     Config
-	server     *grpc.Server
-	listener   net.Listener
-	
+	config   Config
+	server   *grpc.Server
+	listener net.Listener
+
 	// Frame broadcasting
-	frameChan  chan *FrameBundle
-	clients    map[string]*clientStream
-	clientsMu  sync.RWMutex
-	
+	frameChan chan *FrameBundle
+	clients   map[string]*clientStream
+	clientsMu sync.RWMutex
+
 	// Stats
-	frameCount   atomic.Uint64
-	clientCount  atomic.Int32
-	
+	frameCount  atomic.Uint64
+	clientCount atomic.Int32
+
 	// Lifecycle
-	running    atomic.Bool
-	stopCh     chan struct{}
-	wg         sync.WaitGroup
+	running atomic.Bool
+	stopCh  chan struct{}
+	wg      sync.WaitGroup
 }
 
 // clientStream represents a connected streaming client.
 type clientStream struct {
-	id       string
-	request  *StreamRequest
-	frameCh  chan *FrameBundle
-	doneCh   chan struct{}
+	id      string
+	request *StreamRequest
+	frameCh chan *FrameBundle
+	doneCh  chan struct{}
 }
 
 // NewPublisher creates a new Publisher with the given configuration.
@@ -177,10 +177,10 @@ func (p *Publisher) broadcastLoop() {
 // addClient registers a new streaming client.
 func (p *Publisher) addClient(id string, req *StreamRequest) *clientStream {
 	client := &clientStream{
-		id:       id,
-		request:  req,
-		frameCh:  make(chan *FrameBundle, 10),
-		doneCh:   make(chan struct{}),
+		id:      id,
+		request: req,
+		frameCh: make(chan *FrameBundle, 10),
+		doneCh:  make(chan struct{}),
 	}
 
 	p.clientsMu.Lock()
@@ -224,13 +224,13 @@ type PublisherStats struct {
 
 // StreamRequest mirrors the proto StreamRequest for pre-generation use.
 type StreamRequest struct {
-	SensorID         string
-	IncludePoints    bool
-	IncludeClusters  bool
-	IncludeTracks    bool
-	IncludeDebug     bool
-	PointDecimation  int // DecimationMode enum
-	DecimationRatio  float32
+	SensorID        string
+	IncludePoints   bool
+	IncludeClusters bool
+	IncludeTracks   bool
+	IncludeDebug    bool
+	PointDecimation int // DecimationMode enum
+	DecimationRatio float32
 }
 
 // StreamFrames implements the VisualizerService.StreamFrames RPC.

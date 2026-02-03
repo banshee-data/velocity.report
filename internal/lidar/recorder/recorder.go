@@ -22,12 +22,12 @@ const ChunkSize = 1000
 
 // LogHeader contains metadata about a recorded log.
 type LogHeader struct {
-	Version        string `json:"version"`
-	CreatedNs      int64  `json:"created_ns"`
-	SensorID       string `json:"sensor_id"`
-	TotalFrames    uint64 `json:"total_frames"`
-	StartNs        int64  `json:"start_ns"`
-	EndNs          int64  `json:"end_ns"`
+	Version         string `json:"version"`
+	CreatedNs       int64  `json:"created_ns"`
+	SensorID        string `json:"sensor_id"`
+	TotalFrames     uint64 `json:"total_frames"`
+	StartNs         int64  `json:"start_ns"`
+	EndNs           int64  `json:"end_ns"`
 	CoordinateFrame struct {
 		FrameID        string `json:"frame_id"`
 		ReferenceFrame string `json:"reference_frame"`
@@ -44,21 +44,21 @@ type IndexEntry struct {
 
 // Recorder writes FrameBundles to a log file.
 type Recorder struct {
-	basePath     string
-	sensorID     string
-	
+	basePath string
+	sensorID string
+
 	header       LogHeader
 	index        []IndexEntry
 	currentChunk int
 	chunkFile    *os.File
 	chunkOffset  uint32
-	
-	frameCount   uint64
-	startNs      int64
-	endNs        int64
-	
-	mu           sync.Mutex
-	closed       bool
+
+	frameCount uint64
+	startNs    int64
+	endNs      int64
+
+	mu     sync.Mutex
+	closed bool
 }
 
 // NewRecorder creates a new Recorder that writes to the given directory.
@@ -254,17 +254,17 @@ type Replayer struct {
 	basePath string
 	header   LogHeader
 	index    []IndexEntry
-	
+
 	// Playback state
 	currentFrame uint64
 	paused       bool
 	rate         float32
-	
+
 	// Chunk cache
-	currentChunk     int
-	chunkData        []byte
-	chunkFile        *os.File
-	
+	currentChunk int
+	chunkData    []byte
+	chunkFile    *os.File
+
 	mu sync.Mutex
 }
 

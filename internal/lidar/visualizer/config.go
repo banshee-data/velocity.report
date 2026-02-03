@@ -79,11 +79,11 @@ type ForwardConfig struct {
 // Default: LidarView only (preserves existing behaviour).
 func DefaultForwardConfig() ForwardConfig {
 	return ForwardConfig{
-		Mode:               ForwardModeLidarView,
-		LidarViewAddr:      "127.0.0.1:2370",
-		GRPCAddr:           "localhost:50051",
+		Mode:                ForwardModeLidarView,
+		LidarViewAddr:       "127.0.0.1:2370",
+		GRPCAddr:            "localhost:50051",
 		EnableDebugOverlays: false,
-		RecordingEnabled:   false,
+		RecordingEnabled:    false,
 	}
 }
 

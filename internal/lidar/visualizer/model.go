@@ -189,12 +189,12 @@ type Track struct {
 	ClassConfidence float32
 
 	// Quality metrics
-	TrackLengthMetres  float32
-	TrackDurationSecs  float32
-	OcclusionCount     int
-	Confidence         float32
-	OcclusionState     OcclusionState
-	MotionModel        MotionModel
+	TrackLengthMetres float32
+	TrackDurationSecs float32
+	OcclusionCount    int
+	Confidence        float32
+	OcclusionState    OcclusionState
+	MotionModel       MotionModel
 }
 
 // TrackState represents the lifecycle state of a track.
