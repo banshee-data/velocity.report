@@ -1,11 +1,11 @@
-// Package visualizer provides gRPC streaming of LiDAR perception data
+// Package visualiser provides gRPC streaming of LiDAR perception data
 // to the macOS visualiser application.
 //
 // This package implements Track B of the visualiser project:
 // - Canonical internal model (FrameBundle)
 // - gRPC publisher for live streaming
 // - Adapter layer for existing LidarView forwarding
-package visualizer
+package visualiser
 
 import (
 	"context"
@@ -109,9 +109,9 @@ func (p *Publisher) Start() error {
 	p.wg.Add(1)
 	go func() {
 		defer p.wg.Done()
-		log.Printf("[Visualizer] gRPC server listening on %s", p.config.ListenAddr)
+		log.Printf("[Visualiser] gRPC server listening on %s", p.config.ListenAddr)
 		if err := p.server.Serve(lis); err != nil && p.running.Load() {
-			log.Printf("[Visualizer] gRPC server error: %v", err)
+			log.Printf("[Visualiser] gRPC server error: %v", err)
 		}
 	}()
 
@@ -134,7 +134,7 @@ func (p *Publisher) Stop() {
 	}
 
 	p.wg.Wait()
-	log.Printf("[Visualizer] gRPC server stopped")
+	log.Printf("[Visualiser] gRPC server stopped")
 }
 
 // Publish sends a frame to all connected clients.
@@ -148,7 +148,7 @@ func (p *Publisher) Publish(frame *FrameBundle) {
 		p.frameCount.Add(1)
 	default:
 		// Drop frame if channel is full
-		log.Printf("[Visualizer] Dropping frame %d, channel full", frame.FrameID)
+		log.Printf("[Visualiser] Dropping frame %d, channel full", frame.FrameID)
 	}
 }
 
@@ -188,7 +188,7 @@ func (p *Publisher) addClient(id string, req *StreamRequest) *clientStream {
 	p.clientsMu.Unlock()
 
 	p.clientCount.Add(1)
-	log.Printf("[Visualizer] Client connected: %s (total: %d)", id, p.clientCount.Load())
+	log.Printf("[Visualiser] Client connected: %s (total: %d)", id, p.clientCount.Load())
 
 	return client
 }
@@ -199,11 +199,12 @@ func (p *Publisher) removeClient(id string) {
 	if client, ok := p.clients[id]; ok {
 		close(client.doneCh)
 		delete(p.clients, id)
+		p.clientsMu.Unlock()
+		p.clientCount.Add(-1)
+		log.Printf("[Visualiser] Client disconnected: %s (remaining: %d)", id, p.clientCount.Load())
+	} else {
+		p.clientsMu.Unlock()
 	}
-	p.clientsMu.Unlock()
-
-	p.clientCount.Add(-1)
-	log.Printf("[Visualizer] Client disconnected: %s (remaining: %d)", id, p.clientCount.Load())
 }
 
 // Stats returns current publisher statistics.

@@ -1,6 +1,6 @@
-// Package visualizer provides gRPC streaming of LiDAR perception data.
+// Package visualiser provides gRPC streaming of LiDAR perception data.
 // This file defines the canonical internal model that drives all outputs.
-package visualizer
+package visualiser
 
 import (
 	"time"

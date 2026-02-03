@@ -20,6 +20,8 @@ help:
 	@echo "  build-deploy-linux   Build velocity-deploy for Linux ARM64"
 	@echo "  build-web            Build web frontend (SvelteKit)"
 	@echo "  build-docs           Build documentation site (Eleventy)"
+	@echo "  build-visualiser-macos Build macOS LiDAR visualiser (Xcode)"
+	@echo "  clean-visualiser-macos Clean macOS visualiser build artifacts"
 	@echo ""
 	@echo "PROTOBUF CODE GENERATION:"
 	@echo "  proto-gen            Generate protobuf stubs for all languages"
@@ -192,13 +194,42 @@ build-docs:
 	fi
 	@echo "✓ Docs build complete: public_html/_site/"
 
+# Build macOS LiDAR visualiser (requires macOS and Xcode)
+VISUALISER_DIR = tools/visualiser-macos
+VISUALISER_BUILD_DIR = $(VISUALISER_DIR)/build
+
+.PHONY: build-visualiser-macos clean-visualiser-macos
+
+build-visualiser-macos:
+	@echo "Building macOS LiDAR visualiser..."
+	@if [ "$$(uname)" != "Darwin" ]; then \
+		echo "Error: macOS required for building the visualiser"; \
+		exit 1; \
+	fi
+	@if ! command -v xcodebuild >/dev/null 2>&1; then \
+		echo "Error: Xcode not found. Install Xcode from the App Store."; \
+		exit 1; \
+	fi
+	@cd $(VISUALISER_DIR) && xcodebuild \
+		-project VelocityVisualiser.xcodeproj \
+		-scheme VelocityVisualiser \
+		-configuration Release \
+		-derivedDataPath build \
+		build
+	@echo "✓ Visualiser build complete: $(VISUALISER_BUILD_DIR)/Build/Products/Release/"
+
+clean-visualiser-macos:
+	@echo "Cleaning macOS visualiser build artifacts..."
+	@rm -rf $(VISUALISER_BUILD_DIR)
+	@echo "✓ Clean complete"
+
 # =============================================================================
 # PROTOBUF CODE GENERATION
 # =============================================================================
 
 PROTO_DIR = proto/velocity_visualizer/v1
-PROTO_GO_OUT = internal/lidar/visualizer/pb
-PROTO_SWIFT_OUT = tools/visualizer-macos/VelocityVisualizer/gRPC/Generated
+PROTO_GO_OUT = internal/lidar/visualiser/pb
+PROTO_SWIFT_OUT = tools/visualiser-macos/VelocityVisualiser/gRPC/Generated
 
 .PHONY: proto-gen proto-gen-go proto-gen-swift
 

@@ -1,4 +1,4 @@
-// VisualizerClient.swift
+// VisualiserClient.swift
 // gRPC client for streaming frame data from the Go pipeline.
 //
 // This is a placeholder implementation. The actual gRPC client will use
@@ -8,19 +8,19 @@ import Foundation
 import Combine
 
 /// Protocol for receiving frame data from the gRPC stream.
-protocol VisualizerClientDelegate: AnyObject {
-    func clientDidConnect(_ client: VisualizerClient)
-    func clientDidDisconnect(_ client: VisualizerClient, error: Error?)
-    func client(_ client: VisualizerClient, didReceiveFrame frame: FrameBundle)
+protocol VisualiserClientDelegate: AnyObject {
+    func clientDidConnect(_ client: VisualiserClient)
+    func clientDidDisconnect(_ client: VisualiserClient, error: Error?)
+    func client(_ client: VisualiserClient, didReceiveFrame frame: FrameBundle)
 }
 
 /// gRPC client for the VisualizerService.
-class VisualizerClient {
+class VisualiserClient {
     
     // MARK: - Properties
     
     let address: String
-    weak var delegate: VisualizerClientDelegate?
+    weak var delegate: VisualiserClientDelegate?
     
     private(set) var isConnected: Bool = false
     
@@ -187,7 +187,7 @@ struct RecordingStatus {
 
 // MARK: - Frame Decoding
 
-extension VisualizerClient {
+extension VisualiserClient {
     
     /// Decode a protobuf FrameBundle to the Swift model.
     /// TODO: Replace with actual protobuf decoding when generated.

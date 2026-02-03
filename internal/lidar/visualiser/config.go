@@ -1,6 +1,6 @@
-// Package visualizer provides gRPC streaming of LiDAR perception data.
+// Package visualiser provides gRPC streaming of LiDAR perception data.
 // This file provides feature flags and output mode configuration.
-package visualizer
+package visualiser
 
 // ForwardMode specifies which output(s) to enable.
 type ForwardMode int

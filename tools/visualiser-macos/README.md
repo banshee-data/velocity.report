@@ -1,4 +1,4 @@
-# Velocity Visualizer for macOS
+# Velocity Visualiser for macOS
 
 A native macOS application for visualising LiDAR point clouds, tracks, and debug overlays from the velocity.report tracking pipeline.
 
@@ -36,15 +36,15 @@ This is a SwiftUI application that connects to the Go LiDAR pipeline via gRPC an
 
 ### Build with Xcode
 
-1. Open `VelocityVisualizer.xcodeproj` in Xcode
-2. Select the "VelocityVisualizer" scheme
+1. Open `VelocityVisualiser.xcodeproj` in Xcode
+2. Select the "VelocityVisualiser" scheme
 3. Build and run (⌘R)
 
 ### Build from Command Line
 
 ```bash
-cd tools/visualizer-macos
-xcodebuild -project VelocityVisualizer.xcodeproj -scheme VelocityVisualizer -configuration Release
+cd tools/visualiser-macos
+xcodebuild -project VelocityVisualiser.xcodeproj -scheme VelocityVisualiser -configuration Release
 ```
 
 ## Usage
@@ -57,7 +57,7 @@ xcodebuild -project VelocityVisualizer.xcodeproj -scheme VelocityVisualizer -con
    velocity-report --grpc-enabled --grpc-addr localhost:50051
    ```
 
-2. Launch VelocityVisualizer
+2. Launch VelocityVisualiser
 3. Click "Connect" (or press ⌘⇧C)
 4. The visualiser will start rendering live data
 
@@ -95,7 +95,7 @@ xcodebuild -project VelocityVisualizer.xcodeproj -scheme VelocityVisualizer -con
 ## Architecture
 
 ```
-VelocityVisualizer/
+VelocityVisualiser/
 ├── App/                 # Application entry and state
 ├── gRPC/                # gRPC client and protobuf decoding
 ├── Rendering/           # Metal renderer and shaders
@@ -129,7 +129,7 @@ The app stores preferences in `~/Library/Preferences/com.velocity.visualizer.pli
 ### Running Tests
 
 ```bash
-xcodebuild test -project VelocityVisualizer.xcodeproj -scheme VelocityVisualizer
+xcodebuild test -project VelocityVisualiser.xcodeproj -scheme VelocityVisualiser
 ```
 
 ### Regenerating Protobuf Stubs
@@ -138,13 +138,13 @@ When the protobuf schema changes:
 
 ```bash
 # From repository root
-protoc --swift_out=tools/visualizer-macos/VelocityVisualizer/gRPC/Generated \
-       --grpc-swift_out=tools/visualizer-macos/VelocityVisualizer/gRPC/Generated \
+protoc --swift_out=tools/visualiser-macos/VelocityVisualiser/gRPC/Generated \
+       --grpc-swift_out=tools/visualiser-macos/VelocityVisualiser/gRPC/Generated \
        proto/velocity_visualizer/v1/visualizer.proto
 ```
 
 ## Related Documentation
 
-- [Design Docs](../../docs/lidar/visualizer_macos/)
-- [API Contract](../../docs/lidar/visualizer_macos/02-api-contracts.md)
-- [Architecture](../../docs/lidar/visualizer_macos/03-architecture.md)
+- [Design Docs](../../docs/lidar/visualiser_macos/)
+- [API Contract](../../docs/lidar/visualiser_macos/02-api-contracts.md)
+- [Architecture](../../docs/lidar/visualiser_macos/03-architecture.md)

@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar/visualizer"
+	"github.com/banshee-data/velocity.report/internal/lidar/visualiser"
 )
 
 // FileExtension is the extension for velocity.report log files.
@@ -92,7 +92,7 @@ func NewRecorder(basePath, sensorID string) (*Recorder, error) {
 }
 
 // Record writes a FrameBundle to the log.
-func (r *Recorder) Record(frame *visualizer.FrameBundle) error {
+func (r *Recorder) Record(frame *visualiser.FrameBundle) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -234,15 +234,15 @@ func (r *Recorder) FrameCount() uint64 {
 
 // serializeFrame serializes a FrameBundle to bytes.
 // TODO: Replace with proper protobuf serialization when generated.
-func serializeFrame(frame *visualizer.FrameBundle) ([]byte, error) {
+func serializeFrame(frame *visualiser.FrameBundle) ([]byte, error) {
 	// Placeholder: use JSON for now
 	return json.Marshal(frame)
 }
 
 // deserializeFrame deserializes bytes to a FrameBundle.
 // TODO: Replace with proper protobuf deserialization when generated.
-func deserializeFrame(data []byte) (*visualizer.FrameBundle, error) {
-	var frame visualizer.FrameBundle
+func deserializeFrame(data []byte) (*visualiser.FrameBundle, error) {
+	var frame visualiser.FrameBundle
 	if err := json.Unmarshal(data, &frame); err != nil {
 		return nil, err
 	}
@@ -368,7 +368,7 @@ func (r *Replayer) SeekToTimestamp(timestampNs int64) error {
 }
 
 // ReadFrame reads the current frame and advances.
-func (r *Replayer) ReadFrame() (*visualizer.FrameBundle, error) {
+func (r *Replayer) ReadFrame() (*visualiser.FrameBundle, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -405,7 +405,7 @@ func (r *Replayer) ReadFrame() (*visualizer.FrameBundle, error) {
 	}
 
 	// Add playback info
-	frame.PlaybackInfo = &visualizer.PlaybackInfo{
+	frame.PlaybackInfo = &visualiser.PlaybackInfo{
 		IsLive:       false,
 		LogStartNs:   r.header.StartNs,
 		LogEndNs:     r.header.EndNs,

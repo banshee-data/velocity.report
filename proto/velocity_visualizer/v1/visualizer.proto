@@ -13,7 +13,7 @@ syntax = "proto3";
 
 package velocity.visualizer.v1;
 
-option go_package = "github.com/banshee-data/velocity.report/internal/lidar/visualizer/pb";
+option go_package = "github.com/banshee-data/velocity.report/internal/lidar/visualiser/pb";
 
 // =============================================================================
 // Coordinate Frame Information

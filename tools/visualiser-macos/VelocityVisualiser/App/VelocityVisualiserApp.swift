@@ -1,5 +1,5 @@
-// VelocityVisualizerApp.swift
-// Main entry point for the Velocity Visualizer macOS application.
+// VelocityVisualiserApp.swift
+// Main entry point for the Velocity Visualiser macOS application.
 //
 // This app provides 3D visualisation of LiDAR point clouds, tracks, and
 // debug overlays from the velocity.report tracking pipeline via gRPC.
@@ -7,7 +7,7 @@
 import SwiftUI
 
 @main
-struct VelocityVisualizerApp: App {
+struct VelocityVisualiserApp: App {
     @StateObject private var appState = AppState()
     
     var body: some Scene {
