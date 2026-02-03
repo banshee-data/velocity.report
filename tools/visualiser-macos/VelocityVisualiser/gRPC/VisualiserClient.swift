@@ -4,8 +4,8 @@
 // This is a placeholder implementation. The actual gRPC client will use
 // grpc-swift and the generated protobuf stubs.
 
-import Foundation
 import Combine
+import Foundation
 
 /// Protocol for receiving frame data from the gRPC stream.
 protocol VisualiserClientDelegate: AnyObject {
@@ -16,14 +16,14 @@ protocol VisualiserClientDelegate: AnyObject {
 
 /// gRPC client for the VisualiserService.
 class VisualiserClient {
-    
+
     // MARK: - Properties
-    
+
     let address: String
     weak var delegate: VisualiserClientDelegate?
-    
+
     private(set) var isConnected: Bool = false
-    
+
     // Stream request configuration
     var includePoints: Bool = true
     var includeClusters: Bool = true
@@ -31,29 +31,29 @@ class VisualiserClient {
     var includeDebug: Bool = false
     var decimationMode: DecimationMode = .none
     var decimationRatio: Float = 1.0
-    
+
     // TODO: Replace with actual gRPC channel and call objects
     // private var channel: GRPCChannel?
     // private var streamCall: ServerStreamingCall<...>?
-    
+
     private var cancellables = Set<AnyCancellable>()
-    
+
     // MARK: - Initialisation
-    
+
     init(address: String) {
         self.address = address
     }
-    
+
     deinit {
         disconnect()
     }
-    
+
     // MARK: - Connection
-    
+
     /// Connect to the gRPC server and start streaming.
     func connect() async throws {
         guard !isConnected else { return }
-        
+
         // TODO: Implement actual gRPC connection
         // Example with grpc-swift:
         //
@@ -63,9 +63,9 @@ class VisualiserClient {
         //     transportSecurity: .plaintext,
         //     eventLoopGroup: group
         // )
-        // let client = Velocity_Visualizer_V1_VisualiserServiceAsyncClient(channel: channel)
+        // let client = Velocity_Visualiser_V1_VisualiserServiceAsyncClient(channel: channel)
         //
-        // let request = Velocity_Visualizer_V1_StreamRequest()
+        // let request = Velocity_Visualiser_V1_StreamRequest()
         // request.sensorID = "all"
         // request.includePoints = includePoints
         // ...
@@ -74,54 +74,54 @@ class VisualiserClient {
         //     let bundle = decodeFrameBundle(frame)
         //     delegate?.client(self, didReceiveFrame: bundle)
         // }
-        
+
         isConnected = true
         await MainActor.run {
             delegate?.clientDidConnect(self)
         }
     }
-    
+
     /// Disconnect from the gRPC server.
     func disconnect() {
         guard isConnected else { return }
-        
+
         // TODO: Close gRPC channel
         // channel?.close()
-        
+
         isConnected = false
         delegate?.clientDidDisconnect(self, error: nil)
     }
-    
+
     // MARK: - Playback Control
-    
+
     /// Pause playback (replay mode only).
     func pause() async throws {
         // TODO: Send Pause RPC
         // let response = try await client.pause(.init())
     }
-    
+
     /// Resume playback (replay mode only).
     func play() async throws {
         // TODO: Send Play RPC
     }
-    
+
     /// Seek to a timestamp (replay mode only).
     func seek(to timestampNanos: Int64) async throws {
         // TODO: Send Seek RPC
     }
-    
+
     /// Seek to a frame ID (replay mode only).
     func seek(toFrame frameID: UInt64) async throws {
         // TODO: Send Seek RPC
     }
-    
+
     /// Set playback rate (replay mode only).
     func setRate(_ rate: Float) async throws {
         // TODO: Send SetRate RPC
     }
-    
+
     // MARK: - Overlay Modes
-    
+
     /// Update which overlays the server should emit.
     func setOverlayModes(
         showPoints: Bool,
@@ -135,9 +135,9 @@ class VisualiserClient {
     ) async throws {
         // TODO: Send SetOverlayModes RPC
     }
-    
+
     // MARK: - Capabilities
-    
+
     /// Query server capabilities.
     func getCapabilities() async throws -> ServerCapabilities {
         // TODO: Send GetCapabilities RPC
@@ -151,15 +151,16 @@ class VisualiserClient {
             availableSensors: ["hesai-01"]
         )
     }
-    
+
     // MARK: - Recording
-    
+
     /// Start recording frames on the server.
     func startRecording(outputPath: String? = nil) async throws -> RecordingStatus {
         // TODO: Send StartRecording RPC
-        return RecordingStatus(recording: true, outputPath: "/tmp/recording.vrlog", framesRecorded: 0)
+        return RecordingStatus(
+            recording: true, outputPath: "/tmp/recording.vrlog", framesRecorded: 0)
     }
-    
+
     /// Stop recording frames on the server.
     func stopRecording() async throws -> RecordingStatus {
         // TODO: Send StopRecording RPC
@@ -188,7 +189,7 @@ struct RecordingStatus {
 // MARK: - Frame Decoding
 
 extension VisualiserClient {
-    
+
     /// Decode a protobuf FrameBundle to the Swift model.
     /// TODO: Replace with actual protobuf decoding when generated.
     func decodeFrameBundle(_ protoFrame: Any) -> FrameBundle {
