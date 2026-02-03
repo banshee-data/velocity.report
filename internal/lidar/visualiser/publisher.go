@@ -19,7 +19,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-// Config holds configuration for the visualizer gRPC server.
+// Config holds configuration for the visualiser gRPC server.
 type Config struct {
 	// ListenAddr is the address to listen on (e.g., "localhost:50051")
 	ListenAddr string

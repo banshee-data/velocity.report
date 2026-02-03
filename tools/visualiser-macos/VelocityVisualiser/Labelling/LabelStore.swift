@@ -26,7 +26,7 @@ class LabelStore {
     init() {
         // Store in app support directory
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let appDir = appSupport.appendingPathComponent("VelocityVisualizer", isDirectory: true)
+        let appDir = appSupport.appendingPathComponent("VelocityVisualiser", isDirectory: true)
         
         try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
         

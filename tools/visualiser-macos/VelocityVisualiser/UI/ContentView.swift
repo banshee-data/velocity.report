@@ -1,5 +1,5 @@
 // ContentView.swift
-// Main content view for the Velocity Visualizer.
+// Main content view for the Velocity Visualiser.
 //
 // This view composes the Metal render view with SwiftUI controls.
 

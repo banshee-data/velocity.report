@@ -117,7 +117,7 @@ VelocityVisualiser/
 
 ## Configuration
 
-The app stores preferences in `~/Library/Preferences/com.velocity.visualizer.plist`:
+The app stores preferences in `~/Library/Preferences/com.velocity.visualiser.plist`:
 
 - `serverAddress`: Default server address (localhost:50051)
 - `pointSize`: Point rendering size

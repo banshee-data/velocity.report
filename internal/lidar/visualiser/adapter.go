@@ -182,7 +182,7 @@ func (a *FrameAdapter) adaptTracks(tracker *lidar.Tracker, timestamp time.Time) 
 	return ts
 }
 
-// adaptTrackState converts lidar.TrackState to visualizer.TrackState.
+// adaptTrackState converts lidar.TrackState to visualiser.TrackState.
 func adaptTrackState(state lidar.TrackState) TrackState {
 	switch state {
 	case lidar.TrackTentative:

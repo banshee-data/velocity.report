@@ -14,7 +14,7 @@ protocol VisualiserClientDelegate: AnyObject {
     func client(_ client: VisualiserClient, didReceiveFrame frame: FrameBundle)
 }
 
-/// gRPC client for the VisualizerService.
+/// gRPC client for the VisualiserService.
 class VisualiserClient {
     
     // MARK: - Properties
@@ -63,7 +63,7 @@ class VisualiserClient {
         //     transportSecurity: .plaintext,
         //     eventLoopGroup: group
         // )
-        // let client = Velocity_Visualizer_V1_VisualizerServiceAsyncClient(channel: channel)
+        // let client = Velocity_Visualizer_V1_VisualiserServiceAsyncClient(channel: channel)
         //
         // let request = Velocity_Visualizer_V1_StreamRequest()
         // request.sensorID = "all"
