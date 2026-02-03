@@ -9,14 +9,19 @@
 
 import Combine
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "report.velocity.visualiser", category: "AppState")
 
 /// Global application state, observable by SwiftUI views.
+@available(macOS 15.0, *)
 @MainActor
 class AppState: ObservableObject {
 
     // MARK: - Connection State
 
     @Published var isConnected: Bool = false
+    @Published var isConnecting: Bool = false
     @Published var serverAddress: String = "localhost:50051"
     @Published var connectionError: String?
 
@@ -64,6 +69,7 @@ class AppState: ObservableObject {
     private var frameReceiveTime: Date = Date()
     private var fpsCounter: Int = 0
     private var fpsTimer: Timer?
+    private var clientDelegate: ClientDelegateAdapter?
 
     // MARK: - Initialisation
 
@@ -84,6 +90,8 @@ class AppState: ObservableObject {
     // MARK: - Connection
 
     func toggleConnection() {
+        print("[AppState] toggleConnection called, isConnected: \(isConnected)")
+        logger.info("toggleConnection called, isConnected: \(self.isConnected)")
         if isConnected {
             disconnect()
         } else {
@@ -92,22 +100,48 @@ class AppState: ObservableObject {
     }
 
     func connect() {
-        // TODO: Implement gRPC connection
-        // grpcClient = VisualiserClient(address: serverAddress)
-        // grpcClient?.startStreaming(...)
-
-        isConnected = true
+        print("[AppState] 🔌 CONNECTING to \(serverAddress)...")
+        logger.info("connect() starting, serverAddress: \(self.serverAddress)")
+        isConnecting = true
         connectionError = nil
-        isLive = true
 
-        // Placeholder: simulate frame data
-        startSimulation()
+        grpcClient = VisualiserClient(address: serverAddress)
+        clientDelegate = ClientDelegateAdapter(appState: self)
+        grpcClient?.delegate = clientDelegate
+        logger.debug("Created VisualiserClient and delegate")
+
+        Task {
+            do {
+                logger.debug("Calling grpcClient.connect()...")
+                try await grpcClient?.connect()
+                print("[AppState] ✅ CONNECTION SUCCEEDED to \(serverAddress)")
+                logger.info("grpcClient.connect() succeeded!")
+                await MainActor.run {
+                    self.isConnecting = false
+                }
+            } catch {
+                print("[AppState] ❌ CONNECTION FAILED: \(error.localizedDescription)")
+                logger.error("Connection error: \(error.localizedDescription)")
+                await MainActor.run {
+                    self.connectionError = "Failed: cannot connect to \(self.serverAddress)"
+                    self.isConnected = false
+                    self.isConnecting = false
+                    self.grpcClient = nil
+                    self.clientDelegate = nil
+                }
+            }
+        }
     }
 
     func disconnect() {
+        print("[AppState] 🔌 DISCONNECTING...")
+        logger.info("disconnect() called")
+        grpcClient?.disconnect()
         grpcClient = nil
+        clientDelegate = nil
         isConnected = false
         currentFrame = nil
+        logger.debug("Disconnected")
     }
 
     // MARK: - Playback Control
@@ -181,6 +215,16 @@ class AppState: ObservableObject {
         clusterCount = frame.clusters?.clusters.count ?? 0
         trackCount = frame.tracks?.tracks.count ?? 0
 
+        // Log every 100 frames to show activity
+        if frameCount % 100 == 1 {
+            print(
+                "[AppState] 📊 Frame \(frameCount): \(pointCount) points, \(trackCount) tracks, FPS: \(String(format: "%.1f", fps))"
+            )
+            logger.info(
+                "Frame \(self.frameCount): \(self.pointCount) points, \(self.trackCount) tracks, FPS: \(String(format: "%.1f", self.fps))"
+            )
+        }
+
         // Update replay progress
         if !isLive && logEndTimestamp > logStartTimestamp {
             let progress =
@@ -189,60 +233,50 @@ class AppState: ObservableObject {
             replayProgress = max(0, min(1, progress))
         }
     }
+}
 
-    // MARK: - Simulation (for development)
+// MARK: - Client Delegate Adapter
 
-    private var simulationTimer: Timer?
+private let delegateLogger = Logger(
+    subsystem: "report.velocity.visualiser", category: "ClientDelegate")
 
-    private func startSimulation() {
-        simulationTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) {
-            [weak self] _ in
-            Task { @MainActor in
-                self?.generateSimulatedFrame()
+/// Adapter to bridge VisualiserClientDelegate to AppState.
+@available(macOS 15.0, *)
+final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable {
+    private weak var appState: AppState?
+
+    init(appState: AppState) {
+        self.appState = appState
+    }
+
+    func clientDidConnect(_ client: VisualiserClient) {
+        print("[ClientDelegate] ✅ CLIENT CONNECTED - Starting frame stream")
+        delegateLogger.info("clientDidConnect called")
+        Task { @MainActor [weak self] in
+            self?.appState?.isConnected = true
+            self?.appState?.connectionError = nil
+            self?.appState?.isLive = true
+            delegateLogger.debug("AppState updated: isConnected=true")
+        }
+    }
+
+    func clientDidDisconnect(_ client: VisualiserClient, error: Error?) {
+        print(
+            "[ClientDelegate] ❌ CLIENT DISCONNECTED, error: \(error?.localizedDescription ?? "none")"
+        )
+        delegateLogger.warning(
+            "clientDidDisconnect called, error: \(error?.localizedDescription ?? "none")")
+        Task { @MainActor [weak self] in
+            self?.appState?.isConnected = false
+            if let error = error {
+                self?.appState?.connectionError = error.localizedDescription
             }
         }
     }
 
-    private func stopSimulation() {
-        simulationTimer?.invalidate()
-        simulationTimer = nil
-    }
-
-    private func generateSimulatedFrame() {
-        // Generate synthetic frame for testing
-        var frame = FrameBundle()
-        frame.frameID = currentFrameID + 1
-        frame.timestampNanos = Int64(Date().timeIntervalSince1970 * 1_000_000_000)
-        frame.sensorID = "synthetic"
-
-        // Generate synthetic point cloud
-        var pointCloud = PointCloudFrame()
-        let pointCount = 10000
-        pointCloud.x = (0..<pointCount).map { _ in Float.random(in: -20...20) }
-        pointCloud.y = (0..<pointCount).map { _ in Float.random(in: 0...50) }
-        pointCloud.z = (0..<pointCount).map { _ in Float.random(in: 0...3) }
-        pointCloud.intensity = (0..<pointCount).map { _ in UInt8.random(in: 0...255) }
-        pointCloud.pointCount = pointCount
-        frame.pointCloud = pointCloud
-
-        // Generate synthetic tracks
-        var trackSet = TrackSet()
-        let trackCount = 5
-        let time = Date().timeIntervalSince1970
-        for i in 0..<trackCount {
-            var track = Track()
-            track.trackID = "track_\(i)"
-            track.state = .confirmed
-            track.x = Float(sin(time + Double(i) * 0.5) * 10)
-            track.y = Float(20 + Double(i) * 5)
-            track.vx = Float(cos(time + Double(i) * 0.5) * 5)
-            track.vy = 0
-            track.speedMps = abs(track.vx)
-            track.headingRad = atan2(track.vy, track.vx)
-            trackSet.tracks.append(track)
+    func client(_ client: VisualiserClient, didReceiveFrame frame: FrameBundle) {
+        Task { @MainActor [weak self] in
+            self?.appState?.onFrameReceived(frame)
         }
-        frame.tracks = trackSet
-
-        onFrameReceived(frame)
     }
 }

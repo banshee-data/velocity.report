@@ -20,51 +20,38 @@ This is a SwiftUI application that connects to the Go LiDAR pipeline via gRPC an
 
 ## Building
 
-### Prerequisites
-
-1. Install Swift protobuf and gRPC plugins:
-
-   ```bash
-   brew install swift-protobuf grpc-swift
-   ```
-
-2. Generate Swift protobuf stubs:
-
-   ```bash
-   # From repository root
-   make proto-gen-swift
-   ```
-
-3. **Create the Xcode project** (first-time setup):
-
-   The source directory exists but the Xcode project needs to be created:
-
-   a. Open Xcode
-   b. File → New → Project
-   c. Choose **macOS** → **App**
-   d. Set:
-   - Product Name: `VelocityVisualiser`
-   - Interface: **SwiftUI**
-   - Language: **Swift**
-     e. Save location: `tools/visualiser-macos/` (choose this directory)
-     f. In Xcode, delete the auto-generated source files
-     g. Right-click project → Add Files to "VelocityVisualiser"
-     h. Add the existing `VelocityVisualiser/` directory (with folders)
-
-### Build with Xcode
-
-1. Open `VelocityVisualiser.xcodeproj` in Xcode
-2. Select the "VelocityVisualiser" scheme
-3. Build and run (⌘R)
-
-### Build from Command Line
+**Quick start (M0 - synthetic data):**
 
 ```bash
+# Disable generated gRPC files (one-time)
+./toggle-grpc-files.sh
+
+# Build
+make build-mac  # from repository root
+```
+
+**For full gRPC support, see [BUILDING.md](BUILDING.md)** for detailed instructions on adding Swift Package dependencies.
+
+### Prerequisites
+
+- macOS 15.0+ (Sonoma)
+- Xcode 15.0+
+- Command-line tools: `brew install swift-protobuf grpc-swift`
+
+### First-Time Setup
+
+If the Xcode project doesn't exist yet, follow the setup in [BUILDING.md](BUILDING.md#option-2-command-line-workaround).
+
+## Usage
+
+```bash
+# From repository root
+make build-mac
+
+# Or with xcodebuild directly
 cd tools/visualiser-macos
 xcodebuild -project VelocityVisualiser.xcodeproj -scheme VelocityVisualiser -configuration Release
 ```
-
-**Note:** The command-line build requires the Xcode project to be created first (see Prerequisites above).
 
 ## Usage
 

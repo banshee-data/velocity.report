@@ -3,28 +3,28 @@
 //
 // This view composes the Metal render view with SwiftUI controls.
 
-import SwiftUI
 import MetalKit
+import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
-    
+
     var body: some View {
         HSplitView {
             // Main 3D view
             VStack(spacing: 0) {
                 // Toolbar
                 ToolbarView()
-                
+
                 // Metal view
                 MetalViewRepresentable()
                     .frame(minWidth: 400, minHeight: 300)
-                
+
                 // Playback controls
                 PlaybackControlsView()
             }
             .frame(minWidth: 600)
-            
+
             // Side panel
             if appState.showLabelPanel || appState.selectedTrackID != nil {
                 SidePanelView()
@@ -39,41 +39,24 @@ struct ContentView: View {
 
 struct ToolbarView: View {
     @EnvironmentObject var appState: AppState
-    
+
     var body: some View {
         HStack {
-            // Connection
-            Button(action: { appState.toggleConnection() }) {
-                Image(systemName: appState.isConnected ? "stop.circle.fill" : "play.circle.fill")
-                Text(appState.isConnected ? "Disconnect" : "Connect")
-            }
-            .tint(appState.isConnected ? .red : .green)
-            
+            // Connection button
+            ConnectionButtonView()
+
             Divider().frame(height: 20)
-            
+
             // Connection status
-            HStack(spacing: 4) {
-                Circle()
-                    .fill(appState.isConnected ? Color.green : Color.gray)
-                    .frame(width: 8, height: 8)
-                Text(appState.isConnected ? appState.serverAddress : "Disconnected")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
+            ConnectionStatusView()
+
             Spacer()
-            
-            // Stats
-            if appState.isConnected {
-                HStack(spacing: 16) {
-                    StatLabel(title: "FPS", value: String(format: "%.1f", appState.fps))
-                    StatLabel(title: "Points", value: formatNumber(appState.pointCount))
-                    StatLabel(title: "Tracks", value: "\(appState.trackCount)")
-                }
-            }
-            
+
+            // Stats (only render when connected)
+            StatsDisplayView()
+
             Spacer()
-            
+
             // Overlay toggles
             OverlayTogglesView()
         }
@@ -81,7 +64,67 @@ struct ToolbarView: View {
         .padding(.vertical, 8)
         .background(Color(nsColor: .controlBackgroundColor))
     }
-    
+}
+
+// Extracted to break dependency cycle
+struct ConnectionButtonView: View {
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        let isConnected = appState.isConnected
+        let isConnecting = appState.isConnecting
+
+        Button(action: { appState.toggleConnection() }) {
+            if isConnecting {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: 16, height: 16)
+            } else {
+                Image(systemName: isConnected ? "stop.circle.fill" : "play.circle.fill")
+            }
+            Text(isConnecting ? "Connecting..." : (isConnected ? "Disconnect" : "Connect"))
+        }
+        .tint(isConnected ? .red : .green)
+        .disabled(isConnecting)
+    }
+}
+
+struct ConnectionStatusView: View {
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        let isConnected = appState.isConnected
+        let errorMessage = appState.connectionError
+        let hasError = errorMessage != nil
+
+        HStack(spacing: 4) {
+            Circle()
+                .fill(isConnected ? .green : (hasError ? .red : .gray))
+                .frame(width: 8, height: 8)
+            Text(errorMessage ?? (isConnected ? appState.serverAddress : "Disconnected"))
+                .font(.caption)
+                .foregroundColor(hasError ? .red : .secondary)
+        }
+    }
+}
+
+struct StatsDisplayView: View {
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        if appState.isConnected {
+            let fps = appState.fps
+            let pointCount = appState.pointCount
+            let trackCount = appState.trackCount
+
+            HStack(spacing: 16) {
+                StatLabel(title: "FPS", value: String(format: "%.1f", fps))
+                StatLabel(title: "Points", value: formatNumber(pointCount))
+                StatLabel(title: "Tracks", value: "\(trackCount)")
+            }
+        }
+    }
+
     private func formatNumber(_ n: Int) -> String {
         if n >= 1000 {
             return String(format: "%.1fk", Double(n) / 1000)
@@ -93,7 +136,7 @@ struct ToolbarView: View {
 struct StatLabel: View {
     let title: String
     let value: String
-    
+
     var body: some View {
         VStack(alignment: .trailing, spacing: 0) {
             Text(title)
@@ -110,16 +153,16 @@ struct StatLabel: View {
 
 struct OverlayTogglesView: View {
     @EnvironmentObject var appState: AppState
-    
+
     var body: some View {
         HStack(spacing: 8) {
             ToggleButton(label: "P", isOn: $appState.showPoints, help: "Points")
             ToggleButton(label: "B", isOn: $appState.showBoxes, help: "Boxes")
             ToggleButton(label: "T", isOn: $appState.showTrails, help: "Trails")
             ToggleButton(label: "V", isOn: $appState.showVelocity, help: "Velocity")
-            
+
             Divider().frame(height: 20)
-            
+
             ToggleButton(label: "D", isOn: $appState.showDebug, help: "Debug")
         }
     }
@@ -129,7 +172,7 @@ struct ToggleButton: View {
     let label: String
     @Binding var isOn: Bool
     let help: String
-    
+
     var body: some View {
         Button(action: { isOn.toggle() }) {
             Text(label)
@@ -149,28 +192,33 @@ struct ToggleButton: View {
 
 struct PlaybackControlsView: View {
     @EnvironmentObject var appState: AppState
-    
+
     var body: some View {
+        let isConnected = appState.isConnected
+        let isLive = appState.isLive
+        let isPaused = appState.isPaused
+        let playbackRate = appState.playbackRate
+
         HStack {
             // Play/Pause
             Button(action: { appState.togglePlayPause() }) {
-                Image(systemName: appState.isPaused ? "play.fill" : "pause.fill")
+                Image(systemName: isPaused ? "play.fill" : "pause.fill")
             }
-            .disabled(!appState.isConnected)
-            
+            .disabled(!isConnected)
+
             // Step buttons
             Button(action: { appState.stepBackward() }) {
                 Image(systemName: "backward.frame.fill")
             }
-            .disabled(!appState.isConnected || appState.isLive)
-            
+            .disabled(!isConnected || isLive)
+
             Button(action: { appState.stepForward() }) {
                 Image(systemName: "forward.frame.fill")
             }
-            .disabled(!appState.isConnected || appState.isLive)
-            
+            .disabled(!isConnected || isLive)
+
             // Timeline (replay mode)
-            if !appState.isLive {
+            if !isLive {
                 Slider(value: $appState.replayProgress, in: 0...1) { editing in
                     if !editing {
                         appState.seek(to: appState.replayProgress)
@@ -180,33 +228,26 @@ struct PlaybackControlsView: View {
             } else {
                 Spacer()
             }
-            
+
             // Rate control
             HStack(spacing: 4) {
                 Button(action: { appState.decreaseRate() }) {
                     Image(systemName: "minus")
                 }
                 .buttonStyle(.borderless)
-                
-                Text(String(format: "%.2fx", appState.playbackRate))
+
+                Text(String(format: "%.2fx", playbackRate))
                     .font(.caption)
                     .frame(width: 40)
-                
+
                 Button(action: { appState.increaseRate() }) {
                     Image(systemName: "plus")
                 }
                 .buttonStyle(.borderless)
             }
-            
+
             // Mode indicator
-            Text(appState.isLive ? "LIVE" : "REPLAY")
-                .font(.caption)
-                .fontWeight(.bold)
-                .foregroundColor(appState.isLive ? .red : .orange)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 2)
-                .background(appState.isLive ? Color.red.opacity(0.2) : Color.orange.opacity(0.2))
-                .cornerRadius(4)
+            ModeIndicatorView(isLive: isLive)
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
@@ -214,23 +255,38 @@ struct PlaybackControlsView: View {
     }
 }
 
+struct ModeIndicatorView: View {
+    let isLive: Bool
+
+    var body: some View {
+        Text(isLive ? "LIVE" : "REPLAY")
+            .font(.caption)
+            .fontWeight(.bold)
+            .foregroundColor(isLive ? .red : .orange)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(isLive ? Color.red.opacity(0.2) : Color.orange.opacity(0.2))
+            .cornerRadius(4)
+    }
+}
+
 // MARK: - Side Panel
 
 struct SidePanelView: View {
     @EnvironmentObject var appState: AppState
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Track info
             if let trackID = appState.selectedTrackID {
                 TrackInspectorView(trackID: trackID)
             }
-            
+
             Divider()
-            
+
             // Label panel
             LabelPanelView()
-            
+
             Spacer()
         }
         .padding()
@@ -243,18 +299,18 @@ struct SidePanelView: View {
 struct TrackInspectorView: View {
     let trackID: String
     @EnvironmentObject var appState: AppState
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Track Inspector")
                 .font(.headline)
-            
+
             Text("ID: \(trackID)")
                 .font(.caption)
                 .foregroundColor(.secondary)
-            
+
             // TODO: Show track details from current frame
-            
+
             Button("Deselect") {
                 appState.selectTrack(nil)
             }
@@ -266,19 +322,19 @@ struct TrackInspectorView: View {
 
 struct LabelPanelView: View {
     @EnvironmentObject var appState: AppState
-    
+
     let labels = ["pedestrian", "car", "cyclist", "bird", "other"]
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Label Track")
                 .font(.headline)
-            
+
             if let trackID = appState.selectedTrackID {
                 Text("Track: \(trackID)")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                
+
                 ForEach(Array(labels.enumerated()), id: \.offset) { index, label in
                     Button(action: { appState.assignLabel(label) }) {
                         HStack {
@@ -304,29 +360,29 @@ struct LabelPanelView: View {
 // MARK: - Metal View
 
 struct MetalViewRepresentable: NSViewRepresentable {
-    
+
     func makeNSView(context: Context) -> MTKView {
         let metalView = MTKView()
         metalView.preferredFramesPerSecond = 60
         metalView.enableSetNeedsDisplay = false
         metalView.isPaused = false
-        
+
         // Create renderer
         if let renderer = MetalRenderer(metalView: metalView) {
             context.coordinator.renderer = renderer
         }
-        
+
         return metalView
     }
-    
+
     func updateNSView(_ nsView: MTKView, context: Context) {
         // Update renderer settings from app state
     }
-    
+
     func makeCoordinator() -> Coordinator {
         Coordinator()
     }
-    
+
     class Coordinator {
         var renderer: MetalRenderer?
     }
