@@ -52,3 +52,4 @@ velocity-deploy*
 *_velocity.report_*.zip
 *_velocity.report_*.tex
 histogram_*.png
+tools/visualiser-macos/build
