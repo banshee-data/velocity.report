@@ -207,7 +207,22 @@ build-visualiser-macos:
 		exit 1; \
 	fi
 	@if ! command -v xcodebuild >/dev/null 2>&1; then \
-		echo "Error: Xcode not found. Install Xcode from the App Store."; \
+		echo "Error: xcodebuild not found. Install Xcode from the App Store."; \
+		exit 1; \
+	fi
+	@dev_dir=$$(xcode-select -p 2>/dev/null); \
+	if echo "$$dev_dir" | grep -q "CommandLineTools"; then \
+		echo "Error: xcodebuild requires Xcode, but Command Line Tools are active."; \
+		echo ""; \
+		echo "Solutions:"; \
+		echo "  1. Install Xcode from the App Store, then run:"; \
+		echo "     sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer"; \
+		echo ""; \
+		echo "  2. Or if Xcode is already installed but not active:"; \
+		echo "     sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer"; \
+		echo "     sudo xcodebuild -runFirstLaunch"; \
+		echo ""; \
+		echo "Current developer directory: $$dev_dir"; \
 		exit 1; \
 	fi
 	@cd $(VISUALISER_DIR) && xcodebuild \
