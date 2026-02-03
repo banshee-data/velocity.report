@@ -20,8 +20,8 @@ help:
 	@echo "  build-deploy-linux   Build velocity-deploy for Linux ARM64"
 	@echo "  build-web            Build web frontend (SvelteKit)"
 	@echo "  build-docs           Build documentation site (Eleventy)"
-	@echo "  build-visualiser-macos Build macOS LiDAR visualiser (Xcode)"
-	@echo "  clean-visualiser-macos Clean macOS visualiser build artifacts"
+	@echo "  build-mac            Build macOS LiDAR visualiser (Xcode)"
+	@echo "  clean-mac            Clean macOS visualiser build artifacts"
 	@echo ""
 	@echo "PROTOBUF CODE GENERATION:"
 	@echo "  proto-gen            Generate protobuf stubs for all languages"
@@ -43,7 +43,7 @@ help:
 	@echo "  dev-docs             Start docs dev server"
 	@echo ""
 	@echo "TESTING:"
-	@echo "  test                 Run all tests (Go + Python + Web)"
+	@echo "  test                 Run all tests (Go + Python + Web + macOS)"
 	@echo "  test-go              Run Go unit tests"
 	@echo "  test-go-cov          Run Go tests with coverage"
 	@echo "  test-go-coverage-summary Show coverage summary for cmd/ and internal/"
@@ -51,6 +51,7 @@ help:
 	@echo "  test-python-cov      Run Python tests with coverage"
 	@echo "  test-web             Run web tests (Jest)"
 	@echo "  test-web-cov         Run web tests with coverage"
+	@echo "  test-mac             Run macOS visualiser tests (XCTest)"
 	@echo "  coverage             Generate coverage reports for all components"
 	@echo ""
 	@echo "DATABASE MIGRATIONS:"
@@ -64,10 +65,11 @@ help:
 	@echo "  schema-sync          Regenerate schema.sql from latest migrations"
 	@echo ""
 	@echo "FORMATTING (mutating):"
-	@echo "  format               Format all code (Go + Python + Web + SQL + Markdown)"
+	@echo "  format               Format all code (Go + Python + Web + macOS + SQL + Markdown)"
 	@echo "  format-go            Format Go code (gofmt)"
 	@echo "  format-python        Format Python code (black + ruff)"
 	@echo "  format-web           Format web code (prettier)"
+	@echo "  format-mac           Format macOS Swift code (swift-format)"
 	@echo "  format-markdown      Format Markdown files (prettier)"
 	@echo "  format-sql           Format SQL files (sql-formatter)"
 	@echo ""
@@ -198,9 +200,9 @@ build-docs:
 VISUALISER_DIR = tools/visualiser-macos
 VISUALISER_BUILD_DIR = $(VISUALISER_DIR)/build
 
-.PHONY: build-visualiser-macos clean-visualiser-macos
+.PHONY: build-mac clean-mac
 
-build-visualiser-macos:
+build-mac:
 	@echo "Building macOS LiDAR visualiser..."
 	@if [ "$$(uname)" != "Darwin" ]; then \
 		echo "Error: macOS required for building the visualiser"; \
@@ -242,7 +244,7 @@ build-visualiser-macos:
 		build
 	@echo "✓ Visualiser build complete: $(VISUALISER_BUILD_DIR)/Build/Products/Release/"
 
-clean-visualiser-macos:
+clean-mac:
 	@echo "Cleaning macOS visualiser build artifacts..."
 	@rm -rf $(VISUALISER_BUILD_DIR)
 	@echo "✓ Clean complete"
@@ -488,12 +490,13 @@ dev-docs:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-go-cov test-go-coverage-summary test-python test-python-cov test-web test-web-cov coverage
+.PHONY: test test-go test-go-cov test-go-coverage-summary test-python test-python-cov test-web test-web-cov test-mac coverage
 
 WEB_DIR = web
+MAC_DIR = tools/visualiser-macos
 
-# Aggregate test target: runs Go, web, and Python tests in sequence
-test: test-go test-web test-python
+# Aggregate test target: runs Go, web, Python, and macOS tests in sequence
+test: test-go test-web test-python test-mac
 
 # Run Go unit tests for the whole repository
 test-go:
@@ -534,6 +537,26 @@ test-web-cov:
 	@echo "Running web (Jest) tests with coverage..."
 	@cd $(WEB_DIR) && pnpm run test:coverage
 	@echo "Coverage report: $(WEB_DIR)/coverage/lcov-report/index.html"
+
+# Run macOS visualiser tests (XCTest)
+test-mac:
+	@echo "Running macOS visualiser tests..."
+	@if [ "$$(uname)" != "Darwin" ]; then \
+		echo "Skipping macOS tests (not on macOS)"; \
+		exit 0; \
+	fi
+	@if [ ! -d "$(MAC_DIR)" ]; then \
+		echo "Skipping macOS tests (project not found)"; \
+		exit 0; \
+	fi
+	@if ! command -v xcodebuild >/dev/null 2>&1; then \
+		echo "Skipping macOS tests (xcodebuild not found)"; \
+		exit 0; \
+	fi
+	@cd $(MAC_DIR) && xcodebuild test \
+		-project VelocityVisualiser.xcodeproj \
+		-scheme VelocityVisualiser \
+		-destination 'platform=macOS'
 
 # Generate coverage reports for all components
 coverage: test-go-cov test-python-cov test-web-cov
@@ -639,9 +662,9 @@ schema-sync:
 # FORMATTING (mutating)
 # =============================================================================
 
-.PHONY: format format-go format-python format-web format-markdown format-sql
+.PHONY: format format-go format-python format-web format-mac format-markdown format-sql
 
-format: format-go format-python format-web format-markdown format-sql
+format: format-go format-python format-web format-mac format-markdown format-sql
 	@echo "\nAll formatting targets complete."
 
 format-go:
@@ -665,6 +688,24 @@ format-web:
 		fi; \
 	else \
 		echo "$(WEB_DIR) does not exist; skipping web formatting"; \
+	fi
+
+format-mac:
+	@echo "Formatting macOS Swift code (swift-format)..."
+	@if [ "$$(uname)" != "Darwin" ]; then \
+		echo "Skipping macOS formatting (not on macOS)"; \
+		exit 0; \
+	fi
+	@if [ ! -d "$(MAC_DIR)" ]; then \
+		echo "Skipping macOS formatting (project not found)"; \
+		exit 0; \
+	fi
+	@if command -v swift-format >/dev/null 2>&1; then \
+		cd $(MAC_DIR) && find VelocityVisualiser -name '*.swift' -exec swift-format -i {} \; ; \
+		echo "✓ Swift formatting complete"; \
+	else \
+		echo "swift-format not found; install via: brew install swift-format"; \
+		echo "Skipping macOS formatting"; \
 	fi
 
 format-markdown:
