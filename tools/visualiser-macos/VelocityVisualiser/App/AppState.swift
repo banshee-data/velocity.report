@@ -147,15 +147,11 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     func togglePlayPause() {
         guard !isLive else { return }
 
+        let newPaused = !isPaused
+        isPaused = newPaused  // Update immediately (optimistic)
         Task {
             do {
-                if isPaused {
-                    try await grpcClient?.play()
-                    await MainActor.run { self.isPaused = false }
-                } else {
-                    try await grpcClient?.pause()
-                    await MainActor.run { self.isPaused = true }
-                }
+                if newPaused { try await grpcClient?.pause() } else { try await grpcClient?.play() }
             } catch { logger.error("Failed to toggle playback: \(error.localizedDescription)") }
         }
     }
@@ -184,11 +180,11 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         guard !isLive else { return }
 
         let newRate = min(playbackRate * 2.0, 4.0)
+        playbackRate = newRate  // Update immediately (optimistic)
         Task {
-            do {
-                try await grpcClient?.setRate(newRate)
-                await MainActor.run { self.playbackRate = newRate }
-            } catch { logger.error("Failed to increase rate: \(error.localizedDescription)") }
+            do { try await grpcClient?.setRate(newRate) } catch {
+                logger.error("Failed to increase rate: \(error.localizedDescription)")
+            }
         }
     }
 
@@ -196,11 +192,11 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         guard !isLive else { return }
 
         let newRate = max(playbackRate / 2.0, 0.25)
+        playbackRate = newRate  // Update immediately (optimistic)
         Task {
-            do {
-                try await grpcClient?.setRate(newRate)
-                await MainActor.run { self.playbackRate = newRate }
-            } catch { logger.error("Failed to decrease rate: \(error.localizedDescription)") }
+            do { try await grpcClient?.setRate(newRate) } catch {
+                logger.error("Failed to decrease rate: \(error.localizedDescription)")
+            }
         }
     }
 
@@ -210,11 +206,11 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         let targetTimestamp =
             logStartTimestamp + Int64(Double(logEndTimestamp - logStartTimestamp) * progress)
 
+        replayProgress = progress  // Update immediately (optimistic)
         Task {
-            do {
-                try await grpcClient?.seek(to: targetTimestamp)
-                await MainActor.run { self.replayProgress = progress }
-            } catch { logger.error("Failed to seek: \(error.localizedDescription)") }
+            do { try await grpcClient?.seek(to: targetTimestamp) } catch {
+                logger.error("Failed to seek: \(error.localizedDescription)")
+            }
         }
     }
 
@@ -230,12 +226,16 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
         panel.begin { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
+            self?.loadRecording(from: url)
+        }
+    }
 
-            Task { @MainActor [weak self] in
-                self?.isLive = false
-                // Note: Actual replay connection would need a reconnect to replay server
-                print("Selected recording: \(url.path)")
-            }
+    /// Load a recording from the given URL. Used by openRecording and for testing.
+    func loadRecording(from url: URL) {
+        Task { @MainActor [weak self] in
+            self?.isLive = false
+            // Note: Actual replay connection would need a reconnect to replay server
+            print("Selected recording: \(url.path)")
         }
     }
 
@@ -260,6 +260,21 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         currentFrameID = frame.frameID
         currentTimestamp = frame.timestampNanos
         frameCount += 1
+
+        // Update playback info from frame (first frame sets mode)
+        if let playbackInfo = frame.playbackInfo {
+            isLive = playbackInfo.isLive
+            logStartTimestamp = playbackInfo.logStartNs
+            logEndTimestamp = playbackInfo.logEndNs
+            playbackRate = playbackInfo.playbackRate
+            isPaused = playbackInfo.paused
+
+            // Log mode on first frame
+            if frameCount == 1 {
+                let mode = isLive ? "LIVE" : "REPLAY"
+                logger.info("Mode: \(mode), rate: \(playbackInfo.playbackRate)")
+            }
+        }
 
         // Calculate FPS using exponential moving average
         let now = Date()
@@ -314,7 +329,7 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
         Task { @MainActor [weak self] in
             self?.appState?.isConnected = true
             self?.appState?.connectionError = nil
-            self?.appState?.isLive = true
+            // Note: isLive is determined from first frame's PlaybackInfo
             delegateLogger.debug("AppState updated: isConnected=true")
         }
     }
