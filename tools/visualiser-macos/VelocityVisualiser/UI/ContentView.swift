@@ -190,6 +190,15 @@ struct ToggleButton: View {
 
 // MARK: - Playback Controls
 
+/// Format playback rate for display: "0.5", "1", "2", "64" etc.
+private func formatRate(_ rate: Float) -> String {
+    if rate == Float(Int(rate)) {
+        return String(Int(rate))
+    } else {
+        return String(format: "%.1f", rate)
+    }
+}
+
 struct PlaybackControlsView: View {
     @EnvironmentObject var appState: AppState
 
@@ -227,8 +236,12 @@ struct PlaybackControlsView: View {
                 Button(action: { appState.decreaseRate() }) { Image(systemName: "minus") }
                     .buttonStyle(.borderless).disabled(!isConnected || isLive)
 
-                Text(String(format: "%.2fx", playbackRate)).font(.caption).frame(width: 40)
-                    .foregroundColor(isLive ? .secondary : .primary)
+                // Rate display: number + clickable "x" to reset to 1x
+                HStack(spacing: 0) {
+                    Text(formatRate(playbackRate)).font(.caption).monospacedDigit()
+                    Button(action: { appState.resetRate() }) { Text("x").font(.caption) }
+                        .buttonStyle(.borderless).disabled(!isConnected || isLive)
+                }.frame(width: 45).foregroundColor(isLive ? .secondary : .primary)
 
                 Button(action: { appState.increaseRate() }) { Image(systemName: "plus") }
                     .buttonStyle(.borderless).disabled(!isConnected || isLive)

@@ -191,10 +191,16 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         }
     }
 
+    // Available playback rates: 0.5x, 1x, 2x, 4x, 8x, 16x, 32x, 64x
+    private static let availableRates: [Float] = [0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0]
+
     func increaseRate() {
         guard !isLive else { return }
 
-        let newRate = min(playbackRate * 2.0, 4.0)
+        // Find next higher rate
+        let currentIndex = Self.availableRates.firstIndex { $0 >= playbackRate } ?? 0
+        let newIndex = min(currentIndex + 1, Self.availableRates.count - 1)
+        let newRate = Self.availableRates[newIndex]
         logger.info("Increasing rate from \(self.playbackRate) to \(newRate)")
         playbackRate = newRate  // Update immediately (optimistic)
         Task {
@@ -207,12 +213,29 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     func decreaseRate() {
         guard !isLive else { return }
 
-        let newRate = max(playbackRate / 2.0, 0.25)
+        // Find next lower rate
+        let currentIndex =
+            Self.availableRates.lastIndex { $0 <= playbackRate } ?? (Self.availableRates.count - 1)
+        let newIndex = max(currentIndex - 1, 0)
+        let newRate = Self.availableRates[newIndex]
         logger.info("Decreasing rate from \(self.playbackRate) to \(newRate)")
         playbackRate = newRate  // Update immediately (optimistic)
         Task {
             do { try await grpcClient?.setRate(newRate) } catch {
                 logger.error("Failed to decrease rate: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    func resetRate() {
+        guard !isLive else { return }
+
+        let newRate: Float = 1.0
+        logger.info("Resetting rate to \(newRate)")
+        playbackRate = newRate
+        Task {
+            do { try await grpcClient?.setRate(newRate) } catch {
+                logger.error("Failed to reset rate: \(error.localizedDescription)")
             }
         }
     }
