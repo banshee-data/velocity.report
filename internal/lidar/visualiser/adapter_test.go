@@ -411,25 +411,232 @@ func TestFrameAdapter_AdaptTracks_WithHistory(t *testing.T) {
 }
 
 func TestApplyDecimation_RatioOne(t *testing.T) {
-pc := &PointCloudFrame{
-X:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
-Y:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
-Z:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
-Intensity:      []uint8{100, 110, 120, 130, 140, 150, 160, 170, 180, 190},
-Classification: []uint8{1, 0, 1, 0, 1, 0, 1, 0, 1, 0},
-PointCount:     10,
+	pc := &PointCloudFrame{
+		X:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		Y:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		Z:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		Intensity:      []uint8{100, 110, 120, 130, 140, 150, 160, 170, 180, 190},
+		Classification: []uint8{1, 0, 1, 0, 1, 0, 1, 0, 1, 0},
+		PointCount:     10,
+	}
+
+	pc.ApplyDecimation(DecimationUniform, 1.0)
+
+	// Ratio 1.0 should keep all points
+	if len(pc.X) != 10 {
+		t.Errorf("Expected 10 points with ratio=1.0, got %d", len(pc.X))
+	}
+	if pc.DecimationMode != DecimationUniform {
+		t.Error("DecimationMode should be set even with ratio=1.0")
+	}
+	if pc.DecimationRatio != 1.0 {
+		t.Error("DecimationRatio should be 1.0")
+	}
 }
 
-pc.ApplyDecimation(DecimationUniform, 1.0)
+func TestApplyDecimation_UniformHalf(t *testing.T) {
+	pc := &PointCloudFrame{
+		X:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		Y:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		Z:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		Intensity:      []uint8{100, 110, 120, 130, 140, 150, 160, 170, 180, 190},
+		Classification: []uint8{1, 0, 1, 0, 1, 0, 1, 0, 1, 0},
+		PointCount:     10,
+	}
 
-// Ratio 1.0 should keep all points
-if len(pc.X) != 10 {
-t.Errorf("Expected 10 points with ratio=1.0, got %d", len(pc.X))
+	pc.ApplyDecimation(DecimationUniform, 0.5)
+
+	// Ratio 0.5 should keep approximately half the points
+	if pc.PointCount == 0 || pc.PointCount > 10 {
+		t.Errorf("Expected reduced point count with ratio=0.5, got %d", pc.PointCount)
+	}
+	if pc.DecimationMode != DecimationUniform {
+		t.Error("DecimationMode should be DecimationUniform")
+	}
+	if pc.DecimationRatio != 0.5 {
+		t.Errorf("DecimationRatio should be 0.5, got %f", pc.DecimationRatio)
+	}
 }
-if pc.DecimationMode != DecimationUniform {
-t.Error("DecimationMode should be set even with ratio=1.0")
+
+func TestApplyDecimation_UniformSmallRatio(t *testing.T) {
+	pc := &PointCloudFrame{
+		X:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		Y:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		Z:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		Intensity:      []uint8{100, 110, 120, 130, 140, 150, 160, 170, 180, 190},
+		Classification: []uint8{1, 0, 1, 0, 1, 0, 1, 0, 1, 0},
+		PointCount:     10,
+	}
+
+	pc.ApplyDecimation(DecimationUniform, 0.1)
+
+	// Ratio 0.1 should keep at least 1 point
+	if pc.PointCount < 1 {
+		t.Errorf("Expected at least 1 point with ratio=0.1, got %d", pc.PointCount)
+	}
+	if pc.DecimationMode != DecimationUniform {
+		t.Error("DecimationMode should be DecimationUniform")
+	}
 }
-if pc.DecimationRatio != 1.0 {
-t.Error("DecimationRatio should be 1.0")
+
+func TestApplyDecimation_ForegroundOnly(t *testing.T) {
+	pc := &PointCloudFrame{
+		X:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		Y:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		Z:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		Intensity:      []uint8{100, 110, 120, 130, 140, 150, 160, 170, 180, 190},
+		Classification: []uint8{1, 0, 1, 0, 1, 0, 1, 0, 1, 0}, // 5 foreground, 5 background
+		PointCount:     10,
+	}
+
+	pc.ApplyDecimation(DecimationForegroundOnly, 0.5)
+
+	// Should keep only foreground points (5 of them)
+	if pc.PointCount != 5 {
+		t.Errorf("Expected 5 foreground points, got %d", pc.PointCount)
+	}
+	if pc.DecimationMode != DecimationForegroundOnly {
+		t.Error("DecimationMode should be DecimationForegroundOnly")
+	}
+	// All remaining points should be foreground
+	for i, c := range pc.Classification {
+		if c != 1 {
+			t.Errorf("Expected all remaining points to be foreground, got classification=%d at index %d", c, i)
+		}
+	}
 }
+
+func TestApplyDecimation_ForegroundOnlyAllForeground(t *testing.T) {
+	pc := &PointCloudFrame{
+		X:              []float32{1, 2, 3, 4, 5},
+		Y:              []float32{1, 2, 3, 4, 5},
+		Z:              []float32{1, 2, 3, 4, 5},
+		Intensity:      []uint8{100, 110, 120, 130, 140},
+		Classification: []uint8{1, 1, 1, 1, 1}, // all foreground
+		PointCount:     5,
+	}
+
+	pc.ApplyDecimation(DecimationForegroundOnly, 1.0)
+
+	// Should keep all 5 foreground points
+	if pc.PointCount != 5 {
+		t.Errorf("Expected 5 points (all foreground), got %d", pc.PointCount)
+	}
+}
+
+func TestApplyDecimation_ForegroundOnlyNoForeground(t *testing.T) {
+	pc := &PointCloudFrame{
+		X:              []float32{1, 2, 3, 4, 5},
+		Y:              []float32{1, 2, 3, 4, 5},
+		Z:              []float32{1, 2, 3, 4, 5},
+		Intensity:      []uint8{100, 110, 120, 130, 140},
+		Classification: []uint8{0, 0, 0, 0, 0}, // all background
+		PointCount:     5,
+	}
+
+	pc.ApplyDecimation(DecimationForegroundOnly, 1.0)
+
+	// Should keep 0 points (no foreground)
+	if pc.PointCount != 0 {
+		t.Errorf("Expected 0 points (no foreground), got %d", pc.PointCount)
+	}
+}
+
+func TestApplyDecimation_NoneMode(t *testing.T) {
+	pc := &PointCloudFrame{
+		X:              []float32{1, 2, 3, 4, 5},
+		Y:              []float32{1, 2, 3, 4, 5},
+		Z:              []float32{1, 2, 3, 4, 5},
+		Intensity:      []uint8{100, 110, 120, 130, 140},
+		Classification: []uint8{1, 0, 1, 0, 1},
+		PointCount:     5,
+	}
+
+	pc.ApplyDecimation(DecimationNone, 0.5)
+
+	// DecimationNone should keep all points regardless of ratio
+	if pc.PointCount != 5 {
+		t.Errorf("Expected 5 points with DecimationNone, got %d", pc.PointCount)
+	}
+	if pc.DecimationMode != DecimationNone {
+		t.Error("DecimationMode should remain DecimationNone")
+	}
+}
+
+func TestApplyDecimation_InvalidRatioZero(t *testing.T) {
+	pc := &PointCloudFrame{
+		X:              []float32{1, 2, 3, 4, 5},
+		Y:              []float32{1, 2, 3, 4, 5},
+		Z:              []float32{1, 2, 3, 4, 5},
+		Intensity:      []uint8{100, 110, 120, 130, 140},
+		Classification: []uint8{1, 0, 1, 0, 1},
+		PointCount:     5,
+		DecimationMode: DecimationNone,
+	}
+
+	pc.ApplyDecimation(DecimationUniform, 0) // Invalid ratio
+
+	// Invalid ratio should not change anything
+	if pc.PointCount != 5 {
+		t.Errorf("Expected 5 points with invalid ratio, got %d", pc.PointCount)
+	}
+}
+
+func TestApplyDecimation_InvalidRatioNegative(t *testing.T) {
+	pc := &PointCloudFrame{
+		X:              []float32{1, 2, 3, 4, 5},
+		Y:              []float32{1, 2, 3, 4, 5},
+		Z:              []float32{1, 2, 3, 4, 5},
+		Intensity:      []uint8{100, 110, 120, 130, 140},
+		Classification: []uint8{1, 0, 1, 0, 1},
+		PointCount:     5,
+		DecimationMode: DecimationNone,
+	}
+
+	pc.ApplyDecimation(DecimationUniform, -0.5) // Invalid ratio
+
+	// Invalid ratio should not change anything
+	if pc.PointCount != 5 {
+		t.Errorf("Expected 5 points with negative ratio, got %d", pc.PointCount)
+	}
+}
+
+func TestApplyDecimation_InvalidRatioGreaterThanOne(t *testing.T) {
+	pc := &PointCloudFrame{
+		X:              []float32{1, 2, 3, 4, 5},
+		Y:              []float32{1, 2, 3, 4, 5},
+		Z:              []float32{1, 2, 3, 4, 5},
+		Intensity:      []uint8{100, 110, 120, 130, 140},
+		Classification: []uint8{1, 0, 1, 0, 1},
+		PointCount:     5,
+		DecimationMode: DecimationNone,
+	}
+
+	pc.ApplyDecimation(DecimationUniform, 1.5) // Invalid ratio
+
+	// Invalid ratio should not change anything
+	if pc.PointCount != 5 {
+		t.Errorf("Expected 5 points with ratio > 1, got %d", pc.PointCount)
+	}
+}
+
+func TestApplyDecimation_VoxelFallback(t *testing.T) {
+	pc := &PointCloudFrame{
+		X:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		Y:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		Z:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		Intensity:      []uint8{100, 110, 120, 130, 140, 150, 160, 170, 180, 190},
+		Classification: []uint8{1, 0, 1, 0, 1, 0, 1, 0, 1, 0},
+		PointCount:     10,
+	}
+
+	pc.ApplyDecimation(DecimationVoxel, 0.5)
+
+	// Voxel decimation falls back to uniform, should reduce points
+	if pc.PointCount == 10 {
+		t.Error("Expected reduced point count with DecimationVoxel")
+	}
+	if pc.DecimationMode != DecimationVoxel {
+		t.Error("DecimationMode should be DecimationVoxel")
+	}
 }

@@ -19,7 +19,7 @@ struct ContentView: View {
                 // Metal view - frames are delivered directly to renderer via AppState
                 MetalViewRepresentable(
                     showPoints: appState.showPoints, showBoxes: appState.showBoxes,
-                    showTrails: appState.showTrails,
+                    showTrails: appState.showTrails, pointSize: appState.pointSize,
                     onRendererCreated: { renderer in appState.registerRenderer(renderer) }
                 ).frame(minWidth: 400, minHeight: 300)
 
@@ -165,6 +165,16 @@ struct OverlayTogglesView: View {
             ToggleButton(label: "B", isOn: $appState.showBoxes, help: "Boxes")
             ToggleButton(label: "T", isOn: $appState.showTrails, help: "Trails")
             ToggleButton(label: "V", isOn: $appState.showVelocity, help: "Velocity")
+
+            Divider().frame(height: 20)
+
+            // Point size adjustment
+            HStack(spacing: 4) {
+                Text("Size").font(.caption2).foregroundColor(.secondary)
+                Slider(value: $appState.pointSize, in: 1...20).frame(width: 60)
+                Text("\(Int(appState.pointSize))").font(.caption).monospacedDigit().frame(
+                    width: 20)
+            }.help("Point Size")
 
             Divider().frame(height: 20)
 
@@ -347,6 +357,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
     var showPoints: Bool
     var showBoxes: Bool
     var showTrails: Bool
+    var pointSize: Float
 
     // Closure to register the renderer with AppState
     var onRendererCreated: ((MetalRenderer) -> Void)?
@@ -375,6 +386,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
         renderer.showPoints = showPoints
         renderer.showBoxes = showBoxes
         renderer.showTrails = showTrails
+        renderer.pointSize = pointSize
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }

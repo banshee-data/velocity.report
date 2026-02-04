@@ -224,13 +224,18 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         let count = pointCloud.pointCount
         guard count > 0 else { return }
 
-        // Create interleaved buffer: [x, y, z, intensity] per point
-        var vertices = [Float](repeating: 0, count: count * 4)
+        // Create interleaved buffer: [x, y, z, intensity, classification] per point (5 floats each)
+        var vertices = [Float](repeating: 0, count: count * 5)
         for i in 0..<count {
-            vertices[i * 4 + 0] = pointCloud.x[i]
-            vertices[i * 4 + 1] = pointCloud.y[i]
-            vertices[i * 4 + 2] = pointCloud.z[i]
-            vertices[i * 4 + 3] = Float(pointCloud.intensity[i]) / 255.0
+            vertices[i * 5 + 0] = pointCloud.x[i]
+            vertices[i * 5 + 1] = pointCloud.y[i]
+            vertices[i * 5 + 2] = pointCloud.z[i]
+            vertices[i * 5 + 3] = Float(pointCloud.intensity[i]) / 255.0
+            // Classification: 0=background, 1=foreground, 2=ground
+            let classification: Float = i < pointCloud.classification.count 
+                ? Float(pointCloud.classification[i]) 
+                : 0.0
+            vertices[i * 5 + 4] = classification
         }
 
         let bufferSize = vertices.count * MemoryLayout<Float>.stride

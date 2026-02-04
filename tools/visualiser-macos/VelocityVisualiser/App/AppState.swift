@@ -48,6 +48,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     @Published var showTrails: Bool = true
     @Published var showVelocity: Bool = true
     @Published var showDebug: Bool = false
+    @Published var pointSize: Float = 5.0  // Point size for rendering (1-20)
 
     // MARK: - Labelling State
 
