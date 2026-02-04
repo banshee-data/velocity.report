@@ -36,6 +36,30 @@ repos:
         pass_filenames: false
         files: ^(web/|docs/).*(\.js|\.ts|\.svelte|\.css|\.json)$
         stages: [pre-commit]
+
+      - id: format-mac
+        name: format-mac (swift-format for macOS visualiser)
+        entry: make format-mac
+        language: system
+        pass_filenames: false
+        files: ^tools/visualiser-macos/.*\.swift$
+        stages: [pre-commit]
+
+      - id: format-markdown
+        name: format-markdown (prettier for Markdown files)
+        entry: make format-markdown
+        language: system
+        pass_filenames: false
+        files: \.md$
+        stages: [pre-commit]
+
+      - id: format-sql
+        name: format-sql (sql-formatter for SQL scripts)
+        entry: make format-sql
+        language: system
+        pass_filenames: false
+        files: \.sql$
+        stages: [pre-commit]
 # Note: Go formatting and linting handled by your editor/IDE
 # Note: Web linting (pnpm) handled by CI on PRs
 # This keeps pre-commit fast and reliable!
