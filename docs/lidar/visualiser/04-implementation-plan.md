@@ -75,7 +75,7 @@ This document defines an incremental, API-first implementation plan with explici
 - [x] Playback controls: pause/play/seek/rate
 - [x] Timeline scrubber with frame timestamps
 - [x] Frame stepping (previous/next)
-- [x] Playback rate adjustment (0.25x - 4x)
+- [x] Playback rate adjustment (0.5x - 64x)
 - [x] Display playback position in UI
 
 **Track B (Pipeline)**:

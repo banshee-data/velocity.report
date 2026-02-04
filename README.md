@@ -122,7 +122,7 @@ go run ./cmd/tools/visualiser-server -rate 10 -points 5000
 open tools/visualiser-macos/build/Build/Products/Release/VelocityVisualiser.app
 
 # Or replay recorded data
-go run ./cmd/tools/replay-server -log /path/to/recording.vrlog
+go run ./cmd/tools/visualiser-server -mode replay -log /path/to/recording.vrlog
 ```
 
 **M1 Features (Milestone 1):**
@@ -131,8 +131,8 @@ go run ./cmd/tools/replay-server -log /path/to/recording.vrlog
 - ✅ Pause/Play/Seek/Rate control via gRPC
 - ✅ Frame-by-frame navigation
 - ✅ Timeline scrubbing
-- 🚧 3D camera controls (orbit, pan, zoom) - In Progress
-- 🚧 Mouse/trackpad gesture support - In Progress
+- ✅ 3D camera controls (orbit, pan, zoom)
+- ✅ Mouse/trackpad gesture support
 
 ## Project Structure
 
@@ -143,8 +143,8 @@ velocity.report/
 │   ├── deploy/               # Deployment management tool
 │   ├── sweep/                # Parameter sweep utilities
 │   ├── tools/                # Go utility tools
-│   │   ├── visualiser-server/ # Synthetic data generator for testing
-│   │   ├── replay-server/    # Replay recorded .vrlog files
+│   │   ├── visualiser-server/ # Synthetic data generator and replay server
+│   │   ├── gen-vrlog/        # Generate sample .vrlog recordings
 │   │   ├── pcap-analyse/     # PCAP packet analysis
 │   │   └── ...               # Other utilities
 │   └── transit-backfill/     # Transit data backfill tool

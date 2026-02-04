@@ -23,13 +23,13 @@ echo ""
 # Build the tools if needed
 echo "Building tools..."
 go build -o /tmp/visualiser-server ./cmd/tools/visualiser-server
-go build -o /tmp/replay-server ./cmd/tools/replay-server
+go build -o /tmp/gen-vrlog ./cmd/tools/gen-vrlog
 echo "✓ Tools built"
 echo ""
 
 # Start synthetic server in background
 echo "Starting synthetic data generator..."
-/tmp/visualiser-server -addr localhost:50051 -rate 10 -points 5000 -tracks 10 &
+/tmp/visualiser-server -addr localhost:50051 -mode synthetic -rate 10 -points 5000 -tracks 10 &
 SERVER_PID=$!
 
 # Give server time to start
@@ -61,5 +61,5 @@ echo "3. Test full record/replay workflow"
 echo ""
 echo "To manually test replay:"
 echo "  1. Create a .vrlog directory with recorded frames"
-echo "  2. Run: /tmp/replay-server -log <path-to-vrlog>"
+echo "  2. Run: /tmp/visualiser-server -mode replay -log <path-to-vrlog>"
 echo "  3. Connect macOS visualiser to localhost:50051"

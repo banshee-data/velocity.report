@@ -321,8 +321,8 @@ All components share a common SQLite database as the single source of truth, wit
 
 - ✅ Deterministic replay of `.vrlog` recordings
 - ✅ Pause/Play/Seek/SetRate playback controls via gRPC
-- ✅ Frame-by-frame navigation and timeline scrubbing
-- 🚧 3D camera controls (Swift implementation in progress)
+- ✅ Frame-by-frame navigation and timeline scrubbing (0.5x - 64x)
+- ✅ 3D camera controls (orbit, pan, zoom)
 
 **Go Backend** (`internal/lidar/visualiser/`):
 
@@ -333,8 +333,8 @@ All components share a common SQLite database as the single source of truth, wit
 
 **Command-Line Tools**:
 
-- `cmd/tools/visualiser-server` - Synthetic data generator
-- `cmd/tools/replay-server` - Replay recordings via gRPC
+- `cmd/tools/visualiser-server` - Multi-mode server (synthetic/replay/live)
+- `cmd/tools/gen-vrlog` - Generate sample recordings
 
 **Communication**:
 

@@ -153,11 +153,31 @@ import XCTest
 
         // Use loadRecording directly since openRecording uses NSOpenPanel
         let testURL = URL(fileURLWithPath: "/tmp/test.vrlog")
+        
+        let expectation = expectation(description: "Recording loaded")
+
         state.loadRecording(from: testURL)
 
-        // Wait for async task to complete
-        try await Task.sleep(nanoseconds: 100_000_000)  // 100ms
-        XCTAssertFalse(state.isLive)
+        // Wait deterministically for isLive to become false, with a bounded timeout.
+        Task {
+            let start = Date()
+            while true {
+                if !state.isLive {
+                    expectation.fulfill()
+                    break
+                }
+
+                if Date().timeIntervalSince(start) > 5.0 {
+                    XCTFail("Recording did not finish loading in time")
+                    expectation.fulfill()
+                    break
+                }
+
+                await Task.yield()
+            }
+        }
+
+        await fulfillment(of: [expectation], timeout: 6.0)
     }
 
     func testOnFrameReceived() throws {

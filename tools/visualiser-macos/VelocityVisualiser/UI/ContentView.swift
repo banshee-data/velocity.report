@@ -31,7 +31,8 @@ struct ContentView: View {
             if appState.showLabelPanel || appState.selectedTrackID != nil {
                 SidePanelView().frame(width: 280)
             }
-        }.frame(minWidth: 800, minHeight: 600)  // Keyboard shortcuts for playback
+        }.frame(minWidth: 800, minHeight: 600)
+            // Keyboard shortcuts for playback
             .onKeyPress(.space) {
                 appState.togglePlayPause()
                 return .handled
