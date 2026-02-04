@@ -1,12 +1,15 @@
 // Package visualiser provides gRPC streaming of LiDAR perception data.
 package visualiser
 
+// Add sync import at the top of the file
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/pb"
+	"google.golang.org/grpc/metadata"
 )
 
 func TestNewServer(t *testing.T) {
@@ -220,6 +223,84 @@ func TestServer_ImplementsInterface(t *testing.T) {
 	// Verify server implements the interface
 	var _ pb.VisualiserServiceServer = server
 }
+
+// Test that streaming synthetic works (basic sanity check).
+func TestServer_StreamSynthetic(t *testing.T) {
+	cfg := DefaultConfig()
+	pub := NewPublisher(cfg)
+	server := NewServer(pub)
+	server.EnableSyntheticMode("test-sensor")
+
+	// Configure for faster test
+	server.syntheticGen.FrameRate = 100 // 100 Hz for fast test
+	server.syntheticGen.PointCount = 100
+	server.syntheticGen.TrackCount = 2
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Create a mock stream that captures frames
+	frames := make([]*pb.FrameBundle, 0)
+	var mu sync.Mutex
+
+	mockStream := &mockSyntheticStream{
+		ctx: ctx,
+		send: func(frame *pb.FrameBundle) error {
+			mu.Lock()
+			frames = append(frames, frame)
+			mu.Unlock()
+			// Cancel after 3 frames to end the test quickly
+			if len(frames) >= 3 {
+				cancel()
+			}
+			return nil
+		},
+	}
+
+	req := &pb.StreamRequest{
+		SensorId:        "test-sensor",
+		IncludePoints:   true,
+		IncludeClusters: true,
+		IncludeTracks:   true,
+	}
+
+	// This will stream until cancelled
+	err := server.StreamFrames(req, mockStream)
+
+	// Should get context cancelled error
+	if err != context.Canceled {
+		t.Errorf("expected context.Canceled, got: %v", err)
+	}
+
+	mu.Lock()
+	frameCount := len(frames)
+	mu.Unlock()
+
+	// Should have received 3 frames
+	if frameCount != 3 {
+		t.Errorf("expected 3 frames, got %d", frameCount)
+	}
+}
+
+// mockSyntheticStream is a simplified mock for testing synthetic streaming.
+type mockSyntheticStream struct {
+	ctx  context.Context
+	send func(*pb.FrameBundle) error
+}
+
+func (m *mockSyntheticStream) Send(frame *pb.FrameBundle) error {
+	return m.send(frame)
+}
+
+func (m *mockSyntheticStream) Context() context.Context {
+	return m.ctx
+}
+
+func (m *mockSyntheticStream) SetHeader(md metadata.MD) error  { return nil }
+func (m *mockSyntheticStream) SendHeader(md metadata.MD) error { return nil }
+func (m *mockSyntheticStream) SetTrailer(md metadata.MD)       {}
+func (m *mockSyntheticStream) SendMsg(msg interface{}) error   { return nil }
+func (m *mockSyntheticStream) RecvMsg(msg interface{}) error   { return nil }
 
 func TestByteSliceToUint32(t *testing.T) {
 	tests := []struct {

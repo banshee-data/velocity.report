@@ -6,6 +6,7 @@ import (
 	"io"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/pb"
 	"google.golang.org/grpc/codes"
@@ -526,3 +527,153 @@ func TestMockFrameReader_TotalFrames(t *testing.T) {
 		t.Errorf("expected TotalFrames=3, got %d", total)
 	}
 }
+
+func TestReplayServer_StreamFrames_PausedResume(t *testing.T) {
+	cfg := DefaultConfig()
+	pub := NewPublisher(cfg)
+
+	// Create test frames
+	frames := []*FrameBundle{
+		{
+			FrameID:        0,
+			TimestampNanos: 1000000000,
+			SensorID:       "test",
+			CoordinateFrame: CoordinateFrameInfo{
+				FrameID:        "test/sensor",
+				ReferenceFrame: "ENU",
+			},
+		},
+		{
+			FrameID:        1,
+			TimestampNanos: 2000000000,
+			SensorID:       "test",
+			CoordinateFrame: CoordinateFrameInfo{
+				FrameID:        "test/sensor",
+				ReferenceFrame: "ENU",
+			},
+		},
+	}
+	reader := newMockFrameReader(frames)
+	rs := NewReplayServer(pub, reader)
+
+	// Start paused
+	rs.paused = true
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	stream := newMockStreamServer(ctx)
+	req := &pb.StreamRequest{
+		SensorId:        "test",
+		IncludePoints:   true,
+		IncludeClusters: true,
+		IncludeTracks:   true,
+	}
+
+	// Run streaming in a goroutine
+	done := make(chan error, 1)
+	go func() {
+		done <- rs.StreamFrames(req, stream)
+	}()
+
+	// Let it run for a bit while paused
+	time.Sleep(100 * time.Millisecond)
+
+	// Resume
+	rs.mu.Lock()
+	rs.paused = false
+	rs.mu.Unlock()
+
+	// Let it stream
+	time.Sleep(100 * time.Millisecond)
+
+	// Cancel and wait
+	cancel()
+	err := <-done
+
+	// Should get context cancelled error
+	if err != context.Canceled {
+		t.Errorf("expected context.Canceled, got: %v", err)
+	}
+}
+
+func TestReplayServer_Close_NilReader(t *testing.T) {
+	cfg := DefaultConfig()
+	pub := NewPublisher(cfg)
+	rs := &ReplayServer{
+		Server: NewServer(pub),
+		reader: nil,
+	}
+
+	err := rs.Close()
+	if err != nil {
+		t.Errorf("Close() with nil reader should not error, got: %v", err)
+	}
+}
+
+func TestReplayServer_streamFromReader_NilReader(t *testing.T) {
+	cfg := DefaultConfig()
+	pub := NewPublisher(cfg)
+	rs := &ReplayServer{
+		Server: NewServer(pub),
+		reader: nil,
+	}
+
+	ctx := context.Background()
+	stream := newMockStreamServer(ctx)
+	req := &pb.StreamRequest{SensorId: "test"}
+
+	err := rs.streamFromReader(ctx, req, stream)
+
+	if err == nil {
+		t.Error("expected error when reader is nil")
+	}
+	code := status.Code(err)
+	if code != codes.Internal {
+		t.Errorf("expected Internal error, got code %v", code)
+	}
+}
+
+func TestMockFrameReader_SetRate(t *testing.T) {
+	reader := newMockFrameReader([]*FrameBundle{})
+
+	reader.SetRate(2.0)
+
+	reader.mu.Lock()
+	rate := reader.rate
+	reader.mu.Unlock()
+
+	if rate != 2.0 {
+		t.Errorf("expected rate=2.0, got %f", rate)
+	}
+}
+
+func TestMockFrameReader_SetPaused(t *testing.T) {
+	reader := newMockFrameReader([]*FrameBundle{})
+
+	reader.SetPaused(true)
+
+	reader.mu.Lock()
+	paused := reader.paused
+	reader.mu.Unlock()
+
+	if !paused {
+		t.Error("expected paused=true")
+	}
+}
+
+func TestMockFrameReader_ReadFrame_Closed(t *testing.T) {
+	frames := []*FrameBundle{
+		{FrameID: 0, TimestampNanos: 1000},
+	}
+	reader := newMockFrameReader(frames)
+
+	// Close the reader
+	reader.Close()
+
+	// Try to read
+	_, err := reader.ReadFrame()
+	if err != io.EOF {
+		t.Errorf("expected EOF after close, got %v", err)
+	}
+}
+
