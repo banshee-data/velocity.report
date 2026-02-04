@@ -136,4 +136,3 @@ data/**/*.db
 data/**/*.sqlite
 data/**/*.csv
 data/**/*.json
-radar

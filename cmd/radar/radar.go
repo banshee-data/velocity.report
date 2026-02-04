@@ -60,6 +60,7 @@ var (
 	lidarPCAPDir   = flag.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
 	// Background tuning knobs
 	lidarBgFlushInterval = flag.Duration("lidar-bg-flush-interval", 60*time.Second, "Interval to flush background grid to database when reading PCAP")
+	lidarBgFlushDisable  = flag.Bool("lidar-bg-flush-disable", false, "Disable periodic background grid flushing to database (reduces CPU/IO during dev)")
 	lidarBgNoiseRelative = flag.Float64("lidar-bg-noise-relative", 0.04, "Background NoiseRelativeFraction: fraction of range treated as expected measurement noise (e.g., 0.04 = 4%)")
 	// FrameBuilder tuning knobs
 	lidarFrameBufferTimeout = flag.Duration("lidar-frame-buffer-timeout", 500*time.Millisecond, "FrameBuilder buffer timeout: finalize idle frames after this duration")
@@ -237,7 +238,8 @@ func main() {
 		}
 
 		// Start periodic background grid flushing using BackgroundFlusher
-		if backgroundManager != nil && *lidarBgFlushInterval > 0 {
+		// Skip if explicitly disabled (--lidar-bg-flush-disable) or interval is zero
+		if backgroundManager != nil && *lidarBgFlushInterval > 0 && !*lidarBgFlushDisable {
 			bgFlusher = lidar.NewBackgroundFlusher(lidar.BackgroundFlusherConfig{
 				Manager:  backgroundManager,
 				Store:    lidarDB,
