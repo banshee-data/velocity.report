@@ -2,10 +2,10 @@
 
 <div align="center">
 
-[![Go Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=go&label=Go%20Coverage&logo=go)](https://codecov.io/gh/banshee-data/velocity.report?flag=go)
-[![Web Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=web&label=Web%20Coverage&logo=svelte)](https://codecov.io/gh/banshee-data/velocity.report?flag=web)
-[![Python Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=python&label=Python%20Coverage&logo=python)](https://codecov.io/gh/banshee-data/velocity.report?flag=python)
-[![macOS Visualiser Coverage](https://img.shields.io/badge/macOS_Visualiser-TBD-blue?logo=apple)](https://github.com/banshee-data/velocity.report/tree/main/tools/visualiser-macos)
+Coverage: [![Go Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=go&label=Go&logo=go)](https://codecov.io/gh/banshee-data/velocity.report?flag=go)
+[![Web Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=web&label=Web&logo=svelte)](https://codecov.io/gh/banshee-data/velocity.report?flag=web)
+[![Python Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=python&label=Python&logo=python)](https://codecov.io/gh/banshee-data/velocity.report?flag=python)
+[![macOS Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=mac&label=macOS&logo=apple)](https://codecov.io/gh/banshee-data/velocity.report?flag=mac)
 
 [![🧭 Go CI](https://github.com/banshee-data/velocity.report/actions/workflows/go-ci.yml/badge.svg?branch=main)](https://github.com/banshee-data/velocity.report/actions/workflows/go-ci.yml)
 [![🌐 Web CI](https://github.com/banshee-data/velocity.report/actions/workflows/web-ci.yml/badge.svg?branch=main)](https://github.com/banshee-data/velocity.report/actions/workflows/web-ci.yml)
