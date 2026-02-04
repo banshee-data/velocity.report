@@ -130,7 +130,7 @@ struct StatsDisplayView: View {
                 StatLabel(title: "FPS", value: String(format: "%.1f", fps))
                 StatLabel(title: "Points", value: formatNumber(pointCount))
                 StatLabel(title: "Tracks", value: "\(trackCount)")
-            }
+            }.fixedSize()  // Prevent compression when viewport shrinks
         }
     }
 
@@ -177,7 +177,7 @@ struct OverlayTogglesView: View {
             Divider().frame(height: 20)
 
             ToggleButton(label: "D", isOn: $appState.showDebug, help: "Debug")
-        }
+        }.fixedSize()  // Prevent compression when viewport shrinks
     }
 }
 
