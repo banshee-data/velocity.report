@@ -41,13 +41,13 @@ jobs:
         run: |
           git clone --depth 1 --branch 2.0.0 https://github.com/grpc/grpc-swift-protobuf.git /tmp/grpc-swift-protobuf
           cd /tmp/grpc-swift-protobuf
-          swift build -c release --product protoc-gen-grpc-swift
-          cp .build/release/protoc-gen-grpc-swift /tmp/protoc-gen-grpc-swift
+          swift build -c release --product protoc-gen-grpc-swift-2
+          cp .build/release/protoc-gen-grpc-swift-2 /tmp/protoc-gen-grpc-swift
 
       - name: Upload grpc-swift plugin
         uses: actions/upload-artifact@v4
         with:
-          name: protoc-gen-grpc-swift
+          name: protoc-gen-grpc-swift-2
           path: /tmp/protoc-gen-grpc-swift
           retention-days: 1
 
@@ -55,7 +55,7 @@ jobs:
         run: brew install protobuf swift-protobuf
 
       - name: Install grpc-swift plugin
-        run: sudo cp /tmp/protoc-gen-grpc-swift /usr/local/bin/
+        run: sudo cp /tmp/protoc-gen-grpc-swift /usr/local/bin/protoc-gen-grpc-swift-2
 
       - name: Generate protobuf stubs
         run: make proto-gen-swift
@@ -64,7 +64,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: generated-protos
-          path: tools/visualiser-macos/VelocityVisualiser/Generated/
+          path: tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/
           retention-days: 1
 
   format:

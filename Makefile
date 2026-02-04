@@ -322,12 +322,13 @@ proto-gen-swift:
 		echo "  macOS: brew install swift-protobuf"; \
 		exit 1; \
 	fi
-	@if ! command -v protoc-gen-grpc-swift >/dev/null 2>&1; then \
-		echo "ERROR: protoc-gen-grpc-swift not found; install Swift gRPC plugin"; \
-		echo "  Build from source: git clone https://github.com/grpc/grpc-swift-protobuf && cd grpc-swift-protobuf && swift build -c release && sudo cp .build/release/protoc-gen-grpc-swift /usr/local/bin/"; \
+	@if ! command -v protoc-gen-grpc-swift-2 >/dev/null 2>&1; then \
+		echo "ERROR: protoc-gen-grpc-swift-2 not found; install Swift gRPC v2 plugin"; \
+		echo "  Build from source: git clone https://github.com/grpc/grpc-swift-protobuf && cd grpc-swift-protobuf && swift build -c release && sudo cp .build/release/protoc-gen-grpc-swift-2 /usr/local/bin/"; \
 		exit 1; \
 	fi
 	@protoc --swift_out=$(PROTO_SWIFT_OUT) \
+	       --plugin=protoc-gen-grpc-swift=`which protoc-gen-grpc-swift-2` \
 	       --grpc-swift_out=$(PROTO_SWIFT_OUT) \
 	       -I $(PROTO_DIR) $(PROTO_DIR)/visualiser.proto
 	@echo "✓ Swift stubs generated in $(PROTO_SWIFT_OUT)"
