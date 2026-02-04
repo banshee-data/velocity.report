@@ -7,6 +7,7 @@
 // - Overlay visibility toggles
 // - Selected track for labelling
 
+import AppKit
 import Combine
 import Foundation
 import os
@@ -144,23 +145,63 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     // MARK: - Playback Control
 
     func togglePlayPause() {
-        isPaused.toggle()  // TODO: Send Pause/Play RPC
+        guard !isLive else { return }
+
+        Task {
+            do {
+                if isPaused {
+                    try await grpcClient?.play()
+                    await MainActor.run { self.isPaused = false }
+                } else {
+                    try await grpcClient?.pause()
+                    await MainActor.run { self.isPaused = true }
+                }
+            } catch { logger.error("Failed to toggle playback: \(error.localizedDescription)") }
+        }
     }
 
     func stepForward() {
-        // TODO: Request next frame in replay mode
+        guard !isLive else { return }
+
+        Task {
+            do { try await grpcClient?.seek(toFrame: currentFrameID + 1) } catch {
+                logger.error("Failed to step forward: \(error.localizedDescription)")
+            }
+        }
     }
 
     func stepBackward() {
-        // TODO: Request previous frame in replay mode
+        guard !isLive, currentFrameID > 0 else { return }
+
+        Task {
+            do { try await grpcClient?.seek(toFrame: currentFrameID - 1) } catch {
+                logger.error("Failed to step backward: \(error.localizedDescription)")
+            }
+        }
     }
 
     func increaseRate() {
-        playbackRate = min(playbackRate * 2.0, 4.0)  // TODO: Send SetRate RPC
+        guard !isLive else { return }
+
+        let newRate = min(playbackRate * 2.0, 4.0)
+        Task {
+            do {
+                try await grpcClient?.setRate(newRate)
+                await MainActor.run { self.playbackRate = newRate }
+            } catch { logger.error("Failed to increase rate: \(error.localizedDescription)") }
+        }
     }
 
     func decreaseRate() {
-        playbackRate = max(playbackRate / 2.0, 0.25)  // TODO: Send SetRate RPC
+        guard !isLive else { return }
+
+        let newRate = max(playbackRate / 2.0, 0.25)
+        Task {
+            do {
+                try await grpcClient?.setRate(newRate)
+                await MainActor.run { self.playbackRate = newRate }
+            } catch { logger.error("Failed to decrease rate: \(error.localizedDescription)") }
+        }
     }
 
     func seek(to progress: Double) {
@@ -168,15 +209,34 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
         let targetTimestamp =
             logStartTimestamp + Int64(Double(logEndTimestamp - logStartTimestamp) * progress)
-        // TODO: Send Seek RPC
-        replayProgress = progress
+
+        Task {
+            do {
+                try await grpcClient?.seek(to: targetTimestamp)
+                await MainActor.run { self.replayProgress = progress }
+            } catch { logger.error("Failed to seek: \(error.localizedDescription)") }
+        }
     }
 
     // MARK: - Recording
 
     func openRecording() {
-        // TODO: Open file dialog and load recording
-        isLive = false
+        // Open file dialog
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.message = "Select a .vrlog directory"
+
+        panel.begin { [weak self] response in
+            guard response == .OK, let url = panel.url else { return }
+
+            Task { @MainActor [weak self] in
+                self?.isLive = false
+                // Note: Actual replay connection would need a reconnect to replay server
+                print("Selected recording: \(url.path)")
+            }
+        }
     }
 
     // MARK: - Labelling

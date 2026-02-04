@@ -31,7 +31,23 @@ struct ContentView: View {
             if appState.showLabelPanel || appState.selectedTrackID != nil {
                 SidePanelView().frame(width: 280)
             }
-        }.frame(minWidth: 800, minHeight: 600)
+        }.frame(minWidth: 800, minHeight: 600)  // Keyboard shortcuts for playback
+            .onKeyPress(.space) {
+                appState.togglePlayPause()
+                return .handled
+            }.onKeyPress(",") {
+                appState.stepBackward()
+                return .handled
+            }.onKeyPress(".") {
+                appState.stepForward()
+                return .handled
+            }.onKeyPress("[") {
+                appState.decreaseRate()
+                return .handled
+            }.onKeyPress("]") {
+                appState.increaseRate()
+                return .handled
+            }
     }
 }
 
@@ -321,7 +337,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
     var onRendererCreated: ((MetalRenderer) -> Void)?
 
     func makeNSView(context: Context) -> MTKView {
-        let metalView = MTKView()
+        let metalView = InteractiveMetalView()
         metalView.preferredFramesPerSecond = 60
         metalView.enableSetNeedsDisplay = false
         metalView.isPaused = false
@@ -329,6 +345,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
         // Create renderer
         if let renderer = MetalRenderer(metalView: metalView) {
             context.coordinator.renderer = renderer
+            metalView.renderer = renderer
             // Register the renderer so it can receive frame updates directly
             onRendererCreated?(renderer)
         }
@@ -348,6 +365,71 @@ struct MetalViewRepresentable: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     class Coordinator { var renderer: MetalRenderer? }
+}
+
+// MARK: - Interactive Metal View
+
+/// Custom MTKView subclass that handles mouse and keyboard input for camera control.
+class InteractiveMetalView: MTKView {
+    weak var renderer: MetalRenderer?
+    private var lastMouseLocation = CGPoint.zero
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func becomeFirstResponder() -> Bool {
+        super.becomeFirstResponder()
+        return true
+    }
+
+    // MARK: - Mouse Events
+
+    override func mouseDown(with event: NSEvent) { lastMouseLocation = event.locationInWindow }
+
+    override func rightMouseDown(with event: NSEvent) { lastMouseLocation = event.locationInWindow }
+
+    override func mouseDragged(with event: NSEvent) {
+        let location = event.locationInWindow
+        let deltaX = location.x - lastMouseLocation.x
+        let deltaY = location.y - lastMouseLocation.y
+        lastMouseLocation = location
+
+        let shiftHeld = event.modifierFlags.contains(.shift)
+        renderer?.handleMouseDrag(
+            deltaX: deltaX, deltaY: deltaY, isRightButton: false, shiftHeld: shiftHeld)
+    }
+
+    override func rightMouseDragged(with event: NSEvent) {
+        let location = event.locationInWindow
+        let deltaX = location.x - lastMouseLocation.x
+        let deltaY = location.y - lastMouseLocation.y
+        lastMouseLocation = location
+
+        renderer?.handleMouseDrag(
+            deltaX: deltaX, deltaY: deltaY, isRightButton: true, shiftHeld: false)
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        // Trackpad: use scrollingDeltaY. Mouse wheel: use deltaY
+        let delta = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY / 10 : event.deltaY
+        renderer?.handleZoom(delta: delta)
+    }
+
+    override func magnify(with event: NSEvent) {
+        // Pinch gesture on trackpad
+        renderer?.handleZoom(delta: event.magnification * 10)
+    }
+
+    // MARK: - Keyboard Events
+
+    override func keyDown(with event: NSEvent) {
+        if let renderer = renderer,
+            renderer.handleKeyDown(keyCode: event.keyCode, modifiers: event.modifierFlags)
+        {
+            // Key was handled
+            return
+        }
+        super.keyDown(with: event)
+    }
 }
 
 // MARK: - Preview
