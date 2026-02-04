@@ -2,6 +2,12 @@
 
 This document defines an incremental, API-first implementation plan with explicit milestones and acceptance criteria.
 
+**Checkbox Legend**:
+
+- `[x]` — Completed
+- `[ ]` — Not started
+- `[~]` — Skipped / Won't do
+
 ---
 
 ## 1. Milestone Overview
@@ -39,7 +45,7 @@ This document defines an incremental, API-first implementation plan with explici
 **Track B (Pipeline)**:
 
 - [x] `proto/velocity_visualiser/v1/visualiser.proto` schema
-- [ ] `buf.gen.yaml` for Go + Swift codegen
+- [~] `buf.gen.yaml` for Go + Swift codegen
 - [x] `Makefile` target: `make proto-gen`
 - [x] Synthetic data generator (rotating points, moving boxes)
 - [x] gRPC server stub with `StreamFrames` RPC
@@ -63,6 +69,9 @@ This document defines an incremental, API-first implementation plan with explici
 
 **Track A (Visualiser)**:
 
+- [ ] 3D camera controls: orbit (rotate), pan, zoom
+- [ ] Mouse/trackpad gesture support for camera
+- [ ] Keyboard shortcuts for camera reset
 - [ ] Playback controls: pause/play/seek/rate
 - [ ] Timeline scrubber with frame timestamps
 - [ ] Frame stepping (previous/next)
