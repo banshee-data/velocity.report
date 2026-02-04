@@ -215,6 +215,7 @@ struct PlaybackControlsView: View {
             // Timeline (replay mode)
             if !isLive {
                 Slider(value: $appState.replayProgress, in: 0...1) { editing in
+                    appState.setSliderEditing(editing)
                     if !editing { appState.seek(to: appState.replayProgress) }
                 }.frame(minWidth: 200)
             } else {

@@ -36,6 +36,8 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     @Published var logStartTimestamp: Int64 = 0
     @Published var logEndTimestamp: Int64 = 0
     @Published var replayProgress: Double = 0.0
+    @Published var isSeekingInProgress: Bool = false  // Prevents progress updates while seeking
+    @Published var replayFinished: Bool = false  // True when replay stream reached EOF
 
     // MARK: - Overlay Toggles
 
@@ -148,10 +150,23 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         guard !isLive else { return }
 
         let newPaused = !isPaused
+        let wasFinished = replayFinished
         isPaused = newPaused  // Update immediately (optimistic)
+        logger.info("Toggle play/pause: newPaused=\(newPaused), wasFinished=\(wasFinished)")
+
         Task {
             do {
-                if newPaused { try await grpcClient?.pause() } else { try await grpcClient?.play() }
+                if newPaused {
+                    try await grpcClient?.pause()
+                } else {
+                    try await grpcClient?.play()
+                    // If replay had finished and we're resuming, restart the stream
+                    if wasFinished {
+                        logger.info("Restarting stream (replay was finished)")
+                        await MainActor.run { self.replayFinished = false }
+                        grpcClient?.restartStream()
+                    }
+                }
             } catch { logger.error("Failed to toggle playback: \(error.localizedDescription)") }
         }
     }
@@ -180,6 +195,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         guard !isLive else { return }
 
         let newRate = min(playbackRate * 2.0, 4.0)
+        logger.info("Increasing rate from \(self.playbackRate) to \(newRate)")
         playbackRate = newRate  // Update immediately (optimistic)
         Task {
             do { try await grpcClient?.setRate(newRate) } catch {
@@ -192,6 +208,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         guard !isLive else { return }
 
         let newRate = max(playbackRate / 2.0, 0.25)
+        logger.info("Decreasing rate from \(self.playbackRate) to \(newRate)")
         playbackRate = newRate  // Update immediately (optimistic)
         Task {
             do { try await grpcClient?.setRate(newRate) } catch {
@@ -207,12 +224,35 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
             logStartTimestamp + Int64(Double(logEndTimestamp - logStartTimestamp) * progress)
 
         replayProgress = progress  // Update immediately (optimistic)
+        isSeekingInProgress = true
+        let wasFinished = replayFinished
+        logger.info(
+            "Seeking to progress \(progress) (timestamp \(targetTimestamp)), wasFinished=\(wasFinished)"
+        )
+
         Task {
-            do { try await grpcClient?.seek(to: targetTimestamp) } catch {
-                logger.error("Failed to seek: \(error.localizedDescription)")
-            }
+            do {
+                try await grpcClient?.seek(to: targetTimestamp)
+
+                // If replay had finished, we need to restart the stream to resume playback
+                if wasFinished {
+                    logger.info("Replay was finished - sending play and restarting stream")
+                    // Clear finished flag first to avoid race conditions
+                    await MainActor.run {
+                        self.replayFinished = false
+                        self.isPaused = false
+                    }
+                    // Tell server to play, then restart stream
+                    try await grpcClient?.play()
+                    grpcClient?.restartStream()
+                }
+            } catch { logger.error("Failed to seek: \(error.localizedDescription)") }
+            await MainActor.run { self.isSeekingInProgress = false }
         }
     }
+
+    /// Called when slider editing state changes
+    func setSliderEditing(_ editing: Bool) { isSeekingInProgress = editing }
 
     // MARK: - Recording
 
@@ -261,13 +301,17 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         currentTimestamp = frame.timestampNanos
         frameCount += 1
 
-        // Update playback info from frame (first frame sets mode)
+        // Clear finished state since we're receiving frames again
+        if replayFinished { replayFinished = false }
+
+        // Update playback info from frame
         if let playbackInfo = frame.playbackInfo {
             isLive = playbackInfo.isLive
             logStartTimestamp = playbackInfo.logStartNs
             logEndTimestamp = playbackInfo.logEndNs
             playbackRate = playbackInfo.playbackRate
-            isPaused = playbackInfo.paused
+            // Note: isPaused is NOT updated from frame to allow optimistic UI updates.
+            // The server confirms pause state via the RPC response.
 
             // Log mode on first frame
             if frameCount == 1 {
@@ -301,8 +345,8 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
             )
         }
 
-        // Update replay progress
-        if !isLive && logEndTimestamp > logStartTimestamp {
+        // Update replay progress (skip if user is interacting with slider)
+        if !isLive && !isSeekingInProgress && logEndTimestamp > logStartTimestamp {
             let progress =
                 Double(currentTimestamp - logStartTimestamp)
                 / Double(logEndTimestamp - logStartTimestamp)
@@ -329,6 +373,7 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
         Task { @MainActor [weak self] in
             self?.appState?.isConnected = true
             self?.appState?.connectionError = nil
+            self?.appState?.replayFinished = false
             // Note: isLive is determined from first frame's PlaybackInfo
             delegateLogger.debug("AppState updated: isConnected=true")
         }
@@ -349,5 +394,15 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
 
     func client(_ client: VisualiserClient, didReceiveFrame frame: FrameBundle) {
         Task { @MainActor [weak self] in self?.appState?.onFrameReceived(frame) }
+    }
+
+    func clientDidFinishStream(_ client: VisualiserClient) {
+        print("[ClientDelegate] 🏁 REPLAY STREAM FINISHED")
+        delegateLogger.info("clientDidFinishStream called - replay reached end")
+        Task { @MainActor [weak self] in
+            self?.appState?.replayFinished = true
+            self?.appState?.isPaused = true  // Pause at end
+            self?.appState?.replayProgress = 1.0
+        }
     }
 }
