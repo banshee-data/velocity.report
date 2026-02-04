@@ -94,7 +94,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: generated-protos
-          path: tools/visualiser-macos/VelocityVisualiser/Generated/
+          path: tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/
 
       - name: Build macOS visualiser
         run: |
@@ -119,7 +119,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: generated-protos
-          path: tools/visualiser-macos/VelocityVisualiser/Generated/
+          path: tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/
 
       - name: Run tests with coverage
         run: |
@@ -164,7 +164,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: generated-protos
-          path: tools/visualiser-macos/VelocityVisualiser/Generated/
+          path: tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/
 
       - name: Lint with SwiftLint (if configured)
         run: |
