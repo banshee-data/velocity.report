@@ -287,11 +287,13 @@ type StatePrediction struct {
 
 // PlaybackInfo contains playback metadata for replay mode.
 type PlaybackInfo struct {
-	IsLive       bool
-	LogStartNs   int64
-	LogEndNs     int64
-	PlaybackRate float32
-	Paused       bool
+	IsLive            bool
+	LogStartNs        int64
+	LogEndNs          int64
+	PlaybackRate      float32
+	Paused            bool
+	CurrentFrameIndex uint64 // 0-based index in log
+	TotalFrames       uint64
 }
 
 // NewFrameBundle creates a new FrameBundle with the given metadata.
