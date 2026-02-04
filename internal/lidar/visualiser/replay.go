@@ -121,6 +121,7 @@ func (rs *ReplayServer) streamFromReader(ctx context.Context, req *pb.StreamRequ
 
 // Pause pauses playback (replay mode).
 func (rs *ReplayServer) Pause(ctx context.Context, req *pb.PauseRequest) (*pb.PlaybackStatus, error) {
+	log.Printf("[gRPC] Pause called")
 	rs.mu.Lock()
 	rs.paused = true
 	currentFrame := uint64(0)
@@ -131,6 +132,7 @@ func (rs *ReplayServer) Pause(ctx context.Context, req *pb.PauseRequest) (*pb.Pl
 	rate := rs.playbackRate
 	rs.mu.Unlock()
 
+	log.Printf("[gRPC] Paused at frame %d", currentFrame)
 	return &pb.PlaybackStatus{
 		Paused:         true,
 		Rate:           rate,
@@ -140,6 +142,7 @@ func (rs *ReplayServer) Pause(ctx context.Context, req *pb.PauseRequest) (*pb.Pl
 
 // Play resumes playback (replay mode).
 func (rs *ReplayServer) Play(ctx context.Context, req *pb.PlayRequest) (*pb.PlaybackStatus, error) {
+	log.Printf("[gRPC] Play called")
 	rs.mu.Lock()
 	rs.paused = false
 	currentFrame := uint64(0)
@@ -150,6 +153,7 @@ func (rs *ReplayServer) Play(ctx context.Context, req *pb.PlayRequest) (*pb.Play
 	rate := rs.playbackRate
 	rs.mu.Unlock()
 
+	log.Printf("[gRPC] Playing from frame %d", currentFrame)
 	return &pb.PlaybackStatus{
 		Paused:         false,
 		Rate:           rate,
@@ -169,18 +173,22 @@ func (rs *ReplayServer) Seek(ctx context.Context, req *pb.SeekRequest) (*pb.Play
 	var err error
 	switch target := req.Target.(type) {
 	case *pb.SeekRequest_TimestampNs:
+		log.Printf("[gRPC] Seek to timestamp: %d ns", target.TimestampNs)
 		err = rs.reader.SeekToTimestamp(target.TimestampNs)
 	case *pb.SeekRequest_FrameId:
+		log.Printf("[gRPC] Seek to frame: %d", target.FrameId)
 		err = rs.reader.Seek(target.FrameId)
 	default:
 		return nil, status.Error(codes.InvalidArgument, "seek target not specified")
 	}
 
 	if err != nil {
+		log.Printf("[gRPC] Seek error: %v", err)
 		return nil, status.Errorf(codes.Internal, "seek failed: %v", err)
 	}
 
 	currentFrame := rs.reader.CurrentFrame()
+	log.Printf("[gRPC] Seek complete: now at frame %d, paused=%v, rate=%.2f", currentFrame, rs.paused, rs.playbackRate)
 	return &pb.PlaybackStatus{
 		Paused:         rs.paused,
 		Rate:           rs.playbackRate,
@@ -190,6 +198,7 @@ func (rs *ReplayServer) Seek(ctx context.Context, req *pb.SeekRequest) (*pb.Play
 
 // SetRate sets the playback rate.
 func (rs *ReplayServer) SetRate(ctx context.Context, req *pb.SetRateRequest) (*pb.PlaybackStatus, error) {
+	log.Printf("[gRPC] SetRate called: rate=%.2f", req.Rate)
 	rs.mu.Lock()
 	rs.playbackRate = req.Rate
 	if rs.reader != nil {
@@ -202,6 +211,7 @@ func (rs *ReplayServer) SetRate(ctx context.Context, req *pb.SetRateRequest) (*p
 	paused := rs.paused
 	rs.mu.Unlock()
 
+	log.Printf("[gRPC] SetRate complete: rate=%.2f, frame=%d", req.Rate, currentFrame)
 	return &pb.PlaybackStatus{
 		Paused:         paused,
 		Rate:           req.Rate,
