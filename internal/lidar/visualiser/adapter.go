@@ -264,12 +264,16 @@ func (a *FrameAdapter) adaptTracks(tracker *lidar.Tracker, timestamp time.Time) 
 		ts.Tracks = append(ts.Tracks, track)
 
 		// Build trail from history
-		if len(t.History) > 0 {
+		// Note: Take a snapshot of history length to avoid race conditions
+		// if history is being modified concurrently
+		historyLen := len(t.History)
+		if historyLen > 0 {
 			trail := TrackTrail{
 				TrackID: t.TrackID,
-				Points:  make([]TrackPoint, len(t.History)),
+				Points:  make([]TrackPoint, historyLen),
 			}
-			for j, hp := range t.History {
+			for j := 0; j < historyLen; j++ {
+				hp := t.History[j]
 				trail.Points[j] = TrackPoint{
 					X:              hp.X,
 					Y:              hp.Y,

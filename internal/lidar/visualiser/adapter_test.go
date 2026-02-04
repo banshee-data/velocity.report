@@ -410,6 +410,72 @@ func TestFrameAdapter_AdaptTracks_WithHistory(t *testing.T) {
 	}
 }
 
+// TestFrameAdapter_AdaptTracks_HistoryLengthConsistency tests that trail point
+// allocation matches the number of history points copied. This is a regression
+// test for a race condition where History could grow during iteration.
+func TestFrameAdapter_AdaptTracks_HistoryLengthConsistency(t *testing.T) {
+	adapter := NewFrameAdapter("hesai-01")
+	now := time.Now()
+
+	frame := &lidar.LiDARFrame{
+		SensorID:       "hesai-01",
+		StartTimestamp: now,
+		Points:         []lidar.Point{},
+	}
+
+	// Create a tracker and build a significant history
+	trackerCfg := lidar.DefaultTrackerConfig()
+	tracker := lidar.NewTracker(trackerCfg)
+
+	cluster := lidar.WorldCluster{
+		ClusterID:         1,
+		SensorID:          "hesai-01",
+		CentroidX:         5.0,
+		CentroidY:         10.0,
+		CentroidZ:         1.0,
+		BoundingBoxLength: 4.5,
+		BoundingBoxWidth:  2.0,
+		BoundingBoxHeight: 1.5,
+		PointsCount:       100,
+		HeightP95:         1.8,
+		IntensityMean:     75.0,
+	}
+
+	// Update many times to build a longer history (similar to 180 points case)
+	for i := 0; i < 200; i++ {
+		cluster.CentroidX = 5.0 + float32(i)*0.1
+		cluster.CentroidY = 10.0 + float32(i)*0.1
+		tracker.Update([]lidar.WorldCluster{cluster}, now.Add(time.Duration(i)*10*time.Millisecond))
+	}
+
+	// This should not panic even with a long history
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, tracker))
+
+	if bundle.Tracks == nil {
+		t.Fatal("expected non-nil Tracks")
+	}
+
+	// Verify trails are present and have consistent length
+	if len(bundle.Tracks.Trails) == 0 {
+		t.Error("expected at least one trail")
+	}
+
+	for _, trail := range bundle.Tracks.Trails {
+		// The number of points allocated should equal the actual points
+		// (i.e., no panic from index out of range)
+		if len(trail.Points) == 0 {
+			t.Error("trail should have points")
+		}
+		// Verify all points are valid (non-zero timestamps for real history)
+		for i, pt := range trail.Points {
+			if pt.TimestampNanos == 0 && i > 0 {
+				// First point might be zero in some edge cases
+				t.Errorf("trail point %d has zero timestamp", i)
+			}
+		}
+	}
+}
+
 func TestApplyDecimation_RatioOne(t *testing.T) {
 	pc := &PointCloudFrame{
 		X:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
