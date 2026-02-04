@@ -30,8 +30,8 @@ This document defines an incremental, API-first implementation plan with explici
 - [x] SwiftUI app shell with window management
 - [x] `MTKView` integration for Metal rendering
 - [x] Point cloud renderer (point sprites)
-- [ ] Instanced box renderer (AABB)
-- [ ] Trail renderer (fading polylines)
+- [x] Instanced box renderer (AABB)
+- [x] Trail renderer (fading polylines)
 - [x] gRPC client connects to localhost:50051
 - [x] Decode `FrameBundle` from stream
 - [x] Basic UI: connect/disconnect, overlay toggles
@@ -48,10 +48,10 @@ This document defines an incremental, API-first implementation plan with explici
 **Acceptance Criteria**:
 
 - [x] Visualiser connects to Go server
-- [ ] Renders 10,000+ synthetic points at 30fps
-- [ ] Shows 10 synthetic boxes moving in circles
-- [ ] Trails fade over 2 seconds
-- [ ] No crashes on disconnect/reconnect
+- [x] Renders 10,000+ synthetic points at 30fps
+- [x] Shows 10 synthetic boxes moving in circles
+- [x] Trails fade over 2 seconds
+- [x] No crashes on disconnect/reconnect
 
 **Estimated Dev-Days**: 10 (5 Track A + 5 Track B)
 
