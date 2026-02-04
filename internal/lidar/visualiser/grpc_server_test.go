@@ -566,6 +566,7 @@ func TestFrameBundleToProto_WithPlaybackInfo(t *testing.T) {
 
 func TestServer_RegisterService(t *testing.T) {
 	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0" // Use dynamic port to avoid conflicts
 	pub := NewPublisher(cfg)
 	server := NewServer(pub)
 
@@ -583,6 +584,7 @@ func TestServer_RegisterService(t *testing.T) {
 
 func TestPublisher_GRPCServer(t *testing.T) {
 	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0" // Use dynamic port to avoid conflicts
 	pub := NewPublisher(cfg)
 
 	// Before start, GRPCServer should be nil
