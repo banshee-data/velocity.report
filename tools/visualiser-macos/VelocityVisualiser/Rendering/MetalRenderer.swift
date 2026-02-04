@@ -60,6 +60,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
     var trailVertices: MTLBuffer?
     var trailVertexCount: Int = 0
+    var trailSegments: [(start: Int, count: Int)] = []  // Each trail's range in the buffer
 
     // MARK: - Settings
 
@@ -295,10 +296,13 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     private func updateTrailBuffer(_ trackSet: TrackSet) {
         // Trail vertices: [x, y, z, alpha] per vertex
         var vertices = [Float]()
+        var segments: [(start: Int, count: Int)] = []
 
         for trail in trackSet.trails {
             let pointCount = trail.points.count
             guard pointCount >= 2 else { continue }
+
+            let segmentStart = vertices.count / 4  // Start index for this trail
 
             for (i, point) in trail.points.enumerated() {
                 let alpha = Float(i) / Float(pointCount - 1)  // fade from 0 to 1
@@ -307,6 +311,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
                 vertices.append(0.1)  // slight Z offset
                 vertices.append(alpha)
             }
+
+            segments.append((start: segmentStart, count: pointCount))
         }
 
         if !vertices.isEmpty {
@@ -314,8 +320,10 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             trailVertices = device.makeBuffer(
                 bytes: vertices, length: bufferSize, options: .storageModeShared)
             trailVertexCount = vertices.count / 4
+            trailSegments = segments
         } else {
             trailVertexCount = 0
+            trailSegments = []
         }
     }
 
@@ -367,14 +375,22 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             )
         }
 
-        // Draw trails
+        // Draw trails (each trail as a separate lineStrip)
         if showTrails, let pipeline = trailPipeline, let vertices = trailVertices,
-            trailVertexCount > 0
+            !trailSegments.isEmpty
         {
             encoder.setRenderPipelineState(pipeline)
             encoder.setVertexBuffer(vertices, offset: 0, index: 0)
             encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
-            encoder.drawPrimitives(type: .lineStrip, vertexStart: 0, vertexCount: trailVertexCount)
+
+            // Draw each trail as a separate line strip
+            for segment in trailSegments {
+                encoder.drawPrimitives(
+                    type: .lineStrip,
+                    vertexStart: segment.start,
+                    vertexCount: segment.count
+                )
+            }
         }
 
         encoder.endEncoding()
