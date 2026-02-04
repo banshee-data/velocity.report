@@ -510,6 +510,9 @@ dev-go:
 dev-go-lidar:
 	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward --lidar-forward-mode=both)
 
+dev-go-lidar-grpc:
+	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc)
+
 dev-go-kill-server:
 	@$(call run_dev_go_kill_server)
 
