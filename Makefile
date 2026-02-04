@@ -741,7 +741,7 @@ format-mac:
 		exit 0; \
 	fi
 	@if command -v swift-format >/dev/null 2>&1; then \
-		cd $(MAC_DIR) && find VelocityVisualiser -name '*.swift' -exec swift-format -i {} \; ; \
+		cd $(MAC_DIR) && find VelocityVisualiser -name '*.swift' -exec swift-format -i --configuration .swift-format {} \; ; \
 		echo "✓ Swift formatting complete"; \
 	else \
 		echo "swift-format not found; install via: brew install swift-format"; \

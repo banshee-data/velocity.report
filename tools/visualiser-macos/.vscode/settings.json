@@ -1,0 +1,15 @@
+{
+  "swift.formatting.enable": true,
+  "swift.formatting.formatOnSave": true,
+  "swift.formatting.swiftFormatPath": "swift-format",
+  "swift.formatting.swiftFormatArgs": [
+    "--configuration",
+    "${workspaceFolder}/tools/visualiser-macos/.swift-format"
+  ],
+  "[swift]": {
+    "editor.defaultFormatter": "sswg.swift-lang",
+    "editor.formatOnSave": true,
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true
+  }
+}
