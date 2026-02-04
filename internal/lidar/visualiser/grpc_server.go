@@ -125,13 +125,17 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 	var framesSent uint64
 	var totalSendTimeNs int64
 	var slowSends int
-	var droppedFrames int
+	var droppedFrames uint64
 	lastLogTime := time.Now()
 	const logInterval = 5 * time.Second
-	const slowSendThresholdMs = 50 // Warn if Send() takes > 50ms
+	const slowSendThresholdMs = 50    // Warn if Send() takes > 50ms
+	const sendTimeoutMs = 100         // Skip frame if send would take > 100ms
+	const maxConsecutiveSlowSends = 3 // After 3 slow sends, start skipping
 
 	// Track message sizes for bandwidth estimation
 	var totalBytesSent int64
+	var consecutiveSlowSends int
+	var lastFrameID uint64
 
 	for {
 		select {
@@ -140,6 +144,33 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				clientID, framesSent, droppedFrames, slowSends, float64(totalSendTimeNs)/float64(max(framesSent, 1))/1e6)
 			return ctx.Err()
 		case frame := <-frameCh:
+			// Skip frames if we're falling behind (keep only latest)
+			// Drain any additional frames in the channel to catch up
+			skipped := 0
+			for len(frameCh) > 0 && consecutiveSlowSends >= maxConsecutiveSlowSends {
+				select {
+				case newerFrame := <-frameCh:
+					frame = newerFrame // Use the newer frame
+					skipped++
+					droppedFrames++
+				default:
+					break
+				}
+			}
+			if skipped > 0 {
+				log.Printf("[gRPC] Client %s: skipped %d frames to catch up (consecutive_slow=%d)",
+					clientID, skipped, consecutiveSlowSends)
+			}
+
+			// Track frame ID gaps for detecting skipped frames
+			if lastFrameID > 0 && frame.FrameID > lastFrameID+1 {
+				gap := frame.FrameID - lastFrameID - 1
+				if gap > 0 {
+					droppedFrames += gap
+				}
+			}
+			lastFrameID = frame.FrameID
+
 			// Measure serialisation and send time
 			sendStart := time.Now()
 			pbFrame := frameBundleToProto(frame, req)
@@ -159,8 +190,13 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			// Track slow sends with message size info
 			if sendDuration.Milliseconds() > slowSendThresholdMs {
 				slowSends++
-				log.Printf("[gRPC] SLOW SEND: client=%s frame=%d duration=%v points=%d msg_size_kb=%.1f",
-					clientID, frame.FrameID, sendDuration, getPointCount(frame), float64(msgSize)/1024)
+				consecutiveSlowSends++
+				if sendDuration.Milliseconds() > sendTimeoutMs {
+					log.Printf("[gRPC] SLOW SEND: client=%s frame=%d duration=%v points=%d msg_size_kb=%.1f consecutive=%d",
+						clientID, frame.FrameID, sendDuration, getPointCount(frame), float64(msgSize)/1024, consecutiveSlowSends)
+				}
+			} else {
+				consecutiveSlowSends = 0 // Reset on successful fast send
 			}
 
 			// Periodic performance logging
@@ -170,8 +206,8 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				queueDepth := len(frameCh)
 				bandwidthMbps := float64(totalBytesSent) * 8 / time.Since(lastLogTime).Seconds() / 1e6
 				avgMsgSizeKB := float64(totalBytesSent) / float64(max(framesSent, 1)) / 1024
-				log.Printf("[gRPC] Client %s stats: fps=%.1f frames=%d queue=%d/10 avg_send_ms=%.2f slow_sends=%d bandwidth_mbps=%.1f avg_msg_kb=%.1f",
-					clientID, fps, framesSent, queueDepth, avgSendMs, slowSends, bandwidthMbps, avgMsgSizeKB)
+				log.Printf("[gRPC] Client %s stats: fps=%.1f frames=%d dropped=%d queue=%d/10 avg_send_ms=%.2f slow_sends=%d bandwidth_mbps=%.1f avg_msg_kb=%.1f",
+					clientID, fps, framesSent, droppedFrames, queueDepth, avgSendMs, slowSends, bandwidthMbps, avgMsgSizeKB)
 
 				// Check for queue backup
 				if queueDepth > 5 {

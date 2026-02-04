@@ -4,11 +4,64 @@ package visualiser
 
 import (
 	"log"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
 )
+
+// pointSlicePool reduces allocations by reusing large float32 slices.
+// Slices are sized for ~70k points (typical for Pandar40P at 10Hz).
+var pointSlicePool = sync.Pool{
+	New: func() interface{} {
+		// Pre-allocate for typical point cloud size
+		return make([]float32, 0, 75000)
+	},
+}
+
+// byteSlicePool reduces allocations for intensity/classification arrays.
+var byteSlicePool = sync.Pool{
+	New: func() interface{} {
+		return make([]uint8, 0, 75000)
+	},
+}
+
+// getFloat32Slice gets a slice from the pool and resets it.
+func getFloat32Slice(n int) []float32 {
+	s := pointSlicePool.Get().([]float32)
+	if cap(s) < n {
+		// Slice too small, allocate new one (rare for normal point clouds)
+		pointSlicePool.Put(s)
+		return make([]float32, n)
+	}
+	return s[:n]
+}
+
+// putFloat32Slice returns a slice to the pool.
+func putFloat32Slice(s []float32) {
+	// Only pool reasonably sized slices to avoid memory bloat
+	if cap(s) > 0 && cap(s) <= 150000 {
+		pointSlicePool.Put(s[:0])
+	}
+}
+
+// getUint8Slice gets a slice from the pool and resets it.
+func getUint8Slice(n int) []uint8 {
+	s := byteSlicePool.Get().([]uint8)
+	if cap(s) < n {
+		byteSlicePool.Put(s)
+		return make([]uint8, n)
+	}
+	return s[:n]
+}
+
+// putUint8Slice returns a slice to the pool.
+func putUint8Slice(s []uint8) {
+	if cap(s) > 0 && cap(s) <= 150000 {
+		byteSlicePool.Put(s[:0])
+	}
+}
 
 // FrameAdapter converts pipeline outputs to the canonical FrameBundle model.
 type FrameAdapter struct {
@@ -82,17 +135,18 @@ func (a *FrameAdapter) AdaptFrame(
 }
 
 // adaptPointCloud converts a LiDARFrame to a PointCloudFrame.
+// Uses sync.Pool for slice allocation to reduce GC pressure.
 func (a *FrameAdapter) adaptPointCloud(frame *lidar.LiDARFrame, mask []bool) *PointCloudFrame {
 	n := len(frame.Points)
 	pc := &PointCloudFrame{
 		FrameID:        a.frameID,
 		TimestampNanos: frame.StartTimestamp.UnixNano(),
 		SensorID:       a.sensorID,
-		X:              make([]float32, n),
-		Y:              make([]float32, n),
-		Z:              make([]float32, n),
-		Intensity:      make([]uint8, n),
-		Classification: make([]uint8, n),
+		X:              getFloat32Slice(n),
+		Y:              getFloat32Slice(n),
+		Z:              getFloat32Slice(n),
+		Intensity:      getUint8Slice(n),
+		Classification: getUint8Slice(n),
 		DecimationMode: DecimationNone,
 		PointCount:     n,
 	}
@@ -112,6 +166,24 @@ func (a *FrameAdapter) adaptPointCloud(frame *lidar.LiDARFrame, mask []bool) *Po
 	}
 
 	return pc
+}
+
+// Release returns the PointCloudFrame's slices to the pool.
+// Call this after the frame has been sent to free memory for reuse.
+func (pc *PointCloudFrame) Release() {
+	if pc == nil {
+		return
+	}
+	putFloat32Slice(pc.X)
+	putFloat32Slice(pc.Y)
+	putFloat32Slice(pc.Z)
+	putUint8Slice(pc.Intensity)
+	putUint8Slice(pc.Classification)
+	pc.X = nil
+	pc.Y = nil
+	pc.Z = nil
+	pc.Intensity = nil
+	pc.Classification = nil
 }
 
 // ApplyDecimation decimates the point cloud according to the specified mode and ratio.

@@ -153,7 +153,7 @@ func applyPragmas(db *sql.DB) error {
 		"PRAGMA journal_mode = WAL",
 		"PRAGMA synchronous = NORMAL",
 		"PRAGMA temp_store = MEMORY",
-		"PRAGMA busy_timeout = 5000",
+		"PRAGMA busy_timeout = 30000", // 30s timeout for heavy PCAP replay load
 	}
 
 	for _, pragma := range pragmas {
