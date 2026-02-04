@@ -327,7 +327,8 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
             "clientDidDisconnect called, error: \(error?.localizedDescription ?? "none")")
         Task { @MainActor [weak self] in
             self?.appState?.isConnected = false
-            if let error = error { self?.appState?.connectionError = error.localizedDescription }
+            // Only show simple error message, not verbose gRPC details
+            if error != nil { self?.appState?.connectionError = "Connection lost" }
         }
     }
 
