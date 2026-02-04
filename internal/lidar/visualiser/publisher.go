@@ -138,17 +138,23 @@ func (p *Publisher) Stop() {
 }
 
 // Publish sends a frame to all connected clients.
-func (p *Publisher) Publish(frame *FrameBundle) {
+func (p *Publisher) Publish(frame interface{}) {
 	if !p.running.Load() {
 		return
 	}
 
+	// Type assert to *FrameBundle
+	frameBundle, ok := frame.(*FrameBundle)
+	if !ok || frameBundle == nil {
+		return
+	}
+
 	select {
-	case p.frameChan <- frame:
+	case p.frameChan <- frameBundle:
 		p.frameCount.Add(1)
 	default:
 		// Drop frame if channel is full
-		log.Printf("[Visualiser] Dropping frame %d, channel full", frame.FrameID)
+		log.Printf("[Visualiser] Dropping frame %d, channel full", frameBundle.FrameID)
 	}
 }
 

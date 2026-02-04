@@ -27,7 +27,7 @@ func (a *FrameAdapter) AdaptFrame(
 	foregroundMask []bool,
 	clusters []lidar.WorldCluster,
 	tracker *lidar.Tracker,
-) *FrameBundle {
+) interface{} {
 	a.frameID++
 
 	bundle := NewFrameBundle(a.frameID, a.sensorID, frame.StartTimestamp)
@@ -81,6 +81,103 @@ func (a *FrameAdapter) adaptPointCloud(frame *lidar.LiDARFrame, mask []bool) *Po
 	}
 
 	return pc
+}
+
+// ApplyDecimation decimates the point cloud according to the specified mode and ratio.
+// This modifies the PointCloudFrame in place.
+func (pc *PointCloudFrame) ApplyDecimation(mode DecimationMode, ratio float32) {
+	if mode == DecimationNone {
+		return
+	}
+
+	// ForegroundOnly mode ignores ratio
+	if mode == DecimationForegroundOnly {
+		pc.applyForegroundOnlyDecimation()
+		pc.DecimationMode = mode
+		pc.DecimationRatio = ratio
+		return
+	}
+
+	// For other modes, check ratio validity
+	if ratio <= 0 || ratio >= 1 {
+		return
+	}
+
+	switch mode {
+	case DecimationUniform:
+		pc.applyUniformDecimation(ratio)
+	case DecimationVoxel:
+		// Voxel decimation is more complex and not implemented yet
+		// Fall back to uniform decimation
+		pc.applyUniformDecimation(ratio)
+	}
+
+	pc.DecimationMode = mode
+	pc.DecimationRatio = ratio
+}
+
+// applyUniformDecimation keeps every Nth point based on the ratio.
+func (pc *PointCloudFrame) applyUniformDecimation(ratio float32) {
+	if ratio <= 0 || ratio >= 1 {
+		return
+	}
+
+	targetCount := int(float32(pc.PointCount) * ratio)
+	if targetCount <= 0 {
+		targetCount = 1
+	}
+
+	stride := pc.PointCount / targetCount
+	if stride < 1 {
+		stride = 1
+	}
+
+	newX := make([]float32, 0, targetCount)
+	newY := make([]float32, 0, targetCount)
+	newZ := make([]float32, 0, targetCount)
+	newIntensity := make([]uint8, 0, targetCount)
+	newClassification := make([]uint8, 0, targetCount)
+
+	for i := 0; i < pc.PointCount && len(newX) < targetCount; i += stride {
+		newX = append(newX, pc.X[i])
+		newY = append(newY, pc.Y[i])
+		newZ = append(newZ, pc.Z[i])
+		newIntensity = append(newIntensity, pc.Intensity[i])
+		newClassification = append(newClassification, pc.Classification[i])
+	}
+
+	pc.X = newX
+	pc.Y = newY
+	pc.Z = newZ
+	pc.Intensity = newIntensity
+	pc.Classification = newClassification
+	pc.PointCount = len(newX)
+}
+
+// applyForegroundOnlyDecimation keeps only foreground points (classification == 1).
+func (pc *PointCloudFrame) applyForegroundOnlyDecimation() {
+	newX := make([]float32, 0, pc.PointCount/2)
+	newY := make([]float32, 0, pc.PointCount/2)
+	newZ := make([]float32, 0, pc.PointCount/2)
+	newIntensity := make([]uint8, 0, pc.PointCount/2)
+	newClassification := make([]uint8, 0, pc.PointCount/2)
+
+	for i := 0; i < pc.PointCount; i++ {
+		if pc.Classification[i] == 1 {
+			newX = append(newX, pc.X[i])
+			newY = append(newY, pc.Y[i])
+			newZ = append(newZ, pc.Z[i])
+			newIntensity = append(newIntensity, pc.Intensity[i])
+			newClassification = append(newClassification, pc.Classification[i])
+		}
+	}
+
+	pc.X = newX
+	pc.Y = newY
+	pc.Z = newZ
+	pc.Intensity = newIntensity
+	pc.Classification = newClassification
+	pc.PointCount = len(newX)
 }
 
 // adaptClusters converts WorldClusters to the canonical Cluster format.

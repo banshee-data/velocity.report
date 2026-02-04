@@ -27,6 +27,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/monitor"
 	"github.com/banshee-data/velocity.report/internal/lidar/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/parse"
+	"github.com/banshee-data/velocity.report/internal/lidar/visualiser"
 	"github.com/banshee-data/velocity.report/internal/version"
 )
 
@@ -67,6 +68,9 @@ var (
 	// Default: true in this branch to re-enable the dev-friendly behavior; can be
 	// disabled via CLI when running in production if desired.
 	lidarSeedFromFirst = flag.Bool("lidar-seed-from-first", true, "Seed background cells from first observation (dev/pcap helper)")
+	// Visualiser gRPC streaming (M2)
+	lidarForwardMode = flag.String("lidar-forward-mode", "lidarview", "Forward mode: lidarview (UDP only), grpc (gRPC only), or both (UDP + gRPC)")
+	lidarGRPCListen  = flag.String("lidar-grpc-listen", "localhost:50051", "gRPC server listen address for visualiser streaming")
 )
 
 // Transit worker options (compute radar_data -> radar_data_transits)
@@ -300,15 +304,62 @@ func main() {
 				}
 			}
 
+			// Initialise visualiser components if gRPC mode is enabled
+			var visualiserPublisher *visualiser.Publisher
+			var visualiserServer *visualiser.Server
+			var frameAdapter *visualiser.FrameAdapter
+			var lidarViewAdapter *visualiser.LidarViewAdapter
+
+			// Validate forward mode
+			forwardMode := *lidarForwardMode
+			validModes := map[string]bool{"lidarview": true, "grpc": true, "both": true}
+			if !validModes[forwardMode] {
+				log.Fatalf("Invalid --lidar-forward-mode: %s (must be: lidarview, grpc, or both)", forwardMode)
+			}
+
+			// Initialise gRPC publisher if needed
+			if forwardMode == "grpc" || forwardMode == "both" {
+				vizConfig := visualiser.Config{
+					ListenAddr:  *lidarGRPCListen,
+					SensorID:    *lidarSensor,
+					EnableDebug: *debugMode,
+					MaxClients:  5,
+				}
+				visualiserPublisher = visualiser.NewPublisher(vizConfig)
+				visualiserServer = visualiser.NewServer(visualiserPublisher)
+
+				// Register gRPC service
+				visualiser.RegisterService(visualiserPublisher.GRPCServer(), visualiserServer)
+
+				if err := visualiserPublisher.Start(); err != nil {
+					log.Fatalf("Failed to start visualiser publisher: %v", err)
+				}
+				defer visualiserPublisher.Stop()
+
+				frameAdapter = visualiser.NewFrameAdapter(*lidarSensor)
+				log.Printf("Visualiser gRPC server started on %s", *lidarGRPCListen)
+			}
+
+			// Initialise LidarView adapter for UDP forwarding if needed
+			if forwardMode == "lidarview" || forwardMode == "both" {
+				if foregroundForwarder != nil {
+					lidarViewAdapter = visualiser.NewLidarViewAdapter(foregroundForwarder)
+					log.Printf("LidarView adapter enabled (forwarding to %s:%d)", *lidarFGFwdAddr, *lidarFGFwdPort)
+				}
+			}
+
 			// Create tracking pipeline callback with all necessary dependencies
 			pipelineConfig := &lidar.TrackingPipelineConfig{
-				BackgroundManager: backgroundManager,
-				FgForwarder:       foregroundForwarder,
-				Tracker:           tracker,
-				Classifier:        classifier,
-				DB:                lidarDB.DB, // Pass underlying sql.DB to avoid import cycle
-				SensorID:          *lidarSensor,
-				DebugMode:         *debugMode,
+				BackgroundManager:   backgroundManager,
+				FgForwarder:         foregroundForwarder,
+				Tracker:             tracker,
+				Classifier:          classifier,
+				DB:                  lidarDB.DB, // Pass underlying sql.DB to avoid import cycle
+				SensorID:            *lidarSensor,
+				DebugMode:           *debugMode,
+				VisualiserPublisher: visualiserPublisher,
+				VisualiserAdapter:   frameAdapter,
+				LidarViewAdapter:    lidarViewAdapter,
 			}
 			callback := pipelineConfig.NewFrameCallback()
 

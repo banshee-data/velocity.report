@@ -13,6 +13,21 @@ type ForegroundForwarder interface {
 	ForwardForeground(points []PointPolar)
 }
 
+// VisualiserPublisher interface allows publishing frames to the gRPC visualiser.
+type VisualiserPublisher interface {
+	Publish(frame interface{})
+}
+
+// VisualiserAdapter interface converts tracking outputs to FrameBundle.
+type VisualiserAdapter interface {
+	AdaptFrame(frame *LiDARFrame, foregroundMask []bool, clusters []WorldCluster, tracker *Tracker) interface{}
+}
+
+// LidarViewAdapter interface forwards FrameBundle to UDP (LidarView format).
+type LidarViewAdapter interface {
+	PublishFrameBundle(bundle interface{}, foregroundPoints []PointPolar)
+}
+
 // isNilInterface checks if an interface value is nil or contains a nil pointer.
 // This handles the Go interface nil pitfall where interface{} != nil but the underlying value is nil.
 func isNilInterface(i interface{}) bool {
@@ -29,14 +44,17 @@ func isNilInterface(i interface{}) bool {
 
 // TrackingPipelineConfig holds dependencies for the tracking pipeline callback.
 type TrackingPipelineConfig struct {
-	BackgroundManager  *BackgroundManager
-	FgForwarder        ForegroundForwarder // Use interface to avoid import cycle
-	Tracker            *Tracker
-	Classifier         *TrackClassifier
-	DB                 *sql.DB // Use standard sql.DB to avoid import cycle with db package
-	SensorID           string
-	DebugMode          bool
-	AnalysisRunManager *AnalysisRunManager // Optional: for recording analysis runs
+	BackgroundManager   *BackgroundManager
+	FgForwarder         ForegroundForwarder // Use interface to avoid import cycle
+	Tracker             *Tracker
+	Classifier          *TrackClassifier
+	DB                  *sql.DB // Use standard sql.DB to avoid import cycle with db package
+	SensorID            string
+	DebugMode           bool
+	AnalysisRunManager  *AnalysisRunManager // Optional: for recording analysis runs
+	VisualiserPublisher VisualiserPublisher // Optional: gRPC publisher
+	VisualiserAdapter   VisualiserAdapter   // Optional: adapter for gRPC
+	LidarViewAdapter    LidarViewAdapter    // Optional: adapter for UDP forwarding
 }
 
 // NewFrameCallback creates a FrameBuilder callback that processes frames through
@@ -251,6 +269,27 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 
 		if cfg.DebugMode && len(confirmedTracks) > 0 {
 			Debugf("[Tracking] %d confirmed tracks active", len(confirmedTracks))
+		}
+
+		// Phase 6: Publish to visualiser (if enabled)
+		if !isNilInterface(cfg.VisualiserAdapter) && !isNilInterface(cfg.VisualiserPublisher) {
+			// Adapt frame to FrameBundle
+			frameBundle := cfg.VisualiserAdapter.AdaptFrame(frame, mask, clusters, cfg.Tracker)
+
+			// Publish to gRPC stream
+			cfg.VisualiserPublisher.Publish(frameBundle)
+
+			// Also forward to LidarView UDP if adapter is configured
+			if !isNilInterface(cfg.LidarViewAdapter) {
+				cfg.LidarViewAdapter.PublishFrameBundle(frameBundle, foregroundPoints)
+			}
+
+			Debugf("[Visualiser] Published frame %s to gRPC", frame.FrameID)
+		} else if !isNilInterface(cfg.LidarViewAdapter) {
+			// LidarView-only mode (no gRPC)
+			// Create a minimal bundle just for LidarView forwarding
+			// This preserves the existing behavior when gRPC is disabled
+			cfg.LidarViewAdapter.PublishFrameBundle(nil, foregroundPoints)
 		}
 	}
 }

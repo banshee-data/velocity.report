@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/pb"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -319,6 +320,11 @@ func (s *Server) GetCapabilities(ctx context.Context, req *pb.CapabilitiesReques
 		SupportsRecording: false, // TODO: Enable when recording is implemented
 		AvailableSensors:  []string{s.publisher.config.SensorID},
 	}, nil
+}
+
+// RegisterService registers the gRPC service with the server.
+func RegisterService(grpcServer *grpc.Server, server *Server) {
+	pb.RegisterVisualiserServiceServer(grpcServer, server)
 }
 
 // StartRecording starts recording frames to disk.

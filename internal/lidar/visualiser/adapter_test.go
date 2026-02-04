@@ -8,6 +8,16 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar"
 )
 
+// Helper function to safely cast interface{} to *FrameBundle in tests
+func toFrameBundle(t *testing.T, i interface{}) *FrameBundle {
+	t.Helper()
+	bundle, ok := i.(*FrameBundle)
+	if !ok || bundle == nil {
+		t.Fatal("expected non-nil *FrameBundle")
+	}
+	return bundle
+}
+
 func TestNewFrameAdapter(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 
@@ -32,7 +42,7 @@ func TestFrameAdapter_AdaptFrame_BasicFrame(t *testing.T) {
 		Points:         []lidar.Point{},
 	}
 
-	bundle := adapter.AdaptFrame(frame, nil, nil, nil)
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil))
 
 	if bundle == nil {
 		t.Fatal("expected non-nil FrameBundle")
@@ -57,9 +67,9 @@ func TestFrameAdapter_AdaptFrame_FrameIDIncrement(t *testing.T) {
 		Points:         []lidar.Point{},
 	}
 
-	bundle1 := adapter.AdaptFrame(frame, nil, nil, nil)
-	bundle2 := adapter.AdaptFrame(frame, nil, nil, nil)
-	bundle3 := adapter.AdaptFrame(frame, nil, nil, nil)
+	bundle1 := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil))
+	bundle2 := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil))
+	bundle3 := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil))
 
 	if bundle1.FrameID != 1 {
 		t.Errorf("expected FrameID=1, got %d", bundle1.FrameID)
@@ -87,7 +97,7 @@ func TestFrameAdapter_AdaptFrame_WithPointCloud(t *testing.T) {
 
 	mask := []bool{true, false, true} // foreground, background, foreground
 
-	bundle := adapter.AdaptFrame(frame, mask, nil, nil)
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, mask, nil, nil))
 
 	if bundle.PointCloud == nil {
 		t.Fatal("expected non-nil PointCloud")
@@ -162,7 +172,7 @@ func TestFrameAdapter_AdaptFrame_WithClusters(t *testing.T) {
 		},
 	}
 
-	bundle := adapter.AdaptFrame(frame, nil, clusters, nil)
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, clusters, nil))
 
 	if bundle.Clusters == nil {
 		t.Fatal("expected non-nil Clusters")
@@ -222,7 +232,7 @@ func TestFrameAdapter_AdaptFrame_WithTracker(t *testing.T) {
 	}
 	tracker.Update([]lidar.WorldCluster{cluster}, now)
 
-	bundle := adapter.AdaptFrame(frame, nil, nil, tracker)
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, tracker))
 
 	if bundle.Tracks == nil {
 		t.Fatal("expected non-nil Tracks")
@@ -279,7 +289,7 @@ func TestFrameAdapter_AdaptPointCloud_EmptyMask(t *testing.T) {
 		},
 	}
 
-	bundle := adapter.AdaptFrame(frame, nil, nil, nil)
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil))
 
 	pc := bundle.PointCloud
 	if pc == nil {
@@ -310,7 +320,7 @@ func TestFrameAdapter_AdaptPointCloud_PartialMask(t *testing.T) {
 	// Mask shorter than points
 	mask := []bool{true}
 
-	bundle := adapter.AdaptFrame(frame, mask, nil, nil)
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, mask, nil, nil))
 
 	pc := bundle.PointCloud
 	if pc == nil {
@@ -338,7 +348,7 @@ func TestFrameAdapter_AdaptClusters_Empty(t *testing.T) {
 		Points:         []lidar.Point{},
 	}
 
-	bundle := adapter.AdaptFrame(frame, nil, []lidar.WorldCluster{}, nil)
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, []lidar.WorldCluster{}, nil))
 
 	// Empty clusters slice should result in nil Clusters
 	if bundle.Clusters != nil {
@@ -381,7 +391,7 @@ func TestFrameAdapter_AdaptTracks_WithHistory(t *testing.T) {
 		tracker.Update([]lidar.WorldCluster{cluster}, now.Add(time.Duration(i)*100*time.Millisecond))
 	}
 
-	bundle := adapter.AdaptFrame(frame, nil, nil, tracker)
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, tracker))
 
 	if bundle.Tracks == nil {
 		t.Fatal("expected non-nil Tracks")
