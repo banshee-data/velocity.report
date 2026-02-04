@@ -232,9 +232,10 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             vertices[i * 5 + 2] = pointCloud.z[i]
             vertices[i * 5 + 3] = Float(pointCloud.intensity[i]) / 255.0
             // Classification: 0=background, 1=foreground, 2=ground
-            let classification: Float = i < pointCloud.classification.count 
-                ? Float(pointCloud.classification[i]) 
-                : 0.0
+            var classification: Float = 0.0
+            if i < pointCloud.classification.count {
+                classification = Float(pointCloud.classification[i])
+            }
             vertices[i * 5 + 4] = classification
         }
 

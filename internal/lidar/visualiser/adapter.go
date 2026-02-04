@@ -119,11 +119,8 @@ func (pc *PointCloudFrame) ApplyDecimation(mode DecimationMode, ratio float32) {
 
 // applyUniformDecimation keeps every Nth point based on the ratio.
 // A ratio of 1.0 keeps all points, 0.5 keeps approximately half, etc.
+// Precondition: ratio is in range (0, 1] - callers must validate.
 func (pc *PointCloudFrame) applyUniformDecimation(ratio float32) {
-	if ratio <= 0 || ratio > 1 {
-		return
-	}
-
 	// If ratio is 1.0, keep all points (no decimation needed)
 	if ratio == 1.0 {
 		return
