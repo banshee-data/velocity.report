@@ -316,4 +316,21 @@ import XCTest
         state.showDebug = true
         XCTAssertTrue(state.showDebug)
     }
+
+    func testPointSizeDefault() throws {
+        let state = AppState()
+        XCTAssertEqual(state.pointSize, 5.0)
+    }
+
+    func testPointSizeAdjustment() throws {
+        let state = AppState()
+        state.pointSize = 10.0
+        XCTAssertEqual(state.pointSize, 10.0)
+
+        state.pointSize = 1.0
+        XCTAssertEqual(state.pointSize, 1.0)
+
+        state.pointSize = 20.0
+        XCTAssertEqual(state.pointSize, 20.0)
+    }
 }
