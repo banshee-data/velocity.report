@@ -85,6 +85,7 @@ func (a *FrameAdapter) adaptPointCloud(frame *lidar.LiDARFrame, mask []bool) *Po
 
 // ApplyDecimation decimates the point cloud according to the specified mode and ratio.
 // This modifies the PointCloudFrame in place.
+// For uniform/voxel modes, ratio should be in (0, 1]. A ratio of 1.0 keeps all points.
 func (pc *PointCloudFrame) ApplyDecimation(mode DecimationMode, ratio float32) {
 	if mode == DecimationNone {
 		return
@@ -98,8 +99,8 @@ func (pc *PointCloudFrame) ApplyDecimation(mode DecimationMode, ratio float32) {
 		return
 	}
 
-	// For other modes, check ratio validity
-	if ratio <= 0 || ratio >= 1 {
+	// For other modes, check ratio validity (must be in range (0, 1])
+	if ratio <= 0 || ratio > 1 {
 		return
 	}
 
@@ -117,8 +118,14 @@ func (pc *PointCloudFrame) ApplyDecimation(mode DecimationMode, ratio float32) {
 }
 
 // applyUniformDecimation keeps every Nth point based on the ratio.
+// A ratio of 1.0 keeps all points, 0.5 keeps approximately half, etc.
 func (pc *PointCloudFrame) applyUniformDecimation(ratio float32) {
-	if ratio <= 0 || ratio >= 1 {
+	if ratio <= 0 || ratio > 1 {
+		return
+	}
+
+	// If ratio is 1.0, keep all points (no decimation needed)
+	if ratio == 1.0 {
 		return
 	}
 

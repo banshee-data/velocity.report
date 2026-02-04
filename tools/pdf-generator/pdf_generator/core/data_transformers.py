@@ -8,7 +8,6 @@ handling schema variations across different data sources and API versions.
 from typing import Any, Dict, List, Optional
 import numpy as np
 
-
 # =============================================================================
 # Field Alias Mappings
 # =============================================================================

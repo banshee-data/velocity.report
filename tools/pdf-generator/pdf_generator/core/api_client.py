@@ -5,7 +5,6 @@ import os
 import requests
 from typing import Dict, List, Tuple, Optional, Any
 
-
 # Server supported aggregation groups (in seconds)
 SUPPORTED_GROUPS = {
     "15m": 15 * 60,

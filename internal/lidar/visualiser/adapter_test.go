@@ -409,3 +409,27 @@ func TestFrameAdapter_AdaptTracks_WithHistory(t *testing.T) {
 		}
 	}
 }
+
+func TestApplyDecimation_RatioOne(t *testing.T) {
+pc := &PointCloudFrame{
+X:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+Y:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+Z:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+Intensity:      []uint8{100, 110, 120, 130, 140, 150, 160, 170, 180, 190},
+Classification: []uint8{1, 0, 1, 0, 1, 0, 1, 0, 1, 0},
+PointCount:     10,
+}
+
+pc.ApplyDecimation(DecimationUniform, 1.0)
+
+// Ratio 1.0 should keep all points
+if len(pc.X) != 10 {
+t.Errorf("Expected 10 points with ratio=1.0, got %d", len(pc.X))
+}
+if pc.DecimationMode != DecimationUniform {
+t.Error("DecimationMode should be set even with ratio=1.0")
+}
+if pc.DecimationRatio != 1.0 {
+t.Error("DecimationRatio should be 1.0")
+}
+}
