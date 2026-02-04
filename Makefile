@@ -554,6 +554,7 @@ dev-vis-server:
 
 # Record a sample .vrlog file for testing replay mode
 # Variables: RECORD_OUTPUT (default: sample.vrlog), RECORD_FRAMES (default: 100)
+# Usage: make record-sample RECORD_FRAMES=50 RECORD_OUTPUT=test.vrlog
 RECORD_OUTPUT ?= sample.vrlog
 RECORD_FRAMES ?= 100
 
@@ -561,7 +562,7 @@ record-sample:
 	@echo "Recording sample .vrlog file..."
 	@echo "Output: $(RECORD_OUTPUT)"
 	@echo "Frames: $(RECORD_FRAMES)"
-	go run ./cmd/tools/record-sample -output $(RECORD_OUTPUT) -frames $(RECORD_FRAMES)
+	go run ./cmd/tools/gen-vrlog -o $(RECORD_OUTPUT) -n $(RECORD_FRAMES)
 
 # =============================================================================
 # TESTING
