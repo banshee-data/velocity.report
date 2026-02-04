@@ -50,6 +50,7 @@ import XCTest
 
     func testTogglePlayPause() throws {
         let state = AppState()
+        state.isLive = false  // Required for playback controls
         XCTAssertFalse(state.isPaused)
 
         state.togglePlayPause()
@@ -61,6 +62,7 @@ import XCTest
 
     func testIncreaseRate() throws {
         let state = AppState()
+        state.isLive = false  // Required for playback controls
         XCTAssertEqual(state.playbackRate, 1.0)
 
         state.increaseRate()
@@ -76,6 +78,7 @@ import XCTest
 
     func testDecreaseRate() throws {
         let state = AppState()
+        state.isLive = false  // Required for playback controls
         XCTAssertEqual(state.playbackRate, 1.0)
 
         state.decreaseRate()
@@ -126,11 +129,16 @@ import XCTest
         XCTAssertEqual(state.replayProgress, 0.75)
     }
 
-    func testOpenRecording() throws {
+    func testOpenRecording() async throws {
         let state = AppState()
         XCTAssertTrue(state.isLive)
 
-        state.openRecording()
+        // Use loadRecording directly since openRecording uses NSOpenPanel
+        let testURL = URL(fileURLWithPath: "/tmp/test.vrlog")
+        state.loadRecording(from: testURL)
+
+        // Wait for async task to complete
+        try await Task.sleep(nanoseconds: 100_000_000)  // 100ms
         XCTAssertFalse(state.isLive)
     }
 
@@ -220,7 +228,7 @@ import XCTest
         // No crash = success
 
         state.selectedTrackID = "track-001"
-        state.assignLabel("car")// Should print message (can't verify without capture)
+        state.assignLabel("car")  // Should print message (can't verify without capture)
     }
 }
 
