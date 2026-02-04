@@ -11,6 +11,7 @@ This guide covers common issues when building and running the macOS Visualiser.
 **Cause:** Swift Package dependencies not resolved.
 
 **Solution:**
+
 1. Open `VelocityVisualiser.xcodeproj` in Xcode
 2. Wait for package resolution (may take several minutes on first run)
 3. If packages don't resolve automatically:
@@ -25,6 +26,7 @@ This guide covers common issues when building and running the macOS Visualiser.
 **Cause:** Swift packages not properly cached.
 
 **Solution:**
+
 1. In Xcode: File → Packages → Reset Package Caches
 2. File → Packages → Resolve Package Versions
 3. Clean build folder (⇧⌘K)
@@ -37,6 +39,7 @@ This guide covers common issues when building and running the macOS Visualiser.
 **Cause:** Metal device not available or shader compilation failure.
 
 **Solution:**
+
 1. Ensure running on Apple Silicon or Intel Mac with Metal support
 2. Check Console.app for `MetalRenderer` error messages
 3. Try running from Xcode to see detailed crash logs
@@ -50,6 +53,7 @@ This guide covers common issues when building and running the macOS Visualiser.
 **Cause:** Go gRPC server not running or wrong address.
 
 **Solution:**
+
 1. Start the server:
    ```bash
    go run ./cmd/tools/visualiser-server -addr localhost:50051
@@ -64,6 +68,7 @@ This guide covers common issues when building and running the macOS Visualiser.
 **Cause:** Stream not started or request parameters not matching.
 
 **Solution:**
+
 1. Check server logs for "StreamFrames started" message
 2. Verify the app is requesting the correct sensor ID
 3. Try restarting both server and client
@@ -77,6 +82,7 @@ This guide covers common issues when building and running the macOS Visualiser.
 **Cause:** Points toggle disabled or point buffer empty.
 
 **Solution:**
+
 1. Ensure "P" toggle is enabled in the toolbar
 2. Check that server is sending `IncludePoints: true` in the stream
 3. Verify point count in stats display is non-zero
@@ -88,6 +94,7 @@ This guide covers common issues when building and running the macOS Visualiser.
 **Cause:** Trail segments being drawn as a single continuous line instead of separate trails.
 
 **Solution:** This was a bug fixed in the renderer. Ensure you're running the latest build:
+
 ```bash
 make build-mac
 ```
@@ -99,6 +106,7 @@ make build-mac
 **Cause:** Boxes toggle disabled or no tracks with bounding boxes.
 
 **Solution:**
+
 1. Ensure "B" toggle is enabled in the toolbar
 2. Check that server is sending tracks with `BBoxLength/Width/Height` values
 
@@ -111,6 +119,7 @@ make build-mac
 **Cause:** Too many points or inefficient rendering.
 
 **Solution:**
+
 1. Reduce point count on server: `--points 5000`
 2. Disable unused overlays (trails, velocity vectors)
 3. Check Activity Monitor for GPU/CPU bottlenecks
@@ -145,10 +154,10 @@ This generates both Go and Swift files. The Swift files are placed in:
 
 Required Swift Package dependencies:
 
-| Package | Version | Products |
-|---------|---------|----------|
-| grpc-swift | 2.0.0+ | GRPCCore, GRPCNIOTransportHTTP2, GRPCProtobuf |
-| swift-protobuf | 1.28.0+ | SwiftProtobuf |
+| Package        | Version | Products                                      |
+| -------------- | ------- | --------------------------------------------- |
+| grpc-swift     | 2.0.0+  | GRPCCore, GRPCNIOTransportHTTP2, GRPCProtobuf |
+| swift-protobuf | 1.28.0+ | SwiftProtobuf                                 |
 
 These should be automatically resolved by Xcode when opening the project.
 

@@ -421,20 +421,21 @@ The project uses a consistent naming scheme for all make targets: `<action>-<sub
 
 ### Core Subsystem Targets
 
-| Action             | Go                                          | Python            | Web            | Docs             | macOS                                   |
-| ------------------ | ------------------------------------------- | ----------------- | -------------- | ---------------- | --------------------------------------- |
-| **install**        | -                                           | `install-python`  | `install-web`  | `install-docs`   | -                                       |
-| **build**          | `build-radar-*`                             | -                 | `build-web`    | `build-docs`     | `build-mac`                             |
-| **dev**            | `dev-go`                                    | -                 | `dev-web`      | `dev-docs`       | `dev-mac`                               |
-| **dev (variant)**  | `dev-go-lidar`<br>`dev-go-kill-server`      | -                 | -              | -                | -                                       |
-| **run**            | -                                           | -                 | -              | -                | `run-mac`                               |
-| **test**           | `test-go`                                   | `test-python`     | `test-web`     | -                | `test-mac`                              |
-| **test (variant)** | `test-go-cov`<br>`test-go-coverage-summary` | `test-python-cov` | `test-web-cov` | -                | -                                       |
-| **format**         | `format-go`                                 | `format-python`   | `format-web`   | `format-markdown`| `format-mac`                            |
-| **lint**           | `lint-go`                                   | `lint-python`     | `lint-web`     | -                | -                                       |
-| **clean**          | -                                           | `clean-python`    | -              | -                | `clean-mac`                             |
+| Action             | Go                                          | Python            | Web            | Docs              | macOS        |
+| ------------------ | ------------------------------------------- | ----------------- | -------------- | ----------------- | ------------ |
+| **install**        | -                                           | `install-python`  | `install-web`  | `install-docs`    | -            |
+| **build**          | `build-radar-*`                             | -                 | `build-web`    | `build-docs`      | `build-mac`  |
+| **dev**            | `dev-go`                                    | -                 | `dev-web`      | `dev-docs`        | `dev-mac`    |
+| **dev (variant)**  | `dev-go-lidar`<br>`dev-go-kill-server`      | -                 | -              | -                 | -            |
+| **run**            | -                                           | -                 | -              | -                 | `run-mac`    |
+| **test**           | `test-go`                                   | `test-python`     | `test-web`     | -                 | `test-mac`   |
+| **test (variant)** | `test-go-cov`<br>`test-go-coverage-summary` | `test-python-cov` | `test-web-cov` | -                 | -            |
+| **format**         | `format-go`                                 | `format-python`   | `format-web`   | `format-markdown` | `format-mac` |
+| **lint**           | `lint-go`                                   | `lint-python`     | `lint-web`     | -                 | -            |
+| **clean**          | -                                           | `clean-python`    | -              | -                 | `clean-mac`  |
 
 **Cross-cutting formatting targets:**
+
 - `format-sql` - Format SQL files (migrations and schema)
 
 ### Aggregate Targets
@@ -551,28 +552,34 @@ The project uses a consistent naming scheme for all make targets: `<action>-<sub
 ### API Shortcut Targets (LiDAR HTTP API)
 
 **Grid endpoints:**
+
 - `api-grid-status` - Get grid status
 - `api-grid-reset` - Reset background grid
 - `api-grid-heatmap` - Get grid heatmap
 
 **Snapshot endpoints:**
+
 - `api-snapshot` - Get current snapshot
 - `api-snapshots` - List all snapshots
 
 **Acceptance endpoints:**
+
 - `api-acceptance` - Get acceptance metrics
 - `api-acceptance-reset` - Reset acceptance counters
 
 **Parameter endpoints:**
+
 - `api-params` - Get algorithm parameters
 - `api-params-set` - Set parameters (PARAMS='{}')
 
 **Persistence and export endpoints:**
+
 - `api-persist` - Trigger snapshot persistence
 - `api-export-snapshot` - Export specific snapshot
 - `api-export-next-frame` - Export next LiDAR frame
 
 **Status & data source endpoints:**
+
 - `api-status` - Get server status
 - `api-start-pcap` - Start PCAP replay (PCAP=file.pcap)
 - `api-stop-pcap` - Stop PCAP replay

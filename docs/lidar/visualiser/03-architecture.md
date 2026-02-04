@@ -195,24 +195,24 @@ proto/
 
 ### 3.1 Why gRPC for Point Cloud Streaming
 
-| Requirement               | gRPC Advantage                       |
-| ------------------------- | ------------------------------------ |
-| **Structured data**       | Native protobuf support              |
-| **Streaming**             | Built-in server-streaming RPC        |
-| **Type safety**           | Generated Swift + Go stubs           |
+| Requirement         | gRPC Advantage                |
+| ------------------- | ----------------------------- |
+| **Structured data** | Native protobuf support       |
+| **Streaming**       | Built-in server-streaming RPC |
+| **Type safety**     | Generated Swift + Go stubs    |
 
 ### 3.2 Why REST for Labeling and Metadata
 
-| Requirement               | REST Advantage                       |
-| ------------------------- | ------------------------------------ |
-| **Shared with web UI**    | Same API for macOS app and browser  |
-| **Persistent storage**    | Direct SQLite access from Go backend |
+| Requirement               | REST Advantage                            |
+| ------------------------- | ----------------------------------------- |
+| **Shared with web UI**    | Same API for macOS app and browser        |
+| **Persistent storage**    | Direct SQLite access from Go backend      |
 | **CRUD operations**       | Standard HTTP verbs (GET/POST/PUT/DELETE) |
-| **Simple caching**        | HTTP caching semantics               |
-| **Debugging**             | Easy to inspect with curl/Postman    |
-| **Bidirectional control** | Control RPCs for playback            |
-| **Performance**           | HTTP/2 multiplexing, binary encoding |
-| **Future-proof**          | Easy to extend to remote access      |
+| **Simple caching**        | HTTP caching semantics                    |
+| **Debugging**             | Easy to inspect with curl/Postman         |
+| **Bidirectional control** | Control RPCs for playback                 |
+| **Performance**           | HTTP/2 multiplexing, binary encoding      |
+| **Future-proof**          | Easy to extend to remote access           |
 
 ### 3.2 Alternatives Considered
 

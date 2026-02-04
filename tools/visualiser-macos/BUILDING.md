@@ -12,6 +12,7 @@ xcodebuild -project VelocityVisualiser.xcodeproj -scheme VelocityVisualiser -con
 ```
 
 The built app is located at:
+
 ```
 tools/visualiser-macos/build/Build/Products/Release/VelocityVisualiser.app
 ```
@@ -26,17 +27,18 @@ tools/visualiser-macos/build/Build/Products/Release/VelocityVisualiser.app
 
 The Xcode project includes these package dependencies which are resolved automatically:
 
-| Package | Version | Repository |
-|---------|---------|------------|
-| grpc-swift | 2.2.1+ | https://github.com/grpc/grpc-swift.git |
-| grpc-swift-nio-transport | 2.4.1+ | https://github.com/grpc/grpc-swift-nio-transport.git |
-| grpc-swift-protobuf | 2.1.2+ | https://github.com/grpc/grpc-swift-protobuf.git |
+| Package                  | Version | Repository                                           |
+| ------------------------ | ------- | ---------------------------------------------------- |
+| grpc-swift               | 2.2.1+  | https://github.com/grpc/grpc-swift.git               |
+| grpc-swift-nio-transport | 2.4.1+  | https://github.com/grpc/grpc-swift-nio-transport.git |
+| grpc-swift-protobuf      | 2.1.2+  | https://github.com/grpc/grpc-swift-protobuf.git      |
 
 ### First-Time Setup
 
 When opening the project for the first time, Xcode will fetch and build the Swift packages. This may take several minutes.
 
 If packages don't resolve automatically:
+
 1. File → Packages → Resolve Package Versions
 2. File → Packages → Reset Package Caches
 3. Clean build folder (⇧⌘K)
@@ -61,6 +63,7 @@ open tools/visualiser-macos/build/Build/Products/Release/VelocityVisualiser.app
 ### 3. Connect
 
 In the app:
+
 - The server address defaults to `localhost:50051`
 - Click "Connect" or press ⌘⇧C
 - You should see point clouds and tracks streaming at the configured rate
