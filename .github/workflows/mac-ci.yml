@@ -50,11 +50,10 @@ jobs:
 
       - name: Install grpc-swift plugin from source
         run: |
-          git clone https://github.com/grpc/grpc-swift.git /tmp/grpc-swift
+          git clone --depth 1 --branch 1.23.0 https://github.com/grpc/grpc-swift.git /tmp/grpc-swift
           cd /tmp/grpc-swift
-          make plugins
+          swift build -c release --product protoc-gen-grpc-swift
           sudo cp .build/release/protoc-gen-grpc-swift /usr/local/bin/
-          sudo cp .build/release/protoc-gen-swift /usr/local/bin/ || true
 
       - name: Generate protobuf stubs
         run: make proto-gen-swift
@@ -84,11 +83,10 @@ jobs:
 
       - name: Install grpc-swift plugin from source
         run: |
-          git clone https://github.com/grpc/grpc-swift.git /tmp/grpc-swift
+          git clone --depth 1 --branch 1.23.0 https://github.com/grpc/grpc-swift.git /tmp/grpc-swift
           cd /tmp/grpc-swift
-          make plugins
+          swift build -c release --product protoc-gen-grpc-swift
           sudo cp .build/release/protoc-gen-grpc-swift /usr/local/bin/
-          sudo cp .build/release/protoc-gen-swift /usr/local/bin/ || true
 
       - name: Generate protobuf stubs
         run: make proto-gen-swift
@@ -137,11 +135,10 @@ jobs:
 
       - name: Install grpc-swift plugin from source
         run: |
-          git clone https://github.com/grpc/grpc-swift.git /tmp/grpc-swift
+          git clone --depth 1 --branch 1.23.0 https://github.com/grpc/grpc-swift.git /tmp/grpc-swift
           cd /tmp/grpc-swift
-          make plugins
+          swift build -c release --product protoc-gen-grpc-swift
           sudo cp .build/release/protoc-gen-grpc-swift /usr/local/bin/
-          sudo cp .build/release/protoc-gen-swift /usr/local/bin/ || true
 
       - name: Generate protobuf stubs
         run: make proto-gen-swift
