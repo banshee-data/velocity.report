@@ -126,6 +126,7 @@ go run ./cmd/tools/replay-server -log /path/to/recording.vrlog
 ```
 
 **M1 Features (Milestone 1):**
+
 - ✅ Recorder/Replayer with deterministic playback
 - ✅ Pause/Play/Seek/Rate control via gRPC
 - ✅ Frame-by-frame navigation

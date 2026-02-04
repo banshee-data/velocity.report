@@ -333,7 +333,7 @@ All components share a common SQLite database as the single source of truth, wit
 
 **Command-Line Tools**:
 
-- `cmd/tools/visualiser-server` - Synthetic data generator  
+- `cmd/tools/visualiser-server` - Synthetic data generator
 - `cmd/tools/replay-server` - Replay recordings via gRPC
 
 **Communication**:
