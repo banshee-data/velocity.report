@@ -95,7 +95,13 @@ func (p *Publisher) Start() error {
 	log.Printf("[Visualiser] Successfully bound to %s", p.config.ListenAddr)
 	p.listener = lis
 
-	p.server = grpc.NewServer()
+	// Configure max message size for large point clouds (64k+ points).
+	// Default 4MB is insufficient; use 16MB to handle full-resolution frames.
+	const maxMsgSize = 16 * 1024 * 1024 // 16 MB
+	p.server = grpc.NewServer(
+		grpc.MaxRecvMsgSize(maxMsgSize),
+		grpc.MaxSendMsgSize(maxMsgSize),
+	)
 	// Service registration is done by caller via RegisterService method
 
 	p.running.Store(true)
