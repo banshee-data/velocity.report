@@ -3,6 +3,8 @@
 package visualiser
 
 import (
+	"log"
+	"sync/atomic"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
@@ -12,12 +14,18 @@ import (
 type FrameAdapter struct {
 	sensorID string
 	frameID  uint64
+
+	// Performance tracking
+	totalAdaptTimeNs atomic.Int64
+	frameCount       atomic.Uint64
+	lastLogTime      time.Time
 }
 
 // NewFrameAdapter creates a new FrameAdapter for the given sensor.
 func NewFrameAdapter(sensorID string) *FrameAdapter {
 	return &FrameAdapter{
-		sensorID: sensorID,
+		sensorID:    sensorID,
+		lastLogTime: time.Now(),
 	}
 }
 
@@ -28,6 +36,7 @@ func (a *FrameAdapter) AdaptFrame(
 	clusters []lidar.WorldCluster,
 	tracker *lidar.Tracker,
 ) interface{} {
+	startTime := time.Now()
 	a.frameID++
 
 	bundle := NewFrameBundle(a.frameID, a.sensorID, frame.StartTimestamp)
@@ -45,6 +54,28 @@ func (a *FrameAdapter) AdaptFrame(
 	// Adapt tracks
 	if tracker != nil {
 		bundle.Tracks = a.adaptTracks(tracker, frame.StartTimestamp)
+	}
+
+	// Track performance
+	adaptTime := time.Since(startTime)
+	a.totalAdaptTimeNs.Add(adaptTime.Nanoseconds())
+	count := a.frameCount.Add(1)
+
+	// Log stats every 100 frames
+	if count%100 == 0 {
+		avgAdaptMs := float64(a.totalAdaptTimeNs.Load()) / float64(count) / 1e6
+		pointCount := 0
+		if bundle.PointCloud != nil {
+			pointCount = bundle.PointCloud.PointCount
+		}
+		trackCount := 0
+		if bundle.Tracks != nil {
+			trackCount = len(bundle.Tracks.Tracks)
+		}
+		// Estimate memory size: ~16 bytes per point (4x float32) + overhead
+		estimatedSizeMB := float64(pointCount*16) / (1024 * 1024)
+		log.Printf("[Adapter] Stats: frames=%d avg_adapt_ms=%.3f last_frame: points=%d tracks=%d est_size_mb=%.2f",
+			count, avgAdaptMs, pointCount, trackCount, estimatedSizeMB)
 	}
 
 	return bundle

@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 // Ensure Server implements the gRPC interface.
@@ -113,21 +114,91 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 	s.publisher.clientsMu.Unlock()
 	s.publisher.clientCount.Add(1)
 
+	log.Printf("[gRPC] Client %s subscribed: points=%v clusters=%v tracks=%v",
+		clientID, req.IncludePoints, req.IncludeClusters, req.IncludeTracks)
+
 	defer func() {
 		s.publisher.removeClient(clientID)
 	}()
 
+	// Tracking for performance logging
+	var framesSent uint64
+	var totalSendTimeNs int64
+	var slowSends int
+	var droppedFrames int
+	lastLogTime := time.Now()
+	const logInterval = 5 * time.Second
+	const slowSendThresholdMs = 50 // Warn if Send() takes > 50ms
+
+	// Track message sizes for bandwidth estimation
+	var totalBytesSent int64
+
 	for {
 		select {
 		case <-ctx.Done():
+			log.Printf("[gRPC] Client %s disconnected: frames_sent=%d dropped=%d slow_sends=%d avg_send_time_ms=%.2f",
+				clientID, framesSent, droppedFrames, slowSends, float64(totalSendTimeNs)/float64(max(framesSent, 1))/1e6)
 			return ctx.Err()
 		case frame := <-frameCh:
+			// Measure serialisation and send time
+			sendStart := time.Now()
 			pbFrame := frameBundleToProto(frame, req)
+
+			// Measure serialised message size
+			msgSize := proto.Size(pbFrame)
+			totalBytesSent += int64(msgSize)
+
 			if err := stream.Send(pbFrame); err != nil {
+				log.Printf("[gRPC] Send error for client %s after %d frames: %v", clientID, framesSent, err)
 				return err
 			}
+			sendDuration := time.Since(sendStart)
+			totalSendTimeNs += sendDuration.Nanoseconds()
+			framesSent++
+
+			// Track slow sends with message size info
+			if sendDuration.Milliseconds() > slowSendThresholdMs {
+				slowSends++
+				log.Printf("[gRPC] SLOW SEND: client=%s frame=%d duration=%v points=%d msg_size_kb=%.1f",
+					clientID, frame.FrameID, sendDuration, getPointCount(frame), float64(msgSize)/1024)
+			}
+
+			// Periodic performance logging
+			if time.Since(lastLogTime) >= logInterval {
+				avgSendMs := float64(totalSendTimeNs) / float64(framesSent) / 1e6
+				fps := float64(framesSent) / time.Since(lastLogTime).Seconds()
+				queueDepth := len(frameCh)
+				bandwidthMbps := float64(totalBytesSent) * 8 / time.Since(lastLogTime).Seconds() / 1e6
+				avgMsgSizeKB := float64(totalBytesSent) / float64(max(framesSent, 1)) / 1024
+				log.Printf("[gRPC] Client %s stats: fps=%.1f frames=%d queue=%d/10 avg_send_ms=%.2f slow_sends=%d bandwidth_mbps=%.1f avg_msg_kb=%.1f",
+					clientID, fps, framesSent, queueDepth, avgSendMs, slowSends, bandwidthMbps, avgMsgSizeKB)
+
+				// Check for queue backup
+				if queueDepth > 5 {
+					log.Printf("[gRPC] WARNING: Client %s queue backing up: %d/10 frames buffered", clientID, queueDepth)
+				}
+
+				// Reset counters for next interval
+				framesSent = 0
+				totalSendTimeNs = 0
+				slowSends = 0
+				totalBytesSent = 0
+				lastLogTime = time.Now()
+			}
+		default:
+			// No frame available, check for queue backup periodically
+			// This non-blocking case helps us detect if the channel is consistently empty
+			time.Sleep(1 * time.Millisecond)
 		}
 	}
+}
+
+// getPointCount safely extracts point count from a frame bundle.
+func getPointCount(frame *FrameBundle) int {
+	if frame != nil && frame.PointCloud != nil {
+		return frame.PointCloud.PointCount
+	}
+	return 0
 }
 
 // frameBundleToProto converts internal FrameBundle to protobuf.

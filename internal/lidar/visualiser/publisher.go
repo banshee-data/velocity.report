@@ -13,6 +13,7 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"google.golang.org/grpc"
 )
@@ -54,8 +55,11 @@ type Publisher struct {
 	clientsMu sync.RWMutex
 
 	// Stats
-	frameCount  atomic.Uint64
-	clientCount atomic.Int32
+	frameCount    atomic.Uint64
+	clientCount   atomic.Int32
+	droppedFrames atomic.Uint64
+	lastStatsTime time.Time
+	lastStatsMu   sync.Mutex
 
 	// Lifecycle
 	running atomic.Bool
@@ -155,12 +159,59 @@ func (p *Publisher) Publish(frame interface{}) {
 		return
 	}
 
+	// Calculate frame size for diagnostics
+	pointCount := 0
+	if frameBundle.PointCloud != nil {
+		pointCount = frameBundle.PointCloud.PointCount
+	}
+	trackCount := 0
+	if frameBundle.Tracks != nil {
+		trackCount = len(frameBundle.Tracks.Tracks)
+	}
+	clusterCount := 0
+	if frameBundle.Clusters != nil {
+		clusterCount = len(frameBundle.Clusters.Clusters)
+	}
+
+	// Check channel depth before sending
+	queueDepth := len(p.frameChan)
+	if queueDepth > 50 {
+		log.Printf("[Visualiser] WARNING: Frame queue depth high: %d/100", queueDepth)
+	}
+
 	select {
 	case p.frameChan <- frameBundle:
-		p.frameCount.Add(1)
+		count := p.frameCount.Add(1)
+		// Log stats periodically (every 100 frames or 5 seconds)
+		p.logPeriodicStats(count, pointCount, trackCount, clusterCount, queueDepth)
 	default:
 		// Drop frame if channel is full
-		log.Printf("[Visualiser] Dropping frame %d, channel full", frameBundle.FrameID)
+		dropped := p.droppedFrames.Add(1)
+		log.Printf("[Visualiser] DROPPED frame %d (total dropped: %d), channel full, points=%d tracks=%d",
+			frameBundle.FrameID, dropped, pointCount, trackCount)
+	}
+}
+
+// logPeriodicStats logs performance stats every 5 seconds or 100 frames.
+func (p *Publisher) logPeriodicStats(frameCount uint64, pointCount, trackCount, clusterCount, queueDepth int) {
+	p.lastStatsMu.Lock()
+	defer p.lastStatsMu.Unlock()
+
+	now := time.Now()
+	if p.lastStatsTime.IsZero() {
+		p.lastStatsTime = now
+		return
+	}
+
+	elapsed := now.Sub(p.lastStatsTime)
+	if elapsed >= 5*time.Second {
+		fps := float64(frameCount) / elapsed.Seconds()
+		dropped := p.droppedFrames.Load()
+		clients := p.clientCount.Load()
+		log.Printf("[Visualiser] Stats: fps=%.1f frames=%d dropped=%d clients=%d queue=%d/100 last_frame: points=%d tracks=%d clusters=%d",
+			fps, frameCount, dropped, clients, queueDepth, pointCount, trackCount, clusterCount)
+		p.lastStatsTime = now
+		p.frameCount.Store(0) // Reset for next interval
 	}
 }
 
