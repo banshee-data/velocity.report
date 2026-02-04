@@ -32,6 +32,23 @@ struct ContentView: View {
                 SidePanelView().frame(width: 280)
             }
         }.frame(minWidth: 800, minHeight: 600)
+            // Keyboard shortcuts for playback
+            .onKeyPress(.space) {
+                appState.togglePlayPause()
+                return .handled
+            }.onKeyPress(",") {
+                appState.stepBackward()
+                return .handled
+            }.onKeyPress(".") {
+                appState.stepForward()
+                return .handled
+            }.onKeyPress("[") {
+                appState.decreaseRate()
+                return .handled
+            }.onKeyPress("]") {
+                appState.increaseRate()
+                return .handled
+            }
     }
 }
 
@@ -174,6 +191,15 @@ struct ToggleButton: View {
 
 // MARK: - Playback Controls
 
+/// Format playback rate for display: "0.5", "1", "2", "64" etc.
+private func formatRate(_ rate: Float) -> String {
+    if rate == Float(Int(rate)) {
+        return String(Int(rate))
+    } else {
+        return String(format: "%.1f", rate)
+    }
+}
+
 struct PlaybackControlsView: View {
     @EnvironmentObject var appState: AppState
 
@@ -199,6 +225,7 @@ struct PlaybackControlsView: View {
             // Timeline (replay mode)
             if !isLive {
                 Slider(value: $appState.replayProgress, in: 0...1) { editing in
+                    appState.setSliderEditing(editing)
                     if !editing { appState.seek(to: appState.replayProgress) }
                 }.frame(minWidth: 200)
             } else {
@@ -210,8 +237,12 @@ struct PlaybackControlsView: View {
                 Button(action: { appState.decreaseRate() }) { Image(systemName: "minus") }
                     .buttonStyle(.borderless).disabled(!isConnected || isLive)
 
-                Text(String(format: "%.2fx", playbackRate)).font(.caption).frame(width: 40)
-                    .foregroundColor(isLive ? .secondary : .primary)
+                // Rate display: number + clickable "x" to reset to 1x
+                HStack(spacing: 0) {
+                    Text(formatRate(playbackRate)).font(.caption).monospacedDigit()
+                    Button(action: { appState.resetRate() }) { Text("x").font(.caption) }
+                        .buttonStyle(.borderless).disabled(!isConnected || isLive)
+                }.frame(width: 45).foregroundColor(isLive ? .secondary : .primary)
 
                 Button(action: { appState.increaseRate() }) { Image(systemName: "plus") }
                     .buttonStyle(.borderless).disabled(!isConnected || isLive)
@@ -321,7 +352,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
     var onRendererCreated: ((MetalRenderer) -> Void)?
 
     func makeNSView(context: Context) -> MTKView {
-        let metalView = MTKView()
+        let metalView = InteractiveMetalView()
         metalView.preferredFramesPerSecond = 60
         metalView.enableSetNeedsDisplay = false
         metalView.isPaused = false
@@ -329,6 +360,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
         // Create renderer
         if let renderer = MetalRenderer(metalView: metalView) {
             context.coordinator.renderer = renderer
+            metalView.renderer = renderer
             // Register the renderer so it can receive frame updates directly
             onRendererCreated?(renderer)
         }
@@ -348,6 +380,71 @@ struct MetalViewRepresentable: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     class Coordinator { var renderer: MetalRenderer? }
+}
+
+// MARK: - Interactive Metal View
+
+/// Custom MTKView subclass that handles mouse and keyboard input for camera control.
+class InteractiveMetalView: MTKView {
+    weak var renderer: MetalRenderer?
+    private var lastMouseLocation = CGPoint.zero
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func becomeFirstResponder() -> Bool {
+        super.becomeFirstResponder()
+        return true
+    }
+
+    // MARK: - Mouse Events
+
+    override func mouseDown(with event: NSEvent) { lastMouseLocation = event.locationInWindow }
+
+    override func rightMouseDown(with event: NSEvent) { lastMouseLocation = event.locationInWindow }
+
+    override func mouseDragged(with event: NSEvent) {
+        let location = event.locationInWindow
+        let deltaX = location.x - lastMouseLocation.x
+        let deltaY = location.y - lastMouseLocation.y
+        lastMouseLocation = location
+
+        let shiftHeld = event.modifierFlags.contains(.shift)
+        renderer?.handleMouseDrag(
+            deltaX: deltaX, deltaY: deltaY, isRightButton: false, shiftHeld: shiftHeld)
+    }
+
+    override func rightMouseDragged(with event: NSEvent) {
+        let location = event.locationInWindow
+        let deltaX = location.x - lastMouseLocation.x
+        let deltaY = location.y - lastMouseLocation.y
+        lastMouseLocation = location
+
+        renderer?.handleMouseDrag(
+            deltaX: deltaX, deltaY: deltaY, isRightButton: true, shiftHeld: false)
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        // Trackpad: use scrollingDeltaY. Mouse wheel: use deltaY
+        let delta = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY / 10 : event.deltaY
+        renderer?.handleZoom(delta: delta)
+    }
+
+    override func magnify(with event: NSEvent) {
+        // Pinch gesture on trackpad
+        renderer?.handleZoom(delta: event.magnification * 10)
+    }
+
+    // MARK: - Keyboard Events
+
+    override func keyDown(with event: NSEvent) {
+        if let renderer = renderer,
+            renderer.handleKeyDown(keyCode: event.keyCode, modifiers: event.modifierFlags)
+        {
+            // Key was handled
+            return
+        }
+        super.keyDown(with: event)
+    }
 }
 
 // MARK: - Preview

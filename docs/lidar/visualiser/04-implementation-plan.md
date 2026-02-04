@@ -69,31 +69,31 @@ This document defines an incremental, API-first implementation plan with explici
 
 **Track A (Visualiser)**:
 
-- [ ] 3D camera controls: orbit (rotate), pan, zoom
-- [ ] Mouse/trackpad gesture support for camera
-- [ ] Keyboard shortcuts for camera reset
-- [ ] Playback controls: pause/play/seek/rate
-- [ ] Timeline scrubber with frame timestamps
-- [ ] Frame stepping (previous/next)
-- [ ] Playback rate adjustment (0.25x - 2x)
-- [ ] Display playback position in UI
+- [x] 3D camera controls: orbit (rotate), pan, zoom
+- [x] Mouse/trackpad gesture support for camera
+- [x] Keyboard shortcuts for camera reset
+- [x] Playback controls: pause/play/seek/rate
+- [x] Timeline scrubber with frame timestamps
+- [x] Frame stepping (previous/next)
+- [x] Playback rate adjustment (0.5x - 64x)
+- [x] Display playback position in UI
 
 **Track B (Pipeline)**:
 
-- [ ] `.vrlog` file format (header + index + chunks)
-- [ ] `Recorder` writes streamed frames to disk
-- [ ] `Replayer` reads log and streams via gRPC
-- [ ] Seek to timestamp or frame ID
-- [ ] Rate control (wallclock vs playback time)
-- [ ] Control RPCs: `Pause`, `Play`, `Seek`, `SetRate`
+- [x] `.vrlog` file format (header + index + chunks)
+- [x] `Recorder` writes streamed frames to disk
+- [x] `Replayer` reads log and streams via gRPC
+- [x] Seek to timestamp or frame ID
+- [x] Rate control (wallclock vs playback time)
+- [x] Control RPCs: `Pause`, `Play`, `Seek`, `SetRate`
 
 **Acceptance Criteria**:
 
-- [ ] Record 60 seconds of synthetic data
-- [ ] Replay produces identical frames (byte-for-byte)
-- [ ] Seek to arbitrary timestamp < 500ms
-- [ ] Playback at 0.5x and 2x works correctly
-- [ ] Pause/resume maintains correct position
+- [x] Record 60 seconds of synthetic data
+- [x] Replay produces identical frames (byte-for-byte)
+- [x] Seek to arbitrary timestamp < 500ms
+- [x] Playback at 0.5x and 2x works correctly
+- [x] Pause/resume maintains correct position
 
 **Estimated Dev-Days**: 8 (4 Track A + 4 Track B)
 

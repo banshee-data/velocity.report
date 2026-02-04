@@ -15,13 +15,14 @@ This document describes the system architecture, component relationships, data f
 
 ## System Overview
 
-**velocity.report** is a distributed system for neighborhood traffic monitoring with three main components:
+**velocity.report** is a distributed system for neighborhood traffic monitoring with four main components:
 
 1. **Go Server** - Real-time data collection and HTTP API
 2. **Python PDF Generator** - Professional report generation with LaTeX
 3. **Web Frontend** - Real-time visualisation (Svelte/TypeScript)
+4. **macOS Visualiser** - Native 3D LiDAR visualisation (Swift/Metal)
 
-All components share a common SQLite database as the single source of truth.
+All components share a common SQLite database as the single source of truth, with the macOS visualiser receiving real-time data via gRPC streaming.
 
 ### Design Principles
 
@@ -302,6 +303,45 @@ All components share a common SQLite database as the single source of truth.
 
 - **Input**: Go Server HTTP API (JSON)
 - **Output**: HTML/CSS/JS served to browser
+
+### macOS Visualiser (Swift/Metal)
+
+**Location**: `/tools/visualiser-macos/`
+
+**Purpose**: Real-time 3D visualisation of LiDAR point clouds, object tracking, and debug overlays for M1+ Macs
+
+**Technology Stack**:
+
+- Swift 5.9+ with SwiftUI (macOS 14+)
+- Metal for GPU-accelerated rendering
+- gRPC for streaming communication
+- XCTest for testing
+
+**M1 Features (Milestone 1 - Recorder/Replayer - 91.9% Go Coverage)**:
+
+- ✅ Deterministic replay of `.vrlog` recordings
+- ✅ Pause/Play/Seek/SetRate playback controls via gRPC
+- ✅ Frame-by-frame navigation and timeline scrubbing (0.5x - 64x)
+- ✅ 3D camera controls (orbit, pan, zoom)
+
+**Go Backend** (`internal/lidar/visualiser/`):
+
+- `replay.go` - ReplayServer for streaming `.vrlog` files
+- `recorder/` - Record/replay with deterministic frame sequences
+- `grpc_server.go` - Streaming RPCs and playback control
+- `synthetic.go` - Test data generator
+
+**Command-Line Tools**:
+
+- `cmd/tools/visualiser-server` - Multi-mode server (synthetic/replay/live)
+- `cmd/tools/gen-vrlog` - Generate sample recordings
+
+**Communication**:
+
+- **Input**: gRPC streaming (localhost:50051)
+- **Output**: User interactions, label annotations
+
+**See**: [tools/visualiser-macos/README.md](tools/visualiser-macos/README.md) and [docs/lidar/visualiser/](docs/lidar/visualiser/)
 
 ### Database Layer
 

@@ -131,10 +131,8 @@ struct ClusterTests {
         var cluster = Cluster()
         cluster.clusterID = 1
         cluster.obb = OrientedBoundingBox(
-            centerX: 10.0, centerY: 20.0, centerZ: 0.8,
-            length: 4.5, width: 1.8, height: 1.6,
-            headingRad: 0.0
-        )
+            centerX: 10.0, centerY: 20.0, centerZ: 0.8, length: 4.5, width: 1.8, height: 1.6,
+            headingRad: 0.0)
 
         #expect(cluster.obb != nil)
         #expect(cluster.obb?.length == 4.5)
@@ -306,6 +304,8 @@ struct PlaybackInfoTests {
         #expect(info.logEndNs == 0)
         #expect(info.playbackRate == 1.0)
         #expect(info.paused == false)
+        #expect(info.currentFrameIndex == 0)
+        #expect(info.totalFrames == 0)
     }
 
     @Test func replayMode() throws {
@@ -315,11 +315,15 @@ struct PlaybackInfoTests {
         info.logEndNs = 2_000_000_000
         info.playbackRate = 0.5
         info.paused = true
+        info.currentFrameIndex = 50
+        info.totalFrames = 500
 
         #expect(info.isLive == false)
         #expect(info.logEndNs - info.logStartNs == 1_000_000_000)
         #expect(info.playbackRate == 0.5)
         #expect(info.paused == true)
+        #expect(info.currentFrameIndex == 50)
+        #expect(info.totalFrames == 500)
     }
 }
 
@@ -430,7 +434,8 @@ struct TrackSetTests {
             Track(trackID: "track-002", state: .tentative),
         ]
         trackSet.trails = [
-            TrackTrail(trackID: "track-001", points: [TrackPoint(x: 10.0, y: 20.0, timestampNanos: 0)])
+            TrackTrail(
+                trackID: "track-001", points: [TrackPoint(x: 10.0, y: 20.0, timestampNanos: 0)])
         ]
 
         #expect(trackSet.tracks.count == 2)
@@ -512,57 +517,31 @@ struct FrameBundleIntegrationTests {
         bundle.sensorID = "hesai-01"
 
         bundle.coordinateFrame = CoordinateFrameInfo(
-            frameID: "site/hesai-01",
-            referenceFrame: "ENU",
-            originLat: 51.5074,
-            originLon: -0.1278,
-            originAlt: 10.0,
-            rotationDeg: 0.0
-        )
+            frameID: "site/hesai-01", referenceFrame: "ENU", originLat: 51.5074, originLon: -0.1278,
+            originAlt: 10.0, rotationDeg: 0.0)
 
         bundle.pointCloud = PointCloudFrame(
-            frameID: 42,
-            timestampNanos: 1_000_000_000,
-            sensorID: "hesai-01",
-            x: [1.0, 2.0, 3.0],
-            y: [4.0, 5.0, 6.0],
-            z: [0.1, 0.2, 0.3],
-            intensity: [100, 150, 200],
-            classification: [0, 1, 0],
-            decimationMode: .none,
-            decimationRatio: 1.0,
-            pointCount: 3
-        )
+            frameID: 42, timestampNanos: 1_000_000_000, sensorID: "hesai-01", x: [1.0, 2.0, 3.0],
+            y: [4.0, 5.0, 6.0], z: [0.1, 0.2, 0.3], intensity: [100, 150, 200],
+            classification: [0, 1, 0], decimationMode: .none, decimationRatio: 1.0, pointCount: 3)
 
         bundle.clusters = ClusterSet(
-            frameID: 42,
-            timestampNanos: 1_000_000_000,
-            clusters: [
-                Cluster(clusterID: 1, centroidX: 10.0, centroidY: 20.0, centroidZ: 0.8)
-            ],
-            method: .dbscan
-        )
+            frameID: 42, timestampNanos: 1_000_000_000,
+            clusters: [Cluster(clusterID: 1, centroidX: 10.0, centroidY: 20.0, centroidZ: 0.8)],
+            method: .dbscan)
 
         bundle.tracks = TrackSet(
-            frameID: 42,
-            timestampNanos: 1_000_000_000,
-            tracks: [
-                Track(trackID: "track-001", state: .confirmed, x: 10.0, y: 20.0)
-            ],
+            frameID: 42, timestampNanos: 1_000_000_000,
+            tracks: [Track(trackID: "track-001", state: .confirmed, x: 10.0, y: 20.0)],
             trails: [
                 TrackTrail(
                     trackID: "track-001",
                     points: [TrackPoint(x: 10.0, y: 20.0, timestampNanos: 1_000_000_000)])
-            ]
-        )
+            ])
 
         bundle.playbackInfo = PlaybackInfo(
-            isLive: true,
-            logStartNs: 0,
-            logEndNs: 0,
-            playbackRate: 1.0,
-            paused: false
-        )
+            isLive: true, logStartNs: 0, logEndNs: 0, playbackRate: 1.0, paused: false,
+            currentFrameIndex: 0, totalFrames: 0)
 
         #expect(bundle.frameID == 42)
         #expect(bundle.pointCloud?.pointCount == 3)

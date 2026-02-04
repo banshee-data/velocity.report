@@ -5,6 +5,7 @@
 [![Go Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=go&label=Go%20Coverage&logo=go)](https://codecov.io/gh/banshee-data/velocity.report?flag=go)
 [![Web Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=web&label=Web%20Coverage&logo=svelte)](https://codecov.io/gh/banshee-data/velocity.report?flag=web)
 [![Python Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=python&label=Python%20Coverage&logo=python)](https://codecov.io/gh/banshee-data/velocity.report?flag=python)
+[![macOS Visualiser Coverage](https://img.shields.io/badge/macOS_Visualiser-TBD-blue?logo=apple)](https://github.com/banshee-data/velocity.report/tree/main/tools/visualiser-macos)
 
 [![🧭 Go CI](https://github.com/banshee-data/velocity.report/actions/workflows/go-ci.yml/badge.svg?branch=main)](https://github.com/banshee-data/velocity.report/actions/workflows/go-ci.yml)
 [![🌐 Web CI](https://github.com/banshee-data/velocity.report/actions/workflows/web-ci.yml/badge.svg?branch=main)](https://github.com/banshee-data/velocity.report/actions/workflows/web-ci.yml)
@@ -53,11 +54,12 @@ Measure vehicle speeds, make streets safer.
 
 ## Overview
 
-**velocity.report** is a complete citizen radar system for neighborhood traffic monitoring. The system consists of three main components:
+**velocity.report** is a complete citizen radar system for neighborhood traffic monitoring. The system consists of four main components:
 
 - **Go Server** - High-performance data collection and API server
 - **Python PDF Generator** - Professional PDF report generation with LaTeX
 - **Web Frontend** - Real-time data visualisation (Svelte)
+- **macOS Visualiser** - Native 3D visualisation for LiDAR tracking (M1+ Macs)
 
 The system collects vehicle speed data from radar/LIDAR sensors, stores it in SQLite, and provides multiple ways to visualise and report on the data—all while maintaining complete privacy (no license plate recognition, no video recording).
 
@@ -101,6 +103,37 @@ make pdf-report CONFIG=config.json
 
 See **[web/README.md](web/README.md)** for detailed instructions.
 
+### For macOS Visualiser (LiDAR 3D Tracking)
+
+The macOS visualiser provides real-time 3D visualisation of LiDAR point clouds, object tracking, and debug overlays. **Requires macOS 14+ and Apple Silicon (M1/M2/M3) or Intel Mac with Metal support.**
+
+See **[tools/visualiser-macos/README.md](tools/visualiser-macos/README.md)** for detailed instructions.
+
+Quick version:
+
+```sh
+# Build the visualiser
+make build-mac
+
+# Start synthetic data server for testing
+go run ./cmd/tools/visualiser-server -rate 10 -points 5000
+
+# Launch the visualiser
+open tools/visualiser-macos/build/Build/Products/Release/VelocityVisualiser.app
+
+# Or replay recorded data
+go run ./cmd/tools/visualiser-server -mode replay -log /path/to/recording.vrlog
+```
+
+**M1 Features (Milestone 1):**
+
+- ✅ Recorder/Replayer with deterministic playback
+- ✅ Pause/Play/Seek/Rate control via gRPC
+- ✅ Frame-by-frame navigation
+- ✅ Timeline scrubbing
+- ✅ 3D camera controls (orbit, pan, zoom)
+- ✅ Mouse/trackpad gesture support
+
 ## Project Structure
 
 ```
@@ -109,13 +142,19 @@ velocity.report/
 │   ├── radar/                # Radar/LiDAR sensor integration
 │   ├── deploy/               # Deployment management tool
 │   ├── sweep/                # Parameter sweep utilities
-│   ├── tools/                # Go utility tools (pcap-analyse, etc.)
+│   ├── tools/                # Go utility tools
+│   │   ├── visualiser-server/ # Synthetic data generator and replay server
+│   │   ├── gen-vrlog/        # Generate sample .vrlog recordings
+│   │   ├── pcap-analyse/     # PCAP packet analysis
+│   │   └── ...               # Other utilities
 │   └── transit-backfill/     # Transit data backfill tool
 ├── internal/                 # Go server internals (private packages)
 │   ├── api/                  # HTTP API endpoints
 │   ├── db/                   # SQLite database layer + migrations
 │   ├── radar/                # Radar sensor logic
 │   ├── lidar/                # LiDAR sensor logic + tracking
+│   │   └── visualiser/       # gRPC streaming for 3D visualisation
+│   │       └── recorder/     # Record/replay .vrlog files
 │   ├── monitoring/           # System monitoring
 │   ├── security/             # Path validation and security
 │   ├── serialmux/            # Serial port multiplexing
@@ -124,13 +163,20 @@ velocity.report/
 ├── web/                      # Svelte web frontend
 │   ├── src/                  # Frontend source code
 │   └── static/               # Static assets
-├── tools/                    # Python tooling
-│   └── pdf-generator/        # PDF report generation
-│       ├── pdf_generator/    # Python package
-│       │   ├── cli/          # CLI tools
-│       │   ├── core/         # Core modules
-│       │   └── tests/        # Test suite
-│       └── output/           # Generated PDFs
+├── tools/                    # Python tooling and native apps
+│   ├── pdf-generator/        # PDF report generation (Python)
+│   │   ├── pdf_generator/    # Python package
+│   │   │   ├── cli/          # CLI tools
+│   │   │   ├── core/         # Core modules
+│   │   │   └── tests/        # Test suite
+│   │   └── output/           # Generated PDFs
+│   └── visualiser-macos/     # macOS LiDAR visualiser (Swift/Metal)
+│       ├── VelocityVisualiser/       # SwiftUI app
+│       │   ├── App/          # Application entry
+│       │   ├── gRPC/         # gRPC client
+│       │   ├── Rendering/    # Metal renderer
+│       │   └── UI/           # SwiftUI views
+│       └── VelocityVisualiserTests/  # XCTest suite
 ├── data/                     # Sample data and alignment utilities
 ├── docs/                     # Internal project documentation
 ├── public_html/              # Public documentation site (Eleventy)

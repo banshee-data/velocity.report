@@ -44,6 +44,16 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
     var camera = Camera()
 
+    // Camera control state
+    private var isDragging = false
+    private var lastMouseLocation = CGPoint.zero
+    private var cameraModifier: CameraModifier = .orbit
+
+    enum CameraModifier {
+        case orbit  // Rotate around target
+        case pan  // Move parallel to view
+    }
+
     // MARK: - Frame Data
 
     var pointBuffer: MTLBuffer?
@@ -361,6 +371,111 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         encoder.endEncoding()
         commandBuffer.present(drawable)
         commandBuffer.commit()
+    }
+
+    // MARK: - Camera Controls
+
+    /// Handle mouse/trackpad drag for camera orbit or pan.
+    func handleMouseDrag(deltaX: CGFloat, deltaY: CGFloat, isRightButton: Bool, shiftHeld: Bool) {
+        if isRightButton || shiftHeld {
+            // Pan: move camera and target together
+            let sensitivity: Float = 0.05
+            let right = normalize(cross(camera.up, camera.position - camera.target))
+            let up = camera.up
+
+            let offset = right * Float(-deltaX) * sensitivity + up * Float(deltaY) * sensitivity
+            camera.position += offset
+            camera.target += offset
+        } else {
+            // Orbit: rotate around target
+            let sensitivity: Float = 0.005
+
+            // Horizontal rotation (azimuth) around up axis
+            let azimuthDelta = Float(-deltaX) * sensitivity
+
+            // Vertical rotation (elevation)
+            let elevationDelta = Float(-deltaY) * sensitivity
+
+            // Get current camera offset from target
+            var offset = camera.position - camera.target
+            let distance = length(offset)
+
+            // Convert to spherical coordinates
+            let currentElevation = asin(offset.z / distance)
+            let currentAzimuth = atan2(offset.y, offset.x)
+
+            // Apply deltas
+            let newAzimuth = currentAzimuth + azimuthDelta
+            let newElevation = max(
+                -.pi / 2 + 0.1, min(.pi / 2 - 0.1, currentElevation + elevationDelta))
+
+            // Convert back to cartesian
+            offset = simd_float3(
+                distance * cos(newElevation) * cos(newAzimuth),
+                distance * cos(newElevation) * sin(newAzimuth), distance * sin(newElevation))
+
+            camera.position = camera.target + offset
+        }
+    }
+
+    /// Handle scroll wheel or pinch for zoom.
+    func handleZoom(delta: CGFloat) {
+        let sensitivity: Float = 0.1
+        let zoomFactor = 1.0 - Float(delta) * sensitivity
+
+        // Move camera toward/away from target
+        var offset = camera.position - camera.target
+        let newDistance = max(1.0, min(500.0, length(offset) * zoomFactor))
+        offset = normalize(offset) * newDistance
+        camera.position = camera.target + offset
+    }
+
+    /// Reset camera to default view.
+    func resetCamera() {
+        camera.position = simd_float3(0, -30, 20)
+        camera.target = simd_float3(0, 10, 0)
+        camera.up = simd_float3(0, 0, 1)
+    }
+
+    /// Handle keyboard input for camera control.
+    /// Returns true if the key was handled.
+    func handleKeyDown(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) -> Bool {
+        let moveStep: Float = 2.0
+        let right = normalize(cross(camera.up, camera.position - camera.target))
+        let forward = normalize(camera.target - camera.position)
+
+        switch keyCode {
+        case 15:  // R - Reset camera
+            resetCamera()
+            return true
+        case 123:  // Left arrow - pan left
+            let offset = right * moveStep
+            camera.position += offset
+            camera.target += offset
+            return true
+        case 124:  // Right arrow - pan right
+            let offset = right * -moveStep
+            camera.position += offset
+            camera.target += offset
+            return true
+        case 125:  // Down arrow - pan backward
+            let offset = forward * -moveStep
+            camera.position += offset
+            camera.target += offset
+            return true
+        case 126:  // Up arrow - pan forward
+            let offset = forward * moveStep
+            camera.position += offset
+            camera.target += offset
+            return true
+        case 24:  // + (equals key) - zoom in
+            handleZoom(delta: 1.0)
+            return true
+        case 27:  // - (minus key) - zoom out
+            handleZoom(delta: -1.0)
+            return true
+        default: return false
+        }
     }
 }
 

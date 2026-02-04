@@ -408,13 +408,15 @@ func (r *Replayer) ReadFrame() (*visualiser.FrameBundle, error) {
 		return nil, fmt.Errorf("failed to deserialize frame: %w", err)
 	}
 
-	// Add playback info
+	// Add playback info with current frame index (before incrementing)
 	frame.PlaybackInfo = &visualiser.PlaybackInfo{
-		IsLive:       false,
-		LogStartNs:   r.header.StartNs,
-		LogEndNs:     r.header.EndNs,
-		PlaybackRate: r.rate,
-		Paused:       r.paused,
+		IsLive:            false,
+		LogStartNs:        r.header.StartNs,
+		LogEndNs:          r.header.EndNs,
+		PlaybackRate:      r.rate,
+		Paused:            r.paused,
+		CurrentFrameIndex: r.currentFrame,
+		TotalFrames:       uint64(len(r.index)),
 	}
 
 	r.currentFrame++

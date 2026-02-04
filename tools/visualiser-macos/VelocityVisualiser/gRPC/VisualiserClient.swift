@@ -18,6 +18,7 @@ protocol VisualiserClientDelegate: AnyObject {
     func clientDidConnect(_ client: VisualiserClient)
     func clientDidDisconnect(_ client: VisualiserClient, error: Error?)
     func client(_ client: VisualiserClient, didReceiveFrame frame: FrameBundle)
+    func clientDidFinishStream(_ client: VisualiserClient)  // Called when replay stream ends (EOF)
 }
 
 /// Error types for the visualiser client.
@@ -152,6 +153,14 @@ enum VisualiserClientError: Error, LocalizedError {
         print("[VisualiserClient] Disconnected")
     }
 
+    /// Restart the frame stream (used after seek when replay has finished).
+    func restartStream() {
+        guard isConnected else { return }
+        print("[VisualiserClient] Restarting stream...")
+        _streamTask.value?.cancel()
+        startStreamingTask()
+    }
+
     // MARK: - Streaming
 
     private func startStreamingTask() {
@@ -223,6 +232,12 @@ enum VisualiserClientError: Error, LocalizedError {
                         }
                     }
                     print("[VisualiserClient] Stream ended after \(frameCount) frames")
+
+                    // Notify delegate that stream finished (replay complete)
+                    await MainActor.run {
+                        guard let strongSelf = self else { return }
+                        strongSelf.delegate?.clientDidFinishStream(strongSelf)
+                    }
 
                 case .failure(let error):
                     print("[VisualiserClient] ❌ Stream rejected: \(error)")
@@ -471,7 +486,9 @@ final class LockedState<Value>: @unchecked Sendable {
             frame.playbackInfo = PlaybackInfo(
                 isLive: proto.playbackInfo.isLive, logStartNs: proto.playbackInfo.logStartNs,
                 logEndNs: proto.playbackInfo.logEndNs,
-                playbackRate: proto.playbackInfo.playbackRate, paused: proto.playbackInfo.paused)
+                playbackRate: proto.playbackInfo.playbackRate, paused: proto.playbackInfo.paused,
+                currentFrameIndex: proto.playbackInfo.currentFrameIndex,
+                totalFrames: proto.playbackInfo.totalFrames)
         }
 
         return frame

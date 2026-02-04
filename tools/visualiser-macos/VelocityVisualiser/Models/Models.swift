@@ -257,6 +257,8 @@ struct PlaybackInfo {
     var logEndNs: Int64 = 0
     var playbackRate: Float = 1.0
     var paused: Bool = false
+    var currentFrameIndex: UInt64 = 0  // 0-based index in log
+    var totalFrames: UInt64 = 0
 }
 
 // MARK: - Labels

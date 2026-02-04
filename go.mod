@@ -1,6 +1,6 @@
 module github.com/banshee-data/velocity.report
 
-go 1.25.5
+go 1.25.6
 
 require (
 	github.com/go-echarts/go-echarts/v2 v2.6.7
@@ -13,6 +13,7 @@ require (
 	gonum.org/v1/gonum v0.17.0
 	gonum.org/v1/plot v0.16.0
 	google.golang.org/grpc v1.78.0
+	google.golang.org/protobuf v1.36.11
 	modernc.org/sqlite v1.44.3
 	tailscale.com v1.95.0-pre
 )
@@ -47,7 +48,6 @@ require (
 	golang.org/x/sys v0.40.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251222181119-0a764e51fe1b // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
 	modernc.org/libc v1.67.6 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect

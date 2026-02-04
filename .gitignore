@@ -126,6 +126,9 @@ tools/visualiser-macos/.swiftpm/
 tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/*.swift
 tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/*.swift.disabled
 
+*.vrlog
+
+
 # =============================================================================
 # Data Directories
 # =============================================================================

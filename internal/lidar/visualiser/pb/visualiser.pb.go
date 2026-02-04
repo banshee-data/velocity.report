@@ -1862,14 +1862,16 @@ func (x *LabelSet) GetLabels() []*LabelEvent {
 }
 
 type PlaybackInfo struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	IsLive        bool                   `protobuf:"varint,1,opt,name=is_live,json=isLive,proto3" json:"is_live,omitempty"`                    // true if live, false if replay
-	LogStartNs    int64                  `protobuf:"varint,2,opt,name=log_start_ns,json=logStartNs,proto3" json:"log_start_ns,omitempty"`      // first frame timestamp in log
-	LogEndNs      int64                  `protobuf:"varint,3,opt,name=log_end_ns,json=logEndNs,proto3" json:"log_end_ns,omitempty"`            // last frame timestamp in log
-	PlaybackRate  float32                `protobuf:"fixed32,4,opt,name=playback_rate,json=playbackRate,proto3" json:"playback_rate,omitempty"` // 1.0 = real-time
-	Paused        bool                   `protobuf:"varint,5,opt,name=paused,proto3" json:"paused,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	IsLive            bool                   `protobuf:"varint,1,opt,name=is_live,json=isLive,proto3" json:"is_live,omitempty"`                    // true if live, false if replay
+	LogStartNs        int64                  `protobuf:"varint,2,opt,name=log_start_ns,json=logStartNs,proto3" json:"log_start_ns,omitempty"`      // first frame timestamp in log
+	LogEndNs          int64                  `protobuf:"varint,3,opt,name=log_end_ns,json=logEndNs,proto3" json:"log_end_ns,omitempty"`            // last frame timestamp in log
+	PlaybackRate      float32                `protobuf:"fixed32,4,opt,name=playback_rate,json=playbackRate,proto3" json:"playback_rate,omitempty"` // 1.0 = real-time
+	Paused            bool                   `protobuf:"varint,5,opt,name=paused,proto3" json:"paused,omitempty"`
+	CurrentFrameIndex uint64                 `protobuf:"varint,6,opt,name=current_frame_index,json=currentFrameIndex,proto3" json:"current_frame_index,omitempty"` // current position in log (0-based)
+	TotalFrames       uint64                 `protobuf:"varint,7,opt,name=total_frames,json=totalFrames,proto3" json:"total_frames,omitempty"`                     // total frames in log
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *PlaybackInfo) Reset() {
@@ -1935,6 +1937,20 @@ func (x *PlaybackInfo) GetPaused() bool {
 		return x.Paused
 	}
 	return false
+}
+
+func (x *PlaybackInfo) GetCurrentFrameIndex() uint64 {
+	if x != nil {
+		return x.CurrentFrameIndex
+	}
+	return 0
+}
+
+func (x *PlaybackInfo) GetTotalFrames() uint64 {
+	if x != nil {
+		return x.TotalFrames
+	}
+	return 0
 }
 
 type FrameBundle struct {
@@ -2959,7 +2975,7 @@ const file_visualiser_proto_rawDesc = "" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x1f\n" +
 	"\vsource_file\x18\x02 \x01(\tR\n" +
 	"sourceFile\x12:\n" +
-	"\x06labels\x18\x03 \x03(\v2\".velocity.visualiser.v1.LabelEventR\x06labels\"\xa4\x01\n" +
+	"\x06labels\x18\x03 \x03(\v2\".velocity.visualiser.v1.LabelEventR\x06labels\"\xf7\x01\n" +
 	"\fPlaybackInfo\x12\x17\n" +
 	"\ais_live\x18\x01 \x01(\bR\x06isLive\x12 \n" +
 	"\flog_start_ns\x18\x02 \x01(\x03R\n" +
@@ -2967,7 +2983,9 @@ const file_visualiser_proto_rawDesc = "" +
 	"\n" +
 	"log_end_ns\x18\x03 \x01(\x03R\blogEndNs\x12#\n" +
 	"\rplayback_rate\x18\x04 \x01(\x02R\fplaybackRate\x12\x16\n" +
-	"\x06paused\x18\x05 \x01(\bR\x06paused\"\x8e\x04\n" +
+	"\x06paused\x18\x05 \x01(\bR\x06paused\x12.\n" +
+	"\x13current_frame_index\x18\x06 \x01(\x04R\x11currentFrameIndex\x12!\n" +
+	"\ftotal_frames\x18\a \x01(\x04R\vtotalFrames\"\x8e\x04\n" +
 	"\vFrameBundle\x12\x19\n" +
 	"\bframe_id\x18\x01 \x01(\x04R\aframeId\x12!\n" +
 	"\ftimestamp_ns\x18\x02 \x01(\x03R\vtimestampNs\x12\x1b\n" +
