@@ -2,7 +2,6 @@
 package visualiser
 
 import (
-	"context"
 	"sync"
 	"testing"
 	"time"
@@ -370,7 +369,7 @@ func TestPublisherStats_Fields(t *testing.T) {
 	}
 }
 
-func TestPublisher_StreamFrames_Cancellation(t *testing.T) {
+func TestServer_SyntheticMode(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.ListenAddr = "localhost:0"
 	pub := NewPublisher(cfg)
@@ -380,14 +379,33 @@ func TestPublisher_StreamFrames_Cancellation(t *testing.T) {
 	}
 	defer pub.Stop()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-	defer cancel()
+	server := NewServer(pub)
 
-	req := &StreamRequest{SensorID: "test"}
+	// Initially not in synthetic mode
+	if server.SyntheticGenerator() != nil {
+		t.Error("expected nil generator before synthetic mode enabled")
+	}
 
-	// StreamFrames should return when context is cancelled
-	err := pub.StreamFrames(ctx, req)
-	if err != context.DeadlineExceeded {
-		t.Errorf("expected DeadlineExceeded, got %v", err)
+	// Enable synthetic mode
+	server.EnableSyntheticMode("test-sensor")
+
+	gen := server.SyntheticGenerator()
+	if gen == nil {
+		t.Fatal("expected non-nil generator after synthetic mode enabled")
+	}
+
+	// Configure and generate a frame
+	gen.PointCount = 100
+	gen.TrackCount = 3
+	frame := gen.NextFrame()
+
+	if frame == nil {
+		t.Fatal("expected non-nil frame")
+	}
+	if frame.PointCloud == nil {
+		t.Error("expected non-nil point cloud")
+	}
+	if frame.Tracks == nil {
+		t.Error("expected non-nil tracks")
 	}
 }

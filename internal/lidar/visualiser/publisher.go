@@ -8,13 +8,11 @@
 package visualiser
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"google.golang.org/grpc"
 )
@@ -89,15 +87,16 @@ func (p *Publisher) Start() error {
 		return fmt.Errorf("publisher already running")
 	}
 
+	log.Printf("[Visualiser] Attempting to bind to %s...", p.config.ListenAddr)
 	lis, err := net.Listen("tcp", p.config.ListenAddr)
 	if err != nil {
 		return fmt.Errorf("failed to listen: %w", err)
 	}
+	log.Printf("[Visualiser] Successfully bound to %s", p.config.ListenAddr)
 	p.listener = lis
 
 	p.server = grpc.NewServer()
-	// TODO: Register VisualiserService when proto is generated
-	// pb.RegisterVisualiserServiceServer(p.server, p)
+	// Service registration is done by caller via RegisterService method
 
 	p.running.Store(true)
 
@@ -110,6 +109,7 @@ func (p *Publisher) Start() error {
 	go func() {
 		defer p.wg.Done()
 		log.Printf("[Visualiser] gRPC server listening on %s", p.config.ListenAddr)
+		log.Printf("[Visualiser] Waiting for client connections...")
 		if err := p.server.Serve(lis); err != nil && p.running.Load() {
 			log.Printf("[Visualiser] gRPC server error: %v", err)
 		}
@@ -234,22 +234,7 @@ type StreamRequest struct {
 	DecimationRatio float32
 }
 
-// StreamFrames implements the VisualiserService.StreamFrames RPC.
-// TODO: Implement when proto is generated
-func (p *Publisher) StreamFrames(ctx context.Context, req *StreamRequest) error {
-	clientID := fmt.Sprintf("client-%d", time.Now().UnixNano())
-	client := p.addClient(clientID, req)
-	defer p.removeClient(clientID)
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-p.stopCh:
-			return nil
-		case frame := <-client.frameCh:
-			// TODO: Send frame via gRPC stream
-			_ = frame
-		}
-	}
+// GRPCServer returns the underlying gRPC server for service registration.
+func (p *Publisher) GRPCServer() *grpc.Server {
+	return p.server
 }

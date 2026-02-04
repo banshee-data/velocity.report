@@ -1,0 +1,176 @@
+name: 🍎 macOS CI
+
+on:
+  # Run on PRs when Swift files or visualiser changes
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "tools/visualiser-macos/**"
+      - "proto/velocity_visualiser/**"
+      - ".github/workflows/mac-ci.yml"
+  # Run on push to main to update coverage badges
+  push:
+    branches:
+      - main
+    paths:
+      - "tools/visualiser-macos/**"
+      - "proto/velocity_visualiser/**"
+      - ".github/workflows/mac-ci.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  setup:
+    name: "⚙️ Setup"
+    runs-on: macos-15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cache grpc-swift plugin
+        id: cache-grpc-swift
+        uses: actions/cache@v4
+        with:
+          path: /tmp/protoc-gen-grpc-swift
+          key: grpc-swift-protobuf-2.0.0-macos-15
+
+      - name: Build grpc-swift plugin from source
+        if: steps.cache-grpc-swift.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch 2.0.0 https://github.com/grpc/grpc-swift-protobuf.git /tmp/grpc-swift-protobuf
+          cd /tmp/grpc-swift-protobuf
+          swift build -c release --product protoc-gen-grpc-swift-2
+          cp .build/release/protoc-gen-grpc-swift-2 /tmp/protoc-gen-grpc-swift
+
+      - name: Upload grpc-swift plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: protoc-gen-grpc-swift-2
+          path: /tmp/protoc-gen-grpc-swift
+          retention-days: 1
+
+      - name: Install protobuf tools
+        run: brew install protobuf swift-protobuf
+
+      - name: Install grpc-swift plugin
+        run: sudo cp /tmp/protoc-gen-grpc-swift /usr/local/bin/protoc-gen-grpc-swift-2
+
+      - name: Generate protobuf stubs
+        run: make proto-gen-swift
+
+      - name: Upload generated protos
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-protos
+          path: tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/
+          retention-days: 1
+
+  format:
+    name: "🔍 Format Check"
+    runs-on: macos-15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install swift-format
+        run: brew install swift-format
+
+      - name: Check Swift formatting
+        run: |
+          cd tools/visualiser-macos
+          swift-format lint --recursive Sources/ VelocityVisualiserTests/
+
+  build:
+    name: "🔨 Build"
+    runs-on: macos-15
+    needs: setup
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download generated protos
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-protos
+          path: tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/
+
+      - name: Build macOS visualiser
+        run: |
+          cd tools/visualiser-macos
+          xcodebuild clean build \
+            -scheme VelocityVisualiser \
+            -destination 'platform=macOS' \
+            -configuration Debug \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+  test:
+    name: "🧪 Test"
+    runs-on: macos-15
+    needs: setup
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download generated protos
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-protos
+          path: tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/
+
+      - name: Run tests with coverage
+        run: |
+          cd tools/visualiser-macos
+          xcodebuild test \
+            -scheme VelocityVisualiser \
+            -destination 'platform=macOS' \
+            -enableCodeCoverage YES \
+            -resultBundlePath TestResults.xcresult \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Extract coverage report
+        run: |
+          cd tools/visualiser-macos
+          xcrun xccov view --report --json TestResults.xcresult > coverage.json
+
+      - name: Convert coverage to Codecov format
+        run: |
+          python3 scripts/xcode-coverage-to-lcov.py \
+            tools/visualiser-macos/coverage.json \
+            > tools/visualiser-macos/coverage.info
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./tools/visualiser-macos/coverage.info
+          flags: mac
+          name: mac-coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  lint:
+    name: "🔍 Lint"
+    runs-on: macos-15
+    needs: setup
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download generated protos
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-protos
+          path: tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/
+
+      - name: Lint with SwiftLint (if configured)
+        run: |
+          if command -v swiftlint >/dev/null 2>&1; then
+            cd tools/visualiser-macos
+            swiftlint lint --strict
+          else
+            echo "SwiftLint not installed, skipping"
+          fi

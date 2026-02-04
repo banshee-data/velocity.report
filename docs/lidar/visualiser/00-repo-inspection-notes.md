@@ -197,14 +197,14 @@ Foreground []PointPolar
 
 ## 9. API Endpoints (To Be Added)
 
-| Endpoint                            | Purpose               |
-| ----------------------------------- | --------------------- |
-| `POST /api/lidar/labels`            | Create label          |
-| `GET /api/lidar/labels`             | List labels           |
-| `GET /api/lidar/labels/:id`         | Get label by ID       |
-| `PUT /api/lidar/labels/:id`         | Update label          |
-| `DELETE /api/lidar/labels/:id`      | Delete label          |
-| `GET /api/lidar/labels/export`      | Export labels as JSON |
+| Endpoint                       | Purpose               |
+| ------------------------------ | --------------------- |
+| `POST /api/lidar/labels`       | Create label          |
+| `GET /api/lidar/labels`        | List labels           |
+| `GET /api/lidar/labels/:id`    | Get label by ID       |
+| `PUT /api/lidar/labels/:id`    | Update label          |
+| `DELETE /api/lidar/labels/:id` | Delete label          |
+| `GET /api/lidar/labels/export` | Export labels as JSON |
 
 ---
 
@@ -218,6 +218,7 @@ The existing pipeline is well-structured with clear separation:
 4. **Output** → LidarView forwarding + REST API + SQLite persistence
 
 The visualiser integration uses two transport channels:
+
 - **gRPC** (port 50051): Point cloud streaming for real-time rendering
 - **REST API** (port 8080): Label CRUD operations, shared with web UI
 

@@ -96,12 +96,12 @@ struct BoxVertexOut {
 vertex BoxVertexOut boxVertex(
     uint vid [[vertex_id]],
     uint iid [[instance_id]],
-    constant float3 *boxVerts [[buffer(0)]],
+    constant packed_float3 *boxVerts [[buffer(0)]],
     constant BoxInstance *instances [[buffer(1)]],
     constant Uniforms &uniforms [[buffer(2)]]
 ) {
     BoxInstance inst = instances[iid];
-    float3 localPos = boxVerts[vid];
+    float3 localPos = float3(boxVerts[vid]);
 
     // Transform to world space
     float4 worldPos = inst.transform * float4(localPos, 1.0);

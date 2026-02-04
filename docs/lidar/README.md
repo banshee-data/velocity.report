@@ -75,16 +75,16 @@ Tracking pipeline refactor and upgrade proposals.
 
 ## Quick Links
 
-| Topic                   | Document                                                                                               |
-| ----------------------- | ------------------------------------------------------------------------------------------------------ |
-| System overview         | [architecture/lidar_sidecar_overview.md](architecture/lidar_sidecar_overview.md)                       |
-| Tracking implementation | [architecture/foreground_tracking_plan.md](architecture/foreground_tracking_plan.md)                   |
-| Current status          | [operations/lidar-foreground-tracking-status.md](operations/lidar-foreground-tracking-status.md)       |
-| ML pipeline             | [roadmap/ml_pipeline_roadmap.md](roadmap/ml_pipeline_roadmap.md)                                       |
-| Packet format           | [reference/packet_analysis_results.md](reference/packet_analysis_results.md)                           |
-| **macOS Visualiser**    | [visualiser/01-problem-and-user-workflows.md](visualiser/01-problem-and-user-workflows.md) |
-| **API Contracts**       | [visualiser/02-api-contracts.md](visualiser/02-api-contracts.md)                           |
-| **Tracking Upgrades**   | [refactor/01-tracking-upgrades.md](refactor/01-tracking-upgrades.md)                                   |
+| Topic                   | Document                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------ |
+| System overview         | [architecture/lidar_sidecar_overview.md](architecture/lidar_sidecar_overview.md)                 |
+| Tracking implementation | [architecture/foreground_tracking_plan.md](architecture/foreground_tracking_plan.md)             |
+| Current status          | [operations/lidar-foreground-tracking-status.md](operations/lidar-foreground-tracking-status.md) |
+| ML pipeline             | [roadmap/ml_pipeline_roadmap.md](roadmap/ml_pipeline_roadmap.md)                                 |
+| Packet format           | [reference/packet_analysis_results.md](reference/packet_analysis_results.md)                     |
+| **macOS Visualiser**    | [visualiser/01-problem-and-user-workflows.md](visualiser/01-problem-and-user-workflows.md)       |
+| **API Contracts**       | [visualiser/02-api-contracts.md](visualiser/02-api-contracts.md)                                 |
+| **Tracking Upgrades**   | [refactor/01-tracking-upgrades.md](refactor/01-tracking-upgrades.md)                             |
 
 ## Implementation Status
 

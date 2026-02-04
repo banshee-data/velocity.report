@@ -22,6 +22,8 @@ help:
 	@echo "  build-docs           Build documentation site (Eleventy)"
 	@echo "  build-mac            Build macOS LiDAR visualiser (Xcode)"
 	@echo "  clean-mac            Clean macOS visualiser build artifacts"
+	@echo "  run-mac              Run macOS visualiser (requires build-mac)"
+	@echo "  dev-mac              Kill, build, and run macOS visualiser"
 	@echo ""
 	@echo "PROTOBUF CODE GENERATION:"
 	@echo "  proto-gen            Generate protobuf stubs for all languages"
@@ -52,6 +54,7 @@ help:
 	@echo "  test-web             Run web tests (Jest)"
 	@echo "  test-web-cov         Run web tests with coverage"
 	@echo "  test-mac             Run macOS visualiser tests (XCTest)"
+	@echo "  test-mac-cov         Run macOS tests with coverage"
 	@echo "  coverage             Generate coverage reports for all components"
 	@echo ""
 	@echo "DATABASE MIGRATIONS:"
@@ -199,8 +202,10 @@ build-docs:
 # Build macOS LiDAR visualiser (requires macOS and Xcode)
 VISUALISER_DIR = tools/visualiser-macos
 VISUALISER_BUILD_DIR = $(VISUALISER_DIR)/build
+VISUALISER_APP = $(VISUALISER_BUILD_DIR)/Build/Products/Release/VelocityVisualiser.app
+VISUALISER_BIN = $(VISUALISER_APP)/Contents/MacOS/VelocityVisualiser
 
-.PHONY: build-mac clean-mac
+.PHONY: build-mac clean-mac run-mac dev-mac
 
 build-mac:
 	@echo "Building macOS LiDAR visualiser..."
@@ -248,6 +253,22 @@ clean-mac:
 	@echo "Cleaning macOS visualiser build artifacts..."
 	@rm -rf $(VISUALISER_BUILD_DIR)
 	@echo "✓ Clean complete"
+
+run-mac:
+	@if [ ! -f "$(VISUALISER_BIN)" ]; then \
+		echo "Error: Visualiser binary not found. Run 'make build-mac' first."; \
+		exit 1; \
+	fi
+	@echo "Running macOS visualiser..."
+	@$(VISUALISER_BIN)
+
+dev-mac:
+	@echo "Stopping any running visualiser instances..."
+	@pkill -f "VelocityVisualiser" || true
+	@sleep 0.5
+	@$(MAKE) build-mac
+	@echo "Starting visualiser..."
+	@$(VISUALISER_BIN)
 
 # =============================================================================
 # PROTOBUF CODE GENERATION
@@ -301,12 +322,13 @@ proto-gen-swift:
 		echo "  macOS: brew install swift-protobuf"; \
 		exit 1; \
 	fi
-	@if ! command -v protoc-gen-grpc-swift >/dev/null 2>&1; then \
-		echo "ERROR: protoc-gen-grpc-swift not found; install Swift gRPC plugin"; \
-		echo "  macOS: brew install grpc-swift"; \
+	@if ! command -v protoc-gen-grpc-swift-2 >/dev/null 2>&1; then \
+		echo "ERROR: protoc-gen-grpc-swift-2 not found; install Swift gRPC v2 plugin"; \
+		echo "  Build from source: git clone https://github.com/grpc/grpc-swift-protobuf && cd grpc-swift-protobuf && swift build -c release && sudo cp .build/release/protoc-gen-grpc-swift-2 /usr/local/bin/"; \
 		exit 1; \
 	fi
 	@protoc --swift_out=$(PROTO_SWIFT_OUT) \
+	       --plugin=protoc-gen-grpc-swift=`which protoc-gen-grpc-swift-2` \
 	       --grpc-swift_out=$(PROTO_SWIFT_OUT) \
 	       -I $(PROTO_DIR) $(PROTO_DIR)/visualiser.proto
 	@echo "✓ Swift stubs generated in $(PROTO_SWIFT_OUT)"
@@ -510,7 +532,7 @@ dev-docs:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-go-cov test-go-coverage-summary test-python test-python-cov test-web test-web-cov test-mac coverage
+.PHONY: test test-go test-go-cov test-go-coverage-summary test-python test-python-cov test-web test-web-cov test-mac test-mac-cov coverage
 
 WEB_DIR = web
 MAC_DIR = tools/visualiser-macos
@@ -578,13 +600,48 @@ test-mac:
 		-scheme VelocityVisualiser \
 		-destination 'platform=macOS'
 
+# Run macOS visualiser tests with coverage
+# Coverage results are written to $(MAC_DIR)/coverage/
+test-mac-cov:
+	@echo "Running macOS visualiser tests with coverage..."
+	@if [ "$$(uname)" != "Darwin" ]; then \
+		echo "Skipping macOS coverage (not on macOS)"; \
+		exit 0; \
+	fi
+	@if [ ! -d "$(MAC_DIR)" ]; then \
+		echo "Skipping macOS coverage (project not found)"; \
+		exit 0; \
+	fi
+	@if ! command -v xcodebuild >/dev/null 2>&1; then \
+		echo "Skipping macOS coverage (xcodebuild not found)"; \
+		exit 0; \
+	fi
+	@mkdir -p $(MAC_DIR)/coverage
+	@cd $(MAC_DIR) && xcodebuild test \
+		-project VelocityVisualiser.xcodeproj \
+		-scheme VelocityVisualiser \
+		-destination 'platform=macOS' \
+		-enableCodeCoverage YES \
+		-derivedDataPath ./DerivedData \
+		-resultBundlePath ./coverage/TestResults.xcresult
+	@echo ""
+	@echo "Coverage data generated in $(MAC_DIR)/coverage/TestResults.xcresult"
+	@echo "View in Xcode: open $(MAC_DIR)/coverage/TestResults.xcresult"
+	@echo ""
+	@# Extract coverage summary using xcrun xccov
+	@if command -v xcrun >/dev/null 2>&1; then \
+		echo "Coverage Summary:"; \
+		xcrun xccov view --report $(MAC_DIR)/coverage/TestResults.xcresult 2>/dev/null | head -20 || echo "(xcrun xccov not available)"; \
+	fi
+
 # Generate coverage reports for all components
-coverage: test-go-cov test-python-cov test-web-cov
+coverage: test-go-cov test-python-cov test-web-cov test-mac-cov
 	@echo ""
 	@echo "✓ All coverage reports generated:"
 	@echo "  - Go:     coverage.html"
 	@echo "  - Python: $(PDF_DIR)/htmlcov/index.html"
 	@echo "  - Web:    $(WEB_DIR)/coverage/lcov-report/index.html"
+	@echo "  - macOS:  $(MAC_DIR)/coverage/TestResults.xcresult"
 
 # Run performance regression test
 test-perf:
@@ -721,7 +778,7 @@ format-mac:
 		exit 0; \
 	fi
 	@if command -v swift-format >/dev/null 2>&1; then \
-		cd $(MAC_DIR) && find VelocityVisualiser -name '*.swift' -exec swift-format -i {} \; ; \
+		cd $(MAC_DIR) && find VelocityVisualiser -name '*.swift' -exec swift-format -i --configuration .swift-format {} \; ; \
 		echo "✓ Swift formatting complete"; \
 	else \
 		echo "swift-format not found; install via: brew install swift-format"; \
@@ -732,9 +789,9 @@ format-markdown:
 	@echo "Formatting Markdown files with prettier..."
 	@if [ -d "$(WEB_DIR)" ]; then \
 		if command -v pnpm >/dev/null 2>&1; then \
-			cd $(WEB_DIR) && pnpm exec prettier --write "../**/*.md" || echo "prettier failed"; \
+			cd $(WEB_DIR) && pnpm exec prettier --write "../**/*.md" --ignore-path ../.prettierignore || echo "prettier failed"; \
 		elif command -v npx >/dev/null 2>&1; then \
-			cd $(WEB_DIR) && npx prettier --write "../**/*.md" || echo "prettier failed"; \
+			cd $(WEB_DIR) && npx prettier --write "../**/*.md" --ignore-path ../.prettierignore || echo "prettier failed"; \
 		else \
 			echo "pnpm/npx not found; skipping Markdown formatting"; \
 		fi; \

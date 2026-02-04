@@ -2,6 +2,12 @@
 
 This document defines an incremental, API-first implementation plan with explicit milestones and acceptance criteria.
 
+**Checkbox Legend**:
+
+- `[x]` — Completed
+- `[ ]` — Not started
+- `[~]` — Skipped / Won't do
+
 ---
 
 ## 1. Milestone Overview
@@ -27,31 +33,31 @@ This document defines an incremental, API-first implementation plan with explici
 
 **Track A (Visualiser)**:
 
-- [ ] SwiftUI app shell with window management
-- [ ] `MTKView` integration for Metal rendering
-- [ ] Point cloud renderer (point sprites)
-- [ ] Instanced box renderer (AABB)
-- [ ] Trail renderer (fading polylines)
-- [ ] gRPC client connects to localhost:50051
-- [ ] Decode `FrameBundle` from stream
-- [ ] Basic UI: connect/disconnect, overlay toggles
+- [x] SwiftUI app shell with window management
+- [x] `MTKView` integration for Metal rendering
+- [x] Point cloud renderer (point sprites)
+- [x] Instanced box renderer (AABB)
+- [x] Trail renderer (fading polylines)
+- [x] gRPC client connects to localhost:50051
+- [x] Decode `FrameBundle` from stream
+- [x] Basic UI: connect/disconnect, overlay toggles
 
 **Track B (Pipeline)**:
 
-- [ ] `proto/velocity_visualiser/v1/visualiser.proto` schema
-- [ ] `buf.gen.yaml` for Go + Swift codegen
-- [ ] `Makefile` target: `make proto-gen`
-- [ ] Synthetic data generator (rotating points, moving boxes)
-- [ ] gRPC server stub with `StreamFrames` RPC
-- [ ] Serves synthetic `FrameBundle` at 10-20 Hz (configurable)
+- [x] `proto/velocity_visualiser/v1/visualiser.proto` schema
+- [~] `buf.gen.yaml` for Go + Swift codegen
+- [x] `Makefile` target: `make proto-gen`
+- [x] Synthetic data generator (rotating points, moving boxes)
+- [x] gRPC server stub with `StreamFrames` RPC
+- [x] Serves synthetic `FrameBundle` at 10-20 Hz (configurable)
 
 **Acceptance Criteria**:
 
-- [ ] Visualiser connects to Go server
-- [ ] Renders 10,000+ synthetic points at 30fps
-- [ ] Shows 10 synthetic boxes moving in circles
-- [ ] Trails fade over 2 seconds
-- [ ] No crashes on disconnect/reconnect
+- [x] Visualiser connects to Go server
+- [x] Renders 10,000+ synthetic points at 30fps
+- [x] Shows 10 synthetic boxes moving in circles
+- [x] Trails fade over 2 seconds
+- [x] No crashes on disconnect/reconnect
 
 **Estimated Dev-Days**: 10 (5 Track A + 5 Track B)
 
@@ -63,6 +69,9 @@ This document defines an incremental, API-first implementation plan with explici
 
 **Track A (Visualiser)**:
 
+- [ ] 3D camera controls: orbit (rotate), pan, zoom
+- [ ] Mouse/trackpad gesture support for camera
+- [ ] Keyboard shortcuts for camera reset
 - [ ] Playback controls: pause/play/seek/rate
 - [ ] Timeline scrubber with frame timestamps
 - [ ] Frame stepping (previous/next)

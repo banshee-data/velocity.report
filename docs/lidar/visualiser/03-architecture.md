@@ -195,26 +195,37 @@ proto/
 
 ### 3.1 Why gRPC for Point Cloud Streaming
 
-| Requirement               | gRPC Advantage                       |
-| ------------------------- | ------------------------------------ |
-| **Structured data**       | Native protobuf support              |
-| **Streaming**             | Built-in server-streaming RPC        |
-| **Type safety**           | Generated Swift + Go stubs           |
+| Requirement         | gRPC Advantage                |
+| ------------------- | ----------------------------- |
+| **Structured data** | Native protobuf support       |
+| **Streaming**       | Built-in server-streaming RPC |
+| **Type safety**     | Generated Swift + Go stubs    |
 
 ### 3.2 Why REST for Labeling and Metadata
 
-| Requirement               | REST Advantage                       |
-| ------------------------- | ------------------------------------ |
-| **Shared with web UI**    | Same API for macOS app and browser  |
-| **Persistent storage**    | Direct SQLite access from Go backend |
+| Requirement               | REST Advantage                            |
+| ------------------------- | ----------------------------------------- |
+| **Shared with web UI**    | Same API for macOS app and browser        |
+| **Persistent storage**    | Direct SQLite access from Go backend      |
 | **CRUD operations**       | Standard HTTP verbs (GET/POST/PUT/DELETE) |
-| **Simple caching**        | HTTP caching semantics               |
-| **Debugging**             | Easy to inspect with curl/Postman    |
-| **Bidirectional control** | Control RPCs for playback            |
-| **Performance**           | HTTP/2 multiplexing, binary encoding |
-| **Future-proof**          | Easy to extend to remote access      |
+| **Simple caching**        | HTTP caching semantics                    |
+| **Debugging**             | Easy to inspect with curl/Postman         |
+| **Bidirectional control** | Control RPCs for playback                 |
+| **Performance**           | HTTP/2 multiplexing, binary encoding      |
+| **Future-proof**          | Easy to extend to remote access           |
 
-### 3.2 Alternatives Considered
+> **IMPORTANT: Single Database Constraint**
+>
+> The macOS visualiser **MUST NOT** maintain its own SQLite database for labels or any other persistent data. All label storage is handled by the Go backend via REST API (`/api/lidar/labels`). This ensures:
+>
+> - **Single source of truth**: Labels are consistent across macOS app and web UI
+> - **No data synchronisation issues**: No risk of divergent local databases
+> - **Centralised backup**: All data lives in the Go server's SQLite database
+> - **Shared access**: Web UI and visualiser can see each other's labels immediately
+>
+> The visualiser's `LabelAPIClient.swift` is a REST client only — it performs HTTP requests to the Go backend and does not access any local database.
+
+### 3.3 Alternatives Considered
 
 | Option       | Rejected Because                            |
 | ------------ | ------------------------------------------- |
