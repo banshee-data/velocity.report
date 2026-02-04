@@ -71,9 +71,21 @@ import XCTest
         state.increaseRate()
         XCTAssertEqual(state.playbackRate, 4.0)
 
-        // Should cap at 4.0
         state.increaseRate()
-        XCTAssertEqual(state.playbackRate, 4.0)
+        XCTAssertEqual(state.playbackRate, 8.0)
+
+        state.increaseRate()
+        XCTAssertEqual(state.playbackRate, 16.0)
+
+        state.increaseRate()
+        XCTAssertEqual(state.playbackRate, 32.0)
+
+        state.increaseRate()
+        XCTAssertEqual(state.playbackRate, 64.0)
+
+        // Should cap at 64.0
+        state.increaseRate()
+        XCTAssertEqual(state.playbackRate, 64.0)
     }
 
     func testDecreaseRate() throws {
@@ -84,12 +96,18 @@ import XCTest
         state.decreaseRate()
         XCTAssertEqual(state.playbackRate, 0.5)
 
+        // Should cap at 0.5
         state.decreaseRate()
-        XCTAssertEqual(state.playbackRate, 0.25)
+        XCTAssertEqual(state.playbackRate, 0.5)
+    }
 
-        // Should cap at 0.25
-        state.decreaseRate()
-        XCTAssertEqual(state.playbackRate, 0.25)
+    func testResetRate() throws {
+        let state = AppState()
+        state.isLive = false
+        state.playbackRate = 8.0
+
+        state.resetRate()
+        XCTAssertEqual(state.playbackRate, 1.0)
     }
 
     func testSelectTrack() throws {
