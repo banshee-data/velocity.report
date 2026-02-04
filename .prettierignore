@@ -1,0 +1,31 @@
+# Prettier ignore file for velocity.report
+
+# Build artifacts
+tools/visualiser-macos/build/
+tools/visualiser-macos/DerivedData/
+build/
+dist/
+
+# Dependencies
+node_modules/
+.venv/
+venv/
+
+# Generated files
+proto/
+*.pb.go
+*.pb.swift
+*_pb2.py
+
+# Coverage reports
+coverage/
+htmlcov/
+*.lcov
+
+# Package manager files
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# macOS
+.DS_Store

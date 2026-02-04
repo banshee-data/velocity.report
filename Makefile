@@ -54,6 +54,7 @@ help:
 	@echo "  test-web             Run web tests (Jest)"
 	@echo "  test-web-cov         Run web tests with coverage"
 	@echo "  test-mac             Run macOS visualiser tests (XCTest)"
+	@echo "  test-mac-cov         Run macOS tests with coverage"
 	@echo "  coverage             Generate coverage reports for all components"
 	@echo ""
 	@echo "DATABASE MIGRATIONS:"
@@ -530,7 +531,7 @@ dev-docs:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-go-cov test-go-coverage-summary test-python test-python-cov test-web test-web-cov test-mac coverage
+.PHONY: test test-go test-go-cov test-go-coverage-summary test-python test-python-cov test-web test-web-cov test-mac test-mac-cov coverage
 
 WEB_DIR = web
 MAC_DIR = tools/visualiser-macos
@@ -598,13 +599,48 @@ test-mac:
 		-scheme VelocityVisualiser \
 		-destination 'platform=macOS'
 
+# Run macOS visualiser tests with coverage
+# Coverage results are written to $(MAC_DIR)/coverage/
+test-mac-cov:
+	@echo "Running macOS visualiser tests with coverage..."
+	@if [ "$$(uname)" != "Darwin" ]; then \
+		echo "Skipping macOS coverage (not on macOS)"; \
+		exit 0; \
+	fi
+	@if [ ! -d "$(MAC_DIR)" ]; then \
+		echo "Skipping macOS coverage (project not found)"; \
+		exit 0; \
+	fi
+	@if ! command -v xcodebuild >/dev/null 2>&1; then \
+		echo "Skipping macOS coverage (xcodebuild not found)"; \
+		exit 0; \
+	fi
+	@mkdir -p $(MAC_DIR)/coverage
+	@cd $(MAC_DIR) && xcodebuild test \
+		-project VelocityVisualiser.xcodeproj \
+		-scheme VelocityVisualiser \
+		-destination 'platform=macOS' \
+		-enableCodeCoverage YES \
+		-derivedDataPath ./DerivedData \
+		-resultBundlePath ./coverage/TestResults.xcresult
+	@echo ""
+	@echo "Coverage data generated in $(MAC_DIR)/coverage/TestResults.xcresult"
+	@echo "View in Xcode: open $(MAC_DIR)/coverage/TestResults.xcresult"
+	@echo ""
+	@# Extract coverage summary using xcrun xccov
+	@if command -v xcrun >/dev/null 2>&1; then \
+		echo "Coverage Summary:"; \
+		xcrun xccov view --report $(MAC_DIR)/coverage/TestResults.xcresult 2>/dev/null | head -20 || echo "(xcrun xccov not available)"; \
+	fi
+
 # Generate coverage reports for all components
-coverage: test-go-cov test-python-cov test-web-cov
+coverage: test-go-cov test-python-cov test-web-cov test-mac-cov
 	@echo ""
 	@echo "✓ All coverage reports generated:"
 	@echo "  - Go:     coverage.html"
 	@echo "  - Python: $(PDF_DIR)/htmlcov/index.html"
 	@echo "  - Web:    $(WEB_DIR)/coverage/lcov-report/index.html"
+	@echo "  - macOS:  $(MAC_DIR)/coverage/TestResults.xcresult"
 
 # Run performance regression test
 test-perf:
@@ -752,9 +788,9 @@ format-markdown:
 	@echo "Formatting Markdown files with prettier..."
 	@if [ -d "$(WEB_DIR)" ]; then \
 		if command -v pnpm >/dev/null 2>&1; then \
-			cd $(WEB_DIR) && pnpm exec prettier --write "../**/*.md" || echo "prettier failed"; \
+			cd $(WEB_DIR) && pnpm exec prettier --write "../**/*.md" --ignore-path ../.prettierignore || echo "prettier failed"; \
 		elif command -v npx >/dev/null 2>&1; then \
-			cd $(WEB_DIR) && npx prettier --write "../**/*.md" || echo "prettier failed"; \
+			cd $(WEB_DIR) && npx prettier --write "../**/*.md" --ignore-path ../.prettierignore || echo "prettier failed"; \
 		else \
 			echo "pnpm/npx not found; skipping Markdown formatting"; \
 		fi; \
