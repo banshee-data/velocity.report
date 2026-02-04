@@ -38,6 +38,8 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     @Published var replayProgress: Double = 0.0
     @Published var isSeekingInProgress: Bool = false  // Prevents progress updates while seeking
     @Published var replayFinished: Bool = false  // True when replay stream reached EOF
+    @Published var currentFrameIndex: UInt64 = 0  // 0-based index in log (for stepping)
+    @Published var totalFrames: UInt64 = 0
 
     // MARK: - Overlay Toggles
 
@@ -173,19 +175,20 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
     func stepForward() {
         guard !isLive else { return }
+        guard currentFrameIndex + 1 < totalFrames else { return }  // Don't step past end
 
         Task {
-            do { try await grpcClient?.seek(toFrame: currentFrameID + 1) } catch {
+            do { try await grpcClient?.seek(toFrame: currentFrameIndex + 1) } catch {
                 logger.error("Failed to step forward: \(error.localizedDescription)")
             }
         }
     }
 
     func stepBackward() {
-        guard !isLive, currentFrameID > 0 else { return }
+        guard !isLive, currentFrameIndex > 0 else { return }
 
         Task {
-            do { try await grpcClient?.seek(toFrame: currentFrameID - 1) } catch {
+            do { try await grpcClient?.seek(toFrame: currentFrameIndex - 1) } catch {
                 logger.error("Failed to step backward: \(error.localizedDescription)")
             }
         }
@@ -333,13 +336,17 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
             logStartTimestamp = playbackInfo.logStartNs
             logEndTimestamp = playbackInfo.logEndNs
             playbackRate = playbackInfo.playbackRate
+            currentFrameIndex = playbackInfo.currentFrameIndex
+            totalFrames = playbackInfo.totalFrames
             // Note: isPaused is NOT updated from frame to allow optimistic UI updates.
             // The server confirms pause state via the RPC response.
 
             // Log mode on first frame
             if frameCount == 1 {
                 let mode = isLive ? "LIVE" : "REPLAY"
-                logger.info("Mode: \(mode), rate: \(playbackInfo.playbackRate)")
+                logger.info(
+                    "Mode: \(mode), rate: \(playbackInfo.playbackRate), totalFrames: \(playbackInfo.totalFrames)"
+                )
             }
         }
 
