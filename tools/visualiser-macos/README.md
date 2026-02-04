@@ -20,27 +20,17 @@ This is a SwiftUI application that connects to the Go LiDAR pipeline via gRPC an
 
 ## Building
 
-**Quick start (M0 - synthetic data):**
-
 ```bash
-# Disable generated gRPC files (one-time)
-./toggle-grpc-files.sh
-
-# Build
-make build-mac  # from repository root
+# From repository root
+make build-mac
 ```
 
-**For full gRPC support, see [BUILDING.md](BUILDING.md)** for detailed instructions on adding Swift Package dependencies.
+For detailed build instructions and troubleshooting, see [BUILDING.md](BUILDING.md).
 
 ### Prerequisites
 
-- macOS 15.0+ (Sonoma)
+- macOS 14.0+ (Sonoma)
 - Xcode 15.0+
-- Command-line tools: `brew install swift-protobuf grpc-swift`
-
-### First-Time Setup
-
-If the Xcode project doesn't exist yet, follow the setup in [BUILDING.md](BUILDING.md#option-2-command-line-workaround).
 
 ## Usage
 
@@ -48,12 +38,9 @@ If the Xcode project doesn't exist yet, follow the setup in [BUILDING.md](BUILDI
 # From repository root
 make build-mac
 
-# Or with xcodebuild directly
-cd tools/visualiser-macos
-xcodebuild -project VelocityVisualiser.xcodeproj -scheme VelocityVisualiser -configuration Release
+# Launch the app
+open tools/visualiser-macos/build/Build/Products/Release/VelocityVisualiser.app
 ```
-
-## Usage
 
 ### Connecting to Live Pipeline
 
