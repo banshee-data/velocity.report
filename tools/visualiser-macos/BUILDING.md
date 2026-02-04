@@ -19,8 +19,8 @@ tools/visualiser-macos/build/Build/Products/Release/VelocityVisualiser.app
 
 ## Requirements
 
-- macOS 14.0+ (Sonoma)
-- Xcode 15.0+
+- macOS 15.0+ (Sequoia) – matches the app deployment target (`@available(macOS 15.0, *)`)
+- Xcode 16.0+ – required for the macOS 15 SDK and Swift 5.9+ used by grpc-swift 2.x (async/await)
 - Apple Silicon or Intel Mac with Metal support
 
 ## Swift Package Dependencies
