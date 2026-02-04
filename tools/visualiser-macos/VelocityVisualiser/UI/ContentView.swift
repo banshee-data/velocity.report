@@ -152,6 +152,7 @@ struct StatLabel: View {
             Text(value)
                 .font(.system(.caption, design: .monospaced))
                 .fontWeight(.medium)
+                .frame(width: 50, alignment: .trailing)
         }
     }
 }
