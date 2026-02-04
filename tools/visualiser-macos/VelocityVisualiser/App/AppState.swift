@@ -14,9 +14,7 @@ import os
 private let logger = Logger(subsystem: "report.velocity.visualiser", category: "AppState")
 
 /// Global application state, observable by SwiftUI views.
-@available(macOS 15.0, *)
-@MainActor
-class AppState: ObservableObject {
+@available(macOS 15.0, *) @MainActor class AppState: ObservableObject {
 
     // MARK: - Connection State
 
@@ -97,11 +95,7 @@ class AppState: ObservableObject {
     func toggleConnection() {
         print("[AppState] toggleConnection called, isConnected: \(isConnected)")
         logger.info("toggleConnection called, isConnected: \(self.isConnected)")
-        if isConnected {
-            disconnect()
-        } else {
-            connect()
-        }
+        if isConnected { disconnect() } else { connect() }
     }
 
     func connect() {
@@ -121,9 +115,7 @@ class AppState: ObservableObject {
                 try await grpcClient?.connect()
                 print("[AppState] ✅ CONNECTION SUCCEEDED to \(serverAddress)")
                 logger.info("grpcClient.connect() succeeded!")
-                await MainActor.run {
-                    self.isConnecting = false
-                }
+                await MainActor.run { self.isConnecting = false }
             } catch {
                 print("[AppState] ❌ CONNECTION FAILED: \(error.localizedDescription)")
                 logger.error("Connection error: \(error.localizedDescription)")
@@ -152,8 +144,7 @@ class AppState: ObservableObject {
     // MARK: - Playback Control
 
     func togglePlayPause() {
-        isPaused.toggle()
-        // TODO: Send Pause/Play RPC
+        isPaused.toggle()  // TODO: Send Pause/Play RPC
     }
 
     func stepForward() {
@@ -165,13 +156,11 @@ class AppState: ObservableObject {
     }
 
     func increaseRate() {
-        playbackRate = min(playbackRate * 2.0, 4.0)
-        // TODO: Send SetRate RPC
+        playbackRate = min(playbackRate * 2.0, 4.0)  // TODO: Send SetRate RPC
     }
 
     func decreaseRate() {
-        playbackRate = max(playbackRate / 2.0, 0.25)
-        // TODO: Send SetRate RPC
+        playbackRate = max(playbackRate / 2.0, 0.25)  // TODO: Send SetRate RPC
     }
 
     func seek(to progress: Double) {
@@ -192,9 +181,7 @@ class AppState: ObservableObject {
 
     // MARK: - Labelling
 
-    func selectTrack(_ trackID: String?) {
-        selectedTrackID = trackID
-    }
+    func selectTrack(_ trackID: String?) { selectedTrackID = trackID }
 
     func assignLabel(_ label: String) {
         guard let trackID = selectedTrackID else { return }
@@ -259,9 +246,7 @@ private let delegateLogger = Logger(
 final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable {
     private weak var appState: AppState?
 
-    init(appState: AppState) {
-        self.appState = appState
-    }
+    init(appState: AppState) { self.appState = appState }
 
     func clientDidConnect(_ client: VisualiserClient) {
         print("[ClientDelegate] ✅ CLIENT CONNECTED - Starting frame stream")
@@ -282,15 +267,11 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
             "clientDidDisconnect called, error: \(error?.localizedDescription ?? "none")")
         Task { @MainActor [weak self] in
             self?.appState?.isConnected = false
-            if let error = error {
-                self?.appState?.connectionError = error.localizedDescription
-            }
+            if let error = error { self?.appState?.connectionError = error.localizedDescription }
         }
     }
 
     func client(_ client: VisualiserClient, didReceiveFrame frame: FrameBundle) {
-        Task { @MainActor [weak self] in
-            self?.appState?.onFrameReceived(frame)
-        }
+        Task { @MainActor [weak self] in self?.appState?.onFrameReceived(frame) }
     }
 }

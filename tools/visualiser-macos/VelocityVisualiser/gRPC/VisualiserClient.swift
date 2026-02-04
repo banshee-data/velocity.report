@@ -29,14 +29,10 @@ enum VisualiserClientError: Error, LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .notConnected:
-            return "Not connected to server"
-        case .connectionFailed(let message):
-            return "Connection failed: \(message)"
-        case .streamError(let message):
-            return "Stream error: \(message)"
-        case .invalidAddress(let message):
-            return "Invalid address: \(message)"
+        case .notConnected: return "Not connected to server"
+        case .connectionFailed(let message): return "Connection failed: \(message)"
+        case .streamError(let message): return "Stream error: \(message)"
+        case .invalidAddress(let message): return "Invalid address: \(message)"
         }
     }
 }
@@ -51,8 +47,7 @@ enum VisualiserClientError: Error, LocalizedError {
 /// // Frames will be delivered via delegate
 /// client.disconnect()
 /// ```
-@available(macOS 15.0, *)
-final class VisualiserClient: Sendable {
+@available(macOS 15.0, *) final class VisualiserClient: Sendable {
 
     // MARK: - Properties
 
@@ -64,9 +59,7 @@ final class VisualiserClient: Sendable {
 
     weak var delegate: VisualiserClientDelegate?
 
-    var isConnected: Bool {
-        _isConnected.value
-    }
+    var isConnected: Bool { _isConnected.value }
 
     // Stream request configuration
     var includePoints: Bool = true
@@ -78,13 +71,9 @@ final class VisualiserClient: Sendable {
 
     // MARK: - Initialisation
 
-    init(address: String) {
-        self.address = address
-    }
+    init(address: String) { self.address = address }
 
-    deinit {
-        disconnect()
-    }
+    deinit { disconnect() }
 
     // MARK: - Connection
 
@@ -100,9 +89,7 @@ final class VisualiserClient: Sendable {
 
         // Parse address
         let components = address.split(separator: ":")
-        guard components.count == 2,
-            let port = Int(components[1])
-        else {
+        guard components.count == 2, let port = Int(components[1]) else {
             logger.error("Invalid address format: \(self.address)")
             throw VisualiserClientError.invalidAddress(
                 "Invalid format: \(address), expected host:port")
@@ -114,17 +101,13 @@ final class VisualiserClient: Sendable {
         do {
             print("[VisualiserClient] Creating gRPC transport to \(host):\(port)...")
             let transport = try HTTP2ClientTransport.Posix(
-                target: .dns(host: host, port: port),
-                transportSecurity: .plaintext
-            )
+                target: .dns(host: host, port: port), transportSecurity: .plaintext)
 
             let grpcClient = GRPCClient(transport: transport)
             _grpcClient.value = grpcClient
 
             // Start the client in a background task
-            let clientTask = Task {
-                try await grpcClient.runConnections()
-            }
+            let clientTask = Task { try await grpcClient.runConnections() }
             _clientTask.value = clientTask
 
             // Give the client a moment to establish connection
@@ -134,9 +117,7 @@ final class VisualiserClient: Sendable {
             print("[VisualiserClient] ✅ gRPC client created and running")
             logger.info("gRPC client created and running")
 
-            await MainActor.run {
-                self.delegate?.clientDidConnect(self)
-            }
+            await MainActor.run { self.delegate?.clientDidConnect(self) }
             print("[VisualiserClient] 🚀 Starting gRPC stream...")
             logger.debug("Delegate notified, starting streaming task...")
 
@@ -177,15 +158,11 @@ final class VisualiserClient: Sendable {
         let task = Task { [weak self] in
             guard let self = self else { return }
 
-            do {
-                try await self.streamFrames()
-            } catch {
+            do { try await self.streamFrames() } catch {
                 if !Task.isCancelled {
                     print("[VisualiserClient] ❌ Stream error: \(error)")
                     logger.error("Stream error: \(error.localizedDescription)")
-                    await MainActor.run {
-                        self.delegate?.clientDidDisconnect(self, error: error)
-                    }
+                    await MainActor.run { self.delegate?.clientDidDisconnect(self, error: error) }
                 }
             }
         }
@@ -193,9 +170,7 @@ final class VisualiserClient: Sendable {
     }
 
     private func streamFrames() async throws {
-        guard let grpcClient = _grpcClient.value else {
-            throw VisualiserClientError.notConnected
-        }
+        guard let grpcClient = _grpcClient.value else { throw VisualiserClientError.notConnected }
 
         // Create service client
         let serviceClient = Velocity_Visualiser_V1_VisualiserService.Client(wrapping: grpcClient)
@@ -253,8 +228,7 @@ final class VisualiserClient: Sendable {
                     print("[VisualiserClient] ❌ Stream rejected: \(error)")
                     throw VisualiserClientError.streamError(String(describing: error))
                 }
-            }
-        )
+            })
     }
 
     // MARK: - Playback Control
@@ -325,14 +299,10 @@ final class VisualiserClient: Sendable {
             request: ClientRequest(message: request))
 
         return ServerCapabilities(
-            supportsPoints: response.supportsPoints,
-            supportsClusters: response.supportsClusters,
-            supportsTracks: response.supportsTracks,
-            supportsDebug: response.supportsDebug,
-            supportsReplay: response.supportsReplay,
-            supportsRecording: response.supportsRecording,
-            availableSensors: response.availableSensors
-        )
+            supportsPoints: response.supportsPoints, supportsClusters: response.supportsClusters,
+            supportsTracks: response.supportsTracks, supportsDebug: response.supportsDebug,
+            supportsReplay: response.supportsReplay, supportsRecording: response.supportsRecording,
+            availableSensors: response.availableSensors)
     }
 
     // MARK: - Recording
@@ -344,17 +314,13 @@ final class VisualiserClient: Sendable {
         }
         let serviceClient = Velocity_Visualiser_V1_VisualiserService.Client(wrapping: grpcClient)
         var request = Velocity_Visualiser_V1_RecordingRequest()
-        if let path = outputPath {
-            request.outputPath = path
-        }
+        if let path = outputPath { request.outputPath = path }
         let response = try await serviceClient.startRecording(
             request: ClientRequest(message: request))
 
         return RecordingStatus(
-            recording: response.recording,
-            outputPath: response.outputPath,
-            framesRecorded: response.framesRecorded
-        )
+            recording: response.recording, outputPath: response.outputPath,
+            framesRecorded: response.framesRecorded)
     }
 
     /// Stop recording frames on the server.
@@ -368,10 +334,8 @@ final class VisualiserClient: Sendable {
             request: ClientRequest(message: request))
 
         return RecordingStatus(
-            recording: response.recording,
-            outputPath: response.outputPath,
-            framesRecorded: response.framesRecorded
-        )
+            recording: response.recording, outputPath: response.outputPath,
+            framesRecorded: response.framesRecorded)
     }
 }
 
@@ -400,9 +364,7 @@ final class LockedState<Value>: @unchecked Sendable {
     private var _value: Value
     private let lock = NSLock()
 
-    init(_ value: Value) {
-        _value = value
-    }
+    init(_ value: Value) { _value = value }
 
     var value: Value {
         get {
@@ -420,8 +382,7 @@ final class LockedState<Value>: @unchecked Sendable {
 
 // MARK: - Frame Decoding
 
-@available(macOS 15.0, *)
-extension VisualiserClient {
+@available(macOS 15.0, *) extension VisualiserClient {
 
     /// Decode a protobuf FrameBundle to the Swift model.
     func decodeFrameBundle(_ proto: Velocity_Visualiser_V1_FrameBundle) -> FrameBundle {
@@ -438,127 +399,79 @@ extension VisualiserClient {
                 originLat: proto.coordinateFrame.originLat,
                 originLon: proto.coordinateFrame.originLon,
                 originAlt: proto.coordinateFrame.originAlt,
-                rotationDeg: proto.coordinateFrame.rotationDeg
-            )
+                rotationDeg: proto.coordinateFrame.rotationDeg)
         }
 
         // Point cloud
         if proto.hasPointCloud {
             let pc = proto.pointCloud
             frame.pointCloud = PointCloudFrame(
-                frameID: pc.frameID,
-                timestampNanos: pc.timestampNs,
-                sensorID: pc.sensorID,
-                x: pc.x,
-                y: pc.y,
-                z: pc.z,
-                intensity: pc.intensity.map { UInt8($0) },
+                frameID: pc.frameID, timestampNanos: pc.timestampNs, sensorID: pc.sensorID, x: pc.x,
+                y: pc.y, z: pc.z, intensity: pc.intensity.map { UInt8($0) },
                 classification: pc.classification.map { UInt8($0) },
                 decimationMode: DecimationMode(rawValue: Int(pc.decimationMode.rawValue)) ?? .none,
-                decimationRatio: pc.decimationRatio,
-                pointCount: Int(pc.pointCount)
-            )
+                decimationRatio: pc.decimationRatio, pointCount: Int(pc.pointCount))
         }
 
         // Clusters
         if proto.hasClusters {
             frame.clusters = ClusterSet(
-                frameID: proto.clusters.frameID,
-                timestampNanos: proto.clusters.timestampNs,
+                frameID: proto.clusters.frameID, timestampNanos: proto.clusters.timestampNs,
                 clusters: proto.clusters.clusters.map { c in
                     Cluster(
-                        clusterID: c.clusterID,
-                        sensorID: c.sensorID,
-                        timestampNanos: c.timestampNs,
-                        centroidX: c.centroidX,
-                        centroidY: c.centroidY,
-                        centroidZ: c.centroidZ,
-                        aabbLength: c.aabbLength,
-                        aabbWidth: c.aabbWidth,
-                        aabbHeight: c.aabbHeight,
+                        clusterID: c.clusterID, sensorID: c.sensorID, timestampNanos: c.timestampNs,
+                        centroidX: c.centroidX, centroidY: c.centroidY, centroidZ: c.centroidZ,
+                        aabbLength: c.aabbLength, aabbWidth: c.aabbWidth, aabbHeight: c.aabbHeight,
                         obb: c.hasObb
                             ? OrientedBoundingBox(
-                                centerX: c.obb.centerX,
-                                centerY: c.obb.centerY,
-                                centerZ: c.obb.centerZ,
-                                length: c.obb.length,
-                                width: c.obb.width,
-                                height: c.obb.height,
-                                headingRad: c.obb.headingRad
-                            ) : nil,
-                        pointsCount: Int(c.pointsCount),
-                        heightP95: c.heightP95,
-                        intensityMean: c.intensityMean,
-                        samplePoints: c.samplePoints
-                    )
+                                centerX: c.obb.centerX, centerY: c.obb.centerY,
+                                centerZ: c.obb.centerZ, length: c.obb.length, width: c.obb.width,
+                                height: c.obb.height, headingRad: c.obb.headingRad) : nil,
+                        pointsCount: Int(c.pointsCount), heightP95: c.heightP95,
+                        intensityMean: c.intensityMean, samplePoints: c.samplePoints)
                 },
-                method: ClusteringMethod(rawValue: Int(proto.clusters.method.rawValue)) ?? .dbscan
-            )
+                method: ClusteringMethod(rawValue: Int(proto.clusters.method.rawValue)) ?? .dbscan)
         }
 
         // Tracks
         if proto.hasTracks {
             frame.tracks = TrackSet(
-                frameID: proto.tracks.frameID,
-                timestampNanos: proto.tracks.timestampNs,
+                frameID: proto.tracks.frameID, timestampNanos: proto.tracks.timestampNs,
                 tracks: proto.tracks.tracks.map { t in
                     Track(
-                        trackID: t.trackID,
-                        sensorID: t.sensorID,
+                        trackID: t.trackID, sensorID: t.sensorID,
                         state: TrackState(rawValue: Int(t.state.rawValue)) ?? .unknown,
-                        hits: Int(t.hits),
-                        misses: Int(t.misses),
-                        observationCount: Int(t.observationCount),
-                        firstSeenNanos: t.firstSeenNs,
-                        lastSeenNanos: t.lastSeenNs,
-                        x: t.x,
-                        y: t.y,
-                        z: t.z,
-                        vx: t.vx,
-                        vy: t.vy,
-                        vz: t.vz,
-                        speedMps: t.speedMps,
-                        headingRad: t.headingRad,
-                        covariance4x4: t.covariance4X4,
-                        bboxLengthAvg: t.bboxLengthAvg,
-                        bboxWidthAvg: t.bboxWidthAvg,
-                        bboxHeightAvg: t.bboxHeightAvg,
-                        bboxHeadingRad: t.bboxHeadingRad,
-                        heightP95Max: t.heightP95Max,
-                        intensityMeanAvg: t.intensityMeanAvg,
-                        avgSpeedMps: t.avgSpeedMps,
-                        peakSpeedMps: t.peakSpeedMps,
-                        classLabel: t.classLabel,
-                        classConfidence: t.classConfidence,
-                        trackLengthMetres: t.trackLengthMetres,
+                        hits: Int(t.hits), misses: Int(t.misses),
+                        observationCount: Int(t.observationCount), firstSeenNanos: t.firstSeenNs,
+                        lastSeenNanos: t.lastSeenNs, x: t.x, y: t.y, z: t.z, vx: t.vx, vy: t.vy,
+                        vz: t.vz, speedMps: t.speedMps, headingRad: t.headingRad,
+                        covariance4x4: t.covariance4X4, bboxLengthAvg: t.bboxLengthAvg,
+                        bboxWidthAvg: t.bboxWidthAvg, bboxHeightAvg: t.bboxHeightAvg,
+                        bboxHeadingRad: t.bboxHeadingRad, heightP95Max: t.heightP95Max,
+                        intensityMeanAvg: t.intensityMeanAvg, avgSpeedMps: t.avgSpeedMps,
+                        peakSpeedMps: t.peakSpeedMps, classLabel: t.classLabel,
+                        classConfidence: t.classConfidence, trackLengthMetres: t.trackLengthMetres,
                         trackDurationSecs: t.trackDurationSecs,
-                        occlusionCount: Int(t.occlusionCount),
-                        confidence: t.confidence,
+                        occlusionCount: Int(t.occlusionCount), confidence: t.confidence,
                         occlusionState: OcclusionState(rawValue: Int(t.occlusionState.rawValue))
                             ?? .none,
-                        motionModel: MotionModel(rawValue: Int(t.motionModel.rawValue)) ?? .cv
-                    )
+                        motionModel: MotionModel(rawValue: Int(t.motionModel.rawValue)) ?? .cv)
                 },
                 trails: proto.tracks.trails.map { trail in
                     TrackTrail(
                         trackID: trail.trackID,
                         points: trail.points.map { p in
                             TrackPoint(x: p.x, y: p.y, timestampNanos: p.timestampNs)
-                        }
-                    )
-                }
-            )
+                        })
+                })
         }
 
         // Playback info
         if proto.hasPlaybackInfo {
             frame.playbackInfo = PlaybackInfo(
-                isLive: proto.playbackInfo.isLive,
-                logStartNs: proto.playbackInfo.logStartNs,
+                isLive: proto.playbackInfo.isLive, logStartNs: proto.playbackInfo.logStartNs,
                 logEndNs: proto.playbackInfo.logEndNs,
-                playbackRate: proto.playbackInfo.playbackRate,
-                paused: proto.playbackInfo.paused
-            )
+                playbackRate: proto.playbackInfo.playbackRate, paused: proto.playbackInfo.paused)
         }
 
         return frame

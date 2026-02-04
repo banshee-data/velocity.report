@@ -37,12 +37,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     }
 
     var uniforms = Uniforms(
-        modelViewProjection: matrix_identity_float4x4,
-        modelView: matrix_identity_float4x4,
-        pointSize: 5.0,
-        time: 0,
-        padding: simd_float2(0, 0)
-    )
+        modelViewProjection: matrix_identity_float4x4, modelView: matrix_identity_float4x4,
+        pointSize: 5.0, time: 0, padding: simd_float2(0, 0))
 
     // MARK: - Camera
 
@@ -126,9 +122,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
             do {
                 pointCloudPipeline = try device.makeRenderPipelineState(descriptor: descriptor)
-            } catch {
-                print("Failed to create point cloud pipeline: \(error)")
-            }
+            } catch { print("Failed to create point cloud pipeline: \(error)") }
         }
 
         // Box pipeline
@@ -142,9 +136,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             descriptor.colorAttachments[0].pixelFormat = metalView.colorPixelFormat
             descriptor.depthAttachmentPixelFormat = metalView.depthStencilPixelFormat
 
-            do {
-                boxPipeline = try device.makeRenderPipelineState(descriptor: descriptor)
-            } catch {
+            do { boxPipeline = try device.makeRenderPipelineState(descriptor: descriptor) } catch {
                 print("Failed to create box pipeline: \(error)")
             }
         }
@@ -165,11 +157,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             descriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
             descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
 
-            do {
-                trailPipeline = try device.makeRenderPipelineState(descriptor: descriptor)
-            } catch {
-                print("Failed to create trail pipeline: \(error)")
-            }
+            do { trailPipeline = try device.makeRenderPipelineState(descriptor: descriptor) } catch
+            { print("Failed to create trail pipeline: \(error)") }
         }
     }
 
@@ -185,19 +174,13 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         // Will be scaled/rotated/translated by instance transforms
         let vertices: [Float] = [
             // Bottom face edges
-            -0.5, -0.5, 0, 0.5, -0.5, 0,
-            0.5, -0.5, 0, 0.5, 0.5, 0,
-            0.5, 0.5, 0, -0.5, 0.5, 0,
-            -0.5, 0.5, 0, -0.5, -0.5, 0,
+            -0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0, -0.5,
+            0.5, 0, -0.5, -0.5, 0,
             // Top face edges
-            -0.5, -0.5, 1, 0.5, -0.5, 1,
-            0.5, -0.5, 1, 0.5, 0.5, 1,
-            0.5, 0.5, 1, -0.5, 0.5, 1,
-            -0.5, 0.5, 1, -0.5, -0.5, 1,
+            -0.5, -0.5, 1, 0.5, -0.5, 1, 0.5, -0.5, 1, 0.5, 0.5, 1, 0.5, 0.5, 1, -0.5, 0.5, 1, -0.5,
+            0.5, 1, -0.5, -0.5, 1,
             // Vertical edges
-            -0.5, -0.5, 0, -0.5, -0.5, 1,
-            0.5, -0.5, 0, 0.5, -0.5, 1,
-            0.5, 0.5, 0, 0.5, 0.5, 1,
+            -0.5, -0.5, 0, -0.5, -0.5, 1, 0.5, -0.5, 0, 0.5, -0.5, 1, 0.5, 0.5, 0, 0.5, 0.5, 1,
             -0.5, 0.5, 0, -0.5, 0.5, 1,
         ]
 
@@ -219,14 +202,10 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         }
 
         // Update box instances from tracks
-        if let tracks = frame.tracks {
-            updateBoxInstances(tracks)
-        }
+        if let tracks = frame.tracks { updateBoxInstances(tracks) }
 
         // Update trails
-        if let tracks = frame.tracks {
-            updateTrailBuffer(tracks)
-        }
+        if let tracks = frame.tracks { updateTrailBuffer(tracks) }
     }
 
     private var frameUpdateCount: Int = 0
@@ -260,20 +239,14 @@ class MetalRenderer: NSObject, MTKViewDelegate {
                 diagonal: simd_float4(
                     track.bboxLengthAvg > 0 ? track.bboxLengthAvg : 1.0,
                     track.bboxWidthAvg > 0 ? track.bboxWidthAvg : 1.0,
-                    track.bboxHeightAvg > 0 ? track.bboxHeightAvg : 1.0,
-                    1.0
-                ))
+                    track.bboxHeightAvg > 0 ? track.bboxHeightAvg : 1.0, 1.0))
 
             let rotation = simd_float4x4(rotationZ: track.headingRad)
             let translation = simd_float4x4(translation: simd_float3(track.x, track.y, track.z))
             let transform = translation * rotation * scale
 
             // Add transform (16 floats)
-            for col in 0..<4 {
-                for row in 0..<4 {
-                    instances.append(transform[col][row])
-                }
-            }
+            for col in 0..<4 { for row in 0..<4 { instances.append(transform[col][row]) } }
 
             // Add colour based on state (4 floats)
             let colour = track.state.colour
@@ -338,9 +311,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             let descriptor = view.currentRenderPassDescriptor,
             let commandBuffer = commandQueue.makeCommandBuffer(),
             let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
-        else {
-            return
-        }
+        else { return }
 
         // Update uniforms
         uniforms.modelViewProjection = camera.projectionMatrix * camera.viewMatrix
@@ -368,11 +339,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 2)
             // Draw wireframe boxes as lines (24 vertices per box = 12 edges)
             encoder.drawPrimitives(
-                type: .line,
-                vertexStart: 0,
-                vertexCount: boxVertexCount,
-                instanceCount: boxInstanceCount
-            )
+                type: .line, vertexStart: 0, vertexCount: boxVertexCount,
+                instanceCount: boxInstanceCount)
         }
 
         // Draw trails (each trail as a separate lineStrip)
@@ -386,10 +354,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             // Draw each trail as a separate line strip
             for segment in trailSegments {
                 encoder.drawPrimitives(
-                    type: .lineStrip,
-                    vertexStart: segment.start,
-                    vertexCount: segment.count
-                )
+                    type: .lineStrip, vertexStart: segment.start, vertexCount: segment.count)
             }
         }
 
@@ -411,9 +376,7 @@ struct Camera {
     var nearPlane: Float = 0.1
     var farPlane: Float = 500.0
 
-    var viewMatrix: simd_float4x4 {
-        simd_float4x4(lookAt: target, from: position, up: up)
-    }
+    var viewMatrix: simd_float4x4 { simd_float4x4(lookAt: target, from: position, up: up) }
 
     var projectionMatrix: simd_float4x4 {
         simd_float4x4(
@@ -428,9 +391,7 @@ extension simd_float4x4 {
     init(translation t: simd_float3) {
         self.init(
             columns: (
-                simd_float4(1, 0, 0, 0),
-                simd_float4(0, 1, 0, 0),
-                simd_float4(0, 0, 1, 0),
+                simd_float4(1, 0, 0, 0), simd_float4(0, 1, 0, 0), simd_float4(0, 0, 1, 0),
                 simd_float4(t.x, t.y, t.z, 1)
             ))
     }
@@ -440,9 +401,7 @@ extension simd_float4x4 {
         let s = sin(angle)
         self.init(
             columns: (
-                simd_float4(c, s, 0, 0),
-                simd_float4(-s, c, 0, 0),
-                simd_float4(0, 0, 1, 0),
+                simd_float4(c, s, 0, 0), simd_float4(-s, c, 0, 0), simd_float4(0, 0, 1, 0),
                 simd_float4(0, 0, 0, 1)
             ))
     }
@@ -454,8 +413,7 @@ extension simd_float4x4 {
 
         self.init(
             columns: (
-                simd_float4(x.x, y.x, z.x, 0),
-                simd_float4(x.y, y.y, z.y, 0),
+                simd_float4(x.x, y.x, z.x, 0), simd_float4(x.y, y.y, z.y, 0),
                 simd_float4(x.z, y.z, z.z, 0),
                 simd_float4(-dot(x, eye), -dot(y, eye), -dot(z, eye), 1)
             ))
@@ -468,9 +426,7 @@ extension simd_float4x4 {
 
         self.init(
             columns: (
-                simd_float4(x, 0, 0, 0),
-                simd_float4(0, y, 0, 0),
-                simd_float4(0, 0, z, -1),
+                simd_float4(x, 0, 0, 0), simd_float4(0, y, 0, 0), simd_float4(0, 0, z, -1),
                 simd_float4(0, 0, z * near, 0)
             ))
     }

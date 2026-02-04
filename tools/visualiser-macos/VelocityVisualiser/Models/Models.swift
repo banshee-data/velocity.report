@@ -13,7 +13,7 @@ struct FrameBundle {
     var timestampNanos: Int64 = 0
     var sensorID: String = ""
     var coordinateFrame: CoordinateFrameInfo?
-    
+
     var pointCloud: PointCloudFrame?
     var clusters: ClusterSet?
     var tracks: TrackSet?
@@ -43,13 +43,13 @@ struct PointCloudFrame {
     var frameID: UInt64 = 0
     var timestampNanos: Int64 = 0
     var sensorID: String = ""
-    
+
     var x: [Float] = []
     var y: [Float] = []
     var z: [Float] = []
     var intensity: [UInt8] = []
     var classification: [UInt8] = []
-    
+
     var decimationMode: DecimationMode = .none
     var decimationRatio: Float = 1.0
     var pointCount: Int = 0
@@ -68,34 +68,34 @@ struct PointCloudFrame {
 /// - height: Box extent along Z-axis (metres)
 /// - headingRad: Yaw angle around Z-axis (radians, [-π, π])
 struct OrientedBoundingBox {
-    var centerX: Float = 0      // metres, world frame
-    var centerY: Float = 0      // metres, world frame
-    var centerZ: Float = 0      // metres, world frame
-    var length: Float = 0       // metres, along heading direction
-    var width: Float = 0        // metres, perpendicular to heading
-    var height: Float = 0       // metres, Z extent
-    var headingRad: Float = 0   // radians, rotation around Z-axis, [-π, π]
+    var centerX: Float = 0  // metres, world frame
+    var centerY: Float = 0  // metres, world frame
+    var centerZ: Float = 0  // metres, world frame
+    var length: Float = 0  // metres, along heading direction
+    var width: Float = 0  // metres, perpendicular to heading
+    var height: Float = 0  // metres, Z extent
+    var headingRad: Float = 0  // radians, rotation around Z-axis, [-π, π]
 }
 
 struct Cluster {
     var clusterID: Int64 = 0
     var sensorID: String = ""
     var timestampNanos: Int64 = 0
-    
+
     var centroidX: Float = 0
     var centroidY: Float = 0
     var centroidZ: Float = 0
-    
+
     var aabbLength: Float = 0
     var aabbWidth: Float = 0
     var aabbHeight: Float = 0
-    
+
     var obb: OrientedBoundingBox?
-    
+
     var pointsCount: Int = 0
     var heightP95: Float = 0
     var intensityMean: Float = 0
-    
+
     var samplePoints: [Float] = []
 }
 
@@ -118,13 +118,13 @@ enum TrackState: Int {
     case tentative = 1
     case confirmed = 2
     case deleted = 3
-    
+
     var colour: (r: Float, g: Float, b: Float) {
         switch self {
         case .unknown: return (0.5, 0.5, 0.5)
-        case .tentative: return (1.0, 1.0, 0.0) // yellow
-        case .confirmed: return (0.0, 1.0, 0.0) // green
-        case .deleted: return (1.0, 0.0, 0.0) // red
+        case .tentative: return (1.0, 1.0, 0.0)  // yellow
+        case .confirmed: return (0.0, 1.0, 0.0)  // green
+        case .deleted: return (1.0, 0.0, 0.0)  // red
         }
     }
 }
@@ -136,48 +136,48 @@ enum OcclusionState: Int {
 }
 
 enum MotionModel: Int {
-    case cv = 0 // constant velocity
-    case ca = 1 // constant acceleration
+    case cv = 0  // constant velocity
+    case ca = 1  // constant acceleration
 }
 
 struct Track {
     var trackID: String = ""
     var sensorID: String = ""
-    
+
     var state: TrackState = .unknown
     var hits: Int = 0
     var misses: Int = 0
     var observationCount: Int = 0
-    
+
     var firstSeenNanos: Int64 = 0
     var lastSeenNanos: Int64 = 0
-    
+
     var x: Float = 0
     var y: Float = 0
     var z: Float = 0
-    
+
     var vx: Float = 0
     var vy: Float = 0
     var vz: Float = 0
-    
+
     var speedMps: Float = 0
     var headingRad: Float = 0
-    
+
     var covariance4x4: [Float] = []
-    
+
     var bboxLengthAvg: Float = 0
     var bboxWidthAvg: Float = 0
     var bboxHeightAvg: Float = 0
     var bboxHeadingRad: Float = 0
-    
+
     var heightP95Max: Float = 0
     var intensityMeanAvg: Float = 0
     var avgSpeedMps: Float = 0
     var peakSpeedMps: Float = 0
-    
+
     var classLabel: String = ""
     var classConfidence: Float = 0
-    
+
     var trackLengthMetres: Float = 0
     var trackDurationSecs: Float = 0
     var occlusionCount: Int = 0
@@ -242,7 +242,7 @@ struct StatePrediction {
 struct DebugOverlaySet {
     var frameID: UInt64 = 0
     var timestampNanos: Int64 = 0
-    
+
     var associationCandidates: [AssociationCandidate] = []
     var gatingEllipses: [GatingEllipse] = []
     var residuals: [InnovationResidual] = []

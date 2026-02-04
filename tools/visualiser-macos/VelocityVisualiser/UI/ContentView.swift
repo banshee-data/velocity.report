@@ -18,27 +18,20 @@ struct ContentView: View {
 
                 // Metal view - frames are delivered directly to renderer via AppState
                 MetalViewRepresentable(
-                    showPoints: appState.showPoints,
-                    showBoxes: appState.showBoxes,
+                    showPoints: appState.showPoints, showBoxes: appState.showBoxes,
                     showTrails: appState.showTrails,
-                    onRendererCreated: { renderer in
-                        appState.registerRenderer(renderer)
-                    }
-                )
-                .frame(minWidth: 400, minHeight: 300)
+                    onRendererCreated: { renderer in appState.registerRenderer(renderer) }
+                ).frame(minWidth: 400, minHeight: 300)
 
                 // Playback controls
                 PlaybackControlsView()
-            }
-            .frame(minWidth: 600)
+            }.frame(minWidth: 600)
 
             // Side panel
             if appState.showLabelPanel || appState.selectedTrackID != nil {
-                SidePanelView()
-                    .frame(width: 280)
+                SidePanelView().frame(width: 280)
             }
-        }
-        .frame(minWidth: 800, minHeight: 600)
+        }.frame(minWidth: 800, minHeight: 600)
     }
 }
 
@@ -66,10 +59,8 @@ struct ToolbarView: View {
 
             // Overlay toggles
             OverlayTogglesView()
-        }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-        .background(Color(nsColor: .controlBackgroundColor))
+        }.padding(.horizontal).padding(.vertical, 8).background(
+            Color(nsColor: .controlBackgroundColor))
     }
 }
 
@@ -83,16 +74,12 @@ struct ConnectionButtonView: View {
 
         Button(action: { appState.toggleConnection() }) {
             if isConnecting {
-                ProgressView()
-                    .controlSize(.small)
-                    .frame(width: 16, height: 16)
+                ProgressView().controlSize(.small).frame(width: 16, height: 16)
             } else {
                 Image(systemName: isConnected ? "stop.circle.fill" : "play.circle.fill")
             }
             Text(isConnecting ? "Connecting..." : (isConnected ? "Disconnect" : "Connect"))
-        }
-        .tint(isConnected ? .red : .green)
-        .disabled(isConnecting)
+        }.tint(isConnected ? .red : .green).disabled(isConnecting)
     }
 }
 
@@ -105,12 +92,11 @@ struct ConnectionStatusView: View {
         let hasError = errorMessage != nil
 
         HStack(spacing: 4) {
-            Circle()
-                .fill(isConnected ? .green : (hasError ? .red : .gray))
-                .frame(width: 8, height: 8)
-            Text(errorMessage ?? (isConnected ? appState.serverAddress : "Disconnected"))
-                .font(.caption)
-                .foregroundColor(hasError ? .red : .secondary)
+            Circle().fill(isConnected ? .green : (hasError ? .red : .gray)).frame(
+                width: 8, height: 8)
+            Text(errorMessage ?? (isConnected ? appState.serverAddress : "Disconnected")).font(
+                .caption
+            ).foregroundColor(hasError ? .red : .secondary)
         }
     }
 }
@@ -133,9 +119,7 @@ struct StatsDisplayView: View {
     }
 
     private func formatNumber(_ n: Int) -> String {
-        if n >= 1000 {
-            return String(format: "%.2fk", Double(n) / 1000)
-        }
+        if n >= 1000 { return String(format: "%.2fk", Double(n) / 1000) }
         return "\(n)"
     }
 }
@@ -146,13 +130,9 @@ struct StatLabel: View {
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 0) {
-            Text(title)
-                .font(.caption2)
-                .foregroundColor(.secondary)
-            Text(value)
-                .font(.system(.caption, design: .monospaced))
-                .fontWeight(.medium)
-                .frame(width: 50, alignment: .trailing)
+            Text(title).font(.caption2).foregroundColor(.secondary)
+            Text(value).font(.system(.caption, design: .monospaced)).fontWeight(.medium).frame(
+                width: 50, alignment: .trailing)
         }
     }
 }
@@ -183,19 +163,12 @@ struct ToggleButton: View {
 
     var body: some View {
         Button(action: { isOn.toggle() }) {
-            Text(label)
-                .font(.system(.caption, design: .monospaced))
-                .fontWeight(isOn ? .bold : .regular)
-                .foregroundColor(isOn ? .white : .secondary)
-                .frame(width: 24, height: 24)
-                .background(
-                    isOn ? Color.accentColor : Color(nsColor: .controlBackgroundColor).opacity(0.5)
-                )
-                .cornerRadius(4)
-        }
-        .buttonStyle(.plain)
-        .focusable(false)
-        .help(help)
+            Text(label).font(.system(.caption, design: .monospaced)).fontWeight(
+                isOn ? .bold : .regular
+            ).foregroundColor(isOn ? .white : .secondary).frame(width: 24, height: 24).background(
+                isOn ? Color.accentColor : Color(nsColor: .controlBackgroundColor).opacity(0.5)
+            ).cornerRadius(4)
+        }.buttonStyle(.plain).focusable(false).help(help)
     }
 }
 
@@ -214,59 +187,40 @@ struct PlaybackControlsView: View {
             // Play/Pause (disabled in live mode)
             Button(action: { appState.togglePlayPause() }) {
                 Image(systemName: isPaused ? "play.fill" : "pause.fill")
-            }
-            .disabled(!isConnected || isLive)
+            }.disabled(!isConnected || isLive)
 
             // Step buttons
-            Button(action: { appState.stepBackward() }) {
-                Image(systemName: "backward.frame.fill")
-            }
-            .disabled(!isConnected || isLive)
+            Button(action: { appState.stepBackward() }) { Image(systemName: "backward.frame.fill") }
+                .disabled(!isConnected || isLive)
 
-            Button(action: { appState.stepForward() }) {
-                Image(systemName: "forward.frame.fill")
-            }
-            .disabled(!isConnected || isLive)
+            Button(action: { appState.stepForward() }) { Image(systemName: "forward.frame.fill") }
+                .disabled(!isConnected || isLive)
 
             // Timeline (replay mode)
             if !isLive {
                 Slider(value: $appState.replayProgress, in: 0...1) { editing in
-                    if !editing {
-                        appState.seek(to: appState.replayProgress)
-                    }
-                }
-                .frame(minWidth: 200)
+                    if !editing { appState.seek(to: appState.replayProgress) }
+                }.frame(minWidth: 200)
             } else {
                 Spacer()
             }
 
             // Rate control (disabled in live mode)
             HStack(spacing: 4) {
-                Button(action: { appState.decreaseRate() }) {
-                    Image(systemName: "minus")
-                }
-                .buttonStyle(.borderless)
-                .disabled(!isConnected || isLive)
+                Button(action: { appState.decreaseRate() }) { Image(systemName: "minus") }
+                    .buttonStyle(.borderless).disabled(!isConnected || isLive)
 
-                Text(String(format: "%.2fx", playbackRate))
-                    .font(.caption)
-                    .frame(width: 40)
+                Text(String(format: "%.2fx", playbackRate)).font(.caption).frame(width: 40)
                     .foregroundColor(isLive ? .secondary : .primary)
 
-                Button(action: { appState.increaseRate() }) {
-                    Image(systemName: "plus")
-                }
-                .buttonStyle(.borderless)
-                .disabled(!isConnected || isLive)
-            }
-            .opacity(isLive ? 0.5 : 1.0)
+                Button(action: { appState.increaseRate() }) { Image(systemName: "plus") }
+                    .buttonStyle(.borderless).disabled(!isConnected || isLive)
+            }.opacity(isLive ? 0.5 : 1.0)
 
             // Mode indicator (only show when connected)
             ModeIndicatorView(isLive: isLive, isConnected: isConnected)
-        }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-        .background(Color(nsColor: .controlBackgroundColor))
+        }.padding(.horizontal).padding(.vertical, 8).background(
+            Color(nsColor: .controlBackgroundColor))
     }
 }
 
@@ -276,14 +230,11 @@ struct ModeIndicatorView: View {
 
     var body: some View {
         if isConnected {
-            Text(isLive ? "LIVE" : "REPLAY")
-                .font(.caption)
-                .fontWeight(.bold)
-                .foregroundColor(isLive ? .red : .orange)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 2)
-                .background(isLive ? Color.red.opacity(0.2) : Color.orange.opacity(0.2))
-                .cornerRadius(4)
+            Text(isLive ? "LIVE" : "REPLAY").font(.caption).fontWeight(.bold).foregroundColor(
+                isLive ? .red : .orange
+            ).padding(.horizontal, 8).padding(.vertical, 2).background(
+                isLive ? Color.red.opacity(0.2) : Color.orange.opacity(0.2)
+            ).cornerRadius(4)
         }
     }
 }
@@ -296,9 +247,7 @@ struct SidePanelView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Track info
-            if let trackID = appState.selectedTrackID {
-                TrackInspectorView(trackID: trackID)
-            }
+            if let trackID = appState.selectedTrackID { TrackInspectorView(trackID: trackID) }
 
             Divider()
 
@@ -306,9 +255,7 @@ struct SidePanelView: View {
             LabelPanelView()
 
             Spacer()
-        }
-        .padding()
-        .background(Color(nsColor: .controlBackgroundColor))
+        }.padding().background(Color(nsColor: .controlBackgroundColor))
     }
 }
 
@@ -320,18 +267,13 @@ struct TrackInspectorView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Track Inspector")
-                .font(.headline)
+            Text("Track Inspector").font(.headline)
 
-            Text("ID: \(trackID)")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            Text("ID: \(trackID)").font(.caption).foregroundColor(.secondary)
 
             // TODO: Show track details from current frame
 
-            Button("Deselect") {
-                appState.selectTrack(nil)
-            }
+            Button("Deselect") { appState.selectTrack(nil) }
         }
     }
 }
@@ -345,31 +287,23 @@ struct LabelPanelView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Label Track")
-                .font(.headline)
+            Text("Label Track").font(.headline)
 
             if let trackID = appState.selectedTrackID {
-                Text("Track: \(trackID)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                Text("Track: \(trackID)").font(.caption).foregroundColor(.secondary)
 
                 ForEach(Array(labels.enumerated()), id: \.offset) { index, label in
                     Button(action: { appState.assignLabel(label) }) {
                         HStack {
-                            Text("\(index + 1)")
-                                .font(.system(.caption, design: .monospaced))
+                            Text("\(index + 1)").font(.system(.caption, design: .monospaced))
                                 .foregroundColor(.secondary)
                             Text(label)
                             Spacer()
                         }
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.vertical, 4)
+                    }.buttonStyle(.plain).padding(.vertical, 4)
                 }
             } else {
-                Text("Select a track to label")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                Text("Select a track to label").font(.caption).foregroundColor(.secondary)
             }
         }
     }
@@ -403,9 +337,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: MTKView, context: Context) {
-        guard let renderer = context.coordinator.renderer else {
-            return
-        }
+        guard let renderer = context.coordinator.renderer else { return }
 
         // Only update overlay settings - frames come directly to renderer
         renderer.showPoints = showPoints
@@ -413,18 +345,11 @@ struct MetalViewRepresentable: NSViewRepresentable {
         renderer.showTrails = showTrails
     }
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
+    func makeCoordinator() -> Coordinator { Coordinator() }
 
-    class Coordinator {
-        var renderer: MetalRenderer?
-    }
+    class Coordinator { var renderer: MetalRenderer? }
 }
 
 // MARK: - Preview
 
-#Preview {
-    ContentView()
-        .environmentObject(AppState())
-}
+#Preview { ContentView().environmentObject(AppState()) }
