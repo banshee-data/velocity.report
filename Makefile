@@ -43,6 +43,11 @@ help:
 	@echo "  dev-go-kill-server   Stop background Go server"
 	@echo "  dev-web              Start web dev server"
 	@echo "  dev-docs             Start docs dev server"
+	@echo "  dev-vis-server       Start visualiser gRPC server (VIS_MODE=synthetic)"
+	@echo "                       VIS_MODE: synthetic, replay (requires VIS_LOG), live"
+	@echo ""
+	@echo "VISUALISER TOOLS:"
+	@echo "  record-sample        Generate sample .vrlog file for testing"
 	@echo ""
 	@echo "TESTING:"
 	@echo "  test                 Run all tests (Go + Python + Web + macOS)"
@@ -453,7 +458,7 @@ ensure-python-tools:
 # DEVELOPMENT SERVERS
 # =============================================================================
 
-.PHONY: dev-go dev-go-lidar dev-go-kill-server dev-web dev-docs
+.PHONY: dev-go dev-go-lidar dev-go-kill-server dev-web dev-docs dev-vis-server record-sample
 
 # Reusable script for starting the app in background. Call with extra flags
 # using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we
@@ -527,6 +532,36 @@ dev-docs:
 		else \
 			echo "pnpm/npm not found; install dependencies (pnpm install) and run 'pnpm run dev'"; exit 1; \
 		fi
+
+# Visualiser server mode: synthetic (default), replay, live
+# Examples:
+#   make dev-vis-server                                          # synthetic mode
+#   make dev-vis-server VIS_MODE=replay VIS_LOG=/path/to/log    # replay mode
+VIS_MODE ?= synthetic
+VIS_LOG ?=
+
+dev-vis-server:
+	@echo "Starting visualiser gRPC server (mode: $(VIS_MODE))..."
+	@if [ "$(VIS_MODE)" = "replay" ] && [ -z "$(VIS_LOG)" ]; then \
+		echo "Error: VIS_LOG required for replay mode. Usage: make dev-vis-server VIS_MODE=replay VIS_LOG=/path/to/recording.vrlog"; \
+		exit 1; \
+	fi
+	@if [ "$(VIS_MODE)" = "replay" ]; then \
+		go run ./cmd/tools/visualiser-server -addr localhost:50051 -mode replay -log "$(VIS_LOG)"; \
+	else \
+		go run ./cmd/tools/visualiser-server -addr localhost:50051 -mode $(VIS_MODE); \
+	fi
+
+# Record a sample .vrlog file for testing replay mode
+# Variables: RECORD_OUTPUT (default: sample.vrlog), RECORD_FRAMES (default: 100)
+RECORD_OUTPUT ?= sample.vrlog
+RECORD_FRAMES ?= 100
+
+record-sample:
+	@echo "Recording sample .vrlog file..."
+	@echo "Output: $(RECORD_OUTPUT)"
+	@echo "Frames: $(RECORD_FRAMES)"
+	go run ./cmd/tools/record-sample -output $(RECORD_OUTPUT) -frames $(RECORD_FRAMES)
 
 # =============================================================================
 # TESTING
