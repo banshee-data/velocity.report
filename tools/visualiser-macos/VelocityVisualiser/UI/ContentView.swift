@@ -134,7 +134,7 @@ struct StatsDisplayView: View {
 
     private func formatNumber(_ n: Int) -> String {
         if n >= 1000 {
-            return String(format: "%.1fk", Double(n) / 1000)
+            return String(format: "%.2fk", Double(n) / 1000)
         }
         return "\(n)"
     }
@@ -150,7 +150,7 @@ struct StatLabel: View {
                 .font(.caption2)
                 .foregroundColor(.secondary)
             Text(value)
-                .font(.caption)
+                .font(.system(.caption, design: .monospaced))
                 .fontWeight(.medium)
         }
     }
@@ -187,10 +187,13 @@ struct ToggleButton: View {
                 .fontWeight(isOn ? .bold : .regular)
                 .foregroundColor(isOn ? .white : .secondary)
                 .frame(width: 24, height: 24)
-                .background(isOn ? Color.accentColor : Color.clear)
+                .background(
+                    isOn ? Color.accentColor : Color(nsColor: .controlBackgroundColor).opacity(0.5)
+                )
                 .cornerRadius(4)
         }
         .buttonStyle(.plain)
+        .focusable(false)
         .help(help)
     }
 }
@@ -207,11 +210,11 @@ struct PlaybackControlsView: View {
         let playbackRate = appState.playbackRate
 
         HStack {
-            // Play/Pause
+            // Play/Pause (disabled in live mode)
             Button(action: { appState.togglePlayPause() }) {
                 Image(systemName: isPaused ? "play.fill" : "pause.fill")
             }
-            .disabled(!isConnected)
+            .disabled(!isConnected || isLive)
 
             // Step buttons
             Button(action: { appState.stepBackward() }) {
@@ -236,25 +239,29 @@ struct PlaybackControlsView: View {
                 Spacer()
             }
 
-            // Rate control
+            // Rate control (disabled in live mode)
             HStack(spacing: 4) {
                 Button(action: { appState.decreaseRate() }) {
                     Image(systemName: "minus")
                 }
                 .buttonStyle(.borderless)
+                .disabled(!isConnected || isLive)
 
                 Text(String(format: "%.2fx", playbackRate))
                     .font(.caption)
                     .frame(width: 40)
+                    .foregroundColor(isLive ? .secondary : .primary)
 
                 Button(action: { appState.increaseRate() }) {
                     Image(systemName: "plus")
                 }
                 .buttonStyle(.borderless)
+                .disabled(!isConnected || isLive)
             }
+            .opacity(isLive ? 0.5 : 1.0)
 
-            // Mode indicator
-            ModeIndicatorView(isLive: isLive)
+            // Mode indicator (only show when connected)
+            ModeIndicatorView(isLive: isLive, isConnected: isConnected)
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
@@ -264,16 +271,19 @@ struct PlaybackControlsView: View {
 
 struct ModeIndicatorView: View {
     let isLive: Bool
+    let isConnected: Bool
 
     var body: some View {
-        Text(isLive ? "LIVE" : "REPLAY")
-            .font(.caption)
-            .fontWeight(.bold)
-            .foregroundColor(isLive ? .red : .orange)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 2)
-            .background(isLive ? Color.red.opacity(0.2) : Color.orange.opacity(0.2))
-            .cornerRadius(4)
+        if isConnected {
+            Text(isLive ? "LIVE" : "REPLAY")
+                .font(.caption)
+                .fontWeight(.bold)
+                .foregroundColor(isLive ? .red : .orange)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
+                .background(isLive ? Color.red.opacity(0.2) : Color.orange.opacity(0.2))
+                .cornerRadius(4)
+        }
     }
 }
 

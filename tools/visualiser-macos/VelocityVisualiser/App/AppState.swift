@@ -79,25 +79,17 @@ class AppState: ObservableObject {
     // MARK: - Internal
 
     private var grpcClient: VisualiserClient?
-    private var frameReceiveTime: Date = Date()
-    private var fpsCounter: Int = 0
-    private var fpsTimer: Timer?
+    private var lastFrameTime: Date = Date()
     private var clientDelegate: ClientDelegateAdapter?
 
     // MARK: - Initialisation
 
     init() {
-        // Start FPS timer
-        fpsTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.fps = Double(self?.fpsCounter ?? 0)
-                self?.fpsCounter = 0
-            }
-        }
+        // FPS is calculated per-frame using exponential moving average
     }
 
     deinit {
-        fpsTimer?.invalidate()
+        // Cleanup if needed
     }
 
     // MARK: - Connection
@@ -221,7 +213,16 @@ class AppState: ObservableObject {
         currentFrameID = frame.frameID
         currentTimestamp = frame.timestampNanos
         frameCount += 1
-        fpsCounter += 1
+
+        // Calculate FPS using exponential moving average
+        let now = Date()
+        let deltaTime = now.timeIntervalSince(lastFrameTime)
+        if deltaTime > 0 {
+            let instantFPS = 1.0 / deltaTime
+            // Exponential moving average with alpha=0.2 for smoothing
+            fps = fps == 0 ? instantFPS : (0.2 * instantFPS + 0.8 * fps)
+        }
+        lastFrameTime = now
 
         // Update stats
         pointCount = frame.pointCloud?.pointCount ?? 0
