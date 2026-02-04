@@ -328,13 +328,13 @@ func main() {
 				visualiserPublisher = visualiser.NewPublisher(vizConfig)
 				visualiserServer = visualiser.NewServer(visualiserPublisher)
 
-				// Register gRPC service
-				visualiser.RegisterService(visualiserPublisher.GRPCServer(), visualiserServer)
-
 				if err := visualiserPublisher.Start(); err != nil {
 					log.Fatalf("Failed to start visualiser publisher: %v", err)
 				}
 				defer visualiserPublisher.Stop()
+
+				// Register gRPC service (must happen after Start() to ensure GRPCServer is initialised)
+				visualiser.RegisterService(visualiserPublisher.GRPCServer(), visualiserServer)
 
 				frameAdapter = visualiser.NewFrameAdapter(*lidarSensor)
 				log.Printf("Visualiser gRPC server started on %s", *lidarGRPCListen)
