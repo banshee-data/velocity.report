@@ -33,6 +33,7 @@ type ReplayServer struct {
 	reader       FrameReader
 	mu           sync.RWMutex
 	seekOccurred bool // Set by Seek(), cleared by streaming loop to reset timing
+	sendOneFrame bool // Set by Seek() when paused, causes one frame to be sent
 }
 
 // NewReplayServer creates a server configured for replay mode.
@@ -83,6 +84,8 @@ func (rs *ReplayServer) streamFromReader(ctx context.Context, req *pb.StreamRequ
 		rate := rs.playbackRate
 		seeked := rs.seekOccurred
 		rs.seekOccurred = false // Clear the flag
+		sendOne := rs.sendOneFrame
+		rs.sendOneFrame = false // Clear the flag
 		rs.mu.Unlock()
 
 		// Reset timing state after a seek to prevent long sleeps
@@ -91,7 +94,8 @@ func (rs *ReplayServer) streamFromReader(ctx context.Context, req *pb.StreamRequ
 			lastWallTime = time.Time{}
 		}
 
-		if isPaused {
+		// If paused and not stepping, just wait
+		if isPaused && !sendOne {
 			time.Sleep(50 * time.Millisecond)
 			continue
 		}
@@ -198,6 +202,10 @@ func (rs *ReplayServer) Seek(ctx context.Context, req *pb.SeekRequest) (*pb.Play
 
 	// Signal to streaming loop to reset timing
 	rs.seekOccurred = true
+	// If paused, send one frame so the UI updates
+	if rs.paused {
+		rs.sendOneFrame = true
+	}
 
 	currentFrame := rs.reader.CurrentFrame()
 	log.Printf("[gRPC] Seek complete: now at frame %d, paused=%v, rate=%.2f", currentFrame, rs.paused, rs.playbackRate)
