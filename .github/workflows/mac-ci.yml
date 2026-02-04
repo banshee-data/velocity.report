@@ -22,6 +22,51 @@ permissions:
   pull-requests: write
 
 jobs:
+  setup:
+    name: "⚙️ Setup"
+    runs-on: macos-15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cache grpc-swift plugin
+        id: cache-grpc-swift
+        uses: actions/cache@v4
+        with:
+          path: /tmp/protoc-gen-grpc-swift
+          key: grpc-swift-protobuf-2.0.0-macos-15
+
+      - name: Build grpc-swift plugin from source
+        if: steps.cache-grpc-swift.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch 2.0.0 https://github.com/grpc/grpc-swift-protobuf.git /tmp/grpc-swift-protobuf
+          cd /tmp/grpc-swift-protobuf
+          swift build -c release --product protoc-gen-grpc-swift
+          cp .build/release/protoc-gen-grpc-swift /tmp/protoc-gen-grpc-swift
+
+      - name: Upload grpc-swift plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: protoc-gen-grpc-swift
+          path: /tmp/protoc-gen-grpc-swift
+          retention-days: 1
+
+      - name: Install protobuf tools
+        run: brew install protobuf swift-protobuf
+
+      - name: Install grpc-swift plugin
+        run: sudo cp /tmp/protoc-gen-grpc-swift /usr/local/bin/
+
+      - name: Generate protobuf stubs
+        run: make proto-gen-swift
+
+      - name: Upload generated protos
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-protos
+          path: tools/visualiser-macos/VelocityVisualiser/Generated/
+          retention-days: 1
+
   format:
     name: "🔍 Format Check"
     runs-on: macos-15
@@ -40,23 +85,16 @@ jobs:
   build:
     name: "🔨 Build"
     runs-on: macos-15
+    needs: setup
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          brew install protobuf swift-protobuf
-
-      - name: Install grpc-swift plugin from source
-        run: |
-          git clone --depth 1 --branch 1.23.0 https://github.com/grpc/grpc-swift.git /tmp/grpc-swift
-          cd /tmp/grpc-swift
-          swift build -c release --product protoc-gen-grpc-swift
-          sudo cp .build/release/protoc-gen-grpc-swift /usr/local/bin/
-
-      - name: Generate protobuf stubs
-        run: make proto-gen-swift
+      - name: Download generated protos
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-protos
+          path: tools/visualiser-macos/VelocityVisualiser/Generated/
 
       - name: Build macOS visualiser
         run: |
@@ -72,24 +110,16 @@ jobs:
   test:
     name: "🧪 Test"
     runs-on: macos-15
-    needs: build
+    needs: setup
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          brew install protobuf swift-protobuf
-
-      - name: Install grpc-swift plugin from source
-        run: |
-          git clone --depth 1 --branch 1.23.0 https://github.com/grpc/grpc-swift.git /tmp/grpc-swift
-          cd /tmp/grpc-swift
-          swift build -c release --product protoc-gen-grpc-swift
-          sudo cp .build/release/protoc-gen-grpc-swift /usr/local/bin/
-
-      - name: Generate protobuf stubs
-        run: make proto-gen-swift
+      - name: Download generated protos
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-protos
+          path: tools/visualiser-macos/VelocityVisualiser/Generated/
 
       - name: Run tests with coverage
         run: |
@@ -125,23 +155,16 @@ jobs:
   lint:
     name: "🔍 Lint"
     runs-on: macos-15
+    needs: setup
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          brew install protobuf swift-protobuf
-
-      - name: Install grpc-swift plugin from source
-        run: |
-          git clone --depth 1 --branch 1.23.0 https://github.com/grpc/grpc-swift.git /tmp/grpc-swift
-          cd /tmp/grpc-swift
-          swift build -c release --product protoc-gen-grpc-swift
-          sudo cp .build/release/protoc-gen-grpc-swift /usr/local/bin/
-
-      - name: Generate protobuf stubs
-        run: make proto-gen-swift
+      - name: Download generated protos
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-protos
+          path: tools/visualiser-macos/VelocityVisualiser/Generated/
 
       - name: Lint with SwiftLint (if configured)
         run: |

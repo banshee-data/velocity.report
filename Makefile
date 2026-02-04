@@ -324,7 +324,7 @@ proto-gen-swift:
 	fi
 	@if ! command -v protoc-gen-grpc-swift >/dev/null 2>&1; then \
 		echo "ERROR: protoc-gen-grpc-swift not found; install Swift gRPC plugin"; \
-		echo "  macOS: brew install grpc-swift"; \
+		echo "  Build from source: git clone https://github.com/grpc/grpc-swift-protobuf && cd grpc-swift-protobuf && swift build -c release && sudo cp .build/release/protoc-gen-grpc-swift /usr/local/bin/"; \
 		exit 1; \
 	fi
 	@protoc --swift_out=$(PROTO_SWIFT_OUT) \
