@@ -9,7 +9,6 @@ import (
 	"math"
 	"net"
 	"net/http"
-	_ "net/http/pprof" // Register pprof handlers
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -151,10 +150,8 @@ func (s *Server) ServeMux() *http.ServeMux {
 	}
 	s.mux = http.NewServeMux()
 
-	// Register pprof handlers for performance profiling
+	// Note: pprof endpoints are provided by tailscale's tsweb via db.AttachAdminRoutes()
 	// Usage: go tool pprof http://localhost:8081/debug/pprof/profile?seconds=30
-	// Or:    curl http://localhost:8081/debug/pprof/heap > heap.prof
-	s.mux.HandleFunc("/debug/pprof/", http.DefaultServeMux.ServeHTTP)
 
 	s.mux.HandleFunc("/events", s.listEvents)
 	s.mux.HandleFunc("/command", s.sendCommandHandler)
