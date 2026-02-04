@@ -31,8 +31,7 @@ struct ContentView: View {
             if appState.showLabelPanel || appState.selectedTrackID != nil {
                 SidePanelView().frame(width: 280)
             }
-        }.frame(minWidth: 800, minHeight: 600)
-            // Keyboard shortcuts for playback
+        }.frame(minWidth: 800, minHeight: 600)  // Keyboard shortcuts for playback
             .onKeyPress(.space) {
                 appState.togglePlayPause()
                 return .handled
@@ -172,8 +171,7 @@ struct OverlayTogglesView: View {
             HStack(spacing: 4) {
                 Text("Size").font(.caption2).foregroundColor(.secondary)
                 Slider(value: $appState.pointSize, in: 1...20).frame(width: 60)
-                Text("\(Int(appState.pointSize))").font(.caption).monospacedDigit().frame(
-                    width: 20)
+                Text("\(Int(appState.pointSize))").font(.caption).monospacedDigit().frame(width: 20)
             }.help("Point Size")
 
             Divider().frame(height: 20)

@@ -61,7 +61,8 @@ async def init_database(db_file: str = "align.db") -> sqlite3.Connection:
     conn = sqlite3.connect(db_file)
     cursor = conn.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
     CREATE TABLE IF NOT EXISTS telraam (
         device_id TEXT,
         instance_id TEXT,
@@ -117,7 +118,8 @@ async def init_database(db_file: str = "align.db") -> sqlite3.Connection:
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (device_id, instance_id, segment_id, date, interval)
     )
-  """)
+  """
+    )
 
     conn.commit()
     logger.info("Database initialized successfully")

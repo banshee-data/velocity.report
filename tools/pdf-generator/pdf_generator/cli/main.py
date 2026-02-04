@@ -143,10 +143,12 @@ def _format_api_error(action: str, api_url: str, exc: Exception) -> str:
         parts.append(str(exc))
 
     bullet_lines = "\n  - ".join(parts)
-    return textwrap.dedent(f"""\
+    return textwrap.dedent(
+        f"""\
         {action} failed.
           - {bullet_lines}
-        """).strip()
+        """
+    ).strip()
 
 
 def should_produce_daily(group_token: str) -> bool:
