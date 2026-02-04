@@ -676,4 +676,3 @@ func TestMockFrameReader_ReadFrame_Closed(t *testing.T) {
 		t.Errorf("expected EOF after close, got %v", err)
 	}
 }
-
