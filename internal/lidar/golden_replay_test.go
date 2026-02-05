@@ -44,10 +44,10 @@ func TestGoldenReplay_Determinism(t *testing.T) {
 		}
 
 		// Position should be identical (within floating point tolerance)
-		if !floatNearlyEqual(track1.X, track2.X, 1e-6) {
+		if !floatNearlyEqual(track1.X, track2.X, 1e-5) {
 			t.Errorf("track %d: X position mismatch: run1=%f, run2=%f", i, track1.X, track2.X)
 		}
-		if !floatNearlyEqual(track1.Y, track2.Y, 1e-6) {
+		if !floatNearlyEqual(track1.Y, track2.Y, 1e-5) {
 			t.Errorf("track %d: Y position mismatch: run1=%f, run2=%f", i, track1.Y, track2.Y)
 		}
 

@@ -87,7 +87,7 @@ func (a *FrameAdapter) AdaptFrame(
 	frame *lidar.LiDARFrame,
 	foregroundMask []bool,
 	clusters []lidar.WorldCluster,
-	tracker *lidar.Tracker,
+	tracker lidar.TrackerInterface,
 ) interface{} {
 	startTime := time.Now()
 	a.frameID++
@@ -324,7 +324,7 @@ func (a *FrameAdapter) adaptClusters(worldClusters []lidar.WorldCluster, timesta
 }
 
 // adaptTracks converts TrackedObjects to the canonical Track format.
-func (a *FrameAdapter) adaptTracks(tracker *lidar.Tracker, timestamp time.Time) *TrackSet {
+func (a *FrameAdapter) adaptTracks(tracker lidar.TrackerInterface, timestamp time.Time) *TrackSet {
 	activeTracks := tracker.GetActiveTracks()
 
 	ts := &TrackSet{

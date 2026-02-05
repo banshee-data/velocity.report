@@ -20,7 +20,7 @@ type VisualiserPublisher interface {
 
 // VisualiserAdapter interface converts tracking outputs to FrameBundle.
 type VisualiserAdapter interface {
-	AdaptFrame(frame *LiDARFrame, foregroundMask []bool, clusters []WorldCluster, tracker *Tracker) interface{}
+	AdaptFrame(frame *LiDARFrame, foregroundMask []bool, clusters []WorldCluster, tracker TrackerInterface) interface{}
 }
 
 // LidarViewAdapter interface forwards FrameBundle to UDP (LidarView format).
@@ -46,7 +46,7 @@ func isNilInterface(i interface{}) bool {
 type TrackingPipelineConfig struct {
 	BackgroundManager   *BackgroundManager
 	FgForwarder         ForegroundForwarder // Use interface to avoid import cycle
-	Tracker             *Tracker
+	Tracker             TrackerInterface    // Use interface for dependency injection and testing
 	Classifier          *TrackClassifier
 	DB                  *sql.DB // Use standard sql.DB to avoid import cycle with db package
 	SensorID            string
