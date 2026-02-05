@@ -595,6 +595,11 @@ type BackgroundManager struct {
 	// frameProcessCount tracks the number of ProcessFramePolar calls for rate-limited diagnostics.
 	// Accessed atomically to allow concurrent ProcessFramePolar invocations.
 	frameProcessCount int64
+
+	// maskBuf is a reusable buffer for ProcessFramePolarWithMask to avoid
+	// allocating a new []bool (69k elements, ~69 KB) every frame.
+	// Safe because the pipeline callback runs synchronously on a single goroutine.
+	maskBuf []bool
 }
 
 // GetParams returns a copy of the BackgroundParams for the manager's grid.

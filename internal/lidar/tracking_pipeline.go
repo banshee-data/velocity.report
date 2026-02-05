@@ -6,6 +6,8 @@ import (
 	"log"
 	"math"
 	"reflect"
+	"sync/atomic"
+	"time"
 )
 
 // ForegroundForwarder interface allows forwarding foreground points without importing network package.
@@ -55,6 +57,13 @@ type TrackingPipelineConfig struct {
 	VisualiserPublisher VisualiserPublisher // Optional: gRPC publisher
 	VisualiserAdapter   VisualiserAdapter   // Optional: adapter for gRPC
 	LidarViewAdapter    LidarViewAdapter    // Optional: adapter for UDP forwarding
+
+	// MaxFrameRate caps the rate at which frames are fully processed through
+	// the tracking pipeline. When frames arrive faster than this rate (e.g.
+	// during PCAP catch-up bursts), excess frames are dropped after background
+	// update but before the expensive clustering/tracking/serialisation path.
+	// Zero means no limit (process every frame). Typical value: 12.
+	MaxFrameRate float64
 }
 
 // NewFrameCallback creates a FrameBuilder callback that processes frames through
@@ -72,6 +81,18 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 	// Pre-allocate a reusable polar slice to avoid 69k-element allocation
 	// per frame (~5 MB). Safe because the callback runs synchronously.
 	var polarBuf []PointPolar
+
+	// Frame-rate throttle state. We always run ProcessFramePolarWithMask to
+	// keep the background model up to date, but skip the expensive
+	// clustering→tracking→serialisation path when frames arrive faster than
+	// MaxFrameRate. This prevents burst processing during PCAP catch-up
+	// from consuming 250%+ CPU and flooding the gRPC client with drops.
+	var lastProcessedTime time.Time
+	var minFrameInterval time.Duration
+	if cfg.MaxFrameRate > 0 {
+		minFrameInterval = time.Duration(float64(time.Second) / cfg.MaxFrameRate)
+	}
+	var throttledFrames atomic.Uint64
 
 	return func(frame *LiDARFrame) {
 		if frame == nil || len(frame.Points) == 0 {
@@ -165,6 +186,22 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 		if len(foregroundPoints) == 0 {
 			// No foreground detected, skip tracking
 			return
+		}
+
+		// Frame-rate throttle: skip the expensive downstream pipeline
+		// (clustering, tracking, serialisation) when frames arrive faster
+		// than MaxFrameRate. Background model update above still runs on
+		// every frame so foreground extraction stays accurate.
+		if minFrameInterval > 0 {
+			now := time.Now()
+			if !lastProcessedTime.IsZero() && now.Sub(lastProcessedTime) < minFrameInterval {
+				count := throttledFrames.Add(1)
+				if count%50 == 0 {
+					log.Printf("[Pipeline] Throttled %d frames (max %.0f fps)", count, cfg.MaxFrameRate)
+				}
+				return
+			}
+			lastProcessedTime = now
 		}
 
 		// Forward foreground points on 2370-style stream if configured

@@ -373,6 +373,7 @@ func main() {
 				VisualiserPublisher: visualiserPublisher,
 				VisualiserAdapter:   frameAdapter,
 				LidarViewAdapter:    lidarViewAdapter,
+				MaxFrameRate:        12, // Prevent PCAP catch-up bursts from flooding the pipeline
 			}
 			callback := pipelineConfig.NewFrameCallback()
 
