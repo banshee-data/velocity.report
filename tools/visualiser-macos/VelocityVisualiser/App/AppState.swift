@@ -45,6 +45,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
     @Published var showPoints: Bool = true
     @Published var showBoxes: Bool = true
+    @Published var showClusters: Bool = true  // M4: Cluster rendering toggle
     @Published var showTrails: Bool = true
     @Published var showVelocity: Bool = true
     @Published var showDebug: Bool = false
@@ -68,6 +69,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     @Published var pointCount: Int = 0
     @Published var clusterCount: Int = 0
     @Published var trackCount: Int = 0
+    @Published var cacheStatus: String = ""  // M3.5: Background cache status
 
     // MARK: - Renderer
 
@@ -366,8 +368,12 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         clusterCount = frame.clusters?.clusters.count ?? 0
         trackCount = frame.tracks?.tracks.count ?? 0
 
+        // M3.5: Update cache status
+        cacheStatus = renderer?.getCacheStatus() ?? ""
+
         // Forward frame directly to renderer (bypasses SwiftUI)
         renderer?.updateFrame(frame)
+        renderer?.showClusters = showClusters  // M4: Update cluster toggle
 
         // Log every 100 frames to show activity
         if frameCount % 100 == 1 {
