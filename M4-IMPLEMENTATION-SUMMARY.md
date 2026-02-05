@@ -1,7 +1,7 @@
 # M4 Implementation Summary
 
-**Date**: February 2025  
-**Milestone**: M4: Tracking Interface Refactor  
+**Date**: February 2025
+**Milestone**: M4: Tracking Interface Refactor
 **Status**: ✅ Complete (Track B - Pipeline)
 
 ---
@@ -28,6 +28,7 @@ type TrackerInterface interface {
 ```
 
 **Benefits:**
+
 - Enables dependency injection
 - Supports mock implementations for testing
 - Allows algorithm swapping without pipeline changes
@@ -46,6 +47,7 @@ type ClustererInterface interface {
 ```
 
 **ClusteringParams:**
+
 ```go
 type ClusteringParams struct {
     Eps    float64 // Neighbourhood radius in metres (for DBSCAN)
@@ -54,6 +56,7 @@ type ClusteringParams struct {
 ```
 
 **Benefits:**
+
 - Supports different clustering algorithms (DBSCAN, k-means, etc.)
 - Runtime parameter tuning
 - Consistent API across implementations
@@ -63,12 +66,14 @@ type ClusteringParams struct {
 Implemented `ClustererInterface` wrapping the existing DBSCAN function:
 
 **Key Features:**
+
 - Wraps `DBSCAN()` function from `clustering.go`
 - **Deterministic output**: Clusters sorted by centroid (X, then Y)
 - Factory methods: `NewDBSCANClusterer()`, `NewDefaultDBSCANClusterer()`
 - 100% test coverage
 
 **Determinism:**
+
 ```go
 sort.Slice(clusters, func(i, j int) bool {
     if clusters[i].CentroidX != clusters[j].CentroidX {
@@ -79,6 +84,7 @@ sort.Slice(clusters, func(i, j int) bool {
 ```
 
 This ensures:
+
 - Identical output across multiple runs
 - Reproducible golden replay tests
 - Consistent cluster ordering for association
@@ -88,31 +94,37 @@ This ensures:
 Created comprehensive determinism tests:
 
 **TestGoldenReplay_Determinism:**
+
 - Runs tracking pipeline twice on synthetic data
 - Compares track IDs, states, positions, velocities
 - Verifies observation counts and history length
 - Uses appropriate floating point tolerances
 
 **TestGoldenReplay_ClusteringDeterminism:**
+
 - Runs clustering multiple times on same input
 - Verifies identical cluster output
 - Checks deterministic sorting (X, then Y)
 
 **TestGoldenReplay_MultiTrackDeterminism:**
+
 - Tests with multiple simultaneous tracks
 - Verifies all tracks match across runs
 
 **TestGoldenReplay_TrackIDStability:**
+
 - Verifies track IDs follow expected format: `track_1`, `track_2`, etc.
 - Ensures IDs are stable across replay
 
 **Floating Point Tolerances:**
+
 - Positions: 1e-5 (10 microns in float32)
 - Velocities: 1e-4 (suitable for Kalman filter outputs)
 
 ### 5. Unit Tests
 
 **DBSCANClusterer Tests** (`dbscan_clusterer_test.go`):
+
 - Constructor tests (default and custom params)
 - Parameter get/set tests
 - Empty input handling
@@ -121,6 +133,7 @@ Created comprehensive determinism tests:
 - Interface compliance check
 
 **TrackerInterface Tests** (`tracker_interface_test.go`):
+
 - Interface implementation verification
 - Update/query method tests
 - Track lifecycle tests (tentative → confirmed → deleted)
@@ -130,6 +143,7 @@ Created comprehensive determinism tests:
 ### 6. Dependency Injection Updates
 
 **TrackingPipelineConfig** (`tracking_pipeline.go`):
+
 ```go
 type TrackingPipelineConfig struct {
     // ... other fields ...
@@ -139,6 +153,7 @@ type TrackingPipelineConfig struct {
 ```
 
 **VisualiserAdapter** (`visualiser/adapter.go`):
+
 ```go
 func (a *FrameAdapter) AdaptFrame(
     frame *lidar.LiDARFrame,
@@ -149,6 +164,7 @@ func (a *FrameAdapter) AdaptFrame(
 ```
 
 **Benefits:**
+
 - True dependency injection
 - Supports mock trackers in tests
 - No breaking changes (existing code uses `*Tracker` which implements interface)
@@ -163,11 +179,13 @@ ok  	internal/lidar/visualiser	2.332s
 ```
 
 **Coverage Breakdown:**
+
 - `dbscan_clusterer.go`: 88.9% - 100% (all methods 100% except Cluster which is 88.9%)
 - `tracker_interface.go`: Interface only (no implementation)
 - `clusterer_interface.go`: Interface only (no implementation)
 
 **All Tests Pass:**
+
 - ✅ 145 lidar package tests
 - ✅ 28 visualiser package tests
 - ✅ 4 golden replay tests
@@ -179,6 +197,7 @@ ok  	internal/lidar/visualiser	2.332s
 ## Acceptance Criteria
 
 **Track B (Pipeline) - COMPLETE:**
+
 - ✅ Define `Tracker` interface abstracting current implementation
 - ✅ Define `Clusterer` interface for DBSCAN
 - ✅ Inject interfaces via dependency injection
@@ -186,11 +205,13 @@ ok  	internal/lidar/visualiser	2.332s
 - ✅ Determinism: seed any RNG, sort clusters by centroid
 
 **Acceptance Criteria Met:**
+
 - ✅ Golden replay test passes (identical tracks each run)
 - ✅ Track IDs stable across replay
 - ✅ No algorithm changes (pure refactor)
 
 **Track A (Visualiser) - NOT INCLUDED:**
+
 - 🔲 `FrameBundle` includes `ClusterSet` and `TrackSet` (already done in M3)
 - 🔲 Render `ClusterSet` as boxes (future work)
 - 🔲 Render `TrackSet` with IDs and colours (future work)
@@ -201,17 +222,20 @@ ok  	internal/lidar/visualiser	2.332s
 ## Code Quality
 
 **Linting:**
+
 ```bash
 make lint-go     # ✅ PASS
 make format-go   # ✅ PASS
 ```
 
 **Security:**
+
 ```
 CodeQL Analysis: 0 alerts found
 ```
 
 **Conventions:**
+
 - British English spelling throughout
 - Interface-first design
 - Comprehensive documentation
@@ -222,6 +246,7 @@ CodeQL Analysis: 0 alerts found
 ## Files Changed
 
 **New Files:**
+
 1. `internal/lidar/tracker_interface.go` - TrackerInterface definition
 2. `internal/lidar/clusterer_interface.go` - ClustererInterface definition
 3. `internal/lidar/dbscan_clusterer.go` - DBSCAN implementation
@@ -230,6 +255,7 @@ CodeQL Analysis: 0 alerts found
 6. `internal/lidar/golden_replay_test.go` - Determinism tests
 
 **Modified Files:**
+
 1. `internal/lidar/tracking_pipeline.go` - Use TrackerInterface
 2. `internal/lidar/visualiser/adapter.go` - Use TrackerInterface
 
@@ -240,17 +266,20 @@ CodeQL Analysis: 0 alerts found
 ## Determinism Guarantees
 
 **No Random Number Generation:**
+
 - Track IDs are sequential: `track_1`, `track_2`, ...
 - No stochastic algorithms used
 - Kalman filter is deterministic
 - DBSCAN is deterministic with fixed parameters
 
 **Cluster Sorting:**
+
 - Primary key: CentroidX (ascending)
 - Secondary key: CentroidY (ascending)
 - Ensures consistent cluster-to-track association
 
 **Reproducibility:**
+
 - Same input → same clusters → same tracks
 - Track IDs, states, positions, velocities all identical
 - History lengths and observation counts match
@@ -260,6 +289,7 @@ CodeQL Analysis: 0 alerts found
 ## Future Work (Track A - Visualiser)
 
 **Not Included in M4:**
+
 1. Render `ClusterSet` as boxes in visualiser
 2. Render `TrackSet` with IDs and colours
 3. Display track trails from history
@@ -267,6 +297,7 @@ CodeQL Analysis: 0 alerts found
 5. Show track metadata (ID, speed, class)
 
 **Next Milestone: M5 - Algorithm Upgrades**
+
 - Improved ground removal (RANSAC)
 - Voxel grid downsampling
 - OBB estimation from cluster PCA

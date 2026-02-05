@@ -35,24 +35,25 @@ This ensures tracks remain visually prominent over clusters.
 
 ## Track vs Cluster Boxes
 
-| Property | Clusters | Tracks |
-|----------|----------|--------|
-| Colour | Cyan (0, 0.8, 1.0) | State-based (green/yellow/red) |
-| Alpha | 0.7 (semi-transparent) | 1.0 (opaque) |
-| Dimensions | AABB (current frame) | Running average bbox |
-| Orientation | OBB heading (if computed) | Smoothed heading |
-| Toggle | 'C' button | 'B' button |
+| Property    | Clusters                  | Tracks                         |
+| ----------- | ------------------------- | ------------------------------ |
+| Colour      | Cyan (0, 0.8, 1.0)        | State-based (green/yellow/red) |
+| Alpha       | 0.7 (semi-transparent)    | 1.0 (opaque)                   |
+| Dimensions  | AABB (current frame)      | Running average bbox           |
+| Orientation | OBB heading (if computed) | Smoothed heading               |
+| Toggle      | 'C' button                | 'B' button                     |
 
 ## Implementation
 
 ### MetalRenderer Updates
 
 **New Method**: `updateClusterInstances()`
+
 ```swift
 private func updateClusterInstances(_ clusterSet: ClusterSet) {
     // Each box instance: [transform matrix (16 floats) + colour (4 floats)]
     var instances = [Float]()
-    
+
     for cluster in clusterSet.clusters {
         // Build transform matrix using AABB dimensions
         let scale = simd_float4x4(diagonal: simd_float4(
@@ -60,35 +61,35 @@ private func updateClusterInstances(_ clusterSet: ClusterSet) {
             cluster.aabbWidth > 0 ? cluster.aabbWidth : 0.5,
             cluster.aabbHeight > 0 ? cluster.aabbHeight : 0.5,
             1.0))
-        
+
         // Use OBB heading if available, otherwise no rotation
         let heading = cluster.obb?.headingRad ?? 0.0
         let rotation = simd_float4x4(rotationZ: heading)
         let translation = simd_float4x4(
             translation: simd_float3(
-                cluster.centroidX, 
-                cluster.centroidY, 
+                cluster.centroidX,
+                cluster.centroidY,
                 cluster.centroidZ))
         let transform = translation * rotation * scale
-        
+
         // Add transform (16 floats)
-        for col in 0..<4 { for row in 0..<4 { 
-            instances.append(transform[col][row]) 
+        for col in 0..<4 { for row in 0..<4 {
+            instances.append(transform[col][row])
         }}
-        
+
         // Add cyan colour (4 floats)
         instances.append(0.0)  // r
         instances.append(0.8)  // g
         instances.append(1.0)  // b
         instances.append(0.7)  // alpha (semi-transparent)
     }
-    
+
     // Upload to GPU
     if !instances.isEmpty {
         let bufferSize = instances.count * MemoryLayout<Float>.stride
         clusterInstances = device.makeBuffer(
-            bytes: instances, 
-            length: bufferSize, 
+            bytes: instances,
+            length: bufferSize,
             options: .storageModeShared)
         clusterInstanceCount = clusterSet.clusters.count
     } else {
@@ -98,6 +99,7 @@ private func updateClusterInstances(_ clusterSet: ClusterSet) {
 ```
 
 **New Properties**:
+
 ```swift
 var clusterInstances: MTLBuffer?
 var clusterInstanceCount: Int = 0
@@ -126,16 +128,19 @@ if showClusters, let pipeline = boxPipeline, let boxVerts = boxVertices,
 ### Cluster States
 
 **New Cluster (tentative)**:
+
 - Cyan box with semi-transparency
 - Small AABB dimensions
 - No OBB heading yet (axis-aligned)
 
 **Mature Cluster (before association)**:
+
 - Cyan box with OBB heading
 - Refined AABB dimensions
 - Visible orientation
 
 **Associated Cluster → Track**:
+
 - Cluster box disappears (no longer in ClusterSet)
 - Track box appears (green = confirmed)
 - Smooth transition via confidence scores
@@ -163,6 +168,7 @@ message FrameBundle {
 ### M4.1: Track ID Labels
 
 Optional enhancement to render track IDs as text labels near boxes:
+
 - Use CoreText or Metal text rendering
 - Position above track box centroid
 - Fade in/out on track creation/deletion
@@ -170,6 +176,7 @@ Optional enhancement to render track IDs as text labels near boxes:
 ### M4.2: Cluster Features
 
 Display additional cluster metadata on hover:
+
 - Point count
 - Height P95
 - Intensity mean

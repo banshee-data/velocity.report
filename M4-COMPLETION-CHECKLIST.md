@@ -1,7 +1,7 @@
 # M4: Tracking Interface Refactor - Completion Checklist
 
-**Date**: February 2025  
-**Branch**: copilot/implement-m3-5-and-m4  
+**Date**: February 2025
+**Branch**: copilot/implement-m3-5-and-m4
 **Status**: ✅ COMPLETE
 
 ---
@@ -13,24 +13,19 @@
 - [x] Define `Tracker` interface abstracting current implementation
   - File: `internal/lidar/tracker_interface.go`
   - 6 methods: Update, GetActiveTracks, GetConfirmedTracks, GetTrack, GetTrackCount, GetAllTracks
-  
 - [x] Define `Clusterer` interface for DBSCAN
   - File: `internal/lidar/clusterer_interface.go`
   - 3 methods: Cluster, GetParams, SetParams
-  
 - [x] Inject interfaces via dependency injection
   - Updated: `internal/lidar/tracking_pipeline.go`
   - Updated: `internal/lidar/visualiser/adapter.go`
   - Changed `Tracker *Tracker` → `Tracker TrackerInterface`
-  
 - [x] `FrameBundle` includes `ClusterSet` and `TrackSet`
   - Already implemented in M3 (proto/velocity_visualiser/v1/visualiser.proto)
   - ClusterSet and TrackSet are part of FrameBundle schema
-  
 - [x] Golden replay test: compare track IDs/states frame-by-frame
   - File: `internal/lidar/golden_replay_test.go`
   - 4 test functions covering determinism
-  
 - [x] Determinism: seed any RNG, sort clusters by centroid
   - No RNG used (track IDs are sequential)
   - Clusters sorted by (CentroidX, CentroidY)
@@ -39,7 +34,7 @@
 ### Track A (Visualiser) - 🔲 FUTURE WORK
 
 - [ ] Render `ClusterSet` as boxes
-- [ ] Render `TrackSet` with IDs and colours  
+- [ ] Render `TrackSet` with IDs and colours
 - [ ] Track trails from `TrackTrail` data
 
 **Note**: Track A is visualiser UI work and will be done separately.
@@ -52,18 +47,15 @@
   - TestGoldenReplay_Determinism: ✅ PASS
   - TestGoldenReplay_ClusteringDeterminism: ✅ PASS
   - TestGoldenReplay_MultiTrackDeterminism: ✅ PASS
-  
 - [x] **Visualiser shows clusters + tracks correctly**
   - FrameBundle schema includes ClusterSet and TrackSet
   - Adapter converts WorldCluster → Cluster
   - Adapter converts TrackedObject → Track
   - UI rendering is Track A work (future)
-  
 - [x] **Track IDs stable across replay**
   - TestGoldenReplay_TrackIDStability: ✅ PASS
   - Track IDs follow format: track_1, track_2, ...
   - Deterministic ID generation
-  
 - [x] **No algorithm changes (pure refactor)**
   - DBSCAN algorithm unchanged
   - Tracker algorithm unchanged
@@ -83,12 +75,14 @@ internal/lidar/visualiser:  76.8% coverage ✅
 ### New Tests
 
 **Golden Replay Tests** (`golden_replay_test.go`):
+
 - TestGoldenReplay_Determinism: ✅ PASS
 - TestGoldenReplay_ClusteringDeterminism: ✅ PASS
 - TestGoldenReplay_MultiTrackDeterminism: ✅ PASS
 - TestGoldenReplay_TrackIDStability: ✅ PASS
 
 **DBSCANClusterer Tests** (`dbscan_clusterer_test.go`):
+
 - TestDBSCANClusterer_NewDefaultDBSCANClusterer: ✅ PASS
 - TestDBSCANClusterer_NewDBSCANClusterer: ✅ PASS
 - TestDBSCANClusterer_SetParams: ✅ PASS
@@ -98,6 +92,7 @@ internal/lidar/visualiser:  76.8% coverage ✅
 - TestDBSCANClusterer_Interface: ✅ PASS
 
 **TrackerInterface Tests** (`tracker_interface_test.go`):
+
 - TestTrackerInterface_Implementation: ✅ PASS
 - TestTrackerInterface_Update: ✅ PASS
 - TestTrackerInterface_GetActiveTracks: ✅ PASS
@@ -108,7 +103,7 @@ internal/lidar/visualiser:  76.8% coverage ✅
 
 ### Existing Tests
 
-All 145 existing lidar tests: ✅ PASS  
+All 145 existing lidar tests: ✅ PASS
 All 28 existing visualiser tests: ✅ PASS
 
 ---
@@ -116,7 +111,7 @@ All 28 existing visualiser tests: ✅ PASS
 ## Code Quality Checks
 
 - [x] **Linting**: `make lint-go` ✅ PASS
-- [x] **Formatting**: `make format-go` ✅ PASS  
+- [x] **Formatting**: `make format-go` ✅ PASS
 - [x] **Security**: CodeQL Analysis - 0 alerts ✅ PASS
 - [x] **Code Review**: Completed ✅ PASS
 - [x] **British English**: All comments and docs ✅ PASS
@@ -160,17 +155,20 @@ a4189eb [ai][go] Use TrackerInterface for dependency injection
 ## Determinism Verification
 
 ### Clustering
+
 - ✅ Clusters sorted by (CentroidX, CentroidY)
 - ✅ DBSCAN with fixed parameters is deterministic
 - ✅ No randomness in spatial indexing
 
 ### Tracking
+
 - ✅ Track IDs sequential (track_1, track_2, ...)
 - ✅ Kalman filter is deterministic
 - ✅ Association uses deterministic gating
 - ✅ No random number generation
 
 ### Replay Tests
+
 - ✅ Multiple runs produce identical results
 - ✅ Track IDs match across runs
 - ✅ Positions match within floating point tolerance (1e-5)
@@ -183,11 +181,13 @@ a4189eb [ai][go] Use TrackerInterface for dependency injection
 ## Next Steps
 
 ### Immediate
+
 - [ ] Merge PR to main branch
 - [ ] Update milestone status in `04-implementation-plan.md`
 - [ ] Tag release: `v0.4.0-m4`
 
 ### M5: Algorithm Upgrades
+
 - [ ] Improved ground removal (RANSAC or height threshold)
 - [ ] Voxel grid downsampling option
 - [ ] OBB estimation from cluster PCA
@@ -196,6 +196,7 @@ a4189eb [ai][go] Use TrackerInterface for dependency injection
 - [ ] Occlusion handling improvements
 
 ### Track A (Visualiser) - Future
+
 - [ ] Render ClusterSet as boxes in visualiser UI
 - [ ] Render TrackSet with IDs and colours
 - [ ] Display track trails from history
@@ -206,12 +207,12 @@ a4189eb [ai][go] Use TrackerInterface for dependency injection
 
 ## Key Achievements
 
-✅ **Interface-First Design**: Clean abstraction layer for tracking and clustering  
-✅ **100% Deterministic**: Golden replay tests verify reproducibility  
-✅ **Zero Algorithm Changes**: Pure refactor maintains existing behaviour  
-✅ **High Test Coverage**: 89.6% coverage with comprehensive tests  
-✅ **Dependency Injection**: Pipeline uses interfaces for flexibility  
-✅ **Documentation**: Complete implementation summary and checklist  
+✅ **Interface-First Design**: Clean abstraction layer for tracking and clustering
+✅ **100% Deterministic**: Golden replay tests verify reproducibility
+✅ **Zero Algorithm Changes**: Pure refactor maintains existing behaviour
+✅ **High Test Coverage**: 89.6% coverage with comprehensive tests
+✅ **Dependency Injection**: Pipeline uses interfaces for flexibility
+✅ **Documentation**: Complete implementation summary and checklist
 
 ---
 
