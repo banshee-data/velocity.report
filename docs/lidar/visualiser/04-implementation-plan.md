@@ -361,6 +361,7 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 - [ ] Memory usage < 500 MB
 - [ ] CPU profiling and optimisation
 - [ ] GPU profiling (Metal System Trace)
+- [ ] Swift vertex buffer reuse (see §7.1 below)
 
 **Track B (Pipeline)**:
 
@@ -368,6 +369,8 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 - [ ] Protobuf arena allocators
 - [ ] Decimation auto-adjustment based on bandwidth
 - [ ] Memory profiling for 100+ track scale
+- [ ] PointCloudFrame memory pool with reference counting (see §7.2 below)
+- [ ] Frame skipping with cooldown mechanism (see §7.3 below)
 
 **Acceptance Criteria**:
 
@@ -375,8 +378,103 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 - [ ] 200 tracks render without frame drops
 - [ ] Memory stable over 1 hour session
 - [ ] CPU usage < 30% on M1 MacBook
+- [ ] No memory leaks from pooled allocations
 
 **Estimated Dev-Days**: 8 (4 Track A + 4 Track B)
+
+#### 7.1 Swift Buffer Pooling
+
+**Problem**: `MetalRenderer.updatePointBuffer()` allocates a new `vertices` array for every frame. At 10-20 fps with 70k points, this creates allocation pressure.
+
+**Options**:
+
+1. **Pre-allocated buffer**: Keep a single large `MTLBuffer` and reuse if point count hasn't changed significantly
+2. **Buffer pool**: Similar to Go implementation, maintain pool of `MTLBuffer` objects by size class
+3. **Ring buffer**: Triple buffer with fence synchronisation
+
+**Recommendation**: Start with option 1 (simplest), benchmark, escalate to option 2 if needed.
+
+#### 7.2 PointCloudFrame Memory Pool (Release() Strategy)
+
+**Problem**: The Go `PointCloudFrame` uses `sync.Pool` for slice allocation via `getFloat32Slice()` and `getUint8Slice()`. A `Release()` method exists to return slices to the pool. However, in broadcast scenarios (Publisher sends same frame to multiple gRPC clients), calling `Release()` would corrupt data for other consumers.
+
+**Current State**: `Release()` is documented but intentionally **not called** in broadcast mode.
+
+**Options for Proper Pool Utilisation**:
+
+| Option | Description | Pros | Cons |
+|--------|-------------|------|------|
+| **A: Reference Counting** | Add `refCount` field to PointCloudFrame. Increment on broadcast to each client, decrement after protobuf conversion. Release when count hits zero. | Pool actually gets reused; memory-efficient at scale | Added complexity; must ensure all code paths decrement |
+| **B: Copy-on-Broadcast** | Each client receives a deep copy of the frame | Simple ownership model; no shared state | Defeats purpose of pooling; higher memory use |
+| **C: Single-Client Optimisation** | Only use pool in replay mode (single client). Live mode uses regular allocation. | Works today without changes | Pool only helps replay; live mode still allocates |
+| **D: Remove Pooling** | Delete pool code; use regular slices | Simplest; fewer bugs | Higher GC pressure at 70k points × 10 Hz |
+
+**Recommendation**: Option A (reference counting) for V1.1. Option C as interim if A proves complex. Current behaviour (documented non-use in broadcast) is acceptable for MVP.
+
+**Implementation Sketch (Option A)**:
+
+```go
+type PointCloudFrame struct {
+    // ... existing fields ...
+    refCount atomic.Int32
+}
+
+func (pc *PointCloudFrame) Retain() {
+    pc.refCount.Add(1)
+}
+
+func (pc *PointCloudFrame) Release() {
+    if pc.refCount.Add(-1) == 0 {
+        putFloat32Slice(pc.X)
+        // ... return other slices ...
+    }
+}
+
+// In broadcastLoop:
+for _, client := range p.clients {
+    frame.PointCloud.Retain()
+    select {
+    case client.frameCh <- frame:
+    default:
+        frame.PointCloud.Release() // Wasn't sent
+    }
+}
+
+// In streamFromPublisher after protobuf conversion:
+frame.PointCloud.Release()
+```
+
+#### 7.3 Frame Skipping Cooldown
+
+**Problem**: The gRPC streaming code skips frames when `consecutiveSlowSends >= maxConsecutiveSlowSends`, but there's no cooldown after catching up. This could cause continued aggressive skipping even after the client recovers.
+
+**Current Behaviour**: Skip frames while slow, reset counter on fast send.
+
+**Proposed Enhancement**: After entering skip mode, require N consecutive fast sends before exiting skip mode (hysteresis). This prevents oscillation.
+
+```go
+const (
+    maxConsecutiveSlowSends = 3   // Enter skip mode
+    minConsecutiveFastSends = 5   // Exit skip mode (cooldown)
+)
+
+if sendDuration.Milliseconds() <= slowSendThresholdMs {
+    consecutiveFastSends++
+    if consecutiveFastSends >= minConsecutiveFastSends {
+        consecutiveSlowSends = 0 // Exit skip mode
+        consecutiveFastSends = 0
+    }
+} else {
+    consecutiveFastSends = 0
+    consecutiveSlowSends++
+}
+```
+
+#### 7.4 Decimation Edge Cases
+
+**Current Behaviour**: For very small ratios (e.g., 0.00001), `targetCount` becomes 1, and only the first point is kept.
+
+**Documented Behaviour**: This is intentional for extreme decimation. A minimum ratio of 0.01 (1%) is recommended for practical use. Callers should validate ratios before calling `ApplyDecimation()`.
 
 ---
 

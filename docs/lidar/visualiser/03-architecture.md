@@ -463,7 +463,51 @@ Since LidarView shows raw points and the visualiser shows semantic data, direct 
 
 ---
 
-## 8. Related Documents
+## 8. Known Issues & Deferred Optimisations
+
+This section documents known limitations and deferred work from the M2/M3 implementation that will be addressed in M7 (Performance Hardening).
+
+### 8.1 Memory Pool Not Fully Utilised (Go)
+
+**Issue**: The `PointCloudFrame` type uses `sync.Pool` for slice allocation (`getFloat32Slice()`, `getUint8Slice()`), but the `Release()` method is not called in broadcast scenarios.
+
+**Reason**: In the Publisher's broadcast loop, the same frame is sent to multiple gRPC clients. Calling `Release()` after one client converts to protobuf would corrupt data for other clients still using the frame.
+
+**Impact**: Pool slices are allocated but never returned; effectively defeats pooling benefit.
+
+**Deferred Solution**: Reference counting (see [04-implementation-plan.md §7.2](./04-implementation-plan.md#72-pointcloudframe-memory-pool-release-strategy)).
+
+### 8.2 Swift Buffer Allocation Per Frame
+
+**Issue**: `MetalRenderer.updatePointBuffer()` allocates a new `vertices` array (350 KB for 70k points) on every frame.
+
+**Impact**: At 10-20 fps, this creates ~5 MB/s allocation pressure, increasing GC load.
+
+**Deferred Solution**: Buffer pooling or pre-allocation (see [04-implementation-plan.md §7.1](./04-implementation-plan.md#71-swift-buffer-pooling)).
+
+### 8.3 Frame Skipping Lacks Cooldown
+
+**Issue**: When gRPC streaming detects slow clients, it aggressively skips frames. However, there's no hysteresis to prevent oscillation between skip and normal modes.
+
+**Impact**: Client may experience jittery frame delivery after recovering from backpressure.
+
+**Deferred Solution**: Add cooldown counter (see [04-implementation-plan.md §7.3](./04-implementation-plan.md#73-frame-skipping-cooldown)).
+
+### 8.4 Decimation Ratio Edge Cases
+
+**Issue**: Very small decimation ratios (< 0.01) can result in only 1 point being kept.
+
+**Workaround**: Callers should validate ratios. Minimum recommended: 0.01 (1%).
+
+**Documentation**: Added to [04-implementation-plan.md §7.4](./04-implementation-plan.md#74-decimation-edge-cases).
+
+### 8.5 Go 1.21+ Dependency
+
+**Note**: The code uses the built-in `max()` function introduced in Go 1.21. This is compatible with the project's Go 1.21+ requirement (see `go.mod`). No action needed, but noted for reference.
+
+---
+
+## 9. Related Documents
 
 - [01-problem-and-user-workflows.md](./01-problem-and-user-workflows.md) – Problem statement
 - [02-api-contracts.md](./02-api-contracts.md) – API contract (protobuf schema)
