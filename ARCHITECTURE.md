@@ -65,7 +65,7 @@ All components share a common SQLite database as the single source of truth, wit
 │  │  • Ethernet Port (LIDAR + Network)                             │  │
 │  │    - LIDAR network: 192.168.100.151/24 (listener)              │  │
 │  │    - LIDAR sensor:  192.168.100.202 (UDP source)               │  │
-│  │    - Local LAN:     192.168.1.x (API server)                   │  │
+│  │    - Local LAN:     192.168.1.x (API + gRPC server)            │  │
 │  │                                                                │  │
 │  │  Network: Dual configuration (LIDAR subnet + Local LAN)        │  │
 │  │                                                                │  │
@@ -96,7 +96,7 @@ All components share a common SQLite database as the single source of truth, wit
 │  │  │  └──────────┼─────────────────────┼───────────────────┘  │  │  │
 │  │  │             │                     │                      │  │  │
 │  │  │  ┌──────────▼─────────────────────▼───────────────────┐  │  │  │
-│  │  │  │  Sensor Pipelines → SQLite                         │  │  │  │
+│  │  │  │  Sensor Pipelines → SQLite + gRPC                  │  │  │  │
 │  │  │  │                                                    │  │  │  │
 │  │  │  │  Radar Serial (/dev/ttyUSB0)                       │  │  │  │
 │  │  │  │    → ops243 reader → JSON parse                    │  │  │  │
@@ -107,6 +107,7 @@ All components share a common SQLite database as the single source of truth, wit
 │  │  │  │    → BackgroundManager EMA grid                    │  │  │  │
 │  │  │  │    → persist lidar_bg_snapshot rows                │  │  │  │
 │  │  │  │    → emit frame_stats → system_events              │  │  │  │
+│  │  │  │    → gRPC stream → visualiser (port 50051)         │  │  │  │
 │  │  │  └──────────┬──────────────────────┬──────────────────┘  │  │  │
 │  │  │             │                      │                     │  │  │
 │  │  └─────────────┼──────────────────────┼─────────────────────┘  │  │
@@ -132,7 +133,7 @@ All components share a common SQLite database as the single source of truth, wit
 │  │  │         Background Workers                               │  │  │
 │  │  │                                                          │  │  │
 │  │  │  • Transit Worker: radar_data → radar_data_transits      │  │  │
-│  │  │    (sessionizes raw readings into vehicle transits)      │  │  │
+│  │  │    (sessionises raw readings into vehicle transits)      │  │  │
 │  │  │                                                          │  │  │
 │  │  └─────────────┬────────────────────────────────────────────┘  │  │
 │  │                │                                               │  │
@@ -146,42 +147,61 @@ All components share a common SQLite database as the single source of truth, wit
 │  │  │  • POST /command         (send radar command)            │  │  │
 │  │  └──────────────────────────────────────────────────────────┘  │  │
 │  │                                                                │  │
+│  │  ┌──────────────────────────────────────────────────────────┐  │  │
+│  │  │         gRPC Visualiser Server (internal/lidar/visual.)  │  │  │
+│  │  │         Listen: 0.0.0.0:50051 (protobuf streaming)       │  │  │
+│  │  │                                                          │  │  │
+│  │  │  Modes:                                                  │  │  │
+│  │  │  • Live: Stream real-time LIDAR frames                   │  │  │
+│  │  │  • Replay: Stream recorded .vrlog files                  │  │  │
+│  │  │  • Synthetic: Generate test data at configurable rate    │  │  │
+│  │  │                                                          │  │  │
+│  │  │  RPCs (VisualiserService):                               │  │  │
+│  │  │  • StreamFrames   - Server-streaming FrameBundle         │  │  │
+│  │  │  • Pause/Play     - Playback control (replay mode)       │  │  │
+│  │  │  • Seek/SetRate   - Timeline navigation                  │  │  │
+│  │  │  • Start/StopRecording - Record to .vrlog (live mode)    │  │  │
+│  │  │  • GetCapabilities - Query server mode/features          │  │  │
+│  │  └──────────────────────────────────────────────────────────┘  │  │
+│  │                                                                │  │
 │  └────────────────────────────────────────────────────────────────┘  │
 │                                                                      │
 └──────────────────────────────────────────────────────────────────────┘
                                  │
-                                 │ HTTP API (JSON)
-                                 │ Local Network (192.168.1.x:8080)
-                                 │
-        ┌────────────────────────┴─────────────┐
-        │                                      │
-        │                                      │
-┌───────▼───────────────────────┐      ┌───────▼───────────────────────┐
-│         WEB PROJECT           │      │         PYTHON PROJECT        │
-├───────────────────────────────┤      ├───────────────────────────────┤
-│  web/                         │      │  tools/pdf-generator          │
-│  Svelte Frontend              │      │  CLI Tools                    │
-│  • TypeScript                 │      │  • create_config              │
-│  • Vite                       │      │  • demo                       │
-│  • pnpm                       │      │                               │
-│                               │      │  Core Modules                 │
-│  API Client                   │      │  • api_client                 │
-│  • fetch/axios                │      │  • chart_builder              │
-│                               │      │  • table_builders             │
-│                               │      │  • doc_builder                │
-│                               │      │                               │
-│                               │      │  LaTeX Compiler               │
-│                               │      │  • XeLaTeX                    │
-│                               │      │  • matplotlib                 │
-│                               │      │                               │
-│                               │      │  PDF Output                   │
-│                               │      │  output/*.pdf                 │
-│                               │      │                               │
-│  Runtime                      │      │  Runtime                      │
-│  • Dev: localhost:5173        │      │  • CLI on demand              │
-│  • Prod: Go-served static     │      │  • Python 3.9+                │
-│                               │      │  • Virtual env                │
-└───────────────────────────────┘      └───────────────────────────────┘
+           ┌─────────────────────┴─────────────────────────────┐
+           │                                                   │
+           │ HTTP API (JSON)                   gRPC (protobuf) │
+           │ Port 8080                              Port 50051 │
+           │                                                   │
+           ├───────────────────────┐                           │
+           │                       │                           │
+           ▼                       ▼                           ▼
+┌─────────────────────┐ ┌─────────────────────┐ ┌─────────────────────┐
+│    WEB PROJECT      │ │   PYTHON PROJECT    │ │  macOS VISUALISER   │
+├─────────────────────┤ ├─────────────────────┤ ├─────────────────────┤
+│  web/               │ │  tools/pdf-generator│ │  tools/visualiser-  │
+│  Svelte Frontend    │ │  CLI Tools          │ │  macos/             │
+│  • TypeScript       │ │  • create_config    │ │                     │
+│  • Vite             │ │  • demo             │ │  Swift/SwiftUI App  │
+│  • pnpm             │ │                     │ │  • Metal GPU render │
+│                     │ │  Core Modules       │ │  • grpc-swift client│
+│  API Client         │ │  • api_client       │ │                     │
+│  • fetch/axios      │ │  • chart_builder    │ │  Features:          │
+│                     │ │  • table_builders   │ │  • 3D point clouds  │
+│                     │ │  • doc_builder      │ │  • Track box/trail  │
+│                     │ │                     │ │  • Playback control │
+│                     │ │  LaTeX Compiler     │ │  • Camera orbit/pan │
+│                     │ │  • XeLaTeX          │ │  • Overlay toggles  │
+│                     │ │  • matplotlib       │ │                     │
+│                     │ │                     │ │  Modes:             │
+│                     │ │  PDF Output         │ │  • Live streaming   │
+│                     │ │  output/*.pdf       │ │  • Replay .vrlog    │
+│                     │ │                     │ │  • Synthetic test   │
+│  Runtime            │ │  Runtime            │ │                     │
+│  • Dev: :5173       │ │  • CLI on demand    │ │  Runtime            │
+│  • Prod: Go static  │ │  • Python 3.9+      │ │  • macOS 14+ (M1+)  │
+│                     │ │  • Virtual env      │ │  • Metal GPU        │
+└─────────────────────┘ └─────────────────────┘ └─────────────────────┘
 ```
 
 ## Components
@@ -314,32 +334,67 @@ All components share a common SQLite database as the single source of truth, wit
 
 - Swift 5.9+ with SwiftUI (macOS 14+)
 - Metal for GPU-accelerated rendering
-- gRPC for streaming communication
+- grpc-swift for streaming communication
 - XCTest for testing
 
-**M1 Features (Milestone 1 - Recorder/Replayer - 91.9% Go Coverage)**:
+**Completed Features (M0 + M1)**:
 
-- ✅ Deterministic replay of `.vrlog` recordings
-- ✅ Pause/Play/Seek/SetRate playback controls via gRPC
-- ✅ Frame-by-frame navigation and timeline scrubbing (0.5x - 64x)
+- ✅ SwiftUI app shell with window management
+- ✅ Metal point cloud renderer (10,000+ points at 30fps)
+- ✅ Instanced box renderer for tracks (AABB)
+- ✅ Trail renderer with fading polylines
+- ✅ gRPC client connecting to localhost:50051
 - ✅ 3D camera controls (orbit, pan, zoom)
+- ✅ Mouse/trackpad gesture support
+- ✅ Pause/Play/Seek/SetRate playback controls
+- ✅ Frame-by-frame navigation (step forward/back)
+- ✅ Timeline scrubber with frame timestamps
+- ✅ Playback rate adjustment (0.5x - 64x)
+- ✅ Overlay toggles (show/hide tracks, trails, boxes)
+- ✅ Deterministic replay of `.vrlog` recordings
 
 **Go Backend** (`internal/lidar/visualiser/`):
 
-- `replay.go` - ReplayServer for streaming `.vrlog` files
-- `recorder/` - Record/replay with deterministic frame sequences
-- `grpc_server.go` - Streaming RPCs and playback control
-- `synthetic.go` - Test data generator
+- `grpc_server.go` - gRPC streaming server implementing VisualiserService
+- `replay.go` - ReplayServer for streaming `.vrlog` files with seek/rate control
+- `recorder/` - Record live frames to `.vrlog` format
+- `synthetic.go` - Synthetic data generator for testing
+- `adapter.go` - Convert pipeline data to FrameBundle proto
+- `model.go` - Canonical FrameBundle data structures
+
+**Swift Client** (`tools/visualiser-macos/VelocityVisualiser/`):
+
+- `App/` - Application entry point and global state
+- `gRPC/` - gRPC client wrapper and proto decoding
+- `Rendering/` - Metal shaders and render pipeline
+- `UI/` - SwiftUI views (playback controls, overlays, inspector)
+- `Models/` - Swift data models (Track, Cluster, PointCloud)
 
 **Command-Line Tools**:
 
 - `cmd/tools/visualiser-server` - Multi-mode server (synthetic/replay/live)
-- `cmd/tools/gen-vrlog` - Generate sample recordings
+- `cmd/tools/gen-vrlog` - Generate sample `.vrlog` recordings
+
+**Protocol Buffer Schema** (`proto/velocity_visualiser/v1/visualiser.proto`):
+
+```protobuf
+service VisualiserService {
+  rpc StreamFrames(StreamRequest) returns (stream FrameBundle);
+  rpc Pause(PauseRequest) returns (PlaybackStatus);
+  rpc Play(PlayRequest) returns (PlaybackStatus);
+  rpc Seek(SeekRequest) returns (PlaybackStatus);
+  rpc SetRate(SetRateRequest) returns (PlaybackStatus);
+  rpc SetOverlayModes(OverlayModeRequest) returns (OverlayModeResponse);
+  rpc GetCapabilities(CapabilitiesRequest) returns (CapabilitiesResponse);
+  rpc StartRecording(RecordingRequest) returns (RecordingStatus);
+  rpc StopRecording(RecordingRequest) returns (RecordingStatus);
+}
+```
 
 **Communication**:
 
 - **Input**: gRPC streaming (localhost:50051)
-- **Output**: User interactions, label annotations
+- **Output**: User interactions, label annotations (planned)
 
 **See**: [tools/visualiser-macos/README.md](tools/visualiser-macos/README.md) and [docs/lidar/visualiser/](docs/lidar/visualiser/)
 
@@ -446,16 +501,17 @@ LIDAR (Network/UDP):
 3. `BackgroundManager` updates EMA background grid (40 × 1800 cells)
 4. Persist snapshots → INSERT/UPSERT `lidar_bg_snapshot`
 5. Emit frame statistics and performance metrics → `system_events`
+6. [Optional] Stream FrameBundle → gRPC visualiser clients (port 50051)
 
 Transit Worker (Background Process):
-1. Query recent radar_data points → Sessionization algorithm
+1. Query recent radar_data points → Sessionisation algorithm
 2. Group readings into vehicle transits (time-gap based)
 3. INSERT/UPDATE radar_data_transits
 4. Link raw data → INSERT INTO radar_transit_links
 
 Three Transit Sources:
 • radar_objects        (radar hardware classifier)
-• radar_data_transits  (software sessionization)
+• radar_data_transits  (software sessionisation)
 • lidar_objects        (LIDAR tracking) [PLANNED]
 ```
 
@@ -483,18 +539,43 @@ Three Transit Sources:
 5. Frontend → Display charts/tables → Browser DOM
 ```
 
+### macOS LiDAR Visualisation
+
+```
+Live Mode:
+1. LIDAR sensor → UDP packets → Go Server → FrameBuilder
+2. FrameBuilder → Tracker → Adapter → FrameBundle proto
+3. gRPC Server (port 50051) → StreamFrames RPC → Swift client
+4. Swift client → Decode proto → Metal renderer
+5. User ← 3D point clouds + tracks + trails
+
+Replay Mode:
+1. User → Select .vrlog file → Go ReplayServer
+2. ReplayServer → Read frames from disk → gRPC stream
+3. User → Pause/Play/Seek/SetRate → Control RPCs
+4. ReplayServer → Adjust playback → Stream at selected rate
+5. Swift client → Render frames → Frame-by-frame navigation
+
+Synthetic Mode (Testing):
+1. Go SyntheticGenerator → Generate rotating points + moving boxes
+2. gRPC Server → StreamFrames → Swift client
+3. Swift client → Render synthetic data → Validate pipeline
+```
+
 ## Technology Stack
 
 ### Go Server
 
-| Component  | Technology             | Version | Purpose                 |
-| ---------- | ---------------------- | ------- | ----------------------- |
-| Language   | Go                     | 1.21+   | High-performance server |
-| Database   | SQLite                 | 3.x     | Data storage            |
-| HTTP       | net/http (stdlib)      | -       | API server              |
-| Serial     | github.com/tarm/serial | -       | Sensor communication    |
-| Deployment | systemd                | -       | Service management      |
-| Build      | Make                   | -       | Build automation        |
+| Component  | Technology              | Version | Purpose                 |
+| ---------- | ----------------------- | ------- | ----------------------- |
+| Language   | Go                      | 1.21+   | High-performance server |
+| Database   | SQLite                  | 3.x     | Data storage            |
+| HTTP       | net/http (stdlib)       | -       | API server              |
+| gRPC       | google.golang.org/grpc  | 1.60+   | Visualiser streaming    |
+| Protobuf   | google.golang.org/proto | 1.32+   | Data serialisation      |
+| Serial     | github.com/tarm/serial  | -       | Sensor communication    |
+| Deployment | systemd                 | -       | Service management      |
+| Build      | Make                    | -       | Build automation        |
 
 ### Python PDF Generator
 
@@ -518,6 +599,17 @@ Three Transit Sources:
 | Package Manager | pnpm       | 9.x     | Dependency management |
 | Linting         | ESLint     | 9.x     | Code quality          |
 
+### macOS Visualiser
+
+| Component     | Technology | Version  | Purpose              |
+| ------------- | ---------- | -------- | -------------------- |
+| Language      | Swift      | 5.9+     | Native macOS app     |
+| UI Framework  | SwiftUI    | macOS 14 | Declarative UI       |
+| GPU Rendering | Metal      | 3.x      | 3D point clouds      |
+| gRPC Client   | grpc-swift | 1.23+    | Server communication |
+| Testing       | XCTest     | -        | Unit tests           |
+| Build         | Xcode      | 15+      | IDE & build system   |
+
 ## Integration Points
 
 ### Go Server ↔ SQLite
@@ -528,8 +620,8 @@ Three Transit Sources:
 
 - INSERT `radar_data` (real-time writes with JSON events)
 - INSERT `radar_objects` (classified detections)
-- Background sessionization: query `radar_data` → insert/update `radar_data_transits`
-- LIDAR background modeling: update `lidar_bg_snapshot`
+- Background sessionisation: query `radar_data` → insert/update `radar_data_transits`
+- LIDAR background modelling: update `lidar_bg_snapshot`
 - SELECT for API queries (read optimised with generated columns)
 
 **Performance Considerations**:
@@ -617,6 +709,58 @@ Response: [
 - SPA routing with fallback to `index.html`
 - Favicon serving
 - Root redirect to `/app/`
+
+### Go Server ↔ macOS Visualiser
+
+**Interface**: gRPC streaming over protobuf (port 50051)
+
+**Protocol**: `velocity_visualiser.v1.VisualiserService`
+
+**Streaming RPC**:
+
+```protobuf
+// Server-streaming: continuous frame delivery
+rpc StreamFrames(StreamRequest) returns (stream FrameBundle);
+```
+
+**Control RPCs** (replay mode):
+
+```protobuf
+rpc Pause(PauseRequest) returns (PlaybackStatus);
+rpc Play(PlayRequest) returns (PlaybackStatus);
+rpc Seek(SeekRequest) returns (PlaybackStatus);   // Seek to frame index
+rpc SetRate(SetRateRequest) returns (PlaybackStatus);  // 0.5x - 64x
+rpc GetCapabilities(CapabilitiesRequest) returns (CapabilitiesResponse);
+```
+
+**Recording RPCs** (live mode):
+
+```protobuf
+rpc StartRecording(RecordingRequest) returns (RecordingStatus);
+rpc StopRecording(RecordingRequest) returns (RecordingStatus);
+```
+
+**FrameBundle Contents**:
+
+- `frame_id` - Unique frame identifier
+- `timestamp` - Frame timestamp (nanoseconds)
+- `point_cloud` - XYZ points with intensity (up to 70,000 per frame)
+- `tracks` - Active tracked objects with bounding boxes
+- `clusters` - Raw cluster data (optional)
+- `playback_info` - Current frame index, total frames, rate, paused state
+
+**Server Modes**:
+
+- **Live**: Stream real-time LIDAR data, record to `.vrlog`
+- **Replay**: Stream recorded `.vrlog` files with playback control
+- **Synthetic**: Generate test data for development
+
+**Performance**:
+
+- Frame rate: 10-20 Hz (configurable)
+- Points per frame: Up to 70,000
+- Tracks per frame: Up to 200
+- Latency: < 50ms end-to-end
 
 ### Python ↔ LaTeX
 

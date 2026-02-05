@@ -6,6 +6,7 @@ builds minimal overall metrics, and calls the CLI assemble routine to produce
 the report files. It's meant to help debug whether `site.speed_limit_note`
 is propagated into the generated .tex.
 """
+
 import os
 import sys
 from pathlib import Path

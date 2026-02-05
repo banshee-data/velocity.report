@@ -39,7 +39,8 @@ help:
 	@echo ""
 	@echo "DEVELOPMENT SERVERS:"
 	@echo "  dev-go               Start Go server (radar disabled)"
-	@echo "  dev-go-lidar         Start Go server with LiDAR enabled"
+	@echo "  dev-go-lidar         Start Go server with LiDAR enabled (both modes)"
+	@echo "  dev-go-lidar-grpc    Start Go server with gRPC-only mode"
 	@echo "  dev-go-kill-server   Stop background Go server"
 	@echo "  dev-web              Start web dev server"
 	@echo "  dev-docs             Start docs dev server"
@@ -508,7 +509,10 @@ dev-go:
 	@$(call run_dev_go)
 
 dev-go-lidar:
-	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward)
+	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward --lidar-forward-mode=both --lidar-bg-flush-disable)
+
+dev-go-lidar-grpc:
+	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --lidar-bg-flush-disable)
 
 dev-go-kill-server:
 	@$(call run_dev_go_kill_server)

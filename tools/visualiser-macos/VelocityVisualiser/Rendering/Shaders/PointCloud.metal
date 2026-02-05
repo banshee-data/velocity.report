@@ -2,7 +2,7 @@
 // Metal shaders for point cloud rendering.
 //
 // Points are rendered as point sprites with size based on distance.
-// Colour is derived from intensity and/or classification.
+// Colour is derived from classification (foreground/background) and intensity.
 
 #include <metal_stdlib>
 using namespace metal;
@@ -19,26 +19,27 @@ struct Uniforms {
 
 // MARK: - Point Cloud Shaders
 
-struct PointVertexIn {
-    float3 position [[attribute(0)]];
-    float intensity [[attribute(1)]];
-};
+// Point data is now [x, y, z, intensity, classification] (5 floats per point)
+// We read two float4 values per vertex to get all 5 components.
 
 struct PointVertexOut {
     float4 position [[position]];
     float pointSize [[point_size]];
     float intensity;
+    float classification;
     float depth;
 };
 
 vertex PointVertexOut pointVertex(
     uint vid [[vertex_id]],
-    constant float4 *points [[buffer(0)]],
+    constant float *pointData [[buffer(0)]],
     constant Uniforms &uniforms [[buffer(1)]]
 ) {
-    float4 point = points[vid];
-    float3 pos = point.xyz;
-    float intensity = point.w;
+    // Read 5 floats per point: x, y, z, intensity, classification
+    uint baseIndex = vid * 5;
+    float3 pos = float3(pointData[baseIndex], pointData[baseIndex + 1], pointData[baseIndex + 2]);
+    float intensity = pointData[baseIndex + 3];
+    float classification = pointData[baseIndex + 4];
 
     float4 viewPos = uniforms.modelView * float4(pos, 1.0);
     float4 clipPos = uniforms.modelViewProjection * float4(pos, 1.0);
@@ -52,6 +53,7 @@ vertex PointVertexOut pointVertex(
     out.pointSize = clamp(out.pointSize, 1.0, 20.0);
 
     out.intensity = intensity;
+    out.classification = classification;
     out.depth = viewPos.z;
 
     return out;
@@ -71,11 +73,26 @@ fragment float4 pointFragment(
     // Soft edge
     float alpha = 1.0 - smoothstep(0.3, 0.5, dist);
 
-    // Colour based on intensity
-    // Low intensity: blue, high intensity: white/yellow
-    float3 lowColour = float3(0.2, 0.4, 0.8);  // blue
-    float3 highColour = float3(1.0, 0.9, 0.6); // yellow-white
-    float3 colour = mix(lowColour, highColour, in.intensity);
+    // Colour based on classification (primary) and intensity (secondary)
+    // Classification values are integers passed as floats: 0=background, 1=foreground, 2=ground
+    // Use epsilon-based comparison for exact integer matching
+    float3 colour;
+    if (abs(in.classification - 1.0) < 0.01) {
+        // Foreground: green with intensity modulation
+        float3 lowColour = float3(0.1, 0.6, 0.2);   // dark green
+        float3 highColour = float3(0.4, 1.0, 0.4); // bright green
+        colour = mix(lowColour, highColour, in.intensity);
+    } else if (abs(in.classification - 2.0) < 0.01) {
+        // Ground: brown/tan
+        float3 lowColour = float3(0.4, 0.3, 0.2);   // dark brown
+        float3 highColour = float3(0.7, 0.6, 0.4); // tan
+        colour = mix(lowColour, highColour, in.intensity);
+    } else {
+        // Background (classification ~= 0): grey with intensity modulation
+        float3 lowColour = float3(0.3, 0.3, 0.35);  // dark grey-blue
+        float3 highColour = float3(0.6, 0.6, 0.65); // light grey
+        colour = mix(lowColour, highColour, in.intensity);
+    }
 
     return float4(colour, alpha);
 }

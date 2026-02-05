@@ -19,7 +19,7 @@ struct ContentView: View {
                 // Metal view - frames are delivered directly to renderer via AppState
                 MetalViewRepresentable(
                     showPoints: appState.showPoints, showBoxes: appState.showBoxes,
-                    showTrails: appState.showTrails,
+                    showTrails: appState.showTrails, pointSize: appState.pointSize,
                     onRendererCreated: { renderer in appState.registerRenderer(renderer) }
                 ).frame(minWidth: 400, minHeight: 300)
 
@@ -31,8 +31,7 @@ struct ContentView: View {
             if appState.showLabelPanel || appState.selectedTrackID != nil {
                 SidePanelView().frame(width: 280)
             }
-        }.frame(minWidth: 800, minHeight: 600)
-            // Keyboard shortcuts for playback
+        }.frame(minWidth: 800, minHeight: 600)  // Keyboard shortcuts for playback
             .onKeyPress(.space) {
                 appState.togglePlayPause()
                 return .handled
@@ -131,7 +130,7 @@ struct StatsDisplayView: View {
                 StatLabel(title: "FPS", value: String(format: "%.1f", fps))
                 StatLabel(title: "Points", value: formatNumber(pointCount))
                 StatLabel(title: "Tracks", value: "\(trackCount)")
-            }
+            }.fixedSize()  // Prevent compression when viewport shrinks
         }
     }
 
@@ -168,8 +167,17 @@ struct OverlayTogglesView: View {
 
             Divider().frame(height: 20)
 
+            // Point size adjustment
+            HStack(spacing: 4) {
+                Text("Size").font(.caption2).foregroundColor(.secondary)
+                Slider(value: $appState.pointSize, in: 1...20).frame(width: 60)
+                Text("\(Int(appState.pointSize))").font(.caption).monospacedDigit().frame(width: 20)
+            }.help("Point Size")
+
+            Divider().frame(height: 20)
+
             ToggleButton(label: "D", isOn: $appState.showDebug, help: "Debug")
-        }
+        }.fixedSize()  // Prevent compression when viewport shrinks
     }
 }
 
@@ -347,6 +355,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
     var showPoints: Bool
     var showBoxes: Bool
     var showTrails: Bool
+    var pointSize: Float
 
     // Closure to register the renderer with AppState
     var onRendererCreated: ((MetalRenderer) -> Void)?
@@ -375,6 +384,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
         renderer.showPoints = showPoints
         renderer.showBoxes = showBoxes
         renderer.showTrails = showTrails
+        renderer.pointSize = pointSize
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }

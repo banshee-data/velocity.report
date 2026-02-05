@@ -101,8 +101,19 @@ enum VisualiserClientError: Error, LocalizedError {
         // Create gRPC transport and client
         do {
             print("[VisualiserClient] Creating gRPC transport to \(host):\(port)...")
+
+            // Configure max message size for large point clouds (64k+ points).
+            // Default 4MB is insufficient; use 16MB to handle full-resolution frames.
+            let methodConfig = MethodConfig(
+                names: [.init(service: "", method: "")],  // Empty = default for all methods
+                maxRequestMessageBytes: 16 * 1024 * 1024,  // 16 MB
+                maxResponseMessageBytes: 16 * 1024 * 1024  // 16 MB
+            )
+            let serviceConfig = ServiceConfig(methodConfig: [methodConfig])
+
             let transport = try HTTP2ClientTransport.Posix(
-                target: .dns(host: host, port: port), transportSecurity: .plaintext)
+                target: .dns(host: host, port: port), transportSecurity: .plaintext,
+                serviceConfig: serviceConfig)
 
             let grpcClient = GRPCClient(transport: transport)
             _grpcClient.value = grpcClient

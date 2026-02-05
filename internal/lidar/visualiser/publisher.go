@@ -13,6 +13,7 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"google.golang.org/grpc"
 )
@@ -54,8 +55,12 @@ type Publisher struct {
 	clientsMu sync.RWMutex
 
 	// Stats
-	frameCount  atomic.Uint64
-	clientCount atomic.Int32
+	frameCount     atomic.Uint64
+	clientCount    atomic.Int32
+	droppedFrames  atomic.Uint64
+	lastStatsTime  time.Time
+	lastFrameCount uint64 // Frame count at last stats log
+	lastStatsMu    sync.Mutex
 
 	// Lifecycle
 	running atomic.Bool
@@ -95,7 +100,13 @@ func (p *Publisher) Start() error {
 	log.Printf("[Visualiser] Successfully bound to %s", p.config.ListenAddr)
 	p.listener = lis
 
-	p.server = grpc.NewServer()
+	// Configure max message size for large point clouds (64k+ points).
+	// Default 4MB is insufficient; use 16MB to handle full-resolution frames.
+	const maxMsgSize = 16 * 1024 * 1024 // 16 MB
+	p.server = grpc.NewServer(
+		grpc.MaxRecvMsgSize(maxMsgSize),
+		grpc.MaxSendMsgSize(maxMsgSize),
+	)
 	// Service registration is done by caller via RegisterService method
 
 	p.running.Store(true)
@@ -138,17 +149,73 @@ func (p *Publisher) Stop() {
 }
 
 // Publish sends a frame to all connected clients.
-func (p *Publisher) Publish(frame *FrameBundle) {
+func (p *Publisher) Publish(frame interface{}) {
 	if !p.running.Load() {
 		return
 	}
 
+	// Type assert to *FrameBundle
+	frameBundle, ok := frame.(*FrameBundle)
+	if !ok || frameBundle == nil {
+		return
+	}
+
+	// Calculate frame size for diagnostics
+	pointCount := 0
+	if frameBundle.PointCloud != nil {
+		pointCount = frameBundle.PointCloud.PointCount
+	}
+	trackCount := 0
+	if frameBundle.Tracks != nil {
+		trackCount = len(frameBundle.Tracks.Tracks)
+	}
+	clusterCount := 0
+	if frameBundle.Clusters != nil {
+		clusterCount = len(frameBundle.Clusters.Clusters)
+	}
+
+	// Check channel depth before sending
+	queueDepth := len(p.frameChan)
+	if queueDepth > 50 {
+		log.Printf("[Visualiser] WARNING: Frame queue depth high: %d/100", queueDepth)
+	}
+
 	select {
-	case p.frameChan <- frame:
-		p.frameCount.Add(1)
+	case p.frameChan <- frameBundle:
+		count := p.frameCount.Add(1)
+		// Log stats periodically (every 100 frames or 5 seconds)
+		p.logPeriodicStats(count, pointCount, trackCount, clusterCount, queueDepth)
 	default:
 		// Drop frame if channel is full
-		log.Printf("[Visualiser] Dropping frame %d, channel full", frame.FrameID)
+		dropped := p.droppedFrames.Add(1)
+		log.Printf("[Visualiser] DROPPED frame %d (total dropped: %d), channel full, points=%d tracks=%d",
+			frameBundle.FrameID, dropped, pointCount, trackCount)
+	}
+}
+
+// logPeriodicStats logs performance stats every 5 seconds.
+func (p *Publisher) logPeriodicStats(frameCount uint64, pointCount, trackCount, clusterCount, queueDepth int) {
+	p.lastStatsMu.Lock()
+	defer p.lastStatsMu.Unlock()
+
+	now := time.Now()
+	if p.lastStatsTime.IsZero() {
+		p.lastStatsTime = now
+		p.lastFrameCount = frameCount
+		return
+	}
+
+	elapsed := now.Sub(p.lastStatsTime)
+	if elapsed >= 5*time.Second {
+		// Calculate frames in this interval (not total frames)
+		framesInInterval := frameCount - p.lastFrameCount
+		fps := float64(framesInInterval) / elapsed.Seconds()
+		dropped := p.droppedFrames.Load()
+		clients := p.clientCount.Load()
+		log.Printf("[Visualiser] Stats: fps=%.1f frames=%d dropped=%d clients=%d queue=%d/100 last_frame: points=%d tracks=%d clusters=%d",
+			fps, framesInInterval, dropped, clients, queueDepth, pointCount, trackCount, clusterCount)
+		p.lastStatsTime = now
+		p.lastFrameCount = frameCount
 	}
 }
 

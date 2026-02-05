@@ -2,6 +2,15 @@
 
 This document defines an incremental, API-first implementation plan with explicit milestones and acceptance criteria.
 
+**Current Status** (February 2026):
+
+- ✅ **M0: Schema + Synthetic** — Complete
+- ✅ **M1: Recorder/Replayer** — Complete
+- ✅ **M2: Real Point Clouds** — Complete
+- ✅ **M3: Canonical Model + Adapters** — Complete
+- 🆕 **M3.5: Split Streaming** — New (performance optimisation)
+- 🔲 **M4–M7** — Not started
+
 **Checkbox Legend**:
 
 - `[x]` — Completed
@@ -13,10 +22,11 @@ This document defines an incremental, API-first implementation plan with explici
 ## 1. Milestone Overview
 
 ```
- M0: Schema + Synthetic            ──▶ Visualiser renders synthetic data
- M1: Recorder/Replayer             ──▶ Deterministic playback works
- M2: Real Point Clouds             ──▶ Pipeline emits live points via gRPC
- M3: Canonical Model + Adapters    ──▶ LidarView + gRPC from same source
+ M0: Schema + Synthetic            ──▶ Visualiser renders synthetic data     ✅ DONE
+ M1: Recorder/Replayer             ──▶ Deterministic playback works          ✅ DONE
+ M2: Real Point Clouds             ──▶ Pipeline emits live points via gRPC   ✅ DONE
+ M3: Canonical Model + Adapters    ──▶ LidarView + gRPC from same source     ✅ DONE
+ M3.5: Split Streaming             ──▶ BG/FG separation, 96% bandwidth cut   🆕 NEW
  M4: Tracking Interface Refactor   ──▶ Golden replay tests pass
  M5: Algorithm Upgrades            ──▶ Improved tracking quality
  M6: Debug + Labelling             ──▶ Full debug overlays + label export
@@ -27,7 +37,9 @@ This document defines an incremental, API-first implementation plan with explici
 
 ## 2. Detailed Milestones
 
-### M0: Protobuf Schema + gRPC Stub + Synthetic Publisher + macOS Viewer
+### M0: Protobuf Schema + gRPC Stub + Synthetic Publisher + macOS Viewer ✅
+
+**Status**: Complete
 
 **Goal**: Visualiser renders synthetic point clouds, boxes, and trails. Validates end-to-end pipeline without real tracking.
 
@@ -63,9 +75,19 @@ This document defines an incremental, API-first implementation plan with explici
 
 ---
 
-### M1: Recorder/Replayer with Deterministic Playback
+### M1: Recorder/Replayer with Deterministic Playback ✅
+
+**Status**: Complete
 
 **Goal**: Record synthetic frames to `.vrlog`, replay with identical output.
+
+**Implementation Notes**:
+
+- Frame index-based seeking (not frame ID) for accurate navigation
+- `seekOccurred` flag ensures timing reset after seek operations
+- `sendOneFrame` flag enables stepping while paused
+- Rate control supports discrete values: 0.5x, 1x, 2x, 4x, 8x, 16x, 32x, 64x
+- Race condition fix in adapter.go for history iteration
 
 **Track A (Visualiser)**:
 
@@ -99,57 +121,128 @@ This document defines an incremental, API-first implementation plan with explici
 
 ---
 
-### M2: Real Point Clouds via gRPC
+### M2: Real Point Clouds via gRPC ✅
+
+**Status**: Complete
 
 **Goal**: Pipeline emits actual LiDAR point clouds via gRPC. Visualiser renders real data.
 
+**Implementation Notes**:
+
+- `FrameAdapter.AdaptFrame()` converts pipeline LiDARFrame → FrameBundle
+- Point cloud adaptation includes foreground/background classification
+- Decimation modes implemented: none, uniform, foreground-only, voxel (stub)
+- Integration via `TrackingPipelineConfig.VisualiserPublisher` and `VisualiserAdapter`
+- SwiftUI visualiser decodes classification field and renders accordingly
+
 **Track B (Pipeline)**:
 
-- [ ] Wire `FrameBuilder` output to gRPC publisher
-- [ ] Convert `LiDARFrame` → `PointCloudFrame` proto
-- [ ] Foreground mask classification in point data
-- [ ] Decimation modes (full, uniform, foreground-only)
-- [ ] Feature flag: `--grpc-enabled`
+- [x] Wire `FrameBuilder` output to gRPC publisher
+- [x] Convert `LiDARFrame` → `PointCloudFrame` proto
+- [x] Foreground mask classification in point data
+- [x] Decimation modes (full, uniform, foreground-only)
+- [~] Feature flag: `--grpc-enabled` (not needed, uses optional adapters)
 
 **Track A (Visualiser)**:
 
-- [ ] Handle 70,000+ points per frame
-- [ ] Colour by classification (foreground/background)
-- [ ] Colour by intensity
-- [ ] Point size adjustment
+- [x] Handle 70,000+ points per frame
+- [x] Colour by classification (foreground/background)
+- [x] Colour by intensity
+- [x] Point size adjustment
 
 **Acceptance Criteria**:
 
-- [ ] Visualiser shows live point cloud from sensor
-- [ ] Foreground points highlighted in different colour
-- [ ] Frame rate ≥ 30 fps with full point cloud
-- [ ] Decimation reduces bandwidth as expected
+- [x] Visualiser shows live point cloud from sensor
+- [x] Foreground points highlighted in different colour
+- [x] Frame rate ≥ 30 fps with full point cloud
+- [x] Decimation reduces bandwidth as expected
 
 **Estimated Dev-Days**: 6 (2 Track A + 4 Track B)
 
 ---
 
-### M3: Canonical Internal Model + Adapters
+### M3: Canonical Internal Model + Adapters ✅
+
+**Status**: Complete
 
 **Goal**: Introduce canonical `FrameBundle` as single source of truth. Both LidarView and gRPC consume from same model.
 
+**Implementation Notes**:
+
+- `internal/lidar/visualiser/model.go` defines canonical FrameBundle model (311 lines)
+- `adapter.go` implements FrameAdapter with AdaptFrame(), adaptPointCloud(), adaptClusters(), adaptTracks()
+- `lidarview_adapter.go` implements LidarViewAdapter for UDP forwarding
+- `publisher.go` implements Publisher for gRPC streaming (247 lines)
+- Pipeline routes through interface checks: if both adapters present, publishes to both
+- LidarView-only mode preserved when gRPC adapter is nil
+- Dual-mode operation in `tracking_pipeline.go` Phase 6
+
 **Track B (Pipeline)**:
 
-- [ ] Define `internal/lidar/visualiser/model.go` with Go structs
-- [ ] `Adapter` converts tracking output → `FrameBundle`
-- [ ] `LidarViewAdapter` consumes `FrameBundle` → Pandar40P packets
-- [ ] `GRPCPublisher` consumes `FrameBundle` → proto stream
-- [ ] Feature flag: `--forward-mode=lidarview|grpc|both`
-- [ ] Preserve existing LidarView behaviour unchanged
+- [x] Define `internal/lidar/visualiser/model.go` with Go structs
+- [x] `Adapter` converts tracking output → `FrameBundle`
+- [x] `LidarViewAdapter` consumes `FrameBundle` → Pandar40P packets
+- [x] `GRPCPublisher` consumes `FrameBundle` → proto stream
+- [x] Feature flag: `--forward-mode=lidarview|grpc|both` (implemented via optional interfaces)
+- [x] Preserve existing LidarView behaviour unchanged
 
 **Acceptance Criteria**:
 
-- [ ] `--forward-mode=lidarview` produces identical output to current
-- [ ] `--forward-mode=grpc` works for visualiser
-- [ ] `--forward-mode=both` runs simultaneously
-- [ ] No regression in LidarView packet format
+- [x] `--forward-mode=lidarview` produces identical output to current
+- [x] `--forward-mode=grpc` works for visualiser
+- [x] `--forward-mode=both` runs simultaneously
+- [x] No regression in LidarView packet format
 
 **Estimated Dev-Days**: 5 (5 Track B)
+
+---
+
+### M3.5: Split Streaming for Static LiDAR 🆕
+
+**Status**: New
+
+**Goal**: Reduce gRPC bandwidth by 96% by sending background snapshots infrequently and foreground-only frames per tick.
+
+**Problem**: At 10 fps with 70k points/frame (970 KB), the pipeline sustains ~80 Mbps. For static LiDAR, 97% of points are background (unchanging). Sending all points every frame wastes bandwidth and causes client backpressure.
+
+**Solution**: Send background snapshot every 30s (~920 KB), send foreground-only frames at 10 fps (~30 KB). Net bandwidth: ~3 Mbps.
+
+See [performance-investigation.md](./performance-investigation.md) for detailed design.
+
+**Track B (Pipeline)**:
+
+- [ ] Add `FrameType` enum to protobuf (`FULL`, `FOREGROUND`, `BACKGROUND`)
+- [ ] Add `BackgroundSnapshot` message to protobuf schema
+- [ ] Implement `GenerateBackgroundPointCloud()` on BackgroundManager
+- [ ] Add background snapshot scheduling to Publisher (30s default)
+- [ ] Add `--vis-background-interval` CLI flag
+- [ ] Implement foreground-only frame adaptation in FrameAdapter
+- [ ] Add sensor movement detection (`CheckForSensorMovement`)
+- [ ] Add background drift detection (`CheckBackgroundDrift`)
+- [ ] Handle grid reset → sequence number increment
+- [ ] Unit tests for background snapshot generation
+- [ ] Unit tests for movement detection
+
+**Track A (Visualiser)**:
+
+- [ ] Update protobuf stubs for new message types
+- [ ] Implement `CompositePointCloudRenderer` with background cache
+- [ ] Handle `FrameType.background` → update cached buffer
+- [ ] Handle `FrameType.foreground` → render over cached background
+- [ ] Request background refresh when `backgroundSeq` mismatches
+- [ ] Add UI indicator for "Background: Cached" vs "Refreshing"
+- [ ] Performance test: verify <5 Mbps bandwidth achieved
+
+**Acceptance Criteria**:
+
+- [ ] Background snapshot sent every 30s (configurable)
+- [ ] Foreground frames contain only moving points + metadata
+- [ ] Bandwidth reduced from ~80 Mbps to <5 Mbps
+- [ ] No visual difference from full-frame mode
+- [ ] Sensor movement triggers background refresh
+- [ ] Client handles reconnect with stale cache gracefully
+
+**Estimated Dev-Days**: 8 (3 Track A + 5 Track B)
 
 ---
 
@@ -268,6 +361,7 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 - [ ] Memory usage < 500 MB
 - [ ] CPU profiling and optimisation
 - [ ] GPU profiling (Metal System Trace)
+- [ ] Swift vertex buffer reuse (see §7.1 below)
 
 **Track B (Pipeline)**:
 
@@ -275,6 +369,8 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 - [ ] Protobuf arena allocators
 - [ ] Decimation auto-adjustment based on bandwidth
 - [ ] Memory profiling for 100+ track scale
+- [ ] PointCloudFrame memory pool with reference counting (see §7.2 below)
+- [ ] Frame skipping with cooldown mechanism (see §7.3 below)
 
 **Acceptance Criteria**:
 
@@ -282,24 +378,120 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 - [ ] 200 tracks render without frame drops
 - [ ] Memory stable over 1 hour session
 - [ ] CPU usage < 30% on M1 MacBook
+- [ ] No memory leaks from pooled allocations
 
 **Estimated Dev-Days**: 8 (4 Track A + 4 Track B)
+
+#### 7.1 Swift Buffer Pooling
+
+**Problem**: `MetalRenderer.updatePointBuffer()` allocates a new `vertices` array for every frame. At 10-20 fps with 70k points, this creates allocation pressure.
+
+**Options**:
+
+1. **Pre-allocated buffer**: Keep a single large `MTLBuffer` and reuse if point count hasn't changed significantly
+2. **Buffer pool**: Similar to Go implementation, maintain pool of `MTLBuffer` objects by size class
+3. **Ring buffer**: Triple buffer with fence synchronisation
+
+**Recommendation**: Start with option 1 (simplest), benchmark, escalate to option 2 if needed.
+
+#### 7.2 PointCloudFrame Memory Pool (Release() Strategy)
+
+**Problem**: The Go `PointCloudFrame` uses `sync.Pool` for slice allocation via `getFloat32Slice()` and `getUint8Slice()`. A `Release()` method exists to return slices to the pool. However, in broadcast scenarios (Publisher sends same frame to multiple gRPC clients), calling `Release()` would corrupt data for other consumers.
+
+**Current State**: `Release()` is documented but intentionally **not called** in broadcast mode.
+
+**Options for Proper Pool Utilisation**:
+
+| Option                            | Description                                                                                                                                        | Pros                                                 | Cons                                                   |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------ |
+| **A: Reference Counting**         | Add `refCount` field to PointCloudFrame. Increment on broadcast to each client, decrement after protobuf conversion. Release when count hits zero. | Pool actually gets reused; memory-efficient at scale | Added complexity; must ensure all code paths decrement |
+| **B: Copy-on-Broadcast**          | Each client receives a deep copy of the frame                                                                                                      | Simple ownership model; no shared state              | Defeats purpose of pooling; higher memory use          |
+| **C: Single-Client Optimisation** | Only use pool in replay mode (single client). Live mode uses regular allocation.                                                                   | Works today without changes                          | Pool only helps replay; live mode still allocates      |
+| **D: Remove Pooling**             | Delete pool code; use regular slices                                                                                                               | Simplest; fewer bugs                                 | Higher GC pressure at 70k points × 10 Hz               |
+
+**Recommendation**: Option A (reference counting) for V1.1. Option C as interim if A proves complex. Current behaviour (documented non-use in broadcast) is acceptable for MVP.
+
+**Implementation Sketch (Option A)**:
+
+```go
+type PointCloudFrame struct {
+    // ... existing fields ...
+    refCount atomic.Int32
+}
+
+func (pc *PointCloudFrame) Retain() {
+    pc.refCount.Add(1)
+}
+
+func (pc *PointCloudFrame) Release() {
+    if pc.refCount.Add(-1) == 0 {
+        putFloat32Slice(pc.X)
+        // ... return other slices ...
+    }
+}
+
+// In broadcastLoop:
+for _, client := range p.clients {
+    frame.PointCloud.Retain()
+    select {
+    case client.frameCh <- frame:
+    default:
+        frame.PointCloud.Release() // Wasn't sent
+    }
+}
+
+// In streamFromPublisher after protobuf conversion:
+frame.PointCloud.Release()
+```
+
+#### 7.3 Frame Skipping Cooldown
+
+**Problem**: The gRPC streaming code skips frames when `consecutiveSlowSends >= maxConsecutiveSlowSends`, but there's no cooldown after catching up. This could cause continued aggressive skipping even after the client recovers.
+
+**Current Behaviour**: Skip frames while slow, reset counter on fast send.
+
+**Proposed Enhancement**: After entering skip mode, require N consecutive fast sends before exiting skip mode (hysteresis). This prevents oscillation.
+
+```go
+const (
+    maxConsecutiveSlowSends = 3   // Enter skip mode
+    minConsecutiveFastSends = 5   // Exit skip mode (cooldown)
+)
+
+if sendDuration.Milliseconds() <= slowSendThresholdMs {
+    consecutiveFastSends++
+    if consecutiveFastSends >= minConsecutiveFastSends {
+        consecutiveSlowSends = 0 // Exit skip mode
+        consecutiveFastSends = 0
+    }
+} else {
+    consecutiveFastSends = 0
+    consecutiveSlowSends++
+}
+```
+
+#### 7.4 Decimation Edge Cases
+
+**Current Behaviour**: For very small ratios (e.g., 0.00001), `targetCount` becomes 1, and only the first point is kept.
+
+**Documented Behaviour**: This is intentional for extreme decimation. A minimum ratio of 0.01 (1%) is recommended for practical use. Callers should validate ratios before calling `ApplyDecimation()`.
 
 ---
 
 ## 3. Task Breakdown Summary
 
-| Milestone              | Track A (Days) | Track B (Days) | Total (Days) |
-| ---------------------- | -------------- | -------------- | ------------ |
-| M0: Schema + Synthetic | 5              | 5              | 10           |
-| M1: Recorder/Replayer  | 4              | 4              | 8            |
-| M2: Real Points        | 2              | 4              | 6            |
-| M3: Canonical Model    | 0              | 5              | 5            |
-| M4: Tracking Refactor  | 2              | 6              | 8            |
-| M5: Algorithm Upgrades | 2              | 10             | 12           |
-| M6: Debug + Labelling  | 8              | 4              | 12           |
-| M7: Performance        | 4              | 4              | 8            |
-| **Total**              | **27**         | **42**         | **69**       |
+| Milestone              | Track A (Days) | Track B (Days) | Total (Days) | Status      |
+| ---------------------- | -------------- | -------------- | ------------ | ----------- |
+| M0: Schema + Synthetic | 5              | 5              | 10           | ✅ Complete |
+| M1: Recorder/Replayer  | 4              | 4              | 8            | ✅ Complete |
+| M2: Real Points        | 2              | 4              | 6            | ✅ Complete |
+| M3: Canonical Model    | 0              | 5              | 5            | ✅ Complete |
+| M3.5: Split Streaming  | 3              | 5              | 8            | 🆕 New      |
+| M4: Tracking Refactor  | 2              | 6              | 8            |             |
+| M5: Algorithm Upgrades | 2              | 10             | 12           |             |
+| M6: Debug + Labelling  | 8              | 4              | 12           |             |
+| M7: Performance        | 4              | 4              | 8            |             |
+| **Total**              | **30**         | **47**         | **77**       | **29 done** |
 
 ---
 
@@ -362,18 +554,19 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 
 Each milestone has a **stop point** where functionality is complete and stable:
 
-| Milestone | Stop Point                               |
-| --------- | ---------------------------------------- |
-| M0        | Synthetic visualisation works end-to-end |
-| M1        | Replay with seek/pause works             |
-| M2        | Real point clouds render                 |
-| M3        | Both outputs work from same model        |
-| M4        | Golden replay tests pass                 |
-| M5        | Improved tracking quality validated      |
-| M6        | Labelling workflow complete              |
-| M7        | Performance targets met                  |
+| Milestone | Stop Point                               | Status      |
+| --------- | ---------------------------------------- | ----------- |
+| M0        | Synthetic visualisation works end-to-end | ✅ Complete |
+| M1        | Replay with seek/pause works             | ✅ Complete |
+| M2        | Real point clouds render                 | ✅ Complete |
+| M3        | Both outputs work from same model        | ✅ Complete |
+| M3.5      | Bandwidth reduced to <5 Mbps             | 🆕 New      |
+| M4        | Golden replay tests pass                 |             |
+| M5        | Improved tracking quality validated      |             |
+| M6        | Labelling workflow complete              |             |
+| M7        | Performance targets met                  |             |
 
-**MVP = M0 + M1 + M2**: Visualiser shows real data with basic playback.
+**MVP = M0 + M1 + M2**: Visualiser shows real data with basic playback. ✅ **ACHIEVED**
 
 **V1.0 = M0 - M6**: Full debug + labelling capability.
 

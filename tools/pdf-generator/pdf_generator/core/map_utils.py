@@ -21,7 +21,6 @@ from typing import Dict, Any, Optional, Tuple
 
 from pdf_generator.core.config_manager import DEFAULT_MAP_CONFIG
 
-
 # =============================================================================
 # SVG Parsing Patterns
 # =============================================================================

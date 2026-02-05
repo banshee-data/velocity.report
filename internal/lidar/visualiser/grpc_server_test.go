@@ -563,3 +563,43 @@ func TestFrameBundleToProto_WithPlaybackInfo(t *testing.T) {
 		t.Errorf("expected PlaybackRate=1.5, got %f", pbFrame.PlaybackInfo.PlaybackRate)
 	}
 }
+
+func TestServer_RegisterService(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0" // Use dynamic port to avoid conflicts
+	pub := NewPublisher(cfg)
+	server := NewServer(pub)
+
+	// Start publisher to initialise grpc server
+	if err := pub.Start(); err != nil {
+		t.Fatalf("failed to start publisher: %v", err)
+	}
+	defer pub.Stop()
+
+	// Register the service using the standalone function
+	RegisterService(pub.GRPCServer(), server)
+
+	// If we get here without panic, registration succeeded
+}
+
+func TestPublisher_GRPCServer(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0" // Use dynamic port to avoid conflicts
+	pub := NewPublisher(cfg)
+
+	// Before start, GRPCServer should be nil
+	if pub.GRPCServer() != nil {
+		t.Error("expected nil GRPCServer before Start")
+	}
+
+	// Start publisher
+	if err := pub.Start(); err != nil {
+		t.Fatalf("failed to start publisher: %v", err)
+	}
+	defer pub.Stop()
+
+	// After start, GRPCServer should be non-nil
+	if pub.GRPCServer() == nil {
+		t.Error("expected non-nil GRPCServer after Start")
+	}
+}

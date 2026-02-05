@@ -3,21 +3,82 @@
 package visualiser
 
 import (
+	"log"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
 )
 
+// pointSlicePool reduces allocations by reusing large float32 slices.
+// Slices are sized for ~70k points (typical for Pandar40P at 10Hz).
+var pointSlicePool = sync.Pool{
+	New: func() interface{} {
+		// Pre-allocate for typical point cloud size
+		return make([]float32, 0, 75000)
+	},
+}
+
+// byteSlicePool reduces allocations for intensity/classification arrays.
+var byteSlicePool = sync.Pool{
+	New: func() interface{} {
+		return make([]uint8, 0, 75000)
+	},
+}
+
+// getFloat32Slice gets a slice from the pool and resets it.
+func getFloat32Slice(n int) []float32 {
+	s := pointSlicePool.Get().([]float32)
+	if cap(s) < n {
+		// Slice too small, allocate new one (rare for normal point clouds)
+		pointSlicePool.Put(s)
+		return make([]float32, n)
+	}
+	return s[:n]
+}
+
+// putFloat32Slice returns a slice to the pool.
+func putFloat32Slice(s []float32) {
+	// Only pool reasonably sized slices to avoid memory bloat
+	if cap(s) > 0 && cap(s) <= 150000 {
+		pointSlicePool.Put(s[:0])
+	}
+}
+
+// getUint8Slice gets a slice from the pool and resets it.
+func getUint8Slice(n int) []uint8 {
+	s := byteSlicePool.Get().([]uint8)
+	if cap(s) < n {
+		byteSlicePool.Put(s)
+		return make([]uint8, n)
+	}
+	return s[:n]
+}
+
+// putUint8Slice returns a slice to the pool.
+func putUint8Slice(s []uint8) {
+	if cap(s) > 0 && cap(s) <= 150000 {
+		byteSlicePool.Put(s[:0])
+	}
+}
+
 // FrameAdapter converts pipeline outputs to the canonical FrameBundle model.
 type FrameAdapter struct {
 	sensorID string
 	frameID  uint64
+
+	// Performance tracking
+	totalAdaptTimeNs atomic.Int64
+	frameCount       atomic.Uint64
+	lastLogTime      time.Time
 }
 
 // NewFrameAdapter creates a new FrameAdapter for the given sensor.
 func NewFrameAdapter(sensorID string) *FrameAdapter {
 	return &FrameAdapter{
-		sensorID: sensorID,
+		sensorID:    sensorID,
+		lastLogTime: time.Now(),
 	}
 }
 
@@ -27,7 +88,8 @@ func (a *FrameAdapter) AdaptFrame(
 	foregroundMask []bool,
 	clusters []lidar.WorldCluster,
 	tracker *lidar.Tracker,
-) *FrameBundle {
+) interface{} {
+	startTime := time.Now()
 	a.frameID++
 
 	bundle := NewFrameBundle(a.frameID, a.sensorID, frame.StartTimestamp)
@@ -47,21 +109,44 @@ func (a *FrameAdapter) AdaptFrame(
 		bundle.Tracks = a.adaptTracks(tracker, frame.StartTimestamp)
 	}
 
+	// Track performance
+	adaptTime := time.Since(startTime)
+	a.totalAdaptTimeNs.Add(adaptTime.Nanoseconds())
+	count := a.frameCount.Add(1)
+
+	// Log stats every 100 frames
+	if count%100 == 0 {
+		avgAdaptMs := float64(a.totalAdaptTimeNs.Load()) / float64(count) / 1e6
+		pointCount := 0
+		if bundle.PointCloud != nil {
+			pointCount = bundle.PointCloud.PointCount
+		}
+		trackCount := 0
+		if bundle.Tracks != nil {
+			trackCount = len(bundle.Tracks.Tracks)
+		}
+		// Estimate memory size: ~16 bytes per point (4x float32) + overhead
+		estimatedSizeMB := float64(pointCount*16) / (1024 * 1024)
+		log.Printf("[Adapter] Stats: frames=%d avg_adapt_ms=%.3f last_frame: points=%d tracks=%d est_size_mb=%.2f",
+			count, avgAdaptMs, pointCount, trackCount, estimatedSizeMB)
+	}
+
 	return bundle
 }
 
 // adaptPointCloud converts a LiDARFrame to a PointCloudFrame.
+// Uses sync.Pool for slice allocation to reduce GC pressure.
 func (a *FrameAdapter) adaptPointCloud(frame *lidar.LiDARFrame, mask []bool) *PointCloudFrame {
 	n := len(frame.Points)
 	pc := &PointCloudFrame{
 		FrameID:        a.frameID,
 		TimestampNanos: frame.StartTimestamp.UnixNano(),
 		SensorID:       a.sensorID,
-		X:              make([]float32, n),
-		Y:              make([]float32, n),
-		Z:              make([]float32, n),
-		Intensity:      make([]uint8, n),
-		Classification: make([]uint8, n),
+		X:              getFloat32Slice(n),
+		Y:              getFloat32Slice(n),
+		Z:              getFloat32Slice(n),
+		Intensity:      getUint8Slice(n),
+		Classification: getUint8Slice(n),
 		DecimationMode: DecimationNone,
 		PointCount:     n,
 	}
@@ -81,6 +166,132 @@ func (a *FrameAdapter) adaptPointCloud(frame *lidar.LiDARFrame, mask []bool) *Po
 	}
 
 	return pc
+}
+
+// Release returns the PointCloudFrame's slices to the pool.
+// Call this after the frame has been consumed to free memory for reuse.
+//
+// IMPORTANT: In broadcast scenarios (where the same frame is sent to multiple
+// clients), Release() should NOT be called as it would corrupt data for other
+// consumers. The current Publisher broadcasts frames to multiple clients, so
+// Release() is intentionally not called there. For single-client streaming
+// scenarios, the caller can safely call Release() after the frame is converted
+// to protobuf.
+func (pc *PointCloudFrame) Release() {
+	if pc == nil {
+		return
+	}
+	putFloat32Slice(pc.X)
+	putFloat32Slice(pc.Y)
+	putFloat32Slice(pc.Z)
+	putUint8Slice(pc.Intensity)
+	putUint8Slice(pc.Classification)
+	pc.X = nil
+	pc.Y = nil
+	pc.Z = nil
+	pc.Intensity = nil
+	pc.Classification = nil
+}
+
+// ApplyDecimation decimates the point cloud according to the specified mode and ratio.
+// This modifies the PointCloudFrame in place.
+// For uniform/voxel modes, ratio should be in (0, 1]. A ratio of 1.0 keeps all points.
+func (pc *PointCloudFrame) ApplyDecimation(mode DecimationMode, ratio float32) {
+	if mode == DecimationNone {
+		return
+	}
+
+	// ForegroundOnly mode ignores ratio
+	if mode == DecimationForegroundOnly {
+		pc.applyForegroundOnlyDecimation()
+		pc.DecimationMode = mode
+		pc.DecimationRatio = ratio
+		return
+	}
+
+	// For other modes, check ratio validity (must be in range (0, 1])
+	if ratio <= 0 || ratio > 1 {
+		return
+	}
+
+	switch mode {
+	case DecimationUniform:
+		pc.applyUniformDecimation(ratio)
+	case DecimationVoxel:
+		// Voxel decimation is more complex and not implemented yet
+		// Fall back to uniform decimation
+		pc.applyUniformDecimation(ratio)
+	}
+
+	pc.DecimationMode = mode
+	pc.DecimationRatio = ratio
+}
+
+// applyUniformDecimation keeps every Nth point based on the ratio.
+// A ratio of 1.0 keeps all points, 0.5 keeps approximately half, etc.
+// Precondition: ratio is in range (0, 1] - callers must validate.
+func (pc *PointCloudFrame) applyUniformDecimation(ratio float32) {
+	// If ratio is 1.0, keep all points (no decimation needed)
+	if ratio == 1.0 {
+		return
+	}
+
+	targetCount := int(float32(pc.PointCount) * ratio)
+	if targetCount <= 0 {
+		targetCount = 1
+	}
+
+	stride := pc.PointCount / targetCount
+	if stride < 1 {
+		stride = 1
+	}
+
+	newX := make([]float32, 0, targetCount)
+	newY := make([]float32, 0, targetCount)
+	newZ := make([]float32, 0, targetCount)
+	newIntensity := make([]uint8, 0, targetCount)
+	newClassification := make([]uint8, 0, targetCount)
+
+	for i := 0; i < pc.PointCount && len(newX) < targetCount; i += stride {
+		newX = append(newX, pc.X[i])
+		newY = append(newY, pc.Y[i])
+		newZ = append(newZ, pc.Z[i])
+		newIntensity = append(newIntensity, pc.Intensity[i])
+		newClassification = append(newClassification, pc.Classification[i])
+	}
+
+	pc.X = newX
+	pc.Y = newY
+	pc.Z = newZ
+	pc.Intensity = newIntensity
+	pc.Classification = newClassification
+	pc.PointCount = len(newX)
+}
+
+// applyForegroundOnlyDecimation keeps only foreground points (classification == 1).
+func (pc *PointCloudFrame) applyForegroundOnlyDecimation() {
+	newX := make([]float32, 0, pc.PointCount/2)
+	newY := make([]float32, 0, pc.PointCount/2)
+	newZ := make([]float32, 0, pc.PointCount/2)
+	newIntensity := make([]uint8, 0, pc.PointCount/2)
+	newClassification := make([]uint8, 0, pc.PointCount/2)
+
+	for i := 0; i < pc.PointCount; i++ {
+		if pc.Classification[i] == 1 {
+			newX = append(newX, pc.X[i])
+			newY = append(newY, pc.Y[i])
+			newZ = append(newZ, pc.Z[i])
+			newIntensity = append(newIntensity, pc.Intensity[i])
+			newClassification = append(newClassification, pc.Classification[i])
+		}
+	}
+
+	pc.X = newX
+	pc.Y = newY
+	pc.Z = newZ
+	pc.Intensity = newIntensity
+	pc.Classification = newClassification
+	pc.PointCount = len(newX)
 }
 
 // adaptClusters converts WorldClusters to the canonical Cluster format.
@@ -163,17 +374,25 @@ func (a *FrameAdapter) adaptTracks(tracker *lidar.Tracker, timestamp time.Time) 
 		ts.Tracks = append(ts.Tracks, track)
 
 		// Build trail from history
-		if len(t.History) > 0 {
+		// Note: Take a snapshot of history length to avoid race conditions
+		// if history is being modified concurrently
+		historyLen := len(t.History)
+		if historyLen > 0 {
 			trail := TrackTrail{
 				TrackID: t.TrackID,
-				Points:  make([]TrackPoint, len(t.History)),
+				Points:  make([]TrackPoint, 0, historyLen),
 			}
-			for j, hp := range t.History {
-				trail.Points[j] = TrackPoint{
+			for j := 0; j < historyLen; j++ {
+				// Bounds check in case History shrinks during iteration
+				if j >= len(t.History) {
+					break
+				}
+				hp := t.History[j]
+				trail.Points = append(trail.Points, TrackPoint{
 					X:              hp.X,
 					Y:              hp.Y,
 					TimestampNanos: hp.Timestamp,
-				}
+				})
 			}
 			ts.Trails = append(ts.Trails, trail)
 		}

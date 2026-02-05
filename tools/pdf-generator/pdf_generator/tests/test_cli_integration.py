@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Tests for CLI entry points and error handling."""
+
 import json
 import os
 import tempfile

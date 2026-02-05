@@ -799,8 +799,8 @@ func TestApplyPragmas(t *testing.T) {
 	if err := rawDB.QueryRow("PRAGMA busy_timeout").Scan(&busyTimeout); err != nil {
 		t.Fatalf("Failed to query busy_timeout: %v", err)
 	}
-	if busyTimeout != 5000 {
-		t.Errorf("Expected busy_timeout 5000, got %d", busyTimeout)
+	if busyTimeout != 30000 {
+		t.Errorf("Expected busy_timeout 30000, got %d", busyTimeout)
 	}
 }
 

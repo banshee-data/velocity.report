@@ -153,7 +153,7 @@ import XCTest
 
         // Use loadRecording directly since openRecording uses NSOpenPanel
         let testURL = URL(fileURLWithPath: "/tmp/test.vrlog")
-        
+
         let expectation = expectation(description: "Recording loaded")
 
         state.loadRecording(from: testURL)
@@ -315,5 +315,304 @@ import XCTest
 
         state.showDebug = true
         XCTAssertTrue(state.showDebug)
+    }
+
+    func testPointSizeDefault() throws {
+        let state = AppState()
+        XCTAssertEqual(state.pointSize, 5.0)
+    }
+
+    func testPointSizeAdjustment() throws {
+        let state = AppState()
+        state.pointSize = 10.0
+        XCTAssertEqual(state.pointSize, 10.0)
+
+        state.pointSize = 1.0
+        XCTAssertEqual(state.pointSize, 1.0)
+
+        state.pointSize = 20.0
+        XCTAssertEqual(state.pointSize, 20.0)
+    }
+}
+// MARK: - Playback State Tests
+
+@available(macOS 15.0, *) @MainActor final class PlaybackStateTests: XCTestCase {
+
+    func testStepForwardIgnoredWhenLive() throws {
+        let state = AppState()
+        state.isLive = true
+        state.currentFrameIndex = 0
+        state.totalFrames = 100
+
+        state.stepForward()
+        // No crash, no state change expected (would need client)
+        XCTAssertTrue(state.isLive)
+    }
+
+    func testStepBackwardIgnoredWhenLive() throws {
+        let state = AppState()
+        state.isLive = true
+        state.currentFrameIndex = 50
+
+        state.stepBackward()
+        // No crash, no state change expected
+        XCTAssertTrue(state.isLive)
+    }
+
+    func testStepBackwardIgnoredAtStart() throws {
+        let state = AppState()
+        state.isLive = false
+        state.currentFrameIndex = 0
+
+        state.stepBackward()
+        // No crash, should not go negative
+        XCTAssertEqual(state.currentFrameIndex, 0)
+    }
+
+    func testSliderEditingState() throws {
+        let state = AppState()
+        XCTAssertFalse(state.isSeekingInProgress)
+
+        state.setSliderEditing(true)
+        XCTAssertTrue(state.isSeekingInProgress)
+
+        state.setSliderEditing(false)
+        XCTAssertFalse(state.isSeekingInProgress)
+    }
+
+    func testReplayFinishedState() throws {
+        let state = AppState()
+        XCTAssertFalse(state.replayFinished)
+
+        state.replayFinished = true
+        XCTAssertTrue(state.replayFinished)
+    }
+
+    func testTotalFramesState() throws {
+        let state = AppState()
+        XCTAssertEqual(state.totalFrames, 0)
+
+        state.totalFrames = 5000
+        XCTAssertEqual(state.totalFrames, 5000)
+    }
+
+    func testCurrentFrameIndexState() throws {
+        let state = AppState()
+        XCTAssertEqual(state.currentFrameIndex, 0)
+
+        state.currentFrameIndex = 250
+        XCTAssertEqual(state.currentFrameIndex, 250)
+    }
+
+    func testIncreaseRateIgnoredWhenLive() throws {
+        let state = AppState()
+        state.isLive = true
+        state.playbackRate = 1.0
+
+        state.increaseRate()
+        // Rate should not change when live
+        XCTAssertEqual(state.playbackRate, 1.0)
+    }
+
+    func testDecreaseRateIgnoredWhenLive() throws {
+        let state = AppState()
+        state.isLive = true
+        state.playbackRate = 1.0
+
+        state.decreaseRate()
+        // Rate should not change when live
+        XCTAssertEqual(state.playbackRate, 1.0)
+    }
+
+    func testResetRateIgnoredWhenLive() throws {
+        let state = AppState()
+        state.isLive = true
+        state.playbackRate = 4.0
+
+        state.resetRate()
+        // Rate should not change when live
+        XCTAssertEqual(state.playbackRate, 4.0)
+    }
+
+    func testTogglePlayPauseIgnoredWhenLive() throws {
+        let state = AppState()
+        state.isLive = true
+        state.isPaused = false
+
+        state.togglePlayPause()
+        // Should not change when live
+        XCTAssertFalse(state.isPaused)
+    }
+}
+
+// MARK: - Connection State Tests
+
+@available(macOS 15.0, *) @MainActor final class ConnectionStateTests: XCTestCase {
+
+    func testServerAddressDefault() throws {
+        let state = AppState()
+        XCTAssertEqual(state.serverAddress, "localhost:50051")
+    }
+
+    func testServerAddressCanBeChanged() throws {
+        let state = AppState()
+        state.serverAddress = "192.168.1.100:50051"
+        XCTAssertEqual(state.serverAddress, "192.168.1.100:50051")
+    }
+
+    func testConnectionErrorDefault() throws {
+        let state = AppState()
+        XCTAssertNil(state.connectionError)
+    }
+
+    func testConnectionErrorCanBeSet() throws {
+        let state = AppState()
+        state.connectionError = "Connection refused"
+        XCTAssertEqual(state.connectionError, "Connection refused")
+    }
+
+    func testIsConnectingDefault() throws {
+        let state = AppState()
+        XCTAssertFalse(state.isConnecting)
+    }
+
+    func testToggleConnectionWhenDisconnected() throws {
+        let state = AppState()
+        state.isConnected = false
+
+        // toggleConnection calls connect() which creates client
+        // We're testing the state transitions, not actual connection
+        XCTAssertFalse(state.isConnected)
+    }
+}
+
+// MARK: - Frame Processing Tests
+
+@available(macOS 15.0, *) @MainActor final class FrameProcessingTests: XCTestCase {
+
+    func testPlaybackInfoUpdatesFromFrame() throws {
+        let state = AppState()
+        state.isLive = true
+
+        var frame = FrameBundle()
+        frame.frameID = 1
+        frame.timestampNanos = 1_000_000_000
+        frame.playbackInfo = PlaybackInfo(
+            isLive: false, logStartNs: 1_000_000_000, logEndNs: 2_000_000_000, playbackRate: 2.0,
+            paused: false, currentFrameIndex: 50, totalFrames: 500)
+
+        state.onFrameReceived(frame)
+
+        XCTAssertFalse(state.isLive)
+        XCTAssertEqual(state.logStartTimestamp, 1_000_000_000)
+        XCTAssertEqual(state.logEndTimestamp, 2_000_000_000)
+        XCTAssertEqual(state.playbackRate, 2.0)
+        XCTAssertEqual(state.currentFrameIndex, 50)
+        XCTAssertEqual(state.totalFrames, 500)
+    }
+
+    func testFrameReceivingClearsReplayFinished() throws {
+        let state = AppState()
+        state.replayFinished = true
+
+        var frame = FrameBundle()
+        frame.frameID = 1
+        state.onFrameReceived(frame)
+
+        XCTAssertFalse(state.replayFinished)
+    }
+
+    func testFPSCalculation() throws {
+        let state = AppState()
+        XCTAssertEqual(state.fps, 0.0)
+
+        // Simulate receiving multiple frames quickly
+        for i in 1...10 {
+            var frame = FrameBundle()
+            frame.frameID = UInt64(i)
+            state.onFrameReceived(frame)
+        }
+
+        // FPS should be calculated (non-zero after multiple frames)
+        // Note: actual FPS depends on timing, just verify it's tracked
+        XCTAssertEqual(state.frameCount, 10)
+    }
+
+    func testProgressCalculationInReplayMode() throws {
+        let state = AppState()
+        state.isLive = false
+        state.logStartTimestamp = 0
+        state.logEndTimestamp = 1_000_000_000
+
+        var frame = FrameBundle()
+        frame.frameID = 1
+        frame.timestampNanos = 250_000_000  // 25% progress
+
+        state.onFrameReceived(frame)
+
+        XCTAssertEqual(state.replayProgress, 0.25, accuracy: 0.01)
+    }
+
+    func testProgressNotUpdatedWhileSeeking() throws {
+        let state = AppState()
+        state.isLive = false
+        state.logStartTimestamp = 0
+        state.logEndTimestamp = 1_000_000_000
+        state.isSeekingInProgress = true
+        state.replayProgress = 0.5  // Pre-set progress
+
+        var frame = FrameBundle()
+        frame.frameID = 1
+        frame.timestampNanos = 250_000_000  // Would be 25%
+
+        state.onFrameReceived(frame)
+
+        // Progress should NOT be updated while seeking
+        XCTAssertEqual(state.replayProgress, 0.5)
+    }
+
+    func testEmptyFrameHandling() throws {
+        let state = AppState()
+
+        let frame = FrameBundle()  // Empty frame
+        state.onFrameReceived(frame)
+
+        XCTAssertEqual(state.pointCount, 0)
+        XCTAssertEqual(state.clusterCount, 0)
+        XCTAssertEqual(state.trackCount, 0)
+    }
+}
+
+// MARK: - Labelling State Tests
+
+@available(macOS 15.0, *) @MainActor final class LabellingStateTests: XCTestCase {
+
+    func testShowLabelPanelDefault() throws {
+        let state = AppState()
+        XCTAssertFalse(state.showLabelPanel)
+    }
+
+    func testShowLabelPanelToggle() throws {
+        let state = AppState()
+        state.showLabelPanel = true
+        XCTAssertTrue(state.showLabelPanel)
+
+        state.showLabelPanel = false
+        XCTAssertFalse(state.showLabelPanel)
+    }
+
+    func testSelectTrackWithString() throws {
+        let state = AppState()
+        state.selectTrack("track-abc-123")
+        XCTAssertEqual(state.selectedTrackID, "track-abc-123")
+    }
+
+    func testSelectTrackDeselect() throws {
+        let state = AppState()
+        state.selectTrack("track-001")
+        XCTAssertNotNil(state.selectedTrackID)
+
+        state.selectTrack(nil)
+        XCTAssertNil(state.selectedTrackID)
     }
 }

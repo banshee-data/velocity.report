@@ -14,7 +14,6 @@ from pathlib import Path
 
 from typing import Any, Dict, List, Optional
 
-
 try:
     from pylatex import (
         Document,
@@ -98,7 +97,6 @@ from pdf_generator.core.config_manager import DEFAULT_MAP_CONFIG, _map_to_dict
 from pdf_generator.core.data_transformers import (
     extract_start_time_from_row,
 )
-
 
 # Removed MultiCol class - using \twocolumn instead of multicols package
 # Table building functions moved to table_builders.py

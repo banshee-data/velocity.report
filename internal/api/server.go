@@ -149,6 +149,10 @@ func (s *Server) ServeMux() *http.ServeMux {
 		return s.mux
 	}
 	s.mux = http.NewServeMux()
+
+	// Note: pprof endpoints are provided by tailscale's tsweb via db.AttachAdminRoutes()
+	// Usage: go tool pprof http://localhost:8081/debug/pprof/profile?seconds=30
+
 	s.mux.HandleFunc("/events", s.listEvents)
 	s.mux.HandleFunc("/command", s.sendCommandHandler)
 	s.mux.HandleFunc("/api/radar_stats", s.showRadarObjectStats)
