@@ -8,6 +8,7 @@ This document defines an incremental, API-first implementation plan with explici
 - ✅ **M1: Recorder/Replayer** — Complete
 - ✅ **M2: Real Point Clouds** — Complete
 - ✅ **M3: Canonical Model + Adapters** — Complete
+- 🆕 **M3.5: Split Streaming** — New (performance optimisation)
 - 🔲 **M4–M7** — Not started
 
 **Checkbox Legend**:
@@ -25,6 +26,7 @@ This document defines an incremental, API-first implementation plan with explici
  M1: Recorder/Replayer             ──▶ Deterministic playback works          ✅ DONE
  M2: Real Point Clouds             ──▶ Pipeline emits live points via gRPC   ✅ DONE
  M3: Canonical Model + Adapters    ──▶ LidarView + gRPC from same source     ✅ DONE
+ M3.5: Split Streaming             ──▶ BG/FG separation, 96% bandwidth cut   🆕 NEW
  M4: Tracking Interface Refactor   ──▶ Golden replay tests pass
  M5: Algorithm Upgrades            ──▶ Improved tracking quality
  M6: Debug + Labelling             ──▶ Full debug overlays + label export
@@ -195,6 +197,55 @@ This document defines an incremental, API-first implementation plan with explici
 
 ---
 
+### M3.5: Split Streaming for Static LiDAR 🆕
+
+**Status**: New
+
+**Goal**: Reduce gRPC bandwidth by 96% by sending background snapshots infrequently and foreground-only frames per tick.
+
+**Problem**: At 10 fps with 70k points/frame (970 KB), the pipeline sustains ~80 Mbps. For static LiDAR, 97% of points are background (unchanging). Sending all points every frame wastes bandwidth and causes client backpressure.
+
+**Solution**: Send background snapshot every 30s (~920 KB), send foreground-only frames at 10 fps (~30 KB). Net bandwidth: ~3 Mbps.
+
+See [performance-investigation.md](./performance-investigation.md) for detailed design.
+
+**Track B (Pipeline)**:
+
+- [ ] Add `FrameType` enum to protobuf (`FULL`, `FOREGROUND`, `BACKGROUND`)
+- [ ] Add `BackgroundSnapshot` message to protobuf schema
+- [ ] Implement `GenerateBackgroundPointCloud()` on BackgroundManager
+- [ ] Add background snapshot scheduling to Publisher (30s default)
+- [ ] Add `--vis-background-interval` CLI flag
+- [ ] Implement foreground-only frame adaptation in FrameAdapter
+- [ ] Add sensor movement detection (`CheckForSensorMovement`)
+- [ ] Add background drift detection (`CheckBackgroundDrift`)
+- [ ] Handle grid reset → sequence number increment
+- [ ] Unit tests for background snapshot generation
+- [ ] Unit tests for movement detection
+
+**Track A (Visualiser)**:
+
+- [ ] Update protobuf stubs for new message types
+- [ ] Implement `CompositePointCloudRenderer` with background cache
+- [ ] Handle `FrameType.background` → update cached buffer
+- [ ] Handle `FrameType.foreground` → render over cached background
+- [ ] Request background refresh when `backgroundSeq` mismatches
+- [ ] Add UI indicator for "Background: Cached" vs "Refreshing"
+- [ ] Performance test: verify <5 Mbps bandwidth achieved
+
+**Acceptance Criteria**:
+
+- [ ] Background snapshot sent every 30s (configurable)
+- [ ] Foreground frames contain only moving points + metadata
+- [ ] Bandwidth reduced from ~80 Mbps to <5 Mbps
+- [ ] No visual difference from full-frame mode
+- [ ] Sensor movement triggers background refresh
+- [ ] Client handles reconnect with stale cache gracefully
+
+**Estimated Dev-Days**: 8 (3 Track A + 5 Track B)
+
+---
+
 ### M4: Tracking Refactor Behind Interfaces
 
 **Goal**: Wrap current tracking in interfaces without changing algorithms. Enable golden replay tests.
@@ -337,11 +388,12 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 | M1: Recorder/Replayer  | 4              | 4              | 8            | ✅ Complete |
 | M2: Real Points        | 2              | 4              | 6            | ✅ Complete |
 | M3: Canonical Model    | 0              | 5              | 5            | ✅ Complete |
-| M4: Tracking Refactor  | 2              | 6              | 8            |
+| M3.5: Split Streaming  | 3              | 5              | 8            | 🆕 New      |
+| M4: Tracking Refactor  | 2              | 6              | 8            |             |
 | M5: Algorithm Upgrades | 2              | 10             | 12           |             |
 | M6: Debug + Labelling  | 8              | 4              | 12           |             |
 | M7: Performance        | 4              | 4              | 8            |             |
-| **Total**              | **27**         | **42**         | **69**       | **29 done** |
+| **Total**              | **30**         | **47**         | **77**       | **29 done** |
 
 ---
 
@@ -410,6 +462,7 @@ Each milestone has a **stop point** where functionality is complete and stable:
 | M1        | Replay with seek/pause works             | ✅ Complete |
 | M2        | Real point clouds render                 | ✅ Complete |
 | M3        | Both outputs work from same model        | ✅ Complete |
+| M3.5      | Bandwidth reduced to <5 Mbps             | 🆕 New      |
 | M4        | Golden replay tests pass                 |             |
 | M5        | Improved tracking quality validated      |             |
 | M6        | Labelling workflow complete              |             |
