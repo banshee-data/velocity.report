@@ -14,10 +14,10 @@ func TestBackgroundManager_GenerateBackgroundSnapshot(t *testing.T) {
 	}
 
 	grid := &BackgroundGrid{
-		Rings:       40,
-		AzimuthBins: 1800,
-		Cells:       make([]BackgroundCell, 40*1800),
-		Params:      params,
+		Rings:          40,
+		AzimuthBins:    1800,
+		Cells:          make([]BackgroundCell, 40*1800),
+		Params:         params,
 		RingElevations: make([]float64, 40),
 	}
 
@@ -114,7 +114,13 @@ func TestBackgroundManager_GenerateBackgroundSnapshot_NoRingElevations(t *testin
 }
 
 func TestBackgroundManager_CheckForSensorMovement(t *testing.T) {
-	mgr := &BackgroundManager{}
+	mgr := &BackgroundManager{
+		Grid: &BackgroundGrid{
+			Params: BackgroundParams{
+				SensorMovementForegroundThreshold: 0.20,
+			},
+		},
+	}
 
 	// Test with low foreground ratio (< 20%)
 	mask := make([]bool, 1000)
@@ -137,7 +143,9 @@ func TestBackgroundManager_CheckForSensorMovement(t *testing.T) {
 
 func TestBackgroundManager_CheckBackgroundDrift(t *testing.T) {
 	params := BackgroundParams{
-		LockedBaselineThreshold: 10,
+		LockedBaselineThreshold:        10,
+		BackgroundDriftThresholdMeters: 0.5,
+		BackgroundDriftRatioThreshold:  0.10,
 	}
 
 	grid := &BackgroundGrid{

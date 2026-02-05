@@ -60,6 +60,17 @@ type BackgroundParams struct {
 	// LockedBaselineMultiplier) are considered background. Default: 4.0.
 	LockedBaselineMultiplier float32
 
+	// M3.5 Split Streaming parameters
+	// SensorMovementForegroundThreshold is the fraction of points that must be
+	// classified as foreground to trigger sensor movement detection. Default: 0.20 (20%).
+	SensorMovementForegroundThreshold float32
+	// BackgroundDriftThresholdMeters is the drift distance in metres that indicates
+	// a cell has drifted significantly. Default: 0.5m.
+	BackgroundDriftThresholdMeters float32
+	// BackgroundDriftRatioThreshold is the fraction of settled cells that must have
+	// drifted to consider the entire background drifted. Default: 0.10 (10%).
+	BackgroundDriftRatioThreshold float32
+
 	// Debug logging region (only active if EnableDiagnostics is true)
 	DebugRingMin int     // Min ring index (inclusive)
 	DebugRingMax int     // Max ring index (inclusive)
@@ -1797,9 +1808,11 @@ func (bm *BackgroundManager) CheckForSensorMovement(mask []bool) bool {
 
 	foregroundRatio := float64(foregroundCount) / float64(len(mask))
 
-	// Threshold: if >20% foreground, we suspect sensor movement or bad model
-	// Note: This is a simple heuristic; production might want adaptive thresholds
-	movementThreshold := 0.20
+	// Get threshold from params, default to 20%
+	movementThreshold := float64(bm.Grid.Params.SensorMovementForegroundThreshold)
+	if movementThreshold == 0 {
+		movementThreshold = 0.20
+	}
 
 	// For proper detection, we'd want to track a streak counter
 	// For now, just return true if ratio is high (caller should implement streak logic)
@@ -1828,8 +1841,16 @@ func (bm *BackgroundManager) CheckBackgroundDrift() (bool, DriftMetrics) {
 	var driftingCells int
 	settledCount := 0
 
-	// Drift threshold in metres
-	driftThresholdMeters := 0.5
+	// Get thresholds from params with sensible defaults
+	driftThresholdMeters := float64(g.Params.BackgroundDriftThresholdMeters)
+	if driftThresholdMeters == 0 {
+		driftThresholdMeters = 0.5
+	}
+
+	driftRatioThreshold := float64(g.Params.BackgroundDriftRatioThreshold)
+	if driftRatioThreshold == 0 {
+		driftRatioThreshold = 0.10
+	}
 
 	for _, cell := range g.Cells {
 		// Only check settled cells
@@ -1867,8 +1888,8 @@ func (bm *BackgroundManager) CheckBackgroundDrift() (bool, DriftMetrics) {
 		DriftRatio:    driftRatio,
 	}
 
-	// Consider drifted if >10% of settled cells have drifted
-	drifted := driftRatio > 0.10
+	// Consider drifted if ratio exceeds threshold
+	drifted := driftRatio > driftRatioThreshold
 
 	return drifted, metrics
 }
