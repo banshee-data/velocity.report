@@ -502,6 +502,28 @@ final class LockedState<Value>: @unchecked Sendable {
                 totalFrames: proto.playbackInfo.totalFrames)
         }
 
+        // M3.5 Split Streaming fields
+        frame.frameType = FrameType(rawValue: Int(proto.frameType.rawValue)) ?? .full
+        frame.backgroundSeq = proto.backgroundSeq
+
+        if proto.hasBackground {
+            let bg = proto.background
+            var snapshot = BackgroundSnapshot()
+            snapshot.sequenceNumber = bg.sequenceNumber
+            snapshot.timestampNanos = bg.timestampNanos
+            snapshot.x = bg.x
+            snapshot.y = bg.y
+            snapshot.z = bg.z
+            snapshot.confidence = bg.confidence
+            if bg.hasGridMetadata {
+                snapshot.gridMetadata = GridMetadata(
+                    rings: bg.gridMetadata.rings, azimuthBins: bg.gridMetadata.azimuthBins,
+                    ringElevations: bg.gridMetadata.ringElevations,
+                    settlingComplete: bg.gridMetadata.settlingComplete)
+            }
+            frame.background = snapshot
+        }
+
         return frame
     }
 }
