@@ -361,6 +361,28 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 		}
 	}
 
+	// M3.5: Include frame type and background snapshot
+	pbFrame.FrameType = pb.FrameType(frame.FrameType)
+	pbFrame.BackgroundSeq = frame.BackgroundSeq
+
+	if frame.Background != nil {
+		bg := frame.Background
+		pbFrame.Background = &pb.BackgroundSnapshot{
+			SequenceNumber: bg.SequenceNumber,
+			TimestampNanos: bg.TimestampNanos,
+			X:              bg.X,
+			Y:              bg.Y,
+			Z:              bg.Z,
+			Confidence:     bg.Confidence,
+			GridMetadata: &pb.GridMetadata{
+				Rings:            int32(bg.GridMetadata.Rings),
+				AzimuthBins:      int32(bg.GridMetadata.AzimuthBins),
+				RingElevations:   bg.GridMetadata.RingElevations,
+				SettlingComplete: bg.GridMetadata.SettlingComplete,
+			},
+		}
+	}
+
 	return pbFrame
 }
 

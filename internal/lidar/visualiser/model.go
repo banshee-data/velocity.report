@@ -27,6 +27,11 @@ type FrameBundle struct {
 
 	// Playback info (for replay)
 	PlaybackInfo *PlaybackInfo
+
+	// Split streaming support (M3.5)
+	FrameType     FrameType
+	Background    *BackgroundSnapshot
+	BackgroundSeq uint64
 }
 
 // CoordinateFrameInfo describes the coordinate frame of the data.
@@ -67,6 +72,35 @@ const (
 	DecimationVoxel          DecimationMode = 2
 	DecimationForegroundOnly DecimationMode = 3
 )
+
+// FrameType specifies the type of frame being streamed.
+type FrameType int
+
+const (
+	FrameTypeFull       FrameType = 0 // Legacy: all points
+	FrameTypeForeground FrameType = 1 // Foreground + clusters + tracks only
+	FrameTypeBackground FrameType = 2 // Background snapshot
+	FrameTypeDelta      FrameType = 3 // Future: incremental update
+)
+
+// BackgroundSnapshot contains a settled background point cloud.
+type BackgroundSnapshot struct {
+	SequenceNumber uint64    // Increments on grid reset
+	TimestampNanos int64     // When snapshot was taken
+	X              []float32 // Background point X coordinates
+	Y              []float32 // Background point Y coordinates
+	Z              []float32 // Background point Z coordinates
+	Confidence     []uint32  // TimesSeenCount per point
+	GridMetadata   GridMetadata
+}
+
+// GridMetadata describes the background grid structure.
+type GridMetadata struct {
+	Rings            int       // Number of laser rings
+	AzimuthBins      int       // Number of azimuth bins
+	RingElevations   []float32 // Elevation angle per ring (degrees)
+	SettlingComplete bool      // True when warmup is done
+}
 
 // ClusterSet contains all clusters detected in a frame.
 type ClusterSet struct {

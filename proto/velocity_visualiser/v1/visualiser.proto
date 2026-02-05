@@ -39,6 +39,13 @@ enum DecimationMode {
   DECIMATION_FOREGROUND_ONLY = 3;  // only foreground points, no background
 }
 
+enum FrameType {
+  FRAME_TYPE_FULL = 0;           // Legacy: all points
+  FRAME_TYPE_FOREGROUND = 1;     // Foreground + clusters + tracks only
+  FRAME_TYPE_BACKGROUND = 2;     // Background snapshot
+  FRAME_TYPE_DELTA = 3;          // Future: incremental update
+}
+
 message PointCloudFrame {
   uint64 frame_id = 1;
   int64 timestamp_ns = 2;
@@ -59,6 +66,23 @@ message PointCloudFrame {
 
   // Point count (convenience field)
   int32 point_count = 11;
+}
+
+message GridMetadata {
+  int32 rings = 1;
+  int32 azimuth_bins = 2;
+  repeated float ring_elevations = 3;
+  bool settling_complete = 4;
+}
+
+message BackgroundSnapshot {
+  uint64 sequence_number = 1;        // Increments on grid reset
+  int64 timestamp_nanos = 2;         // When snapshot was taken
+  repeated float x = 3 [packed=true];
+  repeated float y = 4 [packed=true];
+  repeated float z = 5 [packed=true];
+  repeated uint32 confidence = 6 [packed=true]; // TimesSeenCount per point
+  GridMetadata grid_metadata = 7;
 }
 
 // =============================================================================
@@ -319,6 +343,11 @@ message FrameBundle {
 
   // Playback metadata (replay mode only)
   PlaybackInfo playback_info = 9;
+
+  // Split streaming support (M3.5)
+  FrameType frame_type = 10;
+  BackgroundSnapshot background = 11;
+  uint64 background_seq = 12;
 }
 
 // =============================================================================
