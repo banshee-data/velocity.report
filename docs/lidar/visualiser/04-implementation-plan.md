@@ -402,12 +402,12 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 
 **Options for Proper Pool Utilisation**:
 
-| Option | Description | Pros | Cons |
-|--------|-------------|------|------|
-| **A: Reference Counting** | Add `refCount` field to PointCloudFrame. Increment on broadcast to each client, decrement after protobuf conversion. Release when count hits zero. | Pool actually gets reused; memory-efficient at scale | Added complexity; must ensure all code paths decrement |
-| **B: Copy-on-Broadcast** | Each client receives a deep copy of the frame | Simple ownership model; no shared state | Defeats purpose of pooling; higher memory use |
-| **C: Single-Client Optimisation** | Only use pool in replay mode (single client). Live mode uses regular allocation. | Works today without changes | Pool only helps replay; live mode still allocates |
-| **D: Remove Pooling** | Delete pool code; use regular slices | Simplest; fewer bugs | Higher GC pressure at 70k points × 10 Hz |
+| Option                            | Description                                                                                                                                        | Pros                                                 | Cons                                                   |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------ |
+| **A: Reference Counting**         | Add `refCount` field to PointCloudFrame. Increment on broadcast to each client, decrement after protobuf conversion. Release when count hits zero. | Pool actually gets reused; memory-efficient at scale | Added complexity; must ensure all code paths decrement |
+| **B: Copy-on-Broadcast**          | Each client receives a deep copy of the frame                                                                                                      | Simple ownership model; no shared state              | Defeats purpose of pooling; higher memory use          |
+| **C: Single-Client Optimisation** | Only use pool in replay mode (single client). Live mode uses regular allocation.                                                                   | Works today without changes                          | Pool only helps replay; live mode still allocates      |
+| **D: Remove Pooling**             | Delete pool code; use regular slices                                                                                                               | Simplest; fewer bugs                                 | Higher GC pressure at 70k points × 10 Hz               |
 
 **Recommendation**: Option A (reference counting) for V1.1. Option C as interim if A proves complex. Current behaviour (documented non-use in broadcast) is acceptable for MVP.
 
