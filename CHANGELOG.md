@@ -45,6 +45,34 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
 ## [0.4.0] - 2026-01-29
 
+### macOS Visualiser
+
+#### Added
+
+- **M3.5 Track A: Split Streaming Support**
+  - Background caching with sequence validation for 96% bandwidth reduction
+  - `CompositePointCloudRenderer` for dual-buffer rendering (background + foreground)
+  - Cache state tracking (Empty/Cached/Refreshing) with UI indicator
+  - `FrameType` enum: full/foreground/background/delta
+  - `BackgroundSnapshot` struct with sequence number validation
+  - `GridMetadata` struct for background grid parameters
+  - Green dot "BG" status indicator showing cache state
+  - Comprehensive test coverage (90%+) for new models and renderer
+
+- **M4 Track A: Cluster Box Rendering**
+  - Cluster bounding boxes rendered as cyan wireframe boxes
+  - AABB dimensions from cluster features
+  - OBB heading support when computed by clusterer
+  - Semi-transparent rendering (alpha=0.7) to distinguish from tracks
+  - 'C' toggle key and toolbar button for cluster visibility
+  - Rendering order: background → foreground → clusters → tracks → trails
+
+#### Documentation
+
+- Added `docs/lidar/m3.5-macos-visualiser.md` - M3.5 architecture and implementation
+- Added `docs/lidar/m4-macos-visualiser.md` - M4 cluster rendering details
+- Updated `tools/visualiser-macos/README.md` with M3.5/M4 features
+
 ### Radar Server
 
 #### Added
