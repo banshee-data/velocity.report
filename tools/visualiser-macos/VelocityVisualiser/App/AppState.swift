@@ -92,6 +92,15 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
     init() {
         // FPS is calculated per-frame using exponential moving average
+
+        // Auto-connect on startup
+        Task {
+            try? await Task.sleep(nanoseconds: 500_000_000)  // 500ms delay
+            await MainActor.run {
+                logger.info("Auto-connecting to \(self.serverAddress) on startup")
+                self.connect()
+            }
+        }
     }
 
     deinit {
