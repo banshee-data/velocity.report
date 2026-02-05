@@ -24,6 +24,10 @@ const (
 	SingularDistanceRejection = 1e9
 	// MaxSpeedHistoryLength is the maximum number of speed samples kept for percentile computation
 	MaxSpeedHistoryLength = 100
+	// MaxTrackHistoryLength is the maximum number of position samples kept for trail rendering.
+	// At 10 Hz this gives ~20 seconds of trail. Capping prevents unbounded memory growth
+	// and reduces serialisation cost in the visualiser adapter.
+	MaxTrackHistoryLength = 200
 	// DefaultDeletedTrackGracePeriod is how long to keep deleted tracks before cleanup
 	DefaultDeletedTrackGracePeriod = 5 * time.Second
 	// MaxReasonableSpeedMps is the maximum reasonable speed for any tracked object (m/s)
@@ -130,6 +134,12 @@ type Tracker struct {
 	// Last update timestamp for dt computation
 	LastUpdateNanos int64
 
+	// lastAssociations stores the result of the most recent associate() call.
+	// It is a slice indexed by cluster index; each element is the trackID
+	// the cluster was associated with, or "" if unassociated.
+	// Protected by mu — read via GetLastAssociations().
+	lastAssociations []string
+
 	mu sync.RWMutex
 }
 
@@ -168,6 +178,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 
 	// Step 2: Associate clusters to tracks using gating
 	associations := t.associate(clusters, dt)
+	t.lastAssociations = associations
 
 	// Step 3: Update matched tracks
 	matchedTracks := make(map[string]bool)
@@ -201,6 +212,9 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 					Y:         track.Y,
 					Timestamp: nowNanos,
 				})
+				if len(track.History) > MaxTrackHistoryLength {
+					track.History = track.History[len(track.History)-MaxTrackHistoryLength:]
+				}
 			}
 
 			if track.Misses >= t.Config.MaxMisses {
@@ -472,6 +486,9 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 			Y:         track.Y,
 			Timestamp: nowNanos,
 		})
+		if len(track.History) > MaxTrackHistoryLength {
+			track.History = track.History[len(track.History)-MaxTrackHistoryLength:]
+		}
 	}
 
 	// Store speed history for percentile computation
@@ -555,6 +572,10 @@ func (t *Tracker) cleanupDeletedTracks(nowNanos int64) {
 }
 
 // GetActiveTracks returns a slice of currently active (non-deleted) tracks.
+// Each returned TrackedObject is a shallow copy with a deep-copied History slice,
+// making it safe for callers to read History without holding the tracker lock.
+// This prevents data races between the visualiser adapter (reading History) and
+// the tracker Update() goroutine (appending to History).
 func (t *Tracker) GetActiveTracks() []*TrackedObject {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
@@ -562,7 +583,14 @@ func (t *Tracker) GetActiveTracks() []*TrackedObject {
 	active := make([]*TrackedObject, 0, len(t.Tracks))
 	for _, track := range t.Tracks {
 		if track.State != TrackDeleted {
-			active = append(active, track)
+			// Shallow copy the struct to snapshot scalar fields
+			copied := *track
+			// Deep copy History to avoid race with concurrent Update() appends
+			if len(track.History) > 0 {
+				copied.History = make([]TrackPoint, len(track.History))
+				copy(copied.History, track.History)
+			}
+			active = append(active, &copied)
 		}
 	}
 	return active
@@ -619,6 +647,22 @@ func (t *Tracker) GetAllTracks() []*TrackedObject {
 		all = append(all, track)
 	}
 	return all
+}
+
+// GetLastAssociations returns a copy of the most recent cluster-to-track
+// associations produced by Update(). The returned slice is indexed by
+// cluster index; each element is the trackID the cluster was matched to,
+// or "" if the cluster was unassociated (and spawned a new track).
+func (t *Tracker) GetLastAssociations() []string {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	if t.lastAssociations == nil {
+		return nil
+	}
+	out := make([]string, len(t.lastAssociations))
+	copy(out, t.lastAssociations)
+	return out
 }
 
 // Speed returns the current speed magnitude for a track.

@@ -56,6 +56,10 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
     // MARK: - Frame Data
 
+    // M3.5: Composite renderer for split streaming
+    var compositeRenderer: CompositePointCloudRenderer?
+
+    // Legacy point buffer (for backwards compatibility)
     var pointBuffer: MTLBuffer?
     var pointCount: Int = 0
 
@@ -63,6 +67,10 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     var boxVertexCount: Int = 0
     var boxInstances: MTLBuffer?
     var boxInstanceCount: Int = 0
+
+    // M4: Cluster rendering
+    var clusterInstances: MTLBuffer?
+    var clusterInstanceCount: Int = 0
 
     var trailVertices: MTLBuffer?
     var trailVertexCount: Int = 0
@@ -72,6 +80,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
     var showPoints: Bool = true
     var showBoxes: Bool = true
+    var showClusters: Bool = true  // M4: Toggle for cluster rendering
     var showTrails: Bool = true
     var pointSize: Float = 5.0
     var backgroundColor: MTLClearColor = MTLClearColor(red: 0.1, green: 0.1, blue: 0.15, alpha: 1.0)
@@ -104,6 +113,9 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         buildPipelines(metalView: metalView)
         buildDepthStencil()
         buildBoxGeometry()
+
+        // M3.5: Initialise composite renderer
+        compositeRenderer = CompositePointCloudRenderer(device: device)
     }
 
     // MARK: - Pipeline Setup
@@ -206,13 +218,19 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     func updateFrame(_ frame: FrameBundle) {
         frameUpdateCount += 1
 
-        // Update point cloud buffer
-        if let pointCloud = frame.pointCloud, pointCloud.pointCount > 0 {
+        // M3.5: Use composite renderer for split streaming
+        compositeRenderer?.processFrame(frame)
+
+        // Legacy path: Update point cloud buffer directly for full frames
+        if frame.frameType == .full, let pointCloud = frame.pointCloud, pointCloud.pointCount > 0 {
             updatePointBuffer(pointCloud)
         }
 
-        // Update box instances from tracks
+        // M4: Update box instances from tracks
         if let tracks = frame.tracks { updateBoxInstances(tracks) }
+
+        // M4: Update cluster instances
+        if let clusters = frame.clusters { updateClusterInstances(clusters) }
 
         // Update trails
         if let tracks = frame.tracks { updateTrailBuffer(tracks) }
@@ -282,6 +300,46 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         }
     }
 
+    /// M4: Update cluster box instances.
+    private func updateClusterInstances(_ clusterSet: ClusterSet) {
+        // Each box instance: [transform matrix (16 floats) + colour (4 floats)]
+        var instances = [Float]()
+
+        for cluster in clusterSet.clusters {
+            // Build transform matrix using AABB dimensions
+            let scale = simd_float4x4(
+                diagonal: simd_float4(
+                    cluster.aabbLength > 0 ? cluster.aabbLength : 0.5,
+                    cluster.aabbWidth > 0 ? cluster.aabbWidth : 0.5,
+                    cluster.aabbHeight > 0 ? cluster.aabbHeight : 0.5, 1.0))
+
+            // Use OBB heading if available, otherwise no rotation
+            let heading = cluster.obb?.headingRad ?? 0.0
+            let rotation = simd_float4x4(rotationZ: heading)
+            let translation = simd_float4x4(
+                translation: simd_float3(cluster.centroidX, cluster.centroidY, cluster.centroidZ))
+            let transform = translation * rotation * scale
+
+            // Add transform (16 floats)
+            for col in 0..<4 { for row in 0..<4 { instances.append(transform[col][row]) } }
+
+            // Add colour: cyan/blue for clusters (4 floats)
+            instances.append(0.0)  // r
+            instances.append(0.8)  // g (cyan)
+            instances.append(1.0)  // b
+            instances.append(0.7)  // alpha (slightly transparent)
+        }
+
+        if !instances.isEmpty {
+            let bufferSize = instances.count * MemoryLayout<Float>.stride
+            clusterInstances = device.makeBuffer(
+                bytes: instances, length: bufferSize, options: .storageModeShared)
+            clusterInstanceCount = clusterSet.clusters.count
+        } else {
+            clusterInstanceCount = 0
+        }
+    }
+
     private func updateTrailBuffer(_ trackSet: TrackSet) {
         // Trail vertices: [x, y, z, alpha] per vertex
         var vertices = [Float]()
@@ -338,14 +396,33 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         encoder.setDepthStencilState(depthStencilState)
 
         // Draw point cloud
-        if showPoints, let pipeline = pointCloudPipeline, let buffer = pointBuffer, pointCount > 0 {
-            encoder.setRenderPipelineState(pipeline)
-            encoder.setVertexBuffer(buffer, offset: 0, index: 0)
-            encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
-            encoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: pointCount)
+        if showPoints, let pipeline = pointCloudPipeline {
+            // M3.5: Use composite renderer if available
+            if let composite = compositeRenderer {
+                composite.render(encoder: encoder, pipeline: pipeline, uniforms: &uniforms)
+            } else if let buffer = pointBuffer, pointCount > 0 {
+                // Legacy path: single buffer
+                encoder.setRenderPipelineState(pipeline)
+                encoder.setVertexBuffer(buffer, offset: 0, index: 0)
+                encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                encoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: pointCount)
+            }
         }
 
-        // Draw boxes
+        // M4: Draw cluster boxes first (behind tracks)
+        if showClusters, let pipeline = boxPipeline, let boxVerts = boxVertices,
+            let instances = clusterInstances, clusterInstanceCount > 0
+        {
+            encoder.setRenderPipelineState(pipeline)
+            encoder.setVertexBuffer(boxVerts, offset: 0, index: 0)
+            encoder.setVertexBuffer(instances, offset: 0, index: 1)
+            encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 2)
+            encoder.drawPrimitives(
+                type: .line, vertexStart: 0, vertexCount: boxVertexCount,
+                instanceCount: clusterInstanceCount)
+        }
+
+        // Draw track boxes (on top of clusters)
         if showBoxes, let pipeline = boxPipeline, let boxVerts = boxVertices,
             let instances = boxInstances, boxInstanceCount > 0
         {
@@ -441,6 +518,16 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         camera.position = simd_float3(0, -30, 20)
         camera.target = simd_float3(0, 10, 0)
         camera.up = simd_float3(0, 0, 1)
+    }
+
+    /// M3.5: Get background cache status for UI display.
+    func getCacheStatus() -> String {
+        compositeRenderer?.cacheStatus ?? "Not using split streaming"
+    }
+
+    /// M3.5: Get point cloud statistics.
+    func getPointCloudStats() -> (background: Int, foreground: Int, total: Int) {
+        compositeRenderer?.getStats() ?? (background: 0, foreground: pointCount, total: pointCount)
     }
 
     /// Handle keyboard input for camera control.

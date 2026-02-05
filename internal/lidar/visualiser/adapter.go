@@ -68,6 +68,12 @@ type FrameAdapter struct {
 	sensorID string
 	frameID  uint64
 
+	// SplitStreaming, when true, causes adaptPointCloud to emit only
+	// foreground-classified points. Background points are delivered via
+	// a separate BackgroundSnapshot message, so including them here
+	// wastes CPU and bandwidth.
+	SplitStreaming bool
+
 	// Performance tracking
 	totalAdaptTimeNs atomic.Int64
 	frameCount       atomic.Uint64
@@ -87,7 +93,7 @@ func (a *FrameAdapter) AdaptFrame(
 	frame *lidar.LiDARFrame,
 	foregroundMask []bool,
 	clusters []lidar.WorldCluster,
-	tracker *lidar.Tracker,
+	tracker lidar.TrackerInterface,
 ) interface{} {
 	startTime := time.Now()
 	a.frameID++
@@ -99,14 +105,29 @@ func (a *FrameAdapter) AdaptFrame(
 		bundle.PointCloud = a.adaptPointCloud(frame, foregroundMask)
 	}
 
-	// Adapt clusters
-	if len(clusters) > 0 {
-		bundle.Clusters = a.adaptClusters(clusters, frame.StartTimestamp)
+	// M3.5: Mark frame type when split streaming is active.
+	// This tells the publisher not to re-strip background points
+	// (the adapter already emitted foreground-only).
+	if a.SplitStreaming && len(foregroundMask) > 0 {
+		bundle.FrameType = FrameTypeForeground
 	}
 
-	// Adapt tracks
+	// Adapt tracks first so we can identify which clusters are already tracked
 	if tracker != nil {
 		bundle.Tracks = a.adaptTracks(tracker, frame.StartTimestamp)
+	}
+
+	// Adapt only unassociated clusters. When a cluster has been matched to
+	// a track by the tracker's association step, its bounding box would
+	// duplicate the track's box. We use the real association data from the
+	// tracker rather than spatial proximity so that genuinely close objects
+	// (e.g. pedestrians walking together) are preserved.
+	if len(clusters) > 0 {
+		var associations []string
+		if tracker != nil {
+			associations = tracker.GetLastAssociations()
+		}
+		bundle.Clusters = a.adaptUnassociatedClusters(clusters, associations, frame.StartTimestamp)
 	}
 
 	// Track performance
@@ -137,6 +158,14 @@ func (a *FrameAdapter) AdaptFrame(
 // adaptPointCloud converts a LiDARFrame to a PointCloudFrame.
 // Uses sync.Pool for slice allocation to reduce GC pressure.
 func (a *FrameAdapter) adaptPointCloud(frame *lidar.LiDARFrame, mask []bool) *PointCloudFrame {
+	// When split streaming is active, emit only foreground points.
+	// Background is delivered via BackgroundSnapshot every 30s, so
+	// including it here wastes allocation, copy, and serialisation
+	// time for ~97% of points that the publisher would strip anyway.
+	if a.SplitStreaming && len(mask) > 0 {
+		return a.adaptForegroundOnly(frame, mask)
+	}
+
 	n := len(frame.Points)
 	pc := &PointCloudFrame{
 		FrameID:        a.frameID,
@@ -164,6 +193,45 @@ func (a *FrameAdapter) adaptPointCloud(frame *lidar.LiDARFrame, mask []bool) *Po
 			pc.Classification[i] = 0
 		}
 	}
+
+	return pc
+}
+
+// adaptForegroundOnly builds a PointCloudFrame containing only foreground-
+// classified points. This avoids allocating and copying ~67k background
+// points that would be stripped by the publisher anyway.
+func (a *FrameAdapter) adaptForegroundOnly(frame *lidar.LiDARFrame, mask []bool) *PointCloudFrame {
+	// Count foreground points for precise allocation
+	fgCount := 0
+	for _, fg := range mask {
+		if fg {
+			fgCount++
+		}
+	}
+
+	pc := &PointCloudFrame{
+		FrameID:        a.frameID,
+		TimestampNanos: frame.StartTimestamp.UnixNano(),
+		SensorID:       a.sensorID,
+		X:              make([]float32, 0, fgCount),
+		Y:              make([]float32, 0, fgCount),
+		Z:              make([]float32, 0, fgCount),
+		Intensity:      make([]uint8, 0, fgCount),
+		Classification: make([]uint8, 0, fgCount),
+		DecimationMode: DecimationForegroundOnly,
+		PointCount:     0,
+	}
+
+	for i, p := range frame.Points {
+		if i < len(mask) && mask[i] {
+			pc.X = append(pc.X, float32(p.X))
+			pc.Y = append(pc.Y, float32(p.Y))
+			pc.Z = append(pc.Z, float32(p.Z))
+			pc.Intensity = append(pc.Intensity, p.Intensity)
+			pc.Classification = append(pc.Classification, 1)
+		}
+	}
+	pc.PointCount = len(pc.X)
 
 	return pc
 }
@@ -294,6 +362,46 @@ func (pc *PointCloudFrame) applyForegroundOnlyDecimation() {
 	pc.PointCount = len(newX)
 }
 
+// adaptUnassociatedClusters converts WorldClusters to the canonical Cluster
+// format, skipping clusters that the tracker associated with an existing track.
+// associations is the slice returned by tracker.GetLastAssociations() — it is
+// indexed by cluster index and contains the matched trackID or "" for
+// unassociated clusters. Only unassociated clusters are included so that
+// the track's bounding box is the sole representation of a tracked object.
+func (a *FrameAdapter) adaptUnassociatedClusters(worldClusters []lidar.WorldCluster, associations []string, timestamp time.Time) *ClusterSet {
+	cs := &ClusterSet{
+		FrameID:        a.frameID,
+		TimestampNanos: timestamp.UnixNano(),
+		Clusters:       make([]Cluster, 0, len(worldClusters)),
+		Method:         ClusteringDBSCAN,
+	}
+
+	for i, wc := range worldClusters {
+		// Skip clusters that are already associated with a track.
+		// Their bounding box is rendered via the track instead.
+		if i < len(associations) && associations[i] != "" {
+			continue
+		}
+
+		cs.Clusters = append(cs.Clusters, Cluster{
+			ClusterID:      wc.ClusterID,
+			SensorID:       wc.SensorID,
+			TimestampNanos: wc.TSUnixNanos,
+			CentroidX:      wc.CentroidX,
+			CentroidY:      wc.CentroidY,
+			CentroidZ:      wc.CentroidZ,
+			AABBLength:     wc.BoundingBoxLength,
+			AABBWidth:      wc.BoundingBoxWidth,
+			AABBHeight:     wc.BoundingBoxHeight,
+			PointsCount:    wc.PointsCount,
+			HeightP95:      wc.HeightP95,
+			IntensityMean:  wc.IntensityMean,
+		})
+	}
+
+	return cs
+}
+
 // adaptClusters converts WorldClusters to the canonical Cluster format.
 func (a *FrameAdapter) adaptClusters(worldClusters []lidar.WorldCluster, timestamp time.Time) *ClusterSet {
 	cs := &ClusterSet{
@@ -324,7 +432,7 @@ func (a *FrameAdapter) adaptClusters(worldClusters []lidar.WorldCluster, timesta
 }
 
 // adaptTracks converts TrackedObjects to the canonical Track format.
-func (a *FrameAdapter) adaptTracks(tracker *lidar.Tracker, timestamp time.Time) *TrackSet {
+func (a *FrameAdapter) adaptTracks(tracker lidar.TrackerInterface, timestamp time.Time) *TrackSet {
 	activeTracks := tracker.GetActiveTracks()
 
 	ts := &TrackSet{
@@ -374,25 +482,18 @@ func (a *FrameAdapter) adaptTracks(tracker *lidar.Tracker, timestamp time.Time) 
 		ts.Tracks = append(ts.Tracks, track)
 
 		// Build trail from history
-		// Note: Take a snapshot of history length to avoid race conditions
-		// if history is being modified concurrently
-		historyLen := len(t.History)
-		if historyLen > 0 {
+		// History is deep-copied by GetActiveTracks(), safe to iterate directly.
+		if len(t.History) > 0 {
 			trail := TrackTrail{
 				TrackID: t.TrackID,
-				Points:  make([]TrackPoint, 0, historyLen),
+				Points:  make([]TrackPoint, len(t.History)),
 			}
-			for j := 0; j < historyLen; j++ {
-				// Bounds check in case History shrinks during iteration
-				if j >= len(t.History) {
-					break
-				}
-				hp := t.History[j]
-				trail.Points = append(trail.Points, TrackPoint{
+			for j, hp := range t.History {
+				trail.Points[j] = TrackPoint{
 					X:              hp.X,
 					Y:              hp.Y,
 					TimestampNanos: hp.Timestamp,
-				})
+				}
 			}
 			ts.Trails = append(ts.Trails, trail)
 		}

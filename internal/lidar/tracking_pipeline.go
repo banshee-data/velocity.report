@@ -6,6 +6,8 @@ import (
 	"log"
 	"math"
 	"reflect"
+	"sync/atomic"
+	"time"
 )
 
 // ForegroundForwarder interface allows forwarding foreground points without importing network package.
@@ -20,7 +22,7 @@ type VisualiserPublisher interface {
 
 // VisualiserAdapter interface converts tracking outputs to FrameBundle.
 type VisualiserAdapter interface {
-	AdaptFrame(frame *LiDARFrame, foregroundMask []bool, clusters []WorldCluster, tracker *Tracker) interface{}
+	AdaptFrame(frame *LiDARFrame, foregroundMask []bool, clusters []WorldCluster, tracker TrackerInterface) interface{}
 }
 
 // LidarViewAdapter interface forwards FrameBundle to UDP (LidarView format).
@@ -46,7 +48,7 @@ func isNilInterface(i interface{}) bool {
 type TrackingPipelineConfig struct {
 	BackgroundManager   *BackgroundManager
 	FgForwarder         ForegroundForwarder // Use interface to avoid import cycle
-	Tracker             *Tracker
+	Tracker             TrackerInterface    // Use interface for dependency injection and testing
 	Classifier          *TrackClassifier
 	DB                  *sql.DB // Use standard sql.DB to avoid import cycle with db package
 	SensorID            string
@@ -55,6 +57,13 @@ type TrackingPipelineConfig struct {
 	VisualiserPublisher VisualiserPublisher // Optional: gRPC publisher
 	VisualiserAdapter   VisualiserAdapter   // Optional: adapter for gRPC
 	LidarViewAdapter    LidarViewAdapter    // Optional: adapter for UDP forwarding
+
+	// MaxFrameRate caps the rate at which frames are fully processed through
+	// the tracking pipeline. When frames arrive faster than this rate (e.g.
+	// during PCAP catch-up bursts), excess frames are dropped after background
+	// update but before the expensive clustering/tracking/serialisation path.
+	// Zero means no limit (process every frame). Typical value: 12.
+	MaxFrameRate float64
 }
 
 // NewFrameCallback creates a FrameBuilder callback that processes frames through
@@ -69,6 +78,22 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 		return GetAnalysisRunManager(cfg.SensorID)
 	}
 
+	// Pre-allocate a reusable polar slice to avoid 69k-element allocation
+	// per frame (~5 MB). Safe because the callback runs synchronously.
+	var polarBuf []PointPolar
+
+	// Frame-rate throttle state. We always run ProcessFramePolarWithMask to
+	// keep the background model up to date, but skip the expensive
+	// clustering→tracking→serialisation path when frames arrive faster than
+	// MaxFrameRate. This prevents burst processing during PCAP catch-up
+	// from consuming 250%+ CPU and flooding the gRPC client with drops.
+	var lastProcessedTime time.Time
+	var minFrameInterval time.Duration
+	if cfg.MaxFrameRate > 0 {
+		minFrameInterval = time.Duration(float64(time.Second) / cfg.MaxFrameRate)
+	}
+	var throttledFrames atomic.Uint64
+
 	return func(frame *LiDARFrame) {
 		if frame == nil || len(frame.Points) == 0 {
 			return
@@ -78,10 +103,14 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 		Debugf("[FrameBuilder] Completed frame: %s, Points: %d, Azimuth: %.1f°-%.1f°",
 			frame.FrameID, len(frame.Points), frame.MinAzimuth, frame.MaxAzimuth)
 
-		// Convert frame points to polar coordinates
-		polar := make([]PointPolar, 0, len(frame.Points))
-		for _, p := range frame.Points {
-			polar = append(polar, PointPolar{
+		// Convert frame points to polar coordinates using reusable buffer
+		n := len(frame.Points)
+		if cap(polarBuf) < n {
+			polarBuf = make([]PointPolar, n)
+		}
+		polar := polarBuf[:n]
+		for i, p := range frame.Points {
+			polar[i] = PointPolar{
 				Channel:         p.Channel,
 				Azimuth:         p.Azimuth,
 				Elevation:       p.Elevation,
@@ -91,7 +120,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 				BlockID:         p.BlockID,
 				UDPSequence:     p.UDPSequence,
 				RawBlockAzimuth: p.RawBlockAzimuth,
-			})
+			}
 		}
 
 		if cfg.BackgroundManager == nil {
@@ -124,28 +153,31 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 		foregroundPoints := ExtractForegroundPoints(polar, mask)
 		totalPoints := len(polar)
 
-		// Build background subset for debug overlay (downsample to keep chart light)
-		backgroundPolar := make([]PointPolar, 0, totalPoints-len(foregroundPoints))
+		// Build downsampled background subset for debug overlay.
+		// Instead of copying all ~67k background points into an intermediate
+		// slice then downsampling, count background points first and stride
+		// through the mask in a single pass. This avoids a ~5 MB allocation
+		// per frame.
+		const maxBackgroundChartPoints = 5000
+		backgroundCount := totalPoints - len(foregroundPoints)
+		stride := 1
+		if backgroundCount > maxBackgroundChartPoints {
+			stride = backgroundCount / maxBackgroundChartPoints
+		}
+		cap := backgroundCount
+		if cap > maxBackgroundChartPoints {
+			cap = maxBackgroundChartPoints
+		}
+		backgroundPolar := make([]PointPolar, 0, cap)
+		bgIdx := 0
 		for i, isForeground := range mask {
-			if !isForeground {
+			if isForeground {
+				continue
+			}
+			if bgIdx%stride == 0 && len(backgroundPolar) < maxBackgroundChartPoints {
 				backgroundPolar = append(backgroundPolar, polar[i])
 			}
-		}
-
-		const maxBackgroundChartPoints = 5000
-		if len(backgroundPolar) > maxBackgroundChartPoints {
-			stride := len(backgroundPolar) / maxBackgroundChartPoints
-			if stride < 1 {
-				stride = 1
-			}
-			downsampled := make([]PointPolar, 0, maxBackgroundChartPoints)
-			for i := 0; i < len(backgroundPolar); i += stride {
-				downsampled = append(downsampled, backgroundPolar[i])
-				if len(downsampled) >= maxBackgroundChartPoints {
-					break
-				}
-			}
-			backgroundPolar = downsampled
+			bgIdx++
 		}
 
 		// Cache sensor-frame projections for debug visualization (aligns with polar background chart)
@@ -154,6 +186,22 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 		if len(foregroundPoints) == 0 {
 			// No foreground detected, skip tracking
 			return
+		}
+
+		// Frame-rate throttle: skip the expensive downstream pipeline
+		// (clustering, tracking, serialisation) when frames arrive faster
+		// than MaxFrameRate. Background model update above still runs on
+		// every frame so foreground extraction stays accurate.
+		if minFrameInterval > 0 {
+			now := time.Now()
+			if !lastProcessedTime.IsZero() && now.Sub(lastProcessedTime) < minFrameInterval {
+				count := throttledFrames.Add(1)
+				if count%50 == 0 {
+					log.Printf("[Pipeline] Throttled %d frames (max %.0f fps)", count, cfg.MaxFrameRate)
+				}
+				return
+			}
+			lastProcessedTime = now
 		}
 
 		// Forward foreground points on 2370-style stream if configured

@@ -48,8 +48,19 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		return nil, nil
 	}
 
-	// Allocate mask for all points
-	foregroundMask = make([]bool, len(points))
+	// Reuse mask buffer to avoid allocating ~69 KB every frame.
+	// The buffer is zeroed (all false) before use since we only set true
+	// for foreground points. Grown if the point count increases.
+	n := len(points)
+	if cap(bm.maskBuf) < n {
+		bm.maskBuf = make([]bool, n)
+	}
+	foregroundMask = bm.maskBuf[:n]
+	// Zero the slice — mandatory since we reuse the backing array and
+	// previous iterations may have set elements to true.
+	for i := range foregroundMask {
+		foregroundMask[i] = false
+	}
 
 	now := time.Now()
 	nowNanos := now.UnixNano()

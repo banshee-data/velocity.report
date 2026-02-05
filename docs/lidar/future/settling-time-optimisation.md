@@ -61,6 +61,7 @@ CREATE INDEX IF NOT EXISTS idx_bg_regions_sensor ON lidar_bg_regions(sensor_id);
 #### Implementation Components
 
 1. **RegionManager Serialisation** (`internal/lidar/background.go`):
+
    ```go
    // RegionSnapshot for database persistence
    type RegionSnapshot struct {
@@ -69,12 +70,13 @@ CREATE INDEX IF NOT EXISTS idx_bg_regions_sensor ON lidar_bg_regions(sensor_id);
        FramesSampled  int       `json:"frames_sampled"`
        IdentifiedAt   time.Time `json:"identified_at"`
    }
-   
+
    func (rm *RegionManager) ToSnapshot() *RegionSnapshot
    func (rm *RegionManager) RestoreFromSnapshot(snap *RegionSnapshot) error
    ```
 
 2. **BackgroundManager Restoration** (`internal/lidar/background.go`):
+
    ```go
    // RestoreFromSnapshot restores grid state and regions from a database snapshot.
    // If the snapshot includes region data, settling is marked complete immediately.
@@ -86,6 +88,7 @@ CREATE INDEX IF NOT EXISTS idx_bg_regions_sensor ON lidar_bg_regions(sensor_id);
    ```
 
 3. **BgStore Interface Extension** (`internal/lidar/background.go`):
+
    ```go
    type BgStore interface {
        InsertBgSnapshot(snap *BgSnapshot) (int64, error)
@@ -207,7 +210,7 @@ const (
 // BackgroundConfig additions
 type BackgroundConfig struct {
     // ... existing fields ...
-    
+
     // Adaptive settling thresholds
     SettlingMode              SettlingMode
     MinCoverageForSettling    float64 // e.g., 0.8 (80% of cells have data)
@@ -270,12 +273,12 @@ Implement both options in phases:
 
 ## Implementation Priority
 
-| Phase | Effort | Value | Priority |
-|-------|--------|-------|----------|
-| Phase 1 | Medium | High | **P0** - Immediate benefit for existing deployments |
-| Phase 2 | Low | Medium | P1 - Completes the restoration story |
-| Phase 3 | Medium | Medium | P1 - Provides tuning guidance |
-| Phase 4 | High | Low | P2 - Nice-to-have for edge cases |
+| Phase   | Effort | Value  | Priority                                            |
+| ------- | ------ | ------ | --------------------------------------------------- |
+| Phase 1 | Medium | High   | **P0** - Immediate benefit for existing deployments |
+| Phase 2 | Low    | Medium | P1 - Completes the restoration story                |
+| Phase 3 | Medium | Medium | P1 - Provides tuning guidance                       |
+| Phase 4 | High   | Low    | P2 - Nice-to-have for edge cases                    |
 
 ## API Changes
 

@@ -8,6 +8,36 @@ import Foundation
 
 // MARK: - Frame Bundle
 
+/// Frame type enumeration for split streaming (M3.5).
+enum FrameType: Int {
+    case full = 0  // Legacy: all points
+    case foreground = 1  // Foreground + clusters + tracks only
+    case background = 2  // Background snapshot
+    case delta = 3  // Future: incremental update
+}
+
+/// Grid metadata for background snapshot.
+struct GridMetadata {
+    var rings: Int32 = 40
+    var azimuthBins: Int32 = 1800
+    var ringElevations: [Float] = []
+    var settlingComplete: Bool = false
+}
+
+/// Background snapshot for cached rendering (M3.5).
+/// This is streamed once and cached client-side to reduce bandwidth.
+struct BackgroundSnapshot {
+    var sequenceNumber: UInt64 = 0
+    var timestampNanos: Int64 = 0
+    var x: [Float] = []
+    var y: [Float] = []
+    var z: [Float] = []
+    var confidence: [UInt32] = []  // TimesSeenCount per point
+    var gridMetadata: GridMetadata?
+
+    var pointCount: Int { x.count }
+}
+
 struct FrameBundle {
     var frameID: UInt64 = 0
     var timestampNanos: Int64 = 0
@@ -19,6 +49,11 @@ struct FrameBundle {
     var tracks: TrackSet?
     var debug: DebugOverlaySet?
     var playbackInfo: PlaybackInfo?
+
+    // M3.5 Split Streaming fields
+    var frameType: FrameType = .full
+    var background: BackgroundSnapshot?
+    var backgroundSeq: UInt64 = 0
 }
 
 struct CoordinateFrameInfo {

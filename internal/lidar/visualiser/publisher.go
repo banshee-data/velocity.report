@@ -31,15 +31,19 @@ type Config struct {
 
 	// MaxClients is the maximum number of concurrent streaming clients
 	MaxClients int
+
+	// BackgroundInterval is how often to send background snapshots (default: 30s)
+	BackgroundInterval time.Duration
 }
 
 // DefaultConfig returns a default configuration.
 func DefaultConfig() Config {
 	return Config{
-		ListenAddr:  "localhost:50051",
-		SensorID:    "hesai-01",
-		EnableDebug: false,
-		MaxClients:  5,
+		ListenAddr:         "localhost:50051",
+		SensorID:           "hesai-01",
+		EnableDebug:        false,
+		MaxClients:         5,
+		BackgroundInterval: 30 * time.Second,
 	}
 }
 
@@ -54,6 +58,11 @@ type Publisher struct {
 	clients   map[string]*clientStream
 	clientsMu sync.RWMutex
 
+	// Background snapshot management (M3.5)
+	backgroundMgr      BackgroundManagerInterface
+	lastBackgroundSeq  uint64
+	lastBackgroundSent time.Time
+
 	// Stats
 	frameCount     atomic.Uint64
 	clientCount    atomic.Int32
@@ -66,6 +75,13 @@ type Publisher struct {
 	running atomic.Bool
 	stopCh  chan struct{}
 	wg      sync.WaitGroup
+}
+
+// BackgroundManagerInterface defines the interface for background management.
+// This avoids circular imports with the lidar package.
+type BackgroundManagerInterface interface {
+	GenerateBackgroundSnapshot() (interface{}, error) // Returns *lidar.BackgroundSnapshotData
+	GetBackgroundSequenceNumber() uint64
 }
 
 // clientStream represents a connected streaming client.
@@ -84,6 +100,87 @@ func NewPublisher(cfg Config) *Publisher {
 		clients:   make(map[string]*clientStream),
 		stopCh:    make(chan struct{}),
 	}
+}
+
+// SetBackgroundManager sets the background manager for split streaming (M3.5).
+func (p *Publisher) SetBackgroundManager(mgr BackgroundManagerInterface) {
+	p.backgroundMgr = mgr
+}
+
+// shouldSendBackground determines if a background snapshot should be sent.
+func (p *Publisher) shouldSendBackground() bool {
+	if p.backgroundMgr == nil {
+		return false // No background manager configured
+	}
+
+	// Send if:
+	// 1. Never sent before, OR
+	// 2. Interval elapsed, OR
+	// 3. Grid sequence changed (reset/sensor moved)
+
+	currentSeq := p.backgroundMgr.GetBackgroundSequenceNumber()
+	if currentSeq != p.lastBackgroundSeq && p.lastBackgroundSeq > 0 {
+		log.Printf("[Visualiser] Background sequence changed (%d → %d), sending refresh", p.lastBackgroundSeq, currentSeq)
+		return true // Grid was reset
+	}
+
+	if p.lastBackgroundSent.IsZero() {
+		log.Printf("[Visualiser] First background snapshot, sending now")
+		return true // Never sent
+	}
+
+	elapsed := time.Since(p.lastBackgroundSent)
+	if elapsed >= p.config.BackgroundInterval {
+		log.Printf("[Visualiser] Background interval elapsed (%.1fs), sending refresh", elapsed.Seconds())
+		return true // Periodic refresh
+	}
+
+	return false
+}
+
+// sendBackgroundSnapshot generates and broadcasts a background snapshot.
+func (p *Publisher) sendBackgroundSnapshot() error {
+	if p.backgroundMgr == nil {
+		return nil // No-op if not configured
+	}
+
+	snapshotDataRaw, err := p.backgroundMgr.GenerateBackgroundSnapshot()
+	if err != nil {
+		return fmt.Errorf("failed to generate background snapshot: %w", err)
+	}
+
+	if snapshotDataRaw == nil {
+		return fmt.Errorf("background snapshot is nil")
+	}
+
+	// The interface returns interface{}, so we type assert to BackgroundSnapshot
+	snapshot, ok := snapshotDataRaw.(*BackgroundSnapshot)
+	if !ok {
+		return fmt.Errorf("background snapshot has incorrect type: %T", snapshotDataRaw)
+	}
+
+	// Create a frame bundle with background type
+	bundle := &FrameBundle{
+		FrameID:        p.frameCount.Add(1),
+		TimestampNanos: snapshot.TimestampNanos,
+		SensorID:       p.config.SensorID,
+		FrameType:      FrameTypeBackground,
+		Background:     snapshot,
+		BackgroundSeq:  snapshot.SequenceNumber,
+	}
+
+	// Send to all clients
+	select {
+	case p.frameChan <- bundle:
+		p.lastBackgroundSeq = snapshot.SequenceNumber
+		p.lastBackgroundSent = time.Now()
+		pointCount := len(snapshot.X)
+		log.Printf("[Visualiser] Background snapshot sent: %d points, seq=%d", pointCount, snapshot.SequenceNumber)
+	default:
+		return fmt.Errorf("frame channel full, background snapshot dropped")
+	}
+
+	return nil
 }
 
 // Start starts the gRPC server.
@@ -160,6 +257,32 @@ func (p *Publisher) Publish(frame interface{}) {
 		return
 	}
 
+	// M3.5: Check if we should send a background snapshot first
+	if p.shouldSendBackground() {
+		if err := p.sendBackgroundSnapshot(); err != nil {
+			log.Printf("[Visualiser] Failed to send background snapshot: %v", err)
+		}
+	}
+
+	// Determine frame type — only set if not already specified.
+	// With split streaming (M3.5), foreground frames carry only perception
+	// data; the client composites them over a cached background snapshot.
+	if frameBundle.FrameType == 0 && frameBundle.PointCloud != nil {
+		if p.backgroundMgr != nil {
+			frameBundle.FrameType = FrameTypeForeground
+			// Strip background points — keep only classification==1 (foreground).
+			// This reduces per-frame size from ~970KB (69k pts) to ~30KB (~2k pts).
+			frameBundle.PointCloud.ApplyDecimation(DecimationForegroundOnly, 0)
+		} else {
+			frameBundle.FrameType = FrameTypeFull
+		}
+	}
+
+	// Set background sequence number for client cache coherence
+	if p.backgroundMgr != nil {
+		frameBundle.BackgroundSeq = p.backgroundMgr.GetBackgroundSequenceNumber()
+	}
+
 	// Calculate frame size for diagnostics
 	pointCount := 0
 	if frameBundle.PointCloud != nil {
@@ -233,7 +356,9 @@ func (p *Publisher) broadcastLoop() {
 				select {
 				case client.frameCh <- frame:
 				default:
-					// Client is slow, drop frame for this client
+					// Client is slow, drop frame for this client.
+					// Count this so gRPC stats reflect the full picture.
+					p.droppedFrames.Add(1)
 				}
 			}
 			p.clientsMu.RUnlock()

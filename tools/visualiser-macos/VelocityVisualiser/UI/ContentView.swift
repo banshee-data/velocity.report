@@ -19,6 +19,7 @@ struct ContentView: View {
                 // Metal view - frames are delivered directly to renderer via AppState
                 MetalViewRepresentable(
                     showPoints: appState.showPoints, showBoxes: appState.showBoxes,
+                    showClusters: appState.showClusters,  // M4
                     showTrails: appState.showTrails, pointSize: appState.pointSize,
                     onRendererCreated: { renderer in appState.registerRenderer(renderer) }
                 ).frame(minWidth: 400, minHeight: 300)
@@ -125,11 +126,17 @@ struct StatsDisplayView: View {
             let fps = appState.fps
             let pointCount = appState.pointCount
             let trackCount = appState.trackCount
+            let cacheStatus = appState.cacheStatus
 
             HStack(spacing: 16) {
                 StatLabel(title: "FPS", value: String(format: "%.1f", fps))
                 StatLabel(title: "Points", value: formatNumber(pointCount))
                 StatLabel(title: "Tracks", value: "\(trackCount)")
+
+                // M3.5: Cache status indicator
+                if !cacheStatus.isEmpty && cacheStatus != "Not using split streaming" {
+                    CacheStatusLabel(status: cacheStatus)
+                }
             }.fixedSize()  // Prevent compression when viewport shrinks
         }
     }
@@ -137,6 +144,28 @@ struct StatsDisplayView: View {
     private func formatNumber(_ n: Int) -> String {
         if n >= 1000 { return String(format: "%.2fk", Double(n) / 1000) }
         return "\(n)"
+    }
+}
+
+// M3.5: Cache status label with colour-coded indicator
+struct CacheStatusLabel: View {
+    let status: String
+
+    private var statusColour: Color {
+        if status.contains("Cached") {
+            return .green
+        } else if status.contains("Refreshing") {
+            return .orange
+        } else {
+            return .gray
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Circle().fill(statusColour).frame(width: 6, height: 6)
+            Text("BG").font(.caption2).foregroundColor(.secondary)
+        }.help("Background cache: \(status)")
     }
 }
 
@@ -162,6 +191,7 @@ struct OverlayTogglesView: View {
         HStack(spacing: 8) {
             ToggleButton(label: "P", isOn: $appState.showPoints, help: "Points")
             ToggleButton(label: "B", isOn: $appState.showBoxes, help: "Boxes")
+            ToggleButton(label: "C", isOn: $appState.showClusters, help: "Clusters")  // M4
             ToggleButton(label: "T", isOn: $appState.showTrails, help: "Trails")
             ToggleButton(label: "V", isOn: $appState.showVelocity, help: "Velocity")
 
@@ -354,6 +384,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
     // Only pass stable properties - frame updates will come directly to the renderer
     var showPoints: Bool
     var showBoxes: Bool
+    var showClusters: Bool  // M4
     var showTrails: Bool
     var pointSize: Float
 
@@ -383,6 +414,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
         // Only update overlay settings - frames come directly to renderer
         renderer.showPoints = showPoints
         renderer.showBoxes = showBoxes
+        renderer.showClusters = showClusters  // M4
         renderer.showTrails = showTrails
         renderer.pointSize = pointSize
     }

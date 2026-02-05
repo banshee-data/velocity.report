@@ -78,6 +78,7 @@ open tools/visualiser-macos/build/Build/Products/Release/VelocityVisualiser.app
 | Decrease Rate      | [        |
 | Toggle Points      | P        |
 | Toggle Boxes       | B        |
+| Toggle Clusters    | C        |
 | Toggle Trails      | T        |
 | Toggle Velocity    | V        |
 | Toggle Debug       | D        |
@@ -100,13 +101,41 @@ VelocityVisualiser/
 ### Rendering Pipeline
 
 1. gRPC client receives `FrameBundle` stream
-2. Frames are decoded and pushed to render queue
+2. Frames are decoded based on `frame_type`:
+   - **Background frames** (M3.5): Cached in `CompositePointCloudRenderer`
+   - **Foreground frames** (M3.5): Rendered over cached background
+   - **Full frames**: Legacy mode (all points)
 3. Metal renderer draws:
-   - Point cloud as point sprites
-   - Boxes as instanced geometry
-   - Trails as triangle strips
+   - Point cloud as point sprites (background + foreground)
+   - Cluster boxes as instanced geometry (cyan, M4)
+   - Track boxes as instanced geometry (state-coloured)
+   - Trails as line strips
    - Overlays as 2D layer
-4. SwiftUI displays Metal view + controls
+4. SwiftUI displays Metal view + controls + cache status
+
+### M3.5 Split Streaming
+
+The visualiser supports bandwidth-optimised streaming:
+
+- **Background caching**: Static background points cached client-side (sent once)
+- **Foreground streaming**: Only dynamic points + clusters + tracks sent @ 10 Hz
+- **Bandwidth reduction**: ~80 Mbps → ~3 Mbps (96% reduction)
+- **Cache indicator**: Green dot + "BG" in stats panel when cached
+
+See [implementation plan](../../docs/lidar/visualiser/04-implementation-plan.md) and [architecture](../../docs/lidar/visualiser/03-architecture.md) for details.
+
+### M4 Cluster Rendering
+
+Clusters (detected foreground objects) are rendered as:
+
+- **Cyan wireframe boxes** (RGBA: 0.0, 0.8, 1.0, 0.7)
+- **Semi-transparent** to distinguish from tracks
+- **AABB dimensions** from cluster features
+- **OBB heading** if computed by clusterer
+
+Toggle with 'C' key or toolbar button.
+
+See [implementation plan](../../docs/lidar/visualiser/04-implementation-plan.md) and [architecture](../../docs/lidar/visualiser/03-architecture.md) for details.
 
 ## Configuration
 
