@@ -321,12 +321,11 @@ func main() {
 
 			// Initialise gRPC publisher if needed
 			if forwardMode == "grpc" || forwardMode == "both" {
-				vizConfig := visualiser.Config{
-					ListenAddr:  *lidarGRPCListen,
-					SensorID:    *lidarSensor,
-					EnableDebug: *debugMode,
-					MaxClients:  5,
-				}
+				vizConfig := visualiser.DefaultConfig()
+				vizConfig.ListenAddr = *lidarGRPCListen
+				vizConfig.SensorID = *lidarSensor
+				vizConfig.EnableDebug = *debugMode
+				vizConfig.MaxClients = 5
 				visualiserPublisher = visualiser.NewPublisher(vizConfig)
 				visualiserServer = visualiser.NewServer(visualiserPublisher)
 
@@ -339,6 +338,18 @@ func main() {
 				visualiser.RegisterService(visualiserPublisher.GRPCServer(), visualiserServer)
 
 				frameAdapter = visualiser.NewFrameAdapter(*lidarSensor)
+
+				// Wire M3.5 split streaming: connect background manager to publisher
+				// so that background snapshots are sent periodically instead of
+				// embedding the full point cloud in every frame (~96% bandwidth reduction).
+				if backgroundManager != nil {
+					visualiserPublisher.SetBackgroundManager(
+						&backgroundManagerBridge{mgr: backgroundManager},
+					)
+					frameAdapter.SplitStreaming = true
+					log.Printf("Visualiser background split streaming enabled (interval=%s)", vizConfig.BackgroundInterval)
+				}
+
 				log.Printf("Visualiser gRPC server started on %s", *lidarGRPCListen)
 			}
 
@@ -625,4 +636,41 @@ func runTransitsCommand(args []string) {
 	default:
 		log.Fatalf("Unknown transits subcommand: %s", subCmd)
 	}
+}
+
+// backgroundManagerBridge adapts *lidar.BackgroundManager to satisfy
+// visualiser.BackgroundManagerInterface, converting between the two
+// package-specific snapshot types. This avoids a circular import between
+// the lidar and visualiser packages.
+type backgroundManagerBridge struct {
+	mgr *lidar.BackgroundManager
+}
+
+func (b *backgroundManagerBridge) GenerateBackgroundSnapshot() (interface{}, error) {
+	data, err := b.mgr.GenerateBackgroundSnapshot()
+	if err != nil {
+		return nil, err
+	}
+	if data == nil {
+		return nil, nil
+	}
+	// Convert *lidar.BackgroundSnapshotData → *visualiser.BackgroundSnapshot
+	return &visualiser.BackgroundSnapshot{
+		SequenceNumber: data.SequenceNumber,
+		TimestampNanos: data.TimestampNanos,
+		X:              data.X,
+		Y:              data.Y,
+		Z:              data.Z,
+		Confidence:     data.Confidence,
+		GridMetadata: visualiser.GridMetadata{
+			Rings:            data.Rings,
+			AzimuthBins:      data.AzimuthBins,
+			RingElevations:   data.RingElevations,
+			SettlingComplete: data.SettlingComplete,
+		},
+	}, nil
+}
+
+func (b *backgroundManagerBridge) GetBackgroundSequenceNumber() uint64 {
+	return b.mgr.GetBackgroundSequenceNumber()
 }

@@ -223,22 +223,29 @@ func TestTracker_Predict(t *testing.T) {
 	tracker := NewTracker(DefaultTrackerConfig())
 	now := time.Now()
 
-	// Create track
+	// Create track at origin
 	cluster := WorldCluster{CentroidX: 0.0, CentroidY: 0.0, SensorID: "test"}
 	tracker.Update([]WorldCluster{cluster}, now)
 
-	// Get track and manually set velocity
+	// Get track ID
 	tracks := tracker.GetActiveTracks()
-	track := tracks[0]
-	track.VX = 1.0 // 1 m/s in X direction
-	track.VY = 0.0
+	trackID := tracks[0].TrackID
+
+	// Set velocity directly on the internal track object (via GetTrack which
+	// returns the live pointer). GetActiveTracks returns deep copies so we
+	// cannot mutate through it.
+	tracker.mu.Lock()
+	internalTrack := tracker.Tracks[trackID]
+	internalTrack.VX = 1.0 // 1 m/s in X direction
+	internalTrack.VY = 0.0
+	tracker.mu.Unlock()
 
 	// Update with no clusters (miss) after 1 second
 	now = now.Add(1 * time.Second)
 	tracker.Update([]WorldCluster{}, now)
 
 	// Track should have predicted to X=1.0
-	updatedTrack := tracker.GetTrack(track.TrackID)
+	updatedTrack := tracker.GetTrack(trackID)
 	if math.Abs(float64(updatedTrack.X)-1.0) > 0.1 {
 		t.Errorf("expected X≈1.0 after prediction, got %v", updatedTrack.X)
 	}

@@ -69,6 +69,10 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 		return GetAnalysisRunManager(cfg.SensorID)
 	}
 
+	// Pre-allocate a reusable polar slice to avoid 69k-element allocation
+	// per frame (~5 MB). Safe because the callback runs synchronously.
+	var polarBuf []PointPolar
+
 	return func(frame *LiDARFrame) {
 		if frame == nil || len(frame.Points) == 0 {
 			return
@@ -78,10 +82,14 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 		Debugf("[FrameBuilder] Completed frame: %s, Points: %d, Azimuth: %.1f°-%.1f°",
 			frame.FrameID, len(frame.Points), frame.MinAzimuth, frame.MaxAzimuth)
 
-		// Convert frame points to polar coordinates
-		polar := make([]PointPolar, 0, len(frame.Points))
-		for _, p := range frame.Points {
-			polar = append(polar, PointPolar{
+		// Convert frame points to polar coordinates using reusable buffer
+		n := len(frame.Points)
+		if cap(polarBuf) < n {
+			polarBuf = make([]PointPolar, n)
+		}
+		polar := polarBuf[:n]
+		for i, p := range frame.Points {
+			polar[i] = PointPolar{
 				Channel:         p.Channel,
 				Azimuth:         p.Azimuth,
 				Elevation:       p.Elevation,
@@ -91,7 +99,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 				BlockID:         p.BlockID,
 				UDPSequence:     p.UDPSequence,
 				RawBlockAzimuth: p.RawBlockAzimuth,
-			})
+			}
 		}
 
 		if cfg.BackgroundManager == nil {
@@ -124,28 +132,31 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 		foregroundPoints := ExtractForegroundPoints(polar, mask)
 		totalPoints := len(polar)
 
-		// Build background subset for debug overlay (downsample to keep chart light)
-		backgroundPolar := make([]PointPolar, 0, totalPoints-len(foregroundPoints))
+		// Build downsampled background subset for debug overlay.
+		// Instead of copying all ~67k background points into an intermediate
+		// slice then downsampling, count background points first and stride
+		// through the mask in a single pass. This avoids a ~5 MB allocation
+		// per frame.
+		const maxBackgroundChartPoints = 5000
+		backgroundCount := totalPoints - len(foregroundPoints)
+		stride := 1
+		if backgroundCount > maxBackgroundChartPoints {
+			stride = backgroundCount / maxBackgroundChartPoints
+		}
+		cap := backgroundCount
+		if cap > maxBackgroundChartPoints {
+			cap = maxBackgroundChartPoints
+		}
+		backgroundPolar := make([]PointPolar, 0, cap)
+		bgIdx := 0
 		for i, isForeground := range mask {
-			if !isForeground {
+			if isForeground {
+				continue
+			}
+			if bgIdx%stride == 0 && len(backgroundPolar) < maxBackgroundChartPoints {
 				backgroundPolar = append(backgroundPolar, polar[i])
 			}
-		}
-
-		const maxBackgroundChartPoints = 5000
-		if len(backgroundPolar) > maxBackgroundChartPoints {
-			stride := len(backgroundPolar) / maxBackgroundChartPoints
-			if stride < 1 {
-				stride = 1
-			}
-			downsampled := make([]PointPolar, 0, maxBackgroundChartPoints)
-			for i := 0; i < len(backgroundPolar); i += stride {
-				downsampled = append(downsampled, backgroundPolar[i])
-				if len(downsampled) >= maxBackgroundChartPoints {
-					break
-				}
-			}
-			backgroundPolar = downsampled
+			bgIdx++
 		}
 
 		// Cache sensor-frame projections for debug visualization (aligns with polar background chart)

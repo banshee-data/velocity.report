@@ -1949,7 +1949,6 @@ func (bm *BackgroundManager) GenerateBackgroundSnapshot() (*BackgroundSnapshotDa
 
 	for ring := 0; ring < g.Rings; ring++ {
 		elevationDeg := g.RingElevations[ring]
-		elevationRad := elevationDeg * (math.Pi / 180.0)
 
 		for azBin := 0; azBin < g.AzimuthBins; azBin++ {
 			idx := g.Idx(ring, azBin)
@@ -1965,26 +1964,16 @@ func (bm *BackgroundManager) GenerateBackgroundSnapshot() (*BackgroundSnapshotDa
 				continue
 			}
 
-			// Convert polar to Cartesian coordinates
-			// Coordinate system: X = forward, Y = left, Z = up (sensor-centric)
-			// Azimuth: 0° = forward (X+), increases clockwise when viewed from above
-			// Note: Clockwise positive is sensor convention, not mathematical standard
+			// Convert polar to Cartesian using the same convention as
+			// SphericalToCartesian: X=right (sin az), Y=forward (cos az), Z=up.
 			azimuthDeg := float64(azBin) * azBinResDeg
-			azimuthRad := azimuthDeg * (math.Pi / 180.0)
 			r := float64(cell.AverageRangeMeters)
 
-			// Spherical to Cartesian: (r, azimuth, elevation)
-			// X = r * cos(elevation) * cos(azimuth)
-			// Y = r * cos(elevation) * sin(azimuth)
-			// Z = r * sin(elevation)
-			cosElev := math.Cos(elevationRad)
-			xVal := float32(r * cosElev * math.Cos(azimuthRad))
-			yVal := float32(r * cosElev * math.Sin(azimuthRad))
-			zVal := float32(r * math.Sin(elevationRad))
+			xVal, yVal, zVal := SphericalToCartesian(r, azimuthDeg, elevationDeg)
 
-			x = append(x, xVal)
-			y = append(y, yVal)
-			z = append(z, zVal)
+			x = append(x, float32(xVal))
+			y = append(y, float32(yVal))
+			z = append(z, float32(zVal))
 			confidence = append(confidence, cell.TimesSeenCount)
 		}
 	}

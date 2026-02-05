@@ -294,22 +294,23 @@ func expandCluster(points []WorldPoint, si *SpatialIndex, labels []int,
 }
 
 // buildClusters creates WorldCluster objects from clustering results.
+// Uses a single pass over labels to bucket points by cluster ID,
+// avoiding repeated O(n) scans per cluster.
 func buildClusters(points []WorldPoint, labels []int, maxClusterID int) []WorldCluster {
-	clusters := make([]WorldCluster, 0, maxClusterID)
-
-	for cid := 1; cid <= maxClusterID; cid++ {
-		// Collect points for this cluster
-		clusterPoints := make([]WorldPoint, 0)
-		for i, label := range labels {
-			if label == cid {
-				clusterPoints = append(clusterPoints, points[i])
-			}
+	// Single pass: bucket points by cluster ID
+	buckets := make([][]WorldPoint, maxClusterID+1)
+	for i, label := range labels {
+		if label >= 1 && label <= maxClusterID {
+			buckets[label] = append(buckets[label], points[i])
 		}
+	}
 
+	clusters := make([]WorldCluster, 0, maxClusterID)
+	for cid := 1; cid <= maxClusterID; cid++ {
+		clusterPoints := buckets[cid]
 		if len(clusterPoints) == 0 {
 			continue
 		}
-
 		cluster := computeClusterMetrics(clusterPoints, int64(cid))
 		clusters = append(clusters, cluster)
 	}

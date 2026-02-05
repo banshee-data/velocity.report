@@ -17,6 +17,7 @@ type ProjectedPoint struct {
 
 // ForegroundSnapshot stores the latest foreground/background projections for a sensor.
 // Points are kept in sensor frame (X=right, Y=forward) to match the background polar chart.
+// Raw polar points are stored and projected lazily on first access.
 type ForegroundSnapshot struct {
 	SensorID         string
 	Timestamp        time.Time
@@ -25,6 +26,11 @@ type ForegroundSnapshot struct {
 	TotalPoints      int
 	ForegroundCount  int
 	BackgroundCount  int
+
+	// Lazy projection: raw polar stored, projected on first Get
+	rawForeground []PointPolar
+	rawBackground []PointPolar
+	projected     bool
 }
 
 var (
@@ -32,37 +38,56 @@ var (
 	latestForegrounds = make(map[string]*ForegroundSnapshot)
 )
 
-// StoreForegroundSnapshot saves the latest foreground/background projections for a sensor.
-// Points are projected in sensor frame (using az/el) to align with background polar charts.
+// StoreForegroundSnapshot saves the latest foreground/background polar points for a sensor.
+// Projection to Cartesian is deferred until GetForegroundSnapshot is called,
+// avoiding expensive trig when no debug UI is active.
 func StoreForegroundSnapshot(sensorID string, ts time.Time, foreground []PointPolar, background []PointPolar, totalPoints int, foregroundPoints int) {
 	if sensorID == "" {
 		return
 	}
 
-	fgProj := projectPolars(foreground)
-	bgProj := projectPolars(background)
+	// Copy polar slices since the caller may reuse the backing arrays
+	fgCopy := make([]PointPolar, len(foreground))
+	copy(fgCopy, foreground)
+	bgCopy := make([]PointPolar, len(background))
+	copy(bgCopy, background)
 
 	fgMu.Lock()
 	latestForegrounds[sensorID] = &ForegroundSnapshot{
-		SensorID:         sensorID,
-		Timestamp:        ts,
-		ForegroundPoints: fgProj,
-		BackgroundPoints: bgProj,
-		TotalPoints:      totalPoints,
-		ForegroundCount:  foregroundPoints,
-		BackgroundCount:  totalPoints - foregroundPoints,
+		SensorID:        sensorID,
+		Timestamp:       ts,
+		TotalPoints:     totalPoints,
+		ForegroundCount: foregroundPoints,
+		BackgroundCount: totalPoints - foregroundPoints,
+		rawForeground:   fgCopy,
+		rawBackground:   bgCopy,
 	}
 	fgMu.Unlock()
 }
 
 // GetForegroundSnapshot returns a copy of the latest foreground snapshot for a sensor.
+// Performs lazy projection from polar to Cartesian on first access.
 func GetForegroundSnapshot(sensorID string) *ForegroundSnapshot {
-	fgMu.RLock()
+	fgMu.Lock()
 	snap, ok := latestForegrounds[sensorID]
-	fgMu.RUnlock()
 	if !ok || snap == nil {
+		fgMu.Unlock()
 		return nil
 	}
+
+	// Lazy project on first access
+	if !snap.projected {
+		snap.ForegroundPoints = projectPolars(snap.rawForeground)
+		snap.BackgroundPoints = projectPolars(snap.rawBackground)
+		snap.rawForeground = nil // Free raw data
+		snap.rawBackground = nil
+		snap.projected = true
+	}
+	fgMu.Unlock()
+
+	// Return a copy (under read lock is fine now since projected data is stable)
+	fgMu.RLock()
+	defer fgMu.RUnlock()
 
 	fgCopy := make([]ProjectedPoint, len(snap.ForegroundPoints))
 	copy(fgCopy, snap.ForegroundPoints)

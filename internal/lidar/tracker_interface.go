@@ -28,6 +28,11 @@ type TrackerInterface interface {
 	// GetAllTracks returns all tracks including deleted ones.
 	// Useful for debugging and comprehensive state inspection.
 	GetAllTracks() []*TrackedObject
+
+	// GetLastAssociations returns the cluster-to-track mapping from the
+	// most recent Update() call. The slice is indexed by cluster index;
+	// each element is a trackID (associated) or "" (unassociated).
+	GetLastAssociations() []string
 }
 
 // Verify at compile time that *Tracker implements TrackerInterface.

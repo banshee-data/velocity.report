@@ -26,11 +26,8 @@ func TestStoreForegroundSnapshot(t *testing.T) {
 
 	StoreForegroundSnapshot(sensorID, ts, foreground, background, 100, 2)
 
-	fgMu.RLock()
-	snap, ok := latestForegrounds[sensorID]
-	fgMu.RUnlock()
-
-	if !ok {
+	snap := GetForegroundSnapshot(sensorID)
+	if snap == nil {
 		t.Fatal("Expected snapshot to be stored")
 	}
 

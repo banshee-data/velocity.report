@@ -264,11 +264,18 @@ func (p *Publisher) Publish(frame interface{}) {
 		}
 	}
 
-	// Determine frame type - only set if not already specified
-	// FrameTypeFull (0) is the default and should not be changed
+	// Determine frame type — only set if not already specified.
+	// With split streaming (M3.5), foreground frames carry only perception
+	// data; the client composites them over a cached background snapshot.
 	if frameBundle.FrameType == 0 && frameBundle.PointCloud != nil {
-		// If not explicitly set and has a point cloud, default to full frame mode
-		frameBundle.FrameType = FrameTypeFull
+		if p.backgroundMgr != nil {
+			frameBundle.FrameType = FrameTypeForeground
+			// Strip background points — keep only classification==1 (foreground).
+			// This reduces per-frame size from ~970KB (69k pts) to ~30KB (~2k pts).
+			frameBundle.PointCloud.ApplyDecimation(DecimationForegroundOnly, 0)
+		} else {
+			frameBundle.FrameType = FrameTypeFull
+		}
 	}
 
 	// Set background sequence number for client cache coherence
@@ -349,7 +356,9 @@ func (p *Publisher) broadcastLoop() {
 				select {
 				case client.frameCh <- frame:
 				default:
-					// Client is slow, drop frame for this client
+					// Client is slow, drop frame for this client.
+					// Count this so gRPC stats reflect the full picture.
+					p.droppedFrames.Add(1)
 				}
 			}
 			p.clientsMu.RUnlock()
