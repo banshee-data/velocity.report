@@ -117,6 +117,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Validate LFS files
+        run: ./scripts/validate-lfs-files.sh
 
       - name: Setup Go
         uses: actions/setup-go@v4
@@ -148,6 +153,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Validate LFS files
+        run: ./scripts/validate-lfs-files.sh
 
       - name: Setup Go
         uses: actions/setup-go@v4
