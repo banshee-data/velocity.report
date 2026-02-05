@@ -112,7 +112,7 @@ tools/visualiser-macos/
 ├── VelocityVisualiser/
 │   ├── App/
 │   │   ├── VelocityVisualiserApp.swift     # Entry point
-│   │   └── AppState.swift                   # Global state
+│   │   └── AppState.swift                   # Global state + M3.5 cache status
 │   │
 │   ├── gRPC/
 │   │   ├── VisualiserClient.swift          # gRPC client wrapper
@@ -120,7 +120,8 @@ tools/visualiser-macos/
 │   │   └── Generated/                       # grpc-swift codegen
 │   │
 │   ├── Rendering/
-│   │   ├── MetalRenderer.swift             # Main render coordinator
+│   │   ├── MetalRenderer.swift             # Main render coordinator (M4 cluster boxes)
+│   │   ├── CompositePointCloudRenderer.swift # M3.5: dual BG/FG buffer renderer
 │   │   ├── PointCloudRenderer.swift        # Point sprites/shading
 │   │   ├── BoxRenderer.swift               # Instanced box rendering
 │   │   ├── TrailRenderer.swift             # Polyline trails
@@ -132,7 +133,7 @@ tools/visualiser-macos/
 │   │   └── Camera.swift                    # 3D camera controls
 │   │
 │   ├── UI/
-│   │   ├── ContentView.swift               # Main window
+│   │   ├── ContentView.swift               # Main window (M3.5 cache indicator, M4 cluster toggle)
 │   │   ├── ConnectionPanel.swift           # Connect/disconnect
 │   │   ├── PlaybackControls.swift          # Pause/play/seek
 │   │   ├── OverlayToggles.swift            # Visibility toggles
@@ -145,7 +146,7 @@ tools/visualiser-macos/
 │   │   └── LabelEvent.swift                # Data model
 │   │
 │   └── Models/
-│       ├── FrameBundle.swift               # Swift representation
+│       ├── FrameBundle.swift               # Swift representation (M3.5 frame types)
 │       ├── Track.swift
 │       ├── Cluster.swift
 │       └── PointCloud.swift
@@ -159,33 +160,41 @@ tools/visualiser-macos/
 ```
 internal/
 ├── lidar/
-│   ├── ... (existing files unchanged)
+│   ├── ... (existing files)
 │   │
-│   ├── visualiser/                          # NEW: gRPC publisher
-│   │   ├── publisher.go                    # gRPC streaming server
-│   │   ├── model.go                        # Canonical FrameBundle
-│   │   ├── adapter.go                      # Pipeline → FrameBundle
-│   │   └── config.go                       # Feature flags
+│   ├── tracker_interface.go             # M4: TrackerInterface (6 methods)
+│   ├── clusterer_interface.go            # M4: ClustererInterface (3 methods)
+│   ├── dbscan_clusterer.go              # M4: Deterministic DBSCAN wrapper
+│   ├── golden_replay_test.go            # M4: Golden determinism tests
+│   ├── background_snapshot_test.go       # M3.5: Background snapshot tests
 │   │
-│   ├── labels/                              # NEW: Label persistence
+│   ├── visualiser/                          # gRPC publisher (M2–M3.5)
+│   │   ├── publisher.go                    # gRPC streaming server + BG scheduling
+│   │   ├── model.go                        # Canonical FrameBundle + M3.5 types
+│   │   ├── adapter.go                      # Pipeline → FrameBundle (M4: TrackerInterface)
+│   │   ├── grpc_server.go                  # frameBundleToProto() + M3.5 conversion
+│   │   ├── config.go                       # Feature flags
+│   │   └── publisher_m35_test.go            # M3.5: Publisher background tests
+│   │
+│   ├── labels/                              # Label persistence (future M6)
 │   │   ├── store.go                        # Label CRUD operations (SQLite)
 │   │   ├── models.go                       # Label data models
 │   │   └── api.go                          # REST API handlers (/api/lidar/labels)
 │   │
-│   ├── recorder/                            # NEW: Log recording
+│   ├── recorder/                            # Log recording (M1)
 │   │   ├── recorder.go                     # Write .vrlog files
 │   │   ├── replayer.go                     # Read + stream logs
 │   │   ├── index.go                        # Seek index
 │   │   └── format.go                       # Chunk format
 │   │
-│   └── debug/                               # NEW: Debug artifacts
+│   └── debug/                               # Debug artifacts (future M6)
 │       ├── overlays.go                     # Gating, association
 │       └── collector.go                    # Per-frame collection
 │
 proto/
 └── velocity_visualiser/
     └── v1/
-        ├── visualiser.proto                 # Schema definition
+        ├── visualiser.proto                 # Schema (M3.5: FrameType, BackgroundSnapshot)
         └── buf.gen.yaml                     # Codegen config
 ```
 
@@ -434,18 +443,22 @@ Since LidarView shows raw points and the visualiser shows semantic data, direct 
 
 ### 7.2 Foreground Extraction
 
-| File                           | Purpose                              |
-| ------------------------------ | ------------------------------------ |
-| `internal/lidar/background.go` | Background model (polar grid)        |
-| `internal/lidar/foreground.go` | Foreground/background classification |
+| File                           | Purpose                                       |
+| ------------------------------ | --------------------------------------------- |
+| `internal/lidar/background.go` | Background model (polar grid) + M3.5 snapshot |
+| `internal/lidar/foreground.go` | Foreground/background classification          |
 
 ### 7.3 Clustering and Tracking
 
-| File                                  | Purpose                                 |
-| ------------------------------------- | --------------------------------------- |
-| `internal/lidar/clustering.go`        | DBSCAN clustering                       |
-| `internal/lidar/tracking.go`          | Kalman tracker (Tracker, TrackedObject) |
-| `internal/lidar/tracking_pipeline.go` | Pipeline orchestration                  |
+| File                                    | Purpose                                 |
+| --------------------------------------- | --------------------------------------- |
+| `internal/lidar/clustering.go`          | DBSCAN clustering                       |
+| `internal/lidar/clusterer_interface.go` | M4: ClustererInterface                  |
+| `internal/lidar/dbscan_clusterer.go`    | M4: Deterministic DBSCAN wrapper        |
+| `internal/lidar/tracking.go`            | Kalman tracker (Tracker, TrackedObject) |
+| `internal/lidar/tracker_interface.go`   | M4: TrackerInterface                    |
+| `internal/lidar/tracking_pipeline.go`   | Pipeline orchestration + frame throttle |
+| `internal/lidar/golden_replay_test.go`  | M4: Golden determinism tests            |
 
 ### 7.4 LidarView Forwarding
 
@@ -465,7 +478,7 @@ Since LidarView shows raw points and the visualiser shows semantic data, direct 
 
 ## 8. Known Issues & Deferred Optimisations
 
-This section documents known limitations and deferred work from the M2/M3 implementation that will be addressed in M7 (Performance Hardening).
+This section documents known limitations and deferred work from the M2/M3/M3.5/M4 implementation that will be addressed in M7 (Performance Hardening).
 
 ### 8.1 Memory Pool Not Fully Utilised (Go)
 
@@ -504,6 +517,16 @@ This section documents known limitations and deferred work from the M2/M3 implem
 ### 8.5 Go 1.21+ Dependency
 
 **Note**: The code uses the built-in `max()` function introduced in Go 1.21. This is compatible with the project's Go 1.21+ requirement (see `go.mod`). No action needed, but noted for reference.
+
+### 8.6 PCAP Catch-Up Burst Processing (Partially Addressed)
+
+**Issue**: During PCAP replay, when the pipeline blocks on a heavy frame (>16k foreground points), PCAP buffers packets. When the pipeline unblocks, PCAP dumps the backlog at 33+ fps, causing dropped frames on the client.
+
+**Partial Fix**: `MaxFrameRate` throttle (default 12 fps) in `tracking_pipeline.go` skips expensive downstream processing (clustering, tracking, forwarding) when frames arrive faster than `minFrameInterval`. Background model update still runs on every frame to maintain accuracy.
+
+**Partial Fix**: `maskBuf []bool` reuse in `ProcessFramePolarWithMask()` avoids per-frame allocation of the foreground mask buffer.
+
+**Remaining**: Full solution would require PCAP replay rate control to prevent burst accumulation.
 
 ---
 

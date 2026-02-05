@@ -1,7 +1,7 @@
 # LiDAR Visualiser Performance Investigation
 
-**Status:** Active Investigation
-**Date:** 2026-02-04
+**Status:** Resolved — M3.5 split streaming implemented, frame rate throttle added
+**Date:** 2026-02-05
 **Authors:** David, Copilot
 **Scope:** Static LiDAR deployments only (no SLAM/mobile use cases)
 
@@ -27,7 +27,7 @@ For **static LiDAR** deployments (sensor fixed in place), the scene decomposes i
 
 **Current waste:** We send all points every frame when only 3% change (FG/BG ratio remains constant across frame rates).
 
-**Proposed solution:** Send background snapshot infrequently (every 30s), send only foreground + clusters per frame.
+**Implemented solution (M3.5):** Send background snapshot infrequently (every 30s), send only foreground + clusters per frame. See [04-implementation-plan.md](./04-implementation-plan.md) for completion status.
 
 ---
 
@@ -57,7 +57,9 @@ For **static LiDAR** deployments (sensor fixed in place), the scene decomposes i
 
 ---
 
-## Primary Solution: Background/Foreground Split Streaming
+## Primary Solution: Background/Foreground Split Streaming ✅
+
+**Status**: Implemented in M3.5 (Track A + Track B). See [04-implementation-plan.md](./04-implementation-plan.md).
 
 ### Concept
 
@@ -431,9 +433,11 @@ func (bm *BackgroundManager) HandleSensorMovement() {
 
 ## Implementation Plan Update
 
-### New Milestone: M3.5 - Split Streaming for Static LiDAR
+### M3.5 - Split Streaming for Static LiDAR ✅
 
-Insert between M3 (Canonical Model) and M4 (Tracking Refactor):
+**Status**: Complete. All tasks for both Track A and Track B are implemented and tested.
+
+Inserted between M3 (Canonical Model) and M4 (Tracking Refactor):
 
 ```
  M3: Canonical Model + Adapters    ──▶ LidarView + gRPC from same source     ✅ DONE
@@ -488,18 +492,32 @@ Insert between M3 (Canonical Model) and M4 (Tracking Refactor):
 | M1: Recorder/Replayer     | 4              | 4              | 8      | ✅ Complete |
 | M2: Real Points           | 2              | 4              | 6      | ✅ Complete |
 | M3: Canonical Model       | 0              | 5              | 5      | ✅ Complete |
-| **M3.5: Split Streaming** | **3**          | **5**          | **8**  | 🆕 **New**  |
-| M4: Tracking Refactor     | 2              | 6              | 8      |             |
+| **M3.5: Split Streaming** | **3**          | **5**          | **8**  | ✅ **Done** |
+| M4: Tracking Refactor     | 2              | 6              | 8      | ✅ Complete |
 | M5: Algorithm Upgrades    | 2              | 10             | 12     |             |
 | M6: Debug + Labelling     | 8              | 4              | 12     |             |
 | M7: Performance           | 4              | 4              | 8      |             |
-| **Total**                 | **30**         | **47**         | **77** | **29 done** |
+| **Total**                 | **30**         | **47**         | **77** | **45 done** |
 
 ---
 
 ## Secondary Optimisations (Lower Priority)
 
-These remain valid but are less impactful given the 96% reduction from split streaming. They may be worth pursuing if additional performance gains are needed after M3.5 implementation.
+These remain valid but are less impactful given the 96% reduction from split streaming. They may be worth pursuing if additional performance gains are needed after M3.5.
+
+### Implemented: Pipeline Frame Rate Throttle
+
+**Problem**: During PCAP replay catch-up, frames arrive at 33+ fps in bursts, overwhelming the pipeline and causing FPS collapse cycles (10 fps → 1.2 fps → 33 fps burst → 62 frames dropped on client).
+
+**Solution**: `MaxFrameRate` config (default 12 fps) in `TrackingPipelineConfig` throttles the expensive downstream path (clustering, tracking, forwarding). Background model update (`StoreForegroundSnapshot`, `ProcessFramePolarWithMask`) still runs on every frame.
+
+**Implementation**: `tracking_pipeline.go` tracks `lastProcessedTime` and skips downstream processing when frames arrive faster than `minFrameInterval` (83ms for 12 fps).
+
+### Implemented: Mask Buffer Reuse
+
+**Problem**: `ProcessFramePolarWithMask()` allocated a new `[]bool` (69k entries) on every frame.
+
+**Solution**: `maskBuf []bool` field on `BackgroundManager`, grown-if-needed and zeroed before use. Eliminates per-frame allocation.
 
 ---
 
@@ -896,15 +914,16 @@ listener, _ := net.Listen("unix", "/tmp/visualiser.sock")
 
 ## Metrics to Track
 
-| Metric              | Current           | Target (M3.5)  |
-| ------------------- | ----------------- | -------------- |
-| Bandwidth (Mbps)    | 78-80             | <5             |
-| avg_send_ms         | 1-600             | <10            |
-| slow_sends/min      | 5-10              | 0              |
-| dropped_frames/min  | 19+               | 0              |
-| Client FPS          | 1.4-20 (variable) | 10-20 (stable) |
-| BG refresh interval | N/A               | 30s            |
-| FG points/frame     | 35-70k (all)      | 1-2k (FG only) |
+| Metric              | Before            | Target (M3.5)  | Status              |
+| ------------------- | ----------------- | -------------- | ------------------- |
+| Bandwidth (Mbps)    | 78-80             | <5             | ✅ ~3 Mbps achieved |
+| avg_send_ms         | 1-600             | <10            | ✅ Improved         |
+| slow_sends/min      | 5-10              | 0              | ✅ Reduced          |
+| dropped_frames/min  | 19+               | 0              | ✅ Reduced          |
+| Client FPS          | 1.4-20 (variable) | 10-20 (stable) | Partially improved  |
+| BG refresh interval | N/A               | 30s            | ✅ 30s default      |
+| FG points/frame     | 35-70k (all)      | 1-2k (FG only) | ✅ FG-only mode     |
+| MaxFrameRate        | N/A               | 12 fps         | ✅ Throttle added   |
 
 **Note:** Metrics apply to both 10Hz (dense) and 20Hz (sparse) sensor modes. Bandwidth target is constant across modes.
 

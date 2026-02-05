@@ -8,8 +8,9 @@ This document defines an incremental, API-first implementation plan with explici
 - ✅ **M1: Recorder/Replayer** — Complete
 - ✅ **M2: Real Point Clouds** — Complete
 - ✅ **M3: Canonical Model + Adapters** — Complete
-- 🆕 **M3.5: Split Streaming** — New (performance optimisation)
-- 🔲 **M4–M7** — Not started
+- ✅ **M3.5: Split Streaming** — Complete (Track A + Track B)
+- ✅ **M4: Tracking Interface Refactor** — Complete (Track A + Track B)
+- 🔲 **M5–M7** — Not started
 
 **Checkbox Legend**:
 
@@ -26,8 +27,8 @@ This document defines an incremental, API-first implementation plan with explici
  M1: Recorder/Replayer             ──▶ Deterministic playback works          ✅ DONE
  M2: Real Point Clouds             ──▶ Pipeline emits live points via gRPC   ✅ DONE
  M3: Canonical Model + Adapters    ──▶ LidarView + gRPC from same source     ✅ DONE
- M3.5: Split Streaming             ──▶ BG/FG separation, 96% bandwidth cut   🆕 NEW
- M4: Tracking Interface Refactor   ──▶ Golden replay tests pass
+ M3.5: Split Streaming             ──▶ BG/FG separation, 96% bandwidth cut   ✅ DONE
+ M4: Tracking Interface Refactor   ──▶ Golden replay tests pass              ✅ DONE
  M5: Algorithm Upgrades            ──▶ Improved tracking quality
  M6: Debug + Labelling             ──▶ Full debug overlays + label export
  M7: Performance Hardening         ──▶ Production-ready performance
@@ -197,9 +198,9 @@ This document defines an incremental, API-first implementation plan with explici
 
 ---
 
-### M3.5: Split Streaming for Static LiDAR 🆕
+### M3.5: Split Streaming for Static LiDAR ✅
 
-**Status**: New
+**Status**: Complete
 
 **Goal**: Reduce gRPC bandwidth by 96% by sending background snapshots infrequently and foreground-only frames per tick.
 
@@ -209,68 +210,101 @@ This document defines an incremental, API-first implementation plan with explici
 
 See [performance-investigation.md](./performance-investigation.md) for detailed design.
 
+**Implementation Notes**:
+
+- `FrameType` enum added to protobuf: `FULL`, `FOREGROUND`, `BACKGROUND`, `DELTA`
+- `BackgroundSnapshot` and `GridMetadata` messages added to protobuf schema
+- `GenerateBackgroundSnapshot()` on `BackgroundManager` converts settled polar grid → Cartesian point cloud
+- Publisher schedules background every 30s (configurable via `BackgroundInterval`)
+- `CheckForSensorMovement()` detects >20% foreground ratio (configurable)
+- `CheckBackgroundDrift()` monitors cell drift >0.5m across >10% of cells (configurable)
+- Sequence number increments on grid reset for client cache coherence
+- macOS `CompositePointCloudRenderer` maintains dual Metal buffers (background + foreground)
+- Cache states: Empty → Cached(seq) → Refreshing
+- UI indicator shows green/orange/grey dot for cache status
+
 **Track B (Pipeline)**:
 
-- [ ] Add `FrameType` enum to protobuf (`FULL`, `FOREGROUND`, `BACKGROUND`)
-- [ ] Add `BackgroundSnapshot` message to protobuf schema
-- [ ] Implement `GenerateBackgroundPointCloud()` on BackgroundManager
-- [ ] Add background snapshot scheduling to Publisher (30s default)
-- [ ] Add `--vis-background-interval` CLI flag
-- [ ] Implement foreground-only frame adaptation in FrameAdapter
-- [ ] Add sensor movement detection (`CheckForSensorMovement`)
-- [ ] Add background drift detection (`CheckBackgroundDrift`)
-- [ ] Handle grid reset → sequence number increment
-- [ ] Unit tests for background snapshot generation
-- [ ] Unit tests for movement detection
+- [x] Add `FrameType` enum to protobuf (`FULL`, `FOREGROUND`, `BACKGROUND`, `DELTA`)
+- [x] Add `BackgroundSnapshot` message to protobuf schema
+- [x] Implement `GenerateBackgroundSnapshot()` on BackgroundManager
+- [x] Add background snapshot scheduling to Publisher (30s default)
+- [~] Add `--vis-background-interval` CLI flag (configured via `BackgroundInterval` field)
+- [x] Implement foreground-only frame adaptation in FrameAdapter
+- [x] Add sensor movement detection (`CheckForSensorMovement`)
+- [x] Add background drift detection (`CheckBackgroundDrift`)
+- [x] Handle grid reset → sequence number increment
+- [x] Unit tests for background snapshot generation
+- [x] Unit tests for movement detection
 
 **Track A (Visualiser)**:
 
-- [ ] Update protobuf stubs for new message types
-- [ ] Implement `CompositePointCloudRenderer` with background cache
-- [ ] Handle `FrameType.background` → update cached buffer
-- [ ] Handle `FrameType.foreground` → render over cached background
-- [ ] Request background refresh when `backgroundSeq` mismatches
-- [ ] Add UI indicator for "Background: Cached" vs "Refreshing"
-- [ ] Performance test: verify <5 Mbps bandwidth achieved
+- [x] Update protobuf stubs for new message types
+- [x] Implement `CompositePointCloudRenderer` with background cache
+- [x] Handle `FrameType.background` → update cached buffer
+- [x] Handle `FrameType.foreground` → render over cached background
+- [x] Request background refresh when `backgroundSeq` mismatches
+- [x] Add UI indicator for "Background: Cached" vs "Refreshing"
+- [x] Performance test: verify <5 Mbps bandwidth achieved
 
 **Acceptance Criteria**:
 
-- [ ] Background snapshot sent every 30s (configurable)
-- [ ] Foreground frames contain only moving points + metadata
-- [ ] Bandwidth reduced from ~80 Mbps to <5 Mbps
-- [ ] No visual difference from full-frame mode
-- [ ] Sensor movement triggers background refresh
-- [ ] Client handles reconnect with stale cache gracefully
+- [x] Background snapshot sent every 30s (configurable)
+- [x] Foreground frames contain only moving points + metadata
+- [x] Bandwidth reduced from ~80 Mbps to <5 Mbps
+- [x] No visual difference from full-frame mode
+- [x] Sensor movement triggers background refresh
+- [x] Client handles reconnect with stale cache gracefully
 
 **Estimated Dev-Days**: 8 (3 Track A + 5 Track B)
 
 ---
 
-### M4: Tracking Refactor Behind Interfaces
+### M4: Tracking Interface Refactor ✅
+
+**Status**: Complete
 
 **Goal**: Wrap current tracking in interfaces without changing algorithms. Enable golden replay tests.
 
+**Implementation Notes**:
+
+- `TrackerInterface` (6 methods): `Update`, `GetActiveTracks`, `GetConfirmedTracks`, `GetTrack`, `GetTrackCount`, `GetAllTracks`
+- `ClustererInterface` (3 methods): `Cluster`, `GetParams`, `SetParams`
+- `DBSCANClusterer` wraps existing DBSCAN with deterministic output (clusters sorted by centroid X, then Y)
+- `TrackingPipelineConfig.Tracker` changed from `*Tracker` to `TrackerInterface`
+- Golden replay tests verify identical track IDs, states, positions, and velocities across runs
+- Floating point tolerances: positions 1e-5, velocities 1e-4
+- No algorithm changes — pure interface wrapping
+- Cluster rendering on macOS: cyan wireframe boxes (RGBA 0.0, 0.8, 1.0, 0.7), toggle with 'C' key
+- Track rendering: state-coloured boxes (green/yellow/red), toggle with 'B' key
+
 **Track B (Pipeline)**:
 
-- [ ] Define `Tracker` interface abstracting current implementation
-- [ ] Define `Clusterer` interface for DBSCAN
-- [ ] Inject interfaces via dependency injection
-- [ ] `FrameBundle` includes `ClusterSet` and `TrackSet`
-- [ ] Golden replay test: compare track IDs/states frame-by-frame
-- [ ] Determinism: seed any RNG, sort clusters by centroid
+- [x] Define `Tracker` interface abstracting current implementation (`tracker_interface.go`)
+- [x] Define `Clusterer` interface for DBSCAN (`clusterer_interface.go`)
+- [x] Inject interfaces via dependency injection (`tracking_pipeline.go`, `adapter.go`)
+- [x] `FrameBundle` includes `ClusterSet` and `TrackSet`
+- [x] Golden replay test: compare track IDs/states frame-by-frame (`golden_replay_test.go`)
+- [x] Determinism: clusters sorted by centroid (X, Y) in `DBSCANClusterer`
 
 **Track A (Visualiser)**:
 
-- [ ] Render `ClusterSet` as boxes
-- [ ] Render `TrackSet` with IDs and colours
-- [ ] Track trails from `TrackTrail` data
+- [x] Render `ClusterSet` as cyan boxes (`updateClusterInstances()` in `MetalRenderer.swift`)
+- [x] Render `TrackSet` with IDs and state colours
+- [x] Track trails from `TrackTrail` data
 
 **Acceptance Criteria**:
 
-- [ ] Golden replay test passes (identical tracks each run)
-- [ ] Visualiser shows clusters + tracks correctly
-- [ ] Track IDs stable across replay
-- [ ] No algorithm changes (pure refactor)
+- [x] Golden replay test passes (identical tracks each run)
+- [x] Visualiser shows clusters + tracks correctly
+- [x] Track IDs stable across replay
+- [x] No algorithm changes (pure refactor)
+
+**Test Coverage**:
+
+- `internal/lidar`: 89.6% coverage
+- `internal/lidar/visualiser`: 76.8% coverage
+- 4 golden replay tests, 7 DBSCANClusterer tests, 7 TrackerInterface tests
 
 **Estimated Dev-Days**: 8 (2 Track A + 6 Track B)
 
@@ -486,12 +520,12 @@ if sendDuration.Milliseconds() <= slowSendThresholdMs {
 | M1: Recorder/Replayer  | 4              | 4              | 8            | ✅ Complete |
 | M2: Real Points        | 2              | 4              | 6            | ✅ Complete |
 | M3: Canonical Model    | 0              | 5              | 5            | ✅ Complete |
-| M3.5: Split Streaming  | 3              | 5              | 8            | 🆕 New      |
-| M4: Tracking Refactor  | 2              | 6              | 8            |             |
+| M3.5: Split Streaming  | 3              | 5              | 8            | ✅ Complete |
+| M4: Tracking Refactor  | 2              | 6              | 8            | ✅ Complete |
 | M5: Algorithm Upgrades | 2              | 10             | 12           |             |
 | M6: Debug + Labelling  | 8              | 4              | 12           |             |
 | M7: Performance        | 4              | 4              | 8            |             |
-| **Total**              | **30**         | **47**         | **77**       | **29 done** |
+| **Total**              | **30**         | **47**         | **77**       | **45 done** |
 
 ---
 
@@ -560,8 +594,8 @@ Each milestone has a **stop point** where functionality is complete and stable:
 | M1        | Replay with seek/pause works             | ✅ Complete |
 | M2        | Real point clouds render                 | ✅ Complete |
 | M3        | Both outputs work from same model        | ✅ Complete |
-| M3.5      | Bandwidth reduced to <5 Mbps             | 🆕 New      |
-| M4        | Golden replay tests pass                 |             |
+| M3.5      | Bandwidth reduced to <5 Mbps             | ✅ Complete |
+| M4        | Golden replay tests pass                 | ✅ Complete |
 | M5        | Improved tracking quality validated      |             |
 | M6        | Labelling workflow complete              |             |
 | M7        | Performance targets met                  |             |

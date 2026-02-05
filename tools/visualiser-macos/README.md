@@ -122,7 +122,7 @@ The visualiser supports bandwidth-optimised streaming:
 - **Bandwidth reduction**: ~80 Mbps → ~3 Mbps (96% reduction)
 - **Cache indicator**: Green dot + "BG" in stats panel when cached
 
-See [M3.5 macOS Visualiser docs](../../docs/lidar/m3.5-macos-visualiser.md) for details.
+See [implementation plan](../../docs/lidar/visualiser/04-implementation-plan.md) and [architecture](../../docs/lidar/visualiser/03-architecture.md) for details.
 
 ### M4 Cluster Rendering
 
@@ -135,7 +135,7 @@ Clusters (detected foreground objects) are rendered as:
 
 Toggle with 'C' key or toolbar button.
 
-See [M4 macOS Visualiser docs](../../docs/lidar/m4-macos-visualiser.md) for details.
+See [implementation plan](../../docs/lidar/visualiser/04-implementation-plan.md) and [architecture](../../docs/lidar/visualiser/03-architecture.md) for details.
 
 ## Configuration
 
