@@ -25,7 +25,7 @@ enum BackgroundCacheState {
 }
 
 /// Renderer that handles split streaming with cached background.
-/// 
+///
 /// This renderer maintains two separate Metal buffers:
 /// - Background buffer: Cached from background frames, reused across foreground frames
 /// - Foreground buffer: Updated on every foreground frame
@@ -58,15 +58,11 @@ class CompositePointCloudRenderer {
     }
 
     /// Human-readable cache status for UI display.
-    var cacheStatus: String {
-        cacheState.description
-    }
+    var cacheStatus: String { cacheState.description }
 
     // MARK: - Initialisation
 
-    init(device: MTLDevice) {
-        self.device = device
-    }
+    init(device: MTLDevice) { self.device = device }
 
     // MARK: - Frame Processing
 
@@ -76,20 +72,14 @@ class CompositePointCloudRenderer {
         switch frame.frameType {
         case .full:
             // Legacy mode: treat as foreground only
-            if let pointCloud = frame.pointCloud {
-                updateForegroundBuffer(pointCloud)
-            }
+            if let pointCloud = frame.pointCloud { updateForegroundBuffer(pointCloud) }
 
         case .foreground:
             // M3.5 mode: foreground points only
-            if let pointCloud = frame.pointCloud {
-                updateForegroundBuffer(pointCloud)
-            }
+            if let pointCloud = frame.pointCloud { updateForegroundBuffer(pointCloud) }
 
             // Check if background cache is valid
-            if frame.backgroundSeq != backgroundSeq {
-                cacheState = .empty
-            }
+            if frame.backgroundSeq != backgroundSeq { cacheState = .empty }
 
         case .background:
             // M3.5 mode: background snapshot
@@ -171,8 +161,7 @@ class CompositePointCloudRenderer {
     ///   - pipeline: The point cloud render pipeline
     ///   - uniforms: The uniform buffer (passed as inout for efficiency)
     func render(
-        encoder: MTLRenderCommandEncoder,
-        pipeline: MTLRenderPipelineState,
+        encoder: MTLRenderCommandEncoder, pipeline: MTLRenderPipelineState,
         uniforms: inout MetalRenderer.Uniforms
     ) {
         encoder.setRenderPipelineState(pipeline)
@@ -180,14 +169,16 @@ class CompositePointCloudRenderer {
         // Draw background first (if cached)
         if let bgBuffer = backgroundBuffer, backgroundPointCount > 0 {
             encoder.setVertexBuffer(bgBuffer, offset: 0, index: 0)
-            encoder.setVertexBytes(&uniforms, length: MemoryLayout<MetalRenderer.Uniforms>.stride, index: 1)
+            encoder.setVertexBytes(
+                &uniforms, length: MemoryLayout<MetalRenderer.Uniforms>.stride, index: 1)
             encoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: backgroundPointCount)
         }
 
         // Draw foreground on top
         if let fgBuffer = foregroundBuffer, foregroundPointCount > 0 {
             encoder.setVertexBuffer(fgBuffer, offset: 0, index: 0)
-            encoder.setVertexBytes(&uniforms, length: MemoryLayout<MetalRenderer.Uniforms>.stride, index: 1)
+            encoder.setVertexBytes(
+                &uniforms, length: MemoryLayout<MetalRenderer.Uniforms>.stride, index: 1)
             encoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: foregroundPointCount)
         }
     }
