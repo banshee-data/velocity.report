@@ -26,14 +26,14 @@ func TestPragmasApplied(t *testing.T) {
 		t.Errorf("Expected journal_mode=wal, got %s", journalMode)
 	}
 
-	// Verify busy_timeout is 5000
+	// Verify busy_timeout is 30000
 	var busyTimeout int
 	err = db.QueryRow("PRAGMA busy_timeout").Scan(&busyTimeout)
 	if err != nil {
 		t.Fatalf("Failed to query busy_timeout: %v", err)
 	}
-	if busyTimeout != 5000 {
-		t.Errorf("Expected busy_timeout=5000, got %d", busyTimeout)
+	if busyTimeout != 30000 {
+		t.Errorf("Expected busy_timeout=30000, got %d", busyTimeout)
 	}
 
 	// Verify synchronous is NORMAL (1)
