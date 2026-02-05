@@ -169,7 +169,14 @@ func (a *FrameAdapter) adaptPointCloud(frame *lidar.LiDARFrame, mask []bool) *Po
 }
 
 // Release returns the PointCloudFrame's slices to the pool.
-// Call this after the frame has been sent to free memory for reuse.
+// Call this after the frame has been consumed to free memory for reuse.
+//
+// IMPORTANT: In broadcast scenarios (where the same frame is sent to multiple
+// clients), Release() should NOT be called as it would corrupt data for other
+// consumers. The current Publisher broadcasts frames to multiple clients, so
+// Release() is intentionally not called there. For single-client streaming
+// scenarios, the caller can safely call Release() after the frame is converted
+// to protobuf.
 func (pc *PointCloudFrame) Release() {
 	if pc == nil {
 		return
@@ -373,15 +380,19 @@ func (a *FrameAdapter) adaptTracks(tracker *lidar.Tracker, timestamp time.Time) 
 		if historyLen > 0 {
 			trail := TrackTrail{
 				TrackID: t.TrackID,
-				Points:  make([]TrackPoint, historyLen),
+				Points:  make([]TrackPoint, 0, historyLen),
 			}
 			for j := 0; j < historyLen; j++ {
+				// Bounds check in case History shrinks during iteration
+				if j >= len(t.History) {
+					break
+				}
 				hp := t.History[j]
-				trail.Points[j] = TrackPoint{
+				trail.Points = append(trail.Points, TrackPoint{
 					X:              hp.X,
 					Y:              hp.Y,
 					TimestampNanos: hp.Timestamp,
-				}
+				})
 			}
 			ts.Trails = append(ts.Trails, trail)
 		}

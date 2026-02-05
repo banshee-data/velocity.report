@@ -74,20 +74,21 @@ fragment float4 pointFragment(
     float alpha = 1.0 - smoothstep(0.3, 0.5, dist);
 
     // Colour based on classification (primary) and intensity (secondary)
-    // Classification: 0=background (grey), 1=foreground (green), 2=ground (brown)
+    // Classification values are integers passed as floats: 0=background, 1=foreground, 2=ground
+    // Use epsilon-based comparison for exact integer matching
     float3 colour;
-    if (in.classification >= 0.5 && in.classification < 1.5) {
+    if (abs(in.classification - 1.0) < 0.01) {
         // Foreground: green with intensity modulation
         float3 lowColour = float3(0.1, 0.6, 0.2);   // dark green
         float3 highColour = float3(0.4, 1.0, 0.4); // bright green
         colour = mix(lowColour, highColour, in.intensity);
-    } else if (in.classification >= 1.5) {
+    } else if (abs(in.classification - 2.0) < 0.01) {
         // Ground: brown/tan
         float3 lowColour = float3(0.4, 0.3, 0.2);   // dark brown
         float3 highColour = float3(0.7, 0.6, 0.4); // tan
         colour = mix(lowColour, highColour, in.intensity);
     } else {
-        // Background: grey with intensity modulation
+        // Background (classification ~= 0): grey with intensity modulation
         float3 lowColour = float3(0.3, 0.3, 0.35);  // dark grey-blue
         float3 highColour = float3(0.6, 0.6, 0.65); // light grey
         colour = mix(lowColour, highColour, in.intensity);

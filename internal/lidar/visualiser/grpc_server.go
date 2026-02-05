@@ -221,10 +221,6 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				totalBytesSent = 0
 				lastLogTime = time.Now()
 			}
-		default:
-			// No frame available, check for queue backup periodically
-			// This non-blocking case helps us detect if the channel is consistently empty
-			time.Sleep(1 * time.Millisecond)
 		}
 	}
 }

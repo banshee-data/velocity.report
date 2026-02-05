@@ -55,11 +55,12 @@ type Publisher struct {
 	clientsMu sync.RWMutex
 
 	// Stats
-	frameCount    atomic.Uint64
-	clientCount   atomic.Int32
-	droppedFrames atomic.Uint64
-	lastStatsTime time.Time
-	lastStatsMu   sync.Mutex
+	frameCount     atomic.Uint64
+	clientCount    atomic.Int32
+	droppedFrames  atomic.Uint64
+	lastStatsTime  time.Time
+	lastFrameCount uint64 // Frame count at last stats log
+	lastStatsMu    sync.Mutex
 
 	// Lifecycle
 	running atomic.Bool
@@ -192,7 +193,7 @@ func (p *Publisher) Publish(frame interface{}) {
 	}
 }
 
-// logPeriodicStats logs performance stats every 5 seconds or 100 frames.
+// logPeriodicStats logs performance stats every 5 seconds.
 func (p *Publisher) logPeriodicStats(frameCount uint64, pointCount, trackCount, clusterCount, queueDepth int) {
 	p.lastStatsMu.Lock()
 	defer p.lastStatsMu.Unlock()
@@ -200,18 +201,21 @@ func (p *Publisher) logPeriodicStats(frameCount uint64, pointCount, trackCount, 
 	now := time.Now()
 	if p.lastStatsTime.IsZero() {
 		p.lastStatsTime = now
+		p.lastFrameCount = frameCount
 		return
 	}
 
 	elapsed := now.Sub(p.lastStatsTime)
 	if elapsed >= 5*time.Second {
-		fps := float64(frameCount) / elapsed.Seconds()
+		// Calculate frames in this interval (not total frames)
+		framesInInterval := frameCount - p.lastFrameCount
+		fps := float64(framesInInterval) / elapsed.Seconds()
 		dropped := p.droppedFrames.Load()
 		clients := p.clientCount.Load()
 		log.Printf("[Visualiser] Stats: fps=%.1f frames=%d dropped=%d clients=%d queue=%d/100 last_frame: points=%d tracks=%d clusters=%d",
-			fps, frameCount, dropped, clients, queueDepth, pointCount, trackCount, clusterCount)
+			fps, framesInInterval, dropped, clients, queueDepth, pointCount, trackCount, clusterCount)
 		p.lastStatsTime = now
-		p.frameCount.Store(0) // Reset for next interval
+		p.lastFrameCount = frameCount
 	}
 }
 
