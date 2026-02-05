@@ -264,10 +264,11 @@ func (p *Publisher) Publish(frame interface{}) {
 		}
 	}
 
-	// Determine frame type for foreground frames
-	if frameBundle.FrameType == 0 {
-		// Default to foreground type if not explicitly set
-		frameBundle.FrameType = FrameTypeForeground
+	// Determine frame type - only set if not already specified
+	// FrameTypeFull (0) is the default and should not be changed
+	if frameBundle.FrameType == 0 && frameBundle.PointCloud != nil {
+		// If not explicitly set and has a point cloud, default to full frame mode
+		frameBundle.FrameType = FrameTypeFull
 	}
 
 	// Set background sequence number for client cache coherence

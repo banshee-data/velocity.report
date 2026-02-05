@@ -40,7 +40,7 @@ enum DecimationMode {
 }
 
 enum FrameType {
-  FRAME_TYPE_FULL = 0;           // Legacy: all points
+  FRAME_TYPE_FULL = 0;           // All points (compatible with legacy clients)
   FRAME_TYPE_FOREGROUND = 1;     // Foreground + clusters + tracks only
   FRAME_TYPE_BACKGROUND = 2;     // Background snapshot
   FRAME_TYPE_DELTA = 3;          // Future: incremental update

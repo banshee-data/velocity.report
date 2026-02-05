@@ -1966,7 +1966,9 @@ func (bm *BackgroundManager) GenerateBackgroundSnapshot() (*BackgroundSnapshotDa
 			}
 
 			// Convert polar to Cartesian coordinates
-			// Azimuth: 0° = forward (X+), increasing clockwise (right-hand rule)
+			// Coordinate system: X = forward, Y = left, Z = up (sensor-centric)
+			// Azimuth: 0° = forward (X+), increases clockwise when viewed from above
+			// Note: Clockwise positive is sensor convention, not mathematical standard
 			azimuthDeg := float64(azBin) * azBinResDeg
 			azimuthRad := azimuthDeg * (math.Pi / 180.0)
 			r := float64(cell.AverageRangeMeters)

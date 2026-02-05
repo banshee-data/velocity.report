@@ -151,7 +151,7 @@ func TestPublisher_Publish_SetsFrameType(t *testing.T) {
 	p := NewPublisher(cfg)
 	p.running.Store(true)
 
-	// Create a frame bundle
+	// Create a frame bundle with point cloud (should default to FrameTypeFull)
 	frame := &FrameBundle{
 		FrameID:        1,
 		TimestampNanos: time.Now().UnixNano(),
@@ -164,9 +164,27 @@ func TestPublisher_Publish_SetsFrameType(t *testing.T) {
 	// Publish frame
 	p.Publish(frame)
 
-	// Check that frame type was set to foreground
-	if frame.FrameType != FrameTypeForeground {
-		t.Errorf("Expected FrameType to be FrameTypeForeground, got %v", frame.FrameType)
+	// Check that frame type was set to FULL (default with point cloud)
+	if frame.FrameType != FrameTypeFull {
+		t.Errorf("Expected FrameType to be FrameTypeFull (0), got %v", frame.FrameType)
+	}
+
+	// Test with explicit frame type set
+	frame2 := &FrameBundle{
+		FrameID:        2,
+		TimestampNanos: time.Now().UnixNano(),
+		SensorID:       "test-sensor",
+		FrameType:      FrameTypeForeground, // Explicitly set
+		PointCloud: &PointCloudFrame{
+			PointCount: 50,
+		},
+	}
+
+	p.Publish(frame2)
+
+	// Should preserve explicit frame type
+	if frame2.FrameType != FrameTypeForeground {
+		t.Errorf("Expected FrameType to be FrameTypeForeground, got %v", frame2.FrameType)
 	}
 }
 

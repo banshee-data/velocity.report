@@ -87,7 +87,7 @@ func (DecimationMode) EnumDescriptor() ([]byte, []int) {
 type FrameType int32
 
 const (
-	FrameType_FRAME_TYPE_FULL       FrameType = 0 // Legacy: all points
+	FrameType_FRAME_TYPE_FULL       FrameType = 0 // All points (compatible with legacy clients)
 	FrameType_FRAME_TYPE_FOREGROUND FrameType = 1 // Foreground + clusters + tracks only
 	FrameType_FRAME_TYPE_BACKGROUND FrameType = 2 // Background snapshot
 	FrameType_FRAME_TYPE_DELTA      FrameType = 3 // Future: incremental update
