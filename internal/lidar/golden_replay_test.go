@@ -2,6 +2,7 @@ package lidar
 
 import (
 	"fmt"
+	"sort"
 	"testing"
 	"time"
 )
@@ -284,8 +285,13 @@ func runTrackingPipeline(t *testing.T, frameData [][]WorldCluster) []*TrackedObj
 		tracker.Update(clusters, timestamp)
 	}
 
-	// Return all tracks (including tentative and deleted)
-	return tracker.GetAllTracks()
+	// Return all tracks (including tentative and deleted), sorted by ID
+	// for deterministic comparison (map iteration order is not guaranteed).
+	tracks := tracker.GetAllTracks()
+	sort.Slice(tracks, func(i, j int) bool {
+		return tracks[i].TrackID < tracks[j].TrackID
+	})
+	return tracks
 }
 
 // floatNearlyEqual checks if two float32 values are nearly equal within a tolerance.
