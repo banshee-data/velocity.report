@@ -279,13 +279,11 @@ class TestCreateSourcesZip(unittest.TestCase):
         # Create original TEX file
         original_tex = f"{prefix}_report.tex"
         with open(original_tex, "w", encoding="utf-8") as f:
-            f.write(
-                r"""\usepackage{fontspec}%
+            f.write(r"""\usepackage{fontspec}%
 \setsansfont[Path=/Users/test/fonts/,UprightFont=*-Regular]{AtkinsonHyperlegible}%
 \begin{document}%
 Test content
-\end{document}%"""
-            )
+\end{document}%""")
 
         # Create some chart PDFs
         for chart in ["stats", "daily", "histogram"]:
@@ -374,13 +372,11 @@ Test content
         # Create original TEX with custom fonts
         original_tex = f"{prefix}_report.tex"
         with open(original_tex, "w", encoding="utf-8") as f:
-            f.write(
-                r"""\usepackage{fontspec}%
+            f.write(r"""\usepackage{fontspec}%
 \setsansfont[Path=/Users/test/fonts/]{AtkinsonHyperlegible}%
 \begin{document}%
 Some \AtkinsonMono{code} here.
-\end{document}%"""
-            )
+\end{document}%""")
 
         # Create ZIP
         zip_path = create_sources_zip(prefix)
@@ -403,13 +399,11 @@ Some \AtkinsonMono{code} here.
         # Create original TEX with absolute paths
         original_tex = f"{prefix}_report.tex"
         with open(original_tex, "w", encoding="utf-8") as f:
-            f.write(
-                r"""\usepackage{fontspec}%
+            f.write(r"""\usepackage{fontspec}%
 \setsansfont[Path=/Users/test/fonts/,UprightFont=*-Regular]{AtkinsonHyperlegible}%
 \begin{document}%
 Test content
-\end{document}%"""
-            )
+\end{document}%""")
 
         # Create ZIP
         zip_path = create_sources_zip(prefix)

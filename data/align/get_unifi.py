@@ -63,8 +63,7 @@ async def init_database(db_file: str = "align.db") -> sqlite3.Connection:
     conn = sqlite3.connect(db_file)
     cursor = conn.cursor()
 
-    cursor.execute(
-        """
+    cursor.execute("""
     CREATE TABLE IF NOT EXISTS unifi (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     event_id TEXT UNIQUE,
@@ -77,8 +76,7 @@ async def init_database(db_file: str = "align.db") -> sqlite3.Connection:
     description TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
-  """
-    )
+  """)
 
     conn.commit()
     logger.info("Database initialized successfully")
