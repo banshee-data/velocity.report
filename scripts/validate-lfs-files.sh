@@ -93,17 +93,17 @@ echo ""
 PCAP_FILE="internal/lidar/perf/pcap/kirk0.pcapng"
 if [ -f "$PCAP_FILE" ] || git lfs ls-files | grep -q "kirk0.pcapng"; then
     if validate_file "$PCAP_FILE" "pcapng"; then
-        ((VALIDATED++))
+        VALIDATED=$((VALIDATED + 1))
     else
-        ((ERRORS++))
+        ERRORS=$((ERRORS + 1))
         echo ""
         echo -e "${YELLOW}Attempting to fetch LFS file...${NC}"
         git lfs pull --include="$PCAP_FILE" || true
         echo ""
         echo "Retrying validation after fetch..."
         if validate_file "$PCAP_FILE" "pcapng"; then
-            ((VALIDATED++))
-            ((ERRORS--))
+            VALIDATED=$((VALIDATED + 1))
+            ERRORS=$((ERRORS - 1))
         fi
     fi
 else
