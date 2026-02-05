@@ -612,9 +612,6 @@
 				minimumVersion = 1.33.3;
 			};
 		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCRemoteSwiftPackageReference grpc-swift-nio-transport */
 		63A5F1702F32591000BF4EEC /* XCRemoteSwiftPackageReference "grpc-swift-nio-transport" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/grpc/grpc-swift-nio-transport.git";
@@ -631,7 +628,7 @@
 				minimumVersion = 2.0.0;
 			};
 		};
-/* End XCRemoteSwiftPackageReference grpc-swift-nio-transport section */
+/* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		63A5F1612F32580A00BF4EEC /* GRPCCodeGen */ = {
