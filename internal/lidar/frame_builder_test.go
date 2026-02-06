@@ -748,3 +748,125 @@ func TestFrameBuilder_EvictOldestBufferedFrame_EmptyBuffer(t *testing.T) {
 		t.Error("Callback should not be called when buffer is empty")
 	}
 }
+
+// TestFrameBuilder_FinalizeFrame tests the finalizeFrame function directly.
+func TestFrameBuilder_FinalizeFrame(t *testing.T) {
+	t.Run("nil frame returns early", func(t *testing.T) {
+		fb := NewFrameBuilder(FrameBuilderConfig{
+			SensorID: "test-sensor",
+		})
+		// Should not panic
+		fb.finalizeFrame(nil, "test")
+	})
+
+	t.Run("sets SpinComplete for full coverage frame", func(t *testing.T) {
+		var received *LiDARFrame
+		done := make(chan struct{})
+		fb := NewFrameBuilder(FrameBuilderConfig{
+			SensorID: "test-sensor",
+			FrameCallback: func(frame *LiDARFrame) {
+				received = frame
+				close(done)
+			},
+		})
+
+		frame := &LiDARFrame{
+			FrameID:    "test-frame",
+			SensorID:   "test-sensor",
+			PointCount: 20000, // > MinFramePointsForCompletion
+			MinAzimuth: 0.0,
+			MaxAzimuth: 359.0, // ~359 degrees coverage
+		}
+
+		fb.finalizeFrame(frame, "test")
+
+		select {
+		case <-done:
+		case <-time.After(500 * time.Millisecond):
+			t.Fatal("Callback not called")
+		}
+
+		if !received.SpinComplete {
+			t.Error("Expected SpinComplete to be true for full coverage frame")
+		}
+	})
+
+	t.Run("sets SpinComplete false for incomplete frame", func(t *testing.T) {
+		var received *LiDARFrame
+		done := make(chan struct{})
+		fb := NewFrameBuilder(FrameBuilderConfig{
+			SensorID: "test-sensor",
+			FrameCallback: func(frame *LiDARFrame) {
+				received = frame
+				close(done)
+			},
+		})
+
+		frame := &LiDARFrame{
+			FrameID:    "test-frame",
+			SensorID:   "test-sensor",
+			PointCount: 100, // < MinFramePointsForCompletion
+			MinAzimuth: 0.0,
+			MaxAzimuth: 90.0, // Only 90 degrees coverage
+		}
+
+		fb.finalizeFrame(frame, "test")
+
+		select {
+		case <-done:
+		case <-time.After(500 * time.Millisecond):
+			t.Fatal("Callback not called")
+		}
+
+		if received.SpinComplete {
+			t.Error("Expected SpinComplete to be false for incomplete frame")
+		}
+	})
+
+	t.Run("with debug mode enabled", func(t *testing.T) {
+		done := make(chan struct{})
+		fb := NewFrameBuilder(FrameBuilderConfig{
+			SensorID: "test-sensor",
+			FrameCallback: func(frame *LiDARFrame) {
+				close(done)
+			},
+		})
+		// Enable debug mode directly on the FrameBuilder
+		fb.debug = true
+
+		frame := &LiDARFrame{
+			FrameID:        "test-frame",
+			SensorID:       "test-sensor",
+			PointCount:     100,
+			PacketGaps:     2, // Has gaps - should trigger debug log
+			MinAzimuth:     0.0,
+			MaxAzimuth:     90.0,
+			StartTimestamp: time.Now(),
+			EndTimestamp:   time.Now().Add(100 * time.Millisecond),
+		}
+
+		fb.finalizeFrame(frame, "debug-test")
+
+		select {
+		case <-done:
+		case <-time.After(500 * time.Millisecond):
+			t.Fatal("Callback not called")
+		}
+	})
+
+	t.Run("no callback when nil", func(t *testing.T) {
+		fb := NewFrameBuilder(FrameBuilderConfig{
+			SensorID:      "test-sensor",
+			FrameCallback: nil,
+		})
+
+		frame := &LiDARFrame{
+			FrameID:    "test-frame",
+			SensorID:   "test-sensor",
+			PointCount: 100,
+		}
+
+		// Should not panic when callback is nil
+		fb.finalizeFrame(frame, "test")
+	})
+}

@@ -454,3 +454,132 @@ func TestTracker_ObservationAggregation(t *testing.T) {
 		t.Errorf("expected HeightP95Max=1.6, got %v", track.HeightP95Max)
 	}
 }
+
+// TestMahalanobisDistanceSquared tests the Mahalanobis distance computation.
+func TestMahalanobisDistanceSquared(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns rejection for large position jump", func(t *testing.T) {
+		t.Parallel()
+		tracker := NewTracker(DefaultTrackerConfig())
+
+		track := &TrackedObject{
+			X: 0,
+			Y: 0,
+			P: [16]float32{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
+		}
+
+		// Cluster very far away, exceeding MaxPositionJumpMeters
+		cluster := WorldCluster{
+			CentroidX: MaxPositionJumpMeters + 10, // way beyond limit
+			CentroidY: 0,
+		}
+
+		dist := tracker.mahalanobisDistanceSquared(track, cluster, 0.1)
+		if dist != SingularDistanceRejection {
+			t.Errorf("expected SingularDistanceRejection, got %v", dist)
+		}
+	})
+
+	t.Run("returns rejection for excessive implied speed", func(t *testing.T) {
+		t.Parallel()
+		tracker := NewTracker(DefaultTrackerConfig())
+
+		track := &TrackedObject{
+			X: 0,
+			Y: 0,
+			P: [16]float32{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
+		}
+
+		// Cluster 20m away with dt=0.01s → implied speed = 2000 m/s (unreasonable)
+		cluster := WorldCluster{
+			CentroidX: 20,
+			CentroidY: 0,
+		}
+
+		dist := tracker.mahalanobisDistanceSquared(track, cluster, 0.01)
+		if dist != SingularDistanceRejection {
+			t.Errorf("expected SingularDistanceRejection for excessive speed, got %v", dist)
+		}
+	})
+
+	t.Run("returns rejection for singular covariance", func(t *testing.T) {
+		t.Parallel()
+		config := DefaultTrackerConfig()
+		config.MeasurementNoise = 0 // Zero out measurement noise to allow singular
+		tracker := NewTracker(config)
+
+		track := &TrackedObject{
+			X: 0,
+			Y: 0,
+			// Covariance with zero determinant after adding measurement noise
+			// P[0,0] + MeasurementNoise = 0, P[1,1] + MeasurementNoise = 0
+			// With MeasurementNoise=0, the det = 0 * 0 - 0 * 0 = 0
+			P: [16]float32{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
+		}
+
+		cluster := WorldCluster{
+			CentroidX: 1,
+			CentroidY: 1,
+		}
+
+		dist := tracker.mahalanobisDistanceSquared(track, cluster, 0.1)
+		if dist != SingularDistanceRejection {
+			t.Errorf("expected SingularDistanceRejection for singular matrix, got %v", dist)
+		}
+	})
+
+	t.Run("computes distance for valid inputs", func(t *testing.T) {
+		t.Parallel()
+		tracker := NewTracker(DefaultTrackerConfig())
+
+		track := &TrackedObject{
+			X: 0,
+			Y: 0,
+			// Identity covariance
+			P: [16]float32{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
+		}
+
+		// Cluster close by
+		cluster := WorldCluster{
+			CentroidX: 1,
+			CentroidY: 1,
+		}
+
+		dist := tracker.mahalanobisDistanceSquared(track, cluster, 0.1)
+
+		// Should return a valid distance, not rejection
+		if dist == SingularDistanceRejection {
+			t.Error("expected valid distance, got SingularDistanceRejection")
+		}
+
+		// Should be a positive value
+		if dist <= 0 {
+			t.Errorf("expected positive distance, got %v", dist)
+		}
+	})
+
+	t.Run("handles zero dt without implied speed check", func(t *testing.T) {
+		t.Parallel()
+		tracker := NewTracker(DefaultTrackerConfig())
+
+		track := &TrackedObject{
+			X: 0,
+			Y: 0,
+			P: [16]float32{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
+		}
+
+		// Cluster close by with dt=0
+		cluster := WorldCluster{
+			CentroidX: 2,
+			CentroidY: 0,
+		}
+
+		// dt=0 should skip speed check and still compute distance
+		dist := tracker.mahalanobisDistanceSquared(track, cluster, 0)
+
+		if dist == SingularDistanceRejection {
+			t.Error("expected valid distance with dt=0, got SingularDistanceRejection")
+		}
+	})
+}
