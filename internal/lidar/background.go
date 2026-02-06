@@ -226,6 +226,9 @@ type BackgroundGrid struct {
 
 	// RegionMgr handles adaptive parameter regions for different settling characteristics
 	RegionMgr *RegionManager
+	// regionRestoreAttempted is set to true after the first attempt to restore
+	// regions from the database during settling, to avoid repeated DB lookups.
+	regionRestoreAttempted bool
 }
 
 // Helper to index Cells: idx = ring*AzimuthBins + azBin
@@ -238,7 +241,12 @@ func (g *BackgroundGrid) Idx(ring, azBin int) int { return ring*g.AzimuthBins + 
 func (g *BackgroundGrid) SceneSignature() string {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
+	return g.sceneSignatureUnlocked()
+}
 
+// sceneSignatureUnlocked is the lock-free implementation of SceneSignature.
+// Caller must hold g.mu (read or write lock).
+func (g *BackgroundGrid) sceneSignatureUnlocked() string {
 	if len(g.Cells) == 0 {
 		return ""
 	}
@@ -778,6 +786,10 @@ type BackgroundManager struct {
 
 	// Persistence callback to main app - should save to schema lidar_bg_snapshot table
 	PersistCallback func(snapshot *BgSnapshot) error
+	// store retains the BgStore reference for region persistence and restoration.
+	// When the store also implements RegionStore, regions are persisted on settling
+	// completion and can be restored on subsequent PCAP runs.
+	store BgStore
 	// EnableDiagnostics controls whether this manager emits diagnostic messages
 	// via the shared monitoring logger. Default: false.
 	EnableDiagnostics bool
@@ -1192,6 +1204,8 @@ func (bm *BackgroundManager) ResetGrid() error {
 	g.SettlingComplete = false
 	// Reset WarmupFramesRemaining to 0 so ProcessFramePolar reinitializes it on next call
 	g.WarmupFramesRemaining = 0
+	// Allow region restoration attempt on next settling cycle
+	g.regionRestoreAttempted = false
 
 	// Reset region manager to allow re-identification
 	if g.RegionMgr != nil {
@@ -1253,7 +1267,7 @@ func NewBackgroundManager(sensorID string, rings, azBins int, params BackgroundP
 		Params:      params,
 		RegionMgr:   NewRegionManager(rings, azBins), // Initialize region manager
 	}
-	mgr := &BackgroundManager{Grid: grid}
+	mgr := &BackgroundManager{Grid: grid, store: store}
 	grid.Manager = mgr
 
 	// initialize simple acceptance metric buckets (meters)
@@ -1304,6 +1318,7 @@ func (bm *BackgroundManager) SetRingElevations(elevations []float64) error {
 // RestoreRegions restores the region manager from a previously saved snapshot.
 // This allows skipping the settling period when the scene hash matches.
 // On success, SettlingComplete is set to true.
+// Caller must NOT hold g.mu — this method acquires the lock internally.
 func (bm *BackgroundManager) RestoreRegions(snap *RegionSnapshot) error {
 	if bm == nil || bm.Grid == nil {
 		return fmt.Errorf("background manager or grid nil")
@@ -1312,21 +1327,31 @@ func (bm *BackgroundManager) RestoreRegions(snap *RegionSnapshot) error {
 		return fmt.Errorf("nil region snapshot")
 	}
 
+	g := bm.Grid
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return bm.restoreRegionsLocked(snap)
+}
+
+// restoreRegionsLocked is the lock-free implementation of RestoreRegions.
+// Caller must hold g.mu (write lock).
+func (bm *BackgroundManager) restoreRegionsLocked(snap *RegionSnapshot) error {
+	g := bm.Grid
+
 	// Create or reset the region manager
-	totalCells := bm.Grid.Rings * bm.Grid.AzimuthBins
-	if bm.Grid.RegionMgr == nil {
-		bm.Grid.RegionMgr = NewRegionManager(bm.Grid.Rings, bm.Grid.AzimuthBins)
+	totalCells := g.Rings * g.AzimuthBins
+	if g.RegionMgr == nil {
+		g.RegionMgr = NewRegionManager(g.Rings, g.AzimuthBins)
 	}
 
-	if err := bm.Grid.RegionMgr.RestoreFromSnapshot(snap, totalCells); err != nil {
+	if err := g.RegionMgr.RestoreFromSnapshot(snap, totalCells); err != nil {
 		return fmt.Errorf("failed to restore regions: %w", err)
 	}
 
 	// Mark settling complete since we restored from a valid snapshot
-	bm.Grid.mu.Lock()
-	bm.Grid.SettlingComplete = true
-	bm.Grid.WarmupFramesRemaining = 0
-	bm.Grid.mu.Unlock()
+	g.SettlingComplete = true
+	g.WarmupFramesRemaining = 0
+	g.regionRestoreAttempted = true
 
 	log.Printf("[BackgroundManager] Regions restored from snapshot: settling_complete=true, regions=%d",
 		snap.RegionCount)
@@ -1336,6 +1361,7 @@ func (bm *BackgroundManager) RestoreRegions(snap *RegionSnapshot) error {
 // TryRestoreRegionsBySceneHash attempts to restore regions from the database if the current
 // scene signature matches a previously saved region snapshot. This is called early in PCAP
 // processing after collecting enough frames to compute a scene signature.
+// Caller must NOT hold g.mu — this method acquires the lock internally.
 // Returns true if regions were successfully restored.
 func (bm *BackgroundManager) TryRestoreRegionsBySceneHash(store RegionStore) bool {
 	if bm == nil || bm.Grid == nil || store == nil {
@@ -1369,6 +1395,84 @@ func (bm *BackgroundManager) TryRestoreRegionsBySceneHash(store RegionStore) boo
 	log.Printf("[BackgroundManager] Successfully restored regions from database: scene_hash=%s, regions=%d",
 		sceneHash, snap.RegionCount)
 	return true
+}
+
+// tryRestoreRegionsFromStoreLocked attempts region restoration from the database
+// while g.mu is already held. Computes scene signature and looks up matching
+// regions. Returns true if regions were restored and settling was skipped.
+// Caller must hold g.mu (write lock).
+func (bm *BackgroundManager) tryRestoreRegionsFromStoreLocked() bool {
+	g := bm.Grid
+
+	// Mark attempted so we only try once per settling cycle
+	g.regionRestoreAttempted = true
+
+	regionStore, ok := bm.store.(RegionStore)
+	if !ok || regionStore == nil {
+		return false
+	}
+
+	// Compute scene signature while holding the lock
+	sceneHash := g.sceneSignatureUnlocked()
+	if sceneHash == "" {
+		return false
+	}
+
+	// Release lock for DB I/O, then re-acquire
+	g.mu.Unlock()
+	snap, err := regionStore.GetRegionSnapshotBySceneHash(g.SensorID, sceneHash)
+	g.mu.Lock()
+
+	if err != nil {
+		log.Printf("[BackgroundManager] Error looking up region snapshot: %v", err)
+		return false
+	}
+	if snap == nil {
+		log.Printf("[BackgroundManager] No region snapshot found for scene_hash=%s", sceneHash)
+		return false
+	}
+
+	// Restore the regions (already holding lock)
+	if err := bm.restoreRegionsLocked(snap); err != nil {
+		log.Printf("[BackgroundManager] Failed to restore regions from DB: %v", err)
+		return false
+	}
+
+	log.Printf("[BackgroundManager] Restored regions from DB, skipping remaining settling: scene_hash=%s, regions=%d",
+		sceneHash, snap.RegionCount)
+	return true
+}
+
+// persistRegionsOnSettleLocked persists regions to the database when settling
+// completes naturally (not via restoration). Called while g.mu is held.
+// Releases and re-acquires the lock for DB I/O.
+func (bm *BackgroundManager) persistRegionsOnSettleLocked() {
+	g := bm.Grid
+	if bm.store == nil || g.RegionMgr == nil || !g.RegionMgr.IdentificationComplete {
+		return
+	}
+	regionStore, ok := bm.store.(RegionStore)
+	if !ok {
+		return
+	}
+
+	// Build region snapshot while holding the lock
+	sceneHash := g.sceneSignatureUnlocked()
+	regionSnap := g.RegionMgr.ToSnapshot(g.SensorID, 0) // snapshot_id 0 = no associated bg snapshot
+	if regionSnap == nil {
+		return
+	}
+	regionSnap.SceneHash = sceneHash
+
+	// Release lock for DB I/O, then re-acquire
+	g.mu.Unlock()
+	if _, err := regionStore.InsertRegionSnapshot(regionSnap); err != nil {
+		log.Printf("[BackgroundManager] Failed to persist regions on settle: %v", err)
+	} else {
+		log.Printf("[BackgroundManager] Persisted regions on settling complete: sensor=%s, regions=%d, scene_hash=%s",
+			g.SensorID, regionSnap.RegionCount, regionSnap.SceneHash)
+	}
+	g.mu.Lock()
 }
 
 // ProcessFramePolar ingests sensor-frame polar points and updates the BackgroundGrid.
@@ -1501,6 +1605,8 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 				if err != nil {
 					log.Printf("[BackgroundManager] Failed to identify regions: %v", err)
 				}
+				// Persist regions immediately so future runs can skip settling
+				bm.persistRegionsOnSettleLocked()
 			}
 		} else {
 			if g.WarmupFramesRemaining > 0 {
@@ -1510,6 +1616,17 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 			// Collect variance metrics during settling
 			if g.RegionMgr != nil && !g.RegionMgr.IdentificationComplete {
 				g.RegionMgr.UpdateVarianceMetrics(g.Cells)
+			}
+			// Attempt early region restoration from DB
+			if !g.regionRestoreAttempted && bm.store != nil {
+				framesProcessed := g.Params.WarmupMinFrames - g.WarmupFramesRemaining
+				if framesProcessed >= regionRestoreMinFrames {
+					if bm.tryRestoreRegionsFromStoreLocked() {
+						if postSettleAlpha > 0 && postSettleAlpha <= 1 {
+							effectiveAlpha = postSettleAlpha
+						}
+					}
+				}
 			}
 		}
 	}
