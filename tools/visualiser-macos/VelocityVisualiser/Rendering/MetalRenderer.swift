@@ -321,7 +321,9 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
         // M7: Check if we need to reallocate the buffer
         let neededVertices = count * 5  // 5 floats per vertex
-        if pointBuffer == nil || shouldReallocateBuffer(currentCapacity: pointBufferCapacity, neededCount: neededVertices)
+        if pointBuffer == nil
+            || shouldReallocateBuffer(
+                currentCapacity: pointBufferCapacity, neededCount: neededVertices)
         {
             let newCapacity = calculateBufferCapacity(for: neededVertices)
             let bufferSize = newCapacity * MemoryLayout<Float>.stride
