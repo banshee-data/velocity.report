@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -28,6 +29,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/monitor"
 	"github.com/banshee-data/velocity.report/internal/lidar/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/parse"
+	"github.com/banshee-data/velocity.report/internal/lidar/sweep"
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser"
 	"github.com/banshee-data/velocity.report/internal/version"
 )
@@ -501,6 +503,16 @@ func main() {
 		if tracker != nil {
 			lidarWebServer.SetTracker(tracker)
 		}
+		// Create and wire sweep runner for web-triggered parameter sweeps
+		httpClient := &http.Client{Timeout: 30 * time.Second}
+		// Construct base URL for loopback communication
+		baseURL := "http://localhost" + *lidarListen
+		if !strings.HasPrefix(*lidarListen, ":") {
+			baseURL = "http://" + *lidarListen
+		}
+		sweepClient := monitor.NewClient(httpClient, baseURL, *lidarSensor)
+		sweepRunner := sweep.NewRunner(sweepClient)
+		lidarWebServer.SetSweepRunner(sweepRunner)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

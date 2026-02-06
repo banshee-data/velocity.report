@@ -138,6 +138,9 @@ type WebServer struct {
 	onPCAPStarted  func()
 	onPCAPStopped  func()
 	onPCAPProgress func(currentPacket, totalPackets uint64)
+
+	// Sweep runner for web-triggered parameter sweeps
+	sweepRunner SweepRunner
 }
 
 // WebServerConfig contains configuration options for the web server
@@ -263,6 +266,11 @@ func (ws *WebServer) SetTracker(tracker *lidar.Tracker) {
 	if ws.trackAPI != nil {
 		ws.trackAPI.SetTracker(tracker)
 	}
+}
+
+// SetSweepRunner sets the sweep runner for web-triggered parameter sweeps.
+func (ws *WebServer) SetSweepRunner(runner SweepRunner) {
+	ws.sweepRunner = runner
 }
 
 // updateLatestFgCounts refreshes cached foreground counts for the status UI.
@@ -915,6 +923,9 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/acceptance", ws.handleAcceptanceMetrics)
 	mux.HandleFunc("/api/lidar/acceptance/reset", ws.handleAcceptanceReset)
 	mux.HandleFunc("/api/lidar/params", ws.handleBackgroundParams)
+	mux.HandleFunc("/api/lidar/sweep/start", ws.handleSweepStart)
+	mux.HandleFunc("/api/lidar/sweep/status", ws.handleSweepStatus)
+	mux.HandleFunc("/api/lidar/sweep/stop", ws.handleSweepStop)
 	mux.HandleFunc("/api/lidar/grid_status", ws.handleGridStatus)
 	mux.HandleFunc("/api/lidar/grid_reset", ws.handleGridReset)
 	mux.HandleFunc("/api/lidar/grid_heatmap", ws.handleGridHeatmap)
