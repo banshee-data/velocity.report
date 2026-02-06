@@ -304,7 +304,7 @@ struct ConfidenceValueTests {
         bg.confidence = [1, 5, 10, 50, 255]
 
         #expect(bg.confidence[0] == 1)  // Low confidence
-        #expect(bg.confidence[4] == 255)  // High confidence (max UInt32 for typical usage)
+        #expect(bg.confidence[4] == 255)  // High confidence (maximum 8-bit confidence value, UInt8.max)
     }
 }
 

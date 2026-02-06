@@ -114,7 +114,7 @@ Tracking pipeline refactor and upgrade proposals.
 - ✅ M4: Tracking Interface — Golden replay tests, deterministic clustering
 - ✅ M5: Algorithm Upgrades — OBB, Hungarian association, occlusion handling
 - ✅ M6: Debug + Labelling — Full debug overlays, label export
-- 🔶 M7: Performance Hardening — Buffer pooling (7.1, 7.2, 7.3 complete)
+- ✅ M7: Performance Hardening — Buffer pooling (7.1, 7.2, 7.3 complete)
 
 **Test Coverage (February 2026):**
 

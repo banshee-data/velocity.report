@@ -232,10 +232,13 @@ enum VisualiserClientError: Error, LocalizedError {
                             )
                         }
 
-                        // Decode proto to internal model and deliver to delegate
-                        await MainActor.run { [weak self] in
-                            guard let self = self else { return }
-                            let frame = self.decodeFrameBundle(protoFrame)
+                        // Decode proto to internal model off the main actor,
+                        // then hop to MainActor only to notify the delegate.
+                        guard let strongSelf = self else { continue }
+                        let frame = strongSelf.decodeFrameBundle(protoFrame)
+
+                        await MainActor.run { [weak strongSelf] in
+                            guard let self = strongSelf else { return }
                             self.delegate?.client(self, didReceiveFrame: frame)
                         }
                     }
