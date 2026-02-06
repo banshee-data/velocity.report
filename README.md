@@ -468,18 +468,18 @@ The project uses a consistent naming scheme for all make targets: `<action>-<sub
 
 ### Core Subsystem Targets
 
-| Action             | Go                                          | Python            | Web            | Docs              | macOS        |
-| ------------------ | ------------------------------------------- | ----------------- | -------------- | ----------------- | ------------ |
-| **install**        | -                                           | `install-python`  | `install-web`  | `install-docs`    | -            |
-| **build**          | `build-radar-*`                             | -                 | `build-web`    | `build-docs`      | `build-mac`  |
-| **dev**            | `dev-go`                                    | -                 | `dev-web`      | `dev-docs`        | `dev-mac`    |
-| **dev (variant)**  | `dev-go-lidar`<br>`dev-go-kill-server`      | -                 | -              | -                 | -            |
-| **run**            | -                                           | -                 | -              | -                 | `run-mac`    |
-| **test**           | `test-go`                                   | `test-python`     | `test-web`     | -                 | `test-mac`   |
-| **test (variant)** | `test-go-cov`<br>`test-go-coverage-summary` | `test-python-cov` | `test-web-cov` | -                 | -            |
-| **format**         | `format-go`                                 | `format-python`   | `format-web`   | `format-markdown` | `format-mac` |
-| **lint**           | `lint-go`                                   | `lint-python`     | `lint-web`     | -                 | -            |
-| **clean**          | -                                           | `clean-python`    | -              | -                 | `clean-mac`  |
+| Action             | Go                                                            | Python            | Web            | Docs              | macOS        |
+| ------------------ | ------------------------------------------------------------- | ----------------- | -------------- | ----------------- | ------------ |
+| **install**        | -                                                             | `install-python`  | `install-web`  | `install-docs`    | -            |
+| **build**          | `build-radar-*`                                               | -                 | `build-web`    | `build-docs`      | `build-mac`  |
+| **dev**            | `dev-go`                                                      | -                 | `dev-web`      | `dev-docs`        | `dev-mac`    |
+| **dev (variant)**  | `dev-go-lidar`<br>`dev-go-lidar-both`<br>`dev-go-kill-server` | -                 | -              | -                 | -            |
+| **run**            | -                                                             | -                 | -              | -                 | `run-mac`    |
+| **test**           | `test-go`                                                     | `test-python`     | `test-web`     | -                 | `test-mac`   |
+| **test (variant)** | `test-go-cov`<br>`test-go-coverage-summary`                   | `test-python-cov` | `test-web-cov` | -                 | -            |
+| **format**         | `format-go`                                                   | `format-python`   | `format-web`   | `format-markdown` | `format-mac` |
+| **lint**           | `lint-go`                                                     | `lint-python`     | `lint-web`     | -                 | -            |
+| **clean**          | -                                                             | `clean-python`    | -              | -                 | `clean-mac`  |
 
 **Cross-cutting formatting targets:**
 

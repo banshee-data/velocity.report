@@ -39,8 +39,8 @@ help:
 	@echo ""
 	@echo "DEVELOPMENT SERVERS:"
 	@echo "  dev-go               Start Go server (radar disabled)"
-	@echo "  dev-go-lidar         Start Go server with LiDAR enabled (both modes)"
-	@echo "  dev-go-lidar-grpc    Start Go server with gRPC-only mode"
+	@echo "  dev-go-lidar         Start Go server with LiDAR enabled (gRPC mode)"
+	@echo "  dev-go-lidar-both    Start Go server with LiDAR (both gRPC and 2370 forward)"
 	@echo "  dev-go-kill-server   Stop background Go server"
 	@echo "  dev-web              Start web dev server"
 	@echo "  dev-docs             Start docs dev server"
@@ -459,7 +459,7 @@ ensure-python-tools:
 # DEVELOPMENT SERVERS
 # =============================================================================
 
-.PHONY: dev-go dev-go-lidar dev-go-kill-server dev-web dev-docs dev-vis-server record-sample
+.PHONY: dev-go dev-go-lidar dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-vis-server record-sample
 
 # Reusable script for starting the app in background. Call with extra flags
 # using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we
@@ -509,10 +509,10 @@ dev-go:
 	@$(call run_dev_go)
 
 dev-go-lidar:
-	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward --lidar-forward-mode=both --lidar-bg-flush-disable)
+	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc)
 
-dev-go-lidar-grpc:
-	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --lidar-bg-flush-disable)
+dev-go-lidar-both:
+	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward --lidar-forward-mode=both)
 
 dev-go-kill-server:
 	@$(call run_dev_go_kill_server)
