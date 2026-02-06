@@ -1265,3 +1265,73 @@ func (db *DB) AttachAdminRoutes(mux *http.ServeMux) {
 		}
 	}))
 }
+
+// InsertRegionSnapshot persists a region snapshot into the lidar_bg_regions table
+// and returns the new region_set_id.
+func (db *DB) InsertRegionSnapshot(s *lidar.RegionSnapshot) (int64, error) {
+	if s == nil {
+		return 0, nil
+	}
+	stmt := `INSERT INTO lidar_bg_regions (snapshot_id, sensor_id, created_unix_nanos, region_count, regions_json, variance_data_json, settling_frames, scene_hash)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+	res, err := db.Exec(stmt, s.SnapshotID, s.SensorID, s.CreatedUnixNanos, s.RegionCount, s.RegionsJSON, s.VarianceDataJSON, s.SettlingFrames, s.SceneHash)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+// GetRegionSnapshotBySceneHash returns a region snapshot matching the given scene hash, or nil if none.
+// This is used to restore regions when processing a PCAP that matches a previously seen scene.
+func (db *DB) GetRegionSnapshotBySceneHash(sensorID, sceneHash string) (*lidar.RegionSnapshot, error) {
+	if sceneHash == "" {
+		return nil, nil
+	}
+	q := `SELECT region_set_id, snapshot_id, sensor_id, created_unix_nanos, region_count, regions_json, variance_data_json, settling_frames, scene_hash
+		  FROM lidar_bg_regions WHERE sensor_id = ? AND scene_hash = ? ORDER BY region_set_id DESC LIMIT 1`
+
+	row := db.QueryRow(q, sensorID, sceneHash)
+	return scanRegionSnapshot(row)
+}
+
+// GetLatestRegionSnapshot returns the most recent region snapshot for the given sensor_id, or nil if none.
+func (db *DB) GetLatestRegionSnapshot(sensorID string) (*lidar.RegionSnapshot, error) {
+	q := `SELECT region_set_id, snapshot_id, sensor_id, created_unix_nanos, region_count, regions_json, variance_data_json, settling_frames, scene_hash
+		  FROM lidar_bg_regions WHERE sensor_id = ? ORDER BY region_set_id DESC LIMIT 1`
+
+	row := db.QueryRow(q, sensorID)
+	return scanRegionSnapshot(row)
+}
+
+// scanRegionSnapshot scans a row into a RegionSnapshot struct.
+func scanRegionSnapshot(row *sql.Row) (*lidar.RegionSnapshot, error) {
+	var regionSetID int64
+	var snapshotID int64
+	var sensor string
+	var createdUnix int64
+	var regionCount int
+	var regionsJSON string
+	var varianceJSON sql.NullString
+	var settlingFrames sql.NullInt64
+	var sceneHash sql.NullString
+
+	if err := row.Scan(&regionSetID, &snapshotID, &sensor, &createdUnix, &regionCount, &regionsJSON, &varianceJSON, &settlingFrames, &sceneHash); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	snap := &lidar.RegionSnapshot{
+		RegionSetID:      &regionSetID,
+		SnapshotID:       snapshotID,
+		SensorID:         sensor,
+		CreatedUnixNanos: createdUnix,
+		RegionCount:      regionCount,
+		RegionsJSON:      regionsJSON,
+		VarianceDataJSON: varianceJSON.String,
+		SettlingFrames:   int(settlingFrames.Int64),
+		SceneHash:        sceneHash.String,
+	}
+	return snap, nil
+}

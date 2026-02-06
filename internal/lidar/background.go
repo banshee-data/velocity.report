@@ -3,7 +3,9 @@ package lidar
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
 	"encoding/gob"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -228,6 +230,76 @@ type BackgroundGrid struct {
 
 // Helper to index Cells: idx = ring*AzimuthBins + azBin
 func (g *BackgroundGrid) Idx(ring, azBin int) int { return ring*g.AzimuthBins + azBin }
+
+// SceneSignature generates a hash representing the background scene characteristics.
+// This allows detecting whether a saved region snapshot matches the current scene.
+// The hash is based on the distribution of cell ranges, coverage patterns, and variance.
+// Two PCAP files from the same physical location should produce similar scene signatures.
+func (g *BackgroundGrid) SceneSignature() string {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	if len(g.Cells) == 0 {
+		return ""
+	}
+
+	// Build signature from:
+	// 1. Grid dimensions (ensures same sensor config)
+	// 2. Histogram of range values (captures scene geometry)
+	// 3. Coverage pattern (which cells have data)
+	// 4. Spread distribution (captures surface characteristics)
+
+	// Quantise ranges into buckets (0-5m, 5-10m, 10-20m, 20-50m, 50-100m, >100m)
+	rangeBuckets := [6]int{}
+	spreadBuckets := [4]int{} // 0-0.05m, 0.05-0.1m, 0.1-0.2m, >0.2m
+	coverage := 0
+
+	for _, cell := range g.Cells {
+		if cell.TimesSeenCount == 0 {
+			continue
+		}
+		coverage++
+
+		r := cell.AverageRangeMeters
+		switch {
+		case r < 5:
+			rangeBuckets[0]++
+		case r < 10:
+			rangeBuckets[1]++
+		case r < 20:
+			rangeBuckets[2]++
+		case r < 50:
+			rangeBuckets[3]++
+		case r < 100:
+			rangeBuckets[4]++
+		default:
+			rangeBuckets[5]++
+		}
+
+		s := cell.RangeSpreadMeters
+		switch {
+		case s < 0.05:
+			spreadBuckets[0]++
+		case s < 0.1:
+			spreadBuckets[1]++
+		case s < 0.2:
+			spreadBuckets[2]++
+		default:
+			spreadBuckets[3]++
+		}
+	}
+
+	// Create a deterministic signature string
+	sig := fmt.Sprintf("v1:%d:%d:%d:r%d.%d.%d.%d.%d.%d:s%d.%d.%d.%d",
+		g.Rings, g.AzimuthBins, coverage,
+		rangeBuckets[0], rangeBuckets[1], rangeBuckets[2],
+		rangeBuckets[3], rangeBuckets[4], rangeBuckets[5],
+		spreadBuckets[0], spreadBuckets[1], spreadBuckets[2], spreadBuckets[3])
+
+	// Hash the signature for a fixed-length result
+	h := sha256.Sum256([]byte(sig))
+	return hex.EncodeToString(h[:16]) // Use first 16 bytes (32 hex chars)
+}
 
 // NewRegionManager creates a RegionManager for the grid
 func NewRegionManager(rings, azBins int) *RegionManager {
@@ -576,6 +648,123 @@ func (rm *RegionManager) GetRegionParams(regionID int) *RegionParams {
 		return nil
 	}
 	return &rm.Regions[regionID].Params
+}
+
+// ToSnapshot serialises the RegionManager's region data into a form suitable for database persistence.
+// Returns nil if regions have not yet been identified.
+func (rm *RegionManager) ToSnapshot(sensorID string, snapshotID int64) *RegionSnapshot {
+	if !rm.IdentificationComplete || len(rm.Regions) == 0 {
+		return nil
+	}
+
+	// Convert regions to serialisable form
+	regionData := make([]RegionData, len(rm.Regions))
+	for i, r := range rm.Regions {
+		regionData[i] = RegionData{
+			ID:           r.ID,
+			Params:       r.Params,
+			CellList:     r.CellList,
+			MeanVariance: r.MeanVariance,
+			CellCount:    r.CellCount,
+		}
+	}
+
+	regionsJSON, err := json.Marshal(regionData)
+	if err != nil {
+		log.Printf("[RegionManager] ToSnapshot: failed to marshal regions: %v", err)
+		return nil
+	}
+
+	// Optionally include variance data for debugging
+	var varianceJSON string
+	if len(rm.SettlingMetrics.VariancePerCell) > 0 {
+		type VarianceData struct {
+			VariancePerCell []float64 `json:"variance_per_cell"`
+			FramesSampled   int       `json:"frames_sampled"`
+		}
+		vd := VarianceData{
+			VariancePerCell: rm.SettlingMetrics.VariancePerCell,
+			FramesSampled:   rm.SettlingMetrics.FramesSampled,
+		}
+		if b, err := json.Marshal(vd); err == nil {
+			varianceJSON = string(b)
+		}
+	}
+
+	return &RegionSnapshot{
+		SnapshotID:       snapshotID,
+		SensorID:         sensorID,
+		CreatedUnixNanos: time.Now().UnixNano(),
+		RegionCount:      len(rm.Regions),
+		RegionsJSON:      string(regionsJSON),
+		VarianceDataJSON: varianceJSON,
+		SettlingFrames:   rm.SettlingMetrics.FramesSampled,
+		SceneHash:        "", // Will be set by caller with SceneSignature()
+	}
+}
+
+// RestoreFromSnapshot rebuilds the RegionManager state from a persisted snapshot.
+// This allows skipping the settling period when the scene hash matches.
+func (rm *RegionManager) RestoreFromSnapshot(snap *RegionSnapshot, totalCells int) error {
+	if snap == nil {
+		return fmt.Errorf("nil snapshot")
+	}
+
+	var regionData []RegionData
+	if err := json.Unmarshal([]byte(snap.RegionsJSON), &regionData); err != nil {
+		return fmt.Errorf("failed to unmarshal regions_json: %w", err)
+	}
+
+	if len(regionData) == 0 {
+		return fmt.Errorf("empty regions data")
+	}
+
+	// Rebuild CellToRegionID mapping
+	rm.CellToRegionID = make([]int, totalCells)
+	for i := range rm.CellToRegionID {
+		rm.CellToRegionID[i] = -1
+	}
+
+	// Rebuild regions
+	rm.Regions = make([]*Region, len(regionData))
+	for i, rd := range regionData {
+		region := &Region{
+			ID:           rd.ID,
+			Params:       rd.Params,
+			CellList:     rd.CellList,
+			MeanVariance: rd.MeanVariance,
+			CellCount:    rd.CellCount,
+			CellMask:     make([]bool, totalCells),
+		}
+		// Rebuild CellMask from CellList
+		for _, cellIdx := range rd.CellList {
+			if cellIdx >= 0 && cellIdx < totalCells {
+				region.CellMask[cellIdx] = true
+				rm.CellToRegionID[cellIdx] = rd.ID
+			}
+		}
+		rm.Regions[i] = region
+	}
+
+	// Restore variance data if present
+	if snap.VarianceDataJSON != "" {
+		var vd struct {
+			VariancePerCell []float64 `json:"variance_per_cell"`
+			FramesSampled   int       `json:"frames_sampled"`
+		}
+		if err := json.Unmarshal([]byte(snap.VarianceDataJSON), &vd); err == nil {
+			rm.SettlingMetrics.VariancePerCell = vd.VariancePerCell
+			rm.SettlingMetrics.FramesSampled = vd.FramesSampled
+		}
+	}
+
+	rm.IdentificationComplete = true
+	rm.IdentificationTime = time.Unix(0, snap.CreatedUnixNanos)
+
+	log.Printf("[RegionManager] Restored %d regions from snapshot (settling_frames=%d, scene_hash=%s)",
+		len(rm.Regions), snap.SettlingFrames, snap.SceneHash)
+
+	return nil
 }
 
 // BackgroundManager handles automatic persistence following schema lidar_bg_snapshot pattern
@@ -1112,6 +1301,76 @@ func (bm *BackgroundManager) SetRingElevations(elevations []float64) error {
 	return nil
 }
 
+// RestoreRegions restores the region manager from a previously saved snapshot.
+// This allows skipping the settling period when the scene hash matches.
+// On success, SettlingComplete is set to true.
+func (bm *BackgroundManager) RestoreRegions(snap *RegionSnapshot) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	if snap == nil {
+		return fmt.Errorf("nil region snapshot")
+	}
+
+	// Create or reset the region manager
+	totalCells := bm.Grid.Rings * bm.Grid.AzimuthBins
+	if bm.Grid.RegionMgr == nil {
+		bm.Grid.RegionMgr = NewRegionManager(bm.Grid.Rings, bm.Grid.AzimuthBins)
+	}
+
+	if err := bm.Grid.RegionMgr.RestoreFromSnapshot(snap, totalCells); err != nil {
+		return fmt.Errorf("failed to restore regions: %w", err)
+	}
+
+	// Mark settling complete since we restored from a valid snapshot
+	bm.Grid.mu.Lock()
+	bm.Grid.SettlingComplete = true
+	bm.Grid.WarmupFramesRemaining = 0
+	bm.Grid.mu.Unlock()
+
+	log.Printf("[BackgroundManager] Regions restored from snapshot: settling_complete=true, regions=%d",
+		snap.RegionCount)
+	return nil
+}
+
+// TryRestoreRegionsBySceneHash attempts to restore regions from the database if the current
+// scene signature matches a previously saved region snapshot. This is called early in PCAP
+// processing after collecting enough frames to compute a scene signature.
+// Returns true if regions were successfully restored.
+func (bm *BackgroundManager) TryRestoreRegionsBySceneHash(store RegionStore) bool {
+	if bm == nil || bm.Grid == nil || store == nil {
+		return false
+	}
+
+	// Compute current scene signature
+	sceneHash := bm.Grid.SceneSignature()
+	if sceneHash == "" {
+		log.Printf("[BackgroundManager] Cannot restore regions: scene hash is empty (not enough data)")
+		return false
+	}
+
+	// Try to find a matching region snapshot
+	snap, err := store.GetRegionSnapshotBySceneHash(bm.Grid.SensorID, sceneHash)
+	if err != nil {
+		log.Printf("[BackgroundManager] Error looking up region snapshot: %v", err)
+		return false
+	}
+	if snap == nil {
+		log.Printf("[BackgroundManager] No region snapshot found for scene_hash=%s", sceneHash)
+		return false
+	}
+
+	// Restore the regions
+	if err := bm.RestoreRegions(snap); err != nil {
+		log.Printf("[BackgroundManager] Failed to restore regions: %v", err)
+		return false
+	}
+
+	log.Printf("[BackgroundManager] Successfully restored regions from database: scene_hash=%s, regions=%d",
+		sceneHash, snap.RegionCount)
+	return true
+}
+
 // ProcessFramePolar ingests sensor-frame polar points and updates the BackgroundGrid.
 // Behavior:
 //   - Bins points by ring (channel) and azimuth bin.
@@ -1511,8 +1770,19 @@ type BgStore interface {
 	InsertBgSnapshot(s *BgSnapshot) (int64, error)
 }
 
+// RegionStore is an optional interface for persisting region snapshots.
+// Implementations that support region persistence should implement this interface
+// in addition to BgStore.
+type RegionStore interface {
+	InsertRegionSnapshot(s *RegionSnapshot) (int64, error)
+	GetRegionSnapshotBySceneHash(sensorID, sceneHash string) (*RegionSnapshot, error)
+	GetLatestRegionSnapshot(sensorID string) (*RegionSnapshot, error)
+}
+
 // Persist serializes the BackgroundGrid and writes a BgSnapshot via the provided store.
 // It updates grid snapshot metadata on success.
+// If the store also implements RegionStore and regions have been identified,
+// the region data is also persisted with a scene hash for future restoration.
 func (bm *BackgroundManager) Persist(store BgStore, reason string) error {
 	if bm == nil || bm.Grid == nil || store == nil {
 		return nil
@@ -1561,6 +1831,23 @@ func (bm *BackgroundManager) Persist(store BgStore, reason string) error {
 	if err != nil {
 		return err
 	}
+
+	// Persist region data if store supports it and regions have been identified
+	if regionStore, ok := store.(RegionStore); ok && g.RegionMgr != nil && g.RegionMgr.IdentificationComplete {
+		regionSnap := g.RegionMgr.ToSnapshot(g.SensorID, id)
+		if regionSnap != nil {
+			// Add scene hash for future matching
+			regionSnap.SceneHash = g.SceneSignature()
+			if _, err := regionStore.InsertRegionSnapshot(regionSnap); err != nil {
+				log.Printf("[BackgroundManager] Failed to persist region snapshot: %v", err)
+				// Don't fail the main snapshot persist for region errors
+			} else {
+				log.Printf("[BackgroundManager] Persisted region snapshot: sensor=%s, regions=%d, scene_hash=%s",
+					g.SensorID, regionSnap.RegionCount, regionSnap.SceneHash)
+			}
+		}
+	}
+
 	// Diagnostic logging: count nonzero cells using the copy we made earlier to avoid
 	// racing with concurrent ProcessFramePolar writers. cellsCopy was created under RLock.
 	nonzero := 0
