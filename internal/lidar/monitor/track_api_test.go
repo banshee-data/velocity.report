@@ -338,8 +338,12 @@ func TestTrackAPI_RegisterRoutes(t *testing.T) {
 	api := NewTrackAPI(nil, "test-sensor")
 	mux := http.NewServeMux()
 
-	// Should not panic
-	api.RegisterRoutes(mux)
+	// Register routes manually (mirrors WebServer.RegisterRoutes)
+	mux.HandleFunc("/api/lidar/tracks", api.handleListTracks)
+	mux.HandleFunc("/api/lidar/tracks/active", api.handleActiveTracks)
+	mux.HandleFunc("/api/lidar/tracks/summary", api.handleTrackSummary)
+	mux.HandleFunc("/api/lidar/clusters", api.handleListClusters)
+	mux.HandleFunc("/api/lidar/observations", api.handleListObservations)
 
 	// Verify routes are registered by making requests
 	tests := []struct {

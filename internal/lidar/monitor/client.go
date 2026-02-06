@@ -275,15 +275,15 @@ type TrackingParams struct {
 	MeasurementNoise      *float64 `json:"measurement_noise,omitempty"`
 }
 
-// SetTrackerConfig updates tracker configuration on the server.
+// SetTrackerConfig updates tracker configuration on the server via the consolidated /api/lidar/params endpoint.
 func (c *Client) SetTrackerConfig(params TrackingParams) error {
-	url := fmt.Sprintf("%s/api/lidar/tracks/config", c.BaseURL)
+	url := fmt.Sprintf("%s/api/lidar/params?sensor_id=%s", c.BaseURL, c.SensorID)
 	data, err := json.Marshal(params)
 	if err != nil {
 		return fmt.Errorf("marshal tracker config: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPut, url, bytes.NewReader(data))
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(data))
 	if err != nil {
 		return err
 	}

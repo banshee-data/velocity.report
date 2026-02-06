@@ -115,6 +115,9 @@ type WebServer struct {
 	// Track API for tracking endpoints
 	trackAPI *TrackAPI
 
+	// In-memory tracker for real-time config access (optional)
+	tracker *lidar.Tracker
+
 	// Analysis run manager for PCAP analysis mode
 	analysisRunManager *lidar.AnalysisRunManager
 
@@ -251,6 +254,15 @@ func (ws *WebServer) baseContext() context.Context {
 	ws.baseCtxMu.RLock()
 	defer ws.baseCtxMu.RUnlock()
 	return ws.baseCtx
+}
+
+// SetTracker sets the tracker reference for direct config access via /api/lidar/params.
+// Also propagates to trackAPI if available.
+func (ws *WebServer) SetTracker(tracker *lidar.Tracker) {
+	ws.tracker = tracker
+	if ws.trackAPI != nil {
+		ws.trackAPI.SetTracker(tracker)
+	}
 }
 
 // updateLatestFgCounts refreshes cached foreground counts for the status UI.
@@ -924,9 +936,24 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/pcap/stop", ws.handlePCAPStop)
 	mux.HandleFunc("/api/lidar/pcap/resume_live", ws.handlePCAPResumeLive)
 
-	// Register track API routes if available
+	// Chart API routes (structured JSON data for frontend charts)
+	mux.HandleFunc("/api/lidar/chart/polar", ws.handleChartPolarJSON)
+	mux.HandleFunc("/api/lidar/chart/heatmap", ws.handleChartHeatmapJSON)
+	mux.HandleFunc("/api/lidar/chart/foreground", ws.handleChartForegroundJSON)
+	mux.HandleFunc("/api/lidar/chart/clusters", ws.handleChartClustersJSON)
+	mux.HandleFunc("/api/lidar/chart/traffic", ws.handleChartTrafficJSON)
+
+	// Track API routes (delegate to TrackAPI handlers)
 	if ws.trackAPI != nil {
-		ws.trackAPI.RegisterRoutes(mux)
+		mux.HandleFunc("/api/lidar/tracks", ws.trackAPI.handleListTracks)
+		mux.HandleFunc("/api/lidar/tracks/history", ws.trackAPI.handleListTracks)
+		mux.HandleFunc("/api/lidar/tracks/active", ws.trackAPI.handleActiveTracks)
+		mux.HandleFunc("/api/lidar/tracks/metrics", ws.trackAPI.handleTrackingMetrics)
+		mux.HandleFunc("/api/lidar/tracks/", ws.trackAPI.handleTrackByID)
+		mux.HandleFunc("/api/lidar/tracks/summary", ws.trackAPI.handleTrackSummary)
+		mux.HandleFunc("/api/lidar/clusters", ws.trackAPI.handleListClusters)
+		mux.HandleFunc("/api/lidar/observations", ws.trackAPI.handleListObservations)
+		mux.HandleFunc("/api/lidar/tracks/clear", ws.trackAPI.handleClearTracks)
 	}
 }
 
@@ -935,14 +962,19 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", ws.handleStatus)
 	ws.RegisterRoutes(mux)
-	ws.RegisterChartAPIRoutes(mux)
 	return mux
 }
 
-// handleBackgroundParams allows reading and updating simple background parameters
+// handleBackgroundParams is the unified LIDAR configuration endpoint for both
+// background subtraction parameters and tracker configuration.
+//
 // Query params: sensor_id (required)
-// GET: returns { "noise_relative": <float>, "enable_diagnostics": <bool>, "closeness_multiplier": <float>, "neighbor_confirmation_count": <int> }
-// POST: accepts JSON { "noise_relative": <float>, "enable_diagnostics": <bool>, "closeness_multiplier": <float>, "neighbor_confirmation_count": <int> }
+//
+// GET: Returns all configuration parameters including:
+//   - Background params: noise_relative, closeness_multiplier, neighbor_confirmation_count, etc.
+//   - Tracker params (if tracker available): gating_distance_squared, process_noise_pos, etc.
+//
+// POST: Accepts partial JSON updates. All fields are optional; only non-nil fields are applied.
 func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Request) {
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
@@ -971,6 +1003,20 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 			"foreground_dbscan_eps":         params.ForegroundDBSCANEps,
 		}
 
+		// Include tracker config if tracker is available
+		if ws.tracker != nil {
+			cfg := ws.tracker.Config
+			resp["gating_distance_squared"] = cfg.GatingDistanceSquared
+			resp["process_noise_pos"] = cfg.ProcessNoisePos
+			resp["process_noise_vel"] = cfg.ProcessNoiseVel
+			resp["measurement_noise"] = cfg.MeasurementNoise
+			resp["occlusion_cov_inflation"] = cfg.OcclusionCovInflation
+			resp["hits_to_confirm"] = cfg.HitsToConfirm
+			resp["max_misses"] = cfg.MaxMisses
+			resp["max_misses_confirmed"] = cfg.MaxMissesConfirmed
+			resp["max_tracks"] = cfg.MaxTracks
+		}
+
 		if r.URL.Query().Get("format") == "pretty" {
 			w.Header().Set("Content-Type", "application/json")
 			enc := json.NewEncoder(w)
@@ -984,6 +1030,7 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 		return
 	case http.MethodPost:
 		var body struct {
+			// Background params
 			NoiseRelative              *float64 `json:"noise_relative"`
 			EnableDiagnostics          *bool    `json:"enable_diagnostics"`
 			ClosenessMultiplier        *float64 `json:"closeness_multiplier"`
@@ -994,6 +1041,15 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 			PostSettleUpdateFraction   *float64 `json:"post_settle_update_fraction"`
 			ForegroundMinClusterPoints *int     `json:"foreground_min_cluster_points"`
 			ForegroundDBSCANEps        *float64 `json:"foreground_dbscan_eps"`
+			// Tracker params
+			GatingDistanceSquared *float64 `json:"gating_distance_squared"`
+			ProcessNoisePos       *float64 `json:"process_noise_pos"`
+			ProcessNoiseVel       *float64 `json:"process_noise_vel"`
+			MeasurementNoise      *float64 `json:"measurement_noise"`
+			OcclusionCovInflation *float64 `json:"occlusion_cov_inflation"`
+			HitsToConfirm         *int     `json:"hits_to_confirm"`
+			MaxMisses             *int     `json:"max_misses"`
+			MaxMissesConfirmed    *int     `json:"max_misses_confirmed"`
 		}
 
 		// Check if this is a form submission from the status page
@@ -1078,6 +1134,34 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 			}
 		}
 
+		// Apply tracker config changes if tracker is available
+		if ws.tracker != nil {
+			if body.GatingDistanceSquared != nil {
+				ws.tracker.Config.GatingDistanceSquared = float32(*body.GatingDistanceSquared)
+			}
+			if body.ProcessNoisePos != nil {
+				ws.tracker.Config.ProcessNoisePos = float32(*body.ProcessNoisePos)
+			}
+			if body.ProcessNoiseVel != nil {
+				ws.tracker.Config.ProcessNoiseVel = float32(*body.ProcessNoiseVel)
+			}
+			if body.MeasurementNoise != nil {
+				ws.tracker.Config.MeasurementNoise = float32(*body.MeasurementNoise)
+			}
+			if body.OcclusionCovInflation != nil {
+				ws.tracker.Config.OcclusionCovInflation = float32(*body.OcclusionCovInflation)
+			}
+			if body.HitsToConfirm != nil {
+				ws.tracker.Config.HitsToConfirm = *body.HitsToConfirm
+			}
+			if body.MaxMisses != nil {
+				ws.tracker.Config.MaxMisses = *body.MaxMisses
+			}
+			if body.MaxMissesConfirmed != nil {
+				ws.tracker.Config.MaxMissesConfirmed = *body.MaxMissesConfirmed
+			}
+		}
+
 		// Read back current params for confirmation
 		cur := bm.GetParams()
 		// Emit an info log so operators can see applied changes in the app logs
@@ -1095,8 +1179,7 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		resp := map[string]interface{}{
 			"status":                        "ok",
 			"noise_relative":                cur.NoiseRelativeFraction,
 			"enable_diagnostics":            bm.EnableDiagnostics,
@@ -1108,7 +1191,24 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 			"post_settle_update_fraction":   cur.PostSettleUpdateFraction,
 			"foreground_min_cluster_points": cur.ForegroundMinClusterPoints,
 			"foreground_dbscan_eps":         cur.ForegroundDBSCANEps,
-		})
+		}
+
+		// Include tracker config in response if tracker is available
+		if ws.tracker != nil {
+			cfg := ws.tracker.Config
+			resp["gating_distance_squared"] = cfg.GatingDistanceSquared
+			resp["process_noise_pos"] = cfg.ProcessNoisePos
+			resp["process_noise_vel"] = cfg.ProcessNoiseVel
+			resp["measurement_noise"] = cfg.MeasurementNoise
+			resp["occlusion_cov_inflation"] = cfg.OcclusionCovInflation
+			resp["hits_to_confirm"] = cfg.HitsToConfirm
+			resp["max_misses"] = cfg.MaxMisses
+			resp["max_misses_confirmed"] = cfg.MaxMissesConfirmed
+			resp["max_tracks"] = cfg.MaxTracks
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
 		return
 	default:
 		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -2239,6 +2339,7 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		bgParams = &params
 
 		bgParamDefs = []ParamDef{
+			// Background subtraction params
 			{"noise_relative", "Noise Relative Fraction", params.NoiseRelativeFraction, "%.4f"},
 			{"closeness_multiplier", "Closeness Sensitivity Multiplier", params.ClosenessSensitivityMultiplier, "%.2f"},
 			{"neighbor_confirmation_count", "Neighbor Confirmation Count", params.NeighborConfirmationCount, ""},
@@ -2251,6 +2352,22 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 			{"foreground_min_cluster_points", "Foreground Min Cluster Points", params.ForegroundMinClusterPoints, ""},
 			{"foreground_dbscan_eps", "Foreground DBSCAN Eps", params.ForegroundDBSCANEps, "%.3f"},
 			{"enable_diagnostics", "Enable Diagnostics", mgr.EnableDiagnostics, ""},
+		}
+
+		// Add tracker params if tracker is available
+		if ws.tracker != nil {
+			cfg := ws.tracker.Config
+			bgParamDefs = append(bgParamDefs,
+				ParamDef{"gating_distance_squared", "Gating Distance Squared", cfg.GatingDistanceSquared, "%.2f"},
+				ParamDef{"process_noise_pos", "Process Noise Position", cfg.ProcessNoisePos, "%.4f"},
+				ParamDef{"process_noise_vel", "Process Noise Velocity", cfg.ProcessNoiseVel, "%.4f"},
+				ParamDef{"measurement_noise", "Measurement Noise", cfg.MeasurementNoise, "%.4f"},
+				ParamDef{"occlusion_cov_inflation", "Occlusion Covariance Inflation", cfg.OcclusionCovInflation, "%.2f"},
+				ParamDef{"hits_to_confirm", "Hits to Confirm Track", cfg.HitsToConfirm, ""},
+				ParamDef{"max_misses", "Max Misses (tentative)", cfg.MaxMisses, ""},
+				ParamDef{"max_misses_confirmed", "Max Misses (confirmed)", cfg.MaxMissesConfirmed, ""},
+				ParamDef{"max_tracks", "Max Tracks", cfg.MaxTracks, ""},
+			)
 		}
 
 		// Create a map for JSON representation matching the API structure

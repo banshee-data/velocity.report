@@ -458,6 +458,10 @@ func main() {
 				}
 			},
 		})
+		// Wire tracker for in-memory config access via /api/lidar/params
+		if tracker != nil {
+			lidarWebServer.SetTracker(tracker)
+		}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

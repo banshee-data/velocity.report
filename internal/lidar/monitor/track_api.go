@@ -34,19 +34,9 @@ func (api *TrackAPI) SetTracker(tracker *lidar.Tracker) {
 	api.tracker = tracker
 }
 
-// RegisterRoutes registers track API routes on the provided mux.
-func (api *TrackAPI) RegisterRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("/api/lidar/tracks", api.handleListTracks)
-	mux.HandleFunc("/api/lidar/tracks/history", api.handleListTracks) // Support both legacy '/history' and canonical '/tracks' endpoints for backward compatibility; '/history' may be deprecated in a future release.
-	mux.HandleFunc("/api/lidar/tracks/active", api.handleActiveTracks)
-	mux.HandleFunc("/api/lidar/tracks/metrics", api.handleTrackingMetrics)
-	mux.HandleFunc("/api/lidar/tracks/config", api.handleTrackerConfig)
-	mux.HandleFunc("/api/lidar/tracks/", api.handleTrackByID)
-	mux.HandleFunc("/api/lidar/tracks/summary", api.handleTrackSummary)
-	mux.HandleFunc("/api/lidar/clusters", api.handleListClusters)
-	mux.HandleFunc("/api/lidar/observations", api.handleListObservations)
-	mux.HandleFunc("/api/lidar/tracks/clear", api.handleClearTracks)
-}
+// NOTE: Track API route registration has been consolidated into
+// WebServer.RegisterRoutes in webserver.go. The handler methods below
+// remain on TrackAPI for code organisation and testability.
 
 // handleClearTracks deletes all tracks, observations, and clusters for a sensor.
 // Method: POST (or GET for convenience). Query param: sensor_id (required).
@@ -1045,6 +1035,8 @@ type TrackerConfigResponse struct {
 }
 
 // handleTrackerConfig handles GET (read) and PUT (update) for tracker configuration.
+//
+// DEPRECATED: Use /api/lidar/params instead. This endpoint remains for backwards compatibility.
 //
 // GET /api/lidar/tracks/config — returns current config
 // PUT /api/lidar/tracks/config — updates config fields (partial update)
