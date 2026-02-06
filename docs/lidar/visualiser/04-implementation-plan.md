@@ -12,7 +12,7 @@ This document defines an incremental, API-first implementation plan with explici
 - ✅ **M4: Tracking Interface Refactor** — Complete (Track A + Track B)
 - ✅ **M5: Algorithm Upgrades** — Complete (Track B)
 - ✅ **M6: Debug + Labelling** — Complete (Track B)
-- 🔶 **M7** — In progress (7.1 and 7.2 complete)
+- 🔶 **M7: Performance Hardening** — In progress (7.1, 7.2, and 7.3 complete)
 
 **Checkbox Legend**:
 

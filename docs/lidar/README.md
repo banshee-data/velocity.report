@@ -104,6 +104,25 @@ Tracking pipeline refactor and upgrade proposals.
 - ✅ Analysis run infrastructure (params JSON, run comparison)
 - ✅ Port 2370 foreground streaming
 
+**macOS Visualiser (Milestones M0–M7):**
+
+- ✅ M0: Schema + Synthetic — gRPC streaming, synthetic data
+- ✅ M1: Recorder/Replayer — Deterministic playback with seek/pause
+- ✅ M2: Real Point Clouds — Live pipeline via gRPC
+- ✅ M3: Canonical Model — LidarView + gRPC from same source
+- ✅ M3.5: Split Streaming — 96% bandwidth reduction (BG/FG separation)
+- ✅ M4: Tracking Interface — Golden replay tests, deterministic clustering
+- ✅ M5: Algorithm Upgrades — OBB, Hungarian association, occlusion handling
+- ✅ M6: Debug + Labelling — Full debug overlays, label export
+- 🔶 M7: Performance Hardening — Buffer pooling (7.1, 7.2, 7.3 complete)
+
+**Test Coverage (February 2026):**
+
+- `internal/lidar/visualiser`: 92.3%
+- `internal/lidar/network`: 92.9%
+- `internal/lidar/sweep`: 99.4%
+- `internal/lidar`: 88.2%
+
 **Resolved Issues (January 2026):**
 
 - ✅ Warmup trails (sensitivity scaling fix)
