@@ -166,14 +166,14 @@ scripts/api/lidar/set_params.sh
 
 ### Tracker Parameters
 
-Tracker configuration is set via a separate endpoint:
+Tracker configuration is now part of the unified `/api/lidar/params` endpoint alongside background parameters:
 
 ```bash
-# Read current tracker config
-curl -s http://localhost:8081/api/lidar/tracks/config?sensor_id=hesai-pandar40p | jq .
+# Read all config including tracker params
+curl -s http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p | jq .
 
 # Apply optimised tracker parameters (partial update — only send fields you want to change)
-curl -s -X PUT http://localhost:8081/api/lidar/tracks/config?sensor_id=hesai-pandar40p \
+curl -s -X POST http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p \
   -H 'Content-Type: application/json' \
   -d '{
     "gating_distance_squared": 36.0,
@@ -238,11 +238,14 @@ make dev-go
 # 6. Apply the best combination and visually verify
 curl -s -X POST http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p \
   -H 'Content-Type: application/json' \
-  -d '{"noise_relative": 0.015, "closeness_multiplier": 2.0, "neighbor_confirmation_count": 1}'
-
-curl -s -X PUT http://localhost:8081/api/lidar/tracks/config?sensor_id=hesai-pandar40p \
-  -H 'Content-Type: application/json' \
-  -d '{"gating_distance_squared": 36.0, "process_noise_pos": 0.15, "measurement_noise": 0.2}'
+  -d '{
+    "noise_relative": 0.015,
+    "closeness_multiplier": 2.0,
+    "neighbor_confirmation_count": 1,
+    "gating_distance_squared": 36.0,
+    "process_noise_pos": 0.15,
+    "measurement_noise": 0.2
+  }'
 ```
 
 ## Analysis Scripts
