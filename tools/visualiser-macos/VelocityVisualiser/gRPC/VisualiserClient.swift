@@ -502,7 +502,8 @@ final class LockedState<Value>: @unchecked Sendable {
                         occlusionCount: Int(t.occlusionCount), confidence: t.confidence,
                         occlusionState: OcclusionState(rawValue: Int(t.occlusionState.rawValue))
                             ?? .none,
-                        motionModel: MotionModel(rawValue: Int(t.motionModel.rawValue)) ?? .cv)
+                        motionModel: MotionModel(rawValue: Int(t.motionModel.rawValue)) ?? .cv,
+                        alpha: t.alpha > 0 ? t.alpha : 1.0)
                 },
                 trails: proto.tracks.trails.map { trail in
                     TrackTrail(

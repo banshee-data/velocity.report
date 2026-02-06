@@ -330,7 +330,10 @@ class MetalRenderer: NSObject, MTKViewDelegate {
                     track.bboxWidthAvg > 0 ? track.bboxWidthAvg : 1.0,
                     track.bboxHeightAvg > 0 ? track.bboxHeightAvg : 1.0, 1.0))
 
-            let rotation = simd_float4x4(rotationZ: track.headingRad)
+            // Use OBB heading for box orientation (aligns box to physical shape);
+            // fall back to velocity heading if OBB heading unavailable.
+            let boxHeading = track.bboxHeadingRad != 0 ? track.bboxHeadingRad : track.headingRad
+            let rotation = simd_float4x4(rotationZ: boxHeading)
             let translation = simd_float4x4(translation: simd_float3(track.x, track.y, track.z))
             let transform = translation * rotation * scale
 
@@ -344,13 +347,13 @@ class MetalRenderer: NSObject, MTKViewDelegate {
                 instances.append(1.0)  // r (white highlight)
                 instances.append(1.0)  // g
                 instances.append(1.0)  // b
-                instances.append(1.0)  // alpha
+                instances.append(track.alpha)  // alpha (supports fade-out)
             } else {
                 let colour = track.state.colour
                 instances.append(colour.r)
                 instances.append(colour.g)
                 instances.append(colour.b)
-                instances.append(1.0)  // alpha
+                instances.append(track.alpha)  // alpha (supports fade-out)
             }
         }
 
@@ -464,7 +467,10 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         if let trackSet = tracks {
             for track in trackSet.tracks {
                 guard track.bboxHeadingRad != 0 || track.headingRad != 0 else { continue }
-                let heading = track.bboxHeadingRad != 0 ? track.bboxHeadingRad : track.headingRad
+                // Prefer velocity-based heading (direction of travel) over PCA heading
+                // for track arrows. PCA heading (bboxHeadingRad) is used for box rotation
+                // but velocity heading better represents direction of motion.
+                let heading = track.headingRad != 0 ? track.headingRad : track.bboxHeadingRad
                 let arrowLength = max(track.bboxLengthAvg, track.bboxWidthAvg, 1.0) * 0.8
 
                 let tipX = track.x + cos(heading) * arrowLength
@@ -472,15 +478,14 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
                 let isSelected = selectedTrackID == track.trackID
                 let colour = track.state.colour
+                let arrowAlpha = track.alpha * (isSelected ? 1.0 : 0.8)
 
                 // Main arrow shaft
                 vertices.append(contentsOf: [
-                    track.x, track.y, track.z + 0.05, colour.r, colour.g, colour.b,
-                    isSelected ? 1.0 : 0.8,
+                    track.x, track.y, track.z + 0.05, colour.r, colour.g, colour.b, arrowAlpha,
                 ])
                 vertices.append(contentsOf: [
-                    tipX, tipY, track.z + 0.05, colour.r, colour.g, colour.b,
-                    isSelected ? 1.0 : 0.8,
+                    tipX, tipY, track.z + 0.05, colour.r, colour.g, colour.b, arrowAlpha,
                 ])
 
                 // Arrowhead left
@@ -489,24 +494,20 @@ class MetalRenderer: NSObject, MTKViewDelegate {
                 let leftX = tipX - cos(heading - headAngle) * headLen
                 let leftY = tipY - sin(heading - headAngle) * headLen
                 vertices.append(contentsOf: [
-                    tipX, tipY, track.z + 0.05, colour.r, colour.g, colour.b,
-                    isSelected ? 1.0 : 0.8,
+                    tipX, tipY, track.z + 0.05, colour.r, colour.g, colour.b, arrowAlpha,
                 ])
                 vertices.append(contentsOf: [
-                    leftX, leftY, track.z + 0.05, colour.r, colour.g, colour.b,
-                    isSelected ? 1.0 : 0.8,
+                    leftX, leftY, track.z + 0.05, colour.r, colour.g, colour.b, arrowAlpha,
                 ])
 
                 // Arrowhead right
                 let rightX = tipX - cos(heading + headAngle) * headLen
                 let rightY = tipY - sin(heading + headAngle) * headLen
                 vertices.append(contentsOf: [
-                    tipX, tipY, track.z + 0.05, colour.r, colour.g, colour.b,
-                    isSelected ? 1.0 : 0.8,
+                    tipX, tipY, track.z + 0.05, colour.r, colour.g, colour.b, arrowAlpha,
                 ])
                 vertices.append(contentsOf: [
-                    rightX, rightY, track.z + 0.05, colour.r, colour.g, colour.b,
-                    isSelected ? 1.0 : 0.8,
+                    rightX, rightY, track.z + 0.05, colour.r, colour.g, colour.b, arrowAlpha,
                 ])
             }
         }
