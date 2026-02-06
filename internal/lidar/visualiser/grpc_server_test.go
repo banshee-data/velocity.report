@@ -1045,8 +1045,8 @@ func TestStreamFromPublisher_WithPause(t *testing.T) {
 	// Give time for client to register
 	time.Sleep(10 * time.Millisecond)
 
-	// Pause the server
-	server.paused = true
+	// Pause the server using the Pause method (with proper synchronization)
+	_, _ = server.Pause(ctx, &pb.PauseRequest{})
 
 	// Publish frames while paused - these should be dropped
 	for i := 0; i < 3; i++ {
@@ -1072,8 +1072,8 @@ func TestStreamFromPublisher_WithPause(t *testing.T) {
 	frameCountPaused := len(receivedFrames)
 	mu.Unlock()
 
-	// Unpause and send more frames
-	server.paused = false
+	// Unpause and send more frames using the Play method (with proper synchronization)
+	_, _ = server.Play(ctx, &pb.PlayRequest{})
 
 	for i := 0; i < 3; i++ {
 		frame := &FrameBundle{

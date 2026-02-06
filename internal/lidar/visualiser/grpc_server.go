@@ -44,9 +44,11 @@ type Server struct {
 	// Playback state — used by PCAP and replay modes.
 	// In PCAP mode, pause/play are honoured at the stream level
 	// (frames are silently dropped while paused).
+	// Protected by playbackMu for concurrent access.
 	paused       bool
 	playbackRate float32
 	replayMode   bool // True when replaying a PCAP or log (not live sensor)
+	playbackMu   sync.RWMutex
 
 	// PCAP progress tracking (updated by WebServer progress callback)
 	pcapCurrentPacket uint64
@@ -123,7 +125,10 @@ func (s *Server) streamSynthetic(ctx context.Context, req *pb.StreamRequest, str
 			log.Printf("[gRPC] StreamFrames cancelled")
 			return ctx.Err()
 		case <-ticker.C:
-			if s.paused {
+			s.playbackMu.RLock()
+			paused := s.paused
+			s.playbackMu.RUnlock()
+			if paused {
 				continue
 			}
 
@@ -238,7 +243,10 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 		case frame := <-frameCh:
 			// Respect pause state — drop frames silently while paused.
 			// M7: Release the retained reference since we won't process this frame.
-			if s.paused {
+			s.playbackMu.RLock()
+			paused := s.paused
+			s.playbackMu.RUnlock()
+			if paused {
 				if frame.PointCloud != nil {
 					frame.PointCloud.Release()
 				}
@@ -279,6 +287,7 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			// Inject PlaybackInfo for replay mode (PCAP) if not already set.
 			// This allows the client to show "REPLAY" instead of "LIVE".
 			if s.replayMode && frame.PlaybackInfo == nil {
+				s.playbackMu.RLock()
 				frame.PlaybackInfo = &PlaybackInfo{
 					IsLive:            false,
 					PlaybackRate:      s.playbackRate,
@@ -286,6 +295,7 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 					CurrentFrameIndex: s.pcapCurrentPacket,
 					TotalFrames:       s.pcapTotalPackets,
 				}
+				s.playbackMu.RUnlock()
 			}
 
 			// Measure serialisation and send time
@@ -525,19 +535,25 @@ func byteSliceToUint32(b []uint8) []uint32 {
 
 // Pause pauses playback (replay mode).
 func (s *Server) Pause(ctx context.Context, req *pb.PauseRequest) (*pb.PlaybackStatus, error) {
+	s.playbackMu.Lock()
 	s.paused = true
+	rate := s.playbackRate
+	s.playbackMu.Unlock()
 	return &pb.PlaybackStatus{
 		Paused: true,
-		Rate:   s.playbackRate,
+		Rate:   rate,
 	}, nil
 }
 
 // Play resumes playback (replay mode).
 func (s *Server) Play(ctx context.Context, req *pb.PlayRequest) (*pb.PlaybackStatus, error) {
+	s.playbackMu.Lock()
 	s.paused = false
+	rate := s.playbackRate
+	s.playbackMu.Unlock()
 	return &pb.PlaybackStatus{
 		Paused: false,
-		Rate:   s.playbackRate,
+		Rate:   rate,
 	}, nil
 }
 
@@ -549,10 +565,14 @@ func (s *Server) Seek(ctx context.Context, req *pb.SeekRequest) (*pb.PlaybackSta
 
 // SetRate sets the playback rate.
 func (s *Server) SetRate(ctx context.Context, req *pb.SetRateRequest) (*pb.PlaybackStatus, error) {
+	s.playbackMu.Lock()
 	s.playbackRate = req.Rate
+	paused := s.paused
+	rate := s.playbackRate
+	s.playbackMu.Unlock()
 	return &pb.PlaybackStatus{
-		Paused: s.paused,
-		Rate:   s.playbackRate,
+		Paused: paused,
+		Rate:   rate,
 	}, nil
 }
 
