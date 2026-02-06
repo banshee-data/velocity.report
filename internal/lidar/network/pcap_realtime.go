@@ -399,7 +399,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 			// Log progress periodically
 			if packetCount%10000 == 0 {
 				elapsed := time.Since(startTime)
-				log.Printf("PCAP real-time replay progress: %d packets in %v (%.0f pkt/s, speed: %.1fx)",
+				lidar.Debugf("PCAP real-time replay progress: %d packets in %v (%.0f pkt/s, speed: %.1fx)",
 					packetCount, elapsed, float64(packetCount)/elapsed.Seconds(), config.SpeedMultiplier)
 			}
 		}

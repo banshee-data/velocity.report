@@ -209,7 +209,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 			if !lastProcessedTime.IsZero() && now.Sub(lastProcessedTime) < minFrameInterval {
 				count := throttledFrames.Add(1)
 				if count%50 == 0 {
-					log.Printf("[Pipeline] Throttled %d frames (max %.0f fps)", count, cfg.MaxFrameRate)
+					debugf("[Pipeline] Throttled %d frames (max %.0f fps)", count, cfg.MaxFrameRate)
 				}
 				return
 			}
