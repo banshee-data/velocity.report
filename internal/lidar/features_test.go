@@ -199,13 +199,17 @@ func TestComputeHeadingVariance_StraightLine(t *testing.T) {
 }
 
 func TestComputeHeadingVariance_Turning(t *testing.T) {
-	// Points that turn → heading variance > 0
+	// Points that turn with varying rates → heading variance > 0
+	// First segment: straight (heading 0)
+	// Second segment: turn 45° (heading π/4)
+	// Third segment: turn 60° more (heading π/4 + π/3)
+	// Fourth segment: slight turn (heading π/4 + π/3 + π/6)
 	history := []TrackPoint{
 		{X: 0, Y: 0},
-		{X: 1, Y: 0},
-		{X: 2, Y: 1},
-		{X: 2, Y: 2},
-		{X: 1, Y: 3},
+		{X: 1, Y: 0},     // heading 0
+		{X: 2, Y: 1},     // heading π/4 (45°)
+		{X: 2, Y: 2.732}, // heading ~π/2 + π/6 (longer vertical segment)
+		{X: 1.5, Y: 3.5}, // shallow turn
 	}
 	v := computeHeadingVariance(history)
 	if v <= 0 {
