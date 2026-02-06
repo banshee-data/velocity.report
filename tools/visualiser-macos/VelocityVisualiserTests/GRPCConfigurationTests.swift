@@ -25,18 +25,7 @@ struct DecimationModeConfigurationTests {
         #expect(DecimationMode.foregroundOnly.rawValue == 3)
     }
 
-    @Test func decimationModeFromValidRawValues() throws {
-        #expect(DecimationMode(rawValue: 0) == .none)
-        #expect(DecimationMode(rawValue: 1) == .uniform)
-        #expect(DecimationMode(rawValue: 2) == .voxel)
-        #expect(DecimationMode(rawValue: 3) == .foregroundOnly)
-    }
-
-    @Test func decimationModeFromInvalidRawValue() throws {
-        #expect(DecimationMode(rawValue: 4) == nil)
-        #expect(DecimationMode(rawValue: -1) == nil)
-        #expect(DecimationMode(rawValue: 100) == nil)
-    }
+    // Note: decimationModeFromRawValue tests are in VelocityVisualiserTests.swift
 }
 
 // MARK: - Track Alpha Rendering Tests
