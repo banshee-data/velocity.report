@@ -89,7 +89,7 @@ The configuration system supports partial configs. You can specify only the para
 
 ### Precedence
 
-When `--config` is specified, the JSON file is loaded on top of the built-in defaults, so fields omitted from the file keep their default values. 
+When `--config` is specified, the JSON file is loaded on top of the built-in defaults, so fields omitted from the file keep their default values.
 
 When `--config` is **not** specified, built-in defaults are used.
 
