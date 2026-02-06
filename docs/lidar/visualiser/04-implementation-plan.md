@@ -425,7 +425,7 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 - [ ] Decimation auto-adjustment based on bandwidth
 - [ ] Memory profiling for 100+ track scale
 - [x] PointCloudFrame memory pool with reference counting (see §7.2 below) — M7.2 implemented
-- [ ] Frame skipping with cooldown mechanism (see §7.3 below)
+- [x] Frame skipping with cooldown mechanism (see §7.3 below) — M7.3 implemented
 
 **Acceptance Criteria**:
 
@@ -452,6 +452,7 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 **Recommendation**: Start with option 1 (simplest), benchmark, escalate to option 2 if needed.
 
 **Implementation (February 2026)**: Option 1 implemented in both `MetalRenderer.swift` and `CompositePointCloudRenderer.swift`:
+
 - Buffer capacity tracked separately from point count
 - Reallocation only when capacity is insufficient or >4x larger than needed
 - 50% growth margin to reduce reallocation frequency
@@ -467,7 +468,7 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 
 | Option                            | Description                                                                                                                                        | Pros                                                 | Cons                                                   |
 | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------ |
-| **A: Reference Counting** ✅       | Add `refCount` field to PointCloudFrame. Increment on broadcast to each client, decrement after protobuf conversion. Release when count hits zero. | Pool actually gets reused; memory-efficient at scale | Added complexity; must ensure all code paths decrement |
+| **A: Reference Counting** ✅      | Add `refCount` field to PointCloudFrame. Increment on broadcast to each client, decrement after protobuf conversion. Release when count hits zero. | Pool actually gets reused; memory-efficient at scale | Added complexity; must ensure all code paths decrement |
 | **B: Copy-on-Broadcast**          | Each client receives a deep copy of the frame                                                                                                      | Simple ownership model; no shared state              | Defeats purpose of pooling; higher memory use          |
 | **C: Single-Client Optimisation** | Only use pool in replay mode (single client). Live mode uses regular allocation.                                                                   | Works today without changes                          | Pool only helps replay; live mode still allocates      |
 | **D: Remove Pooling**             | Delete pool code; use regular slices                                                                                                               | Simplest; fewer bugs                                 | Higher GC pressure at 70k points × 10 Hz               |
@@ -515,7 +516,9 @@ for _, client := range p.clients {
 frame.PointCloud.Release()
 ```
 
-#### 7.3 Frame Skipping Cooldown
+#### 7.3 Frame Skipping Cooldown ✅
+
+**Status**: Implemented (July 2025)
 
 **Problem**: The gRPC streaming code skips frames when `consecutiveSlowSends >= maxConsecutiveSlowSends`, but there's no cooldown after catching up. This could cause continued aggressive skipping even after the client recovers.
 
@@ -523,23 +526,15 @@ frame.PointCloud.Release()
 
 **Proposed Enhancement**: After entering skip mode, require N consecutive fast sends before exiting skip mode (hysteresis). This prevents oscillation.
 
-```go
-const (
-    maxConsecutiveSlowSends = 3   // Enter skip mode
-    minConsecutiveFastSends = 5   // Exit skip mode (cooldown)
-)
+**Implementation (July 2025)**:
 
-if sendDuration.Milliseconds() <= slowSendThresholdMs {
-    consecutiveFastSends++
-    if consecutiveFastSends >= minConsecutiveFastSends {
-        consecutiveSlowSends = 0 // Exit skip mode
-        consecutiveFastSends = 0
-    }
-} else {
-    consecutiveFastSends = 0
-    consecutiveSlowSends++
-}
-```
+- Extracted `sendCooldown` struct in `grpc_server.go` with hysteresis logic
+- `maxConsecutiveSlowSends = 3` — consecutive slow sends to enter skip mode
+- `minConsecutiveFastSends = 5` — consecutive fast sends required to exit skip mode
+- `recordSlow()` / `recordFast()` / `inSkipMode()` methods for clean separation
+- A slow send during recovery resets the fast counter, preventing premature exit
+- In normal mode, a fast send resets the slow counter (original behaviour preserved)
+- 9 unit tests covering: entry, exit, interruption, return values, threshold edge cases
 
 #### 7.4 Decimation Edge Cases
 
