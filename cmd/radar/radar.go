@@ -62,17 +62,6 @@ var (
 	lidarFGFwdPort = flag.Int("lidar-foreground-forward-port", 2370, "Port to forward foreground LiDAR packets to")
 	lidarFGFwdAddr = flag.String("lidar-foreground-forward-addr", "localhost", "Address to forward foreground LiDAR packets to")
 	lidarPCAPDir   = flag.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
-	// Background tuning knobs
-	lidarBgFlushInterval = flag.Duration("lidar-bg-flush-interval", 60*time.Second, "Interval to flush background grid to database when reading PCAP")
-	lidarBgFlushDisable  = flag.Bool("lidar-bg-flush-disable", false, "Disable periodic background grid flushing to database (reduces CPU/IO during dev)")
-	lidarBgNoiseRelative = flag.Float64("lidar-bg-noise-relative", 0.04, "Background NoiseRelativeFraction: fraction of range treated as expected measurement noise (e.g., 0.04 = 4%)")
-	// FrameBuilder tuning knobs
-	lidarFrameBufferTimeout = flag.Duration("lidar-frame-buffer-timeout", 500*time.Millisecond, "FrameBuilder buffer timeout: finalize idle frames after this duration")
-	lidarMinFramePoints     = flag.Int("lidar-min-frame-points", 1000, "FrameBuilder MinFramePoints: minimum points required for a valid frame before finalizing")
-	// Seed background from first observation (useful for PCAP replay and dev runs)
-	// Default: true in this branch to re-enable the dev-friendly behavior; can be
-	// disabled via CLI when running in production if desired.
-	lidarSeedFromFirst = flag.Bool("lidar-seed-from-first", true, "Seed background cells from first observation (dev/pcap helper)")
 	// Visualiser gRPC streaming (M2)
 	lidarForwardMode = flag.String("lidar-forward-mode", "lidarview", "Forward mode: lidarview (UDP only), grpc (gRPC only), or both (UDP + gRPC)")
 	lidarGRPCListen  = flag.String("lidar-grpc-listen", "localhost:50051", "gRPC server listen address for visualiser streaming")
@@ -246,29 +235,13 @@ func main() {
 		// Use the main DB instance for lidar data (no separate lidar DB file)
 		lidarDB := database
 
-		// Determine tuning values: config file takes precedence when --config is specified
-		var bgNoiseRelative float64
-		var bgFlushInterval time.Duration
-		var bgFlushDisable bool
-		var seedFromFirst bool
-		var frameBufferTimeout time.Duration
-		var minFramePoints int
-
-		if *configFile != "" {
-			bgNoiseRelative = tuningCfg.Lidar.Background.NoiseRelativeFraction
-			bgFlushInterval = tuningCfg.Lidar.Background.GetFlushInterval()
-			bgFlushDisable = tuningCfg.Lidar.Background.FlushDisable
-			seedFromFirst = tuningCfg.Lidar.Background.SeedFromFirst
-			frameBufferTimeout = tuningCfg.Lidar.FrameBuilder.GetBufferTimeout()
-			minFramePoints = tuningCfg.Lidar.FrameBuilder.MinFramePoints
-		} else {
-			bgNoiseRelative = *lidarBgNoiseRelative
-			bgFlushInterval = *lidarBgFlushInterval
-			bgFlushDisable = *lidarBgFlushDisable
-			seedFromFirst = *lidarSeedFromFirst
-			frameBufferTimeout = *lidarFrameBufferTimeout
-			minFramePoints = *lidarMinFramePoints
-		}
+		// Always use tuning config (either from --config file or built-in defaults)
+		bgNoiseRelative := tuningCfg.GetNoiseRelative()
+		bgFlushInterval := tuningCfg.GetFlushInterval()
+		bgFlushDisable := tuningCfg.GetFlushDisable()
+		seedFromFirst := tuningCfg.GetSeedFromFirst()
+		frameBufferTimeout := tuningCfg.GetBufferTimeout()
+		minFramePoints := tuningCfg.GetMinFramePoints()
 
 		// Create BackgroundManager using BackgroundConfig for cleaner configuration
 		bgConfig := lidar.DefaultBackgroundConfig().

@@ -9,50 +9,60 @@ import (
 )
 
 // TuningConfig represents the root configuration for tuning parameters.
+// The schema matches the /api/lidar/params endpoint so the same JSON
+// can be used for both startup configuration and runtime updates.
 type TuningConfig struct {
-	Lidar *LidarTuning `json:"lidar,omitempty"`
+	// Background params
+	NoiseRelative              *float64 `json:"noise_relative,omitempty"`
+	ClosenessMultiplier        *float64 `json:"closeness_multiplier,omitempty"`
+	NeighborConfirmationCount  *int     `json:"neighbor_confirmation_count,omitempty"`
+	SeedFromFirst              *bool    `json:"seed_from_first,omitempty"`
+	WarmupDurationNanos        *int64   `json:"warmup_duration_nanos,omitempty"`
+	WarmupMinFrames            *int     `json:"warmup_min_frames,omitempty"`
+	PostSettleUpdateFraction   *float64 `json:"post_settle_update_fraction,omitempty"`
+	ForegroundMinClusterPoints *int     `json:"foreground_min_cluster_points,omitempty"`
+	ForegroundDBSCANEps        *float64 `json:"foreground_dbscan_eps,omitempty"`
+
+	// Frame builder params
+	BufferTimeout  *string `json:"buffer_timeout,omitempty"` // duration string like "500ms"
+	MinFramePoints *int    `json:"min_frame_points,omitempty"`
+
+	// Flush params
+	FlushInterval *string `json:"flush_interval,omitempty"` // duration string like "60s"
+	FlushDisable  *bool   `json:"flush_disable,omitempty"`
+
+	// Tracker params (optional)
+	GatingDistanceSquared *float64 `json:"gating_distance_squared,omitempty"`
+	ProcessNoisePos       *float64 `json:"process_noise_pos,omitempty"`
+	ProcessNoiseVel       *float64 `json:"process_noise_vel,omitempty"`
+	MeasurementNoise      *float64 `json:"measurement_noise,omitempty"`
+	OcclusionCovInflation *float64 `json:"occlusion_cov_inflation,omitempty"`
+	HitsToConfirm         *int     `json:"hits_to_confirm,omitempty"`
+	MaxMisses             *int     `json:"max_misses,omitempty"`
+	MaxMissesConfirmed    *int     `json:"max_misses_confirmed,omitempty"`
 }
 
-// LidarTuning contains LiDAR-specific tuning parameters.
-type LidarTuning struct {
-	Background   *BackgroundTuning   `json:"background,omitempty"`
-	FrameBuilder *FrameBuilderTuning `json:"frame_builder,omitempty"`
-}
-
-// BackgroundTuning contains background manager tuning parameters.
-type BackgroundTuning struct {
-	NoiseRelativeFraction float64 `json:"noise_relative_fraction"`
-	FlushInterval         string  `json:"flush_interval"` // duration string like "60s"
-	FlushDisable          bool    `json:"flush_disable"`
-	SeedFromFirst         bool    `json:"seed_from_first"`
-}
-
-// FrameBuilderTuning contains frame builder tuning parameters.
-type FrameBuilderTuning struct {
-	BufferTimeout  string `json:"buffer_timeout"` // duration string like "500ms"
-	MinFramePoints int    `json:"min_frame_points"`
-}
+// Helper functions to create pointers
+func ptrFloat64(v float64) *float64 { return &v }
+func ptrBool(v bool) *bool          { return &v }
+func ptrString(v string) *string    { return &v }
+func ptrInt(v int) *int             { return &v }
+func ptrInt64(v int64) *int64       { return &v }
 
 // DefaultTuningConfig returns a TuningConfig with default values.
 func DefaultTuningConfig() *TuningConfig {
 	return &TuningConfig{
-		Lidar: &LidarTuning{
-			Background: &BackgroundTuning{
-				NoiseRelativeFraction: 0.04,
-				FlushInterval:         "60s",
-				FlushDisable:          false,
-				SeedFromFirst:         true,
-			},
-			FrameBuilder: &FrameBuilderTuning{
-				BufferTimeout:  "500ms",
-				MinFramePoints: 1000,
-			},
-		},
+		NoiseRelative:  ptrFloat64(0.04),
+		SeedFromFirst:  ptrBool(true),
+		BufferTimeout:  ptrString("500ms"),
+		MinFramePoints: ptrInt(1000),
+		FlushInterval:  ptrString("60s"),
+		FlushDisable:   ptrBool(false),
 	}
 }
 
 // LoadTuningConfig loads a TuningConfig from a JSON file.
-// The file is validated to ensure it has a .json extension.
+// The file is validated to ensure it has a .json extension and is under the max file size.
 // Fields omitted from the JSON file retain their default values, so
 // partial configs are safe.
 func LoadTuningConfig(path string) (*TuningConfig, error) {
@@ -60,6 +70,16 @@ func LoadTuningConfig(path string) (*TuningConfig, error) {
 	cleanPath := filepath.Clean(path)
 	if ext := filepath.Ext(cleanPath); ext != ".json" {
 		return nil, fmt.Errorf("config file must have .json extension, got %q", ext)
+	}
+
+	// Check file size for safety (max 1MB)
+	fileInfo, err := os.Stat(cleanPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to stat config file: %w", err)
+	}
+	const maxFileSize = 1 * 1024 * 1024 // 1MB
+	if fileInfo.Size() > maxFileSize {
+		return nil, fmt.Errorf("config file too large: %d bytes (max %d)", fileInfo.Size(), maxFileSize)
 	}
 
 	data, err := os.ReadFile(cleanPath)
@@ -83,71 +103,89 @@ func LoadTuningConfig(path string) (*TuningConfig, error) {
 
 // Validate checks that the configuration values are valid.
 func (c *TuningConfig) Validate() error {
-	if c.Lidar == nil {
-		return fmt.Errorf("lidar configuration is required")
-	}
-
-	if c.Lidar.Background == nil {
-		return fmt.Errorf("lidar.background configuration is required")
-	}
-
-	bg := c.Lidar.Background
-
-	// Validate NoiseRelativeFraction
-	if bg.NoiseRelativeFraction < 0 || bg.NoiseRelativeFraction > 1 {
-		return fmt.Errorf("noise_relative_fraction must be between 0 and 1, got %f", bg.NoiseRelativeFraction)
-	}
-
-	// Validate FlushInterval can be parsed
-	if bg.FlushInterval != "" {
-		if _, err := time.ParseDuration(bg.FlushInterval); err != nil {
-			return fmt.Errorf("invalid flush_interval '%s': %w", bg.FlushInterval, err)
+	// Validate NoiseRelative if set
+	if c.NoiseRelative != nil {
+		if *c.NoiseRelative < 0 || *c.NoiseRelative > 1 {
+			return fmt.Errorf("noise_relative must be between 0 and 1, got %f", *c.NoiseRelative)
 		}
 	}
 
-	if c.Lidar.FrameBuilder == nil {
-		return fmt.Errorf("lidar.frame_builder configuration is required")
-	}
-
-	fb := c.Lidar.FrameBuilder
-
-	// Validate BufferTimeout can be parsed
-	if fb.BufferTimeout != "" {
-		if _, err := time.ParseDuration(fb.BufferTimeout); err != nil {
-			return fmt.Errorf("invalid buffer_timeout '%s': %w", fb.BufferTimeout, err)
+	// Validate FlushInterval can be parsed if set
+	if c.FlushInterval != nil && *c.FlushInterval != "" {
+		if _, err := time.ParseDuration(*c.FlushInterval); err != nil {
+			return fmt.Errorf("invalid flush_interval '%s': %w", *c.FlushInterval, err)
 		}
 	}
 
-	// Validate MinFramePoints
-	if fb.MinFramePoints < 0 {
-		return fmt.Errorf("min_frame_points must be non-negative, got %d", fb.MinFramePoints)
+	// Validate BufferTimeout can be parsed if set
+	if c.BufferTimeout != nil && *c.BufferTimeout != "" {
+		if _, err := time.ParseDuration(*c.BufferTimeout); err != nil {
+			return fmt.Errorf("invalid buffer_timeout '%s': %w", *c.BufferTimeout, err)
+		}
+	}
+
+	// Validate MinFramePoints if set
+	if c.MinFramePoints != nil {
+		if *c.MinFramePoints < 0 {
+			return fmt.Errorf("min_frame_points must be non-negative, got %d", *c.MinFramePoints)
+		}
 	}
 
 	return nil
 }
 
 // GetFlushInterval parses and returns the FlushInterval as a time.Duration.
-func (b *BackgroundTuning) GetFlushInterval() time.Duration {
-	if b.FlushInterval == "" {
-		return 0
+func (c *TuningConfig) GetFlushInterval() time.Duration {
+	if c.FlushInterval == nil || *c.FlushInterval == "" {
+		return 60 * time.Second // default
 	}
-	d, err := time.ParseDuration(b.FlushInterval)
+	d, err := time.ParseDuration(*c.FlushInterval)
 	if err != nil {
-		// This shouldn't happen if Validate() was called, but return 0 as a safe default
-		return 0
+		return 60 * time.Second // default on parse error
 	}
 	return d
 }
 
 // GetBufferTimeout parses and returns the BufferTimeout as a time.Duration.
-func (f *FrameBuilderTuning) GetBufferTimeout() time.Duration {
-	if f.BufferTimeout == "" {
-		return 0
+func (c *TuningConfig) GetBufferTimeout() time.Duration {
+	if c.BufferTimeout == nil || *c.BufferTimeout == "" {
+		return 500 * time.Millisecond // default
 	}
-	d, err := time.ParseDuration(f.BufferTimeout)
+	d, err := time.ParseDuration(*c.BufferTimeout)
 	if err != nil {
-		// This shouldn't happen if Validate() was called, but return 0 as a safe default
-		return 0
+		return 500 * time.Millisecond // default on parse error
 	}
 	return d
+}
+
+// GetNoiseRelative returns the noise_relative value or the default.
+func (c *TuningConfig) GetNoiseRelative() float64 {
+	if c.NoiseRelative == nil {
+		return 0.04 // default
+	}
+	return *c.NoiseRelative
+}
+
+// GetSeedFromFirst returns the seed_from_first value or the default.
+func (c *TuningConfig) GetSeedFromFirst() bool {
+	if c.SeedFromFirst == nil {
+		return true // default
+	}
+	return *c.SeedFromFirst
+}
+
+// GetMinFramePoints returns the min_frame_points value or the default.
+func (c *TuningConfig) GetMinFramePoints() int {
+	if c.MinFramePoints == nil {
+		return 1000 // default
+	}
+	return *c.MinFramePoints
+}
+
+// GetFlushDisable returns the flush_disable value or the default.
+func (c *TuningConfig) GetFlushDisable() bool {
+	if c.FlushDisable == nil {
+		return false // default
+	}
+	return *c.FlushDisable
 }

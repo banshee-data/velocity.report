@@ -11,7 +11,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar"
 )
 
-func TestHandleBackgroundParams_FormSubmission(t *testing.T) {
+func TestHandleTuningParams_FormSubmission(t *testing.T) {
 	// Setup mock background manager
 	sensorID := "test-sensor"
 	params := lidar.BackgroundParams{
@@ -52,7 +52,7 @@ func TestHandleBackgroundParams_FormSubmission(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	// Call handler
-	ws.handleBackgroundParams(w, req)
+	ws.handleTuningParams(w, req)
 
 	// Check response
 	resp := w.Result()

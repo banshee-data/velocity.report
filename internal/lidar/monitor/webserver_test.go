@@ -1876,7 +1876,7 @@ func TestWebServer_HandleBackgroundRegionsDashboard(t *testing.T) {
 	}
 }
 
-func TestWebServer_HandleBackgroundParams_MissingSensorID(t *testing.T) {
+func TestWebServer_HandleTuningParams_MissingSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := WebServerConfig{
 		Address:           ":0",
@@ -1888,14 +1888,14 @@ func TestWebServer_HandleBackgroundParams_MissingSensorID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/params", nil)
 	rr := httptest.NewRecorder()
 
-	server.handleBackgroundParams(rr, req)
+	server.handleTuningParams(rr, req)
 
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", rr.Code)
 	}
 }
 
-func TestWebServer_HandleBackgroundParams_NoManager(t *testing.T) {
+func TestWebServer_HandleTuningParams_NoManager(t *testing.T) {
 	stats := NewPacketStats()
 	config := WebServerConfig{
 		Address:           ":0",
@@ -1907,14 +1907,14 @@ func TestWebServer_HandleBackgroundParams_NoManager(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/params?sensor_id=nonexistent", nil)
 	rr := httptest.NewRecorder()
 
-	server.handleBackgroundParams(rr, req)
+	server.handleTuningParams(rr, req)
 
 	if rr.Code != http.StatusNotFound {
 		t.Errorf("expected 404, got %d", rr.Code)
 	}
 }
 
-func TestWebServer_HandleBackgroundParams_MethodNotAllowed(t *testing.T) {
+func TestWebServer_HandleTuningParams_MethodNotAllowed(t *testing.T) {
 	stats := NewPacketStats()
 	config := WebServerConfig{
 		Address:           ":0",
@@ -1926,7 +1926,7 @@ func TestWebServer_HandleBackgroundParams_MethodNotAllowed(t *testing.T) {
 	req := httptest.NewRequest(http.MethodDelete, "/api/lidar/params?sensor_id=nonexistent", nil)
 	rr := httptest.NewRecorder()
 
-	server.handleBackgroundParams(rr, req)
+	server.handleTuningParams(rr, req)
 
 	// Handler checks sensor ID before method, so 404 may take precedence over 405
 	if rr.Code != http.StatusMethodNotAllowed && rr.Code != http.StatusNotFound {
@@ -2168,7 +2168,7 @@ func TestWebServer_HandleAcceptanceReset_WithManager(t *testing.T) {
 	}
 }
 
-func TestWebServer_HandleBackgroundParams_GET_WithManager(t *testing.T) {
+func TestWebServer_HandleTuningParams_GET_WithManager(t *testing.T) {
 	cleanup := setupTestBackgroundManager(t, "params-get-sensor")
 	defer cleanup()
 
@@ -2184,14 +2184,14 @@ func TestWebServer_HandleBackgroundParams_GET_WithManager(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/params?sensor_id=params-get-sensor", nil)
 	rr := httptest.NewRecorder()
 
-	server.handleBackgroundParams(rr, req)
+	server.handleTuningParams(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
 }
 
-func TestWebServer_HandleBackgroundParams_POST_WithManager(t *testing.T) {
+func TestWebServer_HandleTuningParams_POST_WithManager(t *testing.T) {
 	cleanup := setupTestBackgroundManager(t, "params-post-sensor")
 	defer cleanup()
 
@@ -2210,7 +2210,7 @@ func TestWebServer_HandleBackgroundParams_POST_WithManager(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 
-	server.handleBackgroundParams(rr, req)
+	server.handleTuningParams(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d: %s", rr.Code, rr.Body.String())
@@ -2734,7 +2734,7 @@ func TestWebServer_LatestFgCounts(t *testing.T) {
 	t.Logf("Got counts: %v", counts)
 }
 
-func TestWebServer_HandleBackgroundParams_GET(t *testing.T) {
+func TestWebServer_HandleTuningParams_GET(t *testing.T) {
 	sensorID := "test-params-" + time.Now().Format("150405")
 	cleanup := setupTestBackgroundManager(t, sensorID)
 	defer cleanup()
@@ -2752,14 +2752,14 @@ func TestWebServer_HandleBackgroundParams_GET(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/params?sensor_id="+sensorID, nil)
 	rec := httptest.NewRecorder()
 
-	server.handleBackgroundParams(rec, req)
+	server.handleTuningParams(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("got status %d, want %d", rec.Code, http.StatusOK)
 	}
 }
 
-func TestWebServer_HandleBackgroundParams_POST(t *testing.T) {
+func TestWebServer_HandleTuningParams_POST(t *testing.T) {
 	sensorID := "test-params-post-" + time.Now().Format("150405")
 	cleanup := setupTestBackgroundManager(t, sensorID)
 	defer cleanup()
@@ -2779,7 +2779,7 @@ func TestWebServer_HandleBackgroundParams_POST(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	server.handleBackgroundParams(rec, req)
+	server.handleTuningParams(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("got status %d, want %d, body: %s", rec.Code, http.StatusOK, rec.Body.String())
@@ -3868,8 +3868,8 @@ func TestWebServer_HandleBackgroundGridPolar_WithPCAPData(t *testing.T) {
 	server.StopPCAPInternal()
 }
 
-// TestWebServer_HandleBackgroundParams_POST_WithManager tests setting background params
-func TestWebServer_HandleBackgroundParams_POST_Complete(t *testing.T) {
+// TestWebServer_HandleTuningParams_POST_WithManager tests setting tuning params
+func TestWebServer_HandleTuningParams_POST_Complete(t *testing.T) {
 	sensorID := "test-params-post-" + time.Now().Format("150405")
 	cleanup := setupTestBackgroundManager(t, sensorID)
 	defer cleanup()
@@ -3890,9 +3890,9 @@ func TestWebServer_HandleBackgroundParams_POST_Complete(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	server.handleBackgroundParams(rec, req)
+	server.handleTuningParams(rec, req)
 
-	t.Logf("handleBackgroundParams POST returned status %d: %s", rec.Code, rec.Body.String())
+	t.Logf("handleTuningParams POST returned status %d: %s", rec.Code, rec.Body.String())
 }
 
 // TestWebServer_HandleChartClustersJSON tests clusters chart endpoint
@@ -4237,9 +4237,9 @@ func TestWebServer_SetTracker(t *testing.T) {
 
 // Tests requiring DB setup removed - WebServerConfig.DB requires *db.DB not *sql.DB
 
-// ====== handleBackgroundParams additional tests ======
+// ====== handleTuningParams additional tests ======
 
-func TestWebServer_HandleBackgroundParams_GET_Pretty(t *testing.T) {
+func TestWebServer_HandleTuningParams_GET_Pretty(t *testing.T) {
 	cleanup := setupTestBackgroundManager(t, "params-pretty-sensor")
 	defer cleanup()
 
@@ -4255,7 +4255,7 @@ func TestWebServer_HandleBackgroundParams_GET_Pretty(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/params?sensor_id=params-pretty-sensor&format=pretty", nil)
 	rr := httptest.NewRecorder()
 
-	server.handleBackgroundParams(rr, req)
+	server.handleTuningParams(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d: %s", rr.Code, rr.Body.String())
@@ -4268,7 +4268,7 @@ func TestWebServer_HandleBackgroundParams_GET_Pretty(t *testing.T) {
 	}
 }
 
-func TestWebServer_HandleBackgroundParams_POST_WithTracker(t *testing.T) {
+func TestWebServer_HandleTuningParams_POST_WithTracker(t *testing.T) {
 	cleanup := setupTestBackgroundManager(t, "params-tracker-sensor")
 	defer cleanup()
 
@@ -4290,7 +4290,7 @@ func TestWebServer_HandleBackgroundParams_POST_WithTracker(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 
-	server.handleBackgroundParams(rr, req)
+	server.handleTuningParams(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d: %s", rr.Code, rr.Body.String())

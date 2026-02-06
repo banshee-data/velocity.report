@@ -925,7 +925,7 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/traffic", ws.handleTrafficStats)
 	mux.HandleFunc("/api/lidar/acceptance", ws.handleAcceptanceMetrics)
 	mux.HandleFunc("/api/lidar/acceptance/reset", ws.handleAcceptanceReset)
-	mux.HandleFunc("/api/lidar/params", ws.handleBackgroundParams)
+	mux.HandleFunc("/api/lidar/params", ws.handleTuningParams)
 	mux.HandleFunc("/api/lidar/sweep/start", ws.handleSweepStart)
 	mux.HandleFunc("/api/lidar/sweep/status", ws.handleSweepStatus)
 	mux.HandleFunc("/api/lidar/sweep/stop", ws.handleSweepStop)
@@ -980,17 +980,19 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 	return mux
 }
 
-// handleBackgroundParams is the unified LIDAR configuration endpoint for both
-// background subtraction parameters and tracker configuration.
+// handleTuningParams is the unified LIDAR configuration endpoint for all
+// tuning parameters including background subtraction, frame builder, and tracker configuration.
 //
 // Query params: sensor_id (required)
 //
 // GET: Returns all configuration parameters including:
 //   - Background params: noise_relative, closeness_multiplier, neighbor_confirmation_count, etc.
+//   - Frame builder params: buffer_timeout, min_frame_points
+//   - Flush params: flush_interval, flush_disable
 //   - Tracker params (if tracker available): gating_distance_squared, process_noise_pos, etc.
 //
 // POST: Accepts partial JSON updates. All fields are optional; only non-nil fields are applied.
-func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Request) {
+func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) {
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")

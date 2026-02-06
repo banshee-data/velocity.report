@@ -1,14 +1,8 @@
 {
-  "lidar": {
-    "background": {
-      "noise_relative_fraction": 0.04,
-      "flush_interval": "60s",
-      "flush_disable": false,
-      "seed_from_first": true
-    },
-    "frame_builder": {
-      "buffer_timeout": "500ms",
-      "min_frame_points": 1000
-    }
-  }
+  "noise_relative": 0.04,
+  "seed_from_first": true,
+  "buffer_timeout": "500ms",
+  "min_frame_points": 1000,
+  "flush_interval": "60s",
+  "flush_disable": false
 }

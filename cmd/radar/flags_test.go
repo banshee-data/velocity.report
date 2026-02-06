@@ -6,39 +6,10 @@ import (
 	"time"
 )
 
-// TestLidarBgFlushDisableFlag verifies the --lidar-bg-flush-disable flag exists
-// and has the correct default value.
-func TestLidarBgFlushDisableFlag(t *testing.T) {
-	// The flag is defined in the main package's var block.
-	// We verify it exists and has the expected default.
-	if lidarBgFlushDisable == nil {
-		t.Fatal("lidarBgFlushDisable flag not defined")
-	}
-
-	// Default should be false (flushing enabled by default)
-	if *lidarBgFlushDisable != false {
-		t.Errorf("expected lidarBgFlushDisable default to be false, got %v", *lidarBgFlushDisable)
-	}
-}
-
-// TestLidarBgFlushIntervalFlag verifies the --lidar-bg-flush-interval flag exists
-// and has the correct default value.
-func TestLidarBgFlushIntervalFlag(t *testing.T) {
-	if lidarBgFlushInterval == nil {
-		t.Fatal("lidarBgFlushInterval flag not defined")
-	}
-
-	// Default should be 60 seconds
-	expected := 60 * time.Second
-	if *lidarBgFlushInterval != expected {
-		t.Errorf("expected lidarBgFlushInterval default to be %v, got %v", expected, *lidarBgFlushInterval)
-	}
-}
-
 // TestBgFlushDisableCondition verifies the logic that determines whether
 // background flushing should be enabled. This mirrors the condition in radar.go:
 //
-//	backgroundManager != nil && *lidarBgFlushInterval > 0 && !*lidarBgFlushDisable
+//	backgroundManager != nil && flushInterval > 0 && !flushDisable
 func TestBgFlushDisableCondition(t *testing.T) {
 	tests := []struct {
 		name          string
