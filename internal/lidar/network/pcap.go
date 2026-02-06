@@ -18,7 +18,9 @@ import (
 // If forwarder is not nil, packets are forwarded to the configured destination.
 // This function is only available when building with the 'pcap' build tag.
 // startSeconds and durationSeconds allow subsection replay (startSeconds=0, durationSeconds=-1 means full file).
-func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Parser, frameBuilder FrameBuilder, stats PacketStatsInterface, forwarder *PacketForwarder, startSeconds float64, durationSeconds float64) error {
+// packetOffset allows seeking to a specific 0-based packet index before processing.
+// onProgress is called periodically with (currentPacket, totalPackets) for progress reporting.
+func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Parser, frameBuilder FrameBuilder, stats PacketStatsInterface, forwarder *PacketForwarder, startSeconds float64, durationSeconds float64, packetOffset uint64, totalPackets uint64, onProgress func(current, total uint64)) error {
 	// Open PCAP file
 	handle, err := pcap.OpenOffline(pcapFile)
 	if err != nil {
@@ -34,9 +36,11 @@ func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Pars
 	log.Printf("PCAP BPF filter set: %s", filterStr)
 
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
+	var packetIndex uint64 // 0-based index across all matching packets
 	packetCount := 0
 	totalPoints := 0
 	startTime := time.Now()
+	skippingToOffset := packetOffset > 0
 
 	var firstPacketTime time.Time
 	var startThreshold time.Time
@@ -53,7 +57,26 @@ func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Pars
 				// End of PCAP file
 				elapsed := time.Since(startTime)
 				log.Printf("PCAP file reading complete: %d packets processed in %v", packetCount, elapsed)
+				if onProgress != nil && totalPackets > 0 {
+					onProgress(packetIndex, totalPackets)
+				}
 				return nil
+			}
+
+			packetIndex++
+
+			// Offset-based seek: skip packets until we reach the requested offset
+			if skippingToOffset && packetIndex < packetOffset {
+				continue
+			}
+			if skippingToOffset {
+				skippingToOffset = false
+				log.Printf("PCAP replay: seeked to packet offset %d", packetOffset)
+			}
+
+			// Report progress periodically (every 100 packets)
+			if onProgress != nil && totalPackets > 0 && packetIndex%100 == 0 {
+				onProgress(packetIndex, totalPackets)
 			}
 
 			// Calculate start/end thresholds on first packet

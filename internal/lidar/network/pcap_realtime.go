@@ -50,6 +50,18 @@ type RealtimeReplayConfig struct {
 	// OnFrameCallback is called after each frame is processed with foreground extraction.
 	// This can be used for sampling grid state for plotting.
 	OnFrameCallback func(mgr *lidar.BackgroundManager, points []lidar.PointPolar)
+
+	// PacketOffset is the 0-based packet index to seek to before starting
+	// playback. Packets before this offset are skipped without processing.
+	PacketOffset uint64
+
+	// TotalPackets is the pre-counted total number of matching packets in
+	// the PCAP file. When > 0, enables progress reporting via OnProgress.
+	TotalPackets uint64
+
+	// OnProgress is called periodically during replay with the current
+	// packet index and total packet count, enabling seek-bar updates.
+	OnProgress func(currentPacket, totalPackets uint64)
 }
 
 const (
@@ -83,10 +95,14 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 	log.Printf("PCAP real-time replay: BPF filter set: %s (speed: %.1fx)", filterStr, config.SpeedMultiplier)
 
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
+	var packetIndex uint64 // 0-based index across all matching packets
 	packetCount := 0
 	totalPoints := 0
 	startTime := time.Now()
 	warmupRemaining := config.WarmupPackets
+
+	// Offset-based seek: skip packets until we reach PacketOffset
+	skippingToOffset := config.PacketOffset > 0
 
 	var firstPacketTime time.Time
 	replayStartTime := time.Now()
@@ -112,10 +128,30 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 				// End of PCAP file
 				elapsed := time.Since(startTime)
 				log.Printf("PCAP real-time replay complete: %d packets processed in %v (speed: %.1fx)", packetCount, elapsed, config.SpeedMultiplier)
+				// Final progress callback
+				if config.OnProgress != nil && config.TotalPackets > 0 {
+					config.OnProgress(packetIndex, config.TotalPackets)
+				}
 				return nil
 			}
 
+			packetIndex++
 			packetCount++
+
+			// Offset-based seek: skip packets until we reach the requested offset
+			if skippingToOffset && packetIndex < config.PacketOffset {
+				continue
+			}
+			if skippingToOffset {
+				skippingToOffset = false
+				log.Printf("PCAP replay: seeked to packet offset %d", config.PacketOffset)
+				replayStartTime = time.Now()
+			}
+
+			// Report progress periodically (every 100 packets)
+			if config.OnProgress != nil && config.TotalPackets > 0 && packetIndex%100 == 0 {
+				config.OnProgress(packetIndex, config.TotalPackets)
+			}
 
 			// Calculate timing for real-time replay
 			captureTime := packet.Metadata().Timestamp
