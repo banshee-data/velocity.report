@@ -5,7 +5,8 @@
 		mdiGithub,
 		mdiHome,
 		mdiMapMarker,
-		mdiMapMarkerPath
+		mdiMapMarkerPath,
+		mdiTune
 	} from '@mdi/js';
 	import {
 		AppBar,
@@ -82,6 +83,7 @@
 			path="/app/lidar/tracks"
 			currentUrl={page.url}
 		/>
+		<NavItem text="Parameter Sweep" icon={mdiTune} path="/app/lidar/sweep" currentUrl={page.url} />
 		<NavItem text="Settings" icon={mdiCog} path="/app/settings" currentUrl={page.url} />
 	</nav>
 
