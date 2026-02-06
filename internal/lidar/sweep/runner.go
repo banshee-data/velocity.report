@@ -252,6 +252,9 @@ func (r *Runner) start(ctx context.Context, req SweepRequest) error {
 	if req.Iterations <= 0 {
 		req.Iterations = 30
 	}
+	if req.Iterations > 500 {
+		return fmt.Errorf("iterations must not exceed 500, got %d", req.Iterations)
+	}
 	if req.Mode == "" {
 		req.Mode = "multi"
 	}
@@ -265,6 +268,10 @@ func (r *Runner) start(ctx context.Context, req SweepRequest) error {
 	totalCombos := len(noiseCombos) * len(closenessCombos) * len(neighbourCombos)
 	if totalCombos == 0 {
 		return fmt.Errorf("no parameter combinations to sweep")
+	}
+	const maxCombos = 1000
+	if totalCombos > maxCombos {
+		return fmt.Errorf("parameter range too large: would generate %d combinations (max %d)", totalCombos, maxCombos)
 	}
 
 	// Now acquire lock for state modification

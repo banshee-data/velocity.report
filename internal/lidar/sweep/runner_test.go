@@ -144,3 +144,34 @@ func TestComputeCombinationsMultiWithRanges(t *testing.T) {
 		t.Errorf("expected 2 neighbour values from range, got %d", len(neighbour))
 	}
 }
+
+func TestStartRejectsExcessiveCombinations(t *testing.T) {
+	r := NewRunner(nil)
+	// Generate a request that would produce >1000 combinations
+	err := r.StartWithRequest(nil, SweepRequest{
+		Mode:       "noise",
+		NoiseStart: 0.0001,
+		NoiseEnd:   1.0,
+		NoiseStep:  0.0001, // ~10000 values
+		Iterations: 1,
+	})
+	if err == nil {
+		t.Error("expected error for excessive combinations, got nil")
+	}
+}
+
+func TestStartRejectsExcessiveIterations(t *testing.T) {
+	r := NewRunner(nil)
+	err := r.StartWithRequest(nil, SweepRequest{
+		Mode:        "noise",
+		NoiseStart:  0.01,
+		NoiseEnd:    0.02,
+		NoiseStep:   0.01,
+		Iterations:  501,
+		FixedCloseness: 2.0,
+		FixedNeighbour: 1,
+	})
+	if err == nil {
+		t.Error("expected error for excessive iterations, got nil")
+	}
+}
