@@ -115,12 +115,30 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     // MARK: - Connection
 
     func toggleConnection() {
-        print("[AppState] toggleConnection called, isConnected: \(isConnected)")
-        logger.info("toggleConnection called, isConnected: \(self.isConnected)")
+        print(
+            "[AppState] toggleConnection called, isConnected: \(isConnected), isConnecting: \(isConnecting)"
+        )
+        logger.info(
+            "toggleConnection called, isConnected: \(self.isConnected), isConnecting: \(self.isConnecting)"
+        )
+        // Guard: ignore toggle while a connection attempt is in flight to
+        // prevent the auto-connect / user-click race that immediately
+        // disconnects a freshly-established connection.
+        if isConnecting {
+            logger.info("toggleConnection ignored — connection attempt in progress")
+            return
+        }
         if isConnected { disconnect() } else { connect() }
     }
 
     func connect() {
+        // Guard: do not start a second connection if one is already
+        // in progress or established (prevents auto-connect racing
+        // with a user-initiated connect).
+        guard !isConnecting && !isConnected else {
+            logger.info("connect() skipped — already connecting or connected")
+            return
+        }
         print("[AppState] 🔌 CONNECTING to \(serverAddress)...")
         logger.info("connect() starting, serverAddress: \(self.serverAddress)")
         isConnecting = true
