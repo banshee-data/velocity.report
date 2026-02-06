@@ -48,6 +48,10 @@ type Server struct {
 	playbackRate float32
 	replayMode   bool // True when replaying a PCAP or log (not live sensor)
 
+	// PCAP progress tracking (updated by WebServer progress callback)
+	pcapCurrentPacket uint64
+	pcapTotalPackets  uint64
+
 	// Per-client overlay preferences (protected by preferenceMu)
 	clientPreferences map[string]*overlayPreferences
 	preferenceMu      sync.RWMutex
@@ -73,6 +77,16 @@ func (s *Server) EnableSyntheticMode(sensorID string) {
 // the client UI shows "REPLAY" instead of "LIVE".
 func (s *Server) SetReplayMode(enabled bool) {
 	s.replayMode = enabled
+	if !enabled {
+		s.pcapCurrentPacket = 0
+		s.pcapTotalPackets = 0
+	}
+}
+
+// SetPCAPProgress updates the current packet position for seek-bar display.
+func (s *Server) SetPCAPProgress(currentPacket, totalPackets uint64) {
+	s.pcapCurrentPacket = currentPacket
+	s.pcapTotalPackets = totalPackets
 }
 
 // SyntheticGenerator returns the synthetic generator (if enabled).
@@ -209,9 +223,11 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			// This allows the client to show "REPLAY" instead of "LIVE".
 			if s.replayMode && frame.PlaybackInfo == nil {
 				frame.PlaybackInfo = &PlaybackInfo{
-					IsLive:       false,
-					PlaybackRate: s.playbackRate,
-					Paused:       s.paused,
+					IsLive:            false,
+					PlaybackRate:      s.playbackRate,
+					Paused:            s.paused,
+					CurrentFrameIndex: s.pcapCurrentPacket,
+					TotalFrames:       s.pcapTotalPackets,
 				}
 			}
 

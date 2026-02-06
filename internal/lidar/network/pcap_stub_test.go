@@ -12,7 +12,7 @@ import (
 func TestReadPCAPFile_Stub(t *testing.T) {
 	ctx := context.Background()
 
-	err := ReadPCAPFile(ctx, "test.pcap", 2368, nil, nil, nil, nil, 0, -1)
+	err := ReadPCAPFile(ctx, "test.pcap", 2368, nil, nil, nil, nil, 0, -1, 0, 0, nil)
 
 	if err == nil {
 		t.Error("Expected error from stub implementation")
@@ -43,7 +43,7 @@ func TestReadPCAPFile_Stub_WithParameters(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
-			err := ReadPCAPFile(ctx, tc.pcapFile, tc.udpPort, nil, nil, nil, nil, tc.startSec, tc.duration)
+			err := ReadPCAPFile(ctx, tc.pcapFile, tc.udpPort, nil, nil, nil, nil, tc.startSec, tc.duration, 0, 0, nil)
 			if err == nil {
 				t.Error("Expected error from stub implementation")
 			}

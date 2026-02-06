@@ -274,15 +274,23 @@ func TestComputeClusterMetrics(t *testing.T) {
 		t.Errorf("expected CentroidX=1.0, got %v", cluster.CentroidX)
 	}
 
-	// Bounding box: X: [0, 2], Y: [0, 2], Z: [0, 2]
-	if cluster.BoundingBoxLength != 2.0 {
-		t.Errorf("expected BoundingBoxLength=2.0, got %v", cluster.BoundingBoxLength)
+	// Bounding box dimensions come from OBB (PCA-based), not AABB.
+	// For these 4 points, the OBB should encompass all points when rotated
+	// by the heading. Height is axis-aligned so remains 2.0.
+	if cluster.BoundingBoxLength <= 0 {
+		t.Errorf("expected BoundingBoxLength > 0, got %v", cluster.BoundingBoxLength)
 	}
-	if cluster.BoundingBoxWidth != 2.0 {
-		t.Errorf("expected BoundingBoxWidth=2.0, got %v", cluster.BoundingBoxWidth)
+	if cluster.BoundingBoxWidth <= 0 {
+		t.Errorf("expected BoundingBoxWidth > 0, got %v", cluster.BoundingBoxWidth)
 	}
 	if cluster.BoundingBoxHeight != 2.0 {
 		t.Errorf("expected BoundingBoxHeight=2.0, got %v", cluster.BoundingBoxHeight)
+	}
+	// OBB area should be <= AABB area (tighter fit) or at most equal
+	obbArea := cluster.BoundingBoxLength * cluster.BoundingBoxWidth
+	aabbArea := float32(2.0 * 2.0)
+	if obbArea > aabbArea*1.01 { // small tolerance for floating point
+		t.Errorf("OBB area (%v) should not exceed AABB area (%v)", obbArea, aabbArea)
 	}
 
 	if cluster.PointsCount != 4 {

@@ -385,6 +385,13 @@ func computeClusterMetrics(points []WorldPoint, clusterID int64) WorldCluster {
 	// Compute oriented bounding box via PCA
 	obb := EstimateOBBFromCluster(points)
 
+	// Use OBB dimensions for Length/Width since the renderer rotates the box
+	// by the OBB heading. Using AABB dimensions with an OBB rotation would
+	// produce a box that doesn't encompass the cluster points.
+	bboxLength := obb.Length
+	bboxWidth := obb.Width
+	bboxHeight := obb.Height
+
 	return WorldCluster{
 		ClusterID:         clusterID,
 		SensorID:          sensorID,
@@ -392,9 +399,9 @@ func computeClusterMetrics(points []WorldPoint, clusterID int64) WorldCluster {
 		CentroidX:         centroidX,
 		CentroidY:         centroidY,
 		CentroidZ:         centroidZ,
-		BoundingBoxLength: float32(maxX - minX),
-		BoundingBoxWidth:  float32(maxY - minY),
-		BoundingBoxHeight: float32(maxZ - minZ),
+		BoundingBoxLength: bboxLength,
+		BoundingBoxWidth:  bboxWidth,
+		BoundingBoxHeight: bboxHeight,
 		PointsCount:       len(points),
 		HeightP95:         float32(heights[p95Idx]),
 		IntensityMean:     float32(sumIntensity / uint64(len(points))),

@@ -1,4 +1,3 @@
-package network
 //go:build pcap
 // +build pcap
 

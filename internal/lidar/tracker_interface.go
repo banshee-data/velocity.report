@@ -37,6 +37,11 @@ type TrackerInterface interface {
 	// most recent Update() call. The slice is indexed by cluster index;
 	// each element is a trackID (associated) or "" (unassociated).
 	GetLastAssociations() []string
+
+	// GetTrackingMetrics returns aggregate velocity-trail alignment metrics
+	// across all active tracks. Used by the sweep tool to evaluate
+	// tracking parameter configurations.
+	GetTrackingMetrics() TrackingMetrics
 }
 
 // Verify at compile time that *Tracker implements TrackerInterface.

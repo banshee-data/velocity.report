@@ -133,6 +133,46 @@ type TrackedObject struct {
 	MaxOcclusionFrames int     // Longest gap in observations
 	SpatialCoverage    float32 // % of bounding box covered by observations
 	NoisePointRatio    float32 // Ratio of noise points to cluster points
+
+	// Velocity-Trail Alignment Metrics
+	// Measures how well the Kalman velocity vector aligns with the actual
+	// direction of travel computed from recent trail positions. A perfectly
+	// aligned track has AlignmentMeanRad ≈ 0.
+	AlignmentSampleCount int     // Number of alignment samples taken
+	AlignmentSumRad      float32 // Running sum of angular differences (radians)
+	AlignmentMeanRad     float32 // Running mean angular difference (radians, [0, π])
+	AlignmentMisaligned  int     // Count of samples where angular diff > π/4 (45°)
+}
+
+// TrackingMetrics holds aggregate tracking quality metrics across all active tracks.
+// Used by the sweep tool to evaluate parameter configurations.
+type TrackingMetrics struct {
+	// Number of active tracks contributing to metrics
+	ActiveTracks int `json:"active_tracks"`
+	// Total alignment samples across all tracks
+	TotalAlignmentSamples int `json:"total_alignment_samples"`
+	// Mean angular difference between velocity vector and displacement direction (radians)
+	MeanAlignmentRad float32 `json:"mean_alignment_rad"`
+	// Mean angular difference in degrees (convenience)
+	MeanAlignmentDeg float32 `json:"mean_alignment_deg"`
+	// Total misaligned samples (angular diff > 45°) across all tracks
+	TotalMisaligned int `json:"total_misaligned"`
+	// Misalignment ratio: misaligned / total samples [0, 1]
+	MisalignmentRatio float32 `json:"misalignment_ratio"`
+	// Per-track alignment breakdown
+	PerTrack []TrackAlignmentMetrics `json:"per_track,omitempty"`
+}
+
+// TrackAlignmentMetrics holds velocity alignment metrics for a single track.
+type TrackAlignmentMetrics struct {
+	TrackID          string  `json:"track_id"`
+	State            string  `json:"state"`
+	SampleCount      int     `json:"sample_count"`
+	MeanAlignmentRad float32 `json:"mean_alignment_rad"`
+	MeanAlignmentDeg float32 `json:"mean_alignment_deg"`
+	MisalignedCount  int     `json:"misaligned_count"`
+	MisalignmentRate float32 `json:"misalignment_rate"`
+	SpeedMps         float32 `json:"speed_mps"`
 }
 
 // Tracker manages multi-object tracking with explicit lifecycle states.
@@ -618,6 +658,40 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 		track.speedHistory = track.speedHistory[1:]
 	}
 
+	// Velocity-Trail Alignment: Compare Kalman velocity heading with
+	// displacement heading from the last two trail positions.
+	// Only compute when the track has sufficient history and speed.
+	if len(track.History) >= 2 && speed > 0.5 { // Need ≥2 points and moving
+		prev := track.History[len(track.History)-2]
+		curr := track.History[len(track.History)-1]
+
+		dx := curr.X - prev.X
+		dy := curr.Y - prev.Y
+		displacementDist := float32(math.Sqrt(float64(dx*dx + dy*dy)))
+
+		if displacementDist > 0.05 { // Minimum displacement to compute heading (5cm)
+			displacementHeading := float32(math.Atan2(float64(dy), float64(dx)))
+			velocityHeading := float32(math.Atan2(float64(track.VY), float64(track.VX)))
+
+			// Angular difference, normalised to [0, π]
+			angDiff := velocityHeading - displacementHeading
+			for angDiff > math.Pi {
+				angDiff -= 2 * math.Pi
+			}
+			for angDiff < -math.Pi {
+				angDiff += 2 * math.Pi
+			}
+			absAngDiff := float32(math.Abs(float64(angDiff)))
+
+			track.AlignmentSampleCount++
+			track.AlignmentSumRad += absAngDiff
+			track.AlignmentMeanRad = track.AlignmentSumRad / float32(track.AlignmentSampleCount)
+			if absAngDiff > math.Pi/4 { // > 45° is misaligned
+				track.AlignmentMisaligned++
+			}
+		}
+	}
+
 	// Update OBB heading with temporal smoothing
 	// Alpha = 0.3 gives reasonable smoothing while staying responsive
 	// Note: OBBHeadingRad is initialised in initTrack if cluster has OBB,
@@ -934,4 +1008,59 @@ func (track *TrackedObject) ComputeQualityMetrics() {
 
 	// Note: NoisePointRatio is computed during clustering and passed via clusters
 	// It will be aggregated when clusters are associated with tracks
+}
+
+// GetTrackingMetrics computes aggregate velocity-trail alignment metrics
+// across all active and confirmed tracks. Used by the sweep tool to
+// evaluate tracking parameter configurations.
+func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	metrics := TrackingMetrics{}
+	var totalSamples int
+	var totalAngDiff float32
+	var totalMisaligned int
+
+	for _, track := range t.Tracks {
+		if track.State == TrackDeleted {
+			continue
+		}
+		metrics.ActiveTracks++
+
+		if track.AlignmentSampleCount == 0 {
+			continue
+		}
+
+		totalSamples += track.AlignmentSampleCount
+		totalAngDiff += track.AlignmentSumRad
+		totalMisaligned += track.AlignmentMisaligned
+
+		var misalignmentRate float32
+		if track.AlignmentSampleCount > 0 {
+			misalignmentRate = float32(track.AlignmentMisaligned) / float32(track.AlignmentSampleCount)
+		}
+
+		metrics.PerTrack = append(metrics.PerTrack, TrackAlignmentMetrics{
+			TrackID:          track.TrackID,
+			State:            string(track.State),
+			SampleCount:      track.AlignmentSampleCount,
+			MeanAlignmentRad: track.AlignmentMeanRad,
+			MeanAlignmentDeg: track.AlignmentMeanRad * 180 / math.Pi,
+			MisalignedCount:  track.AlignmentMisaligned,
+			MisalignmentRate: misalignmentRate,
+			SpeedMps:         track.Speed(),
+		})
+	}
+
+	metrics.TotalAlignmentSamples = totalSamples
+	metrics.TotalMisaligned = totalMisaligned
+
+	if totalSamples > 0 {
+		metrics.MeanAlignmentRad = totalAngDiff / float32(totalSamples)
+		metrics.MeanAlignmentDeg = metrics.MeanAlignmentRad * 180 / math.Pi
+		metrics.MisalignmentRatio = float32(totalMisaligned) / float32(totalSamples)
+	}
+
+	return metrics
 }

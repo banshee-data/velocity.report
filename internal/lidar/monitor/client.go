@@ -244,3 +244,60 @@ func (c *Client) FetchGridStatus() (map[string]interface{}, error) {
 	}
 	return gs, nil
 }
+
+// FetchTrackingMetrics fetches velocity-trail alignment metrics from the server.
+// Used by the sweep tool to evaluate tracking parameter quality.
+func (c *Client) FetchTrackingMetrics() (map[string]interface{}, error) {
+	resp, err := c.HTTPClient.Get(fmt.Sprintf("%s/api/lidar/tracks/metrics?include_per_track=false", c.BaseURL))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("tracking metrics returned %d: %s", resp.StatusCode, string(body))
+	}
+
+	var m map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// TrackingParams holds tracker configuration values for sweep operations.
+// Only non-nil fields will be updated on the server.
+type TrackingParams struct {
+	GatingDistanceSquared *float64 `json:"gating_distance_squared,omitempty"`
+	ProcessNoisePos       *float64 `json:"process_noise_pos,omitempty"`
+	ProcessNoiseVel       *float64 `json:"process_noise_vel,omitempty"`
+	MeasurementNoise      *float64 `json:"measurement_noise,omitempty"`
+}
+
+// SetTrackerConfig updates tracker configuration on the server.
+func (c *Client) SetTrackerConfig(params TrackingParams) error {
+	url := fmt.Sprintf("%s/api/lidar/tracks/config", c.BaseURL)
+	data, err := json.Marshal(params)
+	if err != nil {
+		return fmt.Errorf("marshal tracker config: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPut, url, bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("set tracker config returned %d: %s", resp.StatusCode, string(body))
+	}
+	return nil
+}
