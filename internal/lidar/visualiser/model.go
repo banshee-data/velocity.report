@@ -3,6 +3,7 @@
 package visualiser
 
 import (
+	"sync/atomic"
 	"time"
 )
 
@@ -45,6 +46,9 @@ type CoordinateFrameInfo struct {
 }
 
 // PointCloudFrame contains point cloud data for a frame.
+// For efficient memory management in broadcast scenarios, PointCloudFrame
+// uses reference counting. Call Retain() before sharing and Release()
+// when done. Slices are returned to sync.Pool when refCount reaches zero.
 type PointCloudFrame struct {
 	FrameID        uint64
 	TimestampNanos int64
@@ -61,6 +65,29 @@ type PointCloudFrame struct {
 	DecimationMode  DecimationMode
 	DecimationRatio float32
 	PointCount      int
+
+	// Reference counting for safe pool reuse in broadcast scenarios (M7).
+	// When a frame is broadcast to multiple clients, each consumer calls
+	// Retain() before use and Release() after conversion. Slices are
+	// returned to the pool only when refCount reaches zero.
+	refCount atomic.Int32
+}
+
+// Retain increments the reference count.
+// Call this before sharing the frame with another consumer.
+func (pc *PointCloudFrame) Retain() {
+	if pc == nil {
+		return
+	}
+	pc.refCount.Add(1)
+}
+
+// RefCount returns the current reference count (for testing/debugging).
+func (pc *PointCloudFrame) RefCount() int32 {
+	if pc == nil {
+		return 0
+	}
+	return pc.refCount.Load()
 }
 
 // DecimationMode specifies how points were decimated.

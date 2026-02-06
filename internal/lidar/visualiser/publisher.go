@@ -345,6 +345,9 @@ func (p *Publisher) logPeriodicStats(frameCount uint64, pointCount, trackCount, 
 }
 
 // broadcastLoop distributes frames to all connected clients.
+// Uses reference counting (M7) to enable safe pool reuse: each client
+// that receives a frame calls Retain() before use and Release() after
+// protobuf conversion. The pool reclaims slices when all clients are done.
 func (p *Publisher) broadcastLoop() {
 	defer p.wg.Done()
 
@@ -354,16 +357,33 @@ func (p *Publisher) broadcastLoop() {
 			return
 		case frame := <-p.frameChan:
 			p.clientsMu.RLock()
+			clientCount := len(p.clients)
 			for _, client := range p.clients {
+				// Retain for this client (M7 reference counting).
+				// Release is called in streamFromPublisher after protobuf conversion.
+				if frame.PointCloud != nil {
+					frame.PointCloud.Retain()
+				}
 				select {
 				case client.frameCh <- frame:
+					// Successfully sent
 				default:
 					// Client is slow, drop frame for this client.
+					// Release the Retain we just did since frame wasn't sent.
+					if frame.PointCloud != nil {
+						frame.PointCloud.Release()
+					}
 					// Count this so gRPC stats reflect the full picture.
 					p.droppedFrames.Add(1)
 				}
 			}
 			p.clientsMu.RUnlock()
+
+			// If no clients are connected, release the frame immediately
+			// so pooled slices aren't leaked.
+			if clientCount == 0 && frame.PointCloud != nil {
+				frame.PointCloud.Release()
+			}
 		}
 	}
 }

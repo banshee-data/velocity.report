@@ -187,8 +187,12 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				clientID, framesSent, droppedFrames, slowSends, float64(totalSendTimeNs)/float64(max(framesSent, 1))/1e6)
 			return ctx.Err()
 		case frame := <-frameCh:
-			// Respect pause state — drop frames silently while paused
+			// Respect pause state — drop frames silently while paused.
+			// M7: Release the retained reference since we won't process this frame.
 			if s.paused {
+				if frame.PointCloud != nil {
+					frame.PointCloud.Release()
+				}
 				continue
 			}
 
@@ -198,6 +202,10 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			for len(frameCh) > 0 && consecutiveSlowSends >= maxConsecutiveSlowSends {
 				select {
 				case newerFrame := <-frameCh:
+					// M7: Release the old frame we're discarding
+					if frame.PointCloud != nil {
+						frame.PointCloud.Release()
+					}
 					frame = newerFrame // Use the newer frame
 					skipped++
 					droppedFrames++
@@ -234,6 +242,14 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			// Measure serialisation and send time
 			sendStart := time.Now()
 			pbFrame := frameBundleToProto(frame, req)
+
+			// M7: Release PointCloud reference after protobuf conversion.
+			// The data has been copied to the protobuf message, so we can
+			// safely decrement the reference count. When all clients have
+			// released, the slices are returned to the pool.
+			if frame.PointCloud != nil {
+				frame.PointCloud.Release()
+			}
 
 			// Measure serialised message size
 			msgSize := proto.Size(pbFrame)

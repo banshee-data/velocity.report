@@ -386,3 +386,142 @@ func TestCoordinateFrameInfo_Creation(t *testing.T) {
 		t.Errorf("expected OriginLat=37.7749, got %f", cfi.OriginLat)
 	}
 }
+
+// M7: Reference counting tests
+
+func TestPointCloudFrame_Retain_IncreasesRefCount(t *testing.T) {
+	pc := &PointCloudFrame{
+		X:          []float32{1.0, 2.0, 3.0},
+		Y:          []float32{1.0, 2.0, 3.0},
+		Z:          []float32{1.0, 2.0, 3.0},
+		PointCount: 3,
+	}
+
+	if pc.RefCount() != 0 {
+		t.Errorf("expected initial RefCount=0, got %d", pc.RefCount())
+	}
+
+	pc.Retain()
+	if pc.RefCount() != 1 {
+		t.Errorf("expected RefCount=1 after Retain, got %d", pc.RefCount())
+	}
+
+	pc.Retain()
+	if pc.RefCount() != 2 {
+		t.Errorf("expected RefCount=2 after second Retain, got %d", pc.RefCount())
+	}
+}
+
+func TestPointCloudFrame_Retain_NilSafe(t *testing.T) {
+	var pc *PointCloudFrame
+	// Should not panic
+	pc.Retain()
+
+	if pc.RefCount() != 0 {
+		t.Errorf("expected RefCount=0 for nil, got %d", pc.RefCount())
+	}
+}
+
+func TestPointCloudFrame_RefCount_NilSafe(t *testing.T) {
+	var pc *PointCloudFrame
+	if pc.RefCount() != 0 {
+		t.Errorf("expected RefCount=0 for nil, got %d", pc.RefCount())
+	}
+}
+
+func TestPointCloudFrame_Release_DecreasesRefCount(t *testing.T) {
+	pc := &PointCloudFrame{
+		X:          []float32{1.0, 2.0, 3.0},
+		Y:          []float32{1.0, 2.0, 3.0},
+		Z:          []float32{1.0, 2.0, 3.0},
+		PointCount: 3,
+	}
+
+	// Retain twice
+	pc.Retain()
+	pc.Retain()
+	if pc.RefCount() != 2 {
+		t.Errorf("expected RefCount=2, got %d", pc.RefCount())
+	}
+
+	// First release decreases count but doesn't nil slices
+	pc.Release()
+	if pc.RefCount() != 1 {
+		t.Errorf("expected RefCount=1 after Release, got %d", pc.RefCount())
+	}
+	if pc.X == nil {
+		t.Error("expected X to still be present after first Release")
+	}
+
+	// Second release decreases to 0 and nils slices
+	pc.Release()
+	if pc.RefCount() != 0 {
+		t.Errorf("expected RefCount=0 after second Release, got %d", pc.RefCount())
+	}
+	if pc.X != nil {
+		t.Error("expected X to be nil after final Release")
+	}
+}
+
+func TestPointCloudFrame_Release_NilSafe(t *testing.T) {
+	var pc *PointCloudFrame
+	// Should not panic
+	pc.Release()
+}
+
+func TestPointCloudFrame_Release_SingleUse(t *testing.T) {
+	// When a frame is never Retain'd, Release should still work
+	// (this is the single-client or adapter-only scenario)
+	pc := &PointCloudFrame{
+		X:          []float32{1.0, 2.0, 3.0},
+		Y:          []float32{1.0, 2.0, 3.0},
+		Z:          []float32{1.0, 2.0, 3.0},
+		PointCount: 3,
+	}
+
+	// Release without Retain — refCount goes to -1, which is <= 0, so release
+	pc.Release()
+	if pc.X != nil {
+		t.Error("expected X to be nil after Release on single-use frame")
+	}
+}
+
+func TestPointCloudFrame_BroadcastScenario(t *testing.T) {
+	// Simulate broadcast to 3 clients
+	pc := &PointCloudFrame{
+		X:          []float32{1.0, 2.0, 3.0},
+		Y:          []float32{1.0, 2.0, 3.0},
+		Z:          []float32{1.0, 2.0, 3.0},
+		PointCount: 3,
+	}
+
+	// Publisher retains for each client
+	numClients := 3
+	for i := 0; i < numClients; i++ {
+		pc.Retain()
+	}
+	if pc.RefCount() != 3 {
+		t.Errorf("expected RefCount=3, got %d", pc.RefCount())
+	}
+
+	// First two clients release
+	pc.Release()
+	pc.Release()
+	if pc.RefCount() != 1 {
+		t.Errorf("expected RefCount=1, got %d", pc.RefCount())
+	}
+	// Data should still be available
+	if pc.X == nil || len(pc.X) != 3 {
+		t.Error("expected X to still be present while clients hold reference")
+	}
+
+	// Last client releases
+	pc.Release()
+	if pc.RefCount() != 0 {
+		t.Errorf("expected RefCount=0, got %d", pc.RefCount())
+	}
+	// Data should be released to pool
+	if pc.X != nil {
+		t.Error("expected X to be nil after all clients release")
+	}
+}
