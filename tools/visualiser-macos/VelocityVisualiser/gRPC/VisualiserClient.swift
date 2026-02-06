@@ -312,6 +312,27 @@ enum VisualiserClientError: Error, LocalizedError {
         _ = try await serviceClient.setRate(request: ClientRequest(message: request))
     }
 
+    /// Send overlay mode preferences to the server.
+    func setOverlayModes(
+        showPoints: Bool, showClusters: Bool, showTracks: Bool, showTrails: Bool,
+        showVelocity: Bool, showGating: Bool, showAssociation: Bool, showResiduals: Bool
+    ) async throws {
+        guard isConnected, let grpcClient = _grpcClient.value else {
+            throw VisualiserClientError.notConnected
+        }
+        let serviceClient = Velocity_Visualiser_V1_VisualiserService.Client(wrapping: grpcClient)
+        var request = Velocity_Visualiser_V1_OverlayModeRequest()
+        request.showPoints = showPoints
+        request.showClusters = showClusters
+        request.showTracks = showTracks
+        request.showTrails = showTrails
+        request.showVelocity = showVelocity
+        request.showGating = showGating
+        request.showAssociation = showAssociation
+        request.showResiduals = showResiduals
+        _ = try await serviceClient.setOverlayModes(request: ClientRequest(message: request))
+    }
+
     // MARK: - Capabilities
 
     /// Query server capabilities.
@@ -500,6 +521,32 @@ final class LockedState<Value>: @unchecked Sendable {
                 playbackRate: proto.playbackInfo.playbackRate, paused: proto.playbackInfo.paused,
                 currentFrameIndex: proto.playbackInfo.currentFrameIndex,
                 totalFrames: proto.playbackInfo.totalFrames)
+        }
+
+        // Debug overlays
+        if proto.hasDebug {
+            let d = proto.debug
+            frame.debug = DebugOverlaySet(
+                frameID: d.frameID, timestampNanos: d.timestampNs,
+                associationCandidates: d.associationCandidates.map { a in
+                    AssociationCandidate(
+                        clusterID: a.clusterID, trackID: a.trackID, distance: a.distance,
+                        accepted: a.accepted)
+                },
+                gatingEllipses: d.gatingEllipses.map { g in
+                    GatingEllipse(
+                        trackID: g.trackID, centerX: g.centerX, centerY: g.centerY,
+                        semiMajor: g.semiMajor, semiMinor: g.semiMinor, rotationRad: g.rotationRad)
+                },
+                residuals: d.residuals.map { r in
+                    InnovationResidual(
+                        trackID: r.trackID, predictedX: r.predictedX, predictedY: r.predictedY,
+                        measuredX: r.measuredX, measuredY: r.measuredY,
+                        residualMagnitude: r.residualMagnitude)
+                },
+                predictions: d.predictions.map { p in
+                    StatePrediction(trackID: p.trackID, x: p.x, y: p.y, vx: p.vx, vy: p.vy)
+                })
         }
 
         // M3.5 Split Streaming fields

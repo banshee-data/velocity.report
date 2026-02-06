@@ -10,6 +10,7 @@
 import AppKit
 import Combine
 import Foundation
+import UniformTypeIdentifiers
 import os
 
 private let logger = Logger(subsystem: "report.velocity.visualiser", category: "AppState")
@@ -49,6 +50,9 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     @Published var showTrails: Bool = true
     @Published var showVelocity: Bool = true
     @Published var showDebug: Bool = false
+    @Published var showGating: Bool = false  // M6: Gating ellipses
+    @Published var showAssociation: Bool = false  // M6: Association lines
+    @Published var showResiduals: Bool = false  // M6: Residual vectors
     @Published var pointSize: Float = 5.0  // Point size for rendering (1-20)
 
     // MARK: - Labelling State
@@ -87,6 +91,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     private var grpcClient: VisualiserClient?
     private var lastFrameTime: Date = Date()
     private var clientDelegate: ClientDelegateAdapter?
+    private let labelClient = LabelAPIClient()  // M6: REST API client for labels
 
     // MARK: - Initialisation
 
@@ -122,6 +127,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         connectionError = nil
 
         grpcClient = VisualiserClient(address: serverAddress)
+        grpcClient?.includeDebug = showDebug  // M6: Request debug data when enabled
         clientDelegate = ClientDelegateAdapter(appState: self)
         grpcClient?.delegate = clientDelegate
         logger.debug("Created VisualiserClient and delegate")
@@ -319,16 +325,70 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
     // MARK: - Labelling
 
-    func selectTrack(_ trackID: String?) { selectedTrackID = trackID }
+    func selectTrack(_ trackID: String?) {
+        selectedTrackID = trackID
+        renderer?.selectedTrackID = trackID
+        if trackID != nil { showLabelPanel = true }
+    }
 
     func assignLabel(_ label: String) {
         guard let trackID = selectedTrackID else { return }
-        // TODO: Store label in LabelStore
-        print("Assigned label '\(label)' to track \(trackID)")
+        logger.info("Assigning label '\(label)' to track \(trackID)")
+
+        Task {
+            do {
+                _ = try await labelClient.createLabel(trackID: trackID, classLabel: label)
+                logger.info("Label '\(label)' saved for track \(trackID)")
+            } catch { logger.error("Failed to save label: \(error.localizedDescription)") }
+        }
     }
 
     func exportLabels() {
-        // TODO: Export labels to JSON
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "labels-\(labelClient.sessionID).json"
+
+        panel.begin { [weak self] response in
+            guard response == .OK, let url = panel.url else { return }
+            guard let self = self else { return }
+
+            Task {
+                do {
+                    try await self.labelClient.exportToFile(url)
+                    logger.info("Labels exported to \(url.path)")
+                } catch { logger.error("Failed to export labels: \(error.localizedDescription)") }
+            }
+        }
+    }
+
+    /// Send overlay mode preferences to the server via gRPC.
+    func sendOverlayPreferences() {
+        Task {
+            do {
+                try await grpcClient?.setOverlayModes(
+                    showPoints: showPoints, showClusters: showClusters, showTracks: showBoxes,
+                    showTrails: showTrails, showVelocity: showVelocity, showGating: showGating,
+                    showAssociation: showAssociation, showResiduals: showResiduals)
+            } catch {
+                logger.error("Failed to send overlay preferences: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Toggle debug mode — also toggles includeDebug on the stream.
+    func toggleDebug() {
+        showDebug.toggle()
+
+        // When debug is enabled, also enable sub-toggles as defaults
+        if showDebug {
+            showGating = true
+            showAssociation = true
+            showResiduals = true
+        }
+
+        // Update client stream to include/exclude debug data
+        grpcClient?.includeDebug = showDebug
+        sendOverlayPreferences()
     }
 
     // MARK: - Frame Handling
@@ -383,6 +443,11 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         // Forward frame directly to renderer (bypasses SwiftUI)
         renderer?.updateFrame(frame)
         renderer?.showClusters = showClusters  // M4: Update cluster toggle
+        renderer?.showDebug = showDebug  // M6: Debug overlay master toggle
+        renderer?.showGating = showGating  // M6: Gating ellipses
+        renderer?.showAssociation = showAssociation  // M6: Association lines
+        renderer?.showResiduals = showResiduals  // M6: Residual vectors
+        renderer?.selectedTrackID = selectedTrackID  // M6: Track selection highlight
 
         // Log every 100 frames to show activity
         if frameCount % 100 == 1 {

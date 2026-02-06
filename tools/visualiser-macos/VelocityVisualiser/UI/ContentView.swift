@@ -20,8 +20,10 @@ struct ContentView: View {
                 MetalViewRepresentable(
                     showPoints: appState.showPoints, showBoxes: appState.showBoxes,
                     showClusters: appState.showClusters,  // M4
-                    showTrails: appState.showTrails, pointSize: appState.pointSize,
-                    onRendererCreated: { renderer in appState.registerRenderer(renderer) }
+                    showTrails: appState.showTrails, showDebug: appState.showDebug,  // M6
+                    pointSize: appState.pointSize,
+                    onRendererCreated: { renderer in appState.registerRenderer(renderer) },
+                    onTrackSelected: { trackID in appState.selectTrack(trackID) }
                 ).frame(minWidth: 400, minHeight: 300)
 
                 // Playback controls
@@ -206,7 +208,10 @@ struct OverlayTogglesView: View {
 
             Divider().frame(height: 20)
 
-            ToggleButton(label: "D", isOn: $appState.showDebug, help: "Debug")
+            ToggleButton(
+                label: "D",
+                isOn: Binding(get: { appState.showDebug }, set: { _ in appState.toggleDebug() }),
+                help: "Debug Overlays")
         }.fixedSize()  // Prevent compression when viewport shrinks
     }
 }
@@ -314,17 +319,31 @@ struct SidePanelView: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Track info
-            if let trackID = appState.selectedTrackID { TrackInspectorView(trackID: trackID) }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                // Track info
+                if let trackID = appState.selectedTrackID { TrackInspectorView(trackID: trackID) }
 
-            Divider()
+                Divider()
 
-            // Label panel
-            LabelPanelView()
+                // Label panel
+                LabelPanelView()
 
-            Spacer()
-        }.padding().background(Color(nsColor: .controlBackgroundColor))
+                Divider()
+
+                // Debug overlay toggles
+                DebugOverlayTogglesView()
+
+                Divider()
+
+                // Export
+                Button(action: { appState.exportLabels() }) {
+                    Label("Export Labels", systemImage: "square.and.arrow.up")
+                }.disabled(!appState.isConnected)
+
+                Spacer()
+            }.padding()
+        }.background(Color(nsColor: .controlBackgroundColor))
     }
 }
 
@@ -334,15 +353,118 @@ struct TrackInspectorView: View {
     let trackID: String
     @EnvironmentObject var appState: AppState
 
+    /// Find the current track data from the latest frame.
+    private var track: Track? {
+        appState.currentFrame?.tracks?.tracks.first(where: { $0.trackID == trackID })
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Track Inspector").font(.headline)
+            HStack {
+                Text("Track Inspector").font(.headline)
+                Spacer()
+                Button(action: { appState.selectTrack(nil) }) {
+                    Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
+                }.buttonStyle(.plain)
+            }
 
             Text("ID: \(trackID)").font(.caption).foregroundColor(.secondary)
 
-            // TODO: Show track details from current frame
+            if let t = track {
+                Divider()
 
-            Button("Deselect") { appState.selectTrack(nil) }
+                // Position
+                GroupBox(label: Text("Position").font(.caption2)) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        DetailRow(label: "X", value: String(format: "%.2f m", t.x))
+                        DetailRow(label: "Y", value: String(format: "%.2f m", t.y))
+                        DetailRow(label: "Z", value: String(format: "%.2f m", t.z))
+                    }
+                }
+
+                // Velocity
+                GroupBox(label: Text("Velocity").font(.caption2)) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        DetailRow(label: "Speed", value: String(format: "%.1f m/s", t.speedMps))
+                        DetailRow(
+                            label: "Heading",
+                            value: String(format: "%.1f°", t.headingRad * 180 / .pi))
+                        DetailRow(label: "Peak", value: String(format: "%.1f m/s", t.peakSpeedMps))
+                        DetailRow(
+                            label: "Average", value: String(format: "%.1f m/s", t.avgSpeedMps))
+                    }
+                }
+
+                // Dimensions
+                GroupBox(label: Text("Dimensions").font(.caption2)) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        DetailRow(
+                            label: "L×W×H",
+                            value: String(
+                                format: "%.1f × %.1f × %.1f m", t.bboxLengthAvg, t.bboxWidthAvg,
+                                t.bboxHeightAvg))
+                        DetailRow(
+                            label: "OBB Heading",
+                            value: String(format: "%.1f°", t.bboxHeadingRad * 180 / .pi))
+                    }
+                }
+
+                // State
+                GroupBox(label: Text("State").font(.caption2)) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack {
+                            Text("State").font(.caption).foregroundColor(.secondary)
+                            Spacer()
+                            Text(stateLabel(t.state)).font(.caption).fontWeight(.medium)
+                                .foregroundColor(stateColour(t.state))
+                        }
+                        DetailRow(label: "Hits", value: "\(t.hits)")
+                        DetailRow(label: "Misses", value: "\(t.misses)")
+                        DetailRow(
+                            label: "Confidence", value: String(format: "%.0f%%", t.confidence * 100)
+                        )
+                        DetailRow(
+                            label: "Duration", value: String(format: "%.1f s", t.trackDurationSecs))
+                        DetailRow(
+                            label: "Length", value: String(format: "%.1f m", t.trackLengthMetres))
+                        if !t.classLabel.isEmpty { DetailRow(label: "Class", value: t.classLabel) }
+                    }
+                }
+            } else {
+                Text("Track data unavailable").font(.caption).foregroundColor(.secondary)
+            }
+        }
+    }
+
+    private func stateLabel(_ state: TrackState) -> String {
+        switch state {
+        case .unknown: return "Unknown"
+        case .tentative: return "Tentative"
+        case .confirmed: return "Confirmed"
+        case .deleted: return "Deleted"
+        }
+    }
+
+    private func stateColour(_ state: TrackState) -> Color {
+        switch state {
+        case .unknown: return .gray
+        case .tentative: return .yellow
+        case .confirmed: return .green
+        case .deleted: return .red
+        }
+    }
+}
+
+/// Helper view for a label-value row in the inspector.
+struct DetailRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack {
+            Text(label).font(.caption).foregroundColor(.secondary)
+            Spacer()
+            Text(value).font(.system(.caption, design: .monospaced))
         }
     }
 }
@@ -378,6 +500,35 @@ struct LabelPanelView: View {
     }
 }
 
+// MARK: - Debug Overlay Toggles
+
+struct DebugOverlayTogglesView: View {
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Debug Overlays").font(.headline)
+
+            Toggle("Association Lines", isOn: $appState.showAssociation).font(.caption).toggleStyle(
+                .checkbox
+            ).disabled(!appState.showDebug)
+
+            Toggle("Gating Ellipses", isOn: $appState.showGating).font(.caption).toggleStyle(
+                .checkbox
+            ).disabled(!appState.showDebug)
+
+            Toggle("Residual Vectors", isOn: $appState.showResiduals).font(.caption).toggleStyle(
+                .checkbox
+            ).disabled(!appState.showDebug)
+
+            if !appState.showDebug {
+                Text("Enable Debug (D) to show overlays").font(.caption2).foregroundColor(
+                    .secondary)
+            }
+        }
+    }
+}
+
 // MARK: - Metal View
 
 struct MetalViewRepresentable: NSViewRepresentable {
@@ -386,10 +537,13 @@ struct MetalViewRepresentable: NSViewRepresentable {
     var showBoxes: Bool
     var showClusters: Bool  // M4
     var showTrails: Bool
+    var showDebug: Bool  // M6
     var pointSize: Float
 
     // Closure to register the renderer with AppState
     var onRendererCreated: ((MetalRenderer) -> Void)?
+    // M6: Track selection callback
+    var onTrackSelected: ((String?) -> Void)?
 
     func makeNSView(context: Context) -> MTKView {
         let metalView = InteractiveMetalView()
@@ -401,6 +555,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
         if let renderer = MetalRenderer(metalView: metalView) {
             context.coordinator.renderer = renderer
             metalView.renderer = renderer
+            metalView.onTrackSelected = onTrackSelected
             // Register the renderer so it can receive frame updates directly
             onRendererCreated?(renderer)
         }
@@ -416,7 +571,13 @@ struct MetalViewRepresentable: NSViewRepresentable {
         renderer.showBoxes = showBoxes
         renderer.showClusters = showClusters  // M4
         renderer.showTrails = showTrails
+        renderer.showDebug = showDebug  // M6
         renderer.pointSize = pointSize
+
+        // Update track selection callback
+        if let metalView = nsView as? InteractiveMetalView {
+            metalView.onTrackSelected = onTrackSelected
+        }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -429,7 +590,9 @@ struct MetalViewRepresentable: NSViewRepresentable {
 /// Custom MTKView subclass that handles mouse and keyboard input for camera control.
 class InteractiveMetalView: MTKView {
     weak var renderer: MetalRenderer?
+    var onTrackSelected: ((String?) -> Void)?
     private var lastMouseLocation = CGPoint.zero
+    private var mouseDownLocation = CGPoint.zero  // M6: Track click detection
 
     override var acceptsFirstResponder: Bool { true }
 
@@ -440,7 +603,10 @@ class InteractiveMetalView: MTKView {
 
     // MARK: - Mouse Events
 
-    override func mouseDown(with event: NSEvent) { lastMouseLocation = event.locationInWindow }
+    override func mouseDown(with event: NSEvent) {
+        lastMouseLocation = event.locationInWindow
+        mouseDownLocation = event.locationInWindow
+    }
 
     override func rightMouseDown(with event: NSEvent) { lastMouseLocation = event.locationInWindow }
 
@@ -453,6 +619,21 @@ class InteractiveMetalView: MTKView {
         let shiftHeld = event.modifierFlags.contains(.shift)
         renderer?.handleMouseDrag(
             deltaX: deltaX, deltaY: deltaY, isRightButton: false, shiftHeld: shiftHeld)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        let location = event.locationInWindow
+        let dx = location.x - mouseDownLocation.x
+        let dy = location.y - mouseDownLocation.y
+        let dragDistance = sqrt(dx * dx + dy * dy)
+
+        // Only treat as a click if the mouse didn't move much (< 5 pixels)
+        if dragDistance < 5.0 {
+            // Convert to view coordinates
+            let viewPoint = convert(location, from: nil)
+            let trackID = renderer?.hitTestTrack(at: viewPoint, viewSize: bounds.size)
+            onTrackSelected?(trackID)
+        }
     }
 
     override func rightMouseDragged(with event: NSEvent) {
