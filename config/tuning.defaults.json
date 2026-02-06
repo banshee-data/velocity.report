@@ -3,6 +3,5 @@
   "seed_from_first": true,
   "buffer_timeout": "500ms",
   "min_frame_points": 1000,
-  "flush_interval": "60s",
-  "flush_disable": false
+  "flush_disable": true
 }
