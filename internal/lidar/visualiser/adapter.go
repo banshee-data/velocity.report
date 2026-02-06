@@ -245,19 +245,30 @@ func (a *FrameAdapter) adaptForegroundOnly(frame *lidar.LiDARFrame, mask []bool)
 	return pc
 }
 
-// Release returns the PointCloudFrame's slices to the pool.
-// Call this after the frame has been consumed to free memory for reuse.
+// Release decrements the reference count and returns slices to the pool when
+// the count reaches zero. Call this after the frame has been consumed.
 //
-// IMPORTANT: In broadcast scenarios (where the same frame is sent to multiple
-// clients), Release() should NOT be called as it would corrupt data for other
-// consumers. The current Publisher broadcasts frames to multiple clients, so
-// Release() is intentionally not called there. For single-client streaming
-// scenarios, the caller can safely call Release() after the frame is converted
-// to protobuf.
+// In broadcast scenarios (where the same frame is sent to multiple clients),
+// each consumer should call Retain() before use and Release() after use.
+// The slices are only returned to the pool when the last consumer releases.
+//
+// For frames created with SplitStreaming=true (adaptForegroundOnly), pooled
+// slices are not used, so Release() is a no-op for those frames.
 func (pc *PointCloudFrame) Release() {
 	if pc == nil {
 		return
 	}
+
+	// Decrement reference count. Only release to pool when count reaches zero.
+	// If refCount was 0 before decrement (frame was never Retain'd), we get -1,
+	// which means this is a single-use frame that should be released immediately.
+	newCount := pc.refCount.Add(-1)
+	if newCount > 0 {
+		// Other consumers still hold references
+		return
+	}
+
+	// Release slices to pool
 	putFloat32Slice(pc.X)
 	putFloat32Slice(pc.Y)
 	putFloat32Slice(pc.Z)

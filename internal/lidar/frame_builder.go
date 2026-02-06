@@ -561,6 +561,21 @@ func (fb *FrameBuilder) cleanupFrames() {
 		if ageSource.IsZero() {
 			ageSource = frame.EndTimestamp
 		}
+		// Fall back to StartWallTime or StartTimestamp to prevent memory leaks
+		// from frames with unset end timestamps (e.g., partially created frames).
+		if ageSource.IsZero() {
+			ageSource = frame.StartWallTime
+		}
+		if ageSource.IsZero() {
+			ageSource = frame.StartTimestamp
+		}
+		// If still no valid timestamp, use a large age to force cleanup
+		// after buffer timeout. This prevents indefinite memory growth.
+		if ageSource.IsZero() {
+			// Treat timestamp-less frames as extremely old to ensure cleanup
+			frameIDsToFinalize = append(frameIDsToFinalize, frameID)
+			continue
+		}
 		frameAge := now.Sub(ageSource)
 		if frameAge >= fb.bufferTimeout {
 			frameIDsToFinalize = append(frameIDsToFinalize, frameID)

@@ -48,7 +48,7 @@ enum VisualiserClientError: Error, LocalizedError {
 /// // Frames will be delivered via delegate
 /// client.disconnect()
 /// ```
-@available(macOS 15.0, *) final class VisualiserClient: Sendable {
+@available(macOS 15.0, *) final class VisualiserClient {
 
     // MARK: - Properties
 
@@ -232,22 +232,22 @@ enum VisualiserClientError: Error, LocalizedError {
                             )
                         }
 
-                        // Decode proto to internal model
-                        guard let strongSelf = self else { return }
+                        // Decode proto to internal model off the main actor,
+                        // then hop to MainActor only to notify the delegate.
+                        guard let strongSelf = self else { continue }
                         let frame = strongSelf.decodeFrameBundle(protoFrame)
 
-                        // Deliver to delegate on main thread
-                        await MainActor.run {
-                            guard let strongSelf = self else { return }
-                            strongSelf.delegate?.client(strongSelf, didReceiveFrame: frame)
+                        await MainActor.run { [weak strongSelf] in
+                            guard let self = strongSelf else { return }
+                            self.delegate?.client(self, didReceiveFrame: frame)
                         }
                     }
                     print("[VisualiserClient] Stream ended after \(frameCount) frames")
 
                     // Notify delegate that stream finished (replay complete)
-                    await MainActor.run {
-                        guard let strongSelf = self else { return }
-                        strongSelf.delegate?.clientDidFinishStream(strongSelf)
+                    await MainActor.run { [weak self] in
+                        guard let self = self else { return }
+                        self.delegate?.clientDidFinishStream(self)
                     }
 
                 case .failure(let error):

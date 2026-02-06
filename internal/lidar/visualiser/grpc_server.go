@@ -44,9 +44,11 @@ type Server struct {
 	// Playback state — used by PCAP and replay modes.
 	// In PCAP mode, pause/play are honoured at the stream level
 	// (frames are silently dropped while paused).
+	// Protected by playbackMu for concurrent access.
 	paused       bool
 	playbackRate float32
 	replayMode   bool // True when replaying a PCAP or log (not live sensor)
+	playbackMu   sync.RWMutex
 
 	// PCAP progress tracking (updated by WebServer progress callback)
 	pcapCurrentPacket uint64
@@ -76,6 +78,8 @@ func (s *Server) EnableSyntheticMode(sensorID string) {
 // When in replay mode, PlaybackInfo is injected into streamed frames and
 // the client UI shows "REPLAY" instead of "LIVE".
 func (s *Server) SetReplayMode(enabled bool) {
+	s.playbackMu.Lock()
+	defer s.playbackMu.Unlock()
 	s.replayMode = enabled
 	if !enabled {
 		s.pcapCurrentPacket = 0
@@ -85,6 +89,8 @@ func (s *Server) SetReplayMode(enabled bool) {
 
 // SetPCAPProgress updates the current packet position for seek-bar display.
 func (s *Server) SetPCAPProgress(currentPacket, totalPackets uint64) {
+	s.playbackMu.Lock()
+	defer s.playbackMu.Unlock()
 	s.pcapCurrentPacket = currentPacket
 	s.pcapTotalPackets = totalPackets
 }
@@ -123,7 +129,10 @@ func (s *Server) streamSynthetic(ctx context.Context, req *pb.StreamRequest, str
 			log.Printf("[gRPC] StreamFrames cancelled")
 			return ctx.Err()
 		case <-ticker.C:
-			if s.paused {
+			s.playbackMu.RLock()
+			paused := s.paused
+			s.playbackMu.RUnlock()
+			if paused {
 				continue
 			}
 
@@ -136,6 +145,54 @@ func (s *Server) streamSynthetic(ctx context.Context, req *pb.StreamRequest, str
 			}
 		}
 	}
+}
+
+// sendCooldown implements hysteresis-based frame skip control (§7.3).
+//
+// After entering skip mode (consecutive slow sends >= maxSlow), it requires
+// minFast consecutive fast sends before exiting skip mode. This prevents
+// oscillation when a client hovers around the slow send threshold.
+type sendCooldown struct {
+	maxSlow  int // Consecutive slow sends to enter skip mode
+	minFast  int // Consecutive fast sends to exit skip mode
+	slowRun  int // Current consecutive slow sends
+	fastRun  int // Current consecutive fast sends
+	skipping bool
+}
+
+// newSendCooldown creates a sendCooldown with the given thresholds.
+func newSendCooldown(maxSlow, minFast int) *sendCooldown {
+	return &sendCooldown{maxSlow: maxSlow, minFast: minFast}
+}
+
+// recordSlow records a slow send. Returns true if now in skip mode.
+func (sc *sendCooldown) recordSlow() bool {
+	sc.slowRun++
+	sc.fastRun = 0
+	if sc.slowRun >= sc.maxSlow {
+		sc.skipping = true
+	}
+	return sc.skipping
+}
+
+// recordFast records a fast send. Returns true if still in skip mode.
+func (sc *sendCooldown) recordFast() bool {
+	sc.fastRun++
+	if sc.skipping {
+		if sc.fastRun >= sc.minFast {
+			sc.slowRun = 0
+			sc.fastRun = 0
+			sc.skipping = false
+		}
+	} else {
+		sc.slowRun = 0
+	}
+	return sc.skipping
+}
+
+// inSkipMode returns true if the cooldown is currently in skip mode.
+func (sc *sendCooldown) inSkipMode() bool {
+	return sc.skipping
 }
 
 // streamFromPublisher streams frames from the publisher.
@@ -174,10 +231,11 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 	const slowSendThresholdMs = 50    // Warn if Send() takes > 50ms
 	const sendTimeoutMs = 100         // Skip frame if send would take > 100ms
 	const maxConsecutiveSlowSends = 3 // After 3 slow sends, start skipping
+	const minConsecutiveFastSends = 5 // Require 5 fast sends before exiting skip mode (hysteresis)
 
 	// Track message sizes for bandwidth estimation
 	var totalBytesSent int64
-	var consecutiveSlowSends int
+	cooldown := newSendCooldown(maxConsecutiveSlowSends, minConsecutiveFastSends)
 	var lastFrameID uint64
 
 	for {
@@ -187,17 +245,28 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				clientID, framesSent, droppedFrames, slowSends, float64(totalSendTimeNs)/float64(max(framesSent, 1))/1e6)
 			return ctx.Err()
 		case frame := <-frameCh:
-			// Respect pause state — drop frames silently while paused
-			if s.paused {
+			// Respect pause state — drop frames silently while paused.
+			// M7: Release the retained reference since we won't process this frame.
+			s.playbackMu.RLock()
+			paused := s.paused
+			s.playbackMu.RUnlock()
+			if paused {
+				if frame.PointCloud != nil {
+					frame.PointCloud.Release()
+				}
 				continue
 			}
 
 			// Skip frames if we're falling behind (keep only latest)
 			// Drain any additional frames in the channel to catch up
 			skipped := 0
-			for len(frameCh) > 0 && consecutiveSlowSends >= maxConsecutiveSlowSends {
+			for len(frameCh) > 0 && cooldown.inSkipMode() {
 				select {
 				case newerFrame := <-frameCh:
+					// M7: Release the old frame we're discarding
+					if frame.PointCloud != nil {
+						frame.PointCloud.Release()
+					}
 					frame = newerFrame // Use the newer frame
 					skipped++
 					droppedFrames++
@@ -206,8 +275,8 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				}
 			}
 			if skipped > 0 {
-				log.Printf("[gRPC] Client %s: skipped %d frames to catch up (consecutive_slow=%d)",
-					clientID, skipped, consecutiveSlowSends)
+				log.Printf("[gRPC] Client %s: skipped %d frames to catch up (skip_mode=%v)",
+					clientID, skipped, cooldown.inSkipMode())
 			}
 
 			// Track frame ID gaps for detecting skipped frames
@@ -222,6 +291,7 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			// Inject PlaybackInfo for replay mode (PCAP) if not already set.
 			// This allows the client to show "REPLAY" instead of "LIVE".
 			if s.replayMode && frame.PlaybackInfo == nil {
+				s.playbackMu.RLock()
 				frame.PlaybackInfo = &PlaybackInfo{
 					IsLive:            false,
 					PlaybackRate:      s.playbackRate,
@@ -229,6 +299,7 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 					CurrentFrameIndex: s.pcapCurrentPacket,
 					TotalFrames:       s.pcapTotalPackets,
 				}
+				s.playbackMu.RUnlock()
 			}
 
 			// Measure serialisation and send time
@@ -240,23 +311,40 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			totalBytesSent += int64(msgSize)
 
 			if err := stream.Send(pbFrame); err != nil {
+				// M7: Release on error path - protobuf data has been marshalled
+				// by Send(), so it's safe to release the source slices now.
+				if frame.PointCloud != nil {
+					frame.PointCloud.Release()
+				}
 				log.Printf("[gRPC] Send error for client %s after %d frames: %v", clientID, framesSent, err)
 				return err
+			}
+
+			// M7: Release PointCloud reference after stream.Send() completes.
+			// The protobuf message has been marshalled and sent, so we can
+			// safely decrement the reference count. When all clients have
+			// released, the slices are returned to the pool.
+			// NOTE: frameBundleToProto assigns X/Y/Z slices directly into the
+			// protobuf (no deep copy), so Release must happen AFTER Send.
+			if frame.PointCloud != nil {
+				frame.PointCloud.Release()
 			}
 			sendDuration := time.Since(sendStart)
 			totalSendTimeNs += sendDuration.Nanoseconds()
 			framesSent++
 
-			// Track slow sends with message size info
+			// Track slow sends with message size info — hysteresis cooldown (§7.3)
+			// After entering skip mode, require minConsecutiveFastSends before exiting
+			// to prevent oscillation between skip and normal modes.
 			if sendDuration.Milliseconds() > slowSendThresholdMs {
 				slowSends++
-				consecutiveSlowSends++
+				cooldown.recordSlow()
 				if sendDuration.Milliseconds() > sendTimeoutMs {
-					log.Printf("[gRPC] SLOW SEND: client=%s frame=%d duration=%v points=%d msg_size_kb=%.1f consecutive=%d",
-						clientID, frame.FrameID, sendDuration, getPointCount(frame), float64(msgSize)/1024, consecutiveSlowSends)
+					log.Printf("[gRPC] SLOW SEND: client=%s frame=%d duration=%v points=%d msg_size_kb=%.1f skip_mode=%v",
+						clientID, frame.FrameID, sendDuration, getPointCount(frame), float64(msgSize)/1024, cooldown.inSkipMode())
 				}
 			} else {
-				consecutiveSlowSends = 0 // Reset on successful fast send
+				cooldown.recordFast()
 			}
 
 			// Periodic performance logging
@@ -458,19 +546,25 @@ func byteSliceToUint32(b []uint8) []uint32 {
 
 // Pause pauses playback (replay mode).
 func (s *Server) Pause(ctx context.Context, req *pb.PauseRequest) (*pb.PlaybackStatus, error) {
+	s.playbackMu.Lock()
 	s.paused = true
+	rate := s.playbackRate
+	s.playbackMu.Unlock()
 	return &pb.PlaybackStatus{
 		Paused: true,
-		Rate:   s.playbackRate,
+		Rate:   rate,
 	}, nil
 }
 
 // Play resumes playback (replay mode).
 func (s *Server) Play(ctx context.Context, req *pb.PlayRequest) (*pb.PlaybackStatus, error) {
+	s.playbackMu.Lock()
 	s.paused = false
+	rate := s.playbackRate
+	s.playbackMu.Unlock()
 	return &pb.PlaybackStatus{
 		Paused: false,
-		Rate:   s.playbackRate,
+		Rate:   rate,
 	}, nil
 }
 
@@ -482,10 +576,14 @@ func (s *Server) Seek(ctx context.Context, req *pb.SeekRequest) (*pb.PlaybackSta
 
 // SetRate sets the playback rate.
 func (s *Server) SetRate(ctx context.Context, req *pb.SetRateRequest) (*pb.PlaybackStatus, error) {
+	s.playbackMu.Lock()
 	s.playbackRate = req.Rate
+	paused := s.paused
+	rate := s.playbackRate
+	s.playbackMu.Unlock()
 	return &pb.PlaybackStatus{
-		Paused: s.paused,
-		Rate:   s.playbackRate,
+		Paused: paused,
+		Rate:   rate,
 	}, nil
 }
 

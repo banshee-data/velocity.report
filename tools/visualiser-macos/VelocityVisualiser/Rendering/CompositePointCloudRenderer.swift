@@ -5,6 +5,11 @@
 // - Background frames are cached and reused
 // - Foreground frames are rendered over the cached background
 // - Reduces bandwidth from ~80 Mbps to ~3 Mbps
+//
+// For M7 optimisation:
+// - Pre-allocated buffer reuse to reduce allocation pressure
+// - Buffers are reused when point count fits within capacity
+// - Reduces GC pressure at 10-20 fps with 70k points
 
 import Metal
 import MetalKit
@@ -30,6 +35,10 @@ enum BackgroundCacheState {
 /// - Background buffer: Cached from background frames, reused across foreground frames
 /// - Foreground buffer: Updated on every foreground frame
 ///
+/// M7: Uses pre-allocated buffers to reduce allocation pressure. Buffers are reused
+/// when the new point count fits within the existing capacity. A new buffer is only
+/// allocated when capacity is insufficient or excessively large (>4x needed).
+///
 /// When rendering, both buffers are drawn in sequence to composite the full scene.
 class CompositePointCloudRenderer {
 
@@ -37,13 +46,23 @@ class CompositePointCloudRenderer {
 
     private let device: MTLDevice
 
+    // M7: Buffer capacity tracking for pre-allocation reuse.
+    // We allocate larger buffers and reuse them when point count varies.
+    // Reallocation thresholds:
+    // - Grow: when needed capacity exceeds current buffer
+    // - Shrink: when buffer is >4x larger than needed (avoid memory waste)
+    private static let shrinkThreshold: Int = 4
+    private static let growMargin: Float = 1.5  // Allocate 50% extra for headroom
+
     // Cached background buffer
     private var backgroundBuffer: MTLBuffer?
+    private var backgroundBufferCapacity: Int = 0  // M7: Capacity in vertices (not bytes)
     private var backgroundPointCount: Int = 0
     private var backgroundSeq: UInt64 = 0
 
     // Current foreground buffer
     private var foregroundBuffer: MTLBuffer?
+    private var foregroundBufferCapacity: Int = 0  // M7: Capacity in vertices
     private var foregroundPointCount: Int = 0
 
     // Cache state tracking
@@ -95,7 +114,26 @@ class CompositePointCloudRenderer {
         }
     }
 
+    // MARK: - M7 Buffer Management
+
+    /// Determine if a buffer should be reallocated.
+    /// Returns true if the buffer needs to grow or should shrink to avoid waste.
+    private func shouldReallocate(currentCapacity: Int, neededCount: Int) -> Bool {
+        // Need to grow: current capacity insufficient
+        if neededCount > currentCapacity { return true }
+        // Should shrink: buffer is excessively large (>4x needed)
+        if currentCapacity > neededCount * Self.shrinkThreshold && neededCount > 0 { return true }
+        return false
+    }
+
+    /// Calculate new buffer capacity with growth margin.
+    private func calculateCapacity(for count: Int) -> Int {
+        // Add 50% growth margin to reduce reallocations
+        return Int(Float(count) * Self.growMargin)
+    }
+
     /// Update the background buffer from a snapshot.
+    /// M7: Reuses existing buffer when capacity permits.
     private func updateBackgroundBuffer(_ snapshot: BackgroundSnapshot) {
         let count = snapshot.pointCount
         guard count > 0 else {
@@ -105,26 +143,44 @@ class CompositePointCloudRenderer {
 
         cacheState = .refreshing
 
-        // Create interleaved buffer: [x, y, z, intensity, classification] per point (5 floats each)
-        // Background points are classified as 0 (background)
-        var vertices = [Float](repeating: 0, count: count * 5)
-        for i in 0..<count {
-            vertices[i * 5 + 0] = snapshot.x[i]
-            vertices[i * 5 + 1] = snapshot.y[i]
-            vertices[i * 5 + 2] = snapshot.z[i]
-            // Use confidence as intensity (scaled down from count to 0-1 range)
-            let confidence = Float(snapshot.confidence[i])
-            vertices[i * 5 + 3] = min(confidence / 10.0, 1.0)  // Normalize to 0-1
-            vertices[i * 5 + 4] = 0.0  // Classification: background
+        // M7: Check if we need to reallocate the buffer
+        let neededVertices = count * 5  // 5 floats per vertex
+        if backgroundBuffer == nil ||
+            shouldReallocate(currentCapacity: backgroundBufferCapacity, neededCount: neededVertices)
+        {
+            let newCapacity = calculateCapacity(for: neededVertices)
+            let bufferSize = newCapacity * MemoryLayout<Float>.stride
+            if let newBuffer = device.makeBuffer(length: bufferSize, options: .storageModeShared) {
+                backgroundBuffer = newBuffer
+                backgroundBufferCapacity = newCapacity
+            } else {
+                // Allocation failed; keep state consistent and abort update
+                backgroundBuffer = nil
+                backgroundBufferCapacity = 0
+                backgroundPointCount = 0
+                return
+            }
         }
 
-        let bufferSize = vertices.count * MemoryLayout<Float>.stride
-        backgroundBuffer = device.makeBuffer(
-            bytes: vertices, length: bufferSize, options: .storageModeShared)
+        // Copy data into buffer
+        guard let buffer = backgroundBuffer else { return }
+        let ptr = buffer.contents().bindMemory(to: Float.self, capacity: neededVertices)
+
+        for i in 0..<count {
+            ptr[i * 5 + 0] = snapshot.x[i]
+            ptr[i * 5 + 1] = snapshot.y[i]
+            ptr[i * 5 + 2] = snapshot.z[i]
+            // Use confidence as intensity (scaled down from count to 0-1 range)
+            let confidence = Float(snapshot.confidence[i])
+            ptr[i * 5 + 3] = min(confidence / 10.0, 1.0)
+            ptr[i * 5 + 4] = 0.0  // Classification: background
+        }
+
         backgroundPointCount = count
     }
 
     /// Update the foreground buffer from a point cloud frame.
+    /// M7: Reuses existing buffer when capacity permits.
     private func updateForegroundBuffer(_ pointCloud: PointCloudFrame) {
         let count = pointCloud.pointCount
         guard count > 0 else {
@@ -132,24 +188,42 @@ class CompositePointCloudRenderer {
             return
         }
 
-        // Create interleaved buffer: [x, y, z, intensity, classification] per point (5 floats each)
-        var vertices = [Float](repeating: 0, count: count * 5)
+        // M7: Check if we need to reallocate the buffer
+        let neededVertices = count * 5  // 5 floats per vertex
+        if foregroundBuffer == nil ||
+            shouldReallocate(currentCapacity: foregroundBufferCapacity, neededCount: neededVertices)
+        {
+            let newCapacity = calculateCapacity(for: neededVertices)
+            let bufferSize = newCapacity * MemoryLayout<Float>.stride
+            if let newBuffer = device.makeBuffer(length: bufferSize, options: .storageModeShared) {
+                foregroundBuffer = newBuffer
+                foregroundBufferCapacity = newCapacity
+            } else {
+                // Allocation failed; keep state consistent and abort update
+                foregroundBuffer = nil
+                foregroundBufferCapacity = 0
+                foregroundPointCount = 0
+                return
+            }
+        }
+
+        // Copy data into buffer
+        guard let buffer = foregroundBuffer else { return }
+        let ptr = buffer.contents().bindMemory(to: Float.self, capacity: neededVertices)
+
         for i in 0..<count {
-            vertices[i * 5 + 0] = pointCloud.x[i]
-            vertices[i * 5 + 1] = pointCloud.y[i]
-            vertices[i * 5 + 2] = pointCloud.z[i]
-            vertices[i * 5 + 3] = Float(pointCloud.intensity[i]) / 255.0
+            ptr[i * 5 + 0] = pointCloud.x[i]
+            ptr[i * 5 + 1] = pointCloud.y[i]
+            ptr[i * 5 + 2] = pointCloud.z[i]
+            ptr[i * 5 + 3] = Float(pointCloud.intensity[i]) / 255.0
             // Classification: 0=background, 1=foreground, 2=ground
             var classification: Float = 1.0  // Default to foreground
             if i < pointCloud.classification.count {
                 classification = Float(pointCloud.classification[i])
             }
-            vertices[i * 5 + 4] = classification
+            ptr[i * 5 + 4] = classification
         }
 
-        let bufferSize = vertices.count * MemoryLayout<Float>.stride
-        foregroundBuffer = device.makeBuffer(
-            bytes: vertices, length: bufferSize, options: .storageModeShared)
         foregroundPointCount = count
     }
 
@@ -186,9 +260,11 @@ class CompositePointCloudRenderer {
     /// Clear all cached data.
     func clearCache() {
         backgroundBuffer = nil
+        backgroundBufferCapacity = 0
         backgroundPointCount = 0
         backgroundSeq = 0
         foregroundBuffer = nil
+        foregroundBufferCapacity = 0
         foregroundPointCount = 0
         cacheState = .empty
     }
@@ -199,5 +275,14 @@ class CompositePointCloudRenderer {
     func getStats() -> (background: Int, foreground: Int, total: Int) {
         let total = backgroundPointCount + foregroundPointCount
         return (background: backgroundPointCount, foreground: foregroundPointCount, total: total)
+    }
+
+    /// M7: Get buffer statistics for performance monitoring.
+    func getBufferStats() -> (bgCapacity: Int, bgUsed: Int, fgCapacity: Int, fgUsed: Int) {
+        return (
+            bgCapacity: (backgroundBufferCapacity + 4) / 5,  // Convert vertices back to points (ceiling)
+            bgUsed: backgroundPointCount, fgCapacity: (foregroundBufferCapacity + 4) / 5,
+            fgUsed: foregroundPointCount
+        )
     }
 }

@@ -401,4 +401,147 @@ struct CompositePointCloudRendererTests {
         #expect(renderer.cacheStatus.contains("Cached"))
         #expect(renderer.cacheStatus.contains("7"))  // Should show sequence number
     }
+
+    // MARK: - M7 Buffer Pooling Tests
+
+    @Test func bufferStatsInitiallyZero() throws {
+        let device = try createDevice()
+        let renderer = CompositePointCloudRenderer(device: device)
+
+        let bufStats = renderer.getBufferStats()
+        #expect(bufStats.bgCapacity == 0)
+        #expect(bufStats.bgUsed == 0)
+        #expect(bufStats.fgCapacity == 0)
+        #expect(bufStats.fgUsed == 0)
+    }
+
+    @Test func bufferCapacityGrowsWithData() throws {
+        let device = try createDevice()
+        let renderer = CompositePointCloudRenderer(device: device)
+
+        // Add foreground frame
+        var pc = PointCloudFrame()
+        pc.x = Array(repeating: 10.0, count: 100)
+        pc.y = Array(repeating: 20.0, count: 100)
+        pc.z = Array(repeating: 1.0, count: 100)
+        pc.intensity = Array(repeating: 200, count: 100)
+        pc.pointCount = 100
+
+        var fgFrame = FrameBundle()
+        fgFrame.frameType = .foreground
+        fgFrame.pointCloud = pc
+        renderer.processFrame(fgFrame)
+
+        let bufStats = renderer.getBufferStats()
+        #expect(bufStats.fgUsed == 100)
+        // Capacity should be >= used count (with growth margin)
+        #expect(bufStats.fgCapacity >= 100)
+    }
+
+    @Test func bufferReusedWhenCapacitySufficient() throws {
+        let device = try createDevice()
+        let renderer = CompositePointCloudRenderer(device: device)
+
+        // First frame: 1000 points
+        var pc1 = PointCloudFrame()
+        pc1.x = Array(repeating: 10.0, count: 1000)
+        pc1.y = Array(repeating: 20.0, count: 1000)
+        pc1.z = Array(repeating: 1.0, count: 1000)
+        pc1.intensity = Array(repeating: 200, count: 1000)
+        pc1.pointCount = 1000
+
+        var frame1 = FrameBundle()
+        frame1.frameType = .foreground
+        frame1.pointCloud = pc1
+        renderer.processFrame(frame1)
+
+        let initialCapacity = renderer.getBufferStats().fgCapacity
+
+        // Second frame: 500 points (fits in existing buffer)
+        var pc2 = PointCloudFrame()
+        pc2.x = Array(repeating: 5.0, count: 500)
+        pc2.y = Array(repeating: 10.0, count: 500)
+        pc2.z = Array(repeating: 0.5, count: 500)
+        pc2.intensity = Array(repeating: 100, count: 500)
+        pc2.pointCount = 500
+
+        var frame2 = FrameBundle()
+        frame2.frameType = .foreground
+        frame2.pointCloud = pc2
+        renderer.processFrame(frame2)
+
+        let stats = renderer.getBufferStats()
+        // Used count should be updated
+        #expect(stats.fgUsed == 500)
+        // Capacity should remain the same (buffer reused)
+        #expect(stats.fgCapacity == initialCapacity)
+    }
+
+    @Test func bufferGrowsWhenNeeded() throws {
+        let device = try createDevice()
+        let renderer = CompositePointCloudRenderer(device: device)
+
+        // First frame: 100 points
+        var pc1 = PointCloudFrame()
+        pc1.x = Array(repeating: 10.0, count: 100)
+        pc1.y = Array(repeating: 20.0, count: 100)
+        pc1.z = Array(repeating: 1.0, count: 100)
+        pc1.intensity = Array(repeating: 200, count: 100)
+        pc1.pointCount = 100
+
+        var frame1 = FrameBundle()
+        frame1.frameType = .foreground
+        frame1.pointCloud = pc1
+        renderer.processFrame(frame1)
+
+        let initialCapacity = renderer.getBufferStats().fgCapacity
+
+        // Second frame: 10000 points (exceeds existing buffer)
+        var pc2 = PointCloudFrame()
+        pc2.x = Array(repeating: 5.0, count: 10000)
+        pc2.y = Array(repeating: 10.0, count: 10000)
+        pc2.z = Array(repeating: 0.5, count: 10000)
+        pc2.intensity = Array(repeating: 100, count: 10000)
+        pc2.pointCount = 10000
+
+        var frame2 = FrameBundle()
+        frame2.frameType = .foreground
+        frame2.pointCloud = pc2
+        renderer.processFrame(frame2)
+
+        let stats = renderer.getBufferStats()
+        // Capacity should have grown
+        #expect(stats.fgCapacity > initialCapacity)
+        #expect(stats.fgCapacity >= 10000)
+    }
+
+    @Test func clearCacheResetsBufferCapacity() throws {
+        let device = try createDevice()
+        let renderer = CompositePointCloudRenderer(device: device)
+
+        // Add background
+        var bg = BackgroundSnapshot()
+        bg.sequenceNumber = 1
+        bg.x = Array(repeating: 1.0, count: 1000)
+        bg.y = Array(repeating: 2.0, count: 1000)
+        bg.z = Array(repeating: 0.5, count: 1000)
+        bg.confidence = Array(repeating: 10, count: 1000)
+
+        var bgFrame = FrameBundle()
+        bgFrame.frameType = .background
+        bgFrame.background = bg
+        renderer.processFrame(bgFrame)
+
+        // Verify buffer was allocated
+        var stats = renderer.getBufferStats()
+        #expect(stats.bgCapacity > 0)
+
+        // Clear cache
+        renderer.clearCache()
+
+        // Verify capacity is reset
+        stats = renderer.getBufferStats()
+        #expect(stats.bgCapacity == 0)
+        #expect(stats.fgCapacity == 0)
+    }
 }

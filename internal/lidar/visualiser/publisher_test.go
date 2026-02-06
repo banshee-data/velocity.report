@@ -411,3 +411,399 @@ func TestServer_SyntheticMode(t *testing.T) {
 		t.Error("expected non-nil tracks")
 	}
 }
+
+// =============================================================================
+// Tests for SetBackgroundManager and background snapshot handling
+// (mockBackgroundManager is defined in publisher_m35_test.go)
+// =============================================================================
+
+func TestPublisher_SetBackgroundManager(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+
+	// Initially nil
+	if pub.backgroundMgr != nil {
+		t.Error("expected nil backgroundMgr initially")
+	}
+
+	// Set mock manager
+	mgr := &mockBackgroundManager{sequenceNumber: 42}
+	pub.SetBackgroundManager(mgr)
+
+	if pub.backgroundMgr == nil {
+		t.Fatal("expected non-nil backgroundMgr after SetBackgroundManager")
+	}
+}
+
+func TestPublisher_Publish_WithBackgroundManager(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	cfg.BackgroundInterval = 24 * time.Hour // Long interval to prevent auto-send
+	pub := NewPublisher(cfg)
+
+	// Set up mock background manager
+	mgr := &mockBackgroundManager{
+		sequenceNumber: 1,
+		snapshot: &BackgroundSnapshot{
+			SequenceNumber: 1,
+			TimestampNanos: time.Now().UnixNano(),
+			X:              []float32{1.0, 2.0, 3.0},
+			Y:              []float32{1.0, 2.0, 3.0},
+			Z:              []float32{0.5, 0.5, 0.5},
+			Confidence:     []uint32{1, 1, 1},
+			GridMetadata: GridMetadata{
+				Rings:       40,
+				AzimuthBins: 1800,
+			},
+		},
+	}
+	pub.SetBackgroundManager(mgr)
+
+	if err := pub.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer pub.Stop()
+
+	// Create and publish a frame
+	frame := &FrameBundle{
+		FrameID:        1,
+		TimestampNanos: time.Now().UnixNano(),
+		SensorID:       "test",
+		PointCloud: &PointCloudFrame{
+			X:              []float32{5.0, 6.0},
+			Y:              []float32{5.0, 6.0},
+			Z:              []float32{1.0, 1.0},
+			Intensity:      []uint8{100, 150},
+			Classification: []uint8{1, 0}, // One foreground, one background
+			PointCount:     2,
+		},
+	}
+
+	pub.Publish(frame)
+
+	// Give time for processing
+	time.Sleep(50 * time.Millisecond)
+
+	stats := pub.Stats()
+	// Should have processed the frame (possibly 2 if background was sent first)
+	if stats.FrameCount == 0 {
+		t.Error("expected FrameCount > 0")
+	}
+}
+
+func TestPublisher_Publish_WrongType(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+
+	if err := pub.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer pub.Stop()
+
+	// Publish with wrong type (string instead of *FrameBundle)
+	pub.Publish("not a frame bundle")
+
+	// Give time for processing
+	time.Sleep(10 * time.Millisecond)
+
+	stats := pub.Stats()
+	// Should not have processed the invalid frame
+	if stats.FrameCount != 0 {
+		t.Errorf("expected FrameCount=0 for wrong type, got %d", stats.FrameCount)
+	}
+}
+
+func TestPublisher_Publish_NilFrame(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+
+	if err := pub.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer pub.Stop()
+
+	// Publish nil
+	pub.Publish(nil)
+
+	// Give time for processing
+	time.Sleep(10 * time.Millisecond)
+
+	stats := pub.Stats()
+	// Should not have processed nil
+	if stats.FrameCount != 0 {
+		t.Errorf("expected FrameCount=0 for nil, got %d", stats.FrameCount)
+	}
+}
+
+// NOTE: shouldSendBackground tests are in publisher_m35_test.go
+
+func TestPublisher_SendBackgroundSnapshot_NoManager(t *testing.T) {
+	cfg := DefaultConfig()
+	pub := NewPublisher(cfg)
+
+	// Without manager, should be no-op
+	err := pub.sendBackgroundSnapshot()
+	if err != nil {
+		t.Errorf("expected nil error without manager, got: %v", err)
+	}
+}
+
+func TestPublisher_SendBackgroundSnapshot_GenerateError(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+
+	mgr := &mockBackgroundManager{
+		generateError: &testError{"generate failed"},
+	}
+	pub.SetBackgroundManager(mgr)
+
+	err := pub.sendBackgroundSnapshot()
+	if err == nil {
+		t.Error("expected error from GenerateBackgroundSnapshot")
+	}
+}
+
+type testError struct {
+	msg string
+}
+
+func (e *testError) Error() string {
+	return e.msg
+}
+
+func TestPublisher_SendBackgroundSnapshot_EmptySnapshot(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+
+	if err := pub.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer pub.Stop()
+
+	// Empty snapshot (zero points) should still work
+	mgr := &mockBackgroundManager{
+		sequenceNumber: 1,
+		snapshot: &BackgroundSnapshot{
+			SequenceNumber: 1,
+			TimestampNanos: time.Now().UnixNano(),
+			X:              []float32{},
+			Y:              []float32{},
+			Z:              []float32{},
+			Confidence:     []uint32{},
+		},
+	}
+	pub.SetBackgroundManager(mgr)
+
+	err := pub.sendBackgroundSnapshot()
+	if err != nil {
+		t.Errorf("unexpected error for empty snapshot: %v", err)
+	}
+}
+
+func TestPublisher_SendBackgroundSnapshot_WrongType(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+
+	// Mock that returns wrong type
+	mgr := &mockBackgroundManagerWrongType{}
+	pub.SetBackgroundManager(mgr)
+
+	err := pub.sendBackgroundSnapshot()
+	if err == nil {
+		t.Error("expected error for wrong type")
+	}
+}
+
+type mockBackgroundManagerWrongType struct{}
+
+func (m *mockBackgroundManagerWrongType) GenerateBackgroundSnapshot() (interface{}, error) {
+	return "wrong type", nil // Returns string instead of *BackgroundSnapshot
+}
+
+func (m *mockBackgroundManagerWrongType) GetBackgroundSequenceNumber() uint64 {
+	return 1
+}
+
+func TestPublisher_SendBackgroundSnapshot_Success(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+
+	if err := pub.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer pub.Stop()
+
+	mgr := &mockBackgroundManager{
+		sequenceNumber: 42,
+		snapshot: &BackgroundSnapshot{
+			SequenceNumber: 42,
+			TimestampNanos: time.Now().UnixNano(),
+			X:              []float32{1.0, 2.0},
+			Y:              []float32{1.0, 2.0},
+			Z:              []float32{0.5, 0.5},
+			Confidence:     []uint32{1, 1},
+		},
+	}
+	pub.SetBackgroundManager(mgr)
+
+	err := pub.sendBackgroundSnapshot()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	// Check that state was updated
+	if pub.lastBackgroundSeq != 42 {
+		t.Errorf("expected lastBackgroundSeq=42, got %d", pub.lastBackgroundSeq)
+	}
+	if pub.lastBackgroundSent.IsZero() {
+		t.Error("expected lastBackgroundSent to be set")
+	}
+}
+
+// =============================================================================
+// Tests for Publish edge cases
+// =============================================================================
+
+func TestPublisher_Publish_WithPointCloudNoBackgroundMgr(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+
+	if err := pub.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer pub.Stop()
+
+	// Frame with point cloud but no background manager
+	frame := &FrameBundle{
+		FrameID:        1,
+		TimestampNanos: time.Now().UnixNano(),
+		SensorID:       "test",
+		PointCloud: &PointCloudFrame{
+			X:              []float32{1.0, 2.0},
+			Y:              []float32{1.0, 2.0},
+			Z:              []float32{0.5, 0.5},
+			Intensity:      []uint8{100, 150},
+			Classification: []uint8{1, 0},
+			PointCount:     2,
+		},
+	}
+
+	pub.Publish(frame)
+
+	// Give time for processing
+	time.Sleep(20 * time.Millisecond)
+
+	stats := pub.Stats()
+	if stats.FrameCount != 1 {
+		t.Errorf("expected FrameCount=1, got %d", stats.FrameCount)
+	}
+}
+
+func TestPublisher_Publish_WithTracksAndClusters(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+
+	if err := pub.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer pub.Stop()
+
+	// Frame with tracks and clusters
+	frame := &FrameBundle{
+		FrameID:        1,
+		TimestampNanos: time.Now().UnixNano(),
+		SensorID:       "test",
+		Tracks: &TrackSet{
+			FrameID: 1,
+			Tracks: []Track{
+				{TrackID: "track-1", X: 5.0, Y: 10.0},
+				{TrackID: "track-2", X: 15.0, Y: 20.0},
+			},
+		},
+		Clusters: &ClusterSet{
+			FrameID: 1,
+			Clusters: []Cluster{
+				{ClusterID: 1, CentroidX: 5.0, CentroidY: 10.0},
+			},
+		},
+	}
+
+	pub.Publish(frame)
+
+	// Give time for processing
+	time.Sleep(20 * time.Millisecond)
+
+	stats := pub.Stats()
+	if stats.FrameCount != 1 {
+		t.Errorf("expected FrameCount=1, got %d", stats.FrameCount)
+	}
+}
+
+func TestPublisher_Publish_ChannelFull(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+
+	if err := pub.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer pub.Stop()
+
+	// Fill up the channel beyond capacity (100)
+	// We can't directly fill it without consuming, but we can verify the channel is used
+	for i := 0; i < 100; i++ {
+		frame := NewFrameBundle(uint64(i+1), "test", time.Now())
+		pub.Publish(frame)
+	}
+
+	// Give time for processing
+	time.Sleep(50 * time.Millisecond)
+
+	stats := pub.Stats()
+	// Should have processed most frames
+	if stats.FrameCount == 0 {
+		t.Error("expected FrameCount > 0")
+	}
+}
+
+func TestPublisher_LogPeriodicStats(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+
+	// First call initialises the stats (lastStatsTime is zero)
+	pub.logPeriodicStats(0, 100, 5, 2, 10)
+
+	// Second call within 5 seconds should not log
+	pub.logPeriodicStats(1, 100, 5, 2, 10)
+
+	// Simulate time passage by directly manipulating lastStatsTime
+	pub.lastStatsMu.Lock()
+	pub.lastStatsTime = time.Now().Add(-6 * time.Second) // 6 seconds ago
+	pub.lastStatsMu.Unlock()
+
+	// Now call again - should log stats since > 5 seconds elapsed
+	pub.logPeriodicStats(100, 500, 10, 5, 20)
+
+	// Verify state was updated
+	pub.lastStatsMu.Lock()
+	lastTime := pub.lastStatsTime
+	lastFrameCount := pub.lastFrameCount
+	pub.lastStatsMu.Unlock()
+
+	if lastTime.IsZero() {
+		t.Error("expected lastStatsTime to be set")
+	}
+	if lastFrameCount != 100 {
+		t.Errorf("expected lastFrameCount=100, got %d", lastFrameCount)
+	}
+}

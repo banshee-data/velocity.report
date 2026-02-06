@@ -6,6 +6,9 @@
 // - Bounding boxes as instanced geometry
 // - Track trails as polylines
 // - 2D overlays for debug visualisation
+//
+// M7: Uses pre-allocated buffer reuse to reduce allocation pressure
+// at 10-20 fps with 70k points per frame.
 
 import MetalKit
 import simd
@@ -63,6 +66,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     // Legacy point buffer (for backwards compatibility)
     var pointBuffer: MTLBuffer?
     var pointCount: Int = 0
+    // M7: Buffer capacity tracking for pre-allocation reuse
+    private var pointBufferCapacity: Int = 0
 
     var boxVertices: MTLBuffer?
     var boxVertexCount: Int = 0
@@ -290,28 +295,63 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
     private var frameUpdateCount: Int = 0
 
+    // M7: Buffer reallocation thresholds for pre-allocated buffer reuse
+    private static let shrinkThreshold: Int = 4  // Shrink if buffer is >4x needed
+    private static let growMargin: Float = 1.5  // Allocate 50% extra for headroom
+
+    /// M7: Determine if a buffer should be reallocated.
+    private func shouldReallocateBuffer(currentCapacity: Int, neededCount: Int) -> Bool {
+        // Need to grow: current capacity insufficient
+        if neededCount > currentCapacity { return true }
+        // Should shrink: buffer is excessively large (>4x needed)
+        if currentCapacity > neededCount * Self.shrinkThreshold && neededCount > 0 { return true }
+        return false
+    }
+
+    /// M7: Calculate new buffer capacity with growth margin.
+    private func calculateBufferCapacity(for count: Int) -> Int {
+        return Int(Float(count) * Self.growMargin)
+    }
+
+    /// M7: Update point buffer using pre-allocated buffer reuse.
+    /// Only reallocates when capacity is insufficient or excessively large.
     private func updatePointBuffer(_ pointCloud: PointCloudFrame) {
         let count = pointCloud.pointCount
         guard count > 0 else { return }
 
-        // Create interleaved buffer: [x, y, z, intensity, classification] per point (5 floats each)
-        var vertices = [Float](repeating: 0, count: count * 5)
+        // M7: Check if we need to reallocate the buffer
+        let neededVertices = count * 5  // 5 floats per vertex
+        if pointBuffer == nil || shouldReallocateBuffer(currentCapacity: pointBufferCapacity, neededCount: neededVertices)
+        {
+            let newCapacity = calculateBufferCapacity(for: neededVertices)
+            let bufferSize = newCapacity * MemoryLayout<Float>.stride
+            if let newBuffer = device.makeBuffer(length: bufferSize, options: .storageModeShared) {
+                pointBuffer = newBuffer
+                pointBufferCapacity = newCapacity
+            } else {
+                // Allocation failed; ensure capacity metadata does not claim a valid buffer.
+                pointBuffer = nil
+                pointBufferCapacity = 0
+            }
+        }
+
+        // Copy data into buffer
+        guard let buffer = pointBuffer else { return }
+        let ptr = buffer.contents().bindMemory(to: Float.self, capacity: neededVertices)
+
         for i in 0..<count {
-            vertices[i * 5 + 0] = pointCloud.x[i]
-            vertices[i * 5 + 1] = pointCloud.y[i]
-            vertices[i * 5 + 2] = pointCloud.z[i]
-            vertices[i * 5 + 3] = Float(pointCloud.intensity[i]) / 255.0
+            ptr[i * 5 + 0] = pointCloud.x[i]
+            ptr[i * 5 + 1] = pointCloud.y[i]
+            ptr[i * 5 + 2] = pointCloud.z[i]
+            ptr[i * 5 + 3] = Float(pointCloud.intensity[i]) / 255.0
             // Classification: 0=background, 1=foreground, 2=ground
             var classification: Float = 0.0
             if i < pointCloud.classification.count {
                 classification = Float(pointCloud.classification[i])
             }
-            vertices[i * 5 + 4] = classification
+            ptr[i * 5 + 4] = classification
         }
 
-        let bufferSize = vertices.count * MemoryLayout<Float>.stride
-        pointBuffer = device.makeBuffer(
-            bytes: vertices, length: bufferSize, options: .storageModeShared)
         pointCount = count
     }
 
