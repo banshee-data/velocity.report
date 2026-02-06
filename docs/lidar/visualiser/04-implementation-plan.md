@@ -314,7 +314,7 @@ See [performance-investigation.md](./performance-investigation.md) for detailed 
 
 ### M5: Algorithm Upgrades ✅
 
-**Status**: Complete (Track B)
+**Status**: Complete (Track A + Track B)
 
 **Goal**: Improve tracking quality with refined algorithms.
 
@@ -328,24 +328,24 @@ See [performance-investigation.md](./performance-investigation.md) for detailed 
 **Track B (Pipeline)**:
 
 - [x] Improved ground removal (height threshold)
-- [~] Voxel grid downsampling option (deferred to M7)
+- [x] Voxel grid downsampling (`internal/lidar/voxel.go`)
 - [x] OBB estimation from cluster PCA
 - [x] Temporal OBB smoothing
-- [~] Hungarian algorithm for association (optional, deferred)
-- [~] Occlusion handling improvements (deferred)
-- [~] Classification hooks (deferred to future milestone)
+- [x] Hungarian algorithm for association (`internal/lidar/hungarian.go`)
+- [x] Occlusion handling (confirmed tracks coast 8 frames, covariance inflation)
+- [x] Classification hooks (`internal/lidar/features.go`, periodic re-classification)
 
 See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) for detailed proposals.
 
 **Track A (Visualiser)**:
 
-- [ ] Render OBB (oriented boxes)
-- [ ] Show OBB heading arrows
+- [x] Render OBB (oriented boxes)
+- [x] Show OBB heading arrows
 
 **Acceptance Criteria**:
 
 - [x] OBB headings computed via PCA (align with vehicle shape)
-- [~] Track continuity improved (requires Hungarian, deferred)
+- [x] Track continuity improved (Hungarian association, occlusion coasting)
 - [x] Performance metrics maintained or improved
 
 **Estimated Dev-Days**: 12 (2 Track A + 10 Track B)
@@ -354,7 +354,7 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 
 ### M6: Debug Overlays + Labelling Export ✅
 
-**Status**: Complete (Track B)
+**Status**: Complete (Track A + Track B)
 
 **Goal**: Full debug visualisation and labelling workflow.
 
@@ -376,14 +376,14 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 
 **Track A (Visualiser)**:
 
-- [ ] Render association lines (dashed, colour-coded)
-- [ ] Render gating ellipses
-- [ ] Render residual vectors
-- [ ] Track selection (click to select)
-- [ ] Track detail panel
-- [ ] Label assignment UI
-- [ ] REST API client for label CRUD operations
-- [ ] Label export to JSON (via API)
+- [x] Render association lines (dashed, colour-coded)
+- [x] Render gating ellipses
+- [x] Render residual vectors
+- [x] Track selection (click to select)
+- [x] Track detail panel
+- [x] Label assignment UI
+- [x] REST API client for label CRUD operations
+- [x] Label export to JSON (via API)
 
 **Track B (Pipeline)**:
 
@@ -395,11 +395,11 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 
 **Acceptance Criteria**:
 
-- [ ] All debug overlays render correctly (Track A pending)
+- [x] All debug overlays render correctly
 - [x] Labels persist in SQLite database
-- [ ] Labels accessible from both visualiser and web UI (Track A pending)
+- [x] Labels accessible from both visualiser and web UI
 - [x] Export produces valid JSON for ML pipeline
-- [ ] Labelling workflow < 3 seconds per track (Track A pending)
+- [x] Labelling workflow < 3 seconds per track
 
 **Estimated Dev-Days**: 12 (8 Track A + 4 Track B)
 
