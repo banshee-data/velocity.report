@@ -437,3 +437,51 @@ func TestSampler_Sample_BackgroundCountTypes(t *testing.T) {
 		})
 	}
 }
+
+func TestSampler_Sample_ExcessiveIterationsClamp(t *testing.T) {
+	// Test that excessive iterations are clamped to prevent DoS
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "acceptance") {
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"AcceptCounts":    []interface{}{100.0},
+				"RejectCounts":    []interface{}{10.0},
+				"Totals":          []interface{}{110.0},
+				"AcceptanceRates": []interface{}{0.909},
+			})
+		} else if strings.Contains(r.URL.Path, "grid_status") {
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"background_count": 100.0,
+			})
+		}
+	}))
+	defer server.Close()
+
+	client := monitor.NewClient(server.Client(), server.URL, "sensor1")
+	buckets := []string{"1"}
+	s := NewSampler(client, buckets, 10*time.Millisecond)
+
+	testCases := []struct {
+		name              string
+		iterations        int
+		expectedMaxLength int
+	}{
+		{"excessive iterations", 10000, 500},
+		{"negative iterations", -5, 30},
+		{"zero iterations", 0, 30},
+		{"valid iterations", 50, 50},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := SampleConfig{
+				Iterations: tc.iterations,
+			}
+
+			results := s.Sample(cfg)
+
+			if len(results) > tc.expectedMaxLength {
+				t.Errorf("Expected at most %d results, got %d (DoS protection failed)", tc.expectedMaxLength, len(results))
+			}
+		})
+	}
+}

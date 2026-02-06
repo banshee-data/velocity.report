@@ -38,6 +38,17 @@ type SampleConfig struct {
 // Sample collects acceptance metrics over the configured number of iterations.
 // Returns a slice of SampleResult, one per iteration.
 func (s *Sampler) Sample(cfg SampleConfig) []SampleResult {
+	// Validate iterations to prevent excessive memory allocation
+	const maxIterations = 500
+	if cfg.Iterations <= 0 {
+		log.Printf("WARNING: Invalid iterations %d, using default 30", cfg.Iterations)
+		cfg.Iterations = 30
+	}
+	if cfg.Iterations > maxIterations {
+		log.Printf("WARNING: Iterations %d exceeds maximum %d, clamping to maximum", cfg.Iterations, maxIterations)
+		cfg.Iterations = maxIterations
+	}
+
 	results := make([]SampleResult, 0, cfg.Iterations)
 
 	for i := 0; i < cfg.Iterations; i++ {
