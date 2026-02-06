@@ -138,6 +138,54 @@ func (s *Server) streamSynthetic(ctx context.Context, req *pb.StreamRequest, str
 	}
 }
 
+// sendCooldown implements hysteresis-based frame skip control (§7.3).
+//
+// After entering skip mode (consecutive slow sends >= maxSlow), it requires
+// minFast consecutive fast sends before exiting skip mode. This prevents
+// oscillation when a client hovers around the slow send threshold.
+type sendCooldown struct {
+	maxSlow  int // Consecutive slow sends to enter skip mode
+	minFast  int // Consecutive fast sends to exit skip mode
+	slowRun  int // Current consecutive slow sends
+	fastRun  int // Current consecutive fast sends
+	skipping bool
+}
+
+// newSendCooldown creates a sendCooldown with the given thresholds.
+func newSendCooldown(maxSlow, minFast int) *sendCooldown {
+	return &sendCooldown{maxSlow: maxSlow, minFast: minFast}
+}
+
+// recordSlow records a slow send. Returns true if now in skip mode.
+func (sc *sendCooldown) recordSlow() bool {
+	sc.slowRun++
+	sc.fastRun = 0
+	if sc.slowRun >= sc.maxSlow {
+		sc.skipping = true
+	}
+	return sc.skipping
+}
+
+// recordFast records a fast send. Returns true if still in skip mode.
+func (sc *sendCooldown) recordFast() bool {
+	sc.fastRun++
+	if sc.skipping {
+		if sc.fastRun >= sc.minFast {
+			sc.slowRun = 0
+			sc.fastRun = 0
+			sc.skipping = false
+		}
+	} else {
+		sc.slowRun = 0
+	}
+	return sc.skipping
+}
+
+// inSkipMode returns true if the cooldown is currently in skip mode.
+func (sc *sendCooldown) inSkipMode() bool {
+	return sc.skipping
+}
+
 // streamFromPublisher streams frames from the publisher.
 func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest, stream pb.VisualiserService_StreamFramesServer) error {
 	// Create a unique client ID
@@ -174,10 +222,11 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 	const slowSendThresholdMs = 50    // Warn if Send() takes > 50ms
 	const sendTimeoutMs = 100         // Skip frame if send would take > 100ms
 	const maxConsecutiveSlowSends = 3 // After 3 slow sends, start skipping
+	const minConsecutiveFastSends = 5 // Require 5 fast sends before exiting skip mode (hysteresis)
 
 	// Track message sizes for bandwidth estimation
 	var totalBytesSent int64
-	var consecutiveSlowSends int
+	cooldown := newSendCooldown(maxConsecutiveSlowSends, minConsecutiveFastSends)
 	var lastFrameID uint64
 
 	for {
@@ -199,7 +248,7 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			// Skip frames if we're falling behind (keep only latest)
 			// Drain any additional frames in the channel to catch up
 			skipped := 0
-			for len(frameCh) > 0 && consecutiveSlowSends >= maxConsecutiveSlowSends {
+			for len(frameCh) > 0 && cooldown.inSkipMode() {
 				select {
 				case newerFrame := <-frameCh:
 					// M7: Release the old frame we're discarding
@@ -214,8 +263,8 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				}
 			}
 			if skipped > 0 {
-				log.Printf("[gRPC] Client %s: skipped %d frames to catch up (consecutive_slow=%d)",
-					clientID, skipped, consecutiveSlowSends)
+				log.Printf("[gRPC] Client %s: skipped %d frames to catch up (skip_mode=%v)",
+					clientID, skipped, cooldown.inSkipMode())
 			}
 
 			// Track frame ID gaps for detecting skipped frames
@@ -263,16 +312,18 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			totalSendTimeNs += sendDuration.Nanoseconds()
 			framesSent++
 
-			// Track slow sends with message size info
+			// Track slow sends with message size info — hysteresis cooldown (§7.3)
+			// After entering skip mode, require minConsecutiveFastSends before exiting
+			// to prevent oscillation between skip and normal modes.
 			if sendDuration.Milliseconds() > slowSendThresholdMs {
 				slowSends++
-				consecutiveSlowSends++
+				cooldown.recordSlow()
 				if sendDuration.Milliseconds() > sendTimeoutMs {
-					log.Printf("[gRPC] SLOW SEND: client=%s frame=%d duration=%v points=%d msg_size_kb=%.1f consecutive=%d",
-						clientID, frame.FrameID, sendDuration, getPointCount(frame), float64(msgSize)/1024, consecutiveSlowSends)
+					log.Printf("[gRPC] SLOW SEND: client=%s frame=%d duration=%v points=%d msg_size_kb=%.1f skip_mode=%v",
+						clientID, frame.FrameID, sendDuration, getPointCount(frame), float64(msgSize)/1024, cooldown.inSkipMode())
 				}
 			} else {
-				consecutiveSlowSends = 0 // Reset on successful fast send
+				cooldown.recordFast()
 			}
 
 			// Periodic performance logging

@@ -603,3 +603,147 @@ func TestPublisher_GRPCServer(t *testing.T) {
 		t.Error("expected non-nil GRPCServer after Start")
 	}
 }
+
+// --- sendCooldown tests (§7.3 hysteresis frame-skip control) ---
+
+func TestSendCooldown_StartsInNormalMode(t *testing.T) {
+	sc := newSendCooldown(3, 5)
+	if sc.inSkipMode() {
+		t.Error("expected normal mode initially")
+	}
+}
+
+func TestSendCooldown_EntersSkipModeAfterMaxSlow(t *testing.T) {
+	sc := newSendCooldown(3, 5)
+
+	// 2 slow sends — not yet in skip mode
+	sc.recordSlow()
+	sc.recordSlow()
+	if sc.inSkipMode() {
+		t.Error("should not be in skip mode after 2 slow sends (threshold=3)")
+	}
+
+	// 3rd slow send — enters skip mode
+	sc.recordSlow()
+	if !sc.inSkipMode() {
+		t.Error("expected skip mode after 3 slow sends")
+	}
+}
+
+func TestSendCooldown_RequiresMinFastToExitSkipMode(t *testing.T) {
+	sc := newSendCooldown(3, 5)
+
+	// Enter skip mode
+	for i := 0; i < 3; i++ {
+		sc.recordSlow()
+	}
+	if !sc.inSkipMode() {
+		t.Fatal("precondition: should be in skip mode")
+	}
+
+	// 4 fast sends — not enough to exit (need 5)
+	for i := 0; i < 4; i++ {
+		sc.recordFast()
+		if !sc.inSkipMode() {
+			t.Errorf("should still be in skip mode after %d fast sends (need 5)", i+1)
+		}
+	}
+
+	// 5th fast send — exits skip mode
+	sc.recordFast()
+	if sc.inSkipMode() {
+		t.Error("expected normal mode after 5 consecutive fast sends")
+	}
+}
+
+func TestSendCooldown_SlowSendResetsInSkipFastCounter(t *testing.T) {
+	sc := newSendCooldown(3, 5)
+
+	// Enter skip mode
+	for i := 0; i < 3; i++ {
+		sc.recordSlow()
+	}
+
+	// 4 fast sends, then a slow send interrupts
+	for i := 0; i < 4; i++ {
+		sc.recordFast()
+	}
+	sc.recordSlow() // Resets fast counter
+
+	// Need 5 more fast sends from scratch
+	for i := 0; i < 4; i++ {
+		sc.recordFast()
+		if !sc.inSkipMode() {
+			t.Errorf("should still be in skip mode after interrupted recovery (%d fast)", i+1)
+		}
+	}
+	sc.recordFast()
+	if sc.inSkipMode() {
+		t.Error("expected normal mode after 5 consecutive fast sends (post-interrupt)")
+	}
+}
+
+func TestSendCooldown_SingleFastSendDoesNotExitSkipMode(t *testing.T) {
+	sc := newSendCooldown(3, 5)
+
+	// Enter skip mode
+	for i := 0; i < 3; i++ {
+		sc.recordSlow()
+	}
+
+	// A single fast send should NOT exit skip mode (the old behaviour)
+	sc.recordFast()
+	if !sc.inSkipMode() {
+		t.Error("a single fast send should not exit skip mode (hysteresis)")
+	}
+}
+
+func TestSendCooldown_NormalMode_SlowResetByFast(t *testing.T) {
+	sc := newSendCooldown(3, 5)
+
+	// 2 slow sends (not yet skip mode), then a fast send
+	sc.recordSlow()
+	sc.recordSlow()
+	sc.recordFast()
+
+	// Should still be in normal mode, and slow counter should be reset
+	if sc.inSkipMode() {
+		t.Error("should be in normal mode")
+	}
+
+	// Need full 3 slow sends to enter skip mode again
+	sc.recordSlow()
+	sc.recordSlow()
+	if sc.inSkipMode() {
+		t.Error("should not yet be in skip mode (only 2 slow since reset)")
+	}
+	sc.recordSlow()
+	if !sc.inSkipMode() {
+		t.Error("expected skip mode after 3 consecutive slow sends")
+	}
+}
+
+func TestSendCooldown_RecordSlowReturnValue(t *testing.T) {
+	sc := newSendCooldown(2, 3)
+
+	if sc.recordSlow() {
+		t.Error("first slow send should not return skip=true")
+	}
+	if !sc.recordSlow() {
+		t.Error("second slow send should return skip=true (threshold=2)")
+	}
+}
+
+func TestSendCooldown_RecordFastReturnValue(t *testing.T) {
+	sc := newSendCooldown(1, 2)
+
+	// Enter skip mode
+	sc.recordSlow()
+
+	if !sc.recordFast() {
+		t.Error("first fast in skip mode should return still-skipping=true")
+	}
+	if sc.recordFast() {
+		t.Error("second fast in skip mode should return still-skipping=false (minFast=2)")
+	}
+}
