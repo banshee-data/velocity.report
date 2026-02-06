@@ -163,13 +163,23 @@ func EstimateOBBFromCluster(points []WorldPoint) OrientedBoundingBox {
 	width := float32(maxPerp - minPerp)
 	height := float32(maxZ - minZ)
 
-	// CenterX/Y use the mean (centroid) of the cluster points. CenterZ uses
-	// the minimum Z (ground plane) rather than the volumetric centre so that
-	// the wireframe box, whose unit cube spans Z 0→1, sits flush on the
-	// lowest point of the cluster instead of floating above it.
+	// The geometric centre of the OBB is the midpoint of the projected
+	// extents along each axis, NOT the mean of the input points. Using the
+	// mean would offset the box whenever the point distribution is asymmetric
+	// around the centroid. We compute the centre in the rotated OBB frame
+	// and convert back to world coordinates.
+	midProj := (minProj + maxProj) / 2.0
+	midPerp := (minPerp + maxPerp) / 2.0
+
+	centerX := float32(meanX + midProj*evX + midPerp*(-evY))
+	centerY := float32(meanY + midProj*evY + midPerp*evX)
+
+	// CenterZ uses the minimum Z (ground plane) rather than the volumetric
+	// centre so that the wireframe box, whose unit cube spans Z 0→1, sits
+	// flush on the lowest point of the cluster instead of floating above it.
 	return OrientedBoundingBox{
-		CenterX:    float32(meanX),
-		CenterY:    float32(meanY),
+		CenterX:    centerX,
+		CenterY:    centerY,
 		CenterZ:    float32(minZ),
 		Length:     length,
 		Width:      width,

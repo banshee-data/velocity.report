@@ -616,11 +616,20 @@ func (a *FrameAdapter) adaptTracks(tracker lidar.TrackerInterface, timestamp tim
 	}
 
 	// Include recently-deleted tracks with fade-out alpha for smooth disappearance.
+	// Only render fade-out for tracks that were previously confirmed
+	// (ObservationCount >= HitsToConfirm). Tentative tracks that never
+	// confirmed are short-lived noise — rendering their fade-out produces
+	// clusters of stale red boxes around active objects.
 	nowNanos := timestamp.UnixNano()
 	deletedTracks := tracker.GetRecentlyDeletedTracks(nowNanos)
 	gracePeriodNanos := float64(5 * time.Second) // Match DefaultDeletedTrackGracePeriod
 
 	for _, t := range deletedTracks {
+		// Skip tracks that never reached confirmed state.
+		if t.ObservationCount < 3 {
+			continue
+		}
+
 		elapsed := float64(nowNanos - t.LastUnixNanos)
 		alpha := float32(1.0 - elapsed/gracePeriodNanos)
 		if alpha < 0 {

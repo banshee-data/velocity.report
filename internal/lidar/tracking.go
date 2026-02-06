@@ -57,7 +57,7 @@ func DefaultTrackerConfig() TrackerConfig {
 	return TrackerConfig{
 		MaxTracks:               100,
 		MaxMisses:               3,
-		MaxMissesConfirmed:      8,    // Confirmed tracks coast longer through occlusion
+		MaxMissesConfirmed:      15,   // Confirmed tracks coast through occlusion (~1.5s at 10Hz)
 		HitsToConfirm:           3,    // Require 3 consecutive hits for confirmation
 		GatingDistanceSquared:   36.0, // 6.0 metres squared — wider gate for re-association
 		ProcessNoisePos:         0.1,
@@ -692,8 +692,11 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 		}
 	}
 
-	// Update OBB heading with temporal smoothing
-	// Alpha = 0.3 gives reasonable smoothing while staying responsive
+	// Update OBB heading with temporal smoothing.
+	// Alpha = 0.15 provides strong smoothing to reduce PCA jitter while still
+	// tracking genuine orientation changes. PCA heading can flip between
+	// frames when the point cloud is sparse or the visible surface changes,
+	// so heavier smoothing prevents the bounding box from spinning erratically.
 	// Note: OBBHeadingRad is initialised in initTrack if cluster has OBB,
 	// so subsequent updates here always apply smoothing.
 	if cluster.OBB != nil {
@@ -724,7 +727,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 			}
 		}
 
-		track.OBBHeadingRad = SmoothOBBHeading(track.OBBHeadingRad, newOBBHeading, 0.3)
+		track.OBBHeadingRad = SmoothOBBHeading(track.OBBHeadingRad, newOBBHeading, 0.15)
 		track.LatestZ = cluster.OBB.CenterZ
 	}
 }
