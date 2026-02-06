@@ -355,3 +355,26 @@ func TestGetBufferTimeout(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadDefaultConfigFile(t *testing.T) {
+	cfg, err := LoadTuningConfig("../../config/tuning.defaults.json")
+	if err != nil {
+		t.Fatalf("Failed to load defaults: %v", err)
+	}
+	if cfg.Lidar.Background.NoiseRelativeFraction != 0.04 {
+		t.Errorf("Expected 0.04, got %f", cfg.Lidar.Background.NoiseRelativeFraction)
+	}
+}
+
+func TestLoadExampleConfigFile(t *testing.T) {
+	cfg, err := LoadTuningConfig("../../config/tuning.example.json")
+	if err != nil {
+		t.Fatalf("Failed to load example: %v", err)
+	}
+	if cfg.Lidar.Background.NoiseRelativeFraction != 0.06 {
+		t.Errorf("Expected 0.06, got %f", cfg.Lidar.Background.NoiseRelativeFraction)
+	}
+	if cfg.Lidar.FrameBuilder.MinFramePoints != 500 {
+		t.Errorf("Expected 500, got %d", cfg.Lidar.FrameBuilder.MinFramePoints)
+	}
+}
