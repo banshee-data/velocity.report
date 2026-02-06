@@ -1,4 +1,4 @@
-/ 5// CompositePointCloudRenderer.swift
+// CompositePointCloudRenderer.swift
 // Renderer that handles split streaming with cached background.
 //
 // For M3.5 optimisation:
@@ -120,13 +120,9 @@ class CompositePointCloudRenderer {
     /// Returns true if the buffer needs to grow or should shrink to avoid waste.
     private func shouldReallocate(currentCapacity: Int, neededCount: Int) -> Bool {
         // Need to grow: current capacity insufficient
-        if neededCount > currentCapacity {
-            return true
-        }
+        if neededCount > currentCapacity { return true }
         // Should shrink: buffer is excessively large (>4x needed)
-        if currentCapacity > neededCount * Self.shrinkThreshold && neededCount > 0 {
-            return true
-        }
+        if currentCapacity > neededCount * Self.shrinkThreshold && neededCount > 0 { return true }
         return false
     }
 
@@ -149,7 +145,8 @@ class CompositePointCloudRenderer {
 
         // M7: Check if we need to reallocate the buffer
         let neededVertices = count * 5  // 5 floats per vertex
-        if shouldReallocate(currentCapacity: backgroundBufferCapacity, neededCount: neededVertices) {
+        if shouldReallocate(currentCapacity: backgroundBufferCapacity, neededCount: neededVertices)
+        {
             let newCapacity = calculateCapacity(for: neededVertices)
             let bufferSize = newCapacity * MemoryLayout<Float>.stride
             backgroundBuffer = device.makeBuffer(length: bufferSize, options: .storageModeShared)
@@ -184,7 +181,8 @@ class CompositePointCloudRenderer {
 
         // M7: Check if we need to reallocate the buffer
         let neededVertices = count * 5  // 5 floats per vertex
-        if shouldReallocate(currentCapacity: foregroundBufferCapacity, neededCount: neededVertices) {
+        if shouldReallocate(currentCapacity: foregroundBufferCapacity, neededCount: neededVertices)
+        {
             let newCapacity = calculateCapacity(for: neededVertices)
             let bufferSize = newCapacity * MemoryLayout<Float>.stride
             foregroundBuffer = device.makeBuffer(length: bufferSize, options: .storageModeShared)
@@ -265,8 +263,7 @@ class CompositePointCloudRenderer {
     func getBufferStats() -> (bgCapacity: Int, bgUsed: Int, fgCapacity: Int, fgUsed: Int) {
         return (
             bgCapacity: (backgroundBufferCapacity + 4) / 5,  // Convert vertices back to points (ceiling)
-            bgUsed: backgroundPointCount,
-            fgCapacity: (foregroundBufferCapacity + 4) / 5,
+            bgUsed: backgroundPointCount, fgCapacity: (foregroundBufferCapacity + 4) / 5,
             fgUsed: foregroundPointCount
         )
     }
