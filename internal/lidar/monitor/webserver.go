@@ -2866,6 +2866,12 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Set source path on BackgroundManager for region restoration
+	// This allows skipping settling when replaying the same PCAP file
+	if mgr := lidar.GetBackgroundManager(ws.sensorID); mgr != nil {
+		mgr.SetSourcePath(pcapFile)
+	}
+
 	if err := ws.startPCAPLocked(pcapFile, speedMode, speedRatio, startSeconds, durationSeconds, debugRingMin, debugRingMax, debugAzMin, debugAzMax, enableDebug, enablePlots); err != nil {
 		var sErr *switchError
 		if errors.As(err, &sErr) {
@@ -2984,6 +2990,11 @@ func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 		// Analysis mode: still reset frame builder to clear stale frames
 		ws.resetFrameBuilder()
 		log.Printf("[DataSource] preserving grid from PCAP analysis for sensor=%s", sensorID)
+	}
+
+	// Clear source path since we're returning to live mode
+	if mgr := lidar.GetBackgroundManager(ws.sensorID); mgr != nil {
+		mgr.SetSourcePath("")
 	}
 
 	if err := ws.startLiveListenerLocked(); err != nil {

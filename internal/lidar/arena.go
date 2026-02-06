@@ -77,6 +77,7 @@ type RegionSnapshot struct {
 	VarianceDataJSON string // matches variance_data_json TEXT - optional settling metrics
 	SettlingFrames   int    // matches settling_frames INTEGER
 	SceneHash        string // matches scene_hash TEXT - for scene similarity detection
+	SourcePath       string // matches source_path TEXT - PCAP filename for exact match restoration
 }
 
 // RegionData is the serialisable form of a Region for JSON persistence.

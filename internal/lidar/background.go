@@ -801,6 +801,13 @@ type BackgroundManager struct {
 	// allocating a new []bool (69k elements, ~69 KB) every frame.
 	// Safe because the pipeline callback runs synchronously on a single goroutine.
 	maskBuf []bool
+
+	// SourcePath stores the current data source path (e.g., PCAP filename).
+	// Used for region restoration: matching by source path is faster and more
+	// reliable than scene hash matching during early settling.
+	// Protected by sourceMu.
+	sourcePath string
+	sourceMu   sync.RWMutex
 }
 
 // GetParams returns a copy of the BackgroundParams for the manager's grid.
@@ -922,6 +929,29 @@ func (bm *BackgroundManager) SetEnableDiagnostics(v bool) {
 		return
 	}
 	bm.EnableDiagnostics = v
+}
+
+// SetSourcePath sets the current data source path (e.g., PCAP filename).
+// This is used for region restoration: when processing the same PCAP file
+// again, regions can be restored immediately by matching the source path.
+func (bm *BackgroundManager) SetSourcePath(path string) {
+	if bm == nil {
+		return
+	}
+	bm.sourceMu.Lock()
+	bm.sourcePath = path
+	bm.sourceMu.Unlock()
+	log.Printf("[BackgroundManager] Source path set to: %s", path)
+}
+
+// GetSourcePath returns the current data source path.
+func (bm *BackgroundManager) GetSourcePath() string {
+	if bm == nil {
+		return ""
+	}
+	bm.sourceMu.RLock()
+	defer bm.sourceMu.RUnlock()
+	return bm.sourcePath
 }
 
 // AcceptanceMetrics exposes the acceptance/rejection counts per range bucket.
@@ -1398,8 +1428,9 @@ func (bm *BackgroundManager) TryRestoreRegionsBySceneHash(store RegionStore) boo
 }
 
 // tryRestoreRegionsFromStoreLocked attempts region restoration from the database
-// while g.mu is already held. Computes scene signature and looks up matching
-// regions. Returns true if regions were restored and settling was skipped.
+// while g.mu is already held. First tries matching by source path (e.g., PCAP filename),
+// then falls back to scene hash matching. Returns true if regions were restored and
+// settling was skipped.
 // Caller must hold g.mu (write lock).
 func (bm *BackgroundManager) tryRestoreRegionsFromStoreLocked() bool {
 	g := bm.Grid
@@ -1412,7 +1443,31 @@ func (bm *BackgroundManager) tryRestoreRegionsFromStoreLocked() bool {
 		return false
 	}
 
-	// Compute scene signature while holding the lock
+	// Try source path matching first (more reliable for PCAP replay)
+	sourcePath := bm.GetSourcePath()
+	if sourcePath != "" {
+		// Release lock for DB I/O, then re-acquire
+		g.mu.Unlock()
+		snap, err := regionStore.GetRegionSnapshotBySourcePath(g.SensorID, sourcePath)
+		g.mu.Lock()
+
+		if err != nil {
+			log.Printf("[BackgroundManager] Error looking up region snapshot by source_path: %v", err)
+		} else if snap != nil {
+			// Restore the regions (already holding lock)
+			if err := bm.restoreRegionsLocked(snap); err != nil {
+				log.Printf("[BackgroundManager] Failed to restore regions from DB: %v", err)
+				return false
+			}
+			log.Printf("[BackgroundManager] Restored regions from DB by source_path=%s, skipping remaining settling: regions=%d",
+				sourcePath, snap.RegionCount)
+			return true
+		} else {
+			log.Printf("[BackgroundManager] No region snapshot found for source_path=%s, trying scene_hash", sourcePath)
+		}
+	}
+
+	// Fall back to scene hash matching
 	sceneHash := g.sceneSignatureUnlocked()
 	if sceneHash == "" {
 		return false
@@ -1463,14 +1518,15 @@ func (bm *BackgroundManager) persistRegionsOnSettleLocked() {
 		return
 	}
 	regionSnap.SceneHash = sceneHash
+	regionSnap.SourcePath = bm.GetSourcePath()
 
 	// Release lock for DB I/O, then re-acquire
 	g.mu.Unlock()
 	if _, err := regionStore.InsertRegionSnapshot(regionSnap); err != nil {
 		log.Printf("[BackgroundManager] Failed to persist regions on settle: %v", err)
 	} else {
-		log.Printf("[BackgroundManager] Persisted regions on settling complete: sensor=%s, regions=%d, scene_hash=%s",
-			g.SensorID, regionSnap.RegionCount, regionSnap.SceneHash)
+		log.Printf("[BackgroundManager] Persisted regions on settling complete: sensor=%s, regions=%d, scene_hash=%s, source_path=%s",
+			g.SensorID, regionSnap.RegionCount, regionSnap.SceneHash, regionSnap.SourcePath)
 	}
 	g.mu.Lock()
 }
@@ -1893,6 +1949,7 @@ type BgStore interface {
 type RegionStore interface {
 	InsertRegionSnapshot(s *RegionSnapshot) (int64, error)
 	GetRegionSnapshotBySceneHash(sensorID, sceneHash string) (*RegionSnapshot, error)
+	GetRegionSnapshotBySourcePath(sensorID, sourcePath string) (*RegionSnapshot, error)
 	GetLatestRegionSnapshot(sensorID string) (*RegionSnapshot, error)
 }
 

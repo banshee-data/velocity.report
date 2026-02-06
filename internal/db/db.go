@@ -1272,9 +1272,9 @@ func (db *DB) InsertRegionSnapshot(s *lidar.RegionSnapshot) (int64, error) {
 	if s == nil {
 		return 0, nil
 	}
-	stmt := `INSERT INTO lidar_bg_regions (snapshot_id, sensor_id, created_unix_nanos, region_count, regions_json, variance_data_json, settling_frames, scene_hash)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-	res, err := db.Exec(stmt, s.SnapshotID, s.SensorID, s.CreatedUnixNanos, s.RegionCount, s.RegionsJSON, s.VarianceDataJSON, s.SettlingFrames, s.SceneHash)
+	stmt := `INSERT INTO lidar_bg_regions (snapshot_id, sensor_id, created_unix_nanos, region_count, regions_json, variance_data_json, settling_frames, scene_hash, source_path)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	res, err := db.Exec(stmt, s.SnapshotID, s.SensorID, s.CreatedUnixNanos, s.RegionCount, s.RegionsJSON, s.VarianceDataJSON, s.SettlingFrames, s.SceneHash, s.SourcePath)
 	if err != nil {
 		return 0, err
 	}
@@ -1287,16 +1287,29 @@ func (db *DB) GetRegionSnapshotBySceneHash(sensorID, sceneHash string) (*lidar.R
 	if sceneHash == "" {
 		return nil, nil
 	}
-	q := `SELECT region_set_id, snapshot_id, sensor_id, created_unix_nanos, region_count, regions_json, variance_data_json, settling_frames, scene_hash
+	q := `SELECT region_set_id, snapshot_id, sensor_id, created_unix_nanos, region_count, regions_json, variance_data_json, settling_frames, scene_hash, source_path
 		  FROM lidar_bg_regions WHERE sensor_id = ? AND scene_hash = ? ORDER BY region_set_id DESC LIMIT 1`
 
 	row := db.QueryRow(q, sensorID, sceneHash)
 	return scanRegionSnapshot(row)
 }
 
+// GetRegionSnapshotBySourcePath returns a region snapshot matching the given source path (e.g., PCAP filename), or nil if none.
+// This is the preferred method for PCAP restoration as source path matching is more reliable than scene hash during early settling.
+func (db *DB) GetRegionSnapshotBySourcePath(sensorID, sourcePath string) (*lidar.RegionSnapshot, error) {
+	if sourcePath == "" {
+		return nil, nil
+	}
+	q := `SELECT region_set_id, snapshot_id, sensor_id, created_unix_nanos, region_count, regions_json, variance_data_json, settling_frames, scene_hash, source_path
+		  FROM lidar_bg_regions WHERE sensor_id = ? AND source_path = ? ORDER BY region_set_id DESC LIMIT 1`
+
+	row := db.QueryRow(q, sensorID, sourcePath)
+	return scanRegionSnapshot(row)
+}
+
 // GetLatestRegionSnapshot returns the most recent region snapshot for the given sensor_id, or nil if none.
 func (db *DB) GetLatestRegionSnapshot(sensorID string) (*lidar.RegionSnapshot, error) {
-	q := `SELECT region_set_id, snapshot_id, sensor_id, created_unix_nanos, region_count, regions_json, variance_data_json, settling_frames, scene_hash
+	q := `SELECT region_set_id, snapshot_id, sensor_id, created_unix_nanos, region_count, regions_json, variance_data_json, settling_frames, scene_hash, source_path
 		  FROM lidar_bg_regions WHERE sensor_id = ? ORDER BY region_set_id DESC LIMIT 1`
 
 	row := db.QueryRow(q, sensorID)
@@ -1314,8 +1327,9 @@ func scanRegionSnapshot(row *sql.Row) (*lidar.RegionSnapshot, error) {
 	var varianceJSON sql.NullString
 	var settlingFrames sql.NullInt64
 	var sceneHash sql.NullString
+	var sourcePath sql.NullString
 
-	if err := row.Scan(&regionSetID, &snapshotID, &sensor, &createdUnix, &regionCount, &regionsJSON, &varianceJSON, &settlingFrames, &sceneHash); err != nil {
+	if err := row.Scan(&regionSetID, &snapshotID, &sensor, &createdUnix, &regionCount, &regionsJSON, &varianceJSON, &settlingFrames, &sceneHash, &sourcePath); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -1332,6 +1346,7 @@ func scanRegionSnapshot(row *sql.Row) (*lidar.RegionSnapshot, error) {
 		VarianceDataJSON: varianceJSON.String,
 		SettlingFrames:   int(settlingFrames.Int64),
 		SceneHash:        sceneHash.String,
+		SourcePath:       sourcePath.String,
 	}
 	return snap, nil
 }

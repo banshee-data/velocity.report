@@ -41,6 +41,7 @@ CREATE TABLE lidar_analysis_runs (
         , variance_data_json TEXT
         , settling_frames INTEGER NOT NULL
         , scene_hash TEXT NOT NULL
+        , source_path TEXT
           );
 
    CREATE TABLE lidar_clusters (
@@ -282,6 +283,8 @@ CREATE INDEX idx_bg_snapshot_sensor_time ON lidar_bg_snapshot (sensor_id, taken_
 CREATE INDEX idx_bg_regions_sensor ON lidar_bg_regions (sensor_id);
 
 CREATE INDEX idx_bg_regions_scene_hash ON lidar_bg_regions (scene_hash);
+
+CREATE INDEX idx_bg_regions_source_path ON lidar_bg_regions (source_path);
 
 CREATE INDEX idx_transits_time ON radar_data_transits (transit_start_unix, transit_end_unix);
 

@@ -11,8 +11,11 @@
         , variance_data_json TEXT
         , settling_frames INTEGER NOT NULL
         , scene_hash TEXT NOT NULL
+        , source_path TEXT
           );
 
 CREATE INDEX idx_bg_regions_sensor ON lidar_bg_regions (sensor_id);
 
 CREATE INDEX idx_bg_regions_scene_hash ON lidar_bg_regions (scene_hash);
+
+CREATE INDEX idx_bg_regions_source_path ON lidar_bg_regions (source_path);
