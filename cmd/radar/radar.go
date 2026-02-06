@@ -18,6 +18,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/banshee-data/velocity.report/internal/api"
+	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/serialmux"
 	"github.com/banshee-data/velocity.report/internal/units"
@@ -42,6 +43,7 @@ var (
 	dbPathFlag   = flag.String("db-path", "sensor_data.db", "path to sqlite DB file (defaults to sensor_data.db)")
 	versionFlag  = flag.Bool("version", false, "Print version information and exit")
 	versionShort = flag.Bool("v", false, "Print version information and exit (shorthand)")
+	configFile   = flag.String("config", "", "Path to JSON tuning configuration file (overrides individual tuning flags)")
 )
 
 // Lidar options (when enabling lidar via -enable-lidar)
@@ -115,6 +117,19 @@ func main() {
 	if *versionFlag || *versionShort {
 		fmt.Printf("velocity-report v%s (git SHA: %s)\n", version.Version, version.GitSHA)
 		os.Exit(0)
+	}
+
+	// Load tuning configuration from file if specified
+	var tuningCfg *config.TuningConfig
+	if *configFile != "" {
+		var err error
+		tuningCfg, err = config.LoadTuningConfig(*configFile)
+		if err != nil {
+			log.Fatalf("Failed to load tuning config from %s: %v", *configFile, err)
+		}
+		log.Printf("Loaded tuning configuration from %s", *configFile)
+	} else {
+		tuningCfg = config.DefaultTuningConfig()
 	}
 
 	// Check if first argument is a subcommand
@@ -227,10 +242,34 @@ func main() {
 		// Use the main DB instance for lidar data (no separate lidar DB file)
 		lidarDB := database
 
+		// Determine tuning values: config file takes precedence when --config is specified
+		var bgNoiseRelative float64
+		var bgFlushInterval time.Duration
+		var bgFlushDisable bool
+		var seedFromFirst bool
+		var frameBufferTimeout time.Duration
+		var minFramePoints int
+
+		if *configFile != "" {
+			bgNoiseRelative = tuningCfg.Lidar.Background.NoiseRelativeFraction
+			bgFlushInterval = tuningCfg.Lidar.Background.GetFlushInterval()
+			bgFlushDisable = tuningCfg.Lidar.Background.FlushDisable
+			seedFromFirst = tuningCfg.Lidar.Background.SeedFromFirst
+			frameBufferTimeout = tuningCfg.Lidar.FrameBuilder.GetBufferTimeout()
+			minFramePoints = tuningCfg.Lidar.FrameBuilder.MinFramePoints
+		} else {
+			bgNoiseRelative = *lidarBgNoiseRelative
+			bgFlushInterval = *lidarBgFlushInterval
+			bgFlushDisable = *lidarBgFlushDisable
+			seedFromFirst = *lidarSeedFromFirst
+			frameBufferTimeout = *lidarFrameBufferTimeout
+			minFramePoints = *lidarMinFramePoints
+		}
+
 		// Create BackgroundManager using BackgroundConfig for cleaner configuration
 		bgConfig := lidar.DefaultBackgroundConfig().
-			WithNoiseRelativeFraction(float32(*lidarBgNoiseRelative)).
-			WithSeedFromFirstObservation(*lidarSeedFromFirst)
+			WithNoiseRelativeFraction(float32(bgNoiseRelative)).
+			WithSeedFromFirstObservation(seedFromFirst)
 
 		backgroundManager := lidar.NewBackgroundManager(*lidarSensor, 40, 1800, bgConfig.ToBackgroundParams(), lidarDB)
 		if backgroundManager != nil {
@@ -239,11 +278,11 @@ func main() {
 
 		// Start periodic background grid flushing using BackgroundFlusher
 		// Skip if explicitly disabled (--lidar-bg-flush-disable) or interval is zero
-		if backgroundManager != nil && *lidarBgFlushInterval > 0 && !*lidarBgFlushDisable {
+		if backgroundManager != nil && bgFlushInterval > 0 && !bgFlushDisable {
 			bgFlusher = lidar.NewBackgroundFlusher(lidar.BackgroundFlusherConfig{
 				Manager:  backgroundManager,
 				Store:    lidarDB,
-				Interval: *lidarBgFlushInterval,
+				Interval: bgFlushInterval,
 				Reason:   "periodic_flush",
 			})
 			wg.Add(1)
@@ -381,9 +420,9 @@ func main() {
 				SensorID:      *lidarSensor,
 				FrameCallback: callback,
 				// Use CLI-configurable MinFramePoints and BufferTimeout so devs can tune
-				MinFramePoints:  *lidarMinFramePoints,
+				MinFramePoints:  minFramePoints,
 				FrameBufferSize: 100,
-				BufferTimeout:   *lidarFrameBufferTimeout,
+				BufferTimeout:   frameBufferTimeout,
 				CleanupInterval: 250 * time.Millisecond,
 			})
 			// Enable lightweight frame-completion logging only when --debug is set.
