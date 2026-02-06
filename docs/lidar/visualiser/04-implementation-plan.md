@@ -12,7 +12,7 @@ This document defines an incremental, API-first implementation plan with explici
 - ✅ **M4: Tracking Interface Refactor** — Complete (Track A + Track B)
 - ✅ **M5: Algorithm Upgrades** — Complete (Track B)
 - ✅ **M6: Debug + Labelling** — Complete (Track B)
-- 🔲 **M7** — Not started
+- 🔶 **M7** — In progress (7.1 and 7.2 complete)
 
 **Checkbox Legend**:
 
@@ -411,12 +411,12 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 
 **Track A (Visualiser)**:
 
-- [ ] GPU buffer pooling (avoid allocations per frame)
+- [x] GPU buffer pooling (avoid allocations per frame) — M7.1 implemented
 - [ ] Triple buffering for smooth rendering
 - [ ] Memory usage < 500 MB
 - [ ] CPU profiling and optimisation
 - [ ] GPU profiling (Metal System Trace)
-- [ ] Swift vertex buffer reuse (see §7.1 below)
+- [x] Swift vertex buffer reuse (see §7.1 below) — M7.1 implemented
 
 **Track B (Pipeline)**:
 
@@ -424,7 +424,7 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 - [ ] Protobuf arena allocators
 - [ ] Decimation auto-adjustment based on bandwidth
 - [ ] Memory profiling for 100+ track scale
-- [ ] PointCloudFrame memory pool with reference counting (see §7.2 below)
+- [x] PointCloudFrame memory pool with reference counting (see §7.2 below) — M7.2 implemented
 - [ ] Frame skipping with cooldown mechanism (see §7.3 below)
 
 **Acceptance Criteria**:
@@ -437,7 +437,9 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 
 **Estimated Dev-Days**: 8 (4 Track A + 4 Track B)
 
-#### 7.1 Swift Buffer Pooling
+#### 7.1 Swift Buffer Pooling ✅
+
+**Status**: Implemented (February 2026)
 
 **Problem**: `MetalRenderer.updatePointBuffer()` allocates a new `vertices` array for every frame. At 10-20 fps with 70k points, this creates allocation pressure.
 
@@ -449,24 +451,38 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 
 **Recommendation**: Start with option 1 (simplest), benchmark, escalate to option 2 if needed.
 
-#### 7.2 PointCloudFrame Memory Pool (Release() Strategy)
+**Implementation (February 2026)**: Option 1 implemented in both `MetalRenderer.swift` and `CompositePointCloudRenderer.swift`:
+- Buffer capacity tracked separately from point count
+- Reallocation only when capacity is insufficient or >4x larger than needed
+- 50% growth margin to reduce reallocation frequency
+- `getBufferStats()` method added for performance monitoring
+
+#### 7.2 PointCloudFrame Memory Pool (Release() Strategy) ✅
+
+**Status**: Implemented (February 2026) using Option A (Reference Counting)
 
 **Problem**: The Go `PointCloudFrame` uses `sync.Pool` for slice allocation via `getFloat32Slice()` and `getUint8Slice()`. A `Release()` method exists to return slices to the pool. However, in broadcast scenarios (Publisher sends same frame to multiple gRPC clients), calling `Release()` would corrupt data for other consumers.
-
-**Current State**: `Release()` is documented but intentionally **not called** in broadcast mode.
 
 **Options for Proper Pool Utilisation**:
 
 | Option                            | Description                                                                                                                                        | Pros                                                 | Cons                                                   |
 | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------ |
-| **A: Reference Counting**         | Add `refCount` field to PointCloudFrame. Increment on broadcast to each client, decrement after protobuf conversion. Release when count hits zero. | Pool actually gets reused; memory-efficient at scale | Added complexity; must ensure all code paths decrement |
+| **A: Reference Counting** ✅       | Add `refCount` field to PointCloudFrame. Increment on broadcast to each client, decrement after protobuf conversion. Release when count hits zero. | Pool actually gets reused; memory-efficient at scale | Added complexity; must ensure all code paths decrement |
 | **B: Copy-on-Broadcast**          | Each client receives a deep copy of the frame                                                                                                      | Simple ownership model; no shared state              | Defeats purpose of pooling; higher memory use          |
 | **C: Single-Client Optimisation** | Only use pool in replay mode (single client). Live mode uses regular allocation.                                                                   | Works today without changes                          | Pool only helps replay; live mode still allocates      |
 | **D: Remove Pooling**             | Delete pool code; use regular slices                                                                                                               | Simplest; fewer bugs                                 | Higher GC pressure at 70k points × 10 Hz               |
 
-**Recommendation**: Option A (reference counting) for V1.1. Option C as interim if A proves complex. Current behaviour (documented non-use in broadcast) is acceptable for MVP.
+**Implementation (February 2026)**:
 
-**Implementation Sketch (Option A)**:
+- `refCount atomic.Int32` field added to `PointCloudFrame` in `model.go`
+- `Retain()` method increments reference count before sharing
+- `RefCount()` method returns current count for testing/debugging
+- `Release()` decrements count and only returns slices to pool when count reaches zero
+- `broadcastLoop()` in `publisher.go` calls `Retain()` for each client, `Release()` on drop
+- `streamFromPublisher()` in `grpc_server.go` calls `Release()` after protobuf conversion
+- Skipped/paused frames properly release their references
+
+**Original Implementation Sketch (Option A)** (preserved for reference):
 
 ```go
 type PointCloudFrame struct {
