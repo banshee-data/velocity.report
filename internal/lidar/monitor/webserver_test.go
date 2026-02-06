@@ -3868,7 +3868,7 @@ func TestWebServer_HandleBackgroundGridPolar_WithPCAPData(t *testing.T) {
 	server.StopPCAPInternal()
 }
 
-// TestWebServer_HandleTuningParams_POST_WithManager tests setting tuning params
+// TestWebServer_HandleTuningParams_POST_Complete tests setting tuning params
 func TestWebServer_HandleTuningParams_POST_Complete(t *testing.T) {
 	sensorID := "test-params-post-" + time.Now().Format("150405")
 	cleanup := setupTestBackgroundManager(t, sensorID)
