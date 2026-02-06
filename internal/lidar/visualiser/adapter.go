@@ -4,6 +4,7 @@ package visualiser
 
 import (
 	"log"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -294,9 +295,10 @@ func (pc *PointCloudFrame) ApplyDecimation(mode DecimationMode, ratio float32) {
 	case DecimationUniform:
 		pc.applyUniformDecimation(ratio)
 	case DecimationVoxel:
-		// Voxel decimation is more complex and not implemented yet
-		// Fall back to uniform decimation
-		pc.applyUniformDecimation(ratio)
+		// Voxel grid decimation: leaf size derived from ratio.
+		// At ratio 0.5, leaf ≈ 0.08m; at ratio 0.25, leaf ≈ 0.12m.
+		leafSize := float32(0.04 / float64(ratio))
+		pc.applyVoxelDecimation(leafSize)
 	}
 
 	pc.DecimationMode = mode
@@ -368,6 +370,95 @@ func (pc *PointCloudFrame) applyForegroundOnlyDecimation() {
 	pc.Intensity = newIntensity
 	pc.Classification = newClassification
 	pc.PointCount = len(newX)
+}
+
+// applyVoxelDecimation reduces point density using 3D voxel grid downsampling.
+// Each cubic voxel of the given leaf size retains the point closest to the
+// voxel centroid, preserving spatial structure better than uniform stride.
+func (pc *PointCloudFrame) applyVoxelDecimation(leafSize float32) {
+	if pc.PointCount == 0 || leafSize <= 0 {
+		return
+	}
+
+	invLeaf := float64(1.0 / leafSize)
+
+	type voxelAccum struct {
+		sumX, sumY, sumZ float64
+		count            int
+		bestIdx          int
+		bestDist2        float64
+	}
+
+	voxels := make(map[[3]int64]*voxelAccum, pc.PointCount/4)
+
+	for i := 0; i < pc.PointCount; i++ {
+		x, y, z := float64(pc.X[i]), float64(pc.Y[i]), float64(pc.Z[i])
+		key := [3]int64{
+			int64(math.Floor(x * invLeaf)),
+			int64(math.Floor(y * invLeaf)),
+			int64(math.Floor(z * invLeaf)),
+		}
+		acc, ok := voxels[key]
+		if !ok {
+			acc = &voxelAccum{bestIdx: i, bestDist2: math.MaxFloat64}
+			voxels[key] = acc
+		}
+		acc.sumX += x
+		acc.sumY += y
+		acc.sumZ += z
+		acc.count++
+	}
+
+	for i := 0; i < pc.PointCount; i++ {
+		x, y, z := float64(pc.X[i]), float64(pc.Y[i]), float64(pc.Z[i])
+		key := [3]int64{
+			int64(math.Floor(x * invLeaf)),
+			int64(math.Floor(y * invLeaf)),
+			int64(math.Floor(z * invLeaf)),
+		}
+		acc := voxels[key]
+		cx := acc.sumX / float64(acc.count)
+		cy := acc.sumY / float64(acc.count)
+		cz := acc.sumZ / float64(acc.count)
+		dx, dy, dz := x-cx, y-cy, z-cz
+		d2 := dx*dx + dy*dy + dz*dz
+		if d2 < acc.bestDist2 {
+			acc.bestDist2 = d2
+			acc.bestIdx = i
+		}
+	}
+
+	keepSet := make(map[int]bool, len(voxels))
+	for _, acc := range voxels {
+		keepSet[acc.bestIdx] = true
+	}
+
+	kept := 0
+	for i := 0; i < pc.PointCount; i++ {
+		if keepSet[i] {
+			pc.X[kept] = pc.X[i]
+			pc.Y[kept] = pc.Y[i]
+			pc.Z[kept] = pc.Z[i]
+			if i < len(pc.Intensity) {
+				pc.Intensity[kept] = pc.Intensity[i]
+			}
+			if i < len(pc.Classification) {
+				pc.Classification[kept] = pc.Classification[i]
+			}
+			kept++
+		}
+	}
+
+	pc.X = pc.X[:kept]
+	pc.Y = pc.Y[:kept]
+	pc.Z = pc.Z[:kept]
+	if len(pc.Intensity) >= kept {
+		pc.Intensity = pc.Intensity[:kept]
+	}
+	if len(pc.Classification) >= kept {
+		pc.Classification = pc.Classification[:kept]
+	}
+	pc.PointCount = kept
 }
 
 // adaptUnassociatedClusters converts WorldClusters to the canonical Cluster

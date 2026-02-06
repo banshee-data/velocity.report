@@ -139,8 +139,8 @@ func TestEstimateOBBFromCluster_VerticalExtent(t *testing.T) {
 		t.Errorf("Expected Height=%.2f, got %.2f", expectedHeight, obb.Height)
 	}
 
-	// CenterZ should be mean Z = (0.5 + 1.0 + 2.5 + 1.5) / 4 = 1.375
-	expectedCZ := float32(1.375)
+	// CenterZ should be min Z (ground plane) = 0.5
+	expectedCZ := float32(0.5)
 	if math.Abs(float64(obb.CenterZ-expectedCZ)) > 0.01 {
 		t.Errorf("Expected CenterZ=%.2f, got %.2f", expectedCZ, obb.CenterZ)
 	}

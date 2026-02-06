@@ -57,7 +57,6 @@ func EstimateOBBFromCluster(points []WorldPoint) OrientedBoundingBox {
 	nf := float64(n)
 	meanX := sumX / nf
 	meanY := sumY / nf
-	meanZ := sumZ / nf
 
 	// Step 2: Build covariance matrix for X-Y plane
 	// Cov = [c00 c01]
@@ -164,10 +163,14 @@ func EstimateOBBFromCluster(points []WorldPoint) OrientedBoundingBox {
 	width := float32(maxPerp - minPerp)
 	height := float32(maxZ - minZ)
 
+	// CenterX/Y use the mean (centroid) of the cluster points. CenterZ uses
+	// the minimum Z (ground plane) rather than the volumetric centre so that
+	// the wireframe box, whose unit cube spans Z 0→1, sits flush on the
+	// lowest point of the cluster instead of floating above it.
 	return OrientedBoundingBox{
 		CenterX:    float32(meanX),
 		CenterY:    float32(meanY),
-		CenterZ:    float32(meanZ),
+		CenterZ:    float32(minZ),
 		Length:     length,
 		Width:      width,
 		Height:     height,

@@ -687,10 +687,14 @@ func TestApplyDecimation_InvalidRatioGreaterThanOne(t *testing.T) {
 }
 
 func TestApplyDecimation_VoxelFallback(t *testing.T) {
+	// Create points that cluster within voxels — several points within
+	// the same voxel cell should be reduced to a single representative.
+	// With ratio 0.5, leafSize = 0.04/0.5 = 0.08m.
+	// Place groups of points within 0.08m cubes.
 	pc := &PointCloudFrame{
-		X:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
-		Y:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
-		Z:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		X:              []float32{0.01, 0.02, 0.03, 0.04, 0.05, 0.50, 0.51, 0.52, 0.53, 0.54},
+		Y:              []float32{0.01, 0.02, 0.03, 0.04, 0.05, 0.50, 0.51, 0.52, 0.53, 0.54},
+		Z:              []float32{0.01, 0.02, 0.03, 0.04, 0.05, 0.50, 0.51, 0.52, 0.53, 0.54},
 		Intensity:      []uint8{100, 110, 120, 130, 140, 150, 160, 170, 180, 190},
 		Classification: []uint8{1, 0, 1, 0, 1, 0, 1, 0, 1, 0},
 		PointCount:     10,
@@ -698,9 +702,9 @@ func TestApplyDecimation_VoxelFallback(t *testing.T) {
 
 	pc.ApplyDecimation(DecimationVoxel, 0.5)
 
-	// Voxel decimation falls back to uniform, should reduce points
-	if pc.PointCount == 10 {
-		t.Error("Expected reduced point count with DecimationVoxel")
+	// Voxel decimation should reduce points since multiple points share voxels
+	if pc.PointCount >= 10 {
+		t.Errorf("Expected reduced point count with DecimationVoxel, got %d", pc.PointCount)
 	}
 	if pc.DecimationMode != DecimationVoxel {
 		t.Error("DecimationMode should be DecimationVoxel")

@@ -64,6 +64,18 @@ type TrackingPipelineConfig struct {
 	// update but before the expensive clustering/tracking/serialisation path.
 	// Zero means no limit (process every frame). Typical value: 12.
 	MaxFrameRate float64
+
+	// VoxelLeafSize, when > 0, enables voxel grid downsampling before
+	// DBSCAN clustering. Each cubic voxel of this side length (metres) is
+	// reduced to a single representative point. Typical value: 0.08.
+	// Zero disables voxel downsampling.
+	VoxelLeafSize float64
+
+	// FeatureExportFunc, when non-nil, is called for every confirmed track
+	// after classification. This hook allows exporting feature vectors for
+	// ML training data collection. The callback receives the track's
+	// extracted features and the current classification result.
+	FeatureExportFunc func(trackID string, features TrackFeatures, class string, confidence float32)
 }
 
 // NewFrameCallback creates a FrameBuilder callback that processes frames through
@@ -249,6 +261,16 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 			return
 		}
 
+		// Phase 2.7: Voxel grid downsampling (optional).
+		// Reduces point density while preserving spatial structure, which
+		// tightens cluster boundaries and speeds up DBSCAN.
+		if cfg.VoxelLeafSize > 0 {
+			before := len(filteredPoints)
+			filteredPoints = VoxelGrid(filteredPoints, cfg.VoxelLeafSize)
+			Debugf("[Tracking] Voxel downsample: %d → %d (leaf=%.3fm)",
+				before, len(filteredPoints), cfg.VoxelLeafSize)
+		}
+
 		// Phase 3: Clustering (runtime-tunable via background params)
 		dbscanParams := DefaultDBSCANParams()
 		params := cfg.BackgroundManager.GetParams()
@@ -285,9 +307,21 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 		Debugf("[Tracking] %d confirmed tracks to persist", len(confirmedTracks))
 
 		for _, track := range confirmedTracks {
-			// Classify if not already classified and has enough observations
-			if track.ObjectClass == "" && track.ObservationCount >= 5 && cfg.Classifier != nil {
-				cfg.Classifier.ClassifyAndUpdate(track)
+			// Re-classify periodically as more observations accumulate.
+			// Run every 5 observations after the initial classification
+			// so the label improves as kinematic history grows.
+			if cfg.Classifier != nil && track.ObservationCount >= MinObservationsForClassification {
+				needsClassify := track.ObjectClass == "" ||
+					(track.ObservationCount%5 == 0)
+				if needsClassify {
+					cfg.Classifier.ClassifyAndUpdate(track)
+				}
+			}
+
+			// Export feature vector via hook (for ML training data)
+			if cfg.FeatureExportFunc != nil && track.ObservationCount >= MinObservationsForClassification {
+				features := ExtractTrackFeatures(track)
+				cfg.FeatureExportFunc(track.TrackID, features, track.ObjectClass, track.ObjectConfidence)
 			}
 
 			// Record track for analysis run if active

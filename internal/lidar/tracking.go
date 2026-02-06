@@ -41,12 +41,14 @@ const (
 // TrackerConfig holds configuration parameters for the tracker.
 type TrackerConfig struct {
 	MaxTracks               int           // Maximum number of concurrent tracks
-	MaxMisses               int           // Consecutive misses before deletion
+	MaxMisses               int           // Consecutive misses before tentative track deletion
+	MaxMissesConfirmed      int           // Consecutive misses before confirmed track deletion (coasting)
 	HitsToConfirm           int           // Consecutive hits needed for confirmation
 	GatingDistanceSquared   float32       // Squared gating distance for association (meters²)
 	ProcessNoisePos         float32       // Process noise for position (σ²)
 	ProcessNoiseVel         float32       // Process noise for velocity (σ²)
 	MeasurementNoise        float32       // Measurement noise (σ²)
+	OcclusionCovInflation   float32       // Extra covariance inflation per occluded frame
 	DeletedTrackGracePeriod time.Duration // How long to keep deleted tracks before cleanup
 }
 
@@ -55,11 +57,13 @@ func DefaultTrackerConfig() TrackerConfig {
 	return TrackerConfig{
 		MaxTracks:               100,
 		MaxMisses:               3,
+		MaxMissesConfirmed:      8,    // Confirmed tracks coast longer through occlusion
 		HitsToConfirm:           5,    // Require 5 consecutive hits for confirmation (was 3)
 		GatingDistanceSquared:   25.0, // 5.0 meters squared
 		ProcessNoisePos:         0.1,
 		ProcessNoiseVel:         0.5,
 		MeasurementNoise:        0.2,
+		OcclusionCovInflation:   0.5, // Widen gating gate during occlusion
 		DeletedTrackGracePeriod: DefaultDeletedTrackGracePeriod,
 	}
 }
@@ -213,14 +217,29 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 		}
 	}
 
-	// Step 4: Handle unmatched tracks
+	// Step 4: Handle unmatched tracks with occlusion-aware coasting.
+	// Confirmed tracks are allowed more miss frames (MaxMissesConfirmed)
+	// than tentative tracks (MaxMisses). During occlusion the Kalman
+	// prediction step (already applied above) keeps the position estimate
+	// coasting, and we inflate the covariance to widen the gating gate
+	// so re-association is easier when the object reappears.
 	for trackID, track := range t.Tracks {
 		if !matchedTracks[trackID] && track.State != TrackDeleted {
 			track.Misses++
 			track.Hits = 0
+			track.OcclusionCount++
+			if track.Misses > track.MaxOcclusionFrames {
+				track.MaxOcclusionFrames = track.Misses
+			}
 
-			// Append predicted position to history to keep lines coherent
-			// Only if the predicted position is not at the origin
+			// Inflate covariance during occlusion so the gating
+			// ellipse grows and re-association becomes easier.
+			if t.Config.OcclusionCovInflation > 0 {
+				track.P[0*4+0] += t.Config.OcclusionCovInflation
+				track.P[1*4+1] += t.Config.OcclusionCovInflation
+			}
+
+			// Append predicted (coasted) position to history
 			distFromOrigin := track.X*track.X + track.Y*track.Y
 			if distFromOrigin > 0.01 { // > 0.1m squared
 				track.History = append(track.History, TrackPoint{
@@ -233,7 +252,12 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 				}
 			}
 
-			if track.Misses >= t.Config.MaxMisses {
+			// Determine miss limit based on track maturity.
+			maxMisses := t.Config.MaxMisses
+			if track.State == TrackConfirmed && t.Config.MaxMissesConfirmed > 0 {
+				maxMisses = t.Config.MaxMissesConfirmed
+			}
+			if track.Misses >= maxMisses {
 				track.State = TrackDeleted
 				track.LastUnixNanos = nowNanos
 			}
@@ -305,12 +329,19 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 	track.P[3*4+3] += t.Config.ProcessNoiseVel
 }
 
-// associate performs cluster-to-track association using gating and nearest neighbour.
-// Returns a map from cluster index to track ID (empty string for unassociated).
+// associate performs cluster-to-track association using the Hungarian
+// (Kuhn–Munkres) algorithm for globally optimal assignment. This replaces the
+// earlier greedy nearest-neighbour approach which could cause track splitting
+// when two clusters competed for the same track.
+//
+// The cost matrix is built from squared Mahalanobis distances; entries
+// exceeding the gating threshold are set to +Inf (forbidden).
+// Returns a slice indexed by cluster index: each element is the trackID
+// the cluster was associated with, or "" if unassociated.
 func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 	associations := make([]string, len(clusters))
 
-	// Build list of active track IDs
+	// Build ordered list of active tracks.
 	activeTrackIDs := make([]string, 0, len(t.Tracks))
 	for id, track := range t.Tracks {
 		if track.State != TrackDeleted {
@@ -318,51 +349,57 @@ func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 		}
 	}
 
-	// For each cluster, find best matching track within gating distance
-	trackUsed := make(map[string]bool)
+	nClusters := len(clusters)
+	nTracks := len(activeTrackIDs)
 
-	for ci, cluster := range clusters {
-		bestTrackID := ""
-		bestDist2 := t.Config.GatingDistanceSquared
-
-		// First pass: find best match and collect candidates for debug
-		type candidatePair struct {
-			trackID string
-			dist2   float32
-		}
-		var candidates []candidatePair
-
-		for _, trackID := range activeTrackIDs {
-			if trackUsed[trackID] {
-				continue // Track already matched
-			}
-
-			track := t.Tracks[trackID]
-			dist2 := t.mahalanobisDistanceSquared(track, cluster, dt)
-
-			// Collect candidate for debug recording (done after we determine the winner)
-			if t.DebugCollector != nil && t.DebugCollector.IsEnabled() {
-				candidates = append(candidates, candidatePair{trackID: trackID, dist2: dist2})
-			}
-
-			if dist2 < bestDist2 {
-				bestDist2 = dist2
-				bestTrackID = trackID
-			}
-		}
-
-		// Record association candidates with correct acceptance status now that we know the winner
+	if nClusters == 0 || nTracks == 0 {
+		// Record all candidates as unassociated for debug.
 		if t.DebugCollector != nil && t.DebugCollector.IsEnabled() {
-			for _, cand := range candidates {
-				// Accepted only if this track was chosen as best match
-				accepted := cand.trackID == bestTrackID
-				t.DebugCollector.RecordAssociation(cluster.ClusterID, cand.trackID, cand.dist2, accepted)
+			for ci := range clusters {
+				for _, trackID := range activeTrackIDs {
+					track := t.Tracks[trackID]
+					dist2 := t.mahalanobisDistanceSquared(track, clusters[ci], dt)
+					t.DebugCollector.RecordAssociation(clusters[ci].ClusterID, trackID, dist2, false)
+				}
+			}
+		}
+		return associations
+	}
+
+	// Build cost matrix [nClusters × nTracks].
+	costMatrix := make([][]float32, nClusters)
+	for ci := range clusters {
+		costMatrix[ci] = make([]float32, nTracks)
+		for tj, trackID := range activeTrackIDs {
+			track := t.Tracks[trackID]
+			dist2 := t.mahalanobisDistanceSquared(track, clusters[ci], dt)
+			if dist2 >= SingularDistanceRejection || dist2 >= float32(hungarianlnf) {
+				costMatrix[ci][tj] = float32(hungarianlnf)
+			} else {
+				costMatrix[ci][tj] = dist2
+			}
+		}
+	}
+
+	// Solve optimal assignment.
+	assign := hungarianAssign(costMatrix)
+
+	// Populate associations and record debug info.
+	for ci := range clusters {
+		bestTrackIdx := -1
+		if ci < len(assign) && assign[ci] >= 0 {
+			bestTrackIdx = assign[ci]
+		}
+
+		if t.DebugCollector != nil && t.DebugCollector.IsEnabled() {
+			for tj, trackID := range activeTrackIDs {
+				accepted := (tj == bestTrackIdx)
+				t.DebugCollector.RecordAssociation(clusters[ci].ClusterID, trackID, costMatrix[ci][tj], accepted)
 			}
 		}
 
-		if bestTrackID != "" {
-			associations[ci] = bestTrackID
-			trackUsed[bestTrackID] = true
+		if bestTrackIdx >= 0 && bestTrackIdx < nTracks {
+			associations[ci] = activeTrackIDs[bestTrackIdx]
 		}
 	}
 

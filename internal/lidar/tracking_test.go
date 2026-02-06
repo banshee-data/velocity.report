@@ -133,8 +133,9 @@ func TestTracker_Lifecycle_TentativeToConfirmed(t *testing.T) {
 
 func TestTracker_Lifecycle_ConfirmedToDeleted(t *testing.T) {
 	config := DefaultTrackerConfig()
-	config.HitsToConfirm = 2 // Need 2 hits to confirm
-	config.MaxMisses = 2     // Quick deletion
+	config.HitsToConfirm = 2      // Need 2 hits to confirm
+	config.MaxMisses = 2          // Quick deletion for tentative tracks
+	config.MaxMissesConfirmed = 2 // Quick deletion for confirmed tracks too
 	tracker := NewTracker(config)
 
 	now := time.Now()
