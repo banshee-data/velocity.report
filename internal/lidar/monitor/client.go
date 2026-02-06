@@ -104,6 +104,13 @@ func (c *Client) FetchBuckets() []string {
 		return DefaultBuckets()
 	}
 
+	// Validate bucket count to prevent excessive memory allocation
+	const maxBuckets = 100
+	if len(bm) > maxBuckets {
+		log.Printf("WARNING: Bucket count %d exceeds maximum %d, using defaults", len(bm), maxBuckets)
+		return DefaultBuckets()
+	}
+
 	buckets := make([]string, 0, len(bm))
 	for _, bi := range bm {
 		switch v := bi.(type) {
