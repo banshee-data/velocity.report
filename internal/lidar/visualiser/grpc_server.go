@@ -41,9 +41,12 @@ type Server struct {
 	syntheticMode bool
 	syntheticGen  *SyntheticGenerator
 
-	// Playback state (for future replay support)
+	// Playback state — used by PCAP and replay modes.
+	// In PCAP mode, pause/play are honoured at the stream level
+	// (frames are silently dropped while paused).
 	paused       bool
 	playbackRate float32
+	replayMode   bool // True when replaying a PCAP or log (not live sensor)
 
 	// Per-client overlay preferences (protected by preferenceMu)
 	clientPreferences map[string]*overlayPreferences
@@ -63,6 +66,13 @@ func NewServer(publisher *Publisher) *Server {
 func (s *Server) EnableSyntheticMode(sensorID string) {
 	s.syntheticMode = true
 	s.syntheticGen = NewSyntheticGenerator(sensorID)
+}
+
+// SetReplayMode marks the server as replaying recorded data (PCAP or log).
+// When in replay mode, PlaybackInfo is injected into streamed frames and
+// the client UI shows "REPLAY" instead of "LIVE".
+func (s *Server) SetReplayMode(enabled bool) {
+	s.replayMode = enabled
 }
 
 // SyntheticGenerator returns the synthetic generator (if enabled).
@@ -163,6 +173,11 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				clientID, framesSent, droppedFrames, slowSends, float64(totalSendTimeNs)/float64(max(framesSent, 1))/1e6)
 			return ctx.Err()
 		case frame := <-frameCh:
+			// Respect pause state — drop frames silently while paused
+			if s.paused {
+				continue
+			}
+
 			// Skip frames if we're falling behind (keep only latest)
 			// Drain any additional frames in the channel to catch up
 			skipped := 0
@@ -189,6 +204,16 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				}
 			}
 			lastFrameID = frame.FrameID
+
+			// Inject PlaybackInfo for replay mode (PCAP) if not already set.
+			// This allows the client to show "REPLAY" instead of "LIVE".
+			if s.replayMode && frame.PlaybackInfo == nil {
+				frame.PlaybackInfo = &PlaybackInfo{
+					IsLive:       false,
+					PlaybackRate: s.playbackRate,
+					Paused:       s.paused,
+				}
+			}
 
 			// Measure serialisation and send time
 			sendStart := time.Now()

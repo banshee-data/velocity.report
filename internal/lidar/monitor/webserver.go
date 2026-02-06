@@ -126,6 +126,10 @@ type WebServer struct {
 	// dataSourceManager manages data source lifecycle (live UDP, PCAP replay).
 	// This is always initialized - either from config or created internally.
 	dataSourceManager DataSourceManager
+
+	// PCAP lifecycle callbacks for notifying external components (e.g. visualiser gRPC server)
+	onPCAPStarted func()
+	onPCAPStopped func()
 }
 
 // WebServerConfig contains configuration options for the web server
@@ -150,6 +154,14 @@ type WebServerConfig struct {
 	// If nil, a RealDataSourceManager is created automatically.
 	// Inject a MockDataSourceManager for testing.
 	DataSourceManager DataSourceManager
+
+	// OnPCAPStarted is called when a PCAP replay starts successfully.
+	// Used to notify the visualiser gRPC server to switch to replay mode.
+	OnPCAPStarted func()
+
+	// OnPCAPStopped is called when a PCAP replay stops and the system
+	// returns to live mode. Used to notify the visualiser gRPC server.
+	OnPCAPStopped func()
 }
 
 // NewWebServer creates a new web server with the provided configuration
@@ -192,6 +204,8 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		currentSource:     DataSourceLive,
 		latestFgCounts:    make(map[string]int),
 		plotsBaseDir:      config.PlotsBaseDir,
+		onPCAPStarted:     config.OnPCAPStarted,
+		onPCAPStopped:     config.OnPCAPStopped,
 	}
 
 	// Initialize DataSourceManager - use provided one or create RealDataSourceManager
@@ -716,6 +730,11 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 					ws.currentSource = DataSourceLive
 					ws.currentPCAPFile = ""
 					log.Printf("[DataSource] auto-switched to Live after PCAP for sensor=%s", ws.sensorID)
+
+					// Notify visualiser gRPC server that replay has ended
+					if ws.onPCAPStopped != nil {
+						ws.onPCAPStopped()
+					}
 				}
 			}
 		}
@@ -2721,6 +2740,11 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("[DataSource] switched to PCAP %s mode for sensor=%s file=%s", mode, sensorID, currentFile)
 
+	// Notify visualiser gRPC server that we are now replaying
+	if ws.onPCAPStarted != nil {
+		ws.onPCAPStarted()
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":         "started",
@@ -2820,6 +2844,11 @@ func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("[DataSource] switched to Live after PCAP stop for sensor=%s", sensorID)
 
+	// Notify visualiser gRPC server that replay has ended
+	if ws.onPCAPStopped != nil {
+		ws.onPCAPStopped()
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":         "stopped",
@@ -2872,6 +2901,11 @@ func (ws *WebServer) handlePCAPResumeLive(w http.ResponseWriter, r *http.Request
 	ws.pcapMu.Unlock()
 
 	log.Printf("[DataSource] resumed Live from PCAP analysis for sensor=%s (grid preserved)", sensorID)
+
+	// Notify visualiser gRPC server that replay has ended
+	if ws.onPCAPStopped != nil {
+		ws.onPCAPStopped()
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
