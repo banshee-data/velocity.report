@@ -452,6 +452,11 @@ func main() {
 					log.Printf("[Visualiser] PCAP stopped — switched to live mode")
 				}
 			},
+			OnPCAPProgress: func(current, total uint64) {
+				if visualiserServer != nil {
+					visualiserServer.SetPCAPProgress(current, total)
+				}
+			},
 		})
 		wg.Add(1)
 		go func() {
