@@ -29,6 +29,10 @@ type TrackerInterface interface {
 	// Useful for debugging and comprehensive state inspection.
 	GetAllTracks() []*TrackedObject
 
+	// GetRecentlyDeletedTracks returns deleted tracks within the grace period.
+	// Used for fade-out rendering in the visualiser.
+	GetRecentlyDeletedTracks(nowNanos int64) []*TrackedObject
+
 	// GetLastAssociations returns the cluster-to-track mapping from the
 	// most recent Update() call. The slice is indexed by cluster index;
 	// each element is a trackID (associated) or "" (unassociated).

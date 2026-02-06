@@ -58,8 +58,8 @@ func DefaultTrackerConfig() TrackerConfig {
 		MaxTracks:               100,
 		MaxMisses:               3,
 		MaxMissesConfirmed:      8,    // Confirmed tracks coast longer through occlusion
-		HitsToConfirm:           5,    // Require 5 consecutive hits for confirmation (was 3)
-		GatingDistanceSquared:   25.0, // 5.0 meters squared
+		HitsToConfirm:           3,    // Require 3 consecutive hits for confirmation
+		GatingDistanceSquared:   36.0, // 6.0 metres squared — wider gate for re-association
 		ProcessNoisePos:         0.1,
 		ProcessNoiseVel:         0.5,
 		MeasurementNoise:        0.2,
@@ -117,6 +117,9 @@ type TrackedObject struct {
 
 	// OBB heading (smoothed via exponential moving average)
 	OBBHeadingRad float32 // Smoothed heading from oriented bounding box
+
+	// Latest Z from the associated cluster OBB (ground-level, used for rendering)
+	LatestZ float32
 
 	// Classification (Phase 3.4)
 	ObjectClass         string  // Classification result: "pedestrian", "car", "bird", "other"
@@ -620,7 +623,35 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	// Note: OBBHeadingRad is initialised in initTrack if cluster has OBB,
 	// so subsequent updates here always apply smoothing.
 	if cluster.OBB != nil {
-		track.OBBHeadingRad = SmoothOBBHeading(track.OBBHeadingRad, cluster.OBB.HeadingRad, 0.3)
+		newOBBHeading := cluster.OBB.HeadingRad
+
+		// Disambiguate PCA heading using velocity direction.
+		// PCA gives the axis of maximum variance but has 180° ambiguity.
+		// If the track has sufficient velocity, flip the PCA heading
+		// to align with the direction of travel.
+		speed := float32(math.Sqrt(float64(track.VX*track.VX + track.VY*track.VY)))
+		if speed > 0.5 { // Only disambiguate when moving (>0.5 m/s)
+			velHeading := float32(math.Atan2(float64(track.VY), float64(track.VX)))
+			// Compute angular difference between PCA heading and velocity heading
+			diff := newOBBHeading - velHeading
+			// Normalise to [-π, π]
+			for diff > math.Pi {
+				diff -= 2 * math.Pi
+			}
+			for diff < -math.Pi {
+				diff += 2 * math.Pi
+			}
+			// If PCA heading opposes velocity (diff > 90°), flip it by π
+			if diff > math.Pi/2 || diff < -math.Pi/2 {
+				newOBBHeading += math.Pi
+				if newOBBHeading > math.Pi {
+					newOBBHeading -= 2 * math.Pi
+				}
+			}
+		}
+
+		track.OBBHeadingRad = SmoothOBBHeading(track.OBBHeadingRad, newOBBHeading, 0.3)
+		track.LatestZ = cluster.OBB.CenterZ
 	}
 }
 
@@ -674,6 +705,7 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 	// Initialise OBB heading from cluster if available
 	if cluster.OBB != nil {
 		track.OBBHeadingRad = cluster.OBB.HeadingRad
+		track.LatestZ = cluster.OBB.CenterZ
 	}
 
 	t.Tracks[trackID] = track
@@ -778,6 +810,37 @@ func (t *Tracker) GetAllTracks() []*TrackedObject {
 		all = append(all, track)
 	}
 	return all
+}
+
+// GetRecentlyDeletedTracks returns deleted tracks still within the grace period.
+// Each returned TrackedObject is a shallow copy with a deep-copied History slice.
+// Used by the visualiser adapter for fade-out rendering.
+func (t *Tracker) GetRecentlyDeletedTracks(nowNanos int64) []*TrackedObject {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	gracePeriod := t.Config.DeletedTrackGracePeriod
+	if gracePeriod == 0 {
+		gracePeriod = DefaultDeletedTrackGracePeriod
+	}
+	gracePeriodNanos := int64(gracePeriod)
+
+	deleted := make([]*TrackedObject, 0)
+	for _, track := range t.Tracks {
+		if track.State == TrackDeleted {
+			elapsed := nowNanos - track.LastUnixNanos
+			if elapsed >= 0 && elapsed < gracePeriodNanos {
+				// Shallow copy + deep copy History
+				copied := *track
+				if len(track.History) > 0 {
+					copied.History = make([]TrackPoint, len(track.History))
+					copy(copied.History, track.History)
+				}
+				deleted = append(deleted, &copied)
+			}
+		}
+	}
+	return deleted
 }
 
 // GetLastAssociations returns a copy of the most recent cluster-to-track

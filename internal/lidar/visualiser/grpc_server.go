@@ -340,6 +340,7 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 				BboxHeadingRad:   t.BBoxHeadingRad,
 				Confidence:       t.Confidence,
 				MotionModel:      pb.MotionModel(t.MotionModel),
+				Alpha:            t.Alpha,
 			}
 		}
 

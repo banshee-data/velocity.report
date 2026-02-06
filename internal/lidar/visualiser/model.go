@@ -229,6 +229,9 @@ type Track struct {
 	Confidence        float32
 	OcclusionState    OcclusionState
 	MotionModel       MotionModel
+
+	// Rendering hints
+	Alpha float32 // Opacity [0,1]; 1.0 = fully visible, used for fade-out
 }
 
 // TrackState represents the lifecycle state of a track.

@@ -568,7 +568,7 @@ func (a *FrameAdapter) adaptTracks(tracker lidar.TrackerInterface, timestamp tim
 			LastSeenNanos:     t.LastUnixNanos,
 			X:                 t.X,
 			Y:                 t.Y,
-			Z:                 0, // 2D tracking
+			Z:                 t.LatestZ, // Ground-level Z from cluster OBB
 			VX:                t.VX,
 			VY:                t.VY,
 			VZ:                0,
@@ -587,6 +587,7 @@ func (a *FrameAdapter) adaptTracks(tracker lidar.TrackerInterface, timestamp tim
 			TrackLengthMetres: t.TrackLengthMeters,
 			TrackDurationSecs: t.TrackDurationSecs,
 			OcclusionCount:    t.OcclusionCount,
+			Alpha:             1.0, // Fully visible
 		}
 
 		// Copy covariance
@@ -598,6 +599,70 @@ func (a *FrameAdapter) adaptTracks(tracker lidar.TrackerInterface, timestamp tim
 
 		// Build trail from history
 		// History is deep-copied by GetActiveTracks(), safe to iterate directly.
+		if len(t.History) > 0 {
+			trail := TrackTrail{
+				TrackID: t.TrackID,
+				Points:  make([]TrackPoint, len(t.History)),
+			}
+			for j, hp := range t.History {
+				trail.Points[j] = TrackPoint{
+					X:              hp.X,
+					Y:              hp.Y,
+					TimestampNanos: hp.Timestamp,
+				}
+			}
+			ts.Trails = append(ts.Trails, trail)
+		}
+	}
+
+	// Include recently-deleted tracks with fade-out alpha for smooth disappearance.
+	nowNanos := timestamp.UnixNano()
+	deletedTracks := tracker.GetRecentlyDeletedTracks(nowNanos)
+	gracePeriodNanos := float64(5 * time.Second) // Match DefaultDeletedTrackGracePeriod
+
+	for _, t := range deletedTracks {
+		elapsed := float64(nowNanos - t.LastUnixNanos)
+		alpha := float32(1.0 - elapsed/gracePeriodNanos)
+		if alpha < 0 {
+			alpha = 0
+		}
+
+		track := Track{
+			TrackID:           t.TrackID,
+			SensorID:          t.SensorID,
+			State:             TrackStateDeleted,
+			Hits:              t.Hits,
+			Misses:            t.Misses,
+			ObservationCount:  t.ObservationCount,
+			FirstSeenNanos:    t.FirstUnixNanos,
+			LastSeenNanos:     t.LastUnixNanos,
+			X:                 t.X,
+			Y:                 t.Y,
+			Z:                 t.LatestZ,
+			VX:                t.VX,
+			VY:                t.VY,
+			VZ:                0,
+			SpeedMps:          t.Speed(),
+			HeadingRad:        t.Heading(),
+			BBoxLengthAvg:     t.BoundingBoxLengthAvg,
+			BBoxWidthAvg:      t.BoundingBoxWidthAvg,
+			BBoxHeightAvg:     t.BoundingBoxHeightAvg,
+			BBoxHeadingRad:    t.OBBHeadingRad,
+			HeightP95Max:      t.HeightP95Max,
+			IntensityMeanAvg:  t.IntensityMeanAvg,
+			AvgSpeedMps:       t.AvgSpeedMps,
+			PeakSpeedMps:      t.PeakSpeedMps,
+			ClassLabel:        t.ObjectClass,
+			ClassConfidence:   t.ObjectConfidence,
+			TrackLengthMetres: t.TrackLengthMeters,
+			TrackDurationSecs: t.TrackDurationSecs,
+			OcclusionCount:    t.OcclusionCount,
+			Alpha:             alpha, // Fade from 1.0 → 0.0 over grace period
+		}
+
+		ts.Tracks = append(ts.Tracks, track)
+
+		// Include trail for fading tracks too
 		if len(t.History) > 0 {
 			trail := TrackTrail{
 				TrackID: t.TrackID,

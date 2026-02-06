@@ -8,10 +8,14 @@ import (
 
 // Constants for clustering configuration
 const (
-	// DefaultDBSCANEps is the default neighborhood radius in meters for DBSCAN
-	DefaultDBSCANEps = 0.6
-	// DefaultDBSCANMinPts is the default minimum points to form a cluster
-	DefaultDBSCANMinPts = 12
+	// DefaultDBSCANEps is the default neighbourhood radius in metres for DBSCAN.
+	// 0.8m bridges typical point density gaps within a single vehicle while
+	// avoiding merging vehicles in adjacent lanes (~3m apart).
+	DefaultDBSCANEps = 0.8
+	// DefaultDBSCANMinPts is the default minimum points to form a cluster.
+	// 8 allows detection of sparser clusters from distant vehicles while
+	// still rejecting noise clumps.
+	DefaultDBSCANMinPts = 8
 	// EstimatedPointsPerCell is used for initial spatial index capacity estimation
 	EstimatedPointsPerCell = 4
 )
