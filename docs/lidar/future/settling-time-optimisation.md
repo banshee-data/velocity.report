@@ -1,5 +1,16 @@
 # LiDAR Background Settling Time Optimisation
 
+**Status**: Phase 2 Complete (February 2026)
+
+**Implementation Summary**:
+
+- ✅ Phase 1: Background Grid Restoration - Not implemented (regions-only approach used instead)
+- ✅ Phase 2: Region Persistence - **COMPLETE** (see implementation details below)
+- 🔲 Phase 3: Settling Evaluation Tool - Not started
+- 🔲 Phase 4: Adaptive Settling Mode - Not started
+
+**Current Capability**: Region data is persisted with scene hash and automatically restored when processing PCAPs from the same location, skipping the ~30 second settling period entirely.
+
 ## Executive Summary
 
 This document proposes two complementary approaches to address the loss of ~30 seconds of data at the start of PCAP file analysis due to the LiDAR background regions settling period. The current implementation requires 100-300 frames (5-30 seconds at 10-20 Hz) of settling before foreground identification can begin, causing valuable data to be discarded.
@@ -245,14 +256,47 @@ Implement both options in phases:
 
 **Outcome**: Immediate settling skip for sensors with existing snapshots.
 
-### Phase 2: Region Persistence
+### Phase 2: Region Persistence ✅ COMPLETE
 
-1. Add `lidar_bg_regions` table
-2. Implement `RegionManager.ToSnapshot()` and `RestoreFromSnapshot()`
-3. Persist regions alongside grid snapshots
-4. Restore regions to enable immediate adaptive parameter application
+**Status**: Implemented February 2026
 
-**Outcome**: Full state restoration including region-specific parameters.
+**Implementation**:
+
+1. ✅ Add `lidar_bg_regions` table
+   - Migration: `000017_create_lidar_bg_regions.up.sql`
+   - Schema: `region_set_id`, `snapshot_id`, `sensor_id`, `created_unix_nanos`, `region_count`, `regions_json`, `variance_data_json`, `settling_frames`, `scene_hash`
+   - Indexes: `idx_bg_regions_sensor`, `idx_bg_regions_scene_hash`
+
+2. ✅ Implement `RegionManager.ToSnapshot()` and `RestoreFromSnapshot()`
+   - `ToSnapshot()`: Serialises regions to `RegionSnapshot` with JSON-encoded `RegionData`
+   - `RestoreFromSnapshot()`: Rebuilds `RegionManager` state from snapshot
+   - Location: `internal/lidar/background.go` (lines 667-749)
+
+3. ✅ Persist regions alongside grid snapshots
+   - `BackgroundManager.persistRegionsOnSettleLocked()`: Persists regions when settling completes (background.go:1453-1483)
+   - `BackgroundGrid.sceneSignatureUnlocked()`: Computes scene hash from range/spread distribution histogram (background.go:249-310)
+   - `Persist()` extended to persist regions via `RegionStore` interface when settling completes
+
+4. ✅ Restore regions to enable immediate adaptive parameter application
+   - `BackgroundManager.tryRestoreRegionsFromStoreLocked()`: Attempts restoration after ~10 warmup frames (background.go:1407-1446)
+   - `regionRestoreMinFrames = 10`: Enough frames to build stable scene signature
+   - `regionRestoreAttempted` flag: Ensures DB lookup happens only once per settling cycle
+   - Reset by `ResetGrid()` on PCAP start
+
+**Key Features**:
+
+- **Scene Hash Matching**: SHA256 hash of range distribution (6 buckets) + spread distribution (4 buckets) + coverage count
+- **Early Restoration**: Attempts restore after 10 frames (vs. 100-300 for full settling)
+- **Automatic Persistence**: Regions saved when settling completes, independent of periodic background flusher
+- **Lock-Safe**: Uses `sceneSignatureUnlocked()` for use within locked sections
+
+**DB Methods** (`internal/db/db.go`):
+
+- `InsertRegionSnapshot()`
+- `GetRegionSnapshotBySceneHash()`
+- `GetLatestRegionSnapshot()`
+
+**Outcome**: Full state restoration including region-specific parameters. Settling period can be skipped entirely when scene hash matches a previous run.
 
 ### Phase 3: Settling Evaluation Tool (Option B)
 
