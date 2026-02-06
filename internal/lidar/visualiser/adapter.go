@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/debug"
 )
 
 // pointSlicePool reduces allocations by reusing large float32 slices.
@@ -89,11 +90,13 @@ func NewFrameAdapter(sensorID string) *FrameAdapter {
 }
 
 // AdaptFrame converts a LiDARFrame and tracking outputs to a FrameBundle.
+// debugFrame is optional debug data from the tracking algorithm.
 func (a *FrameAdapter) AdaptFrame(
 	frame *lidar.LiDARFrame,
 	foregroundMask []bool,
 	clusters []lidar.WorldCluster,
 	tracker lidar.TrackerInterface,
+	debugFrame interface{}, // *debug.DebugFrame or nil
 ) interface{} {
 	startTime := time.Now()
 	a.frameID++
@@ -128,6 +131,11 @@ func (a *FrameAdapter) AdaptFrame(
 			associations = tracker.GetLastAssociations()
 		}
 		bundle.Clusters = a.adaptUnassociatedClusters(clusters, associations, frame.StartTimestamp)
+	}
+
+	// M6: Adapt debug overlays if provided
+	if debugFrame != nil {
+		bundle.Debug = a.adaptDebugFrame(debugFrame, frame.StartTimestamp)
 	}
 
 	// Track performance
@@ -383,7 +391,7 @@ func (a *FrameAdapter) adaptUnassociatedClusters(worldClusters []lidar.WorldClus
 			continue
 		}
 
-		cs.Clusters = append(cs.Clusters, Cluster{
+		cluster := Cluster{
 			ClusterID:      wc.ClusterID,
 			SensorID:       wc.SensorID,
 			TimestampNanos: wc.TSUnixNanos,
@@ -396,7 +404,22 @@ func (a *FrameAdapter) adaptUnassociatedClusters(worldClusters []lidar.WorldClus
 			PointsCount:    wc.PointsCount,
 			HeightP95:      wc.HeightP95,
 			IntensityMean:  wc.IntensityMean,
-		})
+		}
+
+		// Include OBB if computed
+		if wc.OBB != nil {
+			cluster.OBB = &OrientedBoundingBox{
+				CenterX:    wc.OBB.CenterX,
+				CenterY:    wc.OBB.CenterY,
+				CenterZ:    wc.OBB.CenterZ,
+				Length:     wc.OBB.Length,
+				Width:      wc.OBB.Width,
+				Height:     wc.OBB.Height,
+				HeadingRad: wc.OBB.HeadingRad,
+			}
+		}
+
+		cs.Clusters = append(cs.Clusters, cluster)
 	}
 
 	return cs
@@ -463,6 +486,7 @@ func (a *FrameAdapter) adaptTracks(tracker lidar.TrackerInterface, timestamp tim
 			BBoxLengthAvg:     t.BoundingBoxLengthAvg,
 			BBoxWidthAvg:      t.BoundingBoxWidthAvg,
 			BBoxHeightAvg:     t.BoundingBoxHeightAvg,
+			BBoxHeadingRad:    t.OBBHeadingRad, // Smoothed OBB heading
 			HeightP95Max:      t.HeightP95Max,
 			IntensityMeanAvg:  t.IntensityMeanAvg,
 			AvgSpeedMps:       t.AvgSpeedMps,
@@ -514,4 +538,69 @@ func adaptTrackState(state lidar.TrackState) TrackState {
 	default:
 		return TrackStateUnknown
 	}
+}
+
+// adaptDebugFrame converts debug.DebugFrame to visualiser.DebugOverlaySet.
+func (a *FrameAdapter) adaptDebugFrame(debugFrame interface{}, timestamp time.Time) *DebugOverlaySet {
+	// Type-assert to debug.DebugFrame
+	df, ok := debugFrame.(*debug.DebugFrame)
+	if !ok || df == nil {
+		return nil
+	}
+
+	overlay := &DebugOverlaySet{
+		FrameID:               df.FrameID,
+		TimestampNanos:        timestamp.UnixNano(),
+		AssociationCandidates: make([]AssociationCandidate, len(df.AssociationCandidates)),
+		GatingEllipses:        make([]GatingEllipse, len(df.GatingRegions)),
+		Residuals:             make([]InnovationResidual, len(df.Innovations)),
+		Predictions:           make([]StatePrediction, len(df.StatePredictions)),
+	}
+
+	// Convert association candidates
+	for i, rec := range df.AssociationCandidates {
+		overlay.AssociationCandidates[i] = AssociationCandidate{
+			ClusterID: rec.ClusterID,
+			TrackID:   rec.TrackID,
+			Distance:  rec.MahalanobisDistSquared,
+			Accepted:  rec.Accepted,
+		}
+	}
+
+	// Convert gating regions
+	for i, region := range df.GatingRegions {
+		overlay.GatingEllipses[i] = GatingEllipse{
+			TrackID:     region.TrackID,
+			CenterX:     region.CenterX,
+			CenterY:     region.CenterY,
+			SemiMajor:   region.SemiMajorM,
+			SemiMinor:   region.SemiMinorM,
+			RotationRad: region.RotationRad,
+		}
+	}
+
+	// Convert innovations
+	for i, innov := range df.Innovations {
+		overlay.Residuals[i] = InnovationResidual{
+			TrackID:           innov.TrackID,
+			PredictedX:        innov.PredictedX,
+			PredictedY:        innov.PredictedY,
+			MeasuredX:         innov.MeasuredX,
+			MeasuredY:         innov.MeasuredY,
+			ResidualMagnitude: innov.ResidualMag,
+		}
+	}
+
+	// Convert predictions
+	for i, pred := range df.StatePredictions {
+		overlay.Predictions[i] = StatePrediction{
+			TrackID: pred.TrackID,
+			X:       pred.X,
+			Y:       pred.Y,
+			VX:      pred.VX,
+			VY:      pred.VY,
+		}
+	}
+
+	return overlay
 }

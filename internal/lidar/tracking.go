@@ -111,6 +111,9 @@ type TrackedObject struct {
 	// Speed history for percentile computation
 	speedHistory []float32
 
+	// OBB heading (smoothed via exponential moving average)
+	OBBHeadingRad float32 // Smoothed heading from oriented bounding box
+
 	// Classification (Phase 3.4)
 	ObjectClass         string  // Classification result: "pedestrian", "car", "bird", "other"
 	ObjectConfidence    float32 // Classification confidence [0, 1]
@@ -140,7 +143,20 @@ type Tracker struct {
 	// Protected by mu — read via GetLastAssociations().
 	lastAssociations []string
 
+	// DebugCollector captures algorithm internals for visualisation (optional)
+	DebugCollector DebugCollector
+
 	mu sync.RWMutex
+}
+
+// DebugCollector interface for tracking algorithm instrumentation.
+// Allows decoupling from the debug package to avoid circular dependencies.
+type DebugCollector interface {
+	IsEnabled() bool
+	RecordAssociation(clusterID int64, trackID string, distSquared float32, accepted bool)
+	RecordGatingRegion(trackID string, centerX, centerY, semiMajor, semiMinor, rotation float32)
+	RecordInnovation(trackID string, predX, predY, measX, measY, residualMag float32)
+	RecordPrediction(trackID string, x, y, vx, vy float32)
 }
 
 // NewTracker creates a new tracker with the specified configuration.
@@ -248,6 +264,11 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 	track.Y += track.VY * dt
 	// VX and VY remain unchanged in constant velocity model
 
+	// Record prediction for debug visualisation
+	if t.DebugCollector != nil && t.DebugCollector.IsEnabled() {
+		t.DebugCollector.RecordPrediction(track.TrackID, track.X, track.Y, track.VX, track.VY)
+	}
+
 	// Predict covariance: P' = F * P * F^T + Q
 	// For efficiency, we compute this directly
 
@@ -284,7 +305,7 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 	track.P[3*4+3] += t.Config.ProcessNoiseVel
 }
 
-// associate performs cluster-to-track association using gating and nearest neighbor.
+// associate performs cluster-to-track association using gating and nearest neighbour.
 // Returns a map from cluster index to track ID (empty string for unassociated).
 func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 	associations := make([]string, len(clusters))
@@ -304,6 +325,13 @@ func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 		bestTrackID := ""
 		bestDist2 := t.Config.GatingDistanceSquared
 
+		// First pass: find best match and collect candidates for debug
+		type candidatePair struct {
+			trackID string
+			dist2   float32
+		}
+		var candidates []candidatePair
+
 		for _, trackID := range activeTrackIDs {
 			if trackUsed[trackID] {
 				continue // Track already matched
@@ -312,9 +340,23 @@ func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 			track := t.Tracks[trackID]
 			dist2 := t.mahalanobisDistanceSquared(track, cluster, dt)
 
+			// Collect candidate for debug recording (done after we determine the winner)
+			if t.DebugCollector != nil && t.DebugCollector.IsEnabled() {
+				candidates = append(candidates, candidatePair{trackID: trackID, dist2: dist2})
+			}
+
 			if dist2 < bestDist2 {
 				bestDist2 = dist2
 				bestTrackID = trackID
+			}
+		}
+
+		// Record association candidates with correct acceptance status now that we know the winner
+		if t.DebugCollector != nil && t.DebugCollector.IsEnabled() {
+			for _, cand := range candidates {
+				// Accepted only if this track was chosen as best match
+				accepted := cand.trackID == bestTrackID
+				t.DebugCollector.RecordAssociation(cluster.ClusterID, cand.trackID, cand.dist2, accepted)
 			}
 		}
 
@@ -368,6 +410,39 @@ func (t *Tracker) mahalanobisDistanceSquared(track *TrackedObject, cluster World
 	invS10 := -S10 / det
 	invS11 := S00 / det
 
+	// Record gating ellipse for debug visualisation
+	if t.DebugCollector != nil && t.DebugCollector.IsEnabled() {
+		// Compute ellipse parameters from innovation covariance S
+		// Eigenvalues of 2x2 symmetric matrix S:
+		// λ = (S00 + S11 ± sqrt((S00-S11)² + 4*S01*S10)) / 2
+		trace := S00 + S11
+		discriminant := (S00-S11)*(S00-S11) + 4*S01*S10
+		if discriminant < 0 {
+			discriminant = 0
+		}
+		sqrtDisc := float32(math.Sqrt(float64(discriminant)))
+		lambda1 := (trace + sqrtDisc) / 2.0
+		lambda2 := (trace - sqrtDisc) / 2.0
+
+		// Semi-axes are sqrt(eigenvalues) scaled by gating threshold
+		// For chi-squared distribution with 2 DOF, gating threshold determines confidence
+		gatingThreshold := float32(math.Sqrt(float64(t.Config.GatingDistanceSquared)))
+		semiMajor := gatingThreshold * float32(math.Sqrt(float64(lambda1)))
+		semiMinor := gatingThreshold * float32(math.Sqrt(float64(lambda2)))
+
+		// Rotation angle from eigenvector of largest eigenvalue
+		// For 2x2 matrix, eigenvector v1 of λ1: [S01, λ1-S00]
+		// Rotation = atan2(v1_y, v1_x)
+		var rotation float32
+		if math.Abs(float64(S01)) > 1e-6 {
+			rotation = float32(math.Atan2(float64(lambda1-S00), float64(S01)))
+		} else {
+			rotation = 0
+		}
+
+		t.DebugCollector.RecordGatingRegion(track.TrackID, track.X, track.Y, semiMajor, semiMinor, rotation)
+	}
+
 	// Mahalanobis distance squared: d² = [dx dy] * S^-1 * [dx dy]^T
 	dist2 := dx*dx*invS00 + dx*dy*(invS01+invS10) + dy*dy*invS11
 
@@ -383,6 +458,12 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	// Innovation
 	yX := zX - track.X
 	yY := zY - track.Y
+
+	// Record innovation for debug visualisation
+	if t.DebugCollector != nil && t.DebugCollector.IsEnabled() {
+		residualMag := float32(math.Sqrt(float64(yX*yX + yY*yY)))
+		t.DebugCollector.RecordInnovation(track.TrackID, track.X, track.Y, zX, zY, residualMag)
+	}
 
 	// Innovation covariance S = H * P * H^T + R
 	S00 := track.P[0*4+0] + t.Config.MeasurementNoise
@@ -496,6 +577,14 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	if len(track.speedHistory) > MaxSpeedHistoryLength {
 		track.speedHistory = track.speedHistory[1:]
 	}
+
+	// Update OBB heading with temporal smoothing
+	// Alpha = 0.3 gives reasonable smoothing while staying responsive
+	// Note: OBBHeadingRad is initialised in initTrack if cluster has OBB,
+	// so subsequent updates here always apply smoothing.
+	if cluster.OBB != nil {
+		track.OBBHeadingRad = SmoothOBBHeading(track.OBBHeadingRad, cluster.OBB.HeadingRad, 0.3)
+	}
 }
 
 // initTrack creates a new track from an unassociated cluster.
@@ -543,6 +632,11 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 		}},
 
 		speedHistory: make([]float32, 0, MaxSpeedHistoryLength),
+	}
+
+	// Initialise OBB heading from cluster if available
+	if cluster.OBB != nil {
+		track.OBBHeadingRad = cluster.OBB.HeadingRad
 	}
 
 	t.Tracks[trackID] = track

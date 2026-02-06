@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/pb"
 	"google.golang.org/grpc"
 )
 
@@ -86,10 +87,11 @@ type BackgroundManagerInterface interface {
 
 // clientStream represents a connected streaming client.
 type clientStream struct {
-	id      string
-	request *StreamRequest
-	frameCh chan *FrameBundle
-	doneCh  chan struct{}
+	id          string
+	request     *pb.StreamRequest
+	frameCh     chan *FrameBundle
+	doneCh      chan struct{}
+	preferences overlayPreferences
 }
 
 // NewPublisher creates a new Publisher with the given configuration.
@@ -367,7 +369,7 @@ func (p *Publisher) broadcastLoop() {
 }
 
 // addClient registers a new streaming client.
-func (p *Publisher) addClient(id string, req *StreamRequest) *clientStream {
+func (p *Publisher) addClient(id string, req *pb.StreamRequest) *clientStream {
 	client := &clientStream{
 		id:      id,
 		request: req,

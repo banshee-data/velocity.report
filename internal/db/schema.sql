@@ -131,6 +131,20 @@ CREATE TABLE lidar_analysis_runs (
         , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id) ON DELETE CASCADE
           );
 
+   CREATE TABLE lidar_labels (
+          label_id TEXT PRIMARY KEY
+        , track_id TEXT NOT NULL
+        , class_label TEXT NOT NULL
+        , start_timestamp_ns INTEGER NOT NULL
+        , end_timestamp_ns INTEGER
+        , confidence REAL
+        , created_by TEXT
+        , created_at_ns INTEGER NOT NULL
+        , updated_at_ns INTEGER
+        , notes TEXT
+        , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id) ON DELETE CASCADE
+          );
+
    CREATE TABLE IF NOT EXISTS "radar_commands" (
           command_id BIGINT PRIMARY KEY
         , command TEXT
@@ -276,6 +290,12 @@ CREATE INDEX idx_lidar_tracks_class ON lidar_tracks (object_class);
 CREATE INDEX idx_lidar_track_obs_track ON lidar_track_obs (track_id);
 
 CREATE INDEX idx_lidar_track_obs_time ON lidar_track_obs (ts_unix_nanos);
+
+CREATE INDEX idx_lidar_labels_track ON lidar_labels (track_id);
+
+CREATE INDEX idx_lidar_labels_time ON lidar_labels (start_timestamp_ns, end_timestamp_ns);
+
+CREATE INDEX idx_lidar_labels_class ON lidar_labels (class_label);
 
 CREATE INDEX idx_lidar_runs_created ON lidar_analysis_runs (created_at);
 

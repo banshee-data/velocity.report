@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/pb"
@@ -17,6 +18,18 @@ import (
 
 // Ensure Server implements the gRPC interface.
 var _ pb.VisualiserServiceServer = (*Server)(nil)
+
+// overlayPreferences stores per-client overlay preferences.
+type overlayPreferences struct {
+	showPoints      bool
+	showClusters    bool
+	showTracks      bool
+	showTrails      bool
+	showVelocity    bool
+	showGating      bool
+	showAssociation bool
+	showResiduals   bool
+}
 
 // Server implements the VisualiserService gRPC server.
 type Server struct {
@@ -31,13 +44,18 @@ type Server struct {
 	// Playback state (for future replay support)
 	paused       bool
 	playbackRate float32
+
+	// Per-client overlay preferences (protected by preferenceMu)
+	clientPreferences map[string]*overlayPreferences
+	preferenceMu      sync.RWMutex
 }
 
 // NewServer creates a new gRPC server.
 func NewServer(publisher *Publisher) *Server {
 	return &Server{
-		publisher:    publisher,
-		playbackRate: 1.0,
+		publisher:         publisher,
+		playbackRate:      1.0,
+		clientPreferences: make(map[string]*overlayPreferences),
 	}
 }
 
@@ -108,6 +126,7 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 	s.publisher.clientsMu.Lock()
 	s.publisher.clients[clientID] = &clientStream{
 		id:      clientID,
+		request: req,
 		frameCh: frameCh,
 		doneCh:  make(chan struct{}),
 	}
@@ -428,9 +447,32 @@ func (s *Server) SetRate(ctx context.Context, req *pb.SetRateRequest) (*pb.Playb
 	}, nil
 }
 
-// SetOverlayModes configures which overlays to emit.
+// SetOverlayModes configures which overlays to emit for the requesting client.
 func (s *Server) SetOverlayModes(ctx context.Context, req *pb.OverlayModeRequest) (*pb.OverlayModeResponse, error) {
-	// TODO: Store overlay preferences
+	// Extract client ID from context (for future per-client preferences)
+	// For now, store global preferences that apply to all clients
+	// TODO: Extract client ID from gRPC metadata for per-client preferences
+
+	prefs := &overlayPreferences{
+		showPoints:      req.ShowPoints,
+		showClusters:    req.ShowClusters,
+		showTracks:      req.ShowTracks,
+		showTrails:      req.ShowTrails,
+		showVelocity:    req.ShowVelocity,
+		showGating:      req.ShowGating,
+		showAssociation: req.ShowAssociation,
+		showResiduals:   req.ShowResiduals,
+	}
+
+	// Store preferences (use "default" as global key for now)
+	s.preferenceMu.Lock()
+	s.clientPreferences["default"] = prefs
+	s.preferenceMu.Unlock()
+
+	log.Printf("[gRPC] Overlay modes updated: points=%v clusters=%v tracks=%v trails=%v velocity=%v gating=%v association=%v residuals=%v",
+		prefs.showPoints, prefs.showClusters, prefs.showTracks, prefs.showTrails,
+		prefs.showVelocity, prefs.showGating, prefs.showAssociation, prefs.showResiduals)
+
 	return &pb.OverlayModeResponse{Success: true}, nil
 }
 

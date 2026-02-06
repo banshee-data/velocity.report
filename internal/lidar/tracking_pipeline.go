@@ -22,7 +22,7 @@ type VisualiserPublisher interface {
 
 // VisualiserAdapter interface converts tracking outputs to FrameBundle.
 type VisualiserAdapter interface {
-	AdaptFrame(frame *LiDARFrame, foregroundMask []bool, clusters []WorldCluster, tracker TrackerInterface) interface{}
+	AdaptFrame(frame *LiDARFrame, foregroundMask []bool, clusters []WorldCluster, tracker TrackerInterface, debugFrame interface{}) interface{}
 }
 
 // LidarViewAdapter interface forwards FrameBundle to UDP (LidarView format).
@@ -234,6 +234,21 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 		// Phase 2: Transform to world coordinates
 		worldPoints := TransformToWorld(foregroundPoints, nil, cfg.SensorID)
 
+		// Phase 2.5: Ground removal (vertical filtering)
+		// Remove ground plane and overhead structure returns to reduce false clusters.
+		// This uses a height band filter (0.2m - 3.0m) suitable for street scenes.
+		groundFilter := DefaultHeightBandFilter()
+		filteredPoints := groundFilter.FilterVertical(worldPoints)
+		if cfg.DebugMode {
+			proc, kept, below, above := groundFilter.Stats()
+			Debugf("[Tracking] Ground filter: %d processed, %d kept, %d below floor, %d above ceiling",
+				proc, kept, below, above)
+		}
+
+		if len(filteredPoints) == 0 {
+			return
+		}
+
 		// Phase 3: Clustering (runtime-tunable via background params)
 		dbscanParams := DefaultDBSCANParams()
 		params := cfg.BackgroundManager.GetParams()
@@ -244,7 +259,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 			dbscanParams.Eps = float64(params.ForegroundDBSCANEps)
 		}
 
-		clusters := DBSCAN(worldPoints, dbscanParams)
+		clusters := DBSCAN(filteredPoints, dbscanParams)
 		if len(clusters) == 0 {
 			return
 		}
@@ -322,7 +337,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 		// Phase 6: Publish to visualiser (if enabled)
 		if !isNilInterface(cfg.VisualiserAdapter) && !isNilInterface(cfg.VisualiserPublisher) {
 			// Adapt frame to FrameBundle
-			frameBundle := cfg.VisualiserAdapter.AdaptFrame(frame, mask, clusters, cfg.Tracker)
+			// Note: Debug collector is integrated in Tracker but requires explicit enablement
+			// via Tracker.SetDebugCollector(). Pass nil here as debug collection is optional.
+			frameBundle := cfg.VisualiserAdapter.AdaptFrame(frame, mask, clusters, cfg.Tracker, nil)
 
 			// Publish to gRPC stream
 			cfg.VisualiserPublisher.Publish(frameBundle)

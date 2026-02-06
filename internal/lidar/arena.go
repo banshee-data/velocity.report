@@ -180,7 +180,8 @@ type WorldCluster struct {
 	SensorAzDegHint *float32 // matches sensor_azimuth_deg_hint REAL
 
 	// Optional in-memory only fields (not persisted to schema)
-	SamplePoints [][3]float32 // for debugging/thumbnails
+	SamplePoints [][3]float32         // for debugging/thumbnails
+	OBB          *OrientedBoundingBox // Oriented bounding box (computed via PCA)
 }
 
 // TrackSummary for HTTP API responses - streamlined view of track state

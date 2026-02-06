@@ -42,7 +42,7 @@ func TestFrameAdapter_AdaptFrame_BasicFrame(t *testing.T) {
 		Points:         []lidar.Point{},
 	}
 
-	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil))
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil, nil))
 
 	if bundle == nil {
 		t.Fatal("expected non-nil FrameBundle")
@@ -67,9 +67,9 @@ func TestFrameAdapter_AdaptFrame_FrameIDIncrement(t *testing.T) {
 		Points:         []lidar.Point{},
 	}
 
-	bundle1 := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil))
-	bundle2 := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil))
-	bundle3 := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil))
+	bundle1 := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil, nil))
+	bundle2 := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil, nil))
+	bundle3 := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil, nil))
 
 	if bundle1.FrameID != 1 {
 		t.Errorf("expected FrameID=1, got %d", bundle1.FrameID)
@@ -97,7 +97,7 @@ func TestFrameAdapter_AdaptFrame_WithPointCloud(t *testing.T) {
 
 	mask := []bool{true, false, true} // foreground, background, foreground
 
-	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, mask, nil, nil))
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, mask, nil, nil, nil))
 
 	if bundle.PointCloud == nil {
 		t.Fatal("expected non-nil PointCloud")
@@ -172,7 +172,7 @@ func TestFrameAdapter_AdaptFrame_WithClusters(t *testing.T) {
 		},
 	}
 
-	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, clusters, nil))
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, clusters, nil, nil))
 
 	if bundle.Clusters == nil {
 		t.Fatal("expected non-nil Clusters")
@@ -232,7 +232,7 @@ func TestFrameAdapter_AdaptFrame_WithTracker(t *testing.T) {
 	}
 	tracker.Update([]lidar.WorldCluster{cluster}, now)
 
-	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, tracker))
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, tracker, nil))
 
 	if bundle.Tracks == nil {
 		t.Fatal("expected non-nil Tracks")
@@ -289,7 +289,7 @@ func TestFrameAdapter_AdaptPointCloud_EmptyMask(t *testing.T) {
 		},
 	}
 
-	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil))
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil, nil))
 
 	pc := bundle.PointCloud
 	if pc == nil {
@@ -320,7 +320,7 @@ func TestFrameAdapter_AdaptPointCloud_PartialMask(t *testing.T) {
 	// Mask shorter than points
 	mask := []bool{true}
 
-	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, mask, nil, nil))
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, mask, nil, nil, nil))
 
 	pc := bundle.PointCloud
 	if pc == nil {
@@ -348,7 +348,7 @@ func TestFrameAdapter_AdaptClusters_Empty(t *testing.T) {
 		Points:         []lidar.Point{},
 	}
 
-	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, []lidar.WorldCluster{}, nil))
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, []lidar.WorldCluster{}, nil, nil))
 
 	// Empty clusters slice should result in nil Clusters
 	if bundle.Clusters != nil {
@@ -391,7 +391,7 @@ func TestFrameAdapter_AdaptTracks_WithHistory(t *testing.T) {
 		tracker.Update([]lidar.WorldCluster{cluster}, now.Add(time.Duration(i)*100*time.Millisecond))
 	}
 
-	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, tracker))
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, tracker, nil))
 
 	if bundle.Tracks == nil {
 		t.Fatal("expected non-nil Tracks")
@@ -449,7 +449,7 @@ func TestFrameAdapter_AdaptTracks_HistoryLengthConsistency(t *testing.T) {
 	}
 
 	// This should not panic even with a long history
-	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, tracker))
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, tracker, nil))
 
 	if bundle.Tracks == nil {
 		t.Fatal("expected non-nil Tracks")
