@@ -121,19 +121,6 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Load tuning configuration from file if specified
-	var tuningCfg *config.TuningConfig
-	if *configFile != "" {
-		var err error
-		tuningCfg, err = config.LoadTuningConfig(*configFile)
-		if err != nil {
-			log.Fatalf("Failed to load tuning config from %s: %v", *configFile, err)
-		}
-		log.Printf("Loaded tuning configuration from %s", *configFile)
-	} else {
-		tuningCfg = config.DefaultTuningConfig()
-	}
-
 	// Check if first argument is a subcommand
 	if flag.NArg() > 0 {
 		subcommand := flag.Arg(0)
@@ -183,6 +170,21 @@ func main() {
 	if !units.IsTimezoneValid(*timezoneFlag) {
 		log.Printf("Error: Invalid timezone '%s'. Valid options are: %s", *timezoneFlag, units.GetValidTimezonesString())
 		os.Exit(1)
+	}
+
+	// Load tuning configuration from file if specified.
+	// Deferred until after subcommand dispatch so commands like migrate/transits
+	// don't require a valid tuning config.
+	var tuningCfg *config.TuningConfig
+	if *configFile != "" {
+		var err error
+		tuningCfg, err = config.LoadTuningConfig(*configFile)
+		if err != nil {
+			log.Fatalf("Failed to load tuning config from %s: %v", *configFile, err)
+		}
+		log.Printf("Loaded tuning configuration from %s", *configFile)
+	} else {
+		tuningCfg = config.DefaultTuningConfig()
 	}
 
 	// var r radar.RadarPortInterface

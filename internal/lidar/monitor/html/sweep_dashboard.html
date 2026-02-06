@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>LiDAR Parameter Sweep — %[1]s</title>
+  <script src="/assets/echarts.min.js"></script>
+  <style>
+    html,
+    body {
+      height: 100%%;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 12px auto;
+      max-width: 1800px;
+      background: #f5f7fb;
+      color: #0f172a;
+    }
+
+    h1 {
+      margin: 0 0 6px 0;
+    }
+
+    p.sub {
+      margin: 0 0 16px 0;
+      color: #475569;
+    }
+
+    .card {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .card h2 {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 0 0 12px 0;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      font-size: 13px;
+      color: #475569;
+    }
+
+    label span {
+      margin-bottom: 3px;
+      font-weight: 500;
+    }
+
+    input,
+    select {
+      padding: 6px 8px;
+      border: 1px solid #cbd5e1;
+      border-radius: 5px;
+      font-size: 13px;
+    }
+
+    .btn {
+      padding: 8px 18px;
+      border-radius: 5px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .btn-primary {
+      background: #3b82f6;
+      color: #fff;
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-danger {
+      background: #ef4444;
+      color: #fff;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-running {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .status-complete {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    .status-error {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .status-idle {
+      background: #f1f5f9;
+      color: #475569;
+    }
+
+    .error-box {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 6px;
+      padding: 10px;
+      color: #b91c1c;
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+
+    .chart-container {
+      width: 100%%;
+      height: 400px;
+    }
+
+    table {
+      width: 100%%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th,
+    td {
+      padding: 8px;
+      text-align: left;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    th {
+      color: #475569;
+      font-weight: 600;
+    }
+
+    .mono {
+      font-family: "SF Mono", SFMono-Regular, Menlo, monospace;
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #475569;
+      margin-bottom: 8px;
+    }
+
+    .section-border {
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+
+    .progress-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>LiDAR Parameter Sweep</h1>
+  <p class="sub">Sweep background model parameters and visualise results to identify optimal tuning. Sensor: %[1]s</p>
+
+  <div id="error-box" class="error-box" style="display:none"></div>
+
+  <!-- Configuration Form -->
+  <div class="card">
+    <h2>Sweep Configuration</h2>
+    <div class="form-grid">
+      <label><span>Mode</span>
+        <select id="mode">
+          <option value="noise">Noise</option>
+          <option value="closeness">Closeness</option>
+          <option value="neighbour">Neighbour</option>
+          <option value="multi">Multi (all combinations)</option>
+        </select>
+      </label>
+      <label><span>Seed Behaviour</span>
+        <select id="seed">
+          <option value="true">True</option>
+          <option value="false">False</option>
+          <option value="toggle">Toggle</option>
+        </select>
+      </label>
+      <label><span>Iterations</span><input id="iterations" type="number" value="10" min="1" max="500"></label>
+      <label><span>Interval</span><input id="interval" type="text" value="2s"></label>
+      <label><span>Settle Time</span><input id="settle_time" type="text" value="5s"></label>
+    </div>
+
+    <!-- Noise range -->
+    <div id="noise-section" class="section-border" style="margin-top:12px">
+      <div class="section-title">Noise Range</div>
+      <div class="form-grid">
+        <label><span>Start</span><input id="noise_start" type="number" step="0.001" value="0.005"></label>
+        <label><span>End</span><input id="noise_end" type="number" step="0.001" value="0.05"></label>
+        <label><span>Step</span><input id="noise_step" type="number" step="0.001" value="0.005"></label>
+      </div>
+    </div>
+
+    <!-- Closeness range -->
+    <div id="closeness-section" class="section-border" style="display:none">
+      <div class="section-title">Closeness Range</div>
+      <div class="form-grid">
+        <label><span>Start</span><input id="closeness_start" type="number" step="0.5" value="1.5"></label>
+        <label><span>End</span><input id="closeness_end" type="number" step="0.5" value="3.0"></label>
+        <label><span>Step</span><input id="closeness_step" type="number" step="0.5" value="0.5"></label>
+      </div>
+    </div>
+
+    <!-- Neighbour range -->
+    <div id="neighbour-section" class="section-border" style="display:none">
+      <div class="section-title">Neighbour Range</div>
+      <div class="form-grid">
+        <label><span>Start</span><input id="neighbour_start" type="number" step="1" value="0"></label>
+        <label><span>End</span><input id="neighbour_end" type="number" step="1" value="3"></label>
+        <label><span>Step</span><input id="neighbour_step" type="number" step="1" value="1"></label>
+      </div>
+    </div>
+
+    <!-- Fixed values -->
+    <div id="fixed-section" class="section-border">
+      <div class="section-title">Fixed Parameters (not being swept)</div>
+      <div class="form-grid">
+        <label id="fixed-noise-lbl"><span>Fixed Noise</span><input id="fixed_noise" type="number" step="0.001"
+            value="0.01"></label>
+        <label id="fixed-closeness-lbl"><span>Fixed Closeness</span><input id="fixed_closeness" type="number"
+            step="0.5" value="2.0"></label>
+        <label id="fixed-neighbour-lbl"><span>Fixed Neighbour</span><input id="fixed_neighbour" type="number" step="1"
+            value="1"></label>
+      </div>
+    </div>
+
+    <div class="btn-group">
+      <button id="btn-start" class="btn btn-primary" onclick="handleStart()">Start Sweep</button>
+      <button id="btn-stop" class="btn btn-danger" onclick="handleStop()" style="display:none">Stop Sweep</button>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div id="progress-card" class="card" style="display:none">
+    <h2>Sweep Progress</h2>
+    <div class="progress-info">
+      <span>Status: <span id="status-badge" class="status-badge status-idle">idle</span></span>
+      <span id="combo-count"></span>
+    </div>
+    <div id="current-combo" style="font-size:13px;color:#64748b"></div>
+    <div id="sweep-error" class="error-box" style="display:none"></div>
+  </div>
+
+  <!-- Charts -->
+  <div id="charts-section" style="display:none">
+    <div class="card">
+      <h2>Results</h2>
+      <div id="acceptance-chart" class="chart-container"></div>
+      <div id="nonzero-chart" class="chart-container" style="margin-top:16px"></div>
+      <div id="bucket-chart" class="chart-container" style="margin-top:16px"></div>
+    </div>
+
+    <!-- Results Table -->
+    <div class="card">
+      <h2>Results Table</h2>
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Noise</th>
+              <th>Closeness</th>
+              <th>Neighbour</th>
+              <th>Accept Rate</th>
+              <th>± StdDev</th>
+              <th>Nonzero Cells</th>
+              <th>± StdDev</th>
+            </tr>
+          </thead>
+          <tbody id="results-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var pollTimer = null;
+    var acceptChart = null;
+    var nzChart = null;
+    var bktChart = null;
+
+    function val(id) { return document.getElementById(id).value; }
+    function numVal(id) { return parseFloat(val(id)); }
+    function intVal(id) { return parseInt(val(id), 10); }
+
+    // Show/hide form sections based on mode
+    document.getElementById('mode').addEventListener('change', function () {
+      var m = this.value;
+      document.getElementById('noise-section').style.display = (m === 'noise' || m === 'multi') ? '' : 'none';
+      document.getElementById('closeness-section').style.display = (m === 'closeness' || m === 'multi') ? '' : 'none';
+      document.getElementById('neighbour-section').style.display = (m === 'neighbour' || m === 'multi') ? '' : 'none';
+      document.getElementById('fixed-section').style.display = (m === 'multi') ? 'none' : '';
+      document.getElementById('fixed-noise-lbl').style.display = (m !== 'noise') ? '' : 'none';
+      document.getElementById('fixed-closeness-lbl').style.display = (m !== 'closeness') ? '' : 'none';
+      document.getElementById('fixed-neighbour-lbl').style.display = (m !== 'neighbour') ? '' : 'none';
+    });
+
+    function showError(msg) {
+      var el = document.getElementById('error-box');
+      el.textContent = msg;
+      el.style.display = msg ? '' : 'none';
+    }
+
+    function handleStart() {
+      showError('');
+      var req = {
+        mode: val('mode'),
+        seed: val('seed'),
+        iterations: intVal('iterations'),
+        interval: val('interval'),
+        settle_time: val('settle_time'),
+        noise_start: numVal('noise_start'),
+        noise_end: numVal('noise_end'),
+        noise_step: numVal('noise_step'),
+        closeness_start: numVal('closeness_start'),
+        closeness_end: numVal('closeness_end'),
+        closeness_step: numVal('closeness_step'),
+        neighbour_start: intVal('neighbour_start'),
+        neighbour_end: intVal('neighbour_end'),
+        neighbour_step: intVal('neighbour_step'),
+        fixed_noise: numVal('fixed_noise'),
+        fixed_closeness: numVal('fixed_closeness'),
+        fixed_neighbour: intVal('fixed_neighbour')
+      };
+      fetch('/api/lidar/sweep/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req)
+      }).then(function (r) {
+        if (!r.ok) return r.text().then(function (t) { throw new Error(t); });
+        startPolling();
+      }).catch(function (e) { showError(e.message); });
+    }
+
+    function handleStop() {
+      fetch('/api/lidar/sweep/stop', { method: 'POST' })
+        .catch(function (e) { showError(e.message); });
+    }
+
+    function startPolling() {
+      stopPolling();
+      pollTimer = setInterval(pollStatus, 3000);
+      pollStatus();
+    }
+
+    function stopPolling() {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
+
+    function comboLabel(r) {
+      return 'n=' + r.noise.toFixed(3) + ' c=' + r.closeness.toFixed(1) + ' nb=' + r.neighbour;
+    }
+
+    function pollStatus() {
+      fetch('/api/lidar/sweep/status').then(function (r) { return r.json(); }).then(function (st) {
+        var prog = document.getElementById('progress-card');
+        prog.style.display = '';
+
+        var badge = document.getElementById('status-badge');
+        badge.textContent = st.status;
+        badge.className = 'status-badge status-' + st.status;
+
+        document.getElementById('combo-count').textContent =
+          st.completed_combos + ' / ' + st.total_combos + ' combinations';
+
+        document.getElementById('btn-start').style.display = st.status === 'running' ? 'none' : '';
+        document.getElementById('btn-stop').style.display = st.status === 'running' ? '' : 'none';
+
+        var cc = document.getElementById('current-combo');
+        if (st.status === 'running' && st.current_combo) {
+          var c = st.current_combo;
+          cc.textContent = 'Current: noise=' + c.noise.toFixed(4) +
+            ', closeness=' + c.closeness.toFixed(2) +
+            ', neighbour=' + c.neighbour +
+            ' → acceptance=' + ((c.overall_accept_mean || 0) * 100).toFixed(1) + '%%';
+        } else {
+          cc.textContent = '';
+        }
+
+        var errEl = document.getElementById('sweep-error');
+        if (st.error) { errEl.textContent = st.error; errEl.style.display = ''; }
+        else { errEl.style.display = 'none'; }
+
+        if (st.results && st.results.length > 0) {
+          renderCharts(st.results);
+          renderTable(st.results);
+        }
+
+        if (st.status === 'complete' || st.status === 'error') {
+          stopPolling();
+        }
+      }).catch(function () { });
+    }
+
+    function renderCharts(results) {
+      document.getElementById('charts-section').style.display = '';
+      var labels = results.map(comboLabel);
+
+      // Overall acceptance chart
+      if (!acceptChart) { acceptChart = echarts.init(document.getElementById('acceptance-chart')); }
+      acceptChart.setOption({
+        title: { text: 'Overall Acceptance Rate', left: 'center' },
+        tooltip: { trigger: 'axis' },
+        xAxis: { type: 'category', data: labels, axisLabel: { rotate: 45, fontSize: 10 } },
+        yAxis: { type: 'value', name: 'Acceptance Rate', axisLabel: { formatter: function (v) { return (v * 100).toFixed(0) + '%%'; } } },
+        series: [{ name: 'Mean', type: 'bar', data: results.map(function (r) { return r.overall_accept_mean; }), itemStyle: { color: '#5470c6' } }],
+        grid: { bottom: 100 }
+      });
+
+      // Nonzero cells chart
+      if (!nzChart) { nzChart = echarts.init(document.getElementById('nonzero-chart')); }
+      nzChart.setOption({
+        title: { text: 'Nonzero Background Cells', left: 'center' },
+        tooltip: { trigger: 'axis' },
+        xAxis: { type: 'category', data: labels, axisLabel: { rotate: 45, fontSize: 10 } },
+        yAxis: { type: 'value', name: 'Cell Count' },
+        series: [{ name: 'Mean', type: 'bar', data: results.map(function (r) { return r.nonzero_cells_mean; }), itemStyle: { color: '#91cc75' } }],
+        grid: { bottom: 100 }
+      });
+
+      // Bucket heatmap
+      if (results[0] && results[0].buckets && results[0].buckets.length > 0) {
+        if (!bktChart) { bktChart = echarts.init(document.getElementById('bucket-chart')); }
+        var buckets = results[0].buckets;
+        var data = [];
+        var mx = 0;
+        results.forEach(function (r, ri) {
+          if (r.bucket_means) {
+            r.bucket_means.forEach(function (v, bi) {
+              data.push([ri, bi, v]);
+              if (v > mx) mx = v;
+            });
+          }
+        });
+        bktChart.setOption({
+          title: { text: 'Per-Bucket Acceptance Rates', left: 'center' },
+          tooltip: {
+            formatter: function (p) {
+              var ri = p.value[0], bi = p.value[1], v = p.value[2];
+              return comboLabel(results[ri]) + '<br/>Bucket ' + buckets[bi] + 'm: ' + (v * 100).toFixed(2) + '%%';
+            }
+          },
+          xAxis: { type: 'category', data: labels, axisLabel: { rotate: 45, fontSize: 10 } },
+          yAxis: { type: 'category', data: buckets.map(function (b) { return b + 'm'; }), name: 'Range Bucket' },
+          visualMap: {
+            min: 0, max: mx || 1, calculable: true, orient: 'horizontal', left: 'center', bottom: 0,
+            inRange: { color: ['#313695', '#4575b4', '#74add1', '#abd9e9', '#fee090', '#fdae61', '#f46d43', '#d73027'] },
+            formatter: function (v) { return (v * 100).toFixed(0) + '%%'; }
+          },
+          series: [{ type: 'heatmap', data: data, emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.5)' } } }],
+          grid: { bottom: 80, top: 60 }
+        });
+      }
+    }
+
+    function renderTable(results) {
+      var tbody = document.getElementById('results-body');
+      tbody.innerHTML = '';
+      results.forEach(function (r) {
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td class="mono">' + r.noise.toFixed(4) + '</td>' +
+          '<td class="mono">' + r.closeness.toFixed(2) + '</td>' +
+          '<td class="mono">' + r.neighbour + '</td>' +
+          '<td class="mono">' + (r.overall_accept_mean * 100).toFixed(2) + '%%</td>' +
+          '<td class="mono" style="color:#64748b">±' + (r.overall_accept_stddev * 100).toFixed(2) + '%%</td>' +
+          '<td class="mono">' + r.nonzero_cells_mean.toFixed(0) + '</td>' +
+          '<td class="mono" style="color:#64748b">±' + r.nonzero_cells_stddev.toFixed(0) + '</td>';
+        tbody.appendChild(tr);
+      });
+    }
+
+    window.addEventListener('resize', function () {
+      if (acceptChart) acceptChart.resize();
+      if (nzChart) nzChart.resize();
+      if (bktChart) bktChart.resize();
+    });
+
+    // Check for existing sweep on page load
+    fetch('/api/lidar/sweep/status').then(function (r) { return r.json(); }).then(function (st) {
+      if (st.status === 'running') { startPolling(); }
+      else if (st.results && st.results.length > 0) {
+        document.getElementById('progress-card').style.display = '';
+        var badge = document.getElementById('status-badge');
+        badge.textContent = st.status;
+        badge.className = 'status-badge status-' + st.status;
+        document.getElementById('combo-count').textContent =
+          st.completed_combos + ' / ' + st.total_combos + ' combinations';
+        renderCharts(st.results);
+        renderTable(st.results);
+      }
+    }).catch(function () { });
+  </script>
+</body>
+
+</html>

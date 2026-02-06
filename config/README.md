@@ -70,4 +70,11 @@ The configuration file system is optional. If you don't specify `--config`, the 
 - `--lidar-frame-buffer-timeout`
 - `--lidar-min-frame-points`
 
-**Note:** When `--config` is specified, it takes precedence over individual CLI flags.
+### Precedence
+
+When `--config` is specified the JSON file is loaded on top of the built-in
+defaults, so fields omitted from the file keep their default values (partial
+configs are safe). The config file values replace the corresponding CLI flags;
+individual CLI tuning flags are ignored when `--config` is set.
+
+When `--config` is **not** specified the CLI flags are used as before.

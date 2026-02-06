@@ -378,3 +378,60 @@ func TestLoadExampleConfigFile(t *testing.T) {
 		t.Errorf("Expected 500, got %d", cfg.Lidar.FrameBuilder.MinFramePoints)
 	}
 }
+
+func TestLoadTuningConfigPartial(t *testing.T) {
+	// Partial config: only override noise; everything else should keep defaults.
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "partial.json")
+
+	partialJSON := `{
+  "lidar": {
+    "background": {
+      "noise_relative_fraction": 0.08
+    },
+    "frame_builder": {}
+  }
+}`
+	if err := os.WriteFile(configPath, []byte(partialJSON), 0644); err != nil {
+		t.Fatalf("Failed to write test config: %v", err)
+	}
+
+	cfg, err := LoadTuningConfig(configPath)
+	if err != nil {
+		t.Fatalf("Failed to load partial config: %v", err)
+	}
+
+	// Overridden value
+	if cfg.Lidar.Background.NoiseRelativeFraction != 0.08 {
+		t.Errorf("Expected overridden NoiseRelativeFraction 0.08, got %f", cfg.Lidar.Background.NoiseRelativeFraction)
+	}
+	// Default values should be preserved
+	if cfg.Lidar.Background.FlushInterval != "60s" {
+		t.Errorf("Expected default FlushInterval '60s', got '%s'", cfg.Lidar.Background.FlushInterval)
+	}
+	if cfg.Lidar.Background.SeedFromFirst != true {
+		t.Errorf("Expected default SeedFromFirst true, got %v", cfg.Lidar.Background.SeedFromFirst)
+	}
+	if cfg.Lidar.FrameBuilder.BufferTimeout != "500ms" {
+		t.Errorf("Expected default BufferTimeout '500ms', got '%s'", cfg.Lidar.FrameBuilder.BufferTimeout)
+	}
+	if cfg.Lidar.FrameBuilder.MinFramePoints != 1000 {
+		t.Errorf("Expected default MinFramePoints 1000, got %d", cfg.Lidar.FrameBuilder.MinFramePoints)
+	}
+}
+
+func TestLoadTuningConfigRejectsPathTraversal(t *testing.T) {
+	// Path traversal with ".." is allowed since this is a CLI-only flag,
+	// but the file must still have a .json extension.
+	_, err := LoadTuningConfig("../../etc/passwd")
+	if err == nil {
+		t.Error("Expected error for non-.json path, got nil")
+	}
+}
+
+func TestLoadTuningConfigRejectsNonJSON(t *testing.T) {
+	_, err := LoadTuningConfig("/some/path/config.yaml")
+	if err == nil {
+		t.Error("Expected error for non-.json extension, got nil")
+	}
+}

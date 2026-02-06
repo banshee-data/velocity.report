@@ -56,6 +56,9 @@ var dashboardHTML string
 //go:embed html/regions_dashboard.html
 var regionsDashboardHTML string
 
+//go:embed html/sweep_dashboard.html
+var sweepDashboardHTML string
+
 const echartsAssetsPrefix = "/assets/"
 
 // DataSource, DataSourceLive, DataSourcePCAP, DataSourcePCAPAnalysis
@@ -926,6 +929,7 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/sweep/start", ws.handleSweepStart)
 	mux.HandleFunc("/api/lidar/sweep/status", ws.handleSweepStatus)
 	mux.HandleFunc("/api/lidar/sweep/stop", ws.handleSweepStop)
+	mux.HandleFunc("/debug/lidar/sweep", ws.handleSweepDashboard)
 	mux.HandleFunc("/api/lidar/grid_status", ws.handleGridStatus)
 	mux.HandleFunc("/api/lidar/grid_reset", ws.handleGridReset)
 	mux.HandleFunc("/api/lidar/grid_heatmap", ws.handleGridHeatmap)
@@ -1522,6 +1526,20 @@ func (ws *WebServer) handleLidarDebugDashboard(w http.ResponseWriter, r *http.Re
 	safeQs := html.EscapeString(qs)
 
 	doc := fmt.Sprintf(dashboardHTML, safeSensorID, safeQs)
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write([]byte(doc))
+}
+
+// handleSweepDashboard renders the parameter sweep dashboard with ECharts visualisations.
+func (ws *WebServer) handleSweepDashboard(w http.ResponseWriter, r *http.Request) {
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = ws.sensorID
+	}
+	safeSensorID := html.EscapeString(sensorID)
+
+	doc := fmt.Sprintf(sweepDashboardHTML, safeSensorID)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(doc))

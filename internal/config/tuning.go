@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -51,14 +52,24 @@ func DefaultTuningConfig() *TuningConfig {
 }
 
 // LoadTuningConfig loads a TuningConfig from a JSON file.
+// The file is validated to ensure it has a .json extension.
+// Fields omitted from the JSON file retain their default values, so
+// partial configs are safe.
 func LoadTuningConfig(path string) (*TuningConfig, error) {
-	data, err := os.ReadFile(path)
+	// Validate the config file path.
+	cleanPath := filepath.Clean(path)
+	if ext := filepath.Ext(cleanPath); ext != ".json" {
+		return nil, fmt.Errorf("config file must have .json extension, got %q", ext)
+	}
+
+	data, err := os.ReadFile(cleanPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	var cfg TuningConfig
-	if err := json.Unmarshal(data, &cfg); err != nil {
+	// Start from defaults so omitted JSON fields keep sensible values.
+	cfg := DefaultTuningConfig()
+	if err := json.Unmarshal(data, cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config JSON: %w", err)
 	}
 
@@ -67,7 +78,7 @@ func LoadTuningConfig(path string) (*TuningConfig, error) {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
-	return &cfg, nil
+	return cfg, nil
 }
 
 // Validate checks that the configuration values are valid.

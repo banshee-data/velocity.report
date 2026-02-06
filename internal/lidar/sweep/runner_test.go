@@ -163,11 +163,11 @@ func TestStartRejectsExcessiveCombinations(t *testing.T) {
 func TestStartRejectsExcessiveIterations(t *testing.T) {
 	r := NewRunner(nil)
 	err := r.StartWithRequest(nil, SweepRequest{
-		Mode:        "noise",
-		NoiseStart:  0.01,
-		NoiseEnd:    0.02,
-		NoiseStep:   0.01,
-		Iterations:  501,
+		Mode:           "noise",
+		NoiseStart:     0.01,
+		NoiseEnd:       0.02,
+		NoiseStep:      0.01,
+		Iterations:     501,
 		FixedCloseness: 2.0,
 		FixedNeighbour: 1,
 	})
