@@ -190,12 +190,21 @@ class CompositePointCloudRenderer {
 
         // M7: Check if we need to reallocate the buffer
         let neededVertices = count * 5  // 5 floats per vertex
-        if shouldReallocate(currentCapacity: foregroundBufferCapacity, neededCount: neededVertices)
+        if foregroundBuffer == nil ||
+            shouldReallocate(currentCapacity: foregroundBufferCapacity, neededCount: neededVertices)
         {
             let newCapacity = calculateCapacity(for: neededVertices)
             let bufferSize = newCapacity * MemoryLayout<Float>.stride
-            foregroundBuffer = device.makeBuffer(length: bufferSize, options: .storageModeShared)
-            foregroundBufferCapacity = newCapacity
+            if let newBuffer = device.makeBuffer(length: bufferSize, options: .storageModeShared) {
+                foregroundBuffer = newBuffer
+                foregroundBufferCapacity = newCapacity
+            } else {
+                // Allocation failed; keep state consistent and abort update
+                foregroundBuffer = nil
+                foregroundBufferCapacity = 0
+                foregroundPointCount = 0
+                return
+            }
         }
 
         // Copy data into buffer

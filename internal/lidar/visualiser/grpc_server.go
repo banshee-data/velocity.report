@@ -78,6 +78,8 @@ func (s *Server) EnableSyntheticMode(sensorID string) {
 // When in replay mode, PlaybackInfo is injected into streamed frames and
 // the client UI shows "REPLAY" instead of "LIVE".
 func (s *Server) SetReplayMode(enabled bool) {
+	s.playbackMu.Lock()
+	defer s.playbackMu.Unlock()
 	s.replayMode = enabled
 	if !enabled {
 		s.pcapCurrentPacket = 0
@@ -87,6 +89,8 @@ func (s *Server) SetReplayMode(enabled bool) {
 
 // SetPCAPProgress updates the current packet position for seek-bar display.
 func (s *Server) SetPCAPProgress(currentPacket, totalPackets uint64) {
+	s.playbackMu.Lock()
+	defer s.playbackMu.Unlock()
 	s.pcapCurrentPacket = currentPacket
 	s.pcapTotalPackets = totalPackets
 }
@@ -302,21 +306,28 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			sendStart := time.Now()
 			pbFrame := frameBundleToProto(frame, req)
 
-			// M7: Release PointCloud reference after protobuf conversion.
-			// The data has been copied to the protobuf message, so we can
-			// safely decrement the reference count. When all clients have
-			// released, the slices are returned to the pool.
-			if frame.PointCloud != nil {
-				frame.PointCloud.Release()
-			}
-
 			// Measure serialised message size
 			msgSize := proto.Size(pbFrame)
 			totalBytesSent += int64(msgSize)
 
 			if err := stream.Send(pbFrame); err != nil {
+				// M7: Release on error path - protobuf data has been marshalled
+				// by Send(), so it's safe to release the source slices now.
+				if frame.PointCloud != nil {
+					frame.PointCloud.Release()
+				}
 				log.Printf("[gRPC] Send error for client %s after %d frames: %v", clientID, framesSent, err)
 				return err
+			}
+
+			// M7: Release PointCloud reference after stream.Send() completes.
+			// The protobuf message has been marshalled and sent, so we can
+			// safely decrement the reference count. When all clients have
+			// released, the slices are returned to the pool.
+			// NOTE: frameBundleToProto assigns X/Y/Z slices directly into the
+			// protobuf (no deep copy), so Release must happen AFTER Send.
+			if frame.PointCloud != nil {
+				frame.PointCloud.Release()
 			}
 			sendDuration := time.Since(sendStart)
 			totalSendTimeNs += sendDuration.Nanoseconds()
