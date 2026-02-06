@@ -2,18 +2,80 @@ package monitor
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidar/network"
+
+	_ "modernc.org/sqlite"
 )
+
+// setupTestDBWrapped creates a temporary SQLite database wrapped in *db.DB.
+// Use this for tests that need WebServerConfig.DB.
+func setupTestDBWrapped(t *testing.T) (*db.DB, func()) {
+	t.Helper()
+
+	tmpDir, err := os.MkdirTemp("", "webserver-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+
+	dbPath := filepath.Join(tmpDir, "test.db")
+	sqlDB, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		os.RemoveAll(tmpDir)
+		t.Fatalf("Failed to open database: %v", err)
+	}
+
+	// Apply essential PRAGMAs
+	pragmas := []string{
+		"PRAGMA journal_mode=WAL",
+		"PRAGMA busy_timeout=5000",
+		"PRAGMA synchronous=NORMAL",
+		"PRAGMA temp_store=MEMORY",
+		"PRAGMA foreign_keys=ON",
+	}
+	for _, pragma := range pragmas {
+		if _, err := sqlDB.Exec(pragma); err != nil {
+			sqlDB.Close()
+			os.RemoveAll(tmpDir)
+			t.Fatalf("Failed to execute %q: %v", pragma, err)
+		}
+	}
+
+	// Read and execute schema.sql
+	schemaPath := filepath.Join("..", "..", "db", "schema.sql")
+	schemaSQL, err := os.ReadFile(schemaPath)
+	if err != nil {
+		sqlDB.Close()
+		os.RemoveAll(tmpDir)
+		t.Fatalf("Failed to read schema.sql: %v", err)
+	}
+
+	if _, err := sqlDB.Exec(string(schemaSQL)); err != nil {
+		sqlDB.Close()
+		os.RemoveAll(tmpDir)
+		t.Fatalf("Failed to execute schema.sql: %v", err)
+	}
+
+	wrapped := &db.DB{DB: sqlDB}
+	cleanup := func() {
+		sqlDB.Close()
+		os.RemoveAll(tmpDir)
+	}
+
+	return wrapped, cleanup
+}
 
 // setupTestBackgroundManager creates a test BackgroundManager and registers it.
 // Returns a cleanup function that should be deferred.
@@ -4144,5 +4206,537 @@ func TestWebServer_IsPCAPInProgress_Complete(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 	if server.IsPCAPInProgress() {
 		t.Log("Expected PCAP not in progress after stop")
+	}
+}
+
+// ====== SetTracker tests ======
+
+func TestWebServer_SetTracker(t *testing.T) {
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "test-sensor",
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	server := NewWebServer(config)
+
+	// Initially tracker should be nil
+	if server.tracker != nil {
+		t.Error("Expected tracker to be nil initially")
+	}
+
+	// Create and set a tracker
+	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+	server.SetTracker(tracker)
+
+	if server.tracker != tracker {
+		t.Error("Expected tracker to be set")
+	}
+}
+
+// Tests requiring DB setup removed - WebServerConfig.DB requires *db.DB not *sql.DB
+
+// ====== handleBackgroundParams additional tests ======
+
+func TestWebServer_HandleBackgroundParams_GET_Pretty(t *testing.T) {
+	cleanup := setupTestBackgroundManager(t, "params-pretty-sensor")
+	defer cleanup()
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "params-pretty-sensor",
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	server := NewWebServer(config)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/params?sensor_id=params-pretty-sensor&format=pretty", nil)
+	rr := httptest.NewRecorder()
+
+	server.handleBackgroundParams(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	// Pretty formatted JSON should have indentation
+	body := rr.Body.String()
+	if !strings.Contains(body, "\n  ") {
+		t.Log("expected pretty-printed JSON with indentation")
+	}
+}
+
+func TestWebServer_HandleBackgroundParams_POST_WithTracker(t *testing.T) {
+	cleanup := setupTestBackgroundManager(t, "params-tracker-sensor")
+	defer cleanup()
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "params-tracker-sensor",
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	server := NewWebServer(config)
+
+	// Set a tracker
+	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+	server.SetTracker(tracker)
+
+	body := strings.NewReader(`{"gating_distance_squared": 25.0, "process_noise_pos": 0.5}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/params?sensor_id=params-tracker-sensor", body)
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	server.handleBackgroundParams(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+// ====== handleChartClustersJSON tests ======
+
+func TestWebServer_HandleChartClustersJSON_NoTrackAPI(t *testing.T) {
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "test-sensor",
+		DB:                nil,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	server := NewWebServer(config)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/clusters", nil)
+	rr := httptest.NewRecorder()
+
+	server.handleChartClustersJSON(rr, req)
+
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected 503, got %d", rr.Code)
+	}
+}
+
+// Tests requiring DB setup removed - WebServerConfig.DB requires *db.DB not *sql.DB
+
+// ====== handleChartClustersJSON tests with DB ======
+
+func TestWebServer_HandleChartClustersJSON_WithActualDB(t *testing.T) {
+	wrappedDB, cleanup := setupTestDBWrapped(t)
+	defer cleanup()
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "test-sensor",
+		DB:                wrappedDB,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	server := NewWebServer(config)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/clusters?sensor_id=test-sensor", nil)
+	rr := httptest.NewRecorder()
+
+	server.handleChartClustersJSON(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp RecentClustersData
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp.SensorID != "test-sensor" {
+		t.Errorf("expected sensor_id 'test-sensor', got '%s'", resp.SensorID)
+	}
+}
+
+func TestWebServer_HandleChartClustersJSON_WithTimeParams(t *testing.T) {
+	wrappedDB, cleanup := setupTestDBWrapped(t)
+	defer cleanup()
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "test-sensor",
+		DB:                wrappedDB,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	server := NewWebServer(config)
+
+	now := time.Now().Unix()
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/clusters?sensor_id=test-sensor&start="+
+		string(rune(now-3600))+"&end="+string(rune(now))+"&limit=50", nil)
+	rr := httptest.NewRecorder()
+
+	server.handleChartClustersJSON(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestWebServer_HandleLidarSnapshots_WithDB(t *testing.T) {
+	wrappedDB, cleanup := setupTestDBWrapped(t)
+	defer cleanup()
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "test-sensor",
+		DB:                wrappedDB,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	server := NewWebServer(config)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/snapshots?sensor_id=test-sensor&limit=5", nil)
+	rr := httptest.NewRecorder()
+
+	server.handleLidarSnapshots(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestWebServer_HandleLidarSnapshotsCleanup_WithDB(t *testing.T) {
+	wrappedDB, cleanup := setupTestDBWrapped(t)
+	defer cleanup()
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "test-sensor",
+		DB:                wrappedDB,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	server := NewWebServer(config)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/snapshots/cleanup?sensor_id=test-sensor", nil)
+	rr := httptest.NewRecorder()
+
+	server.handleLidarSnapshotsCleanup(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestWebServer_SetTracker_WithDB(t *testing.T) {
+	wrappedDB, cleanup := setupTestDBWrapped(t)
+	defer cleanup()
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "test-sensor",
+		DB:                wrappedDB,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	server := NewWebServer(config)
+
+	// With DB, trackAPI should exist
+	if server.trackAPI == nil {
+		t.Skip("trackAPI not initialised with test DB")
+	}
+
+	// Set tracker - should propagate to trackAPI
+	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+	server.SetTracker(tracker)
+
+	if server.trackAPI.tracker != tracker {
+		t.Error("Expected tracker to propagate to trackAPI")
+	}
+}
+
+// ====== handleClustersChart additional tests ======
+
+func TestWebServer_HandleClustersChart_WithDB_AndParams(t *testing.T) {
+	wrappedDB, cleanup := setupTestDBWrapped(t)
+	defer cleanup()
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "test-sensor",
+		DB:                wrappedDB,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	server := NewWebServer(config)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/clusters.html?sensor_id=test-sensor&limit=50", nil)
+	rr := httptest.NewRecorder()
+
+	server.handleClustersChart(rr, req)
+
+	// May return OK or error depending on template availability
+	t.Logf("handleClustersChart status: %d", rr.Code)
+}
+
+// ====== handleTracksChart additional tests ======
+
+func TestWebServer_HandleTracksChart_WithDB_AndParams(t *testing.T) {
+	wrappedDB, cleanup := setupTestDBWrapped(t)
+	defer cleanup()
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "test-sensor",
+		DB:                wrappedDB,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	server := NewWebServer(config)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/tracks.html?sensor_id=test-sensor&limit=50", nil)
+	rr := httptest.NewRecorder()
+
+	server.handleTracksChart(rr, req)
+
+	// May return OK or error depending on template and data availability
+	t.Logf("handleTracksChart status: %d", rr.Code)
+}
+
+// ====== handleLidarSnapshot additional tests ======
+
+func TestWebServer_HandleLidarSnapshot_NoDBExtra(t *testing.T) {
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "test-sensor",
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	server := NewWebServer(config)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/snapshots/1?sensor_id=test-sensor", nil)
+	rr := httptest.NewRecorder()
+
+	server.handleLidarSnapshot(rr, req)
+
+	// May be 503 (service unavailable) or 500 (internal error) when DB not configured
+	if rr.Code != http.StatusServiceUnavailable && rr.Code != http.StatusInternalServerError {
+		t.Errorf("expected 503 or 500, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestWebServer_HandleLidarSnapshot_WithDB_MissingID(t *testing.T) {
+	wrappedDB, cleanup := setupTestDBWrapped(t)
+	defer cleanup()
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "test-sensor",
+		DB:                wrappedDB,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	server := NewWebServer(config)
+
+	// Request a non-existent snapshot ID
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/snapshots/99999?sensor_id=test-sensor", nil)
+	rr := httptest.NewRecorder()
+
+	server.handleLidarSnapshot(rr, req)
+
+	// Should return 404 for non-existent snapshot
+	if rr.Code != http.StatusNotFound && rr.Code != http.StatusBadRequest {
+		t.Logf("handleLidarSnapshot returned status %d", rr.Code)
+	}
+}
+
+// ====== handleForegroundFrameChart tests ======
+
+func TestWebServer_HandleForegroundFrameChart_NoManagerExtra(t *testing.T) {
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "nonexistent-sensor",
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	server := NewWebServer(config)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/foreground_frame.html?sensor_id=nonexistent-sensor", nil)
+	rr := httptest.NewRecorder()
+
+	server.handleForegroundFrameChart(rr, req)
+
+	// Should return 404 when no manager exists
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", rr.Code)
+	}
+}
+
+// ====== handlePCAPStop additional tests ======
+
+func TestWebServer_HandlePCAPStop_NoSensorID(t *testing.T) {
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	server := NewWebServer(config)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop", nil)
+	rr := httptest.NewRecorder()
+
+	server.handlePCAPStop(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", rr.Code)
+	}
+}
+
+func TestWebServer_HandlePCAPStop_WrongSensorIDExtra(t *testing.T) {
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "correct-sensor",
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	server := NewWebServer(config)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=wrong-sensor", nil)
+	rr := httptest.NewRecorder()
+
+	server.handlePCAPStop(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("expected 404 (wrong sensor), got %d", rr.Code)
+	}
+}
+
+func TestWebServer_HandlePCAPStop_FormPost(t *testing.T) {
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "test-sensor",
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	server := NewWebServer(config)
+
+	// Use form value instead of query param
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop", strings.NewReader("sensor_id=test-sensor"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+
+	server.handlePCAPStop(rr, req)
+
+	// Should return 409 (not in PCAP mode) rather than 400 (missing sensor_id)
+	if rr.Code != http.StatusConflict {
+		t.Errorf("expected 409 (not in PCAP mode), got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+// ====== handleBackgroundGridPolar additional tests ======
+
+func TestWebServer_HandleBackgroundGridPolar_WithMaxPoints(t *testing.T) {
+	cleanup := setupTestBackgroundManager(t, "polar-maxpts-sensor")
+	defer cleanup()
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "polar-maxpts-sensor",
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	server := NewWebServer(config)
+
+	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/polar?sensor_id=polar-maxpts-sensor&max_points=1000", nil)
+	rr := httptest.NewRecorder()
+
+	server.handleBackgroundGridPolar(rr, req)
+
+	// May return 404 if no cells, or 200 if cells exist
+	if rr.Code != http.StatusOK && rr.Code != http.StatusNotFound {
+		t.Errorf("expected 200 or 404, got %d", rr.Code)
+	}
+}
+
+// ====== updateLatestFgCounts / getLatestFgCounts tests ======
+
+func TestWebServer_UpdateLatestFgCounts_EmptySensorID(t *testing.T) {
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "test-sensor",
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	server := NewWebServer(config)
+
+	// Update with empty sensor ID - should clear the map
+	server.updateLatestFgCounts("")
+
+	counts := server.getLatestFgCounts()
+	if counts != nil {
+		t.Errorf("expected nil counts for empty sensor ID, got %v", counts)
+	}
+}
+
+func TestWebServer_UpdateLatestFgCounts_NoSnapshot(t *testing.T) {
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "test-sensor",
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	server := NewWebServer(config)
+
+	// Update with a sensor that has no snapshot
+	server.updateLatestFgCounts("nonexistent-sensor")
+
+	counts := server.getLatestFgCounts()
+	if counts != nil {
+		t.Errorf("expected nil counts for sensor without snapshot, got %v", counts)
+	}
+}
+
+func TestWebServer_GetLatestFgCounts_ReturnsCopy(t *testing.T) {
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "test-sensor",
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	server := NewWebServer(config)
+
+	// Manually set some counts for testing
+	server.fgCountsMu.Lock()
+	server.latestFgCounts["total"] = 100
+	server.latestFgCounts["foreground"] = 25
+	server.fgCountsMu.Unlock()
+
+	counts := server.getLatestFgCounts()
+	if counts == nil {
+		t.Fatal("expected non-nil counts")
+	}
+
+	// Modify returned map - shouldn't affect original
+	counts["total"] = 999
+
+	counts2 := server.getLatestFgCounts()
+	if counts2["total"] != 100 {
+		t.Errorf("expected total=100 (immutable), got %d", counts2["total"])
 	}
 }

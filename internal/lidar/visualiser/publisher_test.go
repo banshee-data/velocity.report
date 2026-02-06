@@ -5,6 +5,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/pb"
 )
 
 func TestDefaultConfig(t *testing.T) {
@@ -141,8 +143,8 @@ func TestPublisher_AddRemoveClient(t *testing.T) {
 	}
 	defer pub.Stop()
 
-	req := &StreamRequest{
-		SensorID:        "test",
+	req := &pb.StreamRequest{
+		SensorId:        "test",
 		IncludePoints:   true,
 		IncludeClusters: true,
 		IncludeTracks:   true,
@@ -182,7 +184,7 @@ func TestPublisher_MultipleClients(t *testing.T) {
 	}
 	defer pub.Stop()
 
-	req := &StreamRequest{SensorID: "test"}
+	req := &pb.StreamRequest{SensorId: "test"}
 
 	// Add multiple clients
 	pub.addClient("client-1", req)
@@ -221,7 +223,7 @@ func TestPublisher_BroadcastToClients(t *testing.T) {
 	}
 	defer pub.Stop()
 
-	req := &StreamRequest{SensorID: "test"}
+	req := &pb.StreamRequest{SensorId: "test"}
 	client := pub.addClient("client-1", req)
 
 	// Publish a frame
@@ -249,7 +251,7 @@ func TestPublisher_FrameDropOnSlowClient(t *testing.T) {
 	}
 	defer pub.Stop()
 
-	req := &StreamRequest{SensorID: "test"}
+	req := &pb.StreamRequest{SensorId: "test"}
 	client := pub.addClient("client-1", req)
 
 	// Fill up client's buffer (10 frames)
@@ -318,8 +320,8 @@ func TestPublisher_ConcurrentPublish(t *testing.T) {
 }
 
 func TestStreamRequest_Fields(t *testing.T) {
-	req := &StreamRequest{
-		SensorID:        "hesai-01",
+	req := &pb.StreamRequest{
+		SensorId:        "hesai-01",
 		IncludePoints:   true,
 		IncludeClusters: true,
 		IncludeTracks:   true,
@@ -328,8 +330,8 @@ func TestStreamRequest_Fields(t *testing.T) {
 		DecimationRatio: 0.5,
 	}
 
-	if req.SensorID != "hesai-01" {
-		t.Errorf("expected SensorID=hesai-01, got %s", req.SensorID)
+	if req.SensorId != "hesai-01" {
+		t.Errorf("expected SensorID=hesai-01, got %s", req.SensorId)
 	}
 	if !req.IncludePoints {
 		t.Error("expected IncludePoints=true")

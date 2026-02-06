@@ -42,7 +42,7 @@ func TestFrameAdapter_AdaptFrame_BasicFrame(t *testing.T) {
 		Points:         []lidar.Point{},
 	}
 
-	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil))
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil, nil))
 
 	if bundle == nil {
 		t.Fatal("expected non-nil FrameBundle")
@@ -67,9 +67,9 @@ func TestFrameAdapter_AdaptFrame_FrameIDIncrement(t *testing.T) {
 		Points:         []lidar.Point{},
 	}
 
-	bundle1 := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil))
-	bundle2 := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil))
-	bundle3 := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil))
+	bundle1 := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil, nil))
+	bundle2 := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil, nil))
+	bundle3 := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil, nil))
 
 	if bundle1.FrameID != 1 {
 		t.Errorf("expected FrameID=1, got %d", bundle1.FrameID)
@@ -97,7 +97,7 @@ func TestFrameAdapter_AdaptFrame_WithPointCloud(t *testing.T) {
 
 	mask := []bool{true, false, true} // foreground, background, foreground
 
-	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, mask, nil, nil))
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, mask, nil, nil, nil))
 
 	if bundle.PointCloud == nil {
 		t.Fatal("expected non-nil PointCloud")
@@ -172,7 +172,7 @@ func TestFrameAdapter_AdaptFrame_WithClusters(t *testing.T) {
 		},
 	}
 
-	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, clusters, nil))
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, clusters, nil, nil))
 
 	if bundle.Clusters == nil {
 		t.Fatal("expected non-nil Clusters")
@@ -232,7 +232,7 @@ func TestFrameAdapter_AdaptFrame_WithTracker(t *testing.T) {
 	}
 	tracker.Update([]lidar.WorldCluster{cluster}, now)
 
-	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, tracker))
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, tracker, nil))
 
 	if bundle.Tracks == nil {
 		t.Fatal("expected non-nil Tracks")
@@ -289,7 +289,7 @@ func TestFrameAdapter_AdaptPointCloud_EmptyMask(t *testing.T) {
 		},
 	}
 
-	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil))
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil, nil))
 
 	pc := bundle.PointCloud
 	if pc == nil {
@@ -320,7 +320,7 @@ func TestFrameAdapter_AdaptPointCloud_PartialMask(t *testing.T) {
 	// Mask shorter than points
 	mask := []bool{true}
 
-	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, mask, nil, nil))
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, mask, nil, nil, nil))
 
 	pc := bundle.PointCloud
 	if pc == nil {
@@ -348,7 +348,7 @@ func TestFrameAdapter_AdaptClusters_Empty(t *testing.T) {
 		Points:         []lidar.Point{},
 	}
 
-	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, []lidar.WorldCluster{}, nil))
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, []lidar.WorldCluster{}, nil, nil))
 
 	// Empty clusters slice should result in nil Clusters
 	if bundle.Clusters != nil {
@@ -391,7 +391,7 @@ func TestFrameAdapter_AdaptTracks_WithHistory(t *testing.T) {
 		tracker.Update([]lidar.WorldCluster{cluster}, now.Add(time.Duration(i)*100*time.Millisecond))
 	}
 
-	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, tracker))
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, tracker, nil))
 
 	if bundle.Tracks == nil {
 		t.Fatal("expected non-nil Tracks")
@@ -449,7 +449,7 @@ func TestFrameAdapter_AdaptTracks_HistoryLengthConsistency(t *testing.T) {
 	}
 
 	// This should not panic even with a long history
-	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, tracker))
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, tracker, nil))
 
 	if bundle.Tracks == nil {
 		t.Fatal("expected non-nil Tracks")
@@ -687,10 +687,14 @@ func TestApplyDecimation_InvalidRatioGreaterThanOne(t *testing.T) {
 }
 
 func TestApplyDecimation_VoxelFallback(t *testing.T) {
+	// Create points that cluster within voxels — several points within
+	// the same voxel cell should be reduced to a single representative.
+	// With ratio 0.5, leafSize = 0.04/0.5 = 0.08m.
+	// Place groups of points within 0.08m cubes.
 	pc := &PointCloudFrame{
-		X:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
-		Y:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
-		Z:              []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		X:              []float32{0.01, 0.02, 0.03, 0.04, 0.05, 0.50, 0.51, 0.52, 0.53, 0.54},
+		Y:              []float32{0.01, 0.02, 0.03, 0.04, 0.05, 0.50, 0.51, 0.52, 0.53, 0.54},
+		Z:              []float32{0.01, 0.02, 0.03, 0.04, 0.05, 0.50, 0.51, 0.52, 0.53, 0.54},
 		Intensity:      []uint8{100, 110, 120, 130, 140, 150, 160, 170, 180, 190},
 		Classification: []uint8{1, 0, 1, 0, 1, 0, 1, 0, 1, 0},
 		PointCount:     10,
@@ -698,9 +702,9 @@ func TestApplyDecimation_VoxelFallback(t *testing.T) {
 
 	pc.ApplyDecimation(DecimationVoxel, 0.5)
 
-	// Voxel decimation falls back to uniform, should reduce points
-	if pc.PointCount == 10 {
-		t.Error("Expected reduced point count with DecimationVoxel")
+	// Voxel decimation should reduce points since multiple points share voxels
+	if pc.PointCount >= 10 {
+		t.Errorf("Expected reduced point count with DecimationVoxel, got %d", pc.PointCount)
 	}
 	if pc.DecimationMode != DecimationVoxel {
 		t.Error("DecimationMode should be DecimationVoxel")

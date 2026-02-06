@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/pb"
@@ -18,6 +19,18 @@ import (
 // Ensure Server implements the gRPC interface.
 var _ pb.VisualiserServiceServer = (*Server)(nil)
 
+// overlayPreferences stores per-client overlay preferences.
+type overlayPreferences struct {
+	showPoints      bool
+	showClusters    bool
+	showTracks      bool
+	showTrails      bool
+	showVelocity    bool
+	showGating      bool
+	showAssociation bool
+	showResiduals   bool
+}
+
 // Server implements the VisualiserService gRPC server.
 type Server struct {
 	pb.UnimplementedVisualiserServiceServer
@@ -28,16 +41,28 @@ type Server struct {
 	syntheticMode bool
 	syntheticGen  *SyntheticGenerator
 
-	// Playback state (for future replay support)
+	// Playback state — used by PCAP and replay modes.
+	// In PCAP mode, pause/play are honoured at the stream level
+	// (frames are silently dropped while paused).
 	paused       bool
 	playbackRate float32
+	replayMode   bool // True when replaying a PCAP or log (not live sensor)
+
+	// PCAP progress tracking (updated by WebServer progress callback)
+	pcapCurrentPacket uint64
+	pcapTotalPackets  uint64
+
+	// Per-client overlay preferences (protected by preferenceMu)
+	clientPreferences map[string]*overlayPreferences
+	preferenceMu      sync.RWMutex
 }
 
 // NewServer creates a new gRPC server.
 func NewServer(publisher *Publisher) *Server {
 	return &Server{
-		publisher:    publisher,
-		playbackRate: 1.0,
+		publisher:         publisher,
+		playbackRate:      1.0,
+		clientPreferences: make(map[string]*overlayPreferences),
 	}
 }
 
@@ -45,6 +70,23 @@ func NewServer(publisher *Publisher) *Server {
 func (s *Server) EnableSyntheticMode(sensorID string) {
 	s.syntheticMode = true
 	s.syntheticGen = NewSyntheticGenerator(sensorID)
+}
+
+// SetReplayMode marks the server as replaying recorded data (PCAP or log).
+// When in replay mode, PlaybackInfo is injected into streamed frames and
+// the client UI shows "REPLAY" instead of "LIVE".
+func (s *Server) SetReplayMode(enabled bool) {
+	s.replayMode = enabled
+	if !enabled {
+		s.pcapCurrentPacket = 0
+		s.pcapTotalPackets = 0
+	}
+}
+
+// SetPCAPProgress updates the current packet position for seek-bar display.
+func (s *Server) SetPCAPProgress(currentPacket, totalPackets uint64) {
+	s.pcapCurrentPacket = currentPacket
+	s.pcapTotalPackets = totalPackets
 }
 
 // SyntheticGenerator returns the synthetic generator (if enabled).
@@ -108,6 +150,7 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 	s.publisher.clientsMu.Lock()
 	s.publisher.clients[clientID] = &clientStream{
 		id:      clientID,
+		request: req,
 		frameCh: frameCh,
 		doneCh:  make(chan struct{}),
 	}
@@ -144,6 +187,11 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				clientID, framesSent, droppedFrames, slowSends, float64(totalSendTimeNs)/float64(max(framesSent, 1))/1e6)
 			return ctx.Err()
 		case frame := <-frameCh:
+			// Respect pause state — drop frames silently while paused
+			if s.paused {
+				continue
+			}
+
 			// Skip frames if we're falling behind (keep only latest)
 			// Drain any additional frames in the channel to catch up
 			skipped := 0
@@ -170,6 +218,18 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				}
 			}
 			lastFrameID = frame.FrameID
+
+			// Inject PlaybackInfo for replay mode (PCAP) if not already set.
+			// This allows the client to show "REPLAY" instead of "LIVE".
+			if s.replayMode && frame.PlaybackInfo == nil {
+				frame.PlaybackInfo = &PlaybackInfo{
+					IsLive:            false,
+					PlaybackRate:      s.playbackRate,
+					Paused:            s.paused,
+					CurrentFrameIndex: s.pcapCurrentPacket,
+					TotalFrames:       s.pcapTotalPackets,
+				}
+			}
 
 			// Measure serialisation and send time
 			sendStart := time.Now()
@@ -321,6 +381,7 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 				BboxHeadingRad:   t.BBoxHeadingRad,
 				Confidence:       t.Confidence,
 				MotionModel:      pb.MotionModel(t.MotionModel),
+				Alpha:            t.Alpha,
 			}
 		}
 
@@ -428,9 +489,32 @@ func (s *Server) SetRate(ctx context.Context, req *pb.SetRateRequest) (*pb.Playb
 	}, nil
 }
 
-// SetOverlayModes configures which overlays to emit.
+// SetOverlayModes configures which overlays to emit for the requesting client.
 func (s *Server) SetOverlayModes(ctx context.Context, req *pb.OverlayModeRequest) (*pb.OverlayModeResponse, error) {
-	// TODO: Store overlay preferences
+	// Extract client ID from context (for future per-client preferences)
+	// For now, store global preferences that apply to all clients
+	// TODO: Extract client ID from gRPC metadata for per-client preferences
+
+	prefs := &overlayPreferences{
+		showPoints:      req.ShowPoints,
+		showClusters:    req.ShowClusters,
+		showTracks:      req.ShowTracks,
+		showTrails:      req.ShowTrails,
+		showVelocity:    req.ShowVelocity,
+		showGating:      req.ShowGating,
+		showAssociation: req.ShowAssociation,
+		showResiduals:   req.ShowResiduals,
+	}
+
+	// Store preferences (use "default" as global key for now)
+	s.preferenceMu.Lock()
+	s.clientPreferences["default"] = prefs
+	s.preferenceMu.Unlock()
+
+	log.Printf("[gRPC] Overlay modes updated: points=%v clusters=%v tracks=%v trails=%v velocity=%v gating=%v association=%v residuals=%v",
+		prefs.showPoints, prefs.showClusters, prefs.showTracks, prefs.showTrails,
+		prefs.showVelocity, prefs.showGating, prefs.showAssociation, prefs.showResiduals)
+
 	return &pb.OverlayModeResponse{Success: true}, nil
 }
 

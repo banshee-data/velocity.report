@@ -34,17 +34,9 @@ func (api *TrackAPI) SetTracker(tracker *lidar.Tracker) {
 	api.tracker = tracker
 }
 
-// RegisterRoutes registers track API routes on the provided mux.
-func (api *TrackAPI) RegisterRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("/api/lidar/tracks", api.handleListTracks)
-	mux.HandleFunc("/api/lidar/tracks/history", api.handleListTracks) // Support both legacy '/history' and canonical '/tracks' endpoints for backward compatibility; '/history' may be deprecated in a future release.
-	mux.HandleFunc("/api/lidar/tracks/active", api.handleActiveTracks)
-	mux.HandleFunc("/api/lidar/tracks/", api.handleTrackByID)
-	mux.HandleFunc("/api/lidar/tracks/summary", api.handleTrackSummary)
-	mux.HandleFunc("/api/lidar/clusters", api.handleListClusters)
-	mux.HandleFunc("/api/lidar/observations", api.handleListObservations)
-	mux.HandleFunc("/api/lidar/tracks/clear", api.handleClearTracks)
-}
+// NOTE: Track API route registration has been consolidated into
+// WebServer.RegisterRoutes in webserver.go. The handler methods below
+// remain on TrackAPI for code organisation and testability.
 
 // handleClearTracks deletes all tracks, observations, and clusters for a sensor.
 // Method: POST (or GET for convenience). Query param: sensor_id (required).
@@ -985,4 +977,33 @@ type classSummaryAccum struct {
 	totalSpeed    float32
 	peakSpeed     float32
 	totalDuration float64
+}
+
+// handleTrackingMetrics returns aggregate velocity-trail alignment metrics
+// across all active tracks. Used by the sweep tool to evaluate tracking
+// parameter configurations.
+//
+// GET /api/lidar/tracks/metrics
+// Optional query parameter: include_per_track=true to include per-track breakdown
+func (api *TrackAPI) handleTrackingMetrics(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		api.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use GET")
+		return
+	}
+
+	if api.tracker == nil {
+		api.writeJSONError(w, http.StatusServiceUnavailable, "in-memory tracker not available")
+		return
+	}
+
+	metrics := api.tracker.GetTrackingMetrics()
+
+	// Omit per-track breakdown unless explicitly requested
+	includePerTrack := r.URL.Query().Get("include_per_track") == "true"
+	if !includePerTrack {
+		metrics.PerTrack = nil
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(metrics)
 }

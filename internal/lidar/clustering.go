@@ -8,10 +8,14 @@ import (
 
 // Constants for clustering configuration
 const (
-	// DefaultDBSCANEps is the default neighborhood radius in meters for DBSCAN
-	DefaultDBSCANEps = 0.6
-	// DefaultDBSCANMinPts is the default minimum points to form a cluster
-	DefaultDBSCANMinPts = 12
+	// DefaultDBSCANEps is the default neighbourhood radius in metres for DBSCAN.
+	// 0.8m bridges typical point density gaps within a single vehicle while
+	// avoiding merging vehicles in adjacent lanes (~3m apart).
+	DefaultDBSCANEps = 0.8
+	// DefaultDBSCANMinPts is the default minimum points to form a cluster.
+	// 8 allows detection of sparser clusters from distant vehicles while
+	// still rejecting noise clumps.
+	DefaultDBSCANMinPts = 8
 	// EstimatedPointsPerCell is used for initial spatial index capacity estimation
 	EstimatedPointsPerCell = 4
 )
@@ -378,6 +382,16 @@ func computeClusterMetrics(points []WorldPoint, clusterID int64) WorldCluster {
 		sensorID = points[0].SensorID
 	}
 
+	// Compute oriented bounding box via PCA
+	obb := EstimateOBBFromCluster(points)
+
+	// Use OBB dimensions for Length/Width since the renderer rotates the box
+	// by the OBB heading. Using AABB dimensions with an OBB rotation would
+	// produce a box that doesn't encompass the cluster points.
+	bboxLength := obb.Length
+	bboxWidth := obb.Width
+	bboxHeight := obb.Height
+
 	return WorldCluster{
 		ClusterID:         clusterID,
 		SensorID:          sensorID,
@@ -385,11 +399,12 @@ func computeClusterMetrics(points []WorldPoint, clusterID int64) WorldCluster {
 		CentroidX:         centroidX,
 		CentroidY:         centroidY,
 		CentroidZ:         centroidZ,
-		BoundingBoxLength: float32(maxX - minX),
-		BoundingBoxWidth:  float32(maxY - minY),
-		BoundingBoxHeight: float32(maxZ - minZ),
+		BoundingBoxLength: bboxLength,
+		BoundingBoxWidth:  bboxWidth,
+		BoundingBoxHeight: bboxHeight,
 		PointsCount:       len(points),
 		HeightP95:         float32(heights[p95Idx]),
 		IntensityMean:     float32(sumIntensity / uint64(len(points))),
+		OBB:               &obb,
 	}
 }

@@ -108,8 +108,15 @@ type WebServer struct {
 	pcapSpeedMode    string
 	pcapSpeedRatio   float64
 
+	// PCAP progress tracking (protected by pcapMu)
+	pcapCurrentPacket uint64 // 0-based index of current packet
+	pcapTotalPackets  uint64 // Total packets in current PCAP file
+
 	// Track API for tracking endpoints
 	trackAPI *TrackAPI
+
+	// In-memory tracker for real-time config access (optional)
+	tracker *lidar.Tracker
 
 	// Analysis run manager for PCAP analysis mode
 	analysisRunManager *lidar.AnalysisRunManager
@@ -126,6 +133,11 @@ type WebServer struct {
 	// dataSourceManager manages data source lifecycle (live UDP, PCAP replay).
 	// This is always initialized - either from config or created internally.
 	dataSourceManager DataSourceManager
+
+	// PCAP lifecycle callbacks for notifying external components (e.g. visualiser gRPC server)
+	onPCAPStarted  func()
+	onPCAPStopped  func()
+	onPCAPProgress func(currentPacket, totalPackets uint64)
 }
 
 // WebServerConfig contains configuration options for the web server
@@ -150,6 +162,18 @@ type WebServerConfig struct {
 	// If nil, a RealDataSourceManager is created automatically.
 	// Inject a MockDataSourceManager for testing.
 	DataSourceManager DataSourceManager
+
+	// OnPCAPStarted is called when a PCAP replay starts successfully.
+	// Used to notify the visualiser gRPC server to switch to replay mode.
+	OnPCAPStarted func()
+
+	// OnPCAPStopped is called when a PCAP replay stops and the system
+	// returns to live mode. Used to notify the visualiser gRPC server.
+	OnPCAPStopped func()
+
+	// OnPCAPProgress is called periodically during PCAP replay with the
+	// current and total packet counts, enabling progress/seek in the UI.
+	OnPCAPProgress func(currentPacket, totalPackets uint64)
 }
 
 // NewWebServer creates a new web server with the provided configuration
@@ -192,6 +216,9 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		currentSource:     DataSourceLive,
 		latestFgCounts:    make(map[string]int),
 		plotsBaseDir:      config.PlotsBaseDir,
+		onPCAPStarted:     config.OnPCAPStarted,
+		onPCAPStopped:     config.OnPCAPStopped,
+		onPCAPProgress:    config.OnPCAPProgress,
 	}
 
 	// Initialize DataSourceManager - use provided one or create RealDataSourceManager
@@ -227,6 +254,15 @@ func (ws *WebServer) baseContext() context.Context {
 	ws.baseCtxMu.RLock()
 	defer ws.baseCtxMu.RUnlock()
 	return ws.baseCtx
+}
+
+// SetTracker sets the tracker reference for direct config access via /api/lidar/params.
+// Also propagates to trackAPI if available.
+func (ws *WebServer) SetTracker(tracker *lidar.Tracker) {
+	ws.tracker = tracker
+	if ws.trackAPI != nil {
+		ws.trackAPI.SetTracker(tracker)
+	}
 }
 
 // updateLatestFgCounts refreshes cached foreground counts for the status UI.
@@ -569,9 +605,32 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 			log.Printf("PacketForwarder started for PCAP replay")
 		}
 
+		// Pre-count packets for progress tracking and seek support.
+		totalPkts, countErr := network.CountPCAPPackets(path, ws.udpPort)
+		if countErr != nil {
+			log.Printf("Warning: failed to pre-count PCAP packets: %v (progress disabled)", countErr)
+		} else {
+			ws.pcapMu.Lock()
+			ws.pcapTotalPackets = totalPkts
+			ws.pcapCurrentPacket = 0
+			ws.pcapMu.Unlock()
+			log.Printf("PCAP pre-count: %d packets", totalPkts)
+		}
+
+		// Progress callback: update internal state and notify external listeners
+		onProgress := func(current, total uint64) {
+			ws.pcapMu.Lock()
+			ws.pcapCurrentPacket = current
+			ws.pcapTotalPackets = total
+			ws.pcapMu.Unlock()
+			if ws.onPCAPProgress != nil {
+				ws.onPCAPProgress(current, total)
+			}
+		}
+
 		var err error
 		if speedMode == "fastest" {
-			err = network.ReadPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, ws.packetForwarder, startSeconds, durationSeconds)
+			err = network.ReadPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, ws.packetForwarder, startSeconds, durationSeconds, 0, totalPkts, onProgress)
 		} else {
 			// Apply PCAP-friendly background params and restore afterward.
 			var restoreParams func()
@@ -652,6 +711,8 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 				DebugAzMin:      debugAzMin,
 				DebugAzMax:      debugAzMax,
 				OnFrameCallback: onFrameCallback,
+				TotalPackets:    totalPkts,
+				OnProgress:      onProgress,
 			}
 
 			err = network.ReadPCAPFileRealtime(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, config)
@@ -716,6 +777,11 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 					ws.currentSource = DataSourceLive
 					ws.currentPCAPFile = ""
 					log.Printf("[DataSource] auto-switched to Live after PCAP for sensor=%s", ws.sensorID)
+
+					// Notify visualiser gRPC server that replay has ended
+					if ws.onPCAPStopped != nil {
+						ws.onPCAPStopped()
+					}
 				}
 			}
 		}
@@ -870,9 +936,24 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/pcap/stop", ws.handlePCAPStop)
 	mux.HandleFunc("/api/lidar/pcap/resume_live", ws.handlePCAPResumeLive)
 
-	// Register track API routes if available
+	// Chart API routes (structured JSON data for frontend charts)
+	mux.HandleFunc("/api/lidar/chart/polar", ws.handleChartPolarJSON)
+	mux.HandleFunc("/api/lidar/chart/heatmap", ws.handleChartHeatmapJSON)
+	mux.HandleFunc("/api/lidar/chart/foreground", ws.handleChartForegroundJSON)
+	mux.HandleFunc("/api/lidar/chart/clusters", ws.handleChartClustersJSON)
+	mux.HandleFunc("/api/lidar/chart/traffic", ws.handleChartTrafficJSON)
+
+	// Track API routes (delegate to TrackAPI handlers)
 	if ws.trackAPI != nil {
-		ws.trackAPI.RegisterRoutes(mux)
+		mux.HandleFunc("/api/lidar/tracks", ws.trackAPI.handleListTracks)
+		mux.HandleFunc("/api/lidar/tracks/history", ws.trackAPI.handleListTracks)
+		mux.HandleFunc("/api/lidar/tracks/active", ws.trackAPI.handleActiveTracks)
+		mux.HandleFunc("/api/lidar/tracks/metrics", ws.trackAPI.handleTrackingMetrics)
+		mux.HandleFunc("/api/lidar/tracks/", ws.trackAPI.handleTrackByID)
+		mux.HandleFunc("/api/lidar/tracks/summary", ws.trackAPI.handleTrackSummary)
+		mux.HandleFunc("/api/lidar/clusters", ws.trackAPI.handleListClusters)
+		mux.HandleFunc("/api/lidar/observations", ws.trackAPI.handleListObservations)
+		mux.HandleFunc("/api/lidar/tracks/clear", ws.trackAPI.handleClearTracks)
 	}
 }
 
@@ -881,14 +962,19 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", ws.handleStatus)
 	ws.RegisterRoutes(mux)
-	ws.RegisterChartAPIRoutes(mux)
 	return mux
 }
 
-// handleBackgroundParams allows reading and updating simple background parameters
+// handleBackgroundParams is the unified LIDAR configuration endpoint for both
+// background subtraction parameters and tracker configuration.
+//
 // Query params: sensor_id (required)
-// GET: returns { "noise_relative": <float>, "enable_diagnostics": <bool>, "closeness_multiplier": <float>, "neighbor_confirmation_count": <int> }
-// POST: accepts JSON { "noise_relative": <float>, "enable_diagnostics": <bool>, "closeness_multiplier": <float>, "neighbor_confirmation_count": <int> }
+//
+// GET: Returns all configuration parameters including:
+//   - Background params: noise_relative, closeness_multiplier, neighbor_confirmation_count, etc.
+//   - Tracker params (if tracker available): gating_distance_squared, process_noise_pos, etc.
+//
+// POST: Accepts partial JSON updates. All fields are optional; only non-nil fields are applied.
 func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Request) {
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
@@ -917,6 +1003,20 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 			"foreground_dbscan_eps":         params.ForegroundDBSCANEps,
 		}
 
+		// Include tracker config if tracker is available
+		if ws.tracker != nil {
+			cfg := ws.tracker.Config
+			resp["gating_distance_squared"] = cfg.GatingDistanceSquared
+			resp["process_noise_pos"] = cfg.ProcessNoisePos
+			resp["process_noise_vel"] = cfg.ProcessNoiseVel
+			resp["measurement_noise"] = cfg.MeasurementNoise
+			resp["occlusion_cov_inflation"] = cfg.OcclusionCovInflation
+			resp["hits_to_confirm"] = cfg.HitsToConfirm
+			resp["max_misses"] = cfg.MaxMisses
+			resp["max_misses_confirmed"] = cfg.MaxMissesConfirmed
+			resp["max_tracks"] = cfg.MaxTracks
+		}
+
 		if r.URL.Query().Get("format") == "pretty" {
 			w.Header().Set("Content-Type", "application/json")
 			enc := json.NewEncoder(w)
@@ -930,6 +1030,7 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 		return
 	case http.MethodPost:
 		var body struct {
+			// Background params
 			NoiseRelative              *float64 `json:"noise_relative"`
 			EnableDiagnostics          *bool    `json:"enable_diagnostics"`
 			ClosenessMultiplier        *float64 `json:"closeness_multiplier"`
@@ -940,6 +1041,15 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 			PostSettleUpdateFraction   *float64 `json:"post_settle_update_fraction"`
 			ForegroundMinClusterPoints *int     `json:"foreground_min_cluster_points"`
 			ForegroundDBSCANEps        *float64 `json:"foreground_dbscan_eps"`
+			// Tracker params
+			GatingDistanceSquared *float64 `json:"gating_distance_squared"`
+			ProcessNoisePos       *float64 `json:"process_noise_pos"`
+			ProcessNoiseVel       *float64 `json:"process_noise_vel"`
+			MeasurementNoise      *float64 `json:"measurement_noise"`
+			OcclusionCovInflation *float64 `json:"occlusion_cov_inflation"`
+			HitsToConfirm         *int     `json:"hits_to_confirm"`
+			MaxMisses             *int     `json:"max_misses"`
+			MaxMissesConfirmed    *int     `json:"max_misses_confirmed"`
 		}
 
 		// Check if this is a form submission from the status page
@@ -1024,6 +1134,34 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 			}
 		}
 
+		// Apply tracker config changes if tracker is available
+		if ws.tracker != nil {
+			if body.GatingDistanceSquared != nil {
+				ws.tracker.Config.GatingDistanceSquared = float32(*body.GatingDistanceSquared)
+			}
+			if body.ProcessNoisePos != nil {
+				ws.tracker.Config.ProcessNoisePos = float32(*body.ProcessNoisePos)
+			}
+			if body.ProcessNoiseVel != nil {
+				ws.tracker.Config.ProcessNoiseVel = float32(*body.ProcessNoiseVel)
+			}
+			if body.MeasurementNoise != nil {
+				ws.tracker.Config.MeasurementNoise = float32(*body.MeasurementNoise)
+			}
+			if body.OcclusionCovInflation != nil {
+				ws.tracker.Config.OcclusionCovInflation = float32(*body.OcclusionCovInflation)
+			}
+			if body.HitsToConfirm != nil {
+				ws.tracker.Config.HitsToConfirm = *body.HitsToConfirm
+			}
+			if body.MaxMisses != nil {
+				ws.tracker.Config.MaxMisses = *body.MaxMisses
+			}
+			if body.MaxMissesConfirmed != nil {
+				ws.tracker.Config.MaxMissesConfirmed = *body.MaxMissesConfirmed
+			}
+		}
+
 		// Read back current params for confirmation
 		cur := bm.GetParams()
 		// Emit an info log so operators can see applied changes in the app logs
@@ -1041,8 +1179,7 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		resp := map[string]interface{}{
 			"status":                        "ok",
 			"noise_relative":                cur.NoiseRelativeFraction,
 			"enable_diagnostics":            bm.EnableDiagnostics,
@@ -1054,7 +1191,24 @@ func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Reque
 			"post_settle_update_fraction":   cur.PostSettleUpdateFraction,
 			"foreground_min_cluster_points": cur.ForegroundMinClusterPoints,
 			"foreground_dbscan_eps":         cur.ForegroundDBSCANEps,
-		})
+		}
+
+		// Include tracker config in response if tracker is available
+		if ws.tracker != nil {
+			cfg := ws.tracker.Config
+			resp["gating_distance_squared"] = cfg.GatingDistanceSquared
+			resp["process_noise_pos"] = cfg.ProcessNoisePos
+			resp["process_noise_vel"] = cfg.ProcessNoiseVel
+			resp["measurement_noise"] = cfg.MeasurementNoise
+			resp["occlusion_cov_inflation"] = cfg.OcclusionCovInflation
+			resp["hits_to_confirm"] = cfg.HitsToConfirm
+			resp["max_misses"] = cfg.MaxMisses
+			resp["max_misses_confirmed"] = cfg.MaxMissesConfirmed
+			resp["max_tracks"] = cfg.MaxTracks
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
 		return
 	default:
 		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -2185,6 +2339,7 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		bgParams = &params
 
 		bgParamDefs = []ParamDef{
+			// Background subtraction params
 			{"noise_relative", "Noise Relative Fraction", params.NoiseRelativeFraction, "%.4f"},
 			{"closeness_multiplier", "Closeness Sensitivity Multiplier", params.ClosenessSensitivityMultiplier, "%.2f"},
 			{"neighbor_confirmation_count", "Neighbor Confirmation Count", params.NeighborConfirmationCount, ""},
@@ -2197,6 +2352,22 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 			{"foreground_min_cluster_points", "Foreground Min Cluster Points", params.ForegroundMinClusterPoints, ""},
 			{"foreground_dbscan_eps", "Foreground DBSCAN Eps", params.ForegroundDBSCANEps, "%.3f"},
 			{"enable_diagnostics", "Enable Diagnostics", mgr.EnableDiagnostics, ""},
+		}
+
+		// Add tracker params if tracker is available
+		if ws.tracker != nil {
+			cfg := ws.tracker.Config
+			bgParamDefs = append(bgParamDefs,
+				ParamDef{"gating_distance_squared", "Gating Distance Squared", cfg.GatingDistanceSquared, "%.2f"},
+				ParamDef{"process_noise_pos", "Process Noise Position", cfg.ProcessNoisePos, "%.4f"},
+				ParamDef{"process_noise_vel", "Process Noise Velocity", cfg.ProcessNoiseVel, "%.4f"},
+				ParamDef{"measurement_noise", "Measurement Noise", cfg.MeasurementNoise, "%.4f"},
+				ParamDef{"occlusion_cov_inflation", "Occlusion Covariance Inflation", cfg.OcclusionCovInflation, "%.2f"},
+				ParamDef{"hits_to_confirm", "Hits to Confirm Track", cfg.HitsToConfirm, ""},
+				ParamDef{"max_misses", "Max Misses (tentative)", cfg.MaxMisses, ""},
+				ParamDef{"max_misses_confirmed", "Max Misses (confirmed)", cfg.MaxMissesConfirmed, ""},
+				ParamDef{"max_tracks", "Max Tracks", cfg.MaxTracks, ""},
+			)
 		}
 
 		// Create a map for JSON representation matching the API structure
@@ -2695,6 +2866,12 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Set source path on BackgroundManager for region restoration
+	// This allows skipping settling when replaying the same PCAP file
+	if mgr := lidar.GetBackgroundManager(ws.sensorID); mgr != nil {
+		mgr.SetSourcePath(pcapFile)
+	}
+
 	if err := ws.startPCAPLocked(pcapFile, speedMode, speedRatio, startSeconds, durationSeconds, debugRingMin, debugRingMax, debugAzMin, debugAzMax, enableDebug, enablePlots); err != nil {
 		var sErr *switchError
 		if errors.As(err, &sErr) {
@@ -2720,6 +2897,11 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		mode = "analysis"
 	}
 	log.Printf("[DataSource] switched to PCAP %s mode for sensor=%s file=%s", mode, sensorID, currentFile)
+
+	// Notify visualiser gRPC server that we are now replaying
+	if ws.onPCAPStarted != nil {
+		ws.onPCAPStarted()
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -2810,6 +2992,11 @@ func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[DataSource] preserving grid from PCAP analysis for sensor=%s", sensorID)
 	}
 
+	// Clear source path since we're returning to live mode
+	if mgr := lidar.GetBackgroundManager(ws.sensorID); mgr != nil {
+		mgr.SetSourcePath("")
+	}
+
 	if err := ws.startLiveListenerLocked(); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to start live listener: %v", err))
 		return
@@ -2819,6 +3006,11 @@ func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 	ws.currentPCAPFile = ""
 
 	log.Printf("[DataSource] switched to Live after PCAP stop for sensor=%s", sensorID)
+
+	// Notify visualiser gRPC server that replay has ended
+	if ws.onPCAPStopped != nil {
+		ws.onPCAPStopped()
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -2872,6 +3064,11 @@ func (ws *WebServer) handlePCAPResumeLive(w http.ResponseWriter, r *http.Request
 	ws.pcapMu.Unlock()
 
 	log.Printf("[DataSource] resumed Live from PCAP analysis for sensor=%s (grid preserved)", sensorID)
+
+	// Notify visualiser gRPC server that replay has ended
+	if ws.onPCAPStopped != nil {
+		ws.onPCAPStopped()
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{

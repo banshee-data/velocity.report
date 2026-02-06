@@ -338,8 +338,12 @@ func TestTrackAPI_RegisterRoutes(t *testing.T) {
 	api := NewTrackAPI(nil, "test-sensor")
 	mux := http.NewServeMux()
 
-	// Should not panic
-	api.RegisterRoutes(mux)
+	// Register routes manually (mirrors WebServer.RegisterRoutes)
+	mux.HandleFunc("/api/lidar/tracks", api.handleListTracks)
+	mux.HandleFunc("/api/lidar/tracks/active", api.handleActiveTracks)
+	mux.HandleFunc("/api/lidar/tracks/summary", api.handleTrackSummary)
+	mux.HandleFunc("/api/lidar/clusters", api.handleListClusters)
+	mux.HandleFunc("/api/lidar/observations", api.handleListObservations)
 
 	// Verify routes are registered by making requests
 	tests := []struct {
@@ -1169,6 +1173,160 @@ func TestTrackAPI_HandleListTracks_TimeRange(t *testing.T) {
 	api.handleListTracks(w, req)
 
 	// Just verify it returns OK - time filtering may vary in implementation
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// ====== handleTrackingMetrics tests ======
+
+func TestTrackAPI_HandleTrackingMetrics_MethodNotAllowed(t *testing.T) {
+	api := NewTrackAPI(nil, "test-sensor")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/tracks/metrics", nil)
+	w := httptest.NewRecorder()
+
+	api.handleTrackingMetrics(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("expected status 405, got %d", w.Code)
+	}
+}
+
+func TestTrackAPI_HandleTrackingMetrics_NoTracker(t *testing.T) {
+	api := NewTrackAPI(nil, "test-sensor")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/tracks/metrics", nil)
+	w := httptest.NewRecorder()
+
+	api.handleTrackingMetrics(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected status 503, got %d", w.Code)
+	}
+}
+
+func TestTrackAPI_HandleTrackingMetrics_WithTracker(t *testing.T) {
+	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+
+	// Add some clusters to create tracks
+	cluster := lidar.WorldCluster{
+		SensorID:          "test-sensor",
+		CentroidX:         10.0,
+		CentroidY:         5.0,
+		CentroidZ:         1.0,
+		BoundingBoxLength: 4.0,
+		BoundingBoxWidth:  2.0,
+		BoundingBoxHeight: 1.5,
+		PointsCount:       50,
+	}
+
+	ts := time.Now()
+	for i := 0; i < 5; i++ {
+		cluster.CentroidX = 10.0 + float32(i)*0.5
+		ts = ts.Add(100 * time.Millisecond)
+		tracker.Update([]lidar.WorldCluster{cluster}, ts)
+	}
+
+	api := NewTrackAPI(nil, "test-sensor")
+	api.SetTracker(tracker)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/tracks/metrics", nil)
+	w := httptest.NewRecorder()
+
+	api.handleTrackingMetrics(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Check response structure
+	var resp map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	// Verify per_track is nil (not included by default)
+	if resp["per_track"] != nil {
+		t.Errorf("expected per_track to be nil, got %v", resp["per_track"])
+	}
+}
+
+func TestTrackAPI_HandleTrackingMetrics_WithPerTrack(t *testing.T) {
+	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+
+	// Add some clusters
+	cluster := lidar.WorldCluster{
+		SensorID:          "test-sensor",
+		CentroidX:         10.0,
+		CentroidY:         5.0,
+		CentroidZ:         1.0,
+		BoundingBoxLength: 4.0,
+		BoundingBoxWidth:  2.0,
+		BoundingBoxHeight: 1.5,
+		PointsCount:       50,
+	}
+
+	ts := time.Now()
+	for i := 0; i < 5; i++ {
+		cluster.CentroidX = 10.0 + float32(i)*0.5
+		ts = ts.Add(100 * time.Millisecond)
+		tracker.Update([]lidar.WorldCluster{cluster}, ts)
+	}
+
+	api := NewTrackAPI(nil, "test-sensor")
+	api.SetTracker(tracker)
+
+	// Request with include_per_track=true
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/tracks/metrics?include_per_track=true", nil)
+	w := httptest.NewRecorder()
+
+	api.handleTrackingMetrics(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Check response includes content-type header
+	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("expected Content-Type application/json, got %s", ct)
+	}
+}
+
+// ====== handleClearTracks additional tests ======
+
+func TestTrackAPI_HandleClearTracks_WithTrackerNoDB(t *testing.T) {
+	// handleClearTracks requires a database - verify the error without one
+	api := NewTrackAPI(nil, "test-sensor")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/tracks/clear?sensor_id=test-sensor", nil)
+	w := httptest.NewRecorder()
+
+	api.handleClearTracks(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected status 503 (DB required), got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// ====== handleUpdateTrack additional tests ======
+
+func TestTrackAPI_HandleUpdateTrack_WithValidUpdate(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	now := time.Now().UnixNano()
+	insertTestTrack(t, db, "track-001", "sensor-A", "confirmed", now-1e9, now)
+
+	api := NewTrackAPI(db, "sensor-A")
+
+	body := strings.NewReader(`{"object_class": "truck", "object_confidence": 0.85}`)
+	req := httptest.NewRequest(http.MethodPatch, "/api/lidar/tracks/track-001", body)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	api.handleUpdateTrack(w, req, "track-001")
+
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
 	}

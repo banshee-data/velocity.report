@@ -44,6 +44,7 @@ func TestGetAllTracks_IncludesDeleted(t *testing.T) {
 	config := DefaultTrackerConfig()
 	config.HitsToConfirm = 2
 	config.MaxMisses = 1
+	config.MaxMissesConfirmed = 1      // Confirmed tracks also delete after 1 miss
 	config.DeletedTrackGracePeriod = 0 // Keep deleted tracks
 	tracker := NewTracker(config)
 

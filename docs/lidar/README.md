@@ -94,6 +94,8 @@ Tracking pipeline refactor and upgrade proposals.
 - ✅ Frame assembly (360° rotations)
 - ✅ Background learning (EMA-based polar grid)
 - ✅ Foreground/background classification with warmup scaling
+- ✅ Adaptive region parameters (variance-based segmentation)
+- ✅ Region persistence & restoration (scene hash-based, skips settling on subsequent runs)
 - ✅ DBSCAN clustering (world frame)
 - ✅ Kalman tracking (constant velocity model)
 - ✅ Rule-based classification (pedestrian, car, bird, other)

@@ -11,6 +11,7 @@ This feature addresses the challenge of varying environmental conditions within 
 - **Automatic Region Identification**: Segments the frame into contiguous regions based on variance characteristics during the settling period
 - **Dynamic Parameter Assignment**: Each region gets optimized values for noise tolerance, neighbor confirmation, and settling rate
 - **Static After Settling**: Regions are identified once during warmup and remain fixed thereafter (appropriate for static sensors)
+- **Persistence & Restoration**: Regions are automatically persisted to database with scene hash and restored on subsequent runs from the same location, eliminating the ~30 second settling period
 - **Configurable Limits**: Maximum 50 regions per frame to ensure performance
 - **Debug Visualization**: API endpoint to inspect region boundaries and parameters
 
@@ -185,12 +186,28 @@ Check that:
 
 Check the base `BackgroundParams` values. Region parameters are scaled relative to these base values.
 
+## Region Persistence & Restoration
+
+**Status**: ✅ Implemented (February 2026)
+
+Identified regions are automatically persisted to the database (`lidar_bg_regions` table) along with a scene hash derived from the range/spread distribution. When processing PCAPs from the same location:
+
+1. After ~10 warmup frames, system computes scene signature
+2. Looks up matching region snapshot by scene hash
+3. Restores regions if a match is found
+4. Skips remaining settling period (saves ~20-30 seconds)
+
+This enables immediate foreground detection on subsequent runs from the same sensor location without repeating the full settling process.
+
+**Database Schema**: Migration `000017_create_lidar_bg_regions`
+
+**Implementation**: `internal/lidar/background.go` (lines 1407-1483)
+
 ## Future Enhancements
 
-1. **Persistence**: Save identified regions to database for faster restart
-2. **Manual Override**: API to manually define region boundaries
-3. **Dynamic Re-identification**: Optionally re-segment if scene changes (e.g., seasonal)
-4. **Per-Region Diagnostics**: Track acceptance rates per region for tuning
+1. **Manual Override**: API to manually define region boundaries
+2. **Dynamic Re-identification**: Optionally re-segment if scene changes (e.g., seasonal)
+3. **Per-Region Diagnostics**: Track acceptance rates per region for tuning
 
 ## Related Documentation
 

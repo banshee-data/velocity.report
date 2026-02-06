@@ -25,6 +25,10 @@ const (
 	DefaultLockedBaselineThreshold = 50
 	// DefaultLockedBaselineMultiplier defines the acceptance window as LockedSpread * multiplier
 	DefaultLockedBaselineMultiplier = 4.0
+	// regionRestoreMinFrames is the minimum number of warmup frames before
+	// attempting to restore regions from the database. After this many frames,
+	// enough data exists to compute a stable scene signature for matching.
+	regionRestoreMinFrames = 10
 )
 
 // ProcessFramePolarWithMask classifies each point as foreground/background in polar coordinates.
@@ -145,6 +149,8 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 				if err != nil {
 					log.Printf("[BackgroundManager] Failed to identify regions: %v", err)
 				}
+				// Persist regions immediately so future runs can skip settling
+				bm.persistRegionsOnSettleLocked()
 			}
 		} else {
 			warmupActive = true
@@ -156,6 +162,21 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 			// Collect variance metrics during settling
 			if g.RegionMgr != nil && !g.RegionMgr.IdentificationComplete {
 				g.RegionMgr.UpdateVarianceMetrics(g.Cells)
+			}
+			// Attempt early region restoration from DB after enough frames to
+			// build a scene signature (~10 frames). This allows skipping the
+			// remaining settling period when the scene matches a previous run.
+			if !g.regionRestoreAttempted && bm.store != nil {
+				framesProcessed := g.Params.WarmupMinFrames - g.WarmupFramesRemaining
+				if framesProcessed >= regionRestoreMinFrames {
+					if bm.tryRestoreRegionsFromStoreLocked() {
+						// Settling was skipped — update local variables to reflect
+						warmupActive = false
+						if postSettleAlpha > 0 && postSettleAlpha <= 1 {
+							effectiveAlpha = postSettleAlpha
+						}
+					}
+				}
 			}
 		}
 	}

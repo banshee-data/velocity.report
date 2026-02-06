@@ -41,12 +41,14 @@ const (
 // TrackerConfig holds configuration parameters for the tracker.
 type TrackerConfig struct {
 	MaxTracks               int           // Maximum number of concurrent tracks
-	MaxMisses               int           // Consecutive misses before deletion
+	MaxMisses               int           // Consecutive misses before tentative track deletion
+	MaxMissesConfirmed      int           // Consecutive misses before confirmed track deletion (coasting)
 	HitsToConfirm           int           // Consecutive hits needed for confirmation
 	GatingDistanceSquared   float32       // Squared gating distance for association (meters²)
 	ProcessNoisePos         float32       // Process noise for position (σ²)
 	ProcessNoiseVel         float32       // Process noise for velocity (σ²)
 	MeasurementNoise        float32       // Measurement noise (σ²)
+	OcclusionCovInflation   float32       // Extra covariance inflation per occluded frame
 	DeletedTrackGracePeriod time.Duration // How long to keep deleted tracks before cleanup
 }
 
@@ -55,11 +57,13 @@ func DefaultTrackerConfig() TrackerConfig {
 	return TrackerConfig{
 		MaxTracks:               100,
 		MaxMisses:               3,
-		HitsToConfirm:           5,    // Require 5 consecutive hits for confirmation (was 3)
-		GatingDistanceSquared:   25.0, // 5.0 meters squared
+		MaxMissesConfirmed:      15,   // Confirmed tracks coast through occlusion (~1.5s at 10Hz)
+		HitsToConfirm:           3,    // Require 3 consecutive hits for confirmation
+		GatingDistanceSquared:   36.0, // 6.0 metres squared — wider gate for re-association
 		ProcessNoisePos:         0.1,
 		ProcessNoiseVel:         0.5,
 		MeasurementNoise:        0.2,
+		OcclusionCovInflation:   0.5, // Widen gating gate during occlusion
 		DeletedTrackGracePeriod: DefaultDeletedTrackGracePeriod,
 	}
 }
@@ -111,6 +115,12 @@ type TrackedObject struct {
 	// Speed history for percentile computation
 	speedHistory []float32
 
+	// OBB heading (smoothed via exponential moving average)
+	OBBHeadingRad float32 // Smoothed heading from oriented bounding box
+
+	// Latest Z from the associated cluster OBB (ground-level, used for rendering)
+	LatestZ float32
+
 	// Classification (Phase 3.4)
 	ObjectClass         string  // Classification result: "pedestrian", "car", "bird", "other"
 	ObjectConfidence    float32 // Classification confidence [0, 1]
@@ -123,6 +133,46 @@ type TrackedObject struct {
 	MaxOcclusionFrames int     // Longest gap in observations
 	SpatialCoverage    float32 // % of bounding box covered by observations
 	NoisePointRatio    float32 // Ratio of noise points to cluster points
+
+	// Velocity-Trail Alignment Metrics
+	// Measures how well the Kalman velocity vector aligns with the actual
+	// direction of travel computed from recent trail positions. A perfectly
+	// aligned track has AlignmentMeanRad ≈ 0.
+	AlignmentSampleCount int     // Number of alignment samples taken
+	AlignmentSumRad      float32 // Running sum of angular differences (radians)
+	AlignmentMeanRad     float32 // Running mean angular difference (radians, [0, π])
+	AlignmentMisaligned  int     // Count of samples where angular diff > π/4 (45°)
+}
+
+// TrackingMetrics holds aggregate tracking quality metrics across all active tracks.
+// Used by the sweep tool to evaluate parameter configurations.
+type TrackingMetrics struct {
+	// Number of active tracks contributing to metrics
+	ActiveTracks int `json:"active_tracks"`
+	// Total alignment samples across all tracks
+	TotalAlignmentSamples int `json:"total_alignment_samples"`
+	// Mean angular difference between velocity vector and displacement direction (radians)
+	MeanAlignmentRad float32 `json:"mean_alignment_rad"`
+	// Mean angular difference in degrees (convenience)
+	MeanAlignmentDeg float32 `json:"mean_alignment_deg"`
+	// Total misaligned samples (angular diff > 45°) across all tracks
+	TotalMisaligned int `json:"total_misaligned"`
+	// Misalignment ratio: misaligned / total samples [0, 1]
+	MisalignmentRatio float32 `json:"misalignment_ratio"`
+	// Per-track alignment breakdown
+	PerTrack []TrackAlignmentMetrics `json:"per_track,omitempty"`
+}
+
+// TrackAlignmentMetrics holds velocity alignment metrics for a single track.
+type TrackAlignmentMetrics struct {
+	TrackID          string  `json:"track_id"`
+	State            string  `json:"state"`
+	SampleCount      int     `json:"sample_count"`
+	MeanAlignmentRad float32 `json:"mean_alignment_rad"`
+	MeanAlignmentDeg float32 `json:"mean_alignment_deg"`
+	MisalignedCount  int     `json:"misaligned_count"`
+	MisalignmentRate float32 `json:"misalignment_rate"`
+	SpeedMps         float32 `json:"speed_mps"`
 }
 
 // Tracker manages multi-object tracking with explicit lifecycle states.
@@ -140,7 +190,20 @@ type Tracker struct {
 	// Protected by mu — read via GetLastAssociations().
 	lastAssociations []string
 
+	// DebugCollector captures algorithm internals for visualisation (optional)
+	DebugCollector DebugCollector
+
 	mu sync.RWMutex
+}
+
+// DebugCollector interface for tracking algorithm instrumentation.
+// Allows decoupling from the debug package to avoid circular dependencies.
+type DebugCollector interface {
+	IsEnabled() bool
+	RecordAssociation(clusterID int64, trackID string, distSquared float32, accepted bool)
+	RecordGatingRegion(trackID string, centerX, centerY, semiMajor, semiMinor, rotation float32)
+	RecordInnovation(trackID string, predX, predY, measX, measY, residualMag float32)
+	RecordPrediction(trackID string, x, y, vx, vy float32)
 }
 
 // NewTracker creates a new tracker with the specified configuration.
@@ -197,14 +260,29 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 		}
 	}
 
-	// Step 4: Handle unmatched tracks
+	// Step 4: Handle unmatched tracks with occlusion-aware coasting.
+	// Confirmed tracks are allowed more miss frames (MaxMissesConfirmed)
+	// than tentative tracks (MaxMisses). During occlusion the Kalman
+	// prediction step (already applied above) keeps the position estimate
+	// coasting, and we inflate the covariance to widen the gating gate
+	// so re-association is easier when the object reappears.
 	for trackID, track := range t.Tracks {
 		if !matchedTracks[trackID] && track.State != TrackDeleted {
 			track.Misses++
 			track.Hits = 0
+			track.OcclusionCount++
+			if track.Misses > track.MaxOcclusionFrames {
+				track.MaxOcclusionFrames = track.Misses
+			}
 
-			// Append predicted position to history to keep lines coherent
-			// Only if the predicted position is not at the origin
+			// Inflate covariance during occlusion so the gating
+			// ellipse grows and re-association becomes easier.
+			if t.Config.OcclusionCovInflation > 0 {
+				track.P[0*4+0] += t.Config.OcclusionCovInflation
+				track.P[1*4+1] += t.Config.OcclusionCovInflation
+			}
+
+			// Append predicted (coasted) position to history
 			distFromOrigin := track.X*track.X + track.Y*track.Y
 			if distFromOrigin > 0.01 { // > 0.1m squared
 				track.History = append(track.History, TrackPoint{
@@ -217,7 +295,12 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 				}
 			}
 
-			if track.Misses >= t.Config.MaxMisses {
+			// Determine miss limit based on track maturity.
+			maxMisses := t.Config.MaxMisses
+			if track.State == TrackConfirmed && t.Config.MaxMissesConfirmed > 0 {
+				maxMisses = t.Config.MaxMissesConfirmed
+			}
+			if track.Misses >= maxMisses {
 				track.State = TrackDeleted
 				track.LastUnixNanos = nowNanos
 			}
@@ -247,6 +330,11 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 	track.X += track.VX * dt
 	track.Y += track.VY * dt
 	// VX and VY remain unchanged in constant velocity model
+
+	// Record prediction for debug visualisation
+	if t.DebugCollector != nil && t.DebugCollector.IsEnabled() {
+		t.DebugCollector.RecordPrediction(track.TrackID, track.X, track.Y, track.VX, track.VY)
+	}
 
 	// Predict covariance: P' = F * P * F^T + Q
 	// For efficiency, we compute this directly
@@ -284,12 +372,19 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 	track.P[3*4+3] += t.Config.ProcessNoiseVel
 }
 
-// associate performs cluster-to-track association using gating and nearest neighbor.
-// Returns a map from cluster index to track ID (empty string for unassociated).
+// associate performs cluster-to-track association using the Hungarian
+// (Kuhn–Munkres) algorithm for globally optimal assignment. This replaces the
+// earlier greedy nearest-neighbour approach which could cause track splitting
+// when two clusters competed for the same track.
+//
+// The cost matrix is built from squared Mahalanobis distances; entries
+// exceeding the gating threshold are set to +Inf (forbidden).
+// Returns a slice indexed by cluster index: each element is the trackID
+// the cluster was associated with, or "" if unassociated.
 func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 	associations := make([]string, len(clusters))
 
-	// Build list of active track IDs
+	// Build ordered list of active tracks.
 	activeTrackIDs := make([]string, 0, len(t.Tracks))
 	for id, track := range t.Tracks {
 		if track.State != TrackDeleted {
@@ -297,30 +392,57 @@ func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 		}
 	}
 
-	// For each cluster, find best matching track within gating distance
-	trackUsed := make(map[string]bool)
+	nClusters := len(clusters)
+	nTracks := len(activeTrackIDs)
 
-	for ci, cluster := range clusters {
-		bestTrackID := ""
-		bestDist2 := t.Config.GatingDistanceSquared
-
-		for _, trackID := range activeTrackIDs {
-			if trackUsed[trackID] {
-				continue // Track already matched
+	if nClusters == 0 || nTracks == 0 {
+		// Record all candidates as unassociated for debug.
+		if t.DebugCollector != nil && t.DebugCollector.IsEnabled() {
+			for ci := range clusters {
+				for _, trackID := range activeTrackIDs {
+					track := t.Tracks[trackID]
+					dist2 := t.mahalanobisDistanceSquared(track, clusters[ci], dt)
+					t.DebugCollector.RecordAssociation(clusters[ci].ClusterID, trackID, dist2, false)
+				}
 			}
+		}
+		return associations
+	}
 
+	// Build cost matrix [nClusters × nTracks].
+	costMatrix := make([][]float32, nClusters)
+	for ci := range clusters {
+		costMatrix[ci] = make([]float32, nTracks)
+		for tj, trackID := range activeTrackIDs {
 			track := t.Tracks[trackID]
-			dist2 := t.mahalanobisDistanceSquared(track, cluster, dt)
+			dist2 := t.mahalanobisDistanceSquared(track, clusters[ci], dt)
+			if dist2 >= SingularDistanceRejection || dist2 >= float32(hungarianlnf) {
+				costMatrix[ci][tj] = float32(hungarianlnf)
+			} else {
+				costMatrix[ci][tj] = dist2
+			}
+		}
+	}
 
-			if dist2 < bestDist2 {
-				bestDist2 = dist2
-				bestTrackID = trackID
+	// Solve optimal assignment.
+	assign := hungarianAssign(costMatrix)
+
+	// Populate associations and record debug info.
+	for ci := range clusters {
+		bestTrackIdx := -1
+		if ci < len(assign) && assign[ci] >= 0 {
+			bestTrackIdx = assign[ci]
+		}
+
+		if t.DebugCollector != nil && t.DebugCollector.IsEnabled() {
+			for tj, trackID := range activeTrackIDs {
+				accepted := (tj == bestTrackIdx)
+				t.DebugCollector.RecordAssociation(clusters[ci].ClusterID, trackID, costMatrix[ci][tj], accepted)
 			}
 		}
 
-		if bestTrackID != "" {
-			associations[ci] = bestTrackID
-			trackUsed[bestTrackID] = true
+		if bestTrackIdx >= 0 && bestTrackIdx < nTracks {
+			associations[ci] = activeTrackIDs[bestTrackIdx]
 		}
 	}
 
@@ -368,6 +490,39 @@ func (t *Tracker) mahalanobisDistanceSquared(track *TrackedObject, cluster World
 	invS10 := -S10 / det
 	invS11 := S00 / det
 
+	// Record gating ellipse for debug visualisation
+	if t.DebugCollector != nil && t.DebugCollector.IsEnabled() {
+		// Compute ellipse parameters from innovation covariance S
+		// Eigenvalues of 2x2 symmetric matrix S:
+		// λ = (S00 + S11 ± sqrt((S00-S11)² + 4*S01*S10)) / 2
+		trace := S00 + S11
+		discriminant := (S00-S11)*(S00-S11) + 4*S01*S10
+		if discriminant < 0 {
+			discriminant = 0
+		}
+		sqrtDisc := float32(math.Sqrt(float64(discriminant)))
+		lambda1 := (trace + sqrtDisc) / 2.0
+		lambda2 := (trace - sqrtDisc) / 2.0
+
+		// Semi-axes are sqrt(eigenvalues) scaled by gating threshold
+		// For chi-squared distribution with 2 DOF, gating threshold determines confidence
+		gatingThreshold := float32(math.Sqrt(float64(t.Config.GatingDistanceSquared)))
+		semiMajor := gatingThreshold * float32(math.Sqrt(float64(lambda1)))
+		semiMinor := gatingThreshold * float32(math.Sqrt(float64(lambda2)))
+
+		// Rotation angle from eigenvector of largest eigenvalue
+		// For 2x2 matrix, eigenvector v1 of λ1: [S01, λ1-S00]
+		// Rotation = atan2(v1_y, v1_x)
+		var rotation float32
+		if math.Abs(float64(S01)) > 1e-6 {
+			rotation = float32(math.Atan2(float64(lambda1-S00), float64(S01)))
+		} else {
+			rotation = 0
+		}
+
+		t.DebugCollector.RecordGatingRegion(track.TrackID, track.X, track.Y, semiMajor, semiMinor, rotation)
+	}
+
 	// Mahalanobis distance squared: d² = [dx dy] * S^-1 * [dx dy]^T
 	dist2 := dx*dx*invS00 + dx*dy*(invS01+invS10) + dy*dy*invS11
 
@@ -383,6 +538,12 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	// Innovation
 	yX := zX - track.X
 	yY := zY - track.Y
+
+	// Record innovation for debug visualisation
+	if t.DebugCollector != nil && t.DebugCollector.IsEnabled() {
+		residualMag := float32(math.Sqrt(float64(yX*yX + yY*yY)))
+		t.DebugCollector.RecordInnovation(track.TrackID, track.X, track.Y, zX, zY, residualMag)
+	}
 
 	// Innovation covariance S = H * P * H^T + R
 	S00 := track.P[0*4+0] + t.Config.MeasurementNoise
@@ -496,6 +657,79 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	if len(track.speedHistory) > MaxSpeedHistoryLength {
 		track.speedHistory = track.speedHistory[1:]
 	}
+
+	// Velocity-Trail Alignment: Compare Kalman velocity heading with
+	// displacement heading from the last two trail positions.
+	// Only compute when the track has sufficient history and speed.
+	if len(track.History) >= 2 && speed > 0.5 { // Need ≥2 points and moving
+		prev := track.History[len(track.History)-2]
+		curr := track.History[len(track.History)-1]
+
+		dx := curr.X - prev.X
+		dy := curr.Y - prev.Y
+		displacementDist := float32(math.Sqrt(float64(dx*dx + dy*dy)))
+
+		if displacementDist > 0.05 { // Minimum displacement to compute heading (5cm)
+			displacementHeading := float32(math.Atan2(float64(dy), float64(dx)))
+			velocityHeading := float32(math.Atan2(float64(track.VY), float64(track.VX)))
+
+			// Angular difference, normalised to [0, π]
+			angDiff := velocityHeading - displacementHeading
+			for angDiff > math.Pi {
+				angDiff -= 2 * math.Pi
+			}
+			for angDiff < -math.Pi {
+				angDiff += 2 * math.Pi
+			}
+			absAngDiff := float32(math.Abs(float64(angDiff)))
+
+			track.AlignmentSampleCount++
+			track.AlignmentSumRad += absAngDiff
+			track.AlignmentMeanRad = track.AlignmentSumRad / float32(track.AlignmentSampleCount)
+			if absAngDiff > math.Pi/4 { // > 45° is misaligned
+				track.AlignmentMisaligned++
+			}
+		}
+	}
+
+	// Update OBB heading with temporal smoothing.
+	// Alpha = 0.15 provides strong smoothing to reduce PCA jitter while still
+	// tracking genuine orientation changes. PCA heading can flip between
+	// frames when the point cloud is sparse or the visible surface changes,
+	// so heavier smoothing prevents the bounding box from spinning erratically.
+	// Note: OBBHeadingRad is initialised in initTrack if cluster has OBB,
+	// so subsequent updates here always apply smoothing.
+	if cluster.OBB != nil {
+		newOBBHeading := cluster.OBB.HeadingRad
+
+		// Disambiguate PCA heading using velocity direction.
+		// PCA gives the axis of maximum variance but has 180° ambiguity.
+		// If the track has sufficient velocity, flip the PCA heading
+		// to align with the direction of travel.
+		speed := float32(math.Sqrt(float64(track.VX*track.VX + track.VY*track.VY)))
+		if speed > 0.5 { // Only disambiguate when moving (>0.5 m/s)
+			velHeading := float32(math.Atan2(float64(track.VY), float64(track.VX)))
+			// Compute angular difference between PCA heading and velocity heading
+			diff := newOBBHeading - velHeading
+			// Normalise to [-π, π]
+			for diff > math.Pi {
+				diff -= 2 * math.Pi
+			}
+			for diff < -math.Pi {
+				diff += 2 * math.Pi
+			}
+			// If PCA heading opposes velocity (diff > 90°), flip it by π
+			if diff > math.Pi/2 || diff < -math.Pi/2 {
+				newOBBHeading += math.Pi
+				if newOBBHeading > math.Pi {
+					newOBBHeading -= 2 * math.Pi
+				}
+			}
+		}
+
+		track.OBBHeadingRad = SmoothOBBHeading(track.OBBHeadingRad, newOBBHeading, 0.15)
+		track.LatestZ = cluster.OBB.CenterZ
+	}
 }
 
 // initTrack creates a new track from an unassociated cluster.
@@ -543,6 +777,12 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 		}},
 
 		speedHistory: make([]float32, 0, MaxSpeedHistoryLength),
+	}
+
+	// Initialise OBB heading from cluster if available
+	if cluster.OBB != nil {
+		track.OBBHeadingRad = cluster.OBB.HeadingRad
+		track.LatestZ = cluster.OBB.CenterZ
 	}
 
 	t.Tracks[trackID] = track
@@ -649,6 +889,37 @@ func (t *Tracker) GetAllTracks() []*TrackedObject {
 	return all
 }
 
+// GetRecentlyDeletedTracks returns deleted tracks still within the grace period.
+// Each returned TrackedObject is a shallow copy with a deep-copied History slice.
+// Used by the visualiser adapter for fade-out rendering.
+func (t *Tracker) GetRecentlyDeletedTracks(nowNanos int64) []*TrackedObject {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	gracePeriod := t.Config.DeletedTrackGracePeriod
+	if gracePeriod == 0 {
+		gracePeriod = DefaultDeletedTrackGracePeriod
+	}
+	gracePeriodNanos := int64(gracePeriod)
+
+	deleted := make([]*TrackedObject, 0)
+	for _, track := range t.Tracks {
+		if track.State == TrackDeleted {
+			elapsed := nowNanos - track.LastUnixNanos
+			if elapsed >= 0 && elapsed < gracePeriodNanos {
+				// Shallow copy + deep copy History
+				copied := *track
+				if len(track.History) > 0 {
+					copied.History = make([]TrackPoint, len(track.History))
+					copy(copied.History, track.History)
+				}
+				deleted = append(deleted, &copied)
+			}
+		}
+	}
+	return deleted
+}
+
 // GetLastAssociations returns a copy of the most recent cluster-to-track
 // associations produced by Update(). The returned slice is indexed by
 // cluster index; each element is the trackID the cluster was matched to,
@@ -740,4 +1011,59 @@ func (track *TrackedObject) ComputeQualityMetrics() {
 
 	// Note: NoisePointRatio is computed during clustering and passed via clusters
 	// It will be aggregated when clusters are associated with tracks
+}
+
+// GetTrackingMetrics computes aggregate velocity-trail alignment metrics
+// across all active and confirmed tracks. Used by the sweep tool to
+// evaluate tracking parameter configurations.
+func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	metrics := TrackingMetrics{}
+	var totalSamples int
+	var totalAngDiff float32
+	var totalMisaligned int
+
+	for _, track := range t.Tracks {
+		if track.State == TrackDeleted {
+			continue
+		}
+		metrics.ActiveTracks++
+
+		if track.AlignmentSampleCount == 0 {
+			continue
+		}
+
+		totalSamples += track.AlignmentSampleCount
+		totalAngDiff += track.AlignmentSumRad
+		totalMisaligned += track.AlignmentMisaligned
+
+		var misalignmentRate float32
+		if track.AlignmentSampleCount > 0 {
+			misalignmentRate = float32(track.AlignmentMisaligned) / float32(track.AlignmentSampleCount)
+		}
+
+		metrics.PerTrack = append(metrics.PerTrack, TrackAlignmentMetrics{
+			TrackID:          track.TrackID,
+			State:            string(track.State),
+			SampleCount:      track.AlignmentSampleCount,
+			MeanAlignmentRad: track.AlignmentMeanRad,
+			MeanAlignmentDeg: track.AlignmentMeanRad * 180 / math.Pi,
+			MisalignedCount:  track.AlignmentMisaligned,
+			MisalignmentRate: misalignmentRate,
+			SpeedMps:         track.Speed(),
+		})
+	}
+
+	metrics.TotalAlignmentSamples = totalSamples
+	metrics.TotalMisaligned = totalMisaligned
+
+	if totalSamples > 0 {
+		metrics.MeanAlignmentRad = totalAngDiff / float32(totalSamples)
+		metrics.MeanAlignmentDeg = metrics.MeanAlignmentRad * 180 / math.Pi
+		metrics.MisalignmentRatio = float32(totalMisaligned) / float32(totalSamples)
+	}
+
+	return metrics
 }

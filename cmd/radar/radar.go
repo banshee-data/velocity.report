@@ -260,6 +260,7 @@ func main() {
 		var frameBuilder *lidar.FrameBuilder
 		var tracker *lidar.Tracker
 		var classifier *lidar.TrackClassifier
+		var visualiserServer *visualiser.Server // Hoisted so WebServerConfig callbacks can reference it
 
 		// Optional foreground-only forwarder (Pandar40-compatible) for live mode
 		if *lidarFGForward {
@@ -308,7 +309,6 @@ func main() {
 
 			// Initialise visualiser components if gRPC mode is enabled
 			var visualiserPublisher *visualiser.Publisher
-			var visualiserServer *visualiser.Server
 			var frameAdapter *visualiser.FrameAdapter
 			var lidarViewAdapter *visualiser.LidarViewAdapter
 
@@ -440,7 +440,28 @@ func main() {
 			PacketForwarder:   packetForwarder,
 			UDPListenerConfig: udpListenerConfig,
 			PlotsBaseDir:      filepath.Join(*lidarPCAPDir, "plots"),
+			OnPCAPStarted: func() {
+				if visualiserServer != nil {
+					visualiserServer.SetReplayMode(true)
+					log.Printf("[Visualiser] PCAP started — switched to replay mode")
+				}
+			},
+			OnPCAPStopped: func() {
+				if visualiserServer != nil {
+					visualiserServer.SetReplayMode(false)
+					log.Printf("[Visualiser] PCAP stopped — switched to live mode")
+				}
+			},
+			OnPCAPProgress: func(current, total uint64) {
+				if visualiserServer != nil {
+					visualiserServer.SetPCAPProgress(current, total)
+				}
+			},
 		})
+		// Wire tracker for in-memory config access via /api/lidar/params
+		if tracker != nil {
+			lidarWebServer.SetTracker(tracker)
+		}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

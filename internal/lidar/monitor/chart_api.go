@@ -14,15 +14,9 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar"
 )
 
-// RegisterChartAPIRoutes registers JSON chart API endpoints on the given mux.
-// These endpoints return structured data rather than rendered HTML.
-func (ws *WebServer) RegisterChartAPIRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("/api/lidar/chart/polar", ws.handleChartPolarJSON)
-	mux.HandleFunc("/api/lidar/chart/heatmap", ws.handleChartHeatmapJSON)
-	mux.HandleFunc("/api/lidar/chart/foreground", ws.handleChartForegroundJSON)
-	mux.HandleFunc("/api/lidar/chart/clusters", ws.handleChartClustersJSON)
-	mux.HandleFunc("/api/lidar/chart/traffic", ws.handleChartTrafficJSON)
-}
+// NOTE: Chart API route registration has been consolidated into
+// WebServer.RegisterRoutes in webserver.go. The handler methods below
+// remain on WebServer for code organisation.
 
 // handleChartPolarJSON returns polar chart data as JSON.
 // Query params:

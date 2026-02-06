@@ -22,7 +22,7 @@ type VisualiserPublisher interface {
 
 // VisualiserAdapter interface converts tracking outputs to FrameBundle.
 type VisualiserAdapter interface {
-	AdaptFrame(frame *LiDARFrame, foregroundMask []bool, clusters []WorldCluster, tracker TrackerInterface) interface{}
+	AdaptFrame(frame *LiDARFrame, foregroundMask []bool, clusters []WorldCluster, tracker TrackerInterface, debugFrame interface{}) interface{}
 }
 
 // LidarViewAdapter interface forwards FrameBundle to UDP (LidarView format).
@@ -64,6 +64,18 @@ type TrackingPipelineConfig struct {
 	// update but before the expensive clustering/tracking/serialisation path.
 	// Zero means no limit (process every frame). Typical value: 12.
 	MaxFrameRate float64
+
+	// VoxelLeafSize, when > 0, enables voxel grid downsampling before
+	// DBSCAN clustering. Each cubic voxel of this side length (metres) is
+	// reduced to a single representative point. Typical value: 0.08.
+	// Zero disables voxel downsampling.
+	VoxelLeafSize float64
+
+	// FeatureExportFunc, when non-nil, is called for every confirmed track
+	// after classification. This hook allows exporting feature vectors for
+	// ML training data collection. The callback receives the track's
+	// extracted features and the current classification result.
+	FeatureExportFunc func(trackID string, features TrackFeatures, class string, confidence float32)
 }
 
 // NewFrameCallback creates a FrameBuilder callback that processes frames through
@@ -234,6 +246,31 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 		// Phase 2: Transform to world coordinates
 		worldPoints := TransformToWorld(foregroundPoints, nil, cfg.SensorID)
 
+		// Phase 2.5: Ground removal (vertical filtering)
+		// Remove ground plane and overhead structure returns to reduce false clusters.
+		// This uses a height band filter (0.2m - 3.0m) suitable for street scenes.
+		groundFilter := DefaultHeightBandFilter()
+		filteredPoints := groundFilter.FilterVertical(worldPoints)
+		if cfg.DebugMode {
+			proc, kept, below, above := groundFilter.Stats()
+			Debugf("[Tracking] Ground filter: %d processed, %d kept, %d below floor, %d above ceiling",
+				proc, kept, below, above)
+		}
+
+		if len(filteredPoints) == 0 {
+			return
+		}
+
+		// Phase 2.7: Voxel grid downsampling (optional).
+		// Reduces point density while preserving spatial structure, which
+		// tightens cluster boundaries and speeds up DBSCAN.
+		if cfg.VoxelLeafSize > 0 {
+			before := len(filteredPoints)
+			filteredPoints = VoxelGrid(filteredPoints, cfg.VoxelLeafSize)
+			Debugf("[Tracking] Voxel downsample: %d → %d (leaf=%.3fm)",
+				before, len(filteredPoints), cfg.VoxelLeafSize)
+		}
+
 		// Phase 3: Clustering (runtime-tunable via background params)
 		dbscanParams := DefaultDBSCANParams()
 		params := cfg.BackgroundManager.GetParams()
@@ -244,7 +281,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 			dbscanParams.Eps = float64(params.ForegroundDBSCANEps)
 		}
 
-		clusters := DBSCAN(worldPoints, dbscanParams)
+		clusters := DBSCAN(filteredPoints, dbscanParams)
 		if len(clusters) == 0 {
 			return
 		}
@@ -270,9 +307,21 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 		Debugf("[Tracking] %d confirmed tracks to persist", len(confirmedTracks))
 
 		for _, track := range confirmedTracks {
-			// Classify if not already classified and has enough observations
-			if track.ObjectClass == "" && track.ObservationCount >= 5 && cfg.Classifier != nil {
-				cfg.Classifier.ClassifyAndUpdate(track)
+			// Re-classify periodically as more observations accumulate.
+			// Run every 5 observations after the initial classification
+			// so the label improves as kinematic history grows.
+			if cfg.Classifier != nil && track.ObservationCount >= MinObservationsForClassification {
+				needsClassify := track.ObjectClass == "" ||
+					(track.ObservationCount%5 == 0)
+				if needsClassify {
+					cfg.Classifier.ClassifyAndUpdate(track)
+				}
+			}
+
+			// Export feature vector via hook (for ML training data)
+			if cfg.FeatureExportFunc != nil && track.ObservationCount >= MinObservationsForClassification {
+				features := ExtractTrackFeatures(track)
+				cfg.FeatureExportFunc(track.TrackID, features, track.ObjectClass, track.ObjectConfidence)
 			}
 
 			// Record track for analysis run if active
@@ -322,7 +371,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 		// Phase 6: Publish to visualiser (if enabled)
 		if !isNilInterface(cfg.VisualiserAdapter) && !isNilInterface(cfg.VisualiserPublisher) {
 			// Adapt frame to FrameBundle
-			frameBundle := cfg.VisualiserAdapter.AdaptFrame(frame, mask, clusters, cfg.Tracker)
+			// Note: Debug collector is integrated in Tracker but requires explicit enablement
+			// via Tracker.SetDebugCollector(). Pass nil here as debug collection is optional.
+			frameBundle := cfg.VisualiserAdapter.AdaptFrame(frame, mask, clusters, cfg.Tracker, nil)
 
 			// Publish to gRPC stream
 			cfg.VisualiserPublisher.Publish(frameBundle)

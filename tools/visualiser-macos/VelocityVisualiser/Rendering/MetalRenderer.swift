@@ -22,6 +22,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     var pointCloudPipeline: MTLRenderPipelineState?
     var boxPipeline: MTLRenderPipelineState?
     var trailPipeline: MTLRenderPipelineState?
+    var linePipeline: MTLRenderPipelineState?  // M6: Debug overlay lines
 
     // Depth stencil
     var depthStencilState: MTLDepthStencilState?
@@ -76,14 +77,32 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     var trailVertexCount: Int = 0
     var trailSegments: [(start: Int, count: Int)] = []  // Each trail's range in the buffer
 
+    // M5: Heading arrow vertices (rendered as lines showing OBB heading direction)
+    var headingArrowVertices: MTLBuffer?
+    var headingArrowVertexCount: Int = 0
+
+    // M6: Debug overlay buffers
+    var debugLineVertices: MTLBuffer?  // Association lines + residual vectors
+    var debugLineVertexCount: Int = 0
+    var ellipseVertices: MTLBuffer?  // Gating ellipses
+    var ellipseVertexCount: Int = 0
+    var ellipseSegments: [(start: Int, count: Int)] = []  // Each ellipse's range
+
     // MARK: - Settings
 
     var showPoints: Bool = true
     var showBoxes: Bool = true
     var showClusters: Bool = true  // M4: Toggle for cluster rendering
     var showTrails: Bool = true
+    var showDebug: Bool = false  // M6: Master debug overlay toggle
+    var showGating: Bool = false  // M6: Gating ellipses
+    var showAssociation: Bool = false  // M6: Association lines
+    var showResiduals: Bool = false  // M6: Residual vectors
     var pointSize: Float = 5.0
     var backgroundColor: MTLClearColor = MTLClearColor(red: 0.1, green: 0.1, blue: 0.15, alpha: 1.0)
+
+    // M7: Track selection
+    var selectedTrackID: String?
 
     // MARK: - Initialisation
 
@@ -182,6 +201,27 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             do { trailPipeline = try device.makeRenderPipelineState(descriptor: descriptor) } catch
             { print("Failed to create trail pipeline: \(error)") }
         }
+
+        // M6: Debug line pipeline (uses debugLine shaders for coloured lines)
+        if let vertexFunc = library.makeFunction(name: "debugLineVertex"),
+            let fragmentFunc = library.makeFunction(name: "debugLineFragment")
+        {
+
+            let descriptor = MTLRenderPipelineDescriptor()
+            descriptor.vertexFunction = vertexFunc
+            descriptor.fragmentFunction = fragmentFunc
+            descriptor.colorAttachments[0].pixelFormat = metalView.colorPixelFormat
+            descriptor.depthAttachmentPixelFormat = metalView.depthStencilPixelFormat
+
+            // Enable blending for debug overlays
+            descriptor.colorAttachments[0].isBlendingEnabled = true
+            descriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+            descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+
+            do { linePipeline = try device.makeRenderPipelineState(descriptor: descriptor) } catch {
+                print("Failed to create debug line pipeline: \(error)")
+            }
+        }
     }
 
     private func buildDepthStencil() {
@@ -234,6 +274,18 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
         // Update trails
         if let tracks = frame.tracks { updateTrailBuffer(tracks) }
+
+        // M5: Update heading arrows from tracks + clusters
+        updateHeadingArrows(tracks: frame.tracks, clusters: frame.clusters)
+
+        // M6: Update debug overlays
+        if showDebug, let debug = frame.debug {
+            updateDebugOverlays(debug, tracks: frame.tracks)
+        } else {
+            debugLineVertexCount = 0
+            ellipseVertexCount = 0
+            ellipseSegments = []
+        }
     }
 
     private var frameUpdateCount: Int = 0
@@ -264,6 +316,9 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     }
 
     private func updateBoxInstances(_ trackSet: TrackSet) {
+        // Cache tracks for hit testing
+        _lastTracks = trackSet.tracks
+
         // Each box instance: [transform matrix (16 floats) + colour (4 floats)]
         var instances = [Float]()
 
@@ -275,7 +330,10 @@ class MetalRenderer: NSObject, MTKViewDelegate {
                     track.bboxWidthAvg > 0 ? track.bboxWidthAvg : 1.0,
                     track.bboxHeightAvg > 0 ? track.bboxHeightAvg : 1.0, 1.0))
 
-            let rotation = simd_float4x4(rotationZ: track.headingRad)
+            // Use OBB heading for box orientation (aligns box to physical shape);
+            // fall back to velocity heading if OBB heading unavailable.
+            let boxHeading = track.bboxHeadingRad != 0 ? track.bboxHeadingRad : track.headingRad
+            let rotation = simd_float4x4(rotationZ: boxHeading)
             let translation = simd_float4x4(translation: simd_float3(track.x, track.y, track.z))
             let transform = translation * rotation * scale
 
@@ -283,11 +341,20 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             for col in 0..<4 { for row in 0..<4 { instances.append(transform[col][row]) } }
 
             // Add colour based on state (4 floats)
-            let colour = track.state.colour
-            instances.append(colour.r)
-            instances.append(colour.g)
-            instances.append(colour.b)
-            instances.append(1.0)  // alpha
+            // M6: Highlight selected track
+            let isSelected = selectedTrackID == track.trackID
+            if isSelected {
+                instances.append(1.0)  // r (white highlight)
+                instances.append(1.0)  // g
+                instances.append(1.0)  // b
+                instances.append(track.alpha)  // alpha (supports fade-out)
+            } else {
+                let colour = track.state.colour
+                instances.append(colour.r)
+                instances.append(colour.g)
+                instances.append(colour.b)
+                instances.append(track.alpha)  // alpha (supports fade-out)
+            }
         }
 
         if !instances.isEmpty {
@@ -301,24 +368,38 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     }
 
     /// M4: Update cluster box instances.
+    /// M5: Uses OBB (oriented bounding box) dimensions when available.
     private func updateClusterInstances(_ clusterSet: ClusterSet) {
         // Each box instance: [transform matrix (16 floats) + colour (4 floats)]
         var instances = [Float]()
 
         for cluster in clusterSet.clusters {
-            // Build transform matrix using AABB dimensions
-            let scale = simd_float4x4(
-                diagonal: simd_float4(
-                    cluster.aabbLength > 0 ? cluster.aabbLength : 0.5,
-                    cluster.aabbWidth > 0 ? cluster.aabbWidth : 0.5,
-                    cluster.aabbHeight > 0 ? cluster.aabbHeight : 0.5, 1.0))
+            let transform: simd_float4x4
 
-            // Use OBB heading if available, otherwise no rotation
-            let heading = cluster.obb?.headingRad ?? 0.0
-            let rotation = simd_float4x4(rotationZ: heading)
-            let translation = simd_float4x4(
-                translation: simd_float3(cluster.centroidX, cluster.centroidY, cluster.centroidZ))
-            let transform = translation * rotation * scale
+            if let obb = cluster.obb {
+                // M5: Use full OBB (centre, dimensions, heading)
+                let scale = simd_float4x4(
+                    diagonal: simd_float4(
+                        obb.length > 0 ? obb.length : 0.5, obb.width > 0 ? obb.width : 0.5,
+                        obb.height > 0 ? obb.height : 0.5, 1.0))
+
+                let rotation = simd_float4x4(rotationZ: obb.headingRad)
+                let translation = simd_float4x4(
+                    translation: simd_float3(obb.centerX, obb.centerY, obb.centerZ))
+                transform = translation * rotation * scale
+            } else {
+                // Fallback: AABB dimensions centred at centroid
+                let scale = simd_float4x4(
+                    diagonal: simd_float4(
+                        cluster.aabbLength > 0 ? cluster.aabbLength : 0.5,
+                        cluster.aabbWidth > 0 ? cluster.aabbWidth : 0.5,
+                        cluster.aabbHeight > 0 ? cluster.aabbHeight : 0.5, 1.0))
+
+                let translation = simd_float4x4(
+                    translation: simd_float3(
+                        cluster.centroidX, cluster.centroidY, cluster.centroidZ))
+                transform = translation * scale
+            }
 
             // Add transform (16 floats)
             for col in 0..<4 { for row in 0..<4 { instances.append(transform[col][row]) } }
@@ -371,6 +452,222 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         } else {
             trailVertexCount = 0
             trailSegments = []
+        }
+    }
+
+    // MARK: - M5: Heading Arrows
+
+    /// Generate heading arrow lines for tracks and clusters.
+    /// Each arrow is a line from centre along heading direction with a fixed length.
+    private func updateHeadingArrows(tracks: TrackSet?, clusters: ClusterSet?) {
+        // Debug line format: [x, y, z, r, g, b, a] per vertex (7 floats)
+        var vertices = [Float]()
+
+        // Track heading arrows (green)
+        if let trackSet = tracks {
+            for track in trackSet.tracks {
+                guard track.bboxHeadingRad != 0 || track.headingRad != 0 else { continue }
+                // Prefer velocity-based heading (direction of travel) over PCA heading
+                // for track arrows. PCA heading (bboxHeadingRad) is used for box rotation
+                // but velocity heading better represents direction of motion.
+                let heading = track.headingRad != 0 ? track.headingRad : track.bboxHeadingRad
+                let arrowLength = max(track.bboxLengthAvg, track.bboxWidthAvg, 1.0) * 0.8
+
+                let tipX = track.x + cos(heading) * arrowLength
+                let tipY = track.y + sin(heading) * arrowLength
+
+                let isSelected = selectedTrackID == track.trackID
+                let colour = track.state.colour
+                let arrowAlpha = track.alpha * (isSelected ? 1.0 : 0.8)
+
+                // Main arrow shaft
+                vertices.append(contentsOf: [
+                    track.x, track.y, track.z + 0.05, colour.r, colour.g, colour.b, arrowAlpha,
+                ])
+                vertices.append(contentsOf: [
+                    tipX, tipY, track.z + 0.05, colour.r, colour.g, colour.b, arrowAlpha,
+                ])
+
+                // Arrowhead left
+                let headAngle: Float = .pi / 6  // 30 degrees
+                let headLen = arrowLength * 0.25
+                let leftX = tipX - cos(heading - headAngle) * headLen
+                let leftY = tipY - sin(heading - headAngle) * headLen
+                vertices.append(contentsOf: [
+                    tipX, tipY, track.z + 0.05, colour.r, colour.g, colour.b, arrowAlpha,
+                ])
+                vertices.append(contentsOf: [
+                    leftX, leftY, track.z + 0.05, colour.r, colour.g, colour.b, arrowAlpha,
+                ])
+
+                // Arrowhead right
+                let rightX = tipX - cos(heading + headAngle) * headLen
+                let rightY = tipY - sin(heading + headAngle) * headLen
+                vertices.append(contentsOf: [
+                    tipX, tipY, track.z + 0.05, colour.r, colour.g, colour.b, arrowAlpha,
+                ])
+                vertices.append(contentsOf: [
+                    rightX, rightY, track.z + 0.05, colour.r, colour.g, colour.b, arrowAlpha,
+                ])
+            }
+        }
+
+        // Cluster heading arrows (cyan, only when OBB is present)
+        if showClusters, let clusterSet = clusters {
+            for cluster in clusterSet.clusters {
+                guard let obb = cluster.obb else { continue }
+                let arrowLength = max(obb.length, obb.width, 0.5) * 0.6
+
+                let tipX = obb.centerX + cos(obb.headingRad) * arrowLength
+                let tipY = obb.centerY + sin(obb.headingRad) * arrowLength
+
+                // Arrow shaft
+                vertices.append(contentsOf: [
+                    obb.centerX, obb.centerY, obb.centerZ + 0.05, 0.0, 0.8, 1.0, 0.6,  // cyan
+                ])
+                vertices.append(contentsOf: [tipX, tipY, obb.centerZ + 0.05, 0.0, 0.8, 1.0, 0.6])
+
+                // Arrowhead
+                let headAngle: Float = .pi / 6
+                let headLen = arrowLength * 0.25
+                let leftX = tipX - cos(obb.headingRad - headAngle) * headLen
+                let leftY = tipY - sin(obb.headingRad - headAngle) * headLen
+                let rightX = tipX - cos(obb.headingRad + headAngle) * headLen
+                let rightY = tipY - sin(obb.headingRad + headAngle) * headLen
+
+                vertices.append(contentsOf: [tipX, tipY, obb.centerZ + 0.05, 0.0, 0.8, 1.0, 0.6])
+                vertices.append(contentsOf: [leftX, leftY, obb.centerZ + 0.05, 0.0, 0.8, 1.0, 0.6])
+                vertices.append(contentsOf: [tipX, tipY, obb.centerZ + 0.05, 0.0, 0.8, 1.0, 0.6])
+                vertices.append(contentsOf: [
+                    rightX, rightY, obb.centerZ + 0.05, 0.0, 0.8, 1.0, 0.6,
+                ])
+            }
+        }
+
+        if !vertices.isEmpty {
+            let bufferSize = vertices.count * MemoryLayout<Float>.stride
+            headingArrowVertices = device.makeBuffer(
+                bytes: vertices, length: bufferSize, options: .storageModeShared)
+            headingArrowVertexCount = vertices.count / 7  // 7 floats per vertex
+        } else {
+            headingArrowVertexCount = 0
+        }
+    }
+
+    // MARK: - M6: Debug Overlays
+
+    /// Generate debug overlay geometry from DebugOverlaySet.
+    private func updateDebugOverlays(_ debug: DebugOverlaySet, tracks: TrackSet?) {
+        // Build a track position lookup for association lines
+        var trackPositions: [String: (x: Float, y: Float, z: Float)] = [:]
+        if let trackSet = tracks {
+            for track in trackSet.tracks {
+                trackPositions[track.trackID] = (x: track.x, y: track.y, z: track.z)
+            }
+        }
+
+        // Debug line format: [x, y, z, r, g, b, a] per vertex (7 floats)
+        var lineVertices = [Float]()
+
+        // Association lines (dashed: accepted=solid green, rejected=dashed red)
+        if showAssociation {
+            for candidate in debug.associationCandidates {
+                guard let trackPos = trackPositions[candidate.trackID] else { continue }
+
+                // We need cluster positions - derive from residual measured positions
+                // For now, draw from track to a point offset by distance in an estimated direction
+                // This is a simplification; full implementation would need cluster centroids
+                let colour: (r: Float, g: Float, b: Float, a: Float) =
+                    candidate.accepted
+                    ? (0.0, 1.0, 0.0, 0.7)  // green for accepted
+                    : (1.0, 0.3, 0.3, 0.4)  // red for rejected
+
+                // Look for matching residual to get measured position
+                if let residual = debug.residuals.first(where: { $0.trackID == candidate.trackID })
+                {
+                    lineVertices.append(contentsOf: [
+                        trackPos.x, trackPos.y, trackPos.z + 0.1, colour.r, colour.g, colour.b,
+                        colour.a,
+                    ])
+                    lineVertices.append(contentsOf: [
+                        residual.measuredX, residual.measuredY, trackPos.z + 0.1, colour.r,
+                        colour.g, colour.b, colour.a,
+                    ])
+                }
+            }
+        }
+
+        // Residual vectors (predicted → measured, magenta)
+        if showResiduals {
+            for residual in debug.residuals {
+                let z: Float = trackPositions[residual.trackID]?.z ?? 0.1
+
+                // Predicted position (yellow dot end)
+                lineVertices.append(contentsOf: [
+                    residual.predictedX, residual.predictedY, z + 0.15, 1.0, 0.8, 0.0, 0.8,  // yellow (predicted)
+                ])
+                // Measured position (magenta dot end)
+                lineVertices.append(contentsOf: [
+                    residual.measuredX, residual.measuredY, z + 0.15, 1.0, 0.0, 1.0, 0.8,  // magenta (measured)
+                ])
+            }
+        }
+
+        if !lineVertices.isEmpty {
+            let bufferSize = lineVertices.count * MemoryLayout<Float>.stride
+            debugLineVertices = device.makeBuffer(
+                bytes: lineVertices, length: bufferSize, options: .storageModeShared)
+            debugLineVertexCount = lineVertices.count / 7
+        } else {
+            debugLineVertexCount = 0
+        }
+
+        // Gating ellipses (rendered as line strips approximating ellipses)
+        if showGating {
+            var ellipseVerts = [Float]()
+            var segments: [(start: Int, count: Int)] = []
+            let segmentCount = 32  // segments per ellipse
+
+            for ellipse in debug.gatingEllipses {
+                let segmentStart = ellipseVerts.count / 7
+                let z: Float = trackPositions[ellipse.trackID]?.z ?? 0.1
+
+                let isSelected = selectedTrackID == ellipse.trackID
+
+                for i in 0...segmentCount {
+                    let angle = Float(i) / Float(segmentCount) * 2.0 * .pi
+
+                    // Ellipse point in local frame
+                    let localX = ellipse.semiMajor * cos(angle)
+                    let localY = ellipse.semiMinor * sin(angle)
+
+                    // Rotate by ellipse rotation
+                    let cosR = cos(ellipse.rotationRad)
+                    let sinR = sin(ellipse.rotationRad)
+                    let worldX = ellipse.centerX + localX * cosR - localY * sinR
+                    let worldY = ellipse.centerY + localX * sinR + localY * cosR
+
+                    ellipseVerts.append(contentsOf: [
+                        worldX, worldY, z + 0.12, 0.3, 0.6, 1.0, isSelected ? 0.9 : 0.5,  // light blue
+                    ])
+                }
+
+                segments.append((start: segmentStart, count: segmentCount + 1))
+            }
+
+            if !ellipseVerts.isEmpty {
+                let bufferSize = ellipseVerts.count * MemoryLayout<Float>.stride
+                ellipseVertices = device.makeBuffer(
+                    bytes: ellipseVerts, length: bufferSize, options: .storageModeShared)
+                ellipseVertexCount = ellipseVerts.count / 7
+                ellipseSegments = segments
+            } else {
+                ellipseVertexCount = 0
+                ellipseSegments = []
+            }
+        } else {
+            ellipseVertexCount = 0
+            ellipseSegments = []
         }
     }
 
@@ -451,6 +748,40 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             }
         }
 
+        // M5: Draw heading arrows
+        if showBoxes || showClusters, let pipeline = linePipeline,
+            let vertices = headingArrowVertices, headingArrowVertexCount > 0
+        {
+            encoder.setRenderPipelineState(pipeline)
+            encoder.setVertexBuffer(vertices, offset: 0, index: 0)
+            encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+            encoder.drawPrimitives(
+                type: .line, vertexStart: 0, vertexCount: headingArrowVertexCount)
+        }
+
+        // M6: Draw debug overlays
+        if showDebug, let pipeline = linePipeline {
+            // Debug lines (association lines + residual vectors)
+            if let vertices = debugLineVertices, debugLineVertexCount > 0 {
+                encoder.setRenderPipelineState(pipeline)
+                encoder.setVertexBuffer(vertices, offset: 0, index: 0)
+                encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                encoder.drawPrimitives(
+                    type: .line, vertexStart: 0, vertexCount: debugLineVertexCount)
+            }
+
+            // Gating ellipses (line strips)
+            if let vertices = ellipseVertices, !ellipseSegments.isEmpty {
+                encoder.setRenderPipelineState(pipeline)
+                encoder.setVertexBuffer(vertices, offset: 0, index: 0)
+                encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+                for segment in ellipseSegments {
+                    encoder.drawPrimitives(
+                        type: .lineStrip, vertexStart: segment.start, vertexCount: segment.count)
+                }
+            }
+        }
+
         encoder.endEncoding()
         commandBuffer.present(drawable)
         commandBuffer.commit()
@@ -524,6 +855,53 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     func getCacheStatus() -> String {
         compositeRenderer?.cacheStatus ?? "Not using split streaming"
     }
+
+    /// M6: Hit test tracks at a screen position.
+    /// Projects each track position to screen space and finds the nearest within a tolerance.
+    func hitTestTrack(at point: CGPoint, viewSize: CGSize) -> String? {
+        guard let frame = lastFrameData else { return nil }
+        guard !frame.isEmpty else { return nil }
+
+        let mvp = camera.projectionMatrix * camera.viewMatrix
+        let halfWidth = Float(viewSize.width) * 0.5
+        let halfHeight = Float(viewSize.height) * 0.5
+        let tolerance: Float = 20.0  // pixels
+
+        var bestTrackID: String?
+        var bestDistance: Float = tolerance
+
+        for (trackID, pos) in frame {
+            // Project world position to clip space
+            let clip = mvp * simd_float4(pos.x, pos.y, pos.z, 1.0)
+            guard clip.w > 0 else { continue }
+
+            // NDC to screen
+            let ndcX = clip.x / clip.w
+            let ndcY = clip.y / clip.w
+            let screenX = (ndcX + 1.0) * halfWidth
+            let screenY = (ndcY + 1.0) * halfHeight  // Metal Y is bottom-up like NSView
+
+            let dx = screenX - Float(point.x)
+            let dy = screenY - Float(point.y)
+            let distance = sqrt(dx * dx + dy * dy)
+
+            if distance < bestDistance {
+                bestDistance = distance
+                bestTrackID = trackID
+            }
+        }
+
+        return bestTrackID
+    }
+
+    /// Cache of track positions for hit testing (updated per frame).
+    private var lastFrameData: [String: simd_float3]? {
+        guard let tracks = _lastTracks else { return nil }
+        var result = [String: simd_float3]()
+        for track in tracks { result[track.trackID] = simd_float3(track.x, track.y, track.z) }
+        return result
+    }
+    private var _lastTracks: [Track]?
 
     /// M3.5: Get point cloud statistics.
     func getPointCloudStats() -> (background: Int, foreground: Int, total: Int) {

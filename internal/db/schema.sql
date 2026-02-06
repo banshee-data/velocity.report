@@ -31,6 +31,19 @@ CREATE TABLE lidar_analysis_runs (
         , snapshot_reason TEXT
           );
 
+   CREATE TABLE lidar_bg_regions (
+          region_set_id INTEGER PRIMARY KEY AUTOINCREMENT
+        , snapshot_id INTEGER REFERENCES lidar_bg_snapshot (snapshot_id)
+        , sensor_id TEXT NOT NULL
+        , created_unix_nanos INTEGER NOT NULL
+        , region_count INTEGER NOT NULL
+        , regions_json TEXT NOT NULL
+        , variance_data_json TEXT
+        , settling_frames INTEGER NOT NULL
+        , scene_hash TEXT NOT NULL
+        , source_path TEXT
+          );
+
    CREATE TABLE lidar_clusters (
           lidar_cluster_id INTEGER PRIMARY KEY
         , sensor_id TEXT NOT NULL
@@ -128,6 +141,20 @@ CREATE TABLE lidar_analysis_runs (
         , height_p95 REAL
         , intensity_mean REAL
         , PRIMARY KEY (track_id, ts_unix_nanos)
+        , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id) ON DELETE CASCADE
+          );
+
+   CREATE TABLE lidar_labels (
+          label_id TEXT PRIMARY KEY
+        , track_id TEXT NOT NULL
+        , class_label TEXT NOT NULL
+        , start_timestamp_ns INTEGER NOT NULL
+        , end_timestamp_ns INTEGER
+        , confidence REAL
+        , created_by TEXT
+        , created_at_ns INTEGER NOT NULL
+        , updated_at_ns INTEGER
+        , notes TEXT
         , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id) ON DELETE CASCADE
           );
 
@@ -253,6 +280,12 @@ CREATE UNIQUE INDEX version_unique ON schema_migrations (version);
 
 CREATE INDEX idx_bg_snapshot_sensor_time ON lidar_bg_snapshot (sensor_id, taken_unix_nanos);
 
+CREATE INDEX idx_bg_regions_sensor ON lidar_bg_regions (sensor_id);
+
+CREATE INDEX idx_bg_regions_scene_hash ON lidar_bg_regions (scene_hash);
+
+CREATE INDEX idx_bg_regions_source_path ON lidar_bg_regions (source_path);
+
 CREATE INDEX idx_transits_time ON radar_data_transits (transit_start_unix, transit_end_unix);
 
 CREATE INDEX idx_transit_links_transit ON radar_transit_links (transit_id);
@@ -276,6 +309,12 @@ CREATE INDEX idx_lidar_tracks_class ON lidar_tracks (object_class);
 CREATE INDEX idx_lidar_track_obs_track ON lidar_track_obs (track_id);
 
 CREATE INDEX idx_lidar_track_obs_time ON lidar_track_obs (ts_unix_nanos);
+
+CREATE INDEX idx_lidar_labels_track ON lidar_labels (track_id);
+
+CREATE INDEX idx_lidar_labels_time ON lidar_labels (start_timestamp_ns, end_timestamp_ns);
+
+CREATE INDEX idx_lidar_labels_class ON lidar_labels (class_label);
 
 CREATE INDEX idx_lidar_runs_created ON lidar_analysis_runs (created_at);
 

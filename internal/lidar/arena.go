@@ -65,6 +65,31 @@ type BgSnapshot struct {
 	SnapshotReason     string // matches snapshot_reason TEXT ('settling_complete', 'periodic_update', 'manual')
 }
 
+// RegionSnapshot matches schema lidar_bg_regions table structure for persisting
+// region identification data. Used to skip settling time when scene hash matches.
+type RegionSnapshot struct {
+	RegionSetID      *int64 // will be set by database after insert
+	SnapshotID       int64  // references lidar_bg_snapshot(snapshot_id)
+	SensorID         string // matches sensor_id TEXT NOT NULL
+	CreatedUnixNanos int64  // matches created_unix_nanos INTEGER NOT NULL
+	RegionCount      int    // matches region_count INTEGER NOT NULL
+	RegionsJSON      string // matches regions_json TEXT NOT NULL - serialised RegionData slice
+	VarianceDataJSON string // matches variance_data_json TEXT - optional settling metrics
+	SettlingFrames   int    // matches settling_frames INTEGER
+	SceneHash        string // matches scene_hash TEXT - for scene similarity detection
+	SourcePath       string // matches source_path TEXT - PCAP filename for exact match restoration
+}
+
+// RegionData is the serialisable form of a Region for JSON persistence.
+// CellMask is omitted as it can be reconstructed from CellList.
+type RegionData struct {
+	ID           int          `json:"id"`
+	Params       RegionParams `json:"params"`
+	CellList     []int        `json:"cell_list"`
+	MeanVariance float64      `json:"mean_variance"`
+	CellCount    int          `json:"cell_count"`
+}
+
 // Ring buffer implementation for efficient memory management at 100-track scale
 type RingBuffer[T any] struct {
 	Items    []T
@@ -180,7 +205,8 @@ type WorldCluster struct {
 	SensorAzDegHint *float32 // matches sensor_azimuth_deg_hint REAL
 
 	// Optional in-memory only fields (not persisted to schema)
-	SamplePoints [][3]float32 // for debugging/thumbnails
+	SamplePoints [][3]float32         // for debugging/thumbnails
+	OBB          *OrientedBoundingBox // Oriented bounding box (computed via PCA)
 }
 
 // TrackSummary for HTTP API responses - streamlined view of track state

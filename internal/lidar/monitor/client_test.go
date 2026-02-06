@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -414,5 +415,183 @@ func TestBackgroundParams_JSONEncoding(t *testing.T) {
 	}
 	if decoded.SeedFromFirstFrame != params.SeedFromFirstFrame {
 		t.Errorf("SeedFromFirstFrame mismatch")
+	}
+}
+
+// ====== FetchTrackingMetrics tests ======
+
+func TestClient_FetchTrackingMetrics_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("Expected GET, got %s", r.Method)
+		}
+		if !strings.Contains(r.URL.Path, "/api/lidar/tracks/metrics") {
+			t.Errorf("Unexpected path: %s", r.URL.Path)
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"total_tracks":           10,
+			"mean_velocity_residual": 0.15,
+			"alignment_score":        0.92,
+		})
+	}))
+	defer server.Close()
+
+	c := NewClient(server.Client(), server.URL, "sensor1")
+	metrics, err := c.FetchTrackingMetrics()
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if metrics == nil {
+		t.Fatal("Expected metrics, got nil")
+	}
+	if metrics["total_tracks"].(float64) != 10 {
+		t.Errorf("Expected total_tracks=10, got %v", metrics["total_tracks"])
+	}
+}
+
+func TestClient_FetchTrackingMetrics_ServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("internal server error"))
+	}))
+	defer server.Close()
+
+	c := NewClient(server.Client(), server.URL, "sensor1")
+	_, err := c.FetchTrackingMetrics()
+
+	if err == nil {
+		t.Error("Expected error for server error response")
+	}
+}
+
+func TestClient_FetchTrackingMetrics_InvalidJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("not valid json"))
+	}))
+	defer server.Close()
+
+	c := NewClient(server.Client(), server.URL, "sensor1")
+	_, err := c.FetchTrackingMetrics()
+
+	if err == nil {
+		t.Error("Expected error for invalid JSON response")
+	}
+}
+
+// ====== SetTrackerConfig tests ======
+
+func TestClient_SetTrackerConfig_Success(t *testing.T) {
+	var receivedParams map[string]interface{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected POST, got %s", r.Method)
+		}
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("Expected application/json content type, got %s", r.Header.Get("Content-Type"))
+		}
+		if !strings.Contains(r.URL.Path, "/api/lidar/params") {
+			t.Errorf("Unexpected path: %s", r.URL.Path)
+		}
+		// Verify sensor_id in query params
+		if r.URL.Query().Get("sensor_id") != "sensor1" {
+			t.Errorf("Expected sensor_id=sensor1, got %s", r.URL.Query().Get("sensor_id"))
+		}
+		json.NewDecoder(r.Body).Decode(&receivedParams)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	c := NewClient(server.Client(), server.URL, "sensor1")
+	gatingDist := 25.0
+	processNoisePos := 0.5
+	params := TrackingParams{
+		GatingDistanceSquared: &gatingDist,
+		ProcessNoisePos:       &processNoisePos,
+	}
+	err := c.SetTrackerConfig(params)
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if receivedParams["gating_distance_squared"].(float64) != 25.0 {
+		t.Errorf("Expected gating_distance_squared=25.0, got %v", receivedParams["gating_distance_squared"])
+	}
+}
+
+func TestClient_SetTrackerConfig_ServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("invalid params"))
+	}))
+	defer server.Close()
+
+	c := NewClient(server.Client(), server.URL, "sensor1")
+	gatingDist := 25.0
+	params := TrackingParams{
+		GatingDistanceSquared: &gatingDist,
+	}
+	err := c.SetTrackerConfig(params)
+
+	if err == nil {
+		t.Error("Expected error for server error response")
+	}
+}
+
+func TestClient_SetTrackerConfig_AllParams(t *testing.T) {
+	var receivedParams map[string]interface{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&receivedParams)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	c := NewClient(server.Client(), server.URL, "sensor1")
+	gatingDist := 25.0
+	processNoisePos := 0.5
+	processNoiseVel := 1.0
+	measurementNoise := 0.1
+	params := TrackingParams{
+		GatingDistanceSquared: &gatingDist,
+		ProcessNoisePos:       &processNoisePos,
+		ProcessNoiseVel:       &processNoiseVel,
+		MeasurementNoise:      &measurementNoise,
+	}
+	err := c.SetTrackerConfig(params)
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if receivedParams["process_noise_vel"].(float64) != 1.0 {
+		t.Errorf("Expected process_noise_vel=1.0, got %v", receivedParams["process_noise_vel"])
+	}
+	if receivedParams["measurement_noise"].(float64) != 0.1 {
+		t.Errorf("Expected measurement_noise=0.1, got %v", receivedParams["measurement_noise"])
+	}
+}
+
+func TestTrackingParams_JSONOmitEmpty(t *testing.T) {
+	// Test that nil fields are omitted
+	params := TrackingParams{}
+	data, err := json.Marshal(params)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+	if string(data) != "{}" {
+		t.Errorf("Expected empty JSON object, got %s", string(data))
+	}
+
+	// Test partial params
+	gatingDist := 25.0
+	params2 := TrackingParams{GatingDistanceSquared: &gatingDist}
+	data2, err := json.Marshal(params2)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+	if !strings.Contains(string(data2), "gating_distance_squared") {
+		t.Errorf("Expected gating_distance_squared in JSON, got %s", string(data2))
 	}
 }

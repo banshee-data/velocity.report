@@ -25,6 +25,9 @@ type RealtimeReplayConfig struct {
 	DebugAzMin          float32
 	DebugAzMax          float32
 	OnFrameCallback     func(mgr *lidar.BackgroundManager, points []lidar.PointPolar)
+	PacketOffset        uint64
+	TotalPackets        uint64
+	OnProgress          func(currentPacket, totalPackets uint64)
 }
 
 // ReadPCAPFileRealtime is a stub that returns an error when pcap support is not compiled in.

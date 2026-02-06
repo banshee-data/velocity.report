@@ -167,3 +167,33 @@ fragment float4 trailFragment(TrailVertexOut in [[stage_in]]) {
     float3 colour = float3(0.2, 0.8, 0.3); // green
     return float4(colour, in.alpha);
 }
+
+// MARK: - Debug Line Shaders (M5/M6)
+
+// Debug line vertex data: [x, y, z, r, g, b, a] per vertex (7 floats)
+
+struct DebugLineVertexOut {
+    float4 position [[position]];
+    float4 colour;
+};
+
+vertex DebugLineVertexOut debugLineVertex(
+    uint vid [[vertex_id]],
+    constant float *vertexData [[buffer(0)]],
+    constant Uniforms &uniforms [[buffer(1)]]
+) {
+    uint baseIndex = vid * 7;
+    float3 pos = float3(vertexData[baseIndex], vertexData[baseIndex + 1], vertexData[baseIndex + 2]);
+    float4 col = float4(vertexData[baseIndex + 3], vertexData[baseIndex + 4],
+                        vertexData[baseIndex + 5], vertexData[baseIndex + 6]);
+
+    DebugLineVertexOut out;
+    out.position = uniforms.modelViewProjection * float4(pos, 1.0);
+    out.colour = col;
+
+    return out;
+}
+
+fragment float4 debugLineFragment(DebugLineVertexOut in [[stage_in]]) {
+    return in.colour;
+}

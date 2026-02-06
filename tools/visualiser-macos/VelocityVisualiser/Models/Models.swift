@@ -219,6 +219,9 @@ struct Track {
     var confidence: Float = 0
     var occlusionState: OcclusionState = .none
     var motionModel: MotionModel = .cv
+
+    // Rendering hints
+    var alpha: Float = 1.0  // Opacity [0,1]; 1.0 = fully visible, used for fade-out
 }
 
 struct TrackPoint {

@@ -4,11 +4,13 @@ package visualiser
 
 import (
 	"log"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/debug"
 )
 
 // pointSlicePool reduces allocations by reusing large float32 slices.
@@ -89,11 +91,13 @@ func NewFrameAdapter(sensorID string) *FrameAdapter {
 }
 
 // AdaptFrame converts a LiDARFrame and tracking outputs to a FrameBundle.
+// debugFrame is optional debug data from the tracking algorithm.
 func (a *FrameAdapter) AdaptFrame(
 	frame *lidar.LiDARFrame,
 	foregroundMask []bool,
 	clusters []lidar.WorldCluster,
 	tracker lidar.TrackerInterface,
+	debugFrame interface{}, // *debug.DebugFrame or nil
 ) interface{} {
 	startTime := time.Now()
 	a.frameID++
@@ -128,6 +132,11 @@ func (a *FrameAdapter) AdaptFrame(
 			associations = tracker.GetLastAssociations()
 		}
 		bundle.Clusters = a.adaptUnassociatedClusters(clusters, associations, frame.StartTimestamp)
+	}
+
+	// M6: Adapt debug overlays if provided
+	if debugFrame != nil {
+		bundle.Debug = a.adaptDebugFrame(debugFrame, frame.StartTimestamp)
 	}
 
 	// Track performance
@@ -286,9 +295,10 @@ func (pc *PointCloudFrame) ApplyDecimation(mode DecimationMode, ratio float32) {
 	case DecimationUniform:
 		pc.applyUniformDecimation(ratio)
 	case DecimationVoxel:
-		// Voxel decimation is more complex and not implemented yet
-		// Fall back to uniform decimation
-		pc.applyUniformDecimation(ratio)
+		// Voxel grid decimation: leaf size derived from ratio.
+		// At ratio 0.5, leaf ≈ 0.08m; at ratio 0.25, leaf ≈ 0.12m.
+		leafSize := float32(0.04 / float64(ratio))
+		pc.applyVoxelDecimation(leafSize)
 	}
 
 	pc.DecimationMode = mode
@@ -362,6 +372,95 @@ func (pc *PointCloudFrame) applyForegroundOnlyDecimation() {
 	pc.PointCount = len(newX)
 }
 
+// applyVoxelDecimation reduces point density using 3D voxel grid downsampling.
+// Each cubic voxel of the given leaf size retains the point closest to the
+// voxel centroid, preserving spatial structure better than uniform stride.
+func (pc *PointCloudFrame) applyVoxelDecimation(leafSize float32) {
+	if pc.PointCount == 0 || leafSize <= 0 {
+		return
+	}
+
+	invLeaf := float64(1.0 / leafSize)
+
+	type voxelAccum struct {
+		sumX, sumY, sumZ float64
+		count            int
+		bestIdx          int
+		bestDist2        float64
+	}
+
+	voxels := make(map[[3]int64]*voxelAccum, pc.PointCount/4)
+
+	for i := 0; i < pc.PointCount; i++ {
+		x, y, z := float64(pc.X[i]), float64(pc.Y[i]), float64(pc.Z[i])
+		key := [3]int64{
+			int64(math.Floor(x * invLeaf)),
+			int64(math.Floor(y * invLeaf)),
+			int64(math.Floor(z * invLeaf)),
+		}
+		acc, ok := voxels[key]
+		if !ok {
+			acc = &voxelAccum{bestIdx: i, bestDist2: math.MaxFloat64}
+			voxels[key] = acc
+		}
+		acc.sumX += x
+		acc.sumY += y
+		acc.sumZ += z
+		acc.count++
+	}
+
+	for i := 0; i < pc.PointCount; i++ {
+		x, y, z := float64(pc.X[i]), float64(pc.Y[i]), float64(pc.Z[i])
+		key := [3]int64{
+			int64(math.Floor(x * invLeaf)),
+			int64(math.Floor(y * invLeaf)),
+			int64(math.Floor(z * invLeaf)),
+		}
+		acc := voxels[key]
+		cx := acc.sumX / float64(acc.count)
+		cy := acc.sumY / float64(acc.count)
+		cz := acc.sumZ / float64(acc.count)
+		dx, dy, dz := x-cx, y-cy, z-cz
+		d2 := dx*dx + dy*dy + dz*dz
+		if d2 < acc.bestDist2 {
+			acc.bestDist2 = d2
+			acc.bestIdx = i
+		}
+	}
+
+	keepSet := make(map[int]bool, len(voxels))
+	for _, acc := range voxels {
+		keepSet[acc.bestIdx] = true
+	}
+
+	kept := 0
+	for i := 0; i < pc.PointCount; i++ {
+		if keepSet[i] {
+			pc.X[kept] = pc.X[i]
+			pc.Y[kept] = pc.Y[i]
+			pc.Z[kept] = pc.Z[i]
+			if i < len(pc.Intensity) {
+				pc.Intensity[kept] = pc.Intensity[i]
+			}
+			if i < len(pc.Classification) {
+				pc.Classification[kept] = pc.Classification[i]
+			}
+			kept++
+		}
+	}
+
+	pc.X = pc.X[:kept]
+	pc.Y = pc.Y[:kept]
+	pc.Z = pc.Z[:kept]
+	if len(pc.Intensity) >= kept {
+		pc.Intensity = pc.Intensity[:kept]
+	}
+	if len(pc.Classification) >= kept {
+		pc.Classification = pc.Classification[:kept]
+	}
+	pc.PointCount = kept
+}
+
 // adaptUnassociatedClusters converts WorldClusters to the canonical Cluster
 // format, skipping clusters that the tracker associated with an existing track.
 // associations is the slice returned by tracker.GetLastAssociations() — it is
@@ -383,7 +482,7 @@ func (a *FrameAdapter) adaptUnassociatedClusters(worldClusters []lidar.WorldClus
 			continue
 		}
 
-		cs.Clusters = append(cs.Clusters, Cluster{
+		cluster := Cluster{
 			ClusterID:      wc.ClusterID,
 			SensorID:       wc.SensorID,
 			TimestampNanos: wc.TSUnixNanos,
@@ -396,7 +495,22 @@ func (a *FrameAdapter) adaptUnassociatedClusters(worldClusters []lidar.WorldClus
 			PointsCount:    wc.PointsCount,
 			HeightP95:      wc.HeightP95,
 			IntensityMean:  wc.IntensityMean,
-		})
+		}
+
+		// Include OBB if computed
+		if wc.OBB != nil {
+			cluster.OBB = &OrientedBoundingBox{
+				CenterX:    wc.OBB.CenterX,
+				CenterY:    wc.OBB.CenterY,
+				CenterZ:    wc.OBB.CenterZ,
+				Length:     wc.OBB.Length,
+				Width:      wc.OBB.Width,
+				Height:     wc.OBB.Height,
+				HeadingRad: wc.OBB.HeadingRad,
+			}
+		}
+
+		cs.Clusters = append(cs.Clusters, cluster)
 	}
 
 	return cs
@@ -454,7 +568,7 @@ func (a *FrameAdapter) adaptTracks(tracker lidar.TrackerInterface, timestamp tim
 			LastSeenNanos:     t.LastUnixNanos,
 			X:                 t.X,
 			Y:                 t.Y,
-			Z:                 0, // 2D tracking
+			Z:                 t.LatestZ, // Ground-level Z from cluster OBB
 			VX:                t.VX,
 			VY:                t.VY,
 			VZ:                0,
@@ -463,6 +577,7 @@ func (a *FrameAdapter) adaptTracks(tracker lidar.TrackerInterface, timestamp tim
 			BBoxLengthAvg:     t.BoundingBoxLengthAvg,
 			BBoxWidthAvg:      t.BoundingBoxWidthAvg,
 			BBoxHeightAvg:     t.BoundingBoxHeightAvg,
+			BBoxHeadingRad:    t.OBBHeadingRad, // Smoothed OBB heading
 			HeightP95Max:      t.HeightP95Max,
 			IntensityMeanAvg:  t.IntensityMeanAvg,
 			AvgSpeedMps:       t.AvgSpeedMps,
@@ -472,6 +587,7 @@ func (a *FrameAdapter) adaptTracks(tracker lidar.TrackerInterface, timestamp tim
 			TrackLengthMetres: t.TrackLengthMeters,
 			TrackDurationSecs: t.TrackDurationSecs,
 			OcclusionCount:    t.OcclusionCount,
+			Alpha:             1.0, // Fully visible
 		}
 
 		// Copy covariance
@@ -483,6 +599,79 @@ func (a *FrameAdapter) adaptTracks(tracker lidar.TrackerInterface, timestamp tim
 
 		// Build trail from history
 		// History is deep-copied by GetActiveTracks(), safe to iterate directly.
+		if len(t.History) > 0 {
+			trail := TrackTrail{
+				TrackID: t.TrackID,
+				Points:  make([]TrackPoint, len(t.History)),
+			}
+			for j, hp := range t.History {
+				trail.Points[j] = TrackPoint{
+					X:              hp.X,
+					Y:              hp.Y,
+					TimestampNanos: hp.Timestamp,
+				}
+			}
+			ts.Trails = append(ts.Trails, trail)
+		}
+	}
+
+	// Include recently-deleted tracks with fade-out alpha for smooth disappearance.
+	// Only render fade-out for tracks that were previously confirmed
+	// (ObservationCount >= HitsToConfirm). Tentative tracks that never
+	// confirmed are short-lived noise — rendering their fade-out produces
+	// clusters of stale red boxes around active objects.
+	nowNanos := timestamp.UnixNano()
+	deletedTracks := tracker.GetRecentlyDeletedTracks(nowNanos)
+	gracePeriodNanos := float64(5 * time.Second) // Match DefaultDeletedTrackGracePeriod
+
+	for _, t := range deletedTracks {
+		// Skip tracks that never reached confirmed state.
+		if t.ObservationCount < 3 {
+			continue
+		}
+
+		elapsed := float64(nowNanos - t.LastUnixNanos)
+		alpha := float32(1.0 - elapsed/gracePeriodNanos)
+		if alpha < 0 {
+			alpha = 0
+		}
+
+		track := Track{
+			TrackID:           t.TrackID,
+			SensorID:          t.SensorID,
+			State:             TrackStateDeleted,
+			Hits:              t.Hits,
+			Misses:            t.Misses,
+			ObservationCount:  t.ObservationCount,
+			FirstSeenNanos:    t.FirstUnixNanos,
+			LastSeenNanos:     t.LastUnixNanos,
+			X:                 t.X,
+			Y:                 t.Y,
+			Z:                 t.LatestZ,
+			VX:                t.VX,
+			VY:                t.VY,
+			VZ:                0,
+			SpeedMps:          t.Speed(),
+			HeadingRad:        t.Heading(),
+			BBoxLengthAvg:     t.BoundingBoxLengthAvg,
+			BBoxWidthAvg:      t.BoundingBoxWidthAvg,
+			BBoxHeightAvg:     t.BoundingBoxHeightAvg,
+			BBoxHeadingRad:    t.OBBHeadingRad,
+			HeightP95Max:      t.HeightP95Max,
+			IntensityMeanAvg:  t.IntensityMeanAvg,
+			AvgSpeedMps:       t.AvgSpeedMps,
+			PeakSpeedMps:      t.PeakSpeedMps,
+			ClassLabel:        t.ObjectClass,
+			ClassConfidence:   t.ObjectConfidence,
+			TrackLengthMetres: t.TrackLengthMeters,
+			TrackDurationSecs: t.TrackDurationSecs,
+			OcclusionCount:    t.OcclusionCount,
+			Alpha:             alpha, // Fade from 1.0 → 0.0 over grace period
+		}
+
+		ts.Tracks = append(ts.Tracks, track)
+
+		// Include trail for fading tracks too
 		if len(t.History) > 0 {
 			trail := TrackTrail{
 				TrackID: t.TrackID,
@@ -514,4 +703,69 @@ func adaptTrackState(state lidar.TrackState) TrackState {
 	default:
 		return TrackStateUnknown
 	}
+}
+
+// adaptDebugFrame converts debug.DebugFrame to visualiser.DebugOverlaySet.
+func (a *FrameAdapter) adaptDebugFrame(debugFrame interface{}, timestamp time.Time) *DebugOverlaySet {
+	// Type-assert to debug.DebugFrame
+	df, ok := debugFrame.(*debug.DebugFrame)
+	if !ok || df == nil {
+		return nil
+	}
+
+	overlay := &DebugOverlaySet{
+		FrameID:               df.FrameID,
+		TimestampNanos:        timestamp.UnixNano(),
+		AssociationCandidates: make([]AssociationCandidate, len(df.AssociationCandidates)),
+		GatingEllipses:        make([]GatingEllipse, len(df.GatingRegions)),
+		Residuals:             make([]InnovationResidual, len(df.Innovations)),
+		Predictions:           make([]StatePrediction, len(df.StatePredictions)),
+	}
+
+	// Convert association candidates
+	for i, rec := range df.AssociationCandidates {
+		overlay.AssociationCandidates[i] = AssociationCandidate{
+			ClusterID: rec.ClusterID,
+			TrackID:   rec.TrackID,
+			Distance:  rec.MahalanobisDistSquared,
+			Accepted:  rec.Accepted,
+		}
+	}
+
+	// Convert gating regions
+	for i, region := range df.GatingRegions {
+		overlay.GatingEllipses[i] = GatingEllipse{
+			TrackID:     region.TrackID,
+			CenterX:     region.CenterX,
+			CenterY:     region.CenterY,
+			SemiMajor:   region.SemiMajorM,
+			SemiMinor:   region.SemiMinorM,
+			RotationRad: region.RotationRad,
+		}
+	}
+
+	// Convert innovations
+	for i, innov := range df.Innovations {
+		overlay.Residuals[i] = InnovationResidual{
+			TrackID:           innov.TrackID,
+			PredictedX:        innov.PredictedX,
+			PredictedY:        innov.PredictedY,
+			MeasuredX:         innov.MeasuredX,
+			MeasuredY:         innov.MeasuredY,
+			ResidualMagnitude: innov.ResidualMag,
+		}
+	}
+
+	// Convert predictions
+	for i, pred := range df.StatePredictions {
+		overlay.Predictions[i] = StatePrediction{
+			TrackID: pred.TrackID,
+			X:       pred.X,
+			Y:       pred.Y,
+			VX:      pred.VX,
+			VY:      pred.VY,
+		}
+	}
+
+	return overlay
 }

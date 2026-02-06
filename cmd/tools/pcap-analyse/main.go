@@ -388,17 +388,32 @@ type analysisFrameBuilder struct {
 	clusterTimeNs  int64     // Cumulative clustering time
 	trackTimeNs    int64     // Cumulative tracking time
 	classifyTimeNs int64     // Cumulative classification time
+
+	// Database connection for background/region persistence
+	dbConn *db.DB
 }
 
 func newAnalysisFrameBuilder(config Config, result *AnalysisResult) *analysisFrameBuilder {
+	// Open database connection if path provided (for region persistence/restoration)
+	var dbConn *db.DB
+	if config.DBPath != "" {
+		var err error
+		dbConn, err = db.NewDB(config.DBPath)
+		if err != nil {
+			log.Printf("[WARN] Failed to open database for background persistence: %v", err)
+			dbConn = nil // Continue without persistence
+		}
+	}
+
 	fb := &analysisFrameBuilder{
 		points:        make([]lidar.PointPolar, 0, 50000),
-		bgManager:     createBackgroundManager(config.SensorID),
+		bgManager:     createBackgroundManager(config.SensorID, dbConn),
 		tracker:       lidar.NewTracker(lidar.DefaultTrackerConfig()),
 		classifier:    lidar.NewTrackClassifier(),
 		config:        config,
 		result:        result,
 		benchmarkMode: config.Benchmark,
+		dbConn:        dbConn,
 	}
 	if config.Benchmark {
 		// Pre-allocate frame times array (estimate based on typical PCAP duration)
@@ -678,7 +693,7 @@ func analyzePCAP(config Config) (*AnalysisResult, error) {
 	// Use shared PCAP reading infrastructure from internal/lidar/network
 	// No forwarder needed for offline analysis
 	ctx := context.Background()
-	if err := network.ReadPCAPFile(ctx, config.PCAPFile, config.UDPPort, parser, frameBuilder, stats, nil, 0, -1); err != nil {
+	if err := network.ReadPCAPFile(ctx, config.PCAPFile, config.UDPPort, parser, frameBuilder, stats, nil, 0, -1, 0, 0, nil); err != nil {
 		return nil, fmt.Errorf("failed to read PCAP: %w", err)
 	}
 
@@ -716,6 +731,13 @@ func analyzePCAP(config Config) (*AnalysisResult, error) {
 		}
 	}
 
+	// Close database connection if open
+	if frameBuilder.dbConn != nil {
+		if err := frameBuilder.dbConn.Close(); err != nil {
+			log.Printf("[WARN] Failed to close database connection: %v", err)
+		}
+	}
+
 	return result, nil
 }
 
@@ -747,7 +769,7 @@ func analyzePCAPWithBenchmark(config Config) (*AnalysisResult, *PerformanceMetri
 
 	// Use shared PCAP reading infrastructure from internal/lidar/network
 	ctx := context.Background()
-	if err := network.ReadPCAPFile(ctx, config.PCAPFile, config.UDPPort, parser, frameBuilder, stats, nil, 0, -1); err != nil {
+	if err := network.ReadPCAPFile(ctx, config.PCAPFile, config.UDPPort, parser, frameBuilder, stats, nil, 0, -1, 0, 0, nil); err != nil {
 		return nil, nil, fmt.Errorf("failed to read PCAP: %w", err)
 	}
 
@@ -820,37 +842,35 @@ func analyzePCAPWithBenchmark(config Config) (*AnalysisResult, *PerformanceMetri
 		}
 	}
 
+	// Close database connection if open
+	if frameBuilder.dbConn != nil {
+		if err := frameBuilder.dbConn.Close(); err != nil {
+			log.Printf("[WARN] Failed to close database connection: %v", err)
+		}
+	}
+
 	return result, metrics, nil
 }
 
-func createBackgroundManager(sensorID string) *lidar.BackgroundManager {
-	// Note: This function manually creates a BackgroundManager without using NewBackgroundManager
-	// because it doesn't have a database connection (PCAP analysis mode). Therefore, we need
-	// to manually initialize RegionMgr here.
-	grid := &lidar.BackgroundGrid{
-		SensorID:    sensorID,
-		Rings:       40,
-		AzimuthBins: 1800, // 0.2° resolution
-		Cells:       make([]lidar.BackgroundCell, 40*1800),
-		Params: lidar.BackgroundParams{
-			BackgroundUpdateFraction:       0.02,
-			ClosenessSensitivityMultiplier: 3.0,
-			SafetyMarginMeters:             0.5,
-			NeighborConfirmationCount:      3,
-			NoiseRelativeFraction:          0.315,
-			SeedFromFirstObservation:       true, // Important for PCAP replay
-			FreezeDurationNanos:            int64(5 * time.Second),
-			// Enable region identification for PCAP analysis
-			WarmupMinFrames:     100,
-			WarmupDurationNanos: int64(30 * time.Second),
-		},
-		RegionMgr: lidar.NewRegionManager(40, 1800),
+func createBackgroundManager(sensorID string, store lidar.BgStore) *lidar.BackgroundManager {
+	// Use NewBackgroundManager to ensure proper initialization including
+	// region persistence/restoration when a store is provided.
+	params := lidar.BackgroundParams{
+		BackgroundUpdateFraction:       0.02,
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMeters:             0.5,
+		NeighborConfirmationCount:      3,
+		NoiseRelativeFraction:          0.315,
+		SeedFromFirstObservation:       true, // Important for PCAP replay
+		FreezeDurationNanos:            int64(5 * time.Second),
+		// Enable region identification for PCAP analysis
+		WarmupMinFrames:     100,
+		WarmupDurationNanos: int64(30 * time.Second),
 	}
 
-	return &lidar.BackgroundManager{
-		Grid:      grid,
-		StartTime: time.Now(),
-	}
+	// NewBackgroundManager will wire up persistence if store is non-nil,
+	// enabling region restoration on subsequent PCAP runs from same location.
+	return lidar.NewBackgroundManager(sensorID, 40, 1800, params, store)
 }
 
 func computeClassStats(tracks []*TrackExport) map[string]ClassStats {

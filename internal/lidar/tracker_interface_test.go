@@ -156,6 +156,7 @@ func TestTrackerInterface_GetTrackCount(t *testing.T) {
 	config := DefaultTrackerConfig()
 	config.HitsToConfirm = 2
 	config.MaxMisses = 2
+	config.MaxMissesConfirmed = 2 // Use same threshold so confirmed tracks delete quickly
 	var tracker TrackerInterface = NewTracker(config)
 
 	// Initially no tracks

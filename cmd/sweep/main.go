@@ -26,7 +26,7 @@ func main() {
 	pcapSettle := flag.Duration("pcap-settle", 20*time.Second, "Time to wait after PCAP replay before sampling")
 
 	// Sweep mode selection
-	sweepMode := flag.String("mode", "multi", "Sweep mode: 'multi' (all combinations), 'noise' (vary noise only), 'closeness' (vary closeness only), 'neighbour' (vary neighbour only)")
+	sweepMode := flag.String("mode", "multi", "Sweep mode: 'multi' (all combinations), 'noise' (vary noise only), 'closeness' (vary closeness only), 'neighbour' (vary neighbour only), 'tracking' (vary tracker params)")
 
 	// Parameter ranges for multi-sweep
 	noiseList := flag.String("noise", "", "Comma-separated noise values (e.g. 0.005,0.01,0.02) or range start:end:step")
@@ -59,11 +59,34 @@ func main() {
 	// Seed control
 	seedFlag := flag.String("seed", "true", "Seed behaviour: 'true', 'false', or 'toggle' (alternates per combo)")
 
+	// Tracking sweep parameters (mode=tracking)
+	gatingStart := flag.Float64("gating-start", 16.0, "Start gating distance squared (tracking sweep)")
+	gatingEnd := flag.Float64("gating-end", 64.0, "End gating distance squared (tracking sweep)")
+	gatingStep := flag.Float64("gating-step", 4.0, "Step for gating distance squared (tracking sweep)")
+	procNoisePosStart := flag.Float64("pnoise-pos-start", 0.05, "Start process noise position (tracking sweep)")
+	procNoisePosEnd := flag.Float64("pnoise-pos-end", 0.5, "End process noise position (tracking sweep)")
+	procNoisePosStep := flag.Float64("pnoise-pos-step", 0.05, "Step for process noise position (tracking sweep)")
+	measNoiseStart := flag.Float64("mnoise-start", 0.1, "Start measurement noise (tracking sweep)")
+	measNoiseEnd := flag.Float64("mnoise-end", 0.5, "End measurement noise (tracking sweep)")
+	measNoiseStep := flag.Float64("mnoise-step", 0.1, "Step for measurement noise (tracking sweep)")
+
 	flag.Parse()
 
 	// Create monitor client
 	httpClient := &http.Client{Timeout: 30 * time.Second}
 	client := monitor.NewClient(httpClient, *monitorURL, *sensorID)
+
+	// Tracking sweep mode: dedicated flow that replays PCAP per combination
+	if *sweepMode == "tracking" {
+		if *pcapFile == "" {
+			log.Fatalf("Tracking sweep requires -pcap flag (golden replay file)")
+		}
+		runTrackingSweep(client, *pcapFile, *pcapSettle, *output,
+			*gatingStart, *gatingEnd, *gatingStep,
+			*procNoisePosStart, *procNoisePosEnd, *procNoisePosStep,
+			*measNoiseStart, *measNoiseEnd, *measNoiseStep)
+		return
+	}
 
 	// Start PCAP replay if requested
 	if *pcapFile != "" {
@@ -273,4 +296,134 @@ func parseIntParamList(list string, start, end, step int) []int {
 		return vals
 	}
 	return sweep.GenerateIntRange(start, end, step)
+}
+
+// runTrackingSweep performs a parameter sweep over tracker configuration values.
+// For each combination it replays the golden PCAP, waits for processing to
+// complete, then samples velocity-trail alignment metrics. The objective is
+// to minimise mean alignment error (velocity vectors should match direction
+// of travel from the track trail).
+func runTrackingSweep(
+	client *monitor.Client,
+	pcapFile string,
+	pcapSettle time.Duration,
+	outputFile string,
+	gatingStart, gatingEnd, gatingStep float64,
+	pnoisePosStart, pnoisePosEnd, pnoisePosStep float64,
+	mnoiseStart, mnoiseEnd, mnoiseStep float64,
+) {
+	gatingCombos := sweep.GenerateRange(gatingStart, gatingEnd, gatingStep)
+	pnoisePosCombos := sweep.GenerateRange(pnoisePosStart, pnoisePosEnd, pnoisePosStep)
+	mnoiseCombos := sweep.GenerateRange(mnoiseStart, mnoiseEnd, mnoiseStep)
+
+	totalCombos := len(gatingCombos) * len(pnoisePosCombos) * len(mnoiseCombos)
+	log.Printf("Tracking sweep: %d combinations (gating: %d, pnoise_pos: %d, mnoise: %d)",
+		totalCombos, len(gatingCombos), len(pnoisePosCombos), len(mnoiseCombos))
+
+	// Prepare output file
+	filename := outputFile
+	if filename == "" {
+		filename = fmt.Sprintf("sweep-tracking-%s.csv", time.Now().Format("20060102-150405"))
+	}
+	if err := security.ValidateOutputPath(filename); err != nil {
+		log.Fatalf("Invalid output path %s: %v", filename, err)
+	}
+
+	f, err := os.Create(filename)
+	if err != nil {
+		log.Fatalf("Could not create output file %s: %v", filename, err)
+	}
+	defer f.Close()
+	w := csv.NewWriter(f)
+	defer w.Flush()
+
+	// Write header
+	header := []string{
+		"gating_distance_sq", "process_noise_pos", "measurement_noise",
+		"active_tracks", "total_alignment_samples",
+		"mean_alignment_rad", "mean_alignment_deg",
+		"total_misaligned", "misalignment_ratio",
+	}
+	w.Write(header)
+
+	comboNum := 0
+	for _, gating := range gatingCombos {
+		for _, pnoisePos := range pnoisePosCombos {
+			for _, mnoise := range mnoiseCombos {
+				comboNum++
+				log.Printf("\n=== Tracking combo %d/%d: gating=%.1f, pnoise_pos=%.3f, mnoise=%.3f ===",
+					comboNum, totalCombos, gating, pnoisePos, mnoise)
+
+				// Set tracker config
+				params := monitor.TrackingParams{
+					GatingDistanceSquared: &gating,
+					ProcessNoisePos:       &pnoisePos,
+					MeasurementNoise:      &mnoise,
+				}
+				if err := client.SetTrackerConfig(params); err != nil {
+					log.Printf("ERROR: Failed to set tracker config: %v", err)
+					continue
+				}
+
+				// Replay PCAP (golden file)
+				if err := client.StartPCAPReplay(pcapFile, 60); err != nil {
+					log.Printf("ERROR: PCAP replay failed: %v", err)
+					continue
+				}
+
+				// Wait for replay to process
+				time.Sleep(pcapSettle)
+
+				// Fetch tracking metrics
+				metrics, err := client.FetchTrackingMetrics()
+				if err != nil {
+					log.Printf("ERROR: Failed to fetch tracking metrics: %v", err)
+					continue
+				}
+
+				// Extract metrics with safe type assertions
+				activeTracks := toFloat64(metrics["active_tracks"])
+				totalSamples := toFloat64(metrics["total_alignment_samples"])
+				meanAlignRad := toFloat64(metrics["mean_alignment_rad"])
+				meanAlignDeg := toFloat64(metrics["mean_alignment_deg"])
+				totalMisaligned := toFloat64(metrics["total_misaligned"])
+				misalignRatio := toFloat64(metrics["misalignment_ratio"])
+
+				log.Printf("  Results: tracks=%d, samples=%d, mean_align=%.2f°, misalign_ratio=%.3f",
+					int(activeTracks), int(totalSamples), meanAlignDeg, misalignRatio)
+
+				// Write CSV row
+				row := []string{
+					fmt.Sprintf("%.2f", gating),
+					fmt.Sprintf("%.4f", pnoisePos),
+					fmt.Sprintf("%.4f", mnoise),
+					fmt.Sprintf("%.0f", activeTracks),
+					fmt.Sprintf("%.0f", totalSamples),
+					fmt.Sprintf("%.6f", meanAlignRad),
+					fmt.Sprintf("%.4f", meanAlignDeg),
+					fmt.Sprintf("%.0f", totalMisaligned),
+					fmt.Sprintf("%.6f", misalignRatio),
+				}
+				w.Write(row)
+				w.Flush()
+			}
+		}
+	}
+
+	log.Printf("\nTracking sweep complete!")
+	log.Printf("Results: %s", filename)
+}
+
+// toFloat64 safely converts an interface{} (typically from JSON) to float64.
+func toFloat64(v interface{}) float64 {
+	switch val := v.(type) {
+	case float64:
+		return val
+	case int:
+		return float64(val)
+	case int64:
+		return float64(val)
+	default:
+		return 0
+	}
 }
