@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -481,9 +482,21 @@ func main() {
 		// Create and wire sweep runner for web-triggered parameter sweeps
 		httpClient := &http.Client{Timeout: 30 * time.Second}
 		// Construct base URL for loopback communication
+		// Normalize wildcard hosts (0.0.0.0, ::, "") to localhost for client connectivity
 		baseURL := "http://localhost" + *lidarListen
 		if !strings.HasPrefix(*lidarListen, ":") {
-			baseURL = "http://" + *lidarListen
+			host, port, err := net.SplitHostPort(*lidarListen)
+			if err == nil {
+				// Normalize wildcard/unspecified hosts to localhost
+				if host == "" || host == "0.0.0.0" || host == "::" {
+					baseURL = "http://localhost:" + port
+				} else {
+					baseURL = "http://" + *lidarListen
+				}
+			} else {
+				// If SplitHostPort fails, use the address as-is (backward compatibility)
+				baseURL = "http://" + *lidarListen
+			}
 		}
 		sweepClient := monitor.NewClient(httpClient, baseURL, *lidarSensor)
 		sweepRunner := sweep.NewRunner(sweepClient)
