@@ -620,3 +620,131 @@ func TestFrameBuilder_TraditionalAzimuthOnly(t *testing.T) {
 		}
 	}
 }
+
+// TestFrameBuilder_EvictOldestBufferedFrame tests the buffer eviction logic.
+func TestFrameBuilder_EvictOldestBufferedFrame(t *testing.T) {
+	var receivedFrames []*LiDARFrame
+	var mu sync.Mutex
+	evictDone := make(chan struct{})
+
+	callback := func(frame *LiDARFrame) {
+		mu.Lock()
+		defer mu.Unlock()
+		receivedFrames = append(receivedFrames, frame)
+		// Signal that eviction callback was received
+		select {
+		case evictDone <- struct{}{}:
+		default:
+		}
+	}
+
+	// Create frame builder with small buffer to trigger eviction
+	fb := NewFrameBuilder(FrameBuilderConfig{
+		SensorID:        "test-sensor",
+		FrameCallback:   callback,
+		FrameBufferSize: 2, // Small buffer to trigger eviction
+		MinFramePoints:  10,
+	})
+
+	baseTime := time.Now()
+
+	// Manually add frames to the buffer to test eviction
+	fb.mu.Lock()
+
+	// Add first frame (oldest)
+	fb.frameBuffer["frame-1"] = &LiDARFrame{
+		FrameID:        "frame-1",
+		SensorID:       "test-sensor",
+		PointCount:     100,
+		StartTimestamp: baseTime,
+	}
+
+	// Add second frame
+	fb.frameBuffer["frame-2"] = &LiDARFrame{
+		FrameID:        "frame-2",
+		SensorID:       "test-sensor",
+		PointCount:     100,
+		StartTimestamp: baseTime.Add(100 * time.Millisecond),
+	}
+
+	// Add third frame - this should not trigger eviction yet as we do it manually
+	fb.frameBuffer["frame-3"] = &LiDARFrame{
+		FrameID:        "frame-3",
+		SensorID:       "test-sensor",
+		PointCount:     100,
+		StartTimestamp: baseTime.Add(200 * time.Millisecond),
+	}
+
+	fb.mu.Unlock()
+
+	// Buffer now has 3 frames, which exceeds buffer size of 2
+	// Call evictOldestBufferedFrame
+	fb.mu.Lock()
+	fb.evictOldestBufferedFrame()
+	fb.mu.Unlock()
+
+	// Wait for async callback (with timeout)
+	select {
+	case <-evictDone:
+		// Callback received
+	case <-time.After(500 * time.Millisecond):
+		// Timeout - callback may not have been called
+	}
+
+	// Check that oldest frame was evicted and callback was called
+	mu.Lock()
+	evictedCount := len(receivedFrames)
+	mu.Unlock()
+
+	if evictedCount != 1 {
+		t.Errorf("Expected 1 evicted frame via callback, got %d", evictedCount)
+	}
+
+	fb.mu.Lock()
+	remaining := len(fb.frameBuffer)
+	fb.mu.Unlock()
+
+	if remaining != 2 {
+		t.Errorf("Expected 2 frames remaining in buffer, got %d", remaining)
+	}
+
+	// Verify the oldest frame (frame-1) was evicted
+	fb.mu.Lock()
+	_, hasFrame1 := fb.frameBuffer["frame-1"]
+	_, hasFrame2 := fb.frameBuffer["frame-2"]
+	_, hasFrame3 := fb.frameBuffer["frame-3"]
+	fb.mu.Unlock()
+
+	if hasFrame1 {
+		t.Error("Expected frame-1 (oldest) to be evicted")
+	}
+	if !hasFrame2 {
+		t.Error("Expected frame-2 to remain in buffer")
+	}
+	if !hasFrame3 {
+		t.Error("Expected frame-3 to remain in buffer")
+	}
+}
+
+// TestFrameBuilder_EvictOldestBufferedFrame_EmptyBuffer tests eviction with empty buffer.
+func TestFrameBuilder_EvictOldestBufferedFrame_EmptyBuffer(t *testing.T) {
+	var callbackCalled bool
+	callback := func(frame *LiDARFrame) {
+		callbackCalled = true
+	}
+
+	fb := NewFrameBuilder(FrameBuilderConfig{
+		SensorID:        "test-sensor",
+		FrameCallback:   callback,
+		FrameBufferSize: 2,
+	})
+
+	// Evict from empty buffer - should not panic
+	fb.mu.Lock()
+	fb.evictOldestBufferedFrame()
+	fb.mu.Unlock()
+
+	if callbackCalled {
+		t.Error("Callback should not be called when buffer is empty")
+	}
+}

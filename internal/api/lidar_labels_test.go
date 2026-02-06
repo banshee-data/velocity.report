@@ -115,7 +115,7 @@ func TestLidarLabelAPI_ListLabels(t *testing.T) {
 	// Insert test labels
 	_, err := db.Exec(`
 		INSERT INTO lidar_labels (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
-		VALUES 
+		VALUES
 			('label-001', 'track-001', 'car', 1000000000, 1000000000),
 			('label-002', 'track-001', 'truck', 2000000000, 2000000000),
 			('label-003', 'track-001', 'car', 3000000000, 3000000000)
@@ -272,7 +272,7 @@ func TestLidarLabelAPI_Export(t *testing.T) {
 	// Insert test labels
 	_, err := db.Exec(`
 		INSERT INTO lidar_labels (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
-		VALUES 
+		VALUES
 			('label-001', 'track-001', 'car', 1000000000, 1000000000),
 			('label-002', 'track-001', 'truck', 2000000000, 2000000000)
 	`)
@@ -325,7 +325,7 @@ func TestLidarLabelAPI_FilterByTrackID(t *testing.T) {
 	// Insert test labels
 	_, err = db.Exec(`
 		INSERT INTO lidar_labels (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
-		VALUES 
+		VALUES
 			('label-001', 'track-001', 'car', 1000000000, 1000000000),
 			('label-002', 'track-002', 'truck', 2000000000, 2000000000)
 	`)
@@ -364,5 +364,466 @@ func TestLidarLabelAPI_FilterByTrackID(t *testing.T) {
 	firstLabel := labels[0].(map[string]interface{})
 	if firstLabel["track_id"] != "track-001" {
 		t.Errorf("expected track_id 'track-001', got '%v'", firstLabel["track_id"])
+	}
+}
+
+// TestLidarLabelAPI_WriteJSONError tests the writeJSONError helper function.
+func TestLidarLabelAPI_WriteJSONError(t *testing.T) {
+	db := setupLabelTestDB(t)
+	defer db.Close()
+
+	api := NewLidarLabelAPI(db)
+
+	tests := []struct {
+		name       string
+		statusCode int
+		message    string
+	}{
+		{"bad request error", http.StatusBadRequest, "invalid input"},
+		{"not found error", http.StatusNotFound, "resource not found"},
+		{"internal error", http.StatusInternalServerError, "database error occurred"},
+		{"method not allowed", http.StatusMethodNotAllowed, "method not allowed"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+
+			api.writeJSONError(rec, tt.statusCode, tt.message)
+
+			if rec.Code != tt.statusCode {
+				t.Errorf("expected status %d, got %d", tt.statusCode, rec.Code)
+			}
+
+			contentType := rec.Header().Get("Content-Type")
+			if contentType != "application/json" {
+				t.Errorf("expected Content-Type 'application/json', got '%s'", contentType)
+			}
+
+			var errResp map[string]interface{}
+			if err := json.NewDecoder(rec.Body).Decode(&errResp); err != nil {
+				t.Fatalf("failed to decode response: %v", err)
+			}
+
+			if errResp["error"] != tt.message {
+				t.Errorf("expected error message '%s', got '%v'", tt.message, errResp["error"])
+			}
+		})
+	}
+}
+
+// TestLidarLabelAPI_HandleLabels_MethodNotAllowed tests unsupported methods on /api/lidar/labels
+func TestLidarLabelAPI_HandleLabels_MethodNotAllowed(t *testing.T) {
+	db := setupLabelTestDB(t)
+	defer db.Close()
+
+	api := NewLidarLabelAPI(db)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	methods := []string{http.MethodPut, http.MethodDelete, http.MethodPatch}
+
+	for _, method := range methods {
+		t.Run(method, func(t *testing.T) {
+			req := httptest.NewRequest(method, "/api/lidar/labels", nil)
+			rec := httptest.NewRecorder()
+
+			mux.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusMethodNotAllowed {
+				t.Errorf("expected status %d for method %s, got %d", http.StatusMethodNotAllowed, method, rec.Code)
+			}
+		})
+	}
+}
+
+// TestLidarLabelAPI_CreateLabel_InvalidJSON tests creating a label with invalid JSON
+func TestLidarLabelAPI_CreateLabel_InvalidJSON(t *testing.T) {
+	db := setupLabelTestDB(t)
+	defer db.Close()
+
+	api := NewLidarLabelAPI(db)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/labels", bytes.NewReader([]byte("invalid json{")))
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d: %s", http.StatusBadRequest, rec.Code, rec.Body.String())
+	}
+}
+
+// TestLidarLabelAPI_CreateLabel_MissingTrackID tests creating a label without track_id
+func TestLidarLabelAPI_CreateLabel_MissingTrackID(t *testing.T) {
+	db := setupLabelTestDB(t)
+	defer db.Close()
+
+	api := NewLidarLabelAPI(db)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	label := LidarLabel{
+		ClassLabel:       "car",
+		StartTimestampNs: 1500000000,
+	}
+
+	body, _ := json.Marshal(label)
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/labels", bytes.NewReader(body))
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d: %s", http.StatusBadRequest, rec.Code, rec.Body.String())
+	}
+}
+
+// TestLidarLabelAPI_CreateLabel_MissingClassLabel tests creating a label without class_label
+func TestLidarLabelAPI_CreateLabel_MissingClassLabel(t *testing.T) {
+	db := setupLabelTestDB(t)
+	defer db.Close()
+
+	api := NewLidarLabelAPI(db)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	label := LidarLabel{
+		TrackID:          "track-001",
+		StartTimestampNs: 1500000000,
+	}
+
+	body, _ := json.Marshal(label)
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/labels", bytes.NewReader(body))
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d: %s", http.StatusBadRequest, rec.Code, rec.Body.String())
+	}
+}
+
+// TestLidarLabelAPI_GetLabel_NotFound tests getting a non-existent label
+func TestLidarLabelAPI_GetLabel_NotFound(t *testing.T) {
+	db := setupLabelTestDB(t)
+	defer db.Close()
+
+	api := NewLidarLabelAPI(db)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/labels/nonexistent-label", nil)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("expected status %d, got %d: %s", http.StatusNotFound, rec.Code, rec.Body.String())
+	}
+}
+
+// TestLidarLabelAPI_UpdateLabel_NotFound tests updating a non-existent label
+func TestLidarLabelAPI_UpdateLabel_NotFound(t *testing.T) {
+	db := setupLabelTestDB(t)
+	defer db.Close()
+
+	api := NewLidarLabelAPI(db)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	update := LidarLabel{
+		ClassLabel: "truck",
+	}
+
+	body, _ := json.Marshal(update)
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/labels/nonexistent-label", bytes.NewReader(body))
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("expected status %d, got %d: %s", http.StatusNotFound, rec.Code, rec.Body.String())
+	}
+}
+
+// TestLidarLabelAPI_UpdateLabel_InvalidJSON tests updating with invalid JSON
+func TestLidarLabelAPI_UpdateLabel_InvalidJSON(t *testing.T) {
+	db := setupLabelTestDB(t)
+	defer db.Close()
+
+	// Insert test label
+	_, err := db.Exec(`
+		INSERT INTO lidar_labels (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
+		VALUES ('label-001', 'track-001', 'car', 1000000000, 1000000000)
+	`)
+	if err != nil {
+		t.Fatalf("failed to insert test label: %v", err)
+	}
+
+	api := NewLidarLabelAPI(db)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/labels/label-001", bytes.NewReader([]byte("invalid json{")))
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d: %s", http.StatusBadRequest, rec.Code, rec.Body.String())
+	}
+}
+
+// TestLidarLabelAPI_DeleteLabel_NotFound tests deleting a non-existent label
+func TestLidarLabelAPI_DeleteLabel_NotFound(t *testing.T) {
+	db := setupLabelTestDB(t)
+	defer db.Close()
+
+	api := NewLidarLabelAPI(db)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/lidar/labels/nonexistent-label", nil)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("expected status %d, got %d: %s", http.StatusNotFound, rec.Code, rec.Body.String())
+	}
+}
+
+// TestLidarLabelAPI_HandleLabelByID_EmptyID tests accessing /api/lidar/labels/ with empty ID
+func TestLidarLabelAPI_HandleLabelByID_EmptyID(t *testing.T) {
+	db := setupLabelTestDB(t)
+	defer db.Close()
+
+	api := NewLidarLabelAPI(db)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	// The route /api/lidar/labels/ with trailing slash but no ID
+	// should be handled by handleLabels for GET requests
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/labels/", nil)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	// Empty path after trimming should return bad request or list labels
+	// depending on route behaviour
+	if rec.Code != http.StatusOK && rec.Code != http.StatusBadRequest {
+		t.Errorf("expected status 200 or 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestLidarLabelAPI_HandleLabelByID_MethodNotAllowed tests unsupported methods on /api/lidar/labels/{id}
+func TestLidarLabelAPI_HandleLabelByID_MethodNotAllowed(t *testing.T) {
+	db := setupLabelTestDB(t)
+	defer db.Close()
+
+	// Insert test label
+	_, err := db.Exec(`
+		INSERT INTO lidar_labels (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
+		VALUES ('label-001', 'track-001', 'car', 1000000000, 1000000000)
+	`)
+	if err != nil {
+		t.Fatalf("failed to insert test label: %v", err)
+	}
+
+	api := NewLidarLabelAPI(db)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	methods := []string{http.MethodPost, http.MethodPatch}
+
+	for _, method := range methods {
+		t.Run(method, func(t *testing.T) {
+			req := httptest.NewRequest(method, "/api/lidar/labels/label-001", nil)
+			rec := httptest.NewRecorder()
+
+			mux.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusMethodNotAllowed {
+				t.Errorf("expected status %d for method %s, got %d", http.StatusMethodNotAllowed, method, rec.Code)
+			}
+		})
+	}
+}
+
+// TestLidarLabelAPI_ListLabels_WithClassFilter tests listing labels with class_label filter
+func TestLidarLabelAPI_ListLabels_WithClassFilter(t *testing.T) {
+	db := setupLabelTestDB(t)
+	defer db.Close()
+
+	// Insert test labels with different classes
+	_, err := db.Exec(`
+		INSERT INTO lidar_labels (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
+		VALUES
+			('label-001', 'track-001', 'car', 1000000000, 1000000000),
+			('label-002', 'track-001', 'truck', 2000000000, 2000000000),
+			('label-003', 'track-001', 'car', 3000000000, 3000000000)
+	`)
+	if err != nil {
+		t.Fatalf("failed to insert test labels: %v", err)
+	}
+
+	api := NewLidarLabelAPI(db)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/labels?class_label=car", nil)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+
+	var response map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	count, ok := response["count"].(float64)
+	if !ok || int(count) != 2 {
+		t.Errorf("expected count 2, got %v", response["count"])
+	}
+}
+
+// TestLidarLabelAPI_ListLabels_WithTimeFilters tests listing labels with time range filters
+func TestLidarLabelAPI_ListLabels_WithTimeFilters(t *testing.T) {
+	db := setupLabelTestDB(t)
+	defer db.Close()
+
+	// Insert test labels with different timestamps
+	_, err := db.Exec(`
+		INSERT INTO lidar_labels (label_id, track_id, class_label, start_timestamp_ns, end_timestamp_ns, created_at_ns)
+		VALUES
+			('label-001', 'track-001', 'car', 1000000000, 1500000000, 1000000000),
+			('label-002', 'track-001', 'truck', 2000000000, 2500000000, 2000000000),
+			('label-003', 'track-001', 'car', 3000000000, 3500000000, 3000000000)
+	`)
+	if err != nil {
+		t.Fatalf("failed to insert test labels: %v", err)
+	}
+
+	api := NewLidarLabelAPI(db)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	// Filter by start_ns and end_ns
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/labels?start_ns=1500000000&end_ns=3000000000", nil)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+
+	var response map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	// Labels with start_timestamp_ns >= 1500000000 and end_timestamp_ns <= 3000000000
+	count, ok := response["count"].(float64)
+	if !ok || int(count) < 1 {
+		t.Errorf("expected at least 1 result, got %v", response["count"])
+	}
+}
+
+// TestLidarLabelAPI_Export_Empty tests exporting when there are no labels
+func TestLidarLabelAPI_Export_Empty(t *testing.T) {
+	db := setupLabelTestDB(t)
+	defer db.Close()
+
+	api := NewLidarLabelAPI(db)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/labels/export", nil)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+
+	var labels []LidarLabel
+	if err := json.NewDecoder(rec.Body).Decode(&labels); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if len(labels) != 0 {
+		t.Errorf("expected 0 labels, got %d", len(labels))
+	}
+
+	// Check Content-Disposition header
+	contentDisposition := rec.Header().Get("Content-Disposition")
+	if contentDisposition != "attachment; filename=lidar_labels_export.json" {
+		t.Errorf("unexpected Content-Disposition: %s", contentDisposition)
+	}
+}
+
+// TestLidarLabelAPI_UpdateLabel_WithAllFields tests updating all optional fields
+func TestLidarLabelAPI_UpdateLabel_WithAllFields(t *testing.T) {
+	db := setupLabelTestDB(t)
+	defer db.Close()
+
+	// Insert test label
+	_, err := db.Exec(`
+		INSERT INTO lidar_labels (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
+		VALUES ('label-001', 'track-001', 'car', 1000000000, 1000000000)
+	`)
+	if err != nil {
+		t.Fatalf("failed to insert test label: %v", err)
+	}
+
+	api := NewLidarLabelAPI(db)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	endTs := int64(2000000000)
+	confidence := float32(0.95)
+	notes := "Updated notes"
+	update := LidarLabel{
+		ClassLabel:     "truck",
+		EndTimestampNs: &endTs,
+		Confidence:     &confidence,
+		Notes:          &notes,
+	}
+
+	body, _ := json.Marshal(update)
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/labels/label-001", bytes.NewReader(body))
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+
+	var updated LidarLabel
+	if err := json.NewDecoder(rec.Body).Decode(&updated); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if updated.ClassLabel != "truck" {
+		t.Errorf("expected class_label 'truck', got '%s'", updated.ClassLabel)
+	}
+	if updated.EndTimestampNs == nil || *updated.EndTimestampNs != endTs {
+		t.Errorf("expected end_timestamp_ns %d, got %v", endTs, updated.EndTimestampNs)
+	}
+	if updated.Confidence == nil || *updated.Confidence != confidence {
+		t.Errorf("expected confidence %v, got %v", confidence, updated.Confidence)
+	}
+	if updated.Notes == nil || *updated.Notes != notes {
+		t.Errorf("expected notes '%s', got %v", notes, updated.Notes)
 	}
 }

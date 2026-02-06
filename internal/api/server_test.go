@@ -1476,3 +1476,279 @@ func TestHandleSites_PUT(t *testing.T) {
 		t.Errorf("Expected status 200, got %d", w.Code)
 	}
 }
+
+// TestSendCommandHandler_WithFormValue tests sending a command via form value
+func TestSendCommandHandler_WithFormValue(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	req := httptest.NewRequest(http.MethodPost, "/command?command=test_cmd", nil)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+
+	server.sendCommandHandler(w, req)
+
+	// Should succeed - disabled serial mux accepts commands silently
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestHandleReports_DownloadZip tests GET /api/reports/{id}/download/zip
+func TestHandleReports_DownloadZipNotFound(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/reports/99999/download/zip", nil)
+	w := httptest.NewRecorder()
+
+	server.handleReports(w, req)
+
+	// Should return 404 for non-existent report
+	if w.Code != http.StatusNotFound {
+		t.Errorf("Expected status 404, got %d", w.Code)
+	}
+}
+
+// TestHandleReports_DownloadLegacy tests GET /api/reports/{id}/download with file_type query param
+func TestHandleReports_DownloadLegacy(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/reports/99999/download?file_type=pdf", nil)
+	w := httptest.NewRecorder()
+
+	server.handleReports(w, req)
+
+	// Should return 404 for non-existent report
+	if w.Code != http.StatusNotFound {
+		t.Errorf("Expected status 404, got %d", w.Code)
+	}
+}
+
+// TestListSiteConfigPeriods_InvalidSiteID tests config periods with invalid site_id
+func TestListSiteConfigPeriods_InvalidSiteID(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/site_config_periods?site_id=invalid", nil)
+	w := httptest.NewRecorder()
+
+	server.listSiteConfigPeriods(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+}
+
+// TestHandleTimeline_InvalidSiteID tests timeline with invalid site_id
+func TestHandleTimeline_InvalidSiteIDParam(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/timeline?site_id=invalid", nil)
+	w := httptest.NewRecorder()
+
+	server.handleTimeline(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+}
+
+// TestDownloadReport_ValidTypes tests downloading reports with valid file types
+func TestDownloadReport_ValidTypesNotFound(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	tests := []struct {
+		name     string
+		fileType string
+	}{
+		{"pdf type", "pdf"},
+		{"zip type", "zip"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/api/reports/99999/download/"+tt.fileType, nil)
+			w := httptest.NewRecorder()
+
+			server.downloadReport(w, req, 99999, tt.fileType)
+
+			// Should return 404 for non-existent report (not 400 for invalid type)
+			if w.Code != http.StatusNotFound {
+				t.Errorf("Expected status 404, got %d", w.Code)
+			}
+		})
+	}
+}
+
+// TestShowRadarObjectStats_WithSource tests radar stats with different source parameters
+func TestShowRadarObjectStats_WithSource(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	tests := []struct {
+		name   string
+		source string
+		valid  bool
+	}{
+		{"radar_objects source", "radar_objects", true},
+		{"radar_data_transits source", "radar_data_transits", true},
+	}
+
+	start := "1697318400"
+	end := "1697404800"
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/radar_stats?start=%s&end=%s&source=%s", start, end, tt.source), nil)
+			w := httptest.NewRecorder()
+
+			server.showRadarObjectStats(w, req)
+
+			if tt.valid && w.Code != http.StatusOK {
+				t.Errorf("Expected status 200, got %d", w.Code)
+			}
+		})
+	}
+}
+
+// TestShowRadarObjectStats_InvalidSiteIDParam tests radar stats with invalid site_id
+func TestShowRadarObjectStats_InvalidSiteIDParam(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	start := "1697318400"
+	end := "1697404800"
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/radar_stats?start=%s&end=%s&site_id=invalid", start, end), nil)
+	w := httptest.NewRecorder()
+
+	server.showRadarObjectStats(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+}
+
+// TestShowRadarObjectStats_WithBoundaryThreshold tests radar stats with boundary_threshold
+func TestShowRadarObjectStats_WithBoundaryThreshold(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	start := "1697318400"
+	end := "1697404800"
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/radar_stats?start=%s&end=%s&boundary_threshold=10", start, end), nil)
+	w := httptest.NewRecorder()
+
+	server.showRadarObjectStats(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+}
+
+// TestShowRadarObjectStats_InvalidBoundaryThreshold tests radar stats with invalid boundary_threshold
+func TestShowRadarObjectStats_InvalidBoundaryThreshold(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	start := "1697318400"
+	end := "1697404800"
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/radar_stats?start=%s&end=%s&boundary_threshold=invalid", start, end), nil)
+	w := httptest.NewRecorder()
+
+	server.showRadarObjectStats(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+}
+
+// TestShowRadarObjectStats_InvalidHistBucketSize tests radar stats with invalid hist_bucket_size
+func TestShowRadarObjectStats_InvalidHistBucketSize(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	start := "1697318400"
+	end := "1697404800"
+	query := fmt.Sprintf("start=%s&end=%s&compute_histogram=true&hist_bucket_size=invalid", start, end)
+	req := httptest.NewRequest(http.MethodGet, "/api/radar_stats?"+query, nil)
+	w := httptest.NewRecorder()
+
+	server.showRadarObjectStats(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+}
+
+// TestShowRadarObjectStats_InvalidHistMax tests radar stats with invalid hist_max
+func TestShowRadarObjectStats_InvalidHistMax(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	start := "1697318400"
+	end := "1697404800"
+	query := fmt.Sprintf("start=%s&end=%s&compute_histogram=true&hist_max=invalid", start, end)
+	req := httptest.NewRequest(http.MethodGet, "/api/radar_stats?"+query, nil)
+	w := httptest.NewRecorder()
+
+	server.showRadarObjectStats(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+}
+
+// TestListEvents_WithSiteID tests events endpoint with site_id parameter
+func TestListEvents_WithSiteID(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	// Create a test site
+	site := &db.Site{Name: "Events Test", Location: "Test Location"}
+	if err := dbInst.CreateSite(site); err != nil {
+		t.Fatalf("Failed to create site: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/events?site_id=%d", site.ID), nil)
+	w := httptest.NewRecorder()
+
+	server.listEvents(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+}
+
+// TestListEvents_WithTimezone tests events endpoint with timezone parameter
+func TestListEvents_WithTimezone(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	req := httptest.NewRequest(http.MethodGet, "/events?timezone=Europe/London", nil)
+	w := httptest.NewRecorder()
+
+	server.listEvents(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+}
+
+// TestListEvents_InvalidTimezone tests events endpoint with invalid timezone
+func TestListEvents_InvalidTimezone(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	req := httptest.NewRequest(http.MethodGet, "/events?timezone=Invalid/Zone", nil)
+	w := httptest.NewRecorder()
+
+	server.listEvents(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+}

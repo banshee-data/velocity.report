@@ -216,3 +216,94 @@ func TestComputeHeadingVariance_Turning(t *testing.T) {
 		t.Errorf("expected positive heading variance for turning path, got %v", v)
 	}
 }
+
+// TestSortFeatureImportance tests the feature importance sorting function.
+func TestSortFeatureImportance(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty vector returns all feature names", func(t *testing.T) {
+		result := SortFeatureImportance([]float32{})
+		featureNames := SortedFeatureNames()
+
+		// Should return all feature names
+		if len(result) != len(featureNames) {
+			t.Errorf("expected %d features, got %d", len(featureNames), len(result))
+		}
+	})
+
+	t.Run("sorts by absolute value descending", func(t *testing.T) {
+		// Features: point_count, bbox_length, bbox_width, bbox_height, height_p95,
+		// intensity_mean, intensity_std, elongation, compactness, vertical_spread,
+		// avg_speed_mps, peak_speed_mps, speed_variance, ...
+		vector := make([]float32, len(SortedFeatureNames()))
+		vector[0] = 100.0 // point_count - highest
+		vector[1] = 5.0   // bbox_length
+		vector[2] = 3.0   // bbox_width
+		vector[3] = -50.0 // bbox_height - second highest (negative)
+		vector[4] = 2.0   // height_p95
+		vector[5] = 1.0   // intensity_mean
+		vector[6] = 0.5   // intensity_std
+
+		result := SortFeatureImportance(vector)
+
+		// First should be point_count (100.0)
+		if result[0] != "point_count" {
+			t.Errorf("expected first feature to be point_count, got %s", result[0])
+		}
+		// Second should be bbox_height (|-50.0| = 50.0)
+		if result[1] != "bbox_height" {
+			t.Errorf("expected second feature to be bbox_height, got %s", result[1])
+		}
+		// Third should be bbox_length (5.0)
+		if result[2] != "bbox_length" {
+			t.Errorf("expected third feature to be bbox_length, got %s", result[2])
+		}
+	})
+
+	t.Run("handles all zeros", func(t *testing.T) {
+		vector := make([]float32, len(SortedFeatureNames()))
+		result := SortFeatureImportance(vector)
+
+		// All features should still be present
+		if len(result) != len(SortedFeatureNames()) {
+			t.Errorf("expected %d features, got %d", len(SortedFeatureNames()), len(result))
+		}
+	})
+
+	t.Run("handles negative values", func(t *testing.T) {
+		vector := make([]float32, len(SortedFeatureNames()))
+		vector[0] = -10.0 // Negative value (point_count)
+		vector[1] = 5.0   // Positive value (bbox_length)
+
+		result := SortFeatureImportance(vector)
+
+		// Negative absolute value is 10, positive is 5
+		// So point_count should be first
+		if result[0] != "point_count" {
+			t.Errorf("expected point_count first (abs 10), got %s", result[0])
+		}
+	})
+
+	t.Run("handles vector shorter than features", func(t *testing.T) {
+		// Only provide values for first 3 features
+		vector := []float32{10.0, 5.0, 2.0}
+		result := SortFeatureImportance(vector)
+
+		// Should still return all feature names
+		featureNames := SortedFeatureNames()
+		if len(result) != len(featureNames) {
+			t.Errorf("expected %d features, got %d", len(featureNames), len(result))
+		}
+
+		// First three should be sorted by their values
+		if result[0] != "point_count" {
+			t.Errorf("expected first to be point_count, got %s", result[0])
+		}
+		if result[1] != "bbox_length" {
+			t.Errorf("expected second to be bbox_length, got %s", result[1])
+		}
+		if result[2] != "bbox_width" {
+			t.Errorf("expected third to be bbox_width, got %s", result[2])
+		}
+	})
+}
