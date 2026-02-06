@@ -1,4 +1,4 @@
-// CompositePointCloudRenderer.swift
+/ 5// CompositePointCloudRenderer.swift
 // Renderer that handles split streaming with cached background.
 //
 // For M3.5 optimisation:
@@ -264,9 +264,9 @@ class CompositePointCloudRenderer {
     /// M7: Get buffer statistics for performance monitoring.
     func getBufferStats() -> (bgCapacity: Int, bgUsed: Int, fgCapacity: Int, fgUsed: Int) {
         return (
-            bgCapacity: backgroundBufferCapacity / 5,  // Convert vertices back to points
+            bgCapacity: (backgroundBufferCapacity + 4) / 5,  // Convert vertices back to points (ceiling)
             bgUsed: backgroundPointCount,
-            fgCapacity: foregroundBufferCapacity / 5,
+            fgCapacity: (foregroundBufferCapacity + 4) / 5,
             fgUsed: foregroundPointCount
         )
     }

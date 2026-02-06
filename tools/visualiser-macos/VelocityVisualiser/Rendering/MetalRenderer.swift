@@ -296,8 +296,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     private var frameUpdateCount: Int = 0
 
     // M7: Buffer reallocation thresholds for pre-allocated buffer reuse
-    private static let shrinkThreshold: Int = 4   // Shrink if buffer is >4x needed
-    private static let growMargin: Float = 1.5    // Allocate 50% extra for headroom
+    private static let shrinkThreshold: Int = 4  // Shrink if buffer is >4x needed
+    private static let growMargin: Float = 1.5  // Allocate 50% extra for headroom
 
     /// M7: Determine if a buffer should be reallocated.
     private func shouldReallocateBuffer(currentCapacity: Int, neededCount: Int) -> Bool {
@@ -321,7 +321,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
         // M7: Check if we need to reallocate the buffer
         let neededVertices = count * 5  // 5 floats per vertex
-        if shouldReallocateBuffer(currentCapacity: pointBufferCapacity, neededCount: neededVertices) {
+        if shouldReallocateBuffer(currentCapacity: pointBufferCapacity, neededCount: neededVertices)
+        {
             let newCapacity = calculateBufferCapacity(for: neededVertices)
             let bufferSize = newCapacity * MemoryLayout<Float>.stride
             pointBuffer = device.makeBuffer(length: bufferSize, options: .storageModeShared)
