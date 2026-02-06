@@ -657,6 +657,7 @@ func TestFrameBuilder_EvictOldestBufferedFrame(t *testing.T) {
 		SensorID:       "test-sensor",
 		PointCount:     100,
 		StartTimestamp: baseTime,
+		EndTimestamp:   baseTime.Add(10 * time.Millisecond),
 	}
 
 	// Add second frame
@@ -665,6 +666,7 @@ func TestFrameBuilder_EvictOldestBufferedFrame(t *testing.T) {
 		SensorID:       "test-sensor",
 		PointCount:     100,
 		StartTimestamp: baseTime.Add(100 * time.Millisecond),
+		EndTimestamp:   baseTime.Add(110 * time.Millisecond),
 	}
 
 	// Add third frame - this should not trigger eviction yet as we do it manually
@@ -673,6 +675,7 @@ func TestFrameBuilder_EvictOldestBufferedFrame(t *testing.T) {
 		SensorID:       "test-sensor",
 		PointCount:     100,
 		StartTimestamp: baseTime.Add(200 * time.Millisecond),
+		EndTimestamp:   baseTime.Add(210 * time.Millisecond),
 	}
 
 	fb.mu.Unlock()

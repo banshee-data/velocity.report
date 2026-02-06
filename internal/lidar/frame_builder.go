@@ -561,6 +561,10 @@ func (fb *FrameBuilder) cleanupFrames() {
 		if ageSource.IsZero() {
 			ageSource = frame.EndTimestamp
 		}
+		// Skip frames with no valid timestamp (e.g., manually created test frames)
+		if ageSource.IsZero() {
+			continue
+		}
 		frameAge := now.Sub(ageSource)
 		if frameAge >= fb.bufferTimeout {
 			frameIDsToFinalize = append(frameIDsToFinalize, frameID)
