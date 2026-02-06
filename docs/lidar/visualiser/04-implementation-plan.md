@@ -535,18 +535,18 @@ if sendDuration.Milliseconds() <= slowSendThresholdMs {
 
 ## 3. Task Breakdown Summary
 
-| Milestone              | Track A (Days) | Track B (Days) | Total (Days) | Status             |
-| ---------------------- | -------------- | -------------- | ------------ | ------------------ |
-| M0: Schema + Synthetic | 5              | 5              | 10           | ✅ Complete        |
-| M1: Recorder/Replayer  | 4              | 4              | 8            | ✅ Complete        |
-| M2: Real Points        | 2              | 4              | 6            | ✅ Complete        |
-| M3: Canonical Model    | 0              | 5              | 5            | ✅ Complete        |
-| M3.5: Split Streaming  | 3              | 5              | 8            | ✅ Complete        |
-| M4: Tracking Refactor  | 2              | 6              | 8            | ✅ Complete        |
-| M5: Algorithm Upgrades | 2              | 10             | 12           | ✅ Complete (B)    |
-| M6: Debug + Labelling  | 8              | 4              | 12           | ✅ Complete (B)    |
-| M7: Performance        | 4              | 4              | 8            |                    |
-| **Total**              | **30**         | **47**         | **77**       | **59 Track B done**|
+| Milestone              | Track A (Days) | Track B (Days) | Total (Days) | Status              |
+| ---------------------- | -------------- | -------------- | ------------ | ------------------- |
+| M0: Schema + Synthetic | 5              | 5              | 10           | ✅ Complete         |
+| M1: Recorder/Replayer  | 4              | 4              | 8            | ✅ Complete         |
+| M2: Real Points        | 2              | 4              | 6            | ✅ Complete         |
+| M3: Canonical Model    | 0              | 5              | 5            | ✅ Complete         |
+| M3.5: Split Streaming  | 3              | 5              | 8            | ✅ Complete         |
+| M4: Tracking Refactor  | 2              | 6              | 8            | ✅ Complete         |
+| M5: Algorithm Upgrades | 2              | 10             | 12           | ✅ Complete (B)     |
+| M6: Debug + Labelling  | 8              | 4              | 12           | ✅ Complete (B)     |
+| M7: Performance        | 4              | 4              | 8            |                     |
+| **Total**              | **30**         | **47**         | **77**       | **59 Track B done** |
 
 ---
 
@@ -609,17 +609,17 @@ if sendDuration.Milliseconds() <= slowSendThresholdMs {
 
 Each milestone has a **stop point** where functionality is complete and stable:
 
-| Milestone | Stop Point                               | Status             |
-| --------- | ---------------------------------------- | ------------------ |
-| M0        | Synthetic visualisation works end-to-end | ✅ Complete        |
-| M1        | Replay with seek/pause works             | ✅ Complete        |
-| M2        | Real point clouds render                 | ✅ Complete        |
-| M3        | Both outputs work from same model        | ✅ Complete        |
-| M3.5      | Bandwidth reduced to <5 Mbps             | ✅ Complete        |
-| M4        | Golden replay tests pass                 | ✅ Complete        |
-| M5        | Improved tracking quality validated      | ✅ Complete (B)    |
-| M6        | Labelling workflow complete              | ✅ Complete (B)    |
-| M7        | Performance targets met                  |                    |
+| Milestone | Stop Point                               | Status          |
+| --------- | ---------------------------------------- | --------------- |
+| M0        | Synthetic visualisation works end-to-end | ✅ Complete     |
+| M1        | Replay with seek/pause works             | ✅ Complete     |
+| M2        | Real point clouds render                 | ✅ Complete     |
+| M3        | Both outputs work from same model        | ✅ Complete     |
+| M3.5      | Bandwidth reduced to <5 Mbps             | ✅ Complete     |
+| M4        | Golden replay tests pass                 | ✅ Complete     |
+| M5        | Improved tracking quality validated      | ✅ Complete (B) |
+| M6        | Labelling workflow complete              | ✅ Complete (B) |
+| M7        | Performance targets met                  |                 |
 
 **MVP = M0 + M1 + M2**: Visualiser shows real data with basic playback. ✅ **ACHIEVED**
 
