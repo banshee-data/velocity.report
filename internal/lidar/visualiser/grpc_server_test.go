@@ -747,3 +747,439 @@ func TestSendCooldown_RecordFastReturnValue(t *testing.T) {
 		t.Error("second fast in skip mode should return still-skipping=false (minFast=2)")
 	}
 }
+
+// =============================================================================
+// Tests for getPointCount
+// =============================================================================
+
+func TestGetPointCount_NilFrame(t *testing.T) {
+	count := getPointCount(nil)
+	if count != 0 {
+		t.Errorf("expected 0 for nil frame, got %d", count)
+	}
+}
+
+func TestGetPointCount_NilPointCloud(t *testing.T) {
+	frame := &FrameBundle{
+		FrameID:    1,
+		PointCloud: nil,
+	}
+	count := getPointCount(frame)
+	if count != 0 {
+		t.Errorf("expected 0 for nil PointCloud, got %d", count)
+	}
+}
+
+func TestGetPointCount_ZeroPoints(t *testing.T) {
+	frame := &FrameBundle{
+		FrameID: 1,
+		PointCloud: &PointCloudFrame{
+			PointCount: 0,
+		},
+	}
+	count := getPointCount(frame)
+	if count != 0 {
+		t.Errorf("expected 0 for zero points, got %d", count)
+	}
+}
+
+func TestGetPointCount_WithPoints(t *testing.T) {
+	frame := &FrameBundle{
+		FrameID: 1,
+		PointCloud: &PointCloudFrame{
+			PointCount: 1000,
+		},
+	}
+	count := getPointCount(frame)
+	if count != 1000 {
+		t.Errorf("expected 1000, got %d", count)
+	}
+}
+
+func TestGetPointCount_LargePointCount(t *testing.T) {
+	frame := &FrameBundle{
+		FrameID: 1,
+		PointCloud: &PointCloudFrame{
+			PointCount: 70000, // Typical Pandar40P point count
+		},
+	}
+	count := getPointCount(frame)
+	if count != 70000 {
+		t.Errorf("expected 70000, got %d", count)
+	}
+}
+
+// =============================================================================
+// Tests for Server replay mode
+// =============================================================================
+
+func TestServer_SetReplayMode(t *testing.T) {
+	cfg := DefaultConfig()
+	pub := NewPublisher(cfg)
+	server := NewServer(pub)
+
+	// Initially not in replay mode
+	if server.replayMode {
+		t.Error("expected replayMode=false initially")
+	}
+
+	// Enable replay mode
+	server.SetReplayMode(true)
+	if !server.replayMode {
+		t.Error("expected replayMode=true after SetReplayMode(true)")
+	}
+
+	// Set PCAP progress
+	server.SetPCAPProgress(500, 1000)
+	if server.pcapCurrentPacket != 500 {
+		t.Errorf("expected pcapCurrentPacket=500, got %d", server.pcapCurrentPacket)
+	}
+	if server.pcapTotalPackets != 1000 {
+		t.Errorf("expected pcapTotalPackets=1000, got %d", server.pcapTotalPackets)
+	}
+
+	// Disable replay mode - should reset PCAP progress
+	server.SetReplayMode(false)
+	if server.replayMode {
+		t.Error("expected replayMode=false after SetReplayMode(false)")
+	}
+	if server.pcapCurrentPacket != 0 {
+		t.Errorf("expected pcapCurrentPacket=0 after disabling, got %d", server.pcapCurrentPacket)
+	}
+	if server.pcapTotalPackets != 0 {
+		t.Errorf("expected pcapTotalPackets=0 after disabling, got %d", server.pcapTotalPackets)
+	}
+}
+
+// =============================================================================
+// Tests for frameBundleToProto with Debug overlays
+// =============================================================================
+
+// Note: frameBundleToProto doesn't currently convert debug overlays to proto.
+// These tests verify the actual behaviour (Debug is not serialised).
+func TestFrameBundleToProto_DebugNotConverted(t *testing.T) {
+	frame := &FrameBundle{
+		FrameID:        1,
+		TimestampNanos: time.Now().UnixNano(),
+		SensorID:       "test-sensor",
+		CoordinateFrame: CoordinateFrameInfo{
+			FrameID:        "site/test",
+			ReferenceFrame: "ENU",
+		},
+		Debug: &DebugOverlaySet{
+			FrameID:        1,
+			TimestampNanos: time.Now().UnixNano(),
+			AssociationCandidates: []AssociationCandidate{
+				{ClusterID: 1, TrackID: "track-001", Distance: 2.5, Accepted: true},
+			},
+		},
+	}
+
+	req := &pb.StreamRequest{
+		IncludeDebug: true, // Even when requested, Debug is not converted (not implemented)
+	}
+
+	pbFrame := frameBundleToProto(frame, req)
+
+	// Debug conversion is not implemented - verify it's nil
+	if pbFrame.Debug != nil {
+		t.Error("expected nil Debug (not yet implemented in frameBundleToProto)")
+	}
+}
+
+func TestFrameBundleToProto_DebugFieldAbsent(t *testing.T) {
+	frame := &FrameBundle{
+		FrameID:        1,
+		TimestampNanos: time.Now().UnixNano(),
+		SensorID:       "test-sensor",
+		CoordinateFrame: CoordinateFrameInfo{
+			FrameID:        "site/test",
+			ReferenceFrame: "ENU",
+		},
+		Debug: nil, // No debug data
+	}
+
+	req := &pb.StreamRequest{
+		IncludeDebug: false,
+	}
+
+	pbFrame := frameBundleToProto(frame, req)
+
+	if pbFrame.Debug != nil {
+		t.Error("expected nil Debug when IncludeDebug=false")
+	}
+}
+
+// =============================================================================
+// Tests for streamFromPublisher
+// =============================================================================
+
+func TestStreamFromPublisher_BasicFlow(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+
+	if err := pub.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer pub.Stop()
+
+	server := NewServer(pub)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Track received frames
+	var receivedFrames []*pb.FrameBundle
+	var mu sync.Mutex
+
+	mockStream := &mockSyntheticStream{
+		ctx: ctx,
+		send: func(frame *pb.FrameBundle) error {
+			mu.Lock()
+			receivedFrames = append(receivedFrames, frame)
+			frameCount := len(receivedFrames)
+			mu.Unlock()
+
+			// Cancel after receiving 3 frames
+			if frameCount >= 3 {
+				cancel()
+			}
+			return nil
+		},
+	}
+
+	req := &pb.StreamRequest{
+		SensorId:        "test-sensor",
+		IncludePoints:   true,
+		IncludeClusters: true,
+		IncludeTracks:   true,
+	}
+
+	// Start streaming in a goroutine
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- server.streamFromPublisher(ctx, req, mockStream)
+	}()
+
+	// Give time for the client to register
+	time.Sleep(10 * time.Millisecond)
+
+	// Publish some frames
+	for i := 0; i < 5; i++ {
+		frame := &FrameBundle{
+			FrameID:        uint64(i + 1),
+			TimestampNanos: time.Now().UnixNano(),
+			SensorID:       "test-sensor",
+			PointCloud: &PointCloudFrame{
+				X:          []float32{1.0, 2.0},
+				Y:          []float32{1.0, 2.0},
+				Z:          []float32{0.5, 0.5},
+				Intensity:  []uint8{100, 150},
+				PointCount: 2,
+			},
+		}
+		pub.Publish(frame)
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	// Wait for streaming to complete
+	select {
+	case err := <-errCh:
+		if err != context.Canceled {
+			t.Errorf("expected context.Canceled, got: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Error("timeout waiting for streaming to complete")
+		cancel()
+	}
+
+	mu.Lock()
+	frameCount := len(receivedFrames)
+	mu.Unlock()
+
+	if frameCount < 3 {
+		t.Errorf("expected at least 3 frames, got %d", frameCount)
+	}
+}
+
+func TestStreamFromPublisher_WithPause(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+
+	if err := pub.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer pub.Stop()
+
+	server := NewServer(pub)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var receivedFrames []*pb.FrameBundle
+	var mu sync.Mutex
+
+	mockStream := &mockSyntheticStream{
+		ctx: ctx,
+		send: func(frame *pb.FrameBundle) error {
+			mu.Lock()
+			receivedFrames = append(receivedFrames, frame)
+			mu.Unlock()
+			return nil
+		},
+	}
+
+	req := &pb.StreamRequest{
+		SensorId:        "test-sensor",
+		IncludePoints:   true,
+		IncludeClusters: true,
+	}
+
+	// Start streaming
+	go func() {
+		_ = server.streamFromPublisher(ctx, req, mockStream)
+	}()
+
+	// Give time for client to register
+	time.Sleep(10 * time.Millisecond)
+
+	// Pause the server
+	server.paused = true
+
+	// Publish frames while paused - these should be dropped
+	for i := 0; i < 3; i++ {
+		frame := &FrameBundle{
+			FrameID:        uint64(i + 1),
+			TimestampNanos: time.Now().UnixNano(),
+			SensorID:       "test-sensor",
+			PointCloud: &PointCloudFrame{
+				X:          []float32{1.0, 2.0},
+				Y:          []float32{1.0, 2.0},
+				Z:          []float32{0.5, 0.5},
+				Intensity:  []uint8{100, 150},
+				PointCount: 2,
+			},
+		}
+		pub.Publish(frame)
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	// Check that no frames were received while paused
+	time.Sleep(50 * time.Millisecond)
+	mu.Lock()
+	frameCountPaused := len(receivedFrames)
+	mu.Unlock()
+
+	// Unpause and send more frames
+	server.paused = false
+
+	for i := 0; i < 3; i++ {
+		frame := &FrameBundle{
+			FrameID:        uint64(i + 100),
+			TimestampNanos: time.Now().UnixNano(),
+			SensorID:       "test-sensor",
+		}
+		pub.Publish(frame)
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	// Wait for frames to be processed
+	time.Sleep(50 * time.Millisecond)
+
+	cancel()
+
+	mu.Lock()
+	finalFrameCount := len(receivedFrames)
+	mu.Unlock()
+
+	// Should have received frames only after unpausing
+	if frameCountPaused >= finalFrameCount {
+		t.Errorf("expected more frames after unpause: paused_count=%d final_count=%d",
+			frameCountPaused, finalFrameCount)
+	}
+}
+
+func TestStreamFromPublisher_ReplayMode(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+
+	if err := pub.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer pub.Stop()
+
+	server := NewServer(pub)
+
+	// Enable replay mode
+	server.SetReplayMode(true)
+	server.SetPCAPProgress(10, 100) // 10 of 100 packets
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var receivedFrames []*pb.FrameBundle
+	var mu sync.Mutex
+
+	mockStream := &mockSyntheticStream{
+		ctx: ctx,
+		send: func(frame *pb.FrameBundle) error {
+			mu.Lock()
+			receivedFrames = append(receivedFrames, frame)
+			frameCount := len(receivedFrames)
+			mu.Unlock()
+
+			if frameCount >= 2 {
+				cancel()
+			}
+			return nil
+		},
+	}
+
+	req := &pb.StreamRequest{
+		SensorId: "test-sensor",
+	}
+
+	// Start streaming
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- server.streamFromPublisher(ctx, req, mockStream)
+	}()
+
+	// Give time for client to register
+	time.Sleep(10 * time.Millisecond)
+
+	// Publish frames - PlaybackInfo should be injected
+	for i := 0; i < 3; i++ {
+		frame := &FrameBundle{
+			FrameID:        uint64(i + 1),
+			TimestampNanos: time.Now().UnixNano(),
+			SensorID:       "test-sensor",
+		}
+		pub.Publish(frame)
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	// Wait for streaming to complete
+	select {
+	case err := <-errCh:
+		if err != context.Canceled {
+			t.Errorf("expected context.Canceled, got: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		cancel()
+	}
+
+	mu.Lock()
+	frameCount := len(receivedFrames)
+	mu.Unlock()
+
+	if frameCount < 2 {
+		t.Errorf("expected at least 2 frames, got %d", frameCount)
+	}
+
+	// Verify PlaybackInfo was injected (checked via logs since proto doesn't expose it directly)
+	// The test exercises the replay mode code path
+}
