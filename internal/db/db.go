@@ -406,6 +406,23 @@ func (db *DB) GetLatestBgSnapshot(sensorID string) (*lidar.BgSnapshot, error) {
 		  FROM lidar_bg_snapshot WHERE sensor_id = ? ORDER BY snapshot_id DESC LIMIT 1` // nolint:lll
 
 	row := db.QueryRow(q, sensorID)
+	return scanBgSnapshot(row)
+}
+
+// GetBgSnapshotByID returns a BgSnapshot by its snapshot_id, or nil if not found.
+func (db *DB) GetBgSnapshotByID(snapshotID int64) (*lidar.BgSnapshot, error) {
+	if snapshotID <= 0 {
+		return nil, nil
+	}
+	q := `SELECT snapshot_id, sensor_id, taken_unix_nanos, rings, azimuth_bins, params_json, ring_elevations_json, grid_blob, changed_cells_count, snapshot_reason
+		  FROM lidar_bg_snapshot WHERE snapshot_id = ?` // nolint:lll
+
+	row := db.QueryRow(q, snapshotID)
+	return scanBgSnapshot(row)
+}
+
+// scanBgSnapshot scans a row into a BgSnapshot struct.
+func scanBgSnapshot(row *sql.Row) (*lidar.BgSnapshot, error) {
 	var snapID int64
 	var sensor string
 	var takenUnix int64
