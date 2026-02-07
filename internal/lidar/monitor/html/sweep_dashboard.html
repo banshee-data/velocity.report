@@ -33,11 +33,11 @@
     }
 
     .param-row {
-      display: flex;
+      display: grid;
+      grid-template-columns: 200px 1fr auto;
       gap: 8px;
-      align-items: flex-end;
+      align-items: end;
       margin-bottom: 8px;
-      flex-wrap: wrap;
     }
 
     .param-row select,
@@ -46,8 +46,13 @@
     }
 
     .param-row .param-name {
-      flex: 1;
-      min-width: 180px;
+      min-width: 0;
+    }
+
+    .param-row .param-fields {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
     .param-row .param-field {
@@ -56,7 +61,7 @@
     }
 
     .param-row .param-remove {
-      flex: 0 0 auto;
+      align-self: end;
     }
 
     .param-desc {
@@ -244,7 +249,7 @@
 
     <!-- Results Table -->
     <div class="card">
-      <h2>Results Table</h2>
+      <h2>Results Table <button class="btn-sm btn-secondary" onclick="downloadCSV()" style="margin-left:8px">Download CSV</button></h2>
       <div style="overflow-x:auto">
         <table>
           <thead id="results-head">
@@ -272,6 +277,7 @@
     var bktChart = null;
     var alignChart = null;
     var tracksChart = null;
+    var latestResults = null;
 
     // Detect dark mode for ECharts
     var isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -333,7 +339,7 @@
       }
       selHtml += '</select></label>';
 
-      row.innerHTML = selHtml + '<div id="pfields-' + id + '" style="display:flex;gap:8px;flex-wrap:wrap;flex:2"></div>' +
+      row.innerHTML = selHtml + '<div id="pfields-' + id + '" class="param-fields"></div>' +
         '<button class="btn-sm btn-remove param-remove" onclick="removeParamRow(' + id + ')">×</button>' +
         '<div id="pdesc-' + id + '" class="param-desc"></div>';
 
@@ -628,6 +634,7 @@
         }
 
         if (st.results && st.results.length > 0) {
+          latestResults = st.results;
           renderCharts(st.results);
           renderTable(st.results);
         }
@@ -636,6 +643,64 @@
           stopPolling();
         }
       }).catch(function () { });
+    }
+
+    function downloadCSV() {
+      if (!latestResults || latestResults.length === 0) {
+        showError('No results to download.');
+        return;
+      }
+
+      // Determine param columns from first result
+      var paramKeys = [];
+      if (latestResults[0] && latestResults[0].param_values) {
+        paramKeys = Object.keys(latestResults[0].param_values);
+      } else {
+        paramKeys = ['noise', 'closeness', 'neighbour'];
+      }
+
+      var metricCols = [
+        'accept_rate_mean', 'accept_rate_stddev',
+        'nonzero_cells_mean', 'nonzero_cells_stddev',
+        'active_tracks_mean', 'active_tracks_stddev',
+        'alignment_deg_mean', 'alignment_deg_stddev',
+        'misalignment_ratio_mean', 'misalignment_ratio_stddev'
+      ];
+
+      var header = paramKeys.concat(metricCols);
+      var rows = [header.join(',')];
+
+      latestResults.forEach(function (r) {
+        var row = [];
+        paramKeys.forEach(function (k) {
+          var v;
+          if (r.param_values && r.param_values[k] !== undefined) {
+            v = r.param_values[k];
+          } else {
+            v = r[k];
+          }
+          row.push(v);
+        });
+        row.push(r.overall_accept_mean);
+        row.push(r.overall_accept_stddev);
+        row.push(r.nonzero_cells_mean);
+        row.push(r.nonzero_cells_stddev);
+        row.push(r.active_tracks_mean || 0);
+        row.push(r.active_tracks_stddev || 0);
+        row.push(r.alignment_deg_mean || 0);
+        row.push(r.alignment_deg_stddev || 0);
+        row.push(r.misalignment_ratio_mean || 0);
+        row.push(r.misalignment_ratio_stddev || 0);
+        rows.push(row.join(','));
+      });
+
+      var csv = rows.join('\n');
+      var blob = new Blob([csv], { type: 'text/csv' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'sweep-results.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
     }
 
     function initCharts() {
@@ -824,6 +889,7 @@
         badge.className = 'status-badge status-' + st.status;
         document.getElementById('combo-count').textContent =
           st.completed_combos + ' / ' + st.total_combos + ' combinations';
+        latestResults = st.results;
         renderCharts(st.results);
         renderTable(st.results);
       }

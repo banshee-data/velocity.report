@@ -1,6 +1,7 @@
 package sweep
 
 import (
+	"math"
 	"reflect"
 	"testing"
 )
@@ -447,5 +448,90 @@ func TestCartesianProductOrder(t *testing.T) {
 		if !reflect.DeepEqual(combos[i], exp) {
 			t.Errorf("combo[%d]: expected %v, got %v", i, exp, combos[i])
 		}
+	}
+}
+
+func TestComputeComboResult(t *testing.T) {
+	r := NewRunner(nil)
+	buckets := []string{"1", "2", "4"}
+
+	results := []SampleResult{
+		{
+			AcceptanceRates:   []float64{0.80, 0.90, 0.70},
+			NonzeroCells:      100,
+			OverallAcceptPct:  0.80,
+			ActiveTracks:      3,
+			MeanAlignmentDeg:  10.0,
+			MisalignmentRatio: 0.1,
+		},
+		{
+			AcceptanceRates:   []float64{0.90, 0.80, 0.60},
+			NonzeroCells:      120,
+			OverallAcceptPct:  0.76,
+			ActiveTracks:      5,
+			MeanAlignmentDeg:  20.0,
+			MisalignmentRatio: 0.3,
+		},
+	}
+
+	combo := r.computeComboResult(0.04, 8.0, 7, results, buckets)
+
+	// Legacy fields
+	if combo.Noise != 0.04 {
+		t.Errorf("expected noise 0.04, got %f", combo.Noise)
+	}
+	if combo.Closeness != 8.0 {
+		t.Errorf("expected closeness 8.0, got %f", combo.Closeness)
+	}
+	if combo.Neighbour != 7 {
+		t.Errorf("expected neighbour 7, got %d", combo.Neighbour)
+	}
+
+	// Overall acceptance: mean of 0.80 and 0.76 = 0.78
+	if math.Abs(combo.OverallAcceptMean-0.78) > 0.001 {
+		t.Errorf("expected overall_accept_mean ~0.78, got %f", combo.OverallAcceptMean)
+	}
+	if combo.OverallAcceptStddev <= 0 {
+		t.Error("expected nonzero overall_accept_stddev")
+	}
+
+	// Nonzero cells: mean of 100 and 120 = 110
+	if math.Abs(combo.NonzeroCellsMean-110) > 0.001 {
+		t.Errorf("expected nonzero_cells_mean ~110, got %f", combo.NonzeroCellsMean)
+	}
+
+	// Per-bucket means: (0.80+0.90)/2=0.85, (0.90+0.80)/2=0.85, (0.70+0.60)/2=0.65
+	expectedBucketMeans := []float64{0.85, 0.85, 0.65}
+	for i, exp := range expectedBucketMeans {
+		if math.Abs(combo.BucketMeans[i]-exp) > 0.001 {
+			t.Errorf("bucket[%d] mean: expected %f, got %f", i, exp, combo.BucketMeans[i])
+		}
+	}
+
+	// Active tracks: mean of 3 and 5 = 4
+	if math.Abs(combo.ActiveTracksMean-4.0) > 0.001 {
+		t.Errorf("expected active_tracks_mean ~4, got %f", combo.ActiveTracksMean)
+	}
+
+	// Alignment: mean of 10 and 20 = 15
+	if math.Abs(combo.AlignmentDegMean-15.0) > 0.001 {
+		t.Errorf("expected alignment_deg_mean ~15, got %f", combo.AlignmentDegMean)
+	}
+
+	// Misalignment ratio: mean of 0.1 and 0.3 = 0.2
+	if math.Abs(combo.MisalignmentRatioMean-0.2) > 0.001 {
+		t.Errorf("expected misalignment_ratio_mean ~0.2, got %f", combo.MisalignmentRatioMean)
+	}
+}
+
+func TestComputeComboResultEmpty(t *testing.T) {
+	r := NewRunner(nil)
+	combo := r.computeComboResult(0.04, 8.0, 7, nil, []string{"1"})
+
+	if combo.OverallAcceptMean != 0 {
+		t.Errorf("expected 0 for empty results, got %f", combo.OverallAcceptMean)
+	}
+	if combo.ActiveTracksMean != 0 {
+		t.Errorf("expected 0 for empty results, got %f", combo.ActiveTracksMean)
 	}
 }
