@@ -92,6 +92,41 @@
       }
     }
 
+    /* Config section: 5 cards in up to 3 columns */
+    #config-section {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    #config-section > .card {
+      min-width: 0;
+      margin-bottom: 0;
+    }
+
+    @media (max-width: 1600px) {
+      #config-section {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 900px) {
+      #config-section {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Vertical field stack for config/data-source cards */
+    .field-stack label {
+      display: block;
+      margin-bottom: 10px;
+    }
+
+    .field-stack label:last-child {
+      margin-bottom: 0;
+    }
+
     /* Results table spans full width below charts */
     #results-card {
       grid-column: 1 / -1;
@@ -267,40 +302,44 @@
 
   <div id="error-box" class="error-box" style="display:none"></div>
 
-  <!-- Configuration Form -->
-  <div class="card">
-    <h2>Sweep Configuration</h2>
-    <div class="form-grid">
-      <label><span>Seed Behaviour</span>
-        <select id="seed">
-          <option value="true">True</option>
-          <option value="false">False</option>
-          <option value="toggle">Toggle</option>
-        </select>
-        <small class="field-desc">Whether the background grid seeds from the first observation. "toggle" tests both true and false for each combination.</small>
-      </label>
-      <label><span>Iterations</span><input id="iterations" type="number" value="10" min="1" max="500">
-        <small class="field-desc">Number of samples per parameter combination. Higher = more statistical confidence.</small>
-      </label>
-      <label><span>Interval</span><input id="interval" type="text" value="2s">
-        <small class="field-desc">Time between consecutive samples within one combination. Determines how long data accumulates between measurements.</small>
-      </label>
-      <label><span>Settle Time</span><input id="settle_time" type="text" value="5s">
-        <small class="field-desc">Wait time after changing parameters before sampling begins. Allows the background grid to stabilise. With PCAPs, ensure this is shorter than PCAP duration.</small>
-      </label>
-      <label><span>Region Settle</span>
-        <select id="settle_mode" onchange="updateSweepSummary()">
-          <option value="per_combo">Per Combo</option>
-          <option value="once">Settle Once (reuse)</option>
-        </select>
-        <small class="field-desc">"Per Combo": full grid + region settling each combination. "Settle Once": first combo does full settle and persists regions; subsequent combos restore regions from store (~10 frames).</small>
-      </label>
+  <!-- Configuration Cards -->
+  <div id="config-section">
+
+    <!-- Card 1: Sweep Configuration -->
+    <div class="card">
+      <h2>Sweep Configuration</h2>
+      <div class="field-stack">
+        <label><span>Seed Behaviour</span>
+          <select id="seed">
+            <option value="true">True</option>
+            <option value="false">False</option>
+            <option value="toggle">Toggle</option>
+          </select>
+          <small class="field-desc">Whether the background grid seeds from the first observation. "toggle" tests both true and false for each combination.</small>
+        </label>
+        <label><span>Iterations</span><input id="iterations" type="number" value="10" min="1" max="500">
+          <small class="field-desc">Number of samples per parameter combination. Higher = more statistical confidence.</small>
+        </label>
+        <label><span>Interval</span><input id="interval" type="text" value="2s">
+          <small class="field-desc">Time between consecutive samples within one combination.</small>
+        </label>
+        <label><span>Settle Time</span><input id="settle_time" type="text" value="5s">
+          <small class="field-desc">Wait time after changing parameters before sampling begins.</small>
+        </label>
+        <label><span>Region Settle</span>
+          <select id="settle_mode" onchange="updateSweepSummary()">
+            <option value="per_combo">Per Combo</option>
+            <option value="once">Settle Once (reuse)</option>
+          </select>
+          <small class="field-desc">"Per Combo": full settle each combination. "Settle Once": first combo settles, rest restore regions.</small>
+        </label>
+      </div>
     </div>
 
-    <!-- Data Source -->
-    <div class="section-border" style="margin-top:12px">
-      <div class="section-title">Data Source</div>
-      <div class="form-grid">
+    <!-- Card 2: Data Source -->
+    <div class="card">
+      <h2>Data Source</h2>
+      <div class="field-stack">
         <label><span>Source</span>
           <select id="data_source" onchange="togglePCAP()">
             <option value="live">Live</option>
@@ -308,30 +347,30 @@
           </select>
         </label>
       </div>
-      <div id="pcap-fields" class="pcap-fields form-grid" style="display:none">
+      <div id="pcap-fields" class="pcap-fields field-stack" style="display:none">
         <label><span>PCAP File</span><input id="pcap_file" type="text" placeholder="static/recording.pcapng">
-          <small class="field-desc">Relative path within the PCAP directory (e.g. "static/recording.pcapng").</small>
+          <small class="field-desc">Relative path within the PCAP directory.</small>
         </label>
         <label><span>Start (seconds)</span><input id="pcap_start_secs" type="number" step="0.1" value="0" min="0">
-          <small class="field-desc">Offset in seconds from the beginning of the PCAP file to start replay.</small>
+          <small class="field-desc">Offset in seconds from the beginning of the PCAP.</small>
         </label>
         <label><span>Duration (seconds, -1=all)</span><input id="pcap_duration_secs" type="number" step="0.1" value="-1">
-          <small class="field-desc">Seconds of PCAP to replay. -1 = entire file. Must be > settle_time + (iterations x interval).</small>
+          <small class="field-desc">Seconds of PCAP to replay. -1 = entire file.</small>
         </label>
       </div>
     </div>
 
-    <!-- Dynamic Parameters -->
-    <div class="section-border" style="margin-top:12px">
-      <div class="section-title">Sweep Parameters</div>
+    <!-- Card 3: Sweep Parameters -->
+    <div class="card">
+      <h2>Sweep Parameters</h2>
       <div id="param-rows"></div>
       <button class="btn-sm btn-add" onclick="addParamRow()">+ Add Parameter</button>
       <div id="sweep-summary"></div>
     </div>
 
-    <!-- Scenario management -->
-    <div class="section-border" style="margin-top:12px">
-      <div class="section-title">Scenario</div>
+    <!-- Card 4: Scenario -->
+    <div class="card">
+      <h2>Scenario</h2>
       <div class="scenario-bar">
         <button class="btn-sm btn-secondary" onclick="downloadScenario()">Download JSON</button>
         <button class="btn-sm btn-secondary" onclick="document.getElementById('scenario-upload').click()">Upload JSON</button>
@@ -346,20 +385,21 @@
       </div>
     </div>
 
-    <!-- Current Tuning Parameters -->
-    <div class="section-border" style="margin-top:12px">
+    <!-- Card 5: Current Tuning Parameters -->
+    <div class="card">
+      <h2>Current Tuning Parameters</h2>
       <div class="current-params-header">
-        <div class="section-title">Current Tuning Parameters</div>
+        <small class="field-desc">Swept parameters highlighted in yellow.</small>
         <button class="refresh-params-btn" onclick="fetchCurrentParams()">Refresh</button>
       </div>
-      <small class="field-desc" style="display:block;margin-bottom:6px">Parameters highlighted in yellow are being swept in the current configuration.</small>
       <div id="current-params-display">Loading...</div>
     </div>
 
-    <div class="btn-group">
-      <button id="btn-start" class="btn btn-primary" onclick="handleStart()">Start Sweep</button>
-      <button id="btn-stop" class="btn btn-danger" onclick="handleStop()" style="display:none">Stop Sweep</button>
-    </div>
+  </div>
+
+  <div class="btn-group">
+    <button id="btn-start" class="btn btn-primary" onclick="handleStart()">Start Sweep</button>
+    <button id="btn-stop" class="btn btn-danger" onclick="handleStop()" style="display:none">Stop Sweep</button>
   </div>
 
   <!-- Progress -->
