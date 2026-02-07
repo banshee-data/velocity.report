@@ -73,6 +73,10 @@ type SweepRequest struct {
 	Interval   string `json:"interval"`    // duration string e.g. "2s"
 	SettleTime string `json:"settle_time"` // duration string e.g. "5s"
 
+	// Settle mode: "per_combo" (default) = full grid+region settle each combination;
+	// "once" = first combo does full settle, subsequent combos restore regions from store (~10 frames).
+	SettleMode string `json:"settle_mode,omitempty"`
+
 	// Seed control
 	Seed string `json:"seed"` // "true", "false", or "toggle"
 }
@@ -308,6 +312,9 @@ func (r *Runner) Start(ctx context.Context, reqInterface interface{}) error {
 		if settleTime, ok := v["settle_time"].(string); ok {
 			req.SettleTime = settleTime
 		}
+		if settleMode, ok := v["settle_mode"].(string); ok {
+			req.SettleMode = settleMode
+		}
 		if seed, ok := v["seed"].(string); ok {
 			req.Seed = seed
 		}
@@ -510,6 +517,8 @@ func (r *Runner) computeCombinations(req SweepRequest) ([]float64, []float64, []
 // run executes the legacy sweep in a background goroutine
 func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closenessCombos []float64, neighbourCombos []int, interval, settleTime time.Duration) {
 	isPCAP := req.DataSource == "pcap" && req.PCAPFile != ""
+	settleOnce := req.SettleMode == "once"
+	const regionRestoreWait = 2 * time.Second
 
 	buckets := r.client.FetchBuckets()
 	sampler := NewSampler(r.client, buckets, interval)
@@ -589,8 +598,10 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 						r.addWarning(fmt.Sprintf("combo %d: PCAP wait timeout: %v", comboNum, err))
 					}
 
-					// Additional settle time after PCAP completion
-					if settleTime > 0 {
+					// Settle after PCAP completion: full settle for first combo, short wait for subsequent in "once" mode
+					if settleOnce && comboNum > 1 {
+						time.Sleep(regionRestoreWait)
+					} else if settleTime > 0 {
 						time.Sleep(settleTime)
 					}
 				} else {
@@ -605,8 +616,12 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 						r.addWarning(fmt.Sprintf("combo %d: reset acceptance failed: %v", comboNum+1, err))
 					}
 
-					// Wait for settle
-					r.client.WaitForGridSettle(settleTime)
+					// Settle: full settle for first combo, short wait for subsequent in "once" mode
+					if settleOnce && comboNum > 1 {
+						r.client.WaitForGridSettle(regionRestoreWait)
+					} else {
+						r.client.WaitForGridSettle(settleTime)
+					}
 				}
 
 				// Sample
@@ -649,6 +664,8 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 // runGeneric executes the generic N-dimensional sweep.
 func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[string]interface{}, interval, settleTime time.Duration) {
 	isPCAP := req.DataSource == "pcap" && req.PCAPFile != ""
+	settleOnce := req.SettleMode == "once"
+	const regionRestoreWait = 2 * time.Second
 
 	buckets := r.client.FetchBuckets()
 	sampler := NewSampler(r.client, buckets, interval)
@@ -727,8 +744,10 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 				r.addWarning(fmt.Sprintf("combo %d: PCAP wait timeout: %v", comboNum+1, err))
 			}
 
-			// Additional settle time after PCAP completion
-			if settleTime > 0 {
+			// Settle after PCAP completion: full settle for first combo, short wait for subsequent in "once" mode
+			if settleOnce && comboNum > 0 {
+				time.Sleep(regionRestoreWait)
+			} else if settleTime > 0 {
 				time.Sleep(settleTime)
 			}
 		} else {
@@ -743,8 +762,12 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 				r.addWarning(fmt.Sprintf("combo %d: reset acceptance failed: %v", comboNum+1, err))
 			}
 
-			// Wait for settle
-			r.client.WaitForGridSettle(settleTime)
+			// Settle: full settle for first combo, short wait for subsequent in "once" mode
+			if settleOnce && comboNum > 0 {
+				r.client.WaitForGridSettle(regionRestoreWait)
+			} else {
+				r.client.WaitForGridSettle(settleTime)
+			}
 		}
 
 		// Extract legacy values for SampleConfig if present

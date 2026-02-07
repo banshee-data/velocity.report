@@ -29,7 +29,34 @@
 
     .chart-container {
       width: 100%%;
-      height: 400px;
+      height: 300px;
+    }
+
+    #charts-section {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    #charts-section > .card {
+      margin-bottom: 0;
+    }
+
+    @media (max-width: 1600px) {
+      #charts-section {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 900px) {
+      #charts-section {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Results table spans full width below charts */
+    #results-card {
+      grid-column: 1 / -1;
     }
 
     .param-row {
@@ -175,6 +202,13 @@
       <label><span>Settle Time</span><input id="settle_time" type="text" value="5s">
         <small class="field-desc">Wait time after changing parameters before sampling begins. Allows the background grid to stabilise. With PCAPs, ensure this is shorter than PCAP duration.</small>
       </label>
+      <label><span>Region Settle</span>
+        <select id="settle_mode" onchange="updateSweepSummary()">
+          <option value="per_combo">Per Combo</option>
+          <option value="once">Settle Once (reuse)</option>
+        </select>
+        <small class="field-desc">"Per Combo": full grid + region settling each combination. "Settle Once": first combo does full settle and persists regions; subsequent combos restore regions from store (~10 frames).</small>
+      </label>
     </div>
 
     <!-- Data Source -->
@@ -246,22 +280,15 @@
 
   <!-- Charts (always visible, start empty) -->
   <div id="charts-section">
-    <div class="card">
-      <h2>Background Metrics</h2>
-      <div id="acceptance-chart" class="chart-container"></div>
-      <div id="nonzero-chart" class="chart-container" style="margin-top:16px"></div>
-      <div id="bucket-chart" class="chart-container" style="margin-top:16px"></div>
-      <div id="param-heatmap" class="chart-container" style="margin-top:16px"></div>
-    </div>
-
-    <div class="card">
-      <h2>Track Health</h2>
-      <div id="alignment-chart" class="chart-container"></div>
-      <div id="tracks-chart" class="chart-container" style="margin-top:16px"></div>
-    </div>
+    <div class="card"><div id="acceptance-chart" class="chart-container"></div></div>
+    <div class="card"><div id="nonzero-chart" class="chart-container"></div></div>
+    <div class="card"><div id="bucket-chart" class="chart-container"></div></div>
+    <div class="card"><div id="param-heatmap" class="chart-container"></div></div>
+    <div class="card"><div id="alignment-chart" class="chart-container"></div></div>
+    <div class="card"><div id="tracks-chart" class="chart-container"></div></div>
 
     <!-- Results Table -->
-    <div class="card">
+    <div id="results-card" class="card">
       <h2>Results Table <button class="btn-sm btn-secondary" onclick="downloadCSV()" style="margin-left:8px">Download CSV</button></h2>
       <div style="overflow-x:auto">
         <table>
@@ -494,7 +521,15 @@
       var iterations = intVal('iterations') || 1;
       var settleSecs = parseDuration(val('settle_time'));
       var intervalSecs = parseDuration(val('interval'));
-      var runtimeSecs = totalWithSeed * (settleSecs + iterations * intervalSecs);
+      var settleMode = val('settle_mode');
+      var runtimeSecs;
+      if (settleMode === 'once' && totalWithSeed > 1) {
+        // First combo: full settle; subsequent: ~2s for region restore
+        var regionRestoreSecs = 2;
+        runtimeSecs = (settleSecs + iterations * intervalSecs) + (totalWithSeed - 1) * (regionRestoreSecs + iterations * intervalSecs);
+      } else {
+        runtimeSecs = totalWithSeed * (settleSecs + iterations * intervalSecs);
+      }
 
       var html = parts.join(' &middot; ');
       html += '<br/><strong>' + total + '</strong> permutations';
@@ -514,6 +549,7 @@
         iterations: intVal('iterations'),
         interval: val('interval'),
         settle_time: val('settle_time'),
+        settle_mode: val('settle_mode'),
         data_source: val('data_source')
       };
 
@@ -597,6 +633,7 @@
       if (obj.iterations) document.getElementById('iterations').value = obj.iterations;
       if (obj.interval) document.getElementById('interval').value = obj.interval;
       if (obj.settle_time) document.getElementById('settle_time').value = obj.settle_time;
+      if (obj.settle_mode) document.getElementById('settle_mode').value = obj.settle_mode;
       if (obj.data_source) {
         document.getElementById('data_source').value = obj.data_source;
         togglePCAP();
@@ -872,14 +909,17 @@
         var buckets = results[0].buckets;
         var data = [];
         var mx = 0;
+        var mn = Infinity;
         results.forEach(function (r, ri) {
           if (r.bucket_means) {
             r.bucket_means.forEach(function (v, bi) {
               data.push([ri, bi, v]);
               if (v > mx) mx = v;
+              if (v > 0 && v < mn) mn = v;
             });
           }
         });
+        if (mn === Infinity || mn >= mx) mn = 0;
         bktChart.setOption({
           title: { text: 'Per-Bucket Acceptance Rates', left: 'center', top: 0, textStyle: { fontSize: 14 } },
           tooltip: {
@@ -891,9 +931,9 @@
           xAxis: { type: 'category', data: labels, axisLabel: { rotate: 45, fontSize: 10 } },
           yAxis: { type: 'category', data: buckets.map(function (b) { return b + 'm'; }), name: 'Range Bucket' },
           visualMap: {
-            min: 0, max: mx || 1, calculable: true, orient: 'horizontal', left: 'center', bottom: 0,
+            min: mn, max: mx || 1, calculable: true, orient: 'horizontal', left: 'center', bottom: 0,
             inRange: { color: ['#313695', '#4575b4', '#74add1', '#abd9e9', '#fee090', '#fdae61', '#f46d43', '#d73027'] },
-            formatter: function (v) { return (v * 100).toFixed(0) + '%%'; }
+            formatter: function (v) { return (v * 100).toFixed(1) + '%%'; }
           },
           series: [{ type: 'heatmap', data: data, emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.5)' } } }],
           grid: { bottom: 80, top: 60 },
@@ -953,6 +993,7 @@
           var yVals = Object.keys(ySet).map(Number).sort(function (a, b) { return a - b; });
           var hmData = [];
           var hmMax = 0;
+          var hmMin = Infinity;
           results.forEach(function (r) {
             var xi = xVals.indexOf(r.param_values[xKey]);
             var yi = yVals.indexOf(r.param_values[yKey]);
@@ -960,8 +1001,10 @@
             if (xi >= 0 && yi >= 0) {
               hmData.push([xi, yi, v]);
               if (v > hmMax) hmMax = v;
+              if (v > 0 && v < hmMin) hmMin = v;
             }
           });
+          if (hmMin === Infinity || hmMin >= hmMax) hmMin = 0;
           paramHeatmapChart.setOption({
             title: { text: 'Acceptance by ' + xLabel + ' vs ' + yLabel, left: 'center', top: 0, textStyle: { fontSize: 14 } },
             tooltip: {
@@ -974,9 +1017,9 @@
             xAxis: { type: 'category', data: xVals.map(String), name: xLabel, axisLabel: { fontSize: 10 } },
             yAxis: { type: 'category', data: yVals.map(String), name: yLabel, axisLabel: { fontSize: 10 } },
             visualMap: {
-              min: 0, max: hmMax || 1, calculable: true, orient: 'horizontal', left: 'center', bottom: 0,
+              min: hmMin, max: hmMax || 1, calculable: true, orient: 'horizontal', left: 'center', bottom: 0,
               inRange: { color: ['#313695', '#4575b4', '#74add1', '#abd9e9', '#fee090', '#fdae61', '#f46d43', '#d73027'] },
-              formatter: function (v) { return (v * 100).toFixed(0) + '%%'; }
+              formatter: function (v) { return (v * 100).toFixed(1) + '%%'; }
             },
             series: [{ type: 'heatmap', data: hmData, emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.5)' } } }],
             grid: { bottom: 80, top: 60 },
