@@ -45,6 +45,8 @@
 
     #charts-section > .card {
       margin-bottom: 0;
+      min-width: 0;
+      overflow: hidden;
     }
 
     @media (max-width: 1600px) {
@@ -177,6 +179,55 @@
       background: var(--input-bg);
       line-height: 1.6;
     }
+
+    #current-params-display {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 10px;
+      border: 1px solid var(--input-border);
+      border-radius: 5px;
+      background: var(--input-bg);
+      color: var(--fg-faint);
+      max-height: 300px;
+      overflow-y: auto;
+      line-height: 1.6;
+      white-space: pre;
+      margin-top: 8px;
+    }
+
+    .param-line {
+      display: block;
+    }
+
+    .param-line.swept {
+      background: rgba(255, 204, 0, 0.15);
+      color: var(--fg);
+      font-weight: 500;
+      padding: 2px 4px;
+      margin: 1px -4px;
+      border-radius: 3px;
+    }
+
+    .current-params-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .refresh-params-btn {
+      padding: 2px 8px;
+      font-size: 11px;
+      background: var(--card-border);
+      color: var(--fg);
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    .refresh-params-btn:hover {
+      background: var(--input-border);
+    }
   </style>
 </head>
 
@@ -263,6 +314,16 @@
           <button class="btn-sm btn-add" onclick="applyJSONEditor()">Apply</button>
         </div>
       </div>
+    </div>
+
+    <!-- Current Tuning Parameters -->
+    <div class="section-border" style="margin-top:12px">
+      <div class="current-params-header">
+        <div class="section-title">Current Tuning Parameters</div>
+        <button class="refresh-params-btn" onclick="fetchCurrentParams()">Refresh</button>
+      </div>
+      <small class="field-desc" style="display:block;margin-bottom:6px">Parameters highlighted in yellow are being swept in the current configuration.</small>
+      <div id="current-params-display">Loading...</div>
     </div>
 
     <div class="btn-group">
@@ -398,6 +459,7 @@
       var row = document.getElementById('param-row-' + id);
       if (row) row.remove();
       updateSweepSummary();
+      if (window.currentParamsCache) displayCurrentParams(window.currentParamsCache);
     }
 
     function updateParamFields(id) {
@@ -1101,6 +1163,70 @@
       if (tracksChart) tracksChart.resize();
     });
 
+    // ---- Current params display ----
+
+    function fetchCurrentParams() {
+      var sensorId = '%[1]s';
+      fetch('/api/lidar/params?sensor_id=' + encodeURIComponent(sensorId))
+        .then(function (r) {
+          if (!r.ok) throw new Error('Failed to fetch params');
+          return r.json();
+        })
+        .then(function (params) {
+          window.currentParamsCache = params;
+          displayCurrentParams(params);
+        })
+        .catch(function (err) {
+          document.getElementById('current-params-display').textContent = 'Error loading parameters: ' + err.message;
+        });
+    }
+
+    function displayCurrentParams(params) {
+      // Get list of currently swept parameters
+      var sweptParams = {};
+      var rows = document.getElementById('param-rows').children;
+      for (var i = 0; i < rows.length; i++) {
+        var rowId = rows[i].id.replace('param-row-', '');
+        var nameEl = document.getElementById('pname-' + rowId);
+        if (nameEl && nameEl.value) {
+          sweptParams[nameEl.value] = true;
+        }
+      }
+
+      var lines = [];
+      var keys = Object.keys(params).sort();
+      keys.forEach(function (key) {
+        var value = params[key];
+        var displayValue = value;
+
+        // Format value for display
+        if (typeof value === 'boolean') {
+          displayValue = value ? 'true' : 'false';
+        } else if (typeof value === 'number') {
+          if (Number.isInteger(value)) {
+            displayValue = value.toString();
+          } else {
+            displayValue = value.toFixed(6).replace(/\.?0+$/, '');
+          }
+        } else if (value === null) {
+          displayValue = 'null';
+        }
+
+        var line = key + ': ' + displayValue;
+        var isSwept = sweptParams[key] === true;
+
+        if (isSwept) {
+          lines.push('<span class="param-line swept">' + line + '</span>');
+        } else {
+          lines.push('<span class="param-line">' + line + '</span>');
+        }
+      });
+
+      document.getElementById('current-params-display').innerHTML = lines.join('\n');
+    }
+
+    // ---- Page initialization ----
+
     // Initialise charts empty on page load
     initCharts();
 
@@ -1134,6 +1260,9 @@
     addParamRow('noise_relative');
     updateSweepSummary();
 
+    // Fetch and display current tuning parameters
+    fetchCurrentParams();
+
     // Wire up live summary updates for top-level fields
     document.getElementById('iterations').addEventListener('input', updateSweepSummary);
     document.getElementById('interval').addEventListener('input', updateSweepSummary);
@@ -1142,6 +1271,11 @@
 
     // Event delegation for dynamic param row inputs (start/end/step/values)
     document.getElementById('param-rows').addEventListener('input', updateSweepSummary);
+
+    // Update highlighted params when param rows change
+    document.getElementById('param-rows').addEventListener('change', function () {
+      displayCurrentParams(window.currentParamsCache || {});
+    });
   </script>
 </body>
 
