@@ -134,6 +134,17 @@
       margin-top: 8px;
       resize: vertical;
     }
+
+    #sweep-summary {
+      font-size: 12px;
+      color: var(--fg-muted);
+      padding: 8px 12px;
+      margin-top: 8px;
+      border: 1px solid var(--card-border);
+      border-radius: 4px;
+      background: var(--input-bg);
+      line-height: 1.6;
+    }
   </style>
 </head>
 
@@ -195,6 +206,7 @@
       <div class="section-title">Sweep Parameters</div>
       <div id="param-rows"></div>
       <button class="btn-sm btn-add" onclick="addParamRow()">+ Add Parameter</button>
+      <div id="sweep-summary"></div>
     </div>
 
     <!-- Scenario management -->
@@ -239,6 +251,7 @@
       <div id="acceptance-chart" class="chart-container"></div>
       <div id="nonzero-chart" class="chart-container" style="margin-top:16px"></div>
       <div id="bucket-chart" class="chart-container" style="margin-top:16px"></div>
+      <div id="param-heatmap" class="chart-container" style="margin-top:16px"></div>
     </div>
 
     <div class="card">
@@ -277,6 +290,7 @@
     var bktChart = null;
     var alignChart = null;
     var tracksChart = null;
+    var paramHeatmapChart = null;
     var latestResults = null;
 
     // Detect dark mode for ECharts
@@ -351,6 +365,7 @@
     function removeParamRow(id) {
       var row = document.getElementById('param-row-' + id);
       if (row) row.remove();
+      updateSweepSummary();
     }
 
     function updateParamFields(id) {
@@ -380,12 +395,115 @@
         fieldsEl.innerHTML =
           '<label class="param-field" style="flex:2"><span>Values (comma-sep)</span><input id="pvals-' + id + '" type="text" placeholder="e.g. 500ms, 1s, 2s"></label>';
       }
+      updateSweepSummary();
     }
 
     function showError(msg) {
       var el = document.getElementById('error-box');
       el.textContent = msg;
       el.style.display = msg ? '' : 'none';
+    }
+
+    // Parse Go-style duration string to seconds (e.g. "5s" -> 5, "500ms" -> 0.5, "2m" -> 120, "1m30s" -> 90)
+    function parseDuration(s) {
+      if (!s) return 0;
+      var total = 0;
+      var re = /(\d+(?:\.\d+)?)(ms|s|m|h)/g;
+      var match;
+      while ((match = re.exec(s)) !== null) {
+        var v = parseFloat(match[1]);
+        switch (match[2]) {
+          case 'h': total += v * 3600; break;
+          case 'm': total += v * 60; break;
+          case 's': total += v; break;
+          case 'ms': total += v / 1000; break;
+        }
+      }
+      return total;
+    }
+
+    function formatDuration(secs) {
+      if (secs < 60) return secs.toFixed(0) + 's';
+      if (secs < 3600) {
+        var m = Math.floor(secs / 60);
+        var s = Math.round(secs %% 60);
+        return s > 0 ? m + 'm ' + s + 's' : m + 'm';
+      }
+      var h = Math.floor(secs / 3600);
+      var m = Math.round((secs %% 3600) / 60);
+      return m > 0 ? h + 'h ' + m + 'm' : h + 'h';
+    }
+
+    function getParamValueCount(rowId) {
+      var nameEl = document.getElementById('pname-' + rowId);
+      if (!nameEl || !nameEl.value) return 0;
+      var schema = PARAM_SCHEMA[nameEl.value];
+      if (!schema) return 0;
+      var typ = schema.type;
+
+      var valsEl = document.getElementById('pvals-' + rowId);
+      var valsStr = valsEl ? valsEl.value.trim() : '';
+
+      if (valsStr) {
+        return valsStr.split(',').filter(function (s) { return s.trim() !== ''; }).length;
+      }
+
+      if (typ === 'bool') return 2;
+
+      var startEl = document.getElementById('pstart-' + rowId);
+      var endEl = document.getElementById('pend-' + rowId);
+      var stepEl = document.getElementById('pstep-' + rowId);
+      if (startEl && endEl && stepEl) {
+        var start = parseFloat(startEl.value);
+        var end = parseFloat(endEl.value);
+        var step = parseFloat(stepEl.value);
+        if (step > 0 && end >= start) {
+          return Math.floor((end - start) / step) + 1;
+        }
+      }
+      return 0;
+    }
+
+    function updateSweepSummary() {
+      var el = document.getElementById('sweep-summary');
+      var rows = document.getElementById('param-rows').children;
+      if (rows.length === 0) { el.innerHTML = ''; return; }
+
+      var parts = [];
+      var total = 1;
+      var anyParam = false;
+      for (var i = 0; i < rows.length; i++) {
+        var rowId = rows[i].id.replace('param-row-', '');
+        var nameEl = document.getElementById('pname-' + rowId);
+        if (!nameEl || !nameEl.value) continue;
+        var count = getParamValueCount(rowId);
+        if (count === 0) continue;
+        anyParam = true;
+        var schema = PARAM_SCHEMA[nameEl.value];
+        var label = schema ? schema.label : nameEl.value;
+        parts.push('<strong>' + label + '</strong>: ' + count + ' values');
+        total *= count;
+      }
+
+      if (!anyParam) { el.innerHTML = ''; return; }
+
+      var seedVal = val('seed');
+      var seedMultiplier = (seedVal === 'toggle') ? 2 : 1;
+      var totalWithSeed = total * seedMultiplier;
+
+      var iterations = intVal('iterations') || 1;
+      var settleSecs = parseDuration(val('settle_time'));
+      var intervalSecs = parseDuration(val('interval'));
+      var runtimeSecs = totalWithSeed * (settleSecs + iterations * intervalSecs);
+
+      var html = parts.join(' &middot; ');
+      html += '<br/><strong>' + total + '</strong> permutations';
+      if (seedMultiplier > 1) {
+        html += ' &times; seed toggle &times;2 = <strong>' + totalWithSeed + '</strong> total';
+      }
+      html += ' &middot; <strong>' + iterations + '</strong> iterations each';
+      html += ' &middot; estimated runtime: <strong>~' + formatDuration(runtimeSecs) + '</strong>';
+      el.innerHTML = html;
     }
 
     // ---- Scenario management ----
@@ -516,6 +634,7 @@
           }
         });
       }
+      updateSweepSummary();
     }
 
     function toggleJSONEditor() {
@@ -709,6 +828,7 @@
       bktChart = echarts.init(document.getElementById('bucket-chart'), chartTheme);
       alignChart = echarts.init(document.getElementById('alignment-chart'), chartTheme);
       tracksChart = echarts.init(document.getElementById('tracks-chart'), chartTheme);
+      paramHeatmapChart = echarts.init(document.getElementById('param-heatmap'), chartTheme);
 
       var emptyOpt = {
         title: { text: 'Waiting for data...', left: 'center', top: 'center', textStyle: { color: '#94a3b8', fontSize: 14, fontWeight: 'normal' } },
@@ -719,6 +839,7 @@
       bktChart.setOption(emptyOpt);
       alignChart.setOption(emptyOpt);
       tracksChart.setOption(emptyOpt);
+      paramHeatmapChart.setOption(emptyOpt);
     }
 
     function renderCharts(results) {
@@ -813,6 +934,61 @@
         grid: { bottom: 100 },
         backgroundColor: chartBg
       }, true);
+
+      // Parameter heatmap: show acceptance rate for first two numerical params
+      if (results[0] && results[0].param_values) {
+        var pKeys = Object.keys(results[0].param_values);
+        var numKeys = pKeys.filter(function (k) {
+          return typeof results[0].param_values[k] === 'number';
+        });
+        if (numKeys.length >= 2) {
+          var xKey = numKeys[0], yKey = numKeys[1];
+          var xSchema = PARAM_SCHEMA[xKey], ySchema = PARAM_SCHEMA[yKey];
+          var xLabel = xSchema ? xSchema.label : xKey;
+          var yLabel = ySchema ? ySchema.label : yKey;
+          // Collect unique sorted axis values
+          var xSet = {}, ySet = {};
+          results.forEach(function (r) { xSet[r.param_values[xKey]] = true; ySet[r.param_values[yKey]] = true; });
+          var xVals = Object.keys(xSet).map(Number).sort(function (a, b) { return a - b; });
+          var yVals = Object.keys(ySet).map(Number).sort(function (a, b) { return a - b; });
+          var hmData = [];
+          var hmMax = 0;
+          results.forEach(function (r) {
+            var xi = xVals.indexOf(r.param_values[xKey]);
+            var yi = yVals.indexOf(r.param_values[yKey]);
+            var v = r.overall_accept_mean || 0;
+            if (xi >= 0 && yi >= 0) {
+              hmData.push([xi, yi, v]);
+              if (v > hmMax) hmMax = v;
+            }
+          });
+          paramHeatmapChart.setOption({
+            title: { text: 'Acceptance by ' + xLabel + ' vs ' + yLabel, left: 'center', top: 0, textStyle: { fontSize: 14 } },
+            tooltip: {
+              formatter: function (p) {
+                return xLabel + ': ' + xVals[p.value[0]] + '<br/>' +
+                  yLabel + ': ' + yVals[p.value[1]] + '<br/>' +
+                  'Accept: ' + (p.value[2] * 100).toFixed(2) + '%%';
+              }
+            },
+            xAxis: { type: 'category', data: xVals.map(String), name: xLabel, axisLabel: { fontSize: 10 } },
+            yAxis: { type: 'category', data: yVals.map(String), name: yLabel, axisLabel: { fontSize: 10 } },
+            visualMap: {
+              min: 0, max: hmMax || 1, calculable: true, orient: 'horizontal', left: 'center', bottom: 0,
+              inRange: { color: ['#313695', '#4575b4', '#74add1', '#abd9e9', '#fee090', '#fdae61', '#f46d43', '#d73027'] },
+              formatter: function (v) { return (v * 100).toFixed(0) + '%%'; }
+            },
+            series: [{ type: 'heatmap', data: hmData, emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.5)' } } }],
+            grid: { bottom: 80, top: 60 },
+            backgroundColor: chartBg
+          }, true);
+          document.getElementById('param-heatmap').style.display = '';
+        } else {
+          document.getElementById('param-heatmap').style.display = 'none';
+        }
+      } else {
+        document.getElementById('param-heatmap').style.display = 'none';
+      }
     }
 
     function renderTable(results) {
@@ -872,6 +1048,7 @@
       if (acceptChart) acceptChart.resize();
       if (nzChart) nzChart.resize();
       if (bktChart) bktChart.resize();
+      if (paramHeatmapChart) paramHeatmapChart.resize();
       if (alignChart) alignChart.resize();
       if (tracksChart) tracksChart.resize();
     });
@@ -897,6 +1074,16 @@
 
     // Add a default parameter row
     addParamRow('noise_relative');
+    updateSweepSummary();
+
+    // Wire up live summary updates for top-level fields
+    document.getElementById('iterations').addEventListener('input', updateSweepSummary);
+    document.getElementById('interval').addEventListener('input', updateSweepSummary);
+    document.getElementById('settle_time').addEventListener('input', updateSweepSummary);
+    document.getElementById('seed').addEventListener('change', updateSweepSummary);
+
+    // Event delegation for dynamic param row inputs (start/end/step/values)
+    document.getElementById('param-rows').addEventListener('input', updateSweepSummary);
   </script>
 </body>
 

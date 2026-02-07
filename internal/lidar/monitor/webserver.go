@@ -1337,6 +1337,11 @@ func (ws *WebServer) handleGridReset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Reset tracker to clear Kalman filter state between sweep permutations
+	if ws.tracker != nil {
+		ws.tracker.Reset()
+	}
+
 	afterNanos := time.Now().UnixNano()
 	elapsedMs := float64(afterNanos-beforeNanos) / 1e6
 
