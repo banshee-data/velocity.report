@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,16 +22,37 @@ const (
 	SweepStatusError    SweepStatus = "error"
 )
 
+// SweepParam defines one parameter dimension to sweep.
+type SweepParam struct {
+	Name   string        `json:"name"`             // JSON key from /api/lidar/params e.g. "noise_relative"
+	Type   string        `json:"type"`             // "float64", "int", "int64", "bool", "string"
+	Values []interface{} `json:"values,omitempty"` // explicit values (parsed from start/end/step or comma list)
+
+	// Range fields (for numeric types, dashboard sends these; runner generates Values)
+	Start float64 `json:"start,omitempty"`
+	End   float64 `json:"end,omitempty"`
+	Step  float64 `json:"step,omitempty"`
+}
+
 // SweepRequest defines the parameters for starting a sweep
 type SweepRequest struct {
-	Mode string `json:"mode"` // "multi", "noise", "closeness", "neighbour"
+	Mode string `json:"mode"` // "multi", "noise", "closeness", "neighbour", "params"
 
-	// Multi-mode: explicit values
+	// Generic param list (new)
+	Params []SweepParam `json:"params,omitempty"`
+
+	// Data source
+	DataSource       string  `json:"data_source,omitempty"`        // "live" (default) or "pcap"
+	PCAPFile         string  `json:"pcap_file,omitempty"`          // filename (basename only)
+	PCAPStartSecs    float64 `json:"pcap_start_secs,omitempty"`    // start offset in seconds
+	PCAPDurationSecs float64 `json:"pcap_duration_secs,omitempty"` // duration in seconds (-1 = full)
+
+	// Multi-mode: explicit values (legacy)
 	NoiseValues     []float64 `json:"noise_values,omitempty"`
 	ClosenessValues []float64 `json:"closeness_values,omitempty"`
 	NeighbourValues []int     `json:"neighbour_values,omitempty"`
 
-	// Single-variable sweep ranges
+	// Single-variable sweep ranges (legacy)
 	NoiseStart     float64 `json:"noise_start,omitempty"`
 	NoiseEnd       float64 `json:"noise_end,omitempty"`
 	NoiseStep      float64 `json:"noise_step,omitempty"`
@@ -40,7 +63,7 @@ type SweepRequest struct {
 	NeighbourEnd   int     `json:"neighbour_end,omitempty"`
 	NeighbourStep  int     `json:"neighbour_step,omitempty"`
 
-	// Fixed values for single-variable sweeps
+	// Fixed values for single-variable sweeps (legacy)
 	FixedNoise     float64 `json:"fixed_noise,omitempty"`
 	FixedCloseness float64 `json:"fixed_closeness,omitempty"`
 	FixedNeighbour int     `json:"fixed_neighbour,omitempty"`
@@ -56,9 +79,14 @@ type SweepRequest struct {
 
 // ComboResult holds the summary result for one parameter combination
 type ComboResult struct {
-	Noise               float64   `json:"noise"`
-	Closeness           float64   `json:"closeness"`
-	Neighbour           int       `json:"neighbour"`
+	// Generic param values (new)
+	ParamValues map[string]interface{} `json:"param_values,omitempty"`
+
+	// Legacy fields (populated from ParamValues for backward compat)
+	Noise     float64 `json:"noise"`
+	Closeness float64 `json:"closeness"`
+	Neighbour int     `json:"neighbour"`
+
 	OverallAcceptMean   float64   `json:"overall_accept_mean"`
 	OverallAcceptStddev float64   `json:"overall_accept_stddev"`
 	NonzeroCellsMean    float64   `json:"nonzero_cells_mean"`
@@ -137,6 +165,52 @@ func (r *Runner) Start(ctx context.Context, reqInterface interface{}) error {
 		if mode, ok := v["mode"].(string); ok {
 			req.Mode = mode
 		}
+
+		// Generic params
+		if params, ok := v["params"].([]interface{}); ok {
+			for _, p := range params {
+				pm, ok := p.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				sp := SweepParam{}
+				if name, ok := pm["name"].(string); ok {
+					sp.Name = name
+				}
+				if typ, ok := pm["type"].(string); ok {
+					sp.Type = typ
+				}
+				if vals, ok := pm["values"].([]interface{}); ok {
+					sp.Values = vals
+				}
+				if start, ok := pm["start"].(float64); ok {
+					sp.Start = start
+				}
+				if end, ok := pm["end"].(float64); ok {
+					sp.End = end
+				}
+				if step, ok := pm["step"].(float64); ok {
+					sp.Step = step
+				}
+				req.Params = append(req.Params, sp)
+			}
+		}
+
+		// Data source fields
+		if ds, ok := v["data_source"].(string); ok {
+			req.DataSource = ds
+		}
+		if pf, ok := v["pcap_file"].(string); ok {
+			req.PCAPFile = pf
+		}
+		if ps, ok := v["pcap_start_secs"].(float64); ok {
+			req.PCAPStartSecs = ps
+		}
+		if pd, ok := v["pcap_duration_secs"].(float64); ok {
+			req.PCAPDurationSecs = pd
+		}
+
+		// Legacy fields
 		if noiseValues, ok := v["noise_values"].([]interface{}); ok {
 			req.NoiseValues = make([]float64, len(noiseValues))
 			for i, val := range noiseValues {
@@ -262,7 +336,12 @@ func (r *Runner) start(ctx context.Context, req SweepRequest) error {
 		req.Seed = "true"
 	}
 
-	// Compute parameter combinations (doesn't need lock)
+	// Use generic params path if params are provided
+	if len(req.Params) > 0 {
+		return r.startGeneric(ctx, req, interval, settleTime)
+	}
+
+	// Legacy path: 3 fixed parameter dimensions
 	noiseCombos, closenessCombos, neighbourCombos := r.computeCombinations(req)
 
 	totalCombos := len(noiseCombos) * len(closenessCombos) * len(neighbourCombos)
@@ -300,6 +379,54 @@ func (r *Runner) start(ctx context.Context, req SweepRequest) error {
 	return nil
 }
 
+// startGeneric handles the generic N-dimensional parameter sweep.
+func (r *Runner) startGeneric(ctx context.Context, req SweepRequest, interval, settleTime time.Duration) error {
+	// Expand SweepParam values from ranges
+	for i := range req.Params {
+		if err := expandSweepParam(&req.Params[i]); err != nil {
+			return fmt.Errorf("param %q: %w", req.Params[i].Name, err)
+		}
+		if len(req.Params[i].Values) == 0 {
+			return fmt.Errorf("param %q has no values", req.Params[i].Name)
+		}
+	}
+
+	// Compute Cartesian product
+	combos := cartesianProduct(req.Params)
+	totalCombos := len(combos)
+
+	if totalCombos == 0 {
+		return fmt.Errorf("no parameter combinations to sweep")
+	}
+	const maxCombos = 1000
+	if totalCombos > maxCombos {
+		return fmt.Errorf("parameter range too large: would generate %d combinations (max %d)", totalCombos, maxCombos)
+	}
+
+	r.mu.Lock()
+	if r.state.Status == SweepStatusRunning {
+		r.mu.Unlock()
+		return fmt.Errorf("sweep already in progress")
+	}
+
+	now := time.Now()
+	r.state = SweepState{
+		Status:      SweepStatusRunning,
+		StartedAt:   &now,
+		TotalCombos: totalCombos,
+		Results:     make([]ComboResult, 0, totalCombos),
+		Request:     &req,
+	}
+
+	sweepCtx, cancel := context.WithCancel(ctx)
+	r.cancel = cancel
+	r.mu.Unlock()
+
+	go r.runGeneric(sweepCtx, req, combos, interval, settleTime)
+
+	return nil
+}
+
 // Stop cancels a running sweep
 func (r *Runner) Stop() {
 	r.mu.Lock()
@@ -310,7 +437,7 @@ func (r *Runner) Stop() {
 	}
 }
 
-// computeCombinations determines the parameter values based on the request mode
+// computeCombinations determines the parameter values based on the request mode (legacy)
 func (r *Runner) computeCombinations(req SweepRequest) ([]float64, []float64, []int) {
 	var noiseCombos, closenessCombos []float64
 	var neighbourCombos []int
@@ -364,8 +491,31 @@ func (r *Runner) computeCombinations(req SweepRequest) ([]float64, []float64, []
 	return noiseCombos, closenessCombos, neighbourCombos
 }
 
-// run executes the sweep in a background goroutine
+// run executes the legacy sweep in a background goroutine
 func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closenessCombos []float64, neighbourCombos []int, interval, settleTime time.Duration) {
+	// Start PCAP if configured
+	if req.DataSource == "pcap" && req.PCAPFile != "" {
+		if err := r.client.StartPCAPReplayWithConfig(monitor.PCAPReplayConfig{
+			PCAPFile:        req.PCAPFile,
+			StartSeconds:    req.PCAPStartSecs,
+			DurationSeconds: req.PCAPDurationSecs,
+			MaxRetries:      30,
+		}); err != nil {
+			r.mu.Lock()
+			r.state.Status = SweepStatusError
+			r.state.Error = fmt.Sprintf("failed to start PCAP: %v", err)
+			now := time.Now()
+			r.state.CompletedAt = &now
+			r.mu.Unlock()
+			return
+		}
+		defer func() {
+			if err := r.client.StopPCAPReplay(); err != nil {
+				log.Printf("[sweep] WARNING: Failed to stop PCAP: %v", err)
+			}
+		}()
+	}
+
 	buckets := r.client.FetchBuckets()
 	sampler := NewSampler(r.client, buckets, interval)
 
@@ -466,6 +616,133 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 	log.Printf("[sweep] Sweep complete: %d combinations evaluated", comboNum)
 }
 
+// runGeneric executes the generic N-dimensional sweep.
+func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[string]interface{}, interval, settleTime time.Duration) {
+	// Start PCAP if configured
+	if req.DataSource == "pcap" && req.PCAPFile != "" {
+		if err := r.client.StartPCAPReplayWithConfig(monitor.PCAPReplayConfig{
+			PCAPFile:        req.PCAPFile,
+			StartSeconds:    req.PCAPStartSecs,
+			DurationSeconds: req.PCAPDurationSecs,
+			MaxRetries:      30,
+		}); err != nil {
+			r.mu.Lock()
+			r.state.Status = SweepStatusError
+			r.state.Error = fmt.Sprintf("failed to start PCAP: %v", err)
+			now := time.Now()
+			r.state.CompletedAt = &now
+			r.mu.Unlock()
+			return
+		}
+		defer func() {
+			if err := r.client.StopPCAPReplay(); err != nil {
+				log.Printf("[sweep] WARNING: Failed to stop PCAP: %v", err)
+			}
+		}()
+	}
+
+	buckets := r.client.FetchBuckets()
+	sampler := NewSampler(r.client, buckets, interval)
+
+	r.mu.RLock()
+	totalCombos := r.state.TotalCombos
+	r.mu.RUnlock()
+
+	seedToggle := false
+
+	for comboNum, paramValues := range combos {
+		// Check for cancellation
+		select {
+		case <-ctx.Done():
+			r.mu.Lock()
+			r.state.Status = SweepStatusError
+			r.state.Error = "sweep cancelled"
+			now := time.Now()
+			r.state.CompletedAt = &now
+			r.mu.Unlock()
+			return
+		default:
+		}
+
+		log.Printf("[sweep] Combination %d/%d: %v", comboNum+1, totalCombos, paramValues)
+
+		// Determine seed
+		var seed bool
+		switch req.Seed {
+		case "true":
+			seed = true
+		case "false":
+			seed = false
+		case "toggle":
+			seed = seedToggle
+			seedToggle = !seedToggle
+		default:
+			seed = true
+		}
+
+		// Reset grid
+		if err := r.client.ResetGrid(); err != nil {
+			log.Printf("[sweep] WARNING: Grid reset failed: %v", err)
+		}
+
+		// Build tuning params map, include seed
+		tuningParams := make(map[string]interface{}, len(paramValues)+1)
+		for k, v := range paramValues {
+			tuningParams[k] = v
+		}
+		// Always include seed_from_first unless the sweep is explicitly sweeping it
+		if _, hasSeed := tuningParams["seed_from_first"]; !hasSeed {
+			tuningParams["seed_from_first"] = seed
+		}
+
+		// Set parameters via generic endpoint
+		if err := r.client.SetTuningParams(tuningParams); err != nil {
+			log.Printf("[sweep] ERROR: Failed to set params: %v", err)
+			continue
+		}
+
+		// Reset acceptance
+		if err := r.client.ResetAcceptance(); err != nil {
+			log.Printf("[sweep] WARNING: Failed to reset acceptance: %v", err)
+		}
+
+		// Wait for settle
+		r.client.WaitForGridSettle(settleTime)
+
+		// Extract legacy values for SampleConfig if present
+		noise, _ := toFloat64(paramValues["noise_relative"])
+		closeness, _ := toFloat64(paramValues["closeness_multiplier"])
+		neighbour, _ := toInt(paramValues["neighbor_confirmation_count"])
+
+		// Sample
+		cfg := SampleConfig{
+			Noise:      noise,
+			Closeness:  closeness,
+			Neighbour:  neighbour,
+			Iterations: req.Iterations,
+		}
+		results := sampler.Sample(cfg)
+
+		// Compute summary with generic param values
+		combo := r.computeComboResult(noise, closeness, neighbour, results, buckets)
+		combo.ParamValues = paramValues
+
+		// Update state
+		r.mu.Lock()
+		r.state.Results = append(r.state.Results, combo)
+		r.state.CompletedCombos = comboNum + 1
+		r.state.CurrentCombo = &combo
+		r.mu.Unlock()
+	}
+
+	r.mu.Lock()
+	r.state.Status = SweepStatusComplete
+	now := time.Now()
+	r.state.CompletedAt = &now
+	r.mu.Unlock()
+	log.Printf("[sweep] Sweep complete: %d combinations evaluated", len(combos))
+}
+
 // computeComboResult computes summary statistics for a parameter combination
 func (r *Runner) computeComboResult(noise, closeness float64, neighbour int, results []SampleResult, buckets []string) ComboResult {
 	combo := ComboResult{
@@ -507,4 +784,157 @@ func (r *Runner) computeComboResult(noise, closeness float64, neighbour int, res
 	combo.NonzeroCellsMean, combo.NonzeroCellsStddev = MeanStddev(nzVals)
 
 	return combo
+}
+
+// expandSweepParam expands a SweepParam's range fields into Values.
+func expandSweepParam(sp *SweepParam) error {
+	if len(sp.Values) > 0 {
+		// Already have explicit values — type-coerce them
+		for i, v := range sp.Values {
+			sp.Values[i] = coerceValue(v, sp.Type)
+		}
+		return nil
+	}
+
+	// Generate values from Start/End/Step
+	switch sp.Type {
+	case "float64":
+		if sp.Step <= 0 {
+			return fmt.Errorf("step must be positive for float64 range")
+		}
+		for _, v := range GenerateRange(sp.Start, sp.End, sp.Step) {
+			sp.Values = append(sp.Values, v)
+		}
+	case "int":
+		if sp.Step <= 0 {
+			return fmt.Errorf("step must be positive for int range")
+		}
+		for _, v := range GenerateIntRange(int(sp.Start), int(sp.End), int(sp.Step)) {
+			sp.Values = append(sp.Values, v)
+		}
+	case "int64":
+		if sp.Step <= 0 {
+			return fmt.Errorf("step must be positive for int64 range")
+		}
+		for v := int64(sp.Start); v <= int64(sp.End); v += int64(sp.Step) {
+			sp.Values = append(sp.Values, v)
+		}
+	case "bool":
+		sp.Values = []interface{}{true, false}
+	case "string":
+		// No range generation for strings; values must be explicit
+		return fmt.Errorf("string params require explicit values")
+	default:
+		return fmt.Errorf("unknown type %q", sp.Type)
+	}
+	return nil
+}
+
+// coerceValue converts a value to the appropriate Go type for the given param type.
+func coerceValue(v interface{}, typ string) interface{} {
+	switch typ {
+	case "float64":
+		switch val := v.(type) {
+		case float64:
+			return val
+		case string:
+			f, _ := strconv.ParseFloat(strings.TrimSpace(val), 64)
+			return f
+		case bool:
+			if val {
+				return 1.0
+			}
+			return 0.0
+		}
+	case "int":
+		switch val := v.(type) {
+		case float64:
+			return int(val)
+		case string:
+			n, _ := strconv.Atoi(strings.TrimSpace(val))
+			return n
+		}
+	case "int64":
+		switch val := v.(type) {
+		case float64:
+			return int64(val)
+		case string:
+			n, _ := strconv.ParseInt(strings.TrimSpace(val), 10, 64)
+			return n
+		}
+	case "bool":
+		switch val := v.(type) {
+		case bool:
+			return val
+		case string:
+			return strings.TrimSpace(strings.ToLower(val)) == "true"
+		case float64:
+			return val != 0
+		}
+	case "string":
+		switch val := v.(type) {
+		case string:
+			return strings.TrimSpace(val)
+		default:
+			return fmt.Sprintf("%v", val)
+		}
+	}
+	return v
+}
+
+// cartesianProduct computes the Cartesian product of all SweepParam value lists.
+// Returns a slice of maps, where each map represents one parameter combination.
+func cartesianProduct(params []SweepParam) []map[string]interface{} {
+	if len(params) == 0 {
+		return nil
+	}
+
+	total := 1
+	for _, p := range params {
+		total *= len(p.Values)
+	}
+
+	combos := make([]map[string]interface{}, total)
+	for i := range combos {
+		combos[i] = make(map[string]interface{}, len(params))
+	}
+
+	repeat := 1
+	for dim := len(params) - 1; dim >= 0; dim-- {
+		vals := params[dim].Values
+		name := params[dim].Name
+		cycle := len(vals)
+		for i := 0; i < total; i++ {
+			combos[i][name] = vals[(i/repeat)%cycle]
+		}
+		repeat *= cycle
+	}
+
+	return combos
+}
+
+// toFloat64 converts an interface{} to float64.
+func toFloat64(v interface{}) (float64, bool) {
+	switch val := v.(type) {
+	case float64:
+		return val, true
+	case int:
+		return float64(val), true
+	case int64:
+		return float64(val), true
+	}
+	return 0, false
+}
+
+// toInt converts an interface{} to int.
+func toInt(v interface{}) (int, bool) {
+	switch val := v.(type) {
+	case int:
+		return val, true
+	case float64:
+		return int(val), true
+	case int64:
+		return int(val), true
+	}
+	return 0, false
 }

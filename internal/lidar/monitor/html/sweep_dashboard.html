@@ -3,175 +3,18 @@
 
 <head>
   <title>LiDAR Parameter Sweep — %[1]s</title>
+  <link rel="stylesheet" href="/assets/common.css">
   <script src="/assets/echarts.min.js"></script>
   <style>
-    html,
-    body {
-      height: 100%%;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      margin: 12px auto;
-      max-width: 1800px;
-      background: #f5f7fb;
-      color: #0f172a;
-    }
-
-    h1 {
-      margin: 0 0 6px 0;
-    }
-
-    p.sub {
-      margin: 0 0 16px 0;
-      color: #475569;
-    }
-
-    .card {
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      background: #fff;
-      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
-      padding: 16px;
-      margin-bottom: 16px;
-    }
-
-    .card h2 {
-      font-size: 15px;
-      font-weight: 600;
-      margin: 0 0 12px 0;
-    }
-
-    .form-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 10px;
-    }
-
-    label {
-      display: flex;
-      flex-direction: column;
-      font-size: 13px;
-      color: #475569;
-    }
-
-    label span {
-      margin-bottom: 3px;
-      font-weight: 500;
-    }
-
-    input,
-    select {
-      padding: 6px 8px;
-      border: 1px solid #cbd5e1;
-      border-radius: 5px;
-      font-size: 13px;
-    }
-
-    .btn {
-      padding: 8px 18px;
-      border-radius: 5px;
-      border: none;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 600;
-    }
-
-    .btn-primary {
-      background: #3b82f6;
-      color: #fff;
-    }
-
-    .btn-primary:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .btn-danger {
-      background: #ef4444;
-      color: #fff;
-    }
-
-    .btn-group {
-      display: flex;
-      gap: 8px;
-      margin-top: 12px;
-    }
-
-    .status-badge {
-      display: inline-block;
-      padding: 2px 10px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-
-    .status-running {
-      background: #dcfce7;
-      color: #166534;
-    }
-
-    .status-complete {
-      background: #dbeafe;
-      color: #1e40af;
-    }
-
-    .status-error {
-      background: #fee2e2;
-      color: #991b1b;
-    }
-
-    .status-idle {
-      background: #f1f5f9;
-      color: #475569;
-    }
-
-    .error-box {
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      border-radius: 6px;
-      padding: 10px;
-      color: #b91c1c;
-      font-size: 13px;
-      margin-bottom: 10px;
-    }
-
-    .chart-container {
-      width: 100%%;
-      height: 400px;
-    }
-
-    table {
-      width: 100%%;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
-
-    th,
-    td {
-      padding: 8px;
-      text-align: left;
-      border-bottom: 1px solid #e2e8f0;
-    }
-
-    th {
-      color: #475569;
-      font-weight: 600;
-    }
-
-    .mono {
-      font-family: "SF Mono", SFMono-Regular, Menlo, monospace;
-    }
-
     .section-title {
       font-size: 13px;
       font-weight: 600;
-      color: #475569;
+      color: var(--fg-muted);
       margin-bottom: 8px;
     }
 
     .section-border {
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--card-border);
       border-radius: 6px;
       padding: 12px;
       margin-bottom: 10px;
@@ -183,12 +26,76 @@
       gap: 12px;
       margin-bottom: 8px;
     }
+
+    .chart-container {
+      width: 100%%;
+      height: 400px;
+    }
+
+    .param-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .param-row select,
+    .param-row input {
+      min-width: 0;
+    }
+
+    .param-row .param-name {
+      flex: 1;
+      min-width: 180px;
+    }
+
+    .param-row .param-field {
+      flex: 1;
+      min-width: 100px;
+    }
+
+    .param-row .param-remove {
+      flex: 0 0 auto;
+    }
+
+    .btn-sm {
+      padding: 4px 10px;
+      font-size: 12px;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-add {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-add:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-remove {
+      background: var(--danger);
+      color: #fff;
+      padding: 6px 10px;
+    }
+
+    #current-combo {
+      font-size: 13px;
+      color: var(--fg-faint);
+    }
+
+    .pcap-fields {
+      margin-top: 10px;
+    }
   </style>
 </head>
 
 <body>
   <h1>LiDAR Parameter Sweep</h1>
-  <p class="sub">Sweep background model parameters and visualise results to identify optimal tuning. Sensor: %[1]s</p>
+  <p class="sub">Sweep tuning parameters and visualise results to identify optimal tuning. Sensor: %[1]s</p>
 
   <div id="error-box" class="error-box" style="display:none"></div>
 
@@ -196,14 +103,6 @@
   <div class="card">
     <h2>Sweep Configuration</h2>
     <div class="form-grid">
-      <label><span>Mode</span>
-        <select id="mode">
-          <option value="noise">Noise</option>
-          <option value="closeness">Closeness</option>
-          <option value="neighbour">Neighbour</option>
-          <option value="multi">Multi (all combinations)</option>
-        </select>
-      </label>
       <label><span>Seed Behaviour</span>
         <select id="seed">
           <option value="true">True</option>
@@ -216,47 +115,31 @@
       <label><span>Settle Time</span><input id="settle_time" type="text" value="5s"></label>
     </div>
 
-    <!-- Noise range -->
-    <div id="noise-section" class="section-border" style="margin-top:12px">
-      <div class="section-title">Noise Range</div>
+    <!-- Data Source -->
+    <div class="section-border" style="margin-top:12px">
+      <div class="section-title">Data Source</div>
       <div class="form-grid">
-        <label><span>Start</span><input id="noise_start" type="number" step="0.001" value="0.005"></label>
-        <label><span>End</span><input id="noise_end" type="number" step="0.001" value="0.05"></label>
-        <label><span>Step</span><input id="noise_step" type="number" step="0.001" value="0.005"></label>
+        <label><span>Source</span>
+          <select id="data_source" onchange="togglePCAP()">
+            <option value="live">Live</option>
+            <option value="pcap">PCAP Replay</option>
+          </select>
+        </label>
+      </div>
+      <div id="pcap-fields" class="pcap-fields form-grid" style="display:none">
+        <label><span>PCAP File</span><input id="pcap_file" type="text" placeholder="filename.pcap"></label>
+        <label><span>Start (seconds)</span><input id="pcap_start_secs" type="number" step="0.1" value="0"
+            min="0"></label>
+        <label><span>Duration (seconds, -1=all)</span><input id="pcap_duration_secs" type="number" step="0.1"
+            value="-1"></label>
       </div>
     </div>
 
-    <!-- Closeness range -->
-    <div id="closeness-section" class="section-border" style="display:none">
-      <div class="section-title">Closeness Range</div>
-      <div class="form-grid">
-        <label><span>Start</span><input id="closeness_start" type="number" step="0.5" value="1.5"></label>
-        <label><span>End</span><input id="closeness_end" type="number" step="0.5" value="3.0"></label>
-        <label><span>Step</span><input id="closeness_step" type="number" step="0.5" value="0.5"></label>
-      </div>
-    </div>
-
-    <!-- Neighbour range -->
-    <div id="neighbour-section" class="section-border" style="display:none">
-      <div class="section-title">Neighbour Range</div>
-      <div class="form-grid">
-        <label><span>Start</span><input id="neighbour_start" type="number" step="1" value="0"></label>
-        <label><span>End</span><input id="neighbour_end" type="number" step="1" value="3"></label>
-        <label><span>Step</span><input id="neighbour_step" type="number" step="1" value="1"></label>
-      </div>
-    </div>
-
-    <!-- Fixed values -->
-    <div id="fixed-section" class="section-border">
-      <div class="section-title">Fixed Parameters (not being swept)</div>
-      <div class="form-grid">
-        <label id="fixed-noise-lbl"><span>Fixed Noise</span><input id="fixed_noise" type="number" step="0.001"
-            value="0.01"></label>
-        <label id="fixed-closeness-lbl"><span>Fixed Closeness</span><input id="fixed_closeness" type="number"
-            step="0.5" value="2.0"></label>
-        <label id="fixed-neighbour-lbl"><span>Fixed Neighbour</span><input id="fixed_neighbour" type="number" step="1"
-            value="1"></label>
-      </div>
+    <!-- Dynamic Parameters -->
+    <div class="section-border" style="margin-top:12px">
+      <div class="section-title">Sweep Parameters</div>
+      <div id="param-rows"></div>
+      <button class="btn-sm btn-add" onclick="addParamRow()">+ Add Parameter</button>
     </div>
 
     <div class="btn-group">
@@ -272,12 +155,12 @@
       <span>Status: <span id="status-badge" class="status-badge status-idle">idle</span></span>
       <span id="combo-count"></span>
     </div>
-    <div id="current-combo" style="font-size:13px;color:#64748b"></div>
+    <div id="current-combo"></div>
     <div id="sweep-error" class="error-box" style="display:none"></div>
   </div>
 
-  <!-- Charts -->
-  <div id="charts-section" style="display:none">
+  <!-- Charts (always visible, start empty) -->
+  <div id="charts-section">
     <div class="card">
       <h2>Results</h2>
       <div id="acceptance-chart" class="chart-container"></div>
@@ -290,11 +173,9 @@
       <h2>Results Table</h2>
       <div style="overflow-x:auto">
         <table>
-          <thead>
+          <thead id="results-head">
             <tr>
-              <th>Noise</th>
-              <th>Closeness</th>
-              <th>Neighbour</th>
+              <th>Parameters</th>
               <th>Accept Rate</th>
               <th>± StdDev</th>
               <th>Nonzero Cells</th>
@@ -313,21 +194,103 @@
     var nzChart = null;
     var bktChart = null;
 
+    // Detect dark mode for ECharts
+    var isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var chartTheme = isDark ? 'dark' : null;
+    var chartBg = 'transparent';
+
+    // Parameter schema derived from TuningConfig
+    var PARAM_SCHEMA = {
+      noise_relative: { type: 'float64', label: 'Noise Relative', step: 0.001 },
+      closeness_multiplier: { type: 'float64', label: 'Closeness Multiplier', step: 0.5 },
+      neighbor_confirmation_count: { type: 'int', label: 'Neighbour Confirmation', step: 1 },
+      seed_from_first: { type: 'bool', label: 'Seed From First' },
+      warmup_duration_nanos: { type: 'int64', label: 'Warmup Duration (ns)', step: 1000000 },
+      warmup_min_frames: { type: 'int', label: 'Warmup Min Frames', step: 1 },
+      post_settle_update_fraction: { type: 'float64', label: 'Post-Settle Update Fraction', step: 0.01 },
+      foreground_min_cluster_points: { type: 'int', label: 'FG Min Cluster Points', step: 1 },
+      foreground_dbscan_eps: { type: 'float64', label: 'FG DBSCAN Eps', step: 0.1 },
+      buffer_timeout: { type: 'string', label: 'Buffer Timeout' },
+      min_frame_points: { type: 'int', label: 'Min Frame Points', step: 100 },
+      flush_interval: { type: 'string', label: 'Flush Interval' },
+      flush_disable: { type: 'bool', label: 'Flush Disable' },
+      gating_distance_squared: { type: 'float64', label: 'Gating Distance²', step: 0.1 },
+      process_noise_pos: { type: 'float64', label: 'Process Noise Pos', step: 0.001 },
+      process_noise_vel: { type: 'float64', label: 'Process Noise Vel', step: 0.001 },
+      measurement_noise: { type: 'float64', label: 'Measurement Noise', step: 0.01 },
+      occlusion_cov_inflation: { type: 'float64', label: 'Occlusion Cov Inflation', step: 0.1 },
+      hits_to_confirm: { type: 'int', label: 'Hits to Confirm', step: 1 },
+      max_misses: { type: 'int', label: 'Max Misses', step: 1 },
+      max_misses_confirmed: { type: 'int', label: 'Max Misses Confirmed', step: 1 }
+    };
+
+    var paramNames = Object.keys(PARAM_SCHEMA);
+    var paramCounter = 0;
+
     function val(id) { return document.getElementById(id).value; }
     function numVal(id) { return parseFloat(val(id)); }
     function intVal(id) { return parseInt(val(id), 10); }
 
-    // Show/hide form sections based on mode
-    document.getElementById('mode').addEventListener('change', function () {
-      var m = this.value;
-      document.getElementById('noise-section').style.display = (m === 'noise' || m === 'multi') ? '' : 'none';
-      document.getElementById('closeness-section').style.display = (m === 'closeness' || m === 'multi') ? '' : 'none';
-      document.getElementById('neighbour-section').style.display = (m === 'neighbour' || m === 'multi') ? '' : 'none';
-      document.getElementById('fixed-section').style.display = (m === 'multi') ? 'none' : '';
-      document.getElementById('fixed-noise-lbl').style.display = (m !== 'noise') ? '' : 'none';
-      document.getElementById('fixed-closeness-lbl').style.display = (m !== 'closeness') ? '' : 'none';
-      document.getElementById('fixed-neighbour-lbl').style.display = (m !== 'neighbour') ? '' : 'none';
-    });
+    function togglePCAP() {
+      var ds = document.getElementById('data_source').value;
+      document.getElementById('pcap-fields').style.display = (ds === 'pcap') ? '' : 'none';
+    }
+
+    function addParamRow(name) {
+      var id = paramCounter++;
+      var container = document.getElementById('param-rows');
+      var row = document.createElement('div');
+      row.className = 'param-row';
+      row.id = 'param-row-' + id;
+
+      // Name dropdown
+      var selHtml = '<label class="param-name"><span>Parameter</span><select id="pname-' + id + '" onchange="updateParamFields(' + id + ')">';
+      selHtml += '<option value="">-- select --</option>';
+      for (var i = 0; i < paramNames.length; i++) {
+        var pn = paramNames[i];
+        var schema = PARAM_SCHEMA[pn];
+        var sel = (name === pn) ? ' selected' : '';
+        selHtml += '<option value="' + pn + '"' + sel + '>' + schema.label + '</option>';
+      }
+      selHtml += '</select></label>';
+
+      row.innerHTML = selHtml + '<div id="pfields-' + id + '" style="display:flex;gap:8px;flex-wrap:wrap;flex:2"></div>' +
+        '<button class="btn-sm btn-remove param-remove" onclick="removeParamRow(' + id + ')">×</button>';
+
+      container.appendChild(row);
+      if (name) updateParamFields(id);
+      return id;
+    }
+
+    function removeParamRow(id) {
+      var row = document.getElementById('param-row-' + id);
+      if (row) row.remove();
+    }
+
+    function updateParamFields(id) {
+      var nameEl = document.getElementById('pname-' + id);
+      var fieldsEl = document.getElementById('pfields-' + id);
+      var name = nameEl.value;
+      if (!name) { fieldsEl.innerHTML = ''; return; }
+
+      var schema = PARAM_SCHEMA[name];
+      var typ = schema.type;
+      var step = schema.step || 1;
+
+      if (typ === 'float64' || typ === 'int' || typ === 'int64') {
+        fieldsEl.innerHTML =
+          '<label class="param-field"><span>Start</span><input id="pstart-' + id + '" type="number" step="' + step + '" value="0"></label>' +
+          '<label class="param-field"><span>End</span><input id="pend-' + id + '" type="number" step="' + step + '" value="1"></label>' +
+          '<label class="param-field"><span>Step</span><input id="pstep-' + id + '" type="number" step="' + step + '" value="' + step + '"></label>' +
+          '<label class="param-field" style="flex:2"><span>Values (comma-sep, overrides range)</span><input id="pvals-' + id + '" type="text" placeholder="e.g. 0.01, 0.02, 0.05"></label>';
+      } else if (typ === 'bool') {
+        fieldsEl.innerHTML =
+          '<label class="param-field"><span>Values (comma-sep)</span><input id="pvals-' + id + '" type="text" value="true, false"></label>';
+      } else if (typ === 'string') {
+        fieldsEl.innerHTML =
+          '<label class="param-field" style="flex:2"><span>Values (comma-sep)</span><input id="pvals-' + id + '" type="text" placeholder="e.g. 500ms, 1s, 2s"></label>';
+      }
+    }
 
     function showError(msg) {
       var el = document.getElementById('error-box');
@@ -337,25 +300,74 @@
 
     function handleStart() {
       showError('');
+
+      // Gather parameters
+      var params = [];
+      var rows = document.getElementById('param-rows').children;
+      for (var i = 0; i < rows.length; i++) {
+        var rowId = rows[i].id.replace('param-row-', '');
+        var nameEl = document.getElementById('pname-' + rowId);
+        if (!nameEl) continue;
+        var name = nameEl.value;
+        if (!name) continue;
+        var schema = PARAM_SCHEMA[name];
+        var typ = schema.type;
+
+        var p = { name: name, type: typ };
+
+        // Check for explicit values
+        var valsEl = document.getElementById('pvals-' + rowId);
+        var valsStr = valsEl ? valsEl.value.trim() : '';
+
+        if (valsStr) {
+          // Parse comma-separated values
+          var parts = valsStr.split(',').map(function (s) { return s.trim(); }).filter(function (s) { return s !== ''; });
+          if (typ === 'float64') {
+            p.values = parts.map(function (s) { return parseFloat(s); });
+          } else if (typ === 'int' || typ === 'int64') {
+            p.values = parts.map(function (s) { return parseInt(s, 10); });
+          } else if (typ === 'bool') {
+            p.values = parts.map(function (s) { return s.toLowerCase() === 'true'; });
+          } else {
+            p.values = parts;
+          }
+        } else if (typ === 'float64' || typ === 'int' || typ === 'int64') {
+          // Use start/end/step range
+          var startEl = document.getElementById('pstart-' + rowId);
+          var endEl = document.getElementById('pend-' + rowId);
+          var stepEl = document.getElementById('pstep-' + rowId);
+          if (startEl && endEl && stepEl) {
+            p.start = parseFloat(startEl.value);
+            p.end = parseFloat(endEl.value);
+            p.step = parseFloat(stepEl.value);
+          }
+        }
+
+        params.push(p);
+      }
+
+      if (params.length === 0) {
+        showError('Add at least one parameter to sweep.');
+        return;
+      }
+
       var req = {
-        mode: val('mode'),
+        mode: 'params',
         seed: val('seed'),
         iterations: intVal('iterations'),
         interval: val('interval'),
         settle_time: val('settle_time'),
-        noise_start: numVal('noise_start'),
-        noise_end: numVal('noise_end'),
-        noise_step: numVal('noise_step'),
-        closeness_start: numVal('closeness_start'),
-        closeness_end: numVal('closeness_end'),
-        closeness_step: numVal('closeness_step'),
-        neighbour_start: intVal('neighbour_start'),
-        neighbour_end: intVal('neighbour_end'),
-        neighbour_step: intVal('neighbour_step'),
-        fixed_noise: numVal('fixed_noise'),
-        fixed_closeness: numVal('fixed_closeness'),
-        fixed_neighbour: intVal('fixed_neighbour')
+        params: params,
+        data_source: val('data_source')
       };
+
+      // Add PCAP fields if relevant
+      if (req.data_source === 'pcap') {
+        req.pcap_file = val('pcap_file');
+        req.pcap_start_secs = numVal('pcap_start_secs');
+        req.pcap_duration_secs = numVal('pcap_duration_secs');
+      }
+
       fetch('/api/lidar/sweep/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -382,6 +394,20 @@
     }
 
     function comboLabel(r) {
+      if (r.param_values) {
+        return Object.entries(r.param_values).map(function (e) {
+          var key = e[0];
+          var v = e[1];
+          // Use short key (last segment after underscore split)
+          var parts = key.split('_');
+          var short = parts.length > 1 ? parts.slice(-1)[0] : key;
+          if (typeof v === 'number' && v !== Math.floor(v)) {
+            return short + '=' + v.toFixed(3);
+          }
+          return short + '=' + v;
+        }).join(' ');
+      }
+      // Fallback for legacy results
       return 'n=' + r.noise.toFixed(3) + ' c=' + r.closeness.toFixed(1) + ' nb=' + r.neighbour;
     }
 
@@ -403,9 +429,8 @@
         var cc = document.getElementById('current-combo');
         if (st.status === 'running' && st.current_combo) {
           var c = st.current_combo;
-          cc.textContent = 'Current: noise=' + c.noise.toFixed(4) +
-            ', closeness=' + c.closeness.toFixed(2) +
-            ', neighbour=' + c.neighbour +
+          var lbl = comboLabel(c);
+          cc.textContent = 'Current: ' + lbl +
             ' → acceptance=' + ((c.overall_accept_mean || 0) * 100).toFixed(1) + '%%';
         } else {
           cc.textContent = '';
@@ -426,35 +451,47 @@
       }).catch(function () { });
     }
 
+    function initCharts() {
+      acceptChart = echarts.init(document.getElementById('acceptance-chart'), chartTheme);
+      nzChart = echarts.init(document.getElementById('nonzero-chart'), chartTheme);
+      bktChart = echarts.init(document.getElementById('bucket-chart'), chartTheme);
+
+      var emptyOpt = {
+        title: { text: 'Waiting for data...', left: 'center', top: 'center', textStyle: { color: isDark ? '#94a3b8' : '#94a3b8', fontSize: 14, fontWeight: 'normal' } },
+        backgroundColor: chartBg
+      };
+      acceptChart.setOption(emptyOpt);
+      nzChart.setOption(emptyOpt);
+      bktChart.setOption(emptyOpt);
+    }
+
     function renderCharts(results) {
-      document.getElementById('charts-section').style.display = '';
       var labels = results.map(comboLabel);
 
       // Overall acceptance chart
-      if (!acceptChart) { acceptChart = echarts.init(document.getElementById('acceptance-chart')); }
       acceptChart.setOption({
-        title: { text: 'Overall Acceptance Rate', left: 'center' },
+        title: { text: 'Overall Acceptance Rate', left: 'center', top: 0, textStyle: { fontSize: 14 } },
         tooltip: { trigger: 'axis' },
         xAxis: { type: 'category', data: labels, axisLabel: { rotate: 45, fontSize: 10 } },
         yAxis: { type: 'value', name: 'Acceptance Rate', axisLabel: { formatter: function (v) { return (v * 100).toFixed(0) + '%%'; } } },
         series: [{ name: 'Mean', type: 'bar', data: results.map(function (r) { return r.overall_accept_mean; }), itemStyle: { color: '#5470c6' } }],
-        grid: { bottom: 100 }
-      });
+        grid: { bottom: 100 },
+        backgroundColor: chartBg
+      }, true);
 
       // Nonzero cells chart
-      if (!nzChart) { nzChart = echarts.init(document.getElementById('nonzero-chart')); }
       nzChart.setOption({
-        title: { text: 'Nonzero Background Cells', left: 'center' },
+        title: { text: 'Nonzero Background Cells', left: 'center', top: 0, textStyle: { fontSize: 14 } },
         tooltip: { trigger: 'axis' },
         xAxis: { type: 'category', data: labels, axisLabel: { rotate: 45, fontSize: 10 } },
         yAxis: { type: 'value', name: 'Cell Count' },
         series: [{ name: 'Mean', type: 'bar', data: results.map(function (r) { return r.nonzero_cells_mean; }), itemStyle: { color: '#91cc75' } }],
-        grid: { bottom: 100 }
-      });
+        grid: { bottom: 100 },
+        backgroundColor: chartBg
+      }, true);
 
       // Bucket heatmap
       if (results[0] && results[0].buckets && results[0].buckets.length > 0) {
-        if (!bktChart) { bktChart = echarts.init(document.getElementById('bucket-chart')); }
         var buckets = results[0].buckets;
         var data = [];
         var mx = 0;
@@ -467,7 +504,7 @@
           }
         });
         bktChart.setOption({
-          title: { text: 'Per-Bucket Acceptance Rates', left: 'center' },
+          title: { text: 'Per-Bucket Acceptance Rates', left: 'center', top: 0, textStyle: { fontSize: 14 } },
           tooltip: {
             formatter: function (p) {
               var ri = p.value[0], bi = p.value[1], v = p.value[2];
@@ -482,24 +519,56 @@
             formatter: function (v) { return (v * 100).toFixed(0) + '%%'; }
           },
           series: [{ type: 'heatmap', data: data, emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.5)' } } }],
-          grid: { bottom: 80, top: 60 }
-        });
+          grid: { bottom: 80, top: 60 },
+          backgroundColor: chartBg
+        }, true);
       }
     }
 
     function renderTable(results) {
+      // Determine param columns from first result
+      var paramKeys = [];
+      if (results[0] && results[0].param_values) {
+        paramKeys = Object.keys(results[0].param_values);
+      } else {
+        paramKeys = ['noise', 'closeness', 'neighbour'];
+      }
+
+      // Rebuild header
+      var thead = document.getElementById('results-head');
+      var headerHtml = '<tr>';
+      paramKeys.forEach(function (k) {
+        var schema = PARAM_SCHEMA[k];
+        headerHtml += '<th>' + (schema ? schema.label : k) + '</th>';
+      });
+      headerHtml += '<th>Accept Rate</th><th>± StdDev</th><th>Nonzero Cells</th><th>± StdDev</th></tr>';
+      thead.innerHTML = headerHtml;
+
+      // Rebuild body
       var tbody = document.getElementById('results-body');
       tbody.innerHTML = '';
       results.forEach(function (r) {
         var tr = document.createElement('tr');
-        tr.innerHTML =
-          '<td class="mono">' + r.noise.toFixed(4) + '</td>' +
-          '<td class="mono">' + r.closeness.toFixed(2) + '</td>' +
-          '<td class="mono">' + r.neighbour + '</td>' +
+        var html = '';
+        paramKeys.forEach(function (k) {
+          var v;
+          if (r.param_values && r.param_values[k] !== undefined) {
+            v = r.param_values[k];
+          } else {
+            v = r[k];
+          }
+          if (typeof v === 'number' && v !== Math.floor(v)) {
+            html += '<td class="mono">' + v.toFixed(4) + '</td>';
+          } else {
+            html += '<td class="mono">' + v + '</td>';
+          }
+        });
+        html +=
           '<td class="mono">' + (r.overall_accept_mean * 100).toFixed(2) + '%%</td>' +
-          '<td class="mono" style="color:#64748b">±' + (r.overall_accept_stddev * 100).toFixed(2) + '%%</td>' +
+          '<td class="mono" style="color:var(--fg-faint)">±' + (r.overall_accept_stddev * 100).toFixed(2) + '%%</td>' +
           '<td class="mono">' + r.nonzero_cells_mean.toFixed(0) + '</td>' +
-          '<td class="mono" style="color:#64748b">±' + r.nonzero_cells_stddev.toFixed(0) + '</td>';
+          '<td class="mono" style="color:var(--fg-faint)">±' + r.nonzero_cells_stddev.toFixed(0) + '</td>';
+        tr.innerHTML = html;
         tbody.appendChild(tr);
       });
     }
@@ -509,6 +578,9 @@
       if (nzChart) nzChart.resize();
       if (bktChart) bktChart.resize();
     });
+
+    // Initialise charts empty on page load
+    initCharts();
 
     // Check for existing sweep on page load
     fetch('/api/lidar/sweep/status').then(function (r) { return r.json(); }).then(function (st) {
@@ -524,6 +596,9 @@
         renderTable(st.results);
       }
     }).catch(function () { });
+
+    // Add a default parameter row
+    addParamRow('noise_relative');
   </script>
 </body>
 

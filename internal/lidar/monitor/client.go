@@ -182,6 +182,123 @@ func (c *Client) SetParams(params BackgroundParams) error {
 	return nil
 }
 
+// SetTuningParams sends a partial tuning config update to /api/lidar/params.
+// The params map can contain any TuningConfig field names with their values.
+func (c *Client) SetTuningParams(params map[string]interface{}) error {
+	data, err := json.Marshal(params)
+	if err != nil {
+		return fmt.Errorf("marshal tuning params: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/api/lidar/params?sensor_id=%s", c.BaseURL, c.SensorID)
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("creating request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("status %d: %s", resp.StatusCode, string(body))
+	}
+
+	log.Printf("Applied tuning params: %s", string(data))
+	return nil
+}
+
+// PCAPReplayConfig holds configuration for starting a PCAP replay.
+type PCAPReplayConfig struct {
+	PCAPFile        string
+	StartSeconds    float64
+	DurationSeconds float64
+	MaxRetries      int
+}
+
+// StartPCAPReplayWithConfig requests a PCAP replay with extended configuration.
+func (c *Client) StartPCAPReplayWithConfig(cfg PCAPReplayConfig) error {
+	url := fmt.Sprintf("%s/api/lidar/pcap/start?sensor_id=%s", c.BaseURL, c.SensorID)
+	payload := map[string]interface{}{
+		"pcap_file": filepath.Base(cfg.PCAPFile),
+	}
+	if cfg.StartSeconds > 0 {
+		payload["start_seconds"] = cfg.StartSeconds
+	}
+	if cfg.DurationSeconds != 0 {
+		payload["duration_seconds"] = cfg.DurationSeconds
+	}
+	data, _ := json.Marshal(payload)
+
+	log.Printf("Requesting PCAP replay for sensor %s: file=%s start=%.1fs duration=%.1fs",
+		c.SensorID, cfg.PCAPFile, cfg.StartSeconds, cfg.DurationSeconds)
+
+	maxRetries := cfg.MaxRetries
+	if maxRetries <= 0 {
+		maxRetries = 60
+	}
+
+	for retry := 0; retry < maxRetries; retry++ {
+		req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(data))
+		if err != nil {
+			return fmt.Errorf("creating request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := c.HTTPClient.Do(req)
+		if err != nil {
+			return err
+		}
+
+		if resp.StatusCode == http.StatusOK {
+			resp.Body.Close()
+			return nil
+		}
+
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		if resp.StatusCode == http.StatusConflict {
+			if retry == 0 {
+				log.Printf("PCAP replay in progress, waiting...")
+			}
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		return fmt.Errorf("status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return fmt.Errorf("timeout waiting for PCAP replay slot")
+}
+
+// StopPCAPReplay stops any running PCAP replay for this sensor.
+func (c *Client) StopPCAPReplay() error {
+	url := fmt.Sprintf("%s/api/lidar/pcap/stop?sensor_id=%s", c.BaseURL, c.SensorID)
+	req, err := http.NewRequest(http.MethodPost, url, nil)
+	if err != nil {
+		return fmt.Errorf("creating request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("status %d: %s", resp.StatusCode, string(body))
+	}
+
+	log.Printf("Stopped PCAP replay for sensor %s", c.SensorID)
+	return nil
+}
+
 // ResetAcceptance resets the acceptance counters.
 func (c *Client) ResetAcceptance() error {
 	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/lidar/acceptance/reset?sensor_id=%s", c.BaseURL, c.SensorID), nil)

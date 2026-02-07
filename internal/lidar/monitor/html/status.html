@@ -3,26 +3,10 @@
 
 <head>
   <title>Lidar Monitor - {{.SensorID}}</title>
+  <link rel="stylesheet" href="/assets/common.css">
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      margin: 0;
-      padding: 20px;
-      background-color: #f0f2f5;
-      color: #333;
-    }
-
     h1 {
-      margin-top: 0;
-      margin-bottom: 0;
-      color: #1a1a1a;
       grid-column: 1 / -1;
-    }
-
-    h2,
-    h3 {
-      margin-top: 0;
-      color: #444;
     }
 
     .grid-container {
@@ -50,28 +34,17 @@
     }
 
     .card {
-      background: #fff;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
       overflow-x: auto;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 10px;
+      padding: 20px;
     }
 
     th,
     td {
-      padding: 8px;
-      border: 1px solid #ddd;
-      text-align: left;
+      border: 1px solid var(--card-border);
     }
 
     th {
-      background-color: #f8f9fa;
+      background-color: var(--card-header-bg);
     }
 
     ul {
@@ -87,19 +60,16 @@
       margin-bottom: 15px;
     }
 
-    input[type="text"],
-    input[type="number"],
-    textarea,
-    select {
-      padding: 4px 8px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      max-width: 100%;
-      box-sizing: border-box;
-    }
-
     textarea {
       width: 100% !important;
+      background: var(--input-bg);
+      color: var(--input-fg);
+      border: 1px solid var(--input-border);
+      border-radius: 4px;
+      padding: 6px;
+      font-family: var(--mono);
+      font-size: 13px;
+      box-sizing: border-box;
     }
 
     .form-row {
@@ -121,7 +91,7 @@
     .form-group label {
       font-weight: 600;
       font-size: 0.9em;
-      color: #555;
+      color: var(--fg-muted);
     }
 
     .form-inline {
@@ -141,61 +111,14 @@
     button {
       cursor: pointer;
       padding: 5px 10px;
-      background-color: #0066cc;
+      background-color: var(--accent);
       color: white;
       border: none;
       border-radius: 4px;
     }
 
     button:hover {
-      background-color: #0052a3;
-    }
-
-    @media (prefers-color-scheme: dark) {
-      body {
-        background-color: #121212;
-        color: #e0e0e0;
-      }
-
-      h1 {
-        color: #ffffff;
-      }
-
-      h2,
-      h3 {
-        color: #cccccc;
-      }
-
-      .card {
-        background: #1e1e1e;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-      }
-
-      th,
-      td {
-        border-color: #444;
-      }
-
-      th {
-        background-color: #2d2d2d;
-      }
-
-      input[type="text"],
-      input[type="number"],
-      textarea,
-      select {
-        background-color: #333;
-        color: #fff;
-        border-color: #555;
-      }
-
-      a {
-        color: #66b3ff;
-      }
-
-      a:visited {
-        color: #99ccff;
-      }
+      background-color: var(--accent-hover);
     }
   </style>
 </head>
@@ -303,8 +226,7 @@
       <!-- JSON Editor Form -->
       <h3>Update Parameters (JSON)</h3>
       <form action="/api/lidar/params?sensor_id={{.SensorID}}" method="POST">
-        <textarea name="config_json" rows="{{.BGParamsJSONLines}}"
-          style="width: 26em; font-family: monospace; font-size: 13px; padding: 6px; border: 1px solid #ccc;">{{.BGParamsJSON}}</textarea>
+        <textarea name="config_json" rows="{{.BGParamsJSONLines}}">{{.BGParamsJSON}}</textarea>
         <button type="submit">Update
           Params</button>
       </form>
