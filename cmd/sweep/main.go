@@ -215,12 +215,7 @@ func main() {
 					seed = true
 				}
 
-				// Reset grid
-				if err := client.ResetGrid(); err != nil {
-					log.Printf("WARNING: Grid reset failed: %v", err)
-				}
-
-				// Set parameters
+				// Set parameters FIRST (before reset, so new config is active)
 				params := monitor.BackgroundParams{
 					NoiseRelative:              noise,
 					ClosenessMultiplier:        closeness,
@@ -230,6 +225,11 @@ func main() {
 				if err := client.SetParams(params); err != nil {
 					log.Printf("ERROR: Failed to set params: %v", err)
 					continue
+				}
+
+				// Reset grid (with new params now active)
+				if err := client.ResetGrid(); err != nil {
+					log.Printf("WARNING: Grid reset failed: %v", err)
 				}
 
 				// Reset acceptance counters
