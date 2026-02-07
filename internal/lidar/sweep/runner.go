@@ -577,13 +577,7 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 					seed = true
 				}
 
-				// Reset grid
-				if err := r.client.ResetGrid(); err != nil {
-					log.Printf("[sweep] WARNING: Grid reset failed: %v", err)
-					r.addWarning(fmt.Sprintf("combo %d: grid reset failed: %v", comboNum+1, err))
-				}
-
-				// Set parameters
+				// Set parameters FIRST (before reset, so new config is active)
 				params := monitor.BackgroundParams{
 					NoiseRelative:              noise,
 					ClosenessMultiplier:        closeness,
@@ -594,6 +588,12 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 					log.Printf("[sweep] ERROR: Failed to set params: %v", err)
 					r.addWarning(fmt.Sprintf("combo %d: failed to set params (skipped): %v", comboNum+1, err))
 					continue
+				}
+
+				// Reset grid (with new params now active)
+				if err := r.client.ResetGrid(); err != nil {
+					log.Printf("[sweep] WARNING: Grid reset failed: %v", err)
+					r.addWarning(fmt.Sprintf("combo %d: grid reset failed: %v", comboNum+1, err))
 				}
 
 				// Reset acceptance
@@ -699,12 +699,6 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 			seed = true
 		}
 
-		// Reset grid
-		if err := r.client.ResetGrid(); err != nil {
-			log.Printf("[sweep] WARNING: Grid reset failed: %v", err)
-			r.addWarning(fmt.Sprintf("combo %d: grid reset failed: %v", comboNum+1, err))
-		}
-
 		// Build tuning params map, include seed
 		tuningParams := make(map[string]interface{}, len(paramValues)+1)
 		for k, v := range paramValues {
@@ -715,11 +709,17 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 			tuningParams["seed_from_first"] = seed
 		}
 
-		// Set parameters via generic endpoint
+		// Set parameters FIRST (before reset, so new config is active)
 		if err := r.client.SetTuningParams(tuningParams); err != nil {
 			log.Printf("[sweep] ERROR: Failed to set params: %v", err)
 			r.addWarning(fmt.Sprintf("combo %d: failed to set params (skipped): %v", comboNum+1, err))
 			continue
+		}
+
+		// Reset grid (with new params now active)
+		if err := r.client.ResetGrid(); err != nil {
+			log.Printf("[sweep] WARNING: Grid reset failed: %v", err)
+			r.addWarning(fmt.Sprintf("combo %d: grid reset failed: %v", comboNum+1, err))
 		}
 
 		// Reset acceptance
