@@ -162,10 +162,115 @@ func narrowBounds(topK []ComboResult, paramName string, margin float64) (start, 
 
 ### Dashboard Integration
 
-- Add "Auto-Tune" button next to "Start Sweep"
-- Show round progress: "Round 2/3 — 15/25 combinations"
-- After completion, show recommendation card with optimal values and a "Apply to Config" button
-- Show convergence chart: objective score vs round number
+#### Web Interface
+
+The auto-tuning feature will be accessed through the existing sweep dashboard at `http://localhost:8080/lidar/sweep`:
+
+1. **Auto-Tune Tab**: Add a new tab alongside the existing "Manual Sweep" tab
+2. **Parameter Configuration**: Same parameter selection UI as manual sweep, but with simplified bounds entry (min/max instead of step values)
+3. **Auto-Tune Settings Panel**:
+   - **Max Rounds** (default: 3): Number of refinement rounds
+   - **Values Per Param** (default: 5): Grid density for each round
+   - **Top K** (default: 5): Number of best results to narrow from
+   - **Objective Function** dropdown: "Acceptance Rate", "Misalignment", "Weighted" (custom)
+   - **Custom Weights** (shown when "Weighted" selected): Sliders/inputs for acceptance, misalignment, alignment, nonzero cells
+4. **Data Source Configuration**: Same as manual sweep (Live/PCAP/Scenario)
+5. **Start Auto-Tune** button
+
+#### Scenario Specification
+
+Auto-tuning can be run against:
+
+1. **Live mode**: Uses real-time LiDAR data from the sensor
+2. **PCAP replay**: Replays a single PCAP file repeatedly for each parameter combination
+3. **Scenario mode**: Runs a sequence of PCAP files representing different traffic conditions
+
+**Scenario JSON Format**:
+
+```json
+{
+  "name": "Multi-condition sweep",
+  "description": "Test parameters across morning rush, midday, and evening conditions",
+  "segments": [
+    {
+      "pcap_path": "/data/pcaps/morning_rush_0730-0800.pcap",
+      "iterations": 5,
+      "settle_time": "30s"
+    },
+    {
+      "pcap_path": "/data/pcaps/midday_light_1200-1230.pcap",
+      "iterations": 5,
+      "settle_time": "20s"
+    },
+    {
+      "pcap_path": "/data/pcaps/evening_rush_1730-1800.pcap",
+      "iterations": 5,
+      "settle_time": "30s"
+    }
+  ],
+  "aggregation": "weighted_average",
+  "weights": [0.35, 0.3, 0.35]
+}
+```
+
+**Scenario Fields**:
+
+- **name**: Human-readable scenario name (displayed in dashboard)
+- **description**: Optional description of what the scenario tests
+- **segments**: Array of PCAP files to replay sequentially for each parameter combination
+  - **pcap_path**: Absolute path to PCAP file
+  - **iterations**: Number of samples to take from this segment
+  - **settle_time**: How long to wait for background grid to settle before sampling
+- **aggregation**: How to combine results across segments
+  - `"weighted_average"`: Weighted mean of segment scores (default)
+  - `"min"`: Use the worst-performing segment score (conservative)
+  - `"max"`: Use the best-performing segment score (optimistic)
+- **weights**: Weight for each segment (must sum to 1.0), used with weighted_average
+
+**Dashboard Scenario Selection**:
+
+- Add a "Scenario" radio option alongside "Live" and "PCAP" in the data source selector
+- When "Scenario" is selected, show a file picker or dropdown to select a saved scenario JSON file
+- Display scenario details (name, description, number of segments) after selection
+- Store scenarios in `config/scenarios/` directory for easy access
+
+#### Progress Visualization
+
+During auto-tuning execution, the dashboard displays:
+
+1. **Overall Progress**: "Round 2/3 — 15/25 combinations"
+2. **Round Summary Cards**: Shows narrowed bounds for current round
+3. **Live Charts**: Update as each combination completes (same charts as manual sweep)
+4. **Round History**: Collapsible cards showing previous round results and bounds
+5. **Best So Far**: Card showing current best parameter values and score
+
+#### Completion and Recommendation
+
+When auto-tuning completes:
+
+1. **Recommendation Card** displays:
+   - Optimal parameter values
+   - Final score
+   - Individual metrics (acceptance rate, misalignment, etc.)
+   - "Apply to Config" button to update running system
+   - "Export JSON" button to save as tuning config file
+2. **Convergence Chart**: Line chart showing objective score improvement across rounds
+3. **Parameter Bounds History**: Visual showing how bounds narrowed each round
+
+### Scenario Mode Integration
+
+When auto-tuning runs in scenario mode:
+
+1. For each parameter combination:
+   - Load each segment's PCAP file sequentially
+   - Reset grid and tracker between segments
+   - Apply settle time and sample N iterations from each segment
+   - Record per-segment metrics
+2. Aggregate segment results using the specified method
+3. Use aggregated score for ranking and narrowing
+4. Display per-segment breakdown in results table
+
+This enables robust parameter optimization across diverse traffic conditions without manual multi-run orchestration.
 
 ## API Design
 
