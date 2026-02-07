@@ -43,7 +43,7 @@
       gap: 12px;
     }
 
-    #charts-section > .card {
+    #charts-section>.card {
       margin-bottom: 0;
       min-width: 0;
       overflow: hidden;
@@ -110,6 +110,24 @@
       margin-bottom: 0;
     }
 
+    /* Ultra-wide: all on one line (sweep params 2x width of others) */
+    @media (min-width: 3000px) {
+      #sweep-params-section {
+        display: inline-block;
+        width: calc(33.333% - 8px);
+        vertical-align: top;
+        margin-bottom: 0;
+        margin-right: 12px;
+      }
+
+      #other-config-section {
+        display: inline-grid;
+        grid-template-columns: repeat(4, 1fr);
+        width: calc(66.667% - 4px);
+        margin-bottom: 12px;
+      }
+    }
+
     @media (max-width: 1800px) {
       #other-config-section {
         grid-template-columns: repeat(3, 1fr);
@@ -128,14 +146,31 @@
       }
     }
 
-    /* Vertical field stack for config/data-source cards */
+    /* Vertical field stack for config/data-source cards with aligned inputs */
     .field-stack label {
-      display: block;
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 8px;
+      align-items: start;
       margin-bottom: 10px;
     }
 
     .field-stack label:last-child {
       margin-bottom: 0;
+    }
+
+    .field-stack label > span {
+      padding-top: 6px;
+    }
+
+    .field-stack label > select,
+    .field-stack label > input {
+      justify-self: stretch;
+    }
+
+    .field-stack label > small {
+      grid-column: 2;
+      margin-top: 4px;
     }
 
     /* Scenario card fills height */
@@ -144,7 +179,7 @@
       flex-direction: column;
     }
 
-    .scenario-card > h2 {
+    .scenario-card>h2 {
       flex-shrink: 0;
     }
 
@@ -361,10 +396,12 @@
             <option value="false">False</option>
             <option value="toggle">Toggle</option>
           </select>
-          <small class="field-desc">Whether the background grid seeds from the first observation. "toggle" tests both true and false for each combination.</small>
+          <small class="field-desc">Whether the background grid seeds from the first observation. "toggle" tests both
+            true and false for each combination.</small>
         </label>
         <label><span>Iterations</span><input id="iterations" type="number" value="10" min="1" max="500">
-          <small class="field-desc">Number of samples per parameter combination. Higher = more statistical confidence.</small>
+          <small class="field-desc">Number of samples per parameter combination. Higher = more statistical
+            confidence.</small>
         </label>
         <label><span>Interval</span><input id="interval" type="text" value="2s">
           <small class="field-desc">Time between consecutive samples within one combination.</small>
@@ -377,7 +414,8 @@
             <option value="per_combo">Per Combo</option>
             <option value="once">Settle Once (reuse)</option>
           </select>
-          <small class="field-desc">"Per Combo": full settle each combination. "Settle Once": first combo settles, rest restore regions.</small>
+          <small class="field-desc">"Per Combo": full settle each combination. "Settle Once": first combo settles, rest
+            restore regions.</small>
         </label>
       </div>
     </div>
@@ -400,7 +438,8 @@
         <label><span>Start (seconds)</span><input id="pcap_start_secs" type="number" step="0.1" value="0" min="0">
           <small class="field-desc">Offset in seconds from the beginning of the PCAP.</small>
         </label>
-        <label><span>Duration (seconds, -1=all)</span><input id="pcap_duration_secs" type="number" step="0.1" value="-1">
+        <label><span>Duration (seconds, -1=all)</span><input id="pcap_duration_secs" type="number" step="0.1"
+            value="-1">
           <small class="field-desc">Seconds of PCAP to replay. -1 = entire file.</small>
         </label>
       </div>
@@ -412,7 +451,8 @@
       <div class="scenario-card-content">
         <div class="scenario-bar">
           <button class="btn-sm btn-secondary" onclick="downloadScenario()">Download JSON</button>
-          <button class="btn-sm btn-secondary" onclick="document.getElementById('scenario-upload').click()">Upload JSON</button>
+          <button class="btn-sm btn-secondary" onclick="document.getElementById('scenario-upload').click()">Upload
+            JSON</button>
           <input id="scenario-upload" type="file" accept=".json" style="display:none" onchange="uploadScenario(this)">
           <button class="btn-sm btn-secondary" onclick="toggleJSONEditor()">Edit JSON</button>
         </div>
@@ -456,16 +496,29 @@
 
   <!-- Charts (always visible, start empty) -->
   <div id="charts-section">
-    <div class="card"><div id="acceptance-chart" class="chart-container"></div></div>
-    <div class="card"><div id="nonzero-chart" class="chart-container"></div></div>
-    <div class="card"><div id="bucket-chart" class="chart-container"></div></div>
-    <div class="card"><div id="param-heatmap" class="chart-container"></div></div>
-    <div class="card"><div id="alignment-chart" class="chart-container"></div></div>
-    <div class="card"><div id="tracks-chart" class="chart-container"></div></div>
+    <div class="card">
+      <div id="acceptance-chart" class="chart-container"></div>
+    </div>
+    <div class="card">
+      <div id="nonzero-chart" class="chart-container"></div>
+    </div>
+    <div class="card">
+      <div id="bucket-chart" class="chart-container"></div>
+    </div>
+    <div class="card">
+      <div id="param-heatmap" class="chart-container"></div>
+    </div>
+    <div class="card">
+      <div id="alignment-chart" class="chart-container"></div>
+    </div>
+    <div class="card">
+      <div id="tracks-chart" class="chart-container"></div>
+    </div>
 
     <!-- Results Table -->
     <div id="results-card" class="card">
-      <h2>Results Table <button class="btn-sm btn-secondary" onclick="downloadCSV()" style="margin-left:8px">Download CSV</button></h2>
+      <h2>Results Table <button class="btn-sm btn-secondary" onclick="downloadCSV()" style="margin-left:8px">Download
+          CSV</button></h2>
       <div style="overflow-x:auto">
         <table>
           <thead id="results-head">
@@ -591,13 +644,13 @@
           '<label class="param-field"><span>Start</span><input id="pstart-' + id + '" type="number" step="' + step + '" value="0"></label>' +
           '<label class="param-field"><span>End</span><input id="pend-' + id + '" type="number" step="' + step + '" value="1"></label>' +
           '<label class="param-field"><span>Step</span><input id="pstep-' + id + '" type="number" step="' + step + '" value="' + step + '"></label>' +
-          '<label class="param-field" style="flex:2"><span>Values (comma-sep, overrides range)</span><input id="pvals-' + id + '" type="text" placeholder="e.g. 0.01, 0.02, 0.05"></label>';
+          '<label class="param-field" style="flex:2"><span>Values (overrides)</span><input id="pvals-' + id + '" type="text" placeholder="e.g. 0.01, 0.02, 0.05"></label>';
       } else if (typ === 'bool') {
         fieldsEl.innerHTML =
-          '<label class="param-field"><span>Values (comma-sep)</span><input id="pvals-' + id + '" type="text" value="true, false"></label>';
+          '<label class="param-field"><span>Values</span><input id="pvals-' + id + '" type="text" value="true, false"></label>';
       } else if (typ === 'string') {
         fieldsEl.innerHTML =
-          '<label class="param-field" style="flex:2"><span>Values (comma-sep)</span><input id="pvals-' + id + '" type="text" placeholder="e.g. 500ms, 1s, 2s"></label>';
+          '<label class="param-field" style="flex:2"><span>Values</span><input id="pvals-' + id + '" type="text" placeholder="e.g. 500ms, 1s, 2s"></label>';
       }
       updateSweepSummary();
       if (window.currentParamsCache) displayCurrentParams(window.currentParamsCache);
@@ -1122,12 +1175,14 @@
       // Track alignment chart (lower is better)
       alignChart.setOption({
         title: { text: 'Track Alignment (lower = better)', left: 'center', top: 0, textStyle: { fontSize: 14 } },
-        tooltip: { trigger: 'axis', formatter: function (p) {
-          var d = p[0];
-          var r = results[d.dataIndex];
-          return comboLabel(r) + '<br/>Alignment: ' + (r.alignment_deg_mean || 0).toFixed(1) + '\u00b0 \u00b1' + (r.alignment_deg_stddev || 0).toFixed(1) +
-            '<br/>Misalignment: ' + ((r.misalignment_ratio_mean || 0) * 100).toFixed(1) + '%%';
-        }},
+        tooltip: {
+          trigger: 'axis', formatter: function (p) {
+            var d = p[0];
+            var r = results[d.dataIndex];
+            return comboLabel(r) + '<br/>Alignment: ' + (r.alignment_deg_mean || 0).toFixed(1) + '\u00b0 \u00b1' + (r.alignment_deg_stddev || 0).toFixed(1) +
+              '<br/>Misalignment: ' + ((r.misalignment_ratio_mean || 0) * 100).toFixed(1) + '%%';
+          }
+        },
         xAxis: { type: 'category', data: labels, axisLabel: { rotate: 45, fontSize: 10 } },
         yAxis: [
           { type: 'value', name: 'Alignment (\u00b0)', position: 'left' },
