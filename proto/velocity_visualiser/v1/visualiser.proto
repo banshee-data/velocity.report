@@ -331,6 +331,7 @@ message PlaybackInfo {
   bool paused = 5;
   uint64 current_frame_index = 6; // current position in log (0-based)
   uint64 total_frames = 7;        // total frames in log
+  bool seekable = 8;              // true if seek/step is supported (e.g. .vrlog replay)
 }
 
 message FrameBundle {

@@ -297,6 +297,7 @@ struct PlaybackInfo {
     var paused: Bool = false
     var currentFrameIndex: UInt64 = 0  // 0-based index in log
     var totalFrames: UInt64 = 0
+    var seekable: Bool = false  // true when seek/step is supported (e.g. .vrlog replay)
 }
 
 // MARK: - Labels
