@@ -239,7 +239,7 @@ func main() {
 		// Always use tuning config (either from --config file or built-in defaults)
 		bgNoiseRelative := tuningCfg.GetNoiseRelative()
 		bgFlushInterval := tuningCfg.GetFlushInterval()
-		bgFlushDisable := tuningCfg.GetFlushDisable()
+		bgFlushEnable := tuningCfg.GetBackgroundFlush()
 		seedFromFirst := tuningCfg.GetSeedFromFirst()
 		frameBufferTimeout := tuningCfg.GetBufferTimeout()
 		minFramePoints := tuningCfg.GetMinFramePoints()
@@ -255,8 +255,8 @@ func main() {
 		}
 
 		// Start periodic background grid flushing using BackgroundFlusher
-		// Skip if explicitly disabled (--lidar-bg-flush-disable) or interval is zero
-		if backgroundManager != nil && bgFlushInterval > 0 && !bgFlushDisable {
+		// Skip if explicitly disabled (background_flush = false) or interval is zero
+		if backgroundManager != nil && bgFlushInterval > 0 && bgFlushEnable {
 			bgFlusher = lidar.NewBackgroundFlusher(lidar.BackgroundFlusherConfig{
 				Manager:  backgroundManager,
 				Store:    lidarDB,

@@ -6,5 +6,5 @@
   "buffer_timeout": "250ms",
   "min_frame_points": 500,
   "flush_interval": "120s",
-  "flush_disable": false
+  "background_flush": false
 }

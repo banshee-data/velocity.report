@@ -11,7 +11,7 @@
   "buffer_timeout": "500ms",
   "min_frame_points": 1000,
   "flush_interval": "60s",
-  "flush_disable": false,
+  "background_flush": false,
   "gating_distance_squared": 36.0,
   "process_noise_pos": 0.1,
   "process_noise_vel": 0.5,

@@ -25,7 +25,7 @@ The configuration uses a flat schema that matches the `/api/lidar/params` endpoi
   "buffer_timeout": "500ms",
   "min_frame_points": 1000,
   "flush_interval": "60s",
-  "flush_disable": false
+  "background_flush": false
 }
 ```
 
@@ -51,7 +51,7 @@ The configuration uses a flat schema that matches the `/api/lidar/params` endpoi
 #### Flush Configuration
 
 - **flush_interval** (string, default: "60s"): Interval to flush background grid to database. Valid duration strings like "60s", "2m", "1h".
-- **flush_disable** (bool, default: false): Disable periodic background grid flushing to database (reduces CPU/IO during development).
+- **background_flush** (bool, default: false): Enable periodic background grid flushing to database. Default is false (disabled) to reduce CPU/IO during development.
 
 #### Tracker Configuration (Optional)
 
