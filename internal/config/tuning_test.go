@@ -26,8 +26,8 @@ func TestDefaultTuningConfig(t *testing.T) {
 	if cfg.FlushInterval == nil || *cfg.FlushInterval != "60s" {
 		t.Errorf("Expected FlushInterval '60s', got %v", cfg.FlushInterval)
 	}
-	if cfg.FlushDisable == nil || *cfg.FlushDisable != false {
-		t.Errorf("Expected FlushDisable false, got %v", cfg.FlushDisable)
+	if cfg.BackgroundFlush == nil || *cfg.BackgroundFlush != false {
+		t.Errorf("Expected BackgroundFlush false, got %v", cfg.BackgroundFlush)
 	}
 
 	// Test getter methods
@@ -40,8 +40,8 @@ func TestDefaultTuningConfig(t *testing.T) {
 	if cfg.GetMinFramePoints() != 1000 {
 		t.Errorf("GetMinFramePoints() = %d, want 1000", cfg.GetMinFramePoints())
 	}
-	if cfg.GetFlushDisable() != false {
-		t.Errorf("GetFlushDisable() = %v, want false", cfg.GetFlushDisable())
+	if cfg.GetBackgroundFlush() != false {
+		t.Errorf("GetBackgroundFlush() = %v, want false", cfg.GetBackgroundFlush())
 	}
 }
 
@@ -87,8 +87,8 @@ func TestDefaultTuningConfigComplete(t *testing.T) {
 	if cfg.FlushInterval == nil {
 		t.Error("FlushInterval should have default value")
 	}
-	if cfg.FlushDisable == nil {
-		t.Error("FlushDisable should have default value")
+	if cfg.BackgroundFlush == nil {
+		t.Error("BackgroundFlush should have default value")
 	}
 	if cfg.GatingDistanceSquared == nil {
 		t.Error("GatingDistanceSquared should have default value")
@@ -166,7 +166,7 @@ func TestLoadTuningConfig(t *testing.T) {
   "buffer_timeout": "250ms",
   "min_frame_points": 500,
   "flush_interval": "120s",
-  "flush_disable": true
+  "background_flush": true
 }`
 	if err := os.WriteFile(configPath, []byte(testJSON), 0644); err != nil {
 		t.Fatalf("Failed to write test config: %v", err)
@@ -194,8 +194,8 @@ func TestLoadTuningConfig(t *testing.T) {
 	if cfg.FlushInterval == nil || *cfg.FlushInterval != "120s" {
 		t.Errorf("Expected FlushInterval '120s', got %v", cfg.FlushInterval)
 	}
-	if cfg.FlushDisable == nil || *cfg.FlushDisable != true {
-		t.Errorf("Expected FlushDisable true, got %v", cfg.FlushDisable)
+	if cfg.BackgroundFlush == nil || *cfg.BackgroundFlush != true {
+		t.Errorf("Expected BackgroundFlush true, got %v", cfg.BackgroundFlush)
 	}
 }
 
@@ -515,7 +515,7 @@ func TestAllTuningParams(t *testing.T) {
   "buffer_timeout": "250ms",
   "min_frame_points": 500,
   "flush_interval": "120s",
-  "flush_disable": true,
+  "background_flush": true,
   "gating_distance_squared": 100.0,
   "process_noise_pos": 0.1,
   "process_noise_vel": 0.05,
@@ -571,8 +571,8 @@ func TestAllTuningParams(t *testing.T) {
 	if cfg.FlushInterval == nil || *cfg.FlushInterval != "120s" {
 		t.Errorf("FlushInterval = %v, want '120s'", cfg.FlushInterval)
 	}
-	if cfg.FlushDisable == nil || *cfg.FlushDisable != true {
-		t.Errorf("FlushDisable = %v, want true", cfg.FlushDisable)
+	if cfg.BackgroundFlush == nil || *cfg.BackgroundFlush != true {
+		t.Errorf("BackgroundFlush = %v, want true", cfg.BackgroundFlush)
 	}
 	if cfg.GatingDistanceSquared == nil || *cfg.GatingDistanceSquared != 100.0 {
 		t.Errorf("GatingDistanceSquared = %v, want 100.0", cfg.GatingDistanceSquared)
@@ -613,8 +613,8 @@ func TestGetterDefaults(t *testing.T) {
 	if cfg.GetMinFramePoints() != 1000 {
 		t.Errorf("GetMinFramePoints() = %d, want 1000", cfg.GetMinFramePoints())
 	}
-	if cfg.GetFlushDisable() != false {
-		t.Errorf("GetFlushDisable() = %v, want false", cfg.GetFlushDisable())
+	if cfg.GetBackgroundFlush() != false {
+		t.Errorf("GetBackgroundFlush() = %v, want false", cfg.GetBackgroundFlush())
 	}
 	if cfg.GetFlushInterval() != 60*time.Second {
 		t.Errorf("GetFlushInterval() = %v, want 60s", cfg.GetFlushInterval())

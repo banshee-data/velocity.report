@@ -28,8 +28,8 @@ type TuningConfig struct {
 	MinFramePoints *int    `json:"min_frame_points,omitempty"`
 
 	// Flush params
-	FlushInterval *string `json:"flush_interval,omitempty"` // duration string like "60s"
-	FlushDisable  *bool   `json:"flush_disable,omitempty"`
+	FlushInterval   *string `json:"flush_interval,omitempty"` // duration string like "60s"
+	BackgroundFlush *bool   `json:"background_flush,omitempty"`
 
 	// Tracker params (optional)
 	GatingDistanceSquared *float64 `json:"gating_distance_squared,omitempty"`
@@ -69,8 +69,8 @@ func DefaultTuningConfig() *TuningConfig {
 		MinFramePoints: ptrInt(1000),
 
 		// Flush params
-		FlushInterval: ptrString("60s"),
-		FlushDisable:  ptrBool(false),
+		FlushInterval:   ptrString("60s"),
+		BackgroundFlush: ptrBool(false),
 
 		// Tracker params
 		GatingDistanceSquared: ptrFloat64(36.0),
@@ -205,10 +205,10 @@ func (c *TuningConfig) GetMinFramePoints() int {
 	return *c.MinFramePoints
 }
 
-// GetFlushDisable returns the flush_disable value or the default.
-func (c *TuningConfig) GetFlushDisable() bool {
-	if c.FlushDisable == nil {
-		return false // default
+// GetBackgroundFlush returns the background_flush value or the default.
+func (c *TuningConfig) GetBackgroundFlush() bool {
+	if c.BackgroundFlush == nil {
+		return false // default: flushing disabled
 	}
-	return *c.FlushDisable
+	return *c.BackgroundFlush
 }

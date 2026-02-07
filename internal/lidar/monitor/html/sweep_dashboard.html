@@ -344,7 +344,7 @@
       buffer_timeout: { type: 'string', label: 'Buffer Timeout', desc: 'Max wait time for a complete frame (Go duration, e.g. "500ms").' },
       min_frame_points: { type: 'int', label: 'Min Frame Points', step: 100, desc: 'Minimum points in a frame before processing. Fewer points = frame dropped.' },
       flush_interval: { type: 'string', label: 'Flush Interval', desc: 'How often the background grid is flushed to disk (e.g. "60s").' },
-      flush_disable: { type: 'bool', label: 'Flush Disable', desc: 'If true, disables periodic background grid flush to disk.' },
+      background_flush: { type: 'bool', label: 'Background Flush', desc: 'If true, enables periodic background grid flush to disk. Default: false (disabled).' },
       gating_distance_squared: { type: 'float64', label: 'Gating Distance\u00b2', step: 0.1, desc: 'Squared Mahalanobis distance threshold for track-to-cluster association.' },
       process_noise_pos: { type: 'float64', label: 'Process Noise Pos', step: 0.001, desc: 'Kalman process noise for position. Higher = more position uncertainty expected.' },
       process_noise_vel: { type: 'float64', label: 'Process Noise Vel', step: 0.001, desc: 'Kalman process noise for velocity. Higher = more velocity changes expected.' },
