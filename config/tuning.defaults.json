@@ -1,7 +1,23 @@
 {
   "noise_relative": 0.04,
+  "closeness_multiplier": 8.0,
+  "neighbor_confirmation_count": 7,
   "seed_from_first": true,
+  "warmup_duration_nanos": 30000000000,
+  "warmup_min_frames": 100,
+  "post_settle_update_fraction": 0,
+  "foreground_min_cluster_points": 0,
+  "foreground_dbscan_eps": 0,
   "buffer_timeout": "500ms",
   "min_frame_points": 1000,
-  "flush_disable": true
+  "flush_interval": "60s",
+  "flush_disable": false,
+  "gating_distance_squared": 36.0,
+  "process_noise_pos": 0.1,
+  "process_noise_vel": 0.5,
+  "measurement_noise": 0.2,
+  "occlusion_cov_inflation": 0.5,
+  "hits_to_confirm": 3,
+  "max_misses": 3,
+  "max_misses_confirmed": 15
 }

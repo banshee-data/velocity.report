@@ -45,6 +45,115 @@ func TestDefaultTuningConfig(t *testing.T) {
 	}
 }
 
+// TestDefaultTuningConfigComplete verifies that all TuningConfig fields have non-nil defaults.
+// This ensures no field is accidentally omitted from DefaultTuningConfig().
+func TestDefaultTuningConfigComplete(t *testing.T) {
+	cfg := DefaultTuningConfig()
+
+	// Verify all 22 fields are non-nil
+	if cfg.NoiseRelative == nil {
+		t.Error("NoiseRelative should have default value")
+	}
+	if cfg.ClosenessMultiplier == nil {
+		t.Error("ClosenessMultiplier should have default value")
+	}
+	if cfg.NeighborConfirmationCount == nil {
+		t.Error("NeighborConfirmationCount should have default value")
+	}
+	if cfg.SeedFromFirst == nil {
+		t.Error("SeedFromFirst should have default value")
+	}
+	if cfg.WarmupDurationNanos == nil {
+		t.Error("WarmupDurationNanos should have default value")
+	}
+	if cfg.WarmupMinFrames == nil {
+		t.Error("WarmupMinFrames should have default value")
+	}
+	if cfg.PostSettleUpdateFraction == nil {
+		t.Error("PostSettleUpdateFraction should have default value")
+	}
+	if cfg.ForegroundMinClusterPoints == nil {
+		t.Error("ForegroundMinClusterPoints should have default value")
+	}
+	if cfg.ForegroundDBSCANEps == nil {
+		t.Error("ForegroundDBSCANEps should have default value")
+	}
+	if cfg.BufferTimeout == nil {
+		t.Error("BufferTimeout should have default value")
+	}
+	if cfg.MinFramePoints == nil {
+		t.Error("MinFramePoints should have default value")
+	}
+	if cfg.FlushInterval == nil {
+		t.Error("FlushInterval should have default value")
+	}
+	if cfg.FlushDisable == nil {
+		t.Error("FlushDisable should have default value")
+	}
+	if cfg.GatingDistanceSquared == nil {
+		t.Error("GatingDistanceSquared should have default value")
+	}
+	if cfg.ProcessNoisePos == nil {
+		t.Error("ProcessNoisePos should have default value")
+	}
+	if cfg.ProcessNoiseVel == nil {
+		t.Error("ProcessNoiseVel should have default value")
+	}
+	if cfg.MeasurementNoise == nil {
+		t.Error("MeasurementNoise should have default value")
+	}
+	if cfg.OcclusionCovInflation == nil {
+		t.Error("OcclusionCovInflation should have default value")
+	}
+	if cfg.HitsToConfirm == nil {
+		t.Error("HitsToConfirm should have default value")
+	}
+	if cfg.MaxMisses == nil {
+		t.Error("MaxMisses should have default value")
+	}
+	if cfg.MaxMissesConfirmed == nil {
+		t.Error("MaxMissesConfirmed should have default value")
+	}
+
+	// Verify expected default values match other config sources
+	if *cfg.ClosenessMultiplier != 8.0 {
+		t.Errorf("ClosenessMultiplier = %v, want 8.0 (from DefaultBackgroundConfig)", *cfg.ClosenessMultiplier)
+	}
+	if *cfg.NeighborConfirmationCount != 7 {
+		t.Errorf("NeighborConfirmationCount = %v, want 7 (from DefaultBackgroundConfig)", *cfg.NeighborConfirmationCount)
+	}
+	if *cfg.WarmupDurationNanos != 30000000000 {
+		t.Errorf("WarmupDurationNanos = %v, want 30000000000 (30s from DefaultBackgroundConfig)", *cfg.WarmupDurationNanos)
+	}
+	if *cfg.WarmupMinFrames != 100 {
+		t.Errorf("WarmupMinFrames = %v, want 100 (from DefaultBackgroundConfig)", *cfg.WarmupMinFrames)
+	}
+	if *cfg.GatingDistanceSquared != 36.0 {
+		t.Errorf("GatingDistanceSquared = %v, want 36.0 (from DefaultTrackerConfig)", *cfg.GatingDistanceSquared)
+	}
+	if *cfg.ProcessNoisePos != 0.1 {
+		t.Errorf("ProcessNoisePos = %v, want 0.1 (from DefaultTrackerConfig)", *cfg.ProcessNoisePos)
+	}
+	if *cfg.ProcessNoiseVel != 0.5 {
+		t.Errorf("ProcessNoiseVel = %v, want 0.5 (from DefaultTrackerConfig)", *cfg.ProcessNoiseVel)
+	}
+	if *cfg.MeasurementNoise != 0.2 {
+		t.Errorf("MeasurementNoise = %v, want 0.2 (from DefaultTrackerConfig)", *cfg.MeasurementNoise)
+	}
+	if *cfg.OcclusionCovInflation != 0.5 {
+		t.Errorf("OcclusionCovInflation = %v, want 0.5 (from DefaultTrackerConfig)", *cfg.OcclusionCovInflation)
+	}
+	if *cfg.HitsToConfirm != 3 {
+		t.Errorf("HitsToConfirm = %v, want 3 (from DefaultTrackerConfig)", *cfg.HitsToConfirm)
+	}
+	if *cfg.MaxMisses != 3 {
+		t.Errorf("MaxMisses = %v, want 3 (from DefaultTrackerConfig)", *cfg.MaxMisses)
+	}
+	if *cfg.MaxMissesConfirmed != 15 {
+		t.Errorf("MaxMissesConfirmed = %v, want 15 (from DefaultTrackerConfig)", *cfg.MaxMissesConfirmed)
+	}
+}
+
 func TestLoadTuningConfig(t *testing.T) {
 	// Create temporary directory
 	tmpDir := t.TempDir()

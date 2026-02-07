@@ -49,15 +49,38 @@ func ptrString(v string) *string    { return &v }
 func ptrInt(v int) *int             { return &v }
 func ptrInt64(v int64) *int64       { return &v }
 
-// DefaultTuningConfig returns a TuningConfig with default values.
+// DefaultTuningConfig returns a TuningConfig with default values for all parameters.
+// These defaults are derived from DefaultBackgroundConfig and DefaultTrackerConfig.
 func DefaultTuningConfig() *TuningConfig {
 	return &TuningConfig{
-		NoiseRelative:  ptrFloat64(0.04),
-		SeedFromFirst:  ptrBool(true),
+		// Background params
+		NoiseRelative:              ptrFloat64(0.04),
+		ClosenessMultiplier:        ptrFloat64(8.0),
+		NeighborConfirmationCount:  ptrInt(7),
+		SeedFromFirst:              ptrBool(true),
+		WarmupDurationNanos:        ptrInt64(30000000000), // 30 seconds
+		WarmupMinFrames:            ptrInt(100),
+		PostSettleUpdateFraction:   ptrFloat64(0),
+		ForegroundMinClusterPoints: ptrInt(0),
+		ForegroundDBSCANEps:        ptrFloat64(0),
+
+		// Frame builder params
 		BufferTimeout:  ptrString("500ms"),
 		MinFramePoints: ptrInt(1000),
-		FlushInterval:  ptrString("60s"),
-		FlushDisable:   ptrBool(false),
+
+		// Flush params
+		FlushInterval: ptrString("60s"),
+		FlushDisable:  ptrBool(false),
+
+		// Tracker params
+		GatingDistanceSquared: ptrFloat64(36.0),
+		ProcessNoisePos:       ptrFloat64(0.1),
+		ProcessNoiseVel:       ptrFloat64(0.5),
+		MeasurementNoise:      ptrFloat64(0.2),
+		OcclusionCovInflation: ptrFloat64(0.5),
+		HitsToConfirm:         ptrInt(3),
+		MaxMisses:             ptrInt(3),
+		MaxMissesConfirmed:    ptrInt(15),
 	}
 }
 
