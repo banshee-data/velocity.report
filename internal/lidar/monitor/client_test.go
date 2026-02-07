@@ -355,7 +355,7 @@ func TestClient_StartPCAPReplay_Success(t *testing.T) {
 		}
 		var payload map[string]string
 		json.NewDecoder(r.Body).Decode(&payload)
-		if payload["pcap_file"] != "test.pcap" {
+		if payload["pcap_file"] != "/path/to/test.pcap" {
 			t.Errorf("Unexpected pcap_file: %s", payload["pcap_file"])
 		}
 		w.WriteHeader(http.StatusOK)

@@ -36,7 +36,7 @@ func NewClient(httpClient *http.Client, baseURL, sensorID string) *Client {
 // It retries on 409 (conflict) responses for up to maxRetries times.
 func (c *Client) StartPCAPReplay(pcapFile string, maxRetries int) error {
 	url := fmt.Sprintf("%s/api/lidar/pcap/start?sensor_id=%s", c.BaseURL, c.SensorID)
-	payload := map[string]string{"pcap_file": filepath.Base(pcapFile)}
+	payload := map[string]string{"pcap_file": filepath.Clean(pcapFile)}
 	data, _ := json.Marshal(payload)
 
 	log.Printf("Requesting PCAP replay for sensor %s: %s", c.SensorID, payload["pcap_file"])
@@ -224,7 +224,7 @@ type PCAPReplayConfig struct {
 func (c *Client) StartPCAPReplayWithConfig(cfg PCAPReplayConfig) error {
 	url := fmt.Sprintf("%s/api/lidar/pcap/start?sensor_id=%s", c.BaseURL, c.SensorID)
 	payload := map[string]interface{}{
-		"pcap_file": filepath.Base(cfg.PCAPFile),
+		"pcap_file": filepath.Clean(cfg.PCAPFile),
 	}
 	if cfg.StartSeconds > 0 {
 		payload["start_seconds"] = cfg.StartSeconds

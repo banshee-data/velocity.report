@@ -234,3 +234,12 @@ th {
   font-size: 13px;
   margin-bottom: 10px;
 }
+
+/* Field descriptions */
+.field-desc {
+  display: block;
+  font-size: 11px;
+  color: var(--fg-faint);
+  margin-top: 2px;
+  line-height: 1.3;
+}

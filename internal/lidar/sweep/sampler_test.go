@@ -46,6 +46,12 @@ func TestSampler_Sample_Success(t *testing.T) {
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"background_count": 150.0,
 			})
+		} else if strings.Contains(r.URL.Path, "tracks/metrics") {
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"active_tracks":      3.0,
+				"mean_alignment_deg": 5.2,
+				"misalignment_ratio": 0.1,
+			})
 		}
 	}))
 	defer server.Close()
@@ -69,8 +75,11 @@ func TestSampler_Sample_Success(t *testing.T) {
 	if results[0].NonzeroCells != 150.0 {
 		t.Errorf("Expected nonzero cells 150, got %f", results[0].NonzeroCells)
 	}
-	if callCount != 4 { // 2 acceptance + 2 grid_status
-		t.Errorf("Expected 4 calls, got %d", callCount)
+	if results[0].ActiveTracks != 3 {
+		t.Errorf("Expected active tracks 3, got %d", results[0].ActiveTracks)
+	}
+	if callCount != 6 { // 2 acceptance + 2 grid_status + 2 tracking metrics
+		t.Errorf("Expected 6 calls, got %d", callCount)
 	}
 }
 

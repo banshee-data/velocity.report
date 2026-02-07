@@ -136,3 +136,35 @@ func MeanStddev(xs []float64) (mean float64, stddev float64) {
 	}
 	return mean, stddev
 }
+
+// toFloat64FromMap converts a single JSON-decoded value to float64.
+func toFloat64FromMap(v interface{}) float64 {
+	switch val := v.(type) {
+	case float64:
+		return val
+	case float32:
+		return float64(val)
+	case int:
+		return float64(val)
+	case int64:
+		return float64(val)
+	default:
+		return 0
+	}
+}
+
+// toIntFromMap converts a single JSON-decoded value to int.
+func toIntFromMap(v interface{}) int {
+	switch val := v.(type) {
+	case float64:
+		return int(val)
+	case float32:
+		return int(val)
+	case int:
+		return val
+	case int64:
+		return int(val)
+	default:
+		return 0
+	}
+}

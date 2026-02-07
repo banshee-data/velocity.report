@@ -99,6 +99,20 @@ func (s *Sampler) Sample(cfg SampleConfig) []SampleResult {
 			OverallAcceptPct: overallPct,
 			Timestamp:        time.Now(),
 		}
+
+		// Fetch tracking metrics (best-effort)
+		if trackMetrics, err := s.Client.FetchTrackingMetrics(); err == nil {
+			if v, ok := trackMetrics["active_tracks"]; ok {
+				result.ActiveTracks = toIntFromMap(v)
+			}
+			if v, ok := trackMetrics["mean_alignment_deg"]; ok {
+				result.MeanAlignmentDeg = toFloat64FromMap(v)
+			}
+			if v, ok := trackMetrics["misalignment_ratio"]; ok {
+				result.MisalignmentRatio = toFloat64FromMap(v)
+			}
+		}
+
 		results = append(results, result)
 
 		// Write raw data if writer is provided

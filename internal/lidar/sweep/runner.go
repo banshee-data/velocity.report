@@ -94,6 +94,14 @@ type ComboResult struct {
 	BucketMeans         []float64 `json:"bucket_means"`
 	BucketStddevs       []float64 `json:"bucket_stddevs"`
 	Buckets             []string  `json:"buckets"`
+
+	// Track health metrics
+	ActiveTracksMean        float64 `json:"active_tracks_mean"`
+	ActiveTracksStddev      float64 `json:"active_tracks_stddev"`
+	AlignmentDegMean        float64 `json:"alignment_deg_mean"`
+	AlignmentDegStddev      float64 `json:"alignment_deg_stddev"`
+	MisalignmentRatioMean   float64 `json:"misalignment_ratio_mean"`
+	MisalignmentRatioStddev float64 `json:"misalignment_ratio_stddev"`
 }
 
 // SweepState holds the current state and results of a sweep
@@ -782,6 +790,27 @@ func (r *Runner) computeComboResult(noise, closeness float64, neighbour int, res
 		nzVals[ri] = r.NonzeroCells
 	}
 	combo.NonzeroCellsMean, combo.NonzeroCellsStddev = MeanStddev(nzVals)
+
+	// Track health: active tracks
+	atVals := make([]float64, len(results))
+	for ri, r := range results {
+		atVals[ri] = float64(r.ActiveTracks)
+	}
+	combo.ActiveTracksMean, combo.ActiveTracksStddev = MeanStddev(atVals)
+
+	// Track health: alignment
+	alignVals := make([]float64, len(results))
+	for ri, r := range results {
+		alignVals[ri] = r.MeanAlignmentDeg
+	}
+	combo.AlignmentDegMean, combo.AlignmentDegStddev = MeanStddev(alignVals)
+
+	// Track health: misalignment ratio
+	misVals := make([]float64, len(results))
+	for ri, r := range results {
+		misVals[ri] = r.MisalignmentRatio
+	}
+	combo.MisalignmentRatioMean, combo.MisalignmentRatioStddev = MeanStddev(misVals)
 
 	return combo
 }

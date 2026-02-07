@@ -59,6 +59,14 @@
       flex: 0 0 auto;
     }
 
+    .param-desc {
+      font-size: 11px;
+      color: var(--fg-faint);
+      margin-top: 2px;
+      line-height: 1.3;
+      grid-column: 1 / -1;
+    }
+
     .btn-sm {
       padding: 4px 10px;
       font-size: 12px;
@@ -82,6 +90,15 @@
       padding: 6px 10px;
     }
 
+    .btn-secondary {
+      background: var(--card-border);
+      color: var(--fg);
+    }
+
+    .btn-secondary:hover {
+      background: var(--input-border);
+    }
+
     #current-combo {
       font-size: 13px;
       color: var(--fg-faint);
@@ -89,6 +106,28 @@
 
     .pcap-fields {
       margin-top: 10px;
+    }
+
+    .scenario-bar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    #scenario-json {
+      width: 100%%;
+      min-height: 200px;
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 8px;
+      border: 1px solid var(--input-border);
+      border-radius: 5px;
+      background: var(--input-bg);
+      color: var(--input-fg);
+      margin-top: 8px;
+      resize: vertical;
     }
   </style>
 </head>
@@ -109,10 +148,17 @@
           <option value="false">False</option>
           <option value="toggle">Toggle</option>
         </select>
+        <small class="field-desc">Whether the background grid seeds from the first observation. "toggle" tests both true and false for each combination.</small>
       </label>
-      <label><span>Iterations</span><input id="iterations" type="number" value="10" min="1" max="500"></label>
-      <label><span>Interval</span><input id="interval" type="text" value="2s"></label>
-      <label><span>Settle Time</span><input id="settle_time" type="text" value="5s"></label>
+      <label><span>Iterations</span><input id="iterations" type="number" value="10" min="1" max="500">
+        <small class="field-desc">Number of samples per parameter combination. Higher = more statistical confidence.</small>
+      </label>
+      <label><span>Interval</span><input id="interval" type="text" value="2s">
+        <small class="field-desc">Time between consecutive samples within one combination. Determines how long data accumulates between measurements.</small>
+      </label>
+      <label><span>Settle Time</span><input id="settle_time" type="text" value="5s">
+        <small class="field-desc">Wait time after changing parameters before sampling begins. Allows the background grid to stabilise. With PCAPs, ensure this is shorter than PCAP duration.</small>
+      </label>
     </div>
 
     <!-- Data Source -->
@@ -127,11 +173,15 @@
         </label>
       </div>
       <div id="pcap-fields" class="pcap-fields form-grid" style="display:none">
-        <label><span>PCAP File</span><input id="pcap_file" type="text" placeholder="filename.pcap"></label>
-        <label><span>Start (seconds)</span><input id="pcap_start_secs" type="number" step="0.1" value="0"
-            min="0"></label>
-        <label><span>Duration (seconds, -1=all)</span><input id="pcap_duration_secs" type="number" step="0.1"
-            value="-1"></label>
+        <label><span>PCAP File</span><input id="pcap_file" type="text" placeholder="static/recording.pcapng">
+          <small class="field-desc">Relative path within the PCAP directory (e.g. "static/recording.pcapng").</small>
+        </label>
+        <label><span>Start (seconds)</span><input id="pcap_start_secs" type="number" step="0.1" value="0" min="0">
+          <small class="field-desc">Offset in seconds from the beginning of the PCAP file to start replay.</small>
+        </label>
+        <label><span>Duration (seconds, -1=all)</span><input id="pcap_duration_secs" type="number" step="0.1" value="-1">
+          <small class="field-desc">Seconds of PCAP to replay. -1 = entire file. Must be > settle_time + (iterations x interval).</small>
+        </label>
       </div>
     </div>
 
@@ -140,6 +190,23 @@
       <div class="section-title">Sweep Parameters</div>
       <div id="param-rows"></div>
       <button class="btn-sm btn-add" onclick="addParamRow()">+ Add Parameter</button>
+    </div>
+
+    <!-- Scenario management -->
+    <div class="section-border" style="margin-top:12px">
+      <div class="section-title">Scenario</div>
+      <div class="scenario-bar">
+        <button class="btn-sm btn-secondary" onclick="downloadScenario()">Download JSON</button>
+        <button class="btn-sm btn-secondary" onclick="document.getElementById('scenario-upload').click()">Upload JSON</button>
+        <input id="scenario-upload" type="file" accept=".json" style="display:none" onchange="uploadScenario(this)">
+        <button class="btn-sm btn-secondary" onclick="toggleJSONEditor()">Edit JSON</button>
+      </div>
+      <div id="json-editor-wrap" style="display:none">
+        <textarea id="scenario-json"></textarea>
+        <div style="margin-top:6px">
+          <button class="btn-sm btn-add" onclick="applyJSONEditor()">Apply</button>
+        </div>
+      </div>
     </div>
 
     <div class="btn-group">
@@ -162,10 +229,16 @@
   <!-- Charts (always visible, start empty) -->
   <div id="charts-section">
     <div class="card">
-      <h2>Results</h2>
+      <h2>Background Metrics</h2>
       <div id="acceptance-chart" class="chart-container"></div>
       <div id="nonzero-chart" class="chart-container" style="margin-top:16px"></div>
       <div id="bucket-chart" class="chart-container" style="margin-top:16px"></div>
+    </div>
+
+    <div class="card">
+      <h2>Track Health</h2>
+      <div id="alignment-chart" class="chart-container"></div>
+      <div id="tracks-chart" class="chart-container" style="margin-top:16px"></div>
     </div>
 
     <!-- Results Table -->
@@ -180,6 +253,9 @@
               <th>± StdDev</th>
               <th>Nonzero Cells</th>
               <th>± StdDev</th>
+              <th>Active Tracks</th>
+              <th>Alignment (deg)</th>
+              <th>Misalignment</th>
             </tr>
           </thead>
           <tbody id="results-body"></tbody>
@@ -193,35 +269,37 @@
     var acceptChart = null;
     var nzChart = null;
     var bktChart = null;
+    var alignChart = null;
+    var tracksChart = null;
 
     // Detect dark mode for ECharts
     var isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     var chartTheme = isDark ? 'dark' : null;
     var chartBg = 'transparent';
 
-    // Parameter schema derived from TuningConfig
+    // Parameter schema derived from TuningConfig (with descriptions)
     var PARAM_SCHEMA = {
-      noise_relative: { type: 'float64', label: 'Noise Relative', step: 0.001 },
-      closeness_multiplier: { type: 'float64', label: 'Closeness Multiplier', step: 0.5 },
-      neighbor_confirmation_count: { type: 'int', label: 'Neighbour Confirmation', step: 1 },
-      seed_from_first: { type: 'bool', label: 'Seed From First' },
-      warmup_duration_nanos: { type: 'int64', label: 'Warmup Duration (ns)', step: 1000000 },
-      warmup_min_frames: { type: 'int', label: 'Warmup Min Frames', step: 1 },
-      post_settle_update_fraction: { type: 'float64', label: 'Post-Settle Update Fraction', step: 0.01 },
-      foreground_min_cluster_points: { type: 'int', label: 'FG Min Cluster Points', step: 1 },
-      foreground_dbscan_eps: { type: 'float64', label: 'FG DBSCAN Eps', step: 0.1 },
-      buffer_timeout: { type: 'string', label: 'Buffer Timeout' },
-      min_frame_points: { type: 'int', label: 'Min Frame Points', step: 100 },
-      flush_interval: { type: 'string', label: 'Flush Interval' },
-      flush_disable: { type: 'bool', label: 'Flush Disable' },
-      gating_distance_squared: { type: 'float64', label: 'Gating Distance²', step: 0.1 },
-      process_noise_pos: { type: 'float64', label: 'Process Noise Pos', step: 0.001 },
-      process_noise_vel: { type: 'float64', label: 'Process Noise Vel', step: 0.001 },
-      measurement_noise: { type: 'float64', label: 'Measurement Noise', step: 0.01 },
-      occlusion_cov_inflation: { type: 'float64', label: 'Occlusion Cov Inflation', step: 0.1 },
-      hits_to_confirm: { type: 'int', label: 'Hits to Confirm', step: 1 },
-      max_misses: { type: 'int', label: 'Max Misses', step: 1 },
-      max_misses_confirmed: { type: 'int', label: 'Max Misses Confirmed', step: 1 }
+      noise_relative: { type: 'float64', label: 'Noise Relative', step: 0.001, desc: 'Fraction of measured range treated as noise threshold (0\u20131). Higher = more tolerant of range variation.' },
+      closeness_multiplier: { type: 'float64', label: 'Closeness Multiplier', step: 0.5, desc: 'Multiplier for closeness threshold. Higher = wider band for background acceptance.' },
+      neighbor_confirmation_count: { type: 'int', label: 'Neighbour Confirmation', step: 1, desc: 'Number of neighbouring cells (0\u20138) that must agree before marking foreground.' },
+      seed_from_first: { type: 'bool', label: 'Seed From First', desc: 'If true, initialise background model from the very first observation.' },
+      warmup_duration_nanos: { type: 'int64', label: 'Warmup Duration (ns)', step: 1000000, desc: 'Duration in nanoseconds for the warmup phase before classification begins.' },
+      warmup_min_frames: { type: 'int', label: 'Warmup Min Frames', step: 1, desc: 'Minimum frames required before the warmup phase can complete.' },
+      post_settle_update_fraction: { type: 'float64', label: 'Post-Settle Update Fraction', step: 0.01, desc: 'Background update alpha after settling (0 = freeze background).' },
+      foreground_min_cluster_points: { type: 'int', label: 'FG Min Cluster Points', step: 1, desc: 'Minimum points for a foreground cluster to be reported. 0 = disabled.' },
+      foreground_dbscan_eps: { type: 'float64', label: 'FG DBSCAN Eps', step: 0.1, desc: 'DBSCAN epsilon for foreground point clustering. 0 = disabled.' },
+      buffer_timeout: { type: 'string', label: 'Buffer Timeout', desc: 'Max wait time for a complete frame (Go duration, e.g. "500ms").' },
+      min_frame_points: { type: 'int', label: 'Min Frame Points', step: 100, desc: 'Minimum points in a frame before processing. Fewer points = frame dropped.' },
+      flush_interval: { type: 'string', label: 'Flush Interval', desc: 'How often the background grid is flushed to disk (e.g. "60s").' },
+      flush_disable: { type: 'bool', label: 'Flush Disable', desc: 'If true, disables periodic background grid flush to disk.' },
+      gating_distance_squared: { type: 'float64', label: 'Gating Distance\u00b2', step: 0.1, desc: 'Squared Mahalanobis distance threshold for track-to-cluster association.' },
+      process_noise_pos: { type: 'float64', label: 'Process Noise Pos', step: 0.001, desc: 'Kalman process noise for position. Higher = more position uncertainty expected.' },
+      process_noise_vel: { type: 'float64', label: 'Process Noise Vel', step: 0.001, desc: 'Kalman process noise for velocity. Higher = more velocity changes expected.' },
+      measurement_noise: { type: 'float64', label: 'Measurement Noise', step: 0.01, desc: 'Kalman measurement noise. Higher = less trust in observations.' },
+      occlusion_cov_inflation: { type: 'float64', label: 'Occlusion Cov Inflation', step: 0.1, desc: 'Covariance inflation factor during occlusion (missed observations).' },
+      hits_to_confirm: { type: 'int', label: 'Hits to Confirm', step: 1, desc: 'Consecutive successful associations needed to confirm a tentative track.' },
+      max_misses: { type: 'int', label: 'Max Misses', step: 1, desc: 'Consecutive misses before a tentative track is deleted.' },
+      max_misses_confirmed: { type: 'int', label: 'Max Misses Confirmed', step: 1, desc: 'Consecutive misses before a confirmed track is deleted.' }
     };
 
     var paramNames = Object.keys(PARAM_SCHEMA);
@@ -255,7 +333,8 @@
       selHtml += '</select></label>';
 
       row.innerHTML = selHtml + '<div id="pfields-' + id + '" style="display:flex;gap:8px;flex-wrap:wrap;flex:2"></div>' +
-        '<button class="btn-sm btn-remove param-remove" onclick="removeParamRow(' + id + ')">×</button>';
+        '<button class="btn-sm btn-remove param-remove" onclick="removeParamRow(' + id + ')">×</button>' +
+        '<div id="pdesc-' + id + '" class="param-desc"></div>';
 
       container.appendChild(row);
       if (name) updateParamFields(id);
@@ -270,12 +349,16 @@
     function updateParamFields(id) {
       var nameEl = document.getElementById('pname-' + id);
       var fieldsEl = document.getElementById('pfields-' + id);
+      var descEl = document.getElementById('pdesc-' + id);
       var name = nameEl.value;
-      if (!name) { fieldsEl.innerHTML = ''; return; }
+      if (!name) { fieldsEl.innerHTML = ''; if (descEl) descEl.textContent = ''; return; }
 
       var schema = PARAM_SCHEMA[name];
       var typ = schema.type;
       var step = schema.step || 1;
+
+      // Show description
+      if (descEl) descEl.textContent = schema.desc || '';
 
       if (typ === 'float64' || typ === 'int' || typ === 'int64') {
         fieldsEl.innerHTML =
@@ -298,10 +381,23 @@
       el.style.display = msg ? '' : 'none';
     }
 
-    function handleStart() {
-      showError('');
+    // ---- Scenario management ----
 
-      // Gather parameters
+    function buildScenarioJSON() {
+      var req = {
+        seed: val('seed'),
+        iterations: intVal('iterations'),
+        interval: val('interval'),
+        settle_time: val('settle_time'),
+        data_source: val('data_source')
+      };
+
+      if (req.data_source === 'pcap') {
+        req.pcap_file = val('pcap_file');
+        req.pcap_start_secs = numVal('pcap_start_secs');
+        req.pcap_duration_secs = numVal('pcap_duration_secs');
+      }
+
       var params = [];
       var rows = document.getElementById('param-rows').children;
       for (var i = 0; i < rows.length; i++) {
@@ -312,15 +408,12 @@
         if (!name) continue;
         var schema = PARAM_SCHEMA[name];
         var typ = schema.type;
-
         var p = { name: name, type: typ };
 
-        // Check for explicit values
         var valsEl = document.getElementById('pvals-' + rowId);
         var valsStr = valsEl ? valsEl.value.trim() : '';
 
         if (valsStr) {
-          // Parse comma-separated values
           var parts = valsStr.split(',').map(function (s) { return s.trim(); }).filter(function (s) { return s !== ''; });
           if (typ === 'float64') {
             p.values = parts.map(function (s) { return parseFloat(s); });
@@ -332,7 +425,6 @@
             p.values = parts;
           }
         } else if (typ === 'float64' || typ === 'int' || typ === 'int64') {
-          // Use start/end/step range
           var startEl = document.getElementById('pstart-' + rowId);
           var endEl = document.getElementById('pend-' + rowId);
           var stepEl = document.getElementById('pstep-' + rowId);
@@ -345,27 +437,110 @@
 
         params.push(p);
       }
+      req.params = params;
+      return req;
+    }
 
-      if (params.length === 0) {
+    function downloadScenario() {
+      var obj = buildScenarioJSON();
+      var json = JSON.stringify(obj, null, 2);
+      var blob = new Blob([json], { type: 'application/json' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'sweep-scenario.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function uploadScenario(input) {
+      if (!input.files || !input.files[0]) return;
+      var reader = new FileReader();
+      reader.onload = function (e) {
+        try {
+          var obj = JSON.parse(e.target.result);
+          loadScenario(obj);
+        } catch (err) {
+          showError('Invalid JSON: ' + err.message);
+        }
+      };
+      reader.readAsText(input.files[0]);
+      input.value = '';
+    }
+
+    function loadScenario(obj) {
+      if (obj.seed) document.getElementById('seed').value = obj.seed;
+      if (obj.iterations) document.getElementById('iterations').value = obj.iterations;
+      if (obj.interval) document.getElementById('interval').value = obj.interval;
+      if (obj.settle_time) document.getElementById('settle_time').value = obj.settle_time;
+      if (obj.data_source) {
+        document.getElementById('data_source').value = obj.data_source;
+        togglePCAP();
+      }
+      if (obj.pcap_file) document.getElementById('pcap_file').value = obj.pcap_file;
+      if (obj.pcap_start_secs !== undefined) document.getElementById('pcap_start_secs').value = obj.pcap_start_secs;
+      if (obj.pcap_duration_secs !== undefined) document.getElementById('pcap_duration_secs').value = obj.pcap_duration_secs;
+
+      // Clear existing param rows
+      var container = document.getElementById('param-rows');
+      container.innerHTML = '';
+      paramCounter = 0;
+
+      // Add rows from scenario
+      if (obj.params && obj.params.length > 0) {
+        obj.params.forEach(function (p) {
+          var id = addParamRow(p.name);
+          // Populate values
+          if (p.values && p.values.length > 0) {
+            var valsEl = document.getElementById('pvals-' + id);
+            if (valsEl) valsEl.value = p.values.join(', ');
+          } else {
+            if (p.start !== undefined) {
+              var startEl = document.getElementById('pstart-' + id);
+              if (startEl) startEl.value = p.start;
+            }
+            if (p.end !== undefined) {
+              var endEl = document.getElementById('pend-' + id);
+              if (endEl) endEl.value = p.end;
+            }
+            if (p.step !== undefined) {
+              var stepEl = document.getElementById('pstep-' + id);
+              if (stepEl) stepEl.value = p.step;
+            }
+          }
+        });
+      }
+    }
+
+    function toggleJSONEditor() {
+      var wrap = document.getElementById('json-editor-wrap');
+      if (wrap.style.display === 'none') {
+        wrap.style.display = '';
+        document.getElementById('scenario-json').value = JSON.stringify(buildScenarioJSON(), null, 2);
+      } else {
+        wrap.style.display = 'none';
+      }
+    }
+
+    function applyJSONEditor() {
+      try {
+        var obj = JSON.parse(document.getElementById('scenario-json').value);
+        loadScenario(obj);
+        showError('');
+      } catch (err) {
+        showError('Invalid JSON: ' + err.message);
+      }
+    }
+
+    // ---- Sweep control ----
+
+    function handleStart() {
+      showError('');
+      var req = buildScenarioJSON();
+      req.mode = 'params';
+
+      if (!req.params || req.params.length === 0) {
         showError('Add at least one parameter to sweep.');
         return;
-      }
-
-      var req = {
-        mode: 'params',
-        seed: val('seed'),
-        iterations: intVal('iterations'),
-        interval: val('interval'),
-        settle_time: val('settle_time'),
-        params: params,
-        data_source: val('data_source')
-      };
-
-      // Add PCAP fields if relevant
-      if (req.data_source === 'pcap') {
-        req.pcap_file = val('pcap_file');
-        req.pcap_start_secs = numVal('pcap_start_secs');
-        req.pcap_duration_secs = numVal('pcap_duration_secs');
       }
 
       fetch('/api/lidar/sweep/start', {
@@ -431,7 +606,7 @@
           var c = st.current_combo;
           var lbl = comboLabel(c);
           cc.textContent = 'Current: ' + lbl +
-            ' → acceptance=' + ((c.overall_accept_mean || 0) * 100).toFixed(1) + '%%';
+            ' \u2192 acceptance=' + ((c.overall_accept_mean || 0) * 100).toFixed(1) + '%%';
         } else {
           cc.textContent = '';
         }
@@ -455,14 +630,18 @@
       acceptChart = echarts.init(document.getElementById('acceptance-chart'), chartTheme);
       nzChart = echarts.init(document.getElementById('nonzero-chart'), chartTheme);
       bktChart = echarts.init(document.getElementById('bucket-chart'), chartTheme);
+      alignChart = echarts.init(document.getElementById('alignment-chart'), chartTheme);
+      tracksChart = echarts.init(document.getElementById('tracks-chart'), chartTheme);
 
       var emptyOpt = {
-        title: { text: 'Waiting for data...', left: 'center', top: 'center', textStyle: { color: isDark ? '#94a3b8' : '#94a3b8', fontSize: 14, fontWeight: 'normal' } },
+        title: { text: 'Waiting for data...', left: 'center', top: 'center', textStyle: { color: '#94a3b8', fontSize: 14, fontWeight: 'normal' } },
         backgroundColor: chartBg
       };
       acceptChart.setOption(emptyOpt);
       nzChart.setOption(emptyOpt);
       bktChart.setOption(emptyOpt);
+      alignChart.setOption(emptyOpt);
+      tracksChart.setOption(emptyOpt);
     }
 
     function renderCharts(results) {
@@ -523,6 +702,40 @@
           backgroundColor: chartBg
         }, true);
       }
+
+      // Track alignment chart (lower is better)
+      alignChart.setOption({
+        title: { text: 'Track Alignment (lower = better)', left: 'center', top: 0, textStyle: { fontSize: 14 } },
+        tooltip: { trigger: 'axis', formatter: function (p) {
+          var d = p[0];
+          var r = results[d.dataIndex];
+          return comboLabel(r) + '<br/>Alignment: ' + (r.alignment_deg_mean || 0).toFixed(1) + '\u00b0 \u00b1' + (r.alignment_deg_stddev || 0).toFixed(1) +
+            '<br/>Misalignment: ' + ((r.misalignment_ratio_mean || 0) * 100).toFixed(1) + '%%';
+        }},
+        xAxis: { type: 'category', data: labels, axisLabel: { rotate: 45, fontSize: 10 } },
+        yAxis: [
+          { type: 'value', name: 'Alignment (\u00b0)', position: 'left' },
+          { type: 'value', name: 'Misalignment %%', position: 'right', axisLabel: { formatter: function (v) { return (v * 100).toFixed(0) + '%%'; } } }
+        ],
+        series: [
+          { name: 'Alignment', type: 'bar', data: results.map(function (r) { return r.alignment_deg_mean || 0; }), itemStyle: { color: '#ee6666' } },
+          { name: 'Misalignment', type: 'line', yAxisIndex: 1, data: results.map(function (r) { return r.misalignment_ratio_mean || 0; }), lineStyle: { color: '#fac858' }, itemStyle: { color: '#fac858' } }
+        ],
+        legend: { bottom: 0 },
+        grid: { bottom: 120, top: 40 },
+        backgroundColor: chartBg
+      }, true);
+
+      // Active tracks chart
+      tracksChart.setOption({
+        title: { text: 'Active Tracks', left: 'center', top: 0, textStyle: { fontSize: 14 } },
+        tooltip: { trigger: 'axis' },
+        xAxis: { type: 'category', data: labels, axisLabel: { rotate: 45, fontSize: 10 } },
+        yAxis: { type: 'value', name: 'Track Count' },
+        series: [{ name: 'Mean', type: 'bar', data: results.map(function (r) { return r.active_tracks_mean || 0; }), itemStyle: { color: '#73c0de' } }],
+        grid: { bottom: 100 },
+        backgroundColor: chartBg
+      }, true);
     }
 
     function renderTable(results) {
@@ -541,7 +754,9 @@
         var schema = PARAM_SCHEMA[k];
         headerHtml += '<th>' + (schema ? schema.label : k) + '</th>';
       });
-      headerHtml += '<th>Accept Rate</th><th>± StdDev</th><th>Nonzero Cells</th><th>± StdDev</th></tr>';
+      headerHtml += '<th>Accept Rate</th><th>\u00b1 StdDev</th><th>Nonzero Cells</th><th>\u00b1 StdDev</th>';
+      headerHtml += '<th>Active Tracks</th><th>Alignment (\u00b0)</th><th>Misalignment</th>';
+      headerHtml += '</tr>';
       thead.innerHTML = headerHtml;
 
       // Rebuild body
@@ -565,9 +780,12 @@
         });
         html +=
           '<td class="mono">' + (r.overall_accept_mean * 100).toFixed(2) + '%%</td>' +
-          '<td class="mono" style="color:var(--fg-faint)">±' + (r.overall_accept_stddev * 100).toFixed(2) + '%%</td>' +
+          '<td class="mono" style="color:var(--fg-faint)">\u00b1' + (r.overall_accept_stddev * 100).toFixed(2) + '%%</td>' +
           '<td class="mono">' + r.nonzero_cells_mean.toFixed(0) + '</td>' +
-          '<td class="mono" style="color:var(--fg-faint)">±' + r.nonzero_cells_stddev.toFixed(0) + '</td>';
+          '<td class="mono" style="color:var(--fg-faint)">\u00b1' + r.nonzero_cells_stddev.toFixed(0) + '</td>' +
+          '<td class="mono">' + (r.active_tracks_mean || 0).toFixed(1) + '</td>' +
+          '<td class="mono">' + (r.alignment_deg_mean || 0).toFixed(1) + '\u00b0</td>' +
+          '<td class="mono">' + ((r.misalignment_ratio_mean || 0) * 100).toFixed(1) + '%%</td>';
         tr.innerHTML = html;
         tbody.appendChild(tr);
       });
@@ -577,6 +795,8 @@
       if (acceptChart) acceptChart.resize();
       if (nzChart) nzChart.resize();
       if (bktChart) bktChart.resize();
+      if (alignChart) alignChart.resize();
+      if (tracksChart) tracksChart.resize();
     });
 
     // Initialise charts empty on page load
