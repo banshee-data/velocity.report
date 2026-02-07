@@ -474,6 +474,11 @@ func main() {
 					visualiserServer.SetPCAPProgress(current, total)
 				}
 			},
+			OnPCAPTimestamps: func(startNs, endNs int64) {
+				if visualiserServer != nil {
+					visualiserServer.SetPCAPTimestamps(startNs, endNs)
+				}
+			},
 		})
 		// Wire tracker for in-memory config access via /api/lidar/params
 		if tracker != nil {

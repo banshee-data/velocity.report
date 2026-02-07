@@ -54,6 +54,8 @@ type Server struct {
 	// PCAP progress tracking (updated by WebServer progress callback)
 	pcapCurrentPacket uint64
 	pcapTotalPackets  uint64
+	pcapStartNs       int64
+	pcapEndNs         int64
 
 	// Per-client overlay preferences (protected by preferenceMu)
 	clientPreferences map[string]*overlayPreferences
@@ -85,6 +87,8 @@ func (s *Server) SetReplayMode(enabled bool) {
 	if !enabled {
 		s.pcapCurrentPacket = 0
 		s.pcapTotalPackets = 0
+		s.pcapStartNs = 0
+		s.pcapEndNs = 0
 	}
 }
 
@@ -94,6 +98,14 @@ func (s *Server) SetPCAPProgress(currentPacket, totalPackets uint64) {
 	defer s.playbackMu.Unlock()
 	s.pcapCurrentPacket = currentPacket
 	s.pcapTotalPackets = totalPackets
+}
+
+// SetPCAPTimestamps stores the first and last capture timestamps from pre-counting.
+func (s *Server) SetPCAPTimestamps(startNs, endNs int64) {
+	s.playbackMu.Lock()
+	defer s.playbackMu.Unlock()
+	s.pcapStartNs = startNs
+	s.pcapEndNs = endNs
 }
 
 // SyntheticGenerator returns the synthetic generator (if enabled).
@@ -295,10 +307,13 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				s.playbackMu.RLock()
 				frame.PlaybackInfo = &PlaybackInfo{
 					IsLive:            false,
+					LogStartNs:        s.pcapStartNs,
+					LogEndNs:          s.pcapEndNs,
 					PlaybackRate:      s.playbackRate,
 					Paused:            s.paused,
 					CurrentFrameIndex: s.pcapCurrentPacket,
 					TotalFrames:       s.pcapTotalPackets,
+					Seekable:          false,
 				}
 				s.playbackMu.RUnlock()
 			}
@@ -508,6 +523,7 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 			Paused:            frame.PlaybackInfo.Paused,
 			CurrentFrameIndex: frame.PlaybackInfo.CurrentFrameIndex,
 			TotalFrames:       frame.PlaybackInfo.TotalFrames,
+			Seekable:          frame.PlaybackInfo.Seekable,
 		}
 	}
 

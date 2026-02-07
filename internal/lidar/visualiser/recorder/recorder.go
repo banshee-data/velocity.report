@@ -417,6 +417,7 @@ func (r *Replayer) ReadFrame() (*visualiser.FrameBundle, error) {
 		Paused:            r.paused,
 		CurrentFrameIndex: r.currentFrame,
 		TotalFrames:       uint64(len(r.index)),
+		Seekable:          true,
 	}
 
 	r.currentFrame++

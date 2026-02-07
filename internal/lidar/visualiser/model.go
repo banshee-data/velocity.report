@@ -358,6 +358,7 @@ type PlaybackInfo struct {
 	Paused            bool
 	CurrentFrameIndex uint64 // 0-based index in log
 	TotalFrames       uint64
+	Seekable          bool // true when seek/step is supported (e.g. .vrlog replay)
 }
 
 // NewFrameBundle creates a new FrameBundle with the given metadata.

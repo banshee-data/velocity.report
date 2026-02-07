@@ -546,6 +546,7 @@ func TestFrameBundleToProto_WithPlaybackInfo(t *testing.T) {
 			LogEndNs:     2000000000,
 			PlaybackRate: 1.5,
 			Paused:       false,
+			Seekable:     true,
 		},
 	}
 
@@ -561,6 +562,9 @@ func TestFrameBundleToProto_WithPlaybackInfo(t *testing.T) {
 	}
 	if pbFrame.PlaybackInfo.PlaybackRate != 1.5 {
 		t.Errorf("expected PlaybackRate=1.5, got %f", pbFrame.PlaybackInfo.PlaybackRate)
+	}
+	if !pbFrame.PlaybackInfo.Seekable {
+		t.Error("expected Seekable=true")
 	}
 }
 
@@ -848,6 +852,25 @@ func TestServer_SetReplayMode(t *testing.T) {
 	}
 	if server.pcapTotalPackets != 0 {
 		t.Errorf("expected pcapTotalPackets=0 after disabling, got %d", server.pcapTotalPackets)
+	}
+
+	// Test SetPCAPTimestamps
+	server.SetReplayMode(true)
+	server.SetPCAPTimestamps(1000000000, 2000000000)
+	if server.pcapStartNs != 1000000000 {
+		t.Errorf("expected pcapStartNs=1000000000, got %d", server.pcapStartNs)
+	}
+	if server.pcapEndNs != 2000000000 {
+		t.Errorf("expected pcapEndNs=2000000000, got %d", server.pcapEndNs)
+	}
+
+	// Disable replay mode - should also reset timestamps
+	server.SetReplayMode(false)
+	if server.pcapStartNs != 0 {
+		t.Errorf("expected pcapStartNs=0 after disabling, got %d", server.pcapStartNs)
+	}
+	if server.pcapEndNs != 0 {
+		t.Errorf("expected pcapEndNs=0 after disabling, got %d", server.pcapEndNs)
 	}
 }
 

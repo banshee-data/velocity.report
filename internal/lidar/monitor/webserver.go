@@ -138,9 +138,10 @@ type WebServer struct {
 	dataSourceManager DataSourceManager
 
 	// PCAP lifecycle callbacks for notifying external components (e.g. visualiser gRPC server)
-	onPCAPStarted  func()
-	onPCAPStopped  func()
-	onPCAPProgress func(currentPacket, totalPackets uint64)
+	onPCAPStarted    func()
+	onPCAPStopped    func()
+	onPCAPProgress   func(currentPacket, totalPackets uint64)
+	onPCAPTimestamps func(startNs, endNs int64)
 
 	// Sweep runner for web-triggered parameter sweeps
 	sweepRunner SweepRunner
@@ -180,6 +181,10 @@ type WebServerConfig struct {
 	// OnPCAPProgress is called periodically during PCAP replay with the
 	// current and total packet counts, enabling progress/seek in the UI.
 	OnPCAPProgress func(currentPacket, totalPackets uint64)
+
+	// OnPCAPTimestamps is called after PCAP pre-counting with the first and
+	// last capture timestamps, enabling timeline display in the UI.
+	OnPCAPTimestamps func(startNs, endNs int64)
 }
 
 // NewWebServer creates a new web server with the provided configuration
@@ -225,6 +230,7 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		onPCAPStarted:     config.OnPCAPStarted,
 		onPCAPStopped:     config.OnPCAPStopped,
 		onPCAPProgress:    config.OnPCAPProgress,
+		onPCAPTimestamps:  config.OnPCAPTimestamps,
 	}
 
 	// Initialize DataSourceManager - use provided one or create RealDataSourceManager
@@ -616,16 +622,19 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 			log.Printf("PacketForwarder started for PCAP replay")
 		}
 
-		// Pre-count packets for progress tracking and seek support.
-		totalPkts, countErr := network.CountPCAPPackets(path, ws.udpPort)
+		// Pre-count packets for progress tracking and timeline display.
+		countResult, countErr := network.CountPCAPPackets(path, ws.udpPort)
 		if countErr != nil {
 			log.Printf("Warning: failed to pre-count PCAP packets: %v (progress disabled)", countErr)
 		} else {
 			ws.pcapMu.Lock()
-			ws.pcapTotalPackets = totalPkts
+			ws.pcapTotalPackets = countResult.Count
 			ws.pcapCurrentPacket = 0
 			ws.pcapMu.Unlock()
-			log.Printf("PCAP pre-count: %d packets", totalPkts)
+			log.Printf("PCAP pre-count: %d packets", countResult.Count)
+			if ws.onPCAPTimestamps != nil {
+				ws.onPCAPTimestamps(countResult.FirstTimestampNs, countResult.LastTimestampNs)
+			}
 		}
 
 		// Progress callback: update internal state and notify external listeners
@@ -641,7 +650,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 
 		var err error
 		if speedMode == "fastest" {
-			err = network.ReadPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, ws.packetForwarder, startSeconds, durationSeconds, 0, totalPkts, onProgress)
+			err = network.ReadPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, ws.packetForwarder, startSeconds, durationSeconds, 0, countResult.Count, onProgress)
 		} else {
 			// Apply PCAP-friendly background params and restore afterward.
 			var restoreParams func()
@@ -722,7 +731,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 				DebugAzMin:      debugAzMin,
 				DebugAzMax:      debugAzMax,
 				OnFrameCallback: onFrameCallback,
-				TotalPackets:    totalPkts,
+				TotalPackets:    countResult.Count,
 				OnProgress:      onProgress,
 			}
 
