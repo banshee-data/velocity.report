@@ -120,7 +120,7 @@ func (s *Sampler) Sample(cfg SampleConfig) []SampleResult {
 			WriteRawRow(cfg.RawWriter, cfg.Noise, cfg.Closeness, cfg.Neighbour, i, result, s.Buckets)
 		}
 
-		if i < cfg.Iterations-1 {
+		if i < iterations-1 {
 			time.Sleep(s.Interval)
 		}
 	}
