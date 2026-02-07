@@ -39,23 +39,22 @@ type SampleConfig struct {
 // Returns a slice of SampleResult, one per iteration.
 func (s *Sampler) Sample(cfg SampleConfig) []SampleResult {
 	// Validate and clamp iterations to prevent excessive memory allocation (CWE-770).
-	// Use explicit min/max bounds that CodeQL can verify limit the allocation size.
 	const maxIterations = 500
 	const defaultIterations = 30
 
-	// Clamp to [defaultIterations, maxIterations] range
-	iterations := cfg.Iterations
-	if iterations <= 0 {
-		iterations = defaultIterations
-		log.Printf("WARNING: Invalid iterations %d, using default %d", cfg.Iterations, defaultIterations)
-	}
-	if iterations > maxIterations {
+	iterations := defaultIterations
+	if cfg.Iterations > 0 && cfg.Iterations <= maxIterations {
+		iterations = cfg.Iterations
+	} else if cfg.Iterations > maxIterations {
 		iterations = maxIterations
 		log.Printf("WARNING: Iterations %d exceeds maximum %d, clamping to maximum", cfg.Iterations, maxIterations)
+	} else if cfg.Iterations <= 0 {
+		log.Printf("WARNING: Invalid iterations %d, using default %d", cfg.Iterations, defaultIterations)
 	}
 
-	// Allocate with the bounded value to satisfy static analysis
-	results := make([]SampleResult, 0, min(iterations, maxIterations))
+	// Allocate with a compile-time constant cap to satisfy static analysis (CodeQL CWE-770).
+	// maxIterations is small enough (500) that pre-allocating the full capacity is acceptable.
+	results := make([]SampleResult, 0, maxIterations)
 
 	for i := 0; i < iterations; i++ {
 		metrics, err := s.Client.FetchAcceptanceMetrics()
