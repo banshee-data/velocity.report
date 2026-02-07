@@ -6,6 +6,11 @@
   <link rel="stylesheet" href="/assets/common.css">
   <script src="/assets/echarts.min.js"></script>
   <style>
+    body {
+      max-width: none;
+      padding: 0 24px;
+    }
+
     .section-title {
       font-size: 13px;
       font-weight: 600;
@@ -1098,6 +1103,16 @@
 
     // Initialise charts empty on page load
     initCharts();
+
+    // Resize charts after layout settles (CSS grid may not have final dimensions at init time)
+    setTimeout(function () {
+      acceptChart.resize();
+      nzChart.resize();
+      bktChart.resize();
+      paramHeatmapChart.resize();
+      alignChart.resize();
+      tracksChart.resize();
+    }, 100);
 
     // Check for existing sweep on page load
     fetch('/api/lidar/sweep/status').then(function (r) { return r.json(); }).then(function (st) {

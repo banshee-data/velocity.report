@@ -38,20 +38,22 @@ type SampleConfig struct {
 // Sample collects acceptance metrics over the configured number of iterations.
 // Returns a slice of SampleResult, one per iteration.
 func (s *Sampler) Sample(cfg SampleConfig) []SampleResult {
-	// Validate iterations to prevent excessive memory allocation
+	// Validate and clamp iterations to prevent excessive memory allocation.
+	// Use a local variable so static analysis can see the bounded value flows into make().
 	const maxIterations = 500
-	if cfg.Iterations <= 0 {
+	iterations := cfg.Iterations
+	if iterations <= 0 {
 		log.Printf("WARNING: Invalid iterations %d, using default 30", cfg.Iterations)
-		cfg.Iterations = 30
+		iterations = 30
 	}
-	if cfg.Iterations > maxIterations {
+	if iterations > maxIterations {
 		log.Printf("WARNING: Iterations %d exceeds maximum %d, clamping to maximum", cfg.Iterations, maxIterations)
-		cfg.Iterations = maxIterations
+		iterations = maxIterations
 	}
 
-	results := make([]SampleResult, 0, cfg.Iterations)
+	results := make([]SampleResult, 0, iterations)
 
-	for i := 0; i < cfg.Iterations; i++ {
+	for i := 0; i < iterations; i++ {
 		metrics, err := s.Client.FetchAcceptanceMetrics()
 		if err != nil {
 			log.Printf("WARNING: Sample %d failed: %v", i+1, err)
