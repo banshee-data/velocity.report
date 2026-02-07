@@ -92,27 +92,38 @@
       }
     }
 
-    /* Config section: 5 cards in up to 3 columns */
-    #config-section {
+    /* Sweep params: wider single card */
+    #sweep-params-section {
+      margin-bottom: 12px;
+    }
+
+    /* Other config: narrower cards in up to 4 columns */
+    #other-config-section {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 12px;
       margin-bottom: 12px;
     }
 
-    #config-section > .card {
+    #other-config-section > .card {
       min-width: 0;
       margin-bottom: 0;
     }
 
-    @media (max-width: 1600px) {
-      #config-section {
+    @media (max-width: 1800px) {
+      #other-config-section {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (max-width: 1200px) {
+      #other-config-section {
         grid-template-columns: repeat(2, 1fr);
       }
     }
 
     @media (max-width: 900px) {
-      #config-section {
+      #other-config-section {
         grid-template-columns: 1fr;
       }
     }
@@ -125,6 +136,45 @@
 
     .field-stack label:last-child {
       margin-bottom: 0;
+    }
+
+    /* Scenario card fills height */
+    .scenario-card {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .scenario-card > h2 {
+      flex-shrink: 0;
+    }
+
+    .scenario-card-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    #json-editor-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    #scenario-json {
+      flex: 1;
+      width: 100%%;
+      min-height: 0;
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 8px;
+      border: 1px solid var(--input-border);
+      border-radius: 5px;
+      background: var(--input-bg);
+      color: var(--input-fg);
+      margin-top: 8px;
+      resize: none;
     }
 
     /* Results table spans full width below charts */
@@ -221,20 +271,6 @@
       flex-wrap: wrap;
     }
 
-    #scenario-json {
-      width: 100%%;
-      min-height: 200px;
-      font-family: var(--mono);
-      font-size: 12px;
-      padding: 8px;
-      border: 1px solid var(--input-border);
-      border-radius: 5px;
-      background: var(--input-bg);
-      color: var(--input-fg);
-      margin-top: 8px;
-      resize: vertical;
-    }
-
     #sweep-summary {
       font-size: 12px;
       color: var(--fg-muted);
@@ -302,8 +338,18 @@
 
   <div id="error-box" class="error-box" style="display:none"></div>
 
-  <!-- Configuration Cards -->
-  <div id="config-section">
+  <!-- Sweep Parameters Card (full width) -->
+  <div id="sweep-params-section">
+    <div class="card">
+      <h2>Sweep Parameters</h2>
+      <div id="param-rows"></div>
+      <button class="btn-sm btn-add" onclick="addParamRow()">+ Add Parameter</button>
+      <div id="sweep-summary"></div>
+    </div>
+  </div>
+
+  <!-- Other Configuration Cards (multi-column) -->
+  <div id="other-config-section">
 
     <!-- Card 1: Sweep Configuration -->
     <div class="card">
@@ -360,32 +406,26 @@
       </div>
     </div>
 
-    <!-- Card 3: Sweep Parameters -->
-    <div class="card">
-      <h2>Sweep Parameters</h2>
-      <div id="param-rows"></div>
-      <button class="btn-sm btn-add" onclick="addParamRow()">+ Add Parameter</button>
-      <div id="sweep-summary"></div>
-    </div>
-
-    <!-- Card 4: Scenario -->
-    <div class="card">
+    <!-- Card 3: Scenario -->
+    <div class="card scenario-card">
       <h2>Scenario</h2>
-      <div class="scenario-bar">
-        <button class="btn-sm btn-secondary" onclick="downloadScenario()">Download JSON</button>
-        <button class="btn-sm btn-secondary" onclick="document.getElementById('scenario-upload').click()">Upload JSON</button>
-        <input id="scenario-upload" type="file" accept=".json" style="display:none" onchange="uploadScenario(this)">
-        <button class="btn-sm btn-secondary" onclick="toggleJSONEditor()">Edit JSON</button>
-      </div>
-      <div id="json-editor-wrap" style="display:none">
-        <textarea id="scenario-json"></textarea>
-        <div style="margin-top:6px">
-          <button class="btn-sm btn-add" onclick="applyJSONEditor()">Apply</button>
+      <div class="scenario-card-content">
+        <div class="scenario-bar">
+          <button class="btn-sm btn-secondary" onclick="downloadScenario()">Download JSON</button>
+          <button class="btn-sm btn-secondary" onclick="document.getElementById('scenario-upload').click()">Upload JSON</button>
+          <input id="scenario-upload" type="file" accept=".json" style="display:none" onchange="uploadScenario(this)">
+          <button class="btn-sm btn-secondary" onclick="toggleJSONEditor()">Edit JSON</button>
+        </div>
+        <div id="json-editor-wrap" style="display:none">
+          <textarea id="scenario-json"></textarea>
+          <div style="margin-top:6px">
+            <button class="btn-sm btn-add" onclick="applyJSONEditor()">Apply</button>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Card 5: Current Tuning Parameters -->
+    <!-- Card 4: Current Tuning Parameters -->
     <div class="card">
       <h2>Current Tuning Parameters</h2>
       <div class="current-params-header">
