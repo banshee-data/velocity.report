@@ -137,6 +137,7 @@ import XCTest
     func testSeekInReplayMode() throws {
         let state = AppState()
         state.isLive = false
+        state.isSeekable = true
         state.logStartTimestamp = 1_000_000_000
         state.logEndTimestamp = 2_000_000_000
 
