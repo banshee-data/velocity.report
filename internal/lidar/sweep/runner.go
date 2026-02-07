@@ -114,6 +114,7 @@ type SweepState struct {
 	CurrentCombo    *ComboResult  `json:"current_combo,omitempty"`
 	Results         []ComboResult `json:"results"`
 	Error           string        `json:"error,omitempty"`
+	Warnings        []string      `json:"warnings,omitempty"`
 	Request         *SweepRequest `json:"request,omitempty"`
 }
 
@@ -131,6 +132,13 @@ func NewRunner(client *monitor.Client) *Runner {
 		client: client,
 		state:  SweepState{Status: SweepStatusIdle},
 	}
+}
+
+// addWarning appends a warning message to the sweep state.
+func (r *Runner) addWarning(msg string) {
+	r.mu.Lock()
+	r.state.Warnings = append(r.state.Warnings, msg)
+	r.mu.Unlock()
 }
 
 // GetSweepState returns a typed copy of the current sweep state.
@@ -543,7 +551,7 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 				case <-ctx.Done():
 					r.mu.Lock()
 					r.state.Status = SweepStatusError
-					r.state.Error = "sweep cancelled"
+					r.state.Error = fmt.Sprintf("sweep stopped at combination %d/%d: %v", comboNum, totalCombos, ctx.Err())
 					now := time.Now()
 					r.state.CompletedAt = &now
 					r.mu.Unlock()
@@ -572,6 +580,7 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 				// Reset grid
 				if err := r.client.ResetGrid(); err != nil {
 					log.Printf("[sweep] WARNING: Grid reset failed: %v", err)
+					r.addWarning(fmt.Sprintf("combo %d: grid reset failed: %v", comboNum+1, err))
 				}
 
 				// Set parameters
@@ -583,12 +592,14 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 				}
 				if err := r.client.SetParams(params); err != nil {
 					log.Printf("[sweep] ERROR: Failed to set params: %v", err)
+					r.addWarning(fmt.Sprintf("combo %d: failed to set params (skipped): %v", comboNum+1, err))
 					continue
 				}
 
 				// Reset acceptance
 				if err := r.client.ResetAcceptance(); err != nil {
 					log.Printf("[sweep] WARNING: Failed to reset acceptance: %v", err)
+					r.addWarning(fmt.Sprintf("combo %d: reset acceptance failed: %v", comboNum+1, err))
 				}
 
 				// Wait for settle
@@ -664,7 +675,7 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 		case <-ctx.Done():
 			r.mu.Lock()
 			r.state.Status = SweepStatusError
-			r.state.Error = "sweep cancelled"
+			r.state.Error = fmt.Sprintf("sweep stopped at combination %d/%d: %v", comboNum+1, totalCombos, ctx.Err())
 			now := time.Now()
 			r.state.CompletedAt = &now
 			r.mu.Unlock()
@@ -691,6 +702,7 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 		// Reset grid
 		if err := r.client.ResetGrid(); err != nil {
 			log.Printf("[sweep] WARNING: Grid reset failed: %v", err)
+			r.addWarning(fmt.Sprintf("combo %d: grid reset failed: %v", comboNum+1, err))
 		}
 
 		// Build tuning params map, include seed
@@ -706,12 +718,14 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 		// Set parameters via generic endpoint
 		if err := r.client.SetTuningParams(tuningParams); err != nil {
 			log.Printf("[sweep] ERROR: Failed to set params: %v", err)
+			r.addWarning(fmt.Sprintf("combo %d: failed to set params (skipped): %v", comboNum+1, err))
 			continue
 		}
 
 		// Reset acceptance
 		if err := r.client.ResetAcceptance(); err != nil {
 			log.Printf("[sweep] WARNING: Failed to reset acceptance: %v", err)
+			r.addWarning(fmt.Sprintf("combo %d: reset acceptance failed: %v", comboNum+1, err))
 		}
 
 		// Wait for settle

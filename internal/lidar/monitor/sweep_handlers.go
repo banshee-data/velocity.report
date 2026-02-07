@@ -33,7 +33,7 @@ func (ws *WebServer) handleSweepStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := ws.sweepRunner.Start(r.Context(), req); err != nil {
+	if err := ws.sweepRunner.Start(context.Background(), req); err != nil {
 		http.Error(w, err.Error(), http.StatusConflict)
 		return
 	}

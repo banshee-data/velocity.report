@@ -224,6 +224,7 @@
     </div>
     <div id="current-combo"></div>
     <div id="sweep-error" class="error-box" style="display:none"></div>
+    <div id="sweep-warnings" style="display:none"></div>
   </div>
 
   <!-- Charts (always visible, start empty) -->
@@ -614,6 +615,17 @@
         var errEl = document.getElementById('sweep-error');
         if (st.error) { errEl.textContent = st.error; errEl.style.display = ''; }
         else { errEl.style.display = 'none'; }
+
+        var warnEl = document.getElementById('sweep-warnings');
+        if (st.warnings && st.warnings.length > 0) {
+          warnEl.innerHTML = '<div class="section-title" style="margin-top:8px">Warnings (' + st.warnings.length + ')</div>' +
+            '<ul style="margin:4px 0 0 16px;padding:0;font-size:12px;color:var(--fg-faint)">' +
+            st.warnings.map(function (w) { return '<li>' + w.replace(/</g, '&lt;') + '</li>'; }).join('') +
+            '</ul>';
+          warnEl.style.display = '';
+        } else {
+          warnEl.style.display = 'none';
+        }
 
         if (st.results && st.results.length > 0) {
           renderCharts(st.results);
