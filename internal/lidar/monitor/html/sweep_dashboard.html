@@ -39,7 +39,7 @@
 
     #charts-section {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(6, 1fr);
       gap: 12px;
     }
 
@@ -49,7 +49,19 @@
       overflow: hidden;
     }
 
+    @media (max-width: 2400px) {
+      #charts-section {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
     @media (max-width: 1600px) {
+      #charts-section {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (max-width: 1200px) {
       #charts-section {
         grid-template-columns: repeat(2, 1fr);
       }
@@ -57,6 +69,25 @@
 
     @media (max-width: 900px) {
       #charts-section {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Form grid override: max 3 columns */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    @media (max-width: 1600px) {
+      .form-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 900px) {
+      .form-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -188,10 +219,9 @@
       border-radius: 5px;
       background: var(--input-bg);
       color: var(--fg-faint);
-      max-height: 300px;
+      max-height: 500px;
       overflow-y: auto;
       line-height: 1.6;
-      white-space: pre;
       margin-top: 8px;
     }
 
@@ -490,6 +520,7 @@
           '<label class="param-field" style="flex:2"><span>Values (comma-sep)</span><input id="pvals-' + id + '" type="text" placeholder="e.g. 500ms, 1s, 2s"></label>';
       }
       updateSweepSummary();
+      if (window.currentParamsCache) displayCurrentParams(window.currentParamsCache);
     }
 
     function showError(msg) {
@@ -1222,7 +1253,7 @@
         }
       });
 
-      document.getElementById('current-params-display').innerHTML = lines.join('\n');
+      document.getElementById('current-params-display').innerHTML = lines.join('');
     }
 
     // ---- Page initialization ----
