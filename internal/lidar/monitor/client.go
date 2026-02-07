@@ -218,6 +218,7 @@ type PCAPReplayConfig struct {
 	StartSeconds    float64
 	DurationSeconds float64
 	MaxRetries      int
+	AnalysisMode    bool // When true, preserve grid after PCAP completion
 }
 
 // StartPCAPReplayWithConfig requests a PCAP replay with extended configuration.
@@ -231,6 +232,9 @@ func (c *Client) StartPCAPReplayWithConfig(cfg PCAPReplayConfig) error {
 	}
 	if cfg.DurationSeconds != 0 {
 		payload["duration_seconds"] = cfg.DurationSeconds
+	}
+	if cfg.AnalysisMode {
+		payload["analysis_mode"] = true
 	}
 	data, _ := json.Marshal(payload)
 
@@ -297,6 +301,33 @@ func (c *Client) StopPCAPReplay() error {
 
 	log.Printf("Stopped PCAP replay for sensor %s", c.SensorID)
 	return nil
+}
+
+// WaitForPCAPComplete polls the data source status until the PCAP replay finishes.
+// Returns nil when the PCAP is no longer in progress, or an error on timeout.
+func (c *Client) WaitForPCAPComplete(timeout time.Duration) error {
+	if timeout <= 0 {
+		timeout = 120 * time.Second
+	}
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		resp, err := c.HTTPClient.Get(fmt.Sprintf("%s/api/lidar/data_source?sensor_id=%s", c.BaseURL, c.SensorID))
+		if err != nil {
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+		var ds map[string]interface{}
+		if json.NewDecoder(resp.Body).Decode(&ds) == nil {
+			if inProgress, ok := ds["pcap_in_progress"].(bool); ok && !inProgress {
+				resp.Body.Close()
+				return nil
+			}
+		}
+		resp.Body.Close()
+		time.Sleep(500 * time.Millisecond)
+	}
+	return fmt.Errorf("timeout waiting for PCAP to complete")
 }
 
 // ResetAcceptance resets the acceptance counters.

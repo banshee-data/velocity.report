@@ -509,28 +509,7 @@ func (r *Runner) computeCombinations(req SweepRequest) ([]float64, []float64, []
 
 // run executes the legacy sweep in a background goroutine
 func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closenessCombos []float64, neighbourCombos []int, interval, settleTime time.Duration) {
-	// Start PCAP if configured
-	if req.DataSource == "pcap" && req.PCAPFile != "" {
-		if err := r.client.StartPCAPReplayWithConfig(monitor.PCAPReplayConfig{
-			PCAPFile:        req.PCAPFile,
-			StartSeconds:    req.PCAPStartSecs,
-			DurationSeconds: req.PCAPDurationSecs,
-			MaxRetries:      30,
-		}); err != nil {
-			r.mu.Lock()
-			r.state.Status = SweepStatusError
-			r.state.Error = fmt.Sprintf("failed to start PCAP: %v", err)
-			now := time.Now()
-			r.state.CompletedAt = &now
-			r.mu.Unlock()
-			return
-		}
-		defer func() {
-			if err := r.client.StopPCAPReplay(); err != nil {
-				log.Printf("[sweep] WARNING: Failed to stop PCAP: %v", err)
-			}
-		}()
-	}
+	isPCAP := req.DataSource == "pcap" && req.PCAPFile != ""
 
 	buckets := r.client.FetchBuckets()
 	sampler := NewSampler(r.client, buckets, interval)
@@ -590,20 +569,45 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 					continue
 				}
 
-				// Reset grid (with new params now active)
-				if err := r.client.ResetGrid(); err != nil {
-					log.Printf("[sweep] WARNING: Grid reset failed: %v", err)
-					r.addWarning(fmt.Sprintf("combo %d: grid reset failed: %v", comboNum+1, err))
-				}
+				if isPCAP {
+					// PCAP mode: replay per-combination with analysis_mode so grid is preserved after completion.
+					if err := r.client.StartPCAPReplayWithConfig(monitor.PCAPReplayConfig{
+						PCAPFile:        req.PCAPFile,
+						StartSeconds:    req.PCAPStartSecs,
+						DurationSeconds: req.PCAPDurationSecs,
+						MaxRetries:      30,
+						AnalysisMode:    true,
+					}); err != nil {
+						log.Printf("[sweep] ERROR: Failed to start PCAP for combo %d: %v", comboNum, err)
+						r.addWarning(fmt.Sprintf("combo %d: failed to start PCAP (skipped): %v", comboNum, err))
+						continue
+					}
 
-				// Reset acceptance
-				if err := r.client.ResetAcceptance(); err != nil {
-					log.Printf("[sweep] WARNING: Failed to reset acceptance: %v", err)
-					r.addWarning(fmt.Sprintf("combo %d: reset acceptance failed: %v", comboNum+1, err))
-				}
+					// Wait for PCAP replay to finish so all data is processed
+					if err := r.client.WaitForPCAPComplete(120 * time.Second); err != nil {
+						log.Printf("[sweep] WARNING: PCAP wait timeout for combo %d: %v", comboNum, err)
+						r.addWarning(fmt.Sprintf("combo %d: PCAP wait timeout: %v", comboNum, err))
+					}
 
-				// Wait for settle
-				r.client.WaitForGridSettle(settleTime)
+					// Additional settle time after PCAP completion
+					if settleTime > 0 {
+						time.Sleep(settleTime)
+					}
+				} else {
+					// Live mode: reset grid and acceptance, then wait for data
+					if err := r.client.ResetGrid(); err != nil {
+						log.Printf("[sweep] WARNING: Grid reset failed: %v", err)
+						r.addWarning(fmt.Sprintf("combo %d: grid reset failed: %v", comboNum+1, err))
+					}
+
+					if err := r.client.ResetAcceptance(); err != nil {
+						log.Printf("[sweep] WARNING: Failed to reset acceptance: %v", err)
+						r.addWarning(fmt.Sprintf("combo %d: reset acceptance failed: %v", comboNum+1, err))
+					}
+
+					// Wait for settle
+					r.client.WaitForGridSettle(settleTime)
+				}
 
 				// Sample
 				cfg := SampleConfig{
@@ -627,6 +631,13 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 		}
 	}
 
+	// Clean up: stop any lingering PCAP replay
+	if isPCAP {
+		if err := r.client.StopPCAPReplay(); err != nil {
+			log.Printf("[sweep] WARNING: Failed to stop PCAP: %v", err)
+		}
+	}
+
 	r.mu.Lock()
 	r.state.Status = SweepStatusComplete
 	now := time.Now()
@@ -637,28 +648,7 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 
 // runGeneric executes the generic N-dimensional sweep.
 func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[string]interface{}, interval, settleTime time.Duration) {
-	// Start PCAP if configured
-	if req.DataSource == "pcap" && req.PCAPFile != "" {
-		if err := r.client.StartPCAPReplayWithConfig(monitor.PCAPReplayConfig{
-			PCAPFile:        req.PCAPFile,
-			StartSeconds:    req.PCAPStartSecs,
-			DurationSeconds: req.PCAPDurationSecs,
-			MaxRetries:      30,
-		}); err != nil {
-			r.mu.Lock()
-			r.state.Status = SweepStatusError
-			r.state.Error = fmt.Sprintf("failed to start PCAP: %v", err)
-			now := time.Now()
-			r.state.CompletedAt = &now
-			r.mu.Unlock()
-			return
-		}
-		defer func() {
-			if err := r.client.StopPCAPReplay(); err != nil {
-				log.Printf("[sweep] WARNING: Failed to stop PCAP: %v", err)
-			}
-		}()
-	}
+	isPCAP := req.DataSource == "pcap" && req.PCAPFile != ""
 
 	buckets := r.client.FetchBuckets()
 	sampler := NewSampler(r.client, buckets, interval)
@@ -716,20 +706,46 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 			continue
 		}
 
-		// Reset grid (with new params now active)
-		if err := r.client.ResetGrid(); err != nil {
-			log.Printf("[sweep] WARNING: Grid reset failed: %v", err)
-			r.addWarning(fmt.Sprintf("combo %d: grid reset failed: %v", comboNum+1, err))
-		}
+		if isPCAP {
+			// PCAP mode: replay per-combination with analysis_mode so grid is preserved after completion.
+			// Starting PCAP internally resets all state (grid, frame builder), so no separate reset needed.
+			if err := r.client.StartPCAPReplayWithConfig(monitor.PCAPReplayConfig{
+				PCAPFile:        req.PCAPFile,
+				StartSeconds:    req.PCAPStartSecs,
+				DurationSeconds: req.PCAPDurationSecs,
+				MaxRetries:      30,
+				AnalysisMode:    true,
+			}); err != nil {
+				log.Printf("[sweep] ERROR: Failed to start PCAP for combo %d: %v", comboNum+1, err)
+				r.addWarning(fmt.Sprintf("combo %d: failed to start PCAP (skipped): %v", comboNum+1, err))
+				continue
+			}
 
-		// Reset acceptance
-		if err := r.client.ResetAcceptance(); err != nil {
-			log.Printf("[sweep] WARNING: Failed to reset acceptance: %v", err)
-			r.addWarning(fmt.Sprintf("combo %d: reset acceptance failed: %v", comboNum+1, err))
-		}
+			// Wait for PCAP replay to finish so all data is processed
+			if err := r.client.WaitForPCAPComplete(120 * time.Second); err != nil {
+				log.Printf("[sweep] WARNING: PCAP wait timeout for combo %d: %v", comboNum+1, err)
+				r.addWarning(fmt.Sprintf("combo %d: PCAP wait timeout: %v", comboNum+1, err))
+			}
 
-		// Wait for settle
-		r.client.WaitForGridSettle(settleTime)
+			// Additional settle time after PCAP completion
+			if settleTime > 0 {
+				time.Sleep(settleTime)
+			}
+		} else {
+			// Live mode: reset grid and acceptance, then wait for data
+			if err := r.client.ResetGrid(); err != nil {
+				log.Printf("[sweep] WARNING: Grid reset failed: %v", err)
+				r.addWarning(fmt.Sprintf("combo %d: grid reset failed: %v", comboNum+1, err))
+			}
+
+			if err := r.client.ResetAcceptance(); err != nil {
+				log.Printf("[sweep] WARNING: Failed to reset acceptance: %v", err)
+				r.addWarning(fmt.Sprintf("combo %d: reset acceptance failed: %v", comboNum+1, err))
+			}
+
+			// Wait for settle
+			r.client.WaitForGridSettle(settleTime)
+		}
 
 		// Extract legacy values for SampleConfig if present
 		noise, _ := toFloat64(paramValues["noise_relative"])
@@ -755,6 +771,13 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 		r.state.CompletedCombos = comboNum + 1
 		r.state.CurrentCombo = &combo
 		r.mu.Unlock()
+	}
+
+	// Clean up: stop any lingering PCAP replay
+	if isPCAP {
+		if err := r.client.StopPCAPReplay(); err != nil {
+			log.Printf("[sweep] WARNING: Failed to stop PCAP: %v", err)
+		}
 	}
 
 	r.mu.Lock()
