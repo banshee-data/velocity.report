@@ -79,6 +79,10 @@ func ToFloat64Slice(v interface{}, length int) []float64 {
 	if length > maxLength || length < 0 {
 		length = maxLength
 	}
+	// Additional safety check: ensure length is within safe bounds after clamping
+	if length < 0 || length > maxLength {
+		return []float64{}
+	}
 
 	out := make([]float64, length)
 	if v == nil {
@@ -114,6 +118,10 @@ func ToInt64Slice(v interface{}, length int) []int64 {
 	const maxLength = 1000
 	if length > maxLength || length < 0 {
 		length = maxLength
+	}
+	// Additional safety check: ensure length is within safe bounds after clamping
+	if length < 0 || length > maxLength {
+		return []int64{}
 	}
 
 	out := make([]int64, length)

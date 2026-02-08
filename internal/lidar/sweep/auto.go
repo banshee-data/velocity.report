@@ -571,8 +571,13 @@ func generateGrid(start, end float64, n int) []float64 {
 	}
 
 	// Enforce an upper bound to prevent excessive memory allocation from untrusted input.
+	// Clamp to safe maximum before allocation to prevent DoS attacks.
 	if n > maxValuesPerParam {
 		n = maxValuesPerParam
+	}
+	// Additional safety check: ensure n is within safe bounds after clamping
+	if n < 0 || n > maxValuesPerParam {
+		return []float64{}
 	}
 
 	grid := make([]float64, n)
@@ -640,6 +645,10 @@ func generateIntGrid(start, end float64, n int) []int {
 	// Enforce an upper bound to prevent excessive memory allocation.
 	if n > maxValuesPerParam {
 		n = maxValuesPerParam
+	}
+	// Additional safety check: ensure n is within safe bounds after clamping
+	if n < 0 || n > maxValuesPerParam {
+		return []int{}
 	}
 
 	// Generate float grid, round, and deduplicate
