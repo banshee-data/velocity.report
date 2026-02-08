@@ -1,5 +1,15 @@
 # Design: Track Labelling, Ground Truth Evaluation & Label-Aware Auto-Tuning
 
+**Status:** Approved design (February 2026) — Implementation not yet started.
+
+**Immediate blocker:** Phase 1.1 — Register `LidarLabelAPI` routes in `WebServer.RegisterRoutes()`. The CRUD handlers already exist in `internal/api/lidar_labels.go` and the database table exists (migration 000016).
+
+**Related documents:**
+
+- Auto-tuning (Phases 1–2 implemented): [`auto-tuning-plan.md`](auto-tuning-plan.md)
+- ML pipeline roadmap: [`../roadmap/ml_pipeline_roadmap.md`](../roadmap/ml_pipeline_roadmap.md)
+- Tracking upgrades (6/9 implemented): [`../refactor/01-tracking-upgrades.md`](../refactor/01-tracking-upgrades.md)
+
 Previous plan (bigger charts + sane auto-tuner defaults) is complete.
 
 ---

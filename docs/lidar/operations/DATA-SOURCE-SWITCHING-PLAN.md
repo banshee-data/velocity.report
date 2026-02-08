@@ -1,5 +1,16 @@
 # Data Source Switching Implementation Plan
 
+**Status:** Implemented (November 2025)
+
+**Endpoints registered in `internal/lidar/monitor/webserver.go`:**
+
+- `POST /api/lidar/pcap/start` — Start PCAP replay (resets grid, stops UDP listener)
+- `POST /api/lidar/pcap/stop` — Stop replay and resume live UDP
+- `POST /api/lidar/resume_live` — Resume live UDP data source
+- `GET /api/lidar/data_source` — Current data source, PCAP file, and replay status
+
+---
+
 ## Problem Statement
 
 Currently, switching between live LiDAR data and PCAP replay requires restarting the server with the `--lidar-pcap-mode` flag. This is cumbersome during development and testing when frequently switching between data sources.

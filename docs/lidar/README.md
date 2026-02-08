@@ -33,7 +33,7 @@ Protocol specifications and data formats.
 
 Development progress and future planning.
 
-- **ML pipeline roadmap** (Phases 4.0–4.3: labeling UI, training, tuning)
+- **ML pipeline roadmap** (Phases 4.0–4.3: labelling UI, training, tuning)
 - **Development log** with implementation notes
 
 ### `future/`
@@ -85,17 +85,19 @@ Tracking pipeline refactor and upgrade proposals.
 | **macOS Visualiser**    | [visualiser/01-problem-and-user-workflows.md](visualiser/01-problem-and-user-workflows.md)       |
 | **API Contracts**       | [visualiser/02-api-contracts.md](visualiser/02-api-contracts.md)                                 |
 | **Tracking Upgrades**   | [refactor/01-tracking-upgrades.md](refactor/01-tracking-upgrades.md)                             |
+| **Auto-Tuning Plan**    | [future/auto-tuning-plan.md](future/auto-tuning-plan.md)                                         |
+| **Track Labelling**     | [future/track-labeling-auto-aware-tuning.md](future/track-labeling-auto-aware-tuning.md)         |
 
 ## Implementation Status
 
-**Completed through Phase 3.7:**
+### Completed Work
+
+#### Phases 1–3.7: Core Pipeline (Sep 2025 – Jan 2026)
 
 - ✅ UDP packet ingestion (Hesai Pandar40P)
 - ✅ Frame assembly (360° rotations)
 - ✅ Background learning (EMA-based polar grid)
 - ✅ Foreground/background classification with warmup scaling
-- ✅ Adaptive region parameters (variance-based segmentation)
-- ✅ Region persistence & restoration (scene hash-based, skips settling on subsequent runs)
 - ✅ DBSCAN clustering (world frame)
 - ✅ Kalman tracking (constant velocity model)
 - ✅ Rule-based classification (pedestrian, car, bird, other)
@@ -103,8 +105,27 @@ Tracking pipeline refactor and upgrade proposals.
 - ✅ PCAP analysis tool for batch processing
 - ✅ Analysis run infrastructure (params JSON, run comparison)
 - ✅ Port 2370 foreground streaming
+- ✅ Track visualisation UI (Svelte: MapPane, TimelinePane, TrackList)
 
-**macOS Visualiser (Milestones M0–M7):**
+#### Phase 3.8: Tracking Upgrades (Jan 2026)
+
+- ✅ Hungarian (Kuhn-Munkres) optimal assignment (`internal/lidar/hungarian.go`)
+- ✅ Height-based ground removal (`internal/lidar/ground.go`)
+- ✅ PCA-oriented bounding boxes with temporal smoothing (`internal/lidar/obb.go`)
+- ✅ Occlusion coasting — MaxMissesConfirmed=15 (`internal/lidar/tracking.go`)
+- ✅ Debug overlay emission via gRPC (`internal/lidar/debug/collector.go`)
+
+#### Phase 3.9: Adaptive Regions & Sweep System (Jan–Feb 2026)
+
+- ✅ Adaptive region segmentation (stable/variable/volatile)
+- ✅ Region persistence & restoration (scene hash-based, skips settling on subsequent runs)
+- ✅ Parameter sweep runner with settle mode — once/per_combo (`internal/lidar/sweep/runner.go`)
+- ✅ Auto-tuner with iterative grid narrowing (`internal/lidar/sweep/auto.go`)
+- ✅ Multi-objective scoring — acceptance, alignment, tracks, cells (`internal/lidar/sweep/scoring.go`)
+- ✅ Sweep dashboard — ECharts: bar charts, heatmaps, results table (`sweep_dashboard.html`)
+- ✅ PARAM_SCHEMA with sane defaults for all numeric parameters
+
+#### macOS Visualiser: M0–M7 Complete (Oct 2025 – Feb 2026)
 
 - ✅ M0: Schema + Synthetic — gRPC streaming, synthetic data
 - ✅ M1: Recorder/Replayer — Deterministic playback with seek/pause
@@ -129,12 +150,50 @@ Tracking pipeline refactor and upgrade proposals.
 - ✅ Port 2370 packet corruption (RawBlockAzimuth preservation)
 - ✅ recFg accumulation during freeze (reset on thaw)
 
-**Planned (Phase 4.0+):**
+### Planned Work (Priority Order)
 
-- Track labeling UI (SvelteKit)
-- ML classifier training pipeline
-- Parameter optimisation with grid search
-- Parameter tuning with split/merge metrics
-- Production edge deployment
+#### P0: Track Labelling & Ground Truth (Phase 4.0)
+
+- Wire label API routes into WebServer (migration 000016 exists, CRUD handlers exist in `internal/api/lidar_labels.go`, routes not yet registered)
+- Scene management (PCAP + sensor + reference run)
+- Svelte track labelling UI (class labels, split/merge flags)
+- Ground truth evaluation engine (temporal IoU, Hungarian matching)
+- Label-aware auto-tuning (composite scoring vs reference)
+- `lidar_transits` table for dashboard/report integration
+- See: [`future/track-labeling-auto-aware-tuning.md`](future/track-labeling-auto-aware-tuning.md)
+
+#### P1: ML Classification Pipeline (Phase 4.1–4.3)
+
+- Feature extraction (spatial, kinematic, temporal, intensity)
+- Python training pipeline (scikit-learn / RandomForest)
+- ONNX model export for Go inference
+- Rule-based → ML classifier with fallback
+- See: [`roadmap/ml_pipeline_roadmap.md`](roadmap/ml_pipeline_roadmap.md)
+
+#### P2: Tracking Upgrades (Remaining)
+
+- Voxel grid preprocessing
+- Constant acceleration motion model
+- Feature extraction for ML training
+- See: [`refactor/01-tracking-upgrades.md`](refactor/01-tracking-upgrades.md)
+
+#### P2: Settling Time Optimisation (Phases 3–4)
+
+- Settling evaluation tool
+- Adaptive convergence-based settling
+- See: [`future/settling-time-optimisation.md`](future/settling-time-optimisation.md)
+
+#### P3: Velocity-Coherent Clustering (Design Only)
+
+- 6D DBSCAN (position + velocity space)
+- Long-tail tracking, sparse continuation, fragment merging
+- See: [`future/velocity-coherent-foreground-extraction.md`](future/velocity-coherent-foreground-extraction.md)
+
+### Deferred (Research / AV Integration)
+
+- AV dataset format alignment (7-DOF, 28-class taxonomy, Parquet)
+- Motion capture / moving sensor support (7-DOF pose, ego-motion)
+- Static pose alignment (3D Kalman, oriented boxes)
+- Background grid standard exports (VTK, PCD)
 
 See `roadmap/ml_pipeline_roadmap.md` for detailed Phase 4.0–4.3 planning.

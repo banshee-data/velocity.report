@@ -1,5 +1,19 @@
 # Tracking Upgrades
 
+**Status:** 6 of 9 upgrades implemented (February 2026)
+
+| Upgrade                           | Status         | Implementation                                                                      |
+| --------------------------------- | -------------- | ----------------------------------------------------------------------------------- |
+| Ground removal (height threshold) | ✅ Implemented | `internal/lidar/ground.go` — `HeightBandFilter` with `FilterVertical()`             |
+| OBB estimation (PCA)              | ✅ Implemented | `internal/lidar/obb.go` — `EstimateOBBFromCluster()`                                |
+| OBB temporal smoothing            | ✅ Implemented | `internal/lidar/obb.go` — EMA heading (α=0.3)                                       |
+| Hungarian association             | ✅ Implemented | `internal/lidar/hungarian.go` — Kuhn-Munkres solver                                 |
+| Occlusion coasting                | ✅ Implemented | `internal/lidar/tracking.go` — `MaxMissesConfirmed=15`, `OcclusionCovInflation=0.5` |
+| Debug artifacts                   | ✅ Implemented | `internal/lidar/debug/collector.go` — `DebugOverlaySet` via gRPC                    |
+| Voxel grid preprocessing          | 📋 Planned     | —                                                                                   |
+| Constant acceleration model       | 📋 Planned     | —                                                                                   |
+| Feature extraction for ML         | 📋 Planned     | —                                                                                   |
+
 This document proposes concrete improvements to the LiDAR tracking pipeline for street scenes, mapping each proposal to existing code and new API outputs.
 
 ---

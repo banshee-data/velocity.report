@@ -1,5 +1,32 @@
 # Auto-Tuning Plan
 
+**Status**: Phases 1–2 Implemented (February 2026)
+
+**Implementation Files:**
+
+| Component               | File                                               |
+| ----------------------- | -------------------------------------------------- |
+| AutoTuner               | `internal/lidar/sweep/auto.go`                     |
+| Runner + Settle Mode    | `internal/lidar/sweep/runner.go`                   |
+| Multi-objective Scoring | `internal/lidar/sweep/scoring.go`                  |
+| Sweep Dashboard         | `internal/lidar/monitor/html/sweep_dashboard.html` |
+| Sampler                 | `internal/lidar/sweep/sampler.go`                  |
+
+**What's Implemented:**
+
+- ✅ Phase 1 — Iterative grid narrowing with configurable rounds, values_per_param, top_k
+- ✅ Phase 2 — Multi-objective scoring (acceptance rate, misalignment, alignment, nonzero cells, active tracks)
+- ✅ Dashboard integration with auto-tune toggle, round progress, recommendation card
+- ✅ Settle mode: `once` (settle once, keep grid) and `per_combo` (reset per combination)
+- ✅ PARAM_SCHEMA with sane default ranges for all numeric parameters
+
+**Still Planned:**
+
+- Phase 3 — Bayesian Optimisation (GP-based acquisition function) — deferred until need is demonstrated
+- Label-aware auto-tuning using ground truth — see [`track-labeling-auto-aware-tuning.md`](track-labeling-auto-aware-tuning.md)
+
+---
+
 ## Problem Statement
 
 The LiDAR parameter sweep dashboard allows operators to manually configure parameter combinations, run sweeps, and analyse results. Finding optimal tuning values requires:

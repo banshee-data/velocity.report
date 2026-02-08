@@ -1,7 +1,7 @@
 # LIDAR ML Pipeline Roadmap
 
-**Status:** Phase 3.7 Implemented, Phases 4.0-4.3 Planned
-**Date:** December 1, 2025
+**Status:** Phase 3.7 Implemented, Phase 3.8–3.9 Implemented, Phases 4.0-4.3 Planned
+**Date:** December 1, 2025 (updated February 2026)
 **Author:** Copilot (Architectural Analysis)
 **Version:** 1.1
 
@@ -22,10 +22,23 @@ This document outlines the evolution of the LIDAR tracking system from rule-base
 - ✅ Training data export (compact binary encoding)
 - ✅ **Analysis Run Infrastructure** (params JSON, run comparison, split/merge detection)
 
+**Post-3.7 Completed Work (Phase 3.8–3.9):**
+
+- ✅ Tracking upgrades: Hungarian association, ground removal, OBB estimation, occlusion coasting
+- ✅ Adaptive region segmentation with persistence (scene hash restoration)
+- ✅ Parameter sweep runner with settle mode (`once`/`per_combo`)
+- ✅ Auto-tuner with iterative grid narrowing (`internal/lidar/sweep/auto.go`)
+- ✅ Multi-objective scoring (acceptance, alignment, tracks, cells)
+- ✅ Sweep dashboard (ECharts visualisations, recommendation card)
+- ✅ PARAM_SCHEMA with sane defaults for all numeric parameters
+- ✅ Debug overlays via gRPC (gating ellipses, association lines, residuals)
+
 **Roadmap Phases:**
 
 - **Phase 3.7:** ✅ Analysis Run Infrastructure (IMPLEMENTED)
-- **Phase 4.0:** Track Labeling UI (web-based annotation)
+- **Phase 3.8:** ✅ Tracking Upgrades — Hungarian, OBB, ground removal, occlusion (IMPLEMENTED)
+- **Phase 3.9:** ✅ Adaptive Regions & Sweep System — auto-tuner, dashboard, PARAM_SCHEMA (IMPLEMENTED)
+- **Phase 4.0:** Track Labelling UI (web-based annotation)
 - **Phase 4.1:** ML Classifier Training Pipeline
 - **Phase 4.2:** Parameter Tuning & Optimization
 - **Phase 4.3:** Production Deployment
@@ -58,20 +71,28 @@ PCAP/Live UDP → Parse → Frame → Background → Foreground → Cluster → 
 
 ### Existing Components
 
-| Component              | Location                              | Status      |
-| ---------------------- | ------------------------------------- | ----------- |
-| PCAP Reader            | `internal/lidar/network/pcap.go`      | ✅ Complete |
-| Frame Builder          | `internal/lidar/frame_builder.go`     | ✅ Complete |
-| Background Manager     | `internal/lidar/background.go`        | ✅ Complete |
-| Foreground Extraction  | `internal/lidar/foreground.go`        | ✅ Complete |
-| DBSCAN Clustering      | `internal/lidar/clustering.go`        | ✅ Complete |
-| Kalman Tracking        | `internal/lidar/tracking.go`          | ✅ Complete |
-| Rule-Based Classifier  | `internal/lidar/classification.go`    | ✅ Complete |
-| Track Store            | `internal/lidar/track_store.go`       | ✅ Complete |
-| REST API               | `internal/lidar/monitor/track_api.go` | ✅ Complete |
-| PCAP Analyze Tool      | `cmd/tools/pcap-analyze/main.go`      | ✅ Complete |
-| Training Data Export   | `internal/lidar/training_data.go`     | ✅ Complete |
-| **Analysis Run Store** | `internal/lidar/analysis_run.go`      | ✅ Complete |
+| Component              | Location                                           | Status      |
+| ---------------------- | -------------------------------------------------- | ----------- |
+| PCAP Reader            | `internal/lidar/network/pcap.go`                   | ✅ Complete |
+| Frame Builder          | `internal/lidar/frame_builder.go`                  | ✅ Complete |
+| Background Manager     | `internal/lidar/background.go`                     | ✅ Complete |
+| Foreground Extraction  | `internal/lidar/foreground.go`                     | ✅ Complete |
+| DBSCAN Clustering      | `internal/lidar/clustering.go`                     | ✅ Complete |
+| Kalman Tracking        | `internal/lidar/tracking.go`                       | ✅ Complete |
+| Rule-Based Classifier  | `internal/lidar/classification.go`                 | ✅ Complete |
+| Track Store            | `internal/lidar/track_store.go`                    | ✅ Complete |
+| REST API               | `internal/lidar/monitor/track_api.go`              | ✅ Complete |
+| PCAP Analyze Tool      | `cmd/tools/pcap-analyze/main.go`                   | ✅ Complete |
+| Training Data Export   | `internal/lidar/training_data.go`                  | ✅ Complete |
+| **Analysis Run Store** | `internal/lidar/analysis_run.go`                   | ✅ Complete |
+| **Sweep Runner**       | `internal/lidar/sweep/runner.go`                   | ✅ Complete |
+| **Auto-Tuner**         | `internal/lidar/sweep/auto.go`                     | ✅ Complete |
+| **Sweep Scoring**      | `internal/lidar/sweep/scoring.go`                  | ✅ Complete |
+| **Sweep Dashboard**    | `internal/lidar/monitor/html/sweep_dashboard.html` | ✅ Complete |
+| **Hungarian Solver**   | `internal/lidar/hungarian.go`                      | ✅ Complete |
+| **Ground Removal**     | `internal/lidar/ground.go`                         | ✅ Complete |
+| **OBB Estimation**     | `internal/lidar/obb.go`                            | ✅ Complete |
+| **Debug Collector**    | `internal/lidar/debug/collector.go`                | ✅ Complete |
 
 ---
 
@@ -837,24 +858,28 @@ Deploy the complete ML pipeline for production use.
 
 ## Implementation Priority
 
-| Phase                           | Priority      | Effort  | Dependencies             |
-| ------------------------------- | ------------- | ------- | ------------------------ |
-| 3.7 Analysis Run Infrastructure | ✅ Complete   | -       | None                     |
-| 4.0 Track Labeling UI           | P0 - Critical | 2 weeks | Phase 3.7                |
-| 4.1 ML Classifier Training      | P1 - High     | 1 week  | Phase 4.0 (needs labels) |
-| 4.2 Parameter Tuning            | P1 - High     | 1 week  | Phase 3.7                |
-| 4.3 Production Deployment       | P2 - Medium   | 1 week  | Phases 4.1, 4.2          |
+| Phase                           | Priority      | Effort | Dependencies             |
+| ------------------------------- | ------------- | ------ | ------------------------ |
+| 3.7 Analysis Run Infrastructure | ✅ Complete   | -      | None                     |
+| 3.8 Tracking Upgrades           | ✅ Complete   | -      | Phase 3.7                |
+| 3.9 Sweep/Auto-Tune System      | ✅ Complete   | -      | Phase 3.7                |
+| 4.0 Track Labelling UI          | P0 - Critical | -      | Phase 3.7                |
+| 4.1 ML Classifier Training      | P1 - High     | -      | Phase 4.0 (needs labels) |
+| 4.2 Parameter Tuning            | P1 - High     | -      | Phase 3.7                |
+| 4.3 Production Deployment       | P2 - Medium   | -      | Phases 4.1, 4.2          |
 
 **Recommended Order:**
 
-1. ✅ Phase 3.7 (COMPLETED - infrastructure for all other phases)
-2. Phase 4.0 (critical for getting labels)
-3. Phase 4.2 (can be done in parallel with labeling)
-4. Phase 4.1 (requires labeled data from 4.0)
-5. Phase 4.3 (final deployment)
+1. ✅ Phase 3.7 (COMPLETED — infrastructure for all other phases)
+2. ✅ Phase 3.8 (COMPLETED — tracking quality improvements)
+3. ✅ Phase 3.9 (COMPLETED — parameter sweep and auto-tuning)
+4. Phase 4.0 (critical for getting labels — see `future/track-labeling-auto-aware-tuning.md`)
+5. Phase 4.2 (can be done in parallel with labelling)
+6. Phase 4.1 (requires labelled data from 4.0)
+7. Phase 4.3 (final deployment)
 
 ---
 
-**Document Status:** Phase 3.7 Implemented
-**Next Action:** Implement Phase 4.0 (Track Labeling UI)
-**Last Updated:** December 1, 2025
+**Document Status:** Phases 3.7–3.9 Implemented
+**Next Action:** Implement Phase 4.0 (Track Labelling UI — wire label API routes first)
+**Last Updated:** February 2026
