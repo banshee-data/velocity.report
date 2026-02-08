@@ -3,8 +3,8 @@ package monitor
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
+	"strings"
 )
 
 // SweepRunner defines the interface for parameter sweep operations.
@@ -15,9 +15,6 @@ type SweepRunner interface {
 	GetState() interface{}
 	Stop()
 }
-
-// ErrSweepAlreadyRunning is returned when a sweep is already in progress.
-var ErrSweepAlreadyRunning = fmt.Errorf("sweep already in progress")
 
 // handleSweepStart starts a parameter sweep
 func (ws *WebServer) handleSweepStart(w http.ResponseWriter, r *http.Request) {
@@ -38,8 +35,10 @@ func (ws *WebServer) handleSweepStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := ws.sweepRunner.Start(context.Background(), req); err != nil {
-		// Distinguish "already running" (409) from validation errors (400)
-		if err.Error() == ErrSweepAlreadyRunning.Error() {
+		// Distinguish "already running" (409) from validation errors (400).
+		// We check the message because the sweep package sentinel can't be
+		// imported here without creating an import cycle.
+		if strings.Contains(err.Error(), "already in progress") {
 			ws.writeJSONError(w, http.StatusConflict, err.Error())
 		} else {
 			ws.writeJSONError(w, http.StatusBadRequest, err.Error())

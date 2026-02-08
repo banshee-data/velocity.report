@@ -23,6 +23,9 @@ const (
 	SweepStatusError    SweepStatus = "error"
 )
 
+// ErrSweepAlreadyRunning is returned when a sweep is already in progress.
+var ErrSweepAlreadyRunning = fmt.Errorf("sweep already in progress")
+
 // SweepParam defines one parameter dimension to sweep.
 type SweepParam struct {
 	Name   string        `json:"name"`             // JSON key from /api/lidar/params e.g. "noise_relative"
@@ -269,7 +272,7 @@ func (r *Runner) start(ctx context.Context, req SweepRequest) error {
 	r.mu.Lock()
 	if r.state.Status == SweepStatusRunning {
 		r.mu.Unlock()
-		return fmt.Errorf("sweep already in progress")
+		return ErrSweepAlreadyRunning
 	}
 
 	now := time.Now()
@@ -318,7 +321,7 @@ func (r *Runner) startGeneric(ctx context.Context, req SweepRequest, interval, s
 	r.mu.Lock()
 	if r.state.Status == SweepStatusRunning {
 		r.mu.Unlock()
-		return fmt.Errorf("sweep already in progress")
+		return ErrSweepAlreadyRunning
 	}
 
 	now := time.Now()
