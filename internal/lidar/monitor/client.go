@@ -9,7 +9,6 @@ import (
 	"log"
 	"math"
 	"net/http"
-	"path/filepath"
 	"time"
 )
 
@@ -34,13 +33,14 @@ func NewClient(httpClient *http.Client, baseURL, sensorID string) *Client {
 
 // StartPCAPReplay requests a PCAP replay for the sensor.
 // It retries on 409 (conflict) responses for up to maxRetries times.
+// The pcapFile should be a path relative to the server's PCAP safe directory.
 func (c *Client) StartPCAPReplay(pcapFile string, maxRetries int) error {
 	url := fmt.Sprintf("%s/api/lidar/pcap/start?sensor_id=%s", c.BaseURL, c.SensorID)
-	pcapName := filepath.Base(pcapFile)
-	payload := map[string]string{"pcap_file": pcapName}
+	// Use the full path as-is (relative to PCAP safe directory on the server)
+	payload := map[string]string{"pcap_file": pcapFile}
 	data, _ := json.Marshal(payload)
 
-	log.Printf("Requesting PCAP replay for sensor %s: %s", c.SensorID, pcapName)
+	log.Printf("Requesting PCAP replay for sensor %s: file=%s", c.SensorID, pcapFile)
 
 	if maxRetries <= 0 {
 		maxRetries = 60
@@ -223,10 +223,12 @@ type PCAPReplayConfig struct {
 }
 
 // StartPCAPReplayWithConfig requests a PCAP replay with extended configuration.
+// The PCAPFile in cfg should be a path relative to the server's PCAP safe directory.
 func (c *Client) StartPCAPReplayWithConfig(cfg PCAPReplayConfig) error {
 	url := fmt.Sprintf("%s/api/lidar/pcap/start?sensor_id=%s", c.BaseURL, c.SensorID)
+	// Use the full path as-is (relative to PCAP safe directory on the server)
 	payload := map[string]interface{}{
-		"pcap_file": filepath.Base(cfg.PCAPFile),
+		"pcap_file": cfg.PCAPFile,
 	}
 	if cfg.StartSeconds > 0 {
 		payload["start_seconds"] = cfg.StartSeconds
