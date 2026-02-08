@@ -20,6 +20,10 @@ const (
 
 	// defaultMarginSteps is the number of grid steps to add as margin on each side when narrowing bounds.
 	defaultMarginSteps = 1.0
+
+	// maxValuesPerParam limits the number of grid points generated for a single parameter
+	// to avoid excessive memory allocation from untrusted input.
+	maxValuesPerParam = 10000
 )
 
 // AutoTuneRequest defines the parameters for an auto-tuning run.
@@ -516,6 +520,11 @@ func generateGrid(start, end float64, n int) []float64 {
 	if n == 1 {
 		// Return midpoint
 		return []float64{(start + end) / 2.0}
+	}
+
+	// Enforce an upper bound to prevent excessive memory allocation from untrusted input.
+	if n > maxValuesPerParam {
+		n = maxValuesPerParam
 	}
 
 	grid := make([]float64, n)
