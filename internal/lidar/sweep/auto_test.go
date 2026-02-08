@@ -103,6 +103,134 @@ func TestNarrowBoundsIntType(t *testing.T) {
 	}
 }
 
+func TestNarrowBoundsMissingParam(t *testing.T) {
+	// When the parameter is missing from all topK results, should return (0, 0)
+	topK := []ScoredResult{
+		{ComboResult: ComboResult{ParamValues: map[string]interface{}{"other_param": 1.0}}, Score: 0.9},
+		{ComboResult: ComboResult{ParamValues: map[string]interface{}{"other_param": 2.0}}, Score: 0.85},
+	}
+
+	start, end := narrowBounds(topK, "missing_param", 5)
+	if start != 0 || end != 0 {
+		t.Errorf("expected (0, 0) for missing param, got (%v, %v)", start, end)
+	}
+}
+
+func TestNarrowBoundsUnsupportedType(t *testing.T) {
+	// When the parameter has an unsupported type (string), should return (0, 0)
+	topK := []ScoredResult{
+		{ComboResult: ComboResult{ParamValues: map[string]interface{}{"mode": "fast"}}, Score: 0.9},
+	}
+
+	start, end := narrowBounds(topK, "mode", 5)
+	if start != 0 || end != 0 {
+		t.Errorf("expected (0, 0) for unsupported type, got (%v, %v)", start, end)
+	}
+}
+
+func TestGenerateIntGrid(t *testing.T) {
+	grid := generateIntGrid(1.0, 10.0, 5)
+
+	// Should produce deduplicated, evenly-spaced integers
+	if len(grid) == 0 {
+		t.Fatal("expected non-empty grid")
+	}
+
+	// First and last should be 1 and 10
+	if grid[0] != 1 {
+		t.Errorf("expected first value 1, got %d", grid[0])
+	}
+	if grid[len(grid)-1] != 10 {
+		t.Errorf("expected last value 10, got %d", grid[len(grid)-1])
+	}
+
+	// All values should be unique
+	seen := make(map[int]bool)
+	for _, v := range grid {
+		if seen[v] {
+			t.Errorf("duplicate value %d in grid", v)
+		}
+		seen[v] = true
+	}
+}
+
+func TestGenerateIntGridNarrowRange(t *testing.T) {
+	// Range 3-5 with n=5 should produce [3,4,5] (deduplicated)
+	grid := generateIntGrid(3.0, 5.0, 5)
+
+	if len(grid) != 3 {
+		t.Fatalf("expected 3 deduplicated values for range 3-5, got %d: %v", len(grid), grid)
+	}
+
+	expected := []int{3, 4, 5}
+	for i, v := range expected {
+		if grid[i] != v {
+			t.Errorf("grid[%d]: expected %d, got %d", i, v, grid[i])
+		}
+	}
+}
+
+func TestGenerateIntGridSingle(t *testing.T) {
+	grid := generateIntGrid(2.0, 8.0, 1)
+	if len(grid) != 1 {
+		t.Fatalf("expected 1 value, got %d", len(grid))
+	}
+	if grid[0] != 5 {
+		t.Errorf("expected midpoint 5, got %d", grid[0])
+	}
+}
+
+func TestNilRunnerValidation(t *testing.T) {
+	tuner := NewAutoTuner(nil)
+	err := tuner.Start(nil, AutoTuneRequest{
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.1},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected error for nil runner, got nil")
+	}
+	if !strings.Contains(err.Error(), "runner is not configured") {
+		t.Errorf("expected 'runner is not configured' error, got %q", err.Error())
+	}
+}
+
+func TestValuesPerParamMinimum(t *testing.T) {
+	// values_per_param=1 should be rejected (causes division by zero in narrowBounds)
+	tuner := NewAutoTuner(&Runner{})
+	err := tuner.Start(nil, AutoTuneRequest{
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.1},
+		},
+		ValuesPerParam: 1,
+	})
+	if err == nil {
+		t.Fatal("expected error for values_per_param=1, got nil")
+	}
+	if !strings.Contains(err.Error(), "values_per_param must be at least 2") {
+		t.Errorf("expected 'must be at least 2' error, got %q", err.Error())
+	}
+}
+
+func TestCopyParamValues(t *testing.T) {
+	original := map[string]interface{}{
+		"noise_relative": 0.04,
+		"closeness":      8.0,
+	}
+	copied := copyParamValues(original)
+
+	// Modifying copy should not affect original
+	copied["noise_relative"] = 0.99
+	if original["noise_relative"] != 0.04 {
+		t.Errorf("original was modified: expected 0.04, got %v", original["noise_relative"])
+	}
+
+	// Nil input should return nil
+	if copyParamValues(nil) != nil {
+		t.Error("expected nil for nil input")
+	}
+}
+
 func TestGenerateGrid(t *testing.T) {
 	grid := generateGrid(0.0, 1.0, 5)
 
@@ -156,7 +284,8 @@ func TestGenerateGridNegative(t *testing.T) {
 }
 
 func TestAutoTuneRequestDefaults(t *testing.T) {
-	req := AutoTuneRequest{
+	// Test that applyAutoTuneDefaults fills in missing values
+	req := applyAutoTuneDefaults(AutoTuneRequest{
 		Params: []SweepParam{
 			{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.1},
 		},
@@ -164,21 +293,7 @@ func TestAutoTuneRequestDefaults(t *testing.T) {
 		SettleTime: "5s",
 		Interval:   "2s",
 		Seed:       "true",
-	}
-
-	// Validation in Start() should apply defaults
-	tuner := NewAutoTuner(nil)
-
-	// Test that defaults are applied (we can't call Start without a runner, so we test the values)
-	if req.MaxRounds == 0 {
-		req.MaxRounds = 3
-	}
-	if req.ValuesPerParam == 0 {
-		req.ValuesPerParam = 5
-	}
-	if req.TopK == 0 {
-		req.TopK = 5
-	}
+	})
 
 	if req.MaxRounds != 3 {
 		t.Errorf("expected MaxRounds default 3, got %d", req.MaxRounds)
@@ -189,13 +304,32 @@ func TestAutoTuneRequestDefaults(t *testing.T) {
 	if req.TopK != 5 {
 		t.Errorf("expected TopK default 5, got %d", req.TopK)
 	}
-
-	// Verify tuner was created
-	if tuner == nil {
-		t.Fatal("expected non-nil tuner")
+	if req.Objective != "acceptance" {
+		t.Errorf("expected Objective default 'acceptance', got %q", req.Objective)
 	}
-	if tuner.state.Mode != "auto" {
-		t.Errorf("expected mode 'auto', got %q", tuner.state.Mode)
+
+	// Verify explicit values are preserved
+	req2 := applyAutoTuneDefaults(AutoTuneRequest{
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.1},
+		},
+		MaxRounds:      7,
+		ValuesPerParam: 10,
+		TopK:           3,
+		Objective:      "weighted",
+	})
+
+	if req2.MaxRounds != 7 {
+		t.Errorf("expected MaxRounds 7, got %d", req2.MaxRounds)
+	}
+	if req2.ValuesPerParam != 10 {
+		t.Errorf("expected ValuesPerParam 10, got %d", req2.ValuesPerParam)
+	}
+	if req2.TopK != 3 {
+		t.Errorf("expected TopK 3, got %d", req2.TopK)
+	}
+	if req2.Objective != "weighted" {
+		t.Errorf("expected Objective 'weighted', got %q", req2.Objective)
 	}
 }
 
@@ -266,7 +400,8 @@ func TestAutoTuneValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tuner := NewAutoTuner(nil)
+			// Use a non-nil runner so we reach parameter validation
+			tuner := NewAutoTuner(&Runner{})
 			err := tuner.Start(nil, tt.req)
 			if err == nil {
 				t.Fatal("expected error, got nil")

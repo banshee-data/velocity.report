@@ -355,8 +355,8 @@ func TestClient_StartPCAPReplay_Success(t *testing.T) {
 		}
 		var payload map[string]string
 		json.NewDecoder(r.Body).Decode(&payload)
-		// The full path should be passed through as-is (relative to server's PCAP safe directory)
-		if payload["pcap_file"] != "/path/to/test.pcap" {
+		// The path should be passed through as-is (relative to server's PCAP safe directory)
+		if payload["pcap_file"] != "captures/test.pcap" {
 			t.Errorf("Unexpected pcap_file: %s", payload["pcap_file"])
 		}
 		w.WriteHeader(http.StatusOK)
@@ -364,7 +364,7 @@ func TestClient_StartPCAPReplay_Success(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.Client(), server.URL, "sensor1")
-	err := c.StartPCAPReplay("/path/to/test.pcap", 1)
+	err := c.StartPCAPReplay("captures/test.pcap", 1)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -379,7 +379,7 @@ func TestClient_StartPCAPReplay_Error(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.Client(), server.URL, "sensor1")
-	err := c.StartPCAPReplay("/path/to/test.pcap", 1)
+	err := c.StartPCAPReplay("captures/test.pcap", 1)
 
 	if err == nil {
 		t.Error("Expected error")
@@ -400,7 +400,7 @@ func TestClient_StartPCAPReplay_Timeout(t *testing.T) {
 	c := NewClient(httpClient, server.URL, "sensor1")
 
 	// Set maxRetries to 1 to speed up the test
-	err := c.StartPCAPReplay("/path/to/test.pcap", 1)
+	err := c.StartPCAPReplay("captures/test.pcap", 1)
 
 	if err == nil {
 		t.Error("Expected timeout error")

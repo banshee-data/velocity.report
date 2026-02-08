@@ -33,7 +33,9 @@ func NewClient(httpClient *http.Client, baseURL, sensorID string) *Client {
 
 // StartPCAPReplay requests a PCAP replay for the sensor.
 // It retries on 409 (conflict) responses for up to maxRetries times.
-// The pcapFile should be a path relative to the server's PCAP safe directory.
+// The pcapFile path is passed through to the server as-is. Prefer relative
+// paths (relative to the server's configured PCAP safe directory); the server
+// may reject absolute paths that fall outside its safe directory.
 func (c *Client) StartPCAPReplay(pcapFile string, maxRetries int) error {
 	url := fmt.Sprintf("%s/api/lidar/pcap/start?sensor_id=%s", c.BaseURL, c.SensorID)
 	// Use the full path as-is (relative to PCAP safe directory on the server)

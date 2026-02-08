@@ -121,7 +121,7 @@ Tracking pipeline refactor and upgrade proposals.
 - ✅ Region persistence & restoration (scene hash-based, skips settling on subsequent runs)
 - ✅ Parameter sweep runner with settle mode — once/per_combo (`internal/lidar/sweep/runner.go`)
 - ✅ Auto-tuner with iterative grid narrowing (`internal/lidar/sweep/auto.go`)
-- ✅ Multi-objective scoring — acceptance, alignment, tracks, cells (`internal/lidar/sweep/scoring.go`)
+- ✅ Multi-objective scoring — acceptance, alignment, tracks, cells (`internal/lidar/sweep/objective.go`)
 - ✅ Sweep dashboard — ECharts: bar charts, heatmaps, results table (`sweep_dashboard.html`)
 - ✅ PARAM_SCHEMA with sane defaults for all numeric parameters
 

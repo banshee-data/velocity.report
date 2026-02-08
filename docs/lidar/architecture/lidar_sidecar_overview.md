@@ -175,7 +175,7 @@ pcap-analyze -pcap capture.pcap -output ./results
 - ✅ **Region persistence**: Scene hash-based restoration, skips settling on subsequent runs
 - ✅ **Parameter sweep runner**: With settle mode — `once`/`per_combo` (`internal/lidar/sweep/runner.go`)
 - ✅ **Auto-tuner**: Iterative grid narrowing (`internal/lidar/sweep/auto.go`)
-- ✅ **Multi-objective scoring**: Acceptance, alignment, tracks, cells (`internal/lidar/sweep/scoring.go`)
+- ✅ **Multi-objective scoring**: Acceptance, alignment, tracks, cells (`internal/lidar/sweep/objective.go`)
 - ✅ **Sweep dashboard**: ECharts bar charts, heatmaps, results table (`sweep_dashboard.html`)
 - ✅ **PARAM_SCHEMA**: Sane default ranges for all numeric parameters
 
@@ -227,7 +227,7 @@ internal/lidar/obb.go              ✅ # PCA-oriented bounding boxes (Phase 3.8)
 internal/lidar/debug/collector.go  ✅ # Debug overlay collection (Phase 3.8)
 internal/lidar/sweep/runner.go     ✅ # Parameter sweep runner with settle mode (Phase 3.9)
 internal/lidar/sweep/auto.go       ✅ # Auto-tuner with grid narrowing (Phase 3.9)
-internal/lidar/sweep/scoring.go    ✅ # Multi-objective scoring (Phase 3.9)
+internal/lidar/sweep/objective.go   ✅ # Multi-objective scoring (Phase 3.9)
 internal/lidar/sweep/sampler.go    ✅ # Parameter sampling (Phase 3.9)
 internal/lidar/training_data.go    ✅ # ML training data export and encoding
 internal/lidar/export.go           ✅ # ASC point cloud export

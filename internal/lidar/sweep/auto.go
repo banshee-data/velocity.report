@@ -116,29 +116,30 @@ func (at *AutoTuner) Start(ctx context.Context, reqInterface interface{}) error 
 
 // start is the internal implementation that does the actual work.
 func (at *AutoTuner) start(ctx context.Context, req AutoTuneRequest) error {
+	// Validate AutoTuner configuration before starting background work.
+	if at.runner == nil {
+		return fmt.Errorf("auto-tuner runner is not configured")
+	}
+
 	// Guard nil context
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
-	// Validate and set defaults
-	if req.MaxRounds <= 0 {
-		req.MaxRounds = 3
-	}
+	// Validate and apply defaults
+	req = applyAutoTuneDefaults(req)
+
 	if req.MaxRounds > 10 {
 		return fmt.Errorf("max_rounds must not exceed 10, got %d", req.MaxRounds)
 	}
 
-	if req.ValuesPerParam <= 0 {
-		req.ValuesPerParam = 5
+	if req.ValuesPerParam < 2 {
+		return fmt.Errorf("values_per_param must be at least 2, got %d", req.ValuesPerParam)
 	}
 	if req.ValuesPerParam > 20 {
 		return fmt.Errorf("values_per_param must not exceed 20, got %d", req.ValuesPerParam)
 	}
 
-	if req.TopK <= 0 {
-		req.TopK = 5
-	}
 	if req.TopK > 50 {
 		return fmt.Errorf("top_k must not exceed 50, got %d", req.TopK)
 	}
@@ -160,10 +161,6 @@ func (at *AutoTuner) start(ctx context.Context, req AutoTuneRequest) error {
 			return fmt.Errorf("param %q: auto-tuning only supports numeric types (float64, int, int64), got %q", p.Name, p.Type)
 		}
 		req.Params[i] = p
-	}
-
-	if req.Objective == "" {
-		req.Objective = "acceptance"
 	}
 
 	// Now acquire lock for state modification
@@ -194,17 +191,43 @@ func (at *AutoTuner) start(ctx context.Context, req AutoTuneRequest) error {
 }
 
 // GetAutoTuneState returns the current auto-tuning state as a typed value.
+// The returned state is a deep copy safe for concurrent use.
 func (at *AutoTuner) GetAutoTuneState() AutoTuneState {
 	at.mu.RLock()
 	defer at.mu.RUnlock()
-	// Return a copy to avoid race conditions
+	// Return a deep copy to avoid race conditions on nested maps/slices.
 	state := at.state
+
+	// Deep-copy RoundResults (contains nested maps and slices)
 	roundResults := make([]RoundSummary, len(at.state.RoundResults))
-	copy(roundResults, at.state.RoundResults)
+	for i, rs := range at.state.RoundResults {
+		roundResults[i] = RoundSummary{
+			Round:     rs.Round,
+			Bounds:    copyBounds(rs.Bounds),
+			BestScore: rs.BestScore,
+			NumCombos: rs.NumCombos,
+		}
+		roundResults[i].BestParams = copyParamValues(rs.BestParams)
+		topK := make([]ScoredResult, len(rs.TopK))
+		for j, sr := range rs.TopK {
+			topK[j] = sr
+			topK[j].ParamValues = copyParamValues(sr.ParamValues)
+		}
+		roundResults[i].TopK = topK
+	}
 	state.RoundResults = roundResults
+
+	// Deep-copy Results
 	results := make([]ComboResult, len(at.state.Results))
-	copy(results, at.state.Results)
+	for i, r := range at.state.Results {
+		results[i] = r
+		results[i].ParamValues = copyParamValues(r.ParamValues)
+	}
 	state.Results = results
+
+	// Deep-copy Recommendation
+	state.Recommendation = copyParamValues(at.state.Recommendation)
+
 	return state
 }
 
@@ -272,12 +295,26 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 		totalCombos := 1
 		for i, p := range req.Params {
 			bounds := currentBounds[p.Name]
-			values := generateGrid(bounds[0], bounds[1], req.ValuesPerParam)
 
-			// Convert to interface{} slice
-			ifaceValues := make([]interface{}, len(values))
-			for j, v := range values {
-				ifaceValues[j] = v
+			// Convert to interface{} slice, using integer grid for int/int64 types
+			var ifaceValues []interface{}
+			switch p.Type {
+			case "int", "int64":
+				intValues := generateIntGrid(bounds[0], bounds[1], req.ValuesPerParam)
+				ifaceValues = make([]interface{}, len(intValues))
+				for j, v := range intValues {
+					if p.Type == "int64" {
+						ifaceValues[j] = int64(v)
+					} else {
+						ifaceValues[j] = v
+					}
+				}
+			default:
+				values := generateGrid(bounds[0], bounds[1], req.ValuesPerParam)
+				ifaceValues = make([]interface{}, len(values))
+				for j, v := range values {
+					ifaceValues[j] = v
+				}
 			}
 
 			gridParams[i] = SweepParam{
@@ -285,7 +322,7 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 				Type:   p.Type,
 				Values: ifaceValues,
 			}
-			totalCombos *= len(values)
+			totalCombos *= len(ifaceValues)
 		}
 
 		// Enforce max combinations per round (same as regular sweep)
@@ -494,6 +531,11 @@ func narrowBounds(topK []ScoredResult, paramName string, valuesPerParam int) (st
 		}
 	}
 
+	// If no numeric values were found for this parameter, do not narrow bounds.
+	if math.IsInf(minVal, 1) && math.IsInf(maxVal, -1) {
+		return 0, 0
+	}
+
 	// If we only have one result, or all results have the same value
 	if minVal == maxVal {
 		// Add a small margin around the single value
@@ -541,5 +583,78 @@ func copyBounds(bounds map[string][2]float64) map[string][2]float64 {
 	for k, v := range bounds {
 		result[k] = v
 	}
+	return result
+}
+
+// copyParamValues creates a deep copy of a parameter values map.
+func copyParamValues(m map[string]interface{}) map[string]interface{} {
+	if m == nil {
+		return nil
+	}
+	result := make(map[string]interface{}, len(m))
+	for k, v := range m {
+		result[k] = v
+	}
+	return result
+}
+
+// applyAutoTuneDefaults applies default values for unset fields on an AutoTuneRequest.
+// This is exported as a helper so tests can exercise the defaulting logic directly.
+func applyAutoTuneDefaults(req AutoTuneRequest) AutoTuneRequest {
+	if req.MaxRounds <= 0 {
+		req.MaxRounds = 3
+	}
+	if req.ValuesPerParam <= 0 {
+		req.ValuesPerParam = 5
+	}
+	if req.TopK <= 0 {
+		req.TopK = 5
+	}
+	if req.Objective == "" {
+		req.Objective = "acceptance"
+	}
+	return req
+}
+
+// generateIntGrid creates N evenly-spaced integer values between start and end (inclusive).
+// Values are rounded to the nearest integer and deduplicated while preserving order.
+// Both endpoints are always included (if they map to distinct integers).
+func generateIntGrid(start, end float64, n int) []int {
+	if n <= 0 {
+		return []int{}
+	}
+
+	intStart := int(math.Round(start))
+	intEnd := int(math.Round(end))
+
+	if n == 1 {
+		return []int{(intStart + intEnd) / 2}
+	}
+
+	// Enforce an upper bound to prevent excessive memory allocation.
+	if n > maxValuesPerParam {
+		n = maxValuesPerParam
+	}
+
+	// Generate float grid, round, and deduplicate
+	floatGrid := generateGrid(start, end, n)
+	seen := make(map[int]bool, len(floatGrid))
+	result := make([]int, 0, len(floatGrid))
+	for _, v := range floatGrid {
+		iv := int(math.Round(v))
+		if !seen[iv] {
+			seen[iv] = true
+			result = append(result, iv)
+		}
+	}
+
+	// Ensure endpoints are included
+	if !seen[intStart] {
+		result = append([]int{intStart}, result...)
+	}
+	if !seen[intEnd] {
+		result = append(result, intEnd)
+	}
+
 	return result
 }
