@@ -148,6 +148,12 @@ func (at *AutoTuner) start(ctx context.Context, req AutoTuneRequest) error {
 		return fmt.Errorf("no parameters specified for auto-tuning")
 	}
 
+	// Limit maximum number of parameters to prevent excessive memory allocation.
+	const maxParams = 10
+	if len(req.Params) > maxParams {
+		return fmt.Errorf("too many parameters: maximum %d allowed, got %d", maxParams, len(req.Params))
+	}
+
 	// Validate that each param has start/end bounds
 	for i, p := range req.Params {
 		if p.Start >= p.End {

@@ -296,6 +296,12 @@ func (r *Runner) start(ctx context.Context, req SweepRequest) error {
 
 // startGeneric handles the generic N-dimensional parameter sweep.
 func (r *Runner) startGeneric(ctx context.Context, req SweepRequest, interval, settleTime time.Duration) error {
+	// Limit maximum number of parameters to prevent excessive memory allocation during Cartesian product
+	const maxParams = 10
+	if len(req.Params) > maxParams {
+		return fmt.Errorf("too many parameters: maximum %d allowed, got %d", maxParams, len(req.Params))
+	}
+
 	// Expand SweepParam values from ranges
 	for i := range req.Params {
 		if err := expandSweepParam(&req.Params[i]); err != nil {
@@ -306,8 +312,11 @@ func (r *Runner) startGeneric(ctx context.Context, req SweepRequest, interval, s
 		}
 	}
 
-	// Compute Cartesian product
-	combos := cartesianProduct(req.Params)
+	// Compute Cartesian product - validates size before allocation to prevent DoS
+	combos, err := cartesianProduct(req.Params)
+	if err != nil {
+		return err
+	}
 	totalCombos := len(combos)
 
 	if totalCombos == 0 {
@@ -891,14 +900,29 @@ func coerceValue(v interface{}, typ string) (interface{}, error) {
 
 // cartesianProduct computes the Cartesian product of all SweepParam value lists.
 // Returns a slice of maps, where each map represents one parameter combination.
-func cartesianProduct(params []SweepParam) []map[string]interface{} {
+// Returns an error if the total number of combinations exceeds safe limits to prevent DoS attacks.
+func cartesianProduct(params []SweepParam) ([]map[string]interface{}, error) {
 	if len(params) == 0 {
-		return nil
+		return nil, nil
 	}
 
-	total := 1
+	// Validate total combinations before allocating memory to prevent DoS attacks.
+	// Using int64 to detect overflow during multiplication.
+	const maxCombos = 10000 // Hard limit to prevent excessive memory allocation
+	total := int64(1)
 	for _, p := range params {
-		total *= len(p.Values)
+		if len(p.Values) <= 0 {
+			continue
+		}
+		total *= int64(len(p.Values))
+		// Check for overflow or excessive combinations during computation
+		if total > maxCombos || total < 0 {
+			return nil, fmt.Errorf("parameter combinations would exceed safe limit of %d (detected: %d parameters with potential for >%d combinations)", maxCombos, len(params), maxCombos)
+		}
+	}
+
+	if total == 0 {
+		return nil, nil
 	}
 
 	combos := make([]map[string]interface{}, total)
@@ -906,18 +930,18 @@ func cartesianProduct(params []SweepParam) []map[string]interface{} {
 		combos[i] = make(map[string]interface{}, len(params))
 	}
 
-	repeat := 1
+	repeat := int64(1)
 	for dim := len(params) - 1; dim >= 0; dim-- {
 		vals := params[dim].Values
 		name := params[dim].Name
-		cycle := len(vals)
-		for i := 0; i < total; i++ {
+		cycle := int64(len(vals))
+		for i := int64(0); i < total; i++ {
 			combos[i][name] = vals[(i/repeat)%cycle]
 		}
 		repeat *= cycle
 	}
 
-	return combos
+	return combos, nil
 }
 
 // toFloat64 converts an interface{} to float64.

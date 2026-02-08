@@ -3,6 +3,7 @@ package sweep
 import (
 	"math"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -184,7 +185,10 @@ func TestCartesianProductSingle(t *testing.T) {
 	params := []SweepParam{
 		{Name: "noise_relative", Values: []interface{}{0.01, 0.02, 0.03}},
 	}
-	combos := cartesianProduct(params)
+	combos, err := cartesianProduct(params)
+	if err != nil {
+		t.Fatalf("cartesianProduct failed: %v", err)
+	}
 	if len(combos) != 3 {
 		t.Fatalf("expected 3 combos, got %d", len(combos))
 	}
@@ -200,7 +204,10 @@ func TestCartesianProductMulti(t *testing.T) {
 		{Name: "a", Values: []interface{}{1, 2}},
 		{Name: "b", Values: []interface{}{"x", "y", "z"}},
 	}
-	combos := cartesianProduct(params)
+	combos, err := cartesianProduct(params)
+	if err != nil {
+		t.Fatalf("cartesianProduct failed: %v", err)
+	}
 	if len(combos) != 6 {
 		t.Fatalf("expected 6 combos, got %d", len(combos))
 	}
@@ -215,9 +222,44 @@ func TestCartesianProductMulti(t *testing.T) {
 }
 
 func TestCartesianProductEmpty(t *testing.T) {
-	combos := cartesianProduct(nil)
+	combos, err := cartesianProduct(nil)
+	if err != nil {
+		t.Fatalf("cartesianProduct failed: %v", err)
+	}
 	if combos != nil {
 		t.Errorf("expected nil for empty params, got %v", combos)
+	}
+}
+
+func TestCartesianProductExcessiveCombinations(t *testing.T) {
+	// Test that excessive combinations are rejected before memory allocation (DoS protection)
+	params := []SweepParam{
+		{Name: "param1", Values: []interface{}{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}}, // 10 values
+		{Name: "param2", Values: []interface{}{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}}, // 10 values
+		{Name: "param3", Values: []interface{}{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}}, // 10 values
+		{Name: "param4", Values: []interface{}{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}}, // 10 values
+		// Total = 10^4 = 10,000 combinations (at the limit)
+	}
+
+	// This should succeed (exactly at maxCombos limit)
+	combos, err := cartesianProduct(params)
+	if err != nil {
+		t.Fatalf("expected success at limit, got error: %v", err)
+	}
+	if len(combos) != 10000 {
+		t.Errorf("expected 10000 combos, got %d", len(combos))
+	}
+
+	// Now add one more value to exceed the limit
+	params = append(params, SweepParam{Name: "param5", Values: []interface{}{1, 2}})
+	// Total would be 10^4 * 2 = 20,000 combinations (exceeds limit)
+
+	_, err = cartesianProduct(params)
+	if err == nil {
+		t.Fatal("expected error for excessive combinations, got success")
+	}
+	if !strings.Contains(err.Error(), "exceed safe limit") {
+		t.Errorf("expected 'exceed safe limit' error, got: %v", err)
 	}
 }
 
@@ -469,7 +511,10 @@ func TestCartesianProductOrder(t *testing.T) {
 		{Name: "a", Values: []interface{}{1, 2}},
 		{Name: "b", Values: []interface{}{10, 20}},
 	}
-	combos := cartesianProduct(params)
+	combos, err := cartesianProduct(params)
+	if err != nil {
+		t.Fatalf("cartesianProduct failed: %v", err)
+	}
 	expected := []map[string]interface{}{
 		{"a": 1, "b": 10},
 		{"a": 1, "b": 20},
