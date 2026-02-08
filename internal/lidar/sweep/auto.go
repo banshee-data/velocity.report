@@ -528,9 +528,9 @@ func generateGrid(start, end float64, n int) []float64 {
 
 // copyBounds creates a deep copy of a bounds map.
 func copyBounds(bounds map[string][2]float64) map[string][2]float64 {
-	copy := make(map[string][2]float64)
+	result := make(map[string][2]float64)
 	for k, v := range bounds {
-		copy[k] = v
+		result[k] = v
 	}
-	return copy
+	return result
 }
