@@ -1,9 +1,11 @@
 # Velocity-Coherent Foreground Extraction
 
-**Status:** Design Document
+**Status:** Design Document — Not Yet Implemented
 **Date:** December 15, 2025
 **Author:** Ictinus (Product Architecture Agent)
 **Version:** 1.0
+
+> **Note:** This document describes a proposed alternative algorithm. No velocity-coherent or 6D clustering code exists in the codebase. The active clustering algorithm is standard DBSCAN (see `internal/lidar/clustering.go`). This remains a future design exploration.
 
 ---
 
@@ -1457,7 +1459,7 @@ From testing with PCAP replay:
 
 ## Related Documentation
 
-- **[Foreground Tracking Plan](../architecture/foreground_tracking_plan.md)** - Existing implementation through Phase 3.7
+- **[Foreground Tracking Plan](../architecture/foreground_tracking.md)** - Existing implementation through Phase 3.7
 - **[ML Pipeline Roadmap](../roadmap/ml_pipeline_roadmap.md)** - Training data and labeling infrastructure
 - **[LIDAR Foreground Tracking Status](../operations/lidar-foreground-tracking-status.md)** - Current issues and simplification decisions
 

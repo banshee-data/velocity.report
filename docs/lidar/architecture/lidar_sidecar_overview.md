@@ -1,7 +1,7 @@
 # LiDAR Sidecar — Technical Implementation Overview
 
-**Status:** Phase 3.7 completed — All core features operational
-**Scope:** Hesai UDP → parse → frame assembly → background subtraction → foreground mask → clustering → tracking → classification → HTTP API → ML data export → Analysis Runs
+**Status:** Phase 3.9 completed — All core features operational
+**Scope:** Hesai UDP → parse → frame assembly → background subtraction → foreground mask → clustering → tracking → classification → HTTP API → ML data export → Analysis Runs → Sweep/Auto-Tune
 
 ---
 
@@ -158,12 +158,32 @@ pcap-analyze -pcap capture.pcap -output ./results
 - ✅ **Unit Tests**: `internal/lidar/analysis_run_test.go`
 - ✅ **Location**: `internal/lidar/analysis_run.go`
 
-### 📋 **Phase 4: ML Pipeline & Production Optimization (PLANNED)**
+### ✅ **Phase 3.8: Tracking Upgrades (COMPLETED)**
 
-- **Phase 4.0: Track Labeling UI** - SvelteKit web interface for annotation
-- **Phase 4.1: ML Classifier Training** - Feature extraction, Python training, Go deployment
-- **Phase 4.2: Parameter Tuning** - Grid search with split/merge quality metrics
-- **Phase 4.3: Production Deployment** - Edge node architecture, model distribution
+- ✅ **Hungarian association**: Optimal assignment via Kuhn-Munkres solver (`internal/lidar/hungarian.go`)
+- ✅ **Ground removal**: Height-based filtering — `HeightBandFilter` (`internal/lidar/ground.go`)
+- ✅ **OBB estimation**: PCA-oriented bounding boxes (`internal/lidar/obb.go`)
+- ✅ **OBB temporal smoothing**: EMA heading (α=0.3) in `TrackedObject`
+- ✅ **Occlusion coasting**: `MaxMissesConfirmed=15`, `OcclusionCovInflation=0.5` (`internal/lidar/tracking.go`)
+- ✅ **Debug overlays**: `DebugOverlaySet` via gRPC — gating ellipses, association lines, residuals (`internal/lidar/debug/collector.go`)
+- ✅ **Voxel grid downsampling**: (`internal/lidar/voxel.go`)
+- ✅ **Classification hooks**: Features extraction, periodic re-classification (`internal/lidar/features.go`)
+
+### ✅ **Phase 3.9: Adaptive Regions & Sweep System (COMPLETED)**
+
+- ✅ **Adaptive region segmentation**: Variance-based (stable/variable/volatile)
+- ✅ **Region persistence**: Scene hash-based restoration, skips settling on subsequent runs
+- ✅ **Parameter sweep runner**: With settle mode — `once`/`per_combo` (`internal/lidar/sweep/runner.go`)
+- ✅ **Auto-tuner**: Iterative grid narrowing (`internal/lidar/sweep/auto.go`)
+- ✅ **Multi-objective scoring**: Acceptance, alignment, tracks, cells (`internal/lidar/sweep/objective.go`)
+- ✅ **Sweep dashboard**: ECharts bar charts, heatmaps, results table (`sweep_dashboard.html`)
+- ✅ **PARAM_SCHEMA**: Sane default ranges for all numeric parameters
+
+### 📋 **Phase 4: Track Labelling & ML Pipeline (PLANNED)**
+
+- **Phase 4.0: Track Labelling UI** — Wire existing label API routes, scene management, Svelte labelling controls
+- **Phase 4.0: LiDAR Transit Table** — `lidar_transits` table for dashboard integration
+- **Phase 4.1: ML Classifier Training** — Feature extraction, Python training, Go deployment
 - **Multi-Sensor Architecture**: Support multiple LiDAR sensors per machine
 - **Local Persistence**: Each sensor stores data in local SQLite database
 - **Database Unification**: Merge data from multiple local databases for analysis
@@ -201,6 +221,14 @@ internal/lidar/tracking.go         ✅ # Kalman tracking with lifecycle manageme
 internal/lidar/track_store.go      ✅ # Database persistence for tracks/clusters (Phase 3.3)
 internal/lidar/classification.go   ✅ # Rule-based track classification (Phase 3.4)
 internal/lidar/analysis_run.go     ✅ # Analysis run infrastructure with params JSON (Phase 3.7)
+internal/lidar/hungarian.go        ✅ # Kuhn-Munkres optimal assignment (Phase 3.8)
+internal/lidar/ground.go           ✅ # Height-based ground removal (Phase 3.8)
+internal/lidar/obb.go              ✅ # PCA-oriented bounding boxes (Phase 3.8)
+internal/lidar/debug/collector.go  ✅ # Debug overlay collection (Phase 3.8)
+internal/lidar/sweep/runner.go     ✅ # Parameter sweep runner with settle mode (Phase 3.9)
+internal/lidar/sweep/auto.go       ✅ # Auto-tuner with grid narrowing (Phase 3.9)
+internal/lidar/sweep/objective.go   ✅ # Multi-objective scoring (Phase 3.9)
+internal/lidar/sweep/sampler.go    ✅ # Parameter sampling (Phase 3.9)
 internal/lidar/training_data.go    ✅ # ML training data export and encoding
 internal/lidar/export.go           ✅ # ASC point cloud export
 internal/lidar/arena.go            ✅ # Data structures for clustering and tracking
@@ -1029,7 +1057,7 @@ The system uses a comprehensive SQLite schema with 738 lines covering:
 
 ### ✅ **Current State Summary**
 
-The LiDAR sidecar has **completed Phases 1-2 (core infrastructure, background classification), Phase 2.5 (PCAP-based parameter tuning), and Phases 2.9-3.2 (foreground tracking pipeline)**. The complete pipeline from UDP packets to tracked objects is implemented and tested. The system is now ready for **Phase 3.3 (SQL Schema & REST APIs)** to enable database persistence and API access.
+The LiDAR sidecar has **completed Phases 1–3.9** including core infrastructure, background classification, PCAP-based tuning, foreground tracking pipeline, tracking upgrades (Hungarian, OBB, ground removal, occlusion), adaptive regions, parameter sweep system, and auto-tuning. The system is now ready for **Phase 4.0 (Track Labelling & Ground Truth)**.
 
 ### ✅ **Completed Components**
 
@@ -1073,7 +1101,7 @@ The LiDAR sidecar has **completed Phases 1-2 (core infrastructure, background cl
 - 📋 **Cross-Sensor Tracking**: Track objects across multiple sensor coverage areas
 - 📋 **Scale**: Memory optimisation for 100+ tracks across multiple sensors
 
-**Current Focus**: UI visualization for track display. REST API endpoints (Phase 3.5) are complete.
+**Current Focus**: Phase 4.0 — Track labelling UI with ground truth evaluation. Label API routes need wiring (`internal/api/lidar_labels.go` handlers exist, routes not registered in WebServer).
 
 **Architecture**: Modular design with clear separation between:
 
@@ -1092,4 +1120,4 @@ The LiDAR sidecar has **completed Phases 1-2 (core infrastructure, background cl
 
 **Multi-Sensor Vision (Phase 4)**: The architecture supports a distributed edge deployment model where each machine runs multiple LiDAR sensors, storing data locally in SQLite. Data from multiple edge nodes can be consolidated later for whole-street analysis and cross-intersection tracking in world frame coordinates.
 
-The implementation is ready for Phase 3.3 (SQL Schema & REST APIs) development.
+The implementation is ready for Phase 4.0 (Track Labelling & Ground Truth) development. See `docs/lidar/future/track-labeling-auto-aware-tuning.md` for the detailed 8-phase design.

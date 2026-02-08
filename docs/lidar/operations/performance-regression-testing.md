@@ -428,4 +428,4 @@ go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30
 
 - [PCAP Analysis Mode](pcap-analysis-mode.md) — Using pcap-analyze for track extraction
 - [LIDAR Sidecar Overview](../architecture/lidar_sidecar_overview.md) — Pipeline architecture
-- [Foreground Tracking Plan](../architecture/foreground_tracking_plan.md) — Algorithm details
+- [Foreground Tracking Plan](../architecture/foreground_tracking.md) — Algorithm details

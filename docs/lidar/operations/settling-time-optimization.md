@@ -11,6 +11,8 @@
 
 **Current Capability**: Region data is persisted with scene hash and automatically restored when processing PCAPs from the same location, skipping the ~30 second settling period entirely.
 
+**Cross-reference**: The sweep runner (`internal/lidar/sweep/runner.go`) implements a `SettleMode` field with two options: `once` (settle once, keep grid across combinations) and `per_combo` (re-settle per combination). This leverages the region persistence for efficient parameter sweeps. See also [`auto-tuning.md`](auto-tuning.md).
+
 ## Executive Summary
 
 This document proposes two complementary approaches to address the loss of ~30 seconds of data at the start of PCAP file analysis due to the LiDAR background regions settling period. The current implementation requires 100-300 frames (5-30 seconds at 10-20 Hz) of settling before foreground identification can begin, causing valuable data to be discarded.

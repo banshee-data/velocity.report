@@ -34,12 +34,12 @@
 
     .chart-container {
       width: 100%%;
-      height: 300px;
+      height: 450px;
     }
 
     #charts-section {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 12px;
     }
 
@@ -49,19 +49,7 @@
       overflow: hidden;
     }
 
-    @media (max-width: 2400px) {
-      #charts-section {
-        grid-template-columns: repeat(4, 1fr);
-      }
-    }
-
     @media (max-width: 1600px) {
-      #charts-section {
-        grid-template-columns: repeat(3, 1fr);
-      }
-    }
-
-    @media (max-width: 1200px) {
       #charts-section {
         grid-template-columns: repeat(2, 1fr);
       }
@@ -367,6 +355,127 @@
     .refresh-params-btn:hover {
       background: var(--input-border);
     }
+
+    /* Mode toggle */
+    .mode-toggle {
+      display: inline-flex;
+      margin-bottom: 12px;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+    }
+
+    .mode-toggle button {
+      padding: 6px 16px;
+      border: none;
+      background: var(--card-bg);
+      color: var(--fg-muted);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .mode-toggle button:not(:last-child) {
+      border-right: 1px solid var(--card-border);
+    }
+
+    .mode-toggle button.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    /* Auto/manual visibility toggles */
+    body.auto-mode .manual-only {
+      display: none !important;
+    }
+
+    body:not(.auto-mode) .auto-only {
+      display: none !important;
+    }
+
+    /* Hide step/values in auto mode */
+    body.auto-mode .param-field-step,
+    body.auto-mode .param-field-values {
+      display: none !important;
+    }
+
+    /* Recommendation card */
+    .recommendation-card {
+      margin-bottom: 12px;
+      border-left: 4px solid var(--accent);
+    }
+
+    .recommendation-params {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 8px;
+      margin: 12px 0;
+    }
+
+    .recommendation-param {
+      padding: 8px 12px;
+      background: var(--input-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 4px;
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    .recommendation-param .param-name {
+      color: var(--fg-muted);
+      font-size: 11px;
+      margin-bottom: 2px;
+    }
+
+    .recommendation-param .param-value {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .recommendation-metrics {
+      display: flex;
+      gap: 16px;
+      margin: 8px 0;
+      font-size: 12px;
+      color: var(--fg-muted);
+    }
+
+    .recommendation-metrics .metric {
+      display: flex;
+      gap: 4px;
+    }
+
+    .recommendation-metrics .metric-value {
+      font-weight: 600;
+      color: var(--fg);
+    }
+
+    .round-history {
+      margin-top: 12px;
+      font-size: 12px;
+    }
+
+    .round-history summary {
+      cursor: pointer;
+      color: var(--fg-muted);
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .round-history .round-item {
+      padding: 6px 0;
+      border-bottom: 1px solid var(--card-border);
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--fg-faint);
+    }
+
+    /* Auto-tune progress */
+    .auto-progress {
+      font-size: 12px;
+      color: var(--fg-muted);
+      margin-top: 4px;
+    }
   </style>
 </head>
 
@@ -375,6 +484,21 @@
   <p class="sub">Sweep tuning parameters and visualise results to identify optimal tuning. Sensor: %[1]s</p>
 
   <div id="error-box" class="error-box" style="display:none"></div>
+
+  <!-- Mode Toggle -->
+  <div class="mode-toggle">
+    <button id="mode-manual" class="active" onclick="setMode('manual')">Manual Sweep</button>
+    <button id="mode-auto" onclick="setMode('auto')">Auto-Tune</button>
+  </div>
+
+  <!-- Recommendation (shown when auto-tune completes) -->
+  <div id="recommendation-card" class="card recommendation-card" style="display:none">
+    <h2>Recommendation
+      <button class="btn-sm btn-add" id="btn-apply-recommendation" onclick="applyRecommendation()" style="margin-left:8px">Apply
+        to System</button>
+    </h2>
+    <div id="recommendation-content"></div>
+  </div>
 
   <!-- Config Sections Container -->
   <div id="config-container">
@@ -475,8 +599,8 @@
         </div>
       </div>
 
-      <!-- Card 3: Scenario -->
-      <div class="card scenario-card">
+      <!-- Card 3: Scenario (manual mode only) -->
+      <div class="card scenario-card manual-only">
         <h2>Scenario</h2>
         <div class="scenario-card-content">
           <div class="scenario-bar">
@@ -489,6 +613,47 @@
           </div>
           <div id="json-editor-wrap" style="display:none">
             <textarea id="scenario-json"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3 (auto mode): Auto-Tune Settings -->
+      <div class="card auto-only">
+        <h2>Auto-Tune Settings</h2>
+        <div class="field-stack">
+          <label><span>Max Rounds</span><input id="max_rounds" type="number" value="3" min="1" max="10">
+            <small class="field-desc">Number of refinement rounds. Each round narrows parameter bounds from the best
+              results.</small>
+          </label>
+          <label><span>Values / Param</span><input id="values_per_param" type="number" value="5" min="2" max="20">
+            <small class="field-desc">Grid points sampled per parameter per round. E.g. 5 values across 2 params = 25
+              combos/round.</small>
+          </label>
+          <label><span>Top K</span><input id="top_k" type="number" value="5" min="1" max="50">
+            <small class="field-desc">Best results used to narrow bounds for the next round.</small>
+          </label>
+          <label><span>Objective</span>
+            <select id="objective" onchange="toggleWeights()">
+              <option value="acceptance">Acceptance Rate</option>
+              <option value="weighted">Weighted (custom)</option>
+            </select>
+            <small class="field-desc">Scoring function for ranking combinations.</small>
+          </label>
+        </div>
+        <div id="weight-fields" style="display:none; margin-top: 10px;">
+          <div class="field-stack">
+            <label><span>Accept Weight</span><input id="w_acceptance" type="number" step="0.1" value="1.0">
+              <small class="field-desc">Weight for acceptance rate (positive = maximise).</small>
+            </label>
+            <label><span>Misalign Weight</span><input id="w_misalignment" type="number" step="0.1" value="-0.5">
+              <small class="field-desc">Weight for misalignment ratio (negative = minimise).</small>
+            </label>
+            <label><span>Align Weight</span><input id="w_alignment" type="number" step="0.01" value="-0.01">
+              <small class="field-desc">Weight for alignment degrees (negative = minimise).</small>
+            </label>
+            <label><span>Cells Weight</span><input id="w_nonzero" type="number" step="0.1" value="0.1">
+              <small class="field-desc">Weight for log(nonzero cells) (positive = maximise).</small>
+            </label>
           </div>
         </div>
       </div>
@@ -526,6 +691,12 @@
     <div class="card">
       <div id="tracks-chart" class="chart-container"></div>
     </div>
+    <div class="card">
+      <div id="tracks-heatmap" class="chart-container"></div>
+    </div>
+    <div class="card">
+      <div id="alignment-heatmap" class="chart-container"></div>
+    </div>
 
     <!-- Results Table -->
     <div id="results-card" class="card">
@@ -554,12 +725,15 @@
   <script>
     var pollTimer = null;
     var stopRequested = false;
+    var sweepMode = 'manual'; // 'manual' or 'auto'
     var acceptChart = null;
     var nzChart = null;
     var bktChart = null;
     var alignChart = null;
     var tracksChart = null;
     var paramHeatmapChart = null;
+    var tracksHeatmapChart = null;
+    var alignHeatmapChart = null;
     var latestResults = null;
 
     // Detect dark mode for ECharts
@@ -569,27 +743,27 @@
 
     // Parameter schema derived from TuningConfig (with descriptions)
     var PARAM_SCHEMA = {
-      noise_relative: { type: 'float64', label: 'Noise Relative', step: 0.001, desc: 'Fraction of measured range treated as noise threshold (0\u20131). Higher = more tolerant of range variation.' },
-      closeness_multiplier: { type: 'float64', label: 'Closeness Multiplier', step: 0.5, desc: 'Multiplier for closeness threshold. Higher = wider band for background acceptance.' },
-      neighbor_confirmation_count: { type: 'int', label: 'Neighbour Confirmation', step: 1, desc: 'Number of neighbouring cells (0\u20138) that must agree before marking foreground.' },
+      noise_relative: { type: 'float64', label: 'Noise Relative', step: 0.001, defaultStart: 0.01, defaultEnd: 0.2, desc: 'Fraction of measured range treated as noise threshold (0\u20131). Higher = more tolerant of range variation.' },
+      closeness_multiplier: { type: 'float64', label: 'Closeness Multiplier', step: 0.5, defaultStart: 1.0, defaultEnd: 20.0, desc: 'Multiplier for closeness threshold. Higher = wider band for background acceptance.' },
+      neighbor_confirmation_count: { type: 'int', label: 'Neighbour Confirmation', step: 1, defaultStart: 0, defaultEnd: 8, desc: 'Number of neighbouring cells (0\u20138) that must agree before marking foreground.' },
       seed_from_first: { type: 'bool', label: 'Seed From First', desc: 'If true, initialise background model from the very first observation.' },
-      warmup_duration_nanos: { type: 'int64', label: 'Warmup Duration (ns)', step: 1000000, desc: 'Duration in nanoseconds for the warmup phase before classification begins.' },
-      warmup_min_frames: { type: 'int', label: 'Warmup Min Frames', step: 1, desc: 'Minimum frames required before the warmup phase can complete.' },
-      post_settle_update_fraction: { type: 'float64', label: 'Post-Settle Update Fraction', step: 0.01, desc: 'Background update alpha after settling (0 = freeze background).' },
-      foreground_min_cluster_points: { type: 'int', label: 'FG Min Cluster Points', step: 1, desc: 'Minimum points for a foreground cluster to be reported. 0 = disabled.' },
-      foreground_dbscan_eps: { type: 'float64', label: 'FG DBSCAN Eps', step: 0.1, desc: 'DBSCAN epsilon for foreground point clustering. 0 = disabled.' },
+      warmup_duration_nanos: { type: 'int64', label: 'Warmup Duration (ns)', step: 1000000000, defaultStart: 5000000000, defaultEnd: 120000000000, desc: 'Duration in nanoseconds for the warmup phase before classification begins.' },
+      warmup_min_frames: { type: 'int', label: 'Warmup Min Frames', step: 10, defaultStart: 10, defaultEnd: 500, desc: 'Minimum frames required before the warmup phase can complete.' },
+      post_settle_update_fraction: { type: 'float64', label: 'Post-Settle Update Fraction', step: 0.01, defaultStart: 0, defaultEnd: 0.5, desc: 'Background update alpha after settling (0 = freeze background).' },
+      foreground_min_cluster_points: { type: 'int', label: 'FG Min Cluster Points', step: 1, defaultStart: 0, defaultEnd: 20, desc: 'Minimum points for a foreground cluster to be reported. 0 = disabled.' },
+      foreground_dbscan_eps: { type: 'float64', label: 'FG DBSCAN Eps', step: 0.1, defaultStart: 0, defaultEnd: 2.0, desc: 'DBSCAN epsilon for foreground point clustering. 0 = disabled.' },
       buffer_timeout: { type: 'string', label: 'Buffer Timeout', desc: 'Max wait time for a complete frame (Go duration, e.g. "500ms").' },
-      min_frame_points: { type: 'int', label: 'Min Frame Points', step: 100, desc: 'Minimum points in a frame before processing. Fewer points = frame dropped.' },
+      min_frame_points: { type: 'int', label: 'Min Frame Points', step: 100, defaultStart: 100, defaultEnd: 5000, desc: 'Minimum points in a frame before processing. Fewer points = frame dropped.' },
       flush_interval: { type: 'string', label: 'Flush Interval', desc: 'How often the background grid is flushed to disk (e.g. "60s").' },
       background_flush: { type: 'bool', label: 'Background Flush', desc: 'If true, enables periodic background grid flush to disk. Default: false (disabled).' },
-      gating_distance_squared: { type: 'float64', label: 'Gating Distance\u00b2', step: 0.1, desc: 'Squared Mahalanobis distance threshold for track-to-cluster association.' },
-      process_noise_pos: { type: 'float64', label: 'Process Noise Pos', step: 0.001, desc: 'Kalman process noise for position. Higher = more position uncertainty expected.' },
-      process_noise_vel: { type: 'float64', label: 'Process Noise Vel', step: 0.001, desc: 'Kalman process noise for velocity. Higher = more velocity changes expected.' },
-      measurement_noise: { type: 'float64', label: 'Measurement Noise', step: 0.01, desc: 'Kalman measurement noise. Higher = less trust in observations.' },
-      occlusion_cov_inflation: { type: 'float64', label: 'Occlusion Cov Inflation', step: 0.1, desc: 'Covariance inflation factor during occlusion (missed observations).' },
-      hits_to_confirm: { type: 'int', label: 'Hits to Confirm', step: 1, desc: 'Consecutive successful associations needed to confirm a tentative track.' },
-      max_misses: { type: 'int', label: 'Max Misses', step: 1, desc: 'Consecutive misses before a tentative track is deleted.' },
-      max_misses_confirmed: { type: 'int', label: 'Max Misses Confirmed', step: 1, desc: 'Consecutive misses before a confirmed track is deleted.' }
+      gating_distance_squared: { type: 'float64', label: 'Gating Distance\u00b2', step: 1.0, defaultStart: 4.0, defaultEnd: 100.0, desc: 'Squared Mahalanobis distance threshold for track-to-cluster association.' },
+      process_noise_pos: { type: 'float64', label: 'Process Noise Pos', step: 0.01, defaultStart: 0.01, defaultEnd: 1.0, desc: 'Kalman process noise for position. Higher = more position uncertainty expected.' },
+      process_noise_vel: { type: 'float64', label: 'Process Noise Vel', step: 0.01, defaultStart: 0.05, defaultEnd: 2.0, desc: 'Kalman process noise for velocity. Higher = more velocity changes expected.' },
+      measurement_noise: { type: 'float64', label: 'Measurement Noise', step: 0.01, defaultStart: 0.01, defaultEnd: 2.0, desc: 'Kalman measurement noise. Higher = less trust in observations.' },
+      occlusion_cov_inflation: { type: 'float64', label: 'Occlusion Cov Inflation', step: 0.1, defaultStart: 0.1, defaultEnd: 5.0, desc: 'Covariance inflation factor during occlusion (missed observations).' },
+      hits_to_confirm: { type: 'int', label: 'Hits to Confirm', step: 1, defaultStart: 1, defaultEnd: 10, desc: 'Consecutive successful associations needed to confirm a tentative track.' },
+      max_misses: { type: 'int', label: 'Max Misses', step: 1, defaultStart: 1, defaultEnd: 10, desc: 'Consecutive misses before a tentative track is deleted.' },
+      max_misses_confirmed: { type: 'int', label: 'Max Misses Confirmed', step: 1, defaultStart: 3, defaultEnd: 30, desc: 'Consecutive misses before a confirmed track is deleted.' }
     };
 
     var paramNames = Object.keys(PARAM_SCHEMA);
@@ -602,6 +776,26 @@
     function togglePCAP() {
       var ds = document.getElementById('data_source').value;
       document.getElementById('pcap-fields').style.display = (ds === 'pcap') ? '' : 'none';
+    }
+
+    function setMode(mode) {
+      sweepMode = mode;
+      document.getElementById('mode-manual').className = mode === 'manual' ? 'active' : '';
+      document.getElementById('mode-auto').className = mode === 'auto' ? 'active' : '';
+      if (mode === 'auto') {
+        document.body.classList.add('auto-mode');
+      } else {
+        document.body.classList.remove('auto-mode');
+      }
+      // Update button text
+      document.getElementById('btn-start').textContent = mode === 'auto' ? 'Start Auto-Tune' : 'Start Sweep';
+      document.getElementById('btn-stop').textContent = mode === 'auto' ? 'Stop Auto-Tune' : 'Stop Sweep';
+      updateSweepSummary();
+    }
+
+    function toggleWeights() {
+      var obj = document.getElementById('objective').value;
+      document.getElementById('weight-fields').style.display = (obj === 'weighted') ? '' : 'none';
     }
 
     function addParamRow(name) {
@@ -653,11 +847,13 @@
       if (descEl) descEl.textContent = schema.desc || '';
 
       if (typ === 'float64' || typ === 'int' || typ === 'int64') {
+        var startVal = schema.defaultStart !== undefined ? schema.defaultStart : 0;
+        var endVal = schema.defaultEnd !== undefined ? schema.defaultEnd : 1;
         fieldsEl.innerHTML =
-          '<label class="param-field"><span>Start</span><input id="pstart-' + id + '" type="number" step="' + step + '" value="0"></label>' +
-          '<label class="param-field"><span>End</span><input id="pend-' + id + '" type="number" step="' + step + '" value="1"></label>' +
-          '<label class="param-field"><span>Step</span><input id="pstep-' + id + '" type="number" step="' + step + '" value="' + step + '"></label>' +
-          '<label class="param-field" style="flex:2"><span>Values (overrides)</span><input id="pvals-' + id + '" type="text" placeholder="e.g. 0.01, 0.02, 0.05"></label>';
+          '<label class="param-field"><span>Start</span><input id="pstart-' + id + '" type="number" step="' + step + '" value="' + startVal + '"></label>' +
+          '<label class="param-field"><span>End</span><input id="pend-' + id + '" type="number" step="' + step + '" value="' + endVal + '"></label>' +
+          '<label class="param-field param-field-step"><span>Step</span><input id="pstep-' + id + '" type="number" step="' + step + '" value="' + step + '"></label>' +
+          '<label class="param-field param-field-values" style="flex:2"><span>Values (overrides)</span><input id="pvals-' + id + '" type="text" placeholder="e.g. 0.01, 0.02, 0.05"></label>';
       } else if (typ === 'bool') {
         fieldsEl.innerHTML =
           '<label class="param-field"><span>Values</span><input id="pvals-' + id + '" type="text" value="true, false"></label>';
@@ -740,20 +936,37 @@
       var rows = document.getElementById('param-rows').children;
       if (rows.length === 0) { el.innerHTML = ''; return; }
 
+      var isAuto = sweepMode === 'auto';
       var parts = [];
       var total = 1;
       var anyParam = false;
+      var valuesPerParam = isAuto ? (intVal('values_per_param') || 5) : 0;
+
       for (var i = 0; i < rows.length; i++) {
         var rowId = rows[i].id.replace('param-row-', '');
         var nameEl = document.getElementById('pname-' + rowId);
         if (!nameEl || !nameEl.value) continue;
-        var count = getParamValueCount(rowId);
-        if (count === 0) continue;
-        anyParam = true;
         var schema = PARAM_SCHEMA[nameEl.value];
         var label = schema ? schema.label : nameEl.value;
-        parts.push('<strong>' + label + '</strong>: ' + count + ' values');
-        total *= count;
+
+        if (isAuto) {
+          // In auto mode, show start → end range
+          var startEl = document.getElementById('pstart-' + rowId);
+          var endEl = document.getElementById('pend-' + rowId);
+          if (startEl && endEl) {
+            parts.push('<strong>' + label + '</strong>: ' + startEl.value + ' → ' + endEl.value + ' (' + valuesPerParam + ' values)');
+          } else {
+            parts.push('<strong>' + label + '</strong>: ' + valuesPerParam + ' values');
+          }
+          anyParam = true;
+          total *= valuesPerParam;
+        } else {
+          var count = getParamValueCount(rowId);
+          if (count === 0) continue;
+          anyParam = true;
+          parts.push('<strong>' + label + '</strong>: ' + count + ' values');
+          total *= count;
+        }
       }
 
       if (!anyParam) { el.innerHTML = ''; return; }
@@ -767,24 +980,48 @@
       var intervalSecs = parseDuration(val('interval'));
       var settleMode = val('settle_mode');
       var activeMeasurementSecs = iterations * intervalSecs;
-      var runtimeSecs;
-      if (settleMode === 'once' && totalWithSeed > 1) {
-        // First combo: full settle; subsequent: ~2s for region restore
-        var regionRestoreSecs = 2;
-        runtimeSecs = (settleSecs + activeMeasurementSecs) + (totalWithSeed - 1) * (regionRestoreSecs + activeMeasurementSecs);
-      } else {
-        runtimeSecs = totalWithSeed * (settleSecs + activeMeasurementSecs);
-      }
 
       var html = parts.join(' &middot; ');
-      html += '<br/><strong>' + total + '</strong> permutations';
-      if (seedMultiplier > 1) {
-        html += ' &times; seed toggle &times;2 = <strong>' + totalWithSeed + '</strong> total';
+
+      if (isAuto) {
+        var maxRounds = intVal('max_rounds') || 3;
+        var perRound = totalWithSeed;
+        var totalAcrossRounds = perRound * maxRounds;
+        var runtimePerRound;
+        if (settleMode === 'once' && perRound > 1) {
+          var regionRestoreSecs = 2;
+          runtimePerRound = (settleSecs + activeMeasurementSecs) + (perRound - 1) * (regionRestoreSecs + activeMeasurementSecs);
+        } else {
+          runtimePerRound = perRound * (settleSecs + activeMeasurementSecs);
+        }
+        var totalRuntime = runtimePerRound * maxRounds;
+
+        html += '<br/><strong>' + total + '</strong> permutations/round';
+        if (seedMultiplier > 1) {
+          html += ' &times; seed toggle &times;2 = <strong>' + perRound + '</strong>';
+        }
+        html += ' &times; <strong>' + maxRounds + '</strong> rounds = <strong>' + totalAcrossRounds + '</strong> total';
+        html += '<br/>active measurement per permutation: <strong>' + formatDuration(activeMeasurementSecs) + '</strong>';
+        html += ' (' + iterations + ' &times; ' + val('interval') + ')';
+        html += ' &middot; estimated total runtime: <strong>~' + formatDuration(totalRuntime) + '</strong>';
+      } else {
+        var runtimeSecs;
+        if (settleMode === 'once' && totalWithSeed > 1) {
+          var regionRestoreSecs = 2;
+          runtimeSecs = (settleSecs + activeMeasurementSecs) + (totalWithSeed - 1) * (regionRestoreSecs + activeMeasurementSecs);
+        } else {
+          runtimeSecs = totalWithSeed * (settleSecs + activeMeasurementSecs);
+        }
+
+        html += '<br/><strong>' + total + '</strong> permutations';
+        if (seedMultiplier > 1) {
+          html += ' &times; seed toggle &times;2 = <strong>' + totalWithSeed + '</strong> total';
+        }
+        html += ' &middot; <strong>' + iterations + '</strong> iterations each';
+        html += '<br/>active measurement per permutation: <strong>' + formatDuration(activeMeasurementSecs) + '</strong>';
+        html += ' (' + iterations + ' &times; ' + val('interval') + ')';
+        html += ' &middot; estimated total runtime: <strong>~' + formatDuration(runtimeSecs) + '</strong>';
       }
-      html += ' &middot; <strong>' + iterations + '</strong> iterations each';
-      html += '<br/>active measurement per permutation: <strong>' + formatDuration(activeMeasurementSecs) + '</strong>';
-      html += ' (' + iterations + ' &times; ' + val('interval') + ')';
-      html += ' &middot; estimated total runtime: <strong>~' + formatDuration(runtimeSecs) + '</strong>';
       el.innerHTML = html;
     }
 
@@ -951,6 +1188,20 @@
 
     function handleStart() {
       showError('');
+      var rows = document.getElementById('param-rows').children;
+      if (rows.length === 0) {
+        showError('Add at least one parameter.');
+        return;
+      }
+
+      if (sweepMode === 'auto') {
+        handleStartAutoTune();
+      } else {
+        handleStartManualSweep();
+      }
+    }
+
+    function handleStartManualSweep() {
       var req = buildScenarioJSON();
       req.mode = 'params';
 
@@ -969,13 +1220,81 @@
       }).catch(function (e) { showError(e.message); });
     }
 
+    function handleStartAutoTune() {
+      // Build auto-tune request
+      var params = [];
+      var rows = document.getElementById('param-rows').children;
+      for (var i = 0; i < rows.length; i++) {
+        var rowId = rows[i].id.replace('param-row-', '');
+        var nameEl = document.getElementById('pname-' + rowId);
+        if (!nameEl || !nameEl.value) continue;
+        var schema = PARAM_SCHEMA[nameEl.value];
+        var startEl = document.getElementById('pstart-' + rowId);
+        var endEl = document.getElementById('pend-' + rowId);
+        if (!startEl || !endEl) continue;
+        params.push({
+          name: nameEl.value,
+          type: schema.type,
+          start: parseFloat(startEl.value),
+          end: parseFloat(endEl.value)
+        });
+      }
+
+      if (params.length === 0) {
+        showError('Add at least one parameter to auto-tune.');
+        return;
+      }
+
+      var req = {
+        params: params,
+        max_rounds: intVal('max_rounds') || 3,
+        values_per_param: intVal('values_per_param') || 5,
+        top_k: intVal('top_k') || 5,
+        objective: val('objective'),
+        iterations: intVal('iterations'),
+        interval: val('interval'),
+        settle_time: val('settle_time'),
+        seed: val('seed'),
+        data_source: val('data_source'),
+        settle_mode: val('settle_mode')
+      };
+
+      if (req.data_source === 'pcap') {
+        req.pcap_file = val('pcap_file');
+        req.pcap_start_secs = numVal('pcap_start_secs');
+        req.pcap_duration_secs = numVal('pcap_duration_secs');
+      }
+
+      if (req.objective === 'weighted') {
+        req.weights = {
+          acceptance: numVal('w_acceptance') || 1.0,
+          misalignment: numVal('w_misalignment') || -0.5,
+          alignment: numVal('w_alignment') || -0.01,
+          nonzero_cells: numVal('w_nonzero') || 0.1
+        };
+      }
+
+      // Hide previous recommendation
+      document.getElementById('recommendation-card').style.display = 'none';
+
+      fetch('/api/lidar/sweep/auto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req)
+      }).then(function (r) {
+        if (!r.ok) return r.text().then(function (t) { throw new Error(t); });
+        startPolling();
+      }).catch(function (e) { showError(e.message); });
+    }
+
     function handleStop() {
       // Show stopping indicator
       stopRequested = true;
       document.getElementById('btn-stop').style.display = 'none';
       document.getElementById('stopping-indicator').style.display = 'block';
 
-      fetch('/api/lidar/sweep/stop', { method: 'POST' })
+      var stopUrl = sweepMode === 'auto' ? '/api/lidar/sweep/auto/stop' : '/api/lidar/sweep/stop';
+      fetch(stopUrl, { method: 'POST' })
         .catch(function (e) { showError(e.message); });
     }
 
@@ -1008,6 +1327,10 @@
     }
 
     function pollStatus() {
+      if (sweepMode === 'auto') {
+        pollAutoTuneStatus();
+        return;
+      }
       fetch('/api/lidar/sweep/status').then(function (r) { return r.json(); }).then(function (st) {
         var prog = document.getElementById('progress-section');
         prog.style.display = '';
@@ -1066,6 +1389,171 @@
           stopPolling();
         }
       }).catch(function () { });
+    }
+
+    function pollAutoTuneStatus() {
+      fetch('/api/lidar/sweep/auto').then(function (r) { return r.json(); }).then(function (st) {
+        var prog = document.getElementById('progress-section');
+        prog.style.display = '';
+
+        var badge = document.getElementById('status-badge');
+        badge.textContent = st.status;
+        badge.className = 'status-badge status-' + st.status;
+
+        // Show round progress
+        var roundInfo = '';
+        if (st.total_rounds > 0) {
+          roundInfo = 'Round ' + (st.round || 1) + '/' + st.total_rounds + ' \u2014 ';
+        }
+        document.getElementById('combo-count').textContent =
+          roundInfo + (st.completed_combos || 0) + ' / ' + (st.total_combos || 0) + ' combinations';
+
+        if (st.status === 'running' && stopRequested) {
+          document.getElementById('btn-start').style.display = 'none';
+          document.getElementById('btn-stop').style.display = 'none';
+          document.getElementById('stopping-indicator').style.display = 'block';
+        } else {
+          stopRequested = false;
+          document.getElementById('btn-start').style.display = st.status === 'running' ? 'none' : '';
+          document.getElementById('btn-stop').style.display = st.status === 'running' ? '' : 'none';
+          document.getElementById('stopping-indicator').style.display = 'none';
+        }
+
+        // Show current round summary
+        var cc = document.getElementById('current-combo');
+        if (st.status === 'running' && st.round_results && st.round_results.length > 0) {
+          var lastRound = st.round_results[st.round_results.length - 1];
+          cc.innerHTML = '<div class="auto-progress">Last round best score: <strong>' +
+            (lastRound.best_score || 0).toFixed(4) + '</strong>' +
+            ' \u2014 ' + formatParamValues(lastRound.best_params) + '</div>';
+        } else if (st.status === 'running') {
+          cc.textContent = 'Running initial round...';
+        } else {
+          cc.textContent = '';
+        }
+
+        var errEl = document.getElementById('sweep-error');
+        if (st.error) { errEl.textContent = st.error; errEl.style.display = ''; }
+        else { errEl.style.display = 'none'; }
+
+        // Render charts from accumulated results
+        if (st.results && st.results.length > 0) {
+          latestResults = st.results;
+          renderCharts(st.results);
+          renderTable(st.results);
+        }
+
+        if (st.status === 'complete') {
+          stopPolling();
+          if (st.recommendation) {
+            renderRecommendation(st.recommendation, st.round_results);
+          }
+        } else if (st.status === 'error') {
+          stopPolling();
+        }
+      }).catch(function () { });
+    }
+
+    function formatParamValues(params) {
+      if (!params) return '';
+      return Object.keys(params).filter(function (k) {
+        return k !== 'score' && k !== 'acceptance_rate' && k !== 'misalignment_ratio' &&
+          k !== 'alignment_deg' && k !== 'nonzero_cells';
+      }).map(function (k) {
+        var v = params[k];
+        var schema = PARAM_SCHEMA[k];
+        var label = schema ? schema.label : k;
+        if (typeof v === 'number' && v !== Math.floor(v)) {
+          return label + '=' + v.toFixed(4);
+        }
+        return label + '=' + v;
+      }).join(', ');
+    }
+
+    function renderRecommendation(rec, roundResults) {
+      var card = document.getElementById('recommendation-card');
+      var content = document.getElementById('recommendation-content');
+
+      // Build param cards
+      var paramHtml = '<div class="recommendation-params">';
+      var paramKeys = Object.keys(rec).filter(function (k) {
+        return k !== 'score' && k !== 'acceptance_rate' && k !== 'misalignment_ratio' &&
+          k !== 'alignment_deg' && k !== 'nonzero_cells';
+      });
+      paramKeys.forEach(function (k) {
+        var schema = PARAM_SCHEMA[k];
+        var label = schema ? schema.label : k;
+        var v = rec[k];
+        var displayVal = (typeof v === 'number' && v !== Math.floor(v)) ? v.toFixed(6) : v;
+        paramHtml += '<div class="recommendation-param">' +
+          '<div class="param-name">' + label + '</div>' +
+          '<div class="param-value">' + displayVal + '</div>' +
+          '</div>';
+      });
+      paramHtml += '</div>';
+
+      // Metrics row
+      var metricsHtml = '<div class="recommendation-metrics">';
+      metricsHtml += '<div class="metric">Score: <span class="metric-value">' + (rec.score || 0).toFixed(4) + '</span></div>';
+      metricsHtml += '<div class="metric">Accept: <span class="metric-value">' + ((rec.acceptance_rate || 0) * 100).toFixed(2) + '%%</span></div>';
+      metricsHtml += '<div class="metric">Misalignment: <span class="metric-value">' + ((rec.misalignment_ratio || 0) * 100).toFixed(1) + '%%</span></div>';
+      metricsHtml += '<div class="metric">Alignment: <span class="metric-value">' + (rec.alignment_deg || 0).toFixed(1) + '\u00b0</span></div>';
+      metricsHtml += '<div class="metric">Nonzero Cells: <span class="metric-value">' + (rec.nonzero_cells || 0).toFixed(0) + '</span></div>';
+      metricsHtml += '</div>';
+
+      // Round history
+      var historyHtml = '';
+      if (roundResults && roundResults.length > 0) {
+        historyHtml = '<details class="round-history"><summary>Round History (' + roundResults.length + ' rounds)</summary>';
+        roundResults.forEach(function (rs) {
+          var boundsStr = Object.keys(rs.bounds || {}).map(function (k) {
+            var b = rs.bounds[k];
+            var schema = PARAM_SCHEMA[k];
+            var label = schema ? schema.label : k;
+            return label + ': [' + b[0].toFixed(4) + ', ' + b[1].toFixed(4) + ']';
+          }).join(' &middot; ');
+          historyHtml += '<div class="round-item">' +
+            'Round ' + rs.round + ': ' + rs.num_combos + ' combos, best score=' + (rs.best_score || 0).toFixed(4) +
+            '<br/>' + boundsStr + '</div>';
+        });
+        historyHtml += '</details>';
+      }
+
+      content.innerHTML = paramHtml + metricsHtml + historyHtml;
+      card.style.display = '';
+    }
+
+    function applyRecommendation() {
+      var card = document.getElementById('recommendation-card');
+      var content = document.getElementById('recommendation-content');
+      // Extract param values from the rendered recommendation
+      // Re-fetch from auto-tune state
+      fetch('/api/lidar/sweep/auto').then(function (r) { return r.json(); }).then(function (st) {
+        if (!st.recommendation) {
+          showError('No recommendation available.');
+          return;
+        }
+        // Build tuning params (exclude score/metrics keys)
+        var tuningParams = {};
+        Object.keys(st.recommendation).forEach(function (k) {
+          if (k !== 'score' && k !== 'acceptance_rate' && k !== 'misalignment_ratio' &&
+            k !== 'alignment_deg' && k !== 'nonzero_cells') {
+            tuningParams[k] = st.recommendation[k];
+          }
+        });
+
+        var sensorId = '%[1]s';
+        fetch('/api/lidar/params?sensor_id=' + encodeURIComponent(sensorId), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(tuningParams)
+        }).then(function (r) {
+          if (!r.ok) return r.text().then(function (t) { throw new Error(t); });
+          document.getElementById('btn-apply-recommendation').textContent = 'Applied';
+          document.getElementById('btn-apply-recommendation').disabled = true;
+          fetchCurrentParams();
+        }).catch(function (e) { showError('Apply failed: ' + e.message); });
+      }).catch(function (e) { showError('Failed to fetch recommendation: ' + e.message); });
     }
 
     function downloadCSV() {
@@ -1133,6 +1621,8 @@
       alignChart = echarts.init(document.getElementById('alignment-chart'), chartTheme);
       tracksChart = echarts.init(document.getElementById('tracks-chart'), chartTheme);
       paramHeatmapChart = echarts.init(document.getElementById('param-heatmap'), chartTheme);
+      tracksHeatmapChart = echarts.init(document.getElementById('tracks-heatmap'), chartTheme);
+      alignHeatmapChart = echarts.init(document.getElementById('alignment-heatmap'), chartTheme);
 
       var emptyOpt = {
         title: { text: 'Waiting for data...', left: 'center', top: 'center', textStyle: { color: '#94a3b8', fontSize: 14, fontWeight: 'normal' } },
@@ -1144,6 +1634,8 @@
       alignChart.setOption(emptyOpt);
       tracksChart.setOption(emptyOpt);
       paramHeatmapChart.setOption(emptyOpt);
+      tracksHeatmapChart.setOption(emptyOpt);
+      alignHeatmapChart.setOption(emptyOpt);
     }
 
     function renderCharts(results) {
@@ -1301,6 +1793,102 @@
       } else {
         document.getElementById('param-heatmap').style.display = 'none';
       }
+
+      // Tracks heatmap and alignment heatmap (both use first two numerical params)
+      if (results[0] && results[0].param_values) {
+        var pKeys2 = Object.keys(results[0].param_values);
+        var numKeys2 = pKeys2.filter(function (k) {
+          return typeof results[0].param_values[k] === 'number';
+        });
+        if (numKeys2.length >= 2) {
+          var xKey2 = numKeys2[0], yKey2 = numKeys2[1];
+          var xSchema2 = PARAM_SCHEMA[xKey2], ySchema2 = PARAM_SCHEMA[yKey2];
+          var xLabel2 = xSchema2 ? xSchema2.label : xKey2;
+          var yLabel2 = ySchema2 ? ySchema2.label : yKey2;
+          var xSet2 = {}, ySet2 = {};
+          results.forEach(function (r) { xSet2[r.param_values[xKey2]] = true; ySet2[r.param_values[yKey2]] = true; });
+          var xVals2 = Object.keys(xSet2).map(Number).sort(function (a, b) { return a - b; });
+          var yVals2 = Object.keys(ySet2).map(Number).sort(function (a, b) { return a - b; });
+
+          // Tracks heatmap
+          var thmData = [];
+          var thmMax = 0;
+          var thmMin = Infinity;
+          results.forEach(function (r) {
+            var xi = xVals2.indexOf(r.param_values[xKey2]);
+            var yi = yVals2.indexOf(r.param_values[yKey2]);
+            var v = r.active_tracks_mean || 0;
+            if (xi >= 0 && yi >= 0) {
+              thmData.push([xi, yi, v]);
+              if (v > thmMax) thmMax = v;
+              if (v > 0 && v < thmMin) thmMin = v;
+            }
+          });
+          if (thmMin === Infinity || thmMin >= thmMax) thmMin = 0;
+          tracksHeatmapChart.setOption({
+            title: { text: 'Active Tracks by ' + xLabel2 + ' vs ' + yLabel2, left: 'center', top: 0, textStyle: { fontSize: 14 } },
+            tooltip: {
+              formatter: function (p) {
+                return xLabel2 + ': ' + xVals2[p.value[0]] + '<br/>' +
+                  yLabel2 + ': ' + yVals2[p.value[1]] + '<br/>' +
+                  'Tracks: ' + p.value[2].toFixed(1);
+              }
+            },
+            xAxis: { type: 'category', data: xVals2.map(String), name: xLabel2, axisLabel: { fontSize: 10 } },
+            yAxis: { type: 'category', data: yVals2.map(String), name: yLabel2, axisLabel: { fontSize: 10 } },
+            visualMap: {
+              min: thmMin, max: thmMax || 1, calculable: true, orient: 'horizontal', left: 'center', bottom: 0,
+              inRange: { color: ['#f7fcf5', '#c7e9c0', '#74c476', '#238b45', '#00441b'] }
+            },
+            series: [{ type: 'heatmap', data: thmData, emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.5)' } } }],
+            grid: { bottom: 80, top: 60 },
+            backgroundColor: chartBg
+          }, true);
+          document.getElementById('tracks-heatmap').style.display = '';
+
+          // Alignment heatmap
+          var ahmData = [];
+          var ahmMax = 0;
+          var ahmMin = Infinity;
+          results.forEach(function (r) {
+            var xi = xVals2.indexOf(r.param_values[xKey2]);
+            var yi = yVals2.indexOf(r.param_values[yKey2]);
+            var v = r.alignment_deg_mean || 0;
+            if (xi >= 0 && yi >= 0) {
+              ahmData.push([xi, yi, v]);
+              if (v > ahmMax) ahmMax = v;
+              if (v > 0 && v < ahmMin) ahmMin = v;
+            }
+          });
+          if (ahmMin === Infinity || ahmMin >= ahmMax) ahmMin = 0;
+          alignHeatmapChart.setOption({
+            title: { text: 'Alignment (\u00b0) by ' + xLabel2 + ' vs ' + yLabel2, left: 'center', top: 0, textStyle: { fontSize: 14 } },
+            tooltip: {
+              formatter: function (p) {
+                return xLabel2 + ': ' + xVals2[p.value[0]] + '<br/>' +
+                  yLabel2 + ': ' + yVals2[p.value[1]] + '<br/>' +
+                  'Alignment: ' + p.value[2].toFixed(1) + '\u00b0';
+              }
+            },
+            xAxis: { type: 'category', data: xVals2.map(String), name: xLabel2, axisLabel: { fontSize: 10 } },
+            yAxis: { type: 'category', data: yVals2.map(String), name: yLabel2, axisLabel: { fontSize: 10 } },
+            visualMap: {
+              min: ahmMin, max: ahmMax || 1, calculable: true, orient: 'horizontal', left: 'center', bottom: 0,
+              inRange: { color: ['#00441b', '#238b45', '#74c476', '#fee090', '#fdae61', '#f46d43', '#d73027'] }
+            },
+            series: [{ type: 'heatmap', data: ahmData, emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.5)' } } }],
+            grid: { bottom: 80, top: 60 },
+            backgroundColor: chartBg
+          }, true);
+          document.getElementById('alignment-heatmap').style.display = '';
+        } else {
+          document.getElementById('tracks-heatmap').style.display = 'none';
+          document.getElementById('alignment-heatmap').style.display = 'none';
+        }
+      } else {
+        document.getElementById('tracks-heatmap').style.display = 'none';
+        document.getElementById('alignment-heatmap').style.display = 'none';
+      }
     }
 
     function renderTable(results) {
@@ -1363,6 +1951,8 @@
       if (paramHeatmapChart) paramHeatmapChart.resize();
       if (alignChart) alignChart.resize();
       if (tracksChart) tracksChart.resize();
+      if (tracksHeatmapChart) tracksHeatmapChart.resize();
+      if (alignHeatmapChart) alignHeatmapChart.resize();
     });
 
     // ---- Current params display ----
@@ -1447,23 +2037,61 @@
       paramHeatmapChart.resize();
       alignChart.resize();
       tracksChart.resize();
+      tracksHeatmapChart.resize();
+      alignHeatmapChart.resize();
     }, 100);
 
     // Check for existing sweep on page load
-    fetch('/api/lidar/sweep/status').then(function (r) { return r.json(); }).then(function (st) {
-      if (st.status === 'running') { startPolling(); }
-      else if (st.results && st.results.length > 0) {
-        document.getElementById('progress-section').style.display = '';
-        var badge = document.getElementById('status-badge');
-        badge.textContent = st.status;
-        badge.className = 'status-badge status-' + st.status;
-        document.getElementById('combo-count').textContent =
-          st.completed_combos + ' / ' + st.total_combos + ' combinations';
-        latestResults = st.results;
-        renderCharts(st.results);
-        renderTable(st.results);
+    fetch('/api/lidar/sweep/auto').then(function (r) { return r.json(); }).then(function (st) {
+      if (st.status === 'running') {
+        setMode('auto');
+        startPolling();
+      } else if (st.status === 'complete' && st.recommendation) {
+        setMode('auto');
+        if (st.results && st.results.length > 0) {
+          document.getElementById('progress-section').style.display = '';
+          var badge = document.getElementById('status-badge');
+          badge.textContent = st.status;
+          badge.className = 'status-badge status-' + st.status;
+          latestResults = st.results;
+          renderCharts(st.results);
+          renderTable(st.results);
+        }
+        renderRecommendation(st.recommendation, st.round_results);
+      } else {
+        // No auto-tune running, check manual sweep
+        fetch('/api/lidar/sweep/status').then(function (r) { return r.json(); }).then(function (st) {
+          if (st.status === 'running') { startPolling(); }
+          else if (st.results && st.results.length > 0) {
+            document.getElementById('progress-section').style.display = '';
+            var badge = document.getElementById('status-badge');
+            badge.textContent = st.status;
+            badge.className = 'status-badge status-' + st.status;
+            document.getElementById('combo-count').textContent =
+              st.completed_combos + ' / ' + st.total_combos + ' combinations';
+            latestResults = st.results;
+            renderCharts(st.results);
+            renderTable(st.results);
+          }
+        }).catch(function () { });
       }
-    }).catch(function () { });
+    }).catch(function () {
+      // Auto-tune endpoint not available, fall back to manual sweep check
+      fetch('/api/lidar/sweep/status').then(function (r) { return r.json(); }).then(function (st) {
+        if (st.status === 'running') { startPolling(); }
+        else if (st.results && st.results.length > 0) {
+          document.getElementById('progress-section').style.display = '';
+          var badge = document.getElementById('status-badge');
+          badge.textContent = st.status;
+          badge.className = 'status-badge status-' + st.status;
+          document.getElementById('combo-count').textContent =
+            st.completed_combos + ' / ' + st.total_combos + ' combinations';
+          latestResults = st.results;
+          renderCharts(st.results);
+          renderTable(st.results);
+        }
+      }).catch(function () { });
+    });
 
     // Add a default parameter row
     addParamRow('noise_relative');
@@ -1477,6 +2105,10 @@
     document.getElementById('interval').addEventListener('input', updateSweepSummary);
     document.getElementById('settle_time').addEventListener('input', updateSweepSummary);
     document.getElementById('seed').addEventListener('change', updateSweepSummary);
+
+    // Wire up auto-tune settings for summary updates
+    document.getElementById('max_rounds').addEventListener('input', updateSweepSummary);
+    document.getElementById('values_per_param').addEventListener('input', updateSweepSummary);
 
     // Event delegation for dynamic param row inputs (start/end/step/values)
     document.getElementById('param-rows').addEventListener('input', updateSweepSummary);

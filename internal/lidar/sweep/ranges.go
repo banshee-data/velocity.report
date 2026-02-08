@@ -86,6 +86,7 @@ func ParseIntRangeSpec(s string) (IntRangeSpec, error) {
 
 // GenerateRange generates a slice of float64 values from min to max (inclusive)
 // stepping by step. Returns an empty slice if min > max.
+// Limits the number of generated values to prevent excessive memory allocation.
 func GenerateRange(min, max, step float64) []float64 {
 	if step <= 0 {
 		return nil
@@ -94,8 +95,20 @@ func GenerateRange(min, max, step float64) []float64 {
 		return nil
 	}
 
+	// Calculate expected count and enforce limit to prevent DoS
+	const maxValues = 10000
+	expectedCount := int((max-min)/step) + 1
+	if expectedCount > maxValues || expectedCount < 0 {
+		// Return empty slice rather than panic - callers should validate ranges
+		return nil
+	}
+
 	var result []float64
 	for v := min; v <= max+step/1000; v += step {
+		// Additional safety check during loop
+		if len(result) >= maxValues {
+			break
+		}
 		// Round to avoid floating point accumulation errors
 		// Use math.Round for proper handling of negative values
 		rounded := math.Round(v*1000) / 1000
@@ -108,6 +121,7 @@ func GenerateRange(min, max, step float64) []float64 {
 
 // GenerateIntRange generates a slice of int values from min to max (inclusive)
 // stepping by step. Returns an empty slice if min > max.
+// Limits the number of generated values to prevent excessive memory allocation.
 func GenerateIntRange(min, max, step int) []int {
 	if step <= 0 {
 		return nil
@@ -116,8 +130,20 @@ func GenerateIntRange(min, max, step int) []int {
 		return nil
 	}
 
+	// Calculate expected count and enforce limit to prevent DoS
+	const maxValues = 10000
+	expectedCount := (max-min)/step + 1
+	if expectedCount > maxValues || expectedCount < 0 {
+		// Return empty slice rather than panic - callers should validate ranges
+		return nil
+	}
+
 	var result []int
 	for v := min; v <= max; v += step {
+		// Additional safety check during loop
+		if len(result) >= maxValues {
+			break
+		}
 		result = append(result, v)
 	}
 	return result
@@ -186,23 +212,35 @@ func ExpandRanges(specs ...string) ([][]float64, error) {
 		values[i] = v
 	}
 
-	// Calculate total combinations
-	total := 1
+	// Calculate total combinations and validate before allocation to prevent DoS
+	const maxCombos = 10000
+	total := int64(1)
 	for _, v := range values {
-		total *= len(v)
+		if len(v) <= 0 {
+			continue
+		}
+		total *= int64(len(v))
+		// Check for overflow or excessive combinations
+		if total > maxCombos || total < 0 {
+			return nil, fmt.Errorf("parameter combinations would exceed safe limit of %d", maxCombos)
+		}
 	}
 
-	// Generate cartesian product
+	if total == 0 {
+		return nil, nil
+	}
+
+	// Generate cartesian product - safe to allocate now
 	result := make([][]float64, total)
 	for i := range result {
 		result[i] = make([]float64, len(specs))
 	}
 
-	repeat := 1
+	repeat := int64(1)
 	for dim := len(specs) - 1; dim >= 0; dim-- {
 		dimValues := values[dim]
-		cycle := len(dimValues)
-		for i := 0; i < total; i++ {
+		cycle := int64(len(dimValues))
+		for i := int64(0); i < total; i++ {
 			result[i][dim] = dimValues[(i/repeat)%cycle]
 		}
 		repeat *= cycle

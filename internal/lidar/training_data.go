@@ -100,6 +100,14 @@ func DecodeForegroundBlob(blob []byte) []PointPolar {
 	}
 
 	numPoints := len(blob) / CompactPointSize
+
+	// Limit maximum points to prevent excessive memory allocation from untrusted input.
+	// At 40+ bytes per PointPolar struct, 1M points = ~40MB memory.
+	const maxPoints = 1000000
+	if numPoints > maxPoints || numPoints < 0 {
+		return nil
+	}
+
 	points := make([]PointPolar, numPoints)
 
 	for i := 0; i < numPoints; i++ {

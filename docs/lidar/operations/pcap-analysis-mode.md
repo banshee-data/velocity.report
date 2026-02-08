@@ -220,5 +220,5 @@ Live → PCAP (analysis_mode=false) → [auto-reset] → Live
 ## See Also
 
 - [LIDAR Sidecar Overview](../architecture/lidar_sidecar_overview.md) - Background subtraction and grid management
-- [Data Source Switching](DATA-SOURCE-SWITCHING-PLAN.md) - PCAP replay implementation
+- [Data Source Switching](data-source-switching.md) - PCAP replay implementation
 - [Foreground Tracking Status](lidar-foreground-tracking-status.md) - Current issues and debugging

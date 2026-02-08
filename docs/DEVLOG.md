@@ -1,5 +1,121 @@
 # Development Log
 
+## February 8, 2026 - Documentation Audit & Roadmap
+
+- Comprehensive audit of all 29 LiDAR documentation files against actual codebase.
+- Identified 12 discrepancies between docs and implementation status.
+- Updated README, devlog, and 9 other documentation files with current status.
+- Produced consolidated LiDAR roadmap with prioritised future work (P0–P3).
+- Cross-referenced approved track labelling design document across relevant docs.
+- Implemented auto-tuning system (`sweep/auto.go`): iterative grid narrowing, multi-objective scoring.
+- Enhanced sweep dashboard: two new heatmaps (tracks, alignment), PARAM_SCHEMA with sane defaults.
+- Increased chart height from 300px to 450px, changed grid layout from 6 to 3 columns.
+- Fixed PCAP replay methods to use full file path for `pcap_file` parameter.
+- Created design document for track labelling, ground truth evaluation, and label-aware auto-tuning (8 phases).
+- Designed `lidar_transits` table schema for dashboard/report integration.
+- Identified label API route gap: CRUD handlers exist but routes not registered.
+
+## February 7, 2026 - Param Sweep Dashboard & Auto-Tune Mode
+
+- Consolidated LiDAR configuration into single config struct with fluent setters.
+- Implemented parameter sweep dashboard with ECharts bar charts and results table.
+- Added auto-tuning mode toggle and recommendation card to sweep dashboard.
+- Implemented settle mode support in sweep runner: `once` and `per_combo`.
+- Added iteration validation and clamping in `Sample` method.
+- Created sweep sampler, scoring, and chart data preparation utilities.
+
+## February 5-6, 2026 - macOS Visualiser M3.5–M7
+
+- M3.5: Split streaming — background snapshots every 30s + foreground-only per-frame (78→3 Mbps).
+- M4: Tracking interface refactor — `TrackerInterface`, `ClustererInterface`, golden replay tests.
+- M5: Algorithm upgrades — Hungarian association, ground removal, OBB estimation, occlusion coasting.
+- M6: Debug overlays — gating ellipses, association lines, residuals via gRPC; label API handlers.
+- M7: Performance hardening — Swift buffer pooling, PointCloudFrame reference counting, frame skip cooldown.
+- Added LiDAR settling time optimisation design document.
+
+## February 3-4, 2026 - macOS Visualiser M0–M3
+
+- Designed macOS visualiser architecture (SwiftUI + Metal + gRPC).
+- M0: Schema + synthetic — protobuf schema, gRPC server, synthetic data generator, SwiftUI+Metal renderer.
+- M1: Recorder/replayer — `.vrlog` format, seek/pause/rate control, deterministic playback.
+- M2: Real point clouds — `FrameAdapter`, decimation modes, 70k+ points at 30fps.
+- M3: Canonical model — `FrameBundle` as single source of truth, LidarView + gRPC from same model.
+- Added app icon assets.
+
+## February 2, 2026 - Map Feature & CI Refactor
+
+- Added interactive map component for site visualisation.
+- Refactored CI pipeline with end-to-end test support.
+- Dependency updates across application group.
+
+## February 1, 2026 - Documentation Homepage
+
+- Updated homepage spacing and added hamburger menu.
+- Refined documentation site styling.
+
+## January 31, 2026 - Dependency Injection & Test Coverage
+
+- Implemented dependency injection interfaces: `CommandExecutor`, `UDPSocket`, `PCAPReader`, `DataSourceManager`.
+- Refactored `UDPListener` to use `SocketFactory` for testability.
+- Created `RealDataSourceManager` wrapping WebServer operations.
+- Added sweep sampler for parameter sweep iterations with CSV output.
+- Added `BackgroundFlusher` for periodic persistence with mock implementations.
+- Added `BackgroundConfig` with validation and fluent setters.
+- Added chart data preparation utilities for LiDAR visualisation.
+- Increased Go test coverage to 85.9% on critical packages.
+- Restructured documentation paths to use `public_html`.
+- Added JavaScript unit tests for `TRACK_COLORS` in LiDAR types.
+- Extended WebServer and BackgroundManager test coverage.
+- Bumped version to 0.4.2.
+
+## January 30, 2026 - Test Coverage Expansion
+
+- Increased Go test coverage from ~38% to 73.1% on testable packages.
+- Added comprehensive tests: monitoring, serialmux factory/mock, LiDAR arena, quality scoring.
+- Added admin routes integration tests and serialmux extended tests.
+- Enhanced tracking tests: `GetAllTracks`, speed history, quality metrics, spatial coverage.
+- Added CONTRIBUTING guide.
+- Fixed CI version check scripts and changelog links.
+
+## January 29, 2026 - Release v0.4.0 & Setup Guide
+
+- Released version 0.4.0 with comparison reports, site config, and transit worker.
+- Created comprehensive setup guide for Citizen Radar deployment.
+- Added code coverage badges (Go, Python, Web) with Codecov integration.
+- Added coverage documentation and CI workflow updates.
+- Enhanced documentation site: dark mode, Tailwind v4 CSS, KaTeX math rendering.
+- Fixed documentation CI to use pnpm instead of yarn.
+
+## January 25, 2026 - Radar Config SCD & Comparison Reports
+
+- Implemented site config periods with cosine correction (Type 6 SCD pattern).
+- Added boundary hour filtering to `RadarObjectRollupRange` for improved data accuracy.
+- Added histogram aggregation with configurable `max_bucket`.
+- Enhanced PDF report generation: detailed data tables, velocity unit support, percentile lines.
+- Added `compare_source` to `ReportRequest` for dual-source comparison.
+- Added `min_speed_used` to `RadarStatsResult` API responses.
+- Implemented save/load report settings from local storage.
+- Schema ordering fix: foreign key dependency-aware table creation.
+- Added security validation for PDF path (path traversal prevention).
+- Bumped version to 0.4.0-pre9.
+
+## January 20, 2026 - Transit Worker Inspector
+
+- Added full-history run capability to transit worker and API.
+- Implemented transit CLI: `analyse`, `delete`, `migrate`, `rebuild` commands.
+- Added transit deduplication plan and tests.
+- Enhanced transit worker UI with run management features.
+- Updated model version default from `rebuild-full` to `hourly-cron`.
+- Bumped version to 0.0.4-pre8.
+
+## January 19, 2026 - Comparison Report Generator
+
+- Added comparison-period report generation with dual-period outputs (T1/T2).
+- Enhanced PDF report with comparison metrics and improved labelling.
+- Refactored `chart_builder` to use integer indices for x-axis.
+- Added PDF generator version tracking in `set-version` script.
+- Bumped version to 0.0.4-pre7.
+
 ## January 17, 2026 - Track Visualisation UI Fixes
 
 - Fixed click detection to check track history, not just head position.

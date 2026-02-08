@@ -506,6 +506,11 @@ func main() {
 		sweepClient := monitor.NewClient(httpClient, baseURL, *lidarSensor)
 		sweepRunner := sweep.NewRunner(sweepClient)
 		lidarWebServer.SetSweepRunner(sweepRunner)
+
+		// Set up auto-tuner
+		autoTuner := sweep.NewAutoTuner(sweepRunner)
+		lidarWebServer.SetAutoTuneRunner(autoTuner)
+
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
