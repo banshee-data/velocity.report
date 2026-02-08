@@ -196,7 +196,7 @@ func TestNilRunnerValidation(t *testing.T) {
 }
 
 func TestValuesPerParamMinimum(t *testing.T) {
-	// values_per_param=1 should be rejected (causes division by zero in narrowBounds)
+	// values_per_param must be at least 2 for meaningful grid generation
 	tuner := NewAutoTuner(&Runner{})
 	err := tuner.Start(nil, AutoTuneRequest{
 		Params: []SweepParam{
