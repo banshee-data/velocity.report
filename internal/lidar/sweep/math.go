@@ -12,11 +12,19 @@ import (
 
 // ParseCSVFloat64s parses a comma-separated list of float64 values.
 // Returns nil, nil for empty input strings.
+// Enforces a maximum number of values to prevent excessive memory allocation.
 func ParseCSVFloat64s(s string) ([]float64, error) {
 	if s == "" {
 		return nil, nil
 	}
+
+	// Limit total values to prevent DoS via excessive comma-separated values
+	const maxValues = 10000
 	parts := strings.Split(s, ",")
+	if len(parts) > maxValues {
+		return nil, fmt.Errorf("too many comma-separated values: maximum %d allowed, got %d", maxValues, len(parts))
+	}
+
 	out := make([]float64, 0, len(parts))
 	for _, p := range parts {
 		p = strings.TrimSpace(p)
@@ -34,11 +42,19 @@ func ParseCSVFloat64s(s string) ([]float64, error) {
 
 // ParseCSVInts parses a comma-separated list of int values.
 // Returns nil, nil for empty input strings.
+// Enforces a maximum number of values to prevent excessive memory allocation.
 func ParseCSVInts(s string) ([]int, error) {
 	if s == "" {
 		return nil, nil
 	}
+
+	// Limit total values to prevent DoS via excessive comma-separated values
+	const maxValues = 10000
 	parts := strings.Split(s, ",")
+	if len(parts) > maxValues {
+		return nil, fmt.Errorf("too many comma-separated values: maximum %d allowed, got %d", maxValues, len(parts))
+	}
+
 	out := make([]int, 0, len(parts))
 	for _, p := range parts {
 		p = strings.TrimSpace(p)
@@ -56,7 +72,14 @@ func ParseCSVInts(s string) ([]int, error) {
 
 // ToFloat64Slice converts a JSON-decoded value (typically []interface{})
 // into a fixed-length []float64 slice. Unknown values become 0.
+// Enforces maximum length to prevent excessive memory allocation.
 func ToFloat64Slice(v interface{}, length int) []float64 {
+	// Enforce limit to prevent DoS via excessive memory allocation
+	const maxLength = 1000
+	if length > maxLength || length < 0 {
+		length = maxLength
+	}
+
 	out := make([]float64, length)
 	if v == nil {
 		return out
@@ -85,7 +108,14 @@ func ToFloat64Slice(v interface{}, length int) []float64 {
 
 // ToInt64Slice converts a JSON-decoded value (typically []interface{})
 // into a fixed-length []int64 slice. Unknown values become 0.
+// Enforces maximum length to prevent excessive memory allocation.
 func ToInt64Slice(v interface{}, length int) []int64 {
+	// Enforce limit to prevent DoS via excessive memory allocation
+	const maxLength = 1000
+	if length > maxLength || length < 0 {
+		length = maxLength
+	}
+
 	out := make([]int64, length)
 	if v == nil {
 		return out
