@@ -28,7 +28,7 @@ The end goal is a `lidar_transits` table (analogous to `radar_data_transits`) fo
 
 - `lidar_tracks` — confirmed/tentative/deleted tracks with speed percentiles, quality metrics, classification
 - `lidar_track_obs` — per-frame observations (position, velocity, bbox, heading)
-- `lidar_run_tracks` — run-scoped tracks with label fields: `user_label`, `label_confidence`, `labeler_id`, `labeled_at`, `is_split_candidate`, `is_merge_candidate`, `linked_track_ids`
+- `lidar_run_tracks` — run-scoped tracks with label fields: `user_label`, `label_confidence`, `labeler_id`, `labeled_at`, `linked_track_ids` (and `quality_label` to be added in Phase 1.2)
 - `lidar_analysis_runs` — analysis sessions tied to a PCAP source + params
 - `lidar_labels` — standalone labels (label_id, track_id, class_label) — migration 000016
 - `lidar_clusters` — foreground clusters per frame
@@ -83,7 +83,9 @@ lidar_scenes
 1. Select/create scene (PCAP + sensor)
 2. Replay PCAP with current params → analysis run created
 3. Review tracks in Svelte UI
-4. Label tracks: good_vehicle | noise | split | merge | missed
+4. Label tracks (two dimensions):
+   - Detection: good_vehicle | good_pedestrian | good_other | noise | noise_flora | split | merge | missed
+   - Quality: perfect | good | truncated | noisy_velocity | stopped_recovered
 5. Mark run as reference (reference_run_id)
 6. Auto-tune: replay PCAP per combo → compare produced tracks to reference → score
 7. Best params saved as optimal_params_json on scene
@@ -100,11 +102,20 @@ Given reference tracks R (labelled) and candidate tracks C (from a parameter com
 
 Score components:
 
-- **Detection rate** = |matched reference vehicles| / |reference vehicles labelled good_vehicle|
+- **Detection rate** = |matched reference vehicles| / |reference vehicles labelled good\_\*|
+  - Can be class-specific: separate rates for `good_vehicle`, `good_pedestrian`, `good_other`
 - **Fragmentation** = reference vehicles matched by >1 candidate track (lower = better)
 - **False positive rate** = candidate tracks not matching any reference / total candidates
 - **Velocity coverage** = fraction of reference track duration with matching candidate velocity data
-- **Composite score** = w1 × detection - w2 × fragmentation - w3 × false_positives + w4 × velocity_coverage
+- **Quality premium** = fraction of matched `good_*` tracks with `quality_label = perfect`
+- **Truncation rate** = fraction of matched tracks with `quality_label = truncated`
+- **Velocity noise rate** = fraction of matched tracks with `quality_label = noisy_velocity`
+- **Stopped recovery rate** = fraction of stopped vehicles with `quality_label = stopped_recovered`
+- **Composite score** = w1 × detection_rate - w2 × fragmentation - w3 × false_positives + w4 × velocity_coverage + w5 × quality_premium - w6 × truncation_rate - w7 × velocity_noise_rate + w8 × stopped_recovery_rate
+
+Default weights: w1=1.0, w2=5.0, w3=2.0, w4=0.5, w5=0.3, w6=0.4, w7=0.4, w8=0.2
+
+The expanded formula gives the tuner explicit gradients for each failure mode. Without quality labels, the score plateaus once detection is high; with them, the tuner continues optimising for measurement quality.
 
 ### LiDAR transit table
 
@@ -143,15 +154,22 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
 > Get the existing but unregistered label API working end-to-end.
 
 - [ ] **1.1** Register `LidarLabelAPI` routes in `WebServer.RegisterRoutes()` (`internal/lidar/monitor/webserver.go`)
-- [ ] **1.2** Add `scene_id` and `source_file` columns to `lidar_labels` table (new migration 000017)
-- [ ] **1.3** Update `LidarLabel` struct and handlers to support `scene_id`, `source_file` fields
-- [ ] **1.4** Fix macOS `LabelAPIClient.swift` schema mismatch: align `startFrameID`/`endFrameID` with `start_timestamp_ns`/`end_timestamp_ns`
-- [ ] **1.5** Add REST API endpoints for `lidar_run_tracks` labelling:
-  - `PUT /api/lidar/runs/{run_id}/tracks/{track_id}/label` — set `user_label`, `label_confidence`
-  - `PUT /api/lidar/runs/{run_id}/tracks/{track_id}/flags` — set `is_split_candidate`, `is_merge_candidate`, `linked_track_ids`
+- [ ] **1.2** Add `quality_label` column to `lidar_run_tracks` table (new migration 000017)
+  - Enum values: `perfect`, `good`, `truncated`, `noisy_velocity`, `stopped_recovered`
+- [ ] **1.3** Add enum validation for `user_label` and `quality_label` in API handlers
+  - `user_label` allowed: `good_vehicle`, `good_pedestrian`, `good_other`, `noise`, `noise_flora`, `split`, `merge`, `missed`
+  - `quality_label` allowed: `perfect`, `good`, `truncated`, `noisy_velocity`, `stopped_recovered`
+  - Reject requests with invalid label strings (prevent "Good_Vehicle" vs "good_vehicle" data quality issues)
+- [ ] **1.4** Add `scene_id` and `source_file` columns to `lidar_labels` table (migration 000018)
+  - Clarify: `lidar_labels` is for frame-level annotation (ML training), `lidar_run_tracks.user_label` is for track-level ground truth (auto-tuning)
+- [ ] **1.5** Fix macOS `LabelAPIClient.swift` schema mismatch: align `startFrameID`/`endFrameID` with `start_timestamp_ns`/`end_timestamp_ns`
+- [ ] **1.6** Add REST API endpoints for `lidar_run_tracks` labelling:
+  - `PUT /api/lidar/runs/{run_id}/tracks/{track_id}/label` — set `user_label`, `quality_label`, `label_confidence`
+  - `PUT /api/lidar/runs/{run_id}/tracks/{track_id}/flags` — set `linked_track_ids` (for split/merge)
   - `GET /api/lidar/runs/{run_id}/tracks` — list run tracks with labels
   - `GET /api/lidar/runs/{run_id}/labeling-progress` — labelling statistics
-- [ ] **1.6** Add REST API for analysis run management:
+  - **Note:** Remove redundant `is_split_candidate`/`is_merge_candidate` boolean flags — use `user_label = split/merge` instead
+- [ ] **1.7** Add REST API for analysis run management:
   - `GET /api/lidar/runs` — list runs (with filters: sensor_id, source_type, status)
   - `GET /api/lidar/runs/{run_id}` — get run details
   - `POST /api/lidar/runs/{run_id}/reprocess` — re-run analysis with different params
@@ -159,16 +177,17 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
 **Files:**
 
 - `internal/lidar/monitor/webserver.go` (route registration)
-- `internal/api/lidar_labels.go` (label struct + handlers)
-- `internal/lidar/analysis_run.go` (run track API handlers)
-- `internal/db/migrations/000017_*.up.sql` (new migration)
+- `internal/api/lidar_labels.go` (label struct + handlers, add enum validation)
+- `internal/lidar/analysis_run.go` (run track API handlers, add quality_label support)
+- `internal/db/migrations/000017_*.up.sql` (quality_label column)
+- `internal/db/migrations/000018_*.up.sql` (scene_id, source_file on lidar_labels)
 - `tools/visualiser-macos/VelocityVisualiser/Labelling/LabelAPIClient.swift`
 
 ### Phase 2: Scene management
 
 > Introduce the scene concept tying PCAPs to reference runs and optimal params.
 
-- [ ] **2.1** Create `lidar_scenes` table (migration 000018)
+- [ ] **2.1** Create `lidar_scenes` table (migration 000019)
 - [ ] **2.2** Create `SceneStore` with CRUD operations (`internal/lidar/scene_store.go`)
 - [ ] **2.3** Add REST API for scenes:
   - `GET /api/lidar/scenes` — list scenes
@@ -185,7 +204,7 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
 - `internal/lidar/scene_store.go` (new)
 - `internal/lidar/monitor/scene_api.go` (new — REST handlers)
 - `internal/lidar/monitor/webserver.go` (route registration)
-- `internal/db/migrations/000018_*.up.sql`
+- `internal/db/migrations/000019_*.up.sql`
 - `internal/lidar/sweep/runner.go` (create runs per combo)
 
 ### Phase 3: Svelte track labelling UI
@@ -197,10 +216,11 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
   - Selecting a scene loads its reference run's tracks
 - [ ] **3.2** Add analysis run selector: dropdown to pick which run's tracks to view for the selected scene
 - [ ] **3.3** Add labelling controls to `TrackList.svelte`:
-  - Label buttons: good_vehicle, noise, split, merge, missed
-  - Keyboard shortcuts (1-5) for rapid labelling
-  - Visual indicator: labelled tracks show coloured badge
-  - Unlabelled count / progress bar
+  - **Detection label buttons**: good_vehicle, good_pedestrian, good_other, noise, noise_flora, split, merge, missed
+  - **Quality label buttons**: perfect, good, truncated, noisy_velocity, stopped_recovered
+  - Keyboard shortcuts (1-8 for detection, Shift+1-5 for quality) for rapid labelling
+  - Visual indicator: labelled tracks show coloured badge (detection) + quality icon
+  - Unlabelled count / progress bar (tracks with detection label but no quality label counted as partially labelled)
 - [ ] **3.4** Add bulk labelling: select multiple tracks (shift+click), apply label to all
 - [ ] **3.5** Add split/merge annotation:
   - "Link tracks" mode: click two tracks to mark as split (should be one)
@@ -229,11 +249,12 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
   - Mean centroid distance during overlap
   - Hungarian assignment for optimal matching
 - [ ] **4.3** Implement ground truth scoring:
-  - Detection rate, fragmentation, false positive rate, velocity coverage
-  - Composite score with configurable weights
+  - Detection rate (class-specific: vehicle/pedestrian/other), fragmentation, false positive rate, velocity coverage
+  - Quality metrics: quality premium (fraction `perfect`), truncation rate, velocity noise rate, stopped recovery rate
+  - Composite score with configurable weights (8 terms — see scoring formula above)
 - [ ] **4.4** Add `GroundTruthEvaluator` struct (`internal/lidar/sweep/ground_truth.go`):
   - Takes reference_run_id + candidate run tracks
-  - Returns `GroundTruthScore` (detection, fragmentation, FP rate, velocity coverage, composite)
+  - Returns `GroundTruthScore` (detection rates by class, fragmentation, FP rate, velocity coverage, quality premium, truncation rate, velocity noise rate, stopped recovery rate, composite)
 - [ ] **4.5** Add REST API endpoint:
   - `POST /api/lidar/runs/{run_id}/evaluate` — compare run against scene's reference run, return score
   - `GET /api/lidar/scenes/{scene_id}/evaluations` — list all evaluation scores for a scene
@@ -253,10 +274,13 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
   - Each sweep combo creates an analysis run
   - After PCAP replay completes, run `GroundTruthEvaluator` against reference tracks
   - Use composite ground truth score as the objective function (instead of acceptance rate)
-- [ ] **5.3** Modify sweep runner to clear tracks between combinations when ground truth mode is active
+- [ ] **5.3** Modify sweep runner to reset state between combinations when ground truth mode is active:
+  - Clear all tracks via `ClearTracks(sensorID)`
+  - **Reset background model** — replay PCAP from scratch (not just tracker state)
+  - Each combo must evaluate independently; background state from previous combos must not bleed through
 - [ ] **5.4** Add ground truth objective to sweep dashboard UI:
   - When auto-tune is selected with a scene that has labelled tracks, show "Ground Truth" objective option
-  - Show ground truth score components in results table (detection %, fragmentation, FP rate)
+  - Show ground truth score components in results table: detection % by class, fragmentation, FP rate, quality premium, truncation rate, velocity noise rate, stopped recovery rate
 - [ ] **5.5** Save best params as `optimal_params_json` on scene when auto-tune completes
 - [ ] **5.6** Add "Apply Scene Params" button in sweep dashboard — loads optimal params for selected scene
 
@@ -271,10 +295,12 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
 
 > Create the polished transit table for dashboards and reports.
 
-- [ ] **6.1** Create `lidar_transits` table (migration 000019)
+- [ ] **6.1** Create `lidar_transits` table (migration 000020)
 - [ ] **6.2** Add `TransitStore` with insert/query operations
 - [ ] **6.3** Add transit promotion logic: when a confirmed track is finalised (deleted after grace period), if it passes quality thresholds → insert into `lidar_transits`
-  - Quality thresholds from `TrainingDataFilter`: min quality >= 0.6, min duration >= 2s, min length >= 5m
+  - **Label-aware thresholds**: Only promote tracks with `user_label` in (`good_vehicle`, `good_pedestrian`, `good_other`) AND `quality_label` in (`perfect`, `good`)
+  - Exclude tracks with `quality_label` in (`truncated`, `noisy_velocity`) — incomplete or unreliable velocity profiles
+  - For unlabelled tracks (no ground truth run), fall back to `TrainingDataFilter`: min quality >= 0.6, min duration >= 2s, min length >= 5m
 - [ ] **6.4** Add REST API:
   - `GET /api/lidar/transits` — list transits with time range and speed filters
   - `GET /api/lidar/transits/summary` — aggregate stats (count, speed distribution, by class)
@@ -282,7 +308,7 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
 
 **Files:**
 
-- `internal/db/migrations/000019_*.up.sql`
+- `internal/db/migrations/000020_*.up.sql`
 - `internal/lidar/transit_store.go` (new)
 - `internal/lidar/tracking.go` (promotion on track deletion)
 - `internal/lidar/monitor/transit_api.go` (new)
@@ -321,15 +347,72 @@ This is deferred — the labelling infrastructure from Phases 1-3 provides the f
 
 ### Label types for run tracks
 
-Use `user_label` on `lidar_run_tracks` (not `lidar_labels` table) for ground truth. The labels are scoped to a specific analysis run, so run_tracks is the natural home:
+Track labelling uses **two independent label fields** on `lidar_run_tracks` for ground truth:
 
-| Label          | Meaning                                                                             |
-| -------------- | ----------------------------------------------------------------------------------- |
-| `good_vehicle` | Correctly tracked single vehicle                                                    |
-| `noise`        | Not a real vehicle (tree, bird, sensor artefact)                                    |
-| `split`        | Should be part of another track (fragmentation)                                     |
-| `merge`        | Contains multiple vehicles (over-association)                                       |
-| `missed`       | (label on a time/space region, not a track) — vehicle present but no track produced |
+1. **`user_label`** — Detection correctness (is this the right object?)
+2. **`quality_label`** — Measurement quality (how good is the track for this object?)
+
+The labels are scoped to a specific analysis run, so run_tracks is the natural home. The `lidar_labels` table is reserved for frame-level annotation (ML training on raw sensor data), not track-level labelling (auto-tuning ground truth).
+
+#### Detection Labels (`user_label`)
+
+| Label             | Meaning                                                                        | Used in Scoring                                       |
+| ----------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| `good_vehicle`    | Correctly tracked single vehicle                                               | Detection rate (vehicle-specific)                     |
+| `good_pedestrian` | Correctly tracked pedestrian                                                   | Detection rate (pedestrian-specific)                  |
+| `good_other`      | Correctly tracked non-vehicle object (cyclist, etc.)                           | Detection rate (other-specific)                       |
+| `noise`           | Not a real object — sensor artefact, multipath, ground clutter                 | False positive penalty                                |
+| `noise_flora`     | Tree, bush, vegetation motion                                                  | False positive penalty (background tuning diagnostic) |
+| `split`           | Fragment — should be part of another track (use `linked_track_ids` to specify) | Fragmentation penalty                                 |
+| `merge`           | Over-association — contains multiple objects                                   | Merge penalty                                         |
+| `missed`          | Object present but no track produced (see spatial anchoring below)             | Miss penalty (requires spatial/temporal reference)    |
+
+**Rationale for expanded taxonomy:**
+
+- **Class-specific detection labels** (`good_vehicle`, `good_pedestrian`, `good_other`): The classification system already distinguishes pedestrian/car/bird/other. Using a single `good_vehicle` label prevents measuring class-specific detection rates — the tuner can't tell if a parameter change improved car detection but degraded pedestrian detection.
+- **Noise split** (`noise` vs `noise_flora`): The auto-tuner optimises background subtraction parameters that have different sensitivities to sensor artefacts (multipath, ground reflections) vs. environmental motion (trees swaying). A single `noise` label hides which noise type the parameters are failing on.
+
+#### Quality Labels (`quality_label`)
+
+| Label               | Meaning                                                                     | Used in Scoring                                           |
+| ------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `perfect`           | Full transit, clean velocity profile, stable bbox, no gaps                  | Highest weight in velocity coverage & quality premium     |
+| `good`              | Minor imperfections — small speed jumps, brief gap, slight bbox instability | Standard weight                                           |
+| `truncated`         | Track starts or ends prematurely (not split — only track for this vehicle)  | Truncation penalty (background/confirmation tuning issue) |
+| `noisy_velocity`    | Correct association but velocity profile is unreliable (jumps, oscillation) | Velocity noise penalty (process/measurement noise issue)  |
+| `stopped_recovered` | Vehicle stopped and was correctly maintained through occlusion              | Bonus — rewards occlusion coasting parameter tuning       |
+
+**Rationale for quality dimension:**
+
+The auto-tuner needs to distinguish "correct but noisy" tracks from "correct and clean" tracks. Without quality labels, the composite score plateaus once detection rate is high, with no gradient to push toward better measurement quality. The quality labels provide explicit feedback on velocity reliability (critical for the `lidar_transits` table), truncation (slow track initiation/termination issues), and occlusion handling (stopped vehicle recovery).
+
+#### Spatial Anchoring for `missed` Labels
+
+The `missed` label requires spatial/temporal reference since no track exists. Add to `lidar_run_tracks` or create a separate `lidar_missed_regions` table:
+
+```sql
+-- Option 1: Add columns to lidar_run_tracks (for when track_id references a nearby track)
+missed_region_x REAL
+missed_region_y REAL
+missed_time_start_ns INTEGER
+missed_time_end_ns INTEGER
+
+-- Option 2: Separate table for missed detections
+CREATE TABLE lidar_missed_regions (
+  region_id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL,
+  center_x REAL NOT NULL,
+  center_y REAL NOT NULL,
+  time_start_ns INTEGER NOT NULL,
+  time_end_ns INTEGER NOT NULL,
+  labeler_id TEXT,
+  labeled_at INTEGER,
+  notes TEXT,
+  FOREIGN KEY (run_id) REFERENCES lidar_analysis_runs(run_id) ON DELETE CASCADE
+);
+```
+
+The evaluator can then check whether candidate runs produce tracks covering those spatiotemporal regions.
 
 ### Why scenes and not just PCAPs
 
@@ -343,9 +426,17 @@ A PCAP file is just bytes — a scene adds:
 
 Different scenes from the same PCAP (e.g. different time segments) can have different optimal parameters.
 
-### Track clearing between sweep combinations
+### State reset between sweep combinations
 
-Currently tracks persist across combinations. For ground truth evaluation, tracks **must** be cleared between combinations so each combo is evaluated independently. Add explicit `ClearTracks(sensorID)` call in the sweep runner before each PCAP replay when ground truth mode is active.
+Currently tracks persist across combinations. For ground truth evaluation, **all state must be reset** between combinations so each combo is evaluated independently:
+
+1. **Clear all tracks** via `ClearTracks(sensorID)`
+2. **Reset background model** — reinitialise background grid from scratch
+3. **Replay PCAP from beginning** — do not resume from previous position
+
+The background model is stateful (per-cell averages, freeze timestamps, observation counts). If combo A's background state is reused for combo B, the evaluation is contaminated. Each combo must process the PCAP as if it's the first time the system has seen it.
+
+Implementation: In `sweep/runner.go`, when `ground_truth_mode` is active, call `ResetBackgroundModel(sensorID)` and `ClearTracks(sensorID)` before each PCAP replay.
 
 ### Sweep runner → analysis run integration
 
