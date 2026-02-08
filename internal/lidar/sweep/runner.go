@@ -561,6 +561,8 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 	isPCAP := req.DataSource == "pcap" && req.PCAPFile != ""
 	settleOnce := req.SettleMode == "once"
 	const regionRestoreWait = 2 * time.Second
+	// Maximum number of tuning parameters to prevent overflow in map allocation (CWE-770)
+	const maxTuningParams = 50
 
 	buckets := r.client.FetchBuckets()
 	sampler := NewSampler(r.client, buckets, interval)
@@ -602,7 +604,14 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 		}
 
 		// Build tuning params map, include seed
-		tuningParams := make(map[string]interface{}, len(paramValues)+1)
+		// Validate parameter count to prevent overflow (CWE-770)
+		if len(paramValues) >= maxTuningParams {
+			log.Printf("[sweep] WARNING: Parameter count %d exceeds maximum %d, clamping", len(paramValues), maxTuningParams-1)
+			r.addWarning(fmt.Sprintf("combo %d: parameter count %d exceeds maximum %d (skipped)", comboNum+1, len(paramValues), maxTuningParams-1))
+			continue
+		}
+		// Allocate with compile-time constant to satisfy static analysis
+		tuningParams := make(map[string]interface{}, maxTuningParams)
 		for k, v := range paramValues {
 			tuningParams[k] = v
 		}
