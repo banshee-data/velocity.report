@@ -3,6 +3,7 @@ package monitor
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
@@ -15,26 +16,34 @@ type SweepRunner interface {
 	Stop()
 }
 
+// ErrSweepAlreadyRunning is returned when a sweep is already in progress.
+var ErrSweepAlreadyRunning = fmt.Errorf("sweep already in progress")
+
 // handleSweepStart starts a parameter sweep
 func (ws *WebServer) handleSweepStart(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
 	if ws.sweepRunner == nil {
-		http.Error(w, "Sweep runner not configured", http.StatusServiceUnavailable)
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "sweep runner not configured")
 		return
 	}
 
 	var req map[string]interface{}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request: "+err.Error(), http.StatusBadRequest)
+		ws.writeJSONError(w, http.StatusBadRequest, "invalid request: "+err.Error())
 		return
 	}
 
 	if err := ws.sweepRunner.Start(context.Background(), req); err != nil {
-		http.Error(w, err.Error(), http.StatusConflict)
+		// Distinguish "already running" (409) from validation errors (400)
+		if err.Error() == ErrSweepAlreadyRunning.Error() {
+			ws.writeJSONError(w, http.StatusConflict, err.Error())
+		} else {
+			ws.writeJSONError(w, http.StatusBadRequest, err.Error())
+		}
 		return
 	}
 
@@ -45,12 +54,12 @@ func (ws *WebServer) handleSweepStart(w http.ResponseWriter, r *http.Request) {
 // handleSweepStatus returns the current sweep state
 func (ws *WebServer) handleSweepStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
 	if ws.sweepRunner == nil {
-		http.Error(w, "Sweep runner not configured", http.StatusServiceUnavailable)
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "sweep runner not configured")
 		return
 	}
 
@@ -62,12 +71,12 @@ func (ws *WebServer) handleSweepStatus(w http.ResponseWriter, r *http.Request) {
 // handleSweepStop cancels a running sweep
 func (ws *WebServer) handleSweepStop(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
 	if ws.sweepRunner == nil {
-		http.Error(w, "Sweep runner not configured", http.StatusServiceUnavailable)
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "sweep runner not configured")
 		return
 	}
 

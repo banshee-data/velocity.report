@@ -36,10 +36,11 @@ func NewClient(httpClient *http.Client, baseURL, sensorID string) *Client {
 // It retries on 409 (conflict) responses for up to maxRetries times.
 func (c *Client) StartPCAPReplay(pcapFile string, maxRetries int) error {
 	url := fmt.Sprintf("%s/api/lidar/pcap/start?sensor_id=%s", c.BaseURL, c.SensorID)
-	payload := map[string]string{"pcap_file": filepath.Clean(pcapFile)}
+	pcapName := filepath.Base(pcapFile)
+	payload := map[string]string{"pcap_file": pcapName}
 	data, _ := json.Marshal(payload)
 
-	log.Printf("Requesting PCAP replay for sensor %s: %s", c.SensorID, payload["pcap_file"])
+	log.Printf("Requesting PCAP replay for sensor %s: %s", c.SensorID, pcapName)
 
 	if maxRetries <= 0 {
 		maxRetries = 60
@@ -152,7 +153,7 @@ type BackgroundParams struct {
 	NoiseRelative              float64 `json:"noise_relative"`
 	ClosenessMultiplier        float64 `json:"closeness_multiplier"`
 	NeighbourConfirmationCount int     `json:"neighbor_confirmation_count"`
-	SeedFromFirstFrame         bool    `json:"seed_from_first_frame"`
+	SeedFromFirst              bool    `json:"seed_from_first"`
 }
 
 // SetParams sets the background model parameters.
@@ -178,7 +179,7 @@ func (c *Client) SetParams(params BackgroundParams) error {
 
 	log.Printf("Applied: noise=%.4f, closeness=%.2f, neighbour=%d, seed=%v",
 		params.NoiseRelative, params.ClosenessMultiplier,
-		params.NeighbourConfirmationCount, params.SeedFromFirstFrame)
+		params.NeighbourConfirmationCount, params.SeedFromFirst)
 	return nil
 }
 
@@ -225,7 +226,7 @@ type PCAPReplayConfig struct {
 func (c *Client) StartPCAPReplayWithConfig(cfg PCAPReplayConfig) error {
 	url := fmt.Sprintf("%s/api/lidar/pcap/start?sensor_id=%s", c.BaseURL, c.SensorID)
 	payload := map[string]interface{}{
-		"pcap_file": filepath.Clean(cfg.PCAPFile),
+		"pcap_file": filepath.Base(cfg.PCAPFile),
 	}
 	if cfg.StartSeconds > 0 {
 		payload["start_seconds"] = cfg.StartSeconds

@@ -303,7 +303,10 @@ func TestCoerceValueFloat64(t *testing.T) {
 		{false, 0.0},
 	}
 	for _, tc := range tests {
-		got := coerceValue(tc.input, "float64")
+		got, err := coerceValue(tc.input, "float64")
+		if err != nil {
+			t.Errorf("coerceValue(%v, float64) unexpected error: %v", tc.input, err)
+		}
 		if got != tc.expected {
 			t.Errorf("coerceValue(%v, float64) = %v, want %v", tc.input, got, tc.expected)
 		}
@@ -319,7 +322,10 @@ func TestCoerceValueInt(t *testing.T) {
 		{"7", 7},
 	}
 	for _, tc := range tests {
-		got := coerceValue(tc.input, "int")
+		got, err := coerceValue(tc.input, "int")
+		if err != nil {
+			t.Errorf("coerceValue(%v, int) unexpected error: %v", tc.input, err)
+		}
 		if got != tc.expected {
 			t.Errorf("coerceValue(%v, int) = %v, want %v", tc.input, got, tc.expected)
 		}
@@ -339,7 +345,10 @@ func TestCoerceValueBool(t *testing.T) {
 		{0.0, false},
 	}
 	for _, tc := range tests {
-		got := coerceValue(tc.input, "bool")
+		got, err := coerceValue(tc.input, "bool")
+		if err != nil {
+			t.Errorf("coerceValue(%v, bool) unexpected error: %v", tc.input, err)
+		}
 		if got != tc.expected {
 			t.Errorf("coerceValue(%v, bool) = %v, want %v", tc.input, got, tc.expected)
 		}
@@ -347,13 +356,39 @@ func TestCoerceValueBool(t *testing.T) {
 }
 
 func TestCoerceValueString(t *testing.T) {
-	got := coerceValue("  hello  ", "string")
+	got, err := coerceValue("  hello  ", "string")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if got != "hello" {
 		t.Errorf("coerceValue('  hello  ', string) = %v, want 'hello'", got)
 	}
-	got = coerceValue(42.0, "string")
+	got, err = coerceValue(42.0, "string")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if got != "42" {
 		t.Errorf("coerceValue(42.0, string) = %v, want '42'", got)
+	}
+}
+
+func TestCoerceValueErrors(t *testing.T) {
+	// Invalid string→float64 should error
+	_, err := coerceValue("not_a_number", "float64")
+	if err == nil {
+		t.Error("expected error for invalid float64 string")
+	}
+
+	// Invalid string→int should error
+	_, err = coerceValue("abc", "int")
+	if err == nil {
+		t.Error("expected error for invalid int string")
+	}
+
+	// Unsupported type coercion should error
+	_, err = coerceValue(struct{}{}, "float64")
+	if err == nil {
+		t.Error("expected error for unsupported type")
 	}
 }
 

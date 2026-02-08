@@ -1553,7 +1553,10 @@ func (ws *WebServer) handleSweepDashboard(w http.ResponseWriter, r *http.Request
 	if sensorID == "" {
 		sensorID = ws.sensorID
 	}
-	safeSensorID := html.EscapeString(sensorID)
+	// Use JSEscapeString because the value is interpolated into a JS string
+	// literal in sweep_dashboard.html — html.EscapeString doesn't escape
+	// single quotes which could allow script injection.
+	safeSensorID := template.JSEscapeString(sensorID)
 
 	doc := fmt.Sprintf(sweepDashboardHTML, safeSensorID)
 

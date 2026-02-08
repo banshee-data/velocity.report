@@ -192,7 +192,7 @@ func TestClient_SetParams_Success(t *testing.T) {
 		NoiseRelative:              0.1,
 		ClosenessMultiplier:        2.0,
 		NeighbourConfirmationCount: 3,
-		SeedFromFirstFrame:         true,
+		SeedFromFirst:              true,
 	}
 	err := c.SetParams(params)
 
@@ -355,7 +355,7 @@ func TestClient_StartPCAPReplay_Success(t *testing.T) {
 		}
 		var payload map[string]string
 		json.NewDecoder(r.Body).Decode(&payload)
-		if payload["pcap_file"] != "/path/to/test.pcap" {
+		if payload["pcap_file"] != "test.pcap" {
 			t.Errorf("Unexpected pcap_file: %s", payload["pcap_file"])
 		}
 		w.WriteHeader(http.StatusOK)
@@ -414,7 +414,7 @@ func TestBackgroundParams_JSONEncoding(t *testing.T) {
 		NoiseRelative:              0.15,
 		ClosenessMultiplier:        2.5,
 		NeighbourConfirmationCount: 4,
-		SeedFromFirstFrame:         true,
+		SeedFromFirst:              true,
 	}
 
 	data, err := json.Marshal(params)
@@ -436,8 +436,8 @@ func TestBackgroundParams_JSONEncoding(t *testing.T) {
 	if decoded.NeighbourConfirmationCount != params.NeighbourConfirmationCount {
 		t.Errorf("NeighbourConfirmationCount mismatch")
 	}
-	if decoded.SeedFromFirstFrame != params.SeedFromFirstFrame {
-		t.Errorf("SeedFromFirstFrame mismatch")
+	if decoded.SeedFromFirst != params.SeedFromFirst {
+		t.Errorf("SeedFromFirst mismatch")
 	}
 }
 

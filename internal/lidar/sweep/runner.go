@@ -2,6 +2,7 @@ package sweep
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
@@ -173,150 +174,20 @@ func (r *Runner) StartWithRequest(ctx context.Context, req SweepRequest) error {
 // Start implements the monitor.SweepRunner interface.
 // It accepts an interface{} which should be a map or SweepRequest.
 func (r *Runner) Start(ctx context.Context, reqInterface interface{}) error {
-	// Convert interface{} to SweepRequest
 	var req SweepRequest
 
-	// Handle both map[string]interface{} from JSON and direct SweepRequest
 	switch v := reqInterface.(type) {
 	case SweepRequest:
 		req = v
 	case map[string]interface{}:
-		// Manual conversion from map to SweepRequest
-		if mode, ok := v["mode"].(string); ok {
-			req.Mode = mode
+		// Re-marshal via JSON so the mapping stays consistent with the
+		// SweepRequest struct tags and validation is centralised.
+		data, err := json.Marshal(v)
+		if err != nil {
+			return fmt.Errorf("marshalling sweep request: %w", err)
 		}
-
-		// Generic params
-		if params, ok := v["params"].([]interface{}); ok {
-			for _, p := range params {
-				pm, ok := p.(map[string]interface{})
-				if !ok {
-					continue
-				}
-				sp := SweepParam{}
-				if name, ok := pm["name"].(string); ok {
-					sp.Name = name
-				}
-				if typ, ok := pm["type"].(string); ok {
-					sp.Type = typ
-				}
-				if vals, ok := pm["values"].([]interface{}); ok {
-					sp.Values = vals
-				}
-				if start, ok := pm["start"].(float64); ok {
-					sp.Start = start
-				}
-				if end, ok := pm["end"].(float64); ok {
-					sp.End = end
-				}
-				if step, ok := pm["step"].(float64); ok {
-					sp.Step = step
-				}
-				req.Params = append(req.Params, sp)
-			}
-		}
-
-		// Data source fields
-		if ds, ok := v["data_source"].(string); ok {
-			req.DataSource = ds
-		}
-		if pf, ok := v["pcap_file"].(string); ok {
-			req.PCAPFile = pf
-		}
-		if ps, ok := v["pcap_start_secs"].(float64); ok {
-			req.PCAPStartSecs = ps
-		}
-		if pd, ok := v["pcap_duration_secs"].(float64); ok {
-			req.PCAPDurationSecs = pd
-		}
-
-		// Legacy fields
-		if noiseValues, ok := v["noise_values"].([]interface{}); ok {
-			req.NoiseValues = make([]float64, len(noiseValues))
-			for i, val := range noiseValues {
-				if f, ok := val.(float64); ok {
-					req.NoiseValues[i] = f
-				}
-			}
-		}
-		if closenessValues, ok := v["closeness_values"].([]interface{}); ok {
-			req.ClosenessValues = make([]float64, len(closenessValues))
-			for i, val := range closenessValues {
-				if f, ok := val.(float64); ok {
-					req.ClosenessValues[i] = f
-				}
-			}
-		}
-		if neighbourValues, ok := v["neighbour_values"].([]interface{}); ok {
-			req.NeighbourValues = make([]int, len(neighbourValues))
-			for i, val := range neighbourValues {
-				if f, ok := val.(float64); ok {
-					req.NeighbourValues[i] = int(f)
-				} else if n, ok := val.(int); ok {
-					req.NeighbourValues[i] = n
-				}
-			}
-		}
-		if noiseStart, ok := v["noise_start"].(float64); ok {
-			req.NoiseStart = noiseStart
-		}
-		if noiseEnd, ok := v["noise_end"].(float64); ok {
-			req.NoiseEnd = noiseEnd
-		}
-		if noiseStep, ok := v["noise_step"].(float64); ok {
-			req.NoiseStep = noiseStep
-		}
-		if closenessStart, ok := v["closeness_start"].(float64); ok {
-			req.ClosenessStart = closenessStart
-		}
-		if closenessEnd, ok := v["closeness_end"].(float64); ok {
-			req.ClosenessEnd = closenessEnd
-		}
-		if closenessStep, ok := v["closeness_step"].(float64); ok {
-			req.ClosenessStep = closenessStep
-		}
-		if neighbourStart, ok := v["neighbour_start"].(float64); ok {
-			req.NeighbourStart = int(neighbourStart)
-		} else if neighbourStart, ok := v["neighbour_start"].(int); ok {
-			req.NeighbourStart = neighbourStart
-		}
-		if neighbourEnd, ok := v["neighbour_end"].(float64); ok {
-			req.NeighbourEnd = int(neighbourEnd)
-		} else if neighbourEnd, ok := v["neighbour_end"].(int); ok {
-			req.NeighbourEnd = neighbourEnd
-		}
-		if neighbourStep, ok := v["neighbour_step"].(float64); ok {
-			req.NeighbourStep = int(neighbourStep)
-		} else if neighbourStep, ok := v["neighbour_step"].(int); ok {
-			req.NeighbourStep = neighbourStep
-		}
-		if fixedNoise, ok := v["fixed_noise"].(float64); ok {
-			req.FixedNoise = fixedNoise
-		}
-		if fixedCloseness, ok := v["fixed_closeness"].(float64); ok {
-			req.FixedCloseness = fixedCloseness
-		}
-		if fixedNeighbour, ok := v["fixed_neighbour"].(float64); ok {
-			req.FixedNeighbour = int(fixedNeighbour)
-		} else if fixedNeighbour, ok := v["fixed_neighbour"].(int); ok {
-			req.FixedNeighbour = fixedNeighbour
-		}
-		if iterations, ok := v["iterations"].(float64); ok {
-			req.Iterations = int(iterations)
-		} else if iterations, ok := v["iterations"].(int); ok {
-			req.Iterations = iterations
-		}
-		if interval, ok := v["interval"].(string); ok {
-			req.Interval = interval
-		}
-		if settleTime, ok := v["settle_time"].(string); ok {
-			req.SettleTime = settleTime
-		}
-		if settleMode, ok := v["settle_mode"].(string); ok {
-			req.SettleMode = settleMode
-		}
-		if seed, ok := v["seed"].(string); ok {
-			req.Seed = seed
+		if err := json.Unmarshal(data, &req); err != nil {
+			return fmt.Errorf("parsing sweep request: %w", err)
 		}
 	default:
 		return fmt.Errorf("invalid request type: %T", reqInterface)
@@ -327,6 +198,16 @@ func (r *Runner) Start(ctx context.Context, reqInterface interface{}) error {
 
 // start is the internal implementation of Start
 func (r *Runner) start(ctx context.Context, req SweepRequest) error {
+	// Guard nil context to prevent panic in context.WithCancel
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// Validate client is configured
+	if r.client == nil {
+		return fmt.Errorf("sweep runner has no client configured")
+	}
+
 	// Parse durations with defaults
 	interval := 2 * time.Second
 	if req.Interval != "" {
@@ -357,6 +238,14 @@ func (r *Runner) start(ctx context.Context, req SweepRequest) error {
 	}
 	if req.Seed == "" {
 		req.Seed = "true"
+	}
+
+	// Validate mode
+	switch req.Mode {
+	case "multi", "noise", "closeness", "neighbour", "params":
+		// supported modes
+	default:
+		return fmt.Errorf("unsupported sweep mode %q", req.Mode)
 	}
 
 	// Use generic params path if params are provided
@@ -570,12 +459,15 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 					NoiseRelative:              noise,
 					ClosenessMultiplier:        closeness,
 					NeighbourConfirmationCount: neighbour,
-					SeedFromFirstFrame:         seed,
+					SeedFromFirst:              seed,
 				}
 				if err := r.client.SetParams(params); err != nil {
 					log.Printf("[sweep] ERROR: Failed to set params: %v", err)
-					r.addWarning(fmt.Sprintf("combo %d: failed to set params (skipped): %v", comboNum+1, err))
-					continue
+					r.mu.Lock()
+					r.state.Status = SweepStatusError
+					r.state.Error = fmt.Sprintf("combo %d: failed to set params: %v", comboNum+1, err)
+					r.mu.Unlock()
+					return
 				}
 
 				if isPCAP {
@@ -880,7 +772,11 @@ func expandSweepParam(sp *SweepParam) error {
 	if len(sp.Values) > 0 {
 		// Already have explicit values — type-coerce them
 		for i, v := range sp.Values {
-			sp.Values[i] = coerceValue(v, sp.Type)
+			coerced, err := coerceValue(v, sp.Type)
+			if err != nil {
+				return fmt.Errorf("value[%d]: %w", i, err)
+			}
+			sp.Values[i] = coerced
 		}
 		return nil
 	}
@@ -920,55 +816,65 @@ func expandSweepParam(sp *SweepParam) error {
 }
 
 // coerceValue converts a value to the appropriate Go type for the given param type.
-func coerceValue(v interface{}, typ string) interface{} {
+// Returns an error if the conversion fails instead of silently defaulting to zero.
+func coerceValue(v interface{}, typ string) (interface{}, error) {
 	switch typ {
 	case "float64":
 		switch val := v.(type) {
 		case float64:
-			return val
+			return val, nil
 		case string:
-			f, _ := strconv.ParseFloat(strings.TrimSpace(val), 64)
-			return f
+			f, err := strconv.ParseFloat(strings.TrimSpace(val), 64)
+			if err != nil {
+				return nil, fmt.Errorf("cannot parse %q as float64: %w", val, err)
+			}
+			return f, nil
 		case bool:
 			if val {
-				return 1.0
+				return 1.0, nil
 			}
-			return 0.0
+			return 0.0, nil
 		}
 	case "int":
 		switch val := v.(type) {
 		case float64:
-			return int(val)
+			return int(val), nil
 		case string:
-			n, _ := strconv.Atoi(strings.TrimSpace(val))
-			return n
+			n, err := strconv.Atoi(strings.TrimSpace(val))
+			if err != nil {
+				return nil, fmt.Errorf("cannot parse %q as int: %w", val, err)
+			}
+			return n, nil
 		}
 	case "int64":
 		switch val := v.(type) {
 		case float64:
-			return int64(val)
+			return int64(val), nil
 		case string:
-			n, _ := strconv.ParseInt(strings.TrimSpace(val), 10, 64)
-			return n
+			n, err := strconv.ParseInt(strings.TrimSpace(val), 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("cannot parse %q as int64: %w", val, err)
+			}
+			return n, nil
 		}
 	case "bool":
 		switch val := v.(type) {
 		case bool:
-			return val
+			return val, nil
 		case string:
-			return strings.TrimSpace(strings.ToLower(val)) == "true"
+			return strings.TrimSpace(strings.ToLower(val)) == "true", nil
 		case float64:
-			return val != 0
+			return val != 0, nil
 		}
 	case "string":
 		switch val := v.(type) {
 		case string:
-			return strings.TrimSpace(val)
+			return strings.TrimSpace(val), nil
 		default:
-			return fmt.Sprintf("%v", val)
+			return fmt.Sprintf("%v", val), nil
 		}
 	}
-	return v
+	return nil, fmt.Errorf("unsupported coercion: %T to %s", v, typ)
 }
 
 // cartesianProduct computes the Cartesian product of all SweepParam value lists.

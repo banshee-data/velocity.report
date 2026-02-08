@@ -477,7 +477,7 @@ define run_dev_go
 	echo "Building velocity-report-local..."; \
 	go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-local ./cmd/radar; \
 	mkdir -p "$$piddir"; \
-	code "$$logfile"; \
+	if command -v code >/dev/null 2>&1; then code "$$logfile"; fi; \
 	echo "Starting velocity-report-local (background) with DB=$$DB_PATH -> $$logfile (debug -> $$debuglog)"; \
 	VELOCITY_DEBUG_LOG="$$debuglog" nohup ./velocity-report-local --disable-radar $(1) --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
 	echo "Started; PID $$(cat $$pidfile)"
