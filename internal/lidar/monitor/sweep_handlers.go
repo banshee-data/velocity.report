@@ -16,6 +16,13 @@ type SweepRunner interface {
 	Stop()
 }
 
+// AutoTuneRunner defines the interface for auto-tune operations.
+type AutoTuneRunner interface {
+	Start(ctx context.Context, req interface{}) error
+	GetState() interface{}
+	Stop()
+}
+
 // handleSweepStart starts a parameter sweep
 func (ws *WebServer) handleSweepStart(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -80,6 +87,73 @@ func (ws *WebServer) handleSweepStop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ws.sweepRunner.Stop()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
+}
+
+// handleAutoTune handles both starting (POST) and getting status (GET) for auto-tune
+func (ws *WebServer) handleAutoTune(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		ws.handleAutoTuneStart(w, r)
+	} else if r.Method == http.MethodGet {
+		ws.handleAutoTuneStatus(w, r)
+	} else {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
+// handleAutoTuneStart starts an auto-tuning run
+func (ws *WebServer) handleAutoTuneStart(w http.ResponseWriter, r *http.Request) {
+	if ws.autoTuneRunner == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "auto-tune runner not configured")
+		return
+	}
+
+	var req map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		ws.writeJSONError(w, http.StatusBadRequest, "invalid request: "+err.Error())
+		return
+	}
+
+	if err := ws.autoTuneRunner.Start(context.Background(), req); err != nil {
+		// Distinguish "already running" (409) from validation errors (400)
+		if strings.Contains(err.Error(), "already in progress") {
+			ws.writeJSONError(w, http.StatusConflict, err.Error())
+		} else {
+			ws.writeJSONError(w, http.StatusBadRequest, err.Error())
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "started"})
+}
+
+// handleAutoTuneStatus returns the current auto-tuning state
+func (ws *WebServer) handleAutoTuneStatus(w http.ResponseWriter, r *http.Request) {
+	if ws.autoTuneRunner == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "auto-tune runner not configured")
+		return
+	}
+
+	state := ws.autoTuneRunner.GetState()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(state)
+}
+
+// handleAutoTuneStop cancels a running auto-tune
+func (ws *WebServer) handleAutoTuneStop(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if ws.autoTuneRunner == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "auto-tune runner not configured")
+		return
+	}
+
+	ws.autoTuneRunner.Stop()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
 }
