@@ -34,12 +34,12 @@
 
     .chart-container {
       width: 100%%;
-      height: 300px;
+      height: 450px;
     }
 
     #charts-section {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 12px;
     }
 
@@ -49,19 +49,7 @@
       overflow: hidden;
     }
 
-    @media (max-width: 2400px) {
-      #charts-section {
-        grid-template-columns: repeat(4, 1fr);
-      }
-    }
-
     @media (max-width: 1600px) {
-      #charts-section {
-        grid-template-columns: repeat(3, 1fr);
-      }
-    }
-
-    @media (max-width: 1200px) {
       #charts-section {
         grid-template-columns: repeat(2, 1fr);
       }
@@ -703,6 +691,12 @@
     <div class="card">
       <div id="tracks-chart" class="chart-container"></div>
     </div>
+    <div class="card">
+      <div id="tracks-heatmap" class="chart-container"></div>
+    </div>
+    <div class="card">
+      <div id="alignment-heatmap" class="chart-container"></div>
+    </div>
 
     <!-- Results Table -->
     <div id="results-card" class="card">
@@ -738,6 +732,8 @@
     var alignChart = null;
     var tracksChart = null;
     var paramHeatmapChart = null;
+    var tracksHeatmapChart = null;
+    var alignHeatmapChart = null;
     var latestResults = null;
 
     // Detect dark mode for ECharts
@@ -747,27 +743,27 @@
 
     // Parameter schema derived from TuningConfig (with descriptions)
     var PARAM_SCHEMA = {
-      noise_relative: { type: 'float64', label: 'Noise Relative', step: 0.001, desc: 'Fraction of measured range treated as noise threshold (0\u20131). Higher = more tolerant of range variation.' },
-      closeness_multiplier: { type: 'float64', label: 'Closeness Multiplier', step: 0.5, desc: 'Multiplier for closeness threshold. Higher = wider band for background acceptance.' },
-      neighbor_confirmation_count: { type: 'int', label: 'Neighbour Confirmation', step: 1, desc: 'Number of neighbouring cells (0\u20138) that must agree before marking foreground.' },
+      noise_relative: { type: 'float64', label: 'Noise Relative', step: 0.001, defaultStart: 0.01, defaultEnd: 0.2, desc: 'Fraction of measured range treated as noise threshold (0\u20131). Higher = more tolerant of range variation.' },
+      closeness_multiplier: { type: 'float64', label: 'Closeness Multiplier', step: 0.5, defaultStart: 1.0, defaultEnd: 20.0, desc: 'Multiplier for closeness threshold. Higher = wider band for background acceptance.' },
+      neighbor_confirmation_count: { type: 'int', label: 'Neighbour Confirmation', step: 1, defaultStart: 0, defaultEnd: 8, desc: 'Number of neighbouring cells (0\u20138) that must agree before marking foreground.' },
       seed_from_first: { type: 'bool', label: 'Seed From First', desc: 'If true, initialise background model from the very first observation.' },
-      warmup_duration_nanos: { type: 'int64', label: 'Warmup Duration (ns)', step: 1000000, desc: 'Duration in nanoseconds for the warmup phase before classification begins.' },
-      warmup_min_frames: { type: 'int', label: 'Warmup Min Frames', step: 1, desc: 'Minimum frames required before the warmup phase can complete.' },
-      post_settle_update_fraction: { type: 'float64', label: 'Post-Settle Update Fraction', step: 0.01, desc: 'Background update alpha after settling (0 = freeze background).' },
-      foreground_min_cluster_points: { type: 'int', label: 'FG Min Cluster Points', step: 1, desc: 'Minimum points for a foreground cluster to be reported. 0 = disabled.' },
-      foreground_dbscan_eps: { type: 'float64', label: 'FG DBSCAN Eps', step: 0.1, desc: 'DBSCAN epsilon for foreground point clustering. 0 = disabled.' },
+      warmup_duration_nanos: { type: 'int64', label: 'Warmup Duration (ns)', step: 1000000000, defaultStart: 5000000000, defaultEnd: 120000000000, desc: 'Duration in nanoseconds for the warmup phase before classification begins.' },
+      warmup_min_frames: { type: 'int', label: 'Warmup Min Frames', step: 10, defaultStart: 10, defaultEnd: 500, desc: 'Minimum frames required before the warmup phase can complete.' },
+      post_settle_update_fraction: { type: 'float64', label: 'Post-Settle Update Fraction', step: 0.01, defaultStart: 0, defaultEnd: 0.5, desc: 'Background update alpha after settling (0 = freeze background).' },
+      foreground_min_cluster_points: { type: 'int', label: 'FG Min Cluster Points', step: 1, defaultStart: 0, defaultEnd: 20, desc: 'Minimum points for a foreground cluster to be reported. 0 = disabled.' },
+      foreground_dbscan_eps: { type: 'float64', label: 'FG DBSCAN Eps', step: 0.1, defaultStart: 0, defaultEnd: 2.0, desc: 'DBSCAN epsilon for foreground point clustering. 0 = disabled.' },
       buffer_timeout: { type: 'string', label: 'Buffer Timeout', desc: 'Max wait time for a complete frame (Go duration, e.g. "500ms").' },
-      min_frame_points: { type: 'int', label: 'Min Frame Points', step: 100, desc: 'Minimum points in a frame before processing. Fewer points = frame dropped.' },
+      min_frame_points: { type: 'int', label: 'Min Frame Points', step: 100, defaultStart: 100, defaultEnd: 5000, desc: 'Minimum points in a frame before processing. Fewer points = frame dropped.' },
       flush_interval: { type: 'string', label: 'Flush Interval', desc: 'How often the background grid is flushed to disk (e.g. "60s").' },
       background_flush: { type: 'bool', label: 'Background Flush', desc: 'If true, enables periodic background grid flush to disk. Default: false (disabled).' },
-      gating_distance_squared: { type: 'float64', label: 'Gating Distance\u00b2', step: 0.1, desc: 'Squared Mahalanobis distance threshold for track-to-cluster association.' },
-      process_noise_pos: { type: 'float64', label: 'Process Noise Pos', step: 0.001, desc: 'Kalman process noise for position. Higher = more position uncertainty expected.' },
-      process_noise_vel: { type: 'float64', label: 'Process Noise Vel', step: 0.001, desc: 'Kalman process noise for velocity. Higher = more velocity changes expected.' },
-      measurement_noise: { type: 'float64', label: 'Measurement Noise', step: 0.01, desc: 'Kalman measurement noise. Higher = less trust in observations.' },
-      occlusion_cov_inflation: { type: 'float64', label: 'Occlusion Cov Inflation', step: 0.1, desc: 'Covariance inflation factor during occlusion (missed observations).' },
-      hits_to_confirm: { type: 'int', label: 'Hits to Confirm', step: 1, desc: 'Consecutive successful associations needed to confirm a tentative track.' },
-      max_misses: { type: 'int', label: 'Max Misses', step: 1, desc: 'Consecutive misses before a tentative track is deleted.' },
-      max_misses_confirmed: { type: 'int', label: 'Max Misses Confirmed', step: 1, desc: 'Consecutive misses before a confirmed track is deleted.' }
+      gating_distance_squared: { type: 'float64', label: 'Gating Distance\u00b2', step: 1.0, defaultStart: 4.0, defaultEnd: 100.0, desc: 'Squared Mahalanobis distance threshold for track-to-cluster association.' },
+      process_noise_pos: { type: 'float64', label: 'Process Noise Pos', step: 0.01, defaultStart: 0.01, defaultEnd: 1.0, desc: 'Kalman process noise for position. Higher = more position uncertainty expected.' },
+      process_noise_vel: { type: 'float64', label: 'Process Noise Vel', step: 0.01, defaultStart: 0.05, defaultEnd: 2.0, desc: 'Kalman process noise for velocity. Higher = more velocity changes expected.' },
+      measurement_noise: { type: 'float64', label: 'Measurement Noise', step: 0.01, defaultStart: 0.01, defaultEnd: 2.0, desc: 'Kalman measurement noise. Higher = less trust in observations.' },
+      occlusion_cov_inflation: { type: 'float64', label: 'Occlusion Cov Inflation', step: 0.1, defaultStart: 0.1, defaultEnd: 5.0, desc: 'Covariance inflation factor during occlusion (missed observations).' },
+      hits_to_confirm: { type: 'int', label: 'Hits to Confirm', step: 1, defaultStart: 1, defaultEnd: 10, desc: 'Consecutive successful associations needed to confirm a tentative track.' },
+      max_misses: { type: 'int', label: 'Max Misses', step: 1, defaultStart: 1, defaultEnd: 10, desc: 'Consecutive misses before a tentative track is deleted.' },
+      max_misses_confirmed: { type: 'int', label: 'Max Misses Confirmed', step: 1, defaultStart: 3, defaultEnd: 30, desc: 'Consecutive misses before a confirmed track is deleted.' }
     };
 
     var paramNames = Object.keys(PARAM_SCHEMA);
@@ -851,9 +847,11 @@
       if (descEl) descEl.textContent = schema.desc || '';
 
       if (typ === 'float64' || typ === 'int' || typ === 'int64') {
+        var startVal = schema.defaultStart !== undefined ? schema.defaultStart : 0;
+        var endVal = schema.defaultEnd !== undefined ? schema.defaultEnd : 1;
         fieldsEl.innerHTML =
-          '<label class="param-field"><span>Start</span><input id="pstart-' + id + '" type="number" step="' + step + '" value="0"></label>' +
-          '<label class="param-field"><span>End</span><input id="pend-' + id + '" type="number" step="' + step + '" value="1"></label>' +
+          '<label class="param-field"><span>Start</span><input id="pstart-' + id + '" type="number" step="' + step + '" value="' + startVal + '"></label>' +
+          '<label class="param-field"><span>End</span><input id="pend-' + id + '" type="number" step="' + step + '" value="' + endVal + '"></label>' +
           '<label class="param-field param-field-step"><span>Step</span><input id="pstep-' + id + '" type="number" step="' + step + '" value="' + step + '"></label>' +
           '<label class="param-field param-field-values" style="flex:2"><span>Values (overrides)</span><input id="pvals-' + id + '" type="text" placeholder="e.g. 0.01, 0.02, 0.05"></label>';
       } else if (typ === 'bool') {
@@ -1623,6 +1621,8 @@
       alignChart = echarts.init(document.getElementById('alignment-chart'), chartTheme);
       tracksChart = echarts.init(document.getElementById('tracks-chart'), chartTheme);
       paramHeatmapChart = echarts.init(document.getElementById('param-heatmap'), chartTheme);
+      tracksHeatmapChart = echarts.init(document.getElementById('tracks-heatmap'), chartTheme);
+      alignHeatmapChart = echarts.init(document.getElementById('alignment-heatmap'), chartTheme);
 
       var emptyOpt = {
         title: { text: 'Waiting for data...', left: 'center', top: 'center', textStyle: { color: '#94a3b8', fontSize: 14, fontWeight: 'normal' } },
@@ -1634,6 +1634,8 @@
       alignChart.setOption(emptyOpt);
       tracksChart.setOption(emptyOpt);
       paramHeatmapChart.setOption(emptyOpt);
+      tracksHeatmapChart.setOption(emptyOpt);
+      alignHeatmapChart.setOption(emptyOpt);
     }
 
     function renderCharts(results) {
@@ -1791,6 +1793,102 @@
       } else {
         document.getElementById('param-heatmap').style.display = 'none';
       }
+
+      // Tracks heatmap and alignment heatmap (both use first two numerical params)
+      if (results[0] && results[0].param_values) {
+        var pKeys2 = Object.keys(results[0].param_values);
+        var numKeys2 = pKeys2.filter(function (k) {
+          return typeof results[0].param_values[k] === 'number';
+        });
+        if (numKeys2.length >= 2) {
+          var xKey2 = numKeys2[0], yKey2 = numKeys2[1];
+          var xSchema2 = PARAM_SCHEMA[xKey2], ySchema2 = PARAM_SCHEMA[yKey2];
+          var xLabel2 = xSchema2 ? xSchema2.label : xKey2;
+          var yLabel2 = ySchema2 ? ySchema2.label : yKey2;
+          var xSet2 = {}, ySet2 = {};
+          results.forEach(function (r) { xSet2[r.param_values[xKey2]] = true; ySet2[r.param_values[yKey2]] = true; });
+          var xVals2 = Object.keys(xSet2).map(Number).sort(function (a, b) { return a - b; });
+          var yVals2 = Object.keys(ySet2).map(Number).sort(function (a, b) { return a - b; });
+
+          // Tracks heatmap
+          var thmData = [];
+          var thmMax = 0;
+          var thmMin = Infinity;
+          results.forEach(function (r) {
+            var xi = xVals2.indexOf(r.param_values[xKey2]);
+            var yi = yVals2.indexOf(r.param_values[yKey2]);
+            var v = r.active_tracks_mean || 0;
+            if (xi >= 0 && yi >= 0) {
+              thmData.push([xi, yi, v]);
+              if (v > thmMax) thmMax = v;
+              if (v > 0 && v < thmMin) thmMin = v;
+            }
+          });
+          if (thmMin === Infinity || thmMin >= thmMax) thmMin = 0;
+          tracksHeatmapChart.setOption({
+            title: { text: 'Active Tracks by ' + xLabel2 + ' vs ' + yLabel2, left: 'center', top: 0, textStyle: { fontSize: 14 } },
+            tooltip: {
+              formatter: function (p) {
+                return xLabel2 + ': ' + xVals2[p.value[0]] + '<br/>' +
+                  yLabel2 + ': ' + yVals2[p.value[1]] + '<br/>' +
+                  'Tracks: ' + p.value[2].toFixed(1);
+              }
+            },
+            xAxis: { type: 'category', data: xVals2.map(String), name: xLabel2, axisLabel: { fontSize: 10 } },
+            yAxis: { type: 'category', data: yVals2.map(String), name: yLabel2, axisLabel: { fontSize: 10 } },
+            visualMap: {
+              min: thmMin, max: thmMax || 1, calculable: true, orient: 'horizontal', left: 'center', bottom: 0,
+              inRange: { color: ['#f7fcf5', '#c7e9c0', '#74c476', '#238b45', '#00441b'] }
+            },
+            series: [{ type: 'heatmap', data: thmData, emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.5)' } } }],
+            grid: { bottom: 80, top: 60 },
+            backgroundColor: chartBg
+          }, true);
+          document.getElementById('tracks-heatmap').style.display = '';
+
+          // Alignment heatmap
+          var ahmData = [];
+          var ahmMax = 0;
+          var ahmMin = Infinity;
+          results.forEach(function (r) {
+            var xi = xVals2.indexOf(r.param_values[xKey2]);
+            var yi = yVals2.indexOf(r.param_values[yKey2]);
+            var v = r.alignment_deg_mean || 0;
+            if (xi >= 0 && yi >= 0) {
+              ahmData.push([xi, yi, v]);
+              if (v > ahmMax) ahmMax = v;
+              if (v > 0 && v < ahmMin) ahmMin = v;
+            }
+          });
+          if (ahmMin === Infinity || ahmMin >= ahmMax) ahmMin = 0;
+          alignHeatmapChart.setOption({
+            title: { text: 'Alignment (\u00b0) by ' + xLabel2 + ' vs ' + yLabel2, left: 'center', top: 0, textStyle: { fontSize: 14 } },
+            tooltip: {
+              formatter: function (p) {
+                return xLabel2 + ': ' + xVals2[p.value[0]] + '<br/>' +
+                  yLabel2 + ': ' + yVals2[p.value[1]] + '<br/>' +
+                  'Alignment: ' + p.value[2].toFixed(1) + '\u00b0';
+              }
+            },
+            xAxis: { type: 'category', data: xVals2.map(String), name: xLabel2, axisLabel: { fontSize: 10 } },
+            yAxis: { type: 'category', data: yVals2.map(String), name: yLabel2, axisLabel: { fontSize: 10 } },
+            visualMap: {
+              min: ahmMin, max: ahmMax || 1, calculable: true, orient: 'horizontal', left: 'center', bottom: 0,
+              inRange: { color: ['#00441b', '#238b45', '#74c476', '#fee090', '#fdae61', '#f46d43', '#d73027'] }
+            },
+            series: [{ type: 'heatmap', data: ahmData, emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.5)' } } }],
+            grid: { bottom: 80, top: 60 },
+            backgroundColor: chartBg
+          }, true);
+          document.getElementById('alignment-heatmap').style.display = '';
+        } else {
+          document.getElementById('tracks-heatmap').style.display = 'none';
+          document.getElementById('alignment-heatmap').style.display = 'none';
+        }
+      } else {
+        document.getElementById('tracks-heatmap').style.display = 'none';
+        document.getElementById('alignment-heatmap').style.display = 'none';
+      }
     }
 
     function renderTable(results) {
@@ -1853,6 +1951,8 @@
       if (paramHeatmapChart) paramHeatmapChart.resize();
       if (alignChart) alignChart.resize();
       if (tracksChart) tracksChart.resize();
+      if (tracksHeatmapChart) tracksHeatmapChart.resize();
+      if (alignHeatmapChart) alignHeatmapChart.resize();
     });
 
     // ---- Current params display ----
@@ -1937,6 +2037,8 @@
       paramHeatmapChart.resize();
       alignChart.resize();
       tracksChart.resize();
+      tracksHeatmapChart.resize();
+      alignHeatmapChart.resize();
     }, 100);
 
     // Check for existing sweep on page load
