@@ -20,6 +20,8 @@ Runtime operations and debugging.
 - **Data source switching** between live UDP and PCAP replay
 - **PCAP analysis mode** for background characterisation
 - **Performance regression testing** for pipeline benchmarking
+- **Auto-tuning** parameter sweep and iterative grid narrowing
+- **Settling time optimization** for efficient parameter sweeps
 - **Tracking status** and known issues
 
 ### `reference/`
@@ -78,14 +80,14 @@ Tracking pipeline refactor and upgrade proposals.
 | Topic                   | Document                                                                                         |
 | ----------------------- | ------------------------------------------------------------------------------------------------ |
 | System overview         | [architecture/lidar_sidecar_overview.md](architecture/lidar_sidecar_overview.md)                 |
-| Tracking implementation | [architecture/foreground_tracking_plan.md](architecture/foreground_tracking_plan.md)             |
+| Tracking implementation | [architecture/foreground_tracking.md](architecture/foreground_tracking.md)                       |
 | Current status          | [operations/lidar-foreground-tracking-status.md](operations/lidar-foreground-tracking-status.md) |
 | ML pipeline             | [roadmap/ml_pipeline_roadmap.md](roadmap/ml_pipeline_roadmap.md)                                 |
 | Packet format           | [reference/packet_analysis_results.md](reference/packet_analysis_results.md)                     |
 | **macOS Visualiser**    | [visualiser/01-problem-and-user-workflows.md](visualiser/01-problem-and-user-workflows.md)       |
 | **API Contracts**       | [visualiser/02-api-contracts.md](visualiser/02-api-contracts.md)                                 |
 | **Tracking Upgrades**   | [refactor/01-tracking-upgrades.md](refactor/01-tracking-upgrades.md)                             |
-| **Auto-Tuning Plan**    | [future/auto-tuning-plan.md](future/auto-tuning-plan.md)                                         |
+| **Auto-Tuning Plan**    | [operations/auto-tuning.md](operations/auto-tuning.md)                                           |
 | **Track Labelling**     | [future/track-labeling-auto-aware-tuning.md](future/track-labeling-auto-aware-tuning.md)         |
 
 ## Implementation Status
@@ -181,7 +183,7 @@ Tracking pipeline refactor and upgrade proposals.
 
 - Settling evaluation tool
 - Adaptive convergence-based settling
-- See: [`future/settling-time-optimisation.md`](future/settling-time-optimisation.md)
+- See: [`operations/settling-time-optimization.md`](operations/settling-time-optimization.md)
 
 #### P3: Velocity-Coherent Clustering (Design Only)
 

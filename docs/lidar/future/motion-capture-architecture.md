@@ -18,7 +18,7 @@
 > - Identity transform (sensor frame = world frame)
 > - Heading derived from velocity direction: `θ = atan2(vy, vx)`
 >
-> See `../architecture/foreground_tracking_plan.md` for the implemented tracking architecture.
+> See `../architecture/foreground_tracking.md` for the implemented tracking architecture.
 
 ---
 
@@ -26,7 +26,7 @@
 
 This document specifies the complete architecture for **motion capture scenarios** where the LIDAR sensor itself is moving (vehicle-mounted, bike-mounted, robot, drone). This is **future work** and is not included in the current release, which focuses only on static roadside sensors.
 
-**Current Release:** 3DOF tracking for static roadside sensors (see `../architecture/foreground_tracking_plan.md`)
+**Current Release:** 3DOF tracking for static roadside sensors (see `../architecture/foreground_tracking.md`)
 **Future Release:** Full motion capture support (this document)
 
 **Key Capabilities Enabled:**
@@ -884,10 +884,10 @@ This architecture specification provides a complete roadmap for adding motion ca
 
 ## Related Documents
 
-- **Current Implementation:** `../architecture/foreground_tracking_plan.md` (3DOF/2D+velocity tracking - what's actually deployed)
+- **Current Implementation:** `../architecture/foreground_tracking.md` (3DOF/2D+velocity tracking - what's actually deployed)
 - **Deferred - Static Pose:** `static-pose-alignment-plan.md` (future static sensor calibration)
 - **Deferred - AV Integration:** `av-lidar-integration-plan.md` (AV dataset integration, not current traffic monitoring)
 - **Database Schema:** `../reference/schema.sql` (current and future tables)
 - **ML Pipeline:** `../roadmap/ml_pipeline_roadmap.md` (classification pipeline)
 
-> **Reminder:** This document describes **future work for motion capture**. For current traffic monitoring implementation, see `../architecture/foreground_tracking_plan.md`.
+> **Reminder:** This document describes **future work for motion capture**. For current traffic monitoring implementation, see `../architecture/foreground_tracking.md`.

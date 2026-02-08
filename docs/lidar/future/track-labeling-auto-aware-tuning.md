@@ -6,7 +6,7 @@
 
 **Related documents:**
 
-- Auto-tuning (Phases 1–2 implemented): [`auto-tuning-plan.md`](auto-tuning-plan.md)
+- Auto-tuning (Phases 1–2 implemented): [`../operations/auto-tuning.md`](../operations/auto-tuning.md)
 - ML pipeline roadmap: [`../roadmap/ml_pipeline_roadmap.md`](../roadmap/ml_pipeline_roadmap.md)
 - Tracking upgrades (6/9 implemented): [`../refactor/01-tracking-upgrades.md`](../refactor/01-tracking-upgrades.md)
 

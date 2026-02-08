@@ -946,7 +946,7 @@ sudo systemctl start velocity-report
 ## Related Documents
 
 - **Future Architecture:** `motion-capture-architecture.md` (complete future spec)
-- **Current Tracking:** `../architecture/foreground_tracking_plan.md` (existing implementation)
+- **Current Tracking:** `../architecture/foreground_tracking.md` (existing implementation)
 - **Schema:** `../reference/schema.sql` (database structure)
 
 ---
