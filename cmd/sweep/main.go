@@ -220,7 +220,7 @@ func main() {
 					NoiseRelative:              noise,
 					ClosenessMultiplier:        closeness,
 					NeighbourConfirmationCount: neighbour,
-					SeedFromFirstFrame:         seed,
+					SeedFromFirst:              seed,
 				}
 				if err := client.SetParams(params); err != nil {
 					log.Printf("ERROR: Failed to set params: %v", err)

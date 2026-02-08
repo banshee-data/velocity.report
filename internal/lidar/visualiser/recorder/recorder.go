@@ -431,6 +431,19 @@ func (r *Replayer) loadChunk(chunkIdx int) error {
 	}
 
 	chunkPath := filepath.Join(r.basePath, "frames", fmt.Sprintf("chunk_%04d.pb", chunkIdx))
+
+	// Validate file size before reading to prevent excessive memory allocation.
+	info, err := os.Stat(chunkPath)
+	if err != nil {
+		return fmt.Errorf("failed to stat chunk: %w", err)
+	}
+
+	// Limit chunk size to 100MB to prevent DoS via malicious chunk files.
+	const maxChunkSize = 100 * 1024 * 1024
+	if info.Size() > maxChunkSize {
+		return fmt.Errorf("chunk file too large: %d bytes (max %d)", info.Size(), maxChunkSize)
+	}
+
 	data, err := os.ReadFile(chunkPath)
 	if err != nil {
 		return fmt.Errorf("failed to read chunk: %w", err)
