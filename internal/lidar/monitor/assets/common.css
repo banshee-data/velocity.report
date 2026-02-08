@@ -1,0 +1,245 @@
+/* common.css — Shared styles for all LiDAR debug dashboards.
+ * Provides CSS custom properties, base typography, card/panel styling,
+ * form controls, and dark mode support via prefers-color-scheme.
+ *
+ * Usage: <link rel="stylesheet" href="/assets/common.css">
+ * Keep page-specific styles inline in each dashboard HTML file.
+ */
+
+:root {
+  --bg: #f5f7fb;
+  --fg: #0f172a;
+  --fg-muted: #475569;
+  --fg-faint: #64748b;
+  --card-bg: #fff;
+  --card-border: #e2e8f0;
+  --card-shadow: rgba(15, 23, 42, 0.06);
+  --card-header-bg: #f8fafc;
+  --input-bg: #fff;
+  --input-border: #cbd5e1;
+  --input-fg: #0f172a;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --danger: #ef4444;
+  --success-bg: #dcfce7;
+  --success-fg: #166534;
+  --info-bg: #dbeafe;
+  --info-fg: #1e40af;
+  --error-bg: #fef2f2;
+  --error-border: #fecaca;
+  --error-fg: #b91c1c;
+  --badge-idle-bg: #f1f5f9;
+  --badge-idle-fg: #475569;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: "SF Mono", SFMono-Regular, Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f172a;
+    --fg: #f1f5f9;
+    --fg-muted: #94a3b8;
+    --fg-faint: #64748b;
+    --card-bg: #1e293b;
+    --card-border: #334155;
+    --card-shadow: rgba(0, 0, 0, 0.3);
+    --card-header-bg: #334155;
+    --input-bg: #1e293b;
+    --input-border: #475569;
+    --input-fg: #f1f5f9;
+    --accent: #60a5fa;
+    --accent-hover: #3b82f6;
+    --danger: #f87171;
+    --success-bg: #064e3b;
+    --success-fg: #6ee7b7;
+    --info-bg: #1e3a5f;
+    --info-fg: #93c5fd;
+    --error-bg: #450a0a;
+    --error-border: #7f1d1d;
+    --error-fg: #fca5a5;
+    --badge-idle-bg: #334155;
+    --badge-idle-fg: #94a3b8;
+  }
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font);
+  margin: 12px auto;
+  max-width: 1800px;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+h1 {
+  margin: 0 0 6px 0;
+}
+
+h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+p.sub {
+  margin: 0 0 16px 0;
+  color: var(--fg-muted);
+}
+
+a {
+  color: var(--accent);
+}
+
+/* Card / Panel */
+.card {
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  box-shadow: 0 4px 12px var(--card-shadow);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.card h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+/* Form elements */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  color: var(--fg-muted);
+}
+
+label span {
+  margin-bottom: 3px;
+  font-weight: 500;
+}
+
+input, select {
+  padding: 6px 8px;
+  border: 1px solid var(--input-border);
+  border-radius: 5px;
+  font-size: 13px;
+  background: var(--input-bg);
+  color: var(--input-fg);
+}
+
+/* Buttons */
+.btn {
+  padding: 8px 18px;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.btn-group {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+th, td {
+  padding: 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--card-border);
+}
+
+th {
+  color: var(--fg-muted);
+  font-weight: 600;
+}
+
+/* Monospace */
+.mono {
+  font-family: var(--mono);
+}
+
+/* Status badges */
+.status-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-running {
+  background: var(--success-bg);
+  color: var(--success-fg);
+}
+
+.status-complete {
+  background: var(--info-bg);
+  color: var(--info-fg);
+}
+
+.status-error {
+  background: var(--error-bg);
+  color: var(--error-fg);
+}
+
+.status-idle {
+  background: var(--badge-idle-bg);
+  color: var(--badge-idle-fg);
+}
+
+/* Error box */
+.error-box {
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
+  border-radius: 6px;
+  padding: 10px;
+  color: var(--error-fg);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+/* Field descriptions */
+.field-desc {
+  display: block;
+  font-size: 11px;
+  color: var(--fg-faint);
+  margin-top: 2px;
+  line-height: 1.3;
+}

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -53,6 +54,8 @@ type Server struct {
 	// PCAP progress tracking (updated by WebServer progress callback)
 	pcapCurrentPacket uint64
 	pcapTotalPackets  uint64
+	pcapStartNs       int64
+	pcapEndNs         int64
 
 	// Per-client overlay preferences (protected by preferenceMu)
 	clientPreferences map[string]*overlayPreferences
@@ -84,6 +87,8 @@ func (s *Server) SetReplayMode(enabled bool) {
 	if !enabled {
 		s.pcapCurrentPacket = 0
 		s.pcapTotalPackets = 0
+		s.pcapStartNs = 0
+		s.pcapEndNs = 0
 	}
 }
 
@@ -93,6 +98,14 @@ func (s *Server) SetPCAPProgress(currentPacket, totalPackets uint64) {
 	defer s.playbackMu.Unlock()
 	s.pcapCurrentPacket = currentPacket
 	s.pcapTotalPackets = totalPackets
+}
+
+// SetPCAPTimestamps stores the first and last capture timestamps from pre-counting.
+func (s *Server) SetPCAPTimestamps(startNs, endNs int64) {
+	s.playbackMu.Lock()
+	defer s.playbackMu.Unlock()
+	s.pcapStartNs = startNs
+	s.pcapEndNs = endNs
 }
 
 // SyntheticGenerator returns the synthetic generator (if enabled).
@@ -214,7 +227,7 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 	s.publisher.clientsMu.Unlock()
 	s.publisher.clientCount.Add(1)
 
-	log.Printf("[gRPC] Client %s subscribed: points=%v clusters=%v tracks=%v",
+	lidar.Debugf("[gRPC] Client %s subscribed: points=%v clusters=%v tracks=%v",
 		clientID, req.IncludePoints, req.IncludeClusters, req.IncludeTracks)
 
 	defer func() {
@@ -241,7 +254,7 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("[gRPC] Client %s disconnected: frames_sent=%d dropped=%d slow_sends=%d avg_send_time_ms=%.2f",
+			lidar.Debugf("[gRPC] Client %s disconnected: frames_sent=%d dropped=%d slow_sends=%d avg_send_time_ms=%.2f",
 				clientID, framesSent, droppedFrames, slowSends, float64(totalSendTimeNs)/float64(max(framesSent, 1))/1e6)
 			return ctx.Err()
 		case frame := <-frameCh:
@@ -275,7 +288,7 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				}
 			}
 			if skipped > 0 {
-				log.Printf("[gRPC] Client %s: skipped %d frames to catch up (skip_mode=%v)",
+				lidar.Debugf("[gRPC] Client %s: skipped %d frames to catch up (skip_mode=%v)",
 					clientID, skipped, cooldown.inSkipMode())
 			}
 
@@ -294,10 +307,13 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				s.playbackMu.RLock()
 				frame.PlaybackInfo = &PlaybackInfo{
 					IsLive:            false,
+					LogStartNs:        s.pcapStartNs,
+					LogEndNs:          s.pcapEndNs,
 					PlaybackRate:      s.playbackRate,
 					Paused:            s.paused,
 					CurrentFrameIndex: s.pcapCurrentPacket,
 					TotalFrames:       s.pcapTotalPackets,
+					Seekable:          false,
 				}
 				s.playbackMu.RUnlock()
 			}
@@ -354,7 +370,7 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				queueDepth := len(frameCh)
 				bandwidthMbps := float64(totalBytesSent) * 8 / time.Since(lastLogTime).Seconds() / 1e6
 				avgMsgSizeKB := float64(totalBytesSent) / float64(max(framesSent, 1)) / 1024
-				log.Printf("[gRPC] Client %s stats: fps=%.1f frames=%d dropped=%d queue=%d/10 avg_send_ms=%.2f slow_sends=%d bandwidth_mbps=%.1f avg_msg_kb=%.1f",
+				lidar.Debugf("[gRPC] Client %s stats: fps=%.1f frames=%d dropped=%d queue=%d/10 avg_send_ms=%.2f slow_sends=%d bandwidth_mbps=%.1f avg_msg_kb=%.1f",
 					clientID, fps, framesSent, droppedFrames, queueDepth, avgSendMs, slowSends, bandwidthMbps, avgMsgSizeKB)
 
 				// Check for queue backup
@@ -507,6 +523,7 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 			Paused:            frame.PlaybackInfo.Paused,
 			CurrentFrameIndex: frame.PlaybackInfo.CurrentFrameIndex,
 			TotalFrames:       frame.PlaybackInfo.TotalFrames,
+			Seekable:          frame.PlaybackInfo.Seekable,
 		}
 	}
 

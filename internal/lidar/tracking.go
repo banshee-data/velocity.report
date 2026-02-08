@@ -206,6 +206,18 @@ type DebugCollector interface {
 	RecordPrediction(trackID string, x, y, vx, vy float32)
 }
 
+// Reset clears all tracks and resets the tracker to its initial state.
+// This is used between sweep permutations to ensure each combination
+// starts with a clean tracker (no residual Kalman filter state).
+func (t *Tracker) Reset() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.Tracks = make(map[string]*TrackedObject)
+	t.NextTrackID = 1
+	t.LastUpdateNanos = 0
+	t.lastAssociations = nil
+}
+
 // NewTracker creates a new tracker with the specified configuration.
 func NewTracker(config TrackerConfig) *Tracker {
 	return &Tracker{

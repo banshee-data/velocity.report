@@ -372,10 +372,11 @@ backfill_ring_elevations --db sensor_data.db
 - `build-web` - Build Svelte web frontend
 - `build-docs` - Build documentation site
 
-**Development Targets (7):**
+**Development Targets (8):**
 
 - `dev-go` - Run Go server (radar disabled)
-- `dev-go-lidar` - Run Go server with lidar enabled
+- `dev-go-lidar` - Run Go server with lidar enabled (gRPC mode)
+- `dev-go-lidar-both` - Run Go server with lidar (both gRPC and 2370 forward)
 - `dev-go-kill-server` - Kill running dev server
 - `dev-web` - Run web dev server
 - `dev-docs` - Run docs dev server

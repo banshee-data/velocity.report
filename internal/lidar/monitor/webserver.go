@@ -56,6 +56,9 @@ var dashboardHTML string
 //go:embed html/regions_dashboard.html
 var regionsDashboardHTML string
 
+//go:embed html/sweep_dashboard.html
+var sweepDashboardHTML string
+
 const echartsAssetsPrefix = "/assets/"
 
 // DataSource, DataSourceLive, DataSourcePCAP, DataSourcePCAPAnalysis
@@ -135,9 +138,13 @@ type WebServer struct {
 	dataSourceManager DataSourceManager
 
 	// PCAP lifecycle callbacks for notifying external components (e.g. visualiser gRPC server)
-	onPCAPStarted  func()
-	onPCAPStopped  func()
-	onPCAPProgress func(currentPacket, totalPackets uint64)
+	onPCAPStarted    func()
+	onPCAPStopped    func()
+	onPCAPProgress   func(currentPacket, totalPackets uint64)
+	onPCAPTimestamps func(startNs, endNs int64)
+
+	// Sweep runner for web-triggered parameter sweeps
+	sweepRunner SweepRunner
 }
 
 // WebServerConfig contains configuration options for the web server
@@ -174,6 +181,10 @@ type WebServerConfig struct {
 	// OnPCAPProgress is called periodically during PCAP replay with the
 	// current and total packet counts, enabling progress/seek in the UI.
 	OnPCAPProgress func(currentPacket, totalPackets uint64)
+
+	// OnPCAPTimestamps is called after PCAP pre-counting with the first and
+	// last capture timestamps, enabling timeline display in the UI.
+	OnPCAPTimestamps func(startNs, endNs int64)
 }
 
 // NewWebServer creates a new web server with the provided configuration
@@ -219,6 +230,7 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		onPCAPStarted:     config.OnPCAPStarted,
 		onPCAPStopped:     config.OnPCAPStopped,
 		onPCAPProgress:    config.OnPCAPProgress,
+		onPCAPTimestamps:  config.OnPCAPTimestamps,
 	}
 
 	// Initialize DataSourceManager - use provided one or create RealDataSourceManager
@@ -263,6 +275,11 @@ func (ws *WebServer) SetTracker(tracker *lidar.Tracker) {
 	if ws.trackAPI != nil {
 		ws.trackAPI.SetTracker(tracker)
 	}
+}
+
+// SetSweepRunner sets the sweep runner for web-triggered parameter sweeps.
+func (ws *WebServer) SetSweepRunner(runner SweepRunner) {
+	ws.sweepRunner = runner
 }
 
 // updateLatestFgCounts refreshes cached foreground counts for the status UI.
@@ -605,16 +622,19 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 			log.Printf("PacketForwarder started for PCAP replay")
 		}
 
-		// Pre-count packets for progress tracking and seek support.
-		totalPkts, countErr := network.CountPCAPPackets(path, ws.udpPort)
+		// Pre-count packets for progress tracking and timeline display.
+		countResult, countErr := network.CountPCAPPackets(path, ws.udpPort)
 		if countErr != nil {
 			log.Printf("Warning: failed to pre-count PCAP packets: %v (progress disabled)", countErr)
 		} else {
 			ws.pcapMu.Lock()
-			ws.pcapTotalPackets = totalPkts
+			ws.pcapTotalPackets = countResult.Count
 			ws.pcapCurrentPacket = 0
 			ws.pcapMu.Unlock()
-			log.Printf("PCAP pre-count: %d packets", totalPkts)
+			log.Printf("PCAP pre-count: %d packets", countResult.Count)
+			if ws.onPCAPTimestamps != nil {
+				ws.onPCAPTimestamps(countResult.FirstTimestampNs, countResult.LastTimestampNs)
+			}
 		}
 
 		// Progress callback: update internal state and notify external listeners
@@ -630,7 +650,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 
 		var err error
 		if speedMode == "fastest" {
-			err = network.ReadPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, ws.packetForwarder, startSeconds, durationSeconds, 0, totalPkts, onProgress)
+			err = network.ReadPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, ws.packetForwarder, startSeconds, durationSeconds, 0, countResult.Count, onProgress)
 		} else {
 			// Apply PCAP-friendly background params and restore afterward.
 			var restoreParams func()
@@ -711,7 +731,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 				DebugAzMin:      debugAzMin,
 				DebugAzMax:      debugAzMax,
 				OnFrameCallback: onFrameCallback,
-				TotalPackets:    totalPkts,
+				TotalPackets:    countResult.Count,
 				OnProgress:      onProgress,
 			}
 
@@ -914,7 +934,11 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/traffic", ws.handleTrafficStats)
 	mux.HandleFunc("/api/lidar/acceptance", ws.handleAcceptanceMetrics)
 	mux.HandleFunc("/api/lidar/acceptance/reset", ws.handleAcceptanceReset)
-	mux.HandleFunc("/api/lidar/params", ws.handleBackgroundParams)
+	mux.HandleFunc("/api/lidar/params", ws.handleTuningParams)
+	mux.HandleFunc("/api/lidar/sweep/start", ws.handleSweepStart)
+	mux.HandleFunc("/api/lidar/sweep/status", ws.handleSweepStatus)
+	mux.HandleFunc("/api/lidar/sweep/stop", ws.handleSweepStop)
+	mux.HandleFunc("/debug/lidar/sweep", ws.handleSweepDashboard)
 	mux.HandleFunc("/api/lidar/grid_status", ws.handleGridStatus)
 	mux.HandleFunc("/api/lidar/grid_reset", ws.handleGridReset)
 	mux.HandleFunc("/api/lidar/grid_heatmap", ws.handleGridHeatmap)
@@ -965,17 +989,19 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 	return mux
 }
 
-// handleBackgroundParams is the unified LIDAR configuration endpoint for both
-// background subtraction parameters and tracker configuration.
+// handleTuningParams is the unified LIDAR configuration endpoint for all
+// tuning parameters including background subtraction, frame builder, and tracker configuration.
 //
 // Query params: sensor_id (required)
 //
 // GET: Returns all configuration parameters including:
 //   - Background params: noise_relative, closeness_multiplier, neighbor_confirmation_count, etc.
+//   - Frame builder params: buffer_timeout, min_frame_points
+//   - Flush params: flush_interval, flush_disable
 //   - Tracker params (if tracker available): gating_distance_squared, process_noise_pos, etc.
 //
 // POST: Accepts partial JSON updates. All fields are optional; only non-nil fields are applied.
-func (ws *WebServer) handleBackgroundParams(w http.ResponseWriter, r *http.Request) {
+func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) {
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
@@ -1311,6 +1337,11 @@ func (ws *WebServer) handleGridReset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Reset tracker to clear Kalman filter state between sweep permutations
+	if ws.tracker != nil {
+		ws.tracker.Reset()
+	}
+
 	afterNanos := time.Now().UnixNano()
 	elapsedMs := float64(afterNanos-beforeNanos) / 1e6
 
@@ -1511,6 +1542,23 @@ func (ws *WebServer) handleLidarDebugDashboard(w http.ResponseWriter, r *http.Re
 	safeQs := html.EscapeString(qs)
 
 	doc := fmt.Sprintf(dashboardHTML, safeSensorID, safeQs)
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write([]byte(doc))
+}
+
+// handleSweepDashboard renders the parameter sweep dashboard with ECharts visualisations.
+func (ws *WebServer) handleSweepDashboard(w http.ResponseWriter, r *http.Request) {
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = ws.sensorID
+	}
+	// Use JSEscapeString because the value is interpolated into a JS string
+	// literal in sweep_dashboard.html — html.EscapeString doesn't escape
+	// single quotes which could allow script injection.
+	safeSensorID := template.JSEscapeString(sensorID)
+
+	doc := fmt.Sprintf(sweepDashboardHTML, safeSensorID)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(doc))

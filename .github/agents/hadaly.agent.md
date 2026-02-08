@@ -53,10 +53,11 @@ make test      # Run all test suites
 **Development Servers:**
 
 ```bash
-make dev-go          # Go server (radar disabled, port 8080)
-make dev-go-lidar    # Go server with LIDAR enabled
-make dev-web         # Svelte dev server (port 5173)
-make dev-docs        # Docs dev server
+make dev-go               # Go server (radar disabled, port 8080)
+make dev-go-lidar         # Go server with LIDAR enabled (gRPC mode)
+make dev-go-lidar-both    # Go server with LIDAR (both gRPC and 2370 forward)
+make dev-web              # Svelte dev server (port 5173)
+make dev-docs             # Docs dev server
 ```
 
 ## Code Quality Standards

@@ -41,6 +41,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     @Published var replayFinished: Bool = false  // True when replay stream reached EOF
     @Published var currentFrameIndex: UInt64 = 0  // 0-based index in log (for stepping)
     @Published var totalFrames: UInt64 = 0
+    @Published var isSeekable: Bool = false  // True when seek/step is supported (e.g. .vrlog replay)
 
     // MARK: - Overlay Toggles
 
@@ -210,7 +211,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     }
 
     func stepForward() {
-        guard !isLive else { return }
+        guard !isLive, isSeekable else { return }
         guard currentFrameIndex + 1 < totalFrames else { return }  // Don't step past end
 
         Task {
@@ -221,7 +222,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     }
 
     func stepBackward() {
-        guard !isLive, currentFrameIndex > 0 else { return }
+        guard !isLive, isSeekable, currentFrameIndex > 0 else { return }
 
         Task {
             do { try await grpcClient?.seek(toFrame: currentFrameIndex - 1) } catch {
@@ -280,7 +281,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     }
 
     func seek(to progress: Double) {
-        guard !isLive else { return }
+        guard !isLive, isSeekable else { return }
 
         let targetTimestamp =
             logStartTimestamp + Int64(Double(logEndTimestamp - logStartTimestamp) * progress)
@@ -428,6 +429,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
             playbackRate = playbackInfo.playbackRate
             currentFrameIndex = playbackInfo.currentFrameIndex
             totalFrames = playbackInfo.totalFrames
+            isSeekable = playbackInfo.seekable
             // Note: isPaused is NOT updated from frame to allow optimistic UI updates.
             // The server confirms pause state via the RPC response.
 

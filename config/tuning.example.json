@@ -1,0 +1,10 @@
+{
+  "noise_relative": 0.06,
+  "closeness_multiplier": 2.5,
+  "neighbor_confirmation_count": 2,
+  "seed_from_first": false,
+  "buffer_timeout": "250ms",
+  "min_frame_points": 500,
+  "flush_interval": "120s",
+  "background_flush": false
+}

@@ -39,8 +39,8 @@ help:
 	@echo ""
 	@echo "DEVELOPMENT SERVERS:"
 	@echo "  dev-go               Start Go server (radar disabled)"
-	@echo "  dev-go-lidar         Start Go server with LiDAR enabled (both modes)"
-	@echo "  dev-go-lidar-grpc    Start Go server with gRPC-only mode"
+	@echo "  dev-go-lidar         Start Go server with LiDAR enabled (gRPC mode)"
+	@echo "  dev-go-lidar-both    Start Go server with LiDAR (both gRPC and 2370 forward)"
 	@echo "  dev-go-kill-server   Stop background Go server"
 	@echo "  dev-web              Start web dev server"
 	@echo "  dev-docs             Start docs dev server"
@@ -142,7 +142,7 @@ help:
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-VERSION := 0.5.0-pre1
+VERSION := 0.5.0-pre2
 GIT_SHA := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -X 'github.com/banshee-data/velocity.report/internal/version.Version=$(VERSION)' -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=$(GIT_SHA)' -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=$(BUILD_TIME)'
@@ -459,7 +459,7 @@ ensure-python-tools:
 # DEVELOPMENT SERVERS
 # =============================================================================
 
-.PHONY: dev-go dev-go-lidar dev-go-kill-server dev-web dev-docs dev-vis-server record-sample
+.PHONY: dev-go dev-go-lidar dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-vis-server record-sample
 
 # Reusable script for starting the app in background. Call with extra flags
 # using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we
@@ -477,10 +477,10 @@ define run_dev_go
 	echo "Building velocity-report-local..."; \
 	go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-local ./cmd/radar; \
 	mkdir -p "$$piddir"; \
+	if command -v code >/dev/null 2>&1; then code "$$logfile"; fi; \
 	echo "Starting velocity-report-local (background) with DB=$$DB_PATH -> $$logfile (debug -> $$debuglog)"; \
 	VELOCITY_DEBUG_LOG="$$debuglog" nohup ./velocity-report-local --disable-radar $(1) --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
-	echo "Started; PID $$(cat $$pidfile)"; \
-	echo "Log: $$logfile"
+	echo "Started; PID $$(cat $$pidfile)"
 endef
 
 define run_dev_go_kill_server
@@ -509,10 +509,10 @@ dev-go:
 	@$(call run_dev_go)
 
 dev-go-lidar:
-	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward --lidar-forward-mode=both --lidar-bg-flush-disable)
+	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc)
 
-dev-go-lidar-grpc:
-	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --lidar-bg-flush-disable)
+dev-go-lidar-both:
+	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward --lidar-forward-mode=both)
 
 dev-go-kill-server:
 	@$(call run_dev_go_kill_server)

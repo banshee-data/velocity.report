@@ -145,8 +145,9 @@ class CompositePointCloudRenderer {
 
         // M7: Check if we need to reallocate the buffer
         let neededVertices = count * 5  // 5 floats per vertex
-        if backgroundBuffer == nil ||
-            shouldReallocate(currentCapacity: backgroundBufferCapacity, neededCount: neededVertices)
+        if backgroundBuffer == nil
+            || shouldReallocate(
+                currentCapacity: backgroundBufferCapacity, neededCount: neededVertices)
         {
             let newCapacity = calculateCapacity(for: neededVertices)
             let bufferSize = newCapacity * MemoryLayout<Float>.stride
@@ -190,8 +191,9 @@ class CompositePointCloudRenderer {
 
         // M7: Check if we need to reallocate the buffer
         let neededVertices = count * 5  // 5 floats per vertex
-        if foregroundBuffer == nil ||
-            shouldReallocate(currentCapacity: foregroundBufferCapacity, neededCount: neededVertices)
+        if foregroundBuffer == nil
+            || shouldReallocate(
+                currentCapacity: foregroundBufferCapacity, neededCount: neededVertices)
         {
             let newCapacity = calculateCapacity(for: neededVertices)
             let bufferSize = newCapacity * MemoryLayout<Float>.stride

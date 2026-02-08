@@ -24,12 +24,6 @@ import (
 	"github.com/banshee-data/velocity.report/internal/units"
 )
 
-// ANSI escape codes for cyan and reset
-const colorCyan = "\033[36m"
-const colorReset = "\033[0m"
-const colorYellow = "\033[33m"
-const colorBoldGreen = "\033[1;32m"
-const colorBoldRed = "\033[1;31m"
 const maxUnixTime = 32503680000.0
 
 // convertEventAPISpeed applies unit conversion to the Speed field of an EventAPI
@@ -97,21 +91,11 @@ func (lrw *loggingResponseWriter) Flush() {
 }
 
 func statusCodeColor(statusCode int) string {
-	switch {
-	case statusCode >= 200 && statusCode < 300:
-		return colorBoldGreen + strconv.Itoa(statusCode) + colorReset
-	case statusCode >= 300 && statusCode < 400:
-		return colorYellow + strconv.Itoa(statusCode) + colorReset
-	case statusCode >= 400 && statusCode < 500:
-		return colorBoldRed + strconv.Itoa(statusCode) + colorReset
-	case statusCode >= 500:
-		return colorBoldRed + strconv.Itoa(statusCode) + colorReset
-	default:
-		return strconv.Itoa(statusCode)
-	}
+	// Return plain status code without color codes
+	return strconv.Itoa(statusCode)
 }
 
-// LoggingMiddleware logs method, path, query, status, and duration
+// LoggingMiddleware logs method, path, query, status, and duration to debug log
 func LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -133,9 +117,9 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		}
 		requestTarget := fmt.Sprintf("%s%s", portPrefix, r.RequestURI)
 		log.Printf(
-			"[%s] %s %s%s%s %vms",
+			"[%s] %s %s %.3fms",
 			statusCodeColor(lrw.statusCode), r.Method,
-			colorCyan, requestTarget, colorReset,
+			requestTarget,
 			float64(time.Since(start).Nanoseconds())/1e6,
 		)
 	})

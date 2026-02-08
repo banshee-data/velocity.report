@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/pb"
 	"google.golang.org/grpc"
 )
@@ -122,7 +123,7 @@ func (p *Publisher) shouldSendBackground() bool {
 
 	currentSeq := p.backgroundMgr.GetBackgroundSequenceNumber()
 	if currentSeq != p.lastBackgroundSeq && p.lastBackgroundSeq > 0 {
-		log.Printf("[Visualiser] Background sequence changed (%d → %d), sending refresh", p.lastBackgroundSeq, currentSeq)
+		lidar.Debugf("[Visualiser] Background sequence changed (%d → %d), sending refresh", p.lastBackgroundSeq, currentSeq)
 		return true // Grid was reset
 	}
 
@@ -133,7 +134,7 @@ func (p *Publisher) shouldSendBackground() bool {
 
 	elapsed := time.Since(p.lastBackgroundSent)
 	if elapsed >= p.config.BackgroundInterval {
-		log.Printf("[Visualiser] Background interval elapsed (%.1fs), sending refresh", elapsed.Seconds())
+		lidar.Debugf("[Visualiser] Background interval elapsed (%.1fs), sending refresh", elapsed.Seconds())
 		return true // Periodic refresh
 	}
 
@@ -177,7 +178,7 @@ func (p *Publisher) sendBackgroundSnapshot() error {
 		p.lastBackgroundSeq = snapshot.SequenceNumber
 		p.lastBackgroundSent = time.Now()
 		pointCount := len(snapshot.X)
-		log.Printf("[Visualiser] Background snapshot sent: %d points, seq=%d", pointCount, snapshot.SequenceNumber)
+		lidar.Debugf("[Visualiser] Background snapshot sent: %d points, seq=%d", pointCount, snapshot.SequenceNumber)
 	default:
 		return fmt.Errorf("frame channel full, background snapshot dropped")
 	}
@@ -337,7 +338,7 @@ func (p *Publisher) logPeriodicStats(frameCount uint64, pointCount, trackCount, 
 		fps := float64(framesInInterval) / elapsed.Seconds()
 		dropped := p.droppedFrames.Load()
 		clients := p.clientCount.Load()
-		log.Printf("[Visualiser] Stats: fps=%.1f frames=%d dropped=%d clients=%d queue=%d/100 last_frame: points=%d tracks=%d clusters=%d",
+		lidar.Debugf("[Visualiser] Stats: fps=%.1f frames=%d dropped=%d clients=%d queue=%d/100 last_frame: points=%d tracks=%d clusters=%d",
 			fps, framesInInterval, dropped, clients, queueDepth, pointCount, trackCount, clusterCount)
 		p.lastStatsTime = now
 		p.lastFrameCount = frameCount

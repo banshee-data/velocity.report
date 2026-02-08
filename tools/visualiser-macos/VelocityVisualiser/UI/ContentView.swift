@@ -39,9 +39,11 @@ struct ContentView: View {
                 appState.togglePlayPause()
                 return .handled
             }.onKeyPress(",") {
+                guard appState.isSeekable else { return .ignored }
                 appState.stepBackward()
                 return .handled
             }.onKeyPress(".") {
+                guard appState.isSeekable else { return .ignored }
                 appState.stepForward()
                 return .handled
             }.onKeyPress("[") {
@@ -243,6 +245,17 @@ private func formatRate(_ rate: Float) -> String {
     }
 }
 
+/// Format nanosecond duration as MM:SS or HH:MM:SS.
+private func formatDuration(_ nanos: Int64) -> String {
+    let totalSeconds = abs(nanos) / 1_000_000_000
+    let hours = totalSeconds / 3600
+    let minutes = (totalSeconds % 3600) / 60
+    let seconds = totalSeconds % 60
+    let prefix = nanos < 0 ? "-" : ""
+    if hours > 0 { return String(format: "%@%d:%02d:%02d", prefix, hours, minutes, seconds) }
+    return String(format: "%@%d:%02d", prefix, minutes, seconds)
+}
+
 struct PlaybackControlsView: View {
     @EnvironmentObject var appState: AppState
 
@@ -251,6 +264,7 @@ struct PlaybackControlsView: View {
         let isLive = appState.isLive
         let isPaused = appState.isPaused
         let playbackRate = appState.playbackRate
+        let isSeekable = appState.isSeekable
 
         HStack {
             // Play/Pause (disabled in live mode)
@@ -258,19 +272,33 @@ struct PlaybackControlsView: View {
                 Image(systemName: isPaused ? "play.fill" : "pause.fill")
             }.disabled(!isConnected || isLive)
 
-            // Step buttons
-            Button(action: { appState.stepBackward() }) { Image(systemName: "backward.frame.fill") }
-                .disabled(!isConnected || isLive)
+            // Step buttons (only for seekable modes like .vrlog replay)
+            if isSeekable {
+                Button(action: { appState.stepBackward() }) {
+                    Image(systemName: "backward.frame.fill")
+                }.disabled(!isConnected || isLive)
 
-            Button(action: { appState.stepForward() }) { Image(systemName: "forward.frame.fill") }
-                .disabled(!isConnected || isLive)
+                Button(action: { appState.stepForward() }) {
+                    Image(systemName: "forward.frame.fill")
+                }.disabled(!isConnected || isLive)
+            }
 
             // Timeline (replay mode)
             if !isLive {
-                Slider(value: $appState.replayProgress, in: 0...1) { editing in
-                    appState.setSliderEditing(editing)
-                    if !editing { appState.seek(to: appState.replayProgress) }
-                }.frame(minWidth: 200)
+                if isSeekable {
+                    // Interactive seek slider for .vrlog replay
+                    Slider(value: $appState.replayProgress, in: 0...1) { editing in
+                        appState.setSliderEditing(editing)
+                        if !editing { appState.seek(to: appState.replayProgress) }
+                    }.frame(minWidth: 200)
+                } else {
+                    // Read-only progress bar for PCAP replay
+                    Slider(value: $appState.replayProgress, in: 0...1).frame(minWidth: 200)
+                        .disabled(true)
+                }
+
+                // Time display
+                TimeDisplayView()
             } else {
                 Spacer()
             }
@@ -295,6 +323,29 @@ struct PlaybackControlsView: View {
             ModeIndicatorView(isLive: isLive, isConnected: isConnected)
         }.padding(.horizontal).padding(.vertical, 8).background(
             Color(nsColor: .controlBackgroundColor))
+    }
+}
+
+/// Displays elapsed/total or remaining/total time. Click to toggle.
+struct TimeDisplayView: View {
+    @EnvironmentObject var appState: AppState
+    @State private var showRemaining: Bool = false
+
+    private var elapsed: Int64 { appState.currentTimestamp - appState.logStartTimestamp }
+
+    private var total: Int64 { appState.logEndTimestamp - appState.logStartTimestamp }
+
+    private var remaining: Int64 { appState.logEndTimestamp - appState.currentTimestamp }
+
+    var body: some View {
+        let currentText = showRemaining ? formatDuration(-remaining) : formatDuration(elapsed)
+        let totalText = formatDuration(total)
+
+        Button(action: { showRemaining.toggle() }) {
+            Text("\(currentText) / \(totalText)").font(.system(.caption, design: .monospaced))
+                .foregroundColor(.secondary)
+        }.buttonStyle(.plain).help(
+            showRemaining ? "Showing remaining time" : "Showing elapsed time")
     }
 }
 

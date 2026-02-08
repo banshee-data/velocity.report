@@ -521,7 +521,7 @@ final class LockedState<Value>: @unchecked Sendable {
                 logEndNs: proto.playbackInfo.logEndNs,
                 playbackRate: proto.playbackInfo.playbackRate, paused: proto.playbackInfo.paused,
                 currentFrameIndex: proto.playbackInfo.currentFrameIndex,
-                totalFrames: proto.playbackInfo.totalFrames)
+                totalFrames: proto.playbackInfo.totalFrames, seekable: proto.playbackInfo.seekable)
         }
 
         // Debug overlays

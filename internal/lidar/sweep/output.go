@@ -17,6 +17,11 @@ type SampleResult struct {
 	NonzeroCells     float64
 	OverallAcceptPct float64
 	Timestamp        time.Time
+
+	// Track health metrics (best-effort; zero if tracker unavailable)
+	ActiveTracks      int
+	MeanAlignmentDeg  float64
+	MisalignmentRatio float64
 }
 
 // SweepParams holds the sweep parameters for a single test run.

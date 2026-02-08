@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -18,6 +20,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/banshee-data/velocity.report/internal/api"
+	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/serialmux"
 	"github.com/banshee-data/velocity.report/internal/units"
@@ -27,6 +30,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/monitor"
 	"github.com/banshee-data/velocity.report/internal/lidar/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/parse"
+	"github.com/banshee-data/velocity.report/internal/lidar/sweep"
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser"
 	"github.com/banshee-data/velocity.report/internal/version"
 )
@@ -42,6 +46,7 @@ var (
 	dbPathFlag   = flag.String("db-path", "sensor_data.db", "path to sqlite DB file (defaults to sensor_data.db)")
 	versionFlag  = flag.Bool("version", false, "Print version information and exit")
 	versionShort = flag.Bool("v", false, "Print version information and exit (shorthand)")
+	configFile   = flag.String("config", "", "Path to JSON tuning configuration file (overrides individual tuning flags)")
 )
 
 // Lidar options (when enabling lidar via -enable-lidar)
@@ -58,17 +63,6 @@ var (
 	lidarFGFwdPort = flag.Int("lidar-foreground-forward-port", 2370, "Port to forward foreground LiDAR packets to")
 	lidarFGFwdAddr = flag.String("lidar-foreground-forward-addr", "localhost", "Address to forward foreground LiDAR packets to")
 	lidarPCAPDir   = flag.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
-	// Background tuning knobs
-	lidarBgFlushInterval = flag.Duration("lidar-bg-flush-interval", 60*time.Second, "Interval to flush background grid to database when reading PCAP")
-	lidarBgFlushDisable  = flag.Bool("lidar-bg-flush-disable", false, "Disable periodic background grid flushing to database (reduces CPU/IO during dev)")
-	lidarBgNoiseRelative = flag.Float64("lidar-bg-noise-relative", 0.04, "Background NoiseRelativeFraction: fraction of range treated as expected measurement noise (e.g., 0.04 = 4%)")
-	// FrameBuilder tuning knobs
-	lidarFrameBufferTimeout = flag.Duration("lidar-frame-buffer-timeout", 500*time.Millisecond, "FrameBuilder buffer timeout: finalize idle frames after this duration")
-	lidarMinFramePoints     = flag.Int("lidar-min-frame-points", 1000, "FrameBuilder MinFramePoints: minimum points required for a valid frame before finalizing")
-	// Seed background from first observation (useful for PCAP replay and dev runs)
-	// Default: true in this branch to re-enable the dev-friendly behavior; can be
-	// disabled via CLI when running in production if desired.
-	lidarSeedFromFirst = flag.Bool("lidar-seed-from-first", true, "Seed background cells from first observation (dev/pcap helper)")
 	// Visualiser gRPC streaming (M2)
 	lidarForwardMode = flag.String("lidar-forward-mode", "lidarview", "Forward mode: lidarview (UDP only), grpc (gRPC only), or both (UDP + gRPC)")
 	lidarGRPCListen  = flag.String("lidar-grpc-listen", "localhost:50051", "gRPC server listen address for visualiser streaming")
@@ -168,6 +162,21 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Load tuning configuration from file if specified.
+	// Deferred until after subcommand dispatch so commands like migrate/transits
+	// don't require a valid tuning config.
+	var tuningCfg *config.TuningConfig
+	if *configFile != "" {
+		var err error
+		tuningCfg, err = config.LoadTuningConfig(*configFile)
+		if err != nil {
+			log.Fatalf("Failed to load tuning config from %s: %v", *configFile, err)
+		}
+		log.Printf("Loaded tuning configuration from %s", *configFile)
+	} else {
+		tuningCfg = config.DefaultTuningConfig()
+	}
+
 	// var r radar.RadarPortInterface
 	var radarSerial serialmux.SerialMuxInterface
 
@@ -227,10 +236,18 @@ func main() {
 		// Use the main DB instance for lidar data (no separate lidar DB file)
 		lidarDB := database
 
+		// Always use tuning config (either from --config file or built-in defaults)
+		bgNoiseRelative := tuningCfg.GetNoiseRelative()
+		bgFlushInterval := tuningCfg.GetFlushInterval()
+		bgFlushEnable := tuningCfg.GetBackgroundFlush()
+		seedFromFirst := tuningCfg.GetSeedFromFirst()
+		frameBufferTimeout := tuningCfg.GetBufferTimeout()
+		minFramePoints := tuningCfg.GetMinFramePoints()
+
 		// Create BackgroundManager using BackgroundConfig for cleaner configuration
 		bgConfig := lidar.DefaultBackgroundConfig().
-			WithNoiseRelativeFraction(float32(*lidarBgNoiseRelative)).
-			WithSeedFromFirstObservation(*lidarSeedFromFirst)
+			WithNoiseRelativeFraction(float32(bgNoiseRelative)).
+			WithSeedFromFirstObservation(seedFromFirst)
 
 		backgroundManager := lidar.NewBackgroundManager(*lidarSensor, 40, 1800, bgConfig.ToBackgroundParams(), lidarDB)
 		if backgroundManager != nil {
@@ -238,12 +255,12 @@ func main() {
 		}
 
 		// Start periodic background grid flushing using BackgroundFlusher
-		// Skip if explicitly disabled (--lidar-bg-flush-disable) or interval is zero
-		if backgroundManager != nil && *lidarBgFlushInterval > 0 && !*lidarBgFlushDisable {
+		// Skip if explicitly disabled (background_flush = false) or interval is zero
+		if backgroundManager != nil && bgFlushInterval > 0 && bgFlushEnable {
 			bgFlusher = lidar.NewBackgroundFlusher(lidar.BackgroundFlusherConfig{
 				Manager:  backgroundManager,
 				Store:    lidarDB,
-				Interval: *lidarBgFlushInterval,
+				Interval: bgFlushInterval,
 				Reason:   "periodic_flush",
 			})
 			wg.Add(1)
@@ -381,9 +398,9 @@ func main() {
 				SensorID:      *lidarSensor,
 				FrameCallback: callback,
 				// Use CLI-configurable MinFramePoints and BufferTimeout so devs can tune
-				MinFramePoints:  *lidarMinFramePoints,
+				MinFramePoints:  minFramePoints,
 				FrameBufferSize: 100,
-				BufferTimeout:   *lidarFrameBufferTimeout,
+				BufferTimeout:   frameBufferTimeout,
 				CleanupInterval: 250 * time.Millisecond,
 			})
 			// Enable lightweight frame-completion logging only when --debug is set.
@@ -457,11 +474,38 @@ func main() {
 					visualiserServer.SetPCAPProgress(current, total)
 				}
 			},
+			OnPCAPTimestamps: func(startNs, endNs int64) {
+				if visualiserServer != nil {
+					visualiserServer.SetPCAPTimestamps(startNs, endNs)
+				}
+			},
 		})
 		// Wire tracker for in-memory config access via /api/lidar/params
 		if tracker != nil {
 			lidarWebServer.SetTracker(tracker)
 		}
+		// Create and wire sweep runner for web-triggered parameter sweeps
+		httpClient := &http.Client{Timeout: 30 * time.Second}
+		// Construct base URL for loopback communication
+		// Normalize wildcard hosts (0.0.0.0, ::, "") to localhost for client connectivity
+		baseURL := "http://localhost" + *lidarListen
+		if !strings.HasPrefix(*lidarListen, ":") {
+			host, port, err := net.SplitHostPort(*lidarListen)
+			if err == nil {
+				// Normalize wildcard/unspecified hosts to localhost
+				if host == "" || host == "0.0.0.0" || host == "::" {
+					baseURL = "http://localhost:" + port
+				} else {
+					baseURL = "http://" + *lidarListen
+				}
+			} else {
+				// If SplitHostPort fails, use the address as-is (backward compatibility)
+				baseURL = "http://" + *lidarListen
+			}
+		}
+		sweepClient := monitor.NewClient(httpClient, baseURL, *lidarSensor)
+		sweepRunner := sweep.NewRunner(sweepClient)
+		lidarWebServer.SetSweepRunner(sweepRunner)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

@@ -1,0 +1,1491 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>LiDAR Parameter Sweep — %[1]s</title>
+  <link rel="stylesheet" href="/assets/common.css">
+  <script src="/assets/echarts.min.js"></script>
+  <style>
+    body {
+      max-width: none;
+      padding: 0 24px;
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--fg-muted);
+      margin-bottom: 8px;
+    }
+
+    .section-border {
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+
+    .progress-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .chart-container {
+      width: 100%%;
+      height: 300px;
+    }
+
+    #charts-section {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 12px;
+    }
+
+    #charts-section>.card {
+      margin-bottom: 0;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    @media (max-width: 2400px) {
+      #charts-section {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    @media (max-width: 1600px) {
+      #charts-section {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (max-width: 1200px) {
+      #charts-section {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 900px) {
+      #charts-section {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Form grid override: max 3 columns */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    @media (max-width: 1600px) {
+      .form-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 900px) {
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Sweep params: wider single card */
+    #sweep-params-section {
+      margin-bottom: 12px;
+    }
+
+    /* Other config: narrower cards in up to 4 columns */
+    #other-config-section {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    #other-config-section>.card {
+      min-width: 0;
+      margin-bottom: 0;
+    }
+
+    /* Ultra-wide: all on one line (sweep params 2x width of others) */
+    @media (min-width: 3000px) {
+      #config-container {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      #sweep-params-section {
+        flex: 2;
+        margin-bottom: 0;
+      }
+
+      #other-config-section {
+        flex: 4;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        margin-bottom: 0;
+      }
+    }
+
+    @media (max-width: 1800px) {
+      #other-config-section {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (max-width: 1200px) {
+      #other-config-section {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 900px) {
+      #other-config-section {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Vertical field stack for config/data-source cards with aligned inputs */
+    .field-stack label {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 8px;
+      align-items: start;
+      margin-bottom: 10px;
+    }
+
+    .field-stack label:last-child {
+      margin-bottom: 0;
+    }
+
+    .field-stack label>span {
+      padding-top: 6px;
+    }
+
+    .field-stack label>select,
+    .field-stack label>input {
+      justify-self: stretch;
+    }
+
+    .field-stack label>small {
+      grid-column: 2;
+      margin-top: 4px;
+    }
+
+    /* Scenario card fills height */
+    .scenario-card {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .scenario-card>h2 {
+      flex-shrink: 0;
+    }
+
+    .scenario-card-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    #json-editor-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    #scenario-json {
+      flex: 1;
+      width: 100%%;
+      min-height: 0;
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 8px;
+      border: 1px solid var(--input-border);
+      border-radius: 5px;
+      background: var(--input-bg);
+      color: var(--input-fg);
+      margin-top: 8px;
+      resize: none;
+    }
+
+    /* Results table spans full width below charts */
+    #results-card {
+      grid-column: 1 / -1;
+    }
+
+    .param-row {
+      display: grid;
+      grid-template-columns: 200px 1fr auto;
+      gap: 8px;
+      align-items: end;
+      margin-bottom: 8px;
+    }
+
+    .param-row select,
+    .param-row input {
+      min-width: 0;
+    }
+
+    .param-row .param-name {
+      min-width: 0;
+    }
+
+    .param-row .param-fields {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .param-row .param-field {
+      flex: 1;
+      min-width: 100px;
+    }
+
+    .param-row .param-remove {
+      align-self: end;
+    }
+
+    .param-desc {
+      font-size: 11px;
+      color: var(--fg-faint);
+      margin-top: 2px;
+      line-height: 1.3;
+      grid-column: 1 / -1;
+    }
+
+    .btn-sm {
+      padding: 4px 10px;
+      font-size: 12px;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-add {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-add:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-remove {
+      background: var(--danger);
+      color: #fff;
+      padding: 6px 10px;
+    }
+
+    .btn-secondary {
+      background: var(--card-border);
+      color: var(--fg);
+    }
+
+    .btn-secondary:hover {
+      background: var(--input-border);
+    }
+
+    #current-combo {
+      font-size: 13px;
+      color: var(--fg-faint);
+    }
+
+    .pcap-fields {
+      margin-top: 10px;
+    }
+
+    .scenario-bar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    #sweep-summary {
+      font-size: 12px;
+      color: var(--fg-muted);
+      padding: 8px 12px;
+      margin-top: 8px;
+      border: 1px solid var(--card-border);
+      border-radius: 4px;
+      background: var(--input-bg);
+      line-height: 1.6;
+    }
+
+    #current-params-display {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 10px;
+      border: 1px solid var(--input-border);
+      border-radius: 5px;
+      background: var(--input-bg);
+      color: var(--fg-faint);
+      max-height: 500px;
+      overflow-y: auto;
+      line-height: 1.6;
+      margin-top: 8px;
+    }
+
+    .param-line {
+      display: block;
+    }
+
+    .param-line.swept {
+      background: rgba(255, 204, 0, 0.15);
+      color: var(--fg);
+      font-weight: 500;
+      padding: 2px 4px;
+      margin: 1px -4px;
+      border-radius: 3px;
+    }
+
+    .current-params-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .refresh-params-btn {
+      padding: 2px 8px;
+      font-size: 11px;
+      background: var(--card-border);
+      color: var(--fg);
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    .refresh-params-btn:hover {
+      background: var(--input-border);
+    }
+  </style>
+</head>
+
+<body>
+  <h1>LiDAR Parameter Sweep</h1>
+  <p class="sub">Sweep tuning parameters and visualise results to identify optimal tuning. Sensor: %[1]s</p>
+
+  <div id="error-box" class="error-box" style="display:none"></div>
+
+  <!-- Config Sections Container -->
+  <div id="config-container">
+    <!-- Sweep Parameters Card (full width) -->
+    <div id="sweep-params-section">
+      <div class="card">
+        <h2>Sweep Parameters</h2>
+        <div id="param-rows"></div>
+        <button class="btn-sm btn-add" onclick="addParamRow()">+ Add Parameter</button>
+        <div id="sweep-summary"></div>
+      </div>
+    </div>
+
+    <!-- Other Configuration Cards (multi-column) -->
+    <div id="other-config-section">
+
+      <!-- Card 1: Data Source -->
+      <div class="card">
+        <h2>Data Source</h2>
+        <div class="field-stack">
+          <label><span>Source</span>
+            <select id="data_source" onchange="togglePCAP()">
+              <option value="live">Live</option>
+              <option value="pcap">PCAP Replay</option>
+            </select>
+          </label>
+        </div>
+        <div id="pcap-fields" class="pcap-fields field-stack" style="display:none">
+          <label><span>PCAP File</span><input id="pcap_file" type="text" placeholder="static/recording.pcapng">
+            <small class="field-desc">Relative path within the PCAP directory.</small>
+          </label>
+          <label><span>Start</span><input id="pcap_start_secs" type="number" step="0.1" value="0" min="0">
+            <small class="field-desc">Offset in seconds from the beginning of the PCAP.</small>
+          </label>
+          <label><span>Duration</span><input id="pcap_duration_secs" type="number" step="0.1" value="-1">
+            <small class="field-desc">Seconds of PCAP to replay. -1 = entire file.</small>
+          </label>
+        </div>
+
+        <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--card-border);">
+
+        <!-- Start/Stop Button -->
+        <div style="margin-top: 12px; margin-bottom: 12px; position: relative; height: 36px;">
+          <button id="btn-start" class="btn btn-primary" onclick="handleStart()"
+            style="width: 100%; position: absolute; top: 0; left: 0;">Start Sweep</button>
+          <button id="btn-stop" class="btn btn-danger" onclick="handleStop()"
+            style="display:none; width: 100%; position: absolute; top: 0; left: 0;">Stop Sweep</button>
+          <div id="stopping-indicator"
+            style="display:none; width: 100%; text-align: center; padding: 8px; background: #ffe6e6; color: #cc0000; border: 1px solid #ffcccc; border-radius: 4px; position: absolute; top: 0; left: 0;">
+            <span>Stopping...</span>
+          </div>
+        </div>
+
+        <!-- Progress -->
+        <div id="progress-section" style="display:none">
+          <div class="progress-info">
+            <span>Status: <span id="status-badge" class="status-badge status-idle">idle</span></span>
+            <span id="combo-count"></span>
+          </div>
+          <div id="current-combo"></div>
+          <div id="sweep-error" class="error-box" style="display:none"></div>
+          <div id="sweep-warnings" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- Card 2: Sweep Configuration -->
+      <div class="card">
+        <h2>Sweep Configuration</h2>
+        <div class="field-stack">
+          <label><span>Seed Behaviour</span>
+            <select id="seed">
+              <option value="true">True</option>
+              <option value="false">False</option>
+              <option value="toggle">Toggle</option>
+            </select>
+            <small class="field-desc">Whether the background grid seeds from the first observation. "toggle" tests both
+              true and false for each combination.</small>
+          </label>
+          <label><span>Iterations</span><input id="iterations" type="number" value="10" min="1" max="500">
+            <small class="field-desc">Number of samples per parameter combination. Higher = more statistical
+              confidence.</small>
+          </label>
+          <label><span>Interval</span><input id="interval" type="text" value="2s">
+            <small class="field-desc">Time between consecutive samples within one combination.</small>
+          </label>
+          <label><span>Settle Time</span><input id="settle_time" type="text" value="5s">
+            <small class="field-desc">Wait time after changing parameters before sampling begins.</small>
+          </label>
+          <label><span>Region Settle</span>
+            <select id="settle_mode" onchange="updateSweepSummary()">
+              <option value="once" selected>Settle Once (reuse)</option>
+              <option value="per_combo">Per Combo</option>
+            </select>
+            <small class="field-desc">"Per Combo": full settle each combination. "Settle Once": first combo settles,
+              rest
+              restore regions.</small>
+          </label>
+        </div>
+      </div>
+
+      <!-- Card 3: Scenario -->
+      <div class="card scenario-card">
+        <h2>Scenario</h2>
+        <div class="scenario-card-content">
+          <div class="scenario-bar">
+            <button class="btn-sm btn-secondary" onclick="downloadScenario()">Download JSON</button>
+            <button class="btn-sm btn-secondary" onclick="document.getElementById('scenario-upload').click()">Upload
+              JSON</button>
+            <input id="scenario-upload" type="file" accept=".json" style="display:none" onchange="uploadScenario(this)">
+            <button class="btn-sm btn-secondary" onclick="toggleJSONEditor()">Edit JSON</button>
+            <button id="btn-apply-json" class="btn-sm btn-add" onclick="applyJSONEditor()" style="display:none">Apply</button>
+          </div>
+          <div id="json-editor-wrap" style="display:none">
+            <textarea id="scenario-json"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 4: Current Tuning Parameters -->
+      <div class="card">
+        <h2>Current Tuning Parameters</h2>
+        <div class="current-params-header">
+          <small class="field-desc">Swept parameters highlighted in yellow.</small>
+          <button class="refresh-params-btn" onclick="fetchCurrentParams()">Refresh</button>
+        </div>
+        <div id="current-params-display">Loading...</div>
+      </div>
+
+    </div><!-- End other-config-section -->
+  </div><!-- End config-container -->
+
+  <!-- Charts (always visible, start empty) -->
+  <div id="charts-section">
+    <div class="card">
+      <div id="acceptance-chart" class="chart-container"></div>
+    </div>
+    <div class="card">
+      <div id="nonzero-chart" class="chart-container"></div>
+    </div>
+    <div class="card">
+      <div id="bucket-chart" class="chart-container"></div>
+    </div>
+    <div class="card">
+      <div id="param-heatmap" class="chart-container"></div>
+    </div>
+    <div class="card">
+      <div id="alignment-chart" class="chart-container"></div>
+    </div>
+    <div class="card">
+      <div id="tracks-chart" class="chart-container"></div>
+    </div>
+
+    <!-- Results Table -->
+    <div id="results-card" class="card">
+      <h2>Results Table <button class="btn-sm btn-secondary" onclick="downloadCSV()" style="margin-left:8px">Download
+          CSV</button></h2>
+      <div style="overflow-x:auto">
+        <table>
+          <thead id="results-head">
+            <tr>
+              <th>Parameters</th>
+              <th>Accept Rate</th>
+              <th>± StdDev</th>
+              <th>Nonzero Cells</th>
+              <th>± StdDev</th>
+              <th>Active Tracks</th>
+              <th>Alignment (deg)</th>
+              <th>Misalignment</th>
+            </tr>
+          </thead>
+          <tbody id="results-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var pollTimer = null;
+    var stopRequested = false;
+    var acceptChart = null;
+    var nzChart = null;
+    var bktChart = null;
+    var alignChart = null;
+    var tracksChart = null;
+    var paramHeatmapChart = null;
+    var latestResults = null;
+
+    // Detect dark mode for ECharts
+    var isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var chartTheme = isDark ? 'dark' : null;
+    var chartBg = 'transparent';
+
+    // Parameter schema derived from TuningConfig (with descriptions)
+    var PARAM_SCHEMA = {
+      noise_relative: { type: 'float64', label: 'Noise Relative', step: 0.001, desc: 'Fraction of measured range treated as noise threshold (0\u20131). Higher = more tolerant of range variation.' },
+      closeness_multiplier: { type: 'float64', label: 'Closeness Multiplier', step: 0.5, desc: 'Multiplier for closeness threshold. Higher = wider band for background acceptance.' },
+      neighbor_confirmation_count: { type: 'int', label: 'Neighbour Confirmation', step: 1, desc: 'Number of neighbouring cells (0\u20138) that must agree before marking foreground.' },
+      seed_from_first: { type: 'bool', label: 'Seed From First', desc: 'If true, initialise background model from the very first observation.' },
+      warmup_duration_nanos: { type: 'int64', label: 'Warmup Duration (ns)', step: 1000000, desc: 'Duration in nanoseconds for the warmup phase before classification begins.' },
+      warmup_min_frames: { type: 'int', label: 'Warmup Min Frames', step: 1, desc: 'Minimum frames required before the warmup phase can complete.' },
+      post_settle_update_fraction: { type: 'float64', label: 'Post-Settle Update Fraction', step: 0.01, desc: 'Background update alpha after settling (0 = freeze background).' },
+      foreground_min_cluster_points: { type: 'int', label: 'FG Min Cluster Points', step: 1, desc: 'Minimum points for a foreground cluster to be reported. 0 = disabled.' },
+      foreground_dbscan_eps: { type: 'float64', label: 'FG DBSCAN Eps', step: 0.1, desc: 'DBSCAN epsilon for foreground point clustering. 0 = disabled.' },
+      buffer_timeout: { type: 'string', label: 'Buffer Timeout', desc: 'Max wait time for a complete frame (Go duration, e.g. "500ms").' },
+      min_frame_points: { type: 'int', label: 'Min Frame Points', step: 100, desc: 'Minimum points in a frame before processing. Fewer points = frame dropped.' },
+      flush_interval: { type: 'string', label: 'Flush Interval', desc: 'How often the background grid is flushed to disk (e.g. "60s").' },
+      background_flush: { type: 'bool', label: 'Background Flush', desc: 'If true, enables periodic background grid flush to disk. Default: false (disabled).' },
+      gating_distance_squared: { type: 'float64', label: 'Gating Distance\u00b2', step: 0.1, desc: 'Squared Mahalanobis distance threshold for track-to-cluster association.' },
+      process_noise_pos: { type: 'float64', label: 'Process Noise Pos', step: 0.001, desc: 'Kalman process noise for position. Higher = more position uncertainty expected.' },
+      process_noise_vel: { type: 'float64', label: 'Process Noise Vel', step: 0.001, desc: 'Kalman process noise for velocity. Higher = more velocity changes expected.' },
+      measurement_noise: { type: 'float64', label: 'Measurement Noise', step: 0.01, desc: 'Kalman measurement noise. Higher = less trust in observations.' },
+      occlusion_cov_inflation: { type: 'float64', label: 'Occlusion Cov Inflation', step: 0.1, desc: 'Covariance inflation factor during occlusion (missed observations).' },
+      hits_to_confirm: { type: 'int', label: 'Hits to Confirm', step: 1, desc: 'Consecutive successful associations needed to confirm a tentative track.' },
+      max_misses: { type: 'int', label: 'Max Misses', step: 1, desc: 'Consecutive misses before a tentative track is deleted.' },
+      max_misses_confirmed: { type: 'int', label: 'Max Misses Confirmed', step: 1, desc: 'Consecutive misses before a confirmed track is deleted.' }
+    };
+
+    var paramNames = Object.keys(PARAM_SCHEMA);
+    var paramCounter = 0;
+
+    function val(id) { return document.getElementById(id).value; }
+    function numVal(id) { return parseFloat(val(id)); }
+    function intVal(id) { return parseInt(val(id), 10); }
+
+    function togglePCAP() {
+      var ds = document.getElementById('data_source').value;
+      document.getElementById('pcap-fields').style.display = (ds === 'pcap') ? '' : 'none';
+    }
+
+    function addParamRow(name) {
+      var id = paramCounter++;
+      var container = document.getElementById('param-rows');
+      var row = document.createElement('div');
+      row.className = 'param-row';
+      row.id = 'param-row-' + id;
+
+      // Name dropdown
+      var selHtml = '<label class="param-name"><span>Parameter</span><select id="pname-' + id + '" onchange="updateParamFields(' + id + ')">';
+      selHtml += '<option value="">-- select --</option>';
+      for (var i = 0; i < paramNames.length; i++) {
+        var pn = paramNames[i];
+        var schema = PARAM_SCHEMA[pn];
+        var sel = (name === pn) ? ' selected' : '';
+        selHtml += '<option value="' + pn + '"' + sel + '>' + schema.label + '</option>';
+      }
+      selHtml += '</select></label>';
+
+      row.innerHTML = selHtml + '<div id="pfields-' + id + '" class="param-fields"></div>' +
+        '<button class="btn-sm btn-remove param-remove" onclick="removeParamRow(' + id + ')">×</button>' +
+        '<div id="pdesc-' + id + '" class="param-desc"></div>';
+
+      container.appendChild(row);
+      if (name) updateParamFields(id);
+      return id;
+    }
+
+    function removeParamRow(id) {
+      var row = document.getElementById('param-row-' + id);
+      if (row) row.remove();
+      updateSweepSummary();
+      if (window.currentParamsCache) displayCurrentParams(window.currentParamsCache);
+    }
+
+    function updateParamFields(id) {
+      var nameEl = document.getElementById('pname-' + id);
+      var fieldsEl = document.getElementById('pfields-' + id);
+      var descEl = document.getElementById('pdesc-' + id);
+      var name = nameEl.value;
+      if (!name) { fieldsEl.innerHTML = ''; if (descEl) descEl.textContent = ''; return; }
+
+      var schema = PARAM_SCHEMA[name];
+      var typ = schema.type;
+      var step = schema.step || 1;
+
+      // Show description
+      if (descEl) descEl.textContent = schema.desc || '';
+
+      if (typ === 'float64' || typ === 'int' || typ === 'int64') {
+        fieldsEl.innerHTML =
+          '<label class="param-field"><span>Start</span><input id="pstart-' + id + '" type="number" step="' + step + '" value="0"></label>' +
+          '<label class="param-field"><span>End</span><input id="pend-' + id + '" type="number" step="' + step + '" value="1"></label>' +
+          '<label class="param-field"><span>Step</span><input id="pstep-' + id + '" type="number" step="' + step + '" value="' + step + '"></label>' +
+          '<label class="param-field" style="flex:2"><span>Values (overrides)</span><input id="pvals-' + id + '" type="text" placeholder="e.g. 0.01, 0.02, 0.05"></label>';
+      } else if (typ === 'bool') {
+        fieldsEl.innerHTML =
+          '<label class="param-field"><span>Values</span><input id="pvals-' + id + '" type="text" value="true, false"></label>';
+      } else if (typ === 'string') {
+        fieldsEl.innerHTML =
+          '<label class="param-field" style="flex:2"><span>Values</span><input id="pvals-' + id + '" type="text" placeholder="e.g. 500ms, 1s, 2s"></label>';
+      }
+      updateSweepSummary();
+      if (window.currentParamsCache) displayCurrentParams(window.currentParamsCache);
+    }
+
+    function showError(msg) {
+      var el = document.getElementById('error-box');
+      el.textContent = msg;
+      el.style.display = msg ? '' : 'none';
+    }
+
+    // Parse Go-style duration string to seconds (e.g. "5s" -> 5, "500ms" -> 0.5, "2m" -> 120, "1m30s" -> 90)
+    function parseDuration(s) {
+      if (!s) return 0;
+      var total = 0;
+      var re = /(\d+(?:\.\d+)?)(ms|s|m|h)/g;
+      var match;
+      while ((match = re.exec(s)) !== null) {
+        var v = parseFloat(match[1]);
+        switch (match[2]) {
+          case 'h': total += v * 3600; break;
+          case 'm': total += v * 60; break;
+          case 's': total += v; break;
+          case 'ms': total += v / 1000; break;
+        }
+      }
+      return total;
+    }
+
+    function formatDuration(secs) {
+      if (secs < 60) return secs.toFixed(0) + 's';
+      if (secs < 3600) {
+        var m = Math.floor(secs / 60);
+        var s = Math.round(secs %% 60);
+        return s > 0 ? m + 'm ' + s + 's' : m + 'm';
+      }
+      var h = Math.floor(secs / 3600);
+      var m = Math.round((secs %% 3600) / 60);
+      return m > 0 ? h + 'h ' + m + 'm' : h + 'h';
+    }
+
+    function getParamValueCount(rowId) {
+      var nameEl = document.getElementById('pname-' + rowId);
+      if (!nameEl || !nameEl.value) return 0;
+      var schema = PARAM_SCHEMA[nameEl.value];
+      if (!schema) return 0;
+      var typ = schema.type;
+
+      var valsEl = document.getElementById('pvals-' + rowId);
+      var valsStr = valsEl ? valsEl.value.trim() : '';
+
+      if (valsStr) {
+        return valsStr.split(',').filter(function (s) { return s.trim() !== ''; }).length;
+      }
+
+      if (typ === 'bool') return 2;
+
+      var startEl = document.getElementById('pstart-' + rowId);
+      var endEl = document.getElementById('pend-' + rowId);
+      var stepEl = document.getElementById('pstep-' + rowId);
+      if (startEl && endEl && stepEl) {
+        var start = parseFloat(startEl.value);
+        var end = parseFloat(endEl.value);
+        var step = parseFloat(stepEl.value);
+        if (step > 0 && end >= start) {
+          return Math.floor((end - start) / step) + 1;
+        }
+      }
+      return 0;
+    }
+
+    function updateSweepSummary() {
+      var el = document.getElementById('sweep-summary');
+      var rows = document.getElementById('param-rows').children;
+      if (rows.length === 0) { el.innerHTML = ''; return; }
+
+      var parts = [];
+      var total = 1;
+      var anyParam = false;
+      for (var i = 0; i < rows.length; i++) {
+        var rowId = rows[i].id.replace('param-row-', '');
+        var nameEl = document.getElementById('pname-' + rowId);
+        if (!nameEl || !nameEl.value) continue;
+        var count = getParamValueCount(rowId);
+        if (count === 0) continue;
+        anyParam = true;
+        var schema = PARAM_SCHEMA[nameEl.value];
+        var label = schema ? schema.label : nameEl.value;
+        parts.push('<strong>' + label + '</strong>: ' + count + ' values');
+        total *= count;
+      }
+
+      if (!anyParam) { el.innerHTML = ''; return; }
+
+      var seedVal = val('seed');
+      var seedMultiplier = (seedVal === 'toggle') ? 2 : 1;
+      var totalWithSeed = total * seedMultiplier;
+
+      var iterations = intVal('iterations') || 1;
+      var settleSecs = parseDuration(val('settle_time'));
+      var intervalSecs = parseDuration(val('interval'));
+      var settleMode = val('settle_mode');
+      var activeMeasurementSecs = iterations * intervalSecs;
+      var runtimeSecs;
+      if (settleMode === 'once' && totalWithSeed > 1) {
+        // First combo: full settle; subsequent: ~2s for region restore
+        var regionRestoreSecs = 2;
+        runtimeSecs = (settleSecs + activeMeasurementSecs) + (totalWithSeed - 1) * (regionRestoreSecs + activeMeasurementSecs);
+      } else {
+        runtimeSecs = totalWithSeed * (settleSecs + activeMeasurementSecs);
+      }
+
+      var html = parts.join(' &middot; ');
+      html += '<br/><strong>' + total + '</strong> permutations';
+      if (seedMultiplier > 1) {
+        html += ' &times; seed toggle &times;2 = <strong>' + totalWithSeed + '</strong> total';
+      }
+      html += ' &middot; <strong>' + iterations + '</strong> iterations each';
+      html += '<br/>active measurement per permutation: <strong>' + formatDuration(activeMeasurementSecs) + '</strong>';
+      html += ' (' + iterations + ' &times; ' + val('interval') + ')';
+      html += ' &middot; estimated total runtime: <strong>~' + formatDuration(runtimeSecs) + '</strong>';
+      el.innerHTML = html;
+    }
+
+    // ---- Scenario management ----
+
+    function buildScenarioJSON() {
+      var req = {
+        seed: val('seed'),
+        iterations: intVal('iterations'),
+        interval: val('interval'),
+        settle_time: val('settle_time'),
+        settle_mode: val('settle_mode'),
+        data_source: val('data_source')
+      };
+
+      if (req.data_source === 'pcap') {
+        req.pcap_file = val('pcap_file');
+        req.pcap_start_secs = numVal('pcap_start_secs');
+        req.pcap_duration_secs = numVal('pcap_duration_secs');
+      }
+
+      var params = [];
+      var rows = document.getElementById('param-rows').children;
+      for (var i = 0; i < rows.length; i++) {
+        var rowId = rows[i].id.replace('param-row-', '');
+        var nameEl = document.getElementById('pname-' + rowId);
+        if (!nameEl) continue;
+        var name = nameEl.value;
+        if (!name) continue;
+        var schema = PARAM_SCHEMA[name];
+        var typ = schema.type;
+        var p = { name: name, type: typ };
+
+        var valsEl = document.getElementById('pvals-' + rowId);
+        var valsStr = valsEl ? valsEl.value.trim() : '';
+
+        if (valsStr) {
+          var parts = valsStr.split(',').map(function (s) { return s.trim(); }).filter(function (s) { return s !== ''; });
+          if (typ === 'float64') {
+            p.values = parts.map(function (s) { return parseFloat(s); });
+          } else if (typ === 'int' || typ === 'int64') {
+            p.values = parts.map(function (s) { return parseInt(s, 10); });
+          } else if (typ === 'bool') {
+            p.values = parts.map(function (s) { return s.toLowerCase() === 'true'; });
+          } else {
+            p.values = parts;
+          }
+        } else if (typ === 'float64' || typ === 'int' || typ === 'int64') {
+          var startEl = document.getElementById('pstart-' + rowId);
+          var endEl = document.getElementById('pend-' + rowId);
+          var stepEl = document.getElementById('pstep-' + rowId);
+          if (startEl && endEl && stepEl) {
+            p.start = parseFloat(startEl.value);
+            p.end = parseFloat(endEl.value);
+            p.step = parseFloat(stepEl.value);
+          }
+        }
+
+        params.push(p);
+      }
+      req.params = params;
+      return req;
+    }
+
+    function downloadScenario() {
+      var obj = buildScenarioJSON();
+      var json = JSON.stringify(obj, null, 2);
+      var blob = new Blob([json], { type: 'application/json' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'sweep-scenario.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function uploadScenario(input) {
+      if (!input.files || !input.files[0]) return;
+      var reader = new FileReader();
+      reader.onload = function (e) {
+        try {
+          var obj = JSON.parse(e.target.result);
+          loadScenario(obj);
+        } catch (err) {
+          showError('Invalid JSON: ' + err.message);
+        }
+      };
+      reader.readAsText(input.files[0]);
+      input.value = '';
+    }
+
+    function loadScenario(obj) {
+      if (obj.seed) document.getElementById('seed').value = obj.seed;
+      if (obj.iterations) document.getElementById('iterations').value = obj.iterations;
+      if (obj.interval) document.getElementById('interval').value = obj.interval;
+      if (obj.settle_time) document.getElementById('settle_time').value = obj.settle_time;
+      if (obj.settle_mode) document.getElementById('settle_mode').value = obj.settle_mode;
+      if (obj.data_source) {
+        document.getElementById('data_source').value = obj.data_source;
+        togglePCAP();
+      }
+      if (obj.pcap_file) document.getElementById('pcap_file').value = obj.pcap_file;
+      if (obj.pcap_start_secs !== undefined) document.getElementById('pcap_start_secs').value = obj.pcap_start_secs;
+      if (obj.pcap_duration_secs !== undefined) document.getElementById('pcap_duration_secs').value = obj.pcap_duration_secs;
+
+      // Clear existing param rows
+      var container = document.getElementById('param-rows');
+      container.innerHTML = '';
+      paramCounter = 0;
+
+      // Add rows from scenario
+      if (obj.params && obj.params.length > 0) {
+        obj.params.forEach(function (p) {
+          var id = addParamRow(p.name);
+          // Populate values
+          if (p.values && p.values.length > 0) {
+            var valsEl = document.getElementById('pvals-' + id);
+            if (valsEl) valsEl.value = p.values.join(', ');
+          } else {
+            if (p.start !== undefined) {
+              var startEl = document.getElementById('pstart-' + id);
+              if (startEl) startEl.value = p.start;
+            }
+            if (p.end !== undefined) {
+              var endEl = document.getElementById('pend-' + id);
+              if (endEl) endEl.value = p.end;
+            }
+            if (p.step !== undefined) {
+              var stepEl = document.getElementById('pstep-' + id);
+              if (stepEl) stepEl.value = p.step;
+            }
+          }
+        });
+      }
+      updateSweepSummary();
+    }
+
+    function toggleJSONEditor() {
+      var wrap = document.getElementById('json-editor-wrap');
+      var applyBtn = document.getElementById('btn-apply-json');
+      if (wrap.style.display === 'none') {
+        wrap.style.display = '';
+        applyBtn.style.display = '';
+        document.getElementById('scenario-json').value = JSON.stringify(buildScenarioJSON(), null, 2);
+      } else {
+        wrap.style.display = 'none';
+        applyBtn.style.display = 'none';
+      }
+    }
+
+    function applyJSONEditor() {
+      try {
+        var obj = JSON.parse(document.getElementById('scenario-json').value);
+        loadScenario(obj);
+        showError('');
+        // Hide the editor after successful apply
+        document.getElementById('json-editor-wrap').style.display = 'none';
+        document.getElementById('btn-apply-json').style.display = 'none';
+      } catch (err) {
+        showError('Invalid JSON: ' + err.message);
+      }
+    }
+
+    // ---- Sweep control ----
+
+    function handleStart() {
+      showError('');
+      var req = buildScenarioJSON();
+      req.mode = 'params';
+
+      if (!req.params || req.params.length === 0) {
+        showError('Add at least one parameter to sweep.');
+        return;
+      }
+
+      fetch('/api/lidar/sweep/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req)
+      }).then(function (r) {
+        if (!r.ok) return r.text().then(function (t) { throw new Error(t); });
+        startPolling();
+      }).catch(function (e) { showError(e.message); });
+    }
+
+    function handleStop() {
+      // Show stopping indicator
+      stopRequested = true;
+      document.getElementById('btn-stop').style.display = 'none';
+      document.getElementById('stopping-indicator').style.display = 'block';
+
+      fetch('/api/lidar/sweep/stop', { method: 'POST' })
+        .catch(function (e) { showError(e.message); });
+    }
+
+    function startPolling() {
+      stopPolling();
+      pollTimer = setInterval(pollStatus, 3000);
+      pollStatus();
+    }
+
+    function stopPolling() {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
+
+    function comboLabel(r) {
+      if (r.param_values) {
+        return Object.entries(r.param_values).map(function (e) {
+          var key = e[0];
+          var v = e[1];
+          // Use short key (last segment after underscore split)
+          var parts = key.split('_');
+          var short = parts.length > 1 ? parts.slice(-1)[0] : key;
+          if (typeof v === 'number' && v !== Math.floor(v)) {
+            return short + '=' + v.toFixed(3);
+          }
+          return short + '=' + v;
+        }).join(' ');
+      }
+      // Fallback for legacy results
+      return 'n=' + r.noise.toFixed(3) + ' c=' + r.closeness.toFixed(1) + ' nb=' + r.neighbour;
+    }
+
+    function pollStatus() {
+      fetch('/api/lidar/sweep/status').then(function (r) { return r.json(); }).then(function (st) {
+        var prog = document.getElementById('progress-section');
+        prog.style.display = '';
+
+        var badge = document.getElementById('status-badge');
+        badge.textContent = st.status;
+        badge.className = 'status-badge status-' + st.status;
+
+        document.getElementById('combo-count').textContent =
+          st.completed_combos + ' / ' + st.total_combos + ' combinations';
+
+        if (st.status === 'running' && stopRequested) {
+          // Stop has been requested but sweep is still finishing current combination
+          document.getElementById('btn-start').style.display = 'none';
+          document.getElementById('btn-stop').style.display = 'none';
+          document.getElementById('stopping-indicator').style.display = 'block';
+        } else {
+          stopRequested = false;
+          document.getElementById('btn-start').style.display = st.status === 'running' ? 'none' : '';
+          document.getElementById('btn-stop').style.display = st.status === 'running' ? '' : 'none';
+          document.getElementById('stopping-indicator').style.display = 'none';
+        }
+
+        var cc = document.getElementById('current-combo');
+        if (st.status === 'running' && st.current_combo) {
+          var c = st.current_combo;
+          var lbl = comboLabel(c);
+          cc.textContent = 'Current: ' + lbl +
+            ' \u2192 acceptance=' + ((c.overall_accept_mean || 0) * 100).toFixed(1) + '%%';
+        } else {
+          cc.textContent = '';
+        }
+
+        var errEl = document.getElementById('sweep-error');
+        if (st.error) { errEl.textContent = st.error; errEl.style.display = ''; }
+        else { errEl.style.display = 'none'; }
+
+        var warnEl = document.getElementById('sweep-warnings');
+        if (st.warnings && st.warnings.length > 0) {
+          warnEl.innerHTML = '<div class="section-title" style="margin-top:8px">Warnings (' + st.warnings.length + ')</div>' +
+            '<ul style="margin:4px 0 0 16px;padding:0;font-size:12px;color:var(--fg-faint)">' +
+            st.warnings.map(function (w) { return '<li>' + w.replace(/</g, '&lt;') + '</li>'; }).join('') +
+            '</ul>';
+          warnEl.style.display = '';
+        } else {
+          warnEl.style.display = 'none';
+        }
+
+        if (st.results && st.results.length > 0) {
+          latestResults = st.results;
+          renderCharts(st.results);
+          renderTable(st.results);
+        }
+
+        if (st.status === 'complete' || st.status === 'error') {
+          stopPolling();
+        }
+      }).catch(function () { });
+    }
+
+    function downloadCSV() {
+      if (!latestResults || latestResults.length === 0) {
+        showError('No results to download.');
+        return;
+      }
+
+      // Determine param columns from first result
+      var paramKeys = [];
+      if (latestResults[0] && latestResults[0].param_values) {
+        paramKeys = Object.keys(latestResults[0].param_values);
+      } else {
+        paramKeys = ['noise', 'closeness', 'neighbour'];
+      }
+
+      var metricCols = [
+        'accept_rate_mean', 'accept_rate_stddev',
+        'nonzero_cells_mean', 'nonzero_cells_stddev',
+        'active_tracks_mean', 'active_tracks_stddev',
+        'alignment_deg_mean', 'alignment_deg_stddev',
+        'misalignment_ratio_mean', 'misalignment_ratio_stddev'
+      ];
+
+      var header = paramKeys.concat(metricCols);
+      var rows = [header.join(',')];
+
+      latestResults.forEach(function (r) {
+        var row = [];
+        paramKeys.forEach(function (k) {
+          var v;
+          if (r.param_values && r.param_values[k] !== undefined) {
+            v = r.param_values[k];
+          } else {
+            v = r[k];
+          }
+          row.push(v);
+        });
+        row.push(r.overall_accept_mean);
+        row.push(r.overall_accept_stddev);
+        row.push(r.nonzero_cells_mean);
+        row.push(r.nonzero_cells_stddev);
+        row.push(r.active_tracks_mean || 0);
+        row.push(r.active_tracks_stddev || 0);
+        row.push(r.alignment_deg_mean || 0);
+        row.push(r.alignment_deg_stddev || 0);
+        row.push(r.misalignment_ratio_mean || 0);
+        row.push(r.misalignment_ratio_stddev || 0);
+        rows.push(row.join(','));
+      });
+
+      var csv = rows.join('\n');
+      var blob = new Blob([csv], { type: 'text/csv' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'sweep-results.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function initCharts() {
+      acceptChart = echarts.init(document.getElementById('acceptance-chart'), chartTheme);
+      nzChart = echarts.init(document.getElementById('nonzero-chart'), chartTheme);
+      bktChart = echarts.init(document.getElementById('bucket-chart'), chartTheme);
+      alignChart = echarts.init(document.getElementById('alignment-chart'), chartTheme);
+      tracksChart = echarts.init(document.getElementById('tracks-chart'), chartTheme);
+      paramHeatmapChart = echarts.init(document.getElementById('param-heatmap'), chartTheme);
+
+      var emptyOpt = {
+        title: { text: 'Waiting for data...', left: 'center', top: 'center', textStyle: { color: '#94a3b8', fontSize: 14, fontWeight: 'normal' } },
+        backgroundColor: chartBg
+      };
+      acceptChart.setOption(emptyOpt);
+      nzChart.setOption(emptyOpt);
+      bktChart.setOption(emptyOpt);
+      alignChart.setOption(emptyOpt);
+      tracksChart.setOption(emptyOpt);
+      paramHeatmapChart.setOption(emptyOpt);
+    }
+
+    function renderCharts(results) {
+      var labels = results.map(comboLabel);
+
+      // Overall acceptance chart
+      acceptChart.setOption({
+        title: { text: 'Overall Acceptance Rate', left: 'center', top: 0, textStyle: { fontSize: 14 } },
+        tooltip: { trigger: 'axis' },
+        xAxis: { type: 'category', data: labels, axisLabel: { rotate: 45, fontSize: 10 } },
+        yAxis: { type: 'value', name: 'Acceptance Rate', axisLabel: { formatter: function (v) { return (v * 100).toFixed(0) + '%%'; } } },
+        series: [{ name: 'Mean', type: 'bar', data: results.map(function (r) { return r.overall_accept_mean; }), itemStyle: { color: '#5470c6' } }],
+        grid: { bottom: 100 },
+        backgroundColor: chartBg
+      }, true);
+
+      // Nonzero cells chart
+      nzChart.setOption({
+        title: { text: 'Nonzero Background Cells', left: 'center', top: 0, textStyle: { fontSize: 14 } },
+        tooltip: { trigger: 'axis' },
+        xAxis: { type: 'category', data: labels, axisLabel: { rotate: 45, fontSize: 10 } },
+        yAxis: { type: 'value', name: 'Cell Count' },
+        series: [{ name: 'Mean', type: 'bar', data: results.map(function (r) { return r.nonzero_cells_mean; }), itemStyle: { color: '#91cc75' } }],
+        grid: { bottom: 100 },
+        backgroundColor: chartBg
+      }, true);
+
+      // Bucket heatmap
+      if (results[0] && results[0].buckets && results[0].buckets.length > 0) {
+        var buckets = results[0].buckets;
+        var data = [];
+        var mx = 0;
+        var mn = Infinity;
+        results.forEach(function (r, ri) {
+          if (r.bucket_means) {
+            r.bucket_means.forEach(function (v, bi) {
+              data.push([ri, bi, v]);
+              if (v > mx) mx = v;
+              if (v > 0 && v < mn) mn = v;
+            });
+          }
+        });
+        if (mn === Infinity || mn >= mx) mn = 0;
+        bktChart.setOption({
+          title: { text: 'Per-Bucket Acceptance Rates', left: 'center', top: 0, textStyle: { fontSize: 14 } },
+          tooltip: {
+            formatter: function (p) {
+              var ri = p.value[0], bi = p.value[1], v = p.value[2];
+              return comboLabel(results[ri]) + '<br/>Bucket ' + buckets[bi] + 'm: ' + (v * 100).toFixed(2) + '%%';
+            }
+          },
+          xAxis: { type: 'category', data: labels, axisLabel: { rotate: 45, fontSize: 10 } },
+          yAxis: { type: 'category', data: buckets.map(function (b) { return b + 'm'; }), name: 'Range Bucket' },
+          visualMap: {
+            min: mn, max: mx || 1, calculable: true, orient: 'horizontal', left: 'center', bottom: 0,
+            inRange: { color: ['#313695', '#4575b4', '#74add1', '#abd9e9', '#fee090', '#fdae61', '#f46d43', '#d73027'] },
+            formatter: function (v) { return (v * 100).toFixed(1) + '%%'; }
+          },
+          series: [{ type: 'heatmap', data: data, emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.5)' } } }],
+          grid: { bottom: 80, top: 60 },
+          backgroundColor: chartBg
+        }, true);
+      }
+
+      // Track alignment chart (lower is better)
+      alignChart.setOption({
+        title: { text: 'Track Alignment (lower = better)', left: 'center', top: 0, textStyle: { fontSize: 14 } },
+        tooltip: {
+          trigger: 'axis', formatter: function (p) {
+            var d = p[0];
+            var r = results[d.dataIndex];
+            return comboLabel(r) + '<br/>Alignment: ' + (r.alignment_deg_mean || 0).toFixed(1) + '\u00b0 \u00b1' + (r.alignment_deg_stddev || 0).toFixed(1) +
+              '<br/>Misalignment: ' + ((r.misalignment_ratio_mean || 0) * 100).toFixed(1) + '%%';
+          }
+        },
+        xAxis: { type: 'category', data: labels, axisLabel: { rotate: 45, fontSize: 10 } },
+        yAxis: [
+          { type: 'value', name: 'Alignment (\u00b0)', position: 'left' },
+          { type: 'value', name: 'Misalignment %%', position: 'right', axisLabel: { formatter: function (v) { return (v * 100).toFixed(0) + '%%'; } } }
+        ],
+        series: [
+          { name: 'Alignment', type: 'bar', data: results.map(function (r) { return r.alignment_deg_mean || 0; }), itemStyle: { color: '#ee6666' } },
+          { name: 'Misalignment', type: 'line', yAxisIndex: 1, data: results.map(function (r) { return r.misalignment_ratio_mean || 0; }), lineStyle: { color: '#fac858' }, itemStyle: { color: '#fac858' } }
+        ],
+        legend: { bottom: 0 },
+        grid: { bottom: 120, top: 40 },
+        backgroundColor: chartBg
+      }, true);
+
+      // Active tracks chart
+      tracksChart.setOption({
+        title: { text: 'Active Tracks', left: 'center', top: 0, textStyle: { fontSize: 14 } },
+        tooltip: { trigger: 'axis' },
+        xAxis: { type: 'category', data: labels, axisLabel: { rotate: 45, fontSize: 10 } },
+        yAxis: { type: 'value', name: 'Track Count' },
+        series: [{ name: 'Mean', type: 'bar', data: results.map(function (r) { return r.active_tracks_mean || 0; }), itemStyle: { color: '#73c0de' } }],
+        grid: { bottom: 100 },
+        backgroundColor: chartBg
+      }, true);
+
+      // Parameter heatmap: show acceptance rate for first two numerical params
+      if (results[0] && results[0].param_values) {
+        var pKeys = Object.keys(results[0].param_values);
+        var numKeys = pKeys.filter(function (k) {
+          return typeof results[0].param_values[k] === 'number';
+        });
+        if (numKeys.length >= 2) {
+          var xKey = numKeys[0], yKey = numKeys[1];
+          var xSchema = PARAM_SCHEMA[xKey], ySchema = PARAM_SCHEMA[yKey];
+          var xLabel = xSchema ? xSchema.label : xKey;
+          var yLabel = ySchema ? ySchema.label : yKey;
+          // Collect unique sorted axis values
+          var xSet = {}, ySet = {};
+          results.forEach(function (r) { xSet[r.param_values[xKey]] = true; ySet[r.param_values[yKey]] = true; });
+          var xVals = Object.keys(xSet).map(Number).sort(function (a, b) { return a - b; });
+          var yVals = Object.keys(ySet).map(Number).sort(function (a, b) { return a - b; });
+          var hmData = [];
+          var hmMax = 0;
+          var hmMin = Infinity;
+          results.forEach(function (r) {
+            var xi = xVals.indexOf(r.param_values[xKey]);
+            var yi = yVals.indexOf(r.param_values[yKey]);
+            var v = r.overall_accept_mean || 0;
+            if (xi >= 0 && yi >= 0) {
+              hmData.push([xi, yi, v]);
+              if (v > hmMax) hmMax = v;
+              if (v > 0 && v < hmMin) hmMin = v;
+            }
+          });
+          if (hmMin === Infinity || hmMin >= hmMax) hmMin = 0;
+          paramHeatmapChart.setOption({
+            title: { text: 'Acceptance by ' + xLabel + ' vs ' + yLabel, left: 'center', top: 0, textStyle: { fontSize: 14 } },
+            tooltip: {
+              formatter: function (p) {
+                return xLabel + ': ' + xVals[p.value[0]] + '<br/>' +
+                  yLabel + ': ' + yVals[p.value[1]] + '<br/>' +
+                  'Accept: ' + (p.value[2] * 100).toFixed(2) + '%%';
+              }
+            },
+            xAxis: { type: 'category', data: xVals.map(String), name: xLabel, axisLabel: { fontSize: 10 } },
+            yAxis: { type: 'category', data: yVals.map(String), name: yLabel, axisLabel: { fontSize: 10 } },
+            visualMap: {
+              min: hmMin, max: hmMax || 1, calculable: true, orient: 'horizontal', left: 'center', bottom: 0,
+              inRange: { color: ['#313695', '#4575b4', '#74add1', '#abd9e9', '#fee090', '#fdae61', '#f46d43', '#d73027'] },
+              formatter: function (v) { return (v * 100).toFixed(1) + '%%'; }
+            },
+            series: [{ type: 'heatmap', data: hmData, emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.5)' } } }],
+            grid: { bottom: 80, top: 60 },
+            backgroundColor: chartBg
+          }, true);
+          document.getElementById('param-heatmap').style.display = '';
+        } else {
+          document.getElementById('param-heatmap').style.display = 'none';
+        }
+      } else {
+        document.getElementById('param-heatmap').style.display = 'none';
+      }
+    }
+
+    function renderTable(results) {
+      // Determine param columns from first result
+      var paramKeys = [];
+      if (results[0] && results[0].param_values) {
+        paramKeys = Object.keys(results[0].param_values);
+      } else {
+        paramKeys = ['noise', 'closeness', 'neighbour'];
+      }
+
+      // Rebuild header
+      var thead = document.getElementById('results-head');
+      var headerHtml = '<tr>';
+      paramKeys.forEach(function (k) {
+        var schema = PARAM_SCHEMA[k];
+        headerHtml += '<th>' + (schema ? schema.label : k) + '</th>';
+      });
+      headerHtml += '<th>Accept Rate</th><th>\u00b1 StdDev</th><th>Nonzero Cells</th><th>\u00b1 StdDev</th>';
+      headerHtml += '<th>Active Tracks</th><th>Alignment (\u00b0)</th><th>Misalignment</th>';
+      headerHtml += '</tr>';
+      thead.innerHTML = headerHtml;
+
+      // Rebuild body
+      var tbody = document.getElementById('results-body');
+      tbody.innerHTML = '';
+      results.forEach(function (r) {
+        var tr = document.createElement('tr');
+        var html = '';
+        paramKeys.forEach(function (k) {
+          var v;
+          if (r.param_values && r.param_values[k] !== undefined) {
+            v = r.param_values[k];
+          } else {
+            v = r[k];
+          }
+          if (typeof v === 'number' && v !== Math.floor(v)) {
+            html += '<td class="mono">' + v.toFixed(4) + '</td>';
+          } else {
+            html += '<td class="mono">' + v + '</td>';
+          }
+        });
+        html +=
+          '<td class="mono">' + (r.overall_accept_mean * 100).toFixed(2) + '%%</td>' +
+          '<td class="mono" style="color:var(--fg-faint)">\u00b1' + (r.overall_accept_stddev * 100).toFixed(2) + '%%</td>' +
+          '<td class="mono">' + r.nonzero_cells_mean.toFixed(0) + '</td>' +
+          '<td class="mono" style="color:var(--fg-faint)">\u00b1' + r.nonzero_cells_stddev.toFixed(0) + '</td>' +
+          '<td class="mono">' + (r.active_tracks_mean || 0).toFixed(1) + '</td>' +
+          '<td class="mono">' + (r.alignment_deg_mean || 0).toFixed(1) + '\u00b0</td>' +
+          '<td class="mono">' + ((r.misalignment_ratio_mean || 0) * 100).toFixed(1) + '%%</td>';
+        tr.innerHTML = html;
+        tbody.appendChild(tr);
+      });
+    }
+
+    window.addEventListener('resize', function () {
+      if (acceptChart) acceptChart.resize();
+      if (nzChart) nzChart.resize();
+      if (bktChart) bktChart.resize();
+      if (paramHeatmapChart) paramHeatmapChart.resize();
+      if (alignChart) alignChart.resize();
+      if (tracksChart) tracksChart.resize();
+    });
+
+    // ---- Current params display ----
+
+    function fetchCurrentParams() {
+      var sensorId = '%[1]s';
+      fetch('/api/lidar/params?sensor_id=' + encodeURIComponent(sensorId))
+        .then(function (r) {
+          if (!r.ok) throw new Error('Failed to fetch params');
+          return r.json();
+        })
+        .then(function (params) {
+          window.currentParamsCache = params;
+          displayCurrentParams(params);
+        })
+        .catch(function (err) {
+          document.getElementById('current-params-display').textContent = 'Error loading parameters: ' + err.message;
+        });
+    }
+
+    function displayCurrentParams(params) {
+      // Get list of currently swept parameters in order
+      var sweptParams = {};
+      var sweptParamOrder = [];
+      var rows = document.getElementById('param-rows').children;
+      for (var i = 0; i < rows.length; i++) {
+        var rowId = rows[i].id.replace('param-row-', '');
+        var nameEl = document.getElementById('pname-' + rowId);
+        if (nameEl && nameEl.value) {
+          sweptParams[nameEl.value] = true;
+          sweptParamOrder.push(nameEl.value);
+        }
+      }
+
+      // Sort keys: swept params first (in order), then remaining alphabetically
+      var keys = Object.keys(params);
+      var sweptKeys = sweptParamOrder.filter(function (k) { return keys.indexOf(k) !== -1; });
+      var otherKeys = keys.filter(function (k) { return sweptParamOrder.indexOf(k) === -1; }).sort();
+      var sortedKeys = sweptKeys.concat(otherKeys);
+
+      var lines = [];
+      sortedKeys.forEach(function (key) {
+        var value = params[key];
+        var displayValue = value;
+
+        // Format value for display
+        if (typeof value === 'boolean') {
+          displayValue = value ? 'true' : 'false';
+        } else if (typeof value === 'number') {
+          if (Number.isInteger(value)) {
+            displayValue = value.toString();
+          } else {
+            displayValue = value.toFixed(6).replace(/\.?0+$/, '');
+          }
+        } else if (value === null) {
+          displayValue = 'null';
+        }
+
+        var line = key + ': ' + displayValue;
+        var isSwept = sweptParams[key] === true;
+
+        if (isSwept) {
+          lines.push('<span class="param-line swept">' + line + '</span>');
+        } else {
+          lines.push('<span class="param-line">' + line + '</span>');
+        }
+      });
+
+      document.getElementById('current-params-display').innerHTML = lines.join('');
+    }
+
+    // ---- Page initialization ----
+
+    // Initialise charts empty on page load
+    initCharts();
+
+    // Resize charts after layout settles (CSS grid may not have final dimensions at init time)
+    setTimeout(function () {
+      acceptChart.resize();
+      nzChart.resize();
+      bktChart.resize();
+      paramHeatmapChart.resize();
+      alignChart.resize();
+      tracksChart.resize();
+    }, 100);
+
+    // Check for existing sweep on page load
+    fetch('/api/lidar/sweep/status').then(function (r) { return r.json(); }).then(function (st) {
+      if (st.status === 'running') { startPolling(); }
+      else if (st.results && st.results.length > 0) {
+        document.getElementById('progress-section').style.display = '';
+        var badge = document.getElementById('status-badge');
+        badge.textContent = st.status;
+        badge.className = 'status-badge status-' + st.status;
+        document.getElementById('combo-count').textContent =
+          st.completed_combos + ' / ' + st.total_combos + ' combinations';
+        latestResults = st.results;
+        renderCharts(st.results);
+        renderTable(st.results);
+      }
+    }).catch(function () { });
+
+    // Add a default parameter row
+    addParamRow('noise_relative');
+    updateSweepSummary();
+
+    // Fetch and display current tuning parameters
+    fetchCurrentParams();
+
+    // Wire up live summary updates for top-level fields
+    document.getElementById('iterations').addEventListener('input', updateSweepSummary);
+    document.getElementById('interval').addEventListener('input', updateSweepSummary);
+    document.getElementById('settle_time').addEventListener('input', updateSweepSummary);
+    document.getElementById('seed').addEventListener('change', updateSweepSummary);
+
+    // Event delegation for dynamic param row inputs (start/end/step/values)
+    document.getElementById('param-rows').addEventListener('input', updateSweepSummary);
+
+    // Update highlighted params when param rows change
+    document.getElementById('param-rows').addEventListener('change', function () {
+      displayCurrentParams(window.currentParamsCache || {});
+    });
+  </script>
+</body>
+
+</html>

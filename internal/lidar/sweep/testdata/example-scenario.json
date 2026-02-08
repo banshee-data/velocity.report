@@ -1,0 +1,24 @@
+{
+  "seed": "true",
+  "iterations": 5,
+  "interval": "2s",
+  "settle_time": "5s",
+  "data_source": "live",
+  "params": [
+    {
+      "name": "noise_relative",
+      "type": "float64",
+      "values": [0.02, 0.04, 0.06]
+    },
+    {
+      "name": "closeness_multiplier",
+      "type": "float64",
+      "values": [4.0, 8.0, 12.0]
+    },
+    {
+      "name": "neighbor_confirmation_count",
+      "type": "int",
+      "values": [3, 5, 7]
+    }
+  ]
+}

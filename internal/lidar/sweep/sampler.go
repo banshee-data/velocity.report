@@ -38,9 +38,25 @@ type SampleConfig struct {
 // Sample collects acceptance metrics over the configured number of iterations.
 // Returns a slice of SampleResult, one per iteration.
 func (s *Sampler) Sample(cfg SampleConfig) []SampleResult {
-	results := make([]SampleResult, 0, cfg.Iterations)
+	// Validate and clamp iterations to prevent excessive memory allocation (CWE-770).
+	const maxIterations = 500
+	const defaultIterations = 30
 
-	for i := 0; i < cfg.Iterations; i++ {
+	iterations := defaultIterations
+	if cfg.Iterations > 0 && cfg.Iterations <= maxIterations {
+		iterations = cfg.Iterations
+	} else if cfg.Iterations > maxIterations {
+		iterations = maxIterations
+		log.Printf("WARNING: Iterations %d exceeds maximum %d, clamping to maximum", cfg.Iterations, maxIterations)
+	} else if cfg.Iterations <= 0 {
+		log.Printf("WARNING: Invalid iterations %d, using default %d", cfg.Iterations, defaultIterations)
+	}
+
+	// Allocate with a compile-time constant cap to satisfy static analysis (CodeQL CWE-770).
+	// maxIterations is small enough (500) that pre-allocating the full capacity is acceptable.
+	results := make([]SampleResult, 0, maxIterations)
+
+	for i := 0; i < iterations; i++ {
 		metrics, err := s.Client.FetchAcceptanceMetrics()
 		if err != nil {
 			log.Printf("WARNING: Sample %d failed: %v", i+1, err)
@@ -88,6 +104,20 @@ func (s *Sampler) Sample(cfg SampleConfig) []SampleResult {
 			OverallAcceptPct: overallPct,
 			Timestamp:        time.Now(),
 		}
+
+		// Fetch tracking metrics (best-effort)
+		if trackMetrics, err := s.Client.FetchTrackingMetrics(); err == nil {
+			if v, ok := trackMetrics["active_tracks"]; ok {
+				result.ActiveTracks = toIntFromMap(v)
+			}
+			if v, ok := trackMetrics["mean_alignment_deg"]; ok {
+				result.MeanAlignmentDeg = toFloat64FromMap(v)
+			}
+			if v, ok := trackMetrics["misalignment_ratio"]; ok {
+				result.MisalignmentRatio = toFloat64FromMap(v)
+			}
+		}
+
 		results = append(results, result)
 
 		// Write raw data if writer is provided
@@ -95,7 +125,7 @@ func (s *Sampler) Sample(cfg SampleConfig) []SampleResult {
 			WriteRawRow(cfg.RawWriter, cfg.Noise, cfg.Closeness, cfg.Neighbour, i, result, s.Buckets)
 		}
 
-		if i < cfg.Iterations-1 {
+		if i < iterations-1 {
 			time.Sleep(s.Interval)
 		}
 	}

@@ -406,6 +406,8 @@ func TestReplayerReadFrame(t *testing.T) {
 			t.Errorf("ReadFrame() frame %d PlaybackInfo is nil", i)
 		} else if frame.PlaybackInfo.IsLive {
 			t.Errorf("ReadFrame() PlaybackInfo.IsLive = true, want false")
+		} else if !frame.PlaybackInfo.Seekable {
+			t.Errorf("ReadFrame() PlaybackInfo.Seekable = false, want true")
 		}
 	}
 

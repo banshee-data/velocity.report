@@ -114,6 +114,29 @@ func TestClient_FetchBuckets_ServerError(t *testing.T) {
 	}
 }
 
+func TestClient_FetchBuckets_ExcessiveBuckets(t *testing.T) {
+	// Test that excessive bucket counts are rejected to prevent DoS
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Generate 150 buckets (exceeds max of 100)
+		buckets := make([]interface{}, 150)
+		for i := range buckets {
+			buckets[i] = float64(i + 1)
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"BucketsMeters": buckets,
+		})
+	}))
+	defer server.Close()
+
+	c := NewClient(server.Client(), server.URL, "sensor1")
+	buckets := c.FetchBuckets()
+
+	// Should return defaults when bucket count exceeds maximum
+	if len(buckets) != 11 {
+		t.Errorf("Expected 11 default buckets (DoS protection), got %d", len(buckets))
+	}
+}
+
 func TestClient_ResetGrid_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -169,7 +192,7 @@ func TestClient_SetParams_Success(t *testing.T) {
 		NoiseRelative:              0.1,
 		ClosenessMultiplier:        2.0,
 		NeighbourConfirmationCount: 3,
-		SeedFromFirstFrame:         true,
+		SeedFromFirst:              true,
 	}
 	err := c.SetParams(params)
 
@@ -391,7 +414,7 @@ func TestBackgroundParams_JSONEncoding(t *testing.T) {
 		NoiseRelative:              0.15,
 		ClosenessMultiplier:        2.5,
 		NeighbourConfirmationCount: 4,
-		SeedFromFirstFrame:         true,
+		SeedFromFirst:              true,
 	}
 
 	data, err := json.Marshal(params)
@@ -413,8 +436,8 @@ func TestBackgroundParams_JSONEncoding(t *testing.T) {
 	if decoded.NeighbourConfirmationCount != params.NeighbourConfirmationCount {
 		t.Errorf("NeighbourConfirmationCount mismatch")
 	}
-	if decoded.SeedFromFirstFrame != params.SeedFromFirstFrame {
-		t.Errorf("SeedFromFirstFrame mismatch")
+	if decoded.SeedFromFirst != params.SeedFromFirst {
+		t.Errorf("SeedFromFirst mismatch")
 	}
 }
 

@@ -46,6 +46,12 @@ func TestSampler_Sample_Success(t *testing.T) {
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"background_count": 150.0,
 			})
+		} else if strings.Contains(r.URL.Path, "tracks/metrics") {
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"active_tracks":      3.0,
+				"mean_alignment_deg": 5.2,
+				"misalignment_ratio": 0.1,
+			})
 		}
 	}))
 	defer server.Close()
@@ -69,8 +75,11 @@ func TestSampler_Sample_Success(t *testing.T) {
 	if results[0].NonzeroCells != 150.0 {
 		t.Errorf("Expected nonzero cells 150, got %f", results[0].NonzeroCells)
 	}
-	if callCount != 4 { // 2 acceptance + 2 grid_status
-		t.Errorf("Expected 4 calls, got %d", callCount)
+	if results[0].ActiveTracks != 3 {
+		t.Errorf("Expected active tracks 3, got %d", results[0].ActiveTracks)
+	}
+	if callCount != 6 { // 2 acceptance + 2 grid_status + 2 tracking metrics
+		t.Errorf("Expected 6 calls, got %d", callCount)
 	}
 }
 
@@ -433,6 +442,54 @@ func TestSampler_Sample_BackgroundCountTypes(t *testing.T) {
 			}
 			if results[0].NonzeroCells != tc.want {
 				t.Errorf("Expected nonzero cells %f, got %f", tc.want, results[0].NonzeroCells)
+			}
+		})
+	}
+}
+
+func TestSampler_Sample_ExcessiveIterationsClamp(t *testing.T) {
+	// Test that excessive iterations are clamped to prevent DoS
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "acceptance") {
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"AcceptCounts":    []interface{}{100.0},
+				"RejectCounts":    []interface{}{10.0},
+				"Totals":          []interface{}{110.0},
+				"AcceptanceRates": []interface{}{0.909},
+			})
+		} else if strings.Contains(r.URL.Path, "grid_status") {
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"background_count": 100.0,
+			})
+		}
+	}))
+	defer server.Close()
+
+	client := monitor.NewClient(server.Client(), server.URL, "sensor1")
+	buckets := []string{"1"}
+	s := NewSampler(client, buckets, 10*time.Millisecond)
+
+	testCases := []struct {
+		name              string
+		iterations        int
+		expectedMaxLength int
+	}{
+		{"excessive iterations", 10000, 500},
+		{"negative iterations", -5, 30},
+		{"zero iterations", 0, 30},
+		{"valid iterations", 50, 50},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := SampleConfig{
+				Iterations: tc.iterations,
+			}
+
+			results := s.Sample(cfg)
+
+			if len(results) > tc.expectedMaxLength {
+				t.Errorf("Expected at most %d results, got %d (DoS protection failed)", tc.expectedMaxLength, len(results))
 			}
 		})
 	}
