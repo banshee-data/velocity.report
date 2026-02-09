@@ -566,7 +566,7 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 	log.Printf("[sweep] Auto-tune complete: recommendation=%v, score=%.4f", overallBest.ParamValues, overallBest.Score)
 
 	// Phase 5: Save optimal params to scene when ground truth mode is enabled
-	if req.SceneID != "" && overallBest != nil && at.sceneStore != nil {
+	if req.SceneID != "" && req.Objective == "ground_truth" && overallBest != nil && at.sceneStore != nil {
 		// Extract just the parameter values (without score/metrics) for storage
 		optimalParams := make(map[string]interface{})
 		for k, v := range overallBest.ParamValues {

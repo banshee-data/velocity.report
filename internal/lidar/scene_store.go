@@ -218,8 +218,8 @@ func (s *SceneStore) ListScenes(sensorID string) ([]*Scene, error) {
 	return scenes, nil
 }
 
-// UpdateScene updates an existing scene's fields.
-// Only updates non-empty fields (description, reference_run_id, optimal_params_json).
+// UpdateScene updates an existing scene's mutable fields for the given scene ID.
+// Updates description, reference_run_id, and optimal_params_json; empty strings are stored as NULL, which clears those fields.
 func (s *SceneStore) UpdateScene(scene *Scene) error {
 	scene.UpdatedAtNs = new(int64)
 	*scene.UpdatedAtNs = time.Now().UnixNano()

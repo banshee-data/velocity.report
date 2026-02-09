@@ -13,7 +13,12 @@ import (
 // Query parameters: sensor_id, start, end, min_speed, max_speed, limit
 func (ws *WebServer) handleListTransits(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use GET")
+		return
+	}
+
+	if ws.db == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "database not configured")
 		return
 	}
 
@@ -23,48 +28,57 @@ func (ws *WebServer) handleListTransits(w http.ResponseWriter, r *http.Request) 
 	// Parse time range
 	var startUnix, endUnix float64
 	if s := query.Get("start"); s != "" {
-		if v, err := strconv.ParseFloat(s, 64); err == nil {
-			startUnix = v
+		v, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			ws.writeJSONError(w, http.StatusBadRequest, "invalid 'start' query parameter: must be a Unix timestamp in seconds")
+			return
 		}
+		startUnix = v
 	}
 	if e := query.Get("end"); e != "" {
-		if v, err := strconv.ParseFloat(e, 64); err == nil {
-			endUnix = v
+		v, err := strconv.ParseFloat(e, 64)
+		if err != nil {
+			ws.writeJSONError(w, http.StatusBadRequest, "invalid 'end' query parameter: must be a Unix timestamp in seconds")
+			return
 		}
+		endUnix = v
 	}
 
 	// Parse speed filters
 	var minSpeed, maxSpeed float32
 	if ms := query.Get("min_speed"); ms != "" {
-		if v, err := strconv.ParseFloat(ms, 32); err == nil {
-			minSpeed = float32(v)
+		v, err := strconv.ParseFloat(ms, 32)
+		if err != nil {
+			ws.writeJSONError(w, http.StatusBadRequest, "invalid 'min_speed' query parameter: must be a number")
+			return
 		}
+		minSpeed = float32(v)
 	}
 	if ms := query.Get("max_speed"); ms != "" {
-		if v, err := strconv.ParseFloat(ms, 32); err == nil {
-			maxSpeed = float32(v)
+		v, err := strconv.ParseFloat(ms, 32)
+		if err != nil {
+			ws.writeJSONError(w, http.StatusBadRequest, "invalid 'max_speed' query parameter: must be a number")
+			return
 		}
+		maxSpeed = float32(v)
 	}
 
 	// Parse limit
 	limit := 100 // Default limit
 	if l := query.Get("limit"); l != "" {
-		if v, err := strconv.Atoi(l); err == nil && v > 0 {
-			limit = v
+		v, err := strconv.Atoi(l)
+		if err != nil || v <= 0 {
+			ws.writeJSONError(w, http.StatusBadRequest, "invalid 'limit' query parameter: must be a positive integer")
+			return
 		}
-	}
-
-	// Query database
-	if ws.db == nil {
-		http.Error(w, "Database not configured", http.StatusInternalServerError)
-		return
+		limit = v
 	}
 
 	store := lidar.NewTransitStore(ws.db.DB)
 	transits, err := store.ListTransits(sensorID, startUnix, endUnix, minSpeed, maxSpeed, limit)
 	if err != nil {
 		log.Printf("Error listing transits: %v", err)
-		http.Error(w, "Failed to list transits", http.StatusInternalServerError)
+		ws.writeJSONError(w, http.StatusInternalServerError, "failed to list transits")
 		return
 	}
 
@@ -79,7 +93,12 @@ func (ws *WebServer) handleListTransits(w http.ResponseWriter, r *http.Request) 
 // Query parameters: sensor_id, start, end
 func (ws *WebServer) handleTransitSummary(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use GET")
+		return
+	}
+
+	if ws.db == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "database not configured")
 		return
 	}
 
@@ -89,27 +108,27 @@ func (ws *WebServer) handleTransitSummary(w http.ResponseWriter, r *http.Request
 	// Parse time range
 	var startUnix, endUnix float64
 	if s := query.Get("start"); s != "" {
-		if v, err := strconv.ParseFloat(s, 64); err == nil {
-			startUnix = v
+		v, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			ws.writeJSONError(w, http.StatusBadRequest, "invalid 'start' query parameter: must be a Unix timestamp in seconds")
+			return
 		}
+		startUnix = v
 	}
 	if e := query.Get("end"); e != "" {
-		if v, err := strconv.ParseFloat(e, 64); err == nil {
-			endUnix = v
+		v, err := strconv.ParseFloat(e, 64)
+		if err != nil {
+			ws.writeJSONError(w, http.StatusBadRequest, "invalid 'end' query parameter: must be a Unix timestamp in seconds")
+			return
 		}
-	}
-
-	// Query database
-	if ws.db == nil {
-		http.Error(w, "Database not configured", http.StatusInternalServerError)
-		return
+		endUnix = v
 	}
 
 	store := lidar.NewTransitStore(ws.db.DB)
 	summary, err := store.GetTransitSummary(sensorID, startUnix, endUnix)
 	if err != nil {
 		log.Printf("Error getting transit summary: %v", err)
-		http.Error(w, "Failed to get transit summary", http.StatusInternalServerError)
+		ws.writeJSONError(w, http.StatusInternalServerError, "failed to get transit summary")
 		return
 	}
 

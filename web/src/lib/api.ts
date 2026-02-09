@@ -555,16 +555,14 @@ export async function getBackgroundGrid(sensorId: string): Promise<BackgroundGri
 }
 
 // LiDAR Scene and Run Labelling API (Phase 3: track labelling UI)
-
-// LiDAR monitor base URL (port 8081)
-const LIDAR_API = 'http://localhost:8081';
+// Uses API_BASE for consistency with other LiDAR endpoints.
 
 export async function getLidarScenes(sensorId?: string): Promise<LidarScene[]> {
 	const params = new URLSearchParams();
 	if (sensorId) params.set('sensor_id', sensorId);
-	const url = `${LIDAR_API}/api/lidar/scenes${params.toString() ? '?' + params : ''}`;
+	const url = `${API_BASE}/lidar/scenes${params.toString() ? '?' + params : ''}`;
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Failed to fetch scenes: ${res.statusText}`);
+	if (!res.ok) throw new Error(`Failed to fetch scenes: ${res.status}`);
 	const data = await res.json();
 	return data.scenes || [];
 }
@@ -578,16 +576,16 @@ export async function getLidarRuns(params?: {
 	if (params?.sensor_id) searchParams.set('sensor_id', params.sensor_id);
 	if (params?.status) searchParams.set('status', params.status);
 	if (params?.limit) searchParams.set('limit', String(params.limit));
-	const url = `${LIDAR_API}/api/lidar/runs${searchParams.toString() ? '?' + searchParams : ''}`;
+	const url = `${API_BASE}/lidar/runs${searchParams.toString() ? '?' + searchParams : ''}`;
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Failed to fetch runs: ${res.statusText}`);
+	if (!res.ok) throw new Error(`Failed to fetch runs: ${res.status}`);
 	const data = await res.json();
 	return data.runs || [];
 }
 
 export async function getRunTracks(runId: string): Promise<RunTrack[]> {
-	const res = await fetch(`${LIDAR_API}/api/lidar/runs/${runId}/tracks`);
-	if (!res.ok) throw new Error(`Failed to fetch tracks: ${res.statusText}`);
+	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/tracks`);
+	if (!res.ok) throw new Error(`Failed to fetch tracks: ${res.status}`);
 	const data = await res.json();
 	return data.tracks || [];
 }
@@ -602,12 +600,12 @@ export async function updateTrackLabel(
 		labeler_id?: string;
 	}
 ): Promise<void> {
-	const res = await fetch(`${LIDAR_API}/api/lidar/runs/${runId}/tracks/${trackId}/label`, {
+	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/tracks/${trackId}/label`, {
 		method: 'PUT',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(label)
 	});
-	if (!res.ok) throw new Error(`Failed to update label: ${res.statusText}`);
+	if (!res.ok) throw new Error(`Failed to update label: ${res.status}`);
 }
 
 export async function updateTrackFlags(
@@ -618,17 +616,17 @@ export async function updateTrackFlags(
 		user_label?: string;
 	}
 ): Promise<void> {
-	const res = await fetch(`${LIDAR_API}/api/lidar/runs/${runId}/tracks/${trackId}/flags`, {
+	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/tracks/${trackId}/flags`, {
 		method: 'PUT',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(flags)
 	});
-	if (!res.ok) throw new Error(`Failed to update flags: ${res.statusText}`);
+	if (!res.ok) throw new Error(`Failed to update flags: ${res.status}`);
 }
 
 export async function getLabellingProgress(runId: string): Promise<LabellingProgress> {
-	const res = await fetch(`${LIDAR_API}/api/lidar/runs/${runId}/labelling-progress`);
-	if (!res.ok) throw new Error(`Failed to fetch progress: ${res.statusText}`);
+	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/labelling-progress`);
+	if (!res.ok) throw new Error(`Failed to fetch progress: ${res.status}`);
 	return res.json();
 }
 

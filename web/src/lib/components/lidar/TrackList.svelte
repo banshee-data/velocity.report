@@ -55,11 +55,14 @@
 
 	// Get run track for the selected track (if in labelling mode)
 	$: selectedRunTrack =
-		runId && selectedTrackId ? runTracks.find((rt) => rt.track_id === selectedTrackId) : null;
+		runId && selectedTrackId ? (runTrackMap.get(selectedTrackId) ?? null) : null;
 
 	// Labelling state
 	let isSavingLabel = false;
 	let labelError: string | null = null;
+
+	// Build a lookup map for run tracks (O(1) lookups instead of O(n²) find)
+	$: runTrackMap = new Map(runTracks.map((rt) => [rt.track_id, rt]));
 
 	// Filtered and sorted tracks
 	$: filteredTracks = tracks
@@ -71,7 +74,7 @@
 
 			// Phase 3: Filter by label status
 			if (runId && labelFilter !== 'all') {
-				const runTrack = runTracks.find((rt) => rt.track_id === track.track_id);
+				const runTrack = runTrackMap.get(track.track_id);
 				if (labelFilter === 'unlabelled' && runTrack?.user_label) return false;
 				if (labelFilter === 'labelled' && !runTrack?.user_label) return false;
 				if (labelFilter !== 'unlabelled' && labelFilter !== 'labelled') {
@@ -125,7 +128,7 @@
 			});
 
 			// Update local state
-			const runTrack = runTracks.find((rt) => rt.track_id === trackId);
+			const runTrack = runTrackMap.get(trackId);
 			if (runTrack) {
 				runTrack.user_label = label;
 				runTracks = [...runTracks]; // Trigger reactivity
@@ -154,7 +157,7 @@
 			});
 
 			// Update local state
-			const runTrack = runTracks.find((rt) => rt.track_id === trackId);
+			const runTrack = runTrackMap.get(trackId);
 			if (runTrack) {
 				runTrack.quality_label = label;
 				runTracks = [...runTracks]; // Trigger reactivity
@@ -174,7 +177,12 @@
 		if (!runId || !selectedTrackId) return;
 
 		// Don't trigger if user is typing in an input field
-		if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) {
+		if (
+			event.target instanceof HTMLInputElement ||
+			event.target instanceof HTMLSelectElement ||
+			event.target instanceof HTMLTextAreaElement ||
+			(event.target instanceof HTMLElement && event.target.isContentEditable)
+		) {
 			return;
 		}
 
@@ -388,7 +396,7 @@
 				track.object_class && track.object_class in TRACK_COLORS
 					? TRACK_COLORS[track.object_class as keyof typeof TRACK_COLORS]
 					: TRACK_COLORS.other}
-			{@const runTrack = runId ? runTracks.find((rt) => rt.track_id === track.track_id) : null}
+			{@const runTrack = runId ? (runTrackMap.get(track.track_id) ?? null) : null}
 
 			<button
 				on:click={() => onTrackSelect(track.track_id)}

@@ -332,8 +332,8 @@ struct LabelTests {
         let label = LabelEvent()
         #expect(label.trackID == "")
         #expect(label.classLabel == "")
-        #expect(label.annotator == "")
-        #expect(label.notes == "")
+        #expect(label.createdBy == nil)
+        #expect(label.notes == nil)
         #expect(!label.id.isEmpty)  // UUID should be generated
     }
 
@@ -341,16 +341,16 @@ struct LabelTests {
         var label = LabelEvent()
         label.trackID = "track-001"
         label.classLabel = "car"
-        label.startFrameID = 100
-        label.endFrameID = 200
-        label.annotator = "david"
+        label.startTimestampNs = 100_000_000
+        label.endTimestampNs = 200_000_000
+        label.createdBy = "david"
         label.notes = "White sedan"
 
         #expect(label.trackID == "track-001")
         #expect(label.classLabel == "car")
-        #expect(label.startFrameID == 100)
-        #expect(label.endFrameID == 200)
-        #expect(label.annotator == "david")
+        #expect(label.startTimestampNs == 100_000_000)
+        #expect(label.endTimestampNs == 200_000_000)
+        #expect(label.createdBy == "david")
         #expect(label.notes == "White sedan")
     }
 
@@ -365,14 +365,22 @@ struct LabelTests {
         var labelSet = LabelSet()
         labelSet.sessionID = "session-001"
         labelSet.sourceFile = "recording.vrlog"
-        labelSet.labels = [
-            LabelEvent(
-                trackID: "track-001", classLabel: "car", startFrameID: 100, endFrameID: 200,
-                createdNanos: 0, annotator: "david", notes: ""),
-            LabelEvent(
-                trackID: "track-002", classLabel: "pedestrian", startFrameID: 150, endFrameID: 250,
-                createdNanos: 0, annotator: "david", notes: ""),
-        ]
+
+        var l1 = LabelEvent()
+        l1.trackID = "track-001"
+        l1.classLabel = "car"
+        l1.startTimestampNs = 100_000_000
+        l1.endTimestampNs = 200_000_000
+        l1.createdBy = "david"
+
+        var l2 = LabelEvent()
+        l2.trackID = "track-002"
+        l2.classLabel = "pedestrian"
+        l2.startTimestampNs = 150_000_000
+        l2.endTimestampNs = 250_000_000
+        l2.createdBy = "david"
+
+        labelSet.labels = [l1, l2]
 
         #expect(labelSet.labels.count == 2)
         #expect(labelSet.labels[0].classLabel == "car")
@@ -397,11 +405,14 @@ struct LabelTests {
     @Test func labelSetCodable() throws {
         var labelSet = LabelSet()
         labelSet.sessionID = "session-001"
-        labelSet.labels = [
-            LabelEvent(
-                trackID: "track-001", classLabel: "car", startFrameID: 100, endFrameID: 200,
-                createdNanos: 0, annotator: "", notes: "")
-        ]
+
+        var l = LabelEvent()
+        l.trackID = "track-001"
+        l.classLabel = "car"
+        l.startTimestampNs = 100_000_000
+        l.endTimestampNs = 200_000_000
+
+        labelSet.labels = [l]
 
         let encoder = JSONEncoder()
         let data = try encoder.encode(labelSet)

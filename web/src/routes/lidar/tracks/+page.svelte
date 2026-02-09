@@ -168,9 +168,7 @@
 		scenesLoading = true;
 		try {
 			scenes = await getLidarScenes(sensorId);
-			console.log('[Scenes] Loaded', scenes.length, 'scenes for sensor', sensorId);
 		} catch (error) {
-			console.error('[Scenes] Failed to load scenes:', error);
 			scenes = [];
 		} finally {
 			scenesLoading = false;
@@ -186,9 +184,7 @@
 		runsLoading = true;
 		try {
 			runs = await getLidarRuns({ sensor_id: selectedScene.sensor_id });
-			console.log('[Runs] Loaded', runs.length, 'runs for sensor', selectedScene.sensor_id);
 		} catch (error) {
-			console.error('[Runs] Failed to load runs:', error);
 			runs = [];
 		} finally {
 			runsLoading = false;
@@ -204,31 +200,39 @@
 		}
 		try {
 			runTracks = await getRunTracks(selectedRunId);
-			console.log('[RunTracks] Loaded', runTracks.length, 'tracks for run', selectedRunId);
 
 			// Load labelling progress
 			try {
 				labellingProgress = await getLabellingProgress(selectedRunId);
-				console.log('[LabellingProgress]', labellingProgress);
 			} catch (error) {
-				console.error('[LabellingProgress] Failed to load progress:', error);
 				labellingProgress = null;
 			}
 		} catch (error) {
-			console.error('[RunTracks] Failed to load run tracks:', error);
 			runTracks = [];
 			labellingProgress = null;
 		}
 	}
 
 	// Watch for scene selection changes
-	$: if (selectedSceneId !== null) {
-		loadRuns();
+	$: {
+		if (selectedSceneId !== null) {
+			loadRuns();
+		} else {
+			runs = [];
+			selectedRunId = null;
+			runTracks = [];
+			labellingProgress = null;
+		}
 	}
 
 	// Watch for run selection changes
-	$: if (selectedRunId !== null) {
-		loadRunTracks();
+	$: {
+		if (selectedRunId !== null) {
+			loadRunTracks();
+		} else {
+			runTracks = [];
+			labellingProgress = null;
+		}
 	}
 
 	// Load background grid

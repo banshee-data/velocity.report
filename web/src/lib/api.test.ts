@@ -39,7 +39,13 @@ import type {
 	TrackHistoryResponse,
 	TrackListResponse,
 	TrackObservation,
-	TrackSummaryResponse
+	TrackSummaryResponse,
+	LidarScene,
+	AnalysisRun,
+	RunTrack,
+	LabellingProgress,
+	LidarTransit,
+	LidarTransitSummary
 } from './types/lidar';
 
 // Mock fetch globally
@@ -1845,6 +1851,200 @@ describe('api', () => {
 
 				await expect(getBackgroundGrid('hesai-pandar40p')).rejects.toThrow(
 					'Failed to fetch background grid: 500'
+				);
+			});
+		});
+	});
+
+	// Phase 3-6: LiDAR labelling and transit API tests
+	describe('LiDAR labelling API', () => {
+		describe('getLidarScenes', () => {
+			it('should fetch scenes without filter', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ scenes: [{ scene_id: 's1', sensor_id: 'sensor1' }] })
+				});
+				const { getLidarScenes } = await import('./api');
+				const result = await getLidarScenes();
+				expect(result).toEqual([{ scene_id: 's1', sensor_id: 'sensor1' }]);
+			});
+
+			it('should fetch scenes with sensor_id filter', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ scenes: [] })
+				});
+				const { getLidarScenes } = await import('./api');
+				const result = await getLidarScenes('hesai');
+				expect(result).toEqual([]);
+				const callUrl = (global.fetch as jest.Mock).mock.calls[0][0].toString();
+				expect(callUrl).toContain('sensor_id=hesai');
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
+				const { getLidarScenes } = await import('./api');
+				await expect(getLidarScenes()).rejects.toThrow('Failed to fetch scenes: 500');
+			});
+		});
+
+		describe('getLidarRuns', () => {
+			it('should fetch runs with filters', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ runs: [{ run_id: 'r1' }] })
+				});
+				const { getLidarRuns } = await import('./api');
+				const result = await getLidarRuns({ sensor_id: 'hesai', status: 'complete', limit: 10 });
+				expect(result).toEqual([{ run_id: 'r1' }]);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
+				const { getLidarRuns } = await import('./api');
+				await expect(getLidarRuns()).rejects.toThrow('Failed to fetch runs: 500');
+			});
+		});
+
+		describe('getRunTracks', () => {
+			it('should fetch run tracks', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ tracks: [{ track_id: 't1', user_label: 'good_vehicle' }] })
+				});
+				const { getRunTracks } = await import('./api');
+				const result = await getRunTracks('run-001');
+				expect(result).toEqual([{ track_id: 't1', user_label: 'good_vehicle' }]);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
+				const { getRunTracks } = await import('./api');
+				await expect(getRunTracks('bad-id')).rejects.toThrow('Failed to fetch tracks: 404');
+			});
+		});
+
+		describe('updateTrackLabel', () => {
+			it('should update label via PUT', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
+				const { updateTrackLabel } = await import('./api');
+				await updateTrackLabel('run-001', 'track-001', {
+					user_label: 'good_vehicle',
+					quality_label: 'perfect'
+				});
+				const call = (global.fetch as jest.Mock).mock.calls[0];
+				expect(call[1].method).toBe('PUT');
+				expect(JSON.parse(call[1].body)).toEqual({
+					user_label: 'good_vehicle',
+					quality_label: 'perfect'
+				});
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 400 });
+				const { updateTrackLabel } = await import('./api');
+				await expect(updateTrackLabel('r', 't', { user_label: 'invalid' })).rejects.toThrow(
+					'Failed to update label: 400'
+				);
+			});
+		});
+
+		describe('updateTrackFlags', () => {
+			it('should update flags via PUT', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
+				const { updateTrackFlags } = await import('./api');
+				await updateTrackFlags('run-001', 'track-001', {
+					linked_track_ids: ['t2'],
+					user_label: 'split'
+				});
+				const call = (global.fetch as jest.Mock).mock.calls[0];
+				expect(call[1].method).toBe('PUT');
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
+				const { updateTrackFlags } = await import('./api');
+				await expect(updateTrackFlags('r', 't', { linked_track_ids: [] })).rejects.toThrow(
+					'Failed to update flags: 500'
+				);
+			});
+		});
+
+		describe('getLabellingProgress', () => {
+			it('should fetch labelling progress', async () => {
+				const mockProgress = { total: 100, labelled: 50, progress_pct: 50.0, by_class: {} };
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => mockProgress
+				});
+				const { getLabellingProgress } = await import('./api');
+				const result = await getLabellingProgress('run-001');
+				expect(result).toEqual(mockProgress);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
+				const { getLabellingProgress } = await import('./api');
+				await expect(getLabellingProgress('bad-id')).rejects.toThrow(
+					'Failed to fetch progress: 404'
+				);
+			});
+		});
+	});
+
+	describe('LiDAR transit API', () => {
+		describe('getLidarTransits', () => {
+			it('should fetch transits with filters', async () => {
+				const mockTransits = [{ transit_id: 1, track_id: 't1', avg_speed_mps: 12.5 }];
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => mockTransits
+				});
+				const { getLidarTransits } = await import('./api');
+				const result = await getLidarTransits({
+					sensor_id: 'hesai',
+					start: 1000,
+					end: 2000,
+					min_speed: 5,
+					max_speed: 30,
+					limit: 50
+				});
+				expect(result).toEqual(mockTransits);
+				const callUrl = (global.fetch as jest.Mock).mock.calls[0][0].toString();
+				expect(callUrl).toContain('sensor_id=hesai');
+				expect(callUrl).toContain('start=1000');
+				expect(callUrl).toContain('limit=50');
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 503 });
+				const { getLidarTransits } = await import('./api');
+				await expect(getLidarTransits({})).rejects.toThrow('Failed to fetch LiDAR transits: 503');
+			});
+		});
+
+		describe('getLidarTransitSummary', () => {
+			it('should fetch transit summary', async () => {
+				const mockSummary = {
+					total_count: 100,
+					avg_speed_mps: 11.0,
+					p85_speed_mps: 14.5,
+					by_class: { car: 80, pedestrian: 20 }
+				};
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => mockSummary
+				});
+				const { getLidarTransitSummary } = await import('./api');
+				const result = await getLidarTransitSummary({ sensor_id: 'hesai', start: 1000 });
+				expect(result).toEqual(mockSummary);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
+				const { getLidarTransitSummary } = await import('./api');
+				await expect(getLidarTransitSummary({})).rejects.toThrow(
+					'Failed to fetch LiDAR transit summary: 500'
 				);
 			});
 		});

@@ -189,14 +189,18 @@ func (ws *WebServer) handleUpdateTrackFlags(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Determine split/merge flags from user_label
-	isSplit := false
-	isMerge := false
-	if req.UserLabel == "split" {
-		isSplit = true
-	} else if req.UserLabel == "merge" {
-		isMerge = true
+	// Validate and determine split/merge flags from user_label
+	userLabel := strings.TrimSpace(req.UserLabel)
+	switch userLabel {
+	case "", "split", "merge":
+		// valid values
+	default:
+		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid user_label %q; must be \"split\", \"merge\", or empty", req.UserLabel))
+		return
 	}
+
+	isSplit := userLabel == "split"
+	isMerge := userLabel == "merge"
 
 	// Update the track quality flags
 	store := lidar.NewAnalysisRunStore(ws.db.DB)

@@ -383,3 +383,48 @@ CREATE TRIGGER update_site_timestamp AFTER
     WHERE id = NEW.id;
 
 END;
+
+CREATE TABLE lidar_scenes (
+    scene_id TEXT PRIMARY KEY,
+    sensor_id TEXT NOT NULL,
+    pcap_file TEXT NOT NULL,
+    pcap_start_secs REAL,
+    pcap_duration_secs REAL,
+    description TEXT,
+    reference_run_id TEXT,
+    optimal_params_json TEXT,
+    created_at_ns INTEGER NOT NULL,
+    updated_at_ns INTEGER,
+    FOREIGN KEY (reference_run_id) REFERENCES lidar_analysis_runs(run_id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_lidar_scenes_sensor ON lidar_scenes(sensor_id);
+CREATE INDEX idx_lidar_scenes_pcap ON lidar_scenes(pcap_file);
+
+CREATE TABLE lidar_transits (
+    transit_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    track_id TEXT NOT NULL UNIQUE,
+    sensor_id TEXT NOT NULL,
+    transit_start_unix DOUBLE NOT NULL,
+    transit_end_unix DOUBLE NOT NULL,
+    max_speed_mps REAL,
+    min_speed_mps REAL,
+    avg_speed_mps REAL,
+    p50_speed_mps REAL,
+    p85_speed_mps REAL,
+    p95_speed_mps REAL,
+    track_length_m REAL,
+    observation_count INTEGER,
+    object_class TEXT,
+    classification_confidence REAL,
+    quality_score REAL,
+    bbox_length_avg REAL,
+    bbox_width_avg REAL,
+    bbox_height_avg REAL,
+    created_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
+);
+
+CREATE INDEX idx_lidar_transits_time ON lidar_transits(transit_start_unix, transit_end_unix);
+CREATE INDEX idx_lidar_transits_sensor ON lidar_transits(sensor_id);
+CREATE INDEX idx_lidar_transits_class ON lidar_transits(object_class);
+CREATE INDEX idx_lidar_transits_speed ON lidar_transits(p85_speed_mps);

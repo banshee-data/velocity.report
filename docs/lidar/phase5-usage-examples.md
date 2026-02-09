@@ -9,7 +9,7 @@ The auto-tuning system now accepts ground truth configuration, but defers actual
 ### API Request Example
 
 ```json
-POST /api/lidar/sweep/auto-tune
+POST /api/lidar/sweep/auto
 
 {
   "params": [
@@ -212,7 +212,7 @@ PUT /api/lidar/scenes/scene-123
 ### Step 4: Run Auto-Tuning
 
 ```bash
-POST /api/lidar/sweep/auto-tune
+POST /api/lidar/sweep/auto
 {
   "objective": "ground_truth",
   "scene_id": "scene-123",
