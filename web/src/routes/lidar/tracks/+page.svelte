@@ -168,7 +168,7 @@
 		scenesLoading = true;
 		try {
 			scenes = await getLidarScenes(sensorId);
-		} catch (error) {
+		} catch {
 			scenes = [];
 		} finally {
 			scenesLoading = false;
@@ -184,7 +184,7 @@
 		runsLoading = true;
 		try {
 			runs = await getLidarRuns({ sensor_id: selectedScene.sensor_id });
-		} catch (error) {
+		} catch {
 			runs = [];
 		} finally {
 			runsLoading = false;
@@ -204,17 +204,17 @@
 			// Load labelling progress
 			try {
 				labellingProgress = await getLabellingProgress(selectedRunId);
-			} catch (error) {
+			} catch {
 				labellingProgress = null;
 			}
-		} catch (error) {
+		} catch {
 			runTracks = [];
 			labellingProgress = null;
 		}
 	}
 
-	// Watch for scene selection changes
-	$: {
+	// Phase 3: Handle scene selection change (via on:change)
+	function handleSceneChange() {
 		if (selectedSceneId !== null) {
 			loadRuns();
 		} else {
@@ -225,8 +225,8 @@
 		}
 	}
 
-	// Watch for run selection changes
-	$: {
+	// Phase 3: Handle run selection change (via on:change)
+	function handleRunChange() {
 		if (selectedRunId !== null) {
 			loadRunTracks();
 		} else {
@@ -314,7 +314,7 @@
 				selectedTime = timeRange!.start;
 				tickCount = 0;
 			}
-		}, PLAYBACK_UPDATE_INTERVAL_MS) as any;
+		}, PLAYBACK_UPDATE_INTERVAL_MS);
 	}
 
 	function handlePause() {
@@ -472,6 +472,7 @@
 				<SelectField
 					label="Scene"
 					bind:value={selectedSceneId}
+					on:change={handleSceneChange}
 					options={[
 						{ label: 'None (Historical)', value: null },
 						...scenes.map((s) => ({
@@ -489,6 +490,7 @@
 					<SelectField
 						label="Run"
 						bind:value={selectedRunId}
+						on:change={handleRunChange}
 						options={[
 							{ label: 'Select a run...', value: null },
 							...runs.map((r) => ({

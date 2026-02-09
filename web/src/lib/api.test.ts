@@ -39,13 +39,7 @@ import type {
 	TrackHistoryResponse,
 	TrackListResponse,
 	TrackObservation,
-	TrackSummaryResponse,
-	LidarScene,
-	AnalysisRun,
-	RunTrack,
-	LabellingProgress,
-	LidarTransit,
-	LidarTransitSummary
+	TrackSummaryResponse
 } from './types/lidar';
 
 // Mock fetch globally
