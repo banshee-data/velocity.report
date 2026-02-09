@@ -6,8 +6,10 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/google/uuid"
 )
 
 // Phase 2.3: REST API for scene management
@@ -254,14 +256,87 @@ func (ws *WebServer) handleDeleteScene(w http.ResponseWriter, r *http.Request, s
 }
 
 // handleReplayScene handles PCAP replay for a scene.
-// Placeholder for Phase 2.4/5 — will create analysis runs per parameter combo.
-// Returns 501 Not Implemented for now.
+// Phase 2.4: Replays the scene's PCAP file, creates an analysis run, and returns the run_id.
 func (ws *WebServer) handleReplayScene(w http.ResponseWriter, r *http.Request, sceneID string) {
-	// TODO(Phase 2.4): Connect scene creation to PCAP replay
-	// TODO(Phase 2.5): Wire sweep/auto-tune to create analysis runs per combo
-	// This endpoint will trigger PCAP replay with the scene's params, creating
-	// an analysis run that can be compared to the reference run for ground truth evaluation.
-	ws.writeJSONError(w, http.StatusNotImplemented, "scene replay not yet implemented (Phase 2.4/5)")
+	store := lidar.NewSceneStore(ws.db.DB)
+	scene, err := store.GetScene(sceneID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			ws.writeJSONError(w, http.StatusNotFound, "scene not found")
+		} else {
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to load scene: %v", err))
+		}
+		return
+	}
+
+	// Parse optional params override from request body
+	var req struct {
+		ParamsJSON json.RawMessage `json:"params_json,omitempty"`
+	}
+	if r.Body != nil {
+		defer r.Body.Close()
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err != io.EOF {
+			// Ignore EOF errors (empty body is acceptable)
+			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
+			return
+		}
+	}
+
+	// Determine which params to use
+	var paramsJSON json.RawMessage
+	if req.ParamsJSON != nil {
+		paramsJSON = req.ParamsJSON
+	} else if len(scene.OptimalParamsJSON) > 0 {
+		paramsJSON = scene.OptimalParamsJSON
+	}
+
+	// Create analysis run with UUID for uniqueness
+	runStore := lidar.NewAnalysisRunStore(ws.db.DB)
+	run := &lidar.AnalysisRun{
+		RunID:      fmt.Sprintf("replay-%s-%s", sceneID, uuid.New().String()[:8]),
+		SourceType: "pcap",
+		SourcePath: scene.PCAPFile,
+		SensorID:   scene.SensorID,
+		Status:     "running",
+		CreatedAt:  time.Now(),
+		ParamsJSON: paramsJSON,
+	}
+
+	if err := runStore.InsertRun(run); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create analysis run: %v", err))
+		return
+	}
+
+	// Start PCAP replay
+	// Note: The actual run completion and track insertion will be handled by AnalysisRunManager
+	// when the frame builder processes the PCAP. This is a trigger to start the replay.
+	var startSecs, durationSecs float64
+	if scene.PCAPStartSecs != nil {
+		startSecs = *scene.PCAPStartSecs
+	}
+	if scene.PCAPDurationSecs != nil {
+		durationSecs = *scene.PCAPDurationSecs
+	}
+
+	config := ReplayConfig{
+		StartSeconds:    startSecs,
+		DurationSeconds: durationSecs,
+		AnalysisMode:    true, // Preserve state after completion
+	}
+
+	if err := ws.StartPCAPInternal(scene.PCAPFile, config); err != nil {
+		// Update run status to failed
+		runStore.UpdateRunStatus(run.RunID, "failed", fmt.Sprintf("PCAP replay failed: %v", err))
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to start PCAP replay: %v", err))
+		return
+	}
+
+	ws.writeJSON(w, http.StatusAccepted, map[string]interface{}{
+		"run_id":   run.RunID,
+		"scene_id": sceneID,
+		"status":   "running",
+		"message":  "PCAP replay initiated; analysis run created",
+	})
 }
 
 // handleListSceneEvaluations lists all ground truth evaluation scores for a scene.

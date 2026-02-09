@@ -7,9 +7,10 @@
 		QualityLabel
 	} from '$lib/types/lidar';
 	import { TRACK_COLORS } from '$lib/types/lidar';
-	import { updateTrackLabel } from '$lib/api';
+	import { updateTrackLabel, updateTrackFlags } from '$lib/api';
 	import { Button } from 'svelte-ux';
 	import { onMount, onDestroy } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	export let tracks: Track[] = [];
 	export let selectedTrackId: string | null = null;
@@ -21,6 +22,13 @@
 	export let runId: string | null = null;
 	export let runTracks: RunTrack[] = [];
 	export let labellingProgress: LabellingProgress | null = null;
+
+	// Phase 3.4: Bulk selection state
+	let selectedTrackIds = new SvelteSet<string>();
+
+	// Phase 3.5: Link mode state
+	let linkMode = false;
+	let linkSource: string | null = null;
 
 	// Detection label options
 	const DETECTION_LABELS: { value: DetectionLabel; label: string; shortcut: string }[] = [
@@ -173,10 +181,220 @@
 		}
 	}
 
+	// Phase 3.4: Apply bulk detection label
+	async function applyBulkDetectionLabel(label: DetectionLabel) {
+		if (!runId || selectedTrackIds.size === 0) return;
+
+		isSavingLabel = true;
+		labelError = null;
+
+		try {
+			// Apply label to all selected tracks
+			await Promise.all(
+				Array.from(selectedTrackIds).map((trackId) =>
+					updateTrackLabel(runId, trackId, {
+						user_label: label,
+						labeler_id: 'web-ui'
+					})
+				)
+			);
+
+			// Update local state for all tracks
+			selectedTrackIds.forEach((trackId) => {
+				const runTrack = runTrackMap.get(trackId);
+				if (runTrack) {
+					runTrack.user_label = label;
+				}
+			});
+			runTracks = [...runTracks]; // Trigger reactivity
+
+			console.log(
+				'[Label] Applied bulk detection label',
+				label,
+				'to',
+				selectedTrackIds.size,
+				'tracks'
+			);
+			selectedTrackIds.clear();
+		} catch (error) {
+			console.error('[Label] Failed to apply bulk detection label:', error);
+			labelError = error instanceof Error ? error.message : 'Failed to apply bulk label';
+		} finally {
+			isSavingLabel = false;
+		}
+	}
+
+	// Phase 3.4: Apply bulk quality label
+	async function applyBulkQualityLabel(label: QualityLabel) {
+		if (!runId || selectedTrackIds.size === 0) return;
+
+		isSavingLabel = true;
+		labelError = null;
+
+		try {
+			// Apply label to all selected tracks
+			await Promise.all(
+				Array.from(selectedTrackIds).map((trackId) =>
+					updateTrackLabel(runId, trackId, {
+						quality_label: label,
+						labeler_id: 'web-ui'
+					})
+				)
+			);
+
+			// Update local state for all tracks
+			selectedTrackIds.forEach((trackId) => {
+				const runTrack = runTrackMap.get(trackId);
+				if (runTrack) {
+					runTrack.quality_label = label;
+				}
+			});
+			runTracks = [...runTracks]; // Trigger reactivity
+
+			console.log(
+				'[Label] Applied bulk quality label',
+				label,
+				'to',
+				selectedTrackIds.size,
+				'tracks'
+			);
+			selectedTrackIds.clear();
+		} catch (error) {
+			console.error('[Label] Failed to apply bulk quality label:', error);
+			labelError = error instanceof Error ? error.message : 'Failed to apply bulk label';
+		} finally {
+			isSavingLabel = false;
+		}
+	}
+
+	// Phase 3.5: Link two tracks
+	async function linkTracks(trackId1: string, trackId2: string) {
+		if (!runId) return;
+
+		isSavingLabel = true;
+		labelError = null;
+
+		try {
+			// Link both tracks to each other
+			await Promise.all([
+				updateTrackFlags(runId, trackId1, {
+					linked_track_ids: [trackId2],
+					user_label: 'split'
+				}),
+				updateTrackFlags(runId, trackId2, {
+					linked_track_ids: [trackId1],
+					user_label: 'split'
+				})
+			]);
+
+			// Update local state
+			const runTrack1 = runTrackMap.get(trackId1);
+			const runTrack2 = runTrackMap.get(trackId2);
+			if (runTrack1) {
+				runTrack1.linked_track_ids = [trackId2];
+				runTrack1.user_label = 'split';
+			}
+			if (runTrack2) {
+				runTrack2.linked_track_ids = [trackId1];
+				runTrack2.user_label = 'split';
+			}
+			runTracks = [...runTracks]; // Trigger reactivity
+
+			console.log('[Link] Linked tracks', trackId1, 'and', trackId2);
+		} catch (error) {
+			console.error('[Link] Failed to link tracks:', error);
+			labelError = error instanceof Error ? error.message : 'Failed to link tracks';
+		} finally {
+			isSavingLabel = false;
+		}
+	}
+
+	// Phase 3.5: Unlink a track
+	async function unlinkTrack(trackId: string) {
+		if (!runId) return;
+
+		isSavingLabel = true;
+		labelError = null;
+
+		try {
+			const runTrack = runTrackMap.get(trackId);
+			if (!runTrack || !runTrack.linked_track_ids || runTrack.linked_track_ids.length === 0) {
+				return;
+			}
+
+			// Unlink from all linked tracks
+			const linkedIds = runTrack.linked_track_ids;
+			await Promise.all([
+				// Clear this track's links
+				updateTrackFlags(runId, trackId, {
+					linked_track_ids: []
+				}),
+				// Clear links from linked tracks
+				...linkedIds.map((linkedId) =>
+					updateTrackFlags(runId, linkedId, {
+						linked_track_ids: []
+					})
+				)
+			]);
+
+			// Update local state
+			runTrack.linked_track_ids = [];
+			linkedIds.forEach((linkedId) => {
+				const linkedTrack = runTrackMap.get(linkedId);
+				if (linkedTrack) {
+					linkedTrack.linked_track_ids = [];
+				}
+			});
+			runTracks = [...runTracks]; // Trigger reactivity
+
+			console.log('[Link] Unlinked track', trackId);
+		} catch (error) {
+			console.error('[Link] Failed to unlink track:', error);
+			labelError = error instanceof Error ? error.message : 'Failed to unlink track';
+		} finally {
+			isSavingLabel = false;
+		}
+	}
+
+	// Phase 3.4/3.5: Handle track click (with shift-click for multi-select and link mode)
+	function handleTrackClick(trackId: string, event: MouseEvent) {
+		if (!runId) {
+			onTrackSelect(trackId);
+			return;
+		}
+
+		// Phase 3.5: Link mode - clicking a track links it to the source
+		if (linkMode) {
+			if (!linkSource) {
+				linkSource = trackId;
+				console.log('[Link] Set link source:', trackId);
+			} else {
+				if (linkSource !== trackId) {
+					linkTracks(linkSource, trackId);
+				}
+				linkMode = false;
+				linkSource = null;
+			}
+			return;
+		}
+
+		// Phase 3.4: Shift-click for multi-select
+		if (event.shiftKey) {
+			event.preventDefault();
+			if (selectedTrackIds.has(trackId)) {
+				selectedTrackIds.delete(trackId);
+			} else {
+				selectedTrackIds.add(trackId);
+			}
+			return;
+		}
+
+		// Normal click: select single track
+		onTrackSelect(trackId);
+	}
+
 	// Phase 3: Keyboard shortcuts for labelling
 	function handleKeyPress(event: KeyboardEvent) {
-		if (!runId || !selectedTrackId) return;
-
 		// Don't trigger if user is typing in an input field
 		if (
 			event.target instanceof HTMLInputElement ||
@@ -186,6 +404,23 @@
 		) {
 			return;
 		}
+
+		// Phase 3.4: Escape to clear multi-selection
+		if (event.key === 'Escape') {
+			if (selectedTrackIds.size > 0) {
+				event.preventDefault();
+				selectedTrackIds.clear();
+				return;
+			}
+			if (linkMode) {
+				event.preventDefault();
+				linkMode = false;
+				linkSource = null;
+				return;
+			}
+		}
+
+		if (!runId || !selectedTrackId) return;
 
 		// Detection labels (1-8)
 		if (!event.shiftKey && event.key >= '1' && event.key <= '8') {
@@ -261,6 +496,31 @@
 	<!-- Header -->
 	<div class="border-surface-content/10 border-b px-4 py-3">
 		<h3 class="text-surface-content font-semibold">Tracks ({filteredTracks.length})</h3>
+
+		<!-- Phase 3.5: Link Mode Toggle -->
+		{#if runId}
+			<div class="mt-2 flex items-center gap-2">
+				<Button
+					size="sm"
+					variant={linkMode ? 'fill' : 'outline'}
+					color={linkMode ? 'primary' : 'neutral'}
+					on:click={() => {
+						linkMode = !linkMode;
+						linkSource = null;
+						selectedTrackIds.clear();
+					}}
+					class="text-xs"
+					title="Enable to link two tracks (split/merge annotation)"
+				>
+					🔗 {linkMode ? 'Link Mode Active' : 'Link Tracks'}
+				</Button>
+				{#if linkMode && linkSource}
+					<span class="text-surface-content/70 text-xs"
+						>Source: {linkSource.substring(0, 8)}... (click another track to link)</span
+					>
+				{/if}
+			</div>
+		{/if}
 
 		<!-- Phase 3: Labelling Progress Bar -->
 		{#if labellingProgress}
@@ -390,6 +650,8 @@
 	<div class="min-h-0 flex-1 overflow-y-auto">
 		{#each paginatedTracks as track (track.track_id)}
 			{@const isSelected = track.track_id === selectedTrackId}
+			{@const isMultiSelected = selectedTrackIds.has(track.track_id)}
+			{@const isLinkSource = linkMode && linkSource === track.track_id}
 			{@const color =
 				track.object_class && track.object_class in TRACK_COLORS
 					? TRACK_COLORS[track.object_class as keyof typeof TRACK_COLORS]
@@ -397,12 +659,33 @@
 			{@const runTrack = runId ? (runTrackMap.get(track.track_id) ?? null) : null}
 
 			<button
-				on:click={() => onTrackSelect(track.track_id)}
+				on:click={(e) => handleTrackClick(track.track_id, e)}
 				class="border-surface-content/10 hover:bg-surface-200 w-full border-b px-4 py-3 text-left transition-colors {isSelected
 					? 'border-l-primary bg-primary/10 border-l-4'
-					: ''}"
+					: isMultiSelected || isLinkSource
+						? 'border-l-accent bg-accent/10 border-l-4'
+						: ''}"
 			>
 				<div class="flex items-start gap-3">
+					<!-- Multi-select checkbox (Phase 3.4) -->
+					{#if runId && !linkMode}
+						<div class="flex-shrink-0">
+							<input
+								type="checkbox"
+								checked={isMultiSelected}
+								on:change={(e) => {
+									e.stopPropagation();
+									if (isMultiSelected) {
+										selectedTrackIds.delete(track.track_id);
+									} else {
+										selectedTrackIds.add(track.track_id);
+									}
+								}}
+								class="h-4 w-4"
+							/>
+						</div>
+					{/if}
+
 					<!-- Icon -->
 					<div class="flex-shrink-0 text-2xl">
 						{getClassIcon(track)}
@@ -411,8 +694,19 @@
 					<!-- Content -->
 					<div class="min-w-0 flex-1">
 						<!-- Track ID -->
-						<div class="text-surface-content truncate font-mono text-sm font-medium">
+						<div
+							class="text-surface-content flex items-center gap-2 truncate font-mono text-sm font-medium"
+						>
 							{track.track_id}
+							<!-- Phase 3.5: Linked track indicator -->
+							{#if runTrack?.linked_track_ids && runTrack.linked_track_ids.length > 0}
+								<span
+									class="text-xs"
+									title="Linked to {runTrack.linked_track_ids.length} other track(s)"
+								>
+									🔗
+								</span>
+							{/if}
 						</div>
 
 						<!-- Classification -->
@@ -499,17 +793,89 @@
 				</p>
 			</div>
 		</div>
+	{:else if selectedTrackIds.size > 0}
+		<!-- Phase 3.4: Bulk Labelling Panel -->
+		<div class="border-surface-content/10 space-y-3 border-t bg-blue-50 px-4 py-3 dark:bg-blue-950">
+			<div class="flex items-center justify-between">
+				<h4 class="text-surface-content text-sm font-semibold">
+					Bulk Label ({selectedTrackIds.size} tracks)
+				</h4>
+				<Button
+					size="sm"
+					variant="outline"
+					on:click={() => selectedTrackIds.clear()}
+					class="text-xs"
+				>
+					Clear Selection
+				</Button>
+			</div>
+
+			<!-- Detection Labels -->
+			<div>
+				<div class="text-surface-content/70 mb-1 block text-xs font-medium">Detection</div>
+				<div class="grid grid-cols-2 gap-1">
+					{#each DETECTION_LABELS as { value, label } (value)}
+						<Button
+							size="sm"
+							variant="outline"
+							color="neutral"
+							on:click={() => applyBulkDetectionLabel(value)}
+							disabled={isSavingLabel}
+							class="text-xs"
+						>
+							{label}
+						</Button>
+					{/each}
+				</div>
+			</div>
+
+			<!-- Quality Labels -->
+			<div>
+				<div class="text-surface-content/70 mb-1 block text-xs font-medium">Quality</div>
+				<div class="grid grid-cols-2 gap-1">
+					{#each QUALITY_LABELS as { value, label } (value)}
+						<Button
+							size="sm"
+							variant="outline"
+							color="neutral"
+							on:click={() => applyBulkQualityLabel(value)}
+							disabled={isSavingLabel}
+							class="text-xs"
+						>
+							{label}
+						</Button>
+					{/each}
+				</div>
+			</div>
+		</div>
 	{:else if runId && !selectedTrackId}
 		<div class="border-surface-content/10 border-t px-4 py-3">
 			<div class="text-surface-content/50 text-xs">
 				<p class="font-medium">Select a Track</p>
 				<p class="mt-1">Click a track from the list above or on the map to start labelling.</p>
 				<p class="mt-1">Keys 1-8: detection labels, Shift+1-5: quality labels.</p>
+				<p class="mt-1">Shift+click: multi-select for bulk labelling.</p>
 			</div>
 		</div>
 	{:else if runId && selectedTrackId && selectedRunTrack}
 		<div class="border-surface-content/10 space-y-3 border-t px-4 py-3">
-			<h4 class="text-surface-content text-sm font-semibold">Label Track</h4>
+			<div class="flex items-center justify-between">
+				<h4 class="text-surface-content text-sm font-semibold">Label Track</h4>
+				<!-- Phase 3.5: Unlink button -->
+				{#if selectedRunTrack.linked_track_ids && selectedRunTrack.linked_track_ids.length > 0}
+					<Button
+						size="sm"
+						variant="outline"
+						color="danger"
+						on:click={() => unlinkTrack(selectedTrackId)}
+						disabled={isSavingLabel}
+						class="text-xs"
+						title="Remove link to other track(s)"
+					>
+						Unlink
+					</Button>
+				{/if}
+			</div>
 
 			<!-- Detection Labels -->
 			<div>
@@ -555,6 +921,7 @@
 				<p>Use keyboard shortcuts for faster labelling:</p>
 				<p>1-8: Detection labels</p>
 				<p>Shift+1-5: Quality labels</p>
+				<p>Shift+click: Multi-select</p>
 			</div>
 		</div>
 	{/if}

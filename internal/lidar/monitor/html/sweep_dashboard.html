@@ -548,6 +548,9 @@
               automatically.</small>
           </label>
           <div id="scene-info" style="display:none; font-size: 0.85em; color: var(--fg-muted); padding: 4px 0;"></div>
+          <div id="scene-actions" style="display:none; margin-top: 8px;">
+            <button class="btn-sm btn-secondary" onclick="applySceneParams()" id="btn-apply-scene-params">Apply Scene Params</button>
+          </div>
         </div>
 
         <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--card-border);">
@@ -649,8 +652,9 @@
             <select id="objective" onchange="toggleWeights()">
               <option value="acceptance">Acceptance Rate</option>
               <option value="weighted">Weighted (custom)</option>
+              <option value="ground_truth" id="ground_truth_option" style="display:none">Ground Truth</option>
             </select>
-            <small class="field-desc">Scoring function for ranking combinations.</small>
+            <small class="field-desc">Scoring function for ranking combinations. Ground Truth requires a scene with reference run.</small>
           </label>
         </div>
         <div id="weight-fields" style="display:none; margin-top: 10px;">
@@ -793,6 +797,7 @@
     }
 
     var sweepScenesData = [];
+    var currentSceneHasReference = false;
 
     function loadSweepScenes() {
       var select = document.getElementById('scene_select');
@@ -819,12 +824,26 @@
     function onSweepSceneSelected() {
       var sceneId = document.getElementById('scene_select').value;
       var infoEl = document.getElementById('scene-info');
+      var actionsEl = document.getElementById('scene-actions');
+      var gtOption = document.getElementById('ground_truth_option');
+      
       if (!sceneId) {
         infoEl.style.display = 'none';
+        actionsEl.style.display = 'none';
+        currentSceneHasReference = false;
+        if (gtOption) gtOption.style.display = 'none';
         return;
       }
+      
       var scene = sweepScenesData.find(function (s) { return s.scene_id === sceneId; });
-      if (!scene) { infoEl.style.display = 'none'; return; }
+      if (!scene) {
+        infoEl.style.display = 'none';
+        actionsEl.style.display = 'none';
+        currentSceneHasReference = false;
+        if (gtOption) gtOption.style.display = 'none';
+        return;
+      }
+      
       // Populate the PCAP fields so buildScenarioJSON / handleStartAutoTune can read them
       document.getElementById('pcap_file').value = scene.pcap_file;
       if (scene.pcap_start_secs != null) {
@@ -833,12 +852,30 @@
       if (scene.pcap_duration_secs != null) {
         document.getElementById('pcap_duration_secs').value = scene.pcap_duration_secs;
       }
+      
       // Show info
       var info = 'File: ' + scene.pcap_file;
       if (scene.pcap_start_secs != null) info += ' | Start: ' + scene.pcap_start_secs + 's';
       if (scene.pcap_duration_secs != null) info += ' | Duration: ' + scene.pcap_duration_secs + 's';
+      
+      // Check if scene has reference run (enables ground truth objective)
+      currentSceneHasReference = scene.reference_run_id ? true : false;
+      if (currentSceneHasReference) {
+        info += ' | Reference: ' + scene.reference_run_id;
+        if (gtOption) gtOption.style.display = '';
+      } else {
+        if (gtOption) gtOption.style.display = 'none';
+      }
+      
       infoEl.textContent = info;
       infoEl.style.display = '';
+      
+      // Show action buttons if scene has optimal params
+      if (scene.optimal_params_json) {
+        actionsEl.style.display = '';
+      } else {
+        actionsEl.style.display = 'none';
+      }
     }
 
     function setMode(mode) {
@@ -1338,6 +1375,14 @@
         req.pcap_start_secs = numVal('pcap_start_secs');
         req.pcap_duration_secs = numVal('pcap_duration_secs');
       }
+      
+      // Phase 5.4: Include scene_id for ground truth evaluation
+      if (ds === 'scene') {
+        var sceneId = val('scene_select');
+        if (sceneId) {
+          req.scene_id = sceneId;
+        }
+      }
 
       if (req.objective === 'weighted') {
         req.weights = {
@@ -1628,6 +1673,42 @@
           fetchCurrentParams();
         }).catch(function (e) { showError('Apply failed: ' + e.message); });
       }).catch(function (e) { showError('Failed to fetch recommendation: ' + e.message); });
+    }
+
+    function applySceneParams() {
+      var sceneId = document.getElementById('scene_select').value;
+      if (!sceneId) {
+        showError('No scene selected.');
+        return;
+      }
+      
+      var scene = sweepScenesData.find(function (s) { return s.scene_id === sceneId; });
+      if (!scene || !scene.optimal_params_json) {
+        showError('Selected scene has no optimal parameters.');
+        return;
+      }
+      
+      var tuningParams;
+      try {
+        tuningParams = JSON.parse(scene.optimal_params_json);
+      } catch (e) {
+        showError('Failed to parse scene parameters: ' + e.message);
+        return;
+      }
+      
+      var sensorId = '%[1]s';
+      fetch('/api/lidar/params?sensor_id=' + encodeURIComponent(sensorId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(tuningParams)
+      }).then(function (r) {
+        if (!r.ok) return r.text().then(function (t) { throw new Error(t); });
+        document.getElementById('btn-apply-scene-params').textContent = 'Applied ✓';
+        setTimeout(function () {
+          document.getElementById('btn-apply-scene-params').textContent = 'Apply Scene Params';
+        }, 2000);
+        fetchCurrentParams();
+      }).catch(function (e) { showError('Apply failed: ' + e.message); });
     }
 
     function downloadCSV() {
@@ -1973,6 +2054,12 @@
       } else {
         paramKeys = ['noise', 'closeness', 'neighbour'];
       }
+      
+      // Check if we have ground truth scores (Phase 5.4)
+      var hasGroundTruth = results[0] && (
+        results[0].detection_rate !== undefined ||
+        results[0].ground_truth_score !== undefined
+      );
 
       // Rebuild header
       var thead = document.getElementById('results-head');
@@ -1981,8 +2068,23 @@
         var schema = PARAM_SCHEMA[k];
         headerHtml += '<th>' + (schema ? schema.label : k) + '</th>';
       });
-      headerHtml += '<th>Accept Rate</th><th>\u00b1 StdDev</th><th>Nonzero Cells</th><th>\u00b1 StdDev</th>';
-      headerHtml += '<th>Active Tracks</th><th>Alignment (\u00b0)</th><th>Misalignment</th>';
+      
+      if (hasGroundTruth) {
+        // Phase 5.4: Ground truth columns
+        headerHtml += '<th>GT Score</th>';
+        headerHtml += '<th>Detection %</th>';
+        headerHtml += '<th>Frag.</th>';
+        headerHtml += '<th>FP Rate</th>';
+        headerHtml += '<th>Qual. Prem.</th>';
+        headerHtml += '<th>Trunc.</th>';
+        headerHtml += '<th>Vel. Noise</th>';
+        headerHtml += '<th>Stopped OK</th>';
+      } else {
+        // Standard metrics
+        headerHtml += '<th>Accept Rate</th><th>\u00b1 StdDev</th><th>Nonzero Cells</th><th>\u00b1 StdDev</th>';
+        headerHtml += '<th>Active Tracks</th><th>Alignment (\u00b0)</th><th>Misalignment</th>';
+      }
+      
       headerHtml += '</tr>';
       thead.innerHTML = headerHtml;
 
@@ -2005,14 +2107,29 @@
             html += '<td class="mono">' + v + '</td>';
           }
         });
-        html +=
-          '<td class="mono">' + (r.overall_accept_mean * 100).toFixed(2) + '%%</td>' +
-          '<td class="mono" style="color:var(--fg-faint)">\u00b1' + (r.overall_accept_stddev * 100).toFixed(2) + '%%</td>' +
-          '<td class="mono">' + r.nonzero_cells_mean.toFixed(0) + '</td>' +
-          '<td class="mono" style="color:var(--fg-faint)">\u00b1' + r.nonzero_cells_stddev.toFixed(0) + '</td>' +
-          '<td class="mono">' + (r.active_tracks_mean || 0).toFixed(1) + '</td>' +
-          '<td class="mono">' + (r.alignment_deg_mean || 0).toFixed(1) + '\u00b0</td>' +
-          '<td class="mono">' + ((r.misalignment_ratio_mean || 0) * 100).toFixed(1) + '%%</td>';
+        
+        if (hasGroundTruth) {
+          // Phase 5.4: Ground truth score columns
+          html += '<td class="mono">' + ((r.ground_truth_score || r.composite_score || 0) * 100).toFixed(2) + '</td>';
+          html += '<td class="mono">' + ((r.detection_rate || 0) * 100).toFixed(1) + '%%</td>';
+          html += '<td class="mono">' + ((r.fragmentation || 0) * 100).toFixed(1) + '%%</td>';
+          html += '<td class="mono">' + ((r.false_positive_rate || 0) * 100).toFixed(1) + '%%</td>';
+          html += '<td class="mono">' + ((r.quality_premium || 0) * 100).toFixed(1) + '%%</td>';
+          html += '<td class="mono">' + ((r.truncation_rate || 0) * 100).toFixed(1) + '%%</td>';
+          html += '<td class="mono">' + ((r.velocity_noise_rate || 0) * 100).toFixed(1) + '%%</td>';
+          html += '<td class="mono">' + ((r.stopped_recovery_rate || 0) * 100).toFixed(1) + '%%</td>';
+        } else {
+          // Standard metrics
+          html +=
+            '<td class="mono">' + (r.overall_accept_mean * 100).toFixed(2) + '%%</td>' +
+            '<td class="mono" style="color:var(--fg-faint)">\u00b1' + (r.overall_accept_stddev * 100).toFixed(2) + '%%</td>' +
+            '<td class="mono">' + r.nonzero_cells_mean.toFixed(0) + '</td>' +
+            '<td class="mono" style="color:var(--fg-faint)">\u00b1' + r.nonzero_cells_stddev.toFixed(0) + '</td>' +
+            '<td class="mono">' + (r.active_tracks_mean || 0).toFixed(1) + '</td>' +
+            '<td class="mono">' + (r.alignment_deg_mean || 0).toFixed(1) + '\u00b0</td>' +
+            '<td class="mono">' + ((r.misalignment_ratio_mean || 0) * 100).toFixed(1) + '%%</td>';
+        }
+        
         tr.innerHTML = html;
         tbody.appendChild(tr);
       });

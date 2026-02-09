@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"sort"
 	"sync"
 	"time"
 )
@@ -463,32 +464,34 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 		var scored []ScoredResult
 		if req.Objective == "ground_truth" {
 			// Phase 5: Ground truth evaluation mode
-			// TODO(Phase 2.5): This requires each combo to create an analysis run and persist run tracks.
-			// For now, we log a warning and fall back to standard scoring.
-			// When Phase 2.5 is complete, uncomment the ground truth scoring logic below.
-			log.Printf("[sweep] WARNING: Ground truth objective selected but Phase 2.5 (analysis run creation per combo) is not yet implemented. Falling back to standard scoring.")
-			scored = RankResults(roundResults, weights)
+			// Each combo should have created an analysis run with ID stored in result.RunID
+			scored = make([]ScoredResult, len(roundResults))
+			for i, result := range roundResults {
+				// Copy common fields first
+				scored[i].ParamValues = result.ParamValues
+				scored[i].OverallAcceptMean = result.OverallAcceptMean
+				scored[i].MisalignmentRatioMean = result.MisalignmentRatioMean
+				scored[i].AlignmentDegMean = result.AlignmentDegMean
+				scored[i].NonzeroCellsMean = result.NonzeroCellsMean
 
-			// Future implementation (Phase 2.5):
-			// scored = make([]ScoredResult, len(roundResults))
-			// for i, result := range roundResults {
-			//     // Assume each combo created an analysis run with ID stored in result.RunID
-			//     score, err := at.groundTruthScorer(req.SceneID, result.RunID)
-			//     if err != nil {
-			//         log.Printf("[sweep] Error scoring combo with ground truth: %v", err)
-			//         scored[i].Score = 0.0
-			//     } else {
-			//         scored[i].Score = score
-			//     }
-			//     scored[i].ParamValues = result.ParamValues
-			//     scored[i].OverallAcceptMean = result.OverallAcceptMean
-			//     scored[i].MisalignmentRatioMean = result.MisalignmentRatioMean
-			//     scored[i].AlignmentDegMean = result.AlignmentDegMean
-			//     scored[i].NonzeroCellsMean = result.NonzeroCellsMean
-			// }
-			// sort.Slice(scored, func(i, j int) bool {
-			//     return scored[i].Score > scored[j].Score
-			// })
+				// Then evaluate score
+				if result.RunID == "" {
+					// No run ID - log warning and give score 0
+					log.Printf("[sweep] WARNING: combo %d has no RunID; cannot evaluate with ground truth. Assigning score 0.", i)
+					scored[i].Score = 0.0
+				} else {
+					// Call ground truth scorer
+					score, err := at.groundTruthScorer(req.SceneID, result.RunID)
+					if err != nil {
+						log.Printf("[sweep] ERROR: scoring combo %d (run %s) with ground truth: %v. Assigning score 0.", i, result.RunID, err)
+						scored[i].Score = 0.0
+					} else {
+						scored[i].Score = score
+					}
+				}
+			}
+			// Sort by ground truth score (highest = best)
+			scored = sortScoredResults(scored)
 		} else {
 			// Standard objective-based scoring
 			scored = RankResults(roundResults, weights)
@@ -800,5 +803,18 @@ func generateIntGrid(start, end float64, n int) []int {
 		result = append(result, intEnd)
 	}
 
+	return result
+}
+
+// sortScoredResults sorts scored results by score in descending order (highest first).
+// Returns a new sorted slice, leaving the original unchanged.
+func sortScoredResults(scored []ScoredResult) []ScoredResult {
+	// Create a copy to avoid modifying the input
+	result := make([]ScoredResult, len(scored))
+	copy(result, scored)
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Score > result[j].Score
+	})
 	return result
 }
