@@ -12,25 +12,25 @@
 	import { browser } from '$app/environment';
 	import {
 		getBackgroundGrid,
+		getLabellingProgress,
+		getLidarRuns,
+		getLidarScenes,
+		getRunTracks,
 		getTrackHistory,
 		getTrackObservations,
-		getTrackObservationsRange,
-		getLidarScenes,
-		getLidarRuns,
-		getRunTracks,
-		getLabellingProgress
+		getTrackObservationsRange
 	} from '$lib/api';
 	import MapPane from '$lib/components/lidar/MapPane.svelte';
 	import TimelinePane from '$lib/components/lidar/TimelinePane.svelte';
 	import TrackList from '$lib/components/lidar/TrackList.svelte';
 	import type {
-		BackgroundGrid,
-		Track,
-		TrackObservation,
-		LidarScene,
 		AnalysisRun,
+		BackgroundGrid,
+		LabellingProgress,
+		LidarScene,
 		RunTrack,
-		LabellingProgress
+		Track,
+		TrackObservation
 	} from '$lib/types/lidar';
 	import { onDestroy, onMount } from 'svelte';
 	import { SelectField, ToggleGroup, ToggleOption } from 'svelte-ux';
@@ -296,7 +296,7 @@
 		isPlaying = true;
 		let tickCount = 0;
 		playbackInterval = window.setInterval(() => {
-			selectedTime += PLAYBACK_UPDATE_INTERVAL_MS * playbackSpeed; // Advance by interval * speed
+			selectedTime += PLAYBACK_UPDATE_INTERVAL_MS * playbackSpeed;
 
 			// Log every 10 ticks (1 second)
 			if (++tickCount % PLAYBACK_UPDATE_FREQUENCY_HZ === 0) {
@@ -314,7 +314,7 @@
 				selectedTime = timeRange!.start;
 				tickCount = 0;
 			}
-		}, PLAYBACK_UPDATE_INTERVAL_MS); // Update at configured frequency
+		}, PLAYBACK_UPDATE_INTERVAL_MS) as any;
 	}
 
 	function handlePause() {
