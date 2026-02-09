@@ -812,6 +812,13 @@ format-web:
 	else \
 		echo "$(WEB_DIR) does not exist; skipping web formatting"; \
 	fi
+	@if [ -d "$(WEB_DIR)" ]; then \
+		cd $(WEB_DIR) && pnpm exec prettier --write \
+			../internal/lidar/monitor/assets/sweep_dashboard.js \
+			../internal/lidar/monitor/assets/regions_dashboard.js \
+			2>/dev/null \
+			|| echo "monitor assets prettier skipped"; \
+	fi
 
 format-mac:
 	@echo "Formatting macOS Swift code (swift-format)..."
