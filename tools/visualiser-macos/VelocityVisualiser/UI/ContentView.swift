@@ -24,7 +24,8 @@ struct ContentView: View {
                         showTrails: appState.showTrails, showDebug: appState.showDebug,  // M6
                         pointSize: appState.pointSize,
                         onRendererCreated: { renderer in appState.registerRenderer(renderer) },
-                        onTrackSelected: { trackID in appState.selectTrack(trackID) })
+                        onTrackSelected: { trackID in appState.selectTrack(trackID) },
+                        onCameraChanged: { appState.reprojectLabels() })
 
                     // Track label overlay (SwiftUI text positioned over 3D tracks)
                     if appState.showTrackLabels {
@@ -647,6 +648,8 @@ struct MetalViewRepresentable: NSViewRepresentable {
     var onRendererCreated: ((MetalRenderer) -> Void)?
     // M6: Track selection callback
     var onTrackSelected: ((String?) -> Void)?
+    // Camera changed callback — reproject labels when the user orbits/pans/zooms
+    var onCameraChanged: (() -> Void)?
 
     func makeNSView(context: Context) -> MTKView {
         let metalView = InteractiveMetalView()
@@ -659,6 +662,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
             context.coordinator.renderer = renderer
             metalView.renderer = renderer
             metalView.onTrackSelected = onTrackSelected
+            metalView.onCameraChanged = onCameraChanged
             // Register the renderer so it can receive frame updates directly
             onRendererCreated?(renderer)
         }
@@ -680,6 +684,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
         // Update track selection callback
         if let metalView = nsView as? InteractiveMetalView {
             metalView.onTrackSelected = onTrackSelected
+            metalView.onCameraChanged = onCameraChanged
         }
     }
 
@@ -694,6 +699,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
 class InteractiveMetalView: MTKView {
     weak var renderer: MetalRenderer?
     var onTrackSelected: ((String?) -> Void)?
+    var onCameraChanged: (() -> Void)?
     private var lastMouseLocation = CGPoint.zero
     private var mouseDownLocation = CGPoint.zero  // M6: Track click detection
 
@@ -722,6 +728,7 @@ class InteractiveMetalView: MTKView {
         let shiftHeld = event.modifierFlags.contains(.shift)
         renderer?.handleMouseDrag(
             deltaX: deltaX, deltaY: deltaY, isRightButton: false, shiftHeld: shiftHeld)
+        onCameraChanged?()
     }
 
     override func mouseUp(with event: NSEvent) {
@@ -747,17 +754,20 @@ class InteractiveMetalView: MTKView {
 
         renderer?.handleMouseDrag(
             deltaX: deltaX, deltaY: deltaY, isRightButton: true, shiftHeld: false)
+        onCameraChanged?()
     }
 
     override func scrollWheel(with event: NSEvent) {
         // Trackpad: use scrollingDeltaY. Mouse wheel: use deltaY
         let delta = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY / 10 : event.deltaY
         renderer?.handleZoom(delta: delta)
+        onCameraChanged?()
     }
 
     override func magnify(with event: NSEvent) {
         // Pinch gesture on trackpad
         renderer?.handleZoom(delta: event.magnification * 10)
+        onCameraChanged?()
     }
 
     // MARK: - Keyboard Events
@@ -766,7 +776,8 @@ class InteractiveMetalView: MTKView {
         if let renderer = renderer,
             renderer.handleKeyDown(keyCode: event.keyCode, modifiers: event.modifierFlags)
         {
-            // Key was handled
+            // Key was handled (camera movement)
+            onCameraChanged?()
             return
         }
         super.keyDown(with: event)

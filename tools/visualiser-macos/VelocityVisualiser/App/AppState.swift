@@ -90,6 +90,12 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         logger.info("Renderer registered")
     }
 
+    /// Reproject track labels after camera movement (orbit/pan/zoom).
+    func reprojectLabels() {
+        guard showTrackLabels, let r = renderer, metalViewSize.width > 0 else { return }
+        trackLabels = r.projectTrackLabels(viewSize: metalViewSize)
+    }
+
     // MARK: - Internal
 
     private var grpcClient: VisualiserClient?
