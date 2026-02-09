@@ -24,7 +24,7 @@
 	export let labellingProgress: LabellingProgress | null = null;
 
 	// Phase 3.4: Bulk selection state
-	let selectedTrackIds = new SvelteSet<string>();
+	let bulkSelectedTrackIds = new SvelteSet<string>();
 
 	// Phase 3.5: Link mode state
 	let linkMode = false;
@@ -183,7 +183,7 @@
 
 	// Phase 3.4: Apply bulk detection label
 	async function applyBulkDetectionLabel(label: DetectionLabel) {
-		if (!runId || selectedTrackIds.size === 0) return;
+		if (!runId || bulkSelectedTrackIds.size === 0) return;
 
 		isSavingLabel = true;
 		labelError = null;
@@ -191,7 +191,7 @@
 		try {
 			// Apply label to all selected tracks
 			await Promise.all(
-				Array.from(selectedTrackIds).map((trackId) =>
+				Array.from(bulkSelectedTrackIds).map((trackId) =>
 					updateTrackLabel(runId, trackId, {
 						user_label: label,
 						labeler_id: 'web-ui'
@@ -200,7 +200,7 @@
 			);
 
 			// Update local state for all tracks
-			selectedTrackIds.forEach((trackId) => {
+			bulkSelectedTrackIds.forEach((trackId) => {
 				const runTrack = runTrackMap.get(trackId);
 				if (runTrack) {
 					runTrack.user_label = label;
@@ -212,10 +212,10 @@
 				'[Label] Applied bulk detection label',
 				label,
 				'to',
-				selectedTrackIds.size,
+				bulkSelectedTrackIds.size,
 				'tracks'
 			);
-			selectedTrackIds.clear();
+			bulkSelectedTrackIds.clear();
 		} catch (error) {
 			console.error('[Label] Failed to apply bulk detection label:', error);
 			labelError = error instanceof Error ? error.message : 'Failed to apply bulk label';
@@ -226,7 +226,7 @@
 
 	// Phase 3.4: Apply bulk quality label
 	async function applyBulkQualityLabel(label: QualityLabel) {
-		if (!runId || selectedTrackIds.size === 0) return;
+		if (!runId || bulkSelectedTrackIds.size === 0) return;
 
 		isSavingLabel = true;
 		labelError = null;
@@ -234,7 +234,7 @@
 		try {
 			// Apply label to all selected tracks
 			await Promise.all(
-				Array.from(selectedTrackIds).map((trackId) =>
+				Array.from(bulkSelectedTrackIds).map((trackId) =>
 					updateTrackLabel(runId, trackId, {
 						quality_label: label,
 						labeler_id: 'web-ui'
@@ -243,7 +243,7 @@
 			);
 
 			// Update local state for all tracks
-			selectedTrackIds.forEach((trackId) => {
+			bulkSelectedTrackIds.forEach((trackId) => {
 				const runTrack = runTrackMap.get(trackId);
 				if (runTrack) {
 					runTrack.quality_label = label;
@@ -255,10 +255,10 @@
 				'[Label] Applied bulk quality label',
 				label,
 				'to',
-				selectedTrackIds.size,
+				bulkSelectedTrackIds.size,
 				'tracks'
 			);
-			selectedTrackIds.clear();
+			bulkSelectedTrackIds.clear();
 		} catch (error) {
 			console.error('[Label] Failed to apply bulk quality label:', error);
 			labelError = error instanceof Error ? error.message : 'Failed to apply bulk label';
@@ -381,10 +381,10 @@
 		// Phase 3.4: Shift-click for multi-select
 		if (event.shiftKey) {
 			event.preventDefault();
-			if (selectedTrackIds.has(trackId)) {
-				selectedTrackIds.delete(trackId);
+			if (bulkSelectedTrackIds.has(trackId)) {
+				bulkSelectedTrackIds.delete(trackId);
 			} else {
-				selectedTrackIds.add(trackId);
+				bulkSelectedTrackIds.add(trackId);
 			}
 			return;
 		}
@@ -407,9 +407,9 @@
 
 		// Phase 3.4: Escape to clear multi-selection
 		if (event.key === 'Escape') {
-			if (selectedTrackIds.size > 0) {
+			if (bulkSelectedTrackIds.size > 0) {
 				event.preventDefault();
-				selectedTrackIds.clear();
+				bulkSelectedTrackIds.clear();
 				return;
 			}
 			if (linkMode) {
@@ -507,7 +507,7 @@
 					on:click={() => {
 						linkMode = !linkMode;
 						linkSource = null;
-						selectedTrackIds.clear();
+						bulkSelectedTrackIds.clear();
 					}}
 					class="text-xs"
 					title="Enable to link two tracks (split/merge annotation)"
@@ -650,7 +650,7 @@
 	<div class="min-h-0 flex-1 overflow-y-auto">
 		{#each paginatedTracks as track (track.track_id)}
 			{@const isSelected = track.track_id === selectedTrackId}
-			{@const isMultiSelected = selectedTrackIds.has(track.track_id)}
+			{@const isMultiSelected = bulkSelectedTrackIds.has(track.track_id)}
 			{@const isLinkSource = linkMode && linkSource === track.track_id}
 			{@const color =
 				track.object_class && track.object_class in TRACK_COLORS
@@ -676,9 +676,9 @@
 								on:change={(e) => {
 									e.stopPropagation();
 									if (isMultiSelected) {
-										selectedTrackIds.delete(track.track_id);
+										bulkSelectedTrackIds.delete(track.track_id);
 									} else {
-										selectedTrackIds.add(track.track_id);
+										bulkSelectedTrackIds.add(track.track_id);
 									}
 								}}
 								class="h-4 w-4"
@@ -793,17 +793,17 @@
 				</p>
 			</div>
 		</div>
-	{:else if selectedTrackIds.size > 0}
+	{:else if bulkSelectedTrackIds.size > 0}
 		<!-- Phase 3.4: Bulk Labelling Panel -->
 		<div class="border-surface-content/10 space-y-3 border-t bg-blue-50 px-4 py-3 dark:bg-blue-950">
 			<div class="flex items-center justify-between">
 				<h4 class="text-surface-content text-sm font-semibold">
-					Bulk Label ({selectedTrackIds.size} tracks)
+					Bulk Label ({bulkSelectedTrackIds.size} tracks)
 				</h4>
 				<Button
 					size="sm"
 					variant="outline"
-					on:click={() => selectedTrackIds.clear()}
+					on:click={() => bulkSelectedTrackIds.clear()}
 					class="text-xs"
 				>
 					Clear Selection

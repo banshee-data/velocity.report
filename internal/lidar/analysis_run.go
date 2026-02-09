@@ -1029,22 +1029,14 @@ func CompareRuns(store *AnalysisRunStore, run1ID, run2ID string) (*RunComparison
 	// uniqueness constraint) to detect when one reference track overlaps with multiple candidates.
 	for t1ID, t2IDs := range run1ToRun2 {
 		if len(t2IDs) > 1 {
-			// Use map for O(1) lookup
-			t1 := run1TrackMap[t1ID]
-
 			split := TrackSplit{
 				OriginalTrack: t1ID,
 				SplitTracks:   t2IDs,
 				Confidence:    0.8, // High confidence for multiple matches
 			}
 
-			// Use average position of original track as split location estimate
-			if t1 != nil {
-				// Position not stored in RunTrack, so leave at 0,0
-				// In future, could load observation data for more accurate position
-				split.SplitX = 0.0
-				split.SplitY = 0.0
-			}
+			// Position fields (SplitX/SplitY) remain at zero value — position data
+			// is not available from RunTrack; load observations for accurate location.
 
 			comparison.SplitCandidates = append(comparison.SplitCandidates, split)
 		}
@@ -1057,22 +1049,14 @@ func CompareRuns(store *AnalysisRunStore, run1ID, run2ID string) (*RunComparison
 	// reference tracks overlap with the same candidate track.
 	for t2ID, t1IDs := range run2ToRun1 {
 		if len(t1IDs) > 1 {
-			// Use map for O(1) lookup
-			t2 := run2TrackMap[t2ID]
-
 			merge := TrackMerge{
 				MergedTrack:  t2ID,
 				SourceTracks: t1IDs,
 				Confidence:   0.8, // High confidence for multiple matches
 			}
 
-			// Use average position of merged track as merge location estimate
-			if t2 != nil {
-				// Position not stored in RunTrack, so leave at 0,0
-				// In future, could load observation data for more accurate position
-				merge.MergeX = 0.0
-				merge.MergeY = 0.0
-			}
+			// Position fields (MergeX/MergeY) remain at zero value — position data
+			// is not available from RunTrack; load observations for accurate location.
 
 			comparison.MergeCandidates = append(comparison.MergeCandidates, merge)
 		}

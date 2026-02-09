@@ -1,8 +1,8 @@
 # Design: Track Labelling, Ground Truth Evaluation & Label-Aware Auto-Tuning
 
-**Status:** Approved design (February 2026) — Phases 1-4 substantially implemented; Phase 6 (transits) deferred; Phase 7 (missed regions) implemented; Phase 9 (profile comparison) designed. Remaining: 1.4, 1.5, 2.4-2.5, 3.4-3.5, 4.1, 5.x, 7.x, 8.x, 9.x.
+**Status:** Approved design (February 2026) — **Phases 1-5 complete.** Phase 6 (transits) deferred; Phase 7 (missed regions) implemented; Phase 9 (profile comparison) designed. Remaining: 6.x (deferred), 7.x, 8.x, 9.x.
 
-**Next blocker:** Phase 2.4 — Connect scene PCAP replay to analysis run creation (currently returns 501).
+**Next blocker:** None for Phases 1-5. Phase 6 (transit promotion) is deferred pending design. Phase 9 (profile comparison) is next priority.
 
 **Related documents:**
 
@@ -164,9 +164,9 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
   - `user_label` allowed: `good_vehicle`, `good_pedestrian`, `good_other`, `noise`, `noise_flora`, `split`, `merge`, `missed`
   - `quality_label` allowed: `perfect`, `good`, `truncated`, `noisy_velocity`, `stopped_recovered`
   - Reject requests with invalid label strings (prevent "Good_Vehicle" vs "good_vehicle" data quality issues)
-- [ ] **1.4** Add `scene_id` and `source_file` columns to `lidar_labels` table
+- [x] **1.4** Add `scene_id` and `source_file` columns to `lidar_labels` table
   - Clarify: `lidar_labels` is for frame-level annotation (ML training), `lidar_run_tracks.user_label` is for track-level ground truth (auto-tuning)
-- [ ] **1.5** Fix macOS `LabelAPIClient.swift` schema mismatch: align `startFrameID`/`endFrameID` with `start_timestamp_ns`/`end_timestamp_ns`
+- [x] **1.5** Fix macOS `LabelAPIClient.swift` schema mismatch: align `startFrameID`/`endFrameID` with `start_timestamp_ns`/`end_timestamp_ns`
 - [x] **1.6** Add REST API endpoints for `lidar_run_tracks` labelling:
   - `PUT /api/lidar/runs/{run_id}/tracks/{track_id}/label` — set `user_label`, `quality_label`, `label_confidence`
   - `PUT /api/lidar/runs/{run_id}/tracks/{track_id}/flags` — set `linked_track_ids` (for split/merge)
@@ -200,8 +200,8 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
   - `PUT /api/lidar/scenes/{scene_id}` — update description, reference_run_id, optimal_params
   - `DELETE /api/lidar/scenes/{scene_id}` — delete scene
   - `POST /api/lidar/scenes/{scene_id}/replay` — replay PCAP with given params, create analysis run
-- [ ] **2.4** Connect scene creation to PCAP replay: when a PCAP is replayed for a scene, auto-create an analysis run and persist run tracks
-- [ ] **2.5** Wire sweep/auto-tune to create analysis runs per combination (currently does not)
+- [x] **2.4** Connect scene creation to PCAP replay: when a PCAP is replayed for a scene, auto-create an analysis run and persist run tracks
+- [x] **2.5** Wire sweep/auto-tune to create analysis runs per combination (currently does not)
 
 **Files:**
 
@@ -225,8 +225,8 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
   - Keyboard shortcuts (1-8 for detection, Shift+1-5 for quality) for rapid labelling
   - Visual indicator: labelled tracks show coloured badge (detection) + quality icon
   - Unlabelled count / progress bar (tracks with detection label but no quality label counted as partially labelled)
-- [ ] **3.4** Add bulk labelling: select multiple tracks (shift+click), apply label to all
-- [ ] **3.5** Add split/merge annotation:
+- [x] **3.4** Add bulk labelling: select multiple tracks (shift+click), apply label to all
+- [x] **3.5** Add split/merge annotation:
   - "Link tracks" mode: click two tracks to mark as split (should be one)
   - "Unlink track" mode: click track to mark as merge (should be separate)
   - Linked tracks shown with visual connector in timeline
@@ -247,7 +247,7 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
 
 > Implement track comparison: match candidate tracks against labelled reference tracks.
 
-- [ ] **4.1** Implement `CompareRuns()` in `analysis_run.go` — populate the existing `RunComparison`, `TrackMatch`, `TrackSplit`, `TrackMerge` structs
+- [x] **4.1** Implement `CompareRuns()` in `analysis_run.go` — populate the existing `RunComparison`, `TrackMatch`, `TrackSplit`, `TrackMerge` structs
 - [x] **4.2** Implement temporal-spatial matching algorithm:
   - Time overlap IoU computation
   - Mean centroid distance during overlap
@@ -274,19 +274,19 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
 > Extend auto-tuner to use ground truth labels when a reference run exists.
 
 - [x] **5.1** Add `scene_id` field to `AutoTuneRequest`
-- [ ] **5.2** When `scene_id` is set and the scene has a `reference_run_id`:
+- [x] **5.2** When `scene_id` is set and the scene has a `reference_run_id`:
   - Each sweep combo creates an analysis run
   - After PCAP replay completes, run `GroundTruthEvaluator` against reference tracks
   - Use composite ground truth score as the objective function (instead of acceptance rate)
-- [ ] **5.3** Modify sweep runner to reset state between combinations when ground truth mode is active:
+- [x] **5.3** Modify sweep runner to reset state between combinations when ground truth mode is active:
   - Clear all tracks via `ClearTracks(sensorID)`
   - **Reset background model** — replay PCAP from scratch (not just tracker state)
   - Each combo must evaluate independently; background state from previous combos must not bleed through
-- [ ] **5.4** Add ground truth objective to sweep dashboard UI:
+- [x] **5.4** Add ground truth objective to sweep dashboard UI:
   - When auto-tune is selected with a scene that has labelled tracks, show "Ground Truth" objective option
   - Show ground truth score components in results table: detection % by class, fragmentation, FP rate, quality premium, truncation rate, velocity noise rate, stopped recovery rate
-- [ ] **5.5** Save best params as `optimal_params_json` on scene when auto-tune completes
-- [ ] **5.6** Add "Apply Scene Params" button in sweep dashboard — loads optimal params for selected scene
+- [x] **5.5** Save best params as `optimal_params_json` on scene when auto-tune completes
+- [x] **5.6** Add "Apply Scene Params" button in sweep dashboard — loads optimal params for selected scene
 
 **Files:**
 
