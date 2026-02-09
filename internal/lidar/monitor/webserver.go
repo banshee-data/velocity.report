@@ -969,6 +969,7 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/pcap/start", ws.handlePCAPStart)
 	mux.HandleFunc("/api/lidar/pcap/stop", ws.handlePCAPStop)
 	mux.HandleFunc("/api/lidar/pcap/resume_live", ws.handlePCAPResumeLive)
+	mux.HandleFunc("/api/lidar/pcap/files", ws.handleListPCAPFiles)
 
 	// Chart API routes (structured JSON data for frontend charts)
 	mux.HandleFunc("/api/lidar/chart/polar", ws.handleChartPolarJSON)

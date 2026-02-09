@@ -408,10 +408,19 @@
 
             <div class="form-row">
               <div class="form-group" style="flex: 2;">
+                <label>Scene:</label>
+                <select id="scene-select-{{.SensorID}}" style="margin-bottom: 8px;">
+                  <option value="">(manual entry)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group" style="flex: 2;">
                 <label>Replay File
                   {{if .PCAPSafeDir}}(from {{.PCAPSafeDir}}){{end}}:
                 </label>
-                <input type="text" name="pcap_file" placeholder="filename.pcap" required />
+                <input type="text" name="pcap_file" id="pcap-file-{{.SensorID}}" placeholder="filename.pcap" required />
               </div>
               <div class="form-group">
                 <label>FG Debug:</label>
@@ -454,11 +463,11 @@
             <div class="form-grid-2">
               <div class="form-group">
                 <label>Start (seconds):</label>
-                <input type="number" name="start_seconds" min="0" step="0.1" value="0" />
+                <input type="number" name="start_seconds" id="pcap-start-{{.SensorID}}" min="0" step="0.1" value="0" />
               </div>
               <div class="form-group">
                 <label>Duration (seconds, -1=all):</label>
-                <input type="number" name="duration_seconds" step="0.1" value="-1" />
+                <input type="number" name="duration_seconds" id="pcap-duration-{{.SensorID}}" step="0.1" value="-1" />
               </div>
 
               <div class="form-group">
@@ -497,6 +506,50 @@
                 update();
               } catch (e) {
                 // no-op: keep template resilient to missing elements
+              }
+            })();
+          </script>
+          <script>
+            (function () {
+              try {
+                var sceneSelect = document.getElementById('scene-select-{{.SensorID}}');
+                var pcapFile = document.getElementById('pcap-file-{{.SensorID}}');
+                var startSecs = document.getElementById('pcap-start-{{.SensorID}}');
+                var durationSecs = document.getElementById('pcap-duration-{{.SensorID}}');
+                if (!sceneSelect || !pcapFile) return;
+
+                var scenesData = [];
+
+                fetch('/api/lidar/scenes?sensor_id={{.SensorID}}')
+                  .then(function (r) { return r.json(); })
+                  .then(function (data) {
+                    scenesData = data.scenes || [];
+                    scenesData.forEach(function (s) {
+                      var opt = document.createElement('option');
+                      opt.value = s.scene_id;
+                      var label = s.pcap_file;
+                      if (s.description) label = s.description + ' (' + s.pcap_file + ')';
+                      opt.textContent = label;
+                      sceneSelect.appendChild(opt);
+                    });
+                  })
+                  .catch(function () { /* ignore fetch errors */ });
+
+                sceneSelect.addEventListener('change', function () {
+                  var sceneId = sceneSelect.value;
+                  if (!sceneId) return;
+                  var scene = scenesData.find(function (s) { return s.scene_id === sceneId; });
+                  if (!scene) return;
+                  pcapFile.value = scene.pcap_file;
+                  if (startSecs && scene.pcap_start_secs != null) {
+                    startSecs.value = scene.pcap_start_secs;
+                  }
+                  if (durationSecs && scene.pcap_duration_secs != null) {
+                    durationSecs.value = scene.pcap_duration_secs;
+                  }
+                });
+              } catch (e) {
+                // no-op
               }
             })();
           </script>
