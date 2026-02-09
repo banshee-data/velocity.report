@@ -176,46 +176,6 @@ export const TRACK_COLORS = {
 	deleted: '#F44336' // Red (just deleted)
 } as const;
 
-/**
- * LidarTransit represents a polished transit record for dashboards and reports.
- * Analogous to radar_data_transits but for LiDAR-tracked objects.
- */
-export interface LidarTransit {
-	transit_id: number;
-	track_id: string;
-	sensor_id: string;
-	transit_start_unix: number;
-	transit_end_unix: number;
-	max_speed_mps: number;
-	min_speed_mps: number;
-	avg_speed_mps: number;
-	p50_speed_mps: number;
-	p85_speed_mps: number;
-	p95_speed_mps: number;
-	track_length_m: number;
-	observation_count: number;
-	object_class?: string;
-	classification_confidence?: number;
-	quality_score: number;
-	bbox_length_avg: number;
-	bbox_width_avg: number;
-	bbox_height_avg: number;
-}
-
-/**
- * LidarTransitSummary holds aggregate statistics for a set of transits.
- */
-export interface LidarTransitSummary {
-	total_count: number;
-	avg_speed_mps: number;
-	p50_speed_mps: number;
-	p85_speed_mps: number;
-	p95_speed_mps: number;
-	max_speed_mps: number;
-	by_class: Record<string, number>;
-	speed_buckets: Record<string, number>; // "0-20", "20-30", "30-40", "40-50", "50+"
-}
-
 /** Detection labels for track ground truth */
 export type DetectionLabel =
 	| 'good_vehicle'

@@ -437,8 +437,6 @@ import type {
 	BackgroundGrid,
 	LabellingProgress,
 	LidarScene,
-	LidarTransit,
-	LidarTransitSummary,
 	MissedRegion,
 	ObservationListResponse,
 	RunTrack,
@@ -677,72 +675,6 @@ export async function updateTrackFlags(
 export async function getLabellingProgress(runId: string): Promise<LabellingProgress> {
 	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/labelling-progress`);
 	if (!res.ok) throw new Error(`Failed to fetch progress: ${res.status}`);
-	return res.json();
-}
-
-// LiDAR Transit API (Phase 6: polished transit data for dashboards and reports)
-
-/**
- * Get list of LiDAR transits with optional filters
- * @param params - Query parameters for filtering transits
- */
-export async function getLidarTransits(params: {
-	sensor_id?: string;
-	start?: number;
-	end?: number;
-	min_speed?: number;
-	max_speed?: number;
-	limit?: number;
-}): Promise<LidarTransit[]> {
-	const url = new URL(`${API_BASE}/lidar/transits`, window.location.origin);
-
-	if (params.sensor_id) {
-		url.searchParams.append('sensor_id', params.sensor_id);
-	}
-	if (params.start !== undefined) {
-		url.searchParams.append('start', params.start.toString());
-	}
-	if (params.end !== undefined) {
-		url.searchParams.append('end', params.end.toString());
-	}
-	if (params.min_speed !== undefined) {
-		url.searchParams.append('min_speed', params.min_speed.toString());
-	}
-	if (params.max_speed !== undefined) {
-		url.searchParams.append('max_speed', params.max_speed.toString());
-	}
-	if (params.limit !== undefined) {
-		url.searchParams.append('limit', params.limit.toString());
-	}
-
-	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Failed to fetch LiDAR transits: ${res.status}`);
-	return res.json();
-}
-
-/**
- * Get aggregate statistics for LiDAR transits in a time range
- * @param params - Query parameters for filtering summary
- */
-export async function getLidarTransitSummary(params: {
-	sensor_id?: string;
-	start?: number;
-	end?: number;
-}): Promise<LidarTransitSummary> {
-	const url = new URL(`${API_BASE}/lidar/transits/summary`, window.location.origin);
-
-	if (params.sensor_id) {
-		url.searchParams.append('sensor_id', params.sensor_id);
-	}
-	if (params.start !== undefined) {
-		url.searchParams.append('start', params.start.toString());
-	}
-	if (params.end !== undefined) {
-		url.searchParams.append('end', params.end.toString());
-	}
-
-	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Failed to fetch LiDAR transit summary: ${res.status}`);
 	return res.json();
 }
 

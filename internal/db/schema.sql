@@ -63,6 +63,21 @@ CREATE TABLE lidar_analysis_runs (
         , aspect_ratio REAL
           );
 
+   CREATE TABLE lidar_missed_regions (
+          region_id TEXT PRIMARY KEY
+        , run_id TEXT NOT NULL
+        , center_x REAL NOT NULL
+        , center_y REAL NOT NULL
+        , radius_m REAL NOT NULL DEFAULT 3.0
+        , time_start_ns INTEGER NOT NULL
+        , time_end_ns INTEGER NOT NULL
+        , expected_label TEXT NOT NULL DEFAULT 'good_vehicle'
+        , labeler_id TEXT
+        , labeled_at INTEGER
+        , notes TEXT
+        , FOREIGN KEY (run_id) REFERENCES lidar_analysis_runs (run_id) ON DELETE CASCADE
+          );
+
    CREATE TABLE lidar_run_tracks (
           run_id TEXT NOT NULL
         , track_id TEXT NOT NULL
@@ -173,29 +188,6 @@ CREATE TABLE lidar_analysis_runs (
         , intensity_mean REAL
         , PRIMARY KEY (track_id, ts_unix_nanos)
         , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id) ON DELETE CASCADE
-          );
-
-   CREATE TABLE lidar_transits (
-          transit_id INTEGER PRIMARY KEY AUTOINCREMENT
-        , track_id TEXT NOT NULL UNIQUE
-        , sensor_id TEXT NOT NULL
-        , transit_start_unix DOUBLE NOT NULL
-        , transit_end_unix DOUBLE NOT NULL
-        , max_speed_mps REAL
-        , min_speed_mps REAL
-        , avg_speed_mps REAL
-        , p50_speed_mps REAL
-        , p85_speed_mps REAL
-        , p95_speed_mps REAL
-        , track_length_m REAL
-        , observation_count INTEGER
-        , object_class TEXT
-        , classification_confidence REAL
-        , quality_score REAL
-        , bbox_length_avg REAL
-        , bbox_width_avg REAL
-        , bbox_height_avg REAL
-        , created_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
           );
 
    CREATE TABLE IF NOT EXISTS "radar_commands" (
@@ -425,10 +417,4 @@ CREATE INDEX idx_lidar_scenes_sensor ON lidar_scenes (sensor_id);
 
 CREATE INDEX idx_lidar_scenes_pcap ON lidar_scenes (pcap_file);
 
-CREATE INDEX idx_lidar_transits_time ON lidar_transits (transit_start_unix, transit_end_unix);
-
-CREATE INDEX idx_lidar_transits_sensor ON lidar_transits (sensor_id);
-
-CREATE INDEX idx_lidar_transits_class ON lidar_transits (object_class);
-
-CREATE INDEX idx_lidar_transits_speed ON lidar_transits (p85_speed_mps);
+CREATE INDEX idx_missed_regions_run_id ON lidar_missed_regions (run_id);
