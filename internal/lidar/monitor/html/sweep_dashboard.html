@@ -549,7 +549,8 @@
           </label>
           <div id="scene-info" style="display:none; font-size: 0.85em; color: var(--fg-muted); padding: 4px 0;"></div>
           <div id="scene-actions" style="display:none; margin-top: 8px;">
-            <button class="btn-sm btn-secondary" onclick="applySceneParams()" id="btn-apply-scene-params">Apply Scene Params</button>
+            <button class="btn-sm btn-secondary" onclick="applySceneParams()" id="btn-apply-scene-params">Apply Scene
+              Params</button>
           </div>
         </div>
 
@@ -654,7 +655,8 @@
               <option value="weighted">Weighted (custom)</option>
               <option value="ground_truth" id="ground_truth_option" style="display:none">Ground Truth</option>
             </select>
-            <small class="field-desc">Scoring function for ranking combinations. Ground Truth requires a scene with reference run.</small>
+            <small class="field-desc">Scoring function for ranking combinations. Ground Truth requires a scene with
+              reference run.</small>
           </label>
         </div>
         <div id="weight-fields" style="display:none; margin-top: 10px;">
@@ -743,6 +745,7 @@
     var pollTimer = null;
     var stopRequested = false;
     var sweepMode = 'manual'; // 'manual' or 'auto'
+    var sensorId = '%[1]s';
     var acceptChart = null;
     var nzChart = null;
     var bktChart = null;
@@ -826,7 +829,7 @@
       var infoEl = document.getElementById('scene-info');
       var actionsEl = document.getElementById('scene-actions');
       var gtOption = document.getElementById('ground_truth_option');
-      
+
       if (!sceneId) {
         infoEl.style.display = 'none';
         actionsEl.style.display = 'none';
@@ -834,7 +837,7 @@
         if (gtOption) gtOption.style.display = 'none';
         return;
       }
-      
+
       var scene = sweepScenesData.find(function (s) { return s.scene_id === sceneId; });
       if (!scene) {
         infoEl.style.display = 'none';
@@ -843,7 +846,7 @@
         if (gtOption) gtOption.style.display = 'none';
         return;
       }
-      
+
       // Populate the PCAP fields so buildScenarioJSON / handleStartAutoTune can read them
       document.getElementById('pcap_file').value = scene.pcap_file;
       if (scene.pcap_start_secs != null) {
@@ -852,12 +855,12 @@
       if (scene.pcap_duration_secs != null) {
         document.getElementById('pcap_duration_secs').value = scene.pcap_duration_secs;
       }
-      
+
       // Show info
       var info = 'File: ' + scene.pcap_file;
       if (scene.pcap_start_secs != null) info += ' | Start: ' + scene.pcap_start_secs + 's';
       if (scene.pcap_duration_secs != null) info += ' | Duration: ' + scene.pcap_duration_secs + 's';
-      
+
       // Check if scene has reference run (enables ground truth objective)
       currentSceneHasReference = scene.reference_run_id ? true : false;
       if (currentSceneHasReference) {
@@ -866,10 +869,10 @@
       } else {
         if (gtOption) gtOption.style.display = 'none';
       }
-      
+
       infoEl.textContent = info;
       infoEl.style.display = '';
-      
+
       // Show action buttons if scene has optimal params
       if (scene.optimal_params_json) {
         actionsEl.style.display = '';
@@ -1375,7 +1378,7 @@
         req.pcap_start_secs = numVal('pcap_start_secs');
         req.pcap_duration_secs = numVal('pcap_duration_secs');
       }
-      
+
       // Phase 5.4: Include scene_id for ground truth evaluation
       if (ds === 'scene') {
         var sceneId = val('scene_select');
@@ -1661,7 +1664,6 @@
           }
         });
 
-        var sensorId = '%[1]s';
         fetch('/api/lidar/params?sensor_id=' + encodeURIComponent(sensorId), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1681,13 +1683,13 @@
         showError('No scene selected.');
         return;
       }
-      
+
       var scene = sweepScenesData.find(function (s) { return s.scene_id === sceneId; });
       if (!scene || !scene.optimal_params_json) {
         showError('Selected scene has no optimal parameters.');
         return;
       }
-      
+
       var tuningParams;
       try {
         tuningParams = JSON.parse(scene.optimal_params_json);
@@ -1695,8 +1697,7 @@
         showError('Failed to parse scene parameters: ' + e.message);
         return;
       }
-      
-      var sensorId = '%[1]s';
+
       fetch('/api/lidar/params?sensor_id=' + encodeURIComponent(sensorId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2054,7 +2055,7 @@
       } else {
         paramKeys = ['noise', 'closeness', 'neighbour'];
       }
-      
+
       // Check if we have ground truth scores (Phase 5.4)
       var hasGroundTruth = results[0] && (
         results[0].detection_rate !== undefined ||
@@ -2068,7 +2069,7 @@
         var schema = PARAM_SCHEMA[k];
         headerHtml += '<th>' + (schema ? schema.label : k) + '</th>';
       });
-      
+
       if (hasGroundTruth) {
         // Phase 5.4: Ground truth columns
         headerHtml += '<th>GT Score</th>';
@@ -2084,7 +2085,7 @@
         headerHtml += '<th>Accept Rate</th><th>\u00b1 StdDev</th><th>Nonzero Cells</th><th>\u00b1 StdDev</th>';
         headerHtml += '<th>Active Tracks</th><th>Alignment (\u00b0)</th><th>Misalignment</th>';
       }
-      
+
       headerHtml += '</tr>';
       thead.innerHTML = headerHtml;
 
@@ -2107,7 +2108,7 @@
             html += '<td class="mono">' + v + '</td>';
           }
         });
-        
+
         if (hasGroundTruth) {
           // Phase 5.4: Ground truth score columns
           html += '<td class="mono">' + ((r.ground_truth_score || r.composite_score || 0) * 100).toFixed(2) + '</td>';
@@ -2129,7 +2130,7 @@
             '<td class="mono">' + (r.alignment_deg_mean || 0).toFixed(1) + '\u00b0</td>' +
             '<td class="mono">' + ((r.misalignment_ratio_mean || 0) * 100).toFixed(1) + '%%</td>';
         }
-        
+
         tr.innerHTML = html;
         tbody.appendChild(tr);
       });
@@ -2149,7 +2150,6 @@
     // ---- Current params display ----
 
     function fetchCurrentParams() {
-      var sensorId = '%[1]s';
       fetch('/api/lidar/params?sensor_id=' + encodeURIComponent(sensorId))
         .then(function (r) {
           if (!r.ok) throw new Error('Failed to fetch params');
