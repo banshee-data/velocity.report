@@ -989,6 +989,17 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 		mux.HandleFunc("/api/lidar/observations", ws.trackAPI.handleListObservations)
 		mux.HandleFunc("/api/lidar/tracks/clear", ws.trackAPI.handleClearTracks)
 	}
+
+	// Label API routes (delegate to LidarLabelAPI handlers)
+	if ws.db != nil {
+		labelAPI := api.NewLidarLabelAPI(ws.db.DB)
+		labelAPI.RegisterRoutes(mux)
+	}
+
+	// Run track API routes (Phase 1.6 & 1.7: analysis run management and track labelling)
+	if ws.db != nil {
+		mux.HandleFunc("/api/lidar/runs/", ws.handleRunTrackAPI)
+	}
 }
 
 // setupRoutes configures the HTTP routes and handlers

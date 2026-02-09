@@ -306,11 +306,30 @@ struct LabelEvent: Identifiable, Codable {
     var id: String = UUID().uuidString
     var trackID: String = ""
     var classLabel: String = ""
-    var startFrameID: UInt64 = 0
-    var endFrameID: UInt64 = 0
-    var createdNanos: Int64 = 0
-    var annotator: String = ""
-    var notes: String = ""
+    var startTimestampNs: Int64 = 0
+    var endTimestampNs: Int64? = nil
+    var confidence: Float? = nil
+    var createdBy: String? = nil
+    var createdAtNs: Int64 = 0
+    var updatedAtNs: Int64? = nil
+    var notes: String? = nil
+    var sceneID: String? = nil
+    var sourceFile: String? = nil
+
+    enum CodingKeys: String, CodingKey {
+        case id = "label_id"
+        case trackID = "track_id"
+        case classLabel = "class_label"
+        case startTimestampNs = "start_timestamp_ns"
+        case endTimestampNs = "end_timestamp_ns"
+        case confidence
+        case createdBy = "created_by"
+        case createdAtNs = "created_at_ns"
+        case updatedAtNs = "updated_at_ns"
+        case notes
+        case sceneID = "scene_id"
+        case sourceFile = "source_file"
+    }
 }
 
 struct LabelSet: Codable {

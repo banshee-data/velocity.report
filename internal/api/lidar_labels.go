@@ -16,6 +16,43 @@ import (
 // Clients can use time-based filtering for pagination.
 const maxLabelsPerQuery = 1000
 
+// Valid user labels for track-level ground truth (detection correctness)
+var validUserLabels = map[string]bool{
+	"good_vehicle":    true,
+	"good_pedestrian": true,
+	"good_other":      true,
+	"noise":           true,
+	"noise_flora":     true,
+	"split":           true,
+	"merge":           true,
+	"missed":          true,
+}
+
+// Valid quality labels for track measurement quality
+var validQualityLabels = map[string]bool{
+	"perfect":           true,
+	"good":              true,
+	"truncated":         true,
+	"noisy_velocity":    true,
+	"stopped_recovered": true,
+}
+
+// ValidateUserLabel checks if a user label is valid according to the enum.
+// Returns false for empty strings (not in the valid map).
+// Note: Empty strings may still be acceptable as optional values in the database,
+// but they are not considered valid enum values.
+func ValidateUserLabel(label string) bool {
+	return validUserLabels[label]
+}
+
+// ValidateQualityLabel checks if a quality label is valid according to the enum.
+// Returns false for empty strings (not in the valid map).
+// Note: Empty strings may still be acceptable as optional values in the database,
+// but they are not considered valid enum values.
+func ValidateQualityLabel(label string) bool {
+	return validQualityLabels[label]
+}
+
 // LidarLabel represents a manual label applied to a track for training/validation.
 type LidarLabel struct {
 	LabelID          string   `json:"label_id"`
@@ -28,6 +65,8 @@ type LidarLabel struct {
 	CreatedAtNs      int64    `json:"created_at_ns"`
 	UpdatedAtNs      *int64   `json:"updated_at_ns,omitempty"`
 	Notes            *string  `json:"notes,omitempty"`
+	SceneID          *string  `json:"scene_id,omitempty"`
+	SourceFile       *string  `json:"source_file,omitempty"`
 }
 
 // LidarLabelAPI provides HTTP handlers for label management.
@@ -70,7 +109,7 @@ func (api *LidarLabelAPI) handleListLabels(w http.ResponseWriter, r *http.Reques
 	// Build query with filters
 	sqlQuery := `SELECT label_id, track_id, class_label, start_timestamp_ns, 
 	               end_timestamp_ns, confidence, created_by, created_at_ns, 
-	               updated_at_ns, notes 
+	               updated_at_ns, notes, scene_id, source_file 
 	        FROM lidar_labels WHERE 1=1`
 	args := []interface{}{}
 
@@ -117,6 +156,8 @@ func (api *LidarLabelAPI) handleListLabels(w http.ResponseWriter, r *http.Reques
 			&label.CreatedAtNs,
 			&label.UpdatedAtNs,
 			&label.Notes,
+			&label.SceneID,
+			&label.SourceFile,
 		); err != nil {
 			api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("scan failed: %v", err))
 			return
@@ -166,8 +207,8 @@ func (api *LidarLabelAPI) handleCreateLabel(w http.ResponseWriter, r *http.Reque
 	// Insert into database
 	query := `INSERT INTO lidar_labels (
 		label_id, track_id, class_label, start_timestamp_ns, end_timestamp_ns,
-		confidence, created_by, created_at_ns, updated_at_ns, notes
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		confidence, created_by, created_at_ns, updated_at_ns, notes, scene_id, source_file
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err := api.db.Exec(query,
 		label.LabelID,
@@ -180,6 +221,8 @@ func (api *LidarLabelAPI) handleCreateLabel(w http.ResponseWriter, r *http.Reque
 		label.CreatedAtNs,
 		label.UpdatedAtNs,
 		label.Notes,
+		label.SceneID,
+		label.SourceFile,
 	)
 	if err != nil {
 		api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("insert failed: %v", err))
@@ -218,7 +261,7 @@ func (api *LidarLabelAPI) handleLabelByID(w http.ResponseWriter, r *http.Request
 func (api *LidarLabelAPI) handleGetLabel(w http.ResponseWriter, r *http.Request, labelID string) {
 	query := `SELECT label_id, track_id, class_label, start_timestamp_ns, 
 	                 end_timestamp_ns, confidence, created_by, created_at_ns, 
-	                 updated_at_ns, notes 
+	                 updated_at_ns, notes, scene_id, source_file 
 	          FROM lidar_labels WHERE label_id = ?`
 
 	var label LidarLabel
@@ -233,6 +276,8 @@ func (api *LidarLabelAPI) handleGetLabel(w http.ResponseWriter, r *http.Request,
 		&label.CreatedAtNs,
 		&label.UpdatedAtNs,
 		&label.Notes,
+		&label.SceneID,
+		&label.SourceFile,
 	)
 	if err == sql.ErrNoRows {
 		api.writeJSONError(w, http.StatusNotFound, "label not found")
@@ -292,6 +337,14 @@ func (api *LidarLabelAPI) handleUpdateLabel(w http.ResponseWriter, r *http.Reque
 		query += ", notes = ?"
 		args = append(args, updates.Notes)
 	}
+	if updates.SceneID != nil {
+		query += ", scene_id = ?"
+		args = append(args, updates.SceneID)
+	}
+	if updates.SourceFile != nil {
+		query += ", source_file = ?"
+		args = append(args, updates.SourceFile)
+	}
 
 	query += " WHERE label_id = ?"
 	args = append(args, labelID)
@@ -336,7 +389,7 @@ func (api *LidarLabelAPI) handleExport(w http.ResponseWriter, r *http.Request) {
 
 	query := `SELECT label_id, track_id, class_label, start_timestamp_ns, 
 	                 end_timestamp_ns, confidence, created_by, created_at_ns, 
-	                 updated_at_ns, notes 
+	                 updated_at_ns, notes, scene_id, source_file 
 	          FROM lidar_labels 
 	          ORDER BY start_timestamp_ns ASC`
 
@@ -361,6 +414,8 @@ func (api *LidarLabelAPI) handleExport(w http.ResponseWriter, r *http.Request) {
 			&label.CreatedAtNs,
 			&label.UpdatedAtNs,
 			&label.Notes,
+			&label.SceneID,
+			&label.SourceFile,
 		); err != nil {
 			api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("scan failed: %v", err))
 			return

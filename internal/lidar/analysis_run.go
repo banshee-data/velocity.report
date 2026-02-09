@@ -198,6 +198,7 @@ type RunTrack struct {
 	LabelConfidence float32 `json:"label_confidence,omitempty"`
 	LabelerID       string  `json:"labeler_id,omitempty"`
 	LabeledAt       int64   `json:"labeled_at,omitempty"`
+	QualityLabel    string  `json:"quality_label,omitempty"`
 
 	// Track quality flags
 	IsSplitCandidate bool     `json:"is_split_candidate,omitempty"`
@@ -552,9 +553,9 @@ func (s *AnalysisRunStore) InsertRunTrack(track *RunTrack) error {
 			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 			height_p95_max, intensity_mean_avg,
 			object_class, object_confidence, classification_model,
-			user_label, label_confidence, labeler_id, labeled_at,
+			user_label, label_confidence, labeler_id, labeled_at, quality_label,
 			is_split_candidate, is_merge_candidate, linked_track_ids
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	var endNanos interface{}
@@ -594,6 +595,7 @@ func (s *AnalysisRunStore) InsertRunTrack(track *RunTrack) error {
 			nullFloat32(track.LabelConfidence),
 			nullString(track.LabelerID),
 			labeledAt,
+			nullString(track.QualityLabel),
 			track.IsSplitCandidate,
 			track.IsMergeCandidate,
 			linkedJSON,
@@ -614,7 +616,7 @@ func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
 			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 			height_p95_max, intensity_mean_avg,
 			object_class, object_confidence, classification_model,
-			user_label, label_confidence, labeler_id, labeled_at,
+			user_label, label_confidence, labeler_id, labeled_at, quality_label,
 			is_split_candidate, is_merge_candidate, linked_track_ids
 		FROM lidar_run_tracks
 		WHERE run_id = ?
@@ -631,7 +633,7 @@ func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
 	for rows.Next() {
 		var track RunTrack
 		var endNanos, labeledAt sql.NullInt64
-		var objectClass, classModel, userLabel, labelerID, linkedJSON sql.NullString
+		var objectClass, classModel, userLabel, labelerID, qualityLabel, linkedJSON sql.NullString
 		var objConf, labelConf sql.NullFloat64
 
 		err := rows.Scan(
@@ -659,6 +661,7 @@ func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
 			&labelConf,
 			&labelerID,
 			&labeledAt,
+			&qualityLabel,
 			&track.IsSplitCandidate,
 			&track.IsMergeCandidate,
 			&linkedJSON,
@@ -691,6 +694,9 @@ func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
 		if labeledAt.Valid {
 			track.LabeledAt = labeledAt.Int64
 		}
+		if qualityLabel.Valid {
+			track.QualityLabel = qualityLabel.String
+		}
 		if linkedJSON.Valid && linkedJSON.String != "" && linkedJSON.String != "[]" {
 			json.Unmarshal([]byte(linkedJSON.String), &track.LinkedTrackIDs)
 		}
@@ -705,22 +711,28 @@ func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
 	return tracks, nil
 }
 
-// UpdateTrackLabel updates the user label for a track.
-func (s *AnalysisRunStore) UpdateTrackLabel(runID, trackID, userLabel string, confidence float32, labelerID string) error {
+// UpdateTrackLabel updates the user label and quality label for a track.
+// Both userLabel and qualityLabel can be empty strings, which will be stored as NULL in the database.
+// This function does NOT validate enum values - it accepts any string and stores it as-is.
+// Validation of label enum values should be performed by the caller (e.g., API handlers)
+// using ValidateUserLabel() and ValidateQualityLabel() from the api package.
+func (s *AnalysisRunStore) UpdateTrackLabel(runID, trackID, userLabel, qualityLabel string, confidence float32, labelerID string) error {
 	query := `
 		UPDATE lidar_run_tracks SET
 			user_label = ?,
 			label_confidence = ?,
 			labeler_id = ?,
-			labeled_at = ?
+			labeled_at = ?,
+			quality_label = ?
 		WHERE run_id = ? AND track_id = ?
 	`
 
 	_, err := s.db.Exec(query,
-		userLabel,
+		nullString(userLabel),
 		confidence,
-		labelerID,
+		nullString(labelerID),
 		time.Now().UnixNano(),
+		nullString(qualityLabel),
 		runID,
 		trackID,
 	)
@@ -809,7 +821,7 @@ func (s *AnalysisRunStore) GetUnlabeledTracks(runID string, limit int) ([]*RunTr
 			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 			height_p95_max, intensity_mean_avg,
 			object_class, object_confidence, classification_model,
-			user_label, label_confidence, labeler_id, labeled_at,
+			user_label, label_confidence, labeler_id, labeled_at, quality_label,
 			is_split_candidate, is_merge_candidate, linked_track_ids
 		FROM lidar_run_tracks
 		WHERE run_id = ? AND (user_label IS NULL OR user_label = '')
@@ -827,7 +839,7 @@ func (s *AnalysisRunStore) GetUnlabeledTracks(runID string, limit int) ([]*RunTr
 	for rows.Next() {
 		var track RunTrack
 		var endNanos, labeledAt sql.NullInt64
-		var objectClass, classModel, userLabel, labelerID, linkedJSON sql.NullString
+		var objectClass, classModel, userLabel, labelerID, qualityLabel, linkedJSON sql.NullString
 		var objConf, labelConf sql.NullFloat64
 
 		err := rows.Scan(
@@ -855,6 +867,7 @@ func (s *AnalysisRunStore) GetUnlabeledTracks(runID string, limit int) ([]*RunTr
 			&labelConf,
 			&labelerID,
 			&labeledAt,
+			&qualityLabel,
 			&track.IsSplitCandidate,
 			&track.IsMergeCandidate,
 			&linkedJSON,
@@ -874,6 +887,24 @@ func (s *AnalysisRunStore) GetUnlabeledTracks(runID string, limit int) ([]*RunTr
 		}
 		if classModel.Valid {
 			track.ClassificationModel = classModel.String
+		}
+		if userLabel.Valid {
+			track.UserLabel = userLabel.String
+		}
+		if labelConf.Valid {
+			track.LabelConfidence = float32(labelConf.Float64)
+		}
+		if labelerID.Valid {
+			track.LabelerID = labelerID.String
+		}
+		if labeledAt.Valid {
+			track.LabeledAt = labeledAt.Int64
+		}
+		if qualityLabel.Valid {
+			track.QualityLabel = qualityLabel.String
+		}
+		if linkedJSON.Valid && linkedJSON.String != "" && linkedJSON.String != "[]" {
+			json.Unmarshal([]byte(linkedJSON.String), &track.LinkedTrackIDs)
 		}
 
 		tracks = append(tracks, &track)

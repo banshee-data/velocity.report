@@ -91,6 +91,7 @@ CREATE TABLE lidar_analysis_runs (
         , is_split_candidate INTEGER DEFAULT 0
         , is_merge_candidate INTEGER DEFAULT 0
         , linked_track_ids TEXT
+        , quality_label TEXT
         , PRIMARY KEY (run_id, track_id)
         , FOREIGN KEY (run_id) REFERENCES lidar_analysis_runs (run_id) ON DELETE CASCADE
           );
@@ -155,6 +156,8 @@ CREATE TABLE lidar_analysis_runs (
         , created_at_ns INTEGER NOT NULL
         , updated_at_ns INTEGER
         , notes TEXT
+        , scene_id TEXT
+        , source_file TEXT
         , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id) ON DELETE CASCADE
           );
 
@@ -316,6 +319,8 @@ CREATE INDEX idx_lidar_labels_time ON lidar_labels (start_timestamp_ns, end_time
 
 CREATE INDEX idx_lidar_labels_class ON lidar_labels (class_label);
 
+CREATE INDEX idx_lidar_labels_scene ON lidar_labels (scene_id);
+
 CREATE INDEX idx_lidar_runs_created ON lidar_analysis_runs (created_at);
 
 CREATE INDEX idx_lidar_runs_source ON lidar_analysis_runs (source_path);
@@ -331,6 +336,8 @@ CREATE INDEX idx_lidar_run_tracks_class ON lidar_run_tracks (object_class);
 CREATE INDEX idx_lidar_run_tracks_label ON lidar_run_tracks (user_label);
 
 CREATE INDEX idx_lidar_run_tracks_state ON lidar_run_tracks (track_state);
+
+CREATE INDEX idx_lidar_run_tracks_quality_label ON lidar_run_tracks (quality_label);
 
 CREATE INDEX idx_lidar_tracks_quality ON lidar_tracks (track_length_meters, occlusion_count);
 

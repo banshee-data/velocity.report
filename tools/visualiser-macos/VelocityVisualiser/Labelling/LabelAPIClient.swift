@@ -37,8 +37,8 @@ class LabelAPIClient {
 
     /// Create a new label for a track.
     func createLabel(
-        trackID: String, classLabel: String, startFrameID: UInt64? = nil, endFrameID: UInt64? = nil,
-        annotator: String = "", notes: String = ""
+        trackID: String, classLabel: String, startTimestampNs: Int64, endTimestampNs: Int64? = nil,
+        confidence: Float? = nil, createdBy: String = "", notes: String = ""
     ) async throws -> LabelEvent {
         let url = baseURL.appendingPathComponent("api/lidar/labels")
 
@@ -46,11 +46,22 @@ class LabelAPIClient {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let payload: [String: Any] = [
-            "session_id": sessionID, "source_file": sourceFile, "track_id": trackID,
-            "class_label": classLabel, "start_frame_id": startFrameID ?? 0,
-            "end_frame_id": endFrameID ?? 0, "annotator": annotator, "notes": notes,
+        var payload: [String: Any] = [
+            "track_id": trackID,
+            "class_label": classLabel,
+            "start_timestamp_ns": startTimestampNs,
+            "created_by": createdBy,
+            "notes": notes,
         ]
+        if let endTimestampNs = endTimestampNs {
+            payload["end_timestamp_ns"] = endTimestampNs
+        }
+        if let confidence = confidence {
+            payload["confidence"] = confidence
+        }
+        if !sourceFile.isEmpty {
+            payload["source_file"] = sourceFile
+        }
 
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
