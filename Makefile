@@ -72,6 +72,7 @@ help:
 	@echo "  migrate-force        Force version (recovery, VERSION=N)"
 	@echo "  migrate-baseline     Set baseline version (VERSION=N)"
 	@echo "  schema-sync          Regenerate schema.sql from latest migrations"
+	@echo "  schema-erd           Generate schema ERD (entity-relationship diagram) as SVG"
 	@echo ""
 	@echo "FORMATTING (mutating):"
 	@echo "  format               Format all code (Go + Python + Web + macOS + SQL + Markdown)"
@@ -719,7 +720,7 @@ test-perf:
 # DATABASE MIGRATIONS
 # =============================================================================
 
-.PHONY: migrate-up migrate-down migrate-status migrate-detect migrate-version migrate-force migrate-baseline schema-sync
+.PHONY: migrate-up migrate-down migrate-status migrate-detect migrate-version migrate-force migrate-baseline schema-sync schema-erd
 
 # Apply all pending migrations
 migrate-up:
@@ -774,6 +775,11 @@ migrate-baseline:
 schema-sync:
 	@echo "Regenerating schema.sql from latest migrations..."
 	@bash scripts/sync-schema.sh
+
+# Generate schema ERD (Entity-Relationship Diagram) as SVG
+schema-erd:
+	@echo "Generating schema ERD (schema.svg)..."
+	@bash data/sqlite-erd/graph.sh internal/db/schema.sql
 
 # =============================================================================
 # FORMATTING (mutating)
