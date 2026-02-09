@@ -1,4 +1,4 @@
--- 000022: Create lidar_missed_regions table for marking areas where objects
+-- 000021: Create lidar_missed_regions table for marking areas where objects
 -- should have been tracked but were not detected by the tracker.
    CREATE TABLE IF NOT EXISTS lidar_missed_regions (
           region_id TEXT PRIMARY KEY
