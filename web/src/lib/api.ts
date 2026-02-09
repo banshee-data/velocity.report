@@ -304,6 +304,9 @@ export interface Site {
 	map_angle?: number | null;
 	include_map: boolean;
 	site_description?: string | null;
+	cosine_error_angle?: number | null;
+	speed_limit?: number | null;
+	speed_limit_note?: string | null;
 	bbox_ne_lat?: number | null;
 	bbox_ne_lng?: number | null;
 	bbox_sw_lat?: number | null;
@@ -430,19 +433,19 @@ export async function updateTransitWorker(
 // LiDAR Track API
 
 import type {
+	AnalysisRun,
 	BackgroundGrid,
+	LabellingProgress,
+	LidarScene,
+	LidarTransit,
+	LidarTransitSummary,
 	ObservationListResponse,
+	RunTrack,
 	Track,
 	TrackHistoryResponse,
 	TrackListResponse,
 	TrackObservation,
-	TrackSummaryResponse,
-	LidarScene,
-	AnalysisRun,
-	RunTrack,
-	LabellingProgress,
-	LidarTransit,
-	LidarTransitSummary
+	TrackSummaryResponse
 } from './types/lidar';
 
 /**

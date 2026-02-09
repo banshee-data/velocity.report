@@ -197,7 +197,7 @@
 			await upsertSiteConfigPeriod({
 				id: periodForm.id ?? undefined,
 				site_id: parseInt(siteId),
-				effective_start_unix: startUnix,
+				effective_start_unix: startUnix!,
 				effective_end_unix: endUnix ?? null,
 				is_active: periodForm.is_active,
 				notes: periodForm.notes || null,
@@ -408,21 +408,20 @@
 							<TextField
 								bind:value={periodForm.start}
 								label="Start time"
-								type="datetime-local"
+								type="text"
 								required
 								error={periodFormErrors.start}
 							/>
 							<TextField
 								bind:value={periodForm.end}
 								label="End time (optional)"
-								type="datetime-local"
+								type="text"
 								error={periodFormErrors.end}
 							/>
 							<TextField
 								bind:value={periodForm.angle}
 								label="Cosine Error Angle (degrees)"
-								type="number"
-								step="0.1"
+								type="decimal"
 								required
 								error={periodFormErrors.angle}
 							/>

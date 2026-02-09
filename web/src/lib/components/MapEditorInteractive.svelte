@@ -23,7 +23,12 @@
 	let fovTipMarker: Marker | null = null;
 	let mapContainer: HTMLElement;
 	let searchQuery = '';
-	let searchResults: Array<{ display_name: string; lat: string; lon: string }> = [];
+	let searchResults: Array<{
+		display_name: string;
+		lat: string;
+		lon: string;
+		place_id?: number | string;
+	}> = [];
 	let searching = false;
 	let downloading = false;
 	let error = '';
@@ -598,13 +603,13 @@
 			const svgHeight = 400;
 
 			// Coordinate conversion functions
-			const latRange = bboxNELat - bboxSWLat;
-			const lngRange = bboxNELng - bboxSWLng;
-			const latToY = (lat: number) => ((bboxNELat - lat) / latRange) * svgHeight;
-			const lngToX = (lng: number) => ((lng - bboxSWLng) / lngRange) * svgWidth;
+			const latRange = bboxNELat! - bboxSWLat!;
+			const lngRange = bboxNELng! - bboxSWLng!;
+			const latToY = (lat: number) => ((bboxNELat! - lat) / latRange) * svgHeight;
+			const lngToX = (lng: number) => ((lng - bboxSWLng!) / lngRange) * svgWidth;
 
 			// Calculate map scale (metres per pixel) for scaling elements
-			const centerLat = (bboxNELat + bboxSWLat) / 2;
+			const centerLat = (bboxNELat! + bboxSWLat!) / 2;
 			const metersPerDegreeLng = 111320 * Math.cos((centerLat * Math.PI) / 180);
 			const mapWidthMeters = lngRange * metersPerDegreeLng;
 			const metersPerPixel = mapWidthMeters / svgWidth;
@@ -946,13 +951,7 @@
 	</div>
 
 	<!-- Radar Angle -->
-	<TextField
-		bind:value={radarAngle}
-		label="Radar Angle (degrees)"
-		type="number"
-		step="1"
-		placeholder="0"
-	/>
+	<TextField bind:value={radarAngle} label="Radar Angle (degrees)" type="integer" placeholder="0" />
 
 	<!-- Download SVG -->
 	<div class="space-y-2">

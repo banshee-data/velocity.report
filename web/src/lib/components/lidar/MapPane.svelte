@@ -374,7 +374,7 @@
 				for (let i = track.history.length - 1; i >= 0; i--) {
 					const pt = track.history[i];
 					if (Math.abs(pt.x) >= 0.01 || Math.abs(pt.y) >= 0.01) {
-						pos = pt;
+						pos = { x: pt.x, y: pt.y, z: 0 };
 						break;
 					}
 				}
