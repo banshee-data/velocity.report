@@ -54,6 +54,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     @Published var showGating: Bool = false  // M6: Gating ellipses
     @Published var showAssociation: Bool = false  // M6: Association lines
     @Published var showResiduals: Bool = false  // M6: Residual vectors
+    @Published var showTrackLabels: Bool = true  // Track ID/class labels above 3D boxes
     @Published var pointSize: Float = 5.0  // Point size for rendering (1-20)
 
     // MARK: - Labelling State
@@ -75,6 +76,8 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     @Published var clusterCount: Int = 0
     @Published var trackCount: Int = 0
     @Published var cacheStatus: String = ""  // M3.5: Background cache status
+    @Published var trackLabels: [MetalRenderer.TrackScreenLabel] = []  // Projected track labels for overlay
+    @Published var metalViewSize: CGSize = .zero  // Metal view drawable size
 
     // MARK: - Renderer
 
@@ -469,6 +472,13 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         renderer?.showAssociation = showAssociation  // M6: Association lines
         renderer?.showResiduals = showResiduals  // M6: Residual vectors
         renderer?.selectedTrackID = selectedTrackID  // M6: Track selection highlight
+
+        // Update track label overlay positions
+        if showTrackLabels, let r = renderer, metalViewSize.width > 0 {
+            trackLabels = r.projectTrackLabels(viewSize: metalViewSize)
+        } else {
+            trackLabels = []
+        }
 
         // Log every 100 frames to show activity
         if frameCount % 100 == 1 {
