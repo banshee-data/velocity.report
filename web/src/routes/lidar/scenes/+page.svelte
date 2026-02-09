@@ -16,6 +16,7 @@
 	import type { PcapFileInfo } from '$lib/api';
 	import type { AnalysisRun, LidarScene } from '$lib/types/lidar';
 	import { onMount } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { Button, SelectField } from 'svelte-ux';
 
 	// Scene list
@@ -52,7 +53,7 @@
 	let scanError: string | null = null;
 	let pcapFiles: PcapFileInfo[] = [];
 	let pcapDir = '';
-	let selectedFiles: Set<string> = new Set();
+	let selectedFiles: SvelteSet<string> = new SvelteSet();
 	let bulkCreating = false;
 
 	async function loadScenes() {
@@ -164,7 +165,7 @@
 		scanning = true;
 		scanError = null;
 		pcapFiles = [];
-		selectedFiles = new Set();
+		selectedFiles = new SvelteSet();
 		try {
 			const result = await scanPcapFiles();
 			pcapFiles = result.files;
@@ -178,7 +179,7 @@
 	}
 
 	function toggleFileSelection(path: string) {
-		const next = new Set(selectedFiles);
+		const next = new SvelteSet(selectedFiles);
 		if (next.has(path)) {
 			next.delete(path);
 		} else {
@@ -190,9 +191,9 @@
 	function selectAllFiles() {
 		const available = pcapFiles.filter((f) => !f.in_use);
 		if (selectedFiles.size === available.length) {
-			selectedFiles = new Set();
+			selectedFiles = new SvelteSet();
 		} else {
-			selectedFiles = new Set(available.map((f) => f.path));
+			selectedFiles = new SvelteSet(available.map((f) => f.path));
 		}
 	}
 
@@ -218,7 +219,7 @@
 		}
 		if (!scanError) {
 			showScanPanel = false;
-			selectedFiles = new Set();
+			selectedFiles = new SvelteSet();
 		}
 		bulkCreating = false;
 		// Refresh to pick up in_use flags
@@ -414,7 +415,7 @@
 									</tr>
 								</thead>
 								<tbody>
-									{#each pcapFiles as file}
+									{#each pcapFiles as file (file.path)}
 										<tr
 											class="border-surface-content/5 border-t {file.in_use
 												? 'opacity-50'
