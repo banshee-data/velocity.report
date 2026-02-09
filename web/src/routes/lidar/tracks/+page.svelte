@@ -10,6 +10,7 @@
 	 * Phase 3 additions: Scene/run selection and track labelling workflow.
 	 */
 	import { browser } from '$app/environment';
+	import { page } from '$app/stores';
 	import {
 		createMissedRegion,
 		deleteMissedRegion,
@@ -504,11 +505,28 @@
 		window.addEventListener('mouseup', onMouseUp);
 	}
 
-	onMount(() => {
+	onMount(async () => {
 		console.log('[Page] Component mounted, loading data...');
 		loadHistoricalData();
 		loadBackgroundGrid();
-		loadScenes(); // Phase 3: Load scenes for labelling workflow
+
+		// Phase 3: Load scenes and optionally pre-select from URL query params
+		await loadScenes();
+		const params = $page.url.searchParams;
+		const qsSceneId = params.get('scene_id');
+		const qsRunId = params.get('run_id');
+		if (qsSceneId && scenes.find((s) => s.scene_id === qsSceneId)) {
+			selectedSceneId = qsSceneId;
+			const scene = scenes.find((s) => s.scene_id === qsSceneId);
+			if (scene) {
+				await loadRuns(scene);
+				if (qsRunId && runs.find((r) => r.run_id === qsRunId)) {
+					selectedRunId = qsRunId;
+					loadRunTracks();
+					loadMissedRegions();
+				}
+			}
+		}
 	});
 
 	onDestroy(() => {
