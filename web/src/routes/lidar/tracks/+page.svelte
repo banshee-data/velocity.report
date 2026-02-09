@@ -187,14 +187,10 @@
 	}
 
 	// Phase 3: Load runs for selected scene's sensor
-	async function loadRuns() {
-		if (!selectedScene) {
-			runs = [];
-			return;
-		}
+	async function loadRuns(scene: LidarScene) {
 		runsLoading = true;
 		try {
-			runs = await getLidarRuns({ sensor_id: selectedScene.sensor_id });
+			runs = await getLidarRuns({ sensor_id: scene.sensor_id });
 		} catch {
 			runs = [];
 		} finally {
@@ -224,19 +220,28 @@
 		}
 	}
 
-	// Phase 3: Handle scene selection change (via on:change)
+	// Phase 3: Handle scene selection change
+	// Looks up the scene directly from scenes array rather than relying on
+	// derived $: selectedScene which may not have updated yet.
 	function handleSceneChange() {
+		selectedRunId = null;
+		runTracks = [];
+		labellingProgress = null;
 		if (selectedSceneId !== null) {
-			loadRuns();
+			const scene = scenes.find((s) => s.scene_id === selectedSceneId);
+			if (scene) {
+				loadRuns(scene);
+			} else {
+				runs = [];
+			}
 		} else {
 			runs = [];
-			selectedRunId = null;
-			runTracks = [];
-			labellingProgress = null;
+			missedRegions = [];
+			markMissedMode = false;
 		}
 	}
 
-	// Phase 3: Handle run selection change (via on:change)
+	// Phase 3: Handle run selection change
 	function handleRunChange() {
 		if (selectedRunId !== null) {
 			loadRunTracks();

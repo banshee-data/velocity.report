@@ -737,6 +737,7 @@
 
 	// Resize handler
 	let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
+	let resizeObserver: ResizeObserver | null = null;
 	function handleResize() {
 		if (!browser) return;
 		if (resizeTimeout !== null) {
@@ -774,12 +775,26 @@
 		if (!browser) return;
 		initCanvas();
 		window.addEventListener('resize', handleResize);
+
+		// Observe parent container size changes (e.g. from drag-resize handle)
+		const container = canvas?.parentElement;
+		if (container) {
+			resizeObserver = new ResizeObserver(() => {
+				handleResize();
+			});
+			resizeObserver.observe(container);
+		}
+
 		startAnimation();
 	});
 
 	onDestroy(() => {
 		if (typeof window !== 'undefined') {
 			window.removeEventListener('resize', handleResize);
+		}
+		if (resizeObserver) {
+			resizeObserver.disconnect();
+			resizeObserver = null;
 		}
 		stopAnimation();
 		if (resizeTimeout !== null) {

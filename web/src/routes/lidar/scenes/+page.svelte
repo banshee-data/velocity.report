@@ -5,6 +5,7 @@
 	 * CRUD interface for managing LiDAR scenes — associating PCAP files,
 	 * region maps, and background grids with a scene for ground truth labelling.
 	 */
+	import type { PcapFileInfo } from '$lib/api';
 	import {
 		createLidarScene,
 		deleteLidarScene,
@@ -13,11 +14,10 @@
 		scanPcapFiles,
 		updateLidarScene
 	} from '$lib/api';
-	import type { PcapFileInfo } from '$lib/api';
 	import type { AnalysisRun, LidarScene } from '$lib/types/lidar';
 	import { onMount } from 'svelte';
-	import { SvelteSet } from 'svelte/reactivity';
 	import { Button, SelectField } from 'svelte-ux';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	// Scene list
 	let scenes: LidarScene[] = [];
@@ -44,6 +44,8 @@
 	let editDescription = '';
 	let editReferenceRunId: string | null = null;
 	let editOptimalParams = '';
+	let editPcapStartSecs = '';
+	let editPcapDurationSecs = '';
 	let saving = false;
 	let saveError: string | null = null;
 
@@ -81,6 +83,8 @@
 		editDescription = scene.description ?? '';
 		editReferenceRunId = scene.reference_run_id ?? null;
 		editOptimalParams = scene.optimal_params_json ?? '';
+		editPcapStartSecs = scene.pcap_start_secs != null ? String(scene.pcap_start_secs) : '';
+		editPcapDurationSecs = scene.pcap_duration_secs != null ? String(scene.pcap_duration_secs) : '';
 	}
 
 	function deselectScene() {
@@ -88,6 +92,8 @@
 		editDescription = '';
 		editReferenceRunId = null;
 		editOptimalParams = '';
+		editPcapStartSecs = '';
+		editPcapDurationSecs = '';
 		saveError = null;
 	}
 
@@ -124,7 +130,9 @@
 			const updated = await updateLidarScene(selectedScene.scene_id, {
 				description: editDescription || undefined,
 				reference_run_id: editReferenceRunId || undefined,
-				optimal_params_json: editOptimalParams || undefined
+				optimal_params_json: editOptimalParams || undefined,
+				pcap_start_secs: editPcapStartSecs ? parseFloat(editPcapStartSecs) : undefined,
+				pcap_duration_secs: editPcapDurationSecs ? parseFloat(editPcapDurationSecs) : undefined
 			});
 			// Update in list
 			scenes = scenes.map((s) => (s.scene_id === updated.scene_id ? updated : s));
@@ -605,22 +613,34 @@
 						</div>
 					</div>
 
-					{#if selectedScene.pcap_start_secs !== undefined}
-						<div class="grid grid-cols-2 gap-4">
-							<div>
-								<span class="text-surface-content/70 text-sm font-medium">Start</span>
-								<div class="text-surface-content/60 text-sm">
-									{selectedScene.pcap_start_secs}s
-								</div>
-							</div>
-							<div>
-								<span class="text-surface-content/70 text-sm font-medium">Duration</span>
-								<div class="text-surface-content/60 text-sm">
-									{selectedScene.pcap_duration_secs ?? 'Full'}s
-								</div>
-							</div>
+					<div class="grid grid-cols-2 gap-4">
+						<div>
+							<label for="edit-start" class="text-surface-content/70 mb-1 block text-sm font-medium"
+								>Start (seconds)</label
+							>
+							<input
+								id="edit-start"
+								type="text"
+								bind:value={editPcapStartSecs}
+								placeholder="0"
+								class="border-surface-content/20 bg-surface-50 w-full rounded border px-3 py-2 text-sm"
+							/>
 						</div>
-					{/if}
+						<div>
+							<label
+								for="edit-duration"
+								class="text-surface-content/70 mb-1 block text-sm font-medium"
+								>Duration (seconds)</label
+							>
+							<input
+								id="edit-duration"
+								type="text"
+								bind:value={editPcapDurationSecs}
+								placeholder="Full PCAP"
+								class="border-surface-content/20 bg-surface-50 w-full rounded border px-3 py-2 text-sm"
+							/>
+						</div>
+					</div>
 
 					<div>
 						<label for="edit-params" class="text-surface-content/70 mb-1 block text-sm font-medium"

@@ -597,6 +597,8 @@ export async function updateLidarScene(
 		description?: string;
 		reference_run_id?: string;
 		optimal_params_json?: string;
+		pcap_start_secs?: number;
+		pcap_duration_secs?: number;
 	}
 ): Promise<LidarScene> {
 	const res = await fetch(`${API_BASE}/lidar/scenes/${sceneId}`, {

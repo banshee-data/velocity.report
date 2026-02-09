@@ -190,6 +190,8 @@ type UpdateSceneRequest struct {
 	Description       *string          `json:"description,omitempty"`
 	ReferenceRunID    *string          `json:"reference_run_id,omitempty"`
 	OptimalParamsJSON *json.RawMessage `json:"optimal_params_json,omitempty"`
+	PCAPStartSecs     *float64         `json:"pcap_start_secs,omitempty"`
+	PCAPDurationSecs  *float64         `json:"pcap_duration_secs,omitempty"`
 }
 
 // handleUpdateScene updates a scene's fields.
@@ -228,6 +230,12 @@ func (ws *WebServer) handleUpdateScene(w http.ResponseWriter, r *http.Request, s
 	}
 	if req.OptimalParamsJSON != nil {
 		scene.OptimalParamsJSON = *req.OptimalParamsJSON
+	}
+	if req.PCAPStartSecs != nil {
+		scene.PCAPStartSecs = req.PCAPStartSecs
+	}
+	if req.PCAPDurationSecs != nil {
+		scene.PCAPDurationSecs = req.PCAPDurationSecs
 	}
 
 	if err := store.UpdateScene(scene); err != nil {

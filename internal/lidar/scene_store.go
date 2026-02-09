@@ -219,7 +219,8 @@ func (s *SceneStore) ListScenes(sensorID string) ([]*Scene, error) {
 }
 
 // UpdateScene updates an existing scene's mutable fields for the given scene ID.
-// Updates description, reference_run_id, and optimal_params_json; empty strings are stored as NULL, which clears those fields.
+// Updates description, reference_run_id, optimal_params_json, pcap_start_secs, and pcap_duration_secs;
+// empty strings are stored as NULL, which clears those fields.
 func (s *SceneStore) UpdateScene(scene *Scene) error {
 	scene.UpdatedAtNs = new(int64)
 	*scene.UpdatedAtNs = time.Now().UnixNano()
@@ -229,6 +230,8 @@ func (s *SceneStore) UpdateScene(scene *Scene) error {
 		SET description = ?,
 		    reference_run_id = ?,
 		    optimal_params_json = ?,
+		    pcap_start_secs = ?,
+		    pcap_duration_secs = ?,
 		    updated_at_ns = ?
 		WHERE scene_id = ?
 	`
@@ -237,6 +240,8 @@ func (s *SceneStore) UpdateScene(scene *Scene) error {
 		nullString(scene.Description),
 		nullString(scene.ReferenceRunID),
 		nullString(string(scene.OptimalParamsJSON)),
+		nullFloat64(scene.PCAPStartSecs),
+		nullFloat64(scene.PCAPDurationSecs),
 		scene.UpdatedAtNs,
 		scene.SceneID,
 	)

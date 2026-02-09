@@ -1,4 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+/* eslint-disable @typescript-eslint/no-require-imports -- CommonJS module requires require() */
 const { parseDuration, formatDuration, comboLabel, formatParamValues, PARAM_SCHEMA } =
 	require('@monitor/assets/sweep_dashboard.js') as {
 		parseDuration: (s: string | null | undefined) => number;
@@ -17,6 +17,7 @@ const { parseDuration, formatDuration, comboLabel, formatParamValues, PARAM_SCHE
 			}
 		>;
 	};
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 describe('PARAM_SCHEMA', () => {
 	it('exports a non-empty object of parameter definitions', () => {
@@ -33,7 +34,7 @@ describe('PARAM_SCHEMA', () => {
 	});
 
 	it('each entry has type, label, and desc', () => {
-		for (const [key, schema] of Object.entries(PARAM_SCHEMA)) {
+		for (const [, schema] of Object.entries(PARAM_SCHEMA)) {
 			expect(schema).toHaveProperty('type');
 			expect(schema).toHaveProperty('label');
 			expect(schema).toHaveProperty('desc');
@@ -45,7 +46,7 @@ describe('PARAM_SCHEMA', () => {
 
 	it('numeric types have step and default range', () => {
 		const numericTypes = ['float64', 'int', 'int64'];
-		for (const [key, schema] of Object.entries(PARAM_SCHEMA)) {
+		for (const [, schema] of Object.entries(PARAM_SCHEMA)) {
 			if (numericTypes.includes(schema.type)) {
 				expect(schema).toHaveProperty('step');
 				expect(schema).toHaveProperty('defaultStart');

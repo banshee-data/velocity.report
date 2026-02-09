@@ -216,9 +216,17 @@ export interface AnalysisRun {
 	source_type: string;
 	source_path?: string;
 	sensor_id: string;
-	status: string;
+	params_json?: Record<string, unknown>;
+	duration_secs?: number;
+	total_frames?: number;
+	total_clusters?: number;
 	total_tracks: number;
 	confirmed_tracks: number;
+	processing_time_ms?: number;
+	status: string;
+	error_message?: string;
+	parent_run_id?: string;
+	notes?: string;
 }
 
 /** Run track with labelling fields */
