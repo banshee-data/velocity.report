@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -448,7 +449,7 @@ func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, c
 		"candidate_run_id": candidateRunID,
 		"score":            score,
 	}); err != nil {
-		// Log but don't write error response - headers already sent
-		fmt.Fprintf(w, `{"error": "failed to encode response"}`)
+		// Headers already sent - log error only, don't write to response body
+		log.Printf("Error encoding evaluation response: %v", err)
 	}
 }

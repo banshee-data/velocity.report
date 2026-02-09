@@ -1006,6 +1006,10 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 		mux.HandleFunc("/api/lidar/scenes", ws.handleScenes)
 		mux.HandleFunc("/api/lidar/scenes/", ws.handleSceneByID)
 	}
+
+	// Transit API routes (Phase 6: LiDAR transit table for dashboards and reports)
+	mux.HandleFunc("/api/lidar/transits", ws.handleListTransits)
+	mux.HandleFunc("/api/lidar/transits/summary", ws.handleTransitSummary)
 }
 
 // setupRoutes configures the HTTP routes and handlers

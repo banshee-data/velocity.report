@@ -175,3 +175,125 @@ export const TRACK_COLORS = {
 	tentative: '#FF9800', // Orange (unconfirmed)
 	deleted: '#F44336' // Red (just deleted)
 } as const;
+
+/**
+ * LidarTransit represents a polished transit record for dashboards and reports.
+ * Analogous to radar_data_transits but for LiDAR-tracked objects.
+ */
+export interface LidarTransit {
+	transit_id: number;
+	track_id: string;
+	sensor_id: string;
+	transit_start_unix: number;
+	transit_end_unix: number;
+	max_speed_mps: number;
+	min_speed_mps: number;
+	avg_speed_mps: number;
+	p50_speed_mps: number;
+	p85_speed_mps: number;
+	p95_speed_mps: number;
+	track_length_m: number;
+	observation_count: number;
+	object_class?: string;
+	classification_confidence?: number;
+	quality_score: number;
+	bbox_length_avg: number;
+	bbox_width_avg: number;
+	bbox_height_avg: number;
+}
+
+/**
+ * LidarTransitSummary holds aggregate statistics for a set of transits.
+ */
+export interface LidarTransitSummary {
+	total_count: number;
+	avg_speed_mps: number;
+	p50_speed_mps: number;
+	p85_speed_mps: number;
+	p95_speed_mps: number;
+	max_speed_mps: number;
+	by_class: Record<string, number>;
+	speed_buckets: Record<string, number>; // "0-20", "20-30", "30-40", "40-50", "50+"
+}
+
+/** Detection labels for track ground truth */
+export type DetectionLabel =
+	| 'good_vehicle'
+	| 'good_pedestrian'
+	| 'good_other'
+	| 'noise'
+	| 'noise_flora'
+	| 'split'
+	| 'merge'
+	| 'missed';
+
+/** Quality labels for track measurement quality */
+export type QualityLabel =
+	| 'perfect'
+	| 'good'
+	| 'truncated'
+	| 'noisy_velocity'
+	| 'stopped_recovered';
+
+/** Scene represents a PCAP-based evaluation environment */
+export interface LidarScene {
+	scene_id: string;
+	sensor_id: string;
+	pcap_file: string;
+	pcap_start_secs?: number;
+	pcap_duration_secs?: number;
+	description?: string;
+	reference_run_id?: string;
+	optimal_params_json?: string;
+	created_at_ns: number;
+	updated_at_ns?: number;
+}
+
+/** Analysis run with track snapshots */
+export interface AnalysisRun {
+	run_id: string;
+	created_at: string;
+	source_type: string;
+	source_path?: string;
+	sensor_id: string;
+	status: string;
+	total_tracks: number;
+	confirmed_tracks: number;
+}
+
+/** Run track with labelling fields */
+export interface RunTrack {
+	run_id: string;
+	track_id: string;
+	sensor_id: string;
+	track_state: string;
+	start_unix_nanos: number;
+	end_unix_nanos: number;
+	observation_count: number;
+	avg_speed_mps: number;
+	peak_speed_mps: number;
+	p50_speed_mps: number;
+	p85_speed_mps: number;
+	p95_speed_mps: number;
+	bounding_box_length_avg: number;
+	bounding_box_width_avg: number;
+	bounding_box_height_avg: number;
+	object_class?: string;
+	object_confidence?: number;
+	user_label?: string;
+	quality_label?: string;
+	label_confidence?: number;
+	labeler_id?: string;
+	labeled_at?: number;
+	is_split_candidate?: boolean;
+	is_merge_candidate?: boolean;
+	linked_track_ids?: string[];
+}
+
+/** Labelling progress statistics */
+export interface LabellingProgress {
+	total: number;
+	labelled: number;
+	progress_pct: number;
+	by_class: Record<string, number>;
+}

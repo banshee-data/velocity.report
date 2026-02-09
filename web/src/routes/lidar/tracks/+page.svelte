@@ -7,18 +7,31 @@
 	 * - Bottom pane (40%): SVG timeline with playback controls
 	 *
 	 * Supports both historical playback (24-hour window) and live streaming (Phase 3).
+	 * Phase 3 additions: Scene/run selection and track labelling workflow.
 	 */
 	import { browser } from '$app/environment';
 	import {
 		getBackgroundGrid,
 		getTrackHistory,
 		getTrackObservations,
-		getTrackObservationsRange
+		getTrackObservationsRange,
+		getLidarScenes,
+		getLidarRuns,
+		getRunTracks,
+		getLabellingProgress
 	} from '$lib/api';
 	import MapPane from '$lib/components/lidar/MapPane.svelte';
 	import TimelinePane from '$lib/components/lidar/TimelinePane.svelte';
 	import TrackList from '$lib/components/lidar/TrackList.svelte';
-	import type { BackgroundGrid, Track, TrackObservation } from '$lib/types/lidar';
+	import type {
+		BackgroundGrid,
+		Track,
+		TrackObservation,
+		LidarScene,
+		AnalysisRun,
+		RunTrack,
+		LabellingProgress
+	} from '$lib/types/lidar';
 	import { onDestroy, onMount } from 'svelte';
 	import { SelectField, ToggleGroup, ToggleOption } from 'svelte-ux';
 
@@ -32,6 +45,20 @@
 	let selectedTime = Date.now();
 	let playbackSpeed = 1.0;
 	let isPlaying = false;
+
+	// Phase 3: Scene and Run selection
+	let scenes: LidarScene[] = [];
+	let selectedSceneId: string | null = null;
+	let runs: AnalysisRun[] = [];
+	let selectedRunId: string | null = null;
+	let runTracks: RunTrack[] = [];
+	let labellingProgress: LabellingProgress | null = null;
+	let scenesLoading = false;
+	let runsLoading = false;
+
+	// Derived state
+	$: selectedScene = scenes.find((s) => s.scene_id === selectedSceneId) ?? null;
+	$: selectedRun = runs.find((r) => r.run_id === selectedRunId) ?? null;
 
 	// Data
 	let tracks: Track[] = [];
@@ -134,6 +161,74 @@
 				console.error('[TrackHistory] Error stack:', error.stack);
 			}
 		}
+	}
+
+	// Phase 3: Load scenes for selected sensor
+	async function loadScenes() {
+		scenesLoading = true;
+		try {
+			scenes = await getLidarScenes(sensorId);
+			console.log('[Scenes] Loaded', scenes.length, 'scenes for sensor', sensorId);
+		} catch (error) {
+			console.error('[Scenes] Failed to load scenes:', error);
+			scenes = [];
+		} finally {
+			scenesLoading = false;
+		}
+	}
+
+	// Phase 3: Load runs for selected scene's sensor
+	async function loadRuns() {
+		if (!selectedScene) {
+			runs = [];
+			return;
+		}
+		runsLoading = true;
+		try {
+			runs = await getLidarRuns({ sensor_id: selectedScene.sensor_id });
+			console.log('[Runs] Loaded', runs.length, 'runs for sensor', selectedScene.sensor_id);
+		} catch (error) {
+			console.error('[Runs] Failed to load runs:', error);
+			runs = [];
+		} finally {
+			runsLoading = false;
+		}
+	}
+
+	// Phase 3: Load tracks for selected run
+	async function loadRunTracks() {
+		if (!selectedRunId) {
+			runTracks = [];
+			labellingProgress = null;
+			return;
+		}
+		try {
+			runTracks = await getRunTracks(selectedRunId);
+			console.log('[RunTracks] Loaded', runTracks.length, 'tracks for run', selectedRunId);
+
+			// Load labelling progress
+			try {
+				labellingProgress = await getLabellingProgress(selectedRunId);
+				console.log('[LabellingProgress]', labellingProgress);
+			} catch (error) {
+				console.error('[LabellingProgress] Failed to load progress:', error);
+				labellingProgress = null;
+			}
+		} catch (error) {
+			console.error('[RunTracks] Failed to load run tracks:', error);
+			runTracks = [];
+			labellingProgress = null;
+		}
+	}
+
+	// Watch for scene selection changes
+	$: if (selectedSceneId !== null) {
+		loadRuns();
+	}
+
+	// Watch for run selection changes
+	$: if (selectedRunId !== null) {
+		loadRunTracks();
 	}
 
 	// Load background grid
@@ -327,6 +422,7 @@
 		console.log('[Page] Component mounted, loading data...');
 		loadHistoricalData();
 		loadBackgroundGrid();
+		loadScenes(); // Phase 3: Load scenes for labelling workflow
 	});
 
 	onDestroy(() => {
@@ -346,6 +442,9 @@
 				</h1>
 				<p class="text-surface-content/60 mt-1 truncate text-sm">
 					Sensor: {sensorId} • {visibleTracks.length} tracks visible
+					{#if selectedRun}
+						• Run: {selectedRun.run_id.substring(0, 8)}
+					{/if}
 				</p>
 			</div>
 
@@ -364,6 +463,40 @@
 					size="sm"
 					class="w-48"
 				/>
+
+				<!-- Phase 3: Scene Selection -->
+				<SelectField
+					label="Scene"
+					bind:value={selectedSceneId}
+					options={[
+						{ label: 'None (Historical)', value: null },
+						...scenes.map((s) => ({
+							label: s.description || s.scene_id,
+							value: s.scene_id
+						}))
+					]}
+					disabled={scenesLoading || scenes.length === 0}
+					size="sm"
+					class="w-56"
+				/>
+
+				<!-- Phase 3: Run Selection (only shown when scene selected) -->
+				{#if selectedScene}
+					<SelectField
+						label="Run"
+						bind:value={selectedRunId}
+						options={[
+							{ label: 'Select a run...', value: null },
+							...runs.map((r) => ({
+								label: `${r.run_id.substring(0, 8)} (${r.total_tracks} tracks)`,
+								value: r.run_id
+							}))
+						]}
+						disabled={runsLoading || runs.length === 0}
+						size="sm"
+						class="w-64"
+					/>
+				{/if}
 
 				<!-- Foreground overlay controls -->
 				<div class="text-surface-content flex items-center gap-3 text-xs">
@@ -441,6 +574,9 @@
 					{selectedTrackId}
 					onTrackSelect={handleTrackSelect}
 					onPaginatedTracksChange={(newTracks) => (paginatedTracks = newTracks)}
+					runId={selectedRunId}
+					{runTracks}
+					{labellingProgress}
 				/>
 			</div>
 		</div>
