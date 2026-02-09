@@ -615,6 +615,27 @@ export async function deleteLidarScene(sceneId: string): Promise<void> {
 	if (!res.ok) throw new Error(`Failed to delete scene: ${res.status}`);
 }
 
+// PCAP file scanning API
+
+export interface PcapFileInfo {
+	path: string;
+	size_bytes: number;
+	modified_at: string;
+	in_use: boolean;
+}
+
+export interface PcapFilesResponse {
+	pcap_dir: string;
+	files: PcapFileInfo[];
+	count: number;
+}
+
+export async function scanPcapFiles(): Promise<PcapFilesResponse> {
+	const res = await fetch(`${API_BASE}/lidar/pcap/files`);
+	if (!res.ok) throw new Error(`Failed to scan PCAP files: ${res.status}`);
+	return res.json();
+}
+
 export async function getLidarRuns(params?: {
 	sensor_id?: string;
 	status?: string;

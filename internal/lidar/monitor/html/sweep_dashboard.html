@@ -494,7 +494,8 @@
   <!-- Recommendation (shown when auto-tune completes) -->
   <div id="recommendation-card" class="card recommendation-card" style="display:none">
     <h2>Recommendation
-      <button class="btn-sm btn-add" id="btn-apply-recommendation" onclick="applyRecommendation()" style="margin-left:8px">Apply
+      <button class="btn-sm btn-add" id="btn-apply-recommendation" onclick="applyRecommendation()"
+        style="margin-left:8px">Apply
         to System</button>
     </h2>
     <div id="recommendation-content"></div>
@@ -523,6 +524,7 @@
             <select id="data_source" onchange="togglePCAP()">
               <option value="live">Live</option>
               <option value="pcap">PCAP Replay</option>
+              <option value="scene">Scene</option>
             </select>
           </label>
         </div>
@@ -536,6 +538,16 @@
           <label><span>Duration</span><input id="pcap_duration_secs" type="number" step="0.1" value="-1">
             <small class="field-desc">Seconds of PCAP to replay. -1 = entire file.</small>
           </label>
+        </div>
+        <div id="scene-fields" class="field-stack" style="display:none">
+          <label><span>Scene</span>
+            <select id="scene_select" onchange="onSweepSceneSelected()">
+              <option value="">Loading scenes...</option>
+            </select>
+            <small class="field-desc">Select a pre-configured scene. PCAP settings will be populated
+              automatically.</small>
+          </label>
+          <div id="scene-info" style="display:none; font-size: 0.85em; color: var(--fg-muted); padding: 4px 0;"></div>
         </div>
 
         <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--card-border);">
@@ -609,7 +621,8 @@
               JSON</button>
             <input id="scenario-upload" type="file" accept=".json" style="display:none" onchange="uploadScenario(this)">
             <button class="btn-sm btn-secondary" onclick="toggleJSONEditor()">Edit JSON</button>
-            <button id="btn-apply-json" class="btn-sm btn-add" onclick="applyJSONEditor()" style="display:none">Apply</button>
+            <button id="btn-apply-json" class="btn-sm btn-add" onclick="applyJSONEditor()"
+              style="display:none">Apply</button>
           </div>
           <div id="json-editor-wrap" style="display:none">
             <textarea id="scenario-json"></textarea>
@@ -776,6 +789,56 @@
     function togglePCAP() {
       var ds = document.getElementById('data_source').value;
       document.getElementById('pcap-fields').style.display = (ds === 'pcap') ? '' : 'none';
+      document.getElementById('scene-fields').style.display = (ds === 'scene') ? '' : 'none';
+    }
+
+    var sweepScenesData = [];
+
+    function loadSweepScenes() {
+      var select = document.getElementById('scene_select');
+      if (!select) return;
+      fetch('/api/lidar/scenes?sensor_id=' + encodeURIComponent(sensorId))
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          sweepScenesData = data.scenes || [];
+          select.innerHTML = '<option value="">(select a scene)</option>';
+          sweepScenesData.forEach(function (s) {
+            var opt = document.createElement('option');
+            opt.value = s.scene_id;
+            var label = s.pcap_file;
+            if (s.description) label = s.description + ' (' + s.pcap_file + ')';
+            opt.textContent = label;
+            select.appendChild(opt);
+          });
+        })
+        .catch(function () {
+          select.innerHTML = '<option value="">(failed to load scenes)</option>';
+        });
+    }
+
+    function onSweepSceneSelected() {
+      var sceneId = document.getElementById('scene_select').value;
+      var infoEl = document.getElementById('scene-info');
+      if (!sceneId) {
+        infoEl.style.display = 'none';
+        return;
+      }
+      var scene = sweepScenesData.find(function (s) { return s.scene_id === sceneId; });
+      if (!scene) { infoEl.style.display = 'none'; return; }
+      // Populate the PCAP fields so buildScenarioJSON / handleStartAutoTune can read them
+      document.getElementById('pcap_file').value = scene.pcap_file;
+      if (scene.pcap_start_secs != null) {
+        document.getElementById('pcap_start_secs').value = scene.pcap_start_secs;
+      }
+      if (scene.pcap_duration_secs != null) {
+        document.getElementById('pcap_duration_secs').value = scene.pcap_duration_secs;
+      }
+      // Show info
+      var info = 'File: ' + scene.pcap_file;
+      if (scene.pcap_start_secs != null) info += ' | Start: ' + scene.pcap_start_secs + 's';
+      if (scene.pcap_duration_secs != null) info += ' | Duration: ' + scene.pcap_duration_secs + 's';
+      infoEl.textContent = info;
+      infoEl.style.display = '';
     }
 
     function setMode(mode) {
@@ -1028,16 +1091,21 @@
     // ---- Scenario management ----
 
     function buildScenarioJSON() {
+      var ds = val('data_source');
       var req = {
         seed: val('seed'),
         iterations: intVal('iterations'),
         interval: val('interval'),
         settle_time: val('settle_time'),
         settle_mode: val('settle_mode'),
-        data_source: val('data_source')
+        data_source: (ds === 'scene') ? 'pcap' : ds
       };
 
-      if (req.data_source === 'pcap') {
+      if (ds === 'scene') {
+        req.scene_id = val('scene_select');
+      }
+
+      if (ds === 'pcap' || ds === 'scene') {
         req.pcap_file = val('pcap_file');
         req.pcap_start_secs = numVal('pcap_start_secs');
         req.pcap_duration_secs = numVal('pcap_duration_secs');
@@ -1118,7 +1186,12 @@
       if (obj.interval) document.getElementById('interval').value = obj.interval;
       if (obj.settle_time) document.getElementById('settle_time').value = obj.settle_time;
       if (obj.settle_mode) document.getElementById('settle_mode').value = obj.settle_mode;
-      if (obj.data_source) {
+      if (obj.scene_id) {
+        document.getElementById('data_source').value = 'scene';
+        togglePCAP();
+        var sceneSelect = document.getElementById('scene_select');
+        if (sceneSelect) sceneSelect.value = obj.scene_id;
+      } else if (obj.data_source) {
         document.getElementById('data_source').value = obj.data_source;
         togglePCAP();
       }
@@ -1245,6 +1318,7 @@
         return;
       }
 
+      var ds = val('data_source');
       var req = {
         params: params,
         max_rounds: intVal('max_rounds') || 3,
@@ -1255,11 +1329,11 @@
         interval: val('interval'),
         settle_time: val('settle_time'),
         seed: val('seed'),
-        data_source: val('data_source'),
+        data_source: (ds === 'scene') ? 'pcap' : ds,
         settle_mode: val('settle_mode')
       };
 
-      if (req.data_source === 'pcap') {
+      if (ds === 'pcap' || ds === 'scene') {
         req.pcap_file = val('pcap_file');
         req.pcap_start_secs = numVal('pcap_start_secs');
         req.pcap_duration_secs = numVal('pcap_duration_secs');
@@ -2099,6 +2173,9 @@
 
     // Fetch and display current tuning parameters
     fetchCurrentParams();
+
+    // Load scenes for scene selector
+    loadSweepScenes();
 
     // Wire up live summary updates for top-level fields
     document.getElementById('iterations').addEventListener('input', updateSweepSummary);

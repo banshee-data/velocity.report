@@ -10,8 +10,10 @@
 		deleteLidarScene,
 		getLidarRuns,
 		getLidarScenes,
+		scanPcapFiles,
 		updateLidarScene
 	} from '$lib/api';
+	import type { PcapFileInfo } from '$lib/api';
 	import type { AnalysisRun, LidarScene } from '$lib/types/lidar';
 	import { onMount } from 'svelte';
 	import { Button, SelectField } from 'svelte-ux';
@@ -43,6 +45,15 @@
 	let editOptimalParams = '';
 	let saving = false;
 	let saveError: string | null = null;
+
+	// Scan PCAP folder state
+	let showScanPanel = false;
+	let scanning = false;
+	let scanError: string | null = null;
+	let pcapFiles: PcapFileInfo[] = [];
+	let pcapDir = '';
+	let selectedFiles: Set<string> = new Set();
+	let bulkCreating = false;
 
 	async function loadScenes() {
 		loading = true;
@@ -142,6 +153,80 @@
 		return new Date(ns / 1e6).toLocaleDateString();
 	}
 
+	function formatFileSize(bytes: number): string {
+		if (bytes < 1024) return bytes + ' B';
+		if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+		if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+		return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+	}
+
+	async function handleScanPcap() {
+		scanning = true;
+		scanError = null;
+		pcapFiles = [];
+		selectedFiles = new Set();
+		try {
+			const result = await scanPcapFiles();
+			pcapFiles = result.files;
+			pcapDir = result.pcap_dir;
+			showScanPanel = true;
+		} catch (e) {
+			scanError = e instanceof Error ? e.message : 'Failed to scan PCAP files';
+		} finally {
+			scanning = false;
+		}
+	}
+
+	function toggleFileSelection(path: string) {
+		const next = new Set(selectedFiles);
+		if (next.has(path)) {
+			next.delete(path);
+		} else {
+			next.add(path);
+		}
+		selectedFiles = next;
+	}
+
+	function selectAllFiles() {
+		const available = pcapFiles.filter((f) => !f.in_use);
+		if (selectedFiles.size === available.length) {
+			selectedFiles = new Set();
+		} else {
+			selectedFiles = new Set(available.map((f) => f.path));
+		}
+	}
+
+	async function handleBulkCreate() {
+		if (selectedFiles.size === 0) return;
+		bulkCreating = true;
+		scanError = null;
+		let created = 0;
+		for (const path of selectedFiles) {
+			try {
+				const desc = path.replace(/\.[^.]+$/, '').replace(/[/_-]/g, ' ');
+				const scene = await createLidarScene({
+					sensor_id: newSensorId,
+					pcap_file: path,
+					description: desc
+				});
+				scenes = [...scenes, scene];
+				created++;
+			} catch (e) {
+				scanError = `Failed after ${created} scenes: ${e instanceof Error ? e.message : String(e)}`;
+				break;
+			}
+		}
+		if (!scanError) {
+			showScanPanel = false;
+			selectedFiles = new Set();
+		}
+		bulkCreating = false;
+		// Refresh to pick up in_use flags
+		if (created > 0) {
+			await loadScenes();
+		}
+	}
+
 	onMount(() => {
 		loadScenes();
 		loadRuns();
@@ -158,9 +243,14 @@
 					Manage scenes for ground truth labelling and parameter tuning
 				</p>
 			</div>
-			<Button variant="fill" color="primary" on:click={() => (showCreateForm = !showCreateForm)}>
-				{showCreateForm ? 'Cancel' : 'New Scene'}
-			</Button>
+			<div class="flex gap-2">
+				<Button variant="outline" on:click={handleScanPcap} disabled={scanning}>
+					{scanning ? 'Scanning...' : 'Scan PCAP Folder'}
+				</Button>
+				<Button variant="fill" color="primary" on:click={() => (showCreateForm = !showCreateForm)}>
+					{showCreateForm ? 'Cancel' : 'New Scene'}
+				</Button>
+			</div>
 		</div>
 	</div>
 
@@ -262,6 +352,107 @@
 							{creating ? 'Creating...' : 'Create Scene'}
 						</Button>
 					</div>
+				</div>
+			{/if}
+
+			<!-- Scan PCAP Panel -->
+			{#if showScanPanel}
+				<div class="bg-surface-100 border-surface-content/10 mb-6 rounded-lg border p-6">
+					<div class="mb-4 flex items-center justify-between">
+						<h2 class="text-surface-content text-lg font-semibold">
+							PCAP Files
+							{#if pcapDir}
+								<span class="text-surface-content/50 ml-2 text-sm font-normal">({pcapDir})</span>
+							{/if}
+						</h2>
+						<button
+							class="text-surface-content/50 hover:text-surface-content text-sm"
+							on:click={() => (showScanPanel = false)}
+						>
+							Close
+						</button>
+					</div>
+
+					{#if scanError}
+						<div class="mb-4 rounded bg-red-50 px-3 py-2 text-sm text-red-600">
+							{scanError}
+						</div>
+					{/if}
+
+					{#if pcapFiles.length === 0}
+						<div class="text-surface-content/50 py-4 text-center text-sm">
+							No PCAP files found in the configured directory.
+						</div>
+					{:else}
+						<div class="mb-3 flex items-center justify-between">
+							<button class="text-sm text-blue-600 hover:text-blue-800" on:click={selectAllFiles}>
+								{selectedFiles.size === pcapFiles.filter((f) => !f.in_use).length
+									? 'Deselect All'
+									: 'Select All Available'}
+							</button>
+							{#if selectedFiles.size > 0}
+								<Button
+									variant="fill"
+									color="primary"
+									size="sm"
+									on:click={handleBulkCreate}
+									disabled={bulkCreating}
+								>
+									{bulkCreating ? 'Creating...' : `Add ${selectedFiles.size} Selected as Scenes`}
+								</Button>
+							{/if}
+						</div>
+
+						<div class="border-surface-content/10 max-h-[300px] overflow-y-auto rounded border">
+							<table class="w-full text-sm">
+								<thead class="bg-surface-200 sticky top-0">
+									<tr>
+										<th class="w-8 px-3 py-2"></th>
+										<th class="text-surface-content/70 px-3 py-2 text-left font-medium">File</th>
+										<th class="text-surface-content/70 px-3 py-2 text-right font-medium">Size</th>
+										<th class="text-surface-content/70 px-3 py-2 text-right font-medium">Status</th>
+									</tr>
+								</thead>
+								<tbody>
+									{#each pcapFiles as file}
+										<tr
+											class="border-surface-content/5 border-t {file.in_use
+												? 'opacity-50'
+												: 'hover:bg-surface-200/50 cursor-pointer'}"
+											on:click={() => !file.in_use && toggleFileSelection(file.path)}
+										>
+											<td class="px-3 py-2 text-center">
+												{#if file.in_use}
+													<span class="text-surface-content/30">-</span>
+												{:else}
+													<input
+														type="checkbox"
+														checked={selectedFiles.has(file.path)}
+														on:click|stopPropagation={() => toggleFileSelection(file.path)}
+													/>
+												{/if}
+											</td>
+											<td class="text-surface-content px-3 py-2 font-mono">
+												{file.path}
+											</td>
+											<td class="text-surface-content/60 px-3 py-2 text-right">
+												{formatFileSize(file.size_bytes)}
+											</td>
+											<td class="px-3 py-2 text-right">
+												{#if file.in_use}
+													<span class="rounded bg-green-100 px-2 py-0.5 text-xs text-green-700"
+														>In Use</span
+													>
+												{:else}
+													<span class="text-surface-content/40 text-xs">Available</span>
+												{/if}
+											</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					{/if}
 				</div>
 			{/if}
 
