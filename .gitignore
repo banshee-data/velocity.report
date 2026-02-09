@@ -84,6 +84,7 @@ htmlcov/
 coverage.out
 coverage*.out
 coverage.html
+coverage/
 web/coverage/
 tools/pdf-generator/htmlcov/
 tools/pdf-generator/coverage.xml

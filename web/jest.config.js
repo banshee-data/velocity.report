@@ -1,18 +1,33 @@
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(__dirname, '..');
+const localRequire = createRequire(import.meta.url);
+
+// Resolve full entry point paths for pnpm compatibility when rootDir != web/
+const tsJestEntry = localRequire.resolve('ts-jest');
+const svelteJesterEntry = localRequire.resolve('svelte-jester');
+
 /** @type {import('jest').Config} */
 export default {
-	preset: 'ts-jest',
+	rootDir: repoRoot,
 	testEnvironment: 'jsdom',
 	extensionsToTreatAsEsm: ['.ts', '.svelte'],
+	roots: ['<rootDir>/web/src', '<rootDir>/internal/lidar/monitor/assets'],
+	coverageProvider: 'v8',
 	moduleNameMapper: {
-		'^\\$lib(.*)$': '<rootDir>/src/lib$1',
-		'^\\$app(.*)$': '<rootDir>/src/mocks/$app$1',
-		'^svelte/store$': '<rootDir>/src/__mocks__/svelte/store.ts',
-		'^@testing-library/svelte$': '<rootDir>/src/__mocks__/@testing-library/svelte.ts',
-		'^(.+)\\.svelte$': '<rootDir>/src/__mocks__/svelte-component.ts'
+		'^\\$lib(.*)$': '<rootDir>/web/src/lib$1',
+		'^\\$app(.*)$': '<rootDir>/web/src/mocks/$app$1',
+		'^svelte/store$': '<rootDir>/web/src/__mocks__/svelte/store.ts',
+		'^@testing-library/svelte$': '<rootDir>/web/src/__mocks__/@testing-library/svelte.ts',
+		'^(.+)\\.svelte$': '<rootDir>/web/src/__mocks__/svelte-component.ts',
+		'^@monitor/assets/(.*)$': '<rootDir>/internal/lidar/monitor/assets/$1'
 	},
 	transform: {
 		'^.+\\.ts$': [
-			'ts-jest',
+			tsJestEntry,
 			{
 				tsconfig: {
 					target: 'es2022',
@@ -30,7 +45,7 @@ export default {
 			}
 		],
 		'^.+\\.svelte$': [
-			'svelte-jester',
+			svelteJesterEntry,
 			{
 				preprocess: true,
 				compilerOptions: {
@@ -42,20 +57,22 @@ export default {
 	moduleFileExtensions: ['js', 'ts', 'svelte'],
 	transformIgnorePatterns: ['node_modules/(?!(svelte|@testing-library))'],
 	collectCoverageFrom: [
-		'src/lib/**/*.{ts,js}',
-		'!src/lib/**/*.d.ts',
-		'!src/lib/index.ts',
-		'!src/lib/icons.ts',
-		'!src/lib/assets/**'
+		'web/src/lib/**/*.{ts,js}',
+		'!web/src/lib/**/*.d.ts',
+		'!web/src/lib/index.ts',
+		'!web/src/lib/icons.ts',
+		'!web/src/lib/assets/**',
+		'internal/lidar/monitor/assets/*.js',
+		'!internal/lidar/monitor/assets/echarts.min.js'
 	],
 	coverageThreshold: {
-		global: {
+		[resolve(repoRoot, 'web/src/lib/')]: {
 			branches: 90,
 			functions: 90,
 			lines: 90,
 			statements: 90
 		}
 	},
-	setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
+	setupFilesAfterEnv: ['<rootDir>/web/src/setupTests.ts'],
 	testMatch: ['**/__tests__/**/*.[jt]s', '**/?(*.)+(spec|test).[jt]s']
 };
