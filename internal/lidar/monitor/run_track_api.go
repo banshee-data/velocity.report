@@ -61,6 +61,23 @@ func (ws *WebServer) handleRunTrackAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Handle /api/lidar/runs/{run_id}/missed-regions (Phase 7)
+	if subPath == "missed-regions" {
+		ws.handleMissedRegions(w, r, runID)
+		return
+	}
+
+	// Handle /api/lidar/runs/{run_id}/missed-regions/{region_id}
+	if strings.HasPrefix(subPath, "missed-regions/") {
+		regionID := strings.TrimPrefix(subPath, "missed-regions/")
+		if regionID == "" {
+			ws.writeJSONError(w, http.StatusBadRequest, "missing region_id in path")
+			return
+		}
+		ws.handleDeleteMissedRegion(w, r, regionID)
+		return
+	}
+
 	// Handle /api/lidar/runs/{run_id}/tracks/{track_id}/*
 	if strings.HasPrefix(subPath, "tracks/") {
 		trackPath := strings.TrimPrefix(subPath, "tracks/")
@@ -456,4 +473,86 @@ func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, c
 		// Headers already sent - log error only, don't write to response body
 		log.Printf("Error encoding evaluation response: %v", err)
 	}
+}
+
+// Phase 7: Missed Regions Handlers
+
+// handleMissedRegions handles GET (list) and POST (create) for missed regions.
+// GET/POST /api/lidar/runs/{run_id}/missed-regions
+func (ws *WebServer) handleMissedRegions(w http.ResponseWriter, r *http.Request, runID string) {
+	store := lidar.NewMissedRegionStore(ws.db.DB)
+
+	switch r.Method {
+	case http.MethodGet:
+		regions, err := store.ListByRun(runID)
+		if err != nil {
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list missed regions: %v", err))
+			return
+		}
+		if regions == nil {
+			regions = []*lidar.MissedRegion{}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"run_id":  runID,
+			"regions": regions,
+			"count":   len(regions),
+		})
+
+	case http.MethodPost:
+		var req lidar.MissedRegion
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
+			return
+		}
+		req.RunID = runID
+
+		if req.CenterX == 0 && req.CenterY == 0 {
+			ws.writeJSONError(w, http.StatusBadRequest, "center_x and center_y are required")
+			return
+		}
+		if req.TimeStartNs == 0 {
+			ws.writeJSONError(w, http.StatusBadRequest, "time_start_ns is required")
+			return
+		}
+		if req.TimeEndNs == 0 {
+			ws.writeJSONError(w, http.StatusBadRequest, "time_end_ns is required")
+			return
+		}
+
+		if err := store.Insert(&req); err != nil {
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create missed region: %v", err))
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(req)
+
+	default:
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use GET or POST")
+	}
+}
+
+// handleDeleteMissedRegion deletes a missed region by ID.
+// DELETE /api/lidar/runs/{run_id}/missed-regions/{region_id}
+func (ws *WebServer) handleDeleteMissedRegion(w http.ResponseWriter, r *http.Request, regionID string) {
+	if r.Method != http.MethodDelete {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use DELETE")
+		return
+	}
+
+	store := lidar.NewMissedRegionStore(ws.db.DB)
+	err := store.Delete(regionID)
+	if errors.Is(err, sql.ErrNoRows) {
+		ws.writeJSONError(w, http.StatusNotFound, "missed region not found")
+		return
+	}
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to delete missed region: %v", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "deleted", "region_id": regionID})
 }
