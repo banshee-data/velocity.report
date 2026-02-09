@@ -1,6 +1,6 @@
 # Design: Track Labelling, Ground Truth Evaluation & Label-Aware Auto-Tuning
 
-**Status:** Approved design (February 2026) — Phases 1-4 and 6 substantially implemented. Remaining: 1.4, 1.5, 2.4-2.5, 3.4-3.5, 4.1, 5.x, 6.3, 6.5, 7.x, 8.x.
+**Status:** Approved design (February 2026) — Phases 1-4 substantially implemented; Phase 6 (transits) deferred; Phase 7 (missed regions) implemented; Phase 9 (profile comparison) designed. Remaining: 1.4, 1.5, 2.4-2.5, 3.4-3.5, 4.1, 5.x, 7.x, 8.x, 9.x.
 
 **Next blocker:** Phase 2.4 — Connect scene PCAP replay to analysis run creation (currently returns 501).
 
@@ -295,20 +295,15 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
 - `internal/lidar/monitor/html/sweep_dashboard.html` (ground truth UI)
 - `internal/lidar/scene_store.go` (save optimal params)
 
-### Phase 6: LiDAR transit table
+### Phase 6: LiDAR transit table _(deferred)_
 
-> Create the polished transit table for dashboards and reports.
+> Create the polished transit table for dashboards and reports. **Deferred** — migration and code removed; to be re-implemented when transit promotion logic is designed.
 
-- [x] **6.1** Create `lidar_transits` table (migration 000021)
-- [x] **6.2** Add `TransitStore` with insert/query operations
-- [ ] **6.3** Add transit promotion logic: when a confirmed track is finalised (deleted after grace period), if it passes quality thresholds → insert into `lidar_transits`
-  - **Label-aware thresholds**: Only promote tracks with `user_label` in (`good_vehicle`, `good_pedestrian`, `good_other`) AND `quality_label` in (`perfect`, `good`)
-  - Exclude tracks with `quality_label` in (`truncated`, `noisy_velocity`) — incomplete or unreliable velocity profiles
-  - For unlabelled tracks (no ground truth run), fall back to `TrainingDataFilter`: min quality >= 0.6, min duration >= 2s, min length >= 5m
-- [x] **6.4** Add REST API:
-  - `GET /api/lidar/transits` — list transits with time range and speed filters
-  - `GET /api/lidar/transits/summary` — aggregate stats (count, speed distribution, by class)
-- [ ] **6.5** Add transit data to Svelte dashboard (chart, table) — reuse patterns from radar transit display
+- [ ] **6.1** Create `lidar_transits` table _(deferred — migration and code removed)_
+- [ ] **6.2** Add `TransitStore` with insert/query operations _(deferred)_
+- [ ] **6.3** Add transit promotion logic _(deferred)_
+- [ ] **6.4** Add REST API for transits _(deferred)_
+- [ ] **6.5** Add transit data to Svelte dashboard _(deferred)_
 
 **Files:**
 
@@ -344,6 +339,89 @@ This requires storing raw foreground points alongside clusters, which is not cur
 - [ ] **8.4** Classification confidence thresholds: auto-label high-confidence, flag low-confidence for review
 
 This is deferred — the labelling infrastructure from Phases 1-3 provides the foundation for data collection.
+
+### Phase 9: Profile comparison system (design)
+
+> Compare parameter profiles across runs for the same scene to find optimal tracker settings.
+
+A **profile** = scene + parameter set → analysis run (track set). Comparing profiles means evaluating which parameter sets produce the best tracks for a given scene.
+
+#### Data model
+
+New table to persist evaluation results:
+
+```sql
+CREATE TABLE lidar_evaluations (
+    evaluation_id TEXT PRIMARY KEY,
+    scene_id TEXT NOT NULL,
+    reference_run_id TEXT NOT NULL,
+    candidate_run_id TEXT NOT NULL,
+    detection_rate REAL,
+    fragmentation REAL,
+    false_positive_rate REAL,
+    velocity_coverage REAL,
+    quality_premium REAL,
+    truncation_rate REAL,
+    velocity_noise_rate REAL,
+    stopped_recovery_rate REAL,
+    composite_score REAL,
+    params_json TEXT,           -- snapshot of params used for candidate run
+    created_at INTEGER,
+    FOREIGN KEY (scene_id) REFERENCES lidar_scenes(scene_id) ON DELETE CASCADE,
+    FOREIGN KEY (reference_run_id) REFERENCES lidar_analysis_runs(run_id),
+    FOREIGN KEY (candidate_run_id) REFERENCES lidar_analysis_runs(run_id)
+);
+CREATE UNIQUE INDEX idx_evaluations_pair ON lidar_evaluations(reference_run_id, candidate_run_id);
+```
+
+This replaces the current transient evaluation (POST returns score but doesn't persist). Stored results enable comparison without re-running evaluation.
+
+#### Score comparison table
+
+On the scenes page, when a scene has a `reference_run_id`, show a comparison table of all evaluated runs:
+
+| Run ID | Params Summary | Detection % | Fragmentation | FP Rate | Vel. Coverage | Quality | Composite | Actions     |
+| ------ | -------------- | ----------- | ------------- | ------- | ------------- | ------- | --------- | ----------- |
+| abc123 | dist=2.5m ...  | 92.3%       | 0.05          | 3.1%    | 87.4%         | 0.82    | 0.874     | View / Diff |
+| def456 | dist=3.0m ...  | 88.1%       | 0.02          | 5.2%    | 91.0%         | 0.79    | 0.841     | View / Diff |
+
+"Evaluate" button per row calls `POST /api/lidar/runs/{run_id}/evaluate` and persists the result. Rows are sortable by any score column.
+
+#### Parameter diff view
+
+Select two runs to see a side-by-side diff:
+
+- Left column: Run A params + scores
+- Right column: Run B params + scores
+- Highlight parameters that differ between the two runs
+- Show score deltas with colour coding (green = improved, red = degraded)
+
+This helps identify which parameter changes caused which score changes, providing intuition for manual tuning.
+
+#### Visual overlay (future)
+
+Render tracks from 2-3 runs on the same map with different colours for visual comparison. Each run's tracks would use a distinct colour palette (e.g. blue for reference, orange for candidate A, green for candidate B). Mismatches (missed detections, false positives, fragmentation) would be highlighted with markers.
+
+#### REST API additions
+
+- `GET /api/lidar/scenes/{scene_id}/evaluations` — list all persisted evaluation scores for a scene (currently 501)
+- `POST /api/lidar/scenes/{scene_id}/evaluations` — trigger evaluation of a candidate run against the scene's reference
+- `GET /api/lidar/evaluations/{evaluation_id}` — get detailed evaluation result
+- `DELETE /api/lidar/evaluations/{evaluation_id}` — remove stale evaluation
+
+#### Connection to auto-tuning
+
+Once sweep creates analysis runs per combo (Phase 2.5), evaluation scores can be computed and persisted automatically after each replay. The profile comparison UI then becomes a way to browse sweep results with full ground truth context — the auto-tuner picks the best composite score, and the human reviewer can drill into why by comparing score components and parameter diffs.
+
+#### Checklist
+
+- [ ] **9.1** Create `lidar_evaluations` table (new migration)
+- [ ] **9.2** Add `EvaluationStore` with Insert, ListByScene, Get, Delete
+- [ ] **9.3** Modify `POST /api/lidar/runs/{run_id}/evaluate` to persist results
+- [ ] **9.4** Implement `GET /api/lidar/scenes/{scene_id}/evaluations` (replace 501 stub)
+- [ ] **9.5** Add score comparison table to scenes page
+- [ ] **9.6** Add parameter diff view (select two runs to compare)
+- [ ] **9.7** Visual multi-run overlay on map (future)
 
 ---
 
@@ -388,7 +466,7 @@ The labels are scoped to a specific analysis run, so run_tracks is the natural h
 
 **Rationale for quality dimension:**
 
-The auto-tuner needs to distinguish "correct but noisy" tracks from "correct and clean" tracks. Without quality labels, the composite score plateaus once detection rate is high, with no gradient to push toward better measurement quality. The quality labels provide explicit feedback on velocity reliability (critical for the `lidar_transits` table), truncation (slow track initiation/termination issues), and occlusion handling (stopped vehicle recovery).
+The auto-tuner needs to distinguish "correct but noisy" tracks from "correct and clean" tracks. Without quality labels, the composite score plateaus once detection rate is high, with no gradient to push toward better measurement quality. The quality labels provide explicit feedback on velocity reliability (critical for transit promotion, Phase 6 — deferred), truncation (slow track initiation/termination issues), and occlusion handling (stopped vehicle recovery).
 
 #### Spatial Anchoring for `missed` Labels
 
@@ -456,8 +534,9 @@ Phases 1-3 can be worked on partly in parallel:
 - Phase 2 (scenes) and Phase 3 (Svelte UI) can interleave
 - Phase 4 (evaluation) requires Phases 1+2
 - Phase 5 (auto-tune) requires Phase 4
-- Phase 6 (transits) is independent, can happen any time after Phase 1
+- Phase 6 (transits) is deferred
 - Phases 7-8 are future work
+- Phase 9 (profile comparison) requires Phases 4+5; designed but not yet implemented
 
 ---
 
@@ -469,4 +548,4 @@ Phases 1-3 can be worked on partly in parallel:
 4. Phase 3: Open tracks page, select scene, label tracks, verify labels persist on reload
 5. Phase 4: Label reference run, create second run with different params, evaluate and get score
 6. Phase 5: Run auto-tune with scene_id, verify ground truth scores in results table
-7. Phase 6: Confirm a track, verify it appears in `lidar_transits` table and API
+7. Phase 6: _(deferred)_
