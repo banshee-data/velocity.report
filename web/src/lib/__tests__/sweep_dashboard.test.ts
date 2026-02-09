@@ -1,10 +1,22 @@
-const {
-	parseDuration,
-	formatDuration,
-	comboLabel,
-	formatParamValues,
-	PARAM_SCHEMA
-} = require('@monitor/assets/sweep_dashboard.js');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { parseDuration, formatDuration, comboLabel, formatParamValues, PARAM_SCHEMA } =
+	require('@monitor/assets/sweep_dashboard.js') as {
+		parseDuration: (s: string | null | undefined) => number;
+		formatDuration: (secs: number) => string;
+		comboLabel: (r: Record<string, unknown>) => string;
+		formatParamValues: (p: Record<string, unknown> | null | undefined) => string;
+		PARAM_SCHEMA: Record<
+			string,
+			{
+				label: string;
+				desc: string;
+				type: string;
+				step?: number;
+				defaultStart?: number;
+				defaultEnd?: number;
+			}
+		>;
+	};
 
 describe('PARAM_SCHEMA', () => {
 	it('exports a non-empty object of parameter definitions', () => {
@@ -38,7 +50,7 @@ describe('PARAM_SCHEMA', () => {
 				expect(schema).toHaveProperty('step');
 				expect(schema).toHaveProperty('defaultStart');
 				expect(schema).toHaveProperty('defaultEnd');
-				expect(schema.defaultEnd).toBeGreaterThanOrEqual(schema.defaultStart);
+				expect(schema.defaultEnd!).toBeGreaterThanOrEqual(schema.defaultStart!);
 			}
 		}
 	});

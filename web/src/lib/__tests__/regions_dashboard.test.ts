@@ -1,4 +1,13 @@
-const { regionColors, cellAtPixel } = require('@monitor/assets/regions_dashboard.js');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { regionColors, cellAtPixel } = require('@monitor/assets/regions_dashboard.js') as {
+	regionColors: string[];
+	cellAtPixel: (
+		x: number,
+		y: number,
+		w: number,
+		h: number
+	) => { ring: number; azBin: number; cellIdx: number } | null;
+};
 
 describe('regionColors', () => {
 	it('is an array of 20 hex colour strings', () => {
@@ -22,23 +31,23 @@ describe('cellAtPixel', () => {
 	it('returns ring=0, azBin=0 for top-left corner', () => {
 		const cell = cellAtPixel(0, 0, W, H);
 		expect(cell).not.toBeNull();
-		expect(cell.ring).toBe(0);
-		expect(cell.azBin).toBe(0);
-		expect(cell.cellIdx).toBe(0);
+		expect(cell!.ring).toBe(0);
+		expect(cell!.azBin).toBe(0);
+		expect(cell!.cellIdx).toBe(0);
 	});
 
 	it('returns last ring and azBin for near-bottom-right corner', () => {
 		// Just inside the last cell
 		const cell = cellAtPixel(W - 0.01, H - 0.01, W, H);
 		expect(cell).not.toBeNull();
-		expect(cell.ring).toBe(39); // 40 rings, 0-indexed
-		expect(cell.azBin).toBe(1799); // 1800 bins, 0-indexed
+		expect(cell!.ring).toBe(39); // 40 rings, 0-indexed
+		expect(cell!.azBin).toBe(1799); // 1800 bins, 0-indexed
 	});
 
 	it('computes correct cellIdx from ring and azBin', () => {
 		const cell = cellAtPixel(W / 2, H / 2, W, H);
 		expect(cell).not.toBeNull();
-		expect(cell.cellIdx).toBe(cell.ring * 1800 + cell.azBin);
+		expect(cell!.cellIdx).toBe(cell!.ring * 1800 + cell!.azBin);
 	});
 
 	it('returns null for negative coordinates', () => {
@@ -54,7 +63,7 @@ describe('cellAtPixel', () => {
 	it('maps centre of canvas to expected ring and azBin', () => {
 		const cell = cellAtPixel(W / 2, H / 2, W, H);
 		expect(cell).not.toBeNull();
-		expect(cell.azBin).toBe(900); // middle of 1800 bins
-		expect(cell.ring).toBe(20); // middle of 40 rings
+		expect(cell!.azBin).toBe(900); // middle of 1800 bins
+		expect(cell!.ring).toBe(20); // middle of 40 rings
 	});
 });
