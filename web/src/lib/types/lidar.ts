@@ -297,3 +297,18 @@ export interface LabellingProgress {
 	progress_pct: number;
 	by_class: Record<string, number>;
 }
+
+/** Missed region: area where an object should have been tracked but wasn't */
+export interface MissedRegion {
+	region_id: string;
+	run_id: string;
+	center_x: number;
+	center_y: number;
+	radius_m: number;
+	time_start_ns: number;
+	time_end_ns: number;
+	expected_label: string;
+	labeler_id?: string;
+	labeled_at?: number;
+	notes?: string;
+}

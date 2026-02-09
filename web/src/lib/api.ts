@@ -439,6 +439,7 @@ import type {
 	LidarScene,
 	LidarTransit,
 	LidarTransitSummary,
+	MissedRegion,
 	ObservationListResponse,
 	RunTrack,
 	Track,
@@ -570,6 +571,52 @@ export async function getLidarScenes(sensorId?: string): Promise<LidarScene[]> {
 	return data.scenes || [];
 }
 
+export async function getLidarScene(sceneId: string): Promise<LidarScene> {
+	const res = await fetch(`${API_BASE}/lidar/scenes/${sceneId}`);
+	if (!res.ok) throw new Error(`Failed to fetch scene: ${res.status}`);
+	return res.json();
+}
+
+export async function createLidarScene(scene: {
+	sensor_id: string;
+	pcap_file: string;
+	pcap_start_secs?: number;
+	pcap_duration_secs?: number;
+	description?: string;
+}): Promise<LidarScene> {
+	const res = await fetch(`${API_BASE}/lidar/scenes`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(scene)
+	});
+	if (!res.ok) throw new Error(`Failed to create scene: ${res.status}`);
+	return res.json();
+}
+
+export async function updateLidarScene(
+	sceneId: string,
+	update: {
+		description?: string;
+		reference_run_id?: string;
+		optimal_params_json?: string;
+	}
+): Promise<LidarScene> {
+	const res = await fetch(`${API_BASE}/lidar/scenes/${sceneId}`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(update)
+	});
+	if (!res.ok) throw new Error(`Failed to update scene: ${res.status}`);
+	return res.json();
+}
+
+export async function deleteLidarScene(sceneId: string): Promise<void> {
+	const res = await fetch(`${API_BASE}/lidar/scenes/${sceneId}`, {
+		method: 'DELETE'
+	});
+	if (!res.ok) throw new Error(`Failed to delete scene: ${res.status}`);
+}
+
 export async function getLidarRuns(params?: {
 	sensor_id?: string;
 	status?: string;
@@ -697,4 +744,41 @@ export async function getLidarTransitSummary(params: {
 	const res = await fetch(url);
 	if (!res.ok) throw new Error(`Failed to fetch LiDAR transit summary: ${res.status}`);
 	return res.json();
+}
+
+// LiDAR Missed Regions API (Phase 7: identifying missed objects)
+
+export async function getMissedRegions(runId: string): Promise<MissedRegion[]> {
+	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/missed-regions`);
+	if (!res.ok) throw new Error(`Failed to fetch missed regions: ${res.status}`);
+	const data = await res.json();
+	return data.regions || [];
+}
+
+export async function createMissedRegion(
+	runId: string,
+	region: {
+		center_x: number;
+		center_y: number;
+		radius_m?: number;
+		time_start_ns: number;
+		time_end_ns: number;
+		expected_label?: string;
+		notes?: string;
+	}
+): Promise<MissedRegion> {
+	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/missed-regions`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(region)
+	});
+	if (!res.ok) throw new Error(`Failed to create missed region: ${res.status}`);
+	return res.json();
+}
+
+export async function deleteMissedRegion(runId: string, regionId: string): Promise<void> {
+	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/missed-regions/${regionId}`, {
+		method: 'DELETE'
+	});
+	if (!res.ok) throw new Error(`Failed to delete missed region: ${res.status}`);
 }

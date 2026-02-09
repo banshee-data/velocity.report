@@ -9,6 +9,7 @@
 	import { TRACK_COLORS } from '$lib/types/lidar';
 	import { updateTrackLabel } from '$lib/api';
 	import { Button } from 'svelte-ux';
+	import { onMount, onDestroy } from 'svelte';
 
 	export let tracks: Track[] = [];
 	export let selectedTrackId: string | null = null;
@@ -124,7 +125,7 @@
 		try {
 			await updateTrackLabel(runId, trackId, {
 				user_label: label,
-				labeler_id: 'web-ui' // TODO: Get from auth context
+				labeler_id: 'web-ui'
 			});
 
 			// Update local state
@@ -153,7 +154,7 @@
 		try {
 			await updateTrackLabel(runId, trackId, {
 				quality_label: label,
-				labeler_id: 'web-ui' // TODO: Get from auth context
+				labeler_id: 'web-ui'
 			});
 
 			// Update local state
@@ -204,9 +205,6 @@
 			}
 		}
 	}
-
-	// Attach keyboard listener
-	import { onMount, onDestroy } from 'svelte';
 
 	onMount(() => {
 		window.addEventListener('keydown', handleKeyPress);
@@ -492,7 +490,24 @@
 	</div>
 
 	<!-- Phase 3: Labelling Controls (shown when track is selected in labelling mode) -->
-	{#if runId && selectedTrackId && selectedRunTrack}
+	{#if !runId}
+		<div class="border-surface-content/10 border-t px-4 py-3">
+			<div class="text-surface-content/50 text-xs">
+				<p class="font-medium">Labelling Mode</p>
+				<p class="mt-1">
+					Select a Scene and Run from the header dropdowns to enable track labelling.
+				</p>
+			</div>
+		</div>
+	{:else if runId && !selectedTrackId}
+		<div class="border-surface-content/10 border-t px-4 py-3">
+			<div class="text-surface-content/50 text-xs">
+				<p class="font-medium">Select a Track</p>
+				<p class="mt-1">Click a track from the list above or on the map to start labelling.</p>
+				<p class="mt-1">Keys 1-8: detection labels, Shift+1-5: quality labels.</p>
+			</div>
+		</div>
+	{:else if runId && selectedTrackId && selectedRunTrack}
 		<div class="border-surface-content/10 space-y-3 border-t px-4 py-3">
 			<h4 class="text-surface-content text-sm font-semibold">Label Track</h4>
 

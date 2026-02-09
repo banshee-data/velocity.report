@@ -11,10 +11,13 @@
 	 */
 	import { browser } from '$app/environment';
 	import {
+		createMissedRegion,
+		deleteMissedRegion,
 		getBackgroundGrid,
 		getLabellingProgress,
 		getLidarRuns,
 		getLidarScenes,
+		getMissedRegions,
 		getRunTracks,
 		getTrackHistory,
 		getTrackObservations,
@@ -28,12 +31,13 @@
 		BackgroundGrid,
 		LabellingProgress,
 		LidarScene,
+		MissedRegion,
 		RunTrack,
 		Track,
 		TrackObservation
 	} from '$lib/types/lidar';
 	import { onDestroy, onMount } from 'svelte';
-	import { SelectField, ToggleGroup, ToggleOption } from 'svelte-ux';
+	import { SelectField } from 'svelte-ux';
 
 	// Playback constants
 	const PLAYBACK_UPDATE_INTERVAL_MS = 100; // Update playback position every 100ms
@@ -41,7 +45,6 @@
 
 	// State
 	let sensorId = 'hesai-pandar40p';
-	let mode: 'live' | 'playback' = 'playback';
 	let selectedTime = Date.now();
 	let playbackSpeed = 1.0;
 	let isPlaying = false;
@@ -80,9 +83,17 @@
 	let foregroundOffset = { x: 0, y: 0 };
 	$: foregroundOffset = { x: foregroundOffsetX, y: foregroundOffsetY };
 
+	// Phase 7: Missed regions state
+	let missedRegions: MissedRegion[] = [];
+	let markMissedMode = false;
+
 	// Playback state
 	let timeRange: { start: number; end: number } | null = null;
 	let playbackInterval: number | null = null;
+
+	// Resize handle state
+	let topPaneHeight: number | null = null;
+	let containerRef: HTMLDivElement;
 
 	// Load historical data for playback
 	async function loadHistoricalData() {
@@ -229,9 +240,12 @@
 	function handleRunChange() {
 		if (selectedRunId !== null) {
 			loadRunTracks();
+			loadMissedRegions();
 		} else {
 			runTracks = [];
 			labellingProgress = null;
+			missedRegions = [];
+			markMissedMode = false;
 		}
 	}
 
@@ -422,6 +436,69 @@
 		loadObservationsForTrack(trackId);
 	}
 
+	// Phase 7: Load missed regions for current run
+	async function loadMissedRegions() {
+		if (!selectedRunId) {
+			missedRegions = [];
+			return;
+		}
+		try {
+			missedRegions = await getMissedRegions(selectedRunId);
+		} catch {
+			missedRegions = [];
+		}
+	}
+
+	// Phase 7: Handle map click in mark-missed mode
+	async function handleMapClick(worldX: number, worldY: number) {
+		if (!markMissedMode || !selectedRunId || !timeRange) return;
+
+		try {
+			const region = await createMissedRegion(selectedRunId, {
+				center_x: worldX,
+				center_y: worldY,
+				radius_m: 3.0,
+				time_start_ns: Math.floor(selectedTime * 1e6),
+				time_end_ns: Math.floor(selectedTime * 1e6) + 5_000_000_000 // +5 seconds
+			});
+			missedRegions = [...missedRegions, region];
+		} catch (error) {
+			console.error('[MissedRegions] Failed to create missed region:', error);
+		}
+	}
+
+	// Phase 7: Delete a missed region
+	async function handleDeleteMissedRegion(regionId: string) {
+		if (!selectedRunId) return;
+		try {
+			await deleteMissedRegion(selectedRunId, regionId);
+			missedRegions = missedRegions.filter((r) => r.region_id !== regionId);
+		} catch (error) {
+			console.error('[MissedRegions] Failed to delete missed region:', error);
+		}
+	}
+
+	function handleResizeStart(event: MouseEvent) {
+		event.preventDefault();
+		const onMouseMove = (e: MouseEvent) => {
+			if (!containerRef) return;
+			const rect = containerRef.getBoundingClientRect();
+			const minH = 100;
+			const maxH = rect.height - 150;
+			topPaneHeight = Math.max(minH, Math.min(maxH, e.clientY - rect.top));
+		};
+		const onMouseUp = () => {
+			window.removeEventListener('mousemove', onMouseMove);
+			window.removeEventListener('mouseup', onMouseUp);
+			document.body.style.cursor = '';
+			document.body.style.userSelect = '';
+		};
+		document.body.style.cursor = 'row-resize';
+		document.body.style.userSelect = 'none';
+		window.addEventListener('mousemove', onMouseMove);
+		window.addEventListener('mouseup', onMouseUp);
+	}
+
 	onMount(() => {
 		console.log('[Page] Component mounted, loading data...');
 		loadHistoricalData();
@@ -453,12 +530,6 @@
 			</div>
 
 			<div class="flex flex-none items-center gap-4 pl-4">
-				<!-- Mode Toggle -->
-				<ToggleGroup bind:value={mode} variant="outline" size="sm">
-					<ToggleOption value="playback">Playback</ToggleOption>
-					<ToggleOption value="live" disabled>Live (Coming Soon)</ToggleOption>
-				</ToggleGroup>
-
 				<!-- Sensor Selection -->
 				<SelectField
 					label="Sensor"
@@ -504,6 +575,22 @@
 					/>
 				{/if}
 
+				<!-- Phase 7: Mark Missed button (visible when run is selected) -->
+				{#if selectedRunId}
+					<button
+						on:click={() => (markMissedMode = !markMissedMode)}
+						class="rounded px-3 py-1.5 text-xs font-medium transition-colors {markMissedMode
+							? 'bg-purple-600 text-white'
+							: 'bg-surface-200 text-surface-content hover:bg-surface-300'}"
+						title="Click on the map to mark areas where objects were missed"
+					>
+						{markMissedMode ? 'Stop Marking' : 'Mark Missed'}
+						{#if missedRegions.length > 0}
+							({missedRegions.length})
+						{/if}
+					</button>
+				{/if}
+
 				<!-- Foreground overlay controls -->
 				<div class="text-surface-content flex items-center gap-3 text-xs">
 					<label class="flex items-center gap-2">
@@ -539,9 +626,12 @@
 	</div>
 
 	<!-- Main Content: Two-Pane Layout -->
-	<div class="flex flex-1 flex-col overflow-hidden">
-		<!-- Top Pane: Map Visualization (60%) -->
-		<div class="border-surface-content/20 bg-surface-300 border-b" style="flex: 3">
+	<div class="flex flex-1 flex-col overflow-hidden" bind:this={containerRef}>
+		<!-- Top Pane: Map Visualization -->
+		<div
+			class="border-surface-content/20 bg-surface-300 border-b"
+			style={topPaneHeight !== null ? `height: ${topPaneHeight}px; flex-shrink: 0` : 'flex: 3'}
+		>
 			<MapPane
 				tracks={visibleTracks}
 				{selectedTrackId}
@@ -552,11 +642,25 @@
 				foregroundEnabled={showForeground}
 				{foregroundOffset}
 				onTrackSelect={handleTrackSelect}
+				{missedRegions}
+				{markMissedMode}
+				onMapClick={handleMapClick}
+				onDeleteMissedRegion={handleDeleteMissedRegion}
 			/>
 		</div>
 
-		<!-- Bottom Pane: Timeline (40%) -->
-		<div class="flex overflow-hidden" style="flex: 2">
+		<!-- Resize Handle -->
+		<!-- svelte-ignore a11y-no-static-element-interactions -->
+		<div
+			class="bg-surface-200 hover:bg-primary/30 flex-none cursor-row-resize transition-colors select-none"
+			style="height: 6px"
+			on:mousedown={handleResizeStart}
+		>
+			<div class="bg-surface-content/20 mx-auto mt-[2px] h-[2px] w-8 rounded-full"></div>
+		</div>
+
+		<!-- Bottom Pane: Timeline -->
+		<div class="flex flex-1 overflow-hidden">
 			<!-- Timeline -->
 			<div class="bg-surface-100 flex-1">
 				<TimelinePane
