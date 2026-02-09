@@ -357,10 +357,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         Task {
             do {
                 _ = try await labelClient.createLabel(
-                    trackID: trackID,
-                    classLabel: label,
-                    startTimestampNs: currentTimestamp
-                )
+                    trackID: trackID, classLabel: label, startTimestampNs: currentTimestamp)
                 logger.info("Label '\(label)' saved for track \(trackID)")
             } catch { logger.error("Failed to save label: \(error.localizedDescription)") }
         }

@@ -47,21 +47,12 @@ class LabelAPIClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         var payload: [String: Any] = [
-            "track_id": trackID,
-            "class_label": classLabel,
-            "start_timestamp_ns": startTimestampNs,
-            "created_by": createdBy,
-            "notes": notes,
+            "track_id": trackID, "class_label": classLabel, "start_timestamp_ns": startTimestampNs,
+            "created_by": createdBy, "notes": notes,
         ]
-        if let endTimestampNs = endTimestampNs {
-            payload["end_timestamp_ns"] = endTimestampNs
-        }
-        if let confidence = confidence {
-            payload["confidence"] = confidence
-        }
-        if !sourceFile.isEmpty {
-            payload["source_file"] = sourceFile
-        }
+        if let endTimestampNs = endTimestampNs { payload["end_timestamp_ns"] = endTimestampNs }
+        if let confidence = confidence { payload["confidence"] = confidence }
+        if !sourceFile.isEmpty { payload["source_file"] = sourceFile }
 
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
