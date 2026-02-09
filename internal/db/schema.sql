@@ -1,4 +1,4 @@
-CREATE TABLE lidar_analysis_runs (
+   CREATE TABLE lidar_analysis_runs (
           run_id TEXT PRIMARY KEY
         , created_at INTEGER NOT NULL
         , source_type TEXT NOT NULL
@@ -18,19 +18,6 @@ CREATE TABLE lidar_analysis_runs (
         , statistics_json TEXT
           );
 
-   CREATE TABLE lidar_bg_snapshot (
-          snapshot_id INTEGER PRIMARY KEY
-        , sensor_id TEXT NOT NULL
-        , taken_unix_nanos INTEGER NOT NULL
-        , rings INTEGER NOT NULL
-        , azimuth_bins INTEGER NOT NULL
-        , params_json TEXT NOT NULL
-        , ring_elevations_json TEXT
-        , grid_blob BLOB NOT NULL
-        , changed_cells_count INTEGER
-        , snapshot_reason TEXT
-          );
-
    CREATE TABLE lidar_bg_regions (
           region_set_id INTEGER PRIMARY KEY AUTOINCREMENT
         , snapshot_id INTEGER REFERENCES lidar_bg_snapshot (snapshot_id)
@@ -42,6 +29,19 @@ CREATE TABLE lidar_analysis_runs (
         , settling_frames INTEGER NOT NULL
         , scene_hash TEXT NOT NULL
         , source_path TEXT
+          );
+
+   CREATE TABLE lidar_bg_snapshot (
+          snapshot_id INTEGER PRIMARY KEY
+        , sensor_id TEXT NOT NULL
+        , taken_unix_nanos INTEGER NOT NULL
+        , rings INTEGER NOT NULL
+        , azimuth_bins INTEGER NOT NULL
+        , params_json TEXT NOT NULL
+        , ring_elevations_json TEXT
+        , grid_blob BLOB NOT NULL
+        , changed_cells_count INTEGER
+        , snapshot_reason TEXT
           );
 
    CREATE TABLE lidar_clusters (
@@ -96,6 +96,20 @@ CREATE TABLE lidar_analysis_runs (
         , FOREIGN KEY (run_id) REFERENCES lidar_analysis_runs (run_id) ON DELETE CASCADE
           );
 
+   CREATE TABLE lidar_scenes (
+          scene_id TEXT PRIMARY KEY
+        , sensor_id TEXT NOT NULL
+        , pcap_file TEXT NOT NULL
+        , pcap_start_secs REAL
+        , pcap_duration_secs REAL
+        , description TEXT
+        , reference_run_id TEXT
+        , optimal_params_json TEXT
+        , created_at_ns INTEGER NOT NULL
+        , updated_at_ns INTEGER
+        , FOREIGN KEY (reference_run_id) REFERENCES lidar_analysis_runs (run_id) ON DELETE SET NULL
+          );
+
    CREATE TABLE lidar_tracks (
           track_id TEXT PRIMARY KEY
         , sensor_id TEXT NOT NULL
@@ -125,6 +139,22 @@ CREATE TABLE lidar_analysis_runs (
         , noise_point_ratio REAL
           );
 
+   CREATE TABLE lidar_labels (
+          label_id TEXT PRIMARY KEY
+        , track_id TEXT NOT NULL
+        , class_label TEXT NOT NULL
+        , start_timestamp_ns INTEGER NOT NULL
+        , end_timestamp_ns INTEGER
+        , confidence REAL
+        , created_by TEXT
+        , created_at_ns INTEGER NOT NULL
+        , updated_at_ns INTEGER
+        , notes TEXT
+        , scene_id TEXT
+        , source_file TEXT
+        , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id) ON DELETE CASCADE
+          );
+
    CREATE TABLE lidar_track_obs (
           track_id TEXT NOT NULL
         , ts_unix_nanos INTEGER NOT NULL
@@ -145,20 +175,27 @@ CREATE TABLE lidar_analysis_runs (
         , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id) ON DELETE CASCADE
           );
 
-   CREATE TABLE lidar_labels (
-          label_id TEXT PRIMARY KEY
-        , track_id TEXT NOT NULL
-        , class_label TEXT NOT NULL
-        , start_timestamp_ns INTEGER NOT NULL
-        , end_timestamp_ns INTEGER
-        , confidence REAL
-        , created_by TEXT
-        , created_at_ns INTEGER NOT NULL
-        , updated_at_ns INTEGER
-        , notes TEXT
-        , scene_id TEXT
-        , source_file TEXT
-        , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id) ON DELETE CASCADE
+   CREATE TABLE lidar_transits (
+          transit_id INTEGER PRIMARY KEY AUTOINCREMENT
+        , track_id TEXT NOT NULL UNIQUE
+        , sensor_id TEXT NOT NULL
+        , transit_start_unix DOUBLE NOT NULL
+        , transit_end_unix DOUBLE NOT NULL
+        , max_speed_mps REAL
+        , min_speed_mps REAL
+        , avg_speed_mps REAL
+        , p50_speed_mps REAL
+        , p85_speed_mps REAL
+        , p95_speed_mps REAL
+        , track_length_m REAL
+        , observation_count INTEGER
+        , object_class TEXT
+        , classification_confidence REAL
+        , quality_score REAL
+        , bbox_length_avg REAL
+        , bbox_width_avg REAL
+        , bbox_height_avg REAL
+        , created_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
           );
 
    CREATE TABLE IF NOT EXISTS "radar_commands" (
@@ -283,12 +320,6 @@ CREATE UNIQUE INDEX version_unique ON schema_migrations (version);
 
 CREATE INDEX idx_bg_snapshot_sensor_time ON lidar_bg_snapshot (sensor_id, taken_unix_nanos);
 
-CREATE INDEX idx_bg_regions_sensor ON lidar_bg_regions (sensor_id);
-
-CREATE INDEX idx_bg_regions_scene_hash ON lidar_bg_regions (scene_hash);
-
-CREATE INDEX idx_bg_regions_source_path ON lidar_bg_regions (source_path);
-
 CREATE INDEX idx_transits_time ON radar_data_transits (transit_start_unix, transit_end_unix);
 
 CREATE INDEX idx_transit_links_transit ON radar_transit_links (transit_id);
@@ -313,14 +344,6 @@ CREATE INDEX idx_lidar_track_obs_track ON lidar_track_obs (track_id);
 
 CREATE INDEX idx_lidar_track_obs_time ON lidar_track_obs (ts_unix_nanos);
 
-CREATE INDEX idx_lidar_labels_track ON lidar_labels (track_id);
-
-CREATE INDEX idx_lidar_labels_time ON lidar_labels (start_timestamp_ns, end_timestamp_ns);
-
-CREATE INDEX idx_lidar_labels_class ON lidar_labels (class_label);
-
-CREATE INDEX idx_lidar_labels_scene ON lidar_labels (scene_id);
-
 CREATE INDEX idx_lidar_runs_created ON lidar_analysis_runs (created_at);
 
 CREATE INDEX idx_lidar_runs_source ON lidar_analysis_runs (source_path);
@@ -336,8 +359,6 @@ CREATE INDEX idx_lidar_run_tracks_class ON lidar_run_tracks (object_class);
 CREATE INDEX idx_lidar_run_tracks_label ON lidar_run_tracks (user_label);
 
 CREATE INDEX idx_lidar_run_tracks_state ON lidar_run_tracks (track_state);
-
-CREATE INDEX idx_lidar_run_tracks_quality_label ON lidar_run_tracks (quality_label);
 
 CREATE INDEX idx_lidar_tracks_quality ON lidar_tracks (track_length_meters, occlusion_count);
 
@@ -384,47 +405,71 @@ CREATE TRIGGER update_site_timestamp AFTER
 
 END;
 
-CREATE TABLE lidar_scenes (
-    scene_id TEXT PRIMARY KEY,
-    sensor_id TEXT NOT NULL,
-    pcap_file TEXT NOT NULL,
-    pcap_start_secs REAL,
-    pcap_duration_secs REAL,
-    description TEXT,
-    reference_run_id TEXT,
-    optimal_params_json TEXT,
-    created_at_ns INTEGER NOT NULL,
-    updated_at_ns INTEGER,
-    FOREIGN KEY (reference_run_id) REFERENCES lidar_analysis_runs(run_id) ON DELETE SET NULL
-);
+   CREATE TABLE lidar_scenes (
+          scene_id TEXT PRIMARY KEY
+        , sensor_id TEXT NOT NULL
+        , pcap_file TEXT NOT NULL
+        , pcap_start_secs REAL
+        , pcap_duration_secs REAL
+        , description TEXT
+        , reference_run_id TEXT
+        , optimal_params_json TEXT
+        , created_at_ns INTEGER NOT NULL
+        , updated_at_ns INTEGER
+        , FOREIGN KEY (reference_run_id) REFERENCES lidar_analysis_runs (run_id) ON DELETE SET NULL
+          );
 
-CREATE INDEX idx_lidar_scenes_sensor ON lidar_scenes(sensor_id);
-CREATE INDEX idx_lidar_scenes_pcap ON lidar_scenes(pcap_file);
+CREATE INDEX idx_lidar_scenes_sensor ON lidar_scenes (sensor_id);
 
-CREATE TABLE lidar_transits (
-    transit_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    track_id TEXT NOT NULL UNIQUE,
-    sensor_id TEXT NOT NULL,
-    transit_start_unix DOUBLE NOT NULL,
-    transit_end_unix DOUBLE NOT NULL,
-    max_speed_mps REAL,
-    min_speed_mps REAL,
-    avg_speed_mps REAL,
-    p50_speed_mps REAL,
-    p85_speed_mps REAL,
-    p95_speed_mps REAL,
-    track_length_m REAL,
-    observation_count INTEGER,
-    object_class TEXT,
-    classification_confidence REAL,
-    quality_score REAL,
-    bbox_length_avg REAL,
-    bbox_width_avg REAL,
-    bbox_height_avg REAL,
-    created_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
-);
+CREATE INDEX idx_lidar_scenes_pcap ON lidar_scenes (pcap_file);
 
-CREATE INDEX idx_lidar_transits_time ON lidar_transits(transit_start_unix, transit_end_unix);
-CREATE INDEX idx_lidar_transits_sensor ON lidar_transits(sensor_id);
-CREATE INDEX idx_lidar_transits_class ON lidar_transits(object_class);
-CREATE INDEX idx_lidar_transits_speed ON lidar_transits(p85_speed_mps);
+   CREATE TABLE lidar_transits (
+          transit_id INTEGER PRIMARY KEY AUTOINCREMENT
+        , track_id TEXT NOT NULL UNIQUE
+        , sensor_id TEXT NOT NULL
+        , transit_start_unix DOUBLE NOT NULL
+        , transit_end_unix DOUBLE NOT NULL
+        , max_speed_mps REAL
+        , min_speed_mps REAL
+        , avg_speed_mps REAL
+        , p50_speed_mps REAL
+        , p85_speed_mps REAL
+        , p95_speed_mps REAL
+        , track_length_m REAL
+        , observation_count INTEGER
+        , object_class TEXT
+        , classification_confidence REAL
+        , quality_score REAL
+        , bbox_length_avg REAL
+        , bbox_width_avg REAL
+        , bbox_height_avg REAL
+        , created_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
+          );
+
+CREATE INDEX idx_lidar_labels_track ON lidar_labels (track_id);
+
+CREATE INDEX idx_lidar_labels_time ON lidar_labels (start_timestamp_ns, end_timestamp_ns);
+
+CREATE INDEX idx_lidar_labels_class ON lidar_labels (class_label);
+
+CREATE INDEX idx_bg_regions_sensor ON lidar_bg_regions (sensor_id);
+
+CREATE INDEX idx_bg_regions_scene_hash ON lidar_bg_regions (scene_hash);
+
+CREATE INDEX idx_bg_regions_source_path ON lidar_bg_regions (source_path);
+
+CREATE INDEX idx_lidar_run_tracks_quality_label ON lidar_run_tracks (quality_label);
+
+CREATE INDEX idx_lidar_labels_scene ON lidar_labels (scene_id);
+
+CREATE INDEX idx_lidar_scenes_sensor ON lidar_scenes (sensor_id);
+
+CREATE INDEX idx_lidar_scenes_pcap ON lidar_scenes (pcap_file);
+
+CREATE INDEX idx_lidar_transits_time ON lidar_transits (transit_start_unix, transit_end_unix);
+
+CREATE INDEX idx_lidar_transits_sensor ON lidar_transits (sensor_id);
+
+CREATE INDEX idx_lidar_transits_class ON lidar_transits (object_class);
+
+CREATE INDEX idx_lidar_transits_speed ON lidar_transits (p85_speed_mps);
