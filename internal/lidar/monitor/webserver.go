@@ -1000,6 +1000,12 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	if ws.db != nil {
 		mux.HandleFunc("/api/lidar/runs/", ws.handleRunTrackAPI)
 	}
+
+	// Scene API routes (Phase 2.3: scene management for track labelling and auto-tuning)
+	if ws.db != nil {
+		mux.HandleFunc("/api/lidar/scenes", ws.handleScenes)
+		mux.HandleFunc("/api/lidar/scenes/", ws.handleSceneByID)
+	}
 }
 
 // setupRoutes configures the HTTP routes and handlers

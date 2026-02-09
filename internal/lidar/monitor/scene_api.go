@@ -1,0 +1,258 @@
+package monitor
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+
+	"github.com/banshee-data/velocity.report/internal/lidar"
+)
+
+// Phase 2.3: REST API for scene management
+// These handlers manage LiDAR evaluation scenes (PCAP + sensor + params).
+//
+// Routes:
+// - GET /api/lidar/scenes — list scenes (optional sensor_id filter)
+// - POST /api/lidar/scenes — create scene
+// - GET /api/lidar/scenes/{scene_id} — get scene details
+// - PUT /api/lidar/scenes/{scene_id} — update scene
+// - DELETE /api/lidar/scenes/{scene_id} — delete scene
+// - POST /api/lidar/scenes/{scene_id}/replay — replay scene (placeholder for Phase 2.4/5)
+
+// handleScenes handles /api/lidar/scenes (list and create).
+func (ws *WebServer) handleScenes(w http.ResponseWriter, r *http.Request) {
+	if ws.db == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "database not configured")
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		ws.handleListScenes(w, r)
+	case http.MethodPost:
+		ws.handleCreateScene(w, r)
+	default:
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
+// handleSceneByID handles /api/lidar/scenes/{scene_id}/* routes.
+func (ws *WebServer) handleSceneByID(w http.ResponseWriter, r *http.Request) {
+	if ws.db == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "database not configured")
+		return
+	}
+
+	sceneID, action := parseScenePath(r.URL.Path)
+	if sceneID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing scene_id in path")
+		return
+	}
+
+	switch action {
+	case "":
+		// /api/lidar/scenes/{scene_id}
+		switch r.Method {
+		case http.MethodGet:
+			ws.handleGetScene(w, r, sceneID)
+		case http.MethodPut:
+			ws.handleUpdateScene(w, r, sceneID)
+		case http.MethodDelete:
+			ws.handleDeleteScene(w, r, sceneID)
+		default:
+			ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		}
+	case "replay":
+		// /api/lidar/scenes/{scene_id}/replay
+		if r.Method == http.MethodPost {
+			ws.handleReplayScene(w, r, sceneID)
+		} else {
+			ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		}
+	default:
+		ws.writeJSONError(w, http.StatusNotFound, "endpoint not found")
+	}
+}
+
+// parseScenePath extracts scene_id and action from /api/lidar/scenes/{scene_id}/{action}
+func parseScenePath(path string) (sceneID string, action string) {
+	trimmed := strings.TrimPrefix(path, "/api/lidar/scenes/")
+	if trimmed == path {
+		// No prefix match
+		return "", ""
+	}
+	parts := strings.SplitN(trimmed, "/", 2)
+	if len(parts) == 0 {
+		return "", ""
+	}
+	sceneID = parts[0]
+	if len(parts) > 1 {
+		action = parts[1]
+	}
+	return
+}
+
+// handleListScenes lists all scenes, optionally filtered by sensor_id.
+func (ws *WebServer) handleListScenes(w http.ResponseWriter, r *http.Request) {
+	sensorID := r.URL.Query().Get("sensor_id")
+
+	store := lidar.NewSceneStore(ws.db.DB)
+	scenes, err := store.ListScenes(sensorID)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list scenes: %v", err))
+		return
+	}
+
+	// Ensure we return an empty array instead of null when no scenes
+	if scenes == nil {
+		scenes = []*lidar.Scene{}
+	}
+
+	ws.writeJSON(w, http.StatusOK, map[string]interface{}{
+		"scenes": scenes,
+		"count":  len(scenes),
+	})
+}
+
+// CreateSceneRequest is the request body for creating a scene.
+type CreateSceneRequest struct {
+	SensorID         string   `json:"sensor_id"`
+	PCAPFile         string   `json:"pcap_file"`
+	PCAPStartSecs    *float64 `json:"pcap_start_secs,omitempty"`
+	PCAPDurationSecs *float64 `json:"pcap_duration_secs,omitempty"`
+	Description      string   `json:"description,omitempty"`
+}
+
+// handleCreateScene creates a new scene.
+func (ws *WebServer) handleCreateScene(w http.ResponseWriter, r *http.Request) {
+	var req CreateSceneRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
+		return
+	}
+
+	// Validate required fields
+	if req.SensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "sensor_id is required")
+		return
+	}
+	if req.PCAPFile == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "pcap_file is required")
+		return
+	}
+
+	scene := &lidar.Scene{
+		SensorID:         req.SensorID,
+		PCAPFile:         req.PCAPFile,
+		PCAPStartSecs:    req.PCAPStartSecs,
+		PCAPDurationSecs: req.PCAPDurationSecs,
+		Description:      req.Description,
+	}
+
+	store := lidar.NewSceneStore(ws.db.DB)
+	if err := store.InsertScene(scene); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create scene: %v", err))
+		return
+	}
+
+	ws.writeJSON(w, http.StatusCreated, scene)
+}
+
+// handleGetScene retrieves a scene by ID.
+func (ws *WebServer) handleGetScene(w http.ResponseWriter, r *http.Request, sceneID string) {
+	store := lidar.NewSceneStore(ws.db.DB)
+	scene, err := store.GetScene(sceneID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			ws.writeJSONError(w, http.StatusNotFound, err.Error())
+		} else {
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get scene: %v", err))
+		}
+		return
+	}
+
+	ws.writeJSON(w, http.StatusOK, scene)
+}
+
+// UpdateSceneRequest is the request body for updating a scene.
+type UpdateSceneRequest struct {
+	Description       *string          `json:"description,omitempty"`
+	ReferenceRunID    *string          `json:"reference_run_id,omitempty"`
+	OptimalParamsJSON *json.RawMessage `json:"optimal_params_json,omitempty"`
+}
+
+// handleUpdateScene updates a scene's fields.
+func (ws *WebServer) handleUpdateScene(w http.ResponseWriter, r *http.Request, sceneID string) {
+	var req UpdateSceneRequest
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("failed to read body: %v", err))
+		return
+	}
+
+	if err := json.Unmarshal(body, &req); err != nil {
+		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
+		return
+	}
+
+	store := lidar.NewSceneStore(ws.db.DB)
+
+	// Get existing scene
+	scene, err := store.GetScene(sceneID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			ws.writeJSONError(w, http.StatusNotFound, err.Error())
+		} else {
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get scene: %v", err))
+		}
+		return
+	}
+
+	// Update fields if provided
+	if req.Description != nil {
+		scene.Description = *req.Description
+	}
+	if req.ReferenceRunID != nil {
+		scene.ReferenceRunID = *req.ReferenceRunID
+	}
+	if req.OptimalParamsJSON != nil {
+		scene.OptimalParamsJSON = *req.OptimalParamsJSON
+	}
+
+	if err := store.UpdateScene(scene); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update scene: %v", err))
+		return
+	}
+
+	ws.writeJSON(w, http.StatusOK, scene)
+}
+
+// handleDeleteScene deletes a scene by ID.
+func (ws *WebServer) handleDeleteScene(w http.ResponseWriter, r *http.Request, sceneID string) {
+	store := lidar.NewSceneStore(ws.db.DB)
+	if err := store.DeleteScene(sceneID); err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			ws.writeJSONError(w, http.StatusNotFound, err.Error())
+		} else {
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to delete scene: %v", err))
+		}
+		return
+	}
+
+	ws.writeJSON(w, http.StatusOK, map[string]string{
+		"message": "scene deleted",
+	})
+}
+
+// handleReplayScene handles PCAP replay for a scene.
+// Placeholder for Phase 2.4/5 — will create analysis runs per parameter combo.
+// Returns 501 Not Implemented for now.
+func (ws *WebServer) handleReplayScene(w http.ResponseWriter, r *http.Request, sceneID string) {
+	// TODO(Phase 2.4): Connect scene creation to PCAP replay
+	// TODO(Phase 2.5): Wire sweep/auto-tune to create analysis runs per combo
+	// This endpoint will trigger PCAP replay with the scene's params, creating
+	// an analysis run that can be compared to the reference run for ground truth evaluation.
+	ws.writeJSONError(w, http.StatusNotImplemented, "scene replay not yet implemented (Phase 2.4/5)")
+}
