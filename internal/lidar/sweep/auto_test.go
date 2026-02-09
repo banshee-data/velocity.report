@@ -412,3 +412,103 @@ func TestAutoTuneValidation(t *testing.T) {
 		})
 	}
 }
+
+// Phase 5: Test ground truth objective validation
+func TestGroundTruthObjectiveValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		req     AutoTuneRequest
+		wantErr string
+	}{
+		{
+			name: "ground_truth without scene_id",
+			req: AutoTuneRequest{
+				Params: []SweepParam{
+					{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.1},
+				},
+				Objective: "ground_truth",
+			},
+			wantErr: "ground_truth objective requires scene_id to be set",
+		},
+		{
+			name: "ground_truth without scorer",
+			req: AutoTuneRequest{
+				Params: []SweepParam{
+					{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.1},
+				},
+				Objective: "ground_truth",
+				SceneID:   "test-scene",
+			},
+			wantErr: "ground_truth objective requires a ground truth scorer to be configured",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tuner := NewAutoTuner(&Runner{})
+			err := tuner.Start(nil, tt.req)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("expected error containing %q, got %q", tt.wantErr, err.Error())
+			}
+		})
+	}
+}
+
+func TestDefaultGroundTruthWeights(t *testing.T) {
+	weights := DefaultGroundTruthWeights()
+
+	// Verify default values from design doc
+	if weights.DetectionRate != 1.0 {
+		t.Errorf("expected DetectionRate 1.0, got %v", weights.DetectionRate)
+	}
+	if weights.Fragmentation != 5.0 {
+		t.Errorf("expected Fragmentation 5.0, got %v", weights.Fragmentation)
+	}
+	if weights.FalsePositives != 2.0 {
+		t.Errorf("expected FalsePositives 2.0, got %v", weights.FalsePositives)
+	}
+	if weights.VelocityCoverage != 0.5 {
+		t.Errorf("expected VelocityCoverage 0.5, got %v", weights.VelocityCoverage)
+	}
+	if weights.QualityPremium != 0.3 {
+		t.Errorf("expected QualityPremium 0.3, got %v", weights.QualityPremium)
+	}
+	if weights.TruncationRate != 0.4 {
+		t.Errorf("expected TruncationRate 0.4, got %v", weights.TruncationRate)
+	}
+	if weights.VelocityNoiseRate != 0.4 {
+		t.Errorf("expected VelocityNoiseRate 0.4, got %v", weights.VelocityNoiseRate)
+	}
+	if weights.StoppedRecovery != 0.2 {
+		t.Errorf("expected StoppedRecovery 0.2, got %v", weights.StoppedRecovery)
+	}
+}
+
+func TestAutoTuneRequestGroundTruthFields(t *testing.T) {
+	// Test that ground truth fields are properly parsed from JSON
+	req := AutoTuneRequest{
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.1},
+		},
+		Objective: "ground_truth",
+		SceneID:   "test-scene-123",
+		GroundTruthWeights: &GroundTruthWeights{
+			DetectionRate:  2.0,
+			Fragmentation:  10.0,
+			FalsePositives: 3.0,
+		},
+	}
+
+	if req.SceneID != "test-scene-123" {
+		t.Errorf("expected SceneID 'test-scene-123', got %q", req.SceneID)
+	}
+	if req.GroundTruthWeights == nil {
+		t.Fatal("expected GroundTruthWeights to be set")
+	}
+	if req.GroundTruthWeights.DetectionRate != 2.0 {
+		t.Errorf("expected DetectionRate 2.0, got %v", req.GroundTruthWeights.DetectionRate)
+	}
+}

@@ -54,6 +54,12 @@ func (ws *WebServer) handleRunTrackAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Handle /api/lidar/runs/{run_id}/evaluate (Phase 4.5)
+	if subPath == "evaluate" {
+		ws.handleEvaluateRun(w, r, runID)
+		return
+	}
+
 	// Handle /api/lidar/runs/{run_id}/tracks/{track_id}/*
 	if strings.HasPrefix(subPath, "tracks/") {
 		trackPath := strings.TrimPrefix(subPath, "tracks/")
@@ -355,4 +361,94 @@ func (ws *WebServer) handleReprocessRun(w http.ResponseWriter, r *http.Request, 
 		"message": "Reprocessing not yet implemented. This will be connected to PCAP replay in Phase 2.",
 		"run_id":  runID,
 	})
+}
+
+// Phase 4.5: Ground Truth Evaluation Endpoint
+
+// handleEvaluateRun compares a candidate run against a reference run and returns ground truth scores.
+// POST /api/lidar/runs/{run_id}/evaluate
+// Request body: {"reference_run_id": "..."} or auto-detect from scene
+func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, candidateRunID string) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use POST")
+		return
+	}
+
+	var req struct {
+		ReferenceRunID string `json:"reference_run_id,omitempty"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
+		return
+	}
+
+	referenceRunID := req.ReferenceRunID
+
+	// If no reference run specified, try to auto-detect from scene
+	if referenceRunID == "" {
+		// Get the candidate run to find its source path / scene
+		store := lidar.NewAnalysisRunStore(ws.db.DB)
+		candidateRun, err := store.GetRun(candidateRunID)
+		if err != nil {
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get candidate run: %v", err))
+			return
+		}
+
+		// Try to find a scene for this sensor that has a reference run
+		// Match by sensor ID and optionally source path
+		sceneStore := lidar.NewSceneStore(ws.db.DB)
+		scenes, err := sceneStore.ListScenes(candidateRun.SensorID)
+		if err != nil {
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list scenes: %v", err))
+			return
+		}
+
+		// Find scene matching sensor and source path (if available)
+		// First pass: try to match both sensor and source path
+		if candidateRun.SourcePath != "" {
+			for _, scene := range scenes {
+				if scene.ReferenceRunID != "" && scene.PCAPFile == candidateRun.SourcePath {
+					referenceRunID = scene.ReferenceRunID
+					break
+				}
+			}
+		}
+
+		// Second pass: if no exact match, fall back to first scene with reference for this sensor
+		// This is a reasonable heuristic when source path matching isn't possible
+		if referenceRunID == "" {
+			for _, scene := range scenes {
+				if scene.ReferenceRunID != "" {
+					referenceRunID = scene.ReferenceRunID
+					break
+				}
+			}
+		}
+
+		if referenceRunID == "" {
+			ws.writeJSONError(w, http.StatusBadRequest, "no reference_run_id provided and no scene with reference run found")
+			return
+		}
+	}
+
+	// Perform ground truth evaluation
+	runStore := lidar.NewAnalysisRunStore(ws.db.DB)
+	evaluator := lidar.NewGroundTruthEvaluator(runStore, lidar.DefaultGroundTruthWeights())
+
+	score, err := evaluator.Evaluate(referenceRunID, candidateRunID)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("evaluation failed: %v", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		"reference_run_id": referenceRunID,
+		"candidate_run_id": candidateRunID,
+		"score":            score,
+	}); err != nil {
+		// Log but don't write error response - headers already sent
+		fmt.Fprintf(w, `{"error": "failed to encode response"}`)
+	}
 }

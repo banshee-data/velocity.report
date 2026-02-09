@@ -5,7 +5,7 @@ import (
 )
 
 func TestHungarianAssign_Empty(t *testing.T) {
-	result := hungarianAssign(nil)
+	result := HungarianAssign(nil)
 	if result != nil {
 		t.Errorf("expected nil for empty cost matrix, got %v", result)
 	}
@@ -13,7 +13,7 @@ func TestHungarianAssign_Empty(t *testing.T) {
 
 func TestHungarianAssign_SingleElement(t *testing.T) {
 	cost := [][]float32{{5.0}}
-	result := hungarianAssign(cost)
+	result := HungarianAssign(cost)
 	if len(result) != 1 || result[0] != 0 {
 		t.Errorf("expected [0], got %v", result)
 	}
@@ -29,7 +29,7 @@ func TestHungarianAssign_SquareOptimal(t *testing.T) {
 		{4, 4, 6},
 		{9, 8, 5},
 	}
-	result := hungarianAssign(cost)
+	result := HungarianAssign(cost)
 
 	if len(result) != 3 {
 		t.Fatalf("expected 3 assignments, got %d", len(result))
@@ -55,7 +55,7 @@ func TestHungarianAssign_Forbidden(t *testing.T) {
 		{1, 2},
 		{float32(hungarianlnf), float32(hungarianlnf)},
 	}
-	result := hungarianAssign(cost)
+	result := HungarianAssign(cost)
 
 	if len(result) != 2 {
 		t.Fatalf("expected 2 assignments, got %d", len(result))
@@ -77,7 +77,7 @@ func TestHungarianAssign_MoreRowsThanCols(t *testing.T) {
 		{10, 1},
 		{5, 5},
 	}
-	result := hungarianAssign(cost)
+	result := HungarianAssign(cost)
 
 	if len(result) != 3 {
 		t.Fatalf("expected 3 assignments, got %d", len(result))
@@ -111,7 +111,7 @@ func TestHungarianAssign_MoreColsThanRows(t *testing.T) {
 		{10, 1, 5},
 		{5, 10, 1},
 	}
-	result := hungarianAssign(cost)
+	result := HungarianAssign(cost)
 
 	if len(result) != 2 {
 		t.Fatalf("expected 2 assignments, got %d", len(result))
@@ -141,7 +141,7 @@ func TestHungarianAssign_AllZeroCost(t *testing.T) {
 		{0, 0},
 		{0, 0},
 	}
-	result := hungarianAssign(cost)
+	result := HungarianAssign(cost)
 
 	if len(result) != 2 {
 		t.Fatalf("expected 2 assignments, got %d", len(result))
@@ -158,7 +158,7 @@ func TestHungarianAssign_NoColumns(t *testing.T) {
 		{},
 		{},
 	}
-	result := hungarianAssign(cost)
+	result := HungarianAssign(cost)
 
 	if len(result) != 2 {
 		t.Fatalf("expected 2 assignments, got %d", len(result))
@@ -179,7 +179,7 @@ func TestHungarianAssign_LargerOptimality(t *testing.T) {
 		{7, 3, 11, 5},
 		{4, 12, 8, 9},
 	}
-	result := hungarianAssign(cost)
+	result := HungarianAssign(cost)
 
 	totalCost := float32(0)
 	for i, j := range result {

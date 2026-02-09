@@ -71,6 +71,13 @@ func (ws *WebServer) handleSceneByID(w http.ResponseWriter, r *http.Request) {
 		} else {
 			ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		}
+	case "evaluations":
+		// /api/lidar/scenes/{scene_id}/evaluations (Phase 4.5)
+		if r.Method == http.MethodGet {
+			ws.handleListSceneEvaluations(w, r, sceneID)
+		} else {
+			ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		}
 	default:
 		ws.writeJSONError(w, http.StatusNotFound, "endpoint not found")
 	}
@@ -255,4 +262,18 @@ func (ws *WebServer) handleReplayScene(w http.ResponseWriter, r *http.Request, s
 	// This endpoint will trigger PCAP replay with the scene's params, creating
 	// an analysis run that can be compared to the reference run for ground truth evaluation.
 	ws.writeJSONError(w, http.StatusNotImplemented, "scene replay not yet implemented (Phase 2.4/5)")
+}
+
+// handleListSceneEvaluations lists all ground truth evaluation scores for a scene.
+// GET /api/lidar/scenes/{scene_id}/evaluations
+// Placeholder for Phase 4.5 — would need a separate evaluations table to persist scores.
+func (ws *WebServer) handleListSceneEvaluations(w http.ResponseWriter, r *http.Request, sceneID string) {
+	// TODO(Phase 4.5+): Create lidar_scene_evaluations table to persist ground truth scores
+	// For now, return 501 Not Implemented with a message explaining the future implementation
+	ws.writeJSON(w, http.StatusNotImplemented, map[string]interface{}{
+		"error":    "not_implemented",
+		"message":  "Scene evaluations listing not yet implemented. Future implementation will store evaluation results in a dedicated table.",
+		"scene_id": sceneID,
+		"note":     "Use POST /api/lidar/runs/{run_id}/evaluate to evaluate a specific run against the scene's reference run.",
+	})
 }
