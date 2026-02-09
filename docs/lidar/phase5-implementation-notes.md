@@ -1,7 +1,7 @@
 # Phase 5 Implementation Notes: Label-Aware Auto-Tuning
 
-**Status**: ✅ Complete (with Phase 2.5 deferred)  
-**Date**: February 2026  
+**Status**: ✅ Complete (with Phase 2.5 deferred)
+**Date**: February 2026
 **Implemented by**: Agent Hadaly
 
 ## Summary
@@ -54,6 +54,7 @@ type AutoTuner struct {
 ```
 
 New methods:
+
 - `SetGroundTruthScorer(scorer func(...) (float64, error))` - Configures the scorer
 - `SetSceneStore(store SceneStoreSaver)` - Configures the scene store for saving optimal params
 
@@ -102,6 +103,7 @@ The actual ground truth scoring during auto-tuning is **not yet active** because
 ### Current Behavior
 
 When `objective: "ground_truth"` is selected:
+
 1. Validation passes if `scene_id` and scorer are configured ✅
 2. Auto-tuner runs the sweep with standard objective scoring ⚠️
 3. A warning is logged: "Ground truth objective selected but Phase 2.5 not yet implemented"
@@ -120,6 +122,7 @@ The sweep package depends on the monitor package (for the client), which depends
 3. The ground truth scorer is injected as a function, not imported
 
 This allows the monitor layer to:
+
 - Create an `AutoTuner` with `NewAutoTuner(runner)`
 - Wire up the scorer: `autoTuner.SetGroundTruthScorer(func(sceneID, runID string) (float64, error) { ... })`
 - Wire up the scene store: `autoTuner.SetSceneStore(sceneStore)`
@@ -135,12 +138,14 @@ When Phase 2.5 is complete, the monitor layer will:
 ## Verification
 
 All tests pass:
+
 ```bash
 $ go test ./internal/lidar/sweep/ -count=1
 ok  	github.com/banshee-data/velocity.report/internal/lidar/sweep	6.469s
 ```
 
 All code is properly formatted:
+
 ```bash
 $ make lint-go
 Checking Go formatting (gofmt -l)...
@@ -173,10 +178,12 @@ These are HTML/JavaScript changes that don't affect the backend functionality.
 ## Related Files
 
 Modified:
+
 - `internal/lidar/sweep/auto.go` - Core implementation
 - `internal/lidar/sweep/auto_test.go` - Test coverage
 
 Existing (no changes needed):
+
 - `internal/lidar/scene_store.go` - Already has `SetOptimalParams()`
 - `internal/lidar/ground_truth.go` - Evaluator ready for Phase 2.5 integration
 

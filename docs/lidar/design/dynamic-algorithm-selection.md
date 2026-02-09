@@ -4,6 +4,7 @@
 **Date:** February 8, 2026
 **Source Branch:** `copilot/summarize-changes-and-spec` (34 commits, 54 files, ~7,300 lines)
 **Related Docs:**
+
 - [`docs/lidar/future/velocity-coherent-foreground-extraction.md`](../future/velocity-coherent-foreground-extraction.md) — Original design vision
 - [`docs/lidar/ROADMAP.md`](../ROADMAP.md) — ML Pipeline Roadmap (Phase 4.x)
 
@@ -21,12 +22,12 @@ The current background-subtraction algorithm (`ProcessFramePolarWithMask`) produ
 
 The branch implemented four phases of work:
 
-| Phase | Description | Files | Status |
-|-------|-------------|-------|--------|
-| **A** | `ForegroundExtractor` interface + background adapter | `extractor.go`, `extractor_background.go` | Complete |
-| **B** | Velocity-coherent extractor + frame history | `extractor_velocity_coherent.go`, `frame_history.go`, `velocity_estimation.go` | Complete |
-| **C** | Hybrid extractor + evaluation harness | `extractor_hybrid.go`, `evaluation_harness.go` | Complete |
-| **D** | Pipeline integration + API + CLI tool | `tracking_pipeline.go`, `webserver.go`, `algo-compare/main.go` | Complete |
+| Phase | Description                                          | Files                                                                          | Status   |
+| ----- | ---------------------------------------------------- | ------------------------------------------------------------------------------ | -------- |
+| **A** | `ForegroundExtractor` interface + background adapter | `extractor.go`, `extractor_background.go`                                      | Complete |
+| **B** | Velocity-coherent extractor + frame history          | `extractor_velocity_coherent.go`, `frame_history.go`, `velocity_estimation.go` | Complete |
+| **C** | Hybrid extractor + evaluation harness                | `extractor_hybrid.go`, `evaluation_harness.go`                                 | Complete |
+| **D** | Pipeline integration + API + CLI tool                | `tracking_pipeline.go`, `webserver.go`, `algo-compare/main.go`                 | Complete |
 
 Additionally: bug fixes to foreground extraction (recFg accumulation, thaw reset, locked baseline), PCAP debug tooling (grid plotter, debug range filtering), track quality metrics, analysis run manager, and database migrations for algorithm comparison results.
 
@@ -85,6 +86,7 @@ type ForegroundExtractor interface {
 ```
 
 **Design decisions:**
+
 - Returns `[]bool` foreground mask (same length as input points), not filtered point slices — preserves index correspondence for downstream processing
 - `ExtractorMetrics` carries algorithm-agnostic counts plus `AlgorithmSpecific` map for algorithm-specific data
 - `Reset()` enables PCAP replay restart without recreating extractors
@@ -125,6 +127,7 @@ type VelocityCoherentConfig struct {
 ```
 
 **Dependencies:**
+
 - `frame_history.go` — circular buffer of `VelocityFrame` with spatial index
 - `velocity_estimation.go` — point correspondence and velocity estimation using `SpatialIndex`
 
@@ -141,6 +144,7 @@ type HybridExtractor struct {
 ```
 
 **Merge modes:**
+
 - `union` — OR merge (maximum detection coverage, may increase false positives)
 - `intersection` — AND merge (maximum precision, may miss sparse objects)
 - `primary` — Use first extractor, ignore others (for metrics collection without affecting output)
@@ -169,6 +173,7 @@ type VelocityEstimationConfig struct {
 ```
 
 **Algorithm:**
+
 1. Build spatial index for previous frame
 2. For each current point, find candidates within `SearchRadius`
 3. Score candidates by distance + velocity consistency with neighbors
@@ -254,6 +259,7 @@ ForegroundExtractor ForegroundExtractor
 **Frame callback changes:**
 
 The existing `NewFrameCallback()` closure is refactored to:
+
 1. Acquire read lock on `tp.mu`
 2. Check for custom extractor first, then fall back to `BackgroundManager`
 3. Call `extractor.ProcessFrame()` which returns mask + metrics
@@ -289,15 +295,17 @@ lidarWebServer = monitor.NewWebServer(monitor.WebServerConfig{
 ### `GET /api/lidar/algorithm`
 
 Returns current algorithm mode:
+
 ```json
-{"mode": "background"}
+{ "mode": "background" }
 ```
 
 ### `POST /api/lidar/algorithm`
 
 Switches algorithm at runtime:
+
 ```json
-{"mode": "velocity"}
+{ "mode": "velocity" }
 ```
 
 Valid modes: `background`, `velocity`, `hybrid`
@@ -364,6 +372,7 @@ algo-compare -pcap transit.pcap -output-dir results/ -merge-mode union -verbose
 ## 7. Implementation Plan for `main`
 
 ### Prerequisites (already on main)
+
 - [x] `isNilInterface()` utility
 - [x] `AnalysisRunManager` and registry pattern
 - [x] Locked baseline parameters on `BackgroundParams` and `BackgroundCell`
@@ -375,6 +384,7 @@ algo-compare -pcap transit.pcap -output-dir results/ -merge-mode union -verbose
 ### Phase 1: Interface + Background Adapter (Low Risk)
 
 **New files:**
+
 - `internal/lidar/extractor.go` — `ForegroundExtractor` interface, `MergeMode` constants, mask utilities
 - `internal/lidar/extractor_background.go` — `BackgroundSubtractorExtractor` adapter
 - `internal/lidar/extractor_test.go` — Unit tests for mask merge, agreement, precision/recall
@@ -384,6 +394,7 @@ algo-compare -pcap transit.pcap -output-dir results/ -merge-mode union -verbose
 ### Phase 2: Velocity Estimation + Frame History (Low Risk)
 
 **New files:**
+
 - `internal/lidar/frame_history.go` — `FrameHistory`, `VelocityFrame`, `PointWithVelocity`
 - `internal/lidar/velocity_estimation.go` — `EstimatePointVelocities`, spatial correspondence
 
@@ -392,11 +403,13 @@ algo-compare -pcap transit.pcap -output-dir results/ -merge-mode union -verbose
 ### Phase 3: Velocity-Coherent Extractor (Medium Risk)
 
 **New files:**
+
 - `internal/lidar/extractor_velocity_coherent.go` — `VelocityCoherentExtractor`
 
 **Dependencies:** Phase 1 + Phase 2. Uses existing DBSCAN for clustering.
 
 **Risk:** The DBSCAN signature on `main` returns `[]WorldCluster` (no labels). The velocity-coherent extractor currently calls `DBSCAN()` expecting `([]WorldCluster, []int)`. Either:
+
 - Option A: Change `DBSCAN()` signature on `main` first (separate PR, touches tests)
 - Option B: Ignore the labels return in the velocity-coherent extractor (use only clusters)
 
@@ -405,6 +418,7 @@ algo-compare -pcap transit.pcap -output-dir results/ -merge-mode union -verbose
 ### Phase 4: Hybrid Extractor + Evaluation Harness (Low Risk)
 
 **New files:**
+
 - `internal/lidar/extractor_hybrid.go` — `HybridExtractor`
 - `internal/lidar/evaluation_harness.go` — `EvaluationHarness`
 
@@ -413,9 +427,11 @@ algo-compare -pcap transit.pcap -output-dir results/ -merge-mode union -verbose
 ### Phase 5: Pipeline Integration (High Risk — Most Conflicts Expected)
 
 **Modified files:**
+
 - `internal/lidar/tracking_pipeline.go` — Add `TrackingPipeline` struct, modify `NewFrameCallback()`
 
 **Key conflict areas:**
+
 - `TrackingPipelineConfig` struct has been significantly expanded on `main` with:
   - `VisualiserPublisher VisualiserPublisher`
   - `VisualiserAdapter VisualiserAdapter`
@@ -437,9 +453,11 @@ algo-compare -pcap transit.pcap -output-dir results/ -merge-mode union -verbose
 ### Phase 6: Webserver API (Medium Risk)
 
 **Modified files:**
+
 - `internal/lidar/monitor/webserver.go` — Add `trackingPipeline` field, `handleAlgorithmConfig` handler, register route
 
 **Key conflict areas:**
+
 - `WebServer` struct has many new fields on `main` (sweep runner, auto-tuner, tuning config, etc.)
 - Route registration in `RegisterRoutes()` / `setupRoutes()` has been refactored
 - Need to integrate with `main`'s `WebServerConfig` pattern
@@ -449,10 +467,12 @@ algo-compare -pcap transit.pcap -output-dir results/ -merge-mode union -verbose
 ### Phase 7: Migration + CLI Tool (Low Risk)
 
 **New files:**
+
 - `internal/db/migrations/000013_create_algorithm_comparison.{up,down}.sql` — Check migration numbering on `main`
 - `cmd/tools/algo-compare/main.go` — Standalone CLI tool
 
 **Modified files:**
+
 - `internal/db/schema.sql` — Add table definitions (sync with migration)
 
 ---
@@ -461,16 +481,17 @@ algo-compare -pcap transit.pcap -output-dir results/ -merge-mode union -verbose
 
 ### New Test Files
 
-| File | Tests | Lines |
-|------|-------|-------|
-| `internal/lidar/extractor_test.go` | MergeMasks (union/intersection/primary/majority), CountForeground, ComputeMaskAgreement, ComputePrecisionRecall, BackgroundSubtractorExtractor.Name, VelocityCoherentExtractor.Name, HybridExtractor interface compliance | 264 |
-| `internal/lidar/tracking_pipeline_logic_test.go` | initializeExtractor (all modes), isNilInterface edge cases | 136 |
-| `internal/lidar/tracking_pipeline_test.go` | Pipeline callback with nil frame, pipeline with nil extractor, FrameCallback invocation, SetExtractorMode switching | 149 |
-| `internal/lidar/monitor/webserver_algo_test.go` | handleAlgorithmConfig GET/POST, invalid mode rejection | 78 |
+| File                                             | Tests                                                                                                                                                                                                                     | Lines |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| `internal/lidar/extractor_test.go`               | MergeMasks (union/intersection/primary/majority), CountForeground, ComputeMaskAgreement, ComputePrecisionRecall, BackgroundSubtractorExtractor.Name, VelocityCoherentExtractor.Name, HybridExtractor interface compliance | 264   |
+| `internal/lidar/tracking_pipeline_logic_test.go` | initializeExtractor (all modes), isNilInterface edge cases                                                                                                                                                                | 136   |
+| `internal/lidar/tracking_pipeline_test.go`       | Pipeline callback with nil frame, pipeline with nil extractor, FrameCallback invocation, SetExtractorMode switching                                                                                                       | 149   |
+| `internal/lidar/monitor/webserver_algo_test.go`  | handleAlgorithmConfig GET/POST, invalid mode rejection                                                                                                                                                                    | 78    |
 
 ### Integration with Main's Tests
 
 On `main`, `tracking_pipeline_test.go` is 1,248 lines with extensive tests for the expanded pipeline. New tests must:
+
 - Use `TrackerInterface` (not `*Tracker`)
 - Account for `VisualiserPublisher` and `LidarViewAdapter` nil handling
 - Follow the dependency injection patterns established in the refactoring PRs (#224, #229)
@@ -479,14 +500,14 @@ On `main`, `tracking_pipeline_test.go` is 1,248 lines with extensive tests for t
 
 ## 9. Risk Assessment
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| Pipeline struct conflicts | High | High | Phase 5 last; surgical additions to existing struct |
-| DBSCAN signature change | Medium | Medium | Separate preparatory PR for signature change |
-| Webserver route conflicts | Medium | Low | Additive handler + route; minimal touching existing code |
-| Migration number collision | Low | Low | Check `ls internal/db/migrations/` before applying |
-| Test conflicts | Medium | Medium | Write new tests; don't modify existing pipeline tests |
-| Performance regression | Low | Medium | Hybrid mode is opt-in; default remains background subtraction |
+| Risk                       | Likelihood | Impact | Mitigation                                                    |
+| -------------------------- | ---------- | ------ | ------------------------------------------------------------- |
+| Pipeline struct conflicts  | High       | High   | Phase 5 last; surgical additions to existing struct           |
+| DBSCAN signature change    | Medium     | Medium | Separate preparatory PR for signature change                  |
+| Webserver route conflicts  | Medium     | Low    | Additive handler + route; minimal touching existing code      |
+| Migration number collision | Low        | Low    | Check `ls internal/db/migrations/` before applying            |
+| Test conflicts             | Medium     | Medium | Write new tests; don't modify existing pipeline tests         |
+| Performance regression     | Low        | Medium | Hybrid mode is opt-in; default remains background subtraction |
 
 ---
 
@@ -494,28 +515,28 @@ On `main`, `tracking_pipeline_test.go` is 1,248 lines with extensive tests for t
 
 ### New Files (Pure Additions)
 
-| File | Lines | Description |
-|------|-------|-------------|
-| `internal/lidar/extractor.go` | 200 | `ForegroundExtractor` interface, `MergeMode`, mask utilities |
-| `internal/lidar/extractor_background.go` | 204 | `BackgroundSubtractorExtractor` — wraps `BackgroundManager` |
-| `internal/lidar/extractor_hybrid.go` | 247 | `HybridExtractor` — multi-algorithm merge |
-| `internal/lidar/extractor_velocity_coherent.go` | 243 | `VelocityCoherentExtractor` — motion-based extraction |
-| `internal/lidar/evaluation_harness.go` | 314 | A/B comparison framework |
-| `internal/lidar/frame_history.go` | 191 | `FrameHistory` circular buffer, `PointWithVelocity`, `VelocityFrame` |
-| `internal/lidar/velocity_estimation.go` | 418 | Point correspondence and velocity estimation |
-| `internal/lidar/extractor_test.go` | 264 | Unit tests for extractors and utilities |
-| `internal/lidar/tracking_pipeline_logic_test.go` | 136 | Pipeline initialization tests |
-| `internal/lidar/monitor/webserver_algo_test.go` | 78 | Algorithm API endpoint tests |
-| `cmd/tools/algo-compare/main.go` | 340 | Algorithm comparison CLI (build tag: pcap) |
-| `internal/db/migrations/000013_*.sql` | ~40 | Algorithm comparison tables |
+| File                                             | Lines | Description                                                          |
+| ------------------------------------------------ | ----- | -------------------------------------------------------------------- |
+| `internal/lidar/extractor.go`                    | 200   | `ForegroundExtractor` interface, `MergeMode`, mask utilities         |
+| `internal/lidar/extractor_background.go`         | 204   | `BackgroundSubtractorExtractor` — wraps `BackgroundManager`          |
+| `internal/lidar/extractor_hybrid.go`             | 247   | `HybridExtractor` — multi-algorithm merge                            |
+| `internal/lidar/extractor_velocity_coherent.go`  | 243   | `VelocityCoherentExtractor` — motion-based extraction                |
+| `internal/lidar/evaluation_harness.go`           | 314   | A/B comparison framework                                             |
+| `internal/lidar/frame_history.go`                | 191   | `FrameHistory` circular buffer, `PointWithVelocity`, `VelocityFrame` |
+| `internal/lidar/velocity_estimation.go`          | 418   | Point correspondence and velocity estimation                         |
+| `internal/lidar/extractor_test.go`               | 264   | Unit tests for extractors and utilities                              |
+| `internal/lidar/tracking_pipeline_logic_test.go` | 136   | Pipeline initialization tests                                        |
+| `internal/lidar/monitor/webserver_algo_test.go`  | 78    | Algorithm API endpoint tests                                         |
+| `cmd/tools/algo-compare/main.go`                 | 340   | Algorithm comparison CLI (build tag: pcap)                           |
+| `internal/db/migrations/000013_*.sql`            | ~40   | Algorithm comparison tables                                          |
 
 ### Modified Files (Require Conflict Resolution)
 
-| File | Branch Changes | Main Changes | Conflict Risk |
-|------|---------------|--------------|---------------|
-| `internal/lidar/tracking_pipeline.go` | Add `TrackingPipeline`, `initializeExtractor`, `ExtractorMode` fields | Add `VisualiserPublisher`, `VisualiserAdapter`, `LidarViewAdapter`, `MaxFrameRate`, `VoxelLeafSize`, ground removal, frame rate limiting | **HIGH** |
-| `internal/lidar/monitor/webserver.go` | Add `handleAlgorithmConfig`, `trackingPipeline` field | Add sweep dashboard, auto-tuner, tuning config, single config refactor | **MEDIUM** |
-| `internal/lidar/clustering.go` | Return `([]WorldCluster, []int)` from `DBSCAN` | Unchanged signature `[]WorldCluster` | **MEDIUM** |
-| `cmd/radar/radar.go` | Add `NewTrackingPipeline`, pass to webserver | Extensive refactoring (config loading, tuning params, dependency injection) | **MEDIUM** |
-| `internal/db/schema.sql` | Add algorithm tables | Schema has evolved | **LOW** |
-| `internal/lidar/tracking_pipeline_test.go` | New tests (149 lines) | Existing 1,248 lines of tests | **LOW** (additive) |
+| File                                       | Branch Changes                                                        | Main Changes                                                                                                                             | Conflict Risk      |
+| ------------------------------------------ | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| `internal/lidar/tracking_pipeline.go`      | Add `TrackingPipeline`, `initializeExtractor`, `ExtractorMode` fields | Add `VisualiserPublisher`, `VisualiserAdapter`, `LidarViewAdapter`, `MaxFrameRate`, `VoxelLeafSize`, ground removal, frame rate limiting | **HIGH**           |
+| `internal/lidar/monitor/webserver.go`      | Add `handleAlgorithmConfig`, `trackingPipeline` field                 | Add sweep dashboard, auto-tuner, tuning config, single config refactor                                                                   | **MEDIUM**         |
+| `internal/lidar/clustering.go`             | Return `([]WorldCluster, []int)` from `DBSCAN`                        | Unchanged signature `[]WorldCluster`                                                                                                     | **MEDIUM**         |
+| `cmd/radar/radar.go`                       | Add `NewTrackingPipeline`, pass to webserver                          | Extensive refactoring (config loading, tuning params, dependency injection)                                                              | **MEDIUM**         |
+| `internal/db/schema.sql`                   | Add algorithm tables                                                  | Schema has evolved                                                                                                                       | **LOW**            |
+| `internal/lidar/tracking_pipeline_test.go` | New tests (149 lines)                                                 | Existing 1,248 lines of tests                                                                                                            | **LOW** (additive) |

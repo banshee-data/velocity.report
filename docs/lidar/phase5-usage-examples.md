@@ -133,7 +133,7 @@ err = autoTuner.Start(ctx, req)
 The composite score uses this formula:
 
 ```
-composite_score = 
+composite_score =
     w1 × detection_rate
   + w4 × velocity_coverage
   + w5 × quality_premium
@@ -146,7 +146,7 @@ composite_score =
 
 Each component:
 
-- **detection_rate**: Fraction of labelled "good_*" reference tracks matched (0-1)
+- **detection_rate**: Fraction of labelled "good\_\*" reference tracks matched (0-1)
 - **fragmentation**: Fraction of reference tracks split into multiple candidates
 - **false_positives**: Fraction of candidate tracks not matching any reference
 - **velocity_coverage**: Fraction of matched tracks with velocity data
@@ -258,16 +258,16 @@ You can test the validation and parameter persistence today:
 func TestAutoTuneGroundTruthMode(t *testing.T) {
     runner := &sweep.Runner{}
     tuner := sweep.NewAutoTuner(runner)
-    
+
     // Mock scorer
     tuner.SetGroundTruthScorer(func(sceneID, runID string) (float64, error) {
         return 0.85, nil
     })
-    
+
     // Mock scene store
     mockStore := &mockSceneStore{}
     tuner.SetSceneStore(mockStore)
-    
+
     // Create request
     req := sweep.AutoTuneRequest{
         Objective: "ground_truth",
@@ -282,13 +282,13 @@ func TestAutoTuneGroundTruthMode(t *testing.T) {
         PCAPFile:        "test.pcap",
         PCAPDurationSecs: 30,
     }
-    
+
     // Start (validation will pass, scoring will fall back)
     err := tuner.Start(context.Background(), req)
     if err != nil {
         t.Fatalf("Expected no error, got %v", err)
     }
-    
+
     // Wait for completion and verify optimal params were saved
     // (actual scoring deferred to Phase 2.5)
 }
@@ -299,16 +299,19 @@ func TestAutoTuneGroundTruthMode(t *testing.T) {
 The sweep dashboard will be enhanced to support ground truth mode:
 
 ### Scene Selection
+
 - Dropdown to select scene (fetches `/api/lidar/scenes`)
 - Shows reference run status (labelled/unlabelled)
 - "Apply Optimal Params" button
 
 ### Objective Selection
+
 - Radio buttons: Acceptance / Weighted / Ground Truth
 - Ground Truth option only enabled if scene has reference run
 - Shows ground truth weight configuration
 
 ### Results Display
+
 - Detection rate by class (vehicle/pedestrian/other)
 - Fragmentation score
 - False positive rate
@@ -320,12 +323,14 @@ These UI changes are deferred to future work.
 ## Summary
 
 Phase 5 is **complete and functional** for:
+
 - ✅ Request validation
 - ✅ Weight configuration
 - ✅ Optimal parameter persistence
 - ✅ Integration points defined
 
 Phase 5 is **ready but inactive** for:
+
 - ⏸️ Actual ground truth scoring (requires Phase 2.5)
 
 Once Phase 2.5 completes analysis run creation per combo, simply uncomment the scoring logic in `AutoTuner.run()` and the system will work end-to-end.

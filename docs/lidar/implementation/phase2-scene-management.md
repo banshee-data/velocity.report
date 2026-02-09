@@ -1,7 +1,7 @@
 # Phase 2 (Scene Management) Implementation
 
-**Date:** February 2026  
-**Status:** ✅ Complete  
+**Date:** February 2026
+**Status:** ✅ Complete
 **Design Document:** `docs/lidar/future/track-labeling-auto-aware-tuning.md`
 
 ## Overview
@@ -11,6 +11,7 @@ Implemented Phase 2 of the track labelling system, which introduces the concept 
 ## What is a Scene?
 
 A **scene** represents a specific environment captured in a PCAP file:
+
 - Ties a PCAP file to a specific sensor
 - Can have a reference analysis run (labelled ground truth)
 - Stores optimal parameters discovered through auto-tuning
@@ -42,10 +43,12 @@ CREATE TABLE IF NOT EXISTS lidar_scenes (
 ```
 
 **Indexes:**
+
 - `idx_lidar_scenes_sensor` on `sensor_id`
 - `idx_lidar_scenes_pcap` on `pcap_file`
 
 **Files:**
+
 - `internal/db/migrations/000020_create_lidar_scenes.up.sql`
 - `internal/db/migrations/000020_create_lidar_scenes.down.sql`
 
@@ -54,6 +57,7 @@ CREATE TABLE IF NOT EXISTS lidar_scenes (
 Created `internal/lidar/scene_store.go` with comprehensive CRUD operations.
 
 #### Scene Struct
+
 ```go
 type Scene struct {
     SceneID           string          `json:"scene_id"`
@@ -70,6 +74,7 @@ type Scene struct {
 ```
 
 #### SceneStore Methods
+
 - **InsertScene(scene)** — Creates new scene, auto-generates UUID if scene_id empty
 - **GetScene(sceneID)** — Retrieves scene by ID
 - **ListScenes(sensorID)** — Lists all scenes or filtered by sensor_id
@@ -79,6 +84,7 @@ type Scene struct {
 - **SetOptimalParams(sceneID, paramsJSON)** — Updates optimal parameters JSON
 
 **Nullable Field Handling:**
+
 - Uses `sql.NullFloat64`, `sql.NullString`, `sql.NullInt64` for database operations
 - Pointers in Go structs for optional fields
 - Helper functions `nullFloat64()`, `nullInt64()` for conversion
@@ -88,21 +94,23 @@ type Scene struct {
 
 Created `internal/lidar/monitor/scene_api.go` with HTTP endpoints:
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/lidar/scenes` | List all scenes (optional `?sensor_id=X` filter) |
-| POST | `/api/lidar/scenes` | Create new scene from JSON body |
-| GET | `/api/lidar/scenes/{scene_id}` | Get scene details including reference run and params |
-| PUT | `/api/lidar/scenes/{scene_id}` | Update scene (description, reference_run_id, optimal_params_json) |
-| DELETE | `/api/lidar/scenes/{scene_id}` | Delete scene |
-| POST | `/api/lidar/scenes/{scene_id}/replay` | Replay PCAP (placeholder, returns 501) |
+| Method | Endpoint                              | Description                                                       |
+| ------ | ------------------------------------- | ----------------------------------------------------------------- |
+| GET    | `/api/lidar/scenes`                   | List all scenes (optional `?sensor_id=X` filter)                  |
+| POST   | `/api/lidar/scenes`                   | Create new scene from JSON body                                   |
+| GET    | `/api/lidar/scenes/{scene_id}`        | Get scene details including reference run and params              |
+| PUT    | `/api/lidar/scenes/{scene_id}`        | Update scene (description, reference_run_id, optimal_params_json) |
+| DELETE | `/api/lidar/scenes/{scene_id}`        | Delete scene                                                      |
+| POST   | `/api/lidar/scenes/{scene_id}/replay` | Replay PCAP (placeholder, returns 501)                            |
 
 **Request/Response Types:**
+
 - `CreateSceneRequest` — validated required fields (sensor_id, pcap_file)
 - `UpdateSceneRequest` — uses pointers to distinguish "not set" from "set to empty"
 
 **Routes Registration:**
 Routes added to `webserver.go` RegisterRoutes():
+
 ```go
 if ws.db != nil {
     mux.HandleFunc("/api/lidar/scenes", ws.handleScenes)
@@ -126,6 +134,7 @@ The `/replay` endpoint returns `501 Not Implemented` until these phases are comp
 ### SceneStore Tests (`scene_store_test.go`)
 
 7 test cases covering:
+
 1. **TestSceneStore_InsertAndGet** — Basic CRUD, UUID generation, timestamp handling
 2. **TestSceneStore_ListScenes** — Filtering by sensor_id, ordering (newest first)
 3. **TestSceneStore_UpdateScene** — Field updates, updated_at_ns tracking
@@ -161,24 +170,27 @@ The `/replay` endpoint returns `501 Not Implemented` until these phases are comp
 ## Integration Points
 
 ### Current
+
 - Database: `lidar_analysis_runs` table (foreign key)
 - WebServer: Routes registered in `RegisterRoutes()`
 - Existing patterns: Follows `run_track_api.go` URL parsing pattern
 
 ### Future (Phase 2.4 & 2.5)
+
 - PCAP replay: `/api/lidar/scenes/{scene_id}/replay` will trigger replay
 - Auto-tuning: Sweep runner will create scenes and link optimal params
 - Ground truth evaluation: Compare runs against scene's reference run
 
 ## Next Steps
 
-**Phase 3 (Svelte UI):** Add scene selector and track labelling controls to tracks page  
-**Phase 4 (Ground Truth Evaluation):** Implement track matching algorithm and scoring  
+**Phase 3 (Svelte UI):** Add scene selector and track labelling controls to tracks page
+**Phase 4 (Ground Truth Evaluation):** Implement track matching algorithm and scoring
 **Phase 5 (Label-Aware Auto-Tuning):** Connect auto-tuner to use reference runs for optimisation
 
 ## Files Changed
 
 **New Files:**
+
 - `internal/db/migrations/000020_create_lidar_scenes.up.sql`
 - `internal/db/migrations/000020_create_lidar_scenes.down.sql`
 - `internal/lidar/scene_store.go`
@@ -187,9 +199,11 @@ The `/replay` endpoint returns `501 Not Implemented` until these phases are comp
 - `internal/lidar/monitor/scene_api_test.go`
 
 **Modified Files:**
+
 - `internal/lidar/monitor/webserver.go` (route registration)
 
 **Lines of Code:**
+
 - Production: ~650 lines
 - Tests: ~520 lines
 - Total: ~1,170 lines
