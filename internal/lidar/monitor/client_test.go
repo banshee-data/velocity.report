@@ -619,3 +619,185 @@ func TestTrackingParams_JSONOmitEmpty(t *testing.T) {
 		t.Errorf("Expected gating_distance_squared in JSON, got %s", string(data2))
 	}
 }
+
+func TestClient_SetTuningParams_Success(t *testing.T) {
+	var received map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected POST, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/lidar/params" {
+			t.Errorf("Unexpected path: %s", r.URL.Path)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
+			t.Errorf("Failed to decode request body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	c := NewClient(server.Client(), server.URL, "sensor1")
+	err := c.SetTuningParams(map[string]interface{}{
+		"noise_relative":       0.15,
+		"closeness_multiplier": 2.2,
+	})
+	if err != nil {
+		t.Fatalf("SetTuningParams failed: %v", err)
+	}
+
+	if received["noise_relative"].(float64) != 0.15 {
+		t.Fatalf("expected noise_relative=0.15, got %v", received["noise_relative"])
+	}
+	if received["closeness_multiplier"].(float64) != 2.2 {
+		t.Fatalf("expected closeness_multiplier=2.2, got %v", received["closeness_multiplier"])
+	}
+}
+
+func TestClient_SetTuningParams_MarshalError(t *testing.T) {
+	c := NewClient(nil, "http://localhost:8080", "sensor1")
+	err := c.SetTuningParams(map[string]interface{}{
+		"invalid": make(chan int),
+	})
+	if err == nil {
+		t.Fatal("expected marshal error")
+	}
+}
+
+func TestClient_SetTuningParams_ServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("invalid tuning parameters"))
+	}))
+	defer server.Close()
+
+	c := NewClient(server.Client(), server.URL, "sensor1")
+	err := c.SetTuningParams(map[string]interface{}{"noise_relative": 0.1})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestClient_StartPCAPReplayWithConfig_Success(t *testing.T) {
+	var received map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected POST, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/lidar/pcap/start" {
+			t.Errorf("Unexpected path: %s", r.URL.Path)
+		}
+		if r.URL.Query().Get("sensor_id") != "sensor1" {
+			t.Errorf("Expected sensor_id=sensor1, got %s", r.URL.Query().Get("sensor_id"))
+		}
+		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
+			t.Errorf("decode request body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	c := NewClient(server.Client(), server.URL, "sensor1")
+	err := c.StartPCAPReplayWithConfig(PCAPReplayConfig{
+		PCAPFile:        "captures/sample.pcapng",
+		StartSeconds:    12.5,
+		DurationSeconds: 30,
+		AnalysisMode:    true,
+		MaxRetries:      1,
+	})
+	if err != nil {
+		t.Fatalf("StartPCAPReplayWithConfig failed: %v", err)
+	}
+
+	if received["pcap_file"] != "captures/sample.pcapng" {
+		t.Fatalf("unexpected pcap_file: %v", received["pcap_file"])
+	}
+	if received["start_seconds"].(float64) != 12.5 {
+		t.Fatalf("unexpected start_seconds: %v", received["start_seconds"])
+	}
+	if received["duration_seconds"].(float64) != 30 {
+		t.Fatalf("unexpected duration_seconds: %v", received["duration_seconds"])
+	}
+	if received["analysis_mode"].(bool) != true {
+		t.Fatalf("unexpected analysis_mode: %v", received["analysis_mode"])
+	}
+}
+
+func TestClient_StartPCAPReplayWithConfig_ServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("invalid replay config"))
+	}))
+	defer server.Close()
+
+	c := NewClient(server.Client(), server.URL, "sensor1")
+	err := c.StartPCAPReplayWithConfig(PCAPReplayConfig{
+		PCAPFile:   "captures/sample.pcapng",
+		MaxRetries: 1,
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestClient_StopPCAPReplay(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				t.Errorf("Expected POST, got %s", r.Method)
+			}
+			if r.URL.Path != "/api/lidar/pcap/stop" {
+				t.Errorf("Unexpected path: %s", r.URL.Path)
+			}
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		c := NewClient(server.Client(), server.URL, "sensor1")
+		if err := c.StopPCAPReplay(); err != nil {
+			t.Fatalf("StopPCAPReplay failed: %v", err)
+		}
+	})
+
+	t.Run("server error", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("stop failed"))
+		}))
+		defer server.Close()
+
+		c := NewClient(server.Client(), server.URL, "sensor1")
+		if err := c.StopPCAPReplay(); err == nil {
+			t.Fatal("expected error")
+		}
+	})
+}
+
+func TestClient_WaitForPCAPComplete(t *testing.T) {
+	t.Run("complete immediately", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			json.NewEncoder(w).Encode(map[string]interface{}{"pcap_in_progress": false})
+		}))
+		defer server.Close()
+
+		c := NewClient(server.Client(), server.URL, "sensor1")
+		if err := c.WaitForPCAPComplete(2 * time.Second); err != nil {
+			t.Fatalf("WaitForPCAPComplete failed: %v", err)
+		}
+	})
+
+	t.Run("timeout", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			json.NewEncoder(w).Encode(map[string]interface{}{"pcap_in_progress": true})
+		}))
+		defer server.Close()
+
+		c := NewClient(server.Client(), server.URL, "sensor1")
+		err := c.WaitForPCAPComplete(100 * time.Millisecond)
+		if err == nil {
+			t.Fatal("expected timeout error")
+		}
+		if !strings.Contains(err.Error(), "timeout") {
+			t.Fatalf("expected timeout error, got %v", err)
+		}
+	})
+}
