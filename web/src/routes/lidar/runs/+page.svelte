@@ -308,7 +308,7 @@
 					<!-- Source -->
 					{#if selectedRun.source_path}
 						<div>
-							<label class="text-surface-content/70 mb-1 block text-sm font-medium">Source</label>
+							<div class="text-surface-content/70 mb-1 block text-sm font-medium">Source</div>
 							<div
 								class="text-surface-content bg-surface-200 rounded px-3 py-2 font-mono text-xs break-all"
 							>
@@ -361,7 +361,7 @@
 
 					<!-- Scene info -->
 					<div>
-						<label class="text-surface-content/70 mb-1 block text-sm font-medium">Scene</label>
+						<div class="text-surface-content/70 mb-1 block text-sm font-medium">Scene</div>
 						{#if scene}
 							<dl class="text-sm">
 								<div class="flex justify-between py-1">
@@ -402,7 +402,7 @@
 
 					<!-- Track summary & labelling -->
 					<div>
-						<label class="text-surface-content/70 mb-1 block text-sm font-medium">Tracks</label>
+						<div class="text-surface-content/70 mb-1 block text-sm font-medium">Tracks</div>
 						{#if tracksLoading}
 							<p class="text-surface-content/50 text-sm">Loading tracks...</p>
 						{:else}
