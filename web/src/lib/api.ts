@@ -737,3 +737,30 @@ export async function deleteMissedRegion(runId: string, regionId: string): Promi
 	});
 	if (!res.ok) throw new Error(`Failed to delete missed region: ${res.status}`);
 }
+
+/**
+ * Delete all runs for a sensor
+ * @param sensorId - Sensor identifier (optional)
+ */
+export async function deleteAllRuns(sensorId?: string): Promise<void> {
+	const url = new URL(`${API_BASE}/lidar/runs/clear`, window.location.origin);
+	if (sensorId) {
+		url.searchParams.append('sensor_id', sensorId);
+	}
+	const res = await fetch(url, {
+		method: 'POST'
+	});
+	if (!res.ok) throw new Error(`Failed to delete all runs: ${res.status}`);
+}
+
+/**
+ * Delete a specific run track
+ * @param runId - Run identifier
+ * @param trackId - Track identifier
+ */
+export async function deleteRunTrack(runId: string, trackId: string): Promise<void> {
+	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/tracks/${trackId}`, {
+		method: 'DELETE'
+	});
+	if (!res.ok) throw new Error(`Failed to delete run track: ${res.status}`);
+}

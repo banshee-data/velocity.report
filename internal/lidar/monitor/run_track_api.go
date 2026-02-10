@@ -92,6 +92,13 @@ func (ws *WebServer) handleRunTrackAPI(w http.ResponseWriter, r *http.Request) {
 			ws.handleUpdateTrackLabel(w, r, runID, trackID)
 		case "flags":
 			ws.handleUpdateTrackFlags(w, r, runID, trackID)
+		case "":
+			// Handle DELETE /api/lidar/runs/{run_id}/tracks/{track_id}
+			if r.Method == http.MethodDelete {
+				ws.handleDeleteRunTrack(w, r, runID, trackID)
+			} else {
+				ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+			}
 		default:
 			ws.writeJSONError(w, http.StatusNotFound, "unknown track action")
 		}
@@ -235,6 +242,42 @@ func (ws *WebServer) handleUpdateTrackFlags(w http.ResponseWriter, r *http.Reque
 		"is_split":         isSplit,
 		"is_merge":         isMerge,
 		"linked_track_ids": req.LinkedTrackIDs,
+	})
+}
+
+// handleDeleteRunTrack deletes a specific track from a run.
+// DELETE /api/lidar/runs/{run_id}/tracks/{track_id}
+func (ws *WebServer) handleDeleteRunTrack(w http.ResponseWriter, r *http.Request, runID, trackID string) {
+	if r.Method != http.MethodDelete {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use DELETE")
+		return
+	}
+
+	// Delete the track from the run
+	query := `DELETE FROM lidar_run_tracks WHERE run_id = ? AND track_id = ?`
+	result, err := ws.db.DB.Exec(query, runID, trackID)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to delete track: %v", err))
+		return
+	}
+
+	// Check if any rows were affected
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to check delete result: %v", err))
+		return
+	}
+
+	if rowsAffected == 0 {
+		ws.writeJSONError(w, http.StatusNotFound, "track not found")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":   "ok",
+		"run_id":   runID,
+		"track_id": trackID,
 	})
 }
 

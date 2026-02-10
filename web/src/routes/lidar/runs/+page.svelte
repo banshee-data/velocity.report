@@ -5,7 +5,14 @@
 	 * Table layout with a detail panel that slides out to the right,
 	 * matching the scenes page layout pattern.
 	 */
-	import { getLabellingProgress, getLidarRuns, getLidarScenes, getRunTracks } from '$lib/api';
+	import {
+		deleteAllRuns,
+		deleteRunTrack,
+		getLabellingProgress,
+		getLidarRuns,
+		getLidarScenes,
+		getRunTracks
+	} from '$lib/api';
 	import type { AnalysisRun, LabellingProgress, LidarScene, RunTrack } from '$lib/types/lidar';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
@@ -14,6 +21,7 @@
 	let scenes: LidarScene[] = [];
 	let loading = true;
 	let error: string | null = null;
+	let deleteAllLoading = false;
 
 	// Selected run for detail panel
 	let selectedRun: AnalysisRun | null = null;
@@ -32,6 +40,55 @@
 			error = e instanceof Error ? e.message : 'Failed to load data';
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function handleDeleteAll() {
+		if (
+			!confirm(
+				'Are you sure you want to delete ALL runs? This action cannot be undone and will delete all analysis runs and their tracks.'
+			)
+		) {
+			return;
+		}
+
+		deleteAllLoading = true;
+		try {
+			await deleteAllRuns();
+			await loadData();
+			// If the selected run was deleted, clear the selection
+			if (selectedRun && !runs.find((r) => r.run_id === selectedRun!.run_id)) {
+				deselectRun();
+			}
+			alert('All runs deleted successfully');
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to delete runs';
+		} finally {
+			deleteAllLoading = false;
+		}
+	}
+
+	async function handleDeleteTrack(runId: string, trackId: string) {
+		if (
+			!confirm(`Are you sure you want to delete track ${trackId}? This action cannot be undone.`)
+		) {
+			return;
+		}
+
+		try {
+			await deleteRunTrack(runId, trackId);
+			// Reload tracks for the current run
+			if (selectedRun && selectedRun.run_id === runId) {
+				runTracks = runTracks.filter((t) => t.track_id !== trackId);
+				// Reload labelling progress
+				try {
+					labellingProgress = await getLabellingProgress(runId);
+				} catch {
+					labellingProgress = null;
+				}
+			}
+		} catch (e) {
+			alert(e instanceof Error ? e.message : 'Failed to delete track');
 		}
 	}
 
@@ -124,9 +181,19 @@
 					Analysis runs with parameters, scenes, and track summaries
 				</p>
 			</div>
-			<Button variant="outline" on:click={loadData} disabled={loading}>
-				{loading ? 'Loading...' : 'Refresh'}
-			</Button>
+			<div class="flex gap-2">
+				<Button
+					variant="outline"
+					color="danger"
+					on:click={handleDeleteAll}
+					disabled={deleteAllLoading || loading}
+				>
+					{deleteAllLoading ? 'Deleting...' : 'Delete All'}
+				</Button>
+				<Button variant="outline" on:click={loadData} disabled={loading}>
+					{loading ? 'Loading...' : 'Refresh'}
+				</Button>
+			</div>
 		</div>
 	</div>
 
@@ -374,6 +441,45 @@
 									{/if}
 								{/if}
 							</dl>
+
+							<!-- Track List with Delete buttons -->
+							{#if runTracks.length > 0}
+								<div class="mt-4">
+									<dt class="text-surface-content/70 mb-2 text-sm font-medium">
+										Track List ({runTracks.length})
+									</dt>
+									<div class="bg-surface-200 max-h-[300px] space-y-1 overflow-y-auto rounded p-2">
+										{#each runTracks as track (track.track_id)}
+											<div
+												class="bg-surface-100 flex items-center justify-between rounded px-2 py-1.5 text-xs"
+											>
+												<div class="flex-1">
+													<span class="text-surface-content/70 font-mono"
+														>{track.track_id.substring(0, 12)}</span
+													>
+													<span
+														class="text-surface-content/50 ml-2 rounded px-1.5 py-0.5 text-[10px] {track.track_state ===
+														'confirmed'
+															? 'bg-green-100 text-green-700'
+															: 'bg-gray-100 text-gray-700'}"
+													>
+														{track.track_state}
+													</span>
+												</div>
+												<button
+													type="button"
+													class="text-surface-content/40 ml-2 rounded px-1.5 py-0.5 text-xs transition-colors hover:bg-red-50 hover:text-red-600"
+													on:click={() =>
+														selectedRun && handleDeleteTrack(selectedRun.run_id, track.track_id)}
+													title="Delete track"
+												>
+													Delete
+												</button>
+											</div>
+										{/each}
+									</div>
+								</div>
+							{/if}
 
 							<!-- Link to tracks view -->
 							<div class="pt-3">
