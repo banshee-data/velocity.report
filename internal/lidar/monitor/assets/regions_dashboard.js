@@ -249,6 +249,8 @@ if (typeof module !== "undefined" && module.exports) {
 
 // ---- Page initialization (runs only in browser, not when required by Jest) ----
 function init() {
+  regionData = null;
+  selectedRegionId = null;
   canvas = document.getElementById("regionCanvas");
   ctx = canvas.getContext("2d");
   tooltip = document.getElementById("tooltip");

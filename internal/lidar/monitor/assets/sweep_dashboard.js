@@ -2404,6 +2404,12 @@ if (typeof module !== "undefined" && module.exports) {
 }
 
 function init() {
+  // Reset module-level state (prevents leaking between test runs)
+  latestResults = null;
+  stopRequested = false;
+  sweepScenesData = [];
+  currentSceneHasReference = false;
+
   sensorId = document.querySelector('meta[name="sensor-id"]').content;
 
   // Initialise charts empty on page load
