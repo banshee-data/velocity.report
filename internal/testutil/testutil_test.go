@@ -19,6 +19,17 @@ func TestAssertStatusCode(t *testing.T) {
 	AssertStatusCode(t, http.StatusNotFound, http.StatusNotFound)
 }
 
+func TestAssertStatusCode_FailurePath(t *testing.T) {
+	t.Parallel()
+
+	ok := t.Run("status mismatch", func(t *testing.T) {
+		AssertStatusCode(t, http.StatusOK, http.StatusBadRequest)
+	})
+	if ok {
+		t.Fatal("expected subtest to fail on mismatched status code")
+	}
+}
+
 func TestAssertNoError(t *testing.T) {
 	t.Parallel()
 
@@ -26,11 +37,33 @@ func TestAssertNoError(t *testing.T) {
 	AssertNoError(t, nil)
 }
 
+func TestAssertNoError_FailurePath(t *testing.T) {
+	t.Parallel()
+
+	ok := t.Run("unexpected error", func(t *testing.T) {
+		AssertNoError(t, errors.New("boom"))
+	})
+	if ok {
+		t.Fatal("expected subtest to fail when error is non-nil")
+	}
+}
+
 func TestAssertError(t *testing.T) {
 	t.Parallel()
 
 	// Verify non-nil error is handled correctly
 	AssertError(t, errors.New("test error"))
+}
+
+func TestAssertError_FailurePath(t *testing.T) {
+	t.Parallel()
+
+	ok := t.Run("missing expected error", func(t *testing.T) {
+		AssertError(t, nil)
+	})
+	if ok {
+		t.Fatal("expected subtest to fail when error is nil")
+	}
 }
 
 func TestNewTestRequest(t *testing.T) {
