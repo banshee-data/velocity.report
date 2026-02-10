@@ -2132,6 +2132,467 @@ describe('init', () => {
 	});
 });
 
+// ===========================================================================
+// Additional coverage: uncovered branches and formatter functions
+// ===========================================================================
+
+describe('window resize handler', () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+	});
+
+	afterEach(() => {
+		stopPolling();
+		jest.useRealTimers();
+	});
+
+	it('resizes all charts on window resize', () => {
+		window.dispatchEvent(new Event('resize'));
+		// Should not throw (charts are mocked with resize method)
+	});
+});
+
+describe('pollAutoTuneStatus with stopRequested', () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+		setMode('auto');
+	});
+
+	afterEach(() => {
+		stopPolling();
+		setMode('manual');
+		jest.useRealTimers();
+	});
+
+	it('shows stopping indicator when stopRequested in auto mode', async () => {
+		handleStop(); // sets stopRequested = true
+		(global.fetch as jest.Mock).mockClear();
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					status: 'running',
+					completed_combos: 5,
+					total_combos: 10,
+					total_rounds: 3,
+					round: 2
+				})
+		});
+		pollAutoTuneStatus();
+		await flushPromises();
+		expect(document.getElementById('stopping-indicator')!.style.display).toBe('block');
+		expect(document.getElementById('btn-stop')!.style.display).toBe('none');
+	});
+});
+
+describe('updateSweepSummary additional branches', () => {
+	beforeEach(setupDOM);
+
+	afterEach(() => {
+		setMode('manual');
+	});
+
+	it('auto mode with bool param (no start/end fields, else branch)', () => {
+		setMode('auto');
+		addParamRow('seed_from_first');
+		updateSweepSummary();
+		const html = document.getElementById('sweep-summary')!.innerHTML;
+		expect(html).toContain('5 values');
+	});
+
+	it('auto mode with per_combo settle (else branch for runtime)', () => {
+		setMode('auto');
+		addParamRow('noise_relative');
+		(document.getElementById('settle_mode') as HTMLSelectElement).value = 'per_combo';
+		(document.getElementById('seed') as HTMLSelectElement).value = 'true';
+		updateSweepSummary();
+		const html = document.getElementById('sweep-summary')!.innerHTML;
+		expect(html).toContain('estimated total runtime');
+	});
+});
+
+describe('loadScenario additional branches', () => {
+	beforeEach(setupDOM);
+
+	it('loads pcap_start_secs and pcap_duration_secs', () => {
+		loadScenario({
+			data_source: 'pcap',
+			pcap_file: 'test.pcap',
+			pcap_start_secs: 10,
+			pcap_duration_secs: 60,
+			params: []
+		});
+		expect(val('pcap_start_secs')).toBe('10');
+		expect(val('pcap_duration_secs')).toBe('60');
+	});
+});
+
+describe('handleStartAutoTune error branch', () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+		setMode('auto');
+	});
+
+	afterEach(() => {
+		stopPolling();
+		jest.useRealTimers();
+	});
+
+	it('shows error when auto endpoint returns non-ok', async () => {
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: false,
+			text: () => Promise.resolve('Auto-tune error response')
+		});
+		handleStartAutoTune();
+		await flushPromises();
+		expect(document.getElementById('error-box')!.textContent).toContain('Auto-tune error response');
+	});
+});
+
+describe('applyRecommendation error on params POST', () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+	});
+
+	afterEach(() => {
+		stopPolling();
+		jest.useRealTimers();
+	});
+
+	it('shows error when params POST fails', async () => {
+		let callIdx = 0;
+		global.fetch = jest.fn().mockImplementation((url: string) => {
+			if (url.includes('/api/lidar/sweep/auto')) {
+				return Promise.resolve({
+					ok: true,
+					json: () =>
+						Promise.resolve({
+							recommendation: { noise_relative: 0.05, score: 0.9 }
+						})
+				});
+			}
+			if (url.includes('/api/lidar/params')) {
+				return Promise.resolve({
+					ok: false,
+					text: () => Promise.resolve('Param apply rejected')
+				});
+			}
+			return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+		});
+		applyRecommendation();
+		await flushPromises();
+		expect(document.getElementById('error-box')!.textContent).toContain('Apply failed');
+	});
+});
+
+describe('applySceneParams invalid JSON', () => {
+	beforeEach(async () => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+		// Load scene with invalid JSON
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					scenes: [
+						{
+							scene_id: 's-bad',
+							pcap_file: 'test.pcap',
+							optimal_params_json: 'not valid json{'
+						}
+					]
+				})
+		});
+		loadSweepScenes();
+		await flushPromises();
+		(global.fetch as jest.Mock).mockClear();
+	});
+
+	afterEach(() => {
+		stopPolling();
+		jest.useRealTimers();
+	});
+
+	it('shows error when optimal_params_json is invalid', () => {
+		(document.getElementById('scene_select') as HTMLSelectElement).value = 's-bad';
+		onSweepSceneSelected();
+		applySceneParams();
+		expect(document.getElementById('error-box')!.textContent).toContain('Failed to parse');
+	});
+});
+
+describe('downloadCSV legacy format', () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+	});
+
+	afterEach(() => {
+		stopPolling();
+		jest.useRealTimers();
+	});
+
+	it('downloads CSV with legacy param keys', async () => {
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					status: 'complete',
+					completed_combos: 1,
+					total_combos: 1,
+					results: [
+						{
+							noise: 0.05,
+							closeness: 5,
+							neighbour: 1,
+							overall_accept_mean: 0.85,
+							overall_accept_stddev: 0.02,
+							nonzero_cells_mean: 100,
+							nonzero_cells_stddev: 5,
+							active_tracks_mean: 3,
+							active_tracks_stddev: 0.5,
+							alignment_deg_mean: 1.2,
+							alignment_deg_stddev: 0.3,
+							misalignment_ratio_mean: 0.05,
+							misalignment_ratio_stddev: 0.01
+						}
+					]
+				})
+		});
+		pollStatus();
+		await flushPromises();
+		(URL.createObjectURL as jest.Mock).mockClear();
+		downloadCSV();
+		expect(URL.createObjectURL).toHaveBeenCalled();
+	});
+});
+
+describe('init with manual sweep running', () => {
+	afterEach(() => {
+		stopPolling();
+		jest.useRealTimers();
+	});
+
+	it('starts polling when manual sweep is running on load', async () => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation((url: string) => {
+			if (url.includes('/api/lidar/sweep/auto')) {
+				return Promise.resolve({
+					ok: true,
+					json: () => Promise.resolve({ status: 'idle' })
+				});
+			}
+			if (url.includes('/api/lidar/sweep/status')) {
+				return Promise.resolve({
+					ok: true,
+					json: () =>
+						Promise.resolve({
+							status: 'running',
+							completed_combos: 3,
+							total_combos: 10,
+							results: []
+						})
+				});
+			}
+			return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+		});
+		init();
+		await flushPromises();
+		// Manual sweep running should trigger startPolling
+		// The fetch for sweep/status should have been called
+		const calls = (global.fetch as jest.Mock).mock.calls.map((c: any[]) => c[0]);
+		expect(calls).toContain('/api/lidar/sweep/status');
+	});
+
+	it('shows results when auto error and manual sweep has results', async () => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation((url: string) => {
+			if (url.includes('/api/lidar/sweep/auto')) {
+				return Promise.reject(new Error('Auto not available'));
+			}
+			if (url.includes('/api/lidar/sweep/status')) {
+				return Promise.resolve({
+					ok: true,
+					json: () =>
+						Promise.resolve({
+							status: 'complete',
+							completed_combos: 2,
+							total_combos: 2,
+							results: makeTestResults()
+						})
+				});
+			}
+			return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+		});
+		init();
+		await flushPromises();
+		expect(document.getElementById('results-body')!.children.length).toBeGreaterThan(0);
+	});
+
+	it('starts polling when auto error and manual sweep is running', async () => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation((url: string) => {
+			if (url.includes('/api/lidar/sweep/auto')) {
+				return Promise.reject(new Error('Auto not available'));
+			}
+			if (url.includes('/api/lidar/sweep/status')) {
+				return Promise.resolve({
+					ok: true,
+					json: () =>
+						Promise.resolve({
+							status: 'running',
+							completed_combos: 1,
+							total_combos: 10
+						})
+				});
+			}
+			return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+		});
+		init();
+		await flushPromises();
+		// Should have started polling
+		const calls = (global.fetch as jest.Mock).mock.calls.map((c: any[]) => c[0]);
+		expect(
+			calls.filter((u: string) => u.includes('/api/lidar/sweep/status')).length
+		).toBeGreaterThanOrEqual(1);
+	});
+});
+
+describe('ECharts formatter functions', () => {
+	beforeEach(() => {
+		setupDOM();
+		(global as any).echarts.init.mockClear();
+		initCharts();
+	});
+
+	it('acceptance chart yAxis formatter returns percentage string', () => {
+		renderCharts(makeTestResults());
+		const optCalls = (global as any).echarts.init.mock.results;
+		// acceptChart is the first init call
+		const acceptMock = optCalls[0].value;
+		const opts = acceptMock.setOption.mock.calls[1][0]; // second call from renderCharts
+		const formatter = opts.yAxis.axisLabel.formatter;
+		expect(formatter(0.85)).toBe('85%');
+		expect(formatter(1)).toBe('100%');
+	});
+
+	it('bucket chart tooltip formatter returns bucket info', () => {
+		renderCharts(makeTestResults());
+		const optCalls = (global as any).echarts.init.mock.results;
+		// bktChart is the third init call (index 2)
+		const bktMock = optCalls[2].value;
+		const lastCallIdx = bktMock.setOption.mock.calls.length - 1;
+		const opts = bktMock.setOption.mock.calls[lastCallIdx][0];
+		const formatter = opts.tooltip.formatter;
+		expect(formatter({ value: [0, 1, 0.85] })).toContain('85.00%');
+	});
+
+	it('bucket chart visualMap formatter returns percentage string', () => {
+		renderCharts(makeTestResults());
+		const optCalls = (global as any).echarts.init.mock.results;
+		const bktMock = optCalls[2].value;
+		const lastCallIdx = bktMock.setOption.mock.calls.length - 1;
+		const opts = bktMock.setOption.mock.calls[lastCallIdx][0];
+		const formatter = opts.visualMap.formatter;
+		expect(formatter(0.9)).toBe('90.0%');
+	});
+
+	it('alignment chart tooltip formatter returns alignment info', () => {
+		renderCharts(makeTestResults());
+		const optCalls = (global as any).echarts.init.mock.results;
+		// alignChart is the 4th init call (index 3)
+		const alignMock = optCalls[3].value;
+		const lastCallIdx = alignMock.setOption.mock.calls.length - 1;
+		const opts = alignMock.setOption.mock.calls[lastCallIdx][0];
+		const formatter = opts.tooltip.formatter;
+		const result = formatter([{ dataIndex: 0 }]);
+		expect(result).toContain('Alignment:');
+		expect(result).toContain('Misalignment:');
+	});
+
+	it('alignment chart yAxis formatter returns percentage string', () => {
+		renderCharts(makeTestResults());
+		const optCalls = (global as any).echarts.init.mock.results;
+		const alignMock = optCalls[3].value;
+		const lastCallIdx = alignMock.setOption.mock.calls.length - 1;
+		const opts = alignMock.setOption.mock.calls[lastCallIdx][0];
+		const formatter = opts.yAxis[1].axisLabel.formatter;
+		expect(formatter(0.05)).toBe('5%');
+	});
+
+	it('param heatmap tooltip formatter returns param info', () => {
+		renderCharts(makeTestResults());
+		const optCalls = (global as any).echarts.init.mock.results;
+		// paramHeatmapChart is the 6th init call (index 5)
+		const hmMock = optCalls[5].value;
+		const lastCallIdx = hmMock.setOption.mock.calls.length - 1;
+		const opts = hmMock.setOption.mock.calls[lastCallIdx][0];
+		const formatter = opts.tooltip.formatter;
+		const result = formatter({ value: [0, 0, 0.9] });
+		expect(result).toContain('Accept:');
+		expect(result).toContain('90.00%');
+	});
+
+	it('param heatmap visualMap formatter returns percentage string', () => {
+		renderCharts(makeTestResults());
+		const optCalls = (global as any).echarts.init.mock.results;
+		const hmMock = optCalls[5].value;
+		const lastCallIdx = hmMock.setOption.mock.calls.length - 1;
+		const opts = hmMock.setOption.mock.calls[lastCallIdx][0];
+		const formatter = opts.visualMap.formatter;
+		expect(formatter(0.85)).toBe('85.0%');
+	});
+
+	it('tracks heatmap tooltip formatter returns track info', () => {
+		renderCharts(makeTestResults());
+		const optCalls = (global as any).echarts.init.mock.results;
+		// tracksHeatmapChart is the 7th init call (index 6)
+		const thmMock = optCalls[6].value;
+		const lastCallIdx = thmMock.setOption.mock.calls.length - 1;
+		const opts = thmMock.setOption.mock.calls[lastCallIdx][0];
+		const formatter = opts.tooltip.formatter;
+		const result = formatter({ value: [0, 0, 3.5] });
+		expect(result).toContain('Tracks:');
+		expect(result).toContain('3.5');
+	});
+
+	it('alignment heatmap tooltip formatter returns alignment info', () => {
+		renderCharts(makeTestResults());
+		const optCalls = (global as any).echarts.init.mock.results;
+		// alignHeatmapChart is the 8th init call (index 7)
+		const ahmMock = optCalls[7].value;
+		const lastCallIdx = ahmMock.setOption.mock.calls.length - 1;
+		const opts = ahmMock.setOption.mock.calls[lastCallIdx][0];
+		const formatter = opts.tooltip.formatter;
+		const result = formatter({ value: [0, 0, 1.2] });
+		expect(result).toContain('Alignment:');
+	});
+});
+
 // Cleanup URL mocks
 afterAll(() => {
 	URL.createObjectURL = origCreateObjectURL;
