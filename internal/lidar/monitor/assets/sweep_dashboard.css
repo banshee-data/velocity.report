@@ -12,25 +12,30 @@ body {
 }
 
 #charts-section {
+  margin-top: 12px;
+}
+
+#chart-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
 }
 
-#charts-section > .card {
+#chart-grid > .card {
   margin-bottom: 0;
   min-width: 0;
   overflow: hidden;
+  position: relative;
 }
 
 @media (max-width: 1600px) {
-  #charts-section {
+  #chart-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (max-width: 900px) {
-  #charts-section {
+  #chart-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -139,16 +144,16 @@ body {
 }
 
 /* Scenario card fills height */
-.scenario-card {
+.scene-card {
   display: flex;
   flex-direction: column;
 }
 
-.scenario-card > h2 {
+.scene-card > h2 {
   flex-shrink: 0;
 }
 
-.scenario-card-content {
+.scene-card-content {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -179,7 +184,7 @@ body {
 
 /* Results table spans full width below charts */
 #results-card {
-  grid-column: 1 / -1;
+  margin-top: 12px;
 }
 
 /* Parameter rows */
@@ -232,7 +237,7 @@ body {
   margin-top: 10px;
 }
 
-.scenario-bar {
+.scene-bar {
   display: flex;
   gap: 8px;
   align-items: center;
@@ -419,4 +424,80 @@ body.auto-mode .param-field-values {
   font-size: 12px;
   color: var(--fg-muted);
   margin-top: 4px;
+}
+
+/* Sweep history bar */
+#sweep-history-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+  margin-top: 12px;
+}
+
+#sweep-history-bar label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--fg-muted);
+}
+
+#sweep-history-select {
+  min-width: 300px;
+}
+
+/* Chart toolbar */
+#chart-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+/* Chart card actions (edit / delete buttons overlay) */
+.chart-card-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+#chart-grid > .card:hover .chart-card-actions {
+  opacity: 1;
+}
+
+.chart-card-actions button {
+  padding: 2px 6px;
+  font-size: 11px;
+  background: var(--card-border);
+  color: var(--fg);
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.chart-card-actions button:hover {
+  background: var(--input-border);
+}
+
+/* Modal overlay */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  width: 420px;
+  max-width: 90vw;
+  max-height: 80vh;
+  overflow-y: auto;
 }

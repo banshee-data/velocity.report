@@ -29,15 +29,12 @@ var pollTimer = null;
 var stopRequested = false;
 var sweepMode = "manual"; // 'manual' or 'auto'
 var sensorId = null;
-var acceptChart = null;
-var nzChart = null;
-var bktChart = null;
-var alignChart = null;
-var tracksChart = null;
-var paramHeatmapChart = null;
-var tracksHeatmapChart = null;
-var alignHeatmapChart = null;
 var latestResults = null;
+var chartConfigs = [];
+var chartInstances = {};
+var chartConfigCounter = 0;
+var currentSweepId = null;
+var viewingHistorical = false;
 
 // Detect dark mode for ECharts (guarded for test environments)
 var isDark =
@@ -210,6 +207,68 @@ var PARAM_SCHEMA = {
 var paramNames = Object.keys(PARAM_SCHEMA);
 var paramCounter = 0;
 
+var CHART_COLORS = [
+  "#5470c6",
+  "#91cc75",
+  "#fac858",
+  "#ee6666",
+  "#73c0de",
+  "#3ba272",
+  "#fc8452",
+  "#9a60b4",
+];
+
+var METRIC_KEYS = [
+  "overall_accept_mean",
+  "overall_accept_stddev",
+  "nonzero_cells_mean",
+  "nonzero_cells_stddev",
+  "active_tracks_mean",
+  "active_tracks_stddev",
+  "alignment_deg_mean",
+  "alignment_deg_stddev",
+  "misalignment_ratio_mean",
+  "misalignment_ratio_stddev",
+  "heading_jitter_deg_mean",
+  "heading_jitter_deg_stddev",
+  "fragmentation_ratio_mean",
+  "fragmentation_ratio_stddev",
+  "ground_truth_score",
+  "detection_rate",
+  "false_positive_rate",
+];
+
+function metricLabel(key) {
+  if (key === "_combo") return "Combination";
+  var schema = PARAM_SCHEMA[key];
+  if (schema) return schema.label;
+  return key
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, function (c) {
+      return c.toUpperCase();
+    });
+}
+
+function extractValue(result, key) {
+  if (result.param_values && result.param_values[key] !== undefined) {
+    return result.param_values[key];
+  }
+  if (result[key] !== undefined) {
+    return result[key];
+  }
+  return null;
+}
+
+function getAvailableMetrics(results) {
+  if (!results || results.length === 0) return { params: [], metrics: [] };
+  var r0 = results[0];
+  var params = Object.keys(r0.param_values || {});
+  var metrics = METRIC_KEYS.filter(function (k) {
+    return r0[k] !== undefined;
+  });
+  return { params: params, metrics: metrics };
+}
+
 function val(id) {
   return document.getElementById(id).value;
 }
@@ -280,7 +339,7 @@ function onSweepSceneSelected() {
     return;
   }
 
-  // Populate the PCAP fields so buildScenarioJSON / handleStartAutoTune can read them
+  // Populate the PCAP fields so buildSceneJSON / handleStartAutoTune can read them
   document.getElementById("pcap_file").value = scene.pcap_file;
   if (scene.pcap_start_secs != null) {
     document.getElementById("pcap_start_secs").value = scene.pcap_start_secs;
@@ -662,9 +721,9 @@ function updateSweepSummary() {
   el.innerHTML = html;
 }
 
-// ---- Scenario management ----
+// ---- Scene management ----
 
-function buildScenarioJSON() {
+function buildSceneJSON() {
   var ds = val("data_source");
   var req = {
     seed: val("seed"),
@@ -741,24 +800,24 @@ function buildScenarioJSON() {
   return req;
 }
 
-function downloadScenario() {
-  var obj = buildScenarioJSON();
+function downloadScene() {
+  var obj = buildSceneJSON();
   var json = JSON.stringify(obj, null, 2);
   var blob = new Blob([json], { type: "application/json" });
   var a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "sweep-scenario.json";
+  a.download = "sweep-scene.json";
   a.click();
   URL.revokeObjectURL(a.href);
 }
 
-function uploadScenario(input) {
+function uploadScene(input) {
   if (!input.files || !input.files[0]) return;
   var reader = new FileReader();
   reader.onload = function (e) {
     try {
       var obj = JSON.parse(e.target.result);
-      loadScenario(obj);
+      loadScene(obj);
     } catch (err) {
       showError("Invalid JSON: " + err.message);
     }
@@ -767,7 +826,7 @@ function uploadScenario(input) {
   input.value = "";
 }
 
-function loadScenario(obj) {
+function loadScene(obj) {
   if (obj.seed) document.getElementById("seed").value = obj.seed;
   if (obj.iterations)
     document.getElementById("iterations").value = obj.iterations;
@@ -831,7 +890,7 @@ function toggleJSONEditor() {
     wrap.style.display = "";
     applyBtn.style.display = "";
     document.getElementById("scenario-json").value = JSON.stringify(
-      buildScenarioJSON(),
+      buildSceneJSON(),
       null,
       2,
     );
@@ -844,7 +903,7 @@ function toggleJSONEditor() {
 function applyJSONEditor() {
   try {
     var obj = JSON.parse(document.getElementById("scenario-json").value);
-    loadScenario(obj);
+    loadScene(obj);
     showError("");
     // Hide the editor after successful apply
     document.getElementById("json-editor-wrap").style.display = "none";
@@ -872,7 +931,7 @@ function handleStart() {
 }
 
 function handleStartManualSweep() {
-  var req = buildScenarioJSON();
+  var req = buildSceneJSON();
   req.mode = "params";
 
   if (!req.params || req.params.length === 0) {
@@ -2373,10 +2432,10 @@ if (typeof module !== "undefined" && module.exports) {
     addParamRow: addParamRow,
     removeParamRow: removeParamRow,
     updateParamFields: updateParamFields,
-    buildScenarioJSON: buildScenarioJSON,
-    downloadScenario: downloadScenario,
-    uploadScenario: uploadScenario,
-    loadScenario: loadScenario,
+    buildSceneJSON: buildSceneJSON,
+    downloadScene: downloadScene,
+    uploadScene: uploadScene,
+    loadScene: loadScene,
     toggleJSONEditor: toggleJSONEditor,
     applyJSONEditor: applyJSONEditor,
     handleStart: handleStart,
