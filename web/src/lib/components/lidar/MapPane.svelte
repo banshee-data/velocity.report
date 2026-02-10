@@ -94,7 +94,7 @@
 		foreground ||
 		foregroundOffset ||
 		foregroundEnabled ||
-		currentTime ||
+		currentTime != null ||
 		missedRegions ||
 		markMissedMode
 	) {
@@ -102,15 +102,19 @@
 	}
 
 	// Pre-compute time-filtered observation subsets (avoids filtering inside render loop)
-	$: visibleForegroundObs = currentTime
-		? foreground.filter((obs) => !obs.timestamp || new Date(obs.timestamp).getTime() <= currentTime)
-		: foreground;
+	$: visibleForegroundObs =
+		currentTime != null
+			? foreground.filter(
+					(obs) => !obs.timestamp || new Date(obs.timestamp).getTime() <= currentTime
+				)
+			: foreground;
 
-	$: visibleSelectedObs = currentTime
-		? observations.filter(
-				(obs) => !obs.timestamp || new Date(obs.timestamp).getTime() <= currentTime
-			)
-		: observations;
+	$: visibleSelectedObs =
+		currentTime != null
+			? observations.filter(
+					(obs) => !obs.timestamp || new Date(obs.timestamp).getTime() <= currentTime
+				)
+			: observations;
 
 	// Mark view as needing re-render
 	function markDirty() {

@@ -504,8 +504,7 @@
           </form>
         </li>
         <li>
-          <form action="/api/lidar/runs/clear" method="post" target="_blank" style="margin: 0;">
-            <input type="hidden" name="sensor_id" value="{{.SensorID}}" />
+          <form action="/api/lidar/runs/clear?sensor_id={{.SensorID}}" method="post" target="_blank" style="margin: 0;">
             <button type="submit">&#x1F6A8; Clear Runs &#x1F6A8;</button>
           </form>
         </li>

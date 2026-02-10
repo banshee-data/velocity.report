@@ -45,7 +45,8 @@
 	const PLAYBACK_UPDATE_FREQUENCY_HZ = 10; // 10Hz
 
 	// State
-	let sensorId = $page.url.searchParams.get('sensor_id') || 'hesai-pandar40p';
+	// Reactive to URL changes - updates when user navigates with different sensor_id param
+	$: sensorId = $page.url.searchParams.get('sensor_id') || 'hesai-pandar40p';
 	let selectedTime = Date.now();
 	let playbackSpeed = 1.0;
 	let isPlaying = false;
@@ -585,10 +586,11 @@
 				<!-- Sensor Selection -->
 				<SelectField
 					label="Sensor"
-					bind:value={sensorId}
+					value={sensorId}
 					options={[{ label: 'Hesai Pandar40P', value: 'hesai-pandar40p' }]}
 					size="sm"
 					class="w-48"
+					disabled
 				/>
 
 				<!-- Phase 3: Scene Selection -->
