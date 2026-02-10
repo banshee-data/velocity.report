@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
 
 <head>
   <title>LiDAR Background Regions - %[1]s</title>
-  <meta name="sensor-id" content="%[1]s">
-  <link rel="stylesheet" href="/assets/common.css">
+  <meta name="sensor-id" content="%[1]s" />
+  <link rel="stylesheet" href="/assets/common.css" />
   <style>
     .container {
       max-width: 1400px;
@@ -168,7 +168,9 @@
         <div class="info-item">
           <div class="info-label">Actions</div>
           <div class="info-value">
-            <button class="refresh-btn" onclick="loadRegions()">Refresh</button>
+            <button class="refresh-btn" onclick="loadRegions()">
+              Refresh
+            </button>
           </div>
         </div>
       </div>
@@ -185,6 +187,7 @@
     <div class="region-tooltip" id="tooltip"></div>
   </div>
 
+  <script src="/assets/dashboard_common.js"></script>
   <script src="/assets/regions_dashboard.js"></script>
 </body>
 

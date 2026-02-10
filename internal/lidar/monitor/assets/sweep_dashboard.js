@@ -1,6 +1,28 @@
 /* sweep_dashboard.js — extracted from sweep_dashboard.html for testability. */
 /* global echarts */
 
+/* Shared utilities: browser receives them via prior <script> tag;
+   Node/Jest pulls them in via require(). */
+var _common =
+  typeof module !== "undefined" && typeof require === "function"
+    ? require("./dashboard_common.js")
+    : null;
+var escapeHTML = _common
+  ? _common.escapeHTML
+  : typeof window !== "undefined"
+    ? window.escapeHTML
+    : undefined;
+var parseDuration = _common
+  ? _common.parseDuration
+  : typeof window !== "undefined"
+    ? window.parseDuration
+    : undefined;
+var formatDuration = _common
+  ? _common.formatDuration
+  : typeof window !== "undefined"
+    ? window.formatDuration
+    : undefined;
+
 var pollTimer = null;
 var stopRequested = false;
 var sweepMode = "manual"; // 'manual' or 'auto'
@@ -328,9 +350,9 @@ function addParamRow(name) {
   // Name dropdown
   var selHtml =
     '<label class="param-name"><span>Parameter</span><select id="pname-' +
-    id +
+    escapeHTML(id) +
     '" onchange="updateParamFields(' +
-    id +
+    escapeHTML(id) +
     ')">';
   selHtml += '<option value="">-- select --</option>';
   for (var i = 0; i < paramNames.length; i++) {
@@ -338,20 +360,26 @@ function addParamRow(name) {
     var schema = PARAM_SCHEMA[pn];
     var sel = name === pn ? " selected" : "";
     selHtml +=
-      '<option value="' + pn + '"' + sel + ">" + schema.label + "</option>";
+      '<option value="' +
+      escapeHTML(pn) +
+      '"' +
+      sel +
+      ">" +
+      escapeHTML(schema.label) +
+      "</option>";
   }
   selHtml += "</select></label>";
 
   row.innerHTML =
     selHtml +
     '<div id="pfields-' +
-    id +
+    escapeHTML(id) +
     '" class="param-fields"></div>' +
     '<button class="btn-sm btn-remove param-remove" onclick="removeParamRow(' +
-    id +
+    escapeHTML(id) +
     ')">×</button>' +
     '<div id="pdesc-' +
-    id +
+    escapeHTML(id) +
     '" class="param-desc"></div>';
 
   container.appendChild(row);
@@ -390,38 +418,38 @@ function updateParamFields(id) {
     var endVal = schema.defaultEnd !== undefined ? schema.defaultEnd : 1;
     fieldsEl.innerHTML =
       '<label class="param-field"><span>Start</span><input id="pstart-' +
-      id +
+      escapeHTML(id) +
       '" type="number" step="' +
-      step +
+      escapeHTML(step) +
       '" value="' +
-      startVal +
+      escapeHTML(startVal) +
       '"></label>' +
       '<label class="param-field"><span>End</span><input id="pend-' +
-      id +
+      escapeHTML(id) +
       '" type="number" step="' +
-      step +
+      escapeHTML(step) +
       '" value="' +
-      endVal +
+      escapeHTML(endVal) +
       '"></label>' +
       '<label class="param-field param-field-step"><span>Step</span><input id="pstep-' +
-      id +
+      escapeHTML(id) +
       '" type="number" step="' +
-      step +
+      escapeHTML(step) +
       '" value="' +
-      step +
+      escapeHTML(step) +
       '"></label>' +
       '<label class="param-field param-field-values" style="flex:2"><span>Values (overrides)</span><input id="pvals-' +
-      id +
+      escapeHTML(id) +
       '" type="text" placeholder="e.g. 0.01, 0.02, 0.05"></label>';
   } else if (typ === "bool") {
     fieldsEl.innerHTML =
       '<label class="param-field"><span>Values</span><input id="pvals-' +
-      id +
+      escapeHTML(id) +
       '" type="text" value="true, false"></label>';
   } else if (typ === "string") {
     fieldsEl.innerHTML =
       '<label class="param-field" style="flex:2"><span>Values</span><input id="pvals-' +
-      id +
+      escapeHTML(id) +
       '" type="text" placeholder="e.g. 500ms, 1s, 2s"></label>';
   }
   updateSweepSummary();
@@ -433,44 +461,6 @@ function showError(msg) {
   var el = document.getElementById("error-box");
   el.textContent = msg;
   el.style.display = msg ? "" : "none";
-}
-
-// Parse Go-style duration string to seconds (e.g. "5s" -> 5, "500ms" -> 0.5, "2m" -> 120, "1m30s" -> 90)
-function parseDuration(s) {
-  if (!s) return 0;
-  var total = 0;
-  var re = /(\d+(?:\.\d+)?)(ms|s|m|h)/g;
-  var match;
-  while ((match = re.exec(s)) !== null) {
-    var v = parseFloat(match[1]);
-    switch (match[2]) {
-      case "h":
-        total += v * 3600;
-        break;
-      case "m":
-        total += v * 60;
-        break;
-      case "s":
-        total += v;
-        break;
-      case "ms":
-        total += v / 1000;
-        break;
-    }
-  }
-  return total;
-}
-
-function formatDuration(secs) {
-  if (secs < 60) return secs.toFixed(0) + "s";
-  if (secs < 3600) {
-    var m = Math.floor(secs / 60);
-    var s = Math.round(secs % 60);
-    return s > 0 ? m + "m " + s + "s" : m + "m";
-  }
-  var h = Math.floor(secs / 3600);
-  var m = Math.round((secs % 3600) / 60);
-  return m > 0 ? h + "h " + m + "m" : h + "h";
 }
 
 function getParamValueCount(rowId) {
@@ -533,18 +523,22 @@ function updateSweepSummary() {
       if (startEl && endEl) {
         parts.push(
           "<strong>" +
-            label +
+            escapeHTML(label) +
             "</strong>: " +
-            startEl.value +
+            escapeHTML(startEl.value) +
             " \u2192 " +
-            endEl.value +
+            escapeHTML(endEl.value) +
             " (" +
-            valuesPerParam +
+            escapeHTML(valuesPerParam) +
             " values)",
         );
       } else {
         parts.push(
-          "<strong>" + label + "</strong>: " + valuesPerParam + " values",
+          "<strong>" +
+            escapeHTML(label) +
+            "</strong>: " +
+            escapeHTML(valuesPerParam) +
+            " values",
         );
       }
       anyParam = true;
@@ -553,7 +547,13 @@ function updateSweepSummary() {
       var count = getParamValueCount(rowId);
       if (count === 0) continue;
       anyParam = true;
-      parts.push("<strong>" + label + "</strong>: " + count + " values");
+      parts.push(
+        "<strong>" +
+          escapeHTML(label) +
+          "</strong>: " +
+          escapeHTML(count) +
+          " values",
+      );
       total *= count;
     }
   }
@@ -591,25 +591,33 @@ function updateSweepSummary() {
     }
     var totalRuntime = runtimePerRound * maxRounds;
 
-    html += "<br/><strong>" + total + "</strong> permutations/round";
+    html +=
+      "<br/><strong>" + escapeHTML(total) + "</strong> permutations/round";
     if (seedMultiplier > 1) {
       html +=
-        " &times; seed toggle &times;2 = <strong>" + perRound + "</strong>";
+        " &times; seed toggle &times;2 = <strong>" +
+        escapeHTML(perRound) +
+        "</strong>";
     }
     html +=
       " &times; <strong>" +
-      maxRounds +
+      escapeHTML(maxRounds) +
       "</strong> rounds = <strong>" +
-      totalAcrossRounds +
+      escapeHTML(totalAcrossRounds) +
       "</strong> total";
     html +=
       "<br/>active measurement per permutation: <strong>" +
-      formatDuration(activeMeasurementSecs) +
+      escapeHTML(formatDuration(activeMeasurementSecs)) +
       "</strong>";
-    html += " (" + iterations + " &times; " + val("interval") + ")";
+    html +=
+      " (" +
+      escapeHTML(iterations) +
+      " &times; " +
+      escapeHTML(val("interval")) +
+      ")";
     html +=
       " &middot; estimated total runtime: <strong>~" +
-      formatDuration(totalRuntime) +
+      escapeHTML(formatDuration(totalRuntime)) +
       "</strong>";
   } else {
     var runtimeSecs;
@@ -623,22 +631,30 @@ function updateSweepSummary() {
       runtimeSecs = totalWithSeed * (settleSecs + activeMeasurementSecs);
     }
 
-    html += "<br/><strong>" + total + "</strong> permutations";
+    html += "<br/><strong>" + escapeHTML(total) + "</strong> permutations";
     if (seedMultiplier > 1) {
       html +=
         " &times; seed toggle &times;2 = <strong>" +
-        totalWithSeed +
+        escapeHTML(totalWithSeed) +
         "</strong> total";
     }
-    html += " &middot; <strong>" + iterations + "</strong> iterations each";
+    html +=
+      " &middot; <strong>" +
+      escapeHTML(iterations) +
+      "</strong> iterations each";
     html +=
       "<br/>active measurement per permutation: <strong>" +
-      formatDuration(activeMeasurementSecs) +
+      escapeHTML(formatDuration(activeMeasurementSecs)) +
       "</strong>";
-    html += " (" + iterations + " &times; " + val("interval") + ")";
+    html +=
+      " (" +
+      escapeHTML(iterations) +
+      " &times; " +
+      escapeHTML(val("interval")) +
+      ")";
     html +=
       " &middot; estimated total runtime: <strong>~" +
-      formatDuration(runtimeSecs) +
+      escapeHTML(formatDuration(runtimeSecs)) +
       "</strong>";
   }
   el.innerHTML = html;
@@ -1077,12 +1093,12 @@ function pollStatus() {
       if (st.warnings && st.warnings.length > 0) {
         warnEl.innerHTML =
           '<div class="section-title" style="margin-top:8px">Warnings (' +
-          st.warnings.length +
+          escapeHTML(st.warnings.length) +
           ")</div>" +
           '<ul style="margin:4px 0 0 16px;padding:0;font-size:12px;color:var(--fg-faint)">' +
           st.warnings
             .map(function (w) {
-              return "<li>" + w.replace(/</g, "&lt;") + "</li>";
+              return "<li>" + escapeHTML(w) + "</li>";
             })
             .join("") +
           "</ul>";
@@ -1153,10 +1169,10 @@ function pollAutoTuneStatus() {
         var lastRound = st.round_results[st.round_results.length - 1];
         cc.innerHTML =
           '<div class="auto-progress">Last round best score: <strong>' +
-          (lastRound.best_score || 0).toFixed(4) +
+          escapeHTML((lastRound.best_score || 0).toFixed(4)) +
           "</strong>" +
           " \u2014 " +
-          formatParamValues(lastRound.best_params) +
+          escapeHTML(formatParamValues(lastRound.best_params)) +
           "</div>";
       } else if (st.status === "running") {
         cc.textContent = "Running initial round...";
@@ -1239,10 +1255,10 @@ function renderRecommendation(rec, roundResults) {
     paramHtml +=
       '<div class="recommendation-param">' +
       '<div class="param-name">' +
-      label +
+      escapeHTML(label) +
       "</div>" +
       '<div class="param-value">' +
-      displayVal +
+      escapeHTML(displayVal) +
       "</div>" +
       "</div>";
   });
@@ -1252,23 +1268,23 @@ function renderRecommendation(rec, roundResults) {
   var metricsHtml = '<div class="recommendation-metrics">';
   metricsHtml +=
     '<div class="metric">Score: <span class="metric-value">' +
-    (rec.score || 0).toFixed(4) +
+    escapeHTML((rec.score || 0).toFixed(4)) +
     "</span></div>";
   metricsHtml +=
     '<div class="metric">Accept: <span class="metric-value">' +
-    ((rec.acceptance_rate || 0) * 100).toFixed(2) +
+    escapeHTML(((rec.acceptance_rate || 0) * 100).toFixed(2)) +
     "%</span></div>";
   metricsHtml +=
     '<div class="metric">Misalignment: <span class="metric-value">' +
-    ((rec.misalignment_ratio || 0) * 100).toFixed(1) +
+    escapeHTML(((rec.misalignment_ratio || 0) * 100).toFixed(1)) +
     "%</span></div>";
   metricsHtml +=
     '<div class="metric">Alignment: <span class="metric-value">' +
-    (rec.alignment_deg || 0).toFixed(1) +
+    escapeHTML((rec.alignment_deg || 0).toFixed(1)) +
     "\u00b0</span></div>";
   metricsHtml +=
     '<div class="metric">Nonzero Cells: <span class="metric-value">' +
-    (rec.nonzero_cells || 0).toFixed(0) +
+    escapeHTML((rec.nonzero_cells || 0).toFixed(0)) +
     "</span></div>";
   metricsHtml += "</div>";
 
@@ -1277,7 +1293,7 @@ function renderRecommendation(rec, roundResults) {
   if (roundResults && roundResults.length > 0) {
     historyHtml =
       '<details class="round-history"><summary>Round History (' +
-      roundResults.length +
+      escapeHTML(roundResults.length) +
       " rounds)</summary>";
     roundResults.forEach(function (rs) {
       var boundsStr = Object.keys(rs.bounds || {})
@@ -1285,17 +1301,24 @@ function renderRecommendation(rec, roundResults) {
           var b = rs.bounds[k];
           var schema = PARAM_SCHEMA[k];
           var label = schema ? schema.label : k;
-          return label + ": [" + b[0].toFixed(4) + ", " + b[1].toFixed(4) + "]";
+          return (
+            escapeHTML(label) +
+            ": [" +
+            escapeHTML(b[0].toFixed(4)) +
+            ", " +
+            escapeHTML(b[1].toFixed(4)) +
+            "]"
+          );
         })
         .join(" &middot; ");
       historyHtml +=
         '<div class="round-item">' +
         "Round " +
-        rs.round +
+        escapeHTML(rs.round) +
         ": " +
-        rs.num_combos +
+        escapeHTML(rs.num_combos) +
         " combos, best score=" +
-        (rs.best_score || 0).toFixed(4) +
+        escapeHTML((rs.best_score || 0).toFixed(4)) +
         "<br/>" +
         boundsStr +
         "</div>";
@@ -2133,7 +2156,7 @@ function renderTable(results) {
   var headerHtml = "<tr>";
   paramKeys.forEach(function (k) {
     var schema = PARAM_SCHEMA[k];
-    headerHtml += "<th>" + (schema ? schema.label : k) + "</th>";
+    headerHtml += "<th>" + escapeHTML(schema ? schema.label : k) + "</th>";
   });
 
   if (hasGroundTruth) {
@@ -2171,9 +2194,9 @@ function renderTable(results) {
         v = r[k];
       }
       if (typeof v === "number" && v !== Math.floor(v)) {
-        html += '<td class="mono">' + v.toFixed(4) + "</td>";
+        html += '<td class="mono">' + escapeHTML(v.toFixed(4)) + "</td>";
       } else {
-        html += '<td class="mono">' + v + "</td>";
+        html += '<td class="mono">' + escapeHTML(v) + "</td>";
       }
     });
 
@@ -2181,59 +2204,61 @@ function renderTable(results) {
       // Phase 5.4: Ground truth score columns
       html +=
         '<td class="mono">' +
-        ((r.ground_truth_score || r.composite_score || 0) * 100).toFixed(2) +
+        escapeHTML(
+          ((r.ground_truth_score || r.composite_score || 0) * 100).toFixed(2),
+        ) +
         "</td>";
       html +=
         '<td class="mono">' +
-        ((r.detection_rate || 0) * 100).toFixed(1) +
+        escapeHTML(((r.detection_rate || 0) * 100).toFixed(1)) +
         "%</td>";
       html +=
         '<td class="mono">' +
-        ((r.fragmentation || 0) * 100).toFixed(1) +
+        escapeHTML(((r.fragmentation || 0) * 100).toFixed(1)) +
         "%</td>";
       html +=
         '<td class="mono">' +
-        ((r.false_positive_rate || 0) * 100).toFixed(1) +
+        escapeHTML(((r.false_positive_rate || 0) * 100).toFixed(1)) +
         "%</td>";
       html +=
         '<td class="mono">' +
-        ((r.quality_premium || 0) * 100).toFixed(1) +
+        escapeHTML(((r.quality_premium || 0) * 100).toFixed(1)) +
         "%</td>";
       html +=
         '<td class="mono">' +
-        ((r.truncation_rate || 0) * 100).toFixed(1) +
+        escapeHTML(((r.truncation_rate || 0) * 100).toFixed(1)) +
         "%</td>";
       html +=
         '<td class="mono">' +
-        ((r.velocity_noise_rate || 0) * 100).toFixed(1) +
+        escapeHTML(((r.velocity_noise_rate || 0) * 100).toFixed(1)) +
         "%</td>";
       html +=
         '<td class="mono">' +
-        ((r.stopped_recovery_rate || 0) * 100).toFixed(1) +
+        escapeHTML(((r.stopped_recovery_rate || 0) * 100).toFixed(1)) +
         "%</td>";
     } else {
       // Standard metrics
       html +=
         '<td class="mono">' +
-        (r.overall_accept_mean * 100).toFixed(2) +
+        escapeHTML((r.overall_accept_mean * 100).toFixed(2)) +
         "%</td>" +
         '<td class="mono" style="color:var(--fg-faint)">\u00b1' +
-        (r.overall_accept_stddev * 100).toFixed(2) +
+        escapeHTML((r.overall_accept_stddev * 100).toFixed(2)) +
         "%</td>" +
         '<td class="mono">' +
-        r.nonzero_cells_mean.toFixed(0) +
+        escapeHTML(r.nonzero_cells_mean.toFixed(0)) +
         "</td>" +
         '<td class="mono" style="color:var(--fg-faint)">\u00b1' +
-        r.nonzero_cells_stddev.toFixed(0) +
+        escapeHTML(r.nonzero_cells_stddev.toFixed(0)) +
         "</td>" +
         '<td class="mono">' +
-        (r.active_tracks_mean || 0).toFixed(1) +
+        escapeHTML((r.active_tracks_mean || 0).toFixed(1)) +
         "</td>" +
         '<td class="mono">' +
-        (r.alignment_deg_mean || 0).toFixed(1) +
+        escapeHTML((r.alignment_deg_mean || 0).toFixed(1)) +
         "\u00b0</td>" +
         '<td class="mono">' +
-        ((r.misalignment_ratio_mean || 0) * 100).toFixed(1) +
+        escapeHTML(((r.misalignment_ratio_mean || 0) * 100).toFixed(1)) +
         "%</td>";
     }
 
@@ -2315,7 +2340,7 @@ function displayCurrentParams(params) {
       displayValue = "null";
     }
 
-    var line = key + ": " + displayValue;
+    var line = escapeHTML(key) + ": " + escapeHTML(displayValue);
     var isSwept = sweptParams[key] === true;
 
     if (isSwept) {
@@ -2331,6 +2356,7 @@ function displayCurrentParams(params) {
 // ---- CommonJS exports for testing ----
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
+    escapeHTML: escapeHTML,
     parseDuration: parseDuration,
     formatDuration: formatDuration,
     comboLabel: comboLabel,

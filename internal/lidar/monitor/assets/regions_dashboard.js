@@ -1,5 +1,17 @@
 /* regions_dashboard.js — extracted from regions_dashboard.html for testability. */
 
+/* Shared utilities: browser receives them via prior <script> tag;
+   Node/Jest pulls them in via require(). */
+var _common =
+  typeof module !== "undefined" && typeof require === "function"
+    ? require("./dashboard_common.js")
+    : null;
+var escapeHTML = _common
+  ? _common.escapeHTML
+  : typeof window !== "undefined"
+    ? window.escapeHTML
+    : undefined;
+
 var canvas = null;
 var ctx = null;
 var tooltip = null;
@@ -223,6 +235,7 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     regionColors: regionColors,
     cellAtPixel: cellAtPixel,
+    escapeHTML: escapeHTML,
   };
 }
 
@@ -270,27 +283,27 @@ if (typeof document !== "undefined" && typeof module === "undefined") {
         tooltip.innerHTML =
           '<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">' +
           '<div style="width: 16px; height: 16px; background: ' +
-          color +
+          escapeHTML(color) +
           '; border: 1px solid #fff; border-radius: 2px;"></div>' +
           "<strong>Region " +
-          regionId +
+          escapeHTML(regionId) +
           "</strong></div>" +
           "Ring: " +
-          cell.ring +
+          escapeHTML(cell.ring) +
           ", Azimuth: " +
-          azDegrees +
+          escapeHTML(azDegrees) +
           "\u00b0<br>" +
           "Variance: " +
-          variance +
+          escapeHTML(variance) +
           "<br>" +
           "Noise Rel: " +
-          noiseRel +
+          escapeHTML(noiseRel) +
           "<br>" +
           "Neighbors: " +
-          neighbors +
+          escapeHTML(neighbors) +
           "<br>" +
           "Alpha: " +
-          alpha;
+          escapeHTML(alpha);
 
         tooltip.style.display = "block";
         tooltip.style.left = e.clientX + 10 + "px";

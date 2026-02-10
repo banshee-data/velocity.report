@@ -1,13 +1,23 @@
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { regionColors, cellAtPixel } = require('@monitor/assets/regions_dashboard.js') as {
-	regionColors: string[];
-	cellAtPixel: (
-		x: number,
-		y: number,
-		w: number,
-		h: number
-	) => { ring: number; azBin: number; cellIdx: number } | null;
-};
+/* eslint-disable @typescript-eslint/no-require-imports -- CommonJS module requires require() */
+const { regionColors, cellAtPixel, escapeHTML } =
+	require('@monitor/assets/regions_dashboard.js') as {
+		regionColors: string[];
+		cellAtPixel: (
+			x: number,
+			y: number,
+			w: number,
+			h: number
+		) => { ring: number; azBin: number; cellIdx: number } | null;
+		escapeHTML: (str: unknown) => string;
+	};
+/* eslint-enable @typescript-eslint/no-require-imports */
+
+describe('escapeHTML', () => {
+	it('re-exports escapeHTML from dashboard_common', () => {
+		expect(typeof escapeHTML).toBe('function');
+		expect(escapeHTML('<b>bold</b>')).toBe('&lt;b&gt;bold&lt;/b&gt;');
+	});
+});
 
 describe('regionColors', () => {
 	it('is an array of 20 hex colour strings', () => {
