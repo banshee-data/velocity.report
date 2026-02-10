@@ -37,7 +37,7 @@
 		Track,
 		TrackObservation
 	} from '$lib/types/lidar';
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import { SelectField } from 'svelte-ux';
 
 	// Playback constants
@@ -103,11 +103,15 @@
 	let previousSensorId: typeof sensorId | null = null;
 	let hasSeenSensorIdOnce = false;
 	$: if (browser) {
-		if (!hasSeenSensorIdOnce) {
+		// Use untrack for guard variables to prevent Svelte 5 infinite reactive loops.
+		// Only sensorId should be a reactive dependency here.
+		const seen = untrack(() => hasSeenSensorIdOnce);
+		const prev = untrack(() => previousSensorId);
+		if (!seen) {
 			// Record the initial sensorId without triggering duplicate loads
 			previousSensorId = sensorId;
 			hasSeenSensorIdOnce = true;
-		} else if (sensorId !== previousSensorId) {
+		} else if (sensorId !== prev) {
 			previousSensorId = sensorId;
 			// Reset state
 			tracks = [];
@@ -124,7 +128,6 @@
 			missedRegions = [];
 			timeRange = null;
 			// Reload data for new sensor
-			// Wrap in void to prevent infinite loop warnings (functions are async and don't affect reactive dependencies)
 			void loadHistoricalData();
 			void loadBackgroundGrid();
 			void loadScenes();
@@ -337,7 +340,7 @@
 
 	// Debug visible tracks changes
 	let lastVisibleCount = -1;
-	$: if (visibleTracks.length !== lastVisibleCount) {
+	$: if (visibleTracks.length !== untrack(() => lastVisibleCount)) {
 		console.log(
 			'[VisibleTracks] At time',
 			new Date(selectedTime).toISOString(),
