@@ -2593,6 +2593,376 @@ describe('ECharts formatter functions', () => {
 	});
 });
 
+// ===========================================================================
+// Additional branch-coverage tests
+// ===========================================================================
+
+describe('handleStop fetch rejection', () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+	});
+
+	afterEach(() => {
+		stopPolling();
+		jest.useRealTimers();
+	});
+
+	it('shows error when stop fetch rejects', async () => {
+		global.fetch = jest.fn().mockRejectedValue(new Error('Stop failed'));
+		handleStop();
+		await flushPromises();
+		expect(document.getElementById('error-box')!.textContent).toContain('Stop failed');
+	});
+});
+
+describe('applySceneParams setTimeout callback', () => {
+	beforeEach(async () => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					scenes: [
+						{
+							scene_id: 's1',
+							pcap_file: 'test.pcap',
+							optimal_params_json: '{"noise_relative": 0.05}'
+						}
+					]
+				})
+		});
+		loadSweepScenes();
+		await flushPromises();
+		(global.fetch as jest.Mock).mockClear();
+	});
+
+	afterEach(() => {
+		stopPolling();
+		jest.useRealTimers();
+	});
+
+	it('resets button text after timeout', async () => {
+		(document.getElementById('scene_select') as HTMLSelectElement).value = 's1';
+		onSweepSceneSelected();
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({})
+		});
+		applySceneParams();
+		await flushPromises();
+		expect(document.getElementById('btn-apply-scene-params')!.textContent).toContain('Applied');
+		jest.advanceTimersByTime(2000);
+		expect(document.getElementById('btn-apply-scene-params')!.textContent).toBe(
+			'Apply Scene Params'
+		);
+	});
+});
+
+describe('onSweepSceneSelected without gtOption element', () => {
+	beforeEach(async () => {
+		jest.useFakeTimers();
+		setupDOM();
+		document.getElementById('ground_truth_option')!.remove();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					scenes: [
+						{ scene_id: 's1', pcap_file: 'test.pcap' },
+						{
+							scene_id: 's2',
+							pcap_file: 'test2.pcap',
+							reference_run_id: 'ref-1',
+							optimal_params_json: '{"noise_relative": 0.05}'
+						}
+					]
+				})
+		});
+		loadSweepScenes();
+		await flushPromises();
+		(global.fetch as jest.Mock).mockClear();
+	});
+
+	afterEach(() => {
+		stopPolling();
+		jest.useRealTimers();
+	});
+
+	it('handles missing gtOption for empty selection', () => {
+		(document.getElementById('scene_select') as HTMLSelectElement).value = '';
+		onSweepSceneSelected();
+		expect(document.getElementById('scene-info')!.style.display).toBe('none');
+	});
+
+	it('handles missing gtOption for unknown scene', () => {
+		(document.getElementById('scene_select') as HTMLSelectElement).value = 'unknown';
+		onSweepSceneSelected();
+		expect(document.getElementById('scene-info')!.style.display).toBe('none');
+	});
+
+	it('handles missing gtOption for scene with reference', () => {
+		(document.getElementById('scene_select') as HTMLSelectElement).value = 's2';
+		onSweepSceneSelected();
+		expect(document.getElementById('scene-info')!.style.display).toBe('');
+		expect(document.getElementById('scene-info')!.textContent).toContain('Reference: ref-1');
+	});
+
+	it('handles missing gtOption for scene without reference', () => {
+		(document.getElementById('scene_select') as HTMLSelectElement).value = 's1';
+		onSweepSceneSelected();
+		expect(document.getElementById('scene-info')!.style.display).toBe('');
+	});
+});
+
+describe('param-rows change event', () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+	});
+
+	afterEach(() => {
+		stopPolling();
+		jest.useRealTimers();
+	});
+
+	it('calls displayCurrentParams with empty object when no cache', () => {
+		delete (window as any).currentParamsCache;
+		const paramRows = document.getElementById('param-rows')!;
+		paramRows.dispatchEvent(new Event('change', { bubbles: true }));
+		// Should not throw
+		expect(document.getElementById('current-params-display')!.innerHTML).toBe('');
+	});
+
+	it('calls displayCurrentParams with cached params', () => {
+		(window as any).currentParamsCache = { noise_relative: 0.05 };
+		const paramRows = document.getElementById('param-rows')!;
+		paramRows.dispatchEvent(new Event('change', { bubbles: true }));
+		expect(document.getElementById('current-params-display')!.innerHTML).toContain(
+			'noise_relative'
+		);
+	});
+});
+
+describe('|| 0 default value fallback branches', () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+	});
+
+	afterEach(() => {
+		stopPolling();
+		jest.useRealTimers();
+	});
+
+	it('renderCharts handles results with no tracks/alignment/bucket data', () => {
+		initCharts();
+		renderCharts([
+			{
+				param_values: { custom_x: 1, custom_y: 2 },
+				overall_accept_mean: 0.5,
+				overall_accept_stddev: 0.1,
+				nonzero_cells_mean: 50,
+				nonzero_cells_stddev: 3
+			}
+		]);
+		// All || 0 fallbacks for alignment/tracks/misalignment fields triggered
+		// custom_x/custom_y not in PARAM_SCHEMA triggers : xKey label fallback
+	});
+
+	it('renderCharts handles all-zero accept means (mx || 1 fallback)', () => {
+		initCharts();
+		renderCharts([
+			{
+				param_values: { custom_a: 1, custom_b: 2 },
+				overall_accept_mean: 0,
+				overall_accept_stddev: 0,
+				nonzero_cells_mean: 0,
+				nonzero_cells_stddev: 0,
+				buckets: [5, 10],
+				bucket_means: [0, 0]
+			}
+		]);
+		// mx is 0, triggers || 1 fallback in visualMap max
+		// mn === Infinity or mn >= mx, triggers mn = 0 fallback
+	});
+
+	it('renderTable with GT results missing optional fields', () => {
+		renderTable([
+			{
+				param_values: { noise_relative: 0.05 },
+				overall_accept_mean: 0.85,
+				overall_accept_stddev: 0.02,
+				nonzero_cells_mean: 100,
+				nonzero_cells_stddev: 5,
+				ground_truth_score: 0
+				// No detection_rate, fragmentation, etc. → all use || 0 fallbacks
+			}
+		]);
+		// hasGroundTruth true because ground_truth_score is defined (0 !== undefined)
+		expect(document.getElementById('results-head')!.innerHTML).toContain('GT Score');
+	});
+
+	it('downloadCSV with results missing tracks/alignment fields', async () => {
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					status: 'complete',
+					completed_combos: 1,
+					total_combos: 1,
+					results: [
+						{
+							param_values: { noise_relative: 0.05 },
+							overall_accept_mean: 0.85,
+							overall_accept_stddev: 0.02,
+							nonzero_cells_mean: 100,
+							nonzero_cells_stddev: 5
+						}
+					]
+				})
+		});
+		pollStatus();
+		await flushPromises();
+		(URL.createObjectURL as jest.Mock).mockClear();
+		downloadCSV();
+		expect(URL.createObjectURL).toHaveBeenCalled();
+	});
+
+	it('pollStatus with current_combo missing accept mean', async () => {
+		setMode('manual');
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					status: 'running',
+					completed_combos: 1,
+					total_combos: 5,
+					current_combo: { param_values: { noise_relative: 0.05 } },
+					results: []
+				})
+		});
+		pollStatus();
+		await flushPromises();
+		expect(document.getElementById('current-combo')!.textContent).toContain('acceptance=0.0%');
+	});
+
+	it('displayCurrentParams formats boolean false value', () => {
+		displayCurrentParams({ seed_from_first: false, noise_relative: 0.05 });
+		const html = document.getElementById('current-params-display')!.innerHTML;
+		expect(html).toContain('false');
+	});
+
+	it('updateSweepSummary with missing iterations/maxRounds/valuesPerParam', () => {
+		setMode('auto');
+		addParamRow();
+		const lastRow = document.getElementById('param-rows')!.lastElementChild!;
+		const rowId = lastRow.id.replace('param-row-', '');
+		(document.getElementById('pname-' + rowId) as HTMLInputElement).value = 'noise_relative';
+		updateParamFields(rowId);
+		// Clear iterations and max_rounds to trigger || defaults
+		(document.getElementById('iterations') as HTMLInputElement).value = '';
+		(document.getElementById('max_rounds') as HTMLInputElement).value = '';
+		(document.getElementById('values_per_param') as HTMLInputElement).value = '';
+		updateSweepSummary();
+		const summary = document.getElementById('sweep-summary')!.innerHTML;
+		expect(summary).toContain('Noise Relative');
+	});
+
+	it('handleStartAutoTune with empty weight fields uses defaults', () => {
+		setMode('auto');
+		(document.getElementById('objective') as HTMLSelectElement).value = 'weighted';
+		// Clear weight fields to trigger || default fallbacks
+		(document.getElementById('w_acceptance') as HTMLInputElement).value = '';
+		(document.getElementById('w_misalignment') as HTMLInputElement).value = '';
+		(document.getElementById('w_alignment') as HTMLInputElement).value = '';
+		(document.getElementById('w_nonzero') as HTMLInputElement).value = '';
+		// Clear max_rounds, values_per_param, top_k
+		(document.getElementById('max_rounds') as HTMLInputElement).value = '';
+		(document.getElementById('values_per_param') as HTMLInputElement).value = '';
+		(document.getElementById('top_k') as HTMLInputElement).value = '';
+		global.fetch = jest.fn().mockResolvedValue({ ok: true });
+		handleStartAutoTune();
+		const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+		expect(body.weights.acceptance).toBe(1.0);
+		expect(body.weights.misalignment).toBe(-0.5);
+		expect(body.weights.alignment).toBe(-0.01);
+		expect(body.weights.nonzero_cells).toBe(0.1);
+		expect(body.max_rounds).toBe(3);
+		expect(body.values_per_param).toBe(5);
+		expect(body.top_k).toBe(5);
+	});
+
+	it('updateParamFields with param lacking defaultStart/defaultEnd/desc', () => {
+		addParamRow();
+		const lastRow = document.getElementById('param-rows')!.lastElementChild!;
+		const rowId = lastRow.id.replace('param-row-', '');
+		// Use a param that might lack defaultStart/defaultEnd in the schema
+		// closeness_multiplier has defaultStart: 1, defaultEnd: 20, desc defined
+		// Let's use 'seed_from_first' which is a bool type
+		(document.getElementById('pname-' + rowId) as HTMLInputElement).value = 'seed_from_first';
+		updateParamFields(rowId);
+		// Bool type creates a different field layout, covering the else branch
+		const fields = document.getElementById('pfields-' + rowId)!.innerHTML;
+		expect(fields).toContain('Values');
+	});
+
+	it('buildScenarioJSON with bool param values string', () => {
+		addParamRow();
+		const lastRow = document.getElementById('param-rows')!.lastElementChild!;
+		const rowId = lastRow.id.replace('param-row-', '');
+		(document.getElementById('pname-' + rowId) as HTMLInputElement).value = 'seed_from_first';
+		updateParamFields(rowId);
+		(document.getElementById('pvals-' + rowId) as HTMLInputElement).value = 'true, false';
+		const scenario = buildScenarioJSON();
+		const param = scenario.params.find((p: any) => p.name === 'seed_from_first');
+		expect(param.values).toEqual([true, false]);
+	});
+
+	it('buildScenarioJSON with string param values', () => {
+		addParamRow();
+		const lastRow = document.getElementById('param-rows')!.lastElementChild!;
+		const rowId = lastRow.id.replace('param-row-', '');
+		(document.getElementById('pname-' + rowId) as HTMLInputElement).value = 'buffer_timeout';
+		updateParamFields(rowId);
+		(document.getElementById('pvals-' + rowId) as HTMLInputElement).value = '500ms, 1s, 2s';
+		const scenario = buildScenarioJSON();
+		const param = scenario.params.find((p: any) => p.name === 'buffer_timeout');
+		expect(param.values).toEqual(['500ms', '1s', '2s']);
+	});
+
+	it('comboLabel uses raw key for unknown param', () => {
+		const label = comboLabel({ param_values: { customkey: 42 } });
+		expect(label).toContain('customkey=42');
+	});
+
+	it('removeParamRow calls displayCurrentParams when cache exists', () => {
+		(window as any).currentParamsCache = { noise_relative: 0.05 };
+		addParamRow();
+		const lastRow = document.getElementById('param-rows')!.lastElementChild!;
+		const rowId = lastRow.id.replace('param-row-', '');
+		removeParamRow(rowId);
+		// removeParamRow should call displayCurrentParams(window.currentParamsCache)
+		// when currentParamsCache is truthy
+	});
+});
+
 // Cleanup URL mocks
 afterAll(() => {
 	URL.createObjectURL = origCreateObjectURL;

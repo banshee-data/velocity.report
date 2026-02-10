@@ -1029,4 +1029,52 @@ describe('init', () => {
 		// The tooltip HTML includes the region colour as a background
 		expect(tooltipEl.innerHTML).toContain(regionColors[0]);
 	});
+
+	it('shows tooltip with zero fallbacks when region has no params', async () => {
+		// Override fetch to return region without params object and null mean_variance
+		const noParamsData = makeSampleData({
+			regions: [
+				{ mean_variance: null, cell_count: 10 },
+				{
+					mean_variance: 0.6,
+					cell_count: 20,
+					params: {
+						noise_relative_fraction: 0.08,
+						neighbor_confirmation_count: 2,
+						settle_update_fraction: 0.2
+					}
+				}
+			]
+		});
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve(noParamsData)
+		});
+		init();
+		await flushPromises();
+
+		const canvasEl = document.getElementById('regionCanvas') as HTMLCanvasElement;
+		const tooltipEl = document.getElementById('tooltip') as HTMLElement;
+
+		canvasEl.getBoundingClientRect = jest.fn().mockReturnValue({
+			left: 0,
+			top: 0,
+			width: 1200,
+			height: 600,
+			right: 1200,
+			bottom: 600
+		});
+
+		// Hover over cell [0,0] = region 0 (which has no params)
+		canvasEl.dispatchEvent(
+			new MouseEvent('mousemove', { clientX: 0.1, clientY: 0.1, bubbles: true })
+		);
+
+		expect(tooltipEl.style.display).toBe('block');
+		expect(tooltipEl.innerHTML).toContain('Region 0');
+		expect(tooltipEl.innerHTML).toContain('Variance: 0.000');
+		expect(tooltipEl.innerHTML).toContain('Noise Rel: 0.000');
+		expect(tooltipEl.innerHTML).toContain('Neighbors: 0');
+		expect(tooltipEl.innerHTML).toContain('Alpha: 0.000');
+	});
 });
