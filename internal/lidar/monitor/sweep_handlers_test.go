@@ -506,6 +506,57 @@ func TestSweepHandlers_SweepCharts(t *testing.T) {
 		}
 	})
 
+	t.Run("null primitive rejected", func(t *testing.T) {
+		db, store := setupTestSweepStoreForHandlers(t)
+		defer db.Close()
+		ws := &WebServer{sweepStore: store}
+		req := httptest.NewRequest(http.MethodPut, "/api/lidar/sweeps/charts",
+			strings.NewReader(`{"sweep_id":"test","charts":null}`))
+		w := httptest.NewRecorder()
+
+		ws.handleSweepCharts(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected %d got %d", http.StatusBadRequest, w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "must be a JSON array or object") {
+			t.Fatalf("expected array/object error, got %q", w.Body.String())
+		}
+	})
+
+	t.Run("boolean primitive rejected", func(t *testing.T) {
+		db, store := setupTestSweepStoreForHandlers(t)
+		defer db.Close()
+		ws := &WebServer{sweepStore: store}
+		req := httptest.NewRequest(http.MethodPut, "/api/lidar/sweeps/charts",
+			strings.NewReader(`{"sweep_id":"test","charts":true}`))
+		w := httptest.NewRecorder()
+
+		ws.handleSweepCharts(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected %d got %d", http.StatusBadRequest, w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "must be a JSON array or object") {
+			t.Fatalf("expected array/object error, got %q", w.Body.String())
+		}
+	})
+
+	t.Run("number primitive rejected", func(t *testing.T) {
+		db, store := setupTestSweepStoreForHandlers(t)
+		defer db.Close()
+		ws := &WebServer{sweepStore: store}
+		req := httptest.NewRequest(http.MethodPut, "/api/lidar/sweeps/charts",
+			strings.NewReader(`{"sweep_id":"test","charts":123}`))
+		w := httptest.NewRecorder()
+
+		ws.handleSweepCharts(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected %d got %d", http.StatusBadRequest, w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "must be a JSON array or object") {
+			t.Fatalf("expected array/object error, got %q", w.Body.String())
+		}
+	})
+
 	t.Run("success with array", func(t *testing.T) {
 		db, store := setupTestSweepStoreForHandlers(t)
 		defer db.Close()

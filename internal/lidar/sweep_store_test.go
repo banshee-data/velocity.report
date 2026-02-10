@@ -3,6 +3,7 @@ package lidar
 import (
 	"database/sql"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -427,16 +428,16 @@ func TestSweepStore_NullableFields(t *testing.T) {
 		t.Fatalf("GetSweep failed: %v", err)
 	}
 
-	if len(retrieved.Results) > 0 {
+	if retrieved.Results != nil {
 		t.Error("expected results to be nil")
 	}
-	if len(retrieved.Charts) > 0 {
+	if retrieved.Charts != nil {
 		t.Error("expected charts to be nil")
 	}
-	if len(retrieved.Recommendation) > 0 {
+	if retrieved.Recommendation != nil {
 		t.Error("expected recommendation to be nil")
 	}
-	if len(retrieved.RoundResults) > 0 {
+	if retrieved.RoundResults != nil {
 		t.Error("expected round_results to be nil")
 	}
 	if retrieved.Error != "" {
@@ -444,6 +445,157 @@ func TestSweepStore_NullableFields(t *testing.T) {
 	}
 	if retrieved.CompletedAt != nil {
 		t.Error("expected completed_at to be nil")
+	}
+}
+
+func TestSweepStore_GetSweep_InvalidTimeFormat(t *testing.T) {
+	db := setupTestSweepDB(t)
+	defer db.Close()
+
+	store := NewSweepStore(db)
+
+	// SQLite DATETIME type with invalid input will store as TEXT without conversion
+	// We need to store a string that SQLite won't auto-convert but is not RFC3339
+	// Use a string type column to bypass SQLite's DATETIME type affinity
+	_, err := db.Exec(`ALTER TABLE lidar_sweeps DROP COLUMN started_at`)
+	if err != nil {
+		t.Fatalf("failed to drop column: %v", err)
+	}
+	_, err = db.Exec(`ALTER TABLE lidar_sweeps ADD COLUMN started_at TEXT NOT NULL DEFAULT ''`)
+	if err != nil {
+		t.Fatalf("failed to add column: %v", err)
+	}
+
+	// Insert with an invalid RFC3339 format that SQLite won't convert
+	_, err = db.Exec(`
+		INSERT INTO lidar_sweeps (sweep_id, sensor_id, mode, status, request, started_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, "sweep-bad-start", "sensor-001", "manual", "running", `{}`, "2024/01/01 12:00:00")
+	if err != nil {
+		t.Fatalf("failed to insert test record: %v", err)
+	}
+
+	// GetSweep should return an error for invalid started_at
+	_, err = store.GetSweep("sweep-bad-start")
+	if err == nil {
+		t.Error("expected error when parsing invalid started_at, got nil")
+	}
+	if err != nil && !strings.Contains(err.Error(), "parsing started_at") {
+		t.Errorf("expected parsing error, got: %v", err)
+	}
+}
+
+func TestSweepStore_GetSweep_InvalidCompletedAtFormat(t *testing.T) {
+	db := setupTestSweepDB(t)
+	defer db.Close()
+
+	store := NewSweepStore(db)
+
+	// Alter completed_at to TEXT type to avoid SQLite conversion
+	_, err := db.Exec(`ALTER TABLE lidar_sweeps DROP COLUMN completed_at`)
+	if err != nil {
+		t.Fatalf("failed to drop column: %v", err)
+	}
+	_, err = db.Exec(`ALTER TABLE lidar_sweeps ADD COLUMN completed_at TEXT`)
+	if err != nil {
+		t.Fatalf("failed to add column: %v", err)
+	}
+
+	// Insert with valid started_at but invalid completed_at format
+	_, err = db.Exec(`
+		INSERT INTO lidar_sweeps (sweep_id, sensor_id, mode, status, request, started_at, completed_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`, "sweep-bad-complete", "sensor-001", "manual", "completed", `{}`,
+		time.Now().UTC().Format(time.RFC3339), "01/02/2024 15:04:05")
+	if err != nil {
+		t.Fatalf("failed to insert test record: %v", err)
+	}
+
+	// GetSweep should return an error for invalid completed_at
+	_, err = store.GetSweep("sweep-bad-complete")
+	if err == nil {
+		t.Error("expected error when parsing invalid completed_at, got nil")
+	}
+	if err != nil && !strings.Contains(err.Error(), "parsing completed_at") {
+		t.Errorf("expected parsing error, got: %v", err)
+	}
+}
+
+func TestSweepStore_ListSweeps_InvalidTimeFormat(t *testing.T) {
+	db := setupTestSweepDB(t)
+	defer db.Close()
+
+	store := NewSweepStore(db)
+
+	// Insert a valid sweep first
+	validRecord := SweepRecord{
+		SweepID:   "sweep-valid",
+		SensorID:  "sensor-001",
+		Mode:      "manual",
+		Status:    "completed",
+		Request:   json.RawMessage(`{}`),
+		StartedAt: time.Now().UTC(),
+	}
+	if err := store.InsertSweep(validRecord); err != nil {
+		t.Fatalf("InsertSweep failed: %v", err)
+	}
+
+	// Alter the table to use TEXT for started_at to prevent SQLite conversion
+	// We'll create a new table with the modified schema
+	_, err := db.Exec(`
+		CREATE TABLE lidar_sweeps_temp (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			sweep_id TEXT NOT NULL UNIQUE,
+			sensor_id TEXT NOT NULL,
+			mode TEXT NOT NULL DEFAULT 'sweep',
+			status TEXT NOT NULL DEFAULT 'running',
+			request TEXT NOT NULL,
+			results TEXT,
+			charts TEXT,
+			recommendation TEXT,
+			round_results TEXT,
+			error TEXT,
+			started_at TEXT NOT NULL,
+			completed_at TEXT,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
+	if err != nil {
+		t.Fatalf("failed to create temp table: %v", err)
+	}
+
+	// Copy existing data
+	_, err = db.Exec(`INSERT INTO lidar_sweeps_temp SELECT * FROM lidar_sweeps`)
+	if err != nil {
+		t.Fatalf("failed to copy data: %v", err)
+	}
+
+	// Drop old table and rename
+	_, err = db.Exec(`DROP TABLE lidar_sweeps`)
+	if err != nil {
+		t.Fatalf("failed to drop old table: %v", err)
+	}
+	_, err = db.Exec(`ALTER TABLE lidar_sweeps_temp RENAME TO lidar_sweeps`)
+	if err != nil {
+		t.Fatalf("failed to rename table: %v", err)
+	}
+
+	// Insert a sweep with invalid started_at format
+	_, err = db.Exec(`
+		INSERT INTO lidar_sweeps (sweep_id, sensor_id, mode, status, request, started_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, "sweep-bad-list", "sensor-001", "manual", "running", `{}`, "2024/01/01 10:00:00")
+	if err != nil {
+		t.Fatalf("failed to insert test record: %v", err)
+	}
+
+	// ListSweeps should return an error when encountering invalid time
+	_, err = store.ListSweeps("sensor-001", 10)
+	if err == nil {
+		t.Error("expected error when parsing invalid started_at in list, got nil")
+	}
+	if err != nil && !strings.Contains(err.Error(), "parsing started_at") {
+		t.Errorf("expected parsing error, got: %v", err)
 	}
 }
 
