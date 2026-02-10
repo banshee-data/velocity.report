@@ -2,6 +2,7 @@ package sweep
 
 import (
 	"math"
+	"strings"
 	"testing"
 )
 
@@ -215,5 +216,86 @@ func TestMeanStddev_LargeDataset(t *testing.T) {
 	expectedStddev := 288.8194360957494 // Sample stddev
 	if math.Abs(stddev-expectedStddev) > 0.01 {
 		t.Errorf("Stddev mismatch: expected ~%f, got %f", expectedStddev, stddev)
+	}
+}
+
+func TestParseCSVFloat64s_TooManyValues(t *testing.T) {
+	// 10001 values should exceed maxValues=10000.
+	input := strings.Repeat("1,", 10000) + "1"
+	_, err := ParseCSVFloat64s(input)
+	if err == nil {
+		t.Fatal("expected too many values error")
+	}
+}
+
+func TestParseCSVInts_TooManyValues(t *testing.T) {
+	input := strings.Repeat("1,", 10000) + "1"
+	_, err := ParseCSVInts(input)
+	if err == nil {
+		t.Fatal("expected too many values error")
+	}
+}
+
+func TestToFloat64Slice_LengthClamping(t *testing.T) {
+	tooLong := ToFloat64Slice([]interface{}{1.0}, 50000)
+	if len(tooLong) != 1000 {
+		t.Fatalf("expected clamped length 1000, got %d", len(tooLong))
+	}
+
+	negative := ToFloat64Slice([]interface{}{1.0}, -1)
+	if len(negative) != 1000 {
+		t.Fatalf("expected clamped length 1000 for negative length, got %d", len(negative))
+	}
+}
+
+func TestToInt64Slice_LengthClamping(t *testing.T) {
+	tooLong := ToInt64Slice([]interface{}{1.0}, 50000)
+	if len(tooLong) != 1000 {
+		t.Fatalf("expected clamped length 1000, got %d", len(tooLong))
+	}
+
+	negative := ToInt64Slice([]interface{}{1.0}, -1)
+	if len(negative) != 1000 {
+		t.Fatalf("expected clamped length 1000 for negative length, got %d", len(negative))
+	}
+}
+
+func TestToFloat64FromMap(t *testing.T) {
+	tests := []struct {
+		in   interface{}
+		want float64
+	}{
+		{float64(1.5), 1.5},
+		{float32(2.5), 2.5},
+		{int(3), 3},
+		{int64(4), 4},
+		{"bad", 0},
+	}
+
+	for _, tc := range tests {
+		got := toFloat64FromMap(tc.in)
+		if got != tc.want {
+			t.Fatalf("toFloat64FromMap(%T)=%v want %v", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestToIntFromMap(t *testing.T) {
+	tests := []struct {
+		in   interface{}
+		want int
+	}{
+		{float64(1.9), 1},
+		{float32(2.9), 2},
+		{int(3), 3},
+		{int64(4), 4},
+		{"bad", 0},
+	}
+
+	for _, tc := range tests {
+		got := toIntFromMap(tc.in)
+		if got != tc.want {
+			t.Fatalf("toIntFromMap(%T)=%v want %v", tc.in, got, tc.want)
+		}
 	}
 }
