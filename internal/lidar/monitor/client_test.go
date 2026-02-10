@@ -801,3 +801,142 @@ func TestClient_WaitForPCAPComplete(t *testing.T) {
 		}
 	})
 }
+
+func TestClient_StartPCAPReplay_DefaultRetriesAndRequestError(t *testing.T) {
+	// maxRetries <= 0 should use the default retry count without sleeping when
+	// the server immediately returns a non-conflict error.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("bad request"))
+	}))
+	defer server.Close()
+
+	c := NewClient(server.Client(), server.URL, "sensor1")
+	if err := c.StartPCAPReplay("captures/test.pcap", 0); err == nil {
+		t.Fatal("expected error for immediate bad-request response")
+	}
+
+	// Invalid base URL should fail request creation.
+	bad := NewClient(nil, "://bad-url", "sensor1")
+	if err := bad.StartPCAPReplay("captures/test.pcap", 1); err == nil {
+		t.Fatal("expected request creation error")
+	}
+}
+
+func TestClient_StartPCAPReplayWithConfig_DefaultsAndOptionalFields(t *testing.T) {
+	t.Run("optional fields omitted when zero-values", func(t *testing.T) {
+		var received map[string]interface{}
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
+				t.Fatalf("decode body: %v", err)
+			}
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		c := NewClient(server.Client(), server.URL, "sensor1")
+		err := c.StartPCAPReplayWithConfig(PCAPReplayConfig{
+			PCAPFile:   "captures/sample.pcapng",
+			MaxRetries: 1,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if received["pcap_file"] != "captures/sample.pcapng" {
+			t.Fatalf("unexpected pcap_file: %v", received["pcap_file"])
+		}
+		if _, ok := received["start_seconds"]; ok {
+			t.Fatalf("start_seconds should be omitted for zero value, got %v", received["start_seconds"])
+		}
+		if _, ok := received["duration_seconds"]; ok {
+			t.Fatalf("duration_seconds should be omitted for zero value, got %v", received["duration_seconds"])
+		}
+		if _, ok := received["analysis_mode"]; ok {
+			t.Fatalf("analysis_mode should be omitted when false, got %v", received["analysis_mode"])
+		}
+	})
+
+	t.Run("default max-retries branch and request creation error", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("bad config"))
+		}))
+		defer server.Close()
+
+		c := NewClient(server.Client(), server.URL, "sensor1")
+		if err := c.StartPCAPReplayWithConfig(PCAPReplayConfig{PCAPFile: "captures/sample.pcapng"}); err == nil {
+			t.Fatal("expected error")
+		}
+
+		bad := NewClient(nil, "://bad-url", "sensor1")
+		if err := bad.StartPCAPReplayWithConfig(PCAPReplayConfig{PCAPFile: "captures/sample.pcapng", MaxRetries: 1}); err == nil {
+			t.Fatal("expected request creation error")
+		}
+	})
+}
+
+func TestClient_RequestCreationErrors(t *testing.T) {
+	c := NewClient(nil, "://bad-url", "sensor1")
+
+	if err := c.ResetGrid(); err == nil {
+		t.Fatal("expected ResetGrid request creation error")
+	}
+	if err := c.SetParams(BackgroundParams{}); err == nil {
+		t.Fatal("expected SetParams request creation error")
+	}
+	if err := c.ResetAcceptance(); err == nil {
+		t.Fatal("expected ResetAcceptance request creation error")
+	}
+	if err := c.StopPCAPReplay(); err == nil {
+		t.Fatal("expected StopPCAPReplay request creation error")
+	}
+}
+
+func TestClient_WaitForPCAPComplete_DefaultTimeoutAndDecodeRetry(t *testing.T) {
+	t.Run("timeout defaults when <= 0", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			json.NewEncoder(w).Encode(map[string]interface{}{"pcap_in_progress": false})
+		}))
+		defer server.Close()
+
+		c := NewClient(server.Client(), server.URL, "sensor1")
+		if err := c.WaitForPCAPComplete(0); err != nil {
+			t.Fatalf("expected immediate success with default timeout, got %v", err)
+		}
+	})
+
+	t.Run("invalid JSON retries until success", func(t *testing.T) {
+		calls := 0
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			calls++
+			if calls == 1 {
+				w.Write([]byte("{invalid json"))
+				return
+			}
+			json.NewEncoder(w).Encode(map[string]interface{}{"pcap_in_progress": false})
+		}))
+		defer server.Close()
+
+		c := NewClient(server.Client(), server.URL, "sensor1")
+		if err := c.WaitForPCAPComplete(2 * time.Second); err != nil {
+			t.Fatalf("expected eventual success, got %v", err)
+		}
+		if calls < 2 {
+			t.Fatalf("expected at least 2 polls, got %d", calls)
+		}
+	})
+
+	t.Run("request errors time out", func(t *testing.T) {
+		// Unroutable endpoint triggers HTTP request errors and exercises retry path.
+		c := NewClient(nil, "http://127.0.0.1:1", "sensor1")
+		start := time.Now()
+		err := c.WaitForPCAPComplete(1 * time.Millisecond)
+		if err == nil {
+			t.Fatal("expected timeout error")
+		}
+		if time.Since(start) < 400*time.Millisecond {
+			t.Fatal("expected at least one retry sleep before timeout")
+		}
+	})
+}
